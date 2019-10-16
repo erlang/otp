@@ -78,15 +78,16 @@ make_script(RelName) ->
     badarg(RelName,[RelName]).
 
 make_script(RelName, Flags) when is_list(RelName), is_list(Flags) ->
+    ScriptName = get_script_name(RelName, Flags),
     case get_outdir(Flags) of
 	"" ->
-	    make_script(RelName, RelName, Flags);
+	    make_script(RelName, ScriptName, Flags);
 	OutDir ->
 	    %% To maintain backwards compatibility for make_script/3,
 	    %% the boot script file name is constructed here, before
 	    %% checking the validity of OutDir
 	    %% (is done in check_args_script/1)
-	    Output = filename:join(OutDir, filename:basename(RelName)),
+	    Output = filename:join(OutDir, filename:basename(ScriptName)),
 	    make_script(RelName, Output, Flags)
     end.
     
@@ -142,6 +143,12 @@ machine(Flags) ->
     case get_flag(machine,Flags) of
 	{machine, Machine} when is_atom(Machine) -> Machine;
 	_                                        -> false
+    end.
+
+get_script_name(RelName, Flags) ->
+    case get_flag(script_name,Flags) of
+	{script_name,ScriptName} when is_list(ScriptName) -> ScriptName;
+	_    -> RelName
     end.
 
 get_path(Flags) ->
@@ -1767,11 +1774,16 @@ add_system_files(Tar, RelName, Release, Path1) ->
 		   [RelDir, "."|Path1]
 	   end,
 
-    case lookup_file(RelName0 ++ ".boot", Path) of
-	false ->
-	    throw({error, {tar_error,{add, RelName0++".boot",enoent}}});
-	Boot ->
-	    add_to_tar(Tar, Boot, filename:join(RelVsnDir, "start.boot"))
+    case lookup_file("start.boot", Path) of
+        false ->
+            case lookup_file(RelName0 ++ ".boot", Path) of
+                false ->
+                    throw({error, {tar_error, {add, boot, RelName, enoent}}});
+                Boot ->
+                    add_to_tar(Tar, Boot, filename:join(RelVsnDir, "start.boot"))
+            end;
+        Boot ->
+            add_to_tar(Tar, Boot, filename:join(RelVsnDir, "start.boot"))
     end,
 
     case lookup_file("relup", Path) of
@@ -2423,6 +2435,9 @@ form_reading(W) ->
 form_tar_err({open, File, Error}) ->
     io_lib:format("Cannot open tar file ~ts - ~ts~n",
 		  [File, erl_tar:format_error(Error)]);
+form_tar_err({add, boot, RelName, enoent}) ->
+    io_lib:format("Cannot find file start.boot or ~ts to add to tar file - ~ts~n",
+		  [RelName, erl_tar:format_error(enoent)]);
 form_tar_err({add, File, Error}) ->
     io_lib:format("Cannot add file ~ts to tar file - ~ts~n",
 		  [File, erl_tar:format_error(Error)]).

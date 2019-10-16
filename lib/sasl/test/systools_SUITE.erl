@@ -235,6 +235,29 @@ normal_script(Config) when is_list(Config) ->
     code:set_path(PSAVE),			% Restore path
     ok.
 
+%% make_script: Check that script can be named start.script
+start_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),		% Save path
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P1 = fname([LibDir, 'db-2.1', ebin]),
+    P2 = fname([LibDir, 'fe-3.1', ebin]),
+
+    true = code:add_patha(P1),
+    true = code:add_patha(P2),
+
+    ok = file:set_cwd(LatestDir),
+
+    ok = systools:make_script(filename:basename(LatestName), [{script_name, start}]),
+    {ok, _} = read_script_file("start"),	% Check readabillity
+
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),			% Restore path
+    ok.
 
 %% make_script: Test make_script with unicode .app file
 unicode_script(Config) when is_list(Config) ->
@@ -883,6 +906,28 @@ normal_tar(Config) when is_list(Config) ->
     ok = file:set_cwd(LatestDir),
 
     {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
+%% make_tar: Check legacy case of relname.boot
+legacy_tar(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, LatestName}]),
     ok = systools:make_tar(LatestName, [{path, P}]),
     ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
     {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
