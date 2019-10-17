@@ -16608,12 +16608,27 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 		       end ++
 		       case socket:supports(options, ip, recvtos) of
 			   true ->
-                               %% It seems that sending any of the TOS or TTL
-                               %% values will fail on FreeBSD, so don't!
+                               %% It seems that sending any of the
+                               %% TOS or TTL values will fail on: 
+			       %%    FreeBSD
+			       %%    Linux when
+			       %%      version =< 3.0.101 (at least)
+			       %%      Don't know when this starts working,
+			       %%      but it works on: 
+			       %%           Ubunto 16.04.6 => 4.15.0-65
+			       %%           SLES 12 SP2    => 4.4.120-92.70
+			       %% so don't!
 			       [{ip, recvtos, tos, 
                                  case os:type() of
                                      {unix, freebsd} ->
                                          default;
+				     {unix, linux} ->
+					 case os:version() of
+					     Vsn when Vsn > {3,0,101} ->
+						 42;
+					     _ ->
+						 default
+					 end;
                                      _ -> 
                                          42
                                  end}];
@@ -16626,12 +16641,23 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
                            _ ->
                                case socket:supports(options, ip, recvttl) of
                                    true ->
-                                       %% It seems that sending any of the TOS or TTL
-                                       %% values will fail on FreeBSD, so don't!
+				       %% It seems that sending any of the
+				       %% TOS or TTL values will fail on: 
+				       %%    FreeBSD
+				       %%    Linux when
+				       %%      version =< 3.0.101 (at least)
+				       %% so don't!
                                        [{ip, recvttl, ttl,
                                          case os:type() of
                                              {unix, freebsd} ->
                                                  default;
+					     {unix, linux} ->
+						 case os:version() of
+						     Vsn when Vsn > {3,0,101} ->
+							 42;
+						     _ ->
+							 default
+						 end;
                                              _ -> 
                                                  42
                                          end}];
