@@ -2068,8 +2068,10 @@ do_api_b_open_and_maybe_close_raw(InitState) ->
                            case socket:open(Domain, Type, Protocol) of
                                {ok, Sock} ->
                                    {ok, State#{sock => Sock}};
-                               {error, eperm = Reason} ->
-                                   ?SEV_IPRINT("not allowed => SKIP"),
+                               {error, Reason} when (Reason =:= eperm) orelse
+                                                    (Reason =:= eacces) ->
+                                   ?SEV_IPRINT("not allowed (~w) => SKIP",
+                                               [Reason]),
                                    {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("open failed:"
