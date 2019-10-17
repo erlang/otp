@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2017</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>Logging Cookbook</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>logger_cookbook.xml</file>
+  </header>
+
+  <p>Using and especially configuring Logger can be difficult at times
+  as there are many different options that can be changed and often more
+  than one way to achieve the same result. This User's Guide tries to help
+  by giving many different examples of how you can use logger.</p>
+
+  <p>For more examples of practical use-cases of using Logger, Fred Hebert's blog post
+  <url href="https://ferd.ca/erlang-otp-21-s-new-logger.html">Erlang/OTP 21's new logger</url>
+  is a great starting point.</p>
+
+  <note><p>If you find that some common Logger usage is missing from this guide, please
+    open a pull request on github with the suggested addition</p></note>
+
+  <section>
+    <title>Get Logger information</title>
+    <section>
+      <title>Print the primary Logger configurations.</title>
+      <code type="erl-repl">1> logger:i(primary).
+Primary configuration:
+    Level: notice
+    Filter Default: log
+    Filters:
+        (none)</code>
+      <p>It is also possible to fetch the configuration using
+        <seealso marker="logger#get_primary_config-0"><c>logger:get_primary_config()</c></seealso>.
+      </p>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger#i-0">logger:i()</seealso></item>
+          <item><seealso marker="logger_chapter#configuration">Configuration</seealso> in the Logging User&apos;s Guide</item>
+        </list>
+      </section>
+    </section>
+    <section>
+      <title>Print the configuration of all handlers.</title>
+      <code type="erl-repl">2> logger:i(handlers).
+Handler configuration:
+    Id: default
+        Module: logger_std_h
+        Level:  all
+        Formatter:
+            Module: logger_formatter
+            Config:
+                legacy_header: true
+                single_line: false
+        Filter Default: stop
+        Filters:
+            Id: remote_gl
+                Fun: fun logger_filters:remote_gl/2
+                Arg: stop
+            Id: domain
+                Fun: fun logger_filters:domain/2
+                Arg: {log,super,[otp,sasl]}
+            Id: no_domain
+                Fun: fun logger_filters:domain/2
+                Arg: {log,undefined,[]}
+        Handler Config:
+            burst_limit_enable: true
+            burst_limit_max_count: 500
+            burst_limit_window_time: 1000
+            drop_mode_qlen: 200
+            filesync_repeat_interval: no_repeat
+            flush_qlen: 1000
+            overload_kill_enable: false
+            overload_kill_mem_size: 3000000
+            overload_kill_qlen: 20000
+            overload_kill_restart_after: 5000
+            sync_mode_qlen: 10
+            type: standard_io
+      </code>
+      <p>You can also print the configuration of a specific handler using
+        <seealso marker="logger#i-1"><c>logger:i(HanderName)</c></seealso>,
+        or fetch the configuration using
+        <seealso marker="logger#get_handler_config-0"><c>logger:get_handler_config()</c></seealso>,
+        or <seealso marker="logger#get_handler_config-1"><c>logger:get_handler_config(HandlerName)</c></seealso>
+        for a specific handler.</p>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger#i-0"><c>logger:i()</c></seealso></item>
+          <item><seealso marker="logger_chapter#configuration">Configuration</seealso> in the Logging User&apos;s Guide</item>
+        </list>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Configure Logger formatter</title>
+    <p>In order to fit better into your existing logging infrastructure Logger can
+      format its logging messages any way to want to. Either you can use the built-in
+      formatter, or you can build your own.</p>
+    <section>
+      <title>Single line configuration</title>
+      <p>Since single line logging is the default of the built-in formatter you only have to
+        provide the empty map as the coniguration. The example below uses the <c>sys.config</c>
+        to change the formatter configuration.</p>
+      <code type="erl-repl">$ cat sys.config
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{ formatter => {logger_formatter, #{ }}}}]}]}].
+$ erl -config sys
+Eshell V10.5.1  (abort with ^G)
+1> logger:error("Oh noes, an error").
+1962-10-03T11:07:47.466763-04:00 error: Oh noes, an error
+      </code>
+      <p>However, if you just want to change it for the current session you can
+        also do that.</p>
+      <code type="erl-repl">1> logger:set_handler_config(default, formatter, {logger_formatter, #{}}).
+ok
+2> logger:error("Oh noes, another error").
+1962-10-04T15:34:02.648713-04:00 error: Oh noes, another error</code>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger_formatter#type-config">logger_formatter&apos;s Configuration</seealso></item>
+          <item><seealso marker="logger_chapter#formatters">Formatters</seealso> in the Logging User&apos;s Guide</item>
+          <item><seealso marker="logger#set_handler_config-3"><c>logger:set_handler_config/3</c></seealso></item>
+        </list>
+      </section>
+    </section>
+    <section>
+      <title>Add file and lineno to log entries</title>
+      <p>You can change what is printed to the log by using the formatter template:</p>
+      <code type="erl-repl">$ cat sys.config
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{ formatter => {logger_formatter,
+        #{ template => [time," ", file,":",line," ",level,": ",msg,"\n"] }}}}]}]}].
+$ erl -config sys
+Eshell V10.5.1  (abort with ^G)
+1> logger:error("Oh noes, more errors",#{ file => "shell.erl", line => 1 }).
+1962-10-05T07:37:44.104241+02:00 shell.erl:1 error: Oh noes, more errors</code>
+      <p>Note that file and line have to be added in the metadata by the caller of
+        <seealso marker="logger#log-3"><c>logger:log/3</c></seealso> as otherwise
+        Logger will not know from where it was called. The file and line number
+        are automatically added if you use the <c>?LOG_ERROR</c> macros in
+        <c>kernel/include/logger.hrl</c>.</p>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger_formatter#type-config">logger_formatter&apos;s Configuration</seealso></item>
+          <item><seealso marker="logger_formatter#type-template">logger_formatter&apos;s Template</seealso></item>
+          <item><seealso marker="logger#macros">Logger Macros</seealso></item>
+          <item><seealso marker="logger_chapter#metadata">Metadata</seealso> in the Logging User&apos;s Guide</item>
+        </list>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Configuring handlers</title>
+    <section>
+      <title>Print logs to a file</title>
+      <p>Instead of printing the logs to stdout we print them to a rotating file log.</p>
+      <code type="erl-repl">$ cat sys.config
+[{kernel,
+  [{logger,
+    [{handler, default, logger_std_h,
+      #{ config => #{ file => "log/erlang.log",
+                      max_no_bytes => 4096,
+                      max_no_files => 5},
+         formatter => {logger_formatter, #{}}}}]}]}].
+$ erl -config sys
+Eshell V10.5.1  (abort with ^G)
+1> logger:error("Oh noes, even more errors").
+ok
+2> erlang:halt().
+$ cat log/erlang.log
+2019-10-07T11:47:16.837958+02:00 error: Oh noes, even more errors</code>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger_std_h#description">logger_std_h&apos;s Description</seealso></item>
+          <item><seealso marker="logger_chapter#handlers">Handlers</seealso> in the Logging User&apos;s Guide</item>
+        </list>
+      </section>
+    </section>
+    <section>
+      <title>Debug only handler</title>
+      <p>Add a handler that prints <c>debug</c> log events to a file,
+        while the default handler prints only up to <c>notice</c> level
+        events to standard out.</p>
+      <code type="erl-repl">$ cat sys.config
+[{kernel,
+  [{logger_level, all},
+   {logger,
+    [{handler, default, logger_std_h,
+      #{ level => notice }},
+     {handler, debug, logger_std_h,
+      #{ filters => [{debug,{fun logger_filters:level/2, {stop, neq, debug}}}],
+         config => #{ file => "log/debug.log" } }}
+    ]}]}].
+$ erl -config sys
+Eshell V10.5.1  (abort with ^G)
+1> logger:error("Oh noes, even more errors").
+=ERROR REPORT==== 9-Oct-2019::14:40:54.784162 ===
+Oh noes, even more errors
+ok
+2> logger:debug("A debug event").
+ok
+3> erlang:halt().
+$ cat log/debug.log
+2019-10-09T14:41:03.680541+02:00 debug: A debug event</code>
+    <p>In the configuration above we first raise the primary log level to max in
+      order for the debug log events to get to the handlers. Then we configure
+      the default handler to only log notice and below events, the default log level
+      for a handler is <c>all</c>. Then the debug handler is configured with a filter
+      to stop any log message that is not a debug level message.</p>
+    <p>It is also possible to do the same changes in an already running system
+      using the <c>logger</c> module. Then you do like this:</p>
+    <code type="erl-repl">$ erl
+1> logger:set_handler_config(default, level, notice).
+ok
+2> logger:add_handler(debug, logger_std_h, #{
+  filters => [{debug,{fun logger_filters:level/2, {stop, neq, debug}}}],
+  config => #{ file => "log/debug.log" } }).
+ok
+3> logger:set_primary_config(level, all).
+ok
+    </code>
+    <p>It is important that you do not raise the primare log level before adjusting
+      the default handler&apos;s level as otherwise your standard out may be flooded by debug
+      log messages.</p>
+    <section>
+      <title>See also</title>
+        <list>
+          <item><seealso marker="logger_std_h#description">logger_std_h&apos;s Description</seealso></item>
+          <item><seealso marker="logger_chapter#filters">Filters</seealso> in the Logging User&apos;s Guide</item>
+        </list>
+      </section>
+    </section>
+  </section>
+
+  <!-- <section>
+    <title>Where did my event go?</title>
+    <section>
+      <title>Debugging filters and levels</title>
+      <p>TODO: Should add a section about how to debug filters
+      and levels once we've figured out how to do that.</p>
+    </section>
+  </section> -->
+
+  <section>
+    <title>Logging</title>
+    <section>
+      <title>What to log and how</title>
+      <p>The simplest way to do log something is by using the Logger macros and
+      give a report to the macro. For example if you want to log an error:</p>
+      <code type="erl">?LOG_ERROR(#{ what => http_error, status => 418, src => ClientIP, dst => ServerIP }).</code>
+      <p>This will print the following in the default log:</p>
+      <code>=ERROR REPORT==== 10-Oct-2019::12:13:10.089073 ===
+    dst: {8,8,4,4}
+    src: {8,8,8,8}
+    status: 418
+    what: http_error</code>
+      <p>or the below if you use a single line formatter</p>
+      <code>2019-10-10T12:14:11.921843+02:00 error: dst: {8,8,4,4}, src: {8,8,8,8}, status: 418, what: http_error</code>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger_chapter#log_message">Log Message</seealso> in the Logging User&apos;s Guide</item>
+        </list>
+      </section>
+    </section>
+    <section>
+      <title>Report call-backs and printing of events</title>
+      <p>If you want to do structured logging, but still want to have some control
+      of how the final log message is structured you can give a <c>report_cb</c>
+      as part of the metadata with your log event.</p>
+      <code type="erl">ReportCB = fun(#{ what := What, status := Status, src := Src, dst := Dst }) ->
+                   {ok, #hostent{ h_name = SrcName }} = inet:gethostbyaddr(Src),
+                   {ok, #hostent{ h_name = DstName }} = inet:gethostbyaddr(Dst),
+                   {"What: ~p~nStatus: ~p~nSrc: ~s (~s)~nDst: ~s (~s)~n",
+                    [What, Status, inet:ntoa(Src), SrcName, inet:ntoa(Dst), DstName]}
+           end,
+?LOG_ERROR(#{ what => http_error, status => 418, src => ClientIP, dst => ServerIP },
+           #{ report_cb => ReportCB }).
+      </code>
+      <p>This will print the following:</p>
+      <code>=ERROR REPORT==== 10-Oct-2019::13:29:02.230863 ===
+What: http_error
+Status: 418
+Src: 8.8.8.8 (dns.google)
+Dst: 192.121.151.106 (erlang.org)
+      </code>
+      <p>Note that the order that things are printed have changed, and also I added
+        a reverse-dns lookup of the IP address. This will not print as nicely when using
+        a single line formatter, however you can also use a report_cb fun with 2 arguments
+        where the second argument is the formatting options.</p>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger_chapter#log_message">Log Message</seealso> in the Logging User&apos;s Guide</item>
+          <item><seealso marker="logger#type-report_cb">Logger Report Callbacks</seealso></item>
+        </list>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Filters</title>
+    <p>Filters are used to remove or change log events before they reach the handlers.</p>
+    <section>
+      <title>Process filters</title>
+      <p>If we only want debug messages from a specific process it is possible to do
+      this with a filter like this:</p>
+      <code type="erl">%% Initial setup to use a filter for the level filter instead of the primary level
+PrimaryLevel = maps:get(level, logger:get_primary_config()),
+ok = logger:add_primary_filter(primary_level,
+    {fun logger_filters:level/2, {log, gteq, PrimaryLevel}}),
+logger:set_primary_config(filter_default, stop),
+logger:set_primary_config(level, all),
+
+%% Test that things work as they should
+logger:notice("Notice should be logged"),
+logger:debug("Should not be logged"),
+
+%% Add the filter to allow PidToLog to send debug events
+PidToLog = self(),
+PidFilter = fun(LogEvent, _) when PidToLog =:= self() -> LogEvent;
+               (_LogEvent, _) -> ignore end,
+ok = logger:add_primary_filter(pid, {PidFilter,[]}),
+logger:debug("Debug should be logged").
+      </code>
+      <p>There is a bit of setup needed to allow filters to decide whether a specific process
+      should be allowed to log. This is because the default primary log level is notice and
+      it is enforced before the primary filters. So in order for the pid filter to be useful
+      have to raise the primary log level to <c>all</c> and then add a level filter that
+      only lets certain messages at or greater than notice through. When the setup is done,
+      it is simple to add a filter that allows a certain pid through.
+      </p>
+      <p>Note that doing the primary log level filtering through a filter and not through
+      the level is quite a lot more expensive, so make sure to test that your system can
+      handle the extra load before you enable it on a production node.</p>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger_chapter#filters">Filters</seealso> in the Logging User&apos;s Guide</item>
+          <item><seealso marker="logger_filters#level-2"><c>logger_filters:level/2</c></seealso></item>
+          <item><seealso marker="logger#set_primary_config-2"><c>logger:set_primary_config/2</c></seealso></item>
+        </list>
+      </section>
+    </section>
+    <section>
+      <title>Domains</title>
+      <p>Domains are used to specify which subsystem a certain log event originates from.
+      The default handler will by default only log events with the domain <c>[otp]</c> or
+      without a domain. If you would like to include SSL log events into the
+      default handler log you could do this:</p>
+      <code type="erl-repl">1> logger:add_handler_filter(default,ssl_domain,
+  {fun logger_filters:domain/2,{log,sub,[otp,ssl]}}).
+2> application:ensure_all_started(ssl).
+{ok,[crypto,asn1,public_key,ssl]}
+3> ssl:connect("www.erlang.org",443,[{log_level,debug}]).
+%% lots of text
+      </code>
+      <section>
+        <title>See also</title>
+        <list>
+          <item><seealso marker="logger_chapter#filters">Filters</seealso> in the Logging User&apos;s Guide</item>
+          <item><seealso marker="logger_filters#domain-2"><c>logger_filters:domain/2</c></seealso></item>
+          <item><seealso marker="logger#set_primary_config-2"><c>logger:set_primary_config/2</c></seealso></item>
+        </list>
+      </section>
+    </section>
+  </section>
+
+</chapter>
