@@ -59,7 +59,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <errno.h>
-#include <time.h>
+#include <stdint.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -678,7 +678,6 @@ typedef union {
 
 #define ESOCK_WHICH_PROTO_ERROR -1
 #define ESOCK_WHICH_PROTO_UNSUP -2
-
 
 
 /* =================================================================== *
@@ -1607,8 +1606,8 @@ static ERL_NIF_TERM esock_setopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
 #endif
 #if defined(IPV6_RECVTCLASS)
 static ERL_NIF_TERM esock_setopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
-						     ESockDescriptor* descP,
-						     ERL_NIF_TERM     eVal);
+                                                     ESockDescriptor* descP,
+                                                     ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_ROUTER_ALERT)
 static ERL_NIF_TERM esock_setopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
@@ -1622,8 +1621,8 @@ static ERL_NIF_TERM esock_setopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
 #endif
 #if defined(IPV6_TCLASS)
 static ERL_NIF_TERM esock_setopt_lvl_ipv6_tclass(ErlNifEnv*       env,
-						 ESockDescriptor* descP,
-						 ERL_NIF_TERM     eVal);
+                                                 ESockDescriptor* descP,
+                                                 ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_UNICAST_HOPS)
 static ERL_NIF_TERM esock_setopt_lvl_ipv6_unicast_hops(ErlNifEnv*       env,
@@ -2022,7 +2021,7 @@ static ERL_NIF_TERM esock_getopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
 #endif
 #if defined(IPV6_RECVTCLASS)
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
-						     ESockDescriptor* descP);
+                                                     ESockDescriptor* descP);
 #endif
 #if defined(IPV6_ROUTER_ALERT)
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
@@ -2034,7 +2033,7 @@ static ERL_NIF_TERM esock_getopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
 #endif
 #if defined(IPV6_TCLASS)
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_tclass(ErlNifEnv*       env,
-						 ESockDescriptor* descP);
+                                                 ESockDescriptor* descP);
 #endif
 #if defined(IPV6_UNICAST_HOPS)
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_unicast_hops(ErlNifEnv*       env,
@@ -9927,6 +9926,12 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6(ErlNifEnv*       env,
       break;
 #endif
 
+#if defined(IPV6_RECVTCLASS)
+    case ESOCK_OPT_IPV6_RECVTCLASS:
+        result = esock_setopt_lvl_ipv6_recvtclass(env, descP, eVal);
+        break;
+#endif
+
 #if defined(IPV6_ROUTER_ALERT)
     case ESOCK_OPT_IPV6_ROUTER_ALERT:
         result = esock_setopt_lvl_ipv6_router_alert(env, descP, eVal);
@@ -9941,8 +9946,8 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6(ErlNifEnv*       env,
 
 #if defined(IPV6_TCLASS)
     case ESOCK_OPT_IPV6_TCLASS:
-      result = esock_setopt_lvl_ipv6_tclass(env, descP, eVal);
-      break;
+        result = esock_setopt_lvl_ipv6_tclass(env, descP, eVal);
+        break;
 #endif
 
 #if defined(IPV6_UNICAST_HOPS)
@@ -10306,6 +10311,24 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
 #endif
 
 
+#if defined(IPV6_RECVTCLASS)
+static
+ERL_NIF_TERM esock_setopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal)
+{
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+    int opt = IPV6_RECVTCLASS;
+
+    return esock_setopt_bool_opt(env, descP, level, opt, eVal);
+}
+#endif
+
+
 #if defined(IPV6_ROUTER_ALERT)
 static
 ERL_NIF_TERM esock_setopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
@@ -10344,17 +10367,17 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
 #if defined(IPV6_TCLASS)
 static
 ERL_NIF_TERM esock_setopt_lvl_ipv6_tclass(ErlNifEnv*       env,
-					  ESockDescriptor* descP,
-					  ERL_NIF_TERM     eVal)
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
-  int level = SOL_IPV6;
+    int level = SOL_IPV6;
 #else
-  int level = IPPROTO_IPV6;
+    int level = IPPROTO_IPV6;
 #endif
-  int opt = IPV6_TCLASS;
+    int opt   = IPV6_TCLASS;
 
-  return esock_setopt_bool_opt(env, descP, level, opt, eVal);
+    return esock_setopt_bool_opt(env, descP, level, opt, eVal);
 }
 #endif
 
@@ -13385,6 +13408,12 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6(ErlNifEnv*       env,
       break;
 #endif
 
+#if defined(IPV6_RECVTCLASS)
+    case ESOCK_OPT_IPV6_RECVTCLASS:
+        result = esock_getopt_lvl_ipv6_recvtclass(env, descP);
+        break;
+#endif
+
 #if defined(IPV6_ROUTER_ALERT)
     case ESOCK_OPT_IPV6_ROUTER_ALERT:
         result = esock_getopt_lvl_ipv6_router_alert(env, descP);
@@ -13399,8 +13428,8 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6(ErlNifEnv*       env,
 
 #if defined(IPV6_TCLASS)
     case ESOCK_OPT_IPV6_TCLASS:
-      result = esock_getopt_lvl_ipv6_tclass(env, descP);
-      break;
+        result = esock_getopt_lvl_ipv6_tclass(env, descP);
+        break;
 #endif
 
 #if defined(IPV6_UNICAST_HOPS)
@@ -13670,6 +13699,23 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
 #endif
 
 
+#if defined(IPV6_RECVTCLASS)
+static
+ERL_NIF_TERM esock_getopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
+                                              ESockDescriptor* descP)
+{
+#if defined(SOL_IPV6)
+    int level = SOL_IPV6;
+#else
+    int level = IPPROTO_IPV6;
+#endif
+    int opt   = IPV6_RECVTCLASS;
+
+    return esock_getopt_bool_opt(env, descP, level, opt);
+}
+#endif
+
+
 #if defined(IPV6_ROUTER_ALERT)
 static
 ERL_NIF_TERM esock_getopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
@@ -13705,16 +13751,16 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
 #if defined(IPV6_TCLASS)
 static
 ERL_NIF_TERM esock_getopt_lvl_ipv6_tclass(ErlNifEnv*       env,
-					      ESockDescriptor* descP)
+                                              ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
-  int level = SOL_IPV6;
+    int level = SOL_IPV6;
 #else
-  int level = IPPROTO_IPV6;
+    int level = IPPROTO_IPV6;
 #endif
-  int opt   = IPV6_TCLASS;
+    int opt   = IPV6_TCLASS;
 
-  return esock_getopt_bool_opt(env, descP, level, opt);
+    return esock_getopt_bool_opt(env, descP, level, opt);
 }
 #endif
 
@@ -16731,6 +16777,42 @@ char* decode_cmsghdr_data(ErlNifEnv*       env,
             }
             break;
 
+
+#if defined(HAVE_IPV6)
+#if defined(SOL_IPV6)
+	case SOL_IPV6:
+#else
+	case IPPROTO_IPV6:
+#endif // if defined(SOL_IPV6)
+	  switch (type) {
+#if defined(IPV6_TCLASS)
+	  case IPV6_TCLASS:
+	    {
+	      int data;
+	      if (GET_INT(env, eData, &data)) {
+		SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> "
+			       "do final decode with tclass (=%d)"
+			       "\r\n", data) );
+		return decode_cmsghdr_final(descP, bufP, rem, level, type,
+					    (char*) &data,
+					    sizeof(data),
+					    used);
+	      } else {
+		*used = 0;
+		xres  = ESOCK_STR_EINVAL;
+	      }
+	    }
+	    break;
+#endif // if defined(IPV6_TCLASS)
+
+	  default:
+            *used = 0;
+            xres  = ESOCK_STR_EINVAL;
+	    break;
+	  }
+	  break;
+#endif // if defined(HAVE_IPV6)
+
         default:
             *used = 0;
             xres  = ESOCK_STR_EINVAL;
@@ -16760,7 +16842,7 @@ char* decode_cmsghdr_final(ESockDescriptor* descP,
     int len   = CMSG_LEN(sz);
     int space = CMSG_SPACE(sz);
 
-    SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> entry when"
+    SSDBG( descP, ("SOCKET", "decode_cmsghdr_final -> entry when"
                    "\r\n   level: %d"
                    "\r\n   type:  %d"
                    "\r\n   sz:    %d => %d, %d, %d"
@@ -17028,9 +17110,25 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
 
 #if defined(IPV6_HOPLIMIT)
 	  case IPV6_HOPLIMIT:
-	    *eType = esock_atom_hoplimit;
-	    break;
+              *eType = esock_atom_hoplimit;
+              break;
 #endif // if defined(IPV6_HOPLIMIT)
+
+              /* Don't know if both this and RECVTCLASS can come here,
+               * but hust in case... */
+#if defined(IPV6_TCLASS)
+	  case IPV6_TCLASS:
+              *eType = esock_atom_tclass;
+              break;
+#endif // if defined(IPV6_TCLASS)
+
+              /* Don't know if both this and TCLASS can come here,
+               * but hust in case... */
+#if defined(IPV6_RECVTCLASS)
+	  case IPV6_RECVTCLASS:
+              *eType = esock_atom_recvtclass;
+              break;
+#endif // if defined(IPV6_RECVTCLASS)
 
 	  default:
             xres = ESOCK_STR_EINVAL;
@@ -17154,8 +17252,8 @@ char* decode_cmsghdr_type(ErlNifEnv*   env,
             }
         } else if (IS_NUM(env, eType)) {
             if (!GET_INT(env, eType, type)) {
-                *type = -1;
-                xres  = ESOCK_STR_EINVAL;
+	      *type = -1;
+	      xres  = ESOCK_STR_EINVAL;
             }
         } else {
             *type = -1;
@@ -17169,7 +17267,19 @@ char* decode_cmsghdr_type(ErlNifEnv*   env,
 #else
     case IPPROTO_IPV6:
 #endif
-        if (IS_NUM(env, eType)) {
+      if (IS_ATOM(env, eType)) {
+	if (COMPARE(eType, esock_atom_tclass) == 0) {
+#if defined(IPV6_TCLASS)
+	  *type = IPV6_TCLASS;
+#else
+	  *type = -1;
+	  xres  = ESOCK_STR_EINVAL;
+#endif
+	} else {
+	  *type = -1;
+	  xres  = ESOCK_STR_EINVAL;
+	}
+      } else if (IS_NUM(env, eType)) {
             if (!GET_INT(env, eType, type)) {
                 *type = -1;
                 xres  = ESOCK_STR_EINVAL;
@@ -17545,13 +17655,28 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
 
 #if defined(IPV6_HOPLIMIT)
     case IPV6_HOPLIMIT:
-      {
-	int* hoplimitP = (int*) dataP;
+        {
+            int* hoplimitP = (int*) dataP;
 
-	*eCMsgHdrData = MKI(env, *hoplimitP);
-      }
-      break;
+            *eCMsgHdrData = MKI(env, *hoplimitP);
+        }
+        break;
 #endif // if defined(IPV6_HOPLIMIT)
+
+#if defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
+#if defined(IPV6_RECVTCLASS)
+    case IPV6_RECVTCLASS:
+#endif
+#if defined(IPV6_TCLASS)
+    case IPV6_TCLASS:
+#endif
+        {
+            int* tclassP = (int*) dataP;
+
+            *eCMsgHdrData = MKI(env, *tclassP);
+        }
+        break;
+#endif // if defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
 
     default:
         *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);

@@ -707,6 +707,17 @@
 	<c>hoplimit</c>. </cell>
       </row>
       <row>
+	<cell>recvtclass</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw.
+	On some platforms is used to set (=true) in order to
+	get the <c>tclass</c> control message heeader.
+	On others, <c>tclass</c> is set in order to get
+	<c>tclass</c> control message heeader. </cell>
+      </row>
+      <row>
 	<cell>router_alert</cell>
 	<cell>integer()</cell>
 	<cell>yes</cell>
@@ -719,6 +730,17 @@
 	<cell>yes</cell>
 	<cell>yes</cell>
 	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+      </row>
+      <row>
+	<cell>tclass</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw.
+	On some platforms is used to set (=true) in order to
+	get the <c>tclass</c> control message heeader.
+	On others, <c>recvtclass</c> is set in order to get
+	<c>tclass</c> control message heeader. </cell>
       </row>
       <row>
 	<cell>unicast_hops</cell>
