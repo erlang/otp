@@ -9922,12 +9922,6 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6(ErlNifEnv*       env,
 
 #if defined(IPV6_RECVTCLASS)
     case ESOCK_OPT_IPV6_RECVTCLASS:
-      result = esock_setopt_lvl_ipv6_recvtclass(env, descP, eVal);
-      break;
-#endif
-
-#if defined(IPV6_RECVTCLASS)
-    case ESOCK_OPT_IPV6_RECVTCLASS:
         result = esock_setopt_lvl_ipv6_recvtclass(env, descP, eVal);
         break;
 #endif
@@ -10287,24 +10281,6 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
 #else
   int opt = IPV6_PKTINFO;
 #endif
-
-  return esock_setopt_bool_opt(env, descP, level, opt, eVal);
-}
-#endif
-
-
-#if defined(IPV6_RECVTCLASS)
-static
-ERL_NIF_TERM esock_setopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
-					      ESockDescriptor* descP,
-					      ERL_NIF_TERM     eVal)
-{
-#if defined(SOL_IPV6)
-  int level = SOL_IPV6;
-#else
-  int level = IPPROTO_IPV6;
-#endif
-  int opt = IPV6_RECVTCLASS;
 
   return esock_setopt_bool_opt(env, descP, level, opt, eVal);
 }
@@ -13408,12 +13384,6 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6(ErlNifEnv*       env,
       break;
 #endif
 
-#if defined(IPV6_RECVTCLASS)
-    case ESOCK_OPT_IPV6_RECVTCLASS:
-        result = esock_getopt_lvl_ipv6_recvtclass(env, descP);
-        break;
-#endif
-
 #if defined(IPV6_ROUTER_ALERT)
     case ESOCK_OPT_IPV6_ROUTER_ALERT:
         result = esock_getopt_lvl_ipv6_router_alert(env, descP);
@@ -13676,23 +13646,6 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
 #else
   int opt   = IPV6_PKTINFO;
 #endif
-
-  return esock_getopt_bool_opt(env, descP, level, opt);
-}
-#endif
-
-
-#if defined(IPV6_RECVTCLASS)
-static
-ERL_NIF_TERM esock_getopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
-					      ESockDescriptor* descP)
-{
-#if defined(SOL_IPV6)
-  int level = SOL_IPV6;
-#else
-  int level = IPPROTO_IPV6;
-#endif
-  int opt   = IPV6_RECVTCLASS;
 
   return esock_getopt_bool_opt(env, descP, level, opt);
 }
