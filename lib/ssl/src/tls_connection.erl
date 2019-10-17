@@ -1401,7 +1401,7 @@ store_session_ticket(NewSessionTicket, HKDF, SNI, PSK) ->
                 Tid
         end,
     Id = make_ticket_id(NewSessionTicket),
-    Timestamp = gregorian_seconds(),
+    Timestamp = erlang:system_time(seconds),
     ets:insert(tls13_session_ticket_db, {Id, HKDF, SNI, PSK, Timestamp, NewSessionTicket}).
 
 
@@ -1425,7 +1425,7 @@ get_ticket_data(_, UseTicket) ->
                extensions = _Extensions
               } = NewSessionTicket,
 
-            TicketAge = gregorian_seconds() - Timestamp,
+            TicketAge =  erlang:system_time(seconds) - Timestamp,
             ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
             Identities = [#psk_identity{
                              identity = Ticket,
@@ -1444,8 +1444,4 @@ get_ticket_data(_, UseTicket) ->
 %% "ticket_age_add" value that was included with the ticket
 %% (see Section 4.6.1), modulo 2^32.
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
-    (TicketAge * 1000 + AgeAdd) rem round(math:pow(2,32)).
-
-
-gregorian_seconds() ->
-    calendar:datetime_to_gregorian_seconds(calendar:now_to_datetime(erlang:timestamp())).
+    (TicketAge + AgeAdd) rem round(math:pow(2,32)).
