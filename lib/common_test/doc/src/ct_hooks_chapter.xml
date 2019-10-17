@@ -506,9 +506,13 @@
 	If an event cannot be associated with a test case, it is printed in
 	the <c>Common Test</c> framework log.
 	This happens for test cases running in parallel and events occuring
-	in-between test cases. You can configure the level of
-	<seealso marker="sasl:sasl_app">SASL</seealso> reports
-	using the normal SASL mechanisms.</p>
+        in-between test cases.</p>
+        <p>The log events are handled using a <seealso marker="kernel:logger">Logger</seealso>
+        handler called cth_log_redirect. The formatting and level is copied from
+        the current <c>default</c> handler when the cth is started. If you want to
+        use another level either change the <c>default</c> handler level before
+        starting common_test, or use the <seealso marker="kernel:logger#set_handler_config-3">
+        <c>logger:set_handler_config/3</c></seealso> API.</p>
        </item>
        <tag><c>cth_surefire</c></tag>
        <item>
@@ -541,7 +545,3 @@ x86_64-unknown-linux-gnu.my_test.logs/run.2012-12-12_11.19.39/suite.log.html"</c
   </section>
 
 </chapter>
-
-
-
-

@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--module(cth_log_SUITE).
+-module(cth_log_unexpect_SUITE).
 
 -compile(export_all).
 
@@ -41,8 +41,8 @@ suite() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     application:start(sasl),
-    do_log(?FUNCTION_NAME),
-    Config.
+    Gen = spawn(fun() -> gen() end),
+    [{gen,Gen}|Config].
 
 %%--------------------------------------------------------------------
 %% @spec end_per_suite(Config0) -> void() | {save_config,Config1}
@@ -50,7 +50,9 @@ init_per_suite(Config) ->
 %% @end
 %%--------------------------------------------------------------------
 end_per_suite(Config) ->
-    do_log(?FUNCTION_NAME),
+    Gen = proplists:get_value(gen, Config),
+    exit(Gen, kill),
+    ct:sleep(100),
     application:stop(sasl),
     ok.
 
@@ -90,7 +92,8 @@ end_per_testcase(_TestCase, _Config) ->
 %% @end
 %%--------------------------------------------------------------------
 groups() ->
-    [{g1,[{repeat,10}],[tc1,tc2,tc3]}].
+    [{g1,[parallel,{repeat,10}],[tc1,tc2,tc3]},
+     {g2,[{repeat,10}],[tc1,tc2,tc3]}].
 
 %%--------------------------------------------------------------------
 %% @spec all() -> GroupsAndTestCases | {skip,Reason}
@@ -101,24 +104,26 @@ groups() ->
 %% @end
 %%--------------------------------------------------------------------
 all() -> 
-    [{group,g1}].
+    [{group,g1},{group,g2}].
 
 tc1(_) ->
-    do_log(?FUNCTION_NAME),
+    ct:sleep(100),
     ok.
 tc2(_) ->
-    do_log(?FUNCTION_NAME),
+    ct:sleep(100),
     ok.
 tc3(_) ->
-    do_log(?FUNCTION_NAME),
+    ct:sleep(100),
     ok.
 
 %%%-----------------------------------------------------------------
 
+gen() ->
+    gen_loop(1).
 
-do_log(What) ->
-    ct:log("Logger ~p", [What]),
-    error_logger:error_report(What),
-    error_logger:info_report(What),
-    logger:notice("~p",[What]),
-    timer:sleep(100).
+gen_loop(N) ->
+    ct:log("Logger iteration: ~p", [N]),
+    error_logger:error_report(N),
+    error_logger:info_report(N),
+    ct:sleep(150),
+    gen_loop(N+1).

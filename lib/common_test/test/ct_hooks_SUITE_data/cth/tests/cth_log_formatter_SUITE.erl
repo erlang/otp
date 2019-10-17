@@ -18,7 +18,7 @@
 %% %CopyrightEnd%
 %%
 
--module(cth_log_SUITE).
+-module(cth_log_formatter_SUITE).
 
 -compile(export_all).
 
