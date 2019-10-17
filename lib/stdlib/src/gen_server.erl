@@ -121,35 +121,57 @@
 %%%=========================================================================
 
 -callback init(Args :: term()) ->
-    init_result().
+    {ok, State :: term()} | 
+    {ok, State :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term()} | 
+    ignore.
 
--callback handle_call(Request :: term(), From :: from(), State :: term()) ->
-    handle_call_result().
+-callback handle_call(
+    Request :: term(),
+    From    :: {pid(), Tag :: term()},
+    State   :: term()
+    ) ->
+    {reply, Reply :: term(), NewState :: term()} |
+    {reply, Reply :: term(), NewState :: term(), timeout() | hibernate | {continue, term()}} |
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), Reply :: term(), NewState :: term()} |
+    {stop, Reason :: term(), NewState :: term()}.
 
 -callback handle_cast(Request :: term(), State :: term()) ->
-    handle_cast_result().
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewState :: term()}.
 
 -callback handle_info(Info :: timeout | term(), State :: term()) ->
-    handle_info_result().
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewState :: term()}.
 
 -callback handle_continue(Info :: term(), State :: term()) ->
-    handle_continue_result().
+    {noreply, NewState :: term()} |
+    {noreply, NewState :: term(), timeout() | hibernate | {continue, term()}} |
+    {stop, Reason :: term(), NewState :: term()}.
 
--callback terminate(Reason :: (normal | shutdown | {shutdown, term()} |
-                               term()),
-                    State :: term()) ->
-    terminate_result().
+-callback terminate(
+    Reason :: (normal | shutdown | {shutdown, term()} |term()),
+    State  :: term()
+    ) ->
+    term().
 
--callback code_change(OldVsn :: (term() | {down, term()}), State :: term(),
-                      Extra :: term()) ->
-    code_change_result().
+-callback code_change(
+    OldVsn :: (term() | {down, term()}),
+    State  :: term(),
+    Extra  :: term()
+    ) ->
+    {ok, NewState :: term()} | {error, Reason :: term()}.
 
 -callback format_status(Opt, StatusData) -> Status when
-      Opt :: 'normal' | 'terminate',
+      Opt        :: 'normal' | 'terminate',
       StatusData :: [PDict | State],
-      PDict :: [{Key :: term(), Value :: term()}],
-      State :: term(),
-      Status :: format_status_result().
+      PDict      :: [{Key :: term(), Value :: term()}],
+      State      :: term(),
+      Status     :: term().
 
 -optional_callbacks(
     [handle_info/2, handle_continue/2, terminate/2, code_change/3, format_status/2]).
@@ -159,7 +181,7 @@
 -type start_ret() :: {'ok', pid()} | 'ignore' | {'error', term()}.
 
 -type start_opts() :: [] | [start_opt()].
--type  start_opt() :: {'timeout', Time :: timeout()}
+-type  start_opt() :: {'timeout', timeout()}
                     | {'spawn_opt', [proc_lib:spawn_option()]}
                     | {'debug', [sys:debug_option()]}.
 
@@ -190,59 +212,6 @@
     from/0
 ]).
 
--type init_result() :: {ok, State :: term()} 
-                     | {ok, State :: term(), timeout()} 
-                     | {ok, State :: term(), hibernate}
-                     | {ok, State :: term(), {continue, Continue :: term()}}
-                     | {stop, Reason :: term()} 
-                     | ignore.
-
--type handle_call_result() :: {reply, reply(), NewState :: term()} 
-                            | {reply, reply(), NewState :: term(), timeout()}
-                            | {reply, reply(), NewState :: term(), hibernate}
-                            | {reply, reply(), NewState :: term(), {continue, Continue :: term()}}
-                            | {noreply, NewState :: term()} 
-                            | {noreply, NewState :: term(), timeout()}
-                            | {noreply, NewState :: term(), hibernate}
-                            | {noreply, NewState :: term(), {continue, Continue :: term()}}
-                            | {stop, Reason :: term(), reply(), NewState :: term()} 
-                            | {stop, Reason :: term(), NewState :: term()}.
--type  reply() :: term().
-
--type handle_cast_result() :: {noreply, NewState :: term()} 
-                            | {noreply, NewState :: term(), timeout()}
-                            | {noreply, NewState :: term(), hibernate}
-                            | {noreply, NewState :: term(), {continue, Continue :: term()}}
-                            | {stop, Reason :: term(), NewState :: term()}.
-
--type handle_info_result() :: {noreply, NewState :: term()} 
-                            | {noreply, NewState :: term(), timeout()}
-                            | {noreply, NewState :: term(), hibernate}
-                            | {noreply, NewState :: term(), {continue, Continue :: term()}}
-                            | {stop, Reason :: term(), NewState :: term()}.
-
--type handle_continue_result() :: {noreply, NewState :: term()} 
-                                | {noreply, NewState :: term(), timeout()}
-                                | {noreply, NewState :: term(), hibernate}
-                                | {noreply, NewState :: term(), {continue, Continue :: term()}}
-                                | {stop, Reason :: term(), NewState :: term()}.
-
--type terminate_result() :: term().
-
--type code_change_result() :: {ok, NewState :: term()} | {error, Reason :: term()}.
-
--type format_status_result() :: term().
-
--export_type([
-    init_result/0,
-    handle_call_result/0,
-    handle_cast_result/0,
-    handle_info_result/0,
-    handle_continue_result/0,
-    terminate_result/0,
-    code_change_result/0,
-    format_status_result/0
-]).
 
 -spec start(
 	Mod  :: module(),
