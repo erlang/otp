@@ -1788,8 +1788,8 @@ done:
 	return NULL;
     }
     argv[argc++] = "--"; /* Add a -- separator in order
-                            for different from different environments
-                            to effect each other */
+                            for flags from different environments
+                            to not effect each other */
     argv[argc++] = NULL; /* Sure to be large enough */
     return argv;
 #undef ENSURE
@@ -2079,7 +2079,7 @@ initial_argv_massage(int *argc, char ***argv)
     if (av)
 	avv[vix++].argv = av;
 
-    if (vix == (*argc > 1 ? 1 : 0)) {
+    if (vix == (*argc > 1 ? 2 : 0)) {
 	/* Only command line argv; check if we can use argv as it is... */
 	ac = *argc;
 	av = *argv;
