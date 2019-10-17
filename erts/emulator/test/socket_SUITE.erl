@@ -12858,6 +12858,10 @@ api_opt_sock_lowat(InitState) ->
                                    ?SEV_IPRINT("(default) lowat: ~p",
                                                [LOWAT]),
                                    {ok, State#{default_lowat => LOWAT}};
+                               {error, enoprotoopt = Reason} ->
+                                   ?SEV_IPRINT("Failed getting (default) lowat:"
+                                               "   ~p", [Reason]),
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed getting (default) lowat:"
                                                "   ~p", [Reason]),
