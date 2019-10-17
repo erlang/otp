@@ -521,7 +521,6 @@ typedef union {
 /*----------------------------------------------------------------------------
  * Interface constants.
  *
- * This section must be "identical" to the corresponding socket.hrl
  */
 
 /* domain */
@@ -579,6 +578,7 @@ typedef union {
 #define ESOCK_OPT_SOCK_KEEPALIVE     10
 #define ESOCK_OPT_SOCK_LINGER        11
 #define ESOCK_OPT_SOCK_OOBINLINE     13
+#define ESOCK_OPT_SOCK_PASSCRED      14
 #define ESOCK_OPT_SOCK_PEEK_OFF      15
 #define ESOCK_OPT_SOCK_PRIORITY      17
 #define ESOCK_OPT_SOCK_PROTOCOL      18
@@ -639,11 +639,14 @@ typedef union {
 #define ESOCK_OPT_IPV6_MULTICAST_IF         20
 #define ESOCK_OPT_IPV6_MULTICAST_LOOP       21
 #define ESOCK_OPT_IPV6_RECVERR              24
-#define ESOCK_OPT_IPV6_RECVPKTINFO          25 // PKTINFO on FreeBSD
-#define ESOCK_OPT_IPV6_ROUTER_ALERT         27
-#define ESOCK_OPT_IPV6_RTHDR                28
-#define ESOCK_OPT_IPV6_UNICAST_HOPS         30
-#define ESOCK_OPT_IPV6_V6ONLY               32
+#define ESOCK_OPT_IPV6_RECVHOPLIMIT         25
+#define ESOCK_OPT_IPV6_RECVPKTINFO          26 // PKTINFO on FreeBSD
+#define ESOCK_OPT_IPV6_RECVTCLASS           27 // Linux and ?
+#define ESOCK_OPT_IPV6_ROUTER_ALERT         28
+#define ESOCK_OPT_IPV6_RTHDR                29
+#define ESOCK_OPT_IPV6_TCLASS               30
+#define ESOCK_OPT_IPV6_UNICAST_HOPS         31
+#define ESOCK_OPT_IPV6_V6ONLY               33
 
 #define ESOCK_OPT_TCP_CONGESTION   1
 #define ESOCK_OPT_TCP_CORK         2
@@ -666,10 +669,12 @@ typedef union {
 
 #define ESOCK_CMD_DEBUG        0x0001
 
-#define ESOCK_SUPPORTS_OPTIONS 0x0001
-#define ESOCK_SUPPORTS_SCTP    0x0002
-#define ESOCK_SUPPORTS_IPV6    0x0003
-#define ESOCK_SUPPORTS_LOCAL   0x0004
+#define ESOCK_SUPPORTS_OPTIONS      0x0001
+#define ESOCK_SUPPORTS_SCTP         0x0002
+#define ESOCK_SUPPORTS_IPV6         0x0003
+#define ESOCK_SUPPORTS_LOCAL        0x0004
+#define ESOCK_SUPPORTS_SEND_FLAGS   0x0005
+#define ESOCK_SUPPORTS_RECV_FLAGS   0x0006
 
 #define ESOCK_WHICH_PROTO_ERROR -1
 #define ESOCK_WHICH_PROTO_UNSUP -2
@@ -1064,6 +1069,8 @@ static ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ipv6(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_local(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env);
 
 static ERL_NIF_TERM esock_open(ErlNifEnv* env,
                           int        domain,
@@ -1271,6 +1278,11 @@ static ERL_NIF_TERM esock_setopt_lvl_sock_linger(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_setopt_lvl_sock_oobinline(ErlNifEnv*       env,
                                                     ESockDescriptor* descP,
                                                     ERL_NIF_TERM     eVal);
+#endif
+#if defined(SO_PASSCRED)
+static ERL_NIF_TERM esock_setopt_lvl_sock_passcred(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP,
+                                                   ERL_NIF_TERM     eVal);
 #endif
 #if defined(SO_PEEK_OFF)
 static ERL_NIF_TERM esock_setopt_lvl_sock_peek_off(ErlNifEnv*       env,
@@ -1583,10 +1595,20 @@ static ERL_NIF_TERM esock_setopt_lvl_ipv6_recverr(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
                                                   ERL_NIF_TERM     eVal);
 #endif
+#if defined(IPV6_RECVHOPLIMIT)
+static ERL_NIF_TERM esock_setopt_lvl_ipv6_recvhoplimit(ErlNifEnv*       env,
+						       ESockDescriptor* descP,
+						       ERL_NIF_TERM     eVal);
+#endif
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
 static ERL_NIF_TERM esock_setopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
                                                       ESockDescriptor* descP,
                                                       ERL_NIF_TERM     eVal);
+#endif
+#if defined(IPV6_RECVTCLASS)
+static ERL_NIF_TERM esock_setopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
+						     ESockDescriptor* descP,
+						     ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_ROUTER_ALERT)
 static ERL_NIF_TERM esock_setopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
@@ -1597,6 +1619,11 @@ static ERL_NIF_TERM esock_setopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_setopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
                                                 ESockDescriptor* descP,
                                                 ERL_NIF_TERM     eVal);
+#endif
+#if defined(IPV6_TCLASS)
+static ERL_NIF_TERM esock_setopt_lvl_ipv6_tclass(ErlNifEnv*       env,
+						 ESockDescriptor* descP,
+						 ERL_NIF_TERM     eVal);
 #endif
 #if defined(IPV6_UNICAST_HOPS)
 static ERL_NIF_TERM esock_setopt_lvl_ipv6_unicast_hops(ErlNifEnv*       env,
@@ -1781,6 +1808,10 @@ static ERL_NIF_TERM esock_getopt_lvl_sock_linger(ErlNifEnv*       env,
 #if defined(SO_OOBINLINE)
 static ERL_NIF_TERM esock_getopt_lvl_sock_oobinline(ErlNifEnv*       env,
                                                     ESockDescriptor* descP);
+#endif
+#if defined(SO_PASSCRED)
+static ERL_NIF_TERM esock_getopt_lvl_sock_passcred(ErlNifEnv*       env,
+                                                   ESockDescriptor* descP);
 #endif
 #if defined(SO_PEEK_OFF)
 static ERL_NIF_TERM esock_getopt_lvl_sock_peek_off(ErlNifEnv*       env,
@@ -1981,9 +2012,17 @@ static ERL_NIF_TERM esock_getopt_lvl_ipv6_multicast_loop(ErlNifEnv*       env,
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_recverr(ErlNifEnv*       env,
                                                   ESockDescriptor* descP);
 #endif
+#if defined(IPV6_RECVHOPLIMIT)
+static ERL_NIF_TERM esock_getopt_lvl_ipv6_recvhoplimit(ErlNifEnv*       env,
+						       ESockDescriptor* descP);
+#endif
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
                                                       ESockDescriptor* descP);
+#endif
+#if defined(IPV6_RECVTCLASS)
+static ERL_NIF_TERM esock_getopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
+						     ESockDescriptor* descP);
 #endif
 #if defined(IPV6_ROUTER_ALERT)
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
@@ -1992,6 +2031,10 @@ static ERL_NIF_TERM esock_getopt_lvl_ipv6_router_alert(ErlNifEnv*       env,
 #if defined(IPV6_RTHDR)
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
                                                 ESockDescriptor* descP);
+#endif
+#if defined(IPV6_TCLASS)
+static ERL_NIF_TERM esock_getopt_lvl_ipv6_tclass(ErlNifEnv*       env,
+						 ESockDescriptor* descP);
 #endif
 #if defined(IPV6_UNICAST_HOPS)
 static ERL_NIF_TERM esock_getopt_lvl_ipv6_unicast_hops(ErlNifEnv*       env,
@@ -2719,9 +2762,11 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(busy_poll);                       \
     GLOBAL_ATOM_DECL(checksum);                        \
     GLOBAL_ATOM_DECL(close);                           \
+    GLOBAL_ATOM_DECL(cmsg_cloexec);                    \
     GLOBAL_ATOM_DECL(command);                         \
-    GLOBAL_ATOM_DECL(connect);                         \
+    GLOBAL_ATOM_DECL(confirm);                         \
     GLOBAL_ATOM_DECL(congestion);                      \
+    GLOBAL_ATOM_DECL(connect);                         \
     GLOBAL_ATOM_DECL(context);                         \
     GLOBAL_ATOM_DECL(cork);                            \
     GLOBAL_ATOM_DECL(credentials);                     \
@@ -2787,6 +2832,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(md5sig);                          \
     GLOBAL_ATOM_DECL(mincost);                         \
     GLOBAL_ATOM_DECL(minttl);                          \
+    GLOBAL_ATOM_DECL(more);                            \
     GLOBAL_ATOM_DECL(msfilter);                        \
     GLOBAL_ATOM_DECL(mtu);                             \
     GLOBAL_ATOM_DECL(mtu_discover);                    \
@@ -2799,6 +2845,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(nodefrag);                        \
     GLOBAL_ATOM_DECL(noopt);                           \
     GLOBAL_ATOM_DECL(nopush);                          \
+    GLOBAL_ATOM_DECL(nosignal);                        \
     GLOBAL_ATOM_DECL(not_found);                       \
     GLOBAL_ATOM_DECL(not_owner);                       \
     GLOBAL_ATOM_DECL(ok);                              \
@@ -2809,6 +2856,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(partial_delivery_point);          \
     GLOBAL_ATOM_DECL(passcred);                        \
     GLOBAL_ATOM_DECL(path);                            \
+    GLOBAL_ATOM_DECL(peek);                            \
     GLOBAL_ATOM_DECL(peekcred);                        \
     GLOBAL_ATOM_DECL(peek_off);                        \
     GLOBAL_ATOM_DECL(peer_addr_params);                \
@@ -2830,6 +2878,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(recvdstaddr);                     \
     GLOBAL_ATOM_DECL(recverr);                         \
     GLOBAL_ATOM_DECL(recvfrom);                        \
+    GLOBAL_ATOM_DECL(recvhoplimit);                    \
     GLOBAL_ATOM_DECL(recvif);                          \
     GLOBAL_ATOM_DECL(recvmsg);                         \
     GLOBAL_ATOM_DECL(recvopts);                        \
@@ -3502,6 +3551,14 @@ ERL_NIF_TERM esock_supports(ErlNifEnv* env, int key)
         result = esock_supports_local(env);
         break;
 
+    case ESOCK_SUPPORTS_SEND_FLAGS:
+        result = esock_supports_send_flags(env);
+        break;
+
+    case ESOCK_SUPPORTS_RECV_FLAGS:
+        result = esock_supports_recv_flags(env);
+        break;
+
     default:
         result = esock_atom_false;
         break;
@@ -3649,8 +3706,12 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
-    /* *** ESOCK_OPT_PASSCRED => SO_PASSCRED *** */
+    /* *** ESOCK_OPT_SOCK_PASSCRED => SO_PASSCRED *** */
+#if defined(SO_PASSCRED)
+    tmp = MKT2(env, esock_atom_passcred, esock_atom_true);
+#else
     tmp = MKT2(env, esock_atom_passcred, esock_atom_false);
+#endif
     TARRAY_ADD(opts, tmp);
 
 
@@ -4289,6 +4350,15 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
     TARRAY_ADD(opts, tmp);
 
 
+    /* *** ESOCK_OPT_IPV6_RECVHOPLIMIT => IPV6_RECVHOPLIMIT *** */
+#if defined(IPV6_HOPLIMIT)
+    tmp = MKT2(env, esock_atom_recvhoplimit, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_recvhoplimit, esock_atom_false);
+#endif
+    TARRAY_ADD(opts, tmp);
+
+
     /* *** ESOCK_OPT_IPV6_RECVPKTINFO => IPV6_RECVPKTINFO *** */
 #if defined(IPV6_RECVPKTINFO)
     tmp = MKT2(env, esock_atom_recvpktinfo, esock_atom_true);
@@ -4299,7 +4369,11 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
 
 
     /* *** ESOCK_OPT_IPV6_RECVTCLASS => IPV6_RECVTCLASS *** */
+#if defined(IPV6_RECVTCLASS)
+    tmp = MKT2(env, esock_atom_recvtclass, esock_atom_true);
+#else
     tmp = MKT2(env, esock_atom_recvtclass, esock_atom_false);
+#endif
     TARRAY_ADD(opts, tmp);
 
 
@@ -4322,7 +4396,11 @@ ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env)
 
 
     /* *** ESOCK_OPT_IPV6_TCLASS => IPV6_TCLASS *** */
+#if defined(IPV6_TCLASS)
+    tmp = MKT2(env, esock_atom_tclass, esock_atom_true);
+#else
     tmp = MKT2(env, esock_atom_tclass, esock_atom_false);
+#endif
     TARRAY_ADD(opts, tmp);
 
 
@@ -4739,6 +4817,141 @@ ERL_NIF_TERM esock_supports_local(ErlNifEnv* env)
     return supports;
 }
 #endif
+
+
+
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env)
+{
+    SocketTArray sflags = TARRAY_CREATE(8);
+    ERL_NIF_TERM tmp, sflagsL;
+
+
+    /* *** ESOCK_SEND_FLAG_OOB => MSG_OOB *** */
+#if defined(MSG_OOB)
+    tmp = MKT2(env, esock_atom_oob, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_oob, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_DONTROUTE => MSG_DONTROUTE *** */
+#if defined(MSG_DONTROUTE)
+    tmp = MKT2(env, esock_atom_dontroute, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_dontroute, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_EOR => MSG_EOR *** */
+#if defined(MSG_EOR)
+    tmp = MKT2(env, esock_atom_eor, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_eor, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_CONFIRM => MSG_CONFIRM *** */
+#if defined(MSG_CONFIRM)
+    tmp = MKT2(env, esock_atom_confirm, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_confirm, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_NOSIGNAL => MSG_NOSIGNAL *** */
+#if defined(MSG_NOSIGNAL)
+    tmp = MKT2(env, esock_atom_nosignal, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_nosignal, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    /* *** ESOCK_SEND_FLAG_MORE => MSG_MORE *** */
+#if defined(MSG_MORE)
+    tmp = MKT2(env, esock_atom_more, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_more, esock_atom_false);
+#endif
+    TARRAY_ADD(sflags, tmp);
+
+
+    TARRAY_TOLIST(sflags, env, &sflagsL);
+    
+    return sflagsL;
+}
+#endif
+
+
+
+
+
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env)
+{
+    SocketTArray rflags = TARRAY_CREATE(8);
+    ERL_NIF_TERM tmp, rflagsL;
+
+
+    /* *** ESOCK_SEND_FLAG_OOB => MSG_OOB *** */
+#if defined(MSG_OOB)
+    tmp = MKT2(env, esock_atom_oob, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_oob, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    /* *** ESOCK_RECV_FLAG_PEEK => MSG_PEEK *** */
+#if defined(MSG_PEEK)
+    tmp = MKT2(env, esock_atom_peek, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_peek, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    /* *** ESOCK_RECV_FLAG_TRUNC => MSG_TRUNC *** */
+#if defined(MSG_TRUNC)
+    tmp = MKT2(env, esock_atom_trunc, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_trunc, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    /* *** ESOCK_RECV_FLAG_ERRQUEUE => MSG_ERRQUEUE *** */
+#if defined(MSG_ERRQUEUE)
+    tmp = MKT2(env, esock_atom_errqueue, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_errqueue, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    /* *** ESOCK_RECV_FLAG_CMSG_CLOEXEC => MSG_CMSG_CLOEXEC *** */
+#if defined(MSG_CMSG_CLOEXEC)
+    tmp = MKT2(env, esock_atom_cmsg_cloexec, esock_atom_true);
+#else
+    tmp = MKT2(env, esock_atom_cmsg_cloexec, esock_atom_false);
+#endif
+    TARRAY_ADD(rflags, tmp);
+
+
+    TARRAY_TOLIST(rflags, env, &rflagsL);
+    
+    return rflagsL;
+}
+#endif
+
+
 
 
 
@@ -6233,11 +6446,13 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
             "\r\n   Socket:       %T"
             "\r\n   SendRef:      %T"
             "\r\n   Size of data: %d"
-            "\r\n   eFlags:       %d"
+            "\r\n   eFlags:       0x%lX"
             "\r\n", descP->sock, sockRef, sendRef, sndData.size, eflags) );
 
     if (!esendflags2sendflags(eflags, &flags))
-        return enif_make_badarg(env);
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP, ("SOCKET", "nif_send -> flags: 0x%lX\r\n", flags) );
 
     MLOCK(descP->writeMtx);
 
@@ -6793,7 +7008,9 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     }
     
     if (!erecvflags2recvflags(eflags, &flags))
-        return enif_make_badarg(env);
+        return esock_make_error(env, esock_atom_einval);
+
+    SSDBG( descP, ("SOCKET", "nif_recv -> flags: 0x%lX\r\n", flags) );
 
     MLOCK(descP->readMtx);
 
@@ -6948,7 +7165,7 @@ ERL_NIF_TERM nif_recvfrom(ErlNifEnv*         env,
 
     if (!erecvflags2recvflags(eflags, &flags)) {
         SSDBG( descP, ("SOCKET", "nif_recvfrom -> recvflags decode failed\r\n") );
-        return enif_make_badarg(env);
+        return esock_make_error(env, esock_atom_einval);
     }
 
     MLOCK(descP->readMtx);
@@ -7117,7 +7334,7 @@ ERL_NIF_TERM nif_recvmsg(ErlNifEnv*         env,
     /*     return esock_make_error(env, atom_enotconn); */
 
     if (!erecvflags2recvflags(eflags, &flags))
-        return enif_make_badarg(env);
+        return esock_make_error(env, esock_atom_einval);
 
     MLOCK(descP->readMtx);
 
@@ -8151,6 +8368,12 @@ ERL_NIF_TERM esock_setopt_lvl_socket(ErlNifEnv*       env,
         break;
 #endif
 
+#if defined(SO_PASSCRED)
+    case ESOCK_OPT_SOCK_PASSCRED:
+        result = esock_setopt_lvl_sock_passcred(env, descP, eVal);
+        break;
+#endif
+
 #if defined(SO_PRIORITY)
     case ESOCK_OPT_SOCK_PRIORITY:
         result = esock_setopt_lvl_sock_priority(env, descP, eVal);
@@ -8318,6 +8541,17 @@ ERL_NIF_TERM esock_setopt_lvl_sock_oobinline(ErlNifEnv*       env,
                                              ERL_NIF_TERM     eVal)
 {
     return esock_setopt_bool_opt(env, descP, SOL_SOCKET, SO_OOBINLINE, eVal);
+}
+#endif
+
+
+#if defined(SO_PASSCRED)
+static
+ERL_NIF_TERM esock_setopt_lvl_sock_passcred(ErlNifEnv*       env,
+                                            ESockDescriptor* descP,
+                                            ERL_NIF_TERM     eVal)
+{
+    return esock_setopt_bool_opt(env, descP, SOL_SOCKET, SO_PASSCRED, eVal);
 }
 #endif
 
@@ -9629,8 +9863,8 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6(ErlNifEnv*       env,
 
 #if defined(IPV6_HOPLIMIT)
     case ESOCK_OPT_IPV6_HOPLIMIT:
-        result = esock_setopt_lvl_ipv6_hoplimit(env, descP, eVal);
-        break;
+      result = esock_setopt_lvl_ipv6_hoplimit(env, descP, eVal);
+      break;
 #endif
 
 #if defined(IPV6_HOPOPTS)
@@ -9675,10 +9909,22 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6(ErlNifEnv*       env,
         break;
 #endif
 
+#if defined(IPV6_RECVHOPLIMIT)
+    case ESOCK_OPT_IPV6_RECVHOPLIMIT:
+      result = esock_setopt_lvl_ipv6_recvhoplimit(env, descP, eVal);
+      break;
+#endif
+
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
     case ESOCK_OPT_IPV6_RECVPKTINFO:
-        result = esock_setopt_lvl_ipv6_recvpktinfo(env, descP, eVal);
-        break;
+      result = esock_setopt_lvl_ipv6_recvpktinfo(env, descP, eVal);
+      break;
+#endif
+
+#if defined(IPV6_RECVTCLASS)
+    case ESOCK_OPT_IPV6_RECVTCLASS:
+      result = esock_setopt_lvl_ipv6_recvtclass(env, descP, eVal);
+      break;
 #endif
 
 #if defined(IPV6_ROUTER_ALERT)
@@ -9691,6 +9937,12 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6(ErlNifEnv*       env,
     case ESOCK_OPT_IPV6_RTHDR:
         result = esock_setopt_lvl_ipv6_rthdr(env, descP, eVal);
         break;
+#endif
+
+#if defined(IPV6_TCLASS)
+    case ESOCK_OPT_IPV6_TCLASS:
+      result = esock_setopt_lvl_ipv6_tclass(env, descP, eVal);
+      break;
 #endif
 
 #if defined(IPV6_UNICAST_HOPS)
@@ -9852,12 +10104,12 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6_hoplimit(ErlNifEnv*       env,
                                             ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
-    int level = SOL_IPV6;
+  int level = SOL_IPV6;
 #else
-    int level = IPPROTO_IPV6;
+  int level = IPPROTO_IPV6;
 #endif
 
-    return esock_setopt_bool_opt(env, descP, level, IPV6_HOPLIMIT, eVal);
+  return esock_setopt_bool_opt(env, descP, level, IPV6_HOPLIMIT, eVal);
 }
 #endif
 
@@ -10008,6 +10260,23 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6_recverr(ErlNifEnv*       env,
 #endif
 
 
+#if defined(IPV6_RECVHOPLIMIT)
+static
+ERL_NIF_TERM esock_setopt_lvl_ipv6_recvhoplimit(ErlNifEnv*       env,
+						ESockDescriptor* descP,
+						ERL_NIF_TERM     eVal)
+{
+#if defined(SOL_IPV6)
+  int level = SOL_IPV6;
+#else
+  int level = IPPROTO_IPV6;
+#endif
+
+  return esock_setopt_bool_opt(env, descP, level, IPV6_RECVHOPLIMIT, eVal);
+}
+#endif
+
+
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
 static
 ERL_NIF_TERM esock_setopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
@@ -10015,17 +10284,35 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
                                                ERL_NIF_TERM     eVal)
 {
 #if defined(SOL_IPV6)
-    int level = SOL_IPV6;
+  int level = SOL_IPV6;
 #else
-    int level = IPPROTO_IPV6;
+  int level = IPPROTO_IPV6;
 #endif
 #if defined(IPV6_RECVPKTINFO)
-    int opt = IPV6_RECVPKTINFO;
+  int opt = IPV6_RECVPKTINFO;
 #else
-    int opt = IPV6_PKTINFO;
+  int opt = IPV6_PKTINFO;
 #endif
 
-    return esock_setopt_bool_opt(env, descP, level, opt, eVal);
+  return esock_setopt_bool_opt(env, descP, level, opt, eVal);
+}
+#endif
+
+
+#if defined(IPV6_RECVTCLASS)
+static
+ERL_NIF_TERM esock_setopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
+					      ESockDescriptor* descP,
+					      ERL_NIF_TERM     eVal)
+{
+#if defined(SOL_IPV6)
+  int level = SOL_IPV6;
+#else
+  int level = IPPROTO_IPV6;
+#endif
+  int opt = IPV6_RECVTCLASS;
+
+  return esock_setopt_bool_opt(env, descP, level, opt, eVal);
 }
 #endif
 
@@ -10061,6 +10348,24 @@ ERL_NIF_TERM esock_setopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
 #endif
 
     return esock_setopt_bool_opt(env, descP, level, IPV6_RTHDR, eVal);
+}
+#endif
+
+
+#if defined(IPV6_TCLASS)
+static
+ERL_NIF_TERM esock_setopt_lvl_ipv6_tclass(ErlNifEnv*       env,
+					  ESockDescriptor* descP,
+					  ERL_NIF_TERM     eVal)
+{
+#if defined(SOL_IPV6)
+  int level = SOL_IPV6;
+#else
+  int level = IPPROTO_IPV6;
+#endif
+  int opt = IPV6_TCLASS;
+
+  return esock_setopt_bool_opt(env, descP, level, opt, eVal);
 }
 #endif
 
@@ -11869,6 +12174,12 @@ ERL_NIF_TERM esock_getopt_lvl_socket(ErlNifEnv*       env,
         break;
 #endif
 
+#if defined(SO_PASSCRED)
+    case ESOCK_OPT_SOCK_PASSCRED:
+        result = esock_getopt_lvl_sock_passcred(env, descP);
+        break;
+#endif
+
 #if defined(SO_PEEK_OFF)
     case ESOCK_OPT_SOCK_PEEK_OFF:
         result = esock_getopt_lvl_sock_peek_off(env, descP);
@@ -12106,6 +12417,16 @@ ERL_NIF_TERM esock_getopt_lvl_sock_oobinline(ErlNifEnv*       env,
                                              ESockDescriptor* descP)
 {
     return esock_getopt_bool_opt(env, descP, SOL_SOCKET, SO_OOBINLINE);
+}
+#endif
+
+
+#if defined(SO_PASSCRED)
+static
+ERL_NIF_TERM esock_getopt_lvl_sock_passcred(ErlNifEnv*       env,
+                                            ESockDescriptor* descP)
+{
+    return esock_getopt_bool_opt(env, descP, SOL_SOCKET, SO_PASSCRED);
 }
 #endif
 
@@ -13011,8 +13332,8 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6(ErlNifEnv*       env,
 
 #if defined(IPV6_HOPLIMIT)
     case ESOCK_OPT_IPV6_HOPLIMIT:
-        result = esock_getopt_lvl_ipv6_hoplimit(env, descP);
-        break;
+      result = esock_getopt_lvl_ipv6_hoplimit(env, descP);
+      break;
 #endif
 
 #if defined(IPV6_HOPOPTS)
@@ -13057,10 +13378,22 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6(ErlNifEnv*       env,
         break;
 #endif
 
+#if defined(IPV6_RECVHOPLIMIT)
+    case ESOCK_OPT_IPV6_RECVHOPLIMIT:
+      result = esock_getopt_lvl_ipv6_recvhoplimit(env, descP);
+      break;
+#endif
+
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
     case ESOCK_OPT_IPV6_RECVPKTINFO:
-        result = esock_getopt_lvl_ipv6_recvpktinfo(env, descP);
-        break;
+      result = esock_getopt_lvl_ipv6_recvpktinfo(env, descP);
+      break;
+#endif
+
+#if defined(IPV6_RECVTCLASS)
+    case ESOCK_OPT_IPV6_RECVTCLASS:
+      result = esock_getopt_lvl_ipv6_recvtclass(env, descP);
+      break;
 #endif
 
 #if defined(IPV6_ROUTER_ALERT)
@@ -13073,6 +13406,12 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6(ErlNifEnv*       env,
     case ESOCK_OPT_IPV6_RTHDR:
         result = esock_getopt_lvl_ipv6_rthdr(env, descP);
         break;
+#endif
+
+#if defined(IPV6_TCLASS)
+    case ESOCK_OPT_IPV6_TCLASS:
+      result = esock_getopt_lvl_ipv6_tclass(env, descP);
+      break;
 #endif
 
 #if defined(IPV6_UNICAST_HOPS)
@@ -13148,12 +13487,12 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6_hoplimit(ErlNifEnv*       env,
                                             ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
-    int level = SOL_IPV6;
+  int level = SOL_IPV6;
 #else
-    int level = IPPROTO_IPV6;
+  int level = IPPROTO_IPV6;
 #endif
 
-    return esock_getopt_bool_opt(env, descP, level, IPV6_HOPLIMIT);
+  return esock_getopt_bool_opt(env, descP, level, IPV6_HOPLIMIT);
 }
 #endif
 
@@ -13288,23 +13627,56 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6_recverr(ErlNifEnv*       env,
 #endif
 
 
+#if defined(IPV6_RECVHOPLIMIT)
+static
+ERL_NIF_TERM esock_getopt_lvl_ipv6_recvhoplimit(ErlNifEnv*       env,
+						ESockDescriptor* descP)
+{
+#if defined(SOL_IPV6)
+  int level = SOL_IPV6;
+#else
+  int level = IPPROTO_IPV6;
+#endif
+
+  return esock_getopt_bool_opt(env, descP, level, IPV6_RECVHOPLIMIT);
+}
+#endif
+
+
 #if defined(IPV6_RECVPKTINFO) || defined(IPV6_PKTINFO)
 static
 ERL_NIF_TERM esock_getopt_lvl_ipv6_recvpktinfo(ErlNifEnv*       env,
                                                ESockDescriptor* descP)
 {
 #if defined(SOL_IPV6)
-    int level = SOL_IPV6;
+  int level = SOL_IPV6;
 #else
-    int level = IPPROTO_IPV6;
+  int level = IPPROTO_IPV6;
 #endif
 #if defined(IPV6_RECVPKTINFO)
-    int opt   = IPV6_RECVPKTINFO;
+  int opt   = IPV6_RECVPKTINFO;
 #else
-    int opt   = IPV6_PKTINFO;
+  int opt   = IPV6_PKTINFO;
 #endif
 
-    return esock_getopt_bool_opt(env, descP, level, opt);
+  return esock_getopt_bool_opt(env, descP, level, opt);
+}
+#endif
+
+
+#if defined(IPV6_RECVTCLASS)
+static
+ERL_NIF_TERM esock_getopt_lvl_ipv6_recvtclass(ErlNifEnv*       env,
+					      ESockDescriptor* descP)
+{
+#if defined(SOL_IPV6)
+  int level = SOL_IPV6;
+#else
+  int level = IPPROTO_IPV6;
+#endif
+  int opt   = IPV6_RECVTCLASS;
+
+  return esock_getopt_bool_opt(env, descP, level, opt);
 }
 #endif
 
@@ -13337,6 +13709,23 @@ ERL_NIF_TERM esock_getopt_lvl_ipv6_rthdr(ErlNifEnv*       env,
 #endif
 
     return esock_getopt_bool_opt(env, descP, level, IPV6_RTHDR);
+}
+#endif
+
+
+#if defined(IPV6_TCLASS)
+static
+ERL_NIF_TERM esock_getopt_lvl_ipv6_tclass(ErlNifEnv*       env,
+					      ESockDescriptor* descP)
+{
+#if defined(SOL_IPV6)
+  int level = SOL_IPV6;
+#else
+  int level = IPPROTO_IPV6;
+#endif
+  int opt   = IPV6_TCLASS;
+
+  return esock_getopt_bool_opt(env, descP, level, opt);
 }
 #endif
 
@@ -13801,12 +14190,10 @@ ERL_NIF_TERM esock_getopt_bool_opt(ErlNifEnv*       env,
     SOCKOPTLEN_T valSz = sizeof(val);
     int          res;
 
-    /*
     SSDBG( descP, ("SOCKET", "esock_getopt_bool_opt -> entry with"
                    "\r\n: level: %d"
                    "\r\n: opt:   %d"
                    "\r\n", level, opt) );
-    */
 
     res = sock_getopt(descP->sock, level, opt, &val, &valSz);
 
@@ -13818,12 +14205,10 @@ ERL_NIF_TERM esock_getopt_bool_opt(ErlNifEnv*       env,
         result = esock_make_ok2(env, bval);
     }
 
-    /*
     SSDBG( descP, ("SOCKET", "esock_getopt_bool_opt -> done when"
                    "\r\n: res:    %d"
                    "\r\n: result: %T"
                    "\r\n", res, result) );
-    */
 
     return result;
 }
@@ -14783,18 +15168,27 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
 
     reason = MKA(env, erl_errno_id(saveErrno));
 
-    if (descP->currentWriterP != NULL) {
+    if (saveErrno != EINVAL) {
 
-        DEMONP("send_check_fail -> current writer",
-               env, descP, &descP->currentWriter.mon);
+        /*
+         * We assume that anything other then einval (invalid input)
+         * is basically fatal (=> all waiting sends are aborted)
+         */
 
-        while (writer_pop(env, descP, &req)) {
-            SSDBG( descP,
-                   ("SOCKET", "send_check_fail -> abort %T\r\n", req.pid) );
-            esock_send_abort_msg(env, sockRef, req.ref, req.env,
-                                 reason, &req.pid);
-            req.env = NULL;
-            DEMONP("send_check_fail -> pop'ed writer", env, descP, &req.mon);
+        if (descP->currentWriterP != NULL) {
+
+            DEMONP("send_check_fail -> current writer",
+                   env, descP, &descP->currentWriter.mon);
+
+            while (writer_pop(env, descP, &req)) {
+                SSDBG( descP,
+                       ("SOCKET", "send_check_fail -> abort %T\r\n", req.pid) );
+                esock_send_abort_msg(env, sockRef, req.ref, req.env,
+                                     reason, &req.pid);
+                req.env = NULL;
+                DEMONP("send_check_fail -> pop'ed writer",
+                       env, descP, &req.mon);
+            }
         }
     }
 
@@ -16311,7 +16705,8 @@ char* decode_cmsghdr_data(ErlNifEnv*       env,
                     int data;
                     if (decode_ip_tos(env, eData, &data)) {
                         SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> "
-                                       "do final decode with tos\r\n") );
+                                       "do final decode with tos (=%d)"
+                                       "\r\n", data) );
                         return decode_cmsghdr_final(descP, bufP, rem, level, type,
                                                     (char*) &data,
                                                     sizeof(data),
@@ -16330,7 +16725,8 @@ char* decode_cmsghdr_data(ErlNifEnv*       env,
                     int data;
                     if (GET_INT(env, eData, &data)) {
                         SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> "
-                                       "do final decode with ttl\r\n") );
+                                       "do final decode with ttl (=%d)"
+                                       "\r\n", data) );
                         return decode_cmsghdr_final(descP, bufP, rem, level, type,
                                                     (char*) &data,
                                                     sizeof(data),
@@ -16378,8 +16774,8 @@ char* decode_cmsghdr_final(ESockDescriptor* descP,
     SSDBG( descP, ("SOCKET", "decode_cmsghdr_data -> entry when"
                    "\r\n   level: %d"
                    "\r\n   type:  %d"
-                   "\r\n   sz:    %d => %d, %d"
-                   "\r\n", level, type, sz, len, space) );
+                   "\r\n   sz:    %d => %d, %d, %d"
+                   "\r\n", level, type, sz, len, space, rem) );
 
     if (rem >= space) {
         struct cmsghdr* cmsgP = (struct cmsghdr*) bufP;
@@ -16392,6 +16788,9 @@ char* decode_cmsghdr_final(ESockDescriptor* descP,
         sys_memcpy(CMSG_DATA(cmsgP), data, sz);
         *used = space;
     } else {
+        SSDBG( descP, ("SOCKET", "decode_cmsghdr_final -> "
+                       "not enough space (needs %d, have %d)\r\n",
+                       space, rem) );
         *used = 0;
         return ESOCK_STR_EINVAL;
     }
@@ -16436,7 +16835,7 @@ char* encode_cmsghdr_level(ErlNifEnv*    env,
 #else
     case IPPROTO_IPV6:
 #endif
-        *eLevel = esock_atom_ip;
+        *eLevel = esock_atom_ipv6;
         xres    = NULL;
         break;
 #endif
@@ -16526,6 +16925,9 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
     char* xres = NULL;
 
     switch (level) {
+
+      /* *** SOCKET *** */
+
     case SOL_SOCKET:
         switch (type) {
 #if defined(SCM_TIMESTAMP)
@@ -16556,6 +16958,9 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
         }        
         break;
 
+
+	/* *** IP *** */
+
 #if defined(SOL_IP)
     case SOL_IP:
 #else
@@ -16574,6 +16979,18 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             break;
 #endif
 
+            /*
+             * On Solaris (among others) TTL has type RECVTTL!
+             * We could convert to TTL (that is esock_atom_ttl,
+             * but that opens up pandoras box, so leave it to
+             * the user).
+             */
+#if defined(IP_RECVTTL)
+        case IP_RECVTTL:
+            *eType = esock_atom_recvttl;
+            break;
+#endif
+
 #if defined(IP_PKTINFO)
         case IP_PKTINFO:
             *eType = esock_atom_pktinfo;
@@ -16586,11 +17003,26 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             break;
 #endif
 
+            /*
+             * On FreeBSD (among others) TOS has type RECVTOS!
+             * We could convert to TOS (that is esock_atom_tos,
+             * but that opens up pandoras box, so leave it to
+             * the user).
+             */
+#if defined(IP_RECVTOS)
+        case IP_RECVTOS:
+            *eType = esock_atom_recvtos;
+            break;
+#endif
+
         default:
             xres = ESOCK_STR_EINVAL;
             break;
         }
         break;
+
+
+	/* *** IPv6 *** */
 
 #if defined(HAVE_IPV6)
 #if defined(SOL_IPV6)
@@ -16598,19 +17030,28 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
 #else
         case IPPROTO_IPV6:
 #endif
-        switch (type) {
+	  switch (type) {
 #if defined(IPV6_PKTINFO)
-        case IPV6_PKTINFO:
+	  case IPV6_PKTINFO:
             *eType = esock_atom_pktinfo;
             break;
-#endif
+#endif // if defined(IPV6_PKTINFO)
 
-        default:
+#if defined(IPV6_HOPLIMIT)
+	  case IPV6_HOPLIMIT:
+	    *eType = esock_atom_hoplimit;
+	    break;
+#endif // if defined(IPV6_HOPLIMIT)
+
+	  default:
             xres = ESOCK_STR_EINVAL;
             break;
-        }        
-        break;
-#endif
+	  }        
+	  break;
+#endif // if defined(HAVE_IPV6)
+
+
+	  /* *** TCP *** */
 
     case IPPROTO_TCP:
         switch (type) {
@@ -16619,6 +17060,9 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             break;
         }        
         break;
+
+
+	/* *** UDP *** */
 
     case IPPROTO_UDP:
         switch (type) {
@@ -16935,6 +17379,7 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         break;
 #endif
 
+
 #if defined(IP_TTL)
     case IP_TTL:
         {
@@ -16943,6 +17388,24 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         }
         break;
 #endif
+
+
+        /*
+         * On Solaris (among others) you don't get TTL when 
+         * you order TTL with RECVTTL ( = "I want to receive TTL")
+         * Instead, you receive RECVTTL...
+         * And also, its not an 'int', its an 'uint8_t' (unsigned char)...
+         * Why can't we all get along...
+         */
+#if defined(IP_RECVTTL)
+    case IP_RECVTTL:
+        {
+            unsigned int ttl = *((unsigned char*) dataP);
+            *eCMsgHdrData = MKUI(env, ttl);
+        }
+        break;
+#endif
+
 
 #if defined(IP_PKTINFO)
     case IP_PKTINFO:
@@ -16985,6 +17448,7 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         break;
 #endif
 
+
 #if defined(IP_ORIGDSTADDR)
     case IP_ORIGDSTADDR:
         if ((xres = esock_encode_sockaddr_in4(env,
@@ -16996,6 +17460,40 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         }
         break;
 #endif
+
+
+        /*
+         * On FreeBSD (among others) you don't get TOS when 
+         * you order TOS with RECVTOS ( = "I want to receive TOS")
+         * Instead, you receive RECVTOS...
+         */
+#if defined(IP_RECVTOS)
+    case IP_RECVTOS:
+        {
+            unsigned char tos = *dataP;
+            switch (IPTOS_TOS(tos)) {
+            case IPTOS_LOWDELAY:
+                *eCMsgHdrData = esock_atom_lowdelay;
+                break;
+            case IPTOS_THROUGHPUT:
+                *eCMsgHdrData = esock_atom_throughput;
+                break;
+            case IPTOS_RELIABILITY:
+                *eCMsgHdrData = esock_atom_reliability;
+                break;
+#if defined(IPTOS_MINCOST)
+            case IPTOS_MINCOST:
+                *eCMsgHdrData = esock_atom_mincost;
+                break;
+#endif
+            default:
+                *eCMsgHdrData = MKUI(env, tos);
+                break;
+            }
+        }
+        break;
+#endif // if defined(IP_RECVTOS)
+
 
     default:
         *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
@@ -17054,6 +17552,17 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
         }
         break;
 #endif
+
+
+#if defined(IPV6_HOPLIMIT)
+    case IPV6_HOPLIMIT:
+      {
+	int* hoplimitP = (int*) dataP;
+
+	*eCMsgHdrData = MKI(env, *hoplimitP);
+      }
+      break;
+#endif // if defined(IPV6_HOPLIMIT)
 
     default:
         *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
@@ -17925,8 +18434,11 @@ BOOLEAN_T emap2netns(ErlNifEnv* env, ERL_NIF_TERM map, char** netns)
 #endif
 
 
-/* esendflags2sendflags - convert internal (erlang) send flags to (proper)
+/* esendflags2sendflags - convert internal (erlang) send flags to (native)
  * send flags.
+ *
+ * We should really have a way to point out the faulty flag if we get one
+ * we don't support. Or add something to the supports function.
  */
 static
 BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
@@ -17943,49 +18455,69 @@ BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
     for (ef = ESOCK_SEND_FLAG_LOW; ef <= ESOCK_SEND_FLAG_HIGH; ef++) {
 
         switch (ef) {
-#if defined(MSG_CONFIRM)
         case ESOCK_SEND_FLAG_CONFIRM:
-            if ((1 << ESOCK_SEND_FLAG_CONFIRM) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_CONFIRM) & eflags) {
+#if defined(MSG_CONFIRM)
                 tmp |= MSG_CONFIRM;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_DONTROUTE)
         case ESOCK_SEND_FLAG_DONTROUTE:
-            if ((1 << ESOCK_SEND_FLAG_DONTROUTE) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_DONTROUTE) & eflags) {
+#if defined(MSG_DONTROUTE)
                 tmp |= MSG_DONTROUTE;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_EOR)
         case ESOCK_SEND_FLAG_EOR:
-            if ((1 << ESOCK_SEND_FLAG_EOR) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_EOR) & eflags) {
+#if defined(MSG_EOR)
                 tmp |= MSG_EOR;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_MORE)
         case ESOCK_SEND_FLAG_MORE:
-            if ((1 << ESOCK_SEND_FLAG_MORE) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_MORE) & eflags) {
+#if defined(MSG_MORE)
                 tmp |= MSG_MORE;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_NOSIGNAL)
         case ESOCK_SEND_FLAG_NOSIGNAL:
-            if ((1 << ESOCK_SEND_FLAG_NOSIGNAL) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_NOSIGNAL) & eflags) {
+#if defined(MSG_NOSIGNAL)
                 tmp |= MSG_NOSIGNAL;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_OOB)
         case ESOCK_SEND_FLAG_OOB:
-            if ((1 << ESOCK_SEND_FLAG_OOB) & eflags)
+            if ((1 << ESOCK_SEND_FLAG_OOB) & eflags) {
+#if defined(MSG_OOB)
                 tmp |= MSG_OOB;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
         default:
+            esock_warning_msg("Use of unknown send flag %d (0x%lX)\r\n",
+                              ef, eflags);
             return FALSE;
         }
 
@@ -18000,16 +18532,15 @@ BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
 
 /* erecvflags2recvflags - convert internal (erlang) send flags to (proper)
  * send flags.
+ *
+ * We should really have a way to point out the faulty flag if we get one
+ * we don't support. Or add something to the supports function.
  */
 static
 BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
 {
     unsigned int ef;
     int          tmp = 0;
-
-    SGDBG( ("SOCKET", "erecvflags2recvflags -> entry with"
-            "\r\n   eflags: %d"
-            "\r\n", eflags) );
 
     if (eflags == 0) {
         *flags = 0;
@@ -18018,32 +18549,36 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
 
     for (ef = ESOCK_RECV_FLAG_LOW; ef <= ESOCK_RECV_FLAG_HIGH; ef++) {
 
-        SGDBG( ("SOCKET", "erecvflags2recvflags -> iteration"
-                "\r\n   ef:  %d"
-                "\r\n   tmp: %d"
-                "\r\n", ef, tmp) );
-
         switch (ef) {
-#if defined(MSG_CMSG_CLOEXEC)
         case ESOCK_RECV_FLAG_CMSG_CLOEXEC:
-            if ((1 << ESOCK_RECV_FLAG_CMSG_CLOEXEC) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_CMSG_CLOEXEC) & eflags) {
+#if defined(MSG_CMSG_CLOEXEC)
                 tmp |= MSG_CMSG_CLOEXEC;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_ERRQUEUE)
         case ESOCK_RECV_FLAG_ERRQUEUE:
-            if ((1 << ESOCK_RECV_FLAG_ERRQUEUE) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_ERRQUEUE) & eflags) {
+#if defined(MSG_ERRQUEUE)
                 tmp |= MSG_ERRQUEUE;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_OOB)
         case ESOCK_RECV_FLAG_OOB:
-            if ((1 << ESOCK_RECV_FLAG_OOB) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_OOB) & eflags) {
+#if defined(MSG_OOB)
                 tmp |= MSG_OOB;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
             /*
              * <KOLLA>
@@ -18052,21 +18587,29 @@ BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
              *
              * </KOLLA>
              */
-#if defined(MSG_PEEK)
         case ESOCK_RECV_FLAG_PEEK:
-            if ((1 << ESOCK_RECV_FLAG_PEEK) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_PEEK) & eflags) {
+#if defined(MSG_PEEK)
                 tmp |= MSG_PEEK;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
-#if defined(MSG_TRUNC)
         case ESOCK_RECV_FLAG_TRUNC:
-            if ((1 << ESOCK_RECV_FLAG_TRUNC) & eflags)
+            if ((1 << ESOCK_RECV_FLAG_TRUNC) & eflags) {
+#if defined(MSG_TRUNC)
                 tmp |= MSG_TRUNC;
-            break;
+#else
+                return FALSE;
 #endif
+            }
+            break;
 
         default:
+            esock_warning_msg("Use of unknown recv flag %d (0x%lX)\r\n",
+                              ef, eflags);
             return FALSE;
         }
 
@@ -19366,8 +19909,11 @@ void esock_down(ErlNifEnv*           env,
                                       "controlling process: "
                                       "\r\n   Controlling Process: %T"
                                       "\r\n   Descriptor:          %d"
-                                      "\r\n   Errno:               %d"
-                                      "\r\n", pid, descP->sock, save_errno);
+                                      "\r\n   Errno:               %d (%T)"
+                                      "\r\n",
+                                      pid, descP->sock,
+                                      save_errno,
+                                      MKA(env, erl_errno_id(save_errno)));
                 }
                 sock_close_event(descP->event);
 
@@ -19402,8 +19948,11 @@ void esock_down(ErlNifEnv*           env,
                                       "controlling process: "
                                       "\r\n   Controlling Process: %T"
                                       "\r\n   Descriptor:          %d"
-                                      "\r\n   Errno:               %d"
-                                      "\r\n", pid, descP->sock, save_errno);
+                                      "\r\n   Errno:               %d (%T)"
+                                      "\r\n",
+                                      pid, descP->sock,
+                                      save_errno,
+                                      MKA(env, erl_errno_id(save_errno)));
                 }
                 sock_close_event(descP->event);
 

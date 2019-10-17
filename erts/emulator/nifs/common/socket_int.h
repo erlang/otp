@@ -101,7 +101,7 @@ typedef unsigned int BOOLEAN_T;
 
 
 /* ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
- * "Global" atoms
+ * "Global" atoms (esock_atom_...)
  *
  * Note that when an (global) atom is added here, it must also be added
  * in the socket_nif.c file!
@@ -133,9 +133,11 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(busy_poll);                \
     GLOBAL_ATOM_DEF(checksum);                 \
     GLOBAL_ATOM_DEF(close);                    \
+    GLOBAL_ATOM_DEF(cmsg_cloexec);             \
     GLOBAL_ATOM_DEF(command);                  \
-    GLOBAL_ATOM_DEF(connect);                  \
+    GLOBAL_ATOM_DEF(conirm);                   \
     GLOBAL_ATOM_DEF(congestion);               \
+    GLOBAL_ATOM_DEF(connect);                  \
     GLOBAL_ATOM_DEF(context);                  \
     GLOBAL_ATOM_DEF(cork);                     \
     GLOBAL_ATOM_DEF(credentials);              \
@@ -143,7 +145,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(ctrunc);                   \
     GLOBAL_ATOM_DEF(data);                     \
     GLOBAL_ATOM_DEF(debug);                    \
-    GLOBAL_ATOM_DEF(default);      \
+    GLOBAL_ATOM_DEF(default);                  \
     GLOBAL_ATOM_DEF(default_send_params);      \
     GLOBAL_ATOM_DEF(delayed_ack_time);         \
     GLOBAL_ATOM_DEF(dgram);                    \
@@ -201,6 +203,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(md5sig);                   \
     GLOBAL_ATOM_DEF(mincost);                  \
     GLOBAL_ATOM_DEF(minttl);                   \
+    GLOBAL_ATOM_DEF(more);                     \
     GLOBAL_ATOM_DEF(msfilter);                 \
     GLOBAL_ATOM_DEF(mtu);                      \
     GLOBAL_ATOM_DEF(mtu_discover);             \
@@ -213,6 +216,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(nodefrag);                 \
     GLOBAL_ATOM_DEF(noopt);                    \
     GLOBAL_ATOM_DEF(nopush);                   \
+    GLOBAL_ATOM_DEF(nosignal);                 \
     GLOBAL_ATOM_DEF(not_found);                \
     GLOBAL_ATOM_DEF(not_owner);                \
     GLOBAL_ATOM_DEF(ok);                       \
@@ -223,6 +227,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(partial_delivery_point);   \
     GLOBAL_ATOM_DEF(passcred);                 \
     GLOBAL_ATOM_DEF(path);                     \
+    GLOBAL_ATOM_DEF(peek);                     \
     GLOBAL_ATOM_DEF(peekcred);                 \
     GLOBAL_ATOM_DEF(peek_off);                 \
     GLOBAL_ATOM_DEF(peer_addr_params);         \
@@ -244,6 +249,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(recvdstaddr);              \
     GLOBAL_ATOM_DEF(recverr);                  \
     GLOBAL_ATOM_DEF(recvfrom);                 \
+    GLOBAL_ATOM_DEF(recvhoplimit);             \
     GLOBAL_ATOM_DEF(recvif);                   \
     GLOBAL_ATOM_DEF(recvmsg);                  \
     GLOBAL_ATOM_DEF(recvopts);                 \

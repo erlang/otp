@@ -631,7 +631,11 @@
 	<cell>boolean()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>type = dgram | raw, requires superuser privileges to update</cell>
+	<cell>type = dgram | raw.
+	On some platforms (e.g. FreeBSD) is used to set in order to
+	get <c>hoplimit</c> as a control message heeader.
+	On others (e.g. Linux), <c>recvhoplimit</c> is set in order to get
+	<c>hoplimit</c>. </cell>
       </row>
       <row>
 	<cell>hopopts</cell>
@@ -683,11 +687,24 @@
 	<cell>none</cell>
       </row>
       <row>
+	<cell>recvhoplimit</cell>
+	<cell>boolean()</cell>
+	<cell>yes</cell>
+	<cell>yes</cell>
+	<cell>type = dgram | raw.
+	On some platforms (e.g. Linux), <c>recvhoplimit</c>
+	is set in order to get <c>hoplimit</c></cell>
+      </row>
+      <row>
 	<cell>recvpktinfo | pktinfo</cell>
 	<cell>boolean()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>type = dgram | raw</cell>
+	<cell>type = dgram | raw.
+	On some platforms (e.g. FreeBSD) is used to set in order to
+	get <c>hoplimit</c> as a control message heeader.
+	On others (e.g. Linux), <c>recvhoplimit</c> is set in order to get
+	<c>hoplimit</c>. </cell>
       </row>
       <row>
 	<cell>router_alert</cell>

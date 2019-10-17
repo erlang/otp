@@ -95,7 +95,7 @@ listen(Port) ->
 
 listen(Port, #{domain := Domain}) when is_integer(Port) andalso (Port >= 0) ->
     case ?LIB:which_local_host_info(Domain) of
-	{ok, {_, _, Addr}} ->
+	{ok, #{addr := Addr}} ->
 	    Opts = [Domain,
 		    binary, {ip, Addr}, {packet, raw}, {active, false},
 		    {buffer, 32*1024}],
