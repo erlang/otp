@@ -90,7 +90,6 @@
  
 -export([encode_handshake/4]).
 
--export([get_ticket_data/2, store_server_state/1, read_server_state/0, increment_ticket_nonce/0]).
 
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
@@ -100,28 +99,28 @@
 %%====================================================================
 %% Setup
 %%====================================================================
-start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Tracker} = Opts,
+start_fsm(Role, Host, Port, Socket, {#{erl_dist := false},_, Trackers} = Opts,
 	  User, {CbModule, _,_, _, _} = CbInfo, 
 	  Timeout) -> 
     try 
         {ok, Sender} = tls_sender:start(),
 	{ok, Pid} = tls_connection_sup:start_child([Role, Sender, Host, Port, Socket, 
 						    Opts, User, CbInfo]), 
-	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Tracker),
+	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
         ssl_connection:handshake(SslSocket, Timeout)
     catch
 	error:{badmatch, {error, _} = Error} ->
 	    Error
     end;
 
-start_fsm(Role, Host, Port, Socket, {#{erl_dist := true},_, Tracker} = Opts,
+start_fsm(Role, Host, Port, Socket, {#{erl_dist := true},_, Trackers} = Opts,
 	  User, {CbModule, _,_, _, _} = CbInfo, 
 	  Timeout) -> 
     try 
         {ok, Sender} = tls_sender:start([{spawn_opt, ?DIST_CNTRL_SPAWN_OPTS}]),
 	{ok, Pid} = tls_connection_sup:start_child_dist([Role, Sender, Host, Port, Socket, 
 							 Opts, User, CbInfo]), 
-	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Tracker),
+	{ok, SslSocket} = ssl_connection:socket_control(?MODULE, Socket, [Pid, Sender], CbModule, Trackers),
         ssl_connection:handshake(SslSocket, Timeout)
     catch
 	error:{badmatch, {error, _} = Error} ->
@@ -516,8 +515,8 @@ protocol_name() ->
 %% Data handling
 %%====================================================================	     
 
-socket(Pids,  Transport, Socket, Tracker) ->
-    tls_socket:socket(Pids, Transport, Socket, ?MODULE, Tracker).
+socket(Pids,  Transport, Socket, Trackers) ->
+    tls_socket:socket(Pids, Transport, Socket, ?MODULE, Trackers).
 
 setopts(Transport, Socket, Other) ->
     tls_socket:setopts(Transport, Socket, Other).
@@ -553,7 +552,7 @@ init({call, From}, {start, Timeout},
 	   } = State0) ->
     KeyShare = maybe_generate_client_shares(SslOpts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession),
-    TicketData = get_ticket_data(SessionTickets, UseTicket),
+    TicketData = tls_session_ticket:get_ticket_data(SessionTickets, UseTicket),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                        Session#session.session_id,
                                        Renegotiation,
@@ -997,7 +996,7 @@ code_change(_OldVsn, StateName, State, _) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Tracker}, User,
+initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trackers}, User,
 	      {CbModule, DataTag, CloseTag, ErrorTag, PassiveTag}) ->
     #{beast_mitigation := BeastMitigation,
       erl_dist := IsErlDist,
@@ -1028,8 +1027,8 @@ initial_state(Role, Sender, Host, Port, Socket, {SSLOptions, SocketOptions, Trac
                      port = Port,
                      socket = Socket,
                      session_cache_cb = SessionCacheCb,
-                     tracker = Tracker
-                    },
+                     trackers = Trackers
+                    },  
     #state{
        static_env = InitStatEnv,
        handshake_env = #handshake_env{
@@ -1056,7 +1055,7 @@ initialize_tls_sender(#state{static_env = #static_env{
                                              role = Role,
                                              transport_cb = Transport,
                                              socket = Socket,
-                                             tracker = Tracker
+                                             trackers = Trackers
                                             },
                              connection_env = #connection_env{negotiated_version = Version},
                              socket_options = SockOpts, 
@@ -1068,7 +1067,7 @@ initialize_tls_sender(#state{static_env = #static_env{
              role => Role,
              socket => Socket,
              socket_options => SockOpts,
-             tracker => Tracker,
+             trackers => Trackers,
              transport_cb => Transport,
              negotiated_version => Version,
              renegotiate_at => RenegotiateAt,
@@ -1345,7 +1344,7 @@ effective_version(Version, _) ->
     Version.
 
 
-handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := false}}) ->
+handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := disabled}}) ->
     ok;
 handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSessionTicket,
                           #state{connection_states = ConnectionStates,
@@ -1356,92 +1355,5 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    store_session_ticket(NewSessionTicket, HKDF, SNI, PSK).
+    tls_session_ticket:store_session_ticket(NewSessionTicket, HKDF, SNI, PSK).
 
-
-%% ===== Prototype =====
-store_server_state(#server_instance_data{
-                      nonce = Nonce,
-                      ticket_iv = IV,
-                      ticket_key_shard = Key}) ->
-    case ets:whereis(tls13_server_state) of
-        undefined ->
-            ets:new(tls13_server_state, [public, named_table, ordered_set]);
-        Tid ->
-            Tid
-    end,
-    ServerId = 1,
-    ets:insert(tls13_server_state, {ServerId, Nonce, IV, Key}).
-
-
-read_server_state() ->
-    case ets:lookup(tls13_server_state, 1) of
-        [{_Id, Nonce, IV, Key}] ->
-            #server_instance_data{
-               nonce = Nonce,
-               ticket_iv = IV,
-               ticket_key_shard = Key
-              };
-        [] ->
-            %% TODO Fault handling
-            undefined
-    end.
-
-
-increment_ticket_nonce() ->
-    ets:update_counter(tls13_server_state, 1, 1).
-
-
-store_session_ticket(NewSessionTicket, HKDF, SNI, PSK) ->
-    _TicketDb =
-        case ets:whereis(tls13_session_ticket_db) of
-            undefined ->
-                ets:new(tls13_session_ticket_db, [public, named_table, ordered_set]);
-            Tid ->
-                Tid
-        end,
-    Id = make_ticket_id(NewSessionTicket),
-    Timestamp = erlang:system_time(seconds),
-    ets:insert(tls13_session_ticket_db, {Id, HKDF, SNI, PSK, Timestamp, NewSessionTicket}).
-
-
-make_ticket_id(NewSessionTicket) ->
-    {_, B} = tls_handshake_1_3:encode_handshake(NewSessionTicket),
-    crypto:hash(sha256, B).
-
-
-get_ticket_data(undefined, _) ->
-    undefined;
-get_ticket_data(_, undefined) ->
-    undefined;
-get_ticket_data(_, UseTicket) ->
-    case ets:lookup(tls13_session_ticket_db, UseTicket) of
-        [{_Key, HKDF, _SNI, PSK, Timestamp, NewSessionTicket}] ->
-            #new_session_ticket{
-               ticket_lifetime = _LifeTime,
-               ticket_age_add = AgeAdd,
-               ticket_nonce = Nonce,
-               ticket = Ticket,
-               extensions = _Extensions
-              } = NewSessionTicket,
-
-            TicketAge =  erlang:system_time(seconds) - Timestamp,
-            ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
-            Identities = [#psk_identity{
-                             identity = Ticket,
-                             obfuscated_ticket_age = ObfuscatedTicketAge}],
-
-            {Identities, PSK, Nonce, HKDF};
-        [] ->
-            %% TODO Fault handling
-            undefined
-    end.
-
-
-%% The "obfuscated_ticket_age"
-%% field of each PskIdentity contains an obfuscated version of the
-%% ticket age formed by taking the age in milliseconds and adding the
-%% "ticket_age_add" value that was included with the ticket
-%% (see Section 4.6.1), modulo 2^32.
-obfuscate_ticket_age(TicketAge, AgeAdd) ->
-    (TicketAge + AgeAdd) rem round(math:pow(2,32)).

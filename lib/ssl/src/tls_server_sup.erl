@@ -20,7 +20,7 @@
 
 %%
 
--module(tls_sup).
+-module(tls_server_sup).
 
 -behaviour(supervisor).
 
@@ -44,12 +44,11 @@ start_link() ->
 %%%=========================================================================
 
 init([]) ->    
-  
-    TLSConnetionManager = tls_connection_manager_child_spec(),
-    ServerInstanceSup = server_instance_child_spec(), 
-
-    {ok, {{one_for_one, 10, 3600}, [TLSConnetionManager, 
-				    ServerInstanceSup
+    ListenTracker = listen_options_tracker_child_spec(),
+    SessionTracker = tls_server_session_child_spec(), 
+    
+    {ok, {{one_for_all, 10, 3600}, [ListenTracker, 
+				    SessionTracker
 				   ]}}.
 
 
@@ -57,20 +56,22 @@ init([]) ->
 %%% Internal functions
 %%--------------------------------------------------------------------
 
-tls_connection_manager_child_spec() ->
-    Name = tls_connection,  
-    StartFunc = {tls_connection_sup, start_link, []},
+%% Handles emulated options so that they inherited by the accept
+%% socket, even when setopts is performed on the listen socket
+listen_options_tracker_child_spec() ->
+    Name = tls_socket,  
+    StartFunc = {ssl_listen_tracker_sup, start_link, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [tls_connection_sup],
+    Modules = [ssl_listen_tracker_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 
-server_instance_child_spec() ->
-    Name = tls_server_sup,  
-    StartFunc = {tls_server_sup, start_link, []},
+tls_server_session_child_spec() ->
+    Name = tls_server_session_ticket,  
+    StartFunc = {tls_server_session_ticket_sup, start_link, []},
     Restart = permanent, 
     Shutdown = 4000,
-    Modules = [tls_server_sup],
+    Modules = [tls_server_session_ticket_sup],
     Type = supervisor,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.

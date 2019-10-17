@@ -158,7 +158,7 @@
           reuse_sessions             => {true,      [versions]},
           secure_renegotiate         => {true,      [versions]},
           server_name_indication     => {undefined, [versions]},
-          session_tickets            => {false,     [versions]},
+          session_tickets            => {disabled,     [versions]},
           signature_algs             => {undefined, [versions]},
           signature_algs_cert        => {undefined, [versions]},
           sni_fun                    => {undefined, [versions,
@@ -206,7 +206,8 @@
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
-		 emulated,          %% Emulated option list or "inherit_tracker" pid
+		 emulated,          %% Emulated option list or 
+                 trackers, 
 		 dtls_handler,
 		 inet_ssl,          %% inet options for internal ssl socket
 		 transport_info,                 %% Callback info

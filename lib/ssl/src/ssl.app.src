@@ -14,6 +14,9 @@
 	       ssl_v3,
 	       tls_connection_sup,
 	       tls_sender,
+               tls_server_sup,
+               tls_server_session_ticket_sup,
+               tls_server_session_ticket,
                tls_sup,
 	       ssl_dh_groups,
 	       %% DTLS
@@ -39,6 +42,7 @@
 	       ssl_srp_primes,
 	       ssl_alert,
 	       ssl_listen_tracker_sup, %% may be used by DTLS over SCTP	
+               tls_session_ticket,
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
 	       inet6_tls_dist,
