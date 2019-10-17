@@ -16608,7 +16608,15 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 		       end ++
 		       case socket:supports(options, ip, recvtos) of
 			   true ->
-			       [{ip, recvtos, tos, 42}];
+                               %% It seems that sending any of the TOS or TTL
+                               %% values will fail on FreeBSD, so don't!
+			       [{ip, recvtos, tos, 
+                                 case os:type() of
+                                     {unix, freebsd} ->
+                                         default;
+                                     _ -> 
+                                         42
+                                 end}];
 			   false ->
 			       []
 		       end ++
@@ -16618,7 +16626,15 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
                            _ ->
                                case socket:supports(options, ip, recvttl) of
                                    true ->
-                                       [{ip, recvttl, ttl, 42}];
+                                       %% It seems that sending any of the TOS or TTL
+                                       %% values will fail on FreeBSD, so don't!
+                                       [{ip, recvttl, ttl,
+                                         case os:type() of
+                                             {unix, freebsd} ->
+                                                 default;
+                                             _ -> 
+                                                 42
+                                         end}];
                                    false ->
                                        []
                                end
