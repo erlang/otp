@@ -1928,8 +1928,7 @@ The format is described in the documentation of `erlang-man-dirs'."
     (while dir-list
       (setq dir (cond ((nth 2 (car dir-list))
                        ;; Relative to `erlang-root-dir'.
-                       (and (stringp erlang-root-dir)
-                            (erlang-man-dir (nth 1 (car dir-list)) t)))
+                       (erlang-man-dir (nth 1 (car dir-list)) t))
                       (t
                        ;; Absolute
                        (nth 1 (car dir-list)))))
@@ -1967,26 +1966,33 @@ Emacs directory, if the man pages haven't been downloaded
 already. The URL from which the man pages are downloaded can be
 configured with the variable \"erlang-man-download-url\""
   (interactive)
-  (let ((download-url (or download-url-param erlang-man-download-url))
-        (downloaded-man-dir (erlang-man-user-local-emacs-dir))
-        (downloaded-man-check-dir (concat
-                                   (file-name-as-directory (erlang-man-user-local-emacs-dir))
-                                   (file-name-as-directory "man"))))
-    (if (file-directory-p downloaded-man-check-dir)
+  (let* ((download-url (or download-url-param erlang-man-download-url))
+         (downloaded-man-dir (erlang-man-user-local-emacs-dir))
+         (downloaded-man-url-file (concat
+                                   (file-name-as-directory downloaded-man-dir)
+                                   "erlang_man_download_url")))
+    (if (and (file-exists-p downloaded-man-url-file)
+             (string= download-url (with-temp-buffer
+                                     (insert-file-contents downloaded-man-url-file)
+                                     (buffer-string))))
         downloaded-man-dir
       (let ((man-file (concat (file-name-as-directory downloaded-man-dir) "man.tar.gz")))
         (message "Downloading: %s to %s" download-url man-file)
         (require 'url)
         (mkdir downloaded-man-dir t)
         (url-copy-file download-url man-file t)
-                                        ; url-copy-file unpacks the
-                                        ; zip archive (at least on my
-                                        ; system) but this behavior is
-                                        ; undocumented so do a tar
-                                        ; with the z flag as well
+        ;; Write the download URL to a file so that future calls to
+        ;; erlang-man-download can check if the man cache should be
+        ;; updated
+        (write-region download-url nil downloaded-man-url-file)
+        ;; url-copy-file unpacks the zip archive (at least on my
+        ;; system) but this behavior is undocumented so do a tar with
+        ;; the z flag as well
         (message "Note that %s will only be unpacked automatically if your system has the tar tool in its path" man-file)
         (shell-command (format "tar -x -z -f %s -C %s" man-file downloaded-man-dir))
         (message "The error message above can be ignored if everything works fine")
+        (message "Unpacking man pages using the command \"%s\""
+                 (format "tar -x -f %s -C %s" man-file downloaded-man-dir))
         (shell-command (format "tar -x -f %s -C %s" man-file downloaded-man-dir))
         (message "Restarting erlang-mode")
         (erlang-mode)
@@ -2024,7 +2030,7 @@ user."
         default-man-dir
       (if (and erlang-root-dir (file-directory-p alt-man-dir))
           alt-man-dir
-        (if (file-directory-p downloaded-man-dir)
+        (if (file-directory-p (concat (directory-file-name downloaded-man-dir) subdir))
             (concat (directory-file-name downloaded-man-dir) subdir)
           (and (not no-download) (erlang-man-download-ask subdir)))))))
 
