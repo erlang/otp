@@ -2210,6 +2210,9 @@ cas([no_module_tests | Args], X) ->
     cas(Args, X);
 cas([no_dot_erlang | Args], X) ->
     cas(Args, X);
+%% set the name of the script and boot file to create
+cas([{script_name, Name} | Args], X) when is_list(Name) ->
+    cas(Args, X);
 
 %%% ERROR --------------------------------------------------------------
 cas([Y | Args], X) ->
@@ -2290,6 +2293,9 @@ cat([no_warn_sasl | Args], X) ->
 %%% no_module_tests (kept for backwards compatibility, but ignored) ----
 cat([no_module_tests | Args], X) ->
     cat(Args, X);
+cat([{extra_files, ExtraFiles} | Args], X) when is_list(ExtraFiles) ->
+    cat(Args, X);
+
 %%% ERROR --------------------------------------------------------------
 cat([Y | Args], X) ->
     cat(Args, X++[Y]).

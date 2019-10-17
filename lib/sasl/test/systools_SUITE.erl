@@ -1018,7 +1018,7 @@ additional_files_tar(Config) ->
     %% random file should not be in this tarball
     {error, _} = check_tar(fname(["releases","LATEST",RandomFile]), LatestName),
 
-    RandomFilePathInTar = filename:join("releases", "LATEST", RandomFile),
+    RandomFilePathInTar = filename:join(["releases", "LATEST", RandomFile]),
     {ok, _, []} = systools:make_tar(LatestName,
                                     [{path, P}, silent,
                                      {extra_files, [{RandomFile, RandomFilePathInTar}]}]),
