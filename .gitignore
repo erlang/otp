@@ -176,6 +176,7 @@ JAVADOC-GENERATED
 /lib/*/doc/man[0-9]/*.[0-9]
 /lib/*/doc/pdf/*.fo
 /lib/*/doc/pdf/*.pdf
+/lib/*/doc/src/*.fo
 /lib/*/doc/xml/*.xml
 
 /lib/config.log
@@ -271,6 +272,7 @@ JAVADOC-GENERATED
 /erts/doc/html/*.eix
 /erts/doc/pdf/*.fo
 /erts/doc/pdf/*.pdf
+/erts/doc/src/*.fo
 /erts/doc/xml/*.xml
 /erts/doc/man[0-9]/*.[0-9]
 /erts/doc/CONF_INFO
@@ -369,6 +371,7 @@ JAVADOC-GENERATED
 
 /system/doc/pdf
 /system/doc/html
+/system/doc/top/*.fo
 /system/doc/xml
 /system/doc/top/PR.template
 
