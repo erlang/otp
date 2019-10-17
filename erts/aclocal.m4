@@ -793,12 +793,11 @@ $trust_test
   LIBS="$save_LIBS"
 
   if test "$LD_MAY_BE_WEAK" != "no"; then
-     check_for_clock_getres=
+    AC_CHECK_FUNCS([clock_get_attributes gethrtime])
   else
-     check_for_clock_getres=clock_getres
+    AC_CHECK_FUNCS([clock_getres clock_get_attributes gethrtime])
   fi
 
-  AC_CHECK_FUNCS([$check_for_clock_getres clock_get_attributes gethrtime])
   
   AC_CACHE_CHECK([for mach clock_get_time() with monotonic clock type], erl_cv_mach_clock_get_time_monotonic,
   [
