@@ -155,7 +155,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	  handler callback itself, in a sub structure associated with
 	  the field named <c>config</c>. See
 	  the <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>
-	  and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>
+	  and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seealso>
 	  manual pages for information about the specifc configuration
 	  for these handlers.</p>
 	<p>See the <seealso marker="logger_formatter#type-config">
@@ -501,7 +501,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	  section <seealso marker="logger_chapter#filters">Filters</seealso>
 	  in the User's Guide for more information about filters.</p>
 	<p>Some built-in filters exist. These are defined in
-	  <seealso marker="logger_filters"><c>logger_filters</c></seealso>.</p>
+	  <seealso marker="logger_filters"><c>logger_filters(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -595,7 +595,7 @@ start(_, []) ->
 	    Filters</seealso> in the User's Guide for more information
 	    about filters.</p>
 	<p>Some built-in filters exist. These are defined
-	  in <seealso marker="logger_filters"><c>logger_filters</c></seealso>.</p>
+	  in <seealso marker="logger_filters"><c>logger_filters(3)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1104,7 +1104,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
         <p>Convert a log message on report form to <c>{Format,
 	  Args}</c>. This is the default report callback used
 	  by <seealso marker="logger_formatter">
-	    <c>logger_formatter</c></seealso> when no custom report
+	    <c>logger_formatter(3)</c></seealso> when no custom report
 	  callback is found. See
 	  section <seealso marker="logger_chapter#log_message">Log
 	    Message</seealso> in the Kernel User's Guide for
