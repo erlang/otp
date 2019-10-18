@@ -161,6 +161,18 @@ start(Config) when is_list(Config) ->
 	    ct:fail(not_stopped)
     end,
 
+    %% anonymous monitored
+    {ok, {Pid1b, Mon1b}} =
+	gen_server:start_monitor(gen_server_SUITE, [], []),
+    ok = gen_server:call(Pid1b, started_p),
+    ok = gen_server:call(Pid1b, stop),
+    receive
+	{'DOWN', Mon1b, process, Pid1b, stopped} ->
+	    ok
+    after 5000 ->
+	    ct:fail(not_stopped)
+    end,
+
     %% local register
     {ok, Pid2} =
 	gen_server:start({local, my_test_name},
@@ -191,6 +203,22 @@ start(Config) when is_list(Config) ->
 	    ct:fail(not_stopped)
     end,
 
+    %% local register monitored
+    {ok, {Pid3b, Mon3b}} =
+	gen_server:start_monitor({local, my_test_name},
+                                 gen_server_SUITE, [], []), 
+    ok = gen_server:call(my_test_name, started_p),
+    {error, {already_started, Pid3b}} =
+	gen_server:start_monitor({local, my_test_name},
+                                 gen_server_SUITE, [], []),
+    ok = gen_server:call(my_test_name, stop),
+    receive
+	{'DOWN', Mon3b, process, Pid3b, stopped} ->
+	    ok
+    after 5000 ->
+	    ct:fail(not_stopped)
+    end,
+
     %% global register
     {ok, Pid4} =
 	gen_server:start({global, my_test_name},
@@ -214,6 +242,22 @@ start(Config) when is_list(Config) ->
     ok = gen_server:call({global, my_test_name}, stop),
     receive
 	{'EXIT', Pid5, stopped} ->
+	    ok
+    after 5000 ->
+	    ct:fail(not_stopped)
+    end,
+
+    %% global register monitored
+    {ok, {Pid5b, Mon5b}} =
+	gen_server:start_monitor({global, my_test_name},
+                                 gen_server_SUITE, [], []), 
+    ok = gen_server:call({global, my_test_name}, started_p),
+    {error, {already_started, Pid5b}} =
+	gen_server:start_monitor({global, my_test_name},
+                                 gen_server_SUITE, [], []),
+    ok = gen_server:call({global, my_test_name}, stop),
+    receive
+	{'DOWN', Mon5b, process, Pid5b, stopped} ->
 	    ok
     after 5000 ->
 	    ct:fail(not_stopped)

@@ -31,9 +31,14 @@
 %%% Re-written by Joe with new functional interface !
 %%% Modified by Martin - uses proc_lib, sys and gen!
 
+%%%
+%%% NOTE: If init_ack() return values are modified, see comment
+%%%       above monitor_return() in gen.erl!
+%%%
 
 -export([start/0, start/1, start/2,
          start_link/0, start_link/1, start_link/2,
+         start_monitor/0, start_monitor/1, start_monitor/2,
          stop/1, stop/3,
 	 notify/2, sync_notify/2,
 	 add_handler/3, add_sup_handler/3, delete_handler/3, swap_handler/3,
@@ -128,11 +133,12 @@
                     | {'logfile', string()}.
 -type option() :: {'timeout', timeout()}
                 | {'debug', [debug_flag()]}
-                | {'spawn_opt', [proc_lib:spawn_option()]}
+                | {'spawn_opt', [proc_lib:start_spawn_option()]}
                 | {'hibernate_after', timeout()}.
 -type emgr_ref()  :: atom() | {atom(), atom()} |  {'global', term()}
                    | {'via', atom(), term()} | pid().
 -type start_ret() :: {'ok', pid()} | {'error', term()}.
+-type start_mon_ret() :: {'ok', {pid(),reference()}} | {'error', term()}.
 
 %%---------------------------------------------------------------------------
 
@@ -182,6 +188,20 @@ start_link(Options) when is_list(Options) ->
 -spec start_link(emgr_name(), [option()]) -> start_ret().
 start_link(Name, Options) ->
     gen:start(?MODULE, link, Name, ?NO_CALLBACK, [], Options).
+
+-spec start_monitor() -> start_mon_ret().
+start_monitor() ->
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], []).
+
+-spec start_monitor(emgr_name() | [option()]) -> start_mon_ret().
+start_monitor(Name) when is_tuple(Name) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], []);
+start_monitor(Options) when is_list(Options) ->
+    gen:start(?MODULE, monitor, ?NO_CALLBACK, [], Options).
+
+-spec start_monitor(emgr_name(), [option()]) -> start_mon_ret().
+start_monitor(Name, Options) ->
+    gen:start(?MODULE, monitor, Name, ?NO_CALLBACK, [], Options).
 
 %% -spec init_it(pid(), 'self' | pid(), emgr_name(), module(), [term()], [_]) -> 
 init_it(Starter, self, Name, Mod, Args, Options) ->

@@ -205,6 +205,37 @@
 	</seealso>.</p>
       </desc>
     </datatype>
+    <datatype>
+      <name name="spawn_opt_option"></name>
+      <desc>
+        <p>Options for <seealso marker="#spawn_opt/4"><c>spawn_opt()</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="priority_level"></name>
+      <desc>
+        <p>Process priority level. For more info see
+        <seealso marker="#process_flag_priority"><c>process_flag(priority,
+	Level)</c></seealso> </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="max_heap_size"></name>
+      <desc>
+        <p>Process max heap size configuration. For more info see
+        <seealso marker="#process_flag_max_heap_size"><c>process_flag(max_heap_size,
+	MaxHeapSize)</c></seealso> </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="message_queue_data"></name>
+      <desc>
+        <p>Process message queue data configuration. For more info see
+        <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
+	MQD)</c></seealso> </p>
+      </desc>
+    </datatype>
+    
 
   </datatypes>
 

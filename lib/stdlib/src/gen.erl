@@ -38,7 +38,7 @@
 
 %%-----------------------------------------------------------------
 
--type linkage()    :: 'link' | 'nolink'.
+-type linkage()    :: 'monitor' | 'link' | 'nolink'.
 -type emgr_name()  :: {'local', atom()}
                     | {'global', term()}
                     | {'via', Module :: module(), Name :: term()}.
@@ -95,6 +95,13 @@ do_spawn(GenMod, link, Mod, Args, Options) ->
 			[GenMod, self(), self(), Mod, Args, Options], 
 			Time,
 			spawn_opts(Options));
+do_spawn(GenMod, monitor, Mod, Args, Options) ->
+    Time = timeout(Options),
+    Ret = proc_lib:start_monitor(?MODULE, init_it,
+                                 [GenMod, self(), self(), Mod, Args, Options], 
+                                 Time,
+                                 spawn_opts(Options)),
+    monitor_return(Ret);
 do_spawn(GenMod, _, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
@@ -108,12 +115,39 @@ do_spawn(GenMod, link, Name, Mod, Args, Options) ->
 			[GenMod, self(), self(), Name, Mod, Args, Options],
 			Time,
 			spawn_opts(Options));
+do_spawn(GenMod, monitor, Name, Mod, Args, Options) ->
+    Time = timeout(Options),
+    Ret = proc_lib:start_monitor(?MODULE, init_it,
+                                 [GenMod, self(), self(), Name, Mod, Args, Options],
+                                 Time,
+                                 spawn_opts(Options)),
+    monitor_return(Ret);
 do_spawn(GenMod, _, Name, Mod, Args, Options) ->
     Time = timeout(Options),
     proc_lib:start(?MODULE, init_it,
 		   [GenMod, self(), self, Name, Mod, Args, Options], 
 		   Time,
 		   spawn_opts(Options)).
+
+
+%%
+%% Adjust monitor returns for OTP gen behaviours...
+%%
+%% If an OTP behaviour is introduced that 'init_ack's
+%% other results, this has code has to be moved out
+%% into all behaviours as well as adjusted...
+%%
+monitor_return({{ok, Pid}, Mon}) when is_pid(Pid), is_reference(Mon) ->
+    %% Successful start_monitor()...
+    {ok, {Pid, Mon}};
+monitor_return({Error, Mon}) when is_reference(Mon) ->
+    %% Failure; wait for spawned process to terminate
+    %% and release resources, then return the error...
+    receive
+        {'DOWN', Mon, process, _Pid, _Reason} ->
+            ok
+    end,
+    Error.
 
 %%-----------------------------------------------------------------
 %% Initiate the new process.

@@ -50,6 +50,7 @@
 gen_event module                   Callback module
 ----------------                   ---------------
 gen_event:start
+gen_event:start_monitor
 gen_event:start_link       ----->  -
 
 gen_event:add_handler
@@ -432,6 +433,40 @@ gen_event:stop             ----->  Module:terminate/2
           <c>EventMgrName</c> exists already, the function returns
           <c>{error,{already_started,Pid}}</c>, where <c>Pid</c> is
           the pid of that process.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-16120@">start_monitor() -> Result</name>
+      <name since="OTP @OTP-16120@">start_monitor(EventMgrName | Options) -> Result</name>
+      <name since="OTP @OTP-16120@">start_monitor(EventMgrName, Options) -> Result</name>
+      <fsummary>Create a stand-alone event manager process.</fsummary>
+      <type>
+        <v>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</v>
+        <v>&nbsp;Name = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;SOpts = [term()]</v>
+        <v>Result = {ok,{Pid,Mon}} | {error,{already_started,Pid}}</v>
+        <v>&nbsp;Pid = pid()</v>
+      </type>
+      <desc>
+        <p>Creates a stand-alone event manager process, that is, an event
+          manager that is not part of a supervision tree (and thus has
+          no supervisor) and atomically sets up a monitor to
+	  the newly created process.</p>
+        <p>For a description of the arguments and return values, see
+          <seealso marker="#start_link/0"><c>start_link/0,1</c></seealso>.
+	Note that the return value on successful start differs from
+	<c>start_link/3,4</c>. <c>start_monitor/3,4</c> will return
+	<c>{ok,{Pid,Mon}}</c> where <c>Pid</c> is the process identifier
+	of the process, and <c>Mon</c> is a reference to the monitor
+	set up to monitor the process. If the start is not successful,
+	the caller will be blocked until the <c>DOWN</c> message has
+	been received and removed from the message queue.</p>
       </desc>
     </func>
 

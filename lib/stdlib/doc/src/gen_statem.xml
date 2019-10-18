@@ -135,6 +135,7 @@
 gen_statem module            Callback module
 -----------------            ---------------
 gen_statem:start
+gen_statem:start_monitor
 gen_statem:start_link -----> Module:init/1
 
 Server start or code change
@@ -293,7 +294,8 @@ erlang:'!'            -----> Module:StateName/3
 	<c>{hibernate_after, Timeout}</c>
       </seealso>
       for
-      <seealso marker="#start/3"><c>start/3,4</c></seealso> or
+      <seealso marker="#start/3"><c>start/3,4</c></seealso>,
+      <seealso marker="#start_monitor/3"><c>start_monitor/3,4</c></seealso>, or
       <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>
       that may be used to automatically hibernate the server.
     </p>
@@ -526,8 +528,18 @@ handle_event(_, _, State, Data) ->
       <name name="start_ret"/>
       <desc>
 	<p>
-	  Return value from the start functions, for example,
-	  <seealso marker="#start_link/3"><c>start_link/3</c></seealso>.
+	  Return value from the <c>start()</c> and <c>start_link()</c> functions,
+	  for example, <seealso marker="#start_link/3"><c>start_link/3</c></seealso>.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="start_mon_ret"/>
+      <desc>
+	<p>
+	  Return value from the
+	  <seealso marker="#start_monitor/3"><c>start_monitor()</c></seealso>
+	  functions.
 	</p>
       </desc>
     </datatype>
@@ -1553,16 +1565,16 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  <c><anno>Module</anno></c>, <c><anno>Opts</anno></c>
 	  have the same meaning as when calling
-	  <seealso marker="#start_link/3"><c>start[_link]/3,4</c></seealso>.
+	  <seealso marker="#start_link/3"><c>start[_link|_monitor]/3,4</c></seealso>.
 	</p>
 	<p>
 	  If <c><anno>Server</anno></c> is <c>self()</c> an anonymous
 	  server is created just as when using 
-	  <seealso marker="#start_link/3"><c>start[_link]/3</c></seealso>.
+	  <seealso marker="#start_link/3"><c>start[_link|_monitor]/3</c></seealso>.
 	  If <c><anno>Server</anno></c> is a
 	  <seealso marker="#type-server_name"><c>server_name()</c></seealso>
 	  a named server is created just as when using
-	  <seealso marker="#start_link/4"><c>start[_link]/4</c></seealso>.
+	  <seealso marker="#start_link/4"><c>start[_link|_monitor]/4</c></seealso>.
 	  However, the
 	  <seealso marker="#type-server_name"><c>server_name()</c></seealso>
 	  name must have been registered accordingly
@@ -1745,6 +1757,35 @@ handle_event(_, _, State, Data) ->
 	  or
 	  <seealso marker="#type-start_ret"><c>ignore</c></seealso>,
 	  respectively.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start_monitor" arity="3" since="OTP @OTP-16120@"/>
+      <name name="start_monitor" arity="4" since="OTP @OTP-16120@"/>
+      <fsummary>Create a standalone <c>gen_statem</c> process.</fsummary>
+      <desc>
+        <p>
+	  Creates a standalone <c>gen_statem</c> process according to
+	  OTP design principles (using
+	  <seealso marker="proc_lib"><c>proc_lib</c></seealso>
+	  primitives) and atomically sets up a monitor to
+	  the newly created process.
+	  As it does not get linked to the calling process,
+	  this start function cannot be used by a supervisor
+	  to start a child.
+	</p>
+	<p>
+	  For a description of arguments and return values, see
+	  <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>.
+	  Note that the return value on successful start differs from
+	  <c>start_link/3,4</c>. <c>start_monitor/3,4</c> will return
+	  <c>{ok,{Pid,Mon}}</c> where <c>Pid</c> is the process identifier
+	  of the process, and <c>Mon</c> is a reference to the monitor
+	  set up to monitor the process. If the start is not successful,
+	  the caller will be blocked until the <c>DOWN</c> message has
+	  been received and removed from the message queue.
 	</p>
       </desc>
     </func>
@@ -1962,7 +2003,8 @@ handle_event(_, _, State, Data) ->
 	<marker id="Module:init-1"/>
 	<p>
 	  Whenever a <c>gen_statem</c> is started using
-	  <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>
+	  <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>,
+	  <seealso marker="#start_monitor/3"><c>start_monitor/3,4</c></seealso>,
 	  or
 	  <seealso marker="#start/3"><c>start/3,4</c></seealso>,
 	  this function is called by the new process to initialize

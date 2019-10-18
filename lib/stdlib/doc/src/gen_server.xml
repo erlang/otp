@@ -48,6 +48,7 @@
 gen_server module            Callback module
 -----------------            ---------------
 gen_server:start
+gen_server:start_monitor
 gen_server:start_link -----> Module:init/1
 
 gen_server:stop       -----> Module:terminate/2
@@ -232,7 +233,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           is needed than the <c>gen_server</c> process behavior provides.</p>
         <p><c>Module</c>, <c>Options</c>, and <c>ServerName</c> have
           the same meanings as when calling
-          <seealso marker="#start_link/3"><c>start[_link]/3,4</c></seealso>.
+          <seealso marker="#start_link/3"><c>start[_link|_monitor]/3,4</c></seealso>.
           However, if <c>ServerName</c> is specified, the process must
           have been registered accordingly <em>before</em> this function
           is called.</p>
@@ -462,6 +463,43 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>Module:init/1</c> returns <c>{stop,Reason}</c> or
           <c>ignore</c>, the process is terminated and the function
           returns <c>{error,Reason}</c> or <c>ignore</c>, respectively.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP @OTP-16120@">start_monitor(Module, Args, Options) -> Result</name>
+      <name since="OTP @OTP-16120@">start_monitor(ServerName, Module, Args, Options) -> Result</name>
+      <fsummary>Create a standalone <c>gen_server</c> process.</fsummary>
+      <type>
+        <v>ServerName = {local,Name} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName}</v>
+        <v>&nbsp;Name = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>Module = atom()</v>
+        <v>Args = term()</v>
+        <v>Options = [Option]</v>
+        <v>&nbsp;Option = {debug,Dbgs} | {timeout,Time} | {hibernate_after,HibernateAfterTimeout} | {spawn_opt,SOpts}</v>
+        <v>&nbsp;&nbsp;Dbgs = [Dbg]</v>
+        <v>&nbsp;&nbsp;&nbsp;Dbg = trace | log | statistics | {log_to_file,FileName} | {install,{Func,FuncState}}</v>
+        <v>&nbsp;&nbsp;SOpts = [term()]</v>
+        <v>Result = {ok,{Pid,Mon}} | ignore | {error,Error}</v>
+        <v>&nbsp;Pid = pid()</v>
+        <v>&nbsp;Error = {already_started,Pid} | term()</v>
+      </type>
+      <desc>
+        <p>Creates a standalone <c>gen_server</c> process, that is, a
+          <c>gen_server</c> process that is not part of a supervision tree
+          (and thus has no supervisor) and atomically sets up a monitor to
+	  the newly created server.</p>
+        <p>For a description of arguments and return values, see
+        <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>.
+	Note that the return value on successful start differs from
+	<c>start_link/3,4</c>. <c>start_monitor/3,4</c> will return
+	<c>{ok,{Pid,Mon}}</c> where <c>Pid</c> is the process identifier
+	of the server, and <c>Mon</c> is a reference to the monitor
+	set up to monitor the server. If the start is not successful,
+	the caller will be blocked until the <c>DOWN</c> message has
+	been received and removed from the message queue.</p>
       </desc>
     </func>
 
@@ -782,8 +820,9 @@ gen_server:abcast     -----> Module:handle_cast/2
       </type>
       <desc>
         <p>Whenever a <c>gen_server</c> process is started using
-          <seealso marker="#start/3"><c>start/3,4</c></seealso> or
-          <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>,
+          <seealso marker="#start/3"><c>start/3,4</c></seealso>,
+          <seealso marker="#start_monitor/3"><c>start_monitor/3,4</c></seealso>,
+          or <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>,
           this function is called by the new process to initialize.</p>
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
           function.</p>

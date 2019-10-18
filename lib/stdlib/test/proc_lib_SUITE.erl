@@ -27,8 +27,12 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 crash/1, stacktrace/1, sync_start_nolink/1, sync_start_link/1,
-         spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1, '\x{447}'/0,
-	 hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
+         sync_start_monitor/1, sync_start_monitor_link/1,
+         sync_start_timeout/1, sync_start_link_timeout/1,
+         sync_start_monitor_link_timeout/1,
+         spawn_opt/1, sp1/0, sp2/0, sp3/1, sp4/2, sp5/1, sp6/1, sp7/1,
+         sp8/1, sp9/1, sp10/1,
+         '\x{447}'/0, hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
 -export([hib_loop/1, awaken/1]).
@@ -55,7 +59,10 @@ all() ->
 
 groups() -> 
     [{tickets, [], [otp_6345, init_dont_hang]},
-     {sync_start, [], [sync_start_nolink, sync_start_link]}].
+     {sync_start, [], [sync_start_nolink, sync_start_link,
+                       sync_start_monitor, sync_start_monitor_link,
+                       sync_start_timeout, sync_start_link_timeout,
+                       sync_start_monitor_link_timeout]}].
 
 init_per_suite(Config) ->
     Config.
@@ -275,6 +282,84 @@ sync_start_link(Config) when is_list(Config) ->
     end,
     ok.
 
+sync_start_monitor(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp6, [self()]),
+    receive
+	{sync_started, _} -> ct:fail(async_start)
+    after 1000 -> ok
+    end,
+    receive
+	{Pid2, init} ->
+	    Pid2 ! go_on
+    end,
+    receive
+	{sync_started, _} -> ok
+    after 1000 -> ct:fail(no_sync_start)
+    end,
+    receive received_down -> ok
+    after 2000 -> ct:fail(no_down)
+    end,
+    ok.
+
+sync_start_monitor_link(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp7, [self()]),
+    receive
+	{sync_started, _} -> ct:fail(async_start)
+    after 1000 -> ok
+    end,
+    receive
+	{Pid2, init} ->
+	    Pid2 ! go_on
+    end,
+    receive
+	{sync_started, _} -> ok
+    after 1000 -> ct:fail(no_sync_start)
+    end,
+    receive received_down -> ok
+    after 1000 -> ct:fail(no_down)
+    end,
+    receive received_exit -> ok
+    after 1000 -> ct:fail(no_exit)
+    end,
+    ok.
+
+sync_start_timeout(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp8, [self()]),
+    receive done -> ok end,
+    receive {received_exit, _} = M1 -> ct:fail(M1)
+    after 0 -> ok
+    end,
+    receive {received_down, _} = M2 -> ct:fail(M2)
+    after 0 -> ok
+    end,
+    ok.
+
+sync_start_link_timeout(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp9, [self()]),
+    receive done -> ok end,
+    receive {received_exit, _} = M1 -> ct:fail(M1)
+    after 0 -> ok
+    end,
+    receive {received_down, _} = M2 -> ct:fail(M2)
+    after 0 -> ok
+    end,
+    ok.
+    
+sync_start_monitor_link_timeout(Config) when is_list(Config) ->
+    _Pid = spawn_link(?MODULE, sp10, [self()]),
+    receive done -> ok end,
+    receive {received_exit, _} = M1 -> ct:fail(M1)
+    after 0 -> ok
+    end,
+    receive
+        {received_down, R} ->
+            killed = R,
+            ok
+    after 0 -> ct:fail(no_down)
+    end,
+    ok.
+    
+
 spawn_opt(Config) when is_list(Config) ->
     F = fun sp1/0,
     {name,Fname} = erlang:fun_info(F, name),
@@ -312,6 +397,89 @@ sp3(Tester) ->
 sp5(Tester) ->
     Pid = proc_lib:start(?MODULE, sp4, [self(), Tester]),
     Tester ! {sync_started, Pid}.
+
+sp6(Tester) ->
+    process_flag(trap_exit, true),
+    {Pid, Mon} = proc_lib:start_monitor(?MODULE, sp4, [self(), Tester]),
+    Tester ! {sync_started, Pid},
+    receive
+        {'EXIT', Pid, normal} ->
+            exit(received_exit)
+    after 1000 ->
+            ok
+    end,
+    receive
+        {'DOWN', Mon, process, Pid, normal} ->
+            Tester ! received_down
+    end.
+
+sp7(Tester) ->
+    process_flag(trap_exit, true),
+    {Pid, Mon} = proc_lib:start_monitor(?MODULE, sp4, [self(), Tester], infinity, [link]),
+    Tester ! {sync_started, Pid},
+    receive
+        {'EXIT', Pid, normal} ->
+            Tester ! received_exit
+    end,
+    receive
+        {'DOWN', Mon, process, Pid, normal} ->
+            Tester ! received_down
+    end.
+
+sp8(Tester) ->
+    process_flag(trap_exit, true),
+    {error,timeout} = proc_lib:start(?MODULE, sp4, [self(), Tester], 500, [link]),
+    receive after 500 -> ok end,
+    receive
+        {'EXIT', _Pid1, Reason1} ->
+            Tester ! {received_exit, Reason1}
+    after 0 ->
+            ok
+    end,
+    receive
+        {'DOWN', _Mon2, process, _Pid2, Reason2} ->
+            Tester ! {received_down, Reason2}
+    after 0 ->
+            ok
+    end,
+    Tester ! done.
+
+sp9(Tester) ->
+    process_flag(trap_exit, true),
+    {error,timeout} = proc_lib:start_link(?MODULE, sp4, [self(), Tester], 500),
+    receive after 500 -> ok end,
+    receive
+        {'EXIT', _Pid1, Reason1} ->
+            Tester ! {received_exit, Reason1}
+    after 0 ->
+            ok
+    end,
+    receive
+        {'DOWN', _Mon, process, _Pid2, Reason2} ->
+            Tester ! {received_down, Reason2}
+    after 0 ->
+            ok
+    end,
+    Tester ! done.
+    
+
+sp10(Tester) ->
+    process_flag(trap_exit, true),
+    {{error,timeout}, Mon} = proc_lib:start_monitor(?MODULE, sp4, [self(), Tester], 500, [link]),
+    receive after 500 -> ok end,
+    receive
+        {'EXIT', _Pid1, Reason1} ->
+            Tester ! {received_exit, Reason1}
+    after 0 ->
+            ok
+    end,
+    receive
+        {'DOWN', Mon, process, _Pid2, Reason2} ->
+            Tester ! {received_down, Reason2}
+    after 0 ->
+            ok
+    end,
+    Tester ! done.
 
 sp4(Parent, Tester) ->
     Tester ! {self(), init},
@@ -421,10 +589,12 @@ hib_receive_messages(N) ->
 %% 'monitor' spawn_opt option.
 otp_6345(Config) when is_list(Config) ->
     Opts = [link,monitor],
-    {'EXIT', {badarg,[{proc_lib,check_for_monitor,_,_}|_Stack]}} =
-	(catch proc_lib:start(?MODULE, otp_6345_init, [self()],
-			      1000, Opts)),
-    ok.
+    try
+        blupp = proc_lib:start(?MODULE, otp_6345_init, [self()],
+                               1000, Opts)
+    catch
+        error:badarg -> ok
+    end.
 
 otp_6345_init(Parent) ->
     proc_lib:init_ack(Parent, {ok, self()}),

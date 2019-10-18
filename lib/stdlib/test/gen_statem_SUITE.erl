@@ -130,8 +130,18 @@ start1(Config) ->
 %%	?EXPECT_FAILURE(gen_statem:call(Pid0, hej), Reason),
 
     %%process_flag(trap_exit, OldFl),
-    ok = verify_empty_msgq().
+    ok = verify_empty_msgq(),
 
+    {ok,{Pid1,Mon1}} = gen_statem:start_monitor(?MODULE, start_arg(Config, []), []),
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    stop_it(Pid1),
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
+    ok = verify_empty_msgq().
+    
 %% anonymous w. shutdown
 start2(Config) ->
     %% Dont link when shutdown
@@ -186,7 +196,7 @@ start6(Config) ->
 
     ok = verify_empty_msgq().
 
-%% global register linked
+%% global register linked & monitored
 start7(Config) ->
     STM = {global,my_stm},
 
@@ -196,12 +206,36 @@ start7(Config) ->
 	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
     {error,{already_started,Pid}} =
 	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
 
     ok = do_func_test(Pid),
     ok = do_sync_func_test(Pid),
     ok = do_func_test(STM),
     ok = do_sync_func_test(STM),
     stop_it(STM),
+
+    ok = verify_empty_msgq(),
+
+    {ok,{Pid1,Mon1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_link(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    ok = do_func_test(STM),
+    ok = do_sync_func_test(STM),
+    stop_it(STM),
+
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
 
     ok = verify_empty_msgq().
 
@@ -226,7 +260,7 @@ start8(Config) ->
     %%process_flag(trap_exit, OldFl),
     ok = verify_empty_msgq().
 
-%% local register linked
+%% local register linked & monitored
 start9(Config) ->
     %%OldFl = process_flag(trap_exit, true),
     Name = my_stm,
@@ -244,6 +278,24 @@ start9(Config) ->
     stop_it(Pid),
 
     %%process_flag(trap_exit, OldFl),
+    ok = verify_empty_msgq(),
+
+    {ok,{Pid1,Mon1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+    {error,{already_started,Pid1}} =
+	gen_statem:start_monitor(STM, ?MODULE, start_arg(Config, []), []),
+
+    ok = do_func_test(Pid1),
+    ok = do_sync_func_test(Pid1),
+    ok = do_func_test(Name),
+    ok = do_sync_func_test(Name),
+    stop_it(Pid1),
+
+    receive
+        {'DOWN', Mon1, process, Pid1, _Reason} ->
+            ok
+    end,
+
     ok = verify_empty_msgq().
 
 %% global register

@@ -19,6 +19,11 @@
 %%
 -module(gen_server).
 
+%%%
+%%% NOTE: If init_ack() return values are modified, see comment
+%%%       above monitor_return() in gen.erl!
+%%%
+
 %%% ---------------------------------------------------
 %%%
 %%% The idea behind THIS server is that the user module
@@ -89,6 +94,7 @@
 %% API
 -export([start/3, start/4,
 	 start_link/3, start_link/4,
+         start_monitor/3, start_monitor/4,
 	 stop/1, stop/3,
 	 call/2, call/3,
 	 cast/2, reply/2,
@@ -187,6 +193,12 @@ start_link(Mod, Args, Options) ->
 
 start_link(Name, Mod, Args, Options) ->
     gen:start(?MODULE, link, Name, Mod, Args, Options).
+
+start_monitor(Mod, Args, Options) ->
+    gen:start(?MODULE, monitor, Mod, Args, Options).
+
+start_monitor(Name, Mod, Args, Options) ->
+    gen:start(?MODULE, monitor, Name, Mod, Args, Options).
 
 
 %% -----------------------------------------------------------------

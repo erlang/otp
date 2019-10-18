@@ -112,6 +112,11 @@ start(Config) when is_list(Config) ->
     [] = gen_event:which_handlers(Pid1),
     ok = gen_event:stop(Pid1),
 
+    {ok, {Pid1b,Mon1b}} = gen_event:start_monitor(), %anonymous
+    [] = gen_event:which_handlers(Pid1b),
+    ok = gen_event:stop(Pid1b),
+    receive {'DOWN',Mon1b,process,Pid1b,_} -> ok end,
+
     {ok, Pid2} = gen_event:start(?LMGR),
     [] = gen_event:which_handlers(my_dummy_name),
     [] = gen_event:which_handlers(Pid2),
@@ -122,20 +127,44 @@ start(Config) when is_list(Config) ->
     [] = gen_event:which_handlers(Pid3),
     ok = gen_event:stop(my_dummy_name),
 
+    {ok, {Pid3b,Mon3b}} = gen_event:start_monitor(?LMGR),
+    [] = gen_event:which_handlers(my_dummy_name),
+    [] = gen_event:which_handlers(Pid3b),
+    ok = gen_event:stop(my_dummy_name),
+    receive {'DOWN',Mon3b,process,Pid3b,_} -> ok end,
+
     {ok, Pid4} = gen_event:start_link(?GMGR),
     [] = gen_event:which_handlers(?GMGR),
     [] = gen_event:which_handlers(Pid4),
     ok = gen_event:stop(?GMGR),
+
+    {ok, {Pid4b,Mon4b}} = gen_event:start_monitor(?GMGR),
+    [] = gen_event:which_handlers(?GMGR),
+    [] = gen_event:which_handlers(Pid4b),
+    ok = gen_event:stop(?GMGR),
+    receive {'DOWN',Mon4b,process,Pid4b,_} -> ok end,
 
     {ok, Pid5} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
     [] = gen_event:which_handlers(Pid5),
     ok = gen_event:stop({via, dummy_via, my_dummy_name}),
 
+    {ok, {Pid5b,Mon5b}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    [] = gen_event:which_handlers({via, dummy_via, my_dummy_name}),
+    [] = gen_event:which_handlers(Pid5b),
+    ok = gen_event:stop({via, dummy_via, my_dummy_name}),
+    receive {'DOWN',Mon5b,process,Pid5b,_} -> ok end,
+
     {ok, _} = gen_event:start_link(?LMGR),
     {error, {already_started, _}} = gen_event:start_link(?LMGR),
     {error, {already_started, _}} = gen_event:start(?LMGR),
     ok = gen_event:stop(my_dummy_name),
+
+    {ok, {Pid5c,Mon5c}} = gen_event:start_monitor(?LMGR),
+    {error, {already_started, Pid5c}} = gen_event:start_monitor(?LMGR),
+    {error, {already_started, Pid5c}} = gen_event:start(?LMGR),
+    ok = gen_event:stop(my_dummy_name),
+    receive {'DOWN',Mon5c,process,Pid5c,_} -> ok end,
 
     {ok, Pid6} = gen_event:start_link(?GMGR),
     {error, {already_started, _}} = gen_event:start_link(?GMGR),
@@ -148,6 +177,17 @@ start(Config) when is_list(Config) ->
 	    ct:fail(exit_gen_event)
     end,
 
+    {ok, {Pid6b,Mon6b}} = gen_event:start_monitor(?GMGR),
+    {error, {already_started, _}} = gen_event:start_monitor(?GMGR),
+    {error, {already_started, _}} = gen_event:start(?GMGR),
+
+    ok = gen_event:stop(?GMGR, shutdown, 10000),
+    receive
+	{'DOWN', Mon6b, process, Pid6b, shutdown} -> ok
+    after 10000 ->
+	    ct:fail(exit_gen_event)
+    end,
+
     {ok, Pid7} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     {error, {already_started, _}} = gen_event:start_link({via, dummy_via, my_dummy_name}),
     {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}),
@@ -155,6 +195,17 @@ start(Config) when is_list(Config) ->
     exit(Pid7, shutdown),
     receive
 	{'EXIT', Pid7, shutdown} -> ok
+    after 10000 ->
+	    ct:fail(exit_gen_event)
+    end,
+
+    {ok, {Pid7b,Mon7b}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start_monitor({via, dummy_via, my_dummy_name}),
+    {error, {already_started, _}} = gen_event:start({via, dummy_via, my_dummy_name}),
+
+    exit(Pid7b, shutdown),
+    receive
+	{'DOWN', Mon7b, process, Pid7b, shutdown} -> ok
     after 10000 ->
 	    ct:fail(exit_gen_event)
     end,

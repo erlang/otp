@@ -62,6 +62,10 @@
 -export_type([timestamp/0]).
 -export_type([time_unit/0]).
 -export_type([deprecated_time_unit/0]).
+-export_type([spawn_opt_option/0]).
+-export_type([priority_level/0]).
+-export_type([max_heap_size/0]).
+-export_type([message_queue_data/0]).
 
 -type ext_binary() :: binary().
 -type timestamp() :: {MegaSecs :: non_neg_integer(),
@@ -2396,12 +2400,8 @@ setelement(_Index, _Tuple1, _Value) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {max_heap_size, Size :: max_heap_size()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
+      Option :: spawn_opt_option().
+
 spawn_opt(_Tuple) ->
    erlang:nif_error(undefined).
 

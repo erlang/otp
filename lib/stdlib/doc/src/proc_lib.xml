@@ -86,13 +86,11 @@
       </desc>
     </datatype>
     <datatype>
-      <name name="priority_level"/>
-    </datatype>
-    <datatype>
-      <name name="max_heap_size"/>
+      <name name="start_spawn_option"/>
       <desc>
-        <p>See <seealso marker="erts:erlang#process_flag_max_heap_size">
-          erlang:process_flag(max_heap_size, MaxHeapSize)</seealso>.</p>
+        <p>A restricted set of <seealso marker="#type-spawn_option">spawn
+	options</seealso>. Most notably <c>monitor</c> is <em>not</em> part
+	of these options.</p>
       </desc>
     </datatype>
     <datatype>
@@ -295,13 +293,8 @@ init(Parent) ->
       <desc>
         <p>Spawns a new process and initializes it as described in the
           beginning of this manual page. The process is spawned using the
-          <seealso marker="erts:erlang#spawn_opt/2"><c>spawn_opt</c></seealso>
+          <seealso marker="erts:erlang#spawn_opt/2"><c>erlang:spawn_opt</c></seealso>
           BIFs.</p>
-        <note>
-          <p>Using spawn option <c>monitor</c> is not
-            allowed. It causes the function to fail with reason
-            <c>badarg</c>.</p>
-        </note>
       </desc>
     </func>
 
@@ -309,9 +302,6 @@ init(Parent) ->
       <name name="start" arity="3" since=""/>
       <name name="start" arity="4" since=""/>
       <name name="start" arity="5" since=""/>
-      <name name="start_link" arity="3" since=""/>
-      <name name="start_link" arity="4" since=""/>
-      <name name="start_link" arity="5" since=""/>
       <fsummary>Start a new process synchronously.</fsummary>
       <desc>
         <p>Starts a new process synchronously. Spawns the process and
@@ -321,14 +311,84 @@ init(Parent) ->
           or <seealso marker="#init_ack/1"><c>init_ack(Ret)</c></seealso>,
           where <c>Parent</c> is the process that evaluates this
           function. At this time, <c>Ret</c> is returned.</p>
-        <p>If function <c>start_link/3,4,5</c> is used and
-          the process crashes before it has called <c>init_ack/1,2</c>,
-          <c>{error, <anno>Reason</anno>}</c> is returned if the calling
-          process traps exits.</p>
         <p>If <c><anno>Time</anno></c> is specified as an integer, this
           function waits for <c><anno>Time</anno></c> milliseconds for the
-          new process to call <c>init_ack</c>, or <c>{error, timeout}</c> is
-          returned, and the process is killed.</p>
+          new process to call <c>init_ack</c>, or <c>Ret = {error, timeout}</c>
+	  will be returned, and the process is killed.</p>
+        <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
+          as the last argument to the <seealso marker="erts:erlang#spawn_opt/2">
+          <c>spawn_opt/2,3,4,5</c></seealso> BIF.</p>
+        <note>
+          <p>Using spawn option <c>monitor</c> is not
+            allowed. It causes the function to fail with reason
+            <c>badarg</c>.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start_link" arity="3" since=""/>
+      <name name="start_link" arity="4" since=""/>
+      <name name="start_link" arity="5" since=""/>
+      <fsummary>Start a new process synchronously.</fsummary>
+      <desc>
+        <p>
+	  Starts a new process synchronously. Spawns the process and
+          waits for it to start. A link is atomically set on the
+	  newly spawned process. When the process has started, it
+          <em>must</em> call
+          <seealso marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seealso>
+          or <seealso marker="#init_ack/1"><c>init_ack(Ret)</c></seealso>,
+          where <c>Parent</c> is the process that evaluates this
+          function. At this time, <c>Ret</c> is returned.</p>
+        <p>If <c><anno>Time</anno></c> is specified as an integer, this
+          function waits for <c><anno>Time</anno></c> milliseconds for the
+          new process to call <c>init_ack</c>, or <c>Ret = {error, timeout}</c>
+	  will be returned, and the process is killed.</p>
+        <p>If the process crashes before it has called <c>init_ack/1,2</c>,
+          <c>Ret = {error, <anno>Reason</anno>}</c> will be returned if
+	  the calling process traps exits.</p>
+        <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
+          as the last argument to the <seealso marker="erts:erlang#spawn_opt/2">
+          <c>spawn_opt/2,3,4,5</c></seealso> BIF.</p>
+        <note>
+          <p>Using spawn option <c>monitor</c> is not
+            allowed. It causes the function to fail with reason
+            <c>badarg</c>.</p>
+        </note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start_monitor" arity="3" since="OTP @OTP-16120@"/>
+      <name name="start_monitor" arity="4" since="OTP @OTP-16120@"/>
+      <name name="start_monitor" arity="5" since="OTP @OTP-16120@"/>
+      <fsummary>Start a new process synchronously.</fsummary>
+      <desc>
+        <p>
+	  Starts a new process synchronously. Spawns the process and
+          waits for it to start. A monitor is atomically set on the
+	  newly spawned process. When the process has started, it
+          <em>must</em> call
+          <seealso marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seealso>
+          or <seealso marker="#init_ack/1"><c>init_ack(Ret)</c></seealso>,
+          where <c>Parent</c> is the process that evaluates this
+          function. At this time, <c>Ret</c> is returned.</p>
+        <p>If <c><anno>Time</anno></c> is specified as an integer, this
+          function waits for <c><anno>Time</anno></c> milliseconds for the
+          new process to call <c>init_ack</c>, or <c>Ret = {error, timeout}</c>
+	  will be returned, and the process is killed.</p>
+	<p>
+	  The return value is <c>{Ret, Mon}</c> where <c>Ret</c> corresponds
+	  to the <c>Ret</c> argument in the call to <c>init_ack()</c>, and
+	  <c>Mon</c> is the monitor reference of the monitor that has been
+	  set up.
+	</p>
+	<p>
+	  A <c>'DOWN'</c> message will be delivered to the caller if
+	  this function returns, and the spawned process terminates. This is
+	  true also in the case when the operation times out.
+	</p>
         <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
           as the last argument to the <seealso marker="erts:erlang#spawn_opt/2">
           <c>spawn_opt/2,3,4,5</c></seealso> BIF.</p>
