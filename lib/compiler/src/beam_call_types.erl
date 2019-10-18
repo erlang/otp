@@ -119,8 +119,6 @@ types(erlang, 'hd', [_]) ->
     sub_safe(any, [cons]);
 types(erlang, 'tl', [_]) ->
     sub_safe(any, [cons]);
-types(erlang, 'length', [_]) ->
-    sub_safe(#t_integer{}, [list]);
 types(erlang, 'not', [_]) ->
     Bool = beam_types:make_boolean(),
     sub_safe(Bool, [Bool]);
@@ -184,6 +182,10 @@ types(erlang, '++', [LHS,RHS]) ->
     sub_unsafe(RetType, [list, any]);
 types(erlang, '--', [_,_]) ->
     sub_unsafe(list, [list, list]);
+types(erlang, 'length', [_]) ->
+    %% This may fail when the input is an improper list; it'll be
+    %% subtraction-safe when those are supported.
+    sub_unsafe(#t_integer{}, [list]);
 
 %% Misc ops.
 types(erlang, 'binary_part', [_, _]) ->
