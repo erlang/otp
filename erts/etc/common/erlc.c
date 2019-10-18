@@ -678,7 +678,7 @@ call_compile_server(char** argv)
     sprintf(node_name, "erlc_client_%s_%d", user, getpid());
 #endif
 
-    if (ei_connect_init(&ec, node_name, NULL, creation) < 0) {
+    if (ei_connect_init(&ec, node_name, "erlc_compile_server_cookie", creation) < 0) {
         /*
          * There is probably no .erlang.cookie file.
          */
@@ -945,6 +945,7 @@ start_compile_server(char* node_name, char** argv)
     }
     PUSH2("-boot", "no_dot_erlang");
     PUSH2("-sname", node_name);
+    PUSH2("-setcookie", "erlc_compile_server_cookie");
     PUSH("-hidden");
     PUSH("-detached");
     PUSH3("-kernel", "start_compile_server", "true");
