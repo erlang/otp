@@ -333,7 +333,7 @@ format_error({bad_return,Pass,Reason}) ->
 format_error({module_name,Mod,Filename}) ->
     io_lib:format("Module name '~s' does not match file name '~ts'", [Mod,Filename]);
 format_error(reparsing_invalid_unicode) ->
-    "Non-UTF-8 character(s) detected, but no encoding declared. Encode the file in UTF-8 or add \"%% coding: latin-1\" at the beginning of the file. Retrying with latin-1 encoding.".
+    "Non-UTF-8 character(s) detected, but no encoding declared. Encode the file in UTF-8 or add \"%% coding: latin-1\" at the beginning of the file. Note: The compiler will remove support for latin-1 encoded source files without the \"%% coding: latin-1\" string at the beginning of the file in Erlang/OTP 24! Retrying with latin-1 encoding.".
 
 format_error_reason({Reason, Stack}) when is_list(Stack) ->
     StackFun = fun
