@@ -527,7 +527,11 @@ dep depend:
 # Bootstraps... 
 # ----------------------------------------------------------------------
 ifeq ($(TARGET),win32)
+
+# Sleep for 11 seconds if we use ERLC server in order to let it
+# terminate before we remove the bootstrap files
 bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target
+	-$(V_at)(test X"$$ERLC_USE_SERVER" = X"yes" || test X"$$ERLC_USE_SERVER" = X"true") && sleep 11
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/escript.exe \
