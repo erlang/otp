@@ -137,6 +137,7 @@
          api_opt_sock_mark/1,
          api_opt_sock_oobinline/1,
          api_opt_sock_passcred_tcp4/1,
+         api_opt_sock_peek_off_tcpL/1,
          api_opt_sock_peercred_tcpL/1,
          api_opt_sock_priority_udp4/1,
          api_opt_sock_priority_tcp4/1,
@@ -841,6 +842,7 @@ api_options_socket_cases() ->
      api_opt_sock_mark,
      api_opt_sock_oobinline,
      {group, api_option_sock_passcred},
+     api_opt_sock_peek_off_tcpL,
      {group, api_option_sock_priority},
      {group, api_option_sock_buf},
      {group, api_option_sock_lowat},
@@ -11733,6 +11735,56 @@ api_opt_sock_passcred_tcp(InitState) ->
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests the the peek-off socket option for a unix domain socket
+%% (stream TCP in this case).
+%%
+%% THIS IS A PLACEHOLDER!!
+%%
+%%
+
+api_opt_sock_peek_off_tcpL(suite) ->
+    [];
+api_opt_sock_peek_off_tcpL(doc) ->
+    [];
+api_opt_sock_peek_off_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_sock_peek_off_tcpL,
+           fun() ->
+                   has_support_unix_domain_socket(),
+                   has_support_sock_peek_off(),
+                   not_yet_implemented()
+           end,
+           fun() ->
+                   Set  = fun(Sock, Val) when is_integer(Val) ->
+                                  socket:setopt(Sock, socket, peek_off, Val)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, socket, peek_off)
+                          end,
+                   Send = fun(Sock, Data) ->
+                                  socket:send(Sock, Data)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recv(Sock)
+                          end,
+                   InitState = #{domain => local,
+                                 type   => stream,
+                                 proto  => default, % Type = stream => tcp
+                                 set    => Set,
+                                 get    => Get,
+                                 send   => Send,
+                                 recv   => Recv},
+                   ok = api_opt_sock_peek_off(InitState)
+           end).
+
+api_opt_sock_peek_off(_) ->
+    %% PLACEHOLDER
+    ok.
 
 
 
@@ -35851,8 +35903,17 @@ ttest_tcp(TC,
     tc_try(TC,
            fun() ->
                    if
-                       (Domain =:= local) -> has_support_unix_domain_socket(); 
-                       (Domain =:= inet6) -> has_support_ipv6();
+ 
+                       (Domain =:= local) ->
+                           %% On darwin we seem to hit the system limit(s)
+                           %% much earlier.
+                           %% The tests "mostly" work, but random cases fail
+                           %% (even on reasonably powerfull machines),
+                           %% so its much simpler to just skip on darwin...
+                           has_support_unix_domain_socket(),
+                           is_not_darwin(); 
+                       (Domain =:= inet6) ->
+                           has_support_ipv6();
                        true -> ok 
                    end
            end,
@@ -36825,6 +36886,9 @@ has_support_sock_oobinline() ->
 
 has_support_sock_passcred() ->
     has_support_socket_option_sock(passcred).
+
+has_support_sock_peek_off() ->
+    has_support_socket_option_sock(peek_off).
 
 has_support_sock_peercred() ->
     has_support_socket_option_sock(peercred).
