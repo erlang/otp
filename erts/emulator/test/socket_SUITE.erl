@@ -11892,6 +11892,8 @@ api_opt_sock_peek_off(InitState) ->
                                    ?SEV_IPRINT("verify peek-off: ~w",
                                                [DefaultPeekOff]),
                                    ok;
+                               {error, {not_supported, {socket, peek_off}}} ->
+                                   {skip, "Not supported"};
                                {error, _} = ERROR ->
                                    ERROR
                            end
