@@ -11757,7 +11757,7 @@ api_opt_sock_peek_off_tcpL(_Config) when is_list(_Config) ->
            fun() ->
                    has_support_unix_domain_socket(),
                    has_support_sock_peek_off(),
-                   not_yet_implemented()
+                   has_support_recv_flag_peek()
            end,
            fun() ->
                    Set  = fun(Sock, Val) when is_integer(Val) ->
@@ -11769,11 +11769,12 @@ api_opt_sock_peek_off_tcpL(_Config) when is_list(_Config) ->
                    Send = fun(Sock, Data) ->
                                   socket:send(Sock, Data)
                           end,
-                   Recv = fun(Sock) ->
-                                  socket:recv(Sock)
+                   Recv = fun(Sock, L, false) ->
+                                  socket:recv(Sock, L);
+                             (Sock, L, true) ->
+                                  socket:recv(Sock, L, [peek])
                           end,
                    InitState = #{domain => local,
-                                 type   => stream,
                                  proto  => default, % Type = stream => tcp
                                  set    => Set,
                                  get    => Get,
@@ -11782,9 +11783,674 @@ api_opt_sock_peek_off_tcpL(_Config) when is_list(_Config) ->
                    ok = api_opt_sock_peek_off(InitState)
            end).
 
-api_opt_sock_peek_off(_) ->
-    %% PLACEHOLDER
-    ok.
+api_opt_sock_peek_off(InitState) ->
+    process_flag(trap_exit, true),
+    ServerSeq = 
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create listen socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{lsock := LSock,
+                         lsa   := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _Port} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester, lsa := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, Path),
+                           ok
+                   end},
+
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
+                   end},
+         #{desc => "await connection",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   ?SEV_IPRINT("accepted: ~n   ~p", [Sock]),
+                                   {ok, State#{csock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
+                           ok
+                   end},
+
+
+         %% The actual test
+
+         %% 1) peek (0 = everything: 1,2,3,4,5,6,7,8)
+         #{desc => "1a: await continue (peek)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, peek)
+                   end},
+         #{desc => "1a: peek read",
+           cmd  => fun(#{csock := Sock,
+                         recv  := Recv} = _State) ->
+                           case Recv(Sock, 0, true) of
+                               {ok, <<1,2,3,4,5,6,7,8>>} ->
+                                   ?SEV_IPRINT("peek'ed expected data"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "1a: announce ready (peek)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, peek),
+                           ok
+                   end},
+
+         #{desc => "1b: await continue (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, verify_peek_off)
+                   end},
+         #{desc => "1b: verify peek-off",
+           cmd  => fun(#{csock := Sock,
+                         get   := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, DefaultPeekOff} ->
+                                   ?SEV_IPRINT("verify peek-off: ~w",
+                                               [DefaultPeekOff]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "1b: announce ready (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, verify_peek_off),
+                           ok
+                   end},
+
+
+         %% 2) set peek-off to 4
+         #{desc => "2a: await continue (set peek-off: 4)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, set_peek_off)
+                   end},
+         #{desc => "2a: set peek-off: 4",
+           cmd  => fun(#{csock := Sock,
+                         set   := Set} = _State) ->
+                           case Set(Sock, 4) of
+                               ok ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "2a: announce ready (set peek-off: 4)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, set_peek_off),
+                           ok
+                   end},
+
+         #{desc => "2b: await continue (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, verify_peek_off)
+                   end},
+         #{desc => "2b: verify peek-off",
+           cmd  => fun(#{csock := Sock,
+                         get   := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, 4 = PeekOff} ->
+                                   ?SEV_IPRINT("verify peek-off: ~w", [PeekOff]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "2b: announce ready (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, verify_peek_off),
+                           ok
+                   end},
+
+
+         %% 3) peek (0 = everything: 5,6,7,8)
+         %%    NOTE THAT THIS WILL MOVE THE PEEK-OFF "POINTER" TO THE END OF 
+         %%    THE *CURRENT* DATA POSITION IN THE BUFFER (READY FOR NEXT BATCH
+         %%    OF DATA).
+         #{desc => "3a: await continue (peek)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, peek)
+                   end},
+         #{desc => "3a: peek read",
+           cmd  => fun(#{csock := Sock,
+                         recv  := Recv} = _State) ->
+                           case Recv(Sock, 0, true) of
+                               {ok, <<5,6,7,8>>} ->
+                                   ?SEV_IPRINT("peek'ed expected data"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "3a: announce ready (peek)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, peek),
+                           ok
+                   end},
+
+         #{desc => "3b: await continue (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, verify_peek_off)
+                   end},
+         #{desc => "3b: verify peek-off",
+           cmd  => fun(#{csock := Sock,
+                         get   := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, 8 = PeekOff} ->
+                                   ?SEV_IPRINT("verify peek-off: ~w", [PeekOff]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "3b: announce ready (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, verify_peek_off),
+                           ok
+                   end},
+
+
+         %% 4) read two byte(s): 1,2
+         #{desc => "4a: await continue (read 2 byte)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, read)
+                   end},
+         #{desc => "4a: read (2 bytes)",
+           cmd  => fun(#{csock := Sock,
+                         recv  := Recv} = _State) ->
+                           case Recv(Sock, 2, false) of
+                               {ok, <<1,2>>} ->
+                                   ?SEV_IPRINT("read expected data"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "4a: announce ready (read)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, read),
+                           ok
+                   end},
+
+         #{desc => "4b: await continue (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, verify_peek_off)
+                   end},
+         #{desc => "4b: verify peek-off",
+           cmd  => fun(#{csock := Sock,
+                         get   := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, 6 = PeekOff} ->
+                                   ?SEV_IPRINT("verify peek-off: ~w", [PeekOff]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "4b: announce ready (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, verify_peek_off),
+                           ok
+                   end},
+
+
+         %% 5) read the rest: 3,4,5,6,7,8)
+         #{desc => "5a: await continue (read the rest)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, read)
+                   end},
+         #{desc => "5a: read (the rest)",
+           cmd  => fun(#{csock := Sock,
+                         recv  := Recv} = _State) ->
+                           case Recv(Sock, 0, false) of
+                               {ok, <<3,4,5,6,7,8>>} ->
+                                   ?SEV_IPRINT("read expected data"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "5a: announce ready (read)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, read),
+                           ok
+                   end},
+
+         #{desc => "5b: await continue (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, verify_peek_off)
+                   end},
+         #{desc => "5b: verify peek-off",
+           cmd  => fun(#{csock := Sock,
+                         get   := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, PeekOff} ->
+                                   ?SEV_IPRINT("verify peek-off: ~w", [PeekOff]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "5b: announce ready (verify peek-off)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, verify_peek_off),
+                           ok
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{csock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(csock, State)}
+                   end},
+         #{desc => "close listen socket",
+           cmd  => fun(#{lsock := Sock,
+                         lsa   := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq = 
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, Path} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_path => Path}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** The init part ***
+         #{desc => "which server (local) address",
+           cmd  => fun(#{domain      := local = Domain,
+                         server_path := Path} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = #{family => Domain, path => Path},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, connect)
+                   end},
+         #{desc => "connect to server",
+           cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
+                           socket:connect(Sock, SSA)
+                   end},
+         #{desc => "announce ready (connect)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connect),
+                           ok
+                   end},
+
+
+         %% *** The actual test ***
+         #{desc => "await continue (send data)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, send_data)
+                   end},
+         #{desc => "send data (to server)",
+           cmd  => fun(#{sock := Sock, send := Send}) ->
+                           Send(Sock, <<1:8/integer,
+                                        2:8/integer,
+                                        3:8/integer,
+                                        4:8/integer,
+                                        5:8/integer,
+                                        6:8/integer,
+                                        7:8/integer,
+                                        8:8/integer>>)
+                   end},
+         #{desc => "announce ready (send data)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, send_data),
+                           ok
+                   end},
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock     := Sock,
+                         local_sa := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(local_sa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock, State1)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = State) ->
+                           {ok, Port} = ?SEV_AWAIT_READY(Pid, server, init),
+                           {ok, State#{server_port => Port}}
+                   end},
+
+         %% Start the client
+         #{desc => "order client start",
+           cmd  => fun(#{client := Pid, server_port := Port} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, Port),
+                           ok
+                   end},
+         #{desc => "await client ready (init)",
+           cmd  => fun(#{client := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, client, init)
+                   end},
+
+         %% Establish the connection
+         #{desc => "order server to continue (with accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, accept),
+                           ok
+                   end},
+         #{desc => "order client to continue (with connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, connect),
+                           ok
+                   end},
+         #{desc => "await client ready (connect)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, connect)
+                   end},
+         #{desc => "await server ready (accept)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, accept)
+                   end},
+
+
+         %% *** The actual test ***
+         #{desc => "order client to continue (with send data)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Client, send_data),
+                           ok
+                   end},
+         #{desc => "await client ready (with send data)",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_AWAIT_READY(Client, client, send_data)
+                   end},
+
+         %% There is no way to be sure that the data has actually arrived,
+         %% and with no data on the server side, the peek will fail.
+         %% Hopfully a sleep will take care of this...
+         ?SEV_SLEEP(?SECS(1)),
+
+         %% 1) peek
+         #{desc => "1a: order server to continue (peek)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, peek),
+                           ok
+                   end},
+         #{desc => "1a: await server ready (peek)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, peek)
+                   end},
+
+         #{desc => "1b: order server to continue (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, verify_peek_off),
+                           ok
+                   end},
+         #{desc => "1b: await server ready (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, verify_peek_off)
+                   end},
+
+
+         %% 2) set peek-off
+         #{desc => "2a: order server to continue (set peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, set_peek_off),
+                           ok
+                   end},
+         #{desc => "2a: await server ready (set peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, set_peek_off)
+                   end},
+
+         #{desc => "2b: order server to continue (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, verify_peek_off),
+                           ok
+                   end},
+         #{desc => "2b: await server ready (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, verify_peek_off)
+                   end},
+
+
+
+         %% 3) peek
+         #{desc => "3a: order server to continue (peek)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, peek),
+                           ok
+                   end},
+         #{desc => "3a: await server ready (peek)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, peek)
+                   end},
+
+         #{desc => "3b: order server to continue (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, verify_peek_off),
+                           ok
+                   end},
+         #{desc => "3b: await server ready (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, verify_peek_off)
+                   end},
+
+
+
+         %% 4) read part
+         #{desc => "4a: order server to continue (read part)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, read),
+                           ok
+                   end},
+         #{desc => "4a: await server ready (peek)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, read)
+                   end},
+
+         #{desc => "4b: order server to continue (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, verify_peek_off),
+                           ok
+                   end},
+         #{desc => "4b: await server ready (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, verify_peek_off)
+                   end},
+
+
+         %% 5) read (the rest)
+         #{desc => "5a: order server to continue (read the rest)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, read),
+                           ok
+                   end},
+         #{desc => "5a: await server ready (peek)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, read)
+                   end},
+
+         #{desc => "5b: order server to continue (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, verify_peek_off),
+                           ok
+                   end},
+         #{desc => "5b: await server ready (verify peek-off)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, verify_peek_off)
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "order client to terminate",
+           cmd  => fun(#{client := Client} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Client),
+                           ok
+                   end},
+         #{desc => "await client termination",
+           cmd  => fun(#{client := Client} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Client),
+                           State1 = maps:remove(client, State),
+                           {ok, State1}
+                   end},
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start server evaluator"),
+    Server = ?SEV_START("server", ServerSeq, InitState),
+
+    i("start client evaluator"),
+    Client = ?SEV_START("client", ClientSeq, InitState),
+    i("await evaluator(s)"),
+
+    i("start tester evaluator"),
+    TesterInitState = #{server => Server#ev.pid,
+                        client => Client#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
 
 
 
@@ -37009,6 +37675,9 @@ has_support_send_flag(Flag) ->
 
 has_support_recv_flag_oob() ->
     has_support_recv_flag(oob).
+
+has_support_recv_flag_peek() ->
+    has_support_recv_flag(peek).
 
 has_support_recv_flag(Flag) ->
     has_support_send_or_recv_flag("Recv", recv_flags, Flag).
