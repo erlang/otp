@@ -257,7 +257,7 @@ TimeStamp = {Seconds, Milliseconds, Microseconds}
       <tag><c>{send, Serial, From, To, Message}</c></tag>
       <item>
         <p>Used when a process <c>From</c> with its trace token flag
-          <c>print</c> set to <c>true</c> has sent a message.</p>
+          <c>send</c> set to <c>true</c> has sent a message.</p>
       </item>
       <tag><c>{'receive', Serial, From, To, Message}</c></tag>
       <item>
