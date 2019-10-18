@@ -1477,33 +1477,44 @@ find_loop_exit([_,_|_]=RmBlocks, Blocks) ->
     {Dominators,_} = beam_ssa:dominators(Blocks),
     RmSet = cerl_sets:from_list(RmBlocks),
     Rpo = beam_ssa:rpo(RmBlocks, Blocks),
-    find_loop_exit_1(Rpo, RmSet, Dominators);
+    find_loop_exit_1(Rpo, RmSet, Dominators, Blocks);
 find_loop_exit(_, _) ->
     %% There is (at most) a single clause. There is no common
     %% loop exit block.
     none.
 
-find_loop_exit_1([?BADARG_BLOCK|Ls], RmSet, Dominators) ->
+find_loop_exit_1([?BADARG_BLOCK|Ls], RmSet, Dominators, Blocks) ->
     %% ?BADARG_BLOCK is a marker and not an actual block, so it is not
     %% the block we are looking for.
-    find_loop_exit_1(Ls, RmSet, Dominators);
-find_loop_exit_1([L|Ls], RmSet, Dominators) ->
+    find_loop_exit_1(Ls, RmSet, Dominators, Blocks);
+find_loop_exit_1([L|Ls0], RmSet, Dominators, Blocks) ->
     DomBy = map_get(L, Dominators),
     case any(fun(E) -> cerl_sets:is_element(E, RmSet) end, DomBy) of
         true ->
             %% This block is dominated by one of the remove_message blocks,
             %% which means that the block is part of only one clause.
             %% It is not the block we are looking for.
-            find_loop_exit_1(Ls, RmSet, Dominators);
+            find_loop_exit_1(Ls0, RmSet, Dominators, Blocks);
         false ->
             %% This block is the first block that is not dominated by
-            %% any of the blocks with remove_message instructions,
-            %% which means that at least two of the receive clauses
-            %% will ultimately transfer control to it. It is the block
-            %% we are looking for.
-            L
+            %% any of the blocks with remove_message instructions.
+            case map_get(L, Blocks) of
+                #b_blk{is=[#b_set{op=landingpad}|_]} ->
+                    %% This is the landing pad reached when an
+                    %% exception is caught. It is not the block
+                    %% we are looking for. Furthermore, none of the
+                    %% blocks reachable from this block can be
+                    %% the exit block we are looking for.
+                    Ls = Ls0 -- beam_ssa:rpo([L], Blocks),
+                    find_loop_exit_1(Ls, RmSet, Dominators, Blocks);
+                #b_blk{} ->
+                    %% This block is not dominated by any of the receive
+                    %% clauses and is not the landing pad for an exception.
+                    %% It is the common exit block we are looking for.
+                    L
+            end
     end;
-find_loop_exit_1([], _, _) ->
+find_loop_exit_1([], _, _, _) ->
     %% None of clauses transfers control to a common block after the receive
     %% statement. That means that the receive statement is a the end of a
     %% function (or that all clauses raise exceptions).
