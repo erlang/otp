@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -572,8 +572,8 @@ update_bindings(#winInfo{bind=#sub{out=BA}}, Bs) ->
 		     wxListCtrl:insertItem(BA, Row, ""), 
 		     wxListCtrl:setItem(BA, Row, 0, dbg_wx_win:to_string(Var)),
                      Format = case get(strings) of
-                                  []        -> "~999999lP";
-                                  [str_on]  -> "~999999tP"
+                                  []        -> "~0ltP";
+                                  [str_on]  -> "~0tP"
                               end,
 		     wxListCtrl:setItem(BA, Row, 1, dbg_wx_win:to_string(Format,[Val, 20])),
 		     Row+1
@@ -866,7 +866,7 @@ handle_event(#wx{event=#wxList{type=command_list_item_selected, itemIndex=Row}},
     Bs = get(bindings),
     {Var,Val} = lists:nth(Row+1, Bs),
     Str = case get(strings) of
-              []       -> io_lib:format("< ~s = ~lp~n", [Var, Val]);
+              []       -> io_lib:format("< ~s = ~ltp~n", [Var, Val]);
               [str_on] -> io_lib:format("< ~s = ~tp~n", [Var, Val])
           end,
     eval_output(Wi, Str, bold),
