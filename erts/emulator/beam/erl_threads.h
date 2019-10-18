@@ -250,10 +250,10 @@
 #include "erl_lock_check.h"
 #include "erl_lock_count.h"
 
-#if defined(__GLIBC__) && (__GLIBC__ << 16) + __GLIBC_MINOR__ < (2 << 16) + 4
+#if defined(__GLIBC__) && (__GLIBC__ << 16) + __GLIBC_MINOR__ < (2 << 16) + 5
 /*
  * pthread_mutex_destroy() may return EBUSY when it shouldn't :( We have
- * only seen this bug in glibc versions before 2.4. Note that condition
+ * only seen this bug in glibc versions before 2.5. Note that condition
  * variables, rwmutexes, spinlocks, and rwspinlocks also may be effected by
  * this bug since these implementations may use mutexes internally.
  */
