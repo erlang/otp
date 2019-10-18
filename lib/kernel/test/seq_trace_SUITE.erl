@@ -28,6 +28,7 @@
 -export([token_set_get/1, tracer_set_get/1, print/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
+         port_clean_token/1,
 	 match_set_seq_token/1, gc_seq_token/1, label_capability_mismatch/1,
          send_literal/1]).
 
@@ -51,6 +52,7 @@ all() ->
     [token_set_get, tracer_set_get, print, send, send_literal,
      distributed_send, recv, distributed_recv, trace_exit,
      distributed_exit, call, port, match_set_seq_token,
+     port_clean_token,
      gc_seq_token, label_capability_mismatch].
 
 groups() -> 
