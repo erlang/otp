@@ -2003,6 +2003,10 @@ handle_pdu(
 		    [Mod, Addr, ReqId, SnmpResponse, Data]),
     ok.
 
+do_handle_pdu(Mod, {Ip, Port}, ReqId, SnmpResponse, Data) ->
+    %% This is a deprecated version of the callback API, we skip handle 
+    %% errors for this.
+    (catch Mod:handle_pdu(Ip, Port, ReqId, SnmpResponse, Data));
 do_handle_pdu(Mod, TargetName, ReqId, SnmpResponse, Data) ->
     try
         begin
@@ -2012,11 +2016,7 @@ do_handle_pdu(Mod, TargetName, ReqId, SnmpResponse, Data) ->
         C:E:S ->
             CallbackArgs = [TargetName, ReqId, SnmpResponse, Data], 
             handle_invalid_result(handle_pdu, CallbackArgs, C, E, S) 
-    end;
-do_handle_pdu(Mod, {Ip, Port}, ReqId, SnmpResponse, Data) ->
-    %% This is a deprecated version of the callback API, we skip handle 
-    %% errors for this.
-    (catch Mod:handle_pdu(Ip, Port, ReqId, SnmpResponse, Data)).
+    end.
 
 
 handle_agent(UserId, Mod, Domain, Addr, Type, Ref, SnmpInfo, Data,
