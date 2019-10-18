@@ -263,7 +263,10 @@
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>domain = local (unix)</cell>
+	<cell>domain = local (unix).
+	Currently disabled due to a possible infinite loop when
+	calling recv([peek]) the second time.
+	</cell>
       </row>
       <row>
 	<cell>priority</cell>
