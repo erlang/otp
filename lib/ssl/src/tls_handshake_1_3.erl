@@ -551,7 +551,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         maybe_initialize_instance_data(State0),
 
         %% Exclude any incompatible PSKs.
-        PSK = handle_pre_shared_key(State0, OfferedPSKs, Cipher),
+        PSK = Maybe(handle_pre_shared_key(State0, OfferedPSKs, Cipher)),
 
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
@@ -590,8 +590,6 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% the handshake.
         NextStateTuple = Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId)),
         Maybe(session_resumption(NextStateTuple, PSK))
-
-        %% TODO: session handling
 
     catch
         {Ref, {insufficient_security, no_suitable_groups}} ->
@@ -1170,7 +1168,7 @@ maybe_send_session_ticket(#state{ssl_options = #{session_tickets := false}} = St
     %% Do nothing!
     State;
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := _SessionTickets}} = State0) ->
-    NewSessionTicket = create_stateless_ticket(State0),
+    NewSessionTicket = create_stateless_ticket(State0, 7200),
     {State, _} = tls_connection:send_handshake(NewSessionTicket, State0),
     State.
 
@@ -1191,14 +1189,14 @@ maybe_initialize_instance_data(_) ->
     end.
 
 
-create_stateless_ticket(State) ->
+create_stateless_ticket(State, Lifetime) ->
     Data = #server_instance_data{nonce = Nonce} = tls_connection:read_server_state(),
     TicketAgeAdd = ticket_age_add(),
     Ticket = #new_session_ticket{
-                ticket_lifetime = 7200,
+                ticket_lifetime = Lifetime,
                 ticket_age_add = TicketAgeAdd,
                 ticket_nonce = ticket_nonce(Nonce),
-                ticket = generate_ticket(State, Data, TicketAgeAdd),
+                ticket = generate_ticket(State, Data, TicketAgeAdd, Lifetime),
                 extensions = #{}
                },
     %% Increment nonce
@@ -1207,8 +1205,16 @@ create_stateless_ticket(State) ->
 
 
 ticket_age_add() ->
+    MaxTicketAge = 7 * 24 * 3600,
+    IntMax = round(math:pow(2,32)) - 1,
+    MaxAgeAdd = IntMax - MaxTicketAge,
     <<?UINT32(I)>> = crypto:strong_rand_bytes(4),
-    I.
+    case I > MaxAgeAdd of
+        true ->
+            I - MaxTicketAge;
+        false ->
+            I
+    end.
 
 
 ticket_nonce(I) ->
@@ -1221,15 +1227,22 @@ generate_ticket(#state{connection_states = ConnectionStates},
                    nonce = Nonce,
                    ticket_iv = IV,
                    ticket_key_shard = Key0},
-                TicketAgeAdd) ->
+                TicketAgeAdd, Lifetime) ->
     #{security_parameters := SecParamsR} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDF,
                          resumption_master_secret = RMS} = SecParamsR,
 
     PSK = tls_v1:pre_shared_key(RMS, ticket_nonce(Nonce), HKDF),
-    Padding = binary:copy(<<0>>, 11),
-    Plaintext = <<(ssl_cipher:hash_algorithm(HKDF)):8,PSK/binary,?UINT64(TicketAgeAdd),Padding/binary>>,
+    Timestamp = erlang:system_time(second),
+    Plaintext0 = <<(ssl_cipher:hash_algorithm(HKDF)):8,PSK/binary,
+                   ?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp)>>,
+    TSize = byte_size(Plaintext0),
+    %% Padding
+    PSize = 16 - (TSize rem 16),
+    Padding = binary:copy(<<0>>, PSize),
+    Plaintext = <<Plaintext0/binary,Padding/binary>>,
+
     Size = byte_size(Key0),
     OTP = crypto:strong_rand_bytes(Size),
     Key = crypto:exor(OTP, Key0),
@@ -2118,20 +2131,23 @@ decode_pre_shared_keys(IV, Key, PSKs) ->
        identities = Identities,
        binders = Binders
       } = PSKs,
-    decode_pre_shared_keys(IV, Key, Identities, Binders, []).
+    decode_pre_shared_keys(IV, Key, Identities, Binders, 0, []).
 %%
-decode_pre_shared_keys(_, _, [], [], Acc) ->
-    Acc;
-decode_pre_shared_keys(IV, Key, [I|Identities], [_B|Binders], Acc) ->
-    %% TODO Validate binder
-    %% TODO Validate ticket age
-    PSK = decode_identity(IV, Key, I),
-    decode_pre_shared_keys(IV, Key, Identities, Binders, [PSK|Acc]).
+decode_pre_shared_keys(_, _, [], [], _, Acc) ->
+    lists:reverse(Acc);
+decode_pre_shared_keys(IV, Key, [I|Identities], [B|Binders], Index, Acc) ->
+    {Validity, PSK, Hash} = decode_identity(IV, Key, I),
+    case Validity of
+        valid ->
+            decode_pre_shared_keys(IV, Key, Identities, Binders, Index + 1, [{PSK, Index, Hash, B}|Acc]);
+        invalid ->
+            decode_pre_shared_keys(IV, Key, Identities, Binders, Index + 1, Acc)
+    end.
 
 
 decode_identity(IV, Key0, #psk_identity{
                              identity = I,
-                             obfuscated_ticket_age = _ObfAge}) ->
+                             obfuscated_ticket_age = ObfAge}) ->
     Size = byte_size(Key0),
     <<OTP:Size/binary,Encrypted/binary>> = I,
     Key = crypto:exor(OTP, Key0),
@@ -2139,25 +2155,83 @@ decode_identity(IV, Key0, #psk_identity{
     <<?BYTE(HKDF),T/binary>> = Plaintext,
     Hash = ssl_cipher:hash_algorithm(HKDF),
     HashSize = ssl_cipher:hash_size(Hash),
-    <<PSK:HashSize/binary,?UINT64(_TicketAgeAdd),_/binary>> = T,
-    PSK.
+    <<PSK:HashSize/binary,?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp),_/binary>> = T,
+    Validity = check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp),
+    {Validity, PSK, Hash}.
 
 
-%% TODO implement
+%% For identities established externally, an obfuscated_ticket_age of 0 SHOULD be
+%% used, and servers MUST ignore the value.
+check_ticket_validity(0, _, _, _) ->
+    valid;
+check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp) ->
+    ReportedAge = ObfAge - TicketAgeAdd,
+    RealAge = erlang:system_time(second) - Timestamp,
+    case (ReportedAge > Lifetime) orelse (RealAge > Lifetime) of
+        true ->
+            invalid;
+        false ->
+            valid
+    end.
+
+
+%% Prior to accepting PSK key establishment, the server MUST validate
+%% the corresponding binder value (see Section 4.2.11.2 below).  If this
+%% value is not present or does not validate, the server MUST abort the
+%% handshake.  Servers SHOULD NOT attempt to validate multiple binders;
+%% rather, they SHOULD select a single PSK and validate solely the
+%% binder that corresponds to that PSK.
+%%
+%% If no acceptable PSKs are found, the server SHOULD perform a non-PSK
+%% handshake if possible.
 handle_pre_shared_key(_, undefined, _) ->
-    undefined;
+    {ok, undefined};
 handle_pre_shared_key(#state{ssl_options = #{session_tickets := false}}, _, _) ->
-    undefined;
-handle_pre_shared_key(_, PreSharedKeys, Cipher) ->
+    {ok, undefined};
+handle_pre_shared_key(State, PreSharedKeys, Cipher) ->
     #server_instance_data{ticket_iv = IV, ticket_key_shard = Key} =
         tls_connection:read_server_state(),
-    PSKs = decode_pre_shared_keys(IV, Key, PreSharedKeys),
-    select_psk(PSKs, Cipher).
+    %% TODO: Skip PSK if encrypted with an unknown key
+    PSKTuples = decode_pre_shared_keys(IV, Key, PreSharedKeys),
+    case select_psk(PSKTuples, Cipher) of
+        no_acceptable_psk ->
+            {ok, undefined};
+        PSKTuple ->
+            validate_binder(State, PSKTuple)
+    end.
 
 
-select_psk([H|_T], _Cipher) ->
-    %% TODO
-    {0, H}.
+select_psk([], _) ->
+    no_acceptable_psk;
+select_psk([{PSK, Index, Hash, B}|T], Cipher) ->
+    #{prf := CipherHash} = ssl_cipher_format:suite_bin_to_map(Cipher),
+    case Hash of
+        CipherHash ->
+            {PSK, Index, Hash, B};
+        _ ->
+            select_psk(T, Cipher)
+    end.
+
+
+validate_binder(#state{handshake_env = #handshake_env{tls_handshake_history = {HHistory, _}}},
+                {PSK, Index, Hash, Binder}) ->
+    IsBinderValid =
+        case HHistory of
+            [ClientHello2, HRR, MessageHash|_] ->
+                Truncated = truncate_client_hello(ClientHello2, Hash),
+                FinishedKey = calculate_finished_key(PSK, Hash),
+                Binder == calculate_binder(FinishedKey, Hash, [MessageHash, HRR, Truncated]);
+            [ClientHello1|_] ->
+                Truncated = truncate_client_hello(ClientHello1, Hash),
+                FinishedKey = calculate_finished_key(PSK, Hash),
+                Binder == calculate_binder(FinishedKey, Hash, Truncated)
+        end,
+    case IsBinderValid of
+        true ->
+            {ok, {Index, PSK}};
+        false ->
+            {error, illegal_parameter}
+    end.
 
 
 get_selected_group(#key_share_hello_retry_request{selected_group = SelectedGroup}) ->
@@ -2230,6 +2304,7 @@ maybe_add_binders(Hello, _, _, Version) when Version =< {3,3} ->
     Hello.
 
 
+%% TODO Add support for multiple binders
 truncate_client_hello(HelloBin, HKDF) ->
     %% Removes the binders list from the ClientHello.
     %% opaque PskBinderEntry<32..255>;
