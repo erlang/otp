@@ -147,6 +147,16 @@
 -define(_assertNotException(Class, Term, Expr),
 	?_test(?assertNotException(Class, Term, Expr))).
 
+%% Macros for retrieving the output of a test case
+
+-ifndef(capturedOutput).
+-define(capturedOutput,
+    case ?UNDER_EUNIT of
+        true  -> eunit_proc:get_output();
+        false -> ""
+    end).
+-endif.
+
 %% Macros for running operating system commands. (Note that these
 %% require EUnit to be present at runtime, or at least eunit_lib.)
 

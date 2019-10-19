@@ -277,6 +277,9 @@ while testing, you can write to the `user' output stream, as in
 `io:format(user, "~w", [Term])'. The recommended way of doing this is to
 use the EUnit {@section Debugging macros}, which make it much simpler.
 
+For checking the output produced by the unit under test, see
+{@section Macros for checking output}.
+
 === Writing test generating functions ===
 
 A drawback of simple test functions is that you must write a separate
@@ -415,6 +418,7 @@ your code is compiled with testing enabled or disabled.
 <li>{@section Compilation control macros}</li>
 <li>{@section Utility macros}</li>
 <li>{@section Assert macros}</li>
+<li>{@section Macros for checking output}</li>
 <li>{@section Macros for running external commands}</li>
 <li>{@section Debugging macros}</li>
 </ul>
@@ -605,6 +609,22 @@ Examples:
 ```?assertError(badarith, X/0)'''
 ```?assertExit(normal, exit(normal))'''
 ```?assertException(throw, {not_found,_}, throw({not_found,42}))'''
+</dd>
+</dl>
+
+=== Macros for checking output ===
+
+The following macro can be used within a test case to retreive the
+output written to standard output.
+
+<dl>
+<dt>`capturedOutput'</dt>
+<dd>The output captured by EUnit in the current test case, as a string.
+
+Examples:
+
+```io:format("Hello~n"),
+   ?assertEqual("Hello\n", ?capturedOutput)'''
 </dd>
 </dl>
 
