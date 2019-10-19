@@ -4,8 +4,8 @@
 ;; Author:   Anders Lindgren
 ;; Keywords: erlang, languages, processes
 ;; Date:     2011-12-11
-;; Version:  2.8.2
-;; Package-Requires: ((emacs "24.1"))
+;; Version:  2.8.3
+;; Package-Requires: ((emacs "24.3"))
 
 ;; %CopyrightBegin%
 ;;
@@ -87,15 +87,27 @@
   "The Erlang programming language."
   :group 'languages)
 
-(defconst erlang-version "2.8.2"
+(defconst erlang-version "2.8.3"
   "The version number of Erlang mode.")
 
 (defcustom erlang-root-dir nil
-  "The directory where the Erlang system is installed.
-The name should not contain the trailing slash.
+  "The directory where the Erlang man pages are installed. The
+name should not contain a trailing slash.
 
 Should this variable be nil, no manual pages will show up in the
-Erlang mode menu."
+Erlang mode menu unless man pages have been downloaded by Erlang
+mode (see below).
+
+You can download the Erlang man pages automatically by placing
+the following lines in your Emacs init file or by executing the
+Emacs command `M-x erlang-man-download-ask RET' (the download URL
+can be customized with the Emacs variable
+erlang-man-download-url):
+
+    (require 'erlang)
+    (erlang-man-download)
+
+"
   :group 'erlang
   :type '(restricted-sexp :match-alternatives (stringp 'nil))
   :safe (lambda (val) (or (eq nil val) (stringp val))))
@@ -1058,6 +1070,7 @@ behaviour.")
     (define-key map "\C-c\C-y"  'erlang-clone-arguments)
     (define-key map "\C-c\C-a"  'erlang-align-arrows)
     (define-key map "\C-c\C-z"  'erlang-shell-display)
+    (define-key map "\C-c\C-d"  'erlang-man-function-no-prompt)
     map)
   "Keymap used in Erlang mode.")
 (defvar erlang-mode-abbrev-table nil
@@ -1880,7 +1893,8 @@ the location of the manual pages."
       ()
     (setq erlang-menu-man-items
           '(nil
-            ("Man - Function" erlang-man-function)))
+            ("Man - Function" erlang-man-function)
+            ("Man - Function Under Cursor" erlang-man-function-no-prompt)))
     (if erlang-man-dirs
         (setq erlang-menu-man-items
               (append erlang-menu-man-items
@@ -1914,8 +1928,7 @@ The format is described in the documentation of `erlang-man-dirs'."
     (while dir-list
       (setq dir (cond ((nth 2 (car dir-list))
                        ;; Relative to `erlang-root-dir'.
-                       (and (stringp erlang-root-dir)
-                            (erlang-man-dir (nth 1 (car dir-list)))))
+                       (erlang-man-dir (nth 1 (car dir-list)) t))
                       (t
                        ;; Absolute
                        (nth 1 (car dir-list)))))
@@ -1933,8 +1946,93 @@ The format is described in the documentation of `erlang-man-dirs'."
       '(("Man Pages"
          (("Error! Why?" erlang-man-describe-error)))))))
 
-(defun erlang-man-dir (subdir)
-  (concat erlang-root-dir "/lib/erlang/" subdir))
+
+(defcustom erlang-man-download-url "http://erlang.org/download/otp_doc_man_22.1.tar.gz"
+  "The URL from which the erlang-man-download function will
+  download Erlang man pages ")
+
+(defun erlang-man-user-local-emacs-dir ()
+  "Returns the directory where man pages that are downloaded by
+the functions erlang-man-download and erlang-man-download-ask are
+stored."
+  (concat (file-name-as-directory (locate-user-emacs-file "cache"))
+          (file-name-as-directory "erlang_mode_man_pages"))
+  )
+
+(defun erlang-man-download (&optional download-url-param)
+  "Downloads the Erlang man pages into the
+\"cache/erlang_mode_man_pages\" subdirectory under the user's
+Emacs directory, if the man pages haven't been downloaded
+already. The URL from which the man pages are downloaded can be
+configured with the variable \"erlang-man-download-url\""
+  (interactive)
+  (let* ((download-url (or download-url-param erlang-man-download-url))
+         (downloaded-man-dir (erlang-man-user-local-emacs-dir))
+         (downloaded-man-url-file (concat
+                                   (file-name-as-directory downloaded-man-dir)
+                                   "erlang_man_download_url")))
+    (if (and (file-exists-p downloaded-man-url-file)
+             (string= download-url (with-temp-buffer
+                                     (insert-file-contents downloaded-man-url-file)
+                                     (buffer-string))))
+        downloaded-man-dir
+      (let ((man-file (concat (file-name-as-directory downloaded-man-dir) "man.tar.gz")))
+        (message "Downloading: %s to %s" download-url man-file)
+        (require 'url)
+        (mkdir downloaded-man-dir t)
+        (url-copy-file download-url man-file t)
+        ;; Write the download URL to a file so that future calls to
+        ;; erlang-man-download can check if the man cache should be
+        ;; updated
+        (write-region download-url nil downloaded-man-url-file)
+        ;; url-copy-file unpacks the zip archive (at least on my
+        ;; system) but this behavior is undocumented so do a tar with
+        ;; the z flag as well
+        (message "Note that %s will only be unpacked automatically if your system has the tar tool in its path" man-file)
+        (shell-command (format "tar -x -z -f %s -C %s" man-file downloaded-man-dir))
+        (message "The error message above can be ignored if everything works fine")
+        (message "Unpacking man pages using the command \"%s\""
+                 (format "tar -x -f %s -C %s" man-file downloaded-man-dir))
+        (shell-command (format "tar -x -f %s -C %s" man-file downloaded-man-dir))
+        (message "Restarting erlang-mode")
+        (erlang-mode)
+        downloaded-man-dir
+        )
+      )
+    )
+  )
+
+(defun erlang-man-download-ask (&optional subdir)
+  "Downloads the Erlang man pages into the
+\"cache/erlang_mode_man_pages\" subdirectory under the user's
+Emacs directory, if the man pages haven't been downloaded
+already. This function ask the user to confirm before downloading
+and lets the user edit the download URL. The function
+erlang-man-download downloads the man pages without prompting the
+user."
+  (interactive)
+  (if (y-or-n-p "Could not find Erlang man pages on your system. Do you want to download them?")
+      (let ((download-url (read-string "URL to download man pages from: " erlang-man-download-url)))
+        (concat (directory-file-name (erlang-man-download download-url)) (or subdir "")))))
+
+
+(defun erlang-man-dir (subdir &optional no-download)
+  (let ((default-man-dir (if erlang-root-dir
+                             (concat (directory-file-name (concat
+                                                           (file-name-as-directory erlang-root-dir)
+                                                           (file-name-as-directory "lib")
+                                                           (file-name-as-directory "erlang")))
+                                     subdir)))
+        (alt-man-dir (if erlang-root-dir
+                         (concat (directory-file-name erlang-root-dir) subdir)))
+        (downloaded-man-dir (erlang-man-user-local-emacs-dir)))
+    (if (and erlang-root-dir (file-directory-p default-man-dir))
+        default-man-dir
+      (if (and erlang-root-dir (file-directory-p alt-man-dir))
+          alt-man-dir
+        (if (file-directory-p (concat (directory-file-name downloaded-man-dir) subdir))
+            (concat (directory-file-name downloaded-man-dir) subdir)
+          (and (not no-download) (erlang-man-download-ask subdir)))))))
 
 ;; Should the menu be to long, let's split it into a number of
 ;; smaller menus.  Warning, this code contains beautiful
@@ -2043,11 +2141,51 @@ This function is aware of imported functions."
 ;; chosen to keep it since it provides a very useful functionality
 ;; which is not possible to achieve using a clean approach.
 ;;   / AndersL
+;;
+;; The previous hack seems to have broken in Emacs 25. This is fixed
+;; by trying to find the function in the man buffer a few times with a
+;; delay in between (see function
+;; erlang-man-repeated-search-for-function). This fix is also a hack
+;; but it should be quite robust and will work even if the function
+;; that erlang-man-function-display-man-page tries to hook into
+;; disappears or changes.
 
 (defvar erlang-man-function-name nil
   "Name of function for last `erlang-man-function' call.
 Used for communication between `erlang-man-function' and the
 patch to `Man-notify-when-ready'.")
+
+(defun erlang-man-function-display-man-page (name)
+  "Helper function for erlang-man-function. Displays the man page
+  text for the Erlang function named name if it can be found."
+  (let ((modname nil)
+        (funcname nil))
+    (cond ((string-match ":" name)
+           (setq modname (substring name 0 (match-beginning 0)))
+           (setq funcname (substring name (match-end 0) nil)))
+          ((stringp name)
+           (setq modname name)))
+    (when (or (null modname) (string= modname ""))
+      (error "No Erlang module name given"))
+    (cond ((fboundp 'Man-notify-when-ready)
+           ;; From Emacs 19:  The man command could possibly start an
+           ;; asynchronous process, i.e. we must hook ourselves into
+           ;; the system to be activated when the man-process
+           ;; terminates.
+           (if (null funcname)
+               ()
+             (erlang-man-patch-notify)
+             (setq erlang-man-function-name funcname))
+           (condition-case err
+               (erlang-man-module modname)
+             (error (setq erlang-man-function-name nil)
+                    (signal (car err) (cdr err)))))
+          (t
+           (erlang-man-module modname)
+           (when funcname
+             (erlang-man-repeated-search-for-function nil
+                                                      funcname
+                                                      modname))))))
 
 (defun erlang-man-function (&optional name)
   "Find manual page for NAME, where NAME is module:function.
@@ -2068,33 +2206,68 @@ This function is aware of imported functions."
   (require 'man)
   (setq name (or name
                  (erlang-default-function-or-module)))
-  (let ((modname nil)
-        (funcname nil))
-    (cond ((string-match ":" name)
-           (setq modname (substring name 0 (match-beginning 0)))
-           (setq funcname (substring name (match-end 0) nil)))
-          ((stringp name)
-           (setq modname name)))
-    (when (or (null modname) (string= modname ""))
-      (error "No Erlang module name given"))
-    (cond ((fboundp 'Man-notify-when-ready)
-           ;; Emacs 19:  The man command could possibly start an
-           ;; asynchronous process, i.e. we must hook ourselves into
-           ;; the system to be activated when the man-process
-           ;; terminates.
-           (if (null funcname)
-               ()
-             (erlang-man-patch-notify)
-             (setq erlang-man-function-name funcname))
-           (condition-case err
-               (erlang-man-module modname)
-             (error (setq erlang-man-function-name nil)
-                    (signal (car err) (cdr err)))))
-          (t
-           (erlang-man-module modname)
-           (when funcname
-             (erlang-man-find-function (current-buffer) funcname))))))
+  (erlang-man-function-display-man-page name))
 
+
+(defun erlang-man-function-no-prompt ()
+    "Find manual page for the function under the cursor.
+The man entry for `function' is displayed.  This function
+provides the same functionality as erlang-man-function except for
+that it does not ask the user to confirm the function name before
+opening the man page for the function."
+  (interactive)
+  (let ((name (erlang-default-function-or-module)))
+    (if name
+        (erlang-man-function name)
+      (error "No function name under the cursor"))))
+
+(defun erlang-man-repeated-search-for-function (man-buffer
+                                                function-name
+                                                &optional
+                                                module-name)
+  "This function tries to scroll MAN-BUFFER to the documentation
+of function FUNCTION-NAME. The function will try again a few
+times if the documentation for FUNCTION-NAME can't be found. This
+is necessary as the man page is loaded asynchronously from Emacs
+19 and the correct function to hook into depends on the Emacs
+version. The function will automatically try to find the correct
+buffer from the list of opened buffers if MAN-BUFFER is nil. The
+optional parameter MODULE-NAME will make the search for the
+buffer more accurate."
+  (let* ((time-between-attempts 0.5)
+         (max-wait-time 5.1)
+         (search-for-function
+          (lambda (self
+                   time-waited
+                   time-between-attempts
+                   max-wait-time
+                   man-buffer
+                   function-name
+                   module-name
+                   )
+            (when (and (not (erlang-man-find-function man-buffer function-name module-name))
+                       (<= (+ time-waited time-between-attempts)
+                           max-wait-time))
+              (message "Finding function %s..." function-name)
+                                        ; Call this function again later
+              (run-at-time time-between-attempts nil
+                           self
+                           self
+                           (+ time-waited time-between-attempts)
+                           time-between-attempts
+                           max-wait-time
+                           man-buffer
+                           function-name
+                           module-name)
+              ))))
+    (funcall search-for-function
+             search-for-function
+             0.0
+             time-between-attempts
+             max-wait-time
+             man-buffer
+             function-name
+             module-name)))
 
 ;; Should the defadvice be at the top level, the package `advice' would
 ;; be required.  Now it is only required when this functionality
@@ -2118,25 +2291,57 @@ command is executed asynchronously."
     "Set point at the documentation of the function name in
 `erlang-man-function-name' when the man page is displayed."
     (if erlang-man-function-name
-        (erlang-man-find-function (ad-get-arg 0) erlang-man-function-name))
-    (setq erlang-man-function-name nil)))
+        (erlang-man-repeated-search-for-function (ad-get-arg 0)
+                                                 erlang-man-function-name)
+      (setq erlang-man-function-name nil))))
 
 
-(defun erlang-man-find-function (buf func)
-  "Find manual page for function in `erlang-man-function-name' in buffer BUF."
-  (if func
-      (let ((win (get-buffer-window buf)))
-        (if win
-            (progn
-              (set-buffer buf)
-              (goto-char (point-min))
-              (if (re-search-forward
-                   (concat "^[ \t]+" func " ?(")
-                   (point-max) t)
-                  (progn
-                    (forward-word -1)
-                    (set-window-point win (point)))
-                (message "Could not find function `%s'" func)))))))
+
+
+(defun erlang-man-find-function (buf func &optional module-name)
+  "Find manual page for function `erlang-man-function-name' in buffer BUF.
+The function will automatically try to find the correct buffer among the
+opened buffers if BUF is nil. The optional parameter MODULE-NAME will make
+the search for the buffer more accurate."
+  (let ((buffer (or buf
+                    (progn
+                      ; find buffer containing man page
+                      (require 'cl-lib)
+                      (car (cl-remove-if-not (lambda (buf)
+                                               (string-match
+                                                (or module-name "")
+                                                (format "%s" buf)))
+                                             (cl-remove-if-not
+                                              (lambda (buf)
+                                                (string-match
+                                                 "[Mm][Aa][Nn]"
+                                                 (format "%s" buf)))
+                                              (buffer-list))))))))
+    (if (and func buffer)
+        (let ((win (get-buffer-window buffer)))
+          (if win
+              (progn
+                (set-buffer buffer)
+                (goto-char (point-min))
+                (if (re-search-forward
+                     (concat "^[ \t]*\\([a-z0-9_]*[ \t]*:\\)?[ \t]*" func "[ \t]*([A-Za-z0-9 \t:,_()]*)[ \t]*->")
+                     (point-max) t)
+                    (progn
+                      (forward-word -1)
+                      (set-window-point win (point))
+                      (message "Found documentation for function `%s'" func)
+                      t)
+                  (if (re-search-forward
+                       (concat "^[ \t]*\\([a-z0-9_]*[ \t]*:\\)?[ \t]*" func "[ \t]*\(")
+                       (point-max) t)
+                      (progn
+                        (forward-word -1)
+                        (set-window-point win (point))
+                        (message "Found documentation for function `%s'" func)
+                        t)
+                    (progn
+                      (message "Could not find function `%s'" func)
+                      nil)))))))))
 
 (defvar erlang-man-file-regexp
   "\\(.*\\)/man[^/]*/\\([^.]+\\)\\.\\([124-9]\\|3\\(erl\\)?\\)\\(\\.gz\\)?$")
@@ -2175,8 +2380,19 @@ the site init file:
 For example:
     (setq erlang-root-dir \"/usr/local/erlang\")
 
-After installing the line, kill and restart Emacs, or restart Erlang
-mode with the command `M-x erlang-mode RET'.")))
+Alternatively, you can download the Erlang man pages
+automatically by placing the following lines in your Emacs init
+file or by executing the Emacs command `M-x
+erlang-man-download-ask RET' (the download URL can be customized
+with the Emacs variable erlang-man-download-url):
+
+    (require 'erlang)
+    (erlang-man-download)
+
+After installing the line/lines in your Emacs init file or after
+running the command `M-x erlang-man-download-ask RET', kill and
+restart Emacs, or restart Erlang mode with the command `M-x
+erlang-mode RET'.")))
 
 ;; Skeleton code:
 
