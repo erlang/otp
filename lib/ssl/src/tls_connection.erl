@@ -90,7 +90,6 @@
  
 -export([encode_handshake/4]).
 
-
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
 %%====================================================================
@@ -1356,4 +1355,3 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
     tls_session_ticket:store_session_ticket(NewSessionTicket, HKDF, SNI, PSK).
-

@@ -2069,8 +2069,7 @@ validate_option(cb_info, {V1, V2, V3, V4, V5} = Value) when is_atom(V1),
                                                             is_atom(V5)
                                                 ->
     Value;
-validate_option(use_ticket, Value) when is_binary(Value) andalso
-                                        byte_size(Value) =:= 32 ->
+validate_option(use_ticket, Value) when is_list(Value) ->
     Value;
 validate_option(session_tickets, Value) when Value =:= disabled orelse
                                              Value =:= stateless orelse

@@ -149,7 +149,7 @@ erlang_client_erlang_server_basic(Config) when is_list(Config) ->
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                          {from, self()},
-                                         {options, [{use_ticket, TicketId}|ClientOpts]}]),
+                                         {options, [{use_ticket, [TicketId]}|ClientOpts]}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
@@ -208,7 +208,7 @@ erlang_client_openssl_server_basic(Config) when is_list(Config) ->
                                          {port, Port}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
                                          {from, self()},
-                                         {options, [{use_ticket, TicketId}|ClientOpts]}]),
+                                         {options, [{use_ticket, [TicketId]}|ClientOpts]}]),
 
     receive
         {Client1, SID} ->
@@ -325,7 +325,7 @@ erlang_client_erlang_server_hrr(Config) when is_list(Config) ->
                                          {port, Port0}, {host, Hostname},
                                          {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                          {from, self()},
-                                         {options, [{use_ticket, TicketId}|ClientOpts]}]),
+                                         {options, [{use_ticket, [TicketId]}|ClientOpts]}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
@@ -389,7 +389,7 @@ erlang_client_openssl_server_hrr(Config) when is_list(Config) ->
                                          {port, Port}, {host, Hostname},
                                          {mfa, {ssl_test_lib, session_id, []}},
                                          {from, self()},
-                                         {options, [{use_ticket, TicketId}|ClientOpts]}]),
+                                         {options, [{use_ticket, [TicketId]}|ClientOpts]}]),
 
     receive
         {Client1, SID} ->
