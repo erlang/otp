@@ -615,8 +615,6 @@ bs_instrs_is([#b_set{op=Op,args=Args0}=I0|Is], CtxChain, Acc) ->
                 I1#b_set{op=bs_skip,args=[Type,Ctx|As]};
             {bs_match,[#b_literal{val=string},Ctx|As]} ->
                 I1#b_set{op=bs_match_string,args=[Ctx|As]};
-            {bs_get_tail,[Ctx|As]} ->
-                I1#b_set{op=bs_get_tail,args=[Ctx|As]};
             {_,_} ->
                 I1
         end,
@@ -2115,13 +2113,6 @@ make_block_ranges([], _, Acc) -> Acc.
 
 live_interval_blk_1([#b_set{op=phi,dst=Dst}|Is], FirstNumber, Acc0) ->
     Acc = [{Dst,{def,FirstNumber}}|Acc0],
-    live_interval_blk_1(Is, FirstNumber, Acc);
-live_interval_blk_1([#b_set{op=bs_start_match}=I|Is],
-                    FirstNumber, Acc0) ->
-    N = beam_ssa:get_anno(n, I),
-    #b_set{dst=Dst} = I,
-    Acc1 = [{Dst,{def,N}}|Acc0],
-    Acc = [{V,{use,N}} || V <- beam_ssa:used(I)] ++ Acc1,
     live_interval_blk_1(Is, FirstNumber, Acc);
 live_interval_blk_1([I|Is], FirstNumber, Acc0) ->
     N = beam_ssa:get_anno(n, I),
