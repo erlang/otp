@@ -16618,13 +16618,17 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 			       %%           Ubunto 16.04.6 => 4.15.0-65
 			       %%           SLES 12 SP2    => 4.4.120-92.70
 			       %% so don't!
+                               %%
+                               %% The latest we know it not to work was a
+                               %% SLES 12 (plain) at 3.12.39-47.
+                               %%
 			       [{ip, recvtos, tos, 
                                  case os:type() of
                                      {unix, freebsd} ->
                                          default;
 				     {unix, linux} ->
 					 case os:version() of
-					     Vsn when Vsn > {3,0,101} ->
+					     Vsn when Vsn > {3,12,39} ->
 						 42;
 					     _ ->
 						 default
@@ -16645,7 +16649,7 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
 				       %% TOS or TTL values will fail on: 
 				       %%    FreeBSD
 				       %%    Linux when
-				       %%      version =< 3.0.101 (at least)
+				       %%      version =< 3.12.39 (at least)
 				       %% so don't!
                                        [{ip, recvttl, ttl,
                                          case os:type() of
@@ -16653,7 +16657,7 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
                                                  default;
 					     {unix, linux} ->
 						 case os:version() of
-						     Vsn when Vsn > {3,0,101} ->
+						     Vsn when Vsn > {3,12,39} ->
 							 42;
 						     _ ->
 							 default
