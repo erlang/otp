@@ -14287,7 +14287,11 @@ ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
  * We provide the max size of the string. This is the
  * size of the buffer we allocate for the value.
  * The actual size of the (read) value will be communicated
- * in the optSz variable.
+ * in the valSz variable.
+ *
+ * Its possible that some strings are NULL-terminated,
+ * but there is no way this *general* funcrtion can assume that.
+ * So leave it to the caller to deal with that.
  */
 #if defined(USE_GETOPT_STR_OPT)
 static

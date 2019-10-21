@@ -3293,7 +3293,12 @@ enc_getopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% values we may need to do an actual decode.
 %%
 
-%% Let the user deal with this for now...
+%% This string is NULL-terminated, but the general function we use
+%% in the nif code does not know that. So, deal with it here.
+dec_getopt_value(tcp = _L, congestion = _Opt, Alg, _D, _T, _P) when is_list(Alg) ->
+    {Str, _} = lists:splitwith(fun(0) -> false; (_) -> true end, Alg),
+    Str;
+%% Let the user deal with the rest for now...
 dec_getopt_value(_L, _Opt, V, _D, _T, _P) ->
     V.
 
