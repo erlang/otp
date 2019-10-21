@@ -50,6 +50,17 @@
       </item>
     </list>
 
+    <!--
+
+There are achors (marker id) in this file, but do **NOT** link to anything
+in this file!! Because of the title is in capital letters, the generated
+html file will also be in capital letters.
+This should not be a problem since almost everything here is duplicated
+in the snmp_config file!
+
+    -->
+
+
   </description>
 
   <section>

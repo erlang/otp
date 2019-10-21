@@ -211,8 +211,6 @@
             <seealso marker="snmp_config#audit_trail_log">Audit Trail Log</seealso> 
             config option. </p>
           <p>See the 
-            <seealso marker="snmp_app#configuration_params">reference manual</seealso> 
-            or the 
             <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
             chapter of the User's Guide for further info. </p> 
 
@@ -272,8 +270,6 @@
             <seealso marker="snmp_config#audit_trail_log">Audit Trail Log</seealso> 
             config option. </p>
           <p>See the 
-            <seealso marker="snmp_app#configuration_params">reference manual</seealso> 
-            or the 
             <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
             chapter of the User's Guide for further info. </p> 
 
@@ -416,7 +412,7 @@
             See also the Configuring chapter of
             the User's Guide to see how to configure this feature. </p>
           <p>See the 
-            <seealso marker="snmp_app#configuration_params">configuration</seealso> 
+            <seealso marker="snmp_config#configuration_params">configuration</seealso> 
             chapter for more info about the filter options.</p>
           <p>Own Id: OTP-8228</p>
 	  <p>Aux Id: Seq 11411</p>
@@ -486,7 +482,7 @@
             <seealso marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/1,2</seealso> and 
             <seealso marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1,2</seealso> for more info. </p>
           <p>See also the 
-            <seealso marker="snmp_app#configuration_params">configuration</seealso> 
+            <seealso marker="snmp_config#configuration_params">configuration</seealso> 
             chapter for more info about the mib server cache options.</p>
           <p>Own Id: OTP-8182</p>
 	  <p>Aux Id: Seq 11383</p>
@@ -499,7 +495,7 @@
             make it possible to configure the username the agent reacts to. 
             Default is <c>""</c>. </p>
           <p>See the 
-            <seealso marker="snmp_app#configuration_params">configuration</seealso> 
+            <seealso marker="snmp_config#configuration_params">configuration</seealso> 
             chapter for more info about the discovery options.</p>
           <p>Own Id: OTP-8120</p>
 	  <p>Aux Id: Seq 11361</p>
@@ -674,7 +670,7 @@
             of these problems. </p>
           <p>Introduced various options for controlling the discovery
             process. See the 
-            <seealso marker="snmp_app#configuration_params">configuration</seealso> 
+            <seealso marker="snmp_config#configuration_params">configuration</seealso> 
             chapter for more info about the discovery options.</p>
           <p>Own Id: OTP-8020</p>
 	  <p>Aux Id: Seq 11295</p>
@@ -1058,7 +1054,8 @@
           <p>[agent] A simple lookup cache has been added to improve 
             the mib server lookup performance. </p>
           <p>This can be disabled with the mib_server 
-            <seealso marker="snmp_app">cache</seealso> option. </p> 
+	  <seealso marker="snmp_config#agent_ms_cache">cache</seealso>
+	  option. </p>
           <p>Own Id: OTP-7346</p>
         </item>
 
@@ -1328,7 +1325,7 @@
       <list type="bulleted">
         <item>
           <p>[manager] The configuration option 
-            <seealso marker="snmp_app">inform_request_behaviour</seealso>
+            <seealso marker="snmp_config#manager_irb">inform_request_behaviour</seealso>
             was not properly parsed, which caused the manager to revert 
             to the default value, <c>auto</c>. </p>
           <p>Own Id: OTP-7219</p>
@@ -1561,7 +1558,7 @@
             network interface filter module. This module must implement the 
             <seealso marker="snmpa_network_interface_filter">network interface filter behaviour</seealso>. 
             See also the 
-            <seealso marker="snmp_app#configuration_params">Configuring the application</seealso> 
+            <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
             chapter of the User's Guide to see how to configure this 
             feature. </p>
 	  <p>Own Id: OTP-6649</p>
@@ -2047,9 +2044,8 @@
         <item>
           <p>Added a config option, <c>sndbuf</c>, for the net_if-module(s).  
             See 
-            <seealso marker="snmp_app">application configuration</seealso> or
-            <seealso marker="snmp_config">running the application</seealso> 
-            for more info (look for manager_net_if_options and 
+            <seealso marker="snmp_config#configuration_params">Configure the application</seealso> 
+            for more info (look for manager_net_if_options and
             agent_net_if_options). </p>
           <p>Own Id: OTP-6137</p>
         </item>
@@ -2366,7 +2362,7 @@
         </item>
         <item>
           <p>Improved handling of audit trail logs.
-            See the <seealso marker="snmp_app">atl_repair</seealso> 
+            See the <seealso marker="snmp_config">atl_repair</seealso> 
             config for more info.</p>
           <p>Own Id: OTP-5771</p>
         </item>
@@ -2407,7 +2403,7 @@
       <list type="bulleted">
         <item>
           <p>[manager] Introduced the 
-            <seealso marker="snmp_app">inform request behaviour</seealso> 
+            <seealso marker="snmp_config#manager_irb">inform request behaviour</seealso> 
             configuration option to allow the user to specify
             how/when the manager shall acknowledge inform-request's.</p>
           <p>Own Id: OTP-5733</p>
@@ -3093,7 +3089,7 @@
             <seealso marker="snmpm_user">user behaviour</seealso> 
             could be overridden (default user is the module
             <c>snmpm_user_default</c>). 
-            See <seealso marker="snmp_app">application configuration</seealso> or
+            See 
             <seealso marker="snmp_config#configuration_params">configuration params</seealso>.</p>
           <p>Own Id: OTP-5299</p>
         </item>
@@ -3380,7 +3376,7 @@
             works (if only the agent is used), it is no
             longer documented and will eventually be 
             eliminated.
-            See <seealso marker="snmp_app">application configuration</seealso> or
+            See 
             <seealso marker="snmp_config#configuration_params">configuration params</seealso> for more info.</p>
         </item>
         <item>

@@ -684,11 +684,11 @@
         <item>
           <p>[agent] Enable SNMP to create missing database directories. </p>
 	  <p>Add
-	  <seealso marker="snmp_app#db_init_error">
+	  <seealso marker="snmp_config#db_init_error">
 	  {db_init_error, create_db_and_dir}</seealso> option to SNMP
-	  <seealso marker="snmp_app#manager_opts_and_types">manager</seealso>
+	  <seealso marker="snmp_config#manager_opts_and_types">manager</seealso>
 	  and
-	  <seealso marker="snmp_app#agent_opts_and_types">agent</seealso>.
+	  <seealso marker="snmp_config#agent_opts_and_types">agent</seealso>.
 	  This allows them to create any missing parent directories for
 	  <c>db_dir</c>, rather than treating any missing directories
 	  as a fatal error.
@@ -1361,7 +1361,7 @@
           limit the number of varbinds that can be included in
           a Get-BULK response message. This is specified by the
           new config option,
-          <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>.
+          <seealso marker="snmp_config#agent_gb_max_vbs">gb_max_vbs</seealso>.
           </p>
           <p>Own Id: OTP-9700</p>
         </item>
@@ -1420,7 +1420,7 @@
           limit the number of varbinds that can be included in
           a Get-BULK response message. This is specified by the
           new config option,
-          <seealso marker="snmp_app#agent_gb_max_vbs">gb_max_vbs</seealso>.
+          <seealso marker="snmp_config#agent_gb_max_vbs">gb_max_vbs</seealso>.
           </p>
           <p>Own Id: OTP-9700</p>
         </item>
