@@ -186,7 +186,7 @@ foreach my $type (keys %pattern_type) {
     $construction_type{$type} = 1
         if index($genop_types, $type) >= 0;
 }
-foreach my $makes_no_sense ('f', 'j', 'o', 'p', 'q') {
+foreach my $makes_no_sense ('f', 'j', 'o', 'q') {
     delete $construction_type{$makes_no_sense};
 }
 
