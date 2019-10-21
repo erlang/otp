@@ -12703,6 +12703,10 @@ api_opt_sock_timeo(InitState) ->
                                {ok, #{sec := _, usec := _} = TO} ->
                                    ?SEV_IPRINT("(default) timeout: ~p", [TO]),
                                    {ok, State#{default_timeo => TO}};
+                               {error, enoprotoopt = Reason} ->
+                                   ?SEV_IPRINT("Failed getting (default) timeout:"
+                                               "   ~p", [Reason]),
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed getting (default) timeout:"
                                                "   ~p", [Reason]),
