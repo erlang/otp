@@ -843,6 +843,7 @@ api_options_socket_cases() ->
      api_opt_sock_oobinline,
      {group, api_option_sock_passcred},
      api_opt_sock_peek_off_tcpL,
+     api_opt_sock_peercred_tcpL,
      {group, api_option_sock_priority},
      {group, api_option_sock_buf},
      {group, api_option_sock_lowat},
@@ -859,8 +860,7 @@ api_option_sock_acceptconn_cases() ->
 api_option_sock_passcred_cases() ->
     [
      %% api_opt_sock_passcred_udp4,
-     api_opt_sock_passcred_tcp4,
-     api_opt_sock_peercred_tcpL
+     api_opt_sock_passcred_tcp4
     ].
 
 api_option_sock_priority_cases() ->
