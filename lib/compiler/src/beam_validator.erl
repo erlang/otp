@@ -1235,6 +1235,13 @@ validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
 %% Common code for validating bs_start_match* instructions.
 %%
 
+validate_bs_start_match({atom,resume}, Live, 0, Src, Dst, Vst0) ->
+    assert_type(#t_bs_context{}, Src, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    Vst = assign(Src, Dst, Vst0),
+    prune_x_regs(Live, Vst);
 validate_bs_start_match({atom,no_fail}, Live, Slots, Src, Dst, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),

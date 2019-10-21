@@ -557,6 +557,7 @@ atom report_errors
 atom reset
 atom reset_seq_trace
 atom restart
+atom resume
 atom return_from
 atom return_to
 atom return_trace

@@ -470,7 +470,7 @@ combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
 
 cm_1([#b_set{ op=bs_start_match,
               dst=Ctx,
-              args=[Src] },
+              args=[_,Src] },
       #b_set{ op=succeeded,
               dst=Bool,
               args=[Ctx] }]=MatchSeq, Acc0, Lbl, State0) ->
@@ -575,7 +575,7 @@ aca_1(Blocks, State) ->
     EntryBlock = maps:get(0, Blocks),
     aca_enable_reuse(EntryBlock#b_blk.is, EntryBlock, Blocks, [], State).
 
-aca_enable_reuse([#b_set{op=bs_start_match,args=[Src]}=I0 | Rest],
+aca_enable_reuse([#b_set{op=bs_start_match,args=[_,Src]}=I0 | Rest],
                  EntryBlock, Blocks0, Acc, State0) ->
     case aca_is_reuse_safe(Src, State0) of
         true ->
@@ -619,7 +619,8 @@ aca_is_reuse_safe(Src, State) ->
     %% they're unused so far.
     ordsets:is_element(Src, State#aca.unused_parameters).
 
-aca_reuse_context(#b_set{dst=Dst, args=[Src]}=I0, Block, Blocks0, State0) ->
+aca_reuse_context(#b_set{op=bs_start_match,dst=Dst,args=[_,Src]}=I0,
+                  Block, Blocks0, State0) ->
     %% When matching fails on a reused context it needs to be converted back
     %% to a binary. We only need to do this on the success path since it can't
     %% be a context on the type failure path, but it's very common for these

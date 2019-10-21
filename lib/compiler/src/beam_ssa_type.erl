@@ -549,6 +549,13 @@ simplify(#b_set{op=bs_match,
         CtxUnit rem OpUnit =/= 0 ->
             I
     end;
+simplify(#b_set{op=bs_start_match,args=[#b_literal{val=new}, Src]}=I, Ts) ->
+    case raw_type(Src, Ts) of
+        #t_bs_context{} ->
+            I#b_set{op=bs_start_match,args=[#b_literal{val=resume}, Src]};
+        _ ->
+            I
+    end;
 simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
     #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
     true = Size > N,                            %Assertion.
@@ -958,7 +965,7 @@ type(bs_init, _Args, _Anno, _Ts, _Ds) ->
 type(bs_extract, [Ctx], _Anno, _Ts, Ds) ->
     #b_set{op=bs_match,args=Args} = map_get(Ctx, Ds),
     bs_match_type(Args);
-type(bs_start_match, [Src], _Anno, Ts, _Ds) ->
+type(bs_start_match, [_, Src], _Anno, Ts, _Ds) ->
     case beam_types:meet(#t_bs_matchable{}, raw_type(Src, Ts)) of
         none ->
             none;
@@ -1044,7 +1051,7 @@ type(succeeded, [#b_var{}=Src], _Anno, Ts, Ds) ->
             end;
         #b_set{op=bs_get_tail} ->
             beam_types:make_atom(true);
-        #b_set{op=bs_start_match,args=[Arg]} ->
+        #b_set{op=bs_start_match,args=[_, Arg]} ->
             ArgType = raw_type(Arg, Ts),
             case beam_types:is_bs_matchable_type(ArgType) of
                 true ->
@@ -1455,8 +1462,8 @@ infer_success_type({bif,Op}, Args, Ts, _Ds) ->
 infer_success_type(call, [#b_var{}=Fun|Args], _Ts, _Ds) ->
     T = {Fun, #t_fun{arity=length(Args)}},
     {[T], []};
-infer_success_type(bs_start_match, [#b_var{}=Bin], _Ts, _Ds) ->
-    T = {Bin,#t_bs_matchable{}},
+infer_success_type(bs_start_match, [_, #b_var{}=Src], _Ts, _Ds) ->
+    T = {Src,#t_bs_matchable{}},
     {[T], [T]};
 infer_success_type(bs_match, [#b_literal{val=binary},
                               Ctx, _Flags,

@@ -1146,7 +1146,10 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
             Is = [Line,{bs_append,Fail,Bits,Alloc,Live,Unit,Src,Flags,Dst}],
             {Is,St}
     end;
-cg_block([#cg_set{anno=Anno,op=bs_start_match,dst=Ctx0,args=[Bin0]}=I,
+cg_block([#cg_set{anno=Anno,
+                  op=bs_start_match,
+                  dst=Ctx0,
+                  args=[#b_literal{val=new},Bin0]}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     [Dst,Bin1] = beam_args([Ctx0,Bin0], St),
     {Bin,Pre} = force_reg(Bin1, Dst),
@@ -1622,7 +1625,10 @@ build_apply(Arity, {return,Val,N}, _Dst) when is_integer(N) ->
 build_apply(Arity, none, Dst) ->
     [{apply,Arity}|copy({x,0}, Dst)].
 
-cg_instr(bs_start_match, [Src0], Dst, Set) ->
+cg_instr(bs_start_match, [{atom,resume}, Src], Dst, Set) ->
+    Live = get_live(Set),
+    [{bs_start_match4,{atom,resume},Live,Src,Dst}];
+cg_instr(bs_start_match, [{atom,new}, Src0], Dst, Set) ->
     {Src, Pre} = force_reg(Src0, Dst),
     Live = get_live(Set),
     Pre ++ [{bs_start_match4,{atom,no_fail},Live,Src,Dst}];
