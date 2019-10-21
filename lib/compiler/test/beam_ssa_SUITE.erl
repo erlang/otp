@@ -197,6 +197,14 @@ recv(_Config) ->
     self() ! 2,
     b = tricky_recv_5(),
 
+    %% Test tricky_recv_5a/0.
+    self() ! 1,
+    a = tricky_recv_5a(),
+    self() ! 2,
+    b = tricky_recv_5a(),
+    self() ! any,
+    b = tricky_recv_5a(),
+
     %% tricky_recv_6/0 is a compile-time error.
     tricky_recv_6(),
 
@@ -326,6 +334,29 @@ tricky_recv_5() ->
     catch
         _:_ -> c
     end.
+
+%% beam_ssa_pre_codegen would find the wrong exit block when fixing up
+%% receives.
+tricky_recv_5a() ->
+    try
+        receive
+            X=1 ->
+                id(42),
+                a;
+            X=_ ->
+                b
+        end,
+        %% The following is the code in the common exit block.
+        if X =:= 1 -> a;
+           true -> b
+        end
+    catch
+        %% But this code with the landingpad instruction was found,
+        %% because it happened to occur before the true exit block
+        %% in the reverse post order.
+        _:_ -> c
+    end.
+
 
 %% When fixing tricky_recv_5, we introduced a compiler crash when the common
 %% exit block was ?EXCEPTION_BLOCK and floats were in the picture.
