@@ -146,6 +146,7 @@ other_types() ->
     [any,
      gen_atom(),
      gen_binary(),
+     gen_fun(),
      none].
 
 list_types() ->
@@ -174,6 +175,9 @@ gen_atom_val() ->
 
 gen_binary() ->
     ?SHRINK(#t_bitstring{unit=range(1, 128)}, [#t_bitstring{unit=1}]).
+
+gen_fun() ->
+    oneof([?LET(Arity, range(1, 8), #t_fun{arity=Arity}), #t_fun{arity=any}]).
 
 gen_integer() ->
     oneof([gen_integer_bounded(), #t_integer{}]).
