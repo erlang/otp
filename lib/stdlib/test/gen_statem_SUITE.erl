@@ -42,7 +42,7 @@ all() ->
      event_types, generic_timers, code_change,
      {group, sys},
      hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
-     undef_in_terminate].
+     undef_in_terminate, {group, format_log}].
 
 groups() ->
     [{start, [], tcs(start)},
@@ -53,7 +53,8 @@ groups() ->
      {abnormal_handle_event, [], tcs(abnormal)},
      {sys, [], tcs(sys)},
      {sys_handle_event, [], tcs(sys)},
-     {undef_callbacks, [], tcs(undef_callbacks)}].
+     {undef_callbacks, [], tcs(undef_callbacks)},
+     {format_log, [], tcs(format_log)}].
 
 tcs(start) ->
     [start1, start2, start3, start4, start5, start6, start7,
@@ -68,7 +69,9 @@ tcs(sys) ->
      error_format_status, terminate_crash_format,
      get_state, replace_state];
 tcs(undef_callbacks) ->
-    [undef_code_change, undef_terminate1, undef_terminate2].
+    [undef_code_change, undef_terminate1, undef_terminate2];
+tcs(format_log) ->
+    [format_log_1, format_log_2].
 
 init_per_suite(Config) ->
     Config.
@@ -1779,6 +1782,306 @@ next_events(Config) ->
     noproc =
 	?EXPECT_FAILURE(gen_statem:stop(Pid), Reason).
 
+
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1,15),
+    Name = self(),
+    Reason = {bad_reply_action_from_state_function,[]},
+    Report1 = simple_report(Name, Term, Reason),
+    Report2 = elaborate_report(Name, Term, Reason),
+
+    {F1,A1} = gen_statem:format_log(Report1),
+    ct:log("F1: ~ts~nA1: ~tp",[F1,A1]),
+    FExpected1 = "** State machine ~tp terminating~n"
+        "** When server state  = ~tp~n"
+        "** Reason for termination = ~tp:~tp~n"
+        "** Callback mode = ~tp~n",
+    FExpected1 = F1,
+    [Name,Term,error,Reason,state_functions] = A1,
+
+    {F3,A3} = gen_statem:format_log(Report2),
+    ct:log("F3: ~ts~nA3: ~tp",[F3,A3]),
+    FExpected3 = "** State machine ~tp terminating~n"
+        "** Last event = ~tp~n"
+        "** When server state  = ~tp~n"
+        "** Reason for termination = ~tp:~tp~n"
+        "** Callback mode = ~tp~n"
+        "** Queued = ~tp~n"
+        "** Postponed = ~tp~n"
+        "** Stacktrace =~n**  ~tp~n"
+        "** Time-outs: ~tp~n"
+        "** Log =~n**  ~tp~n"
+        "** Client ~tp stacktrace~n"
+        "** ~tp~n",
+    FExpected3 = F3,
+    Stacktrace = stacktrace(),
+    [Name,Term,Term,error,Reason,[state_functions,state_enter],[Term],
+     [{internal,Term}],Stacktrace,{1,[{timeout,message}]},[Term],Name,[]] = A3,
+
+    Depth = 10,
+    ok = application:set_env(kernel, error_logger_format_depth, Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = gen_statem:format_log(Report1),
+    ct:log("F2: ~ts~nA2: ~tp",[F2,A2]),
+    FExpected2 = "** State machine ~tP terminating~n"
+        "** When server state  = ~tP~n"
+        "** Reason for termination = ~tP:~tP~n"
+        "** Callback mode = ~tP~n",
+    FExpected2 = F2,
+    [Name,Depth,Limited,Depth,error,Depth,Reason,
+     Depth,state_functions,Depth] = A2,
+
+    {F4,A4} = gen_statem:format_log(Report2),
+    ct:log("F4: ~ts~nA4: ~tp",[F4,A4]),
+    FExpected4 = "** State machine ~tP terminating~n"
+        "** Last event = ~tP~n"
+        "** When server state  = ~tP~n"
+        "** Reason for termination = ~tP:~tP~n"
+        "** Callback mode = ~tP~n"
+        "** Queued = ~tP~n"
+        "** Postponed = ~tP~n"
+        "** Stacktrace =~n**  ~tP~n"
+        "** Time-outs: ~tP~n"
+        "** Log =~n**  ~tP~n"
+        "** Client ~tP stacktrace~n"
+        "** ~tP~n",
+    FExpected4 = F4,
+    LimitedPostponed = [{internal,[1,2,3,4,5,6,'...']}],
+    LimitedStacktrace = io_lib:limit_term(Stacktrace, Depth),
+    LimitedQueue = io_lib:limit_term([Term], Depth),
+    [Name,Depth,Limited,Depth,Limited,Depth,error,Depth,Reason,Depth,
+     [state_functions,state_enter],Depth,LimitedQueue,Depth,
+     LimitedPostponed,Depth,LimitedStacktrace,Depth,{1,[{timeout,message}]},
+     Depth,[Limited],Depth,Name,Depth,[],Depth] = A4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    format_log_2_simple(),
+    format_log_2_elaborate(),
+    ok.
+
+format_log_2_simple() ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Reason = {bad_reply_action_from_state_function,[]},
+    Report = simple_report(Name, Term, Reason),
+
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** When server state  = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "** Reason for termination = "
+           "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback mode = state_functions\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    Expected1 = Str1,
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** When server state  = [1,2,3,4,5,6,7,8,9|...]\n"
+        "** Reason for termination = "
+           "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback mode = state_functions\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    true = Expected2 =:= Str2,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** When server state  = [",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = lists:prefix(Expected3, Str3),
+    true = L3 < L1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: {bad_reply_action_from_state_function,[]}. "
+        "State: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    Expected4 = Str4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: {bad_reply_action_from_state_function,[]}. "
+        "State: [1,2,3,4,5,6,7,8,9|...].",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    Expected5 = Str5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>100},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: ",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+format_log_2_elaborate() ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+
+    Term = lists:seq(1,15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Reason = {bad_reply_action_from_state_function,[]},
+    Report = elaborate_report(Name, Term, Reason),
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** Last event = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    true = lists:prefix(Expected1, Str1),
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** Last event = [1,2,3,4,5,6,7,8,9|...]\n"
+        "** When server state  = [1,2,3,4,5,6,7,8,9|...]\n"
+        "** Reason for termination = "
+           "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback mode = [state_functions,state_enter]\n"
+        "** Queued = [[1,2,3,4,5,6,7,8|...]]\n"
+        "** Postponed = [{internal,[1,2,3,4,5,6|...]}]\n"
+        "** Stacktrace =\n"
+        "**  [{m,f,1,[1,2,3,4|...]}]\n"
+        "** Time-outs: {1,[{timeout,message}]}\n"
+        "** Log =\n"
+        "**  [[1,2,3,4,5,6,7,8|...]]\n"
+        "** Client "++NameStr ++ " stacktrace\n"
+        "** []\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    Expected2 = Str2,
+
+    FormatOpts3 = #{chars_limit=>300},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "** State machine " ++ NameStr ++ " terminating\n"
+        "** Last event = ",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = lists:prefix(Expected3, Str3),
+    true = L3 < L1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: {bad_reply_action_from_state_function,[]}. "
+        "Stack: [{m,f,1,[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]}]. "
+        "Last event: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "State: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "Log: [[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]. "
+        "Client " ++ NameStr ++ " stacktrace: [].",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    Expected4 = Str4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason: {bad_reply_action_from_state_function,[]}. "
+        "Stack: [{m,f,1,[1,2,3,4|...]}]. "
+        "Last event: [1,2,3,4,5,6,7,8,9|...]. "
+        "State: [1,2,3,4,5,6,7,8,9|...]. "
+        "Log: [[1,2,3,4,5,6,7,8|...]]. "
+        "Client " ++ NameStr ++ " stacktrace: [].",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    Expected5 = Str5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>300},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "State machine " ++ NameStr ++ " terminating. "
+        "Reason:",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+simple_report(Name, Term, Reason) ->
+    #{label=>{gen_statem,terminate},
+      name=>Name,
+      queue=>[],
+      postponed=>[],
+      callback_mode=>state_functions,
+      state_enter=>false,
+      state=>Term,
+      timeouts=>{0,[]},
+      log=>[],
+      reason=>{error,Reason,[]},
+      client_info=>undefined}.
+
+elaborate_report(Name, Term, Reason) ->
+    #{label=>{gen_statem,terminate},
+      name=>Name,
+      queue=>[Term,Term],
+      postponed=>[{internal,Term}],
+      callback_mode=>state_functions,
+      state_enter=>true,
+      state=>Term,
+      timeouts=>{1,[{timeout,message}]},
+      log=>[Term],
+      reason=>{error,Reason,stacktrace()},
+      client_info=>{self(),{self(),[]}}}.
+
+stacktrace() ->
+    [{m,f,1,lists:seq(1, 15)}].
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(gen_statem:format_log(Report, Format)).
 
 %%
 %% Functionality check

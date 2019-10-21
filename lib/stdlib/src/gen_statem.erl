@@ -47,7 +47,7 @@
    [wakeup_from_hibernate/3]).
 
 %% logger callback
--export([format_log/1]).
+-export([format_log/1, format_log/2]).
 
 %% Type exports for templates and callback modules
 -export_type(
@@ -2296,8 +2296,10 @@ error_info(
                  reason=>{Class,Reason,Stacktrace},
                  client_info=>client_stacktrace(Q)},
                #{domain=>[otp],
-                 report_cb=>fun gen_statem:format_log/1,
-                 error_logger=>#{tag=>error}}).
+                 report_cb=>fun gen_statem:format_log/2,
+                 error_logger=>
+                     #{tag=>error,
+                       report_cb=>fun gen_statem:format_log/1}}).
 
 client_stacktrace([]) ->
     undefined;
@@ -2323,42 +2325,155 @@ client_stacktrace([_|_]) ->
     undefined.
 
 
-format_log(#{label:={gen_statem,terminate},
-             name:=Name,
-             queue:=Q,
-             postponed:=Postponed,
-             callback_mode:=CallbackMode,
-             state_enter:=StateEnter,
-             state:=FmtData,
-             timeouts:=Timeouts,
-             log:=Log,
-             reason:={Class,Reason,Stacktrace},
-             client_info:=ClientInfo}) ->
-    {FixedReason,FixedStacktrace} =
-	case Stacktrace of
-	    [{M,F,Args,_}|ST]
-	      when Class =:= error, Reason =:= undef ->
-		case code:is_loaded(M) of
-		    false ->
-			{{'module could not be loaded',M},ST};
-		    _ ->
-			Arity =
-			    if
-				is_list(Args) ->
-				    length(Args);
-				is_integer(Args) ->
-				    Args
-			    end,
-			case erlang:function_exported(M, F, Arity) of
-			    true ->
-				{Reason,Stacktrace};
-			    false ->
-				{{'function not exported',{M,F,Arity}},ST}
-			end
-		end;
-	    _ -> {Reason,Stacktrace}
-	end,
-    {ClientFmt,ClientArgs} = format_client_log(ClientInfo),
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(Report) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(Report, Depth), FormatOpts).
+
+limit_report(Report, unlimited) ->
+    Report;
+limit_report(#{label:={gen_statem,terminate},
+               queue:=Q,
+               postponed:=Postponed,
+               state:=FmtData,
+	       timeouts:=Timeouts,
+               log:=Log,
+               reason:={Class,Reason,Stacktrace},
+               client_info:=ClientInfo}=Report,
+             Depth) ->
+    Report#{queue =>
+                case Q of
+                    [Event|Events] ->
+                        [io_lib:limit_term(Event, Depth)
+                         |io_lib:limit_term(Events, Depth)];
+                    _ -> []
+                end,
+            postponed =>
+                case Postponed of
+                    [] -> [];
+                    _ -> io_lib:limit_term(Postponed, Depth)
+                end,
+            state => io_lib:limit_term(FmtData, Depth),
+	    timeouts =>
+	    	     case Timeouts of
+                         {0,_} -> Timeouts;
+                         _ -> io_lib:limit_term(Timeouts, Depth)
+                     end,
+            log =>
+                case Log of
+                    [] -> [];
+                    _ -> [io_lib:limit_term(T, Depth) || T <- Log]
+                end,
+            reason =>
+                {Class,
+                 io_lib:limit_term(Reason, Depth),
+                 io_lib:limit_term(Stacktrace, Depth)},
+            client_info => limit_client_info(ClientInfo, Depth)}.
+
+
+limit_client_info({Pid,{Name,Stacktrace}}, Depth) ->
+    {Pid,{Name,io_lib:limit_term(Stacktrace, Depth)}};
+limit_client_info(Client, _Depth) ->
+    Client.
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default,FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={gen_statem,terminate},
+                    name:=Name,
+                    queue:=Q,
+                    %% postponed
+                    %% callback_mode
+                    %% state_enter
+                    state:=FmtData,
+		    %% timeouts
+                    log:=Log,
+                    reason:={Class,Reason,Stacktrace},
+                    client_info:=ClientInfo},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    {FixedReason,FixedStacktrace} = fix_reason(Class, Reason, Stacktrace),
+    {ClientFmt,ClientArgs} = format_client_log_single(ClientInfo, P, Depth),
+    Format =
+        lists:append(
+          ["State machine ",P," terminating. Reason: ",P,
+           case FixedStacktrace of
+               [] -> "";
+               _ -> ". Stack: "++P
+           end,
+           case Q of
+               [] -> "";
+               _ -> ". Last event: "++P
+           end,
+           ". State: ",P,
+           case Log of
+               [] -> "";
+               _ -> ". Log: "++P
+           end,
+          "."]),
+    Args0 =
+        [Name,FixedReason] ++
+        case FixedStacktrace of
+            [] -> [];
+            _ -> [FixedStacktrace]
+        end ++
+        case Q of
+            [] -> [];
+            [Event|_] -> [Event]
+        end ++
+        [FmtData] ++
+        case Log of
+            [] -> [];
+            _ -> [Log]
+        end,
+    Args = case Depth of
+               unlimited ->
+                   Args0;
+               _ ->
+                   lists:flatmap(fun(A) -> [A, Depth] end, Args0)
+           end,
+    {Format++ClientFmt, Args++ClientArgs};
+format_log_single(Report, FormatOpts) ->
+    format_log_multi(Report, FormatOpts).
+
+format_log_multi(#{label:={gen_statem,terminate},
+                   name:=Name,
+                   queue:=Q,
+                   postponed:=Postponed,
+                   callback_mode:=CallbackMode,
+                   state_enter:=StateEnter,
+                   state:=FmtData,
+		   timeouts:=Timeouts,
+                   log:=Log,
+                   reason:={Class,Reason,Stacktrace},
+                   client_info:=ClientInfo},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    {FixedReason,FixedStacktrace} = fix_reason(Class, Reason, Stacktrace),
+    {ClientFmt,ClientArgs} = format_client_log(ClientInfo, P, Depth),
     CBMode =
 	 case StateEnter of
 	     true ->
@@ -2366,74 +2481,145 @@ format_log(#{label:={gen_statem,terminate},
 	     false ->
 		 CallbackMode
 	 end,
-    {"** State machine ~tp terminating~n" ++
+    Format =
+        lists:append(
+          ["** State machine ",P," terminating~n",
+           case Q of
+               [] -> "";
+               _ -> "** Last event = "++P++"~n"
+           end,
+           "** When server state  = ",P,"~n",
+           "** Reason for termination = ",P,":",P,"~n",
+           "** Callback mode = ",P,"~n",
+           case Q of
+               [_,_|_] -> "** Queued = "++P++"~n";
+               _ -> ""
+           end,
+           case Postponed of
+               [] -> "";
+               _ -> "** Postponed = "++P++"~n"
+           end,
+           case FixedStacktrace of
+               [] -> "";
+               _ -> "** Stacktrace =~n**  "++P++"~n"
+           end,
+           case Timeouts of
+               {0,_} -> "";
+               _ -> "** Time-outs: "++P++"~n"
+           end,
+           case Log of
+               [] -> "";
+               _ -> "** Log =~n**  "++P++"~n"
+           end]),
+    Args0 =
+        [Name |
          case Q of
-             [] -> "";
-             _ -> "** Last event = ~tp~n"
-         end ++
-         "** When server state  = ~tp~n" ++
-         "** Reason for termination = ~w:~tp~n" ++
-         "** Callback mode = ~p~n" ++
-         case Q of
-             [_,_|_] -> "** Queued = ~tp~n";
-             _ -> ""
-         end ++
-         case Postponed of
-             [] -> "";
-             _ -> "** Postponed = ~tp~n"
-         end ++
-         case FixedStacktrace of
-             [] -> "";
-             _ -> "** Stacktrace =~n**  ~tp~n"
-         end ++
-         case Timeouts of
-             {0,_} -> "";
-             _ -> "** Time-outs: ~p~n"
-         end ++
-         case Log of
-             [] -> "";
-             _ -> "** Log =~n**  ~tp~n"
-         end ++ ClientFmt,
-     [Name |
-      case Q of
-          [] -> [];
-          [Event|_] -> [error_logger:limit_term(Event)]
-      end] ++
-         [error_logger:limit_term(FmtData),
-          Class,error_logger:limit_term(FixedReason),
-          CBMode] ++
-         case Q of
-             [_|[_|_] = Events] -> [error_logger:limit_term(Events)];
-             _ -> []
-         end ++
-         case Postponed of
              [] -> [];
-             _ -> [error_logger:limit_term(Postponed)]
-         end ++
-         case FixedStacktrace of
-             [] -> [];
-             _ -> [error_logger:limit_term(FixedStacktrace)]
-         end ++
-         case Timeouts of
-             {0,_} -> [];
-             _ -> [error_logger:limit_term(Timeouts)]
-         end ++
-         case Log of
-             [] -> [];
-             _ -> [[error_logger:limit_term(T) || T <- Log]]
-         end ++ ClientArgs}.
+             [Event|_] -> [Event]
+         end] ++
+        [FmtData,
+         Class,FixedReason,
+         CBMode] ++
+        case Q of
+            [_|[_|_] = Events] -> [Events];
+            _ -> []
+        end ++
+        case Postponed of
+            [] -> [];
+            _ -> [Postponed]
+        end ++
+        case FixedStacktrace of
+            [] -> [];
+            _ -> [FixedStacktrace]
+        end  ++
+        case Timeouts of
+            {0,_} -> [];
+            _ -> [Timeouts]
+        end ++
+        case Log of
+            [] -> [];
+            _ -> [Log]
+        end,
+    Args = case Depth of
+               unlimited ->
+                   Args0;
+               _ ->
+                   lists:flatmap(fun(A) -> [A, Depth] end, Args0)
+           end,
+    {Format++ClientFmt,Args++ClientArgs}.
 
-format_client_log(undefined) ->
+fix_reason(Class, Reason, Stacktrace) ->
+    case Stacktrace of
+        [{M,F,Args,_}|ST]
+          when Class =:= error, Reason =:= undef ->
+            case code:is_loaded(M) of
+                false ->
+                    {{'module could not be loaded',M},ST};
+                _ ->
+                    Arity =
+                        if
+                            is_list(Args) ->
+                                length(Args);
+                            is_integer(Args) ->
+                                Args
+                        end,
+                    case erlang:function_exported(M, F, Arity) of
+                        true ->
+                            {Reason,Stacktrace};
+                        false ->
+                            {{'function not exported',{M,F,Arity}},ST}
+                    end
+            end;
+        _ -> {Reason,Stacktrace}
+    end.
+
+format_client_log_single(undefined, _, _) ->
     {"", []};
-format_client_log({Pid,dead}) ->
-    {"** Client ~p is dead~n", [Pid]};
-format_client_log({Pid,remote}) ->
-    {"** Client ~p is remote on node ~p~n", [Pid, node(Pid)]};
-format_client_log({_Pid,{Name,Stacktrace}}) ->
-    {"** Client ~tp stacktrace~n"
-     "** ~tp~n",
-     [Name, error_logger:limit_term(Stacktrace)]}.
+format_client_log_single({Pid,dead}, _, _) ->
+    {" Client ~0p is dead.", [Pid]};
+format_client_log_single({Pid,remote}, _, _) ->
+    {" Client ~0p is remote on node ~0p.", [Pid,node(Pid)]};
+format_client_log_single({_Pid,{Name,Stacktrace0}}, P, Depth) ->
+    %% Minimize the stacktrace a bit for single line reports. This is
+    %% hopefully enough to point out the position.
+    Stacktrace = lists:sublist(Stacktrace0, 4),
+    Format = lists:append([" Client ",P," stacktrace: ",P,"."]),
+    Args = case Depth of
+               unlimited ->
+                   [Name, Stacktrace];
+               _ ->
+                   [Name, Depth, Stacktrace, Depth]
+           end,
+    {Format, Args}.
 
+format_client_log(undefined, _, _) ->
+    {"", []};
+format_client_log({Pid,dead}, _, _) ->
+    {"** Client ~p is dead~n", [Pid]};
+format_client_log({Pid,remote}, _, _) ->
+    {"** Client ~p is remote on node ~p~n", [Pid,node(Pid)]};
+format_client_log({_Pid,{Name,Stacktrace}}, P, Depth) ->
+    Format = lists:append(["** Client ",P," stacktrace~n** ",P,"~n"]),
+    Args = case Depth of
+               unlimited ->
+                   [Name, Stacktrace];
+               _ ->
+                   [Name, Depth, Stacktrace, Depth]
+           end,
+    {Format,Args}.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 %% Call Module:format_status/2 or return a default value
 format_status(
