@@ -55,6 +55,9 @@ static int get_init_args(ErlNifEnv* env,
     int encflg;                    
 
     ctx_res->ctx = NULL; /* For testing if *ctx should be freed after errors */
+#if !defined(HAVE_EVP_AES_CTR)
+    ctx_res->env = NULL; /* For testing if *env should be freed after errors */
+#endif
 
     /* Fetch the flag telling if we are going to encrypt (=true) or decrypt (=false) */
     if (encflg_arg == atom_true)
