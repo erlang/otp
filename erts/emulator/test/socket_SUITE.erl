@@ -162,6 +162,7 @@
 	 api_opt_ipv6_hoplimit_udp6/1,
 	 api_opt_ipv6_tclass_udp6/1,
 	 api_opt_ipv6_mopts_udp6/1,
+         api_opt_tcp_congestion_tcp4/1,
 
          %% *** API Operation Timeout ***
          api_to_connect_tcp4/1,
@@ -670,9 +671,9 @@ groups() ->
      {api_option_sock_timestamp,   [], api_option_sock_timestamp_cases()},
      {api_options_ip,              [], api_options_ip_cases()},
      {api_options_ipv6,            [], api_options_ipv6_cases()},
-     %% {api_options_tcp,            [], api_options_tcp_cases()},
-     %% {api_options_udp,            [], api_options_udp_cases()},
-     %% {api_options_sctp,           [], api_options_sctp_cases()},
+     {api_options_tcp,             [], api_options_tcp_cases()},
+     %% {api_options_udp,             [], api_options_udp_cases()},
+     %% {api_options_sctp,            [], api_options_sctp_cases()},
      {api_op_with_timeout,         [], api_op_with_timeout_cases()},
      {socket_close,                [], socket_close_cases()},
      {sc_ctrl_proc_exit,           [], sc_cp_exit_cases()},
@@ -918,6 +919,12 @@ api_options_ipv6_cases() ->
 
      %% Should be last!
      api_opt_ipv6_mopts_udp6
+    ].
+
+api_options_tcp_cases() ->
+    [
+     api_opt_tcp_congestion_tcp4%% ,
+     %% api_opt_tcp_congestion_tcp6
     ].
 
 api_op_with_timeout_cases() ->
@@ -19063,6 +19070,197 @@ api_opt_ipv6_mopts_udp(InitState) ->
         ],
     Evaluator = ?SEV_START("tester", Seq, InitState),
     ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the congestion tcp socket option.
+%%
+%% According to the man page (on linux) for this option it *should* be
+%% possible to both get and set *allowed* algorithms. But when we attempt
+%% to set, we get 'enoent'.
+%% Accoring to /proc/sys/net/ipv4/tcp_allowed_congestion_control that
+%% allgorithm was allowed, so...
+%% For now, we only test that we can get (it could be a bug in our code)
+
+api_opt_tcp_congestion_tcp4(suite) ->
+    [];
+api_opt_tcp_congestion_tcp4(doc) ->
+    [];
+api_opt_tcp_congestion_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_tcp_congestion_tcp4,
+           fun() -> has_support_tcp_congestion() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_list(Value) ->
+                                  socket:setopt(Sock, tcp, congestion, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, congestion)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_congestion_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_congestion_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    ServerSeq =
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+
+         %% The actual test
+         #{desc => "await continue (get congestion)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, get_congestion)
+                   end},
+         #{desc => "get congestion",
+           cmd  => fun(#{sock := Sock, get := Get} = State) ->
+                           case Get(Sock) of
+                               {ok, Algorithm} ->
+                                   ?SEV_IPRINT("algorithm: ~s", [Algorithm]),
+                                   {ok, State#{alg => Algorithm}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (get congestion)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, get_congestion),
+                           ok
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, server, init),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "order server to continue (with get-congestion)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, get_congestion),
+                           ok
+                   end},
+         #{desc => "await server ready (get-congestion)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, get_congestion)
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    i("start server evaluator"),
+    Server = ?SEV_START("server", ServerSeq, InitState),
+
+    i("start tester evaluator"),
+    TesterInitState = #{server => Server#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    ok = ?SEV_AWAIT_FINISH([Server, Tester]).
 
 
 
@@ -37621,6 +37819,8 @@ has_support_ip_tos() ->
     has_support_socket_option_ip(tos).
 
 
+%% --- IPv6 socket option test(s) funcitons ---
+
 has_support_ipv6_flowinfo() ->
     has_support_socket_option_ipv6(flowinfo).
 
@@ -37638,9 +37838,6 @@ has_support_ipv6_recvpktinfo() ->
     has_support_socket_option_ipv6(recvpktinfo).
 
 
-has_support_socket_option_sock(Opt) ->
-    has_support_socket_option(socket, Opt).
-
 has_support_ipv6_tclass_or_recvtclass() ->
     case is_any_options_supported([{ipv6, recvtclass}, {ipv6, tclass}]) of
 	true ->
@@ -37649,11 +37846,26 @@ has_support_ipv6_tclass_or_recvtclass() ->
 	    skip(?F("Neither recvtclass or tclass supported", []))
     end.
 
+
+%% --- TCP socket option test(s) funcitons ---
+
+has_support_tcp_congestion() ->
+    has_support_socket_option_tcp(congestion).
+
+
+%% --- General purpose socket option test(s) funcitons ---
+
+has_support_socket_option_sock(Opt) ->
+    has_support_socket_option(socket, Opt).
+
 has_support_socket_option_ip(Opt) ->
     has_support_socket_option(ip, Opt).
 
 has_support_socket_option_ipv6(Opt) ->
     has_support_socket_option(ipv6, Opt).
+
+has_support_socket_option_tcp(Opt) ->
+    has_support_socket_option(tcp, Opt).
 
 
 has_support_socket_option(Level, Option) ->
