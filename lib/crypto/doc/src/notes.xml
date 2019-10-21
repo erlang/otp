@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    FIxed a bug if the erlang emulator was linked with a very
+	    old cryptolib version (1.0.1 or earlier).</p>
+          <p>
+	    The bug now fixed could have triggered a core dump if an
+	    unknown cipher name was used in crypto functions.</p>
+          <p>
+	    Own Id: OTP-16202</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
