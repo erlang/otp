@@ -29,11 +29,13 @@
          old_heap_token/1,
 	 send/1, distributed_send/1, recv/1, distributed_recv/1,
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
+         port_clean_token/1,
 	 match_set_seq_token/1, gc_seq_token/1, label_capability_mismatch/1,
          send_literal/1]).
 
 %% internal exports
 -export([simple_tracer/2, one_time_receiver/0, one_time_receiver/1,
+         n_time_receiver/1,
 	 start_tracer/0, stop_tracer/1, 
 	 do_match_set_seq_token/1, do_gc_seq_token/1, countdown_start/2]).
 
@@ -53,6 +55,7 @@ all() ->
      distributed_send, recv, distributed_recv, trace_exit,
      old_heap_token,
      distributed_exit, call, port, match_set_seq_token,
+     port_clean_token,
      gc_seq_token, label_capability_mismatch].
 
 groups() -> 
@@ -176,15 +179,21 @@ do_send(TsType) ->
 do_send(TsType, Msg) ->
     seq_trace:reset_trace(),
     start_tracer(),
-    Receiver = spawn(?MODULE,one_time_receiver,[]),
+    Receiver = spawn(?MODULE,n_time_receiver,[2]),
+    register(n_time_receiver, Receiver),
     Label = make_ref(),
     seq_trace:set_token(label,Label),
     set_token_flags([send, TsType]),
     Receiver ! Msg,
+    n_time_receiver ! Msg,
     Self = self(),
     seq_trace:reset_trace(),
-    [{Label,{send,_,Self,Receiver,Msg}, Ts}] = stop_tracer(1),
-    check_ts(TsType, Ts).
+    [{Label,{send,_,Self,Receiver,Msg}, Ts1},
+     %% Apparently named local destination process is traced as pid (!?)
+     {Label,{send,_,Self,Receiver,Msg}, Ts2}
+    ] = stop_tracer(2),
+    check_ts(TsType, Ts1),
+    check_ts(TsType, Ts2).
 
 %% This testcase tests that we do not segfault when we have a
 %% literal as the message and the message is copied onto the
@@ -221,7 +230,8 @@ do_distributed_send(TsType) ->
     true = rpc:call(Node,code,add_patha,[Mdir]),
     seq_trace:reset_trace(),
     start_tracer(),
-    Receiver = spawn(Node,?MODULE,one_time_receiver,[]),
+    Receiver = spawn(Node,?MODULE,n_time_receiver,[2]),
+    true = rpc:call(Node,erlang,register,[n_time_receiver, Receiver]),
 
     %% Make sure complex labels survive the trip.
     Label = make_ref(),
@@ -229,11 +239,17 @@ do_distributed_send(TsType) ->
     set_token_flags([send,TsType]),
 
     Receiver ! send,
+    {n_time_receiver, Node} ! "dsend",
+
     Self = self(),
     seq_trace:reset_trace(),
     stop_node(Node),
-    [{Label,{send,_,Self,Receiver,send}, Ts}] = stop_tracer(1),
-    check_ts(TsType, Ts).
+    [{Label,{send,_,Self,Receiver,send}, Ts1},
+     {Label,{send,_,Self,{n_time_receiver,Node}, "dsend"}, Ts2}
+    ] = stop_tracer(2),
+
+    check_ts(TsType, Ts1),
+    check_ts(TsType, Ts2).
 
 
 recv(Config) when is_list(Config) ->
@@ -909,7 +925,11 @@ transparent_tracer() ->
 	    end
     end.
 
-
+n_time_receiver(0) ->
+    ok;
+n_time_receiver(N) ->
+    receive _Term -> n_time_receiver(N-1)
+    end.
 
 one_time_receiver() ->
     receive _Term -> ok

@@ -1847,7 +1847,7 @@ static Sint remote_send(Process *p, DistEntry *dep,
     case ERTS_DSIG_PREP_CONNECTED: {
 
 	if (is_atom(to))
-	    code = erts_dsig_send_reg_msg(&ctx, to, msg);
+	    code = erts_dsig_send_reg_msg(&ctx, to, full_to, msg);
 	else
 	    code = erts_dsig_send_msg(&ctx, to, msg);
 	/*
