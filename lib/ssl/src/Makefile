@@ -50,6 +50,7 @@ MODULES= \
 	dtls_listener_sup \
 	dtls_packet_demux \
 	dtls_record \
+	dtls_sup \
 	dtls_socket \
 	dtls_v1 \
 	inet_tls_dist \
@@ -91,7 +92,12 @@ MODULES= \
 	tls_record \
 	tls_record_1_3 \
 	tls_sender \
+	tls_session_ticket\
+	tls_server_session_ticket\
+	tls_server_session_ticket_sup\
+	tls_server_sup\
 	tls_socket \
+	tls_sup \
 	tls_v1
 
 

@@ -50,7 +50,6 @@ session_tests() ->
      erlang_client_openssl_server_hrr,
      openssl_client_erlang_server_hrr].
 
-
 init_per_suite(Config0) ->
     catch crypto:stop(),
     try crypto:start() of
@@ -119,7 +118,7 @@ erlang_client_erlang_server_basic(Config) when is_list(Config) ->
     %% Configure session tickets
     ClientOpts = [{session_tickets, true}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ServerOpts = [{session_tickets, true}, {log_level, debug},
+    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -236,7 +235,7 @@ openssl_client_erlang_server_basic(Config) when is_list(Config) ->
     Data = "From openssl to erlang",
 
     %% Configure session tickets
-    ServerOpts = [{session_tickets, true}, {log_level, debug},
+    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -294,7 +293,7 @@ erlang_client_erlang_server_hrr(Config) when is_list(Config) ->
     ClientOpts = [{session_tickets, true}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
-    ServerOpts = [{session_tickets, true}, {log_level, debug},
+    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups, [x448, x25519]}|ServerOpts0],
 
@@ -417,7 +416,7 @@ openssl_client_erlang_server_hrr(Config) when is_list(Config) ->
     Data = "From openssl to erlang",
 
     %% Configure session tickets
-    ServerOpts = [{session_tickets, true}, {log_level, debug},
+    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[x448, x25519]}|ServerOpts0],
 
