@@ -129,21 +129,26 @@ args_file(Config) when is_list(Config) ->
 		     " -args_file ~s#acomment~n"
 		     "~n"
 		     "-MiscArg7~n"
+		     "-MiscArg8 'val  with  double   space'~n"
+		     "-MiscArg9 '~n'~n"
+		     "-MiscArg10 \\~n\\\t~n"
 		     "#~n"
 		     "+\\#700~n"
+                     "#~s~n"
 		     "-extra +XtraArg6~n",
-	       [AFN2]),
+	       [AFN2,lists:duplicate(1024*1024, $a)]),
     write_file(AFN2,
 		     "-MiscArg3~n"
 		     "+\\#300~n"
 		     "-args_file ~s~n"
 		     "-MiscArg5~n"
-		     "+\\#500#anothercomment -MiscArg10~n"
+		     "+\\#500#anothercomment -MiscArg11~n"
 		     "-args_file ~s~n"
 		     "-args_file ~s~n"
 		     "-args_file ~s~n"
+                     "# ~s~n"
 		     "-extra +XtraArg5~n",
-		     [AFN3, AFN4, AFN5, AFN6]),
+		     [AFN3, AFN4, AFN5, AFN6,lists:duplicate(1758, $a)]),
     write_file(AFN3,
 		     "# comment again~n"
 		     " -MiscArg4 +\\#400 -extra +XtraArg1"),
@@ -156,33 +161,40 @@ args_file(Config) when is_list(Config) ->
     write_file(AFN6, "-extra # +XtraArg10~n"),
     CmdLine = "+#100 -MiscArg1 "
 	++ "-args_file " ++ AFN1
-	++ " +#800 -MiscArg8 -extra +XtraArg7 +XtraArg8",
+	++ " +#800 -MiscArgCLI \\\t -extra +XtraArg7 +XtraArg8",
     {Emu, Misc, Extra} = emu_args(CmdLine),
+    dbg:tracer(),dbg:p(self(),c),
+    dbg:tpl(?MODULE,verify_args, x),
+    dbg:tpl(?MODULE,verify_not_args, x),
     verify_args(["-#100", "-#200", "-#300", "-#400",
 		       "-#500", "-#600", "-#700", "-#800"], Emu),
     verify_args(["-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
-		       "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8"],
+                 "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8",
+                 "val  with  double   space",
+                 "-MiscArg9","\n","-MiscArg10","\n\t","-MiscArgCLI"],
 		      Misc),
     verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 		       "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 		      Extra),
-    verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
+    verify_not_args(["-MiscArg11", "-#1000", "+XtraArg10",
 			   "-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
 			   "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8",
+                           "-MiscArg9", "-MiscArg10","-MiscArgCLI",
 			   "+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 			   "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 			  Emu),
-    verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
+    verify_not_args(["-MiscArg11", "-#1000", "+XtraArg10",
 			   "-#100", "-#200", "-#300", "-#400",
 			   "-#500", "-#600", "-#700", "-#800",
 			   "+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 			   "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 			  Misc),
-    verify_not_args(["-MiscArg10", "-#1000", "+XtraArg10",
+    verify_not_args(["-MiscArg11", "-#1000", "+XtraArg10",
 			   "-#100", "-#200", "-#300", "-#400",
 			   "-#500", "-#600", "-#700", "-#800",
 			   "-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
-			   "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8"],
+			   "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8",
+                           "-MiscArg9","-MiscArg10","-MiscArgCLI"],
 			  Extra),
     ok.
 
@@ -220,8 +232,7 @@ evil_args_file(Config) when is_list(Config) ->
 				ANums),
 		      Misc),
     ok.
-		      
-			  
+
 
 env(Config) when is_list(Config) ->
     os:putenv("ERL_AFLAGS", "-MiscArg1 +#100 -extra +XtraArg1 +XtraArg2"),
@@ -414,9 +425,9 @@ verify_not_args(Xs, Ys) ->
 emu_args(CmdLineArgs) ->
     io:format("CmdLineArgs = ~ts~n", [CmdLineArgs]),
     {ok,[[Erl]]} = init:get_argument(progname),
-    EmuCL = os:cmd(Erl ++ " -emu_args_exit " ++ CmdLineArgs),
-    io:format("EmuCL = ~ts", [EmuCL]),
-    split_emu_clt(string:lexemes(EmuCL, [$ ,$\t,$\n,[$\r,$\n]])).
+    EmuCL = os:cmd(Erl ++ " -emu_qouted_cmd_exit " ++ CmdLineArgs),
+    ct:pal("EmuCL = ~ts", [EmuCL]),
+    split_emu_clt(string:split(string:trim(EmuCL,both,"\n \""), "\" \"", all)).
 
 split_emu_clt(EmuCLT) ->
     split_emu_clt(EmuCLT, [], [], [], emu).
