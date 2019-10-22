@@ -187,6 +187,17 @@ types(erlang, 'length', [_]) ->
     %% subtraction-safe when those are supported.
     sub_unsafe(#t_integer{}, [list]);
 
+types(erlang, 'iolist_to_binary', [_]) ->
+    %% Arg is an iodata(), despite its name.
+    ArgType = beam_types:join(list, #t_bitstring{size_unit=8}),
+    sub_unsafe(#t_bitstring{size_unit=8}, [ArgType]);
+types(erlang, 'list_to_binary', [_]) ->
+    %% Arg is an iolist(), despite its name.
+    sub_unsafe(#t_bitstring{size_unit=8}, [list]);
+types(erlang, 'list_to_bitstring', [_]) ->
+    %% As list_to_binary but with bitstrings rather than binaries.
+    sub_unsafe(#t_bitstring{}, [list]);
+
 %% Misc ops.
 types(erlang, 'binary_part', [_, _]) ->
     PosLen = make_two_tuple(#t_integer{}, #t_integer{}),
