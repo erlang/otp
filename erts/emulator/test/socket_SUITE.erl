@@ -163,6 +163,7 @@
 	 api_opt_ipv6_tclass_udp6/1,
 	 api_opt_ipv6_mopts_udp6/1,
          api_opt_tcp_congestion_tcp4/1,
+         api_opt_tcp_cork_tcp4/1,
          api_opt_tcp_maxseg_tcp4/1,
          api_opt_tcp_nodelay_tcp4/1,
 
@@ -926,11 +927,13 @@ api_options_ipv6_cases() ->
 api_options_tcp_cases() ->
     [
      api_opt_tcp_congestion_tcp4,
-     %% api_opt_tcp_congestion_tcp6
+     %% api_opt_tcp_congestion_tcp6,
+     api_opt_tcp_cork_tcp4,
+     %% api_opt_tcp_cork_tcp6,
      api_opt_tcp_maxseg_tcp4,
-     %% api_opt_tcp_nodelay_tcp6%,
+     %% api_opt_tcp_maxseg_tcp6,
      api_opt_tcp_nodelay_tcp4%,
-     %% api_opt_tcp_nodelay_tcp6%,
+     %% api_opt_tcp_nodelay_tcp6
     ].
 
 api_op_with_timeout_cases() ->
@@ -19272,6 +19275,125 @@ api_opt_tcp_congestion_tcp(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Tests that the cork tcp socket option.
+%%
+%% This is a very simple test. We simple set and get the value.
+%% To test that it has an effect is just "to much work"...
+%%
+%% Reading the man page it seems like (on linux) that the
+%% value resets itself after some (short) time...
+
+api_opt_tcp_cork_tcp4(suite) ->
+    [];
+api_opt_tcp_cork_tcp4(doc) ->
+    [];
+api_opt_tcp_cork_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_tcp_cork_tcp4,
+           fun() -> has_support_tcp_cork() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_boolean(Value) ->
+                                  socket:setopt(Sock, tcp, cork, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, cork)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_cork_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_cork_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% The actual test
+         #{desc => "get (default) cork (= false)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, false = Value} ->
+                                   ?SEV_IPRINT("cork default: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "enable cork (=> true)",
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, true) of
+                               ok ->
+                                   ?SEV_IPRINT("cork enabled"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get cork (= true)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, true = Value} ->
+                                   ?SEV_IPRINT("cork: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start tester evaluator"),
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Tests that the maxseg tcp socket option.
 %%
 %% This is a very simple test. We simple set and get the value.
@@ -19358,7 +19480,7 @@ api_opt_tcp_maxseg_tcp(InitState) ->
          #{desc => "change maxseg (default + 16)",
            cmd  => fun(#{sock       := Sock,
                          set        := Set,
-                         def_maxseg := DefMaxSeg} = State) ->
+                         def_maxseg := DefMaxSeg} = _State) ->
                            NewMaxSeg = DefMaxSeg + 16,
                            case Set(Sock, NewMaxSeg) of
                                ok ->
@@ -37929,7 +38051,7 @@ which_local_addr(Domain) ->
 
 %% Here are all the *general* test case condition functions.
 
-%% We also need (be able) to figure out the the multicast address,
+%% We also need to (be able to) figure out the multicast address,
 %% which we only support for some platforms (linux and sunos).
 %% We don't do that here, but since we can only do that (find a
 %% multicast address) for specific platforms, we check that we are
@@ -37954,6 +38076,9 @@ has_support_ip_multicast() ->
         Type ->
             skip(?F("Not Supported: platform ~p", [Type]))
     end.
+
+
+%% --- SOCK socket option test functions ---
 
 has_support_sock_acceptconn() ->
     has_support_socket_option_sock(acceptconn).
@@ -38024,6 +38149,8 @@ has_support_sock_timestamp() ->
     has_support_socket_option_sock(timestamp).
 
 
+%% --- IP socket option test functions ---
+
 has_support_ip_add_membership() ->
     has_support_socket_option_ip(add_membership).
 
@@ -38059,7 +38186,7 @@ has_support_ip_tos() ->
     has_support_socket_option_ip(tos).
 
 
-%% --- IPv6 socket option test(s) funcitons ---
+%% --- IPv6 socket option test functions ---
 
 has_support_ipv6_flowinfo() ->
     has_support_socket_option_ipv6(flowinfo).
@@ -38087,10 +38214,13 @@ has_support_ipv6_tclass_or_recvtclass() ->
     end.
 
 
-%% --- TCP socket option test(s) funcitons ---
+%% --- TCP socket option test functions ---
 
 has_support_tcp_congestion() ->
     has_support_socket_option_tcp(congestion).
+
+has_support_tcp_cork() ->
+    has_support_socket_option_tcp(cork).
 
 has_support_tcp_maxseg() ->
     has_support_socket_option_tcp(maxseg).
@@ -38099,7 +38229,7 @@ has_support_tcp_nodelay() ->
     has_support_socket_option_tcp(nodelay).
 
 
-%% --- General purpose socket option test(s) funcitons ---
+%% --- General purpose socket option test functions ---
 
 has_support_socket_option_sock(Opt) ->
     has_support_socket_option(socket, Opt).
@@ -38127,6 +38257,8 @@ is_any_options_supported(Options) ->
     lists:any(Pred, Options).
 
 
+%% --- Send flag test functions ---
+
 has_support_send_flag_oob() ->
     has_support_send_flag(oob).
 
@@ -38151,7 +38283,7 @@ has_support_send_or_recv_flag(Pre, Key, Flag) ->
     end.
 
 
-%% Checks that the version os "good enough" (of the specified platform).
+%% Checks that the version is "good enough" (of the specified platform).
 
 is_good_enough_linux(CondVsn) ->
     is_good_enough_platform(unix, linux, CondVsn).
