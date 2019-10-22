@@ -19493,7 +19493,7 @@ api_opt_tcp_maxseg_tcp(InitState) ->
                                                [NewMaxSeg]),
                                    ok;
                                {error, einval = Reason} ->
-                                   ?SEV_IPRINT("change not allowed"),
+                                   ?SEV_IPRINT("change not allowed (~w)", [Reason]),
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
