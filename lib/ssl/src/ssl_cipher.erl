@@ -48,7 +48,11 @@
          key_material/1, signature_algorithm_to_scheme/1]).
 
 %% RFC 8446 TLS 1.3
--export([generate_client_shares/1, generate_server_share/1, add_zero_padding/2]).
+-export([generate_client_shares/1,
+         generate_server_share/1,
+         add_zero_padding/2,
+         encrypt_ticket/3,
+         decrypt_ticket/3]).
 
 -compile(inline).
 
@@ -1386,3 +1390,63 @@ add_zero_padding(Bin, PrimeSize)
     Bin;
 add_zero_padding(Bin, PrimeSize) ->
     add_zero_padding(<<0, Bin/binary>>, PrimeSize).
+
+
+%% Functions for handling self-encrypted session tickets (TLS 1.3).
+%%
+encrypt_ticket(#stateless_ticket{
+                  hash = Hash,
+                  pre_shared_key = PSK,
+                  ticket_age_add = TicketAgeAdd,
+                  lifetime = Lifetime,
+                  timestamp = Timestamp
+                 }, Shard, IV) ->
+    Plaintext = <<(ssl_cipher:hash_algorithm(Hash)):8,PSK/binary,
+                   ?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp)>>,
+    encrypt_ticket_data(Plaintext, Shard, IV).
+
+
+decrypt_ticket(CipherFragment, Shard, IV) ->
+    case decrypt_ticket_data(CipherFragment, Shard, IV) of
+        error ->
+            error;
+        Plaintext ->
+            <<?BYTE(HKDF),T/binary>> = Plaintext,
+            Hash = hash_algorithm(HKDF),
+            HashSize = hash_size(Hash),
+            <<PSK:HashSize/binary,?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp),_/binary>> = T,
+            #stateless_ticket{
+               hash = Hash,
+               pre_shared_key = PSK,
+               ticket_age_add = TicketAgeAdd,
+               lifetime = Lifetime,
+               timestamp = Timestamp
+              }
+    end.
+
+
+encrypt_ticket_data(Plaintext, Shard, IV) ->
+    AAD = additional_data(erlang:iolist_size(Plaintext) + 16), %% TagLen = 16
+    {OTP, Key} = make_otp_key(Shard),
+    {Content, CipherTag} = crypto:crypto_one_time_aead(aes_256_gcm, Key, IV, Plaintext, AAD, 16, true),
+    <<Content/binary,CipherTag/binary,OTP/binary>>.
+
+
+decrypt_ticket_data(CipherFragment, Shard, IV) ->
+    Size = byte_size(Shard),
+    AAD = additional_data(erlang:iolist_size(CipherFragment) - Size),
+    Len = byte_size(CipherFragment) - Size - 16,
+    <<Encrypted:Len/binary,CipherTag:16/binary,OTP:Size/binary>> = CipherFragment,
+    Key = crypto:exor(OTP, Shard),
+    crypto:crypto_one_time_aead(aes_256_gcm, Key, IV, Encrypted, AAD, CipherTag, false).
+
+
+additional_data(Length) ->
+    <<"ticket",?UINT16(Length)>>.
+
+
+make_otp_key(Shard) ->
+    Size = byte_size(Shard),
+    OTP = crypto:strong_rand_bytes(Size),
+    Key = crypto:exor(OTP, Shard),
+    {OTP, Key}.

@@ -1194,6 +1194,7 @@ maybe_send_session_ticket(#state{ssl_options = #{session_tickets := stateless},
     {State, _} = tls_connection:send_handshake(Ticket, State0),
     maybe_send_session_ticket(State, N - 1).
 
+
 %% Generate ticket field of NewSessionTicket.
 generate_statless_ticket(#new_session_ticket{ticket_nonce = Nonce, ticket_age_add = TicketAgeAdd,
                                              ticket_lifetime = Lifetime} = Ticket, IV, Shard,
@@ -1205,19 +1206,16 @@ generate_statless_ticket(#new_session_ticket{ticket_nonce = Nonce, ticket_age_ad
 
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
     Timestamp = erlang:system_time(second),
-    Plaintext0 = <<(ssl_cipher:hash_algorithm(HKDF)):8,PSK/binary,
-                   ?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp)>>,
-    TSize = byte_size(Plaintext0),
-    %% Padding
-    PSize = 16 - (TSize rem 16),
-    Padding = binary:copy(<<0>>, PSize),
-    Plaintext = <<Plaintext0/binary,Padding/binary>>,
-    Size = byte_size(Shard),
-    OTP = crypto:strong_rand_bytes(Size),
-    Key = crypto:exor(OTP, Shard),
-    Encrypted = crypto:crypto_one_time(aes_256_cbc, Key, IV, Plaintext, true),
-    Ticket#new_session_ticket{ticket = <<OTP/binary, Encrypted/binary>>}.    
-    
+    Encrypted = ssl_cipher:encrypt_ticket(#stateless_ticket{
+                                             hash = HKDF,
+                                             pre_shared_key = PSK,
+                                             ticket_age_add = TicketAgeAdd,
+                                             lifetime = Lifetime,
+                                             timestamp = Timestamp
+                                            }, Shard, IV),
+    Ticket#new_session_ticket{ticket = Encrypted}.
+
+
 process_certificate_request(#certificate_request_1_3{},
                             #state{session = #session{own_certificate = undefined}} = State) ->
     {ok, {State#state{client_certificate_requested = true}, wait_cert}};
@@ -2110,38 +2108,42 @@ get_offered_psks(Extensions) ->
     end.
 
 
-decode_pre_shared_keys(IV, Key, PSKs) ->
+decode_pre_shared_keys(Shard, IV, PSKs) ->
     #offered_psks{
        identities = Identities,
        binders = Binders
       } = PSKs,
-    decode_pre_shared_keys(IV, Key, Identities, Binders, 0, []).
+    decode_pre_shared_keys(Shard, IV, Identities, Binders, 0, []).
 %%
 decode_pre_shared_keys(_, _, [], [], _, Acc) ->
     lists:reverse(Acc);
-decode_pre_shared_keys(IV, Key, [I|Identities], [B|Binders], Index, Acc) ->
-    {Validity, PSK, Hash} = decode_identity(IV, Key, I),
+decode_pre_shared_keys(Shard, IV, [I|Identities], [B|Binders], Index, Acc) ->
+    {Validity, PSK, Hash} = decode_identity(Shard, IV, I),
     case Validity of
         valid ->
-            decode_pre_shared_keys(IV, Key, Identities, Binders, Index + 1, [{PSK, Index, Hash, B}|Acc]);
+            decode_pre_shared_keys(Shard, IV, Identities, Binders, Index + 1,
+                                   [{PSK, Index, Hash, B}|Acc]);
         invalid ->
-            decode_pre_shared_keys(IV, Key, Identities, Binders, Index + 1, Acc)
+            decode_pre_shared_keys(Shard, IV, Identities, Binders, Index + 1, Acc)
     end.
 
 
-decode_identity(IV, Key0, #psk_identity{
-                             identity = I,
-                             obfuscated_ticket_age = ObfAge}) ->
-    Size = byte_size(Key0),
-    <<OTP:Size/binary,Encrypted/binary>> = I,
-    Key = crypto:exor(OTP, Key0),
-    Plaintext = crypto:crypto_one_time(aes_256_cbc, Key, IV, Encrypted, false),
-    <<?BYTE(HKDF),T/binary>> = Plaintext,
-    Hash = ssl_cipher:hash_algorithm(HKDF),
-    HashSize = ssl_cipher:hash_size(Hash),
-    <<PSK:HashSize/binary,?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp),_/binary>> = T,
-    Validity = check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp),
-    {Validity, PSK, Hash}.
+decode_identity(Shard, IV, #psk_identity{
+                              identity = I,
+                              obfuscated_ticket_age = ObfAge}) ->
+    case ssl_cipher:decrypt_ticket(I, Shard, IV) of
+        error ->
+            %% Skip PSK if encrypted with an unknown key
+            {invalid, undefined, undefined};
+        #stateless_ticket{
+           hash = Hash,
+           pre_shared_key = PSK,
+           ticket_age_add = TicketAgeAdd,
+           lifetime = Lifetime,
+           timestamp = Timestamp} ->
+            Validity = check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp),
+            {Validity, PSK, Hash}
+    end.
 
 
 %% For identities established externally, an obfuscated_ticket_age of 0 SHOULD be
@@ -2180,8 +2182,7 @@ handle_pre_shared_key(#state{handshake_env = #handshake_env{ticket_seed = Seed}}
             IVS ->
                 IVS
         end,
-    %% TODO: Skip PSK if encrypted with an unknown key
-    PSKTuples = decode_pre_shared_keys(IV, Shard, PreSharedKeys),
+    PSKTuples = decode_pre_shared_keys(Shard, IV, PreSharedKeys),
     case select_psk(PSKTuples, Cipher) of
         no_acceptable_psk ->
             {ok, undefined};

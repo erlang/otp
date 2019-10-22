@@ -27,6 +27,16 @@
 -ifndef(ssl_cipher).
 -define(ssl_cipher, true).
 
+%%% Session tickets  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-record(stateless_ticket,
+        {
+         hash,
+         pre_shared_key,
+         ticket_age_add,
+         lifetime,
+         timestamp
+        }).
+
 %%% SSL cipher protocol  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(CHANGE_CIPHER_SPEC_PROTO, 1).           % _PROTO to not clash with 
 						% SSL record protocol
