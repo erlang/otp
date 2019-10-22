@@ -16792,6 +16792,9 @@ char* decode_cmsghdr_data(ErlNifEnv*       env,
 /* *** decode_cmsghdr_final ***
  *
  * This does the final create of the cmsghdr (including the data copy).
+ * Note that we do a memzero of the (entire) structure before we begin
+ * initiating it (len, level, type and data). This is to avoid complaints
+ * from valgrind.
  */
 static
 char* decode_cmsghdr_final(ESockDescriptor* descP,
@@ -16803,8 +16806,8 @@ char* decode_cmsghdr_final(ESockDescriptor* descP,
                            int              sz,
                            size_t*          used)
 {
-    int len   = CMSG_LEN(sz);
-    int space = CMSG_SPACE(sz);
+    int len   = CMSG_LEN(sz);   // length of *actual* data
+    int space = CMSG_SPACE(sz); // length of (actual) data + padding
 
     SSDBG( descP, ("SOCKET", "decode_cmsghdr_final -> entry when"
                    "\r\n   level: %d"
@@ -16814,7 +16817,9 @@ char* decode_cmsghdr_final(ESockDescriptor* descP,
 
     if (rem >= space) {
         struct cmsghdr* cmsgP = (struct cmsghdr*) bufP;
-        
+
+        sys_memzero(cmsgP, space);
+
         /* The header */
         cmsgP->cmsg_len   = len;
         cmsgP->cmsg_level = level;
