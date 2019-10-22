@@ -157,7 +157,7 @@ int erts_is_native_break(ErtsCodeInfo *ci);
 int erts_is_count_break(ErtsCodeInfo *ci, Uint *count_ret);
 int erts_is_time_break(Process *p, ErtsCodeInfo *ci, Eterm *call_time);
 
-void erts_trace_time_call(Process* c_p, ErtsCodeInfo *ci, BpDataTime* bdt);
+ErtsCodeInfo* erts_trace_time_call(Process* c_p, ErtsCodeInfo *ci, BpDataTime* bdt);
 void erts_trace_time_return(Process* c_p, ErtsCodeInfo *ci);
 void erts_schedule_time_break(Process *p, Uint out);
 void erts_set_time_break(BpFunctions *f, enum erts_break_op);
