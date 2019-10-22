@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Erlang/OTP can now be built on macOS Catalina (10.15).</p>
+          <p>
+	    Own Id: OTP-16177 Aux Id: ERL-1063 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.5.2</title>
 
     <section><title>Improvements and New Features</title>
