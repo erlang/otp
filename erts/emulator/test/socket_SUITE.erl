@@ -163,6 +163,7 @@
 	 api_opt_ipv6_tclass_udp6/1,
 	 api_opt_ipv6_mopts_udp6/1,
          api_opt_tcp_congestion_tcp4/1,
+         api_opt_tcp_nodelay_tcp4/1,
 
          %% *** API Operation Timeout ***
          api_to_connect_tcp4/1,
@@ -923,8 +924,10 @@ api_options_ipv6_cases() ->
 
 api_options_tcp_cases() ->
     [
-     api_opt_tcp_congestion_tcp4%% ,
+     api_opt_tcp_congestion_tcp4,
      %% api_opt_tcp_congestion_tcp6
+     api_opt_tcp_nodelay_tcp4%,
+     %% api_opt_tcp_nodelay_tcp6%,
     ].
 
 api_op_with_timeout_cases() ->
@@ -19261,6 +19264,122 @@ api_opt_tcp_congestion_tcp(InitState) ->
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     ok = ?SEV_AWAIT_FINISH([Server, Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the nodelay tcp socket option.
+%%
+%% This is a very simple test. We simple set and get the value.
+%% To test that it has an effect is just "to much work"...
+
+api_opt_tcp_nodelay_tcp4(suite) ->
+    [];
+api_opt_tcp_nodelay_tcp4(doc) ->
+    [];
+api_opt_tcp_nodelay_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_tcp_nodelay_tcp4,
+           fun() -> has_support_tcp_nodelay() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_boolean(Value) ->
+                                  socket:setopt(Sock, tcp, nodelay, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, nodelay)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_nodelay_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_nodelay_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% The actual test
+         #{desc => "get (default) nodelay (= false)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, false = Value} ->
+                                   ?SEV_IPRINT("nodelay default: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "enable nodelay (=> true)",
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, true) of
+                               ok ->
+                                   ?SEV_IPRINT("nodelay enabled"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get nodelay (= true)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, true = Value} ->
+                                   ?SEV_IPRINT("nodelay: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start tester evaluator"),
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    ok = ?SEV_AWAIT_FINISH([Tester]).
 
 
 
@@ -37851,6 +37970,9 @@ has_support_ipv6_tclass_or_recvtclass() ->
 
 has_support_tcp_congestion() ->
     has_support_socket_option_tcp(congestion).
+
+has_support_tcp_nodelay() ->
+    has_support_socket_option_tcp(nodelay).
 
 
 %% --- General purpose socket option test(s) funcitons ---
