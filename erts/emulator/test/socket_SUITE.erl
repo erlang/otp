@@ -818,8 +818,8 @@ api_options_cases() ->
      {group, api_options_otp},
      {group, api_options_socket},
      {group, api_options_ip},
-     {group, api_options_ipv6}
-     %% {group, api_options_tcp},
+     {group, api_options_ipv6},
+     {group, api_options_tcp}
      %% {group, api_options_udp},
      %% {group, api_options_sctp}
     ].
