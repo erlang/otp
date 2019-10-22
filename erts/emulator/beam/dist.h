@@ -351,7 +351,7 @@ struct dist_sequences {
 #define ERTS_DSIG_SEND_TOO_LRG  3
 
 extern int erts_dsig_send_msg(ErtsDSigSendContext*, Eterm, Eterm);
-extern int erts_dsig_send_reg_msg(ErtsDSigSendContext*, Eterm, Eterm);
+extern int erts_dsig_send_reg_msg(ErtsDSigSendContext*, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_link(ErtsDSigSendContext *, Eterm, Eterm);
 extern int erts_dsig_send_exit_tt(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_unlink(ErtsDSigSendContext *, Eterm, Eterm);

@@ -1144,7 +1144,8 @@ erts_dsig_send_msg(ErtsDSigSendContext* ctx, Eterm remote, Eterm message)
 }
 
 int
-erts_dsig_send_reg_msg(ErtsDSigSendContext* ctx, Eterm remote_name, Eterm message)
+erts_dsig_send_reg_msg(ErtsDSigSendContext* ctx, Eterm remote_name,
+                       Eterm full_to, Eterm message)
 {
     Eterm ctl;
     Eterm token = NIL;
@@ -1162,7 +1163,7 @@ erts_dsig_send_reg_msg(ErtsDSigSendContext* ctx, Eterm remote_name, Eterm messag
     if (have_seqtrace(SEQ_TRACE_TOKEN(sender))) {
 	seq_trace_update_serial(sender);
 	token = SEQ_TRACE_TOKEN(sender);
-	seq_trace_output(token, message, SEQ_TRACE_SEND, remote_name, sender);
+	seq_trace_output(token, message, SEQ_TRACE_SEND, full_to, sender);
     }
 #ifdef USE_VM_PROBES
     *node_name = *sender_name = *receiver_name = '\0';
