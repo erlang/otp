@@ -1,7 +1,7 @@
 FROM erlang/ubuntu-build:64bit
 
 RUN apt-get update \
-      && apt-get install -y libssl-dev sudo \
+      && apt-get install -y libssl-dev sudo wget \
       && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user to use for development -
@@ -34,7 +34,7 @@ COPY --chown=dev ./otp $ERL_TOP
 RUN $ERL_TOP/otp_build setup -a --prefix=$PREFIX && $ERL_TOP/otp_build release
 RUN sudo make --directory=$ERL_TOP install
 
-# Set up PropEr for property-based testing which used in some OTP tests
+# Set up PropEr for property-based testing which is used in some OTP tests
 RUN git clone git://github.com/proper-testing/proper.git /buildroot/proper
 RUN make --directory=/buildroot/proper
 ENV ERL_LIBS /buildroot/proper:$ERL_LIBS
