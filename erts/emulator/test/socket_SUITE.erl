@@ -166,6 +166,7 @@
          api_opt_tcp_cork_tcp4/1,
          api_opt_tcp_maxseg_tcp4/1,
          api_opt_tcp_nodelay_tcp4/1,
+         api_opt_udp_cork_udp4/1,
 
          %% *** API Operation Timeout ***
          api_to_connect_tcp4/1,
@@ -675,7 +676,7 @@ groups() ->
      {api_options_ip,              [], api_options_ip_cases()},
      {api_options_ipv6,            [], api_options_ipv6_cases()},
      {api_options_tcp,             [], api_options_tcp_cases()},
-     %% {api_options_udp,             [], api_options_udp_cases()},
+     {api_options_udp,             [], api_options_udp_cases()},
      %% {api_options_sctp,            [], api_options_sctp_cases()},
      {api_op_with_timeout,         [], api_op_with_timeout_cases()},
      {socket_close,                [], socket_close_cases()},
@@ -819,8 +820,8 @@ api_options_cases() ->
      {group, api_options_socket},
      {group, api_options_ip},
      {group, api_options_ipv6},
-     {group, api_options_tcp}
-     %% {group, api_options_udp},
+     {group, api_options_tcp},
+     {group, api_options_udp}
      %% {group, api_options_sctp}
     ].
 
@@ -934,6 +935,12 @@ api_options_tcp_cases() ->
      %% api_opt_tcp_maxseg_tcp6,
      api_opt_tcp_nodelay_tcp4%,
      %% api_opt_tcp_nodelay_tcp6
+    ].
+
+api_options_udp_cases() ->
+    [
+     api_opt_udp_cork_udp4%,
+     %% api_opt_udp_cork_udp6
     ].
 
 api_op_with_timeout_cases() ->
@@ -19572,8 +19579,8 @@ api_opt_tcp_nodelay_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
-                           case socket:bind(LSock, LSA) of
+           cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
                                {ok, Port} ->
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    ok;
@@ -19617,7 +19624,7 @@ api_opt_tcp_nodelay_tcp(InitState) ->
 
 
          %% *** Termination ***
-         #{desc => "close connection socket",
+         #{desc => "close socket",
            cmd  => fun(#{sock := Sock} = State) ->
                            ok = socket:close(Sock),
                            {ok, maps:remove(sock, State)}
@@ -19631,6 +19638,124 @@ api_opt_tcp_nodelay_tcp(InitState) ->
     Tester = ?SEV_START("tester", TesterSeq, InitState),
 
     ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the cork udp socket option.
+%%
+%% This is a very simple test. We simple set and get the value.
+%% To test that it has an effect is just "to much work"...
+%%
+
+api_opt_udp_cork_udp4(suite) ->
+    [];
+api_opt_udp_cork_udp4(doc) ->
+    [];
+api_opt_udp_cork_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_udp_cork_udp4,
+           fun() -> has_support_udp_cork() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_boolean(Value) ->
+                                  socket:setopt(Sock, udp, cork, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, udp, cork)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => udp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_udp_cork_udp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_udp_cork_udp(InitState) ->
+    process_flag(trap_exit, true),
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, dgram, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
+                           case socket:bind(Sock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% The actual test
+         #{desc => "get (default) cork (= false)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, false = Value} ->
+                                   ?SEV_IPRINT("cork default: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "enable cork (=> true)",
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, true) of
+                               ok ->
+                                   ?SEV_IPRINT("cork enabled"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get cork (= true)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, true = Value} ->
+                                   ?SEV_IPRINT("cork: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start tester evaluator"),
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
 
 
 
@@ -38237,6 +38362,12 @@ has_support_tcp_nodelay() ->
     has_support_socket_option_tcp(nodelay).
 
 
+%% --- UDP socket option test functions ---
+
+has_support_udp_cork() ->
+    has_support_socket_option_udp(cork).
+
+
 %% --- General purpose socket option test functions ---
 
 has_support_socket_option_sock(Opt) ->
@@ -38250,6 +38381,9 @@ has_support_socket_option_ipv6(Opt) ->
 
 has_support_socket_option_tcp(Opt) ->
     has_support_socket_option(tcp, Opt).
+
+has_support_socket_option_udp(Opt) ->
+    has_support_socket_option(udp, Opt).
 
 
 has_support_socket_option(Level, Option) ->
