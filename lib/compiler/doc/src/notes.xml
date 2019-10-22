@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug where the compiler could generate
+	    incorrect code for a '<c>receive</c>' statement inside a
+	    '<c>try</c>'.</p>
+          <p>
+	    Own Id: OTP-16199</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
