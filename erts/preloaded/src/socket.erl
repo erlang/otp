@@ -3171,6 +3171,9 @@ enc_setopt_value(tcp, congestion, V, _D, T, P)
        (T =:= stream) andalso
        (P =:= tcp) ->
     V;
+enc_setopt_value(tcp, cork, V, _D, T, P)
+  when is_boolean(V) andalso (T =:= stream) andalso (P =:= tcp) ->
+    V;
 enc_setopt_value(tcp, maxseg, V, _D, T, P)
   when is_integer(V) andalso
        (T =:= stream) andalso
@@ -3643,8 +3646,8 @@ enc_sockopt_key(ipv6 = L, UnknownOpt, _Dir, _D, _T, _P) ->
 %% but they are difficult to get portable...
 enc_sockopt_key(tcp, congestion = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_CONGESTION;
-enc_sockopt_key(tcp = L, cork = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(tcp = _L, cork = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_TCP_CORK;
 enc_sockopt_key(tcp = L, keepidle = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(tcp = L, keepintvl = Opt, _Dir, _D, _T, _P) ->
