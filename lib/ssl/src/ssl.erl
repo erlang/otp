@@ -686,9 +686,10 @@ handshake(ListenSocket, SslOptions)  when is_port(ListenSocket) ->
 handshake(#sslsocket{} = Socket, [], Timeout) when (is_integer(Timeout) andalso Timeout >= 0) or 
                                                     (Timeout == infinity)->
     handshake(Socket, Timeout);
-handshake(#sslsocket{fd = {_, _, _, Tracker}} = Socket, SslOpts, Timeout) when
+handshake(#sslsocket{fd = {_, _, _, Trackers}} = Socket, SslOpts, Timeout) when
       (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity)->
     try
+        Tracker = proplists:get_value(option_tracker, Trackers),
 	{ok, EmOpts, _} = tls_socket:get_all_opts(Tracker),
 	ssl_connection:handshake(Socket, {SslOpts, 
 					  tls_socket:emulated_socket_options(EmOpts, #socket_options{})}, Timeout)
@@ -2071,7 +2072,10 @@ validate_option(cb_info, {V1, V2, V3, V4, V5} = Value) when is_atom(V1),
 validate_option(use_ticket, Value) when is_binary(Value) andalso
                                         byte_size(Value) =:= 32 ->
     Value;
-validate_option(session_tickets, Value) when Value =:= true orelse
+validate_option(session_tickets, Value) when Value =:= disabled orelse
+                                             Value =:= stateless orelse
+                                             Value =:= statefull orelse
+                                             Value =:= true orelse
                                              Value =:= false orelse
                                              Value =:= auto ->
     Value;
