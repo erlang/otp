@@ -44,9 +44,9 @@ i_generic_breakpoint() {
 }
 
 i_return_time_trace() {
-    BeamInstr *pc = (BeamInstr *) (UWord) E[1];
+    ErtsCodeInfo *cinfo = (!is_CP(E[1]) ? NULL : erts_code_to_codeinfo((BeamInstr*)E[1]));
     SWAPOUT;
-    erts_trace_time_return(c_p, erts_code_to_codeinfo(pc));
+    erts_trace_time_return(c_p, cinfo);
     SWAPIN;
     E += 2;
     $RETURN();
