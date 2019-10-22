@@ -163,6 +163,7 @@
 	 api_opt_ipv6_tclass_udp6/1,
 	 api_opt_ipv6_mopts_udp6/1,
          api_opt_tcp_congestion_tcp4/1,
+         api_opt_tcp_maxseg_tcp4/1,
          api_opt_tcp_nodelay_tcp4/1,
 
          %% *** API Operation Timeout ***
@@ -926,6 +927,8 @@ api_options_tcp_cases() ->
     [
      api_opt_tcp_congestion_tcp4,
      %% api_opt_tcp_congestion_tcp6
+     api_opt_tcp_maxseg_tcp4,
+     %% api_opt_tcp_nodelay_tcp6%,
      api_opt_tcp_nodelay_tcp4%,
      %% api_opt_tcp_nodelay_tcp6%,
     ].
@@ -19264,6 +19267,124 @@ api_opt_tcp_congestion_tcp(InitState) ->
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     ok = ?SEV_AWAIT_FINISH([Server, Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the maxseg tcp socket option.
+%%
+%% This is a very simple test. We simple set and get the value.
+%% To test that it has an effect is just "to much work"...
+%%
+%% Note that there is no point in reading this value back,
+%% since the kernel imposes its own rules with regard
+%% to what is an acceptible value.
+%%
+
+api_opt_tcp_maxseg_tcp4(suite) ->
+    [];
+api_opt_tcp_maxseg_tcp4(doc) ->
+    [];
+api_opt_tcp_maxseg_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_tcp_maxseg_tcp4,
+           fun() -> has_support_tcp_maxseg() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_integer(Value) ->
+                                  socket:setopt(Sock, tcp, maxseg, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, maxseg)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_maxseg_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_maxseg_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% The actual test
+         #{desc => "get (default) maxseg",
+           cmd  => fun(#{sock := Sock, get := Get} = State) ->
+                           case Get(Sock) of
+                               {ok, DefMaxSeg} ->
+                                   ?SEV_IPRINT("maxseg default: ~p", [DefMaxSeg]),
+                                   {ok, State#{def_maxseg => DefMaxSeg}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         
+         %% Note that there is no point in reading this value back,
+         %% since the kernel imposes its own rules with regard
+         %% to what is an acceptible value.
+         #{desc => "change maxseg (default + 16)",
+           cmd  => fun(#{sock       := Sock,
+                         set        := Set,
+                         def_maxseg := DefMaxSeg} = State) ->
+                           NewMaxSeg = DefMaxSeg + 16,
+                           case Set(Sock, NewMaxSeg) of
+                               ok ->
+                                   ?SEV_IPRINT("maxseg (maybe) changed (to ~w)",
+                                               [NewMaxSeg]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start tester evaluator"),
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    ok = ?SEV_AWAIT_FINISH([Tester]).
 
 
 
@@ -37970,6 +38091,9 @@ has_support_ipv6_tclass_or_recvtclass() ->
 
 has_support_tcp_congestion() ->
     has_support_socket_option_tcp(congestion).
+
+has_support_tcp_maxseg() ->
+    has_support_socket_option_tcp(maxseg).
 
 has_support_tcp_nodelay() ->
     has_support_socket_option_tcp(nodelay).
