@@ -1,0 +1,1761 @@
+%% Derived from receive_SUITE, with the ref_opt/1 test case removed.
+%% The purpose if this module is to make sure that the traditional
+%% syntax for receive in Core Erlang continues to work and is properly
+%% lowered.
+
+module 'receive_tests' ['module_info'/0,
+			'module_info'/1,
+			'receive_tests'/0]
+    attributes []
+'receive_tests'/0 =
+    %% Line 27
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      do  %% Line 28
+		  apply 'recv'/0
+		      ()
+		  do  %% Line 28
+		      apply 'coverage'/0
+			  ()
+		      do  %% Line 28
+			  apply 'otp_7980'/0
+			      ()
+			  do  %% Line 28
+			      apply 'export'/0
+				  ()
+			      do  %% Line 28
+				  apply 'wait'/0
+				      ()
+				  do  %% Line 29
+				      apply 'recv_in_try'/0
+					  ()
+				      do  %% Line 29
+					  apply 'double_recv'/0
+					      ()
+					  do  %% Line 29
+					      apply 'receive_var_zero'/0
+						  ()
+					      do  %% Line 30
+						  apply 'match_built_terms'/0
+						      ()
+						  do  %% Line 30
+						      apply 'elusive_common_exit'/0
+							  ()
+						      do  %% Line 31
+							  apply 'after_expression'/0
+							      ()
+							  %% Line 32
+							  'ok'
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'recv'/0 =
+    %% Line 36
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  fun () ->
+		      %% Line 37
+		      case <> of
+			<> when 'true' ->
+			    apply 'loop'/1
+				({'state','true'})
+			( <> when 'true' ->
+			      primop 'match_fail'
+				  ({'function_clause'})
+			  -| ['compiler_generated'] )
+		      end
+	      in  let <Pid> =
+		      call %% Line 37
+			   'erlang':%% Line 37
+				    'spawn_link'
+			  (_0)
+		  in  let <Self> =
+			  call %% Line 38
+			       'erlang':%% Line 38
+					'self'
+			      ()
+		      in  do  %% Line 39
+			      call 'erlang':'!'
+				  (Pid, {Self,'test'})
+			      do  %% Line 40
+				  receive
+				    %% Line 41
+				    <{'ok','test'}> when 'true' ->
+					'ok'
+				    %% Line 42
+				    <{'error',Other}> when 'true' ->
+					do  %% Line 43
+					    call 'io':'format'
+						([71|[111|[116|[32|[117|[110|[112|[101|[120|[101|[99|[116|[101|[100|[32|[126|[112]]]]]]]]]]]]]]]]], [Other|[]])
+					    %% Line 44
+					    call 'ct':'fail'
+						('unexpected')
+				  after %% Line 45
+					10000 ->
+				    %% Line 46
+				    call 'ct':'fail'
+					('no_answer')
+				  do  %% Line 48
+				      receive
+					%% Line 49
+					<X> when 'true' ->
+					    do  %% Line 50
+						call 'io':'format'
+						    ([85|[110|[101|[120|[112|[101|[99|[116|[101|[100|[32|[101|[120|[116|[114|[97|[32|[109|[101|[115|[115|[97|[103|[101|[58|[32|[126|[112]]]]]]]]]]]]]]]]]]]]]]]]]]]], [X|[]])
+						%% Line 51
+						call 'ct':'fail'
+						    ('unexpected')
+				      after %% Line 52
+					    10 ->
+					do  %% Line 53
+					    call 'erlang':'unlink'
+						(Pid)
+					    do  %% Line 54
+						call 'erlang':'exit'
+						    (Pid, 'kill')
+						%% Line 55
+						'ok'
+				      %% Line 57
+				      'ok'
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'loop'/1 =
+    %% Line 59
+    fun (_0) ->
+	case _0 of
+	  <S> when 'true' ->
+	      %% Line 60
+	      receive
+		%% Line 61
+		<_8>
+		    when ( try
+			    ( let <_3> =
+				  case ( call ( 'erlang'
+						-| ['compiler_generated'] ):( 'is_record'
+									      -| ['compiler_generated'] )
+					     (S, ( 'state'
+						   -| ['compiler_generated'] ), ( 2
+										  -| ['compiler_generated'] ))
+					 -| ['compiler_generated'] ) of
+				    ( <( 'true'
+					 -| ['compiler_generated'] )> when 'true' ->
+					  ( 'true'
+					    -| ['compiler_generated'] )
+				      -| ['compiler_generated'] )
+				    ( <( 'false'
+					 -| ['compiler_generated'] )> when 'true' ->
+					  ( 'fail'
+					    -| ['compiler_generated'] )
+				      -| ['compiler_generated'] )
+				    ( <( _1
+					 -| ['compiler_generated'] )> when 'true' ->
+					  ( _1
+					    -| ['compiler_generated'] )
+				      -| ['compiler_generated'] )
+				    ( <_2> when 'true' ->
+					  ( primop 'match_fail'
+						({'case_clause',_2})
+					    -| ['compiler_generated'] )
+				      -| ['compiler_generated'] )
+				  end
+			      in  let <_4> =
+				      call 'erlang':'=:='
+					  (( _3
+					     -| ['compiler_generated'] ), 'true')
+				  in  let <_5> =
+					  call 'erlang':'element'
+					      (2, S)
+				      in  let <_6> =
+					      call 'erlang':'=='
+						  (_5, 'false')
+					  in  ( call ( 'erlang'
+						       -| ['compiler_generated'] ):( 'and'
+										     -| ['compiler_generated'] )
+						    (_4, _6)
+						-| ['compiler_generated'] )
+			      -| ['compiler_generated'] )
+			of <Try> ->
+			    Try
+			catch <T,R> ->
+			    'false'
+			-| ['compiler_generated'] ) ->
+		    %% Line 62
+		    apply 'loop'/1
+			(S)
+		%% Line 63
+		<{P,'test'}> when 'true' ->
+		    do  %% Line 64
+			call 'erlang':'!'
+			    (P, {'ok','test'})
+			%% Line 65
+			apply 'loop'/1
+			    (S)
+		%% Line 66
+		<_X_X> when 'true' ->
+		    %% Line 67
+		    apply 'loop'/1
+			(S)
+	      after 'infinity' ->
+		'true'
+	  ( <_7> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_7})
+	    -| ['compiler_generated'] )
+	end
+'coverage'/0 =
+    %% Line 70
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  call %% Line 71
+		       'erlang':%% Line 71
+				'self'
+		      ()
+	      in  do  %% Line 71
+		      apply 'do_link'/1
+			  (_0)
+		      let <_1> =
+			  call %% Line 72
+			       'erlang':%% Line 72
+					'self'
+			      ()
+		      in  do  %% Line 72
+			      apply 'do_unlink'/1
+				  (_1)
+			      let <_2> =
+				  call %% Line 73
+				       'erlang':%% Line 73
+						'node'
+				      ()
+			      in  do  %% Line 73
+				      apply 'do_monitor_node'/2
+					  (_2, 'true')
+				      let <_3> =
+					  call %% Line 74
+					       'erlang':%% Line 74
+							'node'
+					      ()
+				      in  do  %% Line 74
+					      apply 'do_monitor_node'/2
+						  (_3, 'false')
+					      let <_5> =
+						  call %% Line 75
+						       'erlang':%% Line 75
+								'group_leader'
+						      ()
+					      in  let <_4> =
+						      call %% Line 75
+							   'erlang':%% Line 75
+								    'self'
+							  ()
+						  in  do  %% Line 75
+							  apply 'do_group_leader'/2
+							      (_5, _4)
+							  let <_6> =
+							      call %% Line 76
+								   'erlang':%% Line 76
+									    'self'
+								  ()
+							  in  let <_7> =
+								  call %% Line 76
+								       'erlang':%% Line 76
+										'node'
+								      (_6)
+							      in  do  %% Line 76
+								      apply 'id'/1
+									  (_7)
+								      let <_8> =
+									  call %% Line 78
+									       'erlang':%% Line 78
+											'self'
+									      ()
+								      in  do  %% Line 78
+									      call 'erlang':'!'
+										  (_8, {'a',10})
+									      let <_9> =
+										  call %% Line 79
+										       'erlang':%% Line 79
+												'self'
+										      ()
+									      in  do  %% Line 79
+										      call 'erlang':'!'
+											  (_9, {'b',20})
+										      %% Line 80
+										      case apply 'receive_all'/0
+											       () of
+											<[{'a',10}|[{'b',20}]]> when 'true' ->
+											    let <_11> =
+												call %% Line 81
+												     'erlang':%% Line 81
+													      'self'
+												    ()
+											    in  do  %% Line 81
+												    call 'erlang':'!'
+													(_11, {'c',42})
+												    do  %% Line 82
+													receive
+													  %% Line 83
+													  <{'c',42}> when 'true' ->
+													      %% Line 84
+													      'ok'
+													after %% Line 85
+													      'infinity' ->
+													  %% Line 86
+													  call 'erlang':'exit'
+													      ('cant_happen')
+													let <_12> =
+													    call %% Line 89
+														 'erlang':%% Line 89
+															  'self'
+														()
+													in  do  %% Line 89
+														call 'erlang':'!'
+														    (_12, 17)
+														let <_13> =
+														    call %% Line 90
+															 'erlang':%% Line 90
+																  'self'
+															()
+														in  do  %% Line 90
+															call 'erlang':'!'
+															    (_13, 19)
+															%% Line 91
+															case apply 'tuple_to_values'/2
+																 ('infinity', 'x') of
+															  <59> when 'true' ->
+															      %% Line 92
+															      case apply 'tuple_to_values'/2
+																       (999999, 'x') of
+																<61> when 'true' ->
+																    %% Line 93
+																    case apply 'tuple_to_values'/2
+																	     (1, 'x') of
+																      <0> when 'true' ->
+																	  let <_18> =
+																	      catch
+																		  let <_17> =
+																		      call %% Line 95
+																			   'erlang':%% Line 95
+																				    'self'
+																			  ()
+																		  in  %% Line 95
+																		      apply 'monitor_plus_badmap'/1
+																			  (_17)
+																	  in  %% Line 95
+																	      case _18 of
+																		<{'EXIT',{{'badmap',[]},_23}}> when 'true' ->
+																		    let <_20> =
+																			call %% Line 98
+																			     'erlang':%% Line 98
+																				      'self'
+																			    ()
+																		    in  do  %% Line 98
+																			    call 'erlang':'!'
+																				(_20, {'data','no_data'})
+																			    %% Line 99
+																			    case apply 'receive_sink_tuple'/1
+																				     ({'any','pattern'}) of
+																			      <'ok'> when 'true' ->
+																				  %% Line 100
+																				  case apply 'receive_sink_tuple'/1
+																					   ({'a','b'}) of
+																				    <{'b','a'}> when 'true' ->
+																					%% Line 102
+																					'ok'
+																				    ( <_22> when 'true' ->
+																					  primop 'match_fail'
+																					      ({'badmatch',_22})
+																				      -| ['compiler_generated'] )
+																				  end
+																			      ( <_21> when 'true' ->
+																				    primop 'match_fail'
+																					({'badmatch',_21})
+																				-| ['compiler_generated'] )
+																			    end
+																		( <_19> when 'true' ->
+																		      primop 'match_fail'
+																			  ({'badmatch',_19})
+																		  -| ['compiler_generated'] )
+																	      end
+																      ( <_16> when 'true' ->
+																	    primop 'match_fail'
+																		({'badmatch',_16})
+																	-| ['compiler_generated'] )
+																    end
+																( <_15> when 'true' ->
+																      primop 'match_fail'
+																	  ({'badmatch',_15})
+																  -| ['compiler_generated'] )
+															      end
+															  ( <_14> when 'true' ->
+																primop 'match_fail'
+																    ({'badmatch',_14})
+															    -| ['compiler_generated'] )
+															end
+											( <_10> when 'true' ->
+											      primop 'match_fail'
+												  ({'badmatch',_10})
+											  -| ['compiler_generated'] )
+										      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'monitor_plus_badmap'/1 =
+    %% Line 104
+    fun (_0) ->
+	case _0 of
+	  <Pid> when 'true' ->
+	      let <_2> =
+		  call %% Line 105
+		       'erlang':%% Line 105
+				'monitor'
+		      (%% Line 105
+		       'process', %% Line 105
+				  Pid)
+	      in  let <_1> =
+		      primop 'match_fail'
+			  ({'badmap',[]})
+		  in  %% Line 105
+		      call 'erlang':'+'
+			  (_2, _1)
+	  ( <_3> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_3})
+	    -| ['compiler_generated'] )
+	end
+'receive_all'/0 =
+    %% Line 107
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      %% Line 108
+	      receive
+		%% Line 109
+		<Any> when 'true' ->
+		    let <_0> =
+			apply %% Line 110
+			      'receive_all'/0
+			    ()
+		    in  %% Line 110
+			[Any|_0]
+	      after %% Line 111
+		    0 ->
+		%% Line 112
+		[]
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'do_monitor_node'/2 =
+    %% Line 115
+    fun (_0,_1) ->
+	case <_0,_1> of
+	  <Node,Bool> when 'true' ->
+	      %% Line 116
+	      call 'erlang':'monitor_node'
+		  (Node, Bool)
+	  ( <_3,_2> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_3,_2})
+	    -| ['compiler_generated'] )
+	end
+'do_link'/1 =
+    %% Line 118
+    fun (_0) ->
+	case _0 of
+	  <Pid> when 'true' ->
+	      %% Line 119
+	      call 'erlang':'link'
+		  (Pid)
+	  ( <_1> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_1})
+	    -| ['compiler_generated'] )
+	end
+'do_unlink'/1 =
+    %% Line 121
+    fun (_0) ->
+	case _0 of
+	  <Pid> when 'true' ->
+	      %% Line 122
+	      call 'erlang':'unlink'
+		  (Pid)
+	  ( <_1> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_1})
+	    -| ['compiler_generated'] )
+	end
+'do_group_leader'/2 =
+    %% Line 124
+    fun (_0,_1) ->
+	case <_0,_1> of
+	  <Leader,Pid> when 'true' ->
+	      %% Line 125
+	      call 'erlang':'group_leader'
+		  (Leader, Pid)
+	  ( <_3,_2> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_3,_2})
+	    -| ['compiler_generated'] )
+	end
+'tuple_to_values'/2 =
+    %% Line 129
+    fun (_0,_1) ->
+	case <_0,_1> of
+	  <'infinity',X> when 'true' ->
+	      let <_3> =
+		  case %% Line 130
+		       X of
+		    %% Line 131
+		    <'x'> when 'true' ->
+			%% Line 132
+			receive
+			  %% Line 133
+			  <Any> when 'true' ->
+			      %% Line 134
+			      {42,Any}
+			after 'infinity' ->
+			  'true'
+		    ( <_2> when 'true' ->
+			  %% Line 130
+			  primop 'match_fail'
+			      ({'case_clause',_2})
+		      -| ['compiler_generated'] )
+		  end
+	      in  %% Line 130
+		  case _3 of
+		    <{A,B}> when 'true' ->
+			%% Line 137
+			call 'erlang':'+'
+			    (A, B)
+		    ( <_4> when 'true' ->
+			  primop 'match_fail'
+			      ({'badmatch',_4})
+		      -| ['compiler_generated'] )
+		  end
+	  %% Line 138
+	  <Timeout,X> when 'true' ->
+	      let <_6> =
+		  case %% Line 139
+		       X of
+		    %% Line 140
+		    <'x'> when 'true' ->
+			%% Line 141
+			receive
+			  %% Line 142
+			  <Any> when 'true' ->
+			      %% Line 143
+			      {42,Any}
+			after %% Line 144
+			      Timeout ->
+			  %% Line 145
+			  {0,0}
+		    ( <_5> when 'true' ->
+			  %% Line 139
+			  primop 'match_fail'
+			      ({'case_clause',_5})
+		      -| ['compiler_generated'] )
+		  end
+	      in  %% Line 139
+		  case _6 of
+		    <{A,B}> when 'true' ->
+			%% Line 148
+			call 'erlang':'+'
+			    (A, B)
+		    ( <_7> when 'true' ->
+			  primop 'match_fail'
+			      ({'badmatch',_7})
+		      -| ['compiler_generated'] )
+		  end
+	  ( <_9,_8> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_9,_8})
+	    -| ['compiler_generated'] )
+	end
+'receive_sink_tuple'/1 =
+    %% Line 151
+    fun (_0) ->
+	case _0 of
+	  <{Line,Pattern}> when 'true' ->
+	      %% Line 152
+	      receive
+		%% Line 153
+		<{'data',_2}> when 'true' ->
+		    %% Line 154
+		    'ok'
+	      after %% Line 155
+		    1 ->
+		%% Line 156
+		apply 'id'/1
+		    ({Pattern,Line})
+	  ( <_1> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_1})
+	    -| ['compiler_generated'] )
+	end
+'otp_7980'/0 =
+    %% Line 163
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      %% Line 164
+	      case apply 'otp_7980_add_clients'/1
+		       (10) of
+		<7> when 'true' ->
+		    %% Line 165
+		    'ok'
+		( <_0> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_0})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'otp_7980_add_clients'/1 =
+    %% Line 167
+    fun (_0) ->
+	case _0 of
+	  <Count> when 'true' ->
+	      let <Timeout> = 42
+	      in  let <_7> =
+		      fun (_4,_3) ->
+			  %% Line 169
+			  case <_4,_3> of
+			    <_9,N> when 'true' ->
+				do  %% Line 170
+				    case N of
+				      %% Line 171
+				      <1> when 'true' ->
+					  'ok'
+				      %% Line 172
+				      <_10> when 'true' ->
+					  receive
+
+					  after Timeout ->
+					    'ok'
+				      ( <_2> when 'true' ->
+					    primop 'match_fail'
+						({'case_clause',_2})
+					-| ['compiler_generated'] )
+				    end
+				    %% Line 174
+				    call 'erlang':'-'
+					(N, 1)
+			    ( <_6,_5> when 'true' ->
+				  primop 'match_fail'
+				      ({'function_clause',_6,_5})
+			      -| ['compiler_generated'] )
+			  end
+		  in  %% Line 169
+		      call 'lists':'foldl'
+			  (_7, %% Line 175
+			       Count, %% Line 175
+				      [1|[2|[3]]])
+	  ( <_8> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_8})
+	    -| ['compiler_generated'] )
+	end
+'export'/0 =
+    %% Line 177
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <Ref> =
+		  call %% Line 178
+		       'erlang':%% Line 178
+				'make_ref'
+		      ()
+	      in  let <_1> =
+		      call %% Line 179
+			   'erlang':%% Line 179
+				    'self'
+			  ()
+		  in  do  %% Line 179
+			  call 'erlang':'!'
+			      (_1, {'result',Ref,42})
+			  %% Line 180
+			  case apply 'export_1'/1
+				   (Ref) of
+			    <42> when 'true' ->
+				%% Line 181
+				case apply 'export_1'/1
+					 (Ref) of
+				  <{'error','timeout'}> when 'true' ->
+				      let <_4> =
+					  call %% Line 183
+					       'erlang':%% Line 183
+							'self'
+					      ()
+				      in  do  %% Line 183
+					      call 'erlang':'!'
+						  (_4, {'result',Ref})
+					      %% Line 184
+					      case apply 'export_2'/0
+						       () of
+						<{'ok',_6}>
+						    when call 'erlang':'=:='
+							  (_6,
+							   Ref) ->
+						    %% Line 186
+						    'ok'
+						( <_5> when 'true' ->
+						      primop 'match_fail'
+							  ({'badmatch',_5})
+						  -| ['compiler_generated'] )
+					      end
+				  ( <_3> when 'true' ->
+					primop 'match_fail'
+					    ({'badmatch',_3})
+				    -| ['compiler_generated'] )
+				end
+			    ( <_2> when 'true' ->
+				  primop 'match_fail'
+				      ({'badmatch',_2})
+			      -| ['compiler_generated'] )
+			  end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'export_1'/1 =
+    %% Line 188
+    fun (_0) ->
+	case _0 of
+	  <Reference> when 'true' ->
+	      do  %% Line 189
+		  apply 'id'/1
+		      (Reference)
+		  let <_5,Result> =
+		      receive
+			%% Line 191
+			<{'result',_4,Result}>
+			    when call 'erlang':'=:='
+				  (_4,
+				   Reference) ->
+			    %% Line 192
+			    <Result,Result>
+		      after %% Line 193
+			    1 ->
+			let <Result> =
+			    {'error','timeout'}
+			in  %% Line 194
+			    <Result,Result>
+		  in  let <_2> =
+			  call %% Line 199
+			       'erlang':%% Line 199
+					'self'
+			      ()
+		      in  do  %% Line 199
+			      apply 'id'/1
+				  ({'build',_2})
+			      %% Line 200
+			      Result
+	  ( <_3> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_3})
+	    -| ['compiler_generated'] )
+	end
+'export_2'/0 =
+    %% Line 202
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0,Result> =
+		  receive
+		    %% Line 203
+		    <{'result',Result}> when 'true' ->
+			<'ok',Result>
+		  after 'infinity' ->
+		    <'true','true'>
+	      in  %% Line 204
+		  {'ok',Result}
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'wait'/0 =
+    %% Line 206
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  call %% Line 207
+		       'erlang':%% Line 207
+				'self'
+		      ()
+	      in  do  %% Line 207
+		      call 'erlang':'!'
+			  (_0, #{#<42>(8,1,'integer',['unsigned'|['big']])}#)
+		      %% Line 208
+		      case apply 'wait_1'/3
+			       ('r', 1, 2) of
+			<#{#<42>(8,1,'integer',['unsigned'|['big']])}#> when 'true' ->
+			    %% Line 209
+			    case apply 'wait_1'/3
+				     (1, 2, 3) of
+			      <{1,2,3}> when 'true' ->
+				  let <_3> =
+				      catch
+					  %% Line 210
+					  receive
+
+					  after [] ->
+					    'timeout'
+				  in  %% Line 210
+				      case _3 of
+					<{'EXIT',{'timeout_value',_5}}> when 'true' ->
+					    %% Line 211
+					    'ok'
+					( <_4> when 'true' ->
+					      primop 'match_fail'
+						  ({'badmatch',_4})
+					  -| ['compiler_generated'] )
+				      end
+			      ( <_2> when 'true' ->
+				    primop 'match_fail'
+					({'badmatch',_2})
+				-| ['compiler_generated'] )
+			    end
+			( <_1> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',_1})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'wait_1'/3 =
+    %% Line 213
+    fun (_0,_1,_2) ->
+	case <_0,_1,_2> of
+	  <'r',_7,_8> when 'true' ->
+	      %% Line 214
+	      receive
+		%% Line 215
+		<B>
+		    when try
+			  let <_3> =
+			      call 'erlang':'byte_size'
+				  (B)
+			  in  call 'erlang':'>'
+				  (_3, 0)
+		      of <Try> ->
+			  Try
+		      catch <T,R> ->
+			  'false' ->
+		    %% Line 216
+		    B
+	      after 'infinity' ->
+		'true'
+	  %% Line 220
+	  <A,B,C> when 'true' ->
+	      %% Line 221
+	      {A,B,C}
+	  ( <_6,_5,_4> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_6,_5,_4})
+	    -| ['compiler_generated'] )
+	end
+'recv_in_try'/0 =
+    %% Line 223
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  call %% Line 224
+		       'erlang':%% Line 224
+				'self'
+		      ()
+	      in  do  %% Line 224
+		      call 'erlang':'!'
+			  (_0, {'ok','fh'})
+		      %% Line 224
+		      case apply 'recv_in_try'/2
+			       ('infinity', 'native') of
+			<{'ok','fh'}> when 'true' ->
+			    let <_2> =
+				call %% Line 225
+				     'erlang':%% Line 225
+					      'self'
+				    ()
+			    in  do  %% Line 225
+				    call 'erlang':'!'
+					(_2, {'ok','ignored'})
+				    %% Line 225
+				    case apply 'recv_in_try'/2
+					     ('infinity', 'plain') of
+				      <{'ok',42}> when 'true' ->
+					  let <_4> =
+					      call %% Line 226
+						   'erlang':%% Line 226
+							    'self'
+						  ()
+					  in  do  %% Line 226
+						  call 'erlang':'!'
+						      (_4, {'error','ignored'})
+						  %% Line 226
+						  case apply 'recv_in_try'/2
+							   ('infinity', 'plain') of
+						    <'nok'> when 'true' ->
+							%% Line 227
+							case apply 'recv_in_try'/2
+								 (1, 'plain') of
+							  <'timeout'> when 'true' ->
+							      %% Line 228
+							      'ok'
+							  ( <_6> when 'true' ->
+								primop 'match_fail'
+								    ({'badmatch',_6})
+							    -| ['compiler_generated'] )
+							end
+						    ( <_5> when 'true' ->
+							  primop 'match_fail'
+							      ({'badmatch',_5})
+						      -| ['compiler_generated'] )
+						  end
+				      ( <_3> when 'true' ->
+					    primop 'match_fail'
+						({'badmatch',_3})
+					-| ['compiler_generated'] )
+				    end
+			( <_1> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',_1})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'recv_in_try'/2 =
+    %% Line 230
+    fun (_0,_1) ->
+	case <_0,_1> of
+	  <Timeout,Format> when 'true' ->
+	      %% Line 231
+	      try
+		  %% Line 232
+		  receive
+		    %% Line 233
+		    <{Status,History}> when 'true' ->
+			let <_3> =
+			    case %% Line 244
+				 Format of
+			      %% Line 245
+			      <'native'> when 'true' ->
+				  %% Line 246
+				  apply 'id'/1
+				      (History)
+			      %% Line 247
+			      <'plain'> when 'true' ->
+				  %% Line 248
+				  apply 'id'/1
+				      (42)
+			      ( <_2> when 'true' ->
+				    %% Line 244
+				    primop 'match_fail'
+					({'case_clause',_2})
+				-| ['compiler_generated'] )
+			    end
+			in  let <FH> = _3
+			    in  %% Line 250
+				case Status of
+				  %% Line 251
+				  <'ok'> when 'true' ->
+				      %% Line 252
+				      {'ok',FH}
+				  %% Line 253
+				  <'error'> when 'true' ->
+				      %% Line 254
+				      'nok'
+				  ( <_5> when 'true' ->
+					primop 'match_fail'
+					    ({'case_clause',_5})
+				    -| ['compiler_generated'] )
+				end
+		  after %% Line 256
+			Timeout ->
+		    %% Line 257
+		    'timeout'
+	      of <_6> ->
+		  _6
+	      catch <_9,_8,_7> ->
+		  %% Line 262
+		  case {_9,_8,_7} of
+		    <{'throw',{'error',Reason},_12}> when 'true' ->
+			%% Line 263
+			{'nok',Reason}
+		    ( <{_9,_8,_7}> when 'true' ->
+			  primop 'raise'
+			      (_7, _8)
+		      -| ['compiler_generated'] )
+		  end
+	  ( <_11,_10> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_11,_10})
+	    -| ['compiler_generated'] )
+	end
+'double_recv'/0 =
+    %% Line 270
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  call %% Line 271
+		       'erlang':%% Line 271
+				'self'
+		      ()
+	      in  do  %% Line 271
+		      call 'erlang':'!'
+			  (_0, {'more',{'a','term'}})
+		      %% Line 272
+		      case apply 'do_double_recv'/2
+			       ({'more',{'a','term'}}, 'any') of
+			<'ok'> when 'true' ->
+			    let <_2> =
+				call %% Line 273
+				     'erlang':%% Line 273
+					      'self'
+				    ()
+			    in  do  %% Line 273
+				    call 'erlang':'!'
+					(_2, 'message')
+				    %% Line 274
+				    case apply 'do_double_recv'/2
+					     ('whatever', 'message') of
+				      <'ok'> when 'true' ->
+					  %% Line 276
+					  case apply 'do_double_recv'/2
+						   ({'more',42}, 'whatever') of
+					    <'error'> when 'true' ->
+						%% Line 277
+						case apply 'do_double_recv'/2
+							 ('whatever', 'whatever') of
+						  <'error'> when 'true' ->
+						      %% Line 278
+						      'ok'
+						  ( <_5> when 'true' ->
+							primop 'match_fail'
+							    ({'badmatch',_5})
+						    -| ['compiler_generated'] )
+						end
+					    ( <_4> when 'true' ->
+						  primop 'match_fail'
+						      ({'badmatch',_4})
+					      -| ['compiler_generated'] )
+					  end
+				      ( <_3> when 'true' ->
+					    primop 'match_fail'
+						({'badmatch',_3})
+					-| ['compiler_generated'] )
+				    end
+			( <_1> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',_1})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'do_double_recv'/2 =
+    %% Line 280
+    fun (_0,_1) ->
+	case <_0,_1> of
+	  <{'more',Rest},_X_Msg> when 'true' ->
+	      %% Line 281
+	      receive
+		%% Line 282
+		<{'more',_4}>
+		    when call 'erlang':'=:='
+			  (_4,
+			   Rest) ->
+		    %% Line 283
+		    'ok'
+	      after %% Line 284
+		    0 ->
+		%% Line 285
+		'error'
+	  %% Line 287
+	  <_5,Msg> when 'true' ->
+	      %% Line 288
+	      receive
+		%% Line 289
+		<_6>
+		    when call 'erlang':'=:='
+			  (_6,
+			   Msg) ->
+		    %% Line 290
+		    'ok'
+	      after %% Line 291
+		    0 ->
+		%% Line 292
+		'error'
+	  ( <_3,_2> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_3,_2})
+	    -| ['compiler_generated'] )
+	end
+'receive_var_zero'/0 =
+    %% Line 297
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  call %% Line 298
+		       'erlang':%% Line 298
+				'self'
+		      ()
+	      in  do  %% Line 298
+		      call 'erlang':'!'
+			  (_0, 'x')
+		      let <_1> =
+			  call %% Line 299
+			       'erlang':%% Line 299
+					'self'
+			      ()
+		      in  do  %% Line 299
+			      call 'erlang':'!'
+				  (_1, 'y')
+			      let <Z> =
+				  apply %% Line 300
+					'zero'/0
+				      ()
+			      in  let <_3> =
+				      receive
+					%% Line 302
+					<'z'> when 'true' ->
+					    'ok'
+				      after %% Line 303
+					    Z ->
+					%% Line 303
+					'timeout'
+				  in  %% Line 301
+				      case _3 of
+					<'timeout'> when 'true' ->
+					    let <_5> =
+						receive
+
+						after %% Line 306
+						      Z ->
+						  %% Line 306
+						  'timeout'
+					    in  %% Line 305
+						case _5 of
+						  <'timeout'> when 'true' ->
+						      let <_7> =
+							  call %% Line 308
+							       'erlang':%% Line 308
+									'self'
+							      ()
+						      in  do  %% Line 308
+							      call 'erlang':'!'
+								  (_7, 'w')
+							      %% Line 309
+							      receive
+								%% Line 310
+								<'x'> when 'true' ->
+								    do  %% Line 311
+									receive
+									  <'y'> when 'true' ->
+									      'ok'
+									after 'infinity' ->
+									  'true'
+									do  %% Line 312
+									    receive
+									      <'w'> when 'true' ->
+										  'ok'
+									    after 'infinity' ->
+									      'true'
+									    %% Line 313
+									    'ok'
+								%% Line 314
+								<Other> when 'true' ->
+								    %% Line 315
+								    call 'ct':'fail'
+									({'bad_message',Other})
+							      after 'infinity' ->
+								'true'
+						  ( <_6> when 'true' ->
+							primop 'match_fail'
+							    ({'badmatch',_6})
+						    -| ['compiler_generated'] )
+						end
+					( <_4> when 'true' ->
+					      primop 'match_fail'
+						  ({'badmatch',_4})
+					  -| ['compiler_generated'] )
+				      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'zero'/0 =
+    %% Line 318
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      0
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'match_built_terms'/0 =
+    %% Line 339
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_5> =
+		  fun () ->
+		      %% Line 340
+		      case <> of
+			<> when 'true' ->
+			    let <Ref> =
+				call 'erlang':'make_ref'
+				    ()
+			    in  let <A> =
+				    apply 'id'/1
+					(97)
+				in  let <B> =
+					apply 'id'/1
+					    (98)
+				    in  let <Built> =
+					    apply 'id'/1
+						([A|[B|[]]])
+					in  let <_4> =
+						call 'erlang':'self'
+						    ()
+					    in  do  call 'erlang':'!'
+							(_4, {Ref,A,B})
+						    receive
+						      <{_28,_29,_30}>
+							  when let <_35> =
+								call 'erlang':'=:='
+								    (_28, Ref)
+							    in  let <_33> =
+								    call 'erlang':'=:='
+									(_29, A)
+								in  let <_31> =
+									call 'erlang':'=:='
+									    (_30, B)
+								    in  let <_32> =
+									    call 'erlang':'=:='
+										([A|[B|[]]], Built)
+									in  let <_34> =
+										call 'erlang':'and'
+										    (_31, _32)
+									    in  let <_36> =
+										    call 'erlang':'and'
+											(_33, _34)
+										in  call 'erlang':'and'
+											(_35, _36) ->
+							  'ok'
+						    after 5000 ->
+						      call 'ct':'fail'
+							  ([70|[97|[105|[108|[101|[100|[32|[116|[111|[32|[109|[97|[116|[99|[104|[32|[109|[101|[115|[115|[97|[103|[101|[32|[119|[105|[116|[104|[32|[116|[101|[114|[109|[32|[98|[117|[105|[108|[116|[32|[105|[110|[32|[114|[101|[99|[101|[105|[118|[101|[32|[103|[117|[97|[114|[100|[46]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+			( <> when 'true' ->
+			      primop 'match_fail'
+				  ({'function_clause'})
+			  -| ['compiler_generated'] )
+		      end
+	      in  do  %% Line 340
+		      apply _5
+			  ()
+		      let <_11> =
+			  fun () ->
+			      %% Line 341
+			      case <> of
+				<> when 'true' ->
+				    let <Ref> =
+					call 'erlang':'make_ref'
+					    ()
+				    in  let <A> =
+					    apply 'id'/1
+						(97)
+					in  let <B> =
+						apply 'id'/1
+						    (98)
+					    in  let <Built> =
+						    apply 'id'/1
+							({A,B})
+						in  let <_10> =
+							call 'erlang':'self'
+							    ()
+						    in  do  call 'erlang':'!'
+								(_10, {Ref,A,B})
+							    receive
+							      <{_37,_38,_39}>
+								  when let <_44> =
+									call 'erlang':'=:='
+									    (_37, Ref)
+								    in  let <_42> =
+									    call 'erlang':'=:='
+										(_38, A)
+									in  let <_40> =
+										call 'erlang':'=:='
+										    (_39, B)
+									    in  let <_41> =
+										    call 'erlang':'=:='
+											({A,B}, Built)
+										in  let <_43> =
+											call 'erlang':'and'
+											    (_40, _41)
+										    in  let <_45> =
+											    call 'erlang':'and'
+												(_42, _43)
+											in  call 'erlang':'and'
+												(_44, _45) ->
+								  'ok'
+							    after 5000 ->
+							      call 'ct':'fail'
+								  ([70|[97|[105|[108|[101|[100|[32|[116|[111|[32|[109|[97|[116|[99|[104|[32|[109|[101|[115|[115|[97|[103|[101|[32|[119|[105|[116|[104|[32|[116|[101|[114|[109|[32|[98|[117|[105|[108|[116|[32|[105|[110|[32|[114|[101|[99|[101|[105|[118|[101|[32|[103|[117|[97|[114|[100|[46]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+				( <> when 'true' ->
+				      primop 'match_fail'
+					  ({'function_clause'})
+				  -| ['compiler_generated'] )
+			      end
+		      in  do  %% Line 341
+			      apply _11
+				  ()
+			      let <_19> =
+				  fun () ->
+				      %% Line 342
+				      case <> of
+					<> when 'true' ->
+					    let <Ref> =
+						call 'erlang':'make_ref'
+						    ()
+					    in  let <A> =
+						    apply 'id'/1
+							(97)
+						in  let <B> =
+							apply 'id'/1
+							    (98)
+						    in  let <_15> =
+							    #{#<A>(8,1,'integer',['unsigned'|['big']]),
+							      #<B>(8,1,'integer',['unsigned'|['big']])}#
+							in  let <Built> =
+								apply 'id'/1
+								    (_15)
+							    in  let <_17> =
+								    call 'erlang':'self'
+									()
+								in  do  call 'erlang':'!'
+									    (_17, {Ref,A,B})
+									receive
+									  <{_46,_47,_48}>
+									      when let <_53> =
+										    call 'erlang':'=:='
+											(_46, Ref)
+										in  let <_51> =
+											call 'erlang':'=:='
+											    (_47, A)
+										    in  let <_49> =
+											    call 'erlang':'=:='
+												(_48, B)
+											in  let <_50> =
+												try
+												    let <_18> =
+													#{#<A>(8,1,'integer',['unsigned'|['big']]),
+													  #<B>(8,1,'integer',['unsigned'|['big']])}#
+												    in  call 'erlang':'=:='
+													    (_18, Built)
+												of <Try> ->
+												    Try
+												catch <T,R> ->
+												    'false'
+											    in  let <_52> =
+												    call 'erlang':'and'
+													(_49, _50)
+												in  let <_54> =
+													call 'erlang':'and'
+													    (_51, _52)
+												    in  call 'erlang':'and'
+													    (_53, _54) ->
+									      'ok'
+									after 5000 ->
+									  call 'ct':'fail'
+									      ([70|[97|[105|[108|[101|[100|[32|[116|[111|[32|[109|[97|[116|[99|[104|[32|[109|[101|[115|[115|[97|[103|[101|[32|[119|[105|[116|[104|[32|[116|[101|[114|[109|[32|[98|[117|[105|[108|[116|[32|[105|[110|[32|[114|[101|[99|[101|[105|[118|[101|[32|[103|[117|[97|[114|[100|[46]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+					( <> when 'true' ->
+					      primop 'match_fail'
+						  ({'function_clause'})
+					  -| ['compiler_generated'] )
+				      end
+			      in  do  %% Line 342
+				      apply _19
+					  ()
+				      let <_27> =
+					  fun () ->
+					      %% Line 343
+					      case <> of
+						<> when 'true' ->
+						    let <Ref> =
+							call 'erlang':'make_ref'
+							    ()
+						    in  let <A> =
+							    apply 'id'/1
+								(97)
+							in  let <B> =
+								apply 'id'/1
+								    (98)
+							    in  let <_23> =
+								    ~{1=>A,2=>B}~
+								in  let <Built> =
+									apply 'id'/1
+									    (_23)
+								    in  let <_25> =
+									    call 'erlang':'self'
+										()
+									in  do  call 'erlang':'!'
+										    (_25, {Ref,A,B})
+										receive
+										  <{_55,_56,_57}>
+										      when let <_62> =
+											    call 'erlang':'=:='
+												(_55, Ref)
+											in  let <_60> =
+												call 'erlang':'=:='
+												    (_56, A)
+											    in  let <_58> =
+												    call 'erlang':'=:='
+													(_57, B)
+												in  let <_59> =
+													try
+													    let <_26> =
+														~{1=>A,2=>B}~
+													    in  call 'erlang':'=:='
+														    (_26, Built)
+													of <Try> ->
+													    Try
+													catch <T,R> ->
+													    'false'
+												    in  let <_61> =
+													    call 'erlang':'and'
+														(_58, _59)
+													in  let <_63> =
+														call 'erlang':'and'
+														    (_60, _61)
+													    in  call 'erlang':'and'
+														    (_62, _63) ->
+										      'ok'
+										after 5000 ->
+										  call 'ct':'fail'
+										      ([70|[97|[105|[108|[101|[100|[32|[116|[111|[32|[109|[97|[116|[99|[104|[32|[109|[101|[115|[115|[97|[103|[101|[32|[119|[105|[116|[104|[32|[116|[101|[114|[109|[32|[98|[117|[105|[108|[116|[32|[105|[110|[32|[114|[101|[99|[101|[105|[118|[101|[32|[103|[117|[97|[114|[100|[46]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]])
+						( <> when 'true' ->
+						      primop 'match_fail'
+							  ({'function_clause'})
+						  -| ['compiler_generated'] )
+					      end
+				      in  %% Line 343
+					  apply _27
+					      ()
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'elusive_common_exit'/0 =
+    %% Line 345
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  call %% Line 346
+		       'erlang':%% Line 346
+				'self'
+		      ()
+	      in  do  %% Line 346
+		      call 'erlang':'!'
+			  (_0, {1,'a'})
+		      let <_1> =
+			  call %% Line 347
+			       'erlang':%% Line 347
+					'self'
+			      ()
+		      in  do  %% Line 347
+			      call 'erlang':'!'
+				  (_1, {2,'b'})
+			      %% Line 348
+			      case apply 'elusive_loop'/3
+				       (['x'|['y'|['z']]], 2, []) of
+				<{['z'],[{2,'b'}|[{1,'a'}]]}> when 'true' ->
+				    let <CodeServer> =
+					call %% Line 350
+					     'erlang':%% Line 350
+						      'whereis'
+					    (%% Line 350
+					     'code_server')
+				    in  let <Self> =
+					    call %% Line 351
+						 'erlang':%% Line 351
+							  'self'
+						()
+					in  do  %% Line 352
+						call 'erlang':'!'
+						    (Self, {Self,'abc'})
+						do  %% Line 353
+						    call 'erlang':'!'
+							(Self, {CodeServer,[]})
+						    do  %% Line 354
+							call 'erlang':'!'
+							    (Self, {Self,'other'})
+							do  %% Line 355
+							    try
+								apply 'elusive2'/1
+								    ([])
+							    of <_5> ->
+								case _5 of
+								  %% Line 356
+								  <Unexpected> when 'true' ->
+								      %% Line 357
+								      call 'ct':'fail'
+									  ([69|[120|[112|[101|[99|[116|[101|[100|[32|[97|[110|[32|[101|[120|[99|[101|[112|[116|[105|[111|[110|[59|[32|[103|[111|[116|[32|[126|[112|[10]]]]]]]]]]]]]]]]]]]]]]]]]]]]]], [Unexpected|[]])
+								  ( <_6> when 'true' ->
+									primop 'match_fail'
+									    ({'try_clause',_6})
+								    -| ['compiler_generated'] )
+								end
+							    catch <_9,_8,_7> ->
+								%% Line 359
+								case {_9,_8,_7} of
+								  <{'throw',['other'|[_10|[_11|[]]]],_12}>
+								      when let <_13> =
+									    call 'erlang':'=:='
+										(_10, CodeServer)
+									in  let <_14> =
+										call 'erlang':'=:='
+										    (_11, Self)
+									    in  call 'erlang':'and'
+										    (_13, _14) ->
+								      %% Line 360
+								      'ok'
+								  ( <{_9,_8,_7}> when 'true' ->
+									primop 'raise'
+									    (_7, _8)
+								    -| ['compiler_generated'] )
+								end
+							    %% Line 363
+							    'ok'
+				( <_2> when 'true' ->
+				      primop 'match_fail'
+					  ({'badmatch',_2})
+				  -| ['compiler_generated'] )
+			      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'elusive_loop'/3 =
+    %% Line 365
+    fun (_0,_1,_2) ->
+	case <_0,_1,_2> of
+	  <List,0,Results> when 'true' ->
+	      %% Line 366
+	      {List,Results}
+	  %% Line 367
+	  <List,ToReceive,Results> when 'true' ->
+	      let <_4> =
+		  receive
+		    %% Line 370
+		    <Res = {_X_Pos,_X_R}>
+			when call 'erlang':'=/='
+			      (List,
+			       []) ->
+			%% Line 371
+			case List of
+			  <[_X_H|T]> when 'true' ->
+			      %% Line 372
+			      {Res,T}
+			  ( <_3> when 'true' ->
+				primop 'match_fail'
+				    ({'badmatch',_3})
+			    -| ['compiler_generated'] )
+			end
+		    %% Line 373
+		    <Res = {_X_Pos,_X_R}>
+			when call 'erlang':'=:='
+			      (List,
+			       []) ->
+			%% Line 374
+			{Res,[]}
+		  after 'infinity' ->
+		    'true'
+	      in  %% Line 368
+		  case _4 of
+		    <{Result,RemList}> when 'true' ->
+			let <_6> =
+			    call %% Line 379
+				 'erlang':%% Line 379
+					  '-'
+				(%% Line 379
+				 ToReceive, %% Line 379
+					    1)
+			in  %% Line 379
+			    apply 'elusive_loop'/3
+				(RemList, _6, [Result|Results])
+		    ( <_5> when 'true' ->
+			  primop 'match_fail'
+			      ({'badmatch',_5})
+		      -| ['compiler_generated'] )
+		  end
+	  ( <_9,_8,_7> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_9,_8,_7})
+	    -| ['compiler_generated'] )
+	end
+'elusive2'/1 =
+    %% Line 382
+    fun (_0) ->
+	case _0 of
+	  <Acc> when 'true' ->
+	      let <_2,Pid> =
+		  receive
+		    %% Line 384
+		    <{Pid,'abc'}> when 'true' ->
+			%% Line 385
+			<'ok',Pid>
+		    %% Line 386
+		    <{Pid,[]}> when 'true' ->
+			%% Line 387
+			<'ok',Pid>
+		    %% Line 388
+		    <{Pid,Res}> when 'true' ->
+			%% Line 397
+			<call 'erlang':'throw'
+			     ([Res|Acc]),Pid>
+		  after 'infinity' ->
+		    <'true','true'>
+	      in  %% Line 400
+		  apply 'elusive2'/1
+		      ([Pid|Acc])
+	  ( <_1> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_1})
+	    -| ['compiler_generated'] )
+	end
+'after_expression'/0 =
+    %% Line 402
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      let <_0> =
+		  call %% Line 403
+		       'erlang':%% Line 403
+				'self'
+		      ()
+	      in  do  %% Line 403
+		      call 'erlang':'!'
+			  (_0, {'a','message'})
+		      %% Line 404
+		      case apply 'after_expr'/1
+			       (0) of
+			<{'a','message'}> when 'true' ->
+			    %% Line 405
+			    case apply 'after_expr'/1
+				     (0) of
+			      <'timeout'> when 'true' ->
+				  %% Line 406
+				  case apply 'after_expr'/1
+					   (10) of
+				    <'timeout'> when 'true' ->
+					%% Line 407
+					'ok'
+				    ( <_3> when 'true' ->
+					  primop 'match_fail'
+					      ({'badmatch',_3})
+				      -| ['compiler_generated'] )
+				  end
+			      ( <_2> when 'true' ->
+				    primop 'match_fail'
+					({'badmatch',_2})
+				-| ['compiler_generated'] )
+			    end
+			( <_1> when 'true' ->
+			      primop 'match_fail'
+				  ({'badmatch',_1})
+			  -| ['compiler_generated'] )
+		      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'after_expr'/1 =
+    %% Line 409
+    fun (_0) ->
+	case _0 of
+	  <Timeout> when 'true' ->
+	      %% Line 410
+	      receive
+		%% Line 411
+		<Msg> when 'true' ->
+		    Msg
+	      after %% Line 412
+		    apply 'id'/1
+			(Timeout) ->
+		%% Line 413
+		'timeout'
+	  ( <_1> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_1})
+	    -| ['compiler_generated'] )
+	end
+'id'/1 =
+    %% Line 416
+    fun (_0) ->
+	case _0 of
+	  <I> when 'true' ->
+	      I
+	  ( <_1> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_1})
+	    -| ['compiler_generated'] )
+	end
+'module_info'/0 =
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('receive_tests')
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'module_info'/1 =
+    fun (_0) ->
+	case _0 of
+	  <X> when 'true' ->
+	      call 'erlang':'get_module_info'
+		  ('receive_tests', X)
+	  ( <_1> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause',_1})
+	    -| ['compiler_generated'] )
+	end
+end
