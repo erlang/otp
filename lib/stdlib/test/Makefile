@@ -55,6 +55,7 @@ MODULES= \
 	log_mf_h_SUITE \
 	math_SUITE \
 	ms_transform_SUITE \
+	pool_SUITE \
 	proc_lib_SUITE \
 	proplists_SUITE \
 	qlc_SUITE \

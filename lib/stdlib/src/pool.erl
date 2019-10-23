@@ -101,9 +101,7 @@ pspawn(M, F, A) ->
       Fun :: atom(),
       Args :: [term()].
 pspawn_link(M, F, A) ->
-    P = pspawn(M, F, A),
-    link(P),
-    P.
+    spawn_link(get_node(), M, F, A).
 
 start_nodes([], _, _) -> [];
 start_nodes([Host|Tail], Name, Args) -> 
@@ -149,9 +147,9 @@ handle_call({attach, Node}, _From, Nodes) ->
 	    {reply, attached, Nodes++[{999999,Node}]}
     end;
 handle_call({spawn, Gl, M, F, A}, _From, Nodes) ->
-    [{Load,N}|Tail] = Nodes,
+    {reply, N, NewNodes} = handle_call(get_node, _From, Nodes),
     Pid = spawn(N, pool, do_spawn, [Gl, M, F, A]),
-    {reply, Pid, Tail++[{Load+1, N}]};
+    {reply, Pid, NewNodes};
 handle_call(stop, _From, Nodes) ->
     %% clean up in terminate/2
     {stop, normal, stopped, Nodes}.
@@ -205,7 +203,7 @@ statistic_collector() ->
 
 statistic_collector(0) -> exit(normal);
 statistic_collector(I) ->
-    sleep(300),  
+    timer:sleep(300),
     case global:whereis_name(pool_master) of
 	undefined ->
 	    statistic_collector(I-1);
@@ -216,7 +214,7 @@ statistic_collector(I) ->
 %% Do not tell the master about our load if it has not changed
 
 stat_loop(M, Old) ->
-    sleep(2000),
+    timer:sleep(2000),
     case statistics(run_queue) of
 	Old ->
 	    stat_loop(M, Old);
@@ -224,5 +222,3 @@ stat_loop(M, Old) ->
 	    M ! {node(), load, NewLoad}, %% async 
 	    stat_loop(M, NewLoad)
     end.
-
-sleep(I) -> receive after I -> ok end.
