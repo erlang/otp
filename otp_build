@@ -39,16 +39,19 @@ DONT_QUOTE="A-Za-z0-9~/=_+-"
 # Utility functions
 usage ()
 {
-    echo "Available options (-a switch select all applications):"
-    echo "    setup [-a] [<configure parameters>] - does autoconf, configure and boot."
-    echo "    all [-a] <dir> - does autoconf, configure, boot, release"
+    echo "Available commands:"
+    echo "    setup [-a|-s|-t] [<configure parameters>] - does autoconf, configure and boot"
+    echo "    all [-a|-s|-t] <dir> - does autoconf, configure, boot, release"
     echo "    autoconf - (re)build the configure scripts"
     echo "    configure [<configure parameters>] - does the actual configuration"
-    echo "    boot [-a] - bootstraps and builds the system (after configure)"
+    echo "    boot [-a|-s|-t] - bootstraps and builds the system (after configure)"
     echo "    release <target_dir> - creates a small release to <target_dir>"
-    echo "    release [-a] <target_dir> - creates full release to <target_dir>"
-    echo "    smp [-a] - build an Erlang system, smp flavor only"
+    echo "    release [-a|-s|-t] <target_dir> - creates full release to <target_dir>"
     echo "    tests <dir> - Build testsuites to <dir>"
+    echo ""
+    echo "-a builds all applications"
+    echo "-s builds a small system (default)"
+    echo "-t builds a tiny system"
     echo ""
     echo "These are for cleaning up an open source distribution"
     echo "with prebuilt files, so that it resembles the clean developers"
@@ -79,16 +82,7 @@ usage ()
 	none)
 	    ;;
 	git)
-	    echo ""
 	    echo "update_primary [--no-commit] - build and maybe commit a new primary bootstrap"
-	    ;;
-    esac
-
-    case $version_controller in
-	none)
-	    ;;
-	git)
-	    echo ""
 	    echo "update_preloaded [--no-commit] - build and maybe commit the preloaded modules"
 	    ;;
     esac
@@ -1172,13 +1166,19 @@ if [ X"$1" = X"" ]; then
 fi
 
 if [ X"$2" = X"-a" ]; then
-    minus_a_flag=true
+    minus_x_flag=true
     OTP_SMALL_BUILD=
-else
+elif [ X"$2" = X"-s" ]; then
+    minus_x_flag=true
     OTP_SMALL_BUILD=true
-    minus_a_flag=false
+elif [ X"$2" = X"-t" ]; then
+    minus_x_flag=true
+    OTP_TINY_BUILD=true
+else
+    minus_x_flag=false
+    OTP_SMALL_BUILD=true
 fi
-export OTP_SMALL_BUILD
+export OTP_SMALL_BUILD OTP_TINY_BUILD
 
 TYPE=
 case "$1" in
@@ -1186,13 +1186,13 @@ case "$1" in
  		do_autoconf; 
  		do_configure; 
  		do_boot;
- 		if [ $minus_a_flag = true ]; then 
+		if [ $minus_x_flag = true ]; then
  		    shift
  		fi;
  		do_release "$2";;
 	setup)
 		shift;
-		if [ $minus_a_flag = true ]; then 
+		if [ $minus_x_flag = true ]; then
 		    shift
 		fi;
 		do_autoconf; 
@@ -1206,7 +1206,7 @@ case "$1" in
 	opt)
 		do_boot;;
 	plain|smp)
-		if [ $minus_a_flag = false ]; then 
+		if [ $minus_x_flag = false ]; then
 		    TYPE=opt
 		fi;
 		FLAVOR=$1
@@ -1230,12 +1230,12 @@ case "$1" in
         emulator)
 	        do_boot_emu;;
 	release)
-		if [ $minus_a_flag = true ]; then 
+		if [ $minus_x_flag = true ]; then
 		    shift
 		fi;
 		do_release "$2";;
 	tests)
-		if [ $minus_a_flag = true ]; then 
+		if [ $minus_x_flag = true ]; then
 		    shift
 		fi;
 		do_tests "$2";;
@@ -1246,12 +1246,12 @@ case "$1" in
         copy_primary_bootstrap)
 		do_copy_primary_bootstrap $2 $3;;
 	installer_win32)
-		if [ $minus_a_flag = true ]; then 
+		if [ $minus_x_flag = true ]; then
 		    shift
 		fi;
 		do_installer_win32 "$2";;
 	debuginfo_win32)
-		if [ $minus_a_flag = true ]; then 
+		if [ $minus_x_flag = true ]; then
 		    shift
 		fi;
 		do_debuginfo_win32 "$2";;
