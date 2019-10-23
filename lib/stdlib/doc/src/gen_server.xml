@@ -307,12 +307,11 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name since="">reply(Client, Reply) -> Result</name>
+      <name since="">reply(Client, Reply) -> ok</name>
       <fsummary>Send a reply to a client.</fsummary>
       <type>
         <v>Client - see below</v>
         <v>Reply = term()</v>
-        <v>Result = term()</v>
       </type>
       <desc>
         <p>This function can be used by a <c>gen_server</c> process to
@@ -326,8 +325,6 @@ gen_server:abcast     -----> Module:handle_cast/2
           the callback function. <c>Reply</c> is any term
           given back to the client as the return value of
           <c>call/2,3</c> or <c>multi_call/2,3,4</c>.</p>
-        <p>The return value <c>Result</c> is not further defined, and
-          is always to be ignored.</p>
       </desc>
     </func>
 
