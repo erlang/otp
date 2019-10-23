@@ -58,7 +58,7 @@
       binaries (see <c>recv_bin/2</c>) and for sending binaries to be
       stored as remote files (see <c>send_bin/3</c>).</p>
 
-    <p>A set of functions is provvided for sending and receiving
+    <p>A set of functions is provided for sending and receiving
       contiguous parts of a file to be stored in a remote file. For send,
       see <c>send_chunk_start/2</c>, <c>send_chunk/2</c>, and
       <c>send_chunk_end/1</c>. For receive, see
