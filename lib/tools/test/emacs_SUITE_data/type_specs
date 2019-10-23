@@ -71,11 +71,14 @@
 -spec t1(FooBar :: t99()) -> t99();
         (t2()) -> t2();
         (t4()) -> t4() when is_subtype(t4(), t24);
-        (t23()) -> t23() when is_subtype(t23(), atom()),
-                              is_subtype(t23(), t14());
-        (t24()) -> t24() when is_subtype(t24(), atom()),
-                              is_subtype(t24(), t14()),
-                              is_subtype(t24(), t4()).
+        (t23()) ->
+          t23() when is_subtype(t23(), atom()),
+                     is_subtype(t23(), t14());
+        (t24()) ->
+          t24() when
+      is_subtype(t24(), atom()),
+      is_subtype(t24(), t14()),
+      is_subtype(t24(), t4()).
 
 -spec over(I :: integer()) -> R1 :: foo:typen();
           (A :: atom()) -> R2 :: foo:atomen();
@@ -83,23 +86,24 @@
 
 -spec mod:t2() -> any().
 
--spec handle_cast(Cast :: {'exchange', node(), [[name(),...]]}
-                        | {'del_member', name(), pid()},
-                  #state{}) -> {'noreply', #state{}}.
+-spec handle_cast(
+        Cast :: {'exchange', node(), [[name(),...]]}
+              | {'del_member', name(), pid()},
+        #state{}) -> {'noreply', #state{}}.
 
 -spec handle_cast(Cast ::
                     {'exchange', node(), [[name(),...]]}
                   | {'del_member', name(), pid()},
                   #state{}) ->
-                         {'noreply', #state{}}. %% left to col 10?
+          {'noreply', #state{}}.
 
 -spec all(fun((T) -> boolean()), List :: [T]) ->
-                 boolean() when is_subtype(T, term()). % (*)
+          boolean() when is_subtype(T, term()). % (*)
 
 -spec get_closest_pid(term()) ->
-                             Return :: pid()  %% left to col 10?
-                                     | {'error', {'no_process', term()}} %% left to col 10?
-                                     | {'no_such_group', term()}. %% left to col 10?
+          Return :: pid()
+                  | {'error', {'no_process', term()}} %% left to col 10?
+                  | {'no_such_group', term()}. %% left to col 10?
 
 -spec add( X :: integer()
          , Y :: integer()
