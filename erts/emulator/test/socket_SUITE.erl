@@ -73,9 +73,12 @@
 
          %% *** API Basic ***
          api_b_open_and_close_udp4/1,
+         api_b_open_and_close_udp6/1,
          api_b_open_and_close_tcp4/1,
+         api_b_open_and_close_tcp6/1,
          api_b_open_and_close_udpL/1,
          api_b_open_and_close_tcpL/1,
+	 api_b_open_and_close_sctp4/1,
          api_b_open_and_maybe_close_raw/1,
          api_b_sendto_and_recvfrom_udp4/1,
          api_b_sendto_and_recvfrom_udpL/1,
@@ -761,9 +764,12 @@ api_misc_cases() ->
 api_basic_cases() ->
     [
      api_b_open_and_close_udp4,
+     api_b_open_and_close_udp6,
      api_b_open_and_close_tcp4,
+     api_b_open_and_close_tcp6,
      api_b_open_and_close_udpL,
      api_b_open_and_close_tcpL,
+     api_b_open_and_close_sctp4,
      api_b_open_and_maybe_close_raw,
      api_b_sendto_and_recvfrom_udp4,
      api_b_sendto_and_recvfrom_udpL,
@@ -2018,6 +2024,26 @@ api_b_open_and_close_udp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Basically open (create) and close an IPv6 UDP (dgram) socket.
+%% With some extra checks...
+api_b_open_and_close_udp6(suite) ->
+    [];
+api_b_open_and_close_udp6(doc) ->
+    [];
+api_b_open_and_close_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_close_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Basically open (create) and close an IPv4 TCP (stream) socket.
 %% With some extra checks...
 api_b_open_and_close_tcp4(suite) ->
@@ -2027,6 +2053,26 @@ api_b_open_and_close_tcp4(doc) ->
 api_b_open_and_close_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_b_open_and_close_tcp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and close an IPv6 TCP (stream) socket.
+%% With some extra checks...
+api_b_open_and_close_tcp6(suite) ->
+    [];
+api_b_open_and_close_tcp6(doc) ->
+    [];
+api_b_open_and_close_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_close_tcp6,
+           fun() -> has_support_ipv6() end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -2071,6 +2117,26 @@ api_b_open_and_close_tcpL(_Config) when is_list(_Config) ->
                    InitState = #{domain   => local,
                                  type     => stream,
                                  protocol => default},
+                   ok = api_b_open_and_close(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and close an IPv4 SCTP (seqpacket) socket.
+%% With some extra checks...
+api_b_open_and_close_sctp4(suite) ->
+    [];
+api_b_open_and_close_sctp4(doc) ->
+    [];
+api_b_open_and_close_sctp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_close_sctp4,
+           fun() -> has_support_sctp() end,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => seqpacket,
+                                 protocol => sctp},
                    ok = api_b_open_and_close(InitState)
            end).
 
@@ -37753,6 +37819,19 @@ has_support_unix_domain_socket() ->
             skip("Not supported");
         _ ->
             case socket:supports(local) of
+                true ->
+                    ok;
+                false ->
+                    skip("Not supported")
+            end
+    end.
+
+has_support_sctp() ->
+    case os:type() of
+        {win32, _} ->
+            skip("Not supported");
+        _ ->
+            case socket:supports(sctp) of
                 true ->
                     ok;
                 false ->
