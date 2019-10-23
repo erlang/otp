@@ -260,7 +260,15 @@ groups() ->
      {no_chacha20,          [], [no_support, no_stream_ivec]},
      {no_rc2_cbc,           [], [no_support, no_block]},
      {no_rc4,               [], [no_support, no_stream]},
-     {api_errors,           [], [api_errors_ecdh]},
+     {api_errors,           [], [api_errors_ecdh,
+                                 bad_cipher_name,
+                                 bad_generate_key_name,
+                                 bad_hash_name,
+                                 bad_hmac_name,
+                                 bad_mac_name,
+                                 bad_sign_name,
+                                 bad_verify_name
+                                ]},
 
      %% New cipher nameing schema
      {des_ede3_cbc, [], [api_ng, api_ng_one_shot, api_ng_tls]},
@@ -4179,3 +4187,54 @@ api_errors_ecdh(Config) when is_list(Config) ->
     Curves = [gaffel, 0, sect571r1],
     [_= (catch Test(O, C)) || O <- Others, C <- Curves],
     ok.
+
+
+%%%----- Tests for bad algorithm name as argument
+-define(chk_api_name(Call, Expect),
+        %% Check that we don't segfault on bad names
+        (fun() -> % avoid binding vars
+                 try
+                     Call
+                 catch 
+                     Expect -> ok;
+
+                     Class:Reason:Stack ->
+                         ct:log("~p:~p~n~p", [Class,Reason,Stack]),
+                         ct:fail("Bad respons for bad name")
+                 end
+         end)()
+       ).
+
+bad_cipher_name(_Config) ->
+    ?chk_api_name(crypto:crypto_init(foobar, <<1:128>>, true),
+                  error:{badarg,{"api_ng.c",_Line},"Unknown cipher"}).
+
+bad_generate_key_name(_Config) ->
+    ?chk_api_name(crypto:generate_key(foobar, [1024]),
+                  error:function_clause).
+
+bad_hash_name(_Config) ->
+    ?chk_api_name(crypto:hash_init(foobar),
+                  error:badarg).
+
+bad_hmac_name(_Config) ->
+    ?chk_api_name(crypto:hmac(foobar, <<1:1024>>, "nothing"),
+                  error:badarg).
+
+bad_mac_name(_Config) ->
+    ?chk_api_name(crypto:mac(foobar, <<1:1024>>, "nothing"),
+                  error:function_clause).
+
+bad_sign_name(_Config) ->
+    ?chk_api_name(crypto:sign(rsa, foobar, "nothing", <<1:1024>>),
+                  error:badarg),
+    ?chk_api_name(crypto:sign(foobar, sha, "nothing", <<1:1024>>),
+                  error:badarg).
+    
+bad_verify_name(_Config) ->
+    ?chk_api_name(crypto:verify(rsa, foobar, "nothing","nothing",  <<1:1024>>),
+                  error:badarg),
+    ?chk_api_name(crypto:verify(foobar, sha, "nothing", "nothing", <<1:1024>>),
+                  error:badarg).
+
+
