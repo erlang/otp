@@ -1238,8 +1238,8 @@ This must be placed in front of `erlang-font-lock-keywords-vars'.")
          1 'font-lock-type-face)
    ;; Don't highlight numerical constants.
    (list (if erlang-regexp-modern-p
-             "\\_<[0-9]+#\\([0-9a-zA-Z]+\\)"
-           "\\<[0-9]+#\\([0-9a-zA-Z]+\\)")
+             "\\_<\\([0-9]+\\(_[0-9]+\\)*#[0-9a-zA-Z]+\\(_[0-9a-zA-Z]+\\)*\\)"
+              "\\<\\([0-9]+\\(_[0-9]+\\)*#[0-9a-zA-Z]+\\(_[0-9a-zA-Z]+\\)*\\)")
          1 nil t)
    (list (concat "^-record\\s-*(\\s-*" erlang-atom-regexp)
          1 'font-lock-type-face))

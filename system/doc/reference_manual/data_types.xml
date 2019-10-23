@@ -52,24 +52,33 @@
        Integer with the base <em><c>base</c></em>, that must be an
        integer in the range 2..36.</item>
     </list>
+    <p>Leading zeroes are ignored. Single underscore <c>_</c> can be inserted
+    between digits as a visual separator.</p>
     <p><em>Examples:</em></p>
     <pre>
 1> <input>42.</input>
 42
-2> <input>$A.</input>
+2> <input>-1_234_567_890.</input>
+-1234567890
+3> <input>$A.</input>
 65
-3> <input>$\n.</input>
+4> <input>$\n.</input>
 10
-4> <input>2#101.</input>
+5> <input>2#101.</input>
 5
-5> <input>16#1f.</input>
+6> <input>16#1f.</input>
 31
-6> <input>2.3.</input>
+7> <input>16#4865_316F_774F_6C64.</input>
+5216630098191412324
+8> <input>2.3.</input>
 2.3
-7> <input>2.3e3.</input>
+9> <input>2.3e3.</input>
 2.3e3
-8> <input>2.3e-3.</input>
-0.0023</pre>
+10> <input>2.3e-3.</input>
+0.0023
+11> <input>1_234.333_333</input>
+1234.333333
+</pre>
   </section>
 
   <section>

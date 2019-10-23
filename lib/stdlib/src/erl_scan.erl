@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -249,7 +249,7 @@ string_thing(_) -> "string".
 -define(WHITE_SPACE(C),
         is_integer(C) andalso
          (C >= $\000 andalso C =< $\s orelse C >= $\200 andalso C =< $\240)).
--define(DIGIT(C), C >= $0, C =< $9).
+-define(DIGIT(C), C >= $0 andalso C =< $9).
 -define(CHAR(C), is_integer(C), C >= 0).
 -define(UNICODE(C),
         is_integer(C) andalso
@@ -379,7 +379,7 @@ scan1([$\%|Cs], St, Line, Col, Toks) when not St#erl_scan.comment ->
 scan1([$\%=C|Cs], St, Line, Col, Toks) ->
     scan_comment(Cs, St, Line, Col, Toks, [C]);
 scan1([C|Cs], St, Line, Col, Toks) when ?DIGIT(C) ->
-    scan_number(Cs, St, Line, Col, Toks, [C]);
+    scan_number(Cs, St, Line, Col, Toks, [C], no_underscore);
 scan1("..."++Cs, St, Line, Col, Toks) ->
     tok2(Cs, St, Line, Col, Toks, "...", '...', 3);
 scan1(".."=Cs, _St, Line, Col, Toks) ->
@@ -938,27 +938,35 @@ escape_char($s) -> $\s;                         % \s = SPC
 escape_char($d) -> $\d;                         % \d = DEL
 escape_char(C) -> C.
 
-scan_number([C|Cs], St, Line, Col, Toks, Ncs) when ?DIGIT(C) ->
-    scan_number(Cs, St, Line, Col, Toks, [C|Ncs]);
-scan_number([$.,C|Cs], St, Line, Col, Toks, Ncs) when ?DIGIT(C) ->
-    scan_fraction(Cs, St, Line, Col, Toks, [C,$.|Ncs]);
-scan_number([$.]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_number/6}};
-scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0) ->
+scan_number(Cs, St, Line, Col, Toks, {Ncs, Us}) ->
+    scan_number(Cs, St, Line, Col, Toks, Ncs, Us).
+
+scan_number([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
+    scan_number(Cs, St, Line, Col, Toks, [C|Ncs], Us);
+scan_number([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _Us) when
+      ?DIGIT(Next) andalso ?DIGIT(Prev) ->
+    scan_number(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
+scan_number([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
+scan_number([$.,C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
+    scan_fraction(Cs, St, Line, Col, Toks, [C,$.|Ncs], Us);
+scan_number([$.]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
+scan_number([$#|Cs]=Cs0, St, Line, Col, Toks, Ncs0, Us) ->
     Ncs = lists:reverse(Ncs0),
-    case catch list_to_integer(Ncs) of
+    case catch list_to_integer(remove_digit_separators(Ncs, Us)) of
         B when B >= 2, B =< 1+$Z-$A+10 ->
             Bcs = Ncs++[$#],
-            scan_based_int(Cs, St, Line, Col, Toks, {B,[],Bcs});
+            scan_based_int(Cs, St, Line, Col, Toks, B, [], Bcs, no_underscore);
         B ->
             Len = length(Ncs),
             scan_error({base,B}, Line, Col, Line, incr_column(Col, Len), Cs0)
     end;
-scan_number([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_number/6}};
-scan_number(Cs, St, Line, Col, Toks, Ncs0) ->
+scan_number([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_number/6}};
+scan_number(Cs, St, Line, Col, Toks, Ncs0, Us) ->
     Ncs = lists:reverse(Ncs0),
-    case catch list_to_integer(Ncs) of
+    case catch list_to_integer(remove_digit_separators(Ncs, Us)) of
         N when is_integer(N) ->
             tok3(Cs, St, Line, Col, Toks, integer, Ncs, N);
         _ ->
@@ -966,20 +974,33 @@ scan_number(Cs, St, Line, Col, Toks, Ncs0) ->
             scan_error({illegal,integer}, Line, Col, Line, Ncol, Cs)
     end.
 
-scan_based_int([C|Cs], St, Line, Col, Toks, {B,Ncs,Bcs})
-    when ?DIGIT(C), C < $0+B ->
-    scan_based_int(Cs, St, Line, Col, Toks, {B,[C|Ncs],Bcs});
-scan_based_int([C|Cs], St, Line, Col, Toks, {B,Ncs,Bcs})
-    when C >= $A, B > 10, C < $A+B-10 ->
-    scan_based_int(Cs, St, Line, Col, Toks, {B,[C|Ncs],Bcs});
-scan_based_int([C|Cs], St, Line, Col, Toks, {B,Ncs,Bcs})
-    when C >= $a, B > 10, C < $a+B-10 ->
-    scan_based_int(Cs, St, Line, Col, Toks, {B,[C|Ncs],Bcs});
-scan_based_int([]=Cs, _St, Line, Col, Toks, State) ->
-    {more,{Cs,Col,Toks,Line,State,fun scan_based_int/6}};
-scan_based_int(Cs, St, Line, Col, Toks, {B,Ncs0,Bcs}) ->
+remove_digit_separators(Number, no_underscore) ->
+    Number;
+remove_digit_separators(Number, with_underscore) ->
+    [C || C <- Number, C =/= $_].
+
+-define(BASED_DIGIT(C, B),
+        ((?DIGIT(C) andalso C < $0 + B)
+         orelse (C >= $A andalso B > 10 andalso C < $A + B - 10)
+         orelse (C >= $a andalso B > 10 andalso C < $a + B - 10))).
+
+scan_based_int(Cs, St, Line, Col, Toks, {B,NCs,BCs,Us}) ->
+    scan_based_int(Cs, St, Line, Col, Toks, B, NCs, BCs, Us).
+
+scan_based_int([C|Cs], St, Line, Col, Toks, B, Ncs, Bcs, Us) when
+      ?BASED_DIGIT(C, B) ->
+    scan_based_int(Cs, St, Line, Col, Toks, B, [C|Ncs], Bcs, Us);
+scan_based_int([$_,Next|Cs], St, Line, Col, Toks, B, [Prev|_]=Ncs, Bcs, _Us)
+      when ?BASED_DIGIT(Next, B) andalso ?BASED_DIGIT(Prev, B) ->
+    scan_based_int(Cs, St, Line, Col, Toks, B, [Next,$_|Ncs], Bcs,
+                   with_underscore);
+scan_based_int([$_]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
+    {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
+scan_based_int([]=Cs, _St, Line, Col, Toks, B, NCs, BCs, Us) ->
+    {more,{Cs,Col,Toks,Line,{B,NCs,BCs,Us},fun scan_based_int/6}};
+scan_based_int(Cs, St, Line, Col, Toks, B, Ncs0, Bcs, Us) ->
     Ncs = lists:reverse(Ncs0),
-    case catch erlang:list_to_integer(Ncs, B) of
+    case catch erlang:list_to_integer(remove_digit_separators(Ncs, Us), B) of
         N when is_integer(N) ->
             tok3(Cs, St, Line, Col, Toks, integer, Bcs++Ncs, N);
         _ ->
@@ -988,32 +1009,52 @@ scan_based_int(Cs, St, Line, Col, Toks, {B,Ncs0,Bcs}) ->
             scan_error({illegal,integer}, Line, Col, Line, Ncol, Cs)
     end.
 
-scan_fraction([C|Cs], St, Line, Col, Toks, Ncs) when ?DIGIT(C) ->
-    scan_fraction(Cs, St, Line, Col, Toks, [C|Ncs]);
-scan_fraction([E|Cs], St, Line, Col, Toks, Ncs) when E =:= $e; E =:= $E ->
-    scan_exponent_sign(Cs, St, Line, Col, Toks, [E|Ncs]);
-scan_fraction([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_fraction/6}};
-scan_fraction(Cs, St, Line, Col, Toks, Ncs) ->
-    float_end(Cs, St, Line, Col, Toks, Ncs).
+scan_fraction(Cs, St, Line, Col, Toks, {Ncs,Us}) ->
+    scan_fraction(Cs, St, Line, Col, Toks, Ncs, Us).
 
-scan_exponent_sign([C|Cs], St, Line, Col, Toks, Ncs) when C =:= $+; C =:= $- ->
-    scan_exponent(Cs, St, Line, Col, Toks, [C|Ncs]);
-scan_exponent_sign([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_exponent_sign/6}};
-scan_exponent_sign(Cs, St, Line, Col, Toks, Ncs) ->
-    scan_exponent(Cs, St, Line, Col, Toks, Ncs).
+scan_fraction([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
+    scan_fraction(Cs, St, Line, Col, Toks, [C|Ncs], Us);
+scan_fraction([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _Us) when
+      ?DIGIT(Next) andalso ?DIGIT(Prev) ->
+    scan_fraction(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
+scan_fraction([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
+scan_fraction([E|Cs], St, Line, Col, Toks, Ncs, Us) when E =:= $e; E =:= $E ->
+    scan_exponent_sign(Cs, St, Line, Col, Toks, [E|Ncs], Us);
+scan_fraction([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_fraction/6}};
+scan_fraction(Cs, St, Line, Col, Toks, Ncs, Us) ->
+    float_end(Cs, St, Line, Col, Toks, Ncs, Us).
 
-scan_exponent([C|Cs], St, Line, Col, Toks, Ncs) when ?DIGIT(C) ->
-    scan_exponent(Cs, St, Line, Col, Toks, [C|Ncs]);
-scan_exponent([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_exponent/6}};
-scan_exponent(Cs, St, Line, Col, Toks, Ncs) ->
-    float_end(Cs, St, Line, Col, Toks, Ncs).
+scan_exponent_sign(Cs, St, Line, Col, Toks, {Ncs, Us}) ->
+    scan_exponent_sign(Cs, St, Line, Col, Toks, Ncs, Us).
 
-float_end(Cs, St, Line, Col, Toks, Ncs0) ->
+scan_exponent_sign([C|Cs], St, Line, Col, Toks, Ncs, Us) when
+      C =:= $+; C =:= $- ->
+    scan_exponent(Cs, St, Line, Col, Toks, [C|Ncs], Us);
+scan_exponent_sign([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_exponent_sign/6}};
+scan_exponent_sign(Cs, St, Line, Col, Toks, Ncs, Us) ->
+    scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us).
+
+scan_exponent(Cs, St, Line, Col, Toks, {Ncs, Us}) ->
+    scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us).
+
+scan_exponent([C|Cs], St, Line, Col, Toks, Ncs, Us) when ?DIGIT(C) ->
+    scan_exponent(Cs, St, Line, Col, Toks, [C|Ncs], Us);
+scan_exponent([$_,Next|Cs], St, Line, Col, Toks, [Prev|_]=Ncs, _) when
+      ?DIGIT(Next) andalso ?DIGIT(Prev) ->
+    scan_exponent(Cs, St, Line, Col, Toks, [Next,$_|Ncs], with_underscore);
+scan_exponent([$_]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
+scan_exponent([]=Cs, _St, Line, Col, Toks, Ncs, Us) ->
+    {more,{Cs,Col,Toks,Line,{Ncs,Us},fun scan_exponent/6}};
+scan_exponent(Cs, St, Line, Col, Toks, Ncs, Us) ->
+    float_end(Cs, St, Line, Col, Toks, Ncs, Us).
+
+float_end(Cs, St, Line, Col, Toks, Ncs0, Us) ->
     Ncs = lists:reverse(Ncs0),
-    case catch list_to_float(Ncs) of
+    case catch list_to_float(remove_digit_separators(Ncs, Us)) of
         F when is_float(F) ->
             tok3(Cs, St, Line, Col, Toks, float, Ncs, F);
         _ ->
