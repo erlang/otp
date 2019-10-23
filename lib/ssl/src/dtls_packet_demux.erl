@@ -28,7 +28,7 @@
 
 %% API
 -export([start_link/5, active_once/3, accept/2, sockname/1, close/1,
-         get_all_opts/1, get_sock_opts/2, set_sock_opts/2]).
+         get_all_opts/1, set_all_opts/2, get_sock_opts/2, set_sock_opts/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -72,6 +72,8 @@ get_all_opts(PacketSocket) ->
     call(PacketSocket, get_all_opts).
 set_sock_opts(PacketSocket, Opts) ->
      call(PacketSocket, {set_sock_opts, Opts}).
+set_all_opts(PacketSocket, Opts) ->
+    call(PacketSocket, {set_all_opts, Opts}).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -141,7 +143,10 @@ handle_call(get_all_opts, _, #state{dtls_options = DTLSOptions,
 handle_call({set_sock_opts, {SocketOpts, NewEmOpts}}, _, #state{listener = Socket, emulated_options = EmOpts0} = State) ->
     set_socket_opts(Socket, SocketOpts),
     EmOpts = do_set_emulated_opts(NewEmOpts, EmOpts0),
-    {reply, ok, State#state{emulated_options = EmOpts}}.
+    {reply, ok, State#state{emulated_options = EmOpts}};
+handle_call({set_all_opts, {SocketOpts, NewEmOpts, SslOpts}}, _, #state{listener = Socket} = State) ->
+    set_socket_opts(Socket, SocketOpts),
+    {reply, ok, State#state{emulated_options = NewEmOpts, dtls_options = SslOpts}}.
 
 handle_cast({active_once, Client, Pid}, State0) ->
     State = handle_active_once(Client, Pid, State0),

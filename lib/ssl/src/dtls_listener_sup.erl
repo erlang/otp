@@ -29,7 +29,9 @@
 
 %% API
 -export([start_link/0]).
--export([start_child/1]).
+-export([start_child/1,
+         lookup_listner/1,
+         register_listner/2]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -43,10 +45,37 @@ start_link() ->
 start_child(Args) ->
     supervisor:start_child(?MODULE, Args).
     
+lookup_listner(0) ->
+    undefined;
+lookup_listner(Port) ->
+    try ets:lookup(dtls_listener_sup, Port) of 
+        [{Port, {Owner, Handler}}] ->
+            case erlang:is_process_alive(Handler) of 
+                true ->
+                    case erlang:is_process_alive(Owner) of
+                        true ->
+                            {error, already_listening};
+                        false ->
+                            {ok, Handler}
+                    end;
+                false ->
+                    ets:delete(dtls_listener_sup, Port),
+                    undefined
+            end;
+        [] ->
+            undefined
+    catch _:_ ->
+            undefined
+    end.
+
+register_listner(OwnerAndListner, Port) -> 
+    ets:insert(dtls_listener_sup, {Port, OwnerAndListner}).
+
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init(_O) ->
+    ets:new(dtls_listener_sup, [named_table, public]),
     RestartStrategy = simple_one_for_one,
     MaxR = 0,
     MaxT = 3600,
