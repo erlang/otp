@@ -3715,11 +3715,21 @@ ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env)
 
 
     /* *** ESOCK_OPT_SOCK_PEEK_OFF => SO_PEEK_OFF *** */
+    /*
+     * Due to the behaviour of peek when peek_off is used,
+     * this option is reported as not supported.
+     * Can cause an infinite loop when calling recv with
+     * the peek flag (the second of two calls).
+     * So, until we have added extra code here to know when
+     * peek-off is used, we do not support this!
+     *
 #if defined(SO_PEEK_OFF)
     tmp = MKT2(env, esock_atom_peek_off, esock_atom_true);
 #else
     tmp = MKT2(env, esock_atom_peek_off, esock_atom_false);
 #endif
+    */
+    tmp = MKT2(env, esock_atom_peek_off, esock_atom_false);
     TARRAY_ADD(opts, tmp);
 
 
