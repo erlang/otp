@@ -33,5 +33,5 @@
   </description>
   <xi:include href="introduction_chapter.xml"/>
   <xi:include href="logger_chapter.xml"/>
+  <xi:include href="logger_cookbook.xml"/>
 </part>
-
