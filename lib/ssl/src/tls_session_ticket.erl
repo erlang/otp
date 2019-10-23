@@ -28,7 +28,12 @@
 -include("tls_handshake_1_3.hrl").
 
 -export([get_ticket_data/2, 
-         store_session_ticket/4]).
+         store_session_ticket/4,
+         update_ticket_pos/2]).
+
+update_ticket_pos(Key, Pos) ->
+    ets:update_element(tls13_session_ticket_db, Key, {2, Pos}).
+
 
 store_session_ticket(NewSessionTicket, HKDF, SNI, PSK) ->
     _TicketDb =
@@ -40,7 +45,7 @@ store_session_ticket(NewSessionTicket, HKDF, SNI, PSK) ->
         end,
     Id = make_ticket_id(NewSessionTicket),
     Timestamp = erlang:system_time(seconds),
-    ets:insert(tls13_session_ticket_db, {Id, HKDF, SNI, PSK, Timestamp, NewSessionTicket}).
+    ets:insert(tls13_session_ticket_db, {Id, undefined, HKDF, SNI, PSK, Timestamp, NewSessionTicket}).
 
 
 make_ticket_id(NewSessionTicket) ->
@@ -53,8 +58,16 @@ get_ticket_data(undefined, _) ->
 get_ticket_data(_, undefined) ->
     undefined;
 get_ticket_data(_, UseTicket) ->
-    case ets:lookup(tls13_session_ticket_db, UseTicket) of
-        [{_Key, HKDF, _SNI, PSK, Timestamp, NewSessionTicket}] ->
+    fetch_data(UseTicket, []).
+
+
+fetch_data([], []) ->
+    undefined; %% No tickets found
+fetch_data([], Acc) ->
+    Acc;
+fetch_data([TicketId|T], Acc) ->
+    case ets:lookup(tls13_session_ticket_db, TicketId) of
+        [{Key, Pos, HKDF, _SNI, PSK, Timestamp, NewSessionTicket}] ->
             #new_session_ticket{
                ticket_lifetime = _LifeTime,
                ticket_age_add = AgeAdd,
@@ -65,14 +78,12 @@ get_ticket_data(_, UseTicket) ->
 
             TicketAge =  erlang:system_time(seconds) - Timestamp,
             ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
-            Identities = [#psk_identity{
-                             identity = Ticket,
-                             obfuscated_ticket_age = ObfuscatedTicketAge}],
-
-            {Identities, PSK, Nonce, HKDF};
+            Identity = #psk_identity{
+                            identity = Ticket,
+                            obfuscated_ticket_age = ObfuscatedTicketAge},
+            fetch_data(T, [{Key, Pos, Identity, PSK, Nonce, HKDF}|Acc]);
         [] ->
-            %% TODO Fault handling
-            undefined
+            fetch_data(T, Acc)
     end.
 
 

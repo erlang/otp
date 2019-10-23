@@ -1192,21 +1192,34 @@ maybe_add_key_share(HelloExtensions, KeyShare) ->
 
 maybe_add_pre_shared_key(HelloExtensions, undefined) ->
     HelloExtensions;
-maybe_add_pre_shared_key(HelloExtensions, {Identities, _, _, HKDF}) ->
+maybe_add_pre_shared_key(HelloExtensions, TicketData) ->
+    {Identities, Binders} = get_identities_binders(TicketData),
+
     %% A client MUST provide a "psk_key_exchange_modes" extension if it
     %% offers a "pre_shared_key" extension.
-    %% {Identities, HKDF} = get_ticket_data(UseTicket),
-    %% Use dummy binder for proper calculation of packet size when creating
-    %% the real binder value.
-    Binder = dummy_binder(HKDF),
-    HelloExtensions#{pre_shared_key => #pre_shared_key_client_hello{
-                                          offered_psks =
-                                              #offered_psks{
-                                                identities = Identities,
-                                                binders = [Binder]}},
+    HelloExtensions#{pre_shared_key =>
+                         #pre_shared_key_client_hello{
+                            offered_psks =
+                                #offered_psks{
+                                   identities = Identities,
+                                   binders = Binders}},
                      psk_key_exchange_modes =>
                          #psk_key_exchange_modes{
                             ke_modes = [psk_ke, psk_dhe_ke]}}.
+
+
+get_identities_binders(TicketData) ->
+    get_identities_binders(TicketData, {[], []}, 0).
+%%
+get_identities_binders([], {Identities, Binders}, _) ->
+    {lists:reverse(Identities), lists:reverse(Binders)};
+get_identities_binders([{Key, _, Identity, _, _, HKDF}|T], {I0, B0}, N) ->
+    %% Use dummy binder for proper calculation of packet size when creating
+    %% the real binder value.
+    Binder = dummy_binder(HKDF),
+    %% Store ticket position in identities
+    tls_session_ticket:update_ticket_pos(Key, N),
+    get_identities_binders(T, {[Identity|I0], [Binder|B0]}, N + 1).
 
 
 dummy_binder(HKDF) ->
