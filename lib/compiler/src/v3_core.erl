@@ -94,7 +94,7 @@
 -record(icall,     {anno=#a{},module,name,args}).
 -record(icase,     {anno=#a{},args,clauses,fc}).
 -record(icatch,    {anno=#a{},body}).
--record(iclause,   {anno=#a{},pats,pguard=[],guard,body}).
+-record(iclause,   {anno=#a{},pats,guard,body}).
 -record(ifun,      {anno=#a{},id,vars,clauses,fc,name=unnamed}).
 -record(iletrec,   {anno=#a{},defs,body}).
 -record(imatch,    {anno=#a{},pat,guard=[],arg,fc}).
