@@ -2927,8 +2927,9 @@ enc_setopt_value(socket, oobinline, V, _D, _T, _P) when is_boolean(V) ->
     V;
 enc_setopt_value(socket, passcred, V, _D, _T, _P) when is_boolean(V) ->
     V;
-enc_setopt_value(socket, peek_off, V, _D, _T, _P) when is_integer(V) ->
-    V;
+enc_setopt_value(socket, peek_off = Opt, V, _D, _T, _P) when is_integer(V) ->
+    %% V;
+    not_supported(Opt);
 enc_setopt_value(socket, priority, V, _D, _T, _P) when is_integer(V) ->
     V;
 enc_setopt_value(socket, rcvbuf, V, _D, _T, _P) when is_integer(V) ->
@@ -3434,8 +3435,9 @@ enc_sockopt_key(socket = _L, oobinline = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_OOBINLINE;
 enc_sockopt_key(socket, passcred, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_SOCK_PASSCRED;
-enc_sockopt_key(socket = _L, peek_off = _Opt, _Dir, local = _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_PEEK_OFF;
+enc_sockopt_key(socket = L, peek_off = Opt, _Dir, local = _D, _T, _P) ->
+    %% ?SOCKET_OPT_SOCK_PEEK_OFF;
+    not_supported({L, Opt});
 enc_sockopt_key(socket = L, peercred = Opt, get = _Dir, local = _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
