@@ -1399,10 +1399,13 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
                                                     ctrl_data = 
                                                         {NextMsgData, [], start}})
 	    end;
-	{continue, NewCtrlData} ->
+	{continue, NewCtrlData} when NewCtrlData =/= CtrlData ->
 	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
 	    State = activate_ctrl_connection(State0),
-	    {noreply, State#state{ctrl_data = NewCtrlData}}
+	    {noreply, State#state{ctrl_data = NewCtrlData}};
+	{continue, NewCtrlData} when NewCtrlData == CtrlData ->
+	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
+	    {noreply, State0}
     end;
 
 %% If the server closes the control channel it is 
