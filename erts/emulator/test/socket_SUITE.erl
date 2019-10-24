@@ -19477,12 +19477,15 @@ api_opt_tcp_maxseg_tcp(InitState) ->
          %% Note that there is no point in reading this value back,
          %% since the kernel imposes its own rules with regard
          %% to what is an acceptible value.
+         %% So, even if the set operation is a success, the value
+         %% still might not have changed.
          %%
          %% Note that not all platforms allow this to be set!
          %% Since this is the *last* operation in the test sequence
-         %% (before termination) we also accept error = einval as
-         %% success (rather then skip).
-         #{desc => "change maxseg (default + 16)",
+         %% (before termination) we also accept error reason = einval
+         %% as success (rather then skip).
+         %% The same goes for the error reason = enoprotoopt (Solaris).
+         #{desc => "(maybe) change maxseg (default + 16)",
            cmd  => fun(#{sock       := Sock,
                          set        := Set,
                          def_maxseg := DefMaxSeg} = _State) ->
@@ -19492,8 +19495,10 @@ api_opt_tcp_maxseg_tcp(InitState) ->
                                    ?SEV_IPRINT("maxseg (maybe) changed (to ~w)",
                                                [NewMaxSeg]),
                                    ok;
-                               {error, einval = Reason} ->
-                                   ?SEV_IPRINT("change not allowed (~w)", [Reason]),
+                               {error, Reason} when (Reason =:= einval) orelse
+                                                    (Reason =:= enoprotoopt) ->
+                                   ?SEV_IPRINT("change not allowed (~w)",
+                                               [Reason]),
                                    ok;
                                {error, _} = ERROR ->
                                    ERROR
