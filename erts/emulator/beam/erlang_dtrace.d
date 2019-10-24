@@ -617,29 +617,6 @@ provider erlang {
     probe driver__stop_select(char *name);
 
 
-    /* Async driver pool */
-
-    /**
-     * Show the post-add length of the async driver thread pool member's queue.
-     *
-     * NOTE: The port name is not available: additional lock(s) must
-     *       be acquired in order to get the port name safely in an SMP
-     *       environment.  The same is true for the aio__pool_get probe.
-     *
-     * @param port the Port (string form)
-     * @param new queue length
-     */
-    probe aio_pool__add(char *, int);
-
-    /**
-     * Show the post-get length of the async driver thread pool member's queue.
-     *
-     * @param port the Port (string form)
-     * @param new queue length
-     */
-    probe aio_pool__get(char *, int);
-
-
 /*
  * The set of probes called by the erlang tracer nif backend. In order
  * to receive events on these you both have to enable tracing in erlang
@@ -675,16 +652,6 @@ provider erlang {
  *   http://mail.opensolaris.org/pipermail/dtrace-discuss/2006-November/002830.html
  *   Summary:
  *       "1) you don't need the 'l' printf() modifiers with DTrace ever"
- */
-
-/*
- * NOTE: For file_drv_return + SMP + R14B03 (and perhaps other
- *       releases), the sched-thread-id will be the same as the
- *       work-thread-id: erl_async.c's async_main() function
- *       will call the asynchronous invoke function and then
- *       immediately call the drivers ready_async function while
- *       inside the same I/O worker pool thread.
- *       For R14B03's source, see erl_async.c lines 302-317.
  */
 
 /*
