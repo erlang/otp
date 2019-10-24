@@ -37,7 +37,11 @@
 %%    annotations to change implicit exported variables to explicit
 %%    returns.
 %%
-%% 4. Lower receives to more primitive operations.
+%% 4. Lower receives to more primitive operations.  Split binary
+%%    patterns where a value is matched out and then used used as
+%%    a size in the same pattern.  That simplifies the subsequent
+%%    passes as all variables are within a single pattern are either
+%%    new or used, but never both at the same time.
 %%
 %% To ensure the evaluation order we ensure that all arguments are
 %% safe.  A "safe" is basically a core_lib simple with VERY restricted
@@ -139,6 +143,7 @@
 
 -record(core, {vcount=0 :: non_neg_integer(),	%Variable counter
 	       fcount=0 :: non_neg_integer(),	%Function counter
+               gcount=0 :: non_neg_integer(),   %Goto counter
 	       function={none,0} :: fa(),	%Current function.
 	       in_guard=false :: boolean(),	%In guard or not.
 	       wanted=true :: boolean(),	%Result wanted or not.
@@ -2780,7 +2785,8 @@ c_call_erl(Fun, Args) ->
     cerl:ann_c_call(As, cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
 
 %%%
-%%% Lower a `receive` to more primitive operations.
+%%% Lower a `receive` to more primitive operations. Rewrite patterns
+%%% that use and bind the same variable as nested cases.
 %%%
 %%% Here follows an example of how a receive in this Erlang code:
 %%%
@@ -2829,6 +2835,9 @@ c_call_erl(Fun, Args) ->
 lbody(B, St) ->
     cerl_trees:mapfold(fun lexpr/2, St, B).
 
+lexpr(#c_case{}=Case, St) ->
+    %% Split patterns that bind and use the same variable.
+    split_case(Case, St);
 lexpr(#c_receive{clauses=[],timeout=Timeout0,action=Action}, St0) ->
     %% Lower a receive with only an after to its primitive operations.
     False = #c_literal{val=false},
@@ -2909,20 +2918,20 @@ lexpr(#c_receive{clauses=Cs0,timeout=Timeout0,action=Action}, St0) ->
                           pats=[#c_var{name='Other'}],guard=True,body=RecvNext},
     Cs = Cs1 ++ [RecvNextC],
     {Msg,St3} = new_var(St2),
-    MsgCase = #c_case{arg=Msg,clauses=Cs},
+    {MsgCase,St4} = split_case(#c_case{arg=Msg,clauses=Cs}, St3),
 
     TimeoutCs = [#c_clause{pats=[True],guard=True,
                            body=#c_seq{arg=primop(timeout),
                                        body=Action}},
                  #c_clause{anno=[dialyzer_ignore],pats=[False],guard=True,
                            body=ApplyLoop}],
-    {TimeoutBool,St4} = new_var(St3),
+    {TimeoutBool,St5} = new_var(St4),
     TimeoutCase = #c_case{arg=TimeoutBool,clauses=TimeoutCs},
     TimeoutLet = #c_let{vars=[TimeoutBool],
                         arg=primop(recv_wait_timeout, [Timeout]),
                         body=TimeoutCase},
 
-    {PeekSucceeded,St5} = new_var(St4),
+    {PeekSucceeded,St6} = new_var(St5),
     PeekCs = [#c_clause{pats=[True],guard=True,
                         body=MsgCase},
               #c_clause{anno=MaybeIgnore,
@@ -2943,7 +2952,7 @@ lexpr(#c_receive{clauses=Cs0,timeout=Timeout0,action=Action}, St0) ->
                 #c_let{} -> Outer0#c_let{body=Letrec};
                 _ -> Letrec
             end,
-    {Outer,St5};
+    {Outer,St6};
 lexpr(Tree, St) ->
     {Tree,St}.
 
@@ -2957,6 +2966,253 @@ primop(Name) ->
 
 primop(Name, Args) ->
     #c_primop{name=#c_literal{val=Name},args=Args}.
+
+%%%
+%%% Split patterns such as <<Size:32,Tail:Size>> that bind
+%%% and use a variable in the same pattern. Rewrite to a
+%%% nested case in a letrec.
+%%%
+
+split_case(#c_case{arg=Arg,clauses=Cs0}=Case0, St0) ->
+    Args = case Arg of
+               #c_values{es=Es} -> Es;
+               _ -> [Arg]
+           end,
+    {VarArgs,St1} = split_var_args(Args, St0),
+    case split_clauses(Cs0, VarArgs, St1) of
+        none ->
+            {Case0,St0};
+        {PreCase,AftCs,St2} ->
+            AftCase = Case0#c_case{arg=core_lib:make_values(VarArgs),
+                                   clauses=AftCs},
+            AftFun = #c_fun{vars=[],body=AftCase},
+            {Letrec,St3} = split_case_letrec(AftFun, PreCase, St2),
+            Body = split_letify(VarArgs, Args, Letrec, [], []),
+            {Body,St3}
+    end.
+
+split_var_args(Args, St) ->
+    mapfoldl(fun(#c_var{}=Var, S0) ->
+                     {Var,S0};
+                (#c_literal{}=Lit, S0) ->
+                     {Lit,S0};
+                (_, S0) ->
+                     new_var(S0)
+             end, St, Args).
+
+split_letify([Same|Vs], [Same|Args], Body, VsAcc, ArgAcc) ->
+    split_letify(Vs, Args, Body, VsAcc, ArgAcc);
+split_letify([V|Vs], [Arg|Args], Body, VsAcc, ArgAcc) ->
+    split_letify(Vs, Args, Body, [V|VsAcc], [Arg|ArgAcc]);
+split_letify([], [], Body, [], []) ->
+    Body;
+split_letify([], [], Body, [_|_]=VsAcc, [_|_]=ArgAcc) ->
+    #c_let{vars=reverse(VsAcc),
+           arg=core_lib:make_values(reverse(ArgAcc)),
+           body=Body}.
+
+split_case_letrec(#c_fun{anno=FunAnno0}=Fun0, Body, #core{gcount=C}=St0) ->
+    FunAnno = [compiler_generated|FunAnno0],
+    Fun = Fun0#c_fun{anno=FunAnno},
+    Anno = [letrec_goto],
+    DefFunName = goto_func(C),
+    Letrec = #c_letrec{anno=Anno,defs=[{#c_var{name=DefFunName},Fun}],body=Body},
+    St = St0#core{gcount=C+1},
+    lbody(Letrec, St).
+
+split_clauses([C0|Cs0], Args, St0) ->
+    case split_clauses(Cs0, Args, St0) of
+        none ->
+            case split_clause(C0, St0) of
+                none ->
+                    none;
+                {Ps,Nested,St1} ->
+                    {Case,St2} = split_reconstruct(Args, Ps, Nested, C0, St1),
+                    {Case,Cs0,St2}
+            end;
+        {Case0,Cs,St} ->
+            #c_case{clauses=NewClauses} = Case0,
+            Case = Case0#c_case{clauses=[C0|NewClauses]},
+            {Case,Cs,St}
+    end;
+split_clauses([], _, _) ->
+    none.
+
+goto_func(Count) ->
+    {list_to_atom("label^" ++ integer_to_list(Count)),0}.
+
+split_reconstruct(Args, Ps, nil, #c_clause{anno=Anno}=C0, St0) ->
+    C = C0#c_clause{pats=Ps},
+    {Fc,St1} = split_fc_clause(Ps, Anno, St0),
+    {#c_case{arg=core_lib:make_values(Args),clauses=[C,Fc]},St1};
+split_reconstruct(Args, Ps, {split,SplitArgs,Pat,Nested},
+                  #c_clause{anno=Anno}=C0, St0) ->
+    {InnerCase,St1} = split_reconstruct(SplitArgs, [Pat], Nested, C0, St0),
+    C = C0#c_clause{pats=Ps,guard=#c_literal{val=true},body=InnerCase},
+    {Fc,St2} = split_fc_clause(Args, Anno, St1),
+    {#c_case{arg=core_lib:make_values(Args),clauses=[C,Fc]},St2}.
+
+split_fc_clause(Args, Anno0, #core{gcount=Count}=St0) ->
+    Anno = [compiler_generated|Anno0],
+    Arity = length(Args),
+    {Vars,St1} = new_vars(Arity, St0),
+    Op = #c_var{name=goto_func(Count)},
+    Apply = #c_apply{anno=Anno,op=Op,args=[]},
+    {#c_clause{anno=[dialyzer_ignore|Anno],pats=Vars,
+               guard=#c_literal{val=true},body=Apply},St1}.
+
+split_clause(#c_clause{pats=Ps0}, St0) ->
+    case split_pats(Ps0, St0) of
+        none ->
+            none;
+        {Ps,Case,St} ->
+            {Ps,Case,St}
+    end.
+
+split_pats([P0|Ps0], St0) ->
+    case split_pats(Ps0, St0) of
+        none ->
+            case split_pat(P0, St0) of
+                none ->
+                    none;
+                {P,Case,St} ->
+                    {[P|Ps0],Case,St}
+            end;
+        {Ps,Case,St} ->
+            {[P0|Ps],Case,St}
+    end;
+split_pats([], _) ->
+    none.
+
+split_pat(#c_binary{segments=Segs0}=Bin, St0) ->
+    Vars = gb_sets:empty(),
+    case split_bin_segments(Segs0, Vars, St0, []) of
+        none ->
+            none;
+        {TailVar,Bef,Aft,St} ->
+            BefBin = Bin#c_binary{segments=Bef},
+            {BefBin,{split,[TailVar],Bin#c_binary{segments=Aft},nil},St}
+    end;
+split_pat(#c_map{es=Es}=Map, St) ->
+    split_map_pat(Es, Map, St, []);
+split_pat(#c_var{}, _) ->
+    none;
+split_pat(#c_alias{pat=Pat}=Alias0, St0) ->
+    case split_pat(Pat, St0) of
+        none ->
+            none;
+        {Ps,Split,St1} ->
+            {Var,St} = new_var(St1),
+            Alias = Alias0#c_alias{pat=Var},
+            {Alias,{split,[Var],Ps,Split},St}
+    end;
+split_pat(Data, St0) ->
+    Type = cerl:data_type(Data),
+    Es = cerl:data_es(Data),
+    split_data(Es, Type, St0, []).
+
+split_map_pat([#c_map_pair{val=Val}=E0|Es], Map0, St0, Acc) ->
+    case split_pat(Val, St0) of
+        none ->
+            split_map_pat(Es, Map0, St0, [E0|Acc]);
+        {Ps,Split,St1} ->
+            {Var,St} = new_var(St1),
+            E = E0#c_map_pair{val=Var},
+            Map = Map0#c_map{es=reverse(Acc, [E|Es])},
+            {Map,{split,[Var],Ps,Split},St}
+    end;
+split_map_pat([], _, _, _) -> none.
+
+split_data([E|Es0], Type, St0, Acc) ->
+    case split_pat(E, St0) of
+        none ->
+            split_data(Es0, Type, St0, [E|Acc]);
+        {Ps,Split,St1} ->
+            {Var,St} = new_var(St1),
+            Data = cerl:make_data(Type, reverse(Acc, [Var|Es0])),
+            {Data,{split,[Var],Ps,Split},St}
+    end;
+split_data([], _, _, _) -> none.
+
+split_bin_segments([#c_bitstr{anno=A,val=Val,size=Size}=S|Segs], Vars0, St0, Acc) ->
+    Vars = case Val of
+               #c_var{name=V} -> gb_sets:add(V, Vars0);
+               _ -> Vars0
+           end,
+    case Size of
+        #c_var{name=SizeVar} ->
+            case gb_sets:is_member(SizeVar, Vars0) of
+                true ->
+                    {TailVar,St} = new_var(St0),
+                    Unit = split_bin_unit([S|Segs], St0),
+                    Tail = #c_bitstr{anno=A,val=TailVar,
+                                     size=#c_literal{val=all},
+                                     unit=#c_literal{val=Unit},
+                                     type=#c_literal{val=binary},
+                                     flags=#c_literal{val=[unsigned,big]}},
+                    {TailVar,reverse(Acc, [Tail]),[S|Segs],St};
+                false ->
+                    split_bin_segments(Segs, Vars, St0, [S|Acc])
+            end;
+        _ ->
+            split_bin_segments(Segs, Vars, St0, [S|Acc])
+    end;
+split_bin_segments(_, _, _, _) ->
+    none.
+
+split_bin_unit(Ss, #core{dialyzer=Dialyzer}) ->
+    case Dialyzer of
+        true ->
+            %% When a binary match has been rewritten to a nested
+            %% case like this:
+            %%
+            %%    case Bin of
+            %%      <<Size:32,Tail:Size/bitstring-unit:1>> ->
+            %%         case Tail of
+            %%            <<Result/binary-unit:8>> -> Result;
+            %%         ...
+            %%    end
+            %%
+            %% dialyzer will determine the type of Bin based solely on
+            %% the binary pattern in the outer case. It will not
+            %% back-propagate any type information for Tail to Bin. For
+            %% this example, dialyzer would infer the type of Bin to
+            %% be <<_:8,_:_*1>>.
+            %%
+            %% Help dialyzer to infer a better type by calculating the
+            %% greatest common unit for the segments in the inner case
+            %% expression. For this example, the greatest common unit
+            %% for the pattern in the inner case is 8; it will allow
+            %% dialyzer to infer the type for Bin to be
+            %% <<_:32,_:_*8>>.
+
+            split_bin_unit_1(Ss, 0);
+        false ->
+            %% Return the unit for pattern in the outer case that
+            %% results in the best code.
+
+            1
+    end.
+
+split_bin_unit_1([#c_bitstr{type=#c_literal{val=Type},size=Size,
+                            unit=#c_literal{val=U}}|Ss],
+                 GCU) ->
+    Bits = case {Type,Size} of
+               {utf8,_} -> 8;
+               {utf16,_} -> 16;
+               {utf32,_} -> 32;
+               {_,#c_literal{val=0}} -> 1;
+               {_,#c_literal{val=Sz}} when is_integer(Sz) -> Sz * U;
+               {_,_} -> U
+           end,
+    split_bin_unit_1(Ss, gcd(GCU, Bits));
+split_bin_unit_1([], GCU) -> GCU.
+
+gcd(A, B) ->
+    case A rem B of
+        0 -> B;
+        X -> gcd(B, X)
+    end.
 
 %% lit_vars(Literal) -> [Var].
 

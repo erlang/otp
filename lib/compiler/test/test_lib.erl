@@ -85,6 +85,7 @@ opt_opts(Mod) ->
     {options,Opts} = lists:keyfind(options, 1, Comp),
     lists:filter(fun
                      (debug_info) -> true;
+                     (dialyzer) -> true;
                      (inline) -> true;
                      (no_bsm3) -> true;
                      (no_bsm_opt) -> true;

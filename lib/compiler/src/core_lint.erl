@@ -515,22 +515,16 @@ pat_var(N, _Def, Ps, St) ->
 
 %% pat_bin_list([Elem], Defined, [PatVar], State) -> {[PatVar],State}.
 
-pat_bin(Es, Def0, Ps0, St0) ->
-    {Ps,_,St} = foldl(fun (E, {Ps,Def,St}) ->
-			      pat_segment(E, Def, Ps, St)
-		      end, {Ps0,Def0,St0}, Es),
-    {Ps,St}.
+pat_bin(Es, Def, Ps0, St0) ->
+    foldl(fun (E, {Ps,St}) ->
+                  pat_segment(E, Def, Ps, St)
+          end, {Ps0,St0}, Es).
 
-pat_segment(#c_bitstr{val=V,size=S,type=T}, Def0, Ps0, St0) ->
-    St1 = pat_bit_expr(S, T, Def0, St0),
-    {Ps,St2} = pattern(V, Def0, Ps0, St1),
-    Def = case V of
-	      #c_var{name=Name} -> add_element(Name, Def0);
-	      _ -> Def0
-	  end,
-    {Ps,Def,St2};
-pat_segment(_, Def, Ps, St) ->
-    {Ps,Def,add_error({not_bs_pattern,St#lint.func}, St)}.
+pat_segment(#c_bitstr{val=V,size=S,type=T}, Def, Ps0, St0) ->
+    St1 = pat_bit_expr(S, T, Def, St0),
+    pattern(V, Def, Ps0, St1);
+pat_segment(_, _, Ps, St) ->
+    {Ps,add_error({not_bs_pattern,St#lint.func}, St)}.
 
 %% pat_bin_tail_check([Elem], State) -> State.
 %%  There must be at most one tail segment (a size-less segment of

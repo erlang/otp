@@ -469,7 +469,6 @@ unused_vars_warn_lc(Config) when is_list(Config) ->
            ">>,
            [warn_unused_vars],
            {warnings,[{6,erl_lint,{unused_var,'C1'}},
-		      {7,sys_core_fold,no_clause_match},
                       {9,erl_lint,{unused_var,'C3'}}]}},
 
           {lc21,
