@@ -1401,8 +1401,9 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 	    end;
 	{continue, NewCtrlData} when NewCtrlData =/= CtrlData ->
 	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
-	    State = activate_ctrl_connection(State0),
-	    {noreply, State#state{ctrl_data = NewCtrlData}};
+	    State1 = State0#state{ctrl_data = NewCtrlData},
+	    State = activate_ctrl_connection(State1),
+	    {noreply, State};
 	{continue, NewCtrlData} when NewCtrlData == CtrlData ->
 	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
 	    {noreply, State0}
