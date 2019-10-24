@@ -357,7 +357,7 @@ insert_chars([], {Buf, BufTail, Col}, _Tty) ->
 insert_chars(Chars, {Buf, BufTail, Col}, Tty) ->
     {NewBuf, _NewBufTail, WriteBuf, NewCol} =
 	conv_buf(Chars, Buf, [], [], Col),
-    M = move_cursor(NewCol + length(BufTail), NewCol, Tty),
+    M = move_cursor(special_at_width(NewCol+length(BufTail), Tty), NewCol, Tty),
     {[WriteBuf, BufTail | M], {NewBuf, BufTail, NewCol}}.
 
 %%% delete characters at current position, (backwards if negative argument)
@@ -372,7 +372,7 @@ delete_chars(N, {Buf, BufTail, Col}, Tty) -> % N < 0
     NewBuf = nthtail(-N, Buf),
     NewCol = case Col + N of V when V >= 0 -> V; _ -> 0 end,
     M1 = move_cursor(Col, NewCol, Tty),
-    M2 = move_cursor(NewCol + length(BufTail) - N, NewCol, Tty),
+    M2 = move_cursor(special_at_width(NewCol+length(BufTail)-N, Tty), NewCol, Tty),
     {[M1, BufTail, lists:duplicate(-N, $ ) | M2],
      {NewBuf, BufTail, NewCol}}.
 
@@ -428,6 +428,10 @@ move_cursor(From, To, #ssh_pty{width=Width, term=Type}) ->
 	       J -> get_tty_command(down, J, Type)
 	   end,
     [Tcol | Trow].
+
+%%% Caution for line "breaks"
+special_at_width(From0, #ssh_pty{width=Width}) when (From0 rem Width) == 0 -> From0 - 1;
+special_at_width(From0, _) -> From0.
 
 %% %%% write out characters
 %% %%% make sure that there is data to send
