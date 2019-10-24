@@ -182,7 +182,8 @@ static int dsig_send_exit(ErtsDSigSendContext *ctx, Eterm ctl, Eterm msg);
 static int dsig_send_ctl(ErtsDSigSendContext *ctx, Eterm ctl);
 static void send_nodes_mon_msgs(Process *, Eterm, Eterm, Eterm, Eterm);
 static void init_nodes_monitors(void);
-static Sint abort_connection(DistEntry* dep, Uint32 conn_id);
+static Sint abort_pending_connection(DistEntry* dep, Uint32 conn_id,
+                                     int *was_connected_p);
 static ErtsDistOutputBuf* clear_de_out_queues(DistEntry*);
 static void free_de_out_queues(DistEntry*, ErtsDistOutputBuf*);
 int erts_dist_seq_tree_foreach_delete_yielding(DistSeqNode **root,
@@ -612,7 +613,7 @@ int erts_do_net_exits(DistEntry *dep, Eterm reason)
 
         if (no_pending) {
             for (i = 0; i < no_pending; i++) {
-                abort_connection(pending[i], pending[i]->connection_id);
+                abort_pending_connection(pending[i], pending[i]->connection_id, NULL);
                 erts_deref_dist_entry(pending[i]);
             }
             erts_free(ERTS_ALC_T_TMP, pending);
@@ -3761,8 +3762,9 @@ int distribution_info(fmtfn_t to, void *arg)	/* Called by break handler */
 
 BIF_RETTYPE setnode_2(BIF_ALIST_2)
 {
-    Process *net_kernel;
+    Process *net_kernel = NULL;
     Uint creation;
+    int success;
 
     /* valid creation ? */
     if(!term_to_Uint(BIF_ARG_2, &creation))
@@ -3787,20 +3789,10 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
     net_kernel = erts_whereis_process(BIF_P,
                                       ERTS_PROC_LOCK_MAIN,
 				      am_net_kernel,
-                                      ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS,
-                                      0);
-    if (!net_kernel || ERTS_PROC_GET_DIST_ENTRY(net_kernel))
+                                      0,
+                                      ERTS_P2P_FLG_INC_REFC);
+    if (!net_kernel)
 	goto error;
-
-    /* By setting F_DISTRIBUTION on net_kernel,
-     * erts_do_net_exits will be called when net_kernel is terminated !! */
-    net_kernel->flags |= F_DISTRIBUTION;
-
-    erts_proc_unlock(net_kernel,
-                     (ERTS_PROC_LOCK_STATUS
-                      | ((net_kernel != BIF_P)
-                         ? ERTS_PROC_LOCK_MAIN
-                         : 0)));
 
 #ifdef DEBUG
     erts_rwmtx_rlock(&erts_dist_table_rwmtx);
@@ -3809,25 +3801,44 @@ BIF_RETTYPE setnode_2(BIF_ALIST_2)
 #endif
 
     erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    
     erts_thr_progress_block();
-    inc_no_nodes();
-    erts_set_this_node(BIF_ARG_1, (Uint32) creation);
-    erts_is_alive = 1;
-    send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, am_visible, NIL);
+
+    success = (!ERTS_PROC_IS_EXITING(net_kernel)
+               & !ERTS_PROC_GET_DIST_ENTRY(net_kernel));
+    if (success) {
+        inc_no_nodes();
+        erts_set_this_node(BIF_ARG_1, (Uint32) creation);
+        erts_is_alive = 1;
+        send_nodes_mon_msgs(NULL, am_nodeup, BIF_ARG_1, am_visible, NIL);
+        erts_proc_lock(net_kernel, ERTS_PROC_LOCKS_ALL);
+
+        /* By setting F_DISTRIBUTION on net_kernel,
+         * erts_do_net_exits will be called when net_kernel is terminated !! */
+        net_kernel->flags |= F_DISTRIBUTION;
+
+        /*
+         * Note erts_this_dist_entry is changed by erts_set_this_node(),
+         * so we *need* to use the new one after erts_set_this_node()
+         * is called.
+         */
+        erts_ref_dist_entry(erts_this_dist_entry);
+        ERTS_PROC_SET_DIST_ENTRY(net_kernel, erts_this_dist_entry);
+        erts_proc_unlock(net_kernel, ERTS_PROC_LOCKS_ALL);
+    }
+    
     erts_thr_progress_unblock();
+
     erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-
-    /*
-     * Note erts_this_dist_entry is changed by erts_set_this_node(),
-     * so we *need* to use the new one after erts_set_this_node()
-     * is called.
-     */
-    erts_ref_dist_entry(erts_this_dist_entry);
-    ERTS_PROC_SET_DIST_ENTRY(net_kernel, erts_this_dist_entry);
-
-    BIF_RET(am_true);
+    
+    if (success) {
+        erts_proc_dec_refc(net_kernel);
+        BIF_RET(am_true);
+    }
 
  error:
+    if (net_kernel)
+        erts_proc_dec_refc(net_kernel);
     BIF_ERROR(BIF_P, BADARG);
 }
 
@@ -3840,12 +3851,15 @@ typedef struct {
     DistEntry *dep;
     Uint flags;
     Uint version;
+    Eterm setup_pid;
+    Process *net_kernel;
 } ErtsSetupConnDistCtrl;
 
-static void
+static int
 setup_connection_epiloge_rwunlock(Process *c_p, DistEntry *dep,
                                   Eterm ctrlr, Uint flags,
-                                  Uint version);
+                                  Uint version, Eterm setup_pid,
+                                  Process *net_kernel);
 
 static Eterm
 setup_connection_distctrl(Process *c_p, void *arg,
@@ -3860,7 +3874,20 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
     DistEntry *dep = NULL;
     int de_locked = 0;
     Port *pp = NULL;
+    int true_nk;
+    Process *net_kernel = erts_whereis_process(BIF_P, ERTS_PROC_LOCK_MAIN,
+                                               am_net_kernel,
+                                               ERTS_PROC_LOCK_STATUS,
+                                               ERTS_P2P_FLG_INC_REFC);
 
+    if (!net_kernel)
+        goto badarg;
+
+    true_nk = ERTS_PROC_GET_DIST_ENTRY(net_kernel) == erts_this_dist_entry;
+    erts_proc_unlock(net_kernel, ERTS_PROC_LOCK_STATUS);
+    if (!true_nk)
+        goto badarg;
+    
     /*
      * Check and pick out arguments
      */
@@ -3922,8 +3949,12 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
             scdc.dep = dep;
             scdc.flags = flags;
             scdc.version = version;
+            scdc.setup_pid = BIF_P->common.id;
+            scdc.net_kernel = net_kernel;
 
             res = setup_connection_distctrl(BIF_P, &scdc, NULL, NULL);
+            /* Dec of refc on net_kernel by setup_connection_distctrl() */
+            net_kernel = NULL;
             BUMP_REDS(BIF_P, 5);
             dep = NULL;
 
@@ -3942,6 +3973,8 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
             scdcp->dep = dep;
             scdcp->flags = flags;
             scdcp->version = version;
+            scdcp->setup_pid = BIF_P->common.id;
+            scdcp->net_kernel = net_kernel;
 
             res = erts_proc_sig_send_rpc_request(BIF_P,
                                                  BIF_ARG_2,
@@ -3949,8 +3982,11 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
                                                  setup_connection_distctrl,
                                                  (void *) scdcp);
             if (is_non_value(res))
-                goto badarg;
+                goto badarg; /* Was not able to send signal... */
 
+            /* Dec of refc on net_kernel by setup_connection_distctrl() */
+            net_kernel = NULL;
+            
             dep = NULL;
 
             ASSERT(is_internal_ordinary_ref(res));
@@ -3961,6 +3997,7 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
     }
     else {
         Uint32 conn_id;
+        int set_res;
 
         pp = erts_id2port_sflgs(BIF_ARG_2,
                                 BIF_P,
@@ -4005,7 +4042,13 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
         }
 
         conn_id = dep->connection_id;
-        setup_connection_epiloge_rwunlock(BIF_P, dep, BIF_ARG_2, flags, version);
+        set_res = setup_connection_epiloge_rwunlock(BIF_P, dep, BIF_ARG_2, flags,
+                                                    version, BIF_P->common.id,
+                                                    net_kernel);
+        /* Dec of refc on net_kernel by setup_connection_epiloge_rwunlock() */
+        net_kernel = NULL;
+        if (set_res == 0)
+            goto badarg;
         de_locked = 0;
 
         hp = HAlloc(BIF_P, 3 + ERTS_DHANDLE_SIZE);
@@ -4021,6 +4064,9 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
     ERTS_BIF_PREP_RET(ret, res);
 
  done:
+
+    if (net_kernel)
+        erts_proc_dec_refc(net_kernel);
 
     if (dep && dep != erts_this_dist_entry) {
         if (de_locked) {
@@ -4046,14 +4092,38 @@ BIF_RETTYPE erts_internal_create_dist_channel_4(BIF_ALIST_4)
     goto done;
 }
 
-static void
+static int
 setup_connection_epiloge_rwunlock(Process *c_p, DistEntry *dep,
                                   Eterm ctrlr, Uint flags,
-                                  Uint version)
+                                  Uint version, Eterm setup_pid,
+                                  Process *net_kernel)
 {
     Eterm notify_proc = NIL;
     erts_aint32_t qflgs;
+    ErtsProcLocks nk_locks;
+    int success = 0;
 
+    /* Notify net_kernel about the new dist controller... */
+    ASSERT(net_kernel);
+    nk_locks = ERTS_PROC_LOCK_MSGQ;
+    erts_proc_lock(net_kernel, nk_locks);
+    if (!ERTS_PROC_IS_EXITING(net_kernel)
+        && ERTS_PROC_GET_DIST_ENTRY(net_kernel) == erts_this_dist_entry) {
+        Eterm *hp;
+        ErlOffHeap *ohp;
+        ErtsMessage *mp = erts_alloc_message_heap(net_kernel, &nk_locks,
+                                                  5 /* 4-tuple */,
+                                                  &hp, &ohp);
+        Eterm msg = TUPLE4(hp, am_dist_ctrlr, ctrlr, dep->sysname, setup_pid);
+        erts_queue_message(net_kernel, nk_locks, mp, msg, am_system);
+        success = !0;
+    }
+    erts_proc_unlock(net_kernel, nk_locks);
+    erts_proc_dec_refc(net_kernel);
+
+    if (!success)
+        return 0;
+    
     dep->version = version;
     dep->creation = 0;
 
@@ -4095,6 +4165,8 @@ setup_connection_epiloge_rwunlock(Process *c_p, DistEntry *dep,
 			dep->sysname,
 			flags & DFLAG_PUBLISHED ? am_visible : am_hidden,
 			NIL);
+
+    return !0;
 }
 
 static Eterm
@@ -4105,11 +4177,13 @@ setup_connection_distctrl(Process *c_p, void *arg, int *redsp, ErlHeapFragment *
     int dep_locked = 0;
     Eterm *hp;
     Uint32 conn_id;
+    int dec_net_kernel_on_error = !0;
 
     if (redsp)
         *redsp = 1;
 
-    ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+    if (ERTS_PROC_IS_EXITING(c_p))
+        goto badarg;
 
     erts_de_rwlock(dep);
     dep_locked = !0;
@@ -4122,16 +4196,30 @@ setup_connection_distctrl(Process *c_p, void *arg, int *redsp, ErlHeapFragment *
     if (is_not_nil(dep->cid))
         goto badarg;
 
+    if (ERTS_PROC_GET_DIST_ENTRY(c_p))
+        goto badarg;
+    
+    erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
     c_p->flags |= F_DISTRIBUTION;
     ERTS_PROC_SET_DIST_ENTRY(c_p, dep);
+    erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
 
     dep->send = NULL; /* Only for distr ports... */
 
     if (redsp)
         *redsp = 5;
 
-    setup_connection_epiloge_rwunlock(c_p, dep, c_p->common.id,
-                                      scdcp->flags, scdcp->version);
+    if (!setup_connection_epiloge_rwunlock(c_p, dep, c_p->common.id,
+                                           scdcp->flags, scdcp->version,
+                                           scdcp->setup_pid,
+                                           scdcp->net_kernel)) {
+        erts_proc_lock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+        c_p->flags &= ~F_DISTRIBUTION;
+        ERTS_PROC_SET_DIST_ENTRY(c_p, NULL);
+        erts_proc_unlock(c_p, ERTS_PROC_LOCKS_ALL_MINOR);
+        dec_net_kernel_on_error = 0; /* dec:ed in epilog... */
+        goto badarg;
+    }
 
     /* we take over previous inc in refc of dep */
 
@@ -4145,6 +4233,9 @@ setup_connection_distctrl(Process *c_p, void *arg, int *redsp, ErlHeapFragment *
     return erts_build_dhandle(&hp, &(*bpp)->off_heap, dep, conn_id);
 
 badarg:
+
+    if (dec_net_kernel_on_error)
+        erts_proc_dec_refc(scdcp->net_kernel);
 
     if (bpp) /* not called directly */
         erts_free(ERTS_ALC_T_SETUP_CONN_ARG, arg);
@@ -4202,14 +4293,15 @@ BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)
     BIF_RET(dhandle);
 }
 
-Sint erts_abort_connection_rwunlock(DistEntry* dep)
+Sint erts_abort_pending_connection_rwunlock(DistEntry* dep,
+                                            int *was_connected_p)
 {
     ERTS_LC_ASSERT(erts_lc_is_de_rwlocked(dep));
 
-    if (dep->state == ERTS_DE_STATE_CONNECTED) {
-        kill_connection(dep);
-    }
-    else if (dep->state == ERTS_DE_STATE_PENDING) {
+    if (was_connected_p)
+        *was_connected_p = dep->state == ERTS_DE_STATE_CONNECTED;
+
+    if (dep->state == ERTS_DE_STATE_PENDING) {
         ErtsAtomCache *cache;
         ErtsDistOutputBuf *obuf;
         ErtsProcList *resume_procs;
@@ -4254,20 +4346,24 @@ Sint erts_abort_connection_rwunlock(DistEntry* dep)
     return 0;
 }
 
-static Sint abort_connection(DistEntry *dep, Uint32 conn_id)
+static Sint abort_pending_connection(DistEntry *dep, Uint32 conn_id,
+                                     int *was_connected_p)
 {
     erts_de_rwlock(dep);
     if (dep->connection_id == conn_id)
-        return erts_abort_connection_rwunlock(dep);
+        return erts_abort_pending_connection_rwunlock(dep, was_connected_p);
     erts_de_rwunlock(dep);
+    if (was_connected_p)
+        *was_connected_p = 0;
     return 0;
 }
 
-BIF_RETTYPE erts_internal_abort_connection_2(BIF_ALIST_2)
+BIF_RETTYPE erts_internal_abort_pending_connection_2(BIF_ALIST_2)
 {
     DistEntry* dep;
     Uint32 conn_id;
     Sint reds;
+    int was_connected;
 
     if (is_not_atom(BIF_ARG_1))
         BIF_ERROR(BIF_P, BADARG);
@@ -4277,9 +4373,9 @@ BIF_RETTYPE erts_internal_abort_connection_2(BIF_ALIST_2)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    reds = abort_connection(dep, conn_id);
+    reds = abort_pending_connection(dep, conn_id, &was_connected);
     BUMP_REDS(BIF_P, reds);
-    BIF_RET(am_true);
+    BIF_RET(was_connected ? am_false : am_true);
 }
 
 int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
@@ -4304,7 +4400,7 @@ int erts_auto_connect(DistEntry* dep, Process *proc, ErtsProcLocks proc_locks)
         net_kernel = erts_whereis_process(proc, proc_locks,
                                           am_net_kernel, nk_locks, 0);
         if (!net_kernel) {
-            abort_connection(dep, conn_id);
+            abort_pending_connection(dep, conn_id, NULL);
             return 0;
         }
 

@@ -103,6 +103,7 @@
 	  connecttime,  %% the connection setuptime.
 	  connections,  %% table of connections
 	  conn_owners = [], %% List of connection owner pids,
+	  dist_ctrlrs = #{}, %% Map of dist controllers (local ports or pids),
 	  pend_owners = [], %% List of potential owners
 	  listen,       %% list of  #listen
 	  allowed,       %% list of allowed nodes in a restricted system
@@ -125,6 +126,7 @@
                      conn_id,       %% Connection identity
 		     state,         %% pending | up | up_pending
 		     owner,         %% owner pid
+                     ctrlr,         %% Controller port or pid
 	             pending_owner, %% possible new owner
 		     address,       %% #net_address
 		     waiting = [],  %% queued processes
@@ -356,7 +358,7 @@ do_auto_connect_1(Node, ConnId, From, State) ->
                     spawn(?MODULE,passive_connect_monitor,[From,Node]),
                     {noreply, State};
                 _ ->
-                    erts_internal:abort_connection(Node, ConnId),
+                    erts_internal:abort_pending_connection(Node, ConnId),
                     {reply, false, State}
             end;
 
@@ -389,7 +391,7 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
             case application:get_env(kernel, dist_auto_connect) of
                 {ok, never} ->
                     ?connect_failure(Node,{dist_auto_connect,never}),
-                    erts_internal:abort_connection(Node, ConnId),
+                    erts_internal:abort_pending_connection(Node, ConnId),
                     {reply, false, State};
 
                 %% This might happen due to connection close
@@ -399,7 +401,6 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
                                 (hd(ConnLookup))#connection.state =:= up ->
                     ?connect_failure(Node,{barred_connection,
                                            ets:lookup(sys_dist, Node)}),
-                    erts_internal:abort_connection(Node, ConnId),
                     {reply, false, State};
                 _ ->
                     case setup(Node, ConnId, normal, From, State) of
@@ -408,7 +409,7 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
                             {noreply,State#state{conn_owners=Owners}};
                         _Error  ->
                             ?connect_failure(Node, {setup_call, failed, _Error}),
-                            erts_internal:abort_connection(Node, ConnId),
+                            erts_internal:abort_pending_connection(Node, ConnId),
                             {reply, false, State}
                     end
             end
@@ -468,7 +469,7 @@ handle_call({connect, Type, Node}, From, State) ->
                     {noreply, _S} -> %% connection pending
                         ok;
                     {reply, false, _S} -> %% connection refused
-                        erts_internal:abort_connection(Node, ConnId)
+                        erts_internal:abort_pending_connection(Node, ConnId)
                 end,
                 R1
         catch
@@ -715,20 +716,39 @@ handle_info({accept,AcceptPid,Socket,Family,Proto}, State) ->
     end;
 
 %%
+%% New dist controller has been registered
+%%
+handle_info({dist_ctrlr, Ctrlr, Node, SetupPid} = Msg,
+	    #state{dist_ctrlrs = DistCtrlrs} = State) ->
+    case ets:lookup(sys_dist, Node) of
+	[Conn] when (Conn#connection.state =:= pending)
+                    andalso (Conn#connection.owner =:= SetupPid)
+                    andalso (Conn#connection.ctrlr =:= undefined)
+                    andalso (is_port(Ctrlr) orelse is_pid(Ctrlr))
+                    andalso (node(Ctrlr) == node()) ->
+            link(Ctrlr),
+            ets:insert(sys_dist, Conn#connection{ctrlr = Ctrlr}),
+            {noreply, State#state{dist_ctrlrs = DistCtrlrs#{Ctrlr => Node}}};
+	_ ->
+            error_msg("Net kernel got ~tw~n",[Msg]),
+	    {noreply, State}
+    end;
+
+%%
 %% A node has successfully been connected.
 %%
-handle_info({SetupPid, {nodeup,Node,Address,Type,Immediate}},
-	    State) ->
+handle_info({SetupPid, {nodeup,Node,Address,Type,Immediate}}, State) ->
     case {Immediate, ets:lookup(sys_dist, Node)} of
-	{true, [Conn]} when Conn#connection.state =:= pending,
-			    Conn#connection.owner =:= SetupPid ->
-	    ets:insert(sys_dist, Conn#connection{state = up,
-						 address = Address,
-						 waiting = [],
-						 type = Type}),
-	    SetupPid ! {self(), inserted},
-	    reply_waiting(Node,Conn#connection.waiting, true),
-	    {noreply, State};
+	{true, [Conn]} when (Conn#connection.state =:= pending)
+                            andalso (Conn#connection.owner =:= SetupPid)
+                            andalso (Conn#connection.ctrlr /= undefined) ->
+            ets:insert(sys_dist, Conn#connection{state = up,
+                                                 address = Address,
+                                                 waiting = [],
+                                                 type = Type}),
+            SetupPid ! {self(), inserted},
+            reply_waiting(Node,Conn#connection.waiting, true),
+            {noreply, State};
 	_ ->
 	    SetupPid ! {self(), bad_request},
 	    {noreply, State}
@@ -803,7 +823,7 @@ handle_info({SetupPid, {is_pending, Node}}, State) ->
 %%
 %% Handle different types of process terminations.
 %%
-handle_info({'EXIT', From, Reason}, State) when is_pid(From) ->
+handle_info({'EXIT', From, Reason}, State) ->
     verbose({'EXIT', From, Reason}, 1, State),
     handle_exit(From, Reason, State);
 
@@ -873,6 +893,7 @@ do_handle_exit(Pid, Reason, State) ->
     listen_exit(Pid, State),
     accept_exit(Pid, State),
     conn_own_exit(Pid, Reason, State),
+    dist_ctrlr_exit(Pid, Reason, State),
     pending_own_exit(Pid, State),
     ticker_exit(Pid, State),
     {noreply,State}.
@@ -907,6 +928,12 @@ conn_own_exit(Pid, Reason, State) ->
 	    throw({noreply, nodedown(Pid, Node, Reason, State)});
 	_ ->
 	    false
+    end.
+
+dist_ctrlr_exit(Pid, Reason, #state{dist_ctrlrs = DCs} = State) ->
+    case maps:get(Pid, DCs, undefined) of
+        undefined -> false;
+        Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
 pending_own_exit(Pid, State) ->
@@ -945,10 +972,10 @@ ticker_exit(_, _) ->
 %% nodedown(Owner, Node, Reason, State) -> State'
 %% -----------------------------------------------------------
 
-nodedown(Owner, Node, Reason, State) ->
+nodedown(Exited, Node, Reason, State) ->
     case get_conn(Node) of
 	{ok, Conn} ->
-	    nodedown(Conn, Owner, Node, Reason, Conn#connection.type, State);
+	    nodedown(Conn, Exited, Node, Reason, Conn#connection.type, State);
 	_ ->
 	    State
     end.
@@ -959,58 +986,117 @@ get_conn(Node) ->
 	_      -> error
     end.
 
-nodedown(Conn, Owner, Node, Reason, Type, OldState) ->
-    Owners = lists:keydelete(Owner, 1, OldState#state.conn_owners),
-    State = OldState#state{conn_owners = Owners},
+delete_owner(Owner, #state{conn_owners = Owners} = State) ->
+    State#state{conn_owners = lists:keydelete(Owner, 1, Owners)}.
+
+delete_ctrlr(Ctrlr, #state{dist_ctrlrs = DCs} = State) ->
+    State#state{dist_ctrlrs = maps:remove(Ctrlr, DCs)}.
+
+nodedown(Conn, Exited, Node, Reason, Type, State) ->
     case Conn#connection.state of
-	pending when Conn#connection.owner =:= Owner ->
-	    pending_nodedown(Conn, Node, Type, State);
-	up when Conn#connection.owner =:= Owner ->
-	    up_nodedown(Conn, Node, Reason, Type, State);
-	up_pending when Conn#connection.owner =:= Owner ->
-	    up_pending_nodedown(Conn, Node, Reason, Type, State);
+	pending ->
+	    pending_nodedown(Conn, Exited, Node, Type, State);
+	up ->
+	    up_nodedown(Conn, Exited, Node, Reason, Type, State);
+	up_pending ->
+	    up_pending_nodedown(Conn, Exited, Node, Reason, Type, State);
 	_ ->
-	    OldState
+	    State
     end.
 
-pending_nodedown(Conn, Node, Type, State) ->
-    % Don't bar connections that have never been alive
-    %mark_sys_dist_nodedown(Node),
-    % - instead just delete the node:
-    erts_internal:abort_connection(Node, Conn#connection.conn_id),
-    ets:delete(sys_dist, Node),
-    reply_waiting(Node,Conn#connection.waiting, false),
-    case Type of
-	normal ->
-	    ?nodedown(Node, State);
-	_ ->
-	    ok
+pending_nodedown(#connection{owner = Owner,
+                             waiting = Waiting,
+                             conn_id = CID},
+                 Exited, Node, Type, State) when Owner =:= Exited ->
+    %% Owner exited!
+    case erts_internal:abort_pending_connection(Node, CID) of
+        false ->
+            %% Just got connected but that message has not
+            %% reached us yet. Wait for controller to exit and
+            %% handle this then...
+            ok;
+        true ->
+            %% Don't bar connections that have never been alive, i.e.
+            %% no 'mark_sys_dist_nodedown(Node)'; instead just delete
+            %% the node:
+            ets:delete(sys_dist, Node),
+            reply_waiting(Node, Waiting, false),
+            case Type of
+                normal ->
+                    ?nodedown(Node, State);
+                _ ->
+                    ok
+            end
     end,
+    delete_owner(Owner, State);
+pending_nodedown(#connection{owner = Owner,
+                             ctrlr = Ctrlr,
+                             waiting = Waiting},
+                 Exited, Node, Type, State) when Ctrlr =:= Exited ->
+    %% Controller exited!
+    %%
+    %% Controller has been registered but crashed
+    %% before sending mark up message...
+    %%
+    %% 'nodeup' messages has been sent by the emulator,
+    %% so bar the connection...
+    mark_sys_dist_nodedown(Node),
+    reply_waiting(Node,Waiting, true),
+    case Type of
+        normal ->
+            ?nodedown(Node, State);
+        _ ->
+            ok
+    end,
+    delete_owner(Owner, delete_ctrlr(Ctrlr, State));
+pending_nodedown(_Conn, _Exited, _Node, _Type, State) ->
     State.
 
-up_pending_nodedown(Conn, Node, _Reason, _Type, State) ->
-    AcceptPid = Conn#connection.pending_owner,
+up_pending_nodedown(#connection{owner = Owner,
+                                ctrlr = Ctrlr,
+                                pending_owner = AcceptPid} = Conn,
+                    Exited, Node, _Reason,
+                    _Type, State) when Ctrlr =:= Exited  ->
+    %% Controller exited!
     Owners = State#state.conn_owners,
     Pend = lists:keydelete(AcceptPid, 1, State#state.pend_owners),
-    erts_internal:abort_connection(Node, Conn#connection.conn_id),
     Conn1 = Conn#connection { owner = AcceptPid,
                               conn_id = erts_internal:new_connection(Node),
+                              ctrlr = undefined,
 			      pending_owner = undefined,
 			      state = pending },
     ets:insert(sys_dist, Conn1),
     AcceptPid ! {self(), pending},
-    State#state{conn_owners = [{AcceptPid,Node}|Owners], pend_owners = Pend}.
+    State1 = State#state{conn_owners = [{AcceptPid,Node}|Owners],
+                         pend_owners = Pend},
+    delete_owner(Owner, delete_ctrlr(Ctrlr, State1));
+up_pending_nodedown(#connection{owner = Owner},
+                    Exited, _Node, _Reason,
+                    _Type, State) when Owner =:= Exited  ->
+    %% Owner exited!
+    delete_owner(Owner, State);
+up_pending_nodedown(_Conn, _Exited, _Node, _Reason, _Type, State) ->
+    State.
 
-up_nodedown(Conn, Node, _Reason, Type, State) ->
-    mark_sys_dist_nodedown(Conn, Node),
+up_nodedown(#connection{owner = Owner,
+                        ctrlr = Ctrlr},
+            Exited, Node, _Reason, Type, State) when Ctrlr =:= Exited ->
+    %% Controller exited!
+    mark_sys_dist_nodedown(Node),
     case Type of
 	normal -> ?nodedown(Node, State);
 	_ -> ok
     end,
+    delete_owner(Owner, delete_ctrlr(Ctrlr, State));
+up_nodedown(#connection{owner = Owner},
+            Exited, _Node, _Reason,
+            _Type, State) when Owner =:= Exited  ->
+    %% Owner exited!
+    delete_owner(Owner, State);
+up_nodedown(_Conn, _Exited, _Node, _Reason, _Type, State) ->
     State.
 
-mark_sys_dist_nodedown(Conn, Node) ->
-    erts_internal:abort_connection(Node, Conn#connection.conn_id),
+mark_sys_dist_nodedown(Node) ->
     case application:get_env(kernel, dist_auto_connect) of
 	{ok, once} ->
 	    ets:insert(sys_dist, #barred_connection{node = Node});
@@ -1098,29 +1184,19 @@ mk_monitor_nodes_error(_Flag, Opts) ->
 do_disconnect(Node, State) ->
     case ets:lookup(sys_dist, Node) of
 	[Conn] when Conn#connection.state =:= up ->
-	    disconnect_pid(Conn#connection.owner, State);
+	    disconnect_ctrlr(Conn#connection.ctrlr, State);
 	[Conn] when Conn#connection.state =:= up_pending ->
-	    disconnect_pid(Conn#connection.owner, State);
+	    disconnect_ctrlr(Conn#connection.ctrlr, State);
 	_ ->
 	    {false, State}
     end.
 
-disconnect_pid(Pid, State) ->
-    exit(Pid, disconnect),
-
-    %% This code used to only use exit + recv 'EXIT' to sync,
-    %% but since OTP-22 links are no longer broken atomically
-    %% so the exit message below can arrive before any remaining
-    %% exit messages have killed the distribution port
-    Ref = erlang:monitor(process, Pid),
-    %% Sync wait for connection to die!!!
+disconnect_ctrlr(Ctrlr, State) ->
+    exit(Ctrlr, disconnect),
     receive
-        {'DOWN',Ref,_,_,_} ->
-            receive
-                {'EXIT',Pid,Reason} ->
-                    {_,State1} = handle_exit(Pid, Reason, State),
-                    {true, State1}
-            end
+        {'EXIT',Ctrlr,Reason} ->
+            {_,State1} = handle_exit(Ctrlr, Reason, State),
+            {true, State1}
     end.
 
 %%

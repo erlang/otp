@@ -3773,6 +3773,16 @@ erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
    pectxt.port_id = prt->common.id;
    pectxt.reason = modified_reason;
 
+   if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
+       DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
+       ASSERT(dep);
+       erts_do_net_exits(dep, modified_reason);
+       erts_deref_dist_entry(dep);
+       erts_prtsd_set(prt, ERTS_PRTSD_DIST_ENTRY, NULL);
+       erts_atomic32_read_band_relb(&prt->state,
+				    ~ERTS_PORT_SFLG_DISTRIBUTION);
+   }
+   
    if (links)
        erts_monitor_tree_foreach_delete(&links,
                                         link_port_exit,
@@ -3789,16 +3799,6 @@ erts_deliver_port_exit(Port *prt, Eterm from, Eterm reason, int send_closed,
                                             monitor_port_exit,
                                             (void *) &pectxt);
        DRV_MONITOR_UNLOCK_PDL(prt);
-   }
-
-   if (state & ERTS_PORT_SFLG_DISTRIBUTION) {
-       DistEntry *dep = (DistEntry*) erts_prtsd_get(prt, ERTS_PRTSD_DIST_ENTRY);
-       ASSERT(dep);
-       erts_do_net_exits(dep, modified_reason);
-       erts_deref_dist_entry(dep);
-       erts_prtsd_set(prt, ERTS_PRTSD_DIST_ENTRY, NULL);
-       erts_atomic32_read_band_relb(&prt->state,
-				    ~ERTS_PORT_SFLG_DISTRIBUTION);
    }
        
    if ((reason != am_kill) && !is_port_ioq_empty(prt)) {

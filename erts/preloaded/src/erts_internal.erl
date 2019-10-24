@@ -67,7 +67,7 @@
 
 -export([get_dflags/0]).
 -export([new_connection/1]).
--export([abort_connection/2]).
+-export([abort_pending_connection/2]).
 
 -export([scheduler_wall_time/1, system_flag_scheduler_wall_time/1,
          gather_sched_wall_time_result/1,
@@ -558,10 +558,10 @@ get_dflags() ->
 new_connection(_Node) ->
     erlang:nif_error(undefined).
 
--spec erts_internal:abort_connection(Node, ConnId) -> boolean() when
+-spec erts_internal:abort_pending_connection(Node, ConnId) -> boolean() when
       Node :: atom(),
       ConnId :: {integer(), erlang:dist_handle()}.
-abort_connection(_Node, _ConnId) ->
+abort_pending_connection(_Node, _ConnId) ->
     erlang:nif_error(undefined).
 
 %% Scheduler wall time
