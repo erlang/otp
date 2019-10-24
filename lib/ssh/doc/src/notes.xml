@@ -30,6 +30,23 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.7.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ssh cli (e.g shell) server behaved strangely when
+	    characters were inserted in a string so that the last
+	    characters tried to wrap the line.</p>
+          <p>
+	    Own Id: OTP-14849 Aux Id: ERL-545 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.7.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
