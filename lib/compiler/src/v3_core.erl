@@ -2251,18 +2251,26 @@ uexpr(#icase{anno=#a{anno=Anno}=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
               false -> new_in_all(Cs1)
           end,
     {#icase{anno=A#a{us=Used,ns=New},args=As1,clauses=Cs1,fc=Fc1},St3};
-uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}, Ks0, St0) ->
+uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}=Fun0, Ks0, St0) ->
+    {Fun1,St2} = case Ks0 of
+                     [] ->
+                         {Fun0,St0};
+                     [_|_] ->
+                         {Cs1,St1} = rename_shadowing_clauses(Cs0, Ks0, St0),
+                         {Fun0#ifun{clauses=Cs1},St1}
+                 end,
+    #ifun{clauses=Cs2} = Fun1,
     Avs = lit_list_vars(As),
     Ks1 = case Name of
               unnamed -> Ks0;
               {named,FName} -> union(subtract([FName], Avs), Ks0)
           end,
     Ks2 = union(Avs, Ks1),
-    {Cs1,St1} = ufun_clauses(Cs0, Ks2, St0),
-    {Fc1,St2} = ufun_clause(Fc0, Ks2, St1),
-    Used = subtract(intersection(used_in_any(Cs1), Ks1), Avs),
+    {Cs3,St3} = ufun_clauses(Cs2, Ks2, St2),
+    {Fc1,St4} = ufun_clause(Fc0, Ks2, St3),
+    Used = subtract(intersection(used_in_any(Cs3), Ks1), Avs),
     A1 = A0#a{us=Used,ns=[]},
-    {#ifun{anno=A1,id=Id,vars=As,clauses=Cs1,fc=Fc1,name=Name},St2};
+    {#ifun{anno=A1,id=Id,vars=As,clauses=Cs3,fc=Fc1,name=Name},St4};
 uexpr(#iapply{anno=A,op=Op,args=As}, _, St) ->
     Used = union(lit_vars(Op), lit_list_vars(As)),
     {#iapply{anno=A#a{us=Used},op=Op,args=As},St};
@@ -2460,6 +2468,111 @@ new_in_all([Le|Les]) ->
     foldl(fun (L, Ns) -> intersection((get_anno(L))#a.ns, Ns) end,
 	  (get_anno(Le))#a.ns, Les);
 new_in_all([]) -> [].
+
+%%%
+%%% Rename shadowing variables in fun heads.
+%%%
+%%% Pattern variables in fun heads always shadow variables bound in
+%%% the enclosing environment. Because that is the way that variables
+%%% behave in Core Erlang, there was previously no need to rename
+%%% the variables.
+%%%
+%%% However, to support splitting of patterns and/or pattern matching
+%%% compilation in Core Erlang, there is a need to rename all
+%%% shadowing variables to avoid changing the semantics of the Erlang
+%%% program.
+%%%
+
+rename_shadowing_clauses([C0|Cs0], Ks, St0) ->
+    {C,St1} = rename_shadowing_clause(C0, Ks, St0),
+    {Cs,St} = rename_shadowing_clauses(Cs0, Ks, St1),
+    {[C|Cs],St};
+rename_shadowing_clauses([], _Ks, St) ->
+    {[],St}.
+
+rename_shadowing_clause(#iclause{pats=Ps0,guard=G0,body=B0}=C, Ks, St0) ->
+    Subs = {[],[]},
+    {Ps,{_Isub,Osub},St} = ren_pats(Ps0, Ks, Subs, St0),
+    G = case G0 of
+            [] -> G0;
+            [_|_] -> Osub ++ G0
+        end,
+    B = Osub ++ B0,
+    {C#iclause{pats=Ps,guard=G,body=B},St}.
+
+ren_pats([P0|Ps0], Ks, {_,_}=Subs0, St0) ->
+    {P,Subs1,St1} = ren_pat(P0, Ks, Subs0, St0),
+    {Ps,Subs,St} = ren_pats(Ps0, Ks, Subs1, St1),
+    {[P|Ps],Subs,St};
+ren_pats([], _Ks, {_,_}=Subs, St) ->
+    {[],Subs,St}.
+
+ren_pat(#c_var{name='_'}=P, _Ks, Subs, St) ->
+    {P,Subs,St};
+ren_pat(#c_var{name=V}=Old, Ks, {Isub0,Osub0}=Subs, St0) ->
+    case member(V, Ks) of
+        true ->
+            case ren_is_subst(V, Osub0) of
+                {yes,New} ->
+                    {New,Subs,St0};
+                no ->
+                    {New,St} = new_var(St0),
+                    Osub = [#iset{var=Old,arg=New}|Osub0],
+                    {New,{Isub0,Osub},St}
+            end;
+        false ->
+            {Old,Subs,St0}
+    end;
+ren_pat(#c_literal{}=P, _Ks, {_,_}=Subs, St) ->
+    {P,Subs,St};
+ren_pat(#c_alias{var=Var0,pat=Pat0}=Alias, Ks, {_,_}=Subs0, St0) ->
+    {Var,Subs1,St1} = ren_pat(Var0, Ks, Subs0, St0),
+    {Pat,Subs,St} = ren_pat(Pat0, Ks, Subs1, St1),
+    {Alias#c_alias{var=Var,pat=Pat},Subs,St};
+ren_pat(#c_binary{segments=Es0}=P, Ks, {Isub,Osub0}, St0) ->
+    {Es,_Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub, Osub0, St0),
+    {P#c_binary{segments=Es},{Isub,Osub},St};
+ren_pat(#c_map{es=Es0}=Map, Ks, {_,_}=Subs0, St0) ->
+    {Es,Subs,St} = ren_pat_map(Es0, Ks, Subs0, St0),
+    {Map#c_map{es=Es},Subs,St};
+ren_pat(P, Ks0, {_,_}=Subs0, St0) ->
+    Es0 = cerl:data_es(P),
+    {Es,Subs,St} = ren_pats(Es0, Ks0, Subs0, St0),
+    {cerl:make_data(cerl:data_type(P), Es),Subs,St}.
+
+ren_pat_bin([#c_bitstr{val=Val0,size=Sz0}=E|Es0], Ks, Isub0, Osub0, St0) ->
+    Sz = ren_get_subst(Sz0, Isub0),
+    {Val,{_,Osub1},St1} = ren_pat(Val0, Ks, {Isub0,Osub0}, St0),
+    Isub1 = case Val0 of
+                #c_var{} ->
+                    [#iset{var=Val0,arg=Val}|Isub0];
+                _ ->
+                    Isub0
+            end,
+    {Es,Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub1, Osub1, St1),
+    {[E#c_bitstr{val=Val,size=Sz}|Es],Isub,Osub,St};
+ren_pat_bin([], _Ks, Isub, Osub, St) ->
+    {[],Isub,Osub,St}.
+
+ren_pat_map([#c_map_pair{val=Val0}=MapPair|Es0], Ks, Subs0, St0) ->
+    {Val,Subs1,St1} = ren_pat(Val0, Ks, Subs0, St0),
+    {Es,Subs,St} = ren_pat_map(Es0, Ks, Subs1, St1),
+    {[MapPair#c_map_pair{val=Val}|Es],Subs,St};
+ren_pat_map([], _Ks, Subs, St) ->
+    {[],Subs,St}.
+
+ren_get_subst(#c_var{name=V}=Old, Sub) ->
+    case ren_is_subst(V, Sub) of
+        no -> Old;
+        {yes,New} -> New
+    end;
+ren_get_subst(Old, _Sub) -> Old.
+
+ren_is_subst(V, [#iset{var=#c_var{name=V},arg=Arg}|_]) ->
+    {yes,Arg};
+ren_is_subst(V, [_|Sub]) ->
+    ren_is_subst(V, Sub);
+ren_is_subst(_V, []) -> no.
 
 %% The AfterVars are the variables which are used afterwards.  We need
 %% this to work out which variables are actually exported and used
