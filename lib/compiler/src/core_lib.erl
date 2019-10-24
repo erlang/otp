@@ -79,8 +79,6 @@ vu_expr(V, #c_seq{arg=Arg,body=B}) ->
     vu_expr(V, Arg) orelse vu_expr(V, B);
 vu_expr(V, #c_case{arg=Arg,clauses=Cs}) ->
     vu_expr(V, Arg) orelse vu_clauses(V, Cs);
-vu_expr(V, #c_receive{clauses=Cs,timeout=T,action=A}) ->
-    vu_clauses(V, Cs) orelse vu_expr(V, T) orelse vu_expr(V, A);
 vu_expr(V, #c_apply{op=Op,args=As}) ->
     vu_expr_list(V, [Op|As]);
 vu_expr(V, #c_call{module=M,name=N,args=As}) ->

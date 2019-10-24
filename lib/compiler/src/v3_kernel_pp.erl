@@ -289,24 +289,6 @@ format_1(#k_catch{body=B,ret=Rs}, Ctxt) ->
      "end",
      format_ret(Rs, Ctxt1)
     ];
-format_1(#k_receive{var=V,body=B,timeout=T,action=A,ret=Rs}, Ctxt) ->
-    Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.item_indent),
-    ["receive ",
-     format(V, Ctxt),
-     nl_indent(Ctxt1),
-     format(B, Ctxt1),
-     nl_indent(Ctxt),
-     "after ",
-     format(T, ctxt_bump_indent(Ctxt, 6)),
-     " ->",
-     nl_indent(Ctxt1),
-     format(A, Ctxt1),
-     nl_indent(Ctxt),
-     "end",
-     format_ret(Rs, Ctxt1)
-    ];
-format_1(#k_receive_accept{}, _Ctxt) -> "receive_accept";
-format_1(#k_receive_next{}, _Ctxt) -> "receive_next";
 format_1(#k_break{args=As}, Ctxt) ->
     ["<",
      format_hseq(As, ",", ctxt_bump_indent(Ctxt, 1), fun format/2),

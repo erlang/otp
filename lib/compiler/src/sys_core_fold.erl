@@ -392,11 +392,6 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
 	Other ->
 	    expr(Other, Ctxt, Sub)
     end;
-expr(#c_receive{anno=Anno,clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
-    Cs1 = clauses(#c_var{name='_'}, Cs0, Ctxt, Sub, false, Anno),
-    T1 = expr(T0, value, Sub),
-    A1 = body(A0, Ctxt, Sub),
-    Recv#c_receive{clauses=Cs1,timeout=T1,action=A1};
 expr(#c_apply{anno=Anno,op=Op0,args=As0}=Apply0, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
@@ -541,10 +536,6 @@ ifes_1(FVar, #c_map_pair{key=Key,val=Val}, _Safe) ->
     ifes_1(FVar, Key, false) andalso ifes_1(FVar, Val, false);
 ifes_1(FVar, #c_primop{args=Args}, _Safe) ->
     ifes_list(FVar, Args, false);
-ifes_1(FVar, #c_receive{timeout=Timeout,action=Action,clauses=Clauses}, Safe) ->
-    ifes_1(FVar, Timeout, false) andalso
-        ifes_1(FVar, Action, Safe) andalso
-        ifes_list(FVar, Clauses, Safe);
 ifes_1(FVar, #c_seq{arg=Arg,body=Body}, Safe) ->
     %% Arg of a #c_seq{} has no effect so it's okay to use FVar there even if
     %% Safe=false.
@@ -1094,10 +1085,6 @@ clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
 	       {_,_,#c_literal{}} ->
 		   %% No need for substitution tricks when the guard
 		   %% does not contain any variables.
-		   Sub1;
-	       {#c_var{name='_'},_,_} ->
-		   %% In a 'receive', Cexpr is the variable '_', which represents the
-		   %% message being matched. We must NOT do any extra substiutions.
 		   Sub1;
 	       {#c_var{},[#c_var{}=Var],_} ->
 		   %% The idea here is to optimize expressions such as
@@ -2603,19 +2590,6 @@ delay_build_expr_1(#c_case{clauses=Cs0}=Case, TypeSig) ->
 delay_build_expr_1(#c_let{body=B0}=Let, TypeSig) ->
     B = delay_build_expr(B0, TypeSig),
     Let#c_let{body=B};
-delay_build_expr_1(#c_receive{clauses=Cs0,
-			      timeout=Timeout,
-			      action=A0}=Rec, TypeSig) ->
-    Cs = delay_build_cs(Cs0, TypeSig),
-    A = case {Timeout,A0} of
-	    {#c_literal{val=infinity},#c_literal{}} ->
-                {_Type,Arity} = TypeSig,
-                Es = lists:duplicate(Arity, A0),
-                core_lib:make_values(Es);
-	    _ ->
-                delay_build_expr(A0, TypeSig)
-	end,
-    Rec#c_receive{clauses=Cs,action=A};
 delay_build_expr_1(#c_seq{body=B0}=Seq, TypeSig) ->
     B = delay_build_expr(B0, TypeSig),
     Seq#c_seq{body=B};

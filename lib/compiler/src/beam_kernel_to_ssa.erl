@@ -123,14 +123,6 @@ cg(#k_try_enter{arg=Ta,vars=Vs,body=Tb,evars=Evs,handler=Th}, St) ->
     try_enter_cg(Ta, Vs, Tb, Evs, Th, St);
 cg(#k_catch{body=Cb,ret=[R]}, St) ->
     do_catch_cg(Cb, R, St);
-cg(#k_receive{anno=Le,timeout=Te,var=Rvar,body=Rm,action=Tes,ret=Rs}, St) ->
-    recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, St);
-cg(#k_receive_next{}, #cg{recv=Recv}=St) ->
-    Is = [#b_set{op=recv_next},make_uncond_branch(Recv)],
-    {Is,St};
-cg(#k_receive_accept{}, St) ->
-    Remove = #b_set{op=remove_message},
-    {[Remove],St};
 cg(#k_put{anno=Le,arg=Con,ret=Var}, St) ->
     put_cg(Var, Con, Le, St);
 cg(#k_return{args=[Ret0]}, St) ->
@@ -795,59 +787,6 @@ bif_is_record_cg(Dst, Tuple, TagVal, ArityVal, St0) ->
            {label,Phi},
            #cg_phi{vars=[Dst]}],
     Is = Is0 ++ [GetArity] ++ Is1 ++ [GetTag] ++ Is2 ++ Is3,
-    {Is,St}.
-
-%% recv_loop_cg(TimeOut, ReceiveVar, ReceiveMatch, TimeOutExprs,
-%%              [Ret], Le, St) -> {[Ainstr],St}.
-
-recv_loop_cg(Te, _Rvar, #k_receive_next{}, Tes, Rs, _Le, St0) ->
-    {Tl,St1} = new_label(St0),
-    {Bl,St2} = new_label(St1),
-    St3 = St2#cg{break=Bl,recv=Tl},
-    {Wis,St4} = cg_recv_wait(Te, Tes, St3),
-    {BreakVars,St} = new_ssa_vars(Rs, St4),
-    {[make_uncond_branch(Tl),{label,Tl}] ++ Wis ++
-         [{label,Bl},#cg_phi{vars=BreakVars}],
-     St#cg{break=St0#cg.break,recv=St0#cg.recv}};
-recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, St0) ->
-    %% Get labels.
-    {Rl,St1} = new_label(St0),
-    {Tl,St2} = new_label(St1),
-    {Bl,St3} = new_label(St2),
-    St4 = St3#cg{break=Bl,recv=Rl},
-    {Ris,St5} = cg_recv_mesg(Rvar, Rm, Tl, Le, St4),
-    {Wis,St6} = cg_recv_wait(Te, Tes, St5),
-    {BreakVars,St} = new_ssa_vars(Rs, St6),
-    {Ris ++ [{label,Tl}] ++ Wis ++
-         [{label,Bl},#cg_phi{vars=BreakVars}],
-     St#cg{break=St0#cg.break,recv=St0#cg.recv}}.
-
-%% cg_recv_mesg( ) -> {[Ainstr],St}.
-
-cg_recv_mesg(#k_var{name=R}, Rm, Tl, Le, St0) ->
-    {Dst,St1} = new_ssa_var(R, St0),
-    {Mis,St2} = match_cg(Rm, none, St1),
-    RecvLbl = St1#cg.recv,
-    {TestIs,St} = make_succeeded(Dst, {guard, Tl}, St2),
-    Is = [#b_br{anno=line_anno(Le),bool=#b_literal{val=true},
-                succ=RecvLbl,fail=RecvLbl},
-          {label,RecvLbl},
-          #b_set{op=peek_message,dst=Dst}|TestIs],
-    {Is++Mis,St}.
-
-%% cg_recv_wait(Te, Tes, St) -> {[Ainstr],St}.
-
-cg_recv_wait(#k_literal{val=0}, Es, St0) ->
-    {Tis,St} = cg(Es, St0),
-    {[#b_set{op=timeout}|Tis],St};
-cg_recv_wait(Te, Es, St0) ->
-    {Tis,St1} = cg(Es, St0),
-    Args = [ssa_arg(Te, St1)],
-    {WaitDst,St2} = new_ssa_var('@ssa_wait', St1),
-    {WaitIs,St} = make_succeeded(WaitDst, {guard, St1#cg.recv}, St2),
-    %% Infinite timeout will be optimized later.
-    Is = [#b_set{op=wait_timeout,dst=WaitDst,args=Args}] ++ WaitIs ++
-        [#b_set{op=timeout}] ++ Tis,
     {Is,St}.
 
 %% try_cg(TryBlock, [BodyVar], TryBody, [ExcpVar], TryHandler, [Ret], St) ->
