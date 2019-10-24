@@ -5155,7 +5155,8 @@ ERL_NIF_TERM esock_open(ErlNifEnv* env,
     /* Does this apply to other types? Such as RAW?
      * Also, is this really correct? Should we not wait for bind?
      */
-    if (type == SOCK_DGRAM) {
+    if ((type == SOCK_DGRAM) ||
+	(type == SOCK_SEQPACKET)) {
         descP->isReadable = TRUE;
         descP->isWritable = TRUE;
     }
@@ -5995,11 +5996,13 @@ ERL_NIF_TERM esock_accept_listening(ErlNifEnv*       env,
          * We got one
          */
 
-        SSDBG( descP, ("SOCKET", "esock_accept_listening -> success\r\n") );
+      SSDBG( descP, ("SOCKET", "esock_accept_listening -> success\r\n") );
 
         res = esock_accept_listening_accept(env, descP, accSock, caller, &remote);
 
     }
+
+    SSDBG( descP, ("SOCKET", "esock_accept_listening -> done: %T\r\n", res) );
 
     return res;
 }
@@ -6123,6 +6126,8 @@ ERL_NIF_TERM esock_accept_accepting(ErlNifEnv*       env,
         res = esock_accept_accepting_other(env, descP, ref, caller);
 
     }
+
+    SSDBG( descP, ("SOCKET", "esock_accept_accepting -> done: %T\r\n", res) );
 
     return res;
 
@@ -6764,12 +6769,22 @@ ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
     ERL_NIF_TERM  writerCheck;
     char*         xres;
 
-    if (!descP->isWritable)
-        return enif_make_badarg(env);
+    if (!descP->isWritable) {
+
+      SSDBG( descP, ("SOCKET", "esock_sendmsg -> not writable\r\n") );
+      
+      return enif_make_badarg(env);
+    }
 
     /* Check if there is already a current writer and if its us */
-    if (!send_check_writer(env, descP, sendRef, &writerCheck))
-        return writerCheck;
+    if (!send_check_writer(env, descP, sendRef, &writerCheck)) {
+
+      SSDBG( descP,
+	     ("SOCKET", "esock_sendmsg -> writer check failed: "
+	      "\r\n   %T\r\n", writerCheck) );
+      
+      return writerCheck;
+    }
     
     /* Depending on if we are *connected* or not, we require
      * different things in the msghdr map.
