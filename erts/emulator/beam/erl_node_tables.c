@@ -396,6 +396,7 @@ erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp,
     Eterm mref, dhandle;
     ASSERT(bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dist_entry_destructor);
+    erts_refc_inc_if(&bin->intern.refc, 0, 0); /* inc for pending delete */
     mref = erts_mk_magic_ref(hpp, ohp, bin);
     dhandle = TUPLE2(*hpp, make_small(conn_id), mref);
     *hpp += 3;
