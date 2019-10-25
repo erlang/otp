@@ -718,13 +718,12 @@ pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
 	end, Kes),
     {Kes1,Osub1,St1}.
 
-pattern_bin(Es, Isub, Osub0, St0) ->
-    {Kbin,{_,Osub},St} = pattern_bin_1(Es, Isub, Osub0, St0),
-    {Kbin,Osub,St}.
+pattern_bin(Es, Isub, Osub0, St) ->
+    pattern_bin_1(Es, Isub, Osub0, St).
 
-pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0], 
-	    Isub0, Osub0, St0) ->
-    {S1,[],St1} = expr(S0, Isub0, St0),
+pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
+              Isub, Osub0, St0) ->
+    {S1,[],St1} = expr(S0, Isub, St0),
     S = case S1 of
 	    #k_var{} -> S1;
             #k_literal{val=Val} when is_integer(Val); is_atom(Val) -> S1;
@@ -735,18 +734,13 @@ pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0],
 		%% problems.
 		#k_literal{val=bad_size}
 	end,
-    U0 = cerl:concrete(U),
-    Fs0 = cerl:concrete(Fs),
-    %%ok= io:fwrite("~w: ~p~n", [?LINE,{B0,S,U0,Fs0}]),
-    {E,Osub1,St2} = pattern(E0, Isub0, Osub0, St1),
-    Isub1 = case E0 of
-		#c_var{name=V} ->
-		    set_vsub(V, E#k_var.name, Isub0);
-		_ -> Isub0
-	    end,
-    {Es,{Isub,Osub},St3} = pattern_bin_1(Es0, Isub1, Osub1, St2),
-    {build_bin_seg(A, S, U0, cerl:concrete(T), Fs0, E, Es),{Isub,Osub},St3};
-pattern_bin_1([], Isub, Osub, St) -> {#k_bin_end{},{Isub,Osub},St}.
+    U = cerl:concrete(U0),
+    Fs = cerl:concrete(Fs0),
+    {E,Osub1,St2} = pattern(E0, Isub, Osub0, St1),
+    {Es,Osub,St3} = pattern_bin_1(Es0, Isub, Osub1, St2),
+    {build_bin_seg(A, S, U, cerl:concrete(T), Fs, E, Es),Osub,St3};
+pattern_bin_1([], _Isub, Osub, St) ->
+    {#k_bin_end{},Osub,St}.
 
 %% build_bin_seg(Anno, Size, Unit, Type, Flags, Seg, Next) -> #k_bin_seg{}.
 %%  This function normalizes literal integers with size > 8 and literal
