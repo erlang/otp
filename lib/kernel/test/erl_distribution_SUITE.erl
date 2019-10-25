@@ -1504,7 +1504,7 @@ monitor_nodes_yoyo(A) ->
          [P ! monitor_node || P <- NodeMons],
          [receive ready -> ok end || _ <- NodeMons],
 
-         {Owner,_ConnId} = get_node_owner(A),
+         Owner = get_conn_owner(A),
          exit(Owner, kill),
 
          {nodedown, A} = receive_any(),
@@ -1538,25 +1538,10 @@ my_spawn_opt(Fun, Opts) ->
         Pid -> Pid
     end.
 
--record(connection, {
-		     node,          %% remote node name
-                     conn_id,       %% Connection identity
-		     state,         %% pending | up | up_pending
-		     owner,         %% owner pid
-	             pending_owner, %% possible new owner
-		     address,       %% #net_address
-		     waiting = [],  %% queued processes
-		     type           %% normal | hidden
-		    }).
-
-get_node_owner(Node) ->
-    case ets:lookup(sys_dist, Node) of
-        [#connection{owner = Owner, conn_id = ConnId}] ->
-            {Owner, ConnId};
-        _ ->
-            error
-    end.
-
+get_conn_owner(Node) ->
+    {ok, NodeInfo} = net_kernel:node_info(Node),
+    {value,{owner, Owner}} = lists:keysearch(owner, 1, NodeInfo),
+    Owner.
 
 dist_ctrl_proc_smoke(Config) when is_list(Config) ->
     ThisNode = node(),
