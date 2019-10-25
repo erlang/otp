@@ -397,7 +397,7 @@ v3_proc(NoteStore, Packet, LocalEngineID, V3Hdr, Data, Log) ->
                 #note{sec_engine_id = SecEngineID,
                       sec_model     = _MsgSecModel,
                       sec_name      = SecName,
-                      sec_level     = SecLevel,
+                      sec_level     = _SecLevel,   % OTP-16207
                       ctx_engine_id = _CtxEngineID,
                       ctx_name      = _CtxName,
                       disco         = true,

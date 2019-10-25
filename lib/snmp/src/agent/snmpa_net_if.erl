@@ -738,6 +738,26 @@ handle_discovery_response(
 	    %% should be redundant.
 	    NReqs = lists:keydelete(ReqId, 1, Reqs),
 	    S#state{reqs = NReqs};
+
+        %% <OTP-16207>
+        %% For some reason 'snmptrapd' response in stage 2 with request-id
+        %% of zero.
+        false when (ReqId =:= 0) ->
+            DiscoReqs = [X|| {0, From1}     <- S#state.reqs,
+                             {_, From2} = X <- S#state.reqs, From1 =:= From2],
+            case (length(DiscoReqs) =:= 2) of
+                true ->
+                    [{_, Pid}, _] = DiscoReqs,
+                    active_once(Socket),
+                    Pid ! {snmp_discovery_response_received, Pdu,
+                           ManagerEngineId},
+                    NReqs = S#state.reqs -- DiscoReqs,
+                    S#state{reqs = NReqs};
+                false ->
+                    S
+            end;
+        %% </OTP-16207>
+
 	false ->
 	    %% Ouch, timeout? resend?
 	    S
@@ -1013,8 +1033,9 @@ handle_send_discovery(
 		    log(Log, Type, Packet, {Domain, Address}),
 		    udp_send(Socket, {Domain, Address}, Packet),
 		    ?vtrace("handle_send_discovery -> sent (~w)", [ReqId]),
-		    NReqs = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
-		    S#state{reqs = NReqs}
+		    NReqs  = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
+                    NReqs2 = (NReqs -- [{0, From}]) ++ [{0, From}], % OTP-16207
+		    S#state{reqs = NReqs2}
 	    end;
 	{discarded, Reason} ->
 	    ?vlog("handle_send_discovery -> "

@@ -388,7 +388,8 @@ send_discovery(TargetName, Record, ContextName, Vbs, NetIf) ->
 send_discovery(TargetName, Record, ContextName, Vbs, NetIf, ExtraInfo) ->
     case find_dest(TargetName) of
 	{ok, Dest} ->
-	    send_discovery_pdu(Dest, Record, ContextName, Vbs, NetIf, 
+            Vbs2 = make_varbind_list(Vbs), % OTP-16207
+	    send_discovery_pdu(Dest, Record, ContextName, Vbs2, NetIf, 
 			       ExtraInfo);
 	Error ->
 	    Error
