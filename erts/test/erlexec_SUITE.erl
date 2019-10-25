@@ -138,10 +138,10 @@ args_file(Config) when is_list(Config) ->
 		     "-extra +XtraArg6~n",
 	       [AFN2,lists:duplicate(1024*1024, $a)]),
     write_file(AFN2,
-		     "-MiscArg3~n"
+		     "-MiscArg3 \t\v\f\r\n   ~n"
 		     "+\\#300~n"
 		     "-args_file ~s~n"
-		     "-MiscArg5~n"
+		     "-MiscArg5 ' '~n"
 		     "+\\#500#anothercomment -MiscArg11~n"
 		     "-args_file ~s~n"
 		     "-args_file ~s~n"
@@ -163,33 +163,30 @@ args_file(Config) when is_list(Config) ->
 	++ "-args_file " ++ AFN1
 	++ " +#800 -MiscArgCLI \\\t -extra +XtraArg7 +XtraArg8",
     {Emu, Misc, Extra} = emu_args(CmdLine),
-    dbg:tracer(),dbg:p(self(),c),
-    dbg:tpl(?MODULE,verify_args, x),
-    dbg:tpl(?MODULE,verify_not_args, x),
     verify_args(["-#100", "-#200", "-#300", "-#400",
 		       "-#500", "-#600", "-#700", "-#800"], Emu),
     verify_args(["-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
-                 "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8",
+                 "-MiscArg5", " ", "-MiscArg6", "-MiscArg7", "-MiscArg8",
                  "val  with  double   space",
                  "-MiscArg9","\n","-MiscArg10","\n\t","-MiscArgCLI"],
 		      Misc),
     verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 		       "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 		      Extra),
-    verify_not_args(["-MiscArg11", "-#1000", "+XtraArg10",
+    verify_not_args(["","-MiscArg11", "-#1000", "+XtraArg10",
 			   "-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
 			   "-MiscArg5", "-MiscArg6", "-MiscArg7", "-MiscArg8",
                            "-MiscArg9", "-MiscArg10","-MiscArgCLI",
 			   "+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 			   "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 			  Emu),
-    verify_not_args(["-MiscArg11", "-#1000", "+XtraArg10",
+    verify_not_args(["","-MiscArg11", "-#1000", "+XtraArg10",
 			   "-#100", "-#200", "-#300", "-#400",
 			   "-#500", "-#600", "-#700", "-#800",
 			   "+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 			   "+XtraArg5", "+XtraArg6", "+XtraArg7", "+XtraArg8"],
 			  Misc),
-    verify_not_args(["-MiscArg11", "-#1000", "+XtraArg10",
+    verify_not_args(["","-MiscArg11", "-#1000", "+XtraArg10",
 			   "-#100", "-#200", "-#300", "-#400",
 			   "-#500", "-#600", "-#700", "-#800",
 			   "-MiscArg1", "-MiscArg2", "-MiscArg3", "-MiscArg4",
