@@ -1716,6 +1716,13 @@ static char **build_args_from_string(char *string, int allow_comments)
 	    case '\0':
 		state = Start;
 		break;
+            case '#':
+                if (allow_comments) {
+                    ++p;
+                    state = BuildComment;
+                    break;
+                }
+                /* fall-through */
 	    default:
 		state = Build;
 		break;
@@ -1723,6 +1730,10 @@ static char **build_args_from_string(char *string, int allow_comments)
 	    break;
 	case Build:
 	    switch (*p) {
+	    case '#':
+                if (!allow_comments)
+                    goto build_default;
+                /* fall-through */
 	    case '\n':
 	    case '\f':
 	    case '\r':
@@ -1747,14 +1758,8 @@ static char **build_args_from_string(char *string, int allow_comments)
 		++p;
 		state = AcceptNext;
 		break;
-            case '#':
-                if (allow_comments) {
-                    ++p;
-                    state = BuildComment;
-                    break;
-                }
-                /* fall-through */
 	    default:
+            build_default:
 		ENSURE();
 		(*cur_s)[s_pos++] = *p++;
 		break;
@@ -1797,7 +1802,7 @@ static char **build_args_from_string(char *string, int allow_comments)
 	    break;
         case BuildComment:
             if (*p == '\n' || *p == '\0') {
-                state = Build;
+                state = Build0;
             } else {
                 p++;
             }
