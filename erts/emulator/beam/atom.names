@@ -454,6 +454,7 @@ atom noeol
 atom noproc
 atom normal
 atom nosuspend
+atom no_fail
 atom no_float
 atom no_integer
 atom no_network
@@ -556,6 +557,7 @@ atom report_errors
 atom reset
 atom reset_seq_trace
 atom restart
+atom resume
 atom return_from
 atom return_to
 atom return_trace

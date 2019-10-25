@@ -208,6 +208,9 @@ remap([{block,Bl0}|Is], Map, Acc) ->
 remap([{bs_get_tail,Src,Dst,Live}|Is], Map, Acc) ->
     I = {bs_get_tail,Map(Src),Map(Dst),Live},
     remap(Is, Map, [I|Acc]);
+remap([{bs_start_match4,Fail,Live,Src,Dst}|Is], Map, Acc) ->
+    I = {bs_start_match4,Fail,Live,Map(Src),Map(Dst)},
+    remap(Is, Map, [I|Acc]);
 remap([{bs_set_position,Src1,Src2}|Is], Map, Acc) ->
     I = {bs_set_position,Map(Src1),Map(Src2)},
     remap(Is, Map, [I|Acc]);
@@ -381,6 +384,11 @@ frame_size([{deallocate,N}|_], _) ->
     N;
 frame_size([{line,_}|Is], Safe) ->
     frame_size(Is, Safe);
+frame_size([{bs_start_match4,Fail,_,_,_}|Is], Safe) ->
+    case Fail of
+        {f,L} -> frame_size_branch(L, Is, Safe);
+        _ -> frame_size(Is, Safe)
+    end;
 frame_size([{bs_set_position,_,_}|Is], Safe) ->
     frame_size(Is, Safe);
 frame_size([{bs_get_tail,_,_,_}|Is], Safe) ->
@@ -422,6 +430,9 @@ is_not_used(Y, [{bs_init,_,_,_,Ss,Dst}|Is]) ->
     is_not_used_ss_dst(Y, Ss, Dst, Is);
 is_not_used(Y, [{bs_put,{f,_},_,Ss}|Is]) ->
     not member(Y, Ss) andalso is_not_used(Y, Is);
+is_not_used(Y, [{bs_start_match4,_Fail,_Live,Src,Dst}|Is]) ->
+    Y =/= Src andalso Y =/= Dst andalso
+        is_not_used(Y, Is);
 is_not_used(Y, [{bs_set_position,Src1,Src2}|Is]) ->
     Y =/= Src1 andalso Y =/= Src2 andalso
         is_not_used(Y, Is);

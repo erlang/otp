@@ -102,9 +102,9 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
     try validate_1(Code, Name, Ar, Entry, Ft) of
 	_ -> validate_0(Module, Fs, Ft)
     catch
-	throw:Error ->
-	    %% Controlled error.
-	    [Error|validate_0(Module, Fs, Ft)];
+	 throw:Error ->
+	     %% Controlled error.
+	     [Error|validate_0(Module, Fs, Ft)];
         Class:Error:Stack ->
 	    %% Crash.
 	    io:fwrite("Function: ~w/~w\n", [Name,Ar]),
@@ -214,7 +214,7 @@ build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc0) ->
     case Code of
 	[{label,Entry}|Is] ->
 	    Info = #{ arity => Arity,
-                  parameter_types => find_parameter_types(Is, #{}) },
+                  parameter_info => find_parameter_info(Is, #{}) },
 	    build_function_table(Fs, [{Entry, Info} | Acc0]);
 	_ ->
 	    %% Something is seriously wrong. Ignore it for now.
@@ -224,9 +224,11 @@ build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc0) ->
 build_function_table([], Acc) ->
     gb_trees:from_orddict(sort(Acc)).
 
-find_parameter_types([{'%', {type_info, Reg, Type}} | Is], Acc) ->
-    find_parameter_types(Is, Acc#{ Reg => Type });
-find_parameter_types(_, Acc) ->
+find_parameter_info([{'%', {var_info, Reg, Info}} | Is], Acc) ->
+    find_parameter_info(Is, Acc#{ Reg => Info });
+find_parameter_info([{'%', _} | Is], Acc) ->
+    find_parameter_info(Is, Acc);
+find_parameter_info(_, Acc) ->
     Acc.
 
 validate_1(Is, Name, Arity, Entry, Ft) ->
@@ -356,8 +358,12 @@ valfun_1({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     assert_type(#t_bs_context{}, Ctx, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
+
+    #t_bs_context{tail_unit=Unit} = get_raw_type(Ctx, Vst0),
+
     Vst = prune_x_regs(Live, Vst0),
-    extract_term(#t_bitstring{}, bs_get_tail, [Ctx], Dst, Vst, Vst0);
+    extract_term(#t_bitstring{size_unit=Unit}, bs_get_tail, [Ctx], Dst,
+                 Vst, Vst0);
 valfun_1(bs_init_writable=I, Vst) ->
     call(I, 1, Vst);
 valfun_1(build_stacktrace=I, Vst) ->
@@ -382,13 +388,13 @@ valfun_1({swap,RegA,RegB}, Vst0) ->
     Vst = set_reg_vref(VrefB, RegA, Vst2),
     set_reg_vref(VrefA, RegB, Vst);
 valfun_1({fmove,Src,{fr,_}=Dst}, Vst) ->
-    assert_type(float, Src, Vst),
+    assert_type(#t_float{}, Src, Vst),
     set_freg(Dst, Vst);
 valfun_1({fmove,{fr,_}=Src,Dst}, Vst0) ->
     assert_freg_set(Src, Vst0),
     assert_fls(checked, Vst0),
     Vst = eat_heap_float(Vst0),
-    create_term(float, fmove, [], Dst, Vst);
+    create_term(#t_float{}, fmove, [], Dst, Vst);
 valfun_1({kill,Reg}, Vst) ->
     create_tag(initialized, kill, [], Reg, Vst);
 valfun_1({init,Reg}, Vst) ->
@@ -491,18 +497,17 @@ valfun_1(remove_message, Vst) ->
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
-valfun_1({'%', {type_info, _Reg, none}}, Vst) ->
-    %% Unreachable code, typically after a call that never returns.
-    kill_state(Vst);
-valfun_1({'%', {type_info, Reg, #t_bs_context{}=Type}}, Vst) ->
-    %% This is a gross hack, but we'll be rid of it once we have proper union
-    %% types.
-    override_type(Type, Reg, Vst);
-valfun_1({'%', {type_info, Reg, Type}}, Vst) ->
-    %% Explicit type information inserted by optimization passes to indicate
-    %% that Reg has a certain type, so that we can accept cross-function type
-    %% optimizations.
-    update_type(fun meet/2, Type, Reg, Vst);
+valfun_1({'%', {var_info, Reg, Info}}, Vst) ->
+    case proplists:get_value(type, Info, any) of
+        none -> 
+            %% Unreachable code, typically after a call that never returns.
+            kill_state(Vst);
+        Type ->
+            %% Explicit type information inserted by optimization passes to
+            %% indicate that Reg has a certain type, so that we can accept
+            %% cross-function type optimizations.
+            update_type(fun meet/2, Type, Reg, Vst)
+    end;
 valfun_1({'%', {remove_fragility, Reg}}, Vst) ->
     %% This is a hack to make prim_eval:'receive'/2 work.
     %%
@@ -827,57 +832,65 @@ valfun_3({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
     validate_select_tuple_arity(Fail, Choices, Tuple, Vst);
 
 %% New bit syntax matching instructions.
-valfun_3({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, bsm_match_state(), Src, Dst, Vst);
-valfun_3({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, bsm_match_state(Slots), Src, Dst, Vst);
-valfun_3({test,bs_match_string,{f,Fail},[Ctx,_,_]}, Vst) ->
+valfun_3({bs_start_match4,Fail,Live,Src,Dst}, Vst) ->
+    validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
+valfun_3({test,bs_start_match3,{f,_}=Fail,Live,[Src],Dst}, Vst) ->
+    validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
+valfun_3({test,bs_start_match2,{f,_}=Fail,Live,[Src,Slots],Dst}, Vst) ->
+    validate_bs_start_match(Fail, Live, Slots, Src, Dst, Vst);
+valfun_3({test,bs_match_string,{f,Fail},[Ctx,Rem,{string,String}]}, Vst) ->
+    true = is_bitstring(String),                %Assertion.
+    Stride = bit_size(String) + Rem,
+    validate_bs_skip(Fail, Ctx, Stride, Vst);
+valfun_3({test,bs_skip_bits2,{f,Fail},[Ctx,Size,Unit,_Flags]}, Vst) ->
+    assert_term(Size, Vst),
+
+    Stride = case get_raw_type(Size, Vst) of
+                 #t_integer{elements={Same,Same}} -> Same * Unit;
+                 _ -> Unit
+             end,
+
+    validate_bs_skip(Fail, Ctx, Stride, Vst);
+valfun_3({test,bs_test_tail2,{f,Fail},[Ctx,_Size]}, Vst) ->
     assert_type(#t_bs_context{}, Ctx, Vst),
     branch(Fail, Vst, fun(V) -> V end);
-valfun_3({test,bs_skip_bits2,{f,Fail},[Ctx,Src,_,_]}, Vst) ->
+valfun_3({test,bs_test_unit,{f,Fail},[Ctx,Unit]}, Vst) ->
     assert_type(#t_bs_context{}, Ctx, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
-valfun_3({test,bs_test_tail2,{f,Fail},[Ctx,_]}, Vst) ->
-    assert_type(#t_bs_context{}, Ctx, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
-valfun_3({test,bs_test_unit,{f,Fail},[Ctx,_]}, Vst) ->
-    assert_type(#t_bs_context{}, Ctx, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
+    type_test(Fail, #t_bs_context{tail_unit=Unit}, Ctx, Vst);
 valfun_3({test,bs_skip_utf8,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
+    validate_bs_skip(Fail, Ctx, 8, Live, Vst);
 valfun_3({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
+    validate_bs_skip(Fail, Ctx, 16, Live, Vst);
 valfun_3({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
+    validate_bs_skip(Fail, Ctx, 32, Live, Vst);
 valfun_3({test,bs_get_integer2=Op,{f,Fail},Live,
-         [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst)
-  when Size * Unit =< 64 ->
+          [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst) ->
+    NumBits = Size * Unit,
     Type = case member(unsigned, Flags) of
-               true ->
-                   NumBits = Size * Unit,
+               true when NumBits =< 64 ->
                    beam_types:make_integer(0, (1 bsl NumBits)-1);
-               false ->
+               _ ->
                    %% Signed integer or way too large, don't bother.
                    #t_integer{}
            end,
-    validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst);
+    validate_bs_get(Op, Fail, Ctx, Live, NumBits, Type, Dst, Vst);
 valfun_3({test,bs_get_integer2=Op,{f,Fail},Live,
-         [Ctx,_Size,_Unit,_Flags],Dst},Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, #t_integer{}, Dst, Vst);
+          [Ctx,_Size,Unit,_Flags],Dst},Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, Unit, #t_integer{}, Dst, Vst);
 valfun_3({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, float, Dst, Vst);
+    validate_bs_get(Op, Fail, Ctx, Live, 1, #t_float{}, Dst, Vst);
 valfun_3({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,Unit,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, #t_bitstring{unit=Unit}, Dst, Vst);
+    Type = #t_bitstring{size_unit=Unit},
+    validate_bs_get(Op, Fail, Ctx, Live, Unit, Type, Dst, Vst);
 valfun_3({test,bs_get_utf8=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
     Type = beam_types:make_integer(0, ?UNICODE_MAX),
-    validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst);
+    validate_bs_get(Op, Fail, Ctx, Live, 8, Type, Dst, Vst);
 valfun_3({test,bs_get_utf16=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
     Type = beam_types:make_integer(0, ?UNICODE_MAX),
-    validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst);
+    validate_bs_get(Op, Fail, Ctx, Live, 16, Type, Dst, Vst);
 valfun_3({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
     Type = beam_types:make_integer(0, ?UNICODE_MAX),
-    validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst);
+    validate_bs_get(Op, Fail, Ctx, Live, 32, Type, Dst, Vst);
 valfun_3({bs_save2,Ctx,SavePoint}, Vst) ->
     bsm_save(Ctx, SavePoint, Vst);
 valfun_3({bs_restore2,Ctx,SavePoint}, Vst) ->
@@ -902,13 +915,13 @@ valfun_3({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
 valfun_3({test,is_atom,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_atom{}, Src, Vst);
 valfun_3({test,is_binary,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, #t_bitstring{unit=8}, Src, Vst);
+    type_test(Lbl, #t_bitstring{size_unit=8}, Src, Vst);
 valfun_3({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_bitstring{}, Src, Vst);
 valfun_3({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, beam_types:make_boolean(), Src, Vst);
 valfun_3({test,is_float,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, float, Src, Vst);
+    type_test(Lbl, #t_float{}, Src, Vst);
 valfun_3({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_tuple{}, Src, Vst);
 valfun_3({test,is_integer,{f,Lbl},[Src]}, Vst) ->
@@ -995,7 +1008,7 @@ valfun_3({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     branch(Fail, Vst,
            fun(SuccVst0) ->
                    SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{unit=8}, bs_init2, [], Dst,
+                   create_term(#t_bitstring{size_unit=8}, bs_init2, [], Dst,
                                SuccVst, SuccVst0)
            end);
 valfun_3({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
@@ -1022,7 +1035,7 @@ valfun_3({bs_append,{f,Fail},Bits,Heap,Live,Unit,Bin,_Flags,Dst}, Vst0) ->
     branch(Fail, Vst,
            fun(SuccVst0) ->
                    SuccVst = prune_x_regs(Live, SuccVst0),
-                   create_term(#t_bitstring{unit=Unit}, bs_append,
+                   create_term(#t_bitstring{size_unit=Unit}, bs_append,
                                [Bin], Dst, SuccVst, SuccVst0)
            end);
 valfun_3({bs_private_append,{f,Fail},Bits,Unit,Bin,_Flags,Dst}, Vst) ->
@@ -1030,7 +1043,7 @@ valfun_3({bs_private_append,{f,Fail},Bits,Unit,Bin,_Flags,Dst}, Vst) ->
     assert_term(Bin, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   create_term(#t_bitstring{unit=Unit}, bs_private_append,
+                   create_term(#t_bitstring{size_unit=Unit}, bs_private_append,
                                [Bin], Dst, SuccVst)
            end);
 valfun_3({bs_put_string,Sz,_}, Vst) when is_integer(Sz) ->
@@ -1047,7 +1060,7 @@ valfun_3({bs_put_float,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Src, Vst),
     branch(Fail, Vst,
            fun(SuccVst) ->
-                   update_type(fun meet/2, float, Src, SuccVst)
+                   update_type(fun meet/2, #t_float{}, Src, SuccVst)
            end);
 valfun_3({bs_put_integer,{f,Fail},Sz,_,_,Src}, Vst) ->
     assert_term(Sz, Vst),
@@ -1222,60 +1235,93 @@ validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
 %% Common code for validating bs_start_match* instructions.
 %%
 
-validate_bs_start_match(Fail, Live, Type, Src, Dst, Vst) ->
-    verify_live(Live, Vst),
-    verify_y_init(Vst),
+validate_bs_start_match({atom,resume}, Live, 0, Src, Dst, Vst0) ->
+    assert_type(#t_bs_context{}, Src, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
 
-    %% #t_bs_context{} can represent either a match context or a term, so we
-    %% have to mark the source as a term if it fails with a match context as an
-    %% input. This hack is only needed until we get proper union types.
+    Vst = assign(Src, Dst, Vst0),
+    prune_x_regs(Live, Vst);
+validate_bs_start_match({atom,no_fail}, Live, Slots, Src, Dst, Vst0) ->
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    Vst1 = update_type(fun meet/2, #t_bs_matchable{}, Src, Vst0),
+
+    %% Retain the current unit, if known.
+    SrcType = get_movable_term_type(Src, Vst1),
+    TailUnit = beam_types:get_bs_matchable_unit(SrcType),
+
+    CtxType = #t_bs_context{slots=Slots,tail_unit=TailUnit},
+
+    Vst = prune_x_regs(Live, Vst1),
+    extract_term(CtxType, bs_start_match, [Src], Dst, Vst, Vst0);
+validate_bs_start_match({f,Fail}, Live, Slots, Src, Dst, Vst) ->
     branch(Fail, Vst,
            fun(FailVst) ->
-                   case get_movable_term_type(Src, FailVst) of
-                       #t_bs_context{} -> override_type(any, Src, FailVst);
-                       _ -> FailVst
-                   end
+                   update_type(fun subtract/2, #t_bs_matchable{}, Src, FailVst)
            end,
-           fun(SuccVst0) ->
-                   SuccVst1 = update_type(fun meet/2, #t_bitstring{},
-                                          Src, SuccVst0),
-                   SuccVst = prune_x_regs(Live, SuccVst1),
-                   extract_term(Type, bs_start_match, [Src], Dst,
-                                SuccVst, SuccVst0)
+           fun(SuccVst) ->
+                   validate_bs_start_match({atom,no_fail}, Live, Slots,
+                                           Src, Dst, SuccVst)
            end).
 
 %%
 %% Common code for validating bs_get* instructions.
 %%
-validate_bs_get(Op, Fail, Ctx, Live, Type, Dst, Vst) ->
+validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst) ->
     assert_type(#t_bs_context{}, Ctx, Vst),
     verify_live(Live, Vst),
     verify_y_init(Vst),
 
+    #t_bs_context{tail_unit=TailUnit} = get_raw_type(Ctx, Vst),
+    CtxType = #t_bs_context{tail_unit=gcd(Stride, TailUnit)},
+
     branch(Fail, Vst,
            fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
+                   SuccVst1 = update_type(fun meet/2, CtxType, Ctx, SuccVst0),
+                   SuccVst = prune_x_regs(Live, SuccVst1),
                    extract_term(Type, Op, [Ctx], Dst, SuccVst, SuccVst0)
            end).
 
 %%
-%% Common code for validating bs_skip_utf* instructions.
+%% Common code for validating bs_skip* instructions.
 %%
-validate_bs_skip_utf(Fail, Ctx, Live, Vst) ->
+validate_bs_skip(Fail, Ctx, Stride, Vst) ->
+    validate_bs_skip(Fail, Ctx, Stride, no_live, Vst).
+
+validate_bs_skip(Fail, Ctx, Stride, Live, Vst) ->
     assert_type(#t_bs_context{}, Ctx, Vst),
+
+    #t_bs_context{tail_unit=TailUnit} = get_raw_type(Ctx, Vst),
+    CtxType = #t_bs_context{tail_unit=gcd(Stride, TailUnit)},
+
+    validate_bs_skip_1(Fail, Ctx, CtxType, Live, Vst).
+
+validate_bs_skip_1(Fail, Ctx, CtxType, no_live, Vst) ->
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   update_type(fun meet/2, CtxType, Ctx, SuccVst0)
+           end);
+validate_bs_skip_1(Fail, Ctx, CtxType, Live, Vst) ->
     verify_y_init(Vst),
     verify_live(Live, Vst),
-
     branch(Fail, Vst,
-           fun(SuccVst) ->
+           fun(SuccVst0) ->
+                   SuccVst = update_type(fun meet/2, CtxType, Ctx, SuccVst0),
                    prune_x_regs(Live, SuccVst)
            end).
-
 %%
 %% Common code for is_$type instructions.
 %%
+type_test(Fail, #t_bs_context{}=Type, Reg, Vst) ->
+    assert_movable(Reg, Vst),
+    type_test_1(Fail, Type, Reg, Vst);
 type_test(Fail, Type, Reg, Vst) ->
     assert_term(Reg, Vst),
+    type_test_1(Fail, Type, Reg, Vst).
+
+type_test_1(Fail, Type, Reg, Vst) ->
     branch(Fail, Vst,
            fun(FailVst) ->
                    update_type(fun subtract/2, Type, Reg, FailVst)
@@ -1341,8 +1387,8 @@ verify_call_args({f,Lbl}, Live, #vst{ft=Ft}=Vst) when is_integer(Live) ->
     case gb_trees:lookup(Lbl, Ft) of
         {value, FuncInfo} ->
             #{ arity := Live,
-               parameter_types := ParamTypes } = FuncInfo,
-            verify_local_args(Live - 1, ParamTypes, #{}, Vst);
+               parameter_info := ParamInfo } = FuncInfo,
+            verify_local_args(Live - 1, ParamInfo, #{}, Vst);
         none ->
             error(local_call_to_unknown_function)
     end;
@@ -1357,9 +1403,9 @@ verify_remote_args_1(X, Vst) ->
     assert_durable_term({x, X}, Vst),
     verify_remote_args_1(X - 1, Vst).
 
-verify_local_args(-1, _ParamTypes, _CtxIds, _Vst) ->
+verify_local_args(-1, _ParamInfo, _CtxIds, _Vst) ->
     ok;
-verify_local_args(X, ParamTypes, CtxRefs, Vst) ->
+verify_local_args(X, ParamInfo, CtxRefs, Vst) ->
     Reg = {x, X},
     assert_not_fragile(Reg, Vst),
     case get_movable_term_type(Reg, Vst) of
@@ -1369,36 +1415,37 @@ verify_local_args(X, ParamTypes, CtxRefs, Vst) ->
                 #{ VRef := Other } ->
                     error({multiple_match_contexts, [Reg, Other]});
                 #{} ->
-                    verify_arg_type(Reg, Type, ParamTypes),
-                    verify_local_args(X - 1, ParamTypes,
+                    verify_arg_type(Reg, Type, ParamInfo),
+                    verify_local_args(X - 1, ParamInfo,
                                       CtxRefs#{ VRef => Reg }, Vst)
             end;
         Type ->
-            verify_arg_type(Reg, Type, ParamTypes),
-            verify_local_args(X - 1, ParamTypes, CtxRefs, Vst)
+            verify_arg_type(Reg, Type, ParamInfo),
+            verify_local_args(X - 1, ParamInfo, CtxRefs, Vst)
     end.
 
-%% Verifies that the given argument narrows to what the function expects.
-verify_arg_type(Reg, #t_bs_context{}, ParamTypes) ->
-    %% Match contexts require explicit support, and may not be passed to a
-    %% function that accepts arbitrary terms.
-    case ParamTypes of
-        #{ Reg := #t_bs_context{}} -> ok;
-        #{} -> error(no_bs_start_match2)
-    end;
 verify_arg_type(Reg, GivenType, ParamTypes) ->
-    case ParamTypes of
-        #{ Reg := #t_bs_context{}} ->
-            %% Functions that accept match contexts also accept all other
-            %% terms. This will change once we support union types.
-            ok;
-        #{ Reg := RequiredType } ->
-            case meet(GivenType, RequiredType) of
-                GivenType -> ok;
-                _ -> error({bad_arg_type, Reg, GivenType, RequiredType})
+    case {ParamTypes, GivenType} of
+        {#{ Reg := Info }, #t_bs_context{}} ->
+            %% Match contexts require explicit support, and may not be passed
+            %% to a function that accepts arbitrary terms.
+            case member(accepts_match_context, Info) of
+                true -> verify_arg_type_1(Reg, GivenType, Info);
+                false -> error(no_bs_start_match2)
             end;
-        #{} ->
+        {_, #t_bs_context{}} ->
+            error(no_bs_start_match2);
+        {#{ Reg := Info }, _} ->
+            verify_arg_type_1(Reg, GivenType, Info);
+        {#{}, _} ->
             ok
+    end.
+
+verify_arg_type_1(Reg, GivenType, Info) ->
+    RequiredType = proplists:get_value(type, Info, any),
+    case meet(GivenType, RequiredType) of
+        GivenType -> ok;
+        _ -> error({bad_arg_type, Reg, GivenType, RequiredType})
     end.
 
 allocate(Tag, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->
@@ -1581,11 +1628,6 @@ assert_unique_map_keys([_,_|_]=Ls) ->
 %%% New binary matching instructions.
 %%%
 
-bsm_match_state() ->
-    #t_bs_context{}.
-bsm_match_state(Slots) ->
-    #t_bs_context{slots=Slots}.
-
 bsm_save(Reg, {atom,start}, Vst) ->
     %% Save point refering to where the match started.
     %% It is always valid. But don't forget to validate the context register.
@@ -1713,11 +1755,11 @@ infer_types_1(#value{op={bif,is_atom},args=[Src]}, Val, Op, Vst) ->
 infer_types_1(#value{op={bif,is_boolean},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(beam_types:make_boolean(), Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_binary},args=[Src]}, Val, Op, Vst) ->
-    infer_type_test_bif(#t_bitstring{unit=8}, Src, Val, Op, Vst);
+    infer_type_test_bif(#t_bitstring{size_unit=8}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_bitstring},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_bitstring{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_float},args=[Src]}, Val, Op, Vst) ->
-    infer_type_test_bif(float, Src, Val, Op, Vst);
+    infer_type_test_bif(#t_float{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
@@ -2015,11 +2057,12 @@ is_literal({integer,I}) when is_integer(I) -> true;
 is_literal({literal,_L}) -> true;
 is_literal(_) -> false.
 
-%% `dialyzer` complains about the float and general literal cases never being
-%% matched and I don't like suppressing warnings. Should they become possible
-%% I'm sure `dialyzer` will warn about it.
+%% `dialyzer` complains about the general literal case never being matched and
+%% I don't like suppressing warnings. Should it become possible I'm sure
+%% `dialyzer` will warn about it.
 value_to_literal([]) -> nil;
 value_to_literal(A) when is_atom(A) -> {atom,A};
+value_to_literal(F) when is_float(F) -> {float,F};
 value_to_literal(I) when is_integer(I) -> {integer,I}.
 
 %% These are just wrappers around their equivalents in beam_types, which
@@ -2570,6 +2613,12 @@ check_limit({fr,Fr}=Src) when is_integer(Fr) ->
 
 min(A, B) when is_integer(A), is_integer(B), A < B -> A;
 min(A, B) when is_integer(A), is_integer(B) -> B.
+
+gcd(A, B) ->
+    case A rem B of
+        0 -> B;
+        X -> gcd(B, X)
+    end.
 
 gb_trees_from_list(L) -> gb_trees:from_orddict(sort(L)).
 

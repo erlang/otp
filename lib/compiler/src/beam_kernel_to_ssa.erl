@@ -278,7 +278,8 @@ select_binary(#k_val_clause{val=#k_binary{segs=#k_var{name=Ctx0}},body=B},
     {Bis0,St2} = match_cg(B, Vf, St1),
     {TestIs,St} = make_succeeded(Ctx, {guard, Tf}, St2),
     Bis1 = [#b_set{op=bs_start_match,dst=Ctx,
-                   args=[ssa_arg(Src, St)]}] ++ TestIs ++ Bis0,
+                   args=[#b_literal{val=new},
+                         ssa_arg(Src, St)]}] ++ TestIs ++ Bis0,
     Bis = finish_bs_matching(Bis1),
     {Bis,St}.
 

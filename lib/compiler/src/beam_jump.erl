@@ -722,7 +722,13 @@ instr_labels({recv_set,Lbl}) ->
     do_instr_labels(Lbl);
 instr_labels({fcheckerror,Lbl}) ->
     do_instr_labels(Lbl);
-instr_labels(_) -> [].
+instr_labels({bs_start_match4,Fail,_,_,_}) ->
+    case Fail of
+        {f,L} -> [L];
+        {atom,_} -> []
+    end;
+instr_labels(_) ->
+    [].
 
 do_instr_labels({f,0}) -> [];
 do_instr_labels({f,F}) -> [F].

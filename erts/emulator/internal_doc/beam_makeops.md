@@ -1087,11 +1087,13 @@ use as a temporary X register.
 
 * `y` - Y register.  The default value is 0.
 
-* `l` - Foating point register number.  The default value is 0.
+* `l` - Floating point register number.  The default value is 0.
 
 * `i` - Tagged literal integer.  The default value is 0.
 
 * `a` - Tagged atom.  The default value is the empty atom (`am_Empty`).
+
+* `p` - Zero failure label.
 
 * `n` - NIL (`[]`, the empty list).
 

@@ -88,11 +88,12 @@ split_even(Rs) -> split_even(Rs, [], []).
 %%%
 %%% Local functions.
 %%%
-
 replace_labels_1([{test,Test,{f,Lbl},Ops}|Is], Acc, D, Fb) ->
-    replace_labels_1(Is, [{test,Test,{f,label(Lbl, D, Fb)},Ops}|Acc], D, Fb);
+    I = {test,Test,{f,label(Lbl, D, Fb)},Ops},
+    replace_labels_1(Is, [I | Acc], D, Fb);
 replace_labels_1([{test,Test,{f,Lbl},Live,Ops,Dst}|Is], Acc, D, Fb) ->
-    replace_labels_1(Is, [{test,Test,{f,label(Lbl, D, Fb)},Live,Ops,Dst}|Acc], D, Fb);
+    I = {test,Test,{f,label(Lbl, D, Fb)},Live,Ops,Dst},
+    replace_labels_1(Is, [I | Acc], D, Fb);
 replace_labels_1([{select,I,R,{f,Fail0},Vls0}|Is], Acc, D, Fb) ->
     Vls = map(fun ({f,L}) -> {f,label(L, D, Fb)};
 		   (Other) -> Other
@@ -134,6 +135,9 @@ replace_labels_1([{put_map=I,{f,Lbl},Op,Src,Dst,Live,List}|Is], Acc, D, Fb)
     replace_labels_1(Is, [{I,{f,label(Lbl, D, Fb)},Op,Src,Dst,Live,List}|Acc], D, Fb);
 replace_labels_1([{get_map_elements=I,{f,Lbl},Src,List}|Is], Acc, D, Fb) when Lbl =/= 0 ->
     replace_labels_1(Is, [{I,{f,label(Lbl, D, Fb)},Src,List}|Acc], D, Fb);
+replace_labels_1([{bs_start_match4,{f,Lbl},Live,Src,Dst}|Is], Acc, D, Fb) ->
+    I = {bs_start_match4,{f,label(Lbl, D, Fb)},Live,Src,Dst},
+    replace_labels_1(Is, [I | Acc], D, Fb);
 replace_labels_1([I|Is], Acc, D, Fb) ->
     replace_labels_1(Is, [I|Acc], D, Fb);
 replace_labels_1([], Acc, _, _) -> Acc.

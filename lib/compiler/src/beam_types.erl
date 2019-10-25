@@ -26,9 +26,11 @@
 
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
--export([get_singleton_value/1,
+-export([is_boolean_type/1,
+         get_bs_matchable_unit/1,
+         is_bs_matchable_type/1,
+         get_singleton_value/1,
          is_singleton_type/1,
-         is_boolean_type/1,
          normalize/1]).
 
 -export([get_tuple_element/2, set_tuple_element/3]).
@@ -37,6 +39,8 @@
 
 -export([make_atom/1,
          make_boolean/0,
+         make_float/1,
+         make_float/2,
          make_integer/1,
          make_integer/2]).
 
@@ -49,7 +53,7 @@
 
 -define(IS_NUMBER_TYPE(N),
         N =:= number orelse
-        N =:= float orelse
+        is_record(N, t_float) orelse
         is_record(N, t_integer)).
 
 -define(TUPLE_SET_LIMIT, 12).
@@ -322,6 +326,14 @@ subtract(#t_atom{elements=[_|_]=Set0}, #t_atom{elements=[_|_]=Set1}) ->
         [] -> none;
         [_|_]=Set -> #t_atom{elements=Set}
     end;
+subtract(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
+    subtract_matchable(T, UnitA, UnitB);
+subtract(#t_bitstring{size_unit=UnitA}=T, #t_bitstring{size_unit=UnitB}) ->
+    subtract_matchable(T, UnitA, UnitB);
+subtract(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
+    subtract_matchable(T, UnitA, UnitB);
+subtract(#t_bs_context{tail_unit=UnitA}=T, #t_bs_context{tail_unit=UnitB}) ->
+    subtract_matchable(T, UnitA, UnitB);
 subtract(#t_integer{elements={Min, Max}}, #t_integer{elements={N,N}}) ->
     if
         Min =:= N, Max =:= N ->
@@ -333,8 +345,8 @@ subtract(#t_integer{elements={Min, Max}}, #t_integer{elements={N,N}}) ->
         Max =:= N ->
             #t_integer{elements={Min, Max - 1}}
     end;
-subtract(number, float) -> #t_integer{};
-subtract(number, #t_integer{elements=any}) -> float;
+subtract(number, #t_float{elements=any}) -> #t_integer{};
+subtract(number, #t_integer{elements=any}) -> #t_float{};
 subtract(list, cons) -> nil;
 subtract(list, nil) -> cons;
 
@@ -357,24 +369,52 @@ subtract(#t_union{tuple_set=#t_tuple{}=Tuple}=A, #t_tuple{}=B) ->
         Tuple -> shrink_union(A#t_union{tuple_set=none});
         _ -> A
     end;
+subtract(#t_union{other=Other}=A, B) ->
+    shrink_union(A#t_union{other=subtract(Other, B)});
 
 subtract(T, _) -> T.
+
+subtract_matchable(T, UnitA, UnitB) ->
+    if
+        UnitA rem UnitB =:= 0 -> none;
+        UnitA rem UnitB =/= 0 -> T
+    end.
 
 %%%
 %%% Type operators
 %%%
+
+-spec get_bs_matchable_unit(type()) -> pos_integer() | error.
+get_bs_matchable_unit(#t_bitstring{size_unit=Unit}) ->
+    Unit;
+get_bs_matchable_unit(#t_bs_context{tail_unit=Unit}) ->
+    Unit;
+get_bs_matchable_unit(#t_bs_matchable{tail_unit=Unit}) ->
+    Unit;
+get_bs_matchable_unit(_) ->
+    error.
+
+-spec is_bs_matchable_type(type()) -> boolean().
+is_bs_matchable_type(Type) ->
+    get_bs_matchable_unit(Type) =/= error.
 
 -spec get_singleton_value(Type) -> Result when
       Type :: type(),
       Result :: {ok, term()} | error.
 get_singleton_value(#t_atom{elements=[Atom]}) ->
     {ok, Atom};
+get_singleton_value(#t_float{elements={Float,Float}}) ->
+    {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
     {ok, Int};
 get_singleton_value(nil) ->
     {ok, []};
 get_singleton_value(_) ->
     error.
+
+-spec is_singleton_type(type()) -> boolean().
+is_singleton_type(Type) ->
+    get_singleton_value(Type) =/= error.
 
 -spec is_boolean_type(type()) -> boolean().
 is_boolean_type(#t_atom{elements=[F,T]}) ->
@@ -385,10 +425,6 @@ is_boolean_type(#t_union{}=T) ->
     is_boolean_type(normalize(T));
 is_boolean_type(_) ->
     false.
-
--spec is_singleton_type(type()) -> boolean().
-is_singleton_type(Type) ->
-    get_singleton_value(Type) =/= error.
 
 -spec set_tuple_element(Index, Type, Elements) -> Elements when
       Index :: pos_integer(),
@@ -440,9 +476,9 @@ make_type_from_value(Value) ->
 mtfv_1([]) -> nil;
 mtfv_1([_|_]) -> cons;
 mtfv_1(A) when is_atom(A) -> #t_atom{elements=[A]};
-mtfv_1(B) when is_binary(B) -> #t_bitstring{unit=8};
+mtfv_1(B) when is_binary(B) -> #t_bitstring{size_unit=8};
 mtfv_1(B) when is_bitstring(B) -> #t_bitstring{};
-mtfv_1(F) when is_float(F) -> float;
+mtfv_1(F) when is_float(F) -> make_float(F);
 mtfv_1(F) when is_function(F) ->
     {arity, Arity} = erlang:fun_info(F, arity),
     #t_fun{arity=Arity};
@@ -465,6 +501,14 @@ make_atom(Atom) when is_atom(Atom) ->
 -spec make_boolean() -> type().
 make_boolean() ->
     #t_atom{elements=[false,true]}.
+
+-spec make_float(float()) -> type().
+make_float(Float) when is_float(Float) ->
+    make_float(Float, Float).
+
+-spec make_float(float(), float()) -> type().
+make_float(Min, Max) when is_float(Min), is_float(Max), Min =< Max ->
+    #t_float{elements={Min, Max}}.
 
 -spec make_integer(integer()) -> type().
 make_integer(Int) when is_integer(Int) ->
@@ -553,18 +597,46 @@ glb(#t_atom{elements=[_|_]}=T, #t_atom{elements=any}) ->
     T;
 glb(#t_atom{elements=any}, #t_atom{elements=[_|_]}=T) ->
     T;
-glb(#t_bs_context{slots=SlotCountA,valid=ValidSlotsA},
-    #t_bs_context{slots=SlotCountB,valid=ValidSlotsB}) ->
+glb(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
+    #t_bitstring{size_unit=U1 * U2 div gcd(U1, U2)};
+glb(#t_bitstring{size_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
+    Unit = UnitA * UnitB div gcd(UnitA, UnitB),
+    T#t_bitstring{size_unit=Unit};
+glb(#t_bs_context{tail_unit=UnitA,slots=SlotCountA,valid=ValidSlotsA},
+    #t_bs_context{tail_unit=UnitB,slots=SlotCountB,valid=ValidSlotsB}) ->
     CommonSlotMask = (1 bsl min(SlotCountA, SlotCountB)) - 1,
     CommonSlotsA = ValidSlotsA band CommonSlotMask,
     CommonSlotsB = ValidSlotsB band CommonSlotMask,
+    Unit = UnitA * UnitB div gcd(UnitA, UnitB),
     if
         CommonSlotsA =:= CommonSlotsB ->
-            #t_bs_context{slots=max(SlotCountA, SlotCountB),
+            #t_bs_context{tail_unit=Unit,
+                          slots=max(SlotCountA, SlotCountB),
                           valid=ValidSlotsA bor ValidSlotsB};
         CommonSlotsA =/= CommonSlotsB ->
             none
     end;
+glb(#t_bs_context{tail_unit=UnitA}=T, #t_bs_matchable{tail_unit=UnitB}) ->
+    Unit = UnitA * UnitB div gcd(UnitA, UnitB),
+    T#t_bs_context{tail_unit=Unit};
+glb(#t_bs_matchable{tail_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
+    Unit = UnitA * UnitB div gcd(UnitA, UnitB),
+    #t_bs_matchable{tail_unit=Unit};
+glb(#t_bs_matchable{tail_unit=UnitA}, #t_bitstring{size_unit=UnitB}=T) ->
+    Unit = UnitA * UnitB div gcd(UnitA, UnitB),
+    T#t_bitstring{size_unit=Unit};
+glb(#t_bs_matchable{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}=T) ->
+    Unit = UnitA * UnitB div gcd(UnitA, UnitB),
+    T#t_bs_context{tail_unit=Unit};
+glb(#t_float{}=T, #t_float{elements=any}) ->
+    T;
+glb(#t_float{elements=any}, #t_float{}=T) ->
+    T;
+glb(#t_float{elements={MinA,MaxA}}, #t_float{elements={MinB,MaxB}})
+  when MinA >= MinB, MinA =< MaxB;
+       MinB >= MinA, MinB =< MaxA ->
+    true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
+    #t_float{elements={max(MinA, MinB),min(MaxA, MaxB)}};
 glb(#t_fun{arity=any}, #t_fun{}=T) ->
     T;
 glb(#t_fun{}=T, #t_fun{arity=any}) ->
@@ -579,17 +651,15 @@ glb(#t_integer{elements={MinA,MaxA}}, #t_integer{elements={MinB,MaxB}})
     true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
     #t_integer{elements={max(MinA, MinB),min(MaxA, MaxB)}};
 glb(#t_integer{}=T, number) -> T;
-glb(float=T, number) -> T;
+glb(#t_float{}=T, number) -> T;
 glb(number, #t_integer{}=T) -> T;
-glb(number, float=T) -> T;
+glb(number, #t_float{}=T) -> T;
 glb(list, cons) -> cons;
 glb(list, nil) -> nil;
 glb(cons, list) -> cons;
 glb(nil, list) -> nil;
 glb(#t_tuple{}=T1, #t_tuple{}=T2) ->
     glb_tuples(T1, T2);
-glb(#t_bitstring{unit=U1}, #t_bitstring{unit=U2}) ->
-    #t_bitstring{unit=U1 * U2 div gcd(U1, U2)};
 glb(_, _) ->
     %% Inconsistent types. There will be an exception at runtime.
     none.
@@ -663,17 +733,37 @@ lub(#t_atom{elements=[_|_]=Set1}, #t_atom{elements=[_|_]=Set2}) ->
     end;
 lub(#t_atom{elements=any}=T, #t_atom{elements=[_|_]}) -> T;
 lub(#t_atom{elements=[_|_]}, #t_atom{elements=any}=T) -> T;
-lub(#t_bitstring{unit=U1}, #t_bitstring{unit=U2}) ->
-    #t_bitstring{unit=gcd(U1, U2)};
+lub(#t_bitstring{size_unit=U1}, #t_bitstring{size_unit=U2}) ->
+    #t_bitstring{size_unit=gcd(U1, U2)};
+lub(#t_bitstring{size_unit=U1}, #t_bs_context{tail_unit=U2}) ->
+    #t_bs_matchable{tail_unit=gcd(U1, U2)};
+lub(#t_bitstring{size_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
+    lub_bs_matchable(UnitA, UnitB);
+lub(#t_bs_context{tail_unit=UnitA,slots=SlotsA,valid=ValidA},
+    #t_bs_context{tail_unit=UnitB,slots=SlotsB,valid=ValidB}) ->
+    #t_bs_context{tail_unit=gcd(UnitA, UnitB),
+                  slots=min(SlotsA, SlotsB),
+                  valid=ValidA band ValidB};
+lub(#t_bs_context{tail_unit=U1}, #t_bitstring{size_unit=U2}) ->
+    #t_bs_matchable{tail_unit=gcd(U1, U2)};
+lub(#t_bs_context{tail_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
+    lub_bs_matchable(UnitA, UnitB);
+lub(#t_bs_matchable{tail_unit=UnitA}, #t_bs_matchable{tail_unit=UnitB}) ->
+    lub_bs_matchable(UnitA, UnitB);
+lub(#t_bs_matchable{tail_unit=UnitA}, #t_bitstring{size_unit=UnitB}) ->
+    lub_bs_matchable(UnitA, UnitB);
+lub(#t_bs_matchable{tail_unit=UnitA}, #t_bs_context{tail_unit=UnitB}) ->
+    lub_bs_matchable(UnitA, UnitB);
+lub(#t_float{elements={MinA,MaxA}},
+    #t_float{elements={MinB,MaxB}}) ->
+    #t_float{elements={min(MinA,MinB),max(MaxA,MaxB)}};
+lub(#t_float{}, #t_float{}) ->
+    #t_float{};
 lub(#t_fun{}, #t_fun{}) ->
     #t_fun{};
 lub(#t_integer{elements={MinA,MaxA}},
     #t_integer{elements={MinB,MaxB}}) ->
     #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
-lub(#t_bs_context{slots=SlotsA,valid=ValidA},
-    #t_bs_context{slots=SlotsB,valid=ValidB}) ->
-    #t_bs_context{slots=min(SlotsA, SlotsB),
-                  valid=ValidA band ValidB};
 lub(#t_integer{}, #t_integer{}) -> #t_integer{};
 lub(list, cons) -> list;
 lub(cons, list) -> list;
@@ -681,12 +771,12 @@ lub(nil, cons) -> list;
 lub(cons, nil) -> list;
 lub(nil, list) -> list;
 lub(list, nil) -> list;
-lub(#t_integer{}, float) -> number;
-lub(float, #t_integer{}) -> number;
+lub(#t_integer{}, #t_float{}) -> number;
+lub(#t_float{}, #t_integer{}) -> number;
 lub(#t_integer{}, number) -> number;
 lub(number, #t_integer{}) -> number;
-lub(float, number) -> number;
-lub(number, float) -> number;
+lub(#t_float{}, number) -> number;
+lub(number, #t_float{}) -> number;
 lub(#t_tuple{size=Sz,exact=ExactA,elements=EsA},
     #t_tuple{size=Sz,exact=ExactB,elements=EsB}) ->
     Exact = ExactA and ExactB,
@@ -699,6 +789,9 @@ lub(#t_tuple{size=SzA,elements=EsA}, #t_tuple{size=SzB,elements=EsB}) ->
 lub(_T1, _T2) ->
     %%io:format("~p ~p\n", [_T1,_T2]),
     any.
+
+lub_bs_matchable(UnitA, UnitB) ->
+    #t_bs_matchable{tail_unit=gcd(UnitA, UnitB)}.
 
 lub_tuple_elements(MinSize, EsA, EsB) ->
     Es0 = lub_elements(EsA, EsB),
@@ -807,14 +900,19 @@ verified_normal_type(any=T) -> T;
 verified_normal_type(none=T) -> T;
 verified_normal_type(#t_atom{elements=any}=T) -> T;
 verified_normal_type(#t_atom{elements=[_|_]}=T) -> T;
-verified_normal_type(#t_bitstring{unit=U}=T)
+verified_normal_type(#t_bitstring{size_unit=U}=T)
   when is_integer(U), U >= 1 ->
     T;
-verified_normal_type(#t_bs_context{}=T) -> T;
+verified_normal_type(#t_bs_context{tail_unit=U}=T)
+  when is_integer(U), U >= 1 ->
+    T;
+verified_normal_type(#t_bs_matchable{tail_unit=U}=T)
+  when is_integer(U), U >= 1 ->
+    T;
 verified_normal_type(#t_fun{arity=Arity}=T)
   when Arity =:= any; is_integer(Arity) ->
     T;
-verified_normal_type(float=T) -> T;
+verified_normal_type(#t_float{}=T) -> T;
 verified_normal_type(#t_integer{elements=any}=T) -> T;
 verified_normal_type(#t_integer{elements={Min,Max}}=T)
   when is_integer(Min), is_integer(Max), Min =< Max ->

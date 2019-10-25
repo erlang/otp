@@ -1125,6 +1125,8 @@ resolve_inst({put_tuple2,[Dst,{{z,1},{u,_},List0}]},_,_,_) ->
 %%
 %% OTP 23.
 %%
+resolve_inst({bs_start_match4,[Fail,Live,Src,Dst]},_,_,_) ->
+    {bs_start_match4,Fail,Live,Src,Dst};
 resolve_inst({swap,[_,_]=List},_,_,_) ->
     [R1,R2] = resolve_args(List),
     {swap,R1,R2};

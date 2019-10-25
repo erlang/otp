@@ -145,14 +145,15 @@ type(Depth) ->
 other_types() ->
     [any,
      gen_atom(),
-     gen_binary(),
+     gen_bs_matchable(),
+     gen_fun(),
      none].
 
 list_types() ->
     [cons, list, nil].
 
 numerical_types() ->
-    [gen_integer(), float, number].
+    [gen_integer(), gen_float(), number].
 
 nested_types(Depth) when Depth >= 3 -> [none];
 nested_types(Depth) -> [#t_map{}, gen_union(Depth + 1), gen_tuple(Depth + 1)].
@@ -172,8 +173,13 @@ gen_atom() ->
 gen_atom_val() ->
     ?LET(N, range($0, $~), list_to_atom([N])).
 
-gen_binary() ->
-    ?SHRINK(#t_bitstring{unit=range(1, 128)}, [#t_bitstring{unit=1}]).
+gen_bs_matchable() ->
+    oneof([?LET(Unit, range(1, 128), #t_bs_matchable{tail_unit=Unit}),
+           ?LET(Unit, range(1, 128), #t_bs_context{tail_unit=Unit}),
+           ?LET(Unit, range(1, 128), #t_bitstring{size_unit=Unit})]).
+
+gen_fun() ->
+    oneof([?LET(Arity, range(1, 8), #t_fun{arity=Arity}), #t_fun{arity=any}]).
 
 gen_integer() ->
     oneof([gen_integer_bounded(), #t_integer{}]).
@@ -182,6 +188,17 @@ gen_integer_bounded() ->
     ?LET({A, B}, {integer(), integer()},
          begin
              #t_integer{elements={min(A,B), max(A,B)}}
+         end).
+
+gen_float() ->
+    oneof([gen_float_bounded(), #t_float{}]).
+
+gen_float_bounded() ->
+    ?LET({A, B}, {integer(), integer()},
+         begin
+             Min = float(min(A,B)),
+             Max = float(max(A,B)),
+             #t_float{elements={Min,Max}}
          end).
 
 gen_tuple(Depth) ->

@@ -1224,16 +1224,32 @@ bs_get_tail xy d t
 # "slots" in the context itself, which lets us continue matching even after
 # we've passed it off to another function.
 
+bs_start_match4 a==am_no_fail Live=u Src=xy Ctx=d => \
+    bs_start_match3 p Src Live Ctx
+bs_start_match4 Fail=f Live=u Src=xy Ctx=d => \
+    bs_start_match3 Fail Src Live Ctx
+
 %if ARCH_64
+
+# This instruction nops on 64-bit platforms
+bs_start_match4 a==am_resume Live Same Same =>
+bs_start_match4 a==am_resume Live Ctx Dst => move Ctx Dst
+
 bs_start_match3 Fail Bin Live Ctx | bs_get_position Ctx Pos=x Ignored => \
     i_bs_start_match3_gp Bin Live Fail Ctx Pos
-i_bs_start_match3_gp xy t f d x
+i_bs_start_match3_gp xy t j d x
+
+%else
+
+bs_start_match4 a==am_resume Live Ctx Dst => \
+    bs_start_match4 a=am_no_fail Live Ctx Dst
+
 %endif
 
-bs_start_match3 Fail=f ica Live Dst => jump Fail
+bs_start_match3 Fail=j ica Live Dst => jump Fail
 bs_start_match3 Fail Bin Live Dst => i_bs_start_match3 Bin Live Fail Dst
 
-i_bs_start_match3 xy t f d
+i_bs_start_match3 xy t j d
 
 # Match context position instructions. 64-bit assumes that all positions can
 # fit into an unsigned small.

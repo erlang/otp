@@ -602,3 +602,9 @@ BEAM_FORMAT_NUMBER=0
 ## @spec swap Register1 Register2
 ## @doc  Swaps the contents of two registers.
 169: swap/2
+
+## @spec bs_start_match4 Fail Bin Live Dst
+## @doc  As bs_start_match3, but the fail label can be 'no_fail' when we know
+##       it will never fail at runtime, or 'resume' when we know the input is
+##       a match context.
+170: bs_start_match4/4

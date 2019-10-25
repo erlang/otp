@@ -119,8 +119,6 @@ types(erlang, 'hd', [_]) ->
     sub_safe(any, [cons]);
 types(erlang, 'tl', [_]) ->
     sub_safe(any, [cons]);
-types(erlang, 'length', [_]) ->
-    sub_safe(#t_integer{}, [list]);
 types(erlang, 'not', [_]) ->
     Bool = beam_types:make_boolean(),
     sub_safe(Bool, [Bool]);
@@ -152,7 +150,7 @@ types(erlang, 'bnot', [_]) ->
 
 %% Fixed-type arithmetic
 types(erlang, 'float', [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(erlang, 'round', [_]) ->
     sub_unsafe(#t_integer{}, [number]);
 types(erlang, 'floor', [_]) ->
@@ -162,7 +160,7 @@ types(erlang, 'ceil', [_]) ->
 types(erlang, 'trunc', [_]) ->
     sub_unsafe(#t_integer{}, [number]);
 types(erlang, '/', [_,_]) ->
-    sub_unsafe(float, [number, number]);
+    sub_unsafe(#t_float{}, [number, number]);
 types(erlang, 'div', [_,_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
 types(erlang, 'rem', [_,_]) ->
@@ -184,14 +182,29 @@ types(erlang, '++', [LHS,RHS]) ->
     sub_unsafe(RetType, [list, any]);
 types(erlang, '--', [_,_]) ->
     sub_unsafe(list, [list, list]);
+types(erlang, 'length', [_]) ->
+    %% This may fail when the input is an improper list; it'll be
+    %% subtraction-safe when those are supported.
+    sub_unsafe(#t_integer{}, [list]);
+
+types(erlang, 'iolist_to_binary', [_]) ->
+    %% Arg is an iodata(), despite its name.
+    ArgType = beam_types:join(list, #t_bitstring{size_unit=8}),
+    sub_unsafe(#t_bitstring{size_unit=8}, [ArgType]);
+types(erlang, 'list_to_binary', [_]) ->
+    %% Arg is an iolist(), despite its name.
+    sub_unsafe(#t_bitstring{size_unit=8}, [list]);
+types(erlang, 'list_to_bitstring', [_]) ->
+    %% As list_to_binary but with bitstrings rather than binaries.
+    sub_unsafe(#t_bitstring{}, [list]);
 
 %% Misc ops.
 types(erlang, 'binary_part', [_, _]) ->
     PosLen = make_two_tuple(#t_integer{}, #t_integer{}),
-    Binary = #t_bitstring{unit=8},
+    Binary = #t_bitstring{size_unit=8},
     sub_unsafe(Binary, [Binary, PosLen]);
 types(erlang, 'binary_part', [_, _, _]) ->
-    Binary = #t_bitstring{unit=8},
+    Binary = #t_bitstring{size_unit=8},
     sub_unsafe(Binary, [Binary, #t_integer{}, #t_integer{}]);
 types(erlang, 'is_map_key', [_,_]) ->
     sub_unsafe(beam_types:make_boolean(), [any,#t_map{}]);
@@ -300,55 +313,55 @@ types(erlang, Name, Args) ->
 %%
 
 types(math, cos, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, cosh, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, sin, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, sinh, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, tan, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, tanh, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, acos, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, acosh, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, asin, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, asinh, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, atan, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, atanh, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, erf, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, erfc, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, exp, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, log, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, log2, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, log10, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, sqrt, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, atan2, [_,_]) ->
-    sub_unsafe(float, [number, number]);
+    sub_unsafe(#t_float{}, [number, number]);
 types(math, pow, [_,_]) ->
-    sub_unsafe(float, [number, number]);
+    sub_unsafe(#t_float{}, [number, number]);
 types(math, ceil, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, floor, [_]) ->
-    sub_unsafe(float, [number]);
+    sub_unsafe(#t_float{}, [number]);
 types(math, fmod, [_,_]) ->
-    sub_unsafe(float, [number, number]);
+    sub_unsafe(#t_float{}, [number, number]);
 types(math, pi, []) ->
-    sub_unsafe(float, []);
+    sub_unsafe(#t_float{}, []);
 
 %%
 %% List functions
@@ -458,12 +471,12 @@ sub_safe(RetType, ArgTypes) ->
 mixed_arith_types([FirstType | _]=Args0) ->
     RetType = foldl(fun(#t_integer{}, #t_integer{}) -> #t_integer{};
                        (#t_integer{}, number) -> number;
-                       (#t_integer{}, float) -> float;
-                       (float, #t_integer{}) -> float;
-                       (float, number) -> float;
-                       (float, float) -> float;
+                       (#t_integer{}, #t_float{}) -> #t_float{};
+                       (#t_float{}, #t_integer{}) -> #t_float{};
+                       (#t_float{}, number) -> #t_float{};
+                       (#t_float{}, #t_float{}) -> #t_float{};
                        (number, #t_integer{}) -> number;
-                       (number, float) -> float;
+                       (number, #t_float{}) -> #t_float{};
                        (number, number) -> number;
                        (any, _) -> number;
                        (_, _) -> none

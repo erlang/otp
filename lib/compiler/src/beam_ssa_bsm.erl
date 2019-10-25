@@ -470,7 +470,7 @@ combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
 
 cm_1([#b_set{ op=bs_start_match,
               dst=Ctx,
-              args=[Src] },
+              args=[_,Src] },
       #b_set{ op=succeeded,
               dst=Bool,
               args=[Ctx] }]=MatchSeq, Acc0, Lbl, State0) ->
@@ -575,7 +575,7 @@ aca_1(Blocks, State) ->
     EntryBlock = maps:get(0, Blocks),
     aca_enable_reuse(EntryBlock#b_blk.is, EntryBlock, Blocks, [], State).
 
-aca_enable_reuse([#b_set{op=bs_start_match,args=[Src]}=I0 | Rest],
+aca_enable_reuse([#b_set{op=bs_start_match,args=[_,Src]}=I0 | Rest],
                  EntryBlock, Blocks0, Acc, State0) ->
     case aca_is_reuse_safe(Src, State0) of
         true ->
@@ -619,7 +619,8 @@ aca_is_reuse_safe(Src, State) ->
     %% they're unused so far.
     ordsets:is_element(Src, State#aca.unused_parameters).
 
-aca_reuse_context(#b_set{dst=Dst, args=[Src]}=I0, Block, Blocks0, State0) ->
+aca_reuse_context(#b_set{op=bs_start_match,dst=Dst,args=[_,Src]}=I0,
+                  Block, Blocks0, State0) ->
     %% When matching fails on a reused context it needs to be converted back
     %% to a binary. We only need to do this on the success path since it can't
     %% be a context on the type failure path, but it's very common for these
@@ -875,24 +876,25 @@ sote_rewrite_call(Call0, [Arg | ArgsIn], ArgsOut, State0) ->
             sote_rewrite_call(Call0, ArgsIn, [Arg | ArgsOut], State0)
     end.
 
-%% Adds parameter_type_info annotations to help the validator determine whether
-%% our optimizations were safe.
+%% Adds parameter annotations to help the validator determine whether our
+%% optimizations were safe.
 
 annotate_context_parameters({Fs, ModInfo}) ->
     mapfoldl(fun annotate_context_parameters/2, ModInfo, Fs).
 
 annotate_context_parameters(F, ModInfo) ->
     ParamInfo = funcinfo_get(F, parameter_info, ModInfo),
-    TypeAnno0 = beam_ssa:get_anno(parameter_type_info, F, #{}),
-    TypeAnno = maps:fold(fun(K, _V, Acc) when is_map_key(K, Acc) ->
-                                 %% Assertion.
-                                 error(conflicting_parameter_types);
-                            (K, suitable_for_reuse, Acc) ->
-                                 Acc#{ K => #t_bs_context{} };
-                            (_K, _V, Acc) ->
-                                 Acc
-                         end, TypeAnno0, ParamInfo),
-    {beam_ssa:add_anno(parameter_type_info, TypeAnno, F), ModInfo}.
+    ParamAnno0 = beam_ssa:get_anno(parameter_info, F, #{}),
+    ParamAnno = maps:fold(fun(K, _V, Acc) when is_map_key(K, Acc) ->
+                                  %% Assertion.
+                                  error(conflicting_parameter_types);
+                             (K, suitable_for_reuse, Acc) ->
+                                  Info = maps:get(K, Acc, []),
+                                  Acc#{ K => [accepts_match_context | Info] };
+                             (_K, _V, Acc) ->
+                                  Acc
+                          end, ParamAnno0, ParamInfo),
+    {beam_ssa:add_anno(parameter_info, ParamAnno, F), ModInfo}.
 
 %%%
 %%% +bin_opt_info
