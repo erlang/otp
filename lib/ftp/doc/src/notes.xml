@@ -49,6 +49,22 @@
 
 </section>
 
+  <section><title>Ftp 1.0.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A possibly infinite loop when receiving messages divided
+	    in parts is removed.</p>
+          <p>
+	    Own Id: OTP-16056</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ftp 1.0.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
