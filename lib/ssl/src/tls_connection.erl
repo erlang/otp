@@ -544,13 +544,14 @@ init({call, From}, {start, Timeout},
             connection_env = CEnv,
 	    ssl_options = #{log_level := LogLevel,
                             versions := Versions,
-                            use_ticket := UseTicket,
                             session_tickets := SessionTickets} = SslOpts,
 	    session = NewSession,
 	    connection_states = ConnectionStates0
 	   } = State0) ->
     KeyShare = maybe_generate_client_shares(SslOpts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession),
+    %% Update UseTicket in case of automatic session resumption
+    {UseTicket, State1} = tls_session_ticket:maybe_automatic_session_resumption(State0),
     TicketData = tls_session_ticket:get_ticket_data(SessionTickets, UseTicket),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                        Session#session.session_id,
@@ -572,7 +573,7 @@ init({call, From}, {start, Timeout},
     ssl_logger:debug(LogLevel, outbound, 'handshake', Hello1),
     ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
 
-    State = State0#state{connection_states = ConnectionStates,
+    State = State1#state{connection_states = ConnectionStates,
                          connection_env = CEnv#connection_env{negotiated_version = HelloVersion}, %% Requested version
                          session = Session,
                          handshake_env = HsEnv#handshake_env{tls_handshake_history = Handshake},
@@ -828,7 +829,6 @@ connection(internal, #client_hello{},
 
 connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     %% TLS 1.3
-    %% Drop NewSessionTicket (currently not supported)
     handle_new_session_ticket(NewSessionTicket, State),
     next_event(?FUNCTION_NAME, no_record, State);
 
@@ -1347,8 +1347,10 @@ handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := disabled}
     ok;
 handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSessionTicket,
                           #state{connection_states = ConnectionStates,
-                                 ssl_options = #{session_tickets := true,
-                                                 server_name_indication := SNI}}) ->
+                                 ssl_options = #{session_tickets := SessionTickets,
+                                                 server_name_indication := SNI}})
+  when SessionTickets =:= enabled orelse
+       SessionTickets =:= auto ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
     HKDF = SecParams#security_parameters.prf_algorithm,
