@@ -828,12 +828,17 @@ read_file(const char *path, char *buf, int size)
     }
 }
 
+/* Macro to convert in int to a string */
+#define STR_INDIR(x) #x
+#define STR(x) STR_INDIR(x)
+
 static int
 read_topology(erts_cpu_info_t *cpuinfo)
 {
+    /* Need to fit all of the path in these buffers... */
     char npath[MAXPATHLEN];
     char cpath[MAXPATHLEN];
-    char tpath[MAXPATHLEN];
+    char tpath[MAXPATHLEN+5+30];
     char fpath[MAXPATHLEN];
     DIR *ndir = NULL;
     DIR *cdir = NULL;
@@ -888,7 +893,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 
 	    no_nodes++;
 
-	    sprintf(tpath, "%s/node%d", npath, node_id);
+	    sprintf(tpath, "%." STR(MAXPATHLEN) "s/node%d", npath, node_id);
 
 	    if (!realpath(tpath, cpath))
 		goto error;
@@ -910,7 +915,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 	    if (sscanf(cde->d_name, "cpu%d", &cpu_id) == 1) {
 		char buf[50]; /* Much more than enough for an integer */
 		int processor_id, core_id;
-		sprintf(tpath, "%s/cpu%d/topology/physical_package_id",
+		sprintf(tpath, "%." STR(MAXPATHLEN) "s/cpu%d/topology/physical_package_id",
 			cpath, cpu_id);
 		if (!realpath(tpath, fpath))
 		    continue;
@@ -918,7 +923,7 @@ read_topology(erts_cpu_info_t *cpuinfo)
 		    continue;
 		if (sscanf(buf, "%d", &processor_id) != 1)
 		    continue;
-		sprintf(tpath, "%s/cpu%d/topology/core_id",
+		sprintf(tpath, "%." STR(MAXPATHLEN) "s/cpu%d/topology/core_id",
 			cpath, cpu_id);
 		if (!realpath(tpath, fpath))
 		    continue;

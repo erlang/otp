@@ -6793,9 +6793,9 @@ int newline;
 /* Variables that we swap in and out */
 BOOL utf;
 pcre_uchar first_char;
-const pcre_uint8 *tables;
+const pcre_uint8 *tables = NULL;
 const pcre_uint8 *start_bits;
-PCRE_PUCHAR end_subject;
+PCRE_PUCHAR end_subject = NULL;
 PCRE_PUCHAR req_char_ptr;
 pcre_uchar req_char;
 

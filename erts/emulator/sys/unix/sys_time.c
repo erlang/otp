@@ -1003,6 +1003,8 @@ static ErtsSysPerfCounter rdtsc(void)
 #elif defined(__i386__)
     __asm__ __volatile__ ("rdtsc\n\t"
                            : "=A" (ts) );
+#else
+    ts = 0;
 #endif
     return ts;
 }
