@@ -26,7 +26,7 @@
 	 selectify/1,deselectify/1,underscore/1,match_map/1,map_vars_used/1,
 	 coverage/1,grab_bag/1,literal_binary/1,
          unary_op/1,eq_types/1,match_after_return/1,match_right_tuple/1,
-         tuple_size_in_try/1]).
+         tuple_size_in_try/1,match_boolean_list/1]).
 	 
 -include_lib("common_test/include/ct.hrl").
 
@@ -43,7 +43,7 @@ groups() ->
        underscore,match_map,map_vars_used,coverage,
        grab_bag,literal_binary,unary_op,eq_types,
        match_after_return,match_right_tuple,
-       tuple_size_in_try]}].
+       tuple_size_in_try,match_boolean_list]}].
 
 
 init_per_suite(Config) ->
@@ -938,5 +938,18 @@ tsit(A) ->
     catch
         _:_ -> ok
     end.
+
+match_boolean_list(Config) when is_list(Config) ->
+    BoolList = [N rem 2 =:= 0 || N <- lists:seq(1, 8)],
+    %% The compiler knows that all list elements are booleans, so it translates
+    %% the expression below to a #b_br{} on the list head.
+    %%
+    %% This is fine, but since the value was only used in that branch,
+    %% reserve_zregs/3 (pre_codegen) would place the variable in a z register,
+    %% crashing the compiler in a later pass.
+    ok = case BoolList of
+             [true | _] -> error;
+             [false | _] -> ok
+         end.
 
 id(I) -> I.

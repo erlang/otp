@@ -29,7 +29,8 @@
          associativity/1,
          commutativity/1,
          idempotence/1,
-         identity/1]).
+         identity/1,
+         subtraction/1]).
 
 -export([binary_absorption/1,
          integer_absorption/1,
@@ -50,7 +51,8 @@ groups() ->
        associativity,
        commutativity,
        idempotence,
-       identity]}].
+       identity,
+       subtraction]}].
 
 init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
@@ -77,6 +79,10 @@ idempotence(Config) when is_list(Config) ->
 identity(Config) when is_list(Config) ->
     %% manual test: proper:quickcheck(beam_types_prop:identity()).
     true = ct_property_test:quickcheck(beam_types_prop:identity(), Config).
+
+subtraction(Config) when is_list(Config) ->
+    %% manual test: proper:quickcheck(beam_types_prop:subtraction()).
+    true = ct_property_test:quickcheck(beam_types_prop:subtraction(), Config).
 
 binary_absorption(Config) when is_list(Config) ->
     %% These binaries should meet into {binary,12} as that's the best common

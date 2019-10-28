@@ -34,8 +34,8 @@
 %%    - number               Any number.
 %%       -- #t_float{}       Floating point number.
 %%       -- #t_integer{}     Integer.
-%%    - list                 Any list.
-%%       -- cons             Cons (nonempty list).
+%%    - #t_list{}            Any list.
+%%       -- #t_cons{}        Cons (nonempty list).
 %%       -- nil              The empty list.
 %%    - #t_tuple{}           Tuple.
 %%
@@ -51,15 +51,25 @@
 -define(ATOM_SET_SIZE, 5).
 
 -record(t_atom, {elements=any :: 'any' | ordsets:ordset(atom())}).
--record(t_float, {elements=any :: 'any' | {float(),float()}}).
--record(t_fun, {arity=any :: arity() | 'any'}).
--record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
 -record(t_bitstring, {size_unit=1 :: pos_integer()}).
 -record(t_bs_context, {tail_unit=1 :: pos_integer(),
                        slots=0 :: non_neg_integer(),
                        valid=0 :: non_neg_integer()}).
 -record(t_bs_matchable, {tail_unit=1}).
+-record(t_float, {elements=any :: 'any' | {float(),float()}}).
+-record(t_fun, {arity=any :: arity() | 'any'}).
+-record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
 -record(t_map, {}).
+
+%% `type` is the join of all list elements, and `terminator` is the tail of the
+%% last cons cell ('nil' for proper lists).
+%%
+%% Note that `type` may not be updated unless the entire list is known, and
+%% that the terminator being known is not a guarantee that the rest of the list
+%% is.
+-record(t_cons, {type=any :: type(), terminator=any :: type()}).
+-record(t_list, {type=any :: type(), terminator=any :: type()}).
+
 -record(t_tuple, {size=0 :: integer(),
                   exact=false :: boolean(),
                   elements=#{} :: tuple_elements()}).
@@ -72,11 +82,11 @@
 -type tuple_elements() :: #{ Key :: pos_integer() => type() }.
 
 -type normal_type() :: any | none |
-                       list | cons | nil |
                        number | #t_float{} | #t_integer{} |
                        #t_atom{} |
                        #t_bitstring{} | #t_bs_context{} | #t_bs_matchable{} |
                        #t_fun{} |
+                       #t_list{} | #t_cons{} | nil |
                        #t_map{} |
                        #t_tuple{}.
 
@@ -85,7 +95,7 @@
 -type tuple_set() :: #t_tuple{} | record_set().
 
 -record(t_union, {atom=none :: none | #t_atom{},
-                  list=none :: none | list | cons | nil,
+                  list=none :: none | #t_list{} | #t_cons{} | nil,
                   number=none :: none | number | #t_float{} | #t_integer{},
                   tuple_set=none :: none | tuple_set(),
                   other=none :: normal_type()}).

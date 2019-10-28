@@ -40,6 +40,16 @@
       ArgTypes :: [normal_type()],
       Result :: yes | no | maybe.
 
+will_succeed(erlang, '++', [LHS, _RHS]) ->
+    succeeds_if_type(LHS, proper_list());
+will_succeed(erlang, '--', [LHS, RHS]) ->
+    case {succeeds_if_type(LHS, proper_list()),
+          succeeds_if_type(RHS, proper_list())} of
+        {yes, yes} -> yes;
+        {no, _} -> no;
+        {_, no} -> no;
+        {_, _} -> maybe
+    end;
 will_succeed(erlang, BoolOp, [LHS, RHS]) when BoolOp =:= 'and';
                                               BoolOp =:= 'or' ->
     case {succeeds_if_type(LHS, beam_types:make_boolean()),
@@ -53,6 +63,10 @@ will_succeed(erlang, bit_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, byte_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
+will_succeed(erlang, hd, [Arg]) ->
+    succeeds_if_type(Arg, #t_cons{});
+will_succeed(erlang, length, [Arg]) ->
+    succeeds_if_type(Arg, proper_list());
 will_succeed(erlang, map_size, [Arg]) ->
     succeeds_if_type(Arg, #t_map{});
 will_succeed(erlang, 'not', [Arg]) ->
@@ -68,6 +82,8 @@ will_succeed(erlang, size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, tuple_size, [Arg]) ->
     succeeds_if_type(Arg, #t_tuple{});
+will_succeed(erlang, tl, [Arg]) ->
+    succeeds_if_type(Arg, #t_cons{});
 will_succeed(Mod, Func, Args) ->
     Arity = length(Args),
     case erl_bifs:is_safe(Mod, Func, Arity) of
@@ -115,13 +131,25 @@ types(erlang, 'bit_size', [_]) ->
     sub_safe(#t_integer{}, [#t_bitstring{}]);
 types(erlang, 'byte_size', [_]) ->
     sub_safe(#t_integer{}, [#t_bitstring{}]);
-types(erlang, 'hd', [_]) ->
-    sub_safe(any, [cons]);
-types(erlang, 'tl', [_]) ->
-    sub_safe(any, [cons]);
+types(erlang, hd, [Src]) ->
+    RetType = case beam_types:meet(Src, #t_cons{}) of
+                  #t_cons{type=Type} -> Type;
+                  _ -> any
+              end,
+    sub_safe(RetType, [#t_cons{}]);
+types(erlang, tl, [Src]) ->
+    RetType = case beam_types:meet(Src, #t_cons{}) of
+                  #t_cons{terminator=Term}=Cons ->
+                      beam_types:join(Cons, Term);
+                  _ ->
+                      any
+              end,
+    sub_safe(RetType, [#t_cons{}]);
 types(erlang, 'not', [_]) ->
     Bool = beam_types:make_boolean(),
     sub_safe(Bool, [Bool]);
+types(erlang, 'length', [_]) ->
+    sub_safe(#t_integer{}, [proper_list()]);
 
 %% Boolean ops
 types(erlang, 'and', [_,_]) ->
@@ -172,31 +200,25 @@ types(erlang, 'abs', [_]=Args) ->
     mixed_arith_types(Args);
 
 %% List operations
-types(erlang, '++', [LHS,RHS]) ->
+types(erlang, '++', [LHS, RHS]) ->
     %% `[] ++ RHS` yields RHS, even if RHS is not a list.
-    RetType = case {LHS, RHS} of
-                  {cons, _} -> cons;
-                  {_, cons} -> cons;
-                  _ -> beam_types:join(list, RHS)
-              end,
-    sub_unsafe(RetType, [list, any]);
-types(erlang, '--', [_,_]) ->
-    sub_unsafe(list, [list, list]);
-types(erlang, 'length', [_]) ->
-    %% This may fail when the input is an improper list; it'll be
-    %% subtraction-safe when those are supported.
-    sub_unsafe(#t_integer{}, [list]);
+    ListType = copy_list(LHS, same_length, proper),
+    RetType = beam_types:join(ListType, RHS),
+    sub_unsafe(RetType, [proper_list(), any]);
+types(erlang, '--', [LHS, _]) ->
+    RetType = copy_list(LHS, new_length, proper),
+    sub_unsafe(RetType, [proper_list(), proper_list()]);
 
 types(erlang, 'iolist_to_binary', [_]) ->
     %% Arg is an iodata(), despite its name.
-    ArgType = beam_types:join(list, #t_bitstring{size_unit=8}),
+    ArgType = beam_types:join(#t_list{}, #t_bitstring{size_unit=8}),
     sub_unsafe(#t_bitstring{size_unit=8}, [ArgType]);
 types(erlang, 'list_to_binary', [_]) ->
     %% Arg is an iolist(), despite its name.
-    sub_unsafe(#t_bitstring{size_unit=8}, [list]);
+    sub_unsafe(#t_bitstring{size_unit=8}, [#t_list{}]);
 types(erlang, 'list_to_bitstring', [_]) ->
     %% As list_to_binary but with bitstrings rather than binaries.
-    sub_unsafe(#t_bitstring{}, [list]);
+    sub_unsafe(#t_bitstring{}, [proper_list()]);
 
 %% Misc ops.
 types(erlang, 'binary_part', [_, _]) ->
@@ -366,6 +388,12 @@ types(math, pi, []) ->
 %%
 %% List functions
 %%
+%% These tend to have tricky edge cases around nil and proper lists, be very
+%% careful and try not to narrow the types needlessly. Keep in mind that they
+%% need to be safe regardless of how the function is implemented, so it's best
+%% not to say that a list is proper unless every element must be visited to
+%% succeed.
+%%
 
 %% Operator aliases.
 types(lists, append, [_,_]=Args) ->
@@ -373,59 +401,77 @@ types(lists, append, [_,_]=Args) ->
 types(lists, append, [_]) ->
     %% This is implemented through folding the list over erlang:'++'/2, so it
     %% can hypothetically return anything, but we can infer that its argument
-    %% is a list on success.
-    sub_unsafe(any, [list]);
-types(lists, subtract, [_,_]) ->
-    sub_unsafe(list, [list, list]);
+    %% is a proper list on success.
+    sub_unsafe(any, [proper_list()]);
+types(lists, subtract, [_,_]=Args) ->
+    types(erlang, '--', Args);
 
 %% Functions returning booleans.
 types(lists, all, [_,_]) ->
-    sub_unsafe(beam_types:make_boolean(), [#t_fun{arity=1}, list]);
+    %% This can succeed on improper lists if the fun returns 'false' for an
+    %% element before reaching the end.
+    sub_unsafe(beam_types:make_boolean(), [#t_fun{arity=1}, #t_list{}]);
 types(lists, any, [_,_]) ->
-    sub_unsafe(beam_types:make_boolean(), [#t_fun{arity=1}, list]);
+    %% Doesn't imply that the argument is a proper list; see lists:all/2
+    sub_unsafe(beam_types:make_boolean(), [#t_fun{arity=1}, #t_list{}]);
 types(lists, keymember, [_,_,_]) ->
-    sub_unsafe(beam_types:make_boolean(), [any, #t_integer{}, list]);
+    %% Doesn't imply that the argument is a proper list; see lists:all/2
+    sub_unsafe(beam_types:make_boolean(), [any, #t_integer{}, #t_list{}]);
 types(lists, member, [_,_]) ->
-    sub_unsafe(beam_types:make_boolean(), [any, list]);
+    %% Doesn't imply that the argument is a proper list; see lists:all/2
+    sub_unsafe(beam_types:make_boolean(), [any, #t_list{}]);
 types(lists, prefix, [_,_]) ->
-    sub_unsafe(beam_types:make_boolean(), [list, list]);
+    %% This function doesn't need to reach the end of either list to return
+    %% false, so we can succeed even when both are improper lists.
+    sub_unsafe(beam_types:make_boolean(), [#t_list{}, #t_list{}]);
 types(lists, suffix, [_,_]) ->
-    sub_unsafe(beam_types:make_boolean(), [list, list]);
+    %% A different implementation could return true when the first list is nil,
+    %% so we can't tell if either is proper.
+    sub_unsafe(beam_types:make_boolean(), [#t_list{}, #t_list{}]);
 
 %% Functions returning plain lists.
-types(lists, dropwhile, [_,_]) ->
-    sub_unsafe(list, [#t_fun{arity=1}, list]);
-types(lists, duplicate, [_,_]) ->
-    sub_unsafe(list, [#t_integer{}, any]);
-types(lists, filter, [_,_]) ->
-    sub_unsafe(list, [#t_fun{arity=1}, list]);
+types(lists, droplast, [List]) ->
+    RetType = copy_list(List, new_length, proper),
+    sub_unsafe(RetType, [proper_list()]);
+types(lists, dropwhile, [_Fun, List]) ->
+    %% If the element is found before the end of the list, we could return an
+    %% improper list.
+    RetType = copy_list(List, new_length, maybe_improper),
+    sub_unsafe(RetType, [#t_fun{arity=1}, #t_list{}]);
+types(lists, duplicate, [_Count, Element]) ->
+    sub_unsafe(proper_list(Element), [#t_integer{}, any]);
+types(lists, filter, [_Fun, List]) ->
+    RetType = copy_list(List, new_length, proper),
+    sub_unsafe(RetType, [#t_fun{arity=1}, proper_list()]);
 types(lists, flatten, [_]) ->
-    sub_unsafe(list, [list]);
-types(lists, map, [_Fun, List]) ->
-    sub_unsafe(same_length_type(List), [#t_fun{arity=1}, list]);
+    sub_unsafe(proper_list(), [proper_list()]);
+types(lists, map, [_Fun, _List]) ->
+    sub_unsafe(#t_list{}, [#t_fun{arity=1}, proper_list()]);
 types(lists, reverse, [List]) ->
-    sub_unsafe(same_length_type(List), [list]);
+    RetType = copy_list(List, same_length, proper),
+    sub_unsafe(RetType, [proper_list()]);
 types(lists, sort, [List]) ->
-    sub_unsafe(same_length_type(List), [list]);
-types(lists, takewhile, [_,_]) ->
-    sub_unsafe(list, [#t_fun{arity=1}, list]);
+    RetType = copy_list(List, same_length, proper),
+    sub_unsafe(RetType, [proper_list()]);
+types(lists, takewhile, [_Fun, List]) ->
+    %% Doesn't imply that the argument is a proper list; see lists:all/2
+    RetType = copy_list(List, new_length, proper),
+    sub_unsafe(RetType, [#t_fun{arity=1}, #t_list{}]);
 types(lists, usort, [List]) ->
-    sub_unsafe(same_length_type(List), [list]);
-types(lists, zip, [A,B]) ->
-    ZipType = lists_zip_type([A,B]),
-    sub_unsafe(ZipType, [ZipType, ZipType]);
-types(lists, zip3, [A,B,C]) ->
-    ZipType = lists_zip_type([A,B,C]),
-    sub_unsafe(ZipType, [ZipType, ZipType, ZipType]);
-types(lists, zipwith, [_,A,B]) ->
-    ZipType = lists_zip_type([A,B]),
-    sub_unsafe(ZipType, [#t_fun{arity=2}, ZipType, ZipType]);
-types(lists, zipwith3, [_,A,B,C]) ->
-    ZipType = lists_zip_type([A,B,C]),
-    sub_unsafe(ZipType, [#t_fun{arity=3}, ZipType, ZipType, ZipType]);
+    %% The result is not quite the same length, but a non-empty list will stay
+    %% non-empty.
+    RetType = copy_list(List, same_length, proper),
+    sub_unsafe(RetType, [proper_list()]);
+types(lists, zip, [_,_]=Lists) ->
+    {RetType, ArgType} = lists_zip_types(Lists),
+    sub_unsafe(RetType, [ArgType, ArgType]);
+types(lists, zipwith, [Fun | [_,_]=Lists]) ->
+    {RetType, ArgType} = lists_zipwith_types(Fun, Lists),
+    sub_unsafe(RetType, [#t_fun{arity=2}, ArgType, ArgType]);
 
 %% Functions with complex return values.
 types(lists, keyfind, [KeyType,PosType,_]) ->
+    %% Doesn't imply that the argument is a proper list; see lists:all/2
     TupleType = case PosType of
                     #t_integer{elements={Index,Index}} when is_integer(Index),
                                                             Index >= 1 ->
@@ -435,23 +481,29 @@ types(lists, keyfind, [KeyType,PosType,_]) ->
                         #t_tuple{}
                 end,
     RetType = beam_types:join(TupleType, beam_types:make_atom(false)),
-    sub_unsafe(RetType, [any, #t_integer{}, list]);
-types(lists, MapFold, [_Fun, _Init, List])
+    sub_unsafe(RetType, [any, #t_integer{}, #t_list{}]);
+types(lists, MapFold, [_Fun, _Init, _List])
   when MapFold =:= mapfoldl; MapFold =:= mapfoldr ->
-    RetType = make_two_tuple(same_length_type(List), any),
-    sub_unsafe(RetType, [#t_fun{arity=2}, any, list]);
-types(lists, partition, [_,_]) ->
-    sub_unsafe(make_two_tuple(list, list), [#t_fun{arity=1}, list]);
+    RetType = make_two_tuple(#t_list{}, any),
+    sub_unsafe(RetType, [#t_fun{arity=2}, any, proper_list()]);
+types(lists, partition, [_Fun, List]) ->
+    ListType = copy_list(List, new_length, proper),
+    RetType = make_two_tuple(ListType, ListType),
+    sub_unsafe(RetType, [#t_fun{arity=1}, proper_list()]);
 types(lists, search, [_,_]) ->
+    %% Doesn't imply that the argument is a proper list; see lists:all/2
     TupleType = make_two_tuple(beam_types:make_atom(value), any),
     RetType = beam_types:join(TupleType, beam_types:make_atom(false)),
-    sub_unsafe(RetType, [#t_fun{arity=1}, list]);
-types(lists, splitwith, [_,_]) ->
-    sub_unsafe(make_two_tuple(list, list), [#t_fun{arity=1}, list]);
+    sub_unsafe(RetType, [#t_fun{arity=1}, #t_list{}]);
+types(lists, splitwith, [_Fun, List]) ->
+    %% Only the elements in the left list are guaranteed to be visited, so both
+    %% the argument and the right list may be improper.
+    Left = copy_list(List, new_length, proper),
+    Right = copy_list(List, new_length, maybe_improper),
+    sub_unsafe(make_two_tuple(Left, Right), [#t_fun{arity=1}, #t_list{}]);
 types(lists, unzip, [List]) ->
-    ListType = same_length_type(List),
-    RetType = make_two_tuple(ListType, ListType),
-    sub_unsafe(RetType, [list]);
+    RetType = lists_unzip_type(2, List),
+    sub_unsafe(RetType, [proper_list()]);
 
 %% Catch-all clause for unknown functions.
 
@@ -459,14 +511,8 @@ types(_, _, Args) ->
     sub_unsafe(any, [any || _ <- Args]).
 
 %%
-%% Helpers
+%% Function-specific helpers.
 %%
-
-sub_unsafe(RetType, ArgTypes) ->
-    {RetType, ArgTypes, false}.
-
-sub_safe(RetType, ArgTypes) ->
-    {RetType, ArgTypes, true}.
 
 mixed_arith_types([FirstType | _]=Args0) ->
     RetType = foldl(fun(#t_integer{}, #t_integer{}) -> #t_integer{};
@@ -526,27 +572,133 @@ range_masks_1(_From, To, _BitPos, Intersection0, Union0) ->
     Union = To bor Union0,
     {Intersection, Union}.
 
+lists_unzip_type(Size, List) ->
+    Es = lut_make_elements(lut_list_types(Size, List), 1, #{}),
+    #t_tuple{size=Size,exact=true,elements=Es}.
+
+lut_make_elements([Type | Types], Index, Es0) ->
+    Es = beam_types:set_tuple_element(Index, Type, Es0),
+    lut_make_elements(Types, Index + 1, Es);
+lut_make_elements([], _Index, Es) ->
+    Es.
+
+lut_list_types(Size, #t_cons{type=#t_tuple{size=Size,elements=Es}}) ->
+    Types = lut_element_types(1, Size, Es),
+    [proper_cons(T) || T <- Types];
+lut_list_types(Size, #t_list{type=#t_tuple{size=Size,elements=Es}}) ->
+    Types = lut_element_types(1, Size, Es),
+    [proper_list(T) || T <- Types];
+lut_list_types(Size, nil) ->
+    lists:duplicate(Size, nil);
+lut_list_types(Size, _) ->
+    lists:duplicate(Size, proper_list()).
+
+lut_element_types(Index, Max, #{}) when Index > Max ->
+    [];
+lut_element_types(Index, Max, Es) ->
+    ElementType = beam_types:get_tuple_element(Index, Es),
+    [ElementType | lut_element_types(Index + 1, Max, Es)].
+
+%% lists:zip/2 and friends only succeed when all arguments have the same
+%% length, so if one of them is #t_cons{}, we can infer that all of them are
+%% #t_cons{} on success.
+
+lists_zip_types(Types) ->
+    lists_zip_types_1(Types, false, #{}, 1).
+
+lists_zip_types_1([nil | _], _AnyCons, _Es, _N) ->
+    %% Early exit; we know the result is [] on success.
+    {nil, nil};
+lists_zip_types_1([#t_cons{type=Type,terminator=nil} | Lists],
+                  _AnyCons, Es0, N) ->
+    Es = beam_types:set_tuple_element(N, Type, Es0),
+    lists_zip_types_1(Lists, true, Es, N + 1);
+lists_zip_types_1([#t_list{type=Type,terminator=nil} | Lists],
+                  AnyCons, Es0, N) ->
+    Es = beam_types:set_tuple_element(N, Type, Es0),
+    lists_zip_types_1(Lists, AnyCons, Es, N + 1);
+lists_zip_types_1([_ | Lists], AnyCons, Es, N) ->
+    lists_zip_types_1(Lists, AnyCons, Es, N + 1);
+lists_zip_types_1([], true, Es, N) ->
+    %% At least one element was cons, so we know it's non-empty on success.
+    ElementType = #t_tuple{exact=true,size=(N - 1),elements=Es},
+    RetType = proper_cons(ElementType),
+    ArgType = proper_cons(),
+    {RetType, ArgType};
+lists_zip_types_1([], false, Es, N) ->
+    ElementType = #t_tuple{exact=true,size=(N - 1),elements=Es},
+    RetType = proper_list(ElementType),
+    ArgType = proper_list(),
+    {RetType, ArgType}.
+
+lists_zipwith_types(_Fun, Types) ->
+    ListType = lists_zipwith_type_1(Types),
+    {ListType, ListType}.
+
+lists_zipwith_type_1([nil | _]) ->
+    %% Early exit; we know the result is [] on success.
+    nil;
+lists_zipwith_type_1([#t_cons{} | _Lists]) ->
+    %% Early exit; we know the result is cons on success.
+    proper_cons();
+lists_zipwith_type_1([_ | Lists]) ->
+    lists_zipwith_type_1(Lists);
+lists_zipwith_type_1([]) ->
+    proper_list().
+
+%%%
+%%% Generic helpers
+%%%
+
+sub_unsafe(RetType, ArgTypes) ->
+    {RetType, ArgTypes, false}.
+
+sub_safe(RetType, ArgTypes) ->
+    {RetType, ArgTypes, true}.
+
 discard_tuple_element_info(Min, Max, Es) ->
     foldl(fun(El, Acc) when Min =< El, El =< Max ->
                   maps:remove(El, Acc);
              (_El, Acc) -> Acc
           end, Es, maps:keys(Es)).
 
-%% For a lists function that return a list of the same length as the input
-%% list, return the type of the list.
-same_length_type(cons) -> cons;
-same_length_type(nil) -> nil;
-same_length_type(_) -> list.
+proper_cons() ->
+    #t_cons{terminator=nil}.
 
-%% lists:zip/2 and friends only succeed when all arguments have the same
-%% length, so if one of them is cons, we can infer that all of them are cons
-%% on success.
-lists_zip_type(Types) ->
-    foldl(fun(cons, _) -> cons;
-             (_, cons) -> cons;
-             (nil, _) -> nil;
-             (_, T) -> T
-          end, list, Types).
+proper_cons(ElementType) ->
+    #t_cons{type=ElementType,terminator=nil}.
+
+proper_list() ->
+    #t_list{terminator=nil}.
+
+proper_list(ElementType) ->
+    #t_list{type=ElementType,terminator=nil}.
+
+%% Constructs a new list type based on another, optionally keeping the same
+%% length and/or making it proper.
+-spec copy_list(List, Length, Proper) -> type() when
+      List :: type(),
+      Length :: same_length | new_length,
+      Proper :: proper | maybe_improper.
+copy_list(#t_cons{terminator=Term}=T, Length, maybe_improper) ->
+    copy_list_1(T, Length, Term);
+copy_list(#t_list{terminator=Term}=T, Length, maybe_improper) ->
+    copy_list_1(T, Length, Term);
+copy_list(T, Length, proper) ->
+    copy_list_1(T, Length, nil);
+copy_list(T, Length, _Proper) ->
+    copy_list_1(T, Length, any).
+
+copy_list_1(#t_cons{}=T, same_length, Terminator) ->
+    T#t_cons{terminator=Terminator};
+copy_list_1(#t_cons{type=Type}, new_length, Terminator) ->
+    #t_list{type=Type,terminator=Terminator};
+copy_list_1(#t_list{}=T, _Length, Terminator) ->
+    T#t_list{terminator=Terminator};
+copy_list_1(nil, _Length, _Terminator) ->
+    nil;
+copy_list_1(_, _Length, Terminator) ->
+    #t_list{terminator=Terminator}.
 
 make_two_tuple(Type1, Type2) ->
     Es0 = beam_types:set_tuple_element(1, Type1, #{}),

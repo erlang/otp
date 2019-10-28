@@ -430,14 +430,14 @@ simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts) ->
     end;
 simplify(#b_set{op={bif,hd},args=[List]}=I, Ts) ->
     case normalized_type(List, Ts) of
-        cons ->
+        #t_cons{} ->
             I#b_set{op=get_hd};
         _ ->
             eval_bif(I, Ts)
     end;
 simplify(#b_set{op={bif,tl},args=[List]}=I, Ts) ->
     case normalized_type(List, Ts) of
-        cons ->
+        #t_cons{} ->
             I#b_set{op=get_tl};
         _ ->
             eval_bif(I, Ts)
@@ -566,10 +566,14 @@ simplify(#b_set{op=get_tuple_element,args=[Tuple,#b_literal{val=N}]}=I, Ts) ->
     end;
 simplify(#b_set{op=is_nonempty_list,args=[Src]}=I, Ts) ->
     case normalized_type(Src, Ts) of
-        any ->  I;
-        list -> I;
-        cons -> #b_literal{val=true};
-        _ ->    #b_literal{val=false}
+        any ->
+            I;
+        #t_list{} ->
+            I;
+        #t_cons{} ->
+            #b_literal{val=true};
+        _ ->
+            #b_literal{val=false}
     end;
 simplify(#b_set{op=is_tagged_tuple,
                 args=[Src,#b_literal{val=Size},#b_literal{}=Tag]}=I, Ts) ->
@@ -745,7 +749,7 @@ eval_type_test_bif(I, is_function, [Type]) ->
 eval_type_test_bif(I, is_integer, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_integer{});
 eval_type_test_bif(I, is_list, [Type]) ->
-    eval_type_test_bif_1(I, Type, list);
+    eval_type_test_bif_1(I, Type, #t_list{});
 eval_type_test_bif(I, is_map, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_map{});
 eval_type_test_bif(I, is_number, [Type]) ->
@@ -1006,6 +1010,14 @@ type(call, [#b_remote{mod=#b_literal{val=Mod},
     ArgTypes = normalized_types(Args, Ts),
     {RetType, _, _} = beam_call_types:types(Mod, Name, ArgTypes),
     RetType;
+type(get_hd, [Src], _Anno, Ts, _Ds) ->
+    SrcType = #t_cons{} = normalized_type(Src, Ts),
+    {RetType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
+    RetType;
+type(get_tl, [Src], _Anno, Ts, _Ds) ->
+    SrcType = #t_cons{} = normalized_type(Src, Ts),
+    {RetType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+    RetType;
 type(get_tuple_element, [Tuple, Offset], _Anno, Ts, _Ds) ->
     #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
     #b_literal{val=N} = Offset,
@@ -1019,8 +1031,10 @@ type(make_fun, [#b_local{arity=TotalArity}|Env], _Anno, _Ts, _Ds) ->
     #t_fun{arity=TotalArity-length(Env)};
 type(put_map, _Args, _Anno, _Ts, _Ds) ->
     #t_map{};
-type(put_list, _Args, _Anno, _Ts, _Ds) ->
-    cons;
+type(put_list, [Head, Tail], _Anno, Ts, _Ds) ->
+    HeadType = raw_type(Head, Ts),
+    TailType = raw_type(Tail, Ts),
+    beam_types:make_cons(HeadType, TailType);
 type(put_tuple, Args, _Anno, Ts, _Ds) ->
     {Es, _} = foldl(fun(Arg, {Es0, Index}) ->
                             Type = raw_type(Arg, Ts),
@@ -1382,7 +1396,7 @@ infer_type(is_tagged_tuple, [#b_var{}=Src,#b_literal{val=Size},
     T = {Src,#t_tuple{exact=true,size=Size,elements=Es}},
     {[T], [T]};
 infer_type(is_nonempty_list, [#b_var{}=Src], _Ts, _Ds) ->
-    T = {Src,cons},
+    T = {Src,#t_cons{}},
     {[T], [T]};
 infer_type({bif,is_atom}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_atom{}},
@@ -1403,7 +1417,7 @@ infer_type({bif,is_integer}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_integer{}},
     {[T], [T]};
 infer_type({bif,is_list}, [Arg], _Ts, _Ds) ->
-    T = {Arg, list},
+    T = {Arg, #t_list{}},
     {[T], [T]};
 infer_type({bif,is_map}, [Arg], _Ts, _Ds) ->
     T = {Arg, #t_map{}},
