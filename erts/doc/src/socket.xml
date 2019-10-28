@@ -582,7 +582,7 @@
         <p>Receive a message from a socket.</p>
         <p>This function reads "messages", which means that regardless of
 	how much we want to read, it returns when we get a message
-	(if the buffer size is to small, the message will be truncated).</p>
+	(if the buffer size is too small, the message will be truncated).</p>
         <p>The <c>BufSz</c> argument basically defines the size of the
 	receive buffer. By setting the value to zero (0), the configured
 	size (setopt with <c>Level</c> = <c>otp</c> and
