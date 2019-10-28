@@ -1603,13 +1603,31 @@ ErlNifTime esock_timestamp()
 extern
 BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len)
 {
-    int        ret;
-    ErlNifTime time    = esock_timestamp();
+    return esock_format_timestamp(esock_timestamp(), buf, len);
+}
+
+
+
+/* *** esock_format_timestamp ***
+ *
+ * Format a timestamp.
+ * If awailable, we use the localtime_r and strftime function(s)
+ * to produces a nice readable timestamp. But if not (awailable),
+ * it produces a timestamp in the form of an "Epoch" (A real epoch
+ * is the number of seconds since 1/1 1970, but our timestamp is
+ * the number micro seconds since 1/1 1970).
+ */
+
+extern
+BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int len)
+{
+    int       ret;
 #if defined(ESOCK_USE_PRETTY_TIMESTAMP)
-    time_t     sec     = time / 1000000; // (if _MSEC) sec  = time / 1000;
-    time_t     usec    = time % 1000000; // (if _MSEC) msec = time % 1000;
-    int        buflen;
-    struct tm  t;
+
+    time_t    sec     = timestamp / 1000000; // (if _MSEC) sec  = time / 1000;
+    time_t    usec    = timestamp % 1000000; // (if _MSEC) msec = time % 1000;
+    int       buflen;
+    struct tm t;
 
     if (localtime_r(&sec, &t) == NULL)
         return FALSE;
@@ -1625,12 +1643,15 @@ BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len)
         return FALSE;
 
     return TRUE;
+
 #else
-    ret = enif_snprintf(buf, len, "%b64d", time);
+
+    ret = enif_snprintf(buf, len, "%b64d", timestamp);
     if (ret == 0)
         return FALSE;
     else
         return TRUE;
+
 #endif
 }
 

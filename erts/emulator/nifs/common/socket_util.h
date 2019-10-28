@@ -205,6 +205,9 @@ extern
 BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len);
 
 extern
+BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int len);
+
+extern
 void esock_warning_msg(const char* format, ... );
 
 
