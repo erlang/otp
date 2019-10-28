@@ -979,7 +979,7 @@ send_gen_exit_signal(Process *c_p, Eterm from_tag,
     ErtsMessage *mp;
     ErlHeapFragment *hfrag;
     ErlOffHeap *ohp;
-    Uint hsz, from_sz, reason_sz, ref_sz, token_sz, dist_ext_sz;
+    Uint hsz, from_sz, reason_sz, ref_sz, token_sz, dist_ext_sz = 0;
     int seq_trace;
 #ifdef USE_VM_PROBES
     Eterm s_utag, utag;
