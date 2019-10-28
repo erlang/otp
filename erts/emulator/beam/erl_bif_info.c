@@ -4667,8 +4667,11 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
             else if (ERTS_IS_ATOM_STR("thread_progress", BIF_ARG_2))
                 flag = ERTS_DEBUG_WAIT_COMPLETED_THREAD_PROGRESS;
 
-            if (flag && erts_debug_wait_completed(BIF_P, flag)) {
-                ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
+            if (flag) {
+                if (erts_debug_wait_completed(BIF_P, flag))
+                    ERTS_BIF_YIELD_RETURN(BIF_P, am_ok);
+                else
+                    BIF_ERROR(BIF_P, SYSTEM_LIMIT);
             }
 	}
         else if (ERTS_IS_ATOM_STR("broken_halt", BIF_ARG_1)) {

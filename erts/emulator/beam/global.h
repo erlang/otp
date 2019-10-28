@@ -927,6 +927,8 @@ void erts_queue_release_literals(Process *c_p, ErtsLiteralArea* literals);
 
 #define ERTS_LITERAL_AREA_ALLOC_SIZE(N) \
     (sizeof(ErtsLiteralArea) + sizeof(Eterm)*((N) - 1))
+#define ERTS_LITERAL_AREA_SIZE(AP) \
+    (ERTS_LITERAL_AREA_ALLOC_SIZE((AP)->end - (AP)->start))
 
 extern erts_atomic_t erts_copy_literal_area__;
 #define ERTS_COPY_LITERAL_AREA()					\
@@ -1293,7 +1295,6 @@ Sint erts_binary_set_loop_limit(Sint limit);
 
 /* erl_bif_persistent.c */
 void erts_init_bif_persistent_term(void);
-Uint erts_persistent_term_count(void);
 void erts_init_persistent_dumping(void);
 extern ErtsLiteralArea** erts_persistent_areas;
 extern Uint erts_num_persistent_areas;
