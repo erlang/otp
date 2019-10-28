@@ -76,7 +76,7 @@
       (<c>snmpa_net_if</c>). The default filter accepts all messages.</p>
     <p>A network interface filter can e.g. be used during testing or for load 
       regulation. If the intended use is load regulation, see also 
-      <seealso marker="snmp_app#configuration_params">req_limit</seealso> and 
+      <seealso marker="snmp_config#agent_ni_req_limit">req_limit</seealso> and 
       the function 
       <seealso marker="snmpa#register_notification_filter">register_notification_filter</seealso>. </p>
     <p>Legacy network interface filter modules used arguments on the form
