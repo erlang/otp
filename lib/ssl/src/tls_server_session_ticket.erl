@@ -39,7 +39,7 @@
 
 -record(state, {
                 stateless,
-                statefull,
+                stateful,
                 lifetime
                }).
 
@@ -123,9 +123,9 @@ inital_state([stateless, Lifetime]) ->
                                   crypto:strong_rand_bytes(32)}},
            lifetime = Lifetime
           };
-inital_state([statefull, Lifetime]) ->
+inital_state([stateful, Lifetime]) ->
     #state{lifetime = Lifetime,
-           statefull= #{db => gb_trees:empty(),
+           stateful = #{db => gb_trees:empty(),
                         max => 1000}
           }.
 

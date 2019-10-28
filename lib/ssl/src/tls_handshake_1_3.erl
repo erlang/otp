@@ -1168,7 +1168,7 @@ maybe_send_session_ticket(#state{ssl_options = #{session_tickets := disabled}} =
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := SessionTickets}} = State, 0)
   when SessionTickets =/= disabled ->
     State;
-maybe_send_session_ticket(#state{ssl_options = #{session_tickets := statefull},
+maybe_send_session_ticket(#state{ssl_options = #{session_tickets := stateful},
                                  static_env = #static_env{trackers = Trackers}} = State0, N) ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     Ticket = tls_server_session_ticket:new(Tracker),
@@ -2373,5 +2373,5 @@ maybe_seed_session_tickets(_, #state{ssl_options = #{session_tickets := stateles
     TicketSeed = tls_server_session_ticket:new_with_seed(Tracker),
     State0#state{handshake_env = HsEnv#handshake_env{ticket_seed = TicketSeed}};
 maybe_seed_session_tickets(_, #state{ssl_options = #{session_tickets := _}} = State) -> 
-    %% Statefull or disabled does not need a seed
+    %% Stateful or disabled does not need a seed
     State.

@@ -2072,11 +2072,10 @@ validate_option(cb_info, {V1, V2, V3, V4, V5} = Value) when is_atom(V1),
 validate_option(use_ticket, Value) when is_list(Value) ->
     Value;
 validate_option(session_tickets, Value) when Value =:= disabled orelse
+                                             Value =:= enabled orelse
+                                             Value =:= auto orelse
                                              Value =:= stateless orelse
-                                             Value =:= statefull orelse
-                                             Value =:= true orelse
-                                             Value =:= false orelse
-                                             Value =:= auto ->
+                                             Value =:= stateful ->
     Value;
 validate_option(Opt, undefined = Value) ->
     AllOpts = maps:keys(?RULES),

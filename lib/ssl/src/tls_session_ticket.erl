@@ -25,14 +25,55 @@
 
 -module(tls_session_ticket).
 
+-include("ssl_connection.hrl").
 -include("tls_handshake_1_3.hrl").
 
 -export([get_ticket_data/2, 
          store_session_ticket/4,
-         update_ticket_pos/2]).
+         update_ticket_pos/2,
+         maybe_automatic_session_resumption/1]).
+
 
 update_ticket_pos(Key, Pos) ->
     ets:update_element(tls13_session_ticket_db, Key, {2, Pos}).
+
+
+%% Configure a suitable session ticket
+maybe_automatic_session_resumption(#state{
+                                      ssl_options = #{versions := [Version|_],
+                                                      ciphers := UserSuites,
+                                                      session_tickets := SessionTickets} = SslOpts0
+                                     } = State0)
+  when Version >= {3,4} andalso
+       SessionTickets =:= auto ->
+    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
+    HashAlgos = cipher_hash_algos(AvailableCipherSuites),
+    UseTicket = find_ticket(HashAlgos),
+    State = State0#state{ssl_options = SslOpts0#{use_ticket => UseTicket}},
+    {UseTicket, State};
+maybe_automatic_session_resumption(#state{
+                                      ssl_options = #{use_ticket := UseTicket}
+                                     } = State) ->
+    {UseTicket, State}.
+
+
+cipher_hash_algos(Ciphers) ->
+    Fun = fun(Cipher) ->
+                  #{prf := Hash} = ssl_cipher_format:suite_bin_to_map(Cipher),
+                  Hash
+          end,
+    lists:map(Fun, Ciphers).
+
+
+find_ticket([]) ->
+    undefined;
+find_ticket([Hash|T]) ->
+    case ets:match(tls13_session_ticket_db, {'$1','_', Hash,'_','_','_','_'}, 1) of
+        '$end_of_table' ->
+            find_ticket(T);
+        {[[TicketId]|_] , _} ->
+            [TicketId]
+    end.
 
 
 store_session_ticket(NewSessionTicket, HKDF, SNI, PSK) ->
