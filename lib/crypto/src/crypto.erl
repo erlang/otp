@@ -1460,7 +1460,7 @@ rand_plugin_aes_next({Key,GenWords,F,_JumpBase,Count}) ->
 %%
 rand_plugin_aes_next(Key, GenWords, F, Count) ->
     {Cleartext,NewCount} = aes_cleartext(<<>>, F, Count, GenWords),
-    Encrypted = crypto:block_encrypt(aes_ecb, Key, Cleartext),
+    Encrypted = block_encrypt(aes_ecb, Key, Cleartext),
     [V|Cache] = aes_cache(Encrypted, {Key,GenWords,F,Count,NewCount}),
     {V,Cache}.
 
