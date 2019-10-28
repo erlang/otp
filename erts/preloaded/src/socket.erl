@@ -3295,6 +3295,12 @@ enc_getopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% For the most part, we simply let the value pass through, but for some
 %% values we may need to do an actual decode.
 %%
+%% For some reason dialyzer thinks that the only valid value for Opt to 
+%% this function is otp_socket_option(). Of course without explaining
+%% how it came to that conclusion... And since I know that to be false...
+%%
+
+-dialyzer({nowarn_function, dec_getopt_value/6}).
 
 %% This string is NULL-terminated, but the general function we use
 %% in the nif code does not know that. So, deal with it here.
