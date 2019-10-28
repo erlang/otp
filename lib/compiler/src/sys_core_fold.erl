@@ -380,11 +380,11 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
     %%   according to the rules above).
     %%
     case opt_bool_case(Case0, Sub) of
-	#c_case{arg=Arg0,clauses=Cs0}=Case1 ->
+	#c_case{anno=Anno,arg=Arg0,clauses=Cs0}=Case1 ->
 	    Arg1 = body(Arg0, value, Sub),
 	    LitExpr = cerl:is_literal(Arg1),
 	    {Arg2,Cs1} = case_opt(Arg1, Cs0, Sub),
-	    Cs2 = clauses(Arg2, Cs1, Ctxt, Sub, LitExpr),
+	    Cs2 = clauses(Arg2, Cs1, Ctxt, Sub, LitExpr, Anno),
 	    Case = Case1#c_case{arg=Arg2,clauses=Cs2},
 	    warn_no_clause_match(Case1, Case),
 	    Expr = eval_case(Case, Sub),
@@ -392,8 +392,8 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
 	Other ->
 	    expr(Other, Ctxt, Sub)
     end;
-expr(#c_receive{clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
-    Cs1 = clauses(#c_var{name='_'}, Cs0, Ctxt, Sub, false),
+expr(#c_receive{anno=Anno,clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
+    Cs1 = clauses(#c_var{name='_'}, Cs0, Ctxt, Sub, false, Anno),
     T1 = expr(T0, value, Sub),
     A1 = body(A0, Ctxt, Sub),
     Recv#c_receive{clauses=Cs1,timeout=T1,action=A1};
@@ -1434,11 +1434,11 @@ warn_no_clause_match(CaseOrig, CaseOpt) ->
 	    ok
     end.
 
-%% clauses(E, [Clause], TopLevel, Context, Sub) -> [Clause].
+%% clauses(E, [Clause], TopLevel, Context, Sub, Anno) -> [Clause].
 %%  Trim the clauses by removing all clauses AFTER the first one which
 %%  is guaranteed to match.  Also remove all trivially false clauses.
 
-clauses(E, [C0|Cs], Ctxt, Sub, LitExpr) ->
+clauses(E, [C0|Cs], Ctxt, Sub, LitExpr, Anno) ->
     #c_clause{pats=Ps,guard=G} = C1 = clause(C0, E, Ctxt, Sub),
     %%ok = io:fwrite("~w: ~p~n", [?LINE,{E,Ps}]),
     case {will_match(E, Ps),will_succeed(G)} of
@@ -1446,7 +1446,7 @@ clauses(E, [C0|Cs], Ctxt, Sub, LitExpr) ->
 	    case LitExpr of
 		false ->
 		    Line = get_line(cerl:get_ann(C1)),
-		    shadow_warning(Cs, Line);
+		    shadow_warning(Cs, Line, Anno);
 		true ->
 		    %% If the case expression is a literal,
 		    %% it is probably OK that some clauses don't match.
@@ -1456,19 +1456,24 @@ clauses(E, [C0|Cs], Ctxt, Sub, LitExpr) ->
 	    [C1];				%Skip the rest
 	{_Mat,no} ->				%Guard fails.
 	    add_warning(C1, nomatch_guard),
-	    clauses(E, Cs, Ctxt, Sub, LitExpr);	%Skip this clause
+	    clauses(E, Cs, Ctxt, Sub, LitExpr, Anno);	%Skip this clause
 	{_Mat,_Suc} ->
-	    [C1|clauses(E, Cs, Ctxt, Sub, LitExpr)]
+	    [C1|clauses(E, Cs, Ctxt, Sub, LitExpr, Anno)]
     end;
-clauses(_, [], _, _, _) -> [].
+clauses(_, [], _, _, _, _) -> [].
 
-shadow_warning([C|Cs], none) ->
+shadow_warning([C|Cs], none, Anno) ->
     add_warning(C, nomatch_shadow),
-    shadow_warning(Cs, none);
-shadow_warning([C|Cs], Line) ->
-    add_warning(C, {nomatch_shadow, Line}),
-    shadow_warning(Cs, Line);
-shadow_warning([], _) -> ok.
+    shadow_warning(Cs, none, Anno);
+shadow_warning([C|Cs], Line, Anno) ->
+    case keyfind(function, 1, Anno) of
+	{function, {Name, Arity}} ->
+	    add_warning(C, {nomatch_shadow, Line, {Name, Arity}});
+	_ ->
+	    add_warning(C, {nomatch_shadow, Line})
+    end,
+    shadow_warning(Cs, Line, Anno);
+shadow_warning([], _, _) -> ok.
 
 %% will_succeed(Guard) -> yes | maybe | no.
 %%  Test if we know whether a guard will succeed/fail or just don't
@@ -1541,7 +1546,7 @@ opt_bool_clauses(Cs, true, true) ->
     %% Any remaining clauses cannot possibly match.
     case Cs of
 	[_|_] ->
-	    shadow_warning(Cs, none),
+	    shadow_warning(Cs, none, []),
 	    [];
 	[] ->
 	    []
@@ -2901,6 +2906,10 @@ format_error({embedded_unit,Unit,Size}) ->
 format_error(bad_unicode) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid Unicode code point in a utf8/utf16/utf32 segment)";
+format_error({nomatch_shadow,Line,{Name, Arity}}) ->
+    M = io_lib:format("this clause for ~ts/~B cannot match because a previous "
+		      "clause at line ~p always matches", [Name, Arity, Line]),
+    flatten(M);
 format_error({nomatch_shadow,Line}) ->
     M = io_lib:format("this clause cannot match because a previous clause at line ~p "
 		      "always matches", [Line]),
