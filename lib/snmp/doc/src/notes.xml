@@ -34,7 +34,23 @@
   </header>
 
 
-  <section><title>SNMP 5.4.1</title>
+  <section><title>SNMP 5.4.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The agent discovery process has been made to work with
+	    snmptrapd..</p>
+          <p>
+	    Own Id: OTP-16207 Aux Id: ERIERL-427 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.4.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>
