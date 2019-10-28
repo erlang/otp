@@ -76,7 +76,7 @@
       <item><seealso marker="crypto#hmac_final_n-2">hmac_final_n/2</seealso></item>
       <item><seealso marker="crypto#poly1305-2">poly1305/2</seealso></item>
     </list>
-    <p>They are not deprecated for now, but may be in a future release.
+    <p>They are deprecated from 23.0 and for removal in 24.0.
     </p>
   </section>
 

@@ -45,9 +45,33 @@
 -export([rand_seed/1]).
 
 %% Old interface. Now implemented with the New interface
+-deprecated([{hmac, 3, next_major_release},
+             {hmac, 4, next_major_release},
+             {hmac_init, 2, next_major_release},
+             {hmac_update, 2, next_major_release},
+             {hmac_final, 1, next_major_release},
+             {hmac_final_n, 2, next_major_release}
+            ]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
+
+-deprecated([{cmac, 3, next_major_release},
+             {cmac, 4, next_major_release}
+            ]).
 -export([cmac/3, cmac/4]).
+
+-deprecated([{poly1305, 2, next_major_release}
+            ]).
 -export([poly1305/2]).
+
+-deprecated([{stream_init, 2, next_major_release},
+             {stream_init, 3, next_major_release},
+             {stream_encrypt, 2, next_major_release},
+             {stream_decrypt, 2, next_major_release},
+             {block_encrypt, 3, next_major_release},
+             {block_encrypt, 4, next_major_release},
+             {block_decrypt, 3, next_major_release},
+             {block_decrypt, 4, next_major_release}
+            ]).
 -export([stream_init/2, stream_init/3,
          stream_encrypt/2,
          stream_decrypt/2,

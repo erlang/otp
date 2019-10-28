@@ -123,6 +123,72 @@ obsolete_1(gen_fsm, cancel_timer, 1) ->
 obsolete_1(gen_fsm, send_event_after, 2) ->
     {deprecated, {erlang, send_after, 3}};
 
+%% *** CRYPTO added in OTP 22.2 ***
+
+obsolete_1(crypto, hmac, 3) ->
+    {deprecated, {crypto, mac, 4}};
+obsolete_1(crypto, hmac, 4) ->
+    {deprecated, {crypto, macN, 5}};
+
+obsolete_1(crypto, hmac_init, 2) ->
+    {deprecated, {crypto, mac_init, 3}};
+obsolete_1(crypto, hmac_update, 2) ->
+    {deprecated, {crypto, mac_update, 2}};
+obsolete_1(crypto, hmac_final, 1) ->
+    {deprecated, {crypto, mac_final, 1}};
+obsolete_1(crypto, hmac_final_n, 2) ->
+    {deprecated, {crypto, mac_finalN, 2}};
+
+obsolete_1(crypto, cmac, 3) ->
+    {deprecated, {crypto, mac, 4}};
+obsolete_1(crypto, cmac, 4) ->
+    {deprecated, {crypto, macN, 5}};
+
+obsolete_1(crypto, poly1305, 2) ->
+    {deprecated, {crypto, mac, 3}};
+
+obsolete_1(crypto, stream_init, 2) ->
+    {deprecated,
+     "Deprecated and will be removed in a future release; "
+     "Use crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 or "
+     "crypto:crypto_one_time/4."
+    };
+obsolete_1(crypto, stream_init, 3) ->
+    {deprecated,
+     "Deprecated and will be removed in a future release; "
+     "Use crypto:crypto_init/4 + crypto:crypto_update/2 + crypto:crypto_final/1 or "
+     "crypto:crypto_one_time/5."
+    };
+obsolete_1(crypto, stream_encrypt, 2) ->
+    {deprecated, {crypto, crypto_update, 2}};
+obsolete_1(crypto, stream_decrypt, 2) ->
+    {deprecated, {crypto, crypto_update, 2}};
+
+obsolete_1(crypto, block_encrypt, 3) ->
+    {deprecated,
+     "Deprecated and will be removed in a future release; "
+     "Use crypto:crypto_one_time/4 "
+     "or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1."
+    };
+obsolete_1(crypto, block_encrypt, 4) ->
+    {deprecated,
+     "Deprecated. and will be removed in a future release; "
+     "Use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+     "or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final."
+    };
+obsolete_1(crypto, block_decrypt, 3) ->
+    {deprecated,
+     "Deprecated and will be removed in a future release; "
+     "Use crypto:crypto_one_time/4 "
+     "or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1."
+    };
+obsolete_1(crypto, block_decrypt, 4) ->
+    {deprecated,
+     "Deprecated and will be removed in a future release; "
+     "Use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+     "or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final."
+    };
+
 %% *** CRYPTO added in OTP 20 ***
 
 obsolete_1(crypto, rand_uniform, 2) ->
