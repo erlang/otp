@@ -318,7 +318,7 @@ if [ "x$GDB" = "x" ]; then
 	    cpu=`shuf -i 1-$ncpu -n 1`
 	    cpu=`expr $cpu - 1`
 	    taskset1="taskset --cpu-list $cpu"
-	    sched_arg="-S$ncpu:$ncpu"
+	    sched_arg="-S $ncpu:$ncpu -SDcpu $ncpu:$ncpu"
 	else
 	    taskset1=
 	    sched_arg=
