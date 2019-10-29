@@ -78,10 +78,11 @@
                                    dgram |
                                    nofqdn |
                                    numerichost |
-                                   nomericserv.
--type name_info_flag_ext()      :: idn |
-                                   idna_allow_unassigned |
-                                   idna_use_std3_ascii_rules.
+                                   numericserv.
+%% The following (ext) flags has been removed
+%% (as they are deprecated by later version of gcc):
+%%    idn_allow_unassigned | idn_use_std3_ascii_rules.
+-type name_info_flag_ext()      :: idn.
 -type name_info()               :: #{host    := string(),
                                      service := string()}.
 -type address_info()            :: #{family   := socket:domain(),
