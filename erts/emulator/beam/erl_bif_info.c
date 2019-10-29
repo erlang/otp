@@ -1070,7 +1070,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
     ERTS_CT_ASSERT(ERTS_PI_DEF_ARR_SZ > 0);
 
     if (c_p->common.id == pid) {
-        int local_only = c_p->flags & F_LOCAL_SIGS_ONLY;
+        int local_only = c_p->sig_qs.flags & FS_LOCAL_SIGS_ONLY;
         int sres, sreds, reds_left;
 
         reds_left = ERTS_BIF_REDS_LEFT(c_p);
@@ -1088,7 +1088,7 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
         reds_left -= sreds;
 
         if (state & ERTS_PSFLG_EXITING) {
-            c_p->flags &= ~F_LOCAL_SIGS_ONLY;
+            c_p->sig_qs.flags &= ~FS_LOCAL_SIGS_ONLY;
             goto exited;
         }
         if (!sres | (reds_left <= 0)) {
@@ -1097,11 +1097,11 @@ process_info_bif(Process *c_p, Eterm pid, Eterm opt, int always_wrap, int pi2)
              * to yield and continue. Prevent fetching of
              * more signals by setting local-sigs-only flag.
              */
-            c_p->flags |= F_LOCAL_SIGS_ONLY;
+            c_p->sig_qs.flags |= FS_LOCAL_SIGS_ONLY;
             goto yield;
         }
 
-        c_p->flags &= ~F_LOCAL_SIGS_ONLY;
+        c_p->sig_qs.flags &= ~FS_LOCAL_SIGS_ONLY;
     }
 
     if (is_atom(opt)) {
@@ -1760,7 +1760,7 @@ process_info_aux(Process *c_p,
 
 	total_heap_size += rp->mbuf_sz;
 
-        if (rp->flags & F_ON_HEAP_MSGQ) {
+        if (rp->sig_qs.flags & FS_ON_HEAP_MSGQ) {
             ErtsMessage *mp;
             ASSERT(flags & ERTS_PI_FLAG_NEED_MSGQ_LEN);
             for (mp = rp->sig_qs.first; mp; mp = mp->next) {
@@ -1965,11 +1965,11 @@ process_info_aux(Process *c_p,
     }
 
     case ERTS_PI_IX_MESSAGE_QUEUE_DATA:
-	switch (rp->flags & (F_OFF_HEAP_MSGQ|F_ON_HEAP_MSGQ)) {
-	case F_OFF_HEAP_MSGQ:
+	switch (rp->sig_qs.flags & (FS_OFF_HEAP_MSGQ|FS_ON_HEAP_MSGQ)) {
+	case FS_OFF_HEAP_MSGQ:
 	    res = am_off_heap;
 	    break;
-	case F_ON_HEAP_MSGQ:
+	case FS_ON_HEAP_MSGQ:
 	    res = am_on_heap;
 	    break;
 	default:

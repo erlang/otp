@@ -1423,26 +1423,28 @@ extern int erts_system_profile_ts_type;
 #define F_ETS_SUPER_USER     (1 <<  9) /* Process is ETS super user */
 #define F_FORCE_GC           (1 << 10) /* Force gc at process in-scheduling */
 #define F_DISABLE_GC         (1 << 11) /* Disable GC (see below) */
-#define F_OFF_HEAP_MSGQ      (1 << 12) /* Off heap msg queue */
-#define F_ON_HEAP_MSGQ       (1 << 13) /* On heap msg queue */
-#define F_OFF_HEAP_MSGQ_CHNG (1 << 14) /* Off heap msg queue changing */
-#define F_ABANDONED_HEAP_USE (1 << 15) /* Have usage of abandoned heap */
-#define F_DELAY_GC           (1 << 16) /* Similar to disable GC (see below) */
-#define F_SCHDLR_ONLN_WAITQ  (1 << 17) /* Process enqueued waiting to change schedulers online */
-#define F_HAVE_BLCKD_NMSCHED (1 << 18) /* Process has blocked normal multi-scheduling */
-#define F_HIPE_MODE          (1 << 19) /* Process is executing in HiPE mode */
-#define F_DELAYED_DEL_PROC   (1 << 20) /* Delay delete process (dirty proc exit case) */
-#define F_DIRTY_CLA          (1 << 21) /* Dirty copy literal area scheduled */
-#define F_DIRTY_GC_HIBERNATE (1 << 22) /* Dirty GC hibernate scheduled */
-#define F_DIRTY_MAJOR_GC     (1 << 23) /* Dirty major GC scheduled */
-#define F_DIRTY_MINOR_GC     (1 << 24) /* Dirty minor GC scheduled */
-#define F_HIBERNATED         (1 << 25) /* Hibernated */
-#define F_LOCAL_SIGS_ONLY    (1 << 26) /* Handle privq sigs only */
-#define F_TRAP_EXIT          (1 << 27) /* Trapping exit */
-#define F_DEFERRED_SAVED_LAST (1 << 28) /* Deferred sig_qs.saved_last */
-#define F_DELAYED_PSIGQS_LEN (1 << 29) /* Delayed update of sig_qs.len */
-#define F_HIPE_RECV_LOCKED   (1 << 30) /* HiPE message queue locked */
-#define F_HIPE_RECV_YIELD    (1 << 31) /* HiPE receive yield */
+#define F_ABANDONED_HEAP_USE (1 << 12) /* Have usage of abandoned heap */
+#define F_DELAY_GC           (1 << 13) /* Similar to disable GC (see below) */
+#define F_SCHDLR_ONLN_WAITQ  (1 << 14) /* Process enqueued waiting to change schedulers online */
+#define F_HAVE_BLCKD_NMSCHED (1 << 15) /* Process has blocked normal multi-scheduling */
+#define F_HIPE_MODE          (1 << 16) /* Process is executing in HiPE mode */
+#define F_DELAYED_DEL_PROC   (1 << 17) /* Delay delete process (dirty proc exit case) */
+#define F_DIRTY_CLA          (1 << 18) /* Dirty copy literal area scheduled */
+#define F_DIRTY_GC_HIBERNATE (1 << 19) /* Dirty GC hibernate scheduled */
+#define F_DIRTY_MAJOR_GC     (1 << 20) /* Dirty major GC scheduled */
+#define F_DIRTY_MINOR_GC     (1 << 21) /* Dirty minor GC scheduled */
+#define F_HIBERNATED         (1 << 22) /* Hibernated */
+#define F_TRAP_EXIT          (1 << 23) /* Trapping exit */
+
+/* Signal queue flags */
+#define FS_OFF_HEAP_MSGQ       (1 << 0) /* Off heap msg queue */
+#define FS_ON_HEAP_MSGQ        (1 << 1) /* On heap msg queue */
+#define FS_OFF_HEAP_MSGQ_CHNG  (1 << 2) /* Off heap msg queue changing */
+#define FS_LOCAL_SIGS_ONLY     (1 << 3) /* Handle privq sigs only */
+#define FS_DEFERRED_SAVED_LAST (1 << 4) /* Deferred sig_qs.saved_last */
+#define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
+#define FS_HIPE_RECV_LOCKED    (1 << 7) /* HiPE message queue locked */
+#define FS_HIPE_RECV_YIELD     (1 << 8) /* HiPE receive yield */
 
 /*
  * F_DISABLE_GC and F_DELAY_GC are similar. Both will prevent
