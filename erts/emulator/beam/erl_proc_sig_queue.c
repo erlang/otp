@@ -3423,7 +3423,14 @@ stop: {
                 deferred_saved_last = deferred_save = 0;
             }
             else {
-                if (c_p->sig_qs.save == c_p->sig_qs.last)
+                if (c_p->sig_qs.save == c_p->sig_qs.last &&
+                    c_p->sig_qs.save != &c_p->sig_qs.first)
+                    /* When save is set to last AND DEFERRED_SAVED_LAST is
+                       set we know that we have done a ERTS_RECV_MARK_SET
+                       to the last in order to trigger a clean of the middle
+                       queue. However, we cannot know this when there
+                       are no messages in the inner queue, so in that
+                       case we have to parse the entire queue again */
                     deferred_save = !0;
                 else
                     deferred_save = 0;
