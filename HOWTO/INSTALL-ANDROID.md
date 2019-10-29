@@ -4,48 +4,121 @@ Cross Compiling Erlang/OTP - ANDROID
 Introduction
 ------------
 
-This document describes how to cross compile Erlang OTP to Android/Rasberry Pi platforms.
+This document describes how to cross compile Erlang/OTP to Android/Rasberry Pi platforms.
+
 
 ### Download and Install Android NDK ###
 
-https://developer.android.com/tools/sdk/ndk/index.html
+https://developer.android.com/ndk
+
 
 ### Define System Variables ###
 
-export NDK_ROOT=/usr/local/android
-export NDK_PLAT=android-9
-export PATH=$NDK_ROOT/toolchains/arm-linux-androideabi-4.8/prebuilt/darwin-x86_64/bin:$PATH
+    $ export NDK_ROOT=/path/to/android-ndk
+    $ export PATH=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
+    $ # export PATH=$NDK_ROOT/toolchains/lvvm/prebuilt/darwin-x86_64/bin:$PATH
 
-### Configure OTP ###
 
-./otp_build configure \
-   --xcomp-conf=./xcomp/erl-xcomp-arm-android.conf  \
-   --without-ssl
+### Configure Erlang/OTP ###
 
-### Compile OTP ###
+If you are building Erlang/OTP from git, you will need to run this
+to generate the configure scripts.
 
-make noboot [-j4]
+    $ ./otp_build autoconf
+
+
+Use the following when compiling a 64-bit version.
+
+    $ export NDK_ABI_PLAT=android24      # When targeting Android 7.0 Nougat
+    $ ./otp_build configure \
+         --xcomp-conf=./xcomp/erl-xcomp-arm64-android.conf  \
+         --without-ssl
+
+
+Use the following instead when compiling a 32-bit version.
+
+    $ export NDK_ABI_PLAT=androideabi24  # When targeting Android 7.0 Nougat
+    $ ./otp_build configure \
+         --xcomp-conf=./xcomp/erl-xcomp-arm-android.conf  \
+         --without-ssl
+
+
+### Compile Erlang/OTP ###
+
+    $ # make noboot [-j4] # noboot doesn't work, is it a recent regression?
+    $ make [-j4]
+
 
 ### Make Release ###
 
-./otp_build release -a /usr/local/otp_R16B03_arm
+    $ make RELEASE_ROOT=/path/to/release/erlang_23.0_arm release
 
-### Target Deployment ###
 
-Make a tarball out of /usr/local/otp_R16B03_arm and copy it to target device
-(e.g. Raspberry Pi). Extract it and install
+### Target Deployment for Rasberry Pi ###
 
-./Install /usr/local/otp_R16B03_arm
+Make a tarball out of /path/to/release/erlang_23.0_arm and copy it to target
+device. Extract it and install.
 
-Android SDK (adb tool) is used to deploy OTP/Erlang to target device for 
-evaluation purpose only.
+    $ ./Install /usr/local/erlang_23.0_arm
 
-adb push /usr/local/otp_R16B03_arm /mnt/sdcard/otp_R16B03_arm
-adb shell
+
+### Target Deployment for Android testing ###
+
+The adb tool from the Android SDK can be used to deploy Erlang/OTP to a target
+Android device, for testing purpose mainly, as the /data/local/tmp path used
+for installation below is executable only from the adb shell command, but not
+from other local applications due to Android sandbox security model.
+
+    $ cd /path/to/release/erlang_23.0_arm
+    $ # For testing purpose, configure the Erlang/OTP scripts to use the target
+    $ # installation path in /data/local/tmp which is executable from adb shell
+    $ ./Install -cross -minimal /data/local/tmp/erlang_23.0
+
+To properly integrate into an Android application, the installation would have
+to target /data/data/[your/app/package/name]/files/[erlang/dir/once/unpacked]
+as shown in https://github.com/JeromeDeBretagne/erlanglauncher as an example.
+
+TODO: Propose a permanent fix for the following issue.
+Adapt the installation specifically for Android, by replacing manually /bin/sh
+into /system/bin/sh in the various Erlang/OTP release scripts, such as:
+   - bin/erl
+   - bin/start
+   - bin/start_erl
+   - erts-X.Y.Z/bin/erl
+   - erts-X.Y.Z/bin/erl.src
+   - erts-X.Y.Z/bin/start
+   - erts-X.Y.Z/bin/start_erl.src
+   - erts-X.Y.Z/bin/start.src
+   - etc.
+
+WARNING: adb has issues with symlinks (and java.util.zip too). There is only
+one symlink for epmd in recent Erlang/OTP releases (20 to master-based 23) so
+it has to be removed before using adb push, and then recreated manually on the
+target device itself if needed (or epmd can simply be duplicated instead).
+
+    $ # Make sure that the epmd symlink is not present before adb push
+    $ rm bin/epmd
+    $ cp erts-X.Y.Z/bin/epmd bin/epmd
+    $ cd ..
+    $ # The release can now be deployed in the pre-configured target directory
+    $ adb push erlang_23.0_arm /data/local/tmp/erlang_23.0
+
+Start an interactive shell onto the target Android device, and launch erl.
+
+     $ adb shell
+     :/ $ /data/local/tmp/erlang_23.0/bin/erl
+     Eshel VX.Y.Z (abort with ^G)
+     1> q().
+     ok
+     2> :/ $ # Erlang/OTP is running on Android, congratulations! :-)
+
 
 ### Known Issues ###
 
- * native inet:gethostbyname/1 return {error, nxdomain} on Raspberry PI. Use dns resolver to by-pass the issue (see http://www.erlang.org/doc/apps/erts/inet_cfg.html) 
+ * native inet:gethostbyname/1 return {error, nxdomain} on Raspberry PI.
+   Use dns resolver to by-pass the issue (see
+   http://www.erlang.org/doc/apps/erts/inet_cfg.html)
+
 
 ### References ###
 
