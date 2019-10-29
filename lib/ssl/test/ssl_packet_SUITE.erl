@@ -2174,9 +2174,7 @@ client_packet_decode(Socket, [Head | Tail] = Packet) ->
     client_packet_decode(Socket, [Head], Tail, Packet).
 
 client_packet_decode(Socket, P1, P2, Packet) ->
-    ct:log("Packet: ~p ~n", [Packet]),
-    spawn(fun() -> ssl:send(Socket, P1) end),
-    spawn(fun() -> ssl:send(Socket, P2) end),
+    spawn(fun() -> ssl:send(Socket, P1), ssl:send(Socket, P2)  end),
     receive
 	{ssl, Socket, Packet}  -> ok;
 	Other1 -> exit({?LINE, Other1})
@@ -2267,8 +2265,7 @@ client_line_packet_decode(Socket, [Head | Tail] = Packet) ->
     client_line_packet_decode(Socket, [Head], Tail, L1 ++ "\n", L2 ++ "\n").
 
 client_line_packet_decode(Socket, P1, P2, L1, L2) ->
-    spawn(fun() -> ssl:send(Socket, P1) end),
-    spawn(fun() -> ssl:send(Socket, P2) end),
+    spawn(fun() -> ssl:send(Socket, P1),  ssl:send(Socket, P2) end),
     receive
   	{ssl, Socket, L1} -> ok;
   	Other1 -> exit({?LINE, Other1})
