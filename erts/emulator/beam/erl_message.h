@@ -338,10 +338,7 @@ typedef struct erl_trace_message_queue__ {
     do {                                                                \
         if ((P)->sig_qs.saved_last) {                                   \
             if ((P)->sig_qs.flags & FS_DEFERRED_SAVED_LAST) {           \
-                /* Points to middle queue; use end of inner */          \
-                /* This is later used by erts_proc_sig_handle_incoming */\
-                /* to set the save to the correct place */              \
-                (P)->sig_qs.save = (P)->sig_qs.last;                    \
+                (P)->sig_qs.flags |= FS_DEFERRED_SAVE;                  \
                 ASSERT(!PEEK_MESSAGE((P)));                             \
             }                                                           \
             else {                                                      \
@@ -354,7 +351,7 @@ typedef struct erl_trace_message_queue__ {
 #define ERTS_RECV_MARK_CLEAR(P)                                         \
     do {                                                                \
         (P)->sig_qs.saved_last = NULL;                                  \
-        (P)->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;                   \
+        (P)->sig_qs.flags &= ~(FS_DEFERRED_SAVED_LAST|FS_DEFERRED_SAVE); \
     } while (0)
 
 

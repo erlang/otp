@@ -26,15 +26,19 @@
 
 -export([all/0, suite/0,
 	 call_with_huge_message_queue/1,receive_in_between/1,
-         receive_opt_exception/1,receive_opt_recursion/1]).
+         receive_opt_exception/1,receive_opt_recursion/1,
+         receive_opt_deferred_save/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 3}}].
 
 all() ->
-    [call_with_huge_message_queue, receive_in_between,
-     receive_opt_exception, receive_opt_recursion].
+    [call_with_huge_message_queue,
+     receive_in_between,
+     receive_opt_exception,
+     receive_opt_recursion,
+     receive_opt_deferred_save].
 
 call_with_huge_message_queue(Config) when is_list(Config) ->
     Pid = spawn_link(fun echo_loop/0),
@@ -167,6 +171,87 @@ do_receive_opt_recursion(Recipient, Disturber, IsInner) ->
                 false ->
                     error(the_expected_message_was_not_there)
             end
+    end.
+
+
+%% Test that the receive opt behaves correctly when
+%% the messages are in the middle queue. It only triggers
+%% a very special scenario that OTP-16241 solves.
+receive_opt_deferred_save(_Config) ->
+
+    erts_debug:set_internal_state(available_internal_state, true),
+
+    %% This testcase is very very white-boxy, but I'm not
+    %% sure what to do about that.
+
+    Pid = spawn_opt(fun() ->
+                        deferred()
+                end,[{scheduler, 2}]),
+    spawn_opt(fun() ->
+                      link(Pid),
+                      Lst = lists:seq(1,200),
+                      Pid ! go,
+                      %% Sleep in order to make sure that Pid gets
+                      %% scheduled in.
+                      erts_debug:set_internal_state(sleep, 250),
+                      Ref = erlang:monitor(process, Pid),
+                      [Pid ! I || I <- Lst],
+                      Pid ! stop,
+                      receive
+                          {'DOWN', Ref, process, Pid, normal} ->
+                              ok
+                      after 2000 ->
+                              exit(stop_timeout)
+                      end
+              end,[{scheduler,1},monitor]),
+    receive
+        {'DOWN',_, process, _, normal} ->
+            ok;
+        {'DOWN',_, process, _, Reason} ->
+            ct:fail(Reason)
+    end.
+
+deferred() ->
+    receive
+        go ->
+            %% Sleep for a while so that the middle queue
+            %% is filled
+            erts_debug:set_internal_state(sleep, 1000)
+    end,
+
+    %% Here the inner queue should be empty and the middle queue
+    %% should have 200 messages and one monitor signal.
+    %% The monitor signal is important as otherwise all messages
+    %% will just be moved from the outer to the inner queue
+    %% immediately.
+
+    %% Setup the receive opt mark
+    %% This receive opt is as of PR-2439 disabled, though future
+    %% optimizations may enable it again....
+    Ref = make_ref(),
+    self() ! Ref,
+
+    %% Call another function that does a non-receive opt receive.
+    %% Before OTP-16241 this would hang as the save marker in the
+    %% message queue would be incorrectly set.
+    deferred(1,200),
+
+    %% Get the ref using receive opt here.
+    receive
+        Ref ->
+            ok
+    end,
+    receive
+        stop ->
+            erlang:display(ok)
+    end.
+
+deferred(N,M) when N > M ->
+    ok;
+deferred(N,M) ->
+    receive
+        N ->
+            deferred(N+1,M)
     end.
 
 %%%

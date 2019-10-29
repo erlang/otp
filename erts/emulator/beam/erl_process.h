@@ -1442,6 +1442,7 @@ extern int erts_system_profile_ts_type;
 #define FS_OFF_HEAP_MSGQ_CHNG  (1 << 2) /* Off heap msg queue changing */
 #define FS_LOCAL_SIGS_ONLY     (1 << 3) /* Handle privq sigs only */
 #define FS_DEFERRED_SAVED_LAST (1 << 4) /* Deferred sig_qs.saved_last */
+#define FS_DEFERRED_SAVE       (1 << 5) /* Deferred sig_qs.save */
 #define FS_DELAYED_PSIGQS_LEN  (1 << 6) /* Delayed update of sig_qs.len */
 #define FS_HIPE_RECV_LOCKED    (1 << 7) /* HiPE message queue locked */
 #define FS_HIPE_RECV_YIELD     (1 << 8) /* HiPE receive yield */
