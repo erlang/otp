@@ -974,8 +974,8 @@ struct process {
     Uint32 rcount;		/* suspend count */
     int  schedule_count;	/* Times left to reschedule a low prio process */
     Uint reds;			/* No of reductions for this process  */
+    Uint32 flags;		/* Trap exit, etc */
     Eterm group_leader;		/* Pid in charge (can be boxed) */
-    Uint flags;			/* Trap exit, etc (no trace flags anymore) */
     Eterm fvalue;		/* Exit & Throw value (failure reason) */
     Uint freason;		/* Reason for detected failure */
     Eterm ftrace;		/* Latest exception stack trace dump */
