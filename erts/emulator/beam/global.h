@@ -903,6 +903,9 @@ Eterm erl_is_function(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_check_process_code(Process *c_p, Eterm module, int *redsp, int fcalls);
 Eterm erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed);
 
+Uint32 erts_block_release_literal_area(void);
+void erts_unblock_release_literal_area(Uint32);
+
 typedef struct ErtsLiteralArea_ {
     struct erl_off_heap_header *off_heap;
     Eterm *end;
