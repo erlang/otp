@@ -259,6 +259,9 @@ opt_ref_used_is([#b_set{op=call,
             Vs = update_vars(I, Vs0),
             opt_ref_used_is(Is, Vs)
     end;
+opt_ref_used_is([#b_set{op=timeout}|_], _Vs) ->
+    %% Handle "after 0"; wait_timeout has been optimized away.
+    done;
 opt_ref_used_is([#b_set{}=I|Is], Vs0) ->
     Vs = update_vars(I, Vs0),
     opt_ref_used_is(Is, Vs);
