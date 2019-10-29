@@ -1714,7 +1714,7 @@ case wxWindow_IsDoubleBuffered: { // wxWindow::IsDoubleBuffered
  break;
 }
 #endif
-#if wxCHECK_VERSION(3,0,0) && !defined(__WXMAC__)
+#if wxCHECK_VERSION(3,0,0) || (defined(__WXMAC__) && wxCHECK_VERSION(3,1,0))
 case wxWindow_SetDoubleBuffered: { // wxWindow::SetDoubleBuffered
  wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
  bool * on = (bool *) bp; bp += 4;
@@ -7343,6 +7343,29 @@ case wxMenuBar_IsChecked: { // wxMenuBar::IsChecked
  rt.addBool(Result);
  break;
 }
+#if wxCHECK_VERSION(3,0,0) && defined(__WXMAC__)
+case wxMenuBar_SetAutoWindowMenu: { // wxMenuBar::SetAutoWindowMenu
+ bool * enable = (bool *) bp; bp += 4;
+ wxMenuBar::SetAutoWindowMenu(*enable);
+ break;
+}
+#endif
+#if wxCHECK_VERSION(3,0,0) && defined(__WXMAC__)
+case wxMenuBar_GetAutoWindowMenu: { // wxMenuBar::GetAutoWindowMenu
+ bool Result = wxMenuBar::GetAutoWindowMenu();
+ rt.addBool(Result);
+ break;
+}
+#endif
+#if wxCHECK_VERSION(3,0,0) && defined(__WXMAC__)
+case wxMenuBar_OSXGetAppleMenu: { // wxMenuBar::OSXGetAppleMenu
+ wxMenuBar *This = (wxMenuBar *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxMenu * Result = (wxMenu*)This->OSXGetAppleMenu();
+ rt.addRef(getRef((void *)Result,memenv), "wxMenu");
+ break;
+}
+#endif
 case wxMenuBar_IsEnabled_1: { // wxMenuBar::IsEnabled
  wxMenuBar *This = (wxMenuBar *) getPtr(bp,memenv); bp += 4;
  int * itemid = (int *) bp; bp += 4;
