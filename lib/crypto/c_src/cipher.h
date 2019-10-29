@@ -48,6 +48,7 @@ struct cipher_type_t {
 #define AES_CTR_COMPAT 32
 #define CCM_MODE 64
 #define GCM_MODE 128
+#define POLY1305_MODE 256
 
 
 #ifdef FIPS_SUPPORT

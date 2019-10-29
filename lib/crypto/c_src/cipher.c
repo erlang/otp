@@ -96,9 +96,9 @@ static struct cipher_type_t cipher_types[] =
 
     /*==== AEAD ciphers ====*/
 #if defined(HAVE_CHACHA20_POLY1305)
-    {{"chacha20_poly1305"}, {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
+    {{"chacha20_poly1305"}, {&EVP_chacha20_poly1305}, 0, NO_FIPS_CIPHER|AEAD_CIPHER|POLY1305_MODE, {{EVP_CTRL_AEAD_SET_IVLEN,EVP_CTRL_AEAD_GET_TAG,EVP_CTRL_AEAD_SET_TAG}}},
 #else
-    {{"chacha20_poly1305"}, {NULL}, 0, NO_FIPS_CIPHER | AEAD_CIPHER, {{0,0,0}}},
+    {{"chacha20_poly1305"}, {NULL}, 0, NO_FIPS_CIPHER|AEAD_CIPHER, {{0,0,0}}},
 #endif
 
 #if defined(HAVE_GCM)
