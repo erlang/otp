@@ -1373,6 +1373,9 @@ define etp-sigq-flags-int
   if ($arg0 & (1 << 6))
     printf "delayed-sigq-len "
   end
+  if ($arg0 & (1 << 5))
+    printf "deferred-save "
+  end
   if ($arg0 & (1 << 4))
     printf "deferred-saved-last "
   end
