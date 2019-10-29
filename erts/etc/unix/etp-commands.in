@@ -1358,13 +1358,64 @@ define etp-sigq-int
   printf "    Non-message signals: %d\n\n", $etp_sigq_nmsig_len
 end
 
+define etp-sigq-flags-int
+# Args: int
+#
+  if ($arg0 & ~((1 << 9)-1))
+    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 9)-1))
+  end
+  if ($arg0 & (1 << 8))
+    printf "hipe-receive-yield "
+  end
+  if ($arg0 & (1 << 7))
+    printf "hipe-receive-locked "
+  end
+  if ($arg0 & (1 << 6))
+    printf "delayed-sigq-len "
+  end
+  if ($arg0 & (1 << 4))
+    printf "deferred-saved-last "
+  end
+  if ($arg0 & (1 << 3))
+    printf "local-signals-only "
+  end
+  if ($arg0 & (1 << 2))
+    printf "offheap-msgq-changing "
+  end
+  if ($arg0 & (1 << 1))
+    printf "on-heap "
+  end
+  if ($arg0 & (1 << 0))
+    printf "off-heap "
+  end
+  printf "\n"
+end
+
+define etp-sigq-flags
+# Args: Process*
+#
+  set $flags_int = ((Process *) $arg0)->sig_qs.flags
+  etp-sigq-flags-int $flags_int
+end
+
+document etp-sigq-flags
+%---------------------------------------------------------------------------
+% etp-sigqs-flags Process*
+%
+% Print the signal queue flags of process
+%---------------------------------------------------------------------------
+end
+
 define etp-sigqs
+  set $proc_int = ((Process*)($arg0))
+  printf "  Msgq Flags: "
+  etp-sigq-flags $proc_int
   printf "  --- Inner signal queue (message queue) ---\n"
-  etp-sigq-int ($arg0)->sig_qs.first ($arg0)->sig_qs.save ($arg0)->sig_qs.saved_last
+  etp-sigq-int ($proc_int)->sig_qs.first ($proc_int)->sig_qs.save ($proc_int)->sig_qs.saved_last
   printf "  --- Middle signal queue ---\n"
-  etp-sigq-int ($arg0)->sig_qs.cont ($arg0)->sig_qs.save ($arg0)->sig_qs.saved_last
+  etp-sigq-int ($proc_int)->sig_qs.cont ($proc_int)->sig_qs.save ($proc_int)->sig_qs.saved_last
   printf "  --- Outer queue ---\n"
-  etp-sigq-int ($arg0)->sig_inq.first ($arg0)->sig_qs.save ($arg0)->sig_qs.saved_last
+  etp-sigq-int ($proc_int)->sig_inq.first ($proc_int)->sig_qs.save ($proc_int)->sig_qs.saved_last
 end
 
 define etp-msgq
@@ -1958,91 +2009,79 @@ end
 define etp-proc-flags-int
 # Args: int
 #
-  if ($arg0 & ~0xfffffff)
-    printf "GARBAGE<%x> ", ($arg0 & ~0x1ffffff)
+  if ($arg0 & ~((1 << 24)-1))
+    printf "GARBAGE<%x> ", ($arg0 & ~((1 << 24)-1))
   end
-  if ($arg0 & 0x8000000)
+  if ($arg0 & (1 << 23))
     printf "trap-exit "
   end
-  if ($arg0 & 0x4000000)
-    printf "local-sigs-only "
-  end
-  if ($arg0 & 0x2000000)
+  if ($arg0 & (1 << 22))
     printf "hibernated "
   end
-  if ($arg0 & 0x1000000)
+  if ($arg0 & (1 << 21))
     printf "dirty-minor-gc "
   end
-  if ($arg0 & 0x800000)
+  if ($arg0 & (1 << 20))
     printf "dirty-major-gc "
   end
-  if ($arg0 & 0x400000)
+  if ($arg0 & (1 << 19))
     printf "dirty-gc-hibernate "
   end
-  if ($arg0 & 0x200000)
+  if ($arg0 & (1 << 18))
     printf "dirty-cla "
   end
-  if ($arg0 & 0x100000)
+  if ($arg0 & (1 << 17))
     printf "delayed-del-proc "
   end
-  if ($arg0 & 0x80000)
+  if ($arg0 & (1 << 16))
     printf "hipe-mode "
   end
-  if ($arg0 & 0x40000)
+  if ($arg0 & (1 << 15))
     printf "have-blocked-nmsb "
   end
-  if ($arg0 & 0x20000)
+  if ($arg0 & (1 << 14))
     printf "shdlr-onln-wait-q "
   end
-  if ($arg0 & 0x10000)
+  if ($arg0 & (1 << 13))
     printf "delay-gc "
   end
-  if ($arg0 & 0x8000)
+  if ($arg0 & (1 << 12))
     printf "abandoned-heap-use "
   end
-  if ($arg0 & 0x4000)
-    printf "off-heap-msgq-chng "
-  end
-  if ($arg0 & 0x2000)
-    printf "on-heap-msgq "
-  end
-  if ($arg0 & 0x1000)
-    printf "off-heap-msgq "
-  end
-  if ($arg0 & 0x800)
+  if ($arg0 & (1 << 11))
     printf "disable-gc "
   end
-  if ($arg0 & 0x400)
+  if ($arg0 & (1 << 10))
     printf "force-gc "
   end
-  if ($arg0 & 0x200)
-    printf "p2pnr-resched "
+  if ($arg0 & (1 << 9))
+    printf "ets-super-user "
   end
-  if ($arg0 & 0x100)
+  if ($arg0 & (1 << 8))
     printf "have-blocked-msb "
   end
-  if ($arg0 & 0x80)
+  if ($arg0 & (1 << 7))
     printf "using-ddll "
   end
-  if ($arg0 & 0x40)
+  if ($arg0 & (1 << 6))
     printf "distribution "
   end
-  if ($arg0 & 0x20)
+  if ($arg0 & (1 << 5))
     printf "using-db "
   end
-  if ($arg0 & 0x10)
+  if ($arg0 & (1 << 4))
     printf "need-fullsweep "
   end
-  if ($arg0 & 0x8)
+  if ($arg0 & (1 << 3))
     printf "heap-grow "
   end
-  if ($arg0 & 0x4)
+  if ($arg0 & (1 << 2))
     printf "timo "
   end
-  if ($arg0 & 0x2)
+  if ($arg0 & (1 << 1))
     printf "inslpqueue "
   end
-  if ($arg0 & 0x1)
+  if ($arg0 & (1 << 0))
     printf "hibernate-sched "
   end
   printf "\n"

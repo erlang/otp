@@ -144,8 +144,8 @@ BIF_RETTYPE nbif_impl_hipe_set_timeout(NBIF_ALIST_1)
     else {
 	int tres = erts_set_proc_timer_term(p, timeout_value);
 	if (tres != 0) { /* Wrong time */
-	    if (p->flags & F_HIPE_RECV_LOCKED) {
-                p->flags &= ~F_HIPE_RECV_LOCKED;
+	    if (p->sig_qs.flags & FS_HIPE_RECV_LOCKED) {
+                p->sig_qs.flags &= ~FS_HIPE_RECV_LOCKED;
 		erts_proc_unlock(p, ERTS_PROC_LOCKS_MSG_RECEIVE);
 	    }
 	    BIF_ERROR(p, EXC_TIMEOUT_VALUE);
@@ -555,7 +555,7 @@ Eterm hipe_check_get_msg(Process *c_p)
         if (!msgp) {
             if (get_out) {
                 if (get_out < 0)
-                    c_p->flags |= F_HIPE_RECV_YIELD; /* yield... */
+                    c_p->sig_qs.flags |= FS_HIPE_RECV_YIELD; /* yield... */
                 /* else: go exit... */
                 return THE_NON_VALUE;
             }
@@ -568,7 +568,7 @@ Eterm hipe_check_get_msg(Process *c_p)
              */
 
             /* XXX: BEAM doesn't need this */
-            c_p->flags |= F_HIPE_RECV_LOCKED;
+            c_p->sig_qs.flags |= FS_HIPE_RECV_LOCKED;
             c_p->flags &= ~F_DELAY_GC;
             return THE_NON_VALUE;
         }
@@ -613,8 +613,8 @@ void hipe_clear_timeout(Process *c_p)
      */
     /* XXX: BEAM has different entries for the locked and unlocked
        cases. HiPE doesn't, so we must check dynamically. */
-    if (c_p->flags & F_HIPE_RECV_LOCKED) {
-	c_p->flags &= ~F_HIPE_RECV_LOCKED;
+    if (c_p->sig_qs.flags & FS_HIPE_RECV_LOCKED) {
+	c_p->sig_qs.flags &= ~FS_HIPE_RECV_LOCKED;
 	erts_proc_unlock(c_p, ERTS_PROC_LOCKS_MSG_RECEIVE);
     }
     if (IS_TRACED_FL(c_p, F_TRACE_RECEIVE)) {

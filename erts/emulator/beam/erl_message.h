@@ -291,6 +291,7 @@ typedef struct {
     /* Common for inner and middle queue */
     ErtsMessage **saved_last;	/* saved last pointer */
     Sint len; /* NOT message queue length (see above) */
+    Uint32 flags;
 } ErtsSignalPrivQueues;
 
 typedef struct {
@@ -318,18 +319,18 @@ typedef struct erl_trace_message_queue__ {
         erts_proc_unlock((P), ERTS_PROC_LOCK_MSGQ);                     \
         if ((P)->sig_qs.cont) {                                         \
             (P)->sig_qs.saved_last = (P)->sig_qs.cont_last;             \
-            (P)->flags |= F_DEFERRED_SAVED_LAST;                        \
+            (P)->sig_qs.flags |= FS_DEFERRED_SAVED_LAST;                \
         }                                                               \
         else {                                                          \
             (P)->sig_qs.saved_last = (P)->sig_qs.last;                  \
-            (P)->flags &= ~F_DEFERRED_SAVED_LAST;                       \
+            (P)->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;               \
         }                                                               \
     } while (0)
 
 #define ERTS_RECV_MARK_SET(P)                                           \
     do {                                                                \
         if ((P)->sig_qs.saved_last) {                                   \
-            if ((P)->flags & F_DEFERRED_SAVED_LAST) {                   \
+            if ((P)->sig_qs.flags & FS_DEFERRED_SAVED_LAST) {           \
                 /* Points to middle queue; use end of inner */          \
                 /* This is later used by erts_proc_sig_handle_incoming */\
                 /* to set the save to the correct place */              \
@@ -346,7 +347,7 @@ typedef struct erl_trace_message_queue__ {
 #define ERTS_RECV_MARK_CLEAR(P)                                         \
     do {                                                                \
         (P)->sig_qs.saved_last = NULL;                                  \
-        (P)->flags &= ~F_DEFERRED_SAVED_LAST;                           \
+        (P)->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;                   \
     } while (0)
 
 
