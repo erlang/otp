@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1033,6 +1033,7 @@ handle_send_discovery(
 		    log(Log, Type, Packet, {Domain, Address}),
 		    udp_send(Socket, {Domain, Address}, Packet),
 		    ?vtrace("handle_send_discovery -> sent (~w)", [ReqId]),
+                    link(From),
 		    NReqs  = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
                     NReqs2 = (NReqs -- [{0, From}]) ++ [{0, From}], % OTP-16207
 		    S#state{reqs = NReqs2}
