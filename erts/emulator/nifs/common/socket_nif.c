@@ -1652,6 +1652,11 @@ static ERL_NIF_TERM esock_setopt_lvl_tcp_congestion(ErlNifEnv*       env,
                                                     ESockDescriptor* descP,
                                                     ERL_NIF_TERM     eVal);
 #endif
+#if defined(TCP_CORK)
+static ERL_NIF_TERM esock_setopt_lvl_tcp_cork(ErlNifEnv*       env,
+                                              ESockDescriptor* descP,
+                                              ERL_NIF_TERM     eVal);
+#endif
 #if defined(TCP_MAXSEG)
 static ERL_NIF_TERM esock_setopt_lvl_tcp_maxseg(ErlNifEnv*       env,
                                                 ESockDescriptor* descP,
@@ -2052,6 +2057,10 @@ static ERL_NIF_TERM esock_getopt_lvl_tcp(ErlNifEnv*       env,
 #if defined(TCP_CONGESTION)
 static ERL_NIF_TERM esock_getopt_lvl_tcp_congestion(ErlNifEnv*       env,
                                                     ESockDescriptor* descP);
+#endif
+#if defined(TCP_CORK)
+static ERL_NIF_TERM esock_getopt_lvl_tcp_cork(ErlNifEnv*       env,
+                                              ESockDescriptor* descP);
 #endif
 #if defined(TCP_MAXSEG)
 static ERL_NIF_TERM esock_getopt_lvl_tcp_maxseg(ErlNifEnv*       env,
@@ -10525,6 +10534,12 @@ ERL_NIF_TERM esock_setopt_lvl_tcp(ErlNifEnv*       env,
         break;
 #endif
 
+#if defined(TCP_CORK)
+    case ESOCK_OPT_TCP_CORK:
+        result = esock_setopt_lvl_tcp_cork(env, descP, eVal);
+        break;
+#endif
+
 #if defined(TCP_MAXSEG)
     case ESOCK_OPT_TCP_MAXSEG:
         result = esock_setopt_lvl_tcp_maxseg(env, descP, eVal);
@@ -10558,6 +10573,19 @@ ERL_NIF_TERM esock_setopt_lvl_tcp_congestion(ErlNifEnv*       env,
 
     return esock_setopt_str_opt(env, descP,
                                 IPPROTO_TCP, TCP_CONGESTION, max, eVal);
+}
+#endif
+
+
+/* esock_setopt_lvl_tcp_cork - Level TCP CORK option
+ */
+#if defined(TCP_CORK)
+static
+ERL_NIF_TERM esock_setopt_lvl_tcp_cork(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     eVal)
+{
+    return esock_setopt_bool_opt(env, descP, IPPROTO_TCP, TCP_CORK, eVal);
 }
 #endif
 
@@ -13791,6 +13819,12 @@ ERL_NIF_TERM esock_getopt_lvl_tcp(ErlNifEnv*       env,
         break;
 #endif
 
+#if defined(TCP_CORK)
+    case ESOCK_OPT_TCP_CORK:
+        result = esock_getopt_lvl_tcp_cork(env, descP);
+        break;
+#endif
+
 #if defined(TCP_MAXSEG)
     case ESOCK_OPT_TCP_MAXSEG:
         result = esock_getopt_lvl_tcp_maxseg(env, descP);
@@ -13825,6 +13859,17 @@ ERL_NIF_TERM esock_getopt_lvl_tcp_congestion(ErlNifEnv*       env,
 }
 #endif
 
+
+/* esock_getopt_lvl_tcp_cork - Level TCP CORK option
+ */
+#if defined(TCP_CORK)
+static
+ERL_NIF_TERM esock_getopt_lvl_tcp_cork(ErlNifEnv*       env,
+                                       ESockDescriptor* descP)
+{
+    return esock_getopt_bool_opt(env, descP, IPPROTO_TCP, TCP_CORK);
+}
+#endif
 
 /* esock_getopt_lvl_tcp_maxseg - Level TCP MAXSEG option
  */
@@ -14298,7 +14343,11 @@ ERL_NIF_TERM esock_getopt_timeval_opt(ErlNifEnv*       env,
  * We provide the max size of the string. This is the
  * size of the buffer we allocate for the value.
  * The actual size of the (read) value will be communicated
- * in the optSz variable.
+ * in the valSz variable.
+ *
+ * Its possible that some strings are NULL-terminated,
+ * but there is no way this *general* funcrtion can assume that.
+ * So leave it to the caller to deal with that.
  */
 #if defined(USE_GETOPT_STR_OPT)
 static

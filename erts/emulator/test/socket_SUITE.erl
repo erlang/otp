@@ -162,6 +162,10 @@
 	 api_opt_ipv6_hoplimit_udp6/1,
 	 api_opt_ipv6_tclass_udp6/1,
 	 api_opt_ipv6_mopts_udp6/1,
+         api_opt_tcp_congestion_tcp4/1,
+         api_opt_tcp_cork_tcp4/1,
+         api_opt_tcp_maxseg_tcp4/1,
+         api_opt_tcp_nodelay_tcp4/1,
 
          %% *** API Operation Timeout ***
          api_to_connect_tcp4/1,
@@ -670,9 +674,9 @@ groups() ->
      {api_option_sock_timestamp,   [], api_option_sock_timestamp_cases()},
      {api_options_ip,              [], api_options_ip_cases()},
      {api_options_ipv6,            [], api_options_ipv6_cases()},
-     %% {api_options_tcp,            [], api_options_tcp_cases()},
-     %% {api_options_udp,            [], api_options_udp_cases()},
-     %% {api_options_sctp,           [], api_options_sctp_cases()},
+     {api_options_tcp,             [], api_options_tcp_cases()},
+     %% {api_options_udp,             [], api_options_udp_cases()},
+     %% {api_options_sctp,            [], api_options_sctp_cases()},
      {api_op_with_timeout,         [], api_op_with_timeout_cases()},
      {socket_close,                [], socket_close_cases()},
      {sc_ctrl_proc_exit,           [], sc_cp_exit_cases()},
@@ -814,8 +818,8 @@ api_options_cases() ->
      {group, api_options_otp},
      {group, api_options_socket},
      {group, api_options_ip},
-     {group, api_options_ipv6}
-     %% {group, api_options_tcp},
+     {group, api_options_ipv6},
+     {group, api_options_tcp}
      %% {group, api_options_udp},
      %% {group, api_options_sctp}
     ].
@@ -918,6 +922,18 @@ api_options_ipv6_cases() ->
 
      %% Should be last!
      api_opt_ipv6_mopts_udp6
+    ].
+
+api_options_tcp_cases() ->
+    [
+     api_opt_tcp_congestion_tcp4,
+     %% api_opt_tcp_congestion_tcp6,
+     api_opt_tcp_cork_tcp4,
+     %% api_opt_tcp_cork_tcp6,
+     api_opt_tcp_maxseg_tcp4,
+     %% api_opt_tcp_maxseg_tcp6,
+     api_opt_tcp_nodelay_tcp4%,
+     %% api_opt_tcp_nodelay_tcp6
     ].
 
 api_op_with_timeout_cases() ->
@@ -19071,6 +19087,563 @@ api_opt_ipv6_mopts_udp(InitState) ->
         ],
     Evaluator = ?SEV_START("tester", Seq, InitState),
     ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the congestion tcp socket option.
+%%
+%% According to the man page (on linux) for this option it *should* be
+%% possible to both get and set *allowed* algorithms. But when we attempt
+%% to set, we get 'enoent'.
+%% Accoring to /proc/sys/net/ipv4/tcp_allowed_congestion_control that
+%% allgorithm was allowed, so...
+%% For now, we only test that we can get (it could be a bug in our code)
+
+api_opt_tcp_congestion_tcp4(suite) ->
+    [];
+api_opt_tcp_congestion_tcp4(doc) ->
+    [];
+api_opt_tcp_congestion_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_tcp_congestion_tcp4,
+           fun() -> has_support_tcp_congestion() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_list(Value) ->
+                                  socket:setopt(Sock, tcp, congestion, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, congestion)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_congestion_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_congestion_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    ServerSeq =
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+
+         %% The actual test
+         #{desc => "await continue (get congestion)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, get_congestion)
+                   end},
+         #{desc => "get congestion",
+           cmd  => fun(#{sock := Sock, get := Get} = State) ->
+                           case Get(Sock) of
+                               {ok, Algorithm} ->
+                                   ?SEV_IPRINT("algorithm: ~s", [Algorithm]),
+                                   {ok, State#{alg => Algorithm}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (get congestion)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, get_congestion),
+                           ok
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "monitor server",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+         %% Start the server
+         #{desc => "order server start",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await server ready (init)",
+           cmd  => fun(#{server := Pid} = _State) ->
+                           ok = ?SEV_AWAIT_READY(Pid, server, init),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "order server to continue (with get-congestion)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Server, get_congestion),
+                           ok
+                   end},
+         #{desc => "await server ready (get-congestion)",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_AWAIT_READY(Server, server, get_congestion)
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "order server to terminate",
+           cmd  => fun(#{server := Server} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Server),
+                           ok
+                   end},
+         #{desc => "await server termination",
+           cmd  => fun(#{server := Server} = State) ->
+                           ?SEV_AWAIT_TERMINATION(Server),
+                           State1 = maps:remove(server, State),
+                           {ok, State1}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+    i("start server evaluator"),
+    Server = ?SEV_START("server", ServerSeq, InitState),
+
+    i("start tester evaluator"),
+    TesterInitState = #{server => Server#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    ok = ?SEV_AWAIT_FINISH([Server, Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the cork tcp socket option.
+%%
+%% This is a very simple test. We simple set and get the value.
+%% To test that it has an effect is just "to much work"...
+%%
+%% Reading the man page it seems like (on linux) that the
+%% value resets itself after some (short) time...
+
+api_opt_tcp_cork_tcp4(suite) ->
+    [];
+api_opt_tcp_cork_tcp4(doc) ->
+    [];
+api_opt_tcp_cork_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_tcp_cork_tcp4,
+           fun() -> has_support_tcp_cork() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_boolean(Value) ->
+                                  socket:setopt(Sock, tcp, cork, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, cork)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_cork_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_cork_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% The actual test
+         #{desc => "get (default) cork (= false)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, false = Value} ->
+                                   ?SEV_IPRINT("cork default: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "enable cork (=> true)",
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, true) of
+                               ok ->
+                                   ?SEV_IPRINT("cork enabled"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get cork (= true)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, true = Value} ->
+                                   ?SEV_IPRINT("cork: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start tester evaluator"),
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the maxseg tcp socket option.
+%%
+%% This is a very simple test. We simple set and get the value.
+%% To test that it has an effect is just "to much work"...
+%%
+%% Note that there is no point in reading this value back,
+%% since the kernel imposes its own rules with regard
+%% to what is an acceptible value.
+%%
+
+api_opt_tcp_maxseg_tcp4(suite) ->
+    [];
+api_opt_tcp_maxseg_tcp4(doc) ->
+    [];
+api_opt_tcp_maxseg_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_tcp_maxseg_tcp4,
+           fun() -> has_support_tcp_maxseg() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_integer(Value) ->
+                                  socket:setopt(Sock, tcp, maxseg, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, maxseg)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_maxseg_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_maxseg_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% The actual test
+         #{desc => "get (default) maxseg",
+           cmd  => fun(#{sock := Sock, get := Get} = State) ->
+                           case Get(Sock) of
+                               {ok, DefMaxSeg} ->
+                                   ?SEV_IPRINT("maxseg default: ~p", [DefMaxSeg]),
+                                   {ok, State#{def_maxseg => DefMaxSeg}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         
+         %% Note that there is no point in reading this value back,
+         %% since the kernel imposes its own rules with regard
+         %% to what is an acceptible value.
+         %% So, even if the set operation is a success, the value
+         %% still might not have changed.
+         %%
+         %% Note that not all platforms allow this to be set!
+         %% Since this is the *last* operation in the test sequence
+         %% (before termination) we also accept error reason = einval
+         %% as success (rather then skip).
+         %% The same goes for the error reason = enoprotoopt (Solaris).
+         #{desc => "(maybe) change maxseg (default + 16)",
+           cmd  => fun(#{sock       := Sock,
+                         set        := Set,
+                         def_maxseg := DefMaxSeg} = _State) ->
+                           NewMaxSeg = DefMaxSeg + 16,
+                           case Set(Sock, NewMaxSeg) of
+                               ok ->
+                                   ?SEV_IPRINT("maxseg (maybe) changed (to ~w)",
+                                               [NewMaxSeg]),
+                                   ok;
+                               {error, Reason} when (Reason =:= einval) orelse
+                                                    (Reason =:= enoprotoopt) ->
+                                   ?SEV_IPRINT("change not allowed (~w)",
+                                               [Reason]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         %% *** Termination ***
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start tester evaluator"),
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    ok = ?SEV_AWAIT_FINISH([Tester]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Tests that the nodelay tcp socket option.
+%%
+%% This is a very simple test. We simple set and get the value.
+%% To test that it has an effect is just "to much work"...
+
+api_opt_tcp_nodelay_tcp4(suite) ->
+    [];
+api_opt_tcp_nodelay_tcp4(doc) ->
+    [];
+api_opt_tcp_nodelay_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_tcp_nodelay_tcp4,
+           fun() -> has_support_tcp_nodelay() end,
+           fun() ->
+                   Set  = fun(Sock, Value) when is_boolean(Value) ->
+                                  socket:setopt(Sock, tcp, nodelay, Value)
+                          end,
+                   Get  = fun(Sock) ->
+                                  socket:getopt(Sock, tcp, nodelay)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => tcp,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_tcp_nodelay_tcp(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_tcp_nodelay_tcp(InitState) ->
+    process_flag(trap_exit, true),
+    TesterSeq =
+        [
+         %% *** Init part ***
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain,
+                         proto  := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := LSock, lsa := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("bound to port: ~w", [Port]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% The actual test
+         #{desc => "get (default) nodelay (= false)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, false = Value} ->
+                                   ?SEV_IPRINT("nodelay default: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "enable nodelay (=> true)",
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           case Set(Sock, true) of
+                               ok ->
+                                   ?SEV_IPRINT("nodelay enabled"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get nodelay (= true)",
+           cmd  => fun(#{sock := Sock, get := Get} = _State) ->
+                           case Get(Sock) of
+                               {ok, true = Value} ->
+                                   ?SEV_IPRINT("nodelay: ~p", [Value]),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+
+         %% *** Termination ***
+         #{desc => "close connection socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    i("start tester evaluator"),
+    Tester = ?SEV_START("tester", TesterSeq, InitState),
+
+    ok = ?SEV_AWAIT_FINISH([Tester]).
 
 
 
@@ -37499,7 +38072,7 @@ which_local_addr(Domain) ->
 
 %% Here are all the *general* test case condition functions.
 
-%% We also need (be able) to figure out the the multicast address,
+%% We also need to (be able to) figure out the multicast address,
 %% which we only support for some platforms (linux and sunos).
 %% We don't do that here, but since we can only do that (find a
 %% multicast address) for specific platforms, we check that we are
@@ -37524,6 +38097,9 @@ has_support_ip_multicast() ->
         Type ->
             skip(?F("Not Supported: platform ~p", [Type]))
     end.
+
+
+%% --- SOCK socket option test functions ---
 
 has_support_sock_acceptconn() ->
     has_support_socket_option_sock(acceptconn).
@@ -37594,6 +38170,8 @@ has_support_sock_timestamp() ->
     has_support_socket_option_sock(timestamp).
 
 
+%% --- IP socket option test functions ---
+
 has_support_ip_add_membership() ->
     has_support_socket_option_ip(add_membership).
 
@@ -37629,6 +38207,8 @@ has_support_ip_tos() ->
     has_support_socket_option_ip(tos).
 
 
+%% --- IPv6 socket option test functions ---
+
 has_support_ipv6_flowinfo() ->
     has_support_socket_option_ipv6(flowinfo).
 
@@ -37646,9 +38226,6 @@ has_support_ipv6_recvpktinfo() ->
     has_support_socket_option_ipv6(recvpktinfo).
 
 
-has_support_socket_option_sock(Opt) ->
-    has_support_socket_option(socket, Opt).
-
 has_support_ipv6_tclass_or_recvtclass() ->
     case is_any_options_supported([{ipv6, recvtclass}, {ipv6, tclass}]) of
 	true ->
@@ -37657,11 +38234,35 @@ has_support_ipv6_tclass_or_recvtclass() ->
 	    skip(?F("Neither recvtclass or tclass supported", []))
     end.
 
+
+%% --- TCP socket option test functions ---
+
+has_support_tcp_congestion() ->
+    has_support_socket_option_tcp(congestion).
+
+has_support_tcp_cork() ->
+    has_support_socket_option_tcp(cork).
+
+has_support_tcp_maxseg() ->
+    has_support_socket_option_tcp(maxseg).
+
+has_support_tcp_nodelay() ->
+    has_support_socket_option_tcp(nodelay).
+
+
+%% --- General purpose socket option test functions ---
+
+has_support_socket_option_sock(Opt) ->
+    has_support_socket_option(socket, Opt).
+
 has_support_socket_option_ip(Opt) ->
     has_support_socket_option(ip, Opt).
 
 has_support_socket_option_ipv6(Opt) ->
     has_support_socket_option(ipv6, Opt).
+
+has_support_socket_option_tcp(Opt) ->
+    has_support_socket_option(tcp, Opt).
 
 
 has_support_socket_option(Level, Option) ->
@@ -37676,6 +38277,8 @@ is_any_options_supported(Options) ->
     Pred = fun({Level, Option}) -> socket:supports(options, Level, Option) end,
     lists:any(Pred, Options).
 
+
+%% --- Send flag test functions ---
 
 has_support_send_flag_oob() ->
     has_support_send_flag(oob).
@@ -37701,7 +38304,7 @@ has_support_send_or_recv_flag(Pre, Key, Flag) ->
     end.
 
 
-%% Checks that the version os "good enough" (of the specified platform).
+%% Checks that the version is "good enough" (of the specified platform).
 
 is_good_enough_linux(CondVsn) ->
     is_good_enough_platform(unix, linux, CondVsn).
