@@ -316,12 +316,8 @@ if [ "x$GDB" = "x" ]; then
             # Choose a random core in order to not collide with any other valgrind
             # run on the same machine.
 	    cpu=`shuf -i 1-$ncpu -n 1`
-	    mask=1
-	    while [ $cpu -gt 1 ]; do
-		mask=`expr $mask \* 2`
-		cpu=`expr $cpu - 1`
-	    done
-	    taskset1="taskset $mask"
+	    cpu=`expr $cpu - 1`
+	    taskset1="taskset --cpu-list $cpu"
 	    sched_arg="-S$ncpu:$ncpu"
 	else
 	    taskset1=
