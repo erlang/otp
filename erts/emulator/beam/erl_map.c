@@ -973,7 +973,13 @@ BIF_RETTYPE maps_keys_1(BIF_ALIST_1) {
 HIPE_WRAPPER_BIF_DISABLE_GC(maps_merge, 2)
 
 BIF_RETTYPE maps_merge_2(BIF_ALIST_2) {
-    if (is_flatmap(BIF_ARG_1)) {
+    if (BIF_ARG_1 == BIF_ARG_2) {
+	/* Merging upon itself always returns itself */
+	if (is_map(BIF_ARG_1)) {
+	    return BIF_ARG_1;
+	}
+	BIF_P->fvalue = BIF_ARG_1;
+    } else if (is_flatmap(BIF_ARG_1)) {
 	if (is_flatmap(BIF_ARG_2)) {
 	    BIF_RET(flatmap_merge(BIF_P, BIF_ARG_1, BIF_ARG_2));
 	} else if (is_hashmap(BIF_ARG_2)) {
@@ -1007,6 +1013,9 @@ static Eterm flatmap_merge(Process *p, Eterm nodeA, Eterm nodeB) {
     mp2  = (flatmap_t*)flatmap_val(nodeB);
     n1   = flatmap_get_size(mp1);
     n2   = flatmap_get_size(mp2);
+
+    if (n1 == 0) return nodeB;
+    if (n2 == 0) return nodeA;
 
     need = MAP_HEADER_FLATMAP_SZ + 1 + 2 * (n1 + n2);
 
@@ -1127,6 +1136,7 @@ static Eterm map_merge_mixed(Process *p, Eterm flat, Eterm tree, int swap_args) 
 
     mp = (flatmap_t*)flatmap_val(flat);
     n  = flatmap_get_size(mp);
+    if (n == 0) return tree;
 
     ks = flatmap_get_keys(mp);
     vs = flatmap_get_values(mp);

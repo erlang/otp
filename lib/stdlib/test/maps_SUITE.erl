@@ -30,7 +30,7 @@
 -export([t_update_with_3/1, t_update_with_4/1,
          t_get_3/1, t_filter_2/1,
          t_fold_3/1,t_map_2/1,t_size_1/1,
-         t_iterator_1/1,
+         t_iterator_1/1, t_put_opt/1, t_merge_opt/1,
          t_with_2/1,t_without_2/1]).
 
 %%-define(badmap(V,F,Args), {'EXIT', {{badmap,V}, [{maps,F,Args,_}|_]}}).
@@ -48,7 +48,7 @@ all() ->
     [t_update_with_3,t_update_with_4,
      t_get_3,t_filter_2,
      t_fold_3,t_map_2,t_size_1,
-     t_iterator_1,
+     t_iterator_1,t_put_opt,t_merge_opt,
      t_with_2,t_without_2].
 
 t_update_with_3(Config) when is_list(Config) ->
@@ -203,6 +203,28 @@ iter_kv(I) ->
         {K,V,NI} ->
             [{K,V} | iter_kv(NI)]
     end.
+
+t_put_opt(Config) when is_list(Config) ->
+    Value = id(#{complex => map}),
+    Map = id(#{a => Value}),
+    true = erts_debug:same(maps:put(a, Value, Map), Map),
+    ok.
+
+t_merge_opt(Config) when is_list(Config) ->
+    Small = id(#{a => 1}),
+    true = erts_debug:same(maps:merge(#{}, Small), Small),
+    true = erts_debug:same(maps:merge(Small, #{}), Small),
+    true = erts_debug:same(maps:merge(Small, Small), Small),
+
+    Large = maps:from_list([{I,I}||I<-lists:seq(1,200)]),
+    true = erts_debug:same(maps:merge(#{}, Large), Large),
+    true = erts_debug:same(maps:merge(Large, #{}), Large),
+    true = erts_debug:same(maps:merge(Large, Large), Large),
+
+    List = id([a|b]),
+    ?badmap([a|b],merge,[[a|b],[a|b]]) = (catch maps:merge(List, List)),
+
+    ok.
 
 t_size_1(Config) when is_list(Config) ->
       0 = maps:size(#{}),
