@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -53,17 +53,17 @@
   getWindowVariant/1,hasCapture/1,hasScrollbar/2,hasTransparentBackground/1,
   hide/1,inheritAttributes/1,initDialog/1,invalidateBestSize/1,isDoubleBuffered/1,
   isEnabled/1,isExposed/2,isExposed/3,isExposed/5,isRetained/1,isShown/1,
-  isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,
-  move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
-  navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,
-  popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
-  refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
-  reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,
-  scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,
-  setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
-  setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
-  setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,setFont/2,
-  setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
+  isShownOnScreen/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,
+  makeModal/1,makeModal/2,move/2,move/3,move/4,moveAfterInTabOrder/2,
+  moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
+  popEventHandler/1,popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,
+  raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
+  removeChild/2,reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,
+  scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
+  setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
+  setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
+  setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
+  setFont/2,setForegroundColour/2,setHelpText/2,setId/2,setLabel/2,setMaxSize/2,
   setMaximumSizeX/2,setMaximumSizeY/2,setMinSize/2,setMinimumSizeX/2,
   setMinimumSizeY/2,setName/2,setOwnBackgroundColour/2,setOwnFont/2,
   setOwnForegroundColour/2,setPalette/2,setSashVisible/3,setScrollPos/3,
@@ -420,6 +420,8 @@ lineUp(This) -> wxWindow:lineUp(This).
 lineDown(This) -> wxWindow:lineDown(This).
 %% @hidden
 layout(This) -> wxWindow:layout(This).
+%% @hidden
+isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
 %% @hidden
 isTopLevel(This) -> wxWindow:isTopLevel(This).
 %% @hidden

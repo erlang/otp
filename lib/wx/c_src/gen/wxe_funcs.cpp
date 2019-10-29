@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -843,6 +843,13 @@ case wxWindow_IsTopLevel: { // wxWindow::IsTopLevel
  wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  bool Result = This->IsTopLevel();
+ rt.addBool(Result);
+ break;
+}
+case wxWindow_IsShownOnScreen: { // wxWindow::IsShownOnScreen
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ bool Result = This->IsShownOnScreen();
  rt.addBool(Result);
  break;
 }
