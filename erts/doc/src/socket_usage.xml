@@ -785,7 +785,7 @@
 	<cell>integer()</cell>
 	<cell>yes</cell>
 	<cell>yes</cell>
-	<cell>none</cell>
+	<cell>Set not allowed on all platforms.</cell>
       </row>
       <row>
 	<cell>nodelay</cell>

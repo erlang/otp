@@ -3171,6 +3171,9 @@ enc_setopt_value(tcp, congestion, V, _D, T, P)
        (T =:= stream) andalso
        (P =:= tcp) ->
     V;
+enc_setopt_value(tcp, cork, V, _D, T, P)
+  when is_boolean(V) andalso (T =:= stream) andalso (P =:= tcp) ->
+    V;
 enc_setopt_value(tcp, maxseg, V, _D, T, P)
   when is_integer(V) andalso
        (T =:= stream) andalso
@@ -3292,8 +3295,19 @@ enc_getopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% For the most part, we simply let the value pass through, but for some
 %% values we may need to do an actual decode.
 %%
+%% For some reason dialyzer thinks that the only valid value for Opt to 
+%% this function is otp_socket_option(). Of course without explaining
+%% how it came to that conclusion... And since I know that to be false...
+%%
 
-%% Let the user deal with this for now...
+-dialyzer({nowarn_function, dec_getopt_value/6}).
+
+%% This string is NULL-terminated, but the general function we use
+%% in the nif code does not know that. So, deal with it here.
+dec_getopt_value(tcp = _L, congestion = _Opt, Alg, _D, _T, _P) when is_list(Alg) ->
+    {Str, _} = lists:splitwith(fun(0) -> false; (_) -> true end, Alg),
+    Str;
+%% Let the user deal with the rest for now...
 dec_getopt_value(_L, _Opt, V, _D, _T, _P) ->
     V.
 
@@ -3638,8 +3652,8 @@ enc_sockopt_key(ipv6 = L, UnknownOpt, _Dir, _D, _T, _P) ->
 %% but they are difficult to get portable...
 enc_sockopt_key(tcp, congestion = _Opt, _Dir, _D, _T, _P) ->
     ?SOCKET_OPT_TCP_CONGESTION;
-enc_sockopt_key(tcp = L, cork = Opt, _Dir, _D, _T, _P) ->
-    not_supported({L, Opt});
+enc_sockopt_key(tcp = _L, cork = _Opt, _Dir, _D, _T, _P) ->
+    ?SOCKET_OPT_TCP_CORK;
 enc_sockopt_key(tcp = L, keepidle = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(tcp = L, keepintvl = Opt, _Dir, _D, _T, _P) ->
