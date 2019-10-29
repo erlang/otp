@@ -2246,10 +2246,10 @@ define etp-process-info-int
     printf "0\n"
   end
   printf "  Mbuf size: %ld\n", $etp_proc->mbuf_sz
-  if (etp_smp_compiled)
-    printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($etp_proc->sig_qs.len + $etp_proc->sig_inq.len), $etp_proc->sig_qs.len, $etp_proc->sig_inq.len
-  else
-    printf "  Msgq len: %d\n", $etp_proc->sig_qs.len
+  printf "  Msgq len: %ld (inner=%ld, outer=%ld)\n", ($etp_proc->sig_qs.len + $etp_proc->sig_inq.len), $etp_proc->sig_qs.len, $etp_proc->sig_inq.len
+  if (!($arg1))
+    printf "  Msgq Flags: "
+    etp-sigq-flags $etp_proc
   end
   printf "  Parent: "
   etp-1 ((Eterm)($etp_proc->parent))
@@ -2434,11 +2434,7 @@ define etp-process-memory-info
       printf " | none "
     end
     printf "] [Mbuf: %5ld", $etp_pmem_proc->mbuf_sz
-    if (etp_smp_compiled)
-      printf " | %3ld (%3ld | %3ld)", ($etp_pmem_proc->sig_qs.len + $etp_pmem_proc->sig_inq.len), $etp_pmem_proc->sig_qs.len, $etp_pmem_proc->sig_inq.len
-    else
-      printf " | %3ld", $etp_pmem_proc->sig_qs.len
-    end
+    printf " | %3ld (%3ld | %3ld)", ($etp_pmem_proc->sig_qs.len + $etp_pmem_proc->sig_inq.len), $etp_pmem_proc->sig_qs.len, $etp_pmem_proc->sig_inq.len
     printf "] "
     if ($etp_pmem_proc->i)
       printf " I: "
@@ -3039,11 +3035,7 @@ end
 define etp-run-queue-info-internal
   if ($sched_type == 0)
     printf " - Run Queue -\n"
-    if (etp_smp_compiled)
-      set $runq = erts_aligned_scheduler_data[$sched_ix].esd.run_queue
-    else
-      set $runq = &erts_aligned_run_queues[0].runq
-    end
+    set $runq = erts_aligned_scheduler_data[$sched_ix].esd.run_queue
   else
     if ($sched_type == 1)
       printf "\n--- Dirty CPU Run Queue ---\n"
@@ -3267,11 +3259,7 @@ define etp-system-info
   else
     printf "no\n"
   end
-  if (etp_smp_compiled)
-    printf "SMP support: yes\n"
-  else
-    printf "SMP support: no\n"
-  end
+  printf "SMP support: yes\n"
   printf "Thread support: "
   if (etp_thread_compiled)
     printf "yes\n"
@@ -4368,11 +4356,7 @@ document etp-block
 end
 
 define etp-smp-atomic
-  if (etp_smp_compiled)
-    set $arg1 = (($arg0).counter)
-  else
-    set $arg1 = ($arg0)
-  end
+  set $arg1 = (($arg0).counter)
 end
 
 document etp-smp-atomic
