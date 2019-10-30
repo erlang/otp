@@ -154,8 +154,8 @@ ERL_NIF_TERM aead_cipher(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         }
     else
         {
-#if defined(HAVE_GCM)
-            if (cipherp->flags & GCM_MODE) {
+#if defined(HAVE_GCM) || defined(HAVE_CHACHA20_POLY1305)
+            if (!(cipherp->flags & CCM_MODE)) { /* That is, CHACHA20_POLY1305 */ 
                 if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_set_tag, (int)tag_len, tag.data) != 1)
                     /* Decrypt error */
                     {ret = atom_error; goto done;}
