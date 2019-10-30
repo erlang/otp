@@ -199,7 +199,7 @@ void error(char* format, ...);
 
 static void usage_notsup(const char *switchname, const char *alt);
 static char **build_args_from_env(char *env_var);
-static char **build_args_from_string(char *env_var);
+static char **build_args_from_string(char *env_var, int allow_comments);
 static void initial_argv_massage(int *argc, char ***argv);
 static void get_parameters(int argc, char** argv);
 static void add_arg(char *new_arg);
@@ -1659,12 +1659,12 @@ static void add_epmd_port(void)
 static char **build_args_from_env(char *env_var)
 {
     char *value = get_env(env_var);
-    char **res = build_args_from_string(value);
+    char **res = build_args_from_string(value, 0);
     free_env_val(value);
     return res;
 }
 
-static char **build_args_from_string(char *string)
+static char **build_args_from_string(char *string, int allow_comments)
 {
     int argc = 0;
     char **argv = NULL;
@@ -1673,7 +1673,7 @@ static char **build_args_from_string(char *string)
     int s_alloced = 0;
     int s_pos = 0;
     char *p = string;
-    enum {Start, Build, Build0, BuildSQuoted, BuildDQuoted, AcceptNext} state;
+    enum {Start, Build, Build0, BuildSQuoted, BuildDQuoted, AcceptNext, BuildComment} state;
 
 #define ENSURE()					\
     if (s_pos >= s_alloced) {			        \
@@ -1705,12 +1705,24 @@ static char **build_args_from_string(char *string)
 	    break;
 	case Build0:
 	    switch (*p) {
+            case '\n':
+	    case '\f':
+	    case '\r':
+	    case '\t':
+	    case '\v':
 	    case ' ':
 		++p;
 		break;
 	    case '\0':
 		state = Start;
 		break;
+            case '#':
+                if (allow_comments) {
+                    ++p;
+                    state = BuildComment;
+                    break;
+                }
+                /* fall-through */
 	    default:
 		state = Build;
 		break;
@@ -1718,6 +1730,15 @@ static char **build_args_from_string(char *string)
 	    break;
 	case Build:
 	    switch (*p) {
+	    case '#':
+                if (!allow_comments)
+                    goto build_default;
+                /* fall-through */
+	    case '\n':
+	    case '\f':
+	    case '\r':
+	    case '\t':
+	    case '\v':
 	    case ' ':
 	    case '\0':
 		ENSURE();
@@ -1738,6 +1759,7 @@ static char **build_args_from_string(char *string)
 		state = AcceptNext;
 		break;
 	    default:
+            build_default:
 		ENSURE();
 		(*cur_s)[s_pos++] = *p++;
 		break;
@@ -1772,14 +1794,19 @@ static char **build_args_from_string(char *string)
 	    }
 	    break;
 	case AcceptNext:
-	    if (!*p) {
-		state = Build;
-	    } else {
+	    if (*p) {
 		ENSURE();
 		(*cur_s)[s_pos++] = *p++;
 	    }
 	    state = Build;
 	    break;
+        case BuildComment:
+            if (*p == '\n' || *p == '\0') {
+                state = Build0;
+            } else {
+                p++;
+            }
+            break;
 	}
     }
 done:
@@ -1804,30 +1831,16 @@ errno_string(void)
     return str;
 }
 
+#define FILE_BUFF_SIZE 1024
+
 static char **
 read_args_file(char *filename)
 {
-    int c, aix = 0, quote = 0, cmnt = 0, asize = 0;
-    char **res, *astr = NULL;
     FILE *file;
-
-#undef EAF_CMNT
-#undef EAF_QUOTE
-#undef SAVE_CHAR
-
-#define EAF_CMNT	(1 << 8)
-#define EAF_QUOTE	(1 << 9)
-#define SAVE_CHAR(C)						\
-    do {							\
-	if (!astr)						\
-	    astr = emalloc(sizeof(char)*(asize = 20));		\
-	if (aix == asize)					\
-	    astr = erealloc(astr, sizeof(char)*(asize += 20));	\
-	if (' ' != (char) (C))					\
-	    astr[aix++] = (char) (C);				\
-	else if (aix > 0 && astr[aix-1] != ' ')			\
-	    astr[aix++] = ' ';					\
-   } while (0)
+    char buff[FILE_BUFF_SIZE+1];
+    size_t astr_sz = 0, sz;
+    char *astr = buff;
+    char **res;
 
     do {
 	errno = 0;
@@ -1839,63 +1852,41 @@ read_args_file(char *filename)
 		     errno_string());
     }
 
-    while (1) {
-	c = getc(file);
-	if (c == EOF) {
-	    if (ferror(file)) {
-		if (errno == EINTR) {
-		    clearerr(file);
-		    continue;
-		}
-		usage_format("Failed to read arguments file \"%s\": %s\n",
-			     filename,
-			     errno_string());
-	    }
-	    break;
-	}
+    sz = fread(astr, 1, FILE_BUFF_SIZE, file);
 
-	switch (quote | cmnt | c) {
-	case '\\':
-	    quote = EAF_QUOTE;
-	    break;
-	case '#':
-	    cmnt = EAF_CMNT;
-	    break;
-	case EAF_CMNT|'\n':
-	    cmnt = 0;
-	    /* Fall through... */
-	case '\n':
-	case '\f':
-	case '\r':
-	case '\t':
-	case '\v':
-	    if (!quote)
-		c = ' ';
-	    /* Fall through... */
-	default:
-	    if (!cmnt)
-		SAVE_CHAR(c);
-	    quote = 0;
-	    break;
-	}
+    while (!feof(file) && sz == FILE_BUFF_SIZE) {
+        if (astr == buff) {
+            astr = emalloc(FILE_BUFF_SIZE*2+1);
+            astr_sz = FILE_BUFF_SIZE;
+            memcpy(astr, buff, sizeof(buff));
+        } else {
+            astr_sz += FILE_BUFF_SIZE;
+            astr = erealloc(astr,astr_sz+FILE_BUFF_SIZE+1);
+        }
+        sz = fread(astr+astr_sz, 1, FILE_BUFF_SIZE, file);
     }
 
-    SAVE_CHAR('\0');
+    if (ferror(file)) {
+        usage_format("Failed to read arguments file \"%s\": %s\n",
+                     filename,
+                     errno_string());
+    }
+
+    astr[astr_sz + sz] = '\0';
 
     fclose(file);
 
     if (astr[0] == '\0')
 	res = NULL;
     else
-	res = build_args_from_string(astr);
+	res = build_args_from_string(astr, !0);
 
-    efree(astr);
+    if (astr != buff)
+        efree(astr);
 
     return res;
 
-#undef EAF_CMNT
-#undef EAF_QUOTE
-#undef SAVE_CHAR
+#undef FILE_BUFF_SIZE
 }
 
 
