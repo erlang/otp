@@ -8,6 +8,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES = \
 	crypto_bench_SUITE \
 	crypto_SUITE \
+	crypto_property_test_SUITE \
 	engine_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
@@ -80,6 +81,7 @@ release_tests_spec: $(TEST_TARGET)
 	$(INSTALL_DATA) crypto.spec crypto_bench.spec crypto.cover $(RELTEST_FILES) "$(RELSYSDIR)"
 	@tar cfh - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
 	chmod -R u+w "$(RELSYSDIR)"
+	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)	
 
 release_docs_spec:
 
