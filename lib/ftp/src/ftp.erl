@@ -1375,11 +1375,11 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
 					      verbose = Verbose,
 					      caller = Caller,
 					      client = From,
-					      ctrl_data = {CtrlData, AccLines, 
+					      ctrl_data = {BinCtrlData, AccLines,
 							   LineStatus}} 
 	    = State0) ->    
-    ?DBG('--ctrl ~p ----> ~s~p~n',[Socket,<<CtrlData/binary, Data/binary>>,State]),
-    case ftp_response:parse_lines(<<CtrlData/binary, Data/binary>>, 
+    ?DBG('--ctrl ~p ----> ~s~p~n',[Socket,<<BinCtrlData/binary, Data/binary>>,State]),
+    case ftp_response:parse_lines(<<BinCtrlData/binary, Data/binary>>,
 				  AccLines, LineStatus) of
 	{ok, Lines, NextMsgData} ->
 	    verbose(Lines, Verbose, 'receive'),
@@ -1399,12 +1399,13 @@ handle_info({Transport, Socket, Data}, #state{csock = {Transport, Socket},
                                                     ctrl_data = 
                                                         {NextMsgData, [], start}})
 	    end;
-	{continue, NewCtrlData} when NewCtrlData =/= CtrlData ->
-	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
-	    State = activate_ctrl_connection(State0),
-	    {noreply, State#state{ctrl_data = NewCtrlData}};
-	{continue, NewCtrlData} when NewCtrlData == CtrlData ->
-	    ?DBG('   ...Continue... ctrl_data=~p~n',[NewCtrlData]),
+	{continue, CtrlData} when CtrlData =/= State0#state.ctrl_data ->
+	    ?DBG('   ...Continue... ctrl_data=~p~n',[CtrlData]),
+	    State1 = State0#state{ctrl_data = CtrlData},
+	    State = activate_ctrl_connection(State1),
+	    {noreply, State};
+	{continue, CtrlData} ->
+	    ?DBG('   ...Continue... ctrl_data=~p~n',[CtrlData]),
 	    {noreply, State0}
     end;
 
