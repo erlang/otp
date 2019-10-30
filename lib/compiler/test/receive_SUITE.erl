@@ -26,7 +26,8 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
 	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1,
-         match_built_terms/1,elusive_common_exit/1]).
+         match_built_terms/1,elusive_common_exit/1,
+         return_before_receive/1,trapping/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -47,9 +48,9 @@ groups() ->
     [{p,test_lib:parallel(),
       [recv,coverage,otp_7980,export,wait,
        recv_in_try,double_recv,receive_var_zero,
-       match_built_terms,elusive_common_exit]},
+       match_built_terms,elusive_common_exit,
+       return_before_receive,trapping]},
      {slow,[],[ref_opt]}].
-
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -488,5 +489,56 @@ elusive2(Acc) ->
     end,
     %% Common code.
     elusive2([Pid | Acc]).
+
+return_before_receive(_Config) ->
+    ref_received = do_return_before_receive(),
+    ok.
+
+do_return_before_receive() ->
+    Ref = make_ref(),
+    self() ! {ref,Ref},
+    maybe_receive(id(false)),
+    receive
+        {ref,Ref} ->
+            ref_received
+    after 1 ->
+            %% Can only be reached if maybe_receive/1 returned
+            %% with the receive marker set.
+            timeout
+    end.
+
+maybe_receive(Bool) ->
+    NewRef = make_ref(),
+    case Bool of
+        true ->
+            receive
+                NewRef ->
+                    ok
+            end;
+        false ->
+            %% The receive marker must not be set when
+            %% leaving this function.
+            ok
+    end.
+
+trapping(_Config) ->
+    ok = do_trapping(0),
+    ok = do_trapping(1),
+    ok.
+
+%% Simplified from emulator's binary_SUITE:trapping/1.
+do_trapping(N) ->
+    Ref = make_ref(),
+    self() ! Ref,
+    case N rem 2 of
+	0 ->
+            %% Would generate recv_set _, label _, wait_timeout _ _,
+            %% which the loader can't handle.
+            receive after 1 -> ok end;
+	1 ->
+            void
+    end,
+    receive Ref -> ok end,
+    receive after 1 -> ok end.
 
 id(I) -> I.
