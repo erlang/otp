@@ -112,7 +112,7 @@ opt([], Blocks, _) -> Blocks.
 
 recv_opt([L|Ls], RecvLbl, Blocks) ->
     #b_blk{is=Is0} = Blk0 = map_get(L, Blocks),
-    case recv_opt_is(Is0, RecvLbl, Blocks, []) of
+    case recv_opt_is(L, {Is0,[]}, RecvLbl, Blocks) of
         {yes,Is} ->
             Blk = Blk0#b_blk{is=Is},
             {yes,Blocks#{L:=Blk}};
@@ -121,22 +121,48 @@ recv_opt([L|Ls], RecvLbl, Blocks) ->
     end;
 recv_opt([], _, _Blocks) -> no.
 
-recv_opt_is([#b_set{op=call}=I0|Is], RecvLbl, Blocks0, Acc) ->
+recv_opt_is(L, {Is0,PreIs0}, RecvLbl, Blocks) ->
+    case recv_opt_makes_ref(Is0, RecvLbl, Blocks, PreIs0) of
+        {yes,Ref,[I0|Is],PreIs} ->
+            %% This instruction creates a reference. Search the
+            %% rest of the function to find whether it is always
+            %% matched out by a receive.
+            %%
+            %% Note: It is important that we don't search the entire
+            %% block that this instruction is part of, because the
+            %% block could contain a remove_message instruction part
+            %% of a previous receive. For an example, see
+            %% receive_SUITE_data/ref_opt/yes_16.erl.
+            TempBlk = (map_get(L, Blocks))#b_blk{is=Is},
+            TempBlocks = Blocks#{L:=TempBlk},
+            case opt_ref_used(L, Ref, TempBlocks) of
+                true ->
+                    %% This reference will always be matched to
+                    %% a part of any message received.
+                    I = beam_ssa:add_anno(recv_mark, RecvLbl, I0),
+                    {yes,reverse(PreIs, [I|Is])};
+                false ->
+                    %% There could be more than one reference-creating
+                    %% instruction in a block, so we will need to
+                    %% continue the search. For an example, see
+                    %% receive_SUITE_data/ref_opt/yes_15.erl.
+                    recv_opt_is(L, {Is,[I0|PreIs]}, RecvLbl, Blocks)
+            end;
+        no ->
+            no
+    end.
+
+recv_opt_makes_ref([#b_set{op=call}=I0|Is], RecvLbl, Blocks0, Acc) ->
     case makes_ref(I0, Blocks0) of
         no ->
-            recv_opt_is(Is, RecvLbl, Blocks0, [I0|Acc]);
+            recv_opt_makes_ref(Is, RecvLbl, Blocks0, [I0|Acc]);
         {yes,Ref} ->
-            case opt_ref_used(RecvLbl, Ref, Blocks0) of
-                false ->
-                    recv_opt_is(Is, RecvLbl, Blocks0, [I0|Acc]);
-                true ->
-                    I = beam_ssa:add_anno(recv_mark, RecvLbl, I0),
-                    {yes,reverse(Acc, [I|Is])}
-            end
+            %% This call creates a reference.
+            {yes,Ref,[I0|Is],Acc}
     end;
-recv_opt_is([I|Is], RecvLbl, Blocks, Acc) ->
-    recv_opt_is(Is, RecvLbl, Blocks, [I|Acc]);
-recv_opt_is([], _, _, _) -> no.
+recv_opt_makes_ref([I|Is], RecvLbl, Blocks, Acc) ->
+    recv_opt_makes_ref(Is, RecvLbl, Blocks, [I|Acc]);
+recv_opt_makes_ref([], _, _, _) -> no.
 
 makes_ref(#b_set{dst=Dst,args=[Func0|_]}, Blocks) ->
     Func = case Func0 of
@@ -165,9 +191,9 @@ ref_in_tuple(Tuple, Blocks) ->
         end,
     beam_ssa:fold_instrs_rpo(F, [0], no, Blocks).
 
-opt_ref_used(RecvLbl, Ref, Blocks) ->
+opt_ref_used(L, Ref, Blocks) ->
     Vs = #{Ref=>ref,ref=>Ref,ref_matched=>false},
-    case opt_ref_used_1(RecvLbl, Vs, Blocks) of
+    case opt_ref_used_1(L, Vs, Blocks) of
         used -> true;
         not_used -> false;
         done -> false
@@ -218,6 +244,21 @@ opt_ref_used_is([#b_set{op=wait_timeout}|_], _Vs) ->
     done;
 opt_ref_used_is([#b_set{op=wait}|_], _Vs) ->
     done;
+opt_ref_used_is([#b_set{op=landingpad}|_], _Vs) ->
+    %% The receive marker will be cleared when an exception
+    %% is caught.
+    done;
+opt_ref_used_is([#b_set{op=call,
+                        args=[#b_remote{mod=#b_literal{val=Mod},
+                                        name=#b_literal{val=Name}}|Args]}=I|Is],
+                Vs0) ->
+    case erl_bifs:is_exit_bif(Mod, Name, length(Args)) of
+        true ->
+            done;
+        false ->
+            Vs = update_vars(I, Vs0),
+            opt_ref_used_is(Is, Vs)
+    end;
 opt_ref_used_is([#b_set{}=I|Is], Vs0) ->
     Vs = update_vars(I, Vs0),
     opt_ref_used_is(Is, Vs);
@@ -234,6 +275,8 @@ opt_ref_used_last(#b_blk{last=Last}=Blk, Vs, Blocks) ->
                 #{} ->
                     ref_used_in([{Succ,Vs},{Fail,Vs}], Blocks)
             end;
+        #b_ret{} ->
+            not_used;
         _ ->
             SuccVs = [{Succ,Vs} || Succ <- beam_ssa:successors(Blk)],
             ref_used_in(SuccVs, Blocks)
@@ -260,9 +303,9 @@ update_vars(#b_set{args=Args,dst=Dst}, Vs) ->
                           #{} -> false
                       end
               end, Vars),
-    case All of
-        true -> Vs#{Dst=>message};
-        false -> Vs
+    case {Vars,All} of
+        {[_|_],true} -> Vs#{Dst=>message};
+        {_,_} -> Vs
     end.
 
 %% is_ref_msg_comparison(Args, Variables) -> true|false.
