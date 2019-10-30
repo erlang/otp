@@ -88,7 +88,8 @@
                               single_line := boolean()}.
 -type msg_fun() :: fun((term()) -> {io:format(),[term()]} |
                                    report() |
-                                   unicode:chardata()).
+                                   unicode:chardata() |
+                                   ignore).
 -type metadata() :: #{pid    => pid(),
                       gl     => pid(),
                       time   => timestamp(),
@@ -1050,6 +1051,7 @@ do_log(Level,Msg,Meta) ->
       Meta :: metadata().
 log_allowed(Location,Level,{Fun,FunArgs},Meta) when is_function(Fun,1) ->
     try Fun(FunArgs) of
+        ignore -> ok;
         Msg={Format,Args} when is_list(Format), is_list(Args) ->
             log_allowed(Location,Level,Msg,Meta);
         Report when ?IS_REPORT(Report) ->
