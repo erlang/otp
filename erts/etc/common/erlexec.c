@@ -377,7 +377,7 @@ add_extra_suffixes(char *prog)
    }
 #endif
 
-   if (emu_type) {
+   if (emu_type && strcmp("opt",emu_type) != 0) {
        p = write_str(p, ".");
        p = write_str(p, emu_type);
    }
