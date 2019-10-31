@@ -332,7 +332,6 @@ typedef struct erl_trace_message_queue__ {
         if ((P)->sig_qs.saved_last) {                                   \
             if ((P)->sig_qs.flags & FS_DEFERRED_SAVED_LAST) {           \
                 (P)->sig_qs.flags |= FS_DEFERRED_SAVE;                  \
-                ASSERT(!PEEK_MESSAGE((P)));                             \
             }                                                           \
             else {                                                      \
                 /* Points to inner queue; safe to use */                \
