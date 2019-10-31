@@ -62,9 +62,12 @@ extern ErlNifResourceType* evp_cipher_ctx_rtype;
 struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
     int iv_len;
+    ERL_NIF_TERM padding;
+    int encflag; /* 1 if encrypting, 0 if decrypting */
+    unsigned int size;
 #if !defined(HAVE_EVP_AES_CTR)
     ErlNifEnv* env;
-    ERL_NIF_TERM state;
+    ERL_NIF_TERM state; /* Is == atom_undefined if not handling an aes_ctr crypto */
 #endif
 };
 

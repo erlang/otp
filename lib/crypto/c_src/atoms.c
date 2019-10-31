@@ -24,6 +24,7 @@ ERL_NIF_TERM atom_true;
 ERL_NIF_TERM atom_false;
 ERL_NIF_TERM atom_sha;
 ERL_NIF_TERM atom_error;
+ERL_NIF_TERM atom_pkcs_padding;
 ERL_NIF_TERM atom_rsa_pkcs1_padding;
 ERL_NIF_TERM atom_rsa_pkcs1_oaep_padding;
 ERL_NIF_TERM atom_rsa_no_padding;
@@ -156,6 +157,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
 
     atom_sha = enif_make_atom(env,"sha");
     atom_error = enif_make_atom(env,"error");
+    atom_pkcs_padding = enif_make_atom(env,"pkcs_padding");
     atom_rsa_pkcs1_padding = enif_make_atom(env,"rsa_pkcs1_padding");
     atom_rsa_pkcs1_oaep_padding = enif_make_atom(env,"rsa_pkcs1_oaep_padding");
     atom_rsa_no_padding = enif_make_atom(env,"rsa_no_padding");
