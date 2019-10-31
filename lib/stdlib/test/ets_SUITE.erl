@@ -4786,6 +4786,7 @@ test_delete_table_while_size_snapshot_helper(TableType) ->
     repeat_par(
       fun() ->
               Table = ets:new(t, [public, TableType,
+                                  {decentralized_counters, true},
                                   {write_concurrency, true}]),
               Parent = self(),
               NrOfSizeProcs = 100,
