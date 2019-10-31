@@ -118,17 +118,19 @@ ERL_NIF_TERM aead_cipher(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
             {ret = EXCP_BADARG(env, "Can't set text size"); goto done;}
     } else
 #endif
-        {
+        { /* GCM_MODE or CHACHA20_POLY1305 */
+            /* Set key and iv */
             if (EVP_CipherInit_ex(ctx, NULL, NULL, key.data, iv.data, -1) != 1)
                 {ret = EXCP_BADARG(env, "Can't set key or iv"); goto done;}
         }
 
+    /* Set the AAD */
     if (EVP_CipherUpdate(ctx, NULL, &len, aad.data, (int)aad.size) != 1)
         {ret = EXCP_BADARG(env, "Can't set AAD"); goto done;}
 
+    /* Set the plain text and get the crypto text (or vice versa :) ) */
     if ((outp = enif_make_new_binary(env, in.size, &out)) == NULL)
         {ret = EXCP_ERROR(env, "Can't make 'Out' binary"); goto done;}
-
     if (EVP_CipherUpdate(ctx, outp, &len, in.data, (int)in.size) != 1)
         {
             if (encflg)
@@ -141,29 +143,34 @@ ERL_NIF_TERM aead_cipher(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
     if (encflg)
         {
-            if (EVP_CipherFinal_ex(ctx, outp/*+len*/, &len) != 1)
+            /* Finalize the encrypted text */
+            if (EVP_CipherFinal_ex(ctx, outp, &len) != 1)
                 {ret = EXCP_ERROR(env, "Encrypt error"); goto done;}
 
+            /* Get the tag */
             if ((tagp = enif_make_new_binary(env, tag_len, &out_tag)) == NULL)
                 {ret = EXCP_ERROR(env, "Can't make 'Out' binary"); goto done;}
-
             if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_get_tag, (int)tag_len, tagp) != 1)
                 {ret = EXCP_ERROR(env, "Can't get Tag"); goto done;}
 
+            /* Make the return value (the tuple with binary crypto text and the tag) */
             ret = enif_make_tuple2(env, out, out_tag);
         }
-    else
+    else /* Decrypting. The plain text is already pointed to by 'out' */
         {
-#if defined(HAVE_GCM)
-            if (cipherp->flags & GCM_MODE) {
+#if defined(HAVE_GCM) || defined(HAVE_CHACHA20_POLY1305)
+            /* Check the Tag before returning. CCM_MODE does this previously. */
+            if (!(cipherp->flags & CCM_MODE)) { /* That is, CHACHA20_POLY1305 or GCM_MODE */ 
                 if (EVP_CIPHER_CTX_ctrl(ctx, cipherp->extra.aead.ctx_ctrl_set_tag, (int)tag_len, tag.data) != 1)
                     /* Decrypt error */
                     {ret = atom_error; goto done;}
+                /* CCM dislikes EVP_DecryptFinal_ex on decrypting for pre 1.1.1, so we do it only here */
                 if (EVP_DecryptFinal_ex(ctx, outp+len, &len) != 1)
                     /* Decrypt error */
                     {ret = atom_error; goto done;}
             }
 #endif
+            /* Make the return value, that is, the plain text */
             ret = out;
         }
 

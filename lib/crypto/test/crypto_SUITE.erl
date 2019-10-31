@@ -234,7 +234,7 @@ groups() ->
      {blowfish_ofb64,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {rc4,                  [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_ctr,              [], [stream]},
-     {chacha20_poly1305,    [], [aead]},
+     {chacha20_poly1305,    [], [aead, aead_bad_tag]},
      {chacha20,             [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {poly1305,             [], [poly1305]},
      {no_poly1305,          [], [no_poly1305]},
@@ -279,15 +279,15 @@ groups() ->
      {aes_128_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_256_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_128_ccm,  [], [aead]},
-     {aes_192_ccm,  [], [aead]},
-     {aes_256_ccm,  [], [aead]},
+     {aes_128_ccm,  [], [aead, aead_bad_tag]},
+     {aes_192_ccm,  [], [aead, aead_bad_tag]},
+     {aes_256_ccm,  [], [aead, aead_bad_tag]},
      {aes_128_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ecb,  [], [api_ng, api_ng_one_shot]},
-     {aes_128_gcm,  [], [aead]},
-     {aes_192_gcm,  [], [aead]},
-     {aes_256_gcm,  [], [aead]},
+     {aes_128_gcm,  [], [aead, aead_bad_tag]},
+     {aes_192_gcm,  [], [aead, aead_bad_tag]},
+     {aes_256_gcm,  [], [aead, aead_bad_tag]},
 
      %% Retired aliases
      {aes_cbc,    [], [block]},
@@ -748,6 +748,23 @@ aead(Config) when is_list(Config) ->
 		  end, AEADs)
 	end,
     lists:foreach(fun aead_cipher/1, FilteredAEADs).
+
+%%-------------------------------------------------------------------- 
+aead_bad_tag(Config) ->
+    [_|_] = AEADs = lazy_eval(proplists:get_value(cipher, Config)),
+    FilteredAEADs =
+	case proplists:get_bool(fips, Config) of
+	    false ->
+		AEADs;
+	    true ->
+		%% In FIPS mode, the IV length must be at least 12 bytes.
+		lists:filter(
+		  fun(Tuple) ->
+			  IVLen = byte_size(element(4, Tuple)),
+			  IVLen >= 12
+		  end, AEADs)
+	end,
+    lists:foreach(fun aead_cipher_bad_tag/1, FilteredAEADs).
 
 %%-------------------------------------------------------------------- 
 sign_verify() ->
@@ -1287,6 +1304,38 @@ aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}
                        {truncated,TruncatedCipherTag}]},
                      {expected, Plain},
                      {got, Other1}})
+    end.
+
+mk_bad_tag(CipherTag) ->
+    case <<0:(size(CipherTag))/unit:8>> of
+        CipherTag -> % The correct tag may happen to be a suite of zeroes
+            <<1:(size(CipherTag))/unit:8>>;
+        X ->
+            X
+    end.
+
+aead_cipher_bad_tag({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, Info}) ->
+    Plain = iolist_to_binary(PlainText),
+    BadTag = mk_bad_tag(CipherTag),
+    case crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, BadTag, false) of
+	error ->
+            ok;
+	Plain ->
+            ct:log("~p:~p~n info: ~p~n key: ~p~n pt: ~p~n iv: ~p~n aad: ~p~n ct: ~p~n tag: ~p~n bad tag: ~p~n",
+                   [?MODULE,?LINE,Info, Key, PlainText, IV, AAD, CipherText, CipherTag, BadTag]),
+            ct:fail("Didn't fail on bad tag")
+    end;
+aead_cipher_bad_tag({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}) ->
+    Plain = iolist_to_binary(PlainText),
+    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
+    BadTruncatedTag = mk_bad_tag(TruncatedCipherTag),
+    case  crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, BadTruncatedTag, false) of
+	error ->
+	    ok;
+	Plain ->
+            ct:log("~p:~p~n info: ~p~n key: ~p~n pt: ~p~n iv: ~p~n aad: ~p~n ct: ~p~n tag: ~p~n bad tag: ~p~n",
+                   [Info, Key, PlainText, IV, AAD, CipherText, TruncatedCipherTag, BadTruncatedTag]),
+            ct:fail("Didn't fail on bad tag")
     end.
 
 do_sign_verify({Type, undefined=Hash, Private, Public, Msg, Signature}) ->
