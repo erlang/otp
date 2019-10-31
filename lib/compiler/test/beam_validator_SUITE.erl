@@ -35,7 +35,8 @@
 	 map_field_lists/1,cover_bin_opt/1,
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
          receive_stacked/1,aliased_types/1,type_conflict/1,
-         infer_on_eq/1,infer_dead_value/1]).
+         infer_on_eq/1,infer_dead_value/1,
+         receive_marker/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -65,7 +66,7 @@ groups() ->
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
        receive_stacked,aliased_types,type_conflict,
-       infer_on_eq,infer_dead_value]}].
+       infer_on_eq,infer_dead_value,receive_marker]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -721,6 +722,18 @@ idv_2(State) ->
     end.
 
 idv_called_once(_State) -> ok.
+
+receive_marker(Config) when is_list(Config) ->
+    Errors = do_val(receive_marker, Config),
+
+    [{{receive_marker,t1,1},
+      {return,_,
+       {return_with_receive_marker,committed}}},
+     {{receive_marker,t2,1},
+      {{call_last,1,{f,2},1},_,
+       {return_with_receive_marker,committed}}}] = Errors,
+
+    ok.
 
 %%%-------------------------------------------------------------------------
 
