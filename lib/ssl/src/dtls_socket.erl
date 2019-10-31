@@ -31,23 +31,34 @@ send(Transport, {{IP,Port},Socket}, Data) ->
 
 listen(Port, #config{transport_info = TransportInfo,
                            ssl = SslOpts, 
-                           emulated = EmOpts,
+                           emulated = EmOpts0,
                            inet_user = Options} = Config) ->
     
-    
-    case dtls_listener_sup:start_child([Port, TransportInfo, emulated_socket_options(EmOpts, #socket_options{}), 
-				   Options ++ internal_inet_values(), SslOpts]) of
-	{ok, Pid} ->
-        Socket = #sslsocket{pid = {dtls, Config#config{dtls_handler = {Pid, Port}}}},
-        check_active_n(EmOpts, Socket),
+    Result = case dtls_listener_sup:lookup_listner(Port) of
+                 undefined ->
+                     Result0 = {ok, Listner0} = dtls_listener_sup:start_child([Port, TransportInfo, emulated_socket_options(EmOpts0, #socket_options{}), 
+                                                                          Options ++ internal_inet_values(), SslOpts]),
+                     dtls_listener_sup:register_listner({self(), Listner0}, Port),
+                     Result0;
+                 {ok, Listner0} = Result0 ->
+                     dtls_packet_demux:set_all_opts(Listner0, {Options, emulated_socket_options(EmOpts0, #socket_options{}), SslOpts}),
+                     dtls_listener_sup:register_listner({self(), Listner0}, Port),
+                     Result0;
+                 Result0 ->
+                     Result0
+             end,
+    case Result of
+        {ok, Listner} ->
+            Socket = #sslsocket{pid = {dtls, Config#config{dtls_handler = {Listner, Port}}}},
+            check_active_n(EmOpts0, Socket),
 	    {ok, Socket};
-	Err = {error, _} ->
-	    Err
+        Err ->
+            Err
     end.
 
 accept(dtls, #config{transport_info = {Transport,_,_,_,_},
-		    connection_cb = ConnectionCb,
-		    dtls_handler = {Listner, _}}, _Timeout) -> 
+                     connection_cb = ConnectionCb,
+                     dtls_handler = {Listner, _}}, _Timeout) -> 
     case dtls_packet_demux:accept(Listner, self()) of
 	{ok, Pid, Socket} ->
 	    {ok, socket([Pid], Transport, {Listner, Socket}, ConnectionCb)};
