@@ -36,7 +36,8 @@
 	 val_dsetel/1,bad_tuples/1,bad_try_catch_nesting/1,
          receive_stacked/1,aliased_types/1,type_conflict/1,
          infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
-         branch_to_try_handler/1,call_without_stack/1]).
+         branch_to_try_handler/1,call_without_stack/1,
+         receive_marker/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -67,7 +68,8 @@ groups() ->
        bad_tuples,bad_try_catch_nesting,
        receive_stacked,aliased_types,type_conflict,
        infer_on_eq,infer_dead_value,infer_on_ne,
-       branch_to_try_handler,call_without_stack]}].
+       branch_to_try_handler,call_without_stack,
+       receive_marker]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -767,6 +769,18 @@ branch_to_try_handler(Config) ->
       {{bif,tuple_size,{f,3},[{y,0}],{x,0}},
        12,
        {illegal_branch,try_handler,3}}}] = Errors,
+    ok.
+
+receive_marker(Config) when is_list(Config) ->
+    Errors = do_val(receive_marker, Config),
+
+    [{{receive_marker,t1,1},
+      {return,_,
+       {return_with_receive_marker,committed}}},
+     {{receive_marker,t2,1},
+      {{call_last,1,{f,2},1},_,
+       {return_with_receive_marker,committed}}}] = Errors,
+
     ok.
 
 %%%-------------------------------------------------------------------------
