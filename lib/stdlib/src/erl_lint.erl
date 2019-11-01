@@ -556,6 +556,9 @@ start(File, Opts) ->
 	 {unused_function,
 	  bool_option(warn_unused_function, nowarn_unused_function,
 		      true, Opts)},
+	 {unused_type,
+	  bool_option(warn_unused_type, nowarn_unused_type,
+		      true, Opts)},
 	 {bif_clash,
 	  bool_option(warn_bif_clash, nowarn_bif_clash,
 		      true, Opts)},
@@ -3150,7 +3153,13 @@ add_missing_spec_warnings(Forms, St0, Type) ->
 		  add_warning(L, {missing_spec,FA}, St)
 	  end, St0, Warns).
 
-check_unused_types(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
+check_unused_types(Forms, St) ->
+    case is_warn_enabled(unused_type, St) of
+        true -> check_unused_types_1(Forms, St);
+        false -> St
+    end.
+
+check_unused_types_1(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
     case [File || {attribute,_L,file,{File,_Line}} <- Forms] of
 	[FirstFile|_] ->
 	    D = Usage#usage.used_types,
