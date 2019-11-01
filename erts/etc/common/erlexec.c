@@ -249,7 +249,7 @@ static int start_smp_emu = 1;   /* Start the smp emulator. */
 static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
 
 #ifdef __WIN32__
-static char *start_emulator_program = NULL; /* For detachec mode - 
+static char *start_emulator_program = NULL; /* For detached mode -
 					       erl.exe/werl.exe */
 static char* key_val_name = ERLANG_VERSION; /* Used by the registry
 					   * access functions.
@@ -415,7 +415,7 @@ __declspec(dllexport) int win_erlexec(int argc, char **argv, HANDLE module, int 
 int main(int argc, char **argv)
 #endif
 {
-    int haltAfterwards = 0;	/* If true, put 's erlang halt' at the end
+    int haltAfterwards = 0;	/* If true, put '-s erlang halt' at the end
 				 * of the arguments. */
     int isdistributed = 0;
     int no_epmd = 0;
@@ -639,7 +639,7 @@ int main(int argc, char **argv)
 		case 'c':
 		    if (strcmp(argv[i], "-compile") == 0) {
 			/*
-			 * Note that the shell script erl.exec does an recursive call
+			 * Note that the shell script erl.exec does a recursive call
 			 * on itself here.  We'll avoid doing that.
 			 */
 			add_args("-noshell", "-noinput", "-s", "c", "lc_batch",
@@ -713,7 +713,7 @@ int main(int argc, char **argv)
 
 		  case 'm':
 		    /*
-		     * Note that the shell script erl.exec does an recursive call
+		     * Note that the shell script erl.exec does a recursive call
 		     * on itself here.  We'll avoid doing that.
 		     */
 		    if (strcmp(argv[i], "-make") == 0) {
@@ -1582,7 +1582,7 @@ get_home(void)
             home = utf16_to_utf8(profile);
             /* CoTaskMemFree(profile); */
 	} else
-	    error("HOMEDRIVE or HOMEPATH is not set and GetWindowsDir failed");
+	    error("HOMEDRIVE or HOMEPATH not set and getting USERPROFILE failed");
     } else {
 	home = emalloc(strlen(homedrive)+strlen(homepath)+1);
 	strcpy(home, homedrive);
