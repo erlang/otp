@@ -30285,6 +30285,9 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                                {ok, Port} ->
                                    ?SEV_IPRINT("bound to port: ~w", [Port]),
                                    {ok, State#{lport => Port}};
+                               {error, eaddrnotavail = Reason} ->
+                                   ?SEV_IPRINT("Address not available"),
+                                   {skip, Reason};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -30491,8 +30494,20 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
          #{desc => "await remote client ready",
            cmd  => fun(#{tester  := Tester,
                          rclient := RClient} = _State) ->
-                           ?SEV_AWAIT_READY(RClient, rclient, init, 
-                                            [{tester, Tester}])
+                           case ?SEV_AWAIT_READY(RClient, rclient, init, 
+                                                 [{tester, Tester}]) of
+                               ok ->
+                                   ?SEV_IPRINT("remote client started"),
+                                   ok;
+                               {error, {unexpected_exit, _, {bind, eaddrnotavail = Reason}}} ->
+                                   ?SEV_IPRINT("remote client bind failure:"
+                                               "~n   ~p", [Reason]),
+                                   {skip, Reason};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("remote client failure:"
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{tester := Tester}) ->
@@ -30545,8 +30560,6 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                            case ?SEV_AWAIT_READY(RClient, rclient, send, 
                                                  [{tester, Tester}]) of
                                {ok, Result} ->
-                                   %% ?SEV_IPRINT("remote client result: "
-                                   %%             "~n   ~p", [Result]),
                                    {ok, State#{result => Result}};
                                {error, _} = ERROR ->
                                    ERROR
