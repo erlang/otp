@@ -2231,8 +2231,21 @@ api_b_open_and_close(InitState) ->
                            {ok, State};
                       ({#{protocol := Protocol} = State, {ok, Protocol}}) ->
                            {ok, State};
-                      ({#{protocol := ExpProtocol}, {ok, Protocol}}) ->
-                           {error, {unexpected_type, ExpProtocol, Protocol}};
+                      ({#{domain   := Domain,
+			  protocol := ExpProtocol}, {ok, Protocol}}) ->
+			   %% On OpenBSD (at least 6.6) something screwy happens
+			   %% when domain = local.
+			   %% It will report a completly different protocol (icmp)
+			   %% but everything still works. So we skip if this happens
+			   %% on OpenBSD...
+			   case os:type() of
+			       {unix, openbsd} when (Domain =:= local) ->
+				   {skip, ?F("Unexpected protocol: ~p instead of ~p",
+					     [Protocol, ExpProtocol])};
+			       _ ->
+				   {error, {unexpected_protocol,
+					    ExpProtocol, Protocol}}
+			   end;
                       ({_, {error, _} = ERROR}) ->
                            ERROR
                    end},
@@ -14013,6 +14026,7 @@ api_opt_sock_timeo_udp4(Opt) ->
     InitState = #{domain => inet,
                   type   => dgram,
                   proto  => udp,
+		  opt   => Opt,
                   set    => Set,
                   get    => Get},
     ok = api_opt_sock_timeo(InitState).
@@ -14066,7 +14080,7 @@ api_opt_sock_timeo(InitState) ->
            cmd  => fun(#{sock          := Sock,
                          default_timeo := #{sec := DefaultSec} = DefaultTO,
                          set           := Set} = State) ->
-                           NewTO = DefaultTO#{sec => DefaultSec + 5000},
+                           NewTO = DefaultTO#{sec => DefaultSec + 100},
                            ?SEV_IPRINT("try set new timeout to ~w", [NewTO]),
                            case Set(Sock, NewTO) of
                                ok ->
@@ -14079,14 +14093,19 @@ api_opt_sock_timeo(InitState) ->
                            end
                    end},
 
-         #{desc => "validate buffer change",
+         #{desc => "validate timeout change",
            cmd  => fun(#{sock      := Sock,
                          get       := Get,
-                         new_timeo := ExpTO} = _State) ->
+                         new_timeo := #{sec := ExpSec} = ExpTO} = _State) ->
                            ?SEV_IPRINT("try validate timeout (~w)", [ExpTO]),
                            case Get(Sock) of
                                {ok, ExpTO} ->
-                                   ?SEV_IPRINT("timeout validated"),
+                                   ?SEV_IPRINT("timeout (exactly) validated"),
+                                   ok;
+                               {ok, #{sec := Sec}} when (ExpSec =:= Sec) ->
+				   %% For some reason OpenBSD "adjusts" the timeout,
+				   %% so that usec does not (allways match)
+                                   ?SEV_IPRINT("timeout (approx) validated"),
                                    ok;
                                {ok, TO} ->
                                    ?SEV_EPRINT("timeout invalid:"
@@ -14094,6 +14113,15 @@ api_opt_sock_timeo(InitState) ->
                                                "~n   Expected Timeout: ~w",
                                                [TO, ExpTO]),
                                    {error, {invalid_timeo, TO, ExpTO}};
+                               {error, edom = Reason} ->
+				   %% On OpenBSD (at least) its possible that if the value
+				   %% is too far "out of bounds", this will be the result:
+				   %%
+				   %%     "Numerical argument out of domain"
+				   %%
+                                   ?SEV_IPRINT("Failed get timeout:"
+                                               "   ~p", [Reason]),
+                                   {skip, Reason};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("Failed get timeout:"
                                                "   ~p", [Reason]),
@@ -14696,6 +14724,7 @@ api_opt_sock_timestamp_tcp4(_Config) when is_list(_Config) ->
                    has_support_sock_timestamp(),
                    is_good_enough_linux({4,4,120}),
                    is_not_freebsd(),
+                   is_not_openbsd(),
                    is_not_darwin()
            end,
            fun() ->
@@ -17254,6 +17283,9 @@ api_opt_ip_recvtos_udp(InitState) ->
 %% enabled TTL. Instead we get the default value (which was 64).
 %% Possibly this is because we run the test in the same OS process and
 %% even the same erlang process....
+%% The same issue on OpenBSD (6.6).
+%% Maybe we should send and receive from different VMs, until then
+%% skip darwin and OpenBSD.
 %%
 
 api_opt_ip_recvttl_udp4(suite) ->
@@ -17265,6 +17297,7 @@ api_opt_ip_recvttl_udp4(_Config) when is_list(_Config) ->
     tc_try(api_opt_ip_recvttl_udp4,
            fun() ->
 		   has_support_ip_recvttl(),
+		   is_not_openbsd(),
 		   is_not_darwin()
 	   end,
            fun() ->
@@ -39066,20 +39099,23 @@ is_good_enough_platform2(Vsn, CondVsn, ID) ->
     skip(?F("Not 'good enough' ~s (~p <= ~p)", [ID(), Vsn, CondVsn])).
 
 is_not_freebsd() ->
-    case os:type() of
-        {unix, freebsd} ->
-            skip("This does not work on FreeBSD");
-        _ ->
-            ok
-    end.
+    is_not_platform(freebsd, "FreeBSD").
+
+is_not_openbsd() ->
+    is_not_platform(openbsd, "OpenBSD").
 
 is_not_darwin() ->
-    case os:type() of
-        {unix, darwin} ->
-            skip("This does not work on Darwin");
+    is_not_platform(darwin, "Darwin").
+
+is_not_platform(Platform, PlatformStr)
+  when is_atom(Platform) andalso is_list(PlatformStr) ->
+      case os:type() of
+        {unix, Platform} ->
+            skip("This does not work on " ++ PlatformStr);
         _ ->
             ok
     end.
+  
 
 unix_domain_socket_host_cond() ->
     unix_domain_socket_host_cond(os:type(), os:version()).
