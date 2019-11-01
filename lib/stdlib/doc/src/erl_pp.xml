@@ -68,6 +68,10 @@
       <desc>
         <p>The option <c>quote_singleton_atom_types</c>
           is used to add quotes to all singleton atom types.</p>
+        <p>The option <c>linewidth</c> controls the maximum line
+          width for formatted lines (defaults to 72 characters).</p>
+        <p>The option <c>indent</c> controls the
+          indention for formatted lines (defaults to 4 spaces).</p>
       </desc>
     </datatype>
     <datatype>
