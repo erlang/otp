@@ -1199,11 +1199,25 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 		} else {
 		    extra_bytes = 0;
 		}
-		ASSERT(is_boxed(real_bin) &&
-		       (((*boxed_val(real_bin)) &
-			 (_TAG_HEADER_MASK - _BINARY_XXX_MASK - BOXED_VISITED_MASK))
-			== _TAG_HEADER_REFC_BIN));
-		hdr = *_unchecked_binary_val(real_bin) & ~BOXED_VISITED_MASK;
+                ASSERT(is_boxed(real_bin));
+                hdr = *_unchecked_binary_val(real_bin);
+                switch (primary_tag(hdr)) {
+                case TAG_PRIMARY_HEADER:
+                    /* real_bin is untouched, only referred by sub-bins so far */
+                    break;
+                case BOXED_VISITED:
+                    /* real_bin referred directly once so far */
+                    hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
+                    break;
+                case BOXED_SHARED_PROCESSED:
+                case BOXED_SHARED_UNPROCESSED:
+                    /* real_bin referred directly more than once */
+                    e = hdr >> _TAG_PRIMARY_SIZE;
+                    hdr = SHTABLE_X(t, e);
+                    hdr = (hdr & ~BOXED_VISITED_MASK) + TAG_PRIMARY_HEADER;
+                    break;
+                }
+
 		if (thing_subtag(hdr) == HEAP_BINARY_SUBTAG) {
 		    sum += heap_bin_size(size+extra_bytes);
 		} else {
@@ -1569,11 +1583,6 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		    extra_bytes = 0;
 		}
 		real_size = size+extra_bytes;
-		ASSERT(is_boxed(real_bin) &&
-		       (((*boxed_val(real_bin)) &
-			 (_TAG_HEADER_MASK - _BINARY_XXX_MASK - BOXED_VISITED_MASK))
-			== _TAG_HEADER_REFC_BIN));
-		ptr = _unchecked_binary_val(real_bin);
 		*resp = make_binary(hp);
 		if (extra_bytes != 0) {
 		    ErlSubBin* res = (ErlSubBin *) hp;
@@ -1586,7 +1595,26 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		    res->is_writable = 0;
 		    res->orig = make_binary(hp);
 		}
-		if (thing_subtag(*ptr & ~BOXED_VISITED_MASK) == HEAP_BINARY_SUBTAG) {
+                ASSERT(is_boxed(real_bin));
+                ptr = _unchecked_binary_val(real_bin);
+                hdr = *ptr;
+                switch (primary_tag(hdr)) {
+                case TAG_PRIMARY_HEADER:
+                    /* real_bin is untouched, ie only referred by sub-bins */
+                    break;
+                case BOXED_VISITED:
+                    /* real_bin referred directly once */
+                    hdr = (hdr - BOXED_VISITED) + TAG_PRIMARY_HEADER;
+                    break;
+                case BOXED_SHARED_PROCESSED:
+                case BOXED_SHARED_UNPROCESSED:
+                    /* real_bin referred directly more than once */
+                    e = hdr >> _TAG_PRIMARY_SIZE;
+                    hdr = SHTABLE_X(t, e);
+                    hdr = (hdr & ~BOXED_VISITED_MASK) + TAG_PRIMARY_HEADER;
+                    break;
+                }
+		if (thing_subtag(hdr) == HEAP_BINARY_SUBTAG) {
 		    ErlHeapBin* from = (ErlHeapBin *) ptr;
 		    ErlHeapBin* to = (ErlHeapBin *) hp;
 		    hp += heap_bin_size(real_size);
@@ -1596,7 +1624,7 @@ Uint copy_shared_perform(Eterm obj, Uint size, erts_shcopy_t *info,
 		} else {
 		    ProcBin* from = (ProcBin *) ptr;
 		    ProcBin* to = (ProcBin *) hp;
-		    ASSERT(thing_subtag(*ptr & ~BOXED_VISITED_MASK) == REFC_BINARY_SUBTAG);
+		    ASSERT(thing_subtag(hdr) == REFC_BINARY_SUBTAG);
 		    if (from->flags) {
 			erts_emasculate_writable_binary(from);
 		    }
