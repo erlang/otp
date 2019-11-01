@@ -32,6 +32,8 @@ autom4te.cache
 # Do not use too creative wildcards.
 # Those might ignore files that should not be ignored.
 
+aarch64-unknown-linux-android
+arm-unknown-linux-androideabi
 armv7l-unknown-linux-gnueabihf
 i686-pc-linux-gnu
 x86_64-unknown-linux-gnu
