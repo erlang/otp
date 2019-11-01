@@ -1050,7 +1050,7 @@ do_log(Level,Msg,Meta) ->
       Meta :: metadata().
 log_allowed(Location,Level,{Fun,FunArgs},Meta) when is_function(Fun,1) ->
     try Fun(FunArgs) of
-        Msg={Format,Args} when is_list(Format), is_list(Args) ->
+        Msg={Format,Args} when ?IS_FORMAT(Format), is_list(Args) ->
             log_allowed(Location,Level,Msg,Meta);
         Report when ?IS_REPORT(Report) ->
             log_allowed(Location,Level,Report,Meta);
@@ -1085,7 +1085,7 @@ log_allowed(Location,Level,Msg,Meta0) when is_map(Meta0) ->
 
 do_log_allowed(Level,{Format,Args}=Msg,Meta,Tid)
   when ?IS_LEVEL(Level),
-       is_list(Format),
+       ?IS_FORMAT(Format),
        is_list(Args),
        is_map(Meta) ->
     logger_backend:log_allowed(#{level=>Level,msg=>Msg,meta=>Meta},Tid);

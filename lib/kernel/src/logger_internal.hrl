@@ -91,7 +91,7 @@
 -define(IS_LEVEL_ALL(L),
         ?IS_LEVEL(L) orelse
             L=:=all orelse
-			L=:=none ).
+            L=:=none ).
 
 -define(IS_MSG(Msg),
         ((is_tuple(Msg) andalso tuple_size(Msg)==2)
@@ -107,3 +107,6 @@
 
 -define(IS_STRING(String),
         (is_list(String) orelse is_binary(String))).
+
+-define(IS_FORMAT(Format),
+        (?IS_STRING(Format) orelse is_atom(Format))).
