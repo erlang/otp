@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 1996-2018. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -267,7 +267,7 @@ static WCHAR *latin1_to_utf16(char *str);
 #endif
 
 /*
- * Needed parameters to be fetched from the environment (Unix)
+ * Parameters to be fetched from the environment (Unix)
  * or the ini file (Win32).
  */
 
@@ -275,7 +275,7 @@ static char* bindir;		/* Location of executables. */
 static char* rootdir;		/* Root location of Erlang installation. */
 static char* emu;		/* Emulator to run. */
 static char* progname;		/* Name of this program. */
-static char* home;		/* Path of user's home directory. */
+static char* home;		/* Path of user's home directory, if any. */
 
 static void
 set_env(char *key, char *value)
@@ -600,7 +600,12 @@ int main(int argc, char **argv)
     i = 1;
 
     get_home();
-    add_args("-home", home, NULL);
+    /* Add the home parameter when available. This is optional to support
+       systems that don't have the notion of a home directory and setups
+       that don't have the HOME environment variable set (ERL-476). */
+    if (home != NULL) {
+        add_args("-home", home, NULL);
+    }
 
     add_epmd_port();
 
@@ -1642,8 +1647,6 @@ static void
 get_home(void)
 {
     home = get_env("HOME");
-    if (home == NULL)
-	error("HOME must be set");
 }
 
 #endif
