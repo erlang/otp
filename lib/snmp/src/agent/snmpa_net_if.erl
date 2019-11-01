@@ -736,7 +736,7 @@ handle_discovery_response(
 	    %% XXX Strange... Reqs from this Pid should be reaped
 	    %% at process exit by clear_reqs/2 so the following
 	    %% should be redundant.
-	    NReqs = lists:keydelete(ReqId, 1, Reqs),
+            NReqs = lists:keydelete(ReqId, 1, Reqs -- [{0, Pid}]), % ERIERL-427
 	    S#state{reqs = NReqs};
 
         %% <OTP-16207>
@@ -1209,8 +1209,9 @@ handle_disk_log(_Log, _Info, State) ->
 
 
 clear_reqs(Pid, S) ->
-    NReqs = lists:keydelete(Pid, 2, S#state.reqs),
-    S#state{reqs = NReqs}.
+    NReqs  = lists:keydelete(Pid, 2, S#state.reqs),
+    NReqs2 = NReqs -- [{0, Pid}], % ERIERL-427
+    S#state{reqs = NReqs2}.
 
 
 toname(P) when is_pid(P) ->
