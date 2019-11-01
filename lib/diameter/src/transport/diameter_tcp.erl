@@ -657,6 +657,10 @@ transition({diameter, {close, Pid}}, #transport{parent = Pid,
 transition({timeout, TRef, flush}, #transport{tref = TRef} = S) ->
     flush(S#transport{tref = false});
 
+transition({timeout, _, flush}, S) ->
+    %% race between of stop_timer and already queued message
+    S;
+
 %% Request for the local port number.
 transition({resolve_port, Pid}, #transport{socket = Sock,
                                            module = M})
@@ -726,7 +730,7 @@ tls(accept, Sock, Opts) ->
 %% Receive packets until a full message is received,
 
 recv({Msg, Rest}, S) ->  %% have a complete message ...
-    recv(acc(Rest), message(recv, Msg, S));
+    recv(acc(Rest), message(recv, Msg, stop_fragment_timer(S)));
 
 recv(Frag, #transport{recv = B,
                       socket = Sock,
@@ -833,6 +837,18 @@ start_fragment_timer(#transport{frag = B, tref = TRef} = S)
 
 start_fragment_timer(#transport{timeout = Tmo} = S) ->
     S#transport{tref = erlang:start_timer(Tmo, self(), flush)}.
+
+%% stop_fragment_timer/1
+%%
+%% Stop a timer only if there's one running
+
+stop_fragment_timer(#transport{tref = TRef} = S)
+  when is_reference(TRef) ->
+    erlang:cancel_timer(TRef, [{async, true}, {info, false}]),
+    S#transport{tref = false, flush = false};
+
+stop_fragment_timer(S) ->
+    S.
 
 %% accept/2
 

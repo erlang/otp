@@ -38,6 +38,7 @@
          sctp_accept/1,
          sctp_connect/1,
          reconnect/1, reconnect/0,
+         tcp_fragment/1,
          stop/1]).
 
 -export([accept/1,
@@ -102,7 +103,8 @@ tc() ->
      tcp_connect,
      sctp_accept,
      sctp_connect,
-     reconnect].
+     reconnect,
+     tcp_fragment].
 
 init_per_suite(Config) ->
     [{sctp, ?util:have_sctp()} | Config].
@@ -171,6 +173,18 @@ sctp_connect(Config) ->
 connect(Prot) ->
     T = {Prot, make_ref()},
     [] = ?util:run([{?MODULE, [init, X, T]} || X <- [gen_accept, connect]]).
+
+%% ===========================================================================
+%% tcp_fragment/1
+%%
+%% Test TCP fragment timeout.
+
+tcp_fragment(_) ->
+    fragment(tcp).
+
+fragment(Prot) ->
+    T = {Prot, make_ref()},
+    [] = ?util:run([{?MODULE, [init, X, T]} || X <- [accept_recv2, gen_fragment]]).
 
 %% ===========================================================================
 %% reconnect/1
@@ -278,6 +292,30 @@ init(accept, {Prot, Ref}) ->
     MRef = erlang:monitor(process, TPid),
     ?RECV({'DOWN', MRef, process, _, _});
 
+init(accept_recv2, {Prot, Ref}) ->
+    true = diameter_reg:add_new({diameter_config, transport, Ref}), %% fake it
+
+    %% Start an accepting transport and receive notification of a
+    %% connection.
+    TPid = start_accept(Prot, Ref),
+
+    %% Receive first message and send it back.
+    <<_:8, Len1:24, _/binary>> = Bin1 = bin(Prot, ?RECV(?TMSG({recv, P1}), P1)),
+
+    Len1 = size(Bin1),
+    TPid ! ?TMSG({send, Bin1}),
+
+    %% Receive second message and send it back.
+    <<_:8, Len2:24, _/binary>> = Bin2 = bin(Prot, ?RECV(?TMSG({recv, P2}), P2)),
+
+    Len2 = size(Bin2),
+    TPid ! ?TMSG({send, Bin2}),
+
+    %% Expect the transport process to die as a result of the peer
+    %% closing the connection.
+    MRef = erlang:monitor(process, TPid),
+    ?RECV({'DOWN', MRef, process, _, _});
+
 init(gen_connect, {Prot, Ref}) ->
     %% Lookup the peer's listening socket.
     [PortNr] = ?util:lport(Prot, Ref),
@@ -318,7 +356,34 @@ init(connect, {Prot, Ref}) ->
     %% Send a message and receive it back.
     Bin = make_msg(),
     TPid ! ?TMSG({send, Bin}),
-    Bin = bin(Prot, ?RECV(?TMSG({recv, P}), P)).
+    Bin = bin(Prot, ?RECV(?TMSG({recv, P}), P));
+
+init(gen_fragment, {Prot, Ref}) ->
+    %% Lookup the peer's listening socket.
+    [PortNr] = ?util:lport(Prot, Ref),
+
+    %% Connect, send a message and receive it back.
+    {ok, Sock} = gen_connect(Prot, PortNr),
+
+    %% Send two message and receive both back.
+    Bin1 = make_msg(),
+    Len1 = byte_size(Bin1) div 2,
+    <<M1P1:Len1/bytes, M1P2/binary>> = Bin1,
+    Bin2 = make_msg(),
+    Len2 = byte_size(Bin2) div 2,
+    <<M2P1:Len2/bytes, M2P2/binary>> = Bin2,
+
+    ok = gen_send(Prot, Sock, M1P1),
+    ct:sleep(150),   %% make sure the fragment timer has been started
+    ok = gen_send(Prot, Sock, <<M1P2/binary, M2P1/binary>>),
+
+    Bin1 = gen_recv(Prot, Sock),
+
+    ct:sleep(150),   %% make sure the fragment timer has been started
+    ok = gen_send(Prot, Sock, M2P2),
+    ct:sleep(150),   %% make sure the fragment has been send
+
+    Bin2 = gen_recv(Prot, Sock).
 
 bin(sctp, #diameter_packet{bin = Bin}) ->
     Bin;
@@ -369,7 +434,9 @@ start_connect(sctp, T, Svc, Opts) ->
         = diameter_sctp:start(T, Svc, [{sctp_initmsg, ?SCTP_INIT} | Opts]),
     {ok, TPid};
 start_connect(tcp, T, Svc, Opts) ->
-    diameter_tcp:start(T, Svc, Opts).
+    %% set fragment timer to 100 ms and turn off nagle (otherwise the 200ms nagle
+    %% timeout will interfer with the fragment timer)
+    diameter_tcp:start(T, Svc, [{nodelay, true}, {recbuf, 1024000}, {fragment_timer, 100} | Opts]).
 
 %% start_accept/2
 
@@ -382,7 +449,9 @@ start_accept(Prot, Ref) ->
 start_accept(sctp, T, Svc, Opts) ->
     diameter_sctp:start(T, Svc, [{sctp_initmsg, ?SCTP_INIT} | Opts]);
 start_accept(tcp, T, Svc, Opts) ->
-    diameter_tcp:start(T, Svc, Opts).
+    %% set fragment timer to 100 ms and turn off nagle (otherwise the 200ms nagle
+    %% timeout will interfer with the fragment timer)
+    diameter_tcp:start(T, Svc, [{nodelay, true}, {recbuf, 1024000}, {fragment_timer, 100} | Opts]).
 
 %% ===========================================================================
 
