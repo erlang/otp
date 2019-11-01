@@ -2793,6 +2793,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(drop_membership);                 \
     GLOBAL_ATOM_DECL(drop_source_membership);          \
     GLOBAL_ATOM_DECL(dstopts);                         \
+    GLOBAL_ATOM_DECL(egp);                             \
     GLOBAL_ATOM_DECL(eor);                             \
     GLOBAL_ATOM_DECL(error);                           \
     GLOBAL_ATOM_DECL(errqueue);                        \
@@ -2812,7 +2813,9 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(hmac_ident);                      \
     GLOBAL_ATOM_DECL(hoplimit);                        \
     GLOBAL_ATOM_DECL(hopopts);                         \
+    GLOBAL_ATOM_DECL(icmp);                            \
     GLOBAL_ATOM_DECL(ifindex);                         \
+    GLOBAL_ATOM_DECL(igmp);                            \
     GLOBAL_ATOM_DECL(inet);                            \
     GLOBAL_ATOM_DECL(inet6);                           \
     GLOBAL_ATOM_DECL(info);                            \
@@ -2820,6 +2823,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(iov);                             \
     GLOBAL_ATOM_DECL(ip);                              \
     GLOBAL_ATOM_DECL(ipcomp_level);                    \
+    GLOBAL_ATOM_DECL(ipip);                            \
     GLOBAL_ATOM_DECL(ipv6);                            \
     GLOBAL_ATOM_DECL(i_want_mapped_v4_addr);           \
     GLOBAL_ATOM_DECL(join_group);                      \
@@ -12520,11 +12524,27 @@ ERL_NIF_TERM esock_getopt_lvl_sock_protocol(ErlNifEnv*       env,
 #endif
             break;
 
-        case IPPROTO_TCP:
+        case IPPROTO_ICMP: /* control message protocol */
+            result = esock_make_ok2(env, esock_atom_icmp);
+            break;
+
+        case IPPROTO_IGMP: /* group mgmt protocol */
+            result = esock_make_ok2(env, esock_atom_igmp);
+            break;
+
+        case IPPROTO_IPIP: /* IP inside IP */
+            result = esock_make_ok2(env, esock_atom_ipip);
+            break;
+
+        case IPPROTO_TCP: /* tcp */
             result = esock_make_ok2(env, esock_atom_tcp);
             break;
 
-        case IPPROTO_UDP:
+        case IPPROTO_EGP: /* exterior gateway protocol */
+            result = esock_make_ok2(env, esock_atom_egp);
+            break;
+
+        case IPPROTO_UDP: /* user datagram protocol */
             result = esock_make_ok2(env, esock_atom_udp);
             break;
 
@@ -12533,6 +12553,10 @@ ERL_NIF_TERM esock_getopt_lvl_sock_protocol(ErlNifEnv*       env,
             result = esock_make_ok2(env, esock_atom_sctp);
             break;
 #endif
+
+        case IPPROTO_RAW: /* raw IP packet */
+            result = esock_make_ok2(env, esock_atom_raw);
+            break;
 
         default:
             reason = MKT2(env, esock_atom_unknown, MKI(env, val));
