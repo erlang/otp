@@ -2803,6 +2803,8 @@ openssl_sane_dtls_alpn() ->
     case os:cmd("openssl version") of
         "OpenSSL 1.1.0g" ++ _ ->
             false;
+        "OpenSSL 1.1.1" ++ _ ->
+            false;
         "OpenSSL 1.1.1a" ++ _ ->
             false;
         _->
