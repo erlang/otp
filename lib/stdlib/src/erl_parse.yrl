@@ -635,7 +635,7 @@ Erlang code.
 
 -type af_export() :: {'attribute', anno(), 'export', af_fa_list()}.
 
--type af_import() :: {'attribute', anno(), 'import', af_fa_list()}.
+-type af_import() :: {'attribute', anno(), 'import', {module(), af_fa_list()}}.
 
 -type af_fa_list() :: [{function_name(), arity()}].
 
