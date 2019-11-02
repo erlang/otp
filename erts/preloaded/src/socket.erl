@@ -134,6 +134,9 @@
               %% cmsghdr_data/0,
               cmsghdr_recv/0, cmsghdr_send/0,
 
+              ee_origin/0,
+              sock_extended_err/0,
+
               uint8/0,
               uint16/0,
               uint20/0,
@@ -601,9 +604,11 @@
         #{level := ip,        type := recvttl,     data := integer()}      |
         #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
         #{level := ip,        type := origdstaddr, data := sockaddr_in4()} |
+        #{level := ip,        type := recverr,     data := sock_extended_err() | binary()} |
         #{level := ip,        type := integer(),   data := binary()}       |
         #{level := ipv6,      type := hoplevel,    data := integer()}      |
         #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
+        #{level := ipv6,      type := recverr,     data := sock_extended_err() | binary()} |
         #{level := ipv6,      type := tclass,      data := integer()}      |
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
@@ -620,6 +625,14 @@
         #{level := udp,       type := integer(),   data := binary()} |
         #{level := integer(), type := integer(),   data := binary()}.
 
+-type ee_origin() :: none | local | icmp | icmp6 | uint8().
+-type sock_extended_err() :: #{error := term(),
+                               origin := ee_origin(),
+                               type := uint8(),
+                               code := uint8(),
+                               info := uint32(),
+                               data := uint32(),
+                               offender := undefined | sockaddr()}.
 
 -opaque select_tag() :: atom().
 -opaque select_ref() :: reference().

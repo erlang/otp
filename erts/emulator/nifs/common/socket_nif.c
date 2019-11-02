@@ -166,6 +166,9 @@
 #ifdef HAVE_SETNS_H
 #include <setns.h>
 #endif
+#ifdef HAVE_LINUX_ERRQUEUE_H
+#include <linux/errqueue.h>
+#endif
 
 #define HAVE_UDP
 
@@ -2814,6 +2817,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(hoplimit);                        \
     GLOBAL_ATOM_DECL(hopopts);                         \
     GLOBAL_ATOM_DECL(icmp);                            \
+    GLOBAL_ATOM_DECL(icmp6);                           \
     GLOBAL_ATOM_DECL(ifindex);                         \
     GLOBAL_ATOM_DECL(igmp);                            \
     GLOBAL_ATOM_DECL(inet);                            \
@@ -2976,6 +2980,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(close);            \
     LOCAL_ATOM_DECL(closed);           \
     LOCAL_ATOM_DECL(closing);          \
+    LOCAL_ATOM_DECL(code);             \
     LOCAL_ATOM_DECL(cookie_life);      \
     LOCAL_ATOM_DECL(counter_wrap);     \
     LOCAL_ATOM_DECL(counters);         \
@@ -3001,6 +3006,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(min);              \
     LOCAL_ATOM_DECL(mode);             \
     LOCAL_ATOM_DECL(multiaddr);        \
+    LOCAL_ATOM_DECL(none);             \
     LOCAL_ATOM_DECL(null);             \
     LOCAL_ATOM_DECL(num_acceptors);    \
     LOCAL_ATOM_DECL(num_dinet);        \
@@ -3018,6 +3024,8 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(num_tseqpkgs);     \
     LOCAL_ATOM_DECL(num_tstreams);     \
     LOCAL_ATOM_DECL(num_writers);      \
+    LOCAL_ATOM_DECL(offender);         \
+    LOCAL_ATOM_DECL(origin);           \
     LOCAL_ATOM_DECL(partial_delivery); \
     LOCAL_ATOM_DECL(peer_error);       \
     LOCAL_ATOM_DECL(peer_rwnd);        \
@@ -3032,6 +3040,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(send_failure);     \
     LOCAL_ATOM_DECL(shutdown);         \
     LOCAL_ATOM_DECL(slist);            \
+    LOCAL_ATOM_DECL(sock_err);         \
     LOCAL_ATOM_DECL(sourceaddr);       \
     LOCAL_ATOM_DECL(timeout);          \
     LOCAL_ATOM_DECL(true);             \
@@ -17142,6 +17151,12 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             break;
 #endif
 
+#if defined(IP_RECVERR)
+        case IP_RECVERR:
+            *eType = esock_atom_recverr;
+            break;
+#endif
+
         default:
             xres = ESOCK_STR_EINVAL;
             break;
@@ -17185,6 +17200,12 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
               *eType = esock_atom_recvtclass;
               break;
 #endif // if defined(IPV6_RECVTCLASS)
+
+#if defined(IPV6_RECVERR)
+        case IPV6_RECVERR:
+            *eType = esock_atom_recverr;
+            break;
+#endif
 
 	  default:
             xres = ESOCK_STR_EINVAL;
@@ -17649,6 +17670,71 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         break;
 #endif // if defined(IP_RECVTOS)
 
+#if defined(IP_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
+    case IP_RECVERR:
+        {
+            struct sock_extended_err *sock_err =
+                (struct sock_extended_err*) dataP;
+            struct sockaddr *offender = SO_EE_OFFENDER(sock_err);
+
+            ERL_NIF_TERM ee_errno  = MKA(env, erl_errno_id(sock_err->ee_errno));
+            ERL_NIF_TERM ee_origin;
+            ERL_NIF_TERM ee_type   = MKI(env, sock_err->ee_type);
+            ERL_NIF_TERM ee_code   = MKI(env, sock_err->ee_code);
+            ERL_NIF_TERM ee_info   = MKI(env, sock_err->ee_info);
+            ERL_NIF_TERM ee_data  =  MKI(env, sock_err->ee_data);
+            ERL_NIF_TERM eSockAddr;
+
+            switch (sock_err->ee_origin) {
+            case SO_EE_ORIGIN_NONE:
+                ee_origin = atom_none;
+                break;
+            case SO_EE_ORIGIN_LOCAL:
+                ee_origin = esock_atom_local;
+                break;
+            case SO_EE_ORIGIN_ICMP:
+                ee_origin = esock_atom_icmp;
+                break;
+            case SO_EE_ORIGIN_ICMP6:
+                ee_origin = esock_atom_icmp6;
+                break;
+            default:
+                ee_origin = MKI(env, sock_err->ee_origin);
+                break;
+            }
+
+            if (CHARP(dataP) + dataLen > CHARP(offender))
+            {
+                esock_encode_sockaddr(env,
+                                      (ESockAddress *)offender,
+                                      (CHARP(dataP) + dataLen) - CHARP(offender),
+                                      &eSockAddr);
+            } else
+                eSockAddr = esock_atom_undefined;
+
+            {
+                ERL_NIF_TERM keys[] = {esock_atom_error,
+                                       atom_origin,
+                                       esock_atom_type,
+                                       atom_code,
+                                       esock_atom_info,
+                                       esock_atom_data,
+                                       atom_offender};
+                ERL_NIF_TERM vals[] = {ee_errno, ee_origin, ee_type, ee_code,
+                                       ee_info, ee_data, eSockAddr};
+                unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+                unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+                ESOCK_ASSERT( (numKeys == numVals) );
+
+                if (!MKMA(env, keys, vals, numKeys, eCMsgHdrData)) {
+                    *eCMsgHdrData = esock_atom_undefined;
+                    return ESOCK_STR_EINVAL;
+                }
+            }
+        }
+        break;
+#endif // defined(IP_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
 
     default:
         *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
@@ -17733,6 +17819,72 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
         }
         break;
 #endif // if defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
+
+#if defined(IPV6_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
+    case IPV6_RECVERR:
+        {
+            struct sock_extended_err *sock_err =
+                (struct sock_extended_err*) dataP;
+            struct sockaddr *offender = SO_EE_OFFENDER(sock_err);
+
+            ERL_NIF_TERM ee_errno  = MKA(env, erl_errno_id(sock_err->ee_errno));
+            ERL_NIF_TERM ee_origin;
+            ERL_NIF_TERM ee_type   = MKI(env, sock_err->ee_type);
+            ERL_NIF_TERM ee_code   = MKI(env, sock_err->ee_code);
+            ERL_NIF_TERM ee_info   = MKI(env, sock_err->ee_info);
+            ERL_NIF_TERM ee_data  =  MKI(env, sock_err->ee_data);
+            ERL_NIF_TERM eSockAddr;
+
+            switch (sock_err->ee_origin) {
+            case SO_EE_ORIGIN_NONE:
+                ee_origin = atom_none;
+                break;
+            case SO_EE_ORIGIN_LOCAL:
+                ee_origin = esock_atom_local;
+                break;
+            case SO_EE_ORIGIN_ICMP:
+                ee_origin = esock_atom_icmp;
+                break;
+            case SO_EE_ORIGIN_ICMP6:
+                ee_origin = esock_atom_icmp6;
+                break;
+            default:
+                ee_origin = MKI(env, sock_err->ee_origin);
+                break;
+            }
+
+            if (CHARP(dataP) + dataLen > CHARP(offender))
+            {
+                esock_encode_sockaddr(env,
+                                      (ESockAddress *)offender,
+                                      (CHARP(dataP) + dataLen) - CHARP(offender),
+                                      &eSockAddr);
+            } else
+                eSockAddr = esock_atom_undefined;
+
+            {
+                ERL_NIF_TERM keys[] = {esock_atom_error,
+                                       atom_origin,
+                                       esock_atom_type,
+                                       atom_code,
+                                       esock_atom_info,
+                                       esock_atom_data,
+                                       atom_offender};
+                ERL_NIF_TERM vals[] = {ee_errno, ee_origin, ee_type, ee_code,
+                                       ee_info, ee_data, eSockAddr};
+                unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+                unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+                ESOCK_ASSERT( (numKeys == numVals) );
+
+                if (!MKMA(env, keys, vals, numKeys, eCMsgHdrData)) {
+                    *eCMsgHdrData = esock_atom_undefined;
+                    return ESOCK_STR_EINVAL;
+                }
+            }
+        }
+        break;
+#endif // defined(IPV6_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
 
     default:
         *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
