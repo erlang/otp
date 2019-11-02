@@ -269,6 +269,12 @@
       <name name="cmsghdr_send"/>
     </datatype>
     <datatype>
+      <name name="ee_origin"/>
+    </datatype>
+    <datatype>
+      <name name="sock_extended_err"/>
+    </datatype>
+    <datatype>
       <name name="uint8"/>
     </datatype>
     <datatype>
