@@ -361,15 +361,19 @@ static const struct in6_addr in6addr_loopback =
 
 
 
-/* *** Local atoms *** */
+/* *** Local atoms ***
+ *
+ * These have been deprecated:
+ *     LOCAL_ATOM_DECL(idna_allow_unassigned);     Should really have been idn_...
+ *     LOCAL_ATOM_DECL(idna_use_std3_ascii_rules); Should really have been idn_...
+ */
+
 
 #define LOCAL_ATOMS                             \
     LOCAL_ATOM_DECL(address_info);              \
     LOCAL_ATOM_DECL(debug);                     \
     LOCAL_ATOM_DECL(host);                      \
     LOCAL_ATOM_DECL(idn);                       \
-    LOCAL_ATOM_DECL(idna_allow_unassigned);     \
-    LOCAL_ATOM_DECL(idna_use_std3_ascii_rules); \
     LOCAL_ATOM_DECL(namereqd);                  \
     LOCAL_ATOM_DECL(name_info);                 \
     LOCAL_ATOM_DECL(nofqdn);                    \
@@ -1241,7 +1245,6 @@ BOOLEAN_T decode_nameinfo_flags(ErlNifEnv*         env,
 }
 
 
-
 static
 BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
                                      const ERL_NIF_TERM eflags,
@@ -1252,7 +1255,22 @@ BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
     BOOLEAN_T    done = FALSE;
 
     while (!done) {
+
+        /*
+        NDBG( ("NET", "decode_nameinfo_flags_list -> "
+               "get next (list) element of"
+               "\r\n   %T\r\n", list) );
+        */
+
         if (GET_LIST_ELEM(env, list, &elem, &tail)) {
+
+            /*
+            NDBG( ("NET", "decode_nameinfo_flags_list -> got: "
+                   "\r\n   element: %T"
+                   "\r\n   tail:    %T"
+                   "\r\n", elem, tail) );
+            */
+
             if (COMPARE(elem, atom_namereqd) == 0) {
                 tmp |= NI_NAMEREQD;
             } else if (COMPARE(elem, esock_atom_dgram) == 0) {
@@ -1271,6 +1289,13 @@ BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
                 tmp |= NI_IDN;
 #endif
 
+                /*
+                 * In later versions of gcc these have been deprecated.
+                 * That is, they results in compiler warnings.
+                 * And since we "don't like that", the simplest way
+                 * to deal with this is to remove the use of them.
+                 * We leave them here commented out as an example.
+
 #if defined(NI_IDN_ALLOW_UNASSIGNED)
             } else if (COMPARE(elem, atom_idna_allow_unassigned) == 0) {
                 tmp |= NI_IDN_ALLOW_UNASSIGNED;
@@ -1281,7 +1306,13 @@ BOOLEAN_T decode_nameinfo_flags_list(ErlNifEnv*         env,
                 tmp |= NI_IDN_USE_STD3_ASCII_RULES;
 #endif
 
+                */
+
             } else {
+
+                NDBG( ("NET", "decode_nameinfo_flags_list -> "
+                       "invalid flag: %T\r\n", elem) );
+
                 return FALSE;
             }
 
