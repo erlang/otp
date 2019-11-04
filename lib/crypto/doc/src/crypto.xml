@@ -215,6 +215,42 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="crypto_opts"/>
+      <name name="crypto_opt"/>
+      <desc>
+	<p>Selects encryption (<c>{encrypt,true}</c>) or decryption  (<c>{encrypt,false}</c>)
+	in the <seealso marker="crypto:new_api#the-new-api"><i>New API</i></seealso>.
+	</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="padding"/>
+      <desc>
+	<p>This option handles padding in the last block. If not set, no padding is done
+	and any bytes in the last unfilled block is silently discarded.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="cryptolib_padding"/>
+      <desc>
+	<p>The <c>cryptolib_padding</c> are paddings that may be present in the underlying cryptolib
+	linked to the Erlang/OTP crypto app.
+	</p>
+	<p>For OpenSSL, see the	<url href="http:www.openssl.org">OpenSSL documentation</url>.
+	and find <c>EVP_CIPHER_CTX_set_padding()</c> in cryptolib for your linked version.
+	</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="otp_padding"/>
+      <desc>
+	<p>Erlang/OTP adds a either padding of zeroes or padding with random bytes.</p>
+      </desc>
+    </datatype>
+
     <datatype_title>Ciphers, old API</datatype_title>
     <datatype>
       <name name="block_cipher_with_iv"/>
@@ -674,7 +710,12 @@
       <name name="crypto_init" arity="3" since="OTP 22.0"/>
       <fsummary>Initializes a series of encryptions or decryptions</fsummary>
       <desc>
-	<p>As <seealso marker="#crypto_init/4">crypto_init/4</seealso> but for ciphers without IVs.</p>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	</p>
+	<p>Equivalent to the call
+	<seealso marker="#crypto_init/4"><c>crypto_init(Cipher, Key, &lt;&lt;>>, FlagOrOptions)</c></seealso>.
+	It is intended for ciphers without an IV (nounce).
+	</p>
       </desc>
     </func>
 
@@ -685,10 +726,48 @@
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
 	Initializes a series of encryptions or decryptions and creates an internal state
 	with a reference that is returned.
-	The actual encryption or decryption is done by
-	<seealso marker="crypto#crypto_update/2">crypto_update/2</seealso>.
 	</p>
-	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
+	<p>If <c>IV = &lt;&lt;>></c>, no IV is used. This is intended for ciphers without an IV (nounce).
+	See <seealso marker="#crypto_init/3">crypto_init/3</seealso>.
+	</p>
+	<p>
+	If <c>IV = undefined</c>, the IV must be added by calls to
+	<seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso>. This is intended
+	for cases where the IV (nounce) need to be changed for each encryption and decryption.
+	See <seealso marker="#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso>.
+	</p>
+	<p>
+	The actual encryption or decryption is done by
+	<seealso marker="crypto#crypto_update/2">crypto_update/2</seealso> (or
+	<seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso>
+	).
+	</p>
+	<p>For encryption, set the <c>FlagOrOptions</c> to <c>true</c> or <c>[{encrypt,true}]</c>.
+	For decryption, set it to <c>false</c> or <c>[{encrypt,false}]</c>.
+	</p>
+	<p>Padding could be enabled with the option
+	<seealso marker="#type-padding">{padding,Padding}</seealso>. The
+	<seealso marker="#type-cryptolib_padding">cryptolib_padding</seealso> enables
+	<c>pkcs_padding</c> or no padding (<c>none</c>).
+	The paddings <c>zero</c> or <c>random</c> fills the last part of the last block with zeroes or random bytes.
+	If the last block is already full, nothing is added.
+	</p>
+	<p>In decryption, the <seealso marker="#type-cryptolib_padding">cryptolib_padding</seealso> removes
+	such padding, if present.
+	The <seealso marker="#type-otp_padding">otp_padding</seealso> is not
+	removed - it has to be done elsewhere.
+	</p>
+	<p>If padding is <c>{padding,none}</c> or not specifed and the total data from all subsequent
+	<seealso marker="crypto#crypto_update/2">crypto_updates</seealso> does
+	not fill the last block fully, that last data is lost. In case of <c>{padding,none}</c> there will
+	be an error in this case. If padding is not specified, the bytes of the unfilled block is silently
+	discarded.
+	</p>
+	<p>The actual padding is performed by
+	<seealso marker="crypto#crypto_final/1">crypto_final/1</seealso>.
+	</p>
+	<p>
+	For blocksizes call <seealso marker="#cipher_info/1">cipher_info/1</seealso>.
 	</p>
 	<p>See <seealso marker="crypto:new_api#examples-of-crypto_init-4-and-crypto_update-2">
 	examples in the User's Guide.</seealso>
@@ -720,11 +799,37 @@
       <fsummary>Initializes a series of encryptions or decryptions where the IV is provided later</fsummary>
       <desc>
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
-	Initializes a series of encryptions or decryptions where the IV is provided later.
+	</p>
+	<p>Initializes a series of encryptions or decryptions where the IV is provided later.
 	The actual encryption or decryption is done by
 	<seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso>.
 	</p>
-	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
+	<p>The function is equivalent to
+	<seealso marker="#crypto_init/4"><c>crypto_init(Cipher, Key, undefined, FlagOrOptions)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_final" arity="1" since=""/>
+      <fsummary>Ends a series of encryptions or decryptions</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	</p>
+	<p>
+	Finalizes a series of encryptions or decryptions and delivers the final bytes of the final block.
+	The data returned from this function may be empty if no padding was enabled in
+	<seealso marker="#crypto_init/3">crypto_init/3,4</seealso> or
+	<seealso marker="#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso>.
+	</p>
+	<p>The <c>FinalResult</c> is a binary if decoding was set in the call of
+	<seealso marker="#crypto_init/3">crypto_init/3,4</seealso>. If encryption was ordered, the
+	<c>FinalResult</c> is <c>{PadSize, binary()}</c>.
+	</p>
+	<p>The <c>PadSize</c> is 0 for
+	<seealso marker="#type-cryptolib_padding">cryptolib_padding()</seealso>.
+	For <seealso marker="#type-otp_padding">otp_padding()</seealso>	it tells how many bytes
+	that was added.
 	</p>
       </desc>
     </func>
@@ -756,7 +861,9 @@
 	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
 	Do a complete encrypt or decrypt of the full text in the argument <c>Data</c>.
 	</p>
-	<p>For encryption, set the <c>EncryptFlag</c> to <c>true</c>. For decryption, set it to <c>false</c>.
+	<p>For encryption, set the <c>FlagOrOptions</c> to <c>true</c>. For decryption, set it to <c>false</c>.
+	For setting other options, see
+	<seealso marker="crypto#crypto_init/4">crypto_init/4</seealso>.
 	</p>
 	<p>See <seealso marker="crypto:new_api#example-of-crypto_one_time-5">examples in the User's Guide.</seealso>
 	</p>
