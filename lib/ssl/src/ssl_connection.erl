@@ -965,7 +965,7 @@ certify(internal, #certificate{asn1_certificates = []},
 	       ssl_options = #{verify := verify_peer,
                                fail_if_no_peer_cert := true}} =
 	    State, _) ->
-    Alert =  ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE),
+    Alert =  ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE, no_client_certificate_provided),
     handle_own_alert(Alert, Version, ?FUNCTION_NAME, State);
 certify(internal, #certificate{asn1_certificates = []},
 	#state{static_env = #static_env{role = server},
