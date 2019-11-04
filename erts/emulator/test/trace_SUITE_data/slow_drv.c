@@ -1,3 +1,7 @@
+#ifdef __WIN32__
+#include <windows.h>
+#endif
+
 #include <stdio.h>
 #include "erl_driver.h"
 
@@ -85,8 +89,12 @@ static ErlDrvSSizeT slow_drv_control(ErlDrvData drv_data, unsigned int command,
 
 static void slow_drv_timeout(ErlDrvData drv_data)
 {
-    /* Sleep for 500 msec */
+    /* Sleep for 150 msec */
+#ifdef __WIN32__
+    Sleep(150);
+#else
     usleep(150000);
+#endif
 }
 
 static void slow_drv_finish() {
