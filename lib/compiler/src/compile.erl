@@ -2114,6 +2114,7 @@ pre_load() ->
 	 beam_call_types,
 	 beam_clean,
 	 beam_dict,
+	 beam_digraph,
 	 beam_flatten,
 	 beam_jump,
 	 beam_kernel_to_ssa,

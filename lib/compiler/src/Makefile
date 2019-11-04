@@ -52,6 +52,7 @@ MODULES =  \
 	beam_call_types \
 	beam_clean \
 	beam_dict \
+	beam_digraph \
 	beam_disasm \
 	beam_flatten \
 	beam_jump \
