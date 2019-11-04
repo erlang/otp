@@ -102,7 +102,7 @@
 	  tick,         %% tick information
 	  connecttime,  %% the connection setuptime.
 	  connections,  %% table of connections
-	  conn_owners = [], %% List of connection owner pids,
+	  conn_owners = #{}, %% Map of connection owner pids,
 	  dist_ctrlrs = #{}, %% Map of dist controllers (local ports or pids),
 	  pend_owners = [], %% List of potential owners
 	  listen,       %% list of  #listen
@@ -405,8 +405,8 @@ do_auto_connect_2(Node, ConnId, From, State, ConnLookup) ->
                 _ ->
                     case setup(Node, ConnId, normal, From, State) of
                         {ok, SetupPid} ->
-                            Owners = [{SetupPid, Node} | State#state.conn_owners],
-                            {noreply,State#state{conn_owners=Owners}};
+                            Owners = State#state.conn_owners,
+                            {noreply,State#state{conn_owners=Owners#{SetupPid => Node}}};
                         _Error  ->
                             ?connect_failure(Node, {setup_call, failed, _Error}),
                             erts_internal:abort_pending_connection(Node, ConnId),
@@ -429,8 +429,8 @@ do_explicit_connect([#barred_connection{}], Type, Node, ConnId, From , State) ->
 do_explicit_connect(_ConnLookup, Type, Node, ConnId, From , State) ->
     case setup(Node,ConnId,Type,From,State) of
         {ok, SetupPid} ->
-            Owners = [{SetupPid, Node} | State#state.conn_owners],
-            {noreply,State#state{conn_owners=Owners}};
+            Owners = State#state.conn_owners,
+            {noreply,State#state{conn_owners=Owners#{SetupPid => Node}}};
         _Error ->
             ?connect_failure(Node, {setup_call, failed, _Error}),
             {reply, false, State}
@@ -776,14 +776,10 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 			{'EXIT', OldOwner, _} ->
 			    true
 		    end,
-		    Owners = lists:keyreplace(OldOwner,
-					      1,
-					      State#state.conn_owners,
-					      {AcceptPid, Node}),
 		    ets:insert(sys_dist, Conn#connection{owner = AcceptPid}),
 		    AcceptPid ! {self(),{accept_pending,ok_pending}},
-		    State1 = State#state{conn_owners=Owners},
-		    {noreply,State1}
+                    Owners = maps:remove(OldOwner, State#state.conn_owners),
+		    {noreply, State#state{conn_owners=Owners#{AcceptPid => Node}}}
 	    end;
 	[#connection{state=up}=Conn] ->
 	    AcceptPid ! {self(), {accept_pending, up_pending}},
@@ -804,8 +800,8 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
                                                      address = Address,
                                                      type = Type}),
                     AcceptPid ! {self(),{accept_pending,ok}},
-                    Owners = [{AcceptPid,Node} | State#state.conn_owners],
-                    {noreply, State#state{conn_owners = Owners}}
+                    Owners = State#state.conn_owners,
+                    {noreply, State#state{conn_owners = Owners#{AcceptPid => Node}}}
             catch
                 _:_ ->
                     error_logger:error_msg("~n** Cannot get connection id for node ~w~n",
@@ -816,7 +812,10 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
     end;
 
 handle_info({SetupPid, {is_pending, Node}}, State) ->
-    Reply = lists:member({SetupPid,Node},State#state.conn_owners),
+    Reply = case maps:get(SetupPid, State#state.conn_owners, undefined) of
+                Node -> true;
+                _ -> false
+            end,
     SetupPid ! {self(), {is_pending, Reply}},
     {noreply, State};
 
@@ -847,14 +846,22 @@ handle_info({From,badcookie,_To,_Mess}, State) ->
 %%
 handle_info(tick, State) ->
     ?tckr_dbg(tick),
-    lists:foreach(fun({Pid,_Node}) -> Pid ! {self(), tick} end,
-		  State#state.conn_owners),
+    ok = maps:fold(fun (Pid, _Node, ok) ->
+                          Pid ! {self(), tick},
+                          ok
+                   end,
+                   ok,
+                   State#state.conn_owners),
     {noreply,State};
 
 handle_info(aux_tick, State) ->
     ?tckr_dbg(aux_tick),
-    lists:foreach(fun({Pid,_Node}) -> Pid ! {self(), aux_tick} end,
-		  State#state.conn_owners),
+    ok = maps:fold(fun (Pid, _Node, ok) ->
+                          Pid ! {self(), aux_tick},
+                          ok
+                   end,
+                   ok,
+                   State#state.conn_owners),
     {noreply,State};
 
 handle_info(transition_period_end,
@@ -921,13 +928,10 @@ accept_exit(Pid, State) ->
 	    false
     end.
 
-conn_own_exit(Pid, Reason, State) ->
-    Owners = State#state.conn_owners,
-    case lists:keysearch(Pid, 1, Owners) of
-	{value, {Pid, Node}} ->
-	    throw({noreply, nodedown(Pid, Node, Reason, State)});
-	_ ->
-	    false
+conn_own_exit(Pid, Reason, #state{conn_owners = Owners} = State) ->
+    case maps:get(Pid, Owners, undefined) of
+        undefined -> false;
+        Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
 dist_ctrlr_exit(Pid, Reason, #state{dist_ctrlrs = DCs} = State) ->
@@ -987,7 +991,7 @@ get_conn(Node) ->
     end.
 
 delete_owner(Owner, #state{conn_owners = Owners} = State) ->
-    State#state{conn_owners = lists:keydelete(Owner, 1, Owners)}.
+    State#state{conn_owners = maps:remove(Owner, Owners)}.
 
 delete_ctrlr(Ctrlr, #state{dist_ctrlrs = DCs} = State) ->
     State#state{dist_ctrlrs = maps:remove(Ctrlr, DCs)}.
@@ -1058,7 +1062,6 @@ up_pending_nodedown(#connection{owner = Owner,
                     Exited, Node, _Reason,
                     _Type, State) when Ctrlr =:= Exited  ->
     %% Controller exited!
-    Owners = State#state.conn_owners,
     Pend = lists:keydelete(AcceptPid, 1, State#state.pend_owners),
     Conn1 = Conn#connection { owner = AcceptPid,
                               conn_id = erts_internal:new_connection(Node),
@@ -1067,7 +1070,8 @@ up_pending_nodedown(#connection{owner = Owner,
 			      state = pending },
     ets:insert(sys_dist, Conn1),
     AcceptPid ! {self(), pending},
-    State1 = State#state{conn_owners = [{AcceptPid,Node}|Owners],
+    Owners = State#state.conn_owners,
+    State1 = State#state{conn_owners = Owners#{AcceptPid => Node},
                          pend_owners = Pend},
     delete_owner(Owner, delete_ctrlr(Ctrlr, State1));
 up_pending_nodedown(#connection{owner = Owner},
