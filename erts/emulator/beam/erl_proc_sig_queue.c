@@ -859,7 +859,7 @@ erts_proc_sig_fetch_msgq_len_offs__(Process *proc)
     if (marker->common.next) {
         Sint len;
 
-        proc->flags |= F_DELAYED_PSIGQS_LEN;
+        proc->sig_qs.flags |= FS_DELAYED_PSIGQS_LEN;
 
         /*
          * Prevent update of sig_qs.len in fetch. These
@@ -906,7 +906,7 @@ proc_sig_privqs_len(Process *c_p, int have_qlock)
                       == ((ERTS_PROC_LOCK_MSGQ|ERTS_PROC_LOCK_MAIN)
                           & erts_proc_lc_my_proc_locks(c_p))));
 
-    if (c_p->flags & F_DELAYED_PSIGQS_LEN) {
+    if (c_p->sig_qs.flags & FS_DELAYED_PSIGQS_LEN) {
         ErtsProcSigMsgQLenOffsetMarker *marker;
 
         if (!have_qlock)
@@ -2738,7 +2738,7 @@ destroy_process_info_request(Process *c_p, ErtsProcessInfoSig *pisig)
         erts_proc_unlock(c_p, ERTS_PROC_LOCK_MSGQ);
 
         if (!refc) {
-            c_p->flags &= ~F_DELAYED_PSIGQS_LEN;
+            c_p->sig_qs.flags &= ~FS_DELAYED_PSIGQS_LEN;
             /* Adjust msg len of inner+middle queue */
             ASSERT(marker->len_offset <= 0);
             c_p->sig_qs.len -= marker->len_offset;
@@ -3596,31 +3596,21 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
 stop: {
         int deferred_save, deferred_saved_last, res;
 
-        deferred_saved_last = !!(c_p->flags & F_DEFERRED_SAVED_LAST);
-        deferred_save = 0;
+        deferred_saved_last = !!(c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST);
+        deferred_save = !!(c_p->sig_qs.flags & FS_DEFERRED_SAVE);
 
         if (!deferred_saved_last)
             deferred_save = 0;
         else {
             if (c_p->sig_qs.saved_last == &c_p->sig_qs.cont) {
                 c_p->sig_qs.saved_last = c_p->sig_qs.last;
-                c_p->flags &= ~F_DEFERRED_SAVED_LAST;
+                c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
                 deferred_saved_last = deferred_save = 0;
             }
-            else {
-                if (c_p->sig_qs.save == c_p->sig_qs.last &&
-                    c_p->sig_qs.save != &c_p->sig_qs.first)
-                    /* When save is set to last AND DEFERRED_SAVED_LAST is
-                       set we know that we have done a ERTS_RECV_MARK_SET
-                       to the last in order to trigger a clean of the middle
-                       queue. However, we cannot know this when there
-                       are no messages in the inner queue, so in that
-                       case we have to parse the entire queue again */
-                    deferred_save = !0;
-                else
-                    deferred_save = 0;
-            }
         }
+
+        if (deferred_save)
+            c_p->sig_qs.flags &= ~FS_DEFERRED_SAVE;
 
         ASSERT(c_p->sig_qs.saved_last != &c_p->sig_qs.cont);
 
@@ -3716,7 +3706,7 @@ stop: {
         if (deferred_saved_last
             && (c_p->sig_qs.saved_last == &c_p->sig_qs.cont)) {
             c_p->sig_qs.saved_last = c_p->sig_qs.last;
-            c_p->flags &= ~F_DEFERRED_SAVED_LAST;
+            c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
             if (deferred_save)
                 c_p->sig_qs.save = c_p->sig_qs.saved_last;
         }
@@ -3727,7 +3717,7 @@ stop: {
             }
         }
         else {
-            c_p->flags &= ~F_DEFERRED_SAVED_LAST;
+            c_p->sig_qs.flags &= ~FS_DEFERRED_SAVED_LAST;
             if (deferred_save)
                 c_p->sig_qs.save = c_p->sig_qs.saved_last;
         }
@@ -3767,7 +3757,7 @@ stretch_limit(Process *c_p, ErtsSigRecvTracing *tp,
     if (abs_lim == lim)
         return 0;
 
-    if (!(c_p->flags & F_DEFERRED_SAVED_LAST)) {
+    if (!(c_p->sig_qs.flags & FS_DEFERRED_SAVED_LAST)) {
         ErtsSignal *sig;
 
         if (PEEK_MESSAGE(c_p))
@@ -4461,7 +4451,7 @@ erts_proc_sig_prep_msgq_for_inspection(Process *c_p,
 
     ASSERT(!info_on_self || c_p == rp);
 
-    self_on_heap = info_on_self && !(c_p->flags & F_OFF_HEAP_MSGQ);
+    self_on_heap = info_on_self && !(c_p->sig_qs.flags & FS_OFF_HEAP_MSGQ);
 
     tot_heap_size = 0;
     i = 0;
@@ -4934,16 +4924,16 @@ proc_sig_hdbg_check_queue(Process *proc,
         ERTS_ASSERT(!found_save);
         if (!found_saved_last_p) {
             ERTS_ASSERT(!found_saved_last
-                        || (proc->flags & F_DEFERRED_SAVED_LAST));
+                        || (proc->sig_qs.flags & FS_DEFERRED_SAVED_LAST));
         }
         else {
             if (*found_saved_last_p) {
                 ERTS_ASSERT(!found_saved_last);
-                ERTS_ASSERT(!(proc->flags & F_DEFERRED_SAVED_LAST));
+                ERTS_ASSERT(!(proc->sig_qs.flags & FS_DEFERRED_SAVED_LAST));
             }
             else if (saved_last) {
                 ERTS_ASSERT(found_saved_last);
-                ERTS_ASSERT(proc->flags & F_DEFERRED_SAVED_LAST);
+                ERTS_ASSERT(proc->sig_qs.flags & FS_DEFERRED_SAVED_LAST);
             }
             *found_saved_last_p |= found_saved_last;
         }
@@ -4955,7 +4945,7 @@ proc_sig_hdbg_check_queue(Process *proc,
         ERTS_ASSERT(found_save);
         ERTS_ASSERT(!saved_last
                     || (found_saved_last
-                        || (proc->flags & F_DEFERRED_SAVED_LAST)));
+                        || (proc->sig_qs.flags & FS_DEFERRED_SAVED_LAST)));
         if (found_saved_last_p)
             *found_saved_last_p |= found_saved_last;
     }

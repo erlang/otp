@@ -9788,7 +9788,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         if (is_normal_sched) {
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
-                    int local_only = (!!(p->flags & F_LOCAL_SIGS_ONLY)
+                    int local_only = (!!(p->sig_qs.flags & FS_LOCAL_SIGS_ONLY)
                                       & !(state & (ERTS_PSFLG_SUSPENDED|ERTS_PSFLGS_DIRTY_WORK)));
                     if (!local_only | !!(state & ERTS_PSFLG_SIG_Q)) {
                         int sig_reds;
@@ -11391,7 +11391,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 		   ErlSpawnOpts* so) /* Options for spawn. */
 {
     int bound = 0;
-    Uint flags = 0;
+    Uint flags = 0, qs_flags = 0;
     ErtsRunQueue *rq = NULL;
     Process *p;
     Sint arity;			/* Number of arguments. */
@@ -11437,13 +11437,13 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     if (so->flags & SPO_OFF_HEAP_MSGQ) {
 	state |= ERTS_PSFLG_OFF_HEAP_MSGQ;
-	flags |= F_OFF_HEAP_MSGQ;
+	qs_flags |= FS_OFF_HEAP_MSGQ;
     }
     else if (so->flags & SPO_ON_HEAP_MSGQ) {
-	flags |= F_ON_HEAP_MSGQ;
+	qs_flags |= FS_ON_HEAP_MSGQ;
     }
 
-    ASSERT((flags & F_ON_HEAP_MSGQ) || (flags & F_OFF_HEAP_MSGQ));
+    ASSERT((qs_flags & FS_ON_HEAP_MSGQ) || (qs_flags & FS_OFF_HEAP_MSGQ));
 
     if (!rq)
 	rq = erts_get_runq_proc(parent, NULL);
@@ -11465,6 +11465,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     heap_need = arg_size + 1;   /* Reserve place for continuation pointer */
 
     p->flags = flags;
+    p->sig_qs.flags = qs_flags;
 
     p->static_flags = 0;
     if (so->flags & SPO_SYSTEM_PROC)
