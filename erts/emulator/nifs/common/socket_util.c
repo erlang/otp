@@ -1550,7 +1550,7 @@ void esock_warning_msg( const char* format, ... )
   // 2018-06-29 12:13:21.232089
   // 29-Jun-2018::13:47:25.097097
 
-  if (esock_timestamp(stamp, sizeof(stamp))) {
+  if (esock_timestamp_str(stamp, sizeof(stamp))) {
       res = enif_snprintf(f, sizeof(f),
                           "=WARNING MSG==== %s ===\r\n%s",
                           stamp, format);
@@ -1571,7 +1571,46 @@ void esock_warning_msg( const char* format, ... )
 
 /* *** esock_timestamp ***
  *
+ * Create a timestamp.
+ * Produces a timestamp in the form of an "Epoch" (A real epoch
+ * is the number of seconds since 1/1 1970, but our timestamp is
+ * the number micro seconds since 1/1 1970).
+ */
+
+extern
+ErlNifTime esock_timestamp()
+{
+    ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
+    ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);
+
+    return (monTime + offTime);
+
+}
+
+
+
+/* *** esock_timestamp_str ***
+ *
  * Create a timestamp string.
+ * If awailable, we use the localtime_r and strftime function(s)
+ * to produces a nice readable timestamp. But if not (awailable),
+ * it produces a timestamp in the form of an "Epoch" (A real epoch
+ * is the number of seconds since 1/1 1970, but our timestamp is
+ * the number micro seconds since 1/1 1970).
+ *
+ */
+
+extern
+BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len)
+{
+    return esock_format_timestamp(esock_timestamp(), buf, len);
+}
+
+
+
+/* *** esock_format_timestamp ***
+ *
+ * Format a timestamp.
  * If awailable, we use the localtime_r and strftime function(s)
  * to produces a nice readable timestamp. But if not (awailable),
  * it produces a timestamp in the form of an "Epoch" (A real epoch
@@ -1580,22 +1619,20 @@ void esock_warning_msg( const char* format, ... )
  */
 
 extern
-BOOLEAN_T esock_timestamp(char *buf, unsigned int len)
+BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int len)
 {
-    int        ret;
-    ErlNifTime monTime = enif_monotonic_time(ERL_NIF_USEC);
-    ErlNifTime offTime = enif_time_offset(ERL_NIF_USEC);
-    ErlNifTime time    = monTime + offTime;
+    int       ret;
 #if defined(ESOCK_USE_PRETTY_TIMESTAMP)
-    time_t     sec     = time / 1000000; // (if _MSEC) sec  = time / 1000;
-    time_t     usec    = time % 1000000; // (if _MSEC) msec = time % 1000;
-    int        buflen;
-    struct tm  t;
+
+    time_t    sec     = timestamp / 1000000; // (if _MSEC) sec  = time / 1000;
+    time_t    usec    = timestamp % 1000000; // (if _MSEC) msec = time % 1000;
+    int       buflen;
+    struct tm t;
 
     if (localtime_r(&sec, &t) == NULL)
         return FALSE;
 
-    ret = strftime(buf, len, "%d-%B-%Y::%T", &t);
+    ret = strftime(buf, len, "%d-%b-%Y::%T", &t);
     if (ret == 0)
         return FALSE;
     len -= ret - 1;
@@ -1606,12 +1643,15 @@ BOOLEAN_T esock_timestamp(char *buf, unsigned int len)
         return FALSE;
 
     return TRUE;
+
 #else
-    ret = enif_snprintf(buf, len, "%b64d", time);
+
+    ret = enif_snprintf(buf, len, "%b64d", timestamp);
     if (ret == 0)
         return FALSE;
     else
         return TRUE;
+
 #endif
 }
 

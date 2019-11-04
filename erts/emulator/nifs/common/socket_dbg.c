@@ -68,7 +68,7 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
 {
   va_list         args;
   char            f[512 + strlen(format)]; // This has to suffice...
-  char            stamp[30];
+  char            stamp[50];
   int             res;
 
   /*
@@ -77,7 +77,7 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
    * But then I must change the API....something for later.
    */
 
-  if (esock_timestamp(stamp, sizeof(stamp))) {
+  if (esock_timestamp_str(stamp, sizeof(stamp))) {
       res = enif_snprintf(f, sizeof(f), "%s [%s] [%s] %s",
                           prefix, stamp, TSNAME(), format);
   } else {
