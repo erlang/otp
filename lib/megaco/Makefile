@@ -214,9 +214,15 @@ $(DIA_PLT): Makefile
                      ../../lib/kernel/ebin \
                      ../../lib/stdlib/ebin \
                      ../../lib/runtime_tools/ebin \
+                     ../../lib/syntax_tools/ebin \
                      ../../lib/asn1/ebin \
                      ../../lib/debugger/ebin \
                      ../../lib/et/ebin \
+                     ../../lib/mnesia/ebin \
+                     ../../lib/crypto/ebin \
+                     ../../lib/compiler/ebin \
+                     ../../lib/wx/ebin \
+                     ../../lib/hipe/ebin \
                      ../../erts/preloaded/ebin \
                   --output $(DIA_ANALYSIS) \
                   --verbose
