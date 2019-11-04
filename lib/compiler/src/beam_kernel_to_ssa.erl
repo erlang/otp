@@ -218,6 +218,22 @@ select_cg(#k_type_clause{type=Type,values=Scs}, Var, Tf, Vf, St0) ->
     {Is,St} = select_val_cg(Type, Arg, Vls, Tf, Vf, Sis, St2),
     {Is,St}.
 
+select_val_cg(k_atom, {succeeded,Dst}, Vls, _Tf, _Vf, Sis, St0) ->
+    [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
+    case Dst of
+        #b_var{} ->
+            %% Generate a `succeeded` instruction and two-way branch
+            %% following the `peek_message` and `wait_timeout`
+            %% instructions.
+            {Bool,St} = new_ssa_var('@ssa_bool', St0),
+            Succeeded = #b_set{op=succeeded,dst=Bool,args=[Dst]},
+            Br = #b_br{bool=Bool,succ=Succ,fail=Fail},
+            {[Succeeded,Br|Sis],St};
+        #b_literal{val=true}=Bool ->
+            %% A 'wait_timeout 0' instruction was optimized away.
+            Br = #b_br{bool=Bool,succ=Succ,fail=Succ},
+            {[Br|Sis],St0}
+    end;
 select_val_cg(k_tuple, Tuple, Vls, Tf, Vf, Sis, St0) ->
     {Is0,St1} = make_cond_branch({bif,is_tuple}, [Tuple], Tf, St0),
     {Arity,St2} = new_ssa_var('@ssa_arity', St1),
@@ -706,6 +722,30 @@ internal_cg(raise, As, [#k_var{name=Dst0}], St0) ->
             Is = [Resume,make_uncond_branch(Catch),#cg_unreachable{}],
             {Is,St}
     end;
+internal_cg(recv_peek_message, [], [#k_var{name=Succeeded0},
+                                    #k_var{name=Dst0}], St0) ->
+    {Dst,St1} = new_ssa_var(Dst0, St0),
+    St = new_succeeded_value(Succeeded0, Dst, St1),
+    Set = #b_set{op=peek_message,dst=Dst,args=[]},
+    {[Set],St};
+internal_cg(recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
+    case ssa_args(As, St0) of
+        [#b_literal{val=0}] ->
+            %% If beam_ssa_opt is run (which is default), the
+            %% `wait_timeout` instruction will be removed if the
+            %% operand is a literal 0.  However, if optimizations have
+            %% been turned off, we must not not generate a
+            %% `wait_timeout` instruction with a literal 0 timeout,
+            %% because the BEAM instruction will not handle it
+            %% correctly.
+            St = new_succeeded_value(Succeeded0, #b_literal{val=true}, St0),
+            {[],St};
+        Args ->
+            {Wait,St1} = new_ssa_var('@ssa_wait', St0),
+            St = new_succeeded_value(Succeeded0, Wait, St1),
+            Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
+            {[Set],St}
+    end;
 internal_cg(Op, As, [#k_var{name=Dst0}], St0) when is_atom(Op) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
@@ -1174,6 +1214,10 @@ ssa_arg(#k_remote{mod=Mod0,name=Name0,arity=Arity}, St) ->
 ssa_arg(#k_local{name=Name,arity=Arity}, _) when is_atom(Name) ->
     #b_local{name=#b_literal{val=Name},arity=Arity}.
 
+new_succeeded_value(VarBase, Var, #cg{vars=Vars0}=St) ->
+    Vars = Vars0#{VarBase=>{succeeded,Var}},
+    St#cg{vars=Vars}.
+
 new_ssa_vars(Vs, St) ->
     mapfoldl(fun(#k_var{name=V}, S) ->
                      new_ssa_var(V, S)
@@ -1300,6 +1344,28 @@ collect_preds([[First|Rest]|T], ColAcc, RestAcc) ->
 collect_preds([], ColAcc, RestAcc) ->
     {keysort(2, ColAcc),RestAcc}.
 
+fix_sets([#b_set{op=Op,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
+    NoValue = case Op of
+                  remove_message -> true;
+                  timeout -> true;
+                  _ -> false
+              end,
+    case NoValue of
+        true ->
+            %% An instruction without value was used in effect
+            %% context in `after` block. Example:
+            %%
+            %%   try
+            %%       ...
+            %%   after
+            %%       receive _ -> ignored end
+            %%   end,
+            %%   ok.
+            %%
+            fix_sets(Is, [Ret#b_ret{arg=#b_literal{val=ok}},Set|Acc], St);
+        false ->
+            fix_sets(Is, [Ret,Set|Acc], St)
+    end;
 fix_sets([#b_set{dst=none}=Set|Is], Acc, St0) ->
     {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     I = Set#b_set{dst=Dst},

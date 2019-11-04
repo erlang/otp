@@ -603,7 +603,7 @@ passes_1([]) ->
     {".erl",[?pass(parse_module)|standard_passes()]}.
 
 pass(from_core) ->
-    {".core",[?pass(parse_core)|core_passes(mandatory_core_lint)]};
+    {".core",[?pass(parse_core)|core_passes(non_verified_core)]};
 pass(from_asm) ->
     {".S",[?pass(beam_consult_asm)|asm_passes()]};
 pass(from_beam) ->
@@ -801,33 +801,35 @@ standard_passes() ->
      ?pass(core),
      {iff,'dcore',{listing,"core"}},
      {iff,'to_core0',{done,"core"}}
-     | core_passes(optional_core_lint)].
+     | core_passes(verified_core)].
 
-core_passes(LintOpt) ->
+core_passes(CoreStatus) ->
     %% Optimization and transforms of Core Erlang code.
-    CoreLint = case LintOpt of
-                   mandatory_core_lint ->
-                       ?pass(core_lint_module);
-                   optional_core_lint ->
-                       {iff,clint0,?pass(core_lint_module)}
-               end,
-    [CoreLint,
-     {delay,
-      [{unless,no_copt,
-       [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/2},
-	{iff,doldinline,{listing,"oldinline"}},
-	{unless,no_fold,{pass,sys_core_fold}},
-	{iff,dcorefold,{listing,"corefold"}},
-	{core_inline_module,fun test_core_inliner/1,fun core_inline_module/2},
-	{iff,dinline,{listing,"inline"}},
-        {core_fold_after_inlining,fun test_any_inliner/1,
-         fun core_fold_module_after_inlining/2},
-        {iff,dcopt,{listing,"copt"}},
-        {unless,no_alias,{pass,sys_core_alias}},
-        {iff,dalias,{listing,"core_alias"}},
-	?pass(core_transforms)]},
-       {iff,'to_core',{done,"core"}}]}
-     | kernel_passes()].
+    case CoreStatus of
+        non_verified_core ->
+            [?pass(core_lint_module),
+             {pass,sys_core_prepare},
+             {iff,dprep,{listing,"prepare"}}];
+        verified_core ->
+            [{iff,clint0,?pass(core_lint_module)}]
+    end ++
+        [
+         {delay,
+          [{unless,no_copt,
+            [{core_old_inliner,fun test_old_inliner/1,fun core_old_inliner/2},
+             {iff,doldinline,{listing,"oldinline"}},
+             {unless,no_fold,{pass,sys_core_fold}},
+             {iff,dcorefold,{listing,"corefold"}},
+             {core_inline_module,fun test_core_inliner/1,fun core_inline_module/2},
+             {iff,dinline,{listing,"inline"}},
+             {core_fold_after_inlining,fun test_any_inliner/1,
+              fun core_fold_module_after_inlining/2},
+             {iff,dcopt,{listing,"copt"}},
+             {unless,no_alias,{pass,sys_core_alias}},
+             {iff,dalias,{listing,"core_alias"}},
+             ?pass(core_transforms)]},
+           {iff,'to_core',{done,"core"}}]}
+         | kernel_passes()].
 
 kernel_passes() ->
     %% Optimizations that must be done after all other optimizations.

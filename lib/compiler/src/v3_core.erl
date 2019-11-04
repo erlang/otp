@@ -22,7 +22,7 @@
 %% At this stage all preprocessing has been done. All that is left are
 %% "pure" Erlang functions.
 %%
-%% Core transformation is done in three stages:
+%% Core transformation is done in four stages:
 %%
 %% 1. Flatten expressions into an internal core form without doing
 %%    matching.
@@ -36,6 +36,8 @@
 %% 3. Step "backwards" over icore code using variable usage
 %%    annotations to change implicit exported variables to explicit
 %%    returns.
+%%
+%% 4. Lower receives to more primitive operations.
 %%
 %% To ensure the evaluation order we ensure that all arguments are
 %% safe.  A "safe" is basically a core_lib simple with VERY restricted
@@ -222,12 +224,14 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
                     dialyzer=member(dialyzer, Opts),
                     ws=Ws0,file=[{file,File}]},
         {B0,St1} = body(Cs0, Name, Arity, St0),
-        %% ok = function_dump(Name,Arity,"body:~n~p~n",[B0]),
+        %% ok = function_dump(Name, Arity, "body:~n~p~n",[B0]),
         {B1,St2} = ubody(B0, St1),
-        %% ok = function_dump(Name,Arity,"ubody:~n~p~n",[B1]),
-        {B2,#core{ws=Ws}} = cbody(B1, St2),
-        %% ok = function_dump(Name,Arity,"cbody:~n~p~n",[B2]),
-        {{#c_var{name={Name,Arity}},B2},Ws}
+        %% ok = function_dump(Name, Arity, "ubody:~n~p~n",[B1]),
+        {B2,St3} = cbody(B1, St2),
+        %% ok = function_dump(Name, Arity, "cbody:~n~p~n",[B2]),
+        {B3,#core{ws=Ws}} = lbody(B2, St3),
+        %% ok = function_dump(Name, Arity, "lbody:~n~p~n",[B3]),
+        {{#c_var{name={Name,Arity}},B3},Ws}
     catch
         Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
@@ -2661,6 +2665,185 @@ cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
 c_call_erl(Fun, Args) ->
     As = [compiler_generated],
     cerl:ann_c_call(As, cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
+
+%%%
+%%% Lower a `receive` to more primitive operations.
+%%%
+%%% Here follows an example of how a receive in this Erlang code:
+%%%
+%%% foo(Timeout) ->
+%%%     receive
+%%%         {tag,Msg} -> Msg
+%%%     after
+%%%         Timeout ->
+%%%             no_message
+%%%     end.
+%%%
+%%% is translated into Core Erlang:
+%%%
+%%% 'foo'/1 =
+%%%     fun (Timeout) ->
+%%%         ( letrec
+%%%               'recv$^0'/0 =
+%%%                   fun () ->
+%%%                       let <PeekSucceeded,Message> =
+%%%                           primop 'recv_peek_message'()
+%%%                       in  case PeekSucceeded of
+%%%                             <'true'> when 'true' ->
+%%%                                 case Message of
+%%%                                   <{'tag',Msg}> when 'true' ->
+%%%                                       do  primop 'remove_message'()
+%%%                                           Msg
+%%%                                   ( <Other> when 'true' ->
+%%%                                         do  primop 'recv_next'()
+%%%                                             apply 'recv$^0'/0()
+%%%                                     -| ['compiler_generated'] )
+%%%                                 end
+%%%                             <'false'> when 'true' ->
+%%%                                 let <TimedOut> =
+%%%                                     primop 'recv_wait_timeout'(Timeout)
+%%%                                 in  case TimedOut of
+%%%                                       <'true'> when 'true' ->
+%%%                                           do  primop 'timeout'()
+%%%                                               'no_message'
+%%%                                       <'false'> when 'true' ->
+%%%                                           apply 'recv$^0'/0()
+%%%                                     end
+%%%                           end
+%%%           in  apply 'recv$^0'/0()
+%%%           -| ['letrec_goto'] )
+
+lbody(B, St) ->
+    cerl_trees:mapfold(fun lexpr/2, St, B).
+
+lexpr(#c_receive{clauses=[],timeout=Timeout0,action=Action}, St0) ->
+    %% Lower a receive with only an after to its primitive operations.
+    False = #c_literal{val=false},
+    True = #c_literal{val=true},
+
+    {Timeout,Outer0,St1} =
+        case is_safe(Timeout0) of
+            true ->
+                {Timeout0,False,St0};
+            false ->
+                {TimeoutVar,Sti0} = new_var(St0),
+                OuterLet = #c_let{vars=[TimeoutVar],arg=Timeout0,body=False},
+                {TimeoutVar,OuterLet,Sti0}
+        end,
+
+    MaybeIgnore = case Timeout of
+                      #c_literal{val=infinity} -> [dialyzer_ignore];
+                      _ -> []
+                  end,
+
+    {LoopName,St2} = new_fun_name("recv", St1),
+    LoopFun = #c_var{name={LoopName,0}},
+    ApplyLoop = #c_apply{anno=[dialyzer_ignore],op=LoopFun,args=[]},
+
+    TimeoutCs = [#c_clause{anno=MaybeIgnore,pats=[True],guard=True,
+                           body=#c_seq{arg=primop(timeout),
+                                       body=Action}},
+                 #c_clause{anno=[compiler_generated,dialyzer_ignore],
+                           pats=[False],guard=True,
+                           body=ApplyLoop}],
+    {TimeoutBool,St3} = new_var(St2),
+    TimeoutCase = #c_case{anno=[receive_timeout],arg=TimeoutBool,
+                          clauses=TimeoutCs},
+    TimeoutLet = #c_let{vars=[TimeoutBool],
+                        arg=primop(recv_wait_timeout, [Timeout]),
+                        body=TimeoutCase},
+
+    Fun = #c_fun{vars=[],body=TimeoutLet},
+
+    Letrec = #c_letrec{anno=[letrec_goto],
+                       defs=[{LoopFun,Fun}],
+                       body=ApplyLoop},
+
+    %% If the 'after' expression is unsafe we evaluate it in an outer 'let'.
+    Outer = case Outer0 of
+                #c_let{} -> Outer0#c_let{body=Letrec};
+                _ -> Letrec
+            end,
+    {Outer,St3};
+lexpr(#c_receive{clauses=Cs0,timeout=Timeout0,action=Action}, St0) ->
+    %% Lower receive to its primitive operations.
+    False = #c_literal{val=false},
+    True = #c_literal{val=true},
+
+    {Timeout,Outer0,St1} =
+        case is_safe(Timeout0) of
+            true ->
+                {Timeout0,False,St0};
+            false ->
+                {TimeoutVar,Sti0} = new_var(St0),
+                OuterLet = #c_let{vars=[TimeoutVar],arg=Timeout0,body=False},
+                {TimeoutVar,OuterLet,Sti0}
+        end,
+
+    MaybeIgnore = case Timeout of
+                      #c_literal{val=infinity} -> [dialyzer_ignore];
+                      _ -> []
+                  end,
+
+    {LoopName,St2} = new_fun_name("recv", St1),
+    LoopFun = #c_var{name={LoopName,0}},
+    ApplyLoop = #c_apply{anno=[dialyzer_ignore],op=LoopFun,args=[]},
+
+    Cs1 = rewrite_cs(Cs0),
+    RecvNext = #c_seq{arg=primop(recv_next),
+                      body=ApplyLoop},
+    RecvNextC = #c_clause{anno=[compiler_generated,dialyzer_ignore],
+                          pats=[#c_var{name='Other'}],guard=True,body=RecvNext},
+    Cs = Cs1 ++ [RecvNextC],
+    {Msg,St3} = new_var(St2),
+    MsgCase = #c_case{arg=Msg,clauses=Cs},
+
+    TimeoutCs = [#c_clause{pats=[True],guard=True,
+                           body=#c_seq{arg=primop(timeout),
+                                       body=Action}},
+                 #c_clause{anno=[dialyzer_ignore],pats=[False],guard=True,
+                           body=ApplyLoop}],
+    {TimeoutBool,St4} = new_var(St3),
+    TimeoutCase = #c_case{arg=TimeoutBool,clauses=TimeoutCs},
+    TimeoutLet = #c_let{vars=[TimeoutBool],
+                        arg=primop(recv_wait_timeout, [Timeout]),
+                        body=TimeoutCase},
+
+    {PeekSucceeded,St5} = new_var(St4),
+    PeekCs = [#c_clause{pats=[True],guard=True,
+                        body=MsgCase},
+              #c_clause{anno=MaybeIgnore,
+                        pats=[False],guard=True,
+                        body=TimeoutLet}],
+    PeekCase = #c_case{arg=PeekSucceeded,clauses=PeekCs},
+    PeekLet = #c_let{vars=[PeekSucceeded,Msg],
+                     arg=primop(recv_peek_message),
+                     body=PeekCase},
+    Fun = #c_fun{vars=[],body=PeekLet},
+
+    Letrec = #c_letrec{anno=[letrec_goto],
+                       defs=[{LoopFun,Fun}],
+                       body=ApplyLoop},
+
+    %% If the 'after' expression is unsafe we evaluate it in an outer 'let'.
+    Outer = case Outer0 of
+                #c_let{} -> Outer0#c_let{body=Letrec};
+                _ -> Letrec
+            end,
+    {Outer,St5};
+lexpr(Tree, St) ->
+    {Tree,St}.
+
+rewrite_cs([#c_clause{body=B0}=C|Cs]) ->
+    B = #c_seq{arg=primop(remove_message),body=B0},
+    [C#c_clause{body=B}|rewrite_cs(Cs)];
+rewrite_cs([]) -> [].
+
+primop(Name) ->
+    primop(Name, []).
+
+primop(Name, Args) ->
+    #c_primop{name=#c_literal{val=Name},args=Args}.
 
 %% lit_vars(Literal) -> [Var].
 
