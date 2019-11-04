@@ -418,6 +418,7 @@ main(int argc, char *argv[])
     int uds_fd = 3, max_fd = 3;
 #ifndef HAVE_CLOSEFROM
     int i;
+    DIR *dir;
 #endif
     struct sigaction sa;
 
@@ -433,11 +434,29 @@ main(int argc, char *argv[])
 #if defined(HAVE_CLOSEFROM)
     closefrom(4);
 #else
-    for (i = 4; i < max_files; i++)
+    dir = opendir("/dev/fd");
+    if (dir == NULL) { /* /dev/fd not available */
+        for (i = 4; i < max_files; i++)
 #if defined(__ANDROID__)
-        if (i != system_properties_fd())
+            if (i != system_properties_fd())
 #endif
-        (void) close(i);
+            (void) close(i);
+    } else {
+        /* Iterate over fds obtained from /dev/fd */
+        struct dirent *entry;
+        int dir_fd = dirfd(dir);
+
+        while ((entry = readdir(dir)) != NULL) {
+            i = atoi(entry->d_name);
+#if defined(__ANDROID__)
+            if (i != system_properties_fd())
+#endif
+            if (i >= 4 && i != dir_fd)
+                (void) close(i);
+        }
+
+        closedir(dir);
+    }
 #endif
 
     if (pipe(sigchld_pipe) < 0) {
