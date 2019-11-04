@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,8 +71,8 @@ $(EBIN)/snmpm_supervisor.$(EMULATOR): \
 	snmpm_supervisor.erl
 
 $(EBIN)/snmpm_user_default.$(EMULATOR): \
-	snmpm_user_default.erl \
-	snmpm_user.erl
+	snmpm_user.erl \
+	snmpm_user_default.erl
 
 $(EBIN)/snmpm_usm.$(EMULATOR): \
 	snmpm_usm.erl \
