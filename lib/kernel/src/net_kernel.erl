@@ -104,7 +104,7 @@
 	  connections,  %% table of connections
 	  conn_owners = #{}, %% Map of connection owner pids,
 	  dist_ctrlrs = #{}, %% Map of dist controllers (local ports or pids),
-	  pend_owners = [], %% List of potential owners
+	  pend_owners = #{}, %% Map of potential owners
 	  listen,       %% list of  #listen
 	  allowed,       %% list of allowed nodes in a restricted system
 	  verbose = 0,   %% level of verboseness
@@ -785,8 +785,8 @@ handle_info({AcceptPid, {accept_pending,MyNode,Node,Address,Type}}, State) ->
 	    AcceptPid ! {self(), {accept_pending, up_pending}},
 	    ets:insert(sys_dist, Conn#connection { pending_owner = AcceptPid,
 						  state = up_pending }),
-	    Pend = [{AcceptPid, Node} | State#state.pend_owners ],
-	    {noreply, State#state { pend_owners = Pend }};
+	    Pend = State#state.pend_owners,
+	    {noreply, State#state { pend_owners = Pend#{AcceptPid => Node} }};
 	[#connection{state=up_pending}] ->
 	    AcceptPid ! {self(), {accept_pending, already_pending}},
 	    {noreply, State};
@@ -940,12 +940,12 @@ dist_ctrlr_exit(Pid, Reason, #state{dist_ctrlrs = DCs} = State) ->
         Node -> throw({noreply, nodedown(Pid, Node, Reason, State)})
     end.
 
-pending_own_exit(Pid, State) ->
-    Pend = State#state.pend_owners,
-    case lists:keysearch(Pid, 1, Pend) of
-	{value, {Pid, Node}} ->
-	    NewPend = lists:keydelete(Pid, 1, Pend),
-	    State1 = State#state { pend_owners = NewPend },
+pending_own_exit(Pid, #state{pend_owners = Pend} = State) ->
+    case maps:get(Pid, Pend, undefined) of
+        undefined ->
+            false;
+        Node ->
+	    State1 = State#state { pend_owners = maps:remove(Pid, Pend)},
 	    case get_conn(Node) of
 		{ok, Conn} when Conn#connection.state =:= up_pending ->
 		    reply_waiting(Node,Conn#connection.waiting, true),
@@ -956,9 +956,7 @@ pending_own_exit(Pid, State) ->
 		_ ->
 		    ok
 	    end,
-	    throw({noreply, State1});
-	_ ->
-	    false
+	    throw({noreply, State1})
     end.
 
 ticker_exit(Pid, #state{tick = #tick{ticker = Pid, time = T} = Tck} = State) ->
@@ -1062,7 +1060,6 @@ up_pending_nodedown(#connection{owner = Owner,
                     Exited, Node, _Reason,
                     _Type, State) when Ctrlr =:= Exited  ->
     %% Controller exited!
-    Pend = lists:keydelete(AcceptPid, 1, State#state.pend_owners),
     Conn1 = Conn#connection { owner = AcceptPid,
                               conn_id = erts_internal:new_connection(Node),
                               ctrlr = undefined,
@@ -1070,6 +1067,7 @@ up_pending_nodedown(#connection{owner = Owner,
 			      state = pending },
     ets:insert(sys_dist, Conn1),
     AcceptPid ! {self(), pending},
+    Pend = maps:remove(AcceptPid, State#state.pend_owners),
     Owners = State#state.conn_owners,
     State1 = State#state{conn_owners = Owners#{AcceptPid => Node},
                          pend_owners = Pend},
