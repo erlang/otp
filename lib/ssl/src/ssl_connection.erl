@@ -444,19 +444,22 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
 %%====================================================================
 %% Data handling
 %%====================================================================
-passive_receive(State0 = #state{user_data_buffer = {_,BufferSize,_}}, StateName, Connection, StartTimerAction) ->
+passive_receive(#state{user_data_buffer = {Front,BufferSize,Rear},
+                       %% Assert! Erl distribution uses active sockets 
+                       connection_env = #connection_env{erl_dist_handle = undefined}}
+                = State0, StateName, Connection, StartTimerAction) ->
     case BufferSize of
 	0 ->
 	    Connection:next_event(StateName, no_record, State0, StartTimerAction);
 	_ ->
-	    case read_application_data(<<>>, State0) of
+	    case read_application_data(State0, Front, BufferSize, Rear) of
                 {stop, _, _} = ShutdownError ->
                     ShutdownError;
                 {Record, State} ->
                     case State#state.start_or_recv_from of
                         undefined ->
                             %% Cancel recv timeout as data has been delivered
-                            Connection:next_event(StateName, Record, State, 
+                            Connection:next_event(StateName, Record, State,
                                                   [{{timeout, recv}, infinity, timeout}]);
                         _ ->
                             Connection:next_event(StateName, Record, State, StartTimerAction)
