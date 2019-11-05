@@ -249,8 +249,9 @@ inherit_tracker(ListenSocket, EmOpts, #{erl_dist := false} = SslOpts) ->
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
 
-session_tickets_tracker(Mode, Lifetime, #{erl_dist := false}) ->
-    tls_server_session_ticket_sup:start_child([Mode, Lifetime]);
+session_tickets_tracker(Mode, Lifetime, #{erl_dist := false,
+                                          anti_replay := AntiReplay}) ->
+    tls_server_session_ticket_sup:start_child([Mode, Lifetime, AntiReplay]);
 session_tickets_tracker(Mode, Lifetime, #{erl_dist := true}) ->
     tls_server_session_ticket_sup:start_child_dist([Mode, Lifetime]).
 

@@ -156,6 +156,7 @@
           renegotiate_at             => {?DEFAULT_RENEGOTIATE_AT, [versions]},
           reuse_session              => {undefined, [versions]},
           reuse_sessions             => {true,      [versions]},
+          anti_replay                => {undefined, [versions, session_tickets]},
           secure_renegotiate         => {true,      [versions]},
           server_name_indication     => {undefined, [versions]},
           session_tickets            => {disabled,     [versions]},

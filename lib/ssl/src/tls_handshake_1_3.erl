@@ -1182,7 +1182,7 @@ maybe_send_session_ticket(#state{
                             } = State0, N) ->
     Ticket = generate_statless_ticket(BaseTicket, IV, Shard, State0),
     {State, _} = tls_connection:send_handshake(Ticket, State0),
-     %% Remove first "BaseTicket" when used
+    %% Remove first "BaseTicket" when used
     maybe_send_session_ticket(State#state{handshake_env = HsEnv#handshake_env{ticket_seed = Seed}}, N - 1);
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := stateless},
                                  handshake_env = #handshake_env{ticket_seed = {IV, Shard}},
@@ -2108,29 +2108,29 @@ get_offered_psks(Extensions) ->
     end.
 
 
-decode_pre_shared_keys(Shard, IV, PSKs) ->
+decode_pre_shared_keys(Shard, IV, PSKs, BloomFilter) ->
     #offered_psks{
        identities = Identities,
        binders = Binders
       } = PSKs,
-    decode_pre_shared_keys(Shard, IV, Identities, Binders, 0, []).
+    decode_pre_shared_keys(Shard, IV, Identities, Binders, 0, BloomFilter, []).
 %%
-decode_pre_shared_keys(_, _, [], [], _, Acc) ->
+decode_pre_shared_keys(_, _, [], [], _, _, Acc) ->
     lists:reverse(Acc);
-decode_pre_shared_keys(Shard, IV, [I|Identities], [B|Binders], Index, Acc) ->
-    {Validity, PSK, Hash} = decode_identity(Shard, IV, I),
+decode_pre_shared_keys(Shard, IV, [I|Identities], [B|Binders], Index, BloomFilter, Acc) ->
+    {Validity, PSK, Hash} = decode_identity(Shard, IV, I, BloomFilter),
     case Validity of
         valid ->
-            decode_pre_shared_keys(Shard, IV, Identities, Binders, Index + 1,
+            decode_pre_shared_keys(Shard, IV, Identities, Binders, Index + 1, BloomFilter,
                                    [{PSK, Index, Hash, B}|Acc]);
         invalid ->
-            decode_pre_shared_keys(Shard, IV, Identities, Binders, Index + 1, Acc)
+            decode_pre_shared_keys(Shard, IV, Identities, Binders, Index + 1, BloomFilter, Acc)
     end.
 
 
 decode_identity(Shard, IV, #psk_identity{
                               identity = I,
-                              obfuscated_ticket_age = ObfAge}) ->
+                              obfuscated_ticket_age = ObfAge}, BloomFilter) ->
     case ssl_cipher:decrypt_ticket(I, Shard, IV) of
         error ->
             %% Skip PSK if encrypted with an unknown key
@@ -2141,24 +2141,44 @@ decode_identity(Shard, IV, #psk_identity{
            ticket_age_add = TicketAgeAdd,
            lifetime = Lifetime,
            timestamp = Timestamp} ->
-            Validity = check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp),
+            Validity = check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp, BloomFilter),
             {Validity, PSK, Hash}
+    end.
+
+
+check_replay(_, _, undefined) ->
+    anti_replay_disabled;
+check_replay(Tracker, Ticket, {_, _, _}) ->
+    case tls_server_session_ticket:bloom_filter_contains(Tracker, Ticket) of
+        false ->
+            new_binder;
+        true ->
+            possible_replay
     end.
 
 
 %% For identities established externally, an obfuscated_ticket_age of 0 SHOULD be
 %% used, and servers MUST ignore the value.
-check_ticket_validity(0, _, _, _) ->
+check_ticket_validity(0, _, _, _, _) ->
     valid;
-check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp) ->
+check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp, BloomFilter) ->
     ReportedAge = ObfAge - TicketAgeAdd,
     RealAge = erlang:system_time(second) - Timestamp,
-    case (ReportedAge > Lifetime) orelse (RealAge > Lifetime) of
+    case (ReportedAge > Lifetime) orelse
+        (RealAge > Lifetime) orelse
+        out_of_window(RealAge, BloomFilter) of
         true ->
             invalid;
         false ->
             valid
     end.
+
+
+%% 8.3. Freshness Checks
+out_of_window(_, undefined) ->
+    false;
+out_of_window(Age, {Window, _, _}) ->
+    Age > Window.
 
 
 %% Prior to accepting PSK key establishment, the server MUST validate
@@ -2174,7 +2194,8 @@ handle_pre_shared_key(_, undefined, _) ->
     {ok, undefined};
 handle_pre_shared_key(#state{ssl_options = #{session_tickets := disabled}}, _, _) ->
     {ok, undefined};
-handle_pre_shared_key(#state{handshake_env = #handshake_env{ticket_seed = Seed}} = State, PreSharedKeys, Cipher) ->
+handle_pre_shared_key(#state{handshake_env = #handshake_env{ticket_seed = Seed},
+                             ssl_options = #{anti_replay := BloomFilter}} = State, PreSharedKeys, Cipher) ->
     {IV, Shard} = 
         case Seed of 
             {_, {IV0, Shard0}} ->
@@ -2182,12 +2203,12 @@ handle_pre_shared_key(#state{handshake_env = #handshake_env{ticket_seed = Seed}}
             IVS ->
                 IVS
         end,
-    PSKTuples = decode_pre_shared_keys(Shard, IV, PreSharedKeys),
+    PSKTuples = decode_pre_shared_keys(Shard, IV, PreSharedKeys, BloomFilter),
     case select_psk(PSKTuples, Cipher) of
         no_acceptable_psk ->
             {ok, undefined};
         PSKTuple ->
-            validate_binder(State, PSKTuple)
+            validate_binder(State, PSKTuple, BloomFilter)
     end.
 
 select_psk([], _) ->
@@ -2201,8 +2222,10 @@ select_psk([{PSK, Index, Hash, B}|T], Cipher) ->
             select_psk(T, Cipher)
     end.
 
-validate_binder(#state{handshake_env = #handshake_env{tls_handshake_history = {HHistory, _}}},
-                {PSK, Index, Hash, Binder}) ->
+validate_binder(#state{handshake_env = #handshake_env{tls_handshake_history = {HHistory, _}},
+                       static_env = #static_env{trackers = Trackers}},
+                {PSK, Index, Hash, Binder}, BloomFilter) ->
+    Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     IsBinderValid =
         case HHistory of
             [ClientHello2, HRR, MessageHash|_] ->
@@ -2216,7 +2239,16 @@ validate_binder(#state{handshake_env = #handshake_env{tls_handshake_history = {H
         end,
     case IsBinderValid of
         true ->
-            {ok, {Index, PSK}};
+            case check_replay(Tracker, Binder, BloomFilter) of
+                anti_replay_disabled ->
+                    {ok, {Index, PSK}};
+                new_binder ->
+                    tls_server_session_ticket:bloom_filter_add_elem(Tracker, Binder),
+                    {ok, {Index, PSK}};
+                possible_replay ->
+                    %% Reject 0-RTT
+                    {ok, undefined}
+            end;
         false ->
             {error, illegal_parameter}
     end.
