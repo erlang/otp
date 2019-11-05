@@ -32,6 +32,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include_lib("kernel/src/logger_internal.hrl").
 
 -define(eh, ct_test_support_eh).
 
@@ -60,6 +61,13 @@ end_per_suite(Config) ->
 init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
 
+
+end_per_testcase(cth_log_formatter = TestCase, Config) ->
+    ct_test_support:ct_rpc(
+      {logger,set_handler_config,
+       [default, formatter,
+        {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}]}, Config),
+    ct_test_support:end_per_testcase(TestCase, Config);
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
@@ -92,7 +100,8 @@ all(suite) ->
        fail_n_skip_with_minimal_cth, prio_cth, no_config,
        no_init_suite_config, no_init_config, no_end_config,
        failed_sequence, repeat_force_stop, config_clash,
-       callbacks_on_skip, fallback, data_dir, cth_log
+       callbacks_on_skip, fallback, data_dir,
+       cth_log, cth_log_formatter, cth_log_unexpect
       ]
     ).
 
@@ -263,9 +272,78 @@ data_dir(Config) when is_list(Config) ->
 
 cth_log(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
-    %% unexpected I/O log
+    %% html I/O log
     ct:timetrap({minutes,10}),
     StartOpts = do_test(cth_log, "cth_log_SUITE.erl", [], Config),
+    Logdir = proplists:get_value(logdir, StartOpts),
+    TCLogs =
+	filelib:wildcard(
+	  filename:join(Logdir,
+			"ct_run*/cth.tests*/run*/cth_log_suite.tc*.html")),
+    lists:foreach(
+      fun(TCLog) ->
+	      {ok,Bin} = file:read_file(TCLog),
+	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
+	      Matches = lists:foldl(fun("=ERROR"++_,  {E,I,N,L}) ->
+					    {E+1,I,N,L};
+				       ("=INFO"++_,  {E,I,N,L}) ->
+					    {E,I+1,N,L};
+				       ("=NOTICE"++_,  {E,I,N,L}) ->
+					    {E,I,N+1,L};
+				       ("Logger"++_,  {E,I,N,L}) ->
+					    {E,I,N,L+1};
+				       (_, N) -> N
+				    end, {0,0,0,0}, Ts),
+	      ct:pal("~p ({Error,Info,Notice,Log}) matches in ~tp",
+                     [Matches,TCLog]),
+              MatchList = tuple_to_list(Matches),
+              case [N || N <- MatchList, N<1] of
+                  [] -> ok;
+                  _ -> exit({missing_io,TCLog})
+	      end
+      end, TCLogs),
+    ok.
+
+cth_log_formatter(Config) when is_list(Config) ->
+    %% test that cth_log_redirect writes properly to
+    %% html I/O log using the formatter
+    ct:timetrap({minutes,10}),
+    ct_test_support:ct_rpc({logger,set_handler_config,[default, formatter,
+                              {logger_formatter,#{ template => [level,":",msg,"\n"] }}]},
+                           Config),
+    StartOpts = do_test(cth_log_formatter, "cth_log_formatter_SUITE.erl", [], Config),
+    Logdir = proplists:get_value(logdir, StartOpts),
+    TCLogs =
+	filelib:wildcard(
+	  filename:join(Logdir,
+			"ct_run*/cth.tests*/run*/cth_log_formatter_suite.tc*.html")),
+    lists:foreach(
+      fun(TCLog) ->
+	      {ok,Bin} = file:read_file(TCLog),
+	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
+	      Matches = lists:foldl(fun("error:"++_,  {E,N,L}) ->
+					    {E+1,N,L};
+				       ("notice:"++_,  {E,N,L}) ->
+					    {E,N+1,L};
+				       ("Logger"++_,  {E,N,L}) ->
+					    {E,N,L+1};
+				       (_, N) -> N
+				    end, {0,0,0}, Ts),
+	      ct:pal("~p ({Error,Notice,Log}) matches in ~tp",
+                     [Matches,TCLog]),
+              MatchList = tuple_to_list(Matches),
+              case [N || N <- MatchList, N<1] of
+                  [] -> ok;
+                  _ -> exit({missing_io,TCLog})
+	      end
+      end, TCLogs),
+    ok.
+
+cth_log_unexpect(Config) when is_list(Config) ->
+    %% test that cth_log_redirect writes properly to
+    %% unexpected I/O log
+    ct:timetrap({minutes,10}),
+    StartOpts = do_test(cth_log_unexpect, "cth_log_unexpect_SUITE.erl", [], Config),
     Logdir = proplists:get_value(logdir, StartOpts),
     UnexpIoLogs =
 	filelib:wildcard(
@@ -275,11 +353,11 @@ cth_log(Config) when is_list(Config) ->
       fun(UnexpIoLog) ->
 	      {ok,Bin} = file:read_file(UnexpIoLog),
 	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
-	      Matches = lists:foldl(fun([$=,$E,$R,$R,$O,$R|_],  {E,I,L}) ->
+	      Matches = lists:foldl(fun("=ERROR"++_,  {E,I,L}) ->
 					    {E+1,I,L};
-				       ([$=,$I,$N,$F,$O|_],  {E,I,L}) ->
+				       ("=INFO"++_,  {E,I,L}) ->
 					    {E,I+1,L};
-				       ([$L,$o,$g,$g,$e,$r|_],  {E,I,L}) ->
+				       ("Logger"++_,  {E,I,L}) ->
 					    {E,I,L+1};
 				       (_, N) -> N
 				    end, {0,0,0}, Ts),
@@ -1824,18 +1902,58 @@ test_events(cth_log) ->
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
      {?eh,tc_start,{cth_log_SUITE,init_per_suite}},
 
-     {parallel,
-      [{?eh,tc_start,{ct_framework,{init_per_group,g1,
-				    [{suite,cth_log_SUITE},parallel]}}},
-       {?eh,tc_done,{ct_framework,{init_per_group,g1,
-				   [{suite,cth_log_SUITE},parallel]},ok}},
-       {?eh,test_stats,{30,0,{0,0}}},
-       {?eh,tc_start,{ct_framework,{end_per_group,g1,
-				    [{suite,cth_log_SUITE},parallel]}}},
-       {?eh,tc_done,{ct_framework,{end_per_group,g1,
-				   [{suite,cth_log_SUITE},parallel]},ok}}]},
+     {?eh,tc_start,{ct_framework,{init_per_group,g1,
+                                  [{suite,cth_log_SUITE}]}}},
+     {?eh,tc_done,{ct_framework,{init_per_group,g1,
+                                 [{suite,cth_log_SUITE}]},ok}},
+     {?eh,test_stats,{30,0,{0,0}}},
+     {?eh,tc_start,{ct_framework,{end_per_group,g1,
+                                  [{suite,cth_log_SUITE}]}}},
+     {?eh,tc_done,{ct_framework,{end_per_group,g1,
+                                 [{suite,cth_log_SUITE}]},ok}},
 
      {?eh,tc_done,{cth_log_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(cth_log_formatter) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{cth_log_formatter_SUITE,init_per_suite}},
+
+     {?eh,tc_start,{ct_framework,{init_per_group,g1,
+                                  [{suite,cth_log_formatter_SUITE}]}}},
+     {?eh,tc_done,{ct_framework,{init_per_group,g1,
+                                 [{suite,cth_log_formatter_SUITE}]},ok}},
+     {?eh,test_stats,{30,0,{0,0}}},
+     {?eh,tc_start,{ct_framework,{end_per_group,g1,
+                                  [{suite,cth_log_formatter_SUITE}]}}},
+     {?eh,tc_done,{ct_framework,{end_per_group,g1,
+                                 [{suite,cth_log_formatter_SUITE}]},ok}},
+
+     {?eh,tc_done,{cth_log_formatter_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(cth_log_unexpect) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{cth_log_unexpect_SUITE,init_per_suite}},
+
+     {parallel,
+      [{?eh,tc_start,{ct_framework,{init_per_group,g1,
+				    [{suite,cth_log_unexpect_SUITE},parallel]}}},
+       {?eh,tc_done,{ct_framework,{init_per_group,g1,
+				   [{suite,cth_log_unexpect_SUITE},parallel]},ok}},
+       {?eh,test_stats,{30,0,{0,0}}},
+       {?eh,tc_start,{ct_framework,{end_per_group,g1,
+				    [{suite,cth_log_unexpect_SUITE},parallel]}}},
+       {?eh,tc_done,{ct_framework,{end_per_group,g1,
+				   [{suite,cth_log_unexpect_SUITE},parallel]},ok}}]},
+
+     {?eh,tc_done,{cth_log_unexpect_SUITE,end_per_suite,ok}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];

@@ -129,10 +129,16 @@ start_log_handler() ->
         _Pid ->
             ok
     end,
+    {DefaultFormatter, DefaultLevel} =
+        case logger:get_handler_config(default) of
+            {ok, Default} ->
+                {maps:get(formatter, Default), maps:get(level, Default)};
+            _Else ->
+                {{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG},info}
+        end,
     ok = logger:add_handler(?MODULE,?MODULE,
-                            #{level=>info,
-                              formatter=>{?DEFAULT_FORMATTER,
-                                          ?DEFAULT_FORMAT_CONFIG}}).
+                            #{level=>DefaultLevel,
+                              formatter=>DefaultFormatter}).
 
 init([]) ->
     {ok, #eh_state{log_func = tc_log_async}}.
