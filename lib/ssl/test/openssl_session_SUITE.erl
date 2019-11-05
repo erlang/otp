@@ -129,7 +129,21 @@ init_per_testcase(reuse_session_erlang_client, Config) ->
     application:set_env(ssl, session_lifetime, ?EXPIRE),
     ssl:start(),
     Config;
-
+init_per_testcase(reuse_session_erlang_server, Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    case ssl_test_lib:is_dtls_version(Version) of
+        true ->
+            case ssl_test_lib:openssl_sane_dtls_session_reuse() of
+                true ->
+                    ct:timetrap({seconds, 10}),
+                    Config;
+                false ->
+                    {skip, "Broken OpenSSL DTLS session reuse"}
+            end;
+        false ->
+            ct:timetrap({seconds, 10}),
+            Config
+    end;
 init_per_testcase(TestCase, Config) ->
     ct:timetrap({seconds, 10}),
     Config.
