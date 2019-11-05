@@ -68,7 +68,8 @@
          non_latin1_module/1, otp_14323/1,
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
-         external_funs/1,otp_15456/1,otp_15563/1]).
+         external_funs/1,otp_15456/1,otp_15563/1,
+         unused_type/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -90,7 +91,7 @@ all() ->
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
-     otp_15456, otp_15563].
+     otp_15456, otp_15563, unused_type].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -921,7 +922,30 @@ unused_function(Config) when is_list(Config) ->
 
     [] = run(Config, Ts),
     ok.
-    
+
+%% Test warnings for unused types
+unused_type(Config) when is_list(Config) ->
+    Ts = [{func1,
+           <<"-type foo() :: term().">>,
+           {[]},                                %Tuple indicates no export_all
+           {warnings,[{1,erl_lint,{unused_type,{foo,0}}}]}},
+
+           %% Turn off warnings for unused types.
+           {func2,
+           <<"-type foo() :: term().">>,
+           {[nowarn_unused_type]},              %Tuple indicates no export_all
+           []},
+
+           %% Turn off warnings for unused types using a -compile() directive.
+           {func3,
+           <<"-compile(nowarn_unused_type).
+              -type foo() :: term().">>,
+           {[]},                                %Tuple indicates no export_all
+           []}],
+
+    [] = run(Config, Ts),
+    ok.
+
 %% OTP-4671. Errors for unsafe variables.
 unsafe_vars(Config) when is_list(Config) ->
     Ts = [{unsafe1,
