@@ -59,6 +59,13 @@ rename_instrs([{test,is_eq_exact,_,[Dst,Src]}=Test,
 rename_instrs([{test,is_eq_exact,_,[Same,Same]}|Is]) ->
     %% Same literal or same register. Will always succeed.
     rename_instrs(Is);
+rename_instrs([{recv_set,_},
+               {label,Lbl},
+               {loop_rec,{f,Fail},{x,0}},
+               {loop_rec_end,_},{label,Fail}|Is]) ->
+    %% This instruction sequence does nothing. All we need to
+    %% keep is the first label.
+    [{label,Lbl}|rename_instrs(Is)];
 rename_instrs([{loop_rec,{f,Fail},{x,0}},{loop_rec_end,_},{label,Fail}|Is]) ->
     %% This instruction sequence does nothing.
     rename_instrs(Is);
