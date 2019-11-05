@@ -31,6 +31,37 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler could do an unsafe optimization of
+	    receives, which would cause a receive to only scan part
+	    of the message queue.</p>
+	    <p>This bug fix in the compiler fixes a bug in the socket
+	    module.</p>
+          <p>
+	    Own Id: OTP-16219 Aux Id: ERL-1076 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where the receive marker used by the runtime to
+	    do the receive queue optimization could be incorrectly
+	    set. The symptom of this would be that a message that
+	    should match in a receive never matches.</p>
+          <p>
+	    The bug requires the OTP-22 compiler and multiple
+	    selective receives to trigger. See OTP-16219 for details
+	    about the bug fix in the compiler.</p>
+          <p>
+	    Own Id: OTP-16241 Aux Id: ERL-1076 OTP-16219 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -32,6 +32,24 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler could do an unsafe optimization of
+	    receives, which would cause a receive to only scan part
+	    of the message queue.</p>
+	    <p>This bug fix in the compiler fixes a bug in the socket
+	    module.</p>
+          <p>
+	    Own Id: OTP-16219 Aux Id: ERL-1076 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
