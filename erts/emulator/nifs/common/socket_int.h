@@ -156,6 +156,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(drop_membership);          \
     GLOBAL_ATOM_DEF(drop_source_membership);   \
     GLOBAL_ATOM_DEF(dstopts);                  \
+    GLOBAL_ATOM_DEF(egp);                      \
     GLOBAL_ATOM_DEF(eor);                      \
     GLOBAL_ATOM_DEF(error);                    \
     GLOBAL_ATOM_DEF(errqueue);                 \
@@ -175,7 +176,9 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(hmac_ident);               \
     GLOBAL_ATOM_DEF(hoplimit);                 \
     GLOBAL_ATOM_DEF(hopopts);                  \
+    GLOBAL_ATOM_DEF(icmp);                     \
     GLOBAL_ATOM_DEF(ifindex);                  \
+    GLOBAL_ATOM_DEF(igmp);                     \
     GLOBAL_ATOM_DEF(inet);                     \
     GLOBAL_ATOM_DEF(inet6);                    \
     GLOBAL_ATOM_DEF(info);                     \
@@ -183,6 +186,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(iov);                      \
     GLOBAL_ATOM_DEF(ip);                       \
     GLOBAL_ATOM_DEF(ipcomp_level);             \
+    GLOBAL_ATOM_DEF(ipip);                     \
     GLOBAL_ATOM_DEF(ipv6);                     \
     GLOBAL_ATOM_DEF(i_want_mapped_v4_addr);    \
     GLOBAL_ATOM_DEF(join_group);               \
