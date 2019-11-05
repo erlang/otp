@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1996-2016. All Rights Reserved.
+# Copyright Ericsson AB 1996-2019. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -43,11 +43,12 @@ RELSYSDIR = $(RELEASE_PATH)/lib/snmp-$(VSN)
 
 include modules.mk
 
-ERL_FILES = $(MODULES:%=%.erl)
+ERL_FILES = $(BEHAVIOUR_MODULES:%=%.erl) $(MODULES:%=%.erl)
 
 HRL_FILES = $(INTERNAL_HRL_FILES:%=%.hrl)
 
-TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES = $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
+TARGET_FILES =           $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 
 # ----------------------------------------------------
@@ -101,20 +102,28 @@ ERL_COMPILE_FLAGS += -I../../include \
 debug:
 	@$(MAKE) TYPE=debug opt
 
-opt: $(TARGET_FILES) 
+opt:
+	@$(MAKE) behaviour_targets
+	@$(MAKE) targets
+
+behaviour_targets: $(BEHAVIOUR_TARGET_FILES)
+
+targets: $(TARGET_FILES) 
 
 
 clean:
-	rm -f $(TARGET_FILES) 
+	rm -f $(BEHAVIOUR_TARGET_FILES)
+	rm -f $(TARGET_FILES)
 	rm -f core *~
 
 docs:
 
 info:
-	@echo "SNMP_FLAGS:        $(SNMP_FLAGS)"
-	@echo "ERL_COMPILE_FLAGS: $(ERL_COMPILE_FLAGS)"
+	@echo "SNMP_FLAGS:             $(SNMP_FLAGS)"
+	@echo "ERL_COMPILE_FLAGS:      $(ERL_COMPILE_FLAGS)"
 	@echo ""
-	@echo "TARGET_FILES:      $(TARGET_FILES)"
+	@echo "BEHAVIOUR_TARGET_FILES: $(BEHAVIOUR_TARGET_FILES)"
+	@echo "TARGET_FILES:           $(TARGET_FILES)"
 	@echo ""
 
 
@@ -133,7 +142,7 @@ release_spec: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/agent"
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) "$(RELSYSDIR)/src/agent"
 	$(INSTALL_DIR) "$(RELSYSDIR)/ebin"
-	$(INSTALL_DATA) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) \
+	$(INSTALL_DATA) $(BEHAVIOUR_TARGET_FILES) $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET) \
 		"$(RELSYSDIR)/ebin"
 # 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 # 	$(INSTALL_DATA) $(EXT_HRL_FILES) "$(RELSYSDIR)/include"
