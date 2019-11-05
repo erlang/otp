@@ -45,3 +45,10 @@ if_test_() ->
 matches_test_() ->
     [?_assert(?MATCHES("hel"++_, "hello")),
      ?_assertNot(?MATCHES("hal"++_, "hello"))].
+
+get_output_test() ->
+    io:format(<<"Hello ~p!~n">>, [eunit]),
+    ?assertEqual("Hello eunit!\n", ?capturedOutput),
+    io:format("System working?~n~s~n", ["Seems to be."]),
+    ?assertEqual("Hello eunit!\nSystem working?\nSeems to be.\n",
+                 ?capturedOutput).
