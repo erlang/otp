@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -736,7 +736,7 @@ handle_discovery_response(
 	    %% XXX Strange... Reqs from this Pid should be reaped
 	    %% at process exit by clear_reqs/2 so the following
 	    %% should be redundant.
-	    NReqs = lists:keydelete(ReqId, 1, Reqs),
+            NReqs = lists:keydelete(ReqId, 1, Reqs -- [{0, Pid}]), % ERIERL-427
 	    S#state{reqs = NReqs};
 
         %% <OTP-16207>
@@ -1033,6 +1033,7 @@ handle_send_discovery(
 		    log(Log, Type, Packet, {Domain, Address}),
 		    udp_send(Socket, {Domain, Address}, Packet),
 		    ?vtrace("handle_send_discovery -> sent (~w)", [ReqId]),
+                    link(From),
 		    NReqs  = snmp_misc:keyreplaceadd(From, 2, Reqs, {ReqId, From}),
                     NReqs2 = (NReqs -- [{0, From}]) ++ [{0, From}], % OTP-16207
 		    S#state{reqs = NReqs2}
@@ -1208,8 +1209,9 @@ handle_disk_log(_Log, _Info, State) ->
 
 
 clear_reqs(Pid, S) ->
-    NReqs = lists:keydelete(Pid, 2, S#state.reqs),
-    S#state{reqs = NReqs}.
+    NReqs  = lists:keydelete(Pid, 2, S#state.reqs),
+    NReqs2 = NReqs -- [{0, Pid}], % ERIERL-427
+    S#state{reqs = NReqs2}.
 
 
 toname(P) when is_pid(P) ->
