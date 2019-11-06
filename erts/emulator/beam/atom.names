@@ -698,6 +698,7 @@ atom values
 atom version
 atom visible
 atom wait
+atom wait_release_literal_area_switch
 atom waiting
 atom wall_clock
 atom warning

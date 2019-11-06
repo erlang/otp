@@ -37,7 +37,8 @@
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
 	 check_io_debug/1, get_check_io_info/0,
-         leaked_processes/1]).
+         leaked_processes/1,
+         literal_area_collector/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -48,7 +49,8 @@ all() ->
      long_timers, pollset_size, check_io_debug,
      %% Make sure that the leaked_processes/1 is always
      %% run last.
-     leaked_processes].
+     leaked_processes,
+     literal_area_collector].
 
 %%%
 %%% The test cases -------------------------------------------------------------
@@ -315,9 +317,13 @@ leaked_processes(Config) when is_list(Config) ->
                                           [length(Leaked)])),
     {comment, Comment}.
 
+literal_area_collector(Config) when is_list(Config) ->
+    literal_area_collector_test:check_idle(10000).
+
 %%
 %% Internal functions...
 %%
+
 
 display_check_io(ChkIo) ->
     catch erlang:display('--- CHECK IO INFO ---'),

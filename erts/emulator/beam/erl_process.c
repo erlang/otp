@@ -11748,6 +11748,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	    goto badarg;
 	st->type = ERTS_PSTT_CLA;
 	noproc_res = am_ok;
+        fail_state = ERTS_PSFLG_FREE;
 	if (!rp)
 	    goto noproc;
 	break;
@@ -11758,7 +11759,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 
     if (!schedule_process_sys_task(rp, prio, st, &fail_state)) {
 	Eterm failure;
-	if (fail_state & ERTS_PSFLG_EXITING) {
+	if (fail_state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_FREE)) {
 	noproc:
 	    failure = noproc_res;
 	}
@@ -12960,6 +12961,7 @@ delete_process(Process* p)
     ErtsPSD *psd;
     struct saved_calls *scb;
     process_breakpoint_time_t *pbt;
+    Uint32 block_rla_ref = (Uint32) (Uint) p->u.terminate;
 
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
@@ -13031,6 +13033,9 @@ delete_process(Process* p)
     ASSERT(!p->suspend_monitors);
 
     p->fvalue = NIL;
+
+    if (block_rla_ref)
+        erts_unblock_release_literal_area(block_rla_ref);
 }
 
 static ERTS_INLINE void
@@ -13977,6 +13982,7 @@ erts_continue_exit_process(Process *p)
 	}
 	ASSERT(erts_proc_read_refc(p) > 0);
 	p->bif_timers = NULL;
+        ASSERT(!p->u.terminate);
     }
 
 #ifdef ERTS_SMP
@@ -14002,7 +14008,9 @@ erts_continue_exit_process(Process *p)
 	    erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error: %d\n",
 		      __FILE__, __LINE__, (int) ssr);
 	}
+        ASSERT(!p->u.terminate);
     }
+
     if (p->flags & F_HAVE_BLCKD_NMSCHED) {
 	ErtsSchedSuspendResult ssr;
 	ssr = erts_block_multi_scheduling(p, ERTS_PROC_LOCK_MAIN, 0, 1, 1);
@@ -14022,6 +14030,7 @@ erts_continue_exit_process(Process *p)
 	    erts_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error: %d\n",
 		     __FILE__, __LINE__, (int) ssr);
 	}
+        ASSERT(!p->u.terminate);
     }
 #endif
 
@@ -14029,10 +14038,33 @@ erts_continue_exit_process(Process *p)
 	if (erts_db_process_exiting(p, ERTS_PROC_LOCK_MAIN))
 	    goto yield;
 	p->flags &= ~F_USING_DB;
+        ASSERT(!p->u.terminate);
     }
 
-    erts_set_gc_state(p, 1);
     state = erts_smp_atomic32_read_acqb(&p->state);
+    /*
+     * If we might access any literals on the heap after this point,
+     * we need to block release of literal areas. After this point,
+     * since cleanup of sys-tasks reply to copy-literals requests.
+     * Note that we do not only have to prevent release of
+     * currently processed literal area, but also future processed
+     * literal areas, until we are guaranteed not to access any
+     * literal areas at all.
+     *
+     * - A non-immediate exit reason may refer to literals.
+     * - A process executing dirty while terminated, might access
+     *   any term on the heap, and therfore literals, until it has
+     *   stopped executing dirty.
+     */
+    if (!p->u.terminate
+        && (is_not_immed(reason)
+            || (state & (ERTS_PSFLG_DIRTY_RUNNING
+                         | ERTS_PSFLG_DIRTY_RUNNING_SYS)))) {
+        Uint32 block_rla_ref = erts_block_release_literal_area();
+        p->u.terminate = (void *) (Uint) block_rla_ref;
+    }
+    
+    erts_set_gc_state(p, 1);
     if (state & ERTS_PSFLG_ACTIVE_SYS
 #ifdef ERTS_DIRTY_SCHEDULERS
         || p->dirty_sys_tasks
@@ -14044,7 +14076,6 @@ erts_continue_exit_process(Process *p)
 
 #ifdef DEBUG
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    ASSERT(p->sys_task_qs == NULL);
     ASSERT(ERTS_PROC_GET_DELAYED_GC_TASK_QS(p) == NULL);
 #ifdef ERTS_DIRTY_SCHEDULERS
     ASSERT(p->dirty_sys_tasks == NULL);
@@ -14140,15 +14171,16 @@ erts_continue_exit_process(Process *p)
 	    ASSERT(a & ERTS_PSFLG_EXITING);
 	    n |= ERTS_PSFLG_FREE;
             n &= ~(ERTS_PSFLG_ACTIVE
-                   | ERTS_PSFLG_ACTIVE_SYS
                    | ERTS_PSFLG_DIRTY_ACTIVE_SYS);
 	    if ((n & ERTS_PSFLG_IN_RUNQ) && !refc_inced) {
 		erts_proc_inc_refc(p);
 		refc_inced = 1;
 	    }
 	    a = erts_smp_atomic32_cmpxchg_mb(&p->state, n, e);
-	    if (a == e)
+	    if (a == e) {
+                state = n;
 		break;
+            }
 	}
 
 #ifdef ERTS_DIRTY_SCHEDULERS
@@ -14169,7 +14201,28 @@ erts_continue_exit_process(Process *p)
     
     dep = (p->flags & F_DISTRIBUTION) ? erts_this_dist_entry : NULL;
 
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
+    /*
+     * It might show up copy-literals tasks until we
+     * have entered free state. Cleanup such tasks now.
+     */
+    if (!(state & ERTS_PSFLG_ACTIVE_SYS))
+        erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL);
+    else {
+        erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
+
+        do {
+            (void) cleanup_sys_tasks(p, state, CONTEXT_REDS);
+            state = erts_atomic32_read_acqb(&p->state);
+        } while (state & ERTS_PSFLG_ACTIVE_SYS);
+        
+        erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+    }
+
+#ifdef DEBUG
+    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
+    ASSERT(p->sys_task_qs == NULL);
+    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+#endif
 
     if (dep) {
 	erts_do_net_exits(dep, reason);
