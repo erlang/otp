@@ -109,7 +109,6 @@ groups() ->
      {agent,   [], agent_cases()},
      {manager, [], manager_cases()},
 
-     {log_test,            [], [{snmp_log_test,            all}]},
      {note_store_test,     [], [{snmp_note_store_test,     all}]},
      {mibs_test,           [], [{snmp_agent_mibs_test,     all}]},
      {nfilter_test,        [], [{snmp_agent_nfilter_test,  all}]},
@@ -124,7 +123,6 @@ groups() ->
 
 misc_cases() ->
     [
-     {group, log_test}, 
      {group, note_store_test}
     ].
 

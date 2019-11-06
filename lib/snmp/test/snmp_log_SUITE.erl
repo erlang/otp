@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,11 +21,12 @@
 %%----------------------------------------------------------------------
 %% Purpose:
 %%
-%% Test:    ts:run(snmp, snmp_log_test, [batch]).
-%% Test:    ts:run(snmp, snmp_log_test, log_to_txt2, [batch]).
+%% Test:    ts:run(snmp, snmp_log_SUITE, [batch]).
+%% Test:    ts:run(snmp, snmp_log_SUITE, log_to_txt2, [batch]).
 %% 
 %%----------------------------------------------------------------------
--module(snmp_log_test).
+-module(snmp_log_SUITE).
+
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -41,12 +42,10 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
+         suite/0, all/0, groups/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
-
-	 all/0,
-	 groups/0,
-	 init_per_group/2,
-	 end_per_group/2, 
 
 	 open_and_close/1,
 	
@@ -74,17 +73,78 @@
         ]).
 
 
-%%----------------------------------------------------------------------
-%% Macros
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Records
-%%----------------------------------------------------------------------
-
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+all() -> 
+    [
+     open_and_close, 
+     {group, open_write_and_close},
+     {group, log_to_io}, 
+     {group, log_to_txt}].
+
+groups() -> 
+    [
+     {open_write_and_close, [], owac_cases()},
+     {log_to_io,            [], l2i_cases()},
+     {log_to_txt,           [], l2t_cases()}
+    ].
+
+
+owac_cases() ->
+    [
+     open_write_and_close1,
+     open_write_and_close2,
+     open_write_and_close3,
+     open_write_and_close4
+    ].
+
+l2i_cases() ->
+    [
+     log_to_io1,
+     log_to_io2
+    ].
+
+l2t_cases() ->
+    [
+     log_to_txt1,
+     log_to_txt2,
+     log_to_txt3
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(Config) when is_list(Config) ->
+    Config.
+
+end_per_suite(Config) when is_list(Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     Dir        = ?config(priv_dir, Config),
@@ -107,40 +167,6 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?WD_STOP(Dog),
     lists:keydelete(watchdog, 1, Config).
-
-
-%%======================================================================
-%% Test case definitions
-%%======================================================================
-%% ?SKIP(not_yet_implemented).
-all() -> 
-    [
-     open_and_close, 
-     {group, open_write_and_close},
-     {group, log_to_io}, 
-     {group, log_to_txt}].
-
-groups() -> 
-    [
-     {open_write_and_close, [],
-      [open_write_and_close1, open_write_and_close2,
-       open_write_and_close3, open_write_and_close4]},
-     {log_to_io, [], [log_to_io1, log_to_io2]},
-     {log_to_txt, [],
-      [log_to_txt1, log_to_txt2, log_to_txt3]}
-    ].
-
-init_per_group(_GroupName, Config) ->
-	Config.
-
-end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-
-
-
 
 
 
