@@ -49,8 +49,10 @@
          do_wait_sh/2,
          do_wait_ee/2,
          do_wait_cert_cr/2,
+         get_ticket_data/2,
          maybe_add_binders/3,
-         maybe_add_binders/4]).
+         maybe_add_binders/4,
+         maybe_automatic_session_resumption/1]).
 
 
 %% crypto:hash(sha256, "HelloRetryRequest").
@@ -649,7 +651,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% new KeyShareEntry for the group indicated in the selected_group field
         %% of the triggering HelloRetryRequest.
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
-        TicketData = tls_session_ticket:get_ticket_data(SessionTickets, UseTicket),
+        TicketData = get_ticket_data(SessionTickets, UseTicket),
         Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                            SessionId, Renegotiation, Cert, ClientKeyShare,
                                            TicketData),
@@ -1466,13 +1468,14 @@ get_pre_shared_key(_, undefined, HKDFAlgo, _) ->
     {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
 %% Session resumption
 get_pre_shared_key(SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
-    TicketData = tls_session_ticket:get_ticket_data(SessionTickets, UseTicket),
+    TicketData = get_ticket_data(SessionTickets, UseTicket),
     case choose_psk(TicketData, SelectedIdentity) of
         undefined -> %% full handshake, default PSK
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
         illegal_parameter ->
             {error, illegal_parameter};
-        PSK ->
+        {Key, PSK} ->
+            tls_client_ticket_store:remove_ticket(Key),
             {ok, PSK}
     end.
 
@@ -1481,8 +1484,8 @@ choose_psk(undefined, _) ->
     undefined;
 choose_psk([], _) ->
     illegal_parameter;
-choose_psk([{_, SelectedIdentity, _, PSK, _, _}|_], SelectedIdentity) ->
-    PSK;
+choose_psk([{Key, SelectedIdentity, _, PSK, _, _}|_], SelectedIdentity) ->
+    {Key, PSK};
 choose_psk([_|T], SelectedIdentity) ->
     choose_psk(T, SelectedIdentity).
 
@@ -2393,6 +2396,7 @@ update_binders(#client_hello{extensions =
     Extensions = Extensions0#{pre_shared_key => PreSharedKey},
     Hello#client_hello{extensions = Extensions}.
 
+
 maybe_seed_session_tickets([], State) -> 
     %% No PSK offered
     State;
@@ -2407,3 +2411,38 @@ maybe_seed_session_tickets(_, #state{ssl_options = #{session_tickets := stateles
 maybe_seed_session_tickets(_, #state{ssl_options = #{session_tickets := _}} = State) -> 
     %% Stateful or disabled does not need a seed
     State.
+
+
+%% Configure a suitable session ticket
+maybe_automatic_session_resumption(#state{
+                                      ssl_options = #{versions := [Version|_],
+                                                      ciphers := UserSuites,
+                                                      session_tickets := SessionTickets} = SslOpts0
+                                     } = State0)
+  when Version >= {3,4} andalso
+       SessionTickets =:= auto ->
+    AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
+    HashAlgos = cipher_hash_algos(AvailableCipherSuites),
+    UseTicket = tls_client_ticket_store:find_ticket(HashAlgos),
+    State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
+    {[UseTicket], State};
+maybe_automatic_session_resumption(#state{
+                                      ssl_options = #{use_ticket := UseTicket}
+                                     } = State) ->
+    {UseTicket, State}.
+
+
+cipher_hash_algos(Ciphers) ->
+    Fun = fun(Cipher) ->
+                  #{prf := Hash} = ssl_cipher_format:suite_bin_to_map(Cipher),
+                  Hash
+          end,
+    lists:map(Fun, Ciphers).
+
+
+get_ticket_data(undefined, _) ->
+    undefined;
+get_ticket_data(_, undefined) ->
+    undefined;
+get_ticket_data(_, UseTicket) ->
+    tls_client_ticket_store:get_tickets(UseTicket).

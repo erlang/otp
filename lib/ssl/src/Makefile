@@ -92,8 +92,8 @@ MODULES= \
 	tls_handshake_1_3 \
 	tls_record \
 	tls_record_1_3 \
+	tls_client_ticket_store \
 	tls_sender \
-	tls_session_ticket\
 	tls_server_session_ticket\
 	tls_server_session_ticket_sup\
 	tls_server_sup\
