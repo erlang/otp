@@ -98,7 +98,7 @@ suite() ->
 
 all() -> 
     [
-     %% {group, agent},
+     {group, agent},
      {group, manager}
     ].
 
@@ -107,7 +107,6 @@ groups() ->
      {agent,   [], agent_cases()},
      {manager, [], manager_cases()},
 
-     {nfilter_test,        [], [{snmp_agent_nfilter_test,  all}]},
      {agent_test,          [], [{snmp_agent_test,          all}]},
      {agent_conf_test,     [], [{snmp_agent_conf_test,     all}]},
      {manager_config_test, [], [{snmp_manager_config_test, all}]},
@@ -118,7 +117,6 @@ groups() ->
 
 agent_cases() ->
     [
-     {group, nfilter_test},
      {group, agent_test},
      {group, agent_conf_test}
     ].
