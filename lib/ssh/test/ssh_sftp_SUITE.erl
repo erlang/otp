@@ -976,19 +976,19 @@ aes_cbc256_crypto_tar(Config) ->
     Cinitr = fun() -> {ok, Ivec0, DataSize} end,
 
     Cenc = fun(PlainBin,Ivec) -> 
-		   CipherBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, PlainBin),
+		   CipherBin = crypto:crypto_one_time(aes_256_cbc, Key, Ivec, PlainBin, [{encrypt,true},
+                                                                                         {padding,zero}]),
 		   {ok, CipherBin, crypto:next_iv(aes_cbc,CipherBin), DataSize}
 	   end,
     Cdec = fun(CipherBin,Ivec) ->
-		   PlainBin = crypto:block_decrypt(aes_cbc256, Key, Ivec, CipherBin),
+		   PlainBin = crypto:crypto_one_time(aes_256_cbc, Key, Ivec, CipherBin, false),
 		   {ok, PlainBin, crypto:next_iv(aes_cbc,CipherBin), DataSize}
 	   end,
 
-    Cendw = fun(PlainBin, _) when PlainBin == <<>> -> {ok, <<>>};
-	       (PlainBin, Ivec) ->
-		    CipherBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, 
-						     pad(16,PlainBin)), %% Last chunk
-		    {ok, CipherBin} 
+    Cendw = fun(PlainBin, Ivec) ->
+                    CipherBin = crypto:crypto_one_time(aes_256_cbc, Key, Ivec, PlainBin, [{encrypt,true},
+                                                                                          {padding,zero}]),
+		    {ok, CipherBin}
 	    end,
 
     Cw = {Cinitw,Cenc,Cendw},
@@ -999,11 +999,6 @@ aes_cbc256_crypto_tar(Config) ->
 
     Cr = {Cinitr,Cdec},
     chk_tar(NameBins, Config, [{crypto,Cr}]).
-
-
-pad(BlockSize, Bin) ->
-    PadSize = (BlockSize - (size(Bin) rem BlockSize)) rem BlockSize,
-    list_to_binary( lists:duplicate(PadSize,0) ).
 
 %%--------------------------------------------------------------------
 aes_ctr_stream_crypto_tar(Config) ->
@@ -1016,22 +1011,25 @@ aes_ctr_stream_crypto_tar(Config) ->
     Key = <<"This is a 256 bit key. Boring...">>,
     Ivec0 = crypto:strong_rand_bytes(16),
 
-    Cinitw = Cinitr = fun() -> {ok, crypto:stream_init(aes_ctr,Key,Ivec0)} end,
+    Cinitw = fun() -> {ok, crypto:crypto_init(aes_256_ctr,Key,Ivec0,[{encrypt,true},
+                                                                     {padding,zero}])} end,
+    Cinitr = fun() -> {ok, crypto:crypto_init(aes_256_ctr,Key,Ivec0,false)} end,
 
     Cenc = fun(PlainBin,State) -> 
-		   {NewState,CipherBin} = crypto:stream_encrypt(State, PlainBin),
-		   {ok, CipherBin, NewState}
+		   CipherBin = crypto:crypto_update(State, PlainBin),
+		   {ok, CipherBin, State}
 	   end,
     Cdec = fun(CipherBin,State) ->
-		   {NewState,PlainBin} = crypto:stream_decrypt(State, CipherBin),
-		   {ok, PlainBin, NewState}
+		   PlainBin = crypto:crypto_update(State, CipherBin),
+		   {ok, PlainBin, State}
 	   end,
 
-    Cendw = fun(PlainBin, _) when PlainBin == <<>> -> {ok, <<>>};
-	       (PlainBin, Ivec) ->
-		    CipherBin = crypto:block_encrypt(aes_cbc256, Key, Ivec, 
-						     pad(16,PlainBin)), %% Last chunk
-		    {ok, CipherBin} 
+    Cendw = fun(PlainBin, State) ->
+                    CipherBin1 = crypto:crypto_update(State, PlainBin),
+                    Sz1 = size(CipherBin1),
+		    {_PadSize, CipherBin2} = crypto:crypto_final(State),
+                    Sz2 = size(CipherBin2),
+		    {ok, <<CipherBin1:Sz1/binary, CipherBin2:Sz2/binary>>}
 	    end,
 
     Cw = {Cinitw,Cenc,Cendw},
