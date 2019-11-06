@@ -31,7 +31,8 @@
 -import(erl_parse, [inop_prec/1,preop_prec/1,func_prec/0,max_prec/0,
                     type_inop_prec/1, type_preop_prec/1]).
 
--define(MAXLINE, 72).
+-define(DEFAULT_LINEWIDTH, 72).
+-define(DEFAULT_INDENT, 4).
 
 -type(hook_function() :: none
                        | fun((Expr :: erl_parse:abstract_expr(),
@@ -42,10 +43,13 @@
 
 -type(option() :: {hook, hook_function()}
                 | {encoding, latin1 | unicode | utf8}
-                | {quote_singleton_atom_types, boolean()}).
+                | {quote_singleton_atom_types, boolean()}
+                | {linewidth, pos_integer()}
+                | {indent, pos_integer()}).
 -type(options() :: hook_function() | [option()]).
 
--record(pp, {value_fun, singleton_atom_type_fun, string_fun, char_fun}).
+-record(pp, {value_fun, singleton_atom_type_fun, string_fun, char_fun,
+	     linewidth=?DEFAULT_LINEWIDTH, indent=?DEFAULT_INDENT}).
 
 -record(options, {hook, encoding, opts}).
 
@@ -208,10 +212,14 @@ options(Hook) ->
 
 state(Options) when is_list(Options) ->
     Quote = proplists:get_bool(quote_singleton_atom_types, Options),
-    case encoding(Options) of
-        latin1 -> latin1_state(Quote);
-        unicode -> unicode_state(Quote)
-    end;
+    State =
+	case encoding(Options) of
+	    latin1 -> latin1_state(Quote);
+	    unicode -> unicode_state(Quote)
+	end,
+    Indent = proplists:get_value(indent, Options, ?DEFAULT_INDENT),
+    LineWidth = proplists:get_value(linewidth, Options, ?DEFAULT_LINEWIDTH),
+    State#pp{indent=Indent, linewidth=LineWidth};
 state(_Hook) ->
     latin1_state(false).
 
@@ -1009,7 +1017,7 @@ f({seq,Before,After,Sep,LItems}, I0, ST, WT, PP) ->
                     true ->
                         0
                 end,
-    case same_line(I0, Sizes, NSepChars) of
+    case same_line(I0, Sizes, NSepChars, PP) of
         {yes,Size} ->
             Chars = if
                         NSepChars > 0 -> insert_sep(CharsL, $\s);
@@ -1017,9 +1025,9 @@ f({seq,Before,After,Sep,LItems}, I0, ST, WT, PP) ->
                     end,
             {BCharsL++Chars,Size};
         no ->
-            CharsList = handle_step(CharsSizeL, I, ST),
+            CharsList = handle_step(CharsSizeL, I, ST, PP),
             {LChars, LSize} =
-                maybe_newlines(CharsList, LItems, I, NSepChars, ST),
+                maybe_newlines(CharsList, LItems, I, NSepChars, ST, PP),
             {[BCharsL,LChars],nsz(LSize, I0)}
     end;
 f({force_nl,_ExtraInfoItem,Item}, I, ST, WT, PP) when I < 0 ->
@@ -1036,7 +1044,7 @@ f({prefer_nl,Sep,LItems}, I0, ST, WT, PP) ->
         Sizes =:= [] ->
             {[], 0};
         true ->
-            {insert_newlines(CharsSize2L, I0, ST),
+            {insert_newlines(CharsSize2L, I0, ST, PP),
              nsz(lists:last(Sizes), I0)}
     end;
 f({value,V}, I, ST, WT, PP) ->
@@ -1060,8 +1068,6 @@ f({ehook,HookExpr,Precedence,{Mod,Func,Eas}=ModFuncEas}, I, _ST, _WT, _PP) ->
 f(WordName, _I, _ST, WT, _PP) when is_atom(WordName) ->
     word(WordName, WT).
 
--define(IND, 4).
-
 %% fl(ListItems, I0, ST, WT) -> [[CharsSize1,CharsSize2]]
 %% ListItems = [{Item,Items}|Item]
 fl([], _Sep, I0, After, ST, WT, PP) ->
@@ -1069,15 +1075,15 @@ fl([], _Sep, I0, After, ST, WT, PP) ->
 fl(CItems, Sep0, I0, After, ST, WT, PP) ->
     F = fun({step,Item1,Item2}, S) ->
                 [f(Item1, I0, ST, WT, PP),
-                 f([Item2,S], incr(I0, ?IND), ST, WT, PP)];
+                 f([Item2,S], incr(I0, PP#pp.indent), ST, WT, PP)];
            ({cstep,Item1,Item2}, S) ->
                 {_,Sz1} = CharSize1 = f(Item1, I0, ST, WT, PP),
                 if
-                    is_integer(Sz1), Sz1 < ?IND ->
+                    is_integer(Sz1), Sz1 < PP#pp.indent ->
                         Item2p = [leaf("\s"),Item2,S],
                         [consecutive(Item2p, CharSize1, I0, ST, WT, PP),{[],0}];
                     true ->
-                        [CharSize1,f([Item2,S], incr(I0, ?IND), ST, WT, PP)]
+                        [CharSize1,f([Item2,S], incr(I0, PP#pp.indent), ST, WT, PP)]
                 end;
            ({reserved,Word}, S) ->
                 [f([Word,S], I0, ST, WT, PP),{[],0}];
@@ -1116,58 +1122,58 @@ unz1(CharSizes) ->
 nonzero(CharSizes) ->
     lists:filter(fun({_,Sz}) -> Sz =/= 0 end, CharSizes).
 
-maybe_newlines([{Chars,Size}], [], _I, _NSepChars, _ST) ->
+maybe_newlines([{Chars,Size}], [], _I, _NSepChars, _ST, _PP) ->
     {Chars,Size};
-maybe_newlines(CharsSizeList, Items, I, NSepChars, ST) when I >= 0 ->
-    maybe_sep(CharsSizeList, Items, I, NSepChars, nl_indent(I, ST)).
+maybe_newlines(CharsSizeList, Items, I, NSepChars, ST, PP) when I >= 0 ->
+    maybe_sep(CharsSizeList, Items, I, NSepChars, nl_indent(I, ST), PP).
 
-maybe_sep([{Chars1,Size1}|CharsSizeL], [Item|Items], I0, NSepChars, Sep) ->
+maybe_sep([{Chars1,Size1}|CharsSizeL], [Item|Items], I0, NSepChars, Sep, PP) ->
     I1 = case classify_item(Item) of
              atomic ->
                  I0 + Size1;
              _ ->
-                 ?MAXLINE+1
+                 PP#pp.linewidth+1
          end,
-    maybe_sep1(CharsSizeL, Items, I0, I1, Sep, NSepChars, Size1, [Chars1]).
+    maybe_sep1(CharsSizeL, Items, I0, I1, Sep, NSepChars, Size1, [Chars1], PP).
 
 maybe_sep1([{Chars,Size}|CharsSizeL], [Item|Items],
-           I0, I, Sep, NSepChars, Sz0, A) ->
+           I0, I, Sep, NSepChars, Sz0, A, PP) ->
     case classify_item(Item) of
         atomic when is_integer(Size) ->
             Size1 = Size + 1,
             I1 = I + Size1,
             if
-                I1 =< ?MAXLINE ->
+                I1 =< PP#pp.linewidth ->
                     A1 = if
                              NSepChars > 0 -> [Chars,$\s|A];
                              true -> [Chars|A]
                          end,
                     maybe_sep1(CharsSizeL, Items, I0, I1, Sep, NSepChars,
-                               Sz0 + Size1, A1);
+                               Sz0 + Size1, A1, PP);
                 true ->
                     A1 = [Chars,Sep|A],
                     maybe_sep1(CharsSizeL, Items, I0, I0 + Size, Sep,
-                               NSepChars, Size1, A1)
+                               NSepChars, Size1, A1, PP)
             end;
         _ ->
             A1 = [Chars,Sep|A],
-            maybe_sep1(CharsSizeL, Items, I0, ?MAXLINE+1, Sep, NSepChars,
-                       0, A1)
+            maybe_sep1(CharsSizeL, Items, I0, PP#pp.linewidth+1, Sep, NSepChars,
+                       0, A1, PP)
     end;
-maybe_sep1(_CharsSizeL, _Items, _Io, _I, _Sep, _NSepChars, Sz, A) ->
+maybe_sep1(_CharsSizeL, _Items, _Io, _I, _Sep, _NSepChars, Sz, A, _PP) ->
     {lists:reverse(A), Sz}.
 
-insert_newlines(CharsSizesL, I, ST) when I >= 0 ->
-    {CharsL, _} = unz1(handle_step(CharsSizesL, I, ST)),
+insert_newlines(CharsSizesL, I, ST, PP) when I >= 0 ->
+    {CharsL, _} = unz1(handle_step(CharsSizesL, I, ST, PP)),
     insert_nl(CharsL, I, ST).
 
-handle_step(CharsSizesL, I, ST) ->
+handle_step(CharsSizesL, I, ST, PP) ->
     map(fun([{_C1,0},{_C2,0}]) ->
                 {[], 0};
            ([{C1,Sz1},{_C2,0}]) ->
                 {C1, Sz1};
            ([{C1,Sz1},{C2,Sz2}]) when Sz2 > 0 ->
-                {insert_nl([C1,C2], I+?IND, ST),line_size([Sz1,Sz2])}
+                {insert_nl([C1,C2], I+PP#pp.indent, ST),line_size([Sz1,Sz2])}
         end, CharsSizesL).
 
 insert_nl(CharsL, I, ST) ->
@@ -1187,10 +1193,10 @@ classify_item(Atom) when is_atom(Atom) -> atomic;
 classify_item({leaf, _, _}) -> atomic;
 classify_item(_) -> complex.
 
-same_line(I0, SizeL, NSepChars) ->
+same_line(I0, SizeL, NSepChars, PP) ->
     try
         Size = lists:sum(SizeL) + NSepChars,
-        true = incr(I0, Size) =< ?MAXLINE,
+        true = incr(I0, Size) =< PP#pp.linewidth,
         {yes,Size}
     catch _:_ ->
         no
@@ -1258,7 +1264,7 @@ write_a_char(C, PP) ->
 write_a_string(S, I, PP) when I < 0; S =:= [] ->
     flat_leaf(write_string(S, PP));
 write_a_string(S, I, PP) ->
-    Len = erlang:max(?MAXLINE-I, ?MIN_SUBSTRING),
+    Len = erlang:max(PP#pp.linewidth-I, ?MIN_SUBSTRING),
     {list,write_a_string(S, Len, Len, PP)}.
 
 write_a_string([], _N, _Len, _PP) ->

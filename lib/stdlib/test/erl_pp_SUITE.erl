@@ -47,6 +47,7 @@
 	  hook/1,
 	  neg_indent/1,
 	  maps_syntax/1,
+	  format_options/1,
           quoted_atom_types/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
@@ -75,7 +76,8 @@ groups() ->
     [{expr, [],
       [func, call, recs, try_catch, if_then, receive_after,
        bits, head_tail, cond1, block, case1, ops,
-       messages, maps_syntax, quoted_atom_types
+       messages, maps_syntax, quoted_atom_types,
+       format_options
     ]},
      {attributes, [], [misc_attrs, import_export, dialyzer_attrs]},
      {tickets, [],
@@ -543,6 +545,36 @@ import_export(Config) when is_list(Config) ->
           ],
     compile(Config, Ts),
     ok.
+
+format_options(Config) when is_list(Config) ->
+    "case 1 of\n"
+    "  2 ->\n"
+    "    3;\n"
+    "  4 ->\n"
+    "    5\n"
+    "end" = flat_parse_and_pp_expr("case 1 of 2 -> 3; 4 -> 5 end", 0, [{indent, 2}]),
+
+    "-spec foo(bar(),\n"
+    "          qux()) ->\n"
+    "           T |\n"
+    "           baz(T)\n"
+    "           when\n"
+    "             T ::\n"
+    "               tuple().\n" =
+	lists:flatten(
+	    parse_and_pp_forms(
+		"-spec foo(bar(), qux()) -> T | baz(T) when T :: tuple().",
+		[{indent, 2}, {linewidth, 20}]
+	    )
+	),
+
+    "-spec foo(bar(), qux()) -> T | baz(T) when T :: tuple().\n" =
+	lists:flatten(
+	    parse_and_pp_forms(
+		"-spec foo(bar(), qux()) -> T | baz(T) when T :: tuple().",
+		[{indent, 2}, {linewidth, 1000}]
+	    )
+	).
 
 misc_attrs(Config) when is_list(Config) ->
     ok = pp_forms(<<"-module(m). ">>),
