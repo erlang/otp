@@ -125,7 +125,7 @@
                       'put_tuple_element' | 'put_tuple_elements' |
                       'set_tuple_element'.
 
--import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1]).
+-import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -315,7 +315,7 @@ normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
         #b_var{} when List =:= [] ->
             #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
         #b_var{} ->
-            Sw
+            Sw#b_switch{list=sort(List)}
     end;
 normalize(#b_ret{}=Ret) ->
     Ret.
