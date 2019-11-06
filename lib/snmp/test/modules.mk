@@ -20,24 +20,24 @@
 
 SUITE_MODULES = \
 	snmp_SUITE \
-	snmp_app_SUITE \
-	snmp_compiler_SUITE \
-	snmp_conf_SUITE \
-	snmp_log_test \
-	snmp_note_store_test \
-	snmp_pdus_test \
 	snmp_agent_mibs_test \
 	snmp_agent_nfilter_test \
 	snmp_agent_test \
 	snmp_agent_test_get \
 	snmp_agent_conf_test \
 	snmp_agent_test_lib \
+	snmp_app_SUITE \
+	snmp_compiler_SUITE \
+	snmp_conf_SUITE \
+	snmp_log_test \
 	snmp_manager_config_test \
 	snmp_manager_user \
 	snmp_manager_user_old \
 	snmp_manager_user_test \
 	snmp_manager_user_test_lib \
 	snmp_manager_test \
+	snmp_note_store_test \
+	snmp_pdus_SUITE \
         snmp_to_snmpnet_SUITE
 
 TEST_UTIL_MODULES = \

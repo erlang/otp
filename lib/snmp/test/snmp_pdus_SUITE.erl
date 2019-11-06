@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,8 @@
 %%----------------------------------------------------------------------
 %% Purpose:
 %%----------------------------------------------------------------------
--module(snmp_pdus_test).
+-module(snmp_pdus_SUITE).
+
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -34,52 +35,57 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
+
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
-	
+         suite/0, all/0, groups/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
+
 	 otp7575/1,
 	 otp8563/1, 
 	 otp9022/1, 
-	 otp10132/1, 
-
-         init_per_testcase/2, end_per_testcase/2
+	 otp10132/1
 	]).
 
 
-%%----------------------------------------------------------------------
-%% Internal exports
-%%----------------------------------------------------------------------
--export([
-        ]).
-
-
-%%----------------------------------------------------------------------
-%% Macros
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Records
-%%----------------------------------------------------------------------
-
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
 
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Config.
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
-end_per_testcase(_Case, Config) when is_list(Config) ->
-    Config.
-
-
-%%======================================================================
-%% Test case definitions
-%%======================================================================
 all() -> 
     [{group, tickets}].
 
 groups() -> 
-    [{tickets, [], [otp7575, otp8563, otp9022, otp10132]}].
+    [{tickets, [], tickets_cases()}].
+
+tickets_cases() ->
+    [
+     otp7575,
+     otp8563,
+     otp9022,
+     otp10132
+    ].
+
+
+%%
+%% -----
+%%
+
+init_per_suite(Config) when is_list(Config) ->
+    Config.
+
+end_per_suite(Config) when is_list(Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -88,6 +94,16 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
+
+%%
+%% -----
+%%
+
+init_per_testcase(_Case, Config) when is_list(Config) ->
+    Config.
+
+end_per_testcase(_Case, Config) when is_list(Config) ->
+    Config.
 
 
 
@@ -144,7 +160,7 @@ otp8563(Config) when is_list(Config) ->
     {{'Counter64', Val2}, []} = snmp_pdus:dec_value(Enc2), 
 
     Val3 = Val2 + 1,
-    io:format("try encode and decode valule 3: ~w (0x~.16b)~n", [Val3, Val3]),
+    io:format("try encode and decode value 3: ~w (0x~.16b)~n", [Val3, Val3]),
     Enc3 = snmp_pdus:enc_value('Counter64', Val3), 
     io:format("  => ~w~n", [Enc3]),
     {{'Counter64', Val3}, []} = snmp_pdus:dec_value(Enc3), 

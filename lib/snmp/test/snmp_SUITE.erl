@@ -97,25 +97,18 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, misc},
+    [
+     {group, misc},
      {group, agent}, 
-     {group, manager}].
+     {group, manager}
+    ].
 
 groups() -> 
     [
-     {misc,    [], [{group, pdus_test},
-                    {group, log_test}, 
-                    {group, note_store_test}]},
-     {agent,   [], [{group, mibs_test}, 
-                    {group, nfilter_test},
-                    {group, agent_test},
-                    {group, agent_conf_test},
-                    {group, snmpnet_test}]},
-     {manager, [], [{group, manager_config_test},
-                    {group, manager_user_test}, 
-                    {group, manager_test}]},
+     {misc,    [], misc_cases()},
+     {agent,   [], agent_cases()},
+     {manager, [], manager_cases()},
 
-     {pdus_test,           [], [{snmp_pdus_test,           all}]},
      {log_test,            [], [{snmp_log_test,            all}]},
      {note_store_test,     [], [{snmp_note_store_test,     all}]},
      {mibs_test,           [], [{snmp_agent_mibs_test,     all}]},
@@ -126,6 +119,29 @@ groups() ->
      {manager_config_test, [], [{snmp_manager_config_test, all}]},
      {manager_user_test,   [], [{snmp_manager_user_test,   all}]},
      {manager_test,        [], [{snmp_manager_test,        all}]}
+    ].
+
+
+misc_cases() ->
+    [
+     {group, log_test}, 
+     {group, note_store_test}
+    ].
+
+agent_cases() ->
+    [
+     {group, mibs_test}, 
+     {group, nfilter_test},
+     {group, agent_test},
+     {group, agent_conf_test},
+     {group, snmpnet_test}
+    ].
+
+manager_cases() ->
+    [
+     {group, manager_config_test},
+     {group, manager_user_test}, 
+     {group, manager_test}
     ].
 
 
