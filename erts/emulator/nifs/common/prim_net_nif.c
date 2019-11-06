@@ -1109,7 +1109,7 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
                           int                argc,
                           const ERL_NIF_TERM argv[])
 {
-#if defined(__WIN32__)
+#if defined(__WIN32__) || (defined(__ANDROID__) && (__ANDROID_API__ < 24))
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     ERL_NIF_TERM result;
@@ -1130,7 +1130,10 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 
 
 
-#if !defined(__WIN32__)
+/* if_nameindex and if_freenameindex were added in Android 7.0 Nougat. With
+the Android NDK Unified Headers, check that the build is targeting at least
+the corresponding API level 24. */
+#if !defined(__WIN32__) && !(defined(__ANDROID__) && (__ANDROID_API__ < 24))
 static
 ERL_NIF_TERM nif_names(ErlNifEnv* env)
 {

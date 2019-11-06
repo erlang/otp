@@ -29,7 +29,7 @@ to generate the configure scripts.
 
 Use the following when compiling a 64-bit version.
 
-    $ export NDK_ABI_PLAT=android24      # When targeting Android 7.0 Nougat
+    $ export NDK_ABI_PLAT=android21      # When targeting Android 5.0 Lollipop
     $ ./otp_build configure \
          --xcomp-conf=./xcomp/erl-xcomp-arm64-android.conf  \
          --without-ssl
@@ -37,7 +37,7 @@ Use the following when compiling a 64-bit version.
 
 Use the following instead when compiling a 32-bit version.
 
-    $ export NDK_ABI_PLAT=androideabi24  # When targeting Android 7.0 Nougat
+    $ export NDK_ABI_PLAT=androideabi21  # When targeting Android 5.0 Lollipop
     $ ./otp_build configure \
          --xcomp-conf=./xcomp/erl-xcomp-arm-android.conf  \
          --without-ssl
