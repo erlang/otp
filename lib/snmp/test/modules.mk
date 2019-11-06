@@ -22,7 +22,7 @@ SUITE_MODULES = \
 	snmp_SUITE \
 	snmp_app_SUITE \
 	snmp_compiler_SUITE \
-	snmp_conf_test \
+	snmp_conf_SUITE \
 	snmp_log_test \
 	snmp_note_store_test \
 	snmp_pdus_test \

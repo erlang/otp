@@ -103,8 +103,7 @@ all() ->
 
 groups() -> 
     [
-     {misc,    [], [{group, conf_test}, 
-                    {group, pdus_test},
+     {misc,    [], [{group, pdus_test},
                     {group, log_test}, 
                     {group, note_store_test}]},
      {agent,   [], [{group, mibs_test}, 
@@ -116,7 +115,6 @@ groups() ->
                     {group, manager_user_test}, 
                     {group, manager_test}]},
 
-     {conf_test,           [], [{snmp_conf_test,           all}]},
      {pdus_test,           [], [{snmp_pdus_test,           all}]},
      {log_test,            [], [{snmp_log_test,            all}]},
      {note_store_test,     [], [{snmp_note_store_test,     all}]},

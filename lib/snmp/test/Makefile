@@ -193,8 +193,6 @@ clean:
 
 docs:
 
-appup: snmp_appup_mgr.$(EMULATOR)
-
 mib: $(MIB_TARGETS)
 
 make: old_targets
@@ -212,11 +210,6 @@ agent: make
 manager: make
 	$(MERL) $(ARGS) -sname snmp_manager_test $(ERL_PATH) \
             -s snmp_test_server run snmp_manager_test \
-            $(MAYBE_ESTOP)
-
-appup: make
-	$(MERL) $(ARGS) -sname snmp_appup_test $(ERL_PATH) \
-            -s snmp_test_server run snmp_appup_test \
             $(MAYBE_ESTOP)
 
 
