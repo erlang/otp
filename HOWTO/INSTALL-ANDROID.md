@@ -37,7 +37,7 @@ Use the following when compiling a 64-bit version.
 
 Use the following instead when compiling a 32-bit version.
 
-    $ export NDK_ABI_PLAT=androideabi21  # When targeting Android 5.0 Lollipop
+    $ export NDK_ABI_PLAT=androideabi16  # When targeting Android 4.1 Jelly Bean
     $ ./otp_build configure \
          --xcomp-conf=./xcomp/erl-xcomp-arm-android.conf  \
          --without-ssl

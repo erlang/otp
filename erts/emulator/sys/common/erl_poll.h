@@ -1,8 +1,8 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2006-2018. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2006-2019. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -161,7 +161,10 @@ typedef enum {
 #include <sys/epoll.h>
 
 #if ERTS_POLL_USE_EPOLL
-#ifdef HAVE_SYS_TIMERFD_H
+/* sys/timerfd.h was added in Android 4.4 KitKat. With the Android NDK
+Unified Headers, check that the build is targeting at least the
+corresponding API level 19. */
+#if defined(HAVE_SYS_TIMERFD_H) && !(defined(__ANDROID__) && (__ANDROID_API__ < 19))
 #include <sys/timerfd.h>
 #undef ERTS_POLL_USE_TIMERFD
 #define ERTS_POLL_USE_TIMERFD 1
