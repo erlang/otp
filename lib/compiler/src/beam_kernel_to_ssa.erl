@@ -747,6 +747,15 @@ bif_is_record_cg(Dst, Tuple, TagVal, ArityVal, St0) ->
 %% recv_loop_cg(TimeOut, ReceiveVar, ReceiveMatch, TimeOutExprs,
 %%              [Ret], Le, St) -> {[Ainstr],St}.
 
+recv_loop_cg(Te, _Rvar, #k_receive_next{}, Tes, Rs, _Le, St0) ->
+    {Tl,St1} = new_label(St0),
+    {Bl,St2} = new_label(St1),
+    St3 = St2#cg{break=Bl,recv=Tl},
+    {Wis,St4} = cg_recv_wait(Te, Tes, St3),
+    {BreakVars,St} = new_ssa_vars(Rs, St4),
+    {[make_uncond_branch(Tl),{label,Tl}] ++ Wis ++
+         [{label,Bl},#cg_phi{vars=BreakVars}],
+     St#cg{break=St0#cg.break,recv=St0#cg.recv}};
 recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, St0) ->
     %% Get labels.
     {Rl,St1} = new_label(St0),

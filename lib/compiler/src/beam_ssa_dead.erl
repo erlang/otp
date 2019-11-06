@@ -424,8 +424,10 @@ is_br_safe(UnsetVars, Br, #st{us=Us}=St) ->
 
 is_forbidden(L, St) ->
     case get_block(L, St) of
-        #b_blk{is=[#b_set{op=phi}|_]} -> true;
-        #b_blk{is=[#b_set{op=peek_message}|_]} -> true;
+        #b_blk{is=[#b_set{op=phi}|_]} ->
+            true;
+        #b_blk{is=[#b_set{}=I|_]} ->
+            beam_ssa:is_loop_header(I);
         #b_blk{} -> false
     end.
 

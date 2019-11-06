@@ -1949,13 +1949,17 @@ verify_merge_is([#b_set{op=Op}|_]) ->
 verify_merge_is(_) ->
     ok.
 
-is_merge_allowed(_, #b_blk{}, #b_blk{is=[#b_set{op=peek_message}|_]}) ->
-    false;
 is_merge_allowed(_, #b_blk{}, #b_blk{is=[#b_set{op=exception_trampoline}|_]}) ->
     false;
 is_merge_allowed(_, #b_blk{is=[#b_set{op=exception_trampoline}|_]}, #b_blk{}) ->
     false;
-is_merge_allowed(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
+is_merge_allowed(L, #b_blk{}=Blk1, #b_blk{is=[#b_set{}=I|_]}=Blk2) ->
+    not beam_ssa:is_loop_header(I) andalso
+        is_merge_allowed_1(L, Blk1, Blk2);
+is_merge_allowed(L, Blk1, Blk2) ->
+    is_merge_allowed_1(L, Blk1, Blk2).
+
+is_merge_allowed_1(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
     %% The predecessor block must have exactly one successor (L) for
     %% the merge to be safe.
     case beam_ssa:successors(Blk) of
@@ -1974,7 +1978,7 @@ is_merge_allowed(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
         [_|_] ->
             false
     end;
-is_merge_allowed(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
+is_merge_allowed_1(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
     false.
 
 %%%
@@ -2062,16 +2066,14 @@ unsuitable(Linear, Blocks) ->
     Unsuitable1 = unsuitable_recv(Linear, Blocks, Predecessors),
     gb_sets:from_list(Unsuitable0 ++ Unsuitable1).
 
-unsuitable_1([{L,#b_blk{is=[#b_set{op=Op}|_]}}|Bs]) ->
+unsuitable_1([{L,#b_blk{is=[#b_set{op=Op}=I|_]}}|Bs]) ->
     Unsuitable = case Op of
                      bs_extract -> true;
                      bs_put -> true;
                      exception_trampoline -> true;
                      {float,_} -> true;
                      landingpad -> true;
-                     peek_message -> true;
-                     wait_timeout -> true;
-                     _ -> false
+                     _ -> beam_ssa:is_loop_header(I)
                  end,
     case Unsuitable of
         true ->
@@ -2105,10 +2107,10 @@ unsuitable_loop(L, Blocks, Predecessors, Acc) ->
     unsuitable_loop_1(Ps, Blocks, Predecessors, Acc).
 
 unsuitable_loop_1([P|Ps], Blocks, Predecessors, Acc0) ->
-    case map_get(P, Blocks) of
-        #b_blk{is=[#b_set{op=peek_message}|_]} ->
+    case is_loop_header(P, Blocks) of
+        true ->
             unsuitable_loop_1(Ps, Blocks, Predecessors, Acc0);
-        #b_blk{} ->
+        false ->
             case ordsets:is_element(P, Acc0) of
                 false ->
                     Acc1 = ordsets:add_element(P, Acc0),
@@ -2119,6 +2121,14 @@ unsuitable_loop_1([P|Ps], Blocks, Predecessors, Acc0) ->
             end
     end;
 unsuitable_loop_1([], _, _, Acc) -> Acc.
+
+is_loop_header(L, Blocks) ->
+    case map_get(L, Blocks) of
+        #b_blk{is=[I|_]} ->
+            beam_ssa:is_loop_header(I);
+        #b_blk{} ->
+            false
+    end.
 
 %% new_def_locations([{Variable,[UsedInBlock]}|Vs], Defs,
 %%                   Dominators, Numbering, Unsuitable) ->

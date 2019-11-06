@@ -3011,11 +3011,9 @@ are_overlapping_1({_,_}, []) -> false.
 %%  Check whether the block is a loop header.
 
 is_loop_header(L, Blocks) ->
-    %% We KNOW that a loop header must start with a peek_message
-    %% instruction.
     case map_get(L, Blocks) of
-        #b_blk{is=[#b_set{op=peek_message}|_]} -> true;
-        _ -> false
+        #b_blk{is=[I|_]} -> beam_ssa:is_loop_header(I);
+        #b_blk{} -> false
     end.
 
 rel2fam(S0) ->

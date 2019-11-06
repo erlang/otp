@@ -27,6 +27,7 @@
          flatmapfold_instrs_rpo/4,
          fold_po/3,fold_po/4,fold_rpo/3,fold_rpo/4,
          fold_instrs_rpo/4,
+         is_loop_header/1,
          linearize/1,
          mapfold_blocks_rpo/4,
          mapfold_instrs_rpo/4,
@@ -175,6 +176,8 @@ clobbers_xregs(#b_set{op=Op}) ->
         make_fun -> true;
         peek_message -> true;
         raw_raise -> true;
+        timeout -> true;
+        wait_timeout -> true;
         _ -> false
     end.
 
@@ -209,6 +212,18 @@ no_side_effect(#b_set{op=Op}) ->
         put_list -> true;
         put_tuple -> true;
         succeeded -> true;
+        _ -> false
+    end.
+
+%% is_loop_header(#b_set{}) -> true|false.
+%%  Test whether this instruction is a loop header.
+
+-spec is_loop_header(b_set()) -> boolean().
+
+is_loop_header(#b_set{op=Op}) ->
+    case Op of
+        peek_message -> true;
+        wait_timeout -> true;
         _ -> false
     end.
 
