@@ -29,8 +29,9 @@
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1,
          has_support_ipv6/0, has_support_ipv6/1,
          is_ipv6_host/0, is_ipv6_host/1]).
--export([fix_data_dir/1, 
-	 init_suite_top_dir/2, init_group_top_dir/2, init_testcase_top_dir/2, 
+-export([init_per_suite/1, end_per_suite/1,
+         init_suite_top_dir/2, init_group_top_dir/2, init_testcase_top_dir/2, 
+	 fix_data_dir/1, 
 	 lookup/2, 
 	 replace_config/3, set_config/3, get_config/2, get_config/3]).
 -export([fail/3, skip/3]).
@@ -447,6 +448,56 @@ is_ipv6_host(Hostname) ->
 %% ----------------------------------------------------------------
 %% Test suite utility functions
 %% 
+
+%% Common suite init function
+%% This should be used by "all" suite init functions.
+
+init_per_suite(Config) ->
+
+    %% We have some crap machines that causes random test case failures
+    %% for no obvious reason. So, attempt to identify those without actually
+    %% checking for the host name...
+    %% We have two "machines" we are checking for. Both are old installations
+    %% running on really slow VMs (the host machines are old and tired).
+    LinuxVersionVerify =
+        fun(V) when (V > {3,6,11}) ->
+                false; % OK - No skip
+           (V) when (V =:= {3,6,11}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    "Fedora release 16 " ++ _ -> % Stone age Fedora => Skip
+                        true;
+                    _ ->
+                        false
+                end;
+           (V) when (V > {2,6,24}) ->
+                false; % OK - No skip
+           (_) ->
+                %% We are specifically checking for
+                %% a *really* old gento...
+                case string:find(string:strip(os:cmd("uname -a")), "gentoo") of
+                    nomatch ->
+                        false;
+                    _ -> % Stone age gentoo => Skip
+                        true
+                end
+        end,
+    COND = [{unix, [{linux, LinuxVersionVerify}]}],
+    case os_based_skip(COND) of
+        true ->
+            {skip, "Unstable host and/or os (or combo thererof)"};
+        false ->
+            snmp_test_global_sys_monitor:start(),
+            Config
+    end.
+
+
+end_per_suite(Config) when is_list(Config) ->
+
+    snmp_test_global_sys_monitor:stop(),
+
+    Config.
+
+
 
 fix_data_dir(Config) ->
     DataDir0     = lookup(data_dir, Config),

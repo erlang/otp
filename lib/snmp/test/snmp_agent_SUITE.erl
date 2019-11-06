@@ -18,11 +18,10 @@
 %% %CopyrightEnd%
 %% 
 
--module(snmp_agent_test).
+-module(snmp_agent_SUITE).
 
 -export([
-	 all/0, 
-	 groups/0, 
+         suite/0, all/0, groups/0,
 	 init_per_suite/1,    end_per_suite/1, 
 	 init_per_group/2,    end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2, 
@@ -501,6 +500,13 @@
 				   Type, Ent, Gen, Spec, ExpVBs, To)).
 
 
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
 all() -> 
     %% Reqs  = [mnesia, distribution, {local_slave_nodes, 2}, {time, 360}],
     Conf1 = [{group, all_tcs}],
@@ -509,7 +515,7 @@ all() ->
 
 groups() -> 
     [
-     {all_tcs,                       [], cases()},
+     {all_tcs,                       [], all_cases()},
      {mib_storage,                   [], mib_storage_cases()}, 
      {mib_storage_ets,               [], mib_storage_ets_cases()},
      {mib_storage_dets,              [], mib_storage_dets_cases()},
@@ -550,53 +556,85 @@ groups() ->
     ].
 
 
+all_cases() -> 
+    [
+     {group, misc}, 
+     {group, test_v1}, 
+     {group, test_v2},
+     {group, test_v1_v2}, 
+     {group, test_v3},
+     {group, test_v1_ipv6},
+     {group, test_v2_ipv6},
+     {group, test_v1_v2_ipv6},
+     {group, test_v3_ipv6},
+     {group, test_multi_threaded}, 
+     {group, mib_storage},
+     {group, tickets1}
+    ].
+
+%%
+%% -----
+%%
+
 init_per_suite(Config0) when is_list(Config0) ->
 
     p("init_per_suite -> entry with"
       "~n      Config: ~p"
       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
-    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
-    Config2   = snmp_test_lib:fix_data_dir(Config1),
+    case snmp_test_lib:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
 
-    %% Mib-dirs
-    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
-    StdMibDir = join([code:priv_dir(snmp), "mibs"]),
+        Config1 ->
+            Config2   = snmp_test_lib:init_suite_top_dir(?MODULE, Config1), 
+            Config3   = snmp_test_lib:fix_data_dir(Config2),
 
-    Config3 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2],
+            %% Mib-dirs
+            MibDir    = snmp_test_lib:lookup(data_dir, Config3),
+            StdMibDir = join([code:priv_dir(snmp), "mibs"]),
+            
+            Config4 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config3],
 
-    snmp_test_global_sys_monitor:start(),
-    snmp_test_sys_monitor:start(), % We need one on this node also
-    snmp_test_mgr_counter_server:start(), 
+            %% We need a monitor on this node also
+            snmp_test_sys_monitor:start(),
 
-    p("init_per_suite -> end when"
-      "~n      Config: ~p"
-      "~n      Nodes:  ~p", [Config3, erlang:nodes()]),
+            snmp_test_mgr_counter_server:start(), 
 
-    Config3.
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config4, erlang:nodes()]),
+            
+            Config4
+    end.
 
-end_per_suite(Config) when is_list(Config) ->
+end_per_suite(Config0) when is_list(Config0) ->
 
     p("end_per_suite -> entry with"
-      "~n      Config: ~p"
-      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+      "~n      Config0: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     case snmp_test_mgr_counter_server:stop() of
-    	{ok, _Counters} ->
+    	{ok, Counters} ->
     	    p("end_per_suite -> sucessfully stopped counter server"
-	      "~n      Counters: ~p", [_Counters]);
+	      "~n      Counters: ~p", [Counters]);
     
     	{error, Reason} ->
     	    p("end_per_suite -> failed stopping counter server"
 	      "~n      Reason: ~p", [Reason])
     end,
     snmp_test_sys_monitor:stop(),
-    snmp_test_global_sys_monitor:stop(),
+    Config1 = snmp_test_lib:end_per_suite(Config0),
 
     p("end_per_suite -> end when"
       "~n      Nodes:  ~p", [erlang:nodes()]),
-    Config.
+    Config1.
 
+
+
+%%
+%% -----
+%%
 
 init_per_group(all_tcs = GroupName, Config) ->
     init_all(snmp_test_lib:init_group_top_dir(GroupName, Config));
@@ -771,7 +809,9 @@ end_per_group(_GroupName, Config) ->
 
 
 
-%% ---- Init Per TestCase ---- 
+%%
+%% ----- Init Per TestCase -----
+%%
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     p("init_per_testcase -> entry with"
@@ -833,39 +873,6 @@ init_per_testcase1(_Case, Config) when is_list(Config) ->
     Dog = ?WD_START(?MINS(6)),
     [{watchdog, Dog}| Config ].
 
-
-%% ---- End Per TestCase ---- 
-
-end_per_testcase(Case, Config) when is_list(Config) ->
-    p("end_per_testcase -> entry with"
-      "~n   Config: ~p"
-      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
-
-    display_log(Config),
-
-    p("system events during test: "
-      "~n   ~p", [snmp_test_global_sys_monitor:events()]),
-    
-    Result = end_per_testcase1(Case, Config),
-
-    p("end_per_testcase -> done with"
-      "~n   Result: ~p"
-      "~n   Nodes:  ~p", [Result, erlang:nodes()]),
-    Result.
-
-end_per_testcase1(otp8395, Config) when is_list(Config) ->
-    otp8395({fin, Config});
-end_per_testcase1(otp9884, Config) when is_list(Config) ->
-    otp9884({fin, Config});
-end_per_testcase1(_Case, Config) when is_list(Config) ->
-    ?DBG("end_per_testcase1 -> entry with"
-	 "~n   Case:   ~p"
-	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?config(watchdog, Config),
-    ?WD_STOP(Dog),
-    Config.
-
-
 init_per_testcase2(Case, Config) ->
 
     ?DBG("end_per_testcase2 -> entry with"
@@ -900,25 +907,40 @@ init_per_testcase2(Case, Config) ->
      {sub_agent_top_dir, SubAgentTopDir}, 
      {manager_top_dir,   ManagerTopDir} | Config].
 
-%% end_per_testcase2(_Case, Config) ->
-%%     Config.
+
+%% ---- End Per TestCase ---- 
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    display_log(Config),
+
+    p("system events during test: "
+      "~n   ~p", [snmp_test_global_sys_monitor:events()]),
+    
+    Result = end_per_testcase1(Case, Config),
+
+    p("end_per_testcase -> done with"
+      "~n   Result: ~p"
+      "~n   Nodes:  ~p", [Result, erlang:nodes()]),
+    Result.
+
+end_per_testcase1(otp8395, Config) when is_list(Config) ->
+    otp8395({fin, Config});
+end_per_testcase1(otp9884, Config) when is_list(Config) ->
+    otp9884({fin, Config});
+end_per_testcase1(_Case, Config) when is_list(Config) ->
+    ?DBG("end_per_testcase1 -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [_Case, Config]),
+    Dog = ?config(watchdog, Config),
+    ?WD_STOP(Dog),
+    Config.
 
 
-cases() -> 
-    [
-     {group, misc}, 
-     {group, test_v1}, 
-     {group, test_v2},
-     {group, test_v1_v2}, 
-     {group, test_v3},
-     {group, test_v1_ipv6},
-     {group, test_v2_ipv6},
-     {group, test_v1_v2_ipv6},
-     {group, test_v3_ipv6},
-     {group, test_multi_threaded}, 
-     {group, mib_storage},
-     {group, tickets1}
-    ].
+
 
 
 %%%-----------------------------------------------------------------

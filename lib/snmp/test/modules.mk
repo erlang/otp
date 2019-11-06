@@ -20,9 +20,7 @@
 
 SUITE_MODULES = \
 	snmp_SUITE \
-	snmp_agent_test \
-	snmp_agent_test_get \
-	snmp_agent_test_lib \
+	snmp_agent_SUITE \
 	snmp_agent_conf_SUITE \
 	snmp_agent_mibs_SUITE \
 	snmp_agent_nfilter_SUITE \
@@ -41,6 +39,8 @@ SUITE_MODULES = \
         snmp_to_snmpnet_SUITE
 
 TEST_UTIL_MODULES = \
+	snmp_agent_test_get \
+	snmp_agent_test_lib \
 	snmp_test_global_sys_monitor \
 	snmp_test_sys_monitor \
 	snmp_test_lib \

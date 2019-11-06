@@ -98,26 +98,18 @@ suite() ->
 
 all() -> 
     [
-     {group, agent},
      {group, manager}
     ].
 
 groups() -> 
     [
-     {agent,   [], agent_cases()},
      {manager, [], manager_cases()},
 
-     {agent_test,          [], [{snmp_agent_test,          all}]},
      {manager_config_test, [], [{snmp_manager_config_test, all}]},
      {manager_user_test,   [], [{snmp_manager_user_test,   all}]},
      {manager_test,        [], [{snmp_manager_test,        all}]}
     ].
 
-
-agent_cases() ->
-    [
-     {group, agent_test}
-    ].
 
 manager_cases() ->
     [
