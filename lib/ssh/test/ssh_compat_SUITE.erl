@@ -812,7 +812,7 @@ iptoa(IP) -> inet_parse:ntoa(IP).
 
 host_ip() ->
     {ok,Name} = inet:gethostname(),
-    {ok,#hostent{h_addr_list = [IP|_]}} = inet_res:gethostbyname(Name),
+    {ok,IP} = inet:ip(Name),
     IP.
 
 %%--------------------------------------------------------------------
