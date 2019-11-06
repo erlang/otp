@@ -24,8 +24,8 @@
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
 
--import(lists, [all/2,any/2,droplast/1,duplicate/2,foldl/3,last/1,member/2,
-                keyfind/3,reverse/1,sort/1,split/2,zip/2]).
+-import(lists, [all/2,any/2,duplicate/2,foldl/3,member/2,
+                keyfind/3,reverse/1,split/2,zip/2]).
 
 -define(UNICODE_MAX, (16#10FFFF)).
 
@@ -168,24 +168,10 @@ opt_1(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
     D1 = D0#d{ds=Ds,sub=Sub,func_db=Fdb},
 
     Last1 = simplify_terminator(Last0, Sub, Ts, Ds),
-    Last2 = opt_terminator(Last1, Ts, Ds),
-
-    {Last, D} = update_successors(Last2, Ts, D1),
+    {Last, D} = update_successors(Last1, Ts, D1),
 
     Blk = Blk0#b_blk{is=Is,last=Last},
     opt(Bs, D, [{L,Blk}|Acc]).
-
-simplify_terminator(#b_br{bool=Bool}=Br, Sub, Ts, _Ds) ->
-    Br#b_br{bool=simplify_arg(Bool, Sub, Ts)};
-simplify_terminator(#b_switch{arg=Arg}=Sw, Sub, Ts, _Ds) ->
-    Sw#b_switch{arg=simplify_arg(Arg, Sub, Ts)};
-simplify_terminator(#b_ret{arg=Arg}=Ret, Sub, Ts, Ds) ->
-    %% Reducing the result of a call to a literal (fairly common for 'ok')
-    %% breaks tail call optimization.
-    case Ds of
-        #{ Arg := #b_set{op=call}} -> Ret;
-        #{} -> Ret#b_ret{arg=simplify_arg(Arg, Sub, Ts)}
-    end.
 
 opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
        Ts0, Ds0, Fdb, #d{ls=Ls}=D, Sub0, Acc) ->
@@ -394,6 +380,29 @@ update_arg_types([ArgType | ArgTypes], [TypeMap0 | TypeMaps], CallId) ->
     [TypeMap | update_arg_types(ArgTypes, TypeMaps, CallId)];
 update_arg_types([], [], _CallId) ->
     [].
+
+%%%
+%%% Optimization helpers
+%%%
+
+simplify_terminator(#b_br{bool=Bool}=Br0, Sub, Ts, Ds) ->
+    Br = beam_ssa:normalize(Br0#b_br{bool=simplify_arg(Bool, Sub, Ts)}),
+    simplify_not(Br, Sub, Ts, Ds);
+simplify_terminator(#b_switch{arg=Arg0}=Sw0, Sub, Ts, Ds) ->
+    Arg = simplify_arg(Arg0, Sub, Ts),
+    Sw = Sw0#b_switch{arg=Arg},
+
+    case beam_types:is_boolean_type(raw_type(Arg, Ts)) of
+        true -> simplify_switch_bool(Sw, Sub, Ts, Ds);
+        false -> beam_ssa:normalize(Sw)
+    end;
+simplify_terminator(#b_ret{arg=Arg}=Ret, Sub, Ts, Ds) ->
+    %% Reducing the result of a call to a literal (fairly common for 'ok')
+    %% breaks tail call optimization.
+    case Ds of
+        #{ Arg := #b_set{op=call}} -> Ret;
+        #{} -> Ret#b_ret{arg=simplify_arg(Arg, Sub, Ts)}
+    end.
 
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
     case is_safe_bool_op(Args, Ts) of
@@ -605,6 +614,59 @@ simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, _Ts) ->
     end;
 simplify(I, _Ts) -> I.
 
+simplify_is_record(I, #t_tuple{exact=Exact,
+                               size=Size,
+                               elements=Es},
+                   RecSize, #b_literal{val=TagVal}=RecTag, Ts) ->
+    TagType = maps:get(1, Es, any),
+    TagMatch = case beam_types:get_singleton_value(TagType) of
+                   {ok, TagVal} -> yes;
+                   {ok, _} -> no;
+                   error ->
+                       %% Is it at all possible for the tag to match?
+                       case beam_types:meet(raw_type(RecTag, Ts), TagType) of
+                           none -> no;
+                           _ -> maybe
+                       end
+               end,
+    if
+        Size =/= RecSize, Exact; Size > RecSize; TagMatch =:= no ->
+            #b_literal{val=false};
+        Size =:= RecSize, Exact, TagMatch =:= yes ->
+            #b_literal{val=true};
+        true ->
+            I
+    end;
+simplify_is_record(I, any, _Size, _Tag, _Ts) ->
+    I;
+simplify_is_record(_I, _Type, _Size, _Tag, _Ts) ->
+    #b_literal{val=false}.
+
+simplify_switch_bool(#b_switch{arg=B,fail=Fail,list=List0}, Sub, Ts, Ds) ->
+    FalseVal = #b_literal{val=false},
+    TrueVal = #b_literal{val=true},
+    List1 = List0 ++ [{FalseVal,Fail},{TrueVal,Fail}],
+    {_,FalseLbl} = keyfind(FalseVal, 1, List1),
+    {_,TrueLbl} = keyfind(TrueVal, 1, List1),
+    Br = #b_br{bool=B,succ=TrueLbl,fail=FalseLbl},
+    simplify_terminator(Br, Sub, Ts, Ds).
+
+simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Sub, Ts, Ds) ->
+    case Ds of
+        #{V:=#b_set{op={bif,'not'},args=[Bool]}} ->
+            case beam_types:is_boolean_type(raw_type(Bool, Ts)) of
+                true ->
+                    Br = Br0#b_br{bool=Bool,succ=Fail,fail=Succ},
+                    simplify_terminator(Br, Sub, Ts, Ds);
+                false ->
+                    Br0
+            end;
+        #{} ->
+            Br0
+    end;
+simplify_not(#b_br{bool=#b_literal{}}=Br, _Sub, _Ts, _Ds) ->
+    Br.
+
 %% Simplify a remote call to a pure BIF.
 simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _I) ->
     Tl;
@@ -808,51 +870,9 @@ is_float_op_1(_) -> false.
 anno_float_arg(#t_float{}) -> float;
 anno_float_arg(_) -> convert.
 
-opt_terminator(#b_br{bool=#b_literal{}}=Br, _Ts, _Ds) ->
-    beam_ssa:normalize(Br);
-opt_terminator(#b_br{bool=#b_var{}}=Br, Ts, Ds) ->
-    simplify_not(Br, Ts, Ds);
-opt_terminator(#b_switch{arg=#b_literal{}}=Sw, _Ts, _Ds) ->
-    beam_ssa:normalize(Sw);
-opt_terminator(#b_switch{arg=#b_var{}=V}=Sw, Ts, Ds) ->
-    case normalized_type(V, Ts) of
-        any ->
-            beam_ssa:normalize(Sw);
-        Type ->
-            beam_ssa:normalize(opt_switch(Sw, Type, Ts, Ds))
-    end;
-opt_terminator(#b_ret{}=Ret, _Ts, _Ds) -> Ret.
-
-
-opt_switch(#b_switch{fail=Fail,list=List0}=Sw0, Type, Ts, Ds) ->
-    List = prune_switch_list(List0, Fail, Type, Ts),
-    Sw1 = Sw0#b_switch{list=List},
-    case Type of
-        #t_integer{elements={_,_}=Range} ->
-            simplify_switch_int(Sw1, Range);
-        #t_atom{elements=[_|_]} ->
-            case beam_types:is_boolean_type(Type) of
-                true ->
-                    #b_br{} = Br = simplify_switch_bool(Sw1, Ts, Ds),
-                    opt_terminator(Br, Ts, Ds);
-                false ->
-                    simplify_switch_atom(Type, Sw1)
-            end;
-        _ ->
-            Sw1
-    end.
-
-prune_switch_list([{_,Fail}|T], Fail, Type, Ts) ->
-    prune_switch_list(T, Fail, Type, Ts);
-prune_switch_list([{Arg,_}=Pair|T], Fail, Type, Ts) ->
-    case beam_types:meet(raw_type(Arg, Ts), Type) of
-        none ->
-            %% Different types. This value can never match.
-            prune_switch_list(T, Fail, Type, Ts);
-        _ ->
-            [Pair|prune_switch_list(T, Fail, Type, Ts)]
-    end;
-prune_switch_list([], _, _, _) -> [].
+%%%
+%%% Type helpers
+%%%
 
 update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last, Ts, D0) ->
     {Last, update_successor(Succ, Ts, D0)};
@@ -875,8 +895,8 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
                   Ts, D0) ->
     UsedOnce = cerl_sets:is_element(V, D0#d.once),
 
-    {List1, D1} = update_switch(List0, V, Ts, UsedOnce, [], D0),
-    FailTs = update_switch_failure(V, List0, Ts, UsedOnce, D1),
+    {List1, FailTs, D1} =
+        update_switch(List0, V, raw_type(V, Ts), Ts, UsedOnce, [], D0),
 
     case FailTs of
         none ->
@@ -904,40 +924,32 @@ update_successors(#b_ret{arg=Arg}=Last, Ts, D) ->
 
     {Last, D#d{ret_types=RetTypes}}.
 
-update_switch([{Val, Lbl}=Sw | List], V, Ts, UsedOnce, Acc, D0) ->
-    case infer_types_switch(V, Val, Ts, UsedOnce, D0) of
+update_switch([{Val, Lbl}=Sw | List], V, FailType0, Ts, UsedOnce, Acc, D0) ->
+    FailType = beam_types:subtract(FailType0, raw_type(Val, Ts)),
+    case infer_types_switch(V, Val, Ts, UsedOnce, D0#d.ds) of
         none ->
-            update_switch(List, V, Ts, UsedOnce, Acc, D0);
+            update_switch(List, V, FailType, Ts, UsedOnce, Acc, D0);
         SwTs ->
             D = update_successor(Lbl, SwTs, D0),
-            update_switch(List, V, Ts, UsedOnce, [Sw | Acc], D)
+            update_switch(List, V, FailType, Ts, UsedOnce, [Sw | Acc], D)
     end;
-update_switch([], _V, _Ts, _UsedOnce, Acc, D) ->
-    {reverse(Acc), D}.
-
-update_switch_failure(V, List, Ts, UsedOnce, D) ->
-    case sub_sw_list_1(raw_type(V, Ts), List, Ts) of
-        none ->
-            none;
-        FailType ->
-            case beam_types:get_singleton_value(FailType) of
-                {ok, Value} ->
-                    %% This is the only possible value at the fail label, so we
-                    %% can infer types as if we matched it directly.
-                    Lit = #b_literal{val=Value},
-                    infer_types_switch(V, Lit, Ts, UsedOnce, D);
-                error when UsedOnce ->
-                    ts_remove_var(V, Ts);
-                error ->
-                    Ts#{ V := FailType }
-            end
-    end.
-
-sub_sw_list_1(Type, [{Val,_}|T], Ts) ->
-    ValType = raw_type(Val, Ts),
-    sub_sw_list_1(beam_types:subtract(Type, ValType), T, Ts);
-sub_sw_list_1(Type, [], _Ts) ->
-    Type.
+update_switch([], _V, none, _Ts, _UsedOnce, Acc, D) ->
+    %% Fail label is unreachable.
+    {reverse(Acc), none, D};
+update_switch([], V, FailType, Ts, UsedOnce, Acc, D) ->
+    %% Fail label is reachable, see if we can narrow the type down further.
+    FailTs = case beam_types:get_singleton_value(FailType) of
+                  {ok, Value} ->
+                     %% This is the only possible value at the fail label, so
+                     %% we can infer types as if we matched it directly.
+                     Lit = #b_literal{val=Value},
+                     infer_types_switch(V, Lit, Ts, UsedOnce, D#d.ds);
+                 error when UsedOnce ->
+                     ts_remove_var(V, Ts);
+                 error ->
+                     Ts#{ V := FailType }
+             end,
+    {reverse(Acc), FailTs, D}.
 
 update_successor(?EXCEPTION_BLOCK, _Ts, #d{}=D) ->
     %% We KNOW that no variables are used in the ?EXCEPTION_BLOCK,
@@ -1157,85 +1169,6 @@ bs_match_type(utf16, _) ->
 bs_match_type(utf32, _) ->
     beam_types:make_integer(0, ?UNICODE_MAX).
 
-simplify_switch_atom(#t_atom{elements=Atoms}, #b_switch{list=List0}=Sw) ->
-    case sort([A || {#b_literal{val=A},_} <- List0]) of
-        Atoms ->
-            %% All possible atoms are included in the list. The
-            %% failure label will never be used.
-            [{_,Fail}|List] = List0,
-            Sw#b_switch{fail=Fail,list=List};
-        _ ->
-            Sw
-    end.
-
-simplify_switch_int(#b_switch{list=List0}=Sw, {Min,Max}) ->
-    List1 = sort(List0),
-    Vs = [V || {#b_literal{val=V},_} <- List1],
-    case eq_ranges(Vs, Min, Max) of
-        true ->
-            {_,LastL} = last(List1),
-            List = droplast(List1),
-            Sw#b_switch{fail=LastL,list=List};
-        false ->
-            Sw
-    end.
-
-eq_ranges([H], H, H) -> true;
-eq_ranges([H|T], H, Max) -> eq_ranges(T, H+1, Max);
-eq_ranges(_, _, _) -> false.
-
-simplify_is_record(I, #t_tuple{exact=Exact,
-                               size=Size,
-                               elements=Es},
-                   RecSize, #b_literal{val=TagVal}=RecTag, Ts) ->
-    TagType = maps:get(1, Es, any),
-    TagMatch = case beam_types:get_singleton_value(TagType) of
-                   {ok, TagVal} -> yes;
-                   {ok, _} -> no;
-                   error ->
-                       %% Is it at all possible for the tag to match?
-                       case beam_types:meet(raw_type(RecTag, Ts), TagType) of
-                           none -> no;
-                           _ -> maybe
-                       end
-               end,
-    if
-        Size =/= RecSize, Exact; Size > RecSize; TagMatch =:= no ->
-            #b_literal{val=false};
-        Size =:= RecSize, Exact, TagMatch =:= yes ->
-            #b_literal{val=true};
-        true ->
-            I
-    end;
-simplify_is_record(I, any, _Size, _Tag, _Ts) ->
-    I;
-simplify_is_record(_I, _Type, _Size, _Tag, _Ts) ->
-    #b_literal{val=false}.
-
-simplify_switch_bool(#b_switch{arg=B,fail=Fail,list=List0}, Ts, Ds) ->
-    FalseVal = #b_literal{val=false},
-    TrueVal = #b_literal{val=true},
-    List1 = List0 ++ [{FalseVal,Fail},{TrueVal,Fail}],
-    {_,FalseLbl} = keyfind(FalseVal, 1, List1),
-    {_,TrueLbl} = keyfind(TrueVal, 1, List1),
-    Br = beam_ssa:normalize(#b_br{bool=B,succ=TrueLbl,fail=FalseLbl}),
-    simplify_not(Br, Ts, Ds).
-
-simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds) ->
-    case Ds of
-        #{V:=#b_set{op={bif,'not'},args=[Bool]}} ->
-            case beam_types:is_boolean_type(raw_type(Bool, Ts)) of
-                true ->
-                    Br = Br0#b_br{bool=Bool,succ=Fail,fail=Succ},
-                    beam_ssa:normalize(Br);
-                false ->
-                    Br0
-            end;
-        #{} ->
-            Br0
-    end;
-simplify_not(#b_br{bool=#b_literal{}}=Br, _Ts, _Ds) -> Br.
-
 %%%
 %%% Calculate the set of variables that are only used once in the
 %%% terminator of the block that defines them. That will allow us to
@@ -1372,7 +1305,7 @@ infer_br_value(V, Bool, NewTs) ->
             NewTs
     end.
 
-infer_types_switch(V, Lit, Ts0, UsedOnce, #d{ds=Ds}) ->
+infer_types_switch(V, Lit, Ts0, UsedOnce, Ds) ->
     {PosTypes, _} = infer_type({bif,'=:='}, [V, Lit], Ts0, Ds),
     Ts = meet_types(PosTypes, Ts0),
     case UsedOnce of
