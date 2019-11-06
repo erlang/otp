@@ -286,18 +286,16 @@ static ERTS_INLINE DistEntry *find_dist_entry(Eterm sysname,
         if (connected_only && is_nil(res->cid))
             res = NULL;
         else {
-            int pend_delete;
             erts_aint_t refc;
             if (inc_refc) {
                 refc = de_refc_inc_read(res, 1);
-                pend_delete = refc < 2;
+                if (refc < 2) /* Pending delete */
+                    de_refc_inc(res, 1);
             }
             else {
-                refc = de_refc_read(res, 0);
-                pend_delete = refc < 1;
+                /* Inc from 0 to 1 for pending delete */
+                erts_refc_inc_if(&ErtsDistEntry2Bin(res)->intern.refc, 0, 0);
             }
-            if (pend_delete) /* Pending delete */
-                de_refc_inc(res, 1);
         }
     }
     erts_rwmtx_runlock(&erts_dist_table_rwmtx);
@@ -397,6 +395,7 @@ erts_build_dhandle(Eterm **hpp, ErlOffHeap* ohp,
     Eterm mref, dhandle;
     ASSERT(bin);
     ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == erts_dist_entry_destructor);
+    erts_refc_inc_if(&bin->intern.refc, 0, 0); /* inc for pending delete */
     mref = erts_mk_magic_ref(hpp, ohp, bin);
     dhandle = TUPLE2(*hpp, make_small(conn_id), mref);
     *hpp += 3;
