@@ -238,12 +238,15 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 
     SSL_CRYPTO_LIBNAME=crypto
     SSL_SSL_LIBNAME=ssl
+    SSL_EXTRA_LIBS=""
     
     if  test "$host_os" = "win32" ; then
     	if test "x$ac_cv_sizeof_void_p" = "x8"; then
 	  std_win_ssl_locations="/mnt/c/OpenSSL-Win64 /c/OpenSSL-Win64 /mnt/c/opt/local64/pgm/OpenSSL /opt/local64/pgm/OpenSSL /cygdrive/c/OpenSSL-Win64"
+	  lib_bits=64
 	else
 	  std_win_ssl_locations="/mnt/c/OpenSSL-Win32 /c/OpenSSL-Win32 /mnt/c/OpenSSL /c/OpenSSL /cygdrive/c/OpenSSL /opt/local/pgm/OpenSSL /opt/local32/pgm/OpenSSL /mnt/c/opt/local/pgm/OpenSSL /mnt/c/opt/local32/pgm/OpenSSL /cygdrive/c/OpenSSL-Win32"
+	  lib_bits=32
 	fi
     else
         std_win_ssl_locations=""
@@ -281,6 +284,19 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 				SSL_LIBDIR="$dir/lib"
 				SSL_CRYPTO_LIBNAME=libeay32
 				SSL_SSL_LIBNAME=ssleay32
+			elif test -f "$dir/lib/VC/libcrypto${lib_bits}MD.lib"; then
+		            SSL_CRYPTO_LIBNAME=libcrypto${lib_bits}MD
+			    # NOTE: Additional ugly extra libs at the end
+		            SSL_SSL_LIBNAME="libssl${lib_bits}MD"
+			    if test "x$enable_dynamic_ssl" = "xno" && \
+	                       test -f "$dir/lib/VC/static/$SSL_CRYPTO_LIBNAME.lib"; then
+       			          SSL_EXTRA_LIBS="-lCRYPT32 -lWS2_32"
+				  SSL_RUNTIME_LIBDIR="$rdir/lib/VC/static"
+				  SSL_LIBDIR="$dir/lib/VC/static"
+		            else
+			          SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
+				  SSL_LIBDIR="$dir/lib/VC"
+                            fi 
 			elif test -f "$dir/lib/openssl.lib"; then
 				SSL_RUNTIME_LIBDIR="$rdir/lib"
 				SSL_LIBDIR="$dir/lib"
@@ -457,6 +473,7 @@ dnl		so it is - be adoptable
     SSL_INCDIR="$with_ssl_incl"
     SSL_CRYPTO_LIBNAME=crypto
     SSL_SSL_LIBNAME=ssl
+    SSL_EXTRA_LIBS=""
     if test "x$host_os" = "xwin32" && test -d "$with_ssl/lib/VC"; then
 	if test -f "$with_ssl/lib/VC/libeay32.lib"; then
 	    SSL_LIBDIR="$with_ssl/lib/VC"
@@ -472,15 +489,33 @@ dnl		so it is - be adoptable
 		SSL_LIBDIR="$with_ssl/lib/VC/static"
 	    else
 		SSL_LIBDIR="$with_ssl/lib/VC"
-            fi 
+            fi
+	elif test -f "$dir/lib/VC/libcrypto${lib_bits}MD.lib"; then
+            SSL_CRYPTO_LIBNAME=libcrypto${lib_bits}MD
+	    # NOTE: Additional ugly extra libs at the end
+            SSL_SSL_LIBNAME="libssl${lib_bits}MD"
+	    if test "x$enable_dynamic_ssl" = "xno" && \
+               test -f "$dir/lib/VC/static/$SSL_CRYPTO_LIBNAME.lib"; then
+	          SSL_EXTRA_LIBS="-lCRYPT32 -lWS2_32"
+		  SSL_RUNTIME_LIBDIR="$rdir/lib/VC/static"
+		  SSL_LIBDIR="$dir/lib/VC/static"
+            else
+	          SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
+		  SSL_LIBDIR="$dir/lib/VC"
+            fi
 	elif test -f "$with_ssl/lib/libeay32.lib"; then
 	    SSL_LIBDIR="$with_ssl/lib"
 	    SSL_CRYPTO_LIBNAME=libeay32
 	    SSL_SSL_LIBNAME=ssleay32
+	elif test -f "$dir/lib/openssl.lib"; then
+	    SSL_RUNTIME_LIBDIR="$rdir/lib"
+	    SSL_LIBDIR="$dir/lib"
+	    SSL_CRYPTO_LIBNAME=libcrypto
+	    SSL_SSL_LIBNAME=openssl
 	else
 	    # This probably wont work, but that's what the user said, so...
 	    SSL_LIBDIR="$with_ssl/lib"
-	fi
+	fi 
     elif test -f "$dir/lib/powerpc/libsslcrypto.a"; then
 	    SSL_CRYPTO_LIBNAME=sslcrypto
 	    SSL_LIBDIR="$with_ssl/lib/powerpc/"
@@ -502,7 +537,7 @@ dnl		so it is - be adoptable
     if test '!' -f "${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.a"; then
 	SSL_DYNAMIC_ONLY=yes
     elif test '!' -f ${SSL_LIBDIR}/lib${SSL_CRYPTO_LIBNAME}.so -a '!' -f "$SSL_LIBDIR/lib${SSL_CRYPTO_LIBNAME}.dylib"; then
-	SSL_STATIC_ONLY=yes
+    	SSL_STATIC_ONLY=yes
     fi
     SSL_INCLUDE="-I$with_ssl_incl/include"
     SSL_APP=ssl
@@ -736,6 +771,7 @@ AC_SUBST(SSL_LIBDIR)
 AC_SUBST(SSL_FLAGS)
 AC_SUBST(SSL_CRYPTO_LIBNAME)
 AC_SUBST(SSL_SSL_LIBNAME)
+AC_SUBST(SSL_EXTRA_LIBS)
 AC_SUBST(SSL_DED_LD_RUNTIME_LIBRARY_PATH)
 AC_SUBST(SSL_DYNAMIC_ONLY)
 AC_SUBST(SSL_LINK_WITH_KERBEROS)
