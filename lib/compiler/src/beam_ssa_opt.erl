@@ -340,6 +340,12 @@ fdb_is([#b_set{op=call,
                                name=#b_literal{val=load_nif}},
                      _Path, _LoadInfo]} | _Is], _Caller, _FuncDb) ->
     throw(load_nif);
+fdb_is([#b_set{op=make_fun,
+               args=[#b_local{}=Callee | _]} | Is],
+       Caller, FuncDb) ->
+    %% The make_fun instruction's type depends on the return type of the
+    %% function in question, so we treat this as a function call.
+    fdb_is(Is, Caller, fdb_update(Caller, Callee, FuncDb));
 fdb_is([_ | Is], Caller, FuncDb) ->
     fdb_is(Is, Caller, FuncDb);
 fdb_is([], _Caller, FuncDb) ->
