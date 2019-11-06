@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2016. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,16 +97,13 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, app}, 
-     {group, compiler}, 
+    [{group, compiler}, 
      {group, misc},
      {group, agent}, 
      {group, manager}].
 
 groups() -> 
     [
-     {app,      [], [{group, app_test}, 
-		     {group, appup_test}]},
      {compiler, [], [{group, compiler_test}]},
      {misc,     [], [{group, conf_test}, 
 		     {group, pdus_test},
@@ -121,8 +118,6 @@ groups() ->
 		     {group, manager_user_test}, 
 		     {group, manager_test}]},
 
-     {app_test,            [], [{snmp_app_test,            all}]},
-     {appup_test,          [], [{snmp_appup_test,          all}]},
      {compiler_test,       [], [{snmp_compiler_test,       all}]},
      {conf_test,           [], [{snmp_conf_test,           all}]},
      {pdus_test,           [], [{snmp_pdus_test,           all}]},

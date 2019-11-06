@@ -21,8 +21,7 @@
 SUITE_MODULES = \
 	snmp_SUITE \
         snmp_to_snmpnet_SUITE \
-	snmp_app_test \
-	snmp_appup_test \
+	snmp_app_SUITE \
 	snmp_compiler_test \
 	snmp_conf_test \
 	snmp_log_test \
