@@ -36,7 +36,7 @@ SUITE_MODULES = \
 	snmp_manager_user_test \
 	snmp_manager_user_test_lib \
 	snmp_manager_test \
-	snmp_note_store_test \
+	snmp_note_store_SUITE \
 	snmp_pdus_SUITE \
         snmp_to_snmpnet_SUITE
 

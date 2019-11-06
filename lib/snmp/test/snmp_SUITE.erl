@@ -98,18 +98,15 @@ suite() ->
 
 all() -> 
     [
-     {group, misc},
      {group, agent}, 
      {group, manager}
     ].
 
 groups() -> 
     [
-     {misc,    [], misc_cases()},
      {agent,   [], agent_cases()},
      {manager, [], manager_cases()},
 
-     {note_store_test,     [], [{snmp_note_store_test,     all}]},
      {mibs_test,           [], [{snmp_agent_mibs_test,     all}]},
      {nfilter_test,        [], [{snmp_agent_nfilter_test,  all}]},
      {agent_test,          [], [{snmp_agent_test,          all}]},
@@ -120,11 +117,6 @@ groups() ->
      {manager_test,        [], [{snmp_manager_test,        all}]}
     ].
 
-
-misc_cases() ->
-    [
-     {group, note_store_test}
-    ].
 
 agent_cases() ->
     [
@@ -138,7 +130,7 @@ agent_cases() ->
 manager_cases() ->
     [
      {group, manager_config_test},
-     {group, manager_user_test}, 
+     {group, manager_user_test},
      {group, manager_test}
     ].
 

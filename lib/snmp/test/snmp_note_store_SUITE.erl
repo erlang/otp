@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 %%----------------------------------------------------------------------
 %% Purpose:
 %%----------------------------------------------------------------------
--module(snmp_note_store_test).
+-module(snmp_note_store_SUITE).
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -34,8 +34,11 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
+         suite/0, all/0, groups/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
+
 	 start_and_stop/1,
 	 notes/1,
 	 info/1,
@@ -49,38 +52,64 @@
 	 system_start_time/0
         ]).
 
-%%----------------------------------------------------------------------
-%% Macros
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Records
-%%----------------------------------------------------------------------
 
 %%======================================================================
 %% External functions
 %%======================================================================
 
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Config.
-
-end_per_testcase(_Case, Config) when is_list(Config) ->
-    Config.
-
 %%======================================================================
 %% Test case definitions
 %%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
 all() -> 
-[start_and_stop, notes, info, garbage_in].
+    [
+     start_and_stop,
+     notes,
+     info,
+     garbage_in
+    ].
 
 groups() -> 
     [].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(Config) when is_list(Config) ->
+    Config.
+
+end_per_suite(Config) when is_list(Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
 	Config.
 
 end_per_group(_GroupName, Config) ->
 	Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(_Case, Config) when is_list(Config) ->
+    Config.
+
+end_per_testcase(_Case, Config) when is_list(Config) ->
+    Config.
 
 
 
