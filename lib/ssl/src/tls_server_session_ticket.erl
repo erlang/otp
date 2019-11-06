@@ -29,7 +29,11 @@
 -include("ssl_internal.hrl").
 
 %% API
--export([start_link/2, new/1, new_with_seed/1]).
+-export([start_link/3,
+         new/1,
+         new_with_seed/1,
+         bloom_filter_add_elem/2,
+         bloom_filter_contains/2]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -46,19 +50,25 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec start_link(atom(), integer()) -> {ok, Pid :: pid()} |
+-spec start_link(atom(), integer(), tuple()) -> {ok, Pid :: pid()} |
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
                       ignore.
-start_link(Mode, Lifetime) ->
-    gen_server:start_link(?MODULE, [Mode, Lifetime], []).
-
+start_link(Mode, Lifetime, AntiReplay) ->
+    gen_server:start_link(?MODULE, [Mode, Lifetime, AntiReplay], []).
 
 new(Pid) ->
     gen_server:call(Pid, new_ticket, infinity).
 
 new_with_seed(Pid) ->
     gen_server:call(Pid, new_with_seed, infinity).
+
+bloom_filter_add_elem(Pid, Elem) ->
+    gen_server:cast(Pid, {add_elem, Elem}).
+
+bloom_filter_contains(Pid, Elem) ->
+    gen_server:call(Pid, {contains, Elem}, infinity).
+
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -84,15 +94,26 @@ handle_call(new_with_seed, _From, #state{stateless = #{nonce := Nonce, seed := S
     {reply, {Ticket, Seed}, State#state{stateless = Stateless#{nonce => Nonce + 1}}};
 handle_call(new_with_seed, _From, #state{} = State) -> 
     Ticket = new_ticket(State),
-    {reply, {Ticket, no_seed}, State}.
+    {reply, {Ticket, no_seed}, State};
+handle_call({contains, Elem}, _From, #state{stateless = #{bloom_filter := BloomFilter}} = State) ->
+    Reply = tls_bloom_filter:contains(BloomFilter, Elem),
+    {reply, Reply, State}.
 
 -spec handle_cast(Request :: term(), State :: term()) ->
                          {noreply, NewState :: term()}. 
+handle_cast({add_elem, Elem}, #state{stateless = #{bloom_filter := BloomFilter0} = Stateless} = State) ->
+    BloomFilter = tls_bloom_filter:add_elem(BloomFilter0, Elem),
+    {noreply, State#state{stateless = Stateless#{bloom_filter => BloomFilter}}};
 handle_cast(_Request, State) ->
     {noreply, State}.
 
 -spec handle_info(Info :: timeout() | term(), State :: term()) ->
                          {noreply, NewState :: term()}.
+handle_info(rotate_bloom_filters, #state{stateless = #{bloom_filter := BloomFilter0,
+                                                       window := Window} = Stateless} = State) ->
+    BloomFilter = tls_bloom_filter:rotate(BloomFilter0),
+    erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
+    {noreply, State#state{stateless = Stateless#{bloom_filter => BloomFilter}}};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -117,10 +138,20 @@ format_status(_Opt, Status) ->
 %%% Internal functions
 %%%===================================================================
 
-inital_state([stateless, Lifetime]) ->
+
+inital_state([stateless, Lifetime, undefined]) ->
     #state{stateless = #{nonce => 0,
                          seed => {crypto:strong_rand_bytes(16), 
                                   crypto:strong_rand_bytes(32)}},
+           lifetime = Lifetime
+          };
+inital_state([stateless, Lifetime, {Window, K, M}]) ->
+    erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
+    #state{stateless = #{bloom_filter => tls_bloom_filter:new(K, M),
+                         nonce => 0,
+                         seed => {crypto:strong_rand_bytes(16),
+                                  crypto:strong_rand_bytes(32)},
+                         windows => Window},
            lifetime = Lifetime
           };
 inital_state([stateful, Lifetime]) ->

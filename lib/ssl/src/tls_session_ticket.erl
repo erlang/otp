@@ -68,11 +68,14 @@ cipher_hash_algos(Ciphers) ->
 find_ticket([]) ->
     undefined;
 find_ticket([Hash|T]) ->
-    case ets:match(tls13_session_ticket_db, {'$1','_', Hash,'_','_','_','_'}, 1) of
+    case ets:match(tls13_session_ticket_db, {'$1','_', Hash,'_','_','$2','_'}, 1) of
         '$end_of_table' ->
             find_ticket(T);
-        {[[TicketId]|_] , _} ->
-            [TicketId]
+        {[[TicketId, Timestamp]|_] , _} ->
+            Age = erlang:system_time(seconds) - Timestamp,
+            if Age < 10 -> [TicketId];
+               true -> find_ticket(T)
+            end
     end.
 
 
