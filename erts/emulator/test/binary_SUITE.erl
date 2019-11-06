@@ -60,6 +60,7 @@
          t_iolist_size_deep_short_lists/1,
          t_iolist_size_deep_tiny_lists/1,
 	 t_hash/1,
+         sub_bin_copy/1,
 	 bad_size/1,
 	 bad_term_to_binary/1,
 	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
@@ -92,7 +93,8 @@ all() ->
      b2t_used_big,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
-     bad_term_to_binary, t2b_system_limit, term_to_iovec, more_bad_terms,
+     sub_bin_copy, bad_term_to_binary, t2b_system_limit,
+     term_to_iovec, more_bad_terms,
      otp_5484, otp_5933,
      ordering, unaligned_order, gc_test,
      bit_sized_binary_sizes, otp_6817, otp_8117, deep,
@@ -1858,6 +1860,42 @@ cmp_old_impl(Config) when is_list(Config) ->
 
 	    ok
     end.
+
+%% OTP-16265
+%% This testcase is mainly targeted toward --enable-sharing-preserving.
+sub_bin_copy(Config) when is_list(Config) ->
+    Papa = self(),
+    Echo = spawn_link(fun() -> echo(Papa) end),
+    HeapBin = list_to_binary(lists:seq(1,3)),
+    sub_bin_copy_1(HeapBin, Echo),
+    ProcBin = list_to_binary(lists:seq(1,65)),
+    sub_bin_copy_1(ProcBin, Echo),
+    unlink(Echo),
+    exit(Echo, kill),
+    ok.
+
+sub_bin_copy_1(RealBin, Echo) ->
+    Bits = bit_size(RealBin) - 1,
+    <<SubBin:Bits/bits, _/bits>> = RealBin,
+
+    %% Send (copy) messages consisting of combinations of both
+    %% the SubBin and the RealBin it refers to.
+    [begin
+         Echo ! Combo,
+         {_, Combo} = {Combo, receive M -> M end}
+     end
+     || Len <- lists:seq(2,5), Combo <- combos([RealBin, SubBin], Len)],
+    ok.
+
+combos(_, 0) ->
+    [[]];
+combos(Elements, Len) ->
+    [[E | C] || E <- Elements, C <- combos(Elements,Len-1)].
+
+echo(Papa) ->
+    receive M -> Papa ! M end,
+    echo(Papa).
+
 
 %% Utilities.
 
