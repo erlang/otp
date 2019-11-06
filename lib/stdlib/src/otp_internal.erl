@@ -125,6 +125,15 @@ obsolete_1(gen_fsm, send_event_after, 2) ->
 
 %% *** CRYPTO added in OTP 22.2 ***
 
+obsolete_1(crypto, next_iv, 2) ->
+    {deprecated,
+     "Deprecated. See the 'New and Old API' chapter of the CRYPTO User's Guide."
+    };
+obsolete_1(crypto, next_iv, 3) ->
+    {deprecated,
+     "Deprecated. See the 'New and Old API' chapter of the CRYPTO User's Guide."
+    };
+
 obsolete_1(crypto, hmac, 3) ->
     {deprecated, {crypto, mac, 4}};
 obsolete_1(crypto, hmac, 4) ->

@@ -37,7 +37,6 @@
 -export([rand_plugin_uniform/2]).
 -export([rand_cache_plugin_next/1]).
 -export([rand_uniform/2]).
--export([next_iv/2, next_iv/3]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
 -export([privkey_to_pubkey/2]).
@@ -45,6 +44,12 @@
 -export([rand_seed/1]).
 
 %% Old interface. Now implemented with the New interface
+
+-deprecated([{next_iv, 2, next_major_release},
+             {next_iv, 3, next_major_release}
+           ]).
+-export([next_iv/2, next_iv/3]).
+
 -deprecated([{hmac, 3, next_major_release},
              {hmac, 4, next_major_release},
              {hmac_init, 2, next_major_release},

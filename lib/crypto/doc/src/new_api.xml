@@ -59,6 +59,8 @@
       <item><seealso marker="crypto#stream_init-2">stream_init/3</seealso></item>
       <item><seealso marker="crypto#stream_encrypt-2">stream_encrypt/2</seealso></item>
       <item><seealso marker="crypto#stream_decrypt-2">stream_decrypt/2</seealso></item>
+      <item><seealso marker="crypto#next_iv-2">next_iv/2</seealso></item>
+      <item><seealso marker="crypto#next_iv-3">next_iv/3</seealso></item>
     </list>
     <p>for lists of supported algorithms:</p>
     <list>
@@ -129,6 +131,12 @@
 	<item><seealso marker="crypto#hash_info-1">hash_info/1</seealso></item>
 	<item><seealso marker="crypto#cipher_info-1">cipher_info/1</seealso></item>
       </list>
+
+      <p>The <seealso marker="crypto#next_iv-2">next_iv/2</seealso> and
+      <seealso marker="crypto#next_iv-3">next_iv/3</seealso> is not needed since the
+      <c>crypto_init</c> and <c>crypto_update</c> includes this functionality.
+      </p>
+
     </section>
 
     <section>
