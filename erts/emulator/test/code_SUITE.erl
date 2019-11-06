@@ -396,6 +396,7 @@ constant_pools(Config) when is_list(Config) ->
     end,
     HeapSz = TotHeapSz, %% Ensure restored to hibernated state...
     true = HeapSz > OldHeapSz,
+    literal_area_collector_test:check_idle(5000),
     ok.
 
 no_old_heap(Parent) ->

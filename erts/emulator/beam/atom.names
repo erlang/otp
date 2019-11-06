@@ -682,6 +682,7 @@ atom unload_cancelled
 atom value
 atom version
 atom visible
+atom wait_release_literal_area_switch
 atom waiting
 atom wall_clock
 atom warning

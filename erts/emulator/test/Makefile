@@ -154,7 +154,8 @@ MODULES= \
 	random_iolist \
 	erts_test_utils \
 	erts_test_destructor \
-	crypto_reference
+	crypto_reference \
+	literal_area_collector_test
 
 NO_OPT= bs_bincomp \
 	bs_bit_binaries \

@@ -10731,6 +10731,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	    goto badarg;
 	st->type = ERTS_PSTT_CLA;
 	noproc_res = am_ok;
+        fail_state = ERTS_PSFLG_FREE;
 	if (!rp)
 	    goto noproc;
 	break;
@@ -10741,7 +10742,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 
     if (!schedule_process_sys_task(rp, prio, st, &fail_state)) {
 	Eterm failure;
-	if (fail_state & ERTS_PSFLG_EXITING) {
+	if (fail_state & (ERTS_PSFLG_EXITING|ERTS_PSFLG_FREE)) {
 	noproc:
 	    failure = noproc_res;
 	}
@@ -11965,6 +11966,7 @@ delete_process(Process* p)
     ErtsPSD *psd;
     struct saved_calls *scb;
     process_breakpoint_time_t *pbt;
+    Uint32 block_rla_ref = (Uint32) (Uint) p->u.terminate;
 
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->common.id));
     VERBOSE(DEBUG_SHCOPY, ("[pid=%T] delete process: %p %p %p %p\n", p->common.id,
@@ -12035,6 +12037,9 @@ delete_process(Process* p)
     p->sig_qs.cont = NULL;
 
     p->fvalue = NIL;
+
+    if (block_rla_ref)
+        erts_unblock_release_literal_area(block_rla_ref);
 }
 
 static ERTS_INLINE void
@@ -12625,6 +12630,7 @@ struct continue_exit_state {
     ErtsProcExitContext pectxt;
     DistEntry *dep;
     void *yield_state;
+    Uint32 block_rla_ref;
 };
 
 void
@@ -12648,6 +12654,7 @@ erts_continue_exit_process(Process *p)
         trap_state->reason = p->fvalue;
         trap_state->dep = NULL;
         trap_state->yield_state = NULL;
+        trap_state->block_rla_ref = 0;
     }
 
     ERTS_LC_ASSERT(ERTS_PROC_LOCK_MAIN == erts_proc_lc_my_proc_locks(p));
@@ -12723,6 +12730,30 @@ restart:
         trap_state->phase = ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS;
     case ERTS_CONTINUE_EXIT_CLEAN_SYS_TASKS:
 
+        state = erts_atomic32_read_acqb(&p->state);
+        /*
+         * If we might access any literals on the heap after this point,
+         * we need to block release of literal areas. After this point,
+         * since cleanup of sys-tasks reply to copy-literals requests.
+         * Note that we do not only have to prevent release of
+         * currently processed literal area, but also future processed
+         * literal areas, until we are guaranteed not to access any
+         * literal areas at all.
+         *
+         * - A non-immediate exit reason may refer to literals.
+         * - A process executing dirty while terminated, might access
+         *   any term on the heap, and therfore literals, until it has
+         *   stopped executing dirty.
+         */
+        if (!trap_state->block_rla_ref
+            && (is_not_immed(trap_state->reason)
+                || (state & (ERTS_PSFLG_DIRTY_RUNNING
+                             | ERTS_PSFLG_DIRTY_RUNNING_SYS)))) {
+            Uint32 block_rla_ref = erts_block_release_literal_area();
+            ASSERT(block_rla_ref);
+            trap_state->block_rla_ref = block_rla_ref;
+        }
+    
         /* We enable GC again as it can produce more sys-tasks */
         erts_set_gc_state(p, 1);
         state = erts_atomic32_read_acqb(&p->state);
@@ -13035,10 +13066,11 @@ restart:
     }
     }
 
-    if (trap_state != &static_state) {
+    /* block_rla_ref needed by delete_process() */
+    p->u.terminate = (void *) (Uint) trap_state->block_rla_ref;
+    
+    if (trap_state != &static_state)
         erts_free(ERTS_ALC_T_CONT_EXIT_TRAP, trap_state);
-        p->u.terminate = NULL;
-    }
 
     ERTS_CHK_HAVE_ONLY_MAIN_PROC_LOCK(p);
 
