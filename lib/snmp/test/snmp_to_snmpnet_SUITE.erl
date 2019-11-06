@@ -28,8 +28,17 @@
 
 -module(snmp_to_snmpnet_SUITE).
 
-%% Note: This directive should only be used in test suites.
--compile(export_all).
+-export([
+         suite/0, all/0, groups/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
+
+         erlang_agent_netsnmp_get/0,    erlang_agent_netsnmp_get/1,
+         erlang_agent_netsnmp_inform/0, erlang_agent_netsnmp_inform/1,
+         erlang_manager_netsnmp_get/0,  erlang_manager_netsnmp_get/1
+
+        ]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("snmp/include/STANDARD-MIB.hrl").
@@ -43,6 +52,7 @@
 expected(?sysDescr_instance = Oid, get) ->
     OidStr = oid_str(Oid),
     iolist_to_binary([OidStr | " = STRING: \"Erlang SNMP agent\""]).
+
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -58,34 +68,66 @@ all() ->
     ].
 
 groups() ->
-    [{ipv4, [],
-      [{group, snmpget},
-       {group, snmptrapd},
-       {group, snmpd_mt},
-       {group, snmpd}
-      ]},
-     {ipv6, [],
-      [{group, snmpget},
-       {group, snmptrapd},
-       {group, snmpd_mt},
-       {group, snmpd}
-      ]},
-     {ipv4_ipv6, [],
-      [{group, snmpget},
-       {group, snmptrapd},
-       {group, snmpd_mt},
-       {group, snmpd}
-      ]},
-     %%
-     {snmpget, [],
-      [erlang_agent_netsnmp_get]},
-     {snmptrapd, [],
-      [erlang_agent_netsnmp_inform]},
-     {snmpd_mt, [],
-      [erlang_manager_netsnmp_get]},
-     {snmpd, [],
-      [erlang_manager_netsnmp_get]}
+    [
+     {ipv4,      [], ipv4_cases()},
+     {ipv6,      [], ipv6_cases()},
+     {ipv4_ipv6, [], ipv4_ipv6_cases()},
+
+     {snmpget,   [], snmpget_cases()},
+     {snmptrapd, [], snmptrapd_cases()},
+     {snmpd_mt,  [], snmpd_mt_cases()},
+     {snmpd,     [], snmpd_cases()}
     ].
+
+ipv4_cases() ->
+    [
+     {group, snmpget},
+     {group, snmptrapd},
+     {group, snmpd_mt},
+     {group, snmpd}
+    ].
+
+ipv6_cases() ->
+    [
+     {group, snmpget},
+     {group, snmptrapd},
+     {group, snmpd_mt},
+     {group, snmpd}
+    ].
+
+ipv4_ipv6_cases() ->
+     [
+      {group, snmpget},
+      {group, snmptrapd},
+      {group, snmpd_mt},
+      {group, snmpd}
+     ].
+
+snmpget_cases() ->
+    [
+     erlang_agent_netsnmp_get
+    ].
+
+snmptrapd_cases() ->
+    [
+     erlang_agent_netsnmp_inform
+    ].
+
+snmpd_mt_cases() ->
+    [
+     erlang_manager_netsnmp_get
+    ].
+
+snmpd_cases() ->
+    [
+     erlang_manager_netsnmp_get
+    ].
+
+
+
+%%
+%% -----
+%%
 
 init_per_suite(Config) ->
     case re:run(os:cmd("snmpd -v"),"NET-SNMP", [{capture, first}]) of
@@ -94,13 +136,21 @@ init_per_suite(Config) ->
         {match, _} ->
             case re:run(os:cmd("snmpd -v"),"5.4|5.6.2.1", [{capture, first}]) of
                 nomatch ->
-                    [{agent_port, ?AGENT_PORT}, {manager_port, ?MANAGER_PORT} | Config];
+                    [{agent_port,   ?AGENT_PORT},
+                     {manager_port, ?MANAGER_PORT} | Config];
                 {match, _} ->
                     {skip, "buggy snmpd"}
             end
     end.
+
 end_per_suite(_Config) ->
     ok.
+
+
+
+%%
+%% -----
+%%
 
 init_per_group(ipv4, Config) ->
     init_per_group_ip([inet], Config);
@@ -108,7 +158,7 @@ init_per_group(ipv6, Config) ->
     init_per_group_ipv6([inet6], Config);
 init_per_group(ipv4_ipv6, Config) ->
     init_per_group_ipv6([inet, inet6], Config);
-%%
+
 init_per_group(snmpget = Exec, Config) ->
     %% From Ubuntu package snmp
     init_per_group_agent(Exec, Config);
@@ -125,7 +175,7 @@ init_per_group(snmpd = Exec, Config) ->
     init_per_group_manager(
       Exec,
       [{manager_net_if_module, snmpm_net_if} | Config]);
-%%
+
 init_per_group(_, Config) ->
     Config.
 
@@ -175,9 +225,14 @@ init_per_group_manager(Exec, Config) ->
     find_executable(Exec, [{snmp_versions, Versions} | Config]).
 
 
-
 end_per_group(_GroupName, Config) ->
     Config.
+
+
+
+%%
+%% -----
+%%
 
 init_per_testcase(_Case, Config) ->
     Dog = ct:timetrap(20000),
@@ -234,6 +289,8 @@ start_manager(Config) ->
     ok = application:load(snmp),
     ok = application:set_env(snmp, manager, manager_app_env(Config)),
     ok = application:start(snmp).
+
+
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -298,6 +355,9 @@ erlang_manager_netsnmp_get(Config) when is_list(Config) ->
 
 
 %%--------------------------------------------------------------------
+erlang_agent_netsnmp_inform() ->
+    [{doc, "TBD"}].
+
 erlang_agent_netsnmp_inform(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     Mib = "TestTrapv2",

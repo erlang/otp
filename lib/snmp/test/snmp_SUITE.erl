@@ -98,7 +98,7 @@ suite() ->
 
 all() -> 
     [
-     {group, agent}, 
+     %% {group, agent},
      {group, manager}
     ].
 
@@ -111,7 +111,6 @@ groups() ->
      {nfilter_test,        [], [{snmp_agent_nfilter_test,  all}]},
      {agent_test,          [], [{snmp_agent_test,          all}]},
      {agent_conf_test,     [], [{snmp_agent_conf_test,     all}]},
-     {snmpnet_test,        [], [{snmp_to_snmpnet_SUITE,    all}]},
      {manager_config_test, [], [{snmp_manager_config_test, all}]},
      {manager_user_test,   [], [{snmp_manager_user_test,   all}]},
      {manager_test,        [], [{snmp_manager_test,        all}]}
@@ -123,8 +122,7 @@ agent_cases() ->
      {group, mibs_test}, 
      {group, nfilter_test},
      {group, agent_test},
-     {group, agent_conf_test},
-     {group, snmpnet_test}
+     {group, agent_conf_test}
     ].
 
 manager_cases() ->
