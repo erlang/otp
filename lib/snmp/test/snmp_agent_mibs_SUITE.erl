@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 %%          Some of these tests should really be in a mib-storage suite.
 %%----------------------------------------------------------------------
 
--module(snmp_agent_mibs_test).
+-module(snmp_agent_mibs_SUITE).
 
 
 %%----------------------------------------------------------------------
@@ -43,18 +43,12 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
+
 -export([
-	 all/0,
-	 groups/0,
-
-	 init_per_suite/1, 
-	 end_per_suite/1, 
-
-	 init_per_group/2,
-	 end_per_group/2, 
-
-         init_per_testcase/2, 
-	 end_per_testcase/2,
+         suite/0, all/0, groups/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
 
 	 start_and_stop/1,
 	
@@ -73,21 +67,44 @@
 	]).
 
 
-%%----------------------------------------------------------------------
-%% Internal exports
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Macros
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Records
-%%----------------------------------------------------------------------
-
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+all() -> 
+    [
+     start_and_stop, 
+     load_unload, 
+     {group, size_check},
+     me_lookup, 
+     which_mib, 
+     cache_test
+    ].
+
+groups() -> 
+    [
+     {size_check, [], size_check_cases()}
+    ].
+
+size_check_cases() ->
+    [
+     size_check_ets1,            % Plain ets
+     size_check_ets2,            % ets with a file
+     size_check_ets2_bad_file1,  % ets with a bad file
+     size_check_ets3,            % ets with a checksummed file
+     size_check_ets3_bad_file1,  % ets with bad file (checksummed) 
+     size_check_dets,            % Plain dets
+     size_check_mnesia           % Plain mnesia
+    ].
+
+
+
+%%
+%% -----
+%%
 
 init_per_suite(Config0) when is_list(Config0) ->
 
@@ -108,6 +125,26 @@ end_per_suite(Config) when is_list(Config) ->
 
     Config.
 
+
+
+%%
+%% -----
+%%
+
+init_per_group(GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(GroupName, Config).
+
+end_per_group(_GroupName, Config) ->
+    %% Do we really need to do this?
+    %% lists:keydelete(snmp_group_top_dir, 1, Config).
+    Config.
+
+
+
+
+%%
+%% -----
+%%
 
 init_per_testcase(Case, Config0) when is_list(Config0) ->
     Config1    = snmp_test_lib:fix_data_dir(Config0),
@@ -149,17 +186,6 @@ init_per_testcase2(cache_test, Config) when is_list(Config) ->
 init_per_testcase2(_Case, Config) when is_list(Config) ->
     Config.
 
-%% end_per_testcase(EtsCase, Config) 
-%%   when (is_list(Config) andalso 
-%% 	((EtsCase =:= size_check_ets2) orelse 
-%% 	 (EtsCase =:= size_check_ets3))) ->
-%%     Dir = ?config(ets_dir, Config),
-%%     ?line ok = ?DEL_DIR(Dir),
-%%     lists:keydelete(ets_dir, 1, Config);
-%% end_per_testcase(size_check_dets, Config) when is_list(Config) ->
-%%     Dir = ?config(dets_dir, Config),
-%%     ?line ok = ?DEL_DIR(Dir),
-%%     lists:keydelete(dets_dir, 1, Config);
 end_per_testcase(size_check_mnesia, Config) when is_list(Config) ->
     mnesia_stop(),
     %% Dir = ?config(db_dir, Config),
@@ -172,47 +198,6 @@ end_per_testcase(cache_test, Config) when is_list(Config) ->
     Config;
 end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
-
-
-%%======================================================================
-%% Test case definitions
-%%======================================================================
-
-all() -> 
-    cases().
-
-groups() -> 
-    [{size_check, [],
-      [
-       size_check_ets1,            % Plain ets
-       size_check_ets2,            % ets with a file
-       size_check_ets2_bad_file1,  % ets with a bad file
-       size_check_ets3,            % ets with a checksummed file
-       size_check_ets3_bad_file1,  % ets with bad file (checksummed) 
-       size_check_dets,            % Plain dets
-       size_check_mnesia           % Plain mnesia
-      ]
-     }].
-
-
-init_per_group(GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(GroupName, Config).
-
-end_per_group(_GroupName, Config) ->
-    %% Do we really need to do this?
-    %% lists:keydelete(snmp_group_top_dir, 1, Config).
-    Config.
-
-
-cases() -> 
-    [
-     start_and_stop, 
-     load_unload, 
-     {group, size_check},
-     me_lookup, 
-     which_mib, 
-     cache_test
-    ].
 
 
 %%======================================================================

@@ -107,7 +107,6 @@ groups() ->
      {agent,   [], agent_cases()},
      {manager, [], manager_cases()},
 
-     {mibs_test,           [], [{snmp_agent_mibs_test,     all}]},
      {nfilter_test,        [], [{snmp_agent_nfilter_test,  all}]},
      {agent_test,          [], [{snmp_agent_test,          all}]},
      {agent_conf_test,     [], [{snmp_agent_conf_test,     all}]},
@@ -119,7 +118,6 @@ groups() ->
 
 agent_cases() ->
     [
-     {group, mibs_test}, 
      {group, nfilter_test},
      {group, agent_test},
      {group, agent_conf_test}
@@ -139,18 +137,11 @@ init_per_group(GroupName, Config0) ->
 	 "~n   GroupName: ~p"
 	 "~n   Config0:   ~p", [GroupName, Config0]),
 
-    case GroupName of
-	snmpnet_test ->
-	    Config0;
-	_ ->
-	    %% Group name is not really the suite name
-	    %% (but it is a good enough approximation),
-	    %% but it does not matter since we only need
-	    %% it to be unique.
-	    snmp_test_lib:init_suite_top_dir(GroupName, Config0)
-    end.
+    %% Group name is not really the suite name
+    %% (but it is a good enough approximation),
+    %% but it does not matter since we only need
+    %% it to be unique.
+    snmp_test_lib:init_suite_top_dir(GroupName, Config0).
 
-end_per_group(snmpnet_test, Config) ->
-    Config;
 end_per_group(_GroupName, Config) ->
     lists:keydelete(snmp_suite_top_dir, 1, Config).
