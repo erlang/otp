@@ -20,12 +20,12 @@
 
 SUITE_MODULES = \
 	snmp_SUITE \
-	snmp_agent_conf_test \
-	snmp_agent_mibs_SUITE \
-	snmp_agent_nfilter_SUITE \
 	snmp_agent_test \
 	snmp_agent_test_get \
 	snmp_agent_test_lib \
+	snmp_agent_conf_SUITE \
+	snmp_agent_mibs_SUITE \
+	snmp_agent_nfilter_SUITE \
 	snmp_app_SUITE \
 	snmp_compiler_SUITE \
 	snmp_conf_SUITE \

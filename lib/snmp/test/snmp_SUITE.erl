@@ -108,7 +108,6 @@ groups() ->
      {manager, [], manager_cases()},
 
      {agent_test,          [], [{snmp_agent_test,          all}]},
-     {agent_conf_test,     [], [{snmp_agent_conf_test,     all}]},
      {manager_config_test, [], [{snmp_manager_config_test, all}]},
      {manager_user_test,   [], [{snmp_manager_user_test,   all}]},
      {manager_test,        [], [{snmp_manager_test,        all}]}
@@ -117,8 +116,7 @@ groups() ->
 
 agent_cases() ->
     [
-     {group, agent_test},
-     {group, agent_conf_test}
+     {group, agent_test}
     ].
 
 manager_cases() ->
