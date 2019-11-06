@@ -135,6 +135,13 @@ DEPDIR=$(ERL_TOP)/lib/ssl/src/deps
 DEP_FILE=$(DEPDIR)/ssl.d
 $(shell mkdir -p $(dir $(DEP_FILE)) >/dev/null)
 
+ifeq ($(TARGET), win32)
+  # Native path without C: ignore driveletter case
+  ERL_TOP_NATIVE = $(shell w32_path.sh -m $(ERL_TOP) | sed "s@[a-zA-Z]:@:@")
+else
+  ERL_TOP_NATIVE = $(ERL_TOP)
+endif
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -144,7 +151,6 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 	-pz $(ERL_TOP)/lib/public_key/ebin \
 	$(EXTRA_ERLC_FLAGS)
 
-
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -152,8 +158,9 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 $(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
 
 $(DEP_FILE): $(ERL_FILES)
+	@echo SED $(TARGET) $(ERL_TOP_NATIVE)
 	$(gen_verbose)erlc -M $(ERL_FILES) \
-	| sed "s@$(ERL_TOP)@../../..@g" \
+	| sed "s@[a-zA-Z]\?$(ERL_TOP_NATIVE)@../../..@g" \
 	| sed "s/\.$(EMULATOR)/\.$$\(EMULATOR\)/" \
 	| sed 's@^dtls_@$$(EBIN)/dtls_@' \
 	| sed 's@^inet_@$$(EBIN)/inet_@' \
