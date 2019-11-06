@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@
 %%----------------------------------------------------------------------
 %% Purpose: Test the snmp mib compiler
 %% 
-%% Run test: ts:run(snmp, snmp_compiler_test, [batch]).
+%% Run test: ts:run(snmp, snmp_compiler_SUITE, [batch]).
 %% 
 %%----------------------------------------------------------------------
--module(snmp_compiler_test).
+-module(snmp_compiler_SUITE).
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -38,10 +38,10 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/0, 
+	 suite/0, all/0, 
+         init_per_suite/1, end_per_suite/1,
 	 groups/0, init_per_group/2, end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
-         init_per_suite/1, end_per_suite/1,
 
 	 description/1,
 	 oid_conflicts/1,
@@ -62,25 +62,47 @@
          otp_14196/1
 	]).
 
-%%----------------------------------------------------------------------
-%% Internal exports
-%%----------------------------------------------------------------------
-
--export([
-        ]).
-
-
-%%----------------------------------------------------------------------
-%% Macros
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Records
-%%----------------------------------------------------------------------
 
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+
+all() -> 
+    [
+     description, 
+     oid_conflicts, 
+     imports, 
+     module_identity, 
+     agent_capabilities, 
+     module_compliance, 
+     warnings_as_errors,
+     augments_extra_info, 
+     {group, tickets}
+    ].
+
+groups() -> 
+    [{tickets, [], tickets_cases()}].
+
+tickets_cases() ->
+    [
+     otp_6150,
+     otp_8574,
+     otp_8595,
+     otp_10799,
+     otp_10808,
+     otp_14145,
+     otp_13014,
+     otp_14196
+    ].
+
+
+%%
+%% -----
+%%
 
 init_per_suite(Config0) when is_list(Config0) ->
 
@@ -106,6 +128,22 @@ end_per_suite(Config) when is_list(Config) ->
     Config.
 
 
+%%
+%% -----
+%%
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
+
 init_per_testcase(Case, Config) when is_list(Config) ->
 
     ?DBG("init_per_testcase -> entry with"
@@ -117,36 +155,6 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
-
-
-%%======================================================================
-%% Test case definitions
-%%======================================================================
-
-all() -> 
-    [
-     description, 
-     oid_conflicts, 
-     imports, 
-     module_identity, 
-     agent_capabilities, 
-     module_compliance, 
-     warnings_as_errors,
-     augments_extra_info, 
-     {group, tickets}
-    ].
-
-groups() -> 
-    [{tickets, [],
-      [otp_6150, otp_8574, otp_8595, otp_10799, otp_10808, otp_14145,
-       otp_13014, otp_14196]}].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
 
 
 

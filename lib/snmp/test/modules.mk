@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,9 +20,8 @@
 
 SUITE_MODULES = \
 	snmp_SUITE \
-        snmp_to_snmpnet_SUITE \
 	snmp_app_SUITE \
-	snmp_compiler_test \
+	snmp_compiler_SUITE \
 	snmp_conf_test \
 	snmp_log_test \
 	snmp_note_store_test \
@@ -38,7 +37,8 @@ SUITE_MODULES = \
 	snmp_manager_user_old \
 	snmp_manager_user_test \
 	snmp_manager_user_test_lib \
-	snmp_manager_test
+	snmp_manager_test \
+        snmp_to_snmpnet_SUITE
 
 TEST_UTIL_MODULES = \
 	snmp_test_global_sys_monitor \

@@ -97,28 +97,25 @@ suite() ->
     [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, compiler}, 
-     {group, misc},
+    [{group, misc},
      {group, agent}, 
      {group, manager}].
 
 groups() -> 
     [
-     {compiler, [], [{group, compiler_test}]},
-     {misc,     [], [{group, conf_test}, 
-		     {group, pdus_test},
-		     {group, log_test}, 
-		     {group, note_store_test}]},
-     {agent, [],    [{group, mibs_test}, 
-		     {group, nfilter_test},
-             {group, agent_test},
-             {group, agent_conf_test},
-		     {group, snmpnet_test}]},
-     {manager, [],  [{group, manager_config_test},
-		     {group, manager_user_test}, 
-		     {group, manager_test}]},
+     {misc,    [], [{group, conf_test}, 
+                    {group, pdus_test},
+                    {group, log_test}, 
+                    {group, note_store_test}]},
+     {agent,   [], [{group, mibs_test}, 
+                    {group, nfilter_test},
+                    {group, agent_test},
+                    {group, agent_conf_test},
+                    {group, snmpnet_test}]},
+     {manager, [], [{group, manager_config_test},
+                    {group, manager_user_test}, 
+                    {group, manager_test}]},
 
-     {compiler_test,       [], [{snmp_compiler_test,       all}]},
      {conf_test,           [], [{snmp_conf_test,           all}]},
      {pdus_test,           [], [{snmp_pdus_test,           all}]},
      {log_test,            [], [{snmp_log_test,            all}]},
