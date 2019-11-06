@@ -37,7 +37,7 @@
          func_id :: func_id(),
          func_db :: func_info_db(),
          sub = #{} :: #{beam_ssa:b_var():=beam_ssa:value()},
-         ret_types = [] :: return_type_set()}).
+         succ_types = [] :: success_type_set()}).
 
 -type type_db() :: #{beam_ssa:var_name():=type()}.
 
@@ -104,11 +104,11 @@ opt_continue_1(Linear0, Args, Id, Ts, FuncDb0) ->
             ls=#{0=>Ts,?EXCEPTION_BLOCK=>Ts},
             once=UsedOnce },
 
-    {Linear, FuncDb, NewRet} = opt(Linear0, D, []),
+    {Linear, FuncDb, NewSucc} = opt(Linear0, D, []),
 
     case FuncDb of
         #{ Id := Entry0 } ->
-            Entry = Entry0#func_info{ret_types=NewRet},
+            Entry = Entry0#func_info{succ_types=NewSucc},
             {Linear, FuncDb#{ Id := Entry }};
         #{} ->
             %% Module-level optimizations have been turned off for this
@@ -158,8 +158,8 @@ opt([{L,Blk}|Bs], #d{ls=Ls}=D, Acc) ->
             opt(Bs, D, Acc)
     end;
 opt([], D, Acc) ->
-    #d{func_db=FuncDb,ret_types=NewRet} = D,
-    {reverse(Acc), FuncDb, NewRet}.
+    #d{func_db=FuncDb,succ_types=NewSucc} = D,
+    {reverse(Acc), FuncDb, NewSucc}.
 
 opt_1(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
       #d{ds=Ds0,sub=Sub0,func_db=Fdb0}=D0, Acc) ->
@@ -281,72 +281,16 @@ opt_call(I, _Ts, Fdb, _D) ->
 
 opt_local_call_return(#b_set{args=[_|Args]}=I, Callee, Fdb, Ts) ->
     case Fdb of
-        #{ Callee := #func_info{ret_types=[_|_]=RetTypes0} } ->
-            ArgTypes0 = argument_types(Args, Ts),
+        #{ Callee := #func_info{succ_types=[_|_]=SuccTypes} } ->
+            ArgTypes = argument_types(Args, Ts),
 
-            {RetTypes, ArgTypes} =
-                rt_recurse_types(RetTypes0, ArgTypes0, [], []),
-
-            case rt_join_types(RetTypes, ArgTypes, none) of
+            case return_type(SuccTypes, ArgTypes) of
                 any -> I;
                 Type -> beam_ssa:add_anno(result_type, Type, I)
             end;
         #{} ->
             I
     end.
-
-rt_recurse_types([{SiteTypes, {call_self, CallTypes}}=Site | Sites],
-                 ArgTypes0, Deferred, Acc) ->
-    case rt_is_reachable(SiteTypes, ArgTypes0) of
-        true ->
-            %% If we return a call to ourselves, we need to join our current
-            %% argument types with that of the call to ensure all possible
-            %% return paths are covered.
-            ArgTypes = rt_parallel_join(CallTypes, ArgTypes0),
-            rt_recurse_types(Sites, ArgTypes, Deferred, Acc);
-        false ->
-            %% This may be reachable after we've joined another self-call, so
-            %% we defer it until we've gone through all other self-calls.
-            rt_recurse_types(Sites, ArgTypes0, [Site | Deferred], Acc)
-    end;
-rt_recurse_types([Site | Sites], ArgTypes, Deferred, Acc) ->
-    rt_recurse_types(Sites, ArgTypes, Deferred, [Site | Acc]);
-rt_recurse_types([], ArgTypes, Deferred, Acc) ->
-    case rt_any_reachable(Deferred, ArgTypes) of
-        true -> rt_recurse_types(Deferred, ArgTypes, [], Acc);
-        false -> {Acc, ArgTypes}
-    end.
-
-%% Joins all returns that can be reached with the given argument types
-rt_join_types([{SiteTypes, RetType} | Sites], ArgTypes, Acc0) ->
-    Acc = case rt_is_reachable(SiteTypes, ArgTypes) of
-              true -> beam_types:join(RetType, Acc0);
-              false -> Acc0
-          end,
-    rt_join_types(Sites, ArgTypes, Acc);
-rt_join_types([], _ArgTypes, Acc) ->
-    Acc.
-
-rt_any_reachable([{SiteTypes, _} | Sites], ArgTypes) ->
-    case rt_is_reachable(SiteTypes, ArgTypes) of
-        true -> true;
-        false -> rt_any_reachable(Sites, ArgTypes)
-    end;
-rt_any_reachable([], _ArgTypes) ->
-    false.
-
-rt_is_reachable([A | SiteTypes], [B | ArgTypes]) ->
-    case beam_types:meet(A, B) of
-        none -> false;
-        _Other -> rt_is_reachable(SiteTypes, ArgTypes)
-    end;
-rt_is_reachable([], []) ->
-    true.
-
-rt_parallel_join([A | As], [B | Bs]) ->
-    [beam_types:join(A, B) | rt_parallel_join(As, Bs)];
-rt_parallel_join([], []) ->
-    [].
 
 %% While we have no way to know which arguments a fun will be called with, we
 %% do know its free variables and can update their types as if this were a
@@ -874,6 +818,68 @@ anno_float_arg(_) -> convert.
 %%% Type helpers
 %%%
 
+%% Returns the narrowest possible return type for the given success types and
+%% arguments.
+return_type(SuccTypes0, ArgTypes0) ->
+    SuccTypes = st_filter_reachable(SuccTypes0, ArgTypes0, [], []),
+    st_join_return_types(SuccTypes, none).
+
+st_filter_reachable([{SiteTypes, {call_self, CallTypes}}=Site | Sites],
+                 ArgTypes0, Deferred, Acc) ->
+    case st_is_reachable(SiteTypes, ArgTypes0) of
+        true ->
+            %% If we return a call to ourselves, we need to join our current
+            %% argument types with that of the call to ensure all possible
+            %% return paths are covered.
+            ArgTypes = st_parallel_join(CallTypes, ArgTypes0),
+            st_filter_reachable(Sites, ArgTypes, Deferred, Acc);
+        false ->
+            %% This may be reachable after we've joined another self-call, so
+            %% we defer it until we've gone through all other self-calls.
+            st_filter_reachable(Sites, ArgTypes0, [Site | Deferred], Acc)
+    end;
+st_filter_reachable([Site | Sites], ArgTypes, Deferred, Acc) ->
+    st_filter_reachable(Sites, ArgTypes, Deferred, [Site | Acc]);
+st_filter_reachable([], ArgTypes, Deferred, Acc) ->
+    case st_any_reachable(Deferred, ArgTypes) of
+        true ->
+            %% Handle all deferred self calls that may be reachable now that
+            %% we've expanded our argument types.
+            st_filter_reachable(Deferred, ArgTypes, [], Acc);
+        false ->
+            %% We have no reachable self calls, so we know our argument types
+            %% can't expand any further. Filter out our reachable sites and
+            %% return.
+            [Site || {SiteTypes, _RetType}=Site <- Acc,
+                     st_is_reachable(SiteTypes, ArgTypes)]
+    end.
+
+st_join_return_types([{_ArgTypes, RetType} | Sites], Acc0) ->
+    st_join_return_types(Sites, beam_types:join(RetType, Acc0));
+st_join_return_types([], Acc) ->
+    Acc.
+
+st_any_reachable([{SiteTypes, _} | Sites], ArgTypes) ->
+    case st_is_reachable(SiteTypes, ArgTypes) of
+        true -> true;
+        false -> st_any_reachable(Sites, ArgTypes)
+    end;
+st_any_reachable([], _ArgTypes) ->
+    false.
+
+st_is_reachable([A | SiteTypes], [B | ArgTypes]) ->
+    case beam_types:meet(A, B) of
+        none -> false;
+        _Other -> st_is_reachable(SiteTypes, ArgTypes)
+    end;
+st_is_reachable([], []) ->
+    true.
+
+st_parallel_join([A | As], [B | Bs]) ->
+    [beam_types:join(A, B) | st_parallel_join(As, Bs)];
+st_parallel_join([], []) ->
+    [].
+
 update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last, Ts, D0) ->
     {Last, update_successor(Succ, Ts, D0)};
 update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
@@ -919,10 +925,13 @@ update_successors(#b_ret{arg=Arg}=Last, Ts, D) ->
                       argument_type(Arg, Ts)
               end,
 
+    %% TODO: Adding types for 'none' is a bit wasteful, but it's necessary as
+    %% long as we optimize with incomplete type information (since we need to
+    %% assume that empty success types = any).
     ArgTypes = argument_types(D#d.params, Ts),
-    RetTypes = ordsets:add_element({ArgTypes, RetType}, D#d.ret_types),
+    SuccTypes = ordsets:add_element({ArgTypes, RetType}, D#d.succ_types),
 
-    {Last, D#d{ret_types=RetTypes}}.
+    {Last, D#d{succ_types=SuccTypes}}.
 
 update_switch([{Val, Lbl}=Sw | List], V, FailType0, Ts, UsedOnce, Acc, D0) ->
     FailType = beam_types:subtract(FailType0, raw_type(Val, Ts)),

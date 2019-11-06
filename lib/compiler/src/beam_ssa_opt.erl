@@ -134,8 +134,8 @@ changed(PrevIds, FuncDb0, FuncDb, StMap0, StMap) ->
                     true ->
                         A;
                     false ->
-                        {#func_info{arg_types=ATs0,ret_types=RT0},
-                         #func_info{arg_types=ATs1,ret_types=RT1}} =
+                        {#func_info{arg_types=ATs0,succ_types=ST0},
+                         #func_info{arg_types=ATs1,succ_types=ST1}} =
                             {map_get(Id, FuncDb0),map_get(Id, FuncDb)},
 
                         %% If the argument types have changed for this
@@ -149,7 +149,7 @@ changed(PrevIds, FuncDb0, FuncDb, StMap0, StMap) ->
                                     true -> [];
                                     false -> [called]
                                 end ++
-                            case RT0 =:= RT1 of
+                            case ST0 =:= ST1 of
                                 true -> [];
                                 false -> [callers]
                             end,
