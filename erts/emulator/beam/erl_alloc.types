@@ -250,6 +250,7 @@ type	MINDIRECTION	FIXED_SIZE	SYSTEM		magic_indirection
 type	BINARY_FIND	SHORT_LIVED	PROCESSES	binary_find
 type	CRASH_DUMP	STANDARD	SYSTEM		crash_dump
 type	DIST_TRANSCODE  SHORT_LIVED	SYSTEM		dist_transcode_context
+type	RLA_BLOCK_CNTRS	LONG_LIVED	SYSTEM		release_literal_area_block_counters
 
 type	THR_Q_EL	STANDARD   	SYSTEM		thr_q_element
 type	THR_Q_EL_SL	FIXED_SIZE	SYSTEM		sl_thr_q_element

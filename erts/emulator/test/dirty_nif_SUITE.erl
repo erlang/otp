@@ -34,7 +34,7 @@
 	 dirty_scheduler_exit/1, dirty_call_while_terminated/1,
 	 dirty_heap_access/1, dirty_process_info/1,
 	 dirty_process_register/1, dirty_process_trace/1,
-	 code_purge/1, dirty_nif_send_traced/1,
+	 code_purge/1, literal_area/1, dirty_nif_send_traced/1,
 	 nif_whereis/1, nif_whereis_parallel/1, nif_whereis_proxy/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
@@ -52,6 +52,7 @@ all() ->
      dirty_process_register,
      dirty_process_trace,
      code_purge,
+     literal_area,
      dirty_nif_send_traced,
      nif_whereis,
      nif_whereis_parallel].
@@ -428,6 +429,7 @@ code_purge(Config) when is_list(Config) ->
     Time = erlang:convert_time_unit(End-Start, native, milli_seconds),
     io:format("Time=~p~n", [Time]),
     true = Time =< 1000,
+    literal_area_collector_test:check_idle(5000),
     ok.
 
 dirty_nif_send_traced(Config) when is_list(Config) ->
@@ -457,6 +459,51 @@ dirty_nif_send_traced(Config) when is_list(Config) ->
     io:format("Time2: ~p milliseconds~n", [Time2]),
     true = Time2 >= 1900,
     ok.
+
+dirty_literal_test_code() ->
+    "
+-module(dirty_literal_code_test).
+
+-export([get_literal/0]).
+
+get_literal() ->
+    {0,1,2,3,4,5,6,7,8,9}.
+
+".
+
+literal_area(Config) when is_list(Config) ->
+    NifTMO = 3000,
+    ExtraTMO = 1000,
+    TotTMO = NifTMO+ExtraTMO,
+    Path = ?config(data_dir, Config),
+    File = filename:join(Path, "dirty_literal_code_test.erl"),
+    ok = file:write_file(File, dirty_literal_test_code()),
+    {ok, dirty_literal_code_test, Bin} = compile:file(File, [binary]),
+    {module, dirty_literal_code_test} = erlang:load_module(dirty_literal_code_test, Bin),
+    Me = self(),
+    Fun = fun () ->
+                  dirty_terminating_literal_access( 
+                    Me,
+                    dirty_literal_code_test:get_literal())
+          end,
+    {Pid, Mon} = spawn_monitor(Fun),
+    receive {dirty_alive, Pid} -> ok end,
+    exit(Pid, kill),
+    Start = erlang:monotonic_time(millisecond),
+    receive {'DOWN', Mon, process, Pid, killed} -> ok end,
+    true = erlang:delete_module(dirty_literal_code_test),
+    true = erlang:purge_module(dirty_literal_code_test),
+    End = erlang:monotonic_time(millisecond),
+    %% Wait for dirty_nif to do its access...
+    TMO = case End - Start of
+              T when T < TotTMO ->
+                  TotTMO-T;
+              _ ->
+                  0
+          end,
+    receive after TMO -> ok end,
+    literal_area_collector_test:check_idle(100),
+    {comment, "Waited "++integer_to_list(TMO)++" milliseconds after purge"}.
 
 %%
 %% Internal...
@@ -680,6 +727,7 @@ dirty_sleeper(_) -> ?nif_stub.
 dirty_heap_access_nif(_) -> ?nif_stub.
 whereis_term(_Type,_Name) -> ?nif_stub.
 whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
+dirty_terminating_literal_access(_Me, _Literal) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
