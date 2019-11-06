@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The AEAD tag was not previously checked on decrypt with
+	    chacha20_poly1305</p>
+          <p>
+	    Own Id: OTP-16242 Aux Id: ERL-1078 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

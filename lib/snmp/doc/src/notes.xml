@@ -34,7 +34,24 @@
   </header>
 
 
-  <section><title>SNMP 5.4.2</title>
+  <section><title>SNMP 5.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Agent discovery cleanup. If there is no receiver of
+	    INFORM then #state.reqs in snmpa_net_if keeps on growing
+	    for DISCOVERY.</p>
+          <p>
+	    Own Id: OTP-16228 Aux Id: ERIERL-427 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.4.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>
