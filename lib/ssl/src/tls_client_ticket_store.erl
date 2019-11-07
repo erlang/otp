@@ -28,11 +28,13 @@
 -include("tls_handshake_1_3.hrl").
 
 %% API
--export([find_ticket/1,
-         get_tickets/1,
+-export([find_ticket/2,
+         get_tickets/2,
+         lock_tickets/2,
          remove_tickets/1,
          start_link/2,
          store_ticket/4,
+         unlock_tickets/2,
          update_ticket/2]).
 
 %% gen_server callbacks
@@ -53,7 +55,8 @@
                sni,
                psk,
                timestamp,
-               ticket
+               ticket,
+               lock = undefined
               }).
 
 %%%===================================================================
@@ -66,12 +69,17 @@
 start_link(Max, Lifetime) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Max, Lifetime], []).
 
-find_ticket(HashAlgos) ->
+find_ticket(Pid, HashAlgos) ->
     %% TODO use also SNI when selecting tickets
-    gen_server:call(?MODULE, {find_ticket, HashAlgos}, infinity).
+    gen_server:call(?MODULE, {find_ticket, Pid, HashAlgos}, infinity).
 
-get_tickets(Keys) ->
-    gen_server:call(?MODULE, {get_tickets, Keys}, infinity).
+get_tickets(Pid, Keys) ->
+    gen_server:call(?MODULE, {get_tickets, Pid, Keys}, infinity).
+
+lock_tickets(_, undefined) ->
+    ok;
+lock_tickets(Pid, Keys) ->
+    gen_server:call(?MODULE, {lock, Pid, Keys}, infinity).
 
 remove_tickets([]) ->
     ok;
@@ -80,6 +88,9 @@ remove_tickets(Keys) ->
 
 store_ticket(Ticket, HKDF, SNI, PSK) ->
     gen_server:call(?MODULE, {store_ticket, Ticket, HKDF, SNI, PSK}, infinity).
+
+unlock_tickets(Pid, Keys) ->
+    gen_server:call(?MODULE, {unlock, Pid, Keys}, infinity).
 
 update_ticket(Key, Pos) ->
     gen_server:call(?MODULE, {update_ticket, Key, Pos}, infinity).
@@ -97,14 +108,20 @@ init(Args) ->
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
                          {reply, Reply :: term(), NewState :: term()} .
-handle_call({find_ticket, HashAlgos}, _From, State) ->
-    Key = find_ticket(State, HashAlgos),
+handle_call({find_ticket, Pid, HashAlgos}, _From, State) ->
+    Key = find_ticket(State, Pid, HashAlgos),
     {reply, Key, State};
-handle_call({get_tickets, Keys}, _From, State) ->
-    Data = get_tickets(State, Keys),
+handle_call({get_tickets, Pid, Keys}, _From, State) ->
+    Data = get_tickets(State, Pid, Keys),
     {reply, Data, State};
+handle_call({lock, Pid, Keys}, _From, State0) ->
+    State = lock_tickets(State0, Pid, Keys),
+    {reply, ok, State};
 handle_call({store_ticket, Ticket, HKDF, SNI, PSK}, _From, State0) ->
     State = store_ticket(State0, Ticket, HKDF, SNI, PSK),
+    {reply, ok, State};
+handle_call({unlock, Pid, Keys}, _From, State0) ->
+    State = unlock_tickets(State0, Pid, Keys),
     {reply, ok, State};
 handle_call({update_ticket, Key, Pos}, _From, State0) ->
     State = update_ticket(State0, Key, Pos),
@@ -155,49 +172,54 @@ inital_state([Max, Lifetime]) ->
           }.
 
 
-find_ticket(_, []) ->
+find_ticket(_, _, []) ->
     undefined;
 find_ticket(#state{db = Db,
-                   lifetime = Lifetime} = State, [Hash|T]) ->
-    case iterate_tickets(gb_trees:iterator(Db), Hash, Lifetime) of
+                   lifetime = Lifetime} = State, Pid, [Hash|T]) ->
+    case iterate_tickets(gb_trees:iterator(Db), Pid, Hash, Lifetime) of
         none ->
-            find_ticket(State, T);
+            find_ticket(State, Pid, T);
         Key ->
             Key
     end.
 
 
-iterate_tickets(Iter0, Hash, Lifetime) ->
+iterate_tickets(Iter0, Pid, Hash, Lifetime) ->
     case gb_trees:next(Iter0) of
         {Key, #data{hkdf = Hash,
-                    timestamp = Timestamp}, Iter} ->
+                    timestamp = Timestamp,
+                    lock = Lock}, Iter} when Lock =:= undefined orelse
+                                             Lock =:= Pid ->
             Age = erlang:system_time(seconds) - Timestamp,
             if Age < Lifetime ->
                     Key;
                true ->
-                    iterate_tickets(Iter, Hash, Lifetime)
+                    iterate_tickets(Iter, Pid, Hash, Lifetime)
             end;
         {_, _, Iter} ->
-            iterate_tickets(Iter, Hash, Lifetime);
+            iterate_tickets(Iter, Pid, Hash, Lifetime);
         none ->
             none
     end.
 
 
-get_tickets(State, Keys) ->
-    get_tickets(State, Keys, []).
+%% Get tickets that are not locked by another process
+get_tickets(State, Pid, Keys) ->
+    get_tickets(State, Pid, Keys, []).
 %%
-get_tickets(_, [], []) ->
+get_tickets(_, _, [], []) ->
     undefined; %% No tickets found
-get_tickets(_, [], Acc) ->
+get_tickets(_, _, [], Acc) ->
     Acc;
-get_tickets(#state{db = Db} = State, [Key|T], Acc) ->
+get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
     try gb_trees:get(Key, Db) of
         #data{pos = Pos,
               hkdf = HKDF,
               psk = PSK,
               timestamp = Timestamp,
-              ticket = NewSessionTicket} ->
+              ticket = NewSessionTicket,
+              lock = Lock} when Lock =:= undefined orelse
+                                Lock =:= Pid ->
             #new_session_ticket{
                ticket_lifetime = _LifeTime,
                ticket_age_add = AgeAdd,
@@ -210,10 +232,10 @@ get_tickets(#state{db = Db} = State, [Key|T], Acc) ->
             Identity = #psk_identity{
                           identity = Ticket,
                           obfuscated_ticket_age = ObfuscatedTicketAge},
-            get_tickets(State, T, [{Key, Pos, Identity, PSK, Nonce, HKDF}|Acc])
+            get_tickets(State, Pid, T, [{Key, Pos, Identity, PSK, Nonce, HKDF}|Acc])
     catch
         _:_ ->
-            get_tickets(State, T, Acc)
+            get_tickets(State, Pid, T, Acc)
     end.
 
 %% The "obfuscated_ticket_age"
@@ -249,13 +271,16 @@ collect_invalid_tickets(Iter, Lifetime) ->
 %%
 collect_invalid_tickets(Iter0, Lifetime, Acc) ->
     case gb_trees:next(Iter0) of
-        {Key, #data{timestamp = Timestamp}, Iter} ->
+        {Key, #data{timestamp = Timestamp,
+                    lock = undefined}, Iter} ->
             Age = erlang:system_time(seconds) - Timestamp,
             if Age < Lifetime ->
                     collect_invalid_tickets(Iter, Lifetime, Acc);
                true ->
                     collect_invalid_tickets(Iter, Lifetime, [Key|Acc])
             end;
+        {_, _, Iter} ->  %% Skip locked tickets
+            collect_invalid_tickets(Iter, Lifetime, Acc);
         none ->
             Acc
     end.
@@ -299,3 +324,32 @@ delete_oldest(Db0) ->
         _:_ ->
             Db0
     end.
+
+
+lock_tickets(State, Pid, Keys) ->
+    set_lock(State, Pid, Keys, lock).
+
+
+unlock_tickets(State, Pid, Keys) ->
+    set_lock(State, Pid, Keys, unlock).
+
+
+set_lock(State, _, [], _) ->
+    State;
+set_lock(#state{db = Db0} = State, Pid, [Key|T], Cmd) ->
+    try gb_trees:get(Key, Db0) of
+        Value ->
+            Db = gb_trees:update(Key, update_data_lock(Value, Pid, Cmd), Db0),
+            set_lock(State#state{db = Db}, Pid, T, Cmd)
+    catch
+        _:_ ->
+            set_lock(State, Pid, T, Cmd)
+    end.
+
+
+update_data_lock(Value, Pid, lock) ->
+    Value#data{lock = Pid};
+update_data_lock(#data{lock = Pid} = Value, Pid, unlock) ->
+    Value#data{lock = undefined};
+update_data_lock(Value, _, _) ->
+    Value.

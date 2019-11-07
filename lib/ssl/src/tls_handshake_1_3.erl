@@ -49,7 +49,7 @@
          do_wait_sh/2,
          do_wait_ee/2,
          do_wait_cert_cr/2,
-         get_ticket_data/2,
+         get_ticket_data/3,
          maybe_add_binders/3,
          maybe_add_binders/4,
          maybe_automatic_session_resumption/1]).
@@ -651,7 +651,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% new KeyShareEntry for the group indicated in the selected_group field
         %% of the triggering HelloRetryRequest.
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
-        TicketData = get_ticket_data(SessionTickets, UseTicket),
+        TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
         Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                            SessionId, Renegotiation, Cert, ClientKeyShare,
                                            TicketData),
@@ -1468,14 +1468,17 @@ get_pre_shared_key(_, undefined, HKDFAlgo, _) ->
     {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
 %% Session resumption
 get_pre_shared_key(SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
-    TicketData = get_ticket_data(SessionTickets, UseTicket),
+    TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
     case choose_psk(TicketData, SelectedIdentity) of
         undefined -> %% full handshake, default PSK
+            tls_client_ticket_store:unlock_tickets(self(), UseTicket),
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
         illegal_parameter ->
+            tls_client_ticket_store:unlock_tickets(self(), UseTicket),
             {error, illegal_parameter};
         {Key, PSK} ->
             tls_client_ticket_store:remove_tickets([Key]),  %% Remove single-use ticket
+            tls_client_ticket_store:unlock_tickets(self(), UseTicket -- [Key]),
             {ok, PSK}
     end.
 
@@ -2423,7 +2426,7 @@ maybe_automatic_session_resumption(#state{
        SessionTickets =:= auto ->
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),
-    UseTicket = tls_client_ticket_store:find_ticket(HashAlgos),
+    UseTicket = tls_client_ticket_store:find_ticket(self(), HashAlgos),
     State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
     {[UseTicket], State};
 maybe_automatic_session_resumption(#state{
@@ -2440,9 +2443,9 @@ cipher_hash_algos(Ciphers) ->
     lists:map(Fun, Ciphers).
 
 
-get_ticket_data(undefined, _) ->
+get_ticket_data(_, undefined, _) ->
     undefined;
-get_ticket_data(_, undefined) ->
+get_ticket_data(_, _, undefined) ->
     undefined;
-get_ticket_data(_, UseTicket) ->
-    tls_client_ticket_store:get_tickets(UseTicket).
+get_ticket_data(Pid, _, UseTicket) ->
+    tls_client_ticket_store:get_tickets(Pid, UseTicket).
