@@ -42,7 +42,8 @@
 	       ssl_srp_primes,
 	       ssl_alert,
 	       ssl_listen_tracker_sup, %% may be used by DTLS over SCTP	
-               tls_session_ticket,
+	       tls_bloom_filter,
+	       tls_client_ticket_store,
 	       %% Erlang Distribution over SSL/TLS
 	       inet_tls_dist,
 	       inet6_tls_dist,
