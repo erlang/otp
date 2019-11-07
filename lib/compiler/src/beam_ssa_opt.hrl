@@ -62,3 +62,10 @@
 %% module-level optimization has been turned off for said function.
 -type func_id() :: beam_ssa:b_local().
 -type func_info_db() :: #{ func_id() => #func_info{} }.
+
+-record(opt_st, {ssa :: [{beam_ssa:label(),beam_ssa:b_blk()}] |
+                        beam_ssa:block_map(),
+                 args :: [beam_ssa:b_var()],
+                 cnt :: beam_ssa:label(),
+                 anno :: beam_ssa:anno()}).
+-type st_map() :: #{ func_id() => #opt_st{} }.

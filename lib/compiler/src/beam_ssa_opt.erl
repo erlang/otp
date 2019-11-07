@@ -28,9 +28,9 @@
 %%% in one phase and then apply it in the next without having to risk working
 %%% with incomplete information.
 %%%
-%%% Each sub-pass operates on a #st{} record and a func_info_db(), where the
-%%% former is just a #b_function{} whose blocks can be represented either in
-%%% linear or map form, and the latter is a map with information about all
+%%% Each sub-pass operates on a #opt_st{} record and a func_info_db(), where
+%%% the former is just a #b_function{} whose blocks can be represented either
+%%% in linear or map form, and the latter is a map with information about all
 %%% functions in the module (see beam_ssa_opt.hrl for more details).
 %%%
 
@@ -39,21 +39,14 @@
 
 -include("beam_ssa_opt.hrl").
 
--import(lists, [all/2,append/1,duplicate/2,foldl/3,keyfind/3,member/2,
-                reverse/1,reverse/2,
-                splitwith/2,sort/1,takewhile/2,unzip/1]).
+-import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,keyfind/3,
+                member/2,reverse/1,reverse/2,splitwith/2,sort/1,
+                takewhile/2,unzip/1]).
 
 -define(MAX_REPETITIONS, 16).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
                     {'ok',beam_ssa:b_module()}.
-
--record(st, {ssa :: [{beam_ssa:label(),beam_ssa:b_blk()}] |
-                    beam_ssa:block_map(),
-             args :: [beam_ssa:b_var()],
-             cnt :: beam_ssa:label(),
-             anno :: beam_ssa:anno()}).
--type st_map() :: #{ func_id() => #st{} }.
 
 module(Module, Opts) ->
     FuncDb = case proplists:get_value(no_module_opt, Opts, false) of
@@ -68,16 +61,22 @@ module(Module, Opts) ->
     Order = get_call_order_po(StMap0, FuncDb),
 
     Phases = [{once, Order, prologue_passes(Opts)},
+              {module, module_passes(Opts)},
               {fixpoint, Order, repeated_passes(Opts)},
               {once, Order, epilogue_passes(Opts)}],
 
     StMap = run_phases(Phases, StMap0, FuncDb),
     {ok, finish(Module, StMap)}.
 
-run_phases([{once, FuncIds, Passes} | Phases], StMap0, FuncDb0) ->
+run_phases([{module, Passes} | Phases], StMap0, FuncDb0) ->
+    {StMap, FuncDb} = compile:run_sub_passes(Passes, {StMap0, FuncDb0}),
+    run_phases(Phases, StMap, FuncDb);
+run_phases([{once, FuncIds0, Passes} | Phases], StMap0, FuncDb0) ->
+    FuncIds = skip_removed(FuncIds0, StMap0),
     {StMap, FuncDb} = phase(FuncIds, Passes, StMap0, FuncDb0),
     run_phases(Phases, StMap, FuncDb);
-run_phases([{fixpoint, FuncIds, Passes} | Phases], StMap0, FuncDb0) ->
+run_phases([{fixpoint, FuncIds0, Passes} | Phases], StMap0, FuncDb0) ->
+    FuncIds = skip_removed(FuncIds0, StMap0),
     RevFuncIds = reverse(FuncIds),
     Order = {FuncIds, RevFuncIds},
     {StMap, FuncDb} = fixpoint(RevFuncIds, Order, Passes,
@@ -85,6 +84,9 @@ run_phases([{fixpoint, FuncIds, Passes} | Phases], StMap0, FuncDb0) ->
     run_phases(Phases, StMap, FuncDb);
 run_phases([], StMap, _FuncDb) ->
     StMap.
+
+skip_removed(FuncIds, StMap) ->
+    [F || F <- FuncIds, is_map_key(F, StMap)].
 
 %% Run the given passes until a fixpoint is reached.
 fixpoint(_FuncIds, _Order, _Passes, StMap, FuncDb, 0) ->
@@ -186,7 +188,7 @@ changed(PrevIds, FuncDb0, FuncDb, StMap0, StMap) ->
                   end
           end, Ids, PrevIds).
 
-add_changed([Id|Ids], Opts, FuncDb, S0) ->
+add_changed([Id|Ids], Opts, FuncDb, S0) when is_map_key(Id, FuncDb) ->
     case cerl_sets:is_element(Id, S0) of
         true ->
             add_changed(Ids, Opts, FuncDb, S0);
@@ -203,6 +205,10 @@ add_changed([Id|Ids], Opts, FuncDb, S0) ->
                 end,
             add_changed(Ids, Opts, FuncDb, S)
     end;
+add_changed([_|Ids], Opts, FuncDb, S) ->
+    %% This function is exempt from module-level optimization and will not
+    %% provide any more information.
+    add_changed(Ids, Opts, FuncDb, S);
 add_changed([], _, _, S) -> S.
 
 %%
@@ -217,7 +223,7 @@ build_st_map(#b_module{body=Fs}) ->
 
 build_st_map_1([F | Fs], Map) ->
     #b_function{anno=Anno,args=Args,cnt=Counter,bs=Bs} = F,
-    St = #st{anno=Anno,args=Args,cnt=Counter,ssa=Bs},
+    St = #opt_st{anno=Anno,args=Args,cnt=Counter,ssa=Bs},
     build_st_map_1(Fs, Map#{ get_func_id(F) => St });
 build_st_map_1([], Map) ->
     Map.
@@ -227,9 +233,14 @@ finish(#b_module{body=Fs0}=Module, StMap) ->
     Module#b_module{body=finish_1(Fs0, StMap)}.
 
 finish_1([F0 | Fs], StMap) ->
-    #st{anno=Anno,cnt=Counter,ssa=Blocks} = map_get(get_func_id(F0), StMap),
-    F = F0#b_function{anno=Anno,bs=Blocks,cnt=Counter},
-    [F | finish_1(Fs, StMap)];
+    FuncId = get_func_id(F0),
+    case StMap of
+        #{ FuncId := #opt_st{anno=Anno,cnt=Counter,ssa=Blocks} } ->
+            F = F0#b_function{anno=Anno,bs=Blocks,cnt=Counter},
+            [F | finish_1(Fs, StMap)];
+        #{} ->
+            finish_1(Fs, StMap)
+    end;
 finish_1([], _StMap) ->
     [].
 
@@ -249,6 +260,10 @@ prologue_passes(Opts) ->
           ?PASS(ssa_opt_live),                  % ...
           ?PASS(ssa_opt_type_start)],
     passes_1(Ps, Opts).
+
+module_passes(Opts) ->
+    Ps0 = [],
+    passes_1(Ps0, Opts).
 
 %% These passes all benefit from each other (in roughly this order), so they
 %% are repeated as required.
@@ -297,16 +312,26 @@ passes_1(Ps, Opts0) ->
 %% Builds a function information map with basic information about incoming and
 %% outgoing local calls, as well as whether the function is exported.
 -spec build_func_db(#b_module{}) -> func_info_db().
-build_func_db(#b_module{body=Fs,exports=Exports}) ->
+build_func_db(#b_module{body=Fs,attributes=Attr,exports=Exports0}) ->
+    Exports = fdb_exports(Attr, Exports0),
     try
-        fdb_1(Fs, gb_sets:from_list(Exports), #{})
+        fdb_fs(Fs, Exports, #{})
     catch
         %% All module-level optimizations are invalid when a NIF can override a
         %% function, so we have to bail out.
         throw:load_nif -> #{}
     end.
 
-fdb_1([#b_function{ args=Args,bs=Bs }=F | Fs], Exports, FuncDb0) ->
+fdb_exports([{on_load, L} | Attrs], Exports) ->
+    %% Functions marked with on_load must be treated as exported to prevent
+    %% them from being optimized away when unused.
+    fdb_exports(Attrs, flatten(L) ++ Exports);
+fdb_exports([_Attr | Attrs], Exports) ->
+    fdb_exports(Attrs, Exports);
+fdb_exports([], Exports) ->
+    gb_sets:from_list(Exports).
+
+fdb_fs([#b_function{ args=Args,bs=Bs }=F | Fs], Exports, FuncDb0) ->
     Id = get_func_id(F),
 
     #b_local{name=#b_literal{val=Name}, arity=Arity} = Id,
@@ -327,8 +352,8 @@ fdb_1([#b_function{ args=Args,bs=Bs }=F | Fs], Exports, FuncDb0) ->
                                        fdb_is(Is, Id, FuncDb)
                                end, FuncDb1, Bs),
 
-    fdb_1(Fs, Exports, FuncDb);
-fdb_1([], _Exports, FuncDb) ->
+    fdb_fs(Fs, Exports, FuncDb);
+fdb_fs([], _Exports, FuncDb) ->
     FuncDb.
 
 fdb_is([#b_set{op=call,
@@ -398,29 +423,29 @@ gco_rpo([], _, Seen, Acc) ->
 %%% Trivial sub passes.
 %%%
 
-ssa_opt_dead({#st{ssa=Linear}=St, FuncDb}) ->
-    {St#st{ssa=beam_ssa_dead:opt(Linear)}, FuncDb}.
+ssa_opt_dead({#opt_st{ssa=Linear}=St, FuncDb}) ->
+    {St#opt_st{ssa=beam_ssa_dead:opt(Linear)}, FuncDb}.
 
-ssa_opt_linearize({#st{ssa=Blocks}=St, FuncDb}) ->
-    {St#st{ssa=beam_ssa:linearize(Blocks)}, FuncDb}.
+ssa_opt_linearize({#opt_st{ssa=Blocks}=St, FuncDb}) ->
+    {St#opt_st{ssa=beam_ssa:linearize(Blocks)}, FuncDb}.
 
-ssa_opt_type_start({#st{ssa=Linear0,args=Args,anno=Anno}=St0, FuncDb0}) ->
+ssa_opt_type_start({#opt_st{ssa=Linear0,args=Args,anno=Anno}=St0, FuncDb0}) ->
     {Linear, FuncDb} = beam_ssa_type:opt_start(Linear0, Args, Anno, FuncDb0),
-    {St0#st{ssa=Linear}, FuncDb}.
+    {St0#opt_st{ssa=Linear}, FuncDb}.
 
-ssa_opt_type_continue({#st{ssa=Linear0,args=Args,anno=Anno}=St0, FuncDb0}) ->
+ssa_opt_type_continue({#opt_st{ssa=Linear0,args=Args,anno=Anno}=St0, FuncDb0}) ->
     {Linear, FuncDb} = beam_ssa_type:opt_continue(Linear0, Args, Anno, FuncDb0),
-    {St0#st{ssa=Linear}, FuncDb}.
+    {St0#opt_st{ssa=Linear}, FuncDb}.
 
-ssa_opt_type_finish({#st{args=Args,anno=Anno0}=St0, FuncDb0}) ->
+ssa_opt_type_finish({#opt_st{args=Args,anno=Anno0}=St0, FuncDb0}) ->
     {Anno, FuncDb} = beam_ssa_type:opt_finish(Args, Anno0, FuncDb0),
-    {St0#st{anno=Anno}, FuncDb}.
+    {St0#opt_st{anno=Anno}, FuncDb}.
 
-ssa_opt_blockify({#st{ssa=Linear}=St, FuncDb}) ->
-    {St#st{ssa=maps:from_list(Linear)}, FuncDb}.
+ssa_opt_blockify({#opt_st{ssa=Linear}=St, FuncDb}) ->
+    {St#opt_st{ssa=maps:from_list(Linear)}, FuncDb}.
 
-ssa_opt_trim_unreachable({#st{ssa=Blocks}=St, FuncDb}) ->
-    {St#st{ssa=beam_ssa:trim_unreachable(Blocks)}, FuncDb}.
+ssa_opt_trim_unreachable({#opt_st{ssa=Blocks}=St, FuncDb}) ->
+    {St#opt_st{ssa=beam_ssa:trim_unreachable(Blocks)}, FuncDb}.
 
 %%%
 %%% Split blocks before certain instructions to enable more optimizations.
@@ -432,14 +457,14 @@ ssa_opt_trim_unreachable({#st{ssa=Blocks}=St, FuncDb}) ->
 %%% for sinking get_tuple_element instructions.
 %%%
 
-ssa_opt_split_blocks({#st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
+ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
     P = fun(#b_set{op={bif,element}}) -> true;
            (#b_set{op=call}) -> true;
            (#b_set{op=make_fun}) -> true;
            (_) -> false
         end,
     {Blocks,Count} = beam_ssa:split_blocks(P, Blocks0, Count0),
-    {St#st{ssa=Blocks,cnt=Count}, FuncDb}.
+    {St#opt_st{ssa=Blocks,cnt=Count}, FuncDb}.
 
 %%%
 %%% Coalesce phi nodes.
@@ -463,10 +488,10 @@ ssa_opt_split_blocks({#st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
 %%% different registers).
 %%%
 
-ssa_opt_coalesce_phis({#st{ssa=Blocks0}=St, FuncDb}) ->
+ssa_opt_coalesce_phis({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
     Ls = beam_ssa:rpo(Blocks0),
     Blocks = c_phis_1(Ls, Blocks0),
-    {St#st{ssa=Blocks}, FuncDb}.
+    {St#opt_st{ssa=Blocks}, FuncDb}.
 
 c_phis_1([L|Ls], Blocks0) ->
     case map_get(L, Blocks0) of
@@ -569,9 +594,9 @@ c_fix_branches([], _, Blocks) -> Blocks.
 %%%   - Smaller stack frames
 %%%
 
-ssa_opt_tail_phis({#st{ssa=SSA0,cnt=Count0}=St, FuncDb}) ->
+ssa_opt_tail_phis({#opt_st{ssa=SSA0,cnt=Count0}=St, FuncDb}) ->
     {SSA,Count} = opt_tail_phis(SSA0, Count0),
-    {St#st{ssa=SSA,cnt=Count}, FuncDb}.
+    {St#opt_st{ssa=SSA,cnt=Count}, FuncDb}.
 
 opt_tail_phis(Blocks, Count) when is_map(Blocks) ->
     opt_tail_phis(maps:values(Blocks), Blocks, Count);
@@ -700,7 +725,7 @@ are_all_literals(Args) ->
 %%% be replaced with get_tuple_element/3 instructions.
 %%%
 
-ssa_opt_element({#st{ssa=Blocks}=St, FuncDb}) ->
+ssa_opt_element({#opt_st{ssa=Blocks}=St, FuncDb}) ->
     %% Collect the information about element instructions in this
     %% function.
     GetEls = collect_element_calls(beam_ssa:linearize(Blocks)),
@@ -712,7 +737,7 @@ ssa_opt_element({#st{ssa=Blocks}=St, FuncDb}) ->
 
     %% For each chain, swap the first element call with the
     %% element call with the highest index.
-    {St#st{ssa=swap_element_calls(Chains, Blocks)}, FuncDb}.
+    {St#opt_st{ssa=swap_element_calls(Chains, Blocks)}, FuncDb}.
 
 collect_element_calls([{L,#b_blk{is=Is0,last=Last}}|Bs]) ->
     case {Is0,Last} of
@@ -773,9 +798,9 @@ swap_element_calls_1([], _, Blocks) ->
 %%% when applicable.
 %%%
 
-ssa_opt_record({#st{ssa=Linear}=St, FuncDb}) ->
+ssa_opt_record({#opt_st{ssa=Linear}=St, FuncDb}) ->
     Blocks = maps:from_list(Linear),
-    {St#st{ssa=record_opt(Linear, Blocks)}, FuncDb}.
+    {St#opt_st{ssa=record_opt(Linear, Blocks)}, FuncDb}.
 
 record_opt([{L,#b_blk{is=Is0,last=Last}=Blk0}|Bs], Blocks) ->
     Is = record_opt_is(Is0, Last, Blocks),
@@ -868,9 +893,9 @@ is_tagged_tuple_4([], _, _) -> no.
 %%% subexpressions across instructions that clobber the X registers.
 %%%
 
-ssa_opt_cse({#st{ssa=Linear}=St, FuncDb}) ->
+ssa_opt_cse({#opt_st{ssa=Linear}=St, FuncDb}) ->
     M = #{0=>#{}},
-    {St#st{ssa=cse(Linear, #{}, M)}, FuncDb}.
+    {St#opt_st{ssa=cse(Linear, #{}, M)}, FuncDb}.
 
 cse([{L,#b_blk{is=Is0,last=Last0}=Blk}|Bs], Sub0, M0) ->
     Es0 = map_get(L, M0),
@@ -1013,12 +1038,12 @@ cse_suitable(#b_set{}) -> false.
          bs :: beam_ssa:block_map()
         }).
 
-ssa_opt_float({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
+ssa_opt_float({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     NonGuards = non_guards(Linear0),
     Blocks = maps:from_list(Linear0),
     Fs = #fs{non_guards=NonGuards,bs=Blocks},
     {Linear,Count} = float_opt(Linear0, Count0, Fs),
-    {St#st{ssa=Linear,cnt=Count}, FuncDb}.
+    {St#opt_st{ssa=Linear,cnt=Count}, FuncDb}.
 
 %% The fconv instruction doesn't support jumping to a fail label, so we have to
 %% skip this optimization if the fail block is a guard.
@@ -1271,12 +1296,12 @@ float_flush_regs(#fs{regs=Rs}) ->
 %%% with a cheaper instructions
 %%%
 
-ssa_opt_live({#st{ssa=Linear0}=St, FuncDb}) ->
+ssa_opt_live({#opt_st{ssa=Linear0}=St, FuncDb}) ->
     RevLinear = reverse(Linear0),
     Blocks0 = maps:from_list(RevLinear),
     Blocks = live_opt(RevLinear, #{}, Blocks0),
     Linear = beam_ssa:linearize(Blocks),
-    {St#st{ssa=Linear}, FuncDb}.
+    {St#opt_st{ssa=Linear}, FuncDb}.
 
 live_opt([{L,Blk0}|Bs], LiveMap0, Blocks) ->
     Blk1 = beam_ssa_share:block(Blk0, Blocks),
@@ -1386,10 +1411,10 @@ live_opt_is([], Live, Acc) ->
 %%%   with bs_test_tail.
 %%%
 
-ssa_opt_bsm({#st{ssa=Linear}=St, FuncDb}) ->
+ssa_opt_bsm({#opt_st{ssa=Linear}=St, FuncDb}) ->
     Extracted0 = bsm_extracted(Linear),
     Extracted = cerl_sets:from_list(Extracted0),
-    {St#st{ssa=bsm_skip(Linear, Extracted)}, FuncDb}.
+    {St#opt_st{ssa=bsm_skip(Linear, Extracted)}, FuncDb}.
 
 bsm_skip([{L,#b_blk{is=Is0}=Blk}|Bs0], Extracted) ->
     Bs = bsm_skip(Bs0, Extracted),
@@ -1487,14 +1512,14 @@ coalesce_skips_is(_, _, _) ->
 %%% Short-cutting binary matching instructions.
 %%%
 
-ssa_opt_bsm_shortcut({#st{ssa=Linear}=St, FuncDb}) ->
+ssa_opt_bsm_shortcut({#opt_st{ssa=Linear}=St, FuncDb}) ->
     Positions = bsm_positions(Linear, #{}),
     case map_size(Positions) of
         0 ->
             %% No binary matching instructions.
             {St, FuncDb};
         _ ->
-            {St#st{ssa=bsm_shortcut(Linear, Positions)}, FuncDb}
+            {St#opt_st{ssa=bsm_shortcut(Linear, Positions)}, FuncDb}
     end.
 
 bsm_positions([{L,#b_blk{is=Is,last=Last}}|Bs], PosMap0) ->
@@ -1561,9 +1586,9 @@ bsm_shortcut([], _PosMap) -> [].
 %%% to bs_put_string instructions in later pass.
 %%%
 
-ssa_opt_bs_puts({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
+ssa_opt_bs_puts({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     {Linear,Count} = opt_bs_puts(Linear0, Count0, []),
-    {St#st{ssa=Linear,cnt=Count}, FuncDb}.
+    {St#opt_st{ssa=Linear,cnt=Count}, FuncDb}.
 
 opt_bs_puts([{L,#b_blk{is=Is}=Blk0}|Bs], Count0, Acc0) ->
     case Is of
@@ -1781,12 +1806,12 @@ opt_bs_put_split_int_1(Int, L, R) ->
 %%% is_tuple_of_arity instruction by the loader.
 %%%
 
-ssa_opt_tuple_size({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
+ssa_opt_tuple_size({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     %% This optimization is only safe in guards, as prefixing tuple_size with
     %% an is_tuple check prevents it from throwing an exception.
     NonGuards = non_guards(Linear0),
     {Linear,Count} = opt_tup_size(Linear0, NonGuards, Count0, []),
-    {St#st{ssa=Linear,cnt=Count}, FuncDb}.
+    {St#opt_st{ssa=Linear,cnt=Count}, FuncDb}.
 
 opt_tup_size([{L,#b_blk{is=Is,last=Last}=Blk}|Bs], NonGuards, Count0, Acc0) ->
     case {Is,Last} of
@@ -1865,9 +1890,9 @@ opt_tup_size_is([], _, _, _Acc) -> none.
 %%% is 'true' or 'false' can be rewritten to a is_boolean test.
 %%%
 
-ssa_opt_sw({#st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
+ssa_opt_sw({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     {Linear,Count} = opt_sw(Linear0, Count0, []),
-    {St#st{ssa=Linear,cnt=Count}, FuncDb}.
+    {St#opt_st{ssa=Linear,cnt=Count}, FuncDb}.
 
 opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
     %% Ensure that no label in the switch list is the same
@@ -1909,10 +1934,10 @@ opt_sw([], Count, Acc) ->
 %%% Merge blocks.
 %%%
 
-ssa_opt_merge_blocks({#st{ssa=Blocks}=St, FuncDb}) ->
+ssa_opt_merge_blocks({#opt_st{ssa=Blocks}=St, FuncDb}) ->
     Preds = beam_ssa:predecessors(Blocks),
     Merged = merge_blocks_1(beam_ssa:rpo(Blocks), Preds, Blocks),
-    {St#st{ssa=Merged}, FuncDb}.
+    {St#opt_st{ssa=Merged}, FuncDb}.
 
 merge_blocks_1([L|Ls], Preds0, Blocks0) ->
     case Preds0 of
@@ -2003,7 +2028,7 @@ is_merge_allowed_1(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
 %%% extracted values.
 %%%
 
-ssa_opt_sink({#st{ssa=Linear}=St, FuncDb}) ->
+ssa_opt_sink({#opt_st{ssa=Linear}=St, FuncDb}) ->
     %% Create a map with all variables that define get_tuple_element
     %% instructions. The variable name map to the block it is defined in.
     case def_blocks(Linear) of
@@ -2015,7 +2040,7 @@ ssa_opt_sink({#st{ssa=Linear}=St, FuncDb}) ->
             {do_ssa_opt_sink(Defs, St), FuncDb}
     end.
 
-do_ssa_opt_sink(Defs, #st{ssa=Linear}=St) ->
+do_ssa_opt_sink(Defs, #opt_st{ssa=Linear}=St) ->
     Blocks0 = maps:from_list(Linear),
 
     %% Now find all the blocks that use variables defined by get_tuple_element
@@ -2043,7 +2068,7 @@ do_ssa_opt_sink(Defs, #st{ssa=Linear}=St) ->
                            move_defs(V, From, To, A)
                    end, Blocks0, DefLoc),
 
-    St#st{ssa=beam_ssa:linearize(Blocks)}.
+    St#opt_st{ssa=beam_ssa:linearize(Blocks)}.
 
 def_blocks([{L,#b_blk{is=Is}}|Bs]) ->
     def_blocks_is(Is, L, def_blocks(Bs));
@@ -2241,9 +2266,9 @@ insert_def_is([], _V, Def) ->
 %%% for combining get_tuple_element instructions.
 %%%
 
-ssa_opt_get_tuple_element({#st{ssa=Blocks0}=St, FuncDb}) ->
+ssa_opt_get_tuple_element({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
     Blocks = opt_get_tuple_element(maps:to_list(Blocks0), Blocks0),
-    {St#st{ssa=Blocks}, FuncDb}.
+    {St#opt_st{ssa=Blocks}, FuncDb}.
 
 opt_get_tuple_element([{L,#b_blk{is=Is0}=Blk0}|Bs], Blocks) ->
     case opt_get_tuple_element_is(Is0, false, []) of
