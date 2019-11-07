@@ -30,7 +30,7 @@
 %% API
 -export([find_ticket/1,
          get_tickets/1,
-         remove_ticket/1,
+         remove_tickets/1,
          start_link/2,
          store_ticket/4,
          update_ticket/2]).
@@ -73,8 +73,10 @@ find_ticket(HashAlgos) ->
 get_tickets(Keys) ->
     gen_server:call(?MODULE, {get_tickets, Keys}, infinity).
 
-remove_ticket(Key) ->
-    gen_server:call(?MODULE, {remove_ticket, Key}, infinity).
+remove_tickets([]) ->
+    ok;
+remove_tickets(Keys) ->
+    gen_server:cast(?MODULE, {remove_tickets, Keys}).
 
 store_ticket(Ticket, HKDF, SNI, PSK) ->
     gen_server:call(?MODULE, {store_ticket, Ticket, HKDF, SNI, PSK}, infinity).
@@ -101,9 +103,6 @@ handle_call({find_ticket, HashAlgos}, _From, State) ->
 handle_call({get_tickets, Keys}, _From, State) ->
     Data = get_tickets(State, Keys),
     {reply, Data, State};
-handle_call({remove_ticket, Key}, _From, State0) ->
-    State = remove_ticket(State0, Key),
-    {reply, ok, State};
 handle_call({store_ticket, Ticket, HKDF, SNI, PSK}, _From, State0) ->
     State = store_ticket(State0, Ticket, HKDF, SNI, PSK),
     {reply, ok, State};
@@ -113,11 +112,17 @@ handle_call({update_ticket, Key, Pos}, _From, State0) ->
 
 -spec handle_cast(Request :: term(), State :: term()) ->
                          {noreply, NewState :: term()}.
+handle_cast({remove_tickets, Key}, State0) ->
+    State = remove_tickets(State0, Key),
+    {noreply, State};
 handle_cast(_Request, State) ->
     {noreply, State}.
 
 -spec handle_info(Info :: timeout() | term(), State :: term()) ->
                          {noreply, NewState :: term()}.
+handle_info(remove_invalid_tickets, State0) ->
+    State = remove_invalid_tickets(State0),
+    {noreply, State};
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -143,6 +148,7 @@ format_status(_Opt, Status) ->
 %%%===================================================================
 
 inital_state([Max, Lifetime]) ->
+    erlang:send_after(Lifetime * 1000, self(), remove_invalid_tickets),
     #state{db = gb_trees:empty(),
            lifetime = Lifetime,
            max = Max
@@ -159,6 +165,7 @@ find_ticket(#state{db = Db,
         Key ->
             Key
     end.
+
 
 iterate_tickets(Iter0, Hash, Lifetime) ->
     case gb_trees:next(Iter0) of
@@ -218,9 +225,40 @@ obfuscate_ticket_age(TicketAge, AgeAdd) ->
     (TicketAge + AgeAdd) rem round(math:pow(2,32)).
 
 
+remove_tickets(State, []) ->
+    State;
+remove_tickets(State0, [Key|T]) ->
+    remove_tickets(remove_ticket(State0, Key), T).
+
+
 remove_ticket(#state{db = Db0} = State, Key) ->
     Db = gb_trees:delete_any(Key, Db0),
     State#state{db = Db}.
+
+
+remove_invalid_tickets(#state{db = Db,
+                              lifetime = Lifetime} = State0) ->
+    Keys = collect_invalid_tickets(gb_trees:iterator(Db), Lifetime),
+    State = remove_tickets(State0, Keys),
+    erlang:send_after(Lifetime * 1000, self(), remove_invalid_tickets),
+    State.
+
+
+collect_invalid_tickets(Iter, Lifetime) ->
+    collect_invalid_tickets(Iter, Lifetime, []).
+%%
+collect_invalid_tickets(Iter0, Lifetime, Acc) ->
+    case gb_trees:next(Iter0) of
+        {Key, #data{timestamp = Timestamp}, Iter} ->
+            Age = erlang:system_time(seconds) - Timestamp,
+            if Age < Lifetime ->
+                    collect_invalid_tickets(Iter, Lifetime, Acc);
+               true ->
+                    collect_invalid_tickets(Iter, Lifetime, [Key|Acc])
+            end;
+        none ->
+            Acc
+    end.
 
 
 store_ticket(#state{db = Db0, max = Max} = State, Ticket, HKDF, SNI, PSK) ->
@@ -231,7 +269,8 @@ store_ticket(#state{db = Db0, max = Max} = State, Ticket, HKDF, SNI, PSK) ->
              true ->
                   Db0
           end,
-    Db = gb_trees:insert(erlang:monotonic_time(),
+    Key = erlang:monotonic_time(),
+    Db = gb_trees:insert(Key,
                          #data{hkdf = HKDF,
                                sni = SNI,
                                psk = PSK,

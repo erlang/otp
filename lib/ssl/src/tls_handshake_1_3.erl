@@ -1475,7 +1475,7 @@ get_pre_shared_key(SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
         illegal_parameter ->
             {error, illegal_parameter};
         {Key, PSK} ->
-            tls_client_ticket_store:remove_ticket(Key),
+            tls_client_ticket_store:remove_tickets([Key]),  %% Remove single-use ticket
             {ok, PSK}
     end.
 
