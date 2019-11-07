@@ -66,7 +66,8 @@
 	       paper = ?PAPER     :: integer(),
 	       ribbon = ?RIBBON   :: integer(),
 	       user = ?NOUSER     :: term(),
-               encoding = epp:default_encoding() :: epp:source_encoding()}).
+               encoding = epp:default_encoding() :: epp:source_encoding(),
+	       empty_lines = sets:new() :: sets:set(integer())}).
 
 -type context() :: #ctxt{}.
 
@@ -358,7 +359,8 @@ layout(Node, Options) ->
 	      ribbon = proplists:get_value(ribbon, Options, ?RIBBON),
 	      user = proplists:get_value(user, Options),
               encoding = proplists:get_value(encoding, Options,
-                                             epp:default_encoding())}).
+                                             epp:default_encoding()),
+              empty_lines = proplists:get_value(empty_lines, Options, sets:new())}).
 
 lay(Node, Ctxt) ->
     case erl_syntax:get_ann(Node) of
@@ -576,9 +578,7 @@ lay_2(Node, Ctxt) ->
 		     G ->
 			 lay(G, Ctxt1)
 		 end,
-	    D3 = sep(seq(erl_syntax:clause_body(Node),
-			 floating(text(",")), Ctxt1,
-			 fun lay/2)),
+	    D3 = lay_clause_expressions(erl_syntax:clause_body(Node), Ctxt1),
 	    case Ctxt#ctxt.clause of
 		fun_expr ->
 		    make_fun_clause(D1, D2, D3, Ctxt);
@@ -1494,5 +1494,27 @@ tidy_float_2([$e | Cs]) -> tidy_float_2([$e, $+ | Cs]);
 tidy_float_2([_C | Cs]) -> tidy_float_2(Cs);
 tidy_float_2([]) -> [].
 
+lay_clause_expressions([H], Ctxt) ->
+	lay(H, Ctxt);
+lay_clause_expressions([H | T], Ctxt) ->
+    Clause = beside(lay(H, Ctxt), floating(text(","))),
+    Next = lay_clause_expressions(T, Ctxt),
+    case is_last_and_before_empty_line(H, T, Ctxt) of
+	true ->
+	    above(above(Clause, text("")), Next);
+        false ->
+            above(Clause, Next)
+    end;
+lay_clause_expressions([], _) ->
+    empty().
+
+is_last_and_before_empty_line(H, [], #ctxt{empty_lines = EmptyLines}) ->
+    try sets:is_element(erl_syntax:get_pos(H) + 1, EmptyLines)
+    catch error:badarith -> false
+    end;
+is_last_and_before_empty_line(H, [H2 | _], #ctxt{empty_lines = EmptyLines}) ->
+    try ((erl_syntax:get_pos(H2) - erl_syntax:get_pos(H)) >= 2) and sets:is_element(erl_syntax:get_pos(H) + 1, EmptyLines)
+    catch error:badarith -> false
+    end.
 
 %% =====================================================================
