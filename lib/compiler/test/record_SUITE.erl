@@ -28,7 +28,7 @@
 	 init_per_testcase/2,end_per_testcase/2,
 	 errors/1,record_test_2/1,record_test_3/1,record_access_in_guards/1,
 	 guard_opt/1,eval_once/1,foobar/1,missing_test_heap/1,
-	 nested_access/1,coverage/1,grab_bag/1]).
+	 nested_access/1,coverage/1,grab_bag/1,slow_compilation/1]).
 
 init_per_testcase(_Case, Config) ->
     Config.
@@ -47,7 +47,8 @@ groups() ->
     [{p,test_lib:parallel(),
       [errors,record_test_2,record_test_3,
        record_access_in_guards,guard_opt,eval_once,foobar,
-       missing_test_heap,nested_access,coverage,grab_bag]}].
+       missing_test_heap,nested_access,coverage,grab_bag,
+       slow_compilation]}].
 
 
 init_per_suite(Config) ->
@@ -688,6 +689,50 @@ grab_bag(_Config) ->
     error = T5(atom),
 
     ok.
+
+%% ERIERL-436; the following code used to be very slow to compile.
+%%
+%% #slow_r{} should have about 4x as many fields for the test to be effective
+%% (all of them matched in slow_compilation/1), but unfortunately the memory
+%% use scales together with the speed so we'll run out of memory on many of
+%% our test machines before we reach noticeable levels (2+ minutes before the
+%% fix).
+%%
+%% We've therefore scaled it down to the current level, at least it it'll guard
+%% against excessive regressions.
+
+-record(slow_r,
+        {f0,  f1, f2, f3, f4, f5, f6, f7, f8, f9,
+         f10,f11,f12,f13,f14,f15,f16,f17,f18,f19,
+         f20,f21,f22,f23,f24,f25,f26,f27,f28,f29,
+         f30,f31,f32,f33,f34,f35,f36,f37,f38,f39,
+         f40,f41,f42,f43,f44,f45,f46,f47,f48,f49,
+         f50,f51,f52,f53,f54,f55,f56,f57,f58,f59}).
+
+slow_compilation(Config) when is_list(Config) ->
+    R = id(#slow_r{}),
+
+    [{f0,R#slow_r.f0},{f1,R#slow_r.f0},{f1,R#slow_r.f1},
+     {f2,R#slow_r.f2},{f3,R#slow_r.f3},{f4,R#slow_r.f4},
+     {f5,R#slow_r.f5},{f6,R#slow_r.f6},{f7,R#slow_r.f7},
+     {f8,R#slow_r.f8},{f9,R#slow_r.f9},{f10,R#slow_r.f10},
+     {f11,R#slow_r.f11},{f12,R#slow_r.f12},{f13,R#slow_r.f13},
+     {f14,R#slow_r.f14},{f15,R#slow_r.f15},{f16,R#slow_r.f16},
+     {f17,R#slow_r.f17},{f18,R#slow_r.f18},{f19,R#slow_r.f19},
+     {f20,R#slow_r.f20},{f21,R#slow_r.f21},{f22,R#slow_r.f22},
+     {f23,R#slow_r.f23},{f24,R#slow_r.f24},{f25,R#slow_r.f25},
+     {f26,R#slow_r.f26},{f27,R#slow_r.f27},{f28,R#slow_r.f28},
+     {f29,R#slow_r.f29},{f30,R#slow_r.f30},{f31,R#slow_r.f31},
+     {f32,R#slow_r.f32},{f33,R#slow_r.f33},{f34,R#slow_r.f34},
+     {f35,R#slow_r.f35},{f36,R#slow_r.f36},{f37,R#slow_r.f37},
+     {f38,R#slow_r.f38},{f39,R#slow_r.f39},{f40,R#slow_r.f40},
+     {f41,R#slow_r.f41},{f42,R#slow_r.f42},{f43,R#slow_r.f43},
+     {f44,R#slow_r.f44},{f45,R#slow_r.f45},{f46,R#slow_r.f46},
+     {f47,R#slow_r.f47},{f48,R#slow_r.f48},{f49,R#slow_r.f49},
+     {f40,R#slow_r.f50},{f51,R#slow_r.f51},{f52,R#slow_r.f52},
+     {f53,R#slow_r.f53},{f54,R#slow_r.f54},{f55,R#slow_r.f55},
+     {f56,R#slow_r.f56},{f57,R#slow_r.f57},{f58,R#slow_r.f58},
+     {f59,R#slow_r.f59}].
 
 first_arg(First, _) -> First.
 
