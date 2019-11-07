@@ -86,7 +86,7 @@ groups() ->
 		       directory_to_tar, binaries_to_tar, null_crypto_tar, 
 		       simple_crypto_tar_small, simple_crypto_tar_big,
 		       read_tar, read_null_crypto_tar, read_crypto_tar, 
-		       aes_cbc256_crypto_tar, aes_ctr_stream_crypto_tar
+		       block_size_1_crypto_tar, block_size_16_crypto_tar
 		      ]},
 
      {write_read_tests, [], [open_close_file, open_close_dir, read_file, read_dir,
@@ -961,47 +961,10 @@ read_crypto_tar(Config) ->
     chk_tar(NameBins, Config, [{crypto,Cr}]).
 
 %%--------------------------------------------------------------------
-aes_cbc256_crypto_tar(Config) ->
-    ChPid2 = proplists:get_value(channel_pid2, Config),
-    NameBins = lists:sort(
-		 [{"b1",<<"A binary">>},
-		  {"b2",list_to_binary(lists:duplicate(750000,"a"))},
-		  {"d1",fn("d1",Config)}  % Dir
-		 ]),
-    Key = <<"This is a 256 bit key. Boring...">>,
-    Ivec0 = crypto:strong_rand_bytes(16),
-    DataSize = 1024,  % data_size rem 16 = 0 for aes_cbc
+block_size_16_crypto_tar(Config) -> cipher_crypto_tar(aes_256_cbc, Config).
+block_size_1_crypto_tar(Config) -> cipher_crypto_tar(aes_256_ctr, Config).
 
-    Cinitw = fun() -> {ok, Ivec0, DataSize} end,
-    Cinitr = fun() -> {ok, Ivec0, DataSize} end,
-
-    Cenc = fun(PlainBin,Ivec) -> 
-		   CipherBin = crypto:crypto_one_time(aes_256_cbc, Key, Ivec, PlainBin, [{encrypt,true},
-                                                                                         {padding,zero}]),
-		   {ok, CipherBin, crypto:next_iv(aes_cbc,CipherBin), DataSize}
-	   end,
-    Cdec = fun(CipherBin,Ivec) ->
-		   PlainBin = crypto:crypto_one_time(aes_256_cbc, Key, Ivec, CipherBin, false),
-		   {ok, PlainBin, crypto:next_iv(aes_cbc,CipherBin), DataSize}
-	   end,
-
-    Cendw = fun(PlainBin, Ivec) ->
-                    CipherBin = crypto:crypto_one_time(aes_256_cbc, Key, Ivec, PlainBin, [{encrypt,true},
-                                                                                          {padding,zero}]),
-		    {ok, CipherBin}
-	    end,
-
-    Cw = {Cinitw,Cenc,Cendw},
-    TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,Cw}]),
-    [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose]) || {Name,Bin} <- NameBins],
-    ok = erl_tar:close(HandleWrite),
-
-    Cr = {Cinitr,Cdec},
-    chk_tar(NameBins, Config, [{crypto,Cr}]).
-
-%%--------------------------------------------------------------------
-aes_ctr_stream_crypto_tar(Config) ->
+cipher_crypto_tar(Cipher, Config) ->
     ChPid2 = proplists:get_value(channel_pid2, Config),
     NameBins = lists:sort(
 		 [{"b1",<<"A binary">>},
@@ -1011,9 +974,9 @@ aes_ctr_stream_crypto_tar(Config) ->
     Key = <<"This is a 256 bit key. Boring...">>,
     Ivec0 = crypto:strong_rand_bytes(16),
 
-    Cinitw = fun() -> {ok, crypto:crypto_init(aes_256_ctr,Key,Ivec0,[{encrypt,true},
-                                                                     {padding,zero}])} end,
-    Cinitr = fun() -> {ok, crypto:crypto_init(aes_256_ctr,Key,Ivec0,false)} end,
+    Cinitw = fun() -> {ok, crypto:crypto_init(Cipher,Key,Ivec0,[{encrypt,true},
+                                                                {padding,zero}])} end,
+    Cinitr = fun() -> {ok, crypto:crypto_init(Cipher,Key,Ivec0,false)} end,
 
     Cenc = fun(PlainBin,State) -> 
 		   CipherBin = crypto:crypto_update(State, PlainBin),
