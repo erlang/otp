@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -17,9 +17,17 @@
 %%
 %% %CopyrightEnd%
 %%
+%% This pass infers types from expressions and attempts to simplify or remove
+%% subsequent instructions based on that information.
+%%
+%% This is divided into two subpasses; the first figures out function type
+%% signatures for the whole module without optimizing anything, and the second
+%% optimizes based on that information, further refining the type signatures as
+%% it goes.
+%%
 
 -module(beam_ssa_type).
--export([opt_start/4, opt_continue/4, opt_finish/3]).
+-export([opt_start/2, opt_continue/4, opt_finish/3]).
 
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
@@ -27,65 +35,153 @@
 -import(lists, [all/2,any/2,duplicate/2,foldl/3,member/2,
                 keyfind/3,reverse/1,split/2,zip/2]).
 
--define(UNICODE_MAX, (16#10FFFF)).
+%% The maximum number of #b_ret{} terminators a function can have before
+%% collapsing success types into a single entry. Consider the following code:
+%%
+%%    f(0) -> 1;
+%%    f(...) -> ...;
+%%    f(500000) -> 500000.
+%%
+%% Since success types are grouped by return type and each clause returns a
+%% distinct type (singleton #t_integer{}s), we'll add 500000 entries which
+%% makes progress glacial since every call needs to examine them all to
+%% determine the return type.
+%%
+%% The entries are collapsed unconditionally if the number of returns in a
+%% function exceeds this threshold. This is necessary because collapsing as we
+%% go might widen a type; if we're at (?RETURN_LIMIT - 1) entries and suddenly
+%% narrow a type down, it could push us over the edge and collapse all entries,
+%% possibly widening the return type and breaking optimizations that were based
+%% on the earlier (narrower) types.
+-define(RETURN_LIMIT, 100).
 
-%% Constant metadata used by both subpasses.
+%% Constants common to all subpasses.
 -record(metadata,
         { func_id :: func_id(),
+          limit_return :: boolean(),
           params :: [beam_ssa:b_var()],
           used_once :: cerl_sets:set(beam_ssa:b_var()) }).
 
 -type type_db() :: #{ beam_ssa:var_name() := type() }.
 
--spec opt_start(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
-      Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
-      Args :: [beam_ssa:b_var()],
-      Anno :: beam_ssa:anno(),
-      FuncDb :: func_info_db().
-opt_start(Linear, Args, Anno, FuncDb) ->
-    %% This is the first run through the module, so our arg_types can be
-    %% incomplete as we may not have visited all call sites at least once.
-    Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
-    opt_continue_1(Linear, Args, get_func_id(Anno), Ts, FuncDb).
+%%
 
--spec opt_continue(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
-      Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
-      Args :: [beam_ssa:b_var()],
-      Anno :: beam_ssa:anno(),
-      FuncDb :: func_info_db().
-opt_continue(Linear, Args, Anno, FuncDb) ->
-    Id = get_func_id(Anno),
-    case FuncDb of
-        #{ Id := #func_info{exported=false,arg_types=ArgTypes} } ->
-            %% This is a local function and we're guaranteed to have visited
-            %% every call site at least once, so we know that the parameter
-            %% types are at least as narrow as the join of all argument types.
-            Ts = join_arg_types(Args, ArgTypes, #{}),
-            opt_continue_1(Linear, Args, Id, Ts, FuncDb);
+-spec opt_start(term(), term()) -> term().
+opt_start(StMap, FuncDb0) when FuncDb0 =/= #{} ->
+    {ArgDb, FuncDb} = signatures(StMap, FuncDb0),
+
+    opt_start_1(maps:keys(StMap), ArgDb, StMap, FuncDb);
+opt_start(StMap, FuncDb) ->
+    %% Module-level analysis is disabled, likely because of a call to
+    %% load_nif/2 or similar. opt_continue/4 will assume that all arguments and
+    %% return types are 'any'.
+    {StMap, FuncDb}.
+
+opt_start_1([Id | Ids], ArgDb, StMap0, FuncDb0) ->
+    case ArgDb of
+        #{ Id := ArgTypes } ->
+            #opt_st{ssa=Linear0,args=Args} = St0 = map_get(Id, StMap0),
+
+            Ts = maps:from_list(zip(Args, ArgTypes)),
+            {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts, FuncDb0),
+
+            St = St0#opt_st{ssa=Linear},
+            StMap = StMap0#{ Id := St },
+
+            opt_start_1(Ids, ArgDb, StMap, FuncDb);
         #{} ->
-            %% We can't infer the parameter types of exported functions, nor
-            %% the ones where module-level optimization is disabled, but
-            %% running the pass again could still help other functions.
-            Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
-            opt_continue_1(Linear, Args, Id, Ts, FuncDb)
+            %% Unreachable functions must be removed so that opt_continue/4
+            %% won't process them and potentially taint the argument types of
+            %% other functions.
+            StMap = maps:remove(Id, StMap0),
+            FuncDb = maps:remove(Id, FuncDb0),
+
+            opt_start_1(Ids, ArgDb, StMap, FuncDb)
+    end;
+opt_start_1([], _CommittedArgs, StMap, FuncDb) ->
+    {StMap, FuncDb}.
+
+%%
+%% The initial signature analysis is based on the paper "Practical Type
+%% Inference Based on Success Typings" [1] by `Tobias Lindahl` and
+%% `Konstantinos Sagonas`, mainly section 6.1 and onwards.
+%%
+%% The general idea is to start out at the module's entry points and propagate
+%% types to the functions we call. The argument types of all exported functions
+%% start out a 'any', whereas local functions start at 'none'. Every time a
+%% function call widens the argument types, we analyze the callee again and
+%% propagate its return types to the callers, analyzing them again, and
+%% continuing this process until all arguments and return types have been
+%% widened as far as they can be.
+%%
+%% Note that we do not "jump-start the analysis" by first determining success
+%% types as in the paper because we need to know all possible inputs including
+%% those that will not return.
+%%
+%% [1] http://www.it.uu.se/research/group/hipe/papers/succ_types.pdf
+%%
+
+-record(sig_st,
+        { wl = wl_new() :: worklist(),
+          committed = #{} :: #{ func_id() => [type()] },
+          updates = #{} :: #{ func_id() => [type()] }}).
+
+signatures(StMap, FuncDb0) ->
+    State0 = init_sig_st(StMap, FuncDb0),
+    {State, FuncDb} = signatures_1(StMap, FuncDb0, State0),
+    {State#sig_st.committed, FuncDb}.
+
+signatures_1(StMap, FuncDb0, State0) ->
+    case wl_next(State0#sig_st.wl) of
+        {ok, FuncId} ->
+            {State, FuncDb} = sig_function(FuncId, StMap, State0, FuncDb0),
+            signatures_1(StMap, FuncDb, State);
+        empty ->
+            %% No more work to do, assert that we don't have any outstanding
+            %% updates.
+            #sig_st{updates=Same,committed=Same} = State0, %Assertion.
+
+            {State0, FuncDb0}
     end.
 
-join_arg_types([Arg | Args], [TypeMap | TMs], Ts) when TypeMap =/= #{} ->
-    Type = beam_types:join(maps:values(TypeMap)),
-    join_arg_types(Args, TMs, Ts#{ Arg => Type });
-join_arg_types([Arg | Args], [_TypeMap | TMs], Ts) ->
-    join_arg_types(Args, TMs, Ts#{ Arg => any });
-join_arg_types([], [], Ts) ->
-    Ts.
+sig_function(Id, StMap, State0, FuncDb0) ->
+    case sig_function_1(Id, StMap, State0, FuncDb0) of
+        {false, false, State, FuncDb} ->
+            %% No added work and the types are identical. Pop ourselves from
+            %% the work list and move on to the next function.
+            Wl = wl_pop(Id, State#sig_st.wl),
+            {State#sig_st{wl=Wl}, FuncDb};
+        {false, true, State, FuncDb} ->
+            %% We've added some work and our return type is unchanged. Keep
+            %% following the work list without popping ourselves; we're very
+            %% likely to need to return here later and can avoid a lot of
+            %% redundant work by keeping our place in line.
+            {State, FuncDb};
+        {true, WlChanged, State, FuncDb} ->
+            %% Our return type has changed so all of our (previously analyzed)
+            %% callers need to be analyzed again.
+            %%
+            %% If our worklist is unchanged we'll pop ourselves since our
+            %% callers will add us back if we need to analyzed again, and
+            %% it's wasteful to stay in the worklist when we don't.
+            Wl0 = case WlChanged of
+                      true -> State#sig_st.wl;
+                      false -> wl_pop(Id, State#sig_st.wl)
+                  end,
 
--spec opt_continue_1(Linear, Args, Id, Ts, FuncDb) -> Result when
-      Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
-      Args :: [beam_ssa:b_var()],
-      Id :: func_id(),
-      Ts :: type_db(),
-      FuncDb :: func_info_db(),
-      Result :: {Linear, FuncDb}.
-opt_continue_1(Linear0, Args, Id, Ts, FuncDb0) ->
+            #func_info{in=Cs0} = map_get(Id, FuncDb0),
+            Callers = [C || C <- Cs0, is_map_key(C, State#sig_st.updates)],
+            Wl = wl_defer_list(Callers, Wl0),
+
+            {State#sig_st{wl=Wl}, FuncDb}
+    end.
+
+sig_function_1(Id, StMap, State0, FuncDb) ->
+    #opt_st{ssa=Linear,args=Args} = map_get(Id, StMap),
+
+    {ArgTypes, State1} = sig_commit_args(Id, State0),
+    Ts = maps:from_list(zip(Args, ArgTypes)),
+
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
@@ -96,81 +192,258 @@ opt_continue_1(Linear0, Args, Id, Ts, FuncDb0) ->
     Ls = #{ ?EXCEPTION_BLOCK => Ts,
             0 => Ts },
 
-    Meta = #metadata{ func_id = Id,
-                      params = Args,
-                      used_once = used_once(Linear0, Args) },
+    Meta = init_metadata(Id, Linear, Args),
 
-    {Linear, FuncDb, NewSucc} =
-        opt(Linear0, Ds, Ls, FuncDb0, #{}, [], Meta, []),
+    Wl0 = State1#sig_st.wl,
 
-    case FuncDb of
-        #{ Id := Entry0 } ->
-            Entry = Entry0#func_info{succ_types=NewSucc},
-            {Linear, FuncDb#{ Id := Entry }};
-        #{} ->
-            %% Module-level optimizations have been turned off for this
-            %% function.
-            {Linear, FuncDb}
+    {State, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State1),
+
+    WlChanged = wl_changed(Wl0, State#sig_st.wl),
+    #{ Id := #func_info{succ_types=SuccTypes0}=Entry0 } = FuncDb,
+
+    if
+        SuccTypes0 =:= SuccTypes ->
+            {false, WlChanged, State, FuncDb};
+        SuccTypes0 =/= SuccTypes ->
+            Entry = Entry0#func_info{succ_types=SuccTypes},
+            {true, WlChanged, State, FuncDb#{ Id := Entry }}
     end.
 
--spec opt_finish(Args, Anno, FuncDb) -> {Anno, FuncDb} when
+sig_bs([{L, #b_blk{is=Is,last=Last0}} | Bs],
+       Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0) when is_map_key(L, Ls0) ->
+
+    #{ L := Ts0 } = Ls0,
+
+    {Ts, Ds, Sub, State} = sig_is(Is, Ts0, Ds0, Ls0, Fdb, Sub0, State0),
+
+    Last = simplify_terminator(Last0, Ts, Ds, Sub),
+    SuccTypes = update_success_types(Last, Ts, Ds, Meta, SuccTypes0),
+    {_, Ls} = update_successors(Last, Ts, Ds, Ls0, Meta#metadata.used_once),
+
+    sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
+sig_bs([_Blk | Bs], Ds, Ls, Fdb, Sub, SuccTypes, Meta, State) ->
+    %% This block is never reached. Ignore it.
+    sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
+sig_bs([], _Ds, _Ls, _Fdb, _Sub, SuccTypes, _Meta, State) ->
+    {State, SuccTypes}.
+
+sig_is([#b_set{op=call,
+               args=[#b_local{}=Callee | _]=Args0,
+               dst=Dst}=I0 | Is],
+       Ts0, Ds0, Ls, Fdb, Sub, State0) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+
+    {I, State} = sig_local_call(I1, Callee, tl(Args), Ts0, Fdb, State0),
+
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    sig_is(Is, Ts, Ds, Ls, Fdb, Sub, State);
+sig_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
+       Ts0, Ds0, Ls, Fdb, Sub0, State0) ->
+    Args = simplify_args(Args0, Ts0, Sub0),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+
+    {I, State} = sig_make_fun(I1, Ts0, Fdb, State0),
+
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
+sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State) ->
+    case simplify(I0, Ts0, Ds0, Ls, Sub0) of
+        {#b_set{}, Ts, Ds, Sub} ->
+            sig_is(Is, Ts, Ds, Ls, Fdb, Sub, State);
+        {_Value, Sub} ->
+            sig_is(Is, Ts0, Ds0, Ls, Fdb, Sub, State)
+    end;
+sig_is([], Ts, Ds, _Ls, _Fdb, Sub, State) ->
+    {Ts, Ds, Sub, State}.
+
+sig_local_call(I0, Callee, Args, Ts, Fdb, State) ->
+    I = sig_local_return(I0, Callee, Args, Fdb, Ts),
+    ArgTypes = argument_types(Args, Ts),
+    {I, sig_update_args(Callee, ArgTypes, State)}.
+
+sig_local_return(I, Callee, Args, Fdb, Ts) ->
+    #func_info{succ_types=SuccTypes} = map_get(Callee, Fdb),
+
+    ArgTypes = argument_types(Args, Ts),
+    case return_type(SuccTypes, ArgTypes) of
+        any -> I;
+        Type -> beam_ssa:add_anno(result_type, Type, I)
+    end.
+
+%% While we have no way to know which arguments a fun will be called with, we
+%% do know its free variables and can update their types as if this were a
+%% local call.
+sig_make_fun(#b_set{op=make_fun,
+                    args=[#b_local{}=Callee | FreeVars]}=I,
+             Ts, _Fdb, State) ->
+    ArgCount = Callee#b_local.arity - length(FreeVars),
+
+    FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
+    CallTypes = duplicate(ArgCount, any) ++ FVTypes,
+
+    {I, sig_update_args(Callee, CallTypes, State)}.
+
+init_sig_st(StMap, FuncDb) ->
+    %% Start out as if all the roots have been called with 'any' for all
+    %% arguments.
+    Roots = init_sig_roots(FuncDb),
+    #sig_st{ committed=#{},
+             updates=init_sig_args(Roots, StMap, #{}),
+             wl=wl_defer_list(Roots, wl_new()) }.
+
+init_sig_roots(FuncDb) ->
+    maps:fold(fun(Id, #func_info{exported=true}, Acc) ->
+                      [Id | Acc];
+                 (_, _, Acc) ->
+                      Acc
+              end, [], FuncDb).
+
+init_sig_args([Root | Roots], StMap, Acc) ->
+    #opt_st{args=Args0} = map_get(Root, StMap),
+    ArgTypes = lists:duplicate(length(Args0), any),
+    init_sig_args(Roots, StMap, Acc#{ Root => ArgTypes });
+init_sig_args([], _StMap, Acc) ->
+    Acc.
+
+sig_commit_args(Id, #sig_st{updates=Us,committed=Committed0}=State0) ->
+    Types = map_get(Id, Us),
+    Committed = Committed0#{ Id => Types },
+    State = State0#sig_st{committed=Committed},
+    {Types, State}.
+
+sig_update_args(Callee, Types, #sig_st{committed=Committed}=State) ->
+    case Committed of
+        #{ Callee := Current } ->
+            case parallel_join(Current, Types) of
+                Current ->
+                    %% We've already processed this function with these
+                    %% arguments, so there's no need to visit it again.
+                    State;
+                Widened ->
+                    sig_update_args_1(Callee, Widened, State)
+            end;
+        #{} ->
+            sig_update_args_1(Callee, Types, State)
+    end.
+
+sig_update_args_1(Callee, Types, #sig_st{updates=Us0,wl=Wl0}=State) ->
+    Us = case Us0 of
+             #{ Callee := Current } ->
+                 Us0#{ Callee => parallel_join(Current, Types) };
+             #{} ->
+                 Us0#{ Callee => Types }
+         end,
+    State#sig_st{updates=Us,wl=wl_add(Callee, Wl0)}.
+
+-spec opt_continue(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
+      Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
       Args :: [beam_ssa:b_var()],
       Anno :: beam_ssa:anno(),
       FuncDb :: func_info_db().
-opt_finish(Args, Anno, FuncDb) ->
+opt_continue(Linear0, Args, Anno, FuncDb) when FuncDb =/= #{} ->
     Id = get_func_id(Anno),
     case FuncDb of
         #{ Id := #func_info{exported=false,arg_types=ArgTypes} } ->
-            ParamInfo0 = maps:get(parameter_info, Anno, #{}),
-            ParamInfo = opt_finish_1(Args, ArgTypes, ParamInfo0),
-            {Anno#{ parameter_info => ParamInfo }, FuncDb};
-        #{} ->
-            {Anno, FuncDb}
-    end.
-
-opt_finish_1([_Arg | Args], [TypeMap | TypeMaps], Acc) when TypeMap =:= #{} ->
-    opt_finish_1(Args, TypeMaps, Acc);
-opt_finish_1([Arg | Args], [TypeMap | TypeMaps], Acc0) when TypeMap =/= #{} ->
-    case beam_types:join(maps:values(TypeMap)) of
-        any ->
-            opt_finish_1(Args, TypeMaps, Acc0);
-        JoinedType ->
-            Info = maps:get(Arg, Acc0, []),
-            Acc = Acc0#{ Arg => [{type, JoinedType} | Info] },
-            opt_finish_1(Args, TypeMaps, Acc)
+            %% This is a local function and we're guaranteed to have visited
+            %% every call site at least once, so we know that the parameter
+            %% types are at least as narrow as the join of all argument types.
+            Ts = join_arg_types(Args, ArgTypes, #{}),
+            opt_function(Linear0, Args, Id, Ts, FuncDb);
+        #{ Id := #func_info{exported=true} } ->
+            %% We can't infer the parameter types of exported functions, but
+            %% running the pass again could still help other functions.
+            Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
+            opt_function(Linear0, Args, Id, Ts, FuncDb)
     end;
-opt_finish_1([], [], Acc) ->
-    Acc.
+opt_continue(Linear0, Args, Anno, _FuncDb) ->
+    %% Module-level optimization is disabled, pass an empty function database
+    %% so we only perform local optimizations.
+    Id = get_func_id(Anno),
+    Ts = maps:from_list([{V,any} || #b_var{}=V <- Args]),
+    {Linear, _} = opt_function(Linear0, Args, Id, Ts, #{}),
+    {Linear, #{}}.
+
+join_arg_types([Arg | Args], [TypeMap | TMs], Ts) ->
+    Type = beam_types:join(maps:values(TypeMap)),
+    join_arg_types(Args, TMs, Ts#{ Arg => Type });
+join_arg_types([], [], Ts) ->
+    Ts.
+
+%%
+%% Optimizes a function based on the type information inferred by signatures/2
+%% and earlier runs of opt_function/5.
+%%
+%% This is pretty straightforward as it only walks through each function once,
+%% and because it only makes types narrower it's safe to optimize the functions
+%% in any order or not at all.
+%%
+
+-spec opt_function(Linear, Args, Id, Ts, FuncDb) -> Result when
+      Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
+      Args :: [beam_ssa:b_var()],
+      Id :: func_id(),
+      Ts :: type_db(),
+      FuncDb :: func_info_db(),
+      Result :: {Linear, FuncDb}.
+opt_function(Linear0, Args, Id, Ts, FuncDb0) ->
+    FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
+                                              name=#b_literal{val=unknown},
+                                              arity=0}]},
+
+    Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
+                            #b_var{}=Var <- Args]),
+
+    Ls = #{ ?EXCEPTION_BLOCK => Ts,
+            0 => Ts },
+
+    Meta = init_metadata(Id, Linear0, Args),
+
+    {Linear, FuncDb, SuccTypes} =
+        opt_bs(Linear0, Ds, Ls, FuncDb0, #{}, [], Meta, []),
+
+    case FuncDb of
+        #{ Id := Entry0 } ->
+            Entry = Entry0#func_info{succ_types=SuccTypes},
+            {Linear, FuncDb#{ Id := Entry }};
+        #{} ->
+            %% Module-level optimizations have been turned off.
+            {Linear, FuncDb}
+    end.
 
 get_func_id(Anno) ->
     #{func_info:={_Mod, Name, Arity}} = Anno,
     #b_local{name=#b_literal{val=Name}, arity=Arity}.
 
-opt([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
-    Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc) when is_map_key(L, Ls0) ->
+opt_bs([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
+       Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc) when is_map_key(L, Ls0) ->
 
     #{ L := Ts0 } = Ls0,
-
     {Is, Ts, Ds, Fdb, Sub} = opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
 
     Last1 = simplify_terminator(Last0, Ts, Ds, Sub),
+
     SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
     {Last, Ls} = update_successors(Last1, Ts, Ds, Ls0, Meta#metadata.used_once),
 
     Blk = Blk0#b_blk{is=Is,last=Last},
-    opt(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, [{L,Blk} | Acc]);
-opt([_Blk | Bs], Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc) ->
+    opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, [{L,Blk} | Acc]);
+opt_bs([_Blk | Bs], Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc) ->
     %% This block is never reached. Discard it.
-    opt(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc);
-opt([], _Ds, _Ls, Fdb, _Sub, SuccTypes, _Meta, Acc) ->
+    opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc);
+opt_bs([], _Ds, _Ls, Fdb, _Sub, SuccTypes, _Meta, Acc) ->
     {reverse(Acc), Fdb, SuccTypes}.
 
-opt_is([#b_set{op=call,args=[#b_local{}|_]=Args0,dst=Dst}=I0|Is],
+opt_is([#b_set{op=call,
+               args=[#b_local{}=Callee | _]=Args0,
+               dst=Dst}=I0 | Is],
        Ts0, Ds0, Ls, Fdb0, Sub, Meta, Acc) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
 
-    {#b_set{}=I, Fdb} = opt_call(I1, Ts0, Fdb0, Meta),
+    {I, Fdb} = opt_local_call(I1, Callee, tl(Args), Dst, Ts0, Fdb0, Meta),
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
@@ -180,7 +453,7 @@ opt_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     Args = simplify_args(Args0, Ts0, Sub0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
 
-    {#b_set{}=I, Fdb} = opt_make_fun(I1, Ts0, Fdb0, Meta),
+    {I, Fdb} = opt_make_fun(I1, Ts0, Fdb0, Meta),
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
@@ -195,8 +468,8 @@ opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
 opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
 
-opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, Ts, Fdb0, Meta) ->
-    I = opt_local_call_return(I0, Callee, Fdb0, Ts),
+opt_local_call(I0, Callee, Args, Dst, Ts, Fdb0, Meta) ->
+    I = opt_local_return(I0, Callee, Args, Fdb0, Ts),
     case Fdb0 of
         #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
             Types = argument_types(Args, Ts),
@@ -213,22 +486,20 @@ opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, Ts, Fdb0, Meta) ->
             %% can receive anything as part of an external call. We can still
             %% rely on their return types however.
             {I, Fdb0}
-    end;
-opt_call(I, _Ts, Fdb, _Meta) ->
-    {I, Fdb}.
-
-opt_local_call_return(#b_set{args=[_|Args]}=I, Callee, Fdb, Ts) ->
-    case Fdb of
-        #{ Callee := #func_info{succ_types=[_|_]=SuccTypes} } ->
-            ArgTypes = argument_types(Args, Ts),
-
-            case return_type(SuccTypes, ArgTypes) of
-                any -> I;
-                Type -> beam_ssa:add_anno(result_type, Type, I)
-            end;
-        #{} ->
-            I
     end.
+
+opt_local_return(I, Callee, Args, Fdb, Ts) when Fdb =/= #{} ->
+    #func_info{succ_types=SuccTypes} = map_get(Callee, Fdb),
+
+    ArgTypes = argument_types(Args, Ts),
+
+    case return_type(SuccTypes, ArgTypes) of
+        any -> I;
+        Type -> beam_ssa:add_anno(result_type, Type, I)
+    end;
+opt_local_return(I, _Callee, _Args, _Fdb, _Ts) ->
+    %% Module-level optimization is disabled, assume it returns anything.
+    I.
 
 %% While we have no way to know which arguments a fun will be called with, we
 %% do know its free variables and can update their types as if this were a
@@ -260,6 +531,35 @@ update_arg_types([ArgType | ArgTypes], [TypeMap0 | TypeMaps], CallId) ->
     [TypeMap | update_arg_types(ArgTypes, TypeMaps, CallId)];
 update_arg_types([], [], _CallId) ->
     [].
+
+%%
+
+-spec opt_finish(Args, Anno, FuncDb) -> {Anno, FuncDb} when
+      Args :: [beam_ssa:b_var()],
+      Anno :: beam_ssa:anno(),
+      FuncDb :: func_info_db().
+opt_finish(Args, Anno, FuncDb) ->
+    Id = get_func_id(Anno),
+    case FuncDb of
+        #{ Id := #func_info{exported=false,arg_types=ArgTypes} } ->
+            ParamInfo0 = maps:get(parameter_info, Anno, #{}),
+            ParamInfo = opt_finish_1(Args, ArgTypes, ParamInfo0),
+            {Anno#{ parameter_info => ParamInfo }, FuncDb};
+        #{} ->
+            {Anno, FuncDb}
+    end.
+
+opt_finish_1([Arg | Args], [TypeMap | TypeMaps], Acc0) ->
+    case beam_types:join(maps:values(TypeMap)) of
+        any ->
+            opt_finish_1(Args, TypeMaps, Acc0);
+        JoinedType ->
+            Info = maps:get(Arg, Acc0, []),
+            Acc = Acc0#{ Arg => [{type, JoinedType} | Info] },
+            opt_finish_1(Args, TypeMaps, Acc)
+    end;
+opt_finish_1([], [], Acc) ->
+    Acc.
 
 %%%
 %%% Optimization helpers
@@ -820,68 +1120,64 @@ anno_float_arg(_) -> convert.
 
 %% Returns the narrowest possible return type for the given success types and
 %% arguments.
-return_type(SuccTypes0, ArgTypes0) ->
-    SuccTypes = st_filter_reachable(SuccTypes0, ArgTypes0, [], []),
+return_type(SuccTypes0, CallArgs0) ->
+    SuccTypes = st_filter_reachable(SuccTypes0, CallArgs0, [], []),
     st_join_return_types(SuccTypes, none).
 
-st_filter_reachable([{SiteTypes, {call_self, CallTypes}}=Site | Sites],
-                 ArgTypes0, Deferred, Acc) ->
-    case st_is_reachable(SiteTypes, ArgTypes0) of
+st_filter_reachable([{SuccArgs, {call_self, SelfArgs}}=SuccType | Rest],
+                    CallArgs0, Deferred, Acc) ->
+    case st_is_reachable(SuccArgs, CallArgs0) of
         true ->
             %% If we return a call to ourselves, we need to join our current
             %% argument types with that of the call to ensure all possible
             %% return paths are covered.
-            ArgTypes = st_parallel_join(CallTypes, ArgTypes0),
-            st_filter_reachable(Sites, ArgTypes, Deferred, Acc);
+            CallArgs = parallel_join(SelfArgs, CallArgs0),
+            st_filter_reachable(Rest, CallArgs, Deferred, Acc);
         false ->
             %% This may be reachable after we've joined another self-call, so
             %% we defer it until we've gone through all other self-calls.
-            st_filter_reachable(Sites, ArgTypes0, [Site | Deferred], Acc)
+            st_filter_reachable(Rest, CallArgs0, [SuccType | Deferred], Acc)
     end;
-st_filter_reachable([Site | Sites], ArgTypes, Deferred, Acc) ->
-    st_filter_reachable(Sites, ArgTypes, Deferred, [Site | Acc]);
-st_filter_reachable([], ArgTypes, Deferred, Acc) ->
-    case st_any_reachable(Deferred, ArgTypes) of
+st_filter_reachable([SuccType | Rest], CallArgs, Deferred, Acc) ->
+    st_filter_reachable(Rest, CallArgs, Deferred, [SuccType | Acc]);
+st_filter_reachable([], CallArgs, Deferred, Acc) ->
+    case st_any_reachable(Deferred, CallArgs) of
         true ->
             %% Handle all deferred self calls that may be reachable now that
             %% we've expanded our argument types.
-            st_filter_reachable(Deferred, ArgTypes, [], Acc);
+            st_filter_reachable(Deferred, CallArgs, [], Acc);
         false ->
             %% We have no reachable self calls, so we know our argument types
             %% can't expand any further. Filter out our reachable sites and
             %% return.
-            [Site || {SiteTypes, _RetType}=Site <- Acc,
-                     st_is_reachable(SiteTypes, ArgTypes)]
+            [ST || {SuccArgs, _}=ST <- Acc, st_is_reachable(SuccArgs, CallArgs)]
     end.
 
-st_join_return_types([{_ArgTypes, RetType} | Sites], Acc0) ->
-    st_join_return_types(Sites, beam_types:join(RetType, Acc0));
+st_join_return_types([{_SuccArgs, SuccRet} | Rest], Acc0) ->
+    st_join_return_types(Rest, beam_types:join(SuccRet, Acc0));
 st_join_return_types([], Acc) ->
     Acc.
 
-st_any_reachable([{SiteTypes, _} | Sites], ArgTypes) ->
-    case st_is_reachable(SiteTypes, ArgTypes) of
+st_any_reachable([{SuccArgs, _} | SuccType], CallArgs) ->
+    case st_is_reachable(SuccArgs, CallArgs) of
         true -> true;
-        false -> st_any_reachable(Sites, ArgTypes)
+        false -> st_any_reachable(SuccType, CallArgs)
     end;
-st_any_reachable([], _ArgTypes) ->
+st_any_reachable([], _CallArgs) ->
     false.
 
-st_is_reachable([A | SiteTypes], [B | ArgTypes]) ->
+st_is_reachable([A | SuccArgs], [B | CallArgs]) ->
     case beam_types:meet(A, B) of
         none -> false;
-        _Other -> st_is_reachable(SiteTypes, ArgTypes)
+        _Other -> st_is_reachable(SuccArgs, CallArgs)
     end;
 st_is_reachable([], []) ->
     true.
 
-st_parallel_join([A | As], [B | Bs]) ->
-    [beam_types:join(A, B) | st_parallel_join(As, Bs)];
-st_parallel_join([], []) ->
-    [].
-
 update_success_types(#b_ret{arg=Arg}, Ts, Ds, Meta, SuccTypes) ->
-    #metadata{func_id=FuncId,params=Params} = Meta,
+    #metadata{ func_id=FuncId,
+               limit_return=Limited,
+               params=Params } = Meta,
 
     RetType = case Ds of
                   #{ Arg := #b_set{op=call,args=[FuncId | Args]} } ->
@@ -889,14 +1185,41 @@ update_success_types(#b_ret{arg=Arg}, Ts, Ds, Meta, SuccTypes) ->
                   #{} ->
                       argument_type(Arg, Ts)
               end,
-
-    %% Adding types even when the return type could be 'none' is a bit
-    %% wasteful, but it's necessary as long as we optimize with incomplete type
-    %% information (since we need to assume that empty success types = any).
     ArgTypes = argument_types(Params, Ts),
-    ordsets:add_element({ArgTypes, RetType}, SuccTypes);
+
+    case Limited of
+        true -> ust_limited(SuccTypes, ArgTypes, RetType);
+        false -> ust_unlimited(SuccTypes, ArgTypes, RetType)
+    end;
 update_success_types(_Last, _Ts, _Ds, _Meta, SuccTypes) ->
     SuccTypes.
+
+%% See ?RETURN_LIMIT for details.
+ust_limited(SuccTypes, CallArgs, {call_self, SelfArgs}) ->
+    NewArgs = parallel_join(CallArgs, SelfArgs),
+    ust_limited_1(SuccTypes, NewArgs, none);
+ust_limited(SuccTypes, CallArgs, CallRet) ->
+    ust_limited_1(SuccTypes, CallArgs, CallRet).
+
+ust_limited_1([], ArgTypes, RetType) ->
+    [{ArgTypes, RetType}];
+ust_limited_1([{SuccArgs, SuccRet}], CallArgs, CallRet) ->
+    NewTypes = parallel_join(SuccArgs, CallArgs),
+    NewType = beam_types:join(SuccRet, CallRet),
+    [{NewTypes, NewType}].
+
+%% Adds a new success type, collapsing it with entries that have the same
+%% return type to keep the list short.
+ust_unlimited(SuccTypes, _CallArgs, none) ->
+    %% 'none' is implied since functions can always fail.
+    SuccTypes;
+ust_unlimited([{SuccArgs, Same} | SuccTypes], CallArgs, Same) ->
+    NewArgs = parallel_join(SuccArgs, CallArgs),
+    [{NewArgs, Same} | SuccTypes];
+ust_unlimited([SuccType | SuccTypes], CallArgs, CallRet) ->
+    [SuccType | ust_unlimited(SuccTypes, CallArgs, CallRet)];
+ust_unlimited([], CallArgs, CallRet) ->
+    [{CallArgs, CallRet}].
 
 update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last,
                   Ts, _Ds, Ls, _UsedOnce) ->
@@ -953,7 +1276,7 @@ update_switch([], _V, none, _Ts, _Ds, Ls, _IsTempVar, Acc) ->
 update_switch([], V, FailType, Ts, Ds, Ls, IsTempVar, Acc) ->
     %% Fail label is reachable, see if we can narrow the type down further.
     FailTs = case beam_types:get_singleton_value(FailType) of
-                  {ok, Value} ->
+                 {ok, Value} ->
                      %% This is the only possible value at the fail label, so
                      %% we can infer types as if we matched it directly.
                      Lit = #b_literal{val=Value},
@@ -1005,7 +1328,7 @@ type(bs_start_match, [_, Src], _Anno, Ts, _Ds) ->
     end;
 type(bs_match, [#b_literal{val=binary}, Ctx, _Flags,
                 #b_literal{val=all}, #b_literal{val=OpUnit}],
-    _Anno, Ts, _Ds) ->
+     _Anno, Ts, _Ds) ->
 
     %% This is an explicit tail unit test which does not advance the match
     %% position.
@@ -1147,6 +1470,8 @@ bs_match_stride(utf32, _, _) ->
 bs_match_stride(_, _, _) ->
     1.
 
+-define(UNICODE_MAX, (16#10FFFF)).
+
 bs_match_type([#b_literal{val=Type}|Args]) ->
     bs_match_type(Type, Args).
 
@@ -1182,62 +1507,6 @@ bs_match_type(utf16, _) ->
     beam_types:make_integer(0, ?UNICODE_MAX);
 bs_match_type(utf32, _) ->
     beam_types:make_integer(0, ?UNICODE_MAX).
-
-%%%
-%%% Calculate the set of variables that are only used once in the
-%%% terminator of the block that defines them. That will allow us to
-%%% discard type information for variables that will never be
-%%% referenced by the successor blocks, potentially improving
-%%% compilation times.
-%%%
-
-used_once(Linear, Args) ->
-    Map0 = used_once_1(reverse(Linear), #{}),
-    Map = maps:without(Args, Map0),
-    cerl_sets:from_list(maps:keys(Map)).
-
-used_once_1([{L,#b_blk{is=Is,last=Last}}|Bs], Uses0) ->
-    Uses1 = used_once_last_uses(beam_ssa:used(Last), L, Uses0),
-    Uses = used_once_2(reverse(Is), L, Uses1),
-    used_once_1(Bs, Uses);
-used_once_1([], Uses) -> Uses.
-
-used_once_2([#b_set{dst=Dst}=I|Is], L, Uses0) ->
-    Uses = used_once_uses(beam_ssa:used(I), L, Uses0),
-    case Uses of
-        #{Dst:=[L]} ->
-            used_once_2(Is, L, Uses);
-        #{} ->
-            %% Used more than once or used once in
-            %% in another block.
-            used_once_2(Is, L, maps:remove(Dst, Uses))
-    end;
-used_once_2([], _, Uses) -> Uses.
-
-used_once_uses([V|Vs], L, Uses) ->
-    case Uses of
-        #{V:=more_than_once} ->
-            used_once_uses(Vs, L, Uses);
-        #{} ->
-            %% Already used or first use is not in
-            %% a terminator.
-            used_once_uses(Vs, L, Uses#{V=>more_than_once})
-    end;
-used_once_uses([], _, Uses) -> Uses.
-
-used_once_last_uses([V|Vs], L, Uses) ->
-    case Uses of
-        #{V:=[_]} ->
-            %% Second time this variable is used.
-            used_once_last_uses(Vs, L, Uses#{V:=more_than_once});
-        #{V:=more_than_once} ->
-            %% Used at least twice before.
-            used_once_last_uses(Vs, L, Uses);
-        #{} ->
-            %% First time this variable is used.
-            used_once_last_uses(Vs, L, Uses#{V=>[L]})
-    end;
-used_once_last_uses([], _, Uses) -> Uses.
 
 normalized_types(Values, Ts) ->
     [normalized_type(Val, Ts) || Val <- Values].
@@ -1504,8 +1773,157 @@ subtract_types([{V,T0}|Vs], Ts) ->
     end;
 subtract_types([], Ts) -> Ts.
 
+parallel_join([A | As], [B | Bs]) ->
+    [beam_types:join(A, B) | parallel_join(As, Bs)];
+parallel_join([], []) ->
+    [].
+
 gcd(A, B) ->
     case A rem B of
         0 -> B;
         X -> gcd(B, X)
     end.
+
+%%%
+%%% Helpers
+%%%
+
+init_metadata(FuncId, Linear, Params) ->
+    {RetCounter, Map0} = init_metadata_1(reverse(Linear), 0, #{}),
+    Map = maps:without(Params, Map0),
+    UsedOnce = cerl_sets:from_list(maps:keys(Map)),
+
+    #metadata{ func_id = FuncId,
+               limit_return = (RetCounter >= ?RETURN_LIMIT),
+               params = Params,
+               used_once = UsedOnce }.
+
+init_metadata_1([{L,#b_blk{is=Is,last=Last}} | Bs], RetCounter0, Uses0) ->
+    %% Track the number of return terminators in use. See ?RETURN_LIMIT for
+    %% details.
+    RetCounter = case Last of
+                     #b_ret{} -> RetCounter0 + 1;
+                     _ -> RetCounter0
+                 end,
+
+    %% Calculate the set of variables that are only used once in the terminator
+    %% of the block that defines them. That will allow us to discard type
+    %% information discard type information for variables that will never be
+    %% referenced by the successor blocks, potentially improving compilation
+    %% times.
+
+    Uses1 = used_once_last_uses(beam_ssa:used(Last), L, Uses0),
+    Uses = used_once_2(reverse(Is), L, Uses1),
+    init_metadata_1(Bs, RetCounter, Uses);
+init_metadata_1([], RetCounter, Uses) ->
+    {RetCounter, Uses}.
+
+used_once_2([#b_set{dst=Dst}=I|Is], L, Uses0) ->
+    Uses = used_once_uses(beam_ssa:used(I), L, Uses0),
+    case Uses of
+        #{Dst:=[L]} ->
+            used_once_2(Is, L, Uses);
+        #{} ->
+            %% Used more than once or used once in
+            %% in another block.
+            used_once_2(Is, L, maps:remove(Dst, Uses))
+    end;
+used_once_2([], _, Uses) -> Uses.
+
+used_once_uses([V|Vs], L, Uses) ->
+    case Uses of
+        #{V:=more_than_once} ->
+            used_once_uses(Vs, L, Uses);
+        #{} ->
+            %% Already used or first use is not in
+            %% a terminator.
+            used_once_uses(Vs, L, Uses#{V=>more_than_once})
+    end;
+used_once_uses([], _, Uses) -> Uses.
+
+used_once_last_uses([V|Vs], L, Uses) ->
+    case Uses of
+        #{V:=[_]} ->
+            %% Second time this variable is used.
+            used_once_last_uses(Vs, L, Uses#{V:=more_than_once});
+        #{V:=more_than_once} ->
+            %% Used at least twice before.
+            used_once_last_uses(Vs, L, Uses);
+        #{} ->
+            %% First time this variable is used.
+            used_once_last_uses(Vs, L, Uses#{V=>[L]})
+    end;
+used_once_last_uses([], _, Uses) -> Uses.
+
+%%
+%% Ordered worklist used in signatures/2.
+%%
+%% This is equivalent to consing (wl_add) and appending (wl_defer_list)
+%% to a regular list, but avoids uneccessary work by reordering elements.
+%%
+%% We can do this since a function only needs to be visited *once* for all
+%% prior updates to take effect, so if an element is added to the front, then
+%% all earlier instances of the same element are redundant.
+%%
+
+-record(worklist,
+        { counter = 0 :: integer(),
+          elements = gb_trees:empty() :: gb_trees:tree(integer(), term()),
+          indexes = #{} :: #{ term() => integer() } }).
+
+-type worklist() :: #worklist{}.
+
+wl_new() -> #worklist{}.
+
+%% Adds an element to the worklist, or moves it to the front if it's already
+%% present.
+wl_add(Element, #worklist{counter=Counter,elements=Es,indexes=Is}) ->
+    case Is of
+        #{ Element := Index } ->
+            wl_add_1(Element, Counter, gb_trees:delete(Index, Es), Is);
+        #{} ->
+            wl_add_1(Element, Counter, Es, Is)
+    end.
+
+wl_add_1(Element, Counter0, Es0, Is0) ->
+    Counter = Counter0 + 1,
+    Es = gb_trees:insert(Counter, Element, Es0),
+    Is = Is0#{ Element => Counter },
+    #worklist{counter=Counter,elements=Es,indexes=Is}.
+
+%% All mutations bump the counter, so we can check for changes without a deep
+%% comparison.
+wl_changed(#worklist{counter=Same}, #worklist{counter=Same}) -> false;
+wl_changed(#worklist{}, #worklist{}) -> true.
+
+%% Adds the given elements to the back of the worklist, skipping the elements
+%% that are already present. This lets us append elements arbitrarly after the
+%% current front without changing the work order.
+wl_defer_list(Elements, #worklist{counter=Counter,elements=Es,indexes=Is}) ->
+    wl_defer_list_1(Elements, Counter, Es, Is).
+
+wl_defer_list_1([Element | Elements], Counter0, Es0, Is0) ->
+    case Is0 of
+        #{ Element := _ } ->
+            wl_defer_list_1(Elements, Counter0, Es0, Is0);
+        #{} ->
+            Counter = Counter0 + 1,
+            Es = gb_trees:insert(-Counter, Element, Es0),
+            Is = Is0#{ Element => -Counter },
+            wl_defer_list_1(Elements, Counter, Es, Is)
+    end;
+wl_defer_list_1([], Counter, Es, Is) ->
+    #worklist{counter=Counter,elements=Es,indexes=Is}.
+
+wl_next(#worklist{indexes=Is}) when Is =:= #{} ->
+    empty;
+wl_next(#worklist{elements=Es,indexes=Is}) when Is =/= #{} ->
+    {_Key, Element} = gb_trees:largest(Es),
+    {ok, Element}.
+
+%% Removes the front of the worklist.
+wl_pop(Element, #worklist{counter=Counter0,elements=Es0,indexes=Is0}=Wl) ->
+    Counter = Counter0 + 1,
+    {_Key, Element, Es} = gb_trees:take_largest(Es0), %Assertion.
+    Is = maps:remove(Element, Is0),
+    Wl#worklist{counter=Counter,elements=Es,indexes=Is}.

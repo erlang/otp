@@ -1111,12 +1111,22 @@ needs_check(_) -> true.
 %%%% Timer stuff
 
 time_func(Fun, Mode, Bin, Repeat) ->
-    timer:sleep(100), %% Let emulator catch up and clean things before test runs
+    %% Let emulator catch up and clean things before test runs
+    timer:sleep(100),
+
+    %% We're spawning with a minimum heap size of 1k because certain benchmarks
+    %% (e.g. string_lexemes_binary) keep very little heap data alive, making
+    %% them very sensitive to changes in GC behavior.
+    %%
+    %% If we don't do this, something as benign as shrinking a stack frame can
+    %% make things run slower by making it stick to a smaller heap size,
+    %% causing it to GC more often.
     Self = self(),
-    Pid = spawn_link(fun() ->
-                             Str = mode(Mode, Bin),
-                             Self ! {self(),time_func(0,0,0, Fun, Str, undefined, Repeat)}
-                     end),
+    Pid = spawn_opt(fun() ->
+                            Str = mode(Mode, Bin),
+                            Res = time_func(0,0,0, Fun, Str, undefined, Repeat),
+                            Self ! {self(), Res}
+                    end, [link, {min_heap_size, 1 bsl 10}]),
     receive {Pid,Msg} -> Msg end.
 
 time_func(N,Sum,SumSq, Fun, Str, _, Repeat) when N < Repeat ->

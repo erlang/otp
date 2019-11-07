@@ -257,12 +257,14 @@ prologue_passes(Opts) ->
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
           ?PASS(ssa_opt_cse),                   % Helps the first type pass.
-          ?PASS(ssa_opt_live),                  % ...
-          ?PASS(ssa_opt_type_start)],
+          ?PASS(ssa_opt_live)],                 % ...
     passes_1(Ps, Opts).
 
 module_passes(Opts) ->
-    Ps0 = [],
+    Ps0 = [{ssa_opt_type_start,
+            fun({StMap, FuncDb}) ->
+                    beam_ssa_type:opt_start(StMap, FuncDb)
+            end}],
     passes_1(Ps0, Opts).
 
 %% These passes all benefit from each other (in roughly this order), so they
@@ -428,10 +430,6 @@ ssa_opt_dead({#opt_st{ssa=Linear}=St, FuncDb}) ->
 
 ssa_opt_linearize({#opt_st{ssa=Blocks}=St, FuncDb}) ->
     {St#opt_st{ssa=beam_ssa:linearize(Blocks)}, FuncDb}.
-
-ssa_opt_type_start({#opt_st{ssa=Linear0,args=Args,anno=Anno}=St0, FuncDb0}) ->
-    {Linear, FuncDb} = beam_ssa_type:opt_start(Linear0, Args, Anno, FuncDb0),
-    {St0#opt_st{ssa=Linear}, FuncDb}.
 
 ssa_opt_type_continue({#opt_st{ssa=Linear0,args=Args,anno=Anno}=St0, FuncDb0}) ->
     {Linear, FuncDb} = beam_ssa_type:opt_continue(Linear0, Args, Anno, FuncDb0),

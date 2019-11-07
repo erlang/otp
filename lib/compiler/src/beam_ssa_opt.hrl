@@ -47,15 +47,15 @@
          %%
          %% Note that the argument types are those seen on successful return,
          %% they do not cover all types that are provided to the function.
-         succ_types = ordsets:new() :: success_type_set()}).
+         succ_types = [] :: success_type_set()}).
 
 -type arg_key() :: {CallerId :: func_id(),
                     CallDst :: beam_ssa:b_var()}.
 -type arg_type_map() :: #{ arg_key() => term() }.
 
 -type call_self() :: {call_self, ArgTypes :: [term()]}.
--type success_type_set() :: ordsets:ordset({ArgTypes :: [term()],
-                                            RetType :: call_self() | term()}).
+-type success_type_set() :: [{ArgTypes :: [term()],
+                              RetType :: call_self() | term()}].
 
 %% Per-function metadata used by various optimization passes to perform
 %% module-level optimization. If a function is absent it means that
