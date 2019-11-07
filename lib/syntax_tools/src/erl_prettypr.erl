@@ -474,13 +474,13 @@ lay_2(Node, Ctxt) ->
 		     floating(text(",")), reset_prec(Ctxt),
 		     fun lay/2),
 	    beside(floating(text("{")),
-		   beside(par(Es),
+		   beside(sep(Es),
 			  floating(text("}"))));
 	
 	list ->
 	    Ctxt1 = reset_prec(Ctxt),
 	    Node1 = erl_syntax:compact_list(Node),
-	    D1 = par(seq(erl_syntax:list_prefix(Node1),
+	    D1 = sep(seq(erl_syntax:list_prefix(Node1),
 			 floating(text(",")), Ctxt1,
 			 fun lay/2)),
 	    D = case erl_syntax:list_suffix(Node1) of
@@ -547,7 +547,7 @@ lay_2(Node, Ctxt) ->
 		     floating(text(",")), reset_prec(Ctxt),
 		     fun lay/2),
 	    D1 = beside(D, beside(text("("),
-				  beside(par(As),
+				  beside(sep(As),
 					 floating(text(")"))))),
 	    maybe_parentheses(D1, Prec, Ctxt);
 	
@@ -724,7 +724,7 @@ lay_2(Node, Ctxt) ->
                     _ when Args =:= none ->
 			lay(N, Ctxt1);
                     _ ->
-                        D1 = par(seq(Args, floating(text(",")), Ctxt1,
+                        D1 = sep(seq(Args, text(","), Ctxt1,
                                      fun lay/2)),
 			beside(lay(N, Ctxt1),
 			       beside(text("("),
@@ -1203,12 +1203,12 @@ lay_2(Node, Ctxt) ->
                              floating(text(",")), reset_prec(Ctxt),
                              fun lay/2),
                     beside(floating(text("{")),
-                           beside(par(Es), floating(text("}"))))
+                           beside(sep(Es), floating(text("}"))))
             end;
 
         type_union ->
             {_, Prec, PrecR} = type_inop_prec('|'),
-            Es = par(seq(erl_syntax:type_union_types(Node),
+            Es = sep(seq(erl_syntax:type_union_types(Node),
                          floating(text(" |")), set_prec(Ctxt, PrecR),
                          fun lay/2)),
             maybe_parentheses(Es, Prec, Ctxt);
