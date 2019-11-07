@@ -581,8 +581,6 @@ layout(N, #text{s = S}, Cs) ->
 layout(_N, null, Cs) ->
     Cs.
 
-indent(N, Cs) when N >= 8 ->
-    indent(N - 8, [$\t | Cs]);
 indent(N, Cs) when N > 0 ->
     indent(N - 1, [$\s | Cs]);
 indent(_N, Cs) ->
