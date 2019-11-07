@@ -29,17 +29,13 @@
 
 -define(UNICODE_MAX, (16#10FFFF)).
 
--record(d,
-        {ds :: #{beam_ssa:b_var():=beam_ssa:b_set()},
-         ls :: #{beam_ssa:label():=type_db()},
-         once :: cerl_sets:set(beam_ssa:b_var()),
-         params :: [beam_ssa:b_var()],
-         func_id :: func_id(),
-         func_db :: func_info_db(),
-         sub = #{} :: #{beam_ssa:b_var():=beam_ssa:value()},
-         succ_types = [] :: success_type_set()}).
+%% Constant metadata used by both subpasses.
+-record(metadata,
+        { func_id :: func_id(),
+          params :: [beam_ssa:b_var()],
+          used_once :: cerl_sets:set(beam_ssa:b_var()) }).
 
--type type_db() :: #{beam_ssa:var_name():=type()}.
+-type type_db() :: #{ beam_ssa:var_name() := type() }.
 
 -spec opt_start(Linear, Args, Anno, FuncDb) -> {Linear, FuncDb} when
       Linear :: [{non_neg_integer(), beam_ssa:b_blk()}],
@@ -90,21 +86,22 @@ join_arg_types([], [], Ts) ->
       FuncDb :: func_info_db(),
       Result :: {Linear, FuncDb}.
 opt_continue_1(Linear0, Args, Id, Ts, FuncDb0) ->
-    UsedOnce = used_once(Linear0, Args),
     FakeCall = #b_set{op=call,args=[#b_remote{mod=#b_literal{val=unknown},
                                               name=#b_literal{val=unknown},
                                               arity=0}]},
-    Defs = maps:from_list([{Var,FakeCall#b_set{dst=Var}} ||
-                              #b_var{}=Var <- Args]),
 
-    D = #d{ func_db=FuncDb0,
-            func_id=Id,
-            params=Args,
-            ds=Defs,
-            ls=#{0=>Ts,?EXCEPTION_BLOCK=>Ts},
-            once=UsedOnce },
+    Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
+                            #b_var{}=Var <- Args]),
 
-    {Linear, FuncDb, NewSucc} = opt(Linear0, D, []),
+    Ls = #{ ?EXCEPTION_BLOCK => Ts,
+            0 => Ts },
+
+    Meta = #metadata{ func_id = Id,
+                      params = Args,
+                      used_once = used_once(Linear0, Args) },
+
+    {Linear, FuncDb, NewSucc} =
+        opt(Linear0, Ds, Ls, FuncDb0, #{}, [], Meta, []),
 
     case FuncDb of
         #{ Id := Entry0 } ->
@@ -149,116 +146,56 @@ get_func_id(Anno) ->
     #{func_info:={_Mod, Name, Arity}} = Anno,
     #b_local{name=#b_literal{val=Name}, arity=Arity}.
 
-opt([{L,Blk}|Bs], #d{ls=Ls}=D, Acc) ->
-    case Ls of
-        #{L:=Ts} ->
-            opt_1(L, Blk, Bs, Ts, D, Acc);
-        #{} ->
-            %% This block is never reached. Discard it.
-            opt(Bs, D, Acc)
-    end;
-opt([], D, Acc) ->
-    #d{func_db=FuncDb,succ_types=NewSucc} = D,
-    {reverse(Acc), FuncDb, NewSucc}.
+opt([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
+    Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc) when is_map_key(L, Ls0) ->
 
-opt_1(L, #b_blk{is=Is0,last=Last0}=Blk0, Bs, Ts0,
-      #d{ds=Ds0,sub=Sub0,func_db=Fdb0}=D0, Acc) ->
-    {Is,Ts,Ds,Fdb,Sub} = opt_is(Is0, Ts0, Ds0, Fdb0, D0, Sub0, []),
+    #{ L := Ts0 } = Ls0,
 
-    D1 = D0#d{ds=Ds,sub=Sub,func_db=Fdb},
+    {Is, Ts, Ds, Fdb, Sub} = opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
 
-    Last1 = simplify_terminator(Last0, Sub, Ts, Ds),
-    {Last, D} = update_successors(Last1, Ts, D1),
+    Last1 = simplify_terminator(Last0, Ts, Ds, Sub),
+    SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
+    {Last, Ls} = update_successors(Last1, Ts, Ds, Ls0, Meta#metadata.used_once),
 
     Blk = Blk0#b_blk{is=Is,last=Last},
-    opt(Bs, D, [{L,Blk}|Acc]).
+    opt(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, [{L,Blk} | Acc]);
+opt([_Blk | Bs], Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc) ->
+    %% This block is never reached. Discard it.
+    opt(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc);
+opt([], _Ds, _Ls, Fdb, _Sub, SuccTypes, _Meta, Acc) ->
+    {reverse(Acc), Fdb, SuccTypes}.
 
-opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is],
-       Ts0, Ds0, Fdb, #d{ls=Ls}=D, Sub0, Acc) ->
-    %% Simplify the phi node by removing all predecessor blocks that no
-    %% longer exists or no longer branches to this block.
-    Args = [{simplify_arg(Arg, Sub0, Ts0),From} ||
-               {Arg,From} <- Args0, maps:is_key(From, Ls)],
-    case all_same(Args) of
-        true ->
-            %% Eliminate the phi node if there is just one source
-            %% value or if the values are identical.
-            [{Val,_}|_] = Args,
-            Sub = Sub0#{Dst=>Val},
-            opt_is(Is, Ts0, Ds0, Fdb, D, Sub, Acc);
-        false ->
-            I = I0#b_set{args=Args},
-            Ts = update_types(I, Ts0, Ds0),
-            Ds = Ds0#{Dst=>I},
-            opt_is(Is, Ts, Ds, Fdb, D, Sub0, [I|Acc])
-    end;
-opt_is([#b_set{op=call,args=Args0}=I0|Is],
-       Ts, Ds, Fdb0, D, Sub, Acc) ->
-    Args = simplify_args(Args0, Sub, Ts),
+opt_is([#b_set{op=call,args=[#b_local{}|_]=Args0,dst=Dst}=I0|Is],
+       Ts0, Ds0, Ls, Fdb0, Sub, Meta, Acc) ->
+    Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
-    {I, Fdb} = opt_call(I1, Ts, Fdb0, D),
-    opt_simplify(I, Is, Ts, Ds, Fdb, D, Sub, Acc);
-opt_is([#b_set{op=make_fun,args=Args0}=I0|Is],
-       Ts0, Ds0, Fdb0, D, Sub0, Acc) ->
-    Args = simplify_args(Args0, Sub0, Ts0),
+
+    {#b_set{}=I, Fdb} = opt_call(I1, Ts0, Fdb0, Meta),
+
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    opt_is(Is, Ts, Ds, Ls, Fdb, Sub, Meta, [I | Acc]);
+opt_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
+       Ts0, Ds0, Ls, Fdb0, Sub0, Meta, Acc) ->
+    Args = simplify_args(Args0, Ts0, Sub0),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
-    {Ts,Ds,Fdb,I} = opt_make_fun(I1, D, Ts0, Ds0, Fdb0),
-    opt_is(Is, Ts, Ds, Fdb, D, Sub0, [I|Acc]);
-opt_is([#b_set{op=succeeded,args=[Arg],dst=Dst,anno=Anno}=I],
-       Ts0, Ds0, Fdb, D, Sub0, Acc) ->
-    Type = case Ds0 of
-               #{ Arg := #b_set{op=call} } ->
-                   %% Calls can always throw exceptions and their return types
-                   %% are what they return on success, so we must avoid
-                   %% simplifying arguments in case `Arg` would become a
-                   %% literal, which would trick 'succeeded' into thinking it
-                   %% can't fail.
-                   type(succeeded, [Arg], Anno, Ts0, Ds0);
-               #{} ->
-                   Args = simplify_args([Arg], Sub0, Ts0),
-                   type(succeeded, Args, Anno, Ts0, Ds0)
-           end,
-    case beam_types:get_singleton_value(Type) of
-        {ok, Lit} ->
-            Sub = Sub0#{ Dst => #b_literal{val=Lit} },
-            opt_is([], Ts0, Ds0, Fdb, D, Sub, Acc);
-        error ->
-            Ts = Ts0#{ Dst => Type },
-            Ds = Ds0#{ Dst => I },
-            opt_is([], Ts, Ds, Fdb, D, Sub0, [I | Acc])
+
+    {#b_set{}=I, Fdb} = opt_make_fun(I1, Ts0, Fdb0, Meta),
+
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I|Acc]);
+opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
+    case simplify(I0, Ts0, Ds0, Ls, Sub0) of
+        {#b_set{}=I, Ts, Ds, Sub} ->
+            opt_is(Is, Ts, Ds, Ls, Fdb, Sub, Meta, [I | Acc]);
+        {_Value, Sub} ->
+            opt_is(Is, Ts0, Ds0, Ls, Fdb, Sub, Meta, Acc)
     end;
-opt_is([#b_set{args=Args0}=I0|Is],
-       Ts, Ds, Fdb, D, Sub, Acc) ->
-    Args = simplify_args(Args0, Sub, Ts),
-    I = beam_ssa:normalize(I0#b_set{args=Args}),
-    opt_simplify(I, Is, Ts, Ds, Fdb, D, Sub, Acc);
-opt_is([], Ts, Ds, Fdb, _D, Sub, Acc) ->
+opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
 
-opt_simplify(#b_set{dst=Dst}=I0, Is, Ts0, Ds0, Fdb, D, Sub0, Acc) ->
-    case simplify(I0, Ts0) of
-        #b_set{}=I2 ->
-            I = beam_ssa:normalize(I2),
-            Ts = update_types(I, Ts0, Ds0),
-            Ds = Ds0#{ Dst => I },
-            opt_is(Is, Ts, Ds, Fdb, D, Sub0, [I|Acc]);
-        #b_literal{}=Lit ->
-            Sub = Sub0#{ Dst => Lit },
-            opt_is(Is, Ts0, Ds0, Fdb, D, Sub, Acc);
-        #b_var{}=Var ->
-            case Is of
-                [#b_set{op=succeeded,dst=SuccDst,args=[Dst]}] ->
-                    %% We must remove this 'succeeded' instruction since the
-                    %% variable it checks is gone.
-                    Sub = Sub0#{ Dst => Var, SuccDst => #b_literal{val=true} },
-                    opt_is([], Ts0, Ds0, Fdb, D, Sub, Acc);
-                _ ->
-                    Sub = Sub0#{ Dst => Var},
-                    opt_is(Is, Ts0, Ds0, Fdb, D, Sub, Acc)
-            end
-    end.
-
-opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, Ts, Fdb0, D) ->
+opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, Ts, Fdb0, Meta) ->
     I = opt_local_call_return(I0, Callee, Fdb0, Ts),
     case Fdb0 of
         #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
@@ -266,17 +203,18 @@ opt_call(#b_set{dst=Dst,args=[#b_local{}=Callee|Args]}=I0, Ts, Fdb0, D) ->
 
             %% Update the argument types of *this exact call*, the types
             %% will be joined later when the callee is optimized.
-            CallId = {D#d.func_id, Dst},
+            CallId = {Meta#metadata.func_id, Dst},
             ArgTypes = update_arg_types(Types, ArgTypes0, CallId),
 
             Fdb = Fdb0#{ Callee => Info#func_info{arg_types=ArgTypes} },
             {I, Fdb};
         #{} ->
             %% We can't narrow the argument types of exported functions as they
-            %% can receive anything as part of an external call.
+            %% can receive anything as part of an external call. We can still
+            %% rely on their return types however.
             {I, Fdb0}
     end;
-opt_call(I, _Ts, Fdb, _D) ->
+opt_call(I, _Ts, Fdb, _Meta) ->
     {I, Fdb}.
 
 opt_local_call_return(#b_set{args=[_|Args]}=I, Callee, Fdb, Ts) ->
@@ -298,9 +236,7 @@ opt_local_call_return(#b_set{args=[_|Args]}=I, Callee, Fdb, Ts) ->
 opt_make_fun(#b_set{op=make_fun,
                     dst=Dst,
                     args=[#b_local{}=Callee | FreeVars]}=I,
-             D, Ts0, Ds0, Fdb0) ->
-    Ts = update_types(I, Ts0, Ds0),
-    Ds = Ds0#{ Dst => I },
+             Ts, Fdb0, Meta) ->
     case Fdb0 of
         #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
             ArgCount = Callee#b_local.arity - length(FreeVars),
@@ -308,15 +244,15 @@ opt_make_fun(#b_set{op=make_fun,
             FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
             Types = duplicate(ArgCount, any) ++ FVTypes,
 
-            CallId = {D#d.func_id, Dst},
+            CallId = {Meta#metadata.func_id, Dst},
             ArgTypes = update_arg_types(Types, ArgTypes0, CallId),
 
             Fdb = Fdb0#{ Callee => Info#func_info{arg_types=ArgTypes} },
-            {Ts, Ds, Fdb, I};
+            {I, Fdb};
         #{} ->
             %% We can't narrow the argument types of exported functions as they
             %% can receive anything as part of an external call.
-            {Ts, Ds, Fdb0, I}
+            {I, Fdb0}
     end.
 
 update_arg_types([ArgType | ArgTypes], [TypeMap0 | TypeMaps], CallId) ->
@@ -329,23 +265,86 @@ update_arg_types([], [], _CallId) ->
 %%% Optimization helpers
 %%%
 
-simplify_terminator(#b_br{bool=Bool}=Br0, Sub, Ts, Ds) ->
-    Br = beam_ssa:normalize(Br0#b_br{bool=simplify_arg(Bool, Sub, Ts)}),
-    simplify_not(Br, Sub, Ts, Ds);
-simplify_terminator(#b_switch{arg=Arg0}=Sw0, Sub, Ts, Ds) ->
-    Arg = simplify_arg(Arg0, Sub, Ts),
+simplify_terminator(#b_br{bool=Bool}=Br0, Ts, Ds, Sub) ->
+    Br = beam_ssa:normalize(Br0#b_br{bool=simplify_arg(Bool, Ts, Sub)}),
+    simplify_not(Br, Ts, Ds, Sub);
+simplify_terminator(#b_switch{arg=Arg0}=Sw0, Ts, Ds, Sub) ->
+    Arg = simplify_arg(Arg0, Ts, Sub),
     Sw = Sw0#b_switch{arg=Arg},
 
     case beam_types:is_boolean_type(raw_type(Arg, Ts)) of
-        true -> simplify_switch_bool(Sw, Sub, Ts, Ds);
+        true -> simplify_switch_bool(Sw, Ts, Ds, Sub);
         false -> beam_ssa:normalize(Sw)
     end;
-simplify_terminator(#b_ret{arg=Arg}=Ret, Sub, Ts, Ds) ->
+simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
     %% Reducing the result of a call to a literal (fairly common for 'ok')
     %% breaks tail call optimization.
     case Ds of
         #{ Arg := #b_set{op=call}} -> Ret;
-        #{} -> Ret#b_ret{arg=simplify_arg(Arg, Sub, Ts)}
+        #{} -> Ret#b_ret{arg=simplify_arg(Arg, Ts, Sub)}
+    end.
+
+simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub0) ->
+    %% Simplify the phi node by removing all predecessor blocks that no
+    %% longer exists or no longer branches to this block.
+    Args = [{simplify_arg(Arg, Ts0, Sub0), From} ||
+               {Arg,From} <- Args0, maps:is_key(From, Ls)],
+    case all_same(Args) of
+        true ->
+            %% Eliminate the phi node if there is just one source
+            %% value or if the values are identical.
+            [{Val,_}|_] = Args,
+            Sub = Sub0#{ Dst => Val },
+            {Val, Sub};
+        false ->
+            I = I0#b_set{args=Args},
+            Ts = update_types(I, Ts0, Ds0),
+            Ds = Ds0#{Dst=>I},
+            {I, Ts, Ds, Sub0}
+    end;
+simplify(#b_set{op=succeeded,dst=Dst,args=[Arg],anno=Anno}=I,
+         Ts0, Ds0, _Ls, Sub0) ->
+    Type = case Ds0 of
+               #{ Arg := #b_set{op=call} } ->
+                   %% Calls can always throw exceptions and their return types
+                   %% are what they return on success, so we must avoid
+                   %% simplifying arguments in case `Arg` would become a
+                   %% literal, which would trick 'succeeded' into thinking it
+                   %% can't fail.
+                   type(succeeded, [Arg], Anno, Ts0, Ds0);
+               #{ Arg := _ } ->
+                   Args = simplify_args([Arg], Ts0, Sub0),
+                   type(succeeded, Args, Anno, Ts0, Ds0);
+               #{} ->
+                   %% The checked instruction has been removed and substituted,
+                   %% so we can assume it always succeeds.
+                   #{ Arg := _ } = Sub0,        %Assertion.
+                   beam_types:make_atom(true)
+           end,
+    case beam_types:get_singleton_value(Type) of
+        {ok, Lit} ->
+            Sub = Sub0#{ Dst => #b_literal{val=Lit} },
+            {Lit, Sub};
+        error ->
+            Ts = Ts0#{ Dst => Type },
+            Ds = Ds0#{ Dst => I },
+            {I, Ts, Ds, Sub0}
+    end;
+simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub0) ->
+    Args = simplify_args(Args0, Ts0, Sub0),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    case simplify(I1, Ts0) of
+        #b_set{}=I2 ->
+            I = beam_ssa:normalize(I2),
+            Ts = update_types(I, Ts0, Ds0),
+            Ds = Ds0#{ Dst => I },
+            {I, Ts, Ds, Sub0};
+        #b_literal{}=Lit ->
+            Sub = Sub0#{ Dst => Lit },
+            {Lit, Sub};
+        #b_var{}=Var ->
+            Sub = Sub0#{ Dst => Var },
+            {Var, Sub}
     end.
 
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
@@ -421,7 +420,8 @@ simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
         _ ->
             #b_literal{val=false}
     end;
-simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '=='; Op0 =:= '/=' ->
+simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '==';
+                                                    Op0 =:= '/=' ->
     Types = normalized_types(Args, Ts),
     EqEq0 = case {beam_types:meet(Types),beam_types:join(Types)} of
                 {none,any} -> true;
@@ -586,22 +586,22 @@ simplify_is_record(I, any, _Size, _Tag, _Ts) ->
 simplify_is_record(_I, _Type, _Size, _Tag, _Ts) ->
     #b_literal{val=false}.
 
-simplify_switch_bool(#b_switch{arg=B,fail=Fail,list=List0}, Sub, Ts, Ds) ->
+simplify_switch_bool(#b_switch{arg=B,fail=Fail,list=List0}, Ts, Ds, Sub) ->
     FalseVal = #b_literal{val=false},
     TrueVal = #b_literal{val=true},
     List1 = List0 ++ [{FalseVal,Fail},{TrueVal,Fail}],
     {_,FalseLbl} = keyfind(FalseVal, 1, List1),
     {_,TrueLbl} = keyfind(TrueVal, 1, List1),
     Br = #b_br{bool=B,succ=TrueLbl,fail=FalseLbl},
-    simplify_terminator(Br, Sub, Ts, Ds).
+    simplify_terminator(Br, Ts, Ds, Sub).
 
-simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Sub, Ts, Ds) ->
+simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds, Sub) ->
     case Ds of
         #{V:=#b_set{op={bif,'not'},args=[Bool]}} ->
             case beam_types:is_boolean_type(raw_type(Bool, Ts)) of
                 true ->
                     Br = Br0#b_br{bool=Bool,succ=Fail,fail=Succ},
-                    simplify_terminator(Br, Sub, Ts, Ds);
+                    simplify_terminator(Br, Ts, Ds, Sub);
                 false ->
                     Br0
             end;
@@ -772,10 +772,10 @@ eval_type_test_bif_1(I, ArgType, Required) ->
         _ -> I
     end.
 
-simplify_args(Args, Sub, Ts) ->
-    [simplify_arg(Arg, Sub, Ts) || Arg <- Args].
+simplify_args(Args, Ts, Sub) ->
+    [simplify_arg(Arg, Ts, Sub) || Arg <- Args].
 
-simplify_arg(#b_var{}=Arg0, Sub, Ts) ->
+simplify_arg(#b_var{}=Arg0, Ts, Sub) ->
     case sub_arg(Arg0, Sub) of
         #b_literal{}=LitArg ->
             LitArg;
@@ -785,10 +785,10 @@ simplify_arg(#b_var{}=Arg0, Sub, Ts) ->
                 error -> Arg
             end
     end;
-simplify_arg(#b_remote{mod=Mod,name=Name}=Rem, Sub, Ts) ->
-    Rem#b_remote{mod=simplify_arg(Mod, Sub, Ts),
-                 name=simplify_arg(Name, Sub, Ts)};
-simplify_arg(Arg, _Sub, _Ts) -> Arg.
+simplify_arg(#b_remote{mod=Mod,name=Name}=Rem, Ts, Sub) ->
+    Rem#b_remote{mod=simplify_arg(Mod, Ts, Sub),
+                 name=simplify_arg(Name, Ts, Sub)};
+simplify_arg(Arg, _Ts, _Sub) -> Arg.
 
 sub_arg(#b_var{}=Old, Sub) ->
     case Sub of
@@ -880,98 +880,103 @@ st_parallel_join([A | As], [B | Bs]) ->
 st_parallel_join([], []) ->
     [].
 
-update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last, Ts, D0) ->
-    {Last, update_successor(Succ, Ts, D0)};
-update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
-                  Ts, D0) ->
-    UsedOnce = cerl_sets:is_element(Bool, D0#d.once),
-    case infer_types_br(Bool, Ts, UsedOnce, D0) of
-        {#{}=SuccTs, #{}=FailTs} ->
-            D1 = update_successor(Succ, SuccTs, D0),
-            D = update_successor(Fail, FailTs, D1),
-            {Last0, D};
-        {#{}=SuccTs, none} ->
-            Last = Last0#b_br{bool=#b_literal{val=true},fail=Succ},
-            {Last, update_successor(Succ, SuccTs, D0)};
-        {none, #{}=FailTs} ->
-            Last = Last0#b_br{bool=#b_literal{val=true},succ=Fail},
-            {Last, update_successor(Fail, FailTs, D0)}
-    end;
-update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
-                  Ts, D0) ->
-    UsedOnce = cerl_sets:is_element(V, D0#d.once),
+update_success_types(#b_ret{arg=Arg}, Ts, Ds, Meta, SuccTypes) ->
+    #metadata{func_id=FuncId,params=Params} = Meta,
 
-    {List1, FailTs, D1} =
-        update_switch(List0, V, raw_type(V, Ts), Ts, UsedOnce, [], D0),
-
-    case FailTs of
-        none ->
-            %% The fail block is unreachable; swap it with one of the choices.
-            [{_, Fail} | List] = List1,
-            Last = Last0#b_switch{fail=Fail,list=List},
-            {Last, D1};
-        #{} ->
-            D = update_successor(Fail0, FailTs, D1),
-            Last = Last0#b_switch{list=List1},
-            {Last, D}
-    end;
-update_successors(#b_ret{arg=Arg}=Last, Ts, D) ->
-    FuncId = D#d.func_id,
-
-    RetType = case D#d.ds of
+    RetType = case Ds of
                   #{ Arg := #b_set{op=call,args=[FuncId | Args]} } ->
                       {call_self, argument_types(Args, Ts)};
                   #{} ->
                       argument_type(Arg, Ts)
               end,
 
-    %% TODO: Adding types for 'none' is a bit wasteful, but it's necessary as
-    %% long as we optimize with incomplete type information (since we need to
-    %% assume that empty success types = any).
-    ArgTypes = argument_types(D#d.params, Ts),
-    SuccTypes = ordsets:add_element({ArgTypes, RetType}, D#d.succ_types),
+    %% Adding types even when the return type could be 'none' is a bit
+    %% wasteful, but it's necessary as long as we optimize with incomplete type
+    %% information (since we need to assume that empty success types = any).
+    ArgTypes = argument_types(Params, Ts),
+    ordsets:add_element({ArgTypes, RetType}, SuccTypes);
+update_success_types(_Last, _Ts, _Ds, _Meta, SuccTypes) ->
+    SuccTypes.
 
-    {Last, D#d{succ_types=SuccTypes}}.
-
-update_switch([{Val, Lbl}=Sw | List], V, FailType0, Ts, UsedOnce, Acc, D0) ->
-    FailType = beam_types:subtract(FailType0, raw_type(Val, Ts)),
-    case infer_types_switch(V, Val, Ts, UsedOnce, D0#d.ds) of
-        none ->
-            update_switch(List, V, FailType, Ts, UsedOnce, Acc, D0);
-        SwTs ->
-            D = update_successor(Lbl, SwTs, D0),
-            update_switch(List, V, FailType, Ts, UsedOnce, [Sw | Acc], D)
+update_successors(#b_br{bool=#b_literal{val=true},succ=Succ}=Last,
+                  Ts, _Ds, Ls, _UsedOnce) ->
+    {Last, update_successor(Succ, Ts, Ls)};
+update_successors(#b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail}=Last0,
+                  Ts, Ds, Ls0, UsedOnce) ->
+    IsTempVar = cerl_sets:is_element(Bool, UsedOnce),
+    case infer_types_br(Bool, Ts, IsTempVar, Ds) of
+        {#{}=SuccTs, #{}=FailTs} ->
+            Ls1 = update_successor(Succ, SuccTs, Ls0),
+            Ls = update_successor(Fail, FailTs, Ls1),
+            {Last0, Ls};
+        {#{}=SuccTs, none} ->
+            Last = Last0#b_br{bool=#b_literal{val=true},fail=Succ},
+            {Last, update_successor(Succ, SuccTs, Ls0)};
+        {none, #{}=FailTs} ->
+            Last = Last0#b_br{bool=#b_literal{val=true},succ=Fail},
+            {Last, update_successor(Fail, FailTs, Ls0)}
     end;
-update_switch([], _V, none, _Ts, _UsedOnce, Acc, D) ->
+update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
+                  Ts, Ds, Ls0, UsedOnce) ->
+    IsTempVar = cerl_sets:is_element(V, UsedOnce),
+
+    {List1, FailTs, Ls1} =
+        update_switch(List0, V, raw_type(V, Ts), Ts, Ds, Ls0, IsTempVar, []),
+
+    case FailTs of
+        none ->
+            %% The fail block is unreachable; swap it with one of the choices.
+            [{_, Fail} | List] = List1,
+            Last = Last0#b_switch{fail=Fail,list=List},
+            {Last, Ls1};
+        #{} ->
+            Ls = update_successor(Fail0, FailTs, Ls1),
+            Last = Last0#b_switch{list=List1},
+            {Last, Ls}
+    end;
+update_successors(#b_ret{}=Last, _Ts, _Ds, Ls, _UsedOnce) ->
+    {Last, Ls}.
+
+update_switch([{Val, Lbl}=Sw | List],
+              V, FailType0, Ts, Ds, Ls0, IsTempVar, Acc) ->
+    FailType = beam_types:subtract(FailType0, raw_type(Val, Ts)),
+    case infer_types_switch(V, Val, Ts, IsTempVar, Ds) of
+        none ->
+            update_switch(List, V, FailType, Ts, Ds, Ls0, IsTempVar, Acc);
+        SwTs ->
+            Ls = update_successor(Lbl, SwTs, Ls0),
+            update_switch(List, V, FailType, Ts, Ds, Ls, IsTempVar, [Sw | Acc])
+    end;
+update_switch([], _V, none, _Ts, _Ds, Ls, _IsTempVar, Acc) ->
     %% Fail label is unreachable.
-    {reverse(Acc), none, D};
-update_switch([], V, FailType, Ts, UsedOnce, Acc, D) ->
+    {reverse(Acc), none, Ls};
+update_switch([], V, FailType, Ts, Ds, Ls, IsTempVar, Acc) ->
     %% Fail label is reachable, see if we can narrow the type down further.
     FailTs = case beam_types:get_singleton_value(FailType) of
                   {ok, Value} ->
                      %% This is the only possible value at the fail label, so
                      %% we can infer types as if we matched it directly.
                      Lit = #b_literal{val=Value},
-                     infer_types_switch(V, Lit, Ts, UsedOnce, D#d.ds);
-                 error when UsedOnce ->
+                     infer_types_switch(V, Lit, Ts, IsTempVar, Ds);
+                 error when IsTempVar ->
                      ts_remove_var(V, Ts);
                  error ->
                      Ts#{ V := FailType }
              end,
-    {reverse(Acc), FailTs, D}.
+    {reverse(Acc), FailTs, Ls}.
 
-update_successor(?EXCEPTION_BLOCK, _Ts, #d{}=D) ->
+update_successor(?EXCEPTION_BLOCK, _Ts, Ls) ->
     %% We KNOW that no variables are used in the ?EXCEPTION_BLOCK,
     %% so there is no need to update the type information. That
     %% can be a huge timesaver for huge functions.
-    D;
-update_successor(S, Ts0, #d{ls=Ls}=D) ->
+    Ls;
+update_successor(S, Ts0, Ls) ->
     case Ls of
-        #{S:=Ts1} ->
+        #{ S := Ts1 } ->
             Ts = join_types(Ts0, Ts1),
-            D#d{ls=Ls#{S:=Ts}};
+            Ls#{ S := Ts };
         #{} ->
-            D#d{ls=Ls#{S=>Ts0}}
+            Ls#{ S => Ts0 }
     end.
 
 update_types(#b_set{op=Op,dst=Dst,anno=Anno,args=Args}, Ts, Ds) ->
@@ -1279,7 +1284,7 @@ raw_type(V, Ts) ->
 %%  'cons' would give 'nil' as the only possible type. The result of the
 %%  subtraction for L will be added to FailTypes.
 
-infer_types_br(#b_var{}=V, Ts, UsedOnce, #d{ds=Ds}) ->
+infer_types_br(#b_var{}=V, Ts, IsTempVar, Ds) ->
     #{V:=#b_set{op=Op,args=Args}} = Ds,
 
     {PosTypes, NegTypes} = infer_type(Op, Args, Ts, Ds),
@@ -1287,7 +1292,7 @@ infer_types_br(#b_var{}=V, Ts, UsedOnce, #d{ds=Ds}) ->
     SuccTs0 = meet_types(PosTypes, Ts),
     FailTs0 = subtract_types(NegTypes, Ts),
 
-    case UsedOnce of
+    case IsTempVar of
         true ->
             %% The branch variable is defined in this block and is only
             %% referenced by this terminator. Therefore, there is no need to
@@ -1314,10 +1319,10 @@ infer_br_value(V, Bool, NewTs) ->
             NewTs
     end.
 
-infer_types_switch(V, Lit, Ts0, UsedOnce, Ds) ->
+infer_types_switch(V, Lit, Ts0, IsTempVar, Ds) ->
     {PosTypes, _} = infer_type({bif,'=:='}, [V, Lit], Ts0, Ds),
     Ts = meet_types(PosTypes, Ts0),
-    case UsedOnce of
+    case IsTempVar of
         true -> ts_remove_var(V, Ts);
         false -> Ts
     end.
