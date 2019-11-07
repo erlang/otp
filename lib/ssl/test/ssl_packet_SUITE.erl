@@ -2108,18 +2108,10 @@ active_once_packet(Socket,_, 0) ->
     end;
 active_once_packet(Socket, Data, N) ->
     receive 	
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    ssl:setopts(Socket, [{active, once}]),
-	    receive 
-		{ssl, Socket, _} ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_packet(Socket, Data, N-1)
-	    end;
 	{ssl, Socket, Data} ->
-	    ok
-    end,
-    ssl:setopts(Socket, [{active, once}]),
-    active_once_packet(Socket, Data, N-1).
+            ssl:setopts(Socket, [{active, once}]),
+            active_once_packet(Socket, Data, N-1)
+    end.
 
 active_raw(Socket, Data, N) ->
     active_raw(Socket, (length(Data) * N)).
@@ -2140,11 +2132,6 @@ active_packet(Socket, _, 0) ->
     end;
 active_packet(Socket, Data, N) ->
     receive 
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    receive
-		{ssl, Socket, _} ->
-		    active_packet(Socket, Data, N -1)
-		end;
 	{ssl, Socket, Data} ->
 	    active_packet(Socket, Data, N -1);
 	Other ->
