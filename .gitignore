@@ -54,8 +54,10 @@ a.out.dSYM/
 
 # Windows
 *.pdb
+local.static.config.cache
 tcltk85_win32_bin.tar.gz
 erts/autoconf/win32.config.cache
+erts/autoconf/win64.config.cache
 erts/emulator/obj/
 erts/emulator/pcre/obj/
 erts/emulator/pcre/win32/
@@ -66,6 +68,9 @@ erts/epmd/src/win32/
 erts/etc/common/Install.ini
 erts/etc/common/win32/
 erts/etc/win32/cygwin_tools/vc/coffix.exe
+erts/etc/win32/wsl_tools/vc/coffix.exe
+erts/etc/win32/nsis/helper.*
+erts/etc/win32/nsis/hello.*
 erts/include/internal/win32/
 erts/include/win32/
 erts/lib/internal/win32/
