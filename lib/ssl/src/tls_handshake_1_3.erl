@@ -54,6 +54,7 @@
          maybe_add_binders/4,
          maybe_automatic_session_resumption/1]).
 
+-export([is_valid_binder/4]).
 
 %% crypto:hash(sha256, "HelloRetryRequest").
 -define(HELLO_RETRY_REQUEST_RANDOM, <<207,33,173,116,229,154,97,17,
@@ -364,6 +365,18 @@ decode_handshake(?KEY_UPDATE, <<?BYTE(Update)>>) ->
 decode_handshake(Tag, HandshakeMsg) ->
     ssl_handshake:decode_handshake({3,4}, Tag, HandshakeMsg).
 
+is_valid_binder(Binder, HHistory, PSK, Hash) ->
+    case HHistory of
+        [ClientHello2, HRR, MessageHash|_] ->
+            Truncated = truncate_client_hello(ClientHello2),
+            FinishedKey = calculate_finished_key(PSK, Hash),
+            Binder == calculate_binder(FinishedKey, Hash, [MessageHash, HRR, Truncated]);
+        [ClientHello1|_] ->
+            Truncated = truncate_client_hello(ClientHello1),
+            FinishedKey = calculate_finished_key(PSK, Hash),
+            Binder == calculate_binder(FinishedKey, Hash, Truncated)
+    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -551,9 +564,6 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
 
         State1 = maybe_seed_session_tickets(OfferedPSKs, State0),
         
-        %% Exclude any incompatible PSKs.
-        PSK = Maybe(handle_pre_shared_key(State1, OfferedPSKs, Cipher)),
-
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
 
@@ -589,9 +599,14 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% message if it is able to find an acceptable set of parameters but the
         %% ClientHello does not contain sufficient information to proceed with
         %% the handshake.
-        NextStateTuple = Maybe(send_hello_retry_request(State2, ClientPubKey, KeyShare, SessionId)),
-        Maybe(session_resumption(NextStateTuple, PSK))
-
+        case Maybe(send_hello_retry_request(State2, ClientPubKey, KeyShare, SessionId)) of
+            {_, start} = NextStateTuple ->
+                NextStateTuple;
+            {_, negotiated} = NextStateTuple ->
+                %% Exclude any incompatible PSKs.
+                PSK = Maybe(handle_pre_shared_key(State2, OfferedPSKs, Cipher)),
+                Maybe(session_resumption(NextStateTuple, PSK))
+        end
     catch
         {Ref, {insufficient_security, no_suitable_groups}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
@@ -1112,9 +1127,6 @@ send_hello_retry_request(State0, _, _, _) ->
     %% Suitable key found.
     {ok, {State0, negotiated}}.
 
-
-session_resumption({State, start}, _) ->
-    {ok, {State, start}};
 session_resumption({#state{ssl_options = #{session_tickets := disabled}} = State, negotiated}, _) ->
     {ok, {State, negotiated}};
 session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State, negotiated}, undefined)
@@ -1172,9 +1184,14 @@ maybe_send_session_ticket(#state{ssl_options = #{session_tickets := SessionTicke
   when SessionTickets =/= disabled ->
     State;
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := stateful},
+                                 connection_states = ConnectionStates,
                                  static_env = #static_env{trackers = Trackers}} = State0, N) ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
-    Ticket = tls_server_session_ticket:new(Tracker),
+    #{security_parameters := SecParamsR} =
+        ssl_record:current_connection_state(ConnectionStates, read),
+    #security_parameters{prf_algorithm = HKDF,
+                         resumption_master_secret = RMS} = SecParamsR, 
+    Ticket = tls_server_session_ticket:new(Tracker, HKDF, RMS),
     {State, _} = tls_connection:send_handshake(Ticket, State0),
     maybe_send_session_ticket(State, N - 1);
 maybe_send_session_ticket(#state{
@@ -2211,8 +2228,16 @@ handle_pre_shared_key(_, undefined, _) ->
     {ok, undefined};
 handle_pre_shared_key(#state{ssl_options = #{session_tickets := disabled}}, _, _) ->
     {ok, undefined};
+handle_pre_shared_key(#state{ssl_options = #{session_tickets := stateful},
+                             handshake_env = #handshake_env{tls_handshake_history =  {HHistory, _}},
+                             static_env = #static_env{trackers = Trackers}}, OfferedPreSharedKeys, Cipher) ->
+    Tracker = proplists:get_value(session_tickets_tracker, Trackers),
+    #{prf := CipherHash} = ssl_cipher_format:suite_bin_to_map(Cipher),
+    IndexAndPSK = tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory),
+    {ok, IndexAndPSK};
 handle_pre_shared_key(#state{handshake_env = #handshake_env{ticket_seed = Seed},
-                             ssl_options = #{anti_replay := BloomFilter}} = State, PreSharedKeys, Cipher) ->
+                             ssl_options = #{session_tickets := stateless,
+                                             anti_replay := BloomFilter}} = State, PreSharedKeys, Cipher) ->
     {IV, Shard} = 
         case Seed of 
             {_, {IV0, Shard0}} ->
@@ -2243,18 +2268,7 @@ validate_binder(#state{handshake_env = #handshake_env{tls_handshake_history = {H
                        static_env = #static_env{trackers = Trackers}},
                 {PSK, Index, Hash, Binder}, BloomFilter) ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
-    IsBinderValid =
-        case HHistory of
-            [ClientHello2, HRR, MessageHash|_] ->
-                Truncated = truncate_client_hello(ClientHello2),
-                FinishedKey = calculate_finished_key(PSK, Hash),
-                Binder == calculate_binder(FinishedKey, Hash, [MessageHash, HRR, Truncated]);
-            [ClientHello1|_] ->
-                Truncated = truncate_client_hello(ClientHello1),
-                FinishedKey = calculate_finished_key(PSK, Hash),
-                Binder == calculate_binder(FinishedKey, Hash, Truncated)
-        end,
-    case IsBinderValid of
+    case is_valid_binder(Binder, HHistory, PSK, Hash) of
         true ->
             case check_replay(Tracker, Binder, BloomFilter) of
                 anti_replay_disabled ->
