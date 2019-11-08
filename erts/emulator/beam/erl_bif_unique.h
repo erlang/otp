@@ -297,7 +297,7 @@ erts_iref_storage_save(ErtsIRefStorage *iref, Eterm ref)
 	ASSERT(is_magic_ref_thing(hp));
 	iref->is_magic = 1;
 	iref->u.mb = mrtp->mb;
-	erts_refc_inc(&mrtp->mb->intern.refc, 1);
+	erts_refc_inc(&mrtp->mb->intern.refc, 2);
     }
 }
 
@@ -337,7 +337,7 @@ erts_iref_storage_make_ref(ErtsIRefStorage *iref,
 	 * refc increment of the cleaned storage...
 	 */
 	if (!clean_storage)
-	    erts_refc_inc(&iref->u.mb->intern.refc, 1);
+	    erts_refc_inc(&iref->u.mb->intern.refc, 2);
     }
 
 #ifdef DEBUG
