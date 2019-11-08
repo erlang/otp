@@ -331,11 +331,16 @@ canonical_terminator(_, _, _) -> none.
 canonical_terminator_phis([#b_set{op=phi,args=PhiArgs}=Phi|Is], L) ->
     {Value,L} = keyfind(L, 2, PhiArgs),
     [Phi#b_set{op=copy,args=[Value]}|canonical_terminator_phis(Is, L)];
-canonical_terminator_phis([#b_set{op=peek_message}=I|_], L) ->
-    %% We could get stuck into an infinite loop if we allowed the
-    %% comparisons to continue into this block. Force an unequal
-    %% compare with all other predecessors of this block.
-    [I#b_set{op=copy,args=[#b_literal{val=L}]}];
+canonical_terminator_phis([#b_set{}=I|_], L) ->
+    case beam_ssa:is_loop_header(I) of
+        true ->
+            %% We could get stuck into an infinite loop if we allowed the
+            %% comparisons to continue into this loop. Force an unequal
+            %% compare with all other predecessors of this block.
+            [I#b_set{op=copy,args=[#b_literal{val=L}]}];
+        false ->
+            []
+    end;
 canonical_terminator_phis(_, _) -> [].
 
 canonical_arg(#b_var{}=Var, VarMap) ->
@@ -368,7 +373,9 @@ shortcut_nonempty_block(L, Blocks) ->
 
 is_forbidden(L, Blocks) ->
     case map_get(L, Blocks) of
-        #b_blk{is=[#b_set{op=phi}|_]} -> true;
-        #b_blk{is=[#b_set{op=peek_message}|_]} -> true;
+        #b_blk{is=[#b_set{op=phi}|_]} ->
+            true;
+        #b_blk{is=[#b_set{}=I|_]} ->
+            beam_ssa:is_loop_header(I);
         #b_blk{} -> false
     end.
