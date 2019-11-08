@@ -219,7 +219,7 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
     try
         St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
                     ws=Ws0,file=[{file,File}]},
-        {B0,St1} = body(Cs0, Arity, St0),
+        {B0,St1} = body(Cs0, Name, Arity, St0),
         %% ok = function_dump(Name,Arity,"body:~n~p~n",[B0]),
         {B1,St2} = ubody(B0, St1),
         %% ok = function_dump(Name,Arity,"ubody:~n~p~n",[B1]),
@@ -232,15 +232,16 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
 	    erlang:raise(Class, Error, Stack)
     end.
 
-body(Cs0, Arity, St0) ->
+body(Cs0, Name, Arity, St0) ->
     Anno = lineno_anno(element(2, hd(Cs0)), St0),
+    FunAnno = [{function,{Name,Arity}} | Anno],
     {Args0,St1} = new_vars(Anno, Arity, St0),
     Args = reverse(Args0),                      %Nicer order
     case clauses(Cs0, St1) of
 	{Cs1,[],St2} ->
 	    {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
 	    Fc = function_clause(Ps, Anno),
-	    {#ifun{anno=#a{anno=Anno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3};
+	    {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3};
 	{Cs1,Eps,St2} ->
 	    %% We have pre-expressions from patterns and
 	    %% these needs to be letified before matching
@@ -253,7 +254,7 @@ body(Cs0, Arity, St0) ->
 	    Case = #icase{anno=AnnoGen,args=Args,
 			  clauses=Cs1,
 			  fc=Fc2},
-	    {#ifun{anno=#a{anno=Anno},id=[],vars=Args,
+	    {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,
 		   clauses=[#iclause{anno=AnnoGen,pats=Ps1,
 				     guard=[#c_literal{val=true}],
 				     body=Eps ++ [Case]}],

@@ -121,7 +121,7 @@ pattern2(Config) when is_list(Config) ->
     Ts = [{pattern2,
 	   Source,
 	   [nowarn_unused_vars],
-	   {warnings,[{2,sys_core_fold,{nomatch_shadow,1}},
+	   {warnings,[{2,sys_core_fold,{nomatch_shadow,1,{f,1}}},
 		      {4,sys_core_fold,no_clause_match},
 		      {5,sys_core_fold,nomatch_clause_type},
 		      {6,sys_core_fold,nomatch_clause_type}]}}],
@@ -786,7 +786,7 @@ latin1_fallback(Conf) when is_list(Conf) ->
               ">>,
 	    [],
 	    {warnings,[{1,compile,reparsing_invalid_unicode},
-		       {3,sys_core_fold,{nomatch_shadow,2}}]}}],
+		       {3,sys_core_fold,{nomatch_shadow,2,{t,1}}}]}}],
     [] = run(Conf, Ts1),
 
     Ts2 = [{latin1_fallback2,
