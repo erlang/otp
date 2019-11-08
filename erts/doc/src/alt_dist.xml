@@ -785,12 +785,14 @@
 	  <taglist>
 	    <tag><c>DFLAG_DIST_HDR_ATOM_CACHE</c></tag>
 	    <item>Do not use atom cache over this connection.</item>
+            <tag><c>DFLAG_FRAGMENTS</c></tag>
+	    <item>Split large distribution messages into multiple fragments.</item>
 	  </taglist>
-	  <p>Use function <c>dist_util:strict_order_flags/0</c> to get all flags
-	    for features that require strict order delivery.</p>
 	  <p>
 	    This flag field is optional.
 	  </p>
+          <p>See also <seealso marker="#distribution_data_delivery">
+            Distribution Data Delivery</seealso></p>
 	</item>
 
 	<tag><marker id="hs_data_require_flags"/><c>require_flags</c></tag>

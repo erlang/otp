@@ -87,6 +87,7 @@
 /* Flags rejectable by local distr implementation */
 #define DFLAG_DIST_REJECTABLE (DFLAG_DIST_HDR_ATOM_CACHE         \
                                | DFLAG_HIDDEN_ATOM_CACHE         \
+                               | DFLAG_FRAGMENTS                 \
                                | DFLAG_ATOM_CACHE)
 
 /* Flags for all features needing strict order delivery */
