@@ -46,7 +46,8 @@ start_link() ->
 init([]) ->    
     PEMCache = pem_cache_child_spec(),
     SessionCertManager = session_and_cert_manager_child_spec(),
-    {ok, {{rest_for_one, 10, 3600}, [PEMCache, SessionCertManager]}}.
+    TicketStore = ticket_store_spec(),
+    {ok, {{rest_for_one, 10, 3600}, [PEMCache, SessionCertManager, TicketStore]}}.
 
 manager_opts() ->
     CbOpts = case application:get_env(ssl, session_cb) of
@@ -83,6 +84,16 @@ session_and_cert_manager_child_spec() ->
     Restart = permanent, 
     Shutdown = 4000,
     Modules = [ssl_manager],
+    Type = worker,
+    {Name, StartFunc, Restart, Shutdown, Type, Modules}.
+
+ticket_store_spec() ->
+    Name = tls_client_ticket_store,
+    %% TODO do not hardcode storage size and lifetime
+    StartFunc = {tls_client_ticket_store, start_link, [20,10]},
+    Restart = permanent,
+    Shutdown = 4000,
+    Modules = [tls_client_ticket_store],
     Type = worker,
     {Name, StartFunc, Restart, Shutdown, Type, Modules}.
 

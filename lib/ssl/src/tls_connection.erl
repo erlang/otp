@@ -551,8 +551,9 @@ init({call, From}, {start, Timeout},
     KeyShare = maybe_generate_client_shares(SslOpts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession),
     %% Update UseTicket in case of automatic session resumption
-    {UseTicket, State1} = tls_session_ticket:maybe_automatic_session_resumption(State0),
-    TicketData = tls_session_ticket:get_ticket_data(SessionTickets, UseTicket),
+    {UseTicket, State1} = tls_handshake_1_3:maybe_automatic_session_resumption(State0),
+    tls_client_ticket_store:lock_tickets(self(), UseTicket),
+    TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                        Session#session.session_id,
                                        Renegotiation,
@@ -1356,4 +1357,4 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    tls_session_ticket:store_session_ticket(NewSessionTicket, HKDF, SNI, PSK).
+    tls_client_ticket_store:store_ticket(NewSessionTicket, HKDF, SNI, PSK).

@@ -1218,7 +1218,7 @@ get_identities_binders([{Key, _, Identity, _, _, HKDF}|T], {I0, B0}, N) ->
     %% the real binder value.
     Binder = dummy_binder(HKDF),
     %% Store ticket position in identities
-    tls_session_ticket:update_ticket_pos(Key, N),
+    tls_client_ticket_store:update_ticket(Key, N),
     get_identities_binders(T, {[Identity|I0], [Binder|B0]}, N + 1).
 
 
