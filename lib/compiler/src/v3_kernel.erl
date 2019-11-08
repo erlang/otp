@@ -1301,51 +1301,82 @@ pattern_list(Ces, Isub, Osub, St) ->
 %% set_vsub(Name, Sub, Subs) -> Subs.
 %% subst_vsub(Name, Sub, Subs) -> Subs.
 %% get_vsub(Name, Subs) -> SubName.
-%%  Add/get substitute Sub for Name to VarSub.  Use orddict so we know
-%%  the format is a list {Name,Sub} pairs.  When adding a new
-%%  substitute we fold substitute chains so we never have to search
-%%  more than once.
+%%  Add/get substitute Sub for Name to VarSub.
+%%
+%%  We're using a many-to-one bimap so we can rename all references to a
+%%  variable without having to scan through all of them, which can cause
+%%  compile times to explode (see record_SUITE:slow_compilation/1).
 
-new_sub() -> orddict:new().
+new_sub() -> {#{}, #{}}.
 
-get_vsub(V, Vsub) ->
-    case orddict:find(V, Vsub) of
-	{ok,Val} -> Val;
-	error -> V
+get_vsub(Key, Subs) ->
+    bimap_get(Key, Subs, Key).
+
+get_fsub(Name, Arity, Subs) ->
+    bimap_get({Name, Arity}, Subs, Name).
+
+set_vsub(Same, Same, Subs) ->
+    Subs;
+set_vsub(Key, Val, Subs) ->
+    bimap_set(Key, Val, Subs).
+
+set_fsub(Name, Arity, Val, Subs) ->
+    set_vsub({Name, Arity}, Val, Subs).
+
+subst_vsub(Key, Val, Subs) ->
+    bimap_rename(Key, Val, Subs).
+
+bimap_get(Key, {Map, _InvMap}, Default) ->
+    case Map of
+        #{ Key := Val } -> Val;
+        _ -> Default
     end.
 
-set_vsub(V, S, Vsub) ->
-    orddict:store(V, S, Vsub).
+%% Maps Key to Val without touching existing references to Key.
+bimap_set(Key, Val, {Map0, InvMap0}) ->
+    InvMap = bm_update_inv_lookup(Key, Val, Map0, InvMap0),
+    Map = Map0#{ Key => Val },
+    {Map, InvMap}.
 
-subst_vsub(Key, New, Vsub) ->
-    orddict:from_list(subst_vsub_1(Key, New, Vsub)).
-
-subst_vsub_1(Key, New, [{K,Key}|Dict]) ->
-    %% Fold chained substitution.
-    [{K,New}|subst_vsub_1(Key, New, Dict)];
-subst_vsub_1(Key, New, [{K,_}|_]=Dict) when Key < K ->
-    %% Insert the new substitution here, and continue
-    %% look for chained substitutions.
-    [{Key,New}|subst_vsub_2(Key, New, Dict)];
-subst_vsub_1(Key, New, [{K,_}=E|Dict]) when Key > K ->
-    [E|subst_vsub_1(Key, New, Dict)];
-subst_vsub_1(Key, New, []) -> [{Key,New}].
-
-subst_vsub_2(V, S, [{K,V}|Dict]) ->
-    %% Fold chained substitution.
-    [{K,S}|subst_vsub_2(V, S, Dict)];
-subst_vsub_2(V, S, [E|Dict]) ->
-    [E|subst_vsub_2(V, S, Dict)];
-subst_vsub_2(_, _, []) -> [].
-
-get_fsub(F, A, Fsub) ->
-    case orddict:find({F,A}, Fsub) of
-	{ok,Val} -> Val;
-	error -> F
+bm_update_inv_lookup(Key, Val, Map, InvMap0) ->
+    InvMap = bm_cleanup_inv_lookup(Key, Map, InvMap0),
+    case InvMap of
+        #{ Val := Keys } ->
+            %% Other keys map to the same value, add ours to the set.
+            InvMap#{ Val := ordsets:add_element(Key, Keys) };
+        #{} ->
+            InvMap#{ Val => [Key] }
     end.
 
-set_fsub(F, A, S, Fsub) ->
-    orddict:store({F,A}, S, Fsub).
+bm_cleanup_inv_lookup(Key, Map, InvMap) when is_map_key(Key, Map) ->
+    #{ Key := Old } = Map,
+    case InvMap of
+        #{ Old := [Key] } ->
+            maps:remove(Old, InvMap);
+        #{ Old := [_|_]=Keys } ->
+            InvMap#{ Old := ordsets:del_element(Key, Keys) }
+    end;
+bm_cleanup_inv_lookup(_Key, _Map, InvMap) ->
+    InvMap.
+
+%% Maps Key to Val, and replaces all existing references to Key with Val.
+bimap_rename(Key, Val, {Map0, InvMap0}) when is_map_key(Key, InvMap0) ->
+    Keys = map_get(Key, InvMap0),
+
+    Map1 = Map0#{ Key => Val },
+    Map = bimap_update_lookup(Keys, Val, Map1),
+
+    InvMap1 = maps:remove(Key, InvMap0),
+    InvMap = InvMap1#{ Val => ordsets:add_element(Key, Keys) },
+
+    {Map, InvMap};
+bimap_rename(Key, Val, Subs) ->
+    bimap_set(Key, Val, Subs).
+
+bimap_update_lookup([Key | Keys], Val, Map) ->
+    bimap_update_lookup(Keys, Val, Map#{ Key := Val });
+bimap_update_lookup([], _Val, Map) ->
+    Map.
 
 new_fun_name(St) ->
     new_fun_name("anonymous", St).
