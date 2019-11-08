@@ -1840,6 +1840,7 @@ state([{data,[{"StateData", State}]} | _]) -> %% gen_fsm
 state([_ | Rest]) ->
     state(Rest).
 
+%% TODO: DTLS considered tls version in this use maybe rename
 is_tls_version('dtlsv1.2') ->
     true;
 is_tls_version('dtlsv1') ->
@@ -1855,6 +1856,13 @@ is_tls_version('tlsv1') ->
 is_tls_version('sslv3') ->
     true;
 is_tls_version(_) ->
+    false.
+
+is_dtls_version('dtlsv1.2') ->
+    true;
+is_dtls_version('dtlsv1') ->
+    true;
+is_dtls_version(_) ->
     false.
 
 init_tls_version(Version, Config)
@@ -2803,7 +2811,17 @@ openssl_sane_dtls_alpn() ->
     case os:cmd("openssl version") of
         "OpenSSL 1.1.0g" ++ _ ->
             false;
-        "OpenSSL 1.1.1" ++ _ ->
+        "OpenSSL 1.1.1 " ++ _ ->
+            false;
+        "OpenSSL 1.1.1a" ++ _ ->
+            false;
+        _->
+            openssl_sane_dtls()
+    end.
+
+openssl_sane_dtls_session_reuse() ->
+    case os:cmd("openssl version") of
+        "OpenSSL 1.1.1 " ++ _ ->
             false;
         "OpenSSL 1.1.1a" ++ _ ->
             false;
