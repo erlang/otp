@@ -1008,16 +1008,12 @@ maybe_hello_retry_request(_, _) ->
     ok.
 
 
-maybe_resumption(#state{handshake_env =
-                            #handshake_env{resumption = true} = HSEnv0} = State0) ->
-    HSEnv = HSEnv0#handshake_env{resumption = false},
-    State = State0#state{handshake_env = HSEnv},
+maybe_resumption(#state{handshake_env = #handshake_env{resumption = true}} = State) ->
     {error, {State, wait_finished}};
 maybe_resumption(_) ->
     ok.
 
 
-%% TODO Support of multiple PSKs
 handle_resumption(State, undefined) ->
     State;
 handle_resumption(#state{handshake_env = HSEnv0} = State, _) ->
