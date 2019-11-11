@@ -1392,10 +1392,8 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <p>For information about the old config (<c>OldConfig</c>) 
           see the OTP R9C documentation.</p>
         <p>For information about the current agent config 
-          (<c>AgentConfig</c>), see either
-          the <seealso marker="snmp_app">SNMP application</seealso> 
-          part of the reference manual or the 
-          <seealso marker="snmp_config">Configuring the application</seealso> 
+          (<c>AgentConfig</c>), see the 
+          <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
           chapter of the SNMP user's guide.</p>
 
         <marker id="restart_worker"></marker>
