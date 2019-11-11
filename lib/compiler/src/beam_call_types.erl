@@ -91,10 +91,25 @@ will_succeed(Mod, Func, Args) ->
             yes;
         false ->
             case erl_bifs:is_exit_bif(Mod, Func, Arity) of
-                true -> no;
-                false -> maybe
+                true ->
+                    no;
+                false ->
+                    %% While we can't infer success for functions outside the
+                    %% 'erlang' module (see above comment), it's safe to infer
+                    %% failure when we know the arguments must have certain
+                    %% types.
+                    {_, ArgTypes, _} = types(Mod, Func, Args),
+                    fails_on_conflict(Args, ArgTypes)
             end
     end.
+
+fails_on_conflict([ArgType | Args], [Required | Types]) ->
+    case beam_types:meet(ArgType, Required) of
+        none -> no;
+        _ -> fails_on_conflict(Args, Types)
+    end;
+fails_on_conflict([], []) ->
+    maybe.
 
 succeeds_if_type(ArgType, Required) ->
     case beam_types:meet(ArgType, Required) of
