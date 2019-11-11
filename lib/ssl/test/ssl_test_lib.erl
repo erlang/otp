@@ -2235,7 +2235,7 @@ openssl_allows_client_renegotaite(Config) ->
      case os:cmd("openssl version") of  
 	"OpenSSL 1.1" ++ _ ->
 	    {skip, "OpenSSL does not allow client renegotiation"};
-	"LibreSSL 2" ++ _ ->
+	"LibreSSL" ++ _ ->
 	    {skip, "LibreSSL does not allow client renegotiation"};
          _ ->
              Config
