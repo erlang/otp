@@ -890,8 +890,8 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint32 creation, Eterm book)
     erts_rwmtx_rlock(&erts_node_table_rwmtx);
     res = hash_get(&erts_node_table, (void *) &ne);
     if (res && res != erts_this_node) {
-	erts_aint_t refc = erts_ref_node_entry(res, 0, book);
-	if (refc < 2) /* New or pending delete */
+	erts_aint_t refc = erts_ref_node_entry(res, 1, book);
+	if (refc < 2) /* Pending delete */
             erts_ref_node_entry(res, 1, THE_NON_VALUE);
     }
     erts_rwmtx_runlock(&erts_node_table_rwmtx);
