@@ -49,7 +49,6 @@ MIB_MODULES = \
 MODULES = \
 	snmpa \
 	$(MIB_MODULES) \
-	$(BEHAVIOUR_MODULES) \
 	snmpa_acm \
 	snmpa_agent \
 	snmpa_agent_sup \
