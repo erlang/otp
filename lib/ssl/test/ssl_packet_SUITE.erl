@@ -2048,7 +2048,7 @@ passive_recv_packet(Socket, _, 0) ->
 	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), 0}
     end;
 passive_recv_packet(Socket, Data, N) ->
-    case ssl:recv(Socket, 0) of
+    case ssl:recv(Socket, 0, 5000) of
 	{ok, Data} -> 
 	    passive_recv_packet(Socket, Data, N-1);
 	Other ->
