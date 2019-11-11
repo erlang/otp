@@ -20,6 +20,7 @@
 -module(erl_distribution_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("kernel/include/dist.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2]).
@@ -41,7 +42,8 @@
 	 monitor_nodes_combinations/1,
 	 monitor_nodes_cleanup/1,
 	 monitor_nodes_many/1,
-         dist_ctrl_proc_smoke/1]).
+         dist_ctrl_proc_smoke/1,
+         dist_ctrl_proc_reject/1]).
 
 %% Performs the test at another node.
 -export([get_socket_priorities/0,
@@ -72,6 +74,7 @@ suite() ->
 
 all() -> 
     [dist_ctrl_proc_smoke,
+     dist_ctrl_proc_reject,
      tick, tick_change, nodenames, hostnames, illegal_nodenames,
      connect_node,
      hidden_node, setopts,
@@ -1459,12 +1462,40 @@ monitor_nodes_many(DCfg, _Config) ->
     ok.
 
 dist_ctrl_proc_smoke(Config) when is_list(Config) ->
+    dist_ctrl_proc_test(get_nodenames(2, ?FUNCTION_NAME)).
+
+dist_ctrl_proc_reject(Config) when is_list(Config) ->
+    ToReject = combinations(dist_util:rejectable_flags()),
+    lists:map(fun(Flags) ->
+                      ct:log("Try to reject ~p",[Flags]),
+                      dist_ctrl_proc_test(get_nodenames(2, ?FUNCTION_NAME),
+                        "-gen_tcp_dist_reject_flags " ++ integer_to_list(Flags))
+              end, ToReject).
+
+combinations([H | T]) ->
+    lists:flatten([[(1 bsl H) bor C || C <- combinations(T)] | combinations(T)]);
+combinations([]) ->
+    [0];
+combinations(BitField) ->
+    lists:sort(combinations(bits(BitField, 0))).
+
+bits(0, _) ->
+    [];
+bits(BitField, Cnt) when BitField band 1 == 1 ->
+    [Cnt | bits(BitField bsr 1, Cnt + 1)];
+bits(BitField, Cnt) ->
+    bits(BitField bsr 1, Cnt + 1).
+
+dist_ctrl_proc_test(Nodes) ->
+    dist_ctrl_proc_test(Nodes,"").
+
+dist_ctrl_proc_test([Name1,Name2], Extra) ->
     ThisNode = node(),
-    [Name1, Name2] = get_nodenames(2, dist_ctrl_proc_example_smoke),
-    GenTcpOptProlog = "-proto_dist gen_tcp -gen_tcp_dist_output_loop "
-        ++ atom_to_list(?MODULE) ++ " ",
+    GenTcpOptProlog = "-proto_dist gen_tcp "
+        "-gen_tcp_dist_output_loop " ++ atom_to_list(?MODULE) ++ " " ++
+        "dist_cntrlr_output_test_size " ++ Extra,
     {ok, Node1} = start_node("", Name1, "-proto_dist gen_tcp"),
-    {ok, Node2} = start_node("", Name2, GenTcpOptProlog ++ "dist_cntrlr_output_test_size"),
+    {ok, Node2} = start_node("", Name2, GenTcpOptProlog),
     NL = lists:sort([ThisNode, Node1, Node2]),
     wait_until(fun () ->
                        NL == lists:sort([node()|nodes()])
@@ -1515,10 +1546,18 @@ smoke_communicate(Node, OLoopMod, OLoopFun) ->
     List = [[Bin], atom, [BitStr|Bin], make_ref(), [[[BitStr|"hopp"]]],
             4711, 111122222211111111111111,"hej", fun () -> ok end, BitStr,
             self(), fun erlang:node/1],
-    Pid = spawn_link(Node, fun () -> receive {From, Msg} -> From ! Msg end end),
+    Pid = spawn_link(Node, fun () -> receive {From1, Msg1} -> From1 ! Msg1 end,
+                                     receive {From2, Msg2} -> From2 ! Msg2 end
+                           end),
     R = make_ref(),
     Pid ! {self(), [R, List]},
-    receive [R, L] -> List = L end,
+    receive [R, L1] -> List = L1 end,
+
+    %% Send a huge message in order to trigger message fragmentation if enabled
+    FragBin = <<0:(2*(1024*64*8))>>,
+    Pid ! {self(), [R, List, FragBin]},
+    receive [R, L2, B] -> List = L2, FragBin = B end,
+
     unlink(Pid),
     exit(Pid, kill),
     ok.

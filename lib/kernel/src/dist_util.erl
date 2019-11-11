@@ -27,7 +27,7 @@
 
 %%-compile(export_all).
 -export([handshake_we_started/1, handshake_other_started/1,
-         strict_order_flags/0,
+         strict_order_flags/0, rejectable_flags/0,
 	 start_timer/1, setup_timer/2, 
 	 reset_timer/1, cancel_timer/1,
          is_node_name/1, split_node/1, is_allowed/2,
@@ -151,6 +151,11 @@ publish_flag(_, OtherNode) ->
 strict_order_flags() ->
     EDF = erts_internal:get_dflags(),
     EDF#erts_dflags.strict_order.
+
+-spec rejectable_flags() -> integer().
+rejectable_flags() ->
+    EDF = erts_internal:get_dflags(),
+    EDF#erts_dflags.rejectable.
 
 make_this_flags(RequestType, AddFlags, RejectFlags, OtherNode,
                 #erts_dflags{}=EDF) ->
