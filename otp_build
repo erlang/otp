@@ -777,6 +777,13 @@ echo_env_wsl ()
 
     WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/wsl_tools/vc:$ERL_TOP/erts/etc/win32/wsl_tools"
 
+    if [ ! -n "`lookup_prog_in_path cl`" ]; then
+        if [ X"$X64" = X"true" ]; then
+            setup_win32_cl_env "x64" `wslpath -a -m erts/etc/win32/wsl_tools/SetupWSLcross.bat`
+        else
+            setup_win32_cl_env "x86" `wslpath -a -m erts/etc/win32/wsl_tools/SetupWSLcross.bat`
+        fi
+    fi
     echo_setenv OVERRIDE_TARGET win32 ';'
     if [ X"$X64" = X"true" ]; then
         echo_setenv CONFIG_SUBTYPE win64 ';'
@@ -800,6 +807,17 @@ echo_env_wsl ()
     echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
     echo_setenv PATH "$WIN32_WRAPPER_PATH:$PATH" ';'
     echo_envinfo
+}
+
+
+setup_win32_cl_env ()
+{
+    eval `cmd.exe /c $2 $1`
+    echo_setenv INCLUDE "$INCLUDE" ';'
+    echo_setenv LIB "$LIB" ';'
+    echo_setenv LIBPATH "$LIBPATH" ';'
+    echo_setenv VCToolsRedistDir "$VCToolsRedistDir" ';'
+    echo_setenv WSLENV "$WSLENV" ';'
 }
 
 lookup_prog_in_path ()
@@ -1092,8 +1110,13 @@ case $TARGET in
 		'the command'
 	    exit 1
 	fi;;
-	*)
-	;;
+    *)
+        if [ -x /bin/wslpath -a X"$OVERRIDE_TARGET" = X"" \
+                -a X"$1" != X"env_win32" -a X"$1" != X"env_msys32" -a X"$1" != X"env_msys64" ]; then
+            echo "Building linux binary; if you intended to cross build for win32 use"  >&2
+            echo '   eval `./otp_build env_win32`\n' >&2
+        fi
+        ;;
 esac
 
 if [ ! -z "$OVERRIDE_TARGET" ]; then
