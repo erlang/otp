@@ -656,7 +656,7 @@ erts_encode_dist_ext_size(Eterm term,
 
     if (res == ERTS_EXT_SZ_OK) {
         Uint total_size, fragments;
-	*szp += sz;
+
         /*
          * Each fragment use
          * - one element for driver header
@@ -665,6 +665,8 @@ erts_encode_dist_ext_size(Eterm term,
          */
         total_size = sz + ctx->extra_size;
         fragments = (total_size - 1)/ctx->fragment_size + 1;
+
+	*szp = sz;
         *fragmentsp = fragments;
         *vlenp = ctx->vlen + 3*fragments;
     }
@@ -5987,9 +5989,9 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     else {
         hdr += 4;
         payload_ix = get_int32(hdr);
-        ASSERT(0 < payload_ix && payload_ix < eiov->vsize);
-    
+
         if (payload_ix) {
+            ASSERT(0 < payload_ix && payload_ix < eiov->vsize);
             /* Prepend version magic on payload. */
             iov[payload_ix].iov_base--;
             *((byte *) iov[payload_ix].iov_base) = VERSION_MAGIC;
