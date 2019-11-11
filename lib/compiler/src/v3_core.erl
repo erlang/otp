@@ -97,6 +97,7 @@
 
 -record(iapply,    {anno=#a{},op,args}).
 -record(ibinary,   {anno=#a{},segments}).	%Not used in patterns.
+-record(ibitstr,   {anno=#a{},val,size,unit,type,flags}).
 -record(icall,     {anno=#a{},module,name,args}).
 -record(icase,     {anno=#a{},args,clauses,fc}).
 -record(icatch,    {anno=#a{},body}).
@@ -147,7 +148,7 @@
 	       function={none,0} :: fa(),	%Current function.
 	       in_guard=false :: boolean(),	%In guard or not.
 	       wanted=true :: boolean(),	%Result wanted or not.
-	       opts     :: [compile:option()],	%Options.
+	       opts=[]     :: [compile:option()], %Options.
                dialyzer=false :: boolean(),     %Help dialyzer or not.
 	       ws=[]    :: [warning()],		%Warnings.
                file=[{file,""}]			%File.
@@ -1474,37 +1475,48 @@ generator(Line, {generate,Lg,P0,E}, Gs, St0) ->
 generator(Line, {b_generate,Lg,P,E}, Gs, St0) ->
     LA = lineno_anno(Line, St0),
     GA = lineno_anno(Lg, St0),
-    {Cp = #c_binary{segments=Segs},[],St1} = pattern(P, St0),
-    
-    %% The function append_tail_segment/2 keeps variable patterns as-is, making
-    %% it possible to have the same skip clause removal as with list generators.
-    {AccSegs,Tail,TailSeg,St2} = append_tail_segment(Segs, St1),
-    AccPat = Cp#c_binary{segments=AccSegs},
-    {Cg,St3} = lc_guard_tests(Gs, St2),
-    {SkipSegs,St4} = emasculate_segments(AccSegs, St3),
-    SkipPat = Cp#c_binary{segments=SkipSegs},
-    {Ce,Pre,St5} = safe(E, St4),
-    Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
-                tail=Tail,tail_pat=#c_binary{anno=LA,segments=[TailSeg]},
-                arg={Pre,Ce}},
-    {Gen,St5}.
+    try pattern(P, St0) of
+        {#ibinary{segments=Segs}=Cp,[],St1} ->
+            %% The function append_tail_segment/2 keeps variable
+            %% patterns as-is, making it possible to have the same
+            %% skip clause removal as with list generators.
+            {AccSegs,Tail,TailSeg,St2} = append_tail_segment(Segs, St1),
+            AccPat = Cp#ibinary{segments=AccSegs},
+            {Cg,St3} = lc_guard_tests(Gs, St2),
+            {SkipSegs,St4} = emasculate_segments(AccSegs, St3),
+            SkipPat = Cp#ibinary{segments=SkipSegs},
+            {Ce,Pre,St5} = safe(E, St4),
+            Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,
+                        skip_pat=SkipPat,tail=Tail,
+                        tail_pat=#ibinary{anno=#a{anno=LA},segments=[TailSeg]},
+                        arg={Pre,Ce}},
+            {Gen,St5}
+    catch
+        throw:nomatch ->
+            {Ce,Pre,St1} = safe(E, St0),
+            Gen = #igen{anno=#a{anno=GA},acc_pat=nomatch,acc_guard=[],
+                        skip_pat=nomatch,
+                        tail_pat=#c_var{name='_'},
+                        arg={Pre,Ce}},
+            {Gen,St1}
+    end.
 
 append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),
-    Tail = #c_bitstr{val=Var,size=#c_literal{val=all},
-		     unit=#c_literal{val=1},
-		     type=#c_literal{val=binary},
-		     flags=#c_literal{val=[unsigned,big]}},
+    Tail = #ibitstr{val=Var,size=[#c_literal{val=all}],
+                    unit=#c_literal{val=1},
+                    type=#c_literal{val=binary},
+                    flags=#c_literal{val=[unsigned,big]}},
     {Segs++[Tail],Var,Tail,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
 
-emasculate_segments([#c_bitstr{val=#c_var{}}=B|Rest], St, Acc) ->
+emasculate_segments([#ibitstr{val=#c_var{}}=B|Rest], St, Acc) ->
     emasculate_segments(Rest, St, [B|Acc]);
 emasculate_segments([B|Rest], St0, Acc) ->
     {Var,St1} = new_var(St0),
-    emasculate_segments(Rest, St1, [B#c_bitstr{val=Var}|Acc]);
+    emasculate_segments(Rest, St1, [B#ibitstr{val=Var}|Acc]);
 emasculate_segments([], St, Acc) ->
     {reverse(Acc),St}.
 
@@ -1550,7 +1562,9 @@ bc_initial_size(E0, Q, St0) ->
 	end
     catch
 	throw:impossible ->
-	    {#c_literal{val=256},[],St0}
+	    {#c_literal{val=256},[],St0};
+        throw:nomatch ->
+	    {#c_literal{val=1},[],St0}
     end.
 
 bc_elem_size({bin,_,El}, St0) ->
@@ -1894,10 +1908,9 @@ pattern({tuple,L,Ps}, St) ->
 pattern({map,L,Pairs}, St0) ->
     {Ps,Eps,St1} = pattern_map_pairs(Pairs, St0),
     {#c_map{anno=lineno_anno(L, St1),es=Ps,is_pat=true},Eps,St1};
-pattern({bin,L,Ps}, St) ->
-    %% We don't create a #ibinary record here, since there is
-    %% no need to hold any used/new annotations in a pattern.
-    {#c_binary{anno=lineno_anno(L, St),segments=pat_bin(Ps, St)},[],St};
+pattern({bin,L,Ps}, St0) ->
+    {Segments,St} = pat_bin(Ps, St0),
+    {#ibinary{anno=#a{anno=lineno_anno(L, St)},segments=Segments},[],St};
 pattern({match,_,P1,P2}, St) ->
     {Cp1,Eps1,St1} = pattern(P1,St),
     {Cp2,Eps2,St2} = pattern(P2,St1),
@@ -1960,20 +1973,29 @@ pat_alias_map_pairs_1([]) -> [].
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
-pat_bin(Ps, St) -> [pat_segment(P, St) || P <- bin_expand_strings(Ps)].
+pat_bin(Ps0, St) ->
+    Ps = bin_expand_strings(Ps0),
+    pat_segments(Ps, St).
+
+pat_segments([P0|Ps0], St0) ->
+    {P,St1} = pat_segment(P0, St0),
+    {Ps,St2} = pat_segments(Ps0, St1),
+    {[P|Ps],St2};
+pat_segments([], St) -> {[],St}.
 
 pat_segment({bin_element,L,Val,Size0,Type0}, St) ->
-    {Size,Type1} = make_bit_type(L, Size0, Type0),
+    {Size1,Type1} = make_bit_type(L, Size0, Type0),
     [Type,{unit,Unit}|Flags] = Type1,
     Anno = lineno_anno(L, St),
     {Pval0,[],St1} = pattern(Val, St),
     Pval = coerce_to_float(Pval0, Type0),
-    {Psize,[],_St2} = pattern(Size, St1),
-    #c_bitstr{anno=Anno,
-	      val=Pval,size=Psize,
-	      unit=#c_literal{val=Unit},
-	      type=#c_literal{val=Type},
-	      flags=#c_literal{val=Flags}}.
+    Size = erl_eval:partial_eval(Size1),
+    {Psize,St2} = exprs([Size], St1),
+    {#ibitstr{anno=#a{anno=Anno},
+              val=Pval,size=Psize,
+              unit=#c_literal{val=Unit},
+              type=#c_literal{val=Type},
+              flags=#c_literal{val=Flags}},St2}.
 
 coerce_to_float(#c_literal{val=Int}=E, [float|_]) when is_integer(Int) ->
     try
@@ -2383,9 +2405,9 @@ upattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,Ks,St0) ->
 	_ -> []
     end,
     {Pair#c_map_pair{val=V},Vg,Vn,union(Ku,Vu),St1};
-upattern(#c_binary{segments=Es0}=Bin, Ks, St0) ->
+upattern(#ibinary{segments=Es0}=Bin, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upat_bin(Es0, Ks, St0),
-    {Bin#c_binary{segments=Es1},Esg,Esv,Eus,St1};
+    {Bin#ibinary{segments=Es1},Esg,Esv,Eus,St1};
 upattern(#c_alias{var=V0,pat=P0}=Alias, Ks, St0) ->
     {V1,Vg,Vv,Vu,St1} = upattern(V0, Ks, St0),
     {P1,Pg,Pv,Pu,St2} = upattern(P0, union(Vv, Ks), St1),
@@ -2431,7 +2453,7 @@ upat_bin([], _, _, St) -> {[],[],[],[],St}.
 
 %% upat_element(Segment, [KnownVar], [LocalVar], State) ->
 %%        {Segment,[GuardTest],[NewVar],[UsedVar],[LocalVar],State}
-upat_element(#c_bitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
+upat_element(#ibitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
     {H1,Hg,Hv,[],St1} = upattern(H0, Ks, St0),
     Bs1 = case H0 of
 	      #c_var{name=Hname} ->
@@ -2444,13 +2466,22 @@ upat_element(#c_bitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
 	      _ ->
 		  Bs0
 	  end,
-    {Sz1,Us} = case Sz0 of
-		   #c_var{name=Vname} -> 
-		       rename_bitstr_size(Vname, Bs0);
-		   _Other ->
-		       {Sz0,[]}
-	       end,
-    {Seg#c_bitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St1}.
+    case Sz0 of
+        [#c_var{name=Vname}] ->
+            {Sz1,Us} = rename_bitstr_size(Vname, Bs0),
+            {Sz2,St2} = uexprs([Sz1], Ks, St1),
+            {Seg#ibitstr{val=H1,size=Sz2},Hg,Hv,Us,Bs1,St2};
+        [#c_literal{}] ->
+            {Sz1,St2} = uexprs(Sz0, Ks, St1),
+            Us = [],
+            {Seg#ibitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St2};
+        Expr when is_list(Expr) ->
+            Sz1 = [#iset{var=#c_var{name=Old},arg=#c_var{name=New}} ||
+                      {Old,New} <- Bs0] ++ Expr,
+            {Sz2,St2} = uexprs(Sz1, Ks, St1),
+            Us = used_in_expr(Sz2),
+            {Seg#ibitstr{val=H1,size=Sz2},Hg,Hv,Us,Bs1,St2}
+    end.
 
 rename_bitstr_size(V, [{V,N}|_]) ->
     New = #c_var{name=N},
@@ -2460,7 +2491,13 @@ rename_bitstr_size(V, [_|Rest]) ->
 rename_bitstr_size(V, []) ->
     Old = #c_var{name=V},
     {Old,[V]}.
- 
+
+used_in_expr([Le|Les]) ->
+    #a{us=Us,ns=Ns} = get_anno(Le),
+    Used = used_in_expr(Les),
+    union(Us, subtract(Used, Ns));
+used_in_expr([]) -> [].
+
 used_in_any(Les) ->
     foldl(fun (Le, Ns) -> union((get_anno(Le))#a.us, Ns) end,
 	  [], Les).
@@ -2534,18 +2571,18 @@ ren_pat(#c_alias{var=Var0,pat=Pat0}=Alias, Ks, {_,_}=Subs0, St0) ->
     {Var,Subs1,St1} = ren_pat(Var0, Ks, Subs0, St0),
     {Pat,Subs,St} = ren_pat(Pat0, Ks, Subs1, St1),
     {Alias#c_alias{var=Var,pat=Pat},Subs,St};
-ren_pat(#c_binary{segments=Es0}=P, Ks, {Isub,Osub0}, St0) ->
-    {Es,_Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub, Osub0, St0),
-    {P#c_binary{segments=Es},{Isub,Osub},St};
 ren_pat(#c_map{es=Es0}=Map, Ks, {_,_}=Subs0, St0) ->
     {Es,Subs,St} = ren_pat_map(Es0, Ks, Subs0, St0),
     {Map#c_map{es=Es},Subs,St};
+ren_pat(#ibinary{segments=Es0}=P, Ks, {Isub,Osub0}, St0) ->
+    {Es,_Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub, Osub0, St0),
+    {P#ibinary{segments=Es},{Isub,Osub},St};
 ren_pat(P, Ks0, {_,_}=Subs0, St0) ->
     Es0 = cerl:data_es(P),
     {Es,Subs,St} = ren_pats(Es0, Ks0, Subs0, St0),
     {cerl:make_data(cerl:data_type(P), Es),Subs,St}.
 
-ren_pat_bin([#c_bitstr{val=Val0,size=Sz0}=E|Es0], Ks, Isub0, Osub0, St0) ->
+ren_pat_bin([#ibitstr{val=Val0,size=Sz0}=E|Es0], Ks, Isub0, Osub0, St0) ->
     Sz = ren_get_subst(Sz0, Isub0),
     {Val,{_,Osub1},St1} = ren_pat(Val0, Ks, {Isub0,Osub0}, St0),
     Isub1 = case Val0 of
@@ -2555,7 +2592,7 @@ ren_pat_bin([#c_bitstr{val=Val0,size=Sz0}=E|Es0], Ks, Isub0, Osub0, St0) ->
                     Isub0
             end,
     {Es,Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub1, Osub1, St1),
-    {[E#c_bitstr{val=Val,size=Sz}|Es],Isub,Osub,St};
+    {[E#ibitstr{val=Val,size=Sz}|Es],Isub,Osub,St};
 ren_pat_bin([], _Ks, Isub, Osub, St) ->
     {[],Isub,Osub,St}.
 
@@ -2566,12 +2603,15 @@ ren_pat_map([#c_map_pair{val=Val0}=MapPair|Es0], Ks, Subs0, St0) ->
 ren_pat_map([], _Ks, Subs, St) ->
     {[],Subs,St}.
 
-ren_get_subst(#c_var{name=V}=Old, Sub) ->
+ren_get_subst([#c_var{name=V}]=Old, Sub) ->
     case ren_is_subst(V, Sub) of
         no -> Old;
-        {yes,New} -> New
+        {yes,New} -> [New]
     end;
-ren_get_subst(Old, _Sub) -> Old.
+ren_get_subst([#c_literal{}]=Old, _Sub) ->
+    Old;
+ren_get_subst(Expr, Sub) when is_list(Expr) ->
+    Sub ++ Expr.
 
 ren_is_subst(V, [#iset{var=#c_var{name=V},arg=Arg}|_]) ->
     {yes,Arg};
@@ -2591,7 +2631,8 @@ cbody(B0, St0) ->
 %% cclause(Lclause, [AfterVar], State) -> {Cclause,State}.
 %%  The AfterVars are the exported variables.
 
-cclause(#iclause{anno=#a{anno=Anno},pats=Ps,guard=G0,body=B0}, Exp, St0) ->
+cclause(#iclause{anno=#a{anno=Anno},pats=Ps0,guard=G0,body=B0}, Exp, St0) ->
+    Ps = cpattern_list(Ps0),
     {B1,_Us1,St1} = cexprs(B0, Exp, St0),
     {G1,St2} = cguard(G0, St1),
     {#c_clause{anno=Anno,pats=Ps,guard=G1,body=B1},St2}.
@@ -2603,7 +2644,36 @@ cguard([], St) -> {#c_literal{val=true},St};
 cguard(Gs, St0) ->
     {G,_,St1} = cexprs(Gs, [], St0),
     {G,St1}.
- 
+
+cpattern_list([P|Ps]) ->
+    [cpattern(P)|cpattern_list(Ps)];
+cpattern_list([]) -> [].
+
+cpattern(#c_alias{pat=Pat}=Alias) ->
+    Alias#c_alias{pat=cpattern(Pat)};
+cpattern(#c_cons{hd=Hd,tl=Tl}=Cons) ->
+    Cons#c_cons{hd=cpattern(Hd),tl=cpattern(Tl)};
+cpattern(#c_tuple{es=Es}=Tup) ->
+    Tup#c_tuple{es=cpattern_list(Es)};
+cpattern(#c_map{es=Es}=Map) ->
+    Map#c_map{es=cpat_map_pairs(Es)};
+cpattern(#ibinary{anno=#a{anno=Anno},segments=Segs0}) ->
+    Segs = [cpat_bin_seg(S) || S <- Segs0],
+    #c_binary{anno=Anno,segments=Segs};
+cpattern(Other) -> Other.
+
+cpat_map_pairs([#c_map_pair{key=Key0,val=Val0}=Pair0|T]) ->
+    Key = cpattern(Key0),
+    Val = cpattern(Val0),
+    Pair = Pair0#c_map_pair{key=Key,val=Val},
+    [Pair|cpat_map_pairs(T)];
+cpat_map_pairs([]) -> [].
+
+cpat_bin_seg(#ibitstr{anno=#a{anno=Anno},val=E,size=Sz0,unit=Unit,
+                      type=Type,flags=Flags}) ->
+    {Sz,_,_} = cexprs(Sz0, [], #core{}),
+    #c_bitstr{anno=Anno,val=E,size=Sz,unit=Unit,type=Type,flags=Flags}.
+
 %% cexprs([Lexpr], [AfterVar], State) -> {Cexpr,[AfterVar],State}.
 %%  Must be sneaky here at the last expr when combining exports for the
 %%  whole sequence and exports for that expr.
@@ -3045,11 +3115,15 @@ split_reconstruct(Args, Ps, nil, #c_clause{anno=Anno}=C0, St0) ->
     C = C0#c_clause{pats=Ps},
     {Fc,St1} = split_fc_clause(Ps, Anno, St0),
     {#c_case{arg=core_lib:make_values(Args),clauses=[C,Fc]},St1};
-split_reconstruct(Args, Ps, {split,SplitArgs,Pat,Nested},
+split_reconstruct(Args, Ps, {split,SplitArgs,Pat,Nested}, C, St) ->
+    Split = {split,SplitArgs,fun(Body) -> Body end,Pat,Nested},
+    split_reconstruct(Args, Ps, Split, C, St);
+split_reconstruct(Args, Ps, {split,SplitArgs,Wrap,Pat,Nested},
                   #c_clause{anno=Anno}=C0, St0) ->
     {InnerCase,St1} = split_reconstruct(SplitArgs, [Pat], Nested, C0, St0),
-    C = C0#c_clause{pats=Ps,guard=#c_literal{val=true},body=InnerCase},
     {Fc,St2} = split_fc_clause(Args, Anno, St1),
+    Wrapped = Wrap(InnerCase),
+    C = C0#c_clause{pats=Ps,guard=#c_literal{val=true},body=Wrapped},
     {#c_case{arg=core_lib:make_values(Args),clauses=[C,Fc]},St2}.
 
 split_fc_clause(Args, Anno0, #core{gcount=Count}=St0) ->
@@ -3089,9 +3163,9 @@ split_pat(#c_binary{segments=Segs0}=Bin, St0) ->
     case split_bin_segments(Segs0, Vars, St0, []) of
         none ->
             none;
-        {TailVar,Bef,Aft,St} ->
+        {TailVar,Wrap,Bef,Aft,St} ->
             BefBin = Bin#c_binary{segments=Bef},
-            {BefBin,{split,[TailVar],Bin#c_binary{segments=Aft},nil},St}
+            {BefBin,{split,[TailVar],Wrap,Bin#c_binary{segments=Aft},nil},St}
     end;
 split_pat(#c_map{es=Es}=Map, St) ->
     split_map_pat(Es, Map, St, []);
@@ -3134,31 +3208,58 @@ split_data([E|Es0], Type, St0, Acc) ->
     end;
 split_data([], _, _, _) -> none.
 
-split_bin_segments([#c_bitstr{anno=A,val=Val,size=Size}=S|Segs], Vars0, St0, Acc) ->
+split_bin_segments([#c_bitstr{val=Val,size=Size}=S0|Segs], Vars0, St0, Acc) ->
     Vars = case Val of
                #c_var{name=V} -> gb_sets:add(V, Vars0);
                _ -> Vars0
            end,
     case Size of
+        #c_literal{} ->
+            split_bin_segments(Segs, Vars, St0, [S0|Acc]);
         #c_var{name=SizeVar} ->
             case gb_sets:is_member(SizeVar, Vars0) of
                 true ->
-                    {TailVar,St} = new_var(St0),
-                    Unit = split_bin_unit([S|Segs], St0),
-                    Tail = #c_bitstr{anno=A,val=TailVar,
-                                     size=#c_literal{val=all},
-                                     unit=#c_literal{val=Unit},
-                                     type=#c_literal{val=binary},
-                                     flags=#c_literal{val=[unsigned,big]}},
-                    {TailVar,reverse(Acc, [Tail]),[S|Segs],St};
+                    %% The size variable is variable previously bound
+                    %% in this same segment. Split the clause here to
+                    %% avoid a variable that is both defined and used
+                    %% in the same pattern.
+                    {TailVar,Tail,St} = split_tail_seg(S0, Segs, St0),
+                    Wrap = fun(Body) -> Body end,
+                    {TailVar,Wrap,reverse(Acc, [Tail]),[S0|Segs],St};
                 false ->
-                    split_bin_segments(Segs, Vars, St0, [S|Acc])
+                    split_bin_segments(Segs, Vars, St0, [S0|Acc])
             end;
         _ ->
-            split_bin_segments(Segs, Vars, St0, [S|Acc])
+            %% The size is an expression. Split the clause here,
+            %% calculate the expression in a try/catch, and finally
+            %% continue the match in an inner case.
+            {TailVar,Tail,St1} = split_tail_seg(S0, Segs, St0),
+            {SizeVar,St2} = new_var(St1),
+            S = S0#c_bitstr{size=SizeVar},
+            {Wrap,St3} = split_wrap(SizeVar, Size, St2),
+            {TailVar,Wrap,reverse(Acc, [Tail]),[S|Segs],St3}
     end;
 split_bin_segments(_, _, _, _) ->
     none.
+
+split_tail_seg(#c_bitstr{anno=A}=S, Segs, St0) ->
+    {TailVar,St} = new_var(St0),
+    Unit = split_bin_unit([S|Segs], St0),
+    {TailVar,
+     #c_bitstr{anno=A,val=TailVar,
+               size=#c_literal{val=all},
+               unit=#c_literal{val=Unit},
+               type=#c_literal{val=binary},
+               flags=#c_literal{val=[unsigned,big]}},
+    St}.
+
+split_wrap(SizeVar, SizeExpr, St0) ->
+    {Evars,St1} = new_vars(3, St0),
+    {fun(Body) ->
+             Try = #c_try{arg=SizeExpr,vars=[SizeVar],body=SizeVar,
+                          evars=Evars,handler=#c_literal{val=bad_size}},
+             #c_let{vars=[SizeVar],arg=Try,body=Body}
+     end,St1}.
 
 split_bin_unit(Ss, #core{dialyzer=Dialyzer}) ->
     case Dialyzer of

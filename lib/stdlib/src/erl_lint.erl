@@ -81,6 +81,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 -type module_or_mfa() :: module() | mfa().
 
+-type gexpr_context() :: 'guard' | 'bin_seg_size'.
+
 -record(typeinfo, {attr, line}).
 
 %% Usage of records, functions, and imports. The variable table, which
@@ -141,7 +143,10 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                    :: #{ta() => #typeinfo{}},
                exp_types=gb_sets:empty()        %Exported types
                    :: gb_sets:set(ta()),
-               in_try_head=false :: boolean()  %In a try head.
+               in_try_head=false :: boolean(),  %In a try head.
+               bvt = none :: 'none' | [any()],  %Variables in binary pattern
+               gexpr_context = guard            %Context of guard expression
+                   :: gexpr_context()
               }).
 
 -type lint_state() :: #lint{}.
@@ -321,6 +326,13 @@ format_error(bittype_unit) ->
     "a bit unit size must not be specified unless a size is specified too";
 format_error(illegal_bitsize) ->
     "illegal bit size";
+format_error({illegal_bitsize_local_call, {F,A}}) ->
+    io_lib:format("call to local/imported function ~tw/~w is illegal in a size "
+                  "expression for a binary segment",
+		  [F,A]);
+format_error(non_integer_bitsize) ->
+    "a size expression in a pattern evaluates to a non-integer value; "
+        "this pattern cannot possibly match";
 format_error(unsized_binary_not_at_end) ->
     "a binary field without size is only allowed at the end of a binary pattern";
 format_error(typed_literal_string) ->
@@ -655,7 +667,14 @@ pack_warnings(Ws) ->
 
 add_error(E, St) -> add_lint_error(E, St#lint.file, St).
 
-add_error(Anno, E, St) ->
+add_error(Anno, E0, #lint{gexpr_context=Context}=St) ->
+    E = case {E0,Context} of
+            {illegal_guard_expr,bin_seg_size} ->
+                illegal_bitsize;
+            {{illegal_guard_local_call,FA},bin_seg_size} ->
+                {illegal_bitsize_local_call,FA};
+            {_,_} -> E0
+        end,
     {File,Location} = loc(Anno, St),
     add_lint_error({Location,erl_lint,E}, File, St).
 
@@ -1856,20 +1875,40 @@ pat_bit_expr(P, _Old, _Bvt, St) ->
 %%  Check pattern size expression, only allow really valid sizes!
 
 pat_bit_size(default, _Vt, _Bvt, St) -> {default,[],[],St};
-pat_bit_size({atom,_Line,all}, _Vt, _Bvt, St) -> {all,[],[],St};
 pat_bit_size({var,Lv,V}, Vt0, Bvt0, St0) ->
     {Vt,Bvt,St1} = pat_binsize_var(V, Lv, Vt0, Bvt0, St0),
     {unknown,Vt,Bvt,St1};
-pat_bit_size(Size, _Vt, _Bvt, St) ->
+pat_bit_size(Size, Vt0, Bvt0, St0) ->
     Line = element(2, Size),
-    case is_pattern_expr(Size) of
-        true ->
-            case erl_eval:partial_eval(Size) of
-                {integer,Line,I} -> {I,[],[],St};
-                _Other -> {unknown,[],[],add_error(Line, illegal_bitsize, St)}
-            end;
-        false -> {unknown,[],[],add_error(Line, illegal_bitsize, St)}
+    case erl_eval:partial_eval(Size) of
+        {integer,Line,I} -> {I,[],[],St0};
+        Expr ->
+            %% The size is an expression using operators
+            %% and/or guard BIFs calls. If the expression
+            %% happens to evaluate to a non-integer value, the
+            %% pattern will fail to match.
+            St1 = St0#lint{bvt=Bvt0,gexpr_context=bin_seg_size},
+            {Vt,#lint{bvt=Bvt}=St2} = gexpr(Size, Vt0, St1),
+            St3 = St2#lint{bvt=none,gexpr_context=St0#lint.gexpr_context},
+            St = case is_bit_size_illegal(Expr) of
+                     true ->
+                         %% The size is a non-integer literal or a simple
+                         %% expression that does not evaluate to an
+                         %% integer value. Issue a warning.
+                         add_warning(Line, non_integer_bitsize, St3);
+                     false -> St3
+                 end,
+            {unknown,Vt,Bvt,St}
     end.
+
+is_bit_size_illegal({atom,_,_}) -> true;
+is_bit_size_illegal({bin,_,_}) -> true;
+is_bit_size_illegal({cons,_,_,_}) -> true;
+is_bit_size_illegal({float,_,_}) -> true;
+is_bit_size_illegal({map,_,_}) -> true;
+is_bit_size_illegal({nil,_}) -> true;
+is_bit_size_illegal({tuple,_,_}) -> true;
+is_bit_size_illegal(_) -> false.
 
 %% expr_bin(Line, [Element], VarTable, State, CheckFun) -> {UpdVarTable,State}.
 %%  Check an expression group.
@@ -3659,7 +3698,13 @@ pat_binsize_var(V, Line, Vt, Bvt, St) ->
 %%  exported vars are probably safe, warn only if warn_export_vars is
 %%  set.
 
-expr_var(V, Line, Vt, St) ->
+expr_var(V, Line, Vt, #lint{bvt=none}=St) ->
+    do_expr_var(V, Line, Vt, St);
+expr_var(V, Line, Vt0, #lint{bvt=Bvt0}=St0) when is_list(Bvt0) ->
+    {Vt,Bvt,St} = pat_binsize_var(V, Line, Vt0, Bvt0, St0),
+    {Vt,St#lint{bvt=vtmerge(Bvt0, Bvt)}}.
+
+do_expr_var(V, Line, Vt, St) ->
     case orddict:find(V, Vt) of
         {ok,{bound,_Usage,Ls}} ->
             {[{V,{bound,used,Ls}}],St};

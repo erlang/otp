@@ -3656,6 +3656,7 @@ bin_syntax_errors(Config) ->
     Ts = [{bin_syntax_errors,
 	   <<"t(<<X:bad_size>>) -> X;
 	      t(<<_:(x ! y)/integer>>) -> ok;
+	      t(<<_:(l())/integer>>) -> ok;
               t(<<X:all/integer>>) -> X;
               t(<<X/bad_type>>) -> X;
 	      t(<<X/unit:8>>) -> X;
@@ -3664,22 +3665,30 @@ bin_syntax_errors(Config) ->
 	      t(<<(x ! y):8/integer>>) -> ok;
               t(X) ->
                 {<<X/binary-integer>>,<<X/signed-unsigned-integer>>,
-                 <<X/little-big>>,<<X/unit:4-unit:8>>}.
+                 <<X/little-big>>,<<X/unit:4-unit:8>>};
+              t(<<_:{A,B}>>) -> ok.
+
+              l() ->
+                  foo.
 	    ">>,
 	   [],
-	   {error,[{1,erl_lint,illegal_bitsize},
-		   {2,erl_lint,illegal_bitsize},
-		   {3,erl_lint,illegal_bitsize},
-		   {4,erl_lint,{undefined_bittype,bad_type}},
-		   {5,erl_lint,bittype_unit},
-		   {7,erl_lint,illegal_pattern},
+	   {error,[{2,erl_lint,illegal_bitsize},
+		   {3,erl_lint,{illegal_bitsize_local_call,{l,0}}},
+		   {5,erl_lint,{undefined_bittype,bad_type}},
+		   {6,erl_lint,bittype_unit},
 		   {8,erl_lint,illegal_pattern},
-		   {10,erl_lint,{bittype_mismatch,integer,binary,"type"}},
-		   {10,erl_lint,{bittype_mismatch,unsigned,signed,"sign"}},
-		   {11,erl_lint,{bittype_mismatch,8,4,"unit"}},
-		   {11,erl_lint,{bittype_mismatch,big,little,"endianness"}}
+		   {9,erl_lint,illegal_pattern},
+		   {11,erl_lint,{bittype_mismatch,integer,binary,"type"}},
+		   {11,erl_lint,{bittype_mismatch,unsigned,signed,"sign"}},
+		   {12,erl_lint,{bittype_mismatch,8,4,"unit"}},
+		   {12,erl_lint,{bittype_mismatch,big,little,"endianness"}},
+                   {13,erl_lint,{unbound_var,'A'}},
+                   {13,erl_lint,{unbound_var,'B'}}
 		  ],
-	    [{6,erl_lint,{bad_bitsize,"float"}}]}}
+	    [{1,erl_lint,non_integer_bitsize},
+             {4,erl_lint,non_integer_bitsize},
+             {7,erl_lint,{bad_bitsize,"float"}},
+             {13,erl_lint,non_integer_bitsize}]}}
 	 ],
     [] = run(Config, Ts),
     ok.

@@ -797,9 +797,13 @@ is_simple_val(Val) ->
 pattern_bin(Es0, St) ->
     foldr(fun (E, Acc) -> pattern_element(E, Acc) end, {[],St}, Es0).
 
-pattern_element({bin_element,Line,Expr0,Size,Type}, {Es,St0}) ->
+pattern_element({bin_element,Line,Expr0,Size0,Type}, {Es,St0}) ->
     {Expr,St1} = pattern(Expr0, St0),
-    {[{bin_element,Line,Expr,Size,Type} | Es],St1}.
+    {Size,St2} = case Size0 of
+                     default -> {Size0,St1};
+                     _ -> expr(Size0, St1)
+                 end,
+    {[{bin_element,Line,Expr,Size,Type} | Es],St2}.
 
 %% expr_bin([Element], State) -> {[Element],State}.
 

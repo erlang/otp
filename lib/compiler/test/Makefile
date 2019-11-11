@@ -23,6 +23,7 @@ MODULES= \
 	bs_bit_binaries_SUITE \
 	bs_construct_SUITE \
 	bs_match_SUITE \
+	bs_size_expr_SUITE \
 	bs_utf_SUITE \
 	core_alias_SUITE \
 	core_fold_SUITE \
@@ -60,6 +61,7 @@ NO_OPT= \
 	bif \
 	bs_construct \
         bs_match \
+        bs_size_expr \
 	bs_utf \
 	core_fold \
 	float \
@@ -85,6 +87,7 @@ INLINE= \
 	bs_bit_binaries \
 	bs_construct \
         bs_match \
+        bs_size_expr \
 	bs_utf \
 	core_fold \
 	float \
