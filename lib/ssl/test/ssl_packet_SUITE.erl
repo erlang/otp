@@ -2009,13 +2009,14 @@ packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, Send ,[Data, Quantity]}},
-					{options, [{packet, Packet} | ServerOpts]}]),
+					{options, [{packet, Packet}, {nodelay, true}| ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
 					{mfa, {?MODULE, Recv, [Data, Quantity]}},
 					{options, [{active, Active},
+                                                   {nodelay, true},
 						   {packet, Packet} |
 						   ClientOpts]}]),
 
