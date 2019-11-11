@@ -28,7 +28,7 @@ SUITE_MODULES = \
 	snmp_compiler_SUITE \
 	snmp_conf_SUITE \
 	snmp_log_SUITE \
-	snmp_manager_config_test \
+	snmp_manager_config_SUITE \
 	snmp_manager_user \
 	snmp_manager_user_old \
 	snmp_manager_user_test \

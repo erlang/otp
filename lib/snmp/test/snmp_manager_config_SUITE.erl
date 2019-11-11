@@ -24,10 +24,10 @@
 %% Test:
 %% ts:run().
 %% ts:run(snmp, [batch]).
-%% ts:run(snmp, snmp_manager_config_test, [batch]).
+%% ts:run(snmp, snmp_manager_config_SUITE, [batch]).
 %% 
 %%----------------------------------------------------------------------
--module(snmp_manager_config_test).
+-module(snmp_manager_config_SUITE).
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -44,10 +44,11 @@
 %% -compile(export_all).
 
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
-         init_per_testcase/2, end_per_testcase/2,
+         suite/0, all/0, groups/0,
+	 init_per_suite/1,    end_per_suite/1, 
+	 init_per_group/2,    end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, 
 
-	
 
 	 simple_start_and_stop/1,
 	 start_without_mandatory_opts1/1,
@@ -60,8 +61,6 @@
 	 start_with_invalid_agents_conf_file1/1,
 	 start_with_invalid_usm_conf_file1/1,
          start_with_create_db_and_dir_opt/1,
-
-	
 
 	
 	 simple_system_op/1,
@@ -116,41 +115,156 @@
 
 
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+
+all() -> 
+    [
+     {group, start_and_stop},
+     {group, normal_op},
+     {group, tickets}
+    ].
+
+groups() -> 
+    [
+     {start_and_stop, [], start_and_stop_cases()},
+     {normal_op,      [], normal_op_cases()},
+     {system,         [], system_cases()},
+     {users,          [], users_cases()},
+     {agents,         [], agents_cases()},
+     {usm_users,      [], usm_users_cases()},
+     {counter,        [], counter_cases()},
+     {stats_counter,  [], stats_counter_cases()},
+     {tickets,        [], tickets_cases()},
+     {otp_8395,       [], otp_8395_cases()}
+    ].
+
+start_and_stop_cases() ->
+    [
+     simple_start_and_stop, 
+     start_without_mandatory_opts1,
+     start_without_mandatory_opts2,
+     start_with_all_valid_opts,
+     start_with_unknown_opts,
+     start_with_incorrect_opts,
+     start_with_create_db_and_dir_opt,
+     start_with_invalid_manager_conf_file1,
+     start_with_invalid_users_conf_file1,
+     start_with_invalid_agents_conf_file1,
+     start_with_invalid_usm_conf_file1
+    ].
+
+normal_op_cases() ->
+    [
+     {group, system}, 
+     {group, agents}, 
+     {group, users},
+     {group, usm_users}, 
+     {group, counter},
+     {group, stats_counter}
+    ].
+
+system_cases() ->
+    [
+     simple_system_op
+    ].
+
+users_cases() ->
+    [
+     register_user_using_file, 
+     register_user_using_function,
+     register_user_failed_using_function1
+    ].
+
+agents_cases() ->
+    [
+     register_agent_using_file,
+     register_agent_using_function,
+     register_agent_failed_using_function1
+    ].
+
+usm_users_cases() ->
+    [
+     register_usm_user_using_file,
+     register_usm_user_using_function,
+     register_usm_user_failed_using_function1,
+     update_usm_user_info
+    ].
+
+counter_cases() ->
+    [
+     create_and_increment
+    ].
+
+stats_counter_cases() ->
+    [
+     stats_create_and_increment
+    ].
+
+tickets_cases() ->
+    [
+     otp_7219,
+     {group, otp_8395}
+    ].
+
+otp_8395_cases() ->
+    [
+     otp_8395_1,
+     otp_8395_2,
+     otp_8395_3,
+     otp_8395_4
+    ].
+
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?DBG("init_per_suite -> entry with"
+         "~n   Config0: ~p", [Config0]),
+
+    Config1 = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+
+    ?DBG("init_per_suite -> done when"
+         "~n   Config1: ~p", [Config1]),
+
+    Config1.
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+         "~n   Config: ~p", [Config]),
+
+    Config.
+
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     p("init_per_testcase -> Case: ~p", [Case]),
-    SnmpPrivDir = ?config(priv_dir, Config),
-    p("init_per_testcase -> SnmpPrivDir: ~p", [SnmpPrivDir]),
-    SuiteDir = atom_to_list(?MODULE),
-    SuiteTopDir = filename:join(SnmpPrivDir, SuiteDir),
-    case file:make_dir(SuiteTopDir) of
-	ok ->
-	    ok;
-	{error, eexist} ->
-	    ok;
-	{error, Reason} ->
-	    ?FAIL({failed_creating, SuiteTopDir, Reason})
-    end,
-    p("init_per_testcase -> SuiteTopDir: ~p", [SuiteTopDir]),
-    CaseDir = atom_to_list(Case),
-    ?line ok = 
-	file:make_dir(CaseTopDir = filename:join(SuiteTopDir, CaseDir)),
+    SuiteTopDir = ?config(snmp_suite_top_dir, Config),
+    CaseTopDir  = filename:join(SuiteTopDir, atom_to_list(Case)),
+    ?line ok    = file:make_dir(CaseTopDir),
     p("init_per_testcase -> CaseTopDir: ~p", [CaseTopDir]),
-    ?line ok = 
-	file:make_dir(MgrTopDir  = filename:join(CaseTopDir, "manager/")),
-    ?line ok = 
-	file:make_dir(MgrConfDir = filename:join(MgrTopDir,   "conf/")),
-    MgrDbDir = filename:join(MgrTopDir, "db/"),
+    MgrTopDir   = filename:join(CaseTopDir, "manager/"),
+    ?line ok    = file:make_dir(MgrTopDir),
+    MgrConfDir  = filename:join(MgrTopDir, "conf/"),
+    ?line ok    = file:make_dir(MgrConfDir),
+    MgrDbDir    = filename:join(MgrTopDir, "db/"),
     case Case of
 	start_with_create_db_and_dir_opt ->
 	    ok;
 	_ ->
 	    ?line ok = file:make_dir(MgrDbDir)
     end,
-    ?line ok = 
-	file:make_dir(MgrLogDir  = filename:join(MgrTopDir,   "log/")),
+    MgrLogDir   = filename:join(MgrTopDir,   "log/"),
+    ?line ok    = file:make_dir(MgrLogDir),
     [{case_top_dir,     CaseTopDir},
      {manager_dir,      MgrTopDir},
      {manager_conf_dir, MgrConfDir},
@@ -161,72 +275,14 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 end_per_testcase(Case, Config) when is_list(Config) ->
     p("end_per_testcase -> Case: ~p", [Case]),
     %% The cleanup is removed due to some really discusting NFS behaviour...
-    %% CaseTopDir = ?config(manager_dir, Config),
-    %% ?line ok = ?DEL_DIR(CaseTopDir),
+    %% Also, it can always be useful to retain "all the stuff" after
+    %% the test case in case of debugging...
     Config.
-
-
-%%======================================================================
-%% Test case definitions
-%%======================================================================
-% all(doc) ->
-%     "The top snmp manager config test case";
-all() -> 
-[{group, start_and_stop}, {group, normal_op},
- {group, tickets}].
-
-groups() -> 
-    [{start_and_stop, [],
-      [simple_start_and_stop, 
-       start_without_mandatory_opts1,
-       start_without_mandatory_opts2,
-       start_with_all_valid_opts, start_with_unknown_opts,
-       start_with_incorrect_opts,
-       start_with_create_db_and_dir_opt,
-       start_with_invalid_manager_conf_file1,
-       start_with_invalid_users_conf_file1,
-       start_with_invalid_agents_conf_file1,
-       start_with_invalid_usm_conf_file1]},
-     {normal_op, [],
-      [{group, system}, 
-       {group, agents}, 
-       {group, users},
-       {group, usm_users}, 
-       {group, counter},
-       {group, stats_counter}]},
-     {system, [], [simple_system_op]},
-     {users, [],
-      [register_user_using_file, 
-       register_user_using_function,
-       register_user_failed_using_function1]},
-     {agents, [],
-      [register_agent_using_file,
-       register_agent_using_function,
-       register_agent_failed_using_function1]},
-     {usm_users, [],
-      [register_usm_user_using_file,
-       register_usm_user_using_function,
-       register_usm_user_failed_using_function1,
-       update_usm_user_info]},
-     {counter, [], [create_and_increment]},
-     {stats_counter, [], [stats_create_and_increment]},
-     {tickets, [], [otp_7219, {group, otp_8395}]},
-     {otp_8395, [],
-      [otp_8395_1, otp_8395_2, otp_8395_3, otp_8395_4]}].
-
-init_per_group(_GroupName, Config) ->
-	Config.
-
-end_per_group(_GroupName, Config) ->
-	Config.
-
 
 
 %%======================================================================
 %% Test functions
 %%======================================================================
-
-
 
 %% 
 %% ---
