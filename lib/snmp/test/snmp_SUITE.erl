@@ -105,14 +105,12 @@ groups() ->
     [
      {manager, [], manager_cases()},
 
-     {manager_user_test,   [], [{snmp_manager_user_test,   all}]},
      {manager_test,        [], [{snmp_manager_test,        all}]}
     ].
 
 
 manager_cases() ->
     [
-     {group, manager_user_test},
      {group, manager_test}
     ].
 

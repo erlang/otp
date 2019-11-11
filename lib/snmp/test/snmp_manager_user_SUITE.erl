@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 %%----------------------------------------------------------------------
 %% Purpose: Various (snmp manager) user related tests
 %%----------------------------------------------------------------------
--module(snmp_manager_user_test).
+-module(snmp_manager_user_SUITE).
 
 
 %%----------------------------------------------------------------------
@@ -34,11 +34,12 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
-%% -compile(export_all).
 
 -export([
-	 all/0,groups/0,init_per_group/2,end_per_group/2,
-         init_per_testcase/2, end_per_testcase/2,
+         suite/0, all/0, groups/0,
+	 init_per_suite/1,    end_per_suite/1, 
+	 init_per_group/2,    end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, 
 	 
 	 
 	 simple_register_and_unregister1/1,
@@ -68,6 +69,7 @@
 
 	]).
 	 
+
 %%----------------------------------------------------------------------
 %% Internal exports
 %%----------------------------------------------------------------------
@@ -86,80 +88,83 @@
 
 
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
 
-init_per_testcase(Case, Config) when is_list(Config) ->
-    p("init_per_testcase -> Case: ~p", [Case]),
-    SnmpPrivDir = ?config(priv_dir, Config),
-    p("init_per_testcase -> SnmpPrivDir: ~p", [SnmpPrivDir]),
-    SuiteDir = atom_to_list(?MODULE),
-    SuiteTopDir = filename:join(SnmpPrivDir, SuiteDir),
-    case file:make_dir(SuiteTopDir) of
-	ok ->
-	    ok;
-	{error, eexist} ->
-	    ok;
-	{error, Reason} ->
-	    ?FAIL({failed_creating, SuiteTopDir, Reason})
-    end,
-    p("init_per_testcase -> SuiteTopDir: ~p", [SuiteTopDir]),
-    CaseDir = atom_to_list(Case),
-    ?line ok =
-        file:make_dir(CaseTopDir = filename:join(SuiteTopDir, CaseDir)),
-    p("init_per_testcase -> CaseTopDir: ~p", [CaseTopDir]),
-     ?line ok = 
-	file:make_dir(MgrTopDir  = filename:join(CaseTopDir, "manager/")),
-    ?line ok = 
-	file:make_dir(MgrConfDir = filename:join(MgrTopDir,   "conf/")),
-    ?line ok = 
-	file:make_dir(MgrDbDir   = filename:join(MgrTopDir,   "db/")),
-    ?line ok = 
-	file:make_dir(MgrLogDir  = filename:join(MgrTopDir,   "log/")),
-    [{suite_top_dir,    SuiteTopDir},
-     {case_top_dir,     CaseTopDir},
-     {manager_dir,      MgrTopDir},
-     {manager_conf_dir, MgrConfDir},
-     {manager_db_dir,   MgrDbDir},
-     {manager_log_dir,  MgrLogDir} | Config].
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 
-end_per_testcase(Case, Config) when is_list(Config) ->
-    p("end_per_testcase -> Case: ~p", [Case]),
-%     MgrTopDir = ?config(manager_dir, Config),
-%     ?DEL_DIR(MgrTopDir),
+all() -> 
+    [
+     {group, register_user},
+     {group, tickets}
+    ].
+
+groups() -> 
+    [
+     {register_user, [], register_user_cases()},
+     {tickets,       [], tickets_cases()}
+    ].
+
+register_user_cases() ->
+    [
+     simple_register_and_unregister1,
+     simple_register_and_unregister2,
+     simple_register_and_unregister3, register_and_crash1,
+     register_and_crash2, register_and_crash3,
+     register_request_and_crash1,
+     register_request_and_crash2,
+     register_request_and_crash3,
+     simple_register_monitor_and_unregister1,
+     simple_register_monitor_and_unregister2,
+     simple_register_monitor_and_unregister3,
+     register_monitor_and_crash1,
+     register_monitor_and_crash2,
+     register_monitor_and_crash3,
+     register_monitor_and_crash4,
+     register_monitor_and_crash5,
+     register_monitor_request_and_crash1,
+     register_monitor_request_and_crash2,
+     register_monitor_request_and_crash3,
+     register_monitor_request_and_crash4
+    ].
+
+tickets_cases() ->
+    [
+     otp7902
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?DBG("init_per_suite -> entry with"
+         "~n   Config0: ~p", [Config0]),
+
+    Config1 = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+
+    ?DBG("init_per_suite -> done when"
+         "~n   Config1: ~p", [Config1]),
+
+    Config1.
+
+end_per_suite(Config) when is_list(Config) ->
+
+    ?DBG("end_per_suite -> entry with"
+         "~n   Config: ~p", [Config]),
+
     Config.
 
 
-%%======================================================================
-%% Test case definitions
-%%======================================================================
 
-all() -> 
-[{group, register_user}, {group, tickets}].
-
-groups() -> 
-    [{register_user, [],
-  [simple_register_and_unregister1,
-   simple_register_and_unregister2,
-   simple_register_and_unregister3, register_and_crash1,
-   register_and_crash2, register_and_crash3,
-   register_request_and_crash1,
-   register_request_and_crash2,
-   register_request_and_crash3,
-   simple_register_monitor_and_unregister1,
-   simple_register_monitor_and_unregister2,
-   simple_register_monitor_and_unregister3,
-   register_monitor_and_crash1,
-   register_monitor_and_crash2,
-   register_monitor_and_crash3,
-   register_monitor_and_crash4,
-   register_monitor_and_crash5,
-   register_monitor_request_and_crash1,
-   register_monitor_request_and_crash2,
-   register_monitor_request_and_crash3,
-   register_monitor_request_and_crash4]},
- {tickets, [], [otp7902]}].
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
 	Config.
@@ -169,6 +174,34 @@ end_per_group(_GroupName, Config) ->
 
 
 
+%%
+%% -----
+%%
+
+init_per_testcase(Case, Config) when is_list(Config) ->
+    p("init_per_testcase -> Case: ~p", [Case]),
+    SuiteTopDir = ?config(snmp_suite_top_dir, Config),
+    CaseTopDir  = filename:join(SuiteTopDir, atom_to_list(Case)),
+    ?line ok    = file:make_dir(CaseTopDir),
+    p("init_per_testcase -> CaseTopDir: ~p", [CaseTopDir]),
+    MgrTopDir   = filename:join(CaseTopDir, "manager/"),
+    ?line ok    = file:make_dir(MgrTopDir),
+    MgrConfDir  = filename:join(MgrTopDir, "conf/"),
+    ?line ok    = file:make_dir(MgrConfDir),
+    MgrDbDir    = filename:join(MgrTopDir, "db/"),
+    ?line ok    = file:make_dir(MgrDbDir),
+    MgrLogDir   = filename:join(MgrTopDir,   "log/"),
+    ?line ok    = file:make_dir(MgrLogDir),
+    [{case_top_dir,     CaseTopDir},
+     {manager_dir,      MgrTopDir},
+     {manager_conf_dir, MgrConfDir},
+     {manager_db_dir,   MgrDbDir},
+     {manager_log_dir,  MgrLogDir} | Config].
+
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    p("end_per_testcase -> Case: ~p", [Case]),
+    Config.
 
 
 
