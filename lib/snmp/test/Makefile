@@ -37,7 +37,6 @@ VSN = $(SNMP_VSN)
 include modules.mk
 
 SNMP_ROOT = ..
-SNMP_SUITE = snmp_SUITE 
 
 ERL_FILES = $(MODULES:%=%.erl)
 
@@ -118,10 +117,6 @@ GROUP_CHECK = +'{group_check,false}'
 
 SNMP_MIB_FLAGS += $(GROUP_CHECK) $(USE_DESCRIPTION) -I$(SNMP_BIN_TARGET_DIR)
 
-ifndef SUITE
-SUITE = snmp_SUITE
-endif
-
 ESTOP = -s init stop
 
 ifeq ($(DONT_STOP),true)
@@ -197,19 +192,16 @@ mib: $(MIB_TARGETS)
 
 make: old_targets
 
-test: make
-	$(MERL) $(ARGS) -sname snmp_test $(ERL_PATH) \
-            -s snmp_test_server run $(SUITE) \
-            $(MAYBE_ESTOP)
+test: agent manager
 
 agent: make
 	$(MERL) $(ARGS) -sname snmp_agent_test $(ERL_PATH) \
-            -s snmp_test_server run snmp_agent_test \
+            -s snmp_test_server run snmp_agent_SUITE \
             $(MAYBE_ESTOP)
 
 manager: make
 	$(MERL) $(ARGS) -sname snmp_manager_test $(ERL_PATH) \
-            -s snmp_test_server run snmp_manager_test \
+            -s snmp_test_server run snmp_manager_SUITE \
             $(MAYBE_ESTOP)
 
 

@@ -19,7 +19,6 @@
 # %CopyrightEnd%
 
 SUITE_MODULES = \
-	snmp_SUITE \
 	snmp_agent_SUITE \
 	snmp_agent_conf_SUITE \
 	snmp_agent_mibs_SUITE \
@@ -29,9 +28,8 @@ SUITE_MODULES = \
 	snmp_conf_SUITE \
 	snmp_log_SUITE \
 	snmp_manager_config_SUITE \
-	snmp_manager_user \
 	snmp_manager_user_SUITE \
-	snmp_manager_test \
+	snmp_manager_SUITE \
 	snmp_note_store_SUITE \
 	snmp_pdus_SUITE \
         snmp_to_snmpnet_SUITE
@@ -39,6 +37,7 @@ SUITE_MODULES = \
 TEST_UTIL_MODULES = \
 	snmp_agent_test_get \
 	snmp_agent_test_lib \
+	snmp_manager_user \
 	snmp_manager_user_old \
 	snmp_manager_user_test_lib \
 	snmp_test_global_sys_monitor \
