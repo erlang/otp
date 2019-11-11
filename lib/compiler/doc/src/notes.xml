@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a performance bug that caused repeated matches
+	    of large records to take a very long time to compile.</p>
+          <p>
+	    Own Id: OTP-16259 Aux Id: ERIERL-436 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
