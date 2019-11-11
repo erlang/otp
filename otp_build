@@ -760,6 +760,48 @@ echo_env_msys ()
     echo_envinfo
 }
 
+echo_env_wsl ()
+{
+    X64=$1
+    #echo_envinfo
+    if [ X"$SHELL" = X"" ]; then
+	echo "You need to export the shell variable first," \
+		"for bourne-like shells, type:" >&2
+	echo 'export SHELL' >&2
+	echo "and for csh-like shells, type:" >&2
+	echo 'setenv SHELL $SHELL' >&2
+	echo " - then try again." >&2
+	exit 1
+    fi
+    echo_env_erltop
+
+    WIN32_WRAPPER_PATH="$ERL_TOP/erts/etc/win32/wsl_tools/vc:$ERL_TOP/erts/etc/win32/wsl_tools"
+
+    echo_setenv OVERRIDE_TARGET win32 ';'
+    if [ X"$X64" = X"true" ]; then
+        echo_setenv CONFIG_SUBTYPE win64 ';'
+    fi
+    echo_setenv WSLcross true ';'
+    echo_setenv CC cc.sh ';'
+    echo_setenv CXX cc.sh ';'
+    echo_setenv AR ar.sh ';'
+    echo_setenv RANLIB true ';'
+    if [ X"$X64" = X"true" ]; then
+        if [ -f "$ERL_TOP/erts/autoconf/win64.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win64.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win64.config.cache" ';'
+    else
+        if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
+	    echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+        fi
+        echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
+    fi
+    echo_setenv WIN32_WRAPPER_PATH "$WIN32_WRAPPER_PATH" ';'
+    echo_setenv PATH "$WIN32_WRAPPER_PATH:$PATH" ';'
+    echo_envinfo
+}
+
 lookup_prog_in_path ()
 {
     PROG=$1
@@ -1162,7 +1204,9 @@ case "$1" in
 	        if [ x"$2" = x"x64" -o x"$2" = x"amd64" ]; then
                     ISX64=true
 		fi
-		if [ -x /usr/bin/msys-?.0.dll ]; then
+                if [ -x /bin/wslpath ]; then
+                    echo_env_wsl $ISX64
+                elif [ -x /usr/bin/msys-?.0.dll ]; then
 		    echo_env_msys $ISX64
 		else
 		    echo_env_cygwin $ISX64
@@ -1170,7 +1214,9 @@ case "$1" in
 	env_mingw32)
 		echo_env_mingw32;;
 	env_win64)
-	        if [ -x /usr/bin/msys-?.0.dll ]; then
+                if [ -x /bin/wslpath ]; then
+                    echo_env_wsl true
+                elif [ -x /usr/bin/msys-?.0.dll ]; then
 		    echo_env_msys true
 		else
 		    echo_env_cygwin true

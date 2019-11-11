@@ -227,7 +227,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 		key="Inno Setup: App Path"
 		if "$ac_cv_prog_REGTOOL" "$rp" "$key" > /dev/null; then
 			ssl_install_dir=`"$ac_cv_prog_REGTOOL" "$rp" "$key"`
-			extra_dir=`win32_path.sh "$ssl_install_dir"`
+			extra_dir=`w32_path.sh -u "$ssl_install_dir"`
 		fi
 	fi
     fi
@@ -241,9 +241,9 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
     
     if  test "$host_os" = "win32" ; then
     	if test "x$ac_cv_sizeof_void_p" = "x8"; then
-	  std_win_ssl_locations="/cygdrive/c/OpenSSL-Win64 /c/OpenSSL-Win64 /opt/local64/pgm/OpenSSL"
+	  std_win_ssl_locations="/mnt/c/OpenSSL-Win64 /c/OpenSSL-Win64 /mnt/c/opt/local64/pgm/OpenSSL /opt/local64/pgm/OpenSSL /cygdrive/c/OpenSSL-Win64"
 	else
-	  std_win_ssl_locations="/cygdrive/c/OpenSSL-Win32 /c/OpenSSL-Win32 /cygdrive/c/OpenSSL /c/OpenSSL /opt/local/pgm/OpenSSL"
+	  std_win_ssl_locations="/mnt/c/OpenSSL-Win32 /c/OpenSSL-Win32 /mnt/c/OpenSSL /c/OpenSSL /cygdrive/c/OpenSSL /opt/local/pgm/OpenSSL /opt/local32/pgm/OpenSSL /mnt/c/opt/local/pgm/OpenSSL /mnt/c/opt/local32/pgm/OpenSSL /cygdrive/c/OpenSSL-Win32"
 	fi
     else
         std_win_ssl_locations=""
@@ -251,7 +251,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 
 
     AC_MSG_CHECKING(for OpenSSL >= 0.9.8c in standard locations)
-    for rdir in $extra_dir $std_win_ssl_locations $std_ssl_locations; do
+    for rdir in "$extra_dir" $std_win_ssl_locations $std_ssl_locations; do
 	dir="$erl_xcomp_sysroot$rdir"
 	if test -f "$erl_xcomp_isysroot$rdir/include/openssl/opensslv.h"; then
 		is_real_ssl=yes
@@ -265,11 +265,11 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 			elif test -f "$dir/lib/VC/openssl.lib"; then 
 				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
 				SSL_LIBDIR="$dir/lib/VC"
-			elif test -f $dir/lib/VC/libeay32MD.lib; then
+			elif test -f "$dir/lib/VC/libeay32MD.lib"; then
 		            SSL_CRYPTO_LIBNAME=libeay32MD
 		            SSL_SSL_LIBNAME=ssleay32MD
 			    if test "x$enable_dynamic_ssl" = "xno" && \
-	                       test -f  $dir/lib/VC/static/libeay32MD.lib; then
+	                       test -f "$dir/lib/VC/static/libeay32MD.lib"; then
 				  SSL_RUNTIME_LIBDIR="$rdir/lib/VC/static"
 				  SSL_LIBDIR="$dir/lib/VC/static"
 		            else
@@ -324,7 +324,7 @@ case "$erl_xcomp_without_sysroot-$with_ssl" in
 			SSL_INCLUDE="-I$dir/include"
 			old_CPPFLAGS=$CPPFLAGS
 			CPPFLAGS=$SSL_INCLUDE
-			AC_EGREP_CPP(^yes$,[
+			AC_EGREP_CPP(^yes.?$,[
 #include <openssl/opensslv.h>
 #if OPENSSL_VERSION_NUMBER >= 0x0090803fL
 yes

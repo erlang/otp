@@ -392,7 +392,7 @@ define(wx_warn_text,[
     fi
 else
     AC_MSG_CHECKING(for wxWidgets in standard locations)
-
+    echo
     # Check whether --with-wxdir was given.
     AC_MSG_NOTICE(OptionCheck: [$with_wxdir $with_wx_prefix])
 
@@ -403,7 +403,6 @@ else
       if test "${with_wx_prefix+set}" = set; then :
         withval=$with_wx_prefix; CWXWIN0=$withval
       else
-        echo Setting it empty
         CWXWIN0=""
       fi
     fi
@@ -413,7 +412,7 @@ else
     CWXWIN2=`dirname $CWXWIN1 2>/dev/null`
 
     if test -z "$PROGRAMFILES" ; then 
-       PROGRAMFILES="c:/Program\ Files"
+       PROGRAMFILES="c:/Program Files"
     fi
 
     CWXWIN_PROG=`win32_path.sh -u "$PROGRAMFILES" 2>/dev/null`
@@ -421,18 +420,23 @@ else
     CWXWIN3="$CWXWIN_PROG/wxWidgets-3.*.* $CWXWIN_PROG/wxWidgets-2.*.*"
     CWXWIN4="$CWXWIN_PROG/wxMSW-3.*.* $CWXWIN_PROG/wxMSW-2.*.*"
 
-    DOC_OPT=/opt/local/pgm
-    CWX_DOCUMENTED="$DOC_OPT/wxWidgets-2.*.* $DOC_OPT/wxMSW-2.*.*"
-    CWX_DOCUMENTED="$DOC_OPT/wxWidgets-3.*.* $DOC_OPT/wxMSW-3.*.* $CWX_DOCUMENTED"
+    DOC_OPT1=/opt/local/pgm
+    DOC_OPT2=/mnt/c/opt/local/pgm
+    CWX_DOCUMENTED="$DOC_OPT1/wxWidgets-3.*.* $DOC_OPT1/wxMSW-3.*.*"
+    CWX_DOCUMENTED="$DOC_OPT2/wxWidgets-3.*.* $DOC_OPT2/wxMSW-3.*.* $CWX_DOCUMENTED"
 
     case $ac_cv_sizeof_void_p in
     	 8)
-		DOC_OPT64=/opt/local64/pgm
-		CWX_DOCUMENTED="$DOC_OPT64/wxWidgets-2.*.* $DOC_OPT64/wxMSW-2.*.* $CWX_DOCUMENTED"
-		CWX_DOCUMENTED="$DOC_OPT64/wxWidgets-3.*.* $DOC_OPT64/wxMSW-3.*.* $CWX_DOCUMENTED"
+		DOC_OPT64_1=/opt/local64/pgm
+		DOC_OPT64_2=/mnt/c/opt/local64/pgm
+		CWX_DOCUMENTED="$DOC_OPT64_1/wxWidgets-3.*.* $DOC_OPT64_1/wxMSW-3.*.* $CWX_DOCUMENTED"
+		CWX_DOCUMENTED="$DOC_OPT64_2/wxWidgets-3.*.* $DOC_OPT64_2/wxMSW-3.*.* $CWX_DOCUMENTED"
 		;;
          *)
-		true
+		DOC_OPT3=/opt/local32/pgm
+		DOC_OPT4=/mnt/c/opt/local32/pgm
+		CWX_DOCUMENTED="$DOC_OPT3/wxWidgets-3.*.* $DOC_OPT3/wxMSW-3.*.* $CWX_DOCUMENTED"
+		CWX_DOCUMENTED="$DOC_OPT4/wxWidgets-3.*.* $DOC_OPT4/wxMSW-3.*.* $CWX_DOCUMENTED"
 		;;
     esac
 
@@ -451,7 +455,7 @@ else
 	    WX_RESCOMP="rc.sh -I$WXINCLUDE_PLAIN -D __WIN32__"
 	    RC_FILE_TYPE=res
 	    for lib in $WX_LIBDIR $WX_LIBDIR64; do
-		maybe=`ls $lib/wxbase*.lib | egrep 'wxbase[[0-9]]*u\.lib'`
+		maybe=`ls $lib/wxbase*.lib 2> /dev/null | egrep 'wxbase[[0-9]]*u\.lib'`
 		if test '!' -z "$maybe"; then
 		   corelib_number=`echo $maybe | sed 's,.*\([[0-9]].\)u\.lib,\1,'`
 		   WX_LIBDIR=$lib
@@ -493,7 +497,36 @@ if test "$WXERL_CAN_BUILD_DRIVER" != "false"; then
 AC_SUBST(WX_HAVE_STATIC_LIBS)
 AC_SUBST(RC_FILE_TYPE)
 
-AC_MSG_CHECKING(if wxwidgets have opengl support)
+AC_MSG_CHECKING(for wxwidgets 2.8 compatibility )
+AC_LANG_PUSH(C++)
+saved_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
+
+AC_COMPILE_IFELSE(
+ [AC_LANG_PROGRAM([[
+  #ifdef WIN32
+  # include <windows.h>
+  #endif
+  #include "wx/wx.h"
+  ]], [[
+  #if wxMAJOR_VERSION > 2 && WXWIN_COMPATIBILITY_2_8 == 1
+  ;
+  #else
+  #error barf
+  #endif
+  ]])],
+  HAVE_COMPAT28_SUPPORT=yes, HAVE_COMPAT28_SUPPORT=no)
+
+CXXFLAGS=$saved_CXXFLAGS
+AC_LANG_POP(C++)
+AC_MSG_RESULT($HAVE_COMPAT28_SUPPORT)
+
+if test X"$HAVE_COMPAT28_SUPPORT" != X"yes" ; then
+   echo "wxWidgets was not compiled with --enable-compat28, wx will NOT be useable" >> ./CONF_INFO
+   WXERL_CAN_BUILD_DRIVER=false
+fi
+
+AC_MSG_CHECKING(for wxwidgets opengl support)
 AC_LANG_PUSH(C++)
 saved_CXXFLAGS=$CXXFLAGS
 CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
