@@ -69,7 +69,7 @@
 <!ATTLIST list                 type (ordered|bulleted) "bulleted" >
 <!ELEMENT taglist             (marker*,tag,item+)+ >
 <!ELEMENT tag                 (#PCDATA|c|i|em|br|seealso|url|marker|anno)* >
-<!ELEMENT item                (%inline;|%block;|warning|note|dont|do|quote)* >
+<!ELEMENT item                (%inline;|%block;|warning|note|dont|do|quote|table)* >
 
 <!-- References -->
 

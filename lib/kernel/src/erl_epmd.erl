@@ -29,14 +29,16 @@
 -define(port_please_failure2(Term), noop).
 -endif.
 
+-include("dist.hrl").
+
 -ifndef(erlang_daemon_port).
 -define(erlang_daemon_port, 4369).
 -endif.
 -ifndef(epmd_dist_high).
--define(epmd_dist_high, 6).
+-define(epmd_dist_high, ?ERL_DIST_VER_HIGH).
 -endif.
 -ifndef(epmd_dist_low).
--define(epmd_dist_low, 5).
+-define(epmd_dist_low, ?ERL_DIST_VER_LOW).
 -endif.
 
 %% External exports

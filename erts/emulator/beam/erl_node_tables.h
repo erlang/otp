@@ -145,10 +145,9 @@ struct dist_entry_ {
     enum dist_entry_state state;
     int pending_nodedown;
     Process* suspended_nodeup;
-    Uint32 flags;		/* Distribution flags, like hidden, 
+    Uint64 dflags;		/* Distribution flags, like hidden,
 				   atom cache etc. */
     Uint32 opts;
-    unsigned long version;	/* Protocol version */
 
     ErtsMonLnkDist *mld;        /* Monitors and links */
 
@@ -257,7 +256,7 @@ Uint erts_dist_table_size(void);
 void erts_dist_table_info(fmtfn_t, void *);
 void erts_set_dist_entry_not_connected(DistEntry *);
 void erts_set_dist_entry_pending(DistEntry *);
-void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint);
+void erts_set_dist_entry_connected(DistEntry *, Eterm, Uint64);
 ErlNode *erts_find_or_insert_node(Eterm, Uint32, Eterm);
 void erts_schedule_delete_node(ErlNode *);
 void erts_set_this_node(Eterm, Uint32);

@@ -25,31 +25,39 @@
 #include "erl_node_tables.h"
 #include "zlib.h"
 
-#define DFLAG_PUBLISHED           0x01
-#define DFLAG_ATOM_CACHE          0x02
-#define DFLAG_EXTENDED_REFERENCES 0x04
-#define DFLAG_DIST_MONITOR        0x08
-#define DFLAG_FUN_TAGS            0x10
-#define DFLAG_DIST_MONITOR_NAME   0x20
-#define DFLAG_HIDDEN_ATOM_CACHE   0x40
-#define DFLAG_NEW_FUN_TAGS        0x80
-#define DFLAG_EXTENDED_PIDS_PORTS 0x100
-#define DFLAG_EXPORT_PTR_TAG      0x200
-#define DFLAG_BIT_BINARIES        0x400
-#define DFLAG_NEW_FLOATS          0x800
-#define DFLAG_UNICODE_IO          0x1000
-#define DFLAG_DIST_HDR_ATOM_CACHE 0x2000
-#define DFLAG_SMALL_ATOM_TAGS     0x4000
-#define DFLAG_INTERNAL_TAGS       0x8000   /* used by ETS 'compressed' option */
-#define DFLAG_UTF8_ATOMS          0x10000
-#define DFLAG_MAP_TAG             0x20000
-#define DFLAG_BIG_CREATION        0x40000
-#define DFLAG_SEND_SENDER         0x80000
-#define DFLAG_BIG_SEQTRACE_LABELS 0x100000
-#define DFLAG_PENDING_CONNECT     0x200000 /* internal for pending connection */
-#define DFLAG_EXIT_PAYLOAD        0x400000
-#define DFLAG_FRAGMENTS           0x800000
-#define DFLAG_SPAWN               0x1000000
+#define DFLAG_PUBLISHED               ((Uint64)0x01)
+#define DFLAG_ATOM_CACHE              ((Uint64)0x02)
+#define DFLAG_EXTENDED_REFERENCES     ((Uint64)0x04)
+#define DFLAG_DIST_MONITOR            ((Uint64)0x08)
+#define DFLAG_FUN_TAGS                ((Uint64)0x10)
+#define DFLAG_DIST_MONITOR_NAME       ((Uint64)0x20)
+#define DFLAG_HIDDEN_ATOM_CACHE       ((Uint64)0x40)
+#define DFLAG_NEW_FUN_TAGS            ((Uint64)0x80)
+#define DFLAG_EXTENDED_PIDS_PORTS    ((Uint64)0x100)
+#define DFLAG_EXPORT_PTR_TAG         ((Uint64)0x200)
+#define DFLAG_BIT_BINARIES           ((Uint64)0x400)
+#define DFLAG_NEW_FLOATS             ((Uint64)0x800)
+#define DFLAG_UNICODE_IO            ((Uint64)0x1000)
+#define DFLAG_DIST_HDR_ATOM_CACHE   ((Uint64)0x2000)
+#define DFLAG_SMALL_ATOM_TAGS       ((Uint64)0x4000)
+#define DFLAG_ETS_COMPRESSED        ((Uint64)0x8000) /* internal */
+#define DFLAG_UTF8_ATOMS           ((Uint64)0x10000)
+#define DFLAG_MAP_TAG              ((Uint64)0x20000)
+#define DFLAG_BIG_CREATION         ((Uint64)0x40000)
+#define DFLAG_SEND_SENDER          ((Uint64)0x80000)
+#define DFLAG_BIG_SEQTRACE_LABELS ((Uint64)0x100000)
+#define DFLAG_PENDING_CONNECT     ((Uint64)0x200000) /* internal */
+#define DFLAG_EXIT_PAYLOAD        ((Uint64)0x400000)
+#define DFLAG_FRAGMENTS           ((Uint64)0x800000)
+#define DFLAG_HANDSHAKE_23       ((Uint64)0x1000000)
+#define DFLAG_RESERVED                   0xfe000000
+/*
+ * As the old handshake only support 32 flag bits, we reserve the remainding
+ * bits in the lower 32 for changes in the handshake protocol or potentially
+ * new capabilities that we also want to backport to OTP-22 or older.
+ */
+#define DFLAG_SPAWN            ((Uint64)0x100000000)
+
 
 /* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
@@ -82,6 +90,7 @@
                             | DFLAG_BIG_SEQTRACE_LABELS       \
                             | DFLAG_EXIT_PAYLOAD              \
                             | DFLAG_FRAGMENTS                 \
+                            | DFLAG_HANDSHAKE_23              \
                             | DFLAG_SPAWN)
 
 /* Flags addable by local distr implementations */
@@ -208,7 +217,7 @@ extern int erts_dflags_test_remove_hopefull_flags;
 
 typedef enum { TTBSize, TTBEncode, TTBCompress } TTBState;
 typedef struct TTBSizeContext_ {
-    Uint flags;
+    Uint64 dflags;
     int level;
     Sint vlen;
     int iovec;
@@ -223,7 +232,7 @@ typedef struct TTBSizeContext_ {
 #define ERTS_INIT_TTBSizeContext(Ctx, Flags)                    \
     do {                                                        \
         (Ctx)->wstack.wstart = NULL;                            \
-        (Ctx)->flags = (Flags);                                 \
+        (Ctx)->dflags = (Flags);                                 \
         (Ctx)->level = 0;                                       \
         (Ctx)->vlen = -1;                                       \
         (Ctx)->fragment_size = ~((Uint) 0);                     \
@@ -232,8 +241,8 @@ typedef struct TTBSizeContext_ {
     } while (0)
 
 typedef struct TTBEncodeContext_ {
-    Uint flags;
-    Uint hopefull_flags;
+    Uint64 dflags;
+    Uint64 hopefull_flags;
     byte *hopefull_flagsp;
     int level;
     byte* ep;
@@ -261,7 +270,7 @@ typedef struct TTBEncodeContext_ {
 #define ERTS_INIT_TTBEncodeContext(Ctx, Flags)                  \
     do {                                                        \
         (Ctx)->wstack.wstart = NULL;                            \
-        (Ctx)->flags = (Flags);                                 \
+        (Ctx)->dflags = (Flags);                                 \
         (Ctx)->level = 0;                                       \
         (Ctx)->vlen = 0;                                        \
         (Ctx)->size = 0;                                        \
@@ -331,7 +340,7 @@ typedef struct erts_dsig_send_context {
     ErtsDistOutputBuf *obuf;
     Uint alloced_fragments, fragments;
     Sint vlen;
-    Uint32 flags;
+    Uint64 dflags;
     Process *c_p;
     union {
 	TTBSizeContext sc;

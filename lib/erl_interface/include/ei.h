@@ -362,7 +362,7 @@ typedef struct ei_cnode_s {
 /* Currently this_ipaddr isn't used */
 /*    struct in_addr this_ipaddr; */
     char ei_connect_cookie[EI_MAX_COOKIE_SIZE+1];
-    short creation;
+    unsigned int creation;
     erlang_pid self;
     ei_socket_callbacks *cbs;
     void *setup_context;

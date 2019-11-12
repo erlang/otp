@@ -239,6 +239,20 @@ public class OtpInputStream extends ByteArrayInputStream {
     }
 
     /**
+     * Read a eight byte big endian integer from the stream.
+     *
+     * @return the bytes read, converted from big endian to a long integer.
+     *
+     * @exception OtpErlangDecodeException
+     *                if the next byte cannot be read.
+     */
+    public long read8BE() throws OtpErlangDecodeException {
+        long high = read4BE();
+        long low = read4BE();
+        return (high << 32) | (low & 0xffffffff);
+    }
+
+    /**
      * Read a two byte little endian integer from the stream.
      *
      * @return the bytes read, converted from little endian to an integer.

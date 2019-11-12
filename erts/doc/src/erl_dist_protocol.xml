@@ -155,13 +155,13 @@
         </item>
         <tag><c>HighestVersion</c></tag>
         <item>
-          <p>The highest distribution version that this node can handle.
-            The value in OTP 23 and later is 6.</p>
+          <p>The highest distribution protocol version this node can handle.
+            The value in OTP 23 and later is 6. Older nodes only support version 5.</p>
         </item>
         <tag><c>LowestVersion</c></tag>
         <item>
           <p>The lowest distribution version that this node can handle.
-            The value in OTP 23 and later is 5.</p>
+            Should be 5 to support connections to nodes older than OTP 23.</p>
         </item>
         <tag><c>Nlen</c></tag>
         <item>
@@ -187,7 +187,7 @@
 
       <p>The response message is either <c>ALIVE2_X_RESP</c> or
         <c>ALIVE2_RESP</c> depending on distribution version. If both the node
-        and EPMD support distribution version 6 then response is
+        and EPMD support distribution version 6 then the response is
         <c>ALIVE2_X_RESP</c> otherwise it is the older <c>ALIVE2_RESP</c>:</p>
 
       <table align="left">
@@ -549,8 +549,14 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
   <section>
     <marker id="distribution_handshake"/>
     <title>Distribution Handshake</title>
-    <p>This section describes the distribution handshake protocol introduced
-      in Erlang/OTP R6. The handshake has remained almost the same since then.</p>
+    <p>
+      This section describes the distribution handshake protocol used between
+      nodes to establishing a connection. The protocol was introduced in
+      Erlang/OTP R6 and has remained unchanged until OTP 23. The changes made in
+      OTP 23 were designed to be compatible with the older protocol
+      version. That is an old node can still connect toward a new node and vice
+      versa.
+    </p>
 
     <section>
       <title>General</title>
@@ -617,19 +623,68 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
         <tag>2) <c>send_name</c>/<c>receive_name</c></tag>
         <item>
           <p><c>A</c> sends an initial identification to <c>B</c>, which
-            receives the message. The message looks as follows (every "square"
-            is one byte and the packet header is removed):</p>
-          <pre>
-+---+--------+--------+-----+-----+-----+-----+-----+-----+-...-+-----+
-|'n'|Version0|Version1|Flag0|Flag1|Flag2|Flag3|Name0|Name1| ... |NameN|
-+---+--------+--------+-----+-----+-----+-----+-----+-----+-... +-----+</pre>
-           <p>'n' is the message tag. 'Version0' and 'Version1' is the
-             distribution version selected by <c>A</c>, based on information
-             from the EPMD. (16-bit big-endian) 'Flag0' ... 'Flag3' are
-             capability flags, the capabilities are defined in
-             <c>$ERL_TOP/lib/kernel/include/dist.hrl</c>. (32-bit big-endian)
-             'Name0' ... 'NameN' is the full node name of <c>A</c>, as a string
-             of bytes (the packet length denotes how long it is).</p>
+            receives the message. The message can have two different formats
+	    which looks as follows (the packet headers are removed):
+	  </p>
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+              <cell align="center">2</cell>
+              <cell align="center">4</cell>
+	      <cell align="center">Nlen</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'n'</c></cell>
+              <cell align="center"><c>Version=5</c></cell>
+              <cell align="center"><c>Flags</c></cell>
+	      <cell align="center"><c>Name</c></cell>
+            </row>
+            <tcaption>Old send_name ('n') for protocol version 5</tcaption>
+	  </table>
+
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+              <cell align="center">8</cell>
+              <cell align="center">4</cell>
+	      <cell align="center">2</cell>
+	      <cell align="center">Nlen</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'N'</c></cell>
+              <cell align="center"><c>Flags</c></cell>
+	      <cell align="center"><c>Creation</c></cell>
+	      <cell align="center"><c>Nlen</c></cell>
+	      <cell align="center"><c>Name</c></cell>
+            </row>
+            <tcaption>New send_name ('N') for protocol version 6</tcaption>
+	  </table>
+
+	  <p>
+	    The old <c>send_name</c> format is sent from nodes only supporting version 5
+            or to nodes that might only support version 5. The <c>Version</c> is
+	    a 16-bit big endian integer and <em>must</em> always have the value 5, even
+	    if node <c>A</c> supports version 6. <c>Flags</c> are the
+	    <seealso marker="#dflags">capability flags</seealso>
+	    of node <c>A</c> in 32-bit big endian. The flag bit
+	    <seealso marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seealso>
+	    should be set if node <c>A</c> supports version 6.
+	    <c>Name</c> is the full node name of <c>A</c>, as a string of bytes
+	    (the packet length denotes how long it is).
+	  </p>
+	  <p>
+	    The new <c>send_name</c> is only sent from nodes supporting version 6 to
+	    nodes known to support version 6. <c>Flags</c> are the
+	    <seealso marker="#dflags">capability flags</seealso> of node
+	    <c>A</c> in 64-bit big endian. The flag bit
+	    <seealso marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seealso>
+            must always be set. <c>Creation</c> is the node incarnation
+	    identifier used by node <c>A</c> to create its pids, ports and
+	    references. <c>Name</c> is the full node name of <c>A</c>, as a
+	    string of bytes. <c>Nlen</c> is the byte length of the node name in
+	    16-bit big endian. Any extra data after the node <c>Name</c> must be
+	    accepted and ignored.
+	  </p>
         </item>
         <tag>3) <c>recv_status</c>/<c>send_status</c></tag>
         <item>
@@ -666,13 +721,19 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
                 node <c>B</c>. See step 3B below.</p>
             </item>
           </taglist>
-          <p>The format of the status message is as follows:</p>
-          <pre>
-+---+-------+-------+-...-+-------+
-|'s'|Status0|Status1| ... |StatusN|
-+---+-------+-------+-...-+-------+</pre>
-          <p>'s' is the message tag. 'Status0' ... 'StatusN' is the status as a
-            string (not terminated).</p>
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+	      <cell align="center">Slen</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'s'</c></cell>
+	      <cell align="center"><c>Status</c></cell>
+            </row>
+            <tcaption>The format of the status message</tcaption>
+	  </table>
+          <p>'s' is the message tag. <c>Status</c> is the status as a
+            string (not null terminated).</p>
         </item>
         <tag>3B) <c>send_status</c>/<c>recv_status</c></tag>
         <item>
@@ -688,39 +749,136 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
             handshake continues with <c>B</c> sending <c>A</c> another message,
             the challenge. The challenge contains the same type of information
             as the "name" message initially sent from <c>A</c> to <c>B</c>, plus
-            a 32-bit challenge:</p>
-          <pre>
-+---+--------+--------+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-...-+-----+
-|'n'|Version0|Version1|Flag0|Flag1|Flag2|Flag3|Chal0|Chal1|Chal2|Chal3|Name0|Name1| ... |NameN|
-+---+--------+--------+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-... +-----+</pre>
-          <p>'Chal0' ... 'Chal3' is the challenge as a 32-bit big-endian integer
-            and the other fields are <c>B</c>'s version, flags, and full node
-            name.</p>
+            a 32-bit challenge. The challenge message can have two different
+	    formats:
+	  </p>
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+	      <cell align="center">2</cell>
+	      <cell align="center">4</cell>
+	      <cell align="center">4</cell>
+	      <cell align="center">Nlen</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'n'</c></cell>
+	      <cell align="center"><c>Version=5</c></cell>
+	      <cell align="center"><c>Flags</c></cell>
+	      <cell align="center"><c>Challenge</c></cell>
+	      <cell align="center"><c>Name</c></cell>
+            </row>
+            <tcaption>The old challenge message format (version 5)</tcaption>
+	  </table>
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+	      <cell align="center">8</cell>
+	      <cell align="center">4</cell>
+	      <cell align="center">4</cell>
+	      <cell align="center">2</cell>
+	      <cell align="center">Nlen</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'N'</c></cell>
+	      <cell align="center"><c>Flags</c></cell>
+	      <cell align="center"><c>Challenge</c></cell>
+	      <cell align="center"><c>Creation</c></cell>
+	      <cell align="center"><c>Nlen</c></cell>
+	      <cell align="center"><c>Name</c></cell>
+            </row>
+            <tcaption>The new challenge message format (version 6)</tcaption>
+	  </table>
+	  <p>
+	    The old challenge message is sent from old <c>B</c> nodes
+	    (supporting only version 5) or if node <c>A</c> had not capability flag
+	    <seealso marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seealso>
+	    set. The <c>Version</c> is a 16-bit big endian integer and
+	    <c>must</c> always have the value 5.
+	  </p>
+	  <p>
+	    The new challenge message is sent from new <c>B</c> nodes if node
+	    <c>A</c> had capability flag <seealso marker="#DFLAG_HANDSHAKE_23">
+	    <c>DFLAG_HANDSHAKE_23</c></seealso> set. Any extra data after the
+	    node <c>Name</c> must be accepted and ignored.
+	  </p>
+          <p>
+	    <c>Challenge</c> is a 32-bit big-endian integer. The other fields
+	    are node <c>B</c>'s flags, creation and full node name, similar to
+	    the <c>send_name</c> message.
+	  </p>
         </item>
+
+        <tag>4B) <c>send_complement</c>/<c>recv_complement</c></tag>
+        <item>
+          <p>
+	    The complement message, from <c>A</c> to <c>B</c>, is only sent if
+	    node <c>A</c> initially sent an old name message and received back a
+	    new challenge message from node <c>B</c>. It contains complementary
+	    information missing in the initial old name message from node <c>A</c>.
+	  </p>
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+	      <cell align="center">4</cell>
+	      <cell align="center">4</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'c'</c></cell>
+	      <cell align="center"><c>FlagsHigh</c></cell>
+	      <cell align="center"><c>Creation</c></cell>
+            </row>
+            <tcaption>The complement message</tcaption>
+	  </table>
+	  <p>
+	    <c>FlagsHigh</c> are the high capability flags (bit 33-64) of node
+	    <c>A</c> as a 32-bit big endian integer. <c>Creation</c> is the
+	    incarnation identifier of node <c>A</c>.
+	  </p>
+        </item>
+
         <tag>5) <c>send_challenge_reply</c>/<c>recv_challenge_reply</c></tag>
         <item>
           <p>Now <c>A</c> has generated a digest and its own challenge. Those
             are sent together in a package to <c>B</c>:</p>
-          <pre>
-+---+-----+-----+-----+-----+-----+-----+-----+-----+-...-+------+
-|'r'|Chal0|Chal1|Chal2|Chal3|Dige0|Dige1|Dige2|Dige3| ... |Dige15|
-+---+-----+-----+-----+-----+-----+-----+-----+-----+-...-+------+</pre>
-          <p>'r' is the tag. 'Chal0' ... 'Chal3' is <c>A</c>'s challenge for
-            <c>B</c> to handle. 'Dige0' ... 'Dige15' is the digest that <c>A</c>
-            constructed from the challenge <c>B</c> sent in the previous
-            step.</p>
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+	      <cell align="center">4</cell>
+	      <cell align="center">16</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'r'</c></cell>
+	      <cell align="center"><c>Challenge</c></cell>
+	      <cell align="center"><c>Digest</c></cell>
+            </row>
+            <tcaption>The challenge_reply message</tcaption>
+	  </table>
+          <p>
+	    <c>Challenge</c> is <c>A</c>'s challenge for <c>B</c> to
+	    handle. <c>Digest</c> is the MD5 digest that <c>A</c> constructed
+	    from the challenge <c>B</c> sent in the previous step.
+	  </p>
         </item>
         <tag>6) <c>recv_challenge_ack</c>/<c>send_challenge_ack</c></tag>
         <item>
           <p><c>B</c> checks that the digest received from <c>A</c> is correct
             and generates a digest from the challenge received from <c>A</c>.
             The digest is then sent to <c>A</c>. The message is as follows:</p>
-          <pre>
-+---+-----+-----+-----+-----+-...-+------+
-|'a'|Dige0|Dige1|Dige2|Dige3| ... |Dige15|
-+---+-----+-----+-----+-----+-...-+------+</pre>
-          <p>'a' is the tag. 'Dige0' ... 'Dige15' is the digest calculated by
-            <c>B</c> for <c>A</c>'s challenge.</p>
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+	      <cell align="center">16</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'a'</c></cell>
+	      <cell align="center"><c>Digest</c></cell>
+            </row>
+            <tcaption>The challenge_ack message</tcaption>
+	  </table>
+          <p>
+	    <c>Digest</c> is the digest calculated by <c>B</c> for <c>A</c>'s
+	    challenge.
+	  </p>
         </item>
         <tag>7) check</tag>
         <item>
@@ -746,10 +904,15 @@ recv_status
 (if status was 'alive'
  send_status - - - - - - - - - - - - - - - - - -&gt;
                                                    recv_status)
-                                                   ChB = gen_challenge()
-                          (ChB)
+
+                          (ChB)                      ChB = gen_challenge()
   &lt;---------------------------------------------- send_challenge
 recv_challenge
+
+(if old send_name and new recv_challenge
+ send_complement - - - - - - - - - - - - - - - -&gt;
+                                                   recv_complement)
+
 ChA = gen_challenge(),
 OCA = out_cookie(B),
 DiA = gen_digest(ChB, OCA)
@@ -898,7 +1061,13 @@ DiB == gen_digest(ChA, ICA)?
           <p>Use <seealso marker="erl_ext_dist#fragments">fragmented</seealso>
             distribution messages to send large messages.</p>
         </item>
-        <tag><marker id="DFLAG_SPAWN"/><c>-define(DFLAG_SPAWN, 16#1000000).</c></tag>
+	<marker id="DFLAG_HANDSHAKE_23"/>
+        <tag><c>-define(DFLAG_HANDSHAKE_23, 16#1000000).</c></tag>
+        <item>
+          <p>The node supports the new connection setup handshake (version 6)
+	  introduced in OTP 23.</p>
+        </item>
+        <tag><marker id="DFLAG_SPAWN"/><c>-define(DFLAG_SPAWN, 16#100000000).</c></tag>
         <item>
           <p>Set if the <seealso marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seealso>,
 	  <seealso marker="#SPAWN_REQUEST_TT"><c>SPAWN_REQUEST_TT</c></seealso>,
@@ -1055,12 +1224,6 @@ DiB == gen_digest(ChA, ICA)?
         <p><c>{8, FromPid, ToPid, Reason}</c></p>
         <p>This signal is sent by a call to the erlang:exit/2 bif</p>
       </item>
-    </taglist>
-  </section>
-
-  <section>
-    <title>New Ctrlmessages for distrvsn = 1 (Erlang/OTP R4)</title>
-    <taglist>
       <tag><c>SEND_TT</c></tag>
       <item>
         <p><c>{12, Unused, ToPid, TraceToken}</c></p>
@@ -1081,24 +1244,6 @@ DiB == gen_digest(ChA, ICA)?
       <item>
         <p><c>{18, FromPid, ToPid, TraceToken, Reason}</c></p>
       </item>
-    </taglist>
-  </section>
-
-  <section>
-    <title>New Ctrlmessages for distrvsn = 2</title>
-    <p><c>distrvsn</c> 2 was never used.</p>
-  </section>
-
-  <section>
-    <title>New Ctrlmessages for distrvsn = 3 (Erlang/OTP R5C)</title>
-    <p>None, but the version number was increased anyway.</p>
-  </section>
-
-  <section>
-    <title>New Ctrlmessages for distrvsn = 4 (Erlang/OTP R6)</title>
-    <p>These are only recognized by Erlang nodes, not by hidden nodes.</p>
-
-    <taglist>
       <tag><c>MONITOR_P</c></tag>
       <item>
         <p><c>{19, FromPid, ToProc, Ref}</c>, where

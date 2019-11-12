@@ -28,15 +28,6 @@
 -export([init_per_testcase/2, end_per_testcase/2, whitebox/1, 
 	 switch_options/1, missing_compulsory_dflags/1]).
 
-%% 1)
-%%
-%% Connections are now always set up symmetrically with respect to
-%% publication. If connecting node doesn't send DFLAG_PUBLISHED
-%% the other node wont send DFLAG_PUBLISHED. If the connecting
-%% node send DFLAG_PUBLISHED but the other node doesn't send
-%% DFLAG_PUBLISHED, the connecting node should consider its
-%% DFLAG_PUBLISHED as dropped, i.e the connecting node wont be
-%% published on the other node.
 
 -define(to_port(Socket, Data),
 	case inet_tcp:send(Socket, Data) of
@@ -47,8 +38,8 @@
 	        R
         end).
 
--define(EPMD_DIST_HIGH, 6).
--define(EPMD_DIST_LOW, 5).
+-define(DIST_VER_HIGH, 6).
+-define(DIST_VER_LOW, 5).
 
 -define(DFLAG_PUBLISHED,1).
 -define(DFLAG_ATOM_CACHE,2).
@@ -61,6 +52,7 @@
 -define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
 -define(DFLAG_UTF8_ATOMS, 16#10000).
 -define(DFLAG_BIG_CREATION, 16#40000).
+-define(DFLAG_HANDSHAKE_23, 16#01000000).
 
 %% From R9 and forward extended references is compulsory
 %% From R10 and forward extended pids and ports are compulsory
@@ -137,9 +129,18 @@ whitebox(Config) when is_list(Config) ->
     {ok, Node} = start_node(?MODULE,""),
     Cookie = erlang:get_cookie(),
     {_,Host} = split(node()),
-    ok = pending_up_md5(Node, join(ccc,Host), Cookie),
-    ok = simultaneous_md5(Node, join('A',Host), Cookie),
-    ok = simultaneous_md5(Node, join(zzzzzzzzzzzzzz,Host), Cookie),
+    [begin
+         io:format("Test OurVersion=~p and TrustEpmd=~p\n",
+                   [OurVersion, TrustEpmd]),
+         ok = pending_up_md5(Node, join(ccc,Host), OurVersion,
+                             TrustEpmd, Cookie),
+         ok = simultaneous_md5(Node, join('A',Host), OurVersion,
+                               TrustEpmd, Cookie),
+         ok = simultaneous_md5(Node, join(zzzzzzzzzzzzzz,Host),
+                               OurVersion, TrustEpmd, Cookie)
+     end
+     || OurVersion <- lists:seq(?DIST_VER_LOW, ?DIST_VER_HIGH),
+        TrustEpmd <- [true, false]],
     stop_node(Node),
     ok.
 
@@ -208,17 +209,22 @@ test_switch_active_and_packet() ->
 %%
 %% Handshake tests
 %%
-pending_up_md5(Node,OurName,Cookie) ->
+pending_up_md5(Node,OurName,OurVersion,TrustEpmd,Cookie) ->
     {NA,NB} = split(Node),
-    {port,PortNo,_} = erl_epmd:port_please(NA,NB),
+    {port,PortNo,EpmdSaysVersion} = erl_epmd:port_please(NA,NB),
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
 				    [{active,false},
 				     {packet,2}]),
-    send_name(SocketA,OurName, ?EPMD_DIST_HIGH),
+    AssumedVersion = case TrustEpmd of
+                         true -> EpmdSaysVersion;
+                         false -> ?DIST_VER_LOW
+                     end,
+    SentNameMsg = send_name(SocketA,OurName, OurVersion, AssumedVersion),
     ok = recv_status(SocketA),
-    {hidden,Node,?EPMD_DIST_HIGH,HisChallengeA} = recv_challenge(SocketA), % See 1)
+    {Node,ChallengeMsg,HisChallengeA} = recv_challenge(SocketA,OurVersion),
     OurChallengeA = gen_challenge(),
     OurDigestA = gen_digest(HisChallengeA, Cookie),
+    send_complement(SocketA, SentNameMsg, ChallengeMsg, OurVersion),
     send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
     ok = recv_challenge_ack(SocketA, OurChallengeA, Cookie),
 %%%
@@ -230,13 +236,14 @@ pending_up_md5(Node,OurName,Cookie) ->
     {ok, SocketB} = gen_tcp:connect(atom_to_list(NB),PortNo,
 				    [{active,false},
 				     {packet,2}]),
-    send_name(SocketB,OurName, ?EPMD_DIST_HIGH),
+    SentNameMsg = send_name(SocketB,OurName, OurVersion, AssumedVersion),
     alive = recv_status(SocketB),
     send_status(SocketB, true),
     gen_tcp:close(SocketA),
-    {hidden,Node,?EPMD_DIST_HIGH,HisChallengeB} = recv_challenge(SocketB), % See 1)
+    {Node,ChallengeMsg,HisChallengeB} = recv_challenge(SocketB,OurVersion),
     OurChallengeB = gen_challenge(),
     OurDigestB = gen_digest(HisChallengeB, Cookie),
+    send_complement(SocketB, SentNameMsg, ChallengeMsg, OurVersion),
     send_challenge_reply(SocketB, OurChallengeB, OurDigestB),
     ok = recv_challenge_ack(SocketB, OurChallengeB, Cookie),
 %%%
@@ -252,7 +259,7 @@ pending_up_md5(Node,OurName,Cookie) ->
     gen_tcp:close(SocketB),
     ok.
 
-simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
+simultaneous_md5(Node, OurName, OurVersion, TrustEpmd, Cookie) when OurName < Node ->
     pong = net_adm:ping(Node),
     LSocket = case gen_tcp:listen(0, [{active, false}, {packet,2}]) of
 		  {ok, Socket} ->
@@ -260,15 +267,19 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
 		  Else ->
 		      exit(Else)
 	      end,
-    EpmdSocket = register_node(OurName, LSocket, ?EPMD_DIST_LOW, ?EPMD_DIST_HIGH),
+    EpmdSocket = register_node(OurName, LSocket, ?DIST_VER_LOW, ?DIST_VER_LOW),
     {NA, NB} = split(Node),
     rpc:cast(Node, net_adm, ping, [OurName]),
     receive after 1000 -> ok end,
-    {port, PortNo, _} = erl_epmd:port_please(NA,NB),
+    {port, PortNo, EpmdSaysVersion} = erl_epmd:port_please(NA,NB),
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
 				    [{active,false},
 				     {packet,2}]),
-    send_name(SocketA,OurName, ?EPMD_DIST_HIGH),
+    AssumedVersion = case TrustEpmd of
+                         true -> EpmdSaysVersion;
+                         false -> ?DIST_VER_LOW
+                     end,
+    send_name(SocketA,OurName, OurVersion, AssumedVersion),
     %% We are still not marked up on the other side, as our first message 
     %% is not sent.
     SocketB = case gen_tcp:accept(LSocket) of
@@ -281,10 +292,12 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
     %% Now we are expected to close A
     gen_tcp:close(SocketA),
     %% But still Socket B will continue
-    {normal,Node,?EPMD_DIST_HIGH} = recv_name(SocketB),  % See 1)
+    {Node,GotNameMsg,GotFlags} = recv_name(SocketB),
+    true = (GotFlags band ?DFLAG_HANDSHAKE_23) =/= 0,
     send_status(SocketB, ok_simultaneous),
     MyChallengeB = gen_challenge(),
-    send_challenge(SocketB, OurName, MyChallengeB, ?EPMD_DIST_HIGH),
+    send_challenge(SocketB, OurName, MyChallengeB, OurVersion, GotFlags),
+    recv_complement(SocketB, GotNameMsg, OurVersion),
     {ok,HisChallengeB} = recv_challenge_reply(SocketB, MyChallengeB, Cookie),
     DigestB = gen_digest(HisChallengeB,Cookie),
     send_challenge_ack(SocketB, DigestB),
@@ -299,7 +312,7 @@ simultaneous_md5(Node, OurName, Cookie) when OurName < Node ->
     gen_tcp:close(EpmdSocket),
     ok;
 
-simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
+simultaneous_md5(Node, OurName, OurVersion, TrustEpmd, Cookie) when OurName > Node ->
     pong = net_adm:ping(Node),
     LSocket = case gen_tcp:listen(0, [{active, false}, {packet,2}]) of
 		  {ok, Socket} ->
@@ -308,11 +321,11 @@ simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
 		      exit(Else)
 	      end,
     EpmdSocket = register_node(OurName, LSocket,
-                               ?EPMD_DIST_LOW, ?EPMD_DIST_HIGH),
+                               ?DIST_VER_LOW, ?DIST_VER_LOW),
     {NA, NB} = split(Node),
     rpc:cast(Node, net_adm, ping, [OurName]),
     receive after 1000 -> ok end,
-    {port, PortNo, _} = erl_epmd:port_please(NA,NB),
+    {port, PortNo, EpmdSaysVersion} = erl_epmd:port_please(NA,NB),
     {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
 				    [{active,false},
 				     {packet,2}]),
@@ -322,15 +335,21 @@ simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
 		  Else2 ->
 		      exit(Else2)
 	      end,
-    send_name(SocketA,OurName, ?EPMD_DIST_HIGH),
+    AssumedVersion = case TrustEpmd of
+                         true -> EpmdSaysVersion;
+                         false -> ?DIST_VER_LOW
+                     end,
+    SentNameMsg = send_name(SocketA,OurName, OurVersion, AssumedVersion),
     ok_simultaneous = recv_status(SocketA),
     %% Socket B should die during this
     case catch begin
-		   {normal,Node,?EPMD_DIST_HIGH} = recv_name(SocketB),  % See 1)
+		   {Node,GotNameMsg,GotFlagsB} = recv_name(SocketB),
+                   true = (GotFlagsB band ?DFLAG_HANDSHAKE_23) =/= 0,
 		   send_status(SocketB, ok_simultaneous),
 		   MyChallengeB = gen_challenge(),
 		   send_challenge(SocketB, OurName, MyChallengeB,
-				  5),
+				  OurVersion, GotFlagsB),
+                   recv_complement(SocketB, GotNameMsg, OurVersion),
 		   {ok,HisChallengeB} = recv_challenge_reply(
 				     SocketB,
 				     MyChallengeB,
@@ -353,9 +372,10 @@ simultaneous_md5(Node, OurName, Cookie) when OurName > Node ->
     end,
     gen_tcp:close(SocketB),
     %% But still Socket A will continue
-    {hidden,Node,?EPMD_DIST_HIGH,HisChallengeA} = recv_challenge(SocketA), % See 1)
+    {Node,ChallengeMsg,HisChallengeA} = recv_challenge(SocketA,OurVersion),
     OurChallengeA = gen_challenge(),
     OurDigestA = gen_digest(HisChallengeA, Cookie),
+    send_complement(SocketA, SentNameMsg, ChallengeMsg, OurVersion),
     send_challenge_reply(SocketA, OurChallengeA, OurDigestA),
     ok = recv_challenge_ack(SocketA, OurChallengeA, Cookie),
 
@@ -375,13 +395,16 @@ missing_compulsory_dflags(Config) when is_list(Config) ->
     {ok, Node} = start_node(Name1,""),
     {NA,NB} = split(Node),
     {port,PortNo,_} = erl_epmd:port_please(NA,NB),
-    {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
-				    [{active,false},
-				     {packet,2}]),
-    BadNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
-    send_name(SocketA,BadNode, ?EPMD_DIST_HIGH, 0),
-    not_allowed = recv_status(SocketA),
-    gen_tcp:close(SocketA),
+    [begin
+         {ok, SocketA} = gen_tcp:connect(atom_to_list(NB),PortNo,
+                                         [{active,false},
+                                          {packet,2}]),
+         BadNode = list_to_atom(atom_to_list(Name2)++"@"++atom_to_list(NB)),
+         send_name(SocketA,BadNode, Version, Version, 0),
+         not_allowed = recv_status(SocketA),
+         gen_tcp:close(SocketA)
+     end
+     || Version <- lists:seq(?DIST_VER_LOW, ?DIST_VER_HIGH)],
     stop_node(Node),
     ok.
 
@@ -493,30 +516,75 @@ recv_status(Socket) ->
 	    exit(Bad)
     end.
 
-send_challenge(Socket, Node, Challenge, Version) ->
-    send_challenge(Socket, Node, Challenge, Version, ?COMPULSORY_DFLAGS).
-send_challenge(Socket, Node, Challenge, Version, Flags) ->
-    {ok, {{_Ip1,_Ip2,_Ip3,_Ip4}, _}} = inet:sockname(Socket),
-    ?to_port(Socket, [$n,?int16(Version),?int32(Flags),
-		      ?int32(Challenge), atom_to_list(Node)]).
+send_challenge(Socket, Node, Challenge, Version, GotFlags) ->
+    send_challenge(Socket, Node, Challenge, Version, GotFlags, ?COMPULSORY_DFLAGS).
 
-recv_challenge(Socket) ->
-    case gen_tcp:recv(Socket, 0) of
-	{ok,[$n,V1,V0,Fl1,Fl2,Fl3,Fl4,CA3,CA2,CA1,CA0 | Ns]} ->
+send_challenge(Socket, Node, Challenge, ?DIST_VER_LOW, _GotFlags, Flags) ->
+    {ok, {{_Ip1,_Ip2,_Ip3,_Ip4}, _}} = inet:sockname(Socket),
+    ?to_port(Socket, [$n,<<?DIST_VER_LOW:16>>,<<Flags:32>>,
+		      <<Challenge:32>>, atom_to_list(Node)]);
+send_challenge(Socket, Node, Challenge, ?DIST_VER_HIGH, GotFlags, Flags) ->
+    true = (GotFlags band ?DFLAG_HANDSHAKE_23) =/= 0,
+    {ok, {{_Ip1,_Ip2,_Ip3,_Ip4}, _}} = inet:sockname(Socket),
+    NodeName = atom_to_list(Node),
+    Nlen = length(NodeName),
+    Creation = erts_internal:get_creation(),
+    ?to_port(Socket, [$N, <<(Flags bor ?DFLAG_HANDSHAKE_23):64>>,
+                      <<Challenge:32>>, <<Creation:32>>,
+                      <<Nlen:16>>, NodeName
+                      ]).
+
+recv_challenge(Socket, OurVersion) ->
+    {ok, Msg} = gen_tcp:recv(Socket, 0),
+    %%io:format("recv_challenge Msg=~p\n", [Msg]),
+    case {OurVersion, Msg} of
+	{?DIST_VER_LOW,
+         [$n,V1,V0,Fl1,Fl2,Fl3,Fl4,CA3,CA2,CA1,CA0 | Ns]} ->
 	    Flags = ?u32(Fl1,Fl2,Fl3,Fl4),
-	    Type = case Flags band ?DFLAG_PUBLISHED of
-		       0 ->
-			   hidden;
-		       _ ->
-			   normal
-		   end,
+            true = (Flags band ?COMPULSORY_DFLAGS) =:= ?COMPULSORY_DFLAGS,
 	    Node =list_to_atom(Ns),
-	    Version = ?u16(V1,V0),
+	    ?DIST_VER_LOW = ?u16(V1,V0),
 	    Challenge = ?u32(CA3,CA2,CA1,CA0),
-	    {Type,Node,Version,Challenge};
+	    {Node,$n,Challenge};
+
+	{?DIST_VER_HIGH,
+         [$N, F7,F6,F5,F4,F3,F2,F1,F0, CA3,CA2,CA1,CA0,
+              Cr3,Cr2,Cr1,Cr0, NL1,NL0 | Ns]} ->
+	    <<Flags:64>> = <<F7,F6,F5,F4,F3,F2,F1,F0>>,
+            true = (Flags band ?COMPULSORY_DFLAGS) =:= ?COMPULSORY_DFLAGS,
+            <<Creation:32>> = <<Cr3,Cr2,Cr1,Cr0>>,
+            true = (Creation =/= 0),
+            <<NameLen:16>> = <<NL1,NL0>>,
+            NameLen = length(Ns),
+	    Node = list_to_atom(Ns),
+	    Challenge = ?u32(CA3,CA2,CA1,CA0),
+	    {Node,$N,Challenge};
+
 	_ ->
 	    ?shutdown(no_node)	    
     end.
+
+send_complement(Socket, SentNameMsg, ChallengeMsg, OurVersion) ->
+    case {SentNameMsg,ChallengeMsg} of
+        {$n,$N} ->
+            FlagsHigh = our_flags(?COMPULSORY_DFLAGS, OurVersion) bsr 32,
+            ?to_port(Socket, [$c,
+                              <<FlagsHigh:32>>,
+                              ?int32(erts_internal:get_creation())]);
+        {Same,Same} ->
+            ok
+    end.
+
+recv_complement(Socket, $n, OurVersion) when OurVersion > ?DIST_VER_LOW ->
+    case gen_tcp:recv(Socket, 0) of
+	{ok,[$c,Cr3,Cr2,Cr1,Cr0]} ->
+	    Creation = ?u32(Cr3,Cr2,Cr1,Cr0),
+            true = (Creation =/= 0);
+	Err ->
+            {error,Err}
+    end;
+recv_complement(_, _ , _) ->
+    ok.
 
 send_challenge_reply(Socket, Challenge, Digest) ->
     ?to_port(Socket, [$r,?int32(Challenge),Digest]).
@@ -546,20 +614,34 @@ recv_challenge_ack(Socket, ChallengeB, CookieA) ->
 		    ok;
 	       true ->
 		    ?shutdown(bad_challenge_ack)
-	    end;
-	_ ->
-	    ?shutdown(bad_challenge_ack)
+	    end
     end.
 
-send_name(Socket, MyNode0, Version) ->
-    send_name(Socket, MyNode0, Version, ?COMPULSORY_DFLAGS).
-send_name(Socket, MyNode0, Version, Flags) ->
-    MyNode = atom_to_list(MyNode0),
-    ok = ?to_port(Socket, [<<$n,Version:16,Flags:32>>|MyNode]).
+send_name(Socket, MyNode0, OurVersion, AssumedVersion) ->
+    send_name(Socket, MyNode0, OurVersion, AssumedVersion, ?COMPULSORY_DFLAGS).
 
-%%
-%% recv_name is common for both old and new handshake.
-%%
+send_name(Socket, MyNode0, OurVersion, AssumedVersion, Flags) ->
+    MyNode = atom_to_list(MyNode0),
+    if (OurVersion =:= ?DIST_VER_LOW) or
+       (AssumedVersion =:= ?DIST_VER_LOW) ->
+            OurFlags = our_flags(Flags,OurVersion),
+            ok = ?to_port(Socket, [<<$n,OurVersion:16,OurFlags:32>>|MyNode]),
+            $n;
+
+       (OurVersion > ?DIST_VER_LOW) and
+       (AssumedVersion > ?DIST_VER_LOW) ->
+            Creation = erts_internal:get_creation(),
+            NameLen = length(MyNode),
+            ok = ?to_port(Socket, [<<$N, (Flags bor ?DFLAG_HANDSHAKE_23):64,
+                                     Creation:32,NameLen:16>>|MyNode]),
+            $N
+    end.
+
+our_flags(Flags, ?DIST_VER_LOW) ->
+    Flags;
+our_flags(Flags, OurVersion) when OurVersion > ?DIST_VER_LOW ->
+    Flags bor ?DFLAG_HANDSHAKE_23.
+
 recv_name(Socket) ->
     case gen_tcp:recv(Socket, 0) of
 	{ok,Data} ->
@@ -568,19 +650,18 @@ recv_name(Socket) ->
 	    ?shutdown({no_node,Res})
     end.
 
-get_name([$m,VersionA,VersionB,_Ip1,_Ip2,_Ip3,_Ip4|OtherNode]) ->
-    {normal, list_to_atom(OtherNode), ?u16(VersionA,VersionB)};
-get_name([$h,VersionA,VersionB,_Ip1,_Ip2,_Ip3,_Ip4|OtherNode]) ->
-    {hidden, list_to_atom(OtherNode), ?u16(VersionA,VersionB)};
-get_name([$n,VersionA, VersionB, Flag1, Flag2, Flag3, Flag4 | OtherNode]) ->
-    Type = case ?u32(Flag1, Flag2, Flag3, Flag4) band ?DFLAG_PUBLISHED of
-	       0 ->
-		   hidden;
-	       _ -> 
-		   normal
-	   end,
-    {Type, list_to_atom(OtherNode), 
-     ?u16(VersionA,VersionB)};
+get_name([$n, V1,V0, F3,F2,F1,F0 | OtherNode]) ->
+    <<Version:16>> = <<V1,V0>>,
+    5 = Version,
+    <<Flags:32>> = <<F3,F2,F1,F0>>,
+    {list_to_atom(OtherNode), $n, Flags};
+get_name([$N, F7,F6,F5,F4,F3,F2,F1,F0,
+          _C3,_C2,_C1,_C0, NLen1,NLen2 | OtherNode]) ->
+    <<Flags:64>> = <<F7,F6,F5,F4,F3,F2,F1,F0>>,
+    true = (Flags band ?DFLAG_HANDSHAKE_23) =/= 0,
+    <<NameLen:16>> = <<NLen1,NLen2>>,
+    NameLen = length(OtherNode),
+    {list_to_atom(OtherNode), $N, Flags};
 get_name(Data) ->
     ?shutdown(Data).
 

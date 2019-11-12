@@ -67,6 +67,7 @@
 -export([dist_ctrl_put_data/2]).
 
 -export([get_dflags/0]).
+-export([get_creation/0]).
 -export([new_connection/1]).
 -export([abort_pending_connection/2]).
 
@@ -89,7 +90,7 @@
 
 -export([process_flag/3]).
 
--export([create_dist_channel/4]).
+-export([create_dist_channel/3]).
 
 -export([erase_persistent_terms/0]).
 
@@ -568,6 +569,10 @@ dist_ctrl_put_data(DHandle, IoList) ->
 get_dflags() ->
     erlang:nif_error(undefined).
 
+-spec erts_internal:get_creation() -> pos_integer().
+get_creation() ->
+    erlang:nif_error(undefined).
+
 -spec erts_internal:new_connection(Node) -> ConnId when
       Node :: atom(),
       ConnId :: {integer(), erlang:dist_handle()}.
@@ -707,17 +712,18 @@ process_display(_Pid, _Type) ->
 process_flag(_Pid, _Flag, _Value) ->
     erlang:nif_error(undefined).
 
--spec create_dist_channel(Node, DistCtrlr, Flags, Ver) -> Result when
+-spec create_dist_channel(Node, DistCtrlr, {Flags, Ver, Cr}) -> Result when
       Node :: atom(),
       DistCtrlr :: port() | pid(),
       Flags :: integer(),
       Ver :: integer(),
+      Cr :: pos_integer(),
       Result :: {'ok', erlang:dist_handle()}
               | {'message', reference()}
               | 'badarg'
               | 'system_limit'.
                                  
-create_dist_channel(_Node, _DistCtrlr, _Flags, _Ver) ->
+create_dist_channel(_Node, _DistCtrlr, _Tpl) ->
     erlang:nif_error(undefined).
 
 -spec erase_persistent_terms() -> 'ok'.

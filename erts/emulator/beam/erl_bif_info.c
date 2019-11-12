@@ -4284,9 +4284,9 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 		}
 	    }
 	    else if (ERTS_IS_ATOM_STR("term_to_binary_tuple_fallbacks", tp[1])) {
-		Uint dflags = (TERM_TO_BINARY_DFLAGS
-                               & ~DFLAG_EXPORT_PTR_TAG
-                               & ~DFLAG_BIT_BINARIES);
+		Uint64 dflags = (TERM_TO_BINARY_DFLAGS
+                                 & ~DFLAG_EXPORT_PTR_TAG
+                                 & ~DFLAG_BIT_BINARIES);
 		Eterm res = erts_term_to_binary(BIF_P, tp[2], 0, dflags);
                 if (is_value(res))
                     BIF_RET(res);
