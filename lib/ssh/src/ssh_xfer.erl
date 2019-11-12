@@ -117,13 +117,20 @@ rename(XF, ReqID, OldPath, NewPath, Flags) ->
 	     true ->
 		  (<<>>)
 	  end,
-    xf_request(XF, ?SSH_FXP_RENAME, 
-	       [?uint32(ReqID),
-		?string_utf8(OldPath),
-		?string_utf8(NewPath),
-		FlagBits]).
-
-
+    Ext = XF#ssh_xfer.ext,
+    ExtRename = "posix-rename@openssh.com",
+    case lists:member({ExtRename, "1"}, Ext) of
+	true ->
+	    extended(XF, ReqID, ExtRename,
+		     [?string_utf8(OldPath),
+		      ?string_utf8(NewPath)]);
+	false ->
+	    xf_request(XF, ?SSH_FXP_RENAME,
+		       [?uint32(ReqID),
+			?string_utf8(OldPath),
+			?string_utf8(NewPath),
+			FlagBits])
+    end.
 
 %% Create directory
 mkdir(XF, ReqID, Path, Attrs) ->
@@ -222,7 +229,7 @@ extended(XF, ReqID, Request, Data) ->
     xf_request(XF, ?SSH_FXP_EXTENDED,
 	       [?uint32(ReqID),
 		?string(Request),
-		?binary(Data)]).
+		Data]).
 
 
 %% Send xfer request to connection manager
