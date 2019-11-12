@@ -2009,13 +2009,14 @@ packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, Send ,[Data, Quantity]}},
-					{options, [{packet, Packet} | ServerOpts]}]),
+					{options, [{packet, Packet}, {nodelay, true}| ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
 					{from, self()},
 					{mfa, {?MODULE, Recv, [Data, Quantity]}},
 					{options, [{active, Active},
+                                                   {nodelay, true},
 						   {packet, Packet} |
 						   ClientOpts]}]),
 
@@ -2048,7 +2049,7 @@ passive_recv_packet(Socket, _, 0) ->
 	    {other, Other, ssl:connection_information(Socket, [session_id, cipher_suite]), 0}
     end;
 passive_recv_packet(Socket, Data, N) ->
-    case ssl:recv(Socket, 0) of
+    case ssl:recv(Socket, 0, 5000) of
 	{ok, Data} -> 
 	    passive_recv_packet(Socket, Data, N-1);
 	Other ->
@@ -2108,18 +2109,10 @@ active_once_packet(Socket,_, 0) ->
     end;
 active_once_packet(Socket, Data, N) ->
     receive 	
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    ssl:setopts(Socket, [{active, once}]),
-	    receive 
-		{ssl, Socket, _} ->
-		    ssl:setopts(Socket, [{active, once}]),
-		    active_once_packet(Socket, Data, N-1)
-	    end;
 	{ssl, Socket, Data} ->
-	    ok
-    end,
-    ssl:setopts(Socket, [{active, once}]),
-    active_once_packet(Socket, Data, N-1).
+            ssl:setopts(Socket, [{active, once}]),
+            active_once_packet(Socket, Data, N-1)
+    end.
 
 active_raw(Socket, Data, N) ->
     active_raw(Socket, (length(Data) * N)).
@@ -2140,11 +2133,6 @@ active_packet(Socket, _, 0) ->
     end;
 active_packet(Socket, Data, N) ->
     receive 
-	{ssl, Socket, Byte} when length(Byte) == 1 ->
-	    receive
-		{ssl, Socket, _} ->
-		    active_packet(Socket, Data, N -1)
-		end;
 	{ssl, Socket, Data} ->
 	    active_packet(Socket, Data, N -1);
 	Other ->
