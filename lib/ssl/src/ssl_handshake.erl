@@ -1699,27 +1699,13 @@ handle_path_validation_error({bad_cert, unknown_ca} = Reason, PeerCert, Chain,
                              Opts, Options, CertDbHandle, CertsDbRef) ->
     handle_incomplete_chain(PeerCert, Chain, Opts, Options, CertDbHandle, CertsDbRef, Reason);
 handle_path_validation_error({bad_cert, invalid_issuer} = Reason, PeerCert, Chain0, 
-			     #{partial_chain := PartialChain} = Opts, Options, CertDbHandle, CertsDbRef) ->
-    case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef, Chain0) of
-	{ok, _, [PeerCert | Chain] = OrdedChain} when  Chain =/= Chain0 -> %% Chain appaears to be unorded 
-            {Trusted, Path} = ssl_certificate:trusted_cert_and_path(OrdedChain,
-                                                                    CertDbHandle, CertsDbRef,
-                                                                    PartialChain),
-            case public_key:pkix_path_validation(Trusted, Path, Options) of
-		{ok, {PublicKeyInfo,_}} ->
-		    {PeerCert, PublicKeyInfo};
-                {error, PathError} ->
-		    handle_path_validation_error(PathError, PeerCert, Path,
-                                                 Opts, Options, CertDbHandle, CertsDbRef)
-	    end;
-        _ ->
-            path_validation_alert(Reason)
-    end;
+			     Opts, Options, CertDbHandle, CertsDbRef) ->
+    handle_unorded_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason);
 handle_path_validation_error(Reason, _, _, _, _,_, _) ->
     path_validation_alert(Reason).
 
 handle_incomplete_chain(PeerCert, Chain0,
-                        #{partial_chain := PartialChain}, Options, CertDbHandle, CertsDbRef, PathError0) ->
+                        #{partial_chain := PartialChain} = Opts, Options, CertDbHandle, CertsDbRef, Reason) ->
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef) of
         {ok, _, [PeerCert | _] = Chain} when Chain =/= Chain0 -> %% Chain candidate found          
             {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
@@ -1729,10 +1715,28 @@ handle_incomplete_chain(PeerCert, Chain0,
 		{ok, {PublicKeyInfo,_}} ->
 		    {PeerCert, PublicKeyInfo};
                 {error, PathError} ->
-		    path_validation_alert(PathError)
+                    handle_unorded_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, PathError)
 	    end;
         _ ->
-            path_validation_alert(PathError0)
+            handle_unorded_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason)
+    end.
+
+handle_unorded_chain(PeerCert, Chain0,
+                     #{partial_chain := PartialChain} = Opts, Options, CertDbHandle, CertsDbRef, Reason) ->
+    {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, Chain0}),
+    case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, ExtractedCerts, Chain0) of
+        {ok, _, Chain} when  Chain =/= Chain0 -> %% Chain appaears to be unorded 
+            {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
+                                                                    CertDbHandle, CertsDbRef,
+                                                                    PartialChain),
+            case public_key:pkix_path_validation(Trusted, Path, Options) of
+                {ok, {PublicKeyInfo,_}} ->
+                    {PeerCert, PublicKeyInfo};
+                {error, PathError} ->
+                    path_validation_alert(PathError)
+	    end;
+        _ ->
+            path_validation_alert(Reason)
     end.
 
 path_validation_alert({bad_cert, cert_expired}) ->
@@ -1753,7 +1757,7 @@ path_validation_alert({bad_cert, {revocation_status_undetermined, Details}}) ->
 path_validation_alert({bad_cert, selfsigned_peer}) ->
     ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE);
 path_validation_alert({bad_cert, unknown_ca}) ->
-     ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
+    ?ALERT_REC(?FATAL, ?UNKNOWN_CA);
 path_validation_alert(Reason) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
 
