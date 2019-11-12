@@ -103,7 +103,7 @@ certificate_chain(OwnCert, CertDbHandle, CertsDbRef) ->
     certificate_chain(OwnCert, DerCert, CertDbHandle, CertsDbRef, [DerCert], []).
 
 %%--------------------------------------------------------------------
--spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref(), [der_cert()]) ->
+-spec certificate_chain(undefined | binary() | #'OTPCertificate'{} , db_handle(), certdb_ref() | {extracted, list()}, [der_cert()]) ->
 			  {error, no_cert} | {ok, #'OTPCertificate'{} | undefined, [der_cert()]}.
 %%
 %% Description: Create certificate chain with certs from 
