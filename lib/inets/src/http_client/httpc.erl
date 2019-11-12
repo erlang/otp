@@ -176,7 +176,7 @@ request(Method,
        (Method =:= delete) orelse 
        (Method =:= trace) andalso 
        (is_atom(Profile) orelse is_pid(Profile)) ->
-    case uri_string:parse(uri_string:normalize(Url)) of
+    case normalize_and_parse_url(Url) of
 	{error, Reason, _} ->
 	    {error, Reason};
 	ParsedUrl ->
@@ -190,7 +190,7 @@ request(Method,
     end.
 
 do_request(Method, {Url, Headers, ContentType, Body}, HTTPOptions, Options, Profile) ->
-    case uri_string:parse(uri_string:normalize(Url)) of
+    case normalize_and_parse_url(Url) of
 	{error, Reason, _} ->
 	    {error, Reason};
 	ParsedUrl ->
@@ -313,7 +313,7 @@ store_cookies(SetCookieHeaders, Url) ->
 
 store_cookies(SetCookieHeaders, Url, Profile) 
   when is_atom(Profile) orelse is_pid(Profile) ->
-    case uri_string:parse(uri_string:normalize(Url)) of
+    case normalize_and_parse_url(Url) of
         {error, Bad, _} ->
             {error, {parse_failed, Bad}};
         URI ->
@@ -500,6 +500,12 @@ service_info(Pid) ->
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================
+normalize_and_parse_url(Url) ->
+    case uri_string:normalize(Url) of
+        {error, _, _} = Error -> Error;
+        UriString -> uri_string:parse(UriString)
+    end.
+
 handle_request(Method, Url, 
                URI,
 	       Headers0, ContentType, Body0,

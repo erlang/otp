@@ -107,7 +107,8 @@ real_requests()->
      inet_opts,
      invalid_headers,
      invalid_body,
-     no_scheme
+     no_scheme,
+     invalid_uri
     ].
 
 real_requests_esi() ->
@@ -1239,6 +1240,14 @@ no_scheme(_Config) ->
     {error,{bad_scheme,"ftp"}} = httpc:request("ftp://foobar"),
     {error,{no_scheme}} = httpc:request("//foobar"),
     {error,{no_scheme}} = httpc:request("foobar"),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+invalid_uri(Config) ->
+    URL = url(group_name(Config), "/bar?x[]=a", Config),
+    {error, invalid_uri} = httpc:request(URL),
     ok.
 
 
