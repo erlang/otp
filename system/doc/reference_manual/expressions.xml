@@ -1153,7 +1153,8 @@ Ei = Value |
     </taglist>
     <p>The value of <c>Size</c> multiplied with the unit gives
       the number of bits. A segment of type <c>binary</c> must have 
-      a size that is evenly divisible by 8.</p>
+      a size that is evenly divisible by 8. For a segment of type <c>float</c>
+      the size must be either 64 or 32.</p>
 
     <note><p>When constructing binaries, if the size <c>N</c> of an integer
     segment is too small to contain the given integer, the most significant
