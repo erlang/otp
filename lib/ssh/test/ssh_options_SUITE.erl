@@ -805,11 +805,14 @@ do_hostkey_fingerprint_check(Config, HashAlg) ->
     case supported_hash(HashAlg) of
 	true ->
 	    really_do_hostkey_fingerprint_check(Config, HashAlg);
+	false when HashAlg == old ->
+	    {skip,{unsupported_hash,md5}};% Happen to know that public_key:ssh_hostkey_fingerprint/1 uses md5...
 	false ->
 	    {skip,{unsupported_hash,HashAlg}}
     end.
 
-supported_hash(old) -> true;
+supported_hash(old) ->
+    supported_hash(md5); % Happen to know that public_key:ssh_hostkey_fingerprint/1 uses md5...
 supported_hash(HashAlg) ->
     Hs = if is_atom(HashAlg) -> [HashAlg];
             is_list(HashAlg) -> HashAlg
