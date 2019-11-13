@@ -56,8 +56,8 @@ groups() ->
 init_per_suite(Config) ->
     ct_property_test:init_per_suite(Config).
 
-end_per_suite(Config) ->
-    Config.
+end_per_suite(_Config) ->
+    ok.
 
 %%% One group in this suite happens to support only QuickCheck, so skip it
 %%% if we run proper.

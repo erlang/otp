@@ -97,9 +97,9 @@ sock() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(Config).
 
-end_per_suite(Config) ->
+end_per_suite(_Config) ->
     catch ssh:stop(),
-    Config.
+    ok.
 
 %%--------------------------------------------------------------------
 init_per_group(openssh, Config) ->
