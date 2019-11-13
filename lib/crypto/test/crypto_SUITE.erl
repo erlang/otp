@@ -340,21 +340,7 @@ end_per_suite(_Config) ->
 
 %%-------------------------------------------------------------------
 init_per_group(fips, Config) ->
-    FIPSConfig = [{fips, true} | Config],
-    case crypto:info_fips() of
-        enabled ->
-            FIPSConfig;
-        not_enabled ->
-            case crypto:enable_fips_mode(true) of
-		true ->
-		    enabled = crypto:info_fips(),
-		    FIPSConfig;
-		false ->
-		    {fail, "Failed to enable FIPS mode"}
-	    end;
-        not_supported ->
-            {skip, "FIPS mode not supported"}
-    end;
+    try_enable_fips_mode(Config);
 init_per_group(non_fips, Config) ->
     NonFIPSConfig = [{fips, false} | Config],
     case crypto:info_fips() of
@@ -4263,3 +4249,34 @@ bad_verify_name(_Config) ->
                   error:badarg).
 
 
+%%%----------------------------------------------------------------
+try_enable_fips_mode(Config) ->
+    FIPSConfig = [{fips, true} | Config],
+    case crypto:info_fips() of
+        enabled ->
+            FIPSConfig;
+        not_enabled ->
+            %% Erlang/crypto configured with --enable-fips
+            case crypto:enable_fips_mode(true) of
+		true ->
+                    %% and also the cryptolib is fips enabled
+		    enabled = crypto:info_fips(),
+		    FIPSConfig;
+		false ->
+                    try
+                        [{_,_,Inf}] = crypto:info_lib(),
+                        re:run(Inf, "(F|f)(I|i)(P|p)(S|s)")
+                    of
+                        nomatch ->
+                            {skip, "FIPS mode not supported in cryptolib"};
+                        {match,_} ->
+                            {fail, "Failed to enable FIPS mode"}
+                    catch
+                        _:_ ->
+                            {fail, "Failed to check cryptolib info"}
+                    end,
+		    {skip, "FIPS mode not supported in cryptolib"}
+	    end;
+        not_supported ->
+            {skip, "FIPS mode not supported"}
+    end.
