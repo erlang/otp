@@ -285,7 +285,8 @@ X:4/little-signed-integer-unit:8</code>
     <p>Each segment in a binary can consist of zero or more bits.
        A segment of type <c>binary</c> must have a size evenly divisible by 8
     (or divisible by the unit size, if the unit size has been changed).
-    A segment of type <c>bitstring</c> has no restrictions on the size.</p>
+    A segment of type <c>bitstring</c> has no restrictions on the size.
+    A segment of type <c>float</c> must have size 64 or 32.</p>
     <p>As mentioned earlier, segments have the following general syntax:</p>
     <p><c>Value:Size/TypeSpecifierList</c></p>
     <p>When matching <c>Value</c>, value must be either a variable or
