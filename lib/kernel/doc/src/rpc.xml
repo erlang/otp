@@ -111,6 +111,8 @@
           for efficiency reasons when very small fast functions are
           evaluated, for example, BIFs that are guaranteed not to
           suspend.</p>
+	  <p>See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
+	  for more details of the return value.</p>
       </desc>
     </func>
 
@@ -123,6 +125,8 @@
           <seealso marker="#block_call/4"><c>block_call/4</c></seealso>,
           but with a time-out value in the same manner as
           <seealso marker="#call/5"><c>call/5</c></seealso>.</p>
+	  <p>See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
+	  for more details of the return value.</p>
       </desc>
     </func>
 
@@ -133,7 +137,28 @@
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
           <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
           the corresponding value <c><anno>Res</anno></c>, or
-          <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.</p>
+        <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.</p>
+	<note>
+	  <p>Here follows the details of what exactly is returned.</p>
+	  <p><c>{badrpc, <anno>Reason</anno>}</c> will be returned in the
+	  following circumstances:</p>
+          <list type="bulleted">
+            <item>The called function fails with an <c>exit</c> exception.</item>
+            <item>The called function fails with an <c>error</c> exception.</item>
+	    <item>The called function returns a term that matches
+	    <c>{'EXIT', _}</c>.</item>
+	    <item>The called function <c>throws</c>
+	    a term that matches <c>{'EXIT', _}</c>.</item>
+          </list>
+
+	  <p><c><anno>Res</anno></c> is returned in the following circumstances:</p>
+          <list type="bulleted">
+            <item>The called function returns normally with a term that does
+	    <strong>not</strong> match <c>{'EXIT',_}</c>.</item>
+            <item>The called function <c>throw</c>s a term that does
+	    <strong>not</strong> match <c>{'EXIT',_}</c>.</item>
+          </list>
+	</note>
       </desc>
     </func>
 
@@ -147,7 +172,9 @@
           <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.
           <c><anno>Timeout</anno></c> is
           a time-out value in milliseconds. If the call times out,
-          <c><anno>Reason</anno></c> is <c>timeout</c>.</p>
+          <c><anno>Reason</anno></c> is <c>timeout</c>.
+	  See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
+	  for more details of the return value.</p>
         <p>If the reply arrives after the call times out, no message
           contaminates the caller's message queue, as this
           function spawns off a middleman process to act as (a void)
@@ -306,6 +333,8 @@
           the tuple <c>{value, <anno>Val</anno>}</c> when the computation is
           finished, or <c>timeout</c> when <c><anno>Timeout</anno></c>
           milliseconds has elapsed.</p>
+	  <p>See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
+	  for more details of <anno>Val</anno>.</p>
         <note>
           <p>This function must be called by the same process from which
             <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
@@ -424,6 +453,8 @@
             <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
             was made otherwise it will never return.</p>
         </note>
+	<p>See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
+	for more details of the return value.</p>
       </desc>
     </func>
   </funcs>
