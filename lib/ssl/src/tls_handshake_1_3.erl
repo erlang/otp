@@ -1117,7 +1117,12 @@ session_resumption({State, start}, _) ->
     {ok, {State, start}};
 session_resumption({#state{ssl_options = #{session_tickets := disabled}} = State, negotiated}, _) ->
     {ok, {State, negotiated}};
-session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State, negotiated}, PSK) when Tickets =/= disabled ->
+session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State, negotiated}, undefined)
+  when Tickets =/= disabled ->
+    {ok, {State, negotiated}};
+session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State0, negotiated}, PSK)
+  when Tickets =/= disabled ->
+    State = handle_resumption(State0, ok),
     {ok, {State, negotiated, PSK}}.
 
 
@@ -1463,7 +1468,17 @@ get_pre_shared_key(undefined, _, HKDFAlgo, _) ->
 get_pre_shared_key(_, undefined, HKDFAlgo, _) ->
     {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
 %% Session resumption
-get_pre_shared_key(SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
+get_pre_shared_key(enabled = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
+    TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
+    case choose_psk(TicketData, SelectedIdentity) of
+        undefined -> %% full handshake, default PSK
+            {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
+        illegal_parameter ->
+            {error, illegal_parameter};
+        {_, PSK} ->
+            {ok, PSK}
+    end;
+get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
     case choose_psk(TicketData, SelectedIdentity) of
         undefined -> %% full handshake, default PSK
@@ -2423,6 +2438,7 @@ maybe_automatic_session_resumption(#state{
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),
     UseTicket = tls_client_ticket_store:find_ticket(self(), HashAlgos),
+    tls_client_ticket_store:lock_tickets(self(), [UseTicket]),
     State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
     {[UseTicket], State};
 maybe_automatic_session_resumption(#state{
@@ -2443,5 +2459,42 @@ get_ticket_data(_, undefined, _) ->
     undefined;
 get_ticket_data(_, _, undefined) ->
     undefined;
-get_ticket_data(Pid, _, UseTicket) ->
+get_ticket_data(_, enabled, UseTicket) ->
+    process_user_tickets(UseTicket);
+get_ticket_data(Pid, auto, UseTicket) ->
     tls_client_ticket_store:get_tickets(Pid, UseTicket).
+
+
+process_user_tickets(UseTicket) ->
+    process_user_tickets(UseTicket, [], 0).
+%%
+process_user_tickets([], Acc, _) ->
+    lists:reverse(Acc);
+process_user_tickets([H|T], Acc, N) ->
+    #{hkdf := HKDF,
+      sni := _SNI,
+      psk := PSK,
+      timestamp := Timestamp,
+      ticket := NewSessionTicket} = erlang:binary_to_term(H),
+    #new_session_ticket{
+       ticket_lifetime = _LifeTime,
+       ticket_age_add = AgeAdd,
+       ticket_nonce = Nonce,
+       ticket = Ticket,
+       extensions = _Extensions
+      } = NewSessionTicket,
+    TicketAge =  erlang:system_time(seconds) - Timestamp,
+    ObfuscatedTicketAge = obfuscate_ticket_age(TicketAge, AgeAdd),
+    Identity = #psk_identity{
+                  identity = Ticket,
+                  obfuscated_ticket_age = ObfuscatedTicketAge},
+    process_user_tickets(T, [{undefined, N, Identity, PSK, Nonce, HKDF}|Acc], N + 1).
+
+
+%% The "obfuscated_ticket_age"
+%% field of each PskIdentity contains an obfuscated version of the
+%% ticket age formed by taking the age in milliseconds and adding the
+%% "ticket_age_add" value that was included with the ticket
+%% (see Section 4.6.1), modulo 2^32.
+obfuscate_ticket_age(TicketAge, AgeAdd) ->
+    (TicketAge + AgeAdd) rem round(math:pow(2,32)).

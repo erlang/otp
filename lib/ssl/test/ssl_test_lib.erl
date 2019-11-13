@@ -120,9 +120,7 @@ do_run_server(ListenSocket, AcceptSocket, Opts) ->
 	    ct:log("~p:~p~nServer closing  ~p ~n", [?MODULE,?LINE, self()]),
 	    Result = Transport:close(AcceptSocket),
 	    Result1 = Transport:close(ListenSocket),
-	    ct:log("~p:~p~nResult ~p : ~p ~n", [?MODULE,?LINE, Result, Result1]);
-	{ssl_closed, _} ->
-	    ok
+	    ct:log("~p:~p~nResult ~p : ~p ~n", [?MODULE,?LINE, Result, Result1])
     end.
 
 %%% To enable to test with s_client -reconnect
@@ -1951,6 +1949,69 @@ send_recv_result_active_once(Socket) ->
     Data = "Hello world",
     ssl:send(Socket, Data),
     active_once_recv_list(Socket, length(Data)).
+
+verify_active_session_resumption(Socket, SessionResumption) ->
+    verify_active_session_resumption(Socket, SessionResumption, wait_reply, no_tickets).
+%%
+verify_active_session_resumption(Socket, SessionResumption, WaitReply) ->
+    verify_active_session_resumption(Socket, SessionResumption, WaitReply, no_tickets).
+%%
+verify_active_session_resumption(Socket, SessionResumption, WaitForReply, TicketOption) ->
+    case ssl:connection_information(Socket, [session_resumption]) of
+        {ok, [{session_resumption, SessionResumption}]} ->
+            Msg = boolean_to_log_msg(SessionResumption),
+            ct:log("~p:~p~nSession resumption verified! (expected ~p, got ~p)!",
+                   [?MODULE, ?LINE, Msg, Msg]);
+        {ok, [{session_resumption, Got0}]} ->
+            Expected = boolean_to_log_msg(SessionResumption),
+            Got = boolean_to_log_msg(Got0),
+            ct:fail("~p:~p~nFailed to verify session resumption! (expected ~p, got ~p)",
+                    [?MODULE, ?LINE, Expected, Got])
+    end,
+
+    Data =  "Hello world",
+    ssl:send(Socket, Data),
+    case WaitForReply of
+        wait_reply ->
+            Data = active_recv(Socket, length(Data));
+        no_reply ->
+            ok;
+        Else1 ->
+            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else1])
+    end,
+    case TicketOption of
+        {tickets, N} ->
+            receive_tickets(N);
+        no_tickets ->
+            ok;
+        Else2 ->
+            ct:fail("~p:~p~nFaulty parameter: ~p", [?MODULE, ?LINE, Else2])
+    end.
+
+boolean_to_log_msg(true) ->
+    "OK";
+boolean_to_log_msg(false) ->
+    "FAIL".
+
+receive_tickets(N) ->
+    receive_tickets(N, []).
+%%
+receive_tickets(0, Acc) ->
+    Acc;
+receive_tickets(N, Acc) ->
+    receive
+        {ssl, session_ticket, {_, Ticket}} ->
+            receive_tickets(N - 1, [Ticket|Acc])
+    end.
+
+check_tickets(Client) ->
+    receive
+        {Client, Tickets} ->
+            Tickets
+    after
+        5000 ->
+            ct:fail("~p:~p~nNo tickets received!", [?MODULE, ?LINE])
+    end.
 
 active_recv(Socket, N) ->
     active_recv(Socket, N, []).
