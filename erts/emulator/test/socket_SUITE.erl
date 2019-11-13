@@ -624,9 +624,9 @@
 -define(TPP_MEDIUM, lists:flatten(lists:duplicate(1024, ?TPP_SMALL))).
 -define(TPP_LARGE,  lists:flatten(lists:duplicate(1024, ?TPP_MEDIUM))).
 
--define(TPP_SMALL_NUM,  10000).
--define(TPP_MEDIUM_NUM, 1000).
--define(TPP_LARGE_NUM,  100).
+-define(TPP_SMALL_NUM,  5000).
+-define(TPP_MEDIUM_NUM, 500).
+-define(TPP_LARGE_NUM,  50).
 
 -define(TTEST_RUNTIME,  ?SECS(10)).
 
@@ -29468,7 +29468,7 @@ traffic_ping_pong_large_send_and_recv_tcp4(suite) ->
 traffic_ping_pong_large_send_and_recv_tcp4(doc) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp4(_Config) when is_list(_Config) ->
-    ?TT(?SECS(45)),
+    ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp4,
@@ -29496,13 +29496,13 @@ traffic_ping_pong_large_send_and_recv_tcp6(suite) ->
 traffic_ping_pong_large_send_and_recv_tcp6(doc) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcp6,
            fun() -> is_old_fedora16(),
                     has_support_ipv6() end,
            fun() ->
-                   ?TT(?SECS(45)),
                    InitState = #{domain => inet6,
                                  proto  => tcp,
                                  msg    => Msg,
@@ -29526,7 +29526,7 @@ traffic_ping_pong_large_send_and_recv_tcpL(suite) ->
 traffic_ping_pong_large_send_and_recv_tcpL(doc) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcpL(_Config) when is_list(_Config) ->
-    ?TT(?SECS(45)),
+    ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
     Num = ?TPP_LARGE_NUM,
     tc_try(traffic_ping_pong_large_send_and_recv_tcpL,
