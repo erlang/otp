@@ -1070,3 +1070,45 @@ ntoa(A) ->
         _:_ when is_list(A) -> A
     end.
     
+%%%----------------------------------------------------------------
+try_enable_fips_mode() ->
+    case crypto:info_fips() of
+        enabled ->
+            report("FIPS mode already enabled", ?LINE),
+            ok;
+        not_enabled ->
+            %% Erlang/crypto configured with --enable-fips
+            case crypto:enable_fips_mode(true) of
+		true ->
+                    %% and also the cryptolib is fips enabled
+                    report("FIPS mode enabled", ?LINE),
+		    enabled = crypto:info_fips(),
+		    ok;
+		false ->
+                    case is_cryptolib_fips_capable() of
+                        false ->
+                            report("No FIPS mode in cryptolib", ?LINE),
+                            {skip, "FIPS mode not supported in cryptolib"};
+                        true ->
+                            ct:fail("Failed to enable FIPS mode", [])
+                    end
+	    end;
+        not_supported ->
+            report("FIPS mode not supported by Erlang/OTP", ?LINE),
+            {skip, "FIPS mode not supported"}
+    end.
+
+is_cryptolib_fips_capable() ->
+    [{_,_,Inf}] = crypto:info_lib(),
+    nomatch =/= re:run(Inf, "(F|f)(I|i)(P|p)(S|s)").
+
+report(Comment, Line) ->
+    ct:comment(Comment),
+    ct:log("~p:~p  try_enable_fips_mode~n"
+           "crypto:info_lib() = ~p~n"
+           "crypto:info_fips() = ~p~n"
+           "crypto:supports() =~n~p~n", 
+           [?MODULE, Line,
+            crypto:info_lib(),
+            crypto:info_fips(),
+            crypto:supports()]).
