@@ -36,6 +36,8 @@
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
+-include("ssh_test_lib.hrl").
+
 
 all() -> [{group, messages},
 	  client_sends_info_timing,
@@ -54,7 +56,9 @@ groups() ->
 
 %%% First prepare Config and compile the property tests for the found tool:
 init_per_suite(Config) ->
-    ct_property_test:init_per_suite(Config).
+    ?CHECK_CRYPTO(
+       ct_property_test:init_per_suite(Config)
+      ).
 
 end_per_suite(_Config) ->
     ok.
