@@ -535,7 +535,7 @@ api_ng() ->
 
 api_ng(Config) when is_list(Config) ->
     [_|_] = Ciphers = lazy_eval(proplists:get_value(cipher, Config, [])),
-    lists:foreach(fun api_ng_cipher_increment/1, Ciphers).
+    lists:foreach(fun api_ng_cipher_increment/1, Ciphers ++ spec_0_bytes(Config)).
 
 api_ng_cipher_increment({Type, Key, PlainTexts}=_X) ->
     ct:log("~p",[_X]),
@@ -585,12 +585,32 @@ api_ng_cipher_increment_loop(Ref, InTexts) ->
               end, InTexts).
 
 %%--------------------------------------------------------------------
+spec_0_bytes(Config) ->
+    Type = proplists:get_value(type, Config),
+    #{iv_length := IVS, key_length := KS} = Spec = crypto:cipher_info(Type),
+    Key = <<0:KS/unit:8>>,
+    IV = <<0:IVS/unit:8>>,
+    spec_0_bytes(Type, Key, IV, Spec).
+
+
+spec_0_bytes(chacha20_poly1305, _, _, _) ->
+    [];
+spec_0_bytes(Type, Key, IV, #{mode := M}) when M == ccm_mode ;
+                                               M == gcm_mode ->
+    AAD = <<>>,
+    Plain = <<>>,
+    {_, Tag} = crypto:crypto_one_time_aead(Type, Key, IV, Plain, AAD, true),
+    [{Type, Key, Plain, IV, AAD, <<>>, Tag, []}];
+spec_0_bytes(Type, Key, IV, _Spec) ->
+    [{Type, Key, IV, <<>>, <<>>}].
+
+%%--------------------------------------------------------------------
 api_ng_one_shot() ->
      [{doc, "Test new api"}].
 
 api_ng_one_shot(Config) when is_list(Config) ->
     [_|_] = Ciphers = lazy_eval(proplists:get_value(cipher, Config, [])),
-    lists:foreach(fun do_api_ng_one_shot/1, Ciphers).
+    lists:foreach(fun do_api_ng_one_shot/1, Ciphers ++ spec_0_bytes(Config)).
 
 do_api_ng_one_shot({Type, Key, PlainTexts}=_X) ->
     ct:log("~p",[_X]),
