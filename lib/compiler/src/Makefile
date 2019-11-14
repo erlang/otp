@@ -210,6 +210,7 @@ $(EBIN)/beam_ssa_recv.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_share.beam: beam_ssa.hrl
 $(EBIN)/beam_ssa_type.beam: beam_ssa.hrl beam_types.hrl
 $(EBIN)/beam_types.beam: beam_types.hrl
+$(EBIN)/beam_validator.beam: beam_types.hrl
 $(EBIN)/cerl.beam: core_parse.hrl
 $(EBIN)/compile.beam: core_parse.hrl ../../stdlib/include/erl_compile.hrl
 $(EBIN)/core_lib.beam: core_parse.hrl
