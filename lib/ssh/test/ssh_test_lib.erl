@@ -452,24 +452,36 @@ clean_rsa(UserDir) ->
     file:delete(filename:join(UserDir,"authorized_keys")).
 
 setup_dsa_pass_phrase(DataDir, UserDir, Phrase) ->
-    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
-    setup_pass_phrase(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-    setup_dsa_known_host(DataDir, UserDir),
-    setup_dsa_auth_keys(DataDir, UserDir).
+    try
+        {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
+        System = filename:join(UserDir, "system"),
+        file:make_dir(System),
+        file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
+        file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
+        setup_dsa_known_host(DataDir, UserDir),
+        setup_dsa_auth_keys(DataDir, UserDir)
+    of 
+        _ -> true
+    catch
+        _:_ -> false
+    end.
 
 setup_rsa_pass_phrase(DataDir, UserDir, Phrase) ->
-    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
-    setup_pass_phrase(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-    setup_rsa_known_host(DataDir, UserDir),
-    setup_rsa_auth_keys(DataDir, UserDir).
+    try
+        {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
+        System = filename:join(UserDir, "system"),
+        file:make_dir(System),
+        file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
+        file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
+        setup_rsa_known_host(DataDir, UserDir),
+        setup_rsa_auth_keys(DataDir, UserDir)
+    of 
+        _ -> true
+    catch
+        _:_ -> false
+    end.
 
 setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
     try

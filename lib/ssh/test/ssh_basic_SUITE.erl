@@ -255,23 +255,27 @@ init_per_group(ed448_key, Config) ->
 	    {skip, unsupported_pub_key}
     end;
 init_per_group(rsa_pass_key, Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     case lists:member('ssh-rsa',
-		      ssh_transport:default_algorithms(public_key)) of
+		      ssh_transport:default_algorithms(public_key))
+        andalso
+        ssh_test_lib:setup_rsa_pass_phrase(DataDir, PrivDir, "Password")
+    of
 	true ->
-            DataDir = proplists:get_value(data_dir, Config),
-            PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_rsa_pass_phrase(DataDir, PrivDir, "Password"),
             [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
 	false ->
 	    {skip, unsupported_pub_key}
     end;
 init_per_group(dsa_pass_key, Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
     case lists:member('ssh-dss',
-		      ssh_transport:default_algorithms(public_key)) of
+		      ssh_transport:default_algorithms(public_key))
+    andalso
+        ssh_test_lib:setup_dsa_pass_phrase(DataDir, PrivDir, "Password")
+    of
 	true ->
-            DataDir = proplists:get_value(data_dir, Config),
-            PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_dsa_pass_phrase(DataDir, PrivDir, "Password"),
             [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
 	false ->
 	    {skip, unsupported_pub_key}
