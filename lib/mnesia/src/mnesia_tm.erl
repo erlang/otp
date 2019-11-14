@@ -622,12 +622,14 @@ recover_coordinator(Tid, sync_sym_trans, committed, Local, _, _) ->
 recover_coordinator(Tid, sync_sym_trans, aborted, _Local, _, _) ->
     mnesia_recover:note_decision(Tid, aborted);
 
-recover_coordinator(Tid, asym_trans, committed, Local, DiscNs, RamNs) ->
+recover_coordinator(Tid, Protocol, committed, Local, DiscNs, RamNs)
+  when Protocol =:= asym_trans; Protocol =:= sync_asym_trans ->
     D = #decision{tid = Tid, outcome = committed,
 		  disc_nodes = DiscNs, ram_nodes = RamNs},
     mnesia_recover:log_decision(D),
     do_commit(Tid, Local);
-recover_coordinator(Tid, asym_trans, aborted, Local, DiscNs, RamNs) ->
+recover_coordinator(Tid, Protocol, aborted, Local, DiscNs, RamNs)
+  when Protocol =:= asym_trans; Protocol =:= sync_asym_trans ->
     D = #decision{tid = Tid, outcome = aborted,
 		  disc_nodes = DiscNs, ram_nodes = RamNs},
     mnesia_recover:log_decision(D),

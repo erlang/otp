@@ -106,8 +106,8 @@ add_index2([{{Pos, Type}, Ixt} |Tail], SorB, Storage, Tab, K, Obj, OldRecs0) ->
 	[] -> %% when OldRecs1 =/= [] Update without modifying index field
 	    add_index2(Tail, SorB, Storage, Tab, K, Obj, OldRecs1);
 	OldRecs -> %% Update
-	    put_index_vals(Type, Ixt, NewVals, K),
 	    [del_ixes(Type, Ixt, ValsF, OldObj, K) || OldObj <- OldRecs],
+	    put_index_vals(Type, Ixt, NewVals, K),
 	    add_index2(Tail, SorB, Storage, Tab, K, Obj, OldRecs1)
     end;
 add_index2([], _, _, _Tab, _K, _Obj, _) -> ok.
