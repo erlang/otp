@@ -60,7 +60,7 @@
   <xi:include href="logger_formatter.xml"/>
   <xi:include href="logger_std_h.xml"/>
   <xi:include href="logger_disk_log_h.xml"/>
-  %ESOCK_USE_NET_XML%
+  <xi:include href="net.xml"/>
   <xi:include href="net_adm.xml"/>
   <xi:include href="net_kernel.xml"/>
   <xi:include href="os.xml"/>

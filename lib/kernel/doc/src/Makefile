@@ -37,17 +37,6 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
 
-# The doc build has problems with if-defing out modules...
-ifeq ($(USE_ESOCK),yes)
-XML_REF3_ESOCK_FILES = net.xml
-ESOCK_USE_NET_XML=<xi:include href="net.xml"\/>
-ESOCK_USE_NET_SPECS_XML=<xi:include href="../specs/specs_net.xml"/>
-else
-XML_REF3_ESOCK_FILES =
-ESOCK_USE_NET_SPECS_XML =
-ESOCK_USE_NET_XML =
-endif
-
 XML_REF3_FILES = application.xml \
 	auth.xml \
 	code.xml \
@@ -74,7 +63,7 @@ XML_REF3_FILES = application.xml \
         logger_disk_log_h.xml \
         logger_filters.xml \
         logger_formatter.xml \
-	$(XML_REF3_ESOCK_FILES) \
+	net.xml \
 	net_adm.xml \
 	net_kernel.xml \
 	os.xml \
@@ -153,7 +142,7 @@ SPECS_FLAGS = -I../../include
 $(HTMLDIR)/%: %
 	$(INSTALL_DATA) $< $@
 
-docs: ref_man specs man pdf html
+docs: man pdf html
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -162,9 +151,6 @@ pdf: $(TOP_PDF_FILE)
 html: images $(HTML_REF_MAN_FILE)
 
 man: $(MAN3_FILES) $(MAN4_FILES) $(MAN6_FILES)
-
-ref_man: ref_man.xml
-specs: specs.xml
 
 images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 
@@ -202,13 +188,6 @@ $(SPECDIR)/specs_init_stub.xml:
 $(SPECDIR)/specs_zlib_stub.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module zlib_stub
-
-ref_man.xml: ref_man.xml.src
-	($(PERL) -p -e 's?%ESOCK_USE_NET_XML%?$(ESOCK_USE_NET_XML)?' \
-            $<) > $@
-specs.xml: specs.xml.src
-	($(PERL) -p -e 's?%ESOCK_USE_NET_SPECS_XML%?$(ESOCK_USE_NET_SPECS_XML)?' \
-            $<) > $@
 
 
 # ----------------------------------------------------

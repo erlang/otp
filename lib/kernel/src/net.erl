@@ -85,10 +85,17 @@
 -type name_info_flag_ext()      :: idn.
 -type name_info()               :: #{host    := string(),
                                      service := string()}.
+-ifdef(USE_ESOCK).
 -type address_info()            :: #{family   := socket:domain(),
                                      socktype := socket:type(),
                                      protocol := socket:protocol(),
                                      address  := socket:sockaddr()}.
+-else.
+-type address_info()            :: #{family   := term(),
+                                     socktype := term(),
+                                     protocol := term(),
+                                     address  := term()}.
+-endif.
 -type network_interface_name()  :: string().
 -type network_interface_index() :: non_neg_integer().
 
@@ -178,11 +185,19 @@ gethostname() ->
 getnameinfo(SockAddr) ->
     getnameinfo(SockAddr, undefined).
 
+-ifdef(USE_ESOCK).
 -spec getnameinfo(SockAddr, Flags) -> {ok, Info} | {error, Reason} when
       SockAddr :: socket:sockaddr(),
       Flags    :: name_info_flags() | undefined,
       Info     :: name_info(),
       Reason   :: term().
+-else.
+-spec getnameinfo(SockAddr, Flags) -> {ok, Info} | {error, Reason} when
+      SockAddr :: term(),
+      Flags    :: name_info_flags() | undefined,
+      Info     :: name_info(),
+      Reason   :: term().
+-endif.
 
 -ifdef(USE_ESOCK).
 getnameinfo(SockAddr, [] = _Flags) ->
