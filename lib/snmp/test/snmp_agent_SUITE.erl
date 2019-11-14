@@ -582,18 +582,18 @@ init_per_suite(Config0) when is_list(Config0) ->
       "~n      Config: ~p"
       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
-    case snmp_test_lib:init_per_suite(Config0) of
+    case ?LIB:init_per_suite(Config0) of
         {skip, _} = SKIP ->
             SKIP;
 
-        Config1 ->
-            Config2   = snmp_test_lib:init_suite_top_dir(?MODULE, Config1), 
-            Config3   = snmp_test_lib:fix_data_dir(Config2),
+        Config1 when is_list(Config1) ->
+            Config2   = ?LIB:init_suite_top_dir(?MODULE, Config1), 
+            Config3   = ?LIB:fix_data_dir(Config2),
 
             %% Mib-dirs
-            MibDir    = snmp_test_lib:lookup(data_dir, Config3),
+            MibDir    = ?LIB:lookup(data_dir, Config3),
             StdMibDir = join([code:priv_dir(snmp), "mibs"]),
-            
+
             Config4 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config3],
 
             %% We need a monitor on this node also
@@ -624,7 +624,7 @@ end_per_suite(Config0) when is_list(Config0) ->
 	      "~n      Reason: ~p", [Reason])
     end,
     snmp_test_sys_monitor:stop(),
-    Config1 = snmp_test_lib:end_per_suite(Config0),
+    Config1 = ?LIB:end_per_suite(Config0),
 
     p("end_per_suite -> end when"
       "~n      Nodes:  ~p", [erlang:nodes()]),

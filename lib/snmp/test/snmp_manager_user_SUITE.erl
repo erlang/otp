@@ -143,22 +143,29 @@ tickets_cases() ->
 
 init_per_suite(Config0) when is_list(Config0) ->
 
-    ?DBG("init_per_suite -> entry with"
-         "~n   Config0: ~p", [Config0]),
+    p("init_per_suite -> entry with"
+      "~n   Config0: ~p", [Config0]),
 
-    Config1 = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+        Config1 when is_list(Config1) ->
+            snmp_test_sys_monitor:start(),
+            Config2 = snmp_test_lib:init_suite_top_dir(?MODULE, Config1), 
 
-    ?DBG("init_per_suite -> done when"
-         "~n   Config1: ~p", [Config1]),
+            p("init_per_suite -> done when"
+              "~n   Config: ~p", [Config2]),
 
-    Config1.
+            Config2
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
 
-    ?DBG("end_per_suite -> entry with"
-         "~n   Config: ~p", [Config]),
+    p("end_per_suite -> entry with"
+      "~n   Config: ~p", [Config]),
 
-    Config.
+    snmp_test_sys_monitor:stop(),
+    ?LIB:end_per_suite(Config).
 
 
 
@@ -180,6 +187,9 @@ end_per_group(_GroupName, Config) ->
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     p("init_per_testcase -> Case: ~p", [Case]),
+
+    snmp_test_global_sys_monitor:reset_events(),
+    
     SuiteTopDir = ?config(snmp_suite_top_dir, Config),
     CaseTopDir  = filename:join(SuiteTopDir, atom_to_list(Case)),
     ?line ok    = file:make_dir(CaseTopDir),
@@ -201,6 +211,10 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 
 end_per_testcase(Case, Config) when is_list(Config) ->
     p("end_per_testcase -> Case: ~p", [Case]),
+
+    p("system events during test: "
+      "~n   ~p~n", [snmp_test_global_sys_monitor:events()]),
+
     Config.
 
 

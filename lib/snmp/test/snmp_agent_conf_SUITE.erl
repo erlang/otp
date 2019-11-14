@@ -24,8 +24,7 @@
 %% Include files
 %%----------------------------------------------------------------------
 
-%-include_lib("test_server/include/test_server.hrl").
-%-include("snmp_test_lib.hrl").
+-include("snmp_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 -export([
@@ -64,14 +63,21 @@ groups() ->
 %% -----
 %%
 
-init_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    PrivSubdir = filename:join(PrivDir, "snmp_agent_conf_test"),
-    ok = filelib:ensure_dir(filename:join(PrivSubdir, "dummy")),
-    [{priv_subdir, PrivSubdir} | Config].
+init_per_suite(Config0) ->
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+        Config1 when is_list(Config1) ->
+            snmp_test_sys_monitor:start(),
+            PrivDir = ?config(priv_dir, Config1),
+            PrivSubdir = filename:join(PrivDir, "snmp_agent_conf_test"),
+            ok = filelib:ensure_dir(filename:join(PrivSubdir, "dummy")),
+            [{priv_subdir, PrivSubdir} | Config1]
+    end.
 
-end_per_suite(_Config) ->
-    ok.
+end_per_suite(Config) ->
+    snmp_test_sys_monitor:stop(),
+    ?LIB:end_per_suite(Config).
 
 
 
@@ -91,9 +97,12 @@ end_per_group(_GroupName, Config) ->
 %%
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
+    snmp_test_global_sys_monitor:reset_events(),
     Config.
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
+    ?PRINT2("system events during test: "
+            "~n   ~p", [snmp_test_global_sys_monitor:events()]),
     Config.
 
 

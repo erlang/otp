@@ -122,11 +122,19 @@ l2t_cases() ->
 %% -----
 %%
 
-init_per_suite(Config) when is_list(Config) ->
-    Config.
+init_per_suite(Config0) when is_list(Config0) ->
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            snmp_test_sys_monitor:start(),
+            Config1
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
-    Config.
+    snmp_test_sys_monitor:stop(),
+    ?LIB:end_per_suite(Config).
 
 
 
@@ -147,6 +155,9 @@ end_per_group(_GroupName, Config) ->
 %%
 
 init_per_testcase(Case, Config) when is_list(Config) ->
+
+    snmp_test_global_sys_monitor:reset_events(),
+    
     Dir        = ?config(priv_dir, Config),
     LogTestDir = join(Dir,        ?MODULE),
     CaseDir    = join(LogTestDir, Case),
@@ -163,6 +174,10 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     [{log_dir, CaseDir}, {watchdog, Dog}|Config].
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
+
+    ?PRINT2("system events during test: "
+            "~n   ~p", [snmp_test_global_sys_monitor:events()]),
+
     %% Leave the dirs created above (enable debugging of the test case(s))
     Dog = ?config(watchdog, Config),
     ?WD_STOP(Dog),
@@ -536,7 +551,7 @@ log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
 			  ?SLEEP(Time),
 			  ok
 		  end,
-    To = lists:duplicate(20, 5000),
+    To = lists:duplicate(10, 5000),
 
     ?DBG("log_to_txt -> log the messages", []),
     Start = calendar:local_time(),

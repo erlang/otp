@@ -40,6 +40,7 @@
 
         ]).
 
+-include("snmp_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("snmp/include/STANDARD-MIB.hrl").
 
@@ -130,22 +131,49 @@ snmpd_cases() ->
 %%
 
 init_per_suite(Config) ->
-    case re:run(os:cmd("snmpd -v"),"NET-SNMP", [{capture, first}]) of
-        nomatch ->
-            {skip, "snmpd is NOT NET-SNMP"};
-        {match, _} ->
-            case re:run(os:cmd("snmpd -v"),"5.4|5.6.2.1", [{capture, first}]) of
-                nomatch ->
-                    [{agent_port,   ?AGENT_PORT},
-                     {manager_port, ?MANAGER_PORT} | Config];
-                {match, _} ->
-                    {skip, "buggy snmpd"}
-            end
+    try
+        begin
+            Config2 = ?LIB:init_per_suite(netsnmp_init(Config)),
+            snmp_test_sys_monitor:start(),
+            Config2
+        end
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
     end.
 
-end_per_suite(_Config) ->
-    ok.
+netsnmp_init(Config) ->
+    case has_netsnmp() of
+        true ->
+            case proper_netsnmp_version() of
+                true ->
+                    [{agent_port,   ?AGENT_PORT},
+                     {manager_port, ?MANAGER_PORT} | Config];
+                false ->
+                    throw({skip, "Buggy NetSNMP"})
+            end;
+        false ->
+            throw({skip, "No NetSNMP"})
+    end.
 
+has_netsnmp() ->
+    netsnmp_check("NET-SNMP").
+
+proper_netsnmp_version() ->
+    not netsnmp_check("5.4|5.6.2.1").
+
+netsnmp_check(RE) ->
+    case re:run(os:cmd("snmpd -v"), RE, [{capture, first}]) of
+        nomatch ->
+            false;
+        {match, _} ->
+            true
+    end.
+
+
+end_per_suite(Config) ->
+    snmp_test_sys_monitor:stop(),
+    ?LIB:end_per_suite(Config).
 
 
 %%
@@ -180,31 +208,24 @@ init_per_group(_, Config) ->
     Config.
 
 init_per_group_ipv6(Families, Config) ->
-    {ok, Hostname0} = inet:gethostname(),
-    case ct:require(ipv6_hosts) of
-	ok ->
-	    case lists:member(list_to_atom(Hostname0), ct:get_config(ipv6_hosts)) of
-		true ->
-		    init_per_group_ip(Families, Config);
-		false ->
-		    {skip, "Host does not support IPv6"}
-	    end;
-	_ ->
-	    {skip, "Test config ipv6_hosts is missing"}
+    case ?LIB:has_support_ipv6() of
+        true ->
+            init_per_group_ip(Families, Config);
+        false ->
+            {skip, "Host does not support IPv6"}
     end.
 
 init_per_group_ip(Families, Config) ->
     AgentPort = ?config(agent_port, Config),
     ManagerPort = ?config(manager_port, Config),
-    {ok, Host} = inet:gethostname(),
     Transports =
 	[begin
-	     {ok, Addr} = inet:getaddr(Host, Family),
+             Addr = ?LIB:localhost(Family),
 	     {domain(Family), {Addr, AgentPort}}
 	 end || Family <- Families],
     Targets =
 	[begin
-	     {ok, Addr} = inet:getaddr(Host, Family),
+             Addr = ?LIB:localhost(Family),
 	     {domain(Family), {Addr, ManagerPort}}
 	 end || Family <- Families],
     [{transports, Transports}, {targets, Targets} | Config].
@@ -235,12 +256,19 @@ end_per_group(_GroupName, Config) ->
 %%
 
 init_per_testcase(_Case, Config) ->
+
+    snmp_test_global_sys_monitor:reset_events(),
+
     Dog = ct:timetrap(20000),
     application:stop(snmp),
     application:unload(snmp),
     [{watchdog, Dog} | Config].
 
 end_per_testcase(_, Config) ->
+
+    ?PRINT2("system events during test: "
+            "~n   ~p", [snmp_test_global_sys_monitor:events()]),
+
     case application:stop(snmp) of
 	ok ->
 	    ok;
@@ -321,8 +349,8 @@ erlang_manager_netsnmp_get() ->
     [{doc,"Test that the erlang snmp manager can access snmpnet agent"}].
 
 erlang_manager_netsnmp_get(Config) when is_list(Config) ->
-    Community = "happy-testing",
-    SysDescr = "Net-SNMP agent",
+    Community  = "happy-testing",
+    SysDescr   = "Net-SNMP agent",
     TargetName = "Target Net-SNMP agent",
     Transports = ?config(transports, Config),
     case start_snmpd(Community, SysDescr, Config) of
@@ -674,3 +702,4 @@ mk_port_number() ->
     {ok, PortNum} = inet:port(Socket),
     ok = gen_udp:close(Socket),
     PortNum.
+

@@ -452,6 +452,9 @@ end_per_group(_GroupName, Config) ->
 init_per_testcase(Case, Config) when is_list(Config) ->
     p(Case, "init_per_testcase begin when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
+
+    snmp_test_global_sys_monitor:reset_events(),
+    
     %% This version of the API, based on Addr and Port, has been deprecated
     DeprecatedApiCases = 
 	[
@@ -666,13 +669,16 @@ init_per_testcase_fail_agent_cleanup(Conf) ->
 end_per_testcase(Case, Config) when is_list(Config) ->
     p(Case, "end_per_testcase begin when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
-    ?DBG("fin [~w] Nodes [1]: ~p", [Case, erlang:nodes()]),
+
+    ?PRINT2("system events during test: "
+            "~n   ~p", [snmp_test_global_sys_monitor:events()]),
+
     %% Dog    = ?config(watchdog, Config),
     %% ?WD_STOP(Dog),
     %% Conf1  = lists:keydelete(watchdog, 1, Config),
     Conf1  = Config,
     Conf2  = end_per_testcase2(Case, Conf1),
-    ?DBG("fin [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
+
     p(Case, "end_per_testcase end when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     Conf2.
@@ -4482,7 +4488,7 @@ do_inform_swarm(Config) ->
     ?line ok = agent_load_mib(AgentNode,  Test2Mib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
-    NumInforms = 10000, 
+    NumInforms = 2000, 
 
     Collector = self(),
 
