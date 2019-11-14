@@ -399,10 +399,10 @@ build_erl_interface:
 # pre-compiled Erlang modules under bootstrap/.
 #
 noboot:
-	$(MAKE) BOOT_PREFIX= emulator libs local_setup
+	$(MAKE) USE_PGO=false BOOT_PREFIX= build_erl_interface emulator libs local_setup
 
 noboot_install:
-	$(MAKE) BOOT_PREFIX= install
+	$(MAKE) USE_PGO=false BOOT_PREFIX= install
 
 .PHONY: release release_docs
 
