@@ -116,7 +116,7 @@ end_per_group(_GroupName, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Errors in dirty activity should have stacktrace
-dirty_error_stacktrace(Config) ->
+dirty_error_stacktrace(_Config) ->
     %% Custom errors should have stacktrace
     try
         mnesia:async_dirty(fun() -> error(custom_error) end)
