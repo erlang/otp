@@ -1079,7 +1079,7 @@ enif_select_x(ErlNifEnv* env,
 
     DEBUG_PRINT_FD("enif_select(%T, %d, %s, %p, %T, %T)",
                    state, env->proc->common.id, fd, nifmode2str(mode), resource,
-                   pid ? pid->pid : THE_NON_VALUE, ref);
+                   pid ? pid->pid : THE_NON_VALUE, THE_NON_VALUE);
 
     if (mode & ERL_NIF_SELECT_STOP) {
         ASSERT(resource->type->stop);
