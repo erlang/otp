@@ -1240,7 +1240,10 @@ all_procinfo(Fd,Fun,Proc,WS,LineHead) ->
 	    Bytes = list_to_integer(bytes(Fd))*WS,
 	    get_procinfo(Fd,Fun,Proc#proc{bin_vheap_unused=Bytes},WS);
 	"OldBinVHeap unused" ->
-	    Bytes = list_to_integer(bytes(Fd))*WS,
+            Bytes = case bytes(Fd) of
+                        "overflow" -> -1;
+                        Int -> list_to_integer(Int)*WS
+                    end,
 	    get_procinfo(Fd,Fun,Proc#proc{old_bin_vheap_unused=Bytes},WS);
 	"New heap start" ->
 	    get_procinfo(Fd,Fun,Proc#proc{new_heap_start=bytes(Fd)},WS);
