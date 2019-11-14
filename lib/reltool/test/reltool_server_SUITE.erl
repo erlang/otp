@@ -2792,6 +2792,8 @@ mk_node_args(Name, Args) ->
     {ok, Pwd} = file:get_cwd(),
     NameStr = atom_to_list(Name),
     ["-detached",
+     %% Don't want to try to run the debug emulator here
+     "-emu_type","opt",
      NameSw, NameStr,
      "-pa", Pa,
      "-env", "ERL_CRASH_DUMP", Pwd ++ "/erl_crash_dump." ++ NameStr,
