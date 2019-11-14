@@ -552,7 +552,6 @@ init({call, From}, {start, Timeout},
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession),
     %% Update UseTicket in case of automatic session resumption
     {UseTicket, State1} = tls_handshake_1_3:maybe_automatic_session_resumption(State0),
-    tls_client_ticket_store:lock_tickets(self(), UseTicket),
     TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                        Session#session.session_id,
@@ -1349,12 +1348,34 @@ handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := disabled}
 handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSessionTicket,
                           #state{connection_states = ConnectionStates,
                                  ssl_options = #{session_tickets := SessionTickets,
+                                                 server_name_indication := SNI},
+                                 connection_env = #connection_env{user_application = {_, User}}})
+  when SessionTickets =:= enabled ->
+    #{security_parameters := SecParams} =
+	ssl_record:current_connection_state(ConnectionStates, read),
+    HKDF = SecParams#security_parameters.prf_algorithm,
+    RMS = SecParams#security_parameters.resumption_master_secret,
+    PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
+    send_ticket_data(User, NewSessionTicket, HKDF, SNI, PSK);
+handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSessionTicket,
+                          #state{connection_states = ConnectionStates,
+                                 ssl_options = #{session_tickets := SessionTickets,
                                                  server_name_indication := SNI}})
-  when SessionTickets =:= enabled orelse
-       SessionTickets =:= auto ->
+  when SessionTickets =:= auto ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
     HKDF = SecParams#security_parameters.prf_algorithm,
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
     tls_client_ticket_store:store_ticket(NewSessionTicket, HKDF, SNI, PSK).
+
+
+%% Send ticket data to user as opaque binary
+send_ticket_data(User, NewSessionTicket, HKDF, SNI, PSK) ->
+    Timestamp = erlang:system_time(seconds),
+    TicketData = #{hkdf => HKDF,
+                   sni => SNI,
+                   psk => PSK,
+                   timestamp => Timestamp,
+                   ticket => NewSessionTicket},
+    User ! {ssl, session_ticket, {SNI, erlang:term_to_binary(TicketData)}}.

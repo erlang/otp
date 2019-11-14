@@ -51,7 +51,7 @@ session_tests() ->
      openssl_client_erlang_server_hrr,
      erlang_client_erlang_server_multiple_tickets,
      erlang_client_openssl_server_hrr_multiple_tickets,
-     erlang_client_erlang_server_auto].
+     erlang_client_erlang_server_multiple_tickets_2hash].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -96,14 +96,9 @@ init_per_testcase(_, Config)  ->
     application:load(ssl),
     ssl:start(),
     ct:timetrap({seconds, 15}),
-    %% Prototype
-    ets:new(tls13_session_ticket_db, [public, named_table, ordered_set]),
-    ets:new(tls13_server_state, [public, named_table, ordered_set]),
     Config.
 
 end_per_testcase(_TestCase, Config) ->
-    ets:delete(tls13_session_ticket_db),
-    ets:delete(tls13_server_state),
     Config.
 
 %%--------------------------------------------------------------------
@@ -119,7 +114,7 @@ erlang_client_erlang_server_basic(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, enabled}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ServerOpts = [{session_tickets, stateless}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
@@ -127,32 +122,37 @@ erlang_client_erlang_server_basic(Config) when is_list(Config) ->
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
 				   {options, ServerOpts}]),
     Port0 = ssl_test_lib:inet_port(Server0),
 
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                         {from, self()},  {options, ClientOpts}]),
+                                         {mfa, {ssl_test_lib,  %% Full handshake
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()}, {options, ClientOpts}]),
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
-    Server0 ! listen,
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
 
     %% Wait for session ticket
     ct:sleep(100),
 
     ssl_test_lib:close(Client0),
 
-    TicketId = ets:last(tls13_session_ticket_db),  %% Prototype
-
     %% Use ticket
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                         {from, self()},
-                                         {options, [{use_ticket, [TicketId]}|ClientOpts]}]),
+                                         {mfa, {ssl_test_lib,  %% Short handshake
+                                                verify_active_session_resumption,
+                                                [true]}},
+                                         {from, self()}, {options, ClientOpts}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
@@ -175,7 +175,7 @@ erlang_client_openssl_server_basic(Config) when is_list(Config) ->
     KeyFile = proplists:get_value(keyfile, ServerOpts),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, enabled}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
 
     Exe = "openssl",
@@ -189,19 +189,12 @@ erlang_client_openssl_server_basic(Config) when is_list(Config) ->
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply]}},
                                          {from, self()},  {options, ClientOpts}]),
-
-    SID = receive
-              {Client0, Id0} ->
-                  Id0
-          end,
-
     %% Wait for session ticket
     ct:sleep(100),
-
-    TicketId = ets:last(tls13_session_ticket_db),  %% Prototype
-    ct:pal("TicketId = ~p~n", [TicketId]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -209,17 +202,11 @@ erlang_client_openssl_server_basic(Config) when is_list(Config) ->
     %% Use ticket
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true, no_reply]}},
                                          {from, self()},
-                                         {options, [{use_ticket, [TicketId]}|ClientOpts]}]),
-
-    receive
-        {Client1, SID} ->
-            ok
-    after ?SLEEP ->
-              ct:fail(session_not_reused)
-    end,
-
+                                         {options, ClientOpts}]),
     process_flag(trap_exit, false),
 
     %% Clean close down!   Server needs to be closed first !!
@@ -235,7 +222,7 @@ openssl_client_erlang_server_basic(Config) when is_list(Config) ->
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
     TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
 
-    Data = "From openssl to erlang",
+    Data = "Hello world",
 
     %% Configure session tickets
     ServerOpts = [{session_tickets, stateless}, {log_level, debug},
@@ -244,7 +231,9 @@ openssl_client_erlang_server_basic(Config) when is_list(Config) ->
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-				   {mfa, {ssl_test_lib, active_recv, [length(Data)]}},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
 				   {options, ServerOpts}]),
 
     Version = 'tlsv1.3',
@@ -260,9 +249,11 @@ openssl_client_erlang_server_basic(Config) when is_list(Config) ->
 
     true = port_command(OpenSslPort0, Data),
 
-    ssl_test_lib:check_result(Server0, Data),
+    ssl_test_lib:check_result(Server0, ok),
 
-    Server0 ! listen,
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
 
     %% Wait for session ticket
     ct:sleep(100),
@@ -277,7 +268,7 @@ openssl_client_erlang_server_basic(Config) when is_list(Config) ->
 
     true = port_command(OpenSslPort1, Data),
 
-    ssl_test_lib:check_result(Server0, Data),
+    ssl_test_lib:check_result(Server0, ok),
 
     %% Clean close down!   Server needs to be closed first !!
     ssl_test_lib:close(Server0),
@@ -293,7 +284,7 @@ erlang_client_erlang_server_hrr(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, enabled}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
     ServerOpts = [{session_tickets, stateless}, {log_level, debug},
@@ -303,32 +294,37 @@ erlang_client_erlang_server_hrr(Config) when is_list(Config) ->
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
 				   {options, ServerOpts}]),
     Port0 = ssl_test_lib:inet_port(Server0),
 
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false]}},
                                          {from, self()},  {options, ClientOpts}]),
     ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
-    Server0 ! listen,
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
 
     %% Wait for session ticket
     ct:sleep(100),
 
     ssl_test_lib:close(Client0),
 
-    TicketId = ets:last(tls13_session_ticket_db),  %% Prototype
-
     %% Use ticket
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                         {from, self()},
-                                         {options, [{use_ticket, [TicketId]}|ClientOpts]}]),
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true]}},
+                                         {from, self()}, {options, ClientOpts}]),
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
@@ -351,7 +347,7 @@ erlang_client_openssl_server_hrr(Config) when is_list(Config) ->
     KeyFile = proplists:get_value(keyfile, ServerOpts),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, enabled}, {log_level, debug},
+    ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
 
@@ -370,19 +366,12 @@ erlang_client_openssl_server_hrr(Config) when is_list(Config) ->
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, ClientOpts}]),
-
-    SID = receive
-              {Client0, Id0} ->
-                  Id0
-          end,
-
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply]}},
+                                         {from, self()}, {options, ClientOpts}]),
     %% Wait for session ticket
     ct:sleep(100),
-
-    TicketId = ets:last(tls13_session_ticket_db),  %% Prototype
-    ct:pal("TicketId = ~p~n", [TicketId]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
@@ -390,17 +379,11 @@ erlang_client_openssl_server_hrr(Config) when is_list(Config) ->
     %% Use ticket
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true, no_reply]}},
                                          {from, self()},
-                                         {options, [{use_ticket, [TicketId]}|ClientOpts]}]),
-
-    receive
-        {Client1, SID} ->
-            ok
-    after ?SLEEP ->
-              ct:fail(session_not_reused)
-    end,
-
+                                         {options, ClientOpts}]),
     process_flag(trap_exit, false),
 
     %% Clean close down!   Server needs to be closed first !!
@@ -416,7 +399,7 @@ openssl_client_erlang_server_hrr(Config) when is_list(Config) ->
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
     TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
 
-    Data = "From openssl to erlang",
+    Data = "Hello world",
 
     %% Configure session tickets
     ServerOpts = [{session_tickets, stateless}, {log_level, debug},
@@ -426,7 +409,9 @@ openssl_client_erlang_server_hrr(Config) when is_list(Config) ->
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-				   {mfa, {ssl_test_lib, active_recv, [length(Data)]}},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
 				   {options, ServerOpts}]),
 
     Version = 'tlsv1.3',
@@ -443,9 +428,11 @@ openssl_client_erlang_server_hrr(Config) when is_list(Config) ->
 
     true = port_command(OpenSslPort0, Data),
 
-    ssl_test_lib:check_result(Server0, Data),
+    ssl_test_lib:check_result(Server0, ok),
 
-    Server0 ! listen,
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
 
     %% Wait for session ticket
     ct:sleep(100),
@@ -461,7 +448,7 @@ openssl_client_erlang_server_hrr(Config) when is_list(Config) ->
 
     true = port_command(OpenSslPort1, Data),
 
-    ssl_test_lib:check_result(Server0, Data),
+    ssl_test_lib:check_result(Server0, ok),
 
     %% Clean close down!   Server needs to be closed first !!
     ssl_test_lib:close(Server0),
@@ -485,33 +472,41 @@ erlang_client_erlang_server_multiple_tickets(Config) when is_list(Config) ->
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
 				   {options, ServerOpts}]),
     Port0 = ssl_test_lib:inet_port(Server0),
 
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, wait_reply, {tickets, 3}]}},
                                          {from, self()},  {options, ClientOpts}]),
-    ssl_test_lib:check_result(Server0, ok, Client0, ok),
 
-    Server0 ! listen,
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    %% Wait for session tickets
-    ct:sleep(100),
+    ct:pal("Received tickets: ~p~n", [Tickets0]),
+
+    ssl_test_lib:check_result(Server0, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
 
     ssl_test_lib:close(Client0),
-
-    TicketId0 = ets:first(tls13_session_ticket_db),  %% Prototype
-    TicketId1 = ets:last(tls13_session_ticket_db),  %% Prototype
 
     %% Use ticket
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true, wait_reply, no_tickets]}},
                                          {from, self()},
-                                         {options, [{use_ticket, [TicketId0, TicketId1]}|ClientOpts]}]),
+                                         {options, [{use_ticket, Tickets0}|ClientOpts]}]),
+
     ssl_test_lib:check_result(Server0, ok, Client1, ok),
 
     process_flag(trap_exit, false),
@@ -553,70 +548,43 @@ erlang_client_openssl_server_hrr_multiple_tickets(Config) when is_list(Config) -
     %% Store ticket from first connection
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, no_reply, {tickets, 2}]}},
                                          {from, self()},  {options, ClientOpts}]),
 
-    SID = receive
-              {Client0, Id0} ->
-                  Id0
-          end,
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    %% Wait for session ticket
-    ct:sleep(100),
+    ct:pal("Received tickets: ~p~n", [Tickets0]),
 
     %% Close previous connection as s_server can only handle one at a time
     ssl_test_lib:close(Client0),
 
-    %% Store ticket from second connection
+    %% Use tickets
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
-                                         {from, self()},  {options, ClientOpts}]),
-
-    SID = receive
-              {Client1, Id1} ->
-                  Id1
-          end,
-
-    %% Wait for session ticket
-    ct:sleep(100),
-
-    %% Close previous connection as s_server can only handle one at a time
-    ssl_test_lib:close(Client1),
-
-    TicketId0 = ets:first(tls13_session_ticket_db),  %% Prototype
-    TicketId1 = ets:last(tls13_session_ticket_db),  %% Prototype
-
-    %% Use ticket
-    Client2 = ssl_test_lib:start_client([{node, ClientNode},
-                                         {port, Port}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, session_id, []}},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true, no_reply, no_tickets]}},
                                          {from, self()},
-                                         {options, [{use_ticket, [TicketId0, TicketId1]}|ClientOpts]}]),
-
-    receive
-        {Client2, SID} ->
-            ok
-    after ?SLEEP ->
-              ct:fail(session_not_reused)
-    end,
+                                         {options, [{use_ticket, Tickets0}|ClientOpts]}]),
 
     process_flag(trap_exit, false),
 
     %% Clean close down!   Server needs to be closed first !!
     ssl_test_lib:close_port(OpensslPort),
-    ssl_test_lib:close(Client2).
+    ssl_test_lib:close(Client1).
 
 
-erlang_client_erlang_server_auto() ->
-    [{doc,"Test automatic session resumption with session tickets (erlang client - erlang server)"}].
-erlang_client_erlang_server_auto(Config) when is_list(Config) ->
+erlang_client_erlang_server_multiple_tickets_2hash() ->
+    [{doc,"Test session resumption with multiple session tickets with 2 different hash algorithms (erlang client - erlang server)"}].
+erlang_client_erlang_server_multiple_tickets_2hash(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, auto}, {log_level, debug},
+    ClientOpts = [{session_tickets, enabled}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ServerOpts = [{session_tickets, stateless}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
@@ -624,36 +592,117 @@ erlang_client_erlang_server_auto(Config) when is_list(Config) ->
     Server0 =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
 				   {from, self()},
-				   {mfa, {ssl_test_lib, send_recv_result_active, []}},
+				   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
 				   {options, ServerOpts}]),
     Port0 = ssl_test_lib:inet_port(Server0),
 
-    %% Store ticket from first connection
+    %% Get tickets using sha256
     Client0 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                         {from, self()}, {options, ClientOpts}]),
-    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, wait_reply, {tickets, 3}]}},
+                                         {from, self()},
+                                         {options, [{ciphers, [#{key_exchange => any,
+                                                                 cipher => aes_128_gcm,
+                                                                 mac => aead,
+                                                                 prf => sha256}]}| ClientOpts]}]),
 
-    Server0 ! listen,
+    Tickets0 = ssl_test_lib:check_tickets(Client0),
 
-    %% Wait for session ticket
-    ct:sleep(100),
+    ct:pal("Received tickets: ~p~n", [Tickets0]),
+
+    ssl_test_lib:check_result(Server0, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [false]}}},
 
     ssl_test_lib:close(Client0),
 
-    %% Use ticket
+    %% Get tickets using sha384
     Client1 = ssl_test_lib:start_client([{node, ClientNode},
                                          {port, Port0}, {host, Hostname},
-                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                         {from, self()}, {options, ClientOpts}]),
-    ssl_test_lib:check_result(Server0, ok, Client1, ok),
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false, wait_reply, {tickets, 3}]}},
+                                         {from, self()},
+                                         {options, [{ciphers, [#{key_exchange => any,
+                                                                 cipher => aes_256_gcm,
+                                                                 mac => aead,
+                                                                 prf => sha384}]}| ClientOpts]}]),
 
-    %% TODO Verify if second handshake is a session resumption!
+    Tickets1 = ssl_test_lib:check_tickets(Client1),
+
+    ct:pal("Received tickets: ~p~n", [Tickets1]),
+
+    ssl_test_lib:check_result(Server0, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
+
+    ssl_test_lib:close(Client1),
+
+    %% Use tickets for handshake (server chooses TLS_AES_256_GCM_SHA384 cipher suite)
+    Client2 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Short handshake
+                                                verify_active_session_resumption,
+                                                [true]}},
+                                         {from, self()},
+                                         {options, [{use_ticket, Tickets0 ++ Tickets1}|ClientOpts]}]),
+    ssl_test_lib:check_result(Server0, ok, Client2, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
+
+    ssl_test_lib:close(Client2),
+
+    %% Use tickets for handshake (client chooses TLS_CHACHA20_POLY1305_SHA256 cipher suite)
+    Client3 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Short handshake
+                                                verify_active_session_resumption,
+                                                [true]}},
+                                         {from, self()},
+                                         {options, [{ciphers, [#{key_exchange => any,
+                                                                 cipher => chacha20_poly1305,
+                                                                 mac => aead,
+                                                                 prf => sha256}]},
+                                                    {use_ticket, Tickets0 ++ Tickets1}|ClientOpts]}]),
+    ssl_test_lib:check_result(Server0, ok, Client3, ok),
+
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [false]}}},
+
+    ssl_test_lib:close(Client3),
+
+    %% Use tickets (created using sha384) for handshake (client chooses
+    %% TLS_CHACHA20_POLY1305_SHA256 cipher suite).
+    %% Session resumption should fail as chosen cipher suite uses different hash algorithms
+    %% than those supplied by the selected tickets.
+    Client4 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,  %% Short handshake
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()},
+                                         {options, [{ciphers, [#{key_exchange => any,
+                                                                 cipher => chacha20_poly1305,
+                                                                 mac => aead,
+                                                                 prf => sha256}]},
+                                                    {use_ticket, Tickets1}|ClientOpts]}]),
+    ssl_test_lib:check_result(Server0, ok, Client4, ok),
+
+    ssl_test_lib:close(Client4),
 
     process_flag(trap_exit, false),
-    ssl_test_lib:close(Server0),
-    ssl_test_lib:close(Client1).
+    ssl_test_lib:close(Server0).
 
 
 %%--------------------------------------------------------------------

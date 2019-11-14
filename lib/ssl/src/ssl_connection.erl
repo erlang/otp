@@ -1622,7 +1622,8 @@ send_alert(Alert, _, #state{static_env = #static_env{protocol_cb = Connection}} 
     Connection:send_alert(Alert, State).
 
 connection_info(#state{static_env = #static_env{protocol_cb = Connection},
-                       handshake_env = #handshake_env{sni_hostname = SNIHostname},
+                       handshake_env = #handshake_env{sni_hostname = SNIHostname,
+                                                      resumption = Resumption},
                        session = #session{session_id = SessionId,
                                           cipher_suite = CipherSuite, ecc = ECCCurve},
 		       connection_env = #connection_env{negotiated_version =  {_,_} = Version}, 
@@ -1639,6 +1640,7 @@ connection_info(#state{static_env = #static_env{protocol_cb = Connection},
 		end,
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
+     {session_resumption, Resumption},
      {cipher_suite, ssl_cipher_format:suite_legacy(CipherSuiteDef)},
      {selected_cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname} | CurveInfo] ++ ssl_options_list(Opts).
