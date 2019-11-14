@@ -33,7 +33,8 @@
          tab_with_multiple_plugin_indexes/1,
          ix_match_w_plugin/1,
          ix_match_w_plugin_ordered/1,
-         ix_match_w_plugin_bag/1
+         ix_match_w_plugin_bag/1,
+         ix_update_w_plugin/1
         ]).
 
 -export([ix_prefixes/3,    % test plugin
@@ -59,7 +60,8 @@ all() ->
      tab_with_multiple_plugin_indexes,
      ix_match_w_plugin,
      ix_match_w_plugin_ordered,
-     ix_match_w_plugin_bag].
+     ix_match_w_plugin_bag,
+     ix_update_w_plugin].
 
 groups() ->
     [].
@@ -193,6 +195,23 @@ ix_match_w_plugin_bag(Config) when is_list(Config) ->
                                              {index, [{{pfx}, ordered},
                                                       {v1, ordered}]}]),
     fill_and_test_index_match(im3, bag),
+    ?verify_mnesia(Nodes, []).
+
+ix_update_w_plugin(suite) -> [];
+ix_update_w_plugin(Config) when is_list(Config) ->
+    [_N1] = Nodes = ?acquire_nodes(1, Config),
+    ok = add_plugin(),
+    {atomic, ok} = mnesia:create_table(im4, [{attributes, [k, v1, v2]},
+                                             {type, ordered_set},
+                                             {index, [{{pfx}, ordered},
+                                                      {v1, ordered}]}]),
+
+    mnesia:dirty_write({im4, 1, "1234", "abcd"}),
+    ?match([{im4, 1, "1234", "abcd"}], mnesia:dirty_index_read(im4, <<"123">>, {pfx})),
+    ?match([{im4, 1, "1234", "abcd"}], mnesia:dirty_index_read(im4, <<"abc">>, {pfx})),
+    mnesia:dirty_write({im4, 1, "1234", "efgh"}),
+    ?match([{im4, 1, "1234", "efgh"}], mnesia:dirty_index_read(im4, <<"123">>, {pfx})),
+    ?match([{im4, 1, "1234", "efgh"}], mnesia:dirty_index_read(im4, <<"efg">>, {pfx})),
     ?verify_mnesia(Nodes, []).
 
 fill_and_test_index_match(Tab, Type) ->
