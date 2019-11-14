@@ -515,7 +515,7 @@ lay_2(Node, Ctxt) ->
 	    D2 = lay(Operator, reset_prec(Ctxt)),
 	    D3 = lay(erl_syntax:infix_expr_right(Node),
 		     set_prec(Ctxt, PrecR)),
-	    D4 = par([D1, D2, D3], Ctxt#ctxt.sub_indent),
+	    D4 = par([D1, D2, D3], Ctxt#ctxt.break_indent),
 	    maybe_parentheses(D4, Prec, Ctxt);
 	
 	prefix_expr ->
@@ -537,7 +537,7 @@ lay_2(Node, Ctxt) ->
 		     '-' ->
 			 beside(D1, D2);
 		     _ ->
-			 par([D1, D2], Ctxt#ctxt.sub_indent)
+			 par([D1, D2], Ctxt#ctxt.break_indent)
 		 end,
 	    maybe_parentheses(D3, Prec, Ctxt);
 	
@@ -612,24 +612,24 @@ lay_2(Node, Ctxt) ->
 	    D1 = lay(erl_syntax:case_expr_argument(Node), Ctxt1),
 	    D2 = lay_clauses(erl_syntax:case_expr_clauses(Node),
 			     case_expr, Ctxt1),
-	    sep([par([follow(text("case"), D1, Ctxt1#ctxt.sub_indent),
+	    sep([par([follow(text("case"), D1, Ctxt1#ctxt.break_indent),
 		      text("of")],
 		     Ctxt1#ctxt.break_indent),
-		 nest(Ctxt1#ctxt.sub_indent, D2),
+		 nest(Ctxt1#ctxt.break_indent, D2),
 		 text("end")]);
 	
 	if_expr ->
 	    Ctxt1 = reset_prec(Ctxt),
 	    D = lay_clauses(erl_syntax:if_expr_clauses(Node),
 			    if_expr, Ctxt1),
-	    sep([follow(text("if"), D, Ctxt1#ctxt.sub_indent),
+	    sep([follow(text("if"), D, Ctxt1#ctxt.break_indent),
 		 text("end")]);
 
 	fun_expr ->
 	    Ctxt1 = reset_prec(Ctxt),
 	    D = lay_clauses(erl_syntax:fun_expr_clauses(Node),
 			    fun_expr, Ctxt1),
-	    sep([follow(text("fun"), D, Ctxt1#ctxt.sub_indent),
+	    sep([follow(text("fun"), D, Ctxt1#ctxt.break_indent),
 		 text("end")]);
 
         named_fun_expr ->
@@ -637,7 +637,7 @@ lay_2(Node, Ctxt) ->
             D1 = lay(erl_syntax:named_fun_expr_name(Node), Ctxt1),
             D = lay_clauses(erl_syntax:named_fun_expr_clauses(Node),
                             {function,D1}, Ctxt1),
-            sep([follow(text("fun"), D, Ctxt1#ctxt.sub_indent),
+            sep([follow(text("fun"), D, Ctxt1#ctxt.break_indent),
                  text("end")]);
 
 	module_qualifier ->
@@ -756,14 +756,14 @@ lay_2(Node, Ctxt) ->
 	    Es = seq(erl_syntax:block_expr_body(Node),
 		     floating(text(",")), Ctxt1, fun lay/2),
 	    sep([text("begin"),
-		 nest(Ctxt1#ctxt.sub_indent, sep(Es)),
+		 nest(Ctxt1#ctxt.break_indent, sep(Es)),
 		 text("end")]);
 
 	catch_expr ->
 	    {Prec, PrecR} = preop_prec('catch'),
 	    D = lay(erl_syntax:catch_expr_body(Node),
 		    set_prec(Ctxt, PrecR)),
-	    D1 = follow(text("catch"), D, Ctxt#ctxt.sub_indent),
+	    D1 = follow(text("catch"), D, Ctxt#ctxt.break_indent),
 	    maybe_parentheses(D1, Prec, Ctxt);
 
 	class_qualifier ->
@@ -893,10 +893,10 @@ lay_2(Node, Ctxt) ->
 			      follow(floating(text("after")),
 				     append_clause_body(D4, D3,
 							Ctxt1),
-				     Ctxt1#ctxt.sub_indent)])
+				     Ctxt1#ctxt.break_indent)])
 		 end,
 	    sep([text("receive"),
-		 nest(Ctxt1#ctxt.sub_indent, D2),
+		 nest(Ctxt1#ctxt.break_indent, D2),
 		 text("end")]);
 
 	record_access ->
@@ -1008,7 +1008,7 @@ lay_2(Node, Ctxt) ->
 			  D2 = sep(seq(As, floating(text(",")), Ctxt1,
 				       fun lay/2)),
 			  [text("after"),
-			   nest(Ctxt1#ctxt.sub_indent, D2)
+			   nest(Ctxt1#ctxt.break_indent, D2)
 			   | Es0]
 		  end,
 	    Es2 = case erl_syntax:try_expr_handlers(Node) of
@@ -1016,7 +1016,7 @@ lay_2(Node, Ctxt) ->
 		      Hs ->
 			  D3 = lay_clauses(Hs, try_expr, Ctxt1),
 			  [text("catch"),
-			   nest(Ctxt1#ctxt.sub_indent, D3)
+			   nest(Ctxt1#ctxt.break_indent, D3)
 			   | Es1]
 		  end,
 	    Es3 = case erl_syntax:try_expr_clauses(Node) of
@@ -1024,10 +1024,10 @@ lay_2(Node, Ctxt) ->
 		      Cs ->
 			  D4 = lay_clauses(Cs, try_expr, Ctxt1),
 			  [text("of"),
-			   nest(Ctxt1#ctxt.sub_indent, D4)
+			   nest(Ctxt1#ctxt.break_indent, D4)
 			   | Es2]
 		  end,
-	    sep([par([follow(text("try"), D1, Ctxt1#ctxt.sub_indent),
+	    sep([par([follow(text("try"), D1, Ctxt1#ctxt.break_indent),
 		      hd(Es3)])
 		 | tl(Es3)]);
 
