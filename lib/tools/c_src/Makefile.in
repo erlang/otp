@@ -22,7 +22,6 @@ include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/erts/include/internal/$(TARGET)/ethread.mk
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
 USING_VC=@MIXED_VC@
 
 CC=@CC@

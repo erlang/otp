@@ -269,8 +269,7 @@ STRIP   = strip
 PERL    = @PERL@
 MKDIR	= @MKDIR@
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
-MIXED_MSYS=@MIXED_MSYS@
+USING_MINGW=@MIXED_MINGW@
 
 ifeq ($(TARGET),win32)
 LIB_PREFIX=
@@ -308,9 +307,6 @@ ifeq ($(TARGET), win32)
 GEN_OPT_FLGS = $(OPT_LEVEL)
 UNROLL_FLG = 
 RC=rc.sh
-ifeq ($(MIXED_MSYS), yes)
-MAKE_PRELOAD_EXTRA = -msys
-endif
 ifeq ($(USING_MINGW), yes)
 RES_EXT = @OBJEXT@
 MAKE_PRELOAD_EXTRA += " -windres"
@@ -1215,7 +1211,7 @@ DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 \
 	-Idrivers/common -Idrivers/$(ERLANG_OSTYPE) \
 	-Inifs/common -Inifs/$(ERLANG_OSTYPE)
 
-# ifeq (@MIXED_CYGWIN_VC@,yes)
+# ifeq (@MIXED_VC@,yes)
 # VC++ used for compiling. If __GNUC__ is defined we will include
 # other headers then when compiling which will result in faulty
 # dependencies.

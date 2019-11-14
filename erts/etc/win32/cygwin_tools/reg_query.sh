@@ -12,7 +12,7 @@ BACKED=`echo "$1" | sed 's,/,\\\\,g'`
 if [ -d $WINDIR/sysnative ]; then
     REG_CMD="$WINDIR\\sysnative\\reg.exe"
 else
-    REG_CMD="reg"
+    REG_CMD="reg.exe"
 fi
 cat > $BAT_FILE <<EOF
 @echo off
@@ -20,5 +20,5 @@ $REG_CMD query "$BACKED" /v "$2"
 EOF
 #echo $BAT_FILE
 #cat $BAT_FILE
-RESULT=`cmd //C $BAT_FILE`
+RESULT=`cmd.exe //C $BAT_FILE`
 echo $RESULT | sed "s,.*$2 REG_[^ ]* ,,"

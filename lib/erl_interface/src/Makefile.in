@@ -52,9 +52,7 @@ APPUP_FILE= erl_interface.appup
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBINDIR)/$(APPUP_FILE)
 
-USING_MINGW=@MIXED_CYGWIN_MINGW@
-USING_MSYS_VC==@MIXED_MSYS_VC@
-USING_CYGWIN_VC==@MIXED_MSYS_VC@
+USING_MINGW=@MIXED_MINGW@
 USING_VC=@MIXED_VC@
 
 ifdef TESTROOT
@@ -790,22 +788,17 @@ $(TARGET)/depend.mk: $(TARGET)/config.h
 	$(gen_verbose)
 	$(V_colon)echo "Generating dependency file depend.mk..."
 	@echo "# Generated dependency rules" > $@
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) | 				\
-		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(ST_OBJDIR\)\/&/' >> $@
-	@echo >> $@
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) | 				\
-		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MT_OBJDIR\)\/&/' >> $@
-	@echo >> $@
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) |				\
-		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MD_OBJDIR\)\/&/' >> $@
-	@echo >> $@
-	$(V_CC) $(CFLAGS) -MM $(SOURCES) |				\
-		sed 's&$(TARGET)&\$$\(TARGET\)&g' |			\
-		sed 's/^.*:/\$$\(MDD_OBJDIR\)\/&/' >> $@
-	@echo >> $@
+	$(V_CC) $(CFLAGS) -MM $(SOURCES) |                   \
+		sed 's&$(TARGET)&\$$\(TARGET\)&g' > $@.$$$$; \
+	sed 's/^.*:/\$$\(ST_OBJDIR\)\/&/' < $@.$$$$ >> $@;   \
+	echo >> $@;                                          \
+	sed 's/^.*:/\$$\(MT_OBJDIR\)\/&/' < $@.$$$$ >> $@;   \
+	echo >> $@;                                          \
+	sed 's/^.*:/\$$\(MD_OBJDIR\)\/&/' < $@.$$$$ >> $@;   \
+	echo >> $@;                                          \
+	sed 's/^.*:/\$$\(MDD_OBJDIR\)\/&/' < $@.$$$$ >> $@;  \
+	echo >> $@;                                          \
+	rm -f $@.$$$$
 
 # For some reason this has to be after 'opt' target
 -include $(TARGET)/depend.mk

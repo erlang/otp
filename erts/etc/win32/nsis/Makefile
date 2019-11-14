@@ -27,7 +27,7 @@ MAKENSIS = makensis
 MAKENSISFLAGS = /V2
 CUSTOM_MODERN=custom_modern.exe
 
-# This is not the way we usually do in our makefiles, 
+# This is not the way we usually do in our makefiles,
 # but making release is the ONLY thing we do with this one,
 # Its not called during ordinary recursive make.
 all: release
@@ -44,23 +44,12 @@ TARGET_DIR = $(RELEASE_PATH)
 
 ifdef MSYSTEM
  ifeq ($(MSYSTEM),$(filter $(MSYSTEM),MSYS MINGW32 MINGW64))
-  USEMSYS := true
+  MAKENSISFLAGS = //V2
  endif
 endif
 
-ifeq ($(USEMSYS),true)
-
-  MAKENSISFLAGS = //V2
-  WTESTROOT=$(shell (msys2win_path.sh "$(RELEASE_PATH)"))
-  WTARGET_DIR=$(shell (msys2win_path.sh "$(TARGET_DIR)"))
-
-else
-
-  MAKENSISFLAGS = /V2
-  WTESTROOT=$(shell (cygpath -d "$(RELEASE_PATH)" 2>/dev/null || cygpath -w "$(RELEASE_PATH)"))
-  WTARGET_DIR=$(shell (cygpath -d "$(TARGET_DIR)" 2>/dev/null || cygpath -d "$(TARGET_DIR)"))
-
-endif
+WTESTROOT=$(shell (w32_path.sh -d "$(RELEASE_PATH)"))
+WTARGET_DIR=$(shell (w32_path.sh -d "$(TARGET_DIR)"))
 
 ifeq ($(CONFIG_SUBTYPE),win64)
   WINTYPE=win64
@@ -69,11 +58,7 @@ else
 endif
 
 REDIST_FILE=$(shell (sh ./find_redist.sh || echo ""))
-ifeq ($(USEMSYS),true)
-	NICEREDISTFILE=$(shell (msys2win_path.sh -m "$(REDIST_FILE)" 2>/dev/null || echo ""))
-else
-	NICEREDISTFILE=$(shell (cygpath -d -m "$(REDIST_FILE)" 2>/dev/null || echo ""))
-endif
+NICEREDISTFILE=$(shell (w32_path.sh -d "$(REDIST_FILE)" 2>/dev/null || echo ""))
 
 REDIST_TARGET=$(shell (sh ./find_redist.sh -n || echo ""))
 REDIST_DLL_VERSION=$(shell (sh ./dll_version_helper.sh $(NICEREDISTFILE) || echo ""))

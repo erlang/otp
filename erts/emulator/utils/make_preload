@@ -40,7 +40,6 @@ use File::Basename;
 my $gen_rc = 0;
 my $gen_old = 0;
 my $windres = 0;
-my $msys = 0;
 my $file;
 
 my $progname = basename($0);
@@ -51,8 +50,6 @@ while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
 	$gen_rc = 1;
     } elsif ($opt eq '-windres') {
 	$windres = 1;
-    } elsif ($opt eq '-msys') {
-	$msys = 1;
     } elsif ($opt eq '-old') {
 	$gen_old = 1;
     } else {
@@ -73,12 +70,7 @@ foreach $file (@ARGV) {
     my $module = basename($file, ".beam");
     if ($gen_rc) {
 	my $win_file;
-	if ($msys) {
-	    ($win_file) = split("\n", `(msys2win_path.sh $file)`);
-	} else {
-	    ($win_file) = split("\n", `(cygpath -d $file 2>/dev/null || cygpath -w $file)`);
-	}
-	$win_file =~ s&\\&\\\\&g;
+        ($win_file) = split("\n", `(w32_path.sh -d $file)`);
 	print "$num ERLANG_CODE \"$win_file\"\n";
 	push(@modules, "   ", -s $file, "L, $num, ",
 	     length($module), ",\"$module\",\n");
