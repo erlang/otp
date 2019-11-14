@@ -2384,7 +2384,7 @@ arg_types(erlang, is_port, 1) ->
 arg_types(erlang, is_record, 2) ->
   [t_any(), t_atom()];
 arg_types(erlang, is_record, 3) ->
-  [t_any(), t_atom(), t_pos_fixnum()];
+  [t_any(), t_atom(), t_non_neg_fixnum()];
 arg_types(erlang, is_reference, 1) ->
   [t_any()];
 arg_types(erlang, is_tuple, 1) ->
