@@ -83,8 +83,8 @@
     <taglist>
       <tag><seealso marker="kernel:erl_epmd#address_please/3">address_please/3</seealso></tag>
       <item><p>Return the address of the given node.
-        If not implemented, <seealso marker="kernel:inet#gethostbyname/1">
-        inet:gethostbyname/1</seealso> will be used instead</p>
+        If not implemented, <seealso marker="kernel:erl_epmd#address_please/3">
+        <c>erl_epmd:address_please/3</c></seealso> will be used instead.</p>
         <p>This callback may also return the port of the given node. In that case
         <seealso marker="kernel:erl_epmd#port_please/3">port_please/3</seealso>
         may be omitted.</p></item>
