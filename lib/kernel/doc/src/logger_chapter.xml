@@ -237,8 +237,21 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       <title>Metadata</title>
       <p>Metadata contains additional data associated with a log
 	message. Logger inserts some metadata fields by default, and
-	the client can add custom metadata in two different ways:</p>
+	the client can add custom metadata in three different ways:</p>
       <taglist>
+        <tag>Set primary metadata</tag>
+        <item>
+          <p>Primary metadata applies is the base metadata given to
+            all log events. At startup it can be set using
+            the kernel configuration parameter
+            <seeapp marker="kernel_app#logger_metadata">logger_metadata</seeapp>.
+            At run-time it can be set and updated using
+            <seemfa marker="logger#set_primary_config/1">
+              <c>logger:set_primary_config/1</c></seemfa> and
+            <seemfa marker="logger#update_primary_config/1">
+              <c>logger:update_primary_config/1</c></seemfa> respectively.
+          </p>
+        </item>
 	<tag>Set process metadata</tag>
 	<item>
 	  <p>Process metadata is set and updated
@@ -544,6 +557,13 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	    for more information about how this option is used.</p>
 	  <p>Defaults to <c>log</c>.</p>
 	</item>
+        <tag><c>metadata = </c><seetype marker="logger#metadata"><c>metadata()</c></seetype></tag>
+	<item>
+	  <p>The primary metadata to be used for all log calls.</p>
+          <p>See section <seeguide marker="#metadata">Metadata</seeguide>
+	    for more information about how this option is used.</p>
+	  <p>Defaults to <c>#{}</c>.</p>
+	</item>
       </taglist>
     </section>
 
@@ -761,6 +781,13 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  section <seeguide marker="#config_examples">Configuration
 	  Examples</seeguide> for examples using the <c>logger</c>
 	  parameter for system configuration.</p>
+      </item>
+      <tag><marker id="logger_metadata"/>
+	<c>logger_metadata = map()</c></tag>
+      <item>
+	<p>Specifies the primary metadata. See
+	  the <seeapp marker="kernel_app#logger_metadata"><c>kernel(6)</c></seeapp>
+	  manual page for more information about this parameter.</p>
       </item>
       <tag><marker id="logger_level"/>
 	<c>logger_level = Level</c></tag>

@@ -200,6 +200,12 @@
             <c>logger:set_primary_config(level, Level)</c></seemfa>.</p>
 	<p>Defaults to <c>notice</c>.</p>
       </item>
+      <tag><marker id="logger_metadata"/><c>logger_metadata = Metadata</c></tag>
+      <item>
+	<p>Specifies primary metadata for log events.</p>
+	<p><c>Metadata = map()</c></p>
+	<p>Defaults to <c>#{}</c>.</p>
+      </item>
       <tag><marker id="logger_sasl_compatible"/>
 	<c>logger_sasl_compatible = true | false</c></tag>
       <item>

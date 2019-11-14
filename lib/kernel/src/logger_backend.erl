@@ -19,7 +19,7 @@
 %%
 -module(logger_backend).
 
--export([log_allowed/2]).
+-export([log_allowed/3]).
 
 -include("logger_internal.hrl").
 
@@ -27,28 +27,28 @@
 
 %%%-----------------------------------------------------------------
 %%% The default logger backend
-log_allowed(Log, Tid) ->
-    {ok,Config} = logger_config:get(Tid,primary),
-    Filters = maps:get(filters,Config,[]),
-    case apply_filters(primary,Log,Filters,Config) of
+log_allowed(Log, Tid, PrimaryConfig) ->
+    Filters = maps:get(filters,PrimaryConfig,[]),
+    case apply_filters(primary,Log,Filters,PrimaryConfig) of
         stop ->
             ok;
         Log1 ->
-            Handlers = maps:get(handlers,Config,[]),
+            Handlers = maps:get(handlers,PrimaryConfig,[]),
             call_handlers(Log1,Handlers,Tid)
     end,
     ok.
 
 call_handlers(#{level:=Level}=Log,[Id|Handlers],Tid) ->
+    %% Get the config for handle Id
     case logger_config:get(Tid,Id,Level) of
-        {ok,#{module:=Module}=Config} ->
-            Filters = maps:get(filters,Config,[]),
-            case apply_filters(Id,Log,Filters,Config) of
+        {ok,#{module:=Module}=HandlerConfig} ->
+            Filters = maps:get(filters,HandlerConfig,[]),
+            case apply_filters(Id,Log,Filters,HandlerConfig) of
                 stop ->
                     ok;
                 Log1 ->
-                    Config1 = maps:without(?OWN_KEYS,Config),
-                    try Module:log(Log1,Config1)
+                    HandlerConfig1 = maps:without(?OWN_KEYS,HandlerConfig),
+                    try Module:log(Log1,HandlerConfig1)
                     catch C:R:S ->
                             case logger:remove_handler(Id) of
                                 ok ->
@@ -60,7 +60,7 @@ call_handlers(#{level:=Level}=Log,[Id|Handlers],Tid) ->
                                        [{logger,removed_failing_handler},
                                         {handler,{Id,Module}},
                                         {log_event,Log1},
-                                        {config,Config1},
+                                        {config,HandlerConfig1},
                                         {reason,{C,R,filter_stacktrace(S)}}]);
                                 {error,{not_found,_}} ->
                                     %% Probably already removed by other client

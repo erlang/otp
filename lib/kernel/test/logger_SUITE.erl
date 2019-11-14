@@ -274,7 +274,7 @@ change_config(_Config) ->
     ok = logger:set_primary_config(#{filter_default=>stop}),
     #{level:=notice,filters:=[],filter_default:=stop}=PC1 =
         logger:get_primary_config(),
-    3 = maps:size(PC1),
+    4 = maps:size(PC1),
     %% Check that internal 'handlers' field has not been changed
     MS = [{{{?HANDLER_KEY,'$1'},'_'},[],['$1']}],
     HIds1 = lists:sort(ets:select(?LOGGER_TABLE,MS)), % dirty, internal data
@@ -917,6 +917,20 @@ process_metadata(_Config) ->
 
     logger:notice(S3=?str,#{custom=>func}),
     check_logged(notice,S3,#{time=>Time,line=>0,custom=>func}),
+
+    %% Test that primary metadata is overwritten by process metadata
+    ok = logger:update_primary_config(
+           #{metadata=>#{time=>Time,custom=>global,global=>added,line=>1}}),
+    logger:notice(S4=?str),
+    check_logged(notice,S4,#{time=>Time,line=>0,custom=>proc,global=>added}),
+
+    %% Test that primary metadata is overwritten by func metadata
+    %% and that primary overwrites location metadata.
+    ok = logger:unset_process_metadata(),
+    logger:notice(S5=?str,#{custom=>func}),
+    check_logged(notice,S5,#{time=>Time,line=>1,custom=>func,global=>added}),
+    ok = logger:set_process_metadata(ProcMeta),
+    ok = logger:update_primary_config(#{metadata=>#{}}),
 
     ProcMeta = logger:get_process_metadata(),
     ok = logger:update_process_metadata(#{custom=>changed,custom2=>added}),
