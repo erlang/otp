@@ -260,7 +260,7 @@ init_per_group(rsa_pass_key, Config) ->
 	true ->
             DataDir = proplists:get_value(data_dir, Config),
             PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_rsa_pass_pharse(DataDir, PrivDir, "Password"),
+            ssh_test_lib:setup_rsa_pass_phrase(DataDir, PrivDir, "Password"),
             [{pass_phrase, {rsa_pass_phrase, "Password"}}| Config];
 	false ->
 	    {skip, unsupported_pub_key}
@@ -271,7 +271,7 @@ init_per_group(dsa_pass_key, Config) ->
 	true ->
             DataDir = proplists:get_value(data_dir, Config),
             PrivDir = proplists:get_value(priv_dir, Config),
-            ssh_test_lib:setup_dsa_pass_pharse(DataDir, PrivDir, "Password"),
+            ssh_test_lib:setup_dsa_pass_phrase(DataDir, PrivDir, "Password"),
             [{pass_phrase, {dsa_pass_phrase, "Password"}}| Config];
 	false ->
 	    {skip, unsupported_pub_key}

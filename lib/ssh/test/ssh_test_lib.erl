@@ -451,9 +451,9 @@ clean_rsa(UserDir) ->
     file:delete(filename:join(UserDir,"known_hosts")),
     file:delete(filename:join(UserDir,"authorized_keys")).
 
-setup_dsa_pass_pharse(DataDir, UserDir, Phrase) ->
+setup_dsa_pass_phrase(DataDir, UserDir, Phrase) ->
     {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
-    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
+    setup_pass_phrase(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
     System = filename:join(UserDir, "system"),
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
@@ -461,9 +461,9 @@ setup_dsa_pass_pharse(DataDir, UserDir, Phrase) ->
     setup_dsa_known_host(DataDir, UserDir),
     setup_dsa_auth_keys(DataDir, UserDir).
 
-setup_rsa_pass_pharse(DataDir, UserDir, Phrase) ->
+setup_rsa_pass_phrase(DataDir, UserDir, Phrase) ->
     {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
-    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
+    setup_pass_phrase(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
     System = filename:join(UserDir, "system"),
     file:make_dir(System),
     file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
@@ -481,7 +481,7 @@ setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
                 Other ->
                     Other
             end,
-        setup_pass_pharse(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
         System = filename:join(UserDir, "system"),
         file:make_dir(System),
         file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
@@ -494,7 +494,7 @@ setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
         _:_ -> false
     end.
 
-setup_pass_pharse(KeyBin, OutFile, Phrase) ->
+setup_pass_phrase(KeyBin, OutFile, Phrase) ->
     [{KeyType, _,_} = Entry0] = public_key:pem_decode(KeyBin),
     Key =  public_key:pem_entry_decode(Entry0),
     Salt = crypto:strong_rand_bytes(8),
