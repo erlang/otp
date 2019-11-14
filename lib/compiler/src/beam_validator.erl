@@ -507,16 +507,7 @@ valfun_1(remove_message, Vst0) ->
     %% without restrictions.
     remove_fragility(Vst);
 valfun_1({'%', {var_info, Reg, Info}}, Vst) ->
-    case proplists:get_value(type, Info, any) of
-        none -> 
-            %% Unreachable code, typically after a call that never returns.
-            kill_state(Vst);
-        Type ->
-            %% Explicit type information inserted by optimization passes to
-            %% indicate that Reg has a certain type, so that we can accept
-            %% cross-function type optimizations.
-            update_type(fun meet/2, Type, Reg, Vst)
-    end;
+    validate_var_info(Info, Reg, Vst);
 valfun_1({'%', {remove_fragility, Reg}}, Vst) ->
     %% This is a hack to make prim_eval:'receive'/2 work.
     %%
@@ -529,6 +520,7 @@ valfun_1({'%',_}, Vst) ->
     Vst;
 valfun_1({line,_}, Vst) ->
     Vst;
+
 %%
 %% Calls; these may be okay when the try/catch state or stack is undecided,
 %% depending on whether they always succeed or always fail.
@@ -673,6 +665,25 @@ valfun_1({jump,{f,Lbl}}, Vst) ->
 valfun_1(I, Vst0) ->
     Vst = branch_exception(Vst0),
     valfun_2(I, Vst).
+
+validate_var_info([{fun_type, Type} | Info], Reg, Vst0) ->
+    %% Explicit type information inserted after make_fun2 instructions to mark
+    %% the return type of the created fun.
+    Vst = update_type(fun meet/2, #t_fun{type=Type}, Reg, Vst0),
+    validate_var_info(Info, Reg, Vst);
+validate_var_info([{type, none} | _Info], _Reg, Vst) ->
+    %% Unreachable code, typically after a call that never returns.
+    kill_state(Vst);
+validate_var_info([{type, Type} | Info], Reg, Vst0) ->
+    %% Explicit type information inserted by optimization passes to indicate
+    %% that Reg has a certain type, so that we can accept cross-function type
+    %% optimizations.
+    Vst = update_type(fun meet/2, Type, Reg, Vst0),
+    validate_var_info(Info, Reg, Vst);
+validate_var_info([_ | Info], Reg, Vst) ->
+    validate_var_info(Info, Reg, Vst);
+validate_var_info([], _Reg, Vst) ->
+    Vst.
 
 validate_tail_call(Deallocate, Func, Live, #vst{current=#st{numy=NumY}}=Vst0) ->
     assert_float_checked(Vst0),

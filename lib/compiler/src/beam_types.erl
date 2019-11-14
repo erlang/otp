@@ -569,12 +569,22 @@ limit_depth(#t_list{}=T, Depth) ->
     limit_depth_list(T, Depth);
 limit_depth(#t_tuple{}=T, Depth) ->
     limit_depth_tuple(T, Depth);
-limit_depth(#t_union{list=List0,tuple_set=TupleSet0}=U, Depth) ->
+limit_depth(#t_fun{}=T, Depth) ->
+    limit_depth_fun(T, Depth);
+limit_depth(#t_union{list=List0,tuple_set=TupleSet0,other=Other0}=U, Depth) ->
     TupleSet = limit_depth_tuple(TupleSet0, Depth),
     List = limit_depth_list(List0, Depth),
-    shrink_union(U#t_union{list=List,tuple_set=TupleSet});
+    Other = limit_depth(Other0, Depth),
+    shrink_union(U#t_union{list=List,tuple_set=TupleSet,other=Other});
 limit_depth(Type, _Depth) ->
     Type.
+
+limit_depth_fun(#t_fun{type=Type0}=T, Depth) ->
+    Type = if
+               Depth > 0 -> limit_depth(Type0, Depth - 1);
+               Depth =< 0 -> any
+           end,
+    T#t_fun{type=Type}.
 
 limit_depth_list(#t_cons{type=Type0,terminator=Term0}=T, Depth) ->
     {Type, Term} = limit_depth_list_1(Type0, Term0, Depth),
@@ -701,10 +711,12 @@ glb(#t_float{elements={MinA,MaxA}}, #t_float{elements={MinB,MaxB}})
        MinB >= MinA, MinB =< MaxA ->
     true = MinA =< MaxA andalso MinB =< MaxB,   %Assertion.
     #t_float{elements={max(MinA, MinB),min(MaxA, MaxB)}};
-glb(#t_fun{arity=any}, #t_fun{}=T) ->
-    T;
-glb(#t_fun{}=T, #t_fun{arity=any}) ->
-    T;
+glb(#t_fun{arity=Same,type=TypeA}, #t_fun{arity=Same,type=TypeB}=T) ->
+    T#t_fun{type=meet(TypeA, TypeB)};
+glb(#t_fun{arity=any,type=TypeA}, #t_fun{type=TypeB}=T) ->
+    T#t_fun{type=meet(TypeA, TypeB)};
+glb(#t_fun{type=TypeA}=T, #t_fun{arity=any,type=TypeB}) ->
+    T#t_fun{type=meet(TypeA, TypeB)};
 glb(#t_integer{elements={_,_}}=T, #t_integer{elements=any}) ->
     T;
 glb(#t_integer{elements=any}, #t_integer{elements={_,_}}=T) ->
@@ -851,8 +863,10 @@ lub(#t_float{}, #t_integer{}) ->
     number;
 lub(#t_float{}, number) ->
     number;
-lub(#t_fun{}, #t_fun{}) ->
-    #t_fun{};
+lub(#t_fun{arity=Same,type=TypeA}, #t_fun{arity=Same,type=TypeB}) ->
+    #t_fun{arity=Same,type=join(TypeA, TypeB)};
+lub(#t_fun{type=TypeA}, #t_fun{type=TypeB}) ->
+    #t_fun{type=join(TypeA, TypeB)};
 lub(#t_integer{elements={MinA,MaxA}},
     #t_integer{elements={MinB,MaxB}}) ->
     #t_integer{elements={min(MinA,MinB),max(MaxA,MaxB)}};
@@ -1013,8 +1027,9 @@ verified_normal_type(#t_cons{type=Type,terminator=Term}=T) ->
     _ = verified_type(Type),
     _ = verified_type(Term),
     T;
-verified_normal_type(#t_fun{arity=Arity}=T)
+verified_normal_type(#t_fun{arity=Arity,type=ReturnType}=T)
   when Arity =:= any; is_integer(Arity) ->
+    _ = verified_type(ReturnType),
     T;
 verified_normal_type(#t_float{}=T) -> T;
 verified_normal_type(#t_integer{elements=any}=T) -> T;

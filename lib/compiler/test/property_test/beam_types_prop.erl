@@ -163,22 +163,22 @@ other_types() ->
     [any,
      gen_atom(),
      gen_bs_matchable(),
-     gen_fun(),
      none].
 
 numerical_types() ->
     [gen_integer(), gen_float(), number].
 
 nested_types(Depth) when Depth >= 3 -> [none];
-nested_types(Depth) -> list_types(Depth) ++
+nested_types(Depth) -> list_types(Depth + 1) ++
                            [#t_map{},
+                            gen_fun(Depth + 1),
                             gen_union(Depth + 1),
                             gen_tuple(Depth + 1)].
 
 list_types(Depth) when Depth >= 3 ->
     [nil];
 list_types(Depth) ->
-    [gen_list(Depth + 1), gen_cons(Depth + 1), nil].
+    [gen_list(Depth), gen_cons(Depth), nil].
 
 gen_atom() ->
     ?LET(Size, range(0, ?ATOM_SET_SIZE),
@@ -200,8 +200,10 @@ gen_bs_matchable() ->
            ?LET(Unit, range(1, 128), #t_bs_context{tail_unit=Unit}),
            ?LET(Unit, range(1, 128), #t_bitstring{size_unit=Unit})]).
 
-gen_fun() ->
-    oneof([?LET(Arity, range(1, 8), #t_fun{arity=Arity}), #t_fun{arity=any}]).
+gen_fun(Depth) ->
+    oneof([?LET(Arity, range(1, 8),
+                #t_fun{type=type(Depth),arity=Arity}),
+                #t_fun{type=type(Depth),arity=any}]).
 
 gen_integer() ->
     oneof([gen_integer_bounded(), #t_integer{}]).

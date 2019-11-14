@@ -1237,15 +1237,24 @@ cg_block([#cg_set{op=call}=Call|T], Context, St0) ->
     {Is0,St1} = cg_call(Call, body, none, St0),
     {Is1,St} = cg_block(T, Context, St1),
     {Is0++Is1,St};
-cg_block([#cg_set{op=make_fun,dst=Dst0,args=[Local|Args0]}|T],
+cg_block([#cg_set{anno=Anno,op=make_fun,dst=Dst0,args=[Local|Args0]}|T],
          Context, St0) ->
     #b_local{name=#b_literal{val=Func},arity=Arity} = Local,
     [Dst|Args] = beam_args([Dst0|Args0], St0),
     {FuncLbl,St1} = local_func_label(Func, Arity, St0),
     Is0 = setup_args(Args) ++
         [{make_fun2,{f,FuncLbl},0,0,length(Args)}|copy({x,0}, Dst)],
-    {Is1,St} = cg_block(T, Context, St1),
-    {Is0++Is1,St};
+
+    Is1 = case Anno of
+             #{ result_type := Type } ->
+                 Info = {var_info, Dst, [{fun_type, Type}]},
+                 Is0 ++ [{'%', Info}];
+             #{} ->
+                 Is0
+          end,
+
+    {Is2,St} = cg_block(T, Context, St1),
+    {Is1++Is2,St};
 cg_block([#cg_set{op=copy}|_]=T0, Context, St0) ->
     {Is0,T} = cg_copy(T0, St0),
     {Is1,St} = cg_block(T, Context, St0),
@@ -1549,7 +1558,13 @@ cg_call(#cg_set{anno=Anno,op=call,dst=Dst0,args=Args0},
     Arity = length(Args),
     Call = build_call(call_fun, Arity, Func, Context, Dst),
     Is = setup_args(Args++[Func], Anno, Context, St) ++ Line ++ Call,
-    {Is,St}.
+    case Anno of
+        #{ result_type := Type } ->
+            Info = {var_info, Dst, [{type,Type}]},
+            {Is ++ [{'%', Info}], St};
+        #{} ->
+            {Is, St}
+    end.
 
 cg_match_fail([{atom,function_clause}|Args], Line, Fc) ->
     case Fc of

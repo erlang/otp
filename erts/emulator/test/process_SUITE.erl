@@ -2248,7 +2248,7 @@ max_heap_size_test(Option, Size, Kill, ErrorLogger)
   when is_map(Option); is_integer(Option) ->
     max_heap_size_test([{max_heap_size, Option}], Size, Kill, ErrorLogger);
 max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
-    OomFun = fun F() -> timer:sleep(5),[lists:seq(1,1000)|F()] end,
+    OomFun = fun () -> oom_fun([]) end,
     Pid = spawn_opt(OomFun, Option),
     {max_heap_size, MHSz} = erlang:process_info(Pid, max_heap_size),
     ct:log("Default: ~p~nOption: ~p~nProc: ~p~n",
@@ -2290,6 +2290,13 @@ max_heap_size_test(Option, Size, Kill, ErrorLogger) ->
 
     %% Make sure that there are no unexpected messages.
     receive_unexpected().
+
+oom_fun(Acc0) ->
+    %% This is tail-recursive since the compiler is smart enough to figure
+    %% out that a body-recursive variant never returns, and loops forever
+    %% without keeping the list alive.
+    timer:sleep(5),
+    oom_fun([lists:seq(1, 1000) | Acc0]).
 
 receive_error_messages(Pid) ->
     receive

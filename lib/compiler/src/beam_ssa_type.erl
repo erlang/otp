@@ -234,7 +234,24 @@ sig_is([#b_set{op=call,
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
 
-    {I, State} = sig_local_call(I1, Callee, tl(Args), Ts0, Fdb, State0),
+    [_ | CallArgs] = Args,
+    {I, State} = sig_local_call(I1, Callee, CallArgs, Ts0, Fdb, State0),
+
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    sig_is(Is, Ts, Ds, Ls, Fdb, Sub, State);
+sig_is([#b_set{op=call,
+               args=[#b_var{} | _]=Args0,
+               dst=Dst}=I0 | Is],
+       Ts0, Ds0, Ls, Fdb, Sub, State) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+
+    [Fun | _] = Args,
+    I = case normalized_type(Fun, Ts0) of
+            #t_fun{type=Type} -> beam_ssa:add_anno(result_type, Type, I1);
+            _ -> I1
+        end,
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
@@ -260,31 +277,30 @@ sig_is([], Ts, Ds, _Ls, _Fdb, Sub, State) ->
     {Ts, Ds, Sub, State}.
 
 sig_local_call(I0, Callee, Args, Ts, Fdb, State) ->
-    I = sig_local_return(I0, Callee, Args, Fdb, Ts),
     ArgTypes = argument_types(Args, Ts),
+    I = sig_local_return(I0, Callee, ArgTypes, Fdb),
     {I, sig_update_args(Callee, ArgTypes, State)}.
 
-sig_local_return(I, Callee, Args, Fdb, Ts) ->
-    #func_info{succ_types=SuccTypes} = map_get(Callee, Fdb),
+%% While it's impossible to tell which arguments a fun will be called with
+%% (someone could steal it through tracing and call it), we do know its free
+%% variables and can update their types as if this were a local call.
+sig_make_fun(#b_set{op=make_fun,
+                    args=[#b_local{}=Callee | FreeVars]}=I0,
+             Ts, Fdb, State) ->
+    ArgCount = Callee#b_local.arity - length(FreeVars),
 
-    ArgTypes = argument_types(Args, Ts),
+    FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
+    ArgTypes = duplicate(ArgCount, any) ++ FVTypes,
+
+    I = sig_local_return(I0, Callee, ArgTypes, Fdb),
+    {I, sig_update_args(Callee, ArgTypes, State)}.
+
+sig_local_return(I, Callee, ArgTypes, Fdb) ->
+    #func_info{succ_types=SuccTypes} = map_get(Callee, Fdb),
     case return_type(SuccTypes, ArgTypes) of
         any -> I;
         Type -> beam_ssa:add_anno(result_type, Type, I)
     end.
-
-%% While we have no way to know which arguments a fun will be called with, we
-%% do know its free variables and can update their types as if this were a
-%% local call.
-sig_make_fun(#b_set{op=make_fun,
-                    args=[#b_local{}=Callee | FreeVars]}=I,
-             Ts, _Fdb, State) ->
-    ArgCount = Callee#b_local.arity - length(FreeVars),
-
-    FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
-    CallTypes = duplicate(ArgCount, any) ++ FVTypes,
-
-    {I, sig_update_args(Callee, CallTypes, State)}.
 
 init_sig_st(StMap, FuncDb) ->
     %% Start out as if all the roots have been called with 'any' for all
@@ -443,7 +459,24 @@ opt_is([#b_set{op=call,
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
 
-    {I, Fdb} = opt_local_call(I1, Callee, tl(Args), Dst, Ts0, Fdb0, Meta),
+    [_ | CallArgs] = Args,
+    {I, Fdb} = opt_local_call(I1, Callee, CallArgs, Dst, Ts0, Fdb0, Meta),
+
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    opt_is(Is, Ts, Ds, Ls, Fdb, Sub, Meta, [I | Acc]);
+opt_is([#b_set{op=call,
+               args=[#b_var{} | _]=Args0,
+               dst=Dst}=I0 | Is],
+       Ts0, Ds0, Ls, Fdb, Sub, Meta, Acc) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+
+    [Fun | _] = Args,
+    I = case normalized_type(Fun, Ts0) of
+            #t_fun{type=Type} -> beam_ssa:add_anno(result_type, Type, I1);
+            _ -> I1
+        end,
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
@@ -468,63 +501,60 @@ opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
 opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
     {reverse(Acc), Ts, Ds, Fdb, Sub}.
 
-opt_local_call(I0, Callee, Args, Dst, Ts, Fdb0, Meta) ->
-    I = opt_local_return(I0, Callee, Args, Fdb0, Ts),
-    case Fdb0 of
-        #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
-            Types = argument_types(Args, Ts),
-
+opt_local_call(I0, Callee, Args, Dst, Ts, Fdb, Meta) ->
+    ArgTypes = argument_types(Args, Ts),
+    I = opt_local_return(I0, Callee, ArgTypes, Fdb),
+    case Fdb of
+        #{ Callee := #func_info{exported=false,arg_types=AT0}=Info0 } ->
             %% Update the argument types of *this exact call*, the types
             %% will be joined later when the callee is optimized.
             CallId = {Meta#metadata.func_id, Dst},
-            ArgTypes = update_arg_types(Types, ArgTypes0, CallId),
 
-            Fdb = Fdb0#{ Callee => Info#func_info{arg_types=ArgTypes} },
-            {I, Fdb};
+            AT = update_arg_types(ArgTypes, AT0, CallId),
+            Info = Info0#func_info{arg_types=AT},
+
+            {I, Fdb#{ Callee := Info }};
         #{} ->
             %% We can't narrow the argument types of exported functions as they
             %% can receive anything as part of an external call. We can still
             %% rely on their return types however.
-            {I, Fdb0}
+            {I, Fdb}
     end.
 
-opt_local_return(I, Callee, Args, Fdb, Ts) when Fdb =/= #{} ->
+%% See sig_make_fun/4
+opt_make_fun(#b_set{op=make_fun,
+                    dst=Dst,
+                    args=[#b_local{}=Callee | FreeVars]}=I0,
+             Ts, Fdb, Meta) ->
+    ArgCount = Callee#b_local.arity - length(FreeVars),
+    FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
+    ArgTypes = duplicate(ArgCount, any) ++ FVTypes,
+
+    I = opt_local_return(I0, Callee, ArgTypes, Fdb),
+
+    case Fdb of
+        #{ Callee := #func_info{exported=false,arg_types=AT0}=Info0 } ->
+            CallId = {Meta#metadata.func_id, Dst},
+
+            AT = update_arg_types(ArgTypes, AT0, CallId),
+            Info = Info0#func_info{arg_types=AT},
+
+            {I, Fdb#{ Callee := Info }};
+        #{} ->
+            %% We can't narrow the argument types of exported functions as they
+            %% can receive anything as part of an external call.
+            {I, Fdb}
+    end.
+
+opt_local_return(I, Callee, ArgTypes, Fdb) when Fdb =/= #{} ->
     #func_info{succ_types=SuccTypes} = map_get(Callee, Fdb),
-
-    ArgTypes = argument_types(Args, Ts),
-
     case return_type(SuccTypes, ArgTypes) of
         any -> I;
         Type -> beam_ssa:add_anno(result_type, Type, I)
     end;
-opt_local_return(I, _Callee, _Args, _Fdb, _Ts) ->
+opt_local_return(I, _Callee, _ArgTyps, _Fdb) ->
     %% Module-level optimization is disabled, assume it returns anything.
     I.
-
-%% While we have no way to know which arguments a fun will be called with, we
-%% do know its free variables and can update their types as if this were a
-%% local call.
-opt_make_fun(#b_set{op=make_fun,
-                    dst=Dst,
-                    args=[#b_local{}=Callee | FreeVars]}=I,
-             Ts, Fdb0, Meta) ->
-    case Fdb0 of
-        #{ Callee := #func_info{exported=false,arg_types=ArgTypes0}=Info } ->
-            ArgCount = Callee#b_local.arity - length(FreeVars),
-
-            FVTypes = [raw_type(FreeVar, Ts) || FreeVar <- FreeVars],
-            Types = duplicate(ArgCount, any) ++ FVTypes,
-
-            CallId = {Meta#metadata.func_id, Dst},
-            ArgTypes = update_arg_types(Types, ArgTypes0, CallId),
-
-            Fdb = Fdb0#{ Callee => Info#func_info{arg_types=ArgTypes} },
-            {I, Fdb};
-        #{} ->
-            %% We can't narrow the argument types of exported functions as they
-            %% can receive anything as part of an external call.
-            {I, Fdb0}
-    end.
 
 update_arg_types([ArgType | ArgTypes], [TypeMap0 | TypeMaps], CallId) ->
     TypeMap = TypeMap0#{ CallId => ArgType },
@@ -1349,16 +1379,26 @@ type(bs_match, Args, _Anno, Ts, _Ds) ->
 type(bs_get_tail, [Ctx], _Anno, Ts, _Ds) ->
     #t_bs_context{tail_unit=Unit} = raw_type(Ctx, Ts),
     #t_bitstring{size_unit=Unit};
-type(call, [#b_local{} | _Args], Anno, _Ts, _Ds) ->
-    case Anno of
-        #{ result_type := Type } -> Type;
-        #{} -> any
-    end;
 type(call, [#b_remote{mod=#b_literal{val=Mod},
                       name=#b_literal{val=Name}}|Args], _Anno, Ts, _Ds) ->
     ArgTypes = normalized_types(Args, Ts),
     {RetType, _, _} = beam_call_types:types(Mod, Name, ArgTypes),
     RetType;
+type(call, [#b_remote{} | _Args], _Anno, _Ts, _Ds) ->
+    %% Remote call with variable Module and/or Function.
+    any;
+type(call, [#b_local{} | _Args], Anno, _Ts, _Ds) ->
+    case Anno of
+        #{ result_type := Type } -> Type;
+        #{} -> any
+    end;
+type(call, [#b_var{} | _Args], Anno, _Ts, _Ds) ->
+    case Anno of
+        #{ result_type := Type } -> Type;
+        #{} -> any
+    end;
+type(call, [#b_literal{} | _Args], _Anno, _Ts, _Ds) ->
+    none;
 type(get_hd, [Src], _Anno, Ts, _Ds) ->
     SrcType = #t_cons{} = normalized_type(Src, Ts),
     {RetType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
@@ -1376,8 +1416,12 @@ type(is_nonempty_list, [_], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
-type(make_fun, [#b_local{arity=TotalArity}|Env], _Anno, _Ts, _Ds) ->
-    #t_fun{arity=TotalArity-length(Env)};
+type(make_fun, [#b_local{arity=TotalArity} | Env], Anno, _Ts, _Ds) ->
+    RetType = case Anno of
+                  #{ result_type := Type } -> Type;
+                  #{} -> any
+              end,
+    #t_fun{arity=TotalArity - length(Env), type=RetType};
 type(put_map, _Args, _Anno, _Ts, _Ds) ->
     #t_map{};
 type(put_list, [Head, Tail], _Anno, Ts, _Ds) ->
