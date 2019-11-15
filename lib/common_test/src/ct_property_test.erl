@@ -92,16 +92,27 @@
 init_per_suite(Config) ->
     case which_module_exists([eqc,proper,triq]) of
 	{ok,ToolModule} ->
- 	    ct:pal("Found property tester ~p",[ToolModule]),
-	    Path = property_tests_path("property_test", Config),
-	    case compile_tests(Path,ToolModule) of
-		error -> 
-		    {fail, "Property test compilation failed in "++Path};
-		up_to_date ->
-		    add_code_pathz(Path),
-		    [{property_dir,Path},
-		     {property_test_tool,ToolModule} | Config]
-	    end;
+            case code:where_is_file(lists:concat([ToolModule,".beam"])) of
+                non_existing ->
+                    ct:log("Found ~p, but ~tp is not found",
+                           [ToolModule, lists:concat([ToolModule,".beam"])]),
+                    {skip, "Strange Property testing tool installation"};
+                ToolPath ->
+                    ct:pal("Found property tester ~p~n"
+                           "at ~tp",
+                           [ToolModule, ToolPath]),
+                    Path = property_tests_path("property_test", Config),
+                    case compile_tests(Path,ToolModule) of
+                        error -> 
+                            {fail, "Property test compilation failed in "++Path};
+                        {skip,Reason} ->
+                            {skip,Reason};
+                        up_to_date ->
+                            add_code_pathz(Path),
+                            [{property_dir,Path},
+                             {property_test_tool,ToolModule} | Config]
+                    end
+            end;
 
 	not_found ->
  	    ct:pal("No property tester found",[]),
@@ -169,15 +180,33 @@ add_code_pathz(Dir) ->
 compile_tests(Path, ToolModule) ->
     MacroDefs = macro_def(ToolModule),
     {ok,Cwd} = file:get_cwd(),
-    ok = file:set_cwd(Path),
-    {ok,FileNames} = file:list_dir("."),
-    BeamFiles = [F || F<-FileNames,
-		      filename:extension(F) == ".beam"],
-    _ = [file:delete(F) || F<-BeamFiles],
-    ct:pal("Compiling in ~tp:~n  Deleted ~p~n  MacroDefs=~p",[Path,BeamFiles,MacroDefs]),
-    Result = make:all([load|MacroDefs]),
-    ok = file:set_cwd(Cwd),
-    Result.
+    case file:set_cwd(Path) of
+        ok ->
+            case file:list_dir(".") of
+                {ok,[]} ->
+                    ct:pal("No files found in ~tp", [Path]),
+                    ok = file:set_cwd(Cwd),
+                    {skip, "No files found"};
+                {ok,FileNames} ->
+                    BeamFiles = [F || F<-FileNames,
+                                      filename:extension(F) == ".beam"],
+                    ErlFiles = [F || F<-FileNames,
+                                      filename:extension(F) == ".erl"],
+                    _ = [file:delete(F) || F<-BeamFiles],
+                    ct:pal("Compiling in ~tp~n"
+                           "  Deleted:   ~p~n"
+                           "  ErlFiles:  ~tp~n"
+                           "  MacroDefs: ~p",
+                           [Path,BeamFiles,ErlFiles,MacroDefs]),
+                    Result = make:all([load|MacroDefs]),
+                    ok = file:set_cwd(Cwd),
+                    Result
+            end;
+
+        {error,Error} ->
+            ct:pal("file:set_cwd(~tp) returned ~p.~nCwd = ~tp", [Path, {error,Error}, Cwd]),
+            error
+    end.
     
 
 macro_def(eqc) -> [{d, 'EQC'}];
