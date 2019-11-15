@@ -135,6 +135,8 @@
               cmsghdr_recv/0, cmsghdr_send/0,
 
               ee_origin/0,
+              icmp_dest_unreach/0,
+              icmpv6_dest_unreach/0,
               sock_extended_err/0,
 
               uint8/0,
@@ -626,13 +628,29 @@
         #{level := integer(), type := integer(),   data := binary()}.
 
 -type ee_origin() :: none | local | icmp | icmp6 | uint8().
--type sock_extended_err() :: #{error := term(),
-                               origin := ee_origin(),
-                               type := uint8(),
-                               code := uint8(),
-                               info := uint32(),
-                               data := uint32(),
-                               offender := undefined | sockaddr()}.
+-type icmp_dest_unreach() :: net_unreach | host_unreach | port_unreach | frag_needed |
+                             net_unknown | host_unknown | uint8().
+-type icmpv6_dest_unreach() :: noroute | adm_prohibited | not_neighbour | addr_unreach |
+                               port_unreach | policy_fail | reject_route | uint8().
+-type sock_extended_err() ::
+        #{error := term(), origin := icmp, type := dest_unreach,
+          code := icmp_dest_unreach(),     info := uint32(),
+          data := uint32(), offender := undefined | sockaddr()} |
+        #{error := term(), origin := icmp, type := time_exceeded | uint8(),
+          code := uint8(), info := uint32(), data := uint32(),
+          offender := undefined | sockaddr()} |
+        #{error := term(), origin := icmp, type := uint8(),
+          code := uint8(), info := uint32(), data := uint32(),
+          offender := undefined | sockaddr()} |
+        #{error := term(), origin := icmp6, type := dest_unreach,
+          code := icmpv6_dest_unreach(),     info := uint32(),
+          data := uint32(), offender := undefined | sockaddr()} |
+        #{error := term(), origin := ee_origin(), type := pkt_toobig | time_xceeded | uint8(),
+          code := uint8(), info := uint32(),      data := uint32(),
+          offender := undefined | sockaddr()} |
+        #{error := term(), origin := ee_origin(), type := uint8(),
+          code := uint8(), info := uint32(),      data := uint32(),
+          offender := undefined | sockaddr()}.
 
 -opaque select_tag() :: atom().
 -opaque select_ref() :: reference().
