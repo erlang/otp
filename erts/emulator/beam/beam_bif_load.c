@@ -68,23 +68,6 @@ Process *erts_code_purger = NULL;
 #ifdef ERTS_DIRTY_SCHEDULERS
 Process *erts_dirty_process_code_checker;
 #endif
-erts_smp_atomic_t erts_copy_literal_area__;
-#define ERTS_SET_COPY_LITERAL_AREA(LA)			\
-    erts_smp_atomic_set_nob(&erts_copy_literal_area__,	\
-			    (erts_aint_t) (LA))
-Process *erts_literal_area_collector = NULL;
-
-typedef struct ErtsLiteralAreaRef_ ErtsLiteralAreaRef;
-struct ErtsLiteralAreaRef_ {
-    ErtsLiteralAreaRef *next;
-    ErtsLiteralArea *literal_area;
-};
-
-struct {
-    erts_smp_mtx_t mtx;
-    ErtsLiteralAreaRef *first;
-    ErtsLiteralAreaRef *last;
-} release_literal_areas;
 
 static void set_default_trace_pattern(Eterm module);
 static Eterm check_process_code(Process* rp, Module* modp, int *redsp, int fcalls);
@@ -116,17 +99,13 @@ init_purge_state(void)
     purge_state.saved_old.code_hdr = 0;
 }
 
+static void
+init_release_literal_areas(void);
+
 void
 erts_beam_bif_load_init(void)
 {
-    erts_smp_mtx_init(&release_literal_areas.mtx, "release_literal_areas", NIL,
-        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
-
-    release_literal_areas.first = NULL;
-    release_literal_areas.last = NULL;
-    erts_smp_atomic_init_nob(&erts_copy_literal_area__,
-			     (erts_aint_t) NULL);
-
+    init_release_literal_areas();
     init_purge_state();
 }
 
@@ -1314,6 +1293,68 @@ hfrag_literal_copy(Eterm **hpp, ErlOffHeap *ohp,
     }
 }
 
+/*
+ * Release of literal areas...
+ *
+ * Overview over how literal areas are released.
+ *
+ * - A literal area to remove is placed in the release_literal_areas.first
+ *   queue.
+ * - The erts_literal_area_collector process is woken and calls
+ *   erts_internal:release_literal_area_switch() which publishes the
+ *   area to release available to the emulator
+ *   (ERTS_COPY_LITERAL_AREA()).
+ * - The literal area collector process gets suspended waiting thread
+ *   progress in order to ensure all schedulers see the newly published
+ *   area to release.
+ * - When the literal area collector process is resumed after thread
+ *   progress has completed, erts_internal:release_literal_area_switch()
+ *   returns 'true'.
+ * - The literal area collector process sends copy-literals requests
+ *   to all processes in the system.
+ * - Processes inspects their heap for literals in the area, if
+ *   such are found do a literal-gc to make copies on the heap
+ *   of all those literals, and then send replies to the
+ *   literal area collector process.
+ * - Processes that terminates replies even though they might need to
+ *   access literal areas. When a process that might need to access a
+ *   literal area terminates, it blocks release of literal areas
+ *   by incrementing a counter, and later when termination has
+ *   completed decrements that counter. The increment is performed
+ *   before replying to the copy-literals request.
+ * - When all processes has responded, the literal area collector
+ *   process calls erts_internal:release_literal_area_switch() again
+ *   in order to switch to the next area.
+ * - erts_internal:release_literal_area_switch() changes the set of
+ *   counters that blocks release of literal areas
+ * - The literal area collector process gets suspended waiting thread
+ *   progress in order to ensure that the change of counters is visable
+ *   by all schedulers.
+ * - When the literal area collector process is resumed after thread
+ *   progress has completed, erts_internal:release_literal_area_switch()
+ *   inspects all counters in previously used set ensuring that no
+ *   terminating processes (which began termination before the change
+ *   of counters) are lingering. If needed the literal area collector
+ *   process will be blocked in
+ *   erts_internal:release_literal_area_switch() waiting for all
+ *   terminating processes to complete.
+ * - When counter inspection is complete
+ *   erts_internal:release_literal_area_switch() returns 'true' if
+ *   a new area was set for release and 'false' if no more areas have
+ *   been scheduled for release.
+ *
+ * When multiple literal areas have been queued for release,
+ * erts_internal:release_literal_area_switch() will time the thread
+ * progress waits so each wait period will be utilized both for
+ * ensuring that a new area is seen by all schedulers, and ensuring
+ * that a change of counters is seen by all schedulers. By this only
+ * one thread progress wait will be done per literal area collected
+ * until the last literal area which will need two thread progress
+ * wait periods.
+ */
+
+static Export *wait_release_literal_area_switch;
+
 #ifdef ERTS_SMP
 
 ErtsThrPrgrLaterOp later_literal_area_switch;
@@ -1323,87 +1364,385 @@ typedef struct {
     ErtsLiteralArea *la;
 } ErtsLaterReleasLiteralArea;
 
-static void
-later_release_literal_area(void *vlrlap)
-{
-    ErtsLaterReleasLiteralArea *lrlap;
-    lrlap = (ErtsLaterReleasLiteralArea *) vlrlap;
-    erts_release_literal_area(lrlap->la);
-    erts_free(ERTS_ALC_T_RELEASE_LAREA, vlrlap);
-}
+#endif
+
+erts_smp_atomic_t erts_copy_literal_area__;
+#define ERTS_SET_COPY_LITERAL_AREA(LA)			\
+    erts_smp_atomic_set_nob(&erts_copy_literal_area__,	\
+			    (erts_aint_t) (LA))
+Process *erts_literal_area_collector = NULL;
+
+typedef struct ErtsLiteralAreaRef_ ErtsLiteralAreaRef;
+struct ErtsLiteralAreaRef_ {
+    ErtsLiteralAreaRef *next;
+    ErtsLiteralArea *literal_area;
+};
+
+typedef struct {
+    erts_smp_atomic_t counter[2];
+} ErtsReleaseLiteralAreaBlockCounters;
+
+typedef struct {
+    union {
+        ErtsReleaseLiteralAreaBlockCounters block;
+        char align__[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsReleaseLiteralAreaBlockCounters))];
+    } u;
+} ErtsAlignedReleaseLiteralAreaBlockCounters;
+
+typedef enum {
+    ERTS_RLA_BLOCK_STATE_NONE,
+    ERTS_RLA_BLOCK_STATE_SWITCHED_IX,
+    ERTS_RLA_BLOCK_STATE_WAITING
+} ErtsReleaseLiteralAreaBlockState;
+
+static struct {
+    erts_smp_mtx_t mtx;
+    ErtsLiteralAreaRef *first;
+    ErtsLiteralAreaRef *last;
+    ErtsAlignedReleaseLiteralAreaBlockCounters *bc;
+    erts_smp_atomic32_t block_ix;
+    int wait_sched_ix;
+    ErtsReleaseLiteralAreaBlockState block_state;
+    ErtsLiteralArea *block_area;
+} release_literal_areas;
 
 static void
-complete_literal_area_switch(void *literal_area)
+init_release_literal_areas(void)
 {
-    Process *p = erts_literal_area_collector;
-    erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
-    erts_resume(p, ERTS_PROC_LOCK_STATUS);
-    erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
-    if (literal_area)
-	erts_release_literal_area((ErtsLiteralArea *) literal_area);
+    int i;
+    erts_smp_mtx_init(&release_literal_areas.mtx, "release_literal_areas", NIL,
+        ERTS_LOCK_FLAGS_PROPERTY_STATIC | ERTS_LOCK_FLAGS_CATEGORY_GENERIC);
+
+    release_literal_areas.first = NULL;
+    release_literal_areas.last = NULL;
+    erts_smp_atomic_init_nob(&erts_copy_literal_area__,
+			     (erts_aint_t) NULL);
+
+    erts_smp_atomic32_init_nob(&release_literal_areas.block_ix, 0);
+    release_literal_areas.wait_sched_ix = 0;
+    release_literal_areas.block_state = ERTS_RLA_BLOCK_STATE_NONE;
+    release_literal_areas.block_area = NULL;
+
+    release_literal_areas.bc =
+        erts_alloc_permanent_cache_aligned(ERTS_ALC_T_RLA_BLOCK_CNTRS,
+                                           sizeof(ErtsAlignedReleaseLiteralAreaBlockCounters)
+                                           * erts_no_schedulers);
+    /*
+     * The literal-area-collector has an increment in all block counters
+     * which it only removes when waiting for other increments to disappear.
+     */
+    for (i = 0; i < erts_no_schedulers; i++) {
+        erts_smp_atomic_init_nob(&release_literal_areas.bc[i].u.block.counter[0], 1);
+        erts_smp_atomic_init_nob(&release_literal_areas.bc[i].u.block.counter[1], 1);
+    }
+
+    wait_release_literal_area_switch = erts_export_put(am_erts_internal,
+                                                       am_wait_release_literal_area_switch,
+                                                       1);
+}
+
+#ifdef ERTS_SMP
+static void
+rla_resume(void *literal_area)
+{
+    erts_resume(erts_literal_area_collector, 0);
 }
 #endif
 
-BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
+
+static ERTS_INLINE Sint
+rla_bc_read(int sched_ix, int block_ix)
 {
-    ErtsLiteralArea *unused_la;
+    return (Sint) erts_smp_atomic_read_nob(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+static ERTS_INLINE Sint
+rla_bc_read_acqb(int sched_ix, int block_ix)
+{
+    return (Sint) erts_smp_atomic_read_acqb(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+static ERTS_INLINE Sint
+rla_bc_dec_read_acqb(int sched_ix, int block_ix)
+{
+    return (Sint) erts_smp_atomic_dec_read_acqb(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+static ERTS_INLINE Sint
+rla_bc_dec_read_relb(int sched_ix, int block_ix)
+{
+    return (Sint) erts_smp_atomic_dec_read_relb(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+static ERTS_INLINE void
+rla_bc_inc(int sched_ix, int block_ix)
+{
+    erts_smp_atomic_inc_nob(
+        &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
+}
+
+
+Uint32
+erts_block_release_literal_area(void)
+{
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    int sched_ix;
+    int block_ix;
+    
+    ASSERT(esdp->type == ERTS_SCHED_NORMAL);
+
+    sched_ix = ((int) esdp->no) - 1;
+    ASSERT((sched_ix & ~0xffff) == 0);
+    
+    ASSERT(0 <= sched_ix && sched_ix <= erts_no_schedulers);
+
+    block_ix = (int) erts_smp_atomic32_read_nob(&release_literal_areas.block_ix);
+    ASSERT(block_ix == 0 || block_ix == 1);
+    
+    rla_bc_inc(sched_ix, block_ix);
+
+    /*
+     * The returned value needs to be non-zero, so the user can
+     * use zero as a marker for not having blocked.
+     *
+     * Both block_ix and sched_ix can be zero so we set
+     * the highest (unused) bits to 0xfed00000
+     */
+    return (Uint32) 0xfed00000 | ((block_ix << 16) | sched_ix);
+}
+
+static void
+wakeup_literal_area_collector(void *unused)
+{        
+    erts_queue_message(erts_literal_area_collector,
+                       0,
+                       erts_alloc_message(0, NULL),
+                       am_copy_literals,
+                       am_system);
+}
+
+void
+erts_unblock_release_literal_area(Uint32 sched_block_ix)
+{
+    Sint block_count;
+    int block_ix = (int) ((sched_block_ix >> 16) & 0xf);
+    int sched_ix = (int) (sched_block_ix & 0xffff);
+
+    ASSERT((sched_block_ix & ((Uint32) 0xfff00000))
+           == (Uint32) 0xfed00000);
+    
+    ASSERT(block_ix == 0 || block_ix == 1);
+
+    block_count = rla_bc_dec_read_relb(sched_ix, block_ix);
+
+    ASSERT(block_count >= 0);
+
+    if (!block_count) {
+        /*
+         * Wakeup literal collector so it can continue...
+         *
+         * We don't know what locks we have here, so schedule
+         * the operation...
+         */
+        int sid = 1;
+        ErtsSchedulerData *esdp = erts_get_scheduler_data();
+        if (esdp && esdp->type == ERTS_SCHED_NORMAL)
+            sid = (int) esdp->no;
+        erts_schedule_misc_aux_work(sid,
+                                    wakeup_literal_area_collector,
+                                    NULL);
+    }
+}
+
+static void
+rla_switch_area(void)
+{
     ErtsLiteralAreaRef *la_ref;
-
-    if (BIF_P != erts_literal_area_collector)
-	BIF_ERROR(BIF_P, EXC_NOTSUP);
-
+    
     erts_smp_mtx_lock(&release_literal_areas.mtx);
-
     la_ref = release_literal_areas.first;
     if (la_ref) {
 	release_literal_areas.first = la_ref->next;
 	if (!release_literal_areas.first)
 	    release_literal_areas.last = NULL;
     }
-
     erts_smp_mtx_unlock(&release_literal_areas.mtx);
 
-    unused_la = ERTS_COPY_LITERAL_AREA();
-
-    if (!la_ref) {
-	ERTS_SET_COPY_LITERAL_AREA(NULL);
-	if (unused_la) {
-#ifdef ERTS_SMP
-	    ErtsLaterReleasLiteralArea *lrlap;
-	    lrlap = erts_alloc(ERTS_ALC_T_RELEASE_LAREA,
-			       sizeof(ErtsLaterReleasLiteralArea));
-	    lrlap->la = unused_la;
-	    erts_schedule_thr_prgr_later_cleanup_op(
-		later_release_literal_area,
-		(void *) lrlap,
-		&lrlap->lop,
-		(sizeof(ErtsLaterReleasLiteralArea)
-		 + sizeof(ErtsLiteralArea)
-		 + ((unused_la->end
-		     - &unused_la->start[0])
-		    - 1)*(sizeof(Eterm))));
-#else
-	    erts_release_literal_area(unused_la);
-#endif
-	}
-	BIF_RET(am_false);
+    if (!la_ref)
+        ERTS_SET_COPY_LITERAL_AREA(NULL);
+    else {
+        ERTS_SET_COPY_LITERAL_AREA(la_ref->literal_area);
+        erts_free(ERTS_ALC_T_LITERAL_REF, la_ref);
     }
+}
 
-    ERTS_SET_COPY_LITERAL_AREA(la_ref->literal_area);
+BIF_RETTYPE erts_internal_release_literal_area_switch_0(BIF_ALIST_0)
+{
+    ErtsLiteralArea *new_area, *old_area;
+    int wait_ix = 0;
+    int sched_ix = 0;
 
-    erts_free(ERTS_ALC_T_LITERAL_REF, la_ref);
+    if (BIF_P != erts_literal_area_collector)
+       	BIF_ERROR(BIF_P, EXC_NOTSUP);
+   
+    while (1) {
+        int six;
 
-#ifdef ERTS_SMP
-    erts_schedule_thr_prgr_later_op(complete_literal_area_switch,
-				    unused_la,
-				    &later_literal_area_switch);
-    erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
-    ERTS_BIF_YIELD_RETURN(BIF_P, am_true);
+        switch (release_literal_areas.block_state) {
+        case ERTS_RLA_BLOCK_STATE_NONE: {
+
+            old_area = ERTS_COPY_LITERAL_AREA();
+            
+            rla_switch_area();
+    
+            if (old_area) {
+                int block_ix;
+                /*
+                 * Switch block index.
+                 */
+                block_ix = (int) erts_smp_atomic32_read_nob(&release_literal_areas.block_ix);
+                erts_smp_atomic32_set_nob(&release_literal_areas.block_ix,
+                                          (erts_aint32_t) !block_ix);
+                release_literal_areas.block_state = ERTS_RLA_BLOCK_STATE_SWITCHED_IX;
+                ASSERT(!release_literal_areas.block_area);
+                release_literal_areas.block_area = old_area;
+            }
+        
+            new_area = ERTS_COPY_LITERAL_AREA();
+
+            if (!old_area && !new_area)
+                BIF_RET(am_false);
+
+        publish_new_info:
+            
+#ifndef ERTS_SMP
+            if (new_area)
+                BIF_RET(am_true);
+            /* fall through... */
 #else
-    erts_release_literal_area(unused_la);
-    BIF_RET(am_true);
+            /*
+             * Waiting 'thread progress' will ensure that all schedulers are
+             * guaranteed to see the new block index and the new area before
+             * we continue...
+             */
+            erts_schedule_thr_prgr_later_op(rla_resume,
+                                            NULL,
+                                            &later_literal_area_switch);
+            erts_suspend(BIF_P, ERTS_PROC_LOCK_MAIN, NULL);
+            if (new_area) {
+                /*
+                 * If we also got a new block_area, we will
+                 * take care of that the next time we come back
+                 * after all processes has responded on
+                 * copy-literals requests...
+                 */
+                ERTS_BIF_YIELD_RETURN(BIF_P,
+                                      am_true);
+            }
+
+            ASSERT(old_area);
+            ERTS_VBUMP_ALL_REDS(BIF_P);
+            BIF_TRAP0(BIF_P,
+                      bif_export[BIF_erts_internal_release_literal_area_switch_0]);
+#endif
+        }
+
+        case ERTS_RLA_BLOCK_STATE_SWITCHED_IX:
+            wait_ix = !erts_smp_atomic32_read_nob(&release_literal_areas.block_ix);
+            /*
+             * Now all counters in the old index will monotonically
+             * decrease towards 1 (our own increment). Check that we
+             * have no other increments, than our own, in all counters
+             * of the old block index. Wait for other increments to
+             * be decremented if necessary...
+             */
+            sched_ix = 0;
+            break;
+            
+        case ERTS_RLA_BLOCK_STATE_WAITING:
+            wait_ix = !erts_smp_atomic32_read_nob(&release_literal_areas.block_ix);
+            /*
+             * Woken after being waiting for a counter to reach zero...
+             */
+            sched_ix = release_literal_areas.wait_sched_ix;
+            /* restore "our own increment" */
+            rla_bc_inc(sched_ix, wait_ix);
+            break;
+        }
+
+        ASSERT(0 <= sched_ix && sched_ix < erts_no_schedulers);
+
+#ifdef DEBUG
+        for (six = 0; six < sched_ix; six++) {
+            ASSERT(1 == rla_bc_read(six, wait_ix));
+        }
 #endif
 
+        for (six = sched_ix; six < erts_no_schedulers; six++) {
+            Sint block_count = rla_bc_read_acqb(six, wait_ix);
+            ASSERT(block_count >= 1);
+            if (block_count == 1)
+                continue;
+            
+            block_count = rla_bc_dec_read_acqb(six, wait_ix);
+            if (!block_count) {
+                /* 
+                 * We brought it down to zero ourselves, so no need to wait.
+                 * Since the counter is guaranteed to be monotonically
+                 * decreasing (disregarding our own operations) it is safe
+                 * to continue. Restore "our increment" in preparation for
+                 * next switch.
+                 */
+                rla_bc_inc(six, wait_ix);
+                continue;
+            }
+
+            /*
+             * Wait for counter to be brought down to zero. The one bringing
+             * the counter down to zero will wake us up. We might also be
+             * woken later in erts_internal:wait_release_literal_area_switch()
+             * if a new area appears (handled here below).
+             */
+            release_literal_areas.wait_sched_ix = six;
+            release_literal_areas.block_state = ERTS_RLA_BLOCK_STATE_WAITING;
+            if (!ERTS_COPY_LITERAL_AREA()) {
+                rla_switch_area();
+                new_area = ERTS_COPY_LITERAL_AREA();
+                if (new_area) {
+                    /*
+                     * A new area showed up. Start the work with that area
+                     * and come back and check block counters when that has
+                     * been handled.
+                     */
+                    old_area = release_literal_areas.block_area;
+                    goto publish_new_info;
+                }
+            }
+
+            /*
+             * Wait for block_counter to reach zero or a new literal area
+             * to handle...
+             */
+            BIF_TRAP1(wait_release_literal_area_switch, BIF_P, am_copy_literals);
+        }
+
+        /* Done checking all block counters, release the literal area... */
+
+        release_literal_areas.block_state = ERTS_RLA_BLOCK_STATE_NONE;
+        erts_release_literal_area(release_literal_areas.block_area);
+        release_literal_areas.block_area = NULL;
+
+#ifdef DEBUG
+        /* All counters should be at 1; ready for next switch... */
+        for (six = 0; six < erts_no_schedulers; six++) {
+            ASSERT(1 == rla_bc_read(six, wait_ix));
+        }
+#endif
+    }
 }
 
 void

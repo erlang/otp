@@ -286,6 +286,7 @@ type	MREF_TAB_BKTS	STANDARD	SYSTEM		magic_ref_table_buckets
 type	MREF_TAB	LONG_LIVED	SYSTEM		magic_ref_table
 type	MINDIRECTION	FIXED_SIZE	SYSTEM		magic_indirection
 type	CRASH_DUMP	STANDARD	SYSTEM		crash_dump
+type	RLA_BLOCK_CNTRS	LONG_LIVED	SYSTEM		release_literal_area_block_counters
 
 +if threads_no_smp
 # Need thread safe allocs, but std_alloc and fix_alloc are not;
