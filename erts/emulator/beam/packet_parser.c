@@ -816,9 +816,6 @@ int packet_parse_http(const char* buf, int len, int* statep,
             ptr++;
             if (--n == 0) return -1;
         }
-        while (n && SP(ptr)) { /* Skip white space before ':' */
-            ptr++; n--;
-        } 
         if (*ptr != ':') {
             return -1;
         }

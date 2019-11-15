@@ -330,6 +330,15 @@ http(Config) when is_list(Config) ->
     %% Response with empty phrase
     {ok,{http_response,{1,1},200,[]},<<>>} = decode_pkt(http, <<"HTTP/1.1 200\r\n">>, []),
     {ok,{http_response,{1,1},200,<<>>},<<>>} = decode_pkt(http_bin, <<"HTTP/1.1 200\r\n">>, []),
+
+
+    %% Test error cases
+    {ok,{http_error,"Host\t: localhost:8000\r\n"},<<"a">>} =
+        decode_pkt(httph, <<"Host\t: localhost:8000\r\na">>, []),
+    {ok,{http_error,"Host : localhost:8000\r\n"},<<"a">>} =
+        decode_pkt(httph, <<"Host : localhost:8000\r\na">>, []),
+    {ok,{http_error," : localhost:8000\r\n"},<<"a">>} =
+        decode_pkt(httph, <<" : localhost:8000\r\na">>, []),
     ok.
 
 http_with_bin(http) ->
@@ -366,9 +375,6 @@ http_request(Msg) ->
            {"Connection: close\r\n",
             {http_header,2,'Connection',undefined,  "close"},
             {http_header,2,'Connection',undefined,<<"close">>}},	 
-           {"Host\t : localhost:8000\r\n", % white space before :
-            {http_header,14,'Host',undefined,  "localhost:8000"},
-            {http_header,14,'Host',undefined,<<"localhost:8000">>}},
            {"User-Agent: perl post\r\n",
             {http_header,24,'User-Agent',undefined,  "perl post"},
             {http_header,24,'User-Agent',undefined,<<"perl post">>}},
