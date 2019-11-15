@@ -20,6 +20,9 @@
  * ----------------------------------------------------------------------
  *  Purpose : The NIF (C) part of the net interface
  *            This is a module of miscellaneous functions.
+ *
+ *            We (try to) avoid name clashes by prefixing "all" internal
+ *            function names with enet.
  * ----------------------------------------------------------------------
  *
  */
@@ -257,7 +260,7 @@ extern char* erl_errno_id(int error);
     ENET_NIF_FUNC_DEF(command);         \
     ENET_NIF_FUNC_DEF(gethostname);     \
     ENET_NIF_FUNC_DEF(getnameinfo);     \
-    ENET_NIF_FUNC_DEF(getaddrinfo);      \
+    ENET_NIF_FUNC_DEF(getaddrinfo);     \
     ENET_NIF_FUNC_DEF(if_name2index);   \
     ENET_NIF_FUNC_DEF(if_index2name);   \
     ENET_NIF_FUNC_DEF(if_names);
@@ -271,22 +274,22 @@ ENET_NIF_FUNCS
 
 
 /* And here comes the functions that does the actual work (for the most part) */
-static ERL_NIF_TERM ncommand(ErlNifEnv*   env,
-                             ERL_NIF_TERM cmd);
-static ERL_NIF_TERM ngethostname(ErlNifEnv* env);
-static ERL_NIF_TERM ngetnameinfo(ErlNifEnv*          env,
-                                 const ESockAddress* saP,
-                                 SOCKLEN_T           saLen,
-                                 int                 flags);
-static ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
-                                 char*      host,
-                                 char*      serv);
-static ERL_NIF_TERM nif_name2index(ErlNifEnv* env,
+static ERL_NIF_TERM enet_command(ErlNifEnv*   env,
+                                 ERL_NIF_TERM cmd);
+static ERL_NIF_TERM enet_gethostname(ErlNifEnv* env);
+static ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
+                                     const ESockAddress* saP,
+                                     SOCKLEN_T           saLen,
+                                     int                 flags);
+static ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
+                                     char*      host,
+                                     char*      serv);
+static ERL_NIF_TERM enet_if_name2index(ErlNifEnv* env,
                                    char*      ifn);
-static ERL_NIF_TERM nif_index2name(ErlNifEnv*   env,
+static ERL_NIF_TERM enet_if_index2name(ErlNifEnv*   env,
                                    unsigned int id);
-static ERL_NIF_TERM nif_names(ErlNifEnv* env);
-static unsigned int nif_names_length(struct if_nameindex* p);
+static ERL_NIF_TERM enet_if_names(ErlNifEnv* env);
+static unsigned int enet_if_names_length(struct if_nameindex* p);
 
 /*
 static void net_dtor(ErlNifEnv* env, void* obj);
@@ -495,7 +498,7 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
 
     NDBG( ("NET", "command -> ecmd: %T\r\n", ecmd) );
 
-    result = ncommand(env, ecmd);
+    result = enet_command(env, ecmd);
 
     NDBG( ("NET", "command -> result: %T\r\n", result) );
 
@@ -511,8 +514,8 @@ ERL_NIF_TERM nif_command(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM ncommand(ErlNifEnv*   env,
-                      ERL_NIF_TERM cmd)
+ERL_NIF_TERM enet_command(ErlNifEnv*   env,
+                          ERL_NIF_TERM cmd)
 {
     const ERL_NIF_TERM* t;
     int                 tsz;
@@ -562,7 +565,7 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
     if (argc != 0)
         return enif_make_badarg(env);
 
-    result = ngethostname(env);
+    result = enet_gethostname(env);
 
     NDBG( ("NET", "nif_gethostname -> done when result: %T\r\n", result) );
 
@@ -573,7 +576,7 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM ngethostname(ErlNifEnv* env)
+ERL_NIF_TERM enet_gethostname(ErlNifEnv* env)
 {
     ERL_NIF_TERM result;
     char         buf[NET_MAXHOSTNAMELEN + 1];
@@ -581,7 +584,7 @@ ERL_NIF_TERM ngethostname(ErlNifEnv* env)
 
     res = net_gethostname(buf, sizeof(buf));
 
-    NDBG( ("NET", "ngethostname -> gethostname res: %d\r\n", res) );
+    NDBG( ("NET", "enet_gethostname -> gethostname res: %d\r\n", res) );
 
     switch (res) {
     case 0:
@@ -661,7 +664,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
     if (!decode_nameinfo_flags(env, eFlags, &flags))
         return enif_make_badarg(env);
 
-    result = ngetnameinfo(env, &sa, saLen, flags);
+    result = enet_getnameinfo(env, &sa, saLen, flags);
 
     NDBG( ("NET",
            "nif_getnameinfo -> done when result: "
@@ -678,10 +681,10 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
  */
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM ngetnameinfo(ErlNifEnv*          env,
-                          const ESockAddress* saP,
-                          SOCKLEN_T           saLen,
-                          int                 flags)
+ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
+                              const ESockAddress* saP,
+                              SOCKLEN_T           saLen,
+                              int                 flags)
 {
     ERL_NIF_TERM result;
     char         host[HOSTNAME_LEN];
@@ -694,7 +697,7 @@ ERL_NIF_TERM ngetnameinfo(ErlNifEnv*          env,
                           serv, servLen,
                           flags);
 
-    NDBG( ("NET", "ngetnameinfo -> res: %d\r\n", res) );
+    NDBG( ("NET", "enet_getnameinfo -> res: %d\r\n", res) );
 
     switch (res) {
     case 0:
@@ -828,7 +831,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
     if ((hostName == NULL) && (servName == NULL))
         return enif_make_badarg(env);
 
-    result = ngetaddrinfo(env, hostName, servName);
+    result = enet_getaddrinfo(env, hostName, servName);
 
     if (hostName != NULL)
         FREE(hostName);
@@ -852,15 +855,15 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
-                          char*      host,
-                          char*      serv)
+ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
+                              char*      host,
+                              char*      serv)
 {
     ERL_NIF_TERM     result;
     struct addrinfo* addrInfoP;
     int              res;
 
-    NDBG( ("NET", "ngetaddrinfo -> entry with"
+    NDBG( ("NET", "enet_getaddrinfo -> entry with"
            "\r\n   host: %s"
            "\r\n   serv: %s"
            "\r\n",
@@ -869,7 +872,7 @@ ERL_NIF_TERM ngetaddrinfo(ErlNifEnv* env,
     
     res = getaddrinfo(host, serv, NULL, &addrInfoP);
 
-    NDBG( ("NET", "ngetaddrinfo -> res: %d\r\n", res) );
+    NDBG( ("NET", "enet_getaddrinfo -> res: %d\r\n", res) );
     
     switch (res) {
     case 0:
@@ -993,7 +996,7 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
     if (0 >= GET_STR(env, eifn, ifn, sizeof(ifn)))
         return esock_make_error(env, esock_atom_einval);
 
-    result = nif_name2index(env, ifn);
+    result = enet_if_name2index(env, ifn);
 
     NDBG( ("NET", "nif_if_name2index -> done when result: %T\r\n", result) );
 
@@ -1005,16 +1008,16 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nif_name2index(ErlNifEnv* env,
+ERL_NIF_TERM enet_if_name2index(ErlNifEnv* env,
                             char*      ifn)
 {
     unsigned int idx;
 
-    NDBG( ("NET", "nif_name2index -> entry with ifn: %s\r\n", ifn) );
+    NDBG( ("NET", "enet_if_name2index -> entry with ifn: %s\r\n", ifn) );
 
     idx = if_nametoindex(ifn);
 
-    NDBG( ("NET", "nif_name2index -> idx: %d\r\n", idx) );
+    NDBG( ("NET", "enet_if_name2index -> idx: %d\r\n", idx) );
 
     if (idx == 0) {
         int save_errno = get_errno();
@@ -1061,7 +1064,7 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
            "\r\n   Idx: %T"
            "\r\n", argv[0]) );
 
-    result = nif_index2name(env, idx);
+    result = enet_if_index2name(env, idx);
 
     NDBG( ("NET", "nif_if_index2name -> done when result: %T\r\n", result) );
 
@@ -1073,7 +1076,7 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nif_index2name(ErlNifEnv*   env,
+ERL_NIF_TERM enet_if_index2name(ErlNifEnv*   env,
                             unsigned int idx)
 {
     ERL_NIF_TERM result;
@@ -1120,7 +1123,7 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
-    result = nif_names(env);
+    result = enet_if_names(env);
 
     NDBG( ("NET", "nif_if_names -> done when result: %T\r\n", result) );
 
@@ -1132,12 +1135,12 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-ERL_NIF_TERM nif_names(ErlNifEnv* env)
+ERL_NIF_TERM enet_if_names(ErlNifEnv* env)
 {
     ERL_NIF_TERM         result;
     struct if_nameindex* ifs = if_nameindex();
 
-    NDBG( ("NET", "nif_names -> ifs: 0x%lX\r\n", ifs) );
+    NDBG( ("NET", "enet_if_names -> ifs: 0x%lX\r\n", ifs) );
 
     if (ifs == NULL) {
         result = esock_make_error_errno(env, get_errno());
@@ -1154,9 +1157,9 @@ ERL_NIF_TERM nif_names(ErlNifEnv* env)
          * Or shall we instead build a list in reverse order and then when
          * its done, reverse that? Check
          */
-        unsigned int len = nif_names_length(ifs);
+        unsigned int len = enet_if_names_length(ifs);
 
-        NDBG( ("NET", "nif_names -> len: %d\r\n", len) );
+        NDBG( ("NET", "enet_if_names -> len: %d\r\n", len) );
 
         if (len > 0) {
             ERL_NIF_TERM* array = MALLOC(len * sizeof(ERL_NIF_TERM));
@@ -1183,14 +1186,14 @@ ERL_NIF_TERM nif_names(ErlNifEnv* env)
 
 
 static
-unsigned int nif_names_length(struct if_nameindex* p)
+unsigned int enet_if_names_length(struct if_nameindex* p)
 {
     unsigned int len = 0;
     BOOLEAN_T    done =  FALSE;
 
     while (!done) {
 
-        NDBG( ("NET", "nif_names_length -> %d: "
+        NDBG( ("NET", "enet_if_names_length -> %d: "
                "\r\n   if_index: %d"
                "\r\n   if_name:  0x%lX"
                "\r\n", len, p[len].if_index, p[len].if_name) );
