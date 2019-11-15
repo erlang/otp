@@ -391,7 +391,7 @@ is_acceptable_version(_,_) ->
 
 -spec hello_version([tls_version()]) -> tls_version().
 hello_version([Highest|_]) when Highest >= {3,3} ->
-    Highest;
+    {3,3};
 hello_version(Versions) ->
     lowest_protocol_version(Versions).
 
