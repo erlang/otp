@@ -904,6 +904,7 @@ no_sign_verify(Config) when is_list(Config) ->
 public_encrypt() ->
      [{doc, "Test public_encrypt/decrypt "}].
 public_encrypt(Config) when is_list(Config) ->
+    ct:log("public_encrypt", []),
     Params = proplists:get_value(pub_pub_encrypt, Config, []),
     lists:foreach(fun do_public_encrypt/1, Params).
 
@@ -1651,45 +1652,65 @@ negative_verify(Type, Hash, Msg, Signature, Public, Options) ->
     end.
 
 do_public_encrypt({Type, Public, Private, Msg, Padding}) ->
+    ct:log("do_public_encrypt Type=~p, Padding=~p,~nPublic = ~p,~nPrivate = ~p,~nMsg = ~p.",
+           [Type, Padding, Public, Private, Msg]),
+    timer:sleep(100),
     try
         crypto:public_encrypt(Type, Msg, Public, Padding)
     of
         PublicEcn ->
+            ct:log("private_decrypt~nPublicEcn = ~p.", [PublicEcn]),
+            timer:sleep(100),
             try
                 crypto:private_decrypt(Type, PublicEcn, Private, Padding)
             of
                 Msg ->
+                    ct:log("~p:~p ok", [?MODULE,?LINE]),
+                    timer:sleep(100),
                     ok;
                 Other ->
+                    ct:log("~p:~p Other = ~p", [?MODULE,?LINE,Other]),
+                    timer:sleep(100),
                     ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, Other}})
             catch
                 CC:EE ->
+                    ct:log("~p:~p EXC. ~p:~p", [?MODULE,?LINE,CC,EE]),
+                    timer:sleep(100),
                     ct:fail({{crypto, private_decrypt, [Type, PublicEcn, Private, Padding]}, {expected, Msg}, {got, {CC,EE}}})
             end
     catch
         CC:EE ->
+            ct:log("~p:~p EXC 2. ~p:~p", [?MODULE,?LINE,CC,EE]),
+            timer:sleep(100),
             ct:fail({{crypto, public_encrypt, [Type, Msg, Public, Padding]}, {got, {CC,EE}}})
     end. 
 
 
 do_private_encrypt({Type, Public, Private, Msg, Padding}) ->
+    ct:log("do_private_encrypt Type=~p, Padding=~p,~nPublic = ~p,~nPrivate = ~p,~nMsg = ~p.",
+           [Type, Padding, Public, Private, Msg]),
     try
         crypto:private_encrypt(Type, Msg, Private, Padding)
     of
         PrivEcn ->
             try
+                ct:log("public_decrypt~nPrivEcn = ~p.", [PrivEcn]),
                 crypto:public_decrypt(Type, PrivEcn, Public, Padding)
             of
                 Msg ->
+                    ct:log("~p:~p ok", [?MODULE,?LINE]),
                     ok;
                 Other ->
+                    ct:log("~p:~p Other = ~p", [?MODULE,?LINE,Other]),
                     ct:fail({{crypto, public_decrypt, [Type, PrivEcn, Public, Padding]}, {expected, Msg}, {got, Other}})
             catch
                 CC:EE ->
+                    ct:log("~p:~p EXC. ~p:~p", [?MODULE,?LINE,CC,EE]),
                     ct:fail({{crypto, public_decrypt, [Type, PrivEcn, Public, Padding]}, {expected, Msg}, {got, {CC,EE}}})
             end
     catch
         CC:EE ->
+            ct:log("~p:~p EXC 2. ~p:~p", [?MODULE,?LINE,CC,EE]),
             ct:fail({{crypto, private_encrypt, [Type, Msg, Private, Padding]}, {got, {CC,EE}}})
     end.
 
