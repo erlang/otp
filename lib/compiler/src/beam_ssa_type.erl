@@ -929,7 +929,7 @@ update_switch_failure(V, List, Ts, UsedOnce, D) ->
                 error when UsedOnce ->
                     ts_remove_var(V, Ts);
                 error ->
-                    Ts
+                    Ts#{ V := FailType }
             end
     end.
 
@@ -1456,10 +1456,16 @@ infer_type({bif,'=:='}, [#b_var{}=LHS,#b_var{}=RHS], Ts, _Ds) ->
     {PosTypes, NegTypes};
 infer_type({bif,'=:='}, [#b_var{}=Src,#b_literal{}=Lit], Ts, Ds) ->
     Def = maps:get(Src, Ds),
-    Type = raw_type(Lit, Ts),
-    EqLitTypes = infer_eq_lit(Def, Lit),
-    PosTypes = [{Src,Type} | EqLitTypes],
-    {PosTypes, EqLitTypes};
+    LitType = raw_type(Lit, Ts),
+    PosTypes = [{Src, LitType} | infer_eq_lit(Def, LitType)],
+
+    %% Subtraction is only safe if LitType is single-valued.
+    NegTypes = case beam_types:is_singleton_type(LitType) of
+                    true -> PosTypes;
+                    false -> []
+               end,
+
+    {PosTypes, NegTypes};
 infer_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
@@ -1492,14 +1498,19 @@ infer_success_type(_Op, _Args, _Ts, _Ds) ->
     {[], []}.
 
 infer_eq_lit(#b_set{op={bif,tuple_size},args=[#b_var{}=Tuple]},
-             #b_literal{val=Size}) when is_integer(Size) ->
+             #t_integer{elements={Size,Size}}) ->
     [{Tuple,#t_tuple{exact=true,size=Size}}];
 infer_eq_lit(#b_set{op=get_tuple_element,
                     args=[#b_var{}=Tuple,#b_literal{val=N}]},
-             #b_literal{}=Lit) ->
+             LitType) ->
     Index = N + 1,
-    Es = beam_types:set_tuple_element(Index, raw_type(Lit, #{}), #{}),
-    [{Tuple,#t_tuple{size=Index,elements=Es}}];
+    case beam_types:set_tuple_element(Index, LitType, #{}) of
+        #{ Index := _ }=Es ->
+            [{Tuple,#t_tuple{size=Index,elements=Es}}];
+        #{} ->
+            %% Index was above the element limit; subtraction is not safe.
+            []
+    end;
 infer_eq_lit(_, _) ->
     [].
 

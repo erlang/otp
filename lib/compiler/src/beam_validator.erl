@@ -1809,10 +1809,19 @@ infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]},
               Val, Op, Vst) when Index >= 1 ->
     ElementType = get_term_type(Val, Vst),
     Es = beam_types:set_tuple_element(Index, ElementType, #{}),
-    Type = #t_tuple{size=Index,elements=Es},
+    TupleType = #t_tuple{size=Index,elements=Es},
     case Op of
-        eq_exact -> update_type(fun meet/2, Type, Tuple, Vst);
-        ne_exact -> update_type(fun subtract/2, Type, Tuple, Vst)
+        eq_exact ->
+            update_type(fun meet/2, TupleType, Tuple, Vst);
+        ne_exact ->
+            %% Subtraction is only safe when ElementType is single-valued and
+            %% the index is below the tuple element limit.
+            case beam_types:is_singleton_type(ElementType) of
+                true when Es =/= #{} ->
+                    update_type(fun subtract/2, TupleType, Tuple, Vst);
+                _ ->
+                    Vst
+            end
     end;
 infer_types_1(#value{op={bif,is_atom},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_atom{}, Src, Val, Op, Vst);

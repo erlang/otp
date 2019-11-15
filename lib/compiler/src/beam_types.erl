@@ -367,14 +367,14 @@ subtract(#t_union{number=Number}=A, B) when ?IS_NUMBER_TYPE(B) ->
 subtract(#t_union{list=List}=A, B) when ?IS_LIST_TYPE(B) ->
     shrink_union(A#t_union{list=subtract(List, B)});
 subtract(#t_union{tuple_set=[_|_]=Records0}=A, #t_tuple{}=B) ->
-    %% Filter out all records that are strictly more specific than B.
+    %% Filter out all records that are more specific than B.
     NewSet = case [{Key, T} || {Key, T} <- Records0, meet(T, B) =/= T] of
                  [_|_]=Records -> Records;
                  [] -> none
              end,
     shrink_union(A#t_union{tuple_set=NewSet});
 subtract(#t_union{tuple_set=#t_tuple{}=Tuple}=A, #t_tuple{}=B) ->
-    %% Exclude Tuple if it's strictly more specific than B.
+    %% Exclude Tuple if it's more specific than B.
     case meet(Tuple, B) of
         Tuple -> shrink_union(A#t_union{tuple_set=none});
         _ -> A
@@ -382,7 +382,12 @@ subtract(#t_union{tuple_set=#t_tuple{}=Tuple}=A, #t_tuple{}=B) ->
 subtract(#t_union{other=Other}=A, B) ->
     shrink_union(A#t_union{other=subtract(Other, B)});
 
-subtract(T, _) -> T.
+subtract(A, B) ->
+    %% There's nothing left if A is more specific than B.
+    case meet(A, B) of
+        A -> none;
+        _Other -> A
+    end.
 
 subtract_matchable(T, UnitA, UnitB) ->
     if
