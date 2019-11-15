@@ -344,7 +344,8 @@ typedef struct db_table_common {
 #define NFIXED(T) (erts_refc_read(&(T)->common.fix_count,0))
 #define IS_FIXED(T) (NFIXED(T) != 0) 
 
-#define DB_LOCK_FREE() (erts_no_schedulers == 1)
+#define META_DB_LOCK_FREE() (erts_no_schedulers == 1)
+#define DB_LOCK_FREE(T) META_DB_LOCK_FREE()
 
 /*
  * tplp is an untagged pointer to a tuple we know is large enough

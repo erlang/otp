@@ -342,6 +342,9 @@ struct meta_name_tab_entry* meta_name_tab_bucket(Eterm name,
 {
     unsigned bix = atom_val(name) & meta_name_tab_mask;
     struct meta_name_tab_entry* bucket = &meta_name_tab[bix];
+    /* Only non-dirty schedulers are allowed to access the metatable
+       The smp 1 optimizations for ETS depend on that */
+    ASSERT(erts_get_scheduler_data() && !ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
     *lockp = &meta_name_tab_rwlocks[bix % META_NAME_TAB_LOCK_CNT].lck;
     return bucket;
 }    
@@ -705,20 +708,23 @@ DbTable* db_get_table_aux(Process *p,
     DbTable *tb;
 
     /*
-     * IMPORTANT: Only scheduler threads are allowed
-     *            to access tables. Memory management
-     *            depend on it.
+     * IMPORTANT: Only non-dirty scheduler threads are allowed
+     *            to access tables. Memory management depend on it.
      */
-    ASSERT(erts_get_scheduler_data());
+    ASSERT(erts_get_scheduler_data() && !ERTS_SCHEDULER_IS_DIRTY(erts_get_scheduler_data()));
+
+    if (META_DB_LOCK_FREE())
+        meta_already_locked = 1;
 
     if (is_atom(id)) {
         erts_rwmtx_t *mtl;
 	struct meta_name_tab_entry* bucket = meta_name_tab_bucket(id,&mtl);
 	if (!meta_already_locked)
 	    erts_rwmtx_rlock(mtl);
-	else{
+	else {
 	    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rlocked(mtl)
-			       || erts_lc_rwmtx_is_rwlocked(mtl));
+                           || erts_lc_rwmtx_is_rwlocked(mtl)
+                           || META_DB_LOCK_FREE());
 	}
         tb = NULL;
 	if (bucket->pu.tb != NULL) {
@@ -780,6 +786,10 @@ static int insert_named_tab(Eterm name_atom, DbTable* tb, int have_lock)
     struct meta_name_tab_entry* new_entry;
     struct meta_name_tab_entry* bucket = meta_name_tab_bucket(name_atom,
 							      &rwlock);
+
+    if (META_DB_LOCK_FREE())
+        have_lock = 1;
+
     if (!have_lock)
 	erts_rwmtx_rwlock(rwlock);
 
@@ -841,13 +851,17 @@ static int remove_named_tab(DbTable *tb, int have_lock)
     struct meta_name_tab_entry* bucket = meta_name_tab_bucket(name_atom,
 							      &rwlock);
     ASSERT(is_table_named(tb));
+
+    if (META_DB_LOCK_FREE())
+        have_lock = 1;
+
     if (!have_lock && erts_rwmtx_tryrwlock(rwlock) == EBUSY) {
 	db_unlock(tb, LCK_WRITE);
 	erts_rwmtx_rwlock(rwlock);
 	db_lock(tb, LCK_WRITE);
     }
 
-    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(rwlock));
+    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(rwlock) || META_DB_LOCK_FREE());
 
     if (bucket->pu.tb == NULL) {
 	goto done;
