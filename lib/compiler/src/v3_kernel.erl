@@ -119,7 +119,6 @@ copy_anno(Kdst, Ksrc) ->
 	       funs=[],				%Fun functions
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
-	       guard_refc=0, 			%> 0 means in guard
                no_shared_fun_wrappers=false :: boolean()
               }).
 
@@ -1928,21 +1927,23 @@ uexpr(#k_receive_next{anno=A}, _, St) ->
     {#k_receive_next{anno=A},[],St};
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       {break,Rs0}=Br, St0) ->
-    case {is_in_guard(St0),Rs0} of
-	{true,[]} ->
-	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
-	    #k_literal{val=false} = H0,                  %Assertion.
-	    {A1,Bu,St} = uexpr(A0, {break,[]}, St0),
-	    {#k_protected{arg=A1},Bu,St};
-	{true,[_|_]} ->
-            [Ret] = Rs0,
-	    {[#k_var{name=X}],#k_var{name=X}} = {Vs,B0}, %Assertion.
-	    #k_literal{val=false} = H0,                  %Assertion.
-	    {Av,St1} = new_var(St0),
-	    {A1,Bu,St} = uexpr(A0, {break,[Av]}, St1),
-	    {#k_protected_value{arg=A1,ret=Ret,body_ret=Av},Bu,St};
-	{false,_} ->
-            %% The general try/catch outside of guards.
+    case {Vs,B0,H0,Rs0} of
+	{[#k_var{name=X}],#k_var{name=X},#k_literal{},[]} ->
+            %% This is a simple try/catch whose return value is
+            %% ignored:
+            %%
+            %%   try E of V -> V when _:_:_ -> ignored_literal end, ...
+            %%
+            %% This is most probably a try/catch in a guard. To
+            %% correctly handle the #k_test{} that ends the body of
+            %% the guard, we MUST pass an empty list of break
+            %% variables when processing the body.
+	    {A1,Bu,St} = ubody(A0, {break,[]}, St0),
+	    {#k_try{anno=A,arg=A1,vars=[],body=#k_break{},
+                    evars=[],handler=#k_break{},ret=Rs0},
+	     Bu,St};
+	{_,_,_,_} ->
+            %% The general try/catch (in a guard or in body).
 	    {Avs,St1} = new_vars(length(Vs), St0),
 	    {A1,Au,St2} = ubody(A0, {break,Avs}, St1),
 	    {B1,Bu,St3} = ubody(B0, Br, St2),
@@ -2080,11 +2081,8 @@ umatch(#k_guard{anno=A,clauses=Gs0}, Br, St0) ->
     {Gs1,Gus,St1} = umatch_list(Gs0, Br, St0),
     {#k_guard{anno=A,clauses=Gs1},Gus,St1};
 umatch(#k_guard_clause{anno=A,guard=G0,body=B0}, Br, St0) ->
-    %%ok = io:fwrite("~w: ~p~n", [?LINE,G0]),
-    {G1,Gu,St1} = uexpr(G0, {break,[]},
-			St0#kern{guard_refc=St0#kern.guard_refc+1}),
-    %%ok = io:fwrite("~w: ~p~n", [?LINE,G1]),
-    {B1,Bu,St2} = umatch(B0, Br, St1#kern{guard_refc=St1#kern.guard_refc-1}),
+    {G1,Gu,St1} = uexpr(G0, {break,[]}, St0),
+    {B1,Bu,St2} = umatch(B0, Br, St1),
     Used = union(Gu, Bu),
     {#k_guard_clause{anno=A,guard=G1,body=B1},Used,St2};
 umatch(B0, Br, St0) -> ubody(B0, Br, St0).
@@ -2178,11 +2176,6 @@ pat_list_vars(Ps) ->
 integers(N, M) when N =< M ->
     [N|integers(N + 1, M)];
 integers(_, _) -> [].
-
-%% is_in_guard(State) -> true|false.
-
-is_in_guard(#kern{guard_refc=Refc}) ->
-    Refc > 0.
 
 %%%
 %%% Handling of errors and warnings.
