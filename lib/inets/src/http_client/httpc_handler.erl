@@ -598,7 +598,7 @@ do_handle_info({Proto, Socket, Data},
                              "~n", 
                              [Proto, Socket, Data, MFA, 
                               Request, Session, Status, StatusLine, Profile]),
-
+    activate_once(Session),
     {noreply, State};
 
 %% The Server may close the connection to indicate that the
@@ -975,9 +975,7 @@ handle_http_body(<<>>, #state{headers = Headers,
     handle_response(State#state{body = <<>>});
 
 
-handle_http_body(<<>>, #state{headers = Headers,
-                              request = #request{method = head}} = State)
-  when Headers#http_response_h.'transfer-encoding' =/= "chunked" ->
+handle_http_body(<<>>, #state{request = #request{method = head}} = State) ->
     handle_response(State#state{body = <<>>});
 
 handle_http_body(Body, #state{headers       = Headers, 
