@@ -143,6 +143,8 @@ $(DIA_PLT): Makefile
                   -r ../$(APPLICATION)/ebin \
                      ../../lib/kernel/ebin \
                      ../../lib/stdlib/ebin \
+                     ../../lib/compiler/ebin \
+                     ../../lib/hipe/ebin \
                      ../../lib/runtime_tools/ebin \
                      ../../lib/crypto/ebin \
                      ../../lib/mnesia/ebin \
