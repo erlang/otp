@@ -122,7 +122,7 @@ Server ! {snmp_inform, Ref, Pdu, PduMS, Domain, Addr}
           will not make the call to the 
           <seealso marker="snmpm_network_interface#inform_response">inform_response</seealso> 
           function). See the 
-          <seealso marker="snmp_app">inform request behaviour</seealso> 
+          <seealso marker="snmp_config#manager_irb">inform request behaviour</seealso> 
           configuration option for more info.</p>
       </item>
       <item>
