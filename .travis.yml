@@ -69,6 +69,27 @@ matrix:
             - g++
             - xsltproc
             - libxml2-utils
+            
+    - env: Linux-s390x-SmokeTest
+      arch: s390x
+      script:
+        - ./scripts/build-otp
+        - ./otp_build tests
+        - ./scripts/run-smoke-tests
+      addons:
+        apt:
+          update: true
+          packages:
+            - autoconf
+            - libncurses-dev
+            - build-essential
+            - libssl-dev
+            - libwxgtk3.0-dev
+            - libglu1-mesa-dev
+            - default-jdk
+            - g++
+            - xsltproc
+            - libxml2-utils 
 
     - env: Linux64Docbuild
       script:
