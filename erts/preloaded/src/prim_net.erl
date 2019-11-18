@@ -33,6 +33,7 @@
          gethostname/0,
          getnameinfo/2,
          getaddrinfo/2,
+         getifaddrs/1,
 
          if_name2index/1,
          if_index2name/1,
@@ -41,18 +42,37 @@
 
 -export_type([
               address_info/0,
+              ifaddrs/0,
               name_info/0,
 
-              name_info_flags/0,
+              ifaddrs_flag/0,
+              ifaddrs_flags/0,
+
               name_info_flag/0,
               name_info_flag_ext/0,
+              name_info_flags/0,
 
               network_interface_name/0,
               network_interface_index/0
              ]).
 
 
--type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
+-type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |
+                        notrailers | running | noarp | promisc | master | slave |
+                        multicast | portsel | automedia | dynamic.
+-type ifaddrs_flags() :: [ifaddrs_flag()].
+
+%% Note that not all of these fields are mandatory.
+%% Actually there are (error) cases when only the name will be included.
+%% And broadaddr and dstaddr are mutually exclusive!
+
+-type ifaddrs() :: #{name      := string(),
+                     flags     := ifaddrs_flags(),
+                     addr      := socket:sockaddr(),
+                     netmask   := socket:sockaddr(),
+                     broadaddr := socket:sockaddr(),
+                     dstaddr   := socket:sockaddr()}.
+
 -type name_info_flag()          :: namereqd |
                                    dgram |
                                    nofqdn |
@@ -62,6 +82,7 @@
 %% (as they are deprecated by later version of gcc):
 %%    idn_allow_unassigned | idn_use_std3_ascii_rules.
 -type name_info_flag_ext()      :: idn.
+-type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
 -type name_info()               :: #{host    := string(),
                                      service := string()}.
 -type address_info()            :: #{family   := socket:domain(),
@@ -177,6 +198,21 @@ getaddrinfo(Host, Service)
 
 %% ===========================================================================
 %%
+%% getifaddrs - Get interface addresses
+%%
+
+-spec getifaddrs(Extra) -> {ok, IfInfo} | {error, Reason} when
+      Extra   :: map(),
+      IfInfo  :: [ifaddrs()],
+      Reason  :: term().
+
+getifaddrs(Extra) when is_map(Extra) ->
+    nif_getifaddrs(Extra).
+
+
+
+%% ===========================================================================
+%%
 %% if_name2index - Mappings between network interface names and indexes:
 %%                 name -> idx
 %%
@@ -277,6 +313,9 @@ nif_getnameinfo(_Addr, _Flags) ->
     erlang:nif_error(undef).
 
 nif_getaddrinfo(_Host, _Service, _Hints) ->
+    erlang:nif_error(undef).
+
+nif_getifaddrs(_Extra) ->
     erlang:nif_error(undef).
 
 nif_if_name2index(_Name) ->

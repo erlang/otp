@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -60,6 +60,10 @@
 #include <sys/un.h>
 #endif
 
+#ifdef HAVE_NETPACKET_PACKET_H
+#include <netpacket/packet.h>
+#endif
+
 #endif
 
 #include <erl_nif.h>
@@ -80,6 +84,11 @@ typedef union {
     /* Unix Domain Socket sockaddr */
 #if defined(HAVE_SYS_UN_H)
     struct sockaddr_un  un;
+#endif
+
+    /* Link Layer sockaddr (used for address family PACKET) */
+#if defined(HAVE_NETPACKET_PACKET_H) && defined(AF_PACKET)
+    struct sockaddr_ll ll;
 #endif
 
 } ESockAddress;
@@ -167,15 +176,18 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(faith);                    \
     GLOBAL_ATOM_DEF(false);                    \
     GLOBAL_ATOM_DEF(family);                   \
+    GLOBAL_ATOM_DEF(fastroute);                \
     GLOBAL_ATOM_DEF(flags);                    \
     GLOBAL_ATOM_DEF(flowinfo);                 \
     GLOBAL_ATOM_DEF(fragment_interleave);      \
     GLOBAL_ATOM_DEF(freebind);                 \
     GLOBAL_ATOM_DEF(get_peer_addr_info);       \
+    GLOBAL_ATOM_DEF(hatype);                   \
     GLOBAL_ATOM_DEF(hdrincl);                  \
     GLOBAL_ATOM_DEF(hmac_ident);               \
     GLOBAL_ATOM_DEF(hoplimit);                 \
     GLOBAL_ATOM_DEF(hopopts);                  \
+    GLOBAL_ATOM_DEF(host);                     \
     GLOBAL_ATOM_DEF(icmp);                     \
     GLOBAL_ATOM_DEF(icmp6);                    \
     GLOBAL_ATOM_DEF(ifindex);                  \
@@ -212,6 +224,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(msfilter);                 \
     GLOBAL_ATOM_DEF(mtu);                      \
     GLOBAL_ATOM_DEF(mtu_discover);             \
+    GLOBAL_ATOM_DEF(multicast);                \
     GLOBAL_ATOM_DEF(multicast_all);            \
     GLOBAL_ATOM_DEF(multicast_hops);           \
     GLOBAL_ATOM_DEF(multicast_if);             \
@@ -229,6 +242,9 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(oobinline);                \
     GLOBAL_ATOM_DEF(options);                  \
     GLOBAL_ATOM_DEF(origdstaddr);              \
+    GLOBAL_ATOM_DEF(otherhost);                \
+    GLOBAL_ATOM_DEF(outgoing);                 \
+    GLOBAL_ATOM_DEF(packet);                   \
     GLOBAL_ATOM_DEF(partial_delivery_point);   \
     GLOBAL_ATOM_DEF(passcred);                 \
     GLOBAL_ATOM_DEF(path);                     \
@@ -239,6 +255,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(peer_auth_chunks);         \
     GLOBAL_ATOM_DEF(pktinfo);                  \
     GLOBAL_ATOM_DEF(pktoptions);               \
+    GLOBAL_ATOM_DEF(pkttype);                  \
     GLOBAL_ATOM_DEF(port);                     \
     GLOBAL_ATOM_DEF(portrange);                \
     GLOBAL_ATOM_DEF(primary_addr);             \
