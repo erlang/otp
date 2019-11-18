@@ -77,6 +77,7 @@ iolist() -> frequency([{5, list( oneof([list(byte()),
 mybinary(MaxSize) -> ?LET(Sz, integer(0,MaxSize), binary(Sz)).
 
 padding() -> oneof([pkcs_padding, none,
+                    zero, random,
                     undefined]).
 
 %%%================================================================

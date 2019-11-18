@@ -282,7 +282,9 @@ static int get_init_args(ErlNifEnv* env,
 
     /* Set padding */
     if ((padding_arg == atom_undefined) ||
-        (padding_arg == atom_none) )
+        (padding_arg == atom_none) ||
+        (padding_arg == atom_zero) ||
+        (padding_arg == atom_random) )
         EVP_CIPHER_CTX_set_padding(ctx_res->ctx, 0);
 
     else if (padding_arg != atom_pkcs_padding) /* pkcs_padding is default */
@@ -460,6 +462,30 @@ static int get_final_args(ErlNifEnv* env,
                             pad_offset = 0;
                         }
 
+                    else if ((ctx_res->padding == atom_zero) ||
+                             (ctx_res->padding == atom_random))
+                        {
+                            if (pad_size)
+                                {
+                                    unsigned char padding[EVP_MAX_BLOCK_LENGTH];
+                                    int i;
+                                    if (ctx_res->padding == atom_zero)
+                                        for(i=0; i<pad_size; i++)  padding[i] = (unsigned char)0;
+                                    else
+                                        RAND_bytes(padding, pad_size);
+                                    if (!EVP_CipherUpdate(ctx_res->ctx, out_data_bin.data, &out_len, padding, pad_size))
+                                        {
+                                            *return_term = EXCP_ERROR(env, "Can't pad");
+                                            goto err;
+                                        }
+                                }
+                            else
+                                out_len = 0;
+
+                            if (padded_size) *padded_size = pad_size;
+                            pad_offset = out_len;
+                        }
+
                     else
                         {
                             *return_term = EXCP_ERROR(env, "Bad padding flg");
@@ -499,7 +525,9 @@ static int get_final_args(ErlNifEnv* env,
                         }
 
                     else if ((ctx_res->padding == atom_none) ||
-                             (ctx_res->padding == atom_pkcs_padding) )
+                             (ctx_res->padding == atom_pkcs_padding) ||
+                             (ctx_res->padding == atom_zero) ||
+                             (ctx_res->padding == atom_random) )
                         {
                             if (!EVP_CipherFinal_ex(ctx_res->ctx, out_data_bin.data, &out_len))
                                 {

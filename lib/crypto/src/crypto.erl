@@ -1049,8 +1049,9 @@ next_iv(Type, Data, _Ivec) ->
                      | [ crypto_opt() ] .
 -type crypto_opt() :: {encrypt,boolean()} 
                     | {padding, padding()} .
--type padding() :: cryptolib_padding() .
+-type padding() :: cryptolib_padding() | otp_padding().
 -type cryptolib_padding() :: none | pkcs_padding .
+-type otp_padding() :: zero | random .
 
 
 %%%----------------------------------------------------------------
@@ -1106,7 +1107,7 @@ chk_opt(X, _) ->
 
 
 ok_opt(encrypt, V) -> lists:member(V, [true, false, undefined]);
-ok_opt(padding, V) -> lists:member(V, [none, pkcs_padding, undefined]);
+ok_opt(padding, V) -> lists:member(V, [none, pkcs_padding, zero, random, undefined]);
 ok_opt(_, _) -> false.
 
 %%%----------------------------------------------------------------
