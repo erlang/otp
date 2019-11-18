@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2018</year>
+      <year>1996</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -298,6 +298,18 @@ child_spec() = #{id => child_id(),       % mandatory
     </datatype>
     <datatype>
       <name name="shutdown"/>
+    </datatype>
+    <datatype>
+      <name name="startchild_err"/>
+    </datatype>
+    <datatype>
+      <name name="startchild_ret"/>
+    </datatype>
+    <datatype>
+      <name name="startlink_err"/>
+    </datatype>
+    <datatype>
+      <name name="startlink_ret"/>
     </datatype>
     <datatype>
       <name name="strategy"/>
