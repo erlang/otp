@@ -1722,7 +1722,7 @@ handle_incomplete_chain(PeerCert, Chain0,
     end.
 
 handle_unorded_chain(PeerCert, Chain0,
-                     #{partial_chain := PartialChain} = Opts, Options, CertDbHandle, CertsDbRef, Reason) ->
+                     #{partial_chain := PartialChain}, Options, CertDbHandle, CertsDbRef, Reason) ->
     {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, Chain0}),
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, ExtractedCerts, Chain0) of
         {ok, _, Chain} when  Chain =/= Chain0 -> %% Chain appaears to be unorded 
