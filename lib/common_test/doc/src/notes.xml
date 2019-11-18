@@ -328,6 +328,21 @@
 
 </section>
 
+<section><title>Common_Test 1.15.4.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The ct_property_test logging is improved.</p>
+          <p>
+	    Own Id: OTP-16287</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.15.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

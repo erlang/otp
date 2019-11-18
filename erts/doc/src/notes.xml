@@ -3316,6 +3316,27 @@
 
 </section>
 
+<section><title>Erts 9.3.3.13</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A literal area could prematurely be released before all
+	    uses of it had been removed. This occurred either when a
+	    terminating process had a complex exit reason referring
+	    to a literal that concurrently was removed, or when a
+	    terminating process continued executing a dirty NIF
+	    accessing a literal (via the heap) that concurrently was
+	    removed.</p>
+          <p>
+	    Own Id: OTP-16193</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.12</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
