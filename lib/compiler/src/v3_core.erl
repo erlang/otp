@@ -141,6 +141,7 @@
 	       in_guard=false :: boolean(),	%In guard or not.
 	       wanted=true :: boolean(),	%Result wanted or not.
 	       opts     :: [compile:option()],	%Options.
+               dialyzer=false :: boolean(),     %Help dialyzer or not.
 	       ws=[]    :: [warning()],		%Warnings.
                file=[{file,""}]			%File.
 	      }).
@@ -218,6 +219,7 @@ defined_functions(Forms) ->
 function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
     try
         St0 = #core{vcount=0,function={Name,Arity},opts=Opts,
+                    dialyzer=member(dialyzer, Opts),
                     ws=Ws0,file=[{file,File}]},
         {B0,St1} = body(Cs0, Name, Arity, St0),
         %% ok = function_dump(Name,Arity,"body:~n~p~n",[B0]),
@@ -2082,8 +2084,8 @@ right_assoc({op,L1,Op,{op,L2,Op,E1,E2},E3}, Op) ->
     right_assoc({op,L2,Op,E1,{op,L1,Op,E2,E3}}, Op);
 right_assoc(E, _Op) -> E.
 
-annotate_tuple(A, Es, St) ->
-    case member(dialyzer, St#core.opts) of
+annotate_tuple(A, Es, #core{dialyzer=Dialyzer}) ->
+    case Dialyzer of
         true ->
             %% Do not coalesce constant tuple elements. A Hack.
             Node = cerl:ann_c_tuple(A, [cerl:c_var(any)]),
@@ -2092,8 +2094,8 @@ annotate_tuple(A, Es, St) ->
             ann_c_tuple(A, Es)
     end.
 
-annotate_cons(A, H, T, St) ->
-    case member(dialyzer, St#core.opts) of
+annotate_cons(A, H, T, #core{dialyzer=Dialyzer}) ->
+    case Dialyzer of
         true ->
             %% Do not coalesce constant conses. A Hack.
             Node= cerl:ann_c_cons(A, cerl:c_var(any), cerl:c_var(any)),
@@ -2666,10 +2668,8 @@ bitstr_vars(Segs, Vs) ->
  		  lit_vars(V, lit_vars(S, Vs0))
 	  end, Vs, Segs).
 
-record_anno(L, St) ->
-    case
-        erl_anno:record(L) andalso member(dialyzer, St#core.opts)
-    of
+record_anno(L, #core{dialyzer=Dialyzer}=St) ->
+    case erl_anno:record(L) andalso Dialyzer of
         true ->
             [record | lineno_anno(L, St)];
         false ->
