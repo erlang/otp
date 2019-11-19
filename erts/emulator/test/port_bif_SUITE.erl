@@ -26,7 +26,7 @@
 	 command_e_1/1, command_e_2/1, command_e_3/1, command_e_4/1,
 	 port_info1/1, port_info2/1,
 	 port_info_os_pid/1, port_info_race/1,
-	 connect/1, control/1, echo_to_busy/1]).
+	 connect/1, control/1, echo_to_busy/1, busy_options/1]).
 
 -export([do_command_e_1/1, do_command_e_2/1, do_command_e_4/1]).
 
@@ -38,7 +38,7 @@ suite() ->
 
 all() -> 
     [command, {group, port_info}, connect, control,
-     echo_to_busy].
+     echo_to_busy, busy_options].
 
 groups() -> 
     [{command_e, [],
@@ -475,3 +475,171 @@ sub_bin(Bin) when is_binary(Bin) ->
     B.
 
 id(I) -> I.
+
+busy_options(Config) when is_list(Config) ->
+    SleepTime = 2000,
+    SleepTimeX = SleepTime + 100,
+    MinVal = 1,
+    MaxVal = (1 bsl (8*erlang:system_info(wordsize))) - 2,
+    DataDir = proplists:get_value(data_dir, Config),
+    Sleep = filename:join(DataDir, "sleeper") ++ " " ++ integer_to_list(SleepTime),
+    Data = "hej hopp! hej hopp! hej hopp! hej hopp! hej hopp! hej hopp! hej hopp! hej hopp! hej hopp! hej hopp!",
+
+    process_flag(trap_exit, true),
+    Tester = self(),
+    HejLoop = fun (Prt, _F, 1000) ->
+                      Prt;
+                  (Prt, F, N) ->
+                      Prt ! {Tester, {command, Data}},
+                      F(Prt, F, N+1)
+              end,
+
+    io:format("Test1...~n", []),
+    Start1 = erlang:monotonic_time(millisecond),
+    Prt1 = open_port({spawn, Sleep},
+                     [{busy_limits_port, {MinVal, MinVal}},
+                      {busy_limits_msgq, {MinVal, MinVal}}]),
+    T1 = spawn_link(fun () ->
+                             HejLoop(Prt1, HejLoop, 0)
+                    end),
+    true = wait_until(fun () ->
+                              {status, suspended} == process_info(T1, status)
+                      end,
+                      SleepTimeX),
+    unlink(T1),
+    exit(T1, kill),
+    io:format("Test1 done: ~p ms~n", [erlang:monotonic_time(millisecond)-Start1]),
+
+    io:format("Test2...~n", []),
+    Start2 = erlang:monotonic_time(millisecond),
+    Prt2 = open_port({spawn, Sleep},
+                     [{busy_limits_port, {50, 100}},
+                      {busy_limits_msgq, {50, 100}}]),
+    T2 = spawn_link(fun () ->
+                            HejLoop(Prt2, HejLoop, 0)
+                    end),
+    true = wait_until(fun () ->
+                              {status, suspended} == process_info(T2, status)
+                      end,
+                      SleepTimeX),
+    unlink(T2),
+    exit(T2, kill),
+    io:format("Test2 done: ~p ms~n", [erlang:monotonic_time(millisecond)-Start2]),
+
+    io:format("Test3...~n", []),
+    Start3 = erlang:monotonic_time(millisecond),
+
+    Prt3 = open_port({spawn, Sleep},
+                     [{busy_limits_port, {MaxVal,MaxVal}},
+                      {busy_limits_msgq, {MaxVal,MaxVal}}]),
+    T3 = spawn_link(fun () ->
+                            HejLoop(Prt3, HejLoop, 0)
+                    end),
+    false = wait_until(fun () ->
+                              {status, suspended} == process_info(T3, status)
+                       end,
+                       SleepTimeX),
+    unlink(T3),
+    exit(T3, kill),
+    io:format("Test3 done: ~p ms~n", [erlang:monotonic_time(millisecond)-Start3]),
+
+    io:format("Test4...~n", []),
+    Start4 = erlang:monotonic_time(millisecond),
+
+    Prt4 = open_port({spawn, Sleep},
+                     [{busy_limits_port, disabled},
+                      {busy_limits_msgq, disabled}]),
+    T4 = spawn_link(fun () ->
+                            HejLoop(Prt4, HejLoop, 0)
+                    end),
+    false = wait_until(fun () ->
+                               {status, suspended} == process_info(T4, status)
+                       end,
+                       SleepTimeX),
+    unlink(T4),
+    exit(T4, kill),
+    io:format("Test4 done: ~p ms~n", [erlang:monotonic_time(millisecond)-Start4]),
+
+    try
+        open_port({spawn, Sleep},
+                  [{busy_limits_port, {MinVal-1,MinVal-1}}])
+    catch
+        error:badarg -> ok
+    end,
+
+    try
+        open_port({spawn, Sleep},
+                  [{busy_limits_msgq, {MinVal-1,MinVal-1}}])
+    catch
+        error:badarg -> ok
+    end,
+
+    try
+        open_port({spawn, Sleep},
+                  [{busy_limits_port, {MaxVal+1,MaxVal+1}}])
+    catch
+        error:badarg -> ok
+    end,
+
+    try
+        open_port({spawn, Sleep},
+                  [{busy_limits_msgq, {MaxVal+1,MaxVal+1}}])
+    catch
+        error:badarg -> ok
+    end,
+
+    load_control_drv(Config),
+
+    CtrlPort = open_port({spawn, "control_drv"},
+                         [{busy_limits_msgq, {50,100}}]),
+    unlink(CtrlPort),
+    exit(CtrlPort, kill),
+    
+    try
+        open_port({spawn, "control_drv"},
+                   [{busy_limits_port, {50,100}}])
+    catch
+        error:badarg -> ok
+    end,
+
+    receive {'EXIT', Prt1, _} -> ok end,
+    receive {'EXIT', Prt2, _} -> ok end,
+    receive {'EXIT', Prt3, _} -> ok end,
+    receive {'EXIT', Prt4, _} -> ok end,
+
+    ok.
+
+wait_until(Fun, infinity) ->
+    wait_until_aux(Fun, infinity);
+wait_until(Fun, MaxTime) ->
+    End = erlang:monotonic_time(millisecond) + MaxTime,
+    wait_until_aux(Fun, End).
+
+wait_until_aux(Fun, End) ->
+    case catch Fun() of
+        true ->
+            true;
+        _ ->
+            if End == infinity ->
+                    receive after 100 -> ok end,
+                    wait_until_aux(Fun, infinity);
+               true ->
+                    Now = erlang:monotonic_time(millisecond),
+                    case End =< Now of
+                        true ->
+                            false;
+                        _ ->
+                            Wait = case End - Now of
+                                       Short when End - Now < 100 ->
+                                           Short;
+                                       _ ->
+                                           100
+                                   end,
+                            receive after Wait -> ok end,
+                            wait_until_aux(Fun, End)
+                    end
+            end
+    end.
+                                   
+                                          
+                        
