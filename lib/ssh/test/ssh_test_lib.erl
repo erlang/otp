@@ -451,25 +451,37 @@ clean_rsa(UserDir) ->
     file:delete(filename:join(UserDir,"known_hosts")),
     file:delete(filename:join(UserDir,"authorized_keys")).
 
-setup_dsa_pass_pharse(DataDir, UserDir, Phrase) ->
-    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
-    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
-    setup_dsa_known_host(DataDir, UserDir),
-    setup_dsa_auth_keys(DataDir, UserDir).
+setup_dsa_pass_phrase(DataDir, UserDir, Phrase) ->
+    try
+        {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_dsa")),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_dsa"), Phrase),
+        System = filename:join(UserDir, "system"),
+        file:make_dir(System),
+        file:copy(filename:join(DataDir, "ssh_host_dsa_key"), filename:join(System, "ssh_host_dsa_key")),
+        file:copy(filename:join(DataDir, "ssh_host_dsa_key.pub"), filename:join(System, "ssh_host_dsa_key.pub")),
+        setup_dsa_known_host(DataDir, UserDir),
+        setup_dsa_auth_keys(DataDir, UserDir)
+    of 
+        _ -> true
+    catch
+        _:_ -> false
+    end.
 
-setup_rsa_pass_pharse(DataDir, UserDir, Phrase) ->
-    {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
-    setup_pass_pharse(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
-    System = filename:join(UserDir, "system"),
-    file:make_dir(System),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
-    file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
-    setup_rsa_known_host(DataDir, UserDir),
-    setup_rsa_auth_keys(DataDir, UserDir).
+setup_rsa_pass_phrase(DataDir, UserDir, Phrase) ->
+    try
+        {ok, KeyBin} = file:read_file(filename:join(DataDir, "id_rsa")),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_rsa"), Phrase),
+        System = filename:join(UserDir, "system"),
+        file:make_dir(System),
+        file:copy(filename:join(DataDir, "ssh_host_rsa_key"), filename:join(System, "ssh_host_rsa_key")),
+        file:copy(filename:join(DataDir, "ssh_host_rsa_key.pub"), filename:join(System, "ssh_host_rsa_key.pub")),
+        setup_rsa_known_host(DataDir, UserDir),
+        setup_rsa_auth_keys(DataDir, UserDir)
+    of 
+        _ -> true
+    catch
+        _:_ -> false
+    end.
 
 setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
     try
@@ -481,7 +493,7 @@ setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
                 Other ->
                     Other
             end,
-        setup_pass_pharse(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
+        setup_pass_phrase(KeyBin, filename:join(UserDir, "id_ecdsa"), Phrase),
         System = filename:join(UserDir, "system"),
         file:make_dir(System),
         file:copy(filename:join(DataDir, "ssh_host_ecdsa_key"++Size), filename:join(System, "ssh_host_ecdsa_key")),
@@ -494,7 +506,7 @@ setup_ecdsa_pass_phrase(Size, DataDir, UserDir, Phrase) ->
         _:_ -> false
     end.
 
-setup_pass_pharse(KeyBin, OutFile, Phrase) ->
+setup_pass_phrase(KeyBin, OutFile, Phrase) ->
     [{KeyType, _,_} = Entry0] = public_key:pem_decode(KeyBin),
     Key =  public_key:pem_entry_decode(Entry0),
     Salt = crypto:strong_rand_bytes(8),
@@ -1070,3 +1082,45 @@ ntoa(A) ->
         _:_ when is_list(A) -> A
     end.
     
+%%%----------------------------------------------------------------
+try_enable_fips_mode() ->
+    case crypto:info_fips() of
+        enabled ->
+            report("FIPS mode already enabled", ?LINE),
+            ok;
+        not_enabled ->
+            %% Erlang/crypto configured with --enable-fips
+            case crypto:enable_fips_mode(true) of
+		true ->
+                    %% and also the cryptolib is fips enabled
+                    report("FIPS mode enabled", ?LINE),
+		    enabled = crypto:info_fips(),
+		    ok;
+		false ->
+                    case is_cryptolib_fips_capable() of
+                        false ->
+                            report("No FIPS mode in cryptolib", ?LINE),
+                            {skip, "FIPS mode not supported in cryptolib"};
+                        true ->
+                            ct:fail("Failed to enable FIPS mode", [])
+                    end
+	    end;
+        not_supported ->
+            report("FIPS mode not supported by Erlang/OTP", ?LINE),
+            {skip, "FIPS mode not supported"}
+    end.
+
+is_cryptolib_fips_capable() ->
+    [{_,_,Inf}] = crypto:info_lib(),
+    nomatch =/= re:run(Inf, "(F|f)(I|i)(P|p)(S|s)").
+
+report(Comment, Line) ->
+    ct:comment(Comment),
+    ct:log("~p:~p  try_enable_fips_mode~n"
+           "crypto:info_lib() = ~p~n"
+           "crypto:info_fips() = ~p~n"
+           "crypto:supports() =~n~p~n", 
+           [?MODULE, Line,
+            crypto:info_lib(),
+            crypto:info_fips(),
+            crypto:supports()]).
