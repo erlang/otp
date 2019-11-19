@@ -234,7 +234,7 @@ groups() ->
      {blowfish_ofb64,       [], [block, api_ng, api_ng_one_shot, api_ng_tls]},
      {rc4,                  [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_ctr,              [], [stream]},
-     {chacha20_poly1305,    [], [aead, aead_bad_tag]},
+     {chacha20_poly1305,    [], [aead, aead_ng, aead_bad_tag]},
      {chacha20,             [], [stream, api_ng, api_ng_one_shot, api_ng_tls]},
      {poly1305,             [], [poly1305]},
      {no_poly1305,          [], [no_poly1305]},
@@ -256,7 +256,7 @@ groups() ->
      {no_blowfish_cfb64,    [], [no_support, no_block]},
      {no_blowfish_ofb64,    [], [no_support, no_block]},
      {no_aes_ige256,        [], [no_support, no_block]},
-     {no_chacha20_poly1305, [], [no_support, no_aead]},
+     {no_chacha20_poly1305, [], [no_support, no_aead, no_aead_ng]},
      {no_chacha20,          [], [no_support, no_stream_ivec]},
      {no_rc2_cbc,           [], [no_support, no_block]},
      {no_rc4,               [], [no_support, no_stream]},
@@ -279,15 +279,15 @@ groups() ->
      {aes_128_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_192_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
      {aes_256_ctr,  [], [api_ng, api_ng_one_shot, api_ng_tls]},
-     {aes_128_ccm,  [], [aead, aead_bad_tag]},
-     {aes_192_ccm,  [], [aead, aead_bad_tag]},
-     {aes_256_ccm,  [], [aead, aead_bad_tag]},
+     {aes_128_ccm,  [], [aead, aead_ng, aead_bad_tag]},
+     {aes_192_ccm,  [], [aead, aead_ng, aead_bad_tag]},
+     {aes_256_ccm,  [], [aead, aead_ng, aead_bad_tag]},
      {aes_128_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_192_ecb,  [], [api_ng, api_ng_one_shot]},
      {aes_256_ecb,  [], [api_ng, api_ng_one_shot]},
-     {aes_128_gcm,  [], [aead, aead_bad_tag]},
-     {aes_192_gcm,  [], [aead, aead_bad_tag]},
-     {aes_256_gcm,  [], [aead, aead_bad_tag]},
+     {aes_128_gcm,  [], [aead, aead_ng, aead_bad_tag]},
+     {aes_192_gcm,  [], [aead, aead_ng, aead_bad_tag]},
+     {aes_256_gcm,  [], [aead, aead_ng, aead_bad_tag]},
 
      %% Retired aliases
      {aes_cbc,    [], [block]},
@@ -342,21 +342,7 @@ end_per_suite(_Config) ->
 
 %%-------------------------------------------------------------------
 init_per_group(fips, Config) ->
-    FIPSConfig = [{fips, true} | Config],
-    case crypto:info_fips() of
-        enabled ->
-            FIPSConfig;
-        not_enabled ->
-            case crypto:enable_fips_mode(true) of
-		true ->
-		    enabled = crypto:info_fips(),
-		    FIPSConfig;
-		false ->
-		    {fail, "Failed to enable FIPS mode"}
-	    end;
-        not_supported ->
-            {skip, "FIPS mode not supported"}
-    end;
+    try_enable_fips_mode(Config);
 init_per_group(non_fips, Config) ->
     NonFIPSConfig = [{fips, false} | Config],
     case crypto:info_fips() of
@@ -551,7 +537,7 @@ api_ng() ->
 
 api_ng(Config) when is_list(Config) ->
     [_|_] = Ciphers = lazy_eval(proplists:get_value(cipher, Config, [])),
-    lists:foreach(fun api_ng_cipher_increment/1, Ciphers).
+    lists:foreach(fun api_ng_cipher_increment/1, Ciphers ++ spec_0_bytes(Config)).
 
 api_ng_cipher_increment({Type, Key, PlainTexts}=_X) ->
     ct:log("~p",[_X]),
@@ -601,12 +587,33 @@ api_ng_cipher_increment_loop(Ref, InTexts) ->
               end, InTexts).
 
 %%--------------------------------------------------------------------
+%% Check that crypto do not core dump on early 0.9.8 cryptolibs
+spec_0_bytes(Config) ->
+    Type = proplists:get_value(type, Config),
+    #{iv_length := IVS, key_length := KS} = Spec = crypto:cipher_info(Type),
+    Key = <<0:KS/unit:8>>,
+    IV = <<0:IVS/unit:8>>,
+    spec_0_bytes(Type, Key, IV, Spec).
+
+
+spec_0_bytes(chacha20_poly1305, _, _, _) ->
+    [];
+spec_0_bytes(Type, Key, IV, #{mode := M}) when M == ccm_mode ;
+                                               M == gcm_mode ->
+    AAD = <<>>,
+    Plain = <<>>,
+    {_, Tag} = crypto:crypto_one_time_aead(Type, Key, IV, Plain, AAD, true),
+    [{Type, Key, Plain, IV, AAD, <<>>, Tag, []}];
+spec_0_bytes(Type, Key, IV, _Spec) ->
+    [{Type, Key, IV, <<>>, <<>>}].
+
+%%--------------------------------------------------------------------
 api_ng_one_shot() ->
      [{doc, "Test new api"}].
 
 api_ng_one_shot(Config) when is_list(Config) ->
     [_|_] = Ciphers = lazy_eval(proplists:get_value(cipher, Config, [])),
-    lists:foreach(fun do_api_ng_one_shot/1, Ciphers).
+    lists:foreach(fun do_api_ng_one_shot/1, Ciphers ++ spec_0_bytes(Config)).
 
 do_api_ng_one_shot({Type, Key, PlainTexts}=_X) ->
     ct:log("~p",[_X]),
@@ -708,6 +715,23 @@ no_aead(Config) when is_list(Config) ->
     notsup(fun crypto:block_decrypt/4, DecryptArgs).
 
 %%--------------------------------------------------------------------
+no_aead_ng() ->
+     [{doc, "Test disabled aead ciphers"}].
+no_aead_ng(Config) when is_list(Config) ->
+    {EncFun, EncryptArgs} =
+        case lazy_eval(proplists:get_value(cipher, Config)) of
+            [{Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, _Info} | _] ->
+                {fun crypto:crypto_one_time_aead/7, [Type, Key, IV, PlainText, AAD, TagLen, true]};
+
+            [{Type, Key, PlainText, IV, AAD, CipherText, CipherTag, _Info} | _] ->
+                {fun crypto:crypto_one_time_aead/6, [Type, Key, IV, PlainText, AAD, true]}
+        end,
+    notsup(EncFun, EncryptArgs),
+
+    DecryptArgs = [Type, Key, IV, CipherText, AAD, CipherTag, false],
+    notsup(fun crypto:crypto_one_time_aead/7, DecryptArgs).
+
+%%--------------------------------------------------------------------
 stream() ->
       [{doc, "Test stream ciphers"}].
 stream(Config) when is_list(Config) ->
@@ -748,6 +772,23 @@ aead(Config) when is_list(Config) ->
 		  end, AEADs)
 	end,
     lists:foreach(fun aead_cipher/1, FilteredAEADs).
+
+%%--------------------------------------------------------------------
+aead_ng(Config) when is_list(Config) ->
+    [_|_] = AEADs = lazy_eval(proplists:get_value(cipher, Config)),
+    FilteredAEADs =
+	case proplists:get_bool(fips, Config) of
+	    false ->
+		AEADs;
+	    true ->
+		%% In FIPS mode, the IV length must be at least 12 bytes.
+		lists:filter(
+		  fun(Tuple) ->
+			  IVLen = byte_size(element(4, Tuple)),
+			  IVLen >= 12
+		  end, AEADs)
+	end,
+    lists:foreach(fun aead_cipher_ng/1, FilteredAEADs ++ spec_0_bytes(Config)).
 
 %%-------------------------------------------------------------------- 
 aead_bad_tag(Config) ->
@@ -1306,6 +1347,65 @@ aead_cipher({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}
                      {got, Other1}})
     end.
 
+aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, Info}) ->
+    Plain = iolist_to_binary(PlainText),
+    case crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, true) of
+	{CipherText, CipherTag} ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto,
+                      block_encrypt,
+                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}]},
+                     {expected, {CipherText, CipherTag}},
+                     {got, Other0}})
+    end,
+    case crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, CipherTag, false) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto,
+                      block_decrypt,
+                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}]},
+                     {expected, Plain},
+                     {got, Other1}})
+    end;
+aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}) ->
+    <<TruncatedCipherTag:TagLen/binary, _/binary>> = CipherTag,
+    Plain = iolist_to_binary(PlainText),
+    try crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true) of
+	{CipherText, TruncatedCipherTag} ->
+	    ok;
+	Other0 ->
+	    ct:fail({{crypto,
+                      block_encrypt, 
+                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag}, {taglen,TagLen}]},
+                     {expected, {CipherText, TruncatedCipherTag}},
+                     {got, Other0}})
+    catch
+        error:E ->
+            ct:log("~p",[{Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, Info}]),
+            try crypto:crypto_one_time_aead(Type, Key, IV, PlainText, AAD, TagLen, true)
+            of
+                RR ->
+                    ct:log("Works: ~p",[RR])
+            catch
+                CC:EE ->
+                    ct:log("~p:~p", [CC,EE])
+            end,
+            ct:fail("~p",[E])
+    end,
+    case crypto:crypto_one_time_aead(Type, Key, IV, CipherText, AAD, TruncatedCipherTag, false) of
+	Plain ->
+	    ok;
+	Other1 ->
+	    ct:fail({{crypto,
+                      block_decrypt, 
+                      [{info,Info}, {key,Key}, {pt,PlainText}, {iv,IV}, {aad,AAD}, {ct,CipherText}, {tag,CipherTag},
+                       {truncated,TruncatedCipherTag}]},
+                     {expected, Plain},
+                     {got, Other1}})
+    end.
+
 mk_bad_tag(CipherTag) ->
     case <<0:(size(CipherTag))/unit:8>> of
         CipherTag -> % The correct tag may happen to be a suite of zeroes
@@ -1510,6 +1610,8 @@ notsup(Fun, Args) ->
             {error, {return, apply(Fun, Args)}}
         catch
             error:notsup ->
+                ok;
+            error: {notsup, _, _} ->
                 ok;
             Class:Error ->
                 {error, {Class, Error}}
@@ -4287,3 +4389,34 @@ bad_verify_name(_Config) ->
                   error:badarg).
 
 
+%%%----------------------------------------------------------------
+try_enable_fips_mode(Config) ->
+    FIPSConfig = [{fips, true} | Config],
+    case crypto:info_fips() of
+        enabled ->
+            FIPSConfig;
+        not_enabled ->
+            %% Erlang/crypto configured with --enable-fips
+            case crypto:enable_fips_mode(true) of
+		true ->
+                    %% and also the cryptolib is fips enabled
+		    enabled = crypto:info_fips(),
+		    FIPSConfig;
+		false ->
+                    try
+                        [{_,_,Inf}] = crypto:info_lib(),
+                        re:run(Inf, "(F|f)(I|i)(P|p)(S|s)")
+                    of
+                        nomatch ->
+                            {skip, "FIPS mode not supported in cryptolib"};
+                        {match,_} ->
+                            {fail, "Failed to enable FIPS mode"}
+                    catch
+                        _:_ ->
+                            {fail, "Failed to check cryptolib info"}
+                    end,
+		    {skip, "FIPS mode not supported in cryptolib"}
+	    end;
+        not_supported ->
+            {skip, "FIPS mode not supported"}
+    end.
