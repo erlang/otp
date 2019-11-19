@@ -7760,7 +7760,11 @@ wait_for_memory_deallocations() ->
     catch
 	error:undef ->
 	    erts_debug:set_internal_state(available_internal_state, true),
-	    wait_for_memory_deallocations()
+	    wait_for_memory_deallocations();
+        error:badarg ->
+            %% The emulator we run on does not have the wait internal state
+            %% so we just sleep some time instead...
+            timer:sleep(100)
     end.
 
 etsmem() ->
@@ -7782,12 +7786,14 @@ etsmem() ->
               AllTabs =
                   lists:sort(
                     [begin
-                         case ets:info(T, decentralized_counters) of
+                         try ets:info(T, decentralized_counters) of
                              true ->
                                  ct:fail("Background ETS table (~p) that "
                                          "uses decentralized counters (Add exception?)",
                                          [ets:info(T,name)]);
                              _ -> ok
+                         catch _:_ ->
+                                 ok
                          end,
                          {T,
                           ets:info(T,name),
@@ -7800,7 +7806,7 @@ etsmem() ->
               wait_for_memory_deallocations(),
               EtsAllocSize = erts_debug:alloc_blocks_size(ets_alloc),
               ErlangMemoryEts = try erlang:memory(ets) catch error:notsup -> notsup end,
-              FlxCtrMemUsage = erts_debug:get_internal_state(flxctr_memory_usage),
+              FlxCtrMemUsage = try erts_debug:get_internal_state(flxctr_memory_usage) catch error:badarg -> notsup end,
               Mem = {ErlangMemoryEts, EtsAllocSize, FlxCtrMemUsage},
               EtsMem = {Mem, AllTabs},
               case PrevEtsMem of
