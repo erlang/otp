@@ -37,6 +37,7 @@
          gethostname/0,
          getnameinfo/1, getnameinfo/2,
          getaddrinfo/1, getaddrinfo/2,
+         getifaddrs/0,  getifaddrs/1,
 
          if_name2index/1,
          if_index2name/1,
@@ -54,7 +55,11 @@
 %% Should we define these here or refer to the prim_net module
 -export_type([
               address_info/0,
+              ifaddrs/0,
               name_info/0,
+
+              ifaddrs_flag/0,
+              ifaddrs_flags/0,
 
               name_info_flags/0,
               name_info_flag/0,
@@ -72,6 +77,22 @@
 -deprecated({relay,     1, eventually}).
 -deprecated({sleep,     1, eventually}).
 
+
+-type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |
+                        notrailers | running | noarp | promisc | master | slave |
+                        multicast | portsel | automedia | dynamic.
+-type ifaddrs_flags() :: [ifaddrs_flag()].
+
+%% Note that not all of these fields are mandatory.
+%% Actually there are (error) cases when only the name will be included.
+%% And broadaddr and dstaddr are mutually exclusive!
+
+-type ifaddrs() :: #{name      := string(),
+                     flags     := ifaddrs_flags(),
+                     addr      := socket:sockaddr(),
+                     netmask   := socket:sockaddr(),
+                     broadaddr := socket:sockaddr(),
+                     dstaddr   := socket:sockaddr()}.
 
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
 -type name_info_flag()          :: namereqd |
@@ -249,6 +270,41 @@ getaddrinfo(Host, Service)
   when (is_list(Host) orelse (Host =:= undefined)) andalso
        (is_list(Service) orelse (Service =:= undefined)) andalso
        (not ((Service =:= undefined) andalso (Host =:= undefined))) ->
+    erlang:error(notsup).
+-endif.
+
+
+
+
+%% ===========================================================================
+%%
+%% getifaddrs - Get interface addresses
+%%
+
+-spec getifaddrs() -> {ok, IfAddrs} | {error, Reason} when
+      IfAddrs :: [ifaddrs()],
+      Reason  :: term().
+
+-ifdef(USE_ESOCK).
+getifaddrs() ->
+    prim_net:getifaddrs(#{}).
+-else.
+getifaddrs() ->
+    erlang:error(notsup).
+-endif.
+
+
+-spec getifaddrs(Namespace) -> {ok, IfAddrs} | {error, Reason} when
+      Namespace :: file:filename_all(),
+      IfAddrs   :: [ifaddrs()],
+      Reason    :: term().
+
+-ifdef(USE_ESOCK).
+getifaddrs(Namespace) when is_list(Namespace) ->
+    prim_net:getifaddrs(#{netns => Namespace}).
+-else.
+-dialyzer({nowarn_function, getifaddrs/1}).
+getifaddrs(Namespace) when is_list(Namespace) ->
     erlang:error(notsup).
 -endif.
 
