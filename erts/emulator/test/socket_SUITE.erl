@@ -160,6 +160,7 @@
          api_opt_ip_recvtos_udp4/1,
          api_opt_ip_recvttl_udp4/1,
          api_opt_ip_tos_udp4/1,
+         api_opt_ip_recverr_udp4/1,
          api_opt_ip_mopts_udp4/1,
          api_opt_ipv6_recvpktinfo_udp6/1,
 	 api_opt_ipv6_flowinfo_udp6/1,
@@ -917,6 +918,7 @@ api_options_ip_cases() ->
      api_opt_ip_recvtos_udp4,
      api_opt_ip_recvttl_udp4,
      api_opt_ip_tos_udp4,
+     api_opt_ip_recverr_udp4,
 
      %% Should be last!
      api_opt_ip_mopts_udp4
@@ -16214,7 +16216,7 @@ api_opt_ip_recvopts_udp4(_Config) when is_list(_Config) ->
                    %% be supported
                    has_support_ip_recvtos_and_or_sock_timestamp(),
                    not_yet_implemented()
-           
+
            end,
            fun() ->
                    Set  = fun(Sock, Value) ->
@@ -16484,7 +16486,7 @@ api_opt_ip_recvopts_udp(InitState) ->
                          recv     := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, Opts, ?BASIC_REQ}} 
-                               when (length(Opts) =:= 2) ->
+                                 when (length(Opts) =:= 2) ->
                                    ?SEV_IPRINT("Got (default) Options: "
                                                "~n   Opts:  ~p", [Opts]),
                                    ok;
@@ -16519,7 +16521,7 @@ api_opt_ip_recvopts_udp(InitState) ->
                          recv     := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, Opts, ?BASIC_REQ}} 
-                               when (length(Opts) =:= 1) ->
+                                 when (length(Opts) =:= 1) ->
                                    ?SEV_IPRINT("Got (default) Options: "
                                                "~n   Opts:  ~p", [Opts]),
                                    ok;
@@ -16554,7 +16556,7 @@ api_opt_ip_recvopts_udp(InitState) ->
                          recv     := Recv}) ->
                            case Recv(Sock) of
                                {ok, {Src, Opts, ?BASIC_REQ}} 
-                               when (length(Opts) =:= 1) ->
+                                 when (length(Opts) =:= 1) ->
                                    ?SEV_IPRINT("Got (default) Options: "
                                                "~n   Opts:  ~p", [Opts]),
                                    ok;
@@ -17668,7 +17670,7 @@ api_opt_ip_recvttl_udp(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Tests the ip socket option 'tos' casn be set and retrieved from a
+%% Tests the ip socket option 'tos' can be set and retrieved from a
 %% the socket its set on. It sets the type-of-server field in the IP
 %% header for a TCP or UDP socket.
 %% There is no way to fetch the value a received IP datagram.
@@ -17917,6 +17919,173 @@ api_opt_ip_tos_udp(InitState) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Tests the ip socket option 'recverr' can be set and that the error
+%% queue can be read.
+%% 
+
+api_opt_ip_recverr_udp4(suite) ->
+    [];
+api_opt_ip_recverr_udp4(doc) ->
+    [];
+api_opt_ip_recverr_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_ip_recverr_udp4,
+           fun() ->
+                   has_support_ip_recverr()
+           end,
+           fun() ->
+                   Set  = fun(Sock, Key, Value) ->
+                                  socket:setopt(Sock, ip, Key, Value)
+                          end,
+                   Get  = fun(Sock, Key) ->
+                                  socket:getopt(Sock, ip, Key)
+                          end,
+                   Send = fun(Sock, Data, Dest) ->
+                                  socket:sendto(Sock, Data, Dest, [], nowait)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recvfrom(Sock, 0, [], nowait)
+                          end,
+                   InitState = #{domain => inet,
+                                 proto  => udp,
+                                 send   => Send,
+                                 recv   => Recv,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_ip_recverr_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_ip_recverr_udp(InitState) ->
+    Seq = 
+        [
+         #{desc => "create socket",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           ?SEV_IPRINT("test for ip:recvtos"),
+                           case socket:open(Domain, dgram, udp) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR -> 
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind (to loopback)",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           case socket:bind(Sock, loopback) of
+                               {ok, _} ->
+                                   ?SEV_IPRINT("bound"),
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "enable recverr",
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           Set(Sock, recverr, true)
+                   end},
+
+         #{desc => "disable mtu_discover",
+           cmd  => fun(#{sock := Sock, set := Set} = _State) ->
+                           Set(Sock, mtu_discover, dont)
+                   end},
+
+         #{desc => "try (async) read (=> select)",
+           cmd  => fun(#{sock := Sock, recv := Recv} = State) ->
+                           case Recv(Sock) of
+                               {select, SelectInfo} ->
+                                   ?SEV_IPRINT("expected select: ~p", [SelectInfo]),
+                                   {ok, State#{rselect => SelectInfo}};
+                               {ok, _} ->
+                                   ?SEV_EPRINT("unexpected successs"),
+                                   {error, unexpected_success};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected error: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "try (dummy) send",
+           cmd  => fun(#{sock := Sock, send := Send} = State) ->
+                           Dest = #{family => inet,
+                                    addr   => {127,0,0,1},
+                                    port   => 1234},
+                           case Send(Sock, <<"ping">>, Dest) of
+                               ok ->
+                                   ?SEV_IPRINT("sent"),
+                                   ok;
+                               {select, SelectInfo} ->
+                                   ?SEV_IPRINT("expected select: ~p", [SelectInfo]),
+                                   {ok, State#{sselect => SelectInfo}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected error: ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "await select message",
+           cmd  => fun(#{sock    := Sock,
+                         rselect := {select_info, _, Ref}} = _State) ->
+                           receive
+                               {'$socket', Sock, select, Ref} ->
+                                   ?SEV_IPRINT("received expected (read) select message: "
+                                               "~n   ~p", [ref]),
+                                   ok
+                           end
+                   end},
+
+         #{desc => "try recv - expect econnrefused",
+           cmd  => fun(#{sock := Sock, recv := Recv} = _State) ->
+                           case Recv(Sock) of
+                               {error, econnrefused = Reason} ->
+                                   ?SEV_IPRINT("expected failure: ~p", [Reason]),
+                                   ok;
+                               {ok, _} ->
+                                   ?SEV_EPRINT("unexpected successs"),
+                                   {error, unexpected_success};
+                               {select, SelectInfo} ->
+                                   ?SEV_EPRINT("unexpected select: ~p",
+                                               [SelectInfo]),
+                                   {error, unexpected_success};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("unexpected error: ~p",
+                                               [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "try recv error queue",
+           cmd  => fun(#{sock := Sock}) ->
+                           case socket:recvmsg(Sock, [errqueue]) of
+                               {ok, ErrQMsg} ->
+                                   ?SEV_IPRINT("expected error queue: "
+                                               "~n   ~p", [ErrQMsg]),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("failed reading error queue: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% This intended to test "all" of the (currently) supported IPv4
 %% options that results in control message header(s).
 %% So, this is done on the receiving side:
@@ -17931,9 +18100,10 @@ api_opt_ip_tos_udp(InitState) ->
 %%
 %% Currently we *try* to use the following opts:
 %%
-%%      pktinfo  => pktinfo
-%%      recvtos  => tos
-%%      recvttl  => ttl
+%%      pktinfo         => pktinfo
+%%      recvorigdstaddr => origdstaddr
+%%      recvtos         => tos
+%%      recvttl         => ttl
 %%
 %%
 %% Every time we add a test case for a new option (that results in
@@ -38994,6 +39164,9 @@ has_support_ip_recvttl() ->
 
 has_support_ip_tos() ->
     has_support_socket_option_ip(tos).
+
+has_support_ip_recverr() ->
+    has_support_socket_option_ip(recverr).
 
 
 %% --- IPv6 socket option test functions ---
