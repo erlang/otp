@@ -1099,6 +1099,61 @@
 
 </section>
 
+<section><title>Erts 10.3.5.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A literal area could prematurely be released before all
+	    uses of it had been removed. This occurred either when a
+	    terminating process had a complex exit reason referring
+	    to a literal that concurrently was removed, or when a
+	    terminating process continued executing a dirty NIF
+	    accessing a literal (via the heap) that concurrently was
+	    removed.</p>
+          <p>
+	    Own Id: OTP-16193</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing VM crash due to memory corruption of
+	    distribution entry. Probability of crash increases if
+	    Erlang distribution is frequently disconnected and
+	    reestablished towards same node names. Bug exists since
+	    OTP-21.0.</p>
+          <p>
+	    Own Id: OTP-16224 Aux Id: ERL-1044 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where the receive marker used by the runtime to
+	    do the receive queue optimization could be incorrectly
+	    set. The symptom of this would be that a message that
+	    should match in a receive never matches.</p>
+          <p>
+	    The bug requires the OTP-22 compiler and multiple
+	    selective receives to trigger. See OTP-16219 for details
+	    about the bug fix in the compiler.</p>
+          <p>
+	    Own Id: OTP-16241 Aux Id: ERL-1076 OTP-16219 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug causing crash of VM built with configuration
+	    <c>--enable--sharing-preserving</c>. Provoked when a sent
+	    message contains both a bit string and the heap binary
+	    (&lt; 65 bytes) which the bit string was matched from.
+	    Bug exists since OTP-19.0 but has seen to be easier to
+	    provoke since OTP-22.1.</p>
+          <p>
+	    Own Id: OTP-16265 Aux Id: ERL-1064 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
