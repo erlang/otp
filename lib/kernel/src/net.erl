@@ -347,26 +347,34 @@ getifaddrs_filter_map(FilterMap) ->
 getifaddrs_filter_map_default() ->
     #{family => default, flags => any}.
 
-getifaddrs_filter(#{family := FFamily},
-                  #{addr := #{family := Family}} = _Entry)
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{addr := #{family := Family}, flags := Flags} = _Entry)
   when (FFamily =:= default) andalso
        ((Family =:= inet) orelse (Family =:= inet6)) ->
-    true;
-getifaddrs_filter(#{family := FFamily},
-                  #{addr := #{family := Family}} = _Entry)
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{addr := #{family := Family}, flags := Flags} = _Entry)
   when (FFamily =:= inet) andalso (Family =:= inet) ->
-    true;
-getifaddrs_filter(#{family := FFamily},
-                  #{addr := #{family := Family}} = _Entry)
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{addr := #{family := Family}, flags := Flags} = _Entry)
   when (FFamily =:= inet6) andalso (Family =:= inet6) ->
-    true;
-getifaddrs_filter(#{family := FFamily}, _Entry)
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{flags := Flags} = _Entry)
   when (FFamily =:= all) ->
-    true;
+    getifaddrs_filter_flags(FFlags, Flags);
 getifaddrs_filter(_Filter, _Entry) ->
     false.
 
 
+getifaddrs_filter_flags(any, _Flags) ->
+    true;
+getifaddrs_filter_flags(FilterFlags, Flags) ->
+    [] =:= (FilterFlags -- Flags).
+
+
+    
 %% ===========================================================================
 %%
 %% if_name2index - Mappings between network interface names and indexes:
