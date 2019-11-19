@@ -27,15 +27,14 @@
 
 -include("tls_handshake_1_3.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_alert.hrl").
+-include("ssl_cipher.hrl").
 
 %% API
 -export([start_link/3,
-         new/1,
          new/3,
-         new_with_seed/1,
-         use/4,
-         bloom_filter_add_elem/2,
-         bloom_filter_contains/2]).
+         use/4
+        ]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -60,31 +59,18 @@
 start_link(Mode, Lifetime, AntiReplay) ->
     gen_server:start_link(?MODULE, [Mode, Lifetime, AntiReplay], []).
 
-new(Pid) ->
-    gen_server:call(Pid, new_session_ticket, infinity).
-
 new(Pid, Prf, MasterSecret) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret}, infinity).
 
-new_with_seed(Pid) ->
-    gen_server:call(Pid, new_with_seed, infinity).
-
-use(Pid, Identifiers, Prf, HH) ->
-    gen_server:call(Pid, {use_ticket, Identifiers, Prf, HH}, infinity).
-
-bloom_filter_add_elem(Pid, Elem) ->
-    gen_server:cast(Pid, {add_elem, Elem}).
-
-bloom_filter_contains(Pid, Elem) ->
-    gen_server:call(Pid, {contains, Elem}, infinity).
-
+use(Pid, Identifiers, Prf, HandshakeHist) ->
+    gen_server:call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist}, 
+                    infinity).
 
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
 
 -spec init(Args :: term()) -> {ok, State :: term()}.                             
-
 init(Args) ->
     process_flag(trap_exit, true),
     State = inital_state(Args),
@@ -92,39 +78,43 @@ init(Args) ->
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
                          {reply, Reply :: term(), NewState :: term()} .
-handle_call({new_session_ticket, Prf, MasterSecret}, _From, #state{nonce = Nonce, 
-                                                                   lifetime = LifeTime,
-                                                                   stateful = #{}} = State0) -> 
+handle_call({new_session_ticket, Prf, MasterSecret}, _From, 
+            #state{nonce = Nonce, 
+                   lifetime = LifeTime,
+                   stateful = #{}} = State0) -> 
     Id = stateful_psk_id(),
     PSK = tls_v1:pre_shared_key(MasterSecret, ticket_nonce(Nonce), Prf),
     SessionTicket = new_session_ticket(Id, Nonce, LifeTime),
     State = stateful_ticket_store(Id, SessionTicket, Prf, PSK, State0),
     {reply, SessionTicket, State};
-handle_call(new_session_ticket, _From, #state{nonce = Nonce, stateless = #{}} = State) -> 
+handle_call({new_session_ticket, Prf, MasterSecret}, _From, 
+            #state{nonce = Nonce, 
+                   stateless = #{}} = State) -> 
     BaseSessionTicket = new_session_ticket_base(State),
-    {reply, BaseSessionTicket, State#state{nonce = Nonce+1}};
-handle_call({use_ticket, Identifiers, Prf, HH}, _From, #state{stateful = #{}} = State0) -> 
-    {IndexAndPSK, State} = stateful_use(Identifiers, Prf, HH, State0),
-    {reply, IndexAndPSK, State};
-handle_call(new_with_seed, _From, #state{nonce = Nonce, stateless = #{seed := Seed} = Stateless} = State) -> 
-    Ticket = new_session_ticket_base(State),
-    {reply, {Ticket, Seed}, State#state{stateless = Stateless#{nonce => Nonce + 1}}};
-handle_call({contains, Elem}, _From, #state{stateless = #{bloom_filter := BloomFilter}} = State) ->
-    Reply = tls_bloom_filter:contains(BloomFilter, Elem),
-    {reply, Reply, State}.
+    SessionTicket = generate_statless_ticket(BaseSessionTicket, Prf, 
+                                             MasterSecret, State),
+    {reply, SessionTicket, State#state{nonce = Nonce+1}};
+handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From, 
+            #state{stateful = #{}} = State0) -> 
+    {Result, State} = stateful_use(Identifiers, Prf, 
+                                        HandshakeHist, State0),
+    {reply, Result, State};
+handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From, 
+            #state{stateless = #{}} = State0) -> 
+    {Result, State} = stateless_use(Identifiers, Prf, 
+                                         HandshakeHist, State0),
+    {reply, Result, State}.
 
 -spec handle_cast(Request :: term(), State :: term()) ->
-          {noreply, NewState :: term()}. 
-handle_cast({add_elem, Elem}, #state{stateless = #{bloom_filter := BloomFilter0} = Stateless} = State) ->
-    BloomFilter = tls_bloom_filter:add_elem(BloomFilter0, Elem),
-    {noreply, State#state{stateless = Stateless#{bloom_filter => BloomFilter}}};
+           {noreply, NewState :: term()}. 
 handle_cast(_Request, State) ->
     {noreply, State}.
 
 -spec handle_info(Info :: timeout() | term(), State :: term()) ->
           {noreply, NewState :: term()}.
-handle_info(rotate_bloom_filters, #state{stateless = #{bloom_filter := BloomFilter0,
-                                                       window := Window} = Stateless} = State) ->
+handle_info(rotate_bloom_filters, 
+            #state{stateless = #{bloom_filter := BloomFilter0,
+                                 window := Window} = Stateless} = State) ->
     BloomFilter = tls_bloom_filter:rotate(BloomFilter0),
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     {noreply, State#state{stateless = Stateless#{bloom_filter => BloomFilter}}};
@@ -155,16 +145,17 @@ format_status(_Opt, Status) ->
 inital_state([stateless, Lifetime, undefined]) ->
     #state{nonce = 0,
            stateless = #{seed => {crypto:strong_rand_bytes(16), 
-                                  crypto:strong_rand_bytes(32)}},
+                                  crypto:strong_rand_bytes(32)},
+                         window => undefined},
            lifetime = Lifetime
           };
 inital_state([stateless, Lifetime, {Window, K, M}]) ->
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     #state{nonce = 0,
-           stateless = #{bloom_filter => tls_bloom_filter:new(K, M),                  
+           stateless = #{bloom_filter => tls_bloom_filter:new(K, M),
                          seed => {crypto:strong_rand_bytes(16),
                                   crypto:strong_rand_bytes(32)},
-                         windows => Window},
+                         window => Window},
            lifetime = Lifetime
           };
 inital_state([stateful, Lifetime|_]) ->
@@ -208,6 +199,15 @@ new_session_ticket(Id, Nonce, Lifetime) ->
        extensions = #{}
       }.
 
+
+validate_binder(Binder, HandshakeHist, PSK, Prf, AlertDetail) ->
+      case tls_handshake_1_3:is_valid_binder(Binder, HandshakeHist, PSK, Prf) of
+          true ->
+              true;
+          false ->
+              {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, AlertDetail)}
+      end.
+
 %%%===================================================================
 %%% Stateful store 
 %%%===================================================================
@@ -219,7 +219,8 @@ stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk,
                       #state{nonce = Nonce, 
                              stateful = #{db := Tree0, 
                                           max := Max,
-                                          ref_index := Index0} = Stateful} = State0) ->    
+                                          ref_index := Index0} = Stateful} 
+                      = State0) ->    
     Id = erlang:monotonic_time(),
     StatefulTicket = {NewSessionTicket, Hash, Psk},
     case gb_trees:size(Tree0) of
@@ -230,54 +231,65 @@ stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk,
             Tree = gb_trees:insert(Id, StatefulTicket, Tree1),
             Index = maps:without([OldRef], Index0),
             State0#state{nonce = Nonce+1, stateful = 
-                             Stateful#{db => Tree, ref_index => Index#{Ref => Id}}};
+                             Stateful#{db => Tree, 
+                                       ref_index => Index#{Ref => Id}}};
         _ ->
             Tree = gb_trees:insert(Id, StatefulTicket, Tree0),
             State0#state{nonce = Nonce+1, stateful = 
-                             Stateful#{db => Tree, ref_index => Index0#{Ref => Id}}}   
+                             Stateful#{db => Tree, 
+                                       ref_index => Index0#{Ref => Id}}}   
     end.
 
 stateful_use(#offered_psks{
                 identities = Identities,
                 binders = Binders
-               }, Prf, HH, State) ->    
-    stateful_use(Identities, Binders, Prf, HH, 0, State).
+               }, Prf, HandshakeHist, State) ->    
+    stateful_use(Identities, Binders, Prf, HandshakeHist, 0, State).
 
 stateful_use([], [], _, _, _, State) ->
-    {undefined, State};
-stateful_use([#psk_identity{identity = Ref} | Refs], [Binder | Binders], Prf, HH,
-             Index, #state{stateful = #{db := Tree0, ref_index := RefIndex0} = Stateful} = State) ->
+    {{ok, undefined}, State};
+stateful_use([#psk_identity{identity = Ref} | Refs], [Binder | Binders], 
+             Prf, HandshakeHist, Index, 
+             #state{stateful = #{db := Tree0, 
+                                 ref_index := RefIndex0} = Stateful} = State) ->
     try maps:get(Ref, RefIndex0) of
         Key ->
-            case usable_ticket(Key, Prf, Binder, HH, Tree0) of
+            case stateful_usable_ticket(Key, Prf, Binder, 
+                                        HandshakeHist, Tree0) of
                 true ->
                     RefIndex = maps:without([Ref], RefIndex0),
                     {{_,_, PSK}, Tree} = gb_trees:take(Key, Tree0),
-                    {{Index, PSK}, State#state{stateful = Stateful#{db => Tree, ref_index => RefIndex}}};                
+                    {{ok, {Index, PSK}}, 
+                     State#state{stateful = Stateful#{db => Tree, 
+                                                      ref_index => RefIndex}}};
                 false ->
-                    stateful_use(Refs, Binders, Prf, HH, Index + 1, State)
+                    stateful_use(Refs, Binders, Prf, 
+                                 HandshakeHist, Index + 1, State);
+                {error, _} = Error ->
+                    {Error, State}
             end
     catch
         _:{badkey, Ref} -> 
-            stateful_use(Refs, Binders, Prf, HH, Index + 1, State)
+            stateful_use(Refs, Binders, Prf, HandshakeHist, Index + 1, State)
     end.
 
-usable_ticket(Key, Prf, Binder, HH, Tree) ->
+stateful_usable_ticket(Key, Prf, Binder, HandshakeHist, Tree) ->
     case gb_trees:lookup(Key, Tree) of
         none ->
             false;
         {value, {NewSessionTicket, Prf, PSK}} ->
-            case living_ticket(Key, NewSessionTicket) of
+            case stateful_living_ticket(Key, NewSessionTicket) of
                 true ->
-                    tls_handshake_1_3:is_valid_binder(Binder, HH, PSK, Prf);
-                false ->
-                    false
+                    validate_binder(Binder, HandshakeHist, PSK, Prf, stateful);
+                _ ->
+                    false 
             end;
         _ ->
-            false 
+            false
     end.
 
-living_ticket(TimeStamp, #new_session_ticket{ticket_lifetime = LifeTime}) ->
+stateful_living_ticket(TimeStamp, 
+                       #new_session_ticket{ticket_lifetime = LifeTime}) ->
     Now = erlang:monotonic_time(),
     Lived = erlang:convert_time_unit(Now-TimeStamp, native, seconds),
     Lived < LifeTime.
@@ -286,4 +298,94 @@ living_ticket(TimeStamp, #new_session_ticket{ticket_lifetime = LifeTime}) ->
 stateful_psk_id() ->
     term_to_binary(make_ref()).
 
+%%%===================================================================
+%%% Stateless ticket 
+%%%===================================================================
+generate_statless_ticket(#new_session_ticket{ticket_nonce = Nonce, 
+                                             ticket_age_add = TicketAgeAdd,
+                                             ticket_lifetime = Lifetime} 
+                         = Ticket, Prf, MasterSecret, 
+                         #state{stateless = #{seed := {IV, Shard}}}) ->
+    PSK = tls_v1:pre_shared_key(MasterSecret, Nonce, Prf),
+    Timestamp = erlang:system_time(second),
+    Encrypted = ssl_cipher:encrypt_ticket(#stateless_ticket{
+                                             hash = Prf,
+                                             pre_shared_key = PSK,
+                                             ticket_age_add = TicketAgeAdd,
+                                             lifetime = Lifetime,
+                                             timestamp = Timestamp
+                                            }, Shard, IV),
+    Ticket#new_session_ticket{ticket = Encrypted}.
+    
+stateless_use(#offered_psks{
+                 identities = Identities,
+                 binders = Binders
+                }, Prf, HandshakeHist, State) ->    
+    stateless_use(Identities, Binders, Prf, HandshakeHist, 0, State).
 
+stateless_use([], [], _, _, _, State) ->
+    {{ok, undefined}, State};
+stateless_use([#psk_identity{identity = Encrypted,
+                             obfuscated_ticket_age = ObfAge} |  Ids], 
+              [Binder | Binders], Prf, HandshakeHist, Index, 
+              #state{stateless = #{seed := {IV, Shard},
+                                   window := Window}} = State) ->
+    case ssl_cipher:decrypt_ticket(Encrypted, Shard, IV) of
+        #stateless_ticket{hash = Prf,
+                          pre_shared_key = PSK} = Ticket ->
+            case statless_usable_ticket(Ticket, ObfAge, Binder,
+                                        HandshakeHist, Window) of
+                true ->
+                    stateless_anti_replay(Index, PSK, Binder, State);
+                false ->
+                    stateless_use(Ids, Binders, Prf, HandshakeHist, 
+                                  Index+1, State);
+                {error, _} = Error ->
+                    {Error, State}
+            end;
+        _  ->
+            stateless_use(Ids, Binders, Prf, HandshakeHist, Index+1, State)
+    end.
+
+statless_usable_ticket(#stateless_ticket{hash = Prf,
+                                         ticket_age_add = TicketAgeAdd,
+                                         lifetime = Lifetime,
+                                         timestamp = Timestamp,
+                                         pre_shared_key = PSK}, ObfAge, 
+                       Binder, HandshakeHist, Window) ->
+    case stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, 
+                                 Timestamp, Window) of
+        true ->
+           validate_binder(Binder, HandshakeHist, PSK, Prf, stateless); 
+        false ->
+            false
+    end.
+
+stateless_living_ticket(0, _, _, _, _) ->
+    true;
+stateless_living_ticket(ObfAge, TicketAgeAdd, Lifetime, Timestamp, Window) ->
+    ReportedAge = ObfAge - TicketAgeAdd,
+    RealAge = erlang:system_time(second) - Timestamp,
+    (ReportedAge =< Lifetime)
+        andalso (RealAge =< Lifetime)
+        andalso (in_window(RealAge, Window)).
+        
+in_window(_, undefined) ->
+    true;
+in_window(Age, {Window, _, _}) ->
+    Age =< Window.
+
+stateless_anti_replay(Index, PSK, Binder, 
+                      #state{stateless = #{bloom_filter := BloomFilter0} 
+                             = Stateless} = State) ->
+    case tls_bloom_filter:contains(BloomFilter0, Binder) of
+        true ->
+            %%possible_replay
+            {{ok, undefined}, State};
+        false ->
+            BloomFilter = tls_bloom_filter:add_elem(BloomFilter0, Binder),
+            {{ok, {Index, PSK}},
+             State#state{stateless = Stateless#{bloom_filter => BloomFilter}}}
+    end;
+stateless_anti_replay(Index, PSK, _, State) ->
+     {{ok, {Index, PSK}}, State}.
