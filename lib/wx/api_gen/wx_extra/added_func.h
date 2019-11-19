@@ -50,3 +50,11 @@ class wxDisplay {
     // get the resolution of this monitor in pixels per inch
     wxSize GetPPI() const;
 };
+
+class wxMenuBar {
+ public:
+    // MacSpecific API
+    wxMenu *OSXGetAppleMenu() const { return m_appleMenu; }
+    static void SetAutoWindowMenu( bool enable ) { s_macAutoWindowMenu = enable ; }
+    static bool GetAutoWindowMenu() { return s_macAutoWindowMenu ; }
+}

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -30,10 +30,10 @@
 -module(wxMenuBar).
 -include("wxe.hrl").
 -export([append/3,check/3,destroy/1,enable/1,enable/2,enable/3,enableTop/3,findItem/2,
-  findMenu/2,findMenuItem/3,getHelpString/2,getLabel/1,getLabel/2,getLabelTop/2,
-  getMenu/2,getMenuCount/1,insert/4,isChecked/2,isEnabled/1,isEnabled/2,
-  new/0,new/1,remove/2,replace/4,setHelpString/3,setLabel/2,setLabel/3,
-  setLabelTop/3]).
+  findMenu/2,findMenuItem/3,getAutoWindowMenu/0,getHelpString/2,getLabel/1,
+  getLabel/2,getLabelTop/2,getMenu/2,getMenuCount/1,insert/4,isChecked/2,
+  isEnabled/1,isEnabled/2,new/0,new/1,oSXGetAppleMenu/1,remove/2,replace/4,
+  setAutoWindowMenu/1,setHelpString/3,setLabel/2,setLabel/3,setLabelTop/3]).
 
 %% inherited exports
 -export([cacheBestSize/2,canSetTransparent/1,captureMouse/1,center/1,center/2,
@@ -53,8 +53,8 @@
   getWindowStyleFlag/1,getWindowVariant/1,hasCapture/1,hasScrollbar/2,
   hasTransparentBackground/1,hide/1,inheritAttributes/1,initDialog/1,
   invalidateBestSize/1,isDoubleBuffered/1,isExposed/2,isExposed/3,isExposed/5,
-  isRetained/1,isShown/1,isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,
-  makeModal/1,makeModal/2,move/2,move/3,move/4,moveAfterInTabOrder/2,
+  isRetained/1,isShown/1,isShownOnScreen/1,isTopLevel/1,layout/1,lineDown/1,
+  lineUp/1,lower/1,makeModal/1,makeModal/2,move/2,move/3,move/4,moveAfterInTabOrder/2,
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popEventHandler/1,popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,
   raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
@@ -255,6 +255,28 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
   ?CLASS(ThisT,wxMenuBar),
   wxe_util:call(?wxMenuBar_IsChecked,
   <<ThisRef:32/?UI,Itemid:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarsetautowindowmenu">external documentation</a>.
+-spec setAutoWindowMenu(Enable) -> 'ok' when
+	Enable::boolean().
+setAutoWindowMenu(Enable)
+ when is_boolean(Enable) ->
+  wxe_util:cast(?wxMenuBar_SetAutoWindowMenu,
+  <<(wxe_util:from_bool(Enable)):32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubargetautowindowmenu">external documentation</a>.
+-spec getAutoWindowMenu() -> boolean().
+getAutoWindowMenu() ->
+  wxe_util:call(?wxMenuBar_GetAutoWindowMenu,
+  <<>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarosxgetapplemenu">external documentation</a>.
+-spec oSXGetAppleMenu(This) -> wxMenu:wxMenu() when
+	This::wxMenuBar().
+oSXGetAppleMenu(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxMenuBar),
+  wxe_util:call(?wxMenuBar_OSXGetAppleMenu,
+  <<ThisRef:32/?UI>>).
 
 %% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxmenubar.html#wxmenubarisenabled">external documentation</a>.
 -spec isEnabled(This) -> boolean() when
@@ -538,6 +560,8 @@ lineUp(This) -> wxWindow:lineUp(This).
 lineDown(This) -> wxWindow:lineDown(This).
 %% @hidden
 layout(This) -> wxWindow:layout(This).
+%% @hidden
+isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
 %% @hidden
 isTopLevel(This) -> wxWindow:isTopLevel(This).
 %% @hidden

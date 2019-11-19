@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -56,9 +56,9 @@
   hasScrollbar/2,hasTransparentBackground/1,hide/1,iconize/1,iconize/2,
   inheritAttributes/1,initDialog/1,invalidateBestSize/1,isActive/1,
   isDoubleBuffered/1,isEnabled/1,isExposed/2,isExposed/3,isExposed/5,
-  isFullScreen/1,isIconized/1,isMaximized/1,isRetained/1,isShown/1,isTopLevel/1,
-  layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,maximize/1,
-  maximize/2,move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
+  isFullScreen/1,isIconized/1,isMaximized/1,isRetained/1,isShown/1,isShownOnScreen/1,
+  isTopLevel/1,layout/1,lineDown/1,lineUp/1,lower/1,makeModal/1,makeModal/2,
+  maximize/1,maximize/2,move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popEventHandler/1,
   popEventHandler/2,popupMenu/2,popupMenu/3,popupMenu/4,processCommand/2,
   raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
@@ -441,6 +441,8 @@ lineUp(This) -> wxWindow:lineUp(This).
 lineDown(This) -> wxWindow:lineDown(This).
 %% @hidden
 layout(This) -> wxWindow:layout(This).
+%% @hidden
+isShownOnScreen(This) -> wxWindow:isShownOnScreen(This).
 %% @hidden
 isTopLevel(This) -> wxWindow:isTopLevel(This).
 %% @hidden
