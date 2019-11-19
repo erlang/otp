@@ -94,7 +94,7 @@
                      broadaddr := socket:sockaddr(),
                      dstaddr   := socket:sockaddr()}.
 
--type ifaddrs_filter_map() :: #{family := default | inet | inet6 | all,
+-type ifaddrs_filter_map() :: #{family := default | inet | inet6 | packet | all,
                                 flags  := any | ifaddrs_flags()}.
 
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
@@ -359,6 +359,10 @@ getifaddrs_filter(#{family := FFamily, flags := FFlags},
 getifaddrs_filter(#{family := FFamily, flags := FFlags},
                   #{addr := #{family := Family}, flags := Flags} = _Entry)
   when (FFamily =:= inet6) andalso (Family =:= inet6) ->
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{addr := #{family := Family}, flags := Flags} = _Entry)
+  when (FFamily =:= packet) andalso (Family =:= packet) ->
     getifaddrs_filter_flags(FFlags, Flags);
 getifaddrs_filter(#{family := FFamily, flags := FFlags},
                   #{flags := Flags} = _Entry)
