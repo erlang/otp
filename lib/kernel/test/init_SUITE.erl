@@ -25,7 +25,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([get_arguments/1, get_argument/1, boot_var/1, restart/1,
-	 many_restarts/0, many_restarts/1,
+	 many_restarts/0, many_restarts/1, restart_with_mode/1,
 	 get_plain_arguments/1,
 	 reboot/1, stop_status/1, stop/1, get_status/1, script_id/1,
 	 find_system_processes/0]).
@@ -48,7 +48,7 @@ suite() ->
 
 all() -> 
     [get_arguments, get_argument, boot_var,
-     many_restarts,
+     many_restarts, restart_with_mode,
      get_plain_arguments, restart, stop_status, get_status, script_id,
      {group, boot}].
 
@@ -347,6 +347,22 @@ wait_for(N,Node,EHPid) ->
 	    end,
 	    wait_for(N-1,Node,EHPid)
     end.
+
+restart_with_mode(Config) when is_list(Config) ->
+    %% We cannot use loose_node because it doesn't run in
+    %% embedded mode so we quickly start one that exits after restarting
+    {ok,[[Erl]]} = init:get_argument(progname),
+    ModPath = filename:dirname(code:which(?MODULE)),
+
+    Eval1 = "'Mode=code:get_mode(), io:fwrite(Mode), case Mode of interactive -> init:restart([{mode,embedded}]); embedded -> erlang:halt() end'",
+    Cmd1 = Erl ++ " -mode interactive -noshell -eval " ++ Eval1,
+    "interactiveembedded" = os:cmd(Cmd1),
+
+    Eval2 = "'Mode=code:get_mode(), io:fwrite(Mode), case Mode of embedded -> init:restart([{mode,interactive}]); interactive -> erlang:halt() end'",
+    Cmd2 = Erl ++ " -mode embedded -noshell -eval " ++ Eval2,
+    "embeddedinteractive" = os:cmd(Cmd2),
+
+    ok.
 
 %% ------------------------------------------------
 %% Slave executes erlang:halt() on master nodedown.

@@ -48,7 +48,7 @@
 
 -module(init).
 
--export([restart/0,reboot/0,stop/0,stop/1,
+-export([restart/1,restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
 
@@ -63,6 +63,7 @@
 -include_lib("kernel/include/file.hrl").
 
 -type internal_status() :: 'starting' | 'started' | 'stopping'.
+-type mode() :: 'embedded' | 'interactive'.
 
 -record(state, {flags = [],
 		args = [],
@@ -164,7 +165,15 @@ request(Req) ->
     end.
 
 -spec restart() -> 'ok'.
-restart() -> init ! {stop,restart}, ok.
+restart() -> restart([]).
+
+-spec restart([{mode, mode()}]) -> 'ok'.
+restart([]) ->
+    init ! {stop,restart}, ok;
+restart([{mode, Mode}]) when Mode =:= embedded; Mode =:= interactive ->
+    init ! {stop,{restart,Mode}}, ok;
+restart(Opts) when is_list(Opts) ->
+    erlang:error(badarg, [Opts]).
 
 -spec reboot() -> 'ok'.
 reboot() -> init ! {stop,reboot}, ok.
@@ -546,11 +555,11 @@ stop(Reason,State) ->
     clear_system(BootPid,State1),
     do_stop(Reason,State1).
 
-do_stop(restart,#state{start = Start, flags = Flags, args = Args}) ->
-    %% Make sure we don't have any outstanding messages before doing the restart.
-    flush(),
-    erts_internal:erase_persistent_terms(),
-    boot(Start,Flags,Args);
+do_stop({restart,Mode},#state{start=Start, flags=Flags0, args=Args}) ->
+    Flags = update_flag(mode, Flags0, atom_to_binary(Mode)),
+    do_restart(Start,Flags,Args);
+do_stop(restart,#state{start=Start, flags=Flags, args=Args}) ->
+    do_restart(Start,Flags,Args);
 do_stop(reboot,_) ->
     halt();
 do_stop(stop,State) ->
@@ -559,6 +568,11 @@ do_stop(stop,State) ->
 do_stop({stop,Status},State) ->
     stop_heart(State),
     halt(Status).
+
+do_restart(Start,Flags,Args) ->
+    flush(),
+    erts_internal:erase_persistent_terms(),
+    boot(Start,Flags,Args).
 
 clear_system(BootPid,State) ->
     Heart = get_heart(State#state.kernel),
@@ -798,7 +812,7 @@ do_boot(Init,Flags,Start) ->
     start_prim_loader(Init, bs2ss(Path), PathFls),
     BootFile = bootfile(Flags,Root),
     BootList = get_boot(BootFile,Root),
-    LoadMode = b2a(get_flag(mode, Flags, false)),
+    LoadMode = b2a(get_flag(mode, Flags, interactive)),
     Deb = b2a(get_flag(init_debug, Flags, false)),
     catch ?ON_LOAD_HANDLER ! {init_debug_flag,Deb},
     BootVars = get_boot_vars(Root, Flags),
@@ -1232,6 +1246,13 @@ get_args([B|Bs], As) ->
 	    get_args(Bs, [B|As])
     end;
 get_args([], As) -> {reverse(As),[]}.
+
+update_flag(Flag, [{Flag, _} | Flags], Value) ->
+    [{Flag, [Value]} | Flags];
+update_flag(Flag, [Head | Flags], Value) ->
+    [Head | update_flag(Flag, Flags, Value)];
+update_flag(Flag, [], Value) ->
+    [{Flag, [Value]}].
 
 %%
 %% Internal get_flag function, with default value.
