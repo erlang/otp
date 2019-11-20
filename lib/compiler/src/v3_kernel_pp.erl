@@ -266,23 +266,6 @@ format_1(#k_try_enter{arg=A,vars=Vs,body=B,evars=Evs,handler=H}, Ctxt) ->
      nl_indent(Ctxt),
      "end"
     ];
-format_1(#k_protected{arg=A}, Ctxt) ->
-    Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
-    ["protected",
-     nl_indent(Ctxt1),
-     format(A, Ctxt1),
-     nl_indent(Ctxt),
-     "end"
-    ];
-format_1(#k_protected_value{arg=A,ret=Ret}, Ctxt) ->
-    Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
-    ["protected_value",
-     nl_indent(Ctxt1),
-     format(A, Ctxt1),
-     nl_indent(Ctxt),
-     "end",
-     format_ret([Ret], ctxt_bump_indent(Ctxt, 1))
-    ];
 format_1(#k_catch{body=B,ret=Rs}, Ctxt) ->
     Ctxt1 = ctxt_bump_indent(Ctxt, Ctxt#ctxt.body_indent),
     ["catch",

@@ -66,8 +66,6 @@
 -record(k_val_clause, {anno=[],val,body}).
 -record(k_guard, {anno=[],clauses}).
 -record(k_guard_clause, {anno=[],guard,body}).
--record(k_protected, {anno=[],arg}).
--record(k_protected_value, {anno=[],arg,ret,body_ret}).
 
 -record(k_break, {anno=[],args=[]}).
 -record(k_return, {anno=[],args=[]}).

@@ -24,7 +24,7 @@
 %% The main interface.
 -export([module/2]).
 
--import(lists, [append/1,flatmap/2,foldl/3,
+-import(lists, [all/2,append/1,flatmap/2,foldl/3,
                 keysort/2,mapfoldl/3,map/2,member/2,
                 reverse/1,reverse/2,sort/1]).
 
@@ -522,10 +522,17 @@ guard_clause_cg(#k_guard_clause{guard=G,body=B}, Fail, St0) ->
 %%  the correct exit point.  Primops and tests all go to the next
 %%  instruction on success or jump to a failure label.
 
-guard_cg(#k_protected{arg=Ts}, Fail, St) ->
-    protected_cg(Ts, Fail, St);
-guard_cg(#k_protected_value{arg=Ts,ret=Rs,body_ret=InnerRs}, _Fail, St) ->
-    protected_value_cg(Ts, Rs, InnerRs, St);
+guard_cg(#k_try{arg=Ts,vars=[],body=#k_break{args=[]},
+                evars=[],handler=#k_break{args=[]}},
+         Fail,
+         #cg{bfail=OldBfail,break=OldBreak}=St0) ->
+    %% Do a try/catch without return value for effect. The return
+    %% value is not checked; success passes on to the next instruction
+    %% and failure jumps to Fail.
+    {Next,St1} = new_label(St0),
+    {Tis,St2} = guard_cg(Ts, Fail, St1#cg{bfail=Fail,break=Next}),
+    Is = Tis ++ [{label,Next},#cg_phi{vars=[]}],
+    {Is,St2#cg{bfail=OldBfail,break=OldBreak}};
 guard_cg(#k_test{op=Test0,args=As}, Fail, St0) ->
     #k_remote{mod=#k_literal{val=erlang},name=#k_literal{val=Test}} = Test0,
     test_cg(Test, false, As, Fail, St0);
@@ -568,34 +575,6 @@ test_is_record_cg(Fail, Tuple, TagVal, ArityVal, St0) ->
                     args=[Tuple,#b_literal{val=0}]},
     {Is2,St} = make_cond_branch({bif,'=:='}, [Tag,TagVal], Fail, St4),
     Is = Is0 ++ [GetArity] ++ Is1 ++ [GetTag] ++ Is2,
-    {Is,St}.
-
-%% protected_cg([Kexpr], Fail, St) -> {[Ainstr],St}.
-%%  Do a protected without return value for effect. The return value
-%%  is not checked; success passes on to the next instruction and
-%%  failure jumps to Fail.
-
-protected_cg(Ts, Fail, #cg{bfail=OldBfail}=St0) ->
-    {Tis,St1} = guard_cg(Ts, Fail, St0#cg{bfail=Fail}),
-    {Tis,St1#cg{bfail=OldBfail}}.
-
-%% protected_valued_cg([Kexpr], Ret, InnerRet, Fail, St) -> {[Ainstr],St}.
-%%  Evaluate and return a value. If evaluation fails, the returned
-%%  value will be set to `false`. Control always passes to the next
-%%  instruction.
-
-protected_value_cg(Ts, #k_var{name=Ret0}, InnerRet0,
-                   #cg{bfail=OldBfail,break=OldBreak}=St0) ->
-    {Pfail,St1} = new_label(St0),
-    {Br,St2} = new_label(St1),
-    Prot = [#b_literal{val=false}],
-    {Tis,St3} = guard_cg(Ts, Pfail, St2#cg{break=Pfail,bfail=Pfail}),
-    St4 = St3#cg{break=OldBreak,bfail=OldBfail},
-    InnerRet = ssa_arg(InnerRet0, St4),
-    {Ret,St} = new_ssa_var(Ret0, St4),
-    Is = Tis ++ [#cg_break{args=[InnerRet],phi=Br},
-                 {label,Pfail},#cg_break{args=Prot,phi=Br},
-                 {label,Br},#cg_phi{vars=[Ret]}],
     {Is,St}.
 
 %% match_fmf(Fun, LastFail, State, [Clause]) -> {Is,State}.
@@ -809,24 +788,59 @@ try_cg(Ta, Vs, Tb, Evs, Th, Rs, St0) ->
     {SsaVs,St6} = new_ssa_vars(Vs, St5),
     {SsaEvs,St7} = new_ssa_vars(Evs, St6),
     {Ais,St8} = cg(Ta, St7#cg{break=B,catch_label=H}),
-    St9 = St8#cg{break=E,catch_label=St7#cg.catch_label},
-    {Bis,St10} = cg(Tb, St9),
-    {His,St11} = cg(Th, St10),
-    {BreakVars,St12} = new_ssa_vars(Rs, St11),
-    {CatchedAgg,St} = new_ssa_var('@ssa_agg', St12),
-    ExtractVs = extract_vars(SsaEvs, CatchedAgg, 0),
-    KillTryTag = #b_set{op=kill_try_tag,args=[TryTag]},
-    Args = [#b_literal{val='try'},TryTag],
-    Handler = [{label,H},
-               #b_set{op=landingpad,dst=CatchedAgg,args=Args}] ++
-        ExtractVs ++ [KillTryTag],
-    {[#b_set{op=new_try_tag,dst=TryTag,args=[#b_literal{val='try'}]},
-      #b_br{bool=TryTag,succ=Next,fail=H},
-      {label,Next}] ++ Ais ++
-         [{label,B},#cg_phi{vars=SsaVs},KillTryTag] ++ Bis ++
-         Handler ++ His ++
-         [{label,E},#cg_phi{vars=BreakVars}],
-     St#cg{break=St0#cg.break}}.
+    case {Vs,Tb,Th,is_guard_cg_safe_list(Ais)} of
+        {[#k_var{name=X}],#k_break{args=[#k_var{name=X}]},
+         #k_break{args=[#k_literal{}]},true} ->
+            %% There are no instructions that will clobber X registers
+            %% and the exception is not matched. Therefore, a
+            %% try/catch is not needed. This code is probably located
+            %% in a guard.
+            {ProtIs,St9} = guard_cg(Ta, H, St7#cg{break=B,bfail=H}),
+            {His,St10} = cg(Th, St9),
+            {RetVars,St} = new_ssa_vars(Rs, St10),
+            Is = ProtIs ++ [{label,H}] ++ His ++
+                [{label,B},#cg_phi{vars=RetVars}],
+            {Is,St#cg{break=St0#cg.break,bfail=St7#cg.bfail}};
+        {_,_,_,_} ->
+            %% The general try/catch (not in a guard).
+            St9 = St8#cg{break=E,catch_label=St7#cg.catch_label},
+            {Bis,St10} = cg(Tb, St9),
+            {His,St11} = cg(Th, St10),
+            {BreakVars,St12} = new_ssa_vars(Rs, St11),
+            {CatchedAgg,St13} = new_ssa_var('@ssa_agg', St12),
+            ExtractVs = extract_vars(SsaEvs, CatchedAgg, 0),
+            KillTryTag = #b_set{op=kill_try_tag,args=[TryTag]},
+            Args = [#b_literal{val='try'},TryTag],
+            Handler = [{label,H},
+                       #b_set{op=landingpad,dst=CatchedAgg,args=Args}] ++
+                ExtractVs ++ [KillTryTag],
+            {[#b_set{op=new_try_tag,dst=TryTag,args=[#b_literal{val='try'}]},
+              #b_br{bool=TryTag,succ=Next,fail=H},
+              {label,Next}] ++ Ais ++
+                 [{label,B},#cg_phi{vars=SsaVs},KillTryTag] ++ Bis ++
+                 Handler ++ His ++
+                 [{label,E},#cg_phi{vars=BreakVars}],
+             St13#cg{break=St0#cg.break}}
+    end.
+
+is_guard_cg_safe_list(Is) ->
+    all(fun is_guard_cg_safe/1, Is).
+
+is_guard_cg_safe(#b_set{op=call,args=Args}) ->
+    case Args of
+        [#b_remote{mod=#b_literal{val=erlang},
+                   name=#b_literal{val=error},
+                   arity=1}|_] ->
+            true;
+        _ ->
+            false
+    end;
+is_guard_cg_safe(#b_set{}=I) -> not beam_ssa:clobbers_xregs(I);
+is_guard_cg_safe(#b_br{}) -> true;
+is_guard_cg_safe(#b_switch{}) -> true;
+is_guard_cg_safe(#cg_break{}) -> true;
+is_guard_cg_safe(#cg_phi{}) -> true;
+is_guard_cg_safe({label,_}) -> true.
 
 try_enter_cg(Ta, Vs, Tb, Evs, Th, St0) ->
     {B,St1} = new_label(St0),			%Body label
