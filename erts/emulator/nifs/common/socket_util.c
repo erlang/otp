@@ -39,6 +39,17 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_SOCKLEN_T
+#  define SOCKLEN_T socklen_t
+#else
+#  define SOCKLEN_T size_t
+#endif
+
+#ifdef __WIN32__
+#define SOCKOPTLEN_T int
+#else
+#define SOCKOPTLEN_T SOCKLEN_T
+#endif
 
 /* We don't have a "debug flag" to check here, so we 
  * should use the compile debug flag, whatever that is...
@@ -60,6 +71,11 @@ extern char* erl_errno_id(int error); /* THIS IS JUST TEMPORARY??? */
 #define ESOCK_USE_PRETTY_TIMESTAMP 1
 #endif
     
+
+static void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
+                                           unsigned char  len,
+                                           unsigned char* addr,
+                                           ERL_NIF_TERM*  eAddr);
 
 static char* make_sockaddr_in4(ErlNifEnv*    env,
                                ERL_NIF_TERM  port,
@@ -1489,6 +1505,28 @@ void esock_encode_packet_addr(ErlNifEnv*     env,
                               unsigned char  len,
                               unsigned char* addr,
                               ERL_NIF_TERM*  eAddr)
+{
+#if defined(ESOCK_PACKET_ADDRESS_AS_TUPLE)
+    esock_encode_packet_addr_tuple(env, len, addr, eAddr);
+#else
+    SOCKOPTLEN_T vsz = len;
+    ErlNifBinary val;
+
+    if (ALLOC_BIN(vsz, &val)) {
+        sys_memcpy(val.data, addr, len);
+        *eAddr = MKBIN(env, &val);
+    } else {
+        esock_encode_packet_addr_tuple(env, len, addr, eAddr);
+    }
+#endif
+}
+
+
+static
+void esock_encode_packet_addr_tuple(ErlNifEnv*     env,
+                                    unsigned char  len,
+                                    unsigned char* addr,
+                                    ERL_NIF_TERM*  eAddr)
 {
     ERL_NIF_TERM  array[len];
     unsigned char i;
