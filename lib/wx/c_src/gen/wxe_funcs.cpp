@@ -1714,7 +1714,7 @@ case wxWindow_IsDoubleBuffered: { // wxWindow::IsDoubleBuffered
  break;
 }
 #endif
-#if wxCHECK_VERSION(3,0,0) || (defined(__WXMAC__) && wxCHECK_VERSION(3,1,0))
+#if wxCHECK_VERSION(3,1,0) || (!defined(__WXMAC__) && wxCHECK_VERSION(3,0,0))
 case wxWindow_SetDoubleBuffered: { // wxWindow::SetDoubleBuffered
  wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
  bool * on = (bool *) bp; bp += 4;
