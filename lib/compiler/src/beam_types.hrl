@@ -50,7 +50,7 @@
 
 -define(ATOM_SET_SIZE, 5).
 
--record(t_atom, {elements=any :: 'any' | [atom()]}).
+-record(t_atom, {elements=any :: 'any' | ordsets:ordset(atom())}).
 -record(t_float, {elements=any :: 'any' | {float(),float()}}).
 -record(t_fun, {arity=any :: arity() | 'any'}).
 -record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
