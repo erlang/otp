@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,32 +18,40 @@
 %% %CopyrightEnd%
 %%
 
--module(snmp_agent_conf_test).
+-module(snmp_agent_conf_SUITE).
 
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
 
-%-include_lib("test_server/include/test_server.hrl").
-%-include("snmp_test_lib.hrl").
+-include("snmp_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 
 -export([
-    all/0,
-    groups/0,
-    init_per_suite/1,
-    end_per_suite/1,
+         suite/0, all/0, groups/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
+         
+         check_agent/1,
+         check_usm/1,
+         check_vacm/1
+        ]).
 
-    check_agent/1,
-    check_usm/1,
-    check_vacm/1
-    ]).
 
 
-all() -> [
-    check_agent,
-    check_usm,
-    check_vacm
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+all() ->
+    [
+     check_agent,
+     check_usm,
+     check_vacm
     ].
 
 
@@ -51,14 +59,54 @@ groups() ->
     [].
 
 
-init_per_suite(Config) ->
-    PrivDir = ?config(priv_dir, Config),
-    PrivSubdir = filename:join(PrivDir, "snmp_agent_conf_test"),
-    ok = filelib:ensure_dir(filename:join(PrivSubdir, "dummy")),
-    [{priv_subdir, PrivSubdir} | Config].
+%%
+%% -----
+%%
 
-end_per_suite(_Config) ->
-    ok.
+init_per_suite(Config0) ->
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+        Config1 when is_list(Config1) ->
+            snmp_test_sys_monitor:start(),
+            PrivDir = ?config(priv_dir, Config1),
+            PrivSubdir = filename:join(PrivDir, "snmp_agent_conf_test"),
+            ok = filelib:ensure_dir(filename:join(PrivSubdir, "dummy")),
+            [{priv_subdir, PrivSubdir} | Config1]
+    end.
+
+end_per_suite(Config) ->
+    snmp_test_sys_monitor:stop(),
+    ?LIB:end_per_suite(Config).
+
+
+
+%%
+%% -----
+%%
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(_Case, Config) when is_list(Config) ->
+    snmp_test_global_sys_monitor:reset_events(),
+    Config.
+
+end_per_testcase(_Case, Config) when is_list(Config) ->
+    ?PRINT2("system events during test: "
+            "~n   ~p", [snmp_test_global_sys_monitor:events()]),
+    Config.
+
+
+
 
 %%======================================================================
 %% Test data

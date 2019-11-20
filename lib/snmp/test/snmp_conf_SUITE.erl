@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,11 +22,12 @@
 %%----------------------------------------------------------------------
 %% Purpose:
 %%----------------------------------------------------------------------
--module(snmp_conf_test).
+-module(snmp_conf_SUITE).
 
 %%----------------------------------------------------------------------
 %% Include files
 %%----------------------------------------------------------------------
+
 -include_lib("common_test/include/ct.hrl").
 -include("snmp_test_lib.hrl").
 
@@ -38,7 +39,9 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	all/0,groups/0,init_per_group/2,end_per_group/2, 
+         suite/0, all/0, groups/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2, 
          init_per_testcase/2, end_per_testcase/2,
 
 	 check_mandatory/1,
@@ -60,48 +63,69 @@
 	 read_files/1
 	]).
 
-%%----------------------------------------------------------------------
-%% Internal exports
-%%----------------------------------------------------------------------
--export([
-        ]).
-
-%%----------------------------------------------------------------------
-%% Macros
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Records
-%%----------------------------------------------------------------------
 
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
 
-init_per_testcase(_Case, Config) when is_list(Config) ->
-    Config.
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
-end_per_testcase(_Case, Config) when is_list(Config) ->
-    Config.
-
-%%======================================================================
-%% Test case definitions
-%%======================================================================
 all() -> 
-[check_mandatory, check_integer1, check_integer2,
- check_string1, check_string2, check_atom, check_ip,
- check_taddress, check_packet_size, check_oid,
- check_sec_model1, check_sec_model2, check_sec_level,
- check_timer, read, read_files].
+    [
+     check_mandatory,
+     check_integer1, check_integer2,
+     check_string1, check_string2,
+     check_atom,
+     check_ip,
+     check_taddress,
+     check_packet_size,
+     check_oid,
+     check_sec_model1,
+     check_sec_model2,
+     check_sec_level,
+     check_timer, 
+     read, read_files
+    ].
 
 groups() -> 
     [].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(Config) when is_list(Config) ->
+    Config.
+
+end_per_suite(Config) when is_list(Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
 	Config.
 
 end_per_group(_GroupName, Config) ->
 	Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(_Case, Config) when is_list(Config) ->
+    Config.
+
+end_per_testcase(_Case, Config) when is_list(Config) ->
+    Config.
 
 
 

@@ -21,12 +21,12 @@
 %%----------------------------------------------------------------------
 %% Purpose:
 %%
-%% Test:    ts:run(snmp, snmp_manager_test, [batch]).
-%% Test:    ts:run(snmp, snmp_manager_test, event_tests, [batch]).
-%% Test:    ts:run(snmp, snmp_manager_test, inform_swarm, [batch]).
+%% Test:    ts:run(snmp, snmp_manager_SUITE, [batch]).
+%% Test:    ts:run(snmp, snmp_manager_SUITE, event_tests, [batch]).
+%% Test:    ts:run(snmp, snmp_manager_SUITE, inform_swarm, [batch]).
 %% 
 %%----------------------------------------------------------------------
--module(snmp_manager_test).
+-module(snmp_manager_SUITE).
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -45,14 +45,12 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/0, 
-	 groups/0, 
-	 init_per_group/2, end_per_group/2, 
-         init_per_testcase/2, end_per_testcase/2,
+         suite/0, all/0, groups/0,
+	 init_per_suite/1,    end_per_suite/1, 
+	 init_per_group/2,    end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, 
 
-	 init_per_suite/1, end_per_suite/1, 
 
-	
 	 simple_start_and_stop1/1,
 	 simple_start_and_stop2/1,
 	 simple_start_and_stop3/1,
@@ -148,52 +146,315 @@
 %%----------------------------------------------------------------------
 
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+
+all() -> 
+    [
+     {group, start_and_stop_tests}, 
+     {group, misc_tests}, 
+     {group, user_tests}, 
+     {group, agent_tests}, 
+     {group, request_tests}, 
+     {group, request_tests_mt}, 
+     {group, event_tests}, 
+     {group, event_tests_mt}, 
+     discovery, 
+     {group, tickets}, 
+     {group, ipv6},
+     {group, ipv6_mt}
+    ].
+
+groups() -> 
+    [
+     {start_and_stop_tests, [],
+      [
+       simple_start_and_stop1, 
+       simple_start_and_stop2,
+       simple_start_and_stop3, 
+       simple_start_and_monitor_crash1,
+       simple_start_and_monitor_crash2, 
+       notify_started01,
+       notify_started02
+      ]
+     },
+     {misc_tests, [], 
+      [
+       info
+      ]
+     },
+     {user_tests, [], 
+      [
+       register_user1
+      ]
+     },
+     {agent_tests, [], 
+      [
+       register_agent_old,
+       register_agent2, 
+       register_agent3
+      ]
+     },
+     {request_tests, [],
+      [
+       {group, get_tests}, 
+       {group, get_next_tests}, 
+       {group, set_tests}, 
+       {group, bulk_tests}, 
+       {group, misc_request_tests} 
+      ]
+     },
+     {request_tests_mt, [],
+      [
+       {group, get_tests}, 
+       {group, get_next_tests},
+       {group, set_tests}, 
+       {group, bulk_tests},
+       {group, misc_request_tests}
+      ]
+     },
+     {get_tests, [],
+      [
+       simple_sync_get2, 
+       simple_sync_get3, 
+       simple_async_get2,
+       simple_async_get3
+      ]
+     },
+     {get_next_tests, [],
+      [
+       simple_sync_get_next2,
+       simple_sync_get_next3,
+       simple_async_get_next2,
+       simple_async_get_next3_cbp_def,
+       simple_async_get_next3_cbp_temp,
+       simple_async_get_next3_cbp_perm
+      ]
+     },
+     {set_tests, [],
+      [
+       simple_sync_set2, 
+       simple_sync_set3, 
+       simple_async_set2,
+       simple_async_set3_cbp_def,
+       simple_async_set3_cbp_temp,
+       simple_async_set3_cbp_perm
+      ]
+     },
+     {bulk_tests, [],
+      [
+       simple_sync_get_bulk2,
+       simple_sync_get_bulk3,
+       simple_async_get_bulk2, 
+       simple_async_get_bulk3_cbp_def,
+       simple_async_get_bulk3_cbp_temp,
+       simple_async_get_bulk3_cbp_perm
+      ]
+     },
+     {misc_request_tests, [], 
+      [
+       misc_async2
+      ]
+     },
+     {event_tests, [],
+      [
+       trap1, 
+       trap2, 
+       inform1, 
+       inform2, 
+       inform3, 
+       inform4,
+       inform_swarm_cbp_def,
+       inform_swarm_cbp_temp,
+       inform_swarm_cbp_perm,
+       report
+      ]
+     },
+     {event_tests_mt, [],
+      [
+       trap1, 
+       trap2, 
+       inform1, 
+       inform2, 
+       inform3, 
+       inform4,
+       inform_swarm_cbp_def,
+       inform_swarm_cbp_temp,
+       inform_swarm_cbp_perm,
+       report
+      ]
+     },
+     {tickets, [], 
+      [
+       {group, otp8015}, 
+       {group, otp8395}
+      ]
+     },
+     {otp8015, [], 
+      [
+       otp8015_1
+      ]
+     }, 
+     {otp8395, [], 
+      [
+       otp8395_1
+      ]
+     },
+     {ipv6, [], ipv6_tests()},
+     {ipv6_mt, [], ipv6_tests()}
+
+    ].
+
+ipv6_tests() ->
+    [
+     register_agent_old,
+     simple_sync_get_next3,
+     simple_async_get2,
+     simple_sync_get3,
+     simple_async_get_next2,
+     simple_sync_set3,
+     simple_async_set2,
+     simple_sync_get_bulk2,
+     simple_async_get_bulk3_cbp_def,
+     simple_async_get_bulk3_cbp_temp,
+     simple_async_get_bulk3_cbp_perm,
+     misc_async2,
+     inform1,
+     inform_swarm_cbp_def,
+     inform_swarm_cbp_temp,
+     inform_swarm_cbp_perm
+    ].
+
+
+
+%%
+%% -----
+%%
 
 init_per_suite(Config0) when is_list(Config0) ->
 
     ?DBG("init_per_suite -> entry with"
 	 "~n   Config0: ~p", [Config0]),
 
-    %% Preferably this test SUITE should be divided into groups
-    %% so that if crypto does not work only v3 tests that
-    %% need crypto will be skipped, but as this is only a
-    %% problem with one legacy test machine, we will procrastinate
-    %% until we have a more important reason to fix this. 
-    case snmp_test_lib:crypto_start() of
-        ok ->
+    case snmp_test_lib:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
 
-            snmp_test_global_sys_monitor:start(),
-            snmp_test_sys_monitor:start(), % We need one on this node also
+        Config1 ->
 
-            Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
-            Config2   = snmp_test_lib:fix_data_dir(Config1),
-            %% Mib-dirs
-            %% data_dir is trashed by the test-server / common-test
-            %% so there is no point in fixing it...
-            MibDir    = snmp_test_lib:lookup(data_dir, Config2),
-            StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
-            
-            [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2];
-        _ ->
-            {skip, "Crypto did not start"}
+            %% Preferably this test SUITE should be divided into groups
+            %% so that if crypto does not work only v3 tests that
+            %% need crypto will be skipped, but as this is only a
+            %% problem with one legacy test machine, we will procrastinate
+            %% until we have a more important reason to fix this. 
+            case snmp_test_lib:crypto_start() of
+                ok ->
+                    %% We need one on this node also
+                    snmp_test_sys_monitor:start(),
+
+                    Config2   = snmp_test_lib:init_suite_top_dir(?MODULE, Config1), 
+                    Config3   = snmp_test_lib:fix_data_dir(Config2),
+                    %% Mib-dirs
+                    %% data_dir is trashed by the test-server / common-test
+                    %% so there is no point in fixing it...
+                    MibDir    = snmp_test_lib:lookup(data_dir, Config3),
+                    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+                    [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config3];
+
+                _ ->
+                    {skip, "Crypto did not start"}
+            end
     end.
 
-end_per_suite(Config) when is_list(Config) ->
+end_per_suite(Config0) when is_list(Config0) ->
 
-    ?DBG("end_per_suite -> entry with"
-	 "~n   Config: ~p", [Config]),
+    p("end_per_suite -> entry with"
+      "~n      Config0: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     snmp_test_sys_monitor:stop(),
-    snmp_test_global_sys_monitor:stop(),
+    Config1 = snmp_test_lib:end_per_suite(Config0),
 
-    Config.
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+    Config1.
 
+
+%%
+%% -----
+%%
+
+init_per_group(request_tests_mt = GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(
+      GroupName, 
+      [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+init_per_group(event_tests_mt = GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(
+      GroupName, 
+      [{manager_net_if_module, snmpm_net_if_mt} | Config]);
+init_per_group(ipv6_mt = GroupName, Config) ->
+    init_per_group_ipv6(GroupName,
+                        [{manager_net_if_module, snmpm_net_if_mt} | Config]);   
+init_per_group(ipv6 = GroupName, Config) -> 
+    init_per_group_ipv6(GroupName, Config);   
+init_per_group(GroupName, Config) ->
+    snmp_test_lib:init_group_top_dir(GroupName, Config).
+
+
+init_per_group_ipv6(GroupName, Config) ->
+    %% <OS-CONDITIONAL-SKIP>
+    OSSkipable = [{unix, 
+                   [
+                    {darwin, fun(V) when (V > {9, 8, 0}) ->
+				     %% This version is OK: No Skip
+				     false;
+				(_) ->
+				     %% This version is *not* ok: Skip
+                                     %% We need a fully qualified hostname
+                                     %% to get a proper IPv6 address (in this
+                                     %% version), but its just to messy, so 
+                                     %% instead we skip this **OLD** darwin...
+				     true
+                             end}
+                   ]
+                  }],
+    %% </OS-CONDITIONAL-SKIP>
+    case ?OS_BASED_SKIP(OSSkipable) of
+        true ->
+            {skip, "Host *may* not *properly* support IPV6"};
+        false ->
+            %% Even if this host supports IPv6 we don't use it unless its
+            %% one of the configures/supported IPv6 hosts...
+            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
+                true ->
+                    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+                false ->
+                    {skip, "Host does not support IPv6"}
+            end
+    end.
+
+
+end_per_group(_GroupName, Config) ->
+    %% Do we really need to do this?
+    lists:keydelete(snmp_group_top_dir, 1, Config).
+
+
+
+
+%%
+%% -----
+%%
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     p(Case, "init_per_testcase begin when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
+
+    snmp_test_global_sys_monitor:reset_events(),
+    
     %% This version of the API, based on Addr and Port, has been deprecated
     DeprecatedApiCases = 
 	[
@@ -408,13 +669,16 @@ init_per_testcase_fail_agent_cleanup(Conf) ->
 end_per_testcase(Case, Config) when is_list(Config) ->
     p(Case, "end_per_testcase begin when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
-    ?DBG("fin [~w] Nodes [1]: ~p", [Case, erlang:nodes()]),
+
+    ?PRINT2("system events during test: "
+            "~n   ~p", [snmp_test_global_sys_monitor:events()]),
+
     %% Dog    = ?config(watchdog, Config),
     %% ?WD_STOP(Dog),
     %% Conf1  = lists:keydelete(watchdog, 1, Config),
     Conf1  = Config,
     Conf2  = end_per_testcase2(Case, Conf1),
-    ?DBG("fin [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
+
     p(Case, "end_per_testcase end when"
       "~n      Nodes: ~p~n~n", [erlang:nodes()]),
     Conf2.
@@ -484,237 +748,6 @@ end_per_testcase2(Case, Config) ->
 %%======================================================================
 %% Test case definitions
 %%======================================================================
-
-all() -> 
-    [
-     {group, start_and_stop_tests}, 
-     {group, misc_tests}, 
-     {group, user_tests}, 
-     {group, agent_tests}, 
-     {group, request_tests}, 
-     {group, request_tests_mt}, 
-     {group, event_tests}, 
-     {group, event_tests_mt}, 
-     discovery, 
-     {group, tickets}, 
-     {group, ipv6},
-     {group, ipv6_mt}
-    ].
-
-groups() -> 
-    [
-     {start_and_stop_tests, [],
-      [
-       simple_start_and_stop1, 
-       simple_start_and_stop2,
-       simple_start_and_stop3, 
-       simple_start_and_monitor_crash1,
-       simple_start_and_monitor_crash2, 
-       notify_started01,
-       notify_started02
-      ]
-     },
-     {misc_tests, [], 
-      [
-       info
-      ]
-     },
-     {user_tests, [], 
-      [
-       register_user1
-      ]
-     },
-     {agent_tests, [], 
-      [
-       register_agent_old,
-       register_agent2, 
-       register_agent3
-      ]
-     },
-     {request_tests, [],
-      [
-       {group, get_tests}, 
-       {group, get_next_tests}, 
-       {group, set_tests}, 
-       {group, bulk_tests}, 
-       {group, misc_request_tests} 
-      ]
-     },
-     {request_tests_mt, [],
-      [
-       {group, get_tests}, 
-       {group, get_next_tests},
-       {group, set_tests}, 
-       {group, bulk_tests},
-       {group, misc_request_tests}
-      ]
-     },
-     {get_tests, [],
-      [
-       simple_sync_get2, 
-       simple_sync_get3, 
-       simple_async_get2,
-       simple_async_get3
-      ]
-     },
-     {get_next_tests, [],
-      [
-       simple_sync_get_next2,
-       simple_sync_get_next3,
-       simple_async_get_next2,
-       simple_async_get_next3_cbp_def,
-       simple_async_get_next3_cbp_temp,
-       simple_async_get_next3_cbp_perm
-      ]
-     },
-     {set_tests, [],
-      [
-       simple_sync_set2, 
-       simple_sync_set3, 
-       simple_async_set2,
-       simple_async_set3_cbp_def,
-       simple_async_set3_cbp_temp,
-       simple_async_set3_cbp_perm
-      ]
-     },
-     {bulk_tests, [],
-       [
-        simple_sync_get_bulk2,
-        simple_sync_get_bulk3,
-        simple_async_get_bulk2, 
-        simple_async_get_bulk3_cbp_def,
-        simple_async_get_bulk3_cbp_temp,
-        simple_async_get_bulk3_cbp_perm
-       ]
-      },
-      {misc_request_tests, [], 
-       [
-	misc_async2
-       ]
-      },
-     {event_tests, [],
-      [
-       trap1, 
-       trap2, 
-       inform1, 
-       inform2, 
-       inform3, 
-       inform4,
-       inform_swarm_cbp_def,
-       inform_swarm_cbp_temp,
-       inform_swarm_cbp_perm,
-       report
-      ]
-     },
-     {event_tests_mt, [],
-      [
-       trap1, 
-       trap2, 
-       inform1, 
-       inform2, 
-       inform3, 
-       inform4,
-       inform_swarm_cbp_def,
-       inform_swarm_cbp_temp,
-       inform_swarm_cbp_perm,
-       report
-      ]
-     },
-     {tickets, [], 
-      [
-       {group, otp8015}, 
-       {group, otp8395}
-      ]
-     },
-     {otp8015, [], 
-      [
-       otp8015_1
-      ]
-     }, 
-     {otp8395, [], 
-      [
-       otp8395_1
-      ]
-     },
-     {ipv6, [], ipv6_tests()},
-     {ipv6_mt, [], ipv6_tests()}
-
-    ].
-
-ipv6_tests() ->
-    [
-     register_agent_old,
-     simple_sync_get_next3,
-     simple_async_get2,
-     simple_sync_get3,
-     simple_async_get_next2,
-     simple_sync_set3,
-     simple_async_set2,
-     simple_sync_get_bulk2,
-     simple_async_get_bulk3_cbp_def,
-     simple_async_get_bulk3_cbp_temp,
-     simple_async_get_bulk3_cbp_perm,
-     misc_async2,
-     inform1,
-     inform_swarm_cbp_def,
-     inform_swarm_cbp_temp,
-     inform_swarm_cbp_perm
-    ].
-
-
-init_per_group(request_tests_mt = GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(
-      GroupName, 
-      [{manager_net_if_module, snmpm_net_if_mt} | Config]);
-init_per_group(event_tests_mt = GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(
-      GroupName, 
-      [{manager_net_if_module, snmpm_net_if_mt} | Config]);
-init_per_group(ipv6_mt = GroupName, Config) ->
-    init_per_group_ipv6(GroupName,
-                        [{manager_net_if_module, snmpm_net_if_mt} | Config]);   
-init_per_group(ipv6 = GroupName, Config) -> 
-    init_per_group_ipv6(GroupName, Config);   
-init_per_group(GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(GroupName, Config).
-
-
-init_per_group_ipv6(GroupName, Config) ->
-    %% <OS-CONDITIONAL-SKIP>
-    OSSkipable = [{unix, 
-                   [
-                    {darwin, fun(V) when (V > {9, 8, 0}) ->
-				     %% This version is OK: No Skip
-				     false;
-				(_) ->
-				     %% This version is *not* ok: Skip
-                                     %% We need a fully qualified hostname
-                                     %% to get a proper IPv6 address (in this
-                                     %% version), but its just to messy, so 
-                                     %% instead we skip this **OLD** darwin...
-				     true
-                             end}
-                   ]
-                  }],
-    %% </OS-CONDITIONAL-SKIP>
-    case ?OS_BASED_SKIP(OSSkipable) of
-        true ->
-            {skip, "Host *may* not *properly* support IPV6"};
-        false ->
-            %% Even if this host supports IPv6 we don't use it unless its
-            %% one of the configures/supported IPv6 hosts...
-            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
-                true ->
-                    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
-                false ->
-                    {skip, "Host does not support IPv6"}
-            end
-    end.
-
-
-end_per_group(_GroupName, Config) ->
-    %% Do we really need to do this?
-    lists:keydelete(snmp_group_top_dir, 1, Config).
 
 
 %%======================================================================
@@ -4455,7 +4488,7 @@ do_inform_swarm(Config) ->
     ?line ok = agent_load_mib(AgentNode,  Test2Mib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapMib),
     ?line ok = agent_load_mib(AgentNode,  TestTrapv2Mib),
-    NumInforms = 10000, 
+    NumInforms = 2000, 
 
     Collector = self(),
 
