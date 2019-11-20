@@ -136,7 +136,7 @@ types(erlang, 'xor', [_,_]) ->
 
 %% Bitwise ops
 types(erlang, 'band', [_,_]=Args) ->
-    sub_unsafe(band_return_type(Args), [#t_integer{}, #t_integer{}]);
+    sub_unsafe(erlang_band_type(Args), [#t_integer{}, #t_integer{}]);
 types(erlang, 'bor', [_,_]) ->
     sub_unsafe(#t_integer{}, [#t_integer{}, #t_integer{}]);
 types(erlang, 'bxor', [_,_]) ->
@@ -483,14 +483,14 @@ mixed_arith_types([FirstType | _]=Args0) ->
                     end, FirstType, Args0),
     sub_unsafe(RetType, [number || _ <- Args0]).
 
-band_return_type([#t_integer{elements={Int,Int}}, RHS]) when is_integer(Int) ->
-    band_return_type_1(RHS, Int);
-band_return_type([LHS, #t_integer{elements={Int,Int}}]) when is_integer(Int) ->
-    band_return_type_1(LHS, Int);
-band_return_type(_) ->
+erlang_band_type([#t_integer{elements={Int,Int}}, RHS]) when is_integer(Int) ->
+    erlang_band_type_1(RHS, Int);
+erlang_band_type([LHS, #t_integer{elements={Int,Int}}]) when is_integer(Int) ->
+    erlang_band_type_1(LHS, Int);
+erlang_band_type(_) ->
     #t_integer{}.
 
-band_return_type_1(LHS, Int) ->
+erlang_band_type_1(LHS, Int) ->
     case LHS of
         #t_integer{elements={Min0,Max0}} when Max0 - Min0 < 1 bsl 256 ->
             {Intersection, Union} = range_masks(Min0, Max0),
