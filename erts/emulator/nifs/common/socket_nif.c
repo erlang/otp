@@ -17557,101 +17557,170 @@ char* encode_cmsghdr_data_recverr(ErlNifEnv*     env,
     ERL_NIF_TERM eSockAddr;
 
     switch (sock_err->ee_origin) {
+#if defined(SO_EE_ORIGIN_NONE)
     case SO_EE_ORIGIN_NONE:
         ee_origin = atom_none;
         ee_type = MKI(env, sock_err->ee_type);
         ee_code = MKI(env, sock_err->ee_code);
         break;
+#endif
+
+#if defined(SO_EE_ORIGIN_LOCAL)
     case SO_EE_ORIGIN_LOCAL:
         ee_origin = esock_atom_local;
         ee_type = MKI(env, sock_err->ee_type);
         ee_code = MKI(env, sock_err->ee_code);
         break;
+#endif
+
+#if defined(SO_EE_ORIGIN_ICMP)
     case SO_EE_ORIGIN_ICMP:
         ee_origin = esock_atom_icmp;
         switch (sock_err->ee_type) {
+
+#if defined(ICMP_DEST_UNREACH)
         case ICMP_DEST_UNREACH:
             ee_type   = atom_dest_unreach;
             switch (sock_err->ee_code) {
+
+#if defined(ICMP_NET_UNREACH)
             case ICMP_NET_UNREACH:
                 ee_code = atom_net_unreach;
                 break;
+#endif
+
+#if defined(ICMP_HOST_UNREACH)
             case ICMP_HOST_UNREACH:
                 ee_code = atom_host_unreach;
                 break;
+#endif
+
+#if defined(ICMP_PORT_UNREACH)
             case ICMP_PORT_UNREACH:
                 ee_code = atom_port_unreach;
                 break;
+#endif
+
+#if defined(ICMP_FRAG_NEEDED)
             case ICMP_FRAG_NEEDED:
                 ee_code = atom_frag_needed;
                 break;
+#endif
+
+#if defined(ICMP_NET_UNKNOWN)
             case ICMP_NET_UNKNOWN:
                 ee_code = atom_net_unknown;
                 break;
+#endif
+
+#if defined(ICMP_HOST_UNKNOWN)
             case ICMP_HOST_UNKNOWN:
                 ee_code = atom_host_unknown;
                 break;
+#endif
+
             default:
                 ee_code = MKI(env, sock_err->ee_code);
                 break;
             }
             break;
+#endif // ICMP_DEST_UNREACH
+
+#if defined(ICMP_TIME_EXCEEDED)
         case ICMP_TIME_EXCEEDED:
             ee_type = atom_time_exceeded;
             ee_code = MKI(env, sock_err->ee_code);
             break;
+#endif
+
         default:
             ee_type = MKI(env, sock_err->ee_type);
             ee_code = MKI(env, sock_err->ee_code);
             break;
         }
         break;
+#endif // SO_EE_ORIGIN_ICMP
+
+#if defined(SO_EE_ORIGIN_ICMP6)
     case SO_EE_ORIGIN_ICMP6:
         ee_origin = esock_atom_icmp6;
         switch (sock_err->ee_type) {
+
+#if defined(ICMPV6_DEST_UNREACH)
         case ICMPV6_DEST_UNREACH:
             ee_type = atom_dest_unreach;
             switch (sock_err->ee_code) {
+
+#if defined(ICMPV6_NOROUTE)
             case ICMPV6_NOROUTE:
                 ee_code = atom_noroute;
                 break;
+#endif
+#if defined(ICMPV6_ADM_PROHIBITED)
             case ICMPV6_ADM_PROHIBITED:
                 ee_code = atom_adm_prohibited;
                 break;
+#endif
+
+#if defined(ICMPV6_NOT_NEIGHBOUR)
             case ICMPV6_NOT_NEIGHBOUR:
                 ee_code = atom_not_neighbour;
                 break;
+#endif
+
+#if defined(ICMPV6_ADDR_UNREACH)
             case ICMPV6_ADDR_UNREACH:
                 ee_code = atom_addr_unreach;
                 break;
+#endif
+
+#if defined(ICMPV6_PORT_UNREACH)
             case ICMPV6_PORT_UNREACH:
                 ee_code = atom_port_unreach;
                 break;
+#endif
+
+#if defined(ICMPV6_POLICY_FAIL)
             case ICMPV6_POLICY_FAIL:
                 ee_code = atom_policy_fail;
                 break;
+#endif
+
+#if defined(ICMPV6_REJECT_ROUTE)
             case ICMPV6_REJECT_ROUTE:
                 ee_code = atom_reject_route;
                 break;
+#endif
+
             default:
                 ee_code = MKI(env, sock_err->ee_code);
                 break;
             }
             break;
+#endif // ICMPV6_DEST_UNREACH
+
+#if defined(ICMPV6_PKT_TOOBIG)
         case ICMPV6_PKT_TOOBIG:
             ee_type = atom_pkt_toobig;
             ee_code = MKI(env, sock_err->ee_code);
             break;
+#endif
+
+#if defined(ICMPV6_TIME_EXCEED)
         case ICMPV6_TIME_EXCEED:
             ee_type = atom_time_exceeded;
             ee_code = MKI(env, sock_err->ee_code);
             break;
+#endif
+
         default:
             ee_type = MKI(env, sock_err->ee_type);
             ee_code = MKI(env, sock_err->ee_code);
             break;
         }
         break;
+#endif // SO_EE_ORIGIN_ICMP6
+
 #if defined(SO_EE_ORIGIN_TXSTATUS)
     case SO_EE_ORIGIN_TXSTATUS:
         ee_origin = atom_txstatus;
@@ -17659,6 +17728,7 @@ char* encode_cmsghdr_data_recverr(ErlNifEnv*     env,
         ee_code   = MKI(env, sock_err->ee_code);
         break;
 #endif
+
 #if defined(SO_EE_ORIGIN_ZEROCOPY)
     case SO_EE_ORIGIN_ZEROCOPY:
         ee_origin = atom_zerocopy;
@@ -17666,6 +17736,7 @@ char* encode_cmsghdr_data_recverr(ErlNifEnv*     env,
         ee_code   = MKI(env, sock_err->ee_code);
         break;
 #endif
+
 #if defined(SO_EE_ORIGIN_TXTIME)
     case SO_EE_ORIGIN_TXTIME:
         ee_origin = atom_txtime;
@@ -17673,6 +17744,7 @@ char* encode_cmsghdr_data_recverr(ErlNifEnv*     env,
         ee_code   = MKI(env, sock_err->ee_code);
         break;
 #endif
+
     default:
         ee_origin = MKI(env, sock_err->ee_origin);
         ee_type   = MKI(env, sock_err->ee_type);
@@ -17680,14 +17752,14 @@ char* encode_cmsghdr_data_recverr(ErlNifEnv*     env,
         break;
     }
 
-    if (CHARP(dataP) + dataLen > CHARP(offender))
-    {
+    if (CHARP(dataP) + dataLen > CHARP(offender)) {
         esock_encode_sockaddr(env,
                               (ESockAddress *)offender,
                               (CHARP(dataP) + dataLen) - CHARP(offender),
                               &eSockAddr);
-    } else
+    } else {
         eSockAddr = esock_atom_undefined;
+    }
 
     {
         ERL_NIF_TERM keys[] = {esock_atom_error,
@@ -17709,6 +17781,7 @@ char* encode_cmsghdr_data_recverr(ErlNifEnv*     env,
             return ESOCK_STR_EINVAL;
         }
     }
+
     return NULL;
 }
 
