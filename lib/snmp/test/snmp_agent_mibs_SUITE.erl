@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@
 %%          Some of these tests should really be in a mib-storage suite.
 %%----------------------------------------------------------------------
 
--module(snmp_agent_mibs_test).
+-module(snmp_agent_mibs_SUITE).
 
 
 %%----------------------------------------------------------------------
@@ -43,18 +43,12 @@
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
+
 -export([
-	 all/0,
-	 groups/0,
-
-	 init_per_suite/1, 
-	 end_per_suite/1, 
-
-	 init_per_group/2,
-	 end_per_group/2, 
-
-         init_per_testcase/2, 
-	 end_per_testcase/2,
+         suite/0, all/0, groups/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2, 
+         init_per_testcase/2, end_per_testcase/2,
 
 	 start_and_stop/1,
 	
@@ -73,45 +67,98 @@
 	]).
 
 
-%%----------------------------------------------------------------------
-%% Internal exports
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Macros
-%%----------------------------------------------------------------------
-
-%%----------------------------------------------------------------------
-%% Records
-%%----------------------------------------------------------------------
-
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+all() -> 
+    [
+     start_and_stop, 
+     load_unload, 
+     {group, size_check},
+     me_lookup, 
+     which_mib, 
+     cache_test
+    ].
+
+groups() -> 
+    [
+     {size_check, [], size_check_cases()}
+    ].
+
+size_check_cases() ->
+    [
+     size_check_ets1,            % Plain ets
+     size_check_ets2,            % ets with a file
+     size_check_ets2_bad_file1,  % ets with a bad file
+     size_check_ets3,            % ets with a checksummed file
+     size_check_ets3_bad_file1,  % ets with bad file (checksummed) 
+     size_check_dets,            % Plain dets
+     size_check_mnesia           % Plain mnesia
+    ].
+
+
+
+%%
+%% -----
+%%
 
 init_per_suite(Config0) when is_list(Config0) ->
 
     ?DBG("init_per_suite -> entry with"
          "~n   Config0: ~p", [Config0]),
 
-    Config1 = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
+    case snmp_test_lib:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
 
-    ?DBG("init_per_suite -> done when"
-         "~n   Config1: ~p", [Config1]),
+        Config1 when is_list(Config1) ->
+            Config2 = ?LIB:init_suite_top_dir(?MODULE, Config1), 
 
-    Config1.
+            %% We need a monitor on this node also
+            snmp_test_sys_monitor:start(),
+
+            ?DBG("init_per_suite -> done when"
+                 "~n   Config: ~p", [Config]),
+
+            Config2
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
 
     ?DBG("end_per_suite -> entry with"
          "~n   Config: ~p", [Config]),
 
+    snmp_test_sys_monitor:stop(),
+
+    ?LIB:end_per_suite(Config).
+
+
+
+%%
+%% -----
+%%
+
+init_per_group(GroupName, Config) ->
+    ?LIB:init_group_top_dir(GroupName, Config).
+
+end_per_group(_GroupName, Config) ->
     Config.
 
 
+
+
+%%
+%% -----
+%%
+
 init_per_testcase(Case, Config0) when is_list(Config0) ->
-    Config1    = snmp_test_lib:fix_data_dir(Config0),
-    CaseTopDir = snmp_test_lib:init_testcase_top_dir(Case, Config1), 
+    snmp_test_global_sys_monitor:reset_events(),
+    Config1    = ?LIB:fix_data_dir(Config0),
+    CaseTopDir = ?LIB:init_testcase_top_dir(Case, Config1), 
     DbDir      = join(CaseTopDir, "db_dir/"),
     ?line ok   = file:make_dir(DbDir),
     init_per_testcase2(Case, [{db_dir,       DbDir}, 
@@ -131,11 +178,18 @@ init_per_testcase2(size_check_ets3_bad_file1, Config) when is_list(Config) ->
     Config;
 init_per_testcase2(size_check_mnesia, Config) when is_list(Config) ->
     DbDir = ?config(db_dir, Config),
-    mnesia_start([{dir, DbDir}]),
-    Config;
+    try
+        begin
+            mnesia_start([{dir, DbDir}]),
+            Config
+        end
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end;
 init_per_testcase2(cache_test, Config) when is_list(Config) ->
     Min = timer:minutes(5), 
-    Timeout = 
+    Timeout =
 	case lists:keysearch(tc_timeout, 1, Config) of
 	    {value, {tc_timeout, TcTimeout}} when TcTimeout < Min ->
 		Min; 
@@ -149,70 +203,21 @@ init_per_testcase2(cache_test, Config) when is_list(Config) ->
 init_per_testcase2(_Case, Config) when is_list(Config) ->
     Config.
 
-%% end_per_testcase(EtsCase, Config) 
-%%   when (is_list(Config) andalso 
-%% 	((EtsCase =:= size_check_ets2) orelse 
-%% 	 (EtsCase =:= size_check_ets3))) ->
-%%     Dir = ?config(ets_dir, Config),
-%%     ?line ok = ?DEL_DIR(Dir),
-%%     lists:keydelete(ets_dir, 1, Config);
-%% end_per_testcase(size_check_dets, Config) when is_list(Config) ->
-%%     Dir = ?config(dets_dir, Config),
-%%     ?line ok = ?DEL_DIR(Dir),
-%%     lists:keydelete(dets_dir, 1, Config);
-end_per_testcase(size_check_mnesia, Config) when is_list(Config) ->
+
+end_per_testcase(Case, Config) when is_list(Config) ->
+    ?PRINT2("system events during test: "
+            "~n   ~p", [snmp_test_global_sys_monitor:events()]),
+    end_per_testcase1(Case, Config).
+
+end_per_testcase1(size_check_mnesia, Config) when is_list(Config) ->
     mnesia_stop(),
-    %% Dir = ?config(db_dir, Config),
-    %% ?line ok = ?DEL_DIR(Dir),
-    %% lists:keydelete(mnesia_dir, 1, Config);
     Config;
-end_per_testcase(cache_test, Config) when is_list(Config) ->
+end_per_testcase1(cache_test, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     test_server:timetrap_cancel(Dog),
     Config;
-end_per_testcase(_Case, Config) when is_list(Config) ->
+end_per_testcase1(_Case, Config) when is_list(Config) ->
     Config.
-
-
-%%======================================================================
-%% Test case definitions
-%%======================================================================
-
-all() -> 
-    cases().
-
-groups() -> 
-    [{size_check, [],
-      [
-       size_check_ets1,            % Plain ets
-       size_check_ets2,            % ets with a file
-       size_check_ets2_bad_file1,  % ets with a bad file
-       size_check_ets3,            % ets with a checksummed file
-       size_check_ets3_bad_file1,  % ets with bad file (checksummed) 
-       size_check_dets,            % Plain dets
-       size_check_mnesia           % Plain mnesia
-      ]
-     }].
-
-
-init_per_group(GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(GroupName, Config).
-
-end_per_group(_GroupName, Config) ->
-    %% Do we really need to do this?
-    %% lists:keydelete(snmp_group_top_dir, 1, Config).
-    Config.
-
-
-cases() -> 
-    [
-     start_and_stop, 
-     load_unload, 
-     {group, size_check},
-     me_lookup, 
-     which_mib, 
-     cache_test
-    ].
 
 
 %%======================================================================
@@ -627,26 +632,70 @@ mnesia_start(Opts) ->
     mnesia_start(Opts, [node()]).
 
 mnesia_start(Opts, Nodes) ->
-    ?DBG("mnesia_start -> load mnesia", []),
-    ?line ok = application:load(mnesia),
+    %% We can accept mnesia beeing loaded but *not* started.
+    %% If its started it *may* contain data that will invalidate
+    %% this test case.
+    ?PRINT2("mnesia_start -> try load mnesia when:"
+            "~n   Loaded:  ~p"
+            "~n   Running: ~p", [apps_loaded(), apps_running()]),
+    ?line ok = case application:load(mnesia) of
+                   ok ->
+                       ok;
+                   {error, {already_loaded, mnesia}} ->
+                       ok;
+                   {error, _} = ERROR ->
+                       ERROR
+               end,
     F = fun({Key, Val}) ->
-		?DBG("mnesia_start -> set mnesia env: ~n~p -> ~p", [Key,Val]),
+		?PRINT2("mnesia_start -> try set mnesia env: "
+                        "~n   ~p -> ~p", [Key, Val]),
 		?line application_controller:set_env(mnesia, Key, Val)
 	end,
     lists:foreach(F, Opts),
-    ?DBG("mnesia_start -> create mnesia schema on ~p", [Nodes]),
-    ?line ok = mnesia:create_schema(Nodes),
-    ?DBG("mnesia_start -> start mnesia", []),
-    ?line ok = application:start(mnesia),
+    ?PRINT2("mnesia_start -> create mnesia schema on ~p", [Nodes]),
+    ?line case mnesia:create_schema(Nodes) of
+              ok ->
+                  ok;
+              {error, {_, {already_exist, _}}} ->
+                  throw({skip, "Mnesia schema already exists"});
+              {error, SchemaReason} ->
+                  throw({skip,
+                         ?F("Failed create mnesia schema: ~p", [SchemaReason])})
+          end,
+    ?PRINT2("mnesia_start -> start mnesia", []),
+    ?line case application:start(mnesia) of
+              ok ->
+                  ok;
+              {error, {already_started, mnesia}} ->
+                  throw({skip, "Mnesia already started"});
+              {error, StartReason} ->
+                  throw({skip,
+                         ?F("Failed starting mnesia: ~p", [StartReason])})
+          end,
+    ?PRINT2("mnesia_start -> mnesia started", []),
     ok.
 
 mnesia_stop() ->
-    ?DBG("mnesia_stop -> stop mnesia", []),
+    ?PRINT2("mnesia_stop -> try stop mnesia when:"
+            "~n   Loaded:  ~p"
+            "~n   Running: ~p", [apps_loaded(), apps_running()]),
     application:stop(mnesia),
-    ?DBG("mnesia_stop -> unload mnesia", []),
+    ?PRINT2("mnesia_stop -> try unload mnesia when"
+            "~n   Loaded:  ~p"
+            "~n   Running: ~p", [apps_loaded(), apps_running()]),
     application:unload(mnesia),
+    ?PRINT2("mnesia_stop -> done when:"
+            "~n   Loaded:  ~p"
+            "~n   Running: ~p", [apps_loaded(), apps_running()]),
     ok.
-    
+
+apps_loaded() ->
+    [App || {App, _, _} <- application:loaded_applications()].
+
+apps_running() ->
+    [App || {App, _, _} <- application:which_applications()].
+
+
 %% - Symbolic Store mini interface
 
 sym_start(Prio, Verbosity) ->

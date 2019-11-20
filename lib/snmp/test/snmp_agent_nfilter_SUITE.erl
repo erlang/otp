@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@
 %%----------------------------------------------------------------------
 %% Purpose:
 %%----------------------------------------------------------------------
--module(snmp_agent_nfilter_test).
+-module(snmp_agent_nfilter_SUITE).
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -62,11 +62,12 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
 end_per_testcase(_Case, Config) when is_list(Config) ->
     Config.
 
+
 %%======================================================================
 %% Test case definitions
 %%======================================================================
 all() ->
-    {skip,not_yet_implemented}.
+    {skip, "Not yet implemented"}.
 
 
 %%======================================================================

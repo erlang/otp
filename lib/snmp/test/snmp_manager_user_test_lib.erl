@@ -55,15 +55,16 @@
 
 -export([
 	 handle_error/3,
-         handle_agent/4,
+         handle_agent/5,
+         handle_agent/4,   % For backwards compatibillity
          handle_pdu/4,
-         handle_pdu/5,     % For backwards compatibillity 
+         handle_pdu/5,     % For backwards compatibillity
          handle_trap/3,
-         handle_trap/4,    % For backwards compatibillity 
+         handle_trap/4,    % For backwards compatibillity
          handle_inform/3,
-         handle_inform/4,  % For backwards compatibillity 
-         handle_report/3, 
-         handle_report/4   % For backwards compatibillity 
+         handle_inform/4,  % For backwards compatibillity
+         handle_report/3,
+         handle_report/4   % For backwards compatibillity
 	]).
 
 
@@ -211,6 +212,10 @@ user_loop(#state{parent = Parent} = S) ->
 	    do_handle_error(Pid, ReqId, Reason),
 	    user_loop(S);
 
+	{handle_agent, Pid, Domain, Address, Type, SnmpInfo} ->
+	    do_handle_agent(Pid, Domain, Address, Type, SnmpInfo),
+	    user_loop(S);
+
 	{handle_agent, Pid, Addr, Port, SnmpInfo} ->
 	    do_handle_agent(Pid, Addr, Port, SnmpInfo),
 	    user_loop(S);
@@ -259,6 +264,16 @@ do_handle_error(Pid, ReqId, Reason) ->
     info("received error callback:"
          "~n   ReqId:    ~p"
          "~n   Reason:   ~p", [ReqId, Reason]),
+    Pid ! {ignore, self()},
+    ok.
+
+
+do_handle_agent(Pid, Domain, Address, Type, SnmpInfo) ->
+    info("received agent callback:"
+         "~n   Domain:   ~p"
+         "~n   Address:  ~p"
+         "~n   Type:     ~p"
+         "~n   SnmpInfo: ~p", [Domain, Address, Type, SnmpInfo]),
     Pid ! {ignore, self()},
     ok.
 
@@ -378,11 +393,17 @@ handle_error(ReqId, Reason, UserPid) ->
     ignore.
  
  
+handle_agent(Domain, Address, Type, SnmpInfo, UserPid) ->
+    UserPid ! {handle_agent, self(), Domain, Address, Type, SnmpInfo},
+    ignore.
+
+
+%% For backwards compatibillity 
 handle_agent(Addr, Port, SnmpInfo, UserPid) ->
     UserPid ! {handle_agent, self(), Addr, Port, SnmpInfo},
     ignore.
- 
- 
+
+
 handle_pdu(TargetName, ReqId, SnmpResponse, UserPid) ->
     UserPid ! {handle_pdu, self(), TargetName, ReqId, SnmpResponse},
     ignore.

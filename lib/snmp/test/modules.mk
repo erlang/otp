@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2016. All Rights Reserved.
+# Copyright Ericsson AB 2004-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,29 +19,27 @@
 # %CopyrightEnd%
 
 SUITE_MODULES = \
-	snmp_SUITE \
-        snmp_to_snmpnet_SUITE \
-	snmp_app_test \
-	snmp_appup_test \
-	snmp_compiler_test \
-	snmp_conf_test \
-	snmp_log_test \
-	snmp_note_store_test \
-	snmp_pdus_test \
-	snmp_agent_mibs_test \
-	snmp_agent_nfilter_test \
-	snmp_agent_test \
-	snmp_agent_test_get \
-	snmp_agent_conf_test \
-	snmp_agent_test_lib \
-	snmp_manager_config_test \
-	snmp_manager_user \
-	snmp_manager_user_old \
-	snmp_manager_user_test \
-	snmp_manager_user_test_lib \
-	snmp_manager_test
+	snmp_agent_SUITE \
+	snmp_agent_conf_SUITE \
+	snmp_agent_mibs_SUITE \
+	snmp_agent_nfilter_SUITE \
+	snmp_app_SUITE \
+	snmp_compiler_SUITE \
+	snmp_conf_SUITE \
+	snmp_log_SUITE \
+	snmp_manager_config_SUITE \
+	snmp_manager_user_SUITE \
+	snmp_manager_SUITE \
+	snmp_note_store_SUITE \
+	snmp_pdus_SUITE \
+        snmp_to_snmpnet_SUITE
 
 TEST_UTIL_MODULES = \
+	snmp_agent_test_get \
+	snmp_agent_test_lib \
+	snmp_manager_user \
+	snmp_manager_user_old \
+	snmp_manager_user_test_lib \
 	snmp_test_global_sys_monitor \
 	snmp_test_sys_monitor \
 	snmp_test_lib \
