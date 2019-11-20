@@ -18059,9 +18059,22 @@ api_opt_ip_recverr_udp(InitState) ->
          #{desc => "try recv error queue",
            cmd  => fun(#{sock := Sock}) ->
                            case socket:recvmsg(Sock, [errqueue]) of
-                               {ok, ErrQMsg} ->
+                               {ok, #{addr  := #{addr := Addr},
+                                      flags := [errqueue],
+                                      iov   := [<<"ping">>],
+                                      ctrl  := [#{level := ip,
+                                                  type  := recverr,
+                                                  data := 
+                                                      #{code     := port_unreach,
+                                                        data     := 0,
+                                                        error    := econnrefused,
+                                                        info     := 0,
+                                                        offender := #{addr := Addr},
+                                                        origin   := icmp,
+                                                        type     := dest_unreach}
+                                                 }]} = MsgHdr} ->
                                    ?SEV_IPRINT("expected error queue: "
-                                               "~n   ~p", [ErrQMsg]),
+                                               "~n   ~p", [MsgHdr]),
                                    ok;
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("failed reading error queue: "
