@@ -269,6 +269,12 @@
       <name name="cmsghdr_send"/>
     </datatype>
     <datatype>
+      <name name="icmp_dest_unreach"/>
+    </datatype>
+    <datatype>
+      <name name="icmpv6_dest_unreach"/>
+    </datatype>
+    <datatype>
       <name name="ee_origin"/>
     </datatype>
     <datatype>
