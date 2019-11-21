@@ -18058,13 +18058,16 @@ api_opt_ip_recverr_udp(InitState) ->
 
          #{desc => "try recv error queue",
            cmd  => fun(#{sock := Sock}) ->
+                           %% Note that not all platforms that support
+                           %% recverr, actually supports "encoding" the data
+                           %% part, so we need to adjust for that.
                            case socket:recvmsg(Sock, [errqueue]) of
                                {ok, #{addr  := #{addr := Addr},
                                       flags := [errqueue],
                                       iov   := [<<"ping">>],
                                       ctrl  := [#{level := ip,
                                                   type  := recverr,
-                                                  data := 
+                                                  data  := 
                                                       #{code     := port_unreach,
                                                         data     := 0,
                                                         error    := econnrefused,
@@ -18073,8 +18076,16 @@ api_opt_ip_recverr_udp(InitState) ->
                                                         origin   := icmp,
                                                         type     := dest_unreach}
                                                  }]} = MsgHdr} ->
-                                   ?SEV_IPRINT("expected error queue: "
+                                   ?SEV_IPRINT("expected error queue (decoded): "
                                                "~n   ~p", [MsgHdr]),
+                                   ok;
+                               {ok, #{addr  := #{addr := Addr},
+                                      flags := [errqueue],
+                                      iov   := [<<"ping">>],
+                                      ctrl  := [#{level := ip,
+                                                  type  := recverr,
+                                                  data  := _Data}]} = MsgHdr} ->
+                                   ?SEV_IPRINT("expected error queue"),
                                    ok;
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("failed reading error queue: "
