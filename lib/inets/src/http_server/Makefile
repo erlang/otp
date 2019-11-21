@@ -74,7 +74,6 @@ MODULES = \
 	mod_auth_dets \
 	mod_auth_mnesia \
 	mod_auth_server \
-	mod_browser \
 	mod_cgi \
 	mod_dir \
 	mod_disk_log \
