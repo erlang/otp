@@ -356,7 +356,7 @@ typedef enum {
 typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
 
 typedef struct {
-    erts_spinlock_t lock;
+    erts_mtx_t lock;
     ErtsSchedulerSleepInfo *list; /* circular lifo list; points to last out */
 } ErtsSchedulerSleepList;
 
