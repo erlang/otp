@@ -1566,7 +1566,13 @@ extension_value(#key_share_server_hello{server_share = ServerShare}) ->
 extension_value(#client_hello_versions{versions = Versions}) ->
     Versions;
 extension_value(#server_hello_selected_version{selected_version = SelectedVersion}) ->
-    SelectedVersion.
+    SelectedVersion;
+extension_value(#pre_shared_key_client_hello{offered_psks = PSKs}) ->
+    PSKs;
+extension_value(#pre_shared_key_server_hello{selected_identity = SelectedIdentity}) ->
+    SelectedIdentity;
+extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
+    Modes.
 
 
 %%--------------------------------------------------------------------

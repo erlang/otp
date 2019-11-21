@@ -105,7 +105,7 @@ client_hello(_Host, _Port, ConnectionStates,
 		   {tls_record:tls_version(), {resumed | new, #session{}}, 
 		    ssl_record:connection_states(), binary() | undefined, 
                     HelloExt::map(), {ssl:hash(), ssl:sign_algo()} | 
-                    undefined} | {atom(), atom()} |#alert{}.
+                    undefined} | {atom(), atom()} | {atom(), atom(), tuple()} | #alert{}.
 %%
 %% Description: Handles a received hello message
 %%--------------------------------------------------------------------
@@ -175,9 +175,9 @@ hello(#server_hello{server_version = LegacyVersion,
                             handle_server_hello_extensions(Version, SessionId, Random, CipherSuite,
                                                            Compression, HelloExt, SslOpt,
                                                            ConnectionStates0, Renegotiation);
-                        {3,4} ->
+                        SelectedVersion ->
                             %% TLS 1.3
-                            {next_state, wait_sh}
+                            {next_state, wait_sh, SelectedVersion}
                     end;
                 false ->
                     ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)
