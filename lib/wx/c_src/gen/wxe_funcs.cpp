@@ -25900,6 +25900,15 @@ case wxMouseEvent_ShiftDown: { // wxMouseEvent::ShiftDown
  rt.addBool(Result);
  break;
 }
+#if wxCHECK_VERSION(3,0,0)
+case wxMouseEvent_GetWheelAxis: { // wxMouseEvent::GetWheelAxis
+ wxMouseEvent *This = (wxMouseEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetWheelAxis();
+ rt.addInt(Result);
+ break;
+}
+#endif
 case wxSetCursorEvent_GetCursor: { // wxSetCursorEvent::GetCursor
  wxSetCursorEvent *This = (wxSetCursorEvent *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
