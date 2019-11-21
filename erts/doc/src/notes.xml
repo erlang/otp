@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Large amounts of quickly executed dirty work could cause
+	    heavy contention on an internal spin lock. The spin lock
+	    was replaced by a mutex which behaves much better under
+	    these conditions.</p>
+          <p>
+	    Own Id: OTP-16301 Aux Id: ERL-1079 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.5.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
