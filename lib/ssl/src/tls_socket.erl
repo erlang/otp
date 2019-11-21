@@ -78,7 +78,7 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
 	{ok, ListenSocket} ->
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
             %% TODO not hard code
-            {ok, SessionHandler} = session_tickets_tracker(stateless, 7200, SslOpts),
+            {ok, SessionHandler} = session_tickets_tracker(7200, SslOpts),
             Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler}],
             Socket = #sslsocket{pid = {ListenSocket, Config#config{trackers = Trackers}}},
             check_active_n(EmOpts, Socket),
@@ -249,10 +249,14 @@ inherit_tracker(ListenSocket, EmOpts, #{erl_dist := false} = SslOpts) ->
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
 
-session_tickets_tracker(Mode, Lifetime, #{erl_dist := false,
-                                          anti_replay := AntiReplay}) ->
+session_tickets_tracker(_, #{erl_dist := false,
+                             session_tickets := disabled}) ->
+    {ok, disabled};
+session_tickets_tracker(Lifetime, #{erl_dist := false,
+                                    session_tickets := Mode,
+                                    anti_replay := AntiReplay}) ->
     tls_server_session_ticket_sup:start_child([Mode, Lifetime, AntiReplay]);
-session_tickets_tracker(Mode, Lifetime, #{erl_dist := true}) ->
+session_tickets_tracker(Lifetime, #{erl_dist := true, session_tickets := Mode}) ->
     tls_server_session_ticket_sup:start_child_dist([Mode, Lifetime]).
 
 

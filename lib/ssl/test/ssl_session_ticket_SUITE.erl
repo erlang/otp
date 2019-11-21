@@ -40,17 +40,20 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.3', [], session_tests()}].
+    [{'tlsv1.3', [], [{group, stateful}, {group, stateless}, {group, openssl_server}]},
+     {openssl_server, [], [erlang_client_openssl_server_basic,
+                           erlang_client_openssl_server_hrr,
+                           erlang_client_openssl_server_hrr_multiple_tickets
+                          ]},
+     {stateful, [], session_tests()},
+     {stateless, [], session_tests()}].
 
 session_tests() ->
     [erlang_client_erlang_server_basic,
-     erlang_client_openssl_server_basic,
      openssl_client_erlang_server_basic,
      erlang_client_erlang_server_hrr,
-     erlang_client_openssl_server_hrr,
      openssl_client_erlang_server_hrr,
      erlang_client_erlang_server_multiple_tickets,
-     erlang_client_openssl_server_hrr_multiple_tickets,
      erlang_client_erlang_server_multiple_tickets_2hash].
 
 init_per_suite(Config0) ->
@@ -58,8 +61,7 @@ init_per_suite(Config0) ->
     try crypto:start() of
 	ok ->
 	    ssl_test_lib:clean_start(),
-            Config = ssl_test_lib:make_rsa_cert(Config0),
-            ssl_test_lib:make_dsa_cert(Config)
+            ssl_test_lib:make_rsa_cert(Config0)
     catch _:_ ->
 	    {skip, "Crypto did not start"}
     end.
@@ -68,6 +70,10 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
+init_per_group(stateful, Config) ->
+    [{server_ticket_mode, stateful} | proplists:delete(server_ticket_mode, Config)];
+init_per_group(stateless, Config) ->
+    [{server_ticket_mode, stateless} | proplists:delete(server_ticket_mode, Config)];
 init_per_group(GroupName, Config) ->
     ssl_test_lib:clean_tls_version(Config),
     case ssl_test_lib:is_tls_version(GroupName) andalso ssl_test_lib:sufficient_crypto_support(GroupName) of
@@ -112,11 +118,12 @@ erlang_client_erlang_server_basic(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
     ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -221,11 +228,12 @@ openssl_client_erlang_server_basic(Config) when is_list(Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
     TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     Data = "Hello world",
 
     %% Configure session tickets
-    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -282,12 +290,13 @@ erlang_client_erlang_server_hrr(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+    
     %% Configure session tickets
     ClientOpts = [{session_tickets, auto}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
-    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups, [x448, x25519]}|ServerOpts0],
 
@@ -398,11 +407,12 @@ openssl_client_erlang_server_hrr(Config) when is_list(Config) ->
     {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TicketFile0 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket0"]),
     TicketFile1 = filename:join([proplists:get_value(priv_dir, Config), "session_ticket1"]),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     Data = "Hello world",
 
     %% Configure session tickets
-    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[x448, x25519]}|ServerOpts0],
 
@@ -462,11 +472,12 @@ erlang_client_erlang_server_multiple_tickets(Config) when is_list(Config) ->
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
     ClientOpts = [{session_tickets, enabled}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
@@ -582,11 +593,12 @@ erlang_client_erlang_server_multiple_tickets_2hash(Config) when is_list(Config) 
     ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
     ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+    
     %% Configure session tickets
     ClientOpts = [{session_tickets, enabled}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
-    ServerOpts = [{session_tickets, stateless}, {log_level, debug},
+    ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
 
     Server0 =
