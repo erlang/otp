@@ -53,6 +53,7 @@
 -endif.
 -endif.
 
+-include("crypto_prop_generators.hrl").
 
 %%% Properties:
 
@@ -66,23 +67,6 @@ prop__crypto_one_time() ->
                     )
             ).
 
-%%% Generators
-text_plain() -> iolist().
-
-cipher() -> oneof( non_aead_ciphers() -- [aes_ige256] ).
-
-key(Cipher) ->
-    %% Can't be shrinked
-    crypto:strong_rand_bytes( key_length(Cipher) ).
-    
-iv(Cipher) ->
-    %% Can't be shrinked
-    crypto:strong_rand_bytes( iv_length(Cipher) ).
-
-iolist() -> oneof([list( oneof([list(byte()), binary(), list(binary())])),
-                   binary(1056)
-                  ]).
-    
 %%% Lib
 
 equal(_, T, T) -> true;
@@ -93,14 +77,6 @@ equal(F, Tp, Td) ->
            [F, Tp, Td]),
     false.
 
-
-non_aead_ciphers() ->
-    [C || C <- crypto:supports(ciphers),
-          C =/= chacha20_poly1305,
-          begin
-              #{mode := Mode} = crypto:cipher_info(C),
-              not lists:member(Mode, [ccm_mode, gcm_mode])
-          end].
 
 decrypt_encrypt_one_time(Cipher, Key, IV, TextPlain) ->
     TextCrypto = crypto:crypto_one_time(Cipher, Key, IV, TextPlain, true),
@@ -114,8 +90,3 @@ full_blocks(TextPlain, Cipher) ->
 
 num_rest_bytes(Bin, Cipher) -> size(Bin) rem block_size(Cipher).
 
-block_size(Cipher) -> maps:get(block_size, crypto:cipher_info(Cipher)).
-
-key_length(Cipher) -> maps:get(key_length, crypto:cipher_info(Cipher)).
-
-iv_length(Cipher)  -> maps:get(iv_length, crypto:cipher_info(Cipher)).
