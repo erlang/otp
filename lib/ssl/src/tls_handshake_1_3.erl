@@ -54,6 +54,7 @@
          maybe_add_binders/4,
          maybe_automatic_session_resumption/1]).
 
+-export([is_valid_binder/4]).
 
 %% crypto:hash(sha256, "HelloRetryRequest").
 -define(HELLO_RETRY_REQUEST_RANDOM, <<207,33,173,116,229,154,97,17,
@@ -364,6 +365,18 @@ decode_handshake(?KEY_UPDATE, <<?BYTE(Update)>>) ->
 decode_handshake(Tag, HandshakeMsg) ->
     ssl_handshake:decode_handshake({3,4}, Tag, HandshakeMsg).
 
+is_valid_binder(Binder, HHistory, PSK, Hash) ->
+    case HHistory of
+        [ClientHello2, HRR, MessageHash|_] ->
+            Truncated = truncate_client_hello(ClientHello2),
+            FinishedKey = calculate_finished_key(PSK, Hash),
+            Binder == calculate_binder(FinishedKey, Hash, [MessageHash, HRR, Truncated]);
+        [ClientHello1|_] ->
+            Truncated = truncate_client_hello(ClientHello1),
+            FinishedKey = calculate_finished_key(PSK, Hash),
+            Binder == calculate_binder(FinishedKey, Hash, Truncated)
+    end.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -549,11 +562,6 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% the client.
         Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
 
-        State1 = maybe_seed_session_tickets(OfferedPSKs, State0),
-        
-        %% Exclude any incompatible PSKs.
-        PSK = Maybe(handle_pre_shared_key(State1, OfferedPSKs, Cipher)),
-
         Groups = Maybe(select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups, ClientShares)),
 
@@ -574,7 +582,7 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
 
-        State2 = update_start_state(State1,
+        State1 = update_start_state(State0,
                                     #{cipher => Cipher,
                                       key_share => KeyShare,
                                       session_id => SessionId,
@@ -589,9 +597,14 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% message if it is able to find an acceptable set of parameters but the
         %% ClientHello does not contain sufficient information to proceed with
         %% the handshake.
-        NextStateTuple = Maybe(send_hello_retry_request(State2, ClientPubKey, KeyShare, SessionId)),
-        Maybe(session_resumption(NextStateTuple, PSK))
-
+        case Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId)) of
+            {_, start} = NextStateTuple ->
+                NextStateTuple;
+            {_, negotiated} = NextStateTuple ->
+                %% Exclude any incompatible PSKs.
+                PSK = Maybe(handle_pre_shared_key(State1, OfferedPSKs, Cipher)),
+                Maybe(session_resumption(NextStateTuple, PSK))
+        end
     catch
         {Ref, {insufficient_security, no_suitable_groups}} ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
@@ -1107,9 +1120,6 @@ send_hello_retry_request(State0, _, _, _) ->
     %% Suitable key found.
     {ok, {State0, negotiated}}.
 
-
-session_resumption({State, start}, _) ->
-    {ok, {State, start}};
 session_resumption({#state{ssl_options = #{session_tickets := disabled}} = State, negotiated}, _) ->
     {ok, {State, negotiated}};
 session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State, negotiated}, undefined)
@@ -1163,56 +1173,18 @@ maybe_send_certificate_verify(#state{session = #session{sign_alg = SignatureSche
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := disabled}} = State, _) ->
     %% Do nothing!
     State;
-maybe_send_session_ticket(#state{ssl_options = #{session_tickets := SessionTickets}} = State, 0)
-  when SessionTickets =/= disabled ->
+maybe_send_session_ticket(State, 0) ->
     State;
-maybe_send_session_ticket(#state{ssl_options = #{session_tickets := stateful},
+maybe_send_session_ticket(#state{connection_states = ConnectionStates,
                                  static_env = #static_env{trackers = Trackers}} = State0, N) ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
-    Ticket = tls_server_session_ticket:new(Tracker),
-    {State, _} = tls_connection:send_handshake(Ticket, State0),
-    maybe_send_session_ticket(State, N - 1);
-maybe_send_session_ticket(#state{
-                             ssl_options = #{session_tickets := stateless},
-                             handshake_env = 
-                                 #handshake_env{ticket_seed = 
-                                                    {BaseTicket, {IV, Shard} = Seed}} = HsEnv
-                            } = State0, N) ->
-    Ticket = generate_statless_ticket(BaseTicket, IV, Shard, State0),
-    {State, _} = tls_connection:send_handshake(Ticket, State0),
-    %% Remove first "BaseTicket" when used
-    maybe_send_session_ticket(State#state{handshake_env = HsEnv#handshake_env{ticket_seed = Seed}}, N - 1);
-maybe_send_session_ticket(#state{ssl_options = #{session_tickets := stateless},
-                                 handshake_env = #handshake_env{ticket_seed = {IV, Shard}},
-                                 static_env = #static_env{trackers = Trackers}
-                                } = State0, N) ->
-    Tracker = proplists:get_value(session_tickets_tracker, Trackers),
-    BaseTicket = tls_server_session_ticket:new(Tracker),
-    Ticket = generate_statless_ticket(BaseTicket, IV, Shard, State0),
-    {State, _} = tls_connection:send_handshake(Ticket, State0),
-    maybe_send_session_ticket(State, N - 1).
-
-
-%% Generate ticket field of NewSessionTicket.
-generate_statless_ticket(#new_session_ticket{ticket_nonce = Nonce, ticket_age_add = TicketAgeAdd,
-                                             ticket_lifetime = Lifetime} = Ticket, IV, Shard,
-                         #state{connection_states = ConnectionStates}) ->
     #{security_parameters := SecParamsR} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDF,
-                         resumption_master_secret = RMS} = SecParamsR,
-
-    PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    Timestamp = erlang:system_time(second),
-    Encrypted = ssl_cipher:encrypt_ticket(#stateless_ticket{
-                                             hash = HKDF,
-                                             pre_shared_key = PSK,
-                                             ticket_age_add = TicketAgeAdd,
-                                             lifetime = Lifetime,
-                                             timestamp = Timestamp
-                                            }, Shard, IV),
-    Ticket#new_session_ticket{ticket = Encrypted}.
-
+                         resumption_master_secret = RMS} = SecParamsR, 
+    Ticket = tls_server_session_ticket:new(Tracker, HKDF, RMS),
+    {State, _} = tls_connection:send_handshake(Ticket, State0),
+    maybe_send_session_ticket(State, N - 1).
 
 process_certificate_request(#certificate_request_1_3{},
                             #state{session = #session{own_certificate = undefined}} = State) ->
@@ -2120,79 +2092,6 @@ get_offered_psks(Extensions) ->
     end.
 
 
-decode_pre_shared_keys(Shard, IV, PSKs, BloomFilter) ->
-    #offered_psks{
-       identities = Identities,
-       binders = Binders
-      } = PSKs,
-    decode_pre_shared_keys(Shard, IV, Identities, Binders, 0, BloomFilter, []).
-%%
-decode_pre_shared_keys(_, _, [], [], _, _, Acc) ->
-    lists:reverse(Acc);
-decode_pre_shared_keys(Shard, IV, [I|Identities], [B|Binders], Index, BloomFilter, Acc) ->
-    {Validity, PSK, Hash} = decode_identity(Shard, IV, I, BloomFilter),
-    case Validity of
-        valid ->
-            decode_pre_shared_keys(Shard, IV, Identities, Binders, Index + 1, BloomFilter,
-                                   [{PSK, Index, Hash, B}|Acc]);
-        invalid ->
-            decode_pre_shared_keys(Shard, IV, Identities, Binders, Index + 1, BloomFilter, Acc)
-    end.
-
-
-decode_identity(Shard, IV, #psk_identity{
-                              identity = I,
-                              obfuscated_ticket_age = ObfAge}, BloomFilter) ->
-    case ssl_cipher:decrypt_ticket(I, Shard, IV) of
-        error ->
-            %% Skip PSK if encrypted with an unknown key
-            {invalid, undefined, undefined};
-        #stateless_ticket{
-           hash = Hash,
-           pre_shared_key = PSK,
-           ticket_age_add = TicketAgeAdd,
-           lifetime = Lifetime,
-           timestamp = Timestamp} ->
-            Validity = check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp, BloomFilter),
-            {Validity, PSK, Hash}
-    end.
-
-
-check_replay(_, _, undefined) ->
-    anti_replay_disabled;
-check_replay(Tracker, Ticket, {_, _, _}) ->
-    case tls_server_session_ticket:bloom_filter_contains(Tracker, Ticket) of
-        false ->
-            new_binder;
-        true ->
-            possible_replay
-    end.
-
-
-%% For identities established externally, an obfuscated_ticket_age of 0 SHOULD be
-%% used, and servers MUST ignore the value.
-check_ticket_validity(0, _, _, _, _) ->
-    valid;
-check_ticket_validity(ObfAge, TicketAgeAdd, Lifetime, Timestamp, BloomFilter) ->
-    ReportedAge = ObfAge - TicketAgeAdd,
-    RealAge = erlang:system_time(second) - Timestamp,
-    case (ReportedAge > Lifetime) orelse
-        (RealAge > Lifetime) orelse
-        out_of_window(RealAge, BloomFilter) of
-        true ->
-            invalid;
-        false ->
-            valid
-    end.
-
-
-%% 8.3. Freshness Checks
-out_of_window(_, undefined) ->
-    false;
-out_of_window(Age, {Window, _, _}) ->
-    Age > Window.
-
-
 %% Prior to accepting PSK key establishment, the server MUST validate
 %% the corresponding binder value (see Section 4.2.11.2 below).  If this
 %% value is not present or does not validate, the server MUST abort the
@@ -2206,64 +2105,13 @@ handle_pre_shared_key(_, undefined, _) ->
     {ok, undefined};
 handle_pre_shared_key(#state{ssl_options = #{session_tickets := disabled}}, _, _) ->
     {ok, undefined};
-handle_pre_shared_key(#state{handshake_env = #handshake_env{ticket_seed = Seed},
-                             ssl_options = #{anti_replay := BloomFilter}} = State, PreSharedKeys, Cipher) ->
-    {IV, Shard} = 
-        case Seed of 
-            {_, {IV0, Shard0}} ->
-                {IV0, Shard0};
-            IVS ->
-                IVS
-        end,
-    PSKTuples = decode_pre_shared_keys(Shard, IV, PreSharedKeys, BloomFilter),
-    case select_psk(PSKTuples, Cipher) of
-        no_acceptable_psk ->
-            {ok, undefined};
-        PSKTuple ->
-            validate_binder(State, PSKTuple, BloomFilter)
-    end.
-
-select_psk([], _) ->
-    no_acceptable_psk;
-select_psk([{PSK, Index, Hash, B}|T], Cipher) ->
-    #{prf := CipherHash} = ssl_cipher_format:suite_bin_to_map(Cipher),
-    case Hash of
-        CipherHash ->
-            {PSK, Index, Hash, B};
-        _ ->
-            select_psk(T, Cipher)
-    end.
-
-validate_binder(#state{handshake_env = #handshake_env{tls_handshake_history = {HHistory, _}},
-                       static_env = #static_env{trackers = Trackers}},
-                {PSK, Index, Hash, Binder}, BloomFilter) ->
+handle_pre_shared_key(#state{ssl_options = #{session_tickets := Tickets},
+                             handshake_env = #handshake_env{tls_handshake_history =  {HHistory, _}},
+                             static_env = #static_env{trackers = Trackers}}, 
+                      OfferedPreSharedKeys, Cipher) when Tickets =/= disabled ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
-    IsBinderValid =
-        case HHistory of
-            [ClientHello2, HRR, MessageHash|_] ->
-                Truncated = truncate_client_hello(ClientHello2),
-                FinishedKey = calculate_finished_key(PSK, Hash),
-                Binder == calculate_binder(FinishedKey, Hash, [MessageHash, HRR, Truncated]);
-            [ClientHello1|_] ->
-                Truncated = truncate_client_hello(ClientHello1),
-                FinishedKey = calculate_finished_key(PSK, Hash),
-                Binder == calculate_binder(FinishedKey, Hash, Truncated)
-        end,
-    case IsBinderValid of
-        true ->
-            case check_replay(Tracker, Binder, BloomFilter) of
-                anti_replay_disabled ->
-                    {ok, {Index, PSK}};
-                new_binder ->
-                    tls_server_session_ticket:bloom_filter_add_elem(Tracker, Binder),
-                    {ok, {Index, PSK}};
-                possible_replay ->
-                    %% Reject 0-RTT
-                    {ok, undefined}
-            end;
-        false ->
-            {error, illegal_parameter}
-    end.
+    #{prf := CipherHash} = ssl_cipher_format:suite_bin_to_map(Cipher),
+    tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory).
 
 get_selected_group(#key_share_hello_retry_request{selected_group = SelectedGroup}) ->
     SelectedGroup.
@@ -2404,23 +2252,6 @@ update_binders(#client_hello{extensions =
 
     Extensions = Extensions0#{pre_shared_key => PreSharedKey},
     Hello#client_hello{extensions = Extensions}.
-
-
-maybe_seed_session_tickets([], State) -> 
-    %% No PSK offered
-    State;
-maybe_seed_session_tickets(_, #state{ssl_options = #{session_tickets := stateless},
-                                     static_env = #static_env{trackers = Trackers},                            
-                                     handshake_env = #handshake_env{ticket_seed = undefined} = HsEnv} = State0) ->  
-    %% First time fetch seed and first ticket to avoid unnecessary communication
-    %% will be removed from state when sent. 
-    Tracker = proplists:get_value(session_tickets_tracker, Trackers),
-    TicketSeed = tls_server_session_ticket:new_with_seed(Tracker),
-    State0#state{handshake_env = HsEnv#handshake_env{ticket_seed = TicketSeed}};
-maybe_seed_session_tickets(_, #state{ssl_options = #{session_tickets := _}} = State) -> 
-    %% Stateful or disabled does not need a seed
-    State.
-
 
 %% Configure a suitable session ticket
 maybe_automatic_session_resumption(#state{
