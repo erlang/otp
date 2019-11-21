@@ -80,7 +80,6 @@ MODULES = \
 	mod_esi \
 	mod_get \
 	mod_head \
-	mod_htaccess \
 	mod_log \
 	mod_range \
 	mod_responsecontrol \

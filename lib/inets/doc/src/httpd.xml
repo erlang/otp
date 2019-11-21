@@ -881,20 +881,6 @@ Transport: TLS
       
     </taglist>
 
-    <marker id="props_htaccess"></marker> 
-    <p><em>Htaccess Authentication Properties - Requires mod_htaccess</em></p>
-    <taglist>
-      <tag><marker id="prop_access_files"></marker>{access_files, [path()]}</tag>
-      <item>
-	<p>Specifies the filenames that are used for
-	access files. When a request comes, every directory in the path
-	to the requested asset are searched after files with the
-	names specified by this parameter. If such a file is found, the
-	file is parsed and the restrictions specified in it are
-	applied to the request.</p>
-      </item>
-    </taglist>
-
     <marker id="props_sec"></marker>
     <p><em>Security Properties - Requires mod_security</em></p>
  

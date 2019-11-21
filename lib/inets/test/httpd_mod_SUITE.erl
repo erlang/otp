@@ -53,7 +53,6 @@ groups() ->
      {mod_actions, [], []},
      {mod_security, [], []},
      {mod_auth, [], []},
-     {mod_htaccess, [], []},
      {mod_cgi, [], []},
      {mod_esi, [], []},
      {mod_head, [], []},
@@ -66,7 +65,6 @@ all_version_groups ()->
      {group, mod_actions},
      {group, mod_security},
      {group, mod_auth},
-     {group, mod_htaccess},
      {group, mod_cgi},
      {group, mod_esi},
      {group, mod_head}
