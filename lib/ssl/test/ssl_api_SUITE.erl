@@ -44,17 +44,22 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++ handshake_paus_tests()) -- [dh_params, honor_server_cipher_order, honor_client_cipher_order,
-                                        new_options_in_handshake])
+     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++ handshake_paus_tests()) --
+                          [dh_params, honor_server_cipher_order, honor_client_cipher_order,
+                           new_options_in_handshake, handshake_continue_tls13_client])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
      {'sslv3', [],  (gen_api_tests() -- [new_options_in_handshake]) ++ beast_mitigation_test() ++ pre_1_3()},
-     {'dtlsv1.2', [], (gen_api_tests() -- [invalid_keyfile, invalid_certfile, invalid_cacertfile,
-                                         invalid_options, new_options_in_handshake])  ++ handshake_paus_tests() ++ pre_1_3()},
-     {'dtlsv1', [],  (gen_api_tests() -- [invalid_keyfile, invalid_certfile, invalid_cacertfile,
-                                         invalid_options, new_options_in_handshake]) ++ handshake_paus_tests() ++ pre_1_3()}
+     {'dtlsv1.2', [], (gen_api_tests() --
+                           [invalid_keyfile, invalid_certfile, invalid_cacertfile,
+                            invalid_options, new_options_in_handshake])  ++
+          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
+     {'dtlsv1', [],  (gen_api_tests() --
+                          [invalid_keyfile, invalid_certfile, invalid_cacertfile,
+                           invalid_options, new_options_in_handshake]) ++
+          handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()}
     ].
 
 since_1_2() ->
@@ -112,7 +117,8 @@ handshake_paus_tests() ->
      handshake_continue, 
      handshake_continue_timeout, 
      hello_client_cancel,
-     hello_server_cancel
+     hello_server_cancel,
+     handshake_continue_tls13_client
     ].
 
 %% Only relevant for SSL 3.0 and TLS 1.1
@@ -437,7 +443,8 @@ handshake_continue(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-                                        {options, ssl_test_lib:ssl_options([{reuseaddr, true}, 
+                                        {options, ssl_test_lib:ssl_options([{reuseaddr, true},
+                                                                            {log_level, debug},
                                                                             {verify, verify_peer},
                                                                             {handshake, hello} | ServerOpts
                                                                            ], 
@@ -462,6 +469,69 @@ handshake_continue(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+%%--------------------------------------------------------------------
+handshake_continue_tls13_client() ->
+    [{doc, "Test API function ssl:handshake_continue/3 with fixed TLS 1.3 client"}].
+handshake_continue_tls13_client(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ssl_test_lib:ssl_options([{reuseaddr, true},
+                                                                            {log_level, debug},
+                                                                            {verify, verify_peer},
+                                                                            {handshake, hello} | ServerOpts
+                                                                           ],
+                                                                           Config)},
+                                        {continue_options, proplists:delete(reuseaddr, ServerOpts)}
+                                       ]),
+
+    Port = ssl_test_lib:inet_port(Server),
+
+    DummyTicket =
+        <<131,116,0,0,0,5,100,0,4,104,107,100,102,100,0,6,115,104,97,51,
+          56,52,100,0,3,112,115,107,109,0,0,0,48,150,90,38,127,26,12,5,
+          228,180,235,229,214,215,27,236,149,182,82,14,140,50,81,0,150,
+          248,152,180,193,207,80,52,107,196,200,2,77,4,96,140,65,239,205,
+          224,125,129,179,147,103,100,0,3,115,110,105,107,0,25,112,114,
+          111,117,100,102,111,111,116,46,111,116,112,46,101,114,105,99,
+          115,115,111,110,46,115,101,100,0,6,116,105,99,107,101,116,104,6,
+          100,0,18,110,101,119,95,115,101,115,115,105,111,110,95,116,105,
+          99,107,101,116,98,0,0,28,32,98,127,110,83,249,109,0,0,0,8,0,0,0,
+          0,0,0,0,5,109,0,0,0,113,112,154,74,26,27,0,111,147,51,110,216,
+          43,45,4,100,215,152,195,118,96,22,34,1,184,170,42,166,238,109,
+          187,138,196,147,102,205,116,83,241,174,227,232,156,148,60,153,3,
+          175,128,115,192,36,103,191,239,58,222,192,172,190,239,92,8,131,
+          195,0,217,187,222,143,104,6,86,53,93,27,218,198,205,138,223,202,
+          11,55,168,104,6,219,228,217,157,37,52,205,252,165,135,167,116,
+          216,172,231,222,189,84,97,0,8,106,108,88,47,114,48,116,0,0,0,0,
+          100,0,9,116,105,109,101,115,116,97,109,112,98,93,205,0,44>>,
+
+    %% Send dummy session ticket to trigger sending of pre_shared_key and
+    %% psk_key_exchange_modes extensions.
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ssl_test_lib:ssl_options([{handshake, hello},
+                                                                            {session_tickets, enabled},
+                                                                            {use_ticket, [DummyTicket]},
+                                                                            {versions, ['tlsv1.3',
+                                                                                        'tlsv1.2',
+                                                                                        'tlsv1.1',
+                                                                                        'tlsv1']},
+                                                                            {verify, verify_peer} | ClientOpts
+                                                                           ],
+                                                                           Config)},
+                                        {continue_options,  proplists:delete(reuseaddr, ClientOpts)}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%------------------------------------------------------------------
 handshake_continue_timeout() ->

@@ -609,18 +609,16 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
 %% TLS Client
 do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                        session_id = SessionId,
-                       extensions = Extensions} = _ServerHello,
+                       extensions = Extensions},
          #state{static_env = #static_env{role = client,
                                          host = Host,
                                          port = Port,
                                          transport_cb = Transport,
                                          socket = Socket},
-                handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
-                                               tls_handshake_history = _HHistory} = HsEnv,
-                connection_env = CEnv,
+                handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
+                connection_env = #connection_env{negotiated_version = NegotiatedVersion},
                 ssl_options = #{ciphers := ClientCiphers,
                                 supported_groups := ClientGroups0,
-                                versions := Versions,
                                 use_ticket := UseTicket,
                                 session_tickets := SessionTickets,
                                 log_level := LogLevel} = SslOpts,
@@ -656,8 +654,6 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                                            SessionId, Renegotiation, Cert, ClientKeyShare,
                                            TicketData),
 
-        HelloVersion = tls_record:hello_version(Versions),
-
         %% Update state
         State1 = update_start_state(State0,
                                     #{cipher => SelectedCipherSuite,
@@ -667,22 +663,21 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
 
         %% Replace ClientHello1 with a special synthetic handshake message
         State2 = replace_ch1_with_message_hash(State1),
-        #state{handshake_env = #handshake_env{tls_handshake_history = HHistory}} = State2,
+        #state{handshake_env = #handshake_env{tls_handshake_history = HHistory0}} = State2,
 
         %% Update pre_shared_key extension with binders (TLS 1.3)
-        Hello = tls_handshake_1_3:maybe_add_binders(Hello0, HHistory, TicketData, HelloVersion),
+        Hello = tls_handshake_1_3:maybe_add_binders(Hello0, HHistory0, TicketData, NegotiatedVersion),
 
-        {BinMsg, ConnectionStates, Handshake} =
-            tls_connection:encode_handshake(Hello,  HelloVersion, ConnectionStates0, HHistory),
+        {BinMsg, ConnectionStates, HHistory} =
+            tls_connection:encode_handshake(Hello,  NegotiatedVersion, ConnectionStates0, HHistory0),
         tls_socket:send(Transport, Socket, BinMsg),
         ssl_logger:debug(LogLevel, outbound, 'handshake', Hello),
         ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
 
         State = State2#state{
                   connection_states = ConnectionStates,
-                  connection_env = CEnv#connection_env{negotiated_version = HelloVersion}, %% Requested version
                   session = Session0#session{session_id = Hello#client_hello.session_id},
-                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Handshake},
+                  handshake_env = HsEnv#handshake_env{tls_handshake_history = HHistory},
                   key_share = ClientKeyShare},
 
         {State, wait_sh}
