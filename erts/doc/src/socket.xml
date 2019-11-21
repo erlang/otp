@@ -32,10 +32,10 @@
   <module since="OTP 22.0">socket</module>
   <modulesummary>Socket interface.</modulesummary>
   <description>
-    <p>This module provides an API for the socket interface.
-    It is used to create, delete and manipulate sockets,
-    send and receive data.</p>
-    <p>The idea is that it shall be as "close as possible" to the OS
+    <p>This module provides an API for network socket.
+    Functions are provided to create, delete and manupilate the sockets
+    aswell as sending and reciving data on them. </p>
+    <p>The intent is that it shall be as "close as possible" to the OS
     level socket interface. The only significant addition is that some of
     the functions,
     e.g. <seealso marker="#recv/3"><c>recv/3</c></seealso>, 
