@@ -40,15 +40,7 @@ all() ->
      ei_send_tmo, ei_recv_tmo].
 
 init_per_testcase(Case, Config) ->
-    Config1 = runner:init_per_testcase(?MODULE, Case, Config),
-
-    % test if platform is vxworks_simso
-    {_,Host} = split(node()),
-    Bool = case atom_to_list(Host) of
-               [$v,$x,$s,$i,$m | _] -> true;
-               _ -> false
-           end,
-    [{vxsim,Bool} | Config1].
+    runner:init_per_testcase(?MODULE, Case, Config).
 
 end_per_testcase(_Case, _Config) ->
     ok.
@@ -101,12 +93,11 @@ do_one_recv_failure(Config,CNode) ->
 ei_send_tmo(Config) when is_list(Config) ->
     %dbg:tracer(),
     %dbg:p(self()),
-    VxSim = proplists:get_value(vxsim, Config),
     register(ei_send_tmo_1,self()),
     do_one_send(Config,self(),c_node_send_tmo_1),
     do_one_send(Config,ei_send_tmo_1,c_node_send_tmo_2),
-    do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3,VxSim),
-    do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4,VxSim),
+    do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3),
+    do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4),
     ok.
 
 
@@ -130,7 +121,7 @@ do_one_send(Config,From,CNode) ->
     {term, 0} = runner:get_term(P1, 10000),
     runner:recv_eot(P1).
 
-do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
+do_one_send_failure(Config,From,FakeName,CName) ->
     {_,Host} = split(node()),
     OurName = join(FakeName,Host),
     Node = join(CName,Host),
@@ -178,19 +169,9 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     %% must be large enough so there's time for the select() to time out and
     %% the test program to return the error tuple (below).
 
-    Res0 = if VxSim == false ->
-                  {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
-                  Res;
-              true ->   % relax the test for vxsim
-                  case runner:get_term(P3, 20000) of
-                      {term,{Res,ETO,Iters,ETO}} ->
-                          Res;
-                      {term,{Res,_,Iters,_ETO}} -> % EIO?
-                          Res
-                  end
-           end,
+    {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
     runner:recv_eot(P3),
-    true = ((Res0 < 0) and (Iters > 0)),
+    true = ((Res < 0) and (Iters > 0)),
     gen_tcp:close(SocketB),
     gen_tcp:close(EpmdSocket),
     ok.
@@ -202,24 +183,12 @@ ei_connect_tmo() -> [{require, test_host_not_reachable}].
 ei_connect_tmo(Config) when is_list(Config) ->
     %dbg:tracer(),
     %dbg:p(self()),
-    VxSim = proplists:get_value(vxsim, Config),
     DummyNode = make_and_check_dummy(),
     P = runner:start(Config, ?connect_tmo),
     runner:send_term(P,{c_nod_connect_tmo_1,
                         kaksmula_som_ingen_bryr_sig_om,
                         DummyNode}),
-    ETimedout =
-    if VxSim == false ->
-           {term,{-3,ETO,ETO}} = runner:get_term(P, 10000),
-           ETO;
-       true ->				% relax the test for vxsim
-           case runner:get_term(P, 10000) of
-               {term,{-3,ETO,ETO}} ->
-                   ETO;
-               {term,{-1,_,ETO}} ->	% EHOSTUNREACH = ok
-                   ETO
-           end
-    end,
+    {term,{-3,ETimedout,ETimedout}} = runner:get_term(P, 10000),
     runner:recv_eot(P),
     P2 = runner:start(Config, ?connect_tmo),
     runner:send_term(P2,{c_nod_connect_tmo_2,
