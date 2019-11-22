@@ -278,7 +278,7 @@
       <name name="ee_origin"/>
     </datatype>
     <datatype>
-      <name name="sock_extended_err"/>
+      <name name="extended_err"/>
     </datatype>
     <datatype>
       <name name="uint8"/>

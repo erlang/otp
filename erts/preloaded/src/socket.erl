@@ -137,7 +137,7 @@
               ee_origin/0,
               icmp_dest_unreach/0,
               icmpv6_dest_unreach/0,
-              sock_extended_err/0,
+              extended_err/0,
 
               uint8/0,
               uint16/0,
@@ -606,11 +606,11 @@
         #{level := ip,        type := recvttl,     data := integer()}      |
         #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
         #{level := ip,        type := origdstaddr, data := sockaddr_in4()} |
-        #{level := ip,        type := recverr,     data := sock_extended_err() | binary()} |
+        #{level := ip,        type := recverr,     data := extended_err() | binary()} |
         #{level := ip,        type := integer(),   data := binary()}       |
         #{level := ipv6,      type := hoplevel,    data := integer()}      |
         #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
-        #{level := ipv6,      type := recverr,     data := sock_extended_err() | binary()} |
+        #{level := ipv6,      type := recverr,     data := extended_err() | binary()} |
         #{level := ipv6,      type := tclass,      data := integer()}      |
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
@@ -632,7 +632,7 @@
                              net_unknown | host_unknown | uint8().
 -type icmpv6_dest_unreach() :: noroute | adm_prohibited | not_neighbour | addr_unreach |
                                port_unreach | policy_fail | reject_route | uint8().
--type sock_extended_err() ::
+-type extended_err() ::
         #{error    := term(),
           origin   := icmp,
           type     := dest_unreach,
