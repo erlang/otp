@@ -22,7 +22,7 @@
 -export([print/1]).
 -export([get/2, put/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2,new_status_and_location/2]).
 
--export([newformat/3, post_chunked/3, post_204/3]).
+-export([newformat/3, post_chunked/3, post_204/3, ignore_invalid_header/3]).
 %% These are used by the inets test-suite
 -export([delay/1, chunk_timeout/3, get_chunks/3]).
 
@@ -156,7 +156,16 @@ post_204(SessionID, _Env, _Input) ->
                     ["Status: 204 No Content" ++ "\r\n\r\n"]),
     mod_esi:deliver(SessionID, []).
 
-
+ignore_invalid_header(SessionID, Env, _Input) ->
+    case proplists:get_value(content_length, Env, undefined) of
+        undefined ->
+            mod_esi:deliver(SessionID,
+                            ["Status: 204 No Content" ++ "\r\n\r\n"]);
+        _ -> %% Invalid content_length header should have been ignored
+            mod_esi:deliver(SessionID,
+                            ["Status: 500 Internal Server Error" ++ "\r\n\r\n"])
+    end.            
+                         
 newformat(SessionID,_,_) ->
     mod_esi:deliver(SessionID, "Content-Type:text/html\r\n\r\n"),
     mod_esi:deliver(SessionID, top("new esi format test")),

@@ -207,7 +207,7 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
 	      Options, Result) ->
     Customize = proplists:get_value(customize, Options),
     case http_request:key_value(lists:reverse(Header)) of
-	undefined -> %% Skip headers with missing :
+	undefined -> %% Skip invalid headers
 	    FinalHeaders = lists:filtermap(fun(H) ->
 						   httpd_custom:customize_headers(Customize, request_header, H)
 					   end,
