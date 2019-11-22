@@ -780,7 +780,6 @@ int packet_parse_http(const char* buf, int len, int* statep,
         }
     }
     else {
-        int up = 1;      /* make next char uppercase */
         http_atom_t* name;
         char name_buf[HTTP_MAX_NAME_LEN];
         const char* name_ptr = name_buf;
@@ -797,18 +796,6 @@ int packet_parse_http(const char* buf, int len, int* statep,
         while (!is_tspecial((unsigned char)*ptr)) {
             if (name_len < HTTP_MAX_NAME_LEN) {
                 int c = *ptr;
-                if (up) {
-                    if (islower(c)) {
-                        c = toupper(c);
-                    }
-                    up = 0;
-                }
-                else {
-                    if (isupper(c))
-                        c = tolower(c);
-                    else if (c == '-')
-                        up = 1;
-                }                            
                 name_buf[name_len] = c;
                 hash_update(h, c);
             }
