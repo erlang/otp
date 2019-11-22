@@ -2530,8 +2530,8 @@ api_b_send_and_recv_udp(InitState) ->
          #{desc => "bind src socket",
            cmd  => fun(#{sock_src := Sock, lsa_src := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
-                                   ?SEV_IPRINT("src bound"),
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("src bound (to ~p)", [Port]),
                                    ok;
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("src bind failed: ~p", [Reason]),
@@ -2555,8 +2555,8 @@ api_b_send_and_recv_udp(InitState) ->
          #{desc => "bind dst socket",
            cmd  => fun(#{sock_dst := Sock, lsa_dst := LSA}) ->
                            case sock_bind(Sock, LSA) of
-                               {ok, _Port} ->
-                                   ?SEV_IPRINT("src bound"),
+                               {ok, Port} ->
+                                   ?SEV_IPRINT("src bound (to ~p)", [Port]),
                                    ok;
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("src bind failed: ~p", [Reason]),
