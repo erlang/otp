@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,7 +51,9 @@
 
 %%--------------------------------------------------------------------------
 
--export_type([sup_flags/0, child_spec/0, startchild_ret/0, strategy/0]).
+-export_type([sup_flags/0, child_spec/0, strategy/0,
+              startchild_ret/0, startchild_err/0,
+              startlink_ret/0, startlink_err/0]).
 
 %%--------------------------------------------------------------------------
 
