@@ -166,6 +166,7 @@
 	 api_opt_ipv6_flowinfo_udp6/1,
 	 api_opt_ipv6_hoplimit_udp6/1,
 	 api_opt_ipv6_tclass_udp6/1,
+         api_opt_ipv6_recverr_udp6/1,
 	 api_opt_ipv6_mopts_udp6/1,
          api_opt_tcp_congestion_tcp4/1,
          api_opt_tcp_cork_tcp4/1,
@@ -930,6 +931,7 @@ api_options_ipv6_cases() ->
      api_opt_ipv6_flowinfo_udp6,
      api_opt_ipv6_hoplimit_udp6,
      api_opt_ipv6_tclass_udp6,
+     api_opt_ipv6_recverr_udp6,
 
      %% Should be last!
      api_opt_ipv6_mopts_udp6
@@ -17952,13 +17954,53 @@ api_opt_ip_recverr_udp4(_Config) when is_list(_Config) ->
                                  recv   => Recv,
                                  set    => Set,
                                  get    => Get},
-                   ok = api_opt_ip_recverr_udp(InitState)
+                   ok = api_opt_recverr_udp(InitState)
            end).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-api_opt_ip_recverr_udp(InitState) ->
+%% Tests the ipv6 socket option 'recverr' can be set and that the error
+%% queue can be read.
+%% 
+
+api_opt_ipv6_recverr_udp6(suite) ->
+    [];
+api_opt_ipv6_recverr_udp6(doc) ->
+    [];
+api_opt_ipv6_recverr_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_ipv6_recverr_udp6,
+           fun() ->
+                   has_support_ipv6(),
+                   has_support_ipv6_recverr()
+           end,
+           fun() ->
+                   Set  = fun(Sock, Key, Value) ->
+                                  socket:setopt(Sock, ipv6, Key, Value)
+                          end,
+                   Get  = fun(Sock, Key) ->
+                                  socket:getopt(Sock, ipv6, Key)
+                          end,
+                   Send = fun(Sock, Data, Dest) ->
+                                  socket:sendto(Sock, Data, Dest, [], nowait)
+                          end,
+                   Recv = fun(Sock) ->
+                                  socket:recvfrom(Sock, 0, [], nowait)
+                          end,
+                   InitState = #{domain => inet6,
+                                 proto  => udp,
+                                 send   => Send,
+                                 recv   => Recv,
+                                 set    => Set,
+                                 get    => Get},
+                   ok = api_opt_recverr_udp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_opt_recverr_udp(InitState) ->
     Seq = 
         [
          #{desc => "create socket",
@@ -17996,7 +18038,8 @@ api_opt_ip_recverr_udp(InitState) ->
            cmd  => fun(#{sock := Sock, recv := Recv} = State) ->
                            case Recv(Sock) of
                                {select, SelectInfo} ->
-                                   ?SEV_IPRINT("expected select: ~p", [SelectInfo]),
+                                   ?SEV_IPRINT("expected select: "
+					       "~n   ~p", [SelectInfo]),
                                    {ok, State#{rselect => SelectInfo}};
                                {ok, _} ->
                                    ?SEV_EPRINT("unexpected successs"),
@@ -18008,19 +18051,26 @@ api_opt_ip_recverr_udp(InitState) ->
                    end},
 
          #{desc => "try (dummy) send",
-           cmd  => fun(#{sock := Sock, send := Send} = State) ->
-                           Dest = #{family => inet,
-                                    addr   => {127,0,0,1},
+           cmd  => fun(#{domain := Domain, sock := Sock, send := Send} = State) ->
+                           Dest = #{family => Domain,
+                                    addr   => if
+                                                  (Domain =:= inet) ->
+                                                      {127,0,0,1};
+                                                  (Domain =:= inet6) ->
+                                                      {0,0,0,0,0,0,0,1}
+                                              end,
                                     port   => 1234},
                            case Send(Sock, <<"ping">>, Dest) of
                                ok ->
                                    ?SEV_IPRINT("sent"),
                                    ok;
                                {select, SelectInfo} ->
-                                   ?SEV_IPRINT("expected select: ~p", [SelectInfo]),
+                                   ?SEV_IPRINT("expected select: ~p",
+					       [SelectInfo]),
                                    {ok, State#{sselect => SelectInfo}};
                                {error, Reason} = ERROR ->
-                                   ?SEV_EPRINT("unexpected error: ~p", [Reason]),
+                                   ?SEV_EPRINT("unexpected error: ~p",
+					       [Reason]),
                                    ERROR
                            end
                    end},
@@ -18031,7 +18081,7 @@ api_opt_ip_recverr_udp(InitState) ->
                            receive
                                {'$socket', Sock, select, Ref} ->
                                    ?SEV_IPRINT("received expected (read) select message: "
-                                               "~n   ~p", [ref]),
+                                               "~n   ~p", [Ref]),
                                    ok
                            end
                    end},
@@ -18057,34 +18107,45 @@ api_opt_ip_recverr_udp(InitState) ->
                    end},
 
          #{desc => "try recv error queue",
-           cmd  => fun(#{sock := Sock}) ->
+           cmd  => fun(#{domain := Domain, sock := Sock}) ->
                            %% Note that not all platforms that support
                            %% recverr, actually supports "encoding" the data
                            %% part, so we need to adjust for that.
+			   Origin = 
+			       if (Domain =:= inet)  -> icmp;
+				  (Domain =:= inet6) -> icmp6
+			       end,
+			   Level =
+			       if (Domain =:= inet)  -> ip;
+				  (Domain =:= inet6) -> ipv6
+			       end,
                            case socket:recvmsg(Sock, [errqueue]) of
-                               {ok, #{addr  := #{addr := Addr},
+                               {ok, #{addr  := #{family := Domain,
+						 addr   := Addr},
                                       flags := [errqueue],
                                       iov   := [<<"ping">>],
-                                      ctrl  := [#{level := ip,
+                                      ctrl  := [#{level := Level,
                                                   type  := recverr,
                                                   data  := 
                                                       #{code     := port_unreach,
                                                         data     := 0,
                                                         error    := econnrefused,
                                                         info     := 0,
-                                                        offender := #{addr := Addr},
-                                                        origin   := icmp,
+                                                        offender := #{family := Domain,
+								      addr   := Addr},
+                                                        origin   := Origin,
                                                         type     := dest_unreach}
                                                  }]} = MsgHdr} ->
                                    ?SEV_IPRINT("expected error queue (decoded): "
                                                "~n   ~p", [MsgHdr]),
                                    ok;
-                               {ok, #{addr  := #{addr := Addr},
+                               {ok, #{addr  := #{family := Domain,
+						 addr   := _Addr},
                                       flags := [errqueue],
                                       iov   := [<<"ping">>],
-                                      ctrl  := [#{level := ip,
+                                      ctrl  := [#{level := Level,
                                                   type  := recverr,
-                                                  data  := _Data}]} = MsgHdr} ->
+                                                  data  := _Data}]} = _MsgHdr} ->
                                    ?SEV_IPRINT("expected error queue"),
                                    ok;
                                {error, Reason} = ERROR ->
@@ -39219,6 +39280,10 @@ has_support_ipv6_tclass_or_recvtclass() ->
 	false ->
 	    skip(?F("Neither recvtclass or tclass supported", []))
     end.
+
+
+has_support_ipv6_recverr() ->
+    has_support_socket_option_ipv6(recverr).
 
 
 %% --- TCP socket option test functions ---
