@@ -43,6 +43,24 @@
       <name name="address_info"/>
     </datatype>
     <datatype>
+      <desc>
+	<p>Not all fields of this map has to be present.
+	The flags field can be used to test this for some of the fields.
+	For example <c>broadaddr</c> will only be present if the
+	<c>broadcast</c> flag is present in flags. </p>
+      </desc>
+      <name name="ifaddrs"/>
+    </datatype>
+    <datatype>
+      <name name="ifaddrs_flags"/>
+    </datatype>
+    <datatype>
+      <name name="ifaddrs_flag"/>
+    </datatype>
+    <datatype>
+      <name name="ifaddrs_filter_map"/>
+    </datatype>
+    <datatype>
       <name name="name_info"/>
     </datatype>
     <datatype>
@@ -96,6 +114,23 @@
 	It converts host and service to a corresponding socket address.</p>
 	<p>One of the <c>Host</c> and <c>Service</c> may be <c>undefined</c>
 	but <em>not</em> both.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="getifaddrs" arity="0" since="@OTP-16212@"/>
+      <name name="getifaddrs" arity="1" clause_i="1" since="@OTP-16212@"/>
+      <name name="getifaddrs" arity="1" clause_i="2" since="@OTP-16212@"/>
+      <name name="getifaddrs" arity="2" since="@OTP-16212@"/>
+      <fsummary>Get interface addresses.</fsummary>
+      <desc>
+	<p>Get interface addresses.</p>
+	<p>This function is used to get the machines interface addresses,
+	possibly filtered with the <c>FilterMap</c>. </p>
+	<p>By default, a filter with the content:
+	<c>#{family => default, flags => any}</c> is used. This will allow all
+	interfaces with addresses of the <c>inet</c> and <c>inet6</c> families
+	to be listed.</p>
       </desc>
     </func>
 
