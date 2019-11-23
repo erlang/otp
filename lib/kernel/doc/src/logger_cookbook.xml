@@ -124,7 +124,7 @@ Handler configuration:
     <section>
       <title>Single line configuration</title>
       <p>Since single line logging is the default of the built-in formatter you only have to
-        provide the empty map as the coniguration. The example below uses the <c>sys.config</c>
+        provide the empty map as the configuration. The example below uses the <c>sys.config</c>
         to change the formatter configuration.</p>
       <code type="erl-repl">$ cat sys.config
 [{kernel,
@@ -252,7 +252,7 @@ ok
 3> logger:set_primary_config(level, all).
 ok
     </code>
-    <p>It is important that you do not raise the primare log level before adjusting
+    <p>It is important that you do not raise the primary log level before adjusting
       the default handler&apos;s level as otherwise your standard out may be flooded by debug
       log messages.</p>
     <section>
