@@ -228,7 +228,7 @@
 %%-------------------------------------------------------------------------
 -export([compose_query/1, compose_query/2,
          dissect_query/1, normalize/1, normalize/2, parse/1,
-         recompose/1, transcode/2]).
+         recompose/1, resolve/2, resolve/3, transcode/2]).
 -export_type([error/0, uri_map/0, uri_string/0]).
 
 
@@ -372,6 +372,45 @@ recompose(Map) ->
             catch
                 throw:{error, Atom, RestData} -> {error, Atom, RestData}
             end
+    end.
+
+
+%%-------------------------------------------------------------------------
+%% Resolve URIs
+%%-------------------------------------------------------------------------
+-spec resolve(RefURI, BaseURI) -> TargetURI when
+      RefURI :: uri_string() | uri_map(),
+      BaseURI :: uri_string() | uri_map(),
+      TargetURI :: uri_string()
+                 | error().
+resolve(URIMap, BaseURIMap) ->
+    resolve(URIMap, BaseURIMap, []).
+
+
+-spec resolve(RefURI, BaseURI, Options) -> TargetURI when
+      RefURI :: uri_string() | uri_map(),
+      BaseURI :: uri_string() | uri_map(),
+      Options :: [return_map],
+      TargetURI :: uri_string() | uri_map()
+                 | error().
+resolve(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
+    case resolve_map(URIMap, BaseURIMap) of
+        TargetURIMap when is_map(TargetURIMap) ->
+            case Options of
+                [return_map] ->
+                    TargetURIMap;
+                [] ->
+                    recompose(TargetURIMap)
+            end;
+        Error ->
+            Error
+    end;
+resolve(URIString, BaseURIMap, Options) ->
+    case parse(URIString) of
+        URIMap when is_map(URIMap) ->
+            resolve(URIMap, BaseURIMap, Options);
+        Error ->
+            Error
     end.
 
 
@@ -1706,6 +1745,69 @@ maybe_to_list(Comp) -> Comp.
 
 encode_port(Port) ->
     integer_to_binary(Port).
+
+
+%%-------------------------------------------------------------------------
+%% Helper functions for resolve
+%%-------------------------------------------------------------------------
+
+resolve_map(URIMap=#{scheme := _}, _) ->
+    normalize_path_segment(URIMap);
+resolve_map(URIMap, #{scheme := _}=BaseURIMap) ->
+    resolve_map(URIMap, BaseURIMap, resolve_path_type(URIMap));
+resolve_map(_URIMap, BaseURIMap) when is_map(BaseURIMap) ->
+    {error,invalid_scheme,""};
+resolve_map(URIMap, BaseURIString) ->
+    case parse(BaseURIString) of
+        BaseURIMap = #{scheme := _} ->
+            resolve_map(URIMap, BaseURIMap, resolve_path_type(URIMap));
+        BaseURIMap when is_map(BaseURIMap) ->
+            {error,invalid_scheme,""};
+        Error ->
+            Error
+    end.
+
+resolve_path_type(URIMap) ->
+    case iolist_to_binary(maps:get(path, URIMap, <<>>)) of
+        <<>> -> empty_path;
+        <<$/,_/bits>> -> absolute_path;
+        _ -> relative_path
+    end.
+
+resolve_map(URI=#{host := _}, #{scheme := Scheme}, _) ->
+    normalize_path_segment(URI#{scheme => Scheme});
+resolve_map(URI, BaseURI, empty_path) ->
+    Keys = case maps:is_key(query, URI) of
+        true -> [scheme, userinfo, host, port, path];
+        false -> [scheme, userinfo, host, port, path, query]
+    end,
+    maps:merge(URI, maps:with(Keys, BaseURI));
+resolve_map(URI, BaseURI, absolute_path) ->
+    normalize_path_segment(maps:merge(
+        URI,
+        maps:with([scheme, userinfo, host, port], BaseURI)));
+resolve_map(URI=#{path := Path}, BaseURI, relative_path) ->
+    normalize_path_segment(maps:merge(
+        URI#{path => merge_paths(Path, BaseURI)},
+        maps:with([scheme, userinfo, host, port], BaseURI))).
+
+merge_paths(Path, BaseURI=#{path := BasePath0}) ->
+    case {BaseURI, iolist_size(BasePath0)} of
+        {#{host := _}, 0} ->
+            merge_paths_absolute(Path);
+        _ ->
+            case string:split(BasePath0, <<$/>>, trailing) of
+                [BasePath, _] when is_binary(Path) -> unicode:characters_to_binary([BasePath, $/, Path]);
+                [BasePath, _] when is_list(Path) -> unicode:characters_to_list([BasePath, $/, Path]);
+                [_] -> Path
+            end
+    end.
+
+merge_paths_absolute(Path) when is_binary(Path) ->
+    <<$/, Path/binary>>;
+merge_paths_absolute(Path) when is_list(Path) ->
+    unicode:characters_to_list([$/, Path]).
+
 
 %%-------------------------------------------------------------------------
 %% Helper functions for transcode
