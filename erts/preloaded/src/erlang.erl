@@ -630,7 +630,7 @@ date() ->
       HttpHeader :: {'http_header',
                      integer(),
                      HttpField,
-                     Reserved :: term(),
+                     Reserved :: HttpString,
                      Value :: HttpString},
       HttpError :: {'http_error', HttpString},
       HttpMethod :: 'OPTIONS' | 'GET' | 'HEAD' | 'POST' | 'PUT' | 'DELETE'

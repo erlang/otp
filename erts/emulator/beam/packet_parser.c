@@ -834,7 +834,9 @@ int packet_parse_http(const char* buf, int len, int* statep,
         while (n && SP(ptr)) {
             ptr++; n--;
         }
-        return pcb->http_header(arg, name, name_ptr, name_len,
+        return pcb->http_header(arg, name,
+                                name_ptr, name_len,
+                                buf, name_len,
                                 ptr, n);
     }
     return -1;

@@ -1228,22 +1228,25 @@ static int http_request_erl(void* arg, const http_atom_t* meth,
 }
 
 static int
-http_header_erl(void* arg, const http_atom_t* name, const char* name_ptr,
-                int name_len, const char* value_ptr, int value_len)
+http_header_erl(void* arg, const http_atom_t* name,
+		const char* name_ptr, int name_len,
+		const char* oname_ptr, int oname_len,
+		const char* value_ptr, int value_len)
 {
     struct packet_callback_args* pca = (struct packet_callback_args*) arg;    
-    Eterm bit_term, name_term, val_term;
+    Eterm bit_term, name_term, oname_term, val_term;
     Uint sz = 6;
     Eterm* hp;
 #ifdef DEBUG
     Eterm* hend;
 #endif
     
-    /* {http_header,Bit,Name,IValue,Value} */
+    /* {http_header,Bit,Name,Oname,Value} */
 
     if (name == NULL) {
 	http_bld_string(pca, NULL, &sz, name_ptr, name_len);
     }
+    http_bld_string(pca, NULL, &sz, oname_ptr, oname_len);
     http_bld_string(pca, NULL, &sz, value_ptr, value_len);
 
     hp = HAlloc(pca->p, sz);
@@ -1260,8 +1263,9 @@ http_header_erl(void* arg, const http_atom_t* name, const char* name_ptr,
 	name_term = http_bld_string(pca, &hp,NULL,name_ptr,name_len);
     }
 
+    oname_term = http_bld_string(pca, &hp, NULL, oname_ptr, oname_len);
     val_term = http_bld_string(pca, &hp, NULL, value_ptr, value_len);
-    pca->res = TUPLE5(hp, am_http_header, bit_term, name_term, am_undefined, val_term);
+    pca->res = TUPLE5(hp, am_http_header, bit_term, name_term, oname_term, val_term);
     ASSERT(hp+6==hend);
     return 1;
 }   
