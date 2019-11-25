@@ -31,9 +31,11 @@
 -define(SCHED_ID(),            erlang:system_info(scheduler_id)).
 -define(SMP_SUPPORT_DEFAULT(), erlang:system_info(smp_support)).
 
+-dialyzer({nowarn_function, is_enabled/0}).
 is_enabled() -> 
     (true =:= ?ENABLE_MEGACO_FLEX_SCANNER).
-    
+
+-dialyzer({nowarn_function, is_reentrant_enabled/0}).
 is_reentrant_enabled() ->
     (true =:= ?MEGACO_REENTRANT_FLEX_SCANNER).
 
