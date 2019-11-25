@@ -43,22 +43,32 @@
       <name name="address_info"/>
     </datatype>
     <datatype>
+      <name name="ifaddrs"/>
       <desc>
+	<p>This type defines all addresses (and flags) associated with
+	the interface. </p>
 	<p>Not all fields of this map has to be present.
 	The flags field can be used to test this for some of the fields.
 	For example <c>broadaddr</c> will only be present if the
 	<c>broadcast</c> flag is present in flags. </p>
       </desc>
-      <name name="ifaddrs"/>
-    </datatype>
-    <datatype>
-      <name name="ifaddrs_flags"/>
     </datatype>
     <datatype>
       <name name="ifaddrs_flag"/>
     </datatype>
     <datatype>
       <name name="ifaddrs_filter_map"/>
+      <desc>
+	<p>The '<c>default</c>' value for <c>family</c> is interpreted
+	as <c>inet</c> <em>and</em> <c>inet6</c>. </p>
+	<p>Also, the <c>family</c> field can only have the specified values
+	(and not the all the values of socket:domain()). </p>
+	<p>The use of the <c>flags</c> field is that any flag provided must
+	exist for the interface. </p>
+	<p>For example, if <c>family</c> is set to <c>inet</c> and <c>flags</c>
+	to <c>[broadcast, multicast]</c> only interfaces address family <c>inet</c>
+	and the flags <c>broadcast</c> and <c>multicast</c> will be listen. </p>
+      </desc>
     </datatype>
     <datatype>
       <name name="name_info"/>
@@ -128,9 +138,9 @@
 	<p>This function is used to get the machines interface addresses,
 	possibly filtered with the <c>FilterMap</c>. </p>
 	<p>By default, a filter with the content:
-	<c>#{family => default, flags => any}</c> is used. This will allow all
-	interfaces with addresses of the <c>inet</c> and <c>inet6</c> families
-	to be listed.</p>
+	<c>#{family => default, flags => any}</c> is used.
+	This will return all interfaces with adresses in the
+	<c>inet</c> and <c>inet6</c> families. </p>
       </desc>
     </func>
 

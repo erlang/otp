@@ -59,7 +59,6 @@
               name_info/0,
 
               ifaddrs_flag/0,
-              ifaddrs_flags/0,
 
               name_info_flags/0,
               name_info_flag/0,
@@ -81,21 +80,20 @@
 -type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |
                         notrailers | running | noarp | promisc | master | slave |
                         multicast | portsel | automedia | dynamic.
--type ifaddrs_flags() :: [ifaddrs_flag()].
 
 %% Note that not all of these fields are mandatory.
 %% Actually there are (error) cases when only the name will be included.
 %% And broadaddr and dstaddr are mutually exclusive!
 
 -type ifaddrs() :: #{name      := string(),
-                     flags     := ifaddrs_flags(),
+                     flags     := [ifaddrs_flag()],
                      addr      := socket:sockaddr(),
                      netmask   := socket:sockaddr(),
                      broadaddr := socket:sockaddr(),
                      dstaddr   := socket:sockaddr()}.
 
 -type ifaddrs_filter_map() :: #{family := default | inet | inet6 | packet | all,
-                                flags  := any | ifaddrs_flags()}.
+                                flags  := any | [ifaddrs_flag()]}.
 
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
 -type name_info_flag()          :: namereqd |
@@ -297,12 +295,12 @@ getifaddrs() ->
 -endif.
 
 
--spec getifaddrs(Namespace) -> {ok, IfAddrs} | {error, Reason} when
-      Namespace :: file:filename_all(),
+-spec getifaddrs(FilterMap) -> {ok, IfAddrs} | {error, Reason} when
+      FilterMap :: ifaddrs_filter_map(),
       IfAddrs   :: [ifaddrs()],
       Reason    :: term();
-                (FilterMap) -> {ok, IfAddrs} | {error, Reason} when
-      FilterMap :: ifaddrs_filter_map(),
+                (Namespace) -> {ok, IfAddrs} | {error, Reason} when
+      Namespace :: file:filename_all(),
       IfAddrs   :: [ifaddrs()],
       Reason    :: term().
 
