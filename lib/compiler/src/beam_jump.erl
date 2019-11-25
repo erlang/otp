@@ -136,6 +136,8 @@
 
 -type instruction() :: beam_utils:instruction().
 
+-include("beam_types.hrl").
+
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
 
@@ -189,6 +191,15 @@ eliminate_moves([{test,is_eq_exact,_,[Reg,Val]}=I,
     RegVal = {Reg,Val},
     BlkIs = eliminate_moves_blk(BlkIs0, RegVal),
     eliminate_moves([{block,BlkIs}|Is], D, [I|Acc]);
+eliminate_moves([{test,is_nonempty_list,Fail,[Reg]}=I|Is], D0, Acc) ->
+    case is_proper_list(Reg, Acc) of
+        true ->
+            D = update_value_dict([nil,Fail], Reg, D0),
+            eliminate_moves(Is, D, [I|Acc]);
+        false ->
+            D = update_unsafe_labels(I, D0),
+            eliminate_moves(Is, D, [I|Acc])
+    end;
 eliminate_moves([{label,Lbl},{block,BlkIs0}=Blk|Is], D, Acc0) ->
     Acc = [{label,Lbl}|Acc0],
     case {no_fallthrough(Acc0),D} of
@@ -219,6 +230,18 @@ eliminate_moves_blk(Is, _) -> Is.
 
 no_fallthrough([I|_]) ->
     is_unreachable_after(I).
+
+is_proper_list(Reg, [{'%',{var_info,Reg,Info}}|_]) ->
+    case proplists:get_value(type, Info) of
+        #t_list{terminator=nil} ->
+            true;
+        _ ->
+            %% Unknown type or not a proper list.
+            false
+    end;
+is_proper_list(Reg, [{'%',{var_info,_,_}}|Is]) ->
+    is_proper_list(Reg, Is);
+is_proper_list(_, _) -> false.
 
 update_value_dict([Lit,{f,Lbl}|T], Reg, D0) ->
     D = case D0 of

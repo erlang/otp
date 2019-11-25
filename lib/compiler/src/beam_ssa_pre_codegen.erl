@@ -2403,13 +2403,6 @@ reserve_zregs(Blocks, Intervals, Res) ->
         end,
     beam_ssa:fold_rpo(F, [0], Res, Blocks).
 
-reserve_zreg([#b_set{op=Op,dst=Dst}],
-              #b_br{bool=Dst}, _ShortLived, A) when Op =:= call;
-                                                    Op =:= get_tuple_element ->
-    %% If type optimization has determined that the result of these
-    %% instructions can be used directly in a branch, we must avoid reserving a
-    %% z register or code generation will fail.
-    A;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val]}], Last, ShortLived, A0) ->
     case {Val,Last} of
@@ -2433,31 +2426,38 @@ reserve_zreg([#b_set{op={bif,is_record}}], _Last, _ShortLived, A) ->
     %% There is no short, easy way to rewrite is_record/2 to a series of
     %% test instructions.
     A;
-reserve_zreg([#b_set{op=Op,dst=Dst}|Is], Last, ShortLived, A0) ->
-    IsZReg = case Op of
-                 bs_match_string -> true;
-                 bs_save -> true;
-                 bs_restore -> true;
-                 bs_set_position -> true;
-                 {float,clearerror} -> true;
-                 kill_try_tag -> true;
-                 landingpad -> true;
-                 put_tuple_elements -> true;
-                 remove_message -> true;
-                 set_tuple_element -> true;
-                 succeeded -> true;
-                 timeout -> true;
-                 wait_timeout -> true;
-                 _ -> false
-             end,
-    A = case IsZReg of
-            true -> [{Dst,z}|A0];
-            false -> A0
-        end,
-    reserve_zreg(Is, Last, ShortLived, A);
+reserve_zreg([#b_set{op=Op,dst=Dst}|Is], Last, ShortLived, A) ->
+    case classify_zreg(Op) of
+        always -> reserve_zreg(Is, Last, ShortLived, [{Dst,z} | A]);
+        short_lived -> reserve_zreg(Is, Last, ShortLived, A);
+        never -> A
+    end;
 reserve_zreg([], #b_br{bool=Bool}, ShortLived, A) ->
     reserve_zreg_1(Bool, ShortLived, A);
 reserve_zreg([], _, _, A) -> A.
+
+classify_zreg(bs_match_string) -> always;
+classify_zreg(bs_save) -> always;
+classify_zreg(bs_restore) -> always;
+classify_zreg(bs_set_position) -> always;
+classify_zreg({float,clearerror}) -> always;
+classify_zreg(kill_try_tag) -> always;
+classify_zreg(landingpad) -> always;
+classify_zreg(put_tuple_elements) -> always;
+classify_zreg(remove_message) -> always;
+classify_zreg(set_tuple_element) -> always;
+classify_zreg(succeeded) -> always;
+classify_zreg(timeout) -> always;
+classify_zreg(wait_timeout) -> always;
+%% If type optimization has determined that the result of these instructions
+%% can be used directly in a branch, we must avoid reserving a z register or
+%% code generation will fail.
+classify_zreg(call) -> never;
+classify_zreg(get_hd) -> never;
+classify_zreg(get_tl) -> never;
+classify_zreg(get_tuple_element) -> never;
+%% All other operations can use a z register if the variable is short-lived.
+classify_zreg(_) -> short_lived.
 
 reserve_zreg_1(#b_var{}=V, ShortLived, A) ->
     case cerl_sets:is_element(V, ShortLived) of

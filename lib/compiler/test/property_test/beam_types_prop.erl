@@ -88,7 +88,7 @@ commutativity_1() ->
     ?FORALL({TypeA, TypeB},
             ?LET(TypeA, type(),
                  ?LET(TypeB, type(), {TypeA, TypeB})),
-             commutativity_check(TypeA, TypeB)).
+            commutativity_check(TypeA, TypeB)).
 
 commutativity_check(A, B) ->
     %% a ∨ b = b ∨ a,
@@ -126,8 +126,26 @@ identity_check(Type) ->
 
     true.
 
+subtraction() ->
+    numtests(?REPETITIONS, subtraction_1()).
+
+subtraction_1() ->
+    ?FORALL({TypeA, TypeB},
+            ?LET(TypeA, type(),
+                 ?LET(TypeB, type(), {TypeA, TypeB})),
+            subtraction_check(TypeA, TypeB)).
+
+subtraction_check(A, B) ->
+    %% Subtraction can be thought of as `a ∧ ¬b`, so the result must be at
+    %% least as specific as `a`.
+    Res = subtract(A, B),
+    Res = meet(A, Res),
+
+    true.
+
 meet(A, B) -> beam_types:meet(A, B).
 join(A, B) -> beam_types:join(A, B).
+subtract(A, B) -> beam_types:subtract(A, B).
 
 %%%
 %%% Generators
@@ -139,24 +157,28 @@ type() ->
 type(Depth) ->
     oneof(nested_types(Depth) ++
               numerical_types() ++
-              list_types() ++
               other_types()).
 
 other_types() ->
     [any,
      gen_atom(),
      gen_bs_matchable(),
-     gen_fun(),
      none].
-
-list_types() ->
-    [cons, list, nil].
 
 numerical_types() ->
     [gen_integer(), gen_float(), number].
 
 nested_types(Depth) when Depth >= 3 -> [none];
-nested_types(Depth) -> [#t_map{}, gen_union(Depth + 1), gen_tuple(Depth + 1)].
+nested_types(Depth) -> list_types(Depth + 1) ++
+                           [#t_map{},
+                            gen_fun(Depth + 1),
+                            gen_union(Depth + 1),
+                            gen_tuple(Depth + 1)].
+
+list_types(Depth) when Depth >= 3 ->
+    [nil];
+list_types(Depth) ->
+    [gen_list(Depth), gen_cons(Depth), nil].
 
 gen_atom() ->
     ?LET(Size, range(0, ?ATOM_SET_SIZE),
@@ -178,8 +200,10 @@ gen_bs_matchable() ->
            ?LET(Unit, range(1, 128), #t_bs_context{tail_unit=Unit}),
            ?LET(Unit, range(1, 128), #t_bitstring{size_unit=Unit})]).
 
-gen_fun() ->
-    oneof([?LET(Arity, range(1, 8), #t_fun{arity=Arity}), #t_fun{arity=any}]).
+gen_fun(Depth) ->
+    oneof([?LET(Arity, range(1, 8),
+                #t_fun{type=type(Depth),arity=Arity}),
+                #t_fun{type=type(Depth),arity=any}]).
 
 gen_integer() ->
     oneof([gen_integer_bounded(), #t_integer{}]).
@@ -189,6 +213,14 @@ gen_integer_bounded() ->
          begin
              #t_integer{elements={min(A,B), max(A,B)}}
          end).
+
+gen_cons(Depth) ->
+    ?LET({Type, Term}, {gen_element(Depth), gen_element(Depth)},
+         #t_cons{type=Type,terminator=Term}).
+
+gen_list(Depth) ->
+    ?LET({Type, Term}, {gen_element(Depth), gen_element(Depth)},
+         #t_list{type=Type,terminator=Term}).
 
 gen_float() ->
     oneof([gen_float_bounded(), #t_float{}]).
@@ -216,13 +248,13 @@ gen_union(Depth) ->
 gen_wide_union(Depth) ->
     ?LET({A, B, C, D}, {oneof(nested_types(Depth)),
                         oneof(numerical_types()),
-                        oneof(list_types()),
+                        oneof(list_types(Depth)),
                         oneof(other_types())},
-          begin
-              T0 = join(A, B),
-              T1 = join(T0, C),
-              join(T1, D)
-          end).
+         begin
+             T0 = join(A, B),
+             T1 = join(T0, C),
+             join(T1, D)
+         end).
 
 gen_tuple_union(Depth) ->
     ?SIZED(Size,

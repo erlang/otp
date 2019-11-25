@@ -251,7 +251,7 @@ cons_guard(Config) when is_list(Config) ->
     [{{cons,foo,1},
       {{get_list,{x,0},{x,1},{x,2}},
        5,
-       {bad_type,{needed,cons},{actual,any}}}}] = Errors,
+       {bad_type,{needed,{t_cons,any,any}},{actual,any}}}}] = Errors,
     ok.
 
 freg_range(Config) when is_list(Config) ->

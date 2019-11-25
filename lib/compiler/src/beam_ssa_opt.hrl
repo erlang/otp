@@ -38,24 +38,34 @@
          %% when dealing with co-recursive functions.
          arg_types = [] :: list(arg_type_map()),
 
-         %% The inferred return types of this function, grouped by the inferred
+         %% The success types of this function, grouping return values by their
          %% argument types at the time of return.
          %%
          %% This gives us more precise types than a naive join of all returned
          %% values, as we can rule out the cases where the arguments are
          %% incompatible with the ones we're passing.
-         ret_types = ordsets:new() :: return_type_set()}).
+         %%
+         %% Note that the argument types are those seen on successful return,
+         %% they do not cover all types that are provided to the function.
+         succ_types = [] :: success_type_set()}).
 
 -type arg_key() :: {CallerId :: func_id(),
                     CallDst :: beam_ssa:b_var()}.
 -type arg_type_map() :: #{ arg_key() => term() }.
 
 -type call_self() :: {call_self, ArgTypes :: [term()]}.
--type return_type_set() :: ordsets:ordset({ArgTypes :: [term()],
-                                           RetType :: call_self() | term()}).
+-type success_type_set() :: [{ArgTypes :: [term()],
+                              RetType :: call_self() | term()}].
 
 %% Per-function metadata used by various optimization passes to perform
 %% module-level optimization. If a function is absent it means that
 %% module-level optimization has been turned off for said function.
 -type func_id() :: beam_ssa:b_local().
 -type func_info_db() :: #{ func_id() => #func_info{} }.
+
+-record(opt_st, {ssa :: [{beam_ssa:label(),beam_ssa:b_blk()}] |
+                        beam_ssa:block_map(),
+                 args :: [beam_ssa:b_var()],
+                 cnt :: beam_ssa:label(),
+                 anno :: beam_ssa:anno()}).
+-type st_map() :: #{ func_id() => #opt_st{} }.

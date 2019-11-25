@@ -437,10 +437,12 @@ valfun_1({gc_bif,Op,{f,0},Live,Ss,Dst}=I, Vst0) ->
     end;
 %% Put instructions.
 valfun_1({put_list,A,B,Dst}, Vst0) ->
-    assert_term(A, Vst0),
-    assert_term(B, Vst0),
     Vst = eat_heap(2, Vst0),
-    create_term(cons, put_list, [A, B], Dst, Vst);
+
+    Head = get_term_type(A, Vst),
+    Tail = get_term_type(B, Vst),
+
+    create_term(beam_types:make_cons(Head, Tail), put_list, [A, B], Dst, Vst);
 valfun_1({put_tuple2,Dst,{list,Elements}}, Vst0) ->
     _ = [assert_term(El, Vst0) || El <- Elements],
     Size = length(Elements),
@@ -505,16 +507,7 @@ valfun_1(remove_message, Vst0) ->
     %% without restrictions.
     remove_fragility(Vst);
 valfun_1({'%', {var_info, Reg, Info}}, Vst) ->
-    case proplists:get_value(type, Info, any) of
-        none -> 
-            %% Unreachable code, typically after a call that never returns.
-            kill_state(Vst);
-        Type ->
-            %% Explicit type information inserted by optimization passes to
-            %% indicate that Reg has a certain type, so that we can accept
-            %% cross-function type optimizations.
-            update_type(fun meet/2, Type, Reg, Vst)
-    end;
+    validate_var_info(Info, Reg, Vst);
 valfun_1({'%', {remove_fragility, Reg}}, Vst) ->
     %% This is a hack to make prim_eval:'receive'/2 work.
     %%
@@ -527,6 +520,7 @@ valfun_1({'%',_}, Vst) ->
     Vst;
 valfun_1({line,_}, Vst) ->
     Vst;
+
 %%
 %% Calls; these may be okay when the try/catch state or stack is undecided,
 %% depending on whether they always succeed or always fail.
@@ -631,17 +625,30 @@ valfun_1({try_case,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
 %% Simple getters that can't fail.
 valfun_1({get_list,Src,D1,D2}, Vst0) ->
     assert_not_literal(Src),
-    assert_type(cons, Src, Vst0),
-    Vst = extract_term(any, get_hd, [Src], D1, Vst0),
-    extract_term(any, get_tl, [Src], D2, Vst);
+    assert_type(#t_cons{}, Src, Vst0),
+
+    SrcType = get_term_type(Src, Vst0),
+    {HeadType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
+    {TailType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+
+    Vst = extract_term(HeadType, get_hd, [Src], D1, Vst0),
+    extract_term(TailType, get_tl, [Src], D2, Vst, Vst0);
 valfun_1({get_hd,Src,Dst}, Vst) ->
     assert_not_literal(Src),
-    assert_type(cons, Src, Vst),
-    extract_term(any, get_hd, [Src], Dst, Vst);
+    assert_type(#t_cons{}, Src, Vst),
+
+    SrcType = get_term_type(Src, Vst),
+    {HeadType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
+
+    extract_term(HeadType, get_hd, [Src], Dst, Vst);
 valfun_1({get_tl,Src,Dst}, Vst) ->
     assert_not_literal(Src),
-    assert_type(cons, Src, Vst),
-    extract_term(any, get_tl, [Src], Dst, Vst);
+    assert_type(#t_cons{}, Src, Vst),
+
+    SrcType = get_term_type(Src, Vst),
+    {TailType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+
+    extract_term(TailType, get_tl, [Src], Dst, Vst);
 valfun_1({get_tuple_element,Src,N,Dst}, Vst) ->
     Index = N+1,
     assert_not_literal(Src),
@@ -658,6 +665,25 @@ valfun_1({jump,{f,Lbl}}, Vst) ->
 valfun_1(I, Vst0) ->
     Vst = branch_exception(Vst0),
     valfun_2(I, Vst).
+
+validate_var_info([{fun_type, Type} | Info], Reg, Vst0) ->
+    %% Explicit type information inserted after make_fun2 instructions to mark
+    %% the return type of the created fun.
+    Vst = update_type(fun meet/2, #t_fun{type=Type}, Reg, Vst0),
+    validate_var_info(Info, Reg, Vst);
+validate_var_info([{type, none} | _Info], _Reg, Vst) ->
+    %% Unreachable code, typically after a call that never returns.
+    kill_state(Vst);
+validate_var_info([{type, Type} | Info], Reg, Vst0) ->
+    %% Explicit type information inserted by optimization passes to indicate
+    %% that Reg has a certain type, so that we can accept cross-function type
+    %% optimizations.
+    Vst = update_type(fun meet/2, Type, Reg, Vst0),
+    validate_var_info(Info, Reg, Vst);
+validate_var_info([_ | Info], Reg, Vst) ->
+    validate_var_info(Info, Reg, Vst);
+validate_var_info([], _Reg, Vst) ->
+    Vst.
 
 validate_tail_call(Deallocate, Func, Live, #vst{current=#st{numy=NumY}}=Vst0) ->
     assert_float_checked(Vst0),
@@ -949,11 +975,11 @@ valfun_3({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
 valfun_3({test,is_integer,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_integer{}, Src, Vst);
 valfun_3({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, cons, Src, Vst);
+    type_test(Lbl, #t_cons{}, Src, Vst);
 valfun_3({test,is_number,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, number, Src, Vst);
 valfun_3({test,is_list,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, list, Src, Vst);
+    type_test(Lbl, #t_list{}, Src, Vst);
 valfun_3({test,is_map,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_map{}, Src, Vst);
 valfun_3({test,is_nil,{f,Lbl},[Src]}, Vst) ->
@@ -1794,10 +1820,19 @@ infer_types_1(#value{op={bif,element},args=[{integer,Index},Tuple]},
               Val, Op, Vst) when Index >= 1 ->
     ElementType = get_term_type(Val, Vst),
     Es = beam_types:set_tuple_element(Index, ElementType, #{}),
-    Type = #t_tuple{size=Index,elements=Es},
+    TupleType = #t_tuple{size=Index,elements=Es},
     case Op of
-        eq_exact -> update_type(fun meet/2, Type, Tuple, Vst);
-        ne_exact -> update_type(fun subtract/2, Type, Tuple, Vst)
+        eq_exact ->
+            update_type(fun meet/2, TupleType, Tuple, Vst);
+        ne_exact ->
+            %% Subtraction is only safe when ElementType is single-valued and
+            %% the index is below the tuple element limit.
+            case beam_types:is_singleton_type(ElementType) of
+                true when Es =/= #{} ->
+                    update_type(fun subtract/2, TupleType, Tuple, Vst);
+                _ ->
+                    Vst
+            end
     end;
 infer_types_1(#value{op={bif,is_atom},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_atom{}, Src, Val, Op, Vst);
@@ -1812,7 +1847,7 @@ infer_types_1(#value{op={bif,is_float},args=[Src]}, Val, Op, Vst) ->
 infer_types_1(#value{op={bif,is_integer},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_integer{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_list},args=[Src]}, Val, Op, Vst) ->
-    infer_type_test_bif(list, Src, Val, Op, Vst);
+    infer_type_test_bif(#t_list{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_map},args=[Src]}, Val, Op, Vst) ->
     infer_type_test_bif(#t_map{}, Src, Val, Op, Vst);
 infer_types_1(#value{op={bif,is_number},args=[Src]}, Val, Op, Vst) ->
