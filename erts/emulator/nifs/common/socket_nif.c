@@ -166,6 +166,11 @@
 #ifdef HAVE_SETNS_H
 #include <setns.h>
 #endif
+#ifdef HAVE_LINUX_ERRQUEUE_H
+#include <linux/errqueue.h>
+#include <linux/icmp.h>
+#include <linux/icmpv6.h>
+#endif
 
 #define HAVE_UDP
 
@@ -2814,6 +2819,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(hoplimit);                        \
     GLOBAL_ATOM_DECL(hopopts);                         \
     GLOBAL_ATOM_DECL(icmp);                            \
+    GLOBAL_ATOM_DECL(icmp6);                           \
     GLOBAL_ATOM_DECL(ifindex);                         \
     GLOBAL_ATOM_DECL(igmp);                            \
     GLOBAL_ATOM_DECL(inet);                            \
@@ -2968,7 +2974,9 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
 /* *** Local atoms *** */
 #define LOCAL_ATOMS                    \
     LOCAL_ATOM_DECL(adaptation_layer); \
+    LOCAL_ATOM_DECL(addr_unreach);     \
     LOCAL_ATOM_DECL(address);          \
+    LOCAL_ATOM_DECL(adm_prohibited);   \
     LOCAL_ATOM_DECL(association);      \
     LOCAL_ATOM_DECL(assoc_id);         \
     LOCAL_ATOM_DECL(authentication);   \
@@ -2976,15 +2984,20 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(close);            \
     LOCAL_ATOM_DECL(closed);           \
     LOCAL_ATOM_DECL(closing);          \
+    LOCAL_ATOM_DECL(code);             \
     LOCAL_ATOM_DECL(cookie_life);      \
     LOCAL_ATOM_DECL(counter_wrap);     \
     LOCAL_ATOM_DECL(counters);         \
     LOCAL_ATOM_DECL(data_in);          \
+    LOCAL_ATOM_DECL(dest_unreach);     \
     LOCAL_ATOM_DECL(do);               \
     LOCAL_ATOM_DECL(dont);             \
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
+    LOCAL_ATOM_DECL(frag_needed);      \
     LOCAL_ATOM_DECL(global_counters);  \
+    LOCAL_ATOM_DECL(host_unknown);     \
+    LOCAL_ATOM_DECL(host_unreach);     \
     LOCAL_ATOM_DECL(in4_sockaddr);     \
     LOCAL_ATOM_DECL(in6_sockaddr);     \
     LOCAL_ATOM_DECL(include);          \
@@ -3001,6 +3014,11 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(min);              \
     LOCAL_ATOM_DECL(mode);             \
     LOCAL_ATOM_DECL(multiaddr);        \
+    LOCAL_ATOM_DECL(net_unknown);      \
+    LOCAL_ATOM_DECL(net_unreach);      \
+    LOCAL_ATOM_DECL(none);             \
+    LOCAL_ATOM_DECL(noroute);          \
+    LOCAL_ATOM_DECL(not_neighbour);    \
     LOCAL_ATOM_DECL(null);             \
     LOCAL_ATOM_DECL(num_acceptors);    \
     LOCAL_ATOM_DECL(num_dinet);        \
@@ -3018,29 +3036,40 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(num_tseqpkgs);     \
     LOCAL_ATOM_DECL(num_tstreams);     \
     LOCAL_ATOM_DECL(num_writers);      \
+    LOCAL_ATOM_DECL(offender);         \
+    LOCAL_ATOM_DECL(origin);           \
     LOCAL_ATOM_DECL(partial_delivery); \
     LOCAL_ATOM_DECL(peer_error);       \
     LOCAL_ATOM_DECL(peer_rwnd);        \
+    LOCAL_ATOM_DECL(pkt_toobig);       \
+    LOCAL_ATOM_DECL(policy_fail);      \
+    LOCAL_ATOM_DECL(port_unreach);     \
     LOCAL_ATOM_DECL(probe);            \
     LOCAL_ATOM_DECL(read_byte);        \
     LOCAL_ATOM_DECL(read_fails);       \
     LOCAL_ATOM_DECL(read_pkg);         \
     LOCAL_ATOM_DECL(read_tries);       \
     LOCAL_ATOM_DECL(read_waits);       \
+    LOCAL_ATOM_DECL(reject_route);     \
     LOCAL_ATOM_DECL(select);           \
     LOCAL_ATOM_DECL(sender_dry);       \
     LOCAL_ATOM_DECL(send_failure);     \
     LOCAL_ATOM_DECL(shutdown);         \
     LOCAL_ATOM_DECL(slist);            \
+    LOCAL_ATOM_DECL(sock_err);         \
     LOCAL_ATOM_DECL(sourceaddr);       \
+    LOCAL_ATOM_DECL(time_exceeded);    \
     LOCAL_ATOM_DECL(timeout);          \
     LOCAL_ATOM_DECL(true);             \
+    LOCAL_ATOM_DECL(txstatus);         \
+    LOCAL_ATOM_DECL(txtime);           \
     LOCAL_ATOM_DECL(want);             \
     LOCAL_ATOM_DECL(write_byte);       \
     LOCAL_ATOM_DECL(write_fails);      \
     LOCAL_ATOM_DECL(write_pkg);        \
     LOCAL_ATOM_DECL(write_tries);      \
-    LOCAL_ATOM_DECL(write_waits);
+    LOCAL_ATOM_DECL(write_waits);      \
+    LOCAL_ATOM_DECL(zerocopy);
 
 /* Local error reason atoms */
 #define LOCAL_ERROR_REASON_ATOMS                \
@@ -17142,6 +17171,12 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
             break;
 #endif
 
+#if defined(IP_RECVERR)
+        case IP_RECVERR:
+            *eType = esock_atom_recverr;
+            break;
+#endif
+
         default:
             xres = ESOCK_STR_EINVAL;
             break;
@@ -17185,6 +17220,12 @@ char* encode_cmsghdr_type(ErlNifEnv*    env,
               *eType = esock_atom_recvtclass;
               break;
 #endif // if defined(IPV6_RECVTCLASS)
+
+#if defined(IPV6_RECVERR)
+        case IPV6_RECVERR:
+            *eType = esock_atom_recverr;
+            break;
+#endif
 
 	  default:
             xres = ESOCK_STR_EINVAL;
@@ -17489,6 +17530,263 @@ char* encode_cmsghdr_data_socket(ErlNifEnv*     env,
 
 
 
+#if defined(HAVE_LINUX_ERRQUEUE_H)
+
+/* +++ encode_cmsghdr_data_recverr +++
+ *
+ * Encode the extended socker error in the data part of the cmsghdr().
+ *
+ */
+
+static
+char* encode_cmsghdr_data_recverr(ErlNifEnv*     env,
+                                  unsigned char* dataP,
+                                  size_t         dataLen,
+                                  ERL_NIF_TERM*  eCMsgHdrData)
+{
+    struct sock_extended_err *sock_err =
+        (struct sock_extended_err*) dataP;
+    struct sockaddr *offender = SO_EE_OFFENDER(sock_err);
+
+    ERL_NIF_TERM ee_errno  = MKA(env, erl_errno_id(sock_err->ee_errno));
+    ERL_NIF_TERM ee_origin;
+    ERL_NIF_TERM ee_type;
+    ERL_NIF_TERM ee_code;
+    ERL_NIF_TERM ee_info   = MKI(env, sock_err->ee_info);
+    ERL_NIF_TERM ee_data  =  MKI(env, sock_err->ee_data);
+    ERL_NIF_TERM eSockAddr;
+
+    switch (sock_err->ee_origin) {
+#if defined(SO_EE_ORIGIN_NONE)
+    case SO_EE_ORIGIN_NONE:
+        ee_origin = atom_none;
+        ee_type = MKI(env, sock_err->ee_type);
+        ee_code = MKI(env, sock_err->ee_code);
+        break;
+#endif
+
+#if defined(SO_EE_ORIGIN_LOCAL)
+    case SO_EE_ORIGIN_LOCAL:
+        ee_origin = esock_atom_local;
+        ee_type = MKI(env, sock_err->ee_type);
+        ee_code = MKI(env, sock_err->ee_code);
+        break;
+#endif
+
+#if defined(SO_EE_ORIGIN_ICMP)
+    case SO_EE_ORIGIN_ICMP:
+        ee_origin = esock_atom_icmp;
+        switch (sock_err->ee_type) {
+
+#if defined(ICMP_DEST_UNREACH)
+        case ICMP_DEST_UNREACH:
+            ee_type   = atom_dest_unreach;
+            switch (sock_err->ee_code) {
+
+#if defined(ICMP_NET_UNREACH)
+            case ICMP_NET_UNREACH:
+                ee_code = atom_net_unreach;
+                break;
+#endif
+
+#if defined(ICMP_HOST_UNREACH)
+            case ICMP_HOST_UNREACH:
+                ee_code = atom_host_unreach;
+                break;
+#endif
+
+#if defined(ICMP_PORT_UNREACH)
+            case ICMP_PORT_UNREACH:
+                ee_code = atom_port_unreach;
+                break;
+#endif
+
+#if defined(ICMP_FRAG_NEEDED)
+            case ICMP_FRAG_NEEDED:
+                ee_code = atom_frag_needed;
+                break;
+#endif
+
+#if defined(ICMP_NET_UNKNOWN)
+            case ICMP_NET_UNKNOWN:
+                ee_code = atom_net_unknown;
+                break;
+#endif
+
+#if defined(ICMP_HOST_UNKNOWN)
+            case ICMP_HOST_UNKNOWN:
+                ee_code = atom_host_unknown;
+                break;
+#endif
+
+            default:
+                ee_code = MKI(env, sock_err->ee_code);
+                break;
+            }
+            break;
+#endif // ICMP_DEST_UNREACH
+
+#if defined(ICMP_TIME_EXCEEDED)
+        case ICMP_TIME_EXCEEDED:
+            ee_type = atom_time_exceeded;
+            ee_code = MKI(env, sock_err->ee_code);
+            break;
+#endif
+
+        default:
+            ee_type = MKI(env, sock_err->ee_type);
+            ee_code = MKI(env, sock_err->ee_code);
+            break;
+        }
+        break;
+#endif // SO_EE_ORIGIN_ICMP
+
+#if defined(SO_EE_ORIGIN_ICMP6)
+    case SO_EE_ORIGIN_ICMP6:
+        ee_origin = esock_atom_icmp6;
+        switch (sock_err->ee_type) {
+
+#if defined(ICMPV6_DEST_UNREACH)
+        case ICMPV6_DEST_UNREACH:
+            ee_type = atom_dest_unreach;
+            switch (sock_err->ee_code) {
+
+#if defined(ICMPV6_NOROUTE)
+            case ICMPV6_NOROUTE:
+                ee_code = atom_noroute;
+                break;
+#endif
+#if defined(ICMPV6_ADM_PROHIBITED)
+            case ICMPV6_ADM_PROHIBITED:
+                ee_code = atom_adm_prohibited;
+                break;
+#endif
+
+#if defined(ICMPV6_NOT_NEIGHBOUR)
+            case ICMPV6_NOT_NEIGHBOUR:
+                ee_code = atom_not_neighbour;
+                break;
+#endif
+
+#if defined(ICMPV6_ADDR_UNREACH)
+            case ICMPV6_ADDR_UNREACH:
+                ee_code = atom_addr_unreach;
+                break;
+#endif
+
+#if defined(ICMPV6_PORT_UNREACH)
+            case ICMPV6_PORT_UNREACH:
+                ee_code = atom_port_unreach;
+                break;
+#endif
+
+#if defined(ICMPV6_POLICY_FAIL)
+            case ICMPV6_POLICY_FAIL:
+                ee_code = atom_policy_fail;
+                break;
+#endif
+
+#if defined(ICMPV6_REJECT_ROUTE)
+            case ICMPV6_REJECT_ROUTE:
+                ee_code = atom_reject_route;
+                break;
+#endif
+
+            default:
+                ee_code = MKI(env, sock_err->ee_code);
+                break;
+            }
+            break;
+#endif // ICMPV6_DEST_UNREACH
+
+#if defined(ICMPV6_PKT_TOOBIG)
+        case ICMPV6_PKT_TOOBIG:
+            ee_type = atom_pkt_toobig;
+            ee_code = MKI(env, sock_err->ee_code);
+            break;
+#endif
+
+#if defined(ICMPV6_TIME_EXCEED)
+        case ICMPV6_TIME_EXCEED:
+            ee_type = atom_time_exceeded;
+            ee_code = MKI(env, sock_err->ee_code);
+            break;
+#endif
+
+        default:
+            ee_type = MKI(env, sock_err->ee_type);
+            ee_code = MKI(env, sock_err->ee_code);
+            break;
+        }
+        break;
+#endif // SO_EE_ORIGIN_ICMP6
+
+#if defined(SO_EE_ORIGIN_TXSTATUS)
+    case SO_EE_ORIGIN_TXSTATUS:
+        ee_origin = atom_txstatus;
+        ee_type   = MKI(env, sock_err->ee_type);
+        ee_code   = MKI(env, sock_err->ee_code);
+        break;
+#endif
+
+#if defined(SO_EE_ORIGIN_ZEROCOPY)
+    case SO_EE_ORIGIN_ZEROCOPY:
+        ee_origin = atom_zerocopy;
+        ee_type   = MKI(env, sock_err->ee_type);
+        ee_code   = MKI(env, sock_err->ee_code);
+        break;
+#endif
+
+#if defined(SO_EE_ORIGIN_TXTIME)
+    case SO_EE_ORIGIN_TXTIME:
+        ee_origin = atom_txtime;
+        ee_type   = MKI(env, sock_err->ee_type);
+        ee_code   = MKI(env, sock_err->ee_code);
+        break;
+#endif
+
+    default:
+        ee_origin = MKI(env, sock_err->ee_origin);
+        ee_type   = MKI(env, sock_err->ee_type);
+        ee_code   = MKI(env, sock_err->ee_code);
+        break;
+    }
+
+    if (CHARP(dataP) + dataLen > CHARP(offender)) {
+        esock_encode_sockaddr(env,
+                              (ESockAddress *)offender,
+                              (CHARP(dataP) + dataLen) - CHARP(offender),
+                              &eSockAddr);
+    } else {
+        eSockAddr = esock_atom_undefined;
+    }
+
+    {
+        ERL_NIF_TERM keys[] = {esock_atom_error,
+                               atom_origin,
+                               esock_atom_type,
+                               atom_code,
+                               esock_atom_info,
+                               esock_atom_data,
+                               atom_offender};
+        ERL_NIF_TERM vals[] = {ee_errno, ee_origin, ee_type, ee_code,
+                               ee_info, ee_data, eSockAddr};
+        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+        unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+        ESOCK_ASSERT( (numKeys == numVals) );
+
+        if (!MKMA(env, keys, vals, numKeys, eCMsgHdrData)) {
+            *eCMsgHdrData = esock_atom_undefined;
+            return ESOCK_STR_EINVAL;
+        }
+    }
+
+    return NULL;
+}
+
+#endif // defined(HAVE_LINUX_ERRQUEUE_H)
+
 /* +++ encode_cmsghdr_data_ip +++
  *
  * Encode the data part when protocol = IP of the cmsghdr().
@@ -17649,6 +17947,11 @@ char* encode_cmsghdr_data_ip(ErlNifEnv*     env,
         break;
 #endif // if defined(IP_RECVTOS)
 
+#if defined(IP_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
+    case IP_RECVERR:
+        xres = encode_cmsghdr_data_recverr(env, dataP, dataLen, eCMsgHdrData);
+        break;
+#endif // defined(IP_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
 
     default:
         *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
@@ -17675,6 +17978,8 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
                                size_t         dataLen,
                                ERL_NIF_TERM*  eCMsgHdrData)
 {
+    char* xres = NULL;
+
     switch (type) {
 #if defined(IPV6_PKTINFO)
     case IPV6_PKTINFO:
@@ -17734,12 +18039,18 @@ char* encode_cmsghdr_data_ipv6(ErlNifEnv*     env,
         break;
 #endif // if defined(IPV6_TCLASS) || defined(IPV6_RECVTCLASS)
 
+#if defined(IPV6_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
+    case IPV6_RECVERR:
+        xres = encode_cmsghdr_data_recverr(env, dataP, dataLen, eCMsgHdrData);
+        break;
+#endif // defined(IPV6_RECVERR) && defined(HAVE_LINUX_ERRQUEUE_H)
+
     default:
         *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
         break;
     }
 
-    return NULL;
+    return xres;
 }
 #endif
 

@@ -177,6 +177,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(hoplimit);                 \
     GLOBAL_ATOM_DEF(hopopts);                  \
     GLOBAL_ATOM_DEF(icmp);                     \
+    GLOBAL_ATOM_DEF(icmp6);                    \
     GLOBAL_ATOM_DEF(ifindex);                  \
     GLOBAL_ATOM_DEF(igmp);                     \
     GLOBAL_ATOM_DEF(inet);                     \
