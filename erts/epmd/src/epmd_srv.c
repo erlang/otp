@@ -667,16 +667,16 @@ static int do_accept(EpmdVars *g,int listensock)
 
 static void bump_creation(Node* node)
 {
-    if (++node->cr_counter == 0)
-        node->cr_counter = 1;
+    if (++node->cr_counter < 4)
+        node->cr_counter = 4;
 }
 static unsigned int get_creation(Node* node)
 {
     if (node->highvsn >= 6) {
-        return node->cr_counter;  /* 1..(2^32-1)*/
+        return node->cr_counter;  /* 4..(2^32-1)*/
     }
     else {
-        return (node->cr_counter - 1) % 3 + 1;   /* 1..3 */
+        return node->cr_counter % 3 + 1;   /* 1..3 */
     }
 }
 
