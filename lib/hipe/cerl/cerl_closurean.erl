@@ -797,7 +797,8 @@ take_work({Queue0, Set0}) ->
 
 -spec is_escape_op(atom(), arity()) -> boolean().
 
-is_escape_op(match_fail, 1) -> false; 
+is_escape_op(match_fail, 1) -> false;
+is_escape_op(recv_wait_timeout, 1) -> false;
 is_escape_op(F, A) when is_atom(F), is_integer(A) -> true.
 
 -spec is_escape_op(atom(), atom(), arity()) -> boolean().
@@ -814,6 +815,7 @@ is_escape_op(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> true.
 
 -spec is_literal_op(atom(), arity()) -> boolean().
 
+is_literal_op(recv_wait_timeout, 1) -> true;
 is_literal_op(match_fail, 1) -> true;
 is_literal_op(F, A) when is_atom(F), is_integer(A) -> false.
 

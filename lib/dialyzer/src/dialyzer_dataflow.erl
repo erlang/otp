@@ -298,15 +298,36 @@ traverse(Tree, Map, State) ->
     module ->
       handle_module(Tree, Map, State);
     primop ->
-      Type =
-	case cerl:atom_val(cerl:primop_name(Tree)) of
-	  match_fail -> t_none();
-	  raise -> t_none();
-	  bs_init_writable -> t_from_term(<<>>);
-          build_stacktrace -> erl_bif_types:type(erlang, build_stacktrace, 0);
-	  Other -> erlang:error({'Unsupported primop', Other})
-	end,
-      {State, Map, Type};
+      case cerl:atom_val(cerl:primop_name(Tree)) of
+        match_fail ->
+          {State, Map, t_none()};
+        raise ->
+          {State, Map, t_none()};
+        bs_init_writable ->
+          {State, Map, t_from_term(<<>>)};
+        build_stacktrace ->
+          {State, Map, erl_bif_types:type(erlang, build_stacktrace, 0)};
+        dialyzer_unknown ->
+          {State, Map, t_any()};
+        recv_peek_message ->
+          {State, Map, t_product([t_boolean(), t_any()])};
+        recv_wait_timeout ->
+          [Arg] = cerl:primop_args(Tree),
+          {State1, Map1, TimeoutType} = traverse(Arg, Map, State),
+          Opaques = State1#state.opaques,
+          case t_is_atom(TimeoutType, Opaques) andalso
+            t_atom_vals(TimeoutType, Opaques) =:= ['infinity'] of
+            true ->
+              {State1, Map1, t_boolean()};
+            false ->
+              {State1, Map1, t_boolean()}
+          end;
+        remove_message ->
+          {State, Map, t_any()};
+        timeout ->
+          {State, Map, t_any()};
+        Other -> erlang:error({'Unsupported primop', Other})
+      end;
     'receive' ->
       handle_receive(Tree, Map, State);
     seq ->
@@ -967,7 +988,7 @@ handle_call(Tree, Map, State) ->
 
 handle_case(Tree, Map, State) ->
   Arg = cerl:case_arg(Tree),
-  Clauses = filter_match_fail(cerl:case_clauses(Tree)),
+  Clauses = cerl:case_clauses(Tree),
   {State1, Map1, ArgType} = SMA = traverse(Arg, Map, State),
   case t_is_none_or_unit(ArgType) of
     true -> SMA;
@@ -1084,7 +1105,7 @@ handle_module(Tree, Map, State) ->
 %%----------------------------------------
 
 handle_receive(Tree, Map, State) ->
-  Clauses = filter_match_fail(cerl:receive_clauses(Tree)),
+  Clauses = cerl:receive_clauses(Tree),
   Timeout = cerl:receive_timeout(Tree),
   State1 =
     case is_race_analysis_enabled(State) of
@@ -3019,24 +3040,6 @@ is_lc_simple_list(Tree, TreeType, State) ->
     andalso t_is_list(TreeType)
     andalso t_is_simple(t_list_elements(TreeType, Opaques), State).
 
-filter_match_fail([Clause] = Cls) ->
-  Body = cerl:clause_body(Clause),
-  case cerl:type(Body) of
-    primop ->
-      case cerl:atom_val(cerl:primop_name(Body)) of
-	match_fail -> [];
-	raise -> [];
-	_ -> Cls
-      end;
-    _ -> Cls
-  end;
-filter_match_fail([H|T]) ->
-  [H|filter_match_fail(T)];
-filter_match_fail([]) ->
-  %% This can actually happen, for example in
-  %%      receive after 1 -> ok end
-  [].
-
 %%% ===========================================================================
 %%%
 %%%  The State.
@@ -3819,7 +3822,20 @@ find_terminals(Tree) ->
 	  %% We cannot make assumptions. Say that both are true.
 	  {true, true}
       end;
-    'case' -> find_terminals_list(cerl:case_clauses(Tree));
+    'case' ->
+      case cerl:case_clauses(Tree) of
+        [] ->
+          case lists:member(receive_timeout, cerl:get_ann(Tree)) of
+            true ->
+              %% Handle a never ending receive without any
+              %% clauses specially. (Not sure why.)
+              {false, true};
+            false ->
+              {false, false}
+          end;
+        [_|_] ->
+          find_terminals_list(cerl:case_clauses(Tree))
+      end;
     'catch' -> find_terminals(cerl:catch_body(Tree));
     clause -> find_terminals(cerl:clause_body(Tree));
     cons -> {false, true};
