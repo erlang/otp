@@ -155,10 +155,8 @@
 					/* No matching try clause */
 #define EXC_NOTSUP		((17 << EXC_OFFSET) | EXC_ERROR)
 					/* Not supported */
-
 #define EXC_BADMAP		((18 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad map */
-
 #define EXC_BADKEY		((19 << EXC_OFFSET) | EXC_ERROR)
 					/* Bad key in map */
 

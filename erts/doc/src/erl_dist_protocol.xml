@@ -898,6 +898,14 @@ DiB == gen_digest(ChA, ICA)?
           <p>Use <seealso marker="erl_ext_dist#fragments">fragmented</seealso>
             distribution messages to send large messages.</p>
         </item>
+        <tag><marker id="DFLAG_SPAWN"/><c>-define(DFLAG_SPAWN, 16#1000000).</c></tag>
+        <item>
+          <p>Set if the <seealso marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seealso>,
+	  <seealso marker="#SPAWN_REQUEST_TT"><c>SPAWN_REQUEST_TT</c></seealso>,
+	  <seealso marker="#SPAWN_REPLY"><c>SPAWN_REPLY</c></seealso>,
+	  <seealso marker="#SPAWN_REPLY_TT"><c>SPAWN_REPLY_TT</c></seealso>
+	  control messages are supported.</p>
+        </item>
       </taglist>
       <p>
 	There is also function <c>dist_util:strict_order_flags/0</c>
@@ -1223,7 +1231,108 @@ DiB == gen_digest(ChA, ICA)?
 	  has been negotiated in the connection setup handshake.
 	</p>
       </item>
+      
     </taglist>
   </section>
-
+  <section>
+    <title>New Ctrlmessages for Erlang/OTP 23</title>
+    <taglist>
+      <tag><marker id="SPAWN_REQUEST"/><c>SPAWN_REQUEST</c></tag>
+      <item>
+        <p><c>{29, ReqId, From, GroupLeader, {Module, Function, Arity}, OptList}</c></p>
+        <p>Followed by <c>ArgList</c>.</p>
+	<p>This signal is sent by the
+	<seealso marker="erlang#spawn_request/5"><c>spawn_request()</c></seealso> BIF.</p>
+	<taglist>
+	  <tag><c>ReqId :: reference()</c></tag>
+	  <item><p>Request identifier. Also used as monitor
+	  reference in case the <c>monitor</c> option has been
+	  passed.</p></item>
+	  <tag><c>From :: pid()</c></tag>
+	  <item><p>Process identifier of the process making the
+	  request. That is, the parent process to be.</p></item>
+	  <tag><c>GroupLeader :: pid()</c></tag>
+	  <item><p>Process identifier of the group leader of the
+	  newly created process.</p></item>
+	  <tag><c>{Module :: atom(), Function :: atom(), Arity :: integer() >= 0}</c></tag>
+	  <item><p>Entry point for the the new process.</p></item>
+	  <tag><c>OptList :: [term()]</c></tag>
+	  <item><p>A proper list of spawn options to use when spawning.</p></item>
+	  <tag><c>ArgList :: [term()]</c></tag>
+	  <item><p>A proper list of arguments to use in the call to the entry point.</p></item>
+	</taglist>
+	<p>
+	  Only supported when the
+	  <seealso marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seealso>
+	  <seealso marker="erl_dist_protocol#dflags">distribution flag</seealso>
+	  has been passed.
+	</p>
+      </item>
+      <tag><marker id="SPAWN_REQUEST_TT"/><c>SPAWN_REQUEST_TT</c></tag>
+      <item>
+        <p><c>{30, ReqId, From, GroupLeader, {Module, Function, Arity}, OptList, Token}</c></p>
+        <p>Followed by <c>ArgList</c>.</p>
+	<p>Same as <seealso marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seealso>, but also
+	with a sequential trace <c>Token</c>.
+	</p>
+	<p>
+	  Only supported when the
+	  <seealso marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seealso>
+	  <seealso marker="erl_dist_protocol#dflags">distribution flag</seealso>
+	  has been passed.
+	</p>
+      </item>
+      <tag><marker id="SPAWN_REPLY"/><c>SPAWN_REPLY</c></tag>
+      <item>
+        <p><c>{31, ReqId, To, Flags, Result}</c></p>
+	<p>This signal is sent as a reply to a process previously sending
+	a <seealso marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seealso> signal.</p>
+	<taglist>
+	  <tag><c>ReqId :: reference()</c></tag>
+	  <item><p>Request identifier. Also used as monitor
+	  reference in case the <c>monitor</c> option has been
+	  passed.</p></item>
+	  <tag><c>To :: pid()</c></tag>
+	  <item><p>Process identifier of the process making the
+	  spawn request.</p></item>
+	  <tag><c>Flags :: integer() >= 0</c></tag>
+	  <item><p>A bit flag field of bit flags bitwise or:ed together. Currently the
+	  following flags are defined:</p>
+	  <taglist>
+	    <tag><c>1</c></tag>
+	    <item><p>A link between <c>To</c> and <c>Result</c> was set up on
+	    the node where <c>Result</c> resides.</p></item>
+	    <tag><c>2</c></tag>
+	    <item><p>A monitor from <c>To</c> to <c>Result</c> was set up on
+	    the node where <c>Result</c> resides.</p></item>
+	  </taglist>
+	  </item>
+	  <tag><c>Result :: pid() | atom()</c></tag>
+	  <item><p>Result of the operation. If <c>Result</c> is a process
+	  identifier, the operation succeeded and the process identifier
+	  is the identifier of the newly created process. If <c>Result</c>
+	  is an atom, the operation failed and the atom identifies failure
+	  reason.</p></item>
+	</taglist>
+	<p>
+	  Only supported when the
+	  <seealso marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seealso>
+	  <seealso marker="erl_dist_protocol#dflags">distribution flag</seealso>
+	  has been passed.
+	</p>
+      </item>
+      <tag><marker id="SPAWN_REPLY_TT"/><c>SPAWN_REPLY_TT</c></tag>
+      <item>
+        <p><c>{32, ReqId, To, Flags, Result, Token}</c></p>
+	<p>Same as <seealso marker="#SPAWN_REPLY"><c>SPAWN_REPLY</c></seealso>, but also
+	with a sequential trace <c>Token</c>.</p>
+	<p>
+	  Only supported when the
+	  <seealso marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seealso>
+	  <seealso marker="erl_dist_protocol#dflags">distribution flag</seealso>
+	  has been passed.
+	</p>
+      </item>
+    </taglist>
+  </section>
 </chapter>

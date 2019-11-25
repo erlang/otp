@@ -6251,6 +6251,23 @@ true</pre>
     </func>
 
     <func>
+      <name name="spawn_monitor" arity="2" since="OTP @OTP-15251@"/>
+      <fsummary>Create and monitor a new process with a fun as entry point.
+      </fsummary>
+      <desc>
+        <p>Returns the process identifier of a new process, started by
+          the application of <c><anno>Fun</anno></c> to the empty list
+          <c>[]</c> on the node <c><anno>Node</anno></c>,
+          and a reference for a monitor created to the new process.
+          Otherwise works like
+          <seealso marker="#spawn/3"><c>spawn/3</c></seealso>.</p>
+	<p>If the node identified by <c><anno>Node</anno></c> does not
+	support distributed <c>spawn_monitor()</c>, the call will fail
+	with a <c>notsup</c> exception.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="spawn_monitor" arity="3" since=""/>
       <fsummary>Create and monitor a new process with a function as entry point.
       </fsummary>
@@ -6261,6 +6278,23 @@ true</pre>
           monitored at the same time. Returns the process identifier
           and a reference for the monitor. Otherwise works like
           <seealso marker="#spawn/3"><c>spawn/3</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="spawn_monitor" arity="4" since="OTP @OTP-15251@"/>
+      <fsummary>Create and monitor a new process with a function as entry point.
+      </fsummary>
+      <desc>
+        <p>A new process is started by the application
+          of <c><anno>Module</anno>:<anno>Function</anno></c>
+          to <c><anno>Args</anno></c> on the node <c><anno>Node</anno></c>.
+	  The process is monitored at the same time. Returns the process
+	  identifier and a reference for the monitor. Otherwise works like
+        <seealso marker="#spawn/3"><c>spawn/3</c></seealso>.</p>
+	<p>If the node identified by <c><anno>Node</anno></c> does not
+	support distributed <c>spawn_monitor()</c>, the call will fail
+	with a <c>notsup</c> exception.</p>
       </desc>
     </func>
 
@@ -6286,17 +6320,22 @@ true</pre>
       <name name="spawn_opt" arity="3" since=""/>
       <fsummary>Create a new process with a fun as entry point on a specified
         node.</fsummary>
-      <type name="priority_level"/>
-      <type name="max_heap_size"/>
-      <type name="message_queue_data"/>
-      <type name="spawn_opt_option"/>
       <desc>
         <p>Returns the process identifier (pid) of a new process started
           by the application of <c><anno>Fun</anno></c> to the
           empty list <c>[]</c> on <c><anno>Node</anno></c>. If
           <c><anno>Node</anno></c> does not exist, a useless pid is
           returned. Otherwise works like
-          <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso>.</p>
+        <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso>.</p>
+	<p>
+	  Valid options depends on what options are
+	  supported by the node identified by
+	  <c><anno>Node</anno></c>. A description of
+	  valid <c>Option</c>s for the local node
+	  of current OTP version can be found in the
+	  documentation of
+	  <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso>.
+	</p>
       </desc>
     </func>
 
@@ -6440,10 +6479,6 @@ true</pre>
       <name name="spawn_opt" arity="5" since=""/>
       <fsummary>Create a new process with a function as entry point on a
         specified node.</fsummary>
-      <type name="priority_level"/>
-      <type name="max_heap_size"/>
-      <type name="message_queue_data"/>
-      <type name="spawn_opt_option"/>
       <desc>
         <p>Returns the process identifier (pid) of a new process started
           by the application
@@ -6451,14 +6486,318 @@ true</pre>
           <c><anno>Args</anno></c> on <c><anno>Node</anno></c>. If
           <c><anno>Node</anno></c> does not exist, a useless pid is returned.
           Otherwise works like
-          <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso>.</p>
-        <note>
-          <p>Option <c>monitor</c> is not supported by
-            <c>spawn_opt/5</c>.</p>
-        </note>
+        <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso>.</p>
+	<p>
+	  Valid options depends on what options are
+	  supported by the node identified by
+	  <c><anno>Node</anno></c>. A description of
+	  valid <c>Option</c>s for the local node
+	  of current OTP version can be found in the
+	  documentation of
+	  <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso>.
+	</p>
       </desc>
     </func>
 
+    <func>
+      <name name="spawn_request" arity="1" since="OTP @OTP-15251@"/>
+      <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
+      <desc>
+        <p>
+	  The same as the call
+	  <seealso marker="#spawn_request/3"><c>spawn_request(node(),<anno>Fun</anno>,[])</c></seealso>.
+	  That is, a spawn request on the local node with no options.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="spawn_request" arity="2" clause_i="1" since="OTP @OTP-15251@"/>
+      <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
+      <type name="priority_level"/>
+      <type name="max_heap_size"/>
+      <type name="message_queue_data"/>
+      <type name="spawn_opt_option"/>
+      <desc>
+        <p>
+	  The same as the call
+	  <seealso marker="#spawn_request/3"><c>spawn_request(node(),<anno>Fun</anno>,<anno>Options</anno>)</c></seealso>.
+	  That is, a spawn request on the local node.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="spawn_request" arity="2" clause_i="2" since="OTP @OTP-15251@"/>
+      <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
+      <desc>
+        <p>
+	  The same as the call
+	  <seealso marker="#spawn_request/3"><c>spawn_request(<anno>Node</anno>,<anno>Fun</anno>,[])</c></seealso>.
+	  That is, a spawn request with no options.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="spawn_request" arity="3" clause_i="1" since="OTP @OTP-15251@"/>
+      <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
+      <desc>
+        <p>
+	  The same as
+	  <seealso marker="#spawn_request/5"><c>spawn_request(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Options</anno>)</c></seealso>.
+	  That is, a spawn request using the fun <c><anno>Fun</anno></c> of
+	  arity zero as entry point.
+	</p>
+	<p>This function will fail with a <c>badarg</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Node</anno></c> is not a valid
+	  node name atom.</p></item>
+	  <item><p><c><anno>Fun</anno></c> is not a fun of arity zero.</p></item>
+	  <item><p><c><anno>Options</anno></c> is not a proper list
+	  of terms.</p></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="spawn_request" arity="3" clause_i="2" since="OTP @OTP-15251@"/>
+      <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
+      <desc>
+        <p>
+	  The same as the call
+	  <seealso marker="#spawn_request/5"><c>spawn_request(node(),<anno>Module</anno>,<anno>Function</anno>,<anno>Args</anno>,[])</c></seealso>.
+	  That is, a spawn request on the local node with no options.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="spawn_request" arity="4" clause_i="1" since="OTP @OTP-15251@"/>
+      <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
+      <desc>
+        <p>
+	  The same as the call
+	  <seealso marker="#spawn_request/5"><c>spawn_request(<anno>Node</anno>,<anno>Module</anno>,<anno>Function</anno>,<anno>Args</anno>,[])</c></seealso>.
+	  That is, a spawn request with no options.
+	</p>
+      </desc>
+    </func>
+        
+    <func>
+      <name name="spawn_request" arity="4" clause_i="2" since="OTP @OTP-15251@"/>
+      <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
+      <type name="priority_level"/>
+      <type name="max_heap_size"/>
+      <type name="message_queue_data"/>
+      <type name="spawn_opt_option"/>
+      <desc>
+        <p>
+	  The same as the call
+	  <seealso marker="#spawn_request/5"><c>spawn_request(node(),<anno>Module</anno>,<anno>Function</anno>,<anno>Args</anno>,<anno>Options</anno>)</c></seealso>.
+	  That is, a spawn request on the local node.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="spawn_request" arity="5" since="OTP @OTP-15251@"/>
+      <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
+      <desc>
+        <p>
+	  Asynchronously send a spawn request. Returns a request
+	  identifier <c><anno>ReqId</anno></c>.
+	</p>
+	
+	<marker id="spawn_request_success_message"/>
+	<p>
+	  If the spawn operation succeeds, a new process is
+	  created on the node identified by <c><anno>Node</anno></c>
+	  and the caller will be sent a message on the form
+	  <c>{<anno>ReplyTag</anno>, <anno>ReqId</anno>, ok, Pid}</c>
+	  where <c>Pid</c> is the process identifier of the
+	  newly created process. Such a message is referred
+	  to as a <i>success message</i> below in the text.
+	  <c><anno>ReplyTag</anno></c> is by default the atom
+	  <c>spawn_reply</c> unless modified by
+	  the <c>{reply_tag, <anno>ReplyTag</anno>}</c> option. The
+	  new process is started by the application of
+	  <c><anno>Module</anno>:<anno>Function</anno></c>
+          to <c><anno>Args</anno></c>.
+	</p>
+
+	<marker id="spawn_request_error_message"/>
+	<p>If the spawn operation fails, a
+	<c>{<anno>ReplyTag</anno>, <anno>ReqId</anno>, error, Reason}</c>
+	message will be sent to the caller. Such a message is referred
+	to as an <i>error message</i> below in the text. The spawn operation
+	fail either if creation of a new process failed or if the
+	spawn operation was interrupted by a connection failure.
+	Currently the following failure <c>Reason</c>s are defined, but
+	other reasons can appear at any time without prior notice:</p>
+	<taglist>
+	  <tag><c>badopt</c></tag>
+	  <item>
+	    <p>
+	      An invalid <c><anno>Option</anno></c> was passed as
+	      argument. Note that different runtime systems may
+	      support different options.
+	    </p>
+	  </item>
+	  <tag><c>system_limit</c></tag>
+	  <item>
+	    <p>
+	      Could not create a new process due to that some
+	      system limit was reached. Typically the process table
+	      was full.
+	    </p>
+	  </item>
+	  <tag><c>notsup</c></tag>
+	  <item>
+	    <p>
+	      The node identified by <c><anno>Node</anno></c> does
+	      not support spawn operations issued by
+	      <c>spawn_request()</c>.
+	    </p>
+	  </item>
+	  <tag><c>noconnection</c></tag>
+	  <item>
+	    <p>
+	      Failure to set up a connection to the node
+	      identified by <c><anno>Node</anno></c> or
+	      the connection to that node was lost during
+	      the spawn operation. In the case the
+	      connection was lost, a process may or may
+	      not have been created.
+	    </p>
+	  </item>
+	</taglist>
+	<p>Valid <c><anno>Option</anno></c>s:</p>
+	<taglist>
+	  <tag><c>monitor</c></tag>
+	  <item>
+	    <p>
+	      In the absence of spawn operation failures, atomically
+	      sets up a monitor to the newly created process. That
+	      is, as if the calling process had called
+	      <seealso marker="#monitor/2"><c>monitor(process, Pid)</c></seealso>
+	      where <c>Pid</c> is the process identifier of the
+	      newly created process. The <c><anno>ReqId</anno></c>
+	      returned by <c>spawn_request()</c> is also used as
+	      monitor reference as if it was returned from
+	      <c>monitor(process, Pid)</c>. A <c>'DOWN'</c> message
+	      for the corresponding monitor is guaranteed not
+	      to be delivered before the 
+	      <seealso marker="#spawn_request_success_message"><i>success
+	      message</i></seealso>. The monitor can not be
+	      <seealso marker="#demonitor/1">demonitored</seealso>
+	      before the operation has succeeded and the <i>success
+	      message</i> has been delivered. If the operation does
+	      not succeed and an
+	      <seealso marker="#spawn_request_error_message"><i>error
+	      message</i></seealso> is delivered, no <c>'DOWN'</c>
+	      message will be delivered.
+	    </p>
+	    <p>
+	      If the connection between the nodes involved in
+	      the spawn operation is lost during the spawn
+	      operation, the spawn operation will fail and an
+	      <i>error message</i> with a <c>Reason</c> of
+	      <c>noconnection</c> will be delivered to the
+	      caller of <c>spawn_request()</c>. A new process
+	      may or may not have been created.
+	    </p>
+	  </item>
+	  <tag><c>link</c></tag>
+	  <item>
+	    <p>
+	      In absence of spawn operation failures, atomically
+	      sets up a link between the calling process and the
+	      newly created process. That is, as if the calling
+	      process had called
+	      <seealso marker="#link/1"><c>link(Pid)</c></seealso>
+	      where <c>Pid</c> is the process identifier of the
+	      newly created process. An exit signal due to the
+	      link is guaranteed not to be delivered before the
+	      <seealso marker="#spawn_request_success_message"><i>success
+	      message</i></seealso>. If the spawn operation fail, an
+	      <seealso marker="#spawn_request_error_message"><i>error
+	      message</i></seealso> is delivered, but no exit signal
+	      due to the link will be delivered to the caller of
+	      <c>spawn_request()</c>.
+	    </p>
+	    <p>
+	      If the connection between the nodes involved in
+	      the spawn operation is lost during the spawn
+	      operation, the spawn operation will fail and an
+	      <i>error message</i> with a <c>Reason</c> of
+	      <c>noconnection</c> will be delivered to the
+	      caller of <c>spawn_request()</c>. A new process
+	      may or may not have been created. If it has been
+	      created, it will be delivered an exit signal with
+	      an exit reason of <c>noconnection</c>.
+	    </p>
+	  </item>
+	  <tag><c>{reply_tag, <anno>ReplyTag</anno>}</c></tag>
+	  <item>
+	    <p>
+	      Sets the reply tag to <c><anno>ReplyTag</anno></c> in
+	      the reply message. That is, in the
+	      <seealso marker="#spawn_request_success_message"><i>success</i></seealso>
+	      or <seealso marker="#spawn_request_error_message"><i>error</i></seealso>
+	      message that will be sent to the caller due to the
+	      spawn operation. The default reply tag is the atom
+	      <c>spawn_reply</c>.
+	    </p>
+	  </item>
+	  <tag><c><anno>OtherOption</anno></c></tag>
+	  <item>
+	  <p>
+	    Other valid options depends on what options are
+	    supported by the node identified by
+	    <c><anno>Node</anno></c>. A description of other
+	    valid <c><anno>Option</anno></c>s for the local node
+	    of current OTP version can be found in the
+	    documentation of
+	    <seealso marker="#spawn_opt/4"><c>spawn_opt/4</c></seealso>.
+	  </p>
+	  </item>
+	</taglist>
+	<p>This function will fail with a <c>badarg</c> exception if:
+	</p>
+	<list>
+	  <item><p><c><anno>Node</anno></c> is not a valid
+	  node name atom.</p></item>
+	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Args</anno></c> is not a proper list
+	  of terms.</p></item>
+	  <item><p><c><anno>Options</anno></c> is not a proper list
+	  of terms.</p></item>
+	</list>
+	<p>
+	  Note that not all individual <c><anno>Option</anno></c>s
+	  are checked when the spawn request is sent, but instead
+	  on reception of the request. Therefore an invalid option
+	  does <em>not</em> cause a <c>badarg</c> exception, but
+	  will cause the spawn operation to fail. An
+	  <seealso marker="#spawn_request_error_message"><i>error
+	  message</i></seealso> with a <c>Reason</c> of <c>badopt</c>
+	  will be sent to the caller.
+	</p>
+	<p>
+	  If the call to <c>spawn_request()</c> returns without
+	  raising an exception, the caller is guaranteed to be
+	  delivered either a 
+	  <seealso marker="#spawn_request_success_message"><i>success
+	  message</i></seealso> or an 
+	  <seealso marker="#spawn_request_error_message"><i>error
+	  message</i></seealso>
+	  as described above.
+	</p>
+      </desc>
+    </func>
+    
     <func>
       <name name="split_binary" arity="2" since=""/>
       <fsummary>Split a binary into two.</fsummary>

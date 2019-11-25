@@ -664,7 +664,7 @@ dist_procs_trace(Config) when is_list(Config) ->
     Proc1 ! {trap_exit_please, true},
     Proc3 = receive {spawned, Proc1, P3} -> P3 end,
     io:format("Proc3 = ~p ~n", [Proc3]),
-    {trace, Proc1, getting_linked, Proc3} = receive_first_trace(),
+    {trace, Proc1, link, Proc3} = receive_first_trace(),
     Reason3 = make_ref(),
     Proc1 ! {send_please, Proc3, {exit_please, Reason3}},
     receive {Proc1, {'EXIT', Proc3, Reason3}} -> ok end,

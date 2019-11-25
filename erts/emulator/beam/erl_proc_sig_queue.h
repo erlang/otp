@@ -706,6 +706,14 @@ erts_proc_sig_send_rpc_request(Process *c_p,
                                Eterm (*func)(Process *, void *, int *, ErlHeapFragment **),
                                void *arg);
 
+int
+erts_proc_sig_send_dist_spawn_reply(Eterm node,
+                                    Eterm ref,
+                                    Eterm to,
+                                    ErtsLink *lnk,
+                                    Eterm result,
+                                    Eterm token);
+
 /*
  * End of send operations of currently supported process signals.
  */
@@ -787,7 +795,9 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
  *                              queue.
  */
 int
-erts_proc_sig_handle_exit(Process *c_p, Sint *redsp);
+erts_proc_sig_handle_exit(Process *c_p, Sint *redsp,
+                          ErtsMonitor **pend_spawn_mon_pp,
+                          Eterm reason);
 
 /**
  *

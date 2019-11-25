@@ -165,19 +165,21 @@ recv_opt_makes_ref([I|Is], RecvLbl, Blocks, Acc) ->
 recv_opt_makes_ref([], _, _, _) -> no.
 
 makes_ref(#b_set{dst=Dst,args=[Func0|_]}, Blocks) ->
-    Func = case Func0 of
-               #b_remote{mod=#b_literal{val=erlang},
-                         name=#b_literal{val=Name},arity=A0} ->
-                   {Name,A0};
+    MFA = case Func0 of
+               #b_remote{mod=#b_literal{val=Mod},
+                         name=#b_literal{val=Func},arity=A0} ->
+                   {Mod,Func,A0};
                _ ->
                    none
            end,
-    case Func of
-        {make_ref,0} ->
+    case MFA of
+        {erlang,make_ref,0} ->
             {yes,Dst};
-        {monitor,2} ->
+        {erlang,monitor,2} ->
             {yes,Dst};
-        {spawn_monitor,A} when A =:= 1; A =:= 3 ->
+        {erlang,spawn_request,A} when 1 =< A, A =< 5 ->
+            {yes,Dst};
+        {erlang,spawn_monitor,A} when 1 =< A, A =< 4 ->
             ref_in_tuple(Dst, Blocks);
         _ ->
             no

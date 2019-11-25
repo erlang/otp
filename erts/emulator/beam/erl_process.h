@@ -1325,12 +1325,42 @@ void erts_check_for_holes(Process* p);
  * Possible flags for the flags field in ErlSpawnOpts below.
  */
 
-#define SPO_LINK 1
-#define SPO_USE_ARGS 2
-#define SPO_MONITOR 4
-#define SPO_SYSTEM_PROC 8
-#define SPO_OFF_HEAP_MSGQ 16
-#define SPO_ON_HEAP_MSGQ 32
+#define SPO_IX_LINK             0
+#define SPO_IX_MONITOR          1
+#define SPO_IX_SYSTEM_PROC      2
+#define SPO_IX_OFF_HEAP_MSGQ    3
+#define SPO_IX_ON_HEAP_MSGQ     4
+#define SPO_IX_MIN_HEAP_SIZE    5
+#define SPO_IX_MIN_VHEAP_SIZE   6
+#define SPO_IX_PRIORITY         7
+#define SPO_IX_MAX_GEN_GCS      8
+#define SPO_IX_MAX_HEAP_SIZE    9
+#define SPO_IX_SCHEDULER        10
+#define SPO_IX_ASYNC            11
+
+#define SPO_NO_INDICES          (SPO_IX_ASYNC+1)
+
+#define SPO_LINK                (1 << SPO_IX_LINK)
+#define SPO_MONITOR             (1 << SPO_IX_MONITOR)
+#define SPO_SYSTEM_PROC         (1 << SPO_IX_SYSTEM_PROC)
+#define SPO_OFF_HEAP_MSGQ       (1 << SPO_IX_OFF_HEAP_MSGQ)
+#define SPO_ON_HEAP_MSGQ        (1 << SPO_IX_ON_HEAP_MSGQ)
+#define SPO_MIN_HEAP_SIZE       (1 << SPO_IX_MIN_HEAP_SIZE)
+#define SPO_MIN_VHEAP_SIZE      (1 << SPO_IX_MIN_VHEAP_SIZE)
+#define SPO_PRIORITY            (1 << SPO_IX_PRIORITY)
+#define SPO_MAX_GEN_GCS         (1 << SPO_IX_MAX_GEN_GCS)
+#define SPO_MAX_HEAP_SIZE       (1 << SPO_IX_MAX_HEAP_SIZE)
+#define SPO_SCHEDULER           (1 << SPO_IX_SCHEDULER)
+#define SPO_ASYNC               (1 << SPO_IX_ASYNC)
+
+#define SPO_MAX_FLAG            SPO_ASYNC
+
+#define SPO_USE_ARGS                 \
+    (SPO_MIN_HEAP_SIZE               \
+     | SPO_PRIORITY                  \
+     | SPO_MAX_GEN_GCS               \
+     | SPO_MAX_HEAP_SIZE             \
+     | SPO_SCHEDULER)
 
 extern int ERTS_WRITE_UNLIKELY(erts_default_spo_flags);
 
@@ -1340,7 +1370,22 @@ extern int ERTS_WRITE_UNLIKELY(erts_default_spo_flags);
 typedef struct {
     int flags;
     int error_code;		/* Error code returned from create_process(). */
-    Eterm mref;			/* Monitor ref returned (if SPO_MONITOR was given). */
+    Eterm mref;			/* Monitor ref returned (if SPO_MONITOR was given).
+                                   (output if local; input if distributed) */
+
+    int multi_set;
+
+    Eterm tag;                  /* If SPO_ASYNC */
+    Eterm opts;                 /* Option list for seq-trace... */
+
+    /* Input fields used for distributed spawn only */
+    Eterm parent_id;
+    Eterm group_leader;
+    Eterm mfa;
+    DistEntry *dist_entry;
+    ErtsDistExternal *edep;
+    ErlHeapFragment *ede_hfrag;
+    Eterm token;
 
     /*
      * The following items are only initialized if the SPO_USE_ARGS flag is set.
@@ -1353,6 +1398,7 @@ typedef struct {
     Uint max_heap_size;         /* Maximum heap size in words */
     Uint max_heap_flags;        /* Maximum heap flags (kill | log) */
     int scheduler;
+
 } ErlSpawnOpts;
 
 /*
@@ -1541,7 +1587,6 @@ extern int erts_system_profile_ts_type;
 #define SEQ_TRACE_RECEIVE  (1 << 1)
 #define SEQ_TRACE_PRINT    (1 << 2)
 /* (This three-bit gap contains the timestamp.) */
-#define SEQ_TRACE_SPAWN    (1 << 6)
 
 #define ERTS_SEQ_TRACE_FLAGS_TS_TYPE_SHIFT 3
 
@@ -1853,6 +1898,11 @@ Eterm erts_bind_schedulers(Process *c_p, Eterm how);
 ErtsRunQueue *erts_schedid2runq(Uint);
 Process *erts_schedule(ErtsSchedulerData *, Process*, int);
 void erts_schedule_misc_op(void (*)(void *), void *);
+int erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag);
+void
+erts_send_local_spawn_reply(Process *parent, ErtsProcLocks parent_locks,
+                            Process *child, Eterm tag, Eterm ref,
+                            Eterm result, Eterm token);
 Eterm erl_create_process(Process*, Eterm, Eterm, Eterm, ErlSpawnOpts*);
 void erts_set_self_exiting(Process *, Eterm);
 void erts_do_exit_process(Process*, Eterm);
@@ -1883,11 +1933,16 @@ typedef struct {
     Eterm reason;
     ErtsLink *dist_links;
     ErtsMonitor *dist_monitors;
+    ErtsMonitor *pend_spawn_monitors;
+    ErtsMonitor *wait_pend_spawn_monitor;
     Eterm dist_state;
     int yield;
 } ErtsProcExitContext;
 int erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds);
 int erts_proc_exit_handle_link(ErtsLink *lnk, void *vctxt, Sint reds);
+
+void erts_proc_exit_dist_demonitor(Process *c_p, DistEntry *dep, Uint32 conn_id,
+                                   Eterm ref, Eterm watched);
 
 Eterm erts_get_process_priority(erts_aint32_t state);
 Eterm erts_set_process_priority(Process *p, Eterm prio);

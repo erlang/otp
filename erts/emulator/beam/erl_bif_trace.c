@@ -1744,8 +1744,6 @@ Eterm erts_seq_trace(Process *p, Eterm arg1, Eterm arg2,
 
     if (arg1 == am_send) {
 	current_flag = SEQ_TRACE_SEND;
-    } else if (arg1 == am_spawn) {
-	current_flag = SEQ_TRACE_SPAWN;
     } else if (arg1 == am_receive) {
 	current_flag = SEQ_TRACE_RECEIVE; 
     } else if (arg1 == am_print) {
@@ -1881,8 +1879,6 @@ BIF_RETTYPE erl_seq_trace_info(Process *p, Eterm item)
 
     if (item == am_send) {
 	current_flag = SEQ_TRACE_SEND;
-    } else if (item == am_spawn) {
-	current_flag = SEQ_TRACE_SPAWN;
     } else if (item == am_receive) {
 	current_flag = SEQ_TRACE_RECEIVE; 
     } else if (item == am_print) {

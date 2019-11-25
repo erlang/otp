@@ -853,6 +853,18 @@ seq_trace_update_serial(Process *p)
     return 1;
 }
 
+void
+erts_seq_trace_update_node_token(Eterm token)
+{
+    Eterm serial;
+    Uint serial_num;
+    SEQ_TRACE_T_SENDER(token) = erts_this_dist_entry->sysname;
+    serial = SEQ_TRACE_T_SERIAL(token);
+    serial_num = unsigned_val(serial);
+    serial_num++;
+    SEQ_TRACE_T_SERIAL(token) = make_small(serial_num);
+}
+
 
 /* Send a sequential trace message to the sequential tracer.
  * p is the caller (which contains the trace token), 
@@ -898,7 +910,6 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
 
     switch (type) {
     case SEQ_TRACE_SEND:    type_atom = am_send; break;
-    case SEQ_TRACE_SPAWN:   type_atom = am_spawn; break;
     case SEQ_TRACE_PRINT:   type_atom = am_print; break;
     case SEQ_TRACE_RECEIVE: type_atom = am_receive; break;
     default:
@@ -929,6 +940,9 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
     UnUseTmpHeapNoproc(LOCAL_HEAP_SIZE);
 #undef LOCAL_HEAP_SIZE
 }
+
+
+
 
 /* Send {trace_ts, Pid, return_to, {Mod, Func, Arity}, Timestamp}
  * or   {trace, Pid, return_to, {Mod, Func, Arity}}

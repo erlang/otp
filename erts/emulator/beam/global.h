@@ -1143,6 +1143,12 @@ extern int is_node_name_atom(Eterm a);
 extern int erts_net_message(Port *, DistEntry *, Uint32 conn_id,
 			    byte *, ErlDrvSizeT, Binary *, byte *, ErlDrvSizeT);
 
+int erts_dist_pend_spawn_exit_delete(ErtsMonitor *mon);
+int erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon);
+int erts_dist_pend_spawn_exit_parent_wait(Process *c_p,
+                                          ErtsProcLocks locks,
+                                          ErtsMonitor *mon);
+
 extern void init_dist(void);
 extern int stop_dist(void);
 

@@ -20,12 +20,14 @@
 -module(erlang).
 
 -export([apply/2,apply/3,spawn/4,spawn_link/4,
-	 spawn_monitor/1,spawn_monitor/3,
+	 spawn_monitor/1,spawn_monitor/2,
+	 spawn_monitor/3,spawn_monitor/4,
 	 spawn_opt/2,spawn_opt/3,spawn_opt/4,spawn_opt/5,
-	 disconnect_node/1]).
+         spawn_request/1, spawn_request/2,
+         spawn_request/3, spawn_request/4, spawn_request/5,
+         disconnect_node/1]).
 -export([spawn/1, spawn_link/1, spawn/2, spawn_link/2]).
 -export([yield/0]).
--export([crasher/6]).
 -export([fun_info/1]).
 -export([send_nosuspend/2, send_nosuspend/3]).
 -export([localtime_to_universaltime/1]).
@@ -182,7 +184,7 @@
          make_tuple/2, make_tuple/3, nodes/1, open_port/2,
          port_call/2, port_call/3, port_info/1, port_info/2, process_flag/2,
          process_info/2, send/2, send/3, seq_trace_info/1,
-         setelement/3, spawn_opt/1,
+         setelement/3,
 	 statistics/1, subtract/2, system_flag/2,
          term_to_binary/1, term_to_binary/2,
          term_to_iovec/1, term_to_iovec/2,
@@ -2438,20 +2440,6 @@ seq_trace_info(_What) ->
 setelement(_Index, _Tuple1, _Value) ->
    erlang:nif_error(undefined).
 
--spec erlang:spawn_opt({Module, Function, Args, Options}) ->   pid() | {pid(), reference()} when
-      Module :: module(),
-      Function :: atom(),
-      Args :: [term()],
-      Options :: [Option],
-      Option :: link | monitor
-              | {priority, Level :: priority_level()}
-              | {fullsweep_after, Number :: non_neg_integer()}
-              | {min_heap_size, Size :: non_neg_integer()}
-              | {max_heap_size, Size :: max_heap_size()}
-              | {min_bin_vheap_size, VSize :: non_neg_integer()}.
-spawn_opt(_Tuple) ->
-   erlang:nif_error(undefined).
-
 -spec statistics(active_tasks) -> [ActiveTasks] when
       ActiveTasks :: non_neg_integer();
 		(active_tasks_all) -> [ActiveTasks] when
@@ -2892,9 +2880,23 @@ spawn_link(N, F) ->
 -spec spawn_monitor(Fun) -> {pid(), reference()} when
       Fun :: function().
 spawn_monitor(F) when erlang:is_function(F, 0) ->
-    erlang:spawn_opt({erlang,apply,[F,[]],[monitor]});
+    erlang:spawn_opt(erlang,apply,[F,[]],[monitor]);
 spawn_monitor(F) ->
     erlang:error(badarg, [F]).
+
+-spec spawn_monitor(Node, Fun) -> {pid(), reference()} when
+      Node :: node(),
+      Fun :: function().
+
+spawn_monitor(Node, F) when erlang:is_atom(Node), erlang:is_function(F, 0) ->
+    try
+        erlang:spawn_monitor(Node,erlang,apply,[F,[]])
+    catch
+        error:Err ->
+            erlang:error(Err, [Node, F])
+    end;
+spawn_monitor(Node, F) ->
+    erlang:error(badarg, [Node, F]).
 
 -spec spawn_monitor(Module, Function, Args) -> {pid(), reference()} when
       Module :: module(),
@@ -2903,7 +2905,7 @@ spawn_monitor(F) ->
 spawn_monitor(M, F, A) when erlang:is_atom(M),
                             erlang:is_atom(F),
                             erlang:is_list(A) ->
-    erlang:spawn_opt({M,F,A,[monitor]});
+    erlang:spawn_opt(M,F,A,[monitor]);
 spawn_monitor(M, F, A) ->
     erlang:error(badarg, [M,F,A]).
 
@@ -2929,24 +2931,23 @@ spawn_monitor(M, F, A) ->
       Fun :: function(),
       Options :: [spawn_opt_option()].
 spawn_opt(F, O) when erlang:is_function(F) ->
-    spawn_opt(erlang, apply, [F, []], O);
+    erlang:spawn_opt(erlang, apply, [F, []], O);
 spawn_opt({M,F}=MF, O) when erlang:is_atom(M), erlang:is_atom(F) ->
-    spawn_opt(erlang, apply, [MF, []], O);
-spawn_opt({M,F,A}, O) -> % For (undocumented) backward compatibility
-    spawn_opt(M, F, A, O);
+    erlang:spawn_opt(erlang, apply, [MF, []], O);
 spawn_opt(F, O) ->
     erlang:error(badarg, [F, O]).
 
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [spawn_opt_option()].
+      Options :: [monitor | link | OtherOption],
+      OtherOption :: term().
 spawn_opt(N, F, O) when N =:= erlang:node() ->
-    spawn_opt(F, O);
-spawn_opt(N, F, O) when erlang:is_function(F) ->
-    spawn_opt(N, erlang, apply, [F, []], O);
+    erlang:spawn_opt(F, O);
+spawn_opt(N, F, O) when erlang:is_function(F, 0) ->
+    erlang:spawn_opt(N, erlang, apply, [F, []], O);
 spawn_opt(N, {M,F}=MF, O) when erlang:is_atom(M), erlang:is_atom(F) ->
-    spawn_opt(N, erlang, apply, [MF, []], O);
+    erlang:spawn_opt(N, erlang, apply, [MF, []], O);
 spawn_opt(N, F, O) ->
     erlang:error(badarg, [N, F, O]).
 
@@ -2965,24 +2966,11 @@ spawn(N,M,F,A) when N =:= erlang:node(),
 spawn(N,M,F,A) when erlang:is_atom(N),
                     erlang:is_atom(M),
                     erlang:is_atom(F) ->
-    case is_well_formed_list(A) of
-	true ->
-	    ok;
-	false ->
-	    erlang:error(badarg, [N, M, F, A])
-    end,
-    case catch gen_server:call({net_kernel,N},
-			       {spawn,M,F,A,erlang:group_leader()},
-			       infinity) of
-	Pid when erlang:is_pid(Pid) ->
-	    Pid;
-	Error ->
-	    case remote_spawn_error(Error, {no_link, N, M, F, A, []}) of
-		{fault, Fault} ->
-		    erlang:error(Fault, [N, M, F, A]);
-		Pid ->
-		    Pid
-	    end
+    try
+        erlang:spawn_opt(N, M, F, A, [])
+    catch
+        _:Reason ->
+            erlang:error(Reason, [N, M, F, A])
     end;
 spawn(N,M,F,A) ->
     erlang:error(badarg, [N, M, F, A]).
@@ -3000,26 +2988,58 @@ spawn_link(N,M,F,A) when N =:= erlang:node(),
 spawn_link(N,M,F,A) when erlang:is_atom(N),
                          erlang:is_atom(M),
                          erlang:is_atom(F) ->
-    case is_well_formed_list(A) of
-	true ->
-	    ok;
-	_ ->
-	    erlang:error(badarg, [N, M, F, A])
-    end,
-    case catch gen_server:call({net_kernel,N},
-			       {spawn_link,M,F,A,erlang:group_leader()},
-			       infinity) of
-	Pid when erlang:is_pid(Pid) ->
-	    Pid;
-	Error ->
-	    case remote_spawn_error(Error, {link, N, M, F, A, []}) of
-		{fault, Fault} ->
-		    erlang:error(Fault, [N, M, F, A]);
-		Pid ->
-		    Pid
-	    end
+    try
+        erlang:spawn_opt(N, M, F, A, [link])
+    catch
+        _:Reason ->
+            erlang:error(Reason, [N, M, F, A])
     end;
 spawn_link(N,M,F,A) ->
+    erlang:error(badarg, [N, M, F, A]).
+
+-spec spawn_monitor(Node, Module, Function, Args) -> {pid(), reference()} when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()].
+spawn_monitor(N,M,F,A) when N =:= erlang:node(),
+                            erlang:is_atom(M),
+                            erlang:is_atom(F),
+                            erlang:is_list(A) ->
+    try
+        erlang:spawn_monitor(M,F,A)
+    catch
+        error:Err ->
+            erlang:error(Err, [N, M, F, A])
+    end;
+spawn_monitor(N,M,F,A) when erlang:is_atom(N),
+                            erlang:is_atom(M),
+                            erlang:is_atom(F) ->
+    Ref = try
+              erlang:spawn_request(N, M, F, A, [monitor])
+          catch
+              error:Err0 ->
+                  erlang:error(Err0, [N, M, F, A])
+          end,
+    receive
+        {spawn_reply, Ref, ok, Pid} when erlang:is_pid(Pid) ->
+            {Pid, Ref};
+        {spawn_reply, Ref, error, badopt} ->
+            erlang:error(badarg, [N, M, F, A]);
+        {spawn_reply, Ref, error, noconnection} ->
+            try 
+                erlang:spawn_opt(erts_internal,crasher,
+                                 [N,M,F,A,[monitor],
+                                  noconnection],
+                                 [monitor])
+            catch
+                _:Err1 ->
+                    erlang:error(Err1, [N, M, F, A])
+            end;
+        {spawn_reply, Ref, error, Err2} ->
+            erlang:error(Err2, [N, M, F, A])
+    end;
+spawn_monitor(N,M,F,A) ->
     erlang:error(badarg, [N, M, F, A]).
 
 -spec spawn_opt(Module, Function, Args, Options) ->
@@ -3028,13 +3048,9 @@ spawn_link(N,M,F,A) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [spawn_opt_option()].
-spawn_opt(M, F, A, Opts) ->
-    case catch erlang:spawn_opt({M,F,A,Opts}) of
-	{'EXIT',{Reason,_}} ->
-	    erlang:error(Reason, [M,F,A,Opts]);
-	Res ->
-	    Res
-    end.
+spawn_opt(_Module, _Function, _Args, _Options) ->
+   erlang:nif_error(undefined).
+
 
 -spec spawn_opt(Node, Module, Function, Args, Options) ->
                        pid() | {pid(), reference()} when
@@ -3042,46 +3058,75 @@ spawn_opt(M, F, A, Opts) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [spawn_opt_option()].
+      Options :: [monitor | link | OtherOption],
+      OtherOption :: term().
+
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
 			      erlang:is_atom(M), erlang:is_atom(F),
                               erlang:is_list(A), erlang:is_list(O) ->
-    spawn_opt(M, F, A, O);
+    erlang:spawn_opt(M, F, A, O);
 spawn_opt(N, M, F, A, O) when erlang:is_atom(N),
                               erlang:is_atom(M),
                               erlang:is_atom(F) ->
-    case {is_well_formed_list(A), is_well_formed_list(O)} of
-	{true, true} ->
-	    ok;
-	_ ->
-	    erlang:error(badarg, [N, M, F, A, O])
-    end,
-    case lists:member(monitor, O) of
-	false -> ok;
-	true -> erlang:error(badarg, [N, M, F, A, O])
-    end,
-    {L,NO} = lists:foldl(fun (link, {_, NewOpts}) ->
-				 {link, NewOpts};
-			     (Opt, {LO, NewOpts}) ->
-				 {LO, [Opt|NewOpts]}
-			 end,
-			 {no_link,[]},
-			 O),
-    case catch gen_server:call({net_kernel,N},
-			       {spawn_opt,M,F,A,NO,L,erlang:group_leader()},
-			       infinity) of
-	Pid when erlang:is_pid(Pid) ->
-	    Pid;
-	Error ->
-	    case remote_spawn_error(Error, {L, N, M, F, A, NO}) of
-		{fault, Fault} ->
-		    erlang:error(Fault, [N, M, F, A, O]);
-		Pid ->
-		    Pid
-	    end
+    {Ref, MonOpt} = case erts_internal:dist_spawn_request(N, {M, F, A}, O, spawn_opt) of
+                        {R, MO} when erlang:is_reference(R) -> {R, MO};
+                        badarg -> erlang:error(badarg, [N, M, F, A, O])
+                    end,
+    receive
+        {spawn_reply, Ref, ok, Pid} when erlang:is_pid(Pid) ->
+            case MonOpt of
+                true -> {Pid, Ref};
+                false -> Pid
+            end;
+        {spawn_reply, Ref, error, badopt} ->
+            erlang:error(badarg, [N, M, F, A, O]);
+        {spawn_reply, Ref, error, noconnection} ->
+            try 
+                erlang:spawn_opt(erts_internal,crasher,
+                                 [N,M,F,A,O,noconnection], O)
+            catch
+                _:Err1 ->
+                    erlang:error(Err1, [N, M, F, A, O])
+            end;
+        {spawn_reply, Ref, error, notsup} ->
+            case old_remote_spawn_opt(N, M, F, A, O) of
+                Pid when erlang:is_pid(Pid) ->
+                    Pid;
+                Err2 ->
+                    erlang:error(Err2, [N, M, F, A, O])
+            end;
+        {spawn_reply, Ref, error, Err3} ->
+            erlang:error(Err3, [N, M, F, A, O])
     end;
 spawn_opt(N,M,F,A,O) ->
     erlang:error(badarg, [N,M,F,A,O]).
+
+old_remote_spawn_opt(N, M, F, A, O) ->
+    case lists:member(monitor, O) of
+	true ->
+            badarg;
+	_ ->
+            {L,NO} = lists:foldl(fun (link, {_, NewOpts}) ->
+                                         {link, NewOpts};
+                                     (Opt, {LO, NewOpts}) ->
+                                         {LO, [Opt|NewOpts]}
+                                 end,
+                                 {no_link,[]},
+                                 O),
+            case catch gen_server:call({net_kernel,N},
+                                       {spawn_opt,M,F,A,NO,L,erlang:group_leader()},
+                                       infinity) of
+                Pid when erlang:is_pid(Pid) ->
+                    Pid;
+                Error ->
+                    case remote_spawn_error(Error, {L, N, M, F, A, NO}) of
+                        {fault, Fault} ->
+                            Fault;
+                        Pid ->
+                            Pid
+                    end
+            end
+    end.
 
 remote_spawn_error({'EXIT', {{nodedown,N}, _}}, {L, N, M, F, A, O}) ->
     {Opts, LL} = case L =:= link of
@@ -3090,7 +3135,7 @@ remote_spawn_error({'EXIT', {{nodedown,N}, _}}, {L, N, M, F, A, O}) ->
 		     false ->
 			 {O, []}
 		 end,
-    spawn_opt(erlang,crasher,[N,M,F,A,Opts,noconnection], LL);
+    erlang:spawn_opt(erts_internal,crasher,[N,M,F,A,Opts,noconnection], LL);
 remote_spawn_error({'EXIT', {Reason, _}}, _) ->
     {fault, Reason};
 remote_spawn_error({'EXIT', Reason}, _) ->
@@ -3098,21 +3143,156 @@ remote_spawn_error({'EXIT', Reason}, _) ->
 remote_spawn_error(Other, _) ->
     {fault, Other}.
     
-is_well_formed_list([]) ->
-    true;
-is_well_formed_list([_|Rest]) ->
-    is_well_formed_list(Rest);
-is_well_formed_list(_) ->
-    false.
+%%
+%% spawn_request/1
+%%
 
-crasher(Node,Mod,Fun,Args,[],Reason) ->
-    error_logger:warning_msg("** Can not start ~w:~w,~w on ~w **~n",
-			     [Mod,Fun,Args,Node]),
-    erlang:exit(Reason);
-crasher(Node,Mod,Fun,Args,Opts,Reason) ->
-    error_logger:warning_msg("** Can not start ~w:~w,~w (~w) on ~w **~n",
-			     [Mod,Fun,Args,Opts,Node]),
-    erlang:exit(Reason).
+-spec spawn_request(Fun) -> ReqId when
+      Fun :: function(),
+      ReqId :: reference().
+
+spawn_request(F) when erlang:is_function(F, 0) ->
+    try
+        erlang:spawn_request(erlang, apply, [F, []], [])
+    catch
+        error:Err ->
+            erlang:error(Err, [F])
+    end;
+spawn_request(F) ->
+    erlang:error(badarg, [F]).
+
+%%
+%% spawn_request/2
+%%
+
+-spec spawn_request(Fun, Options) -> ReqId when
+      Fun :: function(),
+      Option :: {reply_tag, ReplyTag} | spawn_opt_option(),
+      ReplyTag :: term(),
+      Options :: [Option],
+      ReqId :: reference();
+                   (Node, Fun) -> ReqId when
+      Node :: node(),
+      Fun :: function(),
+      ReqId :: reference().
+
+spawn_request(F, O) when erlang:is_function(F, 0) ->
+    try
+        erlang:spawn_request(erlang, apply, [F, []], O)
+    catch
+        error:Err ->
+            erlang:error(Err, [F, O])
+    end;
+spawn_request(N, F) when erlang:is_function(F, 0) ->
+    try
+        erlang:spawn_request(N, erlang, apply, [F, []], [])
+    catch
+        error:Err ->
+            erlang:error(Err, [N, F])
+    end;
+spawn_request(A1, A2) ->
+    erlang:error(badarg, [A1, A2]).
+
+%%
+%% spawn_request/3
+%%
+
+-spec spawn_request(Node, Fun, Options) -> ReqId when
+      Node :: node(),
+      Fun :: function(),
+      Options :: [Option],
+      Option :: monitor | link | {reply_tag, ReplyTag} | OtherOption,
+      ReplyTag :: term(),
+      OtherOption :: term(),
+      ReqId :: reference();
+                   (Module, Function, Args) ->
+                           ReqId when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      ReqId :: reference().
+
+spawn_request(N, F, O) when erlang:is_function(F, 0) ->
+    try
+        erlang:spawn_request(N, erlang, apply, [F, []], O)
+    catch
+        error:Err ->
+            erlang:error(Err, [N, F, O])
+    end;
+spawn_request(M, F, A) ->
+    try
+        erlang:spawn_request(M, F, A, [])
+    catch
+        error:Err ->
+            erlang:error(Err, [M, F, A])
+    end.
+
+%%
+%% spawn_request/4
+%%
+
+-spec spawn_request(Node, Module, Function, Args) ->
+                           ReqId when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      ReqId :: reference();
+                   (Module, Function, Args, Options) ->
+                           ReqId when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Option :: {reply_tag, ReplyTag} | spawn_opt_option(),
+      ReplyTag :: term(),
+      Options :: [Option],
+      ReqId :: reference().
+
+spawn_request(N, M, F, A) when erlang:is_atom(F) ->
+    try
+        erlang:spawn_request(N, M, F, A, [])
+    catch
+        error:Err ->
+            erlang:error(Err, [N, M, F, A])
+    end;
+spawn_request(M, F, A, O) ->
+    case erts_internal:spawn_request(M, F, A, O) of
+        Ref when erlang:is_reference(Ref) ->
+            Ref;
+        badarg ->
+            erlang:error(badarg, [M, F, A, O])
+    end.
+
+%%
+%% spawn_request/5
+%%
+
+-spec spawn_request(Node, Module, Function, Args, Options) ->
+                           ReqId when
+      Node :: node(),
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Options :: [Option],
+      Option :: monitor | link | {reply_tag, ReplyTag} | OtherOption,
+      ReplyTag :: term(),
+      OtherOption :: term(),
+      ReqId :: reference().
+
+spawn_request(N, M, F, A, O) when N =:= erlang:node() ->
+    try
+        erlang:spawn_request(M, F, A, O)
+    catch
+        error:Err ->
+            erlang:error(Err, [N, M, F, A, O])
+    end;
+spawn_request(N, M, F, A, O) ->
+    case erts_internal:dist_spawn_request(N, {M, F, A}, O, spawn_request) of
+        Ref when erlang:is_reference(Ref) ->
+            Ref;
+        badarg ->
+            erlang:error(badarg, [N, M, F, A, O])
+    end.
 
 -spec erlang:yield() -> 'true'.
 yield() ->

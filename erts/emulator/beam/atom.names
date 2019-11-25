@@ -116,6 +116,7 @@ atom awaiting_load
 atom awaiting_unload
 atom backtrace backtrace_depth
 atom badarg badarith badarity badfile badfun badkey badmap badmatch badsig
+atom badopt
 atom bag
 atom band
 atom big
@@ -215,6 +216,7 @@ atom dist_cmd
 atom dist_ctrl_put_data
 atom dist_ctrlr
 atom dist_data
+atom dist_spawn_init
 atom Div='/'
 atom div
 atom dmonitor_node
@@ -555,6 +557,7 @@ atom register
 atom registered_name
 atom reload
 atom rem
+atom reply_tag
 atom report_errors
 atom reset
 atom reset_seq_trace
@@ -618,6 +621,10 @@ atom silent
 atom size
 atom spawn_executable
 atom spawn_driver
+atom spawn_init
+atom spawn_reply
+atom spawn_request
+atom spawn_request_yield
 atom spawned
 atom ssl_tls
 atom stack_size

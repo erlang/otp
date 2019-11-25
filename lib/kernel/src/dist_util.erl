@@ -120,6 +120,8 @@ dflag2str(?DFLAG_EXIT_PAYLOAD) ->
     "EXIT_PAYLOAD";
 dflag2str(?DFLAG_FRAGMENTS) ->
     "FRAGMENTS";
+dflag2str(?DFLAG_SPAWN) ->
+    "SPAWN";
 dflag2str(_) ->
     "UNKNOWN".
 

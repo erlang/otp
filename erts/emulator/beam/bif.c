@@ -77,6 +77,8 @@ BIF_RETTYPE spawn_3(BIF_ALIST_3)
     Eterm pid;
 
     so.flags = erts_default_spo_flags;
+    so.opts = NIL;
+    so.tag = am_spawn_reply;
     pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
@@ -309,6 +311,15 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
        int deleted;
        ErtsDSigSendContext ctx;
 
+       if (mon->flags & ERTS_ML_FLG_SPAWN_PENDING) {
+           /*
+            * Not allowed to remove this until spawn
+            * operation has succeeded; restore monitor...
+            */
+           erts_monitor_tree_insert(&ERTS_P_MONITORS(c_p), mon);
+           return am_false;
+       }
+       
        ASSERT(is_external_pid(to) || is_node_name_atom(to));
 
        if (is_external_pid(to))
@@ -701,8 +712,11 @@ BIF_RETTYPE spawn_link_3(BIF_ALIST_3)
 {
     ErlSpawnOpts so;
     Eterm pid;
+    Eterm tmp_heap[2];
 
     so.flags = erts_default_spo_flags|SPO_LINK;
+    so.opts = CONS(&tmp_heap[0], am_link, NIL);
+    so.tag = am_spawn_reply;
     pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
@@ -716,132 +730,39 @@ BIF_RETTYPE spawn_link_3(BIF_ALIST_3)
 
 /**********************************************************************/
 
-BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
+BIF_RETTYPE spawn_opt_4(BIF_ALIST_4)
 {
     ErlSpawnOpts so;
     Eterm pid;
-    Eterm* tp;
-    Eterm ap;
-    Eterm arg;
     Eterm res;
+    int opts_error;
 
     /*
-     * Check that the first argument is a tuple of four elements.
+     * Fail order:
+     * - Bad types
+     * - Bad options
      */
-    if (is_not_tuple(BIF_ARG_1)) {
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, NULL);
+    if (opts_error) {
+        Sint arity;
+        if (is_not_atom(BIF_ARG_1) || is_not_atom(BIF_ARG_2))
+            BIF_ERROR(BIF_P, BADARG);
+        arity = erts_list_length(BIF_ARG_3);
+        if (arity < 0)
+            BIF_ERROR(BIF_P, BADARG);
+        if (arity > MAX_SMALL)
+            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+        if (opts_error > 0)
+            BIF_ERROR(BIF_P, BADARG);
+        BIF_ERROR(BIF_P, BADARG);        
     }
-    tp = tuple_val(BIF_ARG_1);
-    if (*tp != make_arityval(4))
-	goto error;
-
-    /*
-     * Store default values for options.
-     */
-    so.flags          = erts_default_spo_flags|SPO_USE_ARGS;
-    so.min_heap_size  = H_MIN_SIZE;
-    so.min_vheap_size = BIN_VH_MIN_SIZE;
-    so.max_heap_size  = H_MAX_SIZE;
-    so.max_heap_flags = H_MAX_FLAGS;
-    so.priority       = PRIORITY_NORMAL;
-    so.max_gen_gcs    = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
-    so.scheduler      = 0;
-
-    /*
-     * Walk through the option list.
-     */
-    ap = tp[4];
-    while (is_list(ap)) {
-	arg = CAR(list_val(ap));
-	if (arg == am_link) {
-	    so.flags |= SPO_LINK;
-	} else if (arg == am_monitor) {
-	    so.flags |= SPO_MONITOR;
-	} else if (is_tuple(arg)) {
-	    Eterm* tp2 = tuple_val(arg);
-	    Eterm val;
-	    if (*tp2 != make_arityval(2))
-		goto error;
-	    arg = tp2[1];
-	    val = tp2[2];
-	    if (arg == am_priority) {
-		if (val == am_max)
-		    so.priority = PRIORITY_MAX;
-		else if (val == am_high)
-		    so.priority = PRIORITY_HIGH;
-		else if (val == am_normal)
-		    so.priority = PRIORITY_NORMAL;
-		else if (val == am_low)
-		    so.priority = PRIORITY_LOW;
-		else
-		    goto error;
-	    } else if (arg == am_message_queue_data) {
-		switch (val) {
-		case am_on_heap:
-		    so.flags &= ~SPO_OFF_HEAP_MSGQ;
-		    so.flags |= SPO_ON_HEAP_MSGQ;
-		    break;
-		case am_off_heap:
-		    so.flags &= ~SPO_ON_HEAP_MSGQ;
-		    so.flags |= SPO_OFF_HEAP_MSGQ;
-		    break;
-		default:
-		    goto error;
-		}
-	    } else if (arg == am_min_heap_size && is_small(val)) {
-		Sint min_heap_size = signed_val(val);
-		if (min_heap_size < 0) {
-		    goto error;
-		} else if (min_heap_size < H_MIN_SIZE) {
-		    so.min_heap_size = H_MIN_SIZE;
-		} else {
-		    so.min_heap_size = erts_next_heap_size(min_heap_size, 0);
-		}
-            } else if (arg == am_max_heap_size) {
-                if (!erts_max_heap_size(val, &so.max_heap_size, &so.max_heap_flags))
-                    goto error;
-	    } else if (arg == am_min_bin_vheap_size && is_small(val)) {
-		Sint min_vheap_size = signed_val(val);
-		if (min_vheap_size < 0) {
-		    goto error;
-		} else if (min_vheap_size < BIN_VH_MIN_SIZE) {
-		    so.min_vheap_size = BIN_VH_MIN_SIZE;
-		} else {
-		    so.min_vheap_size = erts_next_heap_size(min_vheap_size, 0);
-		}
-	    } else if (arg == am_fullsweep_after && is_small(val)) {
-		Sint max_gen_gcs = signed_val(val);
-		if (max_gen_gcs < 0) {
-		    goto error;
-		} else {
-		    so.max_gen_gcs = max_gen_gcs;
-		}
-	    } else if (arg == am_scheduler && is_small(val)) {
-		Sint scheduler = signed_val(val);
-		if (scheduler < 0 || erts_no_schedulers < scheduler)
-		    goto error;
-		so.scheduler = (int) scheduler;
-	    } else {
-		goto error;
-	    }
-	} else {
-	    goto error;
-	}
-	ap = CDR(list_val(ap));
-    }
-    if (is_not_nil(ap)) {
-	goto error;
-    }
-
-    if (so.max_heap_size != 0 && so.max_heap_size < so.min_heap_size) {
-        goto error;
-    }
-
+    
     /*
      * Spawn the process.
      */
-    pid = erl_create_process(BIF_P, tp[1], tp[2], tp[3], &so);
+    so.opts = BIF_ARG_4;
+    so.tag = am_spawn_reply;
+    pid = erl_create_process(BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3, &so);
     if (is_non_value(pid)) {
 	BIF_ERROR(BIF_P, so.error_code);
     } else if (so.flags & SPO_MONITOR) {
@@ -857,6 +778,90 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     else {
 	BIF_RET(res);
     }
+}
+
+/**********************************************************************/
+
+BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
+{
+    ErlSpawnOpts so;
+    Eterm tmp_heap_mfna[4];
+    Eterm tmp_heap_alist[4 + 2];
+    Sint arity;
+    int opts_error;
+    Eterm tag, tmp, error;
+
+    if (!is_atom(BIF_ARG_1))
+        goto badarg;
+    if (!is_atom(BIF_ARG_2))
+        goto badarg;
+    arity = erts_list_length(BIF_ARG_3);
+    if (arity < 0)
+        goto badarg;
+    if (arity > MAX_SMALL)
+        goto system_limit;
+
+    /*
+     * Fail order:
+     * - Bad types
+     * - Bad options
+     */
+    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, &tag);
+    if (opts_error) {
+        if (opts_error > 0)
+            goto badarg;
+        goto badopt;
+    }
+
+    /* Make argument list for erts_internal:spawn_init/1 */
+    tmp = TUPLE3(&tmp_heap_alist[0], BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
+    tmp = CONS(&tmp_heap_alist[4], tmp, NIL);
+
+    so.mfa = TUPLE3(&tmp_heap_mfna[0], BIF_ARG_1, BIF_ARG_2, make_small(arity));    
+    so.flags |= SPO_ASYNC;
+    so.mref = THE_NON_VALUE;
+    so.tag = tag;
+    so.opts = BIF_ARG_4;
+    
+    /*
+     * Spawn the process.
+     */
+    tmp = erl_create_process(BIF_P, am_erts_internal, am_spawn_init, tmp, &so);
+    if (is_non_value(tmp)) {
+        switch (so.error_code) {
+        case SYSTEM_LIMIT:
+            goto system_limit;
+        case BADARG:
+        default:
+            ERTS_INTERNAL_ERROR("Unexpected error from erl_create_process()");
+            BIF_ERROR(BIF_P, EXC_INTERNAL_ERROR);
+        }
+    }
+
+    ASSERT(is_internal_pid(tmp));
+
+    if (ERTS_USE_MODIFIED_TIMING()) {
+	BIF_TRAP2(erts_delay_trap, BIF_P, so.mref, ERTS_MODIFIED_TIMING_DELAY);
+    }
+    else {
+	BIF_RET(so.mref);
+    }
+
+badarg:
+    BIF_RET(am_badarg);
+system_limit:
+    error = am_system_limit;
+    goto send_error;
+badopt:
+    error = am_badopt;
+    /* fall through... */
+send_error: {
+        Eterm ref = erts_make_ref(BIF_P);
+        erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
+                                    tag, ref, error, am_undefined);
+        BIF_RET(ref);
+    }
+    
 }
 
   

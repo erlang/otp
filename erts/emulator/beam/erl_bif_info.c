@@ -549,6 +549,8 @@ static int collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_DIST_PROC:
         case ERTS_MON_TYPE_TIME_OFFSET:
+            if (mon->flags & ERTS_ML_FLG_SPAWN_PENDING)
+                break; /* Not an active monitor... */
             if (!(mon->flags & ERTS_ML_FLG_NAME)) {
                 micp->mi[micp->mi_i].named = 0;
                 micp->mi[micp->mi_i].entity.term = mon->other.item;
