@@ -1211,9 +1211,10 @@ open(Domain, Type, Protocol, Extra) when is_map(Extra) ->
 %% Note that Addr can only have the value of broadcast *if* Domain =:= inet!
 %%
 
--spec bind(Socket, Addr) -> ok | {error, Reason} when
+-spec bind(Socket, Addr) -> {ok, Port} | {error, Reason} when
       Socket :: socket(),
       Addr   :: any | broadcast | loopback | sockaddr(),
+      Port   :: port_number(),
       Reason :: term().
 
 bind(#socket{ref = SockRef}, Addr)
