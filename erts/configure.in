@@ -1725,6 +1725,9 @@ dnl Check for setns
 AC_CHECK_HEADERS(sched.h setns.h)
 AC_CHECK_FUNCS([setns])
 
+dnl Check for linux/errqueue
+AC_CHECK_HEADERS(linux/errqueue.h)
+
 HAVE_VALGRIND=no
 AC_CHECK_HEADER(valgrind/valgrind.h, HAVE_VALGRIND=yes)
 AC_SUBST(HAVE_VALGRIND)

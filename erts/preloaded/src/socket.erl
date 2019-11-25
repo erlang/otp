@@ -134,6 +134,11 @@
               %% cmsghdr_data/0,
               cmsghdr_recv/0, cmsghdr_send/0,
 
+              ee_origin/0,
+              icmp_dest_unreach/0,
+              icmpv6_dest_unreach/0,
+              extended_err/0,
+
               uint8/0,
               uint16/0,
               uint20/0,
@@ -601,9 +606,11 @@
         #{level := ip,        type := recvttl,     data := integer()}      |
         #{level := ip,        type := pktinfo,     data := ip_pktinfo()}   |
         #{level := ip,        type := origdstaddr, data := sockaddr_in4()} |
+        #{level := ip,        type := recverr,     data := extended_err() | binary()} |
         #{level := ip,        type := integer(),   data := binary()}       |
         #{level := ipv6,      type := hoplevel,    data := integer()}      |
         #{level := ipv6,      type := pktinfo,     data := ipv6_pktinfo()} |
+        #{level := ipv6,      type := recverr,     data := extended_err() | binary()} |
         #{level := ipv6,      type := tclass,      data := integer()}      |
         #{level := ipv6,      type := integer(),   data := binary()}       |
         #{level := integer(), type := integer(),   data := binary()}.
@@ -620,6 +627,47 @@
         #{level := udp,       type := integer(),   data := binary()} |
         #{level := integer(), type := integer(),   data := binary()}.
 
+-type ee_origin() :: none | local | icmp | icmp6 | uint8().
+-type icmp_dest_unreach() :: net_unreach | host_unreach | port_unreach | frag_needed |
+                             net_unknown | host_unknown | uint8().
+-type icmpv6_dest_unreach() :: noroute | adm_prohibited | not_neighbour | addr_unreach |
+                               port_unreach | policy_fail | reject_route | uint8().
+-type extended_err() ::
+        #{error    := term(),
+          origin   := icmp,
+          type     := dest_unreach,
+          code     := icmp_dest_unreach(),
+          info     := uint32(),
+          data     := uint32(),
+          offender := undefined | sockaddr()} |
+        #{error    := term(),
+          origin   := icmp,
+          type     := time_exceeded | uint8(),
+          code     := uint8(),
+          info     := uint32(),
+          data     := uint32(),
+          offender := undefined | sockaddr()} |
+        #{error    := term(),
+          origin   := icmp6,
+          type     := dest_unreach,
+          code     := icmpv6_dest_unreach(),
+          info     := uint32(),
+          data     := uint32(),
+          offender := undefined | sockaddr()} |
+        #{error    := term(),
+          origin   := icmp6,
+          type     := pkt_toobig | time_exceeded | uint8(),
+          code     := uint8(),
+          info     := uint32(),
+          data     := uint32(),
+          offender := undefined | sockaddr()} |
+        #{error    := term(),
+          origin   := ee_origin(),
+          type     := uint8(),
+          code     := uint8(),
+          info     := uint32(),
+          data     := uint32(),
+          offender := undefined | sockaddr()}.
 
 -opaque select_tag() :: atom().
 -opaque select_ref() :: reference().
