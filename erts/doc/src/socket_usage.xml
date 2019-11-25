@@ -69,6 +69,10 @@
       </taglist>
       <p>The caller can then make another
       call to the recv function and now expect data.</p>
+      <p>Note that all other users are <em>locked out</em> until the
+      'current user' has called the function (recv in this case). So either
+      immediately call the function or
+      <seealso marker="socket#cancel/2"><c>cancel</c></seealso>. </p>
       <p>The user must also be prepared to receive an abort message: </p>
       <taglist>
 	<!-- NOTE THAT THE EMPTY TAG IS INTENTIONAL -->
@@ -79,10 +83,6 @@
       for whatever reason (e.g. if the socket is closed "by someone else").
       The <c>Info</c> part contains the abort reason (in this case that
       the socket has been closed <c>Info = {SelectRef, closed}</c>). </p>
-      <p>Note that all other users are <em>locked out</em> until the
-      'current user' has called the function (recv in this case). So either
-      immediately call the function or
-      <seealso marker="socket#cancel/2"><c>cancel</c></seealso>. </p>
 
       <p>The general form of the 'socket' message is: </p>
       <taglist>
