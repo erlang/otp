@@ -1328,13 +1328,13 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
             case REFC_BINARY_SUBTAG:
                 {
                     Binary* bptr = ((ProcBin*)ptr)->val;
-                    erts_refc_inc(&bptr->intern.refc, 1);
+                    erts_refc_inc(&bptr->intern.refc, 2);
                     break;
                 }
             case FUN_SUBTAG:
                 {
                     ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
-                    erts_refc_inc(&fe->refc, 1);
+                    erts_refc_inc(&fe->refc, 2);
                     break;
                 }
             case REF_SUBTAG:
@@ -1342,7 +1342,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                     ErtsMagicBinary *bptr;
                     ASSERT(is_magic_ref_thing(ptr));
                     bptr = ((ErtsMRefThing *) ptr)->mb;
-                    erts_refc_inc(&bptr->intern.refc, 1);
+                    erts_refc_inc(&bptr->intern.refc, 2);
                     break;
                 }
             default:
@@ -1350,7 +1350,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals,
                     ExternalThing *etp;
                     ASSERT(is_external_header(ptr->thing_word));
                     etp = (ExternalThing *) ptr;
-                    erts_ref_node_entry(etp->node, 1,
+                    erts_ref_node_entry(etp->node, 2,
                                         make_boxed(&oh->thing_word));
                     break;
                 }
