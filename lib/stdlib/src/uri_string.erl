@@ -306,7 +306,8 @@ normalize(URIMap) ->
 -spec normalize(URI, Options) -> NormalizedURI when
       URI :: uri_string() | uri_map(),
       Options :: [return_map],
-      NormalizedURI :: uri_string() | uri_map().
+      NormalizedURI :: uri_string() | uri_map()
+                     | error().
 normalize(URIMap, []) when is_map(URIMap) ->
     recompose(normalize_map(URIMap));
 normalize(URIMap, [return_map]) when is_map(URIMap) ->
