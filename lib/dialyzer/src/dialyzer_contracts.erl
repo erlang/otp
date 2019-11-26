@@ -248,7 +248,19 @@ check_contract(#contract{contracts = Contracts}, SuccType, Opaques) ->
 		   || Contract <- Contracts2],
 	case check_contract_inf_list(InfList, SuccType, Opaques) of
 	  {error, _} = Invalid -> Invalid;
-	  ok -> check_extraneous(Contracts2, SuccType)
+          ok ->
+            case check_extraneous(Contracts2, SuccType) of
+              {error, invalid_contract} = Err ->
+                Err;
+              {error, {extra_range, _, _}} = Err ->
+                MissingError = check_missing(Contracts2, SuccType),
+                {range_warnings, [Err | MissingError]};
+              ok ->
+                case check_missing(Contracts2, SuccType) of
+                  [] -> ok;
+                  ErrorL -> {range_warnings, ErrorL}
+                end
+            end
 	end
     end
   catch
@@ -304,15 +316,8 @@ check_contract_inf_list([], _SuccType, _Opaques, OM) ->
 check_extraneous([], _SuccType) -> ok;
 check_extraneous([C|Cs], SuccType) ->
   case check_extraneous_1(C, SuccType) of
-    {error, invalid_contract} = Error ->
-      Error;
-    {error, {extra_range, _, _}} = Error ->
-      {range_warnings, [Error | check_missing(C, SuccType)]};
-    ok ->
-      case check_missing(C, SuccType) of
-        [] -> check_extraneous(Cs, SuccType);
-        ErrorL -> {range_warnings, ErrorL}
-      end
+    {error, _} = Error -> Error;
+    ok -> check_extraneous(Cs, SuccType)
   end.
 
 check_extraneous_1(Contract, SuccType) ->
@@ -363,16 +368,15 @@ map_part(Type) ->
 is_empty_map(Type) ->
   erl_types:t_is_equal(Type, erl_types:t_from_term(#{})).
 
-check_missing(Contract, SuccType) ->
-  CRng = erl_types:t_fun_range(Contract),
+check_missing(Contracts, SuccType) ->
+  CRanges = [erl_types:t_fun_range(C) || C <- Contracts],
+  AllCRange = erl_types:t_sup(CRanges),
   STRng = erl_types:t_fun_range(SuccType),
   STRngs = erl_types:t_elements(STRng),
-  ?debug("\nCR = ~ts\nSR = ~ts\n", [erl_types:t_to_string(CRng),
-                                    erl_types:t_to_string(STRng)]),
   case [STR || STR <- STRngs,
-              erl_types:t_is_none(erl_types:t_inf(STR, CRng))] of
+              erl_types:t_is_none(erl_types:t_inf(STR, AllCRange))] of
     [] -> [];
-    STRs -> [{error, {missing_range, erl_types:t_sup(STRs), CRng}}]
+    STRs -> [{error, {missing_range, erl_types:t_sup(STRs), AllCRange}}]
   end.
 
 %% This is the heart of the "range function"

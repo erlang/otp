@@ -1,0 +1,6 @@
+
+overloaded.erl:12: Type specification overloaded:u('a' | 'b' | 'c') -> term() is a subtype of the success typing: overloaded:u(_) -> any()
+overloaded.erl:17: The success typing for overloaded:v/1 implies that the function might also return {'ok','term'} but the specification return is 'ok'
+overloaded.erl:22: Type specification overloaded:x(_) -> {'ok','term'} | 'ok' is a supertype of the success typing: overloaded:x('a' | 'b') -> 'ok' | {'ok','term'}
+overloaded.erl:29: The success typing for overloaded:over/1 implies that the function might also return 'ffyy3' but the specification return is 'ffyy1' | {'ffyy2',integer()}
+overloaded.erl:7: Type specification overloaded:t('a' | 'b') -> term() is a subtype of the success typing: overloaded:t('a' | 'b' | 'c') -> any()
