@@ -228,6 +228,8 @@ eliminate_moves_blk([{set,[_],[_],move}=I|Is], {_,_}=RegVal) ->
     [I|eliminate_moves_blk(Is, RegVal)];
 eliminate_moves_blk(Is, _) -> Is.
 
+no_fallthrough([{'%',_} | Is]) ->
+    no_fallthrough(Is);
 no_fallthrough([I|_]) ->
     is_unreachable_after(I).
 
