@@ -2805,7 +2805,7 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
     {
         Sint i;
         erts_fprintf(dbg_file, "SEND: ");
-        for (i = 0, sz = 0; i < eiov->vsize; i++) {
+        for (i = 0; i < eiovp->vsize; i++) {
             if (eiovp->iov[i].iov_len)
                 bw(eiovp->iov[i].iov_base, eiovp->iov[i].iov_len);
         }

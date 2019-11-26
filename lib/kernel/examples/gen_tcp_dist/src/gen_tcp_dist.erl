@@ -400,6 +400,10 @@ is_node_name(_Node) ->
 hs_data_common(DistCtrl) ->
     TickHandler = call_ctrlr(DistCtrl, tick_handler),
     Socket = call_ctrlr(DistCtrl, socket),
+    RejectFlags = case init:get_argument(gen_tcp_dist_reject_flags) of
+                      {ok,[[Flags]]} -> list_to_integer(Flags);
+                      _ -> #hs_data{}#hs_data.reject_flags
+                  end,
     #hs_data{f_send = send_fun(),
              f_recv = recv_fun(),
              f_setopts_pre_nodeup = setopts_pre_nodeup_fun(),
@@ -410,7 +414,8 @@ hs_data_common(DistCtrl) ->
              mf_setopts = setopts_fun(DistCtrl, Socket),
              mf_getopts = getopts_fun(DistCtrl, Socket),
              mf_getstat = getstat_fun(DistCtrl, Socket),
-             mf_tick = tick_fun(DistCtrl, TickHandler)}.
+             mf_tick = tick_fun(DistCtrl, TickHandler),
+             reject_flags = RejectFlags}.
 
 %%% ------------------------------------------------------------
 %%% Distribution controller processes

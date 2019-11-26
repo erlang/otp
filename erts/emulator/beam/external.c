@@ -304,11 +304,12 @@ erts_encode_ext_dist_header_size(TTBEncodeContext *ctx,
                                  ErtsAtomCacheMap *acmp,
                                  Uint fragments)
 {
+
     if (ctx->flags & DFLAG_PENDING_CONNECT) {
         /* HOPEFUL_DATA + hopefull flags + hopefull ix + payload ix */
         return 1 + 4 + 4 + 4;
     }
-    else if (!acmp)
+    else if (!acmp && !(ctx->flags & DFLAG_FRAGMENTS))
 	return 1; /* pass through */
     else {
         int fix_sz
@@ -317,12 +318,19 @@ erts_encode_ext_dist_header_size(TTBEncodeContext *ctx,
             + 1 /* dist header flags */
             + 1 /* number of internal cache entries */
             ;
-	ASSERT(acmp->hdr_sz >= 0);
+
         if (fragments > 1)
             fix_sz += 8 /* sequence id */
                 + 8 /* number of fragments */
                 ;
-        return fix_sz + acmp->hdr_sz;
+        if (acmp) {
+            ASSERT(acmp->hdr_sz >= 0);
+            fix_sz += acmp->hdr_sz;
+        } else {
+            ASSERT(ctx->flags & DFLAG_FRAGMENTS);
+        }
+
+        return fix_sz;
     }
 }
 
@@ -346,7 +354,7 @@ byte *erts_encode_ext_dist_header_setup(TTBEncodeContext *ctx,
         *--ep = HOPEFUL_DATA;
         return ep;
     }
-    else if (!acmp) {
+    else if (!acmp && !(ctx->flags & DFLAG_FRAGMENTS)) {
         byte *ep = ctl_ext;
         *--ep = PASS_THROUGH;
 	return ep;
@@ -354,30 +362,38 @@ byte *erts_encode_ext_dist_header_setup(TTBEncodeContext *ctx,
     else {
 	int i;
 	byte *ep = ctl_ext;
-	byte dist_hdr_flags = acmp->long_atoms ? ERTS_DIST_HDR_LONG_ATOMS_FLG : 0;
-	ASSERT(acmp->hdr_sz >= 0);
+	byte dist_hdr_flags = acmp && acmp->long_atoms ? ERTS_DIST_HDR_LONG_ATOMS_FLG : 0;
+	ASSERT(!acmp || acmp->hdr_sz >= 0);
 
-	/*
-	 * Write cache update instructions. Note that this is a purely
-	 * internal format, never seen on the wire. This section is later
-	 * rewritten by erts_encode_ext_dist_header_finalize() while updating
-	 * the cache. We write the header backwards just before the
-	 * actual term(s).
-	 */
-	for (i = acmp->sz-1; i >= 0; i--) {
-	    Uint32 aval;
-	    ASSERT(0 <= acmp->cix[i] && acmp->cix[i] < ERTS_ATOM_CACHE_SIZE);
-	    ASSERT(i == acmp->cache[acmp->cix[i]].iix);
-	    ASSERT(is_atom(acmp->cache[acmp->cix[i]].atom));
+        if (acmp) {
+            /*
+             * Write cache update instructions. Note that this is a purely
+             * internal format, never seen on the wire. This section is later
+             * rewritten by erts_encode_ext_dist_header_finalize() while updating
+             * the cache. We write the header backwards just before the
+             * actual term(s).
+             */
+            for (i = acmp->sz-1; i >= 0; i--) {
+                Uint32 aval;
+                ASSERT(0 <= acmp->cix[i] && acmp->cix[i] < ERTS_ATOM_CACHE_SIZE);
+                ASSERT(i == acmp->cache[acmp->cix[i]].iix);
+                ASSERT(is_atom(acmp->cache[acmp->cix[i]].atom));
 
-	    aval = (Uint32) atom_val(acmp->cache[acmp->cix[i]].atom);
-	    ep -= 4;
-	    put_int32(aval, ep);
-	    ep -= 2;
-	    put_int16(acmp->cix[i], ep);
-	}
-	--ep;
-	put_int8(acmp->sz, ep);
+                aval = (Uint32) atom_val(acmp->cache[acmp->cix[i]].atom);
+                ep -= 4;
+                put_int32(aval, ep);
+                ep -= 2;
+                put_int16(acmp->cix[i], ep);
+            }
+            --ep;
+            put_int8(acmp->sz, ep);
+        } else {
+            ASSERT(ctx->flags & DFLAG_FRAGMENTS);
+            /* If we don't have an atom cache but are using a dist header we just put 0
+               in the atom cache size slot */
+            --ep;
+            put_int8(0, ep);
+        }
 	--ep;
 	put_int8(dist_hdr_flags, ep);
         if (fragments > 1) {
@@ -439,7 +455,7 @@ Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf* ob,
         return transcode_dist_obuf(ob, dep, dflags, reds);
 
     if (ep[0] == PASS_THROUGH) {
-        ASSERT(!(dflags & DFLAG_DIST_HDR_ATOM_CACHE));
+        ASSERT(!(dflags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS)));
         ASSERT(ob->eiov->iov[1].iov_len == 1);
         return reds;
     }
@@ -630,7 +646,7 @@ erts_encode_dist_ext_size(Eterm term,
         }
 
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(ctx->flags & DFLAG_DIST_HDR_ATOM_CACHE))
+	if (!(ctx->flags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS)))
 #endif
 	    sz++ /* VERSION_MAGIC */;
 
@@ -640,7 +656,7 @@ erts_encode_dist_ext_size(Eterm term,
 
     if (res == ERTS_EXT_SZ_OK) {
         Uint total_size, fragments;
-	*szp += sz;
+
         /*
          * Each fragment use
          * - one element for driver header
@@ -649,6 +665,8 @@ erts_encode_dist_ext_size(Eterm term,
          */
         total_size = sz + ctx->extra_size;
         fragments = (total_size - 1)/ctx->fragment_size + 1;
+
+	*szp = sz;
         *fragmentsp = fragments;
         *vlenp = ctx->vlen + 3*fragments;
     }
@@ -685,7 +703,7 @@ int erts_encode_dist_ext(Eterm term, byte **ext, Uint32 flags, ErtsAtomCacheMap 
     if (!ctx->wstack.wstart) {
         ctx->cptr = *ext;
 #ifndef ERTS_DEBUG_USE_DIST_SEP
-	if (!(flags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_PENDING_CONNECT)))
+	if (!(flags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_PENDING_CONNECT|DFLAG_FRAGMENTS)))
 #endif
 	    *(*ext)++ = VERSION_MAGIC;
 #ifndef ERTS_DEBUG_USE_DIST_SEP
@@ -840,7 +858,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
         return ERTS_PREP_DIST_EXT_CLOSED;
     }
 
-    if (!(dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)) {
+    if (!(dep->flags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS))) {
         /* Skip PASS_THROUGH */
         ext++;
         size--;
@@ -870,7 +888,7 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     edep->data->seq_id = 0;
     edep->data->frag_id = 1;
 
-    if (dep->flags & DFLAG_DIST_HDR_ATOM_CACHE)
+    if (dep->flags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS))
         edep->flags |= ERTS_DIST_EXT_DFLAG_HDR;
 
     if (ep[1] != DIST_HEADER && ep[1] != DIST_FRAG_HEADER && ep[1] != DIST_FRAG_CONT) {
@@ -5959,7 +5977,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     ep = (byte *) iov[1].iov_base;
     eiov->size -= iov[1].iov_len;
 
-    if (dflags & DFLAG_DIST_HDR_ATOM_CACHE) {
+    if (dflags & (DFLAG_DIST_HDR_ATOM_CACHE|DFLAG_FRAGMENTS)) {
         /*
          * Encoding was done without atom caching but receiver expects
          * a dist header, so we prepend an empty one.
@@ -5971,9 +5989,9 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     else {
         hdr += 4;
         payload_ix = get_int32(hdr);
-        ASSERT(0 < payload_ix && payload_ix < eiov->vsize);
-    
+
         if (payload_ix) {
+            ASSERT(0 < payload_ix && payload_ix < eiov->vsize);
             /* Prepend version magic on payload. */
             iov[payload_ix].iov_base--;
             *((byte *) iov[payload_ix].iov_base) = VERSION_MAGIC;
