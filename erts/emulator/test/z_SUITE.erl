@@ -32,7 +32,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0]).
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
 -export([schedulers_alive/1, node_container_refc_check/1,
 	 long_timers/1, pollset_size/1,
@@ -53,6 +53,20 @@ all() ->
      %% run last.
      leaked_processes,
      literal_area_collector].
+
+init_per_testcase(schedulers_alive, Config) ->
+    case erlang:system_info(schedulers) of
+        1 ->
+            {skip, "Needs more schedulers to run"};
+        _ ->
+            Config
+    end;
+init_per_testcase(_, Config) ->
+    Config.
+
+
+end_per_testcase(_Name, Config) ->
+    Config.
 
 %%%
 %%% The test cases -------------------------------------------------------------

@@ -980,7 +980,8 @@ do_run(Dir, Cmd, Expected0) ->
     io:format("Run: ~p\n", [Cmd]),
     Expected = iolist_to_binary(expected_output(Expected0, Dir)),
 
-    Env = [{"PATH",Dir++":"++os:getenv("PATH")}],
+    Env = [{"PATH",Dir++":"++os:getenv("PATH")},
+           {"ERL_FLAGS",false},{"ERL_AFLAGS",false}],
     Port = open_port({spawn,Cmd}, [exit_status,eof,in,{env,Env}]),
     Res = get_data(Port, []),
     receive

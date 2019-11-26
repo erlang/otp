@@ -111,8 +111,9 @@ port_please1(Node,HostName, Timeout) ->
   case inet:gethostbyname(HostName, Family, Timeout) of
     {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
       get_port(Node, EpmdAddr, Timeout);
-    Else ->
-      Else
+    _Else ->
+      ?port_please_failure2(_Else),
+      noport
   end.
 
 -spec names() -> {ok, [{Name, Port}]} | {error, Reason} when
@@ -169,10 +170,14 @@ register_node(Name, PortNo, Family) ->
 	  AddressFamily :: inet | inet6,
 	  Port :: non_neg_integer(),
 	  Version :: non_neg_integer(),
-	  Success :: {ok, inet:ip_address()} | {ok, inet:ip_address(), Port, Version}.
+	  Success :: {ok, inet:ip_address()} |
+                     %% This is not returned here, but is in the spec for
+                     %% the documentation to show that it is possible to
+                     %% return when using a custom erl_epmd
+                     {ok, inet:ip_address(), Port, Version}.
 
 address_please(_Name, Host, AddressFamily) ->
-	inet:getaddr(Host, AddressFamily).
+    inet:getaddr(Host, AddressFamily).
 
 %%%----------------------------------------------------------------------
 %%% Callback functions from gen_server
