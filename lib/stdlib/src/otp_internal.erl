@@ -519,17 +519,17 @@ obsolete_1(ssl, connection_info, 1) ->
     {removed, "removed in 20.0; use ssl:connection_information/[1,2] instead"};
 
 obsolete_1(httpd_conf, check_enum, 2) ->
-    {deprecated, "deprecated; use lists:member/2 instead"};
+    {removed, "removed; use lists:member/2 instead"};
 obsolete_1(httpd_conf, clean, 1) ->
-    {deprecated, "deprecated; use sting:strip/1 instead or possible the re module"};
+    {removed, "removed; use sting:strip/1 instead or possible the re module"};
 obsolete_1(httpd_conf, custom_clean, 3) ->
-    {deprecated, "deprecated; use sting:strip/3 instead or possible the re module"};
+    {removed, "removed; use sting:strip/3 instead or possible the re module"};
 obsolete_1(httpd_conf, is_directory, 1) ->
-    {deprecated, "deprecated; use filelib:is_dir/1 instead"};
+    {removed, "removed; use filelib:is_dir/1 instead"};
 obsolete_1(httpd_conf, is_file, 1) ->
-    {deprecated, "deprecated; use filelib:is_file/1 instead"};
+    {removed, "removed; use filelib:is_file/1 instead"};
 obsolete_1(httpd_conf, make_integer, 1) ->
-    {deprecated, "deprecated; use erlang:list_to_integer/1 instead"};
+    {removed, "removed; use erlang:list_to_integer/1 instead"};
 
 %% Added in OTP 19.
 

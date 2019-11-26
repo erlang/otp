@@ -108,5 +108,14 @@
       <seealso marker="erts:time_correction#Dos_and_Donts">Dos and Donts</seealso>
       section on how to replace usage of <c>erlang:now()</c>.</p>
     </section>
+
+    <section>
+      <title>httpd_conf module</title>
+      <p>
+	API functions in the module called httpd_conf was deprecated in favour
+	of standard modules such as lists, strings, fillib and erlang.
+      </p>
+    </section>
+     
   </section>
 </chapter>

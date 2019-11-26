@@ -27,17 +27,6 @@
 	 lookup/2, lookup/3, lookup/4, 
 	 validate_properties/1, white_space_clean/1]).
 
-%% Deprecated 
--export([is_directory/1, is_file/1, make_integer/1, clean/1, 
-	 custom_clean/3, check_enum/2]).
-
--deprecated({is_directory, 1, next_major_release}).
--deprecated({is_file, 1, next_major_release}).
--deprecated({make_integer, 1, next_major_release}).
--deprecated({clean, 1, next_major_release}).
--deprecated({custom_clean, 3, next_major_release}).
--deprecated({check_enum, 2, next_major_release}).
-
 -define(VMODULE,"CONF").
 -include("httpd_internal.hrl").
 -include("httpd.hrl").
@@ -1191,63 +1180,7 @@ validate_logger([{error, Domain}]) when is_atom(Domain) ->
 validate_logger(List) ->
     throw({logger, List}).
 
-%%%=========================================================================
-%%%  Deprecated remove in 19
-%%%=========================================================================
-is_directory(Directory) ->
-    case file:read_file_info(Directory) of
-	{ok,FileInfo} ->
-	    #file_info{type = Type, access = Access} = FileInfo,
-	    is_directory(Type,Access,FileInfo,Directory);
-	{error,Reason} ->
-	    {error,Reason}
-    end.
-is_directory(directory,read,_FileInfo,Directory) ->
-    {ok,Directory};
-is_directory(directory,read_write,_FileInfo,Directory) ->
-    {ok,Directory};
-is_directory(_Type,_Access,FileInfo,_Directory) ->
-    {error,FileInfo}.
-
-is_file(File) ->
-    case file:read_file_info(File) of
-	{ok,FileInfo} ->
-	    #file_info{type = Type, access = Access} = FileInfo,
-	    is_file(Type,Access,FileInfo,File);
-	{error,Reason} ->
-	    {error,Reason}
-    end.
-is_file(regular,read,_FileInfo,File) ->
-    {ok,File};
-is_file(regular,read_write,_FileInfo,File) ->
-    {ok,File};
-is_file(_Type,_Access,FileInfo,_File) ->
-    {error,FileInfo}.
-
-make_integer(String) ->
-    case re:run(string:strip(String),"[0-9]+", [{capture, none}]) of
-	match ->
-	    {ok, list_to_integer(string:strip(String))};
-	nomatch ->
-	    {error, nomatch}
-    end.
-
-clean(String) ->
-    re:replace(String, "^[ \t\n\r\f]*|[ \t\n\r\f]*\$","",
-	       [{return,list}, global]).
-
-custom_clean(String,MoreBefore,MoreAfter) ->
-    re:replace(String,
-	       "^[ \t\n\r\f"++MoreBefore++
-		   "]*|[ \t\n\r\f"++MoreAfter++"]*\$","",
-	       [{return,list}, global]).
 
 
-check_enum(_Enum,[]) ->
-    {error, not_valid};
-check_enum(Enum,[Enum|_Rest]) ->
-    {ok, list_to_atom(Enum)};
-check_enum(Enum, [_NotValid|Rest]) ->
-    check_enum(Enum, Rest).
 
 

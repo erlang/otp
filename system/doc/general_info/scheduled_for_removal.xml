@@ -69,5 +69,15 @@
       of the <c>ei</c> library which also is part of the <c>erl_interface</c>
       application.</p>
     </section>
+    
+    <section>
+      <title>httpd_conf module</title>
+      <p>
+	API functions in the module called httpd_conf was deprecated in favour
+	of standard modules such as lists, strings, fillib and erlang. Formally
+	deprecated as of OTP 18.
+      </p>
+    </section>
+     
   </section>
 </chapter>
