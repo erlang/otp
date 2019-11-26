@@ -307,10 +307,6 @@ static void net_down(ErlNifEnv*           env,
                      const ErlNifMonitor* mon);
 */
 
-#ifdef HAVE_SETNS
-static BOOLEAN_T enet_getifaddrs_netns(ErlNifEnv*   env,
-                                       ERL_NIF_TERM map,
-                                       char**       netns);
 static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
                                     char*      netns);
 static ERL_NIF_TERM enet_getifaddrs_process(ErlNifEnv*      env,
@@ -334,6 +330,10 @@ static char* make_ifaddrs(ErlNifEnv*    env,
                           ERL_NIF_TERM  ifu_value,
                           ERL_NIF_TERM  data,
                           ERL_NIF_TERM* ifAddrs);
+#ifdef HAVE_SETNS
+static BOOLEAN_T enet_getifaddrs_netns(ErlNifEnv*   env,
+                                       ERL_NIF_TERM map,
+                                       char**       netns);
 static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
 static BOOLEAN_T restore_network_namespace(int ns, int* err);
 #endif
@@ -1131,9 +1131,9 @@ ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, char* netns)
 {
     ERL_NIF_TERM    result;
     struct ifaddrs* ifap;
+    int             save_errno;
 #ifdef HAVE_SETNS
     int             current_ns = 0;
-    int             save_errno;
 #endif
 
     NDBG( ("NET", "enet_getifaddrs -> entry with"
