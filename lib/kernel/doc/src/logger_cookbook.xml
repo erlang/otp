@@ -117,6 +117,28 @@ Handler configuration:
   </section>
 
   <section>
+    <title>Configure the Logger</title>
+
+    <section>
+      <title>Where did my progress reports go?</title>
+      <p>In OTP-21 the default primary log level is <c>notice</c>. The means
+        that many log messages are by default not printed. This includes
+        the progress reports of supervisors. In order to get progress reports
+        you need to raise the primary log level to <c>info</c></p>
+      <code type="erl-repl">$ erl -kernel logger_level info
+=PROGRESS REPORT==== 4-Nov-2019::16:33:11.742069 ===
+    application: kernel
+    started_at: nonode@nohost
+=PROGRESS REPORT==== 4-Nov-2019::16:33:11.746546 ===
+    application: stdlib
+    started_at: nonode@nohost
+Eshell V10.5.3  (abort with ^G)
+1></code>
+
+    </section>
+  </section>
+
+  <section>
     <title>Configure Logger formatter</title>
     <p>In order to fit better into your existing logging infrastructure Logger can
       format its logging messages any way to want to. Either you can use the built-in
