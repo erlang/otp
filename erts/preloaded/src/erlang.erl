@@ -2583,7 +2583,9 @@ subtract(_,_) ->
       OldState :: preliminary | final | volatile;
                         %% These are deliberately not documented
 			(internal_cpu_topology, term()) -> term();
-                        (sequential_tracer, pid() | port() | {module(), term()} | false) -> pid() | port() | false;
+                        (sequential_tracer, Tracer) -> PrevTracer | false when
+      Tracer :: pid() | port() | {module(), term()} | false,
+      PrevTracer :: pid() | port() | {module(), term()} | false;
                         (reset_seq_trace,true) -> true.
 
 system_flag(_Flag, _Value) ->
@@ -2807,7 +2809,9 @@ tuple_to_list(_Tuple) ->
          (update_cpu_info) -> changed | unchanged;
          (version) -> string();
          (wordsize | {wordsize, internal} | {wordsize, external}) -> 4 | 8;
-         (overview) -> boolean().
+         (overview) -> boolean();
+         %% Deliberately left undocumented
+         (sequential_tracer) -> {sequential_tracer, pid() | port() | {module(),term()} | false}.
 system_info(_Item) ->
     erlang:nif_error(undefined).
 

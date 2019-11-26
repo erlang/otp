@@ -24,7 +24,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,
+-export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
 	 call_with_huge_message_queue/1,receive_in_between/1,
          receive_opt_exception/1,receive_opt_recursion/1,
          receive_opt_deferred_save/1]).
@@ -39,6 +39,20 @@ all() ->
      receive_opt_exception,
      receive_opt_recursion,
      receive_opt_deferred_save].
+
+init_per_testcase(receive_opt_deferred_save, Config) ->
+    case erlang:system_info(schedulers) of
+        1 ->
+            {skip, "Needs more schedulers to run"};
+        _ ->
+            Config
+    end;
+init_per_testcase(_, Config) ->
+    Config.
+
+
+end_per_testcase(_Name, Config) ->
+    Config.
 
 call_with_huge_message_queue(Config) when is_list(Config) ->
     Pid = spawn_link(fun echo_loop/0),
