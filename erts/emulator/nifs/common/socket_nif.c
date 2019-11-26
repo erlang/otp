@@ -3059,6 +3059,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(policy_fail);      \
     LOCAL_ATOM_DECL(port_unreach);     \
     LOCAL_ATOM_DECL(probe);            \
+    LOCAL_ATOM_DECL(readable);         \
     LOCAL_ATOM_DECL(read_byte);        \
     LOCAL_ATOM_DECL(read_fails);       \
     LOCAL_ATOM_DECL(read_pkg);         \
@@ -3078,6 +3079,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(txstatus);         \
     LOCAL_ATOM_DECL(txtime);           \
     LOCAL_ATOM_DECL(want);             \
+    LOCAL_ATOM_DECL(writable);         \
     LOCAL_ATOM_DECL(write_byte);       \
     LOCAL_ATOM_DECL(write_fails);      \
     LOCAL_ATOM_DECL(write_pkg);        \
@@ -3290,9 +3292,9 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM type      = esock_socket_info_type(env, descP);
     ERL_NIF_TERM protocol  = esock_socket_info_protocol(env, descP);
     // ERL_NIF_TERM ctrlPid   = MKPID(env, &descP->ctrlPid);
-    // ERL_NIF_TERM readable  = esock_encode_bool(descP->isReadable);
-    // ERL_NIF_TERM writable  = esock_encode_bool(descP->isWritable);
-    // ERL_NIF_TERM connected = esock_encode_bool(descP->isConnected);
+    ERL_NIF_TERM readable  = BOOL2ATOM(descP->isReadable);
+    ERL_NIF_TERM writable  = BOOL2ATOM(descP->isWritable);
+    // ERL_NIF_TERM connected = BOOL2ATOM(descP->isConnected);
     ERL_NIF_TERM counters  = esock_socket_info_counters(env, descP);
     ERL_NIF_TERM readers   = esock_socket_info_readers(env, descP);
     ERL_NIF_TERM writers   = esock_socket_info_writers(env, descP);
@@ -3300,6 +3302,8 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM keys[]    = {esock_atom_domain,
                               esock_atom_type,
                               esock_atom_protocol,
+                              atom_readable,
+                              atom_writable,
                               atom_counters,
                               atom_num_readers,
                               atom_num_writers,
@@ -3307,6 +3311,8 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM vals[]    = {domain,
                               type,
                               protocol,
+                              readable,
+                              writable,
                               counters,
                               readers,
                               writers,
