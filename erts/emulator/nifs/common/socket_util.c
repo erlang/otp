@@ -1519,11 +1519,29 @@ void esock_abort(const char* expr,
                  const char* file,
                  int         line)
 {
-  fflush(stdout);
-  fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
-	  file, line, func, expr);
-  fflush(stderr);
-  abort();
+    fflush(stdout);
+    fprintf(stderr, "%s:%d:%s() Assertion failed: %s\n",
+            file, line, func, expr);
+    fflush(stderr);
+    abort();
+}
+
+
+
+/* *** esock_self ***
+ *
+ * This function returns the current pid (self) in term form,
+ * or the atom undefined if not executed in the context of an (erlang) process.
+ */
+extern
+ERL_NIF_TERM esock_self(ErlNifEnv* env)
+{
+    ErlNifPid pid;
+
+    if (enif_self(env, &pid) == NULL)
+        return esock_atom_undefined;
+    else
+        return enif_make_pid(env, &pid);
 }
 
 
