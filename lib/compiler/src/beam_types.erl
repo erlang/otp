@@ -68,7 +68,7 @@ meet([T1, T2 | Ts]) ->
     meet([meet(T1, T2) | Ts]);
 meet([T]) -> T.
 
-%% Return the "meet" of Type1 and Type2, which is more general than Type1 and
+%% Return the "meet" of Type1 and Type2, which is more specific than Type1 and
 %% Type2. This is identical to glb/2 but can operate on and produce unions.
 %%
 %%    A = #t_union{list=nil, number=[number], other=[#t_map{}]}
