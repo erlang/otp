@@ -408,7 +408,7 @@ trace_port_control(Node, Command, Arg) ->
 	_ ->
 	    {error, no_trace_driver}
     end.
-    
+
 %% A bit more than just flush - it also makes sure all trace messages
 %% are delivered first, before flushing the driver.
 deliver_and_flush(Port) ->
@@ -417,7 +417,6 @@ deliver_and_flush(Port) ->
 	{trace_delivered,all,Ref} -> ok
     end,
     erlang:port_control(Port, $f, "").
-					   
 
 trace_port(file, {Filename, wrap, Tail}) ->
     trace_port(file, {Filename, wrap, Tail, 128*1024});
@@ -987,11 +986,12 @@ do_relay_1(RelP) ->
 	    do_relay_1(RelP)
     end.
 
+dhandler(Trace, Out) when not is_map(Out) ->
+    dhandler(Trace, out(Out));
 dhandler(Trace, Out) ->
-    {Device,Modifier} = out(Out),
-    case dhandler_format(Trace,Modifier) of
+    case dhandler_format(Trace,Out) of
         {Fmt, Args} ->
-            io:format(Device, Fmt, Args);
+            io:format(maps:get(device, Out), Fmt ++ "~n", Args);
         undefined ->
             ok
     end,
@@ -1003,85 +1003,146 @@ dhandler_format(Trace, Modifier) when element(1, Trace) == trace, tuple_size(Tra
     dhandler_format_event(Trace, tuple_size(Trace), Modifier);
 dhandler_format(Trace, Modifier) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
     TS = element(tuple_size(Trace), Trace),
-    {EvtFmt,EvtArgs} = dhandler_format_event(Trace, tuple_size(Trace)-1, Modifier),
-    {EvtFmt ++ " (Timestamp ~p)",EvtArgs ++ [TS]};
+    dhandler_format_event(Trace, tuple_size(Trace)-1, Modifier,{" (Timestamp ~p)",[TS]});
 dhandler_format(Trace, _Modifier) when element(1, Trace) == drop, tuple_size(Trace) =:= 2 ->
     {"*** Dropped ~p messages.~n",[element(2,Trace)]};
 dhandler_format({seq_trace, Lbl, STI, TS}, Modifier) ->
     {EvtFmt,EvtArgs} = dhandler_format({seq_trace, Lbl, STI}, Modifier),
     {EvtFmt ++ " (Timestamp ~p)",EvtArgs ++ [TS]};
-dhandler_format({seq_trace, Lbl, STI}, Modifier) ->
-    {EvtFmt, EvtArgs} =
-        case STI of
-            {send, Ser, Fr, To, Mes} ->
-                {"(~p) ~p ! ~"++Modifier++"p [Serial: ~p]",[Fr, To, Mes, Ser]};
-            {'receive', Ser, Fr, To, Mes} ->
-                {"(~p) << ~"++Modifier++"p [Serial: ~p, From: ~p]", [To, Mes, Ser, Fr]};
-            {print, Ser, Fr, _, Info} ->
-                {"-> ~"++Modifier++"p [Serial: ~p, From: ~p]", [Info, Ser, Fr]};
-            Else ->
-                {"~"++Modifier++"p", [Else]}
-        end,
-    {"SeqTrace [~p]: " ++ EvtFmt, [Lbl] ++ EvtArgs};
+dhandler_format({seq_trace, Lbl, STI}, Opts) ->
+    Pre = "SeqTrace [~p]: ",
+    case STI of
+        {send, Ser, Fr, To, Mes} ->
+            format_terms({Pre++"(~p) ~p ! ",[Lbl,Fr,To]},[Mes],{" [Serial: ~p]",Ser},Opts);
+        {'receive', Ser, Fr, To, Mes} ->
+            format_terms({Pre++"(~p) << ",[Lbl,To]},[Mes],{" [Serial: ~p, From: ~p]", [Ser, Fr]},Opts);
+        {print, Ser, Fr, _, Info} ->
+            format_terms({Pre++"-> ",[Lbl]},[Info],{" [Serial: ~p, From: ~p]", [Ser, Fr]},Opts);
+        Else ->
+            format_terms({Pre,[Lbl]},[Else],Opts)
+    end;
 dhandler_format(_Trace, _Out) ->
     undefined.
 
-dhandler_format_event(Trace, Size, Modifier) ->
+dhandler_format_event(Trace, Size, Opts) ->
+    dhandler_format_event(Trace, Size, Opts, {"",[]}).
+dhandler_format_event(Trace, Size, #{ modifier := Modifier } = Opts, {PostF,PostA} = Post) ->
     From = element(2, Trace),
     case element(3, Trace) of
 	'receive' ->
 	    case element(4, Trace) of
 		{dbg,ok} -> undefined;
 		Message ->
-                    {"(~p) << ~"++Modifier++"p",[From,Message]}
+                    format_terms({"(~p) << ", [From]}, [Message], Post, Opts)
 	    end;
 	'send' ->
 	    Message = element(4, Trace),
 	    To = element(5, Trace),
-	    {"(~p) ~p ! ~"++Modifier++"p", [From,To,Message]};
+            format_terms({"(~p) ~p ! ", [From,To]}, [Message], Post, Opts);
 	call ->
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
 		    Message = element(5, Trace),
-		    {"(~p) call ~"++Modifier++"s (~"++Modifier++"p)",
-                     [From,ffunc(MFA,Modifier),Message]};
+                    format_mfa({"(~p) call ",[From]}, MFA,
+                               {" (~"++Modifier++"p)" ++ PostF,
+                                [Message | PostA]}, Opts);
 		MFA ->
-		    {"(~p) call ~"++Modifier++"s",
-                     [From,ffunc(MFA,Modifier)]}
-	    end;
-	return -> %% To be deleted...
-	    case element(4, Trace) of
-		MFA when Size == 5 ->
-		    Ret = element(5, Trace),
-		    {"(~p) old_ret ~"++Modifier++"s -> ~"++Modifier++
-                         "p",
-                     [From,ffunc(MFA,Modifier),Ret]};
-		MFA ->
-		    {"(~p) old_ret ~"++Modifier++"s",
-                     [From,ffunc(MFA,Modifier)]}
+                    format_mfa({"(~p) call ",[From]}, MFA, Post, Opts)
 	    end;
 	return_from ->
 	    MFA = element(4, Trace),
 	    Ret = element(5, Trace),
-	    {"(~p) returned from ~"++Modifier++"s -> ~"++Modifier++"p",
-             [From,ffunc(MFA,Modifier),Ret]};
+            format_terms({"(~p) returned from ~"++Modifier++"s -> ",
+                          [From,ffunc(MFA,Opts)]}, [Ret], Post, Opts);
 	return_to ->
 	    MFA = element(4, Trace),
-            {"(~p) returning to ~"++Modifier++"s",
-             [From,ffunc(MFA,Modifier)]};
+            {"(~p) returning to ~"++Modifier++"s" ++ PostF,[From,ffunc(MFA,Opts)|PostA]};
 	spawn when Size == 5 ->
 	    Pid = element(4, Trace),
 	    MFA = element(5, Trace),
-	    {"(~p) spawn ~p as ~"++Modifier++"s",
-             [From,Pid,ffunc(MFA,Modifier)]};
+	    {"(~p) spawn ~p as ~"++Modifier++"s"++PostF,[From,Pid,ffunc(MFA,Opts)|PostA]};
 	Op ->
-	    {"(~p) ~p ~"++Modifier++"s",
-             [From,Op,ftup(Trace,4,Size,Modifier)]}
+            {_, HdTerms} = lists:split(3,tuple_to_list(Trace)),
+            {Terms,_} = lists:split(Size - 3, HdTerms),
+            format_terms({"(~p) ~p ",[From,Op]},Terms,Post,Opts)
     end.
 
+format_mfa({PreF,PreA},MFA,{PostF,PostA},#{ modifier := Modifier } = Opts)
+  when is_integer(element(3,MFA)) ->
+    SMod = "~" ++ Modifier ++ "s",
+    {PreF ++ SMod ++ PostF,PreA ++ ffunc(MFA,Opts) ++ PostA};
+format_mfa({Format,Args}, {M,F,_} = Mfa, Post, #{ modifier := Modifier } = Opts) ->
+     format_mfa(io_lib:format(Format ++ "~p:~"++Modifier++"p",Args++[M,F]), Mfa, Post, Opts);
+format_mfa(Pre, Mfa, {Format,Args}, Opts) ->
+     format_mfa(Pre, Mfa, io_lib:format(Format,Args), Opts);
+format_mfa(Pre, {_M,_F,Args}, Post, Opts) ->
+    format_terms([Pre,"("],Args,",",[")",Post],Opts).
+
+format_terms(Pre, Term, Opts) ->
+    format_terms(Pre, Term, "", Opts).
+format_terms(Pre, Term, Post, Opts) ->
+    format_terms(Pre, Term, " ", Post, Opts).
+format_terms({Format,Args}, Term, Sep, Post, Opts) ->
+    format_terms(lists:flatten(io_lib:format(Format,Args)), Term, Sep, Post, Opts);
+format_terms(Pre, Term, Sep, {Format,Args}, Opts) ->
+    format_terms(Pre, Term, Sep, lists:flatten(io_lib:format(Format,Args)), Opts);
+format_terms(Pre, Terms, Sep, Post, #{ modifier := Modifier,
+                                       columns := Cols,
+                                       encoding := Encoding }) ->
+
+    %% Strings should be flattened before going in here as that makes
+    %% it a lot faster to do string:length on them.
+
+    SMod = "~" ++ Modifier ++ "s",
+    PreLen = string:length(Pre),
+    PostLen = string:length(Post),
+
+    PPOpts = [{column, 3},
+              {line_length, Cols},
+              {encoding, Encoding}],
+
+    %% This fold basically prints the term we want to print and then
+    %% measures how long it is, and then depending on if it will fit
+    %% or not we either insert a newline or not.
+    {F,A,PostCol,_} =
+        lists:foldl(
+          fun Fun(T,{F,A,CurrCol,false}) ->
+                  Fun(T,{[F,Sep],A,CurrCol+1,true});
+              Fun(T,{F,A,CurrCol,true}) ->
+                  TS = lists:flatten(io_lib_pretty:print(T, PPOpts)),
+                  %% This length could be replaced with only checking
+                  %% if the string is longer than CurrCol - Cols.
+                  TLen = string:length(TS),
+                  case TLen > (Cols - CurrCol) of
+                      true ->
+                          {[F,"~n  ",SMod],[TS | A], lastline(TS),false};
+                      false ->
+                          {[F,SMod],[TS | A], CurrCol + TLen,false}
+                  end
+          end, {SMod,[Pre],PreLen,true}, Terms),
+
+    %% Check if we should put the post info on a new line or not.
+    %% This is timestamp or message info.
+    case PostLen > (Cols - PostCol) of
+        true ->
+            {lists:flatten([F,"~n  ",SMod]),lists:reverse([Post | A])};
+        false ->
+            {lists:flatten([F,"",SMod]),lists:reverse([Post | A])}
+    end.
+
+%% Look for the length of the last line of a string
+lastline(Str) ->
+    LastStr = case string:find(Str,"\n",trailing) of
+                  nomatch ->
+                      Str;
+                  Match ->
+                      tl(string:next_codepoint(Match))
+              end,
+    string:length(LastStr).
 
 loggerhandler(Trace, Level) ->
-    Metadata = #{ report_cb => fun dhandler_format/1 },
+    Metadata = #{ report_cb => fun dhandler_format/1,
+                  domain => [otp,runtime_tools,dbg] },
     case dhandler_event_to_report(Trace) of
         {Report, {MS,S,US}} ->
             logger:Level(Report, Metadata#{ time => MS * 1000000000000 + S * 1000000 + US });
@@ -1131,7 +1192,7 @@ dhandler_event_to_report(Trace) ->
     #{ trace => Trace }.
 
 dhandler_format(#{ trace := Trace }) ->
-    case dhandler_format(Trace, "t") of
+    case dhandler_format(Trace, #{ modifier => "t", columns => 80, encoding => unicode }) of
         undefined ->
             {"",[]};
         Else ->
@@ -1140,49 +1201,36 @@ dhandler_format(#{ trace := Trace }) ->
 
 %%% These f* functions returns non-flat strings
 
-%% {M,F,[A1, A2, ..., AN]} -> "M:F(A1, A2, ..., AN)"
 %% {M,F,A}                 -> "M:F/A"
-ffunc({M,F,Argl},Modifier) when is_list(Argl) ->
-    io_lib:format("~p:~"++Modifier++"p(~"++Modifier++"s)",
-                  [M, F, fargs(Argl,Modifier)]);
-ffunc({M,F,Arity},Modifier) ->
+ffunc({M,F,Arity},#{ modifier := Modifier }) ->
     io_lib:format("~p:~"++Modifier++"p/~p", [M,F,Arity]);
-ffunc(X,Modifier) -> io_lib:format("~"++Modifier++"p", [X]).
+ffunc(X,#{ modifier := Modifier }) -> io_lib:format("~"++Modifier++"p", [X]).
 
-%% Integer           -> "Integer"
-%% [A1, A2, ..., AN] -> "A1, A2, ..., AN"
-fargs(Arity,_) when is_integer(Arity) -> integer_to_list(Arity);
-fargs([],_) -> [];
-fargs([A],Modifier) ->
-    io_lib:format("~"++Modifier++"p", [A]);  %% last arg
-fargs([A|Args],Modifier) ->
-    [io_lib:format("~"++Modifier++"p,", [A]) | fargs(Args,Modifier)];
-fargs(A,Modifier) ->
-    io_lib:format("~"++Modifier++"p", [A]). % last or only arg
-
-%% {A_1, A_2, ..., A_N} -> "A_Index A_Index+1 ... A_Size"
-ftup(Trace, Index, Index, Modifier) ->
-    io_lib:format("~"++Modifier++"p", [element(Index, Trace)]);
-ftup(Trace, Index, Size, Modifier) ->
-    [io_lib:format("~"++Modifier++"p ", [element(Index, Trace)])
-     | ftup(Trace, Index+1, Size, Modifier)].
-
-out({_,_}=Out) ->
-    Out;
 out(Device) ->
-    {Device,modifier(Device)}.
+    C = try
+            {ok, Cols} = io:columns(Device),
+            Cols
+        catch error:_ ->
+                80
+        end,
+
+    Encoding = encoding(Device),
+                
+    #{ device => Device, columns => C,
+       encoding => Encoding, modifier => encoding_to_modifier(Encoding) }.
+
+encoding(Device) ->
+    case io:getopts(Device) of
+        List when is_list(List) ->
+            proplists:get_value(encoding,List,latin1);
+        _ ->
+            latin1
+    end.
 
 modifier() ->
     modifier(group_leader()).
 modifier(Device) ->
-    Encoding =
-        case io:getopts(Device) of
-            List when is_list(List) ->
-                proplists:get_value(encoding,List,latin1);
-            _ ->
-                latin1
-        end,
-    encoding_to_modifier(Encoding).
+    encoding_to_modifier(encoding(Device)).
 
 encoding_to_modifier(latin1) -> "";
 encoding_to_modifier(_) -> "t".
