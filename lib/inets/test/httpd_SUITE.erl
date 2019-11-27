@@ -168,6 +168,7 @@ http_get() ->
      missing_CR,
      max_header,
      max_content_length,
+     ignore_invalid_header,
      ipv6
     ].
 
@@ -1360,6 +1361,25 @@ max_content_length(Config) when is_list(Config) ->
     Host =  proplists:get_value(host, Config),
     garbage_content_length(proplists:get_value(type, Config), proplists:get_value(port, Config), Host, 
 			   proplists:get_value(node, Config), Version).
+
+%%-------------------------------------------------------------------------
+ignore_invalid_header() ->
+    ["RFC 7230 - 3.2.4 ... No whitespace is allowed between the header field-name and colon"].
+ignore_invalid_header(Config) when is_list(Config) ->
+     Host =  proplists:get_value(host, Config),
+     Port =  proplists:get_value(port, Config),
+    {Url, Header, Opts} =
+        case proplists:get_value(type, Config) of
+            ip_comm ->
+                {"http://"  ++ Host ++  ":" ++ integer_to_list(Port) ++ "/cgi-bin/erl/httpd_example:ignore_invalid_header",
+                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], []};
+            ssl ->
+                Conf = proplists:get_value(client_config, proplists:get_value(ssl_conf, Config)),
+                {"https://"  ++ Host ++  ":" ++ integer_to_list(Port) ++ "/cgi-bin/erl/httpd_example:ignore_invalid_header",
+                 [{"Host", "localhost"},{"Te", ""}, {"Content-Length ", "0"}], [{ssl, Conf}]}
+        end,
+    {ok,{{_,204,_}, _, _}}
+        = httpc:request(get, {Url, Header}, [{timeout, 45000} | Opts], [{headers_as_is, true}]).
 
 %%-------------------------------------------------------------------------
 security_1_1(Config) when is_list(Config) -> 
