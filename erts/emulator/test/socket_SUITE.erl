@@ -629,6 +629,7 @@
 -define(TPP_SMALL_NUM,  5000).
 -define(TPP_MEDIUM_NUM, 500).
 -define(TPP_LARGE_NUM,  50).
+-define(TPP_NUM(Config, Base), Base div lookup(esock_factor, 1, Config)).
 
 -define(TTEST_RUNTIME,  ?SECS(10)).
 
@@ -693,6 +694,7 @@ groups() ->
      {traffic,                     [], traffic_cases()},
      {traffic_counters,            [], traffic_counters_cases()},
      {traffic_chunks,              [], traffic_chunks_cases()},
+     {traffic_ping_pong,           [], traffic_ping_pong_cases()},
      {traffic_pp_send_recv,        [], traffic_pp_send_recv_cases()},
      {traffic_pp_sendto_recvfrom,  [], traffic_pp_sendto_recvfrom_cases()},
      {traffic_pp_sendmsg_recvmsg,  [], traffic_pp_sendmsg_recvmsg_cases()},
@@ -1056,9 +1058,7 @@ traffic_cases() ->
     [
      {group, traffic_counters},
      {group, traffic_chunks},
-     {group, traffic_pp_send_recv},
-     {group, traffic_pp_sendto_recvfrom},
-     {group, traffic_pp_sendmsg_recvmsg}
+     {group, traffic_ping_pong}
     ].
 
 traffic_counters_cases() ->
@@ -1082,6 +1082,13 @@ traffic_chunks_cases() ->
      traffic_send_and_recv_chunks_tcp4,
      traffic_send_and_recv_chunks_tcp6,
      traffic_send_and_recv_chunks_tcpL
+    ].
+
+traffic_ping_pong_cases() ->
+    [
+     {group, traffic_pp_send_recv},
+     {group, traffic_pp_sendto_recvfrom},
+     {group, traffic_pp_sendmsg_recvmsg}
     ].
 
 traffic_pp_send_recv_cases() ->
@@ -1821,7 +1828,7 @@ ttest_ssockt_csockt_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
-    print_host_info(),
+    Factor = analyze_and_print_host_info(),
     case lists:member(socket, erlang:loaded()) of
         true ->
             case os:type() of
@@ -1831,10 +1838,11 @@ init_per_suite(Config) ->
                     case quiet_mode(Config) of
                         default ->
                             ?LOGGER:start(),
-                            Config;
+                            [{esock_factor, Factor} | Config];
                         Quiet ->
                             ?LOGGER:start(Quiet),
-                            [{esock_test_quiet, Quiet}|Config]
+                            [{esock_factor,     Factor},
+                             {esock_test_quiet, Quiet} | Config]
                     end
             end;
         false ->
@@ -1848,7 +1856,12 @@ end_per_suite(_) ->
 
 %% This function prints various host info, which might be usefull
 %% when analyzing the test suite (results).
-print_host_info() ->
+%% It also returns a "factor" that can be used to when deciding 
+%% the load for some tst cases (traffic). Such as run time or
+%% number of iteraions. This only works for some OSes (linux).
+%% Also, mostly it just returns the factor 1.
+%% At this time we just look at BogoMIPS!
+analyze_and_print_host_info() ->
     {OsFam, OsName} = os:type(),
     Version         =
         case os:version() of
@@ -1869,31 +1882,93 @@ print_host_info() ->
                     io:format("Linux: ~s"
                               "~n", [Version])
             end,
-            case (catch [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])]) of
-                ["model name", CPU | _] ->
-                    io:format("CPU: ~s"
-                              "~n", [CPU]);
-                _ ->
-                    ok
-            end,
+            Factor =
+                case (catch linux_which_cpuinfo()) of
+                    {ok, {CPU, BogoMIPS}} ->
+                        io:format("CPU: ~s"
+                                  "~nBogoMIPS: ~s"
+                                  "~n", [CPU, BogoMIPS]),
+                        %% We first assume its a float, and if not try integer
+                        try list_to_float(BogoMIPS) of
+                            F when F > 1000 ->
+                                1;
+                            F when F > 1000 ->
+                                2;
+                            _ ->
+                                3
+                        catch
+                            _:_:_ ->
+                                %% 
+                                try list_to_integer(BogoMIPS) of
+                                    I when I > 1000 ->
+                                        1;
+                                    I when I > 1000 ->
+                                        2;
+                                    _ ->
+                                        3
+                                catch
+                                    _:_:_ ->
+                                        1
+                                end
+                        end;
+                    _ ->
+                        1
+                end,
             case (catch [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])]) of
                 [_, MemTotal] ->
                     io:format("Memory: ~s"
                               "~n", [MemTotal]);
                 _ ->
                     ok
-            end;
+            end,
+            Factor;
         {unix, sunos} ->
             io:format("Solaris: ~s"
-                      "~n", [Version]);
+                      "~n", [Version]),
+            1;
         _ ->
             io:format("OS Family: ~p"
                       "~n   OS Type: ~p"
                       "~n   Version: ~p"
-                      "~n", [OsFam, OsName, Version])
+                      "~n", [OsFam, OsName, Version]),
+            1
     end.
     
     
+
+linux_which_cpuinfo() ->
+    %% Check for x86 (Intel or AMD)
+    CPU =
+        try [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])] of
+            ["model name", ModelName | _] ->
+                ModelName;
+            _ ->
+                %% ARM (at least some distros...)
+                try [string:trim(S) || S <- string:tokens(os:cmd("grep \"Processor\" /proc/cpuinfo"), [$:,$\n])] of
+                    ["Processor", Proc | _] ->
+                        Proc;
+                    _ ->
+                        %% Ok, we give up
+                        throw(noinfo)
+                catch
+                    _:_:_ ->
+                        throw(noinfo)
+                end
+        catch
+            _:_:_ ->
+                throw(noinfo)
+        end,
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i \"bogomips\" /proc/cpuinfo"), [$:,$\n])] of
+        [_, BMips | _] ->
+            {ok, {CPU, BMips}};
+        _ ->
+            {ok, CPU}
+    catch
+        _:_:_ ->
+            {ok, CPU}
+    end.
+                 
+
 init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
@@ -29555,10 +29630,10 @@ traffic_ping_pong_small_send_and_recv_tcp4(suite) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp4(doc) ->
     [];
-traffic_ping_pong_small_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_send_and_recv_tcp4(Config) when is_list(Config) ->
     ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_send_and_recv_tcp4,
            fun() ->
                    InitState = #{domain => inet,
@@ -29583,10 +29658,10 @@ traffic_ping_pong_small_send_and_recv_tcp6(suite) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcp6(doc) ->
     [];
-traffic_ping_pong_small_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_send_and_recv_tcp6(Config) when is_list(Config) ->
     ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_send_and_recv_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -29611,10 +29686,10 @@ traffic_ping_pong_small_send_and_recv_tcpL(suite) ->
     [];
 traffic_ping_pong_small_send_and_recv_tcpL(doc) ->
     [];
-traffic_ping_pong_small_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_send_and_recv_tcpL(Config) when is_list(Config) ->
     ?TT(?SECS(15)),
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_send_and_recv_tcpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -29639,9 +29714,9 @@ traffic_ping_pong_medium_send_and_recv_tcp4(suite) ->
     [];
 traffic_ping_pong_medium_send_and_recv_tcp4(doc) ->
     [];
-traffic_ping_pong_medium_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_send_and_recv_tcp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_send_and_recv_tcp4,
            fun() ->
                    ?TT(?SECS(30)),
@@ -29666,9 +29741,9 @@ traffic_ping_pong_medium_send_and_recv_tcp6(suite) ->
     [];
 traffic_ping_pong_medium_send_and_recv_tcp6(doc) ->
     [];
-traffic_ping_pong_medium_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_send_and_recv_tcp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_send_and_recv_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -29695,10 +29770,10 @@ traffic_ping_pong_medium_send_and_recv_tcpL(suite) ->
     [];
 traffic_ping_pong_medium_send_and_recv_tcpL(doc) ->
     [];
-traffic_ping_pong_medium_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_send_and_recv_tcpL(Config) when is_list(Config) ->
     ?TT(?SECS(30)),
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_send_and_recv_tcpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -29724,10 +29799,10 @@ traffic_ping_pong_large_send_and_recv_tcp4(suite) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp4(doc) ->
     [];
-traffic_ping_pong_large_send_and_recv_tcp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_large_send_and_recv_tcp4(Config) when is_list(Config) ->
     ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
-    Num = ?TPP_LARGE_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_send_and_recv_tcp4,
            fun() -> is_old_fedora16() end,
            fun() ->
@@ -29752,10 +29827,10 @@ traffic_ping_pong_large_send_and_recv_tcp6(suite) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcp6(doc) ->
     [];
-traffic_ping_pong_large_send_and_recv_tcp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_large_send_and_recv_tcp6(Config) when is_list(Config) ->
     ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
-    Num = ?TPP_LARGE_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_send_and_recv_tcp6,
            fun() -> is_old_fedora16(),
                     has_support_ipv6() end,
@@ -29782,10 +29857,10 @@ traffic_ping_pong_large_send_and_recv_tcpL(suite) ->
     [];
 traffic_ping_pong_large_send_and_recv_tcpL(doc) ->
     [];
-traffic_ping_pong_large_send_and_recv_tcpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_large_send_and_recv_tcpL(Config) when is_list(Config) ->
     ?TT(?SECS(60)),
     Msg = l2b(?TPP_LARGE),
-    Num = ?TPP_LARGE_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_send_and_recv_tcpL,
            fun() ->
                    has_support_unix_domain_socket(),
@@ -29842,9 +29917,9 @@ traffic_ping_pong_small_sendto_and_recvfrom_udp4(suite) ->
     [];
 traffic_ping_pong_small_sendto_and_recvfrom_udp4(doc) ->
     [];
-traffic_ping_pong_small_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendto_and_recvfrom_udp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udp4,
            fun() ->
                    ?TT(?SECS(45)),
@@ -29869,9 +29944,9 @@ traffic_ping_pong_small_sendto_and_recvfrom_udp6(suite) ->
     [];
 traffic_ping_pong_small_sendto_and_recvfrom_udp6(doc) ->
     [];
-traffic_ping_pong_small_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendto_and_recvfrom_udp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -29898,9 +29973,9 @@ traffic_ping_pong_small_sendto_and_recvfrom_udpL(suite) ->
     [];
 traffic_ping_pong_small_sendto_and_recvfrom_udpL(doc) ->
     [];
-traffic_ping_pong_small_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendto_and_recvfrom_udpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendto_and_recvfrom_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -29927,9 +30002,9 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp4(suite) ->
     [];
 traffic_ping_pong_medium_sendto_and_recvfrom_udp4(doc) ->
     [];
-traffic_ping_pong_medium_sendto_and_recvfrom_udp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendto_and_recvfrom_udp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udp4,
            fun() ->
                    ?TT(?SECS(45)),
@@ -29954,9 +30029,9 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udp6(suite) ->
     [];
 traffic_ping_pong_medium_sendto_and_recvfrom_udp6(doc) ->
     [];
-traffic_ping_pong_medium_sendto_and_recvfrom_udp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendto_and_recvfrom_udp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -29983,9 +30058,9 @@ traffic_ping_pong_medium_sendto_and_recvfrom_udpL(suite) ->
     [];
 traffic_ping_pong_medium_sendto_and_recvfrom_udpL(doc) ->
     [];
-traffic_ping_pong_medium_sendto_and_recvfrom_udpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendto_and_recvfrom_udpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendto_and_recvfrom_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -30012,9 +30087,9 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(suite) ->
     [];
 traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(doc) ->
     [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp4,
            fun() ->
                    ?TT(?SECS(20)),
@@ -30039,9 +30114,9 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(suite) ->
     [];
 traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(doc) ->
     [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -30067,9 +30142,9 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(suite) ->
     [];
 traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(doc) ->
     [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_tcpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -30095,9 +30170,9 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(suite) ->
     [];
 traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(doc) ->
     [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp4,
            fun() ->
                    ?TT(?SECS(30)),
@@ -30122,9 +30197,9 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(suite) ->
     [];
 traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(doc) ->
     [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -30150,9 +30225,9 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(suite) ->
     [];
 traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(doc) ->
     [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_tcpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -30178,9 +30253,9 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(suite) ->
     [];
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(doc) ->
     [];
-traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_LARGE),
-    Num = ?TPP_LARGE_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp4,
            fun() -> traffic_ping_pong_large_sendmsg_and_recvmsg_cond() end,
            fun() ->
@@ -30216,9 +30291,9 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(suite) ->
     [];
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(doc) ->
     [];
-traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_LARGE),
-    Num = ?TPP_LARGE_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcp6,
            fun() ->
                    has_support_ipv6(),
@@ -30248,9 +30323,9 @@ traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(suite) ->
     [];
 traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(doc) ->
     [];
-traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_LARGE),
-    Num = ?TPP_LARGE_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_LARGE_NUM),
     tc_try(traffic_ping_pong_large_sendmsg_and_recvmsg_tcpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -30277,9 +30352,9 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(suite) ->
     [];
 traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(doc) ->
     [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendmsg_and_recvmsg_udp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp4,
            fun() ->
                    ?TT(?SECS(60)),
@@ -30304,9 +30379,9 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(suite) ->
     [];
 traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(doc) ->
     [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendmsg_and_recvmsg_udp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -30332,9 +30407,9 @@ traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(suite) ->
     [];
 traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(doc) ->
     [];
-traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_small_sendmsg_and_recvmsg_udpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_SMALL),
-    Num = ?TPP_SMALL_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_SMALL_NUM),
     tc_try(traffic_ping_pong_small_sendmsg_and_recvmsg_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -30360,9 +30435,9 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(suite) ->
     [];
 traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(doc) ->
     [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udp4,
            fun() ->
                    ?TT(?SECS(60)),
@@ -30387,9 +30462,9 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(suite) ->
     [];
 traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(doc) ->
     [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
@@ -30416,9 +30491,9 @@ traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(suite) ->
     [];
 traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(doc) ->
     [];
-traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(_Config) when is_list(_Config) ->
+traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL(Config) when is_list(Config) ->
     Msg = l2b(?TPP_MEDIUM),
-    Num = ?TPP_MEDIUM_NUM,
+    Num = ?TPP_NUM(Config, ?TPP_MEDIUM_NUM),
     tc_try(traffic_ping_pong_medium_sendmsg_and_recvmsg_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
@@ -39483,6 +39558,17 @@ not_yet_implemented() ->
 
 skip(Reason) ->
     throw({skip, Reason}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+lookup(Key, Default, Config) ->
+    case lists:keysearch(Key, 1, Config) of
+        {value, {Key, Value}} ->
+            Value;
+        _ ->
+            Default
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
