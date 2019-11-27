@@ -649,10 +649,15 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
     end.
 
 enter_cg(Func, As0, Le, St0) ->
-    Anno = line_anno(Le),
+    %% Adding a trampoline here would give us greater freedom in rewriting
+    %% calls, but doing so makes it difficult to tell tail calls apart from
+    %% body calls during code generation.
+    %%
+    %% We therefore skip the trampoline, reasoning that we've already left the
+    %% current function by the time an exception is thrown.
     As = ssa_args([Func|As0], St0),
     {Ret,St} = new_ssa_var('@ssa_ret', St0),
-    Call = #b_set{anno=Anno,op=call,dst=Ret,args=As},
+    Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=As},
     {[Call,#b_ret{arg=Ret}],St}.
 
 %% bif_cg(#k_bif{}, Le,State) -> {[Ainstr],State}.
