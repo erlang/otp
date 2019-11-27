@@ -36,6 +36,10 @@
     <note>
       <p>There is currently <em>no</em> support for Windows. </p>
     </note>
+    <note>
+      <p>The content of this file is <em>only</em> valid if the system has
+      been built with 'socket' (esock) support, which is the default. </p>
+    </note>
   </description>
 
   <datatypes>
