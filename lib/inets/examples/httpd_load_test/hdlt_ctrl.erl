@@ -191,9 +191,6 @@ do_init(Config) ->
     ServerRoot = filename:join(ServerDir, "server_root"),  
     DocRoot    = ServerRoot, %% Not really used in this test
 
-    ?DEBUG("randomize setup", []), 
-    randomized_sizes_init(), 
-
     %% Start used applications
     ?DEBUG("ensure crypto started", []), 
     crypto:start(),
@@ -1514,9 +1511,6 @@ set_debug_level(Debugs) ->
 %% there is exact one number between A and B and then 
 %% randomizes that list.
 
-randomized_sizes_init() ->
-    {A, B, C} = os:timestamp(),
-    random:seed(A, B, C).
 
 randomized_sizes(From, To, Incr) ->
     L   = lists:seq(From, To, Incr),
@@ -1526,6 +1520,6 @@ randomized_sizes(From, To, Incr) ->
 randomized_sizes2(L, N, Len) when N >= Len ->
     L;
 randomized_sizes2(L, N, Len) ->
-    SplitWhere = random:uniform(Len),
+    SplitWhere = rand:uniform(Len),
     {A, B} = lists:split(SplitWhere, L),
     randomized_sizes2(B ++ A, N+1, Len).
