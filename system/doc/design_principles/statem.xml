@@ -53,8 +53,8 @@
       For an Event-Driven State Machine, the input is an event
       that triggers a <em>state transition</em> and the output
       is actions executed during the <em>state transition</em>.
-      It can analogously to the mathematical model of a
-      Finite State Machine be described as
+      Analogously to the mathematical model of a
+      Finite State Machine, it can be described as
       a set of relations of the following form:
     </p>
     <pre>
@@ -62,8 +62,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <p>
       These relations are interpreted as follows:
       if we are in state <c>S</c> and event <c>E</c> occurs, we
-      are to perform actions <c>A</c> and make a transition to
-      state <c>S'</c>. Notice that <c>S'</c> can be equal to <c>S</c>
+      are to perform actions <c>A</c>, and make a transition to
+      state <c>S'</c>. Notice that <c>S'</c> can be equal to <c>S</c>,
       and that <c>A</c> can be empty.
     </p>
     <p>
@@ -73,8 +73,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       the current state <c>S</c>, where "different" means
       Erlang's strict inequality: <c>=/=</c>
       also know as "does not match".
-      During a <em>state changes</em>,
-      <c>gen_statem</c> does more things
+      <c>gen_statem</c> does more things during <em>state changes</em>
       than during other <em>state transitions</em>.
     </p>
     <p>
@@ -123,8 +122,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	<seealso marker="#Inserted Events">
 	  Inserted Events
 	</seealso>
-	that is: events from the state machine to itself
-	(in particular purely internal events)
+	(that is, events from the state machine to itself; 
+	 for purely internal events in particular)
       </item>
       <item>
 	<seealso marker="#State Enter Calls">
@@ -514,10 +513,10 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <marker id="Transition Actions" />
     <title>Transition Actions</title>
     <p>
-      In the first section
+      In the first section (
       <seealso marker="#Event-Driven State Machines">
 	Event-Driven State Machines
-      </seealso>
+      </seealso>),
       actions were mentioned as a part of
       the general state machine model. These general actions
       are implemented with the code that <em>callback module</em>
