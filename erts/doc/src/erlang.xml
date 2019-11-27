@@ -1080,7 +1080,9 @@ Z = erlang:crc32_combine(X,Y,iolist_size(Data2)).</code>
               as atoms. Others are returned as strings. Strings of
               unrecognized header fields are formatted with only
               capital letters first and after hyphen characters, for
-              example, <c>"Sec-Websocket-Key"</c>.</p>
+              example, <c>"Sec-Websocket-Key"</c>. Header field names
+              are also returned in <c><anno>UnmodifiedField</anno></c>
+              as strings, without any conversion or formatting.</p>
             <p>The protocol type <c>http</c> is only to be used for
               the first line when an <c><anno>HttpRequest</anno></c> or an
               <c><anno>HttpResponse</anno></c> is expected.
