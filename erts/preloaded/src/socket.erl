@@ -86,6 +86,7 @@
               sockaddr_in4/0,
               sockaddr_in6/0,
               sockaddr_un/0,
+              sockaddr_ll/0,
 
               send_flags/0,
               send_flag/0,
@@ -322,9 +323,19 @@
                           addr     := any | loopback | ip6_address(),
                           flowinfo := in6_flow_info(),
                           scope_id := in6_scope_id()}.
+-type sockaddr_ll() :: #{family   := packet,
+                         protocol := non_neg_integer(),
+                         ifindex  := integer(),
+                         pkttype  := packet_type(),
+                         hatype   := non_neg_integer(),
+                         addr     := binary()}.
+-type packet_type() :: host | broadcast | multicast | otherhost |
+                       outgoing | loopback | user | kernel | fastroute |
+                       non_neg_integer().
 -type sockaddr() :: sockaddr_in4() |
                     sockaddr_in6() |
-                    sockaddr_un().
+                    sockaddr_un()  |
+                    sockaddr_ll().
 
 -define(SOCKADDR_IN4_DEFAULTS(A), #{port => 0,
                                     addr => A}).

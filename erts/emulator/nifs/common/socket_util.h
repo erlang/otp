@@ -104,6 +104,14 @@ char* esock_encode_sockaddr_un(ErlNifEnv*          env,
                                ERL_NIF_TERM*       eSockAddr);
 #endif
 
+#ifdef HAVE_NETPACKET_PACKET_H
+extern
+char* esock_encode_sockaddr_ll(ErlNifEnv*          env,
+                               struct sockaddr_ll* sockAddrP,
+                               unsigned int        addrLen,
+                               ERL_NIF_TERM*       eSockAddr);
+#endif
+
 extern
 char* esock_decode_ip4_address(ErlNifEnv*      env,
                                ERL_NIF_TERM    eAddr,
@@ -156,6 +164,24 @@ extern
 char* esock_encode_protocol(ErlNifEnv*    env,
                             int           type,
                             ERL_NIF_TERM* eProtocol);
+
+extern
+void esock_encode_packet_protocol(ErlNifEnv*     env,
+                                  unsigned short protocol,
+                                  ERL_NIF_TERM*  eProtocol);
+extern
+void esock_encode_packet_hatype(ErlNifEnv*     env,
+                                unsigned short hatype,
+                                ERL_NIF_TERM*  eHaType);
+extern
+void esock_encode_packet_pkttype(ErlNifEnv*     env,
+                                 unsigned short pkttype,
+                                 ERL_NIF_TERM*  ePktType);
+extern
+void esock_encode_packet_addr(ErlNifEnv*     env,
+                              unsigned char  len,
+                              unsigned char* addr,
+                              ERL_NIF_TERM*  eAddr);
 
 extern
 char* esock_decode_bufsz(ErlNifEnv*   env,

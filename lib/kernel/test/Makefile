@@ -83,6 +83,7 @@ MODULES= \
 	logger_std_h_SUITE \
 	logger_stress_SUITE \
 	logger_test_lib \
+	net_SUITE \
 	os_SUITE \
 	pg2_SUITE \
 	seq_trace_SUITE \

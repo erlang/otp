@@ -37,6 +37,7 @@
          gethostname/0,
          getnameinfo/1, getnameinfo/2,
          getaddrinfo/1, getaddrinfo/2,
+         getifaddrs/0,  getifaddrs/1, getifaddrs/2,
 
          if_name2index/1,
          if_index2name/1,
@@ -54,7 +55,10 @@
 %% Should we define these here or refer to the prim_net module
 -export_type([
               address_info/0,
+              ifaddrs/0,
               name_info/0,
+
+              ifaddrs_flag/0,
 
               name_info_flags/0,
               name_info_flag/0,
@@ -72,6 +76,24 @@
 -deprecated({relay,     1, eventually}).
 -deprecated({sleep,     1, eventually}).
 
+
+-type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |
+                        notrailers | running | noarp | promisc | master | slave |
+                        multicast | portsel | automedia | dynamic.
+
+%% Note that not all of these fields are mandatory.
+%% Actually there are (error) cases when only the name will be included.
+%% And broadaddr and dstaddr are mutually exclusive!
+
+-type ifaddrs() :: #{name      := string(),
+                     flags     := [ifaddrs_flag()],
+                     addr      := socket:sockaddr(),
+                     netmask   := socket:sockaddr(),
+                     broadaddr := socket:sockaddr(),
+                     dstaddr   := socket:sockaddr()}.
+
+-type ifaddrs_filter_map() :: #{family := default | inet | inet6 | packet | all,
+                                flags  := any | [ifaddrs_flag()]}.
 
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
 -type name_info_flag()          :: namereqd |
@@ -270,6 +292,106 @@ getaddrinfo(Host, Service)
 
 
 
+%% ===========================================================================
+%%
+%% getifaddrs - Get interface addresses
+%%
+
+-spec getifaddrs() -> {ok, IfAddrs} | {error, Reason} when
+      IfAddrs :: [ifaddrs()],
+      Reason  :: term().
+
+-ifdef(USE_ESOCK).
+getifaddrs() ->
+    getifaddrs(getifaddrs_filter_map_default()).
+-else.
+getifaddrs() ->
+    erlang:error(notsup).
+-endif.
+
+
+-spec getifaddrs(FilterMap) -> {ok, IfAddrs} | {error, Reason} when
+      FilterMap :: ifaddrs_filter_map(),
+      IfAddrs   :: [ifaddrs()],
+      Reason    :: term();
+                (Namespace) -> {ok, IfAddrs} | {error, Reason} when
+      Namespace :: file:filename_all(),
+      IfAddrs   :: [ifaddrs()],
+      Reason    :: term().
+
+-ifdef(USE_ESOCK).
+getifaddrs(Namespace) when is_list(Namespace) ->
+    prim_net:getifaddrs(#{netns => Namespace});
+getifaddrs(FilterMap) when is_map(FilterMap) ->
+    do_getifaddrs(getifaddrs_filter_map(FilterMap),
+                  fun() -> prim_net:getifaddrs(#{}) end).
+-else.
+-dialyzer({nowarn_function, getifaddrs/1}).
+getifaddrs(Namespace) when is_list(Namespace) ->
+    erlang:error(notsup);
+getifaddrs(FilterMap) when is_map(FilterMap) ->
+    erlang:error(notsup).
+-endif.
+
+
+-spec getifaddrs(FilterMap, Namespace) -> {ok, IfAddrs} | {error, Reason} when
+      FilterMap :: ifaddrs_filter_map(),
+      Namespace :: file:filename_all(),
+      IfAddrs   :: [ifaddrs()],
+      Reason    :: term().
+
+getifaddrs(FilterMap, Namespace)
+  when is_map(FilterMap) andalso is_list(Namespace) ->
+    do_getifaddrs(getifaddrs_filter_map(FilterMap),
+                  fun() -> getifaddrs(Namespace) end).
+
+do_getifaddrs(FilterMap, GetIfAddrs) ->
+    case GetIfAddrs() of
+        {ok, IfAddrs0} ->
+            Filter = fun(Elem) -> getifaddrs_filter(FilterMap, Elem) end,
+            {ok, lists:filtermap(Filter, IfAddrs0)};
+        {error, _} = ERROR ->
+            ERROR
+    end.
+
+getifaddrs_filter_map(FilterMap) ->
+    maps:merge(getifaddrs_filter_map_default(), FilterMap).
+
+getifaddrs_filter_map_default() ->
+    #{family => default, flags => any}.
+
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{addr := #{family := Family}, flags := Flags} = _Entry)
+  when (FFamily =:= default) andalso
+       ((Family =:= inet) orelse (Family =:= inet6)) ->
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{addr := #{family := Family}, flags := Flags} = _Entry)
+  when (FFamily =:= inet) andalso (Family =:= inet) ->
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{addr := #{family := Family}, flags := Flags} = _Entry)
+  when (FFamily =:= inet6) andalso (Family =:= inet6) ->
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{addr := #{family := Family}, flags := Flags} = _Entry)
+  when (FFamily =:= packet) andalso (Family =:= packet) ->
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(#{family := FFamily, flags := FFlags},
+                  #{flags := Flags} = _Entry)
+  when (FFamily =:= all) ->
+    getifaddrs_filter_flags(FFlags, Flags);
+getifaddrs_filter(_Filter, _Entry) ->
+    false.
+
+
+getifaddrs_filter_flags(any, _Flags) ->
+    true;
+getifaddrs_filter_flags(FilterFlags, Flags) ->
+    [] =:= (FilterFlags -- Flags).
+
+
+    
 %% ===========================================================================
 %%
 %% if_name2index - Mappings between network interface names and indexes:

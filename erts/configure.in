@@ -1664,6 +1664,12 @@ dnl Check if we have timerfds to be used for high accuracy
 dnl epoll_wait timeouts
 AC_CHECK_HEADERS([sys/timerfd.h])
 
+dnl Check if we have the header file 'netpacket/packat.h' in which
+dnl type 'struct sockaddr_ll' is defined.
+AC_CHECK_HEADERS([netpacket/packet.h],
+	have_netpacket_packet_h=yes,
+	have_netpacket_packet_h=no)
+
 dnl Check for kernel SCTP support
 AC_SUBST(LIBSCTP)
 if test "x$enable_sctp" != "xno" ; then
