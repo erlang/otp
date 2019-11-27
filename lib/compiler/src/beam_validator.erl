@@ -2141,13 +2141,11 @@ is_literal({integer,I}) when is_integer(I) -> true;
 is_literal({literal,_L}) -> true;
 is_literal(_) -> false.
 
-%% `dialyzer` complains about the general literal case never being matched and
-%% I don't like suppressing warnings. Should it become possible I'm sure
-%% `dialyzer` will warn about it.
 value_to_literal([]) -> nil;
 value_to_literal(A) when is_atom(A) -> {atom,A};
 value_to_literal(F) when is_float(F) -> {float,F};
-value_to_literal(I) when is_integer(I) -> {integer,I}.
+value_to_literal(I) when is_integer(I) -> {integer,I};
+value_to_literal(Other) -> {literal,Other}.
 
 %% These are just wrappers around their equivalents in beam_types, which
 %% handle the validator-specific #t_abstract{} type.

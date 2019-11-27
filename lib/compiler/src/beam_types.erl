@@ -422,10 +422,27 @@ get_singleton_value(#t_float{elements={Float,Float}}) ->
     {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
     {ok, Int};
+get_singleton_value(#t_tuple{exact=true,size=Size,elements=Es}) ->
+    case gsv_elements(Size, Es, []) of
+        Values when is_list(Values) ->
+            {ok, list_to_tuple(Values)};
+        error ->
+            error
+    end;
 get_singleton_value(nil) ->
     {ok, []};
 get_singleton_value(_) ->
     error.
+
+gsv_elements(0, _Es, Acc) ->
+    %% The elements were added right-to-left, so it's already in order.
+    Acc;
+gsv_elements(N, Es, Acc) ->
+    ElementType = get_tuple_element(N, Es),
+    case get_singleton_value(ElementType) of
+        {ok, Value} -> gsv_elements(N - 1, Es, [Value | Acc]);
+        error -> error
+    end.
 
 -spec is_singleton_type(type()) -> boolean().
 is_singleton_type(Type) ->

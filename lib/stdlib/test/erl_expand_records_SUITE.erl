@@ -702,9 +702,13 @@ otp_7078(Config) when is_list(Config) ->
 
 -record(otp_7101, {a,b,c=[],d=[],e=[]}).
 
+id(I) -> I.
+
 %% OTP-7101. Record update: more than one call to setelement/3.
 otp_7101(Config) when is_list(Config) ->
-    Rec = #otp_7101{},
+    %% Ensure the compiler won't do any funny constant propagation tricks.
+    id(#otp_7101{a=a,b=b,c=c,d=d,e=e}),
+    Rec = id(#otp_7101{}),
 
     %% Spawn a tracer process to count the number of setelement/3 calls.
     %% The tracer will forward all trace messages to us.
