@@ -2809,15 +2809,18 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(faith);                           \
     GLOBAL_ATOM_DECL(false);                           \
     GLOBAL_ATOM_DECL(family);                          \
+    GLOBAL_ATOM_DECL(fastroute);                       \
     GLOBAL_ATOM_DECL(flags);                           \
     GLOBAL_ATOM_DECL(flowinfo);                        \
     GLOBAL_ATOM_DECL(fragment_interleave);             \
     GLOBAL_ATOM_DECL(freebind);                        \
     GLOBAL_ATOM_DECL(get_peer_addr_info);              \
+    GLOBAL_ATOM_DECL(hatype);                          \
     GLOBAL_ATOM_DECL(hdrincl);                         \
     GLOBAL_ATOM_DECL(hmac_ident);                      \
     GLOBAL_ATOM_DECL(hoplimit);                        \
     GLOBAL_ATOM_DECL(hopopts);                         \
+    GLOBAL_ATOM_DECL(host);                            \
     GLOBAL_ATOM_DECL(icmp);                            \
     GLOBAL_ATOM_DECL(icmp6);                           \
     GLOBAL_ATOM_DECL(ifindex);                         \
@@ -2854,6 +2857,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(msfilter);                        \
     GLOBAL_ATOM_DECL(mtu);                             \
     GLOBAL_ATOM_DECL(mtu_discover);                    \
+    GLOBAL_ATOM_DECL(multicast);                       \
     GLOBAL_ATOM_DECL(multicast_all);                   \
     GLOBAL_ATOM_DECL(multicast_hops);                  \
     GLOBAL_ATOM_DECL(multicast_if);                    \
@@ -2871,6 +2875,9 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(oobinline);                       \
     GLOBAL_ATOM_DECL(options);                         \
     GLOBAL_ATOM_DECL(origdstaddr);                     \
+    GLOBAL_ATOM_DECL(otherhost);                       \
+    GLOBAL_ATOM_DECL(outgoing);                        \
+    GLOBAL_ATOM_DECL(packet);                          \
     GLOBAL_ATOM_DECL(partial_delivery_point);          \
     GLOBAL_ATOM_DECL(passcred);                        \
     GLOBAL_ATOM_DECL(path);                            \
@@ -2881,6 +2888,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(peer_auth_chunks);                \
     GLOBAL_ATOM_DECL(pktinfo);                         \
     GLOBAL_ATOM_DECL(pktoptions);                      \
+    GLOBAL_ATOM_DECL(pkttype);                         \
     GLOBAL_ATOM_DECL(port);                            \
     GLOBAL_ATOM_DECL(portrange);                       \
     GLOBAL_ATOM_DECL(primary_addr);                    \

@@ -144,6 +144,12 @@
       <name name="sockaddr_un"/>
     </datatype>
     <datatype>
+      <name name="sockaddr_ll"/>
+    </datatype>
+    <datatype>
+      <name name="packet_type"/>
+    </datatype>
+    <datatype>
       <name name="port_number"/>
     </datatype>
     <datatype>
