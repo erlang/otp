@@ -411,14 +411,14 @@ static int put_ei_socket_info(int fd, int dist_version, char* cookie, ei_cnode *
 #endif /* _REENTRANT */
 	    return -1;
 	}
-	ei_sockets[ei_n_sockets].socket = fd;
-	ei_sockets[ei_n_sockets].dist_version = dist_version;
-	ei_sockets[ei_n_sockets].cnode = *ec;
-        ei_sockets[ei_n_sockets].cbs = cbs;
-        ei_sockets[ei_n_sockets].ctx = ctx;
-	strcpy(ei_sockets[ei_n_sockets].cookie, cookie);
-	++ei_n_sockets;
     }
+    ei_sockets[ei_n_sockets].socket = fd;
+    ei_sockets[ei_n_sockets].dist_version = dist_version;
+    ei_sockets[ei_n_sockets].cnode = *ec;
+    ei_sockets[ei_n_sockets].cbs = cbs;
+    ei_sockets[ei_n_sockets].ctx = ctx;
+    strcpy(ei_sockets[ei_n_sockets].cookie, cookie);
+    ++ei_n_sockets;
 #ifdef _REENTRANT
     ei_mutex_unlock(ei_sockets_lock);
 #endif /* _REENTRANT */
@@ -1223,8 +1223,16 @@ int ei_accept_tmo(ei_cnode* ec, int lfd, ErlConnect *conp, unsigned ms)
     
     err = EI_GET_CBS_CTX__(&cbs, &ctx, lfd);
     if (err) {
-        EI_CONN_SAVE_ERRNO__(err);
-        return ERL_ERROR;
+        if (lfd < 0) {
+            EI_CONN_SAVE_ERRNO__(err);
+            return ERL_ERROR;
+        }
+        /*
+         * This can be a listen socket created without ei_listen or ei_xlisten,
+         * so we must assume it is.
+         */
+        cbs = &ei_default_socket_callbacks;
+        ctx = EI_FD_AS_CTX__(lfd);
     }
 
 
