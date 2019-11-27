@@ -957,9 +957,7 @@ valfun_3({bs_set_position, Ctx, Pos}, Vst) ->
 
 %% Other test instructions.
 valfun_3({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
-    assert_type(#t_map{}, Src, Vst),
-    assert_unique_map_keys(List),
-    branch(Lbl, Vst, fun(V) -> V end);
+    verify_has_map_fields(Lbl, Src, List, Vst);
 valfun_3({test,is_atom,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_atom{}, Src, Vst);
 valfun_3({test,is_binary,{f,Lbl},[Src]}, Vst) ->
@@ -1145,6 +1143,20 @@ valfun_3({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
 valfun_3(_, _) ->
     error(unknown_instruction).
 
+verify_has_map_fields(Lbl, Src, List, Vst) ->
+    assert_type(#t_map{}, Src, Vst),
+    assert_unique_map_keys(List),
+    verify_map_fields(List, Src, Lbl, Vst).
+
+verify_map_fields([Key | Keys], Map, Lbl, Vst) ->
+    assert_term(Key, Vst),
+    case bif_types(map_get, [Key, Map], Vst) of
+        {none, _, _} -> kill_state(Vst);
+        {_, _, _} -> verify_map_fields(Keys, Map, Lbl, Vst)
+    end;
+verify_map_fields([], _Map, Lbl, Vst) ->
+    branch(Lbl, Vst, fun(V) -> V end).
+
 verify_get_map(Fail, Src, List, Vst0) ->
     assert_not_literal(Src),                    %OTP 22.
     assert_type(#t_map{}, Src, Vst0),
@@ -1194,10 +1206,15 @@ extract_map_keys([Key,_Val|T]) ->
     [Key|extract_map_keys(T)];
 extract_map_keys([]) -> [].
 
-extract_map_vals([Key,Dst|Vs], Map, Vst0, Vsti0) ->
+extract_map_vals([Key, Dst | Vs], Map, Vst0, Vsti0) ->
     assert_term(Key, Vst0),
-    Vsti = extract_term(any, {bif,map_get}, [Key, Map], Dst, Vsti0),
-    extract_map_vals(Vs, Map, Vst0, Vsti);
+    case bif_types(map_get, [Key, Map], Vst0) of
+        {none, _, _} ->
+            kill_state(Vsti0);
+        {DstType, _, _} ->
+            Vsti = extract_term(DstType, {bif,map_get}, [Key, Map], Dst, Vsti0),
+            extract_map_vals(Vs, Map, Vst0, Vsti)
+    end;
 extract_map_vals([], _Map, _Vst0, Vst) ->
     Vst.
 
@@ -1213,9 +1230,22 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
                    SuccVst = prune_x_regs(Live, SuccVst0),
                    Keys = extract_map_keys(List),
                    assert_unique_map_keys(Keys),
-                   create_term(#t_map{}, Op, [Src], Dst, SuccVst, SuccVst0)
+
+                   Type = put_map_type(Src, List, Vst),
+                   create_term(Type, Op, [Src], Dst, SuccVst, SuccVst0)
            end).
 
+put_map_type(Map0, List, Vst) ->
+    Map = normalize(get_term_type(Map0, Vst)),
+    pmt_1(List, Vst, Map).
+
+pmt_1([Key0, Value0 | List], Vst, Acc0) ->
+    Key = normalize(get_term_type(Key0, Vst)),
+    Value = normalize(get_term_type(Value0, Vst)),
+    {Acc, _, _} = beam_call_types:types(maps, put, [Key, Value, Acc0]),
+    pmt_1(List, Vst, Acc);
+pmt_1([], _Vst, Acc) ->
+    Acc.
 
 %%
 %% Common code for validating returns, whether naked or as part of a tail call.

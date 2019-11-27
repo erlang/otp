@@ -60,7 +60,13 @@
 -record(t_fun, {arity=any :: arity() | 'any',
                 type=any :: type() }).
 -record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
--record(t_map, {}).
+
+%% `super_key` and `super_value` are the join of all key and value types.
+%%
+%% Note that we don't track specific elements as we have no obvious way to
+%% limit them. See ?TUPLE_ELEMENT_LIMIT for details.
+-record(t_map, {super_key=any :: type(),
+                super_value=any :: type()}).
 
 %% `type` is the join of all list elements, and `terminator` is the tail of the
 %% last cons cell ('nil' for proper lists).

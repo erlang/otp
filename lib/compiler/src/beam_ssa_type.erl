@@ -934,6 +934,8 @@ will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts, _Sub) ->
 %% These operations may fail even though we know their return value on success.
 will_succeed_1(#b_set{op=call}, _Src, _Ts, _Sub) ->
     maybe;
+will_succeed_1(#b_set{op=get_map_element}, _Src, _Ts, _Sub) ->
+    maybe;
 
 will_succeed_1(#b_set{op=wait}, _Src, _Ts, _Sub) ->
     no;
@@ -1460,18 +1462,26 @@ type(call, [#b_var{} | _Args], Anno, _Ts, _Ds) ->
 type(call, [#b_literal{} | _Args], _Anno, _Ts, _Ds) ->
     none;
 type(get_hd, [Src], _Anno, Ts, _Ds) ->
-    SrcType = #t_cons{} = normalized_type(Src, Ts),
+    SrcType = #t_cons{} = normalized_type(Src, Ts), %Assertion.
     {RetType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
     RetType;
 type(get_tl, [Src], _Anno, Ts, _Ds) ->
-    SrcType = #t_cons{} = normalized_type(Src, Ts),
+    SrcType = #t_cons{} = normalized_type(Src, Ts), %Assertion.
     {RetType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+    RetType;
+type(get_map_element, [_, _]=Args0, _Anno, Ts, _Ds) ->
+    [#t_map{}=Map, Key] = normalized_types(Args0, Ts), %Assertion.
+    {RetType, _, _} = beam_call_types:types(erlang, map_get, [Key, Map]),
     RetType;
 type(get_tuple_element, [Tuple, Offset], _Anno, Ts, _Ds) ->
     #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
     #b_literal{val=N} = Offset,
     true = Size > N, %Assertion.
     beam_types:get_tuple_element(N + 1, Es);
+type(has_map_field, [_, _]=Args0, _Anno, Ts, _Ds) ->
+    [#t_map{}=Map, Key] = normalized_types(Args0, Ts), %Assertion.
+    {RetType, _, _} = beam_call_types:types(erlang, is_map_key, [Key, Map]),
+    RetType;
 type(is_nonempty_list, [_], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Anno, _Ts, _Ds) ->
@@ -1482,8 +1492,8 @@ type(make_fun, [#b_local{arity=TotalArity} | Env], Anno, _Ts, _Ds) ->
                   #{} -> any
               end,
     #t_fun{arity=TotalArity - length(Env), type=RetType};
-type(put_map, _Args, _Anno, _Ts, _Ds) ->
-    #t_map{};
+type(put_map, [_Kind, Map | Ss], _Anno, Ts, _Ds) ->
+    put_map_type(Map, Ss, Ts);
 type(put_list, [Head, Tail], _Anno, Ts, _Ds) ->
     HeadType = raw_type(Head, Ts),
     TailType = raw_type(Tail, Ts),
@@ -1496,6 +1506,17 @@ type(put_tuple, Args, _Anno, Ts, _Ds) ->
                     end, {#{}, 1}, Args),
     #t_tuple{exact=true,size=length(Args),elements=Es};
 type(_, _, _, _, _) -> any.
+
+put_map_type(Map, Ss, Ts) ->
+    pmt_1(Ss, Ts, normalized_type(Map, Ts)).
+
+pmt_1([Key0, Value0 | Ss], Ts, Acc0) ->
+    Key = normalized_type(Key0, Ts),
+    Value = normalized_type(Value0, Ts),
+    {Acc, _, _} = beam_call_types:types(maps, put, [Key, Value, Acc0]),
+    pmt_1(Ss, Ts, Acc);
+pmt_1([], _Ts, Acc) ->
+    Acc.
 
 %% We seldom know how far a match operation may advance, but we can often tell
 %% which increment it will advance by.

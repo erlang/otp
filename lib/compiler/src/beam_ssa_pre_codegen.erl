@@ -2448,7 +2448,9 @@ use_zreg(wait_timeout) -> yes;
 %% There's no way we can combine these into a test instruction, so we must
 %% avoid using a z register if their result is used directly in a branch.
 use_zreg(call) -> no;
+use_zreg({bif,is_map_key}) -> no;
 use_zreg({bif,is_record}) -> no;
+use_zreg({bif,map_get}) -> no;
 use_zreg({bif,'xor'}) -> no;
 use_zreg(get_hd) -> no;
 use_zreg(get_tl) -> no;
