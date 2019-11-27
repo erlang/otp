@@ -1914,14 +1914,14 @@ analyze_and_print_host_info() ->
                     _ ->
                         1
                 end,
-            case (catch [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])]) of
-                [_, MemTotal] ->
-                    io:format("Memory: ~s"
-                              "~n", [MemTotal]);
-                _ ->
-                    ok
-            end,
-            Factor;
+            %% Check if we need to adjust the factor because of the memory
+            try linux_which_meminfo() of
+                AddFactor ->
+                    Factor + AddFactor
+            catch
+                _:_:_ ->
+                    Factor
+            end;
         {unix, sunos} ->
             io:format("Solaris: ~s"
                       "~n", [Version]),
@@ -1933,7 +1933,6 @@ analyze_and_print_host_info() ->
                       "~n", [OsFam, OsName, Version]),
             1
     end.
-    
     
 
 linux_which_cpuinfo() ->
@@ -1968,6 +1967,46 @@ linux_which_cpuinfo() ->
             {ok, CPU}
     end.
                  
+%% We *add* the value this return to the Factor.
+linux_which_meminfo() ->
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
+        [_, MemTotal] ->
+            io:format("Memory: ~s"
+                      "~n", [MemTotal]),
+            case string:tokens(MemTotal, [$ ]) of
+                [MemSz, MemUnit] ->
+                    MemSz2 = 
+                        case string:to_lower(MemUnit) of
+                            "kb" ->
+                                MemSz;
+                            "mb" ->
+                                MemSz*1024;
+                            "gb" ->
+                                MemSz*1024*1024;
+                            _ ->
+                                throw(noinfo)
+                        end,
+                    if
+                        (MemSz2 >= 8388608) ->
+                            0;
+                        (MemSz2 >= 4194304) ->
+                            1;
+                        (MemSz2 >= 2097152) ->
+                            2;
+                        true ->
+                            3
+                    end;
+                _ ->
+                    0
+            end;
+        _ ->
+            0
+    catch
+        _:_:_ ->
+            0
+    end.
+
+
 
 init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
