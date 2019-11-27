@@ -47,16 +47,31 @@ function({function,Name,Arity,CLabel,Is0}, NoGetHdTl) ->
 
 undo_renames([{call_ext,2,send}|Is]) ->
     [send|undo_renames(Is)];
+
 undo_renames([{apply,A},{deallocate,N},return|Is]) ->
     [{apply_last,A,N}|undo_renames(Is)];
+
+undo_renames([{call,A,F},{'%',{var_info,{x,0},_}},{deallocate,N},return|Is]) ->
+    %% We've removed a redundant move of a literal to {x,0}.
+    [{call_last,A,F,N} | undo_renames(Is)];
 undo_renames([{call,A,F},{deallocate,N},return|Is]) ->
-    [{call_last,A,F,N}|undo_renames(Is)];
+    [{call_last,A,F,N} | undo_renames(Is)];
+
+undo_renames([{call_ext,A,F},{'%',{var_info,{x,0},_}},{deallocate,N},return|Is]) ->
+    [{call_ext_last,A,F,N} | undo_renames(Is)];
 undo_renames([{call_ext,A,F},{deallocate,N},return|Is]) ->
-    [{call_ext_last,A,F,N}|undo_renames(Is)];
+    [{call_ext_last,A,F,N} | undo_renames(Is)];
+
+undo_renames([{call,A,F},{'%',{var_info,{x,0},_}},return|Is]) ->
+    [{call_only,A,F} | undo_renames(Is)];
 undo_renames([{call,A,F},return|Is]) ->
     [{call_only,A,F}|undo_renames(Is)];
+
+undo_renames([{call_ext,A,F},{'%',{var_info,{x,0},_}},return|Is]) ->
+    [{call_ext_only,A,F} | undo_renames(Is)];
 undo_renames([{call_ext,A,F},return|Is]) ->
     [{call_ext_only,A,F}|undo_renames(Is)];
+
 undo_renames([{bif,raise,_,_,_}=I|Is0]) ->
     %% A minor optimization. Done here because:
     %%  (1) beam_jump may move or share 'raise' instructions, and that

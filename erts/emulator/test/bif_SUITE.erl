@@ -937,14 +937,18 @@ error_stacktrace_test() ->
 		  Types),
     ok.
 
+stk([_|L], Type, Func) ->
+    stk(L, Type, Func),
+    %% Force the compiler to keep this body-recursive. We want the stack trace
+    %% to have one entry here and another in the base case to test that
+    %% multiple frames in the same function aren't removed unless they're
+    %% identical.
+    id(ok);
 stk([], Type, Func) ->
     put(erlang, erlang),
     put(tail, []),
     tail(Type, Func, jump),
-    ok;
-stk([_|L], Type, Func) ->
-    stk(L, Type, Func),
-    ok.
+    id(ok).
 
 tail(Type, Func, jump) ->
     tail(Type, Func, do);
