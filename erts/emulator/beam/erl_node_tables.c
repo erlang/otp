@@ -492,7 +492,7 @@ static void try_delete_dist_entry(DistEntry* dep)
 
         if (dep->state != ERTS_DE_STATE_PENDING)
             ERTS_INTERNAL_ERROR("Garbage collecting connected distribution entry");
-        erts_abort_connection_rwunlock(dep);
+        erts_abort_pending_connection_rwunlock(dep, NULL);
         report_gc_active_dist_entry(sysname, state);
     }
     else

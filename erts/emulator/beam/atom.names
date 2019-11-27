@@ -212,6 +212,7 @@ atom discard
 atom dist
 atom dist_cmd
 atom dist_ctrl_put_data
+atom dist_ctrlr
 atom dist_data
 atom Div='/'
 atom div
