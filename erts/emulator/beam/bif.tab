@@ -698,7 +698,6 @@ bif erlang:iolist_to_iovec/1
 
 bif erts_internal:get_dflags/0
 bif erts_internal:new_connection/1
-bif erts_internal:abort_connection/2
 bif erts_internal:map_next/3
 bif ets:whereis/1
 bif erts_internal:gather_alloc_histograms/1
@@ -755,3 +754,10 @@ bif persistent_term:get/2
 bif erts_internal:ets_lookup_binary_info/2
 bif erts_internal:ets_raw_first/1
 bif erts_internal:ets_raw_next/2
+
+#
+# New in 22.2
+#
+
+bif erts_internal:abort_pending_connection/2
+

@@ -373,7 +373,7 @@ extern void erts_kill_dist_connection(DistEntry *dep, Uint32);
 
 extern Uint erts_dist_cache_size(void);
 
-extern Sint erts_abort_connection_rwunlock(DistEntry *dep);
+extern Sint erts_abort_pending_connection_rwunlock(DistEntry *dep, int *);
 
 extern void erts_debug_dist_seq_tree_foreach(
     DistEntry *dep,
