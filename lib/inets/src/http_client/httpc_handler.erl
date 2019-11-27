@@ -1637,7 +1637,7 @@ host_header(#http_request_h{host = Host}, _) ->
 
 %% Handles headers_as_is
 host_header(_, URI) ->
-    {ok, {_, _, Host, _, _, _}} =  http_uri:parse(URI),
+    #{host := Host} = uri_string:parse(URI),
     Host.
 
 tls_upgrade(#state{status = 

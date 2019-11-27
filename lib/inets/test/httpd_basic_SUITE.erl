@@ -302,11 +302,13 @@ escaped_url_in_error_body(Config) when is_list(Config) ->
     
     %% Ask for a non-existing page(1)
     Path            = "/<b>this_is_bold<b>",
-    HTMLEncodedPath = http_util:html_encode(Path),
     URL2 = uri_string:recompose(#{scheme => "http",
                                   host => "localhost",
                                   port => Port,
                                   path => Path}),
+    
+    #{path := EncodedPath} = uri_string:parse(URL2),
+    HTMLEncodedPath =  http_util:html_encode(EncodedPath),
     {ok, {404, Body3}} = httpc:request(get, {URL2, []},
 				       [{url_encode,  true}, 
 					{version,     "HTTP/1.0"}],

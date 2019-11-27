@@ -31,12 +31,13 @@
   </header>
 
   <module since="OTP R15B01">http_uri</module>
-  <modulesummary>URI utility module</modulesummary>
+  <modulesummary>Old URI utility module, use uri_string instead</modulesummary>
 
   <description>
-    <p>This module provides utility functions for working with URIs, 
-    according to 
-    <url href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</url>.</p>
+    <p>This module is deprecated since OTP 23.
+    Use the module <seealso marker="stdlib:uri_string">uri_string</seealso> to properly handle URIs,
+    this is the recommend module since OTP 21.  
+    </p>
   </description>
   
   <section>

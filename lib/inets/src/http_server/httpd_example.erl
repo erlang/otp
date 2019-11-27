@@ -19,13 +19,27 @@
 %%
 %%
 -module(httpd_example).
--export([print/1]).
--export([get/2, put/2, post/2, yahoo/2, test1/2, get_bin/2, peer/2,new_status_and_location/2]).
 
--export([newformat/3, post_chunked/3, post_204/3, ignore_invalid_header/3]).
-%% These are used by the inets test-suite
--export([delay/1, chunk_timeout/3, get_chunks/3]).
+-export([print/3, 
+         get/3, 
+         put/3, 
+         post/3, 
+         yahoo/3, 
+         test1/3, 
+         get_bin/3, 
+         peer/3, 
+         new_status_and_location/3,
+         newformat/3, 
+         post_chunked/3, 
+         post_204/3, 
+         ignore_invalid_header/3, 
+         delay/3, 
+         chunk_timeout/3, 
+         get_chunks/3]).
 
+%% ------------------------------------------------------
+print(SessionID, _Env, Input) ->
+    mod_esi:deliver(SessionID, print(Input)).
 
 print(String) ->
   [header(),
@@ -33,7 +47,11 @@ print(String) ->
    String++"\n",
    footer()].
 
-test1(Env, []) ->
+%% ------------------------------------------------------
+test1(SessionID, Env, _Input) ->
+    mod_esi:deliver(SessionID, test1(Env)).
+
+test1(Env) ->
     io:format("Env:~p~n",[Env]),
     ["<html>",
      "<head>",
@@ -44,9 +62,10 @@ test1(Env, []) ->
      "<h2>Stuff</h2>",
      "</body>",
      "</html>"].
-
-
-get(_Env,[]) ->
+%% ------------------------------------------------------
+get(SessionID, Env, Input) ->
+    mod_esi:deliver(SessionID, do_get(Env, Input)).
+do_get(_Env,[]) ->
   [header(),
    top("GET Example"),
    "<FORM ACTION=\"/cgi-bin/erl/httpd_example:get\" METHOD=GET>	
@@ -55,24 +74,35 @@ get(_Env,[]) ->
 <INPUT TYPE=\"submit\"><BR>
 </FORM>" ++ "\n",
    footer()];
-
-get(Env,Input) ->
+do_get(Env,Input) ->
   default(Env,Input).
+%% ------------------------------------------------------
+put(SessionID, Env, Input) ->
+    mod_esi:deliver(SessionID, do_put(Env, Input)).
 
-put(Env,{Input,_Body}) ->
+do_put(Env,{Input,_Body}) ->
     default(Env,Input);
-put(Env,Input) ->
+do_put(Env,Input) ->
     default(Env,Input).
+%% ------------------------------------------------------
+get_bin(SessionID, Env, Input) ->
+    Header = header(),
+    IoData = get_bin(Env, Input),
+    Size = erlang:iolist_size(IoData),        
+    mod_esi:deliver(SessionID, ["Content-Length:" ++ erlang:integer_to_list(Size) ++ "\r\n", 
+                                Header, IoData]).
 
 get_bin(_Env,_Input) ->
-    [list_to_binary(header()),
-     list_to_binary(top("GET Example")),
+    [list_to_binary(top("GET Example")),
      list_to_binary("<FORM ACTION=\"/cgi-bin/erl/httpd_example:get\" METHOD=GET>	
 <B>Input:</B> <INPUT TYPE=\"text\" NAME=\"input1\">
 <INPUT TYPE=\"text\" NAME=\"input2\">
 <INPUT TYPE=\"submit\"><BR>
 </FORM>" ++ "\n"),
    list_to_binary(footer())].
+%% ------------------------------------------------------
+post(SessionID, Env, Input) ->
+    mod_esi:deliver(SessionID, post(Env, Input)).
 
 post(_Env,[]) ->
   [header(),
@@ -86,21 +116,22 @@ post(_Env,[]) ->
 
 post(Env,Input) ->
   default(Env,Input).
+%% ------------------------------------------------------
+yahoo(SessionID, Env, Input) ->
+    mod_esi:deliver(SessionID, yahoo(Env, Input)).
 
 yahoo(_Env,_Input) ->
   "Location: http://www.yahoo.com\r\n\r\n".
+%% ------------------------------------------------------
+new_status_and_location(SessionID, Env, Input) ->
+    mod_esi:deliver(SessionID, new_status_and_location(Env, Input)).
 
 new_status_and_location(_Env,_Input) ->
   "status:201 Created\r\n Location: http://www.yahoo.com\r\n\r\n".
+%% ------------------------------------------------------
 
-default(Env,Input) ->
-  [header(),
-   top("Default Example"),
-   "<B>Environment:</B> ",io_lib:format("~p",[Env]),"<BR>\n",
-   "<B>Input:</B> ",Input,"<BR>\n",
-   "<B>Parsed Input:</B> ",
-   io_lib:format("~p",[httpd:parse_query(Input)]),"\n",
-   footer()].
+peer(SessionID, Env, Input) ->
+    mod_esi:deliver(SessionID, peer(Env, Input)).
 
 peer(Env, _Input) ->
    Header = 
@@ -116,23 +147,7 @@ peer(Env, _Input) ->
    io_lib:format("~p",[proplists:get_value(peer_cert, Env)]),"\n",
    footer()].	   	 
 
-header() ->
-  header("text/html").
-header(MimeType) ->
-  "Content-type: " ++ MimeType ++ "\r\n\r\n".
-header(MimeType, Other) ->
-  "Content-type: " ++ MimeType ++ "\r\n" ++ Other ++ "\r\n\r\n".			 
-
-top(Title) ->
-  "<HTML>
-<HEAD>
-<TITLE>" ++ Title ++ "</TITLE>
-</HEAD>
-<BODY>\n".
-
-footer() ->
-  "</BODY>
-</HTML>\n".
+%% ------------------------------------------------------
 
 post_chunked(_SessionID, _Env, {first, _Body} = _Bodychunk) ->
     {continue, {state, 1}};
@@ -150,11 +165,13 @@ post_chunked(SessionID, _Env, {last, _Body, undefined} = _Bodychunk) ->
     mod_esi:deliver(SessionID, footer());
 post_chunked(_, _, _Body) ->
     exit(body_not_chunked).
+%% ------------------------------------------------------
 
 post_204(SessionID, _Env, _Input) ->
     mod_esi:deliver(SessionID,
                     ["Status: 204 No Content" ++ "\r\n\r\n"]),
     mod_esi:deliver(SessionID, []).
+%% ------------------------------------------------------
 
 ignore_invalid_header(SessionID, Env, _Input) ->
     case proplists:get_value(content_length, Env, undefined) of
@@ -165,7 +182,8 @@ ignore_invalid_header(SessionID, Env, _Input) ->
             mod_esi:deliver(SessionID,
                             ["Status: 500 Internal Server Error" ++ "\r\n\r\n"])
     end.            
-                         
+%% ------------------------------------------------------
+                       
 newformat(SessionID,_,_) ->
     mod_esi:deliver(SessionID, "Content-Type:text/html\r\n\r\n"),
     mod_esi:deliver(SessionID, top("new esi format test")),
@@ -176,28 +194,16 @@ newformat(SessionID,_,_) ->
  
 %% ------------------------------------------------------
 
-delay(Time) when is_integer(Time) ->
-    i("httpd_example:delay(~p) -> do the delay",[Time]),
-    sleep(Time),
-    i("httpd_example:delay(~p) -> done, now reply",[Time]),
-    delay_reply("delay ok");
-delay(Time) when is_list(Time) ->
-    delay(list_to_integer(Time));
-delay({error,_Reason}) ->
-    i("delay -> called with invalid time"),
-    delay_reply("delay failed: invalid delay time").
+delay(SessionID,_, _) ->
+    sleep(10000),
+    Reply = delay_reply("delay ok"),
+    mod_esi:deliver(SessionID, Reply).
 
 delay_reply(Reply) ->
     [header(),
      top("delay"),
      Reply,
      footer()].
-
-i(F)   -> i(F,[]).
-i(F,A) -> io:format(F ++ "~n",A).
-
-sleep(T) -> receive after T -> ok end.
-
 %% ------------------------------------------------------
 
 chunk_timeout(SessionID, _, _StrInt) ->
@@ -224,3 +230,34 @@ get_chunks(Sid, _Env, In) ->
     mod_esi:deliver(Sid, io_lib:format("Chunk ~p ms\r\n", [ChunkDelay])),
     timer:sleep(ChunkDelay + BadChunkDelay),
     mod_esi:deliver(Sid, "BAD Chunk\r\n").
+
+%% ------------------------------------------------------
+default(Env,Input) ->
+  [header(),
+   top("Default Example"),
+   "<B>Environment:</B> ",io_lib:format("~p",[Env]),"<BR>\n",
+   "<B>Input:</B> ",Input,"<BR>\n",
+   "<B>Parsed Input:</B> ",
+   io_lib:format("~p",[uri_string:dissect_query(Input)]),"\n",
+   footer()].
+
+header() ->
+  header("text/html").
+header(MimeType) ->
+  "Content-type: " ++ MimeType ++ "\r\n\r\n".
+header(MimeType, Other) ->
+  "Content-type: " ++ MimeType ++ "\r\n" ++ Other ++ "\r\n\r\n".			 
+
+top(Title) ->
+  "<HTML>
+<HEAD>
+<TITLE>" ++ Title ++ "</TITLE>
+</HEAD>
+<BODY>\n".
+
+footer() ->
+  "</BODY>
+</HTML>\n".
+
+sleep(T) -> receive after T -> ok end.
+

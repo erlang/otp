@@ -66,6 +66,26 @@ obsolete_1(erlang, now, 0) ->
 obsolete_1(calendar, local_time_to_universal_time, 1) ->
     {deprecated, {calendar, local_time_to_universal_time_dst, 1}};
 
+%% *** inets added in OTP 23 ***
+
+obsolete_1(http_uri, parse, 1) ->
+    {deprecated, "deprecated; use uri_string functions instead"};
+
+obsolete_1(http_uri, parse, 2) ->
+    {deprecated,  "deprecated; use uri_string functions instead"};
+
+obsolete_1(http_uri, encode, 1) ->
+    {deprecated,  "deprecated; use uri_string functions instead"};
+
+obsolete_1(http_uri, decode, 1) ->
+    {deprecated,  "deprecated; use uri_string functions instead"};
+
+obsolete_1(http_uri, scheme_defaults, 0) ->
+    {deprecated,  "deprecated; use uri_string functions instead"};
+
+obsolete_1(httpd, parse_query, 1) ->
+    {deprecated, {uri_string, dissect_query, 1}};
+
 %% *** STDLIB added in OTP 22 ***
 
 obsolete_1(sys, get_debug, 3) ->

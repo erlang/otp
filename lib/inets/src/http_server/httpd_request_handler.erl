@@ -400,9 +400,9 @@ handle_http_msg({_, _, Version, {_, _}, _},
 handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 		#state{status = accept, mod = ModData} = State) ->        
     case httpd_request:validate(Method, Uri, Version) of
-	ok  ->
+	{ok, NormalizedURI}  ->
 	    {ok, NewModData} = 
-		httpd_request:update_mod_data(ModData, Method, Uri,
+		httpd_request:update_mod_data(ModData, Method, NormalizedURI,
 					      Version, Headers),
       
 	    case is_host_specified_if_required(NewModData#mod.absolute_uri,
@@ -420,10 +420,6 @@ handle_http_msg({Method, Uri, Version, {RecordHeaders, Headers}, Body},
 	{error, {not_supported, What}} ->
 	    httpd_response:send_status(ModData#mod{http_version = Version},
 				       501, {Method, Uri, Version}, {not_sup, What}),
-	    {stop, normal, State#state{response_sent = true}};
-	{error, {bad_request, {forbidden, URI}}} ->
-	    httpd_response:send_status(ModData#mod{http_version = Version},
-				       403, URI),
 	    {stop, normal, State#state{response_sent = true}};
 	{error, {bad_request, {malformed_syntax, URI}}} ->
 	    httpd_response:send_status(ModData#mod{http_version = Version},

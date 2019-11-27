@@ -233,36 +233,6 @@ http://your.server.org/***/Module[:/]Function(?QueryString|/PathInfo)</code>
 	    see <seealso marker="mod_esi">mod_esi(3)</seealso>.</p>
         </section>
 
-        <section>
-          <title>EVAL Scheme</title>
-          <p>The eval scheme is straight-forward and does not mimic the
-            behavior of plain CGI. An URL that calls an Erlang <c>eval</c>
-            function has the following syntax:</p>
-          <code type="none">
-http://your.server.org/***/Mod:Func(Arg1,...,ArgN)</code>
-          <p>*** depends on how the ErlScriptAlias config
-            directive has been used.</p>
-          <p>The module <c>Mod</c> referred to must be found in the code
-            path and data returned by the function <c>Func</c> is passed
-            back to the client. Data returned from the
-            function must take the form as specified in
-            the CGI specification. For implementation details of the ESI 
-	    callback function, 
-	    see <seealso marker="mod_esi">mod_esi(3)</seealso>.</p>
-          <note>
-            <p>The eval scheme can seriously threaten the
-              integrity of the Erlang node housing a web server, for
-              example:</p>
-            <code type="none">
-http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[])))</code>
-            <p>This effectively closes down the Erlang node.
-              Therefore, use the erl scheme instead, until this
-              security breach is fixed.</p>
-            <p>Today there are no good ways of solving this problem
-              and therefore the eval scheme can be removed in future
-              release of <c>Inets</c>.</p>
-          </note>
-        </section>
       </section>
     </section>
 

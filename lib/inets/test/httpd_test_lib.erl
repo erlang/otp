@@ -388,8 +388,8 @@ is_expect(RequestStr) ->
     end.
 
 %% OTP-5775, content-length
-check_body("GET /cgi-bin/erl/httpd_example:get_bin HTTP/1.0\r\n\r\n", 200, "text/html", Length, _Body) when (Length =/= 274) ->
-    ct:fail(content_length_error);
+check_body("GET /cgi-bin/erl/httpd_example:get_bin HTTP/1.1\r\n\r\n", 200, "text/html", Length, _Body) when (Length =/= 274) ->
+    ct:fail({content_length_error, Length});
 check_body("GET /cgi-bin/cgi_echo HTTP/1.0\r\n\r\n", 200, "text/plain", 
 	   _, Body) ->
     case size(Body) of

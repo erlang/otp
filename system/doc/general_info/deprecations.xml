@@ -51,8 +51,17 @@
       <p>For replacement functions see the
       <seealso marker="crypto:new_api#the-new-api">New API</seealso>.</p>
     </section>
+    
+    <section>
+      <title>http_uri</title>
+      <p>Since OTP 21 the recommended module to handle URIs is
+      <seealso marker="stdlib:uri_string">uri_string</seealso>. The module
+      http_uri does not provide a implementation that satisfies the
+      RFC.  
+      </p>
+    </section>
   </section>
-
+  
   <section>
     <marker id="OTP-22"/>
     <title>OTP 22</title>
