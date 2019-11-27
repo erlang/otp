@@ -670,28 +670,38 @@ dbg_opts(Name, Opts) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
-    StatusHdr = "Status for wx object ",
-    Header = if
-		 is_pid(Name) ->
-		     lists:concat([StatusHdr, pid_to_list(Name)]);
-		 is_atom(Name); is_list(Name) ->
-		     lists:concat([StatusHdr, Name]);
-		 true ->
-		     {StatusHdr, Name}
-	     end,
-    Log = sys:get_debug(log, Debug, []),
-    Specfic = 
-	case erlang:function_exported(Mod, format_status, 2) of
-	    true ->
-		case catch Mod:format_status(Opt, [PDict, State]) of
-		    {'EXIT', _} -> [{data, [{"State", State}]}];
-		    Else -> Else
-		end;
-	    _ ->
-		[{data, [{"State", State}]}]
-	end,
+    Header = gen:format_status_header("Status for wx object ", Name),
+    Log = sys:get_log(Debug),
+    Specific = case format_status(Opt, Mod, PDict, State) of
+                   S when is_list(S) -> S;
+                   S -> [S]
+               end,
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent},
-	     {"Logged events", Log}]} |
-     Specfic].
+	     {"Logged events", format_log_state(Mod, Log)}]} |
+     Specific].
+
+format_log_state(Mod, Log) ->
+    [case Event of
+         {out,Msg,From,State} ->
+             {out,Msg,From,format_status(terminate, Mod, get(), State)};
+         {noreply,State} ->
+             {noreply,format_status(terminate, Mod, get(), State)};
+         _ -> Event
+     end || Event <- Log].
+
+format_status(Opt, Mod, PDict, State) ->
+    DefStatus = case Opt of
+		    terminate -> State;
+		    _ -> [{data, [{"State", State}]}]
+		end,
+    case erlang:function_exported(Mod, format_status, 2) of
+	true ->
+	    case catch Mod:format_status(Opt, [PDict, State]) of
+		{'EXIT', _} -> DefStatus;
+		Else -> Else
+	    end;
+	_ ->
+	    DefStatus
+    end.
