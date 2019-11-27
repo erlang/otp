@@ -41,6 +41,7 @@
 #endif
 
 #include "ei_runner.h"
+#include "my_ussi.h"
 
 static void cmd_ei_connect_init(char* buf, int len);
 static void cmd_ei_publish(char* buf, int len);
@@ -58,7 +59,7 @@ static struct {
     int num_args;		/* Number of arguments. */
     void (*func)(char* buf, int len);
 } commands[] = {
-    "ei_connect_init",  4, cmd_ei_connect_init,
+    "ei_connect_init",  5, cmd_ei_connect_init,
     "ei_publish", 	1, cmd_ei_publish,
     "ei_accept", 	1, cmd_ei_accept,
     "ei_receive",  	1, cmd_ei_receive,
@@ -110,10 +111,11 @@ static void cmd_ei_connect_init(char* buf, int len)
     unsigned long compat;
     char node_name[100];
     char cookie[MAXATOMLEN], * cp = cookie;
+    char socket_impl[10];
     ei_x_buff res;
     if (ei_decode_long(buf, &index, &num) < 0)
 	fail("expected int");
-    sprintf(node_name, "c%d", num);
+    sprintf(node_name, "c%ld", num);
     if (ei_decode_atom(buf, &index, cookie) < 0)
 	fail("expected atom (cookie)");
     if (cookie[0] == '\0')
@@ -124,7 +126,18 @@ static void cmd_ei_connect_init(char* buf, int len)
 	fail("expected uint");
     if (compat)
         ei_set_compat_rel(compat);
-    r = ei_connect_init(&ec, node_name, cp, creation);
+    if (ei_decode_atom_as(buf, &index, socket_impl, sizeof(socket_impl),
+                          ERLANG_ASCII, NULL, NULL) < 0)
+	fail("expected atom (socket_impl)");
+    if (strcmp(socket_impl,"default") == 0)
+        r = ei_connect_init(&ec, node_name, cp, creation);
+    else if (strcmp(socket_impl,"ussi") == 0)
+        r = ei_connect_init_ussi(&ec, node_name, cp, creation,
+                                 &my_ussi, sizeof(my_ussi), NULL);
+    else
+	fail1("unknown socket_impl atom '%s'", socket_impl);
+
+
     ei_x_new_with_version(&res);
     ei_x_encode_long(&res, r);
     send_bin_term(&res);

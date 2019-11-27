@@ -39,7 +39,8 @@ clean:
 	$(RM) ei_connect_test@exe@ einode@exe@
 
 ei_connect_test@exe@: $(EI_CONNECT_OBJS) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_CONNECT_OBJS) $(LIBFLAGS)
+	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_CONNECT_OBJS) \
+	../all_SUITE_data/my_ussi@obj@ $(LIBFLAGS)
 
 
 einode@exe@: $(EINODE_OBJS) $(LIBEI)

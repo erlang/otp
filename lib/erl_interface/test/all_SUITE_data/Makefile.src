@@ -23,7 +23,7 @@ CC0 = @CC@
 CC = .@DS@gccifier@exe@ -CC"$(CC0)"
 CFLAGS0 = @CFLAGS@ -I@erl_interface_include@
 CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@
-EI_COMMON_OBJS = runner@obj@ ei_runner@obj@
+EI_COMMON_OBJS = runner@obj@ ei_runner@obj@ my_ussi@obj@
 ALL_OBJS = gccifier@exe@ $(EI_COMMON_OBJS)
 
 CP=cp

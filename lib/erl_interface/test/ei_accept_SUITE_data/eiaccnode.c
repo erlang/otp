@@ -22,6 +22,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #ifdef __WIN32__
 #include <winsock2.h>
@@ -37,6 +38,7 @@
 #endif
 
 #include "ei.h"
+#include "my_ussi.h"
 
 #ifdef VXWORKS
 #include <vxWorks.h>
@@ -50,7 +52,7 @@
 /*
    A small einode.
    To be called from the test case ei_accept_SUITE:multi_thread
-   usage: eiaccnode <cookie> <n>
+   usage: eiaccnode <cookie> <n> <default|ussi>
 
    - start threads 0..n-1
    - in each thread
@@ -61,7 +63,8 @@
       - shutdown gracefully
 */
 
-static const char* cookie, * desthost;
+static const char* cookie;
+static int use_ussi;
 
 #ifndef SD_SEND
 #ifdef SHUTWR
@@ -78,7 +81,7 @@ static void*
 #endif
     einode_thread(void* num)
 {
-    int n = (int)num;
+    int n = (int)(long)num;
     int port;
     ei_cnode ec;
     char myname[100], destname[100], filename[100];
@@ -88,10 +91,15 @@ static void*
     FILE* file;
 
     sprintf(filename, "eiacc%d_trace.txt", n);
-    file = fopen(filename, "w");
+    file = fopen(filename, "a");
 
     sprintf(myname, "eiacc%d", n); fflush(file);
-    r = ei_connect_init(&ec, myname, cookie, 0);
+    fprintf(file, "---- use_ussi = %d ----\n", use_ussi); fflush(file);
+    if (use_ussi)
+        r = ei_connect_init_ussi(&ec, myname, cookie, 0,
+                                 &my_ussi, sizeof(my_ussi), NULL);
+    else
+        r = ei_connect_init(&ec, myname, cookie, 0);
     port = 0;
     listen = ei_listen(&ec, &port, 5);
     if (listen <= 0) {
@@ -151,6 +159,7 @@ static void*
     return 0;
 }
 
+int
 MAIN(int argc, char *argv[])
 {
     int i, n, no_threads;
@@ -162,15 +171,22 @@ MAIN(int argc, char *argv[])
 #endif
 #endif
 
-    if (argc < 3)
+    if (argc < 4)
 	exit(1);
 
     cookie = argv[1];
     n = atoi(argv[2]);
     if (n > 100)
 	exit(2);
-    desthost = argv[3];
-    if (argc == 3)
+
+    if (strcmp(argv[3], "default") == 0)
+        use_ussi = 0;
+    else if (strcmp(argv[3], "ussi") == 0)
+        use_ussi = 1;
+    else
+        printf("bad argv[3] '%s'", argv[3]);
+
+    if (argc == 4)
         no_threads = 0;
     else
         no_threads = argv[4] != NULL && strcmp(argv[4], "nothreads") == 0;
@@ -186,15 +202,15 @@ MAIN(int argc, char *argv[])
 #ifdef __WIN32__
 	    unsigned tid;
 	    threads[i] = (HANDLE)_beginthreadex(NULL, 0, einode_thread,
-						(void*)i, 0, &tid);
+						(void*)(size_t)i, 0, &tid);
 #else
-	    pthread_create(&threads[i], NULL, einode_thread, (void*)i);
+	    pthread_create(&threads[i], NULL, einode_thread, (void*)(size_t)i);
 #endif
 #else
 	    ;
 #endif
 	} else
-	    einode_thread((void*)i);
+	    einode_thread((void*)(size_t)i);
     }
 
     if (!no_threads)
