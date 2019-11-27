@@ -1706,7 +1706,7 @@ handle_path_validation_error({bad_cert, unknown_ca} = Reason, PeerCert, Chain,
     handle_incomplete_chain(PeerCert, Chain, Opts, Options, CertDbHandle, CertsDbRef, Reason);
 handle_path_validation_error({bad_cert, invalid_issuer} = Reason, PeerCert, Chain0, 
 			     Opts, Options, CertDbHandle, CertsDbRef) ->
-    handle_unorded_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason);
+    handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason);
 handle_path_validation_error(Reason, _, _, _, _,_, _) ->
     path_validation_alert(Reason).
 
@@ -1721,17 +1721,17 @@ handle_incomplete_chain(PeerCert, Chain0,
 		{ok, {PublicKeyInfo,_}} ->
 		    {PeerCert, PublicKeyInfo};
                 {error, PathError} ->
-                    handle_unorded_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, PathError)
+                    handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, PathError)
 	    end;
         _ ->
-            handle_unorded_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason)
+            handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason)
     end.
 
-handle_unorded_chain(PeerCert, Chain0,
+handle_unordered_chain(PeerCert, Chain0,
                      #{partial_chain := PartialChain}, Options, CertDbHandle, CertsDbRef, Reason) ->
     {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, Chain0}),
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, ExtractedCerts, Chain0) of
-        {ok, _, Chain} when  Chain =/= Chain0 -> %% Chain appaears to be unorded 
+        {ok, _, Chain} when  Chain =/= Chain0 -> %% Chain appaears to be unordered 
             {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
                                                                     CertDbHandle, CertsDbRef,
                                                                     PartialChain),
