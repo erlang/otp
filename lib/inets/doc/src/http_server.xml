@@ -49,9 +49,7 @@
       </list>
 
     <p>The configuration of the server is provided as an Erlang
-      property list. For backwards compatibility, a configuration
-      file using apache-style configuration directives is
-      supported.</p>
+      property list.</p>
 
     <p>As of <c>Inets</c> 5.0 the HTTP server is an easy to
       start/stop and customize web server providing the most basic
@@ -77,16 +75,13 @@
     <p>The server is configured using an Erlang property list.
       For the available properties, see
       <seealso marker="httpd">httpd(3)</seealso>.
-      For backwards compatibility, apache-like configuration files
-      are also supported.
     </p>
     
     <p>The available configuration properties are as follows:</p>
     <code type="none">
      httpd_service() -> {httpd, httpd()}
      httpd()         -> [httpd_config()] 
-     httpd_config()  -> {file, file()} |
-                        {proplist_file, file()}
+     httpd_config()  -> {proplist_file, file()}
                         {debug, debug()} |
                         {accept_timeout, integer()}
      debug()         -> disable | [debug_options()]
@@ -95,13 +90,11 @@
                         {disable, modules()}
      modules()       -> [atom()]</code>
      <p>Here:</p>
-     <taglist>
-       <tag><c>{file, file()}</c></tag>
-       <item><p>If you use an old apace-like configuration file.</p></item>
+     <taglist>      
        <tag><c>{proplist_file, file()}</c></tag>
        <item><p>File containing an Erlang property
-      list, followed by a full stop, describing the HTTP server
-      configuration.</p></item> 
+       list, followed by a full stop, describing the HTTP server
+       configuration.</p></item> 
        <tag><c>{debug, debug()}</c></tag>
        <item><p>Can enable trace on all functions or only exported functions 
        on chosen modules.</p></item>

@@ -22,7 +22,7 @@
 
 %% The functions that the webbserver call on startup stop
 %% and when the server traverse the modules.
--export([do/1, load/2, store/2, remove/1]).
+-export([do/1, store/2, remove/1]).
 
 %% User entries to the gen-server.
 -export([add_user/2, add_user/5, add_user/6, 
@@ -126,97 +126,6 @@ do(Info) ->
 %% When the </Directory> statement is found, the Context created earlier
 %% will be returned as a ConfigList and the context will return to the
 %% state it was previously.
-
-load("<Directory " ++ Directory,[]) ->
-    Dir = string:strip(string:strip(Directory),right, $>),
-    {ok,[{directory, {Dir, [{path, Dir}]}}]};
-load(eof,[{directory, {Directory, _DirData}}|_]) ->
-    {error, ?NICE("Premature end-of-file in "++ Directory)};
-
-load("AuthName " ++ AuthName, [{directory, {Directory, DirData}}|Rest]) ->
-    {ok, [{directory, {Directory,
-		       [{auth_name, string:strip(AuthName)} | DirData]}} 
-	  | Rest ]};
-load("AuthUserFile " ++ AuthUserFile0,
-     [{directory, {Directory, DirData}}|Rest]) ->
-    AuthUserFile = string:strip(AuthUserFile0),
-    {ok, [{directory, {Directory,
-		      [{auth_user_file, AuthUserFile}|DirData]}} | Rest ]};
-load("AuthGroupFile " ++ AuthGroupFile0,
-	 [{directory, {Directory, DirData}}|Rest]) ->
-    AuthGroupFile = string:strip(AuthGroupFile0),
-    {ok,[{directory, {Directory,
-	  [{auth_group_file, AuthGroupFile}|DirData]}} | Rest]};
-
-load("AuthAccessPassword " ++ AuthAccessPassword0,
-	 [{directory, {Directory, DirData}}|Rest]) ->
-    AuthAccessPassword = string:strip(AuthAccessPassword0),
-    {ok,[{directory, {Directory,
-	  [{auth_access_password, AuthAccessPassword}|DirData]}} | Rest]};
-
-load("AuthDBType " ++ Type,
-	 [{directory, {Dir, DirData}}|Rest]) ->
-    case string:strip(Type) of
-	"plain" ->
-	    {ok, [{directory, {Dir, [{auth_type, plain}|DirData]}} | Rest ]};
-	"mnesia" ->
-	    {ok, [{directory, {Dir, [{auth_type, mnesia}|DirData]}} | Rest ]};
-	"dets" ->
-	    {ok, [{directory, {Dir, [{auth_type, dets}|DirData]}} | Rest ]};
-	_ ->
-	    {error, ?NICE(string:strip(Type)++" is an invalid AuthDBType")}
-    end;
-
-load("require " ++ Require,[{directory, {Directory, DirData}}|Rest]) ->
-    case re:split(Require," ", [{return, list}]) of
-	["user" | Users] ->
-	    {ok,[{directory, {Directory,
-			      [{require_user,Users}|DirData]}} | Rest]};
-	["group"|Groups] ->
-	    {ok,[{directory, {Directory,
-			      [{require_group,Groups}|DirData]}} | Rest]};
-	_ ->
-	    {error,?NICE(string:strip(Require) ++" is an invalid require")}
-    end;
-
-load("allow " ++ Allow,[{directory, {Directory, DirData}}|Rest]) ->
-    case re:split(Allow," ", [{return, list}]) of
-	["from","all"] ->
-	    {ok,[{directory, {Directory,
-		  [{allow_from,all}|DirData]}} | Rest]};
-	["from"|Hosts] ->
-	    {ok,[{directory, {Directory,
-		  [{allow_from,Hosts}|DirData]}} | Rest]};
-	_ ->
-	    {error,?NICE(string:strip(Allow) ++" is an invalid allow")}
-    end;
-
-load("deny " ++ Deny,[{directory, {Directory, DirData}}|Rest]) ->
-    case re:split(Deny," ", [{return, list}]) of
-	["from", "all"] ->
-	    {ok,[{{directory, Directory,
-		  [{deny_from, all}|DirData]}} | Rest]};
-	["from"|Hosts] ->
-	    {ok,[{{directory, Directory,
-		   [{deny_from, Hosts}|DirData]}} | Rest]};
-	_ ->
-	    {error,?NICE(string:strip(Deny) ++" is an invalid deny")}
-    end;
-
-load("</Directory>",[{directory, {Directory, DirData}}|Rest]) -> 
-    {ok, Rest, {directory, {Directory, DirData}}};
-
-load("AuthMnesiaDB " ++ AuthMnesiaDB,
-      [{directory, {Dir, DirData}}|Rest]) ->
-    case string:strip(AuthMnesiaDB) of
-	"On" ->
-	    {ok,[{directory, {Dir,[{auth_type,mnesia}|DirData]}}|Rest]};
-	"Off" ->
-	    {ok,[{directory, {Dir,[{auth_type,plain}|DirData]}}|Rest]};
-	_ ->
-	    {error, ?NICE(string:strip(AuthMnesiaDB) ++
-			      " is an invalid AuthMnesiaDB")}
-    end.
 
 store({directory, {Directory, DirData}}, ConfigList) 
   when is_list(Directory) andalso is_list(DirData) ->

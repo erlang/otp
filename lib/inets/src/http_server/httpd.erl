@@ -58,15 +58,7 @@ reload_config(ConfigFile, Mode) ->
     try file:consult(ConfigFile) of
         {ok, [PropList]} ->
             %% Erlang terms format
-            do_reload_config(PropList, Mode);
-        {error, _ } ->
-            %% Apache format
-            case httpd_conf:load(ConfigFile) of
-                {ok, ConfigList} ->
-                    do_reload_config(ConfigList, Mode);
-                Error ->
-                    Error
-            end
+            do_reload_config(PropList, Mode)
     catch
         exit:_ ->
             throw({error, {could_not_consult_proplist_file, ConfigFile}})

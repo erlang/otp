@@ -27,7 +27,7 @@
 -export([deliver/2]).
 
 %% Callback API
--export([do/1, load/2, store/2]).
+-export([do/1, store/2]).
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
@@ -79,61 +79,6 @@ do(ModData) ->
 		_Response ->
 		    {proceed, ModData#mod.data}
 	    end
-    end.
-
-
-%%--------------------------------------------------------------------------
-%% load(Line, Context) ->  eof | ok | {ok, NewContext} | 
-%%                     {ok, NewContext, Directive} | 
-%%                     {ok, NewContext, DirectiveList} | {error, Reason}
-%% Line = string()
-%% Context = NewContext = DirectiveList = [Directive]
-%% Directive = {DirectiveKey , DirectiveValue}
-%% DirectiveKey = DirectiveValue = term()
-%% Reason = term() 
-%%
-%% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
-%%-------------------------------------------------------------------------
-load("ErlScriptAlias " ++ ErlScriptAlias, []) ->
-    try re:split(ErlScriptAlias," ", [{return, list}]) of
-	[ErlName | StrModules] ->
-	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(string:strip(Str)) 
-				end, StrModules),
-	    {ok, [], {erl_script_alias, {ErlName, Modules}}}
-    catch _:_ ->
-	    {error, ?NICE(string:strip(ErlScriptAlias) ++
-			      " is an invalid ErlScriptAlias")}
-    end;
-load("EvalScriptAlias " ++ EvalScriptAlias, []) ->
-    try re:split(EvalScriptAlias, " ",  [{return, list}]) of
-	[EvalName | StrModules] ->
-	    Modules = lists:map(fun(Str) -> 
-					list_to_atom(string:strip(Str)) 
-				end, StrModules),
-	    {ok, [], {eval_script_alias, {EvalName, Modules}}}
-    catch 
-	_:_ ->
-	    {error, ?NICE(string:strip(EvalScriptAlias) ++
-			      " is an invalid EvalScriptAlias")}
-    end;
-load("ErlScriptTimeout " ++ Timeout, [])->
-    case catch list_to_integer(string:strip(Timeout)) of
-	TimeoutSec when is_integer(TimeoutSec)  ->
-	   {ok, [], {erl_script_timeout, TimeoutSec}};
-	_ ->
-	   {error, ?NICE(string:strip(Timeout) ++
-			 " is an invalid ErlScriptTimeout")}
-    end;
-load("ErlScriptNoCache " ++ CacheArg, [])->
-    case catch list_to_atom(string:strip(CacheArg)) of
-        true ->
-	    {ok, [], {erl_script_nocache, true}};
-	false ->
-	   {ok, [], {erl_script_nocache, false}};
-	_ ->
-	   {error, ?NICE(string:strip(CacheArg)++
-			 " is an invalid ErlScriptNoCache directive")}
     end.
 
 

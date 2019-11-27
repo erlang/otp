@@ -118,4 +118,18 @@
     </section>
      
   </section>
+
+  <section>
+    <marker id="OTP-12"/>
+    <title>OTP 12</title>
+    <section>
+      <title>inets - httpd Apache config files</title>
+      <p>
+	New config file format, instead of Apache compatible, is introduced.
+      </p>
+    </section>
+     
+  </section>
+
+  
 </chapter>

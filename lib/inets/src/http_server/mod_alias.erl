@@ -24,7 +24,6 @@
 	 real_name/3,
 	 real_script_name/3,
 	 default_index/2,
-	 load/2,
 	 store/2,
 	 path/3]).
 
@@ -211,50 +210,6 @@ path(Data, ConfigDB, RequestURI) ->
 %%
 %% Configuration
 %%
-
-%% load
-
-load("DirectoryIndex " ++ DirectoryIndex, []) ->
-    DirectoryIndexes = re:split(DirectoryIndex," ", [{return, list}]),
-    {ok,[], {directory_index, DirectoryIndexes}};
-load("Alias " ++ Alias, []) ->
-    case re:split(Alias," ", [{return, list}]) of
-	[FakeName, RealName] ->
-	    {ok,[],{alias,{FakeName,RealName}}};
-	_ ->
-	    {error,?NICE(string:strip(Alias)++" is an invalid Alias")}
-    end;
-load("ReWrite " ++ Rule, Acc) ->
-    load_re_write(Rule, Acc, "ReWrite", re_write);
-load("ScriptAlias " ++ ScriptAlias, []) ->
-    case re:split(ScriptAlias, " ", [{return, list}]) of
-	[FakeName, RealName] ->
-	    %% Make sure the path always has a trailing slash..
-	    RealName1 = filename:join(filename:split(RealName)),
-	    {ok, [], {script_alias, {FakeName, RealName1++"/"}}};
-	_ ->
-	    {error, ?NICE(string:strip(ScriptAlias)++
-			      " is an invalid ScriptAlias")}
-    end;
-load("ScriptReWrite " ++ Rule, Acc) ->
-    load_re_write(Rule, Acc, "ScriptReWrite", script_re_write).
-
-load_re_write(Rule0, Acc, Type, Tag) ->
-    case lists:dropwhile(
-	   fun ($\s) -> true; ($\t) -> true; (_) -> false end,
-	   Rule0) of
-	"" ->
-	    {error, ?NICE(string:strip(Rule0)++" is an invalid "++Type)};
-	Rule ->
-	    case string:chr(Rule, $\s) of
-		0 ->
-		    {ok, Acc, {Tag, {Rule, ""}}};
-		N ->
-		    {Re, [_|Replacement]} = lists:split(N-1, Rule),
-		    {ok, Acc, {Tag, {Re, Replacement}}}
-	    end
-    end.
-
 store({directory_index, Value} = Conf, _) when is_list(Value) ->
     case is_directory_index_list(Value) of
 	true ->

@@ -364,24 +364,15 @@ handle_block(non_disturbing, Timeout,
     
 handle_reload(undefined, #state{config_file = undefined} = State) ->
     {continue, {error, undefined_config_file}, State};
-handle_reload(undefined, #state{config_file = ConfigFile} = State) ->
-    case load_config(ConfigFile) of
-	{ok, Config} ->
-	    do_reload(Config, State);
-	{error, Reason} ->
-	    error_logger:error_msg("Bad config file: ~p~n", [Reason]),
-	    {continue, {error, Reason}, State}
+handle_reload(undefined, #state{config_file = ConfigFile, admin_state = AdminState} = State) ->
+    try httpd:reload_config(ConfigFile, AdminState) of
+      Result ->
+            Result
+    catch throw:Err ->
+            {config_file, Err, State}
     end;
 handle_reload(Config, State) ->
     do_reload(Config, State).
-
-load_config(ConfigFile) ->
-    case httpd_conf:load(ConfigFile) of
-	{ok, Config} ->
-	    httpd_conf:validate_properties(Config);
-	Error ->
-	    Error
-    end.
 
 do_reload(Config, #state{config_db = Db} = State) ->
     case (catch check_constant_values(Db, Config)) of

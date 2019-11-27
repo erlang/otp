@@ -68,15 +68,13 @@
     <marker id="props_file"></marker>
     <p><em>File Properties</em></p>
 
-    <p>When the web server is started
-    at application start time, the properties are to be fetched from a
-    configuration file that can consist of a regular Erlang property
-    list, that is, <c>[{Option, Value}]</c>, where <c> Option = property()
-    </c> and <c>Value = term()</c>, followed by a full stop, or for
-    backwards compatibility, an Apache-like configuration file. If the
-    web server is started dynamically at runtime,
-    a file can still be specified but also the complete property
-    list.</p>
+    <p>When the web server is started at application start time, the
+    properties are to be fetched from a configuration file that can
+    consist of a regular Erlang property list, that is, <c>[{Option,
+    Value}]</c>, where <c> Option = property() </c> and <c>Value =
+    term()</c>, followed by a full stop. If the web server is started
+    dynamically at runtime, a file can still be specified but also the
+    complete property list.</p>
     
     <taglist>
       <tag><marker id="prop_proplist_file"></marker>{proplist_file, path()}</tag>
@@ -87,34 +85,9 @@
 	properties.</p>
       </item>
 
-      <tag><marker id="prop_file"></marker>{file, path()}</tag>
-      <item> 
-	<p>If this property is defined, <c>Inets</c> expects to find all 
-	other properties defined in this file, which uses Apache-like 
-	syntax. The file must include all properties listed 
-	under mandatory properties. The Apache-like syntax is the property, 
-	written as one word where each new word begins with a capital, 
-	followed by a white-space, followed by the value, followed by a 
-	new line.</p>
-	<p>Example:</p>
-	<code>
-{server_root, "/urs/local/www"} -> ServerRoot /usr/local/www</code>
-	  
-	<p>A few exceptions are documented
-	  for each property that behaves differently,
-	  and the special cases <c>{directory, {path(), PropertyList}}</c> 
-	  and <c>{security_directory, {Dir, PropertyList}}</c>, are represented
-	  as:</p>
-	<pre>
-	  <![CDATA[
-<Directory Dir>
- <Properties handled as described above> 
-</Directory>
-         ]]></pre>
-      </item>
     </taglist>
     <note>
-	<p>The properties <c>proplist_file</c> and <c>file</c> are mutually exclusive. Also newer properties may not be supported as Apache-like options, this is a legacy feature.</p>
+	<p>Note support for legacy configuration file with Apache syntax is dropped in OTP-23.</p>
     </note>
 
     <marker id="props_mand"></marker>
@@ -152,8 +125,7 @@
     <taglist>
       <tag><marker id="prop_bind_address"></marker>{bind_address, ip_address() | hostname() | any}</tag>
       <item>
-	<p>Default is <c>any</c>. <c>any</c> is denoted <em>*</em> 
-	in the Apache-like configuration file.</p>
+	<p>Default is <c>any</c></p>
       </item>
 
       <tag><marker id="profile"></marker>{profile, atom()}</tag>
@@ -303,7 +275,7 @@
           1590. File suffixes are mapped to MIME types before file delivery.
           The mapping between file suffixes and MIME types can be specified
 	  as an Apache-like file or directly in the property list. Such
-          a file can look like the follwoing:</p>
+        a file can look like the follwoing:</p>
         <pre>
 # MIME type	Extension  
 text/html	html htm
@@ -519,19 +491,8 @@ Transport: TLS
 	<code>{re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}</code>
 	
 	<p>Access to http://your.server.org/~bob/foo.gif would refer to
-	the file /home/bob/public/foo.gif.
+	the file /home/bob/public/foo.gif. </p>
 
-        In an Apache-like configuration file, <c>Re</c> is separated
-        from <c>Replacement</c> with one single space, and as expected
-        backslashes do not need to be backslash escaped, the
-        same example would become:</p>
-
-        <code>ReWrite ^/[~]([^/]+)(.*)$ /home/\1/public\2</code>
-
-        <p>Beware of trailing space in <c>Replacement</c> to be used.
-        If you must have a space in <c>Re</c>, use, for example, the character 
-	encoding <c>\040</c>, see 
-	<seealso marker="stdlib:re">re(3)</seealso>.</p>
       </item>
 
       <tag><marker id="prop_dir_idx"></marker>{directory_index, [string()]}</tag>      
@@ -799,9 +760,7 @@ Transport: TLS
 	<p>Sets the type of authentication database that is used for the
 	directory. The key difference between the different methods is
 	that dynamic data can be saved when Mnesia and Dets
-	are used.
-	This property is called <c>AuthDbType</c> in the Apache-like
-	configuration files.</p>
+	are used.</p>
       </item>
 
       <tag><marker id="prop_auth_user_file"></marker>{auth_user_file, path()}</tag>
@@ -1165,30 +1124,7 @@ Transport: TLS
           closing the connection.</p>
       </desc>
     </func>
-
-    <func>
-      <name since="">Module:load(Line, AccIn)-> eof | ok | {ok, AccOut} | {ok, AccOut, {Option, Value}} | {ok, AccOut, [{Option, Value}]} | {error, Reason}</name>
-      <fsummary>Converts a line in an Apache-like config 
-	file to an <c>{Option, Value}</c> tuple.</fsummary>
-      <type>
-        <v>Line = string()</v>
-        <v>AccIn = [{Option, Value}]</v>
-	<v>AccOut = [{Option, Value}]</v>
-        <v>Option = property()</v>
-        <v>Value = term() </v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-	<p>Converts a line in an Apache-like
-	  configuration file to an <c>{Option, Value}</c> tuple. Some
-	  more complex configuration options, such as <c>directory</c>
-	  and <c>security_directory</c>, create an
-	  accumulator. This function only needs clauses for the
-	  options implemented by this particular callback module.
-	</p>
-      </desc>
-    </func>
-    
+ 
     <func>
       <name since="">Module:remove(ConfigDB) -> ok | {error, Reason} </name>
       <fsummary>Callback function that is called when the web server is closed.</fsummary>

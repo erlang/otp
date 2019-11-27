@@ -82,8 +82,7 @@ all() ->
      mime_types_format,
      erl_script_timeout_default,
      erl_script_timeout_option,
-     erl_script_timeout_proplist,
-     erl_script_timeout_apache
+     erl_script_timeout_proplist
     ].
 
 groups() ->
@@ -1548,22 +1547,11 @@ reload_config_file(Config) when is_list(Config) ->
         "{server_root,\"" ++ ServerRoot ++  "\"}," ++
         "{document_root,\"" ++ proplists:get_value(doc_root, Config) ++ "\"}" ++
         "].",
-    NewConfigApache =
-        "BindAddress localhost\n" ++
-        "Port " ++ integer_to_list(Port) ++ "\n" ++
-        "ServerName httpd_test_new_apache\n" ++
-        "ServerRoot " ++ ServerRoot ++ "\n" ++
-        "DocumentRoot " ++ proplists:get_value(doc_root, Config) ++ "\n",
-
+    
     %% Test Erlang term format
     ok = file:write_file(HttpdConf, NewConfig),
     ok = httpd:reload_config(HttpdConf, non_disturbing),
-    "httpd_test_new" = proplists:get_value(server_name, httpd:info(Server)),
-
-    %% Test Apache format
-    ok = file:write_file(HttpdConf, NewConfigApache),
-    ok = httpd:reload_config(HttpdConf, non_disturbing),
-    "httpd_test_new_apache" = proplists:get_value(server_name, httpd:info(Server)).
+    "httpd_test_new" = proplists:get_value(server_name, httpd:info(Server)).
 
 %%-------------------------------------------------------------------------
 mime_types_format(Config) when is_list(Config) -> 
@@ -1756,47 +1744,6 @@ erl_script_timeout_proplist(Config) when is_list(Config) ->
     {ok, {_, _, Body}} = httpc:request(Url),
     ct:log("Response: ~p~n", [Body]),
     verify_body(Body, 3000),
-    inets:stop().
-
-erl_script_timeout_apache(Config) when is_list(Config) ->
-    HttpdConf = filename:join(get_tmp_dir(Config),
-                              "httpd_erl_script_timeout.conf"),
-    MimeTypes = filename:join(get_tmp_dir(Config),
-                              "erl_script_timeout_mime_types.conf"),
-
-    MimeTypesConf =
-        "html\n" ++
-        "text/html\n",
-
-    ok = file:write_file(MimeTypes, MimeTypesConf),
-
-    ServerConfig =
-        "Port 0\n" ++
-        "ServerName localhost\n" ++
-        "ServerRoot ./\n" ++
-        "DocumentRoot ./\n" ++
-        "BindAddress 0.0.0.0\n" ++
-        "MimeTypes " ++ MimeTypes ++ "\n" ++
-        "Modules mod_esi\n" ++
-        "ErlScriptTimeout 8\n" ++
-        "ErlScriptAlias /erl httpd_example\n",
-
-    ok = file:write_file(HttpdConf, ServerConfig),
-
-    inets:start(),
-    {ok, Pid} =	inets:start(httpd,
-                            [{file, HttpdConf}]),
-    Info = httpd:info(Pid),
-    verify_timeout(Info, 8),
-
-    Port = proplists:get_value(port, Info),
-
-    %% Verify:  6 =< erl_script_timeout =< 10
-    Url = http_get_url(Port, 500, 6000, 4000),
-
-    {ok, {_, _, Body}} = httpc:request(Url),
-    ct:log("Response: ~p~n", [Body]),
-    verify_body(Body, 6000),
     inets:stop().
 
 tls_alert(Config) when is_list(Config) ->

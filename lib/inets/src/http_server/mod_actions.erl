@@ -19,7 +19,7 @@
 %%
 %%
 -module(mod_actions).
--export([do/1,load/2, store/2]).
+-export([do/1, store/2]).
 
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
@@ -77,23 +77,6 @@ script(RequestURI, Method, [_ | Rest]) ->
 %%
 %% Configuration
 %%
-
-%% load
-
-load("Action "++  Action, []) ->
-  case re:split(Action, " ", [{return, list}]) of
-      [MimeType, CGIScript] ->
-	  {ok,[],{action, {MimeType, CGIScript}}};
-      _ ->
-	  {error,?NICE(string:strip(Action)++" is an invalid Action")}
-  end;
-load("Script " ++ Script,[]) ->
-  case re:split(Script, " ", [{return, list}]) of
-      [Method, CGIScript] ->
-	  {ok,[],{script, {Method, CGIScript}}};
-      _ ->
-	  {error,?NICE(string:strip(Script)++" is an invalid Script")}
-  end.
 
 store({action, {MimeType, CGIScript}} = Conf, _) when is_list(MimeType),
 						      is_list(CGIScript)  ->
