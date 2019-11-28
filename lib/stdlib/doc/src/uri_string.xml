@@ -322,9 +322,9 @@
         <pre>
 1> <input>URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",</input>
 1> port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
-#{fragment => "top",host => "example.com",
-  path => "/over/there",port => 8042,query => "?name=ferret",
-  scheme => foo,userinfo => "user"}
+#{fragment => "nose",host => "example.com",
+  path => "/over/there",port => 8042,query => "name=ferret",
+  scheme => "foo",userinfo => "user"}
 
 2> <input>uri_string:recompose(URIMap).</input>
 "foo://example.com:8042/over/there?name=ferret#nose"</pre>
