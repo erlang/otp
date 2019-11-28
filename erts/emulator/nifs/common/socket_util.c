@@ -1082,10 +1082,30 @@ char* esock_decode_timeval(ErlNifEnv*      env,
     if (!GET_MAP_VAL(env, eTime, esock_atom_usec, &eUSec))
         return ESOCK_STR_EINVAL;
 
-    if (!GET_LONG(env, eSec, &timeP->tv_sec))
-        return ESOCK_STR_EINVAL;
-    
-#if (SIZEOF_INT == 4)
+    /* On some platforms (e.g. OpenBSD) this is a 'long long' and on others
+     * (e.g. Linux) its a long.
+     * As long as they are both 64 bits, its easy (use our own signed 64-bit int
+     * and then cast). But if they are either not 64 bit, or they are of different size
+     * then we make it easy on ourselves and use long and then cast to whatever
+     * type sec is.
+     */
+#if (SIZEOF_LONG_LONG == SIZEOF_LONG) && (SIZEOF_LONG == 8)
+    {
+        ErlNifSInt64 sec;
+        if (!GET_INT64(env, eSec, &sec))
+            return ESOCK_STR_EINVAL;
+        timeP->tv_sec = (typeof(timeP->tv_sec)) sec;
+    }
+#else
+    {
+        long sec;
+        if (!GET_LONG(env, eSec, &sec))
+            return ESOCK_STR_EINVAL;
+        timeP->tv_sec = (typeof(timeP->tv_sec)) sec;
+    }
+#endif
+
+ #if (SIZEOF_INT == 4)
     {
         int usec;
         if (!GET_INT(env, eUSec, &usec))
