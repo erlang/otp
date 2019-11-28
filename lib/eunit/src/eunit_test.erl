@@ -164,7 +164,7 @@ macro_test_() ->
  		 {ok, ok} = run_testfun(F)
  	     end),
       ?_test(begin
- 		 {?LINE, F} = ?_assertEqual(3, 1+1),
+ 		 {?LINE, F} = ?_assertEqual(id(3), id(1+1)),
  		 {error,{error,{assertEqual_failed,
 				[{module,_},
 				 {line,_},
@@ -175,7 +175,7 @@ macro_test_() ->
 		     = run_testfun(F)
  	     end),
       ?_test(begin
-		 {?LINE, F} = ?_assertNotEqual(1, 0),
+		 {?LINE, F} = ?_assertNotEqual(id(1), id(0)),
 		 {ok, ok} = run_testfun(F)
 	     end),
       ?_test(begin
@@ -401,5 +401,8 @@ multi_setup([{Tag, S} | Es], CleanupPrev) ->
     multi_setup([{Tag, S, fun ok/1} | Es], CleanupPrev);
 multi_setup([], CleanupAll) ->
     {fun (Rs) -> Rs end, CleanupAll}.
+
+id(I) ->
+    I.
 
 ok(_) -> ok.
