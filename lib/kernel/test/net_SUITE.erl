@@ -48,6 +48,7 @@
 -export([
          %% *** API Basic ***
          api_b_gethostname/1,
+         api_b_getifaddrs/1,
          api_b_name_and_addr_info/1,
          
          api_b_name_and_index/1
@@ -117,6 +118,7 @@ api_cases() ->
 api_basic_cases() ->
     [
      api_b_gethostname,
+     api_b_getifaddrs,
      api_b_name_and_addr_info,
      api_b_name_and_index
     ].
@@ -189,6 +191,33 @@ api_b_gethostname() ->
     case net:gethostname() of
         {ok, Hostname} ->
             i("hostname: ~s", [Hostname]),
+            ok;
+        {error, Reason} ->
+            ?FAIL(Reason)
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This is a *very* basic test. It simply calls the function and expect
+%% it to succeed...
+api_b_getifaddrs(suite) ->
+    [];
+api_b_getifaddrs(doc) ->
+    [];
+api_b_getifaddrs(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_getifaddrs,
+           fun() ->
+                   ok = api_b_getifaddrs()
+           end).
+
+
+api_b_getifaddrs() ->
+    case net:getifaddrs() of
+        {ok, IfAddrs} ->
+            i("IfAddrs: "
+              "~n   ~p", [IfAddrs]),
             ok;
         {error, Reason} ->
             ?FAIL(Reason)
