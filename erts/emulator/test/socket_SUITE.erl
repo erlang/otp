@@ -1974,29 +1974,30 @@ linux_which_meminfo() ->
             io:format("Memory: ~s"
                       "~n", [MemTotal]),
             case string:tokens(MemTotal, [$ ]) of
-                [MemSz, MemUnit] ->
-                    MemSz2 = 
+                [MemSzStr, MemUnit] ->
+                    MemSz2 = list_to_integer(MemSzStr),
+                    MemSz3 = 
                         case string:to_lower(MemUnit) of
                             "kb" ->
-                                MemSz;
+                                MemSz2;
                             "mb" ->
-                                MemSz*1024;
+                                MemSz2*1024;
                             "gb" ->
-                                MemSz*1024*1024;
+                                MemSz2*1024*1024;
                             _ ->
                                 throw(noinfo)
                         end,
                     if
-                        (MemSz2 >= 8388608) ->
+                        (MemSz3 >= 8388608) ->
                             0;
-                        (MemSz2 >= 4194304) ->
+                        (MemSz3 >= 4194304) ->
                             1;
-                        (MemSz2 >= 2097152) ->
+                        (MemSz3 >= 2097152) ->
                             2;
                         true ->
                             3
                     end;
-                _ ->
+                _X ->
                     0
             end;
         _ ->
