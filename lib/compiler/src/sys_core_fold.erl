@@ -876,25 +876,45 @@ fold_apply(Apply, _, _) -> Apply.
 
 %% Handling remote calls. The module/name fields have been processed.
 
-call(#c_call{args=As}=Call, #c_literal{val=M}=M0, #c_literal{val=N}=N0, Sub) ->
-    case get(no_inline_list_funcs) of
-  	true ->
-	    call_1(Call, M0, N0, As, Sub);
-  	false ->
-	    case sys_core_fold_lists:call(Call, M, N, As) of
-		none ->
-		    call_1(Call, M0, N0, As, Sub);
-		Core ->
-		    expr(Core, Sub)
-	    end
-
-      end;
-call(#c_call{args=As}=Call, M, N, Sub) ->
-    call_1(Call, M, N, As, Sub).
-
-call_1(Call, M, N, As0, Sub) ->
+call(#c_call{args=As0}=Call0, #c_literal{val=M}=M0, #c_literal{val=N}=N0, Sub) ->
     As1 = expr_list(As0, value, Sub),
-    fold_call(Call#c_call{args=As1}, M, N, As1, Sub).
+    case simplify_call(Call0, M, N, As1) of
+        #c_literal{}=Lit ->
+            Lit;
+        #c_call{args=As}=Call ->
+            case get(no_inline_list_funcs) of
+                true ->
+                    fold_call(Call, M0, N0, As, Sub);
+                false ->
+                    case sys_core_fold_lists:call(Call, M, N, As) of
+                        none -> fold_call(Call, M0, N0, As, Sub);
+                        Core -> expr(Core, Sub)
+                    end
+            end
+    end;
+call(#c_call{args=As0}=Call, M, N, Sub) ->
+    As = expr_list(As0, value, Sub),
+    fold_call(Call#c_call{args=As}, M, N, As, Sub).
+
+%% Rewrite certain known functions to BIFs, improving performance
+%% slightly at the cost of making tracing and stack traces incorrect.
+simplify_call(Call, maps, get, [Key, Map]) ->
+    rewrite_call(Call, erlang, map_get, [Key, Map]);
+simplify_call(Call, maps, is_key, [Key, Map]) ->
+    rewrite_call(Call, erlang, is_map_key, [Key, Map]);
+simplify_call(_Call, maps, new, []) ->
+    #c_literal{val=#{}};
+simplify_call(Call, maps, size, [Map]) ->
+    rewrite_call(Call, erlang, map_size, [Map]);
+simplify_call(Call, _, _, Args) ->
+    Call#c_call{args=Args}.
+
+%% rewrite_call(Call0, Mod, Func, Args, Sub) -> Call
+%%  Rewrites a call to the given MFA.
+rewrite_call(Call, Mod, Func, Args) ->
+    ModLit = #c_literal{val=Mod},
+    FuncLit = #c_literal{val=Func},
+    Call#c_call{module=ModLit,name=FuncLit,args=Args}.
 
 %% fold_call(Call, Mod, Name, Args, Sub) -> Expr.
 %%  Try to safely evaluate the call.  Just try to evaluate arguments,

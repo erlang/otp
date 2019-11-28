@@ -1872,15 +1872,18 @@ t_bif_map_get(Config) when is_list(Config) ->
     "v3" = maps:get(<<"k2">>, M1),
 
     %% error cases
+    %%
+    %% Note that the stack trace is ignored because the compiler may have
+    %% rewritten maps:get/2 to map_get.
     do_badmap(fun(T) ->
-		      {'EXIT',{{badmap,T},[{maps,get,_,_}|_]}} =
+		      {'EXIT',{{badmap,T},_}} =
 			  (catch maps:get(a, T))
 	      end),
 
-    {'EXIT',{{badkey,{1,1}},[{maps,get,_,_}|_]}} =
+    {'EXIT',{{badkey,{1,1}},_}} =
 	(catch maps:get({1,1}, #{{1,1.0} => "tuple"})),
-    {'EXIT',{{badkey,a},[{maps,get,_,_}|_]}} = (catch maps:get(a, #{})),
-    {'EXIT',{{badkey,a},[{maps,get,_,_}|_]}} =
+    {'EXIT',{{badkey,a},_}} = (catch maps:get(a, #{})),
+    {'EXIT',{{badkey,a},_}} =
 	(catch maps:get(a, #{b=>1, c=>2})),
     ok.
 
@@ -1942,8 +1945,11 @@ t_bif_map_is_key(Config) when is_list(Config) ->
     false = maps:is_key(1.0, maps:put(1, "number", M1)),
 
     %% error case
+    %%
+    %% Note that the stack trace is ignored because the compiler may have
+    %% rewritten maps:is_key/2 to is_map_key.
     do_badmap(fun(T) ->
-		      {'EXIT',{{badmap,T},[{maps,is_key,_,_}|_]}} =
+		      {'EXIT',{{badmap,T},_}} =
 			  (catch maps:is_key(a, T))
 	      end),
     ok.
