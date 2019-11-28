@@ -174,6 +174,8 @@ misc() ->
      timeout_memory_leak,
      wait_for_whole_response,
      post_204_chunked,
+     head_chunked_empty_body,
+     head_empty_body,
      chunkify_fun
     ].
 
@@ -1423,7 +1425,7 @@ post_204_chunked(_Config) ->
     {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
     {ok,{_,Port}} = inet:sockname(ListenSocket),
     spawn(fun () -> custom_server(Msg, Chunk, ListenSocket,
-                                  fun post_204_receive/0) end),
+                                  fun custom_receive/0) end),
 
     {ok,Host} = inet:gethostname(),
     End = "/cgi-bin/erl/httpd_example:post_204",
@@ -1433,7 +1435,7 @@ post_204_chunked(_Config) ->
     %% Second request times out in the faulty case.
     {ok, _} = httpc:request(post, {URL, [], "text/html", []}, [], []).
 
-post_204_receive() ->
+custom_receive() ->
     receive
         {tcp, _, Msg} ->
             ct:log("Message received: ~p", [Msg])
@@ -1459,6 +1461,58 @@ send_response(Msg, Chunk, Socket) ->
     gen_tcp:send(Socket, Msg),
     timer:sleep(250),
     gen_tcp:send(Socket, Chunk).
+
+%%--------------------------------------------------------------------
+head_chunked_empty_body() ->
+    [{doc,"Test that HTTP responses (to HEAD requests) with 'Transfer-Encoding: chunked' and empty chunked-encoded body do not freeze the http client"}].
+head_chunked_empty_body(_Config) ->
+    Msg = "HTTP/1.1 403 Forbidden\r\n" ++
+        "Date: Thu, 23 Aug 2018 13:36:29 GMT\r\n" ++
+        "Content-Type: text/html\r\n" ++
+        "Server: inets/6.5.2.3\r\n" ++
+        "Cache-Control: no-cache\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Expires: Fri, 24 Aug 2018 07:49:35 GMT\r\n" ++
+        "Transfer-Encoding: chunked\r\n" ++
+        "\r\n",
+    Chunk = "0\r\n\r\n",
+
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+    spawn(fun () -> custom_server(Msg, Chunk, ListenSocket,
+                                  fun custom_receive/0) end),
+    {ok,Host} = inet:gethostname(),
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port),
+    {ok, _} = httpc:request(head, {URL, []}, [], []),
+    timer:sleep(500),
+    %% Second request times out in the faulty case.
+    {ok, _} = httpc:request(head, {URL, []}, [], []).
+
+%%--------------------------------------------------------------------
+head_empty_body() ->
+    [{doc,"Test that HTTP responses (to HEAD requests) with 'Transfer-Encoding: chunked' and empty body do not freeze the http client"}].
+head_empty_body(_Config) ->
+    Msg = "HTTP/1.1 403 Forbidden\r\n" ++
+        "Date: Thu, 23 Aug 2018 13:36:29 GMT\r\n" ++
+        "Content-Type: text/html\r\n" ++
+        "Server: inets/6.5.2.3\r\n" ++
+        "Cache-Control: no-cache\r\n" ++
+        "Pragma: no-cache\r\n" ++
+        "Expires: Fri, 24 Aug 2018 07:49:35 GMT\r\n" ++
+        "Transfer-Encoding: chunked\r\n" ++
+        "\r\n",
+    NoChunk = "", %% Do not chunk encode!
+
+    {ok, ListenSocket} = gen_tcp:listen(0, [{active,once}, binary]),
+    {ok,{_,Port}} = inet:sockname(ListenSocket),
+    spawn(fun () -> custom_server(Msg, NoChunk, ListenSocket,
+                                  fun custom_receive/0) end),
+    {ok,Host} = inet:gethostname(),
+    URL = ?URL_START ++ Host ++ ":" ++ integer_to_list(Port),
+    {ok, _} = httpc:request(head, {URL, []}, [], []),
+    timer:sleep(500),
+    %% Second request times out in the faulty case.
+    {ok, _} = httpc:request(head, {URL, []}, [], []).
 
 %%--------------------------------------------------------------------
 chunkify_fun() ->
