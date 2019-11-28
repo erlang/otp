@@ -31450,6 +31450,8 @@ tpp_tcp_client_sock_close(Sock, Path) ->
         ok ->
             unlink_path(Path),
             ok;
+        {error, closed} ->
+            ok;
         {error, Reason} ->
             ?SEV_EPRINT("failed closing: "
                         "~n   Reason: ~p", [Reason]),
