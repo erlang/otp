@@ -69,9 +69,14 @@
 %% Test cases
 -export([
          %% *** API Misc ***
+         api_m_info/1,
          api_m_debug/1,
 
          %% *** API Basic ***
+         api_b_open_and_info_udp4/1,
+         api_b_open_and_info_udp6/1,
+         api_b_open_and_info_tcp4/1,
+         api_b_open_and_info_tcp6/1,
          api_b_open_and_close_udp4/1,
          api_b_open_and_close_udp6/1,
          api_b_open_and_close_tcp4/1,
@@ -766,11 +771,16 @@ api_cases() ->
 
 api_misc_cases() ->
     [
+     api_m_info,
      api_m_debug
     ].
 
 api_basic_cases() ->
     [
+     api_b_open_and_info_udp4,
+     api_b_open_and_info_udp6,
+     api_b_open_and_info_tcp4,
+     api_b_open_and_info_tcp6,
      api_b_open_and_close_udp4,
      api_b_open_and_close_udp6,
      api_b_open_and_close_tcp4,
@@ -1959,6 +1969,39 @@ quiet_mode(Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% This is an extremely rudimentary test case, that just tests
+%% that we can call the "global" info function and that it returns
+%% a non-empty map...
+
+api_m_info(suite) ->
+    [];
+api_m_info(doc) ->
+    [];
+api_m_info(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_m_info,
+           fun() ->
+                   ok = api_m_info()
+           end).
+
+api_m_info() ->
+    case socket:info() of
+        Info when is_map(Info) ->
+            Sz = maps:size(Info),
+            if
+                (Sz > 0) ->
+                    ok;
+                true ->
+                    ?FAIL(no_info)
+            end;
+        Info ->
+            ?FAIL({invalid_info, Info})
+    end.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% A simple test case that tests that the global debug can be changed.
 %% At the same time, it will test the info function (since it uses it
 %% for verification).
@@ -2031,6 +2074,148 @@ api_m_debug() ->
 %%                                                                     %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and info of an IPv4 UDP (dgram) socket.
+%% With some extra checks...
+api_b_open_and_info_udp4(suite) ->
+    [];
+api_b_open_and_info_udp4(doc) ->
+    [];
+api_b_open_and_info_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_info_udp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = api_b_open_and_info(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and info of an IPv6 UDP (dgram) socket.
+%% With some extra checks...
+api_b_open_and_info_udp6(suite) ->
+    [];
+api_b_open_and_info_udp6(doc) ->
+    [];
+api_b_open_and_info_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_info_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = api_b_open_and_info(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and info of an IPv4 TCP (stream) socket.
+%% With some extra checks...
+api_b_open_and_info_tcp4(suite) ->
+    [];
+api_b_open_and_info_tcp4(doc) ->
+    [];
+api_b_open_and_info_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_info_tcp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = api_b_open_and_info(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and info of an IPv6 TCP (stream) socket.
+%% With some extra checks...
+api_b_open_and_info_tcp6(suite) ->
+    [];
+api_b_open_and_info_tcp6(doc) ->
+    [];
+api_b_open_and_info_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_b_open_and_info_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = api_b_open_and_info(InitState)
+           end).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_b_open_and_info(InitState) ->
+    Seq = 
+        [
+         #{desc => "open",
+           cmd  => fun(#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol} = State) -> 
+                           case socket:open(Domain, Type, Protocol) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get socket info",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           Info = socket:info(Sock),
+                           ?SEV_IPRINT("Got (some) Info: "
+                                       "~n   ~p", [Info]),
+                           {ok, State#{info => Info}}
+                   end},
+         #{desc => "validate socket info",
+           cmd  => fun(#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol,
+                         info     := #{domain        := Domain,
+                                       type          := Type,
+                                       protocol      := Protocol,
+                                       counters      := _,
+                                       num_readers   := 0,
+                                       num_writers   := 0,
+                                       num_acceptors := 0}}) ->
+                           ok;
+                      (#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol,
+                         info     := Info}) ->
+                           ?SEV_EPRINT("Unexpected Info: "
+                                       "~n   (expected) Domain:   ~p"
+                                       "~n   (expected) Type:     ~p"
+                                       "~n   (expected) Protocol: ~p"
+                                       "~n   ~p",
+                                       [Domain, Type, Protocol, Info]),
+                           {error, unexpected_infio}
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = _State) ->
+                           socket:close(Sock)
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
