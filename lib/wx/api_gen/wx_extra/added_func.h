@@ -1,5 +1,14 @@
 //  Added 3.0 functionality
 
+enum wxMouseWheelAxis
+    {
+        wxMOUSE_WHEEL_VERTICAL,
+        wxMOUSE_WHEEL_HORIZONTAL
+    };
+
+#define wxMOUSE_BTN_AUX1 4
+#define wxMOUSE_BTN_AUX2 5
+
 class WXDLLIMPEXP_AUI wxAuiTabArt
 {
 public:
@@ -57,4 +66,10 @@ class wxMenuBar {
     wxMenu *OSXGetAppleMenu() const { return m_appleMenu; }
     static void SetAutoWindowMenu( bool enable ) { s_macAutoWindowMenu = enable ; }
     static bool GetAutoWindowMenu() { return s_macAutoWindowMenu ; }
-}
+};
+
+
+class wxMouseEvent {
+ public:
+    wxMouseWheelAxis GetWheelAxis() const;
+};

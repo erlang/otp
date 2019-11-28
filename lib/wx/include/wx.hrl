@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -388,6 +388,9 @@
 -define('WX_GL_ROBUST_ACCESS',  wxe_util:get_const('WX_GL_ROBUST_ACCESS')).
 -define('WX_GL_SAMPLES',  wxe_util:get_const('WX_GL_SAMPLES')).
 -define('WX_GL_SAMPLE_BUFFERS',  wxe_util:get_const('WX_GL_SAMPLE_BUFFERS')).
+-define(wxBG_STYLE_ERASE,  wxe_util:get_const(wxBG_STYLE_ERASE)).
+-define(wxBG_STYLE_PAINT,  wxe_util:get_const(wxBG_STYLE_PAINT)).
+-define(wxBG_STYLE_TRANSPARENT,  wxe_util:get_const(wxBG_STYLE_TRANSPARENT)).
 -define(wxBLACK,  wxe_util:get_const(wxBLACK)).
 -define(wxBLACK_BRUSH,  wxe_util:get_const(wxBLACK_BRUSH)).
 -define(wxBLACK_DASHED_PEN,  wxe_util:get_const(wxBLACK_DASHED_PEN)).
@@ -412,6 +415,10 @@
 -define(wxGREY_BRUSH,  wxe_util:get_const(wxGREY_BRUSH)).
 -define(wxGREY_PEN,  wxe_util:get_const(wxGREY_PEN)).
 -define(wxHOURGLASS_CURSOR,  wxe_util:get_const(wxHOURGLASS_CURSOR)).
+-define(wxIMAGE_QUALITY_BICUBIC,  wxe_util:get_const(wxIMAGE_QUALITY_BICUBIC)).
+-define(wxIMAGE_QUALITY_BILINEAR,  wxe_util:get_const(wxIMAGE_QUALITY_BILINEAR)).
+-define(wxIMAGE_QUALITY_BOX_AVERAGE,  wxe_util:get_const(wxIMAGE_QUALITY_BOX_AVERAGE)).
+-define(wxIMAGE_QUALITY_NEAREST,  wxe_util:get_const(wxIMAGE_QUALITY_NEAREST)).
 -define(wxITALIC_FONT,  wxe_util:get_const(wxITALIC_FONT)).
 -define(wxLIGHT_GREY,  wxe_util:get_const(wxLIGHT_GREY)).
 -define(wxLIGHT_GREY_BRUSH,  wxe_util:get_const(wxLIGHT_GREY_BRUSH)).
@@ -736,6 +743,12 @@
 -define(wxACCEL_CTRL, 2).
 -define(wxACCEL_SHIFT, 4).
 -define(wxACCEL_CMD, ?wxACCEL_CTRL).
+% From "added__func.h"
+-define(wxMOUSE_BTN_AUX2, 5).
+-define(wxMOUSE_BTN_AUX1, 4).
+% From "added__func.h": wxMouseWheelAxis
+-define(wxMOUSE_WHEEL_VERTICAL, 0).
+-define(wxMOUSE_WHEEL_HORIZONTAL, 1).
 % From "app.h"
 -define(wxPRINT_WINDOWS, 1).
 -define(wxPRINT_POSTSCRIPT, 2).
@@ -1225,9 +1238,9 @@
 -define(wxALIGN_CENTRE, ?wxALIGN_CENTER).
 -define(wxALIGN_MASK, 3840).
 % From "defs.h": wxBackgroundStyle
--define(wxBG_STYLE_SYSTEM, 0).
--define(wxBG_STYLE_COLOUR, 1).
--define(wxBG_STYLE_CUSTOM, 2).
+-define(wxBG_STYLE_SYSTEM, wxe_util:get_const(wxBG_STYLE_SYSTEM)).
+-define(wxBG_STYLE_COLOUR, wxe_util:get_const(wxBG_STYLE_COLOUR)).
+-define(wxBG_STYLE_CUSTOM, wxe_util:get_const(wxBG_STYLE_CUSTOM)).
 % From "defs.h": wxBorder
 -define(wxBORDER_DEFAULT, 0).
 -define(wxBORDER_NONE, 2097152).
@@ -2032,8 +2045,8 @@
 -define(wxIMAGE_RESOLUTION_INCHES, 1).
 -define(wxIMAGE_RESOLUTION_CM, 2).
 % From "image.h"
--define(wxIMAGE_QUALITY_NORMAL, 0).
--define(wxIMAGE_QUALITY_HIGH, 1).
+-define(wxIMAGE_QUALITY_NORMAL, wxe_util:get_const(wxIMAGE_QUALITY_NORMAL)).
+-define(wxIMAGE_QUALITY_HIGH, wxe_util:get_const(wxIMAGE_QUALITY_HIGH)).
 % From "imaglist.h"
 -define(wxIMAGE_LIST_NORMAL, 0).
 -define(wxIMAGE_LIST_SMALL, 1).

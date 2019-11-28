@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,6 +50,16 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addAtom("wxRELEASE_NUMBER"); rt.addInt(wxRELEASE_NUMBER);
  rt.addTupleCount(2);
  rt.addAtom("wxSUBRELEASE_NUMBER"); rt.addInt(wxSUBRELEASE_NUMBER);
+ rt.addTupleCount(2);
+ rt.addAtom("wxIMAGE_QUALITY_HIGH"); rt.addInt(wxIMAGE_QUALITY_HIGH);
+ rt.addTupleCount(2);
+ rt.addAtom("wxIMAGE_QUALITY_NORMAL"); rt.addInt(wxIMAGE_QUALITY_NORMAL);
+ rt.addTupleCount(2);
+ rt.addAtom("wxBG_STYLE_COLOUR"); rt.addInt(wxBG_STYLE_COLOUR);
+ rt.addTupleCount(2);
+ rt.addAtom("wxBG_STYLE_CUSTOM"); rt.addInt(wxBG_STYLE_CUSTOM);
+ rt.addTupleCount(2);
+ rt.addAtom("wxBG_STYLE_SYSTEM"); rt.addInt(wxBG_STYLE_SYSTEM);
  rt.addTupleCount(2);
  rt.addAtom("wxFONTENCODING_UTF16"); rt.addInt(wxFONTENCODING_UTF16);
  rt.addTupleCount(2);
@@ -642,6 +652,27 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addAtom("WX_GL_SAMPLE_BUFFERS"); rt.addAtom("undefined");
  rt.addTupleCount(2);
 #endif
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("wxBG_STYLE_ERASE"); rt.addInt(wxBG_STYLE_ERASE);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxBG_STYLE_ERASE"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("wxBG_STYLE_PAINT"); rt.addInt(wxBG_STYLE_PAINT);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxBG_STYLE_PAINT"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("wxBG_STYLE_TRANSPARENT"); rt.addInt(wxBG_STYLE_TRANSPARENT);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxBG_STYLE_TRANSPARENT"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
    rt.addAtom("wxBLACK"); rt.add(*(wxBLACK));
    rt.addTupleCount(2);
    rt.addAtom("wxBLACK_BRUSH"); rt.addRef(getRef((void *)wxBLACK_BRUSH,memenv),"wxBrush");
@@ -730,6 +761,34 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
    rt.addTupleCount(2);
    rt.addAtom("wxHOURGLASS_CURSOR"); rt.addRef(getRef((void *)wxHOURGLASS_CURSOR,memenv),"wxCursor");
    rt.addTupleCount(2);
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("wxIMAGE_QUALITY_BICUBIC"); rt.addInt(wxIMAGE_QUALITY_BICUBIC);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxIMAGE_QUALITY_BICUBIC"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("wxIMAGE_QUALITY_BILINEAR"); rt.addInt(wxIMAGE_QUALITY_BILINEAR);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxIMAGE_QUALITY_BILINEAR"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("wxIMAGE_QUALITY_BOX_AVERAGE"); rt.addInt(wxIMAGE_QUALITY_BOX_AVERAGE);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxIMAGE_QUALITY_BOX_AVERAGE"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
+#if wxCHECK_VERSION(3,0,0)
+ rt.addAtom("wxIMAGE_QUALITY_NEAREST"); rt.addInt(wxIMAGE_QUALITY_NEAREST);
+ rt.addTupleCount(2);
+#else
+ rt.addAtom("wxIMAGE_QUALITY_NEAREST"); rt.addAtom("undefined");
+ rt.addTupleCount(2);
+#endif
    rt.addAtom("wxITALIC_FONT"); rt.addRef(getRef((void *)wxITALIC_FONT,memenv),"wxFont");
    rt.addTupleCount(2);
    rt.addAtom("wxLIGHT_GREY"); rt.add(*(wxLIGHT_GREY));
@@ -787,7 +846,7 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addAtom("wx_GL_COMPAT_PROFILE"); rt.addAtom("undefined");
  rt.addTupleCount(2);
 #endif
- rt.endList(321);
+ rt.endList(333);
  rt.addTupleCount(2);
   rt.send();
 }
