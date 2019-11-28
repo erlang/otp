@@ -1714,7 +1714,7 @@ case wxWindow_IsDoubleBuffered: { // wxWindow::IsDoubleBuffered
  break;
 }
 #endif
-#if wxCHECK_VERSION(3,0,0) || (defined(__WXMAC__) && wxCHECK_VERSION(3,1,0))
+#if wxCHECK_VERSION(3,1,0) || (!defined(__WXMAC__) && wxCHECK_VERSION(3,0,0))
 case wxWindow_SetDoubleBuffered: { // wxWindow::SetDoubleBuffered
  wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
  bool * on = (bool *) bp; bp += 4;
@@ -25900,6 +25900,15 @@ case wxMouseEvent_ShiftDown: { // wxMouseEvent::ShiftDown
  rt.addBool(Result);
  break;
 }
+#if wxCHECK_VERSION(3,0,0)
+case wxMouseEvent_GetWheelAxis: { // wxMouseEvent::GetWheelAxis
+ wxMouseEvent *This = (wxMouseEvent *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ int Result = This->GetWheelAxis();
+ rt.addInt(Result);
+ break;
+}
+#endif
 case wxSetCursorEvent_GetCursor: { // wxSetCursorEvent::GetCursor
  wxSetCursorEvent *This = (wxSetCursorEvent *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);

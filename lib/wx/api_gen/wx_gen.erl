@@ -1284,7 +1284,7 @@ parse_enums(Files) ->
     DontSearch = ["wxchar","filefn", "platform", "strconv", "filename", 
 		  "buffer", "string", "debug", "platinfo"],
     %% Arg need to patch some specials, atleast for wx-2.6
-    ExtraSearch = ["gtk_2glcanvas", "generic_2splash"],
+    ExtraSearch = ["gtk_2glcanvas", "generic_2splash", "added__func"],
     parse_enums(Files ++ ExtraSearch,gb_sets:from_list(DontSearch)).
 
 parse_enums([File|Files], Parsed) ->

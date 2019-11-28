@@ -147,7 +147,7 @@ docs: $(HTMLDIR)/$(APPLICATION).eix
 ## Here awk is used to find all xi:include files in $(BOOK_FILES)
 ## Then we look into all those files check for xi:includes
 BOOK_XI_INC_FILES:=$(foreach file,$(BOOK_FILES),$(shell awk -F\" '/xi:include/ {print $$2}' $(file))) $(BOOK_FILES)
-ALL_XI_INC_FILES:=$(foreach file,$(BOOK_XI_INC_FILES),$(shell awk -F\" '/xi:include/ {if ("$(dir $(file))" != "./") printf "$(dir $(file))"; print $$2}' $(file))) $(BOOK_XI_INC_FILES)
+ALL_XI_INC_FILES:=$(foreach file,$(BOOK_XI_INC_FILES),$(shell if [ -f $(file) ]; then awk -F\" '/xi:include/ {if ("$(dir $(file))" != "./") printf "$(dir $(file))"; print $$2}' $(file) ; fi)) $(BOOK_XI_INC_FILES)
 ifeq ($(TOPDOC), true)
 ALL_XI_INC_GEN_FILES:=$(filter-out book.xml,$(ALL_XI_INC_FILES)) $(BOOK_FILES:%=$(XMLDIR)/%)
 else
