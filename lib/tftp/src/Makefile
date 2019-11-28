@@ -36,16 +36,16 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-BEHAVIOUR_MODULES=
+BEHAVIOUR_MODULES= \
+	tftp \
+	tftp_logger
 
 MODULES = \
-	tftp \
 	tftp_app \
 	tftp_binary \
 	tftp_engine \
 	tftp_file \
 	tftp_lib \
-	tftp_logger \
 	tftp_sup 
 
 HRL_FILES = tftp.hrl
@@ -69,7 +69,10 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-
+EXTRA_ERLC_FLAGS = +warn_unused_vars
+ERL_COMPILE_FLAGS += \
+	-pz $(EBIN) \
+	$(EXTRA_ERLC_FLAGS)
 
 # ----------------------------------------------------
 # Targets
