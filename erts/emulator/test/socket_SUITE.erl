@@ -1875,6 +1875,8 @@ analyze_and_print_host_info() ->
             analyze_and_print_linux_host_info(Version);
 	{unix, openbsd} ->
 	    analyze_and_print_openbsd_host_info(Version);
+	{unix, freebsd} ->
+	    analyze_and_print_freebsd_host_info(Version);	    
         {unix, sunos} ->
             io:format("Solaris: ~s"
                       "~n", [Version]),
@@ -1939,6 +1941,80 @@ analyze_and_print_linux_host_info(Version) ->
         _:_:_ ->
             Factor
     end.
+
+linux_which_cpuinfo() ->
+    %% Check for x86 (Intel or AMD)
+    CPU =
+        try [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])] of
+            ["model name", ModelName | _] ->
+                ModelName;
+            _ ->
+                %% ARM (at least some distros...)
+                try [string:trim(S) || S <- string:tokens(os:cmd("grep \"Processor\" /proc/cpuinfo"), [$:,$\n])] of
+                    ["Processor", Proc | _] ->
+                        Proc;
+                    _ ->
+                        %% Ok, we give up
+                        throw(noinfo)
+                catch
+                    _:_:_ ->
+                        throw(noinfo)
+                end
+        catch
+            _:_:_ ->
+                throw(noinfo)
+        end,
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i \"bogomips\" /proc/cpuinfo"), [$:,$\n])] of
+        [_, BMips | _] ->
+            {ok, {CPU, BMips}};
+        _ ->
+            {ok, CPU}
+    catch
+        _:_:_ ->
+            {ok, CPU}
+    end.
+
+%% We *add* the value this return to the Factor.
+linux_which_meminfo() ->
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
+        [_, MemTotal] ->
+            io:format("Memory:"
+                      "~n   ~s"
+                      "~n", [MemTotal]),
+            case string:tokens(MemTotal, [$ ]) of
+                [MemSzStr, MemUnit] ->
+                    MemSz2 = list_to_integer(MemSzStr),
+                    MemSz3 = 
+                        case string:to_lower(MemUnit) of
+                            "kb" ->
+                                MemSz2;
+                            "mb" ->
+                                MemSz2*1024;
+                            "gb" ->
+                                MemSz2*1024*1024;
+                            _ ->
+                                throw(noinfo)
+                        end,
+                    if
+                        (MemSz3 >= 8388608) ->
+                            0;
+                        (MemSz3 >= 4194304) ->
+                            1;
+                        (MemSz3 >= 2097152) ->
+                            2;
+                        true ->
+                            3
+                    end;
+                _X ->
+                    0
+            end;
+        _ ->
+            0
+    catch
+        _:_:_ ->
+            0
+    end.
+
 
 %% Just to be clear: This is ***not*** scientific...
 analyze_and_print_openbsd_host_info(Version) ->
@@ -2029,79 +2105,95 @@ analyze_and_print_openbsd_host_info(Version) ->
 	    1
     end.
     
+
+analyze_and_print_freebsd_host_info(Version) ->
+    io:format("FreeBSD:"
+	      "~n   Version: ~p"
+	      "~n", [Version]),
+    Extract =
+	fun(Key) -> 
+		string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$:])
+	end,
+    try
+	begin
+	    CPU =
+		case Extract("hw.model") of
+		    ["hw.model", Model] ->
+			string:trim(Model);
+		    _ ->
+			"-"
+		end,
+	    CPUSpeed =
+		case Extract("hw.clockrate") of
+		    ["hw.clockrate", Speed] ->
+			list_to_integer(string:trim(Speed));
+		    _ ->
+			-1
+		end,
+	    NCPU =
+		case Extract("hw.ncpu") of
+		    ["hw.ncpu", N] ->
+			list_to_integer(string:trim(N));
+		    _ ->
+			-1
+		end,
+	    Memory =
+		case Extract("hw.physmem") of
+		    ["hw.physmem", PhysMem] ->
+			list_to_integer(string:trim(PhysMem)) div 1024;
+		    _ ->
+			-1
+		end,
+	    io:format("CPU:"
+		      "~n   Model: ~s"
+		      "~n   Speed: ~w"
+		      "~n   N:     ~w"
+		      "~nMemory:"
+		      "~n   ~w KB"
+		      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+	    CPUFactor =
+		if
+		    (CPUSpeed =:= -1) ->
+			1;
+		    (CPUSpeed >= 2000) ->
+			if
+			    (NCPU >= 4) ->
+				1;
+			    (NCPU >= 2) ->
+				2;
+			    true ->
+				3
+			end;
+		    true ->
+			if
+			    (NCPU >= 4) ->
+				2;
+			    (NCPU >= 2) ->
+				3;
+			    true ->
+				4
+			end
+		end,
+	    MemAddFactor =
+		if
+		    (Memory =:= -1) ->
+			0;
+		    (Memory >= 8388608) ->
+			0;
+		    (Memory >= 4194304) ->
+			1;
+		    (Memory >= 2097152) ->
+			2;
+		    true ->
+			3
+		end,
+	    CPUFactor + MemAddFactor
+	end
+    catch
+	_:_:_ ->
+	    1
+    end.
     
-linux_which_cpuinfo() ->
-    %% Check for x86 (Intel or AMD)
-    CPU =
-        try [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])] of
-            ["model name", ModelName | _] ->
-                ModelName;
-            _ ->
-                %% ARM (at least some distros...)
-                try [string:trim(S) || S <- string:tokens(os:cmd("grep \"Processor\" /proc/cpuinfo"), [$:,$\n])] of
-                    ["Processor", Proc | _] ->
-                        Proc;
-                    _ ->
-                        %% Ok, we give up
-                        throw(noinfo)
-                catch
-                    _:_:_ ->
-                        throw(noinfo)
-                end
-        catch
-            _:_:_ ->
-                throw(noinfo)
-        end,
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i \"bogomips\" /proc/cpuinfo"), [$:,$\n])] of
-        [_, BMips | _] ->
-            {ok, {CPU, BMips}};
-        _ ->
-            {ok, CPU}
-    catch
-        _:_:_ ->
-            {ok, CPU}
-    end.
-                 
-%% We *add* the value this return to the Factor.
-linux_which_meminfo() ->
-    try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
-        [_, MemTotal] ->
-            io:format("Memory:"
-                      "~n   ~s"
-                      "~n", [MemTotal]),
-            case string:tokens(MemTotal, [$ ]) of
-                [MemSzStr, MemUnit] ->
-                    MemSz2 = list_to_integer(MemSzStr),
-                    MemSz3 = 
-                        case string:to_lower(MemUnit) of
-                            "kb" ->
-                                MemSz2;
-                            "mb" ->
-                                MemSz2*1024;
-                            "gb" ->
-                                MemSz2*1024*1024;
-                            _ ->
-                                throw(noinfo)
-                        end,
-                    if
-                        (MemSz3 >= 8388608) ->
-                            0;
-                        (MemSz3 >= 4194304) ->
-                            1;
-                        (MemSz3 >= 2097152) ->
-                            2;
-                        true ->
-                            3
-                    end;
-                _X ->
-                    0
-            end;
-        _ ->
-            0
-    catch
-        _:_:_ ->
-            0
-    end.
 
 
 
