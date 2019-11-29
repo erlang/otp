@@ -271,7 +271,7 @@ static ERTS_INLINE void WUNLOCK_HASH(erts_rwmtx_t* lck)
 #  define IFN_EXCL(tb,cmd) (((tb)->common.is_thread_safe) || (cmd))
 #  define IS_HASH_RLOCKED(tb,hval) IFN_EXCL(tb,erts_lc_rwmtx_is_rlocked(GET_LOCK(tb,hval)))
 #  define IS_HASH_WLOCKED(tb,lck) IFN_EXCL(tb,erts_lc_rwmtx_is_rwlocked(lck))
-#  define IS_TAB_WLOCKED(tb) erts_lc_rwmtx_is_rwlocked(&(tb)->common.rwlock)
+#  define IS_TAB_WLOCKED(tb) (DB_LOCK_FREE(tb) || erts_lc_rwmtx_is_rwlocked(&(tb)->common.rwlock))
 #else
 #  define IS_HASH_RLOCKED(tb,hval) (1)
 #  define IS_HASH_WLOCKED(tb,hval) (1)
@@ -628,7 +628,7 @@ SWord db_unfix_table_hash(DbTableHash *tb)
     FixedDeletion* fixdel;
     SWord work = 0;
 
-    ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock)
+    ERTS_LC_ASSERT(IS_TAB_WLOCKED(tb)
                    || (erts_lc_rwmtx_is_rlocked(&tb->common.rwlock)
                        && !tb->common.is_thread_safe));
 restart:
@@ -2814,7 +2814,7 @@ begin_resizing(DbTableHash* tb)
     if (DB_USING_FINE_LOCKING(tb))
 	return !erts_atomic_xchg_acqb(&tb->is_resizing, 1);
     else
-        ERTS_LC_ASSERT(erts_lc_rwmtx_is_rwlocked(&tb->common.rwlock));
+        ERTS_LC_ASSERT(IS_TAB_WLOCKED(tb));
     return 1;
 }
 

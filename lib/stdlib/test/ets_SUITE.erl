@@ -2559,10 +2559,10 @@ write_concurrency(Config) when is_list(Config) ->
     NoHashMem = ets:info(No8,memory),
     NoHashMem = ets:info(No9,memory),
 
-    true = YesMem > NoHashMem,
-    true = YesMem > NoTreeMem,
+    true = YesMem > NoHashMem orelse erlang:system_info(schedulers) == 1,
+    true = YesMem > NoTreeMem orelse erlang:system_info(schedulers) == 1,
     true = YesMem > YesTreeMem,
-    true = YesTreeMem < NoTreeMem,
+    true = YesTreeMem < NoTreeMem orelse erlang:system_info(schedulers) == 1,
 
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency,foo}])),
     {'EXIT',{badarg,_}} = (catch ets_new(foo,[public,{write_concurrency}])),
@@ -4612,10 +4612,18 @@ test_table_counter_concurrency(WhatToTest) ->
     ok.
 
 test_table_size_concurrency(Config) when is_list(Config) ->
-    test_table_counter_concurrency(size).
+    case erlang:system_info(schedulers) of
+        1 -> {skip,"Only valid on smp > 1 systems"};
+        _ ->
+            test_table_counter_concurrency(size)
+    end.
 
 test_table_memory_concurrency(Config) when is_list(Config) ->
-    test_table_counter_concurrency(memory).
+    case erlang:system_info(schedulers) of
+        1 -> {skip,"Only valid on smp > 1 systems"};
+        _ ->
+            test_table_counter_concurrency(memory)
+    end.
 
 %% Tests that calling the ets:delete operation on a table T with
 %% decentralized counters works while ets:info(T, size) operations are
@@ -4756,7 +4764,7 @@ tab2file_do(FName, Opts, TableType) ->
     true = ets:info(Tab2, compressed),
     Smp = erlang:system_info(smp_support),
     Smp = ets:info(Tab2, read_concurrency),
-    Smp = ets:info(Tab2, write_concurrency),
+    Smp = ets:info(Tab2, write_concurrency) orelse erlang:system_info(schedulers) == 1,
     true = ets:delete(Tab2),
     verify_etsmem(EtsMem).
 
@@ -8159,15 +8167,15 @@ ets_new(Name, Opts, KeyRange) ->
     ets_new(Name, Opts, KeyRange, fun id/1).
 
 ets_new(Name, Opts0, KeyRange, KeyFun) ->
-    {CATree, Stimulate, RevOpts} =
-        lists:foldl(fun(cat_ord_set, {false, false, Lacc}) ->
-                            {true, false, [ordered_set | Lacc]};
-                       (stim_cat_ord_set, {false, false, Lacc}) ->
-                            {true, true, [ordered_set | Lacc]};
-                       (Other, {CAT, STIM, Lacc}) ->
-                            {CAT, STIM, [Other | Lacc]}
+    {_Smp, CATree, Stimulate, RevOpts} =
+        lists:foldl(fun(cat_ord_set, {Smp, false, false, Lacc}) ->
+                            {Smp, Smp, false, [ordered_set | Lacc]};
+                       (stim_cat_ord_set, {Smp, false, false, Lacc}) ->
+                            {Smp, Smp, Smp, [ordered_set | Lacc]};
+                       (Other, {Smp, CAT, STIM, Lacc}) ->
+                            {Smp, CAT, STIM, [Other | Lacc]}
                     end,
-                    {false, false, []},
+                    {erlang:system_info(schedulers) > 1,false, false, []},
                     Opts0),
     Opts = lists:reverse(RevOpts),
     EtsNewHelper = 

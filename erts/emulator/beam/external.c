@@ -106,7 +106,7 @@ static int is_external_string(Eterm obj, Uint* lenp);
 static byte* enc_atom(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
 static byte* enc_pid(ErtsAtomCacheMap *, Eterm, byte*, Uint32);
 struct B2TContext_t;
-static byte* dec_term(ErtsDistExternal*, ErtsHeapFactory*, byte*, Eterm*, struct B2TContext_t*);
+static byte* dec_term(ErtsDistExternal*, ErtsHeapFactory*, byte*, Eterm*, struct B2TContext_t*, int);
 static byte* dec_atom(ErtsDistExternal *, byte*, Eterm*);
 static byte* dec_pid(ErtsDistExternal *, ErtsHeapFactory*, byte*, Eterm*, byte tag);
 static Sint decoded_size(byte *ep, byte* endp, int internal_tags, struct B2TContext_t*);
@@ -1162,7 +1162,7 @@ erts_decode_dist_ext(ErtsHeapFactory* factory,
 	    goto error;
 	ep++;
     }
-    ep = dec_term(edep, factory, ep, &obj, NULL);
+    ep = dec_term(edep, factory, ep, &obj, NULL, 0);
     if (!ep)
 	goto error;
 
@@ -1196,7 +1196,7 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, byte **ext, Uint32 flags)
     } else {
         edep = NULL;
     }
-    ep = dec_term(edep, factory, ep, &obj, NULL);
+    ep = dec_term(edep, factory, ep, &obj, NULL, 0);
     if (!ep) {
 	return THE_NON_VALUE;
     }
@@ -1207,7 +1207,7 @@ Eterm erts_decode_ext(ErtsHeapFactory* factory, byte **ext, Uint32 flags)
 Eterm erts_decode_ext_ets(ErtsHeapFactory* factory, byte *ext)
 {
     Eterm obj;
-    ext = dec_term(NULL, factory, ext, &obj, NULL);
+    ext = dec_term(NULL, factory, ext, &obj, NULL, 1);
     ASSERT(ext);
     return obj;
 }
@@ -1574,7 +1574,7 @@ binary2term_create(ErtsDistExternal *edep, ErtsBinary2TermState *state,
 {
     Eterm res;
 
-    if (!dec_term(edep, factory, state->extp, &res, NULL))
+    if (!dec_term(edep, factory, state->extp, &res, NULL, 0))
 	res = THE_NON_VALUE;
     if (state->exttmp) {
 	state->exttmp = 0;
@@ -1796,7 +1796,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
 	    ErtsDistExternal fakedep;
             fakedep.flags = ctx->flags;
             fakedep.data = NULL;
-            dec_term(&fakedep, NULL, NULL, NULL, ctx);
+            dec_term(&fakedep, NULL, NULL, NULL, ctx, 0);
             break;
 	}
         case B2TDecodeFail:
@@ -3238,7 +3238,8 @@ dec_term(ErtsDistExternal *edep,
 	 ErtsHeapFactory* factory,
 	 byte* ep,
          Eterm* objp,
-	 B2TContext* ctx)
+	 B2TContext* ctx,
+         int ets_decode)
 {
 #define PSTACK_TYPE struct dec_term_hamt
     PSTACK_DECLARE(hamt_array, 5);
@@ -3912,7 +3913,7 @@ dec_term_atom_common:
 		    goto error;
 		}
 		factory->hp = hp;
-		ep = dec_term(edep, factory, ep, &temp, NULL);
+		ep = dec_term(edep, factory, ep, &temp, NULL, 0);
 		hp = factory->hp;
 		if (ep == NULL) {
 		    goto error;
@@ -4022,7 +4023,7 @@ dec_term_atom_common:
 		}
 		factory->hp = hp;
 		/* Index */
-		if ((ep = dec_term(edep, factory, ep, &temp, NULL)) == NULL) {
+		if ((ep = dec_term(edep, factory, ep, &temp, NULL, 0)) == NULL) {
 		    goto error;
 		}
 		if (!is_small(temp)) {
@@ -4031,7 +4032,7 @@ dec_term_atom_common:
 		old_index = unsigned_val(temp);
 
 		/* Uniq */
-		if ((ep = dec_term(edep, factory, ep, &temp, NULL)) == NULL) {
+		if ((ep = dec_term(edep, factory, ep, &temp, NULL, 0)) == NULL) {
 		    goto error;
 		}
 		if (!is_small(temp)) {
@@ -4098,7 +4099,7 @@ dec_term_atom_common:
 		}
 
 		/* Index */
-		if ((ep = dec_term(edep, factory, ep, &temp, NULL)) == NULL) {
+		if ((ep = dec_term(edep, factory, ep, &temp, NULL, 0)) == NULL) {
 		    goto error;
 		}
 		if (!is_small(temp)) {
@@ -4107,7 +4108,7 @@ dec_term_atom_common:
 		old_index = unsigned_val(temp);
 
 		/* Uniq */
-		if ((ep = dec_term(edep, factory, ep, &temp, NULL)) == NULL) {
+		if ((ep = dec_term(edep, factory, ep, &temp, NULL, 0)) == NULL) {
 		    goto error;
 		}
 		if (!is_small(temp)) {
@@ -4136,7 +4137,10 @@ dec_term_atom_common:
 	case ATOM_INTERNAL_REF2:
 	    n = get_int16(ep);
 	    ep += 2;
-	    if (n >= atom_table_size()) {
+            /* If this is an ets_decode we know that
+               the atom is valid, so we can skip the
+               validation check */
+	    if (!ets_decode && n >= atom_table_size()) {
 		goto error;
 	    }
 	    *objp = make_atom(n);
@@ -4144,7 +4148,10 @@ dec_term_atom_common:
 	case ATOM_INTERNAL_REF3:
 	    n = get_int24(ep);
 	    ep += 3;
-	    if (n >= atom_table_size()) {
+            /* If this is an ets_decode we know that
+               the atom is valid, so we can skip the
+               validation check */
+	    if (!ets_decode && n >= atom_table_size()) {
 		goto error;
 	    }
 	    *objp = make_atom(n);
@@ -5026,7 +5033,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
             erts_factory_tmp_init(&ctx->ctl_factory, ctx->ctl_heap, hsz, ERTS_ALC_T_DIST_TRANSCODE);
             ctx->msg_heap = NULL;
 
-            decp = dec_term(NULL, &ctx->ctl_factory, ob->extp, &ctx->ctl_term, NULL);
+            decp = dec_term(NULL, &ctx->ctl_factory, ob->extp, &ctx->ctl_term, NULL, 0);
             if (have_msg) {
                 ASSERT(decp == ob->msg_start); (void)decp;
                 ctx->b2t.u.sc.ep = NULL;
@@ -5086,7 +5093,7 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
     case TRANSCODE_DEC_MSG:
         if (ctx->b2t.reds <= 0)
             ctx->b2t.reds = 1;
-        decp = dec_term(NULL, NULL, NULL, NULL, &ctx->b2t);
+        decp = dec_term(NULL, NULL, NULL, NULL, &ctx->b2t, 0);
         if (ctx->b2t.state < B2TDone) {
             return -1;
         }
