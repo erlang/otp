@@ -82,7 +82,7 @@ extern int ei_plugin_socket_impl__;
 #else
 
 /* No gcc atomics; always lookup using ei_get_cbs_ctx()... */
-#define EI_HAVE_PLUGIN_SOCKET_IMPL__ 0
+#define EI_HAVE_PLUGIN_SOCKET_IMPL__ 1
 #define EI_SET_HAVE_PLUGIN_SOCKET_IMPL__ (void) 0
 
 #endif
