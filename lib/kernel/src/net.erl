@@ -92,8 +92,12 @@
                      broadaddr := socket:sockaddr(),
                      dstaddr   := socket:sockaddr()}.
 
+-type ifaddrs_filter()     :: all | default | inet | inet6 | packet |
+                              ifaddrs_filter_map() |
+                              ifaddrs_filter_fun().
 -type ifaddrs_filter_map() :: #{family := default | inet | inet6 | packet | all,
                                 flags  := any | [ifaddrs_flag()]}.
+-type ifaddrs_filter_fun() :: fun((ifaddrs()) -> boolean()).
 
 -type name_info_flags()         :: [name_info_flag()|name_info_flag_ext()].
 -type name_info_flag()          :: namereqd |
@@ -303,15 +307,15 @@ getaddrinfo(Host, Service)
 
 -ifdef(USE_ESOCK).
 getifaddrs() ->
-    getifaddrs(getifaddrs_filter_map_default()).
+    getifaddrs(default).
 -else.
 getifaddrs() ->
     erlang:error(notsup).
 -endif.
 
 
--spec getifaddrs(FilterMap) -> {ok, IfAddrs} | {error, Reason} when
-      FilterMap :: ifaddrs_filter_map(),
+-spec getifaddrs(Filter) -> {ok, IfAddrs} | {error, Reason} when
+      Filter    :: ifaddrs_filter(),
       IfAddrs   :: [ifaddrs()],
       Reason    :: term();
                 (Namespace) -> {ok, IfAddrs} | {error, Reason} when
@@ -320,45 +324,76 @@ getifaddrs() ->
       Reason    :: term().
 
 -ifdef(USE_ESOCK).
+getifaddrs(Filter) when is_atom(Filter) orelse is_map(Filter) ->
+    do_getifaddrs(getifaddrs_filter_map(Filter),
+                  fun() -> prim_net:getifaddrs(#{}) end);
+getifaddrs(Filter) when is_function(Filter, 1) ->
+    do_getifaddrs(Filter, fun() -> prim_net:getifaddrs(#{}) end);
 getifaddrs(Namespace) when is_list(Namespace) ->
-    prim_net:getifaddrs(#{netns => Namespace});
-getifaddrs(FilterMap) when is_map(FilterMap) ->
-    do_getifaddrs(getifaddrs_filter_map(FilterMap),
-                  fun() -> prim_net:getifaddrs(#{}) end).
+    prim_net:getifaddrs(#{netns => Namespace}).
 -else.
 -dialyzer({nowarn_function, getifaddrs/1}).
-getifaddrs(Namespace) when is_list(Namespace) ->
+getifaddrs(Filter) when is_atom(Filter) orelse
+                        is_map(Filter) orelse
+                        is_function(Filter) ->
     erlang:error(notsup);
-getifaddrs(FilterMap) when is_map(FilterMap) ->
+getifaddrs(Namespace) when is_list(Namespace) ->
     erlang:error(notsup).
 -endif.
 
 
--spec getifaddrs(FilterMap, Namespace) -> {ok, IfAddrs} | {error, Reason} when
-      FilterMap :: ifaddrs_filter_map(),
+-spec getifaddrs(Filter, Namespace) -> {ok, IfAddrs} | {error, Reason} when
+      Filter    :: ifaddrs_filter(),
       Namespace :: file:filename_all(),
       IfAddrs   :: [ifaddrs()],
       Reason    :: term().
 
-getifaddrs(FilterMap, Namespace)
-  when is_map(FilterMap) andalso is_list(Namespace) ->
-    do_getifaddrs(getifaddrs_filter_map(FilterMap),
-                  fun() -> getifaddrs(Namespace) end).
+getifaddrs(Filter, Namespace)
+  when (is_atom(Filter) orelse is_map(Filter)) andalso is_list(Namespace) ->
+    do_getifaddrs(getifaddrs_filter_map(Filter),
+                  fun() -> getifaddrs(Namespace) end);
+getifaddrs(Filter, Namespace)
+  when is_function(Filter, 1) andalso is_list(Namespace) ->
+    do_getifaddrs(Filter, fun() -> getifaddrs(Namespace) end).
 
-do_getifaddrs(FilterMap, GetIfAddrs) ->
+do_getifaddrs(Filter, GetIfAddrs) ->
     case GetIfAddrs() of
-        {ok, IfAddrs0} ->
-            Filter = fun(Elem) -> getifaddrs_filter(FilterMap, Elem) end,
+        {ok, IfAddrs0} when is_function(Filter) ->
             {ok, lists:filtermap(Filter, IfAddrs0)};
+        {ok, IfAddrs0} when is_map(Filter) ->
+            FilterFun = fun(Elem) -> getifaddrs_filter(Filter, Elem) end,
+            {ok, lists:filtermap(FilterFun, IfAddrs0)};
         {error, _} = ERROR ->
             ERROR
     end.
 
-getifaddrs_filter_map(FilterMap) ->
+getifaddrs_filter_map(all) ->
+    getifaddrs_filter_map_all();
+getifaddrs_filter_map(default) ->
+    getifaddrs_filter_map_default();
+getifaddrs_filter_map(inet) ->
+    getifaddrs_filter_map_inet();
+getifaddrs_filter_map(inet6) ->
+    getifaddrs_filter_map_inet6();
+getifaddrs_filter_map(packet) ->
+    getifaddrs_filter_map_packet();
+getifaddrs_filter_map(FilterMap) when is_map(FilterMap) ->
     maps:merge(getifaddrs_filter_map_default(), FilterMap).
+
+getifaddrs_filter_map_all() ->
+    #{family => all, flags => any}.
 
 getifaddrs_filter_map_default() ->
     #{family => default, flags => any}.
+
+getifaddrs_filter_map_inet() ->
+    #{family => inet, flags => any}.
+
+getifaddrs_filter_map_inet6() ->
+    #{family => inet6, flags => any}.
+
+getifaddrs_filter_map_packet() ->
+    #{family => packet, flags => any}.
 
 getifaddrs_filter(#{family := FFamily, flags := FFlags},
                   #{addr := #{family := Family}, flags := Flags} = _Entry)
@@ -383,7 +418,6 @@ getifaddrs_filter(#{family := FFamily, flags := FFlags},
     getifaddrs_filter_flags(FFlags, Flags);
 getifaddrs_filter(_Filter, _Entry) ->
     false.
-
 
 getifaddrs_filter_flags(any, _Flags) ->
     true;

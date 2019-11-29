@@ -52,7 +52,7 @@
 	<p>This type defines all addresses (and flags) associated with
 	the interface. </p>
 	<p>Not all fields of this map has to be present.
-	The flags field can be used to test this for some of the fields.
+	The flags field can be used to test for some of the fields.
 	For example <c>broadaddr</c> will only be present if the
 	<c>broadcast</c> flag is present in flags. </p>
       </desc>
@@ -61,17 +61,43 @@
       <name name="ifaddrs_flag"/>
     </datatype>
     <datatype>
+      <name name="ifaddrs_filter"/>
+      <desc>
+	<taglist>
+	  <tag>all</tag><item>All interfaces</item>
+	  <tag>default</tag><item>Interfaces with address family <c>inet</c> <em>and</em> <c>inet6</c></item>
+	  <tag>inet | inet6 | packet</tag><item>Interfaces with <em>only</em> the specified address family</item>
+	</taglist>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="ifaddrs_filter_map"/>
       <desc>
-	<p>The '<c>default</c>' value for <c>family</c> is interpreted
-	as <c>inet</c> <em>and</em> <c>inet6</c>. </p>
-	<p>Also, the <c>family</c> field can only have the specified values
-	(and not the all the values of socket:domain()). </p>
+	<p>The <c>family</c> field can only have the (above) specified values
+	(and not all the values of socket:domain()). </p>
 	<p>The use of the <c>flags</c> field is that any flag provided must
 	exist for the interface. </p>
 	<p>For example, if <c>family</c> is set to <c>inet</c> and <c>flags</c>
-	to <c>[broadcast, multicast]</c> only interfaces address family <c>inet</c>
-	and the flags <c>broadcast</c> and <c>multicast</c> will be listen. </p>
+	to <c>[broadcast, multicast]</c> only interfaces with address family
+	<c>inet</c> and the flags <c>broadcast</c> and <c>multicast</c> will
+	be listed. </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="ifaddrs_filter_fun"/>
+      <desc>
+	<p>For each <c>ifaddrs</c> entry, return either <c>true</c> to keep
+	the entry or <c>false</c> to discard the entry. </p>
+	<p>For example, to get an interface list which only contains
+	non-<c>loopback</c> <c>inet</c> interfaces: </p>
+	<code type="none"><![CDATA[
+	net:getifaddrs(fun(#{addr  := #{family := inet},
+	                     flags := Flags}) ->
+			       not lists:member(loopback, Flags);
+			  (_) ->
+			       false
+		       end).
+	]]></code>
       </desc>
     </datatype>
     <datatype>
@@ -140,7 +166,7 @@
       <desc>
 	<p>Get interface addresses.</p>
 	<p>This function is used to get the machines interface addresses,
-	possibly filtered with the <c>FilterMap</c>. </p>
+	possibly filtered according to <c>Filter</c>. </p>
 	<p>By default, a filter with the content:
 	<c>#{family => default, flags => any}</c> is used.
 	This will return all interfaces with adresses in the
