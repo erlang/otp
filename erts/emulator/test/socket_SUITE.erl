@@ -1873,6 +1873,8 @@ analyze_and_print_host_info() ->
     case {OsFam, OsName} of
         {unix, linux} ->
             analyze_and_print_linux_host_info(Version);
+	{unix, openbsd} ->
+	    analyze_and_print_openbsd_host_info(Version);
         {unix, sunos} ->
             io:format("Solaris: ~s"
                       "~n", [Version]),
@@ -1938,6 +1940,96 @@ analyze_and_print_linux_host_info(Version) ->
             Factor
     end.
 
+%% Just to be clear: This is ***not*** scientific...
+analyze_and_print_openbsd_host_info(Version) ->
+    io:format("OpenBSD:"
+	      "~n   Version: ~p"
+	      "~n", [Version]),
+    Extract =
+	fun(Key) -> 
+		string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$=])
+	end,
+    try
+	begin
+	    CPU =
+		case Extract("hw.model") of
+		    ["hw.model", Model] ->
+			string:trim(Model);
+		    _ ->
+			"-"
+		end,
+	    CPUSpeed =
+		case Extract("hw.cpuspeed") of
+		    ["hw.cpuspeed", Speed] ->
+			list_to_integer(Speed);
+		    _ ->
+			-1
+		end,
+	    NCPU =
+		case Extract("hw.ncpufound") of
+		    ["hw.ncpufound", N] ->
+			list_to_integer(N);
+		    _ ->
+			-1
+		end,
+	    Memory =
+		case Extract("hw.physmem") of
+		    ["hw.physmem", PhysMem] ->
+			list_to_integer(PhysMem) div 1024;
+		    _ ->
+			-1
+		end,
+	    io:format("CPU:"
+		      "~n   Model: ~s"
+		      "~n   Speed: ~w"
+		      "~n   N:     ~w"
+		      "~nMemory:"
+		      "~n   ~w KB"
+		      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+	    CPUFactor =
+		if
+		    (CPUSpeed =:= -1) ->
+			1;
+		    (CPUSpeed >= 2000) ->
+			if
+			    (NCPU >= 4) ->
+				1;
+			    (NCPU >= 2) ->
+				2;
+			    true ->
+				3
+			end;
+		    true ->
+			if
+			    (NCPU >= 4) ->
+				2;
+			    (NCPU >= 2) ->
+				3;
+			    true ->
+				4
+			end
+		end,
+	    MemAddFactor =
+		if
+		    (Memory =:= -1) ->
+			0;
+		    (Memory >= 8388608) ->
+			0;
+		    (Memory >= 4194304) ->
+			1;
+		    (Memory >= 2097152) ->
+			2;
+		    true ->
+			3
+		end,
+	    CPUFactor + MemAddFactor
+	end
+    catch
+	_:_:_ ->
+	    1
+    end.
+    
+    
 linux_which_cpuinfo() ->
     %% Check for x86 (Intel or AMD)
     CPU =
