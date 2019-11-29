@@ -4658,6 +4658,7 @@ static struct {
 } am;
 
 static Eterm alloc_type_atoms[ERTS_ALC_N_MAX + 1];
+static Eterm alloc_num_atoms[ERTS_ALC_A_MAX + 1];
 
 static ERTS_INLINE void atom_init(Eterm *atom, char *name)
 {
@@ -4766,6 +4767,13 @@ init_atoms(Allctr_t *allctr)
             size_t len = sys_strlen(name);
 
             alloc_type_atoms[ix] = am_atom_put(name, len);
+        }
+
+        for (ix = ERTS_ALC_A_MIN; ix <= ERTS_ALC_A_MAX; ix++) {
+            const char *name = ERTS_ALC_A2AD(ix);
+            size_t len = sys_strlen(name);
+
+            alloc_num_atoms[ix] = am_atom_put(name, len);
         }
     }
     
@@ -7696,14 +7704,15 @@ typedef struct chist_node__ {
 
     UWord carrier_size;
     UWord unscanned_size;
-    UWord allocated_size;
 
-    /* BLOCKSCAN_BAILOUT_THRESHOLD guarantees we won't overflow this or the
-     * counters in the free block histogram. */
-    int allocated_count;
     int flags;
 
-    int histogram[1];
+    /* A mirror of the block counters in the carrier's ErtsAlcCPoolData_t. */
+    UWord alloc_count[ERTS_ALC_A_COUNT];
+    UWord alloc_size[ERTS_ALC_A_COUNT];
+
+    /* BLOCKSCAN_BAILOUT_THRESHOLD guarantees we won't overflow. */
+    int free_histogram[1];
 } chist_node_t;
 
 typedef struct {
@@ -7712,7 +7721,7 @@ typedef struct {
     ErtsIRefStorage iref;
     Process *process;
 
-    Eterm allocator_desc;
+    int allocator_number;
 
     chist_node_t *info_list;
     UWord info_count;
@@ -7737,7 +7746,7 @@ static int gather_cinfo_scan(Allctr_t *allocator,
     state = (gather_cinfo_t*)user_data;
     node = calloc(1, sizeof(chist_node_t) +
                      (state->hist_slot_count - 1) *
-                     sizeof(node->histogram[0]));
+                     sizeof(node->free_histogram[0]));
     blocks_scanned = 1;
 
     /* ERTS_CRR_ALCTR_FLG_BUSY is ignored since we've set it ourselves and it
@@ -7747,15 +7756,19 @@ static int gather_cinfo_scan(Allctr_t *allocator,
     node->carrier_size = CARRIER_SZ(carrier);
 
     if (IS_SB_CARRIER(carrier)) {
-        UWord block_size;
+        int ix = allocator->alloc_no - ERTS_ALC_A_MIN;
 
-        block = SBC2BLK(allocator, carrier);
-        block_size = SBC_BLK_SZ(block);
-
-        node->allocated_size = block_size;
-        node->allocated_count = 1;
+        node->alloc_count[ix] = 1;
+        node->alloc_size[ix] = node->carrier_size;
     } else {
         UWord scanned_bytes = MBC_HEADER_SIZE(allocator);
+
+        sys_memcpy(&node->alloc_count[0],
+                   &carrier->cpool.blocks[ERTS_ALC_A_MIN],
+                   sizeof(UWord) * ERTS_ALC_A_COUNT);
+        sys_memcpy(&node->alloc_size[0],
+                   &carrier->cpool.blocks_size[ERTS_ALC_A_MIN],
+                   sizeof(UWord) * ERTS_ALC_A_COUNT);
 
         block = MBC_TO_FIRST_BLK(allocator, carrier);
 
@@ -7764,10 +7777,7 @@ static int gather_cinfo_scan(Allctr_t *allocator,
 
             scanned_bytes += block_size;
 
-            if (IS_ALLOCED_BLK(block)) {
-                node->allocated_size += block_size;
-                node->allocated_count++;
-            } else {
+            if (IS_FREE_BLK(block)) {
                 UWord size_interval;
                 int hist_slot;
 
@@ -7776,7 +7786,7 @@ static int gather_cinfo_scan(Allctr_t *allocator,
 
                 hist_slot = MIN(size_interval, state->hist_slot_count - 1);
 
-                node->histogram[hist_slot]++;
+                node->free_histogram[hist_slot]++;
             }
 
             if (blocks_scanned >= BLOCKSCAN_BAILOUT_THRESHOLD) {
@@ -7801,46 +7811,89 @@ static int gather_cinfo_scan(Allctr_t *allocator,
 static void gather_cinfo_append_result(gather_cinfo_t *state,
                                        chist_node_t *info)
 {
-    Eterm carrier_size, unscanned_size, allocated_size;
-    Eterm histogram_tuple, carrier_tuple;
+    Eterm carrier_tuple, block_list, histogram_tuple;
+    Eterm carrier_size, unscanned_size;
 
     Uint term_size;
     Eterm *hp;
     int ix;
 
     ASSERT(state->building_result);
+    term_size = 0;
 
-    term_size = 11 + state->hist_slot_count;
-    term_size += IS_USMALL(0, info->carrier_size) ? 0 : BIG_UINT_HEAP_SIZE;
-    term_size += IS_USMALL(0, info->unscanned_size) ? 0 : BIG_UINT_HEAP_SIZE;
-    term_size += IS_USMALL(0, info->allocated_size) ? 0 : BIG_UINT_HEAP_SIZE;
+    /* Free block histogram. */
+    term_size += 1 + state->hist_slot_count;
 
-    hp = erts_produce_heap(&state->msg_factory, term_size, 0);
+    /* Per-type block list. */
+    for (ix = ERTS_ALC_A_MIN; ix <= ERTS_ALC_A_MAX; ix++) {
+        UWord count = info->alloc_count[ix - ERTS_ALC_A_MIN];
+        UWord size = info->alloc_size[ix - ERTS_ALC_A_MIN];
 
-    hp[0] = make_arityval(state->hist_slot_count);
-
-    for (ix = 0; ix < state->hist_slot_count; ix++) {
-        hp[1 + ix] = make_small(info->histogram[ix]);
+        if (count > 0) {
+            /* We have at least one block of this type, so we'll need a cons
+             * cell and a 3-tuple; {Type, Count, Size}. */
+            term_size += 2 + 4;
+            term_size += IS_USMALL(0, count) ? 0 : BIG_UINT_HEAP_SIZE;
+            term_size += IS_USMALL(0, size) ? 0 : BIG_UINT_HEAP_SIZE;
+        }
     }
 
+    /* Carrier tuple and its fields. */
+    term_size += 7;
+    term_size += IS_USMALL(0, info->carrier_size) ? 0 : BIG_UINT_HEAP_SIZE;
+    term_size += IS_USMALL(0, info->unscanned_size) ? 0 : BIG_UINT_HEAP_SIZE;
+
+    /* ... and a finally a cons cell to keep the result in. */
+    term_size += 2;
+
+    /* * * */
+    hp = erts_produce_heap(&state->msg_factory, term_size, 0);
+
+    block_list = NIL;
+    for (ix = ERTS_ALC_A_MIN; ix <= ERTS_ALC_A_MAX; ix++) {
+        UWord count = info->alloc_count[ix - ERTS_ALC_A_MIN];
+        UWord size = info->alloc_size[ix - ERTS_ALC_A_MIN];
+
+        if (count > 0) {
+            Eterm block_count, block_size;
+            Eterm alloc_tuple;
+
+            block_count = bld_unstable_uint(&hp, NULL, count);
+            block_size = bld_unstable_uint(&hp, NULL, size);
+
+            hp[0] = make_arityval(3);
+            hp[1] = alloc_num_atoms[ix];
+            hp[2] = block_count;
+            hp[3] = block_size;
+
+            alloc_tuple = make_tuple(hp);
+            hp += 4;
+
+            block_list = CONS(hp, alloc_tuple, block_list);
+            hp += 2;
+        }
+    }
+
+    hp[0] = make_arityval(state->hist_slot_count);
+    for (ix = 0; ix < state->hist_slot_count; ix++) {
+        hp[1 + ix] = make_small(info->free_histogram[ix]);
+    }
     histogram_tuple = make_tuple(hp);
     hp += 1 + state->hist_slot_count;
 
     carrier_size = bld_unstable_uint(&hp, NULL, info->carrier_size);
     unscanned_size = bld_unstable_uint(&hp, NULL, info->unscanned_size);
-    allocated_size = bld_unstable_uint(&hp, NULL, info->allocated_size);
 
-    hp[0] = make_arityval(7);
-    hp[1] = state->allocator_desc;
-    hp[2] = carrier_size;
-    hp[3] = unscanned_size;
-    hp[4] = allocated_size;
-    hp[5] = make_small(info->allocated_count);
-    hp[6] = (info->flags & ERTS_CRR_ALCTR_FLG_IN_POOL) ? am_true : am_false;
-    hp[7] = histogram_tuple;
+    hp[0] = make_arityval(6);
+    hp[1] = alloc_num_atoms[state->allocator_number];
+    hp[2] = (info->flags & ERTS_CRR_ALCTR_FLG_IN_POOL) ? am_true : am_false;
+    hp[3] = carrier_size;
+    hp[4] = unscanned_size;
+    hp[5] = block_list;
+    hp[6] = histogram_tuple;
 
     carrier_tuple = make_tuple(hp);
-    hp += 8;
+    hp += 7;
 
     state->result_list = CONS(hp, carrier_tuple, state->result_list);
 
@@ -7936,8 +7989,6 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
 {
     gather_cinfo_t *gather_state;
     blockscan_t *scanner;
-
-    const char *allocator_desc;
     Allctr_t *allocator;
 
     ASSERT(is_internal_ref(ref));
@@ -7948,7 +7999,7 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
         return 0;
     }
 
-    allocator_desc = ERTS_ALC_A2AD(allocator_num);
+    ensure_atoms_initialized(allocator);
 
     /* Plain calloc is intentional. */
     gather_state = (gather_cinfo_t*)calloc(1, sizeof(gather_cinfo_t));
@@ -7959,9 +8010,7 @@ int erts_alcu_gather_carrier_info(struct process *p, int allocator_num,
     scanner->finish = gather_cinfo_finish;
     scanner->user_data = gather_state;
 
-    gather_state->allocator_desc = erts_atom_put((byte *)allocator_desc,
-                                                 sys_strlen(allocator_desc),
-                                                 ERTS_ATOM_ENC_LATIN1, 1);
+    gather_state->allocator_number = allocator_num;
     erts_iref_storage_save(&gather_state->iref, ref);
     gather_state->hist_slot_start = hist_start * 2;
     gather_state->hist_slot_count = hist_width;
