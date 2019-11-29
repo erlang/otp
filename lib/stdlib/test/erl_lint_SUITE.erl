@@ -3799,7 +3799,7 @@ maps(Config) ->
 	   ">>,
 	   [],
 	   {errors,[{4,erl_lint,illegal_map_construction},
-                    {6,erl_lint,illegal_map_key}],[]}},
+                    {6,erl_lint,{unbound_var,'V'}}],[]}},
           {unused_vars_with_empty_maps,
            <<"t(Foo, Bar, Baz) -> {#{},#{}}.">>,
            [warn_unused_variables],

@@ -81,7 +81,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 
 -type module_or_mfa() :: module() | mfa().
 
--type gexpr_context() :: 'guard' | 'bin_seg_size'.
+-type gexpr_context() :: 'guard' | 'bin_seg_size' | 'map_key'.
 
 -record(typeinfo, {attr, line}).
 
@@ -1794,19 +1794,16 @@ is_pattern_expr_1({op,_Line,Op,A1,A2}) ->
 is_pattern_expr_1(_Other) -> false.
 
 pattern_map(Ps, Vt, Old, Bvt, St) ->
-    foldl(fun
-	    ({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
-		{Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
-	    ({map_field_exact,L,K,V}, {Psvt,Bvt0,St0}) ->
-		case is_valid_map_key(K) of
-		    true ->
-			{Kvt,St1} = expr(K, Vt, St0),
-			{Vvt,Bvt2,St2} = pattern(V, Vt, Old, Bvt, St1),
-			{vtmerge_pat(vtmerge_pat(Kvt, Vvt), Psvt), vtmerge_pat(Bvt0, Bvt2), St2};
-		    false ->
-			{Psvt,Bvt0,add_error(L, illegal_map_key, St0)}
-		end
-	end, {[],[],St}, Ps).
+    foldl(fun({map_field_assoc,L,_,_}, {Psvt,Bvt0,St0}) ->
+                  {Psvt,Bvt0,add_error(L, illegal_pattern, St0)};
+             ({map_field_exact,_L,K,V}, {Psvt,Bvt0,St0}) ->
+                  St1 = St0#lint{gexpr_context=map_key},
+                  {Kvt,St2} = gexpr(K, Vt, St1),
+                  {Vvt,Bvt2,St3} = pattern(V, Vt, Old, Bvt, St2),
+                  {vtmerge_pat(vtmerge_pat(Kvt, Vvt), Psvt),
+                   vtmerge_pat(Bvt0, Bvt2),
+                   St3}
+          end, {[],[],St}, Ps).
 
 %% pattern_bin([Element], VarTable, Old, BinVarTable, State) ->
 %%           {UpdVarTable,UpdBinVarTable,State}.
@@ -2616,63 +2613,6 @@ is_valid_call(Call) ->
         {record_index, _, _, _} -> false;
         {tuple, _, Exprs} when length(Exprs) =/= 2 -> false;
         _ -> true
-    end.
-
-%% is_valid_map_key(K) -> true | false
-%%   variables are allowed for patterns only at the top of the tree
-
-is_valid_map_key({var,_,_}) -> true;
-is_valid_map_key(K) -> is_valid_map_key_value(K).
-is_valid_map_key_value(K) ->
-    case K of
-	{var,_,_} -> false;
-	{char,_,_} -> true;
-	{integer,_,_} -> true;
-	{float,_,_} -> true;
-	{string,_,_} -> true;
-	{nil,_} -> true;
-	{atom,_,_} -> true;
-	{cons,_,H,T} ->
-	    is_valid_map_key_value(H) andalso
-	    is_valid_map_key_value(T);
-	{tuple,_,Es} ->
-	    foldl(fun(E,B) ->
-			B andalso is_valid_map_key_value(E)
-		end,true,Es);
-	{map,_,Arg,Ps} ->
-	    % only check for value expressions to be valid
-	    % invalid map expressions are later checked in
-	    % core and kernel
-	    is_valid_map_key_value(Arg) andalso foldl(fun
-		    ({Tag,_,Ke,Ve},B) when Tag =:= map_field_assoc;
-					   Tag =:= map_field_exact ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve);
-		    (_,_) -> false
-	    end,true,Ps);
-	{map,_,Ps} ->
-	    foldl(fun
-		    ({Tag,_,Ke,Ve},B) when Tag =:= map_field_assoc;
-					   Tag =:= map_field_exact ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve);
-		    (_,_) -> false
-	    end, true, Ps);
-	{record,_,_,Fs} ->
-	    foldl(fun
-		    ({record_field,_,Ke,Ve},B) ->
-		    B andalso is_valid_map_key_value(Ke)
-		      andalso is_valid_map_key_value(Ve)
-	      end,true,Fs);
-	{bin,_,Es} ->
-	    % only check for value expressions to be valid
-	    % invalid binary expressions are later checked in
-	    % core and kernel
-	    foldl(fun
-		    ({bin_element,_,E,_,_},B) ->
-		    B andalso is_valid_map_key_value(E)
-		end,true,Es);
-	Val -> is_pattern_expr(Val)
     end.
 
 %% record_def(Line, RecordName, [RecField], State) -> State.

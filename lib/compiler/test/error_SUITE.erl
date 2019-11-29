@@ -270,8 +270,7 @@ maps_warnings(Config) when is_list(Config) ->
               id(I) -> I.
              ">>,
 	    [return],
-	    {error,[{3,erl_lint,{unbound_var,'K'}},
-		    {6,erl_lint,illegal_map_key}],[]}}
+	    {error,[{3,erl_lint,{unbound_var,'K'}}],[]}}
     ],
     [] = run2(Config, Ts1),
     ok.
