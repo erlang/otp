@@ -167,6 +167,12 @@
 #include <setns.h>
 #endif
 #ifdef HAVE_LINUX_ERRQUEUE_H
+#include <linux/types.h>     /* On some (I assume) "old" linux,    *
+                              * for example SLES 10 SP1, this is   *
+                              * not (explicitly) included by the   *
+                              * errqueue file. And for some reason *
+                              * configure does not detect this.    *
+                              * So, to simplify, we include here.  */
 #include <linux/errqueue.h>
 #include <linux/icmp.h>
 #include <linux/icmpv6.h>
