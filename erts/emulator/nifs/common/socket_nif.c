@@ -20013,12 +20013,14 @@ int esock_monitor(const char*      slogan,
 {
     int res;
 
-    SSDBG( descP, ("SOCKET", "[%d] %s: try monitor\r\n", descP->sock, slogan) );
+    SSDBG( descP, ("SOCKET", "[%d][%T] %s: try monitor\r\n",
+                   descP->sock, esock_self(env), slogan) );
     res = enif_monitor_process(env, descP, pid, &monP->mon);
 
     if (res != 0) {
         monP->isActive = FALSE;
-        SSDBG( descP, ("SOCKET", "[%d] monitor failed: %d\r\n", descP->sock, res) );
+        SSDBG( descP, ("SOCKET", "[%d][%T] %s: monitor failed: %d\r\n",
+                       descP->sock, esock_self(env), slogan, res) );
     } else {
         monP->isActive = TRUE;
     }
@@ -20038,7 +20040,8 @@ int esock_demonitor(const char*      slogan,
     if (!monP->isActive)
         return 1;
 
-    SSDBG( descP, ("SOCKET", "[%d] %s: try demonitor\r\n", descP->sock, slogan) );
+    SSDBG( descP, ("SOCKET", "[%d][%T] %s: try demonitor\r\n",
+                   descP->sock, esock_self(env), slogan) );
 
     res = enif_demonitor_process(env, descP, &monP->mon);
 
@@ -20046,7 +20049,8 @@ int esock_demonitor(const char*      slogan,
         esock_monitor_init(monP);
     } else {
         SSDBG( descP,
-               ("SOCKET", "[%d] demonitor failed: %d\r\n", descP->sock, res) );
+               ("SOCKET", "[%d][%T] %s: demonitor failed: %d\r\n",
+                descP->sock, esock_self(env), slogan, res) );
     }
 
     return res;
@@ -20102,10 +20106,19 @@ void esock_dtor(ErlNifEnv* env, void* obj)
 #if !defined(__WIN32__)    
   ESockDescriptor* descP = (ESockDescriptor*) obj;
 
+  SGDBG( ("SOCKET", "dtor -> try destroy write mutex\r\n") );
   MDESTROY(descP->writeMtx); descP->writeMtx = NULL;
+
+  SGDBG( ("SOCKET", "dtor -> try destroy read mutex\r\n") );
   MDESTROY(descP->readMtx);  descP->readMtx  = NULL;
+
+  SGDBG( ("SOCKET", "dtor -> try destroy accept mutex\r\n") );
   MDESTROY(descP->accMtx);   descP->accMtx   = NULL;
+
+  SGDBG( ("SOCKET", "dtor -> try destroy close mutex\r\n") );
   MDESTROY(descP->closeMtx); descP->closeMtx = NULL;
+
+  SGDBG( ("SOCKET", "dtor -> try destroy config mutex\r\n") );
   MDESTROY(descP->cfgMtx);   descP->cfgMtx   = NULL;
 
   if (descP->currentReader.env) {
@@ -20120,12 +20133,21 @@ void esock_dtor(ErlNifEnv* env, void* obj)
       esock_free_env("dtor acceptor", descP->currentAcceptor.env);
       descP->currentAcceptor.env = NULL;
   }
+
+  SGDBG( ("SOCKET", "dtor -> try free readers request queue\r\n") );
   free_request_queue(&descP->readersQ);
+
+  SGDBG( ("SOCKET", "dtor -> try free writers request queue\r\n") );
   free_request_queue(&descP->writersQ);
+
+  SGDBG( ("SOCKET", "dtor -> try free acceptors request queue\r\n") );
   free_request_queue(&descP->acceptorsQ);
 
+  SGDBG( ("SOCKET", "dtor -> set state and pattern\r\n") );
   descP->state   = ESOCK_STATE_DTOR;
   descP->pattern = ESOCK_DESC_PATTERN_DTOR;  
+
+  SGDBG( ("SOCKET", "dtor -> done\r\n") );
 #endif
 }
 
