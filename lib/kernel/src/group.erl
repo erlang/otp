@@ -73,7 +73,7 @@ get_pids([], _Found, false) ->
 start_shell({Mod,Func,Args}) ->
     start_shell1(Mod, Func, Args);
 start_shell({Node,Mod,Func,Args}) ->
-    start_shell1(net, call, [Node,Mod,Func,Args]);
+    start_shell1(rpc, call, [Node,Mod,Func,Args]);
 start_shell(Shell) when is_atom(Shell) ->
     start_shell1(Shell, start, []);
 start_shell(Shell) when is_function(Shell) ->
