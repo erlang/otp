@@ -1872,56 +1872,7 @@ analyze_and_print_host_info() ->
         end,
     case {OsFam, OsName} of
         {unix, linux} ->
-            case file:read_file_info("/etc/issue") of
-                {ok, _} ->
-                    io:format("Linux: ~s"
-                              "~n   ~s"
-                              "~n",
-                              [Version, string:trim(os:cmd("cat /etc/issue"))]);
-                _ ->
-                    io:format("Linux: ~s"
-                              "~n", [Version])
-            end,
-            Factor =
-                case (catch linux_which_cpuinfo()) of
-                    {ok, {CPU, BogoMIPS}} ->
-                        io:format("CPU: ~s"
-                                  "~nBogoMIPS: ~s"
-                                  "~n", [CPU, BogoMIPS]),
-                        %% We first assume its a float, and if not try integer
-                        try list_to_float(BogoMIPS) of
-                            F when F > 1000 ->
-                                1;
-                            F when F > 1000 ->
-                                2;
-                            _ ->
-                                3
-                        catch
-                            _:_:_ ->
-                                %% 
-                                try list_to_integer(BogoMIPS) of
-                                    I when I > 1000 ->
-                                        1;
-                                    I when I > 1000 ->
-                                        2;
-                                    _ ->
-                                        3
-                                catch
-                                    _:_:_ ->
-                                        1
-                                end
-                        end;
-                    _ ->
-                        1
-                end,
-            %% Check if we need to adjust the factor because of the memory
-            try linux_which_meminfo() of
-                AddFactor ->
-                    Factor + AddFactor
-            catch
-                _:_:_ ->
-                    Factor
-            end;
+            analyze_and_print_linux_host_info(Version);
         {unix, sunos} ->
             io:format("Solaris: ~s"
                       "~n", [Version]),
@@ -1934,6 +1885,58 @@ analyze_and_print_host_info() ->
             1
     end.
     
+analyze_and_print_linux_host_info(Version) ->
+    case file:read_file_info("/etc/issue") of
+        {ok, _} ->
+            io:format("Linux: ~s"
+                      "~n   ~s"
+                      "~n",
+                      [Version, string:trim(os:cmd("cat /etc/issue"))]);
+        _ ->
+            io:format("Linux: ~s"
+                      "~n", [Version])
+    end,
+    Factor =
+        case (catch linux_which_cpuinfo()) of
+            {ok, {CPU, BogoMIPS}} ->
+                io:format("CPU: "
+                          "~n   Model:    ~s"
+                          "~n   BogoMIPS: ~s"
+                          "~n", [CPU, BogoMIPS]),
+                %% We first assume its a float, and if not try integer
+                try list_to_float(string:trim(BogoMIPS)) of
+                    F when F > 1000 ->
+                        1;
+                    F when F > 1000 ->
+                        2;
+                    _ ->
+                        3
+                catch
+                    _:_:_ ->
+                        %% 
+                        try list_to_integer(string:trim(BogoMIPS)) of
+                            I when I > 1000 ->
+                                1;
+                            I when I > 1000 ->
+                                2;
+                            _ ->
+                                3
+                        catch
+                            _:_:_ ->
+                                1
+                        end
+                end;
+            _ ->
+                1
+        end,
+    %% Check if we need to adjust the factor because of the memory
+    try linux_which_meminfo() of
+        AddFactor ->
+            Factor + AddFactor
+    catch
+        _:_:_ ->
+            Factor
+    end.
 
 linux_which_cpuinfo() ->
     %% Check for x86 (Intel or AMD)
@@ -1971,7 +1974,8 @@ linux_which_cpuinfo() ->
 linux_which_meminfo() ->
     try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
         [_, MemTotal] ->
-            io:format("Memory: ~s"
+            io:format("Memory:"
+                      "~n   ~s"
                       "~n", [MemTotal]),
             case string:tokens(MemTotal, [$ ]) of
                 [MemSzStr, MemUnit] ->
