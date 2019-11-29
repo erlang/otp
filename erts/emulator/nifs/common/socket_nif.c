@@ -20326,8 +20326,10 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
                  * since the message send takes care of it if scheduled.
                  */
 
-                if (descP->closeEnv != NULL)
+                if (descP->closeEnv != NULL) {
                     esock_free_env("esock_stop - close-env", descP->closeEnv);
+                    descP->closeEnv = NULL;
+                }
 
             }
         }
