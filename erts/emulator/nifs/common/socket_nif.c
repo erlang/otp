@@ -1049,6 +1049,12 @@ static ERL_NIF_TERM esock_command_debug(ErlNifEnv* env, ERL_NIF_TERM ecdata);
 static ERL_NIF_TERM esock_global_info(ErlNifEnv* env);
 static ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                                       ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_domain(ErlNifEnv*       env,
+                                             ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_type(ErlNifEnv*       env,
+                                           ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_protocol(ErlNifEnv*       env,
+                                               ESockDescriptor* descP);
 static ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                                                ESockDescriptor* descP);
 #define ESOCK_SOCKET_INFO_REQ_FUNCS              \
@@ -3059,6 +3065,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(policy_fail);      \
     LOCAL_ATOM_DECL(port_unreach);     \
     LOCAL_ATOM_DECL(probe);            \
+    LOCAL_ATOM_DECL(readable);         \
     LOCAL_ATOM_DECL(read_byte);        \
     LOCAL_ATOM_DECL(read_fails);       \
     LOCAL_ATOM_DECL(read_pkg);         \
@@ -3078,6 +3085,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(txstatus);         \
     LOCAL_ATOM_DECL(txtime);           \
     LOCAL_ATOM_DECL(want);             \
+    LOCAL_ATOM_DECL(writable);         \
     LOCAL_ATOM_DECL(write_byte);       \
     LOCAL_ATOM_DECL(write_fails);      \
     LOCAL_ATOM_DECL(write_pkg);        \
@@ -3269,6 +3277,14 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
 
 /*
  * This function return a property *map*. The properties are: 
+ *    domain:    The domain of the socket
+ *    type:      The type of the socket
+ *    protocol:  The protocol of the socket
+ *   (ctrl:      Controlling process of the socket)
+ *   (readable:  Is the socket readable)
+ *   (writable:  Is the socket writable)
+ *   (connected: Is the socket connected)
+ *   (remote:    (socket) Address of the peer (if connected))
  *    counters:  A list of each socket counter and there current values
  *    readers:   The number of current and waiting readers
  *    writers:   The number of current and waiting writers
@@ -3278,13 +3294,35 @@ static
 ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                                ESockDescriptor* descP)
 {
+    ERL_NIF_TERM domain    = esock_socket_info_domain(env, descP);
+    ERL_NIF_TERM type      = esock_socket_info_type(env, descP);
+    ERL_NIF_TERM protocol  = esock_socket_info_protocol(env, descP);
+    // ERL_NIF_TERM ctrlPid   = MKPID(env, &descP->ctrlPid);
+    ERL_NIF_TERM readable  = BOOL2ATOM(descP->isReadable);
+    ERL_NIF_TERM writable  = BOOL2ATOM(descP->isWritable);
+    // ERL_NIF_TERM connected = BOOL2ATOM(descP->isConnected);
     ERL_NIF_TERM counters  = esock_socket_info_counters(env, descP);
     ERL_NIF_TERM readers   = esock_socket_info_readers(env, descP);
     ERL_NIF_TERM writers   = esock_socket_info_writers(env, descP);
     ERL_NIF_TERM acceptors = esock_socket_info_acceptors(env, descP);
-    ERL_NIF_TERM keys[]    = {atom_counters, atom_num_readers,
-                              atom_num_writers, atom_num_acceptors};
-    ERL_NIF_TERM vals[]    = {counters, readers, writers, acceptors};
+    ERL_NIF_TERM keys[]    = {esock_atom_domain,
+                              esock_atom_type,
+                              esock_atom_protocol,
+                              atom_readable,
+                              atom_writable,
+                              atom_counters,
+                              atom_num_readers,
+                              atom_num_writers,
+                              atom_num_acceptors};
+    ERL_NIF_TERM vals[]    = {domain,
+                              type,
+                              protocol,
+                              readable,
+                              writable,
+                              counters,
+                              readers,
+                              writers,
+                              acceptors};
     ERL_NIF_TERM info;
     unsigned int numKeys  = sizeof(keys) / sizeof(ERL_NIF_TERM);
     unsigned int numVals  = sizeof(vals) / sizeof(ERL_NIF_TERM);
@@ -3305,6 +3343,60 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
 
     return info;
     
+}
+
+
+/*
+ * Encode the socket domain
+ */
+static
+ERL_NIF_TERM esock_socket_info_domain(ErlNifEnv*       env,
+                                      ESockDescriptor* descP)
+{
+    int          domain = descP->domain;
+    ERL_NIF_TERM edomain;
+
+    if (NULL != esock_encode_domain(env, domain, &edomain)) {
+        edomain = MKI(env, domain);
+    }
+
+    return edomain;
+}
+
+
+/*
+ * Encode the socket type
+ */
+static
+ERL_NIF_TERM esock_socket_info_type(ErlNifEnv*       env,
+                                    ESockDescriptor* descP)
+{
+    int          type = descP->type;
+    ERL_NIF_TERM etype;
+
+    if (NULL != esock_encode_type(env, type, &etype)) {
+        etype = MKI(env, type);
+    }
+
+    return etype;
+}
+
+
+/*
+ * Encode the socket protocol
+ */
+static
+ERL_NIF_TERM esock_socket_info_protocol(ErlNifEnv*       env,
+                                        ESockDescriptor* descP)
+{
+    int          proto = descP->protocol;
+    ERL_NIF_TERM eproto;
+
+    if (NULL != esock_encode_protocol(env, proto, &eproto)) {
+        eproto = MKI(env, proto);
+    }
+
+    return eproto;
 }
 
 
