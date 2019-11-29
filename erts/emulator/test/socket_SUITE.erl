@@ -1922,6 +1922,8 @@ analyze_and_print_host_info() ->
                 _:_:_ ->
                     Factor
             end;
+	{unix, freebsd} ->
+	    analyze_and_print_freebsd_host_info(Version);	    
         {unix, sunos} ->
             io:format("Solaris: ~s"
                       "~n", [Version]),
@@ -1934,6 +1936,101 @@ analyze_and_print_host_info() ->
             1
     end.
     
+
+%% Just to be clear: This is ***not*** scientific...
+analyze_and_print_freebsd_host_info(Version) ->
+    io:format("FreeBSD:"
+	      "~n   Version: ~p"
+	      "~n", [Version]),
+    Extract =
+	fun(Key) -> 
+		string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$:])
+	end,
+    try
+	begin
+	    CPU =
+		case Extract("hw.model") of
+		    ["hw.model", Model] ->
+			string:trim(Model);
+		    _ ->
+			"-"
+		end,
+	    CPUSpeed =
+		case Extract("hw.clockrate") of
+		    ["hw.clockrate", Speed] ->
+			list_to_integer(string:trim(Speed));
+		    _ ->
+			-1
+		end,
+	    NCPU =
+		case Extract("hw.ncpu") of
+		    ["hw.ncpu", N] ->
+			list_to_integer(string:trim(N));
+		    _ ->
+			-1
+		end,
+	    Memory =
+		case Extract("hw.physmem") of
+		    ["hw.physmem", PhysMem] ->
+			list_to_integer(string:trim(PhysMem)) div 1024;
+		    _ ->
+			-1
+		end,
+	    io:format("CPU:"
+		      "~n   Model: ~s"
+		      "~n   Speed: ~w"
+		      "~n   N:     ~w"
+		      "~nMemory:"
+		      "~n   ~w KB"
+		      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+	    CPUFactor =
+		if
+		    (CPUSpeed =:= -1) ->
+			1;
+		    (CPUSpeed >= 2000) ->
+			if
+			    (NCPU >= 4) ->
+				1;
+			    (NCPU >= 2) ->
+				2;
+			    true ->
+				3
+			end;
+		    true ->
+			if
+			    (NCPU >= 4) ->
+				2;
+			    (NCPU >= 2) ->
+				3;
+			    true ->
+				4
+			end
+		end,
+	    MemAddFactor =
+		if
+		    (Memory =:= -1) ->
+			0;
+		    (Memory >= 8388608) ->
+			0;
+		    (Memory >= 4194304) ->
+			1;
+		    (Memory >= 2097152) ->
+			2;
+		    true ->
+			3
+		end,
+	    CPUFactor + MemAddFactor
+	end
+    catch
+	C:E:S ->
+	    io:format("Failed analyzis: "
+		      "~n   C: ~p"
+		      "~n   E: ~p"
+		      "~n   S: ~p"
+		      "~n", [C, E, S]),
+	    1
+    end.
+
 
 linux_which_cpuinfo() ->
     %% Check for x86 (Intel or AMD)
