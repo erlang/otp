@@ -1334,50 +1334,80 @@ ERL_NIF_TERM encode_ifaddrs_flags(ErlNifEnv* env, unsigned int flags)
     SocketTArray ta = TARRAY_CREATE(16);
     ERL_NIF_TERM eflags;
 
+#if defined(IFF_UP)
     if (flags & IFF_UP)
         TARRAY_ADD(ta, atom_up);
+#endif
 
+#if defined(IFF_BROADCAST)
     if (flags & IFF_BROADCAST)
         TARRAY_ADD(ta, atom_broadcast);
+#endif
 
+#if defined(IFF_DEBUG)
     if (flags & IFF_DEBUG)
         TARRAY_ADD(ta, atom_debug);
+#endif
 
+#if defined(IFF_LOOPBACK)
     if (flags & IFF_LOOPBACK)
         TARRAY_ADD(ta, esock_atom_loopback);
+#endif
 
+#if defined(IFF_POINTOPOINT)
     if (flags & IFF_POINTOPOINT)
         TARRAY_ADD(ta, atom_pointopoint);
+#endif
 
+#if defined(IFF_NOTRAILERS)
     if (flags & IFF_NOTRAILERS)
         TARRAY_ADD(ta, atom_notrailers);
+#endif
 
+#if defined(IFF_RUNNING)
     if (flags & IFF_RUNNING)
         TARRAY_ADD(ta, atom_running);
+#endif
 
+#if defined(IFF_NOARP)
     if (flags & IFF_NOARP)
         TARRAY_ADD(ta, atom_noarp);
+#endif
 
+#if defined(IFF_PROMISC)
     if (flags & IFF_PROMISC)
         TARRAY_ADD(ta, atom_promisc);
+#endif
 
+#if defined(IFF_MASTER)
     if (flags & IFF_MASTER)
         TARRAY_ADD(ta, atom_master);
+#endif
 
+#if defined(IFF_SLAVE)
     if (flags & IFF_SLAVE)
         TARRAY_ADD(ta, atom_slave);
+#endif
 
+#if defined(IFF_MULTICAST)
     if (flags & IFF_MULTICAST)
         TARRAY_ADD(ta, atom_multicast);
+#endif
 
+#if defined(IFF_PORTSEL)
     if (flags & IFF_PORTSEL)
         TARRAY_ADD(ta, atom_portsel);
+#endif
 
+#if defined(IFF_AUTOMEDIA)
     if (flags & IFF_AUTOMEDIA)
         TARRAY_ADD(ta, atom_automedia);
+#endif
 
+#if defined(IFF_DYNAMIC)
     if (flags & IFF_DYNAMIC)
         TARRAY_ADD(ta, atom_dynamic);
+#endif
 
     TARRAY_TOLIST(ta, env, &eflags);
 
