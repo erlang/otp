@@ -99,14 +99,13 @@
 
     <func>
     <name since="OTP 17.3">quickcheck(Property, Config) -&gt; true | {fail, Reason}</name>
-    <fsummary>Calls quickcheck and returns the result in a form suitable for
+    <fsummary>Calls the selected property testing tool and returns the result in a form suitable for
       Common Test.</fsummary>
       <desc><marker id="quickcheck-2"/>
-        <p>Calls quickcheck and returns the result in a form suitable for
+        <p>Calls the selected property testing tool and returns the result in a form suitable for
           <c>Common Test</c>.</p>
 
-        <p>This function is intended to be called in the test cases in the
-          test suite.</p>
+        <p>This function is intended to be called from test cases in test suites.</p>
       </desc>
     </func>
   </funcs>
