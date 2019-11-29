@@ -62,9 +62,12 @@ prop__crypto_one_time() ->
     numtests(10000,
              ?FORALL({TextPlain, Cipher, Key, IV}, ?LET(Ciph,cipher(),
                                                         {text_plain(), Ciph, key(Ciph), iv(Ciph)}),
-                     equal(TextPlain,
-                           full_blocks(TextPlain, Cipher),
-                           decrypt_encrypt_one_time(Cipher, Key, IV, TextPlain))
+                     begin
+                         R = equal(TextPlain,
+                                   full_blocks(TextPlain, Cipher),
+                                   decrypt_encrypt_one_time(Cipher, Key, IV, TextPlain)),
+                         prt_inf(Cipher, TextPlain, R)
+                     end
                     )
             ).
 
@@ -72,11 +75,24 @@ prop__crypto_init_update() ->
     numtests(10000,
              ?FORALL({TextPlain, Cipher, Key, IV}, ?LET(Ciph,cipher(),
                                                                  {text_plain(), Ciph, key(Ciph), iv(Ciph)}),
-                     equal(TextPlain,
-                           full_blocks(TextPlain, Cipher),
-                           decrypt_encrypt_init_update(Cipher, Key, IV, TextPlain))
-                    )
+                     begin
+                         R = equal(TextPlain,
+                                   full_blocks(TextPlain, Cipher),
+                                   decrypt_encrypt_init_update(Cipher, Key, IV, TextPlain)),
+                         prt_inf(Cipher, TextPlain, R)
+                     end)
             ).
+
+prt_inf(Cipher, TextPlain, R) ->
+    aggregate(ct_property_test:title("text lengths",
+                                     ct_property_test:print_frequency_ranges(),
+                                     fun ct:pal/2),
+              [iolist_size(TextPlain)],
+    aggregate(ct_property_test:title("ciphers",
+                                     ct_property_test:print_frequency(),
+                                     fun ct:pal/2),
+              [Cipher],
+   R)).
 
 %%%================================================================
 %%% Lib
