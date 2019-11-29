@@ -90,6 +90,7 @@ static char* make_sockaddr_in6(ErlNifEnv*    env,
 static char* make_sockaddr_un(ErlNifEnv*    env,
                               ERL_NIF_TERM  path,
                               ERL_NIF_TERM* sa);
+#if defined(HAVE_NETPACKET_PACKET_H)
 static char* make_sockaddr_ll(ErlNifEnv*    env,
                               ERL_NIF_TERM  proto,
                               ERL_NIF_TERM  ifindex,
@@ -97,6 +98,7 @@ static char* make_sockaddr_ll(ErlNifEnv*    env,
                               ERL_NIF_TERM  pkttype,
                               ERL_NIF_TERM  addr,
                               ERL_NIF_TERM* sa);
+#endif
 
 
 /* +++ esock_encode_iov +++
@@ -274,7 +276,7 @@ char* esock_decode_sockaddr(ErlNifEnv*    env,
         break;
 #endif
 
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H)
     case AF_UNIX:
         xres = esock_decode_sockaddr_un(env, eSockAddr,
                                         &sockAddrP->un, addrLen);
@@ -328,13 +330,13 @@ char* esock_encode_sockaddr(ErlNifEnv*    env,
         break;
 #endif
 
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H)
     case AF_UNIX:
         xres = esock_encode_sockaddr_un(env, &sockAddrP->un, addrLen, eSockAddr);
         break;
 #endif
 
-#ifdef HAVE_NETPACKET_PACKET_H
+#if defined(HAVE_NETPACKET_PACKET_H)
     case AF_PACKET:
         xres = esock_encode_sockaddr_ll(env, &sockAddrP->ll, addrLen, eSockAddr);
         break;
@@ -636,7 +638,7 @@ char* esock_encode_sockaddr_in6(ErlNifEnv*           env,
  * is no need for any elaborate error handling here.
  */
 
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H)
 extern
 char* esock_decode_sockaddr_un(ErlNifEnv*          env,
                                ERL_NIF_TERM        eSockAddr,
@@ -700,7 +702,7 @@ char* esock_decode_sockaddr_un(ErlNifEnv*          env,
  *
  */
 
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H)
 extern
 char* esock_encode_sockaddr_un(ErlNifEnv*          env,
                                struct sockaddr_un* sockAddrP,
@@ -762,7 +764,7 @@ char* esock_encode_sockaddr_un(ErlNifEnv*          env,
  *
  */
 
-#ifdef HAVE_NETPACKET_PACKET_H
+#if defined(HAVE_NETPACKET_PACKET_H)
 extern
 char* esock_encode_sockaddr_ll(ErlNifEnv*          env,
                                struct sockaddr_ll* sockAddrP,
@@ -1133,7 +1135,7 @@ char* esock_decode_domain(ErlNifEnv*   env,
         *domain = AF_INET6;
 #endif
 
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H)
     } else if (COMPARE(esock_atom_local, eDomain) == 0) {
         *domain = AF_UNIX;
 #endif
@@ -1175,7 +1177,7 @@ char* esock_encode_domain(ErlNifEnv*    env,
         break;
 #endif
 
-#ifdef HAVE_SYS_UN_H
+#if defined(HAVE_SYS_UN_H)
     case AF_UNIX:
         *eDomain = esock_atom_local;
         break;
