@@ -792,7 +792,8 @@ tls_downgrade_result(Socket, Pid) ->
 	    gen_tcp:send(TCPSocket, "Downgraded"),
             receive 
                 {tcp, TCPSocket, <<"Downgraded">>} ->
-	             ok;
+                    ct:sleep(?SLEEP),
+                    ok;
                 {tcp_closed, TCPSocket} ->
                     ct:fail("Did not receive TCP data"),
 	            ok;

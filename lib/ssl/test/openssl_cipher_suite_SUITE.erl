@@ -27,6 +27,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+-define(DEFAULT_TIMEOUT, {seconds, 30}).
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -327,7 +329,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_rc4_128;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(rc4, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
         _ ->
             {skip, "Missing RC4 crypto support"}
@@ -340,7 +342,7 @@ init_per_testcase(TestCase, Config) when  TestCase == psk_aes_128_ccm_8;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(aes_128_ccm, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
         _ ->
             {skip, "Missing AES_128_CCM crypto support"}
@@ -353,7 +355,7 @@ init_per_testcase(TestCase, Config) when TestCase == psk_aes_256_ccm_8;
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(aes_256_ccm, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
         _ ->
             {skip, "Missing AES_256_CCM crypto support"}
@@ -363,7 +365,7 @@ init_per_testcase(TestCase, Config) ->
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
     case lists:member(Cipher, SupCiphers) of
         true ->
-            ct:timetrap({seconds, 5}),
+            ct:timetrap(?DEFAULT_TIMEOUT),
             Config;
         _ ->
             {skip, {Cipher, SupCiphers}}
