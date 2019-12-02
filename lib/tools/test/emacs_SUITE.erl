@@ -39,7 +39,7 @@ init_per_testcase(Case, Config) ->
     ErlangEl = filename:join([code:lib_dir(tools),"emacs","erlang.el"]),
     case file:read_file_info(ErlangEl) of
         {ok, _} ->
-            case Case =:= bif_highlight orelse emacs_version_ok(24.1) of
+            case Case =:= bif_highlight orelse emacs_version_ok(24.3) of
                 false -> {skip, "Old or no emacs found"};
                 _ -> [{el, ErlangEl}|Config]
             end;
