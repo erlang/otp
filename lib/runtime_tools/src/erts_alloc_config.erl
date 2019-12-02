@@ -356,14 +356,23 @@ save_scenario(AlcList) ->
     process_flag(priority, OP),
     Res.
     
-save_ai2(Alc, AI) ->
-    Alc1 = chk_sbct(Alc, AI),
-    case ai_value(mbcs, blocks_size, AI) of
-	{blocks_size, MinBS, _, MaxBS} ->
-	    set_alloc_util(chk_mbcs_blocks_size(Alc1, MinBS, MaxBS), true);
-	_ ->
-	    set_alloc_util(Alc, false)
-    end.
+save_ai2(#alloc{name=Name}=Alc0, AI) ->
+    Alc1 = chk_sbct(Alc0, AI),
+
+    {Alc, IsAUtil} =
+        case ai_value(mbcs, blocks, AI) of
+            {blocks, Bs} ->
+                case ai_value(Name, size, Bs) of
+                    {size, MinBS, _, MaxBS} ->
+                        {chk_mbcs_blocks_size(Alc1, MinBS, MaxBS), true};
+                    _ ->
+                        {Alc1, false}
+                end;
+            _ ->
+                {Alc1, false}
+        end,
+
+    set_alloc_util(Alc, IsAUtil).
 
 save_ai(Alc, [{instance, 0, AI}]) ->
     save_ai2(Alc, AI);

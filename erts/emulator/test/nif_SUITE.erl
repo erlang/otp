@@ -2467,26 +2467,7 @@ dummy_call(_) ->
     ok.
 
 tmpmem() ->
-    case erlang:system_info({allocator,temp_alloc}) of
-	false -> undefined;
-	MemInfo ->
-	    MSBCS = lists:foldl(
-		      fun ({instance, 0, _}, Acc) ->
-			      Acc; % Ignore instance 0
-			  ({instance, _, L}, Acc) ->
-			      {value,{_,MBCS}} = lists:keysearch(mbcs, 1, L),
-			      {value,{_,SBCS}} = lists:keysearch(sbcs, 1, L),
-			      [MBCS,SBCS | Acc]
-		      end,
-		      [],
-		      MemInfo),
-	    lists:foldl(
-	      fun(L, {Bl0,BlSz0}) ->
-		      {value,{_,Bl,_,_}} = lists:keysearch(blocks, 1, L),
-		      {value,{_,BlSz,_,_}} = lists:keysearch(blocks_size, 1, L),
-		      {Bl0+Bl,BlSz0+BlSz}
-	      end, {0,0}, MSBCS)
-    end.
+    erts_debug:alloc_blocks_size(temp_alloc).
 
 verify_tmpmem(MemInfo) ->
     %%wait_for_test_procs(),
