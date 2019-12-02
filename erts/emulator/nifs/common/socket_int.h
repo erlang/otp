@@ -406,6 +406,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
     enif_get_atom((E), (TE), (BP), (MAX), ERL_NIF_LATIN1)
 #define GET_BIN(E, TE, BP)          enif_inspect_iolist_as_binary((E), (TE), (BP))
 #define GET_INT(E, TE, IP)          enif_get_int((E), (TE), (IP))
+#define GET_INT64(E, TE, IP)          enif_get_int64((E), (TE), (IP))
 #define GET_LIST_ELEM(E, L, HP, TP) enif_get_list_cell((E), (L), (HP), (TP))
 #define GET_LIST_LEN(E, L, LP)      enif_get_list_length((E), (L), (LP))
 #define GET_LONG(E, TE, LP)         enif_get_long((E), (TE), (LP))
