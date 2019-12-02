@@ -28,6 +28,7 @@
 
 -define(SLEEP, 1000).
 -define(OPENSSL_RENEGOTIATE, "R\n").
+-define(DEFAULT_TIMEOUT, {seconds, 30}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -125,10 +126,10 @@ end_per_group(GroupName, Config) ->
             Config
     end.
 init_per_testcase(erlang_client_openssl_server_nowrap_seqnum, Config) ->
-    ct:timetrap({seconds, 10}),
+    ct:timetrap(?DEFAULT_TIMEOUT),
     ssl_test_lib:openssl_allows_client_renegotaite(Config);
 init_per_testcase(TestCase, Config) ->
-    ct:timetrap({seconds, 10}),
+    ct:timetrap(?DEFAULT_TIMEOUT),
     Config.
 
 end_per_testcase(_, Config) ->

@@ -238,12 +238,12 @@ init_per_testcase(TestCase, Config) when
             {skip, openssl_behaves_differently};
         _ -> 
             ssl_test_lib:ct_log_supported_protocol_versions(Config),
-            ct:timetrap({seconds, 10}),
+            ct:timetrap({seconds, 30}),
             Config
     end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 10}),
+    ct:timetrap({seconds, 30}),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     

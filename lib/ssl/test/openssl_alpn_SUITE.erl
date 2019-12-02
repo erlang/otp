@@ -143,7 +143,7 @@ end_per_group(GroupName, Config) ->
     end.
 
 init_per_testcase(TestCase, Config) -> 
-    ct:timetrap({seconds, 10}),
+    ct:timetrap({seconds, 30}),
     special_init(TestCase, Config).
 
 special_init(erlang_client_alpn_openssl_server_alpn_renegotiate, Config) ->
