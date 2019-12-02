@@ -60,7 +60,13 @@
 -record(t_fun, {arity=any :: arity() | 'any',
                 type=any :: type() }).
 -record(t_integer, {elements=any :: 'any' | {integer(),integer()}}).
--record(t_map, {}).
+
+%% `super_key` and `super_value` are the join of all key and value types.
+%%
+%% Note that we don't track specific elements as we have no obvious way to
+%% limit them. See ?TUPLE_ELEMENT_LIMIT for details.
+-record(t_map, {super_key=any :: type(),
+                super_value=any :: type()}).
 
 %% `type` is the join of all list elements, and `terminator` is the tail of the
 %% last cons cell ('nil' for proper lists).
@@ -78,6 +84,18 @@
 %% Known element types, where the key is a 1-based integer index. Unknown
 %% elements are assumed to be 'any', and indexes above ?TUPLE_ELEMENT_LIMIT are
 %% ignored for performance reasons.
+%%
+%% Cutting off all indexes above a certain limit may seem strange, but is
+%% required to ensure that a meet of two types always returns a type that's at
+%% least as specific as either type. Consider the following types:
+%%
+%%    A = #t_tuple{elements=#{ ... elements 1 .. 6 ... }}
+%%    B = #t_tuple{elements=#{ ... elements 7 .. 13 ... }}
+%%
+%% If we'd collapse types once a tuple has more than 12 elements, meet(A, B)
+%% would suddenly be less specific than either A or B. Ignoring all elements
+%% above a certain index avoids this problem, at the small price of losing type
+%% information in huge tuples.
 
 -define(TUPLE_ELEMENT_LIMIT, 12).
 -type tuple_elements() :: #{ Key :: pos_integer() => type() }.

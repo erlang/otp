@@ -170,8 +170,8 @@ numerical_types() ->
 
 nested_types(Depth) when Depth >= 3 -> [none];
 nested_types(Depth) -> list_types(Depth + 1) ++
-                           [#t_map{},
-                            gen_fun(Depth + 1),
+                           [gen_fun(Depth + 1),
+                            gen_map(Depth + 1),
                             gen_union(Depth + 1),
                             gen_tuple(Depth + 1)].
 
@@ -204,6 +204,10 @@ gen_fun(Depth) ->
     oneof([?LET(Arity, range(1, 8),
                 #t_fun{type=type(Depth),arity=Arity}),
                 #t_fun{type=type(Depth),arity=any}]).
+
+gen_map(Depth) ->
+    ?LET({SKey, SValue}, {gen_element(Depth), gen_element(Depth)},
+         #t_map{super_key=SKey,super_value=SValue}).
 
 gen_integer() ->
     oneof([gen_integer_bounded(), #t_integer{}]).

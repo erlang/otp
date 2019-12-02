@@ -68,7 +68,7 @@ meet([T1, T2 | Ts]) ->
     meet([meet(T1, T2) | Ts]);
 meet([T]) -> T.
 
-%% Return the "meet" of Type1 and Type2, which is more general than Type1 and
+%% Return the "meet" of Type1 and Type2, which is more specific than Type1 and
 %% Type2. This is identical to glb/2 but can operate on and produce unions.
 %%
 %%    A = #t_union{list=nil, number=[number], other=[#t_map{}]}
@@ -422,10 +422,29 @@ get_singleton_value(#t_float{elements={Float,Float}}) ->
     {ok, Float};
 get_singleton_value(#t_integer{elements={Int,Int}}) ->
     {ok, Int};
+get_singleton_value(#t_map{super_key=none,super_value=none}) ->
+    {ok, #{}};
+get_singleton_value(#t_tuple{exact=true,size=Size,elements=Es}) ->
+    case gsv_elements(Size, Es, []) of
+        Values when is_list(Values) ->
+            {ok, list_to_tuple(Values)};
+        error ->
+            error
+    end;
 get_singleton_value(nil) ->
     {ok, []};
 get_singleton_value(_) ->
     error.
+
+gsv_elements(0, _Es, Acc) ->
+    %% The elements were added right-to-left, so it's already in order.
+    Acc;
+gsv_elements(N, Es, Acc) ->
+    ElementType = get_tuple_element(N, Es),
+    case get_singleton_value(ElementType) of
+        {ok, Value} -> gsv_elements(N - 1, Es, [Value | Acc]);
+        error -> error
+    end.
 
 -spec is_singleton_type(type()) -> boolean().
 is_singleton_type(Type) ->
@@ -501,7 +520,14 @@ mtfv_1(L) when is_list(L)->
         [_|_] -> mtfv_cons(L, none);
         [] -> nil
     end;
-mtfv_1(M) when is_map(M) -> #t_map{};
+mtfv_1(M) when is_map(M) ->
+    {SKey, SValue} =
+        maps:fold(fun(Key, Value, {SKey0, SValue0}) ->
+                        SKey = join(mtfv_1(Key), SKey0),
+                        SValue = join(mtfv_1(Value), SValue0),
+                        {SKey, SValue}
+                  end, {none, none}, M),
+    #t_map{super_key=SKey,super_value=SValue};
 mtfv_1(T) when is_tuple(T) ->
     {Es,_} = foldl(fun(Val, {Es0, Index}) ->
                            Type = mtfv_1(Val),
@@ -571,6 +597,8 @@ limit_depth(#t_tuple{}=T, Depth) ->
     limit_depth_tuple(T, Depth);
 limit_depth(#t_fun{}=T, Depth) ->
     limit_depth_fun(T, Depth);
+limit_depth(#t_map{}=T, Depth) ->
+    limit_depth_map(T, Depth);
 limit_depth(#t_union{list=List0,tuple_set=TupleSet0,other=Other0}=U, Depth) ->
     TupleSet = limit_depth_tuple(TupleSet0, Depth),
     List = limit_depth_list(List0, Depth),
@@ -603,6 +631,14 @@ limit_depth_list_1(Type0, Terminator0, Depth) when Depth > 0 ->
     {Type, Terminator};
 limit_depth_list_1(_Type, _Terminator, Depth) when Depth =< 0 ->
     {any, any}.
+
+limit_depth_map(#t_map{ super_key=SKey0,
+                        super_value=SValue0 }, Depth) when Depth > 0 ->
+    SKey = limit_depth(SKey0, Depth - 1),
+    SValue = limit_depth(SValue0, Depth - 1),
+    #t_map{super_key=SKey,super_value=SValue};
+limit_depth_map(#t_map{}, Depth) when Depth =< 0 ->
+    #t_map{}.
 
 limit_depth_tuple(#t_tuple{elements=Es0}=T, Depth) ->
     if
@@ -749,6 +785,12 @@ glb(number, #t_integer{}=T) ->
     T;
 glb(number, #t_float{}=T) ->
     T;
+glb(#t_map{super_key=SKeyA,super_value=SValueA},
+    #t_map{super_key=SKeyB,super_value=SValueB}) ->
+    %% Note the use of meet/2; elements don't need to be normal types.
+    SKey = meet(SKeyA, SKeyB),
+    SValue = meet(SValueA, SValueB),
+    #t_map{super_key=SKey,super_value=SValue};
 glb(#t_tuple{}=T1, #t_tuple{}=T2) ->
     glb_tuples(T1, T2);
 glb(_, _) ->
@@ -891,6 +933,12 @@ lub(number, #t_integer{}) ->
     number;
 lub(number, #t_float{}) ->
     number;
+lub(#t_map{super_key=SKeyA,super_value=SValueA},
+    #t_map{super_key=SKeyB,super_value=SValueB}) ->
+    %% Note the use of join/2; elements don't need to be normal types.
+    SKey = join(SKeyA, SKeyB),
+    SValue = join(SValueA, SValueB),
+    #t_map{super_key=SKey,super_value=SValue};
 lub(#t_tuple{size=Sz,exact=ExactA,elements=EsA},
     #t_tuple{size=Sz,exact=ExactB,elements=EsB}) ->
     Exact = ExactA and ExactB,

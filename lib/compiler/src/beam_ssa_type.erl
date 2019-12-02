@@ -632,31 +632,22 @@ simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub0) ->
             Ds = Ds0#{Dst=>I},
             {I, Ts, Ds, Sub0}
     end;
-simplify(#b_set{op=succeeded,dst=Dst,args=[Arg],anno=Anno}=I,
-         Ts0, Ds0, _Ls, Sub0) ->
-    Type = case Ds0 of
-               #{ Arg := #b_set{op=call} } ->
-                   %% Calls can always throw exceptions and their return types
-                   %% are what they return on success, so we must avoid
-                   %% simplifying arguments in case `Arg` would become a
-                   %% literal, which would trick 'succeeded' into thinking it
-                   %% can't fail.
-                   type(succeeded, [Arg], Anno, Ts0, Ds0);
-               #{ Arg := _ } ->
-                   Args = simplify_args([Arg], Ts0, Sub0),
-                   type(succeeded, Args, Anno, Ts0, Ds0);
-               #{} ->
-                   %% The checked instruction has been removed and substituted,
-                   %% so we can assume it always succeeds.
-                   #{ Arg := _ } = Sub0,        %Assertion.
-                   beam_types:make_atom(true)
-           end,
-    case beam_types:get_singleton_value(Type) of
-        {ok, Lit} ->
-            Sub = Sub0#{ Dst => #b_literal{val=Lit} },
+simplify(#b_set{op=succeeded,dst=Dst}=I0, Ts0, Ds0, _Ls, Sub0) ->
+    case will_succeed(I0, Ts0, Ds0, Sub0) of
+        yes ->
+            Lit = #b_literal{val=true},
+            Sub = Sub0#{ Dst => Lit },
             {Lit, Sub};
-        error ->
-            Ts = Ts0#{ Dst => Type },
+        no ->
+            Lit = #b_literal{val=false},
+            Sub = Sub0#{ Dst => Lit },
+            {Lit, Sub};
+        maybe ->
+            %% Note that we never simplify args; this instruction is specific
+            %% to the operation being checked, and simplifying could break that
+            %% connection.
+            I = beam_ssa:normalize(I0),
+            Ts = Ts0#{ Dst => beam_types:make_boolean() },
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds, Sub0}
     end;
@@ -887,6 +878,77 @@ simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, _Ts) ->
             I
     end;
 simplify(I, _Ts) -> I.
+
+will_succeed(#b_set{args=[Src]}, Ts, Ds, Sub) ->
+    case {Ds, Ts} of
+        {#{}, #{ Src := none }} ->
+            %% Checked operation never returns.
+            no;
+        {#{ Src := I }, #{}} ->
+            will_succeed_1(I, Src, Ts, Sub);
+        {#{}, #{}} ->
+            %% The checked instruction has been removed and substituted, so we
+            %% can assume it always succeeds.
+            true = is_map_key(Src, Sub),        %Assertion.
+            yes
+    end.
+
+will_succeed_1(#b_set{op=bs_get_tail}, _Src, _Ts, _Sub) ->
+    yes;
+will_succeed_1(#b_set{op=bs_start_match,args=[_, Arg]}, _Src, Ts, _Sub) ->
+    ArgType = raw_type(Arg, Ts),
+    case beam_types:is_bs_matchable_type(ArgType) of
+        true ->
+            %% In the future we may be able to remove this instruction
+            %% altogether when we have a #t_bs_context{}, but for now we need
+            %% to keep it for compatibility with older releases of OTP.
+            yes;
+        false ->
+            %% Is it at all possible to match?
+            case beam_types:meet(ArgType, #t_bs_matchable{}) of
+                none -> no;
+                _ -> maybe
+            end
+    end;
+
+will_succeed_1(#b_set{op={bif,Bif},args=BifArgs}, _Src, Ts, _Sub) ->
+    ArgTypes = normalized_types(BifArgs, Ts),
+    beam_call_types:will_succeed(erlang, Bif, ArgTypes);
+will_succeed_1(#b_set{op=call,
+                      args=[#b_remote{mod=#b_literal{val=Mod},
+                            name=#b_literal{val=Func}} |
+                            CallArgs]},
+               _Src, Ts, _Sub) ->
+            ArgTypes = normalized_types(CallArgs, Ts),
+            beam_call_types:will_succeed(Mod, Func, ArgTypes);
+
+will_succeed_1(#b_set{op=get_hd}, _Src, _Ts, _Sub) ->
+    yes;
+will_succeed_1(#b_set{op=get_tl}, _Src, _Ts, _Sub) ->
+    yes;
+will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts, _Sub) ->
+    yes;
+will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts, _Sub) ->
+    yes;
+
+%% These operations may fail even though we know their return value on success.
+will_succeed_1(#b_set{op=call}, _Src, _Ts, _Sub) ->
+    maybe;
+will_succeed_1(#b_set{op=get_map_element}, _Src, _Ts, _Sub) ->
+    maybe;
+
+will_succeed_1(#b_set{op=wait}, _Src, _Ts, _Sub) ->
+    no;
+
+will_succeed_1(#b_set{}, Src, Ts, Sub) ->
+    case simplify_arg(Src, Ts, Sub) of
+        #b_var{}=Src ->
+            %% No substitution; might fail at runtime.
+            maybe;
+        _ ->
+            %% Substituted with literal or other variable; always succeeds.
+            yes
+    end.
 
 simplify_is_record(I, #t_tuple{exact=Exact,
                                size=Size,
@@ -1400,18 +1462,26 @@ type(call, [#b_var{} | _Args], Anno, _Ts, _Ds) ->
 type(call, [#b_literal{} | _Args], _Anno, _Ts, _Ds) ->
     none;
 type(get_hd, [Src], _Anno, Ts, _Ds) ->
-    SrcType = #t_cons{} = normalized_type(Src, Ts),
+    SrcType = #t_cons{} = normalized_type(Src, Ts), %Assertion.
     {RetType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),
     RetType;
 type(get_tl, [Src], _Anno, Ts, _Ds) ->
-    SrcType = #t_cons{} = normalized_type(Src, Ts),
+    SrcType = #t_cons{} = normalized_type(Src, Ts), %Assertion.
     {RetType, _, _} = beam_call_types:types(erlang, tl, [SrcType]),
+    RetType;
+type(get_map_element, [_, _]=Args0, _Anno, Ts, _Ds) ->
+    [#t_map{}=Map, Key] = normalized_types(Args0, Ts), %Assertion.
+    {RetType, _, _} = beam_call_types:types(erlang, map_get, [Key, Map]),
     RetType;
 type(get_tuple_element, [Tuple, Offset], _Anno, Ts, _Ds) ->
     #t_tuple{size=Size,elements=Es} = normalized_type(Tuple, Ts),
     #b_literal{val=N} = Offset,
     true = Size > N, %Assertion.
     beam_types:get_tuple_element(N + 1, Es);
+type(has_map_field, [_, _]=Args0, _Anno, Ts, _Ds) ->
+    [#t_map{}=Map, Key] = normalized_types(Args0, Ts), %Assertion.
+    {RetType, _, _} = beam_call_types:types(erlang, is_map_key, [Key, Map]),
+    RetType;
 type(is_nonempty_list, [_], _Anno, _Ts, _Ds) ->
     beam_types:make_boolean();
 type(is_tagged_tuple, [_,#b_literal{},#b_literal{}], _Anno, _Ts, _Ds) ->
@@ -1422,8 +1492,8 @@ type(make_fun, [#b_local{arity=TotalArity} | Env], Anno, _Ts, _Ds) ->
                   #{} -> any
               end,
     #t_fun{arity=TotalArity - length(Env), type=RetType};
-type(put_map, _Args, _Anno, _Ts, _Ds) ->
-    #t_map{};
+type(put_map, [_Kind, Map | Ss], _Anno, Ts, _Ds) ->
+    put_map_type(Map, Ss, Ts);
 type(put_list, [Head, Tail], _Anno, Ts, _Ds) ->
     HeadType = raw_type(Head, Ts),
     TailType = raw_type(Tail, Ts),
@@ -1435,61 +1505,18 @@ type(put_tuple, Args, _Anno, Ts, _Ds) ->
                             {Es, Index + 1}
                     end, {#{}, 1}, Args),
     #t_tuple{exact=true,size=length(Args),elements=Es};
-type(succeeded, [#b_var{}=Src], _Anno, Ts, _Ds)
-  when map_get(Src, Ts) =:= none ->
-    beam_types:make_atom(false);
-type(succeeded, [#b_var{}=Src], _Anno, Ts, Ds) ->
-    case maps:get(Src, Ds) of
-        #b_set{op={bif,Bif},args=BifArgs} ->
-            ArgTypes = normalized_types(BifArgs, Ts),
-            case beam_call_types:will_succeed(erlang, Bif, ArgTypes) of
-                yes -> beam_types:make_atom(true);
-                no -> beam_types:make_atom(false);
-                maybe -> beam_types:make_boolean()
-            end;
-        #b_set{op=call,args=[#b_remote{mod=#b_literal{val=Mod},
-                                       name=#b_literal{val=Func}} |
-                             CallArgs]} ->
-            ArgTypes = normalized_types(CallArgs, Ts),
-            case beam_call_types:will_succeed(Mod, Func, ArgTypes) of
-                yes -> beam_types:make_atom(true);
-                no -> beam_types:make_atom(false);
-                maybe -> beam_types:make_boolean()
-            end;
-        #b_set{op=bs_get_tail} ->
-            beam_types:make_atom(true);
-        #b_set{op=bs_start_match,args=[_, Arg]} ->
-            ArgType = raw_type(Arg, Ts),
-            case beam_types:is_bs_matchable_type(ArgType) of
-                true ->
-                    %% In the future we may be able to remove this instruction
-                    %% altogether when we have a #t_bs_context{}, but for now
-                    %% we need to keep it for compatibility with older releases
-                    %% of OTP.
-                    beam_types:make_atom(true);
-                false ->
-                    %% Is it at all possible to match?
-                    case beam_types:meet(ArgType, #t_bs_matchable{}) of
-                        none -> beam_types:make_atom(false);
-                        _ -> beam_types:make_boolean()
-                    end
-            end;
-        #b_set{op=get_hd} ->
-            beam_types:make_atom(true);
-        #b_set{op=get_tl} ->
-            beam_types:make_atom(true);
-        #b_set{op=get_tuple_element} ->
-            beam_types:make_atom(true);
-        #b_set{op=put_tuple} ->
-            beam_types:make_atom(true);
-        #b_set{op=wait} ->
-            beam_types:make_atom(false);
-        #b_set{} ->
-            beam_types:make_boolean()
-    end;
-type(succeeded, [#b_literal{}], _Anno, _Ts, _Ds) ->
-    beam_types:make_atom(true);
 type(_, _, _, _, _) -> any.
+
+put_map_type(Map, Ss, Ts) ->
+    pmt_1(Ss, Ts, normalized_type(Map, Ts)).
+
+pmt_1([Key0, Value0 | Ss], Ts, Acc0) ->
+    Key = normalized_type(Key0, Ts),
+    Value = normalized_type(Value0, Ts),
+    {Acc, _, _} = beam_call_types:types(maps, put, [Key, Value, Acc0]),
+    pmt_1(Ss, Ts, Acc);
+pmt_1([], _Ts, Acc) ->
+    Acc.
 
 %% We seldom know how far a match operation may advance, but we can often tell
 %% which increment it will advance by.

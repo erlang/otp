@@ -1218,8 +1218,9 @@ cg_block([#cg_set{op=is_tagged_tuple,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
 cg_block([#cg_set{op=is_nonempty_list,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
     Args = beam_args(Args0, St),
     {[{test,is_nonempty_list,ensure_label(Fail, St),Args}],St};
-cg_block([#cg_set{op=has_map_field,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
+cg_block([#cg_set{op=has_map_field,dst=Bool,args=Args0}], {Bool,Fail0}, St) ->
     [Src,Key] = beam_args(Args0, St),
+    Fail = ensure_label(Fail0, St),
     {[{test,has_map_fields,Fail,Src,{list,[Key]}}],St};
 cg_block([#cg_set{op=call}=Call], {_Bool,_Fail}=Context, St0) ->
     {Is0,St1} = cg_call(Call, body, none, St0),

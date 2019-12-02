@@ -2404,67 +2404,68 @@ reserve_zregs(Blocks, Intervals, Res) ->
     beam_ssa:fold_rpo(F, [0], Res, Blocks).
 
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
-              #b_set{op={bif,'=:='},args=[Dst,Val]}], Last, ShortLived, A0) ->
+              #b_set{op={bif,'=:='},args=[Dst,Val],dst=Bool}],
+             Last, ShortLived, A) ->
     case {Val,Last} of
-        {#b_literal{val=Arity},#b_br{bool=#b_var{}}} when Arity bsr 32 =:= 0 ->
+        {#b_literal{val=Arity},#b_br{bool=Bool}} when Arity bsr 32 =:= 0 ->
             %% These two instructions can be combined to a test_arity
             %% instruction provided that the arity variable is short-lived.
-            reserve_zreg_1(Dst, ShortLived, A0);
+            reserve_test_zreg(Dst, ShortLived, A);
         {_,_} ->
             %% Either the arity is too big, or the boolean value is not
             %% used in a conditional branch.
-            A0
+            A
     end;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
-             #b_switch{}, ShortLived, A) ->
-    reserve_zreg_1(Dst, ShortLived, A);
-reserve_zreg([#b_set{op={bif,'xor'}}], _Last, _ShortLived, A) ->
-    %% There is no short, easy way to rewrite 'xor' to a series of
-    %% test instructions.
-    A;
-reserve_zreg([#b_set{op={bif,is_record}}], _Last, _ShortLived, A) ->
-    %% There is no short, easy way to rewrite is_record/2 to a series of
-    %% test instructions.
-    A;
-reserve_zreg([#b_set{op=Op,dst=Dst}|Is], Last, ShortLived, A) ->
-    case classify_zreg(Op) of
-        always -> reserve_zreg(Is, Last, ShortLived, [{Dst,z} | A]);
-        short_lived -> reserve_zreg(Is, Last, ShortLived, A);
-        never -> A
+             #b_switch{arg=Dst}, ShortLived, A) ->
+    reserve_test_zreg(Dst, ShortLived, A);
+reserve_zreg([#b_set{op=Op,dst=Dst}], #b_br{bool=Dst}, ShortLived, A) ->
+    case use_zreg(Op) of
+        yes -> [{Dst,z} | A];
+        no -> A;
+        maybe -> reserve_test_zreg(Dst, ShortLived, A)
     end;
-reserve_zreg([], #b_br{bool=Bool}, ShortLived, A) ->
-    reserve_zreg_1(Bool, ShortLived, A);
+reserve_zreg([#b_set{op=Op,dst=Dst} | Is], Last, ShortLived, A) ->
+    case use_zreg(Op) of
+        yes -> reserve_zreg(Is, Last, ShortLived, [{Dst,z} | A]);
+        _Other -> reserve_zreg(Is, Last, ShortLived, A)
+    end;
 reserve_zreg([], _, _, A) -> A.
 
-classify_zreg(bs_match_string) -> always;
-classify_zreg(bs_save) -> always;
-classify_zreg(bs_restore) -> always;
-classify_zreg(bs_set_position) -> always;
-classify_zreg({float,clearerror}) -> always;
-classify_zreg(kill_try_tag) -> always;
-classify_zreg(landingpad) -> always;
-classify_zreg(put_tuple_elements) -> always;
-classify_zreg(remove_message) -> always;
-classify_zreg(set_tuple_element) -> always;
-classify_zreg(succeeded) -> always;
-classify_zreg(timeout) -> always;
-classify_zreg(wait_timeout) -> always;
-%% If type optimization has determined that the result of these instructions
-%% can be used directly in a branch, we must avoid reserving a z register or
-%% code generation will fail.
-classify_zreg(call) -> never;
-classify_zreg(get_hd) -> never;
-classify_zreg(get_tl) -> never;
-classify_zreg(get_tuple_element) -> never;
-%% All other operations can use a z register if the variable is short-lived.
-classify_zreg(_) -> short_lived.
+use_zreg(bs_match_string) -> yes;
+use_zreg(bs_save) -> yes;
+use_zreg(bs_restore) -> yes;
+use_zreg(bs_set_position) -> yes;
+use_zreg({float,clearerror}) -> yes;
+use_zreg(kill_try_tag) -> yes;
+use_zreg(landingpad) -> yes;
+use_zreg(put_tuple_elements) -> yes;
+use_zreg(remove_message) -> yes;
+use_zreg(set_tuple_element) -> yes;
+use_zreg(succeeded) -> yes;
+use_zreg(timeout) -> yes;
+use_zreg(wait_timeout) -> yes;
+%% There's no way we can combine these into a test instruction, so we must
+%% avoid using a z register if their result is used directly in a branch.
+use_zreg(call) -> no;
+use_zreg({bif,is_map_key}) -> no;
+use_zreg({bif,is_record}) -> no;
+use_zreg({bif,map_get}) -> no;
+use_zreg({bif,'xor'}) -> no;
+use_zreg(get_hd) -> no;
+use_zreg(get_tl) -> no;
+use_zreg(get_tuple_element) -> no;
+%% Assume the instruction can use a z register, provided it's the last in its
+%% block and that the result is only used in the terminator.
+use_zreg(_) -> maybe.
 
-reserve_zreg_1(#b_var{}=V, ShortLived, A) ->
+%% If V is defined just before a branch, we may be able to combine it into a
+%% test instruction.
+reserve_test_zreg(#b_var{}=V, ShortLived, A) ->
     case cerl_sets:is_element(V, ShortLived) of
         true -> [{V,z}|A];
         false -> A
-    end;
-reserve_zreg_1(#b_literal{}, _, A) -> A.
+    end.
 
 reserve_fregs(Blocks, Res) ->
     F = fun(_, #b_blk{is=Is}, A) ->

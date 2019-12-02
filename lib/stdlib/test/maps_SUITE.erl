@@ -237,8 +237,11 @@ t_size_1(Config) when is_list(Config) ->
     600 = maps:size(maps:from_list([{{"k",I},I}||I<-lists:seq(1,600)])),
 
     %% error case
-    ?badmap(a,size,[a]) = (catch maps:size(id(a))),
-    ?badmap(<<>>,size,[<<>>]) = (catch maps:size(id(<<>>))),
+    %%
+    %% Note that the stack trace is ignored because the compiler may have
+    %% rewritten maps:size/2 to map_size.
+    {'EXIT', {{badmap,a}, _}} = (catch maps:size(id(a))),
+    {'EXIT', {{badmap,<<>>}, _}} = (catch maps:size(id(<<>>))),
     ok.
 
 id(I) -> I.

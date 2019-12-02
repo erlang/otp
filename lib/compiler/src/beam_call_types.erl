@@ -65,6 +65,8 @@ will_succeed(erlang, byte_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, hd, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
+will_succeed(erlang, is_map_key, [_Key, Map]) ->
+    succeeds_if_type(Map, #t_map{});
 will_succeed(erlang, length, [Arg]) ->
     succeeds_if_type(Arg, proper_list());
 will_succeed(erlang, map_size, [Arg]) ->
@@ -147,18 +149,10 @@ types(erlang, 'bit_size', [_]) ->
 types(erlang, 'byte_size', [_]) ->
     sub_safe(#t_integer{}, [#t_bitstring{}]);
 types(erlang, hd, [Src]) ->
-    RetType = case beam_types:meet(Src, #t_cons{}) of
-                  #t_cons{type=Type} -> Type;
-                  _ -> any
-              end,
+    RetType = erlang_hd_type(Src),
     sub_safe(RetType, [#t_cons{}]);
 types(erlang, tl, [Src]) ->
-    RetType = case beam_types:meet(Src, #t_cons{}) of
-                  #t_cons{terminator=Term}=Cons ->
-                      beam_types:join(Cons, Term);
-                  _ ->
-                      any
-              end,
+    RetType = erlang_tl_type(Src),
     sub_safe(RetType, [#t_cons{}]);
 types(erlang, 'not', [_]) ->
     Bool = beam_types:make_boolean(),
@@ -243,10 +237,15 @@ types(erlang, 'binary_part', [_, _]) ->
 types(erlang, 'binary_part', [_, _, _]) ->
     Binary = #t_bitstring{size_unit=8},
     sub_unsafe(Binary, [Binary, #t_integer{}, #t_integer{}]);
-types(erlang, 'is_map_key', [_,_]) ->
-    sub_unsafe(beam_types:make_boolean(), [any,#t_map{}]);
-types(erlang, 'map_get', [_,_]) ->
-    sub_unsafe(any, [any,#t_map{}]);
+types(erlang, 'is_map_key', [Key, Map]) ->
+    RetType = case erlang_map_get_type(Key, Map) of
+                  none -> beam_types:make_atom(false);
+                  _ -> beam_types:make_boolean()
+              end,
+    sub_unsafe(RetType, [any, #t_map{}]);
+types(erlang, 'map_get', [Key, Map]) ->
+    RetType = erlang_map_get_type(Key, Map),
+    sub_unsafe(RetType, [any, #t_map{}]);
 types(erlang, 'node', [_]) ->
     sub_unsafe(#t_atom{}, [any]);
 types(erlang, 'node', []) ->
@@ -533,6 +532,23 @@ types(lists, unzip, [List]) ->
 %% Map functions
 %%
 
+types(maps, filter, [_Fun, Map]) ->
+    %% Conservatively assume that key/value types are unchanged.
+    RetType = case Map of
+                  #t_map{}=T -> T;
+                  _ -> #t_map{}
+              end,
+    sub_unsafe(RetType, [#t_fun{arity=2}, #t_map{}]);
+types(maps, find, [Key, Map]) ->
+    TupleType = case erlang_map_get_type(Key, Map) of
+                    none ->
+                        none;
+                    ValueType ->
+                        make_two_tuple(beam_types:make_atom(ok), ValueType)
+                end,
+    %% error | {ok, Value}
+    RetType = beam_types:join(beam_types:make_atom(error), TupleType),
+    sub_unsafe(RetType, [any, #t_map{}]);
 types(maps, fold, [Fun, Init, _Map]) ->
     RetType = case Fun of
                   #t_fun{type=Type} ->
@@ -543,6 +559,120 @@ types(maps, fold, [Fun, Init, _Map]) ->
                       any
               end,
     sub_unsafe(RetType, [#t_fun{arity=3}, any, #t_map{}]);
+types(maps, from_list, [Pairs]) ->
+    PairType = erlang_hd_type(Pairs),
+    RetType = case beam_types:normalize(PairType) of
+                  #t_tuple{elements=Es} ->
+                      SKey = beam_types:get_tuple_element(1, Es),
+                      SValue = beam_types:get_tuple_element(2, Es),
+                      #t_map{super_key=SKey,super_value=SValue};
+                  _ ->
+                      #t_map{}
+              end,
+    sub_unsafe(RetType, [proper_list()]);
+types(maps, get, [_Key, _Map]=Args) ->
+    types(erlang, map_get, Args);
+types(maps, get, [Key, Map, Default]) ->
+    RetType = case erlang_map_get_type(Key, Map) of
+                  none -> Default;
+                  ValueType -> beam_types:join(ValueType, Default)
+              end,
+    sub_unsafe(RetType, [any, #t_map{}, any]);
+types(maps, is_key, [_Key, _Map]=Args) ->
+    types(erlang, is_map_key, Args);
+types(maps, keys, [Map]) ->
+    RetType = case Map of
+                  #t_map{super_key=none} -> nil;
+                  #t_map{super_key=SKey} -> proper_list(SKey);
+                  _ -> proper_list()
+              end,
+    sub_unsafe(RetType, [#t_map{}]);
+types(maps, map, [Fun, Map]) ->
+    RetType = case {Fun, Map} of
+                  {#t_fun{type=FunRet}, #t_map{super_value=SValue0}} ->
+                      SValue = beam_types:join(FunRet, SValue0),
+                      Map#t_map{super_value=SValue};
+                  _ ->
+                      #t_map{}
+              end,
+    sub_unsafe(RetType, [#t_fun{arity=2}, #t_map{}]);
+types(maps, merge, [A, B]) ->
+    RetType = case {A, B} of
+                  {#t_map{super_key=SKeyA,super_value=SValueA},
+                   #t_map{super_key=SKeyB,super_value=SValueB}} ->
+                      SKey = beam_types:join(SKeyA, SKeyB),
+                      SValue = beam_types:join(SValueA, SValueB),
+                      #t_map{super_key=SKey,super_value=SValue};
+                  _ ->
+                      #t_map{}
+              end,
+    sub_unsafe(RetType, [#t_map{}, #t_map{}]);
+types(maps, new, []) ->
+    RetType = #t_map{super_key=none,super_value=none},
+    sub_unsafe(RetType, []);
+types(maps, put, [Key, Value, Map]) ->
+    RetType = case Map of
+                  #t_map{super_key=SKey0,super_value=SValue0} ->
+                      SKey = beam_types:join(Key, SKey0),
+                      SValue = beam_types:join(Value, SValue0),
+                      #t_map{super_key=SKey,super_value=SValue};
+                  _ ->
+                      #t_map{}
+              end,
+    sub_unsafe(RetType, [any, any, #t_map{}]);
+types(maps, remove, [Key, Map]) ->
+    RetType = maps_remove_type(Key, Map),
+    sub_unsafe(RetType, [any, #t_map{}]);
+types(maps, take, [Key, Map]) ->
+    TupleType = case erlang_map_get_type(Key, Map) of
+                    none ->
+                        none;
+                    ValueType ->
+                        MapType = beam_types:meet(Map, #t_map{}),
+                        make_two_tuple(ValueType, MapType)
+                end,
+    %% error | {Value, Map}
+    RetType = beam_types:join(beam_types:make_atom(error), TupleType),
+    sub_unsafe(RetType, [any, #t_map{}]);
+types(maps, to_list, [Map]) ->
+    RetType = case Map of
+                  #t_map{super_key=SKey,super_value=SValue} ->
+                      proper_list(make_two_tuple(SKey, SValue));
+                  _ ->
+                      proper_list()
+              end,
+    sub_unsafe(RetType, [#t_map{}]);
+types(maps, update_with, [_Key, Fun, Map]) ->
+    RetType = case {Fun, Map} of
+                  {#t_fun{type=FunRet}, #t_map{super_value=SValue0}} ->
+                      SValue = beam_types:join(FunRet, SValue0),
+                      Map#t_map{super_value=SValue};
+                  _ ->
+                      #t_map{}
+              end,
+    sub_unsafe(RetType, [any, #t_fun{arity=1}, #t_map{}]);
+types(maps, values, [Map]) ->
+    RetType = case Map of
+                  #t_map{super_value=none} -> nil;
+                  #t_map{super_value=SValue} -> proper_list(SValue);
+                  _ -> proper_list()
+              end,
+    sub_unsafe(RetType, [#t_map{}]);
+types(maps, with, [Keys, Map]) ->
+    RetType = case Map of
+                  #t_map{super_key=SKey0} ->
+                      %% Since we know that the Map will only contain the pairs
+                      %% pointed out by Keys, we can restrict the types to
+                      %% those in the list.
+                      SKey = beam_types:meet(erlang_hd_type(Keys), SKey0),
+                      Map#t_map{super_key=SKey};
+                  _ ->
+                      #t_map{}
+              end,
+    sub_unsafe(RetType, [proper_list(), #t_map{}]);
+types(maps, without, [Keys, Map]) ->
+    RetType = maps_remove_type(erlang_hd_type(Keys), Map),
+    sub_unsafe(RetType, [proper_list(), #t_map{}]);
 
 %% Catch-all clause for unknown functions.
 
@@ -567,6 +697,18 @@ mixed_arith_types([FirstType | _]=Args0) ->
                        (_, _) -> none
                     end, FirstType, Args0),
     sub_unsafe(RetType, [number || _ <- Args0]).
+
+erlang_hd_type(Src) ->
+    case beam_types:meet(Src, #t_cons{}) of
+        #t_cons{type=Type} -> Type;
+        _ -> any
+    end.
+
+erlang_tl_type(Src) ->
+    case beam_types:meet(Src, #t_cons{}) of
+        #t_cons{terminator=Term}=Cons -> beam_types:join(Cons, Term);
+        _ -> any
+    end.
 
 erlang_band_type([#t_integer{elements={Int,Int}}, RHS]) when is_integer(Int) ->
     erlang_band_type_1(RHS, Int);
@@ -596,20 +738,16 @@ erlang_band_type_1(LHS, Int) ->
             #t_integer{}
     end.
 
-%% Returns two bitmasks describing all possible values between From and To.
-%%
-%% The first contains the bits that are common to all values, and the second
-%% contains the bits that are set by any value in the range.
-range_masks(From, To) when From =< To ->
-    range_masks_1(From, To, 0, -1, 0).
-
-range_masks_1(From, To, BitPos, Intersection, Union) when From < To ->
-    range_masks_1(From + (1 bsl BitPos), To, BitPos + 1,
-                  Intersection band From, Union bor From);
-range_masks_1(_From, To, _BitPos, Intersection0, Union0) ->
-    Intersection = To band Intersection0,
-    Union = To bor Union0,
-    {Intersection, Union}.
+erlang_map_get_type(Key, Map) ->
+    case Map of
+        #t_map{super_key=SKey,super_value=SValue} ->
+            case beam_types:meet(SKey, Key) of
+                none -> none;
+                _ -> SValue
+            end;
+        _ ->
+            any
+    end.
 
 lists_fold_type(_Fun, Init, nil) ->
     Init;
@@ -756,6 +894,17 @@ lists_zipwith_type_1([], ElementType) ->
     ArgType = proper_list(),
     {RetType, ArgType}.
 
+maps_remove_type(Key, #t_map{super_key=SKey0}=Map) ->
+    case beam_types:is_singleton_type(Key) of
+        true ->
+            SKey = beam_types:subtract(SKey0, Key),
+            Map#t_map{super_key=SKey};
+        false ->
+            Map
+    end;
+maps_remove_type(_Key, _Map) ->
+    #t_map{}.
+
 %%%
 %%% Generic helpers
 %%%
@@ -771,6 +920,21 @@ discard_tuple_element_info(Min, Max, Es) ->
                   maps:remove(El, Acc);
              (_El, Acc) -> Acc
           end, Es, maps:keys(Es)).
+
+%% Returns two bitmasks describing all possible values between From and To.
+%%
+%% The first contains the bits that are common to all values, and the second
+%% contains the bits that are set by any value in the range.
+range_masks(From, To) when From =< To ->
+    range_masks_1(From, To, 0, -1, 0).
+
+range_masks_1(From, To, BitPos, Intersection, Union) when From < To ->
+    range_masks_1(From + (1 bsl BitPos), To, BitPos + 1,
+                  Intersection band From, Union bor From);
+range_masks_1(_From, To, _BitPos, Intersection0, Union0) ->
+    Intersection = To band Intersection0,
+    Union = To bor Union0,
+    {Intersection, Union}.
 
 proper_cons() ->
     #t_cons{terminator=nil}.
