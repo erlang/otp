@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2018. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2019. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -211,6 +211,9 @@ void esock_abort(const char* expr,
                  const char* func,
                  const char* file,
                  int         line);
+
+extern
+ERL_NIF_TERM esock_self(ErlNifEnv* env);
 
 extern
 ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any);
