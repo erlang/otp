@@ -125,10 +125,19 @@ monitor_ei_process(Config) when is_list(Config) ->
 
     runner:finish(P),
 
-    [{'DOWN', MRef1, process, {any, EINode}, noconnection},
-     {'DOWN', MRef2, process, {any, EINode}, noconnection}
-    ] = lists:sort(flush(2, 1000)),
-
+    ok  =receive
+             {'DOWN', MRef1, process, {any, EINode}, noconnection} ->
+                 ok
+         after 1000 ->
+                 timeout
+         end,
+    ok = receive
+             {'DOWN', MRef2, process, {any, EINode}, noconnection} ->
+                 ok
+         after 1000 ->
+                 timeout
+         end,
+    [] = flush(0, 1000),
     ok.
 
 waitfornode(String,0) ->
