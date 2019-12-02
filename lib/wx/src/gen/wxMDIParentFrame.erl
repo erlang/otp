@@ -44,11 +44,11 @@
   createStatusBar/1,createStatusBar/2,createToolBar/1,createToolBar/2,
   destroyChildren/1,disable/1,disconnect/1,disconnect/2,disconnect/3,
   dragAcceptFiles/2,enable/1,enable/2,findWindow/2,fit/1,fitInside/1,
-  freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
+  freeze/1,fromDIP/2,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
   getBestSize/1,getCaret/1,getCharHeight/1,getCharWidth/1,getChildren/1,
   getClientAreaOrigin/1,getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,
-  getCursor/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,
-  getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
+  getCursor/1,getDPI/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,
+  getFont/1,getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
   getIcon/1,getIcons/1,getId/1,getLabel/1,getMaxSize/1,getMenuBar/1,getMinSize/1,
   getName/1,getParent/1,getPosition/1,getRect/1,getScreenPosition/1,
   getScreenRect/1,getScrollPos/2,getScrollRange/2,getScrollThumb/2,
@@ -81,8 +81,8 @@
   setVirtualSize/2,setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,
   setVirtualSizeHints/4,setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,
   shouldInheritColours/1,show/1,show/2,showFullScreen/2,showFullScreen/3,
-  thaw/1,transferDataFromWindow/1,transferDataToWindow/1,update/1,updateWindowUI/1,
-  updateWindowUI/2,validate/1,warpPointer/3]).
+  thaw/1,toDIP/2,transferDataFromWindow/1,transferDataToWindow/1,update/1,
+  updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
 -export_type([wxMDIParentFrame/0]).
 %% @hidden
@@ -313,6 +313,12 @@ getIcons(This) -> wxTopLevelWindow:getIcons(This).
 %% @hidden
 getIcon(This) -> wxTopLevelWindow:getIcon(This).
  %% From wxWindow
+%% @hidden
+toDIP(This,Sz) -> wxWindow:toDIP(This,Sz).
+%% @hidden
+fromDIP(This,Sz) -> wxWindow:fromDIP(This,Sz).
+%% @hidden
+getDPI(This) -> wxWindow:getDPI(This).
 %% @hidden
 getContentScaleFactor(This) -> wxWindow:getContentScaleFactor(This).
 %% @hidden
