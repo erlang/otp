@@ -1732,6 +1732,39 @@ case wxWindow_GetContentScaleFactor: { // wxWindow::GetContentScaleFactor
  break;
 }
 #endif
+#if wxCHECK_VERSION(3,1,3)
+case wxWindow_GetDPI: { // wxWindow::GetDPI
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxSize Result = This->GetDPI();
+ rt.add(Result);
+ break;
+}
+#endif
+#if wxCHECK_VERSION(3,1,0)
+case wxWindow_FromDIP: { // wxWindow::FromDIP
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ int * szW = (int *) bp; bp += 4;
+ int * szH = (int *) bp; bp += 4;
+ wxSize sz = wxSize(*szW,*szH);
+ if(!This) throw wxe_badarg(0);
+ wxSize Result = This->FromDIP(sz);
+ rt.add(Result);
+ break;
+}
+#endif
+#if wxCHECK_VERSION(3,1,0)
+case wxWindow_ToDIP: { // wxWindow::ToDIP
+ wxWindow *This = (wxWindow *) getPtr(bp,memenv); bp += 4;
+ int * szW = (int *) bp; bp += 4;
+ int * szH = (int *) bp; bp += 4;
+ wxSize sz = wxSize(*szW,*szH);
+ if(!This) throw wxe_badarg(0);
+ wxSize Result = This->ToDIP(sz);
+ rt.add(Result);
+ break;
+}
+#endif
 case wxTopLevelWindow_GetIcon: { // wxTopLevelWindow::GetIcon
  wxTopLevelWindow *This = (wxTopLevelWindow *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);

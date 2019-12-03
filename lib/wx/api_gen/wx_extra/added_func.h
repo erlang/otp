@@ -52,6 +52,11 @@ class wxToolBar {
 class wxWindowGTK {
  public:
     double GetContentScaleFactor();
+    wxSize GetDPI();
+
+    wxSize FromDIP(const wxSize& sz);
+    wxSize ToDIP(const wxSize& sz) const { return ToDIP(sz, this); }
+
 };
 
 class wxDisplay {
