@@ -312,7 +312,10 @@ convert_encoding(Enc, State) -> %% Just for 7,8 bit + utf8
 %% Description: Parsing the xml declaration from the input stream.
 %%----------------------------------------------------------------------
 parse_xml_directive(<<C, Rest/binary>>, State) when ?is_whitespace(C) ->
-   parse_xml_directive_1(Rest, [], State).
+   parse_xml_directive_1(Rest, [], State);
+parse_xml_directive(_, State) ->
+    ?fatal_error(State, "Expected whitespace in directive").
+
 
 %%----------------------------------------------------------------------
 %% Function: parse_xml_directive_1(Xml, Acc) -> [{Name, Value}]
