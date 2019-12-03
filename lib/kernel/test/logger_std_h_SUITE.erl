@@ -305,6 +305,8 @@ formatter_fail(Config) ->
     Dir = ?config(priv_dir,Config),
     Log = filename:join(Dir,?FUNCTION_NAME),
 
+    logger:set_primary_config(level,all),
+
     %% no formatter
     ok = logger:add_handler(?MODULE,
                             logger_std_h,
@@ -346,6 +348,7 @@ formatter_fail(Config) ->
     ok.
 
 formatter_fail(cleanup,_Config) ->
+    logger:set_primary_config(level,info),
     logger:remove_handler(?MODULE).
 
 config_fail(_Config) ->
@@ -2200,10 +2203,14 @@ check_tracer(T,TimeoutFun) ->
             TimeoutFun()
     end.
 
-escape([$+|Rest]) ->
-    [$\\,$+|escape(Rest)];
-escape([H|T]) ->
-    [H|escape(T)];
+escape([C|Rest]) ->
+    %% The characters that have to be escaped in a regex
+    case lists:member(C,"[-[\]{}()*+?.,\\^$|#\s]") of
+        true ->
+            [$\\,C|escape(Rest)];
+        false ->
+            [C|escape(Rest)]
+    end;
 escape([]) ->
     [].
 

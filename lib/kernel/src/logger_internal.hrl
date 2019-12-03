@@ -41,14 +41,14 @@
 
 -define(DEFAULT_LOGGER_CALL_TIMEOUT, infinity).
 
--define(LOG_INTERNAL(Level,Report),?DO_LOG_INTERNAL(Level,[Report])).
--define(LOG_INTERNAL(Level,Format,Args),?DO_LOG_INTERNAL(Level,[Format,Args])).
--define(DO_LOG_INTERNAL(Level,Data),
+-define(LOG_INTERNAL(Level,Log,Report),
+        ?DO_LOG_INTERNAL(Level,Log,[Report])).
+-define(LOG_INTERNAL(Level,Log,Format,Args),
+        ?DO_LOG_INTERNAL(Level,Log,[Format,Args])).
+-define(DO_LOG_INTERNAL(Level,Log,Data),
         case logger:allow(Level,?MODULE) of
             true ->
-                %% Spawn this to avoid deadlocks
-                _ = spawn(logger,macro_log,[?LOCATION,Level|Data]++
-                              [logger:add_default_metadata(#{})]),
+                _ = logger_server:do_internal_log(Level,?LOCATION,Log,Data),
                 ok;
             false ->
                 ok

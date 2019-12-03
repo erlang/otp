@@ -143,13 +143,13 @@ notify({mode_change,Mode0,Mode1},State) ->
            true ->
                 ok
         end,
-    ?LOG_INTERNAL(notice,"~w switched from ~w to ~w mode",[?MODULE,Mode0,Mode1]),
+    ?LOG_INTERNAL(notice,#{},"~w switched from ~w to ~w mode",[?MODULE,Mode0,Mode1]),
     State;
 notify({flushed,Flushed},State) ->
-    ?LOG_INTERNAL(notice, "~w flushed ~w log events",[?MODULE,Flushed]),
+    ?LOG_INTERNAL(notice,#{},"~w flushed ~w log events",[?MODULE,Flushed]),
     State;
 notify(restart,State) ->
-    ?LOG_INTERNAL(notice, "~w restarted", [?MODULE]),
+    ?LOG_INTERNAL(notice,#{},"~w restarted", [?MODULE]),
     State;
 notify(_Note,State) ->
     State.
@@ -159,7 +159,7 @@ notify(_Note,State) ->
 try_log(Args) ->
     try apply(logger,log,Args)
     catch C:R:S ->
-            ?LOG_INTERNAL(debug,[{?MODULE,log_failed},
-                                 {log,Args},
-                                 {reason,{C,R,S}}])
+            ?LOG_INTERNAL(debug,#{},[{?MODULE,log_failed},
+                                     {log,Args},
+                                     {reason,{C,R,S}}])
     end.
