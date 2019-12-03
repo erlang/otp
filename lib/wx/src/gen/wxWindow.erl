@@ -35,11 +35,11 @@
   destroyChildren/1,disable/1,dragAcceptFiles/2,enable/1,enable/2,findFocus/0,
   findWindow/2,findWindowById/1,findWindowById/2,findWindowByLabel/1,
   findWindowByLabel/2,findWindowByName/1,findWindowByName/2,fit/1,fitInside/1,
-  freeze/1,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
+  freeze/1,fromDIP/2,getAcceleratorTable/1,getBackgroundColour/1,getBackgroundStyle/1,
   getBestSize/1,getCapture/0,getCaret/1,getCharHeight/1,getCharWidth/1,
   getChildren/1,getClientSize/1,getContainingSizer/1,getContentScaleFactor/1,
-  getCursor/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,getFont/1,
-  getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
+  getCursor/1,getDPI/1,getDropTarget/1,getEventHandler/1,getExtraStyle/1,
+  getFont/1,getForegroundColour/1,getGrandParent/1,getHandle/1,getHelpText/1,
   getId/1,getLabel/1,getMaxSize/1,getMinSize/1,getName/1,getParent/1,
   getPosition/1,getRect/1,getScreenPosition/1,getScreenRect/1,getScrollPos/2,
   getScrollRange/2,getScrollThumb/2,getSize/1,getSizer/1,getTextExtent/2,
@@ -65,7 +65,7 @@
   setThemeEnabled/2,setToolTip/2,setTransparent/2,setVirtualSize/2,
   setVirtualSize/3,setVirtualSizeHints/2,setVirtualSizeHints/3,setVirtualSizeHints/4,
   setWindowStyle/2,setWindowStyleFlag/2,setWindowVariant/2,shouldInheritColours/1,
-  show/1,show/2,thaw/1,transferDataFromWindow/1,transferDataToWindow/1,
+  show/1,show/2,thaw/1,toDIP/2,transferDataFromWindow/1,transferDataToWindow/1,
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
 %% inherited exports
@@ -1969,6 +1969,32 @@ getContentScaleFactor(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:call(?wxWindow_GetContentScaleFactor,
   <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowgetdpi">external documentation</a>.
+-spec getDPI(This) -> {W::integer(), H::integer()} when
+	This::wxWindow().
+getDPI(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:call(?wxWindow_GetDPI,
+  <<ThisRef:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowfromdip">external documentation</a>.
+-spec fromDIP(This, Sz) -> {W::integer(), H::integer()} when
+	This::wxWindow(), Sz::{W::integer(), H::integer()}.
+fromDIP(#wx_ref{type=ThisT,ref=ThisRef},{SzW,SzH})
+ when is_integer(SzW),is_integer(SzH) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:call(?wxWindow_FromDIP,
+  <<ThisRef:32/?UI,SzW:32/?UI,SzH:32/?UI>>).
+
+%% @doc See <a href="http://www.wxwidgets.org/manuals/2.8.12/wx_wxwindow.html#wxwindowtodip">external documentation</a>.
+-spec toDIP(This, Sz) -> {W::integer(), H::integer()} when
+	This::wxWindow(), Sz::{W::integer(), H::integer()}.
+toDIP(#wx_ref{type=ThisT,ref=ThisRef},{SzW,SzH})
+ when is_integer(SzW),is_integer(SzH) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:call(?wxWindow_ToDIP,
+  <<ThisRef:32/?UI,SzW:32/?UI,SzH:32/?UI>>).
 
 %% @doc Destroys this object, do not use object again
 -spec destroy(This::wxWindow()) -> 'ok'.
