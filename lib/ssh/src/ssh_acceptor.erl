@@ -33,7 +33,8 @@
 %% spawn export  
 -export([acceptor_init/5, acceptor_loop/6]).
 
--export([dbg_trace/3]).
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
 -define(SLEEP_TIME, 200).
 
@@ -202,18 +203,21 @@ handle_error(Reason) ->
 %%%# Tracing
 %%%#
 
-dbg_trace(points,         _,  _) -> [connections];
+ssh_dbg_trace_points() -> [connections].
 
-dbg_trace(flags,  connections,  _) -> [c];
-dbg_trace(on,     connections,  _) -> dbg:tp(?MODULE,  acceptor_init, 5, x),
-                                      dbg:tpl(?MODULE, handle_connection, 5, x);
-dbg_trace(off,    connections,  _) -> dbg:ctp(?MODULE, acceptor_init, 5),
-                                      dbg:ctp(?MODULE, handle_connection, 5);
-dbg_trace(format, connections, {call, {?MODULE,acceptor_init,
-                                       [_Parent, Port, Address, _Opts, _AcceptTimeout]}}) ->
+ssh_dbg_flags(connections) -> [c].
+
+ssh_dbg_on(connections) -> dbg:tp(?MODULE,  acceptor_init, 5, x),
+                           dbg:tpl(?MODULE, handle_connection, 5, x).
+
+ssh_dbg_off(connections) -> dbg:ctp(?MODULE, acceptor_init, 5),
+                            dbg:ctp(?MODULE, handle_connection, 5).
+
+ssh_dbg_format(connections, {call, {?MODULE,acceptor_init,
+                                    [_Parent, Port, Address, _Opts, _AcceptTimeout]}}) ->
     [io_lib:format("Starting LISTENER on ~s:~p\n", [ntoa(Address),Port])
     ];
-dbg_trace(format, connections, {return_from, {?MODULE,handle_connection,5}, {error,Error}}) ->
+ssh_dbg_format(connections, {return_from, {?MODULE,handle_connection,5}, {error,Error}}) ->
     ["Starting connection to server failed:\n",
      io_lib:format("Error = ~p", [Error])
     ].

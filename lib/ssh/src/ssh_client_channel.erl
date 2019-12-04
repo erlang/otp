@@ -72,7 +72,8 @@
 	 cache_info/2,  cache_find/2,
 	 get_print_info/1]).
 
--export([dbg_trace/3]).
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
 -record(state, {
 	  cm,
@@ -388,64 +389,64 @@ adjust_window(_) ->
 %%%# Tracing
 %%%#
 
-dbg_trace(points,         _,  _) -> [terminate, channels, channel_events];
+ssh_dbg_trace_points() -> [terminate, channels, channel_events].
 
+ssh_dbg_flags(channels) -> [c];
+ssh_dbg_flags(terminate) -> [c];
+ssh_dbg_flags(channel_events) -> [c].
 
-dbg_trace(flags,  channels,  A) -> [c] ++ dbg_trace(flags, terminate, A);
-dbg_trace(on,     channels,  A) -> dbg:tp(?MODULE,  init, 1, x),
-                                   dbg_trace(on, terminate, A);
-dbg_trace(off,    channels,  A) -> dbg:ctpg(?MODULE, init, 1),
-                                   dbg_trace(off, terminate, A);
-dbg_trace(format, channels, {call, {?MODULE,init, [[KVs]]}}) ->
+ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 2, x);
+ssh_dbg_on(channels) -> dbg:tp(?MODULE,  init, 1, x),
+                        ssh_dbg_on(terminate);
+ssh_dbg_on(channel_events) -> dbg:tp(?MODULE,  handle_call, 3, x),
+                              dbg:tp(?MODULE,  handle_cast, 2, x),
+                              dbg:tp(?MODULE,  handle_info, 2, x).
+
+ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 2);
+ssh_dbg_off(channels) -> dbg:ctpg(?MODULE, init, 1),
+                         ssh_dbg_off(terminate);
+ssh_dbg_off(channel_events) -> dbg:ctpg(?MODULE,  handle_call, 3),
+                               dbg:ctpg(?MODULE,  handle_cast, 2),
+                               dbg:ctpg(?MODULE,  handle_info, 2).
+
+ssh_dbg_format(channels, {call, {?MODULE,init, [[KVs]]}}) ->
     ["Server Channel Starting:\n",
      io_lib:format("Connection: ~p, ChannelId: ~p, CallBack: ~p\nCallBack init args = ~p", 
                    [proplists:get_value(K,KVs) || K <- [cm, channel_id, channel_cb]]
                    ++ [channel_cb_init_args(KVs)])
     ];
-dbg_trace(format, channels, {return_from, {?MODULE,init,1}, {stop,Reason}}) ->
+ssh_dbg_format(channels, {return_from, {?MODULE,init,1}, {stop,Reason}}) ->
     ["Server Channel Start FAILED!\n",
      io_lib:format("Reason = ~p", [Reason])
     ];
-dbg_trace(format, channels, F) ->
-    dbg_trace(format, terminate, F);
-
-
-dbg_trace(flags,  terminate,  _) -> [c];
-dbg_trace(on,     terminate,  _) -> dbg:tp(?MODULE,  terminate, 2, x);
-dbg_trace(off,    terminate,  _) -> dbg:ctpg(?MODULE, terminate, 2);
-dbg_trace(format, terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
+ssh_dbg_format(channels, F) ->
+    ssh_dbg_format(terminate, F);
+ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, State]}}) ->
     ["Server Channel Terminating:\n",
      io_lib:format("Reason: ~p,~nState:~n~s", [Reason, wr_record(State)])
     ];
 
-dbg_trace(flags,  channel_events,  _) -> [c];
-dbg_trace(on,     channel_events,  _) -> dbg:tp(?MODULE,  handle_call, 3, x),
-                                         dbg:tp(?MODULE,  handle_cast, 2, x),
-                                         dbg:tp(?MODULE,  handle_info, 2, x);
-dbg_trace(off,    channel_events,  _) -> dbg:ctpg(?MODULE,  handle_call, 3),
-                                         dbg:ctpg(?MODULE,  handle_cast, 2),
-                                         dbg:ctpg(?MODULE,  handle_info, 2);
-dbg_trace(format, channel_events, {call, {?MODULE,handle_call, [Call,From,State]}}) ->
+ssh_dbg_format(channel_events, {call, {?MODULE,handle_call, [Call,From,State]}}) ->
     [hdr("is called", State),
      io_lib:format("From: ~p~nCall: ~p~n", [From, Call])
     ];
-dbg_trace(format, channel_events, {return_from, {?MODULE,handle_call,3}, Ret}) ->
+ssh_dbg_format(channel_events, {return_from, {?MODULE,handle_call,3}, Ret}) ->
     ["Server Channel call returned:\n",
      io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
     ];
-dbg_trace(format, channel_events, {call, {?MODULE,handle_cast, [Cast,State]}}) ->
+ssh_dbg_format(channel_events, {call, {?MODULE,handle_cast, [Cast,State]}}) ->
     [hdr("got cast", State),
      io_lib:format("Cast: ~p~n", [Cast])
     ];
-dbg_trace(format, channel_events, {return_from, {?MODULE,handle_cast,2}, Ret}) ->
+ssh_dbg_format(channel_events, {return_from, {?MODULE,handle_cast,2}, Ret}) ->
     ["Server Channel cast returned:\n",
      io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
     ];
-dbg_trace(format, channel_events, {call, {?MODULE,handle_info, [Info,State]}}) ->
+ssh_dbg_format(channel_events, {call, {?MODULE,handle_info, [Info,State]}}) ->
     [hdr("got info", State),
      io_lib:format("Info: ~p~n", [Info])
     ];
-dbg_trace(format, channel_events, {return_from, {?MODULE,handle_info,2}, Ret}) ->
+ssh_dbg_format(channel_events, {return_from, {?MODULE,handle_info,2}, Ret}) ->
     ["Server Channel info returned:\n",
      io_lib:format("~p~n", [ssh_dbg:reduce_state(Ret)])
     ].
