@@ -275,7 +275,7 @@ case "$threads_disabled" in
 	        ;;
 	    win32_threads)
 		EI_THREADS="true"	
-		THR_DEFS="$THR_DEFS -D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+		THR_DEFS="$THR_DEFS -D_WIN32_WINNT=0x0500 -DWINVER=0x0500"
 		;;
 	    pthread)
 		EI_THREADS="true"

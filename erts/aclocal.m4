@@ -2904,7 +2904,7 @@ case $host_os in
      linux*)
 	DED_CFLAGS="-D_GNU_SOURCE" ;;
      win32)
-	DED_CFLAGS="-D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+	DED_CFLAGS="-D_WIN32_WINNT=0x0500 -DWINVER=0x0500"
         DED_OSTYPE=win32 ;;
      *)
         ;;

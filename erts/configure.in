@@ -456,7 +456,7 @@ case $host_os in
     win32)
 	# The ethread library requires _WIN32_WINNT of at least 0x0403.
 	# -D_WIN32_WINNT=* from CPPFLAGS is saved in ETHR_DEFS.
-	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0600 -DWINVER=0x0600"
+	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0500 -DWINVER=0x0500"
 	;;
     *)
 	;;
