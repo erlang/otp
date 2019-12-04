@@ -125,8 +125,12 @@
 
   <section>
     <title>The Cover Specification File</title>
-    <p>The following terms are allowed in a cover specification file:</p>
 
+    <section> 
+       <title>General Config</title>
+
+   <p>Here follows the general configuration terms that are allowed in a cover specification file:</p>
+   
     <pre>
  %% List of Nodes on which cover will be active during test.
  %% Nodes = [atom()]
@@ -143,7 +147,7 @@
  %% Cover analysis level.
  %% Level = details | overview
  {level, Level}.       
-
+ 
  %% Directories to include in cover.
  %% Dirs = [string()]
  {incl_dirs, Dirs}.
@@ -169,19 +173,37 @@
  %% Mod = [atom()], modules to compile for accumulated analysis
  {cross,[{Tag,Mods}]}.</pre>
 
-    <p>The terms <c>incl_dirs_r</c> and <c>excl_dirs_r</c> tell <c>Common
-      Test</c> to search the specified directories recursively and include 
-      or exclude any module found during the search. The terms
-      <c>incl_dirs</c> and <c>excl_dirs</c> result in a
-      non-recursive search for modules (that is, only modules found in 
-      the specified directories are included or excluded).</p>
-    <note><p>Directories containing Erlang modules to be included in a code 
-      coverage test must exist in the code server path. Otherwise, 
-      the Cover tool fails to recompile the modules. It is not sufficient to 
-      specify these directories in the cover specification file for 
-      <c>Common Test</c>.</p></note>
-  </section>
+	<p>The terms <c>incl_dirs_r</c> and <c>excl_dirs_r</c> tell <c>Common
+	Test</c> to search the specified directories recursively and include 
+	or exclude any module found during the search. The terms
+	<c>incl_dirs</c> and <c>excl_dirs</c> result in a
+	non-recursive search for modules (that is, only modules found in 
+	the specified directories are included or excluded).</p>
+	<note><p>Directories containing Erlang modules to be included in a code 
+	coverage test must exist in the code server path. Otherwise, 
+	the Cover tool fails to recompile the modules. It is not sufficient to 
+	specify these directories in the cover specification file for 
+	<c>Common Test</c>.</p></note>
+    </section>
 
+    <section> 
+       <title>OTP application Config</title>
+ 
+       <p>When using a cover specification in the testing of an OTP
+	application itself, there is a special incl_app directive that
+	includes the applications modules for the cover compilation.</p>
+
+ <pre>
+{incl_app, AppName, Cover:: overview | details}.
+</pre>
+
+	<note><p>If you desire to also use some other general cover configuration
+	together with this option you should insert the AppName in between
+	the option and its value creating a three tuple.
+	</p></note>
+    </section>
+  </section>
+  
   <section>
   <marker id="cross_cover"/>
     <title>Cross Cover Analysis</title>
