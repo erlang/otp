@@ -840,13 +840,13 @@ char* esock_decode_ip4_address(ErlNifEnv*      env,
 		   "esock_decode_ip4_address -> address: lookback\r\n") );
             addr.s_addr = htonl(INADDR_LOOPBACK);
         } else if (COMPARE(esock_atom_any, eAddr) == 0) {
-	  UDBG( ("SUTIL",
-		 "esock_decode_ip4_address -> address: any\r\n") );
-	  addr.s_addr = htonl(INADDR_ANY);
+            UDBG( ("SUTIL",
+                   "esock_decode_ip4_address -> address: any\r\n") );
+            addr.s_addr = htonl(INADDR_ANY);
         } else if (COMPARE(esock_atom_broadcast, eAddr) == 0) {
-	  UDBG( ("SUTIL",
-		 "esock_decode_ip4_address -> address: broadcast\r\n") );
-	  addr.s_addr = htonl(INADDR_BROADCAST);
+            UDBG( ("SUTIL",
+                   "esock_decode_ip4_address -> address: broadcast\r\n") );
+            addr.s_addr = htonl(INADDR_BROADCAST);
         } else {
             UDBG( ("SUTIL",
 		   "esock_decode_ip4_address -> address: unknown\r\n") );
@@ -1714,7 +1714,7 @@ ERL_NIF_TERM esock_make_ok2(ErlNifEnv* env, ERL_NIF_TERM any)
 extern
 ERL_NIF_TERM esock_make_ok3(ErlNifEnv* env, ERL_NIF_TERM val1, ERL_NIF_TERM val2)
 {
-  return MKT3(env, esock_atom_ok, val1, val2);
+    return MKT3(env, esock_atom_ok, val1, val2);
 }
 
 
@@ -1807,7 +1807,10 @@ ERL_NIF_TERM esock_self(ErlNifEnv* env)
 {
     ErlNifPid pid;
 
-    if (enif_self(env, &pid) == NULL)
+    /* Make an idiot test first just to ensure we don't kill ourselves */
+    if (env == NULL)
+        return esock_atom_undefined;
+    else if (enif_self(env, &pid) == NULL)
         return esock_atom_undefined;
     else
         return enif_make_pid(env, &pid);
