@@ -28,6 +28,7 @@
          iv/1,
          iolist/0,
          mybinary/1,
+         padding/0,
 
          non_aead_ciphers/0,
          block_size/1,

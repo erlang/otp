@@ -25,7 +25,7 @@
 -include_lib("common_test/include/ct.hrl").
 
 all() -> [encrypt_decrypt__crypto_one_time,
-          prop__crypto_init_update
+          prop__crypto_init_update_final
          ].
 
 %%% First prepare Config and compile the property tests for the found tool:
@@ -43,8 +43,9 @@ encrypt_decrypt__crypto_one_time(Config) ->
       crypto_ng_api:prop__crypto_one_time(),
       Config
      ).
-prop__crypto_init_update(Config) ->
+
+prop__crypto_init_update_final(Config) ->
     ct_property_test:quickcheck(
-      crypto_ng_api:prop__crypto_init_update(),
+      crypto_ng_api:prop__crypto_init_update_final(),
       Config
      ).

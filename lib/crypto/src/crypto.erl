@@ -44,6 +44,7 @@
 -export([ec_curve/1, ec_curves/0]).
 -export([rand_seed/1]).
 
+%%%----------------------------------------------------------------
 %% Old interface. Now implemented with the New interface
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 -export([cmac/3, cmac/4]).
@@ -55,19 +56,24 @@
          block_decrypt/3, block_decrypt/4
         ]).
 
+%%%----------------------------------------------------------------
 %% New interface
 -export([crypto_init/4, crypto_init/3,
          crypto_update/2,
+
          crypto_one_time/4, crypto_one_time/5,
          crypto_one_time_aead/6, crypto_one_time_aead/7,
+
          crypto_dyn_iv_init/3,
          crypto_dyn_iv_update/3,
+         crypto_final/1,
+
          supports/1,
          mac/3, mac/4, macN/4, macN/5,
          mac_init/2, mac_init/3, mac_update/2, mac_final/1, mac_finalN/2
         ]).
 
-
+%%%----------------------------------------------------------------
 %% Engine
 -export([
          engine_get_all_methods/0,
@@ -893,7 +899,7 @@ block_encrypt(Type, Key0, Ivec, Data) ->
            {AAD, PlainText, TagLength} ->
                crypto_one_time_aead(alias(Type,Key), Key, Ivec, PlainText, AAD, TagLength, true);
            PlainText ->
-               crypto_one_time(alias(Type,Key), Key, Ivec, PlainText, true)
+               block_crypt(alias(Type,Key), Key, Ivec, PlainText, true)
        end).
 
 -spec block_encrypt(Type::block_cipher_without_iv(), Key::key(), PlainText::iodata()) ->
@@ -901,7 +907,7 @@ block_encrypt(Type, Key0, Ivec, Data) ->
 
 block_encrypt(Type, Key0, PlainText) ->
     Key = iolist_to_binary(Key0),
-    ?COMPAT(crypto_one_time(alias(Type,Key), Key, PlainText, true)).
+    ?COMPAT(block_crypt(alias(Type,Key), Key, undefined, PlainText, true)).
 
 
 %%%----------------------------------------------------------------
@@ -922,7 +928,7 @@ block_decrypt(Type, Key0, Ivec, Data) ->
            {AAD, CryptoText, Tag} ->
                crypto_one_time_aead(alias(Type,Key), Key, Ivec, CryptoText, AAD, Tag, false);
            CryptoText ->
-               crypto_one_time(alias(Type,Key), Key, Ivec, CryptoText, false)
+               block_crypt(alias(Type,Key), Key, Ivec, CryptoText, false)
        end).
 
 
@@ -931,7 +937,16 @@ block_decrypt(Type, Key0, Ivec, Data) ->
 
 block_decrypt(Type, Key0, CryptoText) ->
     Key = iolist_to_binary(Key0),
-    ?COMPAT(crypto_one_time(alias(Type,Key), Key, CryptoText, false)).
+    ?COMPAT(block_crypt(alias(Type,Key), Key, undefined, CryptoText, false)).
+
+
+
+block_crypt(Cipher, Key, IV, Data, EncryptFlag) ->
+    Ctx = case IV of
+              undefined -> crypto_init(Cipher, Key, EncryptFlag);
+              _ -> crypto_init(Cipher, Key, IV, EncryptFlag)
+          end,
+    crypto_update(Ctx, Data).
 
 %%%-------- Stream ciphers API
 
@@ -949,7 +964,7 @@ stream_init(Type, Key0, IVec) when is_binary(IVec) ->
     Key = iolist_to_binary(Key0),
     Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
                                      Key, iolist_to_binary(IVec),
-                                     undefined)
+                                     get_crypto_opts([{encrypt,undefined}]))
                  ),
     {Type, {Ref,flg_undefined}}.
 
@@ -962,7 +977,7 @@ stream_init(rc4 = Type, Key0) ->
     Key = iolist_to_binary(Key0),
     Ref = ?COMPAT(ng_crypto_init_nif(alias(Type,Key),
                                      Key, <<>>,
-                                     undefined)
+                                     get_crypto_opts([{encrypt,undefined}]))
                  ),
     {Type, {Ref,flg_undefined}}.
 
@@ -987,7 +1002,8 @@ stream_decrypt(State, Data) ->
 %%%-------- helpers
 crypto_stream_emulate({Cipher,{Ref0,flg_undefined}}, Data, EncryptFlag) when is_reference(Ref0) ->
     ?COMPAT(begin
-                Ref = ng_crypto_init_nif(Ref0, <<>>, <<>>, EncryptFlag),
+                Ref = ng_crypto_init_nif(Ref0, <<>>, <<>>,
+                                     get_crypto_opts([{encrypt,EncryptFlag}])),
                 {{Cipher,Ref}, crypto_update(Ref, Data)}
             end);
 
@@ -1029,42 +1045,83 @@ next_iv(Type, Data, _Ivec) ->
 
 -opaque crypto_state() :: reference() .
 
+-type crypto_opts() :: boolean() 
+                     | [ crypto_opt() ] .
+-type crypto_opt() :: {encrypt,boolean()} 
+                    | {padding, padding()} .
+-type padding() :: cryptolib_padding() | otp_padding().
+-type cryptolib_padding() :: none | pkcs_padding .
+-type otp_padding() :: zero | random .
+
 
 %%%----------------------------------------------------------------
 %%%
 %%% Create and initialize a new state for encryption or decryption
 %%%
 
--spec crypto_init(Cipher, Key, EncryptFlag) -> State | descriptive_error()
+-spec crypto_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
                                                    when Cipher :: cipher_no_iv(),
                                                         Key :: iodata(),
-                                                        EncryptFlag :: boolean(),
+                                                        FlagOrOptions :: crypto_opts() | boolean(),
                                                         State :: crypto_state() .
-crypto_init(Cipher, Key, EncryptFlag) ->
-    %% The IV is supposed to be supplied by calling crypto_update/3
-    ng_crypto_init_nif(Cipher, iolist_to_binary(Key), <<>>, EncryptFlag).
+crypto_init(Cipher, Key, FlagOrOptions) ->
+    crypto_init(Cipher, Key, <<>>, FlagOrOptions).
 
 
--spec crypto_init(Cipher, Key, IV, EncryptFlag) -> State | descriptive_error()
+-spec crypto_init(Cipher, Key, IV, FlagOrOptions) -> State | descriptive_error()
                                                        when Cipher :: cipher_iv(),
                                                             Key :: iodata(),
                                                             IV :: iodata(),
-                                                            EncryptFlag :: boolean(),
+                                                            FlagOrOptions :: crypto_opts() | boolean(),
                                                             State :: crypto_state() .
-crypto_init(Cipher, Key, IV, EncryptFlag) ->
-    ng_crypto_init_nif(Cipher, iolist_to_binary(Key), iolist_to_binary(IV), EncryptFlag).
-
-
+crypto_init(Cipher, Key, IV, FlagOrOptions) ->
+    ng_crypto_init_nif(Cipher,
+                       iolist_to_binary(Key),
+                       iolist_to_binary(IV),
+                       get_crypto_opts(FlagOrOptions)).
 
 %%%----------------------------------------------------------------
--spec crypto_dyn_iv_init(Cipher, Key, EncryptFlag) -> State | descriptive_error()
+get_crypto_opts(Options) when is_list(Options) ->
+    lists:foldl(fun chk_opt/2,
+                #{encrypt => true,
+                  padding => undefined
+                 },
+                Options);
+get_crypto_opts(Flag) when is_boolean(Flag) ->
+    #{encrypt => Flag,
+      padding => undefined
+     };
+get_crypto_opts(X) ->
+    error({badarg,{bad_option,X}}).
+
+
+chk_opt({Tag,Val}, A) ->
+    case ok_opt(Tag,Val) of
+        true ->
+            A#{Tag => Val};
+        false ->
+            error({badarg,{bad_option,{Tag,Val}}})
+    end;
+chk_opt(X, _) ->
+    error({badarg,{bad_option,X}}). 
+
+
+ok_opt(encrypt, V) -> lists:member(V, [true, false, undefined]);
+ok_opt(padding, V) -> lists:member(V, [none, pkcs_padding, zero, random, undefined]);
+ok_opt(_, _) -> false.
+
+%%%----------------------------------------------------------------
+-spec crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) -> State | descriptive_error()
                                                           when Cipher :: cipher_iv(),
                                                                Key :: iodata(),
-                                                               EncryptFlag :: boolean(),
+                                                               FlagOrOptions :: crypto_opts() | boolean(),
                                                                State :: crypto_state() .
-crypto_dyn_iv_init(Cipher, Key, EncryptFlag) ->
+crypto_dyn_iv_init(Cipher, Key, FlagOrOptions) ->
     %% The IV is supposed to be supplied by calling crypto_update/3
-    ng_crypto_init_nif(Cipher, iolist_to_binary(Key), undefined, EncryptFlag).
+    ng_crypto_init_nif(Cipher,
+                       iolist_to_binary(Key),
+                       undefined,
+                       get_crypto_opts(FlagOrOptions)).
 
 %%%----------------------------------------------------------------
 %%%
@@ -1077,14 +1134,8 @@ crypto_dyn_iv_init(Cipher, Key, EncryptFlag) ->
                             when State :: crypto_state(),
                                  Data :: iodata(),
                                  Result :: binary() .
-crypto_update(State, Data0) ->
-    case iolist_to_binary(Data0) of
-        <<>> ->
-            <<>>;                           % Known to fail on OpenSSL 0.9.8h
-        Data ->
-            ng_crypto_update_nif(State, Data)
-    end.
-
+crypto_update(State, Data) ->
+    ng_crypto_update_nif(State, iolist_to_binary(Data)).
 
 %%%----------------------------------------------------------------
 -spec crypto_dyn_iv_update(State, Data, IV) -> Result | descriptive_error()
@@ -1092,14 +1143,21 @@ crypto_update(State, Data0) ->
                                                         Data :: iodata(),
                                                         IV :: iodata(),
                                                         Result :: binary() .
-crypto_dyn_iv_update(State, Data0, IV) ->
-    %% When State is from State = crypto_init(Cipher, Key, undefined, EncryptFlag)
-    case iolist_to_binary(Data0) of
-        <<>> ->
-            <<>>;                           % Known to fail on OpenSSL 0.9.8h
-        Data ->
-            ng_crypto_update_nif(State, Data, iolist_to_binary(IV))
-    end.
+crypto_dyn_iv_update(State, Data, IV) ->
+    ng_crypto_update_nif(State, iolist_to_binary(Data), iolist_to_binary(IV)).
+
+%%%----------------------------------------------------------------
+%%%
+%%% Finalize encrypt/decrypt bytes.  If the size of the bytes in
+%%% to crypto_uptate was not an integer number of blocks, the rest
+%%% is returned from this function.
+
+-spec crypto_final(State) -> FinalResult | descriptive_error()
+                            when State :: crypto_state(),
+                                 FinalResult :: binary() | {PadSize, binary()},
+                                 PadSize :: non_neg_integer() .
+crypto_final(State) ->
+    ng_crypto_final_nif(State).
 
 %%%----------------------------------------------------------------
 %%%
@@ -1107,44 +1165,34 @@ crypto_dyn_iv_update(State, Data0, IV) ->
 %%% The size must be an integer multiple of the crypto's blocksize.
 %%%
 
--spec crypto_one_time(Cipher, Key, Data, EncryptFlag) ->
+-spec crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
                              Result | descriptive_error()
                                  when Cipher :: cipher_no_iv(),
                                       Key :: iodata(),
                                       Data :: iodata(),
-                                      EncryptFlag :: boolean(),
+                                      FlagOrOptions :: crypto_opts() | boolean(),
                                       Result :: binary() .
 
-crypto_one_time(Cipher, Key, Data0, EncryptFlag) ->
-    case iolist_to_binary(Data0) of
-        <<>> ->
-            <<>>;                           % Known to fail on OpenSSL 0.9.8h
-        Data ->
-            ng_crypto_one_time_nif(Cipher,
-                                   iolist_to_binary(Key), <<>>, Data,
-                                   EncryptFlag)
-    end.
+crypto_one_time(Cipher, Key, Data, FlagOrOptions) ->
+    crypto_one_time(Cipher, Key, <<>>, Data, FlagOrOptions).
 
--spec crypto_one_time(Cipher, Key, IV, Data, EncryptFlag) ->
+-spec crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
                              Result | descriptive_error()
                                  when Cipher :: cipher_iv(),
                                       Key :: iodata(),
                                       IV :: iodata(),
                                       Data :: iodata(),
-                                      EncryptFlag :: boolean(),
+                                      FlagOrOptions :: crypto_opts() | boolean(),
                                       Result :: binary() .
 
-crypto_one_time(Cipher, Key, IV, Data0, EncryptFlag) ->
-    case iolist_to_binary(Data0) of
-        <<>> ->
-            <<>>;                           % Known to fail on OpenSSL 0.9.8h
-        Data ->
-            ng_crypto_one_time_nif(Cipher,
-                                   iolist_to_binary(Key), iolist_to_binary(IV), Data,
-                                   EncryptFlag)
-    end.
+crypto_one_time(Cipher, Key, IV, Data, FlagOrOptions) ->
+    ng_crypto_one_time_nif(Cipher,
+                           iolist_to_binary(Key),
+                           iolist_to_binary(IV),
+                           iolist_to_binary(Data),
+                           get_crypto_opts(FlagOrOptions)).
 
-
+%%%----------------------------------------------------------------
 -spec crypto_one_time_aead(Cipher, Key, IV, InText, AAD, EncFlag::true) ->
                              Result | descriptive_error()
                                  when Cipher :: cipher_aead(),
@@ -1197,26 +1245,24 @@ aead_tag_len(_) -> error({badarg, "Not an AEAD cipher"}).
 %%%----------------------------------------------------------------
 %%% NIFs
 
--spec ng_crypto_init_nif(atom(), binary(), binary()|undefined, boolean()|undefined ) ->
-                                crypto_state() | descriptive_error()
-                      ; (crypto_state(), <<>>, <<>>, boolean())
-                        -> crypto_state() | descriptive_error().
+ng_crypto_init_nif(Cipher, Key, IVec, #{encrypt := EncryptFlag,
+                                        padding := Padding}) ->
+    ng_crypto_init_nif(Cipher, Key, IVec, EncryptFlag, Padding).
+    
+ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlag, _Padding) -> ?nif_stub.
 
-ng_crypto_init_nif(_Cipher, _Key, _IVec, _EncryptFlg) -> ?nif_stub.
 
-
--spec ng_crypto_update_nif(crypto_state(), binary()) ->
-                                  binary() | descriptive_error() .
 ng_crypto_update_nif(_State, _Data) -> ?nif_stub.
-
--spec ng_crypto_update_nif(crypto_state(), binary(), binary()) ->
-                                  binary() | descriptive_error() .
 ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
+ng_crypto_final_nif(_State) -> ?nif_stub.
 
--spec ng_crypto_one_time_nif(atom(), binary(), binary(), binary(), boolean() ) ->
-                                    binary() | descriptive_error().
-ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlg) -> ?nif_stub.
+
+ng_crypto_one_time_nif(Cipher, Key, IVec, Data,  #{encrypt := EncryptFlag,
+                                                   padding := Padding}) ->
+    ng_crypto_one_time_nif(Cipher, Key, IVec, Data, EncryptFlag, Padding).
+
+ng_crypto_one_time_nif(_Cipher, _Key, _IVec, _Data, _EncryptFlag, _Padding) -> ?nif_stub.
 
 %%%----------------------------------------------------------------
 %%% Cipher aliases

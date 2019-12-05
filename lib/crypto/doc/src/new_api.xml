@@ -108,6 +108,7 @@
 	<item><seealso marker="crypto#crypto_init/4">crypto_init/4</seealso></item>
 	<item><seealso marker="crypto#crypto_init/3">crypto_init/3</seealso></item>
 	<item><seealso marker="crypto#crypto_update/2">crypto_update/2</seealso></item>
+	<item><seealso marker="crypto#crypto_final/1">crypto_final/1</seealso></item>
       </list>
       <p>The <c>crypto_init</c> initialies an internal cipher state, and one or more calls of
       <c>crypto_update</c> does the acual encryption or decryption. Note that AEAD ciphers
@@ -122,6 +123,10 @@
 	<item><seealso marker="crypto#crypto_dyn_iv_update/3">crypto_dyn_iv_update/3</seealso></item>
       </list>
       <p>An example of where those functions are needed, is when handling the TLS protocol.</p>
+      <p>If padding was not enabled, the call to
+      <seealso marker="crypto#crypto_final/1">crypto_final/1</seealso>
+      may be excluded.
+      </p>
       <p>For information about available algorithms, use:
       </p>
       <list>

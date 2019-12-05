@@ -35,6 +35,7 @@ all() ->
      appup,
      {group, fips},
      {group, non_fips},
+     cipher_padding,
      mod_pow,
      exor,
      rand_uniform,
@@ -553,7 +554,8 @@ api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
     RefEnc = crypto:crypto_init(Type, Key, IV, true),
     RefDec = crypto:crypto_init(Type, Key, IV, false),
     EncTexts = api_ng_cipher_increment_loop(RefEnc, PlainTexts),
-    Enc = iolist_to_binary(EncTexts),
+    {_PadSize,EncFinal} = crypto:crypto_final(RefEnc),
+    Enc = iolist_to_binary(EncTexts++[EncFinal]),
     case ExpectedEncText of
         undefined ->
             ok;
@@ -564,7 +566,9 @@ api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
             ct:fail("api_ng_cipher_increment (encode)",[])
     end,
     Plain = iolist_to_binary(PlainTexts),
-    case iolist_to_binary(api_ng_cipher_increment_loop(RefDec, EncTexts)) of
+    DecTexts = api_ng_cipher_increment_loop(RefDec, EncTexts),
+    DecFinal =  crypto:crypto_final(RefDec),
+    case iolist_to_binary(DecTexts++[DecFinal]) of
         Plain ->
             ok;
         OtherPT ->
@@ -696,6 +700,60 @@ do_api_ng_tls({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
         OtherPT ->
             ct:log("1st decode~nIn: ~p~nExpected: ~p~nDec: ~p~n", [{Type,Key,IV,EncTxt}, PlainText, OtherPT]),
             ct:fail("api_ng_tlst (decode)",[])
+    end.
+
+%%--------------------------------------------------------------------
+cipher_padding(_Config) ->
+    Ciphers = [{C,pkcs_padding}
+               || C <- crypto:supports(ciphers),
+                  C =/= aes_ige256,
+                  C =/= chacha20_poly1305,
+                  case crypto:cipher_info(C) of
+                      #{mode := ccm_mode} -> false;
+                      #{mode := gcm_mode} -> false;
+                      _ -> true
+                  end],
+    lists:foreach(fun cipher_padding_test/1, Ciphers).
+
+cipher_padding_test({Cipher, Padding}) ->
+    #{block_size := Sblock,
+      iv_length  := Siv,
+      key_length := Skey} = Inf = crypto:cipher_info(Cipher),
+    ct:log("~p ~p", [Cipher,Inf]),
+
+    Key = <<1:Skey/unit:8>>,
+    IV  = <<0:Siv/unit:8>>,
+    MsgLen = 5*Sblock + 3,
+    Tplain = crypto:strong_rand_bytes(MsgLen),
+    PadSize = if
+                  (Padding == zero) ; (Padding == random) ->
+                      (Sblock - (MsgLen rem Sblock)) rem Sblock;
+                  true ->
+                      0
+              end,
+    Tcrypt =
+        case Siv of
+            0 ->
+                crypto:crypto_one_time(Cipher, Key, Tplain, [{encrypt,true},{padding,Padding}]);
+            _ ->
+                crypto:crypto_one_time(Cipher, Key, IV, Tplain, [{encrypt,true},{padding,Padding}])
+        end,
+
+    TdecryptPadded =
+        case Siv of
+            0 ->
+                crypto:crypto_one_time(Cipher, Key, Tcrypt, [{encrypt,false},{padding,Padding}]);
+            _ ->
+                crypto:crypto_one_time(Cipher, Key, IV, Tcrypt, [{encrypt,false},{padding,Padding}])
+        end,
+
+    case split_binary(TdecryptPadded, size(TdecryptPadded) - PadSize) of
+        {Tplain, _} ->
+            ok;
+        {Tdecrypt,Tpad} ->
+            ct:log("Key = ~p~nIV = ~p~nTplain = ~p~nTcrypt = ~p~nTdecrypt = ~p~nPadding = ~p",
+                   [Key, IV, Tplain, Tcrypt, Tdecrypt, Tpad]),
+            ct:fail("~p", [Cipher])
     end.
 
 %%--------------------------------------------------------------------
