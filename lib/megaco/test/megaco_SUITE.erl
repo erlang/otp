@@ -58,15 +58,14 @@ init() ->
     process_flag(trap_exit, true),
     megaco_test_lib:flush().
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Top test case
 
 suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 
 all() -> 
-    [{group, app_test}, 
-     {group, appup_test},
-     {group, config}, 
+    [{group, config}, 
      {group, flex}, 
      {group, udp},
      {group, tcp}, 
@@ -87,8 +86,6 @@ all() ->
 
 groups() -> 
     [{tickets,        [], [{group, mess}, {group, codec}]},
-     {app_test,       [], [{megaco_app_test,            all}]},
-     {appup_test,     [], [{megaco_appup_test,          all}]},
      {config,         [], [{megaco_config_test,         all}]},
      {call_flow,      [], [{megaco_call_flow_test,      all}]},
      {digit_map,      [], [{megaco_digit_map_test,      all}]},

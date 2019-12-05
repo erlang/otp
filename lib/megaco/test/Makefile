@@ -63,7 +63,7 @@ SOURCE = $(HRL_FILES) $(ERL_FILES)
 
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
-APP_CASES   = app appup
+APP_CASES   = app
 
 CODEC_CASES = codec1 codec2 codec3a codec3b codec3c
 
@@ -211,9 +211,6 @@ help:
 	@echo "    app"
 	@echo "      Run the $(APPLICATION) application sub-test-suite. "
 	@echo ""
-	@echo "    appup"
-	@echo "      Run the $(APPLICATION) application upgrade (appup) sub-test-suite. "
-	@echo ""
 	@echo "    conf"
 	@echo "      Run the $(APPLICATION) config sub-test-suite. "
 	@echo "      Checks various aspects of the megaco configuration. "
@@ -299,7 +296,7 @@ help:
 aall: make
 	@echo "make sure epmd is new"
 	@epmd -kill > /dev/null
-	@echo "Running all app sub-suites separatelly"
+	@echo "Running all app suites separatelly"
 	@for i in $(APP_CASES); do \
             echo "SUITE: $$i"; \
             clearmake -V $$i > $$i.log; \
@@ -431,12 +428,7 @@ tickets: make
 
 app: make
 	$(MERL) $(ARGS) -sname megaco_app $(ERL_PATH) \
-            -s megaco_test_lib t megaco_app_test \
-            $(ESTOP)
-
-appup: make
-	$(MERL) $(ARGS) -sname megaco_appup $(ERL_PATH) \
-            -s megaco_test_lib t megaco_appup_test \
+            -s megaco_test_lib t megaco_app_SUITE \
             $(ESTOP)
 
 conf: make

@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,11 +25,12 @@ COVER_SPEC_FILE = megaco.cover
 BEHAVIOUR_MODULES = \
 	megaco_test_generator
 
-MODULES = \
-	$(BEHAVIOUR_MODULES) \
+SUITE_MODULES = \
 	megaco_SUITE \
-	megaco_app_test \
-	megaco_appup_test \
+	megaco_app_SUITE
+
+TEST_UTIL_MODULES = \
+	$(BEHAVIOUR_MODULES) \
 	megaco_actions_test \
 	megaco_binary_term_id_test \
 	megaco_call_flow_test \
@@ -77,6 +78,9 @@ MODULES = \
 	megaco_test_msg_v3_lib \
 	megaco_test_lib
 
+MODULES = \
+	$(TEST_UTIL_MODULES) \
+	$(SUITE_MODULES)
 
 INTERNAL_HRL_FILES = \
 	megaco_test_lib.hrl

@@ -21,10 +21,13 @@
 %% Purpose: Verify the application specifics of the Megaco application
 %%----------------------------------------------------------------------
 
--module(megaco_app_test).
+-module(megaco_app_SUITE).
 
 -export([
-         all/0,
+         suite/0, all/0,
+         init_per_suite/1,    end_per_suite/1,
+         init_per_group/2,    end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
 
          app/0,   app/1,
          appup/0, appup/1
@@ -37,11 +40,49 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
 all() -> 
     [
      app, 
      appup
     ].
+
+
+%%
+%% -----
+%%
+
+init_per_suite(Config) when is_list(Config) ->
+    Config.
+
+end_per_suite(Config) when is_list(Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(_Case, Config) when is_list(Config) ->
+    Config.
+
+end_per_testcase(_Case, Config) when is_list(Config) ->
+    Config.
+
 
 
 %%--------------------------------------------------------------------
