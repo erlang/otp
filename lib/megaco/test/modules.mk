@@ -25,10 +25,6 @@ COVER_SPEC_FILE = megaco.cover
 BEHAVIOUR_MODULES = \
 	megaco_test_generator
 
-SUITE_MODULES = \
-	megaco_SUITE \
-	megaco_app_SUITE
-
 TEST_UTIL_MODULES = \
 	$(BEHAVIOUR_MODULES) \
 	megaco_actions_test \
@@ -44,7 +40,6 @@ TEST_UTIL_MODULES = \
 	megaco_codec_prev3c_test \
 	megaco_codec_v3_test \
 	megaco_codec_mini_test \
-	megaco_config_test \
 	megaco_digit_map_test \
 	megaco_examples_test \
 	megaco_flex_test \
@@ -63,6 +58,8 @@ TEST_UTIL_MODULES = \
 	megaco_timer_test \
 	megaco_trans_test \
 	megaco_udp_test \
+	megaco_test_global_sys_monitor \
+	megaco_test_sys_monitor \
 	megaco_test_generator_lib \
 	megaco_test_megaco_generator \
 	megaco_test_tcp_generator \
@@ -77,6 +74,11 @@ TEST_UTIL_MODULES = \
 	megaco_test_msg_prev3c_lib \
 	megaco_test_msg_v3_lib \
 	megaco_test_lib
+
+SUITE_MODULES = \
+	megaco_SUITE \
+	megaco_app_SUITE \
+	megaco_config_SUITE
 
 MODULES = \
 	$(TEST_UTIL_MODULES) \

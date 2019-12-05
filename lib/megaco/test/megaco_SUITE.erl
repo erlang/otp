@@ -65,7 +65,7 @@ init() ->
 suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 
 all() -> 
-    [{group, config}, 
+    [
      {group, flex}, 
      {group, udp},
      {group, tcp}, 
@@ -82,11 +82,11 @@ all() ->
      {group, load}, 
      {group, pending_limit},
      {group, segmented}, 
-     {group, timer}].
+     {group, timer}
+    ].
 
 groups() -> 
     [{tickets,        [], [{group, mess}, {group, codec}]},
-     {config,         [], [{megaco_config_test,         all}]},
      {call_flow,      [], [{megaco_call_flow_test,      all}]},
      {digit_map,      [], [{megaco_digit_map_test,      all}]},
      {mess,           [], [{megaco_mess_test,           all}]},

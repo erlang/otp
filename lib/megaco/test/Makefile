@@ -212,7 +212,7 @@ help:
 	@echo "      Run the $(APPLICATION) application sub-test-suite. "
 	@echo ""
 	@echo "    conf"
-	@echo "      Run the $(APPLICATION) config sub-test-suite. "
+	@echo "      Run the $(APPLICATION) config suite. "
 	@echo "      Checks various aspects of the megaco configuration. "
 	@echo ""
 	@echo "    codec"
@@ -433,7 +433,7 @@ app: make
 
 conf: make
 	$(MERL) $(ARGS) -sname megaco_config $(ERL_PATH) \
-            -s megaco_test_lib t megaco_config_test \
+            -s megaco_test_lib t megaco_config_SUITE \
             $(ESTOP)
 
 

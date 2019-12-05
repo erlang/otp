@@ -57,14 +57,14 @@
          init_group/3,
          end_group/3,
          t/2,
-         init_per_testcase/2,
-         end_per_testcase/2,
 
          proxy_start/1, proxy_start/2,
 
          mk_nodes/1,
          start_nodes/3
         ]).
+-export([init_per_suite/1,    end_per_suite/1,
+         init_per_testcase/2, end_per_testcase/2]).
 
 -export([do_eval/4, proxy_init/2]).
 
@@ -871,6 +871,61 @@ pprint(F, A) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test server callbacks
+
+init_per_suite(Config) ->
+
+    %% We have some crap machines that causes random test case failures
+    %% for no obvious reason. So, attempt to identify those without actually
+    %% checking for the host name...
+    %% We have two "machines" we are checking for. Both are old installations
+    %% running on really slow VMs (the host machines are old and tired).
+    LinuxVersionVerify =
+        fun(V) when (V > {3,6,11}) ->
+                false; % OK - No skip
+           (V) when (V =:= {3,6,11}) ->
+                case string:trim(os:cmd("cat /etc/issue")) of
+                    "Fedora release 16 " ++ _ -> % Stone age Fedora => Skip
+                        true;
+                    _ ->
+                        false
+                end;
+           (V) when (V > {2,6,24}) ->
+                false; % OK - No skip
+           (_) ->
+                %% We are specifically checking for
+                %% a *really* old gento...
+                case string:find(string:strip(os:cmd("uname -a")), "gentoo") of
+                    nomatch ->
+                        false;
+                    _ -> % Stone age gentoo => Skip
+                        true
+                end
+        end,
+    DarwinVersionVerify =
+        fun(V) when (V > {9, 8, 0}) ->
+                %% This version is OK: No Skip
+                false;
+           (_V) ->
+                %% This version is *not* ok: Skip
+                true
+        end,
+    COND = [{unix, [{linux, LinuxVersionVerify}, {darwin, DarwinVersionVerify}]}],
+    case os_based_skip(COND) of
+        true ->
+            {skip, "Unstable host and/or os (or combo thererof)"};
+        false ->
+            megaco_test_global_sys_monitor:start(),
+            Config
+    end.
+
+
+end_per_suite(Config) when is_list(Config) ->
+
+    megaco_test_global_sys_monitor:stop(),
+
+    Config.
+
+
 init_per_testcase(_Case, Config) ->
     Pid = group_leader(),
     Name = megaco_global_logger,

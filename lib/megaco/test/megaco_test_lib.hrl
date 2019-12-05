@@ -23,23 +23,29 @@
 %% Purpose: Define common macros for testing
 %%----------------------------------------------------------------------
 
+-ifndef(APPLICATION).
+-define(APPLICATION, megaco).
+-endif.
+
+-define(LIB, megaco_test_lib).
+
 -define(APPLY(Proxy, Fun),
 	Proxy ! {apply, Fun}).
 
 -define(LOG(Format, Args),
-	megaco_test_lib:log(Format, Args, ?MODULE, ?LINE)).
+	?LIB:log(Format, Args, ?MODULE, ?LINE)).
 
 -define(ERROR(Reason),
-	megaco_test_lib:error(Reason, ?MODULE, ?LINE)).
+	?LIB:error(Reason, ?MODULE, ?LINE)).
 
 -define(OS_BASED_SKIP(Skippable),
-	megaco_test_lib:os_based_skip(Skippable)).
+	?LIB:os_based_skip(Skippable)).
 
 -define(NON_PC_TC_MAYBE_SKIP(Config, Condition),
-	megaco_test_lib:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
+	?LIB:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).
 
 -define(SKIP(Reason),
-	megaco_test_lib:skip(Reason, ?MODULE, ?LINE)).
+	?LIB:skip(Reason, ?MODULE, ?LINE)).
 
 -define(VERIFYL(Expected, Expr),
 	fun(A,B) when list(A), list(B) ->
@@ -69,21 +75,21 @@
 	end()).
 
 -define(RECEIVE(Expected),
-	?VERIFY(Expected, megaco_test_lib:flush())).
+	?VERIFY(Expected, ?LIB:flush())).
 
 -define(MULTI_RECEIVE(Expected),
-	?VERIFY(lists:sort(Expected), lists:sort(megaco_test_lib:flush()))).
+	?VERIFY(lists:sort(Expected), lists:sort(?LIB:flush()))).
 
 -define(ACQUIRE_NODES(N, Config),
-	megaco_test_lib:prepare_test_case([init, {stop_app, megaco}],
-				   N, Config, ?FILE, ?LINE)).
+	?LIB:prepare_test_case([init, {stop_app, megaco}],
+                               N, Config, ?FILE, ?LINE)).
 
 
--define(SLEEP(MSEC),    megaco_test_lib:sleep(MSEC)).
--define(HOURS(T),       megaco_test_lib:hours(T)).
--define(MINS(T),        megaco_test_lib:minutes(T)).
+-define(SLEEP(MSEC),    ?LIB:sleep(MSEC)).
+-define(HOURS(T),       ?LIB:hours(T)).
+-define(MINS(T),        ?LIB:minutes(T)).
 -define(MINUTES(T),     ?MINS(T)).
--define(SECS(T),        megaco_test_lib:seconds(T)).
+-define(SECS(T),        ?LIB:seconds(T)).
 -define(SECONDS(T),     ?SECS(T)).
 -define(FTS(),          megaco:format_timestamp(erlang:timestamp())).
 -define(FTS(TS),        megaco:format_timestamp(TS)).
