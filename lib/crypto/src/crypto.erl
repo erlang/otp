@@ -37,7 +37,6 @@
 -export([rand_plugin_uniform/2]).
 -export([rand_cache_plugin_next/1]).
 -export([rand_uniform/2]).
--export([next_iv/2, next_iv/3]).
 -export([public_encrypt/4, private_decrypt/4]).
 -export([private_encrypt/4, public_decrypt/4]).
 -export([privkey_to_pubkey/2]).
@@ -46,9 +45,39 @@
 
 %%%----------------------------------------------------------------
 %% Old interface. Now implemented with the New interface
+
+-deprecated([{next_iv, 2, next_major_release},
+             {next_iv, 3, next_major_release}
+           ]).
+-export([next_iv/2, next_iv/3]).
+
+-deprecated([{hmac, 3, next_major_release},
+             {hmac, 4, next_major_release},
+             {hmac_init, 2, next_major_release},
+             {hmac_update, 2, next_major_release},
+             {hmac_final, 1, next_major_release},
+             {hmac_final_n, 2, next_major_release}
+            ]).
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
+
+-deprecated([{cmac, 3, next_major_release},
+             {cmac, 4, next_major_release}
+            ]).
 -export([cmac/3, cmac/4]).
+
+-deprecated([{poly1305, 2, next_major_release}
+            ]).
 -export([poly1305/2]).
+
+-deprecated([{stream_init, 2, next_major_release},
+             {stream_init, 3, next_major_release},
+             {stream_encrypt, 2, next_major_release},
+             {stream_decrypt, 2, next_major_release},
+             {block_encrypt, 3, next_major_release},
+             {block_encrypt, 4, next_major_release},
+             {block_decrypt, 3, next_major_release},
+             {block_decrypt, 4, next_major_release}
+            ]).
 -export([stream_init/2, stream_init/3,
          stream_encrypt/2,
          stream_decrypt/2,
@@ -1477,7 +1506,7 @@ rand_plugin_aes_next({Key,GenWords,F,_JumpBase,Count}) ->
 %%
 rand_plugin_aes_next(Key, GenWords, F, Count) ->
     {Cleartext,NewCount} = aes_cleartext(<<>>, F, Count, GenWords),
-    Encrypted = crypto:block_encrypt(aes_ecb, Key, Cleartext),
+    Encrypted = block_encrypt(aes_ecb, Key, Cleartext),
     [V|Cache] = aes_cache(Encrypted, {Key,GenWords,F,Count,NewCount}),
     {V,Cache}.
 

@@ -38,6 +38,18 @@
     Deprecations, and Removal</seealso>.</p>
   </section>
   <section>
+    <marker id="OTP-24"/>
+    <title>OTP 24</title>
+    <section>
+      <title>Crypto Old API</title>
+      <p>The <seealso marker="crypto:new_api#the-old-api">Old API</seealso> will be
+      removed as of OTP 24. The support was formally deprecated as of OTP 23.</p>
+      <p>For replacement functions see the
+      <seealso marker="crypto:new_api#the-new-api">New API</seealso>.</p>
+    </section>
+  </section>
+
+  <section>
     <marker id="OTP-23"/>
     <title>OTP 23</title>
     <section>

@@ -59,6 +59,8 @@
       <item><seealso marker="crypto#stream_init-2">stream_init/3</seealso></item>
       <item><seealso marker="crypto#stream_encrypt-2">stream_encrypt/2</seealso></item>
       <item><seealso marker="crypto#stream_decrypt-2">stream_decrypt/2</seealso></item>
+      <item><seealso marker="crypto#next_iv-2">next_iv/2</seealso></item>
+      <item><seealso marker="crypto#next_iv-3">next_iv/3</seealso></item>
     </list>
     <p>for lists of supported algorithms:</p>
     <list>
@@ -76,7 +78,7 @@
       <item><seealso marker="crypto#hmac_final_n-2">hmac_final_n/2</seealso></item>
       <item><seealso marker="crypto#poly1305-2">poly1305/2</seealso></item>
     </list>
-    <p>They are not deprecated for now, but may be in a future release.
+    <p>They are deprecated from 23.0 and for removal in 24.0.
     </p>
   </section>
 
@@ -134,6 +136,12 @@
 	<item><seealso marker="crypto#hash_info-1">hash_info/1</seealso></item>
 	<item><seealso marker="crypto#cipher_info-1">cipher_info/1</seealso></item>
       </list>
+
+      <p>The <seealso marker="crypto#next_iv-2">next_iv/2</seealso> and
+      <seealso marker="crypto#next_iv-3">next_iv/3</seealso> is not needed since the
+      <c>crypto_init</c> and <c>crypto_update</c> includes this functionality.
+      </p>
+
     </section>
 
     <section>

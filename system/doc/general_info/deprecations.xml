@@ -39,6 +39,20 @@
     <seealso marker="../system_principles/misc#deprecation">Support, Compatibility,
     Deprecations, and Removal</seealso>.</p>
   </section>
+
+  <section>
+    <marker id="OTP-23"/>
+    <title>OTP 23</title>
+    <section>
+      <title>Crypto Old API</title>
+      <p>The <seealso marker="crypto:new_api#the-old-api">Old API</seealso> is now deprecated
+      and has also been
+      <seealso marker="scheduled_for_removal#OTP-24">scheduled for removal</seealso>.</p>
+      <p>For replacement functions see the
+      <seealso marker="crypto:new_api#the-new-api">New API</seealso>.</p>
+    </section>
+  </section>
+
   <section>
     <marker id="OTP-22"/>
     <title>OTP 22</title>
