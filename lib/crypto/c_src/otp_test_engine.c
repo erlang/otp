@@ -50,7 +50,9 @@
 	&& !defined(OPENSSL_NO_EC) \
 	&& !defined(OPENSSL_NO_ECDH) \
 	&& !defined(OPENSSL_NO_ECDSA)
+#if !defined(OPENSSL_NO_ENGINE)
 # define HAVE_EC
+#endif
 #endif
 
 #if defined(HAVE_EC)

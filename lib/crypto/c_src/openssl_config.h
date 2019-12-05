@@ -28,6 +28,7 @@
 #include <openssl/des.h>
 
 /* #include <openssl/idea.h> This is not supported on the openssl OTP requires */
+#include <openssl/dh.h>
 #include <openssl/dsa.h>
 #include <openssl/rsa.h>
 #include <openssl/aes.h>
@@ -295,7 +296,9 @@
 /* If OPENSSL_NO_EC is set, there will be an error in ec.h included from engine.h
    So if EC is disabled, you can't use Engine either....
 */
+#if !defined(OPENSSL_NO_ENGINE)
 # define HAS_ENGINE_SUPPORT
+#endif
 #endif
 
 
