@@ -61,7 +61,9 @@
          proxy_start/1, proxy_start/2,
 
          mk_nodes/1,
-         start_nodes/3
+         start_nodes/3,
+         start_node/3
+
         ]).
 -export([init_per_suite/1,    end_per_suite/1,
          init_per_testcase/2, end_per_testcase/2]).
@@ -1022,6 +1024,7 @@ watchdog(Pid, Time) ->
 	    end
     end.
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 prepare_test_case(Actions, N, Config, File, Line) ->
@@ -1085,15 +1088,23 @@ mk_node(N, Name, Host) ->
 node_to_name_and_host(Node) ->
     string:tokens(atom_to_list(Node), [$@]).
 
-start_nodes([Node | Nodes], File, Line) ->
+
+start_nodes(Nodes, File, Line) when is_list(Nodes) ->
+    lists:foreach(fun(N) -> start_node(N, File, Line) end, Nodes).
+
+start_node(Node, File, Line) ->
     case net_adm:ping(Node) of
 	pong ->
             p("node ~p already running", [Node]),
-	    start_nodes(Nodes, File, Line);
+	    ok;
 	pang ->
 	    [Name, Host] = node_to_name_and_host(Node),
+            Pa = filename:dirname(code:which(?MODULE)),
+            Args = " -pa " ++ Pa ++
+                " -s " ++ atom_to_list(megaco_test_sys_monitor) ++ " start" ++ 
+                " -s global sync",
             p("try start node ~p", [Node]),
-	    case slave:start_link(Host, Name) of
+	    case slave:start_link(Host, Name, Args) of
 		{ok, NewNode} when NewNode =:= Node ->
                     p("node ~p started - now set path, cwd and sync", [Node]),
 		    Path = code:get_path(),
@@ -1102,14 +1113,13 @@ start_nodes([Node | Nodes], File, Line) ->
 		    ok = rpc:call(Node, file, set_cwd, [Cwd]),
 		    true = rpc:call(Node, code, set_path, [Path]),
 		    {_, []} = rpc:multicall(global, sync, []),
-		    start_nodes(Nodes, File, Line);
+		    ok;
 		Other ->
                     p("failed starting node ~p: ~p", [Node, Other]),
 		    fatal_skip({cannot_start_node, Node, Other}, File, Line)
 	    end
-    end;
-start_nodes([], _File, _Line) ->
-    ok.
+    end.
+    
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
