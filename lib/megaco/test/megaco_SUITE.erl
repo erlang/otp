@@ -67,7 +67,6 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 all() -> 
     [
      {group, codec}, 
-     {group, sdp},
      {group, mib}, 
      {group, trans}, 
      {group, actions},
@@ -80,7 +79,6 @@ all() ->
 groups() -> 
     [
      {codec,          [], [{megaco_codec_test,          all}]},
-     {sdp,            [], [{megaco_sdp_test,            all}]},
      {mib,            [], [{megaco_mib_test,            all}]},
      {trans,          [], [{megaco_trans_test,          all}]},
      {actions,        [], [{megaco_actions_test,        all}]},

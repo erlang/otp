@@ -47,7 +47,6 @@ TEST_UTIL_MODULES = \
 	megaco_pending_limit_test \
 	megaco_profile \
 	megaco_segment_test \
-	megaco_sdp_test \
 	megaco_tc_controller \
 	megaco_timer_test \
 	megaco_trans_test \
@@ -77,6 +76,7 @@ SUITE_MODULES = \
 	megaco_examples_SUITE \
 	megaco_flex_SUITE \
 	megaco_mess_SUITE \
+	megaco_sdp_SUITE \
 	megaco_tcp_SUITE \
 	megaco_udp_SUITE
 

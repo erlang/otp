@@ -67,7 +67,7 @@ APP_CASES   = app
 
 CODEC_CASES = codec1 codec2 codec3a codec3b codec3c
 
-MISC_CASES  = tid sdp dm conf udp tcp ex timer flex
+MISC_CASES  = timer
 
 OP_CASES    = mess mib mreq pending trans actions load
 
@@ -207,9 +207,6 @@ help:
 	@echo ""
 	@echo "    codec"
 	@echo "      Run the $(APPLICATION) codec sub-test-suite(s). "
-	@echo ""
-	@echo "    sdp"
-	@echo "      Run the $(APPLICATION) SDP sub-test-suite. "
 	@echo ""
 	@echo "    action"
 	@echo "      Run the $(APPLICATION) actions sub-test-suite. "
@@ -517,11 +514,6 @@ timeb3: make
 
 
 ##########################
-
-sdp: make
-	$(MERL) $(ARGS) -sname megaco_sdp $(ERL_PATH) \
-            -s megaco_test_lib t megaco_sdp_test \
-            $(MAYBE_ESTOP)
 
 actions: make
 	$(MERL) $(ARGS) -sname megaco_actions $(ERL_PATH) \

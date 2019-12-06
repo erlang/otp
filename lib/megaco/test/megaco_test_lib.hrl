@@ -96,3 +96,7 @@
 -define(FTS(),          megaco:format_timestamp(erlang:timestamp())).
 -define(FTS(TS),        megaco:format_timestamp(TS)).
 -define(F(F,A),         lists:flatten(io_lib:format(F, A))).
+
+-define(ANNOUNCE_SUITE_INIT(),
+	io:format(user, "~n*** ~s *** suite ~w init~n~n", [?FTS(), ?MODULE])).
+

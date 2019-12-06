@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,31 +23,23 @@
 %% Purpose: Test application config
 %%----------------------------------------------------------------------
 
--module(megaco_sdp_test).
+-module(megaco_sdp_SUITE).
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
-	 decode_encode/1,
-
-	 otp8123/1, 
-
+-export([
+	 suite/0, all/0, groups/0,
+	 init_per_suite/1,    end_per_suite/1, 
+         init_per_group/2,    end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2, 
 
-	 t/0, t/1]).
+	 decode_encode/1,
+	 otp8123/1
+	]).
 
--include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 -include_lib("megaco/include/megaco_sdp.hrl").
+-include("megaco_test_lib.hrl").
 
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-
-%% Test server callbacks
-init_per_testcase(Case, Config) ->
-    megaco_test_lib:init_per_testcase(Case, Config).
-
-end_per_testcase(Case, Config) ->
-    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -55,17 +47,110 @@ end_per_testcase(Case, Config) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
 all() -> 
-    [decode_encode, {group, tickets}].
+    [
+     decode_encode, 
+     {group, tickets}
+    ].
 
 groups() -> 
-    [{tickets, [], [otp8123]}].
+    [
+     {tickets, [], tickets_cases()}
+    ].
+
+tickets_cases() ->
+    [
+     otp8123
+    ].
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite([{sysmon, false}|Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
+    p("init_per_group -> entry with"
+      "~n   Config: ~p"
+      "~n", [Config]),
     Config.
 
 end_per_group(_GroupName, Config) ->
+    p("end_per_group -> entry with"
+      "~n   Config: ~p"
+      "~n", [Config]),
     Config.
+
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(Case, Config) ->
+
+    p("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 
@@ -1285,5 +1370,21 @@ i2s(S) when is_list(S) ->
     S.
 
 
-%% error(Reason) ->
-%%     throw({error, Reason}).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% p(F) ->
+%%     p(F, []).
+
+p(F, A) ->
+    p(get(sname), F, A).
+
+p(S, F, A) when is_list(S) ->
+    io:format("*** [~s] ~p ~s ***" 
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self(), S | A]);
+p(_S, F, A) ->
+    io:format("*** [~s] ~p *** "
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
+
+
