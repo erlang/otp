@@ -20,7 +20,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "3.9.2"},
+  {vsn, "3.10"},
   {modules, [array,
 	     base64,
 	     beam_lib,
@@ -108,7 +108,7 @@
                dets]},
   {applications, [kernel]},
   {env, []},
-  {runtime_dependencies, ["sasl-3.0","kernel-6.0","erts-@OTP-15831:OTP-15836:OTP-15889@","crypto-3.3",
+  {runtime_dependencies, ["sasl-3.0","kernel-6.0","erts-@OTP-16052@","crypto-3.3",
 			  "compiler-5.0"]}
 ]}.
 
