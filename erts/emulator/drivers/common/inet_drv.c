@@ -2581,7 +2581,7 @@ http_header_inetdrv(void* arg, const http_atom_t* name,
 {
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
-    ErlDrvTermData spec[26];
+    ErlDrvTermData spec[27];
     ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
@@ -2619,12 +2619,12 @@ http_header_inetdrv(void* arg, const http_atom_t* name,
     if (desc->inet.active == INET_PASSIVE) {
         i = LOAD_TUPLE(spec, i, 2);
         i = LOAD_TUPLE(spec, i, 4);
-        ASSERT(i <= 26);
+        ASSERT(i <= 27);
         return erl_drv_send_term(desc->inet.dport, caller, spec, i);
     }
     else {
         i = LOAD_TUPLE(spec, i, 3);
-        ASSERT(i <= 26);
+        ASSERT(i <= 27);
         return erl_drv_output_term(desc->inet.dport, spec, i);
     }
 }
