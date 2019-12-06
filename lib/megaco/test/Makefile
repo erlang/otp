@@ -205,24 +205,8 @@ help:
 	@echo "    clean "
 	@echo "      Remove all targets. "
 	@echo ""
-	@echo "    test"
-	@echo "      Run the entire $(APPLICATION) test-suite. "
-	@echo ""
-	@echo "    app"
-	@echo "      Run the $(APPLICATION) application sub-test-suite. "
-	@echo ""
-	@echo "    conf"
-	@echo "      Run the $(APPLICATION) config suite. "
-	@echo "      Checks various aspects of the megaco configuration. "
-	@echo ""
 	@echo "    codec"
 	@echo "      Run the $(APPLICATION) codec sub-test-suite(s). "
-	@echo ""
-	@echo "    flex"
-	@echo "      Run the $(APPLICATION) flex-scanner suite. "
-	@echo "      This suite does not test the function of the scanner itself"
-	@echo "      (that is done by the codec sub-test-suite(s)), instead, this"
-	@echo "      sub-test-suite tests the *handling* of the flex-scanner linked-in driver."
 	@echo ""
 	@echo "    dm"
 	@echo "      Run the $(APPLICATION) digit-map sub-test-suite. "
@@ -260,12 +244,6 @@ help:
 	@echo ""
 	@echo "    pending"
 	@echo "      Run the $(APPLICATION) pending-limit sub-test-suite"
-	@echo ""
-	@echo "    udp"
-	@echo "      Run the $(APPLICATION) UDP transport component sub-test-suite"
-	@echo ""
-	@echo "    tcp"
-	@echo "      Run the $(APPLICATION) TCP transport component sub-test-suite"
 	@echo ""
 	@echo "    load"
 	@echo "      Run the $(APPLICATION) load sub-test-suite"
@@ -340,11 +318,6 @@ all: make
         done
 
 make: targets
-
-test: make
-	$(MERL) $(ARGS) -sname megaco_test $(ERL_PATH) \
-            -s megaco_test_lib t $(SUITE) \
-            $(MAYBE_ESTOP)
 
 utest: make
 	$(MERL) $(ARGS) -sname megaco_utest $(ERL_PATH) \
@@ -424,16 +397,6 @@ encode_pretty_prof2: make
 tickets: make
 	$(MERL) $(ARGS) -sname megaco_tickets $(ERL_PATH) \
             -s megaco_test_lib tickets $(SUITE) \
-            $(ESTOP)
-
-app: make
-	$(MERL) $(ARGS) -sname megaco_app $(ERL_PATH) \
-            -s megaco_test_lib t megaco_app_SUITE \
-            $(ESTOP)
-
-conf: make
-	$(MERL) $(ARGS) -sname megaco_config $(ERL_PATH) \
-            -s megaco_test_lib t megaco_config_SUITE \
             $(ESTOP)
 
 
@@ -570,11 +533,6 @@ timeb3: make
 
 ##########################
 
-flex: make
-	$(MERL) $(ARGS) -sname megaco_flex $(ERL_PATH) \
-            -s megaco_test_lib t megaco_flex_SUITE \
-            $(ESTOP)
-
 dm: make
 	$(MERL) $(ARGS) -sname megaco_dm $(ERL_PATH) \
             -s megaco_test_lib t megaco_digit_map_test \
@@ -624,16 +582,6 @@ pending: make
 pl: make
 	$(MERL) $(ARGS) -sname megaco_pl $(ERL_PATH) \
             -s megaco_test_lib t megaco_pending_limit_test \
-            $(MAYBE_ESTOP)
-
-udp: make
-	$(MERL) $(ARGS) -sname megaco_udp $(ERL_PATH) \
-            -s megaco_test_lib t megaco_udp_SUITE \
-            $(MAYBE_ESTOP)
-
-tcp: make
-	$(MERL) $(ARGS) -sname megaco_tcp $(ERL_PATH) \
-            -s megaco_test_lib t megaco_tcp_test \
             $(MAYBE_ESTOP)
 
 load: make

@@ -66,7 +66,6 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 
 all() -> 
     [
-     {group, tcp}, 
      {group, examples}, 
      {group, digit_map},
      {group, mess}, 
@@ -85,7 +84,6 @@ all() ->
 
 groups() -> 
     [
-     {tcp,            [], [{megaco_tcp_test,            all}]},
      {examples,       [], [{megaco_examples_test,       all}]},
      {digit_map,      [], [{megaco_digit_map_test,      all}]},
      {mess,           [], [{megaco_mess_test,           all}]},
