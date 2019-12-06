@@ -290,6 +290,7 @@ epilogue_passes(Opts) ->
           %% Run live one more time to clean up after the float and sw
           %% passes.
           ?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_try),
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_sink),
@@ -1399,6 +1400,102 @@ live_opt_is([#b_set{dst=Dst}=I|Is], Live0, Acc) ->
     end;
 live_opt_is([], Live, Acc) ->
     {Acc,Live}.
+
+%%%
+%%% Do a strength reduction of try/catch and catch.
+%%%
+%%% In try/catch constructs where the expression is restricted
+%%% (essentially a guard expression) and the error reason is ignored
+%%% in the catch part, such as:
+%%%
+%%%   try
+%%%      <RestrictedExpression>
+%%%   catch
+%%%      _:_ ->
+%%%        ...
+%%%   end
+%%%
+%%% the try/catch can be eliminated by simply removing the `new_try_tag`,
+%%% `landingpad`, and `kill_try_tag` instructions.
+
+ssa_opt_try({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Linear = opt_try(Linear0),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+opt_try([{L,#b_blk{is=[#b_set{op=new_try_tag}],
+                      last=Last}=Blk0}|Bs0]) ->
+    #b_br{succ=Succ,fail=Fail} = Last,
+    Ws = cerl_sets:from_list([Succ,Fail]),
+    try do_opt_try(Bs0, Ws) of
+        Bs ->
+            Blk = Blk0#b_blk{is=[],
+                             last=#b_br{bool=#b_literal{val=true},
+                                        succ=Succ,fail=Succ}},
+            [{L,Blk}|opt_try(Bs)]
+    catch
+        throw:not_possible ->
+            [{L,Blk0}|opt_try(Bs0)]
+    end;
+opt_try([{L,Blk}|Bs]) ->
+    [{L,Blk}|opt_try(Bs)];
+opt_try([]) -> [].
+
+do_opt_try([{L,Blk}|Bs]=Bs0, Ws0) ->
+    case cerl_sets:is_element(L, Ws0) of
+        false ->
+            %% This block is not reachable from the block with the
+            %% `new_try_tag` instruction. Retain it. There is no
+            %% need to check it for safety.
+            case cerl_sets:size(Ws0) of
+                0 -> Bs0;
+                _ -> [{L,Blk}|do_opt_try(Bs, Ws0)]
+            end;
+        true ->
+            Ws1 = cerl_sets:del_element(L, Ws0),
+            #b_blk{is=Is0} = Blk,
+            case is_safe_without_try(Is0) of
+                safe ->
+                    %% This block does not execute any instructions
+                    %% that would require a try. Analyze successors.
+                    Successors = beam_ssa:successors(Blk),
+                    Ws = cerl_sets:union(cerl_sets:from_list(Successors),
+                                         Ws1),
+                    [{L,Blk}|do_opt_try(Bs, Ws)];
+                unsafe ->
+                    %% There is something unsafe in the block, for
+                    %% example a `call` instruction or an `extract`
+                    %% instruction.
+                    throw(not_possible);
+                {done,Is} ->
+                    %% This block kills the try tag (either after successful
+                    %% execution or at the landing pad). Don't analyze
+                    %% successors.
+                    [{L,Blk#b_blk{is=Is}}|do_opt_try(Bs, Ws1)]
+            end
+    end;
+do_opt_try([], Ws) ->
+    0 = cerl_sets:size(Ws),                     %Assertion.
+    [].
+
+is_safe_without_try([#b_set{op=kill_try_tag}|Is]) ->
+    %% Remove the rest of the block (effectively deleting the `kill_try_tag`
+    %% and `landingpad` instructions).
+    {done,Is};
+is_safe_without_try([#b_set{op=extract}|_]) ->
+    %% The error reason is accessed.
+    unsafe;
+is_safe_without_try([#b_set{op=Op}=I|Is]) ->
+    IsSafe = case Op of
+                 exception_trampoline -> true;
+                 landingpad -> true;
+                 phi -> true;
+                 _ -> beam_ssa:no_side_effect(I)
+             end,
+    case IsSafe of
+        true -> is_safe_without_try(Is);
+        false -> unsafe
+    end;
+is_safe_without_try([]) -> safe.
 
 %%%
 %%% Optimize binary matching.
