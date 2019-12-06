@@ -27,6 +27,77 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected CRL handling which could cause CRL verification
+	    to fail. This could happen when the CRL distribution
+	    point explicitly specifies the CRL issuer, that is not
+	    using the fallback.</p>
+          <p>
+	    Own Id: OTP-16156 Aux Id: ERL-1030 </p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of unordered chains so that it works as
+	    expected</p>
+          <p>
+	    Own Id: OTP-16293</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing ssl application to crash when handshake
+	    is paused and ClientHello contains extensions for session
+	    resumption (psk_key_exchange_modes, pre_shared_key).</p>
+          <p>
+	    Own Id: OTP-16295 Aux Id: ERL-1095 </p>
+        </item>
+        <item>
+          <p>
+	    Fix connectivity problems with legacy servers when client
+	    is configured to support a range of protocol versions
+	    including TLS 1.3.</p>
+          <p>
+	    Own Id: OTP-16303</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improve session handling for TLS-1.3 compatibility mode
+	    and cleaner internal handling so that removal of old
+	    session data can be more efficient, hopefully mitigating
+	    problems with big session tables during heavy load.</p>
+          <p>
+	    Own Id: OTP-15524 Aux Id: OTP-15352 </p>
+        </item>
+        <item>
+          <p>
+	    Correct handling of DTLS listen socket emulation. Could
+	    cause failure to create new listen socket after process
+	    that owned previous listen socket died.</p>
+          <p>
+	    Own Id: OTP-15809 Aux Id: ERL-917 </p>
+        </item>
+        <item>
+          <p>
+	    Add detailed info in ALERT description when client does
+	    not send a requested cert.</p>
+          <p>
+	    Own Id: OTP-16266</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

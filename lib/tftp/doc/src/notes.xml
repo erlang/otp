@@ -33,7 +33,22 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Tftp 1.0.1</title>
+  <section><title>Tftp 1.0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Removed compiler warnings.</p>
+          <p>
+	    Own Id: OTP-16317 Aux Id: OTP-16183 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tftp 1.0.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

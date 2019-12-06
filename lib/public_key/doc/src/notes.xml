@@ -35,6 +35,24 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 1.7.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected CRL handling which could cause CRL verification
+	    to fail. This could happen when the CRL distribution
+	    point explicitly specifies the CRL issuer, that is not
+	    using the fallback.</p>
+          <p>
+	    Own Id: OTP-16156 Aux Id: ERL-1030 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 1.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,47 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The 'socket state' info provided by the inet info
+	    function has been improved</p>
+          <p>
+	    Own Id: OTP-16043 Aux Id: ERL-1036 </p>
+        </item>
+        <item>
+          <p>
+	    Fix bug where <c>logger</c> would crash when starting
+	    when a very large log file needed to be rotated and
+	    compressed.</p>
+          <p>
+	    Own Id: OTP-16145 Aux Id: ERL-1034 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed a bug causing actual nodedown reason reported by
+	    <seealso
+	    marker="kernel:net_kernel#monitor_nodes/2"><c>net_kernel:monitor_nodes(true,
+	    [nodedown_reason])</c></seealso> to be lost and replaced
+	    by the reason <c>killed</c>.</p>
+          <p>
+	    Own Id: OTP-16216</p>
+        </item>
+        <item>
+	    <p>The documentation for <c>rpc:call/4,5/</c> has been
+	    updated to describe what happens when the called function
+	    throws or return an <c>'EXIT'</c> tuple. </p>
+          <p>
+	    Own Id: OTP-16279 Aux Id: ERL-1066 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

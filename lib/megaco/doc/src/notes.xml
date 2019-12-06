@@ -37,7 +37,24 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.18.6</title>
+  <section><title>Megaco 3.18.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The meas example had not been updated for a long time,
+	    which caused it to not work. Also, it made use of
+	    deprecated functions (now()). This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-16061</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

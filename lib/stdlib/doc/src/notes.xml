@@ -31,6 +31,87 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The functions <seealso
+	    marker="stdlib:unicode#characters_to_list/2"><c>unicode:characters_to_list()</c></seealso>
+	    and <seealso
+	    marker="stdlib:unicode#characters_to_binary/3"><c>unicode:characters_to_binary()</c></seealso>
+	    raised a <c>badarg</c> exception instead of returning an
+	    error tuple when passed very large invalid code points as
+	    input.</p>
+          <p>
+	    Own Id: OTP-16052</p>
+        </item>
+        <item>
+	    <p>Fixed a bug in the linter where list and binary
+	    comprehensions could suppress unsafe variable errors.</p>
+          <p>
+	    Own Id: OTP-16053 Aux Id: ERL-1039 </p>
+        </item>
+        <item>
+	    <p>Fixed incorrect type specifications for
+	    <c>erl_tar:open/2</c>, <c>create/2,3</c>, and
+	    <c>add/4</c>.</p>
+          <p>
+	    Own Id: OTP-16085 Aux Id: PR-2379 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed erroneous type spec for <seealso
+	    marker="stdlib:binary#list_to_bin/1"><c>binary:list_to_bin/1</c></seealso>.
+	    Argument type was changed from <c>iodata()</c> to
+	    <c>iolist()</c>.</p>
+          <p>
+	    Own Id: OTP-16132 Aux Id: ERL-1041 </p>
+        </item>
+        <item>
+          <p>
+	    Fix a race in <c>pool:pspawn_link</c> that caused a
+	    <c>noproc</c> error to be thrown when using it to spawn a
+	    very short lived process.</p>
+          <p>
+	    Own Id: OTP-16211</p>
+        </item>
+        <item>
+          <p>
+	    Fixed a performance issue in ETS lookup when using the
+	    <c>compressed</c> option and the term contained atoms.
+	    Before this fix the decompress algorithm for atoms would
+	    unnecessarily take a global lock to validate the atom.</p>
+          <p>
+	    Own Id: OTP-16316</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Added a new compiler/linter option to disable warnings
+	    for unused types (<c>nowarn_unused_type</c>).</p>
+          <p>
+	    Own Id: OTP-16262 Aux Id: ERIERL-435 </p>
+        </item>
+        <item>
+          <p>
+	    ETS tables have been optimized to not use any locks when
+	    running in a system with only one scheduler enabled. This
+	    can provide significant performance gains for
+	    applications that use ETS tables heavily.</p>
+          <p>
+	    Own Id: OTP-16315</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.10</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

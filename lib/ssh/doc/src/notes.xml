@@ -30,6 +30,116 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The ssh cli (e.g shell) server behaved strangely when
+	    characters were inserted in a string such that the last
+	    characters tried to wrap the line.</p>
+          <p>
+	    Own Id: OTP-14849 Aux Id: ERL-545 </p>
+        </item>
+        <item>
+          <p>
+	    If an OTP SSH server was serving an "exec" request and
+	    the executed code used Erlang <c>standard_io</c> for
+	    input/output, the I/O was erroneously handled by the
+	    *server's* group leader, so the I/O turned up in the the
+	    server's Erlang shell (if any). The user at the client
+	    side did therefor not see that I/O.</p>
+          <p>
+	    This is corrected now, so the client - for example the
+	    ssh OS shell command - handles the I/O. The user could
+	    send input to the server side exec handling code by
+	    writing on the terminal, and server side output from for
+	    example io:format is presented on the terminal - not only
+	    the functional result.</p>
+          <p>
+	    NOTE 1: Servers executing exec requests with the old,
+	    undocumented ways of specifying the custom exec handler
+	    is not changed. Changed are only the two cases where the
+	    server's 'exec' option either:<br/> 1) is not specified
+	    (i.e. using the default shell) or, <br/> 2) it has the
+	    <c>{direct, fun(...) -&gt; ... end}</c> value format.</p>
+          <p>
+	    NOTE 2: Previously an end-of-line marker was appended on
+	    the result and error reports at the client side. They are
+	    removed now and the error reports are slightly enhanced.</p>
+          <p>
+	    TECHNICAL DETAILS: The server's device
+	    <c>standard_input</c> receives data events from the exec
+	    request's channel, and the device <c>standard_output</c>
+	    is sending its data by data events to the client on that
+	    channel. The result is that <c>standard_io</c> is now
+	    performed by the client's group leader.</p>
+          <p>
+	    Own Id: OTP-15417 Aux Id: OTP-16108 </p>
+        </item>
+        <item>
+          <p>
+	    The functions ssh:shell/1,2,3 left the connection open
+	    when they returned. That leakage is fixed now.</p>
+          <p>
+	    Own Id: OTP-16047</p>
+        </item>
+        <item>
+          <p>
+	    Corrected that an Erlang SSH server could return the
+	    status code 4294967295 instead of 255 on some errors of
+	    an exec request.</p>
+          <p>
+	    Own Id: OTP-16123</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Internal simplification of ssh_sftp/ssh_xfer</p>
+          <p>
+	    Own Id: OTP-15972</p>
+        </item>
+        <item>
+          <p>
+	    The documentation of <seealso
+	    marker="ssh:using_ssh#one-time-execution">One-Time
+	    Execution</seealso> in the User's Guide is updated with
+	    more examples.</p>
+          <p>
+	    Own Id: OTP-16108 Aux Id: OTP-15417 </p>
+        </item>
+        <item>
+          <p>
+	    The new value <c>'disabled'</c> is introduced in the SSH
+	    daemon options 'exec' and 'shell'. Previously they lacked
+	    a clear way of disabling them.</p>
+          <p>
+	    Own Id: OTP-16113</p>
+        </item>
+        <item>
+          <p>
+	    The old algorithms 'aes192_cbc', 'aes256_cbc' and
+	    'hmac-sha1-96' are added for compatibility with older
+	    peers.</p>
+          <p>
+	    The mac 'hmac-sha1-96' is nowadays not recommended and
+	    must therefore be explicitly enabled. Use for example the
+	    Option value <c>{modify_algorithms, [{append,
+	    [{mac,['hmac-sha1-96']}]}]}</c></p>
+          <p>
+	    Own Id: OTP-16170</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

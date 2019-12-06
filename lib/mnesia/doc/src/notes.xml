@@ -39,7 +39,31 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.16.1</title>
+  <section><title>Mnesia 4.16.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed mnesia crash which could happen when trying to
+	    recover from failures in transactions containing
+	    <c>sticky_locks</c>.</p>
+          <p>
+	    Own Id: OTP-16286 Aux Id: ERL-1077 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed mnesia index issue. Could happen when updating
+	    records with a index plugin backend.</p>
+          <p>
+	    Own Id: OTP-16291 Aux Id: ERL-1091 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.16.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

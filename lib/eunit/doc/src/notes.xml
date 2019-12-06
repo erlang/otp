@@ -33,6 +33,21 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove compiler warnings from eunit.</p>
+          <p>
+	    Own Id: OTP-16313</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.3.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

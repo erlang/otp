@@ -31,6 +31,43 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Improve <c>-spec</c> indentation in emacs mode.</p>
+          <p>
+	    Own Id: OTP-16164</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The Emacs erlang-mode function that lets the user open
+	    the documentation for an Erlang/OTP function in an Emacs
+	    buffer has been improved. Bugs in this function has been
+	    fixed and and the user will now be asked if the man pages
+	    should be downloaded automatically by Emacs when they
+	    can't be found on the system. To test this functionality,
+	    put the cursor over the function name in a call to an
+	    Erlang/OTP function (e.g., "io:format("arg")") and type
+	    C-c C-d (i.e., Ctrl-key and c-key and then Ctrl-key and
+	    d-key). There is also a new menu item under the Erlang
+	    menu (labeled "Man - Function Under Cursor").</p>
+          <p>
+	    Own Id: OTP-16174</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

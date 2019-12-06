@@ -31,6 +31,30 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.6.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The chipers aes_cfb8 and aes_cfb128 are now using the EVP
+	    interface. The supported key lengths are 128, 192 and 256
+	    bits.</p>
+          <p>
+	    Own Id: OTP-16133 Aux Id: PR-2407 </p>
+        </item>
+        <item>
+          <p>
+	    The chipers aes_cfb8 and aes_cfb128 are now available in
+	    FIPS enabled mode.</p>
+          <p>
+	    Own Id: OTP-16134 Aux Id: PR-2407 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
