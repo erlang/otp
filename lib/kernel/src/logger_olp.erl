@@ -336,17 +336,18 @@ do_load(Msg, CallOrCast, State) ->
     kill_if_choked(QLen, Mem, State2),
 
     if Mode1 == flush ->
-            flush(T1, State2);
+            flush(T1, QLen, State2);
        true ->
             handle_load(Mode1, T1, Msg, CallOrCast, State2)
     end.
 
 %% this function is called by do_load/3 after an overload check
 %% has been performed, where QLen > FlushQLen
-flush(T1, State=#{id := _Name, last_load_ts := _T0, mode_ref := ModeRef}) ->
+flush(T1, QLen, State=#{id := _Name, last_load_ts := _T0,
+                        mode_ref := ModeRef, module := Module}) ->
     %% flush load messages in the mailbox (a limited number in order
     %% to not cause long delays)
-    NewFlushed = flush_load(?FLUSH_MAX_N),
+    NewFlushed = flush_queue(min(?FLUSH_MAX_N,QLen), Module),
 
     %% write info in log about flushed messages
     State1=notify({flushed,NewFlushed},State),
@@ -541,11 +542,19 @@ kill_if_choked(QLen, Mem, #{overload_kill_enable   := KillIfOL,
             ok
     end.
 
-flush_load(Limit) ->
-    process_flag(priority, high),
+flush_queue(Limit,Module) ->
+    Prev = process_flag(priority, high),
+    %% Try to flush messages created by logger_olp:load
     Flushed = flush_load(0, Limit),
-    process_flag(priority, normal),
-    Flushed.
+    Res = if
+              Flushed < Limit ->
+                  %% We didn't flush up to the limit, try the user call-back
+                  try_callback_call(Module, flush, [Limit - Flushed], 0) + Flushed;
+              true ->
+                  Flushed
+          end,
+    process_flag(priority, Prev),
+    Res.
 
 flush_load(Limit, Limit) ->
     Limit;
@@ -558,10 +567,6 @@ flush_load(N, Limit) ->
             flush_load(N+1, Limit);
         {'$gen_call',{Pid,MRef},{'$olp_load',_}} ->
             Pid ! {MRef, dropped},
-            flush_load(N+1, Limit);
-        {log,_,_,_,_} ->
-            flush_load(N+1, Limit);
-        {log,_,_,_} ->
             flush_load(N+1, Limit)
     after
         0 -> N

@@ -28,7 +28,7 @@
 
 %% logger_olp callbacks
 -export([init/1, handle_load/2, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, notify/2, reset_state/1]).
+         terminate/2, code_change/3, notify/2, flush/1, reset_state/1]).
 
 %% logger callbacks
 -export([log/2, adding_handler/1, removing_handler/1, changing_config/3,
@@ -357,6 +357,20 @@ notify(restart,#{id:=Name}=State) ->
 notify(idle,#{id:=Name,module:=Module,handler_state:=HandlerState}=State) ->
     {_,HS} = Module:filesync(Name,async,HandlerState),
     State#{handler_state=>HS, last_op=>sync}.
+
+flush(N) ->
+    flush(0,N).
+flush(Limit,Limit) ->
+    Limit;
+flush(N,Limit) ->
+    receive
+        {log,_,_,_,_} ->
+            flush(N+1,Limit);
+        {log,_,_,_} ->
+            flush(N+1,Limit)
+    after 0 ->
+            N
+    end.
 
 log_handler_info(Name, Format, Args, #{module:=Module,
                                        handler_state:=HandlerState}=State) ->
