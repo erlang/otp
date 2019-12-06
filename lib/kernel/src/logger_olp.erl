@@ -24,7 +24,8 @@
 -include("logger_internal.hrl").
 
 %% API
--export([start_link/4, load/2, info/1, reset/1, stop/1, restart/1,
+-export([start/4, start/5, start_link/4,
+         load/2, info/1, reset/1, stop/1, restart/1,
          set_opts/2, get_opts/1, get_default_opts/0, get_pid/1,
          call/2, cast/2, get_ref/0, get_ref/1]).
 
@@ -52,6 +53,29 @@
 %%%-----------------------------------------------------------------
 %%% API
 
+-spec start(Module,Args,OLPOptions,Options) -> {ok,Pid,Olp} | {error,Reason} when
+      Module :: module(),
+      Args :: term(),
+      OLPOptions :: options(),
+      Options :: proc_lib:spawn_options(),
+      Pid :: pid(),
+      Olp :: olp_ref(),
+      Reason :: term().
+start(Module,Args,OLPOptions,Options) when is_map(OLPOptions) ->
+    start([Module,Args], OLPOptions,Options).
+
+-spec start(Name,Module,Args,OLPOptions,Options) -> {ok,Pid,Olp} | {error,Reason} when
+      Name :: atom(),
+      Module :: module(),
+      Args :: term(),
+      OLPOptions :: options(),
+      Options :: proc_lib:spawn_options(),
+      Pid :: pid(),
+      Olp :: olp_ref(),
+      Reason :: term().
+start(Name,Module,Args,OLPOptions,Options) when is_map(OLPOptions) ->
+    start([Name,Module,Args],OLPOptions,Options).
+
 -spec start_link(Name,Module,Args,Options) -> {ok,Pid,Olp} | {error,Reason} when
       Name :: atom(),
       Module :: module(),
@@ -60,11 +84,14 @@
       Pid :: pid(),
       Olp :: olp_ref(),
       Reason :: term().
-start_link(Name,Module,Args,Options0) when is_map(Options0) ->
-    Options = maps:merge(get_default_opts(),Options0),
-    case check_opts(Options) of
+start_link(Name,Module,Args,Options) when is_map(Options) ->
+    start([Name,Module,Args],Options,[link]).
+
+start(Args, OLPOptions0, Options) ->
+    OLPOptions = maps:merge(get_default_opts(),OLPOptions0),
+    case check_opts(OLPOptions) of
         ok ->
-            proc_lib:start_link(?MODULE,init,[[Name,Module,Args,Options]]);
+            proc_lib:start(?MODULE,init,[Args++[OLPOptions]],infinity,Options);
         Error ->
             Error
     end.
@@ -164,6 +191,10 @@ get_pid({_Name,Pid,_ModeRef}) ->
 
 init([Name,Module,Args,Options]) ->
     register(Name, self()),
+    init(Name,Module,Args,Options);
+init([Module,Args,Options]) ->
+    init(self(),Module,Args,Options).
+init(Name,Module,Args,Options) ->
     process_flag(message_queue_data, off_heap),
 
     ?start_observation(Name),
@@ -192,11 +223,11 @@ init([Name,Module,Args,Options]) ->
             State = reset_restart_flag(State0),
             gen_server:enter_loop(?MODULE, [], State);
         Error ->
-            unregister(Name),
+            do_unregister(Name),
             proc_lib:init_ack(Error)
     catch
         _:Error ->
-            unregister(Name),
+            do_unregister(Name),
             proc_lib:init_ack(Error)
     end.
 
@@ -283,7 +314,10 @@ terminate({shutdown,{overloaded,_QLen,_Mem}},
             overload_kill_restart_after := RestartAfter} = State) ->
     %% We're terminating because of an overload situation (see
     %% kill_if_choked/3).
-    unregister(Name), %%!!!! to avoid error printout of callback crashed on stop
+
+     %%!!!! unregister to avoid error printout of callback crashed on stop
+    do_unregister(Name),
+
     case try_callback_call(Module,terminate,[overloaded,CBState],ok) of
         {ok,Fun} when is_function(Fun,0), is_integer(RestartAfter) ->
             set_restart_flag(State),
@@ -294,7 +328,7 @@ terminate({shutdown,{overloaded,_QLen,_Mem}},
     end;
 terminate(Reason, #{id:=Name, module:=Module, cb_state:=CBState}) ->
     _ = try_callback_call(Module,terminate,[Reason,CBState],ok),
-    unregister(Name),
+    do_unregister(Name),
     ok.
 
 code_change(_OldVsn, State, _Extra) ->
@@ -452,23 +486,32 @@ do_check_opts([{Key,Value}|_]) ->
 do_check_opts([]) ->
     ok.
 
-set_restart_flag(#{id := Name, module := Module}) ->
-    Flag = list_to_atom(lists:concat([Module,"_",Name,"_restarting"])),
+restart_flag_name(Module, Name) ->
+    list_to_atom(lists:concat([Module,"_",Name,"_restarting"])).
+
+set_restart_flag(#{id := Name, module := Module}) when is_atom(Name) ->
+    Flag = restart_flag_name(Module, Name),
     spawn(fun() ->
                   register(Flag, self()),
                   timer:sleep(infinity)
           end),
+    ok;
+set_restart_flag(_) ->
     ok.
 
-reset_restart_flag(#{id := Name, module := Module} = State) ->
-    Flag = list_to_atom(lists:concat([Module,"_",Name,"_restarting"])),
+
+reset_restart_flag(#{id := Name, module := Module} = State) when is_atom(Name) ->
+    Flag = restart_flag_name(Module, Name),
     case whereis(Flag) of
         undefined ->
             State;
         Pid ->
             exit(Pid, kill),
             notify(restart,State)
-    end.
+    end;
+reset_restart_flag(State) ->
+    State.
+
 
 check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
                      sync_mode_qlen := SyncModeQLen,
@@ -621,3 +664,9 @@ reply_return(Reply,#{idle:=true}=State) ->
     {reply,Reply,State};
 reply_return(Reply,#{idle:=false}=State) ->
     {reply,Reply,State,?IDLE_DETECT_TIME}.
+
+do_unregister(Name) when is_atom(Name) ->
+    unregister(Name),
+    ok;
+do_unregister(_Else) ->
+    ok.
