@@ -1216,16 +1216,19 @@ ffunc({M,F,Arity},#{ modifier := Modifier }) ->
 ffunc(X,#{ modifier := Modifier }) -> io_lib:format("~"++Modifier++"p", [X]).
 
 out(Device) ->
-    C = try
-            {ok, Cols} = io:columns(Device),
-            Cols
-        catch error:_ ->
-                80
-        end,
-
-    Encoding = encoding(Device),
+    Cols = try
+               {ok,C} = io:columns(Device),
+               C
+           catch error:_ ->
+                   80
+           end,
+    Encoding = try
+                   encoding(Device)
+               catch error:_ ->
+                       io:printable_range()
+               end,
                 
-    #{ device => Device, columns => C, depth => -1,
+    #{ device => Device, columns => Cols, depth => -1,
        encoding => Encoding, modifier => encoding_to_modifier(Encoding) }.
 
 encoding(Device) ->
