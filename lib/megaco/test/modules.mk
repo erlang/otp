@@ -28,7 +28,6 @@ BEHAVIOUR_MODULES = \
 TEST_UTIL_MODULES = \
 	$(BEHAVIOUR_MODULES) \
 	megaco_actions_test \
-	megaco_binary_term_id_test \
 	megaco_call_flow_test \
 	megaco_codec_test \
 	megaco_codec_test_lib \
@@ -72,6 +71,7 @@ TEST_UTIL_MODULES = \
 SUITE_MODULES = \
 	megaco_SUITE \
 	megaco_app_SUITE \
+	megaco_binary_term_id_SUITE \
 	megaco_config_SUITE \
 	megaco_digit_map_SUITE \
 	megaco_examples_SUITE \

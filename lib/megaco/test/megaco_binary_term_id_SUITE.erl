@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2001-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2001-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,274 +23,182 @@
 %% Purpose:
 %%----------------------------------------------------------------------
 
--module(megaco_binary_term_id_test).
-
-%%----------------------------------------------------------------------
-%% Include files
-%%----------------------------------------------------------------------
--include_lib("megaco/include/megaco.hrl"). 
--include_lib("megaco/src/engine/megaco_message_internal.hrl").
+-module(megaco_binary_term_id_SUITE).
 
 
 %%----------------------------------------------------------------------
 %% External exports
 %%----------------------------------------------------------------------
--export([t/0]).
 
 %% Test suite exports
--export([all/0,groups/0,init_per_group/2,end_per_group/2,
-	init_per_testcase/2, end_per_testcase/2]).  
+-export([
+         suite/0, all/0, groups/0,
+	 init_per_suite/1,    end_per_suite/1, 
+         init_per_group/2,    end_per_group/2,
+	 init_per_testcase/2, end_per_testcase/2, 
+
+         te01/1, te02/1, te03/1, te04/1, te05/1,
+	 te06/1, te07/1, te08/1, te09/1, te10/1,
+	 te11/1, te12/1, te13/1, te14/1, te15/1,
+	 te16/1, te17/1, te18/1, te19/1,
+
+         td01/1, td02/1, td03/1, td04/1, td05/1,
+         td06/1
+        ]).
 
 
 %%----------------------------------------------------------------------
-%% Internal exports
+%% Include files
 %%----------------------------------------------------------------------
--export([te01/1,te02/1,te03/1,te04/1,te05/1,
-	 te06/1,te07/1,te08/1,te09/1,te10/1,
-	 te11/1,te12/1,te13/1,te14/1,te15/1,
-	 te16/1,te17/1,te18/1,te19/1]).
--export([td01/1,td02/1,td03/1,td04/1,td05/1,td06/1]).
+
+-include_lib("megaco/include/megaco.hrl"). 
+-include_lib("megaco/src/engine/megaco_message_internal.hrl").
+-include("megaco_test_lib.hrl").
 
 
-%% ---------------------------------------------------------------------
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Top test case
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, encode_first}, {group, decode_first}].
+    [
+     {group, encode_first},
+     {group, decode_first}
+    ].
 
 groups() -> 
-    [{encode_first, [], encode_first_cases()},
-     {decode_first, [], decode_first_cases()}].
+    [
+     {encode_first, [], encode_first_cases()},
+     {decode_first, [], decode_first_cases()}
+    ].
+
+encode_first_cases() -> 
+    [
+     te01,
+     te02,
+     te03,
+     te04,
+     te05,
+     te06,
+     te07,
+     te08,
+     te09,
+     te10,
+     te11,
+     te12,
+     te13,
+     te14,
+     te15,
+     te16,
+     te17,
+     te18,
+     te19
+    ].
+
+decode_first_cases() -> 
+    [
+     td01,
+     td02,
+     td03,
+     td04,
+     td05,
+     td06
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    io:format(user, "suite ~w init~n~n", [?MODULE]),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite([{sysmon, false}|Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
+    p("init_per_group -> entry with"
+      "~n   Config: ~p"
+      "~n", [Config]),
     Config.
 
 end_per_group(_GroupName, Config) ->
+    p("end_per_group -> entry with"
+      "~n   Config: ~p"
+      "~n", [Config]),
     Config.
 
-%% Test server callbacks
+
+
+%%
+%% -----
+%%
+
 init_per_testcase(Case, Config) ->
+
+    p("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
     megaco_test_lib:init_per_testcase(Case, Config).
 
 end_per_testcase(Case, Config) ->
+
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
     megaco_test_lib:end_per_testcase(Case, Config).
 
 
 %%======================================================================
 %% External functions
 %%======================================================================
-
-t() ->
-    display([do(Case) || Case <- cases()]),
-    ok.
-
-
-cases() -> encode_first_cases() ++ decode_first_cases().
-
-encode_first_cases() -> 
-[te01, te02, te03, te04, te05, te06, te07, te08, te09,
- te10, te11, te12, te13, te14, te15, te16, te17, te18,
- te19].
-decode_first_cases() -> 
-[td01, td02, td03, td04, td05, td06].
-
-do(Case) ->
-    case doc(Case) of
-	{'EXIT',_} ->
-	    {Case,error};
-	Description ->
-	    io:format("test case ~p~n",[Case]),
-	    case suite(Case) of
-		{'EXIT',Reason} ->
-		    Res = check_result(Case,Description,ok,{error,Reason}),
-		    {Case,Res};
-		{Expected,Result} ->
-		    Res = check_result(Case,Description,Expected,Result),
-		    {Case,Res}
-	    end
-    end.
-
-doc(Case)   -> (catch apply(?MODULE,Case,[doc])).
-suite(Case) -> (catch apply(?MODULE,Case,[])).
-
-display(R) -> 
-    [display(Case,Result) || {Case,Result} <- R].
-
-display(C,error) ->
-    io:format("Test case ~p failed~n",[C]);
-display(C,warning) ->
-    io:format("Test case ~p conspicuous~n",[C]);
-display(C,ok) ->
-    io:format("Test case ~p succeeded~n",[C]).
-
-check(D,ok,{ok,T1,T2,T3}) ->
-    Result = case check_ok_result(T1,T3) of
-		 ok -> 
-		     ok;
-		 {error,Reason} ->
-		     io:format("  => inconsistent result"
-			       "~n  Start and end record differ"
-			       "~n  ~s"
-			       "~n  ~s"
-			       "~n  ~w"
-			       "~n",
-			       [D,Reason,T2]),
-		     warning
-	     end,
-    Result;
-check(D,error,{ok,T1,T2,T3}) ->
-    io:format("  => failed"
-	      "~n  ~s"
-	      "~n  ~p"
-	      "~n  ~p"
-	      "~n  ~p"
-	      "~n",
-	      [D,T1,T2,T3]),
-    error;
-check(_D,error,{error,_Reason}) ->
-    ok;
-check(D,ok,{error,Reason}) ->
-    io:format("  => failed"
-	      "~n  ~s"
-	      "~n  Failed for reason"
-	      "~n  ~p"
-	      "~n",
-	      [D,Reason]),
-    error.
-
-check_result(_C,D,ok,{ok,T1,T2,T3}) ->
-    Result = case check_ok_result(T1,T3) of
-		 ok -> 
-		     io:format("  => succeeded"
-			       "~n  ~s"
-			       "~n  ~p"
-			       "~n  ~w"
-			       "~n  ~p",
-			       [D,T1,T2,T3]),
-		     ok;
-		 {error,Reason} ->
-		     io:format("  => inconsistent result"
-			       "~n  Start and end record differ"
-			       "~n  ~s"
-			       "~n  ~s"
-			       "~n  ~w",
-			       [D,Reason,T2]),
-		     warning
-	     end,
-    io:format("~n~n--------------------~n",[]),
-    Result;
-check_result(_C,D,error,{ok,T1,T2,T3}) ->
-    io:format("  => failed"
-	      "~n  ~s"
-	      "~n  ~p"
-	      "~n  ~p"
-	      "~n  ~p"
-	      "~n~n--------------------~n",
-	      [D,T1,T2,T3]),
-    error;
-check_result(_C,D,error,{error,Reason}) ->
-    io:format("  => succeeded"
-	      "~n  ~s"
-	      "~n  Operation failed (expectedly) for reason"
-	      "~n  ~p"
-	      "~n~n--------------------~n",
-	      [D,Reason]),
-    ok;
-check_result(_C,D,ok,{error,Reason}) ->
-    io:format("  => failed"
-	      "~n  ~s"
-	      "~n  Failed for reason"
-	      "~n  ~p"
-	      "~n~n--------------------~n",
-	      [D,Reason]),
-    error.
-
-check_ok_result(R,R) when is_record(R,megaco_term_id) ->
-    ok; % Same record type and same record content
-check_ok_result(S,E) when is_record(S,megaco_term_id) andalso 
-                          is_record(E,megaco_term_id) ->
-    Reason = check_megaco_term_id_record(S,E),
-    {error,Reason}; % Same record type but different record content
-check_ok_result(R,R) when is_record(R,'TerminationID') ->
-    ok;
-check_ok_result(S,E) when is_record(S,'TerminationID') andalso 
-                          is_record(E,'TerminationID') ->
-    Reason = check_TerminationID_record(S,E),
-    {error,Reason}; % Same record type but different record content
-check_ok_result(_S,_E) ->
-    {error,"NOT THE SAME RECORD TYPES"}. % OOPS, Not even the same record type
-    
-check_megaco_term_id_record(#megaco_term_id{contains_wildcards = Cw1, 
-					    id = Id1},
-			    #megaco_term_id{contains_wildcards = Cw2, 
-					    id = Id2}) ->
-    Result = case check_megaco_term_id_cw(Cw1,Cw2) of
-		 ok ->
-		     check_megaco_term_id_id(Id1,Id2);
-		 {error,R1} ->
-		     R2 = check_megaco_term_id_id(Id1,Id2),
-		     io_lib:format("~s~s",[R1,R2])
-    end,
-    lists:flatten(Result).
-    
-check_megaco_term_id_cw(Cw,Cw) ->
-    ok;
-check_megaco_term_id_cw(Cw1,Cw2) ->
-    R = io_lib:format("~n   The 'contains_wildcard' property of the start"
-		      "~n   megaco_term_id record "
-		      "~n   has value ~w "
-		      "~n   but the end record "
-		      "~n   has value ~w",
-		      [Cw1,Cw2]),
-    {error,R}.
-
-check_megaco_term_id_id(Id,Id) ->
-    ok;
-check_megaco_term_id_id(Id1,Id2) ->
-    R = io_lib:format("~n   The 'id' property of the start"
-		      "~n   megaco_term_id record "
-		      "~n   has value ~w "
-		      "~n   but the end record "
-		      "~n   has value ~w",
-		      [Id1,Id2]),
-    {error,R}.
-
-
-check_TerminationID_record(#'TerminationID'{wildcard = W1, id = Id1},
-			   #'TerminationID'{wildcard = W2, id = Id2}) ->
-    Result = case check_TerminationID_w(W1,W2) of
-		 ok ->
-		     check_TerminationID_id(Id1,Id2);
-		 {error,R1} ->
-		     R2 = check_TerminationID_id(Id1,Id2),
-		     io_lib:format("~s~s",[R1,R2])
-    end,
-    lists:flatten(Result).
-    
-check_TerminationID_w(W,W) ->
-    ok;
-check_TerminationID_w(W1,W2) ->
-    R = io_lib:format("~n   The 'wildcard' property of the start"
-		      "~n   'TerminationID' record "
-		      "~n   has value ~w "
-		      "~n   but the end record "
-		      "~n   has value ~w",
-		      [W1,W2]),
-    {error,R}.
-
-check_TerminationID_id(Id,Id) ->
-    ok;
-check_TerminationID_id(Id1,Id2) ->
-    R = io_lib:format("~n   The 'id' property of the start"
-		      "~n   'TerminationID' record "
-		      "~n   has value ~w "
-		      "~n   but the end record "
-		      "~n   has value ~w",
-		      [Id1,Id2]),
-    {error,R}.
 
 
 %% --------------------------------------------------------
@@ -1010,5 +918,146 @@ decode1(C,T) ->
     end.
 
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+check(D,ok,{ok,T1,T2,T3}) ->
+    Result = case check_ok_result(T1,T3) of
+		 ok -> 
+		     ok;
+		 {error,Reason} ->
+		     io:format("  => inconsistent result"
+			       "~n  Start and end record differ"
+			       "~n  ~s"
+			       "~n  ~s"
+			       "~n  ~w"
+			       "~n",
+			       [D,Reason,T2]),
+		     warning
+	     end,
+    Result;
+check(D,error,{ok,T1,T2,T3}) ->
+    io:format("  => failed"
+	      "~n  ~s"
+	      "~n  ~p"
+	      "~n  ~p"
+	      "~n  ~p"
+	      "~n",
+	      [D,T1,T2,T3]),
+    error;
+check(_D,error,{error,_Reason}) ->
+    ok;
+check(D,ok,{error,Reason}) ->
+    io:format("  => failed"
+	      "~n  ~s"
+	      "~n  Failed for reason"
+	      "~n  ~p"
+	      "~n",
+	      [D,Reason]),
+    error.
+
+
+check_ok_result(R,R) when is_record(R,megaco_term_id) ->
+    ok; % Same record type and same record content
+check_ok_result(S,E) when is_record(S,megaco_term_id) andalso 
+                          is_record(E,megaco_term_id) ->
+    Reason = check_megaco_term_id_record(S,E),
+    {error,Reason}; % Same record type but different record content
+check_ok_result(R,R) when is_record(R,'TerminationID') ->
+    ok;
+check_ok_result(S,E) when is_record(S,'TerminationID') andalso 
+                          is_record(E,'TerminationID') ->
+    Reason = check_TerminationID_record(S,E),
+    {error,Reason}; % Same record type but different record content
+check_ok_result(_S,_E) ->
+    {error,"NOT THE SAME RECORD TYPES"}. % OOPS, Not even the same record type
+
+check_megaco_term_id_record(#megaco_term_id{contains_wildcards = Cw1, 
+					    id = Id1},
+			    #megaco_term_id{contains_wildcards = Cw2, 
+					    id = Id2}) ->
+    Result = case check_megaco_term_id_cw(Cw1,Cw2) of
+		 ok ->
+		     check_megaco_term_id_id(Id1,Id2);
+		 {error,R1} ->
+		     R2 = check_megaco_term_id_id(Id1,Id2),
+		     io_lib:format("~s~s",[R1,R2])
+             end,
+    lists:flatten(Result).
+
+check_megaco_term_id_cw(Cw,Cw) ->
+    ok;
+check_megaco_term_id_cw(Cw1,Cw2) ->
+    R = io_lib:format("~n   The 'contains_wildcard' property of the start"
+		      "~n   megaco_term_id record "
+		      "~n   has value ~w "
+		      "~n   but the end record "
+		      "~n   has value ~w",
+		      [Cw1,Cw2]),
+    {error,R}.
+
+check_megaco_term_id_id(Id,Id) ->
+    ok;
+check_megaco_term_id_id(Id1,Id2) ->
+    R = io_lib:format("~n   The 'id' property of the start"
+		      "~n   megaco_term_id record "
+		      "~n   has value ~w "
+		      "~n   but the end record "
+		      "~n   has value ~w",
+		      [Id1,Id2]),
+    {error,R}.
+
+
+check_TerminationID_record(#'TerminationID'{wildcard = W1, id = Id1},
+			   #'TerminationID'{wildcard = W2, id = Id2}) ->
+    Result = case check_TerminationID_w(W1,W2) of
+		 ok ->
+		     check_TerminationID_id(Id1,Id2);
+		 {error,R1} ->
+		     R2 = check_TerminationID_id(Id1,Id2),
+		     io_lib:format("~s~s",[R1,R2])
+             end,
+    lists:flatten(Result).
+
+check_TerminationID_w(W,W) ->
+    ok;
+check_TerminationID_w(W1,W2) ->
+    R = io_lib:format("~n   The 'wildcard' property of the start"
+		      "~n   'TerminationID' record "
+		      "~n   has value ~w "
+		      "~n   but the end record "
+		      "~n   has value ~w",
+		      [W1,W2]),
+    {error,R}.
+
+check_TerminationID_id(Id,Id) ->
+    ok;
+check_TerminationID_id(Id1,Id2) ->
+    R = io_lib:format("~n   The 'id' property of the start"
+		      "~n   'TerminationID' record "
+		      "~n   has value ~w "
+		      "~n   but the end record "
+		      "~n   has value ~w",
+		      [Id1,Id2]),
+    {error,R}.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% p(F) ->
+%%     p(F, []).
+
+p(F, A) ->
+    p(get(sname), F, A).
+
+p(S, F, A) when is_list(S) ->
+    io:format("*** [~s] ~p ~s ***" 
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self(), S | A]);
+p(_S, F, A) ->
+    io:format("*** [~s] ~p *** "
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
 
 

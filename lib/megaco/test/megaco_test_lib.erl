@@ -916,14 +916,27 @@ init_per_suite(Config) ->
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
         false ->
-            megaco_test_global_sys_monitor:start(),
+            maybe_start_global_sys_monitor(Config),
             Config
     end.
 
+%% We start the global system monitor unless explicitly disabled
+maybe_start_global_sys_monitor(Config) ->
+    case lists:keysearch(sysmon, 1, Config) of
+        {value, {sysmon, false}} ->
+            ok;
+        _ ->
+            megaco_test_global_sys_monitor:start()
+    end.
 
 end_per_suite(Config) when is_list(Config) ->
 
-    megaco_test_global_sys_monitor:stop(),
+    case lists:keysearch(sysmon, 1, Config) of
+        {value, {sysmon, false}} ->
+            ok;
+        _ ->
+            megaco_test_global_sys_monitor:stop()
+    end,
 
     Config.
 
