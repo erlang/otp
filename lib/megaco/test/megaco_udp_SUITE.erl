@@ -22,7 +22,7 @@
 %%----------------------------------------------------------------------
 %% Purpose:
 %%----------------------------------------------------------------------
--module(megaco_udp_test).
+-module(megaco_udp_SUITE).
 
 %%----------------------------------------------------------------------
 %% Include files
@@ -35,16 +35,20 @@
 %% External exports
 %%----------------------------------------------------------------------
 -export([
-	 all/0,groups/0,init_per_group/2,end_per_group/2,
+	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+
 	 start_normal/1,
 	 start_invalid_opt/1,
          start_and_stop/1,
 	 sendreceive/1,
          block_unblock/1,
-	 socket_failure/1,
-         init_per_testcase/2, end_per_testcase/2,
-         t/0, t/1
+	 socket_failure/1
+
          ]).
+
 
 %%----------------------------------------------------------------------
 %% Internal exports
@@ -69,59 +73,131 @@
 
 
 %%======================================================================
-%% External functions
+%% Common Test interface functions
 %%======================================================================
-%%----------------------------------------------------------------------
-%% Function: t/0
-%% Description: Run all test cases
-%%----------------------------------------------------------------------
-t() -> megaco_test_lib:t(?MODULE).
 
-
-%%----------------------------------------------------------------------
-%% Function: t/1
-%% Description: Run the specified test cases 
-%%----------------------------------------------------------------------
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-    
-
-%%======================================================================
-%% Test server callbacks
-%%======================================================================
-%%----------------------------------------------------------------------
-%% Function: init_per_testcase/2
-%% Description: 
-%%----------------------------------------------------------------------
-init_per_testcase(Case, Config) ->
-    megaco_test_lib:init_per_testcase(Case, Config).
-
-
-%%----------------------------------------------------------------------
-%% Function: end_per_testcase/2
-%% Description: 
-%%----------------------------------------------------------------------
-end_per_testcase(Case, Config) ->
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%======================================================================
-%% Test case definitions
-%%======================================================================
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, start}, {group, sending}, {group, errors}].
+    [
+     {group, start},
+     {group, sending},
+     {group, error}
+    ].
 
 groups() -> 
-    [{start, [],
-      [start_normal, start_invalid_opt, start_and_stop]},
-     {sending, [], [sendreceive, block_unblock]},
-     {errors, [], [socket_failure]}].
+    [
+     {start,   [], start_cases()},
+     {sending, [], sending_cases()},
+     {error,   [], error_cases()}
+    ].
+
+start_cases() ->
+    [
+     start_normal,
+     start_invalid_opt,
+     start_and_stop
+    ].
+
+sending_cases() ->
+    [
+     sendreceive,
+     block_unblock
+    ].
+
+error_cases() ->
+    [
+     socket_failure
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(Case, Config) ->
+
+    p("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+    
+    megaco_test_global_sys_monitor:reset_events(),
+
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
+    megaco_test_lib:end_per_testcase(Case, Config).
+
+
 
 
 %% =================================================
@@ -1213,9 +1289,9 @@ p(S, F, A) when is_list(S) ->
 	      "~n   " ++ F ++ "~n", 
 	      [?FTS(), self(), S | A]);
 p(_S, F, A) ->
-    io:format("*** [~s] ~p ~s *** "
+    io:format("*** [~s] ~p *** "
 	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self(), "undefined" | A]).
+	      [?FTS(), self() | A]).
 
 
 ms() ->

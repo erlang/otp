@@ -627,12 +627,12 @@ pl: make
             $(MAYBE_ESTOP)
 
 udp: make
-	$(MERL) $(ARGS) -sname megaco_pl $(ERL_PATH) \
-            -s megaco_test_lib t megaco_udp_test \
+	$(MERL) $(ARGS) -sname megaco_udp $(ERL_PATH) \
+            -s megaco_test_lib t megaco_udp_SUITE \
             $(MAYBE_ESTOP)
 
 tcp: make
-	$(MERL) $(ARGS) -sname megaco_pl $(ERL_PATH) \
+	$(MERL) $(ARGS) -sname megaco_tcp $(ERL_PATH) \
             -s megaco_test_lib t megaco_tcp_test \
             $(MAYBE_ESTOP)
 

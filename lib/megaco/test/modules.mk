@@ -56,7 +56,6 @@ TEST_UTIL_MODULES = \
 	megaco_tcp_test \
 	megaco_timer_test \
 	megaco_trans_test \
-	megaco_udp_test \
 	megaco_test_global_sys_monitor \
 	megaco_test_sys_monitor \
 	megaco_test_generator_lib \
@@ -78,7 +77,8 @@ SUITE_MODULES = \
 	megaco_SUITE \
 	megaco_app_SUITE \
 	megaco_config_SUITE \
-	megaco_flex_SUITE
+	megaco_flex_SUITE \
+	megaco_udp_SUITE
 
 MODULES = \
 	$(TEST_UTIL_MODULES) \

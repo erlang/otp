@@ -66,7 +66,6 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 
 all() -> 
     [
-     {group, udp},
      {group, tcp}, 
      {group, examples}, 
      {group, digit_map},
@@ -85,13 +84,11 @@ all() ->
     ].
 
 groups() -> 
-    [{tickets,        [], [{group, mess}, {group, codec}]},
-     {call_flow,      [], [{megaco_call_flow_test,      all}]},
-     {digit_map,      [], [{megaco_digit_map_test,      all}]},
-     {mess,           [], [{megaco_mess_test,           all}]},
-     {udp,            [], [{megaco_udp_test,            all}]},
+    [
      {tcp,            [], [{megaco_tcp_test,            all}]},
      {examples,       [], [{megaco_examples_test,       all}]},
+     {digit_map,      [], [{megaco_digit_map_test,      all}]},
+     {mess,           [], [{megaco_mess_test,           all}]},
      {measure,        [], [{megaco_measure_test,        all}]},
      {binary_term_id, [], [{megaco_binary_term_id_test, all}]},
      {codec,          [], [{megaco_codec_test,          all}]},
@@ -102,7 +99,11 @@ groups() ->
      {load,           [], [{megaco_load_test,           all}]},
      {pending_limit,  [], [{megaco_pending_limit_test,  all}]},
      {segmented,      [], [{megaco_segment_test,        all}]},
-     {timer,          [], [{megaco_timer_test,          all}]}].
+     {timer,          [], [{megaco_timer_test,          all}]},
+     %% These are not run in the normal testing 
+     {call_flow,      [], [{megaco_call_flow_test,      all}]},
+     {tickets,        [], [{group, mess}, {group, codec}]}
+    ].
 
 init_per_suite(Config) ->
     io:format("~w:init_per_suite -> entry with"
