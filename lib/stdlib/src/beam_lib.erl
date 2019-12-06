@@ -19,6 +19,7 @@
 %%
 -module(beam_lib).
 -behaviour(gen_server).
+-compile({nowarn_deprecated_function,{crypto,block_decrypt,4}}).
 
 %% Avoid warning for local function error/1 clashing with autoimported BIF.
 -compile({no_auto_import,[error/1]}).
