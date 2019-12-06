@@ -36,10 +36,15 @@
 %% Local exports
 -export([erlang_trace/3,get_info/0,deliver_and_flush/1]).
 
+%% Logger OLP exports
+-export([init/1,handle_info/2,handle_load/2,terminate/2,notify/2,flush/1]).
+
 %% Debug exports
 -export([wrap_presort/2, wrap_sort/2, wrap_postsort/1, wrap_sortfix/2,
 	 match_front/2, match_rear/2,
 	 match_0_9/1]).
+
+-include_lib("kernel/include/logger.hrl").
 
 
 %%% Shell callable utility
@@ -651,7 +656,7 @@ start(TracerFun) ->
     S = self(),
     case whereis(dbg) of
 	undefined ->
-	    Dbg = spawn(fun() -> init(S) end),
+	    Dbg = spawn(fun() -> init_tracer(S) end),
 	    receive {Dbg,started} -> ok end,
 	    case TracerFun of
 		no_tracer ->
@@ -663,7 +668,7 @@ start(TracerFun) ->
 	    req({tracer,TracerFun})
     end.
 
-init(Parent) ->
+init_tracer(Parent) ->
     process_flag(trap_exit, true),
     register(dbg, self()),
     Parent ! {self(),started},
@@ -728,7 +733,7 @@ loop({C,T}=SurviveLinks, Table) ->
 				  rpc:call(Node,?MODULE,deliver_and_flush,[Port])
 			  end,
 			  get()),
-	    exit(done);
+	    exit(shutdown);
 	{From, {link_to, Pid}} -> 	    
 	    case (catch link(Pid)) of
 		{'EXIT', Reason} ->
@@ -814,85 +819,96 @@ reply(Pid, Reply) ->
 %%% A process-based tracer.
 
 start_tracer_process(Handler, HandlerData) ->
-    spawn_opt(fun() -> tracer_init(Handler, HandlerData) end,
-	      [link,{priority,max}]).
-    
+    start_tracer_process(Handler, HandlerData, #{}).
+start_tracer_process(Handler, HandlerData, OLPOpts) ->
 
-tracer_init(Handler, HandlerData) ->
+    Parent = self(),
+
+    %% The default options have been chosen to make sure that
+    %% in normal usage we do not drop any messages, but when
+    %% we get extreme usage we do not kill the node.
+    %%
+    %% Keep in mind that for tracing we cannot enter sync nor drop mode
+    %% One idea is that for sync mode we could implement the old dbg
+    %% strategy of suspending processes that cause too much load...
+    DefaultOpts = #{ sync_mode_qlen => 2000,
+                     drop_mode_qlen => 2000,
+                     flush_qlen     => 2000,
+                     overload_kill_qlen => 5000,
+                     overload_kill_mem_size => 100 * 1024 * 1024,
+                     overload_kill_enable => true,
+                     burst_limit_enable => false},
+
+    {ok,_,_} = OLP = logger_olp:start(?MODULE,{Handler,HandlerData},
+                                      maps:merge(OLPOpts, DefaultOpts),
+                                      [link, {priority,max}]),
+
+    %% This is a small monitor process that makes sure that the
+    %% traces dies when the parent process exits.
+    spawn_link(fun() ->
+                       Tracer = logger_olp:get_pid(OLP),
+                       process_flag(trap_exit, true),
+                       link(Tracer),
+                       receive
+                           {'EXIT',Parent,_} ->
+                               %% Small timeout to make sure that the
+                               %% tracer can exit nicely if it wants to
+                               timer:sleep(1000),
+                               exit(Tracer,kill);
+                           {'EXIT',Tracer,_} ->
+                               ok
+                       end
+               end),
+
+    logger_olp:get_pid(OLP).
+
+init(State) ->
     process_flag(trap_exit, true),
-    tracer_loop(Handler, HandlerData).
+    {ok, State}.
 
-tracer_loop(Handler, Hdata) ->
-    {State, Suspended, Traces} =  recv_all_traces(),
-    NewHdata = handle_traces(Suspended, Traces, Handler, Hdata),
-    case State of
-	done ->
-	    exit(normal);
-	loop ->
-	    tracer_loop(Handler, NewHdata)
-    end.
+handle_info(_Event,State) ->
+    {load,State}.
 
-recv_all_traces() ->
-    recv_all_traces([], [], infinity).
+handle_load(Event, {Handler,HandlerData}) ->
+    %% If the handler crashes, we want to get the full stacktrace
+    %% and just crash the olp
+    {Handler, Handler(Event,HandlerData)}.
 
-recv_all_traces(Suspended0, Traces, Timeout) ->
+terminate(overload, _State) ->
+    ?LOG_ERROR("dbg olp terminated because of overload"),
+    ok;
+terminate(Reason, _State) when Reason =:= shutdown; Reason =:= normal ->
+    ok;
+terminate(Reason, _State) ->
+    ?LOG_ERROR("dbg olp terminate(~p)",[Reason]),
+    ok.
+
+notify(idle, State) ->
+    State;
+notify({mode_change,_From,drop},State) ->
+    ?LOG_ERROR("dbg is overloaded, dropping events"),
+    State;
+notify({flushed,N},State) ->
+    ?LOG_ERROR("dbg is overloaded, flushed ~p events",[N]),
+    State;
+notify(What, State) ->
+    ?LOG_ERROR("dbg olp notify(~p)",[What]),
+    State.
+
+flush(N) ->
+    flush(0,N).
+flush(Limit,Limit) ->
+    Limit;
+flush(N,Limit) ->
     receive
-	Trace when is_tuple(Trace), element(1, Trace) == trace ->
-	    Suspended = suspend(Trace, Suspended0),
-	    recv_all_traces(Suspended, [Trace|Traces], 0);
-	Trace when is_tuple(Trace), element(1, Trace) == trace_ts ->
-	    Suspended = suspend(Trace, Suspended0),
-	    recv_all_traces(Suspended, [Trace|Traces], 0);
-	Trace when is_tuple(Trace), element(1, Trace) == seq_trace ->
-	    Suspended = suspend(Trace, Suspended0),
-	    recv_all_traces(Suspended, [Trace|Traces], 0);
-	Trace when is_tuple(Trace), element(1, Trace) == drop ->
-	    Suspended = suspend(Trace, Suspended0),
-	    recv_all_traces(Suspended, [Trace|Traces], 0);
-	{'EXIT', _Pid, _Reason} ->
-	    {done, Suspended0, Traces};
-	Other ->
-	    %%% Is this really a good idea?
-            Modifier = modifier(user),
-	    io:format(user,"** tracer received garbage: ~"++Modifier++"p~n",
-                      [Other]),
-	    recv_all_traces(Suspended0, Traces, Timeout)
-    after Timeout ->
-	    {loop, Suspended0, Traces}
+        Msg when element(1,Msg) == trace;
+                 element(1,Msg) == trace_ts;
+                 element(1,Msg) == seq_trace;
+                 element(1,Msg) == drop ->
+            flush(N+1,Limit)
+    after 0 ->
+            N
     end.
-
-handle_traces(Suspended, Traces, Handler, Hdata) ->
-    case catch invoke_handler(Traces, Handler, Hdata) of
-	{'EXIT',Reason} -> 
-	    resume(Suspended),
-	    exit({trace_handler_crashed,Reason});
-	NewHdata ->
-	    resume(Suspended),
-	    NewHdata
-    end.
-
-invoke_handler([Tr|Traces], Handler, Hdata0) ->
-    Hdata = invoke_handler(Traces, Handler, Hdata0),
-    Handler(Tr, Hdata);
-invoke_handler([], _Handler, Hdata) ->
-    Hdata.
-
-suspend({trace,From,call,_Func}, Suspended) when node(From) == node() ->
-    case (catch erlang:suspend_process(From, [unless_suspending,
-					      asynchronous])) of
-	true ->
-	    [From | Suspended];
-	_ ->
-	    Suspended
-    end;
-suspend(_Other, Suspended) -> Suspended.
-
-resume([Pid|Pids]) when node(Pid) == node() ->
-    (catch erlang:resume_process(Pid)),
-    resume(Pids);
-resume([]) -> ok.
-
-
 
 %%% Utilities.
 

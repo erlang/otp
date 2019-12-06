@@ -839,7 +839,7 @@ tracer_exit_on_stop(_) ->
     {ok, _} = dbg:p(new, [call]),
     {ok, _} = dbg:tp(?MODULE, dummy, []),
     ?MODULE:dummy(),
-    receive {'DOWN', MRef, _, _, normal} -> ok end,
+    receive {'DOWN', MRef, _, _, _} -> ok end,
     [{trace,_,call,{?MODULE, dummy,[]}},
      {trace,_,call,{?MODULE, dummy,[]}}] = flush(),
     ok.
@@ -1036,7 +1036,7 @@ start() ->
     dbg:tracer(process, {fun myhandler/2, self()}).
 
 stop() ->
-    dbg:stop().
+    dbg:stop_clear().
 
 
 
