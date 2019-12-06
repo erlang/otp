@@ -517,9 +517,8 @@ check_load(State = #{id:=_Name, mode_ref := ModeRef, mode := Mode,
                      sync_mode_qlen := SyncModeQLen,
                      drop_mode_qlen := DropModeQLen,
                      flush_qlen := FlushQLen}) ->
-    {_,Mem} = process_info(self(), memory),
+    [{_,Mem},{_,QLen}] = process_info(self(), [memory,message_queue_len]),
     ?observe(_Name,{max_mem,Mem}),
-    {_,QLen} = process_info(self(), message_queue_len),
     ?observe(_Name,{max_qlen,QLen}),
     %% When the handler process gets scheduled in, it's impossible
     %% to predict the QLen. We could jump "up" arbitrarily from say
