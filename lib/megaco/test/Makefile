@@ -208,9 +208,6 @@ help:
 	@echo "    codec"
 	@echo "      Run the $(APPLICATION) codec sub-test-suite(s). "
 	@echo ""
-	@echo "    dm"
-	@echo "      Run the $(APPLICATION) digit-map sub-test-suite. "
-	@echo ""
 	@echo "    tid"
 	@echo "      Run the $(APPLICATION) binary term-id sub-test-suite. "
 	@echo ""
@@ -527,11 +524,6 @@ timeb3: make
 
 
 ##########################
-
-dm: make
-	$(MERL) $(ARGS) -sname megaco_dm $(ERL_PATH) \
-            -s megaco_test_lib t megaco_digit_map_test \
-            $(ESTOP)
 
 tid: make
 	$(MERL) $(ARGS) -sname megaco_tid $(ERL_PATH) \

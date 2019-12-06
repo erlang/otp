@@ -66,7 +66,6 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 
 all() -> 
     [
-     {group, digit_map},
      {group, mess}, 
      {group, measure},
      {group, binary_term_id}, 
@@ -83,7 +82,6 @@ all() ->
 
 groups() -> 
     [
-     {digit_map,      [], [{megaco_digit_map_test,      all}]},
      {mess,           [], [{megaco_mess_test,           all}]},
      {measure,        [], [{megaco_measure_test,        all}]},
      {binary_term_id, [], [{megaco_binary_term_id_test, all}]},
