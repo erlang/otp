@@ -219,8 +219,8 @@ help:
 	@echo "      Run the $(APPLICATION) codec sub-test-suite(s). "
 	@echo ""
 	@echo "    flex"
-	@echo "      Run the $(APPLICATION) flex-scanner sub-test-suite. "
-	@echo "      This sub-test-suite does not test the function of the scanner itself"
+	@echo "      Run the $(APPLICATION) flex-scanner suite. "
+	@echo "      This suite does not test the function of the scanner itself"
 	@echo "      (that is done by the codec sub-test-suite(s)), instead, this"
 	@echo "      sub-test-suite tests the *handling* of the flex-scanner linked-in driver."
 	@echo ""
@@ -572,7 +572,7 @@ timeb3: make
 
 flex: make
 	$(MERL) $(ARGS) -sname megaco_flex $(ERL_PATH) \
-            -s megaco_test_lib t megaco_flex_test \
+            -s megaco_test_lib t megaco_flex_SUITE \
             $(ESTOP)
 
 dm: make

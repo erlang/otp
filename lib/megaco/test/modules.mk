@@ -42,7 +42,6 @@ TEST_UTIL_MODULES = \
 	megaco_codec_mini_test \
 	megaco_digit_map_test \
 	megaco_examples_test \
-	megaco_flex_test \
 	megaco_load_test \
 	megaco_mess_test \
 	megaco_mess_user_test \
@@ -78,7 +77,8 @@ TEST_UTIL_MODULES = \
 SUITE_MODULES = \
 	megaco_SUITE \
 	megaco_app_SUITE \
-	megaco_config_SUITE
+	megaco_config_SUITE \
+	megaco_flex_SUITE
 
 MODULES = \
 	$(TEST_UTIL_MODULES) \

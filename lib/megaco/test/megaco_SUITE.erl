@@ -66,7 +66,6 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 
 all() -> 
     [
-     {group, flex}, 
      {group, udp},
      {group, tcp}, 
      {group, examples}, 
@@ -103,8 +102,7 @@ groups() ->
      {load,           [], [{megaco_load_test,           all}]},
      {pending_limit,  [], [{megaco_pending_limit_test,  all}]},
      {segmented,      [], [{megaco_segment_test,        all}]},
-     {timer,          [], [{megaco_timer_test,          all}]},
-     {flex,           [], [{megaco_flex_test,           all}]}].
+     {timer,          [], [{megaco_timer_test,          all}]}].
 
 init_per_suite(Config) ->
     io:format("~w:init_per_suite -> entry with"

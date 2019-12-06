@@ -22,21 +22,19 @@
 %%----------------------------------------------------------------------
 %% Purpose: Test various aspects of the flex scanner handling
 %%
-%% Test:    ts:run(megaco, megaco_flex_test, [batch]).
+%% Test:    ts:run(megaco, megaco_flex_SUITE, [batch]).
 %%
 %%----------------------------------------------------------------------
 
--module(megaco_flex_test).
+-module(megaco_flex_SUITE).
 
 -include("megaco_test_lib.hrl").
 
 -export([
-	 t/0, t/1, 
-
+         suite/0, all/0, groups/0,
+	 init_per_suite/1,    end_per_suite/1, 
+         init_per_group/2,    end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
-
-	all/0,groups/0,init_per_group/2,end_per_group/2,
-	 init_per_suite/1, end_per_suite/1, 
 
 	 plain/1,
 	 port_exit/1,
@@ -45,29 +43,82 @@
 	]).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
 
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-init_per_testcase(Case, Config) ->
-    megaco_test_lib:init_per_testcase(Case, Config).
-
-end_per_testcase(Case, Config) ->
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [plain, port_exit, garbage_in].
+    [
+     plain,
+     port_exit,
+     garbage_in
+    ].
 
 
 groups() -> 
     [].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            case megaco_flex_scanner:is_enabled() of
+                true ->
+
+                    %% We need a (local) monitor on this node also
+                    megaco_test_sys_monitor:start(),
+
+                    p("init_per_suite -> end when"
+                      "~n      Config: ~p"
+                      "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+                    
+                    Config1;
+                false ->
+                    ?SKIP(flex_scanner_not_enabled)
+            end
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -76,22 +127,31 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_suite(suite) ->
-    [];
-init_per_suite(doc) ->
-    [];
-init_per_suite(Config) when is_list(Config) ->
-    case megaco_flex_scanner:is_enabled() of
-	true ->
-	    Config;
-	false ->
-	    ?SKIP(flex_scanner_not_enabled)
-    end.
+%%
+%% -----
+%%
 
-end_per_suite(suite) -> [];
-end_per_suite(doc) -> [];
-end_per_suite(Config) when is_list(Config) ->
-    Config.
+init_per_testcase(Case, Config) ->
+
+    p("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+    
+    megaco_test_global_sys_monitor:reset_events(),
+
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
+    megaco_test_lib:end_per_testcase(Case, Config).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -216,8 +276,13 @@ p(F) ->
     p(F, []).
 
 p(F, A) ->
-    TC = get(tc),
-    io:format("*** [~s] ~p ~w ***"
-              "~n   " ++ F ++ "~n",
-              [?FTS(), self(), TC | A]).
+    case get(tc) of
+        undefined ->
+            io:format("*** [~s] ~p ***"
+                      "~n" ++ F ++ "~n", [?FTS(), self() | A]);
+        TC ->
+            io:format("*** [~s] ~p ~w ***"
+                      "~n   " ++ F ++ "~n",
+                      [?FTS(), self(), TC | A])
+    end.
 
