@@ -22,23 +22,14 @@
 %%----------------------------------------------------------------------
 %% Purpose: Verify the implementation of the ITU-T protocol H.248
 %%----------------------------------------------------------------------
-%% Run the entire test suite with:
-%% 
-%%    megaco_test_lib:t(megaco_test).
-%%    megaco_test_lib:t({megaco_test, all}).
-%%    
-%% Or parts of it:
-%% 
-%%    megaco_test_lib:t({megaco_test, accept}).
-%%----------------------------------------------------------------------
--module(megaco_mess_test).
 
-%% -compile(export_all).
+-module(megaco_mess_SUITE).
+
 -export([
-	 all/0, groups/0, 
+         suite/0, all/0, groups/0,
 	 init_per_suite/1,    end_per_suite/1, 
-	 init_per_group/2,    end_per_group/2, 
-	 init_per_testcase/2, end_per_testcase/2,
+         init_per_group/2,    end_per_group/2,
+	 init_per_testcase/2, end_per_testcase/2, 
 
 	 connect/1,
 	
@@ -346,24 +337,13 @@
 -define(GERCV(T, VF, TO),        {expect_receive, T, {VF, TO}}).
 
 
-min(M) -> ?MINS(M).
 
-%% Test server callbacks
-init_per_testcase(otp_7189 = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    megaco_test_lib:init_per_testcase(Case, [{tc_timeout, min(2)} |C]);
-init_per_testcase(request_and_no_reply = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    megaco_test_lib:init_per_testcase(Case, [{tc_timeout, min(2)} |C]);
-init_per_testcase(Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    megaco_test_lib:init_per_testcase(Case, [{tc_timeout, min(1)} |C]).
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
 
-end_per_testcase(Case, Config) ->
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
     [
@@ -376,85 +356,181 @@ all() ->
 
 groups() -> 
     [
-     {request_and_reply, [],
-      [request_and_reply_plain, 
-       request_and_no_reply,
-       request_and_reply_pending_ack_no_pending,
-       request_and_reply_pending_ack_one_pending,
-       single_trans_req_and_reply,
-       single_trans_req_and_reply_sendopts,
-       request_and_reply_and_ack, 
-       request_and_reply_and_no_ack,
-       request_and_reply_and_late_ack,
-       trans_req_and_reply_and_req]},
-     {pending_ack, [],
-      [pending_ack_plain,
-       request_and_pending_and_late_reply]},
-     {tickets, [],
-      [otp_4359, 
-       otp_4836, 
-       otp_5805, 
-       otp_5881, 
-       otp_5887,
-       otp_6253, 
-       otp_6275, 
-       otp_6276, 
-       {group, otp_6442},
-       {group, otp_6865}, 
-       otp_7189, 
-       otp_7259, 
-       otp_7713,
-       {group, otp_8183}, 
-       otp_8212]},
-     {otp_6442, [],
-      [otp_6442_resend_request1, 
-       otp_6442_resend_request2,
-       otp_6442_resend_reply1, 
-       otp_6442_resend_reply2]},
-     {otp_6865, [],
-      [otp_6865_request_and_reply_plain_extra1,
-       otp_6865_request_and_reply_plain_extra2]},
-     {otp_8183, [], [otp_8183_request1]}
+     {request_and_reply, [], request_and_reply_cases()},
+     {pending_ack,       [], pending_ack_cases()},
+     {tickets,           [], tickets_cases()},
+     {otp6442,           [], otp6442_cases()},
+     {otp6865,           [], otp6865_cases()},
+     {otp8183,           [], otp8183_cases()}
+    ].
+
+request_and_reply_cases() ->
+    [
+     request_and_reply_plain, 
+     request_and_no_reply,
+     request_and_reply_pending_ack_no_pending,
+     request_and_reply_pending_ack_one_pending,
+     single_trans_req_and_reply,
+     single_trans_req_and_reply_sendopts,
+     request_and_reply_and_ack, 
+     request_and_reply_and_no_ack,
+     request_and_reply_and_late_ack,
+     trans_req_and_reply_and_req
+    ].
+
+pending_ack_cases() ->
+    [
+     pending_ack_plain,
+     request_and_pending_and_late_reply
+    ].
+
+tickets_cases() ->
+    [
+     otp_4359, 
+     otp_4836, 
+     otp_5805, 
+     otp_5881, 
+     otp_5887,
+     otp_6253, 
+     otp_6275, 
+     otp_6276, 
+     {group, otp6442},
+     {group, otp6865}, 
+     otp_7189, 
+     otp_7259, 
+     otp_7713,
+     {group, otp8183}, 
+     otp_8212
+    ].
+
+otp6442_cases() ->
+    [
+     otp_6442_resend_request1, 
+     otp_6442_resend_request2,
+     otp_6442_resend_reply1, 
+     otp_6442_resend_reply2
+    ].
+
+otp6865_cases() ->
+    [
+     otp_6865_request_and_reply_plain_extra1,
+     otp_6865_request_and_reply_plain_extra2
+    ].
+
+otp8183_cases() ->
+    [
+     otp_8183_request1
     ].
 
 
-init_per_suite(Config) ->
-    io:format("~w:init_per_suite -> entry with"
-	      "~n   Config:     ~p"
-              "~n   OS Type:    ~p"
-              "~n   OS Version: ~s"
-	      "~n", 
-              [?MODULE, 
-               Config, 
-               os:type(), 
-               case os:version() of
-                   {Major, Minor, Release} ->
-                       ?F("~w.~w.~w", [Major, Minor, Release]);
-                   Str when is_list(Str) ->
-                       Str
-               end]),
-    Config.
 
-end_per_suite(_Config) ->
-    io:format("~w:end_per_suite -> entry with"
-	      "~n   _Config: ~p"
-	      "~n", [?MODULE, _Config]),
-    ok.
+%%
+%% -----
+%%
 
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
-    io:format("~w:init_per_group -> entry with"
-	      "~n   _GroupName: ~p"
-	      "~n   Config: ~p"
-	      "~n", [?MODULE, _GroupName, Config]),
+    p("init_per_group -> entry with"
+      "~n   Config: ~p"
+      "~n", [Config]),
     Config.
 
 end_per_group(_GroupName, Config) ->
-    io:format("~w:end_per_group -> entry with"
-	      "~n   _GroupName: ~p"
-	      "~n   Config: ~p"
-	      "~n", [?MODULE, _GroupName, Config]),
+    p("end_per_group -> entry with"
+      "~n   Config: ~p"
+      "~n", [Config]),
     Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(Case, Config) ->
+
+    p("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    init_per_testcase2(Case, Config).
+
+init_per_testcase2(otp_7189 = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    init_per_testcase3(Case, [{tc_timeout, min(2)} |C]);
+init_per_testcase2(request_and_no_reply = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    init_per_testcase3(Case, [{tc_timeout, min(2)} |C]);
+init_per_testcase2(Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    init_per_testcase3(Case, [{tc_timeout, min(1)} |C]).
+
+init_per_testcase3(Case, Config) ->
+    megaco_test_global_sys_monitor:reset_events(),
+    megaco_test_lib:init_per_testcase(Case, Config).
+    
+
+end_per_testcase(Case, Config) ->
+
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
+    megaco_test_lib:end_per_testcase(Case, Config).
+
+
+
+min(M) -> ?MINS(M).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -13936,4 +14012,24 @@ to(To, Start) ->
 mtime() ->
     {A,B,C} = erlang:timestamp(),
     A*1000000000+B*1000+(C div 1000).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% p(F) ->
+%%     p(F, []).
+
+p(F, A) ->
+    p(get(sname), F, A).
+
+p(S, F, A) when is_list(S) ->
+    io:format("*** [~s] ~p ~s ***" 
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self(), S | A]);
+p(_S, F, A) ->
+    io:format("*** [~s] ~p *** "
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
+
 

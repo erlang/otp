@@ -41,7 +41,6 @@ TEST_UTIL_MODULES = \
 	megaco_codec_v3_test \
 	megaco_codec_mini_test \
 	megaco_load_test \
-	megaco_mess_test \
 	megaco_mess_user_test \
 	megaco_mess_otp8212_test \
 	megaco_mib_test \
@@ -77,6 +76,7 @@ SUITE_MODULES = \
 	megaco_digit_map_SUITE \
 	megaco_examples_SUITE \
 	megaco_flex_SUITE \
+	megaco_mess_SUITE \
 	megaco_tcp_SUITE \
 	megaco_udp_SUITE
 

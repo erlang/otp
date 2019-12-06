@@ -220,10 +220,6 @@ help:
 	@echo "      This sub-test-suite attempts to perform tests related to this, "
 	@echo "      using all the supported codecs. "
 	@echo ""
-	@echo "    mess"
-	@echo "      Run the $(APPLICATION) message sub-test-suite"
-	@echo "      This is basic message processing test-cases"
-	@echo ""
 	@echo "    trans"
 	@echo "      Run the $(APPLICATION) transaction sender sub-test-suite"
 	@echo "      This is basic message processing for a megaco application "
@@ -539,12 +535,6 @@ actions: make
 	$(MERL) $(ARGS) -sname megaco_actions $(ERL_PATH) \
             -s megaco_test_lib t megaco_actions_test \
             $(MAYBE_ESTOP)
-
-mess: make
-	$(MERL) $(ARGS) -sname megaco_mess $(ERL_PATH) \
-            $(MAYBE_ETVIEW) \
-            -s megaco_test_lib t megaco_mess_test \
-            $(ESTOP)
 
 trans: make
 	$(MERL) $(ARGS) -sname megaco_trans $(ERL_PATH) \

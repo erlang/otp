@@ -66,7 +66,6 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 
 all() -> 
     [
-     {group, mess}, 
      {group, measure},
      {group, binary_term_id}, 
      {group, codec}, 
@@ -82,7 +81,6 @@ all() ->
 
 groups() -> 
     [
-     {mess,           [], [{megaco_mess_test,           all}]},
      {measure,        [], [{megaco_measure_test,        all}]},
      {binary_term_id, [], [{megaco_binary_term_id_test, all}]},
      {codec,          [], [{megaco_codec_test,          all}]},
@@ -96,7 +94,7 @@ groups() ->
      {timer,          [], [{megaco_timer_test,          all}]},
      %% These are not run in the normal testing 
      {call_flow,      [], [{megaco_call_flow_test,      all}]},
-     {tickets,        [], [{group, mess}, {group, codec}]}
+     {tickets,        [], [{group, codec}]}
     ].
 
 init_per_suite(Config) ->
