@@ -926,6 +926,13 @@ int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
             msgq = msgq->next;
         }
 
+        if (t_p && scheduler > 0 && copy_sz > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
+            Uint reds = copy_sz / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
+            if (reds > CONTEXT_REDS)
+                reds = CONTEXT_REDS;
+            BUMP_REDS(t_p, (int) reds);
+        }
+
 #ifdef ERTS_ENABLE_LOCK_CHECK
         lc_locks = erts_proc_lc_my_proc_locks(rp);
         rp_locks |= lc_locks;
