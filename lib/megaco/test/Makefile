@@ -260,11 +260,6 @@ help:
 	@echo "      Run the $(APPLICATION) timer sub-test-suite"
 	@echo "      Basic test-suite for the megaco-timers"
 	@echo ""
-	@echo "    ex"
-	@echo "      Run the $(APPLICATION) example sub-test-suite"
-	@echo "      The $(APPLICATION) application contains one example,"
-	@echo "      this is a sub-test-suite based on the code,"
-	@echo ""
 
 
 # ----------------------------------------------------
@@ -587,11 +582,6 @@ pl: make
 load: make
 	$(MERL) $(ARGS) -sname megaco_load $(ERL_PATH) \
             -s megaco_test_lib t megaco_load_test \
-            $(MAYBE_ESTOP)
-
-ex: make
-	$(MERL) $(ARGS) -sname megaco_ex $(ERL_PATH) \
-            -s megaco_test_lib t megaco_examples_test \
             $(MAYBE_ESTOP)
 
 segment: make
