@@ -525,11 +525,6 @@ trans: make
             -s megaco_test_lib t megaco_trans_test \
             $(MAYBE_ESTOP)
 
-mib: make
-	$(MERL) $(ARGS) -sname megaco_mib $(ERL_PATH) \
-            -s megaco_test_lib t megaco_mib_test \
-            $(MAYBE_ESTOP)
-
 mreq: make
 	$(MERL) $(ARGS) -sname megaco_mreq $(ERL_PATH) \
             -s megaco_test_lib t megaco_mreq_test \
