@@ -22,19 +22,21 @@
 %%----------------------------------------------------------------------
 %% Purpose: Verify the application specifics of the Megaco application
 %%----------------------------------------------------------------------
--module(megaco_timer_test).
+-module(megaco_timer_SUITE).
 
 -compile({no_auto_import,[error/1]}).
 
 -export([
-	 t/0, t/1,
-	 init_per_testcase/2, end_per_testcase/2,
-	 all/0,groups/0,init_per_group/2,end_per_group/2,
+ 	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
+
 	 simple_init/1,
 	 simple_usage/1,
 	 integer_timer_start_and_expire/1, 
-	 integer_timer_start_and_stop/1%% ,
-%%	 incr_timer/1
+	 integer_timer_start_and_stop/1
+
 	]).
 
 -export([
@@ -49,51 +51,85 @@
 -define(TEST_VERBOSITY, info). % silence | info | debug
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
 
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-
-%% Test server callbacks
-%% init_per_testcase(multi_user_extreme_load = Case, Config) ->
-%%     C = lists:keydelete(tc_timeout, 1, Config),
-%%     do_init_per_testcase(Case, [{tc_timeout, min(20)}|C]);
-init_per_testcase(Case, Config) ->
-    do_init_per_testcase(Case, Config).
-
-do_init_per_testcase(Case, Config) ->
-    process_flag(trap_exit, true),
-    {ok, _Pid} = megaco_monitor:start_link(),
-    megaco_test_lib:init_per_testcase(Case, [{monitor_running, true}|Config]).
-    
-end_per_testcase(Case, Config) ->
-    io:format("end_per_testcase -> entry with"
-	       "~n   Case:   ~p"
-	       "~n   Config: ~p"
-	       "~n", [Case, Config]),
-    process_flag(trap_exit, false),
-    case lists:keydelete(monitor_running, 1, Config) of
-	Config ->
-	    megaco_test_lib:end_per_testcase(Case, Config);
-	Config2 ->
-	    megaco_monitor:stop(),
-	    megaco_test_lib:end_per_testcase(Case, Config2)
-    end.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
     [{group, simple}, {group, integer_timer}].
 
 groups() -> 
-    [{simple, [],
-      [simple_init, simple_usage]},
-%, incr_timer
-     {integer_timer, [],
-      [integer_timer_start_and_expire,
-       integer_timer_start_and_stop]}].
+    [
+     {simple,        [], simple_cases()},
+     {integer_timer, [], integer_timer_cases()}
+    ].
+
+simple_cases() ->
+    [
+     simple_init,
+     simple_usage
+    ].
+
+integer_timer_cases() ->
+    [
+     integer_timer_start_and_expire,
+     integer_timer_start_and_stop
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite([{sysmon, false} | Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -102,11 +138,42 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-%% incr_timer(suite) ->
-%%     Cases = 
-%% 	[
-%% 	],
-%%     Cases.
+
+%%
+%% -----
+%%
+
+%% init_per_testcase(multi_user_extreme_load = Case, Config) ->
+%%     C = lists:keydelete(tc_timeout, 1, Config),
+%%     do_init_per_testcase(Case, [{tc_timeout, min(20)}|C]);
+init_per_testcase(Case, Config) ->
+    do_init_per_testcase(Case, Config).
+
+do_init_per_testcase(Case, Config) ->
+    process_flag(trap_exit, true),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    {ok, _Pid} = megaco_monitor:start_link(),
+    megaco_test_lib:init_per_testcase(Case, [{monitor_running, true}|Config]).
+
+end_per_testcase(Case, Config) ->
+    process_flag(trap_exit, false),
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    case lists:keydelete(monitor_running, 1, Config) of
+	Config ->
+	    megaco_test_lib:end_per_testcase(Case, Config);
+	Config2 ->
+	    megaco_monitor:stop(),
+	    megaco_test_lib:end_per_testcase(Case, Config2)
+    end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -151,7 +218,7 @@ simple_init(Config) when is_list(Config) ->
 		d("unexpected result: "
 		  "~n   Expected: ~p"
 		  "~n   Actual:   ~p", [A, B]),
-		error({unexpected_result, A, B})
+		unexpected_result(A, B)
 	end,
     VerifyTMR = 
 	fun(false, Tmr) -> 
@@ -243,7 +310,7 @@ simple_usage(Config) when is_list(Config) ->
 	fun(A, A) ->
 		ok;
 	   (A, B) ->
-		error({unexpected_result, A, B})
+		unexpected_result(A, B)
 	end,
 
 
@@ -334,7 +401,7 @@ integer_timer_start_and_expire(Config) when is_list(Config) ->
 	    ok
     after Timeout + 500 ->
 	    tmr_stop(Ref),
-	    error(no_timeout)
+	    no_timeout()
     end,
 
     i("done", []),
@@ -360,7 +427,7 @@ integer_timer_start_and_stop(Config) when is_list(Config) ->
     receive
 	{timeout, Timeout} ->
             i("unexpected premature timer expire"),
-	    error(bad_timeout)
+	    bad_timeout()
     after Timeout - 100 ->
             i("try stop timer"),
 	    case tmr_stop(Ref) of
@@ -377,7 +444,7 @@ integer_timer_start_and_stop(Config) when is_list(Config) ->
     %% Make sure it does not reach us after we attempted to stop it.
     receive
 	{timeout, Timeout} ->
-	    error(unexpected_timeout)
+	    unexpected_timeout()
     after Timeout ->
 	    ok
     end,
@@ -390,7 +457,8 @@ integer_timer_start_and_stop(Config) when is_list(Config) ->
 
 tmr_start(Timeout) ->
     Pid = self(), 
-    megaco_monitor:apply_after(?MODULE, timeout, [Pid, Timeout, get(tc)], Timeout).
+    megaco_monitor:apply_after(?MODULE, timeout, 
+			       [Pid, Timeout, get(tc)], Timeout).
 
 tmr_stop(Ref) ->
     megaco_monitor:cancel_apply_after(Ref).
@@ -407,20 +475,28 @@ timeout(Pid, Timeout, Tc) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% tim() ->
-%%     {A,B,C} = erlang:now(),
-%%     A*1000000000+B*1000+(C div 1000).
+unexpected_result(A, B) ->
+    error({unexpected_result, A, B}).
 
-%% min(M) -> timer:minutes(M).
+no_timeout() ->
+    error(no_timeout).
 
-%% sleep(X) -> receive after X -> ok end.
+bad_timeout() ->
+    error(bad_timeout).
+
+unexpected_timeout() ->
+    error(unexpected_timeout).
+
 
 error(Reason) -> throw({error, Reason}).
 
-%% error_msg(F,A) -> error_logger:error_msg(F ++ "~n",A).
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+p(F, A) ->
+    io:format("*** [~s] ~p ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
 
 i(F) ->
     i(F, []).

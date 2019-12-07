@@ -43,7 +43,6 @@ TEST_UTIL_MODULES = \
 	megaco_mreq_test \
 	megaco_profile \
 	megaco_tc_controller \
-	megaco_timer_test \
 	megaco_test_global_sys_monitor \
 	megaco_test_sys_monitor \
 	megaco_test_generator_lib \
@@ -77,6 +76,7 @@ SUITE_MODULES = \
 	megaco_sdp_SUITE \
 	megaco_segment_SUITE \
 	megaco_tcp_SUITE \
+	megaco_timer_SUITE \
 	megaco_trans_SUITE \
 	megaco_udp_SUITE
 

@@ -67,11 +67,9 @@ APP_CASES   = app
 
 CODEC_CASES = codec1 codec2 codec3a codec3b codec3c
 
-MISC_CASES  = timer
-
 OP_CASES    = mreq
 
-ALL_CASES   = $(APP_CASES) $(CODEC_CASES) $(MISC_CASES) $(OP_CASES)
+ALL_CASES   = $(CODEC_CASES)
 
 
 EMAKEFILE  = Emakefile
@@ -213,10 +211,6 @@ help:
 	@echo "      This is yet another sub-test-suite with message processing "
 	@echo "      test-cases. "
 	@echo ""
-	@echo "    timer"
-	@echo "      Run the $(APPLICATION) timer sub-test-suite"
-	@echo "      Basic test-suite for the megaco-timers"
-	@echo ""
 
 
 # ----------------------------------------------------
@@ -238,33 +232,6 @@ call: make
 	@epmd -kill > /dev/null
 	@echo "Running all codec sub-suites separatelly"
 	@for i in $(CODEC_CASES); do \
-            echo "SUITE: $$i"; \
-            clearmake -V $$i > $$i.log; \
-        done
-
-mall: make
-	@echo "make sure epmd is new"
-	@epmd -kill > /dev/null
-	@echo "Running all misc sub-suites separatelly"
-	@for i in $(MISC_CASES); do \
-            echo "SUITE: $$i"; \
-            clearmake -V $$i > $$i.log; \
-        done
-
-oall: make
-	@echo "make sure epmd is new"
-	@epmd -kill > /dev/null
-	@echo "Running all operation sub-suites separatelly"
-	@for i in $(OP_CASES); do \
-            echo "SUITE: $$i"; \
-            clearmake -V $$i > $$i.log; \
-        done
-
-all: make
-	@echo "make sure epmd is new"
-	@epmd -kill > /dev/null
-	@echo "Running all sub-suites separatelly"
-	@for i in $(ALL_CASES); do \
             echo "SUITE: $$i"; \
             clearmake -V $$i > $$i.log; \
         done
@@ -489,11 +456,6 @@ mreq: make
 	$(MERL) $(ARGS) -sname megaco_mreq $(ERL_PATH) \
             -s megaco_test_lib t megaco_mreq_test \
             $(MAYBE_ESTOP)
-
-timer: make
-	$(MERL) $(ARGS) -sname megaco_timer $(ERL_PATH) \
-            -s megaco_test_lib t megaco_timer_test \
-            $(ESTOP)
 
 
 ###################
