@@ -69,7 +69,7 @@ CODEC_CASES = codec1 codec2 codec3a codec3b codec3c
 
 MISC_CASES  = timer
 
-OP_CASES    = mess mib mreq pending trans actions load
+OP_CASES    = mreq pending actions load
 
 ALL_CASES   = $(APP_CASES) $(CODEC_CASES) $(MISC_CASES) $(OP_CASES)
 
@@ -213,16 +213,6 @@ help:
 	@echo "      Actions are building blocks of a $(APPLICATION) message. "
 	@echo "      This sub-test-suite attempts to perform tests related to this, "
 	@echo "      using all the supported codecs. "
-	@echo ""
-	@echo "    trans"
-	@echo "      Run the $(APPLICATION) transaction sender sub-test-suite"
-	@echo "      This is basic message processing for a megaco application "
-	@echo "      configured to be using the transaction sender. "
-	@echo ""
-	@echo "    mib"
-	@echo "      Run the $(APPLICATION) $(APPLICATION)-mib sub-test-suite"
-	@echo "      Tests related to the basic support for the $(APPLICATION) mib"
-	@echo "      primarily counters"
 	@echo ""
 	@echo "    mreq"
 	@echo "      Run the $(APPLICATION) mreq sub-test-suite"
@@ -518,11 +508,6 @@ timeb3: make
 actions: make
 	$(MERL) $(ARGS) -sname megaco_actions $(ERL_PATH) \
             -s megaco_test_lib t megaco_actions_test \
-            $(MAYBE_ESTOP)
-
-trans: make
-	$(MERL) $(ARGS) -sname megaco_trans $(ERL_PATH) \
-            -s megaco_test_lib t megaco_trans_test \
             $(MAYBE_ESTOP)
 
 mreq: make

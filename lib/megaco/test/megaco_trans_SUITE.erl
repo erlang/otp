@@ -22,15 +22,14 @@
 %%----------------------------------------------------------------------
 %% Purpose: Verify that the transaction sender works with acks.
 %% 
-%% Test:    ts:run(megaco, megaco_trans_test, [batch]).
+%% Test:    ts:run(megaco, megaco_trans_SUITE, [batch]).
 %% 
 %%----------------------------------------------------------------------
--module(megaco_trans_test).
+-module(megaco_trans_SUITE).
 
-%% -compile(export_all).
 -export([
-         all/0,
-         groups/0,
+ 	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2,
 
@@ -63,14 +62,13 @@
 
          otp_7192_1/1,
          otp_7192_2/1,
-         otp_7192_3/1,
-         
-         t/0, t/1
+         otp_7192_3/1
+
         ]).
 
--include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
+-include("megaco_test_lib.hrl").
 
 -define(VERSION, 1).
 -define(TEST_VERBOSITY, debug).
@@ -120,33 +118,23 @@
 -define(MG_ACK_INFO(Pid,To),         ?MG:ack_info(Pid,To)).
 -define(MG_REP_INFO(Pid,To),         ?MG:rep_info(Pid,To)).
 
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
 
-%% Test server callbacks
-init_per_testcase(multi_ack_maxcount = Case, Config) ->
-    process_flag(trap_exit, true),
-    C = lists:keydelete(tc_timeout, 1, Config),
-    megaco_test_lib:init_per_testcase(Case, [{tc_timeout,timer:minutes(10)}|C]);
-init_per_testcase(Case, Config) ->
-    process_flag(trap_exit, true),
-    megaco_test_lib:init_per_testcase(Case, Config).
-
-end_per_testcase(Case, Config) ->
-    process_flag(trap_exit, false),
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, ack},
+    [
+     {group, ack},
      {group, trans_req},
      {group, trans_req_and_ack},
      {group, pending},
      {group, reply},
-     {group, tickets}].
+     {group, tickets}
+    ].
 
 groups() -> 
     [
@@ -213,11 +201,103 @@ otp_7192_cases() ->
      otp_7192_3
     ].
 
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
+
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(multi_ack_maxcount = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    init_per_testcase2(Case, [{tc_timeout,timer:minutes(10)}|C]);
+init_per_testcase(Case, Config) ->
+    process_flag(trap_exit, true),
+    init_per_testcase2(Case, Config).
+
+init_per_testcase2(Case, Config) ->
+    process_flag(trap_exit, true),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    megaco_test_global_sys_monitor:reset_events(),
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    process_flag(trap_exit, false),
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
+    megaco_test_lib:end_per_testcase(Case, Config).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -9388,6 +9468,11 @@ sleep(X) -> receive after X -> ok end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+p(F, A) ->
+    io:format("*** [~s] ~p ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
+
 %% e(F) ->
 %%     e(F, []).
 
@@ -9422,32 +9507,12 @@ printable(_,_)          -> false.
 
 
 print2(true, P, F, A) ->
-    TS = erlang:timestamp(),
-    TC = get(tc),
     S  = ?F("*** [~s] ~s ~p ~w ***"
             "~n   " ++ F ++ "~n"
-            "~n", [megaco:format_timestamp(TS), P, self(), TC | A]),
+            "~n", [?FTS(), P, self(), get(tc) | A]),
     io:format("~s", [S]),
     io:format(user, "~s", [S]);
 print2(_, _, _, _) ->
     ok.
 
-
-p(F, A) ->
-    io:format("*** [~s] ***"
-	      "~n   " ++ F ++ "~n", 
-	      [megaco:format_timestamp(erlang:timestamp()) | A]).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% random_init() ->
-%%     {A,B,C} = erlang:timestamp(),
-%%     random:seed(A,B,C).
-
-%% random() ->
-%%     10 * random:uniform(50).
-
-%% apply_load_timer() ->
-%%     erlang:send_after(random(), self(), apply_load_timeout).
 
