@@ -41,7 +41,6 @@ TEST_UTIL_MODULES = \
 	megaco_mess_user_test \
 	megaco_mess_otp8212_test \
 	megaco_mreq_test \
-	megaco_pending_limit_test \
 	megaco_profile \
 	megaco_segment_test \
 	megaco_tc_controller \
@@ -75,6 +74,7 @@ SUITE_MODULES = \
 	megaco_load_SUITE \
 	megaco_mess_SUITE \
 	megaco_mib_SUITE \
+	megaco_pending_limit_SUITE \
 	megaco_sdp_SUITE \
 	megaco_tcp_SUITE \
 	megaco_trans_SUITE \

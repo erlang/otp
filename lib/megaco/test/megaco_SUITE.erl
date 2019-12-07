@@ -67,7 +67,6 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 all() -> 
     [
      {group, codec}, 
-     {group, pending_limit},
      {group, segmented}, 
      {group, timer}
     ].
@@ -75,7 +74,6 @@ all() ->
 groups() -> 
     [
      {codec,          [], [{megaco_codec_test,          all}]},
-     {pending_limit,  [], [{megaco_pending_limit_test,  all}]},
      {segmented,      [], [{megaco_segment_test,        all}]},
      {timer,          [], [{megaco_timer_test,          all}]},
      %% These are not run in the normal testing 

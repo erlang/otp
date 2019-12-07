@@ -69,7 +69,7 @@ CODEC_CASES = codec1 codec2 codec3a codec3b codec3c
 
 MISC_CASES  = timer
 
-OP_CASES    = mreq pending
+OP_CASES    = mreq
 
 ALL_CASES   = $(APP_CASES) $(CODEC_CASES) $(MISC_CASES) $(OP_CASES)
 
@@ -212,9 +212,6 @@ help:
 	@echo "      Run the $(APPLICATION) mreq sub-test-suite"
 	@echo "      This is yet another sub-test-suite with message processing "
 	@echo "      test-cases. "
-	@echo ""
-	@echo "    pending"
-	@echo "      Run the $(APPLICATION) pending-limit sub-test-suite"
 	@echo ""
 	@echo "    segment"
 	@echo "      Run the $(APPLICATION) message segmentation sub-test-suite"
@@ -497,16 +494,6 @@ timeb3: make
 mreq: make
 	$(MERL) $(ARGS) -sname megaco_mreq $(ERL_PATH) \
             -s megaco_test_lib t megaco_mreq_test \
-            $(MAYBE_ESTOP)
-
-pending: make
-	$(MERL) $(ARGS) -sname megaco_pending $(ERL_PATH) \
-            -s megaco_test_lib t megaco_pending_limit_test \
-            $(MAYBE_ESTOP)
-
-pl: make
-	$(MERL) $(ARGS) -sname megaco_pl $(ERL_PATH) \
-            -s megaco_test_lib t megaco_pending_limit_test \
             $(MAYBE_ESTOP)
 
 segment: make
