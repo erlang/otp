@@ -69,7 +69,7 @@ CODEC_CASES = codec1 codec2 codec3a codec3b codec3c
 
 MISC_CASES  = timer
 
-OP_CASES    = mreq pending actions load
+OP_CASES    = mreq pending load
 
 ALL_CASES   = $(APP_CASES) $(CODEC_CASES) $(MISC_CASES) $(OP_CASES)
 
@@ -207,12 +207,6 @@ help:
 	@echo ""
 	@echo "    codec"
 	@echo "      Run the $(APPLICATION) codec sub-test-suite(s). "
-	@echo ""
-	@echo "    action"
-	@echo "      Run the $(APPLICATION) actions sub-test-suite. "
-	@echo "      Actions are building blocks of a $(APPLICATION) message. "
-	@echo "      This sub-test-suite attempts to perform tests related to this, "
-	@echo "      using all the supported codecs. "
 	@echo ""
 	@echo "    mreq"
 	@echo "      Run the $(APPLICATION) mreq sub-test-suite"
@@ -504,11 +498,6 @@ timeb3: make
 
 
 ##########################
-
-actions: make
-	$(MERL) $(ARGS) -sname megaco_actions $(ERL_PATH) \
-            -s megaco_test_lib t megaco_actions_test \
-            $(MAYBE_ESTOP)
 
 mreq: make
 	$(MERL) $(ARGS) -sname megaco_mreq $(ERL_PATH) \

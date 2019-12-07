@@ -67,7 +67,6 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 all() -> 
     [
      {group, codec}, 
-     {group, actions},
      {group, load}, 
      {group, pending_limit},
      {group, segmented}, 
@@ -77,7 +76,6 @@ all() ->
 groups() -> 
     [
      {codec,          [], [{megaco_codec_test,          all}]},
-     {actions,        [], [{megaco_actions_test,        all}]},
      {load,           [], [{megaco_load_test,           all}]},
      {pending_limit,  [], [{megaco_pending_limit_test,  all}]},
      {segmented,      [], [{megaco_segment_test,        all}]},
