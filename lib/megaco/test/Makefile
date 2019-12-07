@@ -213,12 +213,6 @@ help:
 	@echo "      This is yet another sub-test-suite with message processing "
 	@echo "      test-cases. "
 	@echo ""
-	@echo "    segment"
-	@echo "      Run the $(APPLICATION) message segmentation sub-test-suite"
-	@echo "      If using the UDP transport protocol, it is possible to send "
-	@echo "      and receive segmented megaco replies (in version 3 of the protocol) "
-	@echo "      This sub-test-suite tests this feature. "
-	@echo ""
 	@echo "    timer"
 	@echo "      Run the $(APPLICATION) timer sub-test-suite"
 	@echo "      Basic test-suite for the megaco-timers"
@@ -495,11 +489,6 @@ mreq: make
 	$(MERL) $(ARGS) -sname megaco_mreq $(ERL_PATH) \
             -s megaco_test_lib t megaco_mreq_test \
             $(MAYBE_ESTOP)
-
-segment: make
-	$(MERL) $(ARGS) -sname megaco_segment $(ERL_PATH) \
-            -s megaco_test_lib t megaco_segment_test \
-            $(ESTOP)
 
 timer: make
 	$(MERL) $(ARGS) -sname megaco_timer $(ERL_PATH) \

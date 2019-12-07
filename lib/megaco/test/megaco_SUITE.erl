@@ -67,14 +67,12 @@ suite() -> [{ct_hooks, [{ts_install_cth, [{nodenames,1}]}]}].
 all() -> 
     [
      {group, codec}, 
-     {group, segmented}, 
      {group, timer}
     ].
 
 groups() -> 
     [
      {codec,          [], [{megaco_codec_test,          all}]},
-     {segmented,      [], [{megaco_segment_test,        all}]},
      {timer,          [], [{megaco_timer_test,          all}]},
      %% These are not run in the normal testing 
      {call_flow,      [], [{megaco_call_flow_test,      all}]},
