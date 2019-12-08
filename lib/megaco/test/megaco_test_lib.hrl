@@ -99,4 +99,7 @@
 
 -define(ANNOUNCE_SUITE_INIT(),
 	io:format(user, "~n*** ~s *** suite ~w init~n~n", [?FTS(), ?MODULE])).
+-define(ANNOUNCE_GROUP_INIT(GR),
+	io:format(user, "~n*** ~s *** group ~w:~w init~n~n", 
+		  [?FTS(), ?MODULE, GR])).
 

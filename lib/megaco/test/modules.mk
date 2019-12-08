@@ -31,7 +31,6 @@ TEST_UTIL_MODULES = \
 	megaco_codec_test \
 	megaco_codec_test_lib \
 	megaco_codec_flex_lib \
-	megaco_codec_v1_test \
 	megaco_codec_v2_test \
 	megaco_codec_prev3a_test \
 	megaco_codec_prev3b_test \
@@ -64,6 +63,7 @@ SUITE_MODULES = \
 	megaco_app_SUITE \
 	megaco_binary_term_id_SUITE \
 	megaco_codec_mini_SUITE \
+	megaco_codec_v1_SUITE \
 	megaco_config_SUITE \
 	megaco_digit_map_SUITE \
 	megaco_examples_SUITE \
