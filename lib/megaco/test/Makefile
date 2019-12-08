@@ -63,7 +63,7 @@ SOURCE = $(HRL_FILES) $(ERL_FILES)
 
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
-CODEC_CASES = codec3b codec3c
+CODEC_CASES = codec3c
 
 ALL_CASES   = $(CODEC_CASES)
 
@@ -307,16 +307,6 @@ codec: make
             -s megaco_test_lib t megaco_codec_test \
             $(MAYBE_ESTOP)
 
-codec3b: make
-	$(MERL) $(ARGS) -sname megaco_codec3b $(ERL_PATH) \
-            -s megaco_test_lib t megaco_codec_prev3b_test \
-            $(MAYBE_ESTOP)
-
-codec3b_tickets: make
-	$(MERL) $(ARGS) -sname megaco_codec3b_tickets $(ERL_PATH) \
-            -s megaco_codec_prev3b_test tickets \
-            $(ESTOP)
-
 codec3c: make
 	$(MERL) $(ARGS) -sname megaco_codec3c $(ERL_PATH) \
             -s megaco_test_lib t megaco_codec_prev3c_test \
@@ -430,12 +420,12 @@ display_prev3a: make
 
 display_prev3b: make
 	$(MERL) $(ARGS) -sname megaco_display_text_msgs_prev3b $(ERL_PATH) \
-            -s megaco_codec_prev3b_test display_text_messages \
+            -s megaco_codec_prev3b_SUITE display_text_messages \
             $(ESTOP)
 
 generate_prev3b: make
 	$(MERL) $(ARGS) -sname megaco_generate_text_msgs_prev3b $(ERL_PATH) \
-            -s megaco_codec_prev3b_test generate_text_messages \
+            -s megaco_codec_prev3b_SUITE generate_text_messages \
             $(ESTOP)
 
 display_prev3c: make
