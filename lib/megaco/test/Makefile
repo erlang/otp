@@ -63,12 +63,9 @@ SOURCE = $(HRL_FILES) $(ERL_FILES)
 
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
-APP_CASES   = app
-
-CODEC_CASES = codec3a codec3b codec3c
+CODEC_CASES = codec3b codec3c
 
 ALL_CASES   = $(CODEC_CASES)
-
 
 EMAKEFILE  = Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
@@ -211,16 +208,6 @@ help:
 # Special Targets
 # ----------------------------------------------------
 
-aall: make
-	@echo "make sure epmd is new"
-	@epmd -kill > /dev/null
-	@echo "Running all app suites separatelly"
-	@for i in $(APP_CASES); do \
-            echo "SUITE: $$i"; \
-            clearmake -V $$i > $$i.log; \
-        done
-	echo "done"
-
 call: make
 	@echo "make sure epmd is new"
 	@epmd -kill > /dev/null
@@ -319,16 +306,6 @@ codec: make
 	$(MERL) $(ARGS) -sname megaco_codec $(ERL_PATH) \
             -s megaco_test_lib t megaco_codec_test \
             $(MAYBE_ESTOP)
-
-codec3a: make
-	$(MERL) $(ARGS) -sname megaco_codec3a $(ERL_PATH) \
-            -s megaco_test_lib t megaco_codec_prev3a_test \
-            $(MAYBE_ESTOP)
-
-codec3a_tickets: make
-	$(MERL) $(ARGS) -sname megaco_codec3a_tickets $(ERL_PATH) \
-            -s megaco_codec_prev3a_test tickets \
-            $(ESTOP)
 
 codec3b: make
 	$(MERL) $(ARGS) -sname megaco_codec3b $(ERL_PATH) \
@@ -448,7 +425,7 @@ generate_v2: make
 
 display_prev3a: make
 	$(MERL) $(ARGS) -sname megaco_display_text_msgs_prev3a $(ERL_PATH) \
-            -s megaco_codec_prev3a_test display_text_messages \
+            -s megaco_codec_prev3a_SUITE display_text_messages \
             $(ESTOP)
 
 display_prev3b: make
