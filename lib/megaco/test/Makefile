@@ -65,7 +65,7 @@ TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
 APP_CASES   = app
 
-CODEC_CASES = codec2 codec3a codec3b codec3c
+CODEC_CASES = codec3a codec3b codec3c
 
 ALL_CASES   = $(CODEC_CASES)
 
@@ -256,12 +256,12 @@ decode_compact_flex_prof1: make
 
 decode_compact_prof2: make
 	$(MERL) $(ARGS) -sname megaco_profile_decode_compact $(ERL_PATH) \
-            -s megaco_codec_v2_test profile_decode_compact_text_messages \
+            -s megaco_codec_v2_SUITE profile_decode_compact_text_messages \
             $(ESTOP)
 
 decode_compact_flex_prof2: make
 	$(MERL) $(ARGS) -sname megaco_profile_decode_compact_flex $(ERL_PATH) \
-            -s megaco_codec_v2_test profile_decode_compact_flex_text_messages \
+            -s megaco_codec_v2_SUITE profile_decode_compact_flex_text_messages \
             $(ESTOP)
 
 decode_pretty_prof1: make
@@ -276,12 +276,12 @@ decode_pretty_flex_prof1: make
 
 decode_pretty_prof2: make
 	$(MERL) $(ARGS) -sname megaco_profile_decode_pretty $(ERL_PATH) \
-            -s megaco_codec_v2_test profile_decode_pretty_text_messages \
+            -s megaco_codec_v2_SUITE profile_decode_pretty_text_messages \
             $(ESTOP)
 
 decode_pretty_flex_prof2: make
 	$(MERL) $(ARGS) -sname megaco_profile_decode_pretty_flex $(ERL_PATH) \
-            -s megaco_codec_v2_test profile_decode_pretty_flex_text_messages \
+            -s megaco_codec_v2_SUITE profile_decode_pretty_flex_text_messages \
             $(ESTOP)
 
 encode_compact_prof1: make
@@ -291,7 +291,7 @@ encode_compact_prof1: make
 
 encode_compact_prof2: make
 	$(MERL) $(ARGS) -sname megaco_profile_encode_compact $(ERL_PATH) \
-            -s megaco_codec_v2_test profile_encode_compact_text_messages \
+            -s megaco_codec_v2_SUITE profile_encode_compact_text_messages \
             $(ESTOP)
 
 encode_pretty_prof1: make
@@ -301,7 +301,7 @@ encode_pretty_prof1: make
 
 encode_pretty_prof2: make
 	$(MERL) $(ARGS) -sname megaco_profile_encode_pretty $(ERL_PATH) \
-            -s megaco_codec_v2_test profile_encode_pretty_text_messages \
+            -s megaco_codec_v2_SUITE profile_encode_pretty_text_messages \
             $(ESTOP)
 
 
@@ -319,16 +319,6 @@ codec: make
 	$(MERL) $(ARGS) -sname megaco_codec $(ERL_PATH) \
             -s megaco_test_lib t megaco_codec_test \
             $(MAYBE_ESTOP)
-
-codec2: make
-	$(MERL) $(ARGS) -sname megaco_codec2 $(ERL_PATH) \
-            -s megaco_test_lib t megaco_codec_v2_test \
-            $(MAYBE_ESTOP)
-
-codec2_tickets: make
-	$(MERL) $(ARGS) -sname megaco_codec2_tickets $(ERL_PATH) \
-            -s megaco_codec_v2_test tickets \
-            $(ESTOP)
 
 codec3a: make
 	$(MERL) $(ARGS) -sname megaco_codec3a $(ERL_PATH) \
@@ -380,7 +370,7 @@ time1: make
 
 time2: make
 	$(MERL) $(ARGS) -sname megaco_time2 $(ERL_PATH) \
-            -run megaco_codec_v2_test tt $(TT_DIR) \
+            -run megaco_codec_v2_SUITE tt $(TT_DIR) \
             $(ESTOP)
 
 timeo1: make
@@ -390,7 +380,7 @@ timeo1: make
 
 timeo2: make
 	$(MERL) $(ARGS) -sname megaco_timeo2 $(ERL_PATH) \
-            -run megaco_codec_v2_test tt_official $(TT_DIR) \
+            -run megaco_codec_v2_SUITE tt_official $(TT_DIR) \
             $(ESTOP)
 
 timeo3: make
@@ -405,7 +395,7 @@ timet1: make
 
 timet2: make
 	$(MERL) $(ARGS) -sname megaco_timet2 $(ERL_PATH) \
-            -run megaco_codec_v2_test tt_texts $(TT_DIR) \
+            -run megaco_codec_v2_SUITE tt_texts $(TT_DIR) \
             $(ESTOP)
 
 timet3: make
@@ -420,7 +410,7 @@ timeb1: make
 
 timeb2: make
 	$(MERL) $(ARGS) -sname megaco_timeb2 $(ERL_PATH) \
-            -run megaco_codec_v2_test tt_bins $(TT_DIR) \
+            -run megaco_codec_v2_SUITE tt_bins $(TT_DIR) \
             $(ESTOP)
 
 timeb3: make
@@ -448,12 +438,12 @@ generate_v1: make
 
 display_v2: make
 	$(MERL) $(ARGS) -sname megaco_display_text_msgs_v2 $(ERL_PATH) \
-            -s megaco_codec_v2_test display_text_messages \
+            -s megaco_codec_v2_SUITE display_text_messages \
             $(ESTOP)
 
 generate_v2: make
 	$(MERL) $(ARGS) -sname megaco_generate_text_msgs_v2 $(ERL_PATH) \
-            -s megaco_codec_v2_test generate_text_messages \
+            -s megaco_codec_v2_SUITE generate_text_messages \
             $(ESTOP)
 
 display_prev3a: make
@@ -494,7 +484,7 @@ generate_v3: make
 generate: make
 	$(MERL) $(ARGS) -sname megaco_generate_text_msgs $(ERL_PATH) \
             -s megaco_codec_v1_SUITE generate_text_messages \
-            -s megaco_codec_v2_test generate_text_messages \
+            -s megaco_codec_v2_SUITE generate_text_messages \
             -s megaco_codec_v3_test generate_text_messages \
             $(ESTOP)
 

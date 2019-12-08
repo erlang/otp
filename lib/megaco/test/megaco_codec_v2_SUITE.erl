@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 %% Purpose: Test encoding/decoding (codec) module of Megaco/H.248
 %%----------------------------------------------------------------------
 
--module(megaco_codec_v2_test).
+-module(megaco_codec_v2_SUITE).
 
 %% ----
 
@@ -36,10 +36,11 @@
 -export([msgs/0]).
 -export([rfc3525_msgs_display/0, rfc3525_msgs_test/0]).
 
--export([t/0, t/1]).
-
--export([all/0,
-	 groups/0, init_per_group/2, end_per_group/2, 
+-export([
+ 	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
 
 	 pretty_test_msgs/1, 
 
@@ -70,8 +71,6 @@
 	
 	 erl_dist_m_test_msgs/1,
 
-	 tickets/0, 
-	 
 	 compact_otp4011_msg1/1, 
 	 compact_otp4011_msg2/1,
 	 compact_otp4011_msg3/1,
@@ -205,9 +204,8 @@
          flex_pretty_otp7431_msg04/1,
          flex_pretty_otp7431_msg05/1,
          flex_pretty_otp7431_msg06/1,
-         flex_pretty_otp7431_msg07/1,
-
-	 init_per_testcase/2, end_per_testcase/2]).  
+         flex_pretty_otp7431_msg07/1
+	]).  
 
 -export([display_text_messages/0, generate_text_messages/0]).
 
@@ -249,7 +247,398 @@
 -define(A5556, ["11111111", "11111111", "11111111"]).
 
 
-%% ----
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+all() -> 
+    [
+     {group, text}, 
+     {group, binary}, 
+     {group, erl_dist},
+     {group, tickets}
+    ].
+
+groups() -> 
+    [
+     {text,                 [], text_cases()},
+     {binary,               [], binary_cases()},
+     {erl_dist,             [], erl_dist_cases()},
+     {pretty,               [], pretty_cases()},
+     {compact,              [], compact_cases()},
+     {flex_pretty,          [], flex_pretty_cases()},
+     {flex_compact,         [], flex_compact_cases()},
+     {bin,                  [], bin_cases()}, 
+     {ber,                  [], ber_cases()},
+     {per,                  [], per_cases()},
+     {erl_dist_m,           [], erl_dist_m_cases()},
+     {tickets,              [], tickets_cases()},
+     {compact_tickets,      [], compact_tickets_cases()},
+     {flex_compact_tickets, [], flex_compact_tickets_cases()},
+     {pretty_tickets,       [], pretty_tickets_cases()},
+     {flex_pretty_tickets,  [], flex_pretty_tickets_cases()}
+    ].
+
+
+text_cases() ->
+    [
+     {group, pretty}, 
+     {group, flex_pretty},
+     {group, compact}, 
+     {group, flex_compact}
+    ].
+
+binary_cases() ->
+    [
+     {group, bin}, 
+     {group, ber}, 
+     {group, per}
+    ].
+
+erl_dist_cases() ->
+    [
+     {group, erl_dist_m}
+    ].
+
+pretty_cases() ->
+    [
+     pretty_test_msgs
+    ].
+
+compact_cases() ->
+    [
+     compact_test_msgs
+    ].
+
+flex_pretty_cases() -> 
+    [
+     flex_pretty_test_msgs
+    ].
+
+flex_compact_cases() -> 
+    [
+     flex_compact_test_msgs, 
+     flex_compact_dm_timers1,
+     flex_compact_dm_timers2, 
+     flex_compact_dm_timers3,
+     flex_compact_dm_timers4, 
+     flex_compact_dm_timers5,
+     flex_compact_dm_timers6, 
+     flex_compact_dm_timers7,
+     flex_compact_dm_timers8
+    ].
+
+bin_cases() ->
+    [
+     bin_test_msgs
+    ].
+
+ber_cases() ->
+    [
+     ber_test_msgs
+    ].
+
+per_cases() ->
+    [
+     per_test_msgs
+    ].
+
+erl_dist_m_cases() ->
+    [
+     erl_dist_m_test_msgs
+    ].
+
+tickets_cases() ->
+    [
+     {group, compact_tickets}, 
+     {group, pretty_tickets},
+     {group, flex_compact_tickets},
+     {group, flex_pretty_tickets}
+    ].
+
+compact_tickets_cases() ->
+    [
+     compact_otp4011_msg1,
+     compact_otp4011_msg2,
+     compact_otp4011_msg3,
+     compact_otp4013_msg1,
+
+     compact_otp4085_msg1,
+     compact_otp4085_msg2,
+
+     compact_otp4280_msg1,
+
+     compact_otp4299_msg1,
+     compact_otp4299_msg2,
+
+     compact_otp4359_msg1,
+
+     compact_otp4920_msg0,
+     compact_otp4920_msg1,
+     compact_otp4920_msg2,
+     compact_otp4920_msg3,
+     compact_otp4920_msg4,
+     compact_otp4920_msg5,
+     compact_otp4920_msg6,
+     compact_otp4920_msg7,
+     compact_otp4920_msg8,
+     compact_otp4920_msg9,
+     compact_otp4920_msg10,
+     compact_otp4920_msg11,
+     compact_otp4920_msg12,
+     compact_otp4920_msg20,
+     compact_otp4920_msg21,
+     compact_otp4920_msg22,
+     compact_otp4920_msg23,
+     compact_otp4920_msg24,
+     compact_otp4920_msg25,
+
+     compact_otp5186_msg01,
+     compact_otp5186_msg02,
+     compact_otp5186_msg03,
+     compact_otp5186_msg04,
+     compact_otp5186_msg05,
+     compact_otp5186_msg06,
+
+     compact_otp5290_msg01,
+     compact_otp5290_msg02,
+
+     compact_otp5793_msg01,
+
+     compact_otp5993_msg01,
+     compact_otp5993_msg02,
+     compact_otp5993_msg03,
+
+     compact_otp6017_msg01,
+     compact_otp6017_msg02,
+     compact_otp6017_msg03,
+
+     compact_otp7138_msg01,
+     compact_otp7138_msg02,
+
+     compact_otp7457_msg01,
+     compact_otp7457_msg02,
+     compact_otp7457_msg03,
+
+     compact_otp7534_msg01,
+
+     compact_otp7576_msg01,
+
+     compact_otp7671_msg01
+    ].
+
+flex_compact_tickets_cases() ->
+    [
+     flex_compact_otp7138_msg01,
+     flex_compact_otp7138_msg02,
+     flex_compact_otp7431_msg01,
+     flex_compact_otp7431_msg02,
+     flex_compact_otp7431_msg03, 
+     flex_compact_otp7431_msg04,
+     flex_compact_otp7431_msg05,
+     flex_compact_otp7431_msg06,
+     flex_compact_otp7431_msg07,
+     flex_compact_otp7138_msg02,
+     flex_compact_otp7457_msg01,
+     flex_compact_otp7457_msg02,
+     flex_compact_otp7457_msg03,
+     flex_compact_otp7534_msg01,
+     flex_compact_otp7573_msg01,
+     flex_compact_otp7576_msg01,
+     flex_compact_otp10998_msg01,
+     flex_compact_otp10998_msg02,
+     flex_compact_otp10998_msg03,
+     flex_compact_otp10998_msg04
+    ].
+
+pretty_tickets_cases() ->
+    [
+     pretty_otp4632_msg1,
+     pretty_otp4632_msg2,
+     pretty_otp4632_msg3,
+     pretty_otp4632_msg4,
+
+     pretty_otp4710_msg1,
+     pretty_otp4710_msg2,
+
+     pretty_otp4945_msg1,
+     pretty_otp4945_msg2,
+     pretty_otp4945_msg3,
+     pretty_otp4945_msg4,
+     pretty_otp4945_msg5,
+     pretty_otp4945_msg6,
+     
+     pretty_otp4949_msg1,
+     pretty_otp4949_msg2,
+     pretty_otp4949_msg3,
+
+     pretty_otp5042_msg1,
+
+     pretty_otp5068_msg1,
+
+     pretty_otp5085_msg1,
+     pretty_otp5085_msg2,
+     pretty_otp5085_msg3,
+     pretty_otp5085_msg4,
+     pretty_otp5085_msg5,
+     pretty_otp5085_msg6,
+     pretty_otp5085_msg7,
+
+     pretty_otp5600_msg1,
+     pretty_otp5600_msg2,
+
+     pretty_otp5601_msg1,
+
+     pretty_otp5793_msg01,
+
+     pretty_otp5882_msg01,
+
+     pretty_otp6490_msg01,
+     pretty_otp6490_msg02,
+     pretty_otp6490_msg03,
+     pretty_otp6490_msg04,
+     pretty_otp6490_msg05,
+     pretty_otp6490_msg06,
+
+     pretty_otp7249_msg01,
+
+     pretty_otp7671_msg01,
+     pretty_otp7671_msg02,
+     pretty_otp7671_msg03,
+     pretty_otp7671_msg04,
+     pretty_otp7671_msg05
+    ].
+
+
+flex_pretty_tickets_cases() -> 
+    [
+     flex_pretty_otp5042_msg1, 
+     flex_pretty_otp5085_msg1,
+     flex_pretty_otp5085_msg2, 
+     flex_pretty_otp5085_msg3,
+     flex_pretty_otp5085_msg4, 
+     flex_pretty_otp5085_msg5,
+     flex_pretty_otp5085_msg6, 
+     flex_pretty_otp5085_msg7,
+     flex_pretty_otp5600_msg1, 
+     flex_pretty_otp5600_msg2,
+     flex_pretty_otp5601_msg1, 
+     flex_pretty_otp5793_msg01,
+     flex_pretty_otp7431_msg01, 
+     flex_pretty_otp7431_msg02,
+     flex_pretty_otp7431_msg03, 
+     flex_pretty_otp7431_msg04,
+     flex_pretty_otp7431_msg05, 
+     flex_pretty_otp7431_msg06,
+     flex_pretty_otp7431_msg07
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
+
+init_per_group(flex_pretty_tickets = Group, Config) -> 
+    ?ANNOUNCE_GROUP_INIT(Group),
+    flex_pretty_init(Config);
+init_per_group(flex_compact_tickets = Group, Config) -> 
+    ?ANNOUNCE_GROUP_INIT(Group),
+    flex_compact_init(Config);
+init_per_group(flex_compact = Group, Config) -> 
+    ?ANNOUNCE_GROUP_INIT(Group),
+    flex_compact_init(Config);
+init_per_group(flex_pretty = Group, Config) -> 
+    ?ANNOUNCE_GROUP_INIT(Group),
+    flex_pretty_init(Config);
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    Config.
+
+end_per_group(flex_pretty_tickets = _Group, Config) -> 
+    flex_pretty_finish(Config);
+end_per_group(flex_compact_tickets = _Group, Config) -> 
+    flex_compact_finish(Config);
+end_per_group(flex_compact = _Group, Config) -> 
+    flex_compact_finish(Config);
+end_per_group(flex_pretty = _Group, Config) -> 
+    flex_pretty_finish(Config);
+end_per_group(_Group, Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(Case, Config) ->
+    %% We do *not* reset events with each test case
+    %% The test cases are so short we don't bother,
+    %% and also we would drown in mprintouts...
+    put(verbosity,trc),
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    erase(verbosity),
+    megaco_test_lib:end_per_testcase(Case, Config).
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 display_text_messages() ->
     Msgs = 
@@ -258,6 +647,8 @@ display_text_messages() ->
     megaco_codec_test_lib:display_text_messages(?VERSION, Msgs).
 
 
+%% ----
+
 generate_text_messages() ->
     Msgs = 
  	msgs4() ++ 
@@ -265,7 +656,7 @@ generate_text_messages() ->
     megaco_codec_test_lib:generate_text_messages(?V2, ?VERSION, ?EC, Msgs).
 
 
-%% ----
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% (catch megaco_codec_v2_test:profile_decode_compact_text_message(msg51a)).
 %% (catch megaco_codec_v2_test:profile_decode_compact_text_message(msg51b)).
@@ -345,7 +736,7 @@ profile_decode_text_messages(Slogan, Codec, Config, Msgs0) ->
     EncodeRes = encode_text_messages(Codec, Config, Msgs, []),
     Bins      = [Bin || {ok, Bin} <- EncodeRes],
     Fun = fun() ->
-		decode_text_messages(Codec, Config, Bins, [])
+		  decode_text_messages(Codec, Config, Bins, [])
 	  end,
     %% Make a dry run, just to make sure all modules are loaded:
     io:format("make a dry run...~n", []),
@@ -374,7 +765,7 @@ profile_encode_text_messages(Slogan, Codec, Config) ->
 profile_encode_text_messages(Slogan, Codec, Config, Msgs0) ->
     Msgs = [Msg || {_, Msg, _, _} <- Msgs0],
     Fun = fun() ->
-		encode_text_messages(Codec, Config, Msgs, [])
+		  encode_text_messages(Codec, Config, Msgs, [])
 	  end,
     %% Make a dry run, just to make sure all modules are loaded:
     io:format("make a dry run...~n", []),
@@ -393,213 +784,6 @@ decode_text_messages(_Codec, _Config, [], Acc) ->
 decode_text_messages(Codec, Config, [Msg|Msgs], Acc) ->
     Res = Codec:decode_message(Config, dynamic, Msg),
     decode_text_messages(Codec, Config, Msgs, [Res | Acc]).
-
-
-%% ----
-
-
-tickets() ->
-    %% io:format("~w:tickets -> entry~n", [?MODULE]),
-    megaco_test_lib:tickets(?MODULE).
-
-
-%% ----
-
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-
-init_per_testcase(Case, Config) ->
-    %% CaseString = io_lib:format("~p", [Case]),
-    C = 
-	case lists:suffix("time_test", atom_to_list(Case)) of
-	    true ->
-		[{tc_timeout, timer:minutes(10)}|Config];
-	    false ->
-		put(verbosity,trc),
-		Config
-	end,
-    megaco_test_lib:init_per_testcase(Case, C).
-
-end_per_testcase(Case, Config) ->
-    erase(verbosity),
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Top test case
-
-all() -> 
-    [{group, text}, 
-     {group, binary}, 
-     {group, erl_dist},
-     {group, tickets}].
-
-groups() -> 
-    [{text, [],
-      [{group, pretty}, 
-       {group, flex_pretty},
-       {group, compact}, 
-       {group, flex_compact}]},
-     {binary, [],
-      [{group, bin}, 
-       {group, ber}, 
-       {group, per}]},
-     {erl_dist, [], [{group, erl_dist_m}]},
-     {pretty, [], [pretty_test_msgs]},
-     {compact, [], [compact_test_msgs]},
-     {flex_pretty, [], flex_pretty_cases()},
-     {flex_compact, [], flex_compact_cases()},
-     {bin, [], [bin_test_msgs]}, 
-     {ber, [], [ber_test_msgs]},
-     {per, [], [per_test_msgs]},
-     {erl_dist_m, [], [erl_dist_m_test_msgs]},
-     {tickets, [],
-      [{group, compact_tickets}, 
-       {group, pretty_tickets},
-       {group, flex_compact_tickets},
-       {group, flex_pretty_tickets}]},
-     {compact_tickets, [],
-      [compact_otp4011_msg1, compact_otp4011_msg2,
-       compact_otp4011_msg3, compact_otp4013_msg1,
-       compact_otp4085_msg1, compact_otp4085_msg2,
-       compact_otp4280_msg1, compact_otp4299_msg1,
-       compact_otp4299_msg2, compact_otp4359_msg1,
-       compact_otp4920_msg0, compact_otp4920_msg1,
-       compact_otp4920_msg2, compact_otp4920_msg3,
-       compact_otp4920_msg4, compact_otp4920_msg5,
-       compact_otp4920_msg6, compact_otp4920_msg7,
-       compact_otp4920_msg8, compact_otp4920_msg9,
-       compact_otp4920_msg10, compact_otp4920_msg11,
-       compact_otp4920_msg12, compact_otp4920_msg20,
-       compact_otp4920_msg21, compact_otp4920_msg22,
-       compact_otp4920_msg23, compact_otp4920_msg24,
-       compact_otp4920_msg25, compact_otp5186_msg01,
-       compact_otp5186_msg02, compact_otp5186_msg03,
-       compact_otp5186_msg04, compact_otp5186_msg05,
-       compact_otp5186_msg06, compact_otp5290_msg01,
-       compact_otp5290_msg02, compact_otp5793_msg01,
-       compact_otp5993_msg01, compact_otp5993_msg02,
-       compact_otp5993_msg03, compact_otp6017_msg01,
-       compact_otp6017_msg02, compact_otp6017_msg03,
-       compact_otp7138_msg01, compact_otp7138_msg02,
-       compact_otp7457_msg01, compact_otp7457_msg02,
-       compact_otp7457_msg03, compact_otp7534_msg01,
-       compact_otp7576_msg01, compact_otp7671_msg01]},
-     {flex_compact_tickets, [], flex_compact_tickets_cases()},
-     {pretty_tickets, [],
-      [pretty_otp4632_msg1, pretty_otp4632_msg2,
-       pretty_otp4632_msg3, pretty_otp4632_msg4,
-       pretty_otp4710_msg1, pretty_otp4710_msg2,
-       pretty_otp4945_msg1, pretty_otp4945_msg2,
-       pretty_otp4945_msg3, pretty_otp4945_msg4,
-       pretty_otp4945_msg5, pretty_otp4945_msg6,
-       pretty_otp4949_msg1, pretty_otp4949_msg2,
-       pretty_otp4949_msg3, pretty_otp5042_msg1,
-       pretty_otp5068_msg1, pretty_otp5085_msg1,
-       pretty_otp5085_msg2, pretty_otp5085_msg3,
-       pretty_otp5085_msg4, pretty_otp5085_msg5,
-       pretty_otp5085_msg6, pretty_otp5085_msg7,
-       pretty_otp5600_msg1, pretty_otp5600_msg2,
-       pretty_otp5601_msg1, pretty_otp5793_msg01,
-       pretty_otp5882_msg01, pretty_otp6490_msg01,
-       pretty_otp6490_msg02, pretty_otp6490_msg03,
-       pretty_otp6490_msg04, pretty_otp6490_msg05,
-       pretty_otp6490_msg06, pretty_otp7249_msg01,
-       pretty_otp7671_msg01, pretty_otp7671_msg02,
-       pretty_otp7671_msg03, pretty_otp7671_msg04,
-       pretty_otp7671_msg05]},
-     {flex_pretty_tickets, [], flex_pretty_tickets_cases()}].
-
-init_per_group(flex_pretty_tickets, Config) -> 
-	flex_pretty_init(Config);
-init_per_group(flex_compact_tickets, Config) -> 
-	flex_compact_init(Config);
-init_per_group(flex_compact, Config) -> 
-	flex_compact_init(Config);
-init_per_group(flex_pretty, Config) -> 
-	flex_pretty_init(Config);
-init_per_group(_GroupName, Config) ->
-	Config.
-
-end_per_group(flex_pretty_tickets, Config) -> 
-	flex_pretty_finish(Config);
-end_per_group(flex_compact_tickets, Config) -> 
-	flex_compact_finish(Config);
-end_per_group(flex_compact, Config) -> 
-	flex_compact_finish(Config);
-end_per_group(flex_pretty, Config) -> 
-	flex_pretty_finish(Config);
-end_per_group(_GroupName, Config) ->
-	Config.
-
-
-
-flex_pretty_cases() -> 
-    [
-     flex_pretty_test_msgs
-    ].
-
-
-flex_compact_cases() -> 
-    [
-     flex_compact_test_msgs, 
-     flex_compact_dm_timers1,
-     flex_compact_dm_timers2, 
-     flex_compact_dm_timers3,
-     flex_compact_dm_timers4, 
-     flex_compact_dm_timers5,
-     flex_compact_dm_timers6, 
-     flex_compact_dm_timers7,
-     flex_compact_dm_timers8
-    ].
-
-
-flex_compact_tickets_cases() ->
-    [
-     flex_compact_otp7138_msg01,
-     flex_compact_otp7138_msg02,
-     flex_compact_otp7431_msg01,
-     flex_compact_otp7431_msg02,
-     flex_compact_otp7431_msg03, 
-     flex_compact_otp7431_msg04,
-     flex_compact_otp7431_msg05,
-     flex_compact_otp7431_msg06,
-     flex_compact_otp7431_msg07,
-     flex_compact_otp7138_msg02,
-     flex_compact_otp7457_msg01,
-     flex_compact_otp7457_msg02,
-     flex_compact_otp7457_msg03,
-     flex_compact_otp7534_msg01,
-     flex_compact_otp7573_msg01,
-     flex_compact_otp7576_msg01,
-     flex_compact_otp10998_msg01,
-     flex_compact_otp10998_msg02,
-     flex_compact_otp10998_msg03,
-     flex_compact_otp10998_msg04
-    ].
-
-flex_pretty_tickets_cases() -> 
-    [
-     flex_pretty_otp5042_msg1, 
-     flex_pretty_otp5085_msg1,
-     flex_pretty_otp5085_msg2, 
-     flex_pretty_otp5085_msg3,
-     flex_pretty_otp5085_msg4, 
-     flex_pretty_otp5085_msg5,
-     flex_pretty_otp5085_msg6, 
-     flex_pretty_otp5085_msg7,
-     flex_pretty_otp5600_msg1, 
-     flex_pretty_otp5600_msg2,
-     flex_pretty_otp5601_msg1, 
-     flex_pretty_otp5793_msg01,
-     flex_pretty_otp7431_msg01, 
-     flex_pretty_otp7431_msg02,
-     flex_pretty_otp7431_msg03, 
-     flex_pretty_otp7431_msg04,
-     flex_pretty_otp7431_msg05, 
-     flex_pretty_otp7431_msg06,
-     flex_pretty_otp7431_msg07
-    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -7584,11 +7768,6 @@ printable(_,_) ->
     false.
 
 
-p(true,L,F,A) ->
-    io:format("~s: " ++ F ++ "~n", [image_of(L)|A]);
-p(_,_,_,_) ->
-    ok.
-
 image_of(trc) ->
     "T";
 image_of(dbg) ->
@@ -7600,4 +7779,15 @@ image_of(err) ->
 image_of(L) ->
     io_lib:format("~p",[L]).
 
+
+p(true,L,F,A) ->
+    io:format("~s: " ++ F ++ "~n", [image_of(L)|A]);
+p(_,_,_,_) ->
+    ok.
+
+
+p(F, A) ->
+    io:format("*** [~s] ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS() | A]).
 

@@ -67,7 +67,6 @@ groups() ->
 
 codec_cases() ->
     [
-     {megaco_codec_v2_test,     all},
      {megaco_codec_prev3a_test, all},
      {megaco_codec_prev3b_test, all},
      {megaco_codec_prev3c_test, all},
