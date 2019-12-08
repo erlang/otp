@@ -67,8 +67,6 @@ APP_CASES   = app
 
 CODEC_CASES = codec1 codec2 codec3a codec3b codec3c
 
-OP_CASES    = mreq
-
 ALL_CASES   = $(CODEC_CASES)
 
 
@@ -206,10 +204,6 @@ help:
 	@echo "    codec"
 	@echo "      Run the $(APPLICATION) codec sub-test-suite(s). "
 	@echo ""
-	@echo "    mreq"
-	@echo "      Run the $(APPLICATION) mreq sub-test-suite"
-	@echo "      This is yet another sub-test-suite with message processing "
-	@echo "      test-cases. "
 	@echo ""
 
 
@@ -448,14 +442,6 @@ timeb3: make
 	$(MERL) $(ARGS) -sname megaco_timeb3 $(ERL_PATH) \
             -run megaco_codec_v3_test tt_bins $(TT_DIR) \
             $(ESTOP)
-
-
-##########################
-
-mreq: make
-	$(MERL) $(ARGS) -sname megaco_mreq $(ERL_PATH) \
-            -s megaco_test_lib t megaco_mreq_test \
-            $(MAYBE_ESTOP)
 
 
 ###################
