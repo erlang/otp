@@ -380,11 +380,6 @@ codec3_tickets: make
             -s megaco_codec_v3_test tickets \
             $(ESTOP)
 
-codecm: make
-	$(MERL) $(ARGS) -sname megaco_codec1 $(ERL_PATH) \
-            -s megaco_test_lib t megaco_codec_mini_test \
-            $(MAYBE_ESTOP)
-
 
 ##########################
 

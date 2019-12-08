@@ -37,7 +37,6 @@ TEST_UTIL_MODULES = \
 	megaco_codec_prev3b_test \
 	megaco_codec_prev3c_test \
 	megaco_codec_v3_test \
-	megaco_codec_mini_test \
 	megaco_mess_user_test \
 	megaco_mess_otp8212_test \
 	megaco_profile \
@@ -64,6 +63,7 @@ SUITE_MODULES = \
 	megaco_actions_SUITE \
 	megaco_app_SUITE \
 	megaco_binary_term_id_SUITE \
+	megaco_codec_mini_SUITE \
 	megaco_config_SUITE \
 	megaco_digit_map_SUITE \
 	megaco_examples_SUITE \
