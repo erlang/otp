@@ -57,7 +57,7 @@
       Module :: module(),
       Args :: term(),
       OLPOptions :: options(),
-      Options :: proc_lib:spawn_options(),
+      Options :: [proc_lib:spawn_option()],
       Pid :: pid(),
       Olp :: olp_ref(),
       Reason :: term().
@@ -69,7 +69,7 @@ start(Module,Args,OLPOptions,Options) when is_map(OLPOptions) ->
       Module :: module(),
       Args :: term(),
       OLPOptions :: options(),
-      Options :: proc_lib:spawn_options(),
+      Options :: [proc_lib:spawn_option()],
       Pid :: pid(),
       Olp :: olp_ref(),
       Reason :: term().
