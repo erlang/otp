@@ -1087,6 +1087,7 @@ format_terms({Format,Args}, Term, Sep, Post, Opts) ->
 format_terms(Pre, Term, Sep, {Format,Args}, Opts) ->
     format_terms(Pre, Term, Sep, lists:flatten(io_lib:format(Format,Args)), Opts);
 format_terms(Pre, Terms, Sep, Post, #{ modifier := Modifier,
+                                       depth := Depth,
                                        columns := Cols,
                                        encoding := Encoding }) ->
 
@@ -1098,6 +1099,7 @@ format_terms(Pre, Terms, Sep, Post, #{ modifier := Modifier,
     PostLen = string:length(Post),
 
     PPOpts = [{column, 3},
+              {depth, Depth},
               {line_length, Cols},
               {encoding, Encoding}],
 
@@ -1113,7 +1115,7 @@ format_terms(Pre, Terms, Sep, Post, #{ modifier := Modifier,
                   %% This length could be replaced with only checking
                   %% if the string is longer than CurrCol - Cols.
                   TLen = string:length(TS),
-                  case TLen > (Cols - CurrCol) of
+                  case TLen > (Cols - CurrCol + 1) andalso Cols > 0 of
                       true ->
                           {[F,"~n  ",SMod],[TS | A], lastline(TS),false};
                       false ->
@@ -1123,7 +1125,7 @@ format_terms(Pre, Terms, Sep, Post, #{ modifier := Modifier,
 
     %% Check if we should put the post info on a new line or not.
     %% This is timestamp or message info.
-    case PostLen > (Cols - PostCol) of
+    case PostLen > (Cols - PostCol + 1) andalso Cols > 0 of
         true ->
             {lists:flatten([F,"~n  ",SMod]),lists:reverse([Post | A])};
         false ->
@@ -1141,8 +1143,9 @@ lastline(Str) ->
     string:length(LastStr).
 
 loggerhandler(Trace, Level) ->
-    Metadata = #{ report_cb => fun dhandler_format/1,
-                  domain => [otp,runtime_tools,dbg] },
+    Metadata = #{ report_cb => fun dhandler_report_callback/2
+                 ,domain => [otp,runtime_tools,dbg]
+                },
     case dhandler_event_to_report(Trace) of
         {Report, {MS,S,US}} ->
             logger:Level(Report, Metadata#{ time => MS * 1000000000000 + S * 1000000 + US });
@@ -1191,13 +1194,19 @@ dhandler_event_to_report({drop, N} = Trace) ->
 dhandler_event_to_report(Trace) ->
     #{ trace => Trace }.
 
-dhandler_format(#{ trace := Trace }) ->
-    case dhandler_format(Trace, #{ modifier => "t", columns => 80, encoding => unicode }) of
-        undefined ->
-            {"",[]};
-        Else ->
-            Else
-    end.
+dhandler_report_callback(LogMsg, #{ single_line := true } = Opts) ->
+    dhandler_report_callback(LogMsg, Opts, #{ columns => -1 });
+dhandler_report_callback(LogMsg, Opts) ->
+    dhandler_report_callback(LogMsg, Opts, #{ columns => 80 }).
+
+dhandler_report_callback(LogMsg, #{ chars_limit := unlimited } = LO, Opts) ->
+    dhandler_report_callback(LogMsg, LO#{ chars_limit := -1 }, Opts);
+dhandler_report_callback(LogMsg, #{ depth := unlimited } = LO, Opts) ->
+    dhandler_report_callback(LogMsg, LO#{ depth := -1 }, Opts);
+dhandler_report_callback(#{ trace := Trace }, #{ chars_limit := CL, depth := D }, Opts) ->
+    {Fmt,Args} = dhandler_format(Trace, Opts#{ modifier => "t", encoding => unicode, depth => D }),
+    io_lib:format(Fmt,Args,[{chars_limit,CL}]).
+
 
 %%% These f* functions returns non-flat strings
 
@@ -1216,7 +1225,7 @@ out(Device) ->
 
     Encoding = encoding(Device),
                 
-    #{ device => Device, columns => C,
+    #{ device => Device, columns => C, depth => -1,
        encoding => Encoding, modifier => encoding_to_modifier(Encoding) }.
 
 encoding(Device) ->
