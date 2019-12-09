@@ -42,11 +42,11 @@
 -export([new/0, push/3, pop/1]).
 
 loop(Config) ->
-    test(Config),
     receive
 	{dbg_test, stop} ->
 	    ok;
 	Other ->
+            test(Config),
 	    loop(Config)
     end,
     ok.

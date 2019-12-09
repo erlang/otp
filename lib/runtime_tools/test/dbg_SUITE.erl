@@ -27,7 +27,8 @@
          ip_port_busy/1, wrap_port/1, wrap_port_time/1,
          with_seq_trace/1, dead_suspend/1, local_trace/1,
          saved_patterns/1, tracer_exit_on_stop/1,
-         erl_tracer/1, distributed_erl_tracer/1]).
+         erl_tracer/1, distributed_erl_tracer/1,
+         logger/1]).
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
 -export([enabled/3, trace/5, load_nif/1]).
@@ -44,7 +45,7 @@ all() ->
      file_port, file_port2, ip_port_busy,
      wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
      local_trace, saved_patterns, tracer_exit_on_stop,
-     erl_tracer, distributed_erl_tracer].
+     erl_tracer, distributed_erl_tracer, logger].
 
 init_per_suite(Config) ->
     Config.
@@ -85,10 +86,10 @@ big(Config) when is_list(Config) ->
         {ok,[{matched, _node, 1}]} = dbg:p(Pid2,[s,r,p]),
         ok = dbg:c(dbg_test, test, [Config]),
         ok = dbg:i(),
-        Pid2 ! {dbg_test, stop},
+        Pid2 ! {dbg_test, stop}
 
-        ok=file:set_cwd(OldCurDir)
     after
+        ok=file:set_cwd(OldCurDir),
         dbg:stop_clear()
     end,
     ok.
@@ -107,18 +108,11 @@ tiny(Config) when is_list(Config) ->
         {module, Mod}=code:load_file(dbg_test),
 
         Pid=spawn_link(dbg_test,loop,[Config]),
-        if
-            is_pid(Pid) ->
-                dbg:tracer(),
-                {ok,[{matched, _node, 1}]} = dbg:p(Pid,[s,r,m,p,c]),
-                ok = dbg:c(dbg_test,test,[Config]),
-                ok = dbg:i(),
-                Pid ! {dbg_test, stop};
-            true ->
-                ok=file:set_cwd(OldCurDir),
-                ct:fail("Could not spawn external test process.~n"),
-                failure
-        end
+        dbg:tracer(),
+        {ok,[{matched, _node, 1}]} = dbg:p(Pid,[s,r,m,p,c]),
+        ok = dbg:c(dbg_test,test,[Config]),
+        ok = dbg:i(),
+        Pid ! {dbg_test, stop}
     after
         dbg:stop_clear(),
         ok = file:set_cwd(OldCurDir)
@@ -916,6 +910,58 @@ distributed_erl_tracer(Config) ->
 
 
     ok.
+
+logger(Config) ->
+    stop(),
+    {ok,OldCurDir} = file:get_cwd(),
+    Datadir=proplists:get_value(data_dir, Config),
+    Privdir=proplists:get_value(priv_dir, Config),
+    LogFile=filename:join(Privdir,"dbg.log"),
+    ok=file:set_cwd(Privdir),
+
+    logger:update_handler_config(default,level,maps:get(level,logger:get_primary_config())),
+    logger:set_primary_config(level,all),
+
+    try
+        %% compile test module and make sure it is loaded.
+        {ok, Mod} = compile:file(Datadir++"/dbg_test",[trace]),
+        code:purge(dbg_test),
+        {module, Mod}=code:load_file(dbg_test),
+
+        {ok, Tracer} = dbg:tracer(logger),
+        
+        logger:add_handler(dbg,logger_std_h,#{level=>all,
+                                              formatter => {logger_formatter,#{ chars_limit => 200 }},
+                                              config => #{file => LogFile,
+                                                          filesync_repeat_interval => 500}}),
+        logger:add_handler_filter(dbg,domain,{fun logger_filters:domain/2,
+                                              {stop,not_equal,[otp,runtime_tools,dbg]}}),
+        Pid = spawn_link(dbg_test, loop, [Config]),
+        dbg:p(Pid,[c,m,p]),
+        dbg:tpl(dbg_test,x),
+        Pid ! Config,
+        Pid ! {dbg_test, stop},
+        erlang:monitor(process,Pid),
+        receive _ -> ok end,
+        dbg:stop(),
+        timer:sleep(1000),
+        {ok, Log} = file:read_file(LogFile),
+
+        %% One match
+        {match,[_]} = re:run(Log,"<< {dbg_test, stop}", [global]),
+        {match,[_]} = re:run(Log,"returned from dbg_test:loop/1 -> ok", [global]),
+
+        %% Two matches, check that printout is limited
+        {match,[_,_]} = re:run(Log,"call dbg_test:push\\(\\[{\"banana\", 4},.*\\.\\.\\.", [global])
+        
+    after
+        logger:remove_handler(dbg),
+        {ok, HC} = logger:get_handler_config(default),
+        logger:set_primary_config(level,maps:get(level,HC)),
+        logger:set_handler_config(default, level, all),
+        dbg:stop_clear()
+    end.
+        
 
 load_nif(Config) ->
     SoFile = atom_to_list(?MODULE),

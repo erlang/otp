@@ -42,6 +42,7 @@ static ErlNifFunc nif_funcs[] = {
 ERL_NIF_INIT(dbg_SUITE, nif_funcs, load, NULL, upgrade, unload)
 
 static ERL_NIF_TERM atom_trace;
+static ERL_NIF_TERM atom_remove;
 static ERL_NIF_TERM atom_ok;
 
 #define ASSERT(expr) assert(expr)
@@ -50,6 +51,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
 
     atom_trace = enif_make_atom(env, "trace");
+    atom_remove = enif_make_atom(env, "remove");
     atom_ok = enif_make_atom(env, "ok");
 
     *priv_data = NULL;
@@ -82,10 +84,12 @@ static ERL_NIF_TERM enabled(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     int state_arity;
     const ERL_NIF_TERM *state_tuple;
     ERL_NIF_TERM value;
+    ErlNifPid pid;
     ASSERT(argc == 3);
 
-
-    return atom_trace;
+    if (enif_get_local_pid(env, argv[1], &pid) && enif_is_process_alive(env, &pid))
+        return atom_trace;
+    return atom_remove;
 }
 
 static ERL_NIF_TERM trace(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
