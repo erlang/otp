@@ -839,9 +839,9 @@ start_tracer_process(Handler, HandlerData, OLPOpts) ->
                      overload_kill_enable => true,
                      burst_limit_enable => false},
 
-    {ok,_,_} = OLP = logger_olp:start(?MODULE,{Handler,HandlerData},
-                                      maps:merge(OLPOpts, DefaultOpts),
-                                      [link, {priority,max}]),
+    {ok,_,OLP} = logger_olp:start(?MODULE,{Handler,HandlerData},
+                                  maps:merge(OLPOpts, DefaultOpts),
+                                  [link, {priority,max}]),
 
     %% This is a small monitor process that makes sure that the
     %% traces dies when the parent process exits.
