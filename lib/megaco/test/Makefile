@@ -63,10 +63,6 @@ SOURCE = $(HRL_FILES) $(ERL_FILES)
 
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
-CODEC_CASES = codec3c
-
-ALL_CASES   = $(CODEC_CASES)
-
 EMAKEFILE  = Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
 
@@ -307,16 +303,6 @@ codec: make
             -s megaco_test_lib t megaco_codec_test \
             $(MAYBE_ESTOP)
 
-codec3c: make
-	$(MERL) $(ARGS) -sname megaco_codec3c $(ERL_PATH) \
-            -s megaco_test_lib t megaco_codec_prev3c_test \
-            $(MAYBE_ESTOP)
-
-codec3c_tickets: make
-	$(MERL) $(ARGS) -sname megaco_codec3c_tickets $(ERL_PATH) \
-            -s megaco_codec_prev3c_test tickets \
-            $(ESTOP)
-
 codec3: make
 	$(MERL) $(ARGS) -sname megaco_codec3 $(ERL_PATH) \
             -s megaco_test_lib t megaco_codec_v3_test \
@@ -430,12 +416,12 @@ generate_prev3b: make
 
 display_prev3c: make
 	$(MERL) $(ARGS) -sname megaco_display_text_msgs_prev3c $(ERL_PATH) \
-            -s megaco_codec_prev3c_test display_text_messages \
+            -s megaco_codec_prev3c_SUITE display_text_messages \
             $(ESTOP)
 
 generate_prev3c: make
 	$(MERL) $(ARGS) -sname megaco_generate_text_msgs_prev3c $(ERL_PATH) \
-            -s megaco_codec_prev3c_test generate_text_messages \
+            -s megaco_codec_prev3c_SUITE generate_text_messages \
             $(ESTOP)
 
 display_v3: make
