@@ -42,21 +42,11 @@
 
          flush/0,
          still_alive/1,
-         watchdog/2,
 
          display_alloc_info/0,
          display_system_info/1, display_system_info/2, display_system_info/3,
 
-         tickets/1,
          prepare_test_case/5,
-
-         t/1,
-         groups/1,
-         init_suite/2,
-         end_suite/2,
-         init_group/3,
-         end_group/3,
-         t/2,
 
          proxy_start/1, proxy_start/2,
 
@@ -68,9 +58,11 @@
 -export([init_per_suite/1,    end_per_suite/1,
          init_per_testcase/2, end_per_testcase/2]).
 
--export([do_eval/4, proxy_init/2]).
+-export([proxy_init/2]).
 
 -include("megaco_test_lib.hrl").
+
+-record('REASON', {mod, line, desc}).
 
 
 %% ----------------------------------------------------------------
@@ -204,18 +196,6 @@ os_based_skip_check(OsName, OsNames) ->
 %%     {Mod, Fun, ExpectedRes, ActualRes}
 %%----------------------------------------------------------------------
 
-tickets([Mod]) ->
-    tickets(Mod);
-tickets(Mod) when is_atom(Mod) ->
-    %% p("tickets -> entry with"
-    %% 	      "~n   Mod: ~p", [Mod]),
-    Res0 = t({Mod, {group, tickets}, Mod:groups()}, default_config()),
-    Res  = lists:flatten(Res0),
-    %% p("tickets(~w) -> Res: ~p~n", [Mod, Res]),
-    display_result(Res),
-    Res.
-
-
 display_alloc_info() ->
     io:format("Allocator memory information:~n", []),
     AllocInfo = alloc_info(),
@@ -289,282 +269,6 @@ alloc_instance_mem_info(Key, InstanceInfo) ->
     end.
 		      
     
-t([Case]) when is_atom(Case) ->
-    %% p("t -> entry with"
-    %% 	 "~n   [Case]: [~p]", [Case]),
-    t(Case);
-t(Case) ->
-    %% p("t -> entry with"
-    %% 	 "~n   Case: ~p", [Case]),
-    process_flag(trap_exit, true),
-    MEM = fun() -> case (catch erlang:memory()) of
-			{'EXIT', _} ->
-			    [];
-			Res ->
-			    Res
-		    end
-	  end,
-    Alloc1 = alloc_info(),
-    Mem1 = MEM(),
-    Res  = lists:flatten(t(Case, default_config())),
-    Alloc2 = alloc_info(),
-    Mem2 = MEM(),
-    display_result(Res, Alloc1, Mem1, Alloc2, Mem2),
-    Res.
-
-
-groups(Mod) when is_atom(Mod) ->
-    try Mod:groups() of
-	Groups when is_list(Groups) ->
-	    Groups;
-	BadGroups ->
-	    exit({bad_groups, Mod, BadGroups})
-    catch 
-	_:_ ->
-	    []
-    end.
-
-init_suite(Mod, Config) ->
-    Mod:init_per_suite(Config).
-
-end_suite(Mod, Config) ->
-    Mod:end_per_suite(Config).
-
-init_group(Mod, Group, Config) ->
-    Mod:init_per_group(Group, Config).
-
-end_group(Mod, Group, Config) ->
-    Mod:init_per_group(Group, Config).
-
-%% This is for sub-SUITEs
-t({_Mod, {NewMod, all}, _Groups}, _Config) when is_atom(NewMod) ->
-    %% p("t(all) -> entry with"
-    %%   "~n   NewMod: ~p", [NewMod]),
-    t(NewMod);
-t({Mod, {group, Name} = Group, Groups}, Config) 
-  when is_atom(Mod) andalso is_atom(Name) andalso is_list(Groups) ->
-    %% p("t(group) -> entry with"
-    %%   "~n   Mod:    ~p"
-    %%   "~n   Name:   ~p"
-    %%   "~n   Groups: ~p"
-    %%   "~n   Config: ~p", [Mod, Name, Groups, Config]),
-    case lists:keysearch(Name, 1, Groups) of
-	{value, {Name, _Props, GroupsAndCases}} ->
-	    try init_group(Mod, Name, Config) of
-		Config2 when is_list(Config2) ->
-		    Res = [t({Mod, Case, Groups}, Config2) || 
-			      Case <- GroupsAndCases],
-		    (catch end_group(Mod, Name, Config2)), 
-		    Res;
-		Error ->
-		    io:format(" => group (~w) init failed: ~p~n", 
-			      [Name, Error]),
-		    [{failed, {Mod, Group}, Error}]
-	    catch
-		exit:{skip, SkipReason} ->
-		    io:format(" => skipping group: ~p~n", [SkipReason]),
-		    [{skip, {Mod, Group}, SkipReason, 0}];
-		error:undef ->
-		    [t({Mod, Case, Groups}, Config) || 
-			      Case <- GroupsAndCases];
-		T:E ->
-		    [{failed, {Mod, Group}, {T,E}, 0}]
-	    end;
-	false ->
-	    exit({unknown_group, Mod, Name, Groups})
-    end;
-t({Mod, Fun, _}, Config) 
-  when is_atom(Mod) andalso is_atom(Fun) ->
-    %% p("t -> entry with"
-    %%   "~n   Mod:    ~p"
-    %%   "~n   Fun:    ~p"
-    %%   "~n   Config: ~p", [Mod, Fun, Config]),
-    try apply(Mod, Fun, [suite]) of
-	[] ->
-	    io:format("Eval:   ~p:", [{Mod, Fun}]),
-	    Res = eval(Mod, Fun, Config),
-	    {R, _, _, _} = Res,
-	    io:format(" ~p~n", [R]),
-	    Res;
-
-	Cases when is_list(Cases) ->
-	    io:format("Expand: ~p ...~n", [{Mod, Fun}]),
-	    Map = fun(Case) when is_atom(Case) -> {Mod, Case};
-		     (Case) -> Case
-		  end,
-	    t(lists:map(Map, Cases), Config);
-
-        Error ->
-	    io:format("Ignoring:   ~p: ~p~n", [{Mod, Fun}, Error]),
-	    [{failed, {Mod, Fun}, Error, 0}]
-
-    catch
-        error:undef ->
-	    io:format("Undefined:   ~p~n", [{Mod, Fun}]),
-	    [{nyi, {Mod, Fun}, ok, 0}]
-
-	
-    end;
-t(Mod, Config) when is_atom(Mod) ->
-    %% p("t -> entry with"
-    %%   "~n   Mod:    ~p"
-    %%   "~n   Config: ~p", [Mod, Config]),    
-    %% This is assumed to be a test suite, so we start by calling 
-    %% the top test suite function(s) (all/0 and groups/0).
-    try Mod:all() of
-	Cases when is_list(Cases) -> 
-	    %% The list may contain atoms (actual test cases) and
-	    %% group-tuples (a tuple naming a group of test cases).
-	    %% A group is defined by the (optional) groups/0 function.
-	    Groups = groups(Mod),
-	    try init_suite(Mod, Config) of
-		Config2 when is_list(Config2) ->
-		    Res = [t({Mod, Case, Groups}, Config2) || Case <- Cases],
-		    (catch end_suite(Mod, Config2)),
-		    Res;
-		Error ->
-		    io:format(" => suite init failed: ~p~n", [Error]),
-		    [{failed, {Mod, init_per_suite}, Error}]
-	    catch 
-		exit:{skip, SkipReason} ->
-		    io:format(" => skipping suite: ~p~n", [SkipReason]),
-		    [{skip, {Mod, init_per_suite}, SkipReason, 0}];
-		error:undef ->
-		    [t({Mod, Case, Groups}, Config) || Case <- Cases];
-		T:E ->
-		    io:format(" => failed suite: ~p~n", [{T,E}]),
-		    [{failed, {Mod, init_per_suite}, {T,E}, 0}]
-	    end;
-
-	Crap ->
-	    Crap
-
-    catch
-        error:undef ->
-	    io:format("Undefined:   ~p~n", [{Mod, all}]),
-	    [{nyi, {Mod, all}, ok, 0}]
-		    
-    end;
-t(Bad, _Config) ->
-    [{badarg, Bad, ok, 0}].
-
-eval(Mod, Fun, Config) ->
-    TestCase = {?MODULE, Mod, Fun},
-    Label = lists:concat(["TEST CASE: ", Fun]),
-    megaco:report_event(40, ?MODULE, Mod, Label ++ " started",
-			[TestCase, Config]),
-    global:register_name(megaco_test_case_sup, self()),
-    Flag = process_flag(trap_exit, true),
-    put(megaco_test_server, true),
-    Config2 = Mod:init_per_testcase(Fun, Config),
-    Pid = spawn_link(fun() -> do_eval(self(), Mod, Fun, Config2) end),
-    R = wait_for_evaluator(Pid, Mod, Fun, Config2, []),
-    Mod:end_per_testcase(Fun, Config2),
-    erase(megaco_test_server),    
-    global:unregister_name(megaco_test_case_sup),
-    process_flag(trap_exit, Flag),
-    R.
-
--record('REASON', {mod, line, desc}).
-
-wait_for_evaluator(Pid, Mod, Fun, Config, Errors) ->
-    wait_for_evaluator(Pid, Mod, Fun, Config, Errors, 0).
-wait_for_evaluator(Pid, Mod, Fun, Config, Errors, AccTime) ->
-    %% p("wait_for_evaluator -> "
-    %%   "~n   Pid:     ~p"
-    %%   "~n   Mod:     ~p"
-    %%   "~n   Fun:     ~p"
-    %%   "~n   Config:  ~p"
-    %%   "~n   Errors:  ~p"
-    %%   "~n   AccTime: ~p", 
-    %%   [Pid, Mod, Fun, Config, Errors, AccTime]),
-    TestCase = {?MODULE, Mod, Fun},
-    Label = lists:concat(["TEST CASE: ", Fun]),
-    receive
-	{done, Pid, ok, Time} when Errors =:= [] ->
-	    megaco:report_event(40, Mod, ?MODULE, Label ++ " ok",
-				[TestCase, Config]),
-	    {ok, {Mod, Fun}, Errors, Time};
-	{done, Pid, ok, Time} ->
-	    megaco:report_event(40, Mod, ?MODULE, Label ++ " failed",
-				[TestCase, Config]),
-	    {failed, {Mod, Fun}, Errors, Time};
-	{done, Pid, {ok, _}, Time} when Errors =:= [] ->
-	    megaco:report_event(40, Mod, ?MODULE, Label ++ " ok",
-				[TestCase, Config]),
-	    {ok, {Mod, Fun}, Errors, Time};
-	{done, Pid, {ok, _}, Time} ->
-	    megaco:report_event(40, Mod, ?MODULE, Label ++ " failed",
-				[TestCase, Config]),
-	    {failed, {Mod, Fun}, Errors, Time};
-	{done, Pid, Fail, Time} ->
-	    megaco:report_event(20, Mod, ?MODULE, Label ++ " failed",
-				[TestCase, Config, {return, Fail}, Errors]),
-	    {failed, {Mod,Fun}, Fail, Time};
-	{'EXIT', Pid, {skip, Reason}, Time} -> 
-	    megaco:report_event(20, Mod, ?MODULE, Label ++ " skipped",
-				[TestCase, Config, {skip, Reason}]),
-	    {skip, {Mod, Fun}, Errors, Time};
-	{'EXIT', Pid, Reason, Time} -> 
-	    megaco:report_event(20, Mod, ?MODULE, Label ++ " crashed",
-				[TestCase, Config, {'EXIT', Reason}]),
-	    {crashed, {Mod, Fun}, [{'EXIT', Reason} | Errors], Time};
-	{fail, Pid, Reason, Time} ->
-	    wait_for_evaluator(Pid, Mod, Fun, Config, 
-			       Errors ++ [Reason], AccTime + Time)
-    end.
-
-do_eval(ReplyTo, Mod, Fun, Config) ->
-    %% p("do_eval -> "
-    %%   "~n   ReplyTo: ~p"
-    %%   "~n   Mod:     ~p"
-    %%   "~n   Fun:     ~p"
-    %%   "~n   Config:  ~p", [ReplyTo, Mod, Fun, Config]),
-    display_system_info("before", Mod, Fun),
-    T1 = os:timestamp(), 
-    try Mod:Fun(Config) of
-	Res ->
-	    %% p("do_eval -> done"
-	    %%   "~n   Res: ~p", [Res]),
-	    T2   = os:timestamp(), 
-	    Time = timer:now_diff(T2, T1), 
-	    display_tc_time(Time),
-	    display_system_info("after", Mod, Fun),
-	    ReplyTo ! {done, self(), Res, Time}
-    catch
-	error:undef ->
-	    %% p("do_eval -> error - undef", []),
-	    ReplyTo ! {'EXIT', self(), undef, 0};
-	exit:{skip, Reason} ->
-	    %% p("do_eval -> exit - skipped"
-	    %%   "~n   Reason: ~p", [Reason]),
-	    T2   = os:timestamp(), 
-	    Time = timer:now_diff(T2, T1), 
-	    display_tc_time(Time),
-	    display_system_info("after (skipped)", Mod, Fun),
-	    ReplyTo ! {'EXIT', self(), {skip, Reason}, Time};
-	exit:{suite_failed, Reason} ->
-	    %% p("do_eval -> exit - suite-failed"
-	    %%   "~n   Reason: ~p", [Reason]),
-	    T2   = os:timestamp(), 
-	    Time = timer:now_diff(T2, T1), 
-	    display_tc_time(Time),
-	    display_system_info("after (failed)", Mod, Fun),
-	    ReplyTo ! {done, self(), Reason, Time}
-
-    end,
-    unlink(ReplyTo),
-    exit(shutdown).
-
-
-display_tc_time(Time) ->
-    io:format("~n"
-	      "~n*********************************************"
-	      "~n"
-	      "~nTest case completion time: ~.3f sec (~w)"
-	      "~n", [(Time / 1000000), Time]),
-    ok.
-
 display_system_info(WhenStr) ->
     display_system_info(WhenStr, undefined, undefined).
 
@@ -607,141 +311,7 @@ display_system_info(WhenStr, ModFuncStr) ->
 		     ProcMemBin, ProcMemTot]),
     ok.
 
-display_result(Res, Alloc1, Mem1, Alloc2, Mem2) ->
-    io:format("~nAllocator info: ~n", []),
-    display_alloc(Alloc1, Alloc2),
-    io:format("~nMemory info: ~n", []),
-    display_memory(Mem1, Mem2),
-    display_result(Res).
 
-display_alloc([], []) ->
-    io:format("-~n", []),
-    ok;
-display_alloc(A1, A2) ->
-    do_display_alloc(A1, A2).
-
-do_display_alloc([], _) ->
-    ok;
-do_display_alloc([{Alloc, Mem1}|AllocInfo1], AllocInfo2) ->
-    Mem2 = 
-	case lists:keysearch(Alloc, 1, AllocInfo2) of
-	    {value, {_, Val}} ->
-		Val;
-	    false ->
-		undefined
-	end,
-    io:format("~15w: ~10w -> ~w~n", [Alloc, Mem1, Mem2]),
-    do_display_alloc(AllocInfo1, AllocInfo2).
-
-display_memory([], []) ->
-    io:format("-~n", []),
-    ok;
-display_memory(Mem1, Mem2) ->
-    do_display_memory(Mem1, Mem2).
-
-
-do_display_memory([], _) ->
-    ok;
-do_display_memory([{Key, Mem1}|MemInfo1], MemInfo2) ->
-    Mem2 = 
-	case lists:keysearch(Key, 1, MemInfo2) of
-	    {value, {_, Val}} ->
-		Val;
-	    false ->
-		undefined
-	end,
-    io:format("~15w: ~10w -> ~w~n", [Key, Mem1, Mem2]),
-    do_display_memory(MemInfo1, MemInfo2).
-
-display_result([]) ->    
-    io:format("OK~n", []);
-display_result(Res) when is_list(Res) ->
-    Ok           = [{MF, Time} || {ok,  MF, _, Time}  <- Res],
-    Nyi          = [MF || {nyi, MF, _, _Time} <- Res],
-    SkippedGrps  = [{{M,G}, Reason} || 
-		       {skip, {M, {group, G}}, Reason, _Time} <- Res],
-    SkippedCases = [{MF, Reason} || 
-		       {skip, {_M, F} = MF, Reason, _Time} <- Res, 
-		       is_atom(F)],
-    FailedGrps   = [{{M,G}, Reason} || 
-		       {failed,  {M, {group, G}}, Reason, _Time} <- Res],
-    FailedCases  = [{MF, Reason} || 
-		       {failed,  {_M, F} = MF, Reason, _Time} <- Res, 
-		       is_atom(F)],
-    Crashed      = [{MF, Reason} || {crashed, MF, Reason, _Time} <- Res],
-    display_summery(Ok, Nyi, 
-		    SkippedGrps, SkippedCases, 
-		    FailedGrps,  FailedCases, 
-		    Crashed),
-    display_ok(Ok),
-    display_skipped("groups",     SkippedGrps),
-    display_skipped("test cases", SkippedCases),
-    display_failed("groups",      FailedGrps),
-    display_failed("test cases",  FailedCases),
-    display_crashed(Crashed).
-
-display_summery(Ok, Nyi, 
-		SkippedGrps, SkippedCases, 
-		FailedGrps, FailedCases, 
-		Crashed) ->
-    io:format("~nTest case summery:~n", []),
-    display_summery(Ok,           "test case",  "successfull"),
-    display_summery(Nyi,          "test case",  "not yet implemented"),
-    display_summery(SkippedGrps,  "group",      "skipped"),
-    display_summery(SkippedCases, "test case",  "skipped"),
-    display_summery(FailedGrps,   "group",      "failed"),
-    display_summery(FailedCases,  "test case",  "failed"),
-    display_summery(Crashed,      "test case",  "crashed"),
-    io:format("~n", []).
-   
-
-display_summery(Res, Kind, Info) ->
-    Len = length(Res),
-    if 
-	Len =:= 1 ->
-	    display_summery(Len, Kind ++ " " ++ Info);
-	true ->
-	    display_summery(Len, Kind ++ "s " ++ Info)
-    end.
-    
-display_summery(Len, Info) ->
-    io:format("  ~w ~s~n", [Len, Info]).
-    
-display_ok([]) ->
-    ok;
-display_ok(Ok) ->
-    io:format("Ok test cases:~n", []),
-    F = fun({{M, F}, Time}) -> 
-		io:format("  ~w : ~w => ~.2f sec~n", [M, F, Time / 1000000]) 
-	end,
-    lists:foreach(F, Ok),
-    io:format("~n", []).
-
-display_skipped(_, []) ->
-    ok;
-display_skipped(Pre, Skipped) ->
-    io:format("Skipped ~s:~n", [Pre]),
-    F = fun({X, Reason}) -> io:format("  ~p => ~p~n", [X, Reason]) end,
-    lists:foreach(F, Skipped),
-    io:format("~n", []).
-
-
-display_failed(_, []) ->
-    ok;
-display_failed(Pre, Failed) ->
-    io:format("Failed ~s:~n", [Pre]),
-    F = fun({X, Reason}) -> io:format("  ~p => ~p~n", [X, Reason]) end,
-    lists:foreach(F, Failed),
-    io:format("~n", []).
-
-display_crashed([]) ->
-    ok;
-display_crashed(Crashed) ->
-    io:format("Crashed test cases:~n", []),
-    F = fun({MF, Reason}) -> io:format("  ~p => ~p~n", [MF, Reason]) end,
-    lists:foreach(F, Crashed),
-    io:format("~n", []).
-        
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Verify that the actual result of a test case matches the exected one
@@ -789,6 +359,7 @@ fatal_skip(Actual, File, Line) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Flush the message queue and return its messages
+
 flush() ->
     receive
 	Msg ->
@@ -800,18 +371,9 @@ flush() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Check if process is alive and kicking
+
 still_alive(Pid) ->   
-    case catch erlang:is_process_alive(Pid) of % New BIF in Erlang/OTP R5
-	true -> 
-	    true;
-	false -> 
-	    false;
-	{'EXIT', _} -> % Pre R5 backward compatibility 
-	    case process_info(Pid, message_queue_len) of
-		undefined -> false;
-		_ -> true
-	    end 
-    end.
+    erlang:is_process_alive(Pid).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -988,53 +550,19 @@ set_kill_timer(Config) ->
 		    ConfigTime when is_integer(ConfigTime) ->
 			ConfigTime
 		end,
-	    Dog = 
-		case get(megaco_test_server) of
-		    true ->
-			spawn_link(?MODULE, watchdog, [self(), Time]);
-		    _ ->
-			test_server:timetrap(Time)
-		end,
+	    Dog = test_server:timetrap(Time),
 	    [{kill_timer, Dog}|Config]
 		    
 	    
     end.
 
 reset_kill_timer(Config) ->
-    DogKiller = 
-	case get(megaco_test_server) of
-	    true ->
-		fun(P) when is_pid(P) -> P ! stop;
-		   (_) -> ok 
-		end;
-	    _ ->
-		fun(Ref) -> test_server:timetrap_cancel(Ref) end
-	end,
     case lists:keysearch(kill_timer, 1, Config) of
 	{value, {kill_timer, Dog}} ->
-	    DogKiller(Dog), 
+	    test_server:timetrap_cancel(Dog), 
 	    lists:keydelete(kill_timer, 1, Config);
 	_ ->
 	    Config
-    end.
-
-watchdog(Pid, Time) ->
-    _ = os:timestamp(),
-    receive
-	stop ->
-	    ok
-    after Time ->
-	    case (catch process_info(Pid)) of
-		undefined ->
-		    ok;
-		Info ->
-		    ?LOG("<ERROR> Watchdog in test case timed out "
-			"for ~p after ~p min"
-			 "~n~p"
-			 "~n",
-		    [Pid, Time div (1000*60), Info]),
-		    exit(Pid, kill)
-	    end
     end.
 
 
@@ -1075,12 +603,6 @@ lookup_config(Key,Config) ->
 	_ ->
 	    []
     end.
-
-default_config() ->
-    [{nodes, default_nodes()}, {ts, megaco}].
-
-default_nodes() ->    
-    mk_nodes(3, []).
 
 mk_nodes(N) when (N > 0) ->
     mk_nodes(N, []).
