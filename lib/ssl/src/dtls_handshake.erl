@@ -120,7 +120,7 @@ cookie(Key, Address, Port, #client_hello{client_version = {Major, Minor},
     CookieData = [address_to_bin(Address, Port),
 		  <<?BYTE(Major), ?BYTE(Minor)>>,
 		  Random, SessionId, CipherSuites, CompressionMethods],
-    crypto:hmac(sha, Key, CookieData).
+    crypto:mac(hmac, sha, Key, CookieData).
 %%--------------------------------------------------------------------
 -spec hello_verify_request(binary(),  ssl_record:ssl_version()) -> #hello_verify_request{}.
 %%
