@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -36,6 +36,9 @@
 %% Internal exports
 -export([handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
 	 code_change/3, init_starter/4, get_loaded/1]).
+
+%% logger callback
+-export([format_log/1, format_log/2]).
 
 %% Test exports, only to be used from the test suites
 -export([test_change_apps/2]).
@@ -1930,9 +1933,12 @@ info_started(Name, Node) ->
                 report=>[{application, Name},
                          {started_at, Node}]},
               #{domain=>[otp,sasl],
-                report_cb=>fun logger:format_otp_report/1,
+                report_cb=>fun application_controller:format_log/2,
                 logger_formatter=>#{title=>"PROGRESS REPORT"},
-                error_logger=>#{tag=>info_report,type=>progress}}).
+                error_logger=>#{tag=>info_report,
+                                type=>progress,
+                                report_cb=>
+                                    fun application_controller:format_log/1}}).
 
 info_exited(Name, Reason, Type) ->
     ?LOG_NOTICE(#{label=>{application_controller,exit},
@@ -1940,8 +1946,140 @@ info_exited(Name, Reason, Type) ->
                            {exited, Reason},
                            {type, Type}]},
                 #{domain=>[otp],
-                  report_cb=>fun logger:format_otp_report/1,
-                  error_logger=>#{tag=>info_report,type=>std_info}}).
+                  report_cb=>fun application_controller:format_log/2,
+                error_logger=>#{tag=>info_report,
+                                type=>std_info,
+                                report_cb=>
+                                    fun application_controller:format_log/1}}).
+
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(LogReport) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(LogReport, Depth), FormatOpts).
+
+limit_report(LogReport, unlimited) ->
+    LogReport;
+limit_report(#{label:={application_controller,progress},
+               report:=[{application,_}=Application,
+                        {started_at,Node}]}=LogReport,
+             Depth) ->
+    LogReport#{report=>[Application,
+                        {started_at,io_lib:limit_term(Node, Depth)}]};
+limit_report(#{label:={application_controller,exit},
+               report:=[{application,_}=Application,
+                        {exited,Reason},{type,Type}]}=LogReport,
+             Depth) ->
+    LogReport#{report=>[Application,
+                        {exited,io_lib:limit_term(Reason, Depth)},
+                        {type,io_lib:limit_term(Type, Depth)}]}.
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default, FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={application_controller,progress},
+                    report:=[{application,Name},{started_at,Node}]},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = "Application: "++P++". Started at: "++P++".",
+    Args =
+        case Depth of
+            unlimited ->
+                [Name,Node];
+            _ ->
+                [Name,Depth,Node,Depth]
+        end,
+    {Format,Args};
+format_log_single(#{label:={application_controller,exit},
+                    report:=[{application,Name},
+                             {exited,Reason},
+                             {type,Type}]},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["Application: ",P,". Exited: ",P,
+                            ". Type: ",P,"."]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Name,Reason,Type];
+            _ ->
+                [Name,Depth,Reason,Depth,Type,Depth]
+        end,
+    {Format,Args};
+format_log_single(Report,FormatOpts) ->
+    format_log_multi(Report,FormatOpts).
+
+format_log_multi(#{label:={application_controller,progress},
+                   report:=[{application,Name},
+                            {started_at,Node}]},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["    application: ",P,"~n",
+           "    started_at: ",P,"~n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Name,Node];
+            _ ->
+                [Name,Depth,Node,Depth]
+        end,
+    {Format,Args};
+format_log_multi(#{label:={application_controller,exit},
+                   report:=[{application,Name},
+                            {exited,Reason},
+                            {type,Type}]},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["    application: ",P,"~n",
+           "    exited: ",P,"~n",
+           "    type: ",P,"~n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Name,Reason,Type];
+            _ ->
+                [Name,Depth,Reason,Depth,Type,Depth]
+        end,
+    {Format,Args}.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 %%-----------------------------------------------------------------
 %% Reply to all processes waiting this application to be started.  

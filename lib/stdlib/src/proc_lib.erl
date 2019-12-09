@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -784,20 +784,114 @@ format(CrashReport, Encoding, Depth) ->
                              encoding => Encoding,
                              single_line => false}).
 
-do_format([OwnReport,LinkReport], #{single_line:=Single}=Extra) ->
+do_format([OwnReport,LinkReport], Extra) ->
+    #{encoding:=Enc, single_line:=Single, chars_limit:=Limit0} = Extra,
     Indent = if Single -> "";
                 true -> "  "
              end,
-    MyIndent = Indent ++ Indent,
-    Sep = nl(Single,"; "),
-    OwnFormat = format_report(OwnReport, MyIndent, Extra),
-    LinkFormat = lists:join(Sep,format_link_report(LinkReport, MyIndent, Extra)),
     Nl = nl(Single," "),
-    Str = io_lib:format("~scrasher:"++Nl++"~ts"++Sep++"~sneighbours:"++Nl++"~ts",
-                        [Indent,OwnFormat,Indent,LinkFormat]),
-    lists:flatten(Str).
+    Sep = nl(Single, report_separator()),
+    {PartLimit, Limit} =
+        case Limit0 of
+            unlimited ->
+                {Limit0, Limit0};
+            _ when is_integer(Limit0) ->
+                %% HardcodedSize is the length of the hardcoded heading +
+                %% separators in the final format string below,
+                %% including neighbours. Just make sure the limit
+                %% does not become negative.
+                Num = length(OwnReport),
+                HardcodedSize = (length(Indent) + length("crasher")
+                                 + length(Nl) + length(Sep)
+                                 + (length(Sep) * Num)),
+                Limit1 = max(Limit0-HardcodedSize, 1),
 
-format_link_report([Link|Reps], Indent0, #{single_line:=Single}=Extra) ->
+                %% Divide the available characters over all report
+                %% parts. Spend one third of the characters on the
+                %% crash reason, and let the rest of the elements
+                %% (including the neighbours) share the other two
+                %% thirds. This is to make sure we see a good part of
+                %% the crash reason. Most of the other elements in the
+                %% crasher's report are quite small, so we don't loose
+                %% a lot of info from these anyway.
+                EL = Limit1 div 3,
+                PL = (Limit1-EL) div (Num),
+                {PL, Limit1}
+        end,
+    LinkFormat = format_link_reports(LinkReport, Indent, Extra, PartLimit),
+    LinkFormatSize = size(Enc, LinkFormat),
+
+    OwnFormat = format_own_report(OwnReport, Indent, Extra,
+                                  LinkFormatSize, PartLimit, Limit),
+    io_lib:format("~scrasher:"++Nl++"~ts"++Sep++"~ts",
+                  [Indent,OwnFormat,LinkFormat]).
+
+format_own_report(OwnReport, Indent, Extra, LinkFormatSize, PartLimit, Limit0) ->
+    MyIndent = Indent ++ Indent,
+    case separate_error_info(OwnReport) of
+        {First,{Class,Reason,StackTrace},Rest} ->
+            F = format_report(First, MyIndent, Extra, PartLimit),
+            R = format_report(Rest, MyIndent, Extra, PartLimit),
+            #{encoding:=Enc, single_line:=Single} = Extra,
+            Sep = nl(Single, part_separator()),
+            Limit = case Limit0 of
+                        unlimited ->
+                            Limit0;
+                        _ when is_integer(Limit0) ->
+                            %% Some of the report parts are quite small,
+                            %% and we can use the leftover chars to show
+                            %% more of the error_info part.
+                            SizeOfOther = (size(Enc, F)
+                                           +size(Enc, R)
+                                           -length(Sep)*(length(F)+length(R))
+                                           +LinkFormatSize),
+                            max(Limit0-SizeOfOther, 1)
+                end,
+            EI = format_exception(Class, Reason, StackTrace, Extra, Limit),
+            lists:join(Sep, [F, EI, R]);
+    no ->
+        Limit = case Limit0 of
+                    unlimited ->
+                        Limit0;
+                    _ when is_integer(Limit0) ->
+                        max(Limit0-LinkFormatSize, 1)
+                end,
+        format_report(OwnReport, MyIndent, Extra, Limit)
+    end.
+
+separate_error_info(Report) ->
+    try
+        lists:splitwith(fun(A) -> element(1, A) =/= error_info end, Report)
+    of
+        {First, [{error_info,ErrorInfo}|Rest]} ->
+            {First,ErrorInfo,Rest};
+        _ -> no
+    catch _:_ -> no
+    end.
+
+%% If the size of the total report is limited by chars_limit, then
+%% print only the pids.
+format_link_reports(LinkReports, Indent, Extra, PartLimit)
+         when is_integer(PartLimit) ->
+    #{encoding:=Enc, depth:=Depth, single_line:=Single} = Extra,
+    Pids = [P || {neighbour,[{pid,P}|_]} <- LinkReports],
+    {P,Tl} = p(Enc,Depth),
+    Width = if Single -> "0";
+               true -> ""
+            end,
+    io_lib:format(Indent++"neighbours: ~"++Width++P,
+                  [Pids|Tl],
+                  [{chars_limit,PartLimit}]);
+format_link_reports(LinkReports, Indent, Extra, PartLimit) ->
+    #{single_line:=Single} = Extra,
+    MyIndent = Indent ++ Indent,
+    LinkFormat =
+      lists:join(nl(Single, report_separator()),
+                 format_link_report(LinkReports, MyIndent, Extra, PartLimit)),
+    [Indent,"neighbours:",nl(Single," "),LinkFormat].
+
+format_link_report([Link|Reps], Indent0, Extra, PartLimit) ->
+    #{single_line:=Single} = Extra,
     Rep = case Link of
               {neighbour,Rep0} -> Rep0;
               _ -> Link
@@ -806,63 +900,70 @@ format_link_report([Link|Reps], Indent0, #{single_line:=Single}=Extra) ->
                 true -> Indent0
              end,
     LinkIndent = ["  ",Indent],
-    [[Indent,"neighbour:",nl(Single," "),format_report(Rep, LinkIndent, Extra)]|
-     format_link_report(Reps, Indent, Extra)];
-format_link_report(Rep, Indent, Extra) ->
-    format_report(Rep, Indent, Extra).
+    [[Indent,"neighbour:",nl(Single," "),
+      format_report(Rep, LinkIndent, Extra, PartLimit)]|
+     format_link_report(Reps, Indent, Extra, PartLimit)];
+format_link_report(Rep, Indent, Extra, PartLimit) ->
+    format_report(Rep, Indent, Extra, PartLimit).
 
-format_report(Rep, Indent, #{single_line:=Single}=Extra) when is_list(Rep) ->
-    lists:join(nl(Single,", "),format_rep(Rep, Indent, Extra));
-format_report(Rep, Indent0, #{encoding:=Enc,depth:=Depth,
-                              chars_limit:=Limit,single_line:=Single}) ->
+format_report(Rep, Indent, Extra, Limit) when is_list(Rep) ->
+    #{single_line:=Single} = Extra,
+    lists:join(nl(Single, part_separator()),
+               format_rep(Rep, Indent, Extra, Limit));
+format_report(Rep, Indent0, Extra, Limit) ->
+    #{encoding:=Enc, depth:=Depth, single_line:=Single} = Extra,
     {P,Tl} = p(Enc,Depth),
     {Indent,Width} = if Single -> {"","0"};
                         true -> {Indent0,""}
                      end,
-    Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
-              true -> []
-           end,
+    Opts = chars_limit_opt(Limit),
     io_lib:format("~s~"++Width++P, [Indent, Rep | Tl], Opts).
 
-format_rep([{initial_call,InitialCall}|Rep], Indent, Extra) ->
-    [format_mfa(Indent, InitialCall, Extra)|format_rep(Rep, Indent, Extra)];
-format_rep([{error_info,{Class,Reason,StackTrace}}|Rep], Indent, Extra) ->
-    [format_exception(Class, Reason, StackTrace, Extra)|
-     format_rep(Rep, Indent, Extra)];
-format_rep([{Tag,Data}|Rep], Indent, Extra) ->
-    [format_tag(Indent, Tag, Data, Extra)|format_rep(Rep, Indent, Extra)];
-format_rep(_, _, _Extra) ->
+format_rep([{initial_call,InitialCall}|Rep], Indent, Extra, Limit) ->
+    [format_mfa(Indent, InitialCall, Extra, Limit)|
+     format_rep(Rep, Indent, Extra, Limit)];
+format_rep([{Tag,Data}|Rep], Indent, Extra, Limit) ->
+    [format_tag(Indent, Tag, Data, Extra, Limit)|
+     format_rep(Rep, Indent, Extra, Limit)];
+format_rep(_, _, _Extra, _Limit) ->
     [].
 
-format_exception(Class, Reason, StackTrace,
-                 #{encoding:=Enc,depth:=Depth,chars_limit:=Limit,
-                   single_line:=Single}=Extra) ->
-    PF = pp_fun(Extra),
+format_exception(Class, Reason, StackTrace, Extra, Limit) ->
+    #{encoding:=Enc,depth:=Depth, single_line:=Single} = Extra,
     StackFun = fun(M, _F, _A) -> (M =:= erl_eval) or (M =:= ?MODULE) end,
     if Single ->
             {P,Tl} = p(Enc,Depth),
-            Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
-                      true -> []
-                   end,
+            Opts = chars_limit_opt(Limit),
             [atom_to_list(Class), ": ",
              io_lib:format("~0"++P,[{Reason,StackTrace}|Tl],Opts)];
        true ->
+            %% Notice that each call to PF uses chars_limit, which
+            %% means that the total size of the formatted exception
+            %% can exceed the limit a lot.
+            PF = pp_fun(Extra, Enc),
             EI = "    ",
-            [EI, erl_error:format_exception(1+length(EI), Class, Reason,
-                                            StackTrace, StackFun, PF, Enc)]
+            Lim = case Limit of
+                      unlimited -> -1;
+                      _ -> Limit
+                  end,
+            FE = erl_error:format_exception(1+length(EI), Class, Reason,
+                                            StackTrace, StackFun, PF, Enc,
+                                            Lim),
+            [EI, FE]
     end.
 
-format_mfa(Indent0, {M,F,Args}=StartF, #{encoding:=Enc,single_line:=Single}=Extra) ->
+format_mfa(Indent0, {M,F,Args}=StartF, Extra, Limit) ->
+    #{encoding:=Enc,single_line:=Single} = Extra,
     Indent = if Single -> "";
                 true -> Indent0
              end,
     try
 	A = length(Args),
-	[Indent,"initial call: ",atom_to_list(M),$:,to_string(F, Enc),$/,
+	[Indent,"initial call: ",to_string(M, Enc),$:,to_string(F, Enc),$/,
 	 integer_to_list(A)]
     catch
 	error:_ ->
-	    format_tag(Indent, initial_call, StartF, Extra)
+	    format_tag(Indent, initial_call, StartF, Extra, Limit)
     end.
 
 to_string(A, latin1) ->
@@ -870,27 +971,25 @@ to_string(A, latin1) ->
 to_string(A, _) ->
     io_lib:write_atom(A).
 
-pp_fun(#{encoding:=Enc,depth:=Depth,chars_limit:=Limit,single_line:=Single}) ->
+pp_fun(Extra, Enc) ->
+    #{encoding:=Enc,depth:=Depth, single_line:=Single} = Extra,
     {P,Tl} = p(Enc, Depth),
     Width = if Single -> "0";
                true -> ""
             end,
-    Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
-              true -> []
-           end,
-    fun(Term, I) -> 
-            io_lib:format("~" ++ Width ++ "." ++ integer_to_list(I) ++ P,
-                          [Term|Tl], Opts)
+    fun(Term, I, Limit) ->
+            S = io_lib:format("~" ++ Width ++ "." ++ integer_to_list(I) ++ P,
+                              [Term|Tl], [{chars_limit, Limit}]),
+            {S, sub(Limit, S, Enc)}
     end.
 
-format_tag(Indent0, Tag, Data, #{encoding:=Enc,depth:=Depth,chars_limit:=Limit,single_line:=Single}) ->
+format_tag(Indent0, Tag, Data, Extra, Limit) ->
+    #{encoding:=Enc,depth:=Depth,single_line:=Single} = Extra,
     {P,Tl} = p(Enc, Depth),
     {Indent,Width} = if Single -> {"","0"};
                         true -> {Indent0,""}
                      end,
-    Opts = if is_integer(Limit) -> [{chars_limit,Limit}];
-              true -> []
-           end,
+    Opts = chars_limit_opt(Limit),
     io_lib:format("~s~" ++ Width ++ "p: ~" ++ Width ++ ".18" ++ P,
                   [Indent, Tag, Data|Tl], Opts).
 
@@ -902,11 +1001,34 @@ p(Encoding, Depth) ->
     P = modifier(Encoding) ++ Letter,
     {P, Tl}.
 
+report_separator() -> "; ".
+
+part_separator() -> ", ".
+
+chars_limit_opt(CharsLimit) ->
+    [{chars_limit, CharsLimit} || is_integer(CharsLimit)].
+
 modifier(latin1) -> "";
 modifier(_) -> "t".
 
 nl(true,Else) -> Else;
 nl(false,_) -> "\n".
+
+%% Make sure T does change sign.
+sub(T, _, _Enc) when T < 0 -> T;
+sub(T, E, Enc) ->
+    Sz = size(Enc, E),
+    if
+        T >= Sz ->
+            T - Sz;
+        true ->
+            0
+    end.
+
+size(latin1, S) ->
+    iolist_size(S);
+size(_, S) ->
+    string:length(S).
 
 %%% -----------------------------------------------------------
 %%% Stop a process and wait for it to terminate

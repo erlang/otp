@@ -32,6 +32,9 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3, format_status/2]).
 
+%% logger callback
+-export([format_log/1, format_log/2]).
+
 %% For release_handler only
 -export([get_callback_module/1]).
 
@@ -44,10 +47,11 @@
                               {reason,Reason},
                               {offender,extract_child(Child)}]},
                    #{domain=>[otp,sasl],
-                     report_cb=>fun logger:format_otp_report/1,
+                     report_cb=>fun supervisor:format_log/2,
                      logger_formatter=>#{title=>"SUPERVISOR REPORT"},
                      error_logger=>#{tag=>error_report,
-                                     type=>supervisor_report}})).
+                                     type=>supervisor_report,
+                                     report_cb=>fun supervisor:format_log/1}})).
 
 %%--------------------------------------------------------------------------
 
@@ -1430,9 +1434,159 @@ report_progress(Child, SupName) ->
                 report=>[{supervisor,SupName},
                          {started,extract_child(Child)}]},
               #{domain=>[otp,sasl],
-                report_cb=>fun logger:format_otp_report/1,
+                report_cb=>fun supervisor:format_log/2,
                 logger_formatter=>#{title=>"PROGRESS REPORT"},
-                error_logger=>#{tag=>info_report,type=>progress}}).
+                error_logger=>#{tag=>info_report,
+                                type=>progress,
+                                report_cb=>fun supervisor:format_log/1}}).
+
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(LogReport) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(LogReport, Depth), FormatOpts).
+
+limit_report(LogReport, unlimited) ->
+    LogReport;
+limit_report(#{label:={supervisor,progress},
+               report:=[{supervisor,_}=Supervisor,{started,Child}]}=LogReport,
+             Depth) ->
+    LogReport#{report=>[Supervisor,
+                        {started,limit_child_report(Child, Depth)}]};
+limit_report(#{label:={supervisor,_Error},
+               report:=[{supervisor,_}=Supervisor,{errorContext,Ctxt},
+                        {reason,Reason},{offender,Child}]}=LogReport,
+             Depth) ->
+    LogReport#{report=>[Supervisor,
+                        {errorContext,io_lib:limit_term(Ctxt, Depth)},
+                        {reason,io_lib:limit_term(Reason, Depth)},
+                        {offender,limit_child_report(Child, Depth)}]}.
+
+limit_child_report(Report, Depth) ->
+    io_lib:limit_term(Report, Depth).
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default, FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={supervisor,progress},
+                    report:=[{supervisor,SupName},{started,Child}]},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    {ChildFormat,ChildArgs} = format_child_log_single(Child, "Started:"),
+    Format = "Supervisor: "++P++".",
+    Args =
+        case Depth of
+            unlimited ->
+                [SupName];
+            _ ->
+                [SupName,Depth]
+        end,
+    {Format++ChildFormat,Args++ChildArgs};
+format_log_single(#{label:={supervisor,_Error},
+                    report:=[{supervisor,SupName},
+                             {errorContext,Ctxt},
+                             {reason,Reason},
+                             {offender,Child}]},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["Supervisor: ",P,". Context: ",P,
+                            ". Reason: ",P,"."]),
+    {ChildFormat,ChildArgs} = format_child_log_single(Child, "Offender:"),
+    Args =
+        case Depth of
+            unlimited ->
+                [SupName,Ctxt,Reason];
+            _ ->
+                [SupName,Depth,Ctxt,Depth,Reason,Depth]
+        end,
+    {Format++ChildFormat,Args++ChildArgs};
+format_log_single(Report,FormatOpts) ->
+    format_log_multi(Report,FormatOpts).
+
+format_log_multi(#{label:={supervisor,progress},
+                   report:=[{supervisor,SupName},
+                            {started,Child}]},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["    supervisor: ",P,"~n",
+           "    started: ",P,"~n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [SupName,Child];
+            _ ->
+                [SupName,Depth,Child,Depth]
+        end,
+    {Format,Args};
+format_log_multi(#{label:={supervisor,_Error},
+                   report:=[{supervisor,SupName},
+                            {errorContext,Ctxt},
+                            {reason,Reason},
+                            {offender,Child}]},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["    supervisor: ",P,"~n",
+           "    errorContext: ",P,"~n",
+           "    reason: ",P,"~n",
+           "    offender: ",P,"~n"]),
+    Args =
+        case Depth of
+            unlimited ->
+                [SupName,Ctxt,Reason,Child];
+            _ ->
+                [SupName,Depth,Ctxt,Depth,Reason,Depth,Child,Depth]
+        end,
+    {Format,Args}.
+
+format_child_log_single(Child, Tag) ->
+    {id,Id} = lists:keyfind(id, 1, Child),
+    case lists:keyfind(pid, 1, Child) of
+        false ->
+            {nb_children,NumCh} = lists:keyfind(nb_children, 1, Child),
+            {" ~s id=~w,nb_children=~w.", [Tag,Id,NumCh]};
+        T when is_tuple(T) ->
+            {pid,Pid} = lists:keyfind(pid, 1, Child),
+            {" ~s id=~w,pid=~w.", [Tag,Id,Pid]}
+    end.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 format_status(terminate, [_PDict, State]) ->
     State;

@@ -105,7 +105,7 @@
 	 format_status/2]).
 
 %% logger callback
--export([format_log/1]).
+-export([format_log/1, format_log/2]).
 
 %% Internal exports
 -export([init_it/6]).
@@ -647,8 +647,10 @@ try_dispatch(Mod, Func, Msg, State) ->
                          module=>Mod,
                          message=>Msg},
                        #{domain=>[otp],
-                         report_cb=>fun gen_server:format_log/1,
-                         error_logger=>#{tag=>warning_msg}}),
+                         report_cb=>fun gen_server:format_log/2,
+                         error_logger=>
+                             #{tag=>warning_msg,
+                               report_cb=>fun gen_server:format_log/1}}),
                     {ok, {noreply, State}};
                 true ->
                     {'EXIT', error, R, Stacktrace}
@@ -895,8 +897,9 @@ error_info(Reason, Name, From, Msg, Mod, State, Debug) ->
                  reason=>Reason,
                  client_info=>client_stacktrace(From)},
                #{domain=>[otp],
-                 report_cb=>fun gen_server:format_log/1,
-                 error_logger=>#{tag=>error}}),
+                 report_cb=>fun gen_server:format_log/2,
+                 error_logger=>#{tag=>error,
+                                 report_cb=>fun gen_server:format_log/1}}),
     ok.
 
 client_stacktrace(undefined) ->
@@ -915,63 +918,236 @@ client_stacktrace(From) when is_pid(From), node(From) =:= node() ->
 client_stacktrace(From) when is_pid(From) ->
     {From,remote}.
 
-format_log(#{label:={gen_server,terminate},
-             name:=Name,
-             last_message:=Msg,
-             state:=State,
-             log:=Log,
-             reason:=Reason,
-             client_info:=Client}) ->
-    Reason1 = 
-	case Reason of
-	    {undef,[{M,F,A,L}|MFAs]} ->
-		case code:is_loaded(M) of
-		    false ->
-			{'module could not be loaded',[{M,F,A,L}|MFAs]};
-		    _ ->
-			case erlang:function_exported(M, F, length(A)) of
-			    true ->
-				Reason;
-			    false ->
-				{'function not exported',[{M,F,A,L}|MFAs]}
-			end
-		end;
-	    _ ->
-		Reason
-	end,    
-    {ClientFmt,ClientArgs} = format_client_log(Client),
-    [LimitedMsg,LimitedState,LimitedReason|LimitedLog] =
-        [error_logger:limit_term(D) || D <- [Msg,State,Reason1|Log]],
-    {"** Generic server ~tp terminating \n"
-     "** Last message in was ~tp~n"
-     "** When Server state == ~tp~n"
-     "** Reason for termination ==~n** ~tp~n" ++
-         case LimitedLog of
-             [] -> [];
-             _ -> "** Log ==~n** ~tp~n"
-         end ++ ClientFmt,
-     [Name, LimitedMsg, LimitedState, LimitedReason] ++
-         case LimitedLog of
-             [] -> [];
-             _ -> [LimitedLog]
-         end ++ ClientArgs};
-format_log(#{label:={gen_server,no_handle_info},
-             module:=Mod,
-             message:=Msg}) ->
-    {"** Undefined handle_info in ~p~n"
-     "** Unhandled message: ~tp~n",
-     [Mod, error_logger:limit_term(Msg)]}.
 
-format_client_log(undefined) ->
+%% format_log/1 is the report callback used by Logger handler
+%% error_logger only. It is kept for backwards compatibility with
+%% legacy error_logger event handlers. This function must always
+%% return {Format,Args} compatible with the arguments in this module's
+%% calls to error_logger prior to OTP-21.0.
+format_log(Report) ->
+    Depth = error_logger:get_format_depth(),
+    FormatOpts = #{chars_limit => unlimited,
+                   depth => Depth,
+                   single_line => false,
+                   encoding => utf8},
+    format_log_multi(limit_report(Report,Depth),FormatOpts).
+
+limit_report(Report,unlimited) ->
+    Report;
+limit_report(#{label:={gen_server,terminate},
+               last_message:=Msg,
+               state:=State,
+               log:=Log,
+               reason:=Reason,
+               client_info:=Client}=Report,
+            Depth) ->
+    Report#{last_message=>io_lib:limit_term(Msg,Depth),
+            state=>io_lib:limit_term(State,Depth),
+            log=>[io_lib:limit_term(L,Depth)||L<-Log],
+            reason=>io_lib:limit_term(Reason,Depth),
+            client_info=>limit_client_report(Client,Depth)};
+limit_report(#{label:={gen_server,no_handle_info},
+               message:=Msg}=Report,Depth) ->
+    Report#{message=>io_lib:limit_term(Msg,Depth)}.
+
+limit_client_report({From,{Name,Stacktrace}},Depth) ->
+    {From,{Name,io_lib:limit_term(Stacktrace,Depth)}};
+limit_client_report(Client,_) ->
+    Client.
+
+%% format_log/2 is the report callback for any Logger handler, except
+%% error_logger.
+format_log(Report, FormatOpts0) ->
+    Default = #{chars_limit => unlimited,
+                depth => unlimited,
+                single_line => false,
+                encoding => utf8},
+    FormatOpts = maps:merge(Default,FormatOpts0),
+    IoOpts =
+        case FormatOpts of
+            #{chars_limit:=unlimited} ->
+                [];
+            #{chars_limit:=Limit} ->
+                [{chars_limit,Limit}]
+        end,
+    {Format,Args} = format_log_single(Report, FormatOpts),
+    io_lib:format(Format, Args, IoOpts).
+
+format_log_single(#{label:={gen_server,terminate},
+                    name:=Name,
+                    last_message:=Msg,
+                    state:=State,
+                    log:=Log,
+                    reason:=Reason,
+                    client_info:=Client},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format1 = lists:append(["Generic server ",P," terminating. Reason: ",P,
+                            ". Last message: ", P, ". State: ",P,"."]),
+    {ServerLogFormat,ServerLogArgs} = format_server_log_single(Log,FormatOpts),
+    {ClientLogFormat,ClientLogArgs} = format_client_log_single(Client,FormatOpts),
+
+    Args1 =
+        case Depth of
+            unlimited ->
+                [Name,fix_reason(Reason),Msg,State];
+            _ ->
+                [Name,Depth,fix_reason(Reason),Depth,Msg,Depth,State,Depth]
+        end,
+    {Format1++ServerLogFormat++ClientLogFormat,
+     Args1++ServerLogArgs++ClientLogArgs};
+format_log_single(#{label:={gen_server,no_handle_info},
+                    module:=Mod,
+                    message:=Msg},
+                  #{single_line:=true,depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["Undefined handle_info in ",P,
+                           ". Unhandled message: ",P,"."]),
+    Args =
+        case Depth of
+            unlimited ->
+                [Mod,Msg];
+            _ ->
+                [Mod,Depth,Msg,Depth]
+        end,
+    {Format,Args};
+format_log_single(Report,FormatOpts) ->
+    format_log_multi(Report,FormatOpts).
+
+format_log_multi(#{label:={gen_server,terminate},
+                   name:=Name,
+                   last_message:=Msg,
+                   state:=State,
+                   log:=Log,
+                   reason:=Reason,
+                   client_info:=Client},
+                 #{depth:=Depth}=FormatOpts) ->
+    Reason1 = fix_reason(Reason),
+    {ClientFmt,ClientArgs} = format_client_log(Client,FormatOpts),
+    P = p(FormatOpts),
+    Format =
+        lists:append(
+          ["** Generic server ",P," terminating \n"
+           "** Last message in was ",P,"~n"
+           "** When Server state == ",P,"~n"
+           "** Reason for termination ==~n** ",P,"~n"] ++
+               case Log of
+                   [] -> [];
+                   _ -> ["** Log ==~n** ["|
+                         lists:join(",~n    ",lists:duplicate(length(Log),P))]++
+                            ["]~n"]
+               end) ++ ClientFmt,
+    Args =
+        case Depth of
+            unlimited ->
+                [Name, Msg, State, Reason1] ++
+                    case Log of
+                        [] -> [];
+                        _ -> Log
+                    end ++ ClientArgs;
+            _ ->
+                [Name, Depth, Msg, Depth, State, Depth, Reason1, Depth] ++
+                    case Log of
+                        [] -> [];
+                        _ -> lists:flatmap(fun(L) -> [L, Depth] end, Log)
+                    end ++ ClientArgs
+        end,
+    {Format,Args};
+format_log_multi(#{label:={gen_server,no_handle_info},
+                   module:=Mod,
+                   message:=Msg},
+                 #{depth:=Depth}=FormatOpts) ->
+    P = p(FormatOpts),
+    Format =
+        "** Undefined handle_info in ~p~n"
+        "** Unhandled message: "++P++"~n",
+    Args =
+        case Depth of
+            unlimited ->
+                [Mod,Msg];
+            _ ->
+                [Mod,Msg,Depth]
+                    end,
+    {Format,Args}.
+
+fix_reason({undef,[{M,F,A,L}|MFAs]}=Reason) ->
+    case code:is_loaded(M) of
+        false ->
+            {'module could not be loaded',[{M,F,A,L}|MFAs]};
+        _ ->
+            case erlang:function_exported(M, F, length(A)) of
+                true ->
+                    Reason;
+                false ->
+                    {'function not exported',[{M,F,A,L}|MFAs]}
+            end
+    end;
+fix_reason(Reason) ->
+    Reason.
+
+format_server_log_single([],_) ->
+    {"",[]};
+format_server_log_single(Log,FormatOpts) ->
+    Args =
+        case maps:get(depth,FormatOpts) of
+            unlimited ->
+                [Log];
+            Depth ->
+                [Log, Depth]
+        end,
+     {" Log: "++p(FormatOpts),Args}.
+
+format_client_log_single(undefined,_) ->
+    {"",[]};
+format_client_log_single({From,dead},_) ->
+    {" Client ~0p is dead.",[From]};
+format_client_log_single({From,remote},_) ->
+    {" Client ~0p is remote on node ~0p.", [From, node(From)]};
+format_client_log_single({_From,{Name,Stacktrace0}},FormatOpts) ->
+    P = p(FormatOpts),
+    %% Minimize the stacktrace a bit for single line reports. This is
+    %% hopefully enough to point out the position.
+    Stacktrace = lists:sublist(Stacktrace0,4),
+    Args =
+        case maps:get(depth,FormatOpts) of
+            unlimited ->
+                [Name, Stacktrace];
+            Depth ->
+                [Name, Depth, Stacktrace, Depth]
+        end,
+    {" Client "++P++" stacktrace: "++P++".", Args}.
+
+format_client_log(undefined,_) ->
     {"", []};
-format_client_log({From,dead}) ->
+format_client_log({From,dead},_) ->
     {"** Client ~p is dead~n", [From]};
-format_client_log({From,remote}) ->
+format_client_log({From,remote},_) ->
     {"** Client ~p is remote on node ~p~n", [From, node(From)]};
-format_client_log({_From,{Name,Stacktrace}}) ->
-    {"** Client ~tp stacktrace~n"
-     "** ~tp~n",
-     [Name, error_logger:limit_term(Stacktrace)]}.
+format_client_log({_From,{Name,Stacktrace}},FormatOpts) ->
+    P = p(FormatOpts),
+    Format = lists:append(["** Client ",P," stacktrace~n",
+                           "** ",P,"~n"]),
+    Args =
+        case maps:get(depth,FormatOpts) of
+            unlimited ->
+                [Name, Stacktrace];
+            Depth ->
+                [Name, Depth, Stacktrace, Depth]
+        end,
+    {Format,Args}.
+
+p(#{single_line:=Single,depth:=Depth,encoding:=Enc}) ->
+    "~"++single(Single)++mod(Enc)++p(Depth);
+p(unlimited) ->
+    "p";
+p(_Depth) ->
+    "P".
+
+single(true) -> "0";
+single(false) -> "".
+
+mod(latin1) -> "";
+mod(_) -> "t".
 
 %%-----------------------------------------------------------------
 %% Status information

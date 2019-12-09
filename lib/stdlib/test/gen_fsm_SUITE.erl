@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,6 +46,8 @@
 
 -export([hibernate/1,auto_hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
+-export([format_log_1/1, format_log_2/1]).
+
 -export([enter_loop/1]).
 
 %% Exports for apply
@@ -69,7 +71,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [{group, start}, {group, abnormal}, shutdown,
      {group, sys}, hibernate, auto_hibernate, enter_loop, {group, undef_callbacks},
-     undef_in_handle_info, undef_in_terminate].
+     undef_in_handle_info, undef_in_terminate,{group,format_log}].
 
 groups() ->
     [{start, [],
@@ -83,7 +85,8 @@ groups() ->
        get_state, replace_state]},
      {undef_callbacks, [],
       [undef_handle_event, undef_handle_sync_event, undef_handle_info,
-       undef_init, undef_code_change, undef_terminate1, undef_terminate2]}].
+       undef_init, undef_code_change, undef_terminate1, undef_terminate2]},
+     {format_log, [], [format_log_1, format_log_2]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1017,6 +1020,236 @@ undef_in_terminate(Config) when is_list(Config) ->
         exit:{undef, [{?MODULE, terminate, _, _}|_]} ->
             ok
     end.
+
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1, 15),
+    Name = self(),
+    Report = #{label=>{gen_fsm,terminate},
+               name=>Name,
+               last_message=>Term,
+               state_name=>Name,
+               state_data=>Term,
+               log=>[Term],
+               reason=>Term,
+               client_info=>{self(),{clientname,[]}}},
+    {F1,A1} = gen_fsm:format_log(Report),
+    FExpected1 = "** State machine ~tp terminating \n"
+        "** Last message in was ~tp~n"
+        "** When State == ~tp~n"
+        "**      Data  == ~tp~n"
+        "** Reason for termination ==~n** ~tp~n"
+        "** Log ==~n**~tp~n"
+        "** Client ~tp stacktrace~n** ~tp~n",
+    ct:log("F1: ~ts~nA1: ~tp", [F1,A1]),
+    FExpected1=F1,
+
+    [Name,Term,Name,Term,Term,[Term],clientname,[]] = A1,
+
+    Warning = #{label=>{gen_fsm,no_handle_info},
+                module=>?MODULE,
+                message=>Term},
+    {WF1,WA1} = gen_fsm:format_log(Warning),
+    WFExpected1 = "** Undefined handle_info in ~p~n"
+        "** Unhandled message: ~tp~n",
+    ct:log("WF1: ~ts~nWA1: ~tp", [WF1,WA1]),
+    WFExpected1=WF1,
+    [?MODULE,Term] = WA1,
+
+    Depth = 10,
+    ok = application:set_env(kernel, error_logger_format_depth, Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = gen_fsm:format_log(#{label=>{gen_fsm,terminate},
+                                   name=>Name,
+                                   last_message=>Term,
+                                   state_name=>Name,
+                                   state_data=>Term,
+                                   log=>[Term],
+                                   reason=>Term,
+                                   client_info=>{self(),{clientname,[]}}}),
+    FExpected2 =  "** State machine ~tP terminating \n"
+        "** Last message in was ~tP~n"
+        "** When State == ~tP~n"
+        "**      Data  == ~tP~n"
+        "** Reason for termination ==~n** ~tP~n"
+        "** Log ==~n**~tP~n"
+        "** Client ~tP stacktrace~n** ~tP~n",
+    ct:log("F2: ~ts~nA2: ~tp", [F2,A2]),
+    FExpected2=F2,
+
+    [Name,Depth,Limited,Depth,Name,Depth,Limited,Depth,Limited,
+     Depth,[Limited],Depth,clientname,Depth,[],Depth] = A2,
+
+    {WF2,WA2} = gen_fsm:format_log(Warning),
+    WFExpected2 = "** Undefined handle_info in ~p~n"
+        "** Unhandled message: ~tP~n",
+    ct:log("WF2: ~ts~nWA2: ~tp", [WF2,WA2]),
+    WFExpected2=WF2,
+    [?MODULE,Limited,Depth] = WA2,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    Term = lists:seq(1, 15),
+    Name = self(),
+    NameStr = pid_to_list(Name),
+    Report = #{label=>{gen_fsm,terminate},
+               name=>Name,
+               last_message=>Term,
+               state_name=>Name,
+               state_data=>Term,
+               log=>[Term],
+               reason=>Term,
+               client_info=>{self(),{clientname,[]}}},
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "** State machine "++NameStr++" terminating \n"
+        "** Last message in was [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "** When State == "++NameStr++"\n"
+        "**      Data  == [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "** Reason for termination ==\n"
+        "** [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "** Log ==\n"
+        "**[[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]\n"
+        "** Client clientname stacktrace\n"
+        "** []\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    true = Expected1 =:= Str1,
+
+    Warning = #{label=>{gen_fsm,no_handle_info},
+                module=>?MODULE,
+                message=>Term},
+    WStr1 = flatten_format_log(Warning, FormatOpts1),
+    WL1 = length(WStr1),
+    WExpected1 = "** Undefined handle_info in gen_fsm_SUITE\n"
+        "** Unhandled message: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n",
+    ct:log("WStr1: ~ts", [WStr1]),
+    ct:log("length(WStr1): ~p", [WL1]),
+    true = WExpected1 =:= WStr1,
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "** State machine "++NameStr++" terminating \n"
+        "** Last message in was [1,2,3,4,5,6,7,8,9|...]\n"
+        "** When State == "++NameStr++"\n"
+        "**      Data  == [1,2,3,4,5,6,7,8,9|...]\n"
+        "** Reason for termination ==\n"
+        "** [1,2,3,4,5,6,7,8,9|...]\n"
+        "** Log ==\n"
+        "**[[1,2,3,4,5,6,7,8|...]]\n"
+        "** Client clientname stacktrace\n"
+        "** []\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    true = Expected2 =:= Str2,
+
+    WStr2 = flatten_format_log(Warning, FormatOpts2),
+    WL2 = length(WStr2),
+    WExpected2 = "** Undefined handle_info in gen_fsm_SUITE\n"
+        "** Unhandled message: [1,2,3,4,5,6,7,8,9|...]\n",
+    ct:log("WStr2: ~ts", [WStr2]),
+    ct:log("length(WStr2): ~p", [WL2]),
+    true = WExpected2 =:= WStr2,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "** State machine "++NameStr++" terminating \n"
+        "** Last ",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = lists:prefix(Expected3, Str3),
+    true = L3 < L1,
+
+    WFormatOpts3 = #{chars_limit=>80},
+    WStr3 = flatten_format_log(Warning, WFormatOpts3),
+    WL3 = length(WStr3),
+    WExpected3 = "** Undefined handle_info in gen_fsm_SUITE",
+    ct:log("WStr3: ~ts", [WStr3]),
+    ct:log("length(WStr3): ~p", [WL3]),
+    true = lists:prefix(WExpected3, WStr3),
+    true = WL3 < WL1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+    Expected4 = "State machine "++NameStr++" terminating. "
+        "Reason: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "Last event: [[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]. "
+        "State: "++NameStr++". "
+        "Data: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "Log: [[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]]. "
+        "Client clientname stacktrace: [].",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    true = Expected4 =:= Str4,
+
+    WStr4 = flatten_format_log(Warning, FormatOpts4),
+    WL4 = length(WStr4),
+    WExpected4 = "Undefined handle_info in gen_fsm_SUITE. "
+        "Unhandled message: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].",
+    ct:log("WStr4: ~ts", [WStr4]),
+    ct:log("length(WStr4): ~p", [WL4]),
+    true = WExpected4 =:= WStr4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "State machine "++NameStr++" terminating. "
+        "Reason: [1,2,3,4,5,6,7,8,9|...]. "
+        "Last event: [[1,2,3,4,5,6,7,8|...]]. "
+        "State: "++NameStr++". "
+        "Data: [1,2,3,4,5,6,7,8,9|...]. "
+        "Log: [[1,2,3,4,5,6,7,8|...]]. "
+        "Client clientname stacktrace: [].",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    true = Expected5 =:= Str5,
+
+    WStr5 = flatten_format_log(Warning, FormatOpts5),
+    WL5 = length(WStr5),
+    WExpected5 = "Undefined handle_info in gen_fsm_SUITE. "
+        "Unhandled message: [1,2,3,4,5,6,7,8,9|...].",
+    ct:log("WStr5: ~ts", [WStr5]),
+    ct:log("length(WStr5): ~p", [WL5]),
+    true = WExpected5 =:= WStr5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>200},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "State machine "++NameStr++" terminating. Reason: ",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    WFormatOpts6 = #{single_line=>true, chars_limit=>80},
+    WStr6 = flatten_format_log(Warning, WFormatOpts6),
+    WL6 = length(WStr6),
+    WExpected6 = "Undefined handle_info in gen_fsm_SUITE. "
+        "Unhandled message: ",
+    ct:log("WStr6: ~ts", [WStr6]),
+    ct:log("length(WStr6): ~p", [WL6]),
+    true = lists:prefix(WExpected6, WStr6),
+    true = WL6 < WL4,
+
+    ok.
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(gen_fsm:format_log(Report, Format)).
 
 %%
 %% Functionality check

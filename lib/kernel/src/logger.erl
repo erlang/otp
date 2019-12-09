@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2019. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -570,8 +570,8 @@ set_application_level(App,Level) ->
             {error, {not_loaded, App}}
     end.
 
--spec unset_application_level(Application) -> ok | {error, not_loaded} when
-      Application :: atom().
+-spec unset_application_level(Application) ->
+         ok | {error, {not_loaded, Application}} when Application :: atom().
 unset_application_level(App) ->
     case application:get_key(App, modules) of
         {ok, Modules} ->

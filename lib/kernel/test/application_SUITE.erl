@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -39,7 +39,8 @@
 	 distr_changed_tc1/1, distr_changed_tc2/1,
 	 ensure_started/1, ensure_all_started/1,
 	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1, shutdown_deadlock/1,
-         config_relative_paths/1, handle_many_config_files/1]).
+         config_relative_paths/1, handle_many_config_files/1,
+         format_log_1/1, format_log_2/1]).
 
 -define(TESTCASE, testcase_name).
 -define(testcase, proplists:get_value(?TESTCASE, Config)).
@@ -59,7 +60,7 @@ all() ->
      set_env, set_env_persistent, set_env_errors,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
      shutdown_deadlock, config_relative_paths,
-     persistent_env, handle_many_config_files].
+     persistent_env, handle_many_config_files, format_log_1, format_log_2].
 
 groups() -> 
     [{reported_bugs, [],
@@ -3033,6 +3034,188 @@ distr_changed_prep(Conf) when is_list(Conf) ->
     {value, {kernel, OldKernel}} = lists:keysearch(kernel, 1, OldEnv),
     {OldKernel, OldEnv, {Cp1, Cp2, Cp3}, {Ncp1, Ncp2, Ncp3}, Config2}.
 
+%% Test report callback for Logger handler error_logger
+format_log_1(_Config) ->
+    FD = application:get_env(kernel, error_logger_format_depth),
+    application:unset_env(kernel, error_logger_format_depth),
+    Term = lists:seq(1, 15),
+    Application = my_application,
+    Error = exit,
+    Node = Term,
+    Report = #{label=>{application_controller,Error},
+               report=>[{application,Application},
+                        {exited,Term},
+                        {type,Term}]},
+    {F1, A1} = application_controller:format_log(Report),
+    FExpected1 = "    application: ~tp~n"
+        "    exited: ~tp~n"
+        "    type: ~tp~n",
+    ct:log("F1: ~ts~nA1: ~tp", [F1,A1]),
+    FExpected1 = F1,
+    [Application,Term,Term] = A1,
+
+    Progress = #{label=>{application_controller,progress},
+                 report=>[{application,Application},{started_at,Node}]},
+    {PF1,PA1} = application_controller:format_log(Progress),
+    PFExpected1 = "    application: ~tp~n    started_at: ~tp~n",
+    ct:log("PF1: ~ts~nPA1: ~tp", [PF1,PA1]),
+    PFExpected1 = PF1,
+    [Application,Node] = PA1,
+
+    Depth = 10,
+    ok = application:set_env(kernel, error_logger_format_depth, Depth),
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    {F2,A2} = application_controller:format_log(Report),
+    FExpected2 = "    application: ~tP~n"
+        "    exited: ~tP~n"
+        "    type: ~tP~n",
+    ct:log("F2: ~ts~nA2: ~tp", [F2,A2]),
+    FExpected2 = F2,
+    Limited = [1,2,3,4,5,6,7,8,9,'...'],
+    [Application,Depth,Limited,Depth,Limited,Depth] = A2,
+
+    {PF2,PA2} = application_controller:format_log(Progress),
+    PFExpected2 = "    application: ~tP~n    started_at: ~tP~n",
+    ct:log("PF2: ~ts~nPA2: ~tp", [PF2,PA2]),
+    PFExpected2 = PF2,
+    [Application,Depth,Limited,Depth] = PA2,
+
+    case FD of
+        undefined ->
+            application:unset_env(kernel, error_logger_format_depth);
+        _ ->
+            application:set_env(kernel, error_logger_format_depth, FD)
+    end,
+    ok.
+
+%% Test report callback for any Logger handler
+format_log_2(_Config) ->
+    Term = lists:seq(1, 15),
+    Application = my_application,
+    Error = exit,
+    Node = Term,
+    Report = #{label=>{application_controller,Error},
+               report=>[{application,Application},
+                        {exited,Term},
+                        {type,Term}]},
+    FormatOpts1 = #{},
+    Str1 = flatten_format_log(Report, FormatOpts1),
+    L1 = length(Str1),
+    Expected1 = "    application: my_application\n"
+        "    exited: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "    type: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n",
+    ct:log("Str1: ~ts", [Str1]),
+    ct:log("length(Str1): ~p", [L1]),
+    true = Expected1 =:= Str1,
+
+    Progress = #{label=>{application_controller,progress},
+                 report=>[{application,Application},{started_at,Node}]},
+    PStr1 = flatten_format_log(Progress, FormatOpts1),
+    PL1 = length(PStr1),
+    PExpected1 = "    application: my_application\n"
+        "    started_at: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n",
+    ct:log("PStr1: ~ts", [PStr1]),
+    ct:log("length(PStr1): ~p", [PL1]),
+    true = PExpected1 =:= PStr1,
+
+    Depth = 10,
+    FormatOpts2 = #{depth=>Depth},
+    Str2 = flatten_format_log(Report, FormatOpts2),
+    L2 = length(Str2),
+    Expected2 = "    application: my_application\n"
+        "    exited: [1,2,3,4,5,6,7,8,9|...]\n"
+        "    type: [1,2,3,4,5,6,7,8,9|...]\n",
+    ct:log("Str2: ~ts", [Str2]),
+    ct:log("length(Str2): ~p", [L2]),
+    true = Expected2 =:= Str2,
+
+    PStr2 = flatten_format_log(Progress, FormatOpts2),
+    PL2 = length(PStr2),
+    PExpected2 = "    application: my_application\n"
+        "    started_at: [1,2,3,4,5,6,7,8,9|...]\n",
+    ct:log("PStr2: ~ts", [PStr2]),
+    ct:log("length(PStr2): ~p", [PL2]),
+    true = PExpected2 =:= PStr2,
+
+    FormatOpts3 = #{chars_limit=>200},
+    Str3 = flatten_format_log(Report, FormatOpts3),
+    L3 = length(Str3),
+    Expected3 = "    application: my_application\n"
+        "    exited: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
+        "    type: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n",
+    ct:log("Str3: ~ts", [Str3]),
+    ct:log("length(Str3): ~p", [L3]),
+    true = Expected3 =:= Str3,
+
+    PFormatOpts3 = #{chars_limit=>80},
+    PStr3 = flatten_format_log(Progress, PFormatOpts3),
+    PL3 = length(PStr3),
+    PExpected3 = "    application: my_application\n"
+        "    started_at:",
+    ct:log("PStr3: ~ts", [PStr3]),
+    ct:log("length(PStr3): ~p", [PL3]),
+    true = lists:prefix(PExpected3, PStr3),
+    true = PL3 < PL1,
+
+    FormatOpts4 = #{single_line=>true},
+    Str4 = flatten_format_log(Report, FormatOpts4),
+    L4 = length(Str4),
+
+    Expected4 = "Application: my_application. "
+        "Exited: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]. "
+        "Type: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].",
+    ct:log("Str4: ~ts", [Str4]),
+    ct:log("length(Str4): ~p", [L4]),
+    true = Expected4 =:= Str4,
+
+    PStr4 = flatten_format_log(Progress, FormatOpts4),
+    PL4 = length(PStr4),
+    PExpected4 = "Application: my_application. "
+        "Started at: [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15].",
+    ct:log("PStr4: ~ts", [PStr4]),
+    ct:log("length(PStr4): ~p", [PL4]),
+    true = PExpected4 =:= PStr4,
+
+    FormatOpts5 = #{single_line=>true, depth=>Depth},
+    Str5 = flatten_format_log(Report, FormatOpts5),
+    L5 = length(Str5),
+    Expected5 = "Application: my_application. "
+        "Exited: [1,2,3,4,5,6,7,8,9|...]. "
+        "Type: [1,2,3,4,5,6,7,8,9|...].",
+    ct:log("Str5: ~ts", [Str5]),
+    ct:log("length(Str5): ~p", [L5]),
+    true = Expected5 =:= Str5,
+
+    PStr5 = flatten_format_log(Progress, FormatOpts5),
+    PL5 = length(PStr5),
+    PExpected5 = "Application: my_application. "
+        "Started at: [1,2,3,4,5,6,7,8,9|...].",
+    ct:log("PStr5: ~ts", [PStr5]),
+    ct:log("length(PStr5): ~p", [PL5]),
+    true = PExpected5 =:= PStr5,
+
+    FormatOpts6 = #{single_line=>true, chars_limit=>100},
+    Str6 = flatten_format_log(Report, FormatOpts6),
+    L6 = length(Str6),
+    Expected6 = "Application: my_application. Exited:",
+    ct:log("Str6: ~ts", [Str6]),
+    ct:log("length(Str6): ~p", [L6]),
+    true = lists:prefix(Expected6, Str6),
+    true = L6 < L4,
+
+    PFormatOpts6 = #{single_line=>true, chars_limit=>60},
+    PStr6 = flatten_format_log(Progress, PFormatOpts6),
+    PL6 = length(PStr6),
+    PExpected6 = "Application: my_application. Started at:",
+    ct:log("PStr6: ~ts", [PStr6]),
+    ct:log("length(PStr6): ~p", [PL6]),
+    true = lists:prefix(PExpected6, PStr6),
+    true = PL6 < PL4,
+
+    ok.
+
+flatten_format_log(Report, Format) ->
+    lists:flatten(application_controller:format_log(Report, Format)).
 
 %%% Copied from init_SUITE.erl.
 is_real_system(KernelVsn, StdlibVsn) ->
