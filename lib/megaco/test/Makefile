@@ -194,24 +194,11 @@ help:
 	@echo "    clean "
 	@echo "      Remove all targets. "
 	@echo ""
-	@echo "    codec"
-	@echo "      Run the $(APPLICATION) codec sub-test-suite(s). "
-	@echo ""
-	@echo ""
 
 
 # ----------------------------------------------------
 # Special Targets
 # ----------------------------------------------------
-
-call: make
-	@echo "make sure epmd is new"
-	@epmd -kill > /dev/null
-	@echo "Running all codec sub-suites separatelly"
-	@for i in $(CODEC_CASES); do \
-            echo "SUITE: $$i"; \
-            clearmake -V $$i > $$i.log; \
-        done
 
 make: targets
 
@@ -290,32 +277,6 @@ encode_pretty_prof2: make
 
 ##########################
 
-tickets: make
-	$(MERL) $(ARGS) -sname megaco_tickets $(ERL_PATH) \
-            -s megaco_test_lib tickets $(SUITE) \
-            $(ESTOP)
-
-
-##########################
-
-codec: make
-	$(MERL) $(ARGS) -sname megaco_codec $(ERL_PATH) \
-            -s megaco_test_lib t megaco_codec_test \
-            $(MAYBE_ESTOP)
-
-codec3: make
-	$(MERL) $(ARGS) -sname megaco_codec3 $(ERL_PATH) \
-            -s megaco_test_lib t megaco_codec_v3_test \
-            $(MAYBE_ESTOP)
-
-codec3_tickets: make
-	$(MERL) $(ARGS) -sname megaco_codec3_tickets $(ERL_PATH) \
-            -s megaco_codec_v3_test tickets \
-            $(ESTOP)
-
-
-##########################
-
 time1: make
 	$(MERL) $(ARGS) -sname megaco_time1 $(ERL_PATH) \
             -run megaco_codec_v1_SUITE tt $(TT_DIR) \
@@ -338,7 +299,7 @@ timeo2: make
 
 timeo3: make
 	$(MERL) $(ARGS) -sname megaco_timeo3 $(ERL_PATH) \
-            -run megaco_codec_v3_test tt_official $(TT_DIR) \
+            -run megaco_codec_v3_SUITE tt_official $(TT_DIR) \
             $(ESTOP)
 
 timet1: make
@@ -353,7 +314,7 @@ timet2: make
 
 timet3: make
 	$(MERL) $(ARGS) -sname megaco_timet3 $(ERL_PATH) \
-            -run megaco_codec_v3_test tt_texts $(TT_DIR) \
+            -run megaco_codec_v3_SUITE tt_texts $(TT_DIR) \
             $(ESTOP)
 
 timeb1: make
@@ -368,7 +329,7 @@ timeb2: make
 
 timeb3: make
 	$(MERL) $(ARGS) -sname megaco_timeb3 $(ERL_PATH) \
-            -run megaco_codec_v3_test tt_bins $(TT_DIR) \
+            -run megaco_codec_v3_SUITE tt_bins $(TT_DIR) \
             $(ESTOP)
 
 
@@ -426,19 +387,19 @@ generate_prev3c: make
 
 display_v3: make
 	$(MERL) $(ARGS) -sname megaco_display_text_msgs_v3 $(ERL_PATH) \
-            -s megaco_codec_v3_test display_text_messages \
+            -s megaco_codec_v3_SUITE display_text_messages \
             $(ESTOP)
 
 generate_v3: make
 	$(MERL) $(ARGS) -sname megaco_generate_text_msgs_v3 $(ERL_PATH) \
-            -s megaco_codec_v3_test generate_text_messages \
+            -s megaco_codec_v3_SUITE generate_text_messages \
             $(ESTOP)
 
 generate: make
 	$(MERL) $(ARGS) -sname megaco_generate_text_msgs $(ERL_PATH) \
             -s megaco_codec_v1_SUITE generate_text_messages \
             -s megaco_codec_v2_SUITE generate_text_messages \
-            -s megaco_codec_v3_test generate_text_messages \
+            -s megaco_codec_v3_SUITE generate_text_messages \
             $(ESTOP)
 
 node:

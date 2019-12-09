@@ -28,10 +28,8 @@ BEHAVIOUR_MODULES = \
 TEST_UTIL_MODULES = \
 	$(BEHAVIOUR_MODULES) \
 	megaco_call_flow_test \
-	megaco_codec_test \
 	megaco_codec_test_lib \
 	megaco_codec_flex_lib \
-	megaco_codec_v3_test \
 	megaco_mess_user_test \
 	megaco_mess_otp8212_test \
 	megaco_profile \
@@ -54,7 +52,6 @@ TEST_UTIL_MODULES = \
 	megaco_test_lib
 
 SUITE_MODULES = \
-	megaco_SUITE \
 	megaco_actions_SUITE \
 	megaco_app_SUITE \
 	megaco_binary_term_id_SUITE \
@@ -64,6 +61,7 @@ SUITE_MODULES = \
 	megaco_codec_prev3a_SUITE \
 	megaco_codec_prev3b_SUITE \
 	megaco_codec_prev3c_SUITE \
+	megaco_codec_v3_SUITE \
 	megaco_config_SUITE \
 	megaco_digit_map_SUITE \
 	megaco_examples_SUITE \
