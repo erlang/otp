@@ -337,7 +337,7 @@ timeb3: make
 
 gnuplot_gif: make
 	$(MERL) $(ARGS) -sname megaco_gnuplot_gif $(ERL_PATH) \
-            -s megaco_call_flow_test gnuplot_gif \
+            -s megaco_call_flow_SUITE gnuplot_gif \
             $(ESTOP)
 
 display_v1: make
