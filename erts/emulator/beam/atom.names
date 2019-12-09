@@ -293,6 +293,7 @@ atom Ge='>='
 atom generational
 atom get_all_trap
 atom get_iovec
+atom get_internal_state_blocked
 atom get_seq_token
 atom get_size
 atom get_tcw
