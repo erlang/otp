@@ -2574,16 +2574,18 @@ http_request_inetdrv(void* arg, const http_atom_t* meth, const char* meth_ptr,
 }
 
 static int
-http_header_inetdrv(void* arg, const http_atom_t* name, const char* name_ptr,
-		    int name_len, const char* value_ptr, int value_len)
+http_header_inetdrv(void* arg, const http_atom_t* name,
+		    const char* name_ptr, int name_len,
+		    const char* oname_ptr, int oname_len,
+		    const char* value_ptr, int value_len)
 {
     tcp_descriptor* desc = (tcp_descriptor*) arg;
     int i = 0;
-    ErlDrvTermData spec[26];
+    ErlDrvTermData spec[27];
     ErlDrvTermData caller = ERL_DRV_NIL;
     
     if (desc->inet.active == INET_PASSIVE) {
-        /* {inet_async,S,Ref,{ok,{http_header,Bit,Name,IValue,Value}} */
+        /* {inet_async,S,Ref,{ok,{http_header,Bit,Name,Oname,Value}} */
         int req;
         int aid;
         
@@ -2596,7 +2598,7 @@ http_header_inetdrv(void* arg, const http_atom_t* name, const char* name_ptr,
         i = LOAD_ATOM(spec, i,  am_ok);
     }
     else {
-        /* {http, S, {http_header,Bit,Name,IValue,Value}} */
+        /* {http, S, {http_header,Bit,Name,Oname,Value}} */
         i = LOAD_ATOM(spec, i, am_http);
         i = LOAD_PORT(spec, i, desc->inet.dport);
     }
@@ -2610,19 +2612,19 @@ http_header_inetdrv(void* arg, const http_atom_t* name, const char* name_ptr,
       i = LOAD_INT(spec, i,  0);
       i = http_load_string(desc, spec, i, name_ptr, name_len);
     }
-    i = LOAD_ATOM(spec, i, am_undefined);
+    i = http_load_string(desc, spec, i, oname_ptr, oname_len);
     i = http_load_string(desc, spec, i, value_ptr, value_len);
     i = LOAD_TUPLE(spec, i, 5);
 
     if (desc->inet.active == INET_PASSIVE) {
         i = LOAD_TUPLE(spec, i, 2);
         i = LOAD_TUPLE(spec, i, 4);
-        ASSERT(i <= 26);
+        ASSERT(i <= 27);
         return erl_drv_send_term(desc->inet.dport, caller, spec, i);
     }
     else {
         i = LOAD_TUPLE(spec, i, 3);
-        ASSERT(i <= 26);
+        ASSERT(i <= 27);
         return erl_drv_output_term(desc->inet.dport, spec, i);
     }
 }

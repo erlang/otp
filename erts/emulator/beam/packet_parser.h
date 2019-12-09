@@ -77,8 +77,10 @@ typedef int HttpResponseMessageFn(void* arg, int major, int minor, int status,
 typedef int HttpRequestMessageFn(void* arg, const http_atom_t* meth, const char* meth_ptr,
 				 int meth_len, const PacketHttpURI*, int major, int minor);
 typedef int HttpEohMessageFn(void *arg);
-typedef int HttpHeaderMessageFn(void* arg, const http_atom_t* name, const char* name_ptr,
-				int name_len, const char* value_ptr, int value_len);
+typedef int HttpHeaderMessageFn(void* arg, const http_atom_t* name,
+				const char* name_ptr, int name_len,
+				const char* oname_ptr, int oname_len,
+				const char* value_ptr, int value_len);
 typedef int HttpErrorMessageFn(void* arg, const char* buf, int len);
 typedef int SslTlsFn(void* arg, unsigned type, unsigned major, unsigned minor,
                      const char* data, int len, const char* prefix, int plen);

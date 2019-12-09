@@ -1130,7 +1130,7 @@ server_send_trailer(Socket, Trailer)->
 client_http_decode_trailer_active(Socket) ->
     receive
 	{ssl, Socket,
-	 {http_header,36,'Content-Encoding',undefined,"gzip"}} ->
+	 {http_header,36,'Content-Encoding',"Content-Encoding","gzip"}} ->
 	    ok;
 	Other1 ->
 	    exit({?LINE, Other1})
@@ -1180,7 +1180,7 @@ packet_httph_bin_active(Config) when is_list(Config) ->
 client_http_decode_trailer_bin_active(Socket) ->
     receive
 	{ssl, Socket,
-	 {http_header,36,'Content-Encoding',undefined, <<"gzip">>}} ->
+	 {http_header,36,'Content-Encoding',<<"Content-Encoding">>, <<"gzip">>}} ->
 	    ok;
 	Other1 ->
 	    exit({?LINE, Other1})
@@ -1232,7 +1232,7 @@ client_http_decode_trailer_active_once(Socket) ->
     ssl:setopts(Socket, [{active, once}]),
     receive
 	{ssl, Socket,
-	 {http_header,36,'Content-Encoding',undefined,"gzip"}} ->
+	 {http_header,36,'Content-Encoding',"Content-Encoding","gzip"}} ->
 	    ok;
 	Other1 ->
 	    exit({?LINE, Other1})
@@ -1284,7 +1284,7 @@ client_http_decode_trailer_bin_active_once(Socket) ->
     ssl:setopts(Socket, [{active, once}]),
     receive
 	{ssl, Socket,
-	 {http_header,36,'Content-Encoding',undefined, <<"gzip">>}} ->
+	 {http_header,36,'Content-Encoding',<<"Content-Encoding">>, <<"gzip">>}} ->
 	    ok;
 	Other1 ->
 	    exit({?LINE, Other1})
@@ -1335,7 +1335,7 @@ packet_httph_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 client_http_decode_trailer_passive(Socket) ->
-    {ok,{http_header,36,'Content-Encoding',undefined,"gzip"}} = ssl:recv(Socket, 0),
+    {ok,{http_header,36,'Content-Encoding',"Content-Encoding","gzip"}} = ssl:recv(Socket, 0),
     {ok, http_eoh} = ssl:recv(Socket, 0),
     ok.
 
@@ -1375,7 +1375,7 @@ packet_httph_bin_passive(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 client_http_decode_trailer_bin_passive(Socket) ->
-    {ok,{http_header,36,'Content-Encoding',undefined,<<"gzip">>}} = ssl:recv(Socket, 0),
+    {ok,{http_header,36,'Content-Encoding',<<"Content-Encoding">>,<<"gzip">>}} = ssl:recv(Socket, 0),
     {ok, http_eoh} = ssl:recv(Socket, 0),
     ok.
 
