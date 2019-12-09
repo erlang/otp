@@ -102,4 +102,7 @@
 -define(ANNOUNCE_GROUP_INIT(GR),
 	io:format(user, "~n*** ~s *** group ~w:~w init~n~n", 
 		  [?FTS(), ?MODULE, GR])).
+-define(ANNOUNCE_CASE_INIT(C),
+	io:format(user, "~n*** ~s *** case ~w:~w init~n~n", 
+		  [?FTS(), ?MODULE, C])).
 

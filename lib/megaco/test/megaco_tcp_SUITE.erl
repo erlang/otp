@@ -93,9 +93,11 @@ all() ->
     ].
 
 groups() -> 
-    [{start,   [], start_cases()},
+    [
+     {start,   [], start_cases()},
      {sending, [], sending_cases()},
-     {error,   [], error_cases()}].
+     {error,   [], error_cases()}
+    ].
 
 start_cases() ->
     [
@@ -129,6 +131,8 @@ init_per_suite(suite) ->
 init_per_suite(doc) ->
     [];
 init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
 
     p("init_per_suite -> entry with"
       "~n      Config: ~p"
@@ -171,7 +175,8 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(_GroupName, Config) ->
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
 end_per_group(_GroupName, Config) ->

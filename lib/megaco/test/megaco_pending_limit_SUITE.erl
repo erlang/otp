@@ -129,8 +129,6 @@
 -define(MG_ECC(Pid, M, T, F),  megaco_test_mg:enable_test_code(Pid,M,T,F)).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 %%======================================================================
 %% Common Test interface functions
 %%======================================================================
@@ -146,7 +144,8 @@ all() ->
     ].
 
 groups() -> 
-    [{sent,    [], sent_cases()},
+    [
+     {sent,    [], sent_cases()},
      {recv,    [], recv_cases()},
      {tickets, [], tickets_cases()}
     ].
@@ -229,10 +228,11 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(_GroupName, Config) ->
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
-end_per_group(_GroupName, Config) ->
+end_per_group(_Group, Config) ->
     Config.
 
 

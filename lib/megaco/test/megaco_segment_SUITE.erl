@@ -152,10 +152,11 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(_GroupName, Config) ->
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
-end_per_group(_GroupName, Config) ->
+end_per_group(_Group, Config) ->
     Config.
 
 

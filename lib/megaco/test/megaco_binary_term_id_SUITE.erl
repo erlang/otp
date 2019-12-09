@@ -122,7 +122,7 @@ init_per_suite(doc) ->
     [];
 init_per_suite(Config0) when is_list(Config0) ->
 
-    io:format(user, "suite ~w init~n~n", [?MODULE]),
+    ?ANNOUNCE_SUITE_INIT(),
 
     p("init_per_suite -> entry with"
       "~n      Config: ~p"

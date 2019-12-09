@@ -434,6 +434,8 @@ init_per_suite(doc) ->
     [];
 init_per_suite(Config0) when is_list(Config0) ->
 
+    ?ANNOUNCE_SUITE_INIT(),
+
     p("init_per_suite -> entry with"
       "~n      Config: ~p"
       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
@@ -475,10 +477,13 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(_GroupName, Config) ->
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+
     p("init_per_group -> entry with"
       "~n   Config: ~p"
       "~n", [Config]),
+
     Config.
 
 end_per_group(_GroupName, Config) ->

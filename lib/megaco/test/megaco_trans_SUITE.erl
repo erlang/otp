@@ -257,7 +257,8 @@ end_per_suite(Config0) when is_list(Config0) ->
 %% -----
 %%
 
-init_per_group(_GroupName, Config) ->
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
 end_per_group(_GroupName, Config) ->
@@ -9510,8 +9511,7 @@ print2(true, P, F, A) ->
     S  = ?F("*** [~s] ~s ~p ~w ***"
             "~n   " ++ F ++ "~n"
             "~n", [?FTS(), P, self(), get(tc) | A]),
-    io:format("~s", [S]),
-    io:format(user, "~s", [S]);
+    io:format("~s", [S]);
 print2(_, _, _, _) ->
     ok.
 

@@ -34,6 +34,7 @@
         ]).
 
 -include_lib("common_test/include/ct.hrl").
+-include("megaco_test_lib.hrl").
 
 
 %%--------------------------------------------------------------------
@@ -55,6 +56,7 @@ all() ->
 %%
 
 init_per_suite(Config) when is_list(Config) ->
+    ?ANNOUNCE_SUITE_INIT(),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
