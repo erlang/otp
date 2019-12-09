@@ -186,14 +186,13 @@ dump_core(#core_search_conf{ cerl = false }, _) ->
 dump_core(_, {ignore, _Core}) ->
     ok;
 dump_core(#core_search_conf{ cerl = Cerl }, Core) ->
-    Dump = case test_server:is_debug() of
-	       true ->
-		   os:cmd(Cerl ++ " -debug -dump " ++ Core);
-	       _ ->
-		   os:cmd(Cerl ++ " -dump " ++ Core)
-	   end,
+    Dump = case erlang:system_info(build_type) of
+               opt ->
+                   os:cmd(Cerl ++ " -dump " ++ Core);
+               Type ->
+		   os:cmd(lists:concat([Cerl," -",Type," -dump ",Core]))
+           end,
     ct:log("~ts~n~n~ts",[Core,Dump]).
-
 
 format_core(Conf, {ignore, Core}) ->
     format_core(Conf, Core, "[ignored] ");
@@ -230,17 +229,24 @@ core_file_search(#core_search_conf{search_dir = Base,
 				   extra_search_dir = XBase,
 				   cerl = Cerl,
 				   run_by_ts = RunByTS} = Conf) ->
-    case {Cerl,test_server:is_debug()} of
+    case {Cerl,erlang:system_info(build_type)} of
 	{false,_} -> ok;
-	{_,true} ->
-	    catch io:format("A cerl script that probably can be used for "
-			    "inspection of emulator cores:~n  ~s -debug~n",
-			    [Cerl]);
-	_ ->
+	{_,opt} ->
 	    catch io:format("A cerl script that probably can be used for "
 			    "inspection of emulator cores:~n  ~s~n",
-			    [Cerl])
+			    [Cerl]);
+	{_,Type} ->
+	    catch io:format("A cerl script that probably can be used for "
+			    "inspection of emulator cores:~n  ~s -emu_type ~p~n",
+			    [Cerl,Type])
     end,
+
+    case os:getenv("DOCKER_BUILD_INFO") of
+        false -> ok;
+        Info ->
+            io:format(Info)
+    end,
+
     io:format("Searching for core-files in: ~s~s~n",
 	      [case XBase of
 		   false -> "";
