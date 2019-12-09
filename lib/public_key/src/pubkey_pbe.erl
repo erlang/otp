@@ -39,23 +39,22 @@
 %%--------------------------------------------------------------------
 encode(Data, Password, "DES-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_encrypt(des_cbc, Key, IV, pbe_pad(Data, block_size(des_cbc)));
+    crypto:crypto_one_time(des_cbc, Key, IV, pbe_pad(Data, block_size(des_cbc)), true);
 encode(Data, Password, "DES-EDE3-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    <<Key1:8/binary, Key2:8/binary, Key3:8/binary>> = Key,
-    crypto:block_encrypt(des3_cbc, [Key1, Key2, Key3], IV,  pbe_pad(Data, block_size(des_3ede)));
+    crypto:crypto_one_time(des_ede3_cbc, Key, IV,  pbe_pad(Data, block_size(des_ede3_cbc)), true);
 encode(Data, Password, "RC2-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_encrypt(rc2_cbc, Key, IV,  pbe_pad(Data, block_size(rc2_cbc)));
+    crypto:crypto_one_time(rc2_cbc, Key, IV,  pbe_pad(Data, block_size(rc2_cbc)), true);
 encode(Data, Password, "AES-128-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_encrypt(aes_128_cbc, Key, IV,  pbe_pad(Data, block_size(aes_128_cbc)));
+    crypto:crypto_one_time(aes_128_cbc, Key, IV,  pbe_pad(Data, block_size(aes_128_cbc)), true);
 encode(Data, Password, "AES-192-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_encrypt(aes_192_cbc, Key, IV,  pbe_pad(Data, block_size(aes_192_cbc)));
+    crypto:crypto_one_time(aes_192_cbc, Key, IV,  pbe_pad(Data, block_size(aes_192_cbc)), true);
 encode(Data, Password, "AES-256-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_encrypt(aes_256_cbc, Key, IV,  pbe_pad(Data, block_size(aes_256_cbc))).
+    crypto:crypto_one_time(aes_256_cbc, Key, IV,  pbe_pad(Data, block_size(aes_256_cbc)), true).
 
 %%--------------------------------------------------------------------
 -spec decode(binary(), string(), string(), term()) -> binary().
@@ -64,23 +63,22 @@ encode(Data, Password, "AES-256-CBC"= Cipher, KeyDevParams) ->
 %%--------------------------------------------------------------------
 decode(Data, Password,"DES-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_decrypt(des_cbc, Key, IV, Data);
+    crypto:crypto_one_time(des_cbc, Key, IV, Data, false);
 decode(Data, Password,"DES-EDE3-CBC" = Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    <<Key1:8/binary, Key2:8/binary, Key3:8/binary>> = Key,
-    crypto:block_decrypt(des3_cbc, [Key1, Key2, Key3], IV, Data);
+    crypto:crypto_one_time(des_ede3_cbc, Key, IV, Data, false);
 decode(Data, Password,"RC2-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_decrypt(rc2_cbc, Key, IV, Data);
+    crypto:crypto_one_time(rc2_cbc, Key, IV, Data, false);
 decode(Data, Password,"AES-128-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_decrypt(aes_128_cbc, Key, IV, Data);
+    crypto:crypto_one_time(aes_128_cbc, Key, IV, Data, false);
 decode(Data, Password,"AES-192-CBC"= Cipher, KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher,  KeyDevParams),
-    crypto:block_decrypt(aes_192_cbc, Key, IV, Data);
+    crypto:crypto_one_time(aes_192_cbc, Key, IV, Data, false);
 decode(Data, Password,"AES-256-CBC"= Cipher,  KeyDevParams) ->
     {Key, IV} = password_to_key_and_iv(Password, Cipher, KeyDevParams),
-    crypto:block_decrypt(aes_256_cbc, Key, IV, Data).
+    crypto:crypto_one_time(aes_256_cbc, Key, IV, Data, false).
 
 %%--------------------------------------------------------------------
 -spec pbdkdf1(iodata(), iodata(), integer(), atom()) -> binary().
@@ -247,17 +245,21 @@ key_derivation_params(#'PBES2-params'{keyDerivationFunc = KeyDerivationFunc,
 %% ?'id-hmacWithSHA1, but we need some kind of ASN1-fix for this.
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = 
 						{_,_, _,'id-hmacWithSHA1'}}) ->
-    {fun crypto:hmac/4, sha, pseudo_output_length(?'id-hmacWithSHA1')};
+    {fun hmac4/4, sha, pseudo_output_length(?'id-hmacWithSHA1')};
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA1' = Algo}) ->
-    {fun crypto:hmac/4, sha, pseudo_output_length(Algo)};
+    {fun hmac4/4, sha, pseudo_output_length(Algo)};
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA224'= Algo}) ->
-    {fun crypto:hmac/4, sha224, pseudo_output_length(Algo)};
+    {fun hmac4/4, sha224, pseudo_output_length(Algo)};
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA256' = Algo}) ->
-    {fun crypto:hmac/4, sha256,  pseudo_output_length(Algo)};
+    {fun hmac4/4, sha256,  pseudo_output_length(Algo)};
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA384' = Algo}) ->
-    {fun crypto:hmac/4, sha384,  pseudo_output_length(Algo)};
+    {fun hmac4/4, sha384,  pseudo_output_length(Algo)};
 pseudo_random_function(#'PBKDF2-params_prf'{algorithm = ?'id-hmacWithSHA512' = Algo}) ->
-    {fun crypto:hmac/4, sha512,  pseudo_output_length(Algo)}.                 
+    {fun hmac4/4, sha512,  pseudo_output_length(Algo)}.                 
+
+hmac4(SubType, Key, Data, MacLength) ->
+    crypto:macN(hmac, SubType, Key, Data, MacLength).
+    
 
 pseudo_output_length(?'id-hmacWithSHA1') ->
     20; %%160/8
@@ -295,7 +297,7 @@ derived_key_length(Cipher,_) when (Cipher == "AES-256-CBC");
 
 block_size(Cipher) when Cipher == rc2_cbc; 
                         Cipher == des_cbc;
-			Cipher == des_3ede -> 
+			Cipher == des_ede3_cbc -> 
     8;
 block_size(Cipher) when Cipher == aes_128_cbc;
                         Cipher == aes_192_cbc;
