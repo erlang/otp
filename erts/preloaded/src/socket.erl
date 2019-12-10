@@ -148,6 +148,9 @@
              ]).
 
 
+-define(REGISTRY, socket_registry).
+
+
 %% The command type has the general form: 
 %% #{
 %%   command := atom(),
@@ -949,8 +952,10 @@ on_load() ->
       Extra :: map().
 
 on_load(Extra) ->
-    ok = erlang:load_nif(atom_to_list(?MODULE), Extra).
-
+    %% This is spawned as a system process to prevent init:restart/0 from
+    %% killing it.
+    Pid = erts_internal:spawn_system_process(?REGISTRY, start, []),
+    ok  = erlang:load_nif(atom_to_list(?MODULE), Extra#{registry => Pid}).
 
 
 -spec info() -> map().
