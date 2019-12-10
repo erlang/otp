@@ -32,6 +32,25 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 1.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added <c>wxWindow:isShownOnScreen/1</c>,
+	    <c>wxMouseEvent:getWheelAxis</c> and mac specific menubar
+	    functions. Fixed defines that have changed in newer
+	    wxWidgets versions, that caused some literals to become
+	    run-time dependent on wxWidgets version.</p>
+          <p>
+	    Own Id: OTP-16285</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 1.8.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

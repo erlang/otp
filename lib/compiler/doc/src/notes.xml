@@ -32,6 +32,45 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the linter where list and binary
+	    comprehensions could suppress unsafe variable errors.</p>
+          <p>
+	    Own Id: OTP-16053 Aux Id: ERL-1039 </p>
+        </item>
+        <item>
+	    <p>When a compilation starts from Core Erlang code, the
+	    <c>core_lint</c> pass will always be run and the
+	    compilation will be aborted if any errors are found.</p>
+          <p>
+	    Own Id: OTP-16181 Aux Id: ERL-1065 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The warning message that appears when the compiler
+	    detects a non-utf-8 encoded source file without an
+	    encoding string in the beginning of the file has been
+	    changed to contain information about that support for
+	    latin1 encoded source files without an encoding string
+	    will be removed in Erlang/OTP 24.</p>
+          <p>
+	    Own Id: OTP-16054 Aux Id: OTP-11791 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.4.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

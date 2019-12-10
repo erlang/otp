@@ -31,6 +31,21 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.19.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Correct the range type of <c>erlang:is_record/3</c>.
+	    </p>
+          <p>
+	    Own Id: OTP-16323</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.19.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

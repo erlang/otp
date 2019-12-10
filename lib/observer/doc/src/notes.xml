@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Observer
     application.</p>
 
+<section><title>Observer 2.9.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Crashdump Viewer how handles crash dumps where the Old
+	    Binary VHeap has overflowed.</p>
+          <p>
+	    Own Id: OTP-16296</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Observer 2.9.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

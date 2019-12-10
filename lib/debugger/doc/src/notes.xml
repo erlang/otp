@@ -33,6 +33,22 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 4.2.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Fix a bug where Unicode atoms are printed differently
+	    depending on if integer lists are printed as strings or
+	    not. </p>
+          <p>
+	    Own Id: OTP-16186</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 4.2.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

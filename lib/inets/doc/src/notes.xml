@@ -33,7 +33,37 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 7.1.1</title>
+  <section><title>Inets 7.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Inets will honor that valid HTTP headers can not have
+	    white space between field-name and the colon.</p>
+          <p>
+	    Own Id: OTP-16169 Aux Id: ERL-1053 </p>
+        </item>
+        <item>
+          <p>
+	    Changed error propagation in httpc:request/1 to return
+	    expected error tuple instead of crashing.</p>
+          <p>
+	    Own Id: OTP-16290 Aux Id: PR-2437, ERL-1083 </p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of HEAD request with chunked
+	    transfer-encoding (httpc).</p>
+          <p>
+	    Own Id: OTP-16300 Aux Id: ERL-1090 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Inets 7.1.1</title>
 
     <section><title>Improvements and New Features</title>
       <list>

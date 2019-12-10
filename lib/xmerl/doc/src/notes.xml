@@ -32,6 +32,54 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.3.23</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> Replace a local floor/1 function with erlang:floor/1.
+	    </p>
+          <p>
+	    Own Id: OTP-16324</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Implement handling of parsed entity content and some
+	    other improvements. </p> <list> <item>Updated the SAX
+	    test-suite (xmerl_sax_std_SUITE) to more recent
+	    version</item> <item>Test now uses its own data directory
+	    since the non-SAX xmerl test suite (xmerl_std_SUITE) uses
+	    a different version of the other suite</item>
+	    <item>Canonical XML checks have been added to all tests
+	    that apply. Canonical, as it applies here, is regular
+	    canonical XML with the addition of notation declarations
+	    if any. Output must match byte-for-byte.</item>
+	    <item>External entities implemented, both as markup and
+	    replacement text</item> <item>Cyclic references are
+	    checked at the end of the DTD parse; also when a
+	    reference is found</item> <item>Default attributes are
+	    reported in events</item> <item>Attributes are whitespace
+	    normalized if their type demands it</item> <item>External
+	    entities can have a different encoding than the base
+	    document and will be transcoded to the document
+	    encoding</item> <item>Conditional sections
+	    (IGNORE/INCLUDE) handling has been added to DTD
+	    parsing</item> <item>Element content-model is now checked
+	    for well-formed-ness</item> <item>A few missing function
+	    clauses have been added</item> </list>
+          <p>
+	    Own Id: OTP-16339</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.3.22</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
