@@ -64,7 +64,9 @@ start_server(Args) ->
     Result = spawn_link(Node, ?MODULE, run_server, [Args]),
     receive
 	{listen, up} ->
-	    Result
+	    Result;
+        {error, Error} ->
+            Error
     end.
 
 run_server(Opts) ->
@@ -73,10 +75,15 @@ run_server(Opts) ->
     Pid = proplists:get_value(from, Opts),
     Transport =  proplists:get_value(transport, Opts, ssl),
     ct:log("~p:~p~nssl:listen(~p, ~p)~n", [?MODULE,?LINE, Port, Options]),
-    {ok, ListenSocket} = Transport:listen(Port, Options),
-    Pid ! {listen, up},
-    send_selected_port(Pid, Port, ListenSocket),
-    run_server(ListenSocket, Opts).
+    %% {ok, ListenSocket} = Transport:listen(Port, Options),
+    case Transport:listen(Port, Options) of
+        {ok, ListenSocket} ->
+            Pid ! {listen, up},
+            send_selected_port(Pid, Port, ListenSocket),
+            run_server(ListenSocket, Opts);
+        Error ->
+            Pid ! Error
+    end.
 
 run_server(ListenSocket, Opts) ->
     Accepters = proplists:get_value(accepters, Opts, 1),
