@@ -99,7 +99,10 @@ static char* make_sockaddr_ll(ErlNifEnv*    env,
                               ERL_NIF_TERM  addr,
                               ERL_NIF_TERM* sa);
 #endif
-
+static BOOLEAN_T esock_extract_from_map(ErlNifEnv*    env,
+                                        ERL_NIF_TERM  map,
+                                        ERL_NIF_TERM  key,
+                                        ERL_NIF_TERM* val);
 
 /* +++ esock_encode_iov +++
  *
@@ -1635,7 +1638,7 @@ BOOLEAN_T esock_decode_string(ErlNifEnv*         env,
 /* *** esock_extract_bool_from_map ***
  *
  * Extract an boolean item from a map.
- *
+ * This function returns the retreived or the provided default value.
  */
 extern
 BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
@@ -1645,7 +1648,7 @@ BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
 {
     ERL_NIF_TERM val;
 
-    if (!GET_MAP_VAL(env, map, key, &val))
+    if (!esock_extract_from_map(env, map, key, &val))
         return def;
 
     if (!IS_ATOM(env, val))
@@ -1655,6 +1658,59 @@ BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
         return TRUE;
     else
         return FALSE;
+}
+
+
+
+/* *** esock_extract_pid_from_map ***
+ *
+ * Extract a pid item from a map.
+ * Returns TRUE on success and FALSE on failure (and then 
+ * the pid value will be set to 'undefined').
+ *
+ */
+extern
+BOOLEAN_T esock_extract_pid_from_map(ErlNifEnv*   env,
+                                     ERL_NIF_TERM map,
+                                     ERL_NIF_TERM key,
+                                     ErlNifPid*   pid)
+{
+    BOOLEAN_T    res;
+    ERL_NIF_TERM val;
+
+    if (!esock_extract_from_map(env, map, key, &val)) {
+        enif_set_pid_undefined(pid);
+        res = FALSE;
+    } else {
+        if (enif_get_local_pid(env, val, pid)) {
+            res = TRUE;
+        } else {
+            enif_set_pid_undefined(pid);
+            res = FALSE;
+        }
+    }
+
+    return res;
+}
+
+
+
+/* *** esock_extract_from_map ***
+ *
+ * Extract a value from a map.
+ * Returns true on success and false on failure.
+ *
+ */
+static
+BOOLEAN_T esock_extract_from_map(ErlNifEnv*    env,
+                                 ERL_NIF_TERM  map,
+                                 ERL_NIF_TERM  key,
+                                 ERL_NIF_TERM* val)
+{
+    if (!GET_MAP_VAL(env, map, key, val))
+        return FALSE;
+    else
+        return TRUE;
 }
 
 

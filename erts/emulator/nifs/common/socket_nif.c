@@ -936,6 +936,9 @@ typedef struct {
     // ERL_NIF_TERM buildDate;
     BOOLEAN_T    dbg;
 
+    /* Registry stuff */
+    ErlNifPid    regPid;
+
     BOOLEAN_T    iow; // Where do we send this? Subscription?
     ErlNifMutex* cntMtx;
     Uint32       numSockets;
@@ -20859,6 +20862,9 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     data.dbg = extract_debug(env, load_info);
     data.iow = extract_iow(env, load_info);
+
+    esock_extract_pid_from_map(env, load_info,
+                               MKA(env, "registry"), &data.regPid);
 
     /* +++ Global Counters +++ */
     data.cntMtx         = MCREATE("esock[gcnt]");
