@@ -129,6 +129,9 @@ dns_hostname(Hostname) ->
 
 -spec ping_list([atom()]) -> [atom()].
 
+ping_list([]) ->
+    [];
+
 ping_list(Nodelist) ->
     ok = net_kernel:monitor_nodes(true),
     Sofar = ping_first(Nodelist, nodes()),
