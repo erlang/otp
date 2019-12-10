@@ -108,7 +108,7 @@ security_parameters_1_3(SecParams, CipherSuite) ->
 %% Description: Initializes the #cipher_state according to BCA
 %%-------------------------------------------------------------------
 cipher_init(?RC4, IV, Key) ->
-    State = crypto:stream_init(rc4, Key),
+    State = {stream_init,rc4,Key,IV},
     #cipher_state{iv = IV, key = Key, state = State};
 cipher_init(Type, IV, Key) when Type == ?AES_GCM;
                                 Type == ?AES_CCM ->
@@ -137,10 +137,13 @@ nonce_seed(Seed, CipherState) ->
 %%-------------------------------------------------------------------
 cipher(?NULL, CipherState, <<>>, Fragment, _Version) ->
     {iolist_to_binary(Fragment), CipherState};
-cipher(?RC4, CipherState = #cipher_state{state = State0}, Mac, Fragment, _Version) ->
+cipher(CipherEnum, CipherState = #cipher_state{state = {stream_init,rc4,Key,_IV}}, Mac, Fragment, Version) ->
+    State = crypto:crypto_init(rc4, Key, true),
+    cipher(CipherEnum,  CipherState#cipher_state{state = State}, Mac, Fragment, Version);
+cipher(?RC4, CipherState = #cipher_state{state = State}, Mac, Fragment, _Version) ->
     GenStreamCipherList = [Fragment, Mac],
-    {State1, T} = crypto:stream_encrypt(State0, GenStreamCipherList),
-    {iolist_to_binary(T), CipherState#cipher_state{state = State1}};
+    T = crypto:crypto_update(State, GenStreamCipherList),
+    {iolist_to_binary(T), CipherState};
 cipher(?DES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) ->
 			 crypto:crypto_one_time(des_cbc, Key, IV, T, true)
@@ -223,12 +226,16 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV, state = IV_Cache0} = CS
 %%-------------------------------------------------------------------
 decipher(?NULL, _HashSz, CipherState, Fragment, _, _) ->
     {Fragment, <<>>, CipherState};
-decipher(?RC4, HashSz, CipherState = #cipher_state{state = State0}, Fragment, _, _) ->
-    try crypto:stream_decrypt(State0, Fragment) of
-	{State, Text} ->
+decipher(CipherEnum, HashSz, CipherState = #cipher_state{state = {stream_init,rc4,Key,_IV}},
+         Fragment, Version, PaddingCheck) ->
+    State = crypto:crypto_init(rc4, Key, false),
+    decipher(CipherEnum, HashSz, CipherState#cipher_state{state = State}, Fragment, Version, PaddingCheck);
+decipher(?RC4, HashSz, CipherState = #cipher_state{state = State}, Fragment, _, _) ->
+    try crypto:crypto_update(State, Fragment) of
+	Text ->
 	    GSC = generic_stream_cipher_from_bin(Text, HashSz),
 	    #generic_stream_cipher{content = Content, mac = Mac} = GSC,
-	    {Content, Mac, CipherState#cipher_state{state = State}}
+	    {Content, Mac, CipherState}
     catch
 	_:_ ->
 	    %% This is a DECRYPTION_FAILED but
