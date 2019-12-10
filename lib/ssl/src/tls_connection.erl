@@ -509,7 +509,7 @@ close(downgrade, _,_,_,_) ->
     ok;
 %% Other
 close(_, Socket, Transport, _,_) -> 
-    Transport:close(Socket).
+    tls_socket:close(Transport, Socket).
 protocol_name() ->
     "TLS".
 
