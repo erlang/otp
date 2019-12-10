@@ -143,32 +143,44 @@ cipher(?RC4, CipherState = #cipher_state{state = State0}, Mac, Fragment, _Versio
     {iolist_to_binary(T), CipherState#cipher_state{state = State1}};
 cipher(?DES, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) ->
-			 crypto:block_encrypt(des_cbc, Key, IV, T)
+			 crypto:crypto_one_time(des_cbc, Key, IV, T, true)
 		 end, block_size(des_cbc), CipherState, Mac, Fragment, Version);
 cipher(?'3DES', CipherState, Mac, Fragment, Version) ->
-    block_cipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
-			 crypto:block_encrypt(des3_cbc, [K1, K2, K3], IV, T)
-		 end, block_size(des_cbc), CipherState, Mac, Fragment, Version);
+    block_cipher(fun(Key, IV, T) ->
+			 crypto:crypto_one_time(des_ede3_cbc, Key, IV, T, true)
+		 end, block_size(des_ede3_cbc), CipherState, Mac, Fragment, Version);
 cipher(?AES_CBC, CipherState, Mac, Fragment, Version) ->
     block_cipher(fun(Key, IV, T) when byte_size(Key) =:= 16 ->
-			 crypto:block_encrypt(aes_cbc128, Key, IV, T);
+			 crypto:crypto_one_time(aes_128_cbc, Key, IV, T, true);
 		    (Key, IV, T) when byte_size(Key) =:= 32 ->
-			 crypto:block_encrypt(aes_cbc256, Key, IV, T)
+			 crypto:crypto_one_time(aes_256_cbc, Key, IV, T, true)
 		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment, Version).
 
 aead_encrypt(Type, Key, Nonce, Fragment, AdditionalData, TagLen) ->
-    crypto:block_encrypt(aead_type(Type), Key, Nonce, {AdditionalData, Fragment, TagLen}).
+    crypto:crypto_one_time_aead(aead_type(Type,size(Key)), Key, Nonce, Fragment, AdditionalData, TagLen, true).
 
 aead_decrypt(Type, Key, Nonce, CipherText, CipherTag, AdditionalData) ->
-    crypto:block_decrypt(aead_type(Type), Key, Nonce, {AdditionalData, CipherText, CipherTag}).
+    crypto:crypto_one_time_aead(aead_type(Type,size(Key)), Key, Nonce, CipherText, AdditionalData, CipherTag, false).
 
-aead_type(?AES_GCM) ->
-    aes_gcm;
-aead_type(?AES_CCM) ->
-    aes_ccm;
-aead_type(?AES_CCM_8) ->
-    aes_ccm;
-aead_type(?CHACHA20_POLY1305) ->
+aead_type(?AES_GCM, 16) ->
+    aes_128_gcm;
+aead_type(?AES_GCM, 24) ->
+    aes_192_gcm;
+aead_type(?AES_GCM, 32) ->
+    aes_256_gcm;
+aead_type(?AES_CCM, 16) ->
+    aes_128_ccm;
+aead_type(?AES_CCM, 24) ->
+    aes_192_ccm;
+aead_type(?AES_CCM, 32) ->
+    aes_256_ccm;
+aead_type(?AES_CCM_8, 16) ->
+    aes_128_ccm;
+aead_type(?AES_CCM_8, 24) ->
+    aes_192_ccm;
+aead_type(?AES_CCM_8, 32) ->
+    aes_256_ccm;
+aead_type(?CHACHA20_POLY1305, _) ->
     chacha20_poly1305.
 
 build_cipher_block(BlockSz, Mac, Fragment) ->
@@ -229,17 +241,17 @@ decipher(?RC4, HashSz, CipherState = #cipher_state{state = State0}, Fragment, _,
 
 decipher(?DES, HashSz, CipherState, Fragment, Version, PaddingCheck) ->
     block_decipher(fun(Key, IV, T) ->
-			   crypto:block_decrypt(des_cbc, Key, IV, T)
+                           crypto:crypto_one_time(des_cbc, Key, IV, T, false)
 		   end, CipherState, HashSz, Fragment, Version, PaddingCheck);
 decipher(?'3DES', HashSz, CipherState, Fragment, Version, PaddingCheck) ->
-    block_decipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
-			   crypto:block_decrypt(des3_cbc, [K1, K2, K3], IV, T)
+    block_decipher(fun(Key, IV, T) ->
+                           crypto:crypto_one_time(des_ede3_cbc, Key, IV, T, false)
 		   end, CipherState, HashSz, Fragment, Version, PaddingCheck);
 decipher(?AES_CBC, HashSz, CipherState, Fragment, Version, PaddingCheck) ->
     block_decipher(fun(Key, IV, T) when byte_size(Key) =:= 16 ->
-			   crypto:block_decrypt(aes_cbc128, Key, IV, T);
+                           crypto:crypto_one_time(aes_128_cbc, Key, IV, T, false);
 		      (Key, IV, T) when byte_size(Key) =:= 32 ->
-			   crypto:block_decrypt(aes_cbc256, Key, IV, T)
+                           crypto:crypto_one_time(aes_256_cbc, Key, IV, T, false)
 		   end, CipherState, HashSz, Fragment, Version, PaddingCheck).
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
@@ -645,24 +657,12 @@ is_acceptable_cipher(null, _Algos) ->
     true;
 is_acceptable_cipher(rc4_128, Algos) ->
     proplists:get_bool(rc4, Algos);
-is_acceptable_cipher(des_cbc, Algos) ->
-    proplists:get_bool(des_cbc, Algos);
 is_acceptable_cipher('3des_ede_cbc', Algos) ->
-    proplists:get_bool(des_ede3, Algos);
-is_acceptable_cipher(aes_128_cbc, Algos) ->
-    proplists:get_bool(aes_cbc128, Algos);
-is_acceptable_cipher(aes_256_cbc, Algos) ->
-    proplists:get_bool(aes_cbc256, Algos);
-is_acceptable_cipher(Cipher, Algos)
-  when Cipher == aes_128_gcm;
-       Cipher == aes_256_gcm ->
-    proplists:get_bool(aes_gcm, Algos);
-is_acceptable_cipher(Cipher, Algos)
-  when Cipher == aes_128_ccm;
-       Cipher == aes_256_ccm;
-       Cipher == aes_128_ccm_8;
-       Cipher == aes_256_ccm_8 ->
-    proplists:get_bool(aes_ccm, Algos);
+    proplists:get_bool(des_ede3_cbc, Algos);
+is_acceptable_cipher(aes_128_ccm_8, Algos) ->
+    proplists:get_bool(aes_128_ccm, Algos);
+is_acceptable_cipher(aes_256_ccm_8, Algos) ->
+    proplists:get_bool(aes_256_ccm, Algos);
 is_acceptable_cipher(Cipher, Algos) ->
     proplists:get_bool(Cipher, Algos).
 
@@ -863,6 +863,7 @@ iv_size(Cipher) ->
     block_size(Cipher).
 
 block_size(Cipher) when Cipher == des_cbc;
+			Cipher == des_ede3_cbc;
 			Cipher == '3des_ede_cbc' -> 
     8;
 block_size(Cipher) when Cipher == aes_128_cbc;
