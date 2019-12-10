@@ -438,6 +438,18 @@ pprint(F, A) ->
 
 init_per_suite(Config) ->
 
+    io:format("Host info:"
+              "~n   OS Type:    ~p"
+              "~n   OS Version: ~s"
+              "~n", 
+              [os:type(), 
+               case os:version() of
+                   {Major, Minor, Release} ->
+                       ?F("~w.~w.~w", [Major, Minor, Release]);
+                   Str when is_list(Str) ->
+                       Str
+               end]),
+
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
     %% checking for the host name...
