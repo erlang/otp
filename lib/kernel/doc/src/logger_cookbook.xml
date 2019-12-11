@@ -101,7 +101,7 @@ Handler configuration:
             type: standard_io
       </code>
       <p>You can also print the configuration of a specific handler using
-        <seealso marker="logger#i-1"><c>logger:i(HanderName)</c></seealso>,
+        <seealso marker="logger#i-1"><c>logger:i(HandlerName)</c></seealso>,
         or fetch the configuration using
         <seealso marker="logger#get_handler_config-0"><c>logger:get_handler_config()</c></seealso>,
         or <seealso marker="logger#get_handler_config-1"><c>logger:get_handler_config(HandlerName)</c></seealso>
@@ -141,7 +141,7 @@ Eshell V10.5.3  (abort with ^G)
   <section>
     <title>Configure Logger formatter</title>
     <p>In order to fit better into your existing logging infrastructure Logger can
-      format its logging messages any way to want to. Either you can use the built-in
+      format its logging messages any way you want to. Either you can use the built-in
       formatter, or you can build your own.</p>
     <section>
       <title>Single line configuration</title>
@@ -174,7 +174,7 @@ ok
       </section>
     </section>
     <section>
-      <title>Add file and lineno to log entries</title>
+      <title>Add file and line number to log entries</title>
       <p>You can change what is printed to the log by using the formatter template:</p>
       <code type="erl-repl">$ cat sys.config
 [{kernel,
@@ -300,7 +300,7 @@ ok
     <title>Logging</title>
     <section>
       <title>What to log and how</title>
-      <p>The simplest way to do log something is by using the Logger macros and
+      <p>The simplest way to log something is by using the Logger macros and
       give a report to the macro. For example if you want to log an error:</p>
       <code type="erl">?LOG_ERROR(#{ what => http_error, status => 418, src => ClientIP, dst => ServerIP }).</code>
       <p>This will print the following in the default log:</p>
@@ -309,7 +309,7 @@ ok
     src: {8,8,8,8}
     status: 418
     what: http_error</code>
-      <p>or the below if you use a single line formatter</p>
+      <p>or the below if you use a single line formatter:</p>
       <code>2019-10-10T12:14:11.921843+02:00 error: dst: {8,8,4,4}, src: {8,8,8,8}, status: 418, what: http_error</code>
       <section>
         <title>See also</title>
@@ -321,7 +321,7 @@ ok
     <section>
       <title>Report call-backs and printing of events</title>
       <p>If you want to do structured logging, but still want to have some control
-      of how the final log message is structured you can give a <c>report_cb</c>
+      of how the final log message is formatted you can give a <c>report_cb</c>
       as part of the metadata with your log event.</p>
       <code type="erl">ReportCB = fun(#{ what := What, status := Status, src := Src, dst := Dst }) ->
                    {ok, #hostent{ h_name = SrcName }} = inet:gethostbyaddr(Src),
@@ -381,7 +381,7 @@ logger:debug("Debug should be logged").
       <p>There is a bit of setup needed to allow filters to decide whether a specific process
       should be allowed to log. This is because the default primary log level is notice and
       it is enforced before the primary filters. So in order for the pid filter to be useful
-      have to raise the primary log level to <c>all</c> and then add a level filter that
+      we have to raise the primary log level to <c>all</c> and then add a level filter that
       only lets certain messages at or greater than notice through. When the setup is done,
       it is simple to add a filter that allows a certain pid through.
       </p>
