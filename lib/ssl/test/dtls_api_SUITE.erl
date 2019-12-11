@@ -38,7 +38,8 @@ groups() ->
 
 api_tests() ->
     [
-     dtls_listen_owner_dies
+     dtls_listen_owner_dies,
+     dtls_listen_close
     ].
 
 init_per_suite(Config0) ->
@@ -129,3 +130,13 @@ dtls_listen_owner_dies(Config) when is_list(Config) ->
     end.
 
 
+dtls_listen_close() ->
+    [{doc, "Test that you close a DTLS 'listner' socket"}].
+
+dtls_listen_close(Config) when is_list(Config) ->    
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_, ServerNode, _Hostname} = ssl_test_lib:run_where(Config),
+
+    Port = ssl_test_lib:inet_port(ServerNode),
+    {ok, ListenSocket} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
+    ok = ssl:close(ListenSocket).

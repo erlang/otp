@@ -35,7 +35,8 @@
          getstat/3, 
          peername/2, 
          sockname/2, 
-         port/2]).
+         port/2,
+         close/2]).
 
 -export([split_options/1, 
          get_socket_opts/3]).
@@ -231,6 +232,11 @@ port(gen_tcp, Socket) ->
     inet:port(Socket);
 port(Transport, Socket) ->
     Transport:port(Socket).
+
+close(gen_tcp, Socket) ->
+    inet:close(Socket);
+close(Transport, Socket) ->
+    Transport:close(Socket).
 
 emulated_options() ->
     [mode, packet, active, header, packet_size].

@@ -797,8 +797,10 @@ close(#sslsocket{pid = [TLSPid|_]},
 close(#sslsocket{pid = [TLSPid|_]}, Timeout) when is_pid(TLSPid),
 					      (is_integer(Timeout) andalso Timeout >= 0) or (Timeout == infinity) ->
     ssl_connection:close(TLSPid, {close, Timeout});
+close(#sslsocket{pid = {dtls = ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
+    dtls_socket:close(Transport, ListenSocket);    
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}, _) ->
-    Transport:close(ListenSocket).
+    tls_socket:close(Transport, ListenSocket).
 
 %%--------------------------------------------------------------------
 -spec send(SslSocket, Data) -> ok | {error, reason()} when
