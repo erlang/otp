@@ -48,6 +48,7 @@
   <xi:include href="dependencies_chapter.xml"/>
   <xi:include href="ct_hooks_chapter.xml"/>
   <xi:include href="why_test_chapter.xml"/>
+  <xi:include href="ct_property_test_chapter.xml"/>
 </part>
           
 
