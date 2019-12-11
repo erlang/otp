@@ -1898,7 +1898,7 @@ Eterm erts_bind_schedulers(Process *c_p, Eterm how);
 ErtsRunQueue *erts_schedid2runq(Uint);
 Process *erts_schedule(ErtsSchedulerData *, Process*, int);
 void erts_schedule_misc_op(void (*)(void *), void *);
-int erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag);
+int erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag, int *timeout);
 void
 erts_send_local_spawn_reply(Process *parent, ErtsProcLocks parent_locks,
                             Process *child, Eterm tag, Eterm ref,

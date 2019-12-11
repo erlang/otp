@@ -11385,7 +11385,7 @@ alloc_process(ErtsRunQueue *rq, int bound, erts_aint32_t state)
 }
 
 int
-erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag)
+erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag, int *timeout)
 {
     /*
      * Returns:
@@ -11398,7 +11398,9 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag)
     
     if (tag)
         *tag = am_spawn_reply;
-     /*
+    if (timeout)
+        *timeout = 0;
+    /*
      * Store default values for options.
      */
     sop->multi_set      = 0;
@@ -11513,6 +11515,14 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag)
                     result = -1;
                 else
                     sop->scheduler = (int) scheduler;
+            } else if (arg == am_timeout) {
+                if (!timeout)
+                    result = -1;
+                else if (val == make_small(0))
+                    *timeout = !0;
+                else if (!erts_check_spawn_timer_timeout(val))
+                    result = -1;
+                /* else: enough time... */
             } else if (arg == am_reply_tag) {
                 if (!tag)
                     result = -1;

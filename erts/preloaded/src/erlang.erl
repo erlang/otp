@@ -2925,7 +2925,8 @@ spawn_monitor(M, F, A) ->
       | {min_heap_size, Size :: non_neg_integer()}
       | {min_bin_vheap_size, VSize :: non_neg_integer()}
       | {max_heap_size, Size :: max_heap_size()}
-      | {message_queue_data, MQD :: message_queue_data()}.
+      | {message_queue_data, MQD :: message_queue_data()}
+      | {timeout, Timeout :: non_neg_integer()}.
 
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
@@ -2940,7 +2941,8 @@ spawn_opt(F, O) ->
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [monitor | link | OtherOption],
+      Options :: [monitor | link | {timeout, Timeout} | OtherOption],
+      Timeout :: non_neg_integer(),
       OtherOption :: term().
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     erlang:spawn_opt(F, O);
@@ -3058,7 +3060,8 @@ spawn_opt(_Module, _Function, _Args, _Options) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [monitor | link | OtherOption],
+      Options :: [monitor | link | {timeout, Timeout} | OtherOption],
+      Timeout :: non_neg_integer(),
       OtherOption :: term().
 
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
@@ -3102,8 +3105,10 @@ spawn_opt(N,M,F,A,O) ->
     erlang:error(badarg, [N,M,F,A,O]).
 
 old_remote_spawn_opt(N, M, F, A, O) ->
-    case lists:member(monitor, O) of
-	true ->
+    case {lists:member(monitor, O), lists:keymember(timeout,1,O)} of
+	{true,_} ->
+            badarg;
+	{_,true} ->
             badarg;
 	_ ->
             {L,NO} = lists:foldl(fun (link, {_, NewOpts}) ->
@@ -3201,8 +3206,9 @@ spawn_request(A1, A2) ->
       Node :: node(),
       Fun :: function(),
       Options :: [Option],
-      Option :: monitor | link | {reply_tag, ReplyTag} | OtherOption,
+      Option :: monitor | link | {reply_tag, ReplyTag} | {timeout, Timeout} | OtherOption,
       ReplyTag :: term(),
+      Timeout :: non_neg_integer(),
       OtherOption :: term(),
       ReqId :: reference();
                    (Module, Function, Args) ->
@@ -3274,8 +3280,9 @@ spawn_request(M, F, A, O) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [Option],
-      Option :: monitor | link | {reply_tag, ReplyTag} | OtherOption,
+      Option :: monitor | link | {reply_tag, ReplyTag} | {timeout, Timeout} | OtherOption,
       ReplyTag :: term(),
+      Timeout :: non_neg_integer(),
       OtherOption :: term(),
       ReqId :: reference().
 

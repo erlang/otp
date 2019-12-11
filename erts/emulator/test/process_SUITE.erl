@@ -70,6 +70,7 @@
          spawn_request_link_child_exit/1,
          spawn_request_link_parent_exit/1,
          dist_spawn_monitor/1,
+         spawn_timeout/1,
          spawn_old_node/1,
          spawn_new_node/1]).
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
@@ -106,6 +107,7 @@ all() ->
      spawn_request_link_child_exit,
      spawn_request_link_parent_exit,
      dist_spawn_monitor,
+     spawn_timeout,
      spawn_old_node,
      spawn_new_node,
      otp_6237,
@@ -2956,6 +2958,227 @@ dist_spawn_monitor(Config) when is_list(Config) ->
     end,
     stop_node(Node),
     ok.
+
+spawn_timeout(Config) when is_list(Config) ->
+
+    RID0 = spawn_request(fun () -> ok end, [{timeout, 0}]),
+    receive
+        {spawn_reply, RID0, _, _} = SReply0 ->
+            {spawn_reply, RID0, error, timeout} = SReply0
+    end,
+
+    RID1 = spawn_request(fun () -> ok end, [bad_option, {timeout, 0}]),
+    receive
+        {spawn_reply, RID1, _, _} = SReply1 ->
+            {spawn_reply, RID1, error, timeout} = SReply1
+    end,
+
+    try
+        spawn_request(fun () -> ok end, [bad_option, {timeout, 0}|oops])
+    catch
+        error:badarg ->
+            ok
+    end,
+
+    try
+        spawn_opt(fun () -> ok end, [{timeout, 0}])
+    catch
+        error:timeout -> ok
+    end,
+
+    try
+        spawn_opt(fun () -> ok end, [bad_option, {timeout, 0}])
+    catch
+        error:timeout -> ok
+    end,
+
+    try
+        spawn_opt(fun () -> ok end, [bad_option, {timeout, 0}|oops])
+    catch
+        error:badarg -> ok
+    end,
+
+    {ok, Node1} = start_node(Config),
+
+    %% Ensure code loaded on other node...
+    _ = rpc:call(Node1, ?MODULE, module_info, []),
+
+    RID2 = spawn_request(Node1, fun () -> ok end, [{timeout, 0}]),
+    receive
+        {spawn_reply, RID2, _, _} = SReply2 ->
+            {spawn_reply, RID2, error, timeout} = SReply2
+    end,
+
+    RID3 = spawn_request(Node1, fun () -> ok end, [bad_option, {timeout, 0}]),
+    receive
+        {spawn_reply, RID3, _, _} = SReply3 ->
+            {spawn_reply, RID3, error, timeout} = SReply3
+    end,
+
+    try
+        spawn_request(Node1, fun () -> ok end, [bad_option, {timeout, 0}|oops])
+    catch
+        error:badarg ->
+            ok
+    end,
+
+    try
+        spawn_opt(Node1, fun () -> ok end, [{timeout, 0}])
+    catch
+        error:timeout -> ok
+    end,
+
+    try
+        spawn_opt(Node1, fun () -> ok end, [bad_option, {timeout, 0}])
+    catch
+        error:timeout -> ok
+    end,
+
+    try
+        spawn_opt(Node1, fun () -> ok end, [bad_option, {timeout, 0}|oops])
+    catch
+        error:badarg -> ok
+    end,
+
+
+    Tester = self(),
+
+    ChildFun = fun () ->
+                       Child = self(),
+                       spawn_opt(fun () ->
+                                         process_flag(trap_exit, true),
+                                         receive
+                                             {'EXIT', Child, Reason} ->
+                                                 Tester ! {parent_exit, Reason}
+                                         end
+                                 end, [link,{priority,max}]),
+                       Tester ! expect_parent_exit,
+                       receive after infinity -> ok end
+               end,
+
+    stop_node(Node1),
+
+    verify_nc(node()),
+
+    {ok, Node2} = start_node(Config),
+
+    %% Ensure code loaded on other node...
+    _ = rpc:call(Node2, ?MODULE, module_info, []),
+
+    BlockFun = fun () ->
+                       erts_debug:set_internal_state(available_internal_state, true),
+                       erts_debug:set_internal_state(block, 2500),
+                       ok
+               end,
+
+    %% Block receiver node...
+    B1 = spawn_request(Node2, BlockFun, [{priority,max}, monitor, link]),
+    receive after 500 -> ok end,
+    S1 = erlang:monotonic_time(),
+    T1 = spawn_request(Node2, ChildFun, [link, monitor,
+                                        {timeout, 1000},
+                                        {priority,max}]),
+    receive
+        {spawn_reply, T1, _, _} = T1Reply ->
+            E1 = erlang:monotonic_time(),
+            Time1 = erlang:convert_time_unit(E1 - S1, native, millisecond),
+            io:format("T1Reply=~p Time1=~p~n",[T1Reply, Time1]),
+            true = Time1 >= 1000,
+            true = Time1 < 2000,
+            T1Reply = {spawn_reply, T1, error, timeout}
+    end,
+
+    receive
+        {spawn_reply, B1, _, _} ->
+            ok
+    end,
+    receive
+        {'DOWN', B1, _, _, _} ->
+            ok
+    end,
+
+    Wait1 = receive expect_parent_exit -> infinity
+            after 500 -> 0
+            end,
+    PT1 = receive
+              {parent_exit, What1} ->
+                  timeout = What1
+          after Wait1 ->
+                  no_timeout
+          end,
+
+    receive
+        {spawn_reply, T1, _, _} = T1ReplyE ->
+            ct:fail(T1ReplyE)
+    after 100 ->
+            ok
+    end,
+
+    receive
+        {'DOWN', T1, _, _, _} = T1D ->
+            ct:fail({unexpected_down, T1D})
+    after 100 ->
+            ok
+    end,
+
+    stop_node(Node2),
+    verify_nc(node()),
+    {ok, Node3} = start_node(Config),
+
+    %% Ensure code loaded on other node...
+    _ = rpc:call(Node3, ?MODULE, module_info, []),
+
+    %% Block receiver node...
+    B2 = spawn_request(Node3, BlockFun, [{priority,max}, monitor, link]),
+    receive after 1000 -> ok end,
+    S2 = erlang:monotonic_time(),
+    try
+        spawn_opt(Node3, ChildFun, [link,
+                                   {timeout, 1000},
+                                   {priority,max}])
+    catch
+        error:timeout ->
+            E2 = erlang:monotonic_time(),
+            Time2 = erlang:convert_time_unit(E2 - S2, native, millisecond),
+            io:format("Time2=~p~n",[Time1]),
+            true = Time2 >= 1000,
+            true = Time2 < 2000
+    end,
+
+    receive
+        {spawn_reply, B2, _, _} ->
+            ok
+    end,
+    receive
+        {'DOWN', B2, _, _, _} ->
+            ok
+    end,
+
+    Wait2 = receive expect_parent_exit -> infinity
+            after 500 -> 0
+            end,
+    PT2 = receive
+              {parent_exit, What2} ->
+                  timeout = What2
+          after Wait2 ->
+                  no_timeout
+          end,
+
+    stop_node(Node3),
+    verify_nc(node()),
+
+    Comment = case {PT1, PT2} of
+                  {timeout, timeout} ->
+                      "Got both timeout exits!";
+                  {timeout, _} ->
+                      "Got spawn_request() timeout exit!";
+                  {_, timeout} ->
+                      "Got spawn_opt() timeout exit!";
+                  _ ->
+                      "Got no timeout exit!"
+              end,
+    io:format("~s", [Comment]),
+    {comment, Comment}.
     
 spawn_old_node(Config) when is_list(Config) ->
     Cookie = atom_to_list(erlang:get_cookie()),
