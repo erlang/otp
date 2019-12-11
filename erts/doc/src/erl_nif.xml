@@ -751,7 +751,7 @@ typedef struct {
       <item>
         <code type="none">
 typedef struct {
-    unsigned size;
+    size_t size;
     unsigned char* data;
 } ErlNifBinary;</code>
         <p><c>ErlNifBinary</c> contains transient information about an
