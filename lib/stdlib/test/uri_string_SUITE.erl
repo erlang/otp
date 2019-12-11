@@ -44,6 +44,8 @@
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
          recompose_autogen/1, parse_recompose_autogen/1,
+         resolve_normal_examples/1, resolve_abnormal_examples/1,
+         resolve_base_uri/1, resolve_return_map/1,
          transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1,
          compose_query/1, compose_query_latin1/1, compose_query_negative/1,
          dissect_query/1, dissect_query_negative/1,
@@ -123,6 +125,10 @@ all() ->
      recompose_parse_path,
      recompose_autogen,
      parse_recompose_autogen,
+     resolve_normal_examples,
+     resolve_abnormal_examples,
+     resolve_base_uri,
+     resolve_return_map,
      transcode_basic,
      transcode_options,
      transcode_mixed,
@@ -824,6 +830,68 @@ recompose_autogen(_Config) ->
 parse_recompose_autogen(_Config) ->
     Tests = generate_test_vectors(uri_combinations()),
     lists:map(fun run_test_parse_recompose/1, Tests).
+
+resolve_normal_examples(_Config) ->
+    BaseURI = <<"http://a/b/c/d;p?q">>,
+    <<"g:h">> = uri_string:resolve(<<"g:h">>, BaseURI),
+    <<"http://a/b/c/g">> = uri_string:resolve(<<"g">>, BaseURI),
+    <<"http://a/b/c/g">> = uri_string:resolve(<<"./g">>, BaseURI),
+    <<"http://a/b/c/g/">> = uri_string:resolve(<<"g/">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"/g">>, BaseURI),
+    <<"http://g">> = uri_string:resolve(<<"//g">>, BaseURI),
+    <<"http://a/b/c/d;p?y">> = uri_string:resolve(<<"?y">>, BaseURI),
+    <<"http://a/b/c/g?y">> = uri_string:resolve(<<"g?y">>, BaseURI),
+    <<"http://a/b/c/d;p?q#s">> = uri_string:resolve(<<"#s">>, BaseURI),
+    <<"http://a/b/c/g#s">> = uri_string:resolve(<<"g#s">>, BaseURI),
+    <<"http://a/b/c/g?y#s">> = uri_string:resolve(<<"g?y#s">>, BaseURI),
+    <<"http://a/b/c/;x">> = uri_string:resolve(<<";x">>, BaseURI),
+    <<"http://a/b/c/g;x">> = uri_string:resolve(<<"g;x">>, BaseURI),
+    <<"http://a/b/c/g;x?y#s">> = uri_string:resolve(<<"g;x?y#s">>, BaseURI),
+    <<"http://a/b/c/d;p?q">> = uri_string:resolve(<<"">>, BaseURI),
+    <<"http://a/b/c/">> = uri_string:resolve(<<".">>, BaseURI),
+    <<"http://a/b/c/">> = uri_string:resolve(<<"./">>, BaseURI),
+    <<"http://a/b/">> = uri_string:resolve(<<"..">>, BaseURI),
+    <<"http://a/b/">> = uri_string:resolve(<<"../">>, BaseURI),
+    <<"http://a/b/g">> = uri_string:resolve(<<"../g">>, BaseURI),
+    <<"http://a/">> = uri_string:resolve(<<"../..">>, BaseURI),
+    <<"http://a/">> = uri_string:resolve(<<"../../">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"../../g">>, BaseURI).
+
+resolve_abnormal_examples(_Config) ->
+    BaseURI = <<"http://a/b/c/d;p?q">>,
+    <<"http://a/g">> = uri_string:resolve(<<"../../../g">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"../../../../g">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"/./g">>, BaseURI),
+    <<"http://a/g">> = uri_string:resolve(<<"/../g">>, BaseURI),
+    <<"http://a/b/c/g.">> = uri_string:resolve(<<"g.">>, BaseURI),
+    <<"http://a/b/c/.g">> = uri_string:resolve(<<".g">>, BaseURI),
+    <<"http://a/b/c/g..">> = uri_string:resolve(<<"g..">>, BaseURI),
+    <<"http://a/b/c/..g">> = uri_string:resolve(<<"..g">>, BaseURI),
+    <<"http://a/b/g">> = uri_string:resolve(<<"./../g">>, BaseURI),
+    <<"http://a/b/c/g/">> = uri_string:resolve(<<"./g/.">>, BaseURI),
+    <<"http://a/b/c/g/h">> = uri_string:resolve(<<"g/./h">>, BaseURI),
+    <<"http://a/b/c/h">> = uri_string:resolve(<<"g/../h">>, BaseURI),
+    <<"http://a/b/c/g;x=1/y">> = uri_string:resolve(<<"g;x=1/./y">>, BaseURI),
+    <<"http://a/b/c/y">> = uri_string:resolve(<<"g;x=1/../y">>, BaseURI),
+    <<"http://a/b/c/g?y/./x">> = uri_string:resolve(<<"g?y/./x">>, BaseURI),
+    <<"http://a/b/c/g?y/../x">> = uri_string:resolve(<<"g?y/../x">>, BaseURI),
+    <<"http://a/b/c/g#s/./x">> = uri_string:resolve(<<"g#s/./x">>, BaseURI),
+    <<"http://a/b/c/g#s/../x">> = uri_string:resolve(<<"g#s/../x">>, BaseURI),
+    <<"http:g">> = uri_string:resolve(<<"http:g">>, BaseURI). %% for strict parsers
+
+resolve_base_uri(_Config) ->
+    %% The scheme is required (RFC3986 5.2.1).
+    {error,invalid_scheme,""} = uri_string:resolve("g", #{}),
+    {error,invalid_scheme,""} = uri_string:resolve("g", "/b/c/d"),
+    "foo:g" = uri_string:resolve("g", "foo:"),
+    "foo://a/g" = uri_string:resolve("g", "foo://a"),
+    "foo:/g" = uri_string:resolve("g", "foo:/a"),
+    "foo://a/b/c/g" = uri_string:resolve("g", "foo://a/b/c/d;p?y#f").
+
+resolve_return_map(_Config) ->
+    BaseURI = <<"http://a/b/c/d;p?q">>,
+    #{scheme := <<"http">>,host := <<"a">>,path := <<"/b/c/g">>} =
+        uri_string:resolve(<<"g">>, BaseURI, [return_map]).
 
 transcode_basic(_Config) ->
     <<"foo%C3%B6bar"/utf8>> =
