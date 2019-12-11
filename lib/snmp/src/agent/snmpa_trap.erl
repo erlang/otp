@@ -132,7 +132,7 @@
 %%-----------------------------------------------------------------
 construct_trap(Trap, Varbinds) ->
     ?vdebug("construct_trap -> entry with"
-	"~n   Trap: ~p", [Trap]),
+            "~n   Trap: ~p", [Trap]),
     case snmpa_symbolic_store:get_notification(Trap) of
 	undefined -> 
 	    user_err("construct_trap got undef Trap: ~w" , [Trap]),
@@ -193,6 +193,8 @@ initiate_vars([{Oid, Asn1Type} | T], Varbinds) ->
     case delete_oid_from_varbinds(Oid, Varbinds) of
 	{undefined, _, _} ->
 	    [{Oid, Asn1Type} | initiate_vars(T, Varbinds)];
+	{?NOTIFICATION_IGNORE_VB_VALUE, _VarOid, RestOfVarbinds} -> % Skip this oid!
+	    initiate_vars(T, RestOfVarbinds);
 	{Value, VarOid, RestOfVarbinds} ->
 	    [{VarOid, Asn1Type, Value} | initiate_vars(T, RestOfVarbinds)]
     end;
@@ -211,6 +213,7 @@ delete_oid_from_varbinds(Oid, [H | T]) ->
     {Value, VarOid, T2} = delete_oid_from_varbinds(Oid, T),
     {Value, VarOid, [H | T2]};
 delete_oid_from_varbinds(_Oid, []) -> {undefined, undefined, []}.
+
 
 %%-----------------------------------------------------------------
 %% Func: try_initialise_vars(Mib, Varbinds)
