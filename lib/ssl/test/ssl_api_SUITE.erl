@@ -109,7 +109,8 @@ gen_api_tests() ->
      options_not_proplist,
      invalid_options,
      cb_info,
-     log_alert
+     log_alert,
+     getstat
     ].
 
 handshake_paus_tests() ->
@@ -1770,6 +1771,31 @@ honor_server_cipher_order_tls13(Config) when is_list(Config) ->
                                                                      cipher => aes_128_gcm,
                                                                      mac => aead,
                                                                      prf => sha256}).
+%%--------------------------------------------------------------------
+getstat() ->
+    [{doc, "Test that you use ssl:getstat on an TLS socket"}].
+
+getstat(Config) when is_list(Config) ->    
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Port0 = ssl_test_lib:inet_port(ServerNode),
+    {ok, ListenSocket} = ssl:listen(Port0, [ServerOpts]),
+    {ok, _} = ssl:getstat(ListenSocket),
+    ssl:close(ListenSocket),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+                                        {mfa, {?MODULE, ssl_getstat, []}},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+                                        {from, self()},
+                                        {mfa, {?MODULE, ssl_getstat, []}},
+                                        {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server, ok, Client, ok).
 
 
 %%--------------------------------------------------------------------
@@ -2102,3 +2128,18 @@ der_input_opts(Opts) ->
 			  CaCert
 		  end, ssl_test_lib:pem_to_der(CaCertsfile)),
     {Cert, {Asn1Type, Key}, CaCerts, DHParams}.
+
+ssl_getstat(Socket) ->
+    ssl:send(Socket, "From Erlang to Erlang"),
+    {ok, Stats} = ssl:getstat(Socket),
+    List = lists:dropwhile(fun({_, 0}) ->
+                                   true;
+                              ({_, _}) ->
+                                   false
+                           end, Stats),
+    case List of
+        [] ->
+            nok;
+        _  ->
+            ok
+    end.

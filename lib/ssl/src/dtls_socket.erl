@@ -22,9 +22,24 @@
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
--export([send/3, listen/2, accept/3, connect/4, socket/4, setopts/3, getopts/3, getstat/3, 
-	 peername/2, sockname/2, port/2, close/2]).
--export([emulated_options/0, emulated_options/1, internal_inet_values/0, default_inet_values/0, default_cb_info/0]).
+-export([send/3,
+         listen/2,
+         accept/3,
+         connect/4,
+         socket/4,
+         setopts/3,
+         getopts/3,
+         getstat/3,
+	 peername/2,
+         sockname/2,
+         port/2,
+         close/2]).
+
+-export([emulated_options/0,
+         emulated_options/1,
+         internal_inet_values/0,
+         default_inet_values/0,
+         default_cb_info/0]).
 
 send(Transport, {{IP,Port},Socket}, Data) ->
     Transport:send(Socket, IP, Port, Data).
@@ -152,8 +167,12 @@ getopts(gen_udp, {_,Socket}, Options) ->
     inet:getopts(Socket, Options);
 getopts(Transport, Socket, Options) ->
     Transport:getopts(Socket, Options).
-getstat(gen_udp, {_,Socket}, Options) ->
-	inet:getstat(Socket, Options);
+getstat(gen_udp, Pid, Options) when is_pid(Pid) ->
+    dtls_packet_demux:getstat(Pid, Options);
+getstat(gen_udp, {_,{_, Socket}}, Options) ->
+    inet:getstat(Socket, Options);
+getstat(gen_udp, Socket, Options) ->
+    inet:getstat(Socket, Options);
 getstat(Transport, Socket, Options) ->
 	Transport:getstat(Socket, Options).
 peername(_, undefined) ->

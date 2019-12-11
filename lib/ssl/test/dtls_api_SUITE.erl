@@ -114,7 +114,7 @@ dtls_listen_owner_dies(Config) when is_list(Config) ->
     {ok, LSocket} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
     spawn(fun() -> 
                   {ok, ASocket} = ssl:transport_accept(LSocket),
-                  Result0 = ssl:handshake(ASocket),
+                  _ = ssl:handshake(ASocket),
                    receive 
                        {ssl, Socket, "from client"} ->
                            ssl:send(Socket, "from server"),
@@ -140,3 +140,8 @@ dtls_listen_close(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(ServerNode),
     {ok, ListenSocket} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
     ok = ssl:close(ListenSocket).
+
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
+
