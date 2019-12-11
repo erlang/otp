@@ -101,7 +101,7 @@ Handler configuration:
             type: standard_io
       </code>
       <p>You can also print the configuration of a specific handler using
-        <seealso marker="logger#i-1"><c>logger:i(HanderName)</c></seealso>,
+        <seealso marker="logger#i-1"><c>logger:i(HandlerName)</c></seealso>,
         or fetch the configuration using
         <seealso marker="logger#get_handler_config-0"><c>logger:get_handler_config()</c></seealso>,
         or <seealso marker="logger#get_handler_config-1"><c>logger:get_handler_config(HandlerName)</c></seealso>
