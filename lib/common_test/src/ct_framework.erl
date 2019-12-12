@@ -946,10 +946,6 @@ error_notification(Mod,Func,_Args,{Error,Loc}) ->
 			     io_lib:format("{test_case_failed,~tp}", [Reason]);
 			 Result -> Result
 		     end;
-		 {'EXIT',_Reason} = EXIT ->
-		     io_lib:format("~tP", [EXIT,5]);
-		 {Spec,_Reason} when is_atom(Spec) ->
-		     io_lib:format("~tw", [Spec]);
 		 Other ->
 		     io_lib:format("~tP", [Other,5])
 	     end,
