@@ -22,14 +22,14 @@
 %% Handles the connection setup phase with other Erlang nodes.
 
 -export([listen/1, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1]).
+	 setup/5, close/1, select/1, address/0, is_node_name/1]).
 
 %% Optional
 -export([setopts/2, getopts/2]).
 
 %% Generalized dist API
 -export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
-	 gen_setup/6, gen_select/2]).
+	 gen_setup/6, gen_select/2, gen_address/1]).
 
 %% internal exports
 
@@ -62,6 +62,14 @@ gen_select(Driver, Node) ->
             end;
 	_ -> false
     end.
+
+%% ------------------------------------------------------------
+%% Get the address family that this distribution uses
+%% ------------------------------------------------------------
+address() ->
+    gen_address(inet_tcp).
+gen_address(Driver) ->
+    get_tcp_address(Driver).
 
 %% ------------------------------------------------------------
 %% Create the listen socket, i.e. the port that this erlang
@@ -436,9 +444,11 @@ split_node([], _, Ack)        -> [lists:reverse(Ack)].
 %% ------------------------------------------------------------
 get_tcp_address(Driver, Socket) ->
     {ok, Address} = inet:sockname(Socket),
+    NetAddr = get_tcp_address(Driver),
+    NetAddr#net_address{ address = Address }.
+get_tcp_address(Driver) ->
     {ok, Host} = inet:gethostname(),
     #net_address {
-		  address = Address,
 		  host = Host,
 		  protocol = tcp,
 		  family = Driver:family()

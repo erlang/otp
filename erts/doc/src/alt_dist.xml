@@ -231,6 +231,19 @@
 	  </p>
 	</item>
 
+        <tag><marker id="address"/><c>address() -></c><br/>&nbsp;&nbsp;<c>Address</c></tag>
+	<item>
+	  <p><c>address/0</c> is called in order to get the <c>Address</c> part of the
+          <seealso marker="#listen"><c>listen/2</c></seealso> function without creating
+          a listen socket. All fields except <c>address</c> have to be set in the returned
+          record</p>
+          <p>Example:</p>
+          <code type="erl">address() ->
+    {ok, Host} = inet:gethostname(),
+    #net_address{ host = Host, protocol = tcp, family = inet6 }.
+          </code>
+        </item>
+
 	<tag><marker id="accept"/><c>accept(Listen) -></c><br/>&nbsp;&nbsp;<c>AcceptorPid</c></tag>
 	<item>
 	  <p>

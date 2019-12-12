@@ -22,7 +22,7 @@
 %% Handles the connection setup phase with other Erlang nodes.
 
 -export([listen/1, accept/1, accept_connection/5,
-         setup/5, close/1, select/1, is_node_name/1]).
+         setup/5, close/1, select/1, address/0, is_node_name/1]).
 
 -export([setopts/2, getopts/2]).
 
@@ -33,6 +33,14 @@
 
 select(Node) ->
     inet_tcp_dist:gen_select(inet6_tcp, Node).
+
+%% ------------------------------------------------------------
+%%  Get address family
+%%  address() => #net_address{}
+%% ------------------------------------------------------------
+
+address() ->
+    inet_tcp_dist:gen_address(inet6_tcp).
 
 %% ------------------------------------------------------------
 %% Create the listen socket, i.e. the port that this erlang

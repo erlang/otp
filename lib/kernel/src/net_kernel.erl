@@ -68,7 +68,8 @@
 	 kernel_apply/3,
 	 longnames/0,
 	 protocol_childspecs/0,
-	 epmd_module/0]).
+	 epmd_module/0,
+         dist_listen/0]).
 
 -export([disconnect/1, passive_cnct/1]).
 -export([hidden_connect_node/1]).
@@ -693,7 +694,10 @@ terminate(no_network, State) ->
 terminate(_Reason, State) ->
     lists:foreach(
       fun(#listen {listen = Listen,module = Mod}) ->
-	      Mod:close(Listen)
+              case Listen of
+                  undefined -> ignore;
+                  _ -> Mod:close(Listen)
+              end
       end, State#state.listen),
     lists:foreach(
       fun(Node) -> ?nodedown(Node, State)
@@ -1542,6 +1546,18 @@ epmd_module() ->
     end.
 
 %%
+%% dist_listen() -> whether the erlang distribution should listen for connections
+%%
+dist_listen() ->
+    case init:get_argument(dist_listen) of
+	{ok,[[DoListen]]} ->
+	    list_to_atom(DoListen) =/= false;
+	_ ->
+	    true
+    end.
+
+
+%%
 %% Start all protocols
 %%
 
@@ -1553,8 +1569,13 @@ start_protos(Name, Node, CleanHalt) ->
 	    start_protos(Name, ["inet_tcp"], Node, CleanHalt)
     end.
 
+
+
 start_protos(Name, Ps, Node, CleanHalt) ->
-    case start_protos(Name, Ps, Node, [], CleanHalt) of
+    case case dist_listen() of
+        false -> start_protos_no_listen(Name, Ps, Node, [], CleanHalt);
+        _ -> start_protos(Name, Ps, Node, [], CleanHalt)
+         end of
 	[] ->
 	    case CleanHalt of
 		true -> halt(1);
@@ -1562,6 +1583,33 @@ start_protos(Name, Ps, Node, CleanHalt) ->
 	    end;
 	Ls ->
 	    {ok, Ls}
+    end.
+
+start_protos_no_listen(Name, [Proto | Ps], Node, Ls, CleanHalt) ->
+    Mod = list_to_atom(Proto ++ "_dist"),
+    case set_node(Node, create_creation()) of
+        ok ->
+            auth:sync_cookie(),
+            L = #listen {
+                   listen = undefined,
+                   address = Mod:address(),
+                   accept = undefined,
+                   module = Mod },
+            start_protos_no_listen(Name, Ps, Node, [L|Ls], CleanHalt);
+        _ ->
+            S = "invalid node name: " ++ atom_to_list(Node),
+            proto_error(CleanHalt, Proto, S),
+            start_protos_no_listen(Name, Ps, Node, Ls, CleanHalt)
+    end;
+start_protos_no_listen(_Name, [], _Node, Ls, _CleanHalt) ->
+    Ls.
+
+create_creation() ->
+    try binary:decode_unsigned(crypto:strong_rand_bytes(4)) of
+        Creation ->
+            Creation
+    catch _:_ ->
+            rand:uniform((1 bsl 32)-1)
     end.
 
 start_protos(Name, [Proto | Ps], Node, Ls, CleanHalt) ->

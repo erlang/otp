@@ -2517,7 +2517,7 @@ on_load() ->
 			 filename:join([PrivDir, "lib",
 					erlang:system_info(system_architecture)]),
 		     Candidate =
-			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ])),
+			 filelib:wildcard(filename:join([ArchLibDir,LibName ++ "*" ]),erl_prim_loader),
 		     case Candidate of
 			 [] -> Error1;
 			 _ ->
