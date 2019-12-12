@@ -193,7 +193,8 @@ initiate_vars([{Oid, Asn1Type} | T], Varbinds) ->
     case delete_oid_from_varbinds(Oid, Varbinds) of
 	{undefined, _, _} ->
 	    [{Oid, Asn1Type} | initiate_vars(T, Varbinds)];
-	{?NOTIFICATION_IGNORE_VB_VALUE, _VarOid, RestOfVarbinds} -> % Skip this oid!
+        %% Skip this oid!
+	{{value, ?NOTIFICATION_IGNORE_VB_VALUE}, _VarOid, RestOfVarbinds} ->
 	    initiate_vars(T, RestOfVarbinds);
 	{Value, VarOid, RestOfVarbinds} ->
 	    [{VarOid, Asn1Type, Value} | initiate_vars(T, RestOfVarbinds)]
