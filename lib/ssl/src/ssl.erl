@@ -553,7 +553,7 @@ listen(_Port, []) ->
 listen(Port, Options0) ->
     try
 	{ok, Config} = handle_options(Options0, server),
-        do_listen(Port, Config, connection_cb(Options0))
+        do_listen(Port, Config, Config#config.connection_cb)
     catch
 	Error = {error, _} ->
 	    Error
