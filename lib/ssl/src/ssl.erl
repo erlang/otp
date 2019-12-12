@@ -553,7 +553,7 @@ listen(_Port, []) ->
 listen(Port, Options0) ->
     try
 	{ok, Config} = handle_options(Options0, server),
-	do_listen(Port, Config, connection_cb(Options0))
+        do_listen(Port, Config, Config#config.connection_cb)
     catch
 	Error = {error, _} ->
 	    Error
@@ -1245,11 +1245,19 @@ getstat(Socket) ->
 %%
 %% Description: Get one or more statistic options for a socket.
 %%--------------------------------------------------------------------
-getstat(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _, _}}}}, Options) when is_port(Listen), is_list(Options) ->
+getstat(#sslsocket{pid = {dtls, #config{transport_info = {Transport, _, _, _, _},
+                                        dtls_handler = {Listner, _}}}},
+        Options) when is_list(Options) ->
+    dtls_socket:getstat(Transport, Listner, Options);
+getstat(#sslsocket{pid = {Listen,  #config{transport_info = {Transport, _, _, _, _}}}},
+        Options) when is_port(Listen), is_list(Options) ->
     tls_socket:getstat(Transport, Listen, Options);
-
-getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _, _}}, Options) when is_pid(Pid), is_list(Options) ->
-    tls_socket:getstat(Transport, Socket, Options).
+getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _, _}},
+        Options) when is_pid(Pid), is_list(Options) ->
+    tls_socket:getstat(Transport, Socket, Options);
+getstat(#sslsocket{pid = [Pid|_], fd = {Transport, Socket, _}},
+        Options) when is_pid(Pid), is_list(Options) ->
+    dtls_socket:getstat(Transport, Socket, Options).
 
 %%---------------------------------------------------------------
 -spec shutdown(SslSocket, How) ->  ok | {error, reason()} when
