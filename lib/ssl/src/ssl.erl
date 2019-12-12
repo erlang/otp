@@ -312,7 +312,8 @@
                                 {hibernate_after, hibernate_after()} |
                                 {padding_check, padding_check()} |
                                 {beast_mitigation, beast_mitigation()} |
-                                {ssl_imp, ssl_imp()}.
+                                {ssl_imp, ssl_imp()} |
+                                {session_tickets, session_tickets()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -352,6 +353,17 @@
 -type psk_identity()             :: string().
 -type log_alert()                :: boolean().
 -type logging_level()            :: logger:level().
+-type session_tickets_client()   :: disabled | enabled | auto.
+-type session_tickets_server()   :: disabled | stateful | stateless.
+-type session_tickets()          :: session_tickets_client() | session_tickets_server().
+-type bloom_filter_window_size()    :: integer().
+-type bloom_filter_hash_functions() :: integer().
+-type bloom_filter_bits()           :: integer().
+-type anti_replay()              :: '10k' | '100k' |
+                                    {bloom_filter_window_size(),    %% number of seconds in time window
+                                     bloom_filter_hash_functions(), %% k - number of hash functions
+                                     bloom_filter_bits()}.          %% m - number of bits in bit vector
+-type use_ticket()               :: [binary()].
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -366,8 +378,10 @@
                                 {srp_identity, client_srp_identity()} |
                                 {server_name_indication, sni()} |
                                 {customize_hostname_check, customize_hostname_check()} |
-                                {signature_algs, client_signature_algs()} |                                    
-                                {fallback, fallback()}.
+                                {signature_algs, client_signature_algs()} |
+                                {fallback, fallback()} |
+                                {session_tickets, session_tickets_client()} |
+                                {use_ticket, use_ticket()}.
 
 -type client_verify_type()       :: verify_type().
 -type client_reuse_session()     :: session_id().
@@ -408,7 +422,9 @@
                                 {honor_cipher_order, honor_cipher_order()} |
                                 {honor_ecc_order, honor_ecc_order()} |
                                 {client_renegotiation, client_renegotiation()}|
-                                {signature_algs, server_signature_algs()}.
+                                {signature_algs, server_signature_algs()} |
+                                {session_tickets, session_tickets_server()} |
+                                {anti_replay, anti_replay()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()].
 -type server_cafile()            :: file:filename().
