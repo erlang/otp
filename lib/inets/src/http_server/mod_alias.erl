@@ -98,13 +98,12 @@ get_protocol(_) ->
 %% real_name
 
 real_name(ConfigDB, RequestURI, []) ->
-    DocumentRoot = which_document_root(ConfigDB), 
+    {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
     RealName = DocumentRoot ++ RequestURI,
     {ShortPath, _AfterPath} = httpd_util:split_path(RealName),
     {Path, AfterPath} = 
 	httpd_util:split_path(default_index(ConfigDB, RealName)),
-    {ShortPath, Path, AfterPath};
-
+    {Prefix ++ ShortPath, Prefix ++ Path, AfterPath};
 real_name(ConfigDB, RequestURI, [{MP,Replacement}| _] = Aliases)
   when element(1, MP) =:= re_pattern ->
     case longest_match(Aliases, RequestURI) of
@@ -199,10 +198,10 @@ append_index(RealName, [Index | Rest]) ->
 path(Data, ConfigDB, RequestURI) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->
-	    DocumentRoot = which_document_root(ConfigDB), 
-	    {Path, _AfterPath} = 
-		httpd_util:split_path(DocumentRoot ++ RequestURI),
-	    Path;
+            {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
+            {Path, _AfterPath} = 
+                httpd_util:split_path(DocumentRoot ++ RequestURI),
+            Prefix ++ Path;
 	{Path, _AfterPath} ->
 	    Path
     end.
@@ -270,7 +269,13 @@ which_port(ConfigDB) ->
     httpd_util:lookup(ConfigDB, port, 80). 
 
 which_document_root(ConfigDB) ->
-    httpd_util:lookup(ConfigDB, document_root, "").
+    Root = httpd_util:lookup(ConfigDB, document_root, ""),
+    case string:tokens(Root, ":") of 
+        [Prefix, Path] ->
+            {Prefix ++ ":", Path};
+        [Path] ->
+            {"", Path}
+    end.
 
 which_directory_index(ConfigDB) ->
     httpd_util:lookup(ConfigDB, directory_index, []).
