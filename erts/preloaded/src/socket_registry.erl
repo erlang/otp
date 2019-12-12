@@ -61,11 +61,17 @@ loop(DB) ->
         {'$socket', add, Socket} ->
             loop( handle_add_socket(DB, Socket) );
 
-        {'$socket', delete, Socket} ->
+        {'$socket', del, Socket} ->
             loop( handle_delete_socket(DB, Socket) );
 
-        {?MODULE, request, From, ReqId, Req} ->
-            reply(ReqId, From, handle_request(DB, Req))
+        {?MODULE, request, From, ReqId, Req} = _REQ ->
+            %% erlang:display(REQ),
+            {NewDB, Reply} = handle_request(DB, Req),
+            reply(ReqId, From, Reply),
+            loop(NewDB);
+        
+        _ -> % Make sure queue does not grow
+            loop(DB)
     end.
 
 
@@ -79,45 +85,49 @@ handle_delete_socket(DB, Sock) ->
 
 
 handle_request(DB, number_of) ->
-    db_size(DB);
+    {DB, db_size(DB)};
 
 handle_request(DB, {which_sockets, Filter}) ->
-    do_which_sockets(DB, Filter);
+    {DB, do_which_sockets(DB, Filter)};
 
-handle_request(_, BadRequest) ->
-    {error, {bad_request, BadRequest}}.
+handle_request(DB, BadRequest) ->
+    {DB, {error, {bad_request, BadRequest}}}.
 
 
 db_size(DB) ->
     length(DB).
 
 do_which_sockets(DB, Filter) ->
-    ESocks =
-        try lists:filter(Filter, DB)
-        catch
-            _:_:_ ->
-                DB
-        end,
-     [Sock || #esock_info{sock = Sock} <- ESocks].
+    try
+        begin
+            SocksInfo =
+                [{Sock, socket:info(Sock)} || #esock_info{sock = Sock} <- DB],
+            [Sock || {Sock, SockInfo} <- SocksInfo, Filter(SockInfo)]
+        end
+    catch
+        _:_:_ ->
+            [Sock || #esock_info{sock = Sock} <- DB]
+    end.
+    
 
 
 %% =========================================================================
 
 request(Req) ->
     ReqId  = make_ref(),
-    ReqMsg = {?MODULE, request, ReqId, self(), Req},
+    ReqMsg = {?MODULE, request, self(), ReqId, Req},
     Registry = whoami(),    
     erlang:send(Registry, ReqMsg),
     ReqId.
 
 reply(ReqId, From, Reply) ->
-    RepMsg = {?MODULE, reply, ReqId, self(), Reply},
+    RepMsg = {?MODULE, reply, self(), ReqId, Reply},
     erlang:send(From, RepMsg).
 
 await_reply(ReqId) ->
     Registry = whoami(),    
     receive
-        {?MODULE, reply, ReqId, Registry, Reply} ->
+        {?MODULE, reply, Registry, ReqId, Reply} ->
             Reply
     end.
 
