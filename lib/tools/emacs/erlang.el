@@ -2270,22 +2270,6 @@ buffer more accurate."
              function-name
              module-name)))
 
-(defun erlang-man-function-no-prompt ()
-    "Find manual page for the function under the cursor.
-The man entry for `function' is displayed.  This function
-provides the same functionality as erlang-man-function except for
-that it does not ask the user to confirm the function name before
-opening the man page for the function."
-  (interactive)
-  (progn
-    (erlang-man-function (erlang-default-function-or-module))
-    (sleep-for 0 800) ; A hack to make sure that the function scrolls
-                      ; to the description of the function when it is
-                      ; the first time that the man page for a module
-                      ; is opened
-    (erlang-man-function (erlang-default-function-or-module))
-    ))
-
 ;; Should the defadvice be at the top level, the package `advice' would
 ;; be required.  Now it is only required when this functionality
 ;; is used.  (Emacs 19 specific.)
