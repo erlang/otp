@@ -340,7 +340,7 @@ init_per_suite(Config0) when is_list(Config0) ->
     ?DBG("init_per_suite -> entry with"
 	 "~n   Config0: ~p", [Config0]),
 
-    case snmp_test_lib:init_per_suite(Config0) of
+    case ?LIB:init_per_suite(Config0) of
         {skip, _} = SKIP ->
             SKIP;
 
@@ -351,17 +351,17 @@ init_per_suite(Config0) when is_list(Config0) ->
             %% need crypto will be skipped, but as this is only a
             %% problem with one legacy test machine, we will procrastinate
             %% until we have a more important reason to fix this. 
-            case snmp_test_lib:crypto_start() of
+            case ?LIB:crypto_start() of
                 ok ->
                     %% We need one on this node also
                     snmp_test_sys_monitor:start(),
 
-                    Config2   = snmp_test_lib:init_suite_top_dir(?MODULE, Config1), 
-                    Config3   = snmp_test_lib:fix_data_dir(Config2),
+                    Config2   = ?LIB:init_suite_top_dir(?MODULE, Config1), 
+                    Config3   = ?LIB:fix_data_dir(Config2),
                     %% Mib-dirs
                     %% data_dir is trashed by the test-server / common-test
                     %% so there is no point in fixing it...
-                    MibDir    = snmp_test_lib:lookup(data_dir, Config3),
+                    MibDir    = ?LIB:lookup(data_dir, Config3),
                     StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
                     [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config3];
 
@@ -377,7 +377,7 @@ end_per_suite(Config0) when is_list(Config0) ->
       "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     snmp_test_sys_monitor:stop(),
-    Config1 = snmp_test_lib:end_per_suite(Config0),
+    Config1 = ?LIB:end_per_suite(Config0),
 
     p("end_per_suite -> end when"
       "~n      Nodes:  ~p", [erlang:nodes()]),
@@ -389,11 +389,11 @@ end_per_suite(Config0) when is_list(Config0) ->
 %%
 
 init_per_group(request_tests_mt = GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(
+    ?LIB:init_group_top_dir(
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(event_tests_mt = GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(
+    ?LIB:init_group_top_dir(
       GroupName, 
       [{manager_net_if_module, snmpm_net_if_mt} | Config]);
 init_per_group(ipv6_mt = GroupName, Config) ->
@@ -402,7 +402,7 @@ init_per_group(ipv6_mt = GroupName, Config) ->
 init_per_group(ipv6 = GroupName, Config) -> 
     init_per_group_ipv6(GroupName, Config);   
 init_per_group(GroupName, Config) ->
-    snmp_test_lib:init_group_top_dir(GroupName, Config).
+    ?LIB:init_group_top_dir(GroupName, Config).
 
 
 init_per_group_ipv6(GroupName, Config) ->
@@ -431,7 +431,7 @@ init_per_group_ipv6(GroupName, Config) ->
             %% one of the configures/supported IPv6 hosts...
             case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
                 true ->
-                    ipv6_init(snmp_test_lib:init_group_top_dir(GroupName, Config));
+                    ipv6_init(?LIB:init_group_top_dir(GroupName, Config));
                 false ->
                     {skip, "Host does not support IPv6"}
             end
