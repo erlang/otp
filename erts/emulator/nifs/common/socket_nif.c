@@ -2661,6 +2661,11 @@ static void esock_down_reader(ErlNifEnv*       env,
                               ERL_NIF_TERM     sockRef,
                               const ErlNifPid* pid);
 
+static void esock_send_reg_add_msg(ErlNifEnv*   env,
+                                   ERL_NIF_TERM sockRef);
+static void esock_send_reg_del_msg(ErlNifEnv*   env,
+                                   ERL_NIF_TERM sockRef);
+
 static char* esock_send_wrap_msg(ErlNifEnv*       env,
                                  ESockDescriptor* descP,
                                  ERL_NIF_TERM     sockRef,
@@ -2679,6 +2684,13 @@ static char* esock_send_msg(ErlNifEnv*   env,
                             ERL_NIF_TERM msg,
                             ErlNifEnv*   msgEnv);
 
+static ERL_NIF_TERM mk_reg_add_msg(ErlNifEnv*   env,
+                                   ERL_NIF_TERM sockRef);
+static ERL_NIF_TERM mk_reg_del_msg(ErlNifEnv*   env,
+                                   ERL_NIF_TERM sockRef);
+static ERL_NIF_TERM mk_reg_msg(ErlNifEnv*   env,
+                               ERL_NIF_TERM tag,
+                               ERL_NIF_TERM sockRef);
 static ERL_NIF_TERM mk_abort_msg(ErlNifEnv*   env,
                                  ERL_NIF_TERM sockRef,
                                  ERL_NIF_TERM opRef,
@@ -2997,6 +3009,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
 /* *** Local atoms *** */
 #define LOCAL_ATOMS                    \
     LOCAL_ATOM_DECL(adaptation_layer); \
+    LOCAL_ATOM_DECL(add);              \
     LOCAL_ATOM_DECL(addr_unreach);     \
     LOCAL_ATOM_DECL(address);          \
     LOCAL_ATOM_DECL(adm_prohibited);   \
@@ -3012,6 +3025,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(counter_wrap);     \
     LOCAL_ATOM_DECL(counters);         \
     LOCAL_ATOM_DECL(data_in);          \
+    LOCAL_ATOM_DECL(del);              \
     LOCAL_ATOM_DECL(dest_unreach);     \
     LOCAL_ATOM_DECL(do);               \
     LOCAL_ATOM_DECL(dont);             \
@@ -5337,6 +5351,9 @@ ERL_NIF_TERM esock_open(ErlNifEnv* env,
 
     inc_socket(domain, type, protocol);
 
+    /* And finally update the registry */
+    esock_send_reg_add_msg(env, res);
+
     return esock_make_ok2(env, res);
 }
 
@@ -6554,6 +6571,9 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     accDescP->state      = ESOCK_STATE_CONNECTED;
     accDescP->isReadable = TRUE;
     accDescP->isWritable = TRUE;
+
+    /* And finally update the registry */
+    esock_send_reg_add_msg(env, accRef);
 
     *result = esock_make_ok2(env, accRef);
 
@@ -19322,6 +19342,55 @@ size_t my_strnlen(const char *s, size_t maxlen)
 #endif
 
 
+
+
+/* ===========================================================================
+ *
+ *                   Socket Registry message functions
+ *
+ * ===========================================================================
+ */
+
+/* Send a (socket) add message to the socket registry process.
+ * We know that this process *is* alive since the VM would
+ * terminate otherwise, so there is no need to test if
+ * the sending fails.
+ */
+static
+void esock_send_reg_add_msg(ErlNifEnv*   env,
+                            ERL_NIF_TERM sockRef)
+{
+    ERL_NIF_TERM msg = mk_reg_add_msg(env, sockRef);
+
+    esock_send_msg(env, &data.regPid, msg, NULL);
+}
+
+
+
+/* Send a (socket) del message to the socket registry process.
+ * We know that this process *is* alive since the VM would
+ * terminate otherwise, so there is no need to test if
+ * the sending fails.
+ */
+static
+void esock_send_reg_del_msg(ErlNifEnv*   env,
+                            ERL_NIF_TERM sockRef)
+{
+    ERL_NIF_TERM msg = mk_reg_del_msg(env, sockRef);
+
+    esock_send_msg(env, &data.regPid, msg, NULL);
+}
+
+
+
+
+/* ===========================================================================
+ *
+ *                   Socket user message functions
+ *
+ * ===========================================================================
+ */
+
 /* Send an counter wrap message to the controlling process:
  * A message in the form:
  *
@@ -19393,7 +19462,7 @@ char* esock_send_abort_msg(ErlNifEnv*   env,
                                     CP_TERM(msgEnv, sockRef),
                                     opRef, reason);
 
-    return esock_send_msg(env, pid, msg, msgEnv);
+    return esock_send_msg(env, &data.regPid, msg, msgEnv);
 }
 
 
@@ -19415,6 +19484,55 @@ char* esock_send_msg(ErlNifEnv*   env,
         return NULL;
 }
 
+
+
+/* *** mk_reg_add_msg ***
+ *
+ * Construct a socket add message for the socket registry.
+ *
+ *         {'$socket', add, Socket}
+ *
+ */
+static
+ERL_NIF_TERM mk_reg_add_msg(ErlNifEnv*   env,
+                            ERL_NIF_TERM sockRef)
+{
+    return mk_reg_msg(env, atom_add, sockRef);
+}
+
+
+/* *** mk_reg_del_msg ***
+ *
+ * Construct a socket del message for the socket registry.
+ *
+ *         {'$socket', del, Socket}
+ *
+ */
+static
+ERL_NIF_TERM mk_reg_del_msg(ErlNifEnv*   env,
+                            ERL_NIF_TERM sockRef)
+{
+    return mk_reg_msg(env, atom_del, sockRef);
+}
+
+
+/* *** mk_reg_msg ***
+ *
+ * Construct a general message for the socket registry.
+ * Tag is (at this time) either the atom 'add' or the atom 'del'.
+ *
+ *         {'$socket', Tag, Socket}
+ *
+ */
+static
+ERL_NIF_TERM mk_reg_msg(ErlNifEnv*   env,
+                        ERL_NIF_TERM tag,
+                        ERL_NIF_TERM sockRef)
+{
+    ERL_NIF_TERM socket = mk_socket(env, sockRef);
+
+    return MKT3(env, esock_atom_socket_tag, tag, socket);
+}
 
 
 /* *** mk_abort_msg ***
@@ -20359,6 +20477,9 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     MUNLOCK(descP->accMtx);
     MUNLOCK(descP->readMtx);
     MUNLOCK(descP->writeMtx);
+
+    /* And finally update the registry */
+    esock_send_reg_del_msg(env, sockRef);    
 
     SSDBG( descP,
            ("SOCKET", "esock_stop -> done (%d, %d)\r\n", descP->sock, fd) );
