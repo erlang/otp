@@ -39,7 +39,6 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -50,8 +49,7 @@ groups() ->
      {'tlsv1.3', [], renegotiate_tests()},
      {'tlsv1.2', [], renegotiate_tests()},
      {'tlsv1.1', [], renegotiate_tests()},
-     {'tlsv1', [], renegotiate_tests()},
-     {'sslv3', [], ssl3_renegotiate_tests()}
+     {'tlsv1', [], renegotiate_tests()}
     ].
 
 renegotiate_tests() ->

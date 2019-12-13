@@ -37,7 +37,6 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -51,7 +50,6 @@ groups() ->
      {'tlsv1.2', [],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1.1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3()},
      {'tlsv1', [],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ beast_mitigation_test()},
-     {'sslv3', [],  (gen_api_tests() -- [new_options_in_handshake]) ++ beast_mitigation_test() ++ pre_1_3()},
      {'dtlsv1.2', [], (gen_api_tests() --
                            [invalid_keyfile, invalid_certfile, invalid_cacertfile,
                             invalid_options, new_options_in_handshake])  ++

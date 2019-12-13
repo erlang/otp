@@ -36,20 +36,20 @@
 all() -> 
     [{group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'},
-     {group, 'sslv3'}].
+     {group, 'tlsv1'}
+     ].
 
 groups() ->
     [{'tlsv1.2', [], all_versions_tests()},
      {'tlsv1.1', [], all_versions_tests()},
-     {'tlsv1', [], all_versions_tests()},
-     {'sslv3', [], all_versions_tests()}
+     {'tlsv1', [], all_versions_tests()}
     ].
- 
+
 all_versions_tests() ->
-    [    
+    [
      erlang_client_bad_openssl_server,
-     ssl2_erlang_server_openssl_client
+     ssl2_erlang_server_openssl_client,
+     ssl3_erlang_server_openssl_client
     ].
 
 init_per_suite(Config0) ->
@@ -110,6 +110,14 @@ special_init(ssl2_erlang_server_openssl_client, Config) ->
         false ->
             {skip, "sslv2 not supported by openssl"}
      end;
+special_init(ssl3_erlang_server_openssl_client, Config) ->
+    case ssl_test_lib:supports_ssl_tls_version(sslv3) of
+        true ->
+            Config;
+        false ->
+            {skip, "sslv3 not supported by openssl"}
+     end;
+
 special_init(_, Config) ->
      Config.
 
@@ -193,9 +201,34 @@ ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
 
     ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
     ssl_test_lib:consume_port_exit(OpenSslPort),
-    ssl_test_lib:check_server_alert(Server, unexpected_message),
+    ssl_test_lib:check_server_alert(Server, bad_record_mac),
     process_flag(trap_exit, false).
 
+%%--------------------------------------------------------------------
+ssl3_erlang_server_openssl_client() ->
+    [{doc,"Test that ssl v3 clients are rejected"}].
+
+ssl3_erlang_server_openssl_client(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+                                              {from, self()},
+                                              {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Exe = "openssl",
+    Args = ["s_client", "-connect", ssl_test_lib:hostname_format(Hostname) ++ ":" ++ integer_to_list(Port), 
+            "-ssl3", "-msg"],
+
+    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),  
+
+    ct:log("Ports ~p~n", [[erlang:port_info(P) || P <- erlang:ports()]]), 
+    ssl_test_lib:consume_port_exit(OpenSslPort),
+    ssl_test_lib:check_server_alert(Server, bad_record_mac),
+    process_flag(trap_exit, false).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

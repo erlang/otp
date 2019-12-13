@@ -40,14 +40,13 @@ all() ->
             [{group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'},
-             {group, 'sslv3'},
              {group, 'dtlsv1.2'},
              {group, 'dtlsv1'}];
         false ->
             [{group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
-             {group, 'tlsv1'},
-             {group, 'sslv3'}]
+             {group, 'tlsv1'}
+             ]
     end.
 
 groups() ->
@@ -56,15 +55,13 @@ groups() ->
              [{'tlsv1.2', [], all_versions_tests()},
               {'tlsv1.1', [], all_versions_tests()},
               {'tlsv1', [], all_versions_tests()},
-              {'sslv3', [], all_versions_tests()},
               {'dtlsv1.2', [], all_versions_tests()},
               {'dtlsv1', [], all_versions_tests()}
              ];
         false ->
              [{'tlsv1.2', [], all_versions_tests()},
               {'tlsv1.1', [], all_versions_tests()},
-              {'tlsv1', [], all_versions_tests()},
-              {'sslv3', [], all_versions_tests()}
+              {'tlsv1', [], all_versions_tests()}
            ]
      end.
  

@@ -36,7 +36,6 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -47,7 +46,6 @@ groups() ->
      {'tlsv1.2', [], tls_1_2_protocol_groups()},
      {'tlsv1.1', [], ssl_protocol_groups()},
      {'tlsv1', [], ssl_protocol_groups()},
-     {'sslv3', [], ssl_protocol_groups()},
      {'dtlsv1.2', [], tls_1_2_protocol_groups()},
      {'dtlsv1', [], ssl_protocol_groups()},
      {rsa, [], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests()},

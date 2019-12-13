@@ -1851,8 +1851,6 @@ is_tls_version('tlsv1.1') ->
     true;
 is_tls_version('tlsv1') ->
     true;
-is_tls_version('sslv3') ->
-    true;
 is_tls_version(_) ->
     false.
 
@@ -2219,8 +2217,6 @@ check_sane_openssl_version(Version) ->
     case supports_ssl_tls_version(Version) of 
 	true ->
 	    case {Version, os:cmd("openssl version")} of
-                {'sslv3', "OpenSSL 1.0.2" ++ _} ->
-                    false;
                 {'dtlsv1', "OpenSSL 0" ++ _} ->
 		    false;
 		{'dtlsv1.2', "OpenSSL 0" ++ _} ->
@@ -2264,13 +2260,6 @@ check_sane_openssl_renegotaite(Config, Version) when Version == 'tlsv1.1';
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 1.0.1 " ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
-	_ ->
-	    check_sane_openssl_renegotaite(Config)
-    end;
-check_sane_openssl_renegotaite(Config, 'sslv3') ->
-    case os:cmd("openssl version") of     
-	"OpenSSL 1" ++ _ ->
-	    {skip, "Known renegotiation bug with sslv3 in OpenSSL"};
 	_ ->
 	    check_sane_openssl_renegotaite(Config)
     end;
@@ -2451,8 +2440,13 @@ do_supports_ssl_tls_version(Port, Acc) ->
                 "s_client: Option unknown" ++ _->
                     false;
                 Info when length(Info) >= 24 ->
-                    ct:pal("~p", [Info]),
-                    true;
+                    case lists:member("error", string:tokens(Info, ":")) of
+                        true ->
+                            false;
+                        false ->
+                            ct:pal("~p", [Info]),
+                            true
+                    end;
                 _ ->
                     do_supports_ssl_tls_version(Port, Acc ++ Data)
             end

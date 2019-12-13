@@ -75,7 +75,7 @@
 %% Keep as interop with legacy software but do not support as default
 %% tlsv1.0 and tlsv1.1 is now also considered legacy
 %% tlsv1.3 is under development (experimental).
--define(ALL_AVAILABLE_VERSIONS, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+-define(ALL_AVAILABLE_VERSIONS, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', tlsv1]).
 -define(ALL_AVAILABLE_DATAGRAM_VERSIONS, ['dtlsv1.2', dtlsv1]).
 %% Defines the default versions when not specified by an ssl option.
 -define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2']).
@@ -86,7 +86,7 @@
 %% TLS 1.3 sets TLSCiphertext.legacy_record_version to 0x0303 for all records
 %% generated other than an than an initial ClientHello, where it MAY also be 0x0301.
 %% Thus, the allowed range is limited to 0x0300 - 0x0303.
--define(ALL_TLS_RECORD_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1, sslv3]).
+-define(ALL_TLS_RECORD_VERSIONS, ['tlsv1.2', 'tlsv1.1', tlsv1]).
 
 -define(ALL_DATAGRAM_SUPPORTED_VERSIONS, ['dtlsv1.2']).
 -define(MIN_DATAGRAM_SUPPORTED_VERSIONS, [dtlsv1]).

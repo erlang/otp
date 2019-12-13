@@ -40,7 +40,6 @@ groups() ->
      {'tlsv1.2', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1.1', [], pre_tls_1_3_protocol_groups()},
      {'tlsv1', [], pre_tls_1_3_protocol_groups()},
-     {'sslv3', [], ssl_protocol_groups()},
      {'dtlsv1.2', [], pre_tls_1_3_protocol_groups()},
      {'dtlsv1', [], pre_tls_1_3_protocol_groups()},
      {rsa, [], all_version_tests()},
@@ -58,7 +57,6 @@ protocol_groups() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
      ].

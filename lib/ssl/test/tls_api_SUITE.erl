@@ -40,8 +40,7 @@ all() ->
      {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
-     {group, 'tlsv1'},
-     {group, 'sslv3'}
+     {group, 'tlsv1'}
     ].
 
 groups() ->
@@ -49,8 +48,7 @@ groups() ->
      {'tlsv1.3', [], api_tests() -- [sockname]},
      {'tlsv1.2', [],  api_tests()},
      {'tlsv1.1', [],  api_tests()},
-     {'tlsv1', [],  api_tests()},
-     {'sslv3', [],  api_tests() ++ [ssl3_cipher_suite_limitation]}
+     {'tlsv1', [],  api_tests()}
     ].
 
 api_tests() ->
@@ -604,39 +602,6 @@ transport_close(Config) when is_list(Config) ->
     gen_tcp:close(TcpS),    
     {error, _} = ssl:send(SslS, "Hello world").
 
-%%--------------------------------------------------------------------
-ssl3_cipher_suite_limitation()  ->
-    [{doc,"Test a SSLv3 client cannot negotiate a TLSv* cipher suite."}].
-ssl3_cipher_suite_limitation(Config) when is_list(Config) ->
-    
-    {_ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    
-    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
-					      {from, self()},
-					      {options, ServerOpts}]),
-    Port = ssl_test_lib:inet_port(Server),
-    
-    {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {active, false}]),
-    ok = gen_tcp:send(Socket, 
-		      <<22, 3,0, 49:16, % handshake, SSL 3.0, length
-			1, 45:24, % client_hello, length
-			3,0, % SSL 3.0
-			16#deadbeef:256, % 32 'random' bytes = 256 bits
-			0, % no session ID
-			%% three cipher suites -- null, one with sha256 hash and one with sha hash
-			6:16, 0,255, 0,61, 0,57, 
-			1, 0 % no compression
-		      >>),
-    {ok, <<22, RecMajor:8, RecMinor:8, _RecLen:16, 2, HelloLen:24>>} = gen_tcp:recv(Socket, 9, 10000),
-    {ok, <<HelloBin:HelloLen/binary>>} = gen_tcp:recv(Socket, HelloLen, 5000),
-    ServerHello = tls_handshake:decode_handshake({RecMajor, RecMinor}, 2, HelloBin),
-    case ServerHello of
-	#server_hello{server_version = {3,0}, cipher_suite = <<0,57>>} -> 
-	    ok;
-	_ ->
-	    ct:fail({unexpected_server_hello, ServerHello})
-    end.
 %%--------------------------------------------------------------------
 emulated_options() ->
     [{doc,"Test API function getopts/2 and setopts/2"}].
