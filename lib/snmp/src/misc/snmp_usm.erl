@@ -45,7 +45,12 @@
 
 -define(i32(Int), (Int bsr 24) band 255, (Int bsr 16) band 255, (Int bsr 8) band 255, Int band 255).
 
--define(BLOCK_CIPHER_AES, aes_cfb128).
+-define(BLOCK_CIPHER_AES(Key), case size(iolist_to_binary(Key)) of
+                                   128 -> aes_128_cfb128;
+                                   192 -> aes_192_cfb128;
+                                   256 -> aes_256_cfb128
+                               end).
+
 -define(BLOCK_CIPHER_DES, des_cbc).
 
 
@@ -157,7 +162,7 @@ md5_auth_out(AuthKey, Message, UsmSecParams) ->
     Packet   = snmp_pdus:enc_message_only(Message2),
     %% 6.3.1.2-4 is done by the crypto function
     %% 6.3.1.4
-    MAC = binary_to_list(crypto:hmac(md5, AuthKey, Packet, 12)),
+    MAC = binary_to_list(crypto:macN(hmac, md5, AuthKey, Packet, 12)),
     %% ?vtrace("md5_auth_out -> crypto (md5) encoded"
     %%  	    "~n   MAC: ~w", [MAC]),
     %% 6.3.1.5
@@ -171,7 +176,7 @@ md5_auth_in(AuthKey, AuthParams, Packet) when length(AuthParams) == 12 ->
     %% 6.3.2.3
     Packet2 = patch_packet(binary_to_list(Packet)),
     %% 6.3.2.5
-    MAC = binary_to_list(crypto:hmac(md5, AuthKey, Packet2, 12)),
+    MAC = binary_to_list(crypto:macN(hmac, md5, AuthKey, Packet2, 12)),
     %% 6.3.2.6
     %% ?vtrace("md5_auth_in -> crypto (md5) encoded"
     %%  	    "~n   MAC: ~w", [MAC]),
@@ -190,7 +195,7 @@ sha_auth_out(AuthKey, Message, UsmSecParams) ->
     Packet = snmp_pdus:enc_message_only(Message2),
     %% 7.3.1.2-4 is done by the crypto function
     %% 7.3.1.4
-    MAC = binary_to_list(crypto:hmac(sha, AuthKey, Packet, 12)),
+    MAC = binary_to_list(crypto:macN(hmac, sha, AuthKey, Packet, 12)),
     %% 7.3.1.5
     set_msg_auth_params(Message, UsmSecParams, MAC).
 
@@ -198,7 +203,7 @@ sha_auth_in(AuthKey, AuthParams, Packet) when length(AuthParams) =:= 12 ->
     %% 7.3.2.3
     Packet2 = patch_packet(binary_to_list(Packet)),
     %% 7.3.2.5
-    MAC = binary_to_list(crypto:hmac(sha, AuthKey, Packet2, 12)),
+    MAC = binary_to_list(crypto:macN(hmac, sha, AuthKey, Packet2, 12)),
     %% 7.3.2.6
     MAC == AuthParams;
 sha_auth_in(_AuthKey, _AuthParams, _Packet) ->
@@ -216,8 +221,8 @@ des_encrypt(PrivKey, Data, SaltFun) ->
     IV = list_to_binary(snmp_misc:str_xor(PreIV, Salt)),
     TailLen = (8 - (length(Data) rem 8)) rem 8,
     Tail = mk_tail(TailLen),
-    EncData = crypto:block_encrypt(?BLOCK_CIPHER_DES, 
-				   DesKey, IV, [Data,Tail]),
+    EncData = crypto:crypto_one_time(?BLOCK_CIPHER_DES, 
+                                     DesKey, IV, [Data,Tail], true),
     {ok, binary_to_list(EncData), Salt}.
 
 des_decrypt(PrivKey, MsgPrivParams, EncData) 
@@ -231,8 +236,8 @@ des_decrypt(PrivKey, MsgPrivParams, EncData)
     Salt = MsgPrivParams,
     IV = list_to_binary(snmp_misc:str_xor(PreIV, Salt)),
     %% Whatabout errors here???  E.g. not a mulitple of 8!
-    Data = binary_to_list(crypto:block_decrypt(?BLOCK_CIPHER_DES, 
-					       DesKey, IV, EncData)),
+    Data = binary_to_list(crypto:crypto_one_time(?BLOCK_CIPHER_DES, 
+                                                 DesKey, IV, EncData, false)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),
     {ok, Data2};
 des_decrypt(PrivKey, BadMsgPrivParams, EncData) ->
@@ -248,8 +253,8 @@ aes_encrypt(PrivKey, Data, SaltFun, EngineBoots, EngineTime) ->
     AesKey = PrivKey,
     Salt = SaltFun(),
     IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
-    EncData = crypto:block_encrypt(?BLOCK_CIPHER_AES, 
-				   AesKey, IV, Data),
+    EncData = crypto:crypto_one_time(?BLOCK_CIPHER_AES(AesKey), 
+                                     AesKey, IV, Data, true),
     {ok, binary_to_list(EncData), Salt}.
 
 aes_decrypt(PrivKey, MsgPrivParams, EncData, EngineBoots, EngineTime)
@@ -258,8 +263,8 @@ aes_decrypt(PrivKey, MsgPrivParams, EncData, EngineBoots, EngineTime)
     Salt = MsgPrivParams,
     IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
     %% Whatabout errors here???  E.g. not a mulitple of 8!
-    Data = binary_to_list(crypto:block_decrypt(?BLOCK_CIPHER_AES, 
-					       AesKey, IV, EncData)),
+    Data = binary_to_list(crypto:crypto_one_time(?BLOCK_CIPHER_AES(AesKey),
+                                                 AesKey, IV, EncData, false)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),
     {ok, Data2}.
 

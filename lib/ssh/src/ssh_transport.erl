@@ -1467,7 +1467,7 @@ encrypt(#ssh{encrypt = 'chacha20-poly1305@openssh.com',
     %% MAC tag
     PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, true),
     EncBytes = <<EncLen/binary,EncPayloadData/binary>>,
-    Ctag = crypto:poly1305(PolyKey, EncBytes),
+    Ctag = crypto:mac(poly1305, PolyKey, EncBytes),
     %% Result
     {Ssh, {EncBytes,Ctag}};
 
@@ -1548,7 +1548,7 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
             %% The length is already decrypted and used to divide the input
             %% Check the mac (important that it is timing-safe):
             PolyKey = crypto:crypto_one_time(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>, <<0:32/unit:8>>, false),
-            case equal_const_time(Ctag, crypto:poly1305(PolyKey, <<AAD/binary,Ctext/binary>>)) of
+            case equal_const_time(Ctag, crypto:mac(poly1305, PolyKey, <<AAD/binary,Ctext/binary>>)) of
                 true ->
                     %% MAC is ok, decode
                     IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
@@ -1709,17 +1709,17 @@ recv_mac_final(SSH) ->
 mac(none, _ , _, _) ->
     <<>>;
 mac('hmac-sha1', Key, SeqNum, Data) ->
-    crypto:hmac(sha, Key, [<<?UINT32(SeqNum)>>, Data]);
+    crypto:mac(hmac, sha, Key, [<<?UINT32(SeqNum)>>, Data]);
 mac('hmac-sha1-96', Key, SeqNum, Data) ->
-    crypto:hmac(sha, Key, [<<?UINT32(SeqNum)>>, Data], mac_digest_size('hmac-sha1-96'));
+    crypto:macN(hmac, sha, Key, [<<?UINT32(SeqNum)>>, Data], mac_digest_size('hmac-sha1-96'));
 mac('hmac-md5', Key, SeqNum, Data) ->
-    crypto:hmac(md5, Key, [<<?UINT32(SeqNum)>>, Data]);
+    crypto:mac(hmac, md5, Key, [<<?UINT32(SeqNum)>>, Data]);
 mac('hmac-md5-96', Key, SeqNum, Data) ->
-    crypto:hmac(md5, Key, [<<?UINT32(SeqNum)>>, Data], mac_digest_size('hmac-md5-96'));
+    crypto:macN(hmac, md5, Key, [<<?UINT32(SeqNum)>>, Data], mac_digest_size('hmac-md5-96'));
 mac('hmac-sha2-256', Key, SeqNum, Data) ->
-	crypto:hmac(sha256, Key, [<<?UINT32(SeqNum)>>, Data]);
+    crypto:mac(hmac, sha256, Key, [<<?UINT32(SeqNum)>>, Data]);
 mac('hmac-sha2-512', Key, SeqNum, Data) ->
-	crypto:hmac(sha512, Key, [<<?UINT32(SeqNum)>>, Data]).
+    crypto:mac(hmac, sha512, Key, [<<?UINT32(SeqNum)>>, Data]).
 
 
 %%%----------------------------------------------------------------

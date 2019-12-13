@@ -684,7 +684,7 @@ hkdf_expand(Algo, PseudoRandKey, ContextInfo, Length, M, N, Prev, Acc) ->
 hmac_hash(?NULL, _, _) ->
     <<>>;
 hmac_hash(Alg, Key, Value) ->
-    crypto:hmac(mac_algo(Alg), Key, Value).
+    crypto:mac(hmac, mac_algo(Alg), Key, Value).
 
 mac_algo(Alg) when is_atom(Alg) -> 
     Alg;

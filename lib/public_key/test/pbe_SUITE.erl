@@ -114,7 +114,7 @@ pbdkdf2(Config) when is_list(Config) ->
     
     <<16#0c, 16#60, 16#c8, 16#0f, 16#96, 16#1f, 16#0e, 16#71,
       16#f3, 16#a9, 16#b5, 16#24, 16#af, 16#60, 16#12, 16#06,
-      16#2f, 16#e0, 16#37, 16#a6>> = pubkey_pbe:pbdkdf2("password", "salt", 1, 20, fun crypto:hmac/4, sha, 20),
+      16#2f, 16#e0, 16#37, 16#a6>> = pubkey_pbe:pbdkdf2("password", "salt", 1, 20, fun hmac4/4, sha, 20),
     
     %% Input:
     %%   P = "password" (8 octets)
@@ -130,7 +130,7 @@ pbdkdf2(Config) when is_list(Config) ->
     <<16#ea, 16#6c, 16#01, 16#4d, 16#c7, 16#2d, 16#6f, 16#8c, 
       16#cd, 16#1e, 16#d9, 16#2a, 16#ce, 16#1d, 16#41, 16#f0,  
       16#d8,  16#de,  16#89, 16#57>>  =
-	pubkey_pbe:pbdkdf2("password", "salt", 2, 20, fun crypto:hmac/4, sha, 20),
+	pubkey_pbe:pbdkdf2("password", "salt", 2, 20, fun hmac4/4, sha, 20),
 
      %% Input:
      %%   P = "password" (8 octets)
@@ -145,7 +145,7 @@ pbdkdf2(Config) when is_list(Config) ->
 
     <<16#4b, 16#00, 16#79, 16#01, 16#b7, 16#65, 16#48, 16#9a,
       16#be, 16#ad, 16#49, 16#d9, 16#26, 16#f7, 16#21, 16#d0,
-      16#65, 16#a4, 16#29, 16#c1>> = pubkey_pbe:pbdkdf2("password", "salt", 4096, 20, fun crypto:hmac/4, sha, 20),
+      16#65, 16#a4, 16#29, 16#c1>> = pubkey_pbe:pbdkdf2("password", "salt", 4096, 20, fun hmac4/4, sha, 20),
 
     %% Input:
     %%    P = "password" (8 octets)
@@ -161,7 +161,7 @@ pbdkdf2(Config) when is_list(Config) ->
     
     <<16#ee, 16#fe, 16#3d, 16#61, 16#cd, 16#4d, 16#a4, 16#e4, 
       16#e9, 16#94, 16#5b, 16#3d, 16#6b, 16#a2, 16#15, 16#8c, 
-      16#26, 16#34, 16#e9, 16#84>> = pubkey_pbe:pbdkdf2("password", "salt", 16777216, 20, fun crypto:hmac/4, sha, 20),
+      16#26, 16#34, 16#e9, 16#84>> = pubkey_pbe:pbdkdf2("password", "salt", 16777216, 20, fun hmac4/4, sha, 20),
     
     %% Input:
     %%    P = "passwordPASSWORDpassword" (24 octets)
@@ -180,7 +180,7 @@ pbdkdf2(Config) when is_list(Config) ->
       16#8b, 16#29, 16#1a, 16#96, 16#4c, 16#f2, 16#f0, 16#70, 
       16#38>>
 	= pubkey_pbe:pbdkdf2("passwordPASSWORDpassword", 
-			     "saltSALTsaltSALTsaltSALTsaltSALTsalt", 4096, 25, fun crypto:hmac/4, sha, 20),
+			     "saltSALTsaltSALTsaltSALTsaltSALTsalt", 4096, 25, fun hmac4/4, sha, 20),
     
      %% Input:
      %%   P = "pass\0word" (9 octets)
@@ -195,7 +195,7 @@ pbdkdf2(Config) when is_list(Config) ->
     <<16#56, 16#fa, 16#6a, 16#a7, 16#55, 16#48, 16#09, 16#9d, 
       16#cc, 16#37, 16#d7, 16#f0, 16#34, 16#25, 16#e0, 16#c3>>
 	= pubkey_pbe:pbdkdf2("pass\0word", 
-			     "sa\0lt", 4096, 16, fun crypto:hmac/4, sha, 20).
+			     "sa\0lt", 4096, 16, fun hmac4/4, sha, 20).
 
 pbes1() ->
     [{doc,"Tests encode/decode EncryptedPrivateKeyInfo encrypted with different ciphers using PBES1"}].
@@ -250,3 +250,6 @@ decode_encode_key_file(File, Password, Cipher, Config) ->
 
 strip_ending_newlines(Bin) ->
     string:strip(binary_to_list(Bin), right, 10).
+
+hmac4(SubType, Key, Data, MacLength) ->
+    crypto:macN(hmac, SubType, Key, Data, MacLength).
