@@ -3297,7 +3297,7 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
  *    domain:    The domain of the socket
  *    type:      The type of the socket
  *    protocol:  The protocol of the socket
- *   (ctrl:      Controlling process of the socket)
+ *    ctrl:      Controlling process of the socket)
  *   (readable:  Is the socket readable)
  *   (writable:  Is the socket writable)
  *   (connected: Is the socket connected)
@@ -3314,7 +3314,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM domain    = esock_socket_info_domain(env, descP);
     ERL_NIF_TERM type      = esock_socket_info_type(env, descP);
     ERL_NIF_TERM protocol  = esock_socket_info_protocol(env, descP);
-    // ERL_NIF_TERM ctrlPid   = MKPID(env, &descP->ctrlPid);
+    ERL_NIF_TERM ctrlPid   = MKPID(env, &descP->ctrlPid);
     ERL_NIF_TERM readable  = BOOL2ATOM(descP->isReadable);
     ERL_NIF_TERM writable  = BOOL2ATOM(descP->isWritable);
     // ERL_NIF_TERM connected = BOOL2ATOM(descP->isConnected);
@@ -3325,6 +3325,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM keys[]    = {esock_atom_domain,
                               esock_atom_type,
                               esock_atom_protocol,
+                              esock_atom_ctrl,
                               atom_readable,
                               atom_writable,
                               atom_counters,
@@ -3334,6 +3335,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM vals[]    = {domain,
                               type,
                               protocol,
+                              ctrlPid,
                               readable,
                               writable,
                               counters,

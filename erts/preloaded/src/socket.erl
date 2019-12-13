@@ -173,6 +173,7 @@
 -type socket_info() :: #{domain        := domain(),
                          type          := type(),
                          protocol      := protocol(),
+                         ctrl          := pid(),
                          counters      := socket_counters(),
                          num_readers   := non_neg_integer(),
                          num_writers   := non_neg_integer(),
@@ -991,6 +992,7 @@ which_sockets() ->
       FilterRule :: inet | inet6 |
                     stream | dgram | seqpacket |
                     sctp | tcp | udp |
+                    pid() |
                     fun((socket_info()) -> boolean()).
 
 which_sockets(Domain)
@@ -1004,6 +1006,10 @@ which_sockets(Type)
 which_sockets(Proto)
   when ((Proto =:= sctp) orelse (Proto =:= tcp) orelse (Proto =:= udp)) ->
     ?REGISTRY:which_sockets(fun(#{protocol := P}) when (P =:= Proto) -> true;
+                               (_) -> false end);
+which_sockets(CTRL)
+  when is_pid(CTRL) ->
+    ?REGISTRY:which_sockets(fun(#{ctrl := C}) when (C =:= CTRL) -> true;
                                (_) -> false end);
 which_sockets(Filter) when is_function(Filter, 1) ->
     ?REGISTRY:which_sockets(Filter).
