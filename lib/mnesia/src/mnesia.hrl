@@ -44,6 +44,8 @@
 -define(SAFE(OP), try (OP) catch error:_ -> ok end).
 -define(CATCH(OP), try (OP) catch _:_Reason -> {'EXIT', _Reason} end).
 
+-define(CATCHU(OP), fun() -> try (OP) catch _:_Reason -> {'EXIT', _Reason} end end()).
+
 -define(catch_val(Var), (try ?ets_lookup_element(mnesia_gvar, Var, 2)
 			 catch error:_ -> {'EXIT', {badarg, []}} end)).
 

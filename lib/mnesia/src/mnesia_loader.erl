@@ -654,8 +654,8 @@ down(Tab, Storage) ->
 	    mnesia_lib:dets_sync_close(Tab),
 	    file:delete(TmpFile);
         {ext, Alias, Mod} ->
-	    catch Mod:close_table(Alias, Tab),
-            catch Mod:delete_table(Alias, Tab)
+	    ?CATCHU(Mod:close_table(Alias, Tab)),
+            ?CATCHU(Mod:delete_table(Alias, Tab))
     end,
     mnesia_checkpoint:tm_del_copy(Tab, node()),
     mnesia_controller:sync_del_table_copy_whereabouts(Tab, node()),

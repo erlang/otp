@@ -409,7 +409,7 @@ handle_call({unsafe_close_log, Name}, _From, State) ->
     {reply, ok, State};
 
 handle_call({unsafe_create_external, Tab, Alias, Mod, Cs}, _From, State) ->
-    case catch Mod:create_table(Alias, Tab, mnesia_schema:cs2list(Cs)) of
+    case ?CATCH(Mod:create_table(Alias, Tab, mnesia_schema:cs2list(Cs))) of
 	{'EXIT', ExitReason} ->
 	    {reply, {error, ExitReason}, State};
 	Reply ->

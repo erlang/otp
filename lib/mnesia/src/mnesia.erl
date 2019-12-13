@@ -2172,7 +2172,7 @@ raw_table_info(Tab, Item) ->
 	    disc_only_copies ->
 		info_reply(dets:info(Tab, Item), Tab, Item);
             {ext, Alias, Mod} ->
-                info_reply(catch Mod:info(Alias, Tab, Item), Tab, Item);
+                info_reply(Mod:info(Alias, Tab, Item), Tab, Item);
 	    unknown ->
 		bad_info_reply(Tab, Item)
 	end

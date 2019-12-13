@@ -88,7 +88,7 @@ add_event_handler() ->
 
 kill() ->
     Mnesia = [mnesia_fallback | mnesia:ms()],
-    Kill = fun(Name) -> catch exit(whereis(Name), kill) end,
+    Kill = fun(Name) -> try exit(whereis(Name), kill) catch _:_ -> ok end end,
     lists:foreach(Kill, Mnesia),
     lists:foreach(fun ensure_dead/1, Mnesia),
     timer:sleep(10),
