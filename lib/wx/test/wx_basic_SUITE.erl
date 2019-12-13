@@ -397,11 +397,11 @@ wx_object(Config) ->
     flush(),
     ReqId = wx_object:send_request(Frame, fun(_US) -> timer:sleep(10), yes end),
     timeout = wx_object:wait_response(ReqId, 0),
-    {reply, {call, yes, {Me,ReqId}}} = wx_object:wait_response(ReqId, 1000),
+    {reply, {call, yes, {Me,{_,ReqId}}}} = wx_object:wait_response(ReqId, 1000),
     ReqId2 = wx_object:send_request(Frame, yes),
     [Msg] = flush(),
     no_reply = wx_object:check_response(Msg, ReqId),
-    {reply, {call, yes, {Me,ReqId2}}} = wx_object:check_response(Msg, ReqId2),
+    {reply, {call, yes, {Me,{_,ReqId2}}}} = wx_object:check_response(Msg, ReqId2),
 
     FramePid = wx_object:get_pid(Frame),
     io:format("wx_object pid ~p~n",[FramePid]),

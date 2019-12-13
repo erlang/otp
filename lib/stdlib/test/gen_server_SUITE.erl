@@ -489,9 +489,12 @@ send_request(Config) when is_list(Config) ->
 
     Promise3 = gen_server:send_request(my_test_name, {call_within, 1000}),
     no_reply = gen_server:check_response({foo, bar}, Promise3),
-    receive {Ref,_} = Msg when is_reference(Ref) ->
+    receive {{'$gen_request_id',Ref},_} = Msg when is_reference(Ref) ->
             {reply, ok} = gen_server:check_response(Msg, Promise3)
-    after 1000 -> exit(api_changed)
+    after 1000 ->
+            %% Format not yet doumented so it might be ok
+            %% This test is just to make you aware that you have changed it
+            exit(message_format_changed)
     end,
     timer:sleep(1500),
 

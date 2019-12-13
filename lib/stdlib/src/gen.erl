@@ -214,7 +214,7 @@ send_request(Process, Label, Request) ->
 
 do_send_request(Process, Label, Request) ->
     Mref = erlang:monitor(process, Process),
-    erlang:send(Process, {Label, {self(), Mref}, Request}, [noconnect]),
+    erlang:send(Process, {Label, {self(), {'$gen_request_id', Mref}}, Request}, [noconnect]),
     Mref.
 
 %%
@@ -226,7 +226,7 @@ do_send_request(Process, Label, Request) ->
 wait_response(Mref, Timeout)
   when is_reference(Mref) ->
     receive
-        {Mref, Reply} ->
+        {{'$gen_request_id', Mref}, Reply} ->
             erlang:demonitor(Mref, [flush]),
             {reply, Reply};
         {'DOWN', Mref, _, Object, Reason} ->
@@ -240,7 +240,7 @@ wait_response(Mref, Timeout)
 check_response(Msg, Mref)
   when is_reference(Mref) ->
     case Msg of
-        {Mref, Reply} ->
+        {{'$gen_request_id', Mref}, Reply} ->
             erlang:demonitor(Mref, [flush]),
             {reply, Reply};
         {'DOWN', Mref, _, Object, Reason} ->
