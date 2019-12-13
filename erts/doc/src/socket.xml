@@ -505,6 +505,14 @@
     </func>
 
     <func>
+      <name name="number_of" arity="0" since="OTP @OTP-16309@"/>
+      <fsummary>Get the number of active sockets.</fsummary>
+      <desc>
+        <p>Returns the number of active sockets.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="open" arity="2" since="OTP 22.0"/>
       <name name="open" arity="3" since="OTP 22.0"/>
       <name name="open" arity="4" since="OTP 22.0"/>
@@ -900,9 +908,9 @@
       <name name="supports" arity="1" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="1" clause_i="2" since="OTP 22.0"/>
       <name name="supports" arity="1" clause_i="3" since="OTP 22.0"/>
-      <name name="supports" arity="1" clause_i="4" since="OTP-22.0"/>
-      <name name="supports" arity="1" clause_i="5" since="@OTP-16153@"/>
-      <name name="supports" arity="1" clause_i="6" since="@OTP-16153@"/>
+      <name name="supports" arity="1" clause_i="4" since="OTP 22.0"/>
+      <name name="supports" arity="1" clause_i="5" since="OTP @OTP-16153@"/>
+      <name name="supports" arity="1" clause_i="6" since="OTP @OTP-16153@"/>
       <name name="supports" arity="1" clause_i="7" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="2" since="OTP 22.0"/>
@@ -910,8 +918,8 @@
       <name name="supports" arity="2" clause_i="4" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="5" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="6" since="OTP 22.0"/>
-      <name name="supports" arity="2" clause_i="7" since="@OTP-16153@"/>
-      <name name="supports" arity="2" clause_i="8" since="@OTP-16153@"/>
+      <name name="supports" arity="2" clause_i="7" since="OTP @OTP-16153@"/>
+      <name name="supports" arity="2" clause_i="8" since="OTP @OTP-16153@"/>
       <name name="supports" arity="2" clause_i="9" since="OTP 22.0"/>
       <name name="supports" arity="3" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="3" clause_i="2" since="OTP 22.0"/>
@@ -925,6 +933,16 @@
 	<p>This function intends to retreive information about what the
 	platform supports. Such as if SCTP is supported. Or which socket
 	options are supported. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="which_sockets" arity="0" since="OTP @OTP-16309@"/>
+      <name name="which_sockets" arity="1" since="OTP @OTP-16309@"/>
+      <fsummary>Get the current active sockets.</fsummary>
+      <desc>
+	<p>Returns a list of all sockets, according to the
+	filter rule.</p>
       </desc>
     </func>
 
