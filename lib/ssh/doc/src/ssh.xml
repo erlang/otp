@@ -91,7 +91,7 @@
   <section>
     <title>Keys and files</title>
     <p>A number of objects must be present for the SSH application to work. 
-    Thoose objects are per default stored in files.
+    Those objects are per default stored in files.
     The default names, paths and file formats are the same as for
     <url href="http://www.openssh.com">OpenSSH</url>. Keys could be generated with the <c>ssh-keygen</c>
     program from OpenSSH. See the

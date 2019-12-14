@@ -683,7 +683,7 @@
 	  <tag><c>error</c></tag>
 	  <item><p>An error condition that should not occur, for example a memory allocation failed or
 	  the underlying cryptolib returned an error code, for example "Can't initialize context, step 1".
-	  Thoose text usually needs searching the C-code to be understood.</p>
+	  Those text usually needs searching the C-code to be understood.</p>
 	  </item>
 	</taglist>
 	<p>To catch the exception, use for example:</p>
