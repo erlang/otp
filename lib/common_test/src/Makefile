@@ -96,7 +96,8 @@ HRL_FILES = \
 	ct_netconfc.hrl
 EXTERNAL_HRL_FILES = \
 	../include/ct.hrl \
-	../include/ct_event.hrl
+	../include/ct_event.hrl \
+	../include/ct_property_test.hrl
 
 EXTERNAL_INC_PATH = ../include
 
