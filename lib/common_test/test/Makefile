@@ -76,7 +76,8 @@ MODULES= \
 	ct_unicode_SUITE \
 	ct_auto_clean_SUITE \
 	ct_util_SUITE \
-	ct_tc_repeat_SUITE
+	ct_tc_repeat_SUITE \
+	ct_property_test_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 HRL_FILES= test_server_test_lib.hrl
