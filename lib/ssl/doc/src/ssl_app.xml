@@ -149,6 +149,15 @@
 	  distribution over TLS that will always run in active N mode.
 	  Added in ssl-9.1 (OTP-21.2).
 	</p>
+	</item>
+
+      <tag><c><![CDATA[server_session_ticket_lifetime = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Lifetime of session tickets sent by the server. Servers must not use
+	  any value greater than 604800 seconds (7 days).
+	  Defaults to 7200 seconds (2 hours).
+	</p>
       </item>
     </taglist>
   </section>

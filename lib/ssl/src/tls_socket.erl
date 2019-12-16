@@ -78,8 +78,8 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
     case Transport:listen(Port, Options ++ internal_inet_values()) of
 	{ok, ListenSocket} ->
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
-            %% TODO not hard code
-            {ok, SessionHandler} = session_tickets_tracker(7200, SslOpts),
+            LifeTime = get_ticket_lifetime(),
+            {ok, SessionHandler} = session_tickets_tracker(LifeTime, SslOpts),
             Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler}],
             Socket = #sslsocket{pid = {ListenSocket, Config#config{trackers = Trackers}}},
             check_active_n(EmOpts, Socket),
@@ -469,3 +469,12 @@ validate_inet_option(active, Value)
     throw({error, {options, {active,Value}}});
 validate_inet_option(_, _) ->
     ok.
+
+get_ticket_lifetime() ->
+    case application:get_env(ssl, server_session_ticket_lifetime) of
+	{ok, Seconds} when is_integer(Seconds) andalso
+                           Seconds =< 604800 ->  %% MUST be less than 7 days
+	    Seconds;
+	_  ->
+	    7200 %% Default 2 hours
+    end.
