@@ -23,8 +23,6 @@
 
 -compile(export_all).
  
--proptest([proper]).
-
 -ifndef(PROPER).
 -else.
 %% Only use proper
@@ -35,10 +33,9 @@
 %% However, with access to eqc it ought to be quite easy to re-enable eqc by
 %% studying the diff.
 
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
-
 -include_lib("common_test/include/ct.hrl").
+-include_lib("common_test/include/ct_property_test.hrl").
+
 
 %% Limit the testing time on CI server... this needs to be improved in % from total budget.
 -define(TESTINGTIME(Prop), eqc:testing_time(30,Prop)).
