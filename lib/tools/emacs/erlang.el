@@ -1949,7 +1949,8 @@ The format is described in the documentation of `erlang-man-dirs'."
 
 (defcustom erlang-man-download-url "http://erlang.org/download/otp_doc_man_22.1.tar.gz"
   "The URL from which the erlang-man-download function will
-  download Erlang man pages ")
+  download Erlang man pages "
+  :type 'string)
 
 (defun erlang-man-user-local-emacs-dir ()
   "Returns the directory where man pages that are downloaded by
