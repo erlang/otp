@@ -33,15 +33,12 @@
     <file>ct_property_test.xml</file>
   </header>
   <module since="OTP 17.3">ct_property_test</module>
-  <modulesummary>EXPERIMENTAL support in Common Test for calling
+  <modulesummary>Support in Common Test for calling
     property-based tests.</modulesummary>
 
   <description>
 
-    <p>EXPERIMENTAL support in <c>Common Test</c> for calling property-based
-      tests.</p>
-
-    <p>This module is a first step to run property-based tests in the
+    <p>This module helps running property-based tests in the
       <c>Common Test</c> framework. A property testing tool like QuickCheck
       or PropEr is assumed to be installed.</p>
 
@@ -69,11 +66,6 @@
        ftp_simple_client_server:prop_ftp(Config),
        Config
       ).</pre>
-
-    <warning>
-      <p>This is experimental code that can be changed or removed anytime
-        without any warning.</p>
-    </warning>
 
   </description>
 

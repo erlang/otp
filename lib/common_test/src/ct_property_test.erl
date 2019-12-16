@@ -18,16 +18,6 @@
 %% %CopyrightEnd%
 %%
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%%                                                             %%%
-%%%                       WARNING                               %%%
-%%%                                                             %%%
-%%% This is experimental code which may be changed or removed   %%%
-%%%               anytime without any warning.                  %%%
-%%%                                                             %%%
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
 -module(ct_property_test).
 
 %%% API
