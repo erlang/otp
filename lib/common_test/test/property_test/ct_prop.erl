@@ -8,21 +8,11 @@ prop_sort() ->
             is_sorted(lists:sort(UnSorted))
            ).
 
-
 is_sorted([]) ->
     true;
 is_sorted([_]) ->
     true;
-is_sorted(Sorted) ->
-    try
-        lists:foldl(fun chk_sorted_pair/2, hd(Sorted), tl(Sorted))
-    of
-        _ ->
-            true
-    catch
-        throw:false ->
-            false
-    end.
-
-chk_sorted_pair(A, B) when A>=B -> A;
-chk_sorted_pair(_, _) -> throw(false).
+is_sorted([H1,H2|SortedTail]) when H1 =< H2 ->
+    is_sorted([H2|SortedTail]);
+is_sorted(_) ->
+    false.

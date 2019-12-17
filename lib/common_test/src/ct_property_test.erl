@@ -50,7 +50,8 @@
 %%% the property tests
 %%%
 init_per_suite(Config) ->
-    case which_module_exists([eqc,proper,triq]) of
+    ToolsToCheck = proplists:get_value(prop_tools, Config, [eqc,proper,triq]),
+    case which_module_exists(ToolsToCheck) of
 	{ok,ToolModule} ->
             case code:where_is_file(lists:concat([ToolModule,".beam"])) of
                 non_existing ->
