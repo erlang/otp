@@ -599,7 +599,8 @@
 
          %% Tickets
          otp16359_maccept_tcp4/1,
-         otp16359_maccept_tcp6/1
+         otp16359_maccept_tcp6/1,
+         otp16359_maccept_tcpL/1
         ]).
 
 
@@ -1843,7 +1844,8 @@ tickets_cases() ->
 otp16359_cases() ->
     [
      otp16359_maccept_tcp4,
-     otp16359_maccept_tcp6
+     otp16359_maccept_tcp6,
+     otp16359_maccept_tcpL
     ].
 
 
@@ -39433,8 +39435,9 @@ which_ttest_reports(Domain, MsgID) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Basically open (create) and info of an IPv4 UDP (dgram) socket.
-%% With some extra checks...
+%% Create several acceptor processes (processes that calls socket:accept/1)
+%% and then a couple of clients connects to them without any problems.
+%% TCP, IPv4.
 otp16359_maccept_tcp4(suite) ->
     [];
 otp16359_maccept_tcp4(doc) ->
@@ -39451,8 +39454,9 @@ otp16359_maccept_tcp4(_Config) when is_list(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Basically open (create) and info of an IPv4 UDP (dgram) socket.
-%% With some extra checks...
+%% Create several acceptor processes (processes that calls socket:accept/1)
+%% and then a couple of clients connects to them without any problems.
+%% TCP, IPv6.
 otp16359_maccept_tcp6(suite) ->
     [];
 otp16359_maccept_tcp6(doc) ->
@@ -39464,6 +39468,26 @@ otp16359_maccept_tcp6(_Config) when is_list(_Config) ->
            fun() ->
                    InitState = #{domain   => inet6,
                                  protocol => tcp},
+                   ok = otp16359_maccept_tcp(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Create several acceptor processes (processes that calls socket:accept/1)
+%% and then a couple of clients connects to them without any problems.
+%% TCP, UNix Domain Sockets.
+otp16359_maccept_tcpL(suite) ->
+    [];
+otp16359_maccept_tcpL(doc) ->
+    [];
+otp16359_maccept_tcpL(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(otp16359_maccept_tcpL,
+           fun() -> has_support_unix_domain_socket() end,
+           fun() ->
+                   InitState = #{domain   => local,
+                                 protocol => default},
                    ok = otp16359_maccept_tcp(InitState)
            end).
 
@@ -39487,6 +39511,7 @@ otp16359_maccept_tcp(InitState) ->
          #{desc => "which local address",
            cmd  => fun(#{domain := Domain} = State) ->
                            LSA = which_local_socket_addr(Domain),
+                           ?SEV_IPRINT("LSA: ~p", [LSA]),
                            {ok, State#{lsa => LSA}}
                    end},
          #{desc => "create (listen) socket",
@@ -39500,7 +39525,16 @@ otp16359_maccept_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := LSock,
+                         lsa    := LSA} = _State) ->
+                           case socket:bind(LSock, LSA) of
+                               {ok, _} ->
+                                   ok; % We do not care about the port for local
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end;
+                      (#{lsock := LSock, lsa := LSA} = State) ->
                            case sock_bind(LSock, LSA) of
                                {ok, Port} ->
                                    {ok, State#{lport => Port}};
@@ -39513,7 +39547,13 @@ otp16359_maccept_tcp(InitState) ->
                            socket:listen(LSock)
                    end},
          #{desc => "announce ready (init)",
-           cmd  => fun(#{lsock := LSock, lport := LPort, tester := Tester}) ->
+           cmd  => fun(#{domain := local,
+                         tester := Tester,
+                         lsock  := LSock,
+                         lsa    := #{path := Path}}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, {LSock, Path}),
+                           ok;
+                      (#{lsock := LSock, lport := LPort, tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, {LSock, LPort}),
                            ok
                    end},
@@ -39523,7 +39563,7 @@ otp16359_maccept_tcp(InitState) ->
            cmd  => fun(#{tester := Tester} = _State) ->
                            ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
                    end},
-         #{desc => "attempt to accept (without success)",
+         #{desc => "attempt to accept (with success)",
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
                                {ok, Sock} ->
@@ -39554,7 +39594,18 @@ otp16359_maccept_tcp(InitState) ->
                    end},
          %% *** Close (listen) socket ***
          #{desc => "close (listen) socket",
-           cmd  => fun(#{lsock := LSock} = State) ->
+           cmd  => fun(#{domain := local,
+                         lsock  := Sock,
+                         lsa    := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(lsa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(lsock, State1)};
+                      (#{lsock := LSock} = State) ->
                            sock_close(LSock),
                            {ok, maps:remove(lsock, State)}
                    end},
@@ -39631,7 +39682,10 @@ otp16359_maccept_tcp(InitState) ->
         [
          %% *** Wait for start order ***
          #{desc => "await start (from tester)",
-           cmd  => fun(State) ->
+           cmd  => fun(#{domain := local} = State) ->
+                           {Tester, Path} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_path => Path}};
+                      (State) ->
                            {Tester, Port} = ?SEV_AWAIT_START(),
                            {ok, State#{tester => Tester, server_port => Port}}
                    end},
@@ -39643,10 +39697,15 @@ otp16359_maccept_tcp(InitState) ->
 
          %% *** The init part ***
          #{desc => "which server (local) address",
-           cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
+           cmd  => fun(#{domain      := local = Domain,
+                         server_path := Path} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = #{family => Domain, path => Path},
+                           {ok, State#{lsa => LSA, server_sa => SSA}};
+                      (#{domain := Domain, server_port := Port} = State) ->
                            LSA = which_local_socket_addr(Domain),
                            SSA = LSA#{port => Port},
-                           {ok, State#{local_sa => LSA, server_sa => SSA}}
+                           {ok, State#{lsa => LSA, server_sa => SSA}}
                    end},
          #{desc => "create socket",
            cmd  => fun(#{domain   := Domain,
@@ -39659,7 +39718,7 @@ otp16359_maccept_tcp(InitState) ->
                            end
                    end},
          #{desc => "bind to local address",
-           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+           cmd  => fun(#{sock := Sock, lsa := LSA} = _State) ->
                            case sock_bind(Sock, LSA) of
                                {ok, _Port} ->
                                    ok;
@@ -39680,7 +39739,15 @@ otp16359_maccept_tcp(InitState) ->
                    end},
          #{desc => "connect to server",
            cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
-                           socket:connect(Sock, SSA)
+                           case socket:connect(Sock, SSA) of
+                               ok ->
+                                   ?SEV_IPRINT("connected", []),
+                                   ok;
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("failed connect: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "announce ready (connect)",
            cmd  => fun(#{tester := Tester}) ->
@@ -39699,7 +39766,18 @@ otp16359_maccept_tcp(InitState) ->
                            end
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{sock := Sock} = State) ->
+           cmd  => fun(#{domain := local,
+                         sock   := Sock,
+                         lsa    := #{path := Path}} = State) ->
+                           ok = socket:close(Sock),
+                           State1 =
+                               unlink_path(Path,
+                                           fun() ->
+                                                   maps:remove(lsa, State)
+                                           end,
+                                           fun() -> State end),
+                           {ok, maps:remove(sock, State1)};
+                      (#{sock := Sock} = State) ->
                            ok = socket:close(Sock),
                            {ok, maps:remove(sock, State)}
                    end},
@@ -39828,17 +39906,25 @@ otp16359_maccept_tcp(InitState) ->
                            ok
                    end},
 
+         ?SEV_SLEEP(?SECS(1)),
+
          %% Activate the client(s)
          #{desc => "active client 1",
            cmd  => fun(#{client1 := Pid} = _State) ->
                            ?SEV_ANNOUNCE_CONTINUE(Pid, connect),
                            ok
                    end},
+
+         ?SEV_SLEEP(100),
+
          #{desc => "active client 2",
            cmd  => fun(#{client2 := Pid} = _State) ->
                            ?SEV_ANNOUNCE_CONTINUE(Pid, connect),
                            ok
                    end},
+
+         ?SEV_SLEEP(100),
+
          #{desc => "active client 3",
            cmd  => fun(#{client3 := Pid} = _State) ->
                            ?SEV_ANNOUNCE_CONTINUE(Pid, connect),
