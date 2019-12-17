@@ -2713,26 +2713,37 @@ false</code>
       <name name="link" arity="1" since=""/>
       <fsummary>Create a link to another process (or port).</fsummary>
       <desc>
-        <p>Creates a link between the calling process and another
-          process (or port) <c><anno>PidOrPort</anno></c>, if there is
-          not such a link
-          already. If a process attempts to create a link to itself,
-          nothing is done. Returns <c>true</c>.</p>
-        <p>If <c><anno>PidOrPort</anno></c> does not exist, the behavior
-          of the BIF
-          depends on if the calling process is trapping exits or not (see
-          <seealso marker="#process_flag/2">
-          <c>process_flag/2</c></seealso>):</p>
+
+        <p>Creates a link between the calling process and another process (or
+          port) <c><anno>PidOrPort</anno></c>. If the link already exists or a
+          process attempts to create a link to itself, nothing is done. Returns
+          <c>true</c> if the link is set up.</p>
+
+        <p>If <c><anno>PidOrPort</anno></c> does not exist and checking it is
+          cheap, a <c>noproc</c> error is raised. Currently, checking is cheap
+          if the <c><anno>PidOrPort</anno></c> is local and the caller does not
+          trap exits (see <seealso marker="#process_flag/2"><c>process_flag/2
+          </c></seealso>).</p>
+
+        <p>Apart from any exit signals from the linked process itself, two
+          special exit signals may be sent to the calling process:</p>
+
         <list type="bulleted">
-          <item><p>If the calling process is not trapping exits, and
-            checking <c><anno>PidOrPort</anno></c> is cheap
-            (that is, if <c><anno>PidOrPort</anno></c>
-            is local), <c>link/1</c> fails with reason <c>noproc</c>.</p></item>
-          <item><p>Otherwise, if the calling process is trapping exits,
-            and/or <c><anno>PidOrPort</anno></c> is remote, <c>link/1</c>
-            returns <c>true</c>, but an exit signal with reason <c>noproc</c>
-            is sent to the calling process.</p></item>
+
+          <item><p><c>noproc</c> is sent immediately if
+            <c><anno>PidOrPort</anno></c> does not exist at the time of linking
+            (if the caller is trapping exits or <c><anno>PidOrPort</anno></c> is
+            remote).</p></item>
+
+          <item><p><c>noconnection</c> if <c><anno>PidOrPort</anno></c> is
+            remote and a connection between the nodes could not be established
+            or was severed.</p></item>
+
         </list>
+
+        <p>See <seealso marker="doc/reference_manual:processes#links">Processes
+          ➜ Links</seealso> in the Erlang Reference Manual for more details.</p>
+
       </desc>
     </func>
 
