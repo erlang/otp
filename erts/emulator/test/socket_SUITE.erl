@@ -595,9 +595,10 @@
          ttest_ssockt_csockt_medium_tcpL/1,
          ttest_ssockt_csockt_large_tcp4/1,
          ttest_ssockt_csockt_large_tcp6/1,
-         ttest_ssockt_csockt_large_tcpL/1
+         ttest_ssockt_csockt_large_tcpL/1,
 
          %% Tickets
+         otp16359_maccept_tcp4/1
         ]).
 
 
@@ -649,7 +650,8 @@ all() ->
     Groups = [{api,          "ESOCK_TEST_API",        include},
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
 	      {traffic,      "ESOCK_TEST_TRAFFIC",    include},
-	      {ttest,        "ESOCK_TEST_TTEST",      exclude}],
+	      {ttest,        "ESOCK_TEST_TTEST",      exclude},
+	      {tickets,      "ESOCK_TEST_TICKETS",    include}],
     [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
 
 use_group(Group, Env, Default) ->
@@ -757,9 +759,11 @@ groups() ->
      {ttest_ssockt_csock,          [], ttest_ssockt_csock_cases()},
      {ttest_ssockt_csockf,         [], ttest_ssockt_csockf_cases()},
      {ttest_ssockt_csocko,         [], ttest_ssockt_csocko_cases()},
-     {ttest_ssockt_csockt,         [], ttest_ssockt_csockt_cases()}
+     {ttest_ssockt_csockt,         [], ttest_ssockt_csockt_cases()},
 
-     %% {tickets,             [], ticket_cases()}
+     %% Ticket groups
+     {tickets,                     [], tickets_cases()},
+     {otp16359,                    [], otp16359_cases()}
     ].
      
 api_cases() ->
@@ -1830,9 +1834,15 @@ ttest_ssockt_csockt_cases() ->
      ttest_ssockt_csockt_large_tcpL
     ].
 
-%% ticket_cases() ->
-%%     [].
+tickets_cases() ->
+    [
+     {group, otp16359}
+    ].
 
+otp16359_cases() ->
+    [
+     otp16359_maccept_tcp4
+    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -3420,7 +3430,7 @@ api_b_send_and_recv_tcp(InitState) ->
          ?SEV_FINISH_NORMAL
         ],
 
-    ClientSeq = 
+    ClientSeq =
         [
          %% *** Wait for start order ***
          #{desc => "await start (from tester)",
@@ -32780,6 +32790,14 @@ tpp_udp_sock_close(Sock, Path) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                           TIME TEST                                 %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This test case uses the time test (ttest) utility to implement a 
 %% ping-pong like test case.
 %% Server:       Transport = gen_tcp, Active = false
@@ -39400,6 +39418,573 @@ which_ttest_reports(Domain, all) ->
 which_ttest_reports(Domain, MsgID) ->
     [R || R = #ttest_report{id = #ttest_report_id{domain = D, msg_id = MID}} <- 
               ets:tab2list(?TTEST_MANAGER), (Domain =:= D) andalso (MsgID =:= MID)].
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                            TICKETS                                  %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and info of an IPv4 UDP (dgram) socket.
+%% With some extra checks...
+otp16359_maccept_tcp4(suite) ->
+    [];
+otp16359_maccept_tcp4(doc) ->
+    [];
+otp16359_maccept_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(otp16359_maccept_tcp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 protocol => tcp},
+                   ok = otp16359_maccept_tcp(InitState)
+           end).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+otp16359_maccept_tcp(InitState) ->
+    PrimAcceptorSeq =
+        [
+         %% *** Init part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           Tester = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "which local address",
+           cmd  => fun(#{domain := Domain} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           {ok, State#{lsa => LSA}}
+                   end},
+         #{desc => "create (listen) socket",
+           cmd  => fun(#{domain   := Domain,
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{lsock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{lsock := LSock, lsa := LSA} = State) ->
+                           case sock_bind(LSock, LSA) of
+                               {ok, Port} ->
+                                   {ok, State#{lport => Port}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "make listen socket",
+           cmd  => fun(#{lsock := LSock}) ->
+                           socket:listen(LSock)
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{lsock := LSock, lport := LPort, tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init, {LSock, LPort}),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
+                   end},
+         #{desc => "attempt to accept (without success)",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   ?SEV_IPRINT("Expected (accept) success: "
+                                               "~n   ~p", [Sock]),
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
+                           ok
+                   end},
+
+         %% *** Terminate ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_TERMINATE(Tester, tester),
+                           ok
+                   end},
+         %% *** Close (connect) socket ***
+         #{desc => "close (connect) socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           sock_close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+         %% *** Close (listen) socket ***
+         #{desc => "close (listen) socket",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           sock_close(LSock),
+                           {ok, maps:remove(lsock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    SecAcceptorSeq =
+        [
+         %% *** Init part ***
+         #{desc => "await start",
+           cmd  => fun(State) ->
+                           {Tester, LSock} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester,
+                                       lsock  => LSock}}
+                           
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% *** The actual test part ***
+         #{desc => "await continue (accept)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, accept)
+                   end},
+         #{desc => "attempt to accept",
+           cmd  => fun(#{lsock := LSock} = State) ->
+                           case socket:accept(LSock) of
+                               {ok, Sock} ->
+                                   ?SEV_IPRINT("Expected (accept) success: "
+                                               "~n   ~p", [Sock]),
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (accept)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_ANNOUNCE_READY(Tester, accept),
+                           ok
+                   end},
+
+         %% *** Terminate ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         %% *** Close (connect) socket ***
+         #{desc => "close (connect) socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           sock_close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    ClientSeq =
+        [
+         %% *** Wait for start order ***
+         #{desc => "await start (from tester)",
+           cmd  => fun(State) ->
+                           {Tester, Port} = ?SEV_AWAIT_START(),
+                           {ok, State#{tester => Tester, server_port => Port}}
+                   end},
+         #{desc => "monitor tester",
+           cmd  => fun(#{tester := Tester}) ->
+                           _MRef = erlang:monitor(process, Tester),
+                           ok
+                   end},
+
+         %% *** The init part ***
+         #{desc => "which server (local) address",
+           cmd  => fun(#{domain := Domain, server_port := Port} = State) ->
+                           LSA = which_local_socket_addr(Domain),
+                           SSA = LSA#{port => Port},
+                           {ok, State#{local_sa => LSA, server_sa => SSA}}
+                   end},
+         #{desc => "create socket",
+           cmd  => fun(#{domain   := Domain,
+                         protocol := Proto} = State) ->
+                           case socket:open(Domain, stream, Proto) of
+                               {ok, Sock} ->
+                                   {ok, State#{sock => Sock}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "bind to local address",
+           cmd  => fun(#{sock := Sock, local_sa := LSA} = _State) ->
+                           case sock_bind(Sock, LSA) of
+                               {ok, _Port} ->
+                                   ok;
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "announce ready (init)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, init),
+                           ok
+                   end},
+
+         %% *** The actual test ***
+         #{desc => "await continue (connect)",
+           cmd  => fun(#{tester := Tester} = _State) ->
+                           ?SEV_AWAIT_CONTINUE(Tester, tester, connect)
+                   end},
+         #{desc => "connect to server",
+           cmd  => fun(#{sock := Sock, server_sa := SSA}) ->
+                           socket:connect(Sock, SSA)
+                   end},
+         #{desc => "announce ready (connect)",
+           cmd  => fun(#{tester := Tester}) ->
+                           ?SEV_ANNOUNCE_READY(Tester, connect),
+                           ok
+                   end},
+
+         %% *** Termination ***
+         #{desc => "await terminate",
+           cmd  => fun(#{tester := Tester} = State) ->
+                           case ?SEV_AWAIT_TERMINATE(Tester, tester) of
+                               ok ->
+                                   {ok, maps:remove(tester, State)};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "close socket",
+           cmd  => fun(#{sock := Sock} = State) ->
+                           ok = socket:close(Sock),
+                           {ok, maps:remove(sock, State)}
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+    TesterSeq =
+        [
+         %% Init part
+         #{desc => "monitor prim-acceptor",
+           cmd  => fun(#{prim_acceptor := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor sec-acceptor 1",
+           cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor sec-acceptor 2",
+           cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client 1",
+           cmd  => fun(#{client1 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client 2",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+         #{desc => "monitor client 3",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           _MRef = erlang:monitor(process, Pid),
+                           ok
+                   end},
+
+
+         %% Start the prim-acceptor
+         #{desc => "start prim-acceptor",
+           cmd  => fun(#{prim_acceptor := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid),
+                           ok
+                   end},
+         #{desc => "await prim-acceptor ready (init)",
+           cmd  => fun(#{prim_acceptor := Pid} = State) ->
+                           {ok, {Sock, Port}} =
+                               ?SEV_AWAIT_READY(Pid, prim_acceptor, init),
+                           {ok, State#{lsock => Sock, lport => Port}}
+                   end},
+
+         %% Start sec-acceptor-1
+         #{desc => "start sec-acceptor 1",
+           cmd  => fun(#{sec_acceptor1 := Pid, lsock := LSock} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, LSock),
+                           ok
+                   end},
+         #{desc => "await sec-acceptor 1 ready (init)",
+           cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, sec_acceptor1, init)
+                   end},
+
+         %% Start sec-acceptor-2
+         #{desc => "start sec-acceptor 2",
+           cmd  => fun(#{sec_acceptor2 := Pid, lsock := LSock} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, LSock),
+                           ok
+                   end},
+         #{desc => "await sec-acceptor 2 ready (init)",
+           cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, sec_acceptor2, init)
+                   end},
+
+         %% Start client-1
+         #{desc => "start client 1",
+           cmd  => fun(#{client1 := Pid, lport := LPort} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, LPort),
+                           ok
+                   end},
+         #{desc => "await client 1 ready (init)",
+           cmd  => fun(#{client1 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, client1, init)
+                   end},
+
+         %% Start client-2
+         #{desc => "start client 2",
+           cmd  => fun(#{client2 := Pid, lport := LPort} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, LPort),
+                           ok
+                   end},
+         #{desc => "await client 2 ready (init)",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, client2, init)
+                   end},
+
+         %% Start client-3
+         #{desc => "start client 3",
+           cmd  => fun(#{client3 := Pid, lport := LPort} = _State) ->
+                           ?SEV_ANNOUNCE_START(Pid, LPort),
+                           ok
+                   end},
+         #{desc => "await client 3 ready (init)",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, client3, init)
+                   end},
+
+         %% Activate the acceptor(s)
+         #{desc => "active prim-acceptor",
+           cmd  => fun(#{prim_acceptor := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, accept),
+                           ok
+                   end},
+         #{desc => "active sec-acceptor 1",
+           cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, accept),
+                           ok
+                   end},
+         #{desc => "active sec-acceptor 2",
+           cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, accept),
+                           ok
+                   end},
+
+         %% Activate the client(s)
+         #{desc => "active client 1",
+           cmd  => fun(#{client1 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect),
+                           ok
+                   end},
+         #{desc => "active client 2",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect),
+                           ok
+                   end},
+         #{desc => "active client 3",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_CONTINUE(Pid, connect),
+                           ok
+                   end},
+
+         %% Await acceptor(s) completions
+         #{desc => "await prim-acceptor ready (accept)",
+           cmd  => fun(#{prim_acceptor := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, prim_acceptor, accept)
+                   end},
+         #{desc => "await sec-acceptor 1 ready (accept)",
+           cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, sec_acceptor1, accept)
+                   end},
+         #{desc => "await sec-acceptor 2 ready (accept)",
+           cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, sec_acceptor2, accept)
+                   end},
+         #{desc => "await client 1 ready (connect)",
+           cmd  => fun(#{client1 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, client1, connect)
+                   end},
+         #{desc => "await client 2 ready (connect)",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, client2, connect)
+                   end},
+         #{desc => "await client 3 ready (connect)",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           ?SEV_AWAIT_READY(Pid, client3, connect)
+                   end},
+
+         %% Terminate
+         #{desc => "order client 1 to terminate",
+           cmd  => fun(#{client1 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await client 1 termination",
+           cmd  => fun(#{client1 := Pid} = State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   State1 = maps:remove(client1, State),
+                                   {ok, State1};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order client 2 to terminate",
+           cmd  => fun(#{client2 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await client 2 termination",
+           cmd  => fun(#{client2 := Pid} = State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   State1 = maps:remove(client2, State),
+                                   {ok, State1};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order client 3 to terminate",
+           cmd  => fun(#{client3 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await client 3 termination",
+           cmd  => fun(#{client3 := Pid} = State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   State1 = maps:remove(client3, State),
+                                   {ok, State1};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order prim-acceptor to terminate",
+           cmd  => fun(#{prim_acceptor := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await prim-acceptor termination",
+           cmd  => fun(#{prim_acceptor := Pid} = State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   State1 = maps:remove(prim_acceptor, State),
+                                   {ok, State1};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order sec-acceptor 1 to terminate",
+           cmd  => fun(#{sec_acceptor1 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await sec-acceptor 1 termination",
+           cmd  => fun(#{sec_acceptor1 := Pid} = State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   State1 = maps:remove(sec_acceptor1, State),
+                                   {ok, State1};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "order sec-acceptor 2 to terminate",
+           cmd  => fun(#{sec_acceptor2 := Pid} = _State) ->
+                           ?SEV_ANNOUNCE_TERMINATE(Pid),
+                           ok
+                   end},
+         #{desc => "await sec-acceptor 2 termination",
+           cmd  => fun(#{sec_acceptor2 := Pid} = State) ->
+                           case ?SEV_AWAIT_TERMINATION(Pid) of
+                               ok ->
+                                   State1 = maps:remove(sec_acceptor2, State),
+                                   {ok, State1};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+
+
+
+    i("create prim-acceptor evaluator"),
+    PrimAInitState = InitState,
+    PrimAcceptor = ?SEV_START("prim-acceptor", PrimAcceptorSeq, PrimAInitState),
+
+    i("create sec-acceptor 1 evaluator"),
+    SecAInitState1 = maps:remove(domain, InitState),
+    SecAcceptor1 = ?SEV_START("sec-acceptor-1", SecAcceptorSeq, SecAInitState1),
+
+    i("create sec-acceptor 2 evaluator"),
+    SecAInitState2 = SecAInitState1,
+    SecAcceptor2 = ?SEV_START("sec-acceptor-2", SecAcceptorSeq, SecAInitState2),
+
+    i("create client 1 evaluator"),
+    ClientInitState1 = InitState,
+    Client1 = ?SEV_START("client-1", ClientSeq, ClientInitState1),
+
+    i("create client 2 evaluator"),
+    ClientInitState2 = InitState,
+    Client2 = ?SEV_START("client-2", ClientSeq, ClientInitState2),
+
+    i("create client 3 evaluator"),
+    ClientInitState3 = InitState,
+    Client3 = ?SEV_START("client-3", ClientSeq, ClientInitState3),
+
+    i("create tester evaluator"),
+    TesterInitState = #{prim_acceptor => PrimAcceptor#ev.pid,
+                        sec_acceptor1 => SecAcceptor1#ev.pid,
+                        sec_acceptor2 => SecAcceptor2#ev.pid,
+                        client1       => Client1#ev.pid,
+                        client2       => Client2#ev.pid,
+                        client3       => Client3#ev.pid},
+    Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
+
+    i("await evaluator(s)"),
+    ok = ?SEV_AWAIT_FINISH([PrimAcceptor, SecAcceptor1, SecAcceptor2,
+                            Client1, Client2, Client3,
+                            Tester]).
+
 
 
 
