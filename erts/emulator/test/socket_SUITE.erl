@@ -598,7 +598,8 @@
          ttest_ssockt_csockt_large_tcpL/1,
 
          %% Tickets
-         otp16359_maccept_tcp4/1
+         otp16359_maccept_tcp4/1,
+         otp16359_maccept_tcp6/1
         ]).
 
 
@@ -1841,7 +1842,8 @@ tickets_cases() ->
 
 otp16359_cases() ->
     [
-     otp16359_maccept_tcp4
+     otp16359_maccept_tcp4,
+     otp16359_maccept_tcp6
     ].
 
 
@@ -39438,13 +39440,33 @@ otp16359_maccept_tcp4(suite) ->
 otp16359_maccept_tcp4(doc) ->
     [];
 otp16359_maccept_tcp4(_Config) when is_list(_Config) ->
-    ?TT(?SECS(5)),
+    ?TT(?SECS(10)),
     tc_try(otp16359_maccept_tcp4,
            fun() ->
                    InitState = #{domain   => inet,
                                  protocol => tcp},
                    ok = otp16359_maccept_tcp(InitState)
            end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) and info of an IPv4 UDP (dgram) socket.
+%% With some extra checks...
+otp16359_maccept_tcp6(suite) ->
+    [];
+otp16359_maccept_tcp6(doc) ->
+    [];
+otp16359_maccept_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(otp16359_maccept_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 protocol => tcp},
+                   ok = otp16359_maccept_tcp(InitState)
+           end).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
