@@ -2072,7 +2072,7 @@ handle_send_trap(S, Notification, SendOpts) ->
     handle_send_trap(S, Notification, NotifyName, ContextName, Recv, Varbinds, 
 		     LocalEngineID, ExtraInfo).
 
-handle_send_trap(#state{type = Type} = S, 
+handle_send_trap(#state{type = Type} = S,
 		 Notification, NotifyName, ContextName, Recv, Varbinds, 
 		 LocalEngineID, ExtraInfo) ->
     ?vtrace("handle_send_trap -> entry with"
@@ -2082,7 +2082,7 @@ handle_send_trap(#state{type = Type} = S,
 	    "~n   ContextName:   ~p"
 	    "~n   LocalEngineID: ~p", 
 	    [Type, Notification, NotifyName, ContextName, LocalEngineID]),
-    case snmpa_trap:construct_trap(Notification, Varbinds) of
+    try snmpa_trap:construct_trap(Notification, Varbinds) of
 	{ok, TrapRecord, VarList} ->
 	    ?vtrace("handle_send_trap -> construction complete: "
 		    "~n   TrapRecord: ~p"
@@ -2102,7 +2102,10 @@ handle_send_trap(#state{type = Type} = S,
 				    LocalEngineID, ExtraInfo)
 	    end;
 	error ->
-	    error
+	    {error, failed_constructing_trap}
+    catch
+        C:E:Stack ->
+            {error, {failed_constructing_trap, C, E, Stack}}
     end.
 				
 
@@ -2178,7 +2181,7 @@ do_handle_send_trap(S, TrapRec, NotifyName, ContextName, Recv, Varbinds,
 	    {ok, S};
 	master_agent when S#state.multi_threaded =:= false ->
 	    ?vtrace("do_handle_send_trap -> send trap:"
-		    "~n   ~p", [TrapRec]),
+		    "~n   TrapRec: ~p", [TrapRec]),
 	    snmpa_trap:send_trap(TrapRec, NotifyName, ContextName,
 				 Recv, Vbs, LocalEngineID, ExtraInfo, 
 				 get(net_if)),
@@ -2272,7 +2275,7 @@ handle_discovery(#state{type = master_agent} = S, From,
 	    "~n   ContextName:  ~p" 
 	    "~n   Varbinds:     ~p", 
 	    [TargetName, Notification, ContextName, Varbinds]),
-    case snmpa_trap:construct_trap(Notification, Varbinds) of
+    try snmpa_trap:construct_trap(Notification, Varbinds) of
 	{ok, Record, InitVars} ->
 	    ?vtrace("handle_discovery -> trap construction complete: "
 		    "~n   Record:   ~p"
@@ -2282,6 +2285,9 @@ handle_discovery(#state{type = master_agent} = S, From,
 			   DiscoHandler, ExtraInfo);
 	error ->
 	    {error, failed_constructing_notification}
+    catch
+        C:E:Stack ->
+            {error, {failed_constructing_trap, C, E, Stack}}
     end;
 handle_discovery(_S, _From, 
 		 _TargetName, _Notification, _ContextName, _Varbinds, 
