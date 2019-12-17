@@ -143,6 +143,8 @@ struct dist_entry_ {
                                    NIL == free */
     Uint32 connection_id;	/* Connection id incremented on connect */
     enum dist_entry_state state;
+    int pending_nodedown;
+    Process* suspended_nodeup;
     Uint32 flags;		/* Distribution flags, like hidden, 
 				   atom cache etc. */
     Uint32 opts;

@@ -42,6 +42,7 @@
 	 monitor_nodes_combinations/1,
 	 monitor_nodes_cleanup/1,
 	 monitor_nodes_many/1,
+         monitor_nodes_down_up/1,
          dist_ctrl_proc_smoke/1,
          dist_ctrl_proc_reject/1]).
 
@@ -88,7 +89,8 @@ groups() ->
        monitor_nodes_node_type, monitor_nodes_misc,
        monitor_nodes_otp_6481, monitor_nodes_errors,
        monitor_nodes_combinations, monitor_nodes_cleanup,
-       monitor_nodes_many]}].
+       monitor_nodes_many,
+       monitor_nodes_down_up]}].
 
 init_per_suite(Config) ->
     start_gen_tcp_dist_test_type_server(),
@@ -1460,6 +1462,89 @@ monitor_nodes_many(DCfg, _Config) ->
     no_msgs(10),
     MonNodeState = monitor_node_state(),
     ok.
+
+%% Test order of messages nodedown and nodeup.
+monitor_nodes_down_up(Config) when is_list(Config) ->
+    [An] = get_nodenames(1, monitor_nodeup),
+    {ok, A} = ct_slave:start(An),
+
+    try
+        monitor_nodes_yoyo(A)
+    after
+        catch ct_slave:stop(A)
+    end.
+
+monitor_nodes_yoyo(A) ->
+    net_kernel:monitor_nodes(true),
+    Papa = self(),
+
+    %% Spawn lots of processes doing one erlang:monitor_node(A,true) each
+    %% just to get lots of other monitors to fire when connection goes down
+    %% and thereby give time for {nodeup,A} to race before {nodedown,A}.
+    NodeMonCnt = 10000,
+    NodeMons = [my_spawn_opt(fun F() ->
+                                     monitor_node = receive_any(),
+                                     monitor_node(A, true),
+                                     Papa ! ready,
+                                     {nodedown, A} =  receive_any(),
+                                     F()
+                             end,
+                             [link, monitor, {priority, low}])
+                ||
+                   _ <- lists:seq(1, NodeMonCnt)],
+
+    %% Spawn message spamming process to trigger new connection setups
+    %% as quick as possible.
+    Spammer = my_spawn_opt(fun F() ->
+                                   {dummy, A} ! trigger_auto_connect,
+                                   F()
+                           end,
+                           [link, monitor]),
+
+    %% Now bring connection down and verify we get {nodedown,A} before {nodeup,A}.
+    Yoyos = 20,
+    [begin
+         [P ! monitor_node || P <- NodeMons],
+         [receive ready -> ok end || _ <- NodeMons],
+
+         Owner = get_conn_owner(A),
+         exit(Owner, kill),
+
+         {nodedown, A} = receive_any(),
+         {nodeup, A} = receive_any()
+     end
+     || _ <- lists:seq(1,Yoyos)],
+
+    unlink(Spammer),
+    exit(Spammer, die),
+    receive {'DOWN',_,process,Spammer,_} -> ok end,
+
+    [begin unlink(P), exit(P, die) end || P <- NodeMons],
+    [receive {'DOWN',_,process,P,_} -> ok end || P <- NodeMons],
+
+    net_kernel:monitor_nodes(false),
+    ok.
+
+receive_any() ->
+    receive_any(infinity).
+
+receive_any(Timeout) ->
+    receive
+        M -> M
+    after
+        Timeout -> timeout
+    end.
+
+my_spawn_opt(Fun, Opts) ->
+    case spawn_opt(Fun, Opts) of
+        {Pid, _Mref} -> Pid;
+        Pid -> Pid
+    end.
+
+get_conn_owner(Node) ->
+    {ok, NodeInfo} = net_kernel:node_info(Node),
+    {value,{owner, Owner}} = lists:keysearch(owner, 1, NodeInfo),
+    Owner.
 
 dist_ctrl_proc_smoke(Config) when is_list(Config) ->
     dist_ctrl_proc_test(get_nodenames(2, ?FUNCTION_NAME)).
