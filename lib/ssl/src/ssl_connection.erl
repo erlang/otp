@@ -1313,8 +1313,8 @@ connection(cast, {dist_handshake_complete, DHandle},
     Connection:next_event(connection, Record, State);
 connection(info, Msg, State, _) ->
     handle_info(Msg, ?FUNCTION_NAME, State);
-connection(internal, {recv, Timeout}, State, Connection) ->
-    passive_receive(State, ?FUNCTION_NAME, Connection, [{{timeout, recv}, Timeout, timeout}]);
+connection(internal, {recv, RecvFrom}, #state{start_or_recv_from = RecvFrom} = State, Connection) ->
+    passive_receive(State, ?FUNCTION_NAME, Connection, []);
 connection(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
 
@@ -1368,8 +1368,11 @@ handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_rec
 handle_common_event({timeout, recv}, timeout, StateName, #state{start_or_recv_from = RecvFrom} = State, _) ->
     {next_state, StateName, State#state{start_or_recv_from = undefined,
                                         bytes_to_read = undefined}, [{reply, RecvFrom, {error, timeout}}]};
+handle_common_event({recv, RecvFrom}, internal, StateName, #state{start_or_recv_from = RecvFrom}, _) when
+      StateName =/= connection ->
+    {keep_state_and_data, [postpone]};
 handle_common_event(Type, Msg, StateName, #state{connection_env =
-                                                      #connection_env{negotiated_version = Version}} = State, 
+                                                      #connection_env{negotiated_version = Version}} = State,
 		    _) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE, {unexpected_msg, {Type,Msg}}),
     handle_own_alert(Alert, Version, StateName, State).
@@ -1420,7 +1423,7 @@ handle_call({recv, _N, _Timeout}, From, _,
 handle_call({recv, N, Timeout}, RecvFrom, StateName, State, _) ->
     %% Doing renegotiate wait with handling request until renegotiate is
     %% finished. 
-    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom}, 
+    {next_state, StateName, State#state{bytes_to_read = N, start_or_recv_from = RecvFrom},
      [{next_event, internal, {recv, RecvFrom}} , {{timeout, recv}, Timeout, timeout}]};
 handle_call({new_user, User}, From, StateName, 
             State = #state{connection_env = #connection_env{user_application = {OldMon, _}} = CEnv}, _) ->
