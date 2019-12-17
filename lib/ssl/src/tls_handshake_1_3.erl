@@ -813,7 +813,7 @@ do_wait_finished(#finished{verify_data = VerifyData},
         State3 = ssl_record:step_encryption_state(State2),
 
         %% Send session ticket
-        maybe_send_session_ticket(State3, 3)
+        maybe_send_session_ticket(State3)
 
     catch
         {Ref, decrypt_error} ->
@@ -1170,6 +1170,16 @@ maybe_send_certificate_verify(#state{session = #session{sign_alg = SignatureSche
     end.
 
 
+maybe_send_session_ticket(State) ->
+    Number = case application:get_env(ssl, server_session_tickets_amount) of
+                 {ok, Size} when is_integer(Size) andalso
+                                 Size > 0 ->
+                     Size;
+                 _  ->
+                     3
+             end,
+    maybe_send_session_ticket(State, Number).
+%%
 maybe_send_session_ticket(#state{ssl_options = #{session_tickets := disabled}} = State, _) ->
     %% Do nothing!
     State;

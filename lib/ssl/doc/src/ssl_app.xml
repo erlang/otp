@@ -138,7 +138,7 @@
       </item>
 
       <tag><c><![CDATA[internal_active_n = integer() <optional>]]></c></tag>
-        <item>
+      <item>
 	<p>
 	  For TLS connections this value is used to handle the
 	  internal socket. As the implementation was changed from an
@@ -149,7 +149,15 @@
 	  distribution over TLS that will always run in active N mode.
 	  Added in ssl-9.1 (OTP-21.2).
 	</p>
-	</item>
+      </item>
+
+      <tag><c><![CDATA[server_session_tickets_amount = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Number of session tickets sent by the server. It must be greater than 0.
+	  Defaults to 3.
+	</p>
+      </item>
 
       <tag><c><![CDATA[server_session_ticket_lifetime = integer() <optional>]]></c></tag>
       <item>
