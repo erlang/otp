@@ -950,7 +950,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <p>If it is set to <c>auto</c>, the client automatically handles received tickets and tries
 	  to use them when making new TLS connections (session resumption with pre-shared keys).</p>
 	  <note><p>This option is supported by TLS 1.3 and above. See also
-	  <seealso marker="crypto:engine_load"> SSL's Users Guide TODO link</seealso>
+	  <seealso marker="ssl:using_ssl#session_tickets"> SSL's Users Guide,
+	  Session Tickets and Session Resumption in TLS 1.3</seealso>
 	  </p></note>
 	</desc>
       </datatype>
@@ -963,7 +964,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <note><p>Session tickets are only sent to user if option <em>session_tickets</em> is set
 	  to <c>enabled</c></p>
 	  <p>This option is supported by TLS 1.3 and above. See also
-	  <seealso marker="crypto:engine_load"> SSL's Users Guide TODO link</seealso>
+	  <seealso marker="ssl:using_ssl#session_tickets"> SSL's Users Guide,
+	  Session Tickets and Session Resumption in TLS 1.3</seealso>
 	  </p></note>
 	</desc>
       </datatype>
@@ -1187,7 +1189,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  resumption. In stateful mode the server keeps ticket data in an internal ticket database.
 	  </p>
 	  <note><p>This option is supported by TLS 1.3 and above. See also
-	  <seealso marker="crypto:engine_load"> SSL's Users Guide TODO link</seealso>
+	  <seealso marker="ssl:using_ssl#session_tickets"> SSL's Users Guide,
+	  Session Tickets and Session Resumption in TLS 1.3</seealso>
 	  </p></note>
 	</desc>
       </datatype>
@@ -1195,7 +1198,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <datatype>
 	<name name="anti_replay"/>
 	<desc>
-	  <p>Configures the server's built-in anti replay feature based on Bloom filters. Bloom
+	  <p><marker id="option_anti_replay"></marker>
+	  Configures the server's built-in anti replay feature based on Bloom filters. Bloom
 	  filters are fast, memory-efficient, probabilistic data structures that can tell
 	  if an element may be in a set or if it is definitely not in the set.</p>
 	  <p>If <em>anti_replay</em> is defined, a pair of Bloom filters (<em>current</em> and
@@ -1234,8 +1238,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  </list>
 	  <note><p>This option is supported by TLS 1.3 and above and only with stateless session tickets.
 	  Ticket lifetime, the number of tickets sent by the server and the maximum number of tickets
-	  stored by the server in stateful mode are configured by application variables. TODO
-	  See also  <seealso marker="crypto:engine_load"> SSL's Users Guide TODO link</seealso>
+	  stored by the server in stateful mode are configured by application variables. See also
+	  <seealso marker="ssl:using_ssl#anti_replay"> SSL's Users Guide,
+	  Anti-Replay Protection in TLS 1.3</seealso>
 	  </p></note>
 	</desc>
       </datatype>

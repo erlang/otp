@@ -52,7 +52,8 @@
 
   <section>
     <title>CONFIGURATION</title>
-    <p>The application environment configuration parameters in this section 
+    <p><marker id="ssl_configuration"></marker>
+    The application environment configuration parameters in this section
     are defined for the SSL application. For more information 
     about configuration parameters, see the 
     <seealso marker="kernel:application">application(3)</seealso>
