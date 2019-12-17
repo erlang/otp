@@ -165,7 +165,7 @@
         <pre>
 #sctp_assoc_change{
       state             = atom(),
-      error             = atom(),
+      error             = integer(),
       outbound_streams  = integer(),
       inbound_streams   = integer(),
       assoc_id          = assoc_id()
@@ -208,7 +208,9 @@ connect(Socket, Ip, Port>,
           <tag><c>shutdown_comp</c></tag>
           <item></item>
         </taglist>
-        <p>Field <c>error</c> can provide more detailed diagnostics.</p>
+        <p>Field <c>error</c> can provide more detailed diagnostics.
+        The <c>error</c> field value can be converted into a string using
+        <seealso marker="#error_string/1"><c>error_string/1</c></seealso>.</p>
       </desc>
     </func>
 
