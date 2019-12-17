@@ -94,10 +94,10 @@ port_please(Node, Host) ->
 	  Port :: non_neg_integer(),
 	  Version :: non_neg_integer().
 
-port_please(Node,HostName, Timeout) when is_atom(HostName) ->
-  port_please1(Node,atom_to_list(HostName), Timeout);
-port_please(Node,HostName, Timeout) when is_list(HostName) ->
-  port_please1(Node,HostName, Timeout);
+port_please(Node, HostName, Timeout) when is_atom(HostName) ->
+  port_please1(Node, atom_to_list(HostName), Timeout);
+port_please(Node, HostName, Timeout) when is_list(HostName) ->
+  port_please1(Node, HostName, Timeout);
 port_please(Node, EpmdAddr, Timeout) ->
   get_port(Node, EpmdAddr, Timeout).
 
@@ -156,7 +156,7 @@ register_node(Name, PortNo) ->
 	  Name :: string(),
 	  Port :: non_neg_integer(),
 	  Driver :: inet_tcp | inet6_tcp | inet | inet6,
-	  Creation :: non_neg_integer(),
+	  Creation :: non_neg_integer() | -1,
 	  Result :: {ok, Creation} | {error, already_registered} | term().
 
 register_node(Name, PortNo, inet_tcp) ->
