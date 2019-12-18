@@ -60,14 +60,15 @@
 %%====================================================================
 -spec subsystem_spec(Options) -> Spec when
       Options :: [ {cwd, string()} |
-                   {file_handler, CallbackModule::string()} |
+                   {file_handler, CbMod | {CbMod, FileState}} |
                    {max_files, integer()} |
                    {root, string()} |
                    {sftpd_vsn, integer()}
                  ],
       Spec :: {Name, {CbMod,Options}},
       Name :: string(),
-      CbMod :: atom() .
+      CbMod :: atom(),
+      FileState :: term().
 
 
 subsystem_spec(Options) ->
