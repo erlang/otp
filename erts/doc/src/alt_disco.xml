@@ -88,6 +88,11 @@
         <p>This callback may also return the port of the given node. In that case
         <seealso marker="kernel:erl_epmd#port_please/3">port_please/3</seealso>
         may be omitted.</p></item>
+      <tag><seealso marker="kernel:erl_epmd#listen_port_please/2">listen_port_please/2</seealso></tag>
+      <item><p>Return the port the local node should listen to.
+        If not implemented, <seealso marker="kernel:erl_epmd#listen_port_please/2">
+        <c>erl_epmd:listen_port_please/2</c></seealso> will be used instead.</p>
+      </item>
     </taglist>
   </section>
 </chapter>

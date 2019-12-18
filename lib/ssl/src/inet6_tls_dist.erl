@@ -22,7 +22,7 @@
 -module(inet6_tls_dist).
 
 -export([childspecs/0]).
--export([listen/1, accept/1, accept_connection/5,
+-export([listen/2, accept/1, accept_connection/5,
 	 setup/5, close/1, select/1]).
 
 childspecs() ->
@@ -31,8 +31,8 @@ childspecs() ->
 select(Node) ->
     inet_tls_dist:gen_select(inet6_tcp, Node).
 
-listen(Name) ->
-    inet_tls_dist:gen_listen(inet6_tcp, Name).
+listen(Name, Host) ->
+    inet_tls_dist:gen_listen(inet6_tcp, Name, Host).
 
 accept(Listen) ->
     inet_tls_dist:gen_accept(inet6_tcp, Listen).

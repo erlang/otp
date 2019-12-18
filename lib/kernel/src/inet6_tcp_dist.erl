@@ -21,7 +21,7 @@
 
 %% Handles the connection setup phase with other Erlang nodes.
 
--export([listen/1, accept/1, accept_connection/5,
+-export([listen/2, accept/1, accept_connection/5,
          setup/5, close/1, select/1, address/0, is_node_name/1]).
 
 -export([setopts/2, getopts/2]).
@@ -47,8 +47,8 @@ address() ->
 %% node is accessible through.
 %% ------------------------------------------------------------
 
-listen(Name) ->
-    inet_tcp_dist:gen_listen(inet6_tcp, Name).
+listen(Name, Host) ->
+    inet_tcp_dist:gen_listen(inet6_tcp, Name, Host).
 
 %% ------------------------------------------------------------
 %% Accepts new connection attempts from other Erlang nodes.

@@ -1413,11 +1413,9 @@ get_proto_mod(_Family, _Protocol, []) ->
 %% -------- Initialisation functions ------------------------
 
 init_node(Name, LongOrShortNames, CleanHalt) ->
-    {NameWithoutHost0,_Host} = split_node(Name),
     case create_name(Name, LongOrShortNames, 1) of
 	{ok,Node} ->
-	    NameWithoutHost = list_to_atom(NameWithoutHost0),
-	    case start_protos(NameWithoutHost, Node, CleanHalt) of
+	    case start_protos(Node, CleanHalt) of
 		{ok, Ls} ->
 		    {ok, Node, Ls};
 		Error ->
@@ -1561,20 +1559,18 @@ dist_listen() ->
 %% Start all protocols
 %%
 
-start_protos(Name, Node, CleanHalt) ->
+start_protos(Node, CleanHalt) ->
     case init:get_argument(proto_dist) of
 	{ok, [Protos]} ->
-	    start_protos(Name, Protos, Node, CleanHalt);
+	    start_protos(Node, Protos, CleanHalt);
 	_ ->
-	    start_protos(Name, ["inet_tcp"], Node, CleanHalt)
+	    start_protos(Node, ["inet_tcp"], CleanHalt)
     end.
 
-
-
-start_protos(Name, Ps, Node, CleanHalt) ->
+start_protos(Node, Ps, CleanHalt) ->
     case case dist_listen() of
-        false -> start_protos_no_listen(Name, Ps, Node, [], CleanHalt);
-        _ -> start_protos(Name, Ps, Node, [], CleanHalt)
+        false -> start_protos_no_listen(Node, Ps, [], CleanHalt);
+        _ -> start_protos_listen(Node, Ps, CleanHalt)
          end of
 	[] ->
 	    case CleanHalt of
@@ -1585,7 +1581,7 @@ start_protos(Name, Ps, Node, CleanHalt) ->
 	    {ok, Ls}
     end.
 
-start_protos_no_listen(Name, [Proto | Ps], Node, Ls, CleanHalt) ->
+start_protos_no_listen(Node, [Proto | Ps], Ls, CleanHalt) ->
     Mod = list_to_atom(Proto ++ "_dist"),
     case set_node(Node, create_creation()) of
         ok ->
@@ -1595,13 +1591,13 @@ start_protos_no_listen(Name, [Proto | Ps], Node, Ls, CleanHalt) ->
                    address = Mod:address(),
                    accept = undefined,
                    module = Mod },
-            start_protos_no_listen(Name, Ps, Node, [L|Ls], CleanHalt);
+            start_protos_no_listen(Node, Ps, [L|Ls], CleanHalt);
         _ ->
             S = "invalid node name: " ++ atom_to_list(Node),
             proto_error(CleanHalt, Proto, S),
-            start_protos_no_listen(Name, Ps, Node, Ls, CleanHalt)
+            start_protos_no_listen(Node, Ps, Ls, CleanHalt)
     end;
-start_protos_no_listen(_Name, [], _Node, Ls, _CleanHalt) ->
+start_protos_no_listen(_Node, [], Ls, _CleanHalt) ->
     Ls.
 
 create_creation() ->
@@ -1612,42 +1608,48 @@ create_creation() ->
             rand:uniform((1 bsl 32)-1)
     end.
 
-start_protos(Name, [Proto | Ps], Node, Ls, CleanHalt) ->
+start_protos_listen(Node, Ps, CleanHalt) ->
+    {Name, "@"++Host} = split_node(Node),
+    start_protos_listen(list_to_atom(Name), Host, Node, Ps, [], CleanHalt).
+start_protos_listen(Name, Host, Node, [Proto | Ps], Ls, CleanHalt) ->
     Mod = list_to_atom(Proto ++ "_dist"),
-    case catch Mod:listen(Name) of
-	{ok, {Socket, Address, Creation}} ->
-	    case set_node(Node, Creation) of
-		ok ->
-		    AcceptPid = Mod:accept(Socket),
-		    auth:sync_cookie(),
-		    L = #listen {
-		      listen = Socket,
-		      address = Address,
-		      accept = AcceptPid,
-		      module = Mod },
-		    start_protos(Name,Ps, Node, [L|Ls], CleanHalt);
-		_ ->
-		    Mod:close(Socket),
-		    S = "invalid node name: " ++ atom_to_list(Node),
-		    proto_error(CleanHalt, Proto, S),
-		    start_protos(Name, Ps, Node, Ls, CleanHalt)
-	    end;
-	{'EXIT', {undef,_}} ->
-	    proto_error(CleanHalt, Proto, "not supported"),
-	    start_protos(Name, Ps, Node, Ls, CleanHalt);
-	{'EXIT', Reason} ->
-	    register_error(CleanHalt, Proto, Reason),
-	    start_protos(Name, Ps, Node, Ls, CleanHalt);
-	{error, duplicate_name} ->
-	    S = "the name " ++ atom_to_list(Node) ++
-		" seems to be in use by another Erlang node",
-	    proto_error(CleanHalt, Proto, S),
-	    start_protos(Name, Ps, Node, Ls, CleanHalt);
-	{error, Reason} ->
-	    register_error(CleanHalt, Proto, Reason),
-	    start_protos(Name, Ps, Node, Ls, CleanHalt)
+    try try Mod:listen(Name,Host)
+        catch error:undef ->
+                Mod:listen(Name)
+        end of
+        {ok, {Socket, Address, Creation}} ->
+            case set_node(Node, Creation) of
+                ok ->
+                    AcceptPid = Mod:accept(Socket),
+                    auth:sync_cookie(),
+                    L = #listen{
+                           listen = Socket,
+                           address = Address,
+                           accept = AcceptPid,
+                           module = Mod },
+                    start_protos_listen(Name, Host, Node, Ps, [L|Ls], CleanHalt);
+                _ ->
+                    Mod:close(Socket),
+                    S = "invalid node name: " ++ atom_to_list(Node),
+                    proto_error(CleanHalt, Proto, S),
+                    start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt)
+            end;
+        {error, duplicate_name} ->
+            S = "the name " ++ atom_to_list(Node) ++
+                " seems to be in use by another Erlang node",
+            proto_error(CleanHalt, Proto, S),
+            start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt);
+        {error, Reason} ->
+            register_error(CleanHalt, Proto, Reason),
+            start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt)
+    catch error:undef ->
+            proto_error(CleanHalt, Proto, "not supported"),
+            start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt);
+          error:Reason ->
+            register_error(CleanHalt, Proto, Reason),
+            start_protos_listen(Name, Host, Node, Ps, Ls, CleanHalt)
     end;
-start_protos(_, [], _Node, Ls, _CleanHalt) ->
+start_protos_listen(_Name, _Host, _Node, [], Ls, _CleanHalt) ->
     Ls.
 
 register_error(false, Proto, Reason) ->

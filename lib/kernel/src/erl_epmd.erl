@@ -42,8 +42,9 @@
 -endif.
 
 %% External exports
--export([start/0, start_link/0, stop/0, port_please/2, 
-	 port_please/3, names/0, names/1,
+-export([start/0, start_link/0, stop/0,
+         port_please/2, port_please/3, listen_port_please/2,
+         names/0, names/1,
 	 register_node/2, register_node/3, address_please/3, open/0, open/1, open/2]).
 
 %% gen_server callbacks
@@ -117,6 +118,13 @@ port_please1(Node,HostName, Timeout) ->
       ?port_please_failure2(_Else),
       noport
   end.
+
+-spec listen_port_please(Name, Host) -> {ok, Port} when
+      Name :: atom(),
+      Host :: string() | inet:ip_address(),
+      Port :: non_neg_integer().
+listen_port_please(_Name, _Host) ->
+    {ok, 0}.
 
 -spec names() -> {ok, [{Name, Port}]} | {error, Reason} when
 	  Name :: string(),
