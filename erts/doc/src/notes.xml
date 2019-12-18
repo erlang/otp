@@ -31,6 +31,31 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected an issue with the new socket api which could
+	    cause a core dump. A race during socket close could cause
+	    a core dump (an invalid nif environment free).</p>
+          <p>
+	    Own Id: OTP-16314 Aux Id: ERL-1098 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected an issue with the new socket api which could
+	    cause a core dump. When multiple accept processes waiting
+	    for a connect a connect could cause a core dump.</p>
+          <p>
+	    Own Id: OTP-16359</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
