@@ -291,10 +291,12 @@ localise_oid(X) ->
 %% Returns: see initiate_vars.
 %% NOTE: Executed at the intermediate SAs
 %%-----------------------------------------------------------------
-try_find_type([Varbind | Varbinds], Mib) ->
-    [localise_type(Varbind, Mib) | try_find_type(Varbinds, Mib)];
-try_find_type([], _) -> [].
+try_find_type(Varbinds, Mib) ->
+    [localise_type(Varbind, Mib) || Varbind <- Varbinds].
 
+%% We add the 'process oid' value of 'keep' for all variables
+%% that does not already have a (process) value (and tables 
+%% although those will never have any other value).
 localise_type({VariableOid, Type}, _Mib) 
   when is_list(VariableOid) andalso is_record(Type, asn1_type) ->
     {{keep, VariableOid}, Type};
@@ -370,22 +372,10 @@ make_v2_notif_pdu(Vbs, Type) ->
 	 varbinds     = Vbs}.
 
 make_varbind_list(Varbinds) ->
-    %% ?vtrace("make_varbind_list -> entry with"
-    %%         "~n      Varbinds: ~p", [Varbinds]),
     OVarbinds = order(Varbinds),
-    %% ?vtrace("make_varbind_list -> order:"
-    %%         "~n      OVarbinds: ~p", [OVarbinds]),
     {VariablesWithValueAndType, VariablesWithType} = split_variables(OVarbinds),
-    %% ?vtrace("make_varbind_list -> split:"
-    %%         "~n      VariablesWithValueAndType: ~p"
-    %%         "~n      VariablesWithType:         ~p",
-    %%         [VariablesWithValueAndType, VariablesWithType]),
     V    = get_values(VariablesWithType),
-    %% ?vtrace("make_varbind_list -> get-values:"
-    %%         "~n      V: ~p", [V]),
     Vars = lists:append([V, VariablesWithValueAndType]),
-    %% ?vtrace("make_varbind_list -> combined:"
-    %%         "~n      Vars: ~p", [Vars]),
     [make_varbind(Var) || Var <- unorder(lists:keysort(1, Vars))].
 
 
@@ -484,9 +474,7 @@ get_values(VariablesWithType) ->
 		     [ErrorStatus, ErrorIndex, Varbinds]),
 	    throw(error)
     end.
-    
-make_varbind(Varbind) when is_record(Varbind, varbind) ->
-    Varbind;
+
 make_varbind({Process, #varbind{oid = Oid} = VB}) ->
     VB#varbind{oid = process_oid(Process, Oid)};
 make_varbind({Process, {VarOid, ASN1Type, Value}}) ->
@@ -502,26 +490,12 @@ make_varbind({Process, {VarOid, ASN1Type, Value}}) ->
 		     "~n   Type: ~w",
 		     [Reason, VarOid, Value, ASN1Type]),
 	    throw(error)
-    end;
-make_varbind({VarOid, ASN1Type, Value}) ->
-    case snmpa_agent:make_value_a_correct_value(Value, ASN1Type, undef) of
-	{value, Type, Val} ->
-	    #varbind{oid          = VarOid,
-                     variabletype = Type,
-                     value        = Val};
-	{error, Reason} -> 
-	    user_err("snmpa_trap: Invalid value: ~w"
-		     "~n   Oid:  ~w"
-		     "~n   Val:  ~w"
-		     "~n   Type: ~w",
-		     [Reason, VarOid, Value, ASN1Type]),
-	    throw(error)
     end.
 
 process_oid(truncate, Oid) ->
     case lists:reverse(Oid) of
         [0 | RevRestOid] ->
-            lists:revse(RevRestOid);
+            lists:reverse(RevRestOid);
         _ ->
             Oid
     end;
