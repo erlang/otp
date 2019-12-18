@@ -58,7 +58,7 @@
 
 -include("inet_int.hrl").
 -include("erl_epmd.hrl").
-
+-include_lib("kernel/include/inet.hrl").
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -102,9 +102,7 @@ port_please(Node, HostName, Timeout) when is_list(HostName) ->
 port_please(Node, EpmdAddr, Timeout) ->
   get_port(Node, EpmdAddr, Timeout).
 
-
-
-port_please1(Node,HostName, Timeout) ->
+port_please1(Node, HostName, Timeout) ->
   Family = case inet_db:res_option(inet6) of
              true ->
                inet6;
@@ -112,11 +110,21 @@ port_please1(Node,HostName, Timeout) ->
                inet
            end,
   case inet:gethostbyname(HostName, Family, Timeout) of
-    {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
-      get_port(Node, EpmdAddr, Timeout);
-    _Else ->
-      ?port_please_failure2(_Else),
-      noport
+      {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
+          case get_port(Node, EpmdAddr, Timeout) of
+              noport ->
+                  case listen_port_please(Node, HostName) of
+                      {ok, 0} ->
+                          noport;
+                      {ok, Prt} ->
+                          {port, Prt, 5}
+                  end;
+               Reply ->
+                  Reply
+          end;
+      _Else ->
+          ?port_please_failure2(_Else),
+          noport
   end.
 
 -spec listen_port_please(Name, Host) -> {ok, Port} when
@@ -124,7 +132,15 @@ port_please1(Node,HostName, Timeout) ->
       Host :: string() | inet:ip_address(),
       Port :: non_neg_integer().
 listen_port_please(_Name, _Host) ->
-    {ok, 0}.
+    try
+        %% Should come up with a new name for this as ERL_EPMD_PORT describes what
+        %% port epmd runs on which could easily be confused with this.
+        {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
+        Port = list_to_integer(StringPort),
+        {ok, Port}
+    catch error:_ ->
+            {ok, 0}
+    end.
 
 -spec names() -> {ok, [{Name, Port}]} | {error, Reason} when
 	  Name :: string(),
@@ -143,7 +159,7 @@ names() ->
 
 names(HostName) when is_atom(HostName); is_list(HostName) ->
   case inet:gethostbyname(HostName) of
-    {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
+    {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
       get_names(EpmdAddr);
     Else ->
       Else
