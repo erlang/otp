@@ -6347,8 +6347,6 @@ ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
 
         /* Clean out the old cobweb's before trying to invite a new spider */
 
-        descP->currentAcceptor.ref = esock_atom_undefined;
-        enif_set_pid_undefined(&descP->currentAcceptor.pid);
         esock_free_env("esock_accept_accepting_current_accept - "
                        "current-accept-env",
                        descP->currentAcceptor.env);
@@ -6359,13 +6357,17 @@ ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
             SSDBG( descP,
                    ("SOCKET",
                     "esock_accept_accepting_current_accept -> "
-                    "no more writers\r\n") );
+                    "no more acceptors\r\n") );
 
             descP->state               = ESOCK_STATE_LISTENING;
 
             descP->currentAcceptorP    = NULL;
-            ESOCK_ASSERT(!descP->currentAcceptor.env);
-            descP->currentAcceptor.env = NULL;
+            /* Do we really need this?
+             * The activate_next_acceptor (actually the requestor_pop) function
+             * initiates these values if there are no waiting acceptor...
+             */
+            descP->currentAcceptor.ref = esock_atom_undefined;
+            enif_set_pid_undefined(&descP->currentAcceptor.pid);
             MON_INIT(&descP->currentAcceptor.mon);
         }
 
@@ -14880,17 +14882,28 @@ ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
     SSDBG( descP, ("SOCKET",
                    "esock_cancel_accept_current -> cancel res: %T\r\n", res) );
 
+    /* Clean out the old cobweb's before trying to invite a new spider */
+
+    esock_free_env("esock_cancel_accept_current - current-accept-env",
+                   descP->currentAcceptor.env);
+    descP->currentAcceptor.env =  NULL;
+
     if (!activate_next_acceptor(env, descP, sockRef)) {
 
         SSDBG( descP,
-               ("SOCKET", "esock_cancel_accept_current -> no more writers\r\n") );
+               ("SOCKET",
+                "esock_cancel_accept_current -> no more acceptors\r\n") );
 
         descP->state               = ESOCK_STATE_LISTENING;
 
         descP->currentAcceptorP    = NULL;
+        /* Do we really need this?
+         * The activate_next_acceptor (actually the requestor_pop) function
+         * initiates these values if there are no waiting acceptor...
+         */
         descP->currentAcceptor.ref = esock_atom_undefined;
         enif_set_pid_undefined(&descP->currentAcceptor.pid);
-        esock_monitor_init(&descP->currentAcceptor.mon);
+        MON_INIT(&descP->currentAcceptor.mon);
     }
 
     SSDBG( descP, ("SOCKET", "esock_cancel_accept_current -> done with result:"
@@ -14919,7 +14932,7 @@ ERL_NIF_TERM esock_cancel_accept_waiting(ErlNifEnv*       env,
     if (acceptor_unqueue(env, descP, &caller)) {
         return esock_atom_ok;
     } else {
-        /* Race? */
+        /* Race? But we have a mutex look... */
         return esock_make_error(env, esock_atom_not_found);
     }
 }
@@ -19647,13 +19660,13 @@ int esock_select_cancel(ErlNifEnv*             env,
                     esock_send_abort_msg(env, sockRef,                  \
                                          reqP->ref, reqP->env,          \
                                          reason, &reqP->pid);           \
-                    reqP->env = NULL;                                  \
+                    reqP->env = NULL;                                   \
                                                                         \
                 } else {                                                \
                                                                         \
                     /* Success: New requestor selected */               \
                     popped    = TRUE;                                   \
-                    activated = FALSE;                                  \
+                    activated = TRUE;                                   \
                                                                         \
                 }                                                       \
                                                                         \
