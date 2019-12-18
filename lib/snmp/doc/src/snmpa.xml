@@ -998,7 +998,12 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <v>Agent = pid() | atom()</v>
         <v>Notification = atom()</v>
         <v>SendOpts = [send_option()]</v>
-        <v>send_option() = {receiver, receiver()} | {name, notify_name()} | {context, context_name()} | {varbinds, varbinds()} | {local_engine_id, string()} | {extra, extra_info()}</v>
+	<v>send_option() = {receiver, receiver()} |
+	                   {name, notify_name()} |
+			   {context, context_name()} |
+			   {varbinds, varbinds()} |
+			   {local_engine_id, string()} |
+	                   {extra, extra_info()}</v>
         <v>receiver() = no_receiver | {tag(), tag_receiver()} | notification_delivery_info()</v>
         <v>tag() = term(()</v>
         <v>tag_receiver() = pid() | registered_name() | {Mod, Func, Args}</v>
@@ -1009,8 +1014,12 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <v>notify_name() = string()</v>
         <v>context_name() = string()</v>
         <v>varbinds() = [varbind()]</v>
-        <v>varbind() = {variable(), value()} | {column(), row_index(), value()} | {oid(), value()}</v>
-        <v>variable() = atom()</v>
+	<v>varbind() = {variable(), value()} |
+	               {{process_oid(), variable()}, value()} |
+	               {column(), row_index(), value()} |</v>
+        <v>variable() = aliasname() | oid()</v>
+        <v>aliasname() = atom()</v>
+        <v>process_oid() = keep (default) | truncate</v>
         <v>value() = term()</v>
         <v>column() = atom()</v>
         <v>row_index() = [int()]</v>
@@ -1094,7 +1103,13 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
 	    </list>
 	  </item>
-        </list>
+	</list>
+
+	<p>The 'process oid' "tag" that can be provided with the
+	variable name / oids is indended to be used for oid post
+	processing. The value '<c>keep</c>', which is the default, leaves
+	the oid as is. The value '<c>truncate</c>', will cause the oid
+	to be "truncated". That is, any trailing ".0" will be removed. </p>
 
 	<note>
 	  <p>There is a way to exclude a varbind from the notification.
