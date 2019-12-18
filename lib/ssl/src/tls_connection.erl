@@ -261,7 +261,10 @@ next_event(StateName, no_record, State0, Actions) ->
  	{no_record, State} ->
             ssl_connection:hibernate_after(StateName, State, Actions);
         {Record, State} ->
-            next_event(StateName, Record, State, Actions)
+            next_event(StateName, Record, State, Actions);
+        #alert{} = Alert ->
+            ssl_connection:handle_normal_shutdown(Alert, StateName, State0),
+	    {stop, {shutdown, own_alert}, State0}
     end;
 next_event(StateName,  #ssl_tls{} = Record, State, Actions) ->
     {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
