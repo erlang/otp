@@ -3005,6 +3005,34 @@ void db_free_term(DbTable *tb, void* basep, Uint offset)
     erts_db_free(ERTS_ALC_T_DB_TERM, tb, basep, size);
 }
 
+Uint db_term_size(DbTable *tb, void* basep, Uint offset)
+{
+    DbTerm* db = (DbTerm*) ((byte*)basep + offset);
+    if (tb->common.compress) {
+	return  db_alloced_size_comp(db);
+    }
+    else {
+	return offset + offsetof(DbTerm,tpl) + db->size*sizeof(Eterm);
+    }
+}
+
+void db_free_term_no_tab(int compress, void* basep, Uint offset)
+{
+    DbTerm* db = (DbTerm*) ((byte*)basep + offset);
+    Uint size;
+    if (compress) {
+	db_cleanup_offheap_comp(db);
+	size = db_alloced_size_comp(db);
+    }
+    else {
+	ErlOffHeap tmp_oh;
+	tmp_oh.first = db->first_oh;
+	erts_cleanup_offheap(&tmp_oh);
+	size = offset + offsetof(DbTerm,tpl) + db->size*sizeof(Eterm);
+    }
+    erts_db_free(ERTS_ALC_T_DB_TERM, NULL, basep, size);
+}
+
 static ERTS_INLINE Uint align_up(Uint value, Uint pow2)
 {
     ASSERT((pow2 & (pow2-1)) == 0);
@@ -3013,7 +3041,7 @@ static ERTS_INLINE Uint align_up(Uint value, Uint pow2)
 
 /* Compressed size of an uncompressed term
 */
-static Uint db_size_dbterm_comp(DbTableCommon* tb, Eterm obj)
+static Uint db_size_dbterm_comp(int keypos, Eterm obj)
 {
     Eterm* tpl = tuple_val(obj);
     int i;
@@ -3022,11 +3050,11 @@ static Uint db_size_dbterm_comp(DbTableCommon* tb, Eterm obj)
         + sizeof(Uint); /* "alloc_size" */
 
     for (i = arityval(*tpl); i>0; i--) {
-	if (i != tb->keypos && is_not_immed(tpl[i])) {
+	if (i != keypos && is_not_immed(tpl[i])) {
 	    size += erts_encode_ext_size_ets(tpl[i]);
 	}
     }
-    size += size_object(tpl[tb->keypos]) * sizeof(Eterm);
+    size += size_object(tpl[keypos]) * sizeof(Eterm);
     return align_up(size, sizeof(Uint));
 }
 
@@ -3042,13 +3070,13 @@ static ERTS_INLINE byte* elem2ext(Eterm* tpl, Uint ix)
     return (byte*)tpl + (tpl[ix] >> _TAG_PRIMARY_SIZE);
 }
 
-static void* copy_to_comp(DbTableCommon* tb, Eterm obj, DbTerm* dest,
+static void* copy_to_comp(int keypos, Eterm obj, DbTerm* dest,
 			  Uint alloc_size)
 {
     ErlOffHeap tmp_offheap;
     Eterm* src = tuple_val(obj);
     Eterm* tpl = dest->tpl;
-    Eterm key = src[tb->keypos];
+    Eterm key = src[keypos];
     int arity = arityval(src[0]);
     union {
 	Eterm* ep;
@@ -3062,10 +3090,10 @@ static void* copy_to_comp(DbTableCommon* tb, Eterm obj, DbTerm* dest,
     tpl[arity + 1] = alloc_size;
 
     tmp_offheap.first = NULL;
-    tpl[tb->keypos] = copy_struct(key, size_object(key), &top.ep, &tmp_offheap);
+    tpl[keypos] = copy_struct(key, size_object(key), &top.ep, &tmp_offheap);
     dest->first_oh = tmp_offheap.first;
     for (i=1; i<=arity; i++) {
-	if (i != tb->keypos) {
+	if (i != keypos) {
 	    if (is_immed(src[i])) {
 		tpl[i] = src[i];
 	    }
@@ -3137,14 +3165,17 @@ void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
 }
 
 
-void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
+void* db_store_term_comp(DbTableCommon *tb, /* May be NULL */
+                         int keypos,
+                         DbTerm* old,
+                         Uint offset,Eterm obj)
 {
-    Uint new_sz = offset + db_size_dbterm_comp(tb, obj);
+    Uint new_sz = offset + db_size_dbterm_comp(keypos, obj);
     byte* basep;
     DbTerm* newp;
     byte* top;
 
-    ASSERT(tb->compress);
+    ASSERT(tb == NULL || tb->compress);
     if (old != 0) {
 	Uint old_sz = db_alloced_size_comp(old);
 	db_cleanup_offheap_comp(old);
@@ -3164,7 +3195,7 @@ void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
     }
 
     newp->size = size_object(obj);
-    top = copy_to_comp(tb, obj, newp, new_sz);
+    top = copy_to_comp(keypos, obj, newp, new_sz);
     ASSERT(top <= basep + new_sz); (void)top;
 
     /* ToDo: Maybe realloc if ((basep+new_sz) - top) > WASTED_SPACE_LIMIT */
@@ -3179,7 +3210,7 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
     DbTerm* newDbTerm;
     Uint alloc_sz = offset +
 	(tbl->common.compress ?
-	 db_size_dbterm_comp(&tbl->common, make_tuple(handle->dbterm->tpl)) :
+	 db_size_dbterm_comp(tbl->common.keypos, make_tuple(handle->dbterm->tpl)) :
 	 sizeof(DbTerm)+sizeof(Eterm)*(handle->new_size-1));
     byte* newp = erts_db_alloc(ERTS_ALC_T_DB_TERM, tbl, alloc_sz);
     byte* oldp = *(handle->bp);
@@ -3195,7 +3226,7 @@ void db_finalize_resize(DbUpdateHandle* handle, Uint offset)
     /* make a flat copy */
 
     if (tbl->common.compress) {
-	copy_to_comp(&tbl->common, make_tuple(handle->dbterm->tpl),
+	copy_to_comp(tbl->common.keypos, make_tuple(handle->dbterm->tpl),
 		     newDbTerm, alloc_sz);
 	db_free_tmp_uncompressed(handle->dbterm);
     }

@@ -1,0 +1,11 @@
+y=10
+y=42 z=10
+TRAPPED
+y=42 x=9
+y=42 x=18
+y=42 x=18
+y=42 x=9
+SUCCESS
+I returned y=42
+I got destroyed or returned y=42
+RETURNED 9

@@ -160,6 +160,9 @@ db_lookup_dbterm_catree(Process *, DbTable *, Eterm key, Eterm obj,
                         DbUpdateHandle*);
 static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *);
 static int db_get_binary_info_catree(Process*, DbTable*, Eterm key, Eterm *ret);
+static int db_put_dbterm_catree(DbTable* tbl,
+                                void* obj,
+                                int key_clash_fail);
 
 static void split_catree(DbTableCATree *tb,
                          DbTableCATreeNode* ERTS_RESTRICT base,
@@ -213,6 +216,12 @@ DbTableMethod db_catree =
     db_foreach_offheap_catree,
     db_lookup_dbterm_catree,
     db_finalize_dbterm_catree,
+    db_eterm_to_dbterm_tree_common,
+    db_dbterm_list_prepend_tree_common,
+    db_dbterm_list_remove_first_tree_common,
+    db_put_dbterm_catree,
+    db_free_dbterm_tree_common,
+    db_get_dbterm_key_tree_common,
     db_get_binary_info_catree,
     db_first_catree, /* raw_first same as first */
     db_next_catree   /* raw_next same as next */
@@ -1629,6 +1638,24 @@ static int db_prev_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     } while (rootp);
 
     destroy_root_iterator(&iter);
+    return result;
+}
+
+static int db_put_dbterm_catree(DbTable* tbl,
+                                void* obj,
+                                int key_clash_fail)
+{
+    TreeDbTerm *value_to_insert = obj;
+    DbTableCATree *tb = &tbl->catree;
+    Eterm key = GETKEY(tb, value_to_insert->dbterm.tpl);
+    FindBaseNode fbn;
+    DbTableCATreeNode* node = find_wlock_valid_base_node(tb, key, &fbn);
+    int result = db_put_dbterm_tree_common(&tb->common,
+                                           &node->u.base.root,
+                                           value_to_insert,
+                                           key_clash_fail,
+                                           NULL);
+    wunlock_adapt_base_node(tb, node, fbn.parent, fbn.current_level);
     return result;
 }
 

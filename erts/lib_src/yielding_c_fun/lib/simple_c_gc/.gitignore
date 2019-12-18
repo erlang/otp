@@ -1,0 +1,11 @@
+# Object files
+*.o
+*.ko
+*.obj
+*.elf
+*~
+GPATH
+GRTAGS
+GTAGS
+test.bin
+.tmp_out

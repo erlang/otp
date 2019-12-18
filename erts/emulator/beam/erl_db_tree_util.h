@@ -169,6 +169,13 @@ int db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
                                  DbTableTree *stack_container);
 void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
                                     DbTableTree *stack_container);
+void* db_eterm_to_dbterm_tree_common(int compress, int keypos, Eterm obj);
+void* db_dbterm_list_prepend_tree_common(void* list, void* db_term);
+void* db_dbterm_list_remove_first_tree_common(void **list);
+int db_put_dbterm_tree_common(DbTableCommon *tb, TreeDbTerm **root, TreeDbTerm *value_to_insert,
+                              int key_clash_fail, DbTableTree *stack_container);
+void db_free_dbterm_tree_common(int compressed, void* obj);
+Eterm db_get_dbterm_key_tree_common(DbTable* tb, void* db_term);
 Sint cmp_partly_bound(Eterm partly_bound_key, Eterm bound_key);
 
 TreeDbTerm *db_find_tree_node_common(DbTableCommon*, TreeDbTerm *root,

@@ -457,6 +457,8 @@ endif
 
 include zlib/zlib.mk
 include pcre/pcre.mk
+YCF_SOURCE_DIR = $(ERL_TOP)/erts/lib_src/yielding_c_fun
+include $(ERL_TOP)/erts/lib_src/yielding_c_fun/main_target.mk
 
 $(ERTS_LIB):
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) $(TYPE)
@@ -470,6 +472,10 @@ clean:
 	$(RM) -r pcre/obj/$(TARGET) $(PCRE_GENINC)
 	$(RM) -r zlib/obj/$(TARGET)
 	$(RM) -r bin/$(TARGET)
+	$(RM) $(YCF_EXECUTABLE)
+	$(RM) $(YCF_SOURCE_DIR)/*.o
+	$(RM) $(YCF_SOURCE_DIR)/lib/tiny_regex_c/*.o
+	$(RM) $(YCF_SOURCE_DIR)/lib/simple_c_gc/*.o
 	cd $(ERTS_LIB_DIR) && $(MAKE) clean
 
 .PHONY: docs
@@ -621,7 +627,24 @@ $(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
 	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(NIF_OBJS) $(STATIC_NIF_LIBS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
 GENERATE += $(TTF_DIR)/driver_tab.c
 
+beam/erl_db_insert_list.inc: $(YCF_EXECUTABLE) beam/erl_db.c
+	$(gen_verbose)$(YCF_EXECUTABLE) \
+		-yield \
+		-static_aux_funs \
+		-only_yielding_funs \
+		-output_file_name beam/erl_db_insert_list.inc \
+		-f ets_insert_2_list_check \
+		-f ets_insert_new_2_list_has_member \
+		-f ets_insert_2_list_from_p_heap \
+		-f ets_insert_2_list_destroy_copied_dbterms \
+		-f ets_insert_2_list_copy_term_list \
+		-f ets_insert_new_2_dbterm_list_has_member \
+		-f ets_insert_2_list_insert_db_term_list \
+		-f ets_insert_2_list \
+		-fnoauto ets_insert_2_list_lock_tbl \
+		beam/erl_db.c
 
+GENERATE += beam/erl_db_insert_list.inc
 
 # Preloaded code.
 # 

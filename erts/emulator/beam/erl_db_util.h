@@ -43,18 +43,19 @@
  * checks for negative returns and issues BIF_ERRORS based 
  * upon these values.
  */
-#define DB_ERROR_NONE      0     /* No error */
-#define DB_ERROR_BADITEM  -1     /* The item was malformed ie no 
-				   tuple or to small*/
-#define DB_ERROR_BADTABLE -2     /* The Table is inconsisitent */
-#define DB_ERROR_SYSRES   -3     /* Out of system resources */
-#define DB_ERROR_BADKEY   -4     /* Returned if a key that should
-				    exist does not. */
+#define DB_ERROR_NONE_FALSE 1     /* No error am_false reult */
+#define DB_ERROR_NONE       0     /* No error */
+#define DB_ERROR_BADITEM   -1     /* The item was malformed ie no 
+				     tuple or to small*/
+#define DB_ERROR_BADTABLE  -2     /* The Table is inconsisitent */
+#define DB_ERROR_SYSRES    -3     /* Out of system resources */
+#define DB_ERROR_BADKEY    -4     /* Returned if a key that should
+				     exist does not. */
 #define DB_ERROR_BADPARAM  -5     /* Returned if a specified slot does 
 				     not exist (hash table only) or
 				     the state parameter in db_match_object
 				     is broken.*/
-#define DB_ERROR_UNSPEC   -10    /* Unspecified error */
+#define DB_ERROR_UNSPEC    -10    /* Unspecified error */
 
 /*#define DEBUG_CLONE*/
 
@@ -234,14 +235,19 @@ typedef struct db_table_method
     ** dbterm was not updated. If the handle was of a new object and cret is
     ** not DB_ERROR_NONE, the object is removed from the table. */
     void (*db_finalize_dbterm)(int cret, DbUpdateHandle* handle);
-
+    void* (*db_eterm_to_dbterm)(int compress, int keypos, Eterm obj);
+    void* (*db_dbterm_list_prepend)(void* list, void* db_term);
+    void* (*db_dbterm_list_remove_first)(void** list);
+    int (*db_put_dbterm)(DbTable* tb, /* [in out] */
+                         void* obj,
+                         int key_clash_fail); /* DB_ERROR_BADKEY if key exists */
+    void (*db_free_dbterm)(int compressed, void* obj);
+    Eterm (*db_get_dbterm_key)(DbTable* tb, void* db_term);
     int (*db_get_binary_info)(Process*, DbTable* tb, Eterm key, Eterm* ret);
-
     /* Raw first/next same as first/next but also return pseudo deleted keys.
        Only internal use by ets:info(_,binary) */
     int (*db_raw_first)(Process*, DbTable*, Eterm* ret);
     int (*db_raw_next)(Process*, DbTable*, Eterm key, Eterm* ret);
-
 } DbTableMethod;
 
 typedef struct db_fixation {
@@ -312,6 +318,12 @@ typedef struct db_table_common {
     int keypos;               /* defaults to 1 */
     int compress;
 
+    /* For unfinished operations that needs to be helped */
+    void (*continuation)(long *reds_ptr,
+                         void** state,
+                         void* extra_context); /* To help yielded process */
+    erts_atomic_t continuation_state;
+    Binary* continuation_res_bin;
 #ifdef ETS_DBG_FORCE_TRAP
     erts_atomic_t dbg_force_trap;  /* &1 force enabled, &2 trap this call */
 #endif
@@ -407,6 +419,7 @@ ERTS_GLB_INLINE int db_eq(DbTableCommon* tb, Eterm a, DbTerm* b)
 #define DB_READ  (DB_PROTECTED|DB_PUBLIC)
 #define DB_WRITE DB_PUBLIC
 #define DB_INFO  (DB_PROTECTED|DB_PUBLIC|DB_PRIVATE)
+#define DB_READ_TBL_STRUCT (DB_PROTECTED|DB_PUBLIC|DB_PRIVATE|DB_BUSY)
 
 #define ONLY_WRITER(P,T) (((T)->common.status & (DB_PRIVATE|DB_PROTECTED)) \
 			  && (T)->common.owner == (P)->common.id)
@@ -424,8 +437,13 @@ void db_initialize_util(void);
 Eterm db_getkey(int keypos, Eterm obj);
 void db_cleanup_offheap_comp(DbTerm* p);
 void db_free_term(DbTable *tb, void* basep, Uint offset);
+void db_free_term_no_tab(int compress, void* basep, Uint offset);
+Uint db_term_size(DbTable *tb, void* basep, Uint offset);
 void* db_store_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
-void* db_store_term_comp(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj);
+void* db_store_term_comp(DbTableCommon *tb, /*May be NULL*/
+                         int keypos,
+                         DbTerm* old,
+                         Uint offset,Eterm obj);
 Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
 			       Uint pos, Eterm** hpp, Uint extra);
 int db_has_map(Eterm obj);
