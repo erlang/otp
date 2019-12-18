@@ -5102,12 +5102,14 @@ repeat_par_help(FunToRepeat, NrOfTimes, OrgNrOfTimes) ->
     repeat_par_help(FunToRepeat, NrOfTimes-1, OrgNrOfTimes).
 
 test_decentralized_counters_setting(Config) when is_list(Config) ->
-    EtsMem = etsmem(),
-    do_test_decentralized_counters_setting(set),
-    do_test_decentralized_counters_setting(ordered_set),
-    do_test_decentralized_counters_default_setting(),
-    verify_etsmem(EtsMem),
-    ok.
+    case erlang:system_info(schedulers) of
+        1 -> {skip,"Only relevant when the number of shedulers > 1"};
+        _ -> EtsMem = etsmem(),
+             do_test_decentralized_counters_setting(set),
+             do_test_decentralized_counters_setting(ordered_set),
+             do_test_decentralized_counters_default_setting(),
+             verify_etsmem(EtsMem)
+    end.
 
 do_test_decentralized_counters_setting(TableType) ->
     wait_for_memory_deallocations(),
