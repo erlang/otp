@@ -26,9 +26,10 @@
 -export([tc_try/2, tc_try/3]).
 -export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
 	 display_suite_info/1]).
--export([non_pc_tc_maybe_skip/4, os_based_skip/1,
-         has_support_ipv6/0, has_support_ipv6/1,
-         is_ipv6_host/0, is_ipv6_host/1]).
+-export([non_pc_tc_maybe_skip/4,
+         os_based_skip/1,
+         has_support_ipv6/0
+        ]).
 -export([init_per_suite/1, end_per_suite/1,
          init_suite_top_dir/2, init_group_top_dir/2, init_testcase_top_dir/2, 
 	 fix_data_dir/1, 
@@ -46,6 +47,9 @@
 -export([del_dir/1]).
 -export([cover/1]).
 -export([f/2, p/2, print1/2, print2/2, print/5, formated_timestamp/0]).
+
+
+-define(SKIP(R), skip(R, ?MODULE, ?LINE)).
 
 
 %% ----------------------------------------------------------------------
@@ -406,43 +410,83 @@ os_based_skip_check(OsName, OsNames) ->
     end.
 
 
-%% A basic test to check if current host supports IPv6
+%% A modern take on the "Check if our host handle IPv6" question.
+%% 
 has_support_ipv6() ->
-    case inet:gethostname() of
-        {ok, Hostname} ->
-            has_support_ipv6(Hostname);
-        _ ->
-            false
-    end.
+    socket:supports(ipv6) andalso has_valid_ipv6_address().
 
-has_support_ipv6(Hostname) ->
-    case inet:getaddr(Hostname, inet6) of
-        {ok, Addr} when (size(Addr) =:= 8) andalso
-                        (element(1, Addr) =/= 0) andalso
-                        (element(1, Addr) =/= 16#fe80) ->
-            true;
+has_valid_ipv6_address() ->
+    case net:getifaddrs(fun(#{addr  := #{family := inet6},
+                              flags := Flags}) ->
+                                not lists:member(loopback, Flags);
+                           (_) ->
+                                false
+                        end) of
+        {ok, [#{addr := #{addr := LocalAddr}}|_]} ->
+            %% At least one valid address, we pick the first...
+            try validate_ipv6_address(LocalAddr)
+            catch
+                _:_:_ ->
+                    false
+            end;
         {ok, _} ->
             false;
         {error, _} ->
             false
     end.
-		
 
-is_ipv6_host() ->
-    case inet:gethostname() of
-        {ok, Hostname} ->
-            is_ipv6_host(Hostname);
-        {error, _} ->
-            false
-    end.
-
-is_ipv6_host(Hostname) ->
-    case ct:require(ipv6_hosts) of
+validate_ipv6_address(LocalAddr) ->
+    Domain = inet6,
+    ServerSock =
+        case socket:open(Domain, dgram, udp) of
+            {ok, SS} ->
+                SS;
+            {error, R2} ->
+                ?SKIP(f("(server) socket open failed: ~p", [R2]))
+        end,
+    LocalSA = #{family => Domain, addr => LocalAddr},
+    ServerPort =
+        case socket:bind(ServerSock, LocalSA) of
+            {ok, P1} ->
+                P1;
+            {error, R3} ->
+                socket:close(ServerSock),
+                ?SKIP(f("(server) socket bind failed: ~p", [R3]))
+        end,
+    ServerSA = LocalSA#{port => ServerPort},
+    ClientSock =
+        case socket:open(Domain, dgram, udp) of
+            {ok, CS} ->
+                CS;
+            {error, R4} ->
+                ?SKIP(f("(client) socket open failed: ~p", [R4]))
+        end,
+    case socket:bind(ClientSock, LocalSA) of
+        {ok, _} ->
+            ok;
+        {error, R5} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            ?SKIP(f("(client) socket bind failed: ~p", [R5]))
+    end,
+    case socket:sendto(ClientSock, <<"hejsan">>, ServerSA) of
         ok ->
-            lists:member(list_to_atom(Hostname), ct:get_config(ipv6_hosts));
-        _ ->
-            false
-    end.
+            ok;
+        {error, R6} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            ?SKIP(f("failed socket sendto test: ~p", [R6]))
+    end,
+    case socket:recvfrom(ServerSock) of
+        {ok, {_, <<"hejsan">>}} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            true;
+        {error, R7} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            ?SKIP(f("failed socket recvfrom test: ~p", [R7]))
+   end.
 
 
 %% ----------------------------------------------------------------

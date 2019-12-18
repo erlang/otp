@@ -739,7 +739,7 @@ init_per_group_ipv6(GroupName, Config, Init) ->
         false ->
             %% Even if this host supports IPv6 we don't use it unless its
             %% one of the configured/supported IPv6 hosts...
-            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
+            case ?HAS_SUPPORT_IPV6() of
                 true ->
                     Init(
                       snmp_test_lib:init_group_top_dir(
@@ -6757,10 +6757,16 @@ otp_16092_simple_start_and_stop1(Config) ->
     ?P(otp_16092_simple_start_and_stop1), 
     ?DBG("otp_16092_simple_start_and_stop1 -> entry", []),
 
-    otp_16092_simple_start_and_stop(Config, default, success),
+    TC = fun() ->
+                 otp_16092_simple_start_and_stop(Config, default, success)
+         end,
 
-    ?DBG("otp_16092_simple_start_and_stop1 -> done", []),
-    ok.
+    Result = otp_16092_try(TC),
+
+    ?DBG("otp_16092_simple_start_and_stop1 -> done: "
+         "~n      ~p", [Result]),
+
+    Result.
 
 
 otp_16092_simple_start_and_stop2(suite) -> [];
@@ -6768,10 +6774,16 @@ otp_16092_simple_start_and_stop2(Config) ->
     ?P(otp_16092_simple_start_and_stop2), 
     ?DBG("otp_16092_simple_start_and_stop2 -> entry", []),
 
-    otp_16092_simple_start_and_stop(Config, [], success),
+    TC = fun() ->
+                 otp_16092_simple_start_and_stop(Config, [], success)
+         end,
 
-    ?DBG("otp_16092_simple_start_and_stop2 -> done", []),
-    ok.
+    Result = otp_16092_try(TC),
+
+    ?DBG("otp_16092_simple_start_and_stop2 -> done: "
+         "~n      ~p", [Result]),
+
+    Result.
 
 
 otp_16092_simple_start_and_stop3(suite) -> [];
@@ -6779,10 +6791,18 @@ otp_16092_simple_start_and_stop3(Config) ->
     ?P(otp_16092_simple_start_and_stop3), 
     ?DBG("otp_16092_simple_start_and_stop3 -> entry", []),
 
-    otp_16092_simple_start_and_stop(Config, 'this-should-be-ignored', success),
+    TC = fun() ->
+                 otp_16092_simple_start_and_stop(Config,
+                                                 'this-should-be-ignored',
+                                                 success)
+         end,
 
-    ?DBG("otp_16092_simple_start_and_stop3 -> done", []),
-    ok.
+    Result = otp_16092_try(TC),
+
+    ?DBG("otp_16092_simple_start_and_stop3 -> done: "
+         "~n      ~p", [Result]),
+
+    Result.
 
 
 otp_16092_simple_start_and_stop4(suite) -> [];
@@ -6790,29 +6810,36 @@ otp_16092_simple_start_and_stop4(Config) ->
     ?P(otp_16092_simple_start_and_stop4), 
     ?DBG("otp_16092_simple_start_and_stop4 -> entry", []),
 
-    otp_16092_simple_start_and_stop(Config, ['this-should-fail'], failure),
+    TC = fun() ->
+                 otp_16092_simple_start_and_stop(Config,
+                                                 ['this-should-fail'],
+                                                 failure)
+         end,
+    
+    Result = otp_16092_try(TC),
 
-    ?DBG("otp_16092_simple_start_and_stop4 -> done", []),
-    ok.
+    ?DBG("otp_16092_simple_start_and_stop4 -> done: "
+         "~n      ", [Result]),
+
+    Result.
 
 
+otp_16092_try(TC) ->
+    try TC() of
+        Any ->
+            Any
+    catch
+        _:{skip, _} = SKIP ->
+            SKIP
+    end.
+        
 otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
     ?line ConfDir = ?config(agent_conf_dir, Config),
     ?line DbDir   = ?config(agent_db_dir,   Config),
 
     p("try start agent node~n"),
     p(user, "try start agent node~n"),
-    Node = case ?ALIB:start_node(agent_16092) of
-               {ok, N} ->
-                   p("agent node ~p started~n", [N]),
-                   p(user, "agent node ~p started~n", [N]),
-                   N;
-               {error, Reason} ->
-                   e("Failed starting agent node: "
-                     "~n   ~p"
-                     "~n", [Reason]),
-                   ?SKIP({failed_starting_node, Reason})
-           end,
+    {ok, Node} = ?ALIB:start_node(agent_16092),
 
     Vsns      = [v1],
     IP        = tuple_to_list(?config(ip, Config)),
@@ -6841,7 +6868,6 @@ otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
             {config,     ConfOpts},
             {net_if,     NiOpts}],
 
-    
     otp16092_try_start_and_stop_agent(Node, Opts, Expected),
 
     p("try stop agent node ~p~n", [Node]),
@@ -6854,7 +6880,7 @@ otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
     p(user, "done~n"),
     ok.
 
-    
+
 otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
     i("try start snmp (agent) supervisor (on ~p) - expect ~p~n", [Node, Expected]),
     case start_standalone_agent(Node, Opts) of

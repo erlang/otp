@@ -212,7 +212,7 @@ init_per_group(_, Config) ->
     Config.
 
 init_per_group_ipv6(Families, Config) ->
-    case ?LIB:has_support_ipv6() of
+    case ?HAS_SUPPORT_IPV6() of
         true ->
             init_per_group_ip(Families, Config);
         false ->

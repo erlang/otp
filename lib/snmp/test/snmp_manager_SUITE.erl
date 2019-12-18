@@ -429,7 +429,7 @@ init_per_group_ipv6(GroupName, Config) ->
         false ->
             %% Even if this host supports IPv6 we don't use it unless its
             %% one of the configures/supported IPv6 hosts...
-            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
+            case ?HAS_SUPPORT_IPV6() of
                 true ->
                     ipv6_init(?LIB:init_group_top_dir(GroupName, Config));
                 false ->
