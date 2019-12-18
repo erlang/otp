@@ -419,7 +419,7 @@ static int get_final_args(ErlNifEnv* env,
         if (!enif_alloc_binary(0, &out_data_bin))
             {
                 *return_term = EXCP_ERROR(env, "Can't allocate empty outdata");
-                goto err;
+                goto err0;
             }
         if (padded_size) *padded_size = 0;
         out_len = 0;
@@ -435,7 +435,7 @@ static int get_final_args(ErlNifEnv* env,
             if (!enif_alloc_binary((size_t)block_size, &out_data_bin))
                 {
                     *return_term = EXCP_ERROR(env, "Can't allocate final outdata");
-                    goto err;
+                    goto err0;
                 }
 
             if (ctx_res->encflag)
@@ -556,6 +556,8 @@ static int get_final_args(ErlNifEnv* env,
     return 1;
 
  err:
+    enif_release_binary(&out_data_bin);
+ err0:
     return 0;
 }
 
@@ -824,7 +826,6 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         }
 
     /* Exit here */
-    
     ret = enif_make_binary(env,&out_data_bin);
 
  err:
