@@ -1132,13 +1132,13 @@ tls_handshake_events(Packets) ->
 
 %% raw data from socket, upack records
 handle_info({Protocol, _, Data}, StateName,
-            #state{static_env = #static_env{data_tag = Protocol}} = State0) ->
+            #state{static_env = #static_env{data_tag = Protocol},
+                   connection_env = #connection_env{negotiated_version = Version}} = State0) ->
     case next_tls_record(Data, StateName, State0) of
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
-	    ssl_connection:handle_normal_shutdown(Alert, StateName, State0), 
-	    {stop, {shutdown, own_alert}, State0}
+	    ssl_connection:handle_own_alert(Alert, Version, StateName, State0)
     end;
 handle_info({PassiveTag, Socket},  StateName, 
             #state{static_env = #static_env{socket = Socket,
