@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2006-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,12 +23,12 @@
 %% Purpose: Test encoding/decoding (codec) module of Megaco/H.248
 %%----------------------------------------------------------------------
 
--module(megaco_codec_v3_test).
+-module(megaco_codec_prev3c_SUITE).
 
 %% ----
 
 -include_lib("megaco/include/megaco.hrl").
--include_lib("megaco/include/megaco_message_v3.hrl").
+-include_lib("megaco/include/megaco_message_prev3c.hrl").
 -include("megaco_test_lib.hrl").
 
 %% ----
@@ -36,17 +36,25 @@
 -export([msgs/0]).
 -export([rfc3525_msgs_display/0, rfc3525_msgs_test/0]).
 
--export([t/0, t/1]).
+-export([
+ 	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, 
 	 pretty_test_msgs/1, 
+	 
 	 compact_test_msgs/1, 
+	 
 	 flex_pretty_init/1, 
 	 flex_pretty_finish/1, 
 	 flex_pretty_test_msgs/1,
+
+	 
 	 flex_compact_init/1, 
 	 flex_compact_finish/1, 
 	 flex_compact_test_msgs/1,
+
 	 flex_compact_dm_timers1/1, 
 	 flex_compact_dm_timers2/1, 
 	 flex_compact_dm_timers3/1, 
@@ -55,13 +63,15 @@
 	 flex_compact_dm_timers6/1, 
 	 flex_compact_dm_timers7/1, 
 	 flex_compact_dm_timers8/1, 
+	 
 	 bin_test_msgs/1,
+	 
 	 ber_test_msgs/1, 
+	 
 	 per_test_msgs/1,
+	
 	 erl_dist_m_test_msgs/1,
 
-	 tickets/0, 
-	 
 	 compact_otp4011_msg1/1, 
 	 compact_otp4011_msg2/1,
 	 compact_otp4011_msg3/1,
@@ -184,30 +194,27 @@
          flex_pretty_otp7431_msg04/1,
          flex_pretty_otp7431_msg05/1,
          flex_pretty_otp7431_msg06/1,
-         flex_pretty_otp7431_msg07/1,
-
-	 init_per_testcase/2, end_per_testcase/2]).  
+         flex_pretty_otp7431_msg07/1
+        ]).  
 
 -export([display_text_messages/0, generate_text_messages/0]).
 
 
 %% ----
 
--define(V3,    v3).
+-define(V3,    prev3c).
 -define(EC_V3, {version3,?V3}).
 -define(EC,    [?EC_V3]).
 
 -define(VERSION,      3).
 -define(VERSION_STR,  "3").
--define(MSG_LIB,      megaco_test_msg_v3_lib).
+-define(MSG_LIB,      megaco_test_msg_prev3c_lib).
 -define(DEFAULT_PORT, 55555).
 -define(MG1_MID_NO_PORT, {ip4Address,
                           #'IP4Address'{address = [124, 124, 124, 222]}}).
 -define(MG1_MID, {ip4Address, #'IP4Address'{address = [124, 124, 124, 222],
                                             portNumber = ?DEFAULT_PORT}}).
 -define(MG2_MID, {ip4Address, #'IP4Address'{address = [125, 125, 125, 111],
-                                            portNumber = ?DEFAULT_PORT}}).
--define(MG3_MID, {ip4Address, #'IP4Address'{address = [125, 124, 123, 122],
                                             portNumber = ?DEFAULT_PORT}}).
 -define(MGC_MID, {ip4Address, #'IP4Address'{address = [123, 123, 123, 4],
                                             portNumber = ?DEFAULT_PORT}}).
@@ -218,161 +225,75 @@
 -define(A5556, ["11111111", "11111111", "11111111"]).
 
 
-%% ----
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
 
-display_text_messages() ->
-    Msgs = 
-	msgs7(text)  ++ 
-	msgs8(text),
-    megaco_codec_test_lib:display_text_messages(?VERSION, ?EC, Msgs).
-
-
-generate_text_messages() ->
-    Msgs = 
-	msgs7(text)  ++ 
-	msgs8(text),
-    megaco_codec_test_lib:generate_text_messages(?V3, ?VERSION, ?EC, Msgs).
-
-
-%% ----
-
-tickets() ->
-    %% io:format("~w:tickets -> entry~n", [?MODULE]),
-    megaco_test_lib:tickets(?MODULE).
-
-
-%% ----
-
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-
-init_per_testcase(Case, Config) ->
-    %% CaseString = io_lib:format("~p", [Case]),
-    C = 
-	case lists:suffix("time_test", atom_to_list(Case)) of
-	    true ->
-		[{tc_timeout, timer:minutes(10)}|Config];
-	    false ->
-		put(verbosity,trc),
-		Config
-	end,
-    megaco_test_lib:init_per_testcase(Case, C).
-
-end_per_testcase(Case, Config) ->
-    erase(verbosity),
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Top test case
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, text}, 
+    [
+     {group, text}, 
      {group, binary}, 
      {group, erl_dist},
-     {group, tickets}].
+     {group, tickets}
+    ].
 
 groups() -> 
-    [{text, [],
-      [{group, pretty}, 
-       {group, flex_pretty},
-       {group, compact}, 
-       {group, flex_compact}]},
-     {binary, [],
-      [{group, bin}, 
-       {group, ber}, 
-       {group, per}]},
-     {erl_dist, [], [{group, erl_dist_m}]},
-     {pretty, [], [pretty_test_msgs]},
-     {compact, [], [compact_test_msgs]},
-     {flex_pretty, [], flex_pretty_cases()},
-     {flex_compact, [], flex_compact_cases()},
-     {bin, [], [bin_test_msgs]}, 
-     {ber, [], [ber_test_msgs]},
-     {per, [], [per_test_msgs]},
-     {erl_dist_m, [], [erl_dist_m_test_msgs]},
-     {tickets, [],
-      [{group, compact_tickets},
-       {group, flex_compact_tickets}, 
-       {group, pretty_tickets},
-       {group, flex_pretty_tickets}]},
-     {compact_tickets, [],
-      [compact_otp4011_msg1, compact_otp4011_msg2,
-       compact_otp4011_msg3, compact_otp4013_msg1,
-       compact_otp4085_msg1, compact_otp4085_msg2,
-       compact_otp4280_msg1, compact_otp4299_msg1,
-       compact_otp4359_msg1, compact_otp4920_msg0,
-       compact_otp4920_msg1, compact_otp4920_msg2,
-       compact_otp4920_msg3, compact_otp4920_msg4,
-       compact_otp4920_msg5, compact_otp4920_msg6,
-       compact_otp4920_msg7, compact_otp4920_msg8,
-       compact_otp4920_msg9, compact_otp4920_msg10,
-       compact_otp4920_msg11, compact_otp4920_msg12,
-       compact_otp4920_msg20, compact_otp4920_msg21,
-       compact_otp4920_msg22, compact_otp4920_msg23,
-       compact_otp4920_msg24, compact_otp4920_msg25,
-       compact_otp5186_msg01, compact_otp5186_msg02,
-       compact_otp5186_msg03, compact_otp5186_msg04,
-       compact_otp5186_msg05, compact_otp5186_msg06,
-       compact_otp5793_msg01, compact_otp5836_msg01,
-       compact_otp5993_msg01, compact_otp5993_msg02,
-       compact_otp5993_msg03, compact_otp6017_msg01,
-       compact_otp6017_msg02, compact_otp6017_msg03]},
+    [
+     {text,                 [], text_cases()},
+     {binary,               [], binary_cases()},
+     {erl_dist,             [], erl_dist_cases()},
+     {pretty,               [], pretty_cases()},
+     {compact,              [], compact_cases()},
+     {flex_pretty,          [], flex_pretty_cases()},
+     {flex_compact,         [], flex_compact_cases()},
+     {bin,                  [], bin_cases()}, 
+     {ber,                  [], ber_cases()},
+     {per,                  [], per_cases()},
+     {erl_dist_m,           [], erl_dist_m_cases()},
+     {tickets,              [], tickets_cases()},
+     {compact_tickets,      [], compact_tickets_cases()},
      {flex_compact_tickets, [], flex_compact_tickets_cases()},
-     {pretty_tickets, [],
-      [pretty_otp4632_msg1, pretty_otp4632_msg2,
-       pretty_otp4632_msg3, pretty_otp4632_msg4,
-       pretty_otp4710_msg1, pretty_otp4710_msg2,
-       pretty_otp4945_msg1, pretty_otp4945_msg2,
-       pretty_otp4945_msg3, pretty_otp4945_msg4,
-       pretty_otp4945_msg5, pretty_otp4945_msg6,
-       pretty_otp4949_msg1, pretty_otp4949_msg2,
-       pretty_otp4949_msg3, pretty_otp5042_msg1,
-       pretty_otp5068_msg1, pretty_otp5085_msg1,
-       pretty_otp5085_msg2, pretty_otp5085_msg3,
-       pretty_otp5085_msg4, pretty_otp5085_msg5,
-       pretty_otp5085_msg6, pretty_otp5085_msg7,
-       pretty_otp5085_msg8, pretty_otp5600_msg1,
-       pretty_otp5600_msg2, pretty_otp5601_msg1,
-       pretty_otp5793_msg01, pretty_otp5803_msg01,
-       pretty_otp5803_msg02, pretty_otp5805_msg01,
-       pretty_otp5836_msg01, pretty_otp5882_msg01,
-       pretty_otp6490_msg01, pretty_otp6490_msg02,
-       pretty_otp6490_msg03, pretty_otp6490_msg04,
-       pretty_otp6490_msg05, pretty_otp6490_msg06,
-       pretty_otp7671_msg01, pretty_otp7671_msg02,
-       pretty_otp7671_msg03, pretty_otp7671_msg04,
-       pretty_otp7671_msg05, pretty_otp8114_msg01]},
-     {flex_pretty_tickets, [], flex_pretty_tickets_cases()}].
+     {pretty_tickets,       [], pretty_tickets_cases()},
+     {flex_pretty_tickets,  [], flex_pretty_tickets_cases()}
+    ].
 
-init_per_group(flex_pretty_tickets, Config) -> 
-    flex_pretty_init(Config);
-init_per_group(flex_compact_tickets, Config) -> 
-    flex_compact_init(Config);
-init_per_group(flex_compact, Config) -> 
-    flex_compact_init(Config);
-init_per_group(flex_pretty, Config) -> 
-    flex_pretty_init(Config);
-init_per_group(_GroupName, Config) ->
-    Config.
+text_cases() ->
+    [
+     {group, pretty}, 
+     {group, flex_pretty},
+     {group, compact}, 
+     {group, flex_compact}
+    ].
 
-end_per_group(flex_pretty_tickets, Config) -> 
-    flex_pretty_finish(Config);
-end_per_group(flex_compact_tickets, Config) -> 
-    flex_compact_finish(Config);
-end_per_group(flex_compact, Config) -> 
-    flex_compact_finish(Config);
-end_per_group(flex_pretty, Config) -> 
-    flex_pretty_finish(Config);
-end_per_group(_GroupName, Config) ->
-    Config.
+binary_cases() ->
+    [
+     {group, bin}, 
+     {group, ber}, 
+     {group, per}
+    ].
 
+erl_dist_cases() ->
+    [
+     {group, erl_dist_m}
+    ].
+
+pretty_cases() ->
+    [
+     pretty_test_msgs
+    ].
+
+compact_cases() ->
+    [
+     compact_test_msgs
+    ].
 
 flex_pretty_cases() -> 
     [
      flex_pretty_test_msgs
     ].
-
 
 flex_compact_cases() -> 
     [
@@ -387,6 +308,80 @@ flex_compact_cases() ->
      flex_compact_dm_timers8
     ].
 
+bin_cases() ->
+    [
+     bin_test_msgs
+    ].
+
+ber_cases() ->
+    [
+     ber_test_msgs
+    ].
+
+per_cases() ->
+    [
+     per_test_msgs
+    ].
+
+erl_dist_m_cases() ->
+    [
+     erl_dist_m_test_msgs
+    ].
+
+tickets_cases() ->
+    [
+     {group, compact_tickets},
+     {group, flex_compact_tickets}, 
+     {group, pretty_tickets},
+     {group, flex_pretty_tickets}
+    ].
+
+compact_tickets_cases() ->
+    [
+     compact_otp4011_msg1,
+     compact_otp4011_msg2,
+     compact_otp4011_msg3,
+     compact_otp4013_msg1,
+     compact_otp4085_msg1,
+     compact_otp4085_msg2,
+     compact_otp4280_msg1,
+     compact_otp4299_msg1,
+     compact_otp4359_msg1,
+     compact_otp4920_msg0,
+     compact_otp4920_msg1,
+     compact_otp4920_msg2,
+     compact_otp4920_msg3,
+     compact_otp4920_msg4,
+     compact_otp4920_msg5,
+     compact_otp4920_msg6,
+     compact_otp4920_msg7,
+     compact_otp4920_msg8,
+     compact_otp4920_msg9,
+     compact_otp4920_msg10,
+     compact_otp4920_msg11,
+     compact_otp4920_msg12,
+     compact_otp4920_msg20,
+     compact_otp4920_msg21,
+     compact_otp4920_msg22,
+     compact_otp4920_msg23,
+     compact_otp4920_msg24,
+     compact_otp4920_msg25,
+     compact_otp5186_msg01,
+     compact_otp5186_msg02,
+     compact_otp5186_msg03,
+     compact_otp5186_msg04,
+     compact_otp5186_msg05,
+     compact_otp5186_msg06,
+     compact_otp5793_msg01,
+     compact_otp5836_msg01,
+     compact_otp5993_msg01,
+     compact_otp5993_msg02,
+     compact_otp5993_msg03,
+     compact_otp6017_msg01,
+     compact_otp6017_msg02,
+     compact_otp6017_msg03
+    ].
+
 flex_compact_tickets_cases() -> 
     [
      flex_compact_otp4299_msg1, 
@@ -399,7 +394,57 @@ flex_compact_tickets_cases() ->
      flex_compact_otp7431_msg07
     ].
 
-flex_pretty_tickets_cases() -> 
+pretty_tickets_cases() ->
+    [
+     pretty_otp4632_msg1,
+     pretty_otp4632_msg2,
+     pretty_otp4632_msg3,
+     pretty_otp4632_msg4,
+     pretty_otp4710_msg1,
+     pretty_otp4710_msg2,
+     pretty_otp4945_msg1,
+     pretty_otp4945_msg2,
+     pretty_otp4945_msg3,
+     pretty_otp4945_msg4,
+     pretty_otp4945_msg5,
+     pretty_otp4945_msg6,
+     pretty_otp4949_msg1,
+     pretty_otp4949_msg2,
+     pretty_otp4949_msg3,
+     pretty_otp5042_msg1,
+     pretty_otp5068_msg1,
+     pretty_otp5085_msg1,
+     pretty_otp5085_msg2,
+     pretty_otp5085_msg3,
+     pretty_otp5085_msg4,
+     pretty_otp5085_msg5,
+     pretty_otp5085_msg6,
+     pretty_otp5085_msg7,
+     pretty_otp5085_msg8,
+     pretty_otp5600_msg1,
+     pretty_otp5600_msg2,
+     pretty_otp5601_msg1,
+     pretty_otp5793_msg01,
+     pretty_otp5803_msg01,
+     pretty_otp5803_msg02,
+     pretty_otp5805_msg01,
+     pretty_otp5836_msg01,
+     pretty_otp5882_msg01,
+     pretty_otp6490_msg01,
+     pretty_otp6490_msg02,
+     pretty_otp6490_msg03,
+     pretty_otp6490_msg04,
+     pretty_otp6490_msg05,
+     pretty_otp6490_msg06,
+     pretty_otp7671_msg01,
+     pretty_otp7671_msg02,
+     pretty_otp7671_msg03,
+     pretty_otp7671_msg04,
+     pretty_otp7671_msg05,
+     pretty_otp8114_msg01
+    ].
+
+flex_pretty_tickets_cases() ->
     [
      flex_pretty_otp5042_msg1, 
      flex_pretty_otp5085_msg1,
@@ -428,6 +473,124 @@ flex_pretty_tickets_cases() ->
     ].
 
 
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
+
+init_per_group(flex_pretty_tickets = Group, Config) -> 
+    ?ANNOUNCE_GROUP_INIT(Group),
+    flex_pretty_init(Config);
+init_per_group(flex_compact_tickets = Group, Config) -> 
+    ?ANNOUNCE_GROUP_INIT(Group),
+    flex_compact_init(Config);
+init_per_group(flex_compact = Group, Config) -> 
+    ?ANNOUNCE_GROUP_INIT(Group),
+    flex_compact_init(Config);
+init_per_group(flex_pretty = Group, Config) -> 
+    ?ANNOUNCE_GROUP_INIT(Group),
+    flex_pretty_init(Config);
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    Config.
+
+end_per_group(flex_pretty_tickets = _Group, Config) -> 
+    flex_pretty_finish(Config);
+end_per_group(flex_compact_tickets = _Group, Config) -> 
+    flex_compact_finish(Config);
+end_per_group(flex_compact, Config = _Group) -> 
+    flex_compact_finish(Config);
+end_per_group(flex_pretty, Config = _Group) -> 
+    flex_pretty_finish(Config);
+end_per_group(_Group, Config) ->
+    Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(Case, Config) ->
+    %% We do *not* reset events with each test case
+    %% The test cases are so short we don't bother,
+    %% and also we would drown in mprintouts...
+    put(verbosity,trc),
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    erase(verbosity),
+    megaco_test_lib:end_per_testcase(Case, Config).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+display_text_messages() ->
+    Msgs = 
+	msgs1a(text) ++ 
+	msgs5(text) ++ 
+	msgs6(text) ++ 
+	msgs7(text),
+    megaco_codec_test_lib:display_text_messages(?VERSION, ?EC, Msgs).
+
+
+generate_text_messages() ->
+    Msgs = 
+	msgs1a(text) ++ 
+	msgs5(text) ++ 
+	msgs6(text) ++ 
+	msgs7(text),
+    megaco_codec_test_lib:generate_text_messages(?V3, ?VERSION, ?EC, Msgs).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 pretty_test_msgs(suite) ->
@@ -440,8 +603,7 @@ pretty_test_msgs(Config) when is_list(Config) ->
    	msgs3525(text) ++ 
    	msgs5(text) ++ 
    	msgs6(text) ++ 
-	msgs7(text) ++ 
-	msgs8(text),
+	msgs7(text),
     %% Msgs = msgs1a(text),
     %% Msgs = msgs1b(text),
     %% Msgs = msgs35525(text),
@@ -459,7 +621,6 @@ flex_pretty_init(Config) ->
 
 flex_pretty_finish(Config) ->
     flex_finish(Config).
-
     
 flex_pretty_test_msgs(suite) ->
     [];
@@ -471,8 +632,7 @@ flex_pretty_test_msgs(Config) when is_list(Config) ->
 	msgs3525(text) ++ 
 	msgs5(text) ++ 
 	msgs6(text) ++ 
-	msgs7(text) ++ 
-	msgs8(text),
+	msgs7(text),
     Conf = flex_scanner_conf(Config),
     DynamicDecode = false,
     test_msgs(megaco_pretty_text_encoder, DynamicDecode, [?EC_V3,Conf], Msgs).
@@ -490,8 +650,7 @@ compact_test_msgs(Config) when is_list(Config) ->
 	msgs3525(text) ++ 
 	msgs5(text) ++ 
  	msgs6(text) ++ 
-	msgs7(text) ++ 
-	msgs8(text),
+	msgs7(text),
     %% Msgs = msgs7(text),
     DynamicDecode = false,
     test_msgs(megaco_compact_text_encoder, DynamicDecode, ?EC, Msgs).
@@ -504,7 +663,6 @@ flex_compact_init(Config) ->
 
 flex_compact_finish(Config) ->
     flex_finish(Config).
-    
 
 flex_compact_test_msgs(suite) ->
     [];
@@ -516,8 +674,7 @@ flex_compact_test_msgs(Config) when is_list(Config) ->
 	msgs3525(text) ++ 
 	msgs5(text) ++ 
 	msgs6(text) ++ 
-	msgs7(text) ++ 
-	msgs8(text),
+	msgs7(text),
     Conf = flex_scanner_conf(Config), 
     DynamicDecode = true,
     test_msgs(megaco_compact_text_encoder, DynamicDecode, [?EC_V3,Conf], Msgs).
@@ -784,8 +941,7 @@ bin_test_msgs(Config) when is_list(Config) ->
 	msgs1a(binary) ++ 
 	msgs5(binary) ++ 
 	msgs6(binary) ++ 
-	msgs7(binary) ++ 
-	msgs8(binary),
+	msgs7(binary),
     %% Msgs = msgs6(binary), 
     DynamicDecode = false,
     test_msgs(megaco_binary_encoder, DynamicDecode, ?EC, Msgs).
@@ -801,8 +957,7 @@ ber_test_msgs(Config) when is_list(Config) ->
 	msgs1a(binary) ++ 
 	msgs5(binary) ++ 
 	msgs6(binary) ++ 
-	msgs7(binary) ++ 
-	msgs8(binary),
+	msgs7(binary),
     %% Msgs = msgs7(binary),
     DynamicDecode = false,
     test_msgs(megaco_ber_encoder, DynamicDecode, ?EC, Msgs).
@@ -818,8 +973,7 @@ per_test_msgs(Config) when is_list(Config) ->
 	msgs1a(binary) ++ 
 	msgs5(binary) ++ 
 	msgs6(binary) ++ 
-	msgs7(binary) ++ 
-	msgs8(binary),
+	msgs7(binary),
     DynamicDecode = false,
     test_msgs(megaco_per_encoder, DynamicDecode, ?EC, Msgs).
 
@@ -836,8 +990,7 @@ erl_dist_m_test_msgs(Config) when is_list(Config) ->
 	msgs3525(erlang) ++ 
 	msgs5(erlang) ++ 
 	msgs6(erlang) ++ 
-	msgs7(erlang) ++ 
-	msgs8(erlang),
+	msgs7(erlang),
     DynamicDecode = false,
     Conf = [megaco_compressed], 
     test_msgs(megaco_erl_dist_encoder, DynamicDecode, Conf, Msgs).
@@ -919,7 +1072,7 @@ compact_otp4011_chk1(R1) ->
     end.
 	    
 compact_otp4011_chk2({0, ParserMod, {ParserFunc, [A, B]}}) 
-  when (ParserMod  =:= megaco_text_parser_v3) andalso
+  when (ParserMod  =:= megaco_text_parser_prev3c) andalso
        (ParserFunc =:= do_merge_control_streamParms) andalso
        is_list(A) andalso
        is_record(B, 'LocalControlDescriptor') ->
@@ -1793,8 +1946,8 @@ compact_otp5186_msg06() ->
 compact_otp5793_msg01(suite) ->
     [];
 compact_otp5793_msg01(Config) when is_list(Config) ->
-    %%     put(severity,trc),
-    %%     put(dbg,true),
+    %% put(severity,trc),
+    %% put(dbg,true),
     d("compact_otp5793_msg01 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     ok = ticket_compact_encode_decode_ok(pretty_otp5793_msg1()),
@@ -1822,7 +1975,7 @@ compact_otp5836_msg1() ->
     {'MegacoMessage',
      asn1_NOVALUE,
      {'Message',
-      ?VERSION,
+      3,
       {deviceName,"bs_sbg_4/34"},
       {transactions, 
        [{transactionReply, 
@@ -1947,48 +2100,33 @@ compact_otp5993_msg(MD) when is_record(MD, 'MuxDescriptor') ->
 compact_otp6017_msg01(suite) ->
     [];
 compact_otp6017_msg01(Config) when is_list(Config) ->
-    %% put(severity,trc),
-    %% put(dbg,true),
     d("compact_otp6017_msg01 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     ok = compact_otp6017(0),
-    %% erase(severity),
-    %% erase(dbg),
     ok.
 
 compact_otp6017_msg02(suite) ->
     [];
 compact_otp6017_msg02(Config) when is_list(Config) ->
-    %% put(severity,trc),
-    %% put(dbg,true),
     d("compact_otp6017_msg02 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     ok = compact_otp6017(16#FFFFFFFE),
-    %% erase(severity),
-    %% erase(dbg),
     ok.
 
 compact_otp6017_msg03(suite) ->
     [];
 compact_otp6017_msg03(Config) when is_list(Config) ->
-    %% put(severity,trc),
-    %% put(dbg,true),
     d("compact_otp6017_msg03 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     ok = compact_otp6017(16#FFFFFFFF),
-    %% erase(severity),
-    %% erase(dbg),
     ok.
 
 compact_otp6017(BadCID) ->
-    d("compact_otp6017 -> entry with"
-      "~n   BadCID: ~p", [BadCID]),
     Conf = ?EC,
     M   = compact_otp6017_msg(BadCID),
     Bin = list_to_binary(M),
     case decode_message(megaco_compact_text_encoder, false, Conf, Bin) of
         {ok, Msg} ->
-	    d("compact_otp6017 -> Msg: ~n~p", [Msg]),
             exit({unexpected_decode_success, {Msg, M}});
         {error, Reason} when is_list(Reason) -> % Expected result
             case lists:keysearch(reason, 1, Reason) of
@@ -1996,19 +2134,16 @@ compact_otp6017(BadCID) ->
                     io:format(" ~w", [BadCID]),
                     ok;
                 {value, {reason, ActualReason}} ->
-		    d("compact_otp6017 -> wrong reason: ~n~p", [ActualReason]),
                     exit({unexpected_reason, ActualReason});
                 false ->
-		    d("compact_otp6017 -> no reason: ~n~p", [Reason]),
                     exit({reason_not_found, Reason})
             end;
         Crap ->
-	    d("compact_otp6017 -> unexpected decode result: ~n~p", [Crap]),
             exit({unexpected_decode_result, Crap})
     end.
 
 compact_otp6017_msg(CID) when is_integer(CID) ->
-    "!/" ?VERSION_STR " MG1 T=12345678{C=" ++
+    "MEGACO/" ?VERSION_STR " MG1 T=12345678{C=" ++
         integer_to_list(CID) ++
         "{SC=root{SV{MT=RS,RE=901}}}}".
 
@@ -2685,7 +2820,7 @@ pretty_otp5068_msg1() ->
 {'MegacoMessage',
  asn1_NOVALUE,
  {'Message',
-  ?VERSION,
+  2,
   {deviceName,[109,103,51,51]},
   {transactions,
    [{transactionReply,
@@ -2708,7 +2843,8 @@ pretty_otp5068_msg1() ->
 		 [],
 		 asn1_NOVALUE,
 		 inSvc},
-		asn1_NOVALUE}
+		asn1_NOVALUE
+	       }
 	      }
 	     ]
 	    }
@@ -3487,7 +3623,7 @@ pretty_otp6490_msg01(Config) when is_list(Config) ->
     %% erase(dbg),
     erase(severity),
     ok.
-
+    
 pretty_otp6490_msg02(suite) ->
     [];
 pretty_otp6490_msg02(Config) when is_list(Config) ->
@@ -3499,7 +3635,7 @@ pretty_otp6490_msg02(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
-
+    
 pretty_otp6490_msg03(suite) ->
     [];
 pretty_otp6490_msg03(Config) when is_list(Config) ->
@@ -3511,7 +3647,7 @@ pretty_otp6490_msg03(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
-
+    
 pretty_otp6490_msg04(suite) ->
     [];
 pretty_otp6490_msg04(Config) when is_list(Config) ->
@@ -3523,7 +3659,7 @@ pretty_otp6490_msg04(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
-
+    
 pretty_otp6490_msg05(suite) ->
     [];
 pretty_otp6490_msg05(Config) when is_list(Config) ->
@@ -3535,7 +3671,7 @@ pretty_otp6490_msg05(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
-
+    
 pretty_otp6490_msg06(suite) ->
     [];
 pretty_otp6490_msg06(Config) when is_list(Config) ->
@@ -3547,7 +3683,7 @@ pretty_otp6490_msg06(Config) when is_list(Config) ->
     %% erase(severity),
     %% erase(dbg),
     ok.
-
+    
 pretty_otp6490_msg(EBD) ->
     AmmDesc    = ?MSG_LIB:cre_AmmDescriptor(EBD),
     AmmReq     = cre_AmmReq([#megaco_term_id{id = ?A4445}], [AmmDesc]),
@@ -3566,7 +3702,7 @@ pretty_otp6490_msg01() ->
     EvSpecs = [], % This will result in an error
     EBD     = EvSpecs, % This is because the lib checks that the size is valid
     pretty_otp6490_msg(EBD).
-
+    
 pretty_otp6490_msg02() ->
     EvPar    = ?MSG_LIB:cre_EventParameter("sune", ["mangs"]),
     PkgdName = ?MSG_LIB:cre_PkgdName("foo", "a"),
@@ -3575,7 +3711,7 @@ pretty_otp6490_msg02() ->
     EvSpecs  = [EvSpec], 
     EBD      = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
-
+    
 pretty_otp6490_msg03() ->
     EvPar1   = ?MSG_LIB:cre_EventParameter("sune",   ["mangs"]),
     EvPar2   = ?MSG_LIB:cre_EventParameter("kalle",  ["anka"]),
@@ -3586,7 +3722,7 @@ pretty_otp6490_msg03() ->
     EvSpecs  = [EvSpec], 
     EBD      = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
-
+    
 pretty_otp6490_msg04() ->
     EvPar1    = ?MSG_LIB:cre_EventParameter("sune",   ["mangs"]),
     EvPar2    = ?MSG_LIB:cre_EventParameter("kalle",  ["anka"]),
@@ -3601,7 +3737,7 @@ pretty_otp6490_msg04() ->
     EvSpecs   = [EvSpec1,EvSpec2], 
     EBD       = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
-
+    
 pretty_otp6490_msg05() ->
     EvPar    = ?MSG_LIB:cre_EventParameter("sune", ["mangs"]),
     PkgdName = ?MSG_LIB:cre_PkgdName("foo", root),
@@ -3610,7 +3746,7 @@ pretty_otp6490_msg05() ->
     EvSpecs  = [EvSpec], 
     EBD      = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
-
+    
 pretty_otp6490_msg06() ->
     EvPar    = ?MSG_LIB:cre_EventParameter("sune", ["mangs"]),
     PkgdName = ?MSG_LIB:cre_PkgdName(root, root),
@@ -3619,7 +3755,7 @@ pretty_otp6490_msg06() ->
     EvSpecs  = [EvSpec], 
     EBD      = ?MSG_LIB:cre_EventBufferDescriptor(EvSpecs),
     pretty_otp6490_msg(EBD).
-
+    
 
 %% --------------------------------------------------------------
 %%
@@ -3684,6 +3820,7 @@ pretty_otp7671_msg05(Config) when is_list(Config) ->
 %%     erase(severity),
     ok.
 
+
 pretty_otp7671(Msg, Conf) ->
     pretty_otp7671(Msg, Conf, ok).
 
@@ -3715,7 +3852,7 @@ otp7671(Msg, Codec, Conf, ExpectedEncode, ExpectedDecode, Check) ->
         {ok, Bin} when ExpectedEncode =:= ok ->
             case decode_message(Codec, false, Conf, Bin) of
                 {ok, Msg} when ExpectedDecode =:= ok ->
-                    ok;
+		    ok;
                 {ok, Msg2} when ExpectedDecode =:= ok ->
 		    Check(Msg, Msg2);
                 {ok, Msg} when ExpectedDecode =:= error ->
@@ -4160,7 +4297,7 @@ flex_pretty_otp7431_msg02(Config) when is_list(Config) ->
     d("flex_pretty_otp7431_msg02 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     Conf = flex_scanner_conf(Config),
-    flex_pretty_otp7431(error, flex_pretty_otp7431_msg2(), [Conf]).
+    flex_pretty_otp7431(error, flex_pretty_otp7431_msg2(), [?EC_V3,Conf]).
 
 flex_pretty_otp7431_msg03(suite) ->
     [];
@@ -4170,7 +4307,7 @@ flex_pretty_otp7431_msg03(Config) when is_list(Config) ->
     d("flex_pretty_otp7431_msg03 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     Conf = flex_scanner_conf(Config),
-    flex_pretty_otp7431(error, flex_pretty_otp7431_msg3(), [Conf]).
+    flex_pretty_otp7431(error, flex_pretty_otp7431_msg3(), [?EC_V3,Conf]).
 
 flex_pretty_otp7431_msg04(suite) ->
     [];
@@ -4178,7 +4315,7 @@ flex_pretty_otp7431_msg04(Config) when is_list(Config) ->
     d("flex_pretty_otp7431_msg04 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     Conf = flex_scanner_conf(Config),
-    flex_pretty_otp7431(error, flex_pretty_otp7431_msg4(), [Conf]).
+    flex_pretty_otp7431(error, flex_pretty_otp7431_msg4(), [?EC_V3,Conf]).
 
 flex_pretty_otp7431_msg05(suite) ->
     [];
@@ -4186,7 +4323,7 @@ flex_pretty_otp7431_msg05(Config) when is_list(Config) ->
     d("flex_pretty_otp7431_msg05 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     Conf = flex_scanner_conf(Config),
-    flex_pretty_otp7431(error, flex_pretty_otp7431_msg5(), [Conf]).
+    flex_pretty_otp7431(error, flex_pretty_otp7431_msg5(), [?EC_V3,Conf]).
 
 flex_pretty_otp7431_msg06(suite) ->
     [];
@@ -4194,7 +4331,7 @@ flex_pretty_otp7431_msg06(Config) when is_list(Config) ->
     d("flex_pretty_otp7431_msg06 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     Conf = flex_scanner_conf(Config),
-    flex_pretty_otp7431(error, flex_pretty_otp7431_msg6(), [Conf]).
+    flex_pretty_otp7431(error, flex_pretty_otp7431_msg6(), [?EC_V3,Conf]).
 
 flex_pretty_otp7431_msg07(suite) ->
     [];
@@ -4202,14 +4339,13 @@ flex_pretty_otp7431_msg07(Config) when is_list(Config) ->
     d("flex_pretty_otp7431_msg07 -> entry", []),
     ?ACQUIRE_NODES(1, Config),
     Conf = flex_scanner_conf(Config),
-    flex_pretty_otp7431(error, flex_pretty_otp7431_msg7(), [Conf]).
+    flex_pretty_otp7431(error, flex_pretty_otp7431_msg7(), [?EC_V3,Conf]).
 
 flex_pretty_otp7431(Expected, Msg, Conf) ->
     otp7431(Expected, megaco_pretty_text_encoder, Msg, Conf).
 
-otp7431(Expected, Codec, Msg0, Conf0) ->
+otp7431(Expected, Codec, Msg0, Conf) ->
     Bin0 = list_to_binary(Msg0),
-    Conf = [?EC_V3|Conf0], 
     case decode_message(Codec, false, Conf, Bin0) of
 	{ok, _Msg1} when Expected =:= ok ->
  	    io:format(" decoded", []);
@@ -4358,6 +4494,7 @@ flex_pretty_otp7431_msg7() ->
        }".
 
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 msgs() ->
@@ -4369,8 +4506,7 @@ msgs(Encoding) ->
 	msgs3525(Encoding) ++ 
 	msgs5(Encoding) ++ 
 	msgs6(Encoding) ++ 
-	msgs7(Encoding) ++ 
-	msgs8(Encoding).
+	msgs7(Encoding).
 
 msgs1a(_) ->
     Plain = 
@@ -4658,31 +4794,6 @@ msgs7(Encoding) ->
      	 {msg78a08, msg78a08(), Plain, [{dbg,false}],[text,binary,erlang]},
      	 {msg78a09, msg78a09(), Plain, [{dbg,false}],[text,binary,erlang]},
   	 {msg79a01, msg79a01(), Plain, [{dbg,false}],[text,binary,erlang]}
-	],
-    [{N,M,F,C}||{N,M,F,C,E} <- Msgs,lists:member(Encoding,E)].
-    
-    
-msgs8(Encoding) ->
-    Plain = 
-	fun(Codec, DD, Ver, EC, M) ->
-		megaco_codec_test_lib:plain_encode_decode(Codec, DD, Ver, 
-							  EC, M)
-	end,    
-
-    Msgs = 
-	[
-   	 {msg80a01, msg80a01(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg80a02, msg80a02(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg80a03, msg80a03(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg80b01, msg80b01(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg80b02, msg80b02(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg80b03, msg80b03(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg81a01, msg81a01(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg81a02, msg81a02(), Plain, [{dbg,false}],[text,binary,erlang]},
-   	 {msg81a03, msg81a03(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg81b01, msg81b01(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg81b02, msg81b02(), Plain, [{dbg,false}],[text,binary,erlang]},
-    	 {msg81b03, msg81b03(), Plain, [{dbg,false}],[text,binary,erlang]}
 	],
     [{N,M,F,C}||{N,M,F,C,E} <- Msgs,lists:member(Encoding,E)].
     
@@ -6900,84 +7011,6 @@ msg79a01() ->
     msg_reply(?MG2_MID, 7931, Acts).
 
 
-%% --
-
-msg80() ->
-    Address  = {portNumber, ?DEFAULT_PORT},
-    Profile  = cre_SvcChProf("resgw", 1),
-    Parm     = cre_SvcChResParm(Address, Profile),
-    Reply    = cre_SvcChRep([?megaco_root_termination_id],
-			    {serviceChangeResParms, Parm}),
-    CmdRep  = cre_CmdRep(serviceChangeReply, Reply),
-    cre_ActRep(80, [CmdRep]).
-    
-msg80a(Mid, SN) ->
-    TransId  = 8000,
-    ActRep   = msg80(),
-    TransRep = cre_TransRep(TransId, [ActRep], SN),
-    Trans    = cre_Trans(TransRep),
-    Mess     = cre_Msg(Mid, [Trans]),
-    cre_MegacoMessage(Mess).
-
-msg80a01() ->
-    msg80a(?MG1_MID, 1).
-
-msg80a02() ->
-    msg80a(?MG2_MID, 1000).
-
-msg80a03() ->
-    msg80a(?MG3_MID, 65535).
-
-msg80b(Mid, SN) ->
-    TransId  = 8989,
-    ActRep   = msg80(),
-    TransRep = cre_TransRep(TransId, [ActRep], SN, 'NULL'),
-    Trans    = cre_Trans(TransRep),
-    Mess     = cre_Msg(Mid, [Trans]),
-    cre_MegacoMessage(Mess).
-
-msg80b01() ->
-    msg80b(?MG1_MID, 1).
-
-msg80b02() ->
-    msg80b(?MG2_MID, 1000).
-
-msg80b03() ->
-    msg80b(?MG3_MID, 65535).
-
-msg81a(Mid, SN) ->
-    TransId  = 8101,
-    SegReply = cre_SegRep(TransId, SN), 
-    Trans    = cre_Trans(SegReply),
-    Mess     = cre_Msg(Mid, [Trans]),
-    cre_MegacoMessage(Mess).
-
-msg81a01() ->
-    msg81a(?MG1_MID, 1).
-
-msg81a02() ->
-    msg81a(?MG2_MID, 1000).
-
-msg81a03() ->
-    msg81a(?MG3_MID, 65535).
-
-msg81b(Mid, SN) ->
-    TransId  = 8102,
-    SegReply = cre_SegRep(TransId, SN, 'NULL'), 
-    Trans    = cre_Trans(SegReply),
-    Mess     = cre_Msg(Mid, [Trans]),
-    cre_MegacoMessage(Mess).
-
-msg81b01() ->
-    msg81b(?MG1_MID, 1).
-
-msg81b02() ->
-    msg81b(?MG2_MID, 1000).
-
-msg81b03() ->
-    msg81b(?MG3_MID, 65535).
-
-    
 %% - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 %% Pretty RFC 3525 messages:
 
@@ -7753,18 +7786,6 @@ cre_TransReq(TransId, Actions) ->
 cre_TransRep(TransId, Actions) ->
     ?MSG_LIB:cre_TransactionReply(TransId, Actions).
 
-cre_TransRep(TransId, Actions, SN) ->
-    ?MSG_LIB:cre_TransactionReply(TransId, Actions, SN).
-
-cre_TransRep(TransId, Actions, SN, SC) ->
-    ?MSG_LIB:cre_TransactionReply(TransId, Actions, SN, SC).
-
-cre_SegRep(TransId, SN) ->
-    ?MSG_LIB:cre_SegmentReply(TransId, SN).
-
-cre_SegRep(TransId, SN, SC) ->
-    ?MSG_LIB:cre_SegmentReply(TransId, SN, SC).
-
 cre_TransAck(First, Last) ->
     ?MSG_LIB:cre_TransactionAck(First, Last).
     
@@ -8118,8 +8139,8 @@ cre_SecReqEv(N) ->
 cre_SecReqEv(N, EPL) ->
     ?MSG_LIB:cre_SecondRequestedEvent(N, EPL).
 
-cre_SecReqEv(N, SID, EA) when is_list(N) and 
-			      is_integer(SID) and 
+cre_SecReqEv(N, SID, EA) when is_list(N) andalso 
+			      is_integer(SID) andalso 
 			      is_record(EA, 'SecondRequestedActions') ->
     cre_SecReqEv(N, SID, EA, []);
 cre_SecReqEv(A, B, C) ->
@@ -8254,11 +8275,6 @@ printable(_,_) ->
     false.
 
 
-p(true,L,F,A) ->
-    io:format("~s:" ++ F ++ "~n", [image_of(L)|A]);
-p(_,_,_,_) ->
-    ok.
-
 image_of(trc) ->
     "TRC";
 image_of(dbg) ->
@@ -8269,4 +8285,16 @@ image_of(err) ->
     "ERR";
 image_of(L) ->
     io_lib:format("~p",[L]).
+
+
+p(true,L,F,A) ->
+    io:format("~s:" ++ F ++ "~n", [image_of(L)|A]);
+p(_,_,_,_) ->
+    ok.
+
+
+p(F, A) ->
+    io:format("*** [~s] ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS() | A]).
 

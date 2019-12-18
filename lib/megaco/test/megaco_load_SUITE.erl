@@ -22,16 +22,13 @@
 %%----------------------------------------------------------------------
 %% Purpose: Verify the application specifics of the Megaco application
 %%----------------------------------------------------------------------
--module(megaco_load_test).
+-module(megaco_load_SUITE).
 
 -export([
-         all/0,
-         groups/0,
-
-         init_per_group/2,
-         end_per_group/2,
-         init_per_testcase/2,
-         end_per_testcase/2,
+ 	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
 
          single_user_light_load/1,
          single_user_medium_load/1,
@@ -41,9 +38,8 @@
          multi_user_light_load/1,
          multi_user_medium_load/1,
          multi_user_heavy_load/1,
-         multi_user_extreme_load/1,
+         multi_user_extreme_load/1
 
-         t/0, t/1
         ]).
 
 -export([
@@ -52,9 +48,9 @@
         ]).
 
 
--include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
+-include("megaco_test_lib.hrl").
 
 -define(TEST_VERBOSITY, debug).
 -define(MGC_VERBOSITY,  silence).
@@ -86,50 +82,13 @@
 -define(MG_SET_VERBOSITY(Pid, V), megaco_test_mg:verbosity(Pid, V)).
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
 
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-
-%% Test server callbacks
-init_per_testcase(single_user_light_load = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    do_init_per_testcase(Case, [{tc_timeout, min(2)}|C]);
-init_per_testcase(single_user_medium_load = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    do_init_per_testcase(Case, [{tc_timeout, min(5)}|C]);
-init_per_testcase(single_user_heavy_load = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    do_init_per_testcase(Case, [{tc_timeout, min(10)}|C]);
-init_per_testcase(single_user_extreme_load = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    do_init_per_testcase(Case, [{tc_timeout, min(20)}|C]);
-init_per_testcase(multi_user_light_load = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    do_init_per_testcase(Case, [{tc_timeout, min(2)}|C]);
-init_per_testcase(multi_user_medium_load = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    do_init_per_testcase(Case, [{tc_timeout, min(5)}|C]);
-init_per_testcase(multi_user_heavy_load = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    do_init_per_testcase(Case, [{tc_timeout, min(10)}|C]);
-init_per_testcase(multi_user_extreme_load = Case, Config) ->
-    C = lists:keydelete(tc_timeout, 1, Config),
-    do_init_per_testcase(Case, [{tc_timeout, min(20)}|C]);
-init_per_testcase(Case, Config) ->
-    do_init_per_testcase(Case, Config).
-
-do_init_per_testcase(Case, Config) ->
-    process_flag(trap_exit, true),
-    megaco_test_lib:init_per_testcase(Case, Config).
-    
-end_per_testcase(Case, Config) ->
-    process_flag(trap_exit, false),
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
     [
@@ -159,11 +118,121 @@ multi_cases() ->
      multi_user_extreme_load
     ].
     
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
+
 init_per_group(_GroupName, Config) ->
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(single_user_light_load = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    do_init_per_testcase(Case, [{tc_timeout, min(2)}|C]);
+init_per_testcase(single_user_medium_load = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    do_init_per_testcase(Case, [{tc_timeout, min(5)}|C]);
+init_per_testcase(single_user_heavy_load = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    do_init_per_testcase(Case, [{tc_timeout, min(10)}|C]);
+init_per_testcase(single_user_extreme_load = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    do_init_per_testcase(Case, [{tc_timeout, min(20)}|C]);
+init_per_testcase(multi_user_light_load = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    do_init_per_testcase(Case, [{tc_timeout, min(2)}|C]);
+init_per_testcase(multi_user_medium_load = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    do_init_per_testcase(Case, [{tc_timeout, min(5)}|C]);
+init_per_testcase(multi_user_heavy_load = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    do_init_per_testcase(Case, [{tc_timeout, min(10)}|C]);
+init_per_testcase(multi_user_extreme_load = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    do_init_per_testcase(Case, [{tc_timeout, min(20)}|C]);
+init_per_testcase(Case, Config) ->
+    do_init_per_testcase(Case, Config).
+
+do_init_per_testcase(Case, Config) ->
+    process_flag(trap_exit, true),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    megaco_test_global_sys_monitor:reset_events(),
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    process_flag(trap_exit, false),
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
+    megaco_test_lib:end_per_testcase(Case, Config).
 
 
 
@@ -693,6 +762,11 @@ maybe_display_system_info(_) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 min(M) -> timer:minutes(M).
+
+p(F, A) ->
+    io:format("*** [~s] ~p ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
 
 i(F) ->
     i(F, []).

@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,26 +23,25 @@
 %% Purpose: Test mini encoding/decoding (codec) module of Megaco/H.248
 %%----------------------------------------------------------------------
 
--module(megaco_codec_mini_test).
+-module(megaco_codec_mini_SUITE).
 
 %% ----
 
 -include_lib("megaco/include/megaco.hrl").
-%% -include_lib("megaco/include/megaco_message_v3.hrl").
 -include("megaco_test_lib.hrl").
 
 %% ----
 
--export([t/0, t/1]).
+-export([
+ 	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
 
--export([all/0,groups/0,init_per_group/2,end_per_group/2, 
-
-	 tickets/0, 
-	 
 	 otp7672_msg01/1,
- 	 otp7672_msg02/1,
- 
-	 init_per_testcase/2, end_per_testcase/2]).  
+ 	 otp7672_msg02/1
+
+	]).  
 
 
 %% ----
@@ -50,51 +49,78 @@
 -define(SET_DBG(S,D), begin put(severity, S), put(dbg, D) end).
 -define(RESET_DBG(),  begin erase(severity),  erase(dbg)  end).
 
-expand(RootCase) ->
-    expand([RootCase], []).
 
-expand([], Acc) ->
-    lists:flatten(lists:reverse(Acc));
-expand([Case|Cases], Acc) ->
-    case (catch apply(?MODULE,Case,[suite])) of
-        [] ->
-            expand(Cases, [Case|Acc]);
-        C when is_list(C) ->
-            expand(Cases, [expand(C, [])|Acc]);
-        _ ->
-            expand(Cases, [Case|Acc])
-    end.
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
 
-
-%% ----
-
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-
-init_per_testcase(Case, Config) ->
-    C = 
-	case lists:suffix("time_test", atom_to_list(Case)) of
-	    true ->
-		[{tc_timeout, timer:minutes(10)}|Config];
-	    false ->
-		put(verbosity,trc),
-		Config
-	end,
-    megaco_test_lib:init_per_testcase(Case, C).
-
-end_per_testcase(Case, Config) ->
-    erase(verbosity),
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Top test case
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
     [{group, tickets}].
 
 groups() -> 
-    [{tickets, [], [otp7672_msg01, otp7672_msg02]}].
+    [
+     {tickets, [], tickets_cases()}
+    ].
+
+tickets_cases() ->
+    [
+     otp7672_msg01,
+     otp7672_msg02
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite([{sysmon, false} | Config0]) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
 
 init_per_group(_GroupName, Config) ->
     Config.
@@ -104,31 +130,31 @@ end_per_group(_GroupName, Config) ->
 
 
 
-%% ----
+%%
+%% -----
+%%
 
-tickets() ->
-    Flag  = process_flag(trap_exit, true),    
-    Cases = expand(tickets),
-    Fun   = fun(Case) ->
-		    C = init_per_testcase(Case, [{tc_timeout, 
-						  timer:minutes(10)}]),
-		    io:format("Eval ~w~n", [Case]),
-		    Result = 
-			case (catch apply(?MODULE, Case, [C])) of
-			    {'EXIT', Reason} ->
- 				io:format("~n~p exited:~n   ~p~n", 
- 					  [Case, Reason]),
-				{error, {Case, Reason}};
-			    Res ->
-				Res
-			end,
-		    end_per_testcase(Case, C),
-		    Result
-	    end,
-    process_flag(trap_exit, Flag),
-    lists:map(Fun, Cases).
+init_per_testcase(Case, Config) ->
 
-		
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    put(verbosity,trc),
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    erase(verbosity),
+    megaco_test_lib:end_per_testcase(Case, Config).
+
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
@@ -175,6 +201,12 @@ otp7672(Msg) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+p(F, A) ->
+    io:format("*** [~s] ~p ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
+
 
 t(F,A) ->
     p(printable(get(severity),trc),trc,F,A).

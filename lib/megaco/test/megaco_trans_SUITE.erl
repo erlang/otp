@@ -22,15 +22,14 @@
 %%----------------------------------------------------------------------
 %% Purpose: Verify that the transaction sender works with acks.
 %% 
-%% Test:    ts:run(megaco, megaco_trans_test, [batch]).
+%% Test:    ts:run(megaco, megaco_trans_SUITE, [batch]).
 %% 
 %%----------------------------------------------------------------------
--module(megaco_trans_test).
+-module(megaco_trans_SUITE).
 
-%% -compile(export_all).
 -export([
-         all/0,
-         groups/0,
+ 	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2,
 
@@ -63,14 +62,13 @@
 
          otp_7192_1/1,
          otp_7192_2/1,
-         otp_7192_3/1,
-         
-         t/0, t/1
+         otp_7192_3/1
+
         ]).
 
--include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
+-include("megaco_test_lib.hrl").
 
 -define(VERSION, 1).
 -define(TEST_VERBOSITY, debug).
@@ -120,33 +118,23 @@
 -define(MG_ACK_INFO(Pid,To),         ?MG:ack_info(Pid,To)).
 -define(MG_REP_INFO(Pid,To),         ?MG:rep_info(Pid,To)).
 
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
 
-%% Test server callbacks
-init_per_testcase(multi_ack_maxcount = Case, Config) ->
-    process_flag(trap_exit, true),
-    C = lists:keydelete(tc_timeout, 1, Config),
-    megaco_test_lib:init_per_testcase(Case, [{tc_timeout,timer:minutes(10)}|C]);
-init_per_testcase(Case, Config) ->
-    process_flag(trap_exit, true),
-    megaco_test_lib:init_per_testcase(Case, Config).
-
-end_per_testcase(Case, Config) ->
-    process_flag(trap_exit, false),
-    megaco_test_lib:end_per_testcase(Case, Config).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
 
 all() -> 
-    [{group, ack},
+    [
+     {group, ack},
      {group, trans_req},
      {group, trans_req_and_ack},
      {group, pending},
      {group, reply},
-     {group, tickets}].
+     {group, tickets}
+    ].
 
 groups() -> 
     [
@@ -213,11 +201,104 @@ otp_7192_cases() ->
      otp_7192_3
     ].
 
-init_per_group(_GroupName, Config) ->
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
+
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
     Config.
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+
+
+%%
+%% -----
+%%
+
+init_per_testcase(multi_ack_maxcount = Case, Config) ->
+    C = lists:keydelete(tc_timeout, 1, Config),
+    init_per_testcase2(Case, [{tc_timeout,timer:minutes(10)}|C]);
+init_per_testcase(Case, Config) ->
+    process_flag(trap_exit, true),
+    init_per_testcase2(Case, Config).
+
+init_per_testcase2(Case, Config) ->
+    process_flag(trap_exit, true),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    megaco_test_global_sys_monitor:reset_events(),
+    megaco_test_lib:init_per_testcase(Case, Config).
+
+end_per_testcase(Case, Config) ->
+    process_flag(trap_exit, false),
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
+    megaco_test_lib:end_per_testcase(Case, Config).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -6950,10 +7031,10 @@ multi_trans_req_and_ack_and_reply(Config) when is_list(Config) ->
         {?MODULE, mtraaar_mgc_verify_handle_connect, []}).
 -define(mtraaar_mgc_verify_service_change_req_fun(Mid),
         {?MODULE, mtraaar_mgc_verify_service_change_req, [Mid]}).
--define(mtraaar_mgc_verify_notify_req_fun(),
-        {?MODULE, mtraaar_mgc_verify_notify_request, []}).
--define(mtraaar_mgc_verify_notify_reply_fun(),
-        {?MODULE, mtraaar_mgc_verify_notify_reply, []}).
+-define(mtraaar_mgc_verify_notify_req_fun(N),
+        {?MODULE, mtraaar_mgc_verify_notify_request, [N]}).
+-define(mtraaar_mgc_verify_notify_reply_fun(N),
+        {?MODULE, mtraaar_mgc_verify_notify_reply, [N]}).
 -define(mtraaar_mgc_verify_ack_fun(),
         {?MODULE, mtraaar_mgc_verify_ack, []}).
 -define(mtraaar_mgc_verify_handle_disconnect_fun(),
@@ -6963,10 +7044,14 @@ multi_trans_req_and_ack_and_reply(Config) when is_list(Config) ->
         fun mtraaar_mgc_verify_handle_connect/1).
 -define(mtraaar_mgc_verify_service_change_req_fun(Mid),
         mtraaar_mgc_verify_service_change_req_fun(Mid)).
--define(mtraaar_mgc_verify_notify_req_fun(),
-	mtraaar_mgc_verify_notify_request_fun()).
--define(mtraaar_mgc_verify_notify_reply_fun(),
-	fun mtraaar_mgc_verify_notify_reply/1).
+-define(mtraaar_mgc_verify_notify_req_fun(N),
+        fun(Request) ->
+                mtraaar_mgc_verify_notify_request(N, Request)
+        end).
+-define(mtraaar_mgc_verify_notify_reply_fun(N),
+	fun(Reply) ->
+                mtraaar_mgc_verify_notify_reply(N, Reply)
+        end).
 -define(mtraaar_mgc_verify_ack_fun(),
 	fun mtraaar_mgc_verify_ack/1).
 -define(mtraaar_mgc_verify_handle_disconnect_fun(),
@@ -6983,13 +7068,20 @@ mtraaar_mgc_event_sequence(text, tcp) ->
 	  {transport_module, megaco_tcp}
 	 ],
     Tid = #megaco_term_id{id = ["00000000","00000000","01101101"]},
-    NR = fun(Cid, Rid) ->
-		 [mtraaar_mgc_notify_request_ar(Rid, Tid, Cid)]
-	 end,
+    SNR = fun(Cid, Rid) ->
+                  [mtraaar_mgc_notify_request_ar(Rid, Tid, Cid)]
+          end,
     ConnectVerify          = ?mtraaar_mgc_verify_handle_connect_fun(), 
     ServiceChangeReqVerify = ?mtraaar_mgc_verify_service_change_req_fun(Mid),
-    NotifyReqVerify        = ?mtraaar_mgc_verify_notify_req_fun(),
-    NotifyReplyVerify      = ?mtraaar_mgc_verify_notify_reply_fun(), 
+    %% NotifyReqVerify        = ?mtraaar_mgc_verify_notify_req_fun(),
+    NReqV =
+        fun(N) ->
+                ?mtraaar_mgc_verify_notify_req_fun(N)
+        end,
+    %% NotifyReplyVerify      = ?mtraaar_mgc_verify_notify_reply_fun(), 
+    NRepV = fun(N) ->
+                    ?mtraaar_mgc_verify_notify_reply_fun(N)
+            end,
     AckVerify              = ?mtraaar_mgc_verify_ack_fun(), 
     DiscoVerify            = ?mtraaar_mgc_verify_handle_disconnect_fun(), 
     EvSeq = [
@@ -7004,18 +7096,19 @@ mtraaar_mgc_event_sequence(text, tcp) ->
              %% ANNOUNCE READY
              {trigger, fun() -> CTRL ! announce_mgc end}, 
 
-	     {megaco_callback, handle_connect,       ConnectVerify},
-	     {megaco_callback, handle_trans_request, ServiceChangeReqVerify},
-	     {megaco_callback, handle_trans_request, NotifyReqVerify},
-	     {megaco_callback, handle_trans_request, NotifyReqVerify},
-	     {megaco_callback, handle_trans_request, NotifyReqVerify},
-	     {megaco_update_conn_info, request_timer,      1000},
-	     {megaco_cast, NR(1,1), []},
+	     {megaco_callback, handle_connect,        ConnectVerify},
+	     {megaco_callback, handle_trans_request,  ServiceChangeReqVerify},
+	     {megaco_callback, handle_trans_request,  NReqV(1)},
+	     {megaco_callback, handle_trans_request,  NReqV(2)},
+	     {megaco_callback, handle_trans_request,  NReqV(3)},
+	     {megaco_update_conn_info, request_timer, 1000},
+             {sleep, 1000},
+	     {megaco_cast, SNR(1,1), []},
 
 	     {megaco_callback, [{handle_trans_ack,     3, AckVerify},
-				{handle_trans_request, 3, NotifyReqVerify},
-				{handle_trans_reply,   1, NotifyReplyVerify}]},
-	     {megaco_callback, handle_disconnect,    DiscoVerify},
+				{handle_trans_request, 3, NReqV(4)},
+				{handle_trans_reply,   1, NRepV(1)}]},
+	     {megaco_callback, handle_disconnect,     DiscoVerify},
 	     {sleep, 1000},
 	     megaco_stop_user,
 	     megaco_stop
@@ -7098,15 +7191,11 @@ mtraaar_mgc_verify_service_change_req(Else, _Mid) ->
     ErrReply = {discard_ack, ED},
     {error, Else, ErrReply}.
 
-mtraaar_mgc_verify_notify_request_fun() ->
-    fun(Ev) ->
-	    mtraaar_mgc_verify_notify_request(Ev)
-    end.
-
 mtraaar_mgc_verify_notify_request(
+  N,
   {handle_trans_request, _, ?VERSION, [AR]}) ->
-    io:format("mtraaar_mgc_verify_notify_request -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    io:format("mtraaar_mgc_verify_notify_request -> [~w] ok"
+	      "~n   AR: ~p~n", [N, AR]),
     case AR of
 	#'ActionRequest'{contextId = 1 = Cid, 
 			 commandRequests = [CR]} ->
@@ -7137,26 +7226,28 @@ mtraaar_mgc_verify_notify_request(
 	    ErrReply = {discard_ack, ED},
 	    {error, AR, ErrReply}
     end;
-mtraaar_mgc_verify_notify_request(Else) ->
-    io:format("mtraaar_mgc_verify_notify_request -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+mtraaar_mgc_verify_notify_request(N, Else) ->
+    io:format("mtraaar_mgc_verify_notify_request -> [~w] unknown"
+	      "~n   Else: ~p~n", [N, Else]),
     ED = mtraaar_err_desc(Else),
     ErrReply = {discard_ack, ED},
     {error, Else, ErrReply}.
 
-mtraaar_mgc_verify_notify_reply({handle_trans_reply, _CH, ?VERSION, 
+mtraaar_mgc_verify_notify_reply(N,
+                                {handle_trans_reply, _CH, ?VERSION, 
 				 {ok, [AR]}, _}) ->
-    io:format("mtraaar_mgc_verify_notify_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    io:format("mtraaar_mgc_verify_notify_reply -> [~w] ok"
+	      "~n   AR: ~p~n", [N, AR]),
     {ok, AR, ok};
-mtraaar_mgc_verify_notify_reply({handle_trans_reply, CH, ?VERSION, 
+mtraaar_mgc_verify_notify_reply(N,
+                                {handle_trans_reply, CH, ?VERSION, 
 				 UnknownResult, _}) ->
-    io:format("mtraaar_mgc_verify_notify_reply -> unknown result"
-	      "~n   UnknownResult: ~p~n", [UnknownResult]),
+    io:format("mtraaar_mgc_verify_notify_reply -> [~w] unknown result"
+	      "~n   UnknownResult: ~p~n", [N, UnknownResult]),
     {error, {unknown_reply_result, UnknownResult, CH}, ok};
-mtraaar_mgc_verify_notify_reply(Else) ->
-    io:format("mtraaar_mgc_verify_notify_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+mtraaar_mgc_verify_notify_reply(N, Else) ->
+    io:format("mtraaar_mgc_verify_notify_reply -> [~w] unknown"
+	      "~n   Else: ~p~n", [N, Else]),
     {error, {unknown_reply, Else}, ok}.
 
 mtraaar_mgc_verify_ack({handle_trans_ack, CH, ?VERSION, ok, kalle}) -> 
@@ -7237,10 +7328,15 @@ mtraaar_mgc_notify_reply_ar(Cid, TermId) ->
         fun mtraaar_mg_verify_handle_connect/1).
 -define(mtraaar_mg_verify_service_change_reply_fun(),
         fun mtraaar_mg_verify_service_change_reply/1).
--define(mtraaar_mg_verify_notify_req_fun(),
-	mtraaar_mgc_verify_notify_request_fun()).
--define(mtraaar_mg_verify_notify_reply_fun(),
-	fun mtraaar_mg_verify_notify_reply/1).
+-define(mtraaar_mg_verify_notify_req_fun(N),
+        %% We reuse the mgc code...
+        fun(Request) ->
+                mtraaar_mgc_verify_notify_request(N, Request)
+        end).
+-define(mtraaar_mg_verify_notify_reply_fun(N),
+        fun(Reply) ->
+                mtraaar_mg_verify_notify_reply(N, Reply)
+        end).
 -endif.
 
 mtraaar_mg_event_sequence(text, tcp) ->
@@ -7253,13 +7349,21 @@ mtraaar_mg_event_sequence(text, tcp) ->
 	 ],
     ServiceChangeReq = [mtraaar_mg_service_change_request_ar(Mid, 1)],
     Tid = #megaco_term_id{id = ["00000000","00000000","01101101"]},
-    NR = fun(Cid, Rid) ->
-		 [mtraaar_mg_notify_request_ar(Rid, Tid, Cid)]
-	 end,
+    SNR = fun(Cid, Rid) ->
+                  [mtraaar_mg_notify_request_ar(Rid, Tid, Cid)]
+          end,
     ConnectVerify            = ?mtraaar_mg_verify_handle_connect_fun(), 
     ServiceChangeReplyVerify = ?mtraaar_mg_verify_service_change_reply_fun(), 
-    NotifyReqVerify          = ?mtraaar_mg_verify_notify_req_fun(),
-    NotifyReplyVerify        = ?mtraaar_mg_verify_notify_reply_fun(), 
+    %% NotifyReqVerify          = ?mtraaar_mg_verify_notify_req_fun(),
+    NReqV =
+        fun(N) ->
+                ?mtraaar_mg_verify_notify_req_fun(N)
+        end,
+    %% NotifyReplyVerify        = ?mtraaar_mg_verify_notify_reply_fun(), 
+    NRepV =
+        fun(N) ->
+                ?mtraaar_mg_verify_notify_reply_fun(N)
+        end,
     EvSeq = [
 	     {debug, true},
 	     megaco_start,
@@ -7286,20 +7390,24 @@ mtraaar_mg_event_sequence(text, tcp) ->
 	     {megaco_update_conn_info, trans_ack,          true},
 	     {megaco_update_conn_info, trans_req,          true},
 	     {megaco_conn_info, all},
-	     {megaco_cast, NR(1,1), []},
-	     {megaco_cast, NR(1,2), []},
-	     {megaco_cast, NR(1,3), []},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_cast, SNR(1,1), []},
+	     {sleep, 100},
+	     {megaco_cast, SNR(1,2), []},
+	     {sleep, 100},
+	     {megaco_cast, SNR(1,3), []},
+	     {megaco_callback, handle_trans_reply, NRepV(1)},
+	     {megaco_callback, handle_trans_reply, NRepV(2)},
+	     {megaco_callback, handle_trans_reply, NRepV(3)},
 	     {megaco_update_conn_info, trans_timer,        120000},
-	     {megaco_cast, NR(2,1), []},
-	     {megaco_cast, NR(2,2), []},
-	     {megaco_cast, NR(2,3), []},
-	     {megaco_callback, handle_trans_request, NotifyReqVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_cast, SNR(2,1), []},
+	     {sleep, 100},
+	     {megaco_cast, SNR(2,2), []},
+	     {sleep, 100},
+	     {megaco_cast, SNR(2,3), []},
+	     {megaco_callback, handle_trans_request, NReqV(1)},
+	     {megaco_callback, handle_trans_reply, NRepV(4)},
+	     {megaco_callback, handle_trans_reply, NRepV(5)},
+	     {megaco_callback, handle_trans_reply, NRepV(6)},
 	     {sleep, 3000},
 	     megaco_stop_user,
 	     megaco_stop,
@@ -7356,47 +7464,34 @@ mtraaar_mg_verify_service_change_reply(Else) ->
 	      "~n   Else: ~p~n", [Else]),
     {error, Else, ok}.
 
-%% mtraaar_mg_verify_notify_request_fun() ->
-%%     fun(Ev) ->
-%% 	    mtraaar_mg_verify_notify_request(Ev)
-%%     end.
-
-%% mtraaar_mg_verify_notify_request(
-%%   {handle_trans_request, _, ?VERSION, [AR]}) ->
-%%     io:format("mtraaar_mg_verify_notify_request -> ok"
-%% 	      "~n   AR: ~p~n", [AR]),
-%%     case AR of
-%% 	#'ActionRequest'{contextId = 1 = Cid, 
-%% 			 commandRequests = [CR]} ->
-%% 	    #'CommandRequest'{command = Cmd} = CR,
-%% 	    {notifyReq, NR} = Cmd,
-%% 	    #'NotifyRequest'{terminationID = [Tid],
-%% 			     observedEventsDescriptor = OED,
-%% 			     errorDescriptor = asn1_NOVALUE} = NR,
-%% 	    #'ObservedEventsDescriptor'{observedEventLst = [OE]} = OED,
-%% 	    #'ObservedEvent'{eventName = "al/of"} = OE,
-%% 	    Reply = {discard_ack, [mtraaar_mg_notify_reply_ar(Cid, Tid)]},
-%% 	    {ok, AR, Reply};
-%% 	_ ->
-%% 	    ED = mtraaar_err_desc(AR),
-%% 	    ErrReply = {discard_ack, ED},
-%% 	    {error, AR, ErrReply}
-%%     end;
-%% mtraaar_mg_verify_notify_request(Else) ->
-%%     io:format("mtraaar_mg_verify_notify_request -> unknown"
-%% 	      "~n   Else: ~p~n", [Else]),
-%%     ED = mtraaar_err_desc(Else),
-%%     ErrReply = {discard_ack, ED},
-%%     {error, Else, ErrReply}.
-
-mtraaar_mg_verify_notify_reply({handle_trans_reply, _CH, ?VERSION, 
-				{ok, [AR]}, _}) ->
-    io:format("mtraaar_mg_verify_notify_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
+mtraaar_mg_verify_notify_reply(N,
+                               {handle_trans_reply,
+                                _CH,
+                                ?VERSION, 
+				{ok, [AR]},
+                                _}) ->
+    io:format("mtraaar_mg_verify_notify_reply -> [~w] ok"
+	      "~n   AR: ~p~n", [N, AR]),
     {ok, AR, ok};
-mtraaar_mg_verify_notify_reply(Else) ->
-    io:format("mtraaar_mg_verify_notify_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+mtraaar_mg_verify_notify_reply(N,
+                               {handle_trans_reply,
+                                _CH,
+                                ?VERSION, 
+				ERROR,
+                                _}) ->
+    io:format("mtraaar_mg_verify_notify_reply -> [~w] reply error"
+	      "~n   ERROR: ~p~n", [N, ERROR]),
+    {error, ERROR, ok};
+mtraaar_mg_verify_notify_reply(N,
+                               Else) when is_tuple(Else) ->
+    io:format("mtraaar_mg_verify_notify_reply -> [~w] ~w instead of ~w"
+	      "~n   Else: ~p"
+              "~n", [N, element(1, Else), handle_trans_reply, Else]),
+    {error, Else, ok};
+mtraaar_mg_verify_notify_reply(N,
+                               Else) ->
+    io:format("mtraaar_mg_verify_notify_reply -> [~w] unknown"
+	      "~n   Else: ~p~n", [N, Else]),
     {error, Else, ok}.
 
 mtraaar_mg_service_change_request_ar(_Mid, Cid) ->
@@ -7408,18 +7503,6 @@ mtraaar_mg_service_change_request_ar(_Mid, Cid) ->
     CR    = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
 
-%% mtraaar_mg_service_change_request_msg(Mid, TransId, Cid) ->
-%%     AR    = mtraaar_mg_service_change_request_ar(Mid, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
-
-%% mtraaar_mg_notify_reply_ar(Cid, TermId) ->
-%%     NR = cre_notifyReply([TermId]),
-%%     CR = cre_cmdReply(NR),
-%%     cre_actionReply(Cid, [CR]).
-
 mtraaar_mg_notify_request_ar(Rid, Tid, Cid) ->
     TT      = cre_timeNotation("19990729", "22000000"),
     Ev      = cre_obsEvent("al/of", TT),
@@ -7428,14 +7511,6 @@ mtraaar_mg_notify_request_ar(Rid, Tid, Cid) ->
     CMD     = cre_command(NR),
     CR      = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
-
-%% mtraaar_notify_request_msg(Mid, TransId, Rid, TermId, Cid) ->
-%%     AR    = mtraaar_mg_notify_request_ar(Rid, TermId, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
-
 
 %%
 %% Common functions for the multi_trans_req_timeout test case
@@ -9388,6 +9463,11 @@ sleep(X) -> receive after X -> ok end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+p(F, A) ->
+    io:format("*** [~s] ~p ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
+
 %% e(F) ->
 %%     e(F, []).
 
@@ -9422,32 +9502,11 @@ printable(_,_)          -> false.
 
 
 print2(true, P, F, A) ->
-    TS = erlang:timestamp(),
-    TC = get(tc),
     S  = ?F("*** [~s] ~s ~p ~w ***"
             "~n   " ++ F ++ "~n"
-            "~n", [megaco:format_timestamp(TS), P, self(), TC | A]),
-    io:format("~s", [S]),
-    io:format(user, "~s", [S]);
+            "~n", [?FTS(), P, self(), get(tc) | A]),
+    io:format("~s", [S]);
 print2(_, _, _, _) ->
     ok.
 
-
-p(F, A) ->
-    io:format("*** [~s] ***"
-	      "~n   " ++ F ++ "~n", 
-	      [megaco:format_timestamp(erlang:timestamp()) | A]).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% random_init() ->
-%%     {A,B,C} = erlang:timestamp(),
-%%     random:seed(A,B,C).
-
-%% random() ->
-%%     10 * random:uniform(50).
-
-%% apply_load_timer() ->
-%%     erlang:send_after(random(), self(), apply_load_timeout).
 
