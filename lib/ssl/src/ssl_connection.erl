@@ -391,8 +391,9 @@ handle_alert(#alert{level = ?FATAL} = Alert0, StateName,
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
 	     downgrade= StateName, State) -> 
     {next_state, StateName, State, [{next_event, internal, Alert}]};
-handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
-	    StateName, State) -> 
+handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert0, 
+             StateName, #state{static_env = #static_env{role = Role}} = State) -> 
+    Alert = Alert0#alert{role = opposite_role(Role)},
     handle_normal_shutdown(Alert, StateName, State),
     {stop,{shutdown, peer_close}, State};
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert0, StateName, 
@@ -1368,7 +1369,7 @@ handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_rec
 handle_common_event({timeout, recv}, timeout, StateName, #state{start_or_recv_from = RecvFrom} = State, _) ->
     {next_state, StateName, State#state{start_or_recv_from = undefined,
                                         bytes_to_read = undefined}, [{reply, RecvFrom, {error, timeout}}]};
-handle_common_event({recv, RecvFrom}, internal, StateName, #state{start_or_recv_from = RecvFrom}, _) when
+handle_common_event(internal, {recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom}, _) when
       StateName =/= connection ->
     {keep_state_and_data, [postpone]};
 handle_common_event(Type, Msg, StateName, #state{connection_env =
