@@ -43,12 +43,15 @@ init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
 
 ei_accept(Config) when is_list(Config) ->
-    ei_accept_do(Config, 0),   % default
-    ei_accept_do(Config, 21).  % ei_set_compat_rel
+    [ei_accept_do(Config, CR, SI)
+     || CR <- [0,21],
+        SI <- [default, ussi]],
+    ok.
 
-ei_accept_do(Config, CompatRel) ->
+ei_accept_do(Config, CompatRel, SockImpl) ->
+    io:format("CompatRel=~p, SockImpl=~p\n", [CompatRel, SockImpl]),
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, CompatRel),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, CompatRel, SockImpl),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
     io:format("Myname ~p ~n",  [Myname]),
@@ -88,9 +91,13 @@ ei_accept_do(Config, CompatRel) ->
 
 ei_threaded_accept(Config) when is_list(Config) ->
     Einode = filename:join(proplists:get_value(data_dir, Config), "eiaccnode"),
+    ei_threaded_accept_do(Einode, default),
+    ei_threaded_accept_do(Einode, ussi),
+    ok.
+
+ei_threaded_accept_do(Einode, SockImpl) ->
     N = 3,
-    Host = atom_to_list(node()),
-    start_einode(Einode, N, Host),
+    start_einode(Einode, N, SockImpl),
     io:format("started eiaccnode"),
     TestServerPid = self(),
     [spawn_link(fun() -> send_rec_einode(I, TestServerPid) end) || I <- lists:seq(0, N-1)],
@@ -101,7 +108,7 @@ ei_threaded_accept(Config) when is_list(Config) ->
 %% Test erlang:monitor toward erl_interface "processes"
 monitor_ei_process(Config) when is_list(Config) ->
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, 0, default),
 
     Myname = hd(tl(string:tokens(atom_to_list(node()), "@"))),
     io:format("Myname ~p ~n",  [Myname]),
@@ -125,10 +132,19 @@ monitor_ei_process(Config) when is_list(Config) ->
 
     runner:finish(P),
 
-    [{'DOWN', MRef1, process, {any, EINode}, noconnection},
-     {'DOWN', MRef2, process, {any, EINode}, noconnection}
-    ] = lists:sort(flush(2, 1000)),
-
+    ok  =receive
+             {'DOWN', MRef1, process, {any, EINode}, noconnection} ->
+                 ok
+         after 1000 ->
+                 timeout
+         end,
+    ok = receive
+             {'DOWN', MRef2, process, {any, EINode}, noconnection} ->
+                 ok
+         after 1000 ->
+                 timeout
+         end,
+    [] = flush(0, 1000),
     ok.
 
 waitfornode(String,0) ->
@@ -164,9 +180,10 @@ send_rec_einode(N, TestServerPid) ->
               ct:fail(EINode)
     end.
 
-start_einode(Einode, N, Host) ->
+start_einode(Einode, N, SockImpl) ->
     Einodecmd = Einode ++ " " ++ atom_to_list(erlang:get_cookie())
-    ++ " " ++ integer_to_list(N) ++ " " ++ Host,
+        ++ " " ++ integer_to_list(N)
+        ++ " " ++ atom_to_list(SockImpl),
     io:format("Einodecmd  ~p ~n", [Einodecmd]),      
     open_port({spawn, Einodecmd}, []),
     ok.
@@ -174,8 +191,8 @@ start_einode(Einode, N, Host) ->
 
 %%% Interface functions for ei (erl_interface) functions.
 
-ei_connect_init(P, Num, Cookie, Creation, Compat) ->
-    send_command(P, ei_connect_init, [Num,Cookie,Creation,Compat]),
+ei_connect_init(P, Num, Cookie, Creation, Compat, SockImpl) ->
+    send_command(P, ei_connect_init, [Num,Cookie,Creation,Compat,SockImpl]),
     case get_term(P) of
         {term,Int} when is_integer(Int) -> Int
     end.

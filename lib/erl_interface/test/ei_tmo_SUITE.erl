@@ -25,10 +25,12 @@
 -include_lib("kernel/include/inet.hrl").
 -include("ei_tmo_SUITE_data/ei_tmo_test_cases.hrl").
 
--export([all/0, suite/0,
+-export([all/0, groups/0, suite/0,
          init_per_testcase/2, end_per_testcase/2,
-         framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1, ei_send_tmo/1,
-	 ei_connect_tmo/0,
+         framework_check/1, ei_accept_tmo/1, ei_connect_tmo/1,
+         ei_send_tmo/1,
+         ei_send_failure_tmo/1,
+	 ei_connect_unreachable_tmo/0, ei_connect_unreachable_tmo/1,
          ei_recv_tmo/1]).
 
 suite() ->
@@ -36,19 +38,25 @@ suite() ->
      {timetrap, {minutes, 1}}].
 
 all() -> 
-    [framework_check, ei_accept_tmo, ei_connect_tmo,
-     ei_send_tmo, ei_recv_tmo].
+    [framework_check,
+     ei_connect_unreachable_tmo,
+     ei_send_failure_tmo,
+     {group, default},
+     {group, ussi}].
+
+groups() ->
+    Members = [ei_recv_tmo,
+               ei_accept_tmo,
+               ei_connect_tmo,
+               ei_send_tmo],
+    [{default, [], Members},
+     {ussi, [], Members}].
+
+get_group(Config) ->
+    proplists:get_value(name, proplists:get_value(tc_group_properties,Config)).
 
 init_per_testcase(Case, Config) ->
-    Config1 = runner:init_per_testcase(?MODULE, Case, Config),
-
-    % test if platform is vxworks_simso
-    {_,Host} = split(node()),
-    Bool = case atom_to_list(Host) of
-               [$v,$x,$s,$i,$m | _] -> true;
-               _ -> false
-           end,
-    [{vxsim,Bool} | Config1].
+    runner:init_per_testcase(?MODULE, Case, Config).
 
 end_per_testcase(_Case, _Config) ->
     ok.
@@ -76,7 +84,8 @@ do_one_recv(Config,CNode) ->
     P1 = runner:start(Config, ?recv_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
-                         node()}),
+                         node(),
+                         get_group(Config)}),
     {term, X} = runner:get_term(P1, 10000),
     true = is_integer(X),
     CNode1 = join(CNode,Host),
@@ -89,7 +98,8 @@ do_one_recv_failure(Config,CNode) ->
     P1 = runner:start(Config, ?recv_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
-                         node()}),
+                         node(),
+                         get_group(Config)}),
     {term, X} = runner:get_term(P1, 10000),
     true = is_integer(X),
     {term, {Ret,ETimedout,ETimedout}} = runner:get_term(P1, 10000),
@@ -99,14 +109,9 @@ do_one_recv_failure(Config,CNode) ->
 
 %% Check send with timeouts.
 ei_send_tmo(Config) when is_list(Config) ->
-    %dbg:tracer(),
-    %dbg:p(self()),
-    VxSim = proplists:get_value(vxsim, Config),
     register(ei_send_tmo_1,self()),
     do_one_send(Config,self(),c_node_send_tmo_1),
     do_one_send(Config,ei_send_tmo_1,c_node_send_tmo_2),
-    do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3,VxSim),
-    do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4,VxSim),
     ok.
 
 
@@ -115,7 +120,8 @@ do_one_send(Config,From,CNode) ->
     P1 = runner:start(Config, ?send_tmo),
     runner:send_term(P1,{CNode,
                          erlang:get_cookie(),
-                         node()}),
+                         node(),
+                         get_group(Config)}),
     {term, X} = runner:get_term(P1, 10000),
     true = is_integer(X),
     CNode1 = join(CNode,Host),
@@ -130,7 +136,13 @@ do_one_send(Config,From,CNode) ->
     {term, 0} = runner:get_term(P1, 10000),
     runner:recv_eot(P1).
 
-do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
+ei_send_failure_tmo(Config) when is_list(Config) ->
+    register(ei_send_tmo_1,self()),
+    do_one_send_failure(Config,self(),cccc1,c_nod_send_tmo_3),
+    do_one_send_failure(Config,ei_send_tmo_1,cccc2,c_nod_send_tmo_4),
+    ok.
+
+do_one_send_failure(Config,From,FakeName,CName) ->
     {_,Host} = split(node()),
     OurName = join(FakeName,Host),
     Node = join(CName,Host),
@@ -145,7 +157,8 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     Cookie = kaksmula_som_ingen_bryr_sig_om,
     runner:send_term(P3,{CName,
                          Cookie,
-                         OurName}),
+                         OurName,
+                         default}),
     SocketB = case gen_tcp:accept(LSocket) of
                   {ok, Socket1} ->
                       Socket1;
@@ -178,53 +191,34 @@ do_one_send_failure(Config,From,FakeName,CName,VxSim) ->
     %% must be large enough so there's time for the select() to time out and
     %% the test program to return the error tuple (below).
 
-    Res0 = if VxSim == false ->
-                  {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
-                  Res;
-              true ->   % relax the test for vxsim
-                  case runner:get_term(P3, 20000) of
-                      {term,{Res,ETO,Iters,ETO}} ->
-                          Res;
-                      {term,{Res,_,Iters,_ETO}} -> % EIO?
-                          Res
-                  end
-           end,
+    {term,{Res,ETO,Iters,ETO}} = runner:get_term(P3, 20000),
     runner:recv_eot(P3),
-    true = ((Res0 < 0) and (Iters > 0)),
+    true = ((Res < 0) and (Iters > 0)),
     gen_tcp:close(SocketB),
     gen_tcp:close(EpmdSocket),
     ok.
 
 
 %% Check accept with timeouts.
-ei_connect_tmo() -> [{require, test_host_not_reachable}].
+ei_connect_unreachable_tmo() -> [{require, test_host_not_reachable}].
 
-ei_connect_tmo(Config) when is_list(Config) ->
-    %dbg:tracer(),
-    %dbg:p(self()),
-    VxSim = proplists:get_value(vxsim, Config),
+ei_connect_unreachable_tmo(Config) when is_list(Config) ->
     DummyNode = make_and_check_dummy(),
     P = runner:start(Config, ?connect_tmo),
     runner:send_term(P,{c_nod_connect_tmo_1,
                         kaksmula_som_ingen_bryr_sig_om,
-                        DummyNode}),
-    ETimedout =
-    if VxSim == false ->
-           {term,{-3,ETO,ETO}} = runner:get_term(P, 10000),
-           ETO;
-       true ->				% relax the test for vxsim
-           case runner:get_term(P, 10000) of
-               {term,{-3,ETO,ETO}} ->
-                   ETO;
-               {term,{-1,_,ETO}} ->	% EHOSTUNREACH = ok
-                   ETO
-           end
-    end,
+                        DummyNode,
+                        default}),
+    {term,{-3,ETimedout,ETimedout}} = runner:get_term(P, 10000),
     runner:recv_eot(P),
+    ok.
+
+ei_connect_tmo(Config) when is_list(Config) ->
     P2 = runner:start(Config, ?connect_tmo),
     runner:send_term(P2,{c_nod_connect_tmo_2,
                          erlang:get_cookie(),
-                         node()}),
+                         node(),
+                         get_group(Config)}),
     {term, X} = runner:get_term(P2, 10000),
     runner:recv_eot(P2),
     true = is_integer(X),
@@ -243,7 +237,8 @@ ei_connect_tmo(Config) when is_list(Config) ->
     Cookie = kaksmula_som_ingen_bryr_sig_om,
     runner:send_term(P3,{c_nod_connect_tmo_3,
                          Cookie,
-                         OurName}),
+                         OurName,
+                         get_group(Config)}),
     SocketB = case gen_tcp:accept(LSocket) of
                   {ok, Socket1} ->
                       Socket1;
@@ -270,12 +265,14 @@ ei_accept_tmo(Config) when is_list(Config) ->
     %%dbg:p(self()),
     P = runner:start(Config, ?accept_tmo),
     runner:send_term(P,{c_nod_som_ingen_kontaktar_1,
-                        kaksmula_som_ingen_bryr_sig_om}),
+                        kaksmula_som_ingen_bryr_sig_om,
+                        get_group(Config)}),
     {term,{-1,ETimedout,ETimedout}} = runner:get_term(P, 10000),
     runner:recv_eot(P),
     P2 = runner:start(Config, ?accept_tmo),
     runner:send_term(P2,{c_nod_som_vi_kontaktar_1,
-                         erlang:get_cookie()}),
+                         erlang:get_cookie(),
+                         get_group(Config)}),
     receive after 1000 -> ok end,
     CNode1 = make_node(c_nod_som_vi_kontaktar_1),
     {ignored,CNode1} ! tjenare,
@@ -284,7 +281,8 @@ ei_accept_tmo(Config) when is_list(Config) ->
     true = is_integer(X),
     P3 = runner:start(Config, ?accept_tmo),
     runner:send_term(P3,{c_nod_som_vi_kontaktar_2,
-                         erlang:get_cookie()}),
+                         erlang:get_cookie(),
+                         get_group(Config)}),
     receive after 1000 -> ok end,
     CNode2 = make_node(c_nod_som_vi_kontaktar_2),
     {NA,NB} = split(CNode2),

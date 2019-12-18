@@ -24,7 +24,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include("ei_connect_SUITE_data/ei_connect_test_cases.hrl").
 
--export([all/0, suite/0,
+-export([all/0, suite/0, groups/0,
          init_per_testcase/2,
          ei_send/1,
          ei_reg_send/1,
@@ -42,15 +42,29 @@ suite() ->
      {timetrap, {seconds, 30}}].
 
 all() -> 
-    [ei_send, ei_reg_send, ei_rpc, ei_format_pid, ei_send_funs,
-     ei_threaded_send, ei_set_get_tracelevel].
+    [ei_threaded_send,
+     {group, default},
+     {group, ussi}].
+
+groups() ->
+    Members = [ei_send,
+               ei_format_pid,
+               ei_send_funs,
+               ei_set_get_tracelevel,
+               ei_reg_send,
+               ei_rpc],
+    [{default, [], Members},
+     {ussi, [], Members}].
+
+get_group(Config) ->
+    proplists:get_value(name, proplists:get_value(tc_group_properties,Config)).
 
 init_per_testcase(Case, Config) ->
     runner:init_per_testcase(?MODULE, Case, Config).
 
 ei_send(Config) when is_list(Config) ->
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
     {ok,Fd} = ei_connect(P, node()),
 
     ok = ei_send(P, Fd, self(), AMsg={a,message}),
@@ -63,7 +77,7 @@ ei_send(Config) when is_list(Config) ->
 ei_format_pid(Config) when is_list(Config) ->
     S = self(),
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
     {ok,Fd} = ei_connect(P, node()),
 
     ok = ei_format_pid(P, Fd, S),
@@ -75,7 +89,7 @@ ei_format_pid(Config) when is_list(Config) ->
 
 ei_send_funs(Config) when is_list(Config) ->
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
     {ok,Fd} = ei_connect(P, node()),
 
     Fun1 = fun ei_send/1,
@@ -94,7 +108,7 @@ ei_send_funs(Config) when is_list(Config) ->
 
 ei_reg_send(Config) when is_list(Config) ->
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
     {ok,Fd} = ei_connect(P, node()),
 
     ARegName = a_strange_registred_name,
@@ -143,7 +157,7 @@ start_einode(Einode, N, Host) ->
 
 ei_rpc(Config) when is_list(Config) ->
     P = runner:start(Config, ?interpret),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
     {ok,Fd} = ei_connect(P, node()),
 
     S= "Hej du glade!", SRev = lists:reverse(S),
@@ -157,7 +171,7 @@ ei_rpc(Config) when is_list(Config) ->
 ei_set_get_tracelevel(Config) when is_list(Config) ->
     P = runner:start(Config, ?interpret),
     5 = ei_set_get_tracelevel(P, 5),
-    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, get_group(Config)),
     {ok,Fd} = ei_connect(P, node()),
 
     S= "Hej du glade!", SRev = lists:reverse(S),
@@ -173,8 +187,8 @@ ei_set_get_tracelevel(Config) when is_list(Config) ->
 
 %%% Interface functions for ei (erl_interface) functions.
 
-ei_connect_init(P, Num, Cookie, Creation) ->
-    send_command(P, ei_connect_init, [Num,Cookie,Creation]),
+ei_connect_init(P, Num, Cookie, Creation, SockImpl) ->
+    send_command(P, ei_connect_init, [Num,Cookie,Creation,SockImpl]),
     case get_term(P) of
         {term,Int} when is_integer(Int) -> Int
     end.

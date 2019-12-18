@@ -35,6 +35,7 @@
 #endif
 
 #include "ei_runner.h"
+#include "my_ussi.h"
 
 #ifndef __WIN32__
 #define closesocket(X) close(X)
@@ -86,6 +87,7 @@ static void debugf_close(void)
 #define DEBUGF(X) /* noop */
 #endif
 
+
 TESTCASE(framework_check)
 {
     char *ptr = NULL;
@@ -128,19 +130,26 @@ TESTCASE(framework_check)
     report(1);
 }
 
-int decode_request(char **nodename_p, char **cookie_p, char **peername_p)
+int decode_request(char **nodename_p, char **cookie_p, char **peername_p,
+                   int *use_ussi_p)
 {
     char *nodename = NULL;
     char *cookie = NULL;
     char *peername = NULL;
+    char socket_impl[10];
     char *ptr = NULL;
     ei_x_buff x;
     int len;
     int version;
     int type;
     int size;
-    int expected_size = (peername_p == NULL) ? 2 : 3;
+    int expected_size = 2;
     int ret = -1;
+
+    if (peername_p)
+        ++expected_size;
+    if (use_ussi_p)
+        ++expected_size;
     
     ptr = read_packet(&len);
     ei_x_new(&x);
@@ -180,7 +189,6 @@ int decode_request(char **nodename_p, char **cookie_p, char **peername_p)
     }
     nodename = malloc(size+1);
     ei_decode_atom(x.buff,&len,nodename);
-    nodename[size] = '\0'; /* needed????? */
     if (ei_get_type(x.buff,&len,&type,&size) != 0) {
 	DEBUGF(("Failure at line %d\n",__LINE__));
 	goto cleanup;
@@ -191,8 +199,7 @@ int decode_request(char **nodename_p, char **cookie_p, char **peername_p)
     }
     cookie = malloc(size + 1);
     ei_decode_atom(x.buff,&len,cookie);
-    cookie[size] = '\0'; /* needed????? */
-    if (expected_size > 2) {
+    if (peername_p) {
 	if (ei_get_type(x.buff,&len,&type,&size) != 0) {
 	    DEBUGF(("Failure at line %d\n",__LINE__));
 	    goto cleanup;
@@ -211,6 +218,22 @@ int decode_request(char **nodename_p, char **cookie_p, char **peername_p)
     } else {
 	DEBUGF(("nodename = %s, cookie = %s\n",
 		nodename, cookie));
+    }
+
+    if (use_ussi_p) {
+        if (ei_decode_atom_as(x.buff,&len,socket_impl,sizeof(socket_impl),
+                              ERLANG_ASCII, NULL, NULL)) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+        if (strcmp(socket_impl,"default") == 0)
+            *use_ussi_p = 0;
+        else if (strcmp(socket_impl,"ussi") == 0)
+            *use_ussi_p = 1;
+        else {
+            DEBUGF(("Unkown socket_impl '%s' at %d\n",socket_impl,__LINE__));
+            goto cleanup;
+        }
     }
     *nodename_p = nodename;
     nodename = NULL;
@@ -339,6 +362,7 @@ TESTCASE(recv_tmo)
     char *nodename = NULL;
     char *cookie = NULL;
     char *peername = NULL;
+    int use_ussi;
     int com_sock = -1;
     ei_cnode nodeinfo;
 
@@ -346,12 +370,22 @@ TESTCASE(recv_tmo)
 
     OPEN_DEBUGFILE(5);
 
-    if (decode_request(&nodename,&cookie,&peername) != 0) {
+    if (decode_request(&nodename,&cookie,&peername,&use_ussi) != 0) {
 	goto cleanup;
     }
-    if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
-	DEBUGF(("Failure at line %d\n",__LINE__));
-	goto cleanup;
+    if (use_ussi) {
+        my_ussi_init();
+        if (ei_connect_init_ussi(&nodeinfo, nodename, cookie, 0,
+                                 &my_ussi, sizeof(my_ussi), NULL) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+    }
+    else {
+        if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
     }
 	
     if ((com_sock = ei_connect_tmo(&nodeinfo, peername, 5000)) < 0) {
@@ -451,18 +485,29 @@ TESTCASE(send_tmo)
     char *cookie = NULL;
     char *peername = NULL;
     int com_sock = -1;
+    int use_ussi;
     ei_cnode nodeinfo;
 
     ei_init();
 
     OPEN_DEBUGFILE(4);
 
-    if (decode_request(&nodename,&cookie,&peername) != 0) {
+    if (decode_request(&nodename,&cookie,&peername,&use_ussi) != 0) {
 	goto cleanup;
     }
-    if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
-	DEBUGF(("Failure at line %d\n",__LINE__));
-	goto cleanup;
+    if (use_ussi) {
+        my_ussi_init();
+        if (ei_connect_init_ussi(&nodeinfo, nodename, cookie, 0,
+                                 &my_ussi, sizeof(my_ussi), NULL) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+    }
+    else {
+        if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
     }
 	
     if ((com_sock = ei_connect_tmo(&nodeinfo, peername, 5000)) < 0) {
@@ -593,18 +638,29 @@ TESTCASE(connect_tmo)
     char *cookie = NULL;
     char *peername = NULL;
     int com_sock = -1;
+    int use_ussi;
     ei_cnode nodeinfo;
     
     ei_init();
 
     OPEN_DEBUGFILE(3);
 
-    if (decode_request(&nodename,&cookie,&peername) != 0) {
+    if (decode_request(&nodename,&cookie,&peername,&use_ussi) != 0) {
 	goto cleanup;
     }
-    if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
-	DEBUGF(("Failure at line %d\n",__LINE__));
-	goto cleanup;
+    if (use_ussi) {
+        my_ussi_init();
+        if (ei_connect_init_ussi(&nodeinfo, nodename, cookie, 0,
+                                 &my_ussi, sizeof(my_ussi), NULL) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+    }
+    else {
+        if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
     }
 	
     if ((com_sock = ei_connect_tmo(&nodeinfo, peername, 5000)) < 0) {
@@ -679,10 +735,12 @@ TESTCASE(accept_tmo)
     int listen_sock = -1;
     int epmd_sock = -1;
     int com_sock = -1;
+    int use_ussi;
     struct sockaddr_in sin;
     int sin_siz = sizeof(sin);
     ErlConnect peer;
     ei_cnode nodeinfo;
+    int port_no;
     
     ei_init();
 
@@ -690,38 +748,55 @@ TESTCASE(accept_tmo)
 
     putenv("EI_TRACELEVEL=10");
 
-    if (decode_request(&nodename,&cookie,NULL) != 0) {
+    if (decode_request(&nodename,&cookie,NULL,&use_ussi) != 0) {
 	goto cleanup;
     }
-    if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
-	DEBUGF(("Failure at line %d\n",__LINE__));
-	goto cleanup;
+    if (use_ussi) {
+        my_ussi_init();
+        if (ei_connect_init_ussi(&nodeinfo, nodename, cookie, 0,
+                                 &my_ussi, sizeof(my_ussi), NULL) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+        port_no = 0;
+        listen_sock = ei_listen(&nodeinfo, &port_no, 5);
+        if (listen_sock == ERL_ERROR) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
     }
+    else {
+        if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
 	
-    if ((listen_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-	DEBUGF(("Failure at line %d\n",__LINE__));
-	goto cleanup;
-    }
-    memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = INADDR_ANY;
-    
-    if (bind(listen_sock,(struct sockaddr *) &sin, sizeof(sin)) != 0) {
-	DEBUGF(("Failure at line %d\n",__LINE__));
-	goto cleanup;
-    }
-    if (getsockname(listen_sock, 
-		    (struct sockaddr *) &sin, &sin_siz) != 0) {
-	DEBUGF(("Failure at line %d\n",__LINE__));
-	goto cleanup;
-    }
-    if (listen(listen_sock, 5) != 0) {
-	DEBUGF(("Failure at line %d\n",__LINE__));
-	goto cleanup;
+        if ((listen_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+        memset(&sin, 0, sizeof(sin));
+        sin.sin_family = AF_INET;
+        sin.sin_addr.s_addr = INADDR_ANY;
+
+        if (bind(listen_sock,(struct sockaddr *) &sin, sizeof(sin)) != 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+        if (getsockname(listen_sock,
+                        (struct sockaddr *) &sin, &sin_siz) != 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+        if (listen(listen_sock, 5) != 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+        port_no = ntohs(sin.sin_port);
     }
 
-    if ((epmd_sock = ei_publish(&nodeinfo, ntohs(sin.sin_port))) < 0) {
-	DEBUGF(("Failure at line %d[%d,%d]\n",__LINE__,sin.sin_port,erl_errno));
+    if ((epmd_sock = ei_publish(&nodeinfo, port_no)) < 0) {
+	DEBUGF(("Failure at line %d[%d,%d]\n",__LINE__,port_no,erl_errno));
 	goto cleanup;
     }
 

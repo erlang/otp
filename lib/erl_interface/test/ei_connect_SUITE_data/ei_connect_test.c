@@ -32,6 +32,7 @@
 #endif
 
 #include "ei_runner.h"
+#include "my_ussi.h"
 
 static void cmd_ei_connect_init(char* buf, int len);
 static void cmd_ei_connect(char* buf, int len);
@@ -52,7 +53,7 @@ static struct {
     int num_args;		/* Number of arguments. */
     void (*func)(char* buf, int len);
 } commands[] = {
-    "ei_connect_init",       3, cmd_ei_connect_init,
+    "ei_connect_init",       4, cmd_ei_connect_init,
     "ei_connect", 	     1, cmd_ei_connect,
     "ei_send",  	     3, cmd_ei_send,
     "ei_send_funs",  	     3, cmd_ei_send_funs,
@@ -107,9 +108,11 @@ TESTCASE(interpret)
 static void cmd_ei_connect_init(char* buf, int len)
 {
     int index = 0, r = 0;
-    long l;
+    long l, creation;
     char b[100];
     char cookie[MAXATOMLEN], * cp = cookie;
+    char socket_impl[10];
+    int use_ussi;
     ei_x_buff res;
     if (ei_decode_long(buf, &index, &l) < 0)
 	fail("expected int");
@@ -118,7 +121,23 @@ static void cmd_ei_connect_init(char* buf, int len)
 	fail("expected atom (cookie)");
     if (cookie[0] == '\0')
 	cp = NULL;
-    r = ei_connect_init(&ec, b, cp, 0);
+    if (ei_decode_long(buf, &index, &creation) < 0)
+	fail("expected int (creation)");
+    if (ei_decode_atom_as(buf, &index, socket_impl,
+                          sizeof(socket_impl), ERLANG_ASCII, NULL, NULL) < 0)
+	fail("expected atom (socket_impl)");
+    if (strcmp(socket_impl, "default") == 0)
+        use_ussi = 0;
+    else if (strcmp(socket_impl, "ussi") == 0)
+        use_ussi = 1;
+    else
+	fail1("expected atom 'default' or 'ussi', got '%s'", socket_impl);
+
+    if (use_ussi)
+        r = ei_connect_init_ussi(&ec, b, cp, (short)creation,
+                                 &my_ussi, sizeof(my_ussi), NULL);
+    else
+        r = ei_connect_init(&ec, b, cp, (short)creation);
     ei_x_new_with_version(&res);
     ei_x_encode_long(&res, r);
     send_bin_term(&res);
@@ -225,7 +244,7 @@ static void cmd_ei_send_funs(char* buf, int len)
 	fail("expected Fun1");
     if (ei_decode_fun(buf, &index, &fun2) < 0)
 	fail("expected Fun2");
-    if (ei_decode_bitstring(buf, &index, &bitstring, &bitoffs, &bits) < 0)
+    if (ei_decode_bitstring(buf, &index, (const char**)&bitstring, &bitoffs, &bits) < 0)
 	fail("expected bitstring");
     if (ei_x_new_with_version(&x) < 0)
 	fail("ei_x_new_with_version");
