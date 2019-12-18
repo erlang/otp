@@ -75,8 +75,8 @@
 %%          {ErrorStatus, ErrorIndex, []}
 %%-----------------------------------------------------------------
 
-%% There is now to properly spec the behaviour of the ?AGENT:subagent_get/3
-%% function (it *can* exit).
+%% There is no way to properly spec the behaviour of the
+%% ?AGENT:subagent_get/3 function (it *can* exit).
 -dialyzer({nowarn_function, do_get/3}).
 do_get(UnsortedVarbinds, IsNotification, _Extra) ->
     {MyVarbinds, SubagentVarbinds} = ?LIB:agent_sort_vbs(UnsortedVarbinds),
