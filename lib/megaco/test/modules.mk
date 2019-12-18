@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2016. All Rights Reserved.
+# Copyright Ericsson AB 2001-2019. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,43 +25,16 @@ COVER_SPEC_FILE = megaco.cover
 BEHAVIOUR_MODULES = \
 	megaco_test_generator
 
-MODULES = \
+TEST_UTIL_MODULES = \
 	$(BEHAVIOUR_MODULES) \
-	megaco_SUITE \
-	megaco_app_test \
-	megaco_appup_test \
-	megaco_actions_test \
-	megaco_binary_term_id_test \
-	megaco_call_flow_test \
-	megaco_codec_test \
 	megaco_codec_test_lib \
 	megaco_codec_flex_lib \
-	megaco_codec_v1_test \
-	megaco_codec_v2_test \
-	megaco_codec_prev3a_test \
-	megaco_codec_prev3b_test \
-	megaco_codec_prev3c_test \
-	megaco_codec_v3_test \
-	megaco_codec_mini_test \
-	megaco_config_test \
-	megaco_digit_map_test \
-	megaco_examples_test \
-	megaco_flex_test \
-	megaco_load_test \
-	megaco_mess_test \
 	megaco_mess_user_test \
 	megaco_mess_otp8212_test \
-	megaco_mib_test \
-	megaco_mreq_test \
-	megaco_pending_limit_test \
 	megaco_profile \
-	megaco_segment_test \
-	megaco_sdp_test \
 	megaco_tc_controller \
-	megaco_tcp_test \
-	megaco_timer_test \
-	megaco_trans_test \
-	megaco_udp_test \
+	megaco_test_global_sys_monitor \
+	megaco_test_sys_monitor \
 	megaco_test_generator_lib \
 	megaco_test_megaco_generator \
 	megaco_test_tcp_generator \
@@ -77,6 +50,37 @@ MODULES = \
 	megaco_test_msg_v3_lib \
 	megaco_test_lib
 
+SUITE_MODULES = \
+	megaco_actions_SUITE \
+	megaco_app_SUITE \
+	megaco_binary_term_id_SUITE \
+	megaco_call_flow_SUITE \
+	megaco_codec_mini_SUITE \
+	megaco_codec_v1_SUITE \
+	megaco_codec_v2_SUITE \
+	megaco_codec_prev3a_SUITE \
+	megaco_codec_prev3b_SUITE \
+	megaco_codec_prev3c_SUITE \
+	megaco_codec_v3_SUITE \
+	megaco_config_SUITE \
+	megaco_digit_map_SUITE \
+	megaco_examples_SUITE \
+	megaco_flex_SUITE \
+	megaco_load_SUITE \
+	megaco_mess_SUITE \
+	megaco_mib_SUITE \
+	megaco_mreq_SUITE \
+	megaco_pending_limit_SUITE \
+	megaco_sdp_SUITE \
+	megaco_segment_SUITE \
+	megaco_tcp_SUITE \
+	megaco_timer_SUITE \
+	megaco_trans_SUITE \
+	megaco_udp_SUITE
+
+MODULES = \
+	$(TEST_UTIL_MODULES) \
+	$(SUITE_MODULES)
 
 INTERNAL_HRL_FILES = \
 	megaco_test_lib.hrl

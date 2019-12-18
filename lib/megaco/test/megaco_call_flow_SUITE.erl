@@ -36,16 +36,13 @@
 %% megaco_call_flow_test:gnuplot_code_time_gif().
 %%----------------------------------------------------------------------
 
--module(megaco_call_flow_test).
+-module(megaco_call_flow_SUITE).
 
 -export([
-         all/0,
-         groups/0,
-
-         init_per_group/2,
-         end_per_group/2,
-         init_per_testcase/2,
-         end_per_testcase/2,
+ 	 suite/0, all/0, groups/0,
+         init_per_suite/1, end_per_suite/1,
+         init_per_group/2, end_per_group/2,
+         init_per_testcase/2, end_per_testcase/2,
 
          pretty/1,
          compact/1,
@@ -55,10 +52,7 @@
          ber/1,
          per/1,
          standard_erl/1,
-         compressed_erl/1,
-
-         t/0, t/1
-
+         compressed_erl/1
         ]).
 
 -export([
@@ -121,36 +115,133 @@
 -include_lib("megaco/include/megaco_message_v1.hrl").
 -include("megaco_test_lib.hrl").
 
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
 
-%% Test server callbacks
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+all() -> 
+    [
+     {group, text},
+     {group, binary},
+     {group, erl}
+    ].
+
+groups() -> 
+    [
+     {text,   [], text_cases()},
+     {flex,   [], flex_cases()},
+     {binary, [], binary_cases()},
+     {erl,    [], erl_cases()}
+    ].
+
+text_cases() ->
+    [
+     pretty,
+     compact
+    ].
+
+flex_cases() ->
+    [
+     pretty_flex,
+     compact_flex
+    ].
+
+binary_cases() ->
+    [
+     bin,
+     ber,
+     per
+    ].
+
+erl_cases() ->
+    [
+     standard_erl,
+     compressed_erl
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(suite) ->
+    [];
+init_per_suite(doc) ->
+    [];
+init_per_suite(Config0) when is_list(Config0) ->
+
+    ?ANNOUNCE_SUITE_INIT(),
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+
+            Config1
+    end.
+
+end_per_suite(suite) -> [];
+end_per_suite(doc) -> [];
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+
+    Config1.
+
+
+%%
+%% -----
+%%
+
+init_per_group(Group, Config) ->
+    ?ANNOUNCE_GROUP_INIT(Group),
+    Config.
+
+end_per_group(_Group, Config) ->
+    Config.
+
+
+%%
+%% -----
+%%
+
 init_per_testcase(Case, Config) ->
+    %% We do *not* reset events with each test case
+    %% The test cases are so short we don't bother,
+    %% and also we would drown in mprintouts...
     megaco_test_lib:init_per_testcase(Case, Config).
 
 end_per_testcase(Case, Config) ->
     megaco_test_lib:end_per_testcase(Case, Config).
 
 
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Top test case
-
-all() -> 
-    [{group, text}, {group, binary}, {group, erl}].
-
-groups() -> 
-    [
-     {text,   [], [pretty, compact]},
-     {flex,   [], [pretty_flex, compact_flex]},
-     {binary, [], [bin, ber, per]},
-     {erl,    [], [standard_erl, compressed_erl]}
-    ].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
 
 pretty(suite) ->
     [];
@@ -1820,3 +1911,12 @@ gnuplot_data([{Mod, _Opt, _Opt2} = E | Encoders], Dir, Stat, Pos, Names, Arrows)
 		      " nohead lt ", Pos, "\n",
 		      "set label \" ", Avg, " (avg)\" at ", Len, ",", Avg + 10, "\n"]),
     gnuplot_data(Encoders, Dir, Stat, Pos + 1, [Name | Names], [Arrow | Arrows]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+p(F, A) ->
+    io:format("*** [~s] ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS() | A]).
+

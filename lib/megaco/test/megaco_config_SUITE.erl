@@ -23,40 +23,135 @@
 %% Purpose: Test application config
 %%----------------------------------------------------------------------
 
--module(megaco_config_test).
+-module(megaco_config_SUITE).
 
 -export([
-         all/0,
-         groups/0,
-
-         init_per_group/2,
-         end_per_group/2,
-         init_per_testcase/2,
-         end_per_testcase/2,
+         suite/0, all/0, groups/0,
+	 init_per_suite/1,    end_per_suite/1, 
+	 init_per_group/2,    end_per_group/2, 
+	 init_per_testcase/2, end_per_testcase/2, 
 
          config/1,
          transaction_id_counter_mg/1,
          transaction_id_counter_mgc/1,
          otp_7216/1,
          otp_8167/1,
-         otp_8183/1,
-
-         t/0, t/1
+         otp_8183/1
         ]).
 
--include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/src/app/megaco_internal.hrl").
+-include("megaco_test_lib.hrl").
 
-t()     -> megaco_test_lib:t(?MODULE).
-t(Case) -> megaco_test_lib:t({?MODULE, Case}).
+-record(command, {id, desc, cmd, verify}).
 
-min(M) -> timer:minutes(M).
+-define(TEST_VERBOSITY, debug).
+-define(NUM_CNT_PROCS,  100).
+
+
+%%======================================================================
+%% Common Test interface functions
+%%======================================================================
+
+suite() -> 
+    [{ct_hooks, [ts_install_cth]}].
+
+all() -> 
+    [
+     config,
+     {group, transaction_id_counter},
+     {group, tickets}
+    ].
+
+groups() -> 
+    [
+     {transaction_id_counter, [], transaction_id_counter_cases()},
+     {tickets,                [], tickets_cases()}
+    ].
+
+
+
+transaction_id_counter_cases() ->
+    [
+     transaction_id_counter_mg,
+     transaction_id_counter_mgc
+    ].
+
+tickets_cases() ->
+    [
+     otp_7216,
+     otp_8167,
+     otp_8183
+    ].
+
+
+
+%%
+%% -----
+%%
+
+init_per_suite(Config0) when is_list(Config0) ->
+
+    p("init_per_suite -> entry with"
+      "~n      Config: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+
+            %% We need a (local) monitor on this node also
+            megaco_test_sys_monitor:start(),
+
+            p("init_per_suite -> end when"
+              "~n      Config: ~p"
+              "~n      Nodes:  ~p", [Config1, erlang:nodes()]),
+            
+            Config1
+    end.
+
+end_per_suite(Config0) when is_list(Config0) ->
+
+    p("end_per_suite -> entry with"
+      "~n      Config0: ~p"
+      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+
+    megaco_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    p("end_per_suite -> end when"
+      "~n      Nodes:  ~p", [erlang:nodes()]),
+    Config1.
+
+
+
+%%
+%% -----
+%%
+
+init_per_group(_GroupName, Config) ->
+    Config.
+
+end_per_group(_GroupName, Config) ->
+    Config.
+
+
+%%
+%% -----
+%%
 
 %% Test server callbacks
 init_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
                                      (Case =:= otp_8167) orelse
                                      (Case =:= otp_8183) ->
+    i("init_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+    
+    megaco_test_global_sys_monitor:reset_events(),
+
     i("try starting megaco_config"),
     case megaco_config:start_link() of
         {ok, _} ->
@@ -75,9 +170,19 @@ do_init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
     megaco_test_lib:init_per_testcase(Case, Config).
 
+min(M) -> timer:minutes(M).
+
+
 end_per_testcase(Case, Config) when (Case =:= otp_7216) orelse
-                                     (Case =:= otp_8167) orelse
-                                     (Case =:= otp_8183) ->
+                                    (Case =:= otp_8167) orelse
+                                    (Case =:= otp_8183) ->
+    p("end_per_testcase -> entry with"
+      "~n   Config: ~p"
+      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
+
+    p("system events during test: "
+      "~n   ~p", [megaco_test_global_sys_monitor:events()]),
+
     (catch megaco_config:stop()),
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config);
@@ -85,47 +190,6 @@ end_per_testcase(Case, Config) ->
     process_flag(trap_exit, false),
     megaco_test_lib:end_per_testcase(Case, Config).
 
-
--record(command, {id, desc, cmd, verify}).
-
--define(TEST_VERBOSITY, debug).
--define(NUM_CNT_PROCS,  100).
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Top test case
-
-all() -> 
-    [
-     config,
-     {group, transaction_id_counter},
-     {group, tickets}
-    ].
-
-groups() -> 
-    [
-     {transaction_id_counter, [], transaction_id_counter_cases()},
-     {tickets,                [], tickets_cases()}
-    ].
-
-init_per_group(_GroupName, Config) ->
-    Config.
-
-end_per_group(_GroupName, Config) ->
-    Config.
-
-transaction_id_counter_cases() ->
-    [
-     transaction_id_counter_mg,
-     transaction_id_counter_mgc
-    ].
-
-tickets_cases() ->
-    [
-     otp_7216,
-     otp_8167,
-     otp_8183
-    ].
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1158,7 +1222,12 @@ p(F) ->
     p(F, []).
 
 p(F, A) ->
-    io:format("[~w] " ++ F ++ "~n", [get(tc)|A]).
+    case get(tc) of
+        undefined ->
+            io:format(F ++ "~n", A);
+        TC ->
+            io:format("[~w] " ++ F ++ "~n", [TC|A])
+    end.
 
 
 i(F) ->
