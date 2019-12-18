@@ -1097,6 +1097,14 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         </list>
 
 	<note>
+	  <p>There is a way to exclude a varbind from the notification.
+	  In the normal <c>varbinds</c> list, providing the special
+	  value <c>'$ignore-oid'</c> (instead of a normal value) will
+	  exclude this varbind from the notification. </p>
+	  <p>A define for this has been added to the <c>snmp_types.hrl</c>
+	  include file, <c>NOTIFICATION_IGNORE_VB_VALUE</c>. </p>
+	</note>
+	<note>
 	  <p>The <c>extra</c> info is not normally interpreted by the agent, 
 	  instead it is passed through to the 
 	  <seealso marker="snmp_agent_netif">net-if</seealso> process. It is 

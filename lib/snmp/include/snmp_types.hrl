@@ -23,6 +23,14 @@
 %%----------------------------------------------------------------------
 
 %%----------------------------------------------------------------------
+%% Use this 'value' when sending a notification if wanting to exclude
+%% a varbind form the (notification) message.
+%%----------------------------------------------------------------------
+
+-define(NOTIFICATION_IGNORE_VB_VALUE, '$ignore-oid').
+
+
+%%----------------------------------------------------------------------
 %% Variablebinding
 %% oid: a list of integers (see snmp_misc:is_oid)
 %% variabletype corresponds to type in the asn1_type.
