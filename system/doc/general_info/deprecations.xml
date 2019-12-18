@@ -51,8 +51,17 @@
       <p>For replacement functions see the
       <seealso marker="crypto:new_api#the-new-api">New API</seealso>.</p>
     </section>
+    
+    <section>
+      <title>http_uri</title>
+      <p>Since OTP 21 the recommended module to handle URIs is
+      <seealso marker="stdlib:uri_string">uri_string</seealso>. The module
+      http_uri does not provide a implementation that satisfies the
+      RFC.  
+      </p>
+    </section>
   </section>
-
+  
   <section>
     <marker id="OTP-22"/>
     <title>OTP 22</title>
@@ -108,5 +117,28 @@
       <seealso marker="erts:time_correction#Dos_and_Donts">Dos and Donts</seealso>
       section on how to replace usage of <c>erlang:now()</c>.</p>
     </section>
+
+    <section>
+      <title>httpd_conf module</title>
+      <p>
+	API functions in the module called httpd_conf was deprecated in favour
+	of standard modules such as lists, strings, fillib and erlang.
+      </p>
+    </section>
+     
   </section>
+
+  <section>
+    <marker id="OTP-12"/>
+    <title>OTP 12</title>
+    <section>
+      <title>inets - httpd Apache config files</title>
+      <p>
+	New config file format, instead of Apache compatible, is introduced.
+      </p>
+    </section>
+     
+  </section>
+
+  
 </chapter>

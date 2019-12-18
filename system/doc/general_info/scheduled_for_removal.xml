@@ -37,6 +37,19 @@
     <seealso marker="../system_principles/misc#removal">Support, Compatibility,
     Deprecations, and Removal</seealso>.</p>
   </section>
+
+  <section>
+    <marker id="OTP-25"/>
+    <title>OTP 25</title>
+     <section>
+      <title>http_uri</title>
+      <p>Since OTP 21 the recommended module to handle URIs is
+      <seealso marker="stdlib:uri_string">uri_string</seealso>. The module
+      http_uri does not provide a implementation that satisfies the
+      RFC. Formally deprecated since OTP-23 </p>
+    </section>
+  </section>
+  
   <section>
     <marker id="OTP-24"/>
     <title>OTP 24</title>
@@ -69,5 +82,23 @@
       of the <c>ei</c> library which also is part of the <c>erl_interface</c>
       application.</p>
     </section>
+    
+    <section>
+      <title>httpd_conf module</title>
+      <p>
+	API functions in the module called httpd_conf was deprecated in favour
+	of standard modules such as lists, strings, fillib and erlang. Formally
+	deprecated as of OTP 18.
+      </p>
+    </section>
+    
+    <section>
+      <title>inets - httpd Apache config files</title>
+      <p>
+	API functions in the module called httpd_conf was deprecated in favour
+	of standard modules such as lists, strings, fillib and erlang. Formally
+	deprecated as of OTP 18.
+      </p>
+    </section> 
   </section>
 </chapter>

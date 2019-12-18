@@ -61,6 +61,14 @@
 	 scheme_defaults/0, 
 	 encode/1, decode/1]).
 
+
+-deprecated({parse, 1, next_major_release}).
+-deprecated({parse, 2, next_major_release}).
+-deprecated({encode, 1, next_major_release}).
+-deprecated({decode, 1, next_major_release}).
+-deprecated({scheme_defaults, 0, next_major_release}).
+
+
 -export_type([uri/0,
               user_info/0,
               scheme/0, default_scheme_port_number/0,

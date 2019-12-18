@@ -246,52 +246,6 @@ start_httpd(Config) when is_list(Config) ->
     ok = inets:start(),
     (?NUM_DEFAULT_SERVICES + 1) = length(inets:services()),
     application:unset_env(inets, services),
-    ok = inets:stop(),
-    
-    File1 = filename:join(PrivDir, "httpd_apache.conf"),
-    
-    {ok, Fd1} =  file:open(File1, [write]),
-    file:write(Fd1, "ServerName   httpd_test\r\n"),
-    file:write(Fd1, "ServerRoot   " ++ PrivDir ++ "\r\n"),
-    file:write(Fd1, "DocumentRoot " ++ PrivDir ++" \r\n"),    
-    file:write(Fd1, "BindAddress  *|inet\r\n"),
-    file:write(Fd1, "Port 0\r\n"),
-    file:close(Fd1),
-
-    application:load(inets),
-    application:set_env(inets, 
-			services, [{httpd, [{file, File1}]}]),
-    ok = inets:start(),
-    (?NUM_DEFAULT_SERVICES + 1) = length(inets:services()),
-    application:unset_env(inets, services),
-    ok = inets:stop(),
-    
-    %% OLD format
-    application:load(inets),
-    application:set_env(inets, 
-			services, [{httpd, File1}]),
-    ok = inets:start(),
-    (?NUM_DEFAULT_SERVICES + 1) = length(inets:services()),
-    application:unset_env(inets, services),
-    ok = inets:stop(),
-    ok = inets:start(),
-    {error, {missing_property, server_name}} = 
-	inets:start(httpd, [{port, 0},
-			    {server_root, PrivDir},
-			    {document_root, PrivDir}, 
-			    {bind_address, "localhost"}]),
-    {error, {missing_property, document_root}} = 
-	inets:start(httpd, [{port, 0},
-			    {server_name, "httpd_test"}, 
-			    {server_root, PrivDir},
-			    {bind_address, "localhost"}]),
-    {error, {missing_property, server_root}} = 
-	inets:start(httpd, [{port, 0},
-			    {server_name, "httpd_test"}, 
-			    {document_root, PrivDir},
-			    {bind_address, "localhost"}]),
-    {error, {missing_property, port}} = 
-	inets:start(httpd, HttpdConf),
     ok = inets:stop().
 
 %%-------------------------------------------------------------------------
@@ -337,48 +291,4 @@ httpd_reload(Config) when is_list(Config) ->
 
     [{document_root, PrivDir}] =  httpd:info(Pid0, [document_root]),
     ok = inets:stop(httpd, Pid0),
-    ok = inets:stop(),
-
-    File = filename:join(PrivDir, "httpd_apache.conf"),
-      
-    {ok, Fd0} =  file:open(File, [write]),
-    file:write(Fd0, "ServerName   httpd_test\r\n"),
-    file:write(Fd0, "ServerRoot   " ++ PrivDir ++ "\r\n"),
-    file:write(Fd0, "DocumentRoot " ++ PrivDir ++" \r\n"),    
-    file:write(Fd0, "BindAddress  *\r\n"),
-    file:write(Fd0, "Port 0\r\n"),
-    file:close(Fd0),
-
-    application:load(inets),
-    application:set_env(inets, 
-			services, [{httpd, [{file, File}]}]),
-    
-    ok = inets:start(),
-    [Pid1] = [HttpdPid || {httpd, HttpdPid} <- inets:services()],
-    [{server_name, "httpd_test"}] =  httpd:info(Pid1, [server_name]),
-    [{port, Port1}] = httpd:info(Pid1, [port]),         
-    {ok, Fd1} =  file:open(File, [write]),
-    file:write(Fd1, "ServerName   httpd_test2\r\n"),
-    file:write(Fd1, "ServerRoot   " ++ PrivDir ++ "\r\n"),
-    file:write(Fd1, "DocumentRoot " ++ PrivDir ++" \r\n"),    
-    file:write(Fd1, "BindAddress  *\r\n"),
-    file:write(Fd1, "Port " ++ integer_to_list(Port1) ++ "\r\n"),
-    file:close(Fd1),
-
-    ok = httpd:reload_config(File, non_disturbing),
-    [{server_name, "httpd_test2"}] =  httpd:info(Pid1, [server_name]),
-
-    {ok, Fd2} =  file:open(File, [write]),
-    file:write(Fd2, "ServerName   httpd_test\r\n"),
-    file:write(Fd2, "ServerRoot   " ++ PrivDir ++ "\r\n"),
-    file:write(Fd2, "DocumentRoot " ++ PrivDir ++" \r\n"),    
-    file:write(Fd2, "BindAddress  *\r\n"),
-    file:write(Fd2, "Port " ++ integer_to_list(Port1) ++ "\r\n"),
-    file:close(Fd2),
-    ok = httpd:reload_config(File, disturbing),
-    [{server_name, "httpd_test"}] = httpd:info(Pid1, [server_name]),
-    
-    ok = inets:stop(httpd, Pid1),
-    application:unset_env(inets, services),
     ok = inets:stop().
-

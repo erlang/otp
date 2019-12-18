@@ -24,7 +24,6 @@
 	 real_name/3,
 	 real_script_name/3,
 	 default_index/2,
-	 load/2,
 	 store/2,
 	 path/3]).
 
@@ -99,13 +98,12 @@ get_protocol(_) ->
 %% real_name
 
 real_name(ConfigDB, RequestURI, []) ->
-    DocumentRoot = which_document_root(ConfigDB), 
+    {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
     RealName = DocumentRoot ++ RequestURI,
     {ShortPath, _AfterPath} = httpd_util:split_path(RealName),
     {Path, AfterPath} = 
 	httpd_util:split_path(default_index(ConfigDB, RealName)),
-    {ShortPath, Path, AfterPath};
-
+    {Prefix ++ ShortPath, Prefix ++ Path, AfterPath};
 real_name(ConfigDB, RequestURI, [{MP,Replacement}| _] = Aliases)
   when element(1, MP) =:= re_pattern ->
     case longest_match(Aliases, RequestURI) of
@@ -200,10 +198,10 @@ append_index(RealName, [Index | Rest]) ->
 path(Data, ConfigDB, RequestURI) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->
-	    DocumentRoot = which_document_root(ConfigDB), 
-	    {Path, _AfterPath} = 
-		httpd_util:split_path(DocumentRoot ++ RequestURI),
-	    Path;
+            {Prefix, DocumentRoot} = which_document_root(ConfigDB), 
+            {Path, _AfterPath} = 
+                httpd_util:split_path(DocumentRoot ++ RequestURI),
+            Prefix ++ Path;
 	{Path, _AfterPath} ->
 	    Path
     end.
@@ -211,50 +209,6 @@ path(Data, ConfigDB, RequestURI) ->
 %%
 %% Configuration
 %%
-
-%% load
-
-load("DirectoryIndex " ++ DirectoryIndex, []) ->
-    DirectoryIndexes = re:split(DirectoryIndex," ", [{return, list}]),
-    {ok,[], {directory_index, DirectoryIndexes}};
-load("Alias " ++ Alias, []) ->
-    case re:split(Alias," ", [{return, list}]) of
-	[FakeName, RealName] ->
-	    {ok,[],{alias,{FakeName,RealName}}};
-	_ ->
-	    {error,?NICE(string:strip(Alias)++" is an invalid Alias")}
-    end;
-load("ReWrite " ++ Rule, Acc) ->
-    load_re_write(Rule, Acc, "ReWrite", re_write);
-load("ScriptAlias " ++ ScriptAlias, []) ->
-    case re:split(ScriptAlias, " ", [{return, list}]) of
-	[FakeName, RealName] ->
-	    %% Make sure the path always has a trailing slash..
-	    RealName1 = filename:join(filename:split(RealName)),
-	    {ok, [], {script_alias, {FakeName, RealName1++"/"}}};
-	_ ->
-	    {error, ?NICE(string:strip(ScriptAlias)++
-			      " is an invalid ScriptAlias")}
-    end;
-load("ScriptReWrite " ++ Rule, Acc) ->
-    load_re_write(Rule, Acc, "ScriptReWrite", script_re_write).
-
-load_re_write(Rule0, Acc, Type, Tag) ->
-    case lists:dropwhile(
-	   fun ($\s) -> true; ($\t) -> true; (_) -> false end,
-	   Rule0) of
-	"" ->
-	    {error, ?NICE(string:strip(Rule0)++" is an invalid "++Type)};
-	Rule ->
-	    case string:chr(Rule, $\s) of
-		0 ->
-		    {ok, Acc, {Tag, {Rule, ""}}};
-		N ->
-		    {Re, [_|Replacement]} = lists:split(N-1, Rule),
-		    {ok, Acc, {Tag, {Re, Replacement}}}
-	    end
-    end.
-
 store({directory_index, Value} = Conf, _) when is_list(Value) ->
     case is_directory_index_list(Value) of
 	true ->
@@ -315,7 +269,13 @@ which_port(ConfigDB) ->
     httpd_util:lookup(ConfigDB, port, 80). 
 
 which_document_root(ConfigDB) ->
-    httpd_util:lookup(ConfigDB, document_root, "").
+    Root = httpd_util:lookup(ConfigDB, document_root, ""),
+    case string:tokens(Root, ":") of 
+        [Prefix, Path] ->
+            {Prefix ++ ":", Path};
+        [Path] ->
+            {"", Path}
+    end.
 
 which_directory_index(ConfigDB) ->
     httpd_util:lookup(ConfigDB, directory_index, []).

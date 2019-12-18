@@ -43,14 +43,14 @@
             httpc_sup,
             httpc_cookie,                
 
-	    http_uri, %% Proably will by used by server also in the future
-
             %% HTTP used by both client and server 
             http_chunk,
             http_request,
             http_response,      
             http_transport,
             http_util,  
+
+            http_uri, %% Deprecated
             
             %% HTTP server:
             httpd,
@@ -83,14 +83,12 @@
             mod_auth_mnesia,
             mod_auth_plain,
             mod_auth_server,
-            mod_browser,
             mod_cgi,
             mod_dir,
             mod_disk_log,
             mod_esi,
             mod_get,
             mod_head,
-            mod_htaccess,
             mod_log,
             mod_range,
             mod_responsecontrol,

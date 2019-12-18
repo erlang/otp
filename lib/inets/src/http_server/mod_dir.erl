@@ -57,9 +57,7 @@ do_dir(Info) ->
     %% Is it a directory?
     case file:read_file_info(DefaultPath) of
 	{ok,FileInfo} when FileInfo#file_info.type == directory ->
-	    DecodedRequestURI =
-		http_uri:decode(Info#mod.request_uri),
-	    case dir(DefaultPath,string:strip(DecodedRequestURI,right,$/),
+	    case dir(DefaultPath,string:strip( Info#mod.request_uri,right,$/),
 		     Info#mod.config_db) of
 		{ok, Dir} ->
 		    LastModified =
