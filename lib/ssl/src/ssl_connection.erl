@@ -1368,6 +1368,9 @@ handle_common_event({timeout, handshake}, close, _StateName, #state{start_or_rec
 handle_common_event({timeout, recv}, timeout, StateName, #state{start_or_recv_from = RecvFrom} = State, _) ->
     {next_state, StateName, State#state{start_or_recv_from = undefined,
                                         bytes_to_read = undefined}, [{reply, RecvFrom, {error, timeout}}]};
+handle_common_event(internal, {recv, RecvFrom}, StateName, #state{start_or_recv_from = RecvFrom}, _) when
+      StateName =/= connection ->
+    {keep_state_and_data, [postpone]};
 handle_common_event(Type, Msg, StateName, #state{connection_env =
                                                       #connection_env{negotiated_version = Version}} = State, 
 		    _) ->
