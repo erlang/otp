@@ -147,6 +147,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"mtrace_op",				NULL			},
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
+    {   "dyn_lock_check",                       NULL                    },
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
     {	"get_time",				NULL			},
