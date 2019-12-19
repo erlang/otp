@@ -456,6 +456,24 @@ erts_queue_message(Process* receiver, ErtsProcLocks receiver_locks,
 }
 
 /**
+ *
+ * @brief Send one message from *NOT* a local process.
+ *
+ * But with a token!
+ */
+void
+erts_queue_message_token(Process* receiver, ErtsProcLocks receiver_locks,
+                         ErtsMessage* mp, Eterm msg, Eterm from, Eterm token)
+{
+    ASSERT(is_not_internal_pid(from));
+    ERL_MESSAGE_TERM(mp) = msg;
+    ERL_MESSAGE_FROM(mp) = from;
+    ERL_MESSAGE_TOKEN(mp) = token;
+    queue_messages(receiver, receiver_locks, mp, &mp->next, 1);
+}
+
+
+/**
  * @brief Send one message from a local process.
  *
  * It is up to the caller of this function to set the

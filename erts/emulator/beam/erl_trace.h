@@ -158,8 +158,9 @@ void seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
 			      Eterm receiver, Process *process, Eterm exitfrom);
 
 /* Bump the sequence number if tracing is enabled; must be used before sending
- * send/spawn trace messages. */
+ * send trace messages. */
 int seq_trace_update_serial(Process *process);
+void erts_seq_trace_update_node_token(Eterm token);
 
 Eterm erts_seq_trace(Process *process, 
 		     Eterm atom_type, Eterm atom_true_or_false, 

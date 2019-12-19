@@ -210,7 +210,8 @@ remove_message() {
             ASSERT(is_small(SEQ_TRACE_TOKEN_SERIAL(c_p)));
             ASSERT(is_small(SEQ_TRACE_TOKEN_LASTCNT(c_p)));
             ASSERT(is_small(SEQ_TRACE_TOKEN_FLAGS(c_p)));
-            ASSERT(is_pid(SEQ_TRACE_TOKEN_SENDER(c_p)));
+            ASSERT(is_pid(SEQ_TRACE_TOKEN_SENDER(c_p))
+                   || is_atom(SEQ_TRACE_TOKEN_SENDER(c_p)));
             c_p->seq_trace_lastcnt = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));
             if (c_p->seq_trace_clock < unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p))) {
                 c_p->seq_trace_clock = unsigned_val(SEQ_TRACE_TOKEN_SERIAL(c_p));

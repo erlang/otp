@@ -11384,6 +11384,168 @@ alloc_process(ErtsRunQueue *rq, int bound, erts_aint32_t state)
     return p;
 }
 
+int
+erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag, int *timeout)
+{
+    /*
+     * Returns:
+     * - 0 on success
+     * - <0 on badopt
+     * - >0 on badarg (not prober list)
+     */
+    int result = 0;
+    Eterm ap = opts_list;
+    
+    if (tag)
+        *tag = am_spawn_reply;
+    if (timeout)
+        *timeout = 0;
+    /*
+     * Store default values for options.
+     */
+    sop->multi_set      = 0;
+    sop->flags          = erts_default_spo_flags;
+    sop->min_heap_size  = H_MIN_SIZE;
+    sop->min_vheap_size = BIN_VH_MIN_SIZE;
+    sop->max_heap_size  = H_MAX_SIZE;
+    sop->max_heap_flags = H_MAX_FLAGS;
+    sop->priority       = PRIORITY_NORMAL;
+    sop->max_gen_gcs    = (Uint16) erts_atomic32_read_nob(&erts_max_gen_gcs);
+    sop->scheduler      = 0;
+
+    /*
+     * Walk through the option list.
+     */
+    while (is_list(ap)) {
+	Eterm arg = CAR(list_val(ap));
+	ap = CDR(list_val(ap));
+	if (arg == am_link) {
+            if (sop->flags & SPO_LINK)
+                sop->multi_set = !0;
+	    sop->flags |= SPO_LINK;
+	} else if (arg == am_monitor) {
+            if (sop->flags & SPO_MONITOR)
+                sop->multi_set = !0;
+	    sop->flags |= SPO_MONITOR;
+	} else if (is_tuple(arg)) {
+	    Eterm* tp2 = tuple_val(arg);
+	    Eterm val;
+	    if (*tp2 != make_arityval(2)) {
+                result = -1;
+                continue;
+            }
+	    arg = tp2[1];
+	    val = tp2[2];
+	    if (arg == am_priority) {
+                if (sop->flags & SPO_PRIORITY)
+                    sop->multi_set = !0;
+                sop->flags |= SPO_PRIORITY;
+		if (val == am_max)
+		    sop->priority = PRIORITY_MAX;
+		else if (val == am_high)
+		    sop->priority = PRIORITY_HIGH;
+		else if (val == am_normal)
+		    sop->priority = PRIORITY_NORMAL;
+		else if (val == am_low)
+		    sop->priority = PRIORITY_LOW;
+		else
+                    result = -1;
+	    } else if (arg == am_message_queue_data) {
+                if (sop->flags & (SPO_OFF_HEAP_MSGQ|SPO_ON_HEAP_MSGQ))
+                    sop->multi_set = !0;
+		switch (val) {
+		case am_on_heap:
+		    sop->flags &= ~SPO_OFF_HEAP_MSGQ;
+		    sop->flags |= SPO_ON_HEAP_MSGQ;
+		    break;
+		case am_off_heap:
+		    sop->flags &= ~SPO_ON_HEAP_MSGQ;
+		    sop->flags |= SPO_OFF_HEAP_MSGQ;
+		    break;
+		default:
+                    result = -1;
+                    break;
+		}
+	    } else if (arg == am_min_heap_size && is_small(val)) {
+		Sint min_heap_size = signed_val(val);
+                if (sop->flags & SPO_MIN_HEAP_SIZE)
+                    sop->multi_set = !0;
+                sop->flags |= SPO_MIN_HEAP_SIZE;
+		if (min_heap_size < 0) {
+                    result = -1;
+		} else if (min_heap_size < H_MIN_SIZE) {
+		    sop->min_heap_size = H_MIN_SIZE;
+		} else {
+		    sop->min_heap_size = erts_next_heap_size(min_heap_size, 0);
+		}
+            } else if (arg == am_max_heap_size) {
+                if (sop->flags & SPO_MAX_HEAP_SIZE)
+                    sop->multi_set = !0;
+                sop->flags |= SPO_MAX_HEAP_SIZE;
+                if (!erts_max_heap_size(val, &sop->max_heap_size, &sop->max_heap_flags))
+                    result = -1;
+	    } else if (arg == am_min_bin_vheap_size && is_small(val)) {
+		Sint min_vheap_size = signed_val(val);
+                if (sop->flags & SPO_MIN_VHEAP_SIZE)
+                    sop->multi_set = !0;
+                sop->flags |= SPO_MIN_VHEAP_SIZE;
+		if (min_vheap_size < 0) {
+		    result = -1;
+		} else if (min_vheap_size < BIN_VH_MIN_SIZE) {
+		    sop->min_vheap_size = BIN_VH_MIN_SIZE;
+		} else {
+		    sop->min_vheap_size = erts_next_heap_size(min_vheap_size, 0);
+		}
+	    } else if (arg == am_fullsweep_after && is_small(val)) {
+		Sint max_gen_gcs = signed_val(val);
+                if (sop->flags & SPO_MAX_GEN_GCS)
+                    sop->multi_set = !0;
+                sop->flags |= SPO_MAX_GEN_GCS;
+		if (max_gen_gcs < 0) {
+		    result = -1;
+		} else {
+		    sop->max_gen_gcs = max_gen_gcs;
+		}
+	    } else if (arg == am_scheduler && is_small(val)) {
+		Sint scheduler = signed_val(val);
+                if (sop->flags & SPO_SCHEDULER)
+                    sop->multi_set = !0;
+                sop->flags |= SPO_SCHEDULER;
+		if (scheduler < 0 || erts_no_schedulers < scheduler)
+                    result = -1;
+                else
+                    sop->scheduler = (int) scheduler;
+            } else if (arg == am_timeout) {
+                if (!timeout)
+                    result = -1;
+                else if (val == make_small(0))
+                    *timeout = !0;
+                else if (!erts_check_spawn_timer_timeout(val))
+                    result = -1;
+                /* else: enough time... */
+            } else if (arg == am_reply_tag) {
+                if (!tag)
+                    result = -1;
+                else
+                    *tag = val;
+	    } else {
+                result = -1;
+	    }
+	} else {
+            result = -1;
+	}
+    }
+    if (is_not_nil(ap)) {
+	return 1;
+    }
+
+    if (sop->max_heap_size != 0 && sop->max_heap_size < sop->min_heap_size) {
+        result = -1;
+    }
+
+    return result;
+}
+
 Eterm
 erl_create_process(Process* parent, /* Parent of process (default group leader). */
 		   Eterm mod,	/* Tagged atom for module. */
@@ -11403,6 +11565,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     erts_aint32_t state = 0;
     erts_aint32_t prio = (erts_aint32_t) PRIORITY_NORMAL;
     ErtsProcLocks locks = ERTS_PROC_LOCKS_ALL;
+    Eterm node_token_heap[6];
+    Eterm group_leader, parent_id, spawn_ref, token;
 #ifdef SHCOPY_SPAWN
     erts_shcopy_t info;
     INITIALIZE_SHCOPY(info);
@@ -11410,8 +11574,25 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     erts_literal_area_t litarea;
     INITIALIZE_LITERAL_PURGE_AREA(litarea);
 #endif
-
-    erts_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
+    
+    if (!parent) {
+        token = so->token;
+        group_leader = so->group_leader;
+        parent_id = so->parent_id;
+        spawn_ref = so->mref;
+    }
+    else {
+        token = SEQ_TRACE_TOKEN(parent);
+        erts_proc_lock(parent, ERTS_PROC_LOCKS_ALL_MINOR);
+        group_leader = parent->group_leader;
+        parent_id = parent->common.id;
+        if (so->flags & (SPO_MONITOR | SPO_ASYNC))
+            spawn_ref = so->mref = erts_make_ref(parent);
+        else if (have_seqtrace(token))
+            spawn_ref = erts_make_ref(parent);
+        else
+            spawn_ref = THE_NON_VALUE;
+    }
 
     /*
      * Check for errors.
@@ -11419,6 +11600,11 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     if (is_not_atom(mod) || is_not_atom(func) || ((arity = erts_list_length(args)) < 0)) {
 	so->error_code = BADARG;
+	goto error;
+    }
+
+    if (arity > MAX_SMALL) {
+	so->error_code = SYSTEM_LIMIT;
 	goto error;
     }
 
@@ -11446,14 +11632,21 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     ASSERT((qs_flags & FS_ON_HEAP_MSGQ) || (qs_flags & FS_OFF_HEAP_MSGQ));
 
-    if (!rq)
-	rq = erts_get_runq_proc(parent, NULL);
+    if (!rq) {
+        if (parent)
+            rq = erts_get_runq_proc(parent, NULL);
+        else {
+            ErtsSchedulerData *esdp = erts_get_scheduler_data();
+            ASSERT(esdp->type == ERTS_SCHED_NORMAL);
+            rq = esdp->run_queue;
+        }
+    }
+    ASSERT(rq);
 
     p = alloc_process(rq, bound, state); /* All proc locks are locked by this thread
                                             on success */
     if (!p) {
-	erts_send_error_to_logger_str(parent->group_leader,
-				      "Too many processes\n");
+	erts_send_error_to_logger_str(group_leader, "Too many processes\n");
 	so->error_code = SYSTEM_LIMIT;
 	goto error;
     }
@@ -11487,18 +11680,14 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->schedule_count = 0;
     ASSERT(p->min_heap_size == erts_next_heap_size(p->min_heap_size, 0));
 
-    p->u.initial.module = mod;
-    p->u.initial.function = func;
-    p->u.initial.arity = (Uint) arity;
-
     /*
      * Must initialize binary lists here before copying binaries to process.
      */
     p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
 
-    heap_need +=
-	IS_CONST(parent->group_leader) ? 0 : NC_HEAP_SIZE(parent->group_leader);
+    if (is_not_immed(group_leader))
+        heap_need += NC_HEAP_SIZE(group_leader);
 
     if (heap_need < p->min_heap_size) {
 	sz = heap_need = p->min_heap_size;
@@ -11558,16 +11747,16 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     ERTS_P_MONITORS(p) = NULL;
     ERTS_P_LT_MONITORS(p) = NULL;
 
-    ASSERT(is_pid(parent->group_leader));
+    ASSERT(is_pid(group_leader));
 
-    if (parent->group_leader == ERTS_INVALID_PID)
+    if (group_leader == ERTS_INVALID_PID)
 	p->group_leader = p->common.id;
     else {
 	/* Needs to be done after the heap has been set up */
 	p->group_leader =
-	    IS_CONST(parent->group_leader)
-	    ? parent->group_leader
-	    : STORE_NC(&p->htop, &p->off_heap, parent->group_leader);
+	    IS_CONST(group_leader)
+	    ? group_leader
+	    : STORE_NC(&p->htop, &p->off_heap, group_leader);
     }
 
     erts_get_default_proc_tracing(&ERTS_TRACE_FLAGS(p), &ERTS_TRACER(p));
@@ -11599,7 +11788,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     DT_UTAG(p) = NIL;
     DT_UTAG_FLAGS(p) = 0;
 #endif
-    p->parent = (parent->common.id == ERTS_INVALID_PID
+    p->parent = (!parent || parent->common.id == ERTS_INVALID_PID
 		 ? NIL
 		 : parent->common.id);
 
@@ -11617,44 +11806,105 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     /* seq_trace is handled before regular tracing as the latter may touch the
      * trace token. */
-    if (have_seqtrace(SEQ_TRACE_TOKEN(parent))) {
-        Eterm token;
+    if (!have_seqtrace(token)) {
+        SEQ_TRACE_TOKEN(p) = NIL;
+        p->seq_trace_lastcnt = 0;
+        p->seq_trace_clock = 0;
+    }
+    else {
+        Eterm tmp_heap[9]; /* 8-tuple */
+        Eterm seq_msg;
         Uint token_sz;
         Eterm *hp;
 
-        ASSERT(SEQ_TRACE_TOKEN_ARITY(parent) == 5);
-        ASSERT(is_immed(SEQ_TRACE_TOKEN_FLAGS(parent)));
-        ASSERT(is_immed(SEQ_TRACE_TOKEN_SERIAL(parent)));
-        ASSERT(is_immed(SEQ_TRACE_TOKEN_LASTCNT(parent)));
+        if (parent) {
+            seq_trace_update_serial(parent);
+            token = SEQ_TRACE_TOKEN(parent);
+            ASSERT(SEQ_TRACE_T_ARITY(token) == 5);
+            sys_memcpy(&node_token_heap[0],
+                       (void *) tuple_val(token),
+                       sizeof(Eterm)*6);
+            token = make_tuple(&node_token_heap[0]);
+        }
 
-        seq_trace_update_serial(parent);
+        ASSERT(SEQ_TRACE_T_ARITY(token) == 5);
+        ASSERT(is_immed(SEQ_TRACE_T_FLAGS(token)));
+        ASSERT(is_immed(SEQ_TRACE_T_SERIAL(token)));
+        ASSERT(is_immed(SEQ_TRACE_T_LASTCNT(token)));
 
-        token = SEQ_TRACE_TOKEN(parent);
         token_sz = size_object(token);
 
         hp = HAlloc(p, token_sz);
         SEQ_TRACE_TOKEN(p) = copy_struct(token, token_sz, &hp, &MSO(p));
-
-        /* The counters behave the same way on spawning as they do on messages;
-         * we don't inherit our parent's lastcnt. */
-        p->seq_trace_lastcnt = parent->seq_trace_clock;
-        p->seq_trace_clock = parent->seq_trace_clock;
 
         ASSERT((locks & (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE)) ==
                (ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE));
 
         locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
         erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-        erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
 
-        seq_trace_output(token, NIL, SEQ_TRACE_SPAWN, p->common.id, parent);
-    } else {
-        SEQ_TRACE_TOKEN(p) = NIL;
-        p->seq_trace_lastcnt = 0;
-        p->seq_trace_clock = 0;
+        if (parent) {
+            /* Simulate spawn_request message... */
+            Eterm tmp_heap2[4];
+            Eterm mfa;
+            erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            mfa = TUPLE3(&tmp_heap2[0], mod, func, make_small(arity)) ;
+            seq_msg = TUPLE8(&tmp_heap[0], am_spawn_request,
+                             spawn_ref, parent_id, group_leader,
+                             mfa, so->opts, so->tag, args);
+            seq_trace_output(token, seq_msg, SEQ_TRACE_SEND,
+                             p->common.id, parent);
+            seq_trace_output(token, seq_msg, SEQ_TRACE_RECEIVE,
+                             p->common.id, parent);
+            
+            /* The counters behave the same way on spawning as they do on messages;
+             * we don't inherit our parent's lastcnt. */
+            p->seq_trace_clock = unsigned_val(SEQ_TRACE_T_SERIAL(token));
+            p->seq_trace_lastcnt = p->seq_trace_clock;
+
+        }
+        else {
+            /*
+             * The spawn request is presented as two messages
+             * in dist case. It is sent as one signal over the
+             * distribution with the argument list as payload.
+             * The payload will be delivered as an ordinary
+             * message of its own, as the first message to the
+             * newly created process (in order to decode it in
+             * in the newly created process). For more info see
+             * erts_internal:dist_spawn_init() in erts_interal.erl.
+             * We expose these as two messages when seq-tracing
+             * in order not having to decode the argument list
+             * here. The remote node has passed a token with
+             * serial bumped twice, i.e., the first message should
+             * use a serial of one less than in the actual token;
+             * adjust serial and then restore it for use with
+             * the argument list message...
+             */
+            Eterm serial;
+            Uint serial_num;
+            ASSERT(eq(SEQ_TRACE_T_SENDER(token), parent_id));
+            serial = SEQ_TRACE_T_SERIAL(token);
+            serial_num = unsigned_val(serial);
+            serial_num--;
+            SEQ_TRACE_T_SERIAL(token) = make_small(serial_num);
+        
+            seq_msg = TUPLE6(&tmp_heap[0], am_spawn_request,
+                             spawn_ref, parent_id, group_leader,
+                             so->mfa, so->opts);
+            seq_trace_output(token, seq_msg, SEQ_TRACE_RECEIVE,
+                             p->common.id, p);
+
+            /* as on receive... */
+            p->seq_trace_clock = serial_num;
+            p->seq_trace_lastcnt = serial_num;
+
+            /* Restore serial for the argument list message... */
+            SEQ_TRACE_T_SERIAL(token) = serial;
+        }
     }
 
-    if (IS_TRACED(parent)) {
+    if (parent && IS_TRACED(parent)) {
 	if (ERTS_TRACE_FLAGS(parent) & F_TRACE_SOS) {
 	    ERTS_TRACE_FLAGS(p) |= (ERTS_TRACE_FLAGS(parent) & TRACEE_FLAGS);
             erts_tracer_replace(&p->common, ERTS_TRACER(parent));
@@ -11695,57 +11945,191 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
             /* This happens when parent was not traced, but child is */
             locks &= ~(ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
             erts_proc_unlock(p, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
-            erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
+            if (parent)
+                erts_proc_unlock(parent, ERTS_PROC_LOCK_STATUS|ERTS_PROC_LOCK_TRACE);
         }
-        trace_proc_spawn(p, am_spawned, parent->common.id, mod, func, args);
+        trace_proc_spawn(p, am_spawned, parent_id, mod, func, args);
         if (so->flags & SPO_LINK)
-            trace_proc(p, locks, p, am_getting_linked, parent->common.id);
+            trace_proc(p, locks, p, am_getting_linked, parent_id);
     }
 
     /*
      * Check if this process should be initially linked to its parent.
      */
 
-    if (so->flags & SPO_LINK) {
-        ErtsLink *lnk;
-        ErtsLinkData *ldp = erts_link_create(ERTS_LNK_TYPE_PROC,
-                                             parent->common.id,
-                                             p->common.id);
-        lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(parent), &ldp->a);
-        if (lnk) {
-            /*
-             * This should more or less never happen, but could
-             * potentially happen if pid:s wrap...
-             */
-            erts_link_release(lnk);
+    if (parent) {
+        /* Node local spawn... */
+
+        if (so->flags & SPO_LINK) {
+            ErtsLink *lnk;
+            ErtsLinkData *ldp = erts_link_create(ERTS_LNK_TYPE_PROC,
+                                                 parent->common.id,
+                                                 p->common.id);
+            lnk = erts_link_tree_lookup_insert(&ERTS_P_LINKS(parent), &ldp->a);
+            if (lnk) {
+                /*
+                 * This should more or less never happen, but could
+                 * potentially happen if pid:s wrap...
+                 */
+                erts_link_release(lnk);
+            }
+            erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->b);
         }
-        erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->b);
-    }
 
-    /*
-     * Test whether this process should be initially monitored by its parent.
-     */
-    if (so->flags & SPO_MONITOR) {
-	Eterm mref = erts_make_ref(parent);
-        ErtsMonitorData *mdp = erts_monitor_create(ERTS_MON_TYPE_PROC,
-                                                   mref,
-                                                   parent->common.id,
-                                                   p->common.id,
-                                                   NIL);
-        erts_monitor_tree_insert(&ERTS_P_MONITORS(parent), &mdp->origin);
-        erts_monitor_list_insert(&ERTS_P_LT_MONITORS(p), &mdp->target);
-	so->mref = mref;
-    }
+        /*
+         * Test whether this process should be initially monitored by its parent.
+         */
+        if (so->flags & SPO_MONITOR) {
+            ErtsMonitorData *mdp = erts_monitor_create(ERTS_MON_TYPE_PROC,
+                                                       spawn_ref,
+                                                       parent->common.id,
+                                                       p->common.id,
+                                                       NIL);
+            erts_monitor_tree_insert(&ERTS_P_MONITORS(parent), &mdp->origin);
+            erts_monitor_list_insert(&ERTS_P_LT_MONITORS(p), &mdp->target);
+        }
 
-    erts_proc_unlock(p, locks);
+        ASSERT(locks & ERTS_PROC_LOCK_MSGQ);
+
+        if (so->flags & SPO_ASYNC) { /* spawn_request() */
+            Eterm *tp;
+
+            ASSERT(is_tuple_arity(so->mfa, 3));
+            tp = tuple_val(so->mfa);
+            ASSERT(is_atom(tp[1]));
+            ASSERT(is_atom(tp[2]));
+            ASSERT(is_small(tp[3]));
+            p->u.initial.module = tp[1];
+            p->u.initial.function = tp[2];
+            p->u.initial.arity = (Uint) unsigned_val(tp[3]);
+
+            ASSERT(is_value(so->tag));
+            if (have_seqtrace(token)) {
+                seq_trace_update_serial(p);
+                token = SEQ_TRACE_TOKEN(p);
+            }
+            
+            /*
+             * Ensure spawn reply success message reach parent before
+             * any down or exit signals from child...
+             */
+            erts_send_local_spawn_reply(parent, locks, p,
+                                        so->tag, spawn_ref,
+                                        p->common.id, token);
+        }
+        else { /* synchronous spawn */
+
+            p->u.initial.module = mod;
+            p->u.initial.function = func;
+            p->u.initial.arity = (Uint) arity;
+
+            if (have_seqtrace(token)) {
+                /* Simulate spawn reply message... */
+                Eterm tmp_heap[5];
+                Eterm seq_msg;
+                Uint serial;
+
+                seq_trace_update_serial(p);
+                token = SEQ_TRACE_TOKEN(p);
+                serial = SEQ_TRACE_T_SERIAL(token);
+                seq_msg = TUPLE4(&tmp_heap[0], so->tag, spawn_ref,
+                                 am_ok, p->common.id);
+                seq_trace_output(token, seq_msg, SEQ_TRACE_SEND,
+                                 parent_id, parent);
+                
+                /* Update parent as if receive... */
+                parent->seq_trace_lastcnt = serial;
+                parent->seq_trace_clock = serial;
+                seq_trace_output(token, seq_msg, SEQ_TRACE_RECEIVE,
+                                 parent_id, parent);
+            }
+
+        }
+
+        erts_proc_unlock(p, locks);
+        erts_proc_unlock(parent, locks & ERTS_PROC_LOCKS_ALL_MINOR);
+
+    }
+    else {
+        /* Distributed spawn */
+        ErtsDSigSendContext ctx;
+        int code;
+        Eterm *tp;
+
+        ASSERT(is_tuple_arity(so->mfa, 3));
+        tp = tuple_val(so->mfa);
+        ASSERT(is_atom(tp[1]));
+        ASSERT(is_atom(tp[2]));
+        ASSERT(is_small(tp[3]));
+        p->u.initial.module = tp[1];
+        p->u.initial.function = tp[2];
+        p->u.initial.arity = (Uint) unsigned_val(tp[3]);
+
+        ASSERT(locks & ERTS_PROC_LOCK_MSGQ);
+        /*
+         * Pass the (on external format) encoded argument list as
+         * *first* message to the process. Note that this message
+         * *must* be first in the message queue of the newly
+         * spawned process!
+         */
+        erts_queue_dist_message(p, locks, so->edep, so->ede_hfrag,
+                                token, parent_id);
+
+        erts_proc_unlock(p, locks & ERTS_PROC_LOCKS_ALL_MINOR);
+    
+        if (so->flags & SPO_LINK) {
+            ErtsLinkData *ldp;
+            ldp = erts_link_create(ERTS_LNK_TYPE_DIST_PROC,
+                                   parent_id, p->common.id);
+            code = erts_link_dist_insert(&ldp->a, so->dist_entry->mld);
+            ASSERT(code);
+            erts_link_tree_insert(&ERTS_P_LINKS(p), &ldp->b);
+        }
+
+        if (so->flags & SPO_MONITOR) {
+            ErtsMonitorData *mdp;
+            mdp = erts_monitor_create(ERTS_MON_TYPE_DIST_PROC,
+                                      spawn_ref, parent_id,
+                                      p->common.id, NIL);
+            code = erts_monitor_dist_insert(&mdp->origin, so->dist_entry->mld);
+            ASSERT(code); (void)code;
+            erts_monitor_tree_insert(&ERTS_P_MONITORS(p), &mdp->target);
+        }
+
+        if (have_seqtrace(token)) {
+            Eterm tmp_heap[5];
+            Eterm seq_msg;
+            seq_trace_update_serial(p);
+            seq_msg = TUPLE4(&tmp_heap[0], so->tag,
+                             spawn_ref, am_ok, p->common.id);
+            token = SEQ_TRACE_TOKEN(p);
+            seq_trace_output(token, seq_msg, SEQ_TRACE_SEND, parent_id, p);
+        }
+
+        code = erts_dsig_prepare(&ctx, so->dist_entry, NULL, 0,
+                                 ERTS_DSP_NO_LOCK, 1, 1, 0);
+        if (code == ERTS_DSIG_PREP_CONNECTED) {
+            int dsflags = 0;
+            if (so->flags & SPO_LINK)
+                dsflags |= ERTS_DIST_SPAWN_FLAG_LINK;
+            if (so->flags & SPO_MONITOR)
+                dsflags |= ERTS_DIST_SPAWN_FLAG_MONITOR;
+            code = erts_dsig_send_spawn_reply(&ctx, spawn_ref,
+                                              parent_id,
+                                              make_small(dsflags),
+                                              p->common.id,
+                                              token);
+            ASSERT(code == ERTS_DSIG_SEND_OK);
+        }
+    
+        erts_proc_unlock(p, locks & ERTS_PROC_LOCK_MAIN);
+    }
 
     res = p->common.id;
 
     /*
      * Schedule process for execution.
      */
-
-    erts_proc_unlock(parent, locks & ERTS_PROC_LOCKS_ALL_MINOR);
 
     schedule_process(p, state, 0);
 
@@ -11765,9 +12149,63 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
  error:
 
-    erts_proc_unlock(parent, locks & ERTS_PROC_LOCKS_ALL_MINOR);
+    if (parent)
+        erts_proc_unlock(parent, locks & ERTS_PROC_LOCKS_ALL_MINOR);
 
     return res;
+}
+
+void
+erts_send_local_spawn_reply(Process *parent, ErtsProcLocks parent_locks,
+                            Process *child, Eterm tag, Eterm ref,
+                            Eterm result, Eterm token)
+{
+    ErtsMessage *mp;
+    ErlOffHeap *ohp;
+    Eterm *hp;
+    Eterm msg, ref_copy, ref_sz, tag_copy, tag_sz,
+        token_copy, token_sz, type;
+    ErtsProcLocks locks = parent_locks;
+
+    type = child ? am_ok : am_error;
+
+    if (have_seqtrace(token) && child)
+        token_sz = size_object(token);
+    else {
+        token_copy = token = NIL;
+        token_sz = 0;
+    }
+
+    ref_sz = size_object(ref);
+    tag_sz = is_immed(tag) ? 0 : size_object(tag);
+    mp = erts_alloc_message_heap(parent, &locks,
+                                 5 + tag_sz + ref_sz + token_sz,
+                                 &hp, &ohp);
+    ref_copy = copy_struct(ref, ref_sz, &hp, ohp);
+    tag_copy = is_immed(tag) ? tag : copy_struct(tag, tag_sz, &hp, ohp);
+    msg = TUPLE4(hp, tag_copy, ref_copy, type, result);
+    hp += 5;
+    
+    if (have_seqtrace(token)) {
+        token_copy = copy_struct(token, token_sz, &hp, ohp);
+        seq_trace_output(token_copy, msg, SEQ_TRACE_SEND,
+                         parent->common.id, parent);
+    }
+
+    if (!child) { /* error reply */
+        ASSERT(is_atom(result));
+        erts_queue_message(parent, parent_locks, mp, msg,
+                           erts_this_dist_entry->sysname);
+    }
+    else { /* success reply */
+        ASSERT(child->common.id == result);
+        ERL_MESSAGE_TOKEN(mp) = token_copy;
+        erts_queue_proc_message(child, parent, parent_locks, mp, msg);
+    }
+
+    ASSERT((parent_locks & locks) == parent_locks);
+    if (locks != parent_locks)
+        erts_proc_unlock(parent, locks & ~parent_locks);
 }
 
 /*
@@ -12203,6 +12641,153 @@ erts_proc_exit_handle_dist_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
     return reds_consumed;
 }
 
+static int
+proc_exit_handle_pend_spawn_monitors(ErtsMonitor *mon, void *vctxt, Sint reds)
+{
+    ErtsProcExitContext *ctxt = (ErtsProcExitContext *) vctxt;
+    Process *c_p = ctxt->c_p;
+    Eterm reason = ctxt->reason;
+    Eterm item, *hp;
+    Uint item_sz;
+    int code;
+    ErtsDSigSendContext ctx;
+    ErtsMonitorData *mdp;
+    ErtsMonLnkDist *dist;
+    DistEntry *dep;
+    ErtsHeapFactory factory;
+    Sint reds_consumed = 0;
+
+    ASSERT(c_p->flags & F_DISABLE_GC);
+    ASSERT(erts_monitor_is_origin(mon) && mon->type == ERTS_MON_TYPE_DIST_PROC);
+    ASSERT(ctxt->dist_state == NIL);
+    ASSERT(!ctxt->wait_pend_spawn_monitor);
+    ASSERT(!ctxt->yield);
+
+    ASSERT(mon->flags & ERTS_ML_FLG_SPAWN_PENDING);
+    
+    mdp = erts_monitor_to_data(mon);
+    dist = ((ErtsMonitorDataExtended *) mdp)->dist; 
+    
+    if (!(mon->flags & ERTS_ML_FLG_SPAWN_LINK)) {
+        /* Just cleanup... */
+        if (!erts_dist_pend_spawn_exit_delete(&mdp->target)) {
+            mdp = NULL;
+        }
+        goto done;
+    }
+
+    code = erts_dist_pend_spawn_exit_parent_wait(c_p,
+                                                 ERTS_PROC_LOCK_MAIN,
+                                                 &mdp->target);
+    if (code == 0) {
+        /* Connection closing; cleanup... */
+        mdp = NULL;
+        goto done;
+    }
+    
+    if (code < 0) {
+        /* We got suspended need to wait for spawn-reply... */
+        ctxt->wait_pend_spawn_monitor = mon;
+        ctxt->yield = !0;
+        return reds;
+    }
+
+    ASSERT(is_external_pid(mon->other.item) || is_atom(mon->other.item));
+
+    /* If other.item is an atom the spawn failed... */
+            
+    if (is_not_external_pid(mon->other.item))
+        goto done; /* Cleanup */
+
+    /* Send exit signal... */
+    dep = external_pid_dist_entry(mon->other.item);
+
+    code = erts_dsig_prepare(&ctx, dep, c_p, ERTS_PROC_LOCK_MAIN,
+                             ERTS_DSP_NO_LOCK, 0, 0, 0);
+
+    ctx.reds = (Sint) (reds * TERM_TO_BINARY_LOOP_FACTOR);
+
+    switch (code) {
+    case ERTS_DSIG_PREP_NOT_ALIVE:
+    case ERTS_DSIG_PREP_NOT_CONNECTED:
+        break;
+    case ERTS_DSIG_PREP_PENDING:
+    case ERTS_DSIG_PREP_CONNECTED:
+        if (dist->connection_id != ctx.connection_id)
+            break;
+        erts_factory_proc_init(&factory, c_p);
+        item_sz = size_object(mon->other.item);
+        hp = erts_produce_heap(&factory, item_sz, 0);
+        item = copy_struct(mon->other.item, item_sz, &hp, factory.off_heap);
+        erts_factory_close(&factory);
+        code = erts_dsig_send_exit_tt(&ctx,
+                                      c_p->common.id,
+                                      item,
+                                      reason,
+                                      SEQ_TRACE_TOKEN(c_p));
+        reds_consumed = reds - (ctx.reds / TERM_TO_BINARY_LOOP_FACTOR);
+        switch (code) {
+        case ERTS_DSIG_SEND_YIELD:
+            reds_consumed = reds; /* force yield */
+            ctxt->yield = 1;
+            break;
+        case ERTS_DSIG_SEND_CONTINUE:
+            ctxt->dist_state = erts_dsend_export_trap_context(c_p, &ctx);
+            reds_consumed = reds; /* force yield */
+            ctxt->yield = 1;
+            break;
+        case ERTS_DSIG_SEND_OK:
+            break;
+        case ERTS_DSIG_SEND_TOO_LRG:
+            erts_kill_dist_connection(dep, dist->connection_id);
+            break;
+        default:
+            ASSERT(! "Invalid dsig send exit result");
+            break;
+        }
+        break;
+    default:
+        ASSERT(! "Invalid dsig prep exit result");
+        break;
+    }
+
+done:
+    
+    if (mdp)
+        erts_monitor_release_both(mdp);
+    else
+        erts_monitor_release(mon);
+
+    return reds_consumed;
+}
+
+void
+erts_proc_exit_dist_demonitor(Process *c_p, DistEntry *dep, Uint32 conn_id,
+                              Eterm ref, Eterm watched)
+{
+    ErtsDSigSendContext ctx;
+    int code;
+
+    ASSERT(is_internal_ref(ref));
+    ASSERT(is_atom(watched) || is_external_pid(watched));
+
+    code = erts_dsig_prepare(&ctx, dep, NULL, 0,
+                             ERTS_DSP_NO_LOCK, 1, 1, 0);
+    switch (code) {
+    case ERTS_DSIG_PREP_CONNECTED:
+    case ERTS_DSIG_PREP_PENDING:
+        if (conn_id == ctx.connection_id) {
+            code = erts_dsig_send_demonitor(&ctx,
+                                            c_p->common.id,
+                                            watched,
+                                            ref);
+            ASSERT(code == ERTS_DSIG_SEND_OK);
+        }
+    default:
+        break;
+    }
+}
+
 int
 erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
 {
@@ -12323,10 +12908,15 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
         case ERTS_MON_TYPE_DIST_PROC: {
             ErtsMonLnkDist *dist;
             DistEntry *dep;
-            ErtsDSigSendContext ctx;
-            int code;
             Eterm watched;
 
+            if (mon->flags & ERTS_ML_FLG_SPAWN_PENDING) {
+                if (!erts_dist_pend_spawn_exit_parent_setup(mon))
+                    break; /* Drop it... */
+                erts_monitor_tree_insert(&ctxt->pend_spawn_monitors, mon);
+                return 1;
+            }
+            
             mdp = erts_monitor_to_data(mon);
             dist = ((ErtsMonitorDataExtended *) mdp)->dist;
             ASSERT(dist);
@@ -12340,21 +12930,8 @@ erts_proc_exit_handle_monitor(ErtsMonitor *mon, void *vctxt, Sint reds)
                 ASSERT(is_external_pid(watched));
 		dep = external_pid_dist_entry(watched);
             }
-            code = erts_dsig_prepare(&ctx, dep, NULL, 0,
-                                     ERTS_DSP_NO_LOCK, 1, 1, 0);
-            switch (code) {
-            case ERTS_DSIG_PREP_CONNECTED:
-            case ERTS_DSIG_PREP_PENDING:
-                if (dist->connection_id == ctx.connection_id) {
-                    code = erts_dsig_send_demonitor(&ctx,
-                                                    c_p->common.id,
-                                                    watched,
-                                                    mdp->ref);
-                    ASSERT(code == ERTS_DSIG_SEND_OK);
-                }
-            default:
-                break;
-            }
+            erts_proc_exit_dist_demonitor(c_p, dep, dist->connection_id,
+                                          mdp->ref, watched);
             if (!erts_monitor_dist_delete(&mdp->target))
                 mdp = NULL;
             res = 100;
@@ -12618,6 +13195,7 @@ enum continue_exit_phase {
     ERTS_CONTINUE_EXIT_HANDLE_PROC_SIG,
     ERTS_CONTINUE_EXIT_DIST_LINKS,
     ERTS_CONTINUE_EXIT_DIST_MONITORS,
+    ERTS_CONTINUE_EXIT_DIST_PEND_SPAWN_MONITORS,
     ERTS_CONTINUE_EXIT_DONE,
 };
 
@@ -12867,6 +13445,8 @@ restart:
         trap_state->pectxt.reason = trap_state->reason;
         trap_state->pectxt.dist_links = NULL;
         trap_state->pectxt.dist_monitors = NULL;
+        trap_state->pectxt.pend_spawn_monitors = NULL;        
+        trap_state->pectxt.wait_pend_spawn_monitor = NULL;
         trap_state->pectxt.dist_state = NIL;
         trap_state->pectxt.yield = 0;
 
@@ -12923,8 +13503,11 @@ restart:
     case ERTS_CONTINUE_EXIT_HANDLE_PROC_SIG: {
         Sint r = reds;
 
-        if (!erts_proc_sig_handle_exit(p, &r))
+        if (!erts_proc_sig_handle_exit(p, &r,
+                                       &trap_state->pectxt.pend_spawn_monitors,
+                                       trap_state->reason)) {
             goto yield;
+        }
 
         reds -= r;
 
@@ -12983,6 +13566,31 @@ restart:
         reds = erts_monitor_tree_foreach_delete_yielding(
             &trap_state->pectxt.dist_monitors,
             erts_proc_exit_handle_dist_monitor,
+            (void *) &trap_state->pectxt,
+            &trap_state->yield_state,
+            reds);
+        if (reds <= 0 || trap_state->pectxt.yield)
+            goto yield;
+
+        trap_state->phase = ERTS_CONTINUE_EXIT_DIST_PEND_SPAWN_MONITORS;
+    }
+    case ERTS_CONTINUE_EXIT_DIST_PEND_SPAWN_MONITORS: {
+
+        if (is_not_nil(trap_state->pectxt.dist_state))
+            goto continue_dist_send;
+        
+        if (trap_state->pectxt.wait_pend_spawn_monitor) {
+            ErtsMonitor *mon = trap_state->pectxt.wait_pend_spawn_monitor;
+            trap_state->pectxt.wait_pend_spawn_monitor = NULL;
+            reds -= (proc_exit_handle_pend_spawn_monitors(
+                         mon, (void *) &trap_state->pectxt, reds));
+            if (reds <= 0 || trap_state->pectxt.yield)
+                goto yield;
+        }
+        
+        reds = erts_monitor_tree_foreach_delete_yielding(
+            &trap_state->pectxt.pend_spawn_monitors,
+            proc_exit_handle_pend_spawn_monitors,
             (void *) &trap_state->pectxt,
             &trap_state->yield_state,
             reds);

@@ -49,6 +49,7 @@
 #define DFLAG_PENDING_CONNECT     0x200000 /* internal for pending connection */
 #define DFLAG_EXIT_PAYLOAD        0x400000
 #define DFLAG_FRAGMENTS           0x800000
+#define DFLAG_SPAWN               0x1000000
 
 /* Mandatory flags for distribution */
 #define DFLAG_DIST_MANDATORY (DFLAG_EXTENDED_REFERENCES         \
@@ -65,7 +66,8 @@
 #define DFLAG_DIST_HOPEFULLY (DFLAG_EXPORT_PTR_TAG              \
                               | DFLAG_BIT_BINARIES              \
                               | DFLAG_DIST_MONITOR              \
-                              | DFLAG_DIST_MONITOR_NAME)
+                              | DFLAG_DIST_MONITOR_NAME         \
+                              | DFLAG_SPAWN)
 
 /* Our preferred set of flags. Used for connection setup handshake */
 #define DFLAG_DIST_DEFAULT (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY \
@@ -79,7 +81,8 @@
                             | DFLAG_SEND_SENDER               \
                             | DFLAG_BIG_SEQTRACE_LABELS       \
                             | DFLAG_EXIT_PAYLOAD              \
-                            | DFLAG_FRAGMENTS)
+                            | DFLAG_FRAGMENTS                 \
+                            | DFLAG_SPAWN)
 
 /* Flags addable by local distr implementations */
 #define DFLAG_DIST_ADDABLE    DFLAG_DIST_DEFAULT
@@ -131,8 +134,16 @@ enum dop {
     DOP_PAYLOAD_EXIT_TT        = 25,
     DOP_PAYLOAD_EXIT2          = 26,
     DOP_PAYLOAD_EXIT2_TT       = 27,
-    DOP_PAYLOAD_MONITOR_P_EXIT = 28
+    DOP_PAYLOAD_MONITOR_P_EXIT = 28,
+
+    DOP_SPAWN_REQUEST       = 29,
+    DOP_SPAWN_REQUEST_TT    = 30,
+    DOP_SPAWN_REPLY         = 31,
+    DOP_SPAWN_REPLY_TT      = 32
 };
+
+#define ERTS_DIST_SPAWN_FLAG_LINK       (1 << 0)
+#define ERTS_DIST_SPAWN_FLAG_MONITOR    (1 << 1)
 
 /* distribution trap functions */
 extern Export* dmonitor_node_trap;
@@ -302,7 +313,7 @@ typedef struct erts_dsig_send_context {
     Eterm ctl;
     Eterm msg;
     Eterm from;
-    Eterm ctl_heap[6];
+    Eterm ctl_heap[8]; /* 7-tuple (SPAWN_REQUEST_TT) */
     Eterm return_term;
 
     DistEntry *dep;
@@ -362,6 +373,7 @@ extern int erts_dsig_send_exit2(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_demonitor(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_monitor(ErtsDSigSendContext *, Eterm, Eterm, Eterm);
 extern int erts_dsig_send_m_exit(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm);
+extern int erts_dsig_send_spawn_reply(ErtsDSigSendContext *, Eterm, Eterm, Eterm, Eterm, Eterm);
 
 extern int erts_dsig_send(ErtsDSigSendContext *dsdp);
 extern int erts_dsend_context_dtor(Binary*);

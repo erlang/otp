@@ -433,7 +433,9 @@ ttb_meta_tracer(MetaFile,PI,Parent,SessionData) ->
 	    ReturnMS = [{'_',[],[{return_trace}]}],
 	    erlang:trace_pattern({erlang,spawn,3},ReturnMS,[meta]),
 	    erlang:trace_pattern({erlang,spawn_link,3},ReturnMS,[meta]),
-	    erlang:trace_pattern({erlang,spawn_opt,1},ReturnMS,[meta]),
+	    erlang:trace_pattern({erlang,spawn_opt,4},ReturnMS,[meta]),
+	    erlang:trace_pattern({erts_internal,spawn_init,1},[],[meta]),
+	    erlang:trace_pattern({erts_internal,dist_spawn_init,1},[],[meta]),
 	    erlang:trace_pattern({erlang,register,2},[],[meta]),
 	    erlang:trace_pattern({global,register_name,2},[],[meta]),
             ok;
@@ -459,7 +461,7 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 	{trace_ts,_,call,{global,register_name,[Name,Pid]},_} ->
 	    ok = ttb_store_meta({pid,{Pid,{global,Name}}},MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
-	{trace_ts,CallingPid,call,{erlang,spawn_opt,[{M,F,Args,_}]},_} ->
+	{trace_ts,CallingPid,call,{erlang,spawn_opt,[M,F,Args,_]},_} ->
 	    MFA = {M,F,length(Args)},
 	    NewAcc = dict:update(CallingPid,
 				 fun(Old) -> [MFA|Old] end, [MFA], 
@@ -497,6 +499,16 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
 			    Acc),
 	    ttb_meta_tracer_loop(MetaFile,PI,NewAcc,State);
 
+	{trace_ts,CallingPid,call,{erts_internal,spawn_init,[{M,F,Args}]},_} ->
+            %% Local spawn_request()...
+            ok = ttb_store_meta({pid,{CallingPid,{M,F,length(Args)}}},MetaFile),
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
+
+	{trace_ts,CallingPid,call,{erts_internal, dist_spawn_init, [MFnoA]},_} ->
+            %% Distributed spawn_request()...
+            ok = ttb_store_meta({pid,{CallingPid,MFnoA}},MetaFile),
+	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
+
 	{metadata,Data} when is_list(Data) ->
 	    ok = ttb_store_meta(Data,MetaFile),
 	    ttb_meta_tracer_loop(MetaFile,PI,Acc,State);
@@ -530,7 +542,9 @@ ttb_meta_tracer_loop(MetaFile,PI,Acc,State) ->
             try_stop_overload_check(State),
             erlang:trace_pattern({erlang,spawn,3},false,[meta]),
 	    erlang:trace_pattern({erlang,spawn_link,3},false,[meta]),
-	    erlang:trace_pattern({erlang,spawn_opt,1},false,[meta]),
+	    erlang:trace_pattern({erlang,spawn_opt,4},false,[meta]),
+	    erlang:trace_pattern({erts_internal,spawn_init,1},false,[meta]),
+	    erlang:trace_pattern({erts_internal,dist_spawn_init,1},false,[meta]),
 	    erlang:trace_pattern({erlang,register,2},false,[meta]),
 	    erlang:trace_pattern({global,register_name,2},false,[meta]);
 	stop ->

@@ -31,7 +31,8 @@
 	 trace_exit/1, distributed_exit/1, call/1, port/1,
          port_clean_token/1,
 	 match_set_seq_token/1, gc_seq_token/1, label_capability_mismatch/1,
-         send_literal/1,inherit_on_spawn/1,spawn_flag/1]).
+         send_literal/1,inherit_on_spawn/1,inherit_on_dist_spawn/1,
+         dist_spawn_error/1]).
 
 %% internal exports
 -export([simple_tracer/2, one_time_receiver/0, one_time_receiver/1,
@@ -57,7 +58,7 @@ all() ->
      distributed_exit, call, port, match_set_seq_token,
      port_clean_token,
      gc_seq_token, label_capability_mismatch,
-     inherit_on_spawn, spawn_flag].
+     inherit_on_spawn, inherit_on_dist_spawn, dist_spawn_error].
 
 groups() -> 
     [].
@@ -94,13 +95,11 @@ token_set_get(Config) when is_list(Config) ->
 -define(SEQ_TRACE_NOW_TIMESTAMP, 8).            %(1 << 3)
 -define(SEQ_TRACE_STRICT_MON_TIMESTAMP, 16).    %(1 << 4)
 -define(SEQ_TRACE_MON_TIMESTAMP, 32).           %(1 << 5)
--define(SEQ_TRACE_SPAWN, 64).                   %(1 << 6)
 
 do_token_set_get(TsType) ->
     BaseOpts = ?SEQ_TRACE_SEND bor
                ?SEQ_TRACE_RECEIVE bor
-               ?SEQ_TRACE_PRINT bor
-               ?SEQ_TRACE_SPAWN,
+               ?SEQ_TRACE_PRINT,
     Flags = case TsType of
         timestamp ->
             BaseOpts bor ?SEQ_TRACE_NOW_TIMESTAMP;
@@ -121,8 +120,6 @@ do_token_set_get(TsType) ->
     {print,true} = seq_trace:get_token(print),
     false = seq_trace:set_token(send,true),
     {send,true} = seq_trace:get_token(send),
-    false = seq_trace:set_token(spawn,true),
-    {spawn,true} = seq_trace:get_token(spawn),
     false = seq_trace:set_token('receive',true),
     {'receive',true} = seq_trace:get_token('receive'),
     false = seq_trace:set_token(TsType,true),
@@ -226,9 +223,9 @@ do_send_literal(Msg) ->
     seq_trace:reset_trace(),
     start_tracer(),
     Label = make_ref(),
+    Receiver = spawn_link(fun() -> receive ok -> ok end end),
     seq_trace:set_token(label,Label),
     set_token_flags([send, 'receive', no_timestamp]),
-    Receiver = spawn_link(fun() -> receive ok -> ok end end),
     [Receiver ! Msg || _ <- lists:seq(1, N)],
     erlang:garbage_collect(Receiver),
     [Receiver ! Msg || _ <- lists:seq(1, N)],
@@ -541,59 +538,354 @@ call(Config) when is_list(Config) ->
 
 %% The token should follow spawn, just like it follows messages.
 inherit_on_spawn(Config) when is_list(Config) ->
+    lists:foreach(fun (Test) ->
+                          inherit_on_spawn_test(Test)
+                  end,
+                  [spawn, spawn_link, spawn_monitor,
+                   spawn_opt, spawn_request]),
+    ok.
+
+inherit_on_spawn_test(Spawn) ->
+    io:format("Testing ~p()~n", [Spawn]),
+
     seq_trace:reset_trace(),
     start_tracer(),
 
     Ref = make_ref(),
     seq_trace:set_token(label,Ref),
-    set_token_flags([send]),
+    set_token_flags([send,'receive',strict_monotonic_timestamp]),
 
     Self = self(),
-    Other = spawn(fun() -> Self ! {gurka,Ref} end),
+    GurkaMsg = {gurka,Ref},
+    SpawnFun = fun() -> Self ! GurkaMsg, receive after infinity -> ok end end,
+    {Other, Tag, KnownReqId, KnownSpawnReply}
+        = case Spawn of
+              spawn ->
+                  {spawn(SpawnFun), spawn_reply, undefined, undefined};
+              spawn_link ->
+                  {spawn_link(SpawnFun), spawn_reply, undefined, undefined};
+              spawn_monitor ->
+                  {P, _} = spawn_monitor(SpawnFun),
+                  {P, spawn_reply, undefined, undefined};
+              spawn_opt ->
+                  {spawn_opt(SpawnFun, [link]), spawn_reply, undefined, undefined};
+              spawn_request ->
+                  SReply = make_ref(),
+                  RID = spawn_request(SpawnFun, [link, {reply_tag, SReply}]),
+                  receive
+                      {SReply, RID, ok, P} = M ->
+                          {P, SReply, RID, M}
+                  end
+          end,
 
     receive {gurka,Ref} -> ok end,
     seq_trace:reset_trace(),
 
-    [{Ref,{send,_,Other,Self,{gurka,Ref}}, _Ts}] = stop_tracer(1),
+    Sequence = lists:keysort(3, stop_tracer(6)),
+    io:format("Sequence: ~p~n", [Sequence]),
+    [SSpawnRequest, RSpawnRequest, SSpawnReply, RSpawnReply,
+     SGurkaMsg, RGurkaMsg] = Sequence,
+
+    %% Spawn request...
+     {Ref,
+      {send,
+       {0,1},
+       Self,Other,
+       ReqMessage},
+      _} = SSpawnRequest,
+    
+    spawn_request = element(1, ReqMessage),
+    ReqId = element(2, ReqMessage),
+    case KnownReqId of
+        undefined -> ok;
+        ReqId -> ok
+    end,
+
+     {Ref,
+      {'receive',
+       {0,1},
+       Self,Other,
+       ReqMessage},
+      _} = RSpawnRequest,
+
+    %% Spawn reply...
+    SpawnReply = {Tag,ReqId,ok,Other},
+    {Ref,
+     {send,
+      {1,2},
+      Other,Self,
+      SpawnReply},
+     _} = SSpawnReply,
+
+    case KnownSpawnReply of
+        undefined -> ok;
+        SpawnReply -> ok
+    end,
+
+    {Ref,
+     {'receive',
+      {1,2},
+      Other,Self,
+      SpawnReply},
+     _} = RSpawnReply,
+
+     %% Gurka message...
+     {Ref,
+      {send,
+       {1,3},
+       Other, Self,
+       GurkaMsg},
+      _} = SGurkaMsg,
+
+     {Ref,
+      {'receive',
+       {1,3},
+       Other, Self,
+       GurkaMsg},
+      _} = RGurkaMsg,
+
+    unlink(Other),
+    exit(Other, kill),
 
     ok.
 
-spawn_flag(Config) when is_list(Config) ->
+inherit_on_dist_spawn(Config) when is_list(Config) ->
+    lists:foreach(fun (Test) ->
+                          inherit_on_dist_spawn_test(Test)
+                  end,
+                  [spawn, spawn_link, spawn_monitor,
+                   spawn_opt, spawn_request]),
+    ok.
+
+inherit_on_dist_spawn_test(Spawn) ->
+    io:format("Testing ~p()~n", [Spawn]),
+    Pa = "-pa "++filename:dirname(code:which(?MODULE)),
+    {ok, Node} = start_node(seq_trace_dist_spawn, Pa),
+    %% ensure module is loaded on remote node...
+    _ = rpc:call(Node, ?MODULE, module_info, []),
+
+    io:format("Self=~p~n",[self()]),
+
     seq_trace:reset_trace(),
     start_tracer(),
+    rpc:call(Node, seq_trace, reset_trace, []),
+    start_tracer(Node),
 
     Ref = make_ref(),
+    io:format("Ref=~p~n",[Ref]),
+
     seq_trace:set_token(label,Ref),
-    set_token_flags([spawn]),
+    set_token_flags([send,'receive',strict_monotonic_timestamp]),
 
     Self = self(),
 
-    {serial,{0,0}} = seq_trace:get_token(serial),
+    GurkaMsg = {gurka,Ref},
+    SpawnFun = fun() -> Self ! GurkaMsg, receive after infinity -> ok end end,
+    {Other, Tag, KnownReqId, KnownSpawnReply}
+        = case Spawn of
+              spawn ->
+                  {spawn(Node, SpawnFun), spawn_reply, undefined, undefined};
+              spawn_link ->
+                  {spawn_link(Node, SpawnFun), spawn_reply, undefined, undefined};
+              spawn_monitor ->
+                  {P, _} = spawn_monitor(Node, SpawnFun),
+                  {P, spawn_reply, undefined, undefined};
+              spawn_opt ->
+                  {spawn_opt(Node, SpawnFun, [link]), spawn_reply, undefined, undefined};
+              spawn_request ->
+                  SReply = make_ref(),
+                  RID = spawn_request(Node, SpawnFun, [{reply_tag, SReply}, link]),
+                  receive
+                      {SReply, RID, ok, P} = M ->
+                          {P, SReply, RID, M}
+                  end
+          end,
 
-    %% The serial number is bumped on spawning (just like message passing), so
-    %% our child should inherit a counter of 1.
-    ProcessA = spawn(fun() ->
-                             {serial,{0,1}} = seq_trace:get_token(serial),
-                             Self ! {a,Ref}
-                     end),
-    receive {a,Ref} -> ok end,
+    receive GurkaMsg -> ok end,
+    seq_trace:reset_trace(),
 
-    {serial,{1,2}} = seq_trace:get_token(serial),
+    Sequence = lists:keysort(3,stop_tracer(4)),
+    io:format("Sequence: ~p~n", [Sequence]),
+    [StSpawnRequest, StAList, StSpawnReply, StGurkaMsg] = Sequence,
 
-    ProcessB = spawn(fun() ->
-                             {serial,{2,3}} = seq_trace:get_token(serial),
-                             Self ! {b,Ref} 
-                     end),
-    receive {b,Ref} -> ok end,
+    %% Spawn request...
+     {Ref,
+      {send,
+       {0,1},
+       Self,Node,
+       ReqMessage},
+      _} = StSpawnRequest,
+    
+    spawn_request = element(1, ReqMessage),
+    ReqId = element(2, ReqMessage),
+    case KnownReqId of
+        undefined -> ok;
+        ReqId -> ok
+    end,
 
-    {serial,{3,4}} = seq_trace:get_token(serial),
+    {Ref,
+     {send,
+      {0,2},
+      Self,Node,
+      ArgList},
+     _} = StAList,
+
+    %% Spawn reply...
+    SpawnReply = {Tag,ReqId,ok,Other},
+    case KnownSpawnReply of
+        undefined -> ok;
+        SpawnReply -> ok
+    end,
+
+    {Ref,
+     {'receive',
+      {1,2},
+      Other,Self,
+      SpawnReply},
+     _} = StSpawnReply,
+
+     %% Gurka message...
+     {Ref,
+      {'receive',
+       {2,3},
+       Other, Self,
+       GurkaMsg},
+      _} = StGurkaMsg,
+
+    SequenceNode = lists:keysort(3,stop_tracer(Node, 4)),
+    io:format("SequenceNode: ~p~n", [SequenceNode]),
+    [StSpawnRequestNode, StSpawnReplyNode, StAListNode, StGurkaMsgNode] = SequenceNode,
+
+
+    %% Spawn request...
+     {Ref,
+      {'receive',
+       {0,1},
+       Self,Other,
+       ReqMessage},
+      _} = StSpawnRequestNode,
+
+    %% Spawn reply...
+    {Ref,
+     {send,
+      {1,2},
+      Other,Self,
+      {spawn_reply, ReqId, ok, Other}},
+     _} = StSpawnReplyNode,
+
+    {Ref,
+     {'receive',
+      {0,2},
+      Self,Other,
+      ArgList},
+     _} = StAListNode,
+
+     %% Gurka message...
+     {Ref,
+      {send,
+       {2,3},
+       Other, Self,
+       GurkaMsg},
+      _} = StGurkaMsgNode,
+
+    unlink(Other),
+
+    stop_node(Node),
+
+    ok.
+
+dist_spawn_error(Config) when is_list(Config) ->
+    Pa = "-pa "++filename:dirname(code:which(?MODULE)),
+    {ok, Node} = start_node(seq_trace_dist_spawn, Pa),
+    %% ensure module is loaded on remote node...
+    _ = rpc:call(Node, ?MODULE, module_info, []),
+
+    io:format("Self=~p~n",[self()]),
+
+    seq_trace:reset_trace(),
+    start_tracer(),
+    rpc:call(Node, seq_trace, reset_trace, []),
+    start_tracer(Node),
+
+    Ref = make_ref(),
+    io:format("Ref=~p~n",[Ref]),
+
+    seq_trace:set_token(label,Ref),
+    set_token_flags([send,'receive',strict_monotonic_timestamp]),
+
+    Self = self(),
+    SpawnReplyTag = make_ref(),
+    GurkaMsg = {gurka,Ref},
+    ReqId = spawn_request(Node,
+                          fun () ->
+                                  Self ! GurkaMsg,
+                                  receive after infinity -> ok end
+                          end,
+                          [lunk, {reply_tag, SpawnReplyTag}, link]),
+
+    receive
+        {SpawnReplyTag, ReqId, ResType, Err} ->
+            error = ResType,
+            badopt = Err
+    end,
 
     seq_trace:reset_trace(),
 
-    [{Ref,{spawn,{0,1},Self,ProcessA,[]}, _Ts},
-     {Ref,{spawn,{2,3},Self,ProcessB,[]}, _Ts}] = stop_tracer(2),
+    Sequence = lists:keysort(3,stop_tracer(3)),
+    io:format("Sequence: ~p~n", [Sequence]),
+    [StSpawnRequest, StAList, StSpawnReply] = Sequence,
+
+    %% Spawn request...
+     {Ref,
+      {send,
+       {0,1},
+       Self,Node,
+       ReqMessage},
+      _} = StSpawnRequest,
+    
+    spawn_request = element(1, ReqMessage),
+    ReqId = element(2, ReqMessage),
+
+    {Ref,
+     {send,
+      {0,2},
+      Self,Node,
+      _ArgList},
+     _} = StAList,
+
+    %% Spawn reply...
+    ReplyMessage = {SpawnReplyTag,ReqId,error,badopt},
+    {Ref,
+     {'receive',
+      {1,2},
+      Node,Self,
+      ReplyMessage},
+     _} = StSpawnReply,
+
+    SequenceNode = lists:keysort(3,stop_tracer(Node, 2)),
+    io:format("SequenceNode: ~p~n", [SequenceNode]),
+    [StSpawnRequestNode, StSpawnReplyNode] = SequenceNode,
+
+    %% Spawn request...
+     {Ref,
+      {'receive',
+       {0,1},
+       Self,Node,
+       ReqMessage},
+      _} = StSpawnRequestNode,
+
+    %% Spawn reply...
+    {Ref,
+     {send,
+      {1,2},
+      Node,Self,
+      {spawn_reply, ReqId, error, badopt}},
+     _} = StSpawnReplyNode,
+
+    stop_node(Node),
 
     ok.
+
 
 %% Send trace messages to a port.
 port(Config) when is_list(Config) ->
@@ -1029,24 +1321,48 @@ simple_tracer(Data, DN) ->
     end.
 
 stop_tracer(N) when is_integer(N) ->
-    case catch (seq_trace_SUITE_tracer ! {stop,N,self()}) of
-	{'EXIT', _} ->
-	    {error, not_started};
-	_ ->
-	    receive
-		{tracerlog,Data} ->
-		    Data
-	    after 5000 ->
-		    {error,timeout}
-	    end
+    stop_tracer(node(), N).
+
+stop_tracer(Node, N) when is_integer(N) ->
+    case rpc:call(Node,erlang,whereis,[seq_trace_SUITE_tracer]) of
+        Pid when is_pid(Pid) ->
+            unlink(Pid),
+            Mon = erlang:monitor(process, Pid),
+            Pid ! {stop,N,self()},
+            receive
+                {'DOWN', Mon, process, Pid, noproc} ->
+                    {error, not_started};
+                {'DOWN', Mon, process, Pid, Reason} ->
+                    {error, Reason};
+                {tracerlog,Data} ->
+                    erlang:demonitor(Mon, [flush]),
+                    Data
+            after 5000 ->
+                    erlang:demonitor(Mon, [flush]),
+                    {error,timeout}
+            end;
+        _ ->
+            {error, not_started}
     end.
 
 start_tracer() ->
-    stop_tracer(0),
-    Pid = spawn(?MODULE,simple_tracer,[[], 0]),
-    register(seq_trace_SUITE_tracer,Pid),
-    seq_trace:set_system_tracer(Pid),
-    Pid.
+    start_tracer(node()).
+
+start_tracer(Node) ->
+    Me = self(),
+    Ref = make_ref(),
+    Pid = spawn_link(Node,
+                     fun () ->
+                             Self = self(),
+                             stop_tracer(0),
+                             register(seq_trace_SUITE_tracer,Self),
+                             seq_trace:set_system_tracer(Self),
+                             Self = seq_trace:get_system_tracer(),
+                             Me ! Ref,
+                             simple_tracer([], 0)
+                     end),
+    receive Ref -> Pid end.
+           
 
 set_token_flags([]) ->
     ok;
@@ -1098,7 +1414,7 @@ check_ts(strict_monotonic_timestamp, Ts) ->
     ok.
 
 start_node(Name, Param) ->
-    test_server:start_node(Name, slave, [{args, Param}]).
+    test_server:start_node(Name, peer, [{args, Param}]).
 
 stop_node(Node) ->
     test_server:stop_node(Node).

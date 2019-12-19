@@ -431,6 +431,11 @@
 #define ERTS_ML_FLG_IN_SUBTABLE         (((Uint16) 1) << 2)
 #define ERTS_ML_FLG_NAME                (((Uint16) 1) << 3)
 #define ERTS_ML_FLG_EXTENDED            (((Uint16) 1) << 4)
+#define ERTS_ML_FLG_SPAWN_PENDING       (((Uint16) 1) << 5)
+#define ERTS_ML_FLG_SPAWN_MONITOR       (((Uint16) 1) << 6)
+#define ERTS_ML_FLG_SPAWN_LINK          (((Uint16) 1) << 7)
+#define ERTS_ML_FLG_SPAWN_TIMEOUT       (((Uint16) 1) << 8)
+#define ERTS_ML_FLG_SPAWN_TIMED_OUT     (((Uint16) 1) << 9)
 
 #define ERTS_ML_FLG_DBG_VISITED         (((Uint16) 1) << 15)
 
@@ -478,6 +483,7 @@ typedef struct {
     ErtsMonLnkNode *monitors; /* Monitor double linked circular list */
     ErtsMonLnkNode *orig_name_monitors; /* Origin named monitors
                                            read-black tree */
+    ErtsMonLnkNode *dist_pend_spawn_exit;
 } ErtsMonLnkDist;
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *\
@@ -1397,7 +1403,7 @@ erts_monitor_release(ErtsMonitor *mon)
     ErtsMonitorData *mdp = erts_monitor_to_data(mon);
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) > 0);
 
-    if (erts_atomic32_dec_read_nob(&mdp->refc) == 0) {
+    if (erts_atomic32_dec_read_mb(&mdp->refc) == 0) {
         ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
         ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
 
@@ -1412,7 +1418,7 @@ erts_monitor_release_both(ErtsMonitorData *mdp)
                    == (mdp->target.flags & ERTS_ML_FLGS_SAME));
     ERTS_ML_ASSERT(erts_atomic32_read_nob(&mdp->refc) >= 2);
 
-    if (erts_atomic32_add_read_nob(&mdp->refc, (erts_aint32_t) -2) == 0) {
+    if (erts_atomic32_add_read_mb(&mdp->refc, (erts_aint32_t) -2) == 0) {
         ERTS_ML_ASSERT(!(mdp->origin.flags & ERTS_ML_FLG_IN_TABLE));
         ERTS_ML_ASSERT(!(mdp->target.flags & ERTS_ML_FLG_IN_TABLE));
 

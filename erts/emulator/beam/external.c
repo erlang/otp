@@ -46,6 +46,8 @@
 #include "erl_bits.h"
 #include "erl_zlib.h"
 #include "erl_map.h"
+#include "erl_proc_sig_queue.h"
+#include "erl_trace.h"
 
 #define PASS_THROUGH 'p'
 
@@ -5809,13 +5811,103 @@ Sint transcode_dist_obuf(ErtsDistOutputBuf* ob,
         return reds;
     }
 
-    start_r = r = reds*ERTS_TRANSCODE_REDS_FACT;
-
     hdr++;
     hopefull_flags = get_int32(hdr);
 
     hdr += 4;
     hopefull_ix = get_int32(hdr);
+
+    if ((~dflags & DFLAG_SPAWN)
+        && ep[0] == SMALL_TUPLE_EXT
+        && ((ep[1] == 6
+             && ep[2] == SMALL_INTEGER_EXT
+             && ep[3] == DOP_SPAWN_REQUEST)
+            || (ep[1] == 8
+                && ep[2] == SMALL_INTEGER_EXT
+                && ep[3] == DOP_SPAWN_REQUEST_TT))) {
+        /*
+         * Receiver does not support distributed spawn. Convert
+         * this packet to an empty (tick) packet, and inform
+         * spawning process that this is not supported...
+         */
+        ErtsHeapFactory factory;
+        Eterm ctl_msg, ref, pid, token, *tp, *hp;
+        Uint buf_sz;
+        byte *buf_start, *buf_end;
+        byte *ptr;
+        Uint hsz;
+
+        hdr += 4;
+        payload_ix = get_int32(hdr);
+        ASSERT(payload_ix >= 3);
+
+        if (payload_ix == 3) {
+            /* The whole control message is in iov[2].iov_base */
+            buf_sz = (Uint) iov[2].iov_len;
+            buf_start = (byte *) iov[2].iov_base;
+            buf_end = buf_start + buf_sz;
+        }
+        else {
+            /* Control message over multiple buffers... */
+            int ix;
+            buf_sz = 0;
+            for (ix = 2; ix < payload_ix; ix++)
+                buf_sz += iov[ix].iov_len;
+            ptr = buf_start = erts_alloc(ERTS_ALC_T_TMP, buf_sz);
+            buf_end = buf_start + buf_sz;
+            for (ix = 2; ix < payload_ix; ix++) {
+                sys_memcpy((void *) ptr,
+                           (void *) iov[ix].iov_base,
+                           iov[ix].iov_len);
+                ptr += iov[ix].iov_len;
+            }
+        }
+
+        hsz = decoded_size(buf_start, buf_end, 0, NULL);
+        hp = erts_alloc(ERTS_ALC_T_TMP, hsz*sizeof(Eterm));
+        erts_factory_tmp_init(&factory, hp, hsz, ERTS_ALC_T_TMP);
+            
+        ptr = dec_term(NULL, &factory, buf_start, &ctl_msg, NULL, 0);
+        ASSERT(ptr); (void)ptr;
+
+        ASSERT(is_tuple_arity(ctl_msg, 6)
+               || is_tuple_arity(ctl_msg, 8));
+        tp = tuple_val(ctl_msg);
+        ASSERT(tp[1] == make_small(DOP_SPAWN_REQUEST)
+               || tp[1] == make_small(DOP_SPAWN_REQUEST_TT));
+
+        ref = tp[2];
+        pid = tp[3];
+        if (tp[1] == make_small(DOP_SPAWN_REQUEST))
+            token = NIL;
+        else {
+            token = tp[8];
+            erts_seq_trace_update_node_token(token);
+        }
+        ASSERT(is_internal_ordinary_ref(tp[2]));
+        ASSERT(is_internal_pid(tp[3]));
+        
+        (void) erts_proc_sig_send_dist_spawn_reply(dep->sysname,
+                                                   ref, pid,
+                                                   NULL, am_notsup,
+                                                   token);
+
+        erts_factory_close(&factory);
+        erts_free(ERTS_ALC_T_TMP, hp);
+        if (buf_start != (byte *) iov[2].iov_base)
+            erts_free(ERTS_ALC_T_TMP, buf_start);
+
+        ob->eiov->vsize = 1;
+        ob->eiov->size = 0;
+        
+        reds -= 4;
+        
+        if (reds < 0)
+            return 0;
+        return reds;
+    }
+    
+    start_r = r = reds*ERTS_TRANSCODE_REDS_FACT;
 
     if (~dflags & hopefull_flags) {
 

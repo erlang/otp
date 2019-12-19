@@ -540,6 +540,7 @@ erts_mon_link_dist_create(Eterm nodename)
     mld->links = NULL;
     mld->monitors = NULL;
     mld->orig_name_monitors = NULL;
+    mld->dist_pend_spawn_exit = NULL;
     return mld;
 }
 
@@ -551,6 +552,7 @@ erts_mon_link_dist_destroy__(ErtsMonLnkDist *mld)
     ERTS_ML_ASSERT(!mld->links);
     ERTS_ML_ASSERT(!mld->monitors);
     ERTS_ML_ASSERT(!mld->orig_name_monitors);
+    ERTS_ML_ASSERT(!mld->dist_pend_spawn_exit);
 
     erts_mtx_destroy(&mld->mtx);
     erts_free(ERTS_ALC_T_ML_DIST, mld);
@@ -834,10 +836,29 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
         Uint rsz, osz, tsz;
         Eterm *hp;
         ErlOffHeap oh;
-        Uint16 name_flag = is_nil(name) ? ((Uint16) 0) : ERTS_ML_FLG_NAME;
+        Uint16 name_flag;
+        Uint16 pending_flag;
 
         rsz = is_immed(ref) ? 0 : size_object(ref);
-        tsz = is_immed(trgt) ? 0 : size_object(trgt);
+        if (trgt != am_pending) {
+            if (is_not_immed(trgt))
+                tsz = size_object(trgt);
+            else
+                tsz = 0;
+            pending_flag = (Uint16) 0;
+            name_flag = is_nil(name) ? ((Uint16) 0) : ERTS_ML_FLG_NAME;
+        }
+        else {
+            /* Pending spawn_request() */
+            pending_flag = ERTS_ML_FLG_SPAWN_PENDING;
+            /* Prepare for storage of exteral pid */
+            tsz = EXTERNAL_THING_HEAD_SIZE + 1;
+            /* name contains tag */
+            
+            /* Not by name */
+            name_flag = (Uint16) 0;
+            
+        }
         if (type == ERTS_MON_TYPE_RESOURCE)
             osz = 0;
         else
@@ -851,6 +872,16 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
 
         hp = &mdep->heap[0];
 
+        if (pending_flag) {
+            /* Make room for the future pid... */
+#ifdef DEBUG
+            int i;
+            for (i = 0; i < EXTERNAL_THING_HEAD_SIZE + 1; i++)
+                hp[i] = THE_NON_VALUE;
+#endif
+            hp += EXTERNAL_THING_HEAD_SIZE + 1;
+        }
+
         mdp = &mdep->md;
         ERTS_ML_ASSERT(((void *) mdp) == ((void *) mdep));
 
@@ -858,7 +889,7 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
 
         mdp->origin.other.item = tsz ? copy_struct(trgt, tsz, &hp, &oh) : trgt;
         mdp->origin.offset = (Uint16) offsetof(ErtsMonitorData, origin);
-        mdp->origin.flags = ERTS_ML_FLG_EXTENDED|name_flag;
+        mdp->origin.flags = ERTS_ML_FLG_EXTENDED|name_flag|pending_flag;
         mdp->origin.type = type;
 
         if (type == ERTS_MON_TYPE_RESOURCE)
@@ -878,6 +909,25 @@ erts_monitor_create(Uint16 type, Eterm ref, Eterm orgn, Eterm trgt, Eterm name)
         }
         else {
             mdep->u.name = name;
+            if (pending_flag) {
+                /* spawn_request() tag is in 'name' */
+                if (is_not_immed(name)) {
+                    /*
+                     * Save the tag in its own heap fragment with a
+                     * little trick:
+                     *
+                     * bp->mem[0]   = The tag
+                     * bp->mem[1]   = Beginning of heap
+                     * mdep->u.name = Countinuation pointer to
+                     *                heap fragment...
+                     */
+                    Uint hsz = size_object(name)+1;
+                    ErlHeapFragment *bp = new_message_buffer(hsz);
+                    Eterm *hp = &bp->mem[1];
+                    bp->mem[0] = copy_struct(name, hsz-1, &hp, &bp->off_heap);
+                    mdep->u.name = make_cp((void*)bp);
+                }
+            }
 
             mdp->origin.key_offset = (Uint16) offsetof(ErtsMonitorData, ref);
             ERTS_ML_ASSERT(mdp->origin.key_offset >= mdp->origin.offset);
@@ -964,6 +1014,20 @@ erts_monitor_destroy__(ErtsMonitorData *mdp)
         }
         if (mdep->dist)
             erts_mon_link_dist_dec_refc(mdep->dist);
+        if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_PENDING) {
+            /*
+             * We have the spawn_request() tag stored in
+             * mdep->u.name via a little trick
+             * (see pending_flag in erts_monitor_create()).
+             * If non-immediate value make sure to release
+             * this heap fragment as well.
+             */
+            if (is_not_immed(mdep->u.name)) {
+                ErlHeapFragment *bp;
+                bp = (ErlHeapFragment *) cp_val(mdep->u.name);
+                free_message_buffer(bp);
+            }
+        }
         erts_free(ERTS_ALC_T_MONITOR_EXT, mdp);
     }
 }
@@ -1248,11 +1312,26 @@ erts_link_create(Uint16 type, Eterm a, Eterm b)
         Eterm *hp;
         ErlOffHeap oh;
 
-        if (is_internal_pid(a))
-            hsz = NC_HEAP_SIZE(b);
-        else 
-            hsz = NC_HEAP_SIZE(a);
-        ERTS_ML_ASSERT(hsz > 0);
+        hsz = EXTERNAL_THING_HEAD_SIZE + 1;
+        if (hsz < ERTS_REF_THING_SIZE
+            && (is_internal_ordinary_ref(a)
+                || is_internal_ordinary_ref(b))) {
+            hsz = ERTS_REF_THING_SIZE;
+        }
+
+#ifdef DEBUG
+        if (is_internal_pid(a)) {
+            ERTS_ML_ASSERT(is_external_pid(b)
+                           || is_internal_ordinary_ref(b));
+            ERTS_ML_ASSERT(NC_HEAP_SIZE(b) <= hsz);
+        }
+        else {
+            ERTS_ML_ASSERT(is_internal_pid(b));
+            ERTS_ML_ASSERT(is_external_pid(a)
+                           || is_internal_ordinary_ref(a));
+            ERTS_ML_ASSERT(NC_HEAP_SIZE(a) <= hsz);
+        }
+#endif
 
         size = sizeof(ErtsLinkDataExtended) - sizeof(Eterm);
         size += hsz*sizeof(Eterm);

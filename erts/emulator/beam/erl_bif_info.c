@@ -75,7 +75,7 @@ static Export *gather_gc_info_res_trap;
 static Export *gather_system_check_res_trap;
 
 static Export *is_process_alive_trap;
-
+static Export *get_internal_state_blocked;
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
@@ -549,6 +549,8 @@ static int collect_one_origin_monitor(ErtsMonitor *mon, void *vmicp, Sint reds)
         case ERTS_MON_TYPE_PORT:
         case ERTS_MON_TYPE_DIST_PROC:
         case ERTS_MON_TYPE_TIME_OFFSET:
+            if (mon->flags & ERTS_ML_FLG_SPAWN_PENDING)
+                break; /* Not an active monitor... */
             if (!(mon->flags & ERTS_ML_FLG_NAME)) {
                 micp->mi[micp->mi_i].named = 0;
                 micp->mi[micp->mi_i].entity.term = mon->other.item;
@@ -3900,8 +3902,7 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	}
 	else if (ERTS_IS_ATOM_STR("node_and_dist_references", BIF_ARG_1)) {
 	    /* Used by node_container_SUITE (emulator) */
-	    Eterm res = erts_get_node_and_dist_references(BIF_P);
-	    BIF_RET(res);
+            BIF_TRAP1(get_internal_state_blocked, BIF_P, BIF_ARG_1);
 	}
 	else if (ERTS_IS_ATOM_STR("monitoring_nodes", BIF_ARG_1)) {
 	    BIF_RET(erts_processes_monitoring_nodes(BIF_P));
@@ -4078,7 +4079,14 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	Eterm* tp = tuple_val(BIF_ARG_1);
 	switch (arityval(tp[0])) {
 	case 2: {
-	    if (ERTS_IS_ATOM_STR("process_status", tp[1])) {
+	    if (ERTS_IS_ATOM_STR("node_and_dist_references", tp[1])) {
+                if (tp[2] == am_blocked
+                    && erts_is_multi_scheduling_blocked() > 0) {
+                    Eterm res = erts_get_node_and_dist_references(BIF_P);
+                    BIF_RET(res);
+                }
+            }
+	    else if (ERTS_IS_ATOM_STR("process_status", tp[1])) {
 		/* Used by timer process_SUITE, timer_bif_SUITE, and
 		   node_container_SUITE (emulator) */
 		if (is_internal_pid(tp[2])) {
@@ -5268,6 +5276,10 @@ erts_bif_info_init(void)
 	= erts_export_put(am_erts_internal, am_gather_system_check_result, 1);
 
     is_process_alive_trap = erts_export_put(am_erts_internal, am_is_process_alive, 1);
+    
+    get_internal_state_blocked = erts_export_put(am_erts_internal,
+                                                 am_get_internal_state_blocked,
+                                                 1);
 
 
     process_info_init();

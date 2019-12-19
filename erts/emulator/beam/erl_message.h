@@ -447,6 +447,7 @@ void free_message_buffer(ErlHeapFragment *);
 void erts_queue_dist_message(Process*, ErtsProcLocks, ErtsDistExternal *,
                              ErlHeapFragment *, Eterm, Eterm);
 void erts_queue_message(Process*, ErtsProcLocks,ErtsMessage*, Eterm, Eterm);
+void erts_queue_message_token(Process*, ErtsProcLocks,ErtsMessage*, Eterm, Eterm, Eterm);
 void erts_queue_proc_message(Process* from,Process* to, ErtsProcLocks,ErtsMessage*, Eterm);
 void erts_queue_proc_messages(Process* from, Process* to, ErtsProcLocks,
                               ErtsMessage*, ErtsMessage**, Uint);
