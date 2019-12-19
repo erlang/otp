@@ -23076,6 +23076,52 @@ reg_s_single_open_and_close_and_count() ->
     end,
 
 
+    %% **** Number Of IPv4 Sockets ****
+
+    %% inet
+    SiNumINET = reg_si_num(InitSockInfos, inet),
+    SrNumINET = reg_sr_num(inet),
+
+    i("verify number of IPv4 sockets: ~w, ~w", [SiNumINET, SrNumINET]),
+    case (SiNumINET =:= SrNumINET) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_ipv4_sockets, SiNumINET, SrNumINET})
+    end,
+
+
+    %% **** Number Of IPv6 Sockets ****
+
+    %% inet6
+    SiNumINET6 = reg_si_num(InitSockInfos, inet6),
+    SrNumINET6 = reg_sr_num(inet6),
+
+    i("verify number of IPv6 sockets: ~w, ~w", [SiNumINET6, SrNumINET6]),
+    case (SiNumINET6 =:= SrNumINET6) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_ipv6_sockets, SiNumINET6, SrNumINET6})
+    end,
+
+
+    %% **** Number Of Unix Domain Sockets Sockets ****
+
+    %% local
+    SiNumLOCAL = reg_si_num(InitSockInfos, local),
+    SrNumLOCAL = reg_sr_num(local),
+
+    i("verify number of Unix Domain Sockets sockets: ~w, ~w",
+      [SiNumLOCAL, SrNumLOCAL]),
+    case (SiNumLOCAL =:= SrNumLOCAL) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_local_sockets, SiNumLOCAL, SrNumLOCAL})
+    end,
+
+
     %% **** Close *all* Sockets then verify Number Of Sockets ****
     
     i("close sockets"),
@@ -23100,13 +23146,38 @@ reg_s_single_open_and_close_and_count() ->
     ok.
 
 
-reg_si_num(SocksInfo, Domain, Type, Proto) ->
-    SocksInfo2 = [SI || {D, T, P} = SI <- SocksInfo,
-                        (D =:= Domain) andalso
-                        (T =:= Type) andalso
-                        (P =:= Proto)],
-    length(SocksInfo2).
+reg_si_num(SocksInfo, Domain) ->
+    reg_si_num(SocksInfo, Domain, undefined, undefined).
 
+reg_si_num(SocksInfo, Domain, undefined, undefined) ->
+    F = fun({D, _T, _P}) when (D =:= Domain) -> true;
+           (_) -> false
+        end,
+    reg_si_num2(F, SocksInfo);
+reg_si_num(SocksInfo, Domain, Type, Proto) ->
+    F = fun({D, T, P}) when (D =:= Domain) andalso
+                            (T =:= Type) andalso
+                            (P =:= Proto) ->
+                true;
+           (_) ->
+                false
+        end,
+    reg_si_num2(F, SocksInfo).
+
+reg_si_num2(F, SocksInfo) ->
+    length(lists:filter(F, SocksInfo)).
+
+
+reg_sr_num(Domain) ->
+    reg_sr_num(Domain, undefined, undefined).
+
+reg_sr_num(Domain, undefined, undefined) ->
+    F = fun(#{domain := D}) when (D =:= Domain) ->
+                true;
+           (_X) ->
+                false
+        end,
+    reg_sr_num2(F);
 reg_sr_num(Domain, Type, Proto) ->
     F = fun(#{domain   := D,
               type     := T,
@@ -23114,11 +23185,14 @@ reg_sr_num(Domain, Type, Proto) ->
                                    (T =:= Type) andalso
                                    (P =:= Proto) ->
                 true;
-           (X) ->
-                i("reg_sr_num -> not counting: "
-                  "~n   ~p", [X]),
+           (_X) ->
+                %% i("reg_sr_num -> not counting: "
+                %%   "~n   ~p", [_X]),
                 false
         end,
+    reg_sr_num2(F).
+
+reg_sr_num2(F) ->
     length(socket:which_sockets(F)).
 
 
