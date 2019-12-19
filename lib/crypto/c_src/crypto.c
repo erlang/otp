@@ -131,7 +131,11 @@ ERL_NIF_INIT(crypto,nif_funcs,load,NULL,upgrade,unload)
 
 static int verify_lib_version(void)
 {
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
     const unsigned long libv = SSLeay();
+#else
+    const unsigned long libv = OpenSSL_version_num();
+#endif
     const unsigned long hdrv = OPENSSL_VERSION_NUMBER;
 
 #   define MAJOR_VER(V) ((unsigned long)(V) >> (7*4))
@@ -218,12 +222,14 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
     funcp = &get_crypto_callbacks;
 #endif
 
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 #ifdef OPENSSL_THREADS
     enif_system_info(&sys_info, sizeof(sys_info));
     if (sys_info.scheduler_threads > 1) {
 	nlocks = CRYPTO_num_locks();
     }
     /* else no need for locks */
+#endif
 #endif
 
     ccb = (*funcp)(nlocks);
@@ -238,6 +244,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
         return __LINE__;
 #endif
 
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 #ifdef OPENSSL_THREADS
     if (nlocks > 0) {
 	CRYPTO_set_locking_callback(ccb->locking_function);
@@ -247,6 +254,7 @@ static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 	CRYPTO_set_dynlock_destroy_callback(ccb->dyn_destroy_function);
     }
 #endif /* OPENSSL_THREADS */
+#endif
 
     init_digest_types(env);
     init_mac_types(env);

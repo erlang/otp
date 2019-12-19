@@ -161,7 +161,8 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
 	&crypto_alloc,
 	&crypto_realloc,
 	&crypto_free,
-        
+
+#if OPENSSL_VERSION_NUMBER < 0x10100000
 #ifdef OPENSSL_THREADS
 	&locking_function,
 	&id_function,
@@ -169,9 +170,11 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
 	&dyn_lock_function,
 	&dyn_destroy_function
 #endif /* OPENSSL_THREADS */
+#endif
     };
 
     if (!is_initialized) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000
 #ifdef OPENSSL_THREADS
 	if (nlocks > 0) {
 	    int i;
@@ -188,6 +191,7 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
                     goto err;
 	    }
 	}
+#endif
 #endif
 	is_initialized = 1;
     }
