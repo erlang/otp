@@ -158,10 +158,10 @@
     </func>
 
     <func>
-      <name name="getifaddrs" arity="0" since="@OTP-16212@"/>
-      <name name="getifaddrs" arity="1" clause_i="1" since="@OTP-16212@"/>
-      <name name="getifaddrs" arity="1" clause_i="2" since="@OTP-16212@"/>
-      <name name="getifaddrs" arity="2" since="@OTP-16212@"/>
+      <name name="getifaddrs" arity="0" since="OTP @OTP-16212@"/>
+      <name name="getifaddrs" arity="1" clause_i="1" since="OTP @OTP-16212@"/>
+      <name name="getifaddrs" arity="1" clause_i="2" since="OTP @OTP-16212@"/>
+      <name name="getifaddrs" arity="2" since="OTP @OTP-16212@"/>
       <fsummary>Get interface addresses.</fsummary>
       <desc>
 	<p>Get interface addresses.</p>
