@@ -4576,6 +4576,7 @@ erts_proc_sig_signal_size(ErtsSignal *sig)
     case ERTS_SIG_Q_OP_SYNC_SUSPEND:
     case ERTS_SIG_Q_OP_PERSISTENT_MON_MSG:
     case ERTS_SIG_Q_OP_IS_ALIVE:
+    case ERTS_SIG_Q_OP_DIST_SPAWN_REPLY:
         size = ((ErtsMessage *) sig)->hfrag.alloc_size;
         size *= sizeof(Eterm);
         size += sizeof(ErtsMessage) - sizeof(Eterm);
