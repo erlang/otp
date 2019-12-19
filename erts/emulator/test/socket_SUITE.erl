@@ -23146,11 +23146,28 @@ reg_s_single_open_and_close_and_count() ->
     ok.
 
 
-reg_si_num(SocksInfo, Domain) ->
-    reg_si_num(SocksInfo, Domain, undefined, undefined).
+reg_si_num(SocksInfo, Domain)
+  when ((Domain =:= inet) orelse (Domain =:= inet6) orelse (Domain =:= local)) ->
+    reg_si_num(SocksInfo, Domain, undefined, undefined);
+reg_si_num(SocksInfo, Type)
+  when ((Type =:= stream) orelse (Type =:= dgram) orelse (Type =:= seqpacket)) ->
+    reg_si_num(SocksInfo, undefined, Type, undefined);
+reg_si_num(SocksInfo, Proto)
+  when ((Proto =:= sctp) orelse (Proto =:= tcp) orelse (Proto =:= udp)) ->
+    reg_si_num(SocksInfo, undefined, undefined, Proto).
 
 reg_si_num(SocksInfo, Domain, undefined, undefined) ->
     F = fun({D, _T, _P}) when (D =:= Domain) -> true;
+           (_) -> false
+        end,
+    reg_si_num2(F, SocksInfo);
+reg_si_num(SocksInfo, undefined, Type, undefined) ->
+    F = fun({_D, T, _P}) when (T =:= Type) -> true;
+           (_) -> false
+        end,
+    reg_si_num2(F, SocksInfo);
+reg_si_num(SocksInfo, undefined, undefined, Proto) ->
+    F = fun({_D, _T, P}) when (P =:= Proto) -> true;
            (_) -> false
         end,
     reg_si_num2(F, SocksInfo);
@@ -23168,8 +23185,18 @@ reg_si_num2(F, SocksInfo) ->
     length(lists:filter(F, SocksInfo)).
 
 
-reg_sr_num(Domain) ->
-    reg_sr_num(Domain, undefined, undefined).
+reg_sr_num(Domain)
+  when ((Domain =:= inet) orelse (Domain =:= inet6)) ->
+    length(socket:which_sockets(Domain));
+reg_sr_num(Domain)
+  when (Domain =:= local) ->
+    reg_sr_num(Domain, undefined, undefined);
+reg_sr_num(Type)
+  when ((Type =:= stream) orelse (Type =:= dgram) orelse (Type =:= seqpacket)) ->
+    length(socket:which_sockets(Type));
+reg_sr_num(Proto)
+  when ((Proto =:= sctp) orelse (Proto =:= tcp) orelse (Proto =:= udp)) ->
+    length(socket:which_sockets(Proto)).
 
 reg_sr_num(Domain, undefined, undefined) ->
     F = fun(#{domain := D}) when (D =:= Domain) ->
