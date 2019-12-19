@@ -27,6 +27,32 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add missing alert handling clause for TLS record
+	    handling. Could sometimes cause confusing error behaviors
+	    of TLS connections.</p>
+          <p>
+	    Own Id: OTP-16357 Aux Id: ERL-1166 </p>
+        </item>
+        <item>
+          <p>
+	    Fix handling of ssl:recv that happens during a
+	    renegotiation. Using the passive receive function
+	    ssl:recv/[2,3] during a renegotiation would fail the
+	    connection with unexpected msg.</p>
+          <p>
+	    Own Id: OTP-16361</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
