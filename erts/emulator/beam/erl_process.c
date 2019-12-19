@@ -7462,11 +7462,16 @@ msb_scheduler_type_switch(ErtsSchedType sched_type,
 }
 
 static ERTS_INLINE void
-suspend_normal_scheduler_sleep(ErtsSchedulerData *esdp)
+suspend_scheduler_sleep(ErtsSchedulerData *esdp,
+                        int normal_sched,
+                        ErtsMonotonicTime initial_time,
+                        ErtsMonotonicTime timeout_time)
 {
     ErtsSchedulerSleepInfo *ssi = esdp->ssi;
     erts_aint32_t flgs = sched_spin_suspended(ssi,
                                               ERTS_SCHED_SUSPEND_SLEEP_SPINCOUNT);
+    ASSERT(!normal_sched || esdp->type == ERTS_SCHED_NORMAL);
+    ASSERT(esdp->type != ERTS_SCHED_NORMAL || normal_sched);
     if (flgs == (ERTS_SSI_FLG_SLEEPING
                  | ERTS_SSI_FLG_WAITING
                  | ERTS_SSI_FLG_SUSPENDED)) {
@@ -7475,19 +7480,32 @@ suspend_normal_scheduler_sleep(ErtsSchedulerData *esdp)
                      | ERTS_SSI_FLG_TSE_SLEEPING
                      | ERTS_SSI_FLG_WAITING
                      | ERTS_SSI_FLG_SUSPENDED)) {
-            int res;
+            if (!normal_sched) {
+                while (1) {
+                    int res = erts_tse_wait(ssi->event);
+                    if (res != EINTR)
+                        break;
+                }
+            }
+            else {
+                ErtsMonotonicTime current_time = initial_time;
+                while (1) {
+                    int res;
+                    Sint64 timeout;
 
-            do {
-                res = erts_tse_wait(ssi->event);
-            } while (res == EINTR);
+                    timeout = ERTS_MONOTONIC_TO_NSEC(timeout_time
+                                                     - current_time
+                                                     - 1) + 1;
+                    res = erts_tse_twait(ssi->event, timeout);
+                    if (res != EINTR)
+                        break;
+                    current_time = erts_get_monotonic_time(esdp);
+                    if (current_time >= timeout_time)
+                        break;
+                }
+            }
         }
     }
-}
-
-static ERTS_INLINE void
-suspend_dirty_scheduler_sleep(ErtsSchedulerData *esdp)
-{
-    suspend_normal_scheduler_sleep(esdp);
 }
 
 static void
@@ -7684,7 +7702,7 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 
 	    while (1) {
 		if (sched_type != ERTS_SCHED_NORMAL)
-                    suspend_dirty_scheduler_sleep(esdp);
+                    suspend_scheduler_sleep(esdp, 0, 0, 0);
 		else
                 {
                     ErtsMonotonicTime current_time, timeout_time;
@@ -7729,7 +7747,7 @@ suspend_scheduler(ErtsSchedulerData *esdp)
                             sched_wall_time_change(esdp, 0);
                         }
                         erts_thr_progress_prepare_wait(erts_thr_prgr_data(NULL));
-                        suspend_normal_scheduler_sleep(esdp);
+                        suspend_scheduler_sleep(esdp, !0, current_time, timeout_time);
                         erts_thr_progress_finalize_wait(erts_thr_prgr_data(NULL));
                         current_time = erts_get_monotonic_time(esdp);
                     }
