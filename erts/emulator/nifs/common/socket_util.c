@@ -39,6 +39,13 @@
 #include "config.h"
 #endif
 
+#if defined(HAVE_SCTP_H)
+#include <netinet/sctp.h>
+#ifndef     HAVE_SCTP
+#    define HAVE_SCTP
+#endif
+#endif
+
 #ifdef HAVE_SOCKLEN_T
 #  define SOCKLEN_T socklen_t
 #else
