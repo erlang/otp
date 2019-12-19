@@ -78,6 +78,22 @@
               <c>Fun</c>, and <c>Args</c> in a manner
               dependent on the behavior of your command shell.</p>
           </item>
+          <tag><c>-address [Hostname:]Port</c></tag>
+          <item>
+            <p>(One of <c>-n</c>, <c>-name</c>, <c>-sname</c> or
+            <c>-address</c> is required.) <c>Hostname</c> is the
+            hostname of the machine that is running the node that
+            <c>erl_call</c> shall communicate with. The default
+            hostname is the hostname of the local machine. <c>Port</c>
+            is the port number of the node that <c>erl_call</c> shall
+            communicate with. The <c>-address</c> flag cannot be
+            combined with any of the flags <c>-n</c>, <c>-name</c>,
+            <c>-sname</c> or <c>-s</c>.</p>
+            <p>The <c>-address</c> flag is typically useful when one
+            wants to call a node that is running on machine without an
+            accessible <seealso marker="epmd">epmd</seealso>
+            instance.</p>
+          </item>
           <tag><c>-c Cookie</c></tag>
           <item>
             <p>(<em>Optional.</em>) Use this option to specify a certain cookie.
@@ -112,13 +128,15 @@
           </item>
           <tag><c>-n Node</c></tag>
           <item>
-            <p>(One of <c>-n, -name, -sname</c> is required.)
+            <p>(One of <c>-n</c>, <c>-name</c>, <c>-sname</c> or
+            <c>-address</c> is required.)
               Has the same meaning as <c>-name</c> and can still be
               used for backward compatibility reasons.</p>
           </item>
           <tag><c>-name Node</c></tag>
           <item>
-            <p>(One of <c>-n, -name, -sname</c> is required.)
+            <p>(One of <c>-n</c>, <c>-name</c>, <c>-sname</c> or
+            <c>-address</c> is required.)
               <c>Node</c> is the name of the node to be
               started or communicated with. It is assumed that
               <c>Node</c> is started with
@@ -149,7 +167,8 @@
           </item>
           <tag><c>-sname Node</c></tag>
           <item>
-            <p>(One of <c>-n, -name, -sname</c> is required.)
+            <p>(One of <c>-n</c>, <c>-name</c>, <c>-sname</c> or
+            <c>-address</c> is required.)
               <c>Node</c> is the name of the node to be started
               or communicated with. It is assumed that <c>Node</c>
               is started with <c>erl -sname</c>, which means that

@@ -104,6 +104,8 @@ struct call_flags {
     int debugp;
     int verbosep;
     int haltp;
+    long port;
+    char *hostname;
     char *cookie;
     char *node;
     char *hidden;
@@ -152,6 +154,8 @@ int erl_call(int argc, char **argv)
     struct call_flags flags = {0}; /* Default 0 and NULL in all fields */
     char* progname = argv[0];
     ei_cnode ec;
+    flags.port = -1;
+    flags.hostname = NULL;
 
     ei_init();
 
@@ -177,6 +181,29 @@ int erl_call(int argc, char **argv)
 	    flags.node = ei_chk_strdup(argv[i+1]);
 	    i++;
 	    flags.use_long_name = 1;
+	} else if (strcmp(argv[i], "-address") == 0) {  /* -address [HOST:]PORT */
+	    if (i+1 >= argc) {
+		usage_arg(progname, "-address ");
+	    }
+            {
+                char* hostname_port_arg = ei_chk_strdup(argv[i+1]);
+                char* address_string_end = strchr(hostname_port_arg, ':');
+                if (address_string_end == NULL) {
+                    flags.port = strtol(hostname_port_arg, NULL, 10);
+                } else {
+                    flags.port = strtol(address_string_end + 1, NULL, 10);
+                    /* Remove port part from hostname_port_arg*/
+                    *address_string_end = '\0';
+                    if (strlen(hostname_port_arg) > 0) {
+                        flags.hostname = hostname_port_arg;
+                    }
+                }
+
+                if (flags.port < 1 || flags.port > 65535) {
+                    usage_error(progname, "-address");
+                }
+                i++;
+            }
 	} else {
 	    if (strlen(argv[i]) != 2) {
 		usage_error(progname, argv[i]);
@@ -251,11 +278,12 @@ int erl_call(int argc, char **argv)
 
     } /* while */
 
-	
     /*
      * Can't have them both !
      */
-    if (flags.modp && flags.evalp) {
+    if ((flags.modp && flags.evalp) ||
+        (flags.port != -1 && flags.startp) ||
+        (flags.port != -1 && flags.node)) {
       usage(progname);
     }
 
@@ -284,7 +312,7 @@ int erl_call(int argc, char **argv)
     /* 
      * What we, at least, requires !
      */
-    if (flags.node == NULL) {
+    if (flags.node == NULL && flags.port == -1) {
 	usage(progname);
     }
 
@@ -345,10 +373,15 @@ int erl_call(int argc, char **argv)
       }
 
     }
-    if ((p = strchr((const char *)flags.node, (int) '@')) == 0) {
+    if (flags.port != -1 && flags.hostname != NULL) {
+        host = flags.hostname;
+        strcpy(host_name, flags.hostname);
+    } else if ((flags.port != -1 && flags.hostname == NULL) ||
+        (strchr((const char *)flags.node, (int) '@') == 0)) {
 	strcpy(host_name, ei_thishostname(&ec));
 	host = host_name;
     } else {
+        p = strchr((const char *)flags.node, (int) '@');
 	*p = 0;
 	host = p+1;
     }
@@ -367,28 +400,45 @@ int erl_call(int argc, char **argv)
     }
     strncpy(host_name, hp->h_name, EI_MAXHOSTNAMELEN);
     host_name[EI_MAXHOSTNAMELEN] = '\0';
-    if (strlen(flags.node) + strlen(host_name) + 2 > sizeof(nodename)) {
-	fprintf(stderr,"erl_call: nodename too long: %s\n", flags.node);
-	exit(1);
+    if (flags.port == -1) {
+        if (strlen(flags.node) + strlen(host_name) + 2 > sizeof(nodename)) {
+            fprintf(stderr,"erl_call: nodename too long: %s\n", flags.node);
+            exit(1);
+        }
+        sprintf(nodename, "%s@%s", flags.node, host_name);
     }
-    sprintf(nodename, "%s@%s", flags.node, host_name);
-
     /* 
      * Try to connect. Start an Erlang system if the
      * start option is on and no system is running.
      */
     if (flags.startp && !flags.haltp) {
 	fd = do_connect(&ec, nodename, &flags);
-    } else if ((fd = ei_connect(&ec, nodename)) < 0) {
-	/* We failed to connect ourself */
-	/* FIXME do we really know we failed because of node not up? */
-	if (flags.haltp) {
-	    exit(0);
-	} else {
-	    fprintf(stderr,"erl_call: failed to connect to node %s\n",
-		    nodename);
-	    exit(1);
-	}
+    } else if (flags.port == -1) {
+        if ((fd = ei_connect(&ec, nodename)) < 0) {
+            /* We failed to connect ourself */
+            /* FIXME do we really know we failed because of node not up? */
+            if (flags.haltp) {
+                exit(0);
+            } else {
+                fprintf(stderr,"erl_call: failed to connect to node %s\n",
+                        nodename);
+                exit(1);
+            }
+        }
+    } else {
+        /* Connect using address:port */
+        if ((fd = ei_connect_host_port(&ec, host, (int)flags.port)) < 0) {
+            /* We failed to connect ourself */
+            /* FIXME do we really know we failed because of node not up? */
+            if (flags.haltp) {
+                exit(0);
+            } else {
+                fprintf(stderr,"erl_call: failed to connect to node with address \"%s:%ld\"\n",
+                        flags.hostname == NULL ? "" : flags.hostname,
+                        flags.port);
+                exit(1);
+            }
+        }
     }
 
     /* If we are connected and the halt switch is set */
@@ -414,8 +464,14 @@ int erl_call(int argc, char **argv)
     }
 
     if (flags.verbosep) {
-	fprintf(stderr,"erl_call: we are now connected to node \"%s\"\n",
-		nodename);
+        if (flags.port == -1) {
+            fprintf(stderr,"erl_call: we are now connected to node \"%s\"\n",
+                    nodename);
+        } else {
+            fprintf(stderr,"erl_call: we are now connected to node with address \"%s:%ld\"\n",
+                    flags.hostname == NULL ? "": flags.hostname,
+                    flags.port);
+        }
     }
 
     /*
@@ -808,7 +864,7 @@ static int get_module(char **mbuf, char **mname)
 static void usage_noexit(const char *progname) {
   fprintf(stderr,"\nUsage: %s [-[demqrsv]] [-c Cookie] [-h HiddenName] \n", progname);
   fprintf(stderr,"            [-x ErlScript] [-a [Mod [Fun [Args]]]]\n");
-  fprintf(stderr,"            (-n Node | -sname Node | -name Node)\n\n");
+  fprintf(stderr,"            (-n Node | -sname Node | -name Node | -address [HOSTNAME:]PORT)\n\n");
 #ifdef __WIN32__
   fprintf(stderr,"  where: -a  apply(Mod,Fun,Args) (e.g -a \"erlang length [[a,b,c]]\"\n");
 #else
@@ -816,12 +872,18 @@ static void usage_noexit(const char *progname) {
 #endif
   fprintf(stderr,"         -c  cookie string; by default read from ~/.erlang.cookie\n");
   fprintf(stderr,"         -d  direct Erlang output to ~/.erl_call.out.<Nodename>\n");
-  fprintf(stderr,"         -e  evaluate contents of standard input (e.g echo \"X=1,Y=2,{X,Y}.\"|erl_call -e ...)\n");
+  fprintf(stderr,"         -e  evaluate contents of standard input (e.g., echo \"X=1,Y=2,{X,Y}.\"|%s -e ...)\n",
+          progname);
   fprintf(stderr,"         -h  specify a name for the erl_call client node\n");
   fprintf(stderr,"         -m  read and compile Erlang module from stdin\n");
   fprintf(stderr,"         -n  name of Erlang node, same as -name\n");
   fprintf(stderr,"         -name  name of Erlang node, expanded to a fully qualified\n");
   fprintf(stderr,"         -sname name of Erlang node, short form will be used\n");
+  fprintf(stderr,"         -address [HOSTNAME:]PORT of Erlang node\n"
+          "                  (the default hostname is the hostname of the local manchine)\n"
+          "                  (e.g., %s -address my_host:36303 ...)\n"
+          "                  (cannot be combinated with -s, -n, -name and -sname)\n",
+          progname);
   fprintf(stderr,"         -q  halt the Erlang node (overrides the -s switch)\n");
   fprintf(stderr,"         -r  use a random name for the erl_call client node\n");
   fprintf(stderr,"         -s  start a new Erlang node if necessary\n");
