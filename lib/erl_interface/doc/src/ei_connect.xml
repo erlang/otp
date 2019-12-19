@@ -422,6 +422,8 @@ typedef struct {
     <func>
       <name since=""><ret>int</ret><nametext>ei_connect(ei_cnode* ec, char *nodename)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_xconnect(ei_cnode* ec, Erl_IpAddr adr, char *alivename)</nametext></name>
+      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_connect_host_port(ei_cnode* ec, char *hostname, int port)</nametext></name>
+      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_xconnect_host_port(ei_cnode* ec, Erl_IpAddr adr, int port)</nametext></name>
       <fsummary>Establish a connection to an Erlang node.</fsummary>
       <desc>
         <p>Sets up a connection to an Erlang node.</p>
@@ -429,13 +431,21 @@ typedef struct {
           remote host and the alive name of the remote node to be
           specified. <c>ei_connect()</c> provides an alternative
           interface and determines the information from the node name
-          provided.</p>
+          provided. The <c>ei_xconnect_host_port()</c> function provides
+          yet another alternative that will work even if there is no
+          EPMD instance on the host where the remote node is running. The
+          <c>ei_xconnect_host_port()</c> function requires the IP
+          address and port of the remote node to be specified.
+          The <c>ei_connect_host_port()</c> function is an alternative
+          to <c>ei_xconnect_host_port()</c> that lets the user specify
+          a hostname instead of an IP address.</p>
         <list type="bulleted">
-          <item><c>addr</c> is the 32-bit IP address of the remote
+          <item><c>adr</c> is the 32-bit IP address of the remote
             host.</item>
           <item><c>alive</c> is the alivename of the remote node.
           </item>
           <item><c>node</c> is the name of the remote node.</item>
+          <item><c>port</c> is the port number of the remote node.</item>
         </list>
         <p>These functions return an open file descriptor on success, or
           a negative value indicating that an error occurred. In the latter
@@ -571,13 +581,16 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
     <func>
       <name since=""><ret>int</ret><nametext>ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned timeout_ms)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr adr, char *alivename, unsigned timeout_ms)</nametext></name>
+      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_connect_host_port_tmo(ei_cnode* ec, char *hostname, int port, unsigned ms)</nametext></name>
+      <name since="OTP @OTP-16251@"><ret>int</ret><nametext>ei_xconnect_host_port_tmo(ei_cnode* ec, Erl_IpAddr adr, int port, unsigned ms)</nametext></name>
       <fsummary>Establish a connection to an Erlang node with optional
         time-out.</fsummary>
       <desc>
-        <p>Equivalent to
-          <c>ei_connect</c> and <c>ei_xconnect</c> with an optional time-out
-          argument, see the description at the beginning of this manual
-          page.</p>
+        <p>Equivalent to <c>ei_connect</c>, <c>ei_xconnect</c>,
+        <c>ei_connect_host_port</c> and
+        <c>ei_xconnect_host_port</c> with an optional time-out
+        argument, see the description at the beginning of this manual
+        page.</p>
       </desc>
     </func>
 

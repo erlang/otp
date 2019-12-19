@@ -36,6 +36,7 @@
 
 static void cmd_ei_connect_init(char* buf, int len);
 static void cmd_ei_connect(char* buf, int len);
+static void cmd_ei_connect_host_port(char* buf, int len);
 static void cmd_ei_send(char* buf, int len);
 static void cmd_ei_format_pid(char* buf, int len);
 static void cmd_ei_send_funs(char* buf, int len);
@@ -55,6 +56,7 @@ static struct {
 } commands[] = {
     "ei_connect_init",       4, cmd_ei_connect_init,
     "ei_connect", 	     1, cmd_ei_connect,
+    "ei_connect_host_port",  2, cmd_ei_connect_host_port,
     "ei_send",  	     3, cmd_ei_send,
     "ei_send_funs",  	     3, cmd_ei_send_funs,
     "ei_reg_send", 	     3, cmd_ei_reg_send,
@@ -152,6 +154,25 @@ static void cmd_ei_connect(char* buf, int len)
     if (ei_decode_atom(buf, &index, node) < 0)
 	fail("expected atom");
     i=ei_connect(&ec, node);
+#ifdef VXWORKS
+    if(i >= 0) {
+	save_fd(i);
+    }
+#endif
+    send_errno_result(i);
+}
+
+static void cmd_ei_connect_host_port(char* buf, int len)
+{
+    int index = 0;
+    char hostname[256];
+    int i;
+    long port;
+    if (ei_decode_atom(buf, &index, hostname) < 0)
+	fail("expected atom");
+    if (ei_decode_long(buf, &index, &port) < 0)
+	fail("expected int");
+    i = ei_connect_host_port(&ec, hostname, (int)port);
 #ifdef VXWORKS
     if(i >= 0) {
 	save_fd(i);

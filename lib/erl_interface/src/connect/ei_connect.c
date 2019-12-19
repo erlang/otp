@@ -145,6 +145,12 @@ static int send_name(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
 static int recv_name(ei_socket_callbacks *cbs, void *ctx, int pkt_sz,
                      unsigned *version, unsigned *flags, char *namebuf,
                      unsigned ms);
+static int ei_connect_helper(ei_cnode* ec,
+                             Erl_IpAddr ip_addr,
+                             char *alivename,
+                             unsigned ms,
+                             int rport,
+                             int dist);
 
 static struct hostent*
 dyn_gethostbyname_r(const char *name, struct hostent *hostp, char **buffer_p,
@@ -874,78 +880,57 @@ struct hostent *dyn_gethostbyname_r(const char *name,
 #endif
 }
 
-  /* 
-  * Set up a connection to a given Node, and 
-  * interchange hand shake messages with it.
-  * Returns a valid file descriptor at success,
-  * otherwise a negative error code.
-*/
-int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
+/* Finds the the IP address for hostname and saves that IP address at
+   the location that ip_wb points to. Returns a negative error code if
+   the IP address cannot be found for the hostname. */
+static int ip_address_from_hostname(char* hostname,
+                                    char** buffer_p,
+                                    size_t buffer_size,
+                                    Erl_IpAddr* ip_wb)
 {
-    char *hostname, alivename[BUFSIZ];
     struct hostent *hp;
-#if !defined (__WIN32__) 
+#ifndef __WIN32__
     /* these are needed for the call to gethostbyname_r */
     struct hostent host;
-    char buffer[1024];
-    char *buf = buffer;
     int ei_h_errno;
-#endif /* !win32 */
-    int res;
-
-    if (strlen(nodename) > MAXNODELEN) {
-	EI_TRACE_ERR0("ei_connect","Too long nodename");
-	return ERL_ERROR;
-    }
-    
-    /* extract the host and alive parts from nodename */
-    if (!(hostname = strchr(nodename,'@'))) {
-	EI_TRACE_ERR0("ei_connect","Node name has no @ in name");
-	return ERL_ERROR;
-    } else {
-	strncpy(alivename, nodename, hostname - nodename);
-	alivename[hostname - nodename] = 0x0;
-	hostname++;
-    }
-    
-#ifndef __WIN32__
-    hp = dyn_gethostbyname_r(hostname,&host,&buf,sizeof(buffer),&ei_h_errno);
+    hp = dyn_gethostbyname_r(hostname,&host,buffer_p,buffer_size,&ei_h_errno);
     if (hp == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
         /* gethostname requies len to be max(hostname) + 1*/
 	if (gethostname(thishostname,EI_MAXHOSTNAMELEN+1) < 0) {
-	    EI_TRACE_ERR0("ei_connect_tmo",
+	    EI_TRACE_ERR0("ip_address_from_hostname",
 			  "Failed to get name of this host");
 	    erl_errno = EHOSTUNREACH;
 	    return ERL_ERROR;
 	} else {
 	    char *ct;
-	    /* We use a short node name */    
+	    /* We use a short node name */
 	    if ((ct = strchr(thishostname, '.')) != NULL) *ct = '\0';
 	}
 	if (strcmp(hostname,thishostname) == 0)
 	    /* Both nodes on same standalone host, use loopback */
-	    hp = dyn_gethostbyname_r("localhost",&host,&buf,sizeof(buffer),&ei_h_errno);
+	    hp = dyn_gethostbyname_r("localhost",&host,buffer_p,buffer_size,&ei_h_errno);
 	if (hp == NULL) {
 	    EI_TRACE_ERR2("ei_connect",
-			  "Can't find host for %s: %d\n",nodename,ei_h_errno);
+			  "Can't find host for %s: %d\n",hostname,ei_h_errno);
 	    erl_errno = EHOSTUNREACH;
 	    return ERL_ERROR;
 	}
     }
+    *ip_wb = (Erl_IpAddr) *hp->h_addr_list;
 #else /* __WIN32__ */
     if ((hp = ei_gethostbyname(hostname)) == NULL) {
 	char thishostname[EI_MAXHOSTNAMELEN+1];
         /* gethostname requires len to be max(hostname) + 1 */
 	if (gethostname(thishostname,EI_MAXHOSTNAMELEN+1) < 0) {
-	    EI_TRACE_ERR1("ei_connect_tmo",
-			  "Failed to get name of this host: %d", 
+	    EI_TRACE_ERR1("ip_address_from_hostname",
+			  "Failed to get name of this host: %d",
 			  WSAGetLastError());
 	    erl_errno = EHOSTUNREACH;
 	    return ERL_ERROR;
 	} else {
 	    char *ct;
-	    /* We use a short node name */    
+	    /* We use a short node name */
 	    if ((ct = strchr(thishostname, '.')) != NULL) *ct = '\0';
 	}
 	if (strcmp(hostname,thishostname) == 0)
@@ -955,41 +940,27 @@ int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
 	    char reason[1024];
 	    win32_error(reason,sizeof(reason));
 	    EI_TRACE_ERR2("ei_connect",
-			  "Can't find host for %s: %s",nodename,reason);
+			  "Can't find host for %s: %s",hostname,reason);
 	    erl_errno = EHOSTUNREACH;
 	    return ERL_ERROR;
 	}
     }
+    *ip_wb = (Erl_IpAddr) *hp->h_addr_list;
 #endif /* win32 */
-
-    res = ei_xconnect_tmo(ec, (Erl_IpAddr) *hp->h_addr_list, alivename, ms);
-
-#ifndef __WIN32__
-    if (buf != buffer)
-        free(buf);
-#endif
-    return res;
-} /* ei_connect */
-
-int ei_connect(ei_cnode* ec, char *nodename)
-{
-    return ei_connect_tmo(ec, nodename, 0);
+    return 0;
 }
 
-
- /* ip_addr is now in network byte order 
-  *
-  * first we have to get hold of the portnumber to
-  *  the node through epmd at that host 
-  *
-*/
-int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr ip_addr, char *alivename, unsigned ms)
+/* Helper function for ei_connect family of functions */
+static int ei_connect_helper(ei_cnode* ec,
+                             Erl_IpAddr ip_addr,  /* network byte order */
+                             char *alivename,
+                             unsigned ms,
+                             int rport,
+                             int dist)
 {
     ei_socket_callbacks *cbs = ec->cbs;
     void *ctx;
-    int rport = 0; /*uint16 rport = 0;*/
     int sockd;
-    int dist = 0;
     unsigned her_flags, her_version;
     unsigned our_challenge, her_challenge;
     unsigned char our_digest[16];
@@ -999,14 +970,13 @@ int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr ip_addr, char *alivename, unsigned 
     unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
     
     erl_errno = EIO;		/* Default error code */
-    
-    EI_TRACE_CONN1("ei_xconnect","-> CONNECT attempt to connect to %s",
-		   alivename);
-    
-    if ((rport = ei_epmd_port_tmo(ip_addr,alivename,&dist, tmo)) < 0) {
-	EI_TRACE_ERR0("ei_xconnect","-> CONNECT can't get remote port");
-	/* ei_epmd_port_tmo() has set erl_errno */
-	return ERL_NO_PORT;
+
+    if (alivename != NULL) {
+        EI_TRACE_CONN1("ei_xconnect","-> CONNECT attempt to connect to %s",
+                       alivename);
+    } else {
+        EI_TRACE_CONN1("ei_xconnect","-> CONNECT attempt to connect to port %d",
+                       rport);
     }
 
     if (dist <= 4) {
@@ -1077,8 +1047,12 @@ int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr ip_addr, char *alivename, unsigned 
             return ERL_ERROR;
         }
     }    
-    
-    EI_TRACE_CONN1("ei_xconnect","-> CONNECT (ok) remote = %s",alivename);
+
+    if (alivename != NULL) {
+        EI_TRACE_CONN1("ei_xconnect","-> CONNECT (ok) remote = %s",alivename);
+    } else {
+        EI_TRACE_CONN1("ei_xconnect","-> CONNECT (ok) remote port = %d",rport);
+    }
 
     erl_errno = 0;
     return sockd;
@@ -1089,9 +1063,101 @@ error:
     return ERL_ERROR;
 } /* ei_xconnect */
 
+  /* 
+  * Set up a connection to a given Node, and 
+  * interchange hand shake messages with it.
+  * Returns a valid file descriptor at success,
+  * otherwise a negative error code.
+*/
+int ei_connect_tmo(ei_cnode* ec, char *nodename, unsigned ms)
+{
+    char *hostname, alivename[BUFSIZ];
+    Erl_IpAddr ip;
+    int res;
+    char buffer[1024];
+    char* buf = buffer;
+
+    if (strlen(nodename) > MAXNODELEN) {
+	EI_TRACE_ERR0("ei_connect","Too long nodename");
+	return ERL_ERROR;
+    }
+    
+    /* extract the host and alive parts from nodename */
+    if (!(hostname = strchr(nodename,'@'))) {
+	EI_TRACE_ERR0("ei_connect","Node name has no @ in name");
+	return ERL_ERROR;
+    } else {
+	strncpy(alivename, nodename, hostname - nodename);
+	alivename[hostname - nodename] = 0x0;
+	hostname++;
+    }
+
+    res = ip_address_from_hostname(hostname, &buf, sizeof(buffer), &ip);
+
+    if (res < 0) {
+      return res;
+    }
+
+    res = ei_xconnect_tmo(ec, ip, alivename, ms);
+
+    if(buf != buffer) {
+        free(buf);
+    }
+
+    return res;
+} /* ei_connect */
+
+int ei_connect(ei_cnode* ec, char *nodename)
+{
+    return ei_connect_tmo(ec, nodename, 0);
+}
+
+int ei_connect_host_port_tmo(ei_cnode* ec, char *host, int port, unsigned ms)
+{
+    Erl_IpAddr ip;
+    char buffer[1024];
+    char* buf = buffer;
+    int res = ip_address_from_hostname(host, &buf, sizeof(buffer), &ip);
+    if (res < 0) {
+      return res;
+    }
+    if(buf != buffer) {
+        free(buf);
+    }
+    return ei_xconnect_host_port_tmo(ec, ip, port, ms);
+}
+
+int ei_connect_host_port(ei_cnode* ec, char *host, int port)
+{
+    return ei_connect_host_port_tmo(ec, host, port, 0);
+}
+
+int ei_xconnect_tmo(ei_cnode* ec, Erl_IpAddr ip_addr, char *alivename, unsigned ms)
+{
+    int dist = 0;
+    int port;
+    unsigned tmo = ms == 0 ? EI_SCLBK_INF_TMO : ms;
+    if ((port = ei_epmd_port_tmo(ip_addr,alivename,&dist, tmo)) < 0) {
+	EI_TRACE_ERR0("ei_xconnect","-> CONNECT can't get remote port");
+	/* ei_epmd_port_tmo() has set erl_errno */
+	return ERL_NO_PORT;
+    }
+    return ei_connect_helper(ec, ip_addr, alivename, ms, port, dist);
+}
+
 int ei_xconnect(ei_cnode* ec, Erl_IpAddr ip_addr, char *alivename)
 {
     return ei_xconnect_tmo(ec, ip_addr, alivename, 0);
+}
+
+int ei_xconnect_host_port_tmo(ei_cnode* ec, Erl_IpAddr ip_addr, int port, unsigned ms)
+{
+    return ei_connect_helper(ec, ip_addr, NULL, ms, port, 5);
+}
+
+int ei_xconnect_host_port(ei_cnode* ec, Erl_IpAddr ip_addr, int port)
+{
+    return ei_xconnect_host_port_tmo(ec, ip_addr, port, 0);
 }
 
 int ei_listen(ei_cnode *ec, int *port, int backlog)
