@@ -52,7 +52,7 @@
 
   <section>
     <title>CONFIGURATION</title>
-    <p><marker id="ssl_configuration"></marker>
+    <p>
     The application environment configuration parameters in this section
     are defined for the SSL application. For more information 
     about configuration parameters, see the 
@@ -164,7 +164,7 @@
       <item>
 	<p>
 	  Lifetime of session tickets sent by the server. Servers must not use
-	  any value greater than 604800 seconds (7 days).
+	  any value greater than 604800 seconds (7 days). Expired tickets are automatically removed.
 	  Defaults to 7200 seconds (2 hours).
 	</p>
       </item>
@@ -177,19 +177,19 @@
 	</p>
       </item>
 
-      <tag><c><![CDATA[client_session_ticket_store_size = integer() <optional>]]></c></tag>
-      <item>
-	<p>
-	  Sets the maximum size of the client session ticket store.
-	  Defaults to 1000. Size limit is enforced by dropping old tickets.
-	</p>
-      </item>
-
       <tag><c><![CDATA[client_session_ticket_lifetime = integer() <optional>]]></c></tag>
       <item>
 	<p>
 	  Lifetime of session tickets in the client ticket store. Expired tickets are
 	  automatically removed. Defaults to 7200 seconds (2 hours).
+	</p>
+      </item>
+
+      <tag><c><![CDATA[client_session_ticket_store_size = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Sets the maximum size of the client session ticket store.
+	  Defaults to 1000. Size limit is enforced by dropping old tickets.
 	</p>
       </item>
     </taglist>

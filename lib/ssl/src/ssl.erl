@@ -353,9 +353,9 @@
 -type psk_identity()             :: string().
 -type log_alert()                :: boolean().
 -type logging_level()            :: logger:level().
--type session_tickets_client()   :: disabled | enabled | auto.
--type session_tickets_server()   :: disabled | stateful | stateless.
--type session_tickets()          :: session_tickets_client() | session_tickets_server().
+-type client_session_tickets()   :: disabled | manual | auto.
+-type server_session_tickets()   :: disabled | stateful | stateless.
+-type session_tickets()          :: client_session_tickets() | server_session_tickets().
 -type bloom_filter_window_size()    :: integer().
 -type bloom_filter_hash_functions() :: integer().
 -type bloom_filter_bits()           :: integer().
@@ -380,7 +380,7 @@
                                 {customize_hostname_check, customize_hostname_check()} |
                                 {signature_algs, client_signature_algs()} |
                                 {fallback, fallback()} |
-                                {session_tickets, session_tickets_client()} |
+                                {session_tickets, client_session_tickets()} |
                                 {use_ticket, use_ticket()}.
 
 -type client_verify_type()       :: verify_type().
@@ -423,7 +423,7 @@
                                 {honor_ecc_order, honor_ecc_order()} |
                                 {client_renegotiation, client_renegotiation()}|
                                 {signature_algs, server_signature_algs()} |
-                                {session_tickets, session_tickets_server()} |
+                                {session_tickets, server_session_tickets()} |
                                 {anti_replay, anti_replay()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()].
@@ -1681,7 +1681,7 @@ handle_option(session_tickets = Option, unbound, OptionsMap, #{rules := Rules}) 
     OptionsMap#{Option => Value};
 handle_option(session_tickets = Option, Value0, #{versions := Versions} = OptionsMap, #{role := Role}) ->
     assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
-    assert_role_value(Role, Option, Value0, [disabled, stateful, stateless], [disabled, enabled, auto]),
+    assert_role_value(Role, Option, Value0, [disabled, stateful, stateless], [disabled, manual, auto]),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(signature_algs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{role := Role}) ->
@@ -2157,7 +2157,7 @@ validate_option(cb_info, {V1, V2, V3, V4, V5} = Value) when is_atom(V1),
 validate_option(use_ticket, Value) when is_list(Value) ->
     Value;
 validate_option(session_tickets, Value) when Value =:= disabled orelse
-                                             Value =:= enabled orelse
+                                             Value =:= manual orelse
                                              Value =:= auto orelse
                                              Value =:= stateless orelse
                                              Value =:= stateful ->

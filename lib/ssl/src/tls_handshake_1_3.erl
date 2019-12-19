@@ -1445,7 +1445,7 @@ get_pre_shared_key(undefined, _, HKDFAlgo, _) ->
 get_pre_shared_key(_, undefined, HKDFAlgo, _) ->
     {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
 %% Session resumption
-get_pre_shared_key(enabled = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
+get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
     case choose_psk(TicketData, SelectedIdentity) of
         undefined -> %% full handshake, default PSK
@@ -2295,7 +2295,7 @@ get_ticket_data(_, undefined, _) ->
     undefined;
 get_ticket_data(_, _, undefined) ->
     undefined;
-get_ticket_data(_, enabled, UseTicket) ->
+get_ticket_data(_, manual, UseTicket) ->
     process_user_tickets(UseTicket);
 get_ticket_data(Pid, auto, UseTicket) ->
     tls_client_ticket_store:get_tickets(Pid, UseTicket).

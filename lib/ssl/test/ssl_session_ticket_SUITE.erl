@@ -475,7 +475,7 @@ erlang_client_erlang_server_multiple_tickets(Config) when is_list(Config) ->
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, enabled}, {log_level, debug},
+    ClientOpts = [{session_tickets, manual}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],
@@ -540,7 +540,7 @@ erlang_client_openssl_server_hrr_multiple_tickets(Config) when is_list(Config) -
     KeyFile = proplists:get_value(keyfile, ServerOpts),
 
     %% Configure session tickets
-    ClientOpts = [{session_tickets, enabled}, {log_level, debug},
+    ClientOpts = [{session_tickets, manual}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']},
                   {supported_groups,[secp256r1, x25519]}|ClientOpts0],
 
@@ -596,7 +596,7 @@ erlang_client_erlang_server_multiple_tickets_2hash(Config) when is_list(Config) 
     ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
     
     %% Configure session tickets
-    ClientOpts = [{session_tickets, enabled}, {log_level, debug},
+    ClientOpts = [{session_tickets, manual}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ClientOpts0],
     ServerOpts = [{session_tickets, ServerTicketMode}, {log_level, debug},
                   {versions, ['tlsv1.2','tlsv1.3']}|ServerOpts0],

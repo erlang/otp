@@ -236,24 +236,27 @@ ssl:connect("localhost", 9999,
   <section>
     <title>Session Tickets and Session Resumption in TLS 1.3</title>
 
-    <p><marker id="session_tickets"></marker>
+    <p>
     TLS 1.3 introduces a new secure way of resuming sessions by using session tickets.
     A session ticket is an opaque data structure that is sent in the pre_shared_key extension of
-    a ClientHello, when a client attempts to resume a session with old keying material
-    (previous successful handshake).</p>
+    a ClientHello, when a client attempts to resume a session with keying material from a
+    previous successful handshake.</p>
     <p>Session tickets can be stateful or stateless. A stateful session ticket is a database reference
     (session ticket store) and used with stateful servers, while a stateless ticket
-    is a data structure with cryptographic keying material and state data, enabling session
-    resumption with stateless servers.</p>
+    is a self-encrypted and self-authenticated data structure with cryptographic keying material and
+    state data, enabling session resumption with stateless servers.</p>
+    <p>The choice between stateful or stateless depends on the server requirements as the session tickets
+    are opaque for the clients. Generally, stateful tickets are smaller and the server can guarantee
+    that tickets are only used once. Stateless tickets contain additional data, require less storage
+    on the server side, but they offer different guarantees against anti-replay. See also
+    <seealso marker="ssl:using_ssl#anti-replay-protection-in-tls-1.3">
+    Anti-Replay Protection in TLS 1.3</seealso>
+    </p>
     <p>Session tickets are sent by servers on newly estalished TLS connections.
     The number of tickets sent and their lifetime are configurable by application variables. See also
-    <seealso marker="ssl:ssl_app#ssl_configuration"> SSL's configuration</seealso>.</p>
+    <seealso marker="ssl:ssl_app#configuration"> SSL's configuration</seealso>.</p>
     <p>Session tickets are protected by application traffic keys, and in stateless
     tickets, the opaque data structure itself is self-encrypted.</p>
-    <p>For security reasons the server supports only single-use tickets. In stateful mode the
-    server maintains a database (session ticket store) of all outstanding valid tickets.
-    In stateless case, memory-efficient, probabilistic datastructures
-    (Bloom filters) are used to detect prossible reuse of session tickets.</p>
 
     <p>An example with automatic and manual session resumption:</p>
 
@@ -339,7 +342,7 @@ ssl:connect("localhost", 9999,
       COpts2 = [{cacertfile, "cert.pem"},
                 {versions, ['tlsv1.2','tlsv1.3']},
                 {log_level, debug},
-                {session_tickets, enabled}].
+                {session_tickets, manual}].
       ssl:connect("localhost", 8001, COpts).
     </code>
 
@@ -368,7 +371,7 @@ ssl:connect("localhost", 9999,
       COpts2 = [{cacertfile, "cert.pem"},
                 {versions, ['tlsv1.2','tlsv1.3']},
                 {log_level, debug},
-                {session_tickets, enabled},
+                {session_tickets, manual},
                 {use_ticket, [Ticket]}].
       ssl:connect("localhost", 8001, COpts).
     </code>
@@ -382,8 +385,7 @@ ssl:connect("localhost", 9999,
   <section>
     <title>Anti-Replay Protection in TLS 1.3</title>
 
-    <p><marker id="anti_replay"></marker>
-    The TLS 1.3 protocol does not provide inherent protection for replay of 0-RTT data but
+    <p>The TLS 1.3 protocol does not provide inherent protection for replay of 0-RTT data but
     describes mechanisms that SHOULD be implemented by compliant server implementations.
     The implementation of TLS 1.3 in the SSL application employs all standard methods
     to prevent potential threats.
@@ -391,7 +393,7 @@ ssl:connect("localhost", 9999,
     <p><em>Single-use tickets</em></p>
     <p>This mechanism is available with stateful session tickets. Session tickets can
     only be used once, subsequent use of the same ticket results in a full handshake.
-    Statful servers enforce this rule by maintaining a database of outstanding valid
+    Stateful servers enforce this rule by maintaining a database of outstanding valid
     tickets.</p>
 
     <p><em>Client Hello Recording</em></p>
@@ -408,12 +410,34 @@ ssl:connect("localhost", 9999,
     handshake. This mechanism is tightly coupled with the previous one, it prevents storing an
     unlimited number of ClientHellos.</p>
 
-    <p><em>Bloom filters</em></p>
     <p>The current implementation uses a pair of Bloom filters to implement the last two mechanisms.
-    A bloom filter is a fast, memory efficient, probabilistic data structure.
-    See also the ssl option
-    <seealso marker="ssl:ssl#option_anti_replay">anti_replay</seealso>.
+    Bloom filters are fast, memory-efficient, probabilistic data structures that can tell
+    if an element may be in a set or if it is definitely not in the set.</p>
+
+    <p>If the option <seealso marker="ssl:ssl#type-anti_replay">anti_replay</seealso>
+    is defined in the server, a pair of Bloom filters (<em>current</em> and
+    <em>old</em>) are used to record incoming ClientHello messages (it is the unique
+    binder value that is actually stored).
+    The <em>current</em> Bloom filter is used for <c>WindowSize</c> seconds to store new
+    elements. At the end of the time window the Bloom filters are rotated
+    (the <em>current</em> Bloom filter becomes the <em>old</em> and an empty Bloom filter
+    is set as <em>current</em>.
     </p>
+
+    <p>The Anti-Replay protection feature in statless servers executes in the following steps
+    when a new ClientHello is received:</p>
+    <list type="bulleted">
+      <item><p>Reported ticket age (obfuscated ticket age) shall be
+      less than ticket lifetime.</p></item>
+      <item><p>Actual ticket age shall be less than the ticket lifetime (statless session
+      tickets contain the servers timestamp when the ticket was issued).</p></item>
+      <item><p>Ticket shall be used within specified time window (freshness checks).</p></item>
+      <item><p>If all above checks passed both <em>current</em> and <em>old</em> Bloom filters
+      are checked to detect if binder was already seen. Being a probabilistic data structure,
+      false positives can occur and they trigger a full handshake.</p></item>
+      <item><p>If the binder is not seen, the binder is validated. If the binder is valid,
+      the server proceeds with the 0-RTT handshake.</p></item>
+    </list>
 
   </section>
  </chapter>

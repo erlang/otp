@@ -299,8 +299,8 @@
      <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">server_name (RFC6066)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.2</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
@@ -438,8 +438,8 @@
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle">server_name (RFC6066)</cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>PC</em></cell>
+	<cell align="left" valign="middle"><em>22.2</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
