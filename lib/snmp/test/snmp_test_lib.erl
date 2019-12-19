@@ -413,7 +413,14 @@ os_based_skip_check(OsName, OsNames) ->
 %% A modern take on the "Check if our host handle IPv6" question.
 %% 
 has_support_ipv6() ->
-    socket:supports(ipv6) andalso has_valid_ipv6_address().
+    case os:type() of
+        {win32, _} ->
+            %% We do not yet have support for windows in the socket nif,
+            %% so for windows we need to use the old style...
+            old_has_support_ipv6();
+        _ ->
+            socket:supports(ipv6) andalso has_valid_ipv6_address()
+    end.
 
 has_valid_ipv6_address() ->
     case net:getifaddrs(fun(#{addr  := #{family := inet6},
@@ -487,6 +494,36 @@ validate_ipv6_address(LocalAddr) ->
             socket:close(ClientSock),
             ?SKIP(f("failed socket recvfrom test: ~p", [R7]))
    end.
+
+
+
+
+old_has_support_ipv6() ->
+    case inet:gethostname() of
+        {ok, Hostname} ->
+            old_has_support_ipv6(Hostname) andalso old_is_ipv6_host(Hostname);
+        _ ->
+            false
+    end.
+
+old_has_support_ipv6(Hostname) ->
+    case inet:getaddr(Hostname, inet6) of
+        {ok, Addr} when (size(Addr) =:= 8) andalso
+                        (element(1, Addr) =/= 0) andalso
+                        (element(1, Addr) =/= 16#fe80) ->
+            true;
+        _ ->
+            false
+    end.
+            
+old_is_ipv6_host(Hostname) ->
+    case ct:require(ipv6_hosts) of
+        ok ->
+            lists:member(list_to_atom(Hostname), ct:get_config(ipv6_hosts));
+        _ ->
+            false
+    end.
+
 
 
 %% ----------------------------------------------------------------
