@@ -366,7 +366,7 @@
        <type>
 	<v>ConnectionRef = ssh_connection_ref()</v>
 	<v>ChannelId = ssh_channel_id()</v>
-	<v>Data = binary()</v>
+	<v>Data = iodata()</v>
 	<v>Type = ssh_data_type_code()</v>
 	<v>Timeout = timeout()</v>
        </type>
