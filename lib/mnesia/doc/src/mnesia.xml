@@ -181,6 +181,51 @@
       transaction before iterating over the table.</p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="table"/>
+    </datatype>
+    <datatype>
+      <name name="activity"/>
+    </datatype>
+    <datatype>
+      <name name="create_option"/>
+    </datatype>
+    <datatype>
+      <name name="storage_type"/>
+    </datatype>
+    <datatype>
+      <name name="t_result" n_vars="1"/>
+    </datatype>
+    <datatype>
+      <name name="index_attr"/>
+    </datatype>
+    <datatype>
+      <name name="write_locks"/>
+    </datatype>
+    <datatype>
+      <name name="read_locks"/>
+    </datatype>
+    <datatype>
+      <name name="lock_kind"/>
+    </datatype>
+    <datatype>
+      <name name="select_continuation"/>
+    </datatype>
+    <datatype>
+      <name name="snmp_struct"/>
+    </datatype>
+    <datatype>
+      <name name="snmp_type"/>
+    </datatype>
+    <datatype>
+      <name name="config_key"/>
+    </datatype>
+    <datatype>
+      <name name="config_result"/>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
       <name since="">abort(Reason) -> transaction abort</name>
