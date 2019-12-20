@@ -1903,17 +1903,6 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       </desc>
     </func>
     <func>
-      <name since="">set_debug_level(Level) -> OldLevel</name>
-      <fsummary>Changes the internal debug level of Mnesia.</fsummary>
-      <desc>
-      <marker id="set_debug_level"></marker>
-        <p>Changes the internal debug level of Mnesia.
-          For details, see
-          <seealso marker="#configuration_parameters">Section
-          Configuration Parameters</seealso>.</p>
-      </desc>
-    </func>
-    <func>
       <name since="">set_master_nodes(MasterNodes) -> ok | {error, Reason}</name>
       <fsummary>Sets the master nodes for all tables.</fsummary>
       <desc>
