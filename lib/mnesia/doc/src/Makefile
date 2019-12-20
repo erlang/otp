@@ -68,6 +68,7 @@ XML_GEN_FILES = $(XML_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 IMAGE_FILES = \
 	company.gif
 
-# ----------------------------------------------------
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+TOP_SPECS_FILE = specs.xml
 
 include $(ERL_TOP)/make/doc.mk
