@@ -96,6 +96,9 @@ HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
 
 TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
 
+SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
+
+TOP_SPECS_FILE = specs.xml
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -121,6 +124,7 @@ clean clean_docs:
 	rm -rf $(XMLDIR)
 	rm -f $(MAN3DIR)/*
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(SPECDIR)/*
 	rm -f errs core *~
 
 man: $(MAN3_FILES)
