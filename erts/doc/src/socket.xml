@@ -471,20 +471,13 @@
       <fsummary>Get an option on a socket.</fsummary>
       <desc>
         <p>Get an option on a socket.</p>
-	<p>What properties are valid depend  both on <c>Level</c> and
-	on what kind of socket it is (<c>domain</c>, <c>type</c> and
-	<c>protocol</c>).</p>
+
 	<p>When specifying <c>Level</c> as an integer, and therefor
 	using "native mode", it is *currently* up to the caller to
 	know how to interpret the result.</p>
 
-	<p>See the
-	<seealso marker="socket_usage#socket_options">socket options</seealso>
-	chapter of the users guide for more info. </p>
-
-	<note><p>Not all options are valid on all platforms. That is,
-	even if "we" support an option, that does not mean that the
-	underlying OS does.</p></note>
+	<p>For more info, see
+	<seealso marker="#getopt/3">getopt</seealso> above. </p>
       </desc>
     </func>
 
@@ -876,21 +869,13 @@
       <fsummary>Set options on a socket.</fsummary>
       <desc>
         <p>Set options on a socket.</p>
-	<p>What properties are valid depend both on <c>Level</c> and on
-	what kind of socket it is (<c>domain</c>, <c>type</c> and
-	<c>protocol</c>).</p>
 
-	<p>See the
-	<seealso marker="socket_usage#socket_options">socket options</seealso>
-	chapter of the users guide for more info. </p>
+	<p>When specifying <c>Level</c> as an integer, and therefor
+	using "native mode", it is *currently* up to the caller to
+	know how to encode the <c>Value</c>.</p>
 
-	<note><p>Not all options are valid on all platforms. That is,
-	even if "we" support an option, that does not mean that the
-	underlying OS does.</p></note>
-
-	<note><p>Sockets are set 'non-blocking' when created, so this option
-	is *not* available (as it would adversely effect the Erlang VM
-	to set a socket 'blocking').</p></note>
+	<p>For more info, see
+	<seealso marker="#setopt/4">setopt</seealso> above. </p>
       </desc>
     </func>
 
