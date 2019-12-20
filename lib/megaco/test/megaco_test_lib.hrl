@@ -84,8 +84,12 @@
 	?LIB:prepare_test_case([init, {stop_app, megaco}],
                                N, Config, ?FILE, ?LINE)).
 
--define(START_NODE(Node),   ?LIB:start_node(Node,   ?FILE, ?LINE)).
--define(START_NODES(Nodes), ?LIB:start_nodes(Nodes, ?FILE, ?LINE)).
+-define(START_NODE(Node, Force),   ?LIB:start_node(Node, Force, ?FILE, ?LINE)).
+-define(START_NODE(Node),          ?START_NODE(Node, false)).
+-define(START_NODES(Nodes, Force), ?LIB:start_nodes(Nodes, Force, ?FILE, ?LINE)).
+-define(START_NODES(Nodes),        ?START_NODES(Nodes, false)).
+-define(STOP_NODE(Node),           ?LIB:stop_node(Node,   ?FILE, ?LINE)).
+-define(STOP_NODES(Nodes),         ?LIB:stop_nodes(Nodes, ?FILE, ?LINE)).
 
 -define(SLEEP(MSEC),    ?LIB:sleep(MSEC)).
 -define(HOURS(T),       ?LIB:hours(T)).

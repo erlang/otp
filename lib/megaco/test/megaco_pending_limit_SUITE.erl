@@ -244,7 +244,9 @@ end_per_group(_Group, Config) ->
 init_per_testcase(Case, Config) ->
     process_flag(trap_exit, true),
 
-    p("init_per_suite -> entry with"
+    ?ANNOUNCE_CASE_INIT(Case),
+
+    p("init_per_testcase -> entry with"
       "~n      Config: ~p"
       "~n      Nodes:  ~p", [Config, erlang:nodes()]),
 
@@ -284,10 +286,10 @@ sent_timer_late_reply(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -340,6 +342,10 @@ sent_timer_late_reply(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
+
     i("done", []),
     ok.
 
@@ -359,10 +365,10 @@ sent_timer_exceeded(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -413,6 +419,10 @@ sent_timer_exceeded(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
+
     i("done", []),
     ok.
 
@@ -432,10 +442,10 @@ sent_timer_exceeded_long(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -484,6 +494,10 @@ sent_timer_exceeded_long(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
+
     i("done", []),
     ok.
 
@@ -508,10 +522,10 @@ sent_resend_late_reply(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -573,6 +587,10 @@ sent_resend_late_reply(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
+
     i("done", []),
     ok.
 
@@ -608,10 +626,10 @@ sent_resend_exceeded(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -668,6 +686,10 @@ sent_resend_exceeded(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
+
     i("done", []),
     ok.
 
@@ -703,10 +725,10 @@ sent_resend_exceeded_long(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -764,6 +786,10 @@ sent_resend_exceeded_long(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
+
     i("done", []),
     ok.
 
@@ -799,10 +825,10 @@ recv_limit_exceeded1(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -841,6 +867,10 @@ recv_limit_exceeded1(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
 
     i("done", []),
     ok.
@@ -1200,10 +1230,10 @@ otp_4956(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -1242,6 +1272,10 @@ otp_4956(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
 
     i("done", []),
     ok.
@@ -1758,10 +1792,10 @@ otp_5310(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -1871,6 +1905,10 @@ otp_5310(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
+
     i("done", []),
     ok.
 
@@ -1921,10 +1959,10 @@ otp_5619(Config) when is_list(Config) ->
     MgcNode = make_node_name(mgc),
     MgNode  = make_node_name(mg),
     d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
+      "~n      MgcNode: ~p"
+      "~n      MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    ok = ?START_NODES([MgcNode, MgNode], true),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -1988,6 +2026,10 @@ otp_5619(Config) when is_list(Config) ->
     %% Tell Mgc to stop
     i("[MGC] stop~n"),
     ?MGC_STOP(Mgc),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES([MgcNode, MgNode]),
 
     i("done", []),
     ok.

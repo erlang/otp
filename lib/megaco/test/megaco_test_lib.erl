@@ -51,8 +51,11 @@
          proxy_start/1, proxy_start/2,
 
          mk_nodes/1,
-         start_nodes/3,
-         start_node/3
+         start_nodes/3, start_nodes/4,
+         start_node/3,  start_node/4,
+
+         stop_nodes/3,
+         stop_node/3
 
         ]).
 -export([init_per_suite/1,    end_per_suite/1,
@@ -637,14 +640,44 @@ node_to_name_and_host(Node) ->
 
 
 start_nodes(Nodes, File, Line) when is_list(Nodes) ->
-    lists:foreach(fun(N) -> start_node(N, File, Line) end, Nodes).
+    start_nodes(Nodes, false, File, Line).
+
+start_nodes(Nodes, Force, File, Line)
+  when is_list(Nodes) andalso is_boolean(Force) ->
+    lists:foreach(fun(N) -> start_node(N, Force, true, File, Line) end, Nodes).
 
 start_node(Node, File, Line) ->
+    start_node(Node, false, false, File, Line).
+
+start_node(Node, Force, File, Line)
+  when is_atom(Node) andalso is_boolean(Force) ->
+    start_node(Node, Force, false, File, Line).
+
+start_node(Node, Force, Retry, File, Line) ->
     case net_adm:ping(Node) of
-	pong ->
+        %% Do not require a *new* node
+	pong when (Force =:= false) ->
             p("node ~p already running", [Node]),
 	    ok;
-	pang ->
+
+        %% Do require a *new* node, so kill this one and try again
+	pong when ((Force =:= true) andalso (Retry =:= true)) ->
+            e("node ~p already running - kill and retry", [Node]),
+            case stop_node(Node) of
+                ok ->
+                    start_node(Node, Force, false, File, Line);
+                error ->
+                    e("node ~p already running - failed kill (no retry)", [Node]),
+                    fatal_skip({node_already_running, Node}, File, Line)
+            end;
+
+        %% Do require a *new* node, but no retry so give up and fail
+        pong when (Force =:= true) ->
+            e("node ~p already running", [Node]),
+            fatal_skip({node_already_running, Node}, File, Line);
+
+        % Not (yet) running
+        pang ->
 	    [Name, Host] = node_to_name_and_host(Node),
             Pa = filename:dirname(code:which(?MODULE)),
             Args = " -pa " ++ Pa ++
@@ -662,11 +695,51 @@ start_node(Node, File, Line) ->
 		    {_, []} = rpc:multicall(global, sync, []),
 		    ok;
 		Other ->
-                    p("failed starting node ~p: ~p", [Node, Other]),
+                    e("failed starting node ~p: ~p", [Node, Other]),
 		    fatal_skip({cannot_start_node, Node, Other}, File, Line)
 	    end
     end.
+
+
+stop_nodes(Nodes, File, Line) when is_list(Nodes) ->
+    stop_nodes(Nodes, [], File, Line).
+
+stop_nodes([], [], _File, _Line) ->
+    ok;
+stop_nodes([], StillRunning, File, Line) ->
+    e("Failed stopping nodes: "
+      "~n   ~p", [StillRunning]),
+    fatal_skip({failed_stop_nodes, lists:reverse(StillRunning)}, File, Line);
+stop_nodes([Node|Nodes], Acc, File, Line) ->
+    case stop_node(Node) of
+        ok ->
+            stop_nodes(Nodes, Acc, File, Line);
+        error ->
+            stop_nodes(Nodes, [Node|Acc], File, Line)
+    end.
     
+
+stop_node(Node, File, Line) when is_atom(Node) ->
+    p("try stop node ~p", [Node]),
+    case stop_node(Node) of
+        ok ->
+            ok;
+        error ->
+            fatal_skip({failed_stop_node, Node}, File, Line)
+    end.
+
+stop_node(Node) ->
+    p("try stop node ~p", [Node]),
+    erlang:monitor_node(Node, true),
+    rpc:call(Node, erlang, halt, []),
+    receive
+        {nodedown, Node} ->
+            ok
+    after 10000 ->
+            e("failed stop node ~p", [Node]),
+            error
+    end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -674,5 +747,12 @@ start_node(Node, File, Line) ->
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
+e(F, A) ->
+    print("<ERROR> ", F, A).
+
 p(F, A) ->
-    io:format("~s ~p " ++ F ++ "~n", [?FTS(), self() | A]).
+    print("<INFO> ", F, A).
+
+print(Pre, F, A) ->
+    io:format("~s ~p ~s " ++ F ++ "~n", [?FTS(), self(), Pre | A]).
+
