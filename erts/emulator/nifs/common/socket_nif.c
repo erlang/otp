@@ -19464,7 +19464,7 @@ char* esock_send_abort_msg(ErlNifEnv*   env,
                                     CP_TERM(msgEnv, sockRef),
                                     opRef, reason);
 
-    return esock_send_msg(env, &data.regPid, msg, msgEnv);
+    return esock_send_msg(env, pid, msg, msgEnv);
 }
 
 
@@ -20560,8 +20560,9 @@ void inform_waiting_procs(ErlNifEnv*         env,
 
         SSDBG( descP,
                ("SOCKET",
-                "inform_waiting_procs -> abort request %T (from %T)\r\n",
-                currentP->data.ref, currentP->data.pid) );
+                "inform_waiting_procs -> "
+                "send abort message to waiting %s %T\r\n",
+                role, currentP->data.pid) );
 
         if (esock_send_abort_msg(env,
                                  sockRef,
