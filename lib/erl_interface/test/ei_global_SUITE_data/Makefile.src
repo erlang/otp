@@ -1,8 +1,8 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2000-2016. All Rights Reserved.
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -25,18 +25,18 @@ CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
 LD = @LD@
 LIBERL = @erl_interface_lib@
 LIBEI = @erl_interface_eilib@
-LIBFLAGS = ../all_SUITE_data/runner@obj@ \
-	$(LIBERL) $(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
+LIBFLAGS = ../all_SUITE_data/ei_runner@obj@ \
+	$(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
 	@erl_interface_threadlib@
 CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
-MATCH_OBJS = match_test@obj@ match_test_decl@obj@
+EI_GLOBAL_OBJS = ei_global_test@obj@ ei_global_test_decl@obj@
 
-all: match_test@exe@
+all: ei_global_test@exe@
 
 clean:
-	$(RM) $(MATCH_OBJS)
-	$(RM) match_test@exe@
+	$(RM) $(EI_GLOBAL_OBJS)
+	$(RM) ei_global_test@exe@
 
-match_test@exe@: $(MATCH_OBJS) $(LIBERL) $(LIBEI)
-	$(LD) @CROSSLDFLAGS@ -o $@ $(MATCH_OBJS) $(LIBFLAGS)
-
+ei_global_test@exe@: $(EI_GLOBAL_OBJS) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o $@ $(EI_GLOBAL_OBJS) \
+	../all_SUITE_data/my_ussi@obj@ $(LIBFLAGS)

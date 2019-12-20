@@ -37,20 +37,14 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # ----------------------------------------------------
 
 XML_REF1_FILES = erl_call.xml
-XML_REF3_FILES = erl_connect.xml \
-	erl_error.xml \
-	erl_eterm.xml \
-	erl_format.xml \
-	erl_malloc.xml \
-	erl_marshal.xml \
-	erl_global.xml \
+XML_REF3_FILES = ei_global.xml \
 	ei.xml \
 	ei_connect.xml \
 	registry.xml
 
 BOOK_FILES = book.xml
 XML_APPLICATION_FILES = ref_man.xml
-#ref_man_ei.xml ref_man_erl_interface.xml
+
 XML_PART_FILES = \
 	part.xml
 XML_CHAPTER_FILES = ei_users_guide.xml notes.xml

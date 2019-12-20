@@ -24,23 +24,22 @@
 #include "eisend.h"
 #include "eirecv.h"
 #include "ei_connect_int.h"
-#include "erl_interface.h"
-#include "erl_connect.h"
+#include "ei.h"
+#include "ei_connect.h"
 
 /* return the ETERM pid corresponding to name. If caller
  * provides non-NULL node, nodename will be returned there
  */
 /* global:whereis_name(name) -> pid */
 
-ETERM *erl_global_whereis(int fd, const char *name, char *node)
+int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, char *node)
 {
   char buf[EISMALLBUF];
   char *bufp=buf;
   char tmpbuf[64];
   int index = 0;
-  erlang_pid *self = erl_self();
+  erlang_pid *self = ei_self(ec);
   erlang_pid epid;
-  ETERM *opid;
   erlang_msg msg;
   int i;
   int version,arity,msglen;
@@ -60,7 +59,7 @@ ETERM *erl_global_whereis(int fd, const char *name, char *node)
   ei_encode_atom(buf,&index,"user");            /* user */
 
   /* make the rpc call */
-  if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return NULL;
+  if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return -1;
 
   while (1) {
     index = EISMALLBUF;
@@ -68,7 +67,7 @@ ETERM *erl_global_whereis(int fd, const char *name, char *node)
     else break;
   }
 
-  if (i != ERL_SEND) return NULL;
+  if (i != ERL_SEND) return -1;
     
   /* expecting { rex, pid } */
   index = 0;
@@ -78,24 +77,18 @@ ETERM *erl_global_whereis(int fd, const char *name, char *node)
       || ei_decode_atom(buf,&index,tmpbuf) 
       || strcmp(tmpbuf,"rex")
       || ei_decode_pid(buf,&index,&epid))
-    return NULL; /* bad response from other side */
-
-  /* put the pid into a format for the caller */
-  index = 0;
-  ei_encode_pid(buf,&index,&epid);
-  opid = erl_decode((unsigned char*)buf);
+    return -1; /* bad response from other side */
 
   /* extract the nodename for the caller */
   if (node) {
-      char* node_str = ERL_PID_NODE(opid);
+      char* node_str = epid.node;
       if (node_str) {
 	  strcpy(node, node_str);
       }
       else {
-	  erl_free_term(opid);
-	  return NULL;
+	  return -1;
       }
   }
-
-  return opid;
+  *pid = epid;
+  return 0;
 }

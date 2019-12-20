@@ -49,14 +49,9 @@
 
     <p><c>ei</c> also handles C-nodes, C-programs that talks Erlang
       distribution with Erlang nodes (or other C-nodes) using the
-      Erlang distribution format. The difference between <c>ei</c>
-      and <c>erl_interface</c> is that <c>ei</c> uses
-      the binary format directly when sending and receiving terms. It is also
+      Erlang distribution format.The <c>ei</c> library is
       thread safe, and using threads, one process can handle multiple
-      C-nodes. The <c>erl_interface</c> library is built on top of
-      <c>ei</c>, but of legacy reasons, it does not allow for
-      multiple C-nodes. In general, <c>ei</c> is the preferred way
-      of doing C-nodes.</p>
+      C-nodes.</p>
 
     <p>The decode and encode functions use a buffer and an index into the
       buffer, which points at the point where to encode and
@@ -378,22 +373,6 @@ typedef enum {
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>ei_decode_term(const char *buf, int *index, void *t)</nametext></name>
-      <fsummary>Decode a <c>ETERM</c>.</fsummary>
-      <desc>
-        <p>Decodes a term from the binary format. The term
-          is return in <c>t</c> as a <c>ETERM*</c>, so
-          <c>t</c> is actually an <c>ETERM**</c> (see
-          <seealso marker="erl_eterm"><c>erl_eterm</c></seealso>).
-          The term is later to be deallocated.</p>
-	<note><p>This function is deprecated as of OTP 22 and will be removed in
-	  OTP 23 together with the old legacy <c>erl_interface</c> library (functions
-	  with prefix <c>erl_</c>).</p>
-	</note>
-      </desc>
-    </func>
-
-    <func>
       <name since=""><ret>int</ret><nametext>ei_decode_trace(const char *buf, int *index, erlang_trace *p)</nametext></name>
       <fsummary>Decode a trace token.</fsummary>
       <desc>
@@ -707,22 +686,6 @@ ei_x_encode_string(&amp;x, "Banana");</pre>
           the <c>ei_x_encode_string_len()</c> function.</p>
       </desc>
     </func>
-
-    <func>
-      <name since=""><ret>int</ret><nametext>ei_encode_term(char *buf, int *index, void *t)</nametext></name>
-      <name since=""><ret>int</ret><nametext>ei_x_encode_term(ei_x_buff* x, void *t)</nametext></name>
-      <fsummary>Encode an <c>erl_interface</c> term.</fsummary>
-      <desc>
-        <p>Encodes an <c>ETERM</c>, as obtained from
-          <c>erl_interface</c>. Parameter <c>t</c> is
-          actually an <c>ETERM</c> pointer. This function
-          does not free the <c>ETERM</c>.</p>
-	<note><p>These functions are deprecated as of OTP 22 and will be removed in
-	  OTP 23 together with the old legacy <c>erl_interface</c> library
-	  (functions with prefix <c>erl_</c>).</p>
-	</note>
-      </desc>
-    </func>
     <func>
       <name since=""><ret>int</ret><nametext>ei_encode_trace(char *buf, int *index, const erlang_trace *p)</nametext></name>
       <name since=""><ret>int</ret><nametext>ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p)</nametext></name>
@@ -806,11 +769,7 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
       <desc>
         <p>Initialize the <c>ei</c> library. This function should be called once
 	(and only once) before calling any other functionality in the <c>ei</c>
-	library. However, note the exception below.</p>
-	<p>If the <c>ei</c> library is used together with the <c>erl_interface</c>
-	library, this function should <em>not</em> be called directly. It will be
-	called by the <c>erl_init()</c> function which should be used to initialize
-	the combination of the two libraries instead.</p>
+	library.</p>
 	<p>On success zero is returned. On failure a posix error code is returned.</p>
       </desc>
     </func>
@@ -990,8 +949,4 @@ encodes the tuple {numbers,12,3.14159}</pre>
     </list>
   </section>
 
-  <section>
-    <title>See Also</title>
-    <p><seealso marker="erl_eterm"><c>erl_eterm</c></seealso></p>
-  </section>
 </cref>

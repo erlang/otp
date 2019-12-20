@@ -18,47 +18,49 @@
  * %CopyrightEnd%
  */
 #include <string.h>
-#include "eidef.h"		/* Has to be first */
+#include "eidef.h"
 #include "eiext.h"
 #include "eisend.h"
 #include "eirecv.h"
-#include "ei_connect_int.h"
-#include "erl_interface.h"
-#include "erl_connect.h"
+#include "ei.h"
 
-/* remove the association between name and its pid */
-/* global:unregister_name(name) -> ok */
-int erl_global_unregister(int fd, const char *name)
+int ei_global_register(int fd, const char *name, erlang_pid *self)
 {
   char buf[EISMALLBUF];
   char *bufp=buf;
   char tmpbuf[64];
   int index = 0;
-  erlang_pid *self = erl_self();
   erlang_msg msg;
+  int needlink, needatom, needmonitor;
+  int arity;
+  int version;
+  int msglen;
   int i;
-  int version,arity,msglen;
-  int needunlink, needatom, needdemonitor;
 
-  /* make a self pid */
-  self->num = fd;
+  /* set up rpc arguments */
+  /* { PidFrom, { call, Mod, Fun, Args, user }}  */
+  index = 0;
   ei_encode_version(buf,&index);
   ei_encode_tuple_header(buf,&index,2);
   ei_encode_pid(buf,&index,self);               /* PidFrom */
   ei_encode_tuple_header(buf,&index,5);
   ei_encode_atom(buf,&index,"call");            /* call */
   ei_encode_atom(buf,&index,"global");          /* Mod */
-  ei_encode_atom(buf,&index,"unregister_name_external");    /* Fun */
-  ei_encode_list_header(buf,&index,1);          /* Args: [ name ] */
+  ei_encode_atom(buf,&index,"register_name_external");    /* Fun */
+  ei_encode_list_header(buf,&index,3);     /* Args: [ name, self(), cnode ] */
   ei_encode_atom(buf,&index,name);
+  ei_encode_pid(buf,&index,self); 
+  ei_encode_tuple_header(buf,&index,2);
+  ei_encode_atom(buf,&index,"global"); /* special "resolve" treatment */ 
+  ei_encode_atom(buf,&index,"cnode");  /* i.e. we get a SEND when conflict */
   ei_encode_empty_list(buf,&index);
   ei_encode_atom(buf,&index,"user");            /* user */
 
   /* make the rpc call */
   if (ei_send_reg_encoded(fd,self,"rex",buf,index)) return -1;
 
-  /* get the reply: expect unlink and an atom, or just an atom */
-  needunlink = needatom = needdemonitor = 1;
+  /* get the reply: expect link and an atom, or just an atom */
+  needlink = needatom = needmonitor = 1;
   while (1) {
     /* get message */
     while (1) {
@@ -68,23 +70,23 @@ int erl_global_unregister(int fd, const char *name)
     }
 
     switch (i) {
-    case ERL_UNLINK:
-      /* got unlink */
-      if (!needunlink) return -1;
-      needunlink = 0;
+    case ERL_LINK:
+      /* got link */
+      if (!needlink) return -1;
+      needlink = 0;
       break;
-
-    case ERL_DEMONITOR_P-10:
-      /* got demonitor */
-      if (!needdemonitor) return -1;
-      needdemonitor = 0;
+      
+    case ERL_MONITOR_P-10:
+      /* got monitor */
+	if (!needmonitor) { return -1;}
+	needmonitor = 0;
       break;
 
     case ERL_SEND:
       /* got message - does it contain our atom? */
       if (!needatom) return -1;
       else {
-	/* expecting { rex, ok } */
+	/* expecting { rex, yes } */
 	index = 0;
 	if (ei_decode_version(buf,&index,&version) 
 	    || ei_decode_tuple_header(buf,&index,&arity) 
@@ -92,18 +94,18 @@ int erl_global_unregister(int fd, const char *name)
 	    || ei_decode_atom(buf,&index,tmpbuf) 
 	    || strcmp(tmpbuf,"rex")
 	    || ei_decode_atom(buf,&index,tmpbuf) 
-	    || strcmp(tmpbuf,"ok"))
+	    || strcmp(tmpbuf,"yes"))
 	  return -1; /* bad response from other side */
 
-	/* we're done here */
+	/* we're done */
 	return 0;
       }
       break;
-
+      
     default:
-      return -1;
+      return -1; /* something else */
     }
   }
-
   return 0;
 }
+

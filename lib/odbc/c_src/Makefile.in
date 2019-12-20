@@ -54,14 +54,14 @@ RELSYSDIR = $(RELEASE_PATH)/lib/odbc-$(VSN)
 EI_ROOT = $(ERL_TOP)/lib/erl_interface
 EI_INCLUDE = -I$(EI_ROOT)/include -I$(EI_ROOT)/include/$(TARGET)
 ifeq ($(findstring win32,$(TARGET)),win32)
-EI_LIB = -lerl_interface_md -lei_md 
+EI_LIB = -lei_md 
 ENTRY_OBJ=$(ERL_TOP)/erts/obj/$(TARGET)/port_entry.o
 PORT_ENTRY_POINT=erl_port_entry
 ENTRY_LDFLAGS=-entry:$(PORT_ENTRY_POINT)
 WIN32_TARGET = $(WIN_BIN_DIR)/odbcserver.exe
 EXE_TARGET = $(WIN32_TARGET)
 else
-EI_LIB = -lerl_interface -lei
+EI_LIB = -lei
 UNIX_TARGET = $(BIN_DIR)/odbcserver
 EXE_TARGET = $(UNIX_TARGET)
 endif

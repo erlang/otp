@@ -23,10 +23,9 @@ include @erl_interface_mk_include@
 CC0 = @CC@
 CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
 LD = @LD@
-LIBERL = @erl_interface_lib@
 LIBEI = @erl_interface_eilib@
 LIBFLAGS = ../all_SUITE_data/ei_runner@obj@ \
-	$(LIBERL) $(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
+	$(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
 	@erl_interface_threadlib@
 CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
 EI_CONNECT_OBJS = ei_connect_test@obj@ ei_connect_test_decl@obj@
