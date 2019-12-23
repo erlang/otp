@@ -220,7 +220,7 @@ get_value(Key, [P | Ps], Default) ->
 		{_, Value} ->
 		    Value;
 		_ ->
-		    %% Don</code>t continue the search!
+		    %% Don't continue the search!
 		    Default
 	    end;
        true ->
