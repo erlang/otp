@@ -35,7 +35,7 @@
                     template        => template(),
                     time_designator => byte(),
                     time_offset     => integer() | [byte()]}.
--type template() :: [metakey() | {metakey(),template(),template()} | string()].
+-type template() :: [metakey() | {metakey(),template(),template()} | string() | binary()].
 -type metakey() :: atom() | [atom()].
 
 %%%-----------------------------------------------------------------
@@ -531,6 +531,9 @@ check_template([Str|T]) when is_list(Str) ->
         true -> check_template(T);
         false -> error
     end;
+check_template([Bin|T]) when is_binary(Bin) ->
+    Str = binary:bin_to_list(Bin),
+    check_template([Str|T]);
 check_template([]) ->
     ok;
 check_template(_) ->

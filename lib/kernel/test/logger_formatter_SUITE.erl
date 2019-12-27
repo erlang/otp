@@ -247,8 +247,13 @@ template(_Config) ->
     ct:log(String5),
     "" = String5,
 
-    Ref6 = erlang:make_ref(),
-    Meta6 = #{atom=>some_atom,
+    Template6 = [<<"binary">>],
+    String6 = format(info,{"~p",[term]},#{time=>Time},#{template=>Template5}),
+    ct:log(String6),
+    "binary" = String6,
+
+    Ref7 = erlang:make_ref(),
+    Meta7 = #{atom=>some_atom,
               integer=>632,
               list=>[list,"string",4321,#{},{tuple}],
               mfa=>{mod,func,0},
@@ -258,57 +263,57 @@ template(_Config) ->
               time=>Time,
               tuple=>{1,atom,"list"},
               nested=>#{subkey=>subvalue}},
-    Template6 = lists:join(";",lists:sort(maps:keys(maps:remove(nested,Meta6))) ++
+    Template7 = lists:join(";",lists:sort(maps:keys(maps:remove(nested,Meta6))) ++
                                [[nested,subkey]]),
-    String6 = format(info,{"~p",[term]},Meta6,#{template=>Template6,
+    String7 = format(info,{"~p",[term]},Meta6,#{template=>Template6,
                                                 single_line=>true}),
     ct:log(String6),
     SelfStr = pid_to_list(self()),
-    RefStr6 = ref_to_list(Ref6),
+    RefStr7 = ref_to_list(Ref7),
     ListStr = "[list,\"string\",4321,#{},{tuple}]",
-    ExpectedTime6 = default_time_format(Time),
+    ExpectedTime7 = default_time_format(Time),
     ["some_atom",
      "632",
      ListStr,
      "mod:func/0",
      SelfStr,
-     RefStr6,
+     RefStr7,
      "some string",
-     ExpectedTime6,
+     ExpectedTime7,
      "{1,atom,\"list\"}",
-     "subvalue"] = string:lexemes(String6,";"),
+     "subvalue"] = string:lexemes(String7,";"),
 
-    Meta7 = #{time=>Time,
+    Meta8 = #{time=>Time,
               nested=>#{key1=>#{subkey1=>value1},
                         key2=>value2}},
-    Template7 = lists:join(";",[nested,
+    Template8 = lists:join(";",[nested,
                                 [nested,key1],
                                 [nested,key1,subkey1],
                                 [nested,key2],
                                 [nested,key2,subkey2],
                                 [nested,key3],
                                 [nested,key3,subkey3]]),
-    String7 = format(info,{"~p",[term]},Meta7,#{template=>Template7,
+    String8 = format(info,{"~p",[term]},Meta7,#{template=>Template7,
                                                 single_line=>true}),
-    ct:log(String7),
-    [MultipleKeysStr7,
+    ct:log(String8),
+    [MultipleKeysStr8,
      "#{subkey1 => value1}",
      "value1",
      "value2",
      "",
      "",
-     ""] = string:split(String7,";",all),
+     ""] = string:split(String8,";",all),
     %% Order of keys is not fixed
-    case MultipleKeysStr7 of
+    case MultipleKeysStr8 of
         "#{key2 => value2,key1 => #{subkey1 => value1}}" -> ok;
         "#{key1 => #{subkey1 => value1},key2 => value2}" -> ok;
-        _ -> ct:fail({full_nested_map_unexpected,MultipleKeysStr7})
+        _ -> ct:fail({full_nested_map_unexpected,MultipleKeysStr8})
     end,
 
-    Meta8 = #{time=>Time,
+    Meta9 = #{time=>Time,
               nested=>#{key1=>#{subkey1=>value1},
                         key2=>value2}},
-    Template8 =
+    Template9 =
         lists:join(
           ";",
           [{nested,["exist:",nested],["noexist"]},
@@ -318,21 +323,21 @@ template(_Config) ->
            {[nested,key2,subkey2],["exist:",[nested,key2,subkey2]],["noexist"]},
            {[nested,key3],["exist:",[nested,key3]],["noexist"]},
            {[nested,key3,subkey3],["exist:",[nested,key3,subkey3]],["noexist"]}]),
-    String8 = format(info,{"~p",[term]},Meta8,#{template=>Template8,
+    String9 = format(info,{"~p",[term]},Meta8,#{template=>Template8,
                                                 single_line=>true}),
-    ct:log(String8),
-    [MultipleKeysStr8,
+    ct:log(String9),
+    [MultipleKeysStr9,
      "exist:#{subkey1 => value1}",
      "exist:value1",
      "exist:value2",
      "noexist",
      "noexist",
-     "noexist"] = string:split(String8,";",all),
+     "noexist"] = string:split(String9,";",all),
     %% Order of keys is not fixed
-    case MultipleKeysStr8 of
+    case MultipleKeysStr9 of
         "exist:#{key2 => value2,key1 => #{subkey1 => value1}}" -> ok;
         "exist:#{key1 => #{subkey1 => value1},key2 => value2}" -> ok;
-        _ -> ct:fail({full_nested_map_unexpected,MultipleKeysStr8})
+        _ -> ct:fail({full_nested_map_unexpected,MultipleKeysStr9})
     end,
 
     ok.
@@ -347,7 +352,7 @@ format_msg(_Config) ->
     String2 = format(info,{"list",[term]},#{},#{template=>Template}),
     ct:log(String2),
     "FORMAT ERROR: \"list\" - [term]" = String2,
-    
+
     String3 = format(info,{report,term},#{},#{template=>Template}),
     ct:log(String3),
     "term" = String3,
