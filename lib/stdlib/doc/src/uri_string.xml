@@ -84,6 +84,9 @@
       <item>Dissecting form-urlencoded query strings into a list of key-value pairs<br></br>
       <seealso marker="#dissect_query/1"><c>dissect_query/1</c></seealso>
       </item>
+      <item>Decoding percent-encoded strings or binaries.<br></br>
+      <seealso marker="#decode/1"><c>decode/1</c></seealso>
+      </item>
     </list>
     <p>There are four different encodings present during the handling of URIs:</p>
     <list type="bulleted">
@@ -206,6 +209,21 @@
 2> {<<"city">>,<<"東京"/utf8>>}], [{encoding, latin1}]).]]>
 <![CDATA[<<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>]]>
 	</pre>
+      </desc>
+    </func>
+
+    <func>
+      <name name="decode" arity="1" />
+      <fsummary>Percent-encoding string or binary decoding.</fsummary>
+      <desc>
+        <p>Decodes a percent-encoded string or binary as defined in section
+        2.1 of <url href="https://www.ietf.org/rfc/rfc3986.txt">RFC
+        3986</url>.</p>
+        <p><em>Example:</em></p>
+        <pre>
+          1> <input><![CDATA[uri_string:decode(<<"hello%20world">>).]]></input>
+          <![CDATA[<<"hello world">>]]>
+	    </pre>
       </desc>
     </func>
 

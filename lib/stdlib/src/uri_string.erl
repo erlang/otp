@@ -226,7 +226,7 @@
 %%-------------------------------------------------------------------------
 %% External API
 %%-------------------------------------------------------------------------
--export([compose_query/1, compose_query/2,
+-export([compose_query/1, compose_query/2, decode/1,
          dissect_query/1, normalize/1, normalize/2, parse/1,
          recompose/1, resolve/2, resolve/3, transcode/2]).
 -export_type([error/0, uri_map/0, uri_string/0]).
