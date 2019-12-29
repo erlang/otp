@@ -532,8 +532,10 @@ check_template([Str|T]) when is_list(Str) ->
         false -> error
     end;
 check_template([Bin|T]) when is_binary(Bin) ->
-    Str = binary:bin_to_list(Bin),
-    check_template([Str|T]);
+    case unicode:character_to_list(Bin) of
+        Str -> check_template([Str|T]);
+        _Error -> error
+    end;
 check_template([]) ->
     ok;
 check_template(_) ->
