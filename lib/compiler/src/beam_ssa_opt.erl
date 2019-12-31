@@ -296,7 +296,8 @@ epilogue_passes(Opts) ->
           ?PASS(ssa_opt_blockify),
           ?PASS(ssa_opt_merge_blocks),
           ?PASS(ssa_opt_get_tuple_element),
-          ?PASS(ssa_opt_trim_unreachable)],
+          ?PASS(ssa_opt_trim_unreachable),
+          ?PASS(ssa_opt_unfold_literals)],
     passes_1(Ps, Opts).
 
 passes_1(Ps, Opts0) ->
@@ -2300,6 +2301,230 @@ collect_get_tuple_element(Is, _Src, Acc) ->
     {Acc,Is}.
 
 %%%
+%%% Unfold literals to avoid unnecessary move instructions in call
+%%% instructions.
+%%%
+%%% Consider the following example:
+%%%
+%%%     -module(whatever).
+%%%     -export([foo/0]).
+%%%     foo() ->
+%%%         foobar(1, 2, 3).
+%%%     foobar(A, B, C) ->
+%%%         foobar(A, B, C, []).
+%%%     foobar(A, B, C, D) -> ...
+%%%
+%%% The type optimization pass will find out that A, B, and C have constant
+%%% values and do constant folding, rewriting foobar/3 to:
+%%%
+%%%     foobar(A, B, C) ->
+%%%         foobar(1, 2, 3, []).
+%%%
+%%% That will result in three extra `move` instructions.
+%%%
+%%% This optimization sub pass will undo the constant folding
+%%% optimization, rewriting code to use the original variable instead
+%%% of the constant if the original variable is known to be in an x
+%%% register.
+%%%
+%%% This optimization sub pass will also undo constant folding of the
+%%% list of arguments in the call to error/2 in the last clause of a
+%%% function. For example:
+%%%
+%%%     bar(X, Y) ->
+%%%         error(function_clause, [X,42]).
+%%%
+%%% will be rewritten to:
+%%%
+%%%     bar(X, Y) ->
+%%%         error(function_clause, [X,Y]).
+%%%
+
+ssa_opt_unfold_literals({St,FuncDb}) ->
+    #opt_st{ssa=Blocks0,args=Args,anno=Anno,cnt=Count0} = St,
+    ParamInfo = maps:get(parameter_info, Anno, #{}),
+    LitMap = collect_arg_literals(Args, ParamInfo, 0, #{}),
+    case map_size(LitMap) of
+        0 ->
+            %% None of the arguments for this function are known
+            %% literals. Nothing to do.
+            {St,FuncDb};
+        _ ->
+            SafeMap = #{0 => true},
+            {Blocks,Count} = unfold_literals(beam_ssa:rpo(Blocks0),
+                                             LitMap, SafeMap, Count0, Blocks0),
+            {St#opt_st{ssa=Blocks,cnt=Count},FuncDb}
+    end.
+
+collect_arg_literals([V|Vs], Info, X, Acc0) ->
+    case Info of
+        #{V:=VarInfo} ->
+            Type = proplists:get_value(type, VarInfo, any),
+            case beam_types:get_singleton_value(Type) of
+                {ok,Val} ->
+                    F = fun(Vars) -> [{X,V}|Vars] end,
+                    Acc = maps:update_with(Val, F, [{X,V}], Acc0),
+                    collect_arg_literals(Vs, Info, X + 1, Acc);
+                error ->
+                    collect_arg_literals(Vs, Info, X + 1, Acc0)
+            end;
+        #{} ->
+            collect_arg_literals(Vs, Info, X + 1, Acc0)
+    end;
+collect_arg_literals([], _Info, _X, Acc) -> Acc.
+
+unfold_literals([L|Ls], LitMap, SafeMap0, Count0, Blocks0) ->
+    {Blocks,Safe,Count} =
+        case map_get(L, SafeMap0) of
+            false ->
+                %% Before reaching this block, an instruction that
+                %% clobbers x registers has been executed.  *If* we
+                %% would use an argument variable instead of literal,
+                %% it would force the value to be saved to a y
+                %% register. This is not what we want.
+                {Blocks0,false,Count0};
+            true ->
+                %% All x registers live when entering the function
+                %% are still live. Using the variable instead of
+                %% the substituted value will eliminate a `move`
+                %% instruction.
+                #b_blk{is=Is0} = Blk = map_get(L, Blocks0),
+                {Is,Safe0,Count1} = unfold_lit_is(Is0, LitMap, Count0, []),
+                {Blocks0#{L:=Blk#b_blk{is=Is}},Safe0,Count1}
+        end,
+    %% Propagate safeness to successors.
+    Successors = beam_ssa:successors(L, Blocks),
+    SafeMap = unfold_update_succ(Successors, Safe, SafeMap0),
+    unfold_literals(Ls, LitMap, SafeMap, Count,Blocks);
+unfold_literals([], _, _, Count, Blocks) ->
+    {Blocks,Count}.
+
+unfold_update_succ([S|Ss], Safe, SafeMap0) ->
+    F = fun(Prev) -> Prev and Safe end,
+    SafeMap = maps:update_with(S, F, Safe, SafeMap0),
+    unfold_update_succ(Ss, Safe, SafeMap);
+unfold_update_succ([], _, SafeMap) -> SafeMap.
+
+unfold_lit_is([#b_set{op=call,
+                      args=[#b_remote{mod=#b_literal{val=erlang},
+                                      name=#b_literal{val=error},
+                                      arity=2},
+                            #b_literal{val=function_clause},
+                            ArgumentList]}=I0|Is], LitMap, Count0, Acc0) ->
+    %% This is a call to error/2 that raises a function_clause
+    %% exception in the final clause of a function. Try to undo
+    %% constant folding in the list of arguments (the second argument
+    %% for error/2).
+    case unfold_arg_list(Acc0, ArgumentList, LitMap, Count0, 0, []) of
+        {[FinalPutList|_]=Acc,Count} ->
+            %% Acc now contains the possibly rewritten code that
+            %% creates the argument list. All that remains is to
+            %% rewrite the call to error/2 itself so that is will
+            %% refer to rewritten argument list. This is essential
+            %% when all arguments have known literal values as in this
+            %% example:
+            %%
+            %%     foo(X, Y) -> error(function_clause, [0,1]).
+            %%
+            #b_set{op=put_list,dst=ListVar} = FinalPutList,
+            #b_set{args=[ErlangError,Fc,_]} = I0,
+            I = I0#b_set{args=[ErlangError,Fc,ListVar]},
+            {reverse(Acc, [I|Is]),false,Count};
+        {[],_} ->
+            %% Handle code such as:
+            %%
+            %% bar(KnownValue, Stk) -> error(function_clause, Stk).
+            {reverse(Acc0, [I0|Is]),false,Count0}
+    end;
+unfold_lit_is([#b_set{op=Op,args=Args0}=I0|Is], LitMap, Count, Acc) ->
+    %% Using a register instead of a literal is a clear win only for
+    %% `call` and `make_fun` instructions. Substituting into other
+    %% instructions is unlikely to be an improvement.
+    Unfold = case Op of
+                 call -> true;
+                 make_fun -> true;
+                 _ -> false
+             end,
+    I = case Unfold of
+            true ->
+                Args = unfold_call_args(Args0, LitMap, -1),
+                I0#b_set{args=Args};
+            false ->
+                I0
+        end,
+    case beam_ssa:clobbers_xregs(I) of
+        true ->
+            %% This instruction clobbers x register. Don't do
+            %% any substitutions in rest of this block or in any
+            %% of its successors.
+            {reverse(Acc, [I|Is]),false,Count};
+        false ->
+            unfold_lit_is(Is, LitMap, Count, [I|Acc])
+    end;
+unfold_lit_is([], _LitMap, Count, Acc) ->
+    {reverse(Acc),true,Count}.
+
+%% unfold_arg_list(Is, ArgumentList, LitMap, Count0, X, Acc) ->
+%%     {UpdatedAcc, Count}.
+%%
+%%  Unfold the arguments in the argument list (second argument for error/2).
+%%
+%%  Note that Is is the reversed list of instructions before the
+%%  call to error/2. Because of the way the list is built in reverse,
+%%  it means that the first put_list instruction found will add the first
+%%  argument (x0) to the list, the second the second argument (x1), and
+%%  so on.
+
+unfold_arg_list(Is, #b_literal{val=[Hd|Tl]}, LitMap, Count0, X, Acc) ->
+    %% Handle the case that the entire argument list (the second argument
+    %% for error/2) is a literal.
+    {PutListDst,Count} = new_var('@put_list', Count0),
+    PutList = #b_set{op=put_list,dst=PutListDst,
+                     args=[#b_literal{val=Hd},#b_literal{val=Tl}]},
+    unfold_arg_list([PutList|Is], PutListDst, LitMap, Count, X, Acc);
+unfold_arg_list([#b_set{op=put_list,dst=List,
+                         args=[Hd0,#b_literal{val=[Hd|Tl]}]}=I0|Is0],
+                 List, LitMap, Count0, X, Acc) ->
+    %% The rest of the argument list is a literal list.
+    {PutListDst,Count} = new_var('@put_list', Count0),
+    PutList = #b_set{op=put_list,dst=PutListDst,
+                     args=[#b_literal{val=Hd},#b_literal{val=Tl}]},
+    I = I0#b_set{args=[Hd0,PutListDst]},
+    unfold_arg_list([I,PutList|Is0], List, LitMap, Count, X, Acc);
+unfold_arg_list([#b_set{op=put_list,dst=List,args=[Hd0,Tl]}=I0|Is],
+                 List, LitMap, Count, X, Acc) ->
+    %% Unfold the head of the list.
+    Hd = unfold_arg(Hd0, LitMap, X),
+    I = I0#b_set{args=[Hd,Tl]},
+    unfold_arg_list(Is, Tl, LitMap, Count, X + 1, [I|Acc]);
+unfold_arg_list([I|Is], List, LitMap, Count, X, Acc) ->
+    %% Some other instruction, such as bs_get_tail.
+    unfold_arg_list(Is, List, LitMap, Count, X, [I|Acc]);
+unfold_arg_list([], _, _, Count, _, Acc) ->
+    {reverse(Acc),Count}.
+
+unfold_call_args([A0|As], LitMap, X) ->
+    A = unfold_arg(A0, LitMap, X),
+    [A|unfold_call_args(As, LitMap, X + 1)];
+unfold_call_args([], _, _) -> [].
+
+unfold_arg(#b_literal{val=Val}=Lit, LitMap, X) ->
+    case LitMap of
+        #{Val:=Vars} ->
+            %% This literal is available in an x register.
+            %% If it is in the correct x register, use
+            %% the register. Don't bother if it is in the
+            %% wrong register, because that would still result
+            %% in a `move` instruction.
+            case keyfind(X, 1, Vars) of
+                false -> Lit;
+                {X,Var} -> Var
+            end;
+        #{} -> Lit
+    end;
+unfold_arg(Expr, _LitMap, _X) -> Expr.
+
+%%%
 %%% Common utilities.
 %%%
 
@@ -2353,4 +2578,6 @@ new_var(#b_var{name={Base,N}}, Count) ->
     true = is_integer(N),                       %Assertion.
     {#b_var{name={Base,Count}},Count+1};
 new_var(#b_var{name=Base}, Count) ->
+    {#b_var{name={Base,Count}},Count+1};
+new_var(Base, Count) when is_atom(Base) ->
     {#b_var{name={Base,Count}},Count+1}.
