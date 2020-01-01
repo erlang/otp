@@ -1877,7 +1877,7 @@ true</pre>
             <p>It might point to the <c>init</c> process if the
               <c>Fun</c> was statically allocated when module was
               loaded (this optimisation is performed for local
-              functions that do not capture the enviornment).</p>
+              functions that do not capture the environment).</p>
           </item>
           <tag><c>{index, Index}</c></tag>
           <item>
