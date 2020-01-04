@@ -2716,36 +2716,30 @@ load_code(LoaderState* stp)
                 num_trailing_f = 0;
             }
 #endif
+            CodeNeed(1);
 	    switch (tmp_op->a[arg].type) {
 	    case TAG_i:
-		CodeNeed(1);
 		code[ci++] = make_small(tmp_op->a[arg].val);
 		break;
 	    case TAG_u:
 	    case TAG_a:
 	    case TAG_v:
-		CodeNeed(1);
 		code[ci++] = tmp_op->a[arg].val;
 		break;
 	    case TAG_f:
-		CodeNeed(1);
                 register_label_patch(stp, tmp_op->a[arg].val, ci, -last_instr_start);
 		ci++;
 		break;
 	    case TAG_x:
-		CodeNeed(1);
 		code[ci++] = make_loader_x_reg(tmp_op->a[arg].val);
 		break;
 	    case TAG_y:
-		CodeNeed(1);
 		code[ci++] = make_loader_y_reg(tmp_op->a[arg].val);
 		break;
 	    case TAG_n:
-		CodeNeed(1);
 		code[ci++] = NIL;
 		break;
 	    case TAG_q:
-		CodeNeed(1);
 		new_literal_patch(stp, ci);
 		code[ci++] = tmp_op->a[arg].val;
 		break;
