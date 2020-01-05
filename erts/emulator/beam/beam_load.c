@@ -2986,6 +2986,7 @@ load_code(LoaderState* stp)
 #define succ3(St, X, Y) ((X).type == (Y).type && (X).val + 3 == (Y).val)
 #define succ4(St, X, Y) ((X).type == (Y).type && (X).val + 4 == (Y).val)
 
+#define offset(St, X, Y, Offset) ((X).type == (Y).type && (X).val + Offset == (Y).val)
 
 #ifdef NO_FPE_SIGNALS 
 #define no_fpe_signals(St) 1
