@@ -2471,11 +2471,17 @@ sub tr_gen_from {
 	    $name = $1;
 	    $may_fail = 1;
 	    my $var;
-	    my(@args);
+	    my @args;
+            my @vars;
 
 	    foreach $var (@ops) {
-		error($where, "variable '$var' unbound")
+                if ($var =~ /^-?\d+$/) {
+                    push @args, $var;
+                    next;
+                }
+		error($where, "'$var' unbound")
 		    unless defined $var{$var};
+                push @vars, $var;
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "var[$var{$var}]");
 		} else {
@@ -2483,8 +2489,8 @@ sub tr_gen_from {
 		}
 	    }
 	    my $pi = tr_next_index(\@pred_table, \%pred_table, $name, @args);
-	    my $op = make_op("$name()", 'pred', $pi);
-	    my @slots = grep(/^\d+/, map { $var{$_} } @ops);
+            my $op = make_op("$name()", 'pred', $pi);
+            my @slots = grep(/^\d+/, map { $var{$_} } @vars);
 	    op_slot_usage($op, @slots);
 	    push(@code, $op);
 	    next;
