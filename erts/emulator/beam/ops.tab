@@ -74,35 +74,29 @@ trace_jump W
 
 return
 
-# To ensure that a "move Src x(0)" instruction can be combined with
-# the following call instruction, we need to make sure that there is
-# no line/1 instruction between the move and the call.
-
-move S X0=x==0 | line Loc | call Ar Func => \
-     line Loc | move S X0 | call Ar Func
-
-move S X0=x==0 | line Loc | call_ext Ar Func => \
-     line Loc | move S X0 | call_ext Ar Func
-
 #
 # A tail call will not refer to the current function on error unless it's a
 # BIF, so we can omit the line instruction for non-BIFs.
 #
 
-move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_bif D => \
-     line Loc | move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_bif => \
-     line Loc | move S X0 | call_ext_only Ar Func
-
-move S X0=x==0 | line Loc | call_ext_last Ar Func D => \
+move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D => \
      move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func => \
+move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_not_bif => \
      move S X0 | call_ext_only Ar Func
 
 move S X0=x==0 | line Loc | call_last Ar Func D => \
      move S X0 | call_last Ar Func D
 move S X0=x==0 | line Loc | call_only Ar Func => \
      move S X0 | call_only Ar Func
+
+# To ensure that a "move Src x(0)" instruction can be combined with
+# the following call instruction, we need to make sure that there is
+# no line/1 instruction between the move and the call. (We don't
+# need to match the call instruction, because reordering the move
+# and line instructions would be harmless even if no call instruction
+# follows.)
+
+move S X0=x==0 | line Loc => line Loc | move S X0
 
 line Loc | func_info M F A => func_info M F A | line Loc
 
