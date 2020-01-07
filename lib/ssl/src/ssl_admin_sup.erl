@@ -89,8 +89,9 @@ session_and_cert_manager_child_spec() ->
 
 ticket_store_spec() ->
     Name = tls_client_ticket_store,
-    %% TODO do not hardcode storage size and lifetime
-    StartFunc = {tls_client_ticket_store, start_link, [20,10]},
+    Size = client_session_ticket_store_size(),
+    Lifetime = client_session_ticket_lifetime(),
+    StartFunc = {tls_client_ticket_store, start_link, [Size,Lifetime]},
     Restart = permanent,
     Shutdown = 4000,
     Modules = [tls_client_ticket_store],
@@ -103,4 +104,22 @@ session_cb_init_args() ->
 	    Args;
 	_  ->
 	    []
+    end.
+
+client_session_ticket_store_size() ->
+    case application:get_env(ssl, client_session_ticket_store_size) of
+	{ok, Size} when is_integer(Size) andalso
+                        Size > 0 ->
+	    Size;
+	_  ->
+	    1000
+    end.
+
+client_session_ticket_lifetime() ->
+    case application:get_env(ssl, client_session_ticket_lifetime) of
+	{ok, Size} when is_integer(Size) andalso
+                        Size > 0 ->
+	    Size;
+	_  ->
+	    7200
     end.

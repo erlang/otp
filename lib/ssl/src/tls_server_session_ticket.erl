@@ -31,7 +31,7 @@
 -include("ssl_cipher.hrl").
 
 %% API
--export([start_link/3,
+-export([start_link/4,
          new/3,
          use/4
         ]).
@@ -52,12 +52,12 @@
 %%%===================================================================
 %%% API
 %%%===================================================================
--spec start_link(atom(), integer(), tuple()) -> {ok, Pid :: pid()} |
+-spec start_link(atom(), integer(), integer(), tuple()) -> {ok, Pid :: pid()} |
                       {error, Error :: {already_started, pid()}} |
                       {error, Error :: term()} |
                       ignore.
-start_link(Mode, Lifetime, AntiReplay) ->
-    gen_server:start_link(?MODULE, [Mode, Lifetime, AntiReplay], []).
+start_link(Mode, Lifetime, TicketStoreSize, AntiReplay) ->
+    gen_server:start_link(?MODULE, [Mode, Lifetime, TicketStoreSize, AntiReplay], []).
 
 new(Pid, Prf, MasterSecret) ->
     gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret}, infinity).
@@ -142,14 +142,14 @@ format_status(_Opt, Status) ->
 %%% Internal functions
 %%%===================================================================
 
-inital_state([stateless, Lifetime, undefined]) ->
+inital_state([stateless, Lifetime, _, undefined]) ->
     #state{nonce = 0,
            stateless = #{seed => {crypto:strong_rand_bytes(16), 
                                   crypto:strong_rand_bytes(32)},
                          window => undefined},
            lifetime = Lifetime
           };
-inital_state([stateless, Lifetime, {Window, K, M}]) ->
+inital_state([stateless, Lifetime, _, {Window, K, M}]) ->
     erlang:send_after(Window * 1000, self(), rotate_bloom_filters),
     #state{nonce = 0,
            stateless = #{bloom_filter => tls_bloom_filter:new(K, M),
@@ -158,14 +158,14 @@ inital_state([stateless, Lifetime, {Window, K, M}]) ->
                          window => Window},
            lifetime = Lifetime
           };
-inital_state([stateful, Lifetime|_]) ->
+inital_state([stateful, Lifetime, TicketStoreSize|_]) ->
     %% statfeful servers replay
     %% protection is that it saves
     %% all valid tickets
     #state{lifetime = Lifetime,
            nonce = 0,
            stateful = #{db => stateful_store(),                    
-                        max => 1000,
+                        max => TicketStoreSize,
                         ref_index => #{}
                        }
           }.

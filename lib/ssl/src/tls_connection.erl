@@ -1385,7 +1385,7 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
                                  ssl_options = #{session_tickets := SessionTickets,
                                                  server_name_indication := SNI},
                                  connection_env = #connection_env{user_application = {_, User}}})
-  when SessionTickets =:= enabled ->
+  when SessionTickets =:= manual ->
     #{security_parameters := SecParams} =
 	ssl_record:current_connection_state(ConnectionStates, read),
     HKDF = SecParams#security_parameters.prf_algorithm,
