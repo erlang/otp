@@ -256,6 +256,26 @@
       <name name="reason"/>
      </datatype>
 
+     <datatype>
+      <name name="bloom_filter_window_size"/>
+     </datatype>
+
+     <datatype>
+      <name name="bloom_filter_hash_functions"/>
+     </datatype>
+
+     <datatype>
+      <name name="bloom_filter_bits"/>
+     </datatype>
+
+     <datatype>
+      <name name="client_session_tickets"/>
+     </datatype>
+
+     <datatype>
+      <name name="server_session_tickets"/>
+     </datatype>
+
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - COMMON for SERVER and CLIENT</datatype_title>
     
     <datatype>
@@ -720,7 +740,13 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name name="ssl_imp"/>
         <desc><p>Deprecated since OTP-17, has no affect.</p></desc>
     </datatype>
-    
+
+    <datatype>
+      <name name="session_tickets"/>
+      <desc><p>Configures the session ticket functionalty in TLS 1.3 client and server. </p>
+      </desc>
+    </datatype>
+
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - CLIENT</datatype_title>
     
     <datatype>
@@ -907,7 +933,39 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	</p>
 	</desc>
       </datatype>
-      
+
+      <datatype>
+	<name name="client_session_tickets"/>
+	<desc>
+	  <p>Configures the session ticket functionality. Allowed values are <c>disabled</c>,
+	  <c>manual</c> and <c>auto</c>. If it is set to <c>manual</c> the client will send
+	  the ticket information to user process in a 3-tuple:</p>
+	  <p><c>{ssl, session_ticket, {SNI, TicketData}}</c></p>
+	  <p>where <c>SNI</c> is the ServerNameIndication and <c>TicketData</c> is the extended
+	  ticket data that can be used in subsequent session resumptions.</p>
+	  <p>If it is set to <c>auto</c>, the client automatically handles received tickets and tries
+	  to use them when making new TLS connections (session resumption with pre-shared keys).</p>
+	  <note><p>This option is supported by TLS 1.3 and above. See also
+	  <seealso marker="ssl:using_ssl#session-tickets-and-session-resumption-in-tls-1.3">
+	  SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3</seealso>
+	  </p></note>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="use_ticket"/>
+	<desc>
+	  <p>Configures the session tickets to be used for session resumption. It is a mandatory
+	  option in <c>manual</c> mode (<c>session_tickets = manual</c>).</p>
+	  <note><p>Session tickets are only sent to user if option <em>session_tickets</em> is set
+	  to <c>manual</c></p>
+	  <p>This option is supported by TLS 1.3 and above. See also
+	  <seealso marker="ssl:using_ssl#session-tickets-and-session-resumption-in-tls-1.3">
+	  SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3</seealso>
+	  </p></note>
+	</desc>
+      </datatype>
+
       <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - SERVER </datatype_title>
 
 
@@ -1111,6 +1169,55 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	marker="#type-client_signature_algs">corresponding client
 	option</seealso>.
       </p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="server_session_tickets"/>
+	<desc>
+	  <p>Configures the session ticket functionality. Allowed values are <c>disabled</c>,
+	  <c>stateful</c> and <c>stateless</c>.</p>
+	  <p>If it is set to <c>stateful</c> or
+	  <c>stateless</c>, session resumption with pre-shared keys is enabled and the server will
+	  send stateful or stateless session tickets to the client after successful connections.</p>
+	  <p>A stateful session ticket is a database reference to internal state information.
+	  A stateless session ticket is a self-encrypted binary that contains both cryptographic keying
+	  material and state data.
+	  </p>
+	  <note><p>This option is supported by TLS 1.3 and above. See also
+	  <seealso marker="ssl:using_ssl#session-tickets-and-session-resumption-in-tls-1.3">
+	  SSL's Users Guide, Session Tickets and Session Resumption in TLS 1.3</seealso>
+	  </p></note>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="anti_replay"/>
+	<desc>
+	  <p>Configures the server's built-in anti replay feature based on Bloom filters.</p>
+
+	  <p>Allowed values are the pre-defined <c>'10k'</c>, <c>'100k'</c> or a custom 3-tuple that
+	  defines the properties of the bloom filters: <c>{WindowSize, HashFunctions, Bits}</c>.
+	  <c>WindowSize</c> is the number of seconds after the current Bloom filter is rotated
+	  and also the window size used for freshness checks. <c>HashFunctions</c> is the number
+	  hash functions and <c>Bits</c> is the number of bits in the bit vector.
+	  <c>'10k'</c> and <c>'100k'</c> are simple defaults with the following properties:</p>
+	  <list type="bulleted">
+	    <item><p><c>'10k'</c>: Bloom filters can hold 10000 elements with 3% probability of
+	    false positives. <c>WindowSize</c>: 10, <c>HashFunctions</c>: 5, <c>Bits:</c>
+	    72985 (8.91 KiB).</p></item>
+	    <item><p><c>'100k'</c>: Bloom filters can hold 100000 elements with 3% probability of
+	    false positives. <c>WindowSize</c>: 10, <c>HashFunctions</c>: 5, <c>Bits</c>:
+	    729845 (89.09 KiB).</p></item>
+	  </list>
+
+	  <note><p>This option is supported by TLS 1.3 and above and only with stateless session tickets.
+	  Ticket lifetime, the number of tickets sent by the server and the maximum number of tickets
+	  stored by the server in stateful mode are configured by
+	  <seealso marker="ssl:ssl_app#configuration">application variables</seealso>. See also
+	  <seealso marker="ssl:using_ssl#anti-replay-protection-in-tls-1.3">
+	  SSL's Users Guide, Anti-Replay Protection in TLS 1.3</seealso>
+	  </p></note>
 	</desc>
       </datatype>
     </datatypes>

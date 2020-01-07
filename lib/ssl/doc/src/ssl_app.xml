@@ -52,7 +52,8 @@
 
   <section>
     <title>CONFIGURATION</title>
-    <p>The application environment configuration parameters in this section 
+    <p>
+    The application environment configuration parameters in this section
     are defined for the SSL application. For more information 
     about configuration parameters, see the 
     <seealso marker="kernel:application">application(3)</seealso>
@@ -138,7 +139,7 @@
       </item>
 
       <tag><c><![CDATA[internal_active_n = integer() <optional>]]></c></tag>
-        <item>
+      <item>
 	<p>
 	  For TLS connections this value is used to handle the
 	  internal socket. As the implementation was changed from an
@@ -148,6 +149,47 @@
 	  unforeseen scenarios.  The option will not affect erlang
 	  distribution over TLS that will always run in active N mode.
 	  Added in ssl-9.1 (OTP-21.2).
+	</p>
+      </item>
+
+      <tag><c><![CDATA[server_session_tickets_amount = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Number of session tickets sent by the server. It must be greater than 0.
+	  Defaults to 3.
+	</p>
+      </item>
+
+      <tag><c><![CDATA[server_session_ticket_lifetime = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Lifetime of session tickets sent by the server. Servers must not use
+	  any value greater than 604800 seconds (7 days). Expired tickets are automatically removed.
+	  Defaults to 7200 seconds (2 hours).
+	</p>
+      </item>
+
+      <tag><c><![CDATA[server_session_ticket_store_size = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Sets the maximum size of the server session ticket store (stateful tickets).
+	  Defaults to 1000. Size limit is enforced by dropping old tickets.
+	</p>
+      </item>
+
+      <tag><c><![CDATA[client_session_ticket_lifetime = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Lifetime of session tickets in the client ticket store. Expired tickets are
+	  automatically removed. Defaults to 7200 seconds (2 hours).
+	</p>
+      </item>
+
+      <tag><c><![CDATA[client_session_ticket_store_size = integer() <optional>]]></c></tag>
+      <item>
+	<p>
+	  Sets the maximum size of the client session ticket store.
+	  Defaults to 1000. Size limit is enforced by dropping old tickets.
 	</p>
       </item>
     </taglist>

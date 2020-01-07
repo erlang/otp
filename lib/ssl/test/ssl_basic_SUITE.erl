@@ -439,11 +439,11 @@ tls_versions_option(Config) when is_list(Config) ->
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
     Server ! listen,				       
-    
+    Versions = remove_supported_versions(Available, Supported),
     ErrClient = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
 						 {host, Hostname},
 						 {from, self()},
-						 {options, [{versions , Available -- Supported} | ClientOpts]}]),
+						 {options, [{versions , Versions} | ClientOpts]}]),
     receive
 	{Server, _} ->
 	    ok
@@ -514,4 +514,15 @@ version_option_test(Config, Version) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+remove_supported_versions(Available, Supported) ->
+    Versions0 = Available -- Supported,
+    case lists:member('tlsv1.3', Versions0) andalso
+        not lists:member('tlsv1.2', Versions0) of
+        true ->
+            %% If 'tlsv1.2' is removed, remove also 'tlsv1.3'
+            Versions0 -- ['tlsv1.3'];
+        _ ->
+            Versions0
+    end.
 

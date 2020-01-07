@@ -312,7 +312,8 @@
                                 {hibernate_after, hibernate_after()} |
                                 {padding_check, padding_check()} |
                                 {beast_mitigation, beast_mitigation()} |
-                                {ssl_imp, ssl_imp()}.
+                                {ssl_imp, ssl_imp()} |
+                                {session_tickets, session_tickets()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -352,6 +353,17 @@
 -type psk_identity()             :: string().
 -type log_alert()                :: boolean().
 -type logging_level()            :: logger:level().
+-type client_session_tickets()   :: disabled | manual | auto.
+-type server_session_tickets()   :: disabled | stateful | stateless.
+-type session_tickets()          :: client_session_tickets() | server_session_tickets().
+-type bloom_filter_window_size()    :: integer().
+-type bloom_filter_hash_functions() :: integer().
+-type bloom_filter_bits()           :: integer().
+-type anti_replay()              :: '10k' | '100k' |
+                                    {bloom_filter_window_size(),    %% number of seconds in time window
+                                     bloom_filter_hash_functions(), %% k - number of hash functions
+                                     bloom_filter_bits()}.          %% m - number of bits in bit vector
+-type use_ticket()               :: [binary()].
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -366,8 +378,10 @@
                                 {srp_identity, client_srp_identity()} |
                                 {server_name_indication, sni()} |
                                 {customize_hostname_check, customize_hostname_check()} |
-                                {signature_algs, client_signature_algs()} |                                    
-                                {fallback, fallback()}.
+                                {signature_algs, client_signature_algs()} |
+                                {fallback, fallback()} |
+                                {session_tickets, client_session_tickets()} |
+                                {use_ticket, use_ticket()}.
 
 -type client_verify_type()       :: verify_type().
 -type client_reuse_session()     :: session_id().
@@ -408,7 +422,9 @@
                                 {honor_cipher_order, honor_cipher_order()} |
                                 {honor_ecc_order, honor_ecc_order()} |
                                 {client_renegotiation, client_renegotiation()}|
-                                {signature_algs, server_signature_algs()}.
+                                {signature_algs, server_signature_algs()} |
+                                {session_tickets, server_session_tickets()} |
+                                {anti_replay, anti_replay()}.
 
 -type server_cacerts()           :: [public_key:der_encoded()].
 -type server_cafile()            :: file:filename().
@@ -1553,7 +1569,19 @@ process_options({[{K0,V} = E|T], S, Counter}, OptionsMap0, Env) ->
             process_options({T, [E|S], Counter}, OptionsMap0, Env)
     end.
 
-
+handle_option(anti_replay = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(anti_replay = Option, Value0,
+              #{session_tickets := SessionTickets} = OptionsMap, #{rules := Rules}) ->
+    assert_option_dependency(Option, session_tickets, [SessionTickets], [stateless]),
+    case SessionTickets of
+        stateless ->
+            Value = validate_option(Option, Value0),
+            OptionsMap#{Option => Value};
+        _ ->
+            OptionsMap#{Option => default_value(Option, Rules)}
+    end;
 handle_option(cacertfile = Option, unbound, #{cacerts := CaCerts,
                                               verify := Verify,
                                               verify_fun := VerifyFun} = OptionsMap, _Env)
@@ -1641,23 +1669,19 @@ handle_option(reuse_sessions = Option, unbound, OptionsMap, #{rules := Rules}) -
 handle_option(reuse_sessions = Option, Value0, OptionsMap, _Env) ->
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
-handle_option(anti_replay = Option, unbound, OptionsMap, #{rules := Rules}) ->
-    Value = validate_option(Option, default_value(Option, Rules)),
-    OptionsMap#{Option => Value};
-handle_option(anti_replay = Option, Value0,
-              #{session_tickets := SessionTickets} = OptionsMap, #{rules := Rules}) ->
-    case SessionTickets of
-        stateless ->
-            Value = validate_option(Option, Value0),
-            OptionsMap#{Option => Value};
-        _ ->
-            OptionsMap#{Option => default_value(Option, Rules)}
-end;
 handle_option(server_name_indication = Option, unbound, OptionsMap, #{host := Host,
-                                                                        role := Role}) ->
+                                                                      role := Role}) ->
     Value = default_option_role(client, server_name_indication_default(Host), Role),
     OptionsMap#{Option => Value};
 handle_option(server_name_indication = Option, Value0, OptionsMap, _Env) ->
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
+handle_option(session_tickets = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(session_tickets = Option, Value0, #{versions := Versions} = OptionsMap, #{role := Role}) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    assert_role_value(Role, Option, Value0, [disabled, stateful, stateless], [disabled, manual, auto]),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(signature_algs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{role := Role}) ->
@@ -1846,6 +1870,45 @@ assert_role(server_only, _, _, undefined) ->
     ok;
 assert_role(Type, _, Key, _) ->
     throw({error, {option, Type, Key}}).
+
+
+assert_role_value(client, Option, Value, _, ClientValues) ->
+        case lists:member(Value, ClientValues) of
+            true ->
+                ok;
+            false ->
+                %% throw({error, {option, client, Option, Value, ClientValues}})
+                throw({error, {options, role, {Option, {Value, {client, ClientValues}}}}})
+        end;
+assert_role_value(server, Option, Value, ServerValues, _) ->
+        case lists:member(Value, ServerValues) of
+            true ->
+                ok;
+            false ->
+                %% throw({error, {option, server, Option, Value, ServerValues}})
+                throw({error, {options, role, {Option, {Value, {server, ServerValues}}}}})
+        end.
+
+
+assert_option_dependency(Option, OptionDep, Values0, AllowedValues) ->
+    %% special handling for version
+    Values =
+        case OptionDep of
+            versions ->
+                lists:map(fun tls_record:protocol_version/1, Values0);
+            _ ->
+                Values0
+        end,
+    Set1 = sets:from_list(Values),
+    Set2 = sets:from_list(AllowedValues),
+    case sets:size(sets:intersection(Set1, Set2)) > 0 of
+        true ->
+            ok;
+        false ->
+            %% Message = build_error_message(Option, OptionDep, AllowedValues),
+            %% throw({error, {options, Message}})
+            throw({error, {options, dependency, {Option, {OptionDep, AllowedValues}}}})
+    end.
 
 
 validate_option(versions, Versions)  ->
@@ -2094,7 +2157,7 @@ validate_option(cb_info, {V1, V2, V3, V4, V5} = Value) when is_atom(V1),
 validate_option(use_ticket, Value) when is_list(Value) ->
     Value;
 validate_option(session_tickets, Value) when Value =:= disabled orelse
-                                             Value =:= enabled orelse
+                                             Value =:= manual orelse
                                              Value =:= auto orelse
                                              Value =:= stateless orelse
                                              Value =:= stateful ->
@@ -2202,7 +2265,7 @@ validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
 
 tls_validate_versions([], Versions) ->
-    Versions;
+    tls_validate_version_gap(Versions);
 tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
                                                        Version == 'tlsv1.2';
                                                        Version == 'tlsv1.1';
@@ -2211,6 +2274,22 @@ tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
     tls_validate_versions(Rest, Versions);                  
 tls_validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
+
+%% Do not allow configuration of TLS 1.3 with a gap where TLS 1.2 is not supported
+%% as that configuration can trigger the built in version downgrade protection
+%% mechanism and the handshake can fail with an Illegal Parameter alert.
+tls_validate_version_gap(Versions) ->
+    case lists:member('tlsv1.3', Versions) of
+        true when length(Versions) >= 2 ->
+            case lists:member('tlsv1.2', Versions) of
+                true ->
+                    Versions;
+                false ->
+                    throw({error, {options, missing_version, {'tlsv1.2', {versions, Versions}}}})
+            end;
+        _ ->
+            Versions
+    end.
 
 dtls_validate_versions([], Versions) ->
     Versions;

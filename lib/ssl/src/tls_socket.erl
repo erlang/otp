@@ -78,8 +78,9 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
     case Transport:listen(Port, Options ++ internal_inet_values()) of
 	{ok, ListenSocket} ->
 	    {ok, Tracker} = inherit_tracker(ListenSocket, EmOpts, SslOpts),
-            %% TODO not hard code
-            {ok, SessionHandler} = session_tickets_tracker(7200, SslOpts),
+            LifeTime = get_ticket_lifetime(),
+            TicketStoreSize = get_ticket_store_size(),
+            {ok, SessionHandler} = session_tickets_tracker(LifeTime, TicketStoreSize, SslOpts),
             Trackers =  [{option_tracker, Tracker}, {session_tickets_tracker, SessionHandler}],
             Socket = #sslsocket{pid = {ListenSocket, Config#config{trackers = Trackers}}},
             check_active_n(EmOpts, Socket),
@@ -255,15 +256,16 @@ inherit_tracker(ListenSocket, EmOpts, #{erl_dist := false} = SslOpts) ->
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts]).
 
-session_tickets_tracker(_, #{erl_dist := false,
-                             session_tickets := disabled}) ->
+session_tickets_tracker(_, _, #{erl_dist := false,
+                                session_tickets := disabled}) ->
     {ok, disabled};
-session_tickets_tracker(Lifetime, #{erl_dist := false,
+session_tickets_tracker(Lifetime, TicketStoreSize, #{erl_dist := false,
                                     session_tickets := Mode,
                                     anti_replay := AntiReplay}) ->
-    tls_server_session_ticket_sup:start_child([Mode, Lifetime, AntiReplay]);
-session_tickets_tracker(Lifetime, #{erl_dist := true, session_tickets := Mode}) ->
-    tls_server_session_ticket_sup:start_child_dist([Mode, Lifetime]).
+    tls_server_session_ticket_sup:start_child([Mode, Lifetime, TicketStoreSize, AntiReplay]);
+session_tickets_tracker(Lifetime, TicketStoreSize, #{erl_dist := true,
+                                                     session_tickets := Mode}) ->
+    tls_server_session_ticket_sup:start_child_dist([Mode, Lifetime, TicketStoreSize]).
 
 
 get_emulated_opts(TrackerPid) -> 
@@ -469,3 +471,20 @@ validate_inet_option(active, Value)
     throw({error, {options, {active,Value}}});
 validate_inet_option(_, _) ->
     ok.
+
+get_ticket_lifetime() ->
+    case application:get_env(ssl, server_session_ticket_lifetime) of
+	{ok, Seconds} when is_integer(Seconds) andalso
+                           Seconds =< 604800 ->  %% MUST be less than 7 days
+	    Seconds;
+	_  ->
+	    7200 %% Default 2 hours
+    end.
+
+get_ticket_store_size() ->
+    case application:get_env(ssl, server_session_ticket_store_size) of
+	{ok, Size} when is_integer(Size) ->
+	    Size;
+	_  ->
+	    1000
+    end.

@@ -136,7 +136,13 @@ tls13_group() ->
     [
      supported_groups,
      honor_server_cipher_order_tls13,
-     honor_client_cipher_order_tls13
+     honor_client_cipher_order_tls13,
+     client_options_negative_version_gap,
+     client_options_negative_dependency_version,
+     client_options_negative_dependency_stateless,
+     client_options_negative_dependency_role,
+     server_options_negative_version_gap,
+     server_options_negative_dependency_role
     ].
 
 
@@ -518,7 +524,7 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
                                         {from, self()},
                                         {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                         {options, ssl_test_lib:ssl_options([{handshake, hello},
-                                                                            {session_tickets, enabled},
+                                                                            {session_tickets, manual},
                                                                             {use_ticket, [DummyTicket]},
                                                                             {versions, ['tlsv1.3',
                                                                                         'tlsv1.2',
@@ -1748,6 +1754,60 @@ honor_client_cipher_order_tls13(Config) when is_list(Config) ->
                                                                       prf => sha384}).
 
 %%--------------------------------------------------------------------
+client_options_negative_version_gap() ->
+    [{doc,"Test client options with faulty version gap."}].
+client_options_negative_version_gap(Config) when is_list(Config) ->
+    start_client_negative(Config, [{versions, ['tlsv1', 'tlsv1.3']}],
+                          {options, missing_version,
+                           {'tlsv1.2', {versions,[tlsv1, 'tlsv1.3']}}}).
+
+%%--------------------------------------------------------------------
+client_options_negative_dependency_version() ->
+    [{doc,"Test client options with faulty version dependency."}].
+client_options_negative_dependency_version(Config) when is_list(Config) ->
+    start_client_negative(Config, [{versions, ['tlsv1.1', 'tlsv1.2']},
+                                   {session_tickets, manual}],
+                          {options,dependency,
+                           {session_tickets,{versions,['tlsv1.3']}}}).
+
+%%--------------------------------------------------------------------
+client_options_negative_dependency_stateless() ->
+    [{doc,"Test client options with faulty 'session_tickets' option."}].
+client_options_negative_dependency_stateless(Config) when is_list(Config) ->
+    start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {anti_replay, '10k'},
+                                   {session_tickets, manual}],
+                          {options,dependency,
+                           {anti_replay,{session_tickets,[stateless]}}}).
+
+
+%%--------------------------------------------------------------------
+client_options_negative_dependency_role() ->
+    [{doc,"Test client options with faulty role."}].
+client_options_negative_dependency_role(Config) when is_list(Config) ->
+    start_client_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, stateless}],
+                          {options,role,
+                           {session_tickets,{stateless,{client,[disabled,manual,auto]}}}}).
+
+%%--------------------------------------------------------------------
+server_options_negative_version_gap() ->
+    [{doc,"Test server options with faulty version gap."}].
+server_options_negative_version_gap(Config) when is_list(Config) ->
+    start_server_negative(Config, [{versions, ['tlsv1', 'tlsv1.3']}],
+                          {options, missing_version,
+                           {'tlsv1.2', {versions,[tlsv1, 'tlsv1.3']}}}).
+
+%%--------------------------------------------------------------------
+server_options_negative_dependency_role() ->
+    [{doc,"Test server options with faulty role."}].
+server_options_negative_dependency_role(Config) when is_list(Config) ->
+    start_server_negative(Config, [{versions, ['tlsv1.2', 'tlsv1.3']},
+                                   {session_tickets, manual}],
+                          {options,role,
+                           {session_tickets,{manual,{server,[disabled,stateful,stateless]}}}}).
+
+%%--------------------------------------------------------------------
 honor_server_cipher_order_tls13() ->
     [{doc,"Test API honor server cipher order in TLS 1.3."}].
 honor_server_cipher_order_tls13(Config) when is_list(Config) ->
@@ -2109,6 +2169,28 @@ honor_cipher_order(Config, Honor, ServerCiphers, ClientCiphers, Expected) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+start_client_negative(Config, Options, Error) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, 0},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options, Options ++ ClientOpts}]),
+    ct:pal("Actual: ~p~nExpected: ~p", [Client, {connect_failed, Error}]),
+    {connect_failed, Error} = Client.
+
+start_server_negative(Config, Options, Error) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, connection_info_result, []}},
+					{options,  Options ++ ServerOpts}]),
+
+    ct:pal("Actual: ~p~nExpected: ~p", [Server,Error]),
+    Error = Server.
 
 connection_info_result(Socket) ->
     {ok, Info} = ssl:connection_information(Socket, [protocol, selected_cipher_suite]),
