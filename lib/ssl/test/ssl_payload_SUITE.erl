@@ -27,6 +27,7 @@
 
 -define(TIMEOUT, 600000).
 
+
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -523,7 +524,7 @@ server_echos_passive(
           [{node, ServerNode}, {port, 0},
            {from, self()},
            {mfa, {?MODULE, echoer, [Length]}},
-           {options, [{active, false}, {mode, binary} | ServerOpts]}]),
+           {options, [{active, false}, {mode, binary} | ServerOpts] ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client(
@@ -531,7 +532,7 @@ server_echos_passive(
            {host, Hostname},
            {from, self()},
            {mfa, {?MODULE, sender, [Data]}},
-           {options, [{active, false}, {mode, binary} | ClientOpts]}]),
+           {options, [{active, false}, {mode, binary} | ClientOpts] ++ ssl_test_lib:bigger_buffers() }]),
     %%
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %%
@@ -569,7 +570,7 @@ server_echos_active_once(
           [{node, ServerNode}, {port, 0},
            {from, self()},
            {mfa, {?MODULE, echoer_active_once, [Length]}},
-           {options, [{active, once}, {mode, binary} | ServerOpts]}]),
+           {options, [{active, once}, {mode, binary} | ServerOpts] ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client(
@@ -577,7 +578,7 @@ server_echos_active_once(
            {host, Hostname},
            {from, self()},
            {mfa, {?MODULE, sender_active_once, [Data]}},
-           {options, [{active, once}, {mode, binary} | ClientOpts]}]),
+           {options, [{active, once}, {mode, binary} | ClientOpts] ++ ssl_test_lib:bigger_buffers() }]),
     %%
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %%
@@ -593,7 +594,7 @@ server_echos_active(
           [{node, ServerNode}, {port, 0},
            {from, self()},
            {mfa, {?MODULE, echoer_active, [Length]}},
-           {options, [{active, true}, {mode, binary} | ServerOpts]}]),
+           {options, [{active, true}, {mode, binary} | ServerOpts] ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client(
@@ -601,7 +602,7 @@ server_echos_active(
            {host, Hostname},
            {from, self()},
            {mfa, {?MODULE, sender_active, [Data]}},
-           {options, [{active, true}, {mode, binary} | ClientOpts]}]),
+           {options, [{active, true}, {mode, binary} | ClientOpts] ++ ssl_test_lib:bigger_buffers()}]),
     %%
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %%
@@ -616,7 +617,7 @@ client_echos_passive(
           [{node, ServerNode}, {port, 0},
            {from, self()},
            {mfa, {?MODULE, sender, [Data]}},
-           {options, [{active, false}, {mode, binary} | ServerOpts]}]),
+           {options, [{active, false}, {mode, binary} | ServerOpts] ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client(
@@ -624,7 +625,7 @@ client_echos_passive(
            {host, Hostname},
            {from, self()},
            {mfa, {?MODULE, echoer, [Length]}},
-           {options, [{active, false}, {mode, binary} | ClientOpts]}]),
+           {options, [{active, false}, {mode, binary} | ClientOpts] ++ ssl_test_lib:bigger_buffers()}]),
     %%
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %%
@@ -640,7 +641,7 @@ client_echos_passive_chunk(
           [{node, ServerNode}, {port, 0},
            {from, self()},
            {mfa, {?MODULE, sender, [Data]}},
-           {options, [{active, false}, {mode, binary} | ServerOpts]}]),
+           {options, [{active, false}, {mode, binary} | ServerOpts] ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client(
@@ -648,7 +649,7 @@ client_echos_passive_chunk(
            {host, Hostname},
            {from, self()},
            {mfa, {?MODULE, echoer_chunk, [Length]}},
-           {options, [{active, false}, {mode, binary} | ClientOpts]}]),
+           {options, [{active, false}, {mode, binary} | ClientOpts] ++ ssl_test_lib:bigger_buffers()}]),
     %%
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %%
@@ -664,7 +665,7 @@ client_echos_active_once(
           [{node, ServerNode}, {port, 0},
            {from, self()},
            {mfa, {?MODULE, sender_active_once, [Data]}},
-           {options, [{active, once}, {mode, binary} | ServerOpts]}]),
+           {options, [{active, once}, {mode, binary} | ServerOpts] ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client(
@@ -672,7 +673,7 @@ client_echos_active_once(
            {host, Hostname},
            {from, self()},
            {mfa, {?MODULE, echoer_active_once, [Length]}},
-           {options,[{active, once}, {mode, binary} | ClientOpts]}]),
+           {options,[{active, once}, {mode, binary} | ClientOpts] ++ ssl_test_lib:bigger_buffers()}]),
     %%
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %%
@@ -687,7 +688,7 @@ client_echos_active(
           [{node, ServerNode}, {port, 0},
            {from, self()},
            {mfa, {?MODULE, sender_active, [Data]}},
-           {options, [{active, true}, {mode, binary} | ServerOpts]}]),
+           {options, [{active, true}, {mode, binary} | ServerOpts] ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client(
@@ -695,7 +696,7 @@ client_echos_active(
            {host, Hostname},
            {from, self()},
            {mfa, {?MODULE, echoer_active, [Length]}},
-           {options, [{active, true}, {mode, binary} | ClientOpts]}]),
+           {options, [{active, true}, {mode, binary} | ClientOpts] ++ ssl_test_lib:bigger_buffers()}]),
     %
     ssl_test_lib:check_result(Server, ok, Client, ok),
     %%
@@ -811,3 +812,4 @@ echo_active(Socket, Size) ->
             echo_active(Socket, Size - byte_size(Data))
     end.    
         
+
