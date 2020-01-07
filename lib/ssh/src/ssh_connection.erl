@@ -428,14 +428,17 @@ exit_status(ConnectionHandler, Channel, Status) ->
 %%% ssh_connection:send (executed in the ssh_connection_state machine)
 %%%
 
-channel_data(ChannelId, DataType, Data, Connection, From) when is_list(Data)->
-    channel_data(ChannelId, DataType, l2b(Data), Connection, From);
-
-channel_data(ChannelId, DataType, Data, 
+channel_data(ChannelId, DataType, Data0, 
 	     #connection{channel_cache = Cache} = Connection,
 	     From) ->
     case ssh_client_channel:cache_lookup(Cache, ChannelId) of
 	#channel{remote_id = Id, sent_close = false} = Channel0 ->
+            Data =
+               try iolist_to_binary(Data0)
+               catch
+                   _:_ -> 
+                       unicode:characters_to_binary(Data0)
+               end,
 	    {SendList, Channel} =
 		update_send_window(Channel0#channel{flow_control = From}, DataType,
 				   Data, Connection),
@@ -1528,26 +1531,4 @@ request_reply_or_data(#channel{local_id = ChannelId, user = ChannelPid},
 	false ->
 	    {[{channel_data, ChannelPid, Reply}], Connection}
     end.
-
-
-
-%%%----------------------------------------------------------------
-%%% l(ist)2b(inary)
-%%%
-l2b(L) when is_integer(hd(L)) ->
-    try list_to_binary(L)
-    of
-	B -> B
-    catch
-	_:_ -> 
-	    unicode:characters_to_binary(L)
-    end;
-l2b([H|T]) -> 
-    << (l2b(H))/binary, (l2b(T))/binary >>;
-l2b(B) when is_binary(B) ->
-    B;
-l2b([]) ->
-    <<>>.
-
-    
 
