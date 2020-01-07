@@ -287,6 +287,24 @@ true</pre>
     </func>
 
     <func>
+      <name name="next_lexeme" arity="2" since="OTP 20.0"/>
+      <fsummary>Get next lexeme from string.</fsummary>
+      <desc>
+	<p>
+	 Returns a first lexeme in <c><anno>String</anno></c> and rest of string,
+	      separated by the grapheme clusters in <c><anno>SeparatorList</anno></c>.
+	</p>
+	<p>Notice that <c>[$\r,$\n]</c> is one grapheme cluster.</p>
+	<p><em>Example:</em></p>
+	<pre>
+1> <input>string:next_lexeme("abc de̊fxxghix jkl\r\nfoo", "x e" ++ [[$\r,$\n]]).</input>
+{"abc","de̊fxxghix jkl\r\nfoo"}
+2> <input>string:next_lexeme(&lt;&lt;"abc de̊fxxghix jkl\r\nfoo"/utf8>>, "x e" ++ [$\r,$\n]).</input>
+{&lt;&lt;"abc">>,&lt;&lt;"de̊fxxghix jkl\r\nfoo"/utf8>>}</pre>
+      </desc>
+    </func>
+
+    <func>
       <name name="lowercase" arity="1" since="OTP 20.0"/>
       <fsummary>Convert a string to lowercase</fsummary>
       <desc>
