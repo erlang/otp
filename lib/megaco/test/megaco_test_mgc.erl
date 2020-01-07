@@ -675,19 +675,27 @@ start_transports1([], Tcp, Udp) ->
 start_transports1([{_TO, _Port, RH}|Transports], Tcp, Udp) 
   when ((RH#megaco_receive_handle.send_mod =:= megaco_tcp) andalso 
 	(not is_pid(Tcp)))  ->
+    d("try start tcp transport service"),
     case megaco_tcp:start_transport() of
 	{ok, Sup} ->
+            d("tcp transport service started: ~p", [Sup]),
 	    start_transports1(Transports, Sup, Udp);
 	Else ->
+            e("Failed starting TCP transport service:"
+              "~n   ~p", [Else]),
 	    throw({error, {failed_starting_tcp_transport, Else}})
     end;
 start_transports1([{_TO, _Port, RH}|Transports], Tcp, Udp) 
   when ((RH#megaco_receive_handle.send_mod =:= megaco_udp) andalso 
 	(not is_pid(Udp))) ->
+    d("try start udp transport servuice"),
     case megaco_udp:start_transport() of
 	{ok, Sup} ->
+            d("udp transport started: ~p", [Sup]),
 	    start_transports1(Transports, Tcp, Sup);
 	Else ->
+            e("Failed starting UDP transport service:"
+              "~n   ~p", [Else]),
 	    throw({error, {failed_starting_udp_transport, Else}})
     end;
 start_transports1([_|Transports], Tcp, Udp) ->
@@ -1195,6 +1203,9 @@ cancel_timer(Ref) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+e(F, A) ->
+    print(error, get(verbosity), "ERROR", F, A).
+
 i(F) ->
     i(F, []).
 
@@ -1209,6 +1220,7 @@ d(F, A) ->
     print(debug, get(verbosity), "DBG: ", F, A).
 
 
+printable(error, _)   -> true;
 printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.

@@ -499,6 +499,9 @@ end_per_group(_GroupName, Config) ->
 %%
 
 init_per_testcase(Case, Config) ->
+    process_flag(trap_exit, true),
+
+    ?ANNOUNCE_CASE_INIT(Case),
 
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -707,13 +710,12 @@ request_and_no_reply(Config) when is_list(Config) ->
       "~n   Mg4Node: ~p", 
       [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
     Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node], 
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
+    ok = ?START_NODES(Nodes, true),
 
     %% Start the MGC
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
     ?SLEEP(?SECONDS(1)),
 
     i("[MG] start"),    
@@ -832,6 +834,30 @@ request_and_no_reply(Config) when is_list(Config) ->
     d("MG3 conn info: ~p", [?MG_CONN_INFO(Mg3, all)]),
     d("MG4 user info: ~p", [?MG_USER_INFO(Mg4, all)]),
     d("MG4 conn info: ~p", [?MG_CONN_INFO(Mg4, all)]),
+
+    %% Tell MG4 to stop
+    i("[MG4] stop"),
+    ?MG_STOP(Mg4),
+
+    %% Tell MG3 to stop
+    i("[MG3] stop"),
+    ?MG_STOP(Mg3),
+
+    %% Tell MG2 to stop
+    i("[MG2] stop"),
+    ?MG_STOP(Mg2),
+
+    %% Tell MG1 to stop
+    i("[MG1] stop"),
+    ?MG_STOP(Mg1),
+
+    %% Tell Mgc to stop
+    i("[MGC] stop"),
+    ?MGC_STOP(Mgc),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     ok.
 
