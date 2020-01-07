@@ -383,7 +383,7 @@
        <type>
 	<v>ConnectionRef = <seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso></v>
 	<v>ChannelId = <seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso></v>
-	<v>Data = binary()</v>
+	<v>Data = iodata()</v>
 	<v>Type = <seealso marker="#type-ssh_data_type_code">ssh_data_type_code()</seealso></v>
 	<v>Timeout = timeout()</v>
 	<v>Error = {error, <seealso marker="#type-reason">reason()</seealso>}</v>
