@@ -5689,6 +5689,23 @@ transform_engine(LoaderState* st)
 	    break;
 	case TOP_fail:
 	    return TE_FAIL;
+#if defined(TOP_skip_unless)
+	case TOP_skip_unless:
+            /*
+             * Note that the caller of transform_engine() guarantees that
+             * there is always a second instruction available.
+             */
+            ASSERT(instr);
+            if (instr->next->op != pc[0]) {
+                /* The second instruction is wrong. Skip ahead. */
+                pc += pc[1] + 2;
+                ASSERT(*pc < NUM_TOPS); /* Valid instruction? */
+            } else {
+                /* Correct second instruction. */
+                pc += 2;
+            }
+	    break;
+#endif
 	default:
 	    ASSERT(0);
 	}
