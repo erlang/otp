@@ -7128,7 +7128,7 @@ otp9884({fin, Config}) when is_list(Config) ->
     fin_v1_agent(Config);
 
 otp9884(doc) ->
-    "OTP-9884 - Simlutaneous backup call should not work. ";
+    "OTP-9884 - Simultaneous backup(s) call should not work. ";
 
 otp9884(Config) when is_list(Config) ->
     ?DBG("otp9884 -> entry with"
@@ -7137,10 +7137,15 @@ otp9884(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
     [AgentBkpDir1, AgentBkpDir2] = ?config(agent_backup_dirs, Config),
     Self = self(), 
-    timer:apply_after(1000, 
-		      ?MODULE, otp9884_backup, [AgentNode, Self, first,  AgentBkpDir1]), 
-    timer:apply_after(1000, 
-		      ?MODULE, otp9884_backup, [AgentNode, Self, second, AgentBkpDir2]),
+    timer:apply_after(1000,
+		      ?MODULE,
+                      otp9884_backup,
+                      [AgentNode, Self, first,  AgentBkpDir1]),
+    timer:apply_after(1000,
+		      ?MODULE,
+                      otp9884_backup,
+                      [AgentNode, Self, second, AgentBkpDir2]),
+    otp9884_await_backup_started(),
     otp9884_await_backup_completion(undefined, undefined),
 
     ?DBG("otp9884 -> done", []),
@@ -7148,20 +7153,47 @@ otp9884(Config) when is_list(Config) ->
 
 
 otp9884_backup(Node, Pid, Tag, Dir) ->
-    io:format("[~w] call backup function~n", [Tag]),
+    i("[~w] backup - await continue", [Tag]),
+    Pid ! {otp9884_backup_started, Tag, self()},
+    receive
+        {otp9884_backup_continue, Tag, Pid} ->
+            ok
+    end,
+    i("[~w] backup start", [Tag]),
     Res = rpc:call(Node, snmpa, backup, [Dir]),
-    io:format("[~w] backup result: ~p~n", [Tag, Res]),
+    i("[~w] backup result: ~p", [Tag, Res]),
     Pid ! {otp9884_backup_complete, Tag, Res}.
 
+
+otp9884_await_backup_started() ->
+    otp9884_await_backup_started(undefined, undefined).
+
+otp9884_await_backup_started(First, Second)
+  when is_pid(First) andalso is_pid(Second) ->
+    i("otp9884_await_backup_started -> order first continue"),
+    First  ! {otp9884_backup_continue, first, self()},
+    i("otp9884_await_backup_started -> order second continue"),
+    Second ! {otp9884_backup_continue, second, self()},
+    ok;
+otp9884_await_backup_started(First, Second) ->
+    receive
+        {otp9884_backup_started, first, Pid} when (First =:= undefined) ->
+            i("otp9884_await_backup_started -> received started from first"),
+            otp9884_await_backup_started(Pid, Second);
+        {otp9884_backup_started, second, Pid} when (Second =:= undefined) ->
+            i("otp9884_await_backup_started -> received started from second"),
+            otp9884_await_backup_started(First, Pid)
+    end.
+    
 otp9884_await_backup_completion(ok, Second) 
   when ((Second =/= ok) andalso (Second =/= undefined)) ->
-    io:format("otp9884_await_backup_completion -> "
-	      "first backup succeed and second failed (~p)~n", [Second]),
+    i("otp9884_await_backup_completion -> "
+      "first backup succeed and second failed (~p)", [Second]),
     ok;
 otp9884_await_backup_completion(First, ok) 
   when ((First =/= ok) andalso (First =/= undefined)) ->
-    io:format("otp9884_await_backup_completion -> "
-	      "second backup succeed and first failed (~p)~n", [First]),
+    i("otp9884_await_backup_completion -> "
+      "second backup succeed and first failed (~p)", [First]),
     ok;
 otp9884_await_backup_completion(First, Second) 
   when (((First =:= undefined) andalso (Second =:= undefined)) 
@@ -7169,22 +7201,27 @@ otp9884_await_backup_completion(First, Second)
 	((First =:= undefined) andalso (Second =/= undefined)) 
 	orelse 
 	((First =/= undefined) andalso (Second =:= undefined))) ->
-    io:format("otp9884_await_backup_completion -> await complete messages~n", []),
+    i("otp9884_await_backup_completion -> await complete messages"),
     receive
 	{otp9884_backup_complete, first, Res} ->
-	    io:format("otp9884_await_backup_completion -> "
-		      "received complete message for first: ~p~n", [Res]),
+	    i("otp9884_await_backup_completion -> "
+              "received complete message for first: ~p", [Res]),
 	    otp9884_await_backup_completion(Res, Second);
 	{otp9884_backup_complete, second, Res} ->
-	    io:format("otp9884_await_backup_completion -> "
-		      "received complete message for second: ~p~n", [Res]),
+	    i("otp9884_await_backup_completion -> "
+              "received complete message for second: ~p", [Res]),
 	    otp9884_await_backup_completion(First, Res)
     after 10000 ->
 	    %% we have waited long enough
 	    throw({error, {timeout, First, Second}})
     end;
 otp9884_await_backup_completion(First, Second) ->
+    e("Bad Completion: "
+      "~n      First:  ~p"
+      "~n      Second: ~p", [First, Second]),
     throw({error, {bad_completion, First, Second}}).
+
+
 %%-----------------------------------------------------------------
 
 agent_log_validation(Node) ->
