@@ -71,12 +71,12 @@
     <p>Assume that we want to test the lists:sort/1 function.
     </p>
     <p>We need a property to test the function. In normal way, we create
-    <c>property_test/test_sort.erl</c> module in the <c>test</c> directory
+    <c>property_test/ct_prop.erl</c> module in the <c>test</c> directory
     in our application:
     </p>
 
   <code>
--module(test_sort).
+-module(ct_prop).
 -export([prop_sort/0]).
 
 %%% This will include the .hrl file for the installed testing tool:

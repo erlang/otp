@@ -123,7 +123,9 @@ prop_ftp() -&gt;
 	<c>property_test</c>.
 	All found Erlang files in that directory are compiled with one of the macros
 	<c>'EQC'</c>, <c>'PROPER'</c> or <c>'TRIQ'</c> set, depending on which tool
-	that is first found.
+	that is first found. This could make parts of the Erlang property tests
+	code to be included or excluded with the macro directives
+	<c>-ifdef(Macro).</c> or <c>-ifndef(Macro).</c>.
 	</p>
 	<p>The file(s) in the <c>property_test</c> subdirectory could, or should,
 	include the ct_property_test include file:
@@ -136,7 +138,8 @@ prop_ftp() -&gt;
 	<list>
 	  <item>Include the correct tool's include file</item>
 	  <item>Set the macro <c>'MOD_eqc'</c> to the correct module name for the
-	  selected tool, that is <c>eqc</c>, <c>proper</c> or <c>triq</c>.
+	  selected tool. That is, the macro <c>'MOD_eqc'</c> is set to either
+	  <c>eqc</c>, <c>proper</c> or <c>triq</c>.
 	  </item>
 	</list>
       </desc>
