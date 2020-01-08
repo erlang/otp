@@ -44,12 +44,16 @@ int main(void)
 }
 
 EOF
-cl -MD hello.c  > /dev/null 2>&1
+cl.exe -MD hello.c  > /dev/null 2>&1
 if [ '!' -f hello.exe.manifest ]; then
     # Gah - VC 2010 changes the way it handles DLL's and manifests... Again...
     # need another way of getting the version
     DLLNAME=`dumpbin.exe -imports hello.exe | egrep MSVCR.*dll`
     DLLNAME=`echo $DLLNAME`
+    if [ -z "$DLLNAME" ]; then
+        DLLNAME=`dumpbin.exe -imports hello.exe | egrep VCRUNTIME.*dll`
+	DLLNAME=`echo $DLLNAME`
+    fi
     if [ '!' -z "$1" ]; then
 	FILETOLOOKIN=$1
     else
@@ -92,22 +96,25 @@ int main(void)
   for(i=0; i < n; ++i) {
     sprintf(buff,"\\\\StringFileInfo\\\\%04x%04x\\\\FileVersion",
 	    translate[i*2],translate[i*2+1]);
-    if (VerQueryValue(versinfo,buff,&vs_verinfo,&vs_ver_size)) {
-      printf("%s\n",(char *) vs_verinfo);
-      return 0;
+    if (VerQueryValue(versinfo,buff,&vs_verinfo,&vs_ver_size) && vs_ver_size > 2) {
+        if(vs_verinfo[1] == 0) // Wide char (depends on compiler version!!)
+            printf("%S\n",(unsigned short *) vs_verinfo);
+        else 
+            printf("%s\n",(char *) vs_verinfo);
+        return 0;
     }
   } 
   fprintf(stderr,"Failed to find file version of %s\n",REQ_MODULE);
   return 0;
 }
 EOF
-    cl -MD helper.c version.lib > /dev/null 2>&1
+    cl.exe -MD helper.c version.lib > /dev/null 2>&1
     if [ '!' -f helper.exe ]; then
 	echo "Failed to build helper program." >&2
 	exit 1
     fi
     NAME=$DLLNAME
-    VERSION=`./helper`
+    VERSION=`./helper.exe`
 else
     VERSION=`grep '<assemblyIdentity' hello.exe.manifest | sed 's,.*version=.\([0-9\.]*\).*,\1,g' | grep -v '<'`
     NAME=`grep '<assemblyIdentity' hello.exe.manifest | sed 's,.*name=.[A-Za-z\.]*\([0-9]*\).*,msvcr\1.dll,g' | grep -v '<'`

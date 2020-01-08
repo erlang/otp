@@ -127,13 +127,14 @@ if test "X$windows_environment_" != "Xchecked"; then
 windows_environment_=checked
 MIXED_CYGWIN=no
 MIXED_MSYS=no
+MIXED_VSL=no
 
 dnl MIXED_VC is Microsoft Visual C++ used as standard compiler
 MIXED_VC=no
 dnl MIXED_MINGW is mingw(32|64) used as standard compiler
 MIXED_MINGW=no
 
-AC_MSG_CHECKING(for mixed cygwin or msys and native VC++ environment)
+AC_MSG_CHECKING(for mixed mingw-gcc and native VC++ environment)
 if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
 	if test -x /usr/bin/msys-?.0.dll; then
 	        CFLAGS="$CFLAGS -O2"
@@ -147,9 +148,15 @@ if test "X$host" = "Xwin32" -a "x$GCC" != "xyes"; then
 		AC_MSG_RESULT([Cygwin and VC])
 		MIXED_VC=yes
 		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
+        elif test -x /bin/wslpath; then
+		CFLAGS="$CFLAGS -O2"
+		MIXED_WSL=yes
+		AC_MSG_RESULT([WSL and VC])
+		MIXED_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_VC"
 	else
 		AC_MSG_RESULT([undeterminable])
-		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+		AC_MSG_ERROR(Seems to be mixed windows but not within any known env, cannot handle this!)
 	fi
 else
 	AC_MSG_RESULT([no])
@@ -199,6 +206,13 @@ fi
 
 AC_MSG_CHECKING(if we mix msys with another native compiler)
 if test "X$MIXED_MSYS" = "Xyes" ; then
+	AC_MSG_RESULT([yes])
+else
+	AC_MSG_RESULT([no])
+fi
+
+AC_MSG_CHECKING(if we mix WSL with another native compiler)
+if test "X$MIXED_WSL" = "Xyes" ; then
 	AC_MSG_RESULT([yes])
 else
 	AC_MSG_RESULT([no])

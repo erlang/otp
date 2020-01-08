@@ -23,7 +23,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 include $(ERL_TOP)/erts/vsn.mk
 
 VERSION_HEADER = erlang.nsh
-MAKENSIS = makensis
+MAKENSIS = makensis.exe
 MAKENSISFLAGS = /V2
 CUSTOM_MODERN=custom_modern.exe
 
@@ -53,19 +53,23 @@ WTARGET_DIR=$(shell (w32_path.sh -d "$(TARGET_DIR)"))
 
 ifeq ($(CONFIG_SUBTYPE),win64)
   WINTYPE=win64
+  REDIST_TARGET=vcredist_x64.exe
 else
   WINTYPE=win32
+  REDIST_TARGET=vcredist_x86.exe
 endif
 
-REDIST_FILE=$(shell (sh ./find_redist.sh || echo ""))
-NICEREDISTFILE=$(shell (w32_path.sh -d "$(REDIST_FILE)" 2>/dev/null || echo ""))
-
-REDIST_TARGET=$(shell (sh ./find_redist.sh -n || echo ""))
-REDIST_DLL_VERSION=$(shell (sh ./dll_version_helper.sh $(NICEREDISTFILE) || echo ""))
-REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n $(NICEREDISTFILE) || echo ""))
+REDIST_FILE=$(shell (sh ./find_redist.sh $(WINTYPE) || echo ""))
+NICEREDISTFILE=$(shell (w32_path.sh -m "$(REDIST_FILE)" 2>/dev/null || echo "NOTFOUND"))
+# $(info $$NICEREDISTFILE = [${NICEREDISTFILE}])
+REDIST_DLL_VERSION=$(shell (sh ./dll_version_helper.sh "$(NICEREDISTFILE)" || echo ""))
+REDIST_DLL_NAME=$(shell (sh ./dll_version_helper.sh -n "$(NICEREDISTFILE)" || echo ""))
+# $(info $$REDIST_DLL_VERSION = [${REDIST_DLL_VERSION}])
+# $(info $$REDIST_DLL_NAME = [${REDIST_DLL_NAME}])
+# $(info $$REDIST_FILE = [${REDIST_FILE}])
 
 release_spec:
-	@NSIS_VER=`makensis /hdrinfo | head -1 | awk '{print $$2}'`; \
+	@NSIS_VER=`makensis.exe -version`; \
 	case $$NSIS_VER in \
 	v2.0b*) \
 	  echo '!define MUI_VERSION "$(SYSTEM_VSN)"' > $(VERSION_HEADER);\
@@ -77,7 +81,7 @@ release_spec:
 		echo '!define HAVE_DOCS 1' >> $(VERSION_HEADER); \
 	  fi;\
 	  $(MAKENSIS) erlang.nsi;;\
-	v2.*) \
+	v2.* | v3.*) \
 	  echo '!define OTP_VERSION "$(SYSTEM_VSN)"' > $(VERSION_HEADER);\
 	  echo '!define ERTS_VERSION "$(VSN)"' >> $(VERSION_HEADER);\
 	  echo '!define TESTROOT "$(WTESTROOT)"' >> $(VERSION_HEADER);\
@@ -89,7 +93,7 @@ release_spec:
 	  fi;\
 	  if [ '!' -z "$(REDIST_FILE)" -a '!' -z "$(REDIST_DLL_VERSION)" ];\
 	  then \
-		cp $(REDIST_FILE) "$(RELEASE_PATH)/$(REDIST_TARGET)";\
+		cp "$(REDIST_FILE)" "$(RELEASE_PATH)/$(REDIST_TARGET)";\
 		echo '!define HAVE_REDIST_FILE 1'  >> $(VERSION_HEADER); \
 		echo '!define REDIST_DLL_VERSION "$(REDIST_DLL_VERSION)"' >> $(VERSION_HEADER);\
 		echo '!define REDIST_DLL_NAME "$(REDIST_DLL_NAME)"' >> $(VERSION_HEADER);\
@@ -102,7 +106,7 @@ release_spec:
 	  echo "Running $(MAKENSIS) $(MAKENSISFLAGS) erlang20.nsi";\
 	  $(MAKENSIS) $(MAKENSISFLAGS) erlang20.nsi;;\
 	*) \
-	  echo 'Unsupported NSIS version';;\
+	  echo "Unsupported NSIS version: $$NSIS_VER";;\
 	esac	
 
 release_docs release_docs_spec docs:
