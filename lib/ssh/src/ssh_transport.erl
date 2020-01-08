@@ -1110,9 +1110,21 @@ alg_final(rcv, SSH0) ->
 
 
 select_all(CL, SL) when length(CL) + length(SL) < ?MAX_NUM_ALGORITHMS ->
-    A = CL -- SL,  %% algortihms only used by client
+    %% algortihms only used by client
+    %% NOTE: an algorithm occuring more than once in CL will still be present
+    %%       in CLonly. This is not a problem for nice clients.
+    CLonly = CL -- SL,
+
     %% algorithms used by client and server (client pref)
-    lists:map(fun(ALG) -> list_to_atom(ALG) end, (CL -- A));
+    lists:foldr(fun(ALG, Acc) -> 
+                      try [list_to_existing_atom(ALG) | Acc]
+                      catch
+                          %% If an malicious client uses the same non-existing algorithm twice,
+                          %% we will end up here
+                          _:_ -> Acc
+                      end
+              end, [], (CL -- CLonly));
+
 select_all(CL, SL) ->
     Err = lists:concat(["Received too many algorithms (",length(CL),"+",length(SL)," >= ",?MAX_NUM_ALGORITHMS,")."]),
     ssh_connection_handler:disconnect(
@@ -1871,14 +1883,20 @@ valid_key_sha_alg(_, _) -> false.
     
 valid_key_sha_alg_ec(OID, Alg) -> 
     Curve = public_key:oid2ssh_curvename(OID),
-    Alg == list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
+    try Alg == list_to_existing_atom("ecdsa-sha2-" ++ binary_to_list(Curve))
+    catch
+        _:_ -> false
+    end.
     
 
 public_algo(#'RSAPublicKey'{}) ->   'ssh-rsa';  % FIXME: Not right with draft-curdle-rsa-sha2
 public_algo({_, #'Dss-Parms'{}}) -> 'ssh-dss';
 public_algo({#'ECPoint'{},{namedCurve,OID}}) -> 
     Curve = public_key:oid2ssh_curvename(OID),
-    list_to_atom("ecdsa-sha2-" ++ binary_to_list(Curve)).
+    try list_to_existing_atom("ecdsa-sha2-" ++ binary_to_list(Curve))
+    catch
+        _:_ -> undefined
+    end.
 
 
 
@@ -1907,7 +1925,7 @@ sha(?'secp521r1') -> sha(secp521r1);
 sha('ecdh-sha2-nistp256') -> sha(secp256r1);
 sha('ecdh-sha2-nistp384') -> sha(secp384r1);
 sha('ecdh-sha2-nistp521') -> sha(secp521r1);
-sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_atom(Str)).
+sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_existing_atom(Str)).
 
 
 mac_key_bytes('hmac-sha1')    -> 20;
