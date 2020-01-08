@@ -236,7 +236,7 @@ is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
     true;
 is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
-    Mac == mac(Algorithm, Key, SeqNum, Data).
+    crypto:equal_const_time(Mac, mac(Algorithm, Key, SeqNum, Data)).
 
 format_version({Major,Minor}, SoftwareVersion) ->
     "SSH-" ++ integer_to_list(Major) ++ "." ++ 
@@ -1678,7 +1678,7 @@ decrypt(#ssh{decrypt = 'chacha20-poly1305@openssh.com',
     {_,PolyKey} =
         crypto:stream_encrypt(crypto:stream_init(chacha20, K2, <<0:8/unit:8,Seq:8/unit:8>>),
                               <<0:32/unit:8>>),
-    case equal_const_time(Ctag, crypto:poly1305(PolyKey, <<AAD/binary,Ctext/binary>>)) of
+    case crypto:equal_const_time(Ctag, crypto:poly1305(PolyKey, <<AAD/binary,Ctext/binary>>)) of
         true ->
             %% MAC is ok, decode
             IV2 = <<1:8/little-unit:8, Seq:8/unit:8>>,
@@ -2132,18 +2132,6 @@ same(Algs) ->  [{client2server,Algs}, {server2client,Algs}].
 %% Other utils
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%%% Compare two binaries in a timing safe maner.
-%%% The time spent in comparing should not be different depending on where in the binaries they differ.
-%%% This is to avoid a certain side-channel attac.
-equal_const_time(X1, X2) -> equal_const_time(X1, X2, true).
-
-equal_const_time(<<B1,R1/binary>>, <<B2,R2/binary>>, Truth) ->
-    equal_const_time(R1, R2, Truth and (B1 == B2));
-equal_const_time(<<>>, <<>>, Truth) ->
-    Truth;
-equal_const_time(_, _, _) ->
-    false.
 
 %%%-------- Remove CR, LF and following characters from a line
 
