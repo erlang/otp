@@ -30,4 +30,4 @@
     {env,          []},
     {mod,          {runtime_tools, []}},
     {runtime_dependencies, ["stdlib-@OTP-15251@","mnesia-4.12","kernel-@OTP-15251@",
-			    "erts-@OTP-15251@"]}]}.
+			    "erts-@OTP-15251:OTP-16327@"]}]}.

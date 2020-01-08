@@ -526,43 +526,38 @@ alloc_blocks_size_1([], _Type, 0) ->
     undefined;
 alloc_blocks_size_1([{_Type, false} | Rest], Type, Acc) ->
     alloc_blocks_size_1(Rest, Type, Acc);
-alloc_blocks_size_1([{Type, Instances} | Rest], Type, Acc0) ->
-    F = fun ({instance, _, L}, Acc) ->
+alloc_blocks_size_1([{_Type, Instances} | Rest], Type, Acc) ->
+    F = fun ({instance, _, L}, Acc0) ->
                 MBCSPool = case lists:keyfind(mbcs_pool, 1, L) of
                                {_, Pool} -> Pool;
                                false -> []
                            end,
                 {_,MBCS} = lists:keyfind(mbcs, 1, L),
                 {_,SBCS} = lists:keyfind(sbcs, 1, L),
-                Acc +
-                    sum_block_sizes(MBCSPool) +
-                    sum_block_sizes(MBCS) +
-                    sum_block_sizes(SBCS)
+                Acc1 = sum_block_sizes(MBCSPool, Type, Acc0),
+                Acc2 = sum_block_sizes(MBCS, Type, Acc1),
+                sum_block_sizes(SBCS, Type, Acc2)
         end,
-    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc0, Instances));
-alloc_blocks_size_1([{_Type, Instances} | Rest], Type, Acc0) ->
-    F = fun ({instance, _, L}, Acc) ->
-                Acc + sum_foreign_sizes(Type, L)
-        end,
-    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc0, Instances));
+    alloc_blocks_size_1(Rest, Type, lists:foldl(F, Acc, Instances));
 alloc_blocks_size_1([], _Type, Acc) ->
     Acc.
 
-sum_foreign_sizes(Type, L) ->
-    case lists:keyfind(mbcs_pool, 1, L) of
-        {_,Pool} ->
-            {_,ForeignBlocks} = lists:keyfind(foreign_blocks, 1, Pool),
-            case lists:keyfind(Type, 1, ForeignBlocks) of
-                {_,TypeSizes} -> sum_block_sizes(TypeSizes);
-                false -> 0
-            end;
-        _ ->
-            0
-    end.
+sum_block_sizes([{blocks, List} | Rest], Type, Acc) ->
+    sum_block_sizes(Rest, Type, sum_block_sizes_1(List, Type, Acc));
+sum_block_sizes([_ | Rest], Type, Acc) ->
+    sum_block_sizes(Rest, Type, Acc);
+sum_block_sizes([], _Type, Acc) ->
+    Acc.
 
-sum_block_sizes(Blocks) ->
-    lists:foldl(
-      fun({blocks_size, Sz,_,_}, Sz0) -> Sz0+Sz;
-         ({blocks_size, Sz}, Sz0) -> Sz0+Sz;
-         (_, Sz) -> Sz
-      end, 0, Blocks).
+sum_block_sizes_1([{Type, L} | Rest], Type, Acc0) ->
+    Acc = lists:foldl(fun({size, Sz,_,_}, Sz0) -> Sz0+Sz;
+                         ({size, Sz}, Sz0) -> Sz0+Sz;
+                         (_, Sz) -> Sz
+                      end, Acc0, L),
+    sum_block_sizes_1(Rest, Type, Acc);
+sum_block_sizes_1([_ | Rest], Type, Acc) ->
+    sum_block_sizes_1(Rest, Type, Acc);
+sum_block_sizes_1([], _Type, Acc) ->
+    Acc.
+
+

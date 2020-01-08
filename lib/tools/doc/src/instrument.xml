@@ -73,14 +73,12 @@
       <desc>
         <p><c><anno>AllocatorType</anno></c> is the type of the allocator that
           employs this carrier.</p>
-        <p><c><anno>TotalSize</anno></c> is the total size of the carrier,
-          including its header.</p>
-        <p><c><anno>AllocatedSize</anno></c> is the combined size of the
-          carrier's allocated blocks, including their headers.</p>
-        <p><c><anno>AllocatedCount</anno></c> is the number of allocated
-          blocks in the carrier.</p>
         <p><c><anno>InPool</anno></c> is whether the carrier is in the
           migration pool.</p>
+        <p><c><anno>TotalSize</anno></c> is the total size of the carrier,
+          including its header.</p>
+        <p><c><anno>Allocations</anno></c> is a summary of the allocated blocks
+          in the carrier.</p>
         <p><c><anno>FreeBlocks</anno></c> is a histogram of the free block
           sizes in the carrier.</p>
         <p>If the carrier could not be scanned in full without harming the

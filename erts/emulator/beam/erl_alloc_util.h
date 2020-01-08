@@ -456,8 +456,8 @@ typedef struct {
     ErtsThrPrgrVal thr_prgr;
     erts_atomic_t max_size;
     UWord abandon_limit;
-    UWord blocks[ERTS_ALC_A_MAX + 1];
-    UWord blocks_size[ERTS_ALC_A_MAX + 1];
+    UWord blocks[ERTS_ALC_A_COUNT];
+    UWord blocks_size[ERTS_ALC_A_COUNT];
     UWord total_blocks_size;
     enum {
         ERTS_MBC_IS_HOME,
@@ -492,19 +492,28 @@ typedef struct {
 } StatValues_t;
 
 typedef struct {
-    union {
-	struct {
-	    StatValues_t	mseg;
-	    StatValues_t	sys_alloc;
-	} norm;
-    } curr;
-    StatValues_t	max;
-    StatValues_t	max_ever;
-    struct {
-	StatValues_t	curr;
-	StatValues_t	max;
-	StatValues_t	max_ever;
-    } blocks;
+    StatValues_t curr;
+    StatValues_t max;
+    StatValues_t max_ever;
+} BlockStats_t;
+
+enum {
+    ERTS_CRR_ALLOC_MIN = 0,
+
+    ERTS_CRR_ALLOC_MSEG = ERTS_CRR_ALLOC_MIN,
+    ERTS_CRR_ALLOC_SYS = 1,
+
+    ERTS_CRR_ALLOC_MAX,
+    ERTS_CRR_ALLOC_COUNT = ERTS_CRR_ALLOC_MAX + 1
+};
+
+typedef struct {
+    StatValues_t    carriers[ERTS_CRR_ALLOC_COUNT];
+
+    StatValues_t    max;
+    StatValues_t    max_ever;
+
+    BlockStats_t    blocks[ERTS_ALC_A_COUNT];
 } CarriersStats_t;
 
 #ifdef USE_LTTNG_VM_TRACEPOINTS
@@ -654,8 +663,8 @@ struct Allctr_t_ {
         UWord           in_pool_limit;    /* acnl */
         UWord           fblk_min_limit;   /* acmfl */
 	struct {
-	    erts_atomic_t	blocks_size[ERTS_ALC_A_MAX + 1];
-	    erts_atomic_t	no_blocks[ERTS_ALC_A_MAX + 1];
+	    erts_atomic_t	blocks_size[ERTS_ALC_A_COUNT];
+	    erts_atomic_t	no_blocks[ERTS_ALC_A_COUNT];
 	    erts_atomic_t	carriers_size;
 	    erts_atomic_t	no_carriers;
             CallCounter_t       fail_pooled;

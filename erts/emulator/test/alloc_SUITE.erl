@@ -302,45 +302,52 @@ wait_for_memory_deallocations() ->
     end.
 
 print_stats(migration) ->
-    IFun = fun({instance,Inr,Istats}, {Bacc,Cacc,Pacc}) ->
-                   {mbcs,MBCS} = lists:keyfind(mbcs, 1, Istats),
-                   Btup = lists:keyfind(blocks, 1, MBCS),
-                   Ctup = lists:keyfind(carriers, 1, MBCS),
+    IFun = fun({instance,_,Stats}, {Regular0, Pooled0}) ->
+                   {mbcs,MBCS} = lists:keyfind(mbcs, 1, Stats),
+                   {sbcs,SBCS} = lists:keyfind(sbcs, 1, Stats),
 
-                   Ptup = case lists:keyfind(mbcs_pool, 1, Istats) of
-                              {mbcs_pool,POOL} ->
-                                  {blocks, Bpool} = lists:keyfind(blocks, 1, POOL),
-                                  {carriers, Cpool} = lists:keyfind(carriers, 1, POOL),
-                                  {pool, Bpool, Cpool};
-                              false ->
-                                  {pool, 0, 0}
-                          end,
-                   io:format("{instance,~p,~p,~p,~p}}\n",
-                             [Inr, Btup, Ctup, Ptup]),
-                   {tuple_add(Bacc,Btup),tuple_add(Cacc,Ctup),
-                    tuple_add(Pacc,Ptup)};
-              (_, Acc) -> Acc
+                   Regular = MBCS ++ SBCS ++ Regular0,
+                   case lists:keyfind(mbcs_pool, 1, Stats) of
+                        {mbcs_pool,Pool} -> {Regular, Pool ++ Pooled0};
+                        false -> {Regular, Pooled0}
+                   end;
+              (_, Acc) ->
+                  Acc
            end,
 
-    {Btot,Ctot,Ptot} = lists:foldl(IFun,
-                                   {{blocks,0,0,0},{carriers,0,0,0},{pool,0,0}},
-                                   erlang:system_info({allocator,test_alloc})),
+    Stats = erlang:system_info({allocator,test_alloc}),
+    {Regular, Pooled} = lists:foldl(IFun, {[], []}, Stats),
 
-    {pool, PBtot, PCtot} = Ptot,
-    io:format("Number of blocks  : ~p\n", [Btot]),
-    io:format("Number of carriers: ~p\n", [Ctot]),
-    io:format("Number of pooled blocks  : ~p\n", [PBtot]),
-    io:format("Number of pooled carriers: ~p\n", [PCtot]);
-print_stats(_) -> ok.
+    {RegBlocks, RegCarriers} = summarize_alloc_stats(Regular, {0, 0}),
+    {PooledBlocks, PooledCarriers} = summarize_alloc_stats(Pooled, {0, 0}),
 
-tuple_add(T1, T2) ->
-    list_to_tuple(lists:zipwith(fun(E1,E2) when is_number(E1), is_number(E2) ->
-					 E1 + E2;
-				    (A,A) ->
-					 A
-				 end,
-				 tuple_to_list(T1), tuple_to_list(T2))).
+    io:format("Number of blocks  : ~p\n", [RegBlocks]),
+    io:format("Number of carriers: ~p\n", [RegCarriers]),
+    io:format("Number of pooled blocks  : ~p\n", [PooledBlocks]),
+    io:format("Number of pooled carriers: ~p\n", [PooledCarriers]);
+print_stats(_) ->
+    ok.
 
+summarize_alloc_stats([{blocks,L} | Rest], {Blocks0, Carriers}) ->
+    Blocks = count_blocks([S || {_Type, S} <- L], Blocks0),
+    summarize_alloc_stats(Rest, {Blocks, Carriers});
+summarize_alloc_stats([{carriers, Count, _, _} | Rest], {Blocks, Carriers0}) ->
+    summarize_alloc_stats(Rest, {Blocks, Carriers0 + Count});
+summarize_alloc_stats([{carriers, Count} | Rest], {Blocks, Carriers0}) ->
+    summarize_alloc_stats(Rest, {Blocks, Carriers0 + Count});
+summarize_alloc_stats([_ | Rest], Acc) ->
+    summarize_alloc_stats(Rest, Acc);
+summarize_alloc_stats([], Acc) ->
+    Acc.
+
+count_blocks([{count, Count, _, _} | Rest], Acc) ->
+    count_blocks(Rest, Acc + Count);
+count_blocks([{count, Count} | Rest], Acc) ->
+    count_blocks(Rest, Acc + Count);
+count_blocks([_ | Rest], Acc) ->
+    count_blocks(Rest, Acc);
+count_blocks([], Acc) ->
+    Acc.
 
 one_shot(CaseName) ->
     State = CaseName:start({1, 0, erlang:system_info(build_type)}),

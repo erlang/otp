@@ -3914,15 +3914,6 @@ get_memval(code, #memory{code = V}) -> V;
 get_memval(ets, #memory{ets = V}) -> V;
 get_memval(_, #memory{}) -> erlang:error(badarg).
 
-get_blocks_size([{blocks_size, Sz, _, _} | Rest], Acc) ->
-    get_blocks_size(Rest, Acc+Sz);
-get_blocks_size([{blocks_size, Sz} | Rest], Acc) ->
-    get_blocks_size(Rest, Acc+Sz);
-get_blocks_size([_ | Rest], Acc) ->
-    get_blocks_size(Rest, Acc);
-get_blocks_size([], Acc) ->
-    Acc.
-
 get_fix_proc([{ProcType, A1, U1}| Rest], {A0, U0}) when ProcType == proc;
 							ProcType == monitor;
 							ProcType == link;
@@ -3965,14 +3956,15 @@ au_mem_acc(#memory{ total = Tot,
                     processes = Proc,
                     processes_used = ProcU } = Mem,
            eheap_alloc, Data) ->
-    Sz = get_blocks_size(Data, 0),
+    Sz = acc_blocks_size(Data, 0),
     Mem#memory{ total = Tot+Sz,
                 processes = Proc+Sz,
                 processes_used = ProcU+Sz};
 au_mem_acc(#memory{ total = Tot,
                     system = Sys,
-                    ets = Ets } = Mem, ets_alloc, Data) ->
-    Sz = get_blocks_size(Data, 0),
+                    ets = Ets } = Mem,
+           ets_alloc, Data) ->
+    Sz = acc_blocks_size(Data, 0),
     Mem#memory{ total = Tot+Sz,
                 system = Sys+Sz,
                 ets = Ets+Sz };
@@ -3980,31 +3972,45 @@ au_mem_acc(#memory{total = Tot,
 		    system = Sys,
 		    binary = Bin } = Mem,
 	    binary_alloc, Data) ->
-    Sz = get_blocks_size(Data, 0),
+    Sz = acc_blocks_size(Data, 0),
     Mem#memory{ total = Tot+Sz,
                 system = Sys+Sz,
                 binary = Bin+Sz};
 au_mem_acc(#memory{ total = Tot,
                     system = Sys } = Mem,
            _Type, Data) ->
-    Sz = get_blocks_size(Data, 0),
+    Sz = acc_blocks_size(Data, 0),
     Mem#memory{ total = Tot+Sz,
                 system = Sys+Sz }.
 
-au_mem_foreign(Mem, [{Type, SizeList} | Rest]) ->
-    au_mem_foreign(au_mem_acc(Mem, Type, SizeList), Rest);
-au_mem_foreign(Mem, []) ->
+acc_blocks_size([{size, Sz, _, _} | Rest], Acc) ->
+    acc_blocks_size(Rest, Acc+Sz);
+acc_blocks_size([{size, Sz} | Rest], Acc) ->
+    acc_blocks_size(Rest, Acc+Sz);
+acc_blocks_size([_ | Rest], Acc) ->
+    acc_blocks_size(Rest, Acc);
+acc_blocks_size([], Acc) ->
+    Acc.
+
+au_mem_blocks([{blocks, L} | Rest], Mem0) ->
+    Mem = au_mem_blocks_1(L, Mem0),
+    au_mem_blocks(Rest, Mem);
+au_mem_blocks([_ | Rest], Mem) ->
+    au_mem_blocks(Rest, Mem);
+au_mem_blocks([], Mem) ->
     Mem.
 
-au_mem_current(Mem0, Type, [{mbcs_pool, MBCS} | Rest]) ->
-    [Foreign] = [Foreign || {foreign_blocks, Foreign} <- MBCS],
-    SizeList = MBCS -- [Foreign],
-    Mem = au_mem_foreign(Mem0, Foreign),
-    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
-au_mem_current(Mem, Type, [{mbcs, SizeList} | Rest]) ->
-    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
-au_mem_current(Mem, Type, [{sbcs, SizeList} | Rest]) ->
-    au_mem_current(au_mem_acc(Mem, Type, SizeList), Type, Rest);
+au_mem_blocks_1([{Type, SizeList} | Rest], Mem) ->
+    au_mem_blocks_1(Rest, au_mem_acc(Mem, Type, SizeList));
+au_mem_blocks_1([], Mem) ->
+    Mem.
+
+au_mem_current(Mem, Type, [{mbcs_pool, Stats} | Rest]) ->
+    au_mem_current(au_mem_blocks(Stats, Mem), Type, Rest);
+au_mem_current(Mem, Type, [{mbcs, Stats} | Rest]) ->
+    au_mem_current(au_mem_blocks(Stats, Mem), Type, Rest);
+au_mem_current(Mem, Type, [{sbcs, Stats} | Rest]) ->
+    au_mem_current(au_mem_blocks(Stats, Mem), Type, Rest);
 au_mem_current(Mem, Type, [_ | Rest]) ->
     au_mem_current(Mem, Type, Rest);
 au_mem_current(Mem, _Type, []) ->

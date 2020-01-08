@@ -194,23 +194,19 @@ verify_carriers_output(#{ histogram_start := HistStart,
     %% Do the carriers look alright?
     CarrierSet = ordsets:from_list(AllCarriers),
     Verified = [C || {AllocType,
+                      InPool,
                       TotalSize,
                       UnscannedSize,
-                      AllocatedSize,
-                      AllocatedCount,
-                      InPool,
+                      Allocations,
                       FreeBlockHist} = C <- CarrierSet,
                 is_atom(AllocType),
+                is_boolean(InPool),
                 is_integer(TotalSize), TotalSize >= 1,
                 is_integer(UnscannedSize), UnscannedSize < TotalSize,
                                            UnscannedSize >= 0,
-                is_integer(AllocatedSize), AllocatedSize < TotalSize,
-                                           AllocatedSize >= 0,
-                is_integer(AllocatedCount), AllocatedCount =< AllocatedSize,
-                                            AllocatedCount >= 0,
-                is_boolean(InPool),
+                is_list(Allocations),
                 tuple_size(FreeBlockHist) =:= HistWidth,
-                carrier_block_check(AllocatedCount, FreeBlockHist)],
+                carrier_block_check(Allocations, FreeBlockHist)],
     [] = ordsets:subtract(CarrierSet, Verified),
 
     %% Do we have at least as many carriers as we've generated?
@@ -229,8 +225,12 @@ verify_carriers_output(#{ histogram_start := HistStart,
 verify_carriers_output(#{}, {error, not_enabled}) ->
     ok.
 
-carrier_block_check(AllocCount, FreeHist) ->
-    %% A carrier must contain at least one block, and th. number of free blocks
+carrier_block_check(Allocations, FreeHist) ->
+    AllocCount = lists:foldl(fun({_Type, Count, _Size}, Acc) ->
+                                     Count + Acc
+                             end, 0, Allocations),
+
+    %% A carrier must contain at least one block, and the number of free blocks
     %% must not exceed the number of allocated blocks + 1.
     FreeCount = hist_sum(FreeHist),
 

@@ -156,27 +156,11 @@ receive_any() ->
     end.
 
 chk_temp_alloc() ->
-    case erlang:system_info({allocator,temp_alloc}) of
-	false ->
-	    %% Temp alloc is not enabled
-	    ok;
-	TIL ->
-	    %% Verify that we havn't got anything allocated by temp_alloc
-	    lists:foreach(
-	      fun ({instance, _, TI}) ->
-		      {value, {mbcs, MBCInfo}}
-			  = lists:keysearch(mbcs, 1, TI),
-		      {value, {blocks, 0, _, _}}
-			  = lists:keysearch(blocks, 1, MBCInfo),
-		      {value, {sbcs, SBCInfo}}
-			  = lists:keysearch(sbcs, 1, TI),
-		      {value, {blocks, 0, _, _}}
-			  = lists:keysearch(blocks, 1, SBCInfo)
-	      end,
-	      TIL),
-	    ok
+    %% Verify that we haven't got any outstanding temp_alloc allocations.
+    case erts_debug:alloc_blocks_size(temp_alloc) of
+        undefined -> ok;
+        0 -> ok
     end.
-	    
 
 %% Start/stop drivers.
 start_driver(Config, Name) ->
