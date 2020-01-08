@@ -174,6 +174,7 @@ gen_statem:stop       -----> Module:terminate/3
 
 gen_statem:call
 gen_statem:cast
+gen_statem:send_request
 erlang:send
 erlang:'!'            -----> Module:StateName/3
                              Module:handle_event/4
@@ -669,11 +670,12 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  External events are of 3 types:
 	  <c>{call,<anno>From</anno>}</c>, <c>cast</c>, or <c>info</c>.
-	  <seealso marker="#call/2">Calls</seealso>
-	  (synchronous) and
-	  <seealso marker="#cast/2">casts</seealso>
-	  originate from the corresponding API functions.
+	  Type <c>call</c> originates from the API functions
+	  <seealso marker="#call/2"><c>call/2</c></seealso>
+	  and <seealso marker="#send_request/2"><c>send_request/2</c></seealso>.
 	  For calls, the event contains whom to reply to.
+	  Type <c>cast</c> originates from the API function
+	  <seealso marker="#cast/2"><c>cast/2</c></seealso>.
 	  Type <c>info</c> originates from regular process messages sent
 	  to the <c>gen_statem</c>.
 	</p>
@@ -1487,6 +1489,16 @@ handle_event(_, _, State, Data) ->
 	</p>
       </desc>
     </datatype>
+
+    <datatype>
+      <name name="request_id"/>
+      <desc>
+	<p>
+	  A request handle, see <seealso marker="#send_request/2"> <c>send_request/2</c> </seealso>
+	  for details.
+	</p>
+      </desc>
+    </datatype>
   </datatypes>
 
   <funcs>
@@ -1583,6 +1595,37 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
 	  <c>cast</c> and event content
 	  <c><anno>Msg</anno></c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="check_response" arity="2" since="OTP-23"/>
+      <fsummary>Check if a message is a reply from a server.</fsummary>
+      <desc>
+	<p>
+	  This function is used to check if a previously received
+	  message, for example by <c>receive</c> or
+	  <c>handle_info/2</c>, is a result of a request made with
+	  <seealso marker="#send_request/2"><c>send_request/2</c></seealso>.
+	  If <c>Msg</c> is a reply to the handle <c>RequestId</c>
+	  the result of the request is returned in <c>Reply</c>.
+	  Otherwise returns <c>no_reply</c> and no cleanup is done, and
+	  thus the function shall be invoked repeatedly until a reply
+	  is returned.
+	</p>
+	<p>
+	  The return value <c><anno>Reply</anno></c> is generated when a
+	  <seealso marker="#state callback"><em>state callback</em></seealso>
+	  returns with
+	  <c>{reply,From,<anno>Reply</anno>}</c> as one
+	  <seealso marker="#type-action"><c>action()</c></seealso>,
+	  and that <c><anno>Reply</anno></c> becomes the return value
+	  of this function.
+	</p>
+	<p>
+	  The function returns an error if the <c>gen_statem</c>
+	  dies before or during this request.
 	</p>
       </desc>
     </func>
@@ -1712,6 +1755,48 @@ handle_event(_, _, State, Data) ->
 	    in <seealso marker="sys"><c>sys</c></seealso> debug output.
 	  </p>
 	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send_request" arity="2" since="OTP-23"/>
+      <fsummary>Send a request to a <c>gen_statem</c>.</fsummary>
+      <desc>
+        <p>
+	  Sends a request to the <c>gen_statem</c>
+	  <seealso marker="#type-server_ref"><c><anno>ServerRef</anno></c></seealso>
+	  and returns a handle <c><anno>RequestId</anno></c>.
+	</p>
+	<p>
+	  The return value <c><anno>RequestId</anno></c> shall later be used with
+          <seealso marker="#wait_response/2"> <c>wait_response/1,2</c></seealso> or
+	  <seealso marker="#check_response/2"> <c>check_response/2</c></seealso>
+	  to fetch the actual result of the request.
+	</p>
+	<p>
+	  The call <c>gen_statem:wait_response(gen_statem:send_request(ServerRef,Request), Timeout)</c>
+	  can be seen as equivalent to
+	  <seealso marker="#call/3"><c>gen_statem:call(Server,Request,Timeout)</c></seealso>,
+	  ignoring the error handling.
+	</p>
+	<p>
+	  The <c>gen_statem</c> calls the
+	  <seealso marker="#state callback"><em>state callback</em></seealso>
+	  with
+	  <seealso marker="#type-event_type"><c>event_type()</c></seealso>
+	  <c>{call,From}</c> and event content
+	  <c><anno>Request</anno></c>.
+	</p>
+	<p>
+	  A <c>Reply</c> is generated when a
+	  <seealso marker="#state callback"><em>state callback</em></seealso>
+	  returns with
+	  <c>{reply,From,Reply}</c> as one
+	  <seealso marker="#type-action"><c>action()</c></seealso>,
+	  and that <c>Reply</c> becomes the return value
+	  of <seealso marker="#wait_response/2"> <c>wait_response/1,2</c></seealso> or
+	  <seealso marker="#check_response/2"> <c>check_response/2</c></seealso> function.
+	</p>
       </desc>
     </func>
 
@@ -1901,6 +1986,45 @@ handle_event(_, _, State, Data) ->
 	<p>
 	  If the process does not exist, a <c>noproc</c> exception
 	  is raised.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="wait_response" arity="1" since="OTP-23"/>
+      <name name="wait_response" arity="2" since="OTP-23"/>
+      <fsummary>Wait for a reply from a server.</fsummary>
+      <desc>
+	<p>
+	  This function is used to wait for a reply of a request made with
+	  <seealso marker="#send_request/2"><c>send_request/2</c></seealso>
+	  from the <c>gen_statem</c> process. This function must be called
+	  from the same process from which
+	  <seealso marker="#send_request/2"><c>send_request/2</c></seealso>
+	  was made.
+	</p>
+	<p>
+	  <c>Timeout</c> is an integer greater then or equal to zero
+	  that specifies how many milliseconds to wait for an reply, or
+	  the atom <c>infinity</c> to wait indefinitely. Defaults to
+	  <c>infinity</c>.
+	  If no reply is received within the specified
+	  time, the function returns <c>timeout</c> and no cleanup is
+	  done, and thus the function can be invoked repeatedly until a
+	  reply is returned.
+	</p>
+	<p>
+	  The return value <c><anno>Reply</anno></c> is generated when a
+	  <seealso marker="#state callback"><em>state callback</em></seealso>
+	  returns with
+	  <c>{reply,From,<anno>Reply</anno>}</c> as one
+	  <seealso marker="#type-action"><c>action()</c></seealso>,
+	  and that <c><anno>Reply</anno></c> becomes the return value
+	  of this function.
+	</p>
+	<p>
+	  The function returns an error if the <c>gen_statem</c>
+	  dies before or during this function call.
 	</p>
       </desc>
     </func>

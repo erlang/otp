@@ -53,6 +53,7 @@ gen_server:start_link -----> Module:init/1
 gen_server:stop       -----> Module:terminate/2
 
 gen_server:call
+gen_server:send_request
 gen_server:multi_call -----> Module:handle_call/3
 
 gen_server:cast
@@ -155,8 +156,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <item><c>{via,Module,ViaName}</c>, if the <c>gen_server</c> process is
             registered through an alternative process registry</item>
         </list>
-        <p><c>Request</c> is any term that is passed as one of
-          the arguments to <c>Module:handle_call/3</c>.</p>
+        <p><c>Request</c> is any term that is passed as the
+          first argument to <c>Module:handle_call/3</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for a reply, or
           the atom <c>infinity</c> to wait indefinitely. Defaults to
@@ -196,6 +197,43 @@ gen_server:abcast     -----> Module:handle_cast/2
           <seealso marker="#call/2"><c>call/2,3</c></seealso>.</p>
         <p><c>Request</c> is any term that is passed as one
           of the arguments to <c>Module:handle_cast/2</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP-23">check_response(Msg, RequestId) -> Result</name>
+      <fsummary>Check if a message is a reply from a server.</fsummary>
+      <type>
+	<v>RequestId = term()</v>
+	<v>Result = {reply, Reply} | no_reply | {error, {Reason, ServerRef}}</v>
+	<v>Msg = Reply = term()</v>
+	<v>Timeout = timeout()</v>
+	<v>Reason = term()</v>
+	<v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+      </type>
+      <desc>
+	<p>
+	  This function is used to check if a previously received
+	  message, for example by <c>receive</c> or
+	  <c>handle_info/2</c>, is a result of a request made with
+	  <seealso marker="#send_request/2"><c>send_request/2</c></seealso>.
+	  If <c>Msg</c> is a reply to the handle <c>RequestId</c>
+	  the result of the request is returned in <c>Reply</c>.
+	  Otherwise returns <c>no_reply</c> and no cleanup is done, and
+	  thus the function must be invoked repeatedly until a reply
+	  is returned.
+	</p>
+	<p>
+	  The return value <c>Reply</c> is defined in the return value
+	  of <c>Module:handle_call/3</c>.
+	</p>
+	<p>
+	  The function returns an error if the <c>gen_server</c>
+	  dies before or during this request.
+	</p>
       </desc>
     </func>
 
@@ -280,8 +318,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>[node()|nodes()]</c>.</p>
         <p><c>Name</c> is the locally registered name of each
           <c>gen_server</c> process.</p>
-        <p><c>Request</c> is any term that is passed as one of
-          the arguments to <c>Module:handle_call/3</c>.</p>
+        <p><c>Request</c> is any term that is passed as the first
+          argument to <c>Module:handle_call/3</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for each reply, or
           the atom <c>infinity</c> to wait indefinitely. Defaults
@@ -325,6 +363,55 @@ gen_server:abcast     -----> Module:handle_cast/2
           the callback function. <c>Reply</c> is any term
           given back to the client as the return value of
           <c>call/2,3</c> or <c>multi_call/2,3,4</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP-23">send_request(ServerRef, Request) -> RequestId</name>
+      <fsummary>Sends a request to a generic server.</fsummary>
+      <type>
+        <v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+        <v>RequestId = term()</v>
+        <v>Timeout = int()>0 | infinity</v>
+        <v>Request = term()</v>
+      </type>
+      <desc>
+        <p>
+	  Sends a request to the <c>ServerRef</c> of the
+          <c>gen_server</c> process and returns a handle <c>RequestId</c>.
+	  The return value <c>RequestId</c> shall later be used with
+          <seealso marker="#wait_response/2"> <c>wait_response/2</c></seealso> or
+	  <seealso marker="#check_response/2"> <c>check_response/2</c></seealso>
+	  to fetch the actual result of the request.
+	</p>
+	<p>
+	  The call <c>gen_server:wait_response(gen_server:send_request(ServerRef,Request), Timeout)</c>
+	  can be seen as equivalent to
+	  <seealso marker="#call/3"><c>gen_server:call(Server,Request,Timeout)</c></seealso>,
+	  ignoring the error handling.
+	</p>
+	<p>
+	  The <c>gen_server</c> process calls
+	  <seealso marker="#Module:handle_call/3"> <c>Module:handle_call/3</c></seealso>
+	  to handle the request.
+	</p>
+        <p><c>ServerRef</c> can be any of the following:</p>
+        <list type="bulleted">
+          <item>The pid</item>
+          <item><c>Name</c>, if the <c>gen_server</c> process is locally
+            registered</item>
+          <item><c>{Name,Node}</c>, if the <c>gen_server</c> process is locally
+            registered at another node</item>
+          <item><c>{global,GlobalName}</c>, if the <c>gen_server</c> process is
+            globally registered</item>
+          <item><c>{via,Module,ViaName}</c>, if the <c>gen_server</c> process is
+            registered through an alternative process registry</item>
+        </list>
+        <p><c>Request</c> is any term that is passed as the first
+        argument to <c>Module:handle_call/3</c>.</p>
       </desc>
     </func>
 
@@ -493,6 +580,49 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>timeout</c> exception is raised.</p>
         <p>If the process does not exist, a <c>noproc</c> exception
           is raised.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP-23">wait_response(RequestId, Timeout) -> Result</name>
+      <fsummary>Wait for a reply from a server.</fsummary>
+      <type>
+	<v>RequestId = term()</v>
+	<v>Result = {reply, Reply} | timeout | {error, {Reason, ServerRef}}</v>
+	<v>Reply = term()</v>
+	<v>Timeout = timeout()</v>
+	<v>Reason = term()</v>
+	<v>ServerRef = Name | {Name,Node} | {global,GlobalName}</v>
+        <v>&nbsp;&nbsp;| {via,Module,ViaName} | pid()</v>
+        <v>&nbsp;Node = atom()</v>
+        <v>&nbsp;GlobalName = ViaName = term()</v>
+      </type>
+      <desc>
+	<p>
+	This function is used to wait for a reply of a request made with
+	<seealso marker="#send_request/2"><c>send_request/2</c></seealso>
+	from the <c>gen_server</c> process. This function must be called
+	from the same process from which
+	<seealso marker="#send_request/2"><c>send_request/2</c></seealso>
+	was made.
+	</p>
+	<p>
+	  <c>Timeout</c> is an integer greater then or equal to zero
+	  that specifies how many milliseconds to wait for an reply, or
+	  the atom <c>infinity</c> to wait indefinitely.
+	  If no reply is received within the specified
+	  time, the function returns <c>timeout</c> and no cleanup is
+	  done, and thus the function can be invoked repeatedly until a
+	  reply is returned.
+	</p>
+	<p>
+	  The return value <c>Reply</c> is defined in the return value
+	  of <c>Module:handle_call/3</c>.
+	</p>
+	<p>
+	  The function returns an error if the <c>gen_server</c>
+	  dies before or during this request.
+	</p>
       </desc>
     </func>
   </funcs>
