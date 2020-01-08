@@ -1693,12 +1693,12 @@ open(cast, {button,_}, Data) ->
     <p>
       If you need to cancel a timer because of some other event, you can use
       <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>.
-      Note that a time-out message cannot arrive after this,
-      unless you have postponed it before (see the next section),
+      Note that no time-out message will arrive after this (because the timer has been explicitly canceled),
+      unless you have already postponed one earlier (see the next section),
       so ensure that you do not accidentally postpone such messages.
-      Also note that a time-out message may have arrived
-      just before you cancelling it, so you may have to read out
-      such a message from the process mailbox depending on
+      Also note that a time-out message may arrive during a **state callback** 
+      that is cancelling the timer, so you may have to read out
+      such a message from the process mailbox, depending on
       the return value from 
       <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>.
     </p>
@@ -1839,12 +1839,12 @@ do_unlock() ->
     io:format("Open~n", []).
     ]]></code>
     <p>
-      The selective receive in this case causes implicitly <c>open</c>
-      to postpone any events to the <c>locked</c> state.
+      The selective receive in this case causes <c>open</c>
+      to implicitly postpone any events to the <c>locked</c> state.
     </p>
     <p>
       A selective receive cannot be used from a <c>gen_statem</c>
-      behavior as for any <c>gen_*</c> behavior,
+      behaviour (or from any <c>gen_*</c> behaviour),
       as the receive statement is within the <c>gen_*</c> engine itself.
       It must be there because all
       <seealso marker="stdlib:sys"><c>sys</c></seealso>
