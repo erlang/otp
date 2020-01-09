@@ -189,7 +189,7 @@ certificate(OwnCert, CertDbHandle, CertDbRef, _CRContext, Role) ->
                     certificate_request_context = <<>>,
                     certificate_list = CertList}};
 	{error, Error} when Role =:= server ->
-            {error, {no_suitable_certificates, Error}};
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {no_suitable_certificates, Error})};
 	{error, _Error} when Role =:= client ->
             %% The client MUST send a Certificate message if and only if the server
             %% has requested client authentication via a CertificateRequest message
@@ -229,9 +229,8 @@ certificate_verify(PrivateKey, SignatureScheme,
                     algorithm = SignatureScheme,
                     signature = Signature
                    }};
-        {error, badarg} ->
-            {error, badarg}
-
+        {error, #alert{} = Alert} ->
+            {error, Alert}
     end.
 
 
@@ -467,7 +466,7 @@ sign(THash, Context, HashAlgo, #'ECPrivateKey'{} = PrivateKey) ->
             {ok, Signature}
     catch
         error:badarg ->
-            {error, badarg}
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end;
 sign(THash, Context, HashAlgo, PrivateKey) ->
     Content = build_content(Context, THash),
@@ -482,7 +481,7 @@ sign(THash, Context, HashAlgo, PrivateKey) ->
             {ok, Signature}
     catch
         error:badarg ->
-            {error, badarg}
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end.
 
 
@@ -493,7 +492,7 @@ verify(THash, Context, HashAlgo, Signature, {?'id-ecPublicKey', PublicKey, Publi
             {ok, Result}
     catch
         error:badarg ->
-            {error, badarg}
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end;
 verify(THash, Context, HashAlgo, Signature, {?rsaEncryption, PublicKey, _PubKeyParams}) ->
     Content = build_content(Context, THash),
@@ -508,7 +507,7 @@ verify(THash, Context, HashAlgo, Signature, {?rsaEncryption, PublicKey, _PubKeyP
             {ok, Result}
     catch
         error:badarg ->
-            {error, badarg}
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, badarg)}
     end.
 
 
@@ -606,18 +605,8 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
                 Maybe(session_resumption(NextStateTuple, PSK))
         end
     catch
-        {Ref, {insufficient_security, no_suitable_groups}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
-        {Ref, illegal_parameter} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
-        {Ref, no_suitable_cipher} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
-        {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
-        {Ref, {insufficient_security, no_suitable_public_key}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key);
-        {Ref, no_application_protocol} ->
-            ?ALERT_REC(?FATAL, ?NO_APPLICATION_PROTOCOL)
+        {Ref, #alert{} = Alert} ->
+            Alert
     end;
 %% TLS Client
 do_start(#server_hello{cipher_suite = SelectedCipherSuite,
@@ -696,8 +685,8 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         {State, wait_sh}
 
     catch
-        {Ref, {illegal_parameter, Reason}} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, Reason)
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -757,10 +746,8 @@ do_negotiated({start_handshake, PSK0},
         {State9, NextState}
 
     catch
-        {Ref, badarg} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {digitally_sign, badarg});
-        {Ref, {no_suitable_certificates, Reason}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {no_suitable_certificates, Reason})
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -769,17 +756,9 @@ do_wait_cert(#certificate_1_3{} = Certificate, State0) ->
     try
         Maybe(process_certificate(Certificate, State0))
     catch
-        {Ref, {certificate_required, State}} ->
-            {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State};
-        {Ref, {{certificate_unknown, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason), State};
-        {Ref, {{internal_error, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason), State};
-        {Ref, {{handshake_failure, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason), State};
+        {Ref, #alert{} = Alert} ->
+            {Alert, State0};
         {Ref, {#alert{} = Alert, State}} ->
-            {Alert, State};
-        {#alert{} = Alert, State} ->
             {Alert, State}
     end.
 
@@ -790,12 +769,8 @@ do_wait_cv(#certificate_verify_1_3{} = CertificateVerify, State0) ->
         State1 = Maybe(verify_signature_algorithm(State0, CertificateVerify)),
         Maybe(verify_certificate_verify(State1, CertificateVerify))
     catch
-        {Ref, {{bad_certificate, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?BAD_CERTIFICATE, {bad_certificate, Reason}), State};
-        {Ref, {badarg, State}} ->
-            {?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {verify, badarg}), State};
-        {Ref, {{handshake_failure, Reason}, State}} ->
-            {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, {handshake_failure, Reason}), State}
+        {Ref, {#alert{} = Alert, State}} ->
+            {Alert, State}
     end.
 
 %% TLS Server
@@ -816,8 +791,8 @@ do_wait_finished(#finished{verify_data = VerifyData},
         maybe_send_session_ticket(State3)
 
     catch
-        {Ref, decrypt_error} ->
-            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)
+        {Ref, #alert{} = Alert} ->
+            Alert
     end;
 %% TLS Client
 do_wait_finished(#finished{verify_data = _VerifyData},
@@ -846,12 +821,8 @@ do_wait_finished(#finished{verify_data = _VerifyData},
         ssl_record:step_encryption_state(State5)
 
     catch
-        {Ref, decrypt_error} ->
-            ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error);
-        {Ref, badarg} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {digitally_sign, badarg});
-        {Ref, {no_suitable_certificates, Reason}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {no_suitable_certificates, Reason})
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -909,16 +880,8 @@ do_wait_sh(#server_hello{cipher_suite = SelectedCipherSuite,
     catch
         {Ref, {State, StateName, ServerHello}} ->
             {State, StateName, ServerHello};
-        {Ref, {insufficient_security, no_suitable_groups}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
-        {Ref, illegal_parameter} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
-        {Ref, no_suitable_cipher} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
-        {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
-        {Ref, {insufficient_security, no_suitable_public_key}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -939,16 +902,6 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
 
         {State1, wait_cert_cr}
     catch
-        {Ref, {insufficient_security, no_suitable_groups}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups);
-        {Ref, illegal_parameter} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER);
-        {Ref, no_suitable_cipher} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher);
-        {Ref, {insufficient_security, no_suitable_signature_algorithm}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, "No suitable signature algorithm");
-        {Ref, {insufficient_security, no_suitable_public_key}} ->
-            ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key);
         {Ref, {State, StateName}} ->
             {State, StateName}
     end.
@@ -959,14 +912,8 @@ do_wait_cert_cr(#certificate_1_3{} = Certificate, State0) ->
     try
         Maybe(process_certificate(Certificate, State0))
     catch
-        {Ref, {certificate_required, _State}} ->
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required);
-        {Ref, {{certificate_unknown, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason);
-        {Ref, {{internal_error, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
-        {Ref, {{handshake_failure, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason);
+        {Ref, #alert{} = Alert} ->
+            {Alert, State0};
         {Ref, {#alert{} = Alert, State}} ->
             {Alert, State}
     end;
@@ -975,28 +922,9 @@ do_wait_cert_cr(#certificate_request_1_3{} = CertificateRequest, State0) ->
     try
         Maybe(process_certificate_request(CertificateRequest, State0))
     catch
-        {Ref, {certificate_required, _State}} ->
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required);
-        {Ref, {{certificate_unknown, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, Reason);
-        {Ref, {illegal_parameter, Reason}} ->
-            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, Reason);
-        {Ref, {{internal_error, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason);
-        {Ref, {{handshake_failure, Reason}, _State}} ->
-            ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason)
+        {Ref, #alert{} = Alert} ->
+            {Alert, State0}
     end.
-
-
-
-%% TODO: Remove this function!
-%% not_implemented(State, Reason) ->
-%%     {error, {not_implemented, State, Reason}}.
-
-%% not_implemented(update_secrets, State0, Reason) ->
-%%     State1 = calculate_traffic_secrets(State0),
-%%     State = ssl_record:step_encryption_state(State1),
-%%     {error, {not_implemented, State, Reason}}.
 
 
 %% For reasons of backward compatibility with middleboxes (see
@@ -1056,8 +984,8 @@ maybe_queue_cert_cert_cv(#state{connection_states = _ConnectionStates0,
         State = Maybe(maybe_queue_cert_verify(Certificate, State1)),
         {ok, State}
     catch
-        {Ref, badarg} ->
-            {error, badarg}
+        {Ref, #alert{} = Alert} ->
+            {error, Alert}
     end.
 
 
@@ -1076,8 +1004,8 @@ maybe_queue_cert_verify(_Certificate,
         CertificateVerify = Maybe(certificate_verify(CertPrivateKey, SignatureScheme, State, client)),
         {ok, tls_connection:queue_handshake(CertificateVerify, State)}
     catch
-        {Ref, badarg} ->
-            {error, badarg}
+        {Ref, #alert{} = Alert} ->
+            {error, Alert}
     end.
 
 
@@ -1104,7 +1032,7 @@ validate_client_finished(#state{connection_states = ConnectionStates,
 compare_verify_data(Data, Data) ->
     ok;
 compare_verify_data(_, _) ->
-    {error, decrypt_error}.
+    {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}.
 
 
 send_hello_retry_request(#state{connection_states = ConnectionStates0} = State0,
@@ -1239,7 +1167,7 @@ process_certificate(#certificate_1_3{
     %% secrets.
     State1 = calculate_traffic_secrets(State0),
     State = ssl_record:step_encryption_state(State1),
-    {error, {certificate_required, State}};
+    {error, {?ALERT_REC(?FATAL, ?CERTIFICATE_REQUIRED, certificate_required), State}};
 process_certificate(#certificate_1_3{certificate_list = Certs0},
                     #state{ssl_options =
                                #{signature_algs := SignAlgs,
@@ -1271,8 +1199,8 @@ process_certificate(#certificate_1_3{certificate_list = Certs0},
         false ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {{handshake_failure,
-                      "Client certificate uses unsupported signature algorithm"}, State}}
+            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                                "Client certificate uses unsupported signature algorithm"), State}}
     end.
 
 
@@ -1336,9 +1264,9 @@ validate_certificate_chain(Certs, CertDbHandle, CertDbRef,
     catch
         error:{badmatch,{error, {asn1, Asn1Reason}}} ->
             %% ASN-1 decode of certificate somehow failed
-            {error, {certificate_unknown, {failed_to_decode_certificate, Asn1Reason}}};
+            {error, ?ALERT_REC(?FATAL, ?CERTIFICATE_UNKNOWN, {failed_to_decode_certificate, Asn1Reason})};
         error:OtherReason ->
-            {error, {internal_error, {unexpected_error, OtherReason}}}
+            {error, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, {unexpected_error, OtherReason})}
     end.
 
 
@@ -1451,7 +1379,7 @@ get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentit
         undefined -> %% full handshake, default PSK
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
         illegal_parameter ->
-            {error, illegal_parameter};
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
         {_, PSK} ->
             {ok, PSK}
     end;
@@ -1463,7 +1391,7 @@ get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, SelectedIdentity)
             {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
         illegal_parameter ->
             tls_client_ticket_store:unlock_tickets(self(), UseTicket),
-            {error, illegal_parameter};
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
         {Key, PSK} ->
             tls_client_ticket_store:remove_tickets([Key]),  %% Remove single-use ticket
             tls_client_ticket_store:unlock_tickets(self(), UseTicket -- [Key]),
@@ -1751,8 +1679,8 @@ verify_signature_algorithm(#state{
         false ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {{handshake_failure,
-                      "CertificateVerify uses unsupported signature algorithm"}, State}}
+            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                                "CertificateVerify uses unsupported signature algorithm"), State}}
     end.
 
 
@@ -1796,11 +1724,12 @@ verify_certificate_verify(#state{
         {ok, false} ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {{handshake_failure, "Failed to verify CertificateVerify"}, State}};
-        {error, badarg} ->
+            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                                "Failed to verify CertificateVerify"), State}};
+        {error, #alert{} = Alert} ->
             State1 = calculate_traffic_secrets(State0),
             State = ssl_record:step_encryption_state(State1),
-            {error, {badarg, State}}
+            {error, {Alert, State}}
     end.
 
 
@@ -1822,7 +1751,7 @@ peer_context_string(client) ->
 %% server MUST abort the handshake with a "handshake_failure" or an
 %% "insufficient_security" alert.
 select_common_groups(_, []) ->
-    {error, {insufficient_security, no_suitable_groups}};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_groups)};
 select_common_groups(ServerGroups, ClientGroups) ->
     Fun = fun(E) -> lists:member(E, ClientGroups) end,
     case lists:filter(Fun, ServerGroups) of
@@ -1853,7 +1782,7 @@ select_common_groups(ServerGroups, ClientGroups) ->
 validate_client_key_share(_ ,[]) ->
     ok;
 validate_client_key_share([], _) ->
-    {error, illegal_parameter};
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
 validate_client_key_share([G|ClientGroups], [{_, G, _}|ClientShares]) ->
     validate_client_key_share(ClientGroups, ClientShares);
 validate_client_key_share([_|ClientGroups], [_|_] = ClientShares) ->
@@ -1861,6 +1790,8 @@ validate_client_key_share([_|ClientGroups], [_|_] = ClientShares) ->
 
 
 %% Verify that selected group is offered by the client.
+validate_server_key_share([], _) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
 validate_server_key_share([G|_ClientGroups], {_, G, _}) ->
     ok;
 validate_server_key_share([_|ClientGroups], {_, _, _} = ServerKeyShare) ->
@@ -1868,17 +1799,17 @@ validate_server_key_share([_|ClientGroups], {_, _, _} = ServerKeyShare) ->
 
 
 validate_selected_group(SelectedGroup, [SelectedGroup|_]) ->
-    {error, {illegal_parameter,
-             "Selected group sent by the server shall not correspond to a group"
-             " which was provided in the key_share extension"}};
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                       "Selected group sent by the server shall not correspond to a group"
+                       " which was provided in the key_share extension")};
 validate_selected_group(SelectedGroup, ClientGroups) ->
     case lists:member(SelectedGroup, ClientGroups) of
         true ->
             ok;
         false ->
-            {error, {illegal_parameter,
-                     "Selected group sent by the server shall correspond to a group"
-                     " which was provided in the supported_groups extension"}}
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               "Selected group sent by the server shall correspond to a group"
+                               " which was provided in the supported_groups extension")}
     end.
 
 
@@ -1930,7 +1861,7 @@ get_server_public_key({key_share_entry, Group, PublicKey}) ->
 handle_alpn(undefined, _) ->
     {ok, undefined};
 handle_alpn([], _) ->
-    {error, no_application_protocol};
+    {error,  ?ALERT_REC(?FATAL, ?NO_APPLICATION_PROTOCOL)};
 handle_alpn([_|_], undefined) ->
     {ok, undefined};
 handle_alpn([ServerProtocol|T], ClientProtocols) ->
@@ -1943,7 +1874,7 @@ handle_alpn([ServerProtocol|T], ClientProtocols) ->
 
 
 select_cipher_suite(_, [], _) ->
-    {error, no_suitable_cipher};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher)};
 %% If honor_cipher_order is set to true, use the server's preference for
 %% cipher suite selection.
 select_cipher_suite(true, ClientCiphers, ServerCiphers) ->
@@ -1966,7 +1897,7 @@ validate_cipher_suite(Cipher, ClientCiphers) ->
         true ->
             ok;
         false ->
-            {error, illegal_parameter}
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)}
     end.
 
 
@@ -1992,9 +1923,9 @@ check_cert_sign_algo(SignAlgo, SignHash, _, ClientSignAlgsCert) ->
 
 %% DSA keys are not supported by TLS 1.3
 select_sign_algo(dsa, _ClientSignAlgs, _ServerSignAlgs) ->
-    {error, {insufficient_security, no_suitable_public_key}};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_public_key)};
 select_sign_algo(_, [], _) ->
-    {error, {insufficient_security, no_suitable_signature_algorithm}};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
     {_, S, _} = ssl_cipher:scheme_to_components(C),
     %% RSASSA-PKCS1-v1_5 and Legacy algorithms are not defined for use in signed
@@ -2017,7 +1948,7 @@ select_sign_algo(PublicKeyAlgo, [C|ClientSignAlgs], ServerSignAlgs) ->
 
 
 do_check_cert_sign_algo(_, _, []) ->
-    {error, {insufficient_security, no_suitable_signature_algorithm}};
+    {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)};
 do_check_cert_sign_algo(SignAlgo, SignHash, [Scheme|T]) ->
     {Hash, Sign, _Curve} = ssl_cipher:scheme_to_components(Scheme),
     case compare_sign_algos(SignAlgo, SignHash, Sign, Hash) of
