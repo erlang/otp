@@ -1621,7 +1621,7 @@ lseek_pos(_, _, _) ->
 
 %%%================================================================
 %%%
-to_bin(Data) when is_list(Data) -> unicode:characters_to_binary(Data);
+to_bin(Data) when is_list(Data) -> ?to_binary(Data);
 to_bin(Data) when is_binary(Data) -> Data.
 
 
