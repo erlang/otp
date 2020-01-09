@@ -33,30 +33,39 @@
     <file>ct_property_test.xml</file>
   </header>
   <module since="OTP 17.3">ct_property_test</module>
-  <modulesummary>EXPERIMENTAL support in Common Test for calling
-    property-based tests.</modulesummary>
+  <modulesummary>Support in Common Test for running property-based tests.</modulesummary>
 
   <description>
 
-    <p>EXPERIMENTAL support in <c>Common Test</c> for calling property-based
-      tests.</p>
+    <p>This module helps running property-based tests in the
+    <c>Common Test</c> framework. One (or more) of the property testing tools
+    </p>
+    <list>
+      <item><url href="http://www.quviq.com">QuickCheck</url>,</item>
+      <item><url href="https://proper-testing.github.io">PropEr</url> or</item>
+      <item><url href="https://github.com/krestenkrab/triq">Triq</url></item>
+    </list>
+    <p>
+      is assumed to be installed.
+    </p>
 
-    <p>This module is a first step to run property-based tests in the
-      <c>Common Test</c> framework. A property testing tool like QuickCheck
-      or PropEr is assumed to be installed.</p>
-
-    <p>The idea is to have a <c>Common Test</c> test suite calling a property
-      testing tool with special property test suites as defined by that tool.
-      The usual Erlang application directory structure is assumed. The tests
-      are collected in the <c>test</c> directory of the application. The
-      <c>test</c> directory has a subdirectory <c>property_test</c>, where
-      everything needed for the property tests is collected.</p>
+    <p>The idea with this module is to have a <c>Common Test</c> test suite calling
+    a property testing tool with special property test suites as defined by that tool.
+    The tests
+    are collected in the <c>test</c> directory of the application. The
+    <c>test</c> directory has a subdirectory <c>property_test</c>, where
+    everything needed for the property tests are collected.
+    The usual Erlang application directory structure is assumed.
+    </p>
 
     <p>A typical <c>Common Test</c> test suite using <c>ct_property_test</c>
-      is organized as follows:</p>
+    is organized as follows:</p>
 
-    <pre>
- -include_lib("common_test/include/ct.hrl").
+    <code>
+-module(my_prop_test_SUITE).
+-compile(export_all).
+
+-include_lib("common_test/include/ct.hrl").
 
  all() -&gt; [prop_ftp_case].
 
@@ -66,51 +75,198 @@
  %%%---- test case
  prop_ftp_case(Config) -&gt;
      ct_property_test:quickcheck(
-       ftp_simple_client_server:prop_ftp(Config),
+       ftp_simple_client_server:prop_ftp(),
        Config
-      ).</pre>
+      ).</code>
+      <p>and the the property test module (in this example <c>ftp_simple_client_server.erl</c>)
+      as almost a usual property testing module
+      (More examples are in <seealso marker="ct_property_test_chapter">the User's Guide</seealso>):</p>
+      <code>
+-module(ftp_simple_client_server).	
+-export([prop_ftp/0...]).
 
-    <warning>
-      <p>This is experimental code that can be changed or removed anytime
-        without any warning.</p>
-    </warning>
+-include_lib("common_test/include/ct_property_test.hrl").
 
+prop_ftp() -&gt;
+    ?FORALL( ....
+      </code>
   </description>
 
   <funcs>
     <func>
     <name since="OTP 17.3">init_per_suite(Config) -&gt; Config | {skip, Reason}</name>
-    <fsummary>Initializes Config for property testing.</fsummary>
+    <fsummary>Initializes and extends Config for property testing.</fsummary>
       <desc><marker id="init_per_suite-1"/>
-        <p>Initializes <c>Config</c> for property testing.</p>
+        <p>Initializes and extends  <c>Config</c> for property based testing.</p>
 
         <p>This function investigates if support is available for either
-          Quickcheck, PropEr, or Triq. The options
-          <c>{property_dir,AbsPath}</c> and <c>{property_test_tool,Tool}</c>
-          are set in the <c>Config</c> returned.</p>
-
-        <p>The function is intended to be called in function
-          <c>init_per_suite</c> in the test suite.</p>
-
-        <p>The property tests are assumed to be in subdirectory
-          <c>property_test</c>.</p>
+        <url href="http://www.quviq.com">QuickCheck</url>,
+	<url href="https://proper-testing.github.io">PropEr</url>
+	or <url href="https://github.com/krestenkrab/triq">Triq</url> and compiles the
+	properties with the first tool found.
+	It is supposed to be called in the <c>init_per_suite/1</c> function
+	in a CommonTest test suite.
+	</p>
+	<p>Which tools to check for, and in which order could be set with the option
+	<c>{prop_tools, list(eqc|proper|triq)}</c>
+	in the CommonTest configuration <c>Config</c>. The default value is
+	<c>[eqc, proper, triq]</c> with <c>eqc</c> being the first one searched for.
+	</p>
+	<p>If no support is found for any tool, this function returns
+	<c>{skip, Explanation}</c>.
+	</p>
+	<p>If support is found, the option <c>{property_test_tool,ToolModule}</c> with
+	the selected tool main module name (<c>eqc</c>, <c>proper</c> or <c>triq</c>)
+        is added to the list <c>Config</c> which then is returned.
+	</p>
+        <p>The property tests are assumed to be in a subdirectory named
+	<c>property_test</c>.
+	All found Erlang files in that directory are compiled with one of the macros
+	<c>'EQC'</c>, <c>'PROPER'</c> or <c>'TRIQ'</c> set, depending on which tool
+	that is first found. This could make parts of the Erlang property tests
+	code to be included or excluded with the macro directives
+	<c>-ifdef(Macro).</c> or <c>-ifndef(Macro).</c>.
+	</p>
+	<p>The file(s) in the <c>property_test</c> subdirectory could, or should,
+	include the ct_property_test include file:
+	</p>
+	<code>
+-include_lib("common_test/include/ct_property_test.hrl").
+	</code>
+	<p>This included file will:
+	</p>
+	<list>
+	  <item>Include the correct tool's include file</item>
+	  <item>Set the macro <c>'MOD_eqc'</c> to the correct module name for the
+	  selected tool. That is, the macro <c>'MOD_eqc'</c> is set to either
+	  <c>eqc</c>, <c>proper</c> or <c>triq</c>.
+	  </item>
+	</list>
       </desc>
     </func>
 
     <func>
-    <name since="OTP 17.3">quickcheck(Property, Config) -&gt; true | {fail, Reason}</name>
-    <fsummary>Calls quickcheck and returns the result in a form suitable for
+      <name since="OTP 17.3">quickcheck(Property, Config) -&gt; true | {fail, Reason}</name>
+      <fsummary>Calls quickcheck and returns the result in a form suitable for
       Common Test.</fsummary>
-      <desc><marker id="quickcheck-2"/>
-        <p>Calls quickcheck and returns the result in a form suitable for
-          <c>Common Test</c>.</p>
-
-        <p>This function is intended to be called in the test cases in the
-          test suite.</p>
+      <desc>
+      <p>Calls the selected tool's function for running the <c>Property</c>. It is usually and
+      by historical reasons called quickcheck, and that is why that name is used in
+      this module (<c>ct_property_test</c>).
+      </p>
+      <p>The result is returned in a form suitable for <c>Common Test</c> test suites.
+      </p>
+      <p>This function is intended to be called in test cases in test suites.
+      </p>
       </desc>
     </func>
+
+    <func>
+      <name since="">present_result(Module, Cmds, Triple, Config) -> Result</name>
+      <fsummary>Presents the result of statem property testing</fsummary>
+      <desc>
+      <p>Same as <seealso marker="#present_result/5"><c>present_result(Module, Cmds, Triple, Config, [])</c></seealso>
+      </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">present_result(Module, Cmds, Triple, Config, Options) -> Result</name>
+      <fsummary>Presents the result of statem property testing</fsummary>
+      <type>
+	<v>Module = module()</v>
+	<d></d>
+	
+	<v>Cmds =</v>
+	<d>the list of commands generated by the property testing tool, for example
+	  by proper:commands/1 or by proper:parallel_commands/1
+	</d>
+
+	<v>Triple =</v>
+	<d>the output from for example proper:run_commands/2 or proper:run_parallel_commands/2</d>
+
+	<v>Config =</v>
+	<d>the Common Test <seealso marker="common_test#Module:Testcase/1">Config</seealso> in test cases.</d>
+
+	<v>Options = [present_option()]</v>
+	<v>present_option() = {print_fun, fun(Format,Args)}</v>
+	<v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| {spec, StatisticsSpec}</v>
+	<d>The <c>print_fun</c> defines which function to do the actual printout. The default is
+	<seealso marker="ct#log/2">ct:log/2</seealso>.
+	The <c>spec</c> defines what statistics are to be printed<!--, see the
+	<seealso marker="ct_property_test_chapter#spec_present_result">User's Guide</seealso>-->
+	</d>
+
+	<v>Result = boolean()</v>
+	<d>Is <c>false</c> if the test failed and is <c>true</c> if the test passed</d>
+      </type>
+      <desc>
+      <p>Presents the result of <i>stateful (statem) property testing</i> using the aggregate function in
+      PropEr, QuickCheck or other similar property testing tool.
+      </p>
+      <p>It is assumed to be called inside the property called by
+      <seealso marker="#quickcheck/2">quickcheck/2</seealso>:</p>
+      <code>
+...
+RunResult = run_parallel_commands(?MODULE, Cmds),
+ct_property_test:present_result(?MODULE, Cmds, RunResult, Config)	
+...
+      </code>
+      <p>See the <seealso marker="ct_property_test_chapter#stateful1">User's Guide</seealso> for
+      an example of the usage and of the default printout.
+      </p>
+      <p>The <c>StatisticsSpec</c> is a list of the tuples:</p>
+      <list>
+	<item><c>{Title::string(), CollectFun::fun/1}</c></item>
+	<item><c>{Title::string(), FrequencyFun::/0, CollectFun::fun/1}</c></item>
+      </list>
+      <p>Each tuple will produce one table in the order of their places in the list.</p>
+      <list>
+	<item><c>Title</c> will be the title of one result table</item>
+
+	<item><c>CollectFun</c> is called with one argument: the <c>Cmds</c>. It should return
+	a list of the values to be counted. The following pre-defined functions exist:
+	<list>
+	  <item><c>ct_property_test:cmnd_names/1</c> returns a list of commands (function calls) generated in the <c>Cmnd</c>
+	  sequence, without Module, Arguments and other details.</item>
+	  <item><c>ct_property_test:num_calls/1</c> returns a list of the length of commands lists</item>
+	  <item><c>ct_property_test:sequential_parallel/1</c> returns a list with information about sequential and
+	  parallel parts from <c>Tool:parallel_commands/1,2</c></item>
+	</list>
+	</item>
+
+	<item><c>FrequencyFun/0</c> returns a fun/1 which is supposed to take a list of items as input,
+	and return an iolist wich will be printed as the table. Per default, the number of each item is counted
+	and the percentage is printed for each.  The list [a,b,a,a,c] could for example return
+	<pre>
+ ["a 60%\n","b 20%\n","c 20%\n"]</pre>
+        which will be printed by the <c>print_fun</c>.
+	The default <c>print_fun</c> will print it as: 
+	<pre>
+ a 60%
+ b 20%
+ c 20%</pre>
+	</item>
+      </list>
+      <p>The default <c>StatisticsSpec</c> is:</p>
+      <list>
+	<item>For sequential commands:
+	<code>
+[{"Function calls", fun cmnd_names/1},
+ {"Length of command sequences", fun print_frequency_ranges/0,
+                                                  fun num_calls/1}]
+	</code></item>
+	<item>For parallel commands:
+	<code>
+[{"Distribution sequential/parallel", fun sequential_parallel/1},
+ {"Function calls", fun cmnd_names/1},
+ {"Length of command sequences", fun print_frequency_ranges/0,
+                                                  fun num_calls/1}]
+	</code></item>
+      </list>
+      </desc>
+    </func>
+
   </funcs>
 
 </erlref>
-
-
