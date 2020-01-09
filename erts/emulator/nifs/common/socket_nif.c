@@ -577,6 +577,7 @@ typedef union {
 #define ESOCK_OPT_OTP_RCVCTRLBUF   6
 #define ESOCK_OPT_OTP_SNDCTRLBUF   7
 #define ESOCK_OPT_OTP_FD           8
+#define ESOCK_OPT_OTP_META         9
 #define ESOCK_OPT_OTP_DOMAIN       0xFF01 // INTERNAL AND ONLY GET
 #define ESOCK_OPT_OTP_TYPE         0xFF02 // INTERNAL AND ONLY GET
 #define ESOCK_OPT_OTP_PROTOCOL     0xFF03 // INTERNAL AND ONLY GET
@@ -828,6 +829,12 @@ typedef struct {
     ERL_NIF_TERM ref; // The (unique) reference (ID) of the request
 } ESockRequestor;
 
+typedef struct{
+    // Holding the socket level 'otp' option 'meta' term
+    ErlNifEnv* env;
+    ERL_NIF_TERM ref;
+} ESockMeta;
+
 typedef struct esock_request_queue_element {
     struct esock_request_queue_element* nextP;
     ESockRequestor                      data;
@@ -923,6 +930,7 @@ typedef struct {
     unsigned int rNumCnt; // recv: Current number of reads (so far)
     size_t       rCtrlSz; // Read control buffer size
     size_t       wCtrlSz; // Write control buffer size
+    ESockMeta    meta;    // Level 'otp' option 'meta' term
     BOOLEAN_T    iow;     // Inform On (counter) Wrap
     BOOLEAN_T    dbg;
 
@@ -1244,9 +1252,11 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
  * *** esock_setopt_otp_rcvbuf     ***
  * *** esock_setopt_otp_rcvctrlbuf ***
  * *** esock_setopt_otp_sndctrlbuf ***
+ * *** esock_setopt_otp_meta       ***
  */
 #define ESOCK_SETOPT_OTP_FUNCS             \
     ESOCK_SETOPT_OTP_FUNC_DEF(debug);      \
+    ESOCK_SETOPT_OTP_FUNC_DEF(meta);       \
     ESOCK_SETOPT_OTP_FUNC_DEF(iow);        \
     ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);  \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);     \
@@ -1775,12 +1785,14 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
  * *** esock_getopt_otp_rcvctrlbuf ***
  * *** esock_getopt_otp_sndctrlbuf ***
  * *** esock_getopt_otp_fd         ***
+ * *** esock_getopt_otp_meta       ***
  * *** esock_getopt_otp_domain     ***
  * *** esock_getopt_otp_type       ***
  * *** esock_getopt_otp_protocol   ***
  */
 #define ESOCK_GETOPT_OTP_FUNCS             \
     ESOCK_GETOPT_OTP_FUNC_DEF(debug);      \
+    ESOCK_GETOPT_OTP_FUNC_DEF(meta);       \
     ESOCK_GETOPT_OTP_FUNC_DEF(iow);        \
     ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);  \
     ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);     \
@@ -8240,6 +8252,10 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         result = esock_setopt_otp_sndctrlbuf(env, descP, eVal);
         break;
 
+    case ESOCK_OPT_OTP_META:
+        result = esock_setopt_otp_meta(env, descP, eVal);
+        break;
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -8434,6 +8450,32 @@ ERL_NIF_TERM esock_setopt_otp_sndctrlbuf(ErlNifEnv*       env,
 
     descP->wCtrlSz = val;
     
+    return esock_atom_ok;
+}
+
+
+/* esock_setopt_otp_meta - Handle the OTP (level) meta options
+ */
+static
+ERL_NIF_TERM esock_setopt_otp_meta(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     eVal)
+{
+    ErlNifPid caller;
+
+    if (enif_self(env, &caller) == NULL)
+        return esock_make_error(env, atom_exself);
+
+    if (COMPARE_PIDS(&descP->ctrlPid, &caller) != 0) {
+        SSDBG( descP, ("SOCKET",
+                       "esock_setopt_otp_meta -> not owner (%T)\r\n",
+                       descP->ctrlPid) );
+        return esock_make_error(env, esock_atom_not_owner);
+    }
+
+    enif_clear_env(descP->meta.env);
+    descP->meta.ref = CP_TERM(descP->meta.env, eVal);
+
     return esock_atom_ok;
 }
 
@@ -11919,6 +11961,10 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
         result = esock_getopt_otp_fd(env, descP);
         break;
 
+    case ESOCK_OPT_OTP_META:
+        result = esock_getopt_otp_meta(env, descP);
+        break;
+
         /* *** INTERNAL *** */
     case ESOCK_OPT_OTP_DOMAIN:
         result = esock_getopt_otp_domain(env, descP);
@@ -12032,6 +12078,18 @@ ERL_NIF_TERM esock_getopt_otp_fd(ErlNifEnv*       env,
                                  ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal = MKI(env, descP->sock);
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+/* esock_getopt_otp_meta - Handle the OTP (level) meta option
+ */
+static
+ERL_NIF_TERM esock_getopt_otp_meta(ErlNifEnv*       env,
+                                   ESockDescriptor* descP)
+{
+    ERL_NIF_TERM eVal = CP_TERM(env, descP->meta.ref);
 
     return esock_make_ok2(env, eVal);
 }
@@ -18819,6 +18877,9 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
         descP->iow              = FALSE;
         descP->dbg              = ESOCK_DEBUG_DEFAULT;
+        descP->meta.env         = esock_alloc_env("alloc_descriptor - "
+                                                  "meta-env");
+        descP->meta.ref         = esock_atom_undefined;
 
         descP->sock             = sock;
         descP->event            = event;
@@ -20557,7 +20618,8 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
             }
         }
     }
-    
+
+    esock_free_env("esoc_stop - meta-env", descP->meta.env);
 
     SSDBG( descP, ("SOCKET", "esock_stop -> unlock all mutex(s)\r\n") );
 

@@ -774,6 +774,7 @@
 -define(ESOCK_OPT_OTP_RCVCTRLBUF,       6).
 -define(ESOCK_OPT_OTP_SNDCTRLBUF,       7).
 -define(ESOCK_OPT_OTP_FD,               8).
+-define(ESOCK_OPT_OTP_META,             9).
 -define(ESOCK_OPT_OTP_DOMAIN,           16#FF01). % INTERNAL
 -define(ESOCK_OPT_OTP_TYPE,             16#FF02). % INTERNAL
 -define(ESOCK_OPT_OTP_PROTOCOL,         16#FF03). % INTERNAL
@@ -3028,6 +3029,8 @@ enc_setopt_value(otp, sndctrlbuf, V, _, _, _) when (V =:= default) ->
     0;
 enc_setopt_value(otp, sndctrlbuf, V, _, _, _) when is_integer(V) andalso (V > 0) ->
     V;
+enc_setopt_value(otp, meta, V, _, _, _) ->
+    V;
 enc_setopt_value(otp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
 
@@ -3532,6 +3535,8 @@ enc_sockopt_key(otp, sndctrlbuf, _, _, _, _) ->
     ?ESOCK_OPT_OTP_SNDCTRLBUF;
 enc_sockopt_key(otp, fd, get = _Dir, _, _, _) ->
     ?ESOCK_OPT_OTP_FD;
+enc_sockopt_key(otp, meta, _, _, _, _) ->
+    ?ESOCK_OPT_OTP_META;
 enc_sockopt_key(otp = L, Opt, _, _, _, _) ->
     not_supported({L, Opt});
 
