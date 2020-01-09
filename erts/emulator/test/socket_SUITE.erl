@@ -15856,7 +15856,7 @@ api_opt_sock_timestamp_tcp(InitState) ->
                            ok
                    end},
          #{desc => "await recv reply 2 (from server, w timestamp)",
-           cmd  => fun(#{sock := Sock, recv := Recv}) ->
+           cmd  => fun(#{sock := Sock, recv := Recv, get := Get}) ->
                            case Recv(Sock) of
                                {ok, {[#{level := socket,
                                         type   := timestamp,
@@ -15866,6 +15866,8 @@ api_opt_sock_timestamp_tcp(InitState) ->
                                                "~n   ~p", [TS]),
                                    ok;
                                {ok, {BadCMsgHdrs, ?BASIC_REP}} ->
+                                   ?SEV_EPRINT("Current timestamp value:"
+                                               "   ~p", [Get(Sock)]),
                                    {error, {unexpected_reply_cmsghdrs,
                                             BadCMsgHdrs}};
                                {ok, {[#{level := socket,

@@ -1679,10 +1679,10 @@ send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
                       SockRef, Data, To, EFlags, Deadline, SendName);
 
                 {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
-                    {error, Reason}
+                    {error, {Reason, size(Data)}}
 
             after Timeout ->
-                    cancel(SockRef, SendName, SendRef),
+                    _ = cancel(SockRef, SendName, SendRef),
                     {error, {timeout, size(Data)}}
             end;
 
@@ -1707,10 +1707,10 @@ send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
                       SockRef, Data, To, EFlags, Deadline, SendName);
 
                 {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
-                    {error, Reason}
+                    {error, {Reason, size(Data)}}
 
             after Timeout ->
-                    cancel(SockRef, SendName, SendRef),
+                    _ = cancel(SockRef, SendName, SendRef),
                     {error, {timeout, size(Data)}}
             end;
 
@@ -1718,8 +1718,6 @@ send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
         {error, Reason} ->
             {error, {Reason, size(Data)}}
     end.
-
-
 
 
 %% ---------------------------------------------------------------------------
@@ -1901,7 +1899,7 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Deadline) ->
             %%
             %% We need to cancel this partial write.
             %%
-            cancel(SockRef, sendmsg, SendRef),
+            _ = cancel(SockRef, sendmsg, SendRef),
             {ok, do_sendmsg_rest(maps:get(iov, MsgHdr), Written)};
 
 
@@ -1921,10 +1919,13 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Deadline) ->
 	    Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
-                    do_sendmsg(SockRef, MsgHdr, EFlags, Deadline)
+                    do_sendmsg(SockRef, MsgHdr, EFlags, Deadline);
+
+                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
+                    {error, Reason}
 
             after Timeout ->
-                    cancel(SockRef, sendmsg, SendRef),
+                    _ = cancel(SockRef, sendmsg, SendRef),
                     {error, timeout}
             end;
 
@@ -3909,19 +3910,29 @@ cancel(SockRef, Op, OpRef) ->
     case nif_cancel(SockRef, Op, OpRef) of
         %% The select has already completed
         {error, select_sent} ->
-            flush_select_msgs(SockRef, OpRef);
+            flush_select_msg(SockRef, OpRef),
+            _ = flush_abort_msg(SockRef, OpRef),
+            ok;
         Other ->
+            _ = flush_abort_msg(SockRef, OpRef),
             Other
     end.
 
-flush_select_msgs(SockRef, Ref) ->
+flush_select_msg(SockRef, Ref) ->
     receive
         {?ESOCK_TAG, #socket{ref = SockRef}, select, Ref} ->
-            flush_select_msgs(SockRef, Ref)
+            ok
     after 0 ->
             ok
     end.
 
+flush_abort_msg(SockRef, Ref) ->
+    receive
+        {?ESOCK_TAG, #socket{ref = SockRef}, abort, {Ref, Reason}} ->
+            Reason
+    after 0 ->
+            ok
+    end.
 
 %% formated_timestamp() ->
 %%     format_timestamp(os:timestamp()).

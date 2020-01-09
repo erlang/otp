@@ -6732,12 +6732,14 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     if ((argc != 4) ||
         !GET_BIN(env, argv[2], &sndData) ||
         !GET_UINT(env, argv[3], &eflags)) {
+        SSDBG( descP, ("SOCKET", "nif_send -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     sockRef = argv[0]; // We need this in case we send in case we send abort
     sendRef = argv[1];
 
     if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
+        SSDBG( descP, ("SOCKET", "nif_send -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
 
@@ -6749,8 +6751,10 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
             "\r\n   eFlags:       0x%lX"
             "\r\n", descP->sock, sockRef, sendRef, sndData.size, eflags) );
 
-    if (!esendflags2sendflags(eflags, &flags))
+    if (!esendflags2sendflags(eflags, &flags)) {
+        SSDBG( descP, ("SOCKET", "nif_send -> sendflags decode failed\r\n") );
         return esock_make_error(env, esock_atom_einval);
+    }
 
     SSDBG( descP, ("SOCKET", "nif_send -> flags: 0x%lX\r\n", flags) );
 
@@ -6795,12 +6799,17 @@ ERL_NIF_TERM esock_send(ErlNifEnv*       env,
     ssize_t      written;
     ERL_NIF_TERM writerCheck;
 
-    if (!descP->isWritable)
-        return enif_make_badarg(env);
+    if (!descP->isWritable) {
+        SSDBG( descP, ("SOCKET", "esock_send -> return not writable\r\n") );
+        return esock_make_error(env, atom_closed);
+    }
 
     /* Ensure that we either have no current writer or we are it */
-    if (!send_check_writer(env, descP, sendRef, &writerCheck))
+    if (!send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP, ("SOCKET", "esock_send -> writer check failed: "
+                       "\r\n   %T\r\n", writerCheck) );
         return writerCheck;
+    }
     
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
@@ -6862,6 +6871,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     if ((argc != 5) ||
         !GET_BIN(env, argv[2], &sndData) ||
         !GET_UINT(env, argv[4], &eflags)) {
+        SSDBG( descP, ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     sockRef   = argv[0]; // We need this in case we send abort (to the caller)
@@ -6869,6 +6879,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     eSockAddr = argv[3];
 
     if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
+        SSDBG( descP, ("SOCKET", "nif_sendto -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
     
@@ -6927,12 +6938,17 @@ ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
     ssize_t      written;
     ERL_NIF_TERM writerCheck;
 
-    if (!descP->isWritable)
-        return enif_make_badarg(env);
+    if (!descP->isWritable) {
+        SSDBG( descP, ("SOCKET", "esock_sendto -> return not writable\r\n") );
+        return esock_make_error(env, atom_closed);
+    }
 
     /* Ensure that we either have no current writer or we are it */
-    if (!send_check_writer(env, descP, sendRef, &writerCheck))
+    if (!send_check_writer(env, descP, sendRef, &writerCheck)) {
+        SSDBG( descP, ("SOCKET", "esock_sendto -> writer check failed: "
+                       "\r\n   %T\r\n", writerCheck) );
         return writerCheck;
+    }
     
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
@@ -6993,6 +7009,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
     if ((argc != 4) ||
         !IS_MAP(env, argv[2]) ||
         !GET_UINT(env, argv[3], &eflags)) {
+        SSDBG( descP, ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     sockRef = argv[0]; // We need this in case we send abort (to the caller)
@@ -7000,6 +7017,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
     eMsgHdr = argv[2];
 
     if (!ESOCK_GET_RESOURCE(env, sockRef, (void**) &descP)) {
+        SSDBG( descP, ("SOCKET", "nif_sendmsg -> get resource failed\r\n") );
         return enif_make_badarg(env);
     }
     
@@ -7011,8 +7029,10 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
             "\r\n",
             descP->sock, argv[0], sendRef, eflags) );
 
-    if (!esendflags2sendflags(eflags, &flags))
+    if (!esendflags2sendflags(eflags, &flags)) {
+        SSDBG( descP, ("SOCKET", "nif_sendmsg -> sendflags decode failed\r\n") );
         return esock_make_error(env, esock_atom_einval);
+    }
 
     MLOCK(descP->writeMtx);
 
@@ -7054,19 +7074,15 @@ ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
     char*         xres;
 
     if (!descP->isWritable) {
-
       SSDBG( descP, ("SOCKET", "esock_sendmsg -> not writable\r\n") );
-      
-      return enif_make_badarg(env);
+      return esock_make_error(env, atom_closed);
     }
 
     /* Ensure that we either have no current writer or we are it */
     if (!send_check_writer(env, descP, sendRef, &writerCheck)) {
-
-      SSDBG( descP,
-	     ("SOCKET", "esock_sendmsg -> writer check failed: "
-	      "\r\n   %T\r\n", writerCheck) );
-      
+        SSDBG( descP,
+               ("SOCKET", "esock_sendmsg -> writer check failed: "
+                "\r\n   %T\r\n", writerCheck) );
       return writerCheck;
     }
     
@@ -7374,7 +7390,7 @@ ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
                    flags) );
 
     if (!descP->isReadable)
-        return enif_make_badarg(env);
+        return esock_make_error(env, atom_closed);
 
     /* Check if there is already a current reader and if its us */
     if (!recv_check_reader(env, descP, recvRef, &readerCheck))
@@ -7539,7 +7555,7 @@ ERL_NIF_TERM esock_recvfrom(ErlNifEnv*       env,
                    "\r\n", len, bufSz, flags) );
 
     if (!descP->isReadable)
-        return enif_make_badarg(env);
+        return esock_make_error(env, atom_closed);
 
     /* Check if there is already a current reader and if its us */
     if (!recv_check_reader(env, descP, recvRef, &readerCheck))
@@ -7714,7 +7730,7 @@ ERL_NIF_TERM esock_recvmsg(ErlNifEnv*       env,
                    "\r\n", bufSz, bufLen, ctrlSz, ctrlLen, flags) );
 
     if (!descP->isReadable)
-        return enif_make_badarg(env);
+        return esock_make_error(env, atom_closed);
 
     /* Check if there is already a current reader and if its us */
     if (!recv_check_reader(env, descP, recvRef, &readerCheck))
@@ -15414,6 +15430,8 @@ BOOLEAN_T send_check_writer(ErlNifEnv*       env,
         
         if (enif_self(env, &caller) == NULL) {
             *checkResult = esock_make_error(env, atom_exself);
+            SSDBG( descP, ("SOCKET",
+                           "send_check_writer -> exself\r\n") );
             return FALSE;
         }
 
@@ -15427,7 +15445,7 @@ BOOLEAN_T send_check_writer(ErlNifEnv*       env,
             if (!writer_search4pid(env, descP, &caller))
                 *checkResult = writer_push(env, descP, caller, ref);
             else
-                *checkResult = esock_make_error(env, esock_atom_eagain);
+                *checkResult = esock_make_error(env, atom_exbusy);
             
             SSDBG( descP,
                    ("SOCKET",
@@ -15944,8 +15962,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
      */
     
     if ((read == 0) && (descP->type == SOCK_STREAM)) {
-
-        res = esock_make_error(env, atom_closed);
+        ERL_NIF_TERM reason = atom_closed;
+        res = esock_make_error(env, reason);
         
         ESOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
@@ -15958,7 +15976,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
          * We must also notify any waiting readers!
          */
 
-        recv_error_current_reader(env, descP, sockRef, res);
+        recv_error_current_reader(env, descP, sockRef, reason);
 
         FREE_BIN(bufP);
 
@@ -16247,7 +16265,8 @@ ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
                                         ERL_NIF_TERM     sockRef,
                                         ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM reason = esock_make_error(env, atom_econnreset);
+    ERL_NIF_TERM reason = atom_econnreset;
+    ERL_NIF_TERM res = esock_make_error(env, atom_econnreset);
 
     /* <KOLLA>
      *
@@ -16288,7 +16307,7 @@ ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
     }
 
     MUNLOCK(descP->writeMtx);
-    return reason;
+    return res;
 }
 
 
@@ -16339,11 +16358,11 @@ ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
                                  int              saveErrno,
                                  ERL_NIF_TERM     sockRef)
 {
-    ERL_NIF_TERM res = esock_make_error_errno(env, saveErrno);
+    ERL_NIF_TERM reason = MKA(env, erl_errno_id(saveErrno));
 
-    recv_error_current_reader(env, descP, sockRef, res);
+    recv_error_current_reader(env, descP, sockRef, reason);
 
-    return res;
+    return esock_make_error(env, reason);
 }
 
 
