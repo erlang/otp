@@ -52,7 +52,8 @@ prop__crypto_init_update_final() ->
                                    full_blocks(TextPlain, Cipher, Padding),
                                    decrypt_encrypt_init_update_final(Cipher, Key, IV, TextPlain, Padding)),
                          prt_inf(Cipher, TextPlain, R)
-                             )
+                     end
+                    )
             ).
 
 prt_inf(Cipher, TextPlain, R) ->
