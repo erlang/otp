@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2016</year><year>2019</year>
+      <year>2016</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -513,10 +513,8 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <marker id="Transition Actions" />
     <title>Transition Actions</title>
     <p>
-      In the first section (
-      <seealso marker="#Event-Driven State Machines">
-	Event-Driven State Machines
-      </seealso>),
+      In the first section
+      (<seealso marker="#Event-Driven State Machines">Event-Driven State Machines</seealso>),
       actions were mentioned as a part of
       the general state machine model. These general actions
       are implemented with the code that <em>callback module</em>
