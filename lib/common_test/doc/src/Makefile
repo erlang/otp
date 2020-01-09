@@ -74,6 +74,7 @@ XML_CHAPTER_FILES = \
 	ct_master_chapter.xml \
 	event_handler_chapter.xml \
 	ct_hooks_chapter.xml \
+	ct_property_test_chapter.xml \
 	dependencies_chapter.xml \
 	notes.xml
 
