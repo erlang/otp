@@ -653,6 +653,7 @@ GENERATE += beam/erl_db_insert_list.inc
 
 ifeq ($(USE_ESOCK), yes)
 ESOCK_PRELOAD_BEAM = \
+	$(ERL_TOP)/erts/preloaded/ebin/socket_registry.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/socket.beam \
 	$(ERL_TOP)/erts/preloaded/ebin/prim_net.beam
 else

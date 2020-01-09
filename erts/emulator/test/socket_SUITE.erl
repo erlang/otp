@@ -203,6 +203,9 @@
          api_to_recvmsg_tcp4/1,
          api_to_recvmsg_tcp6/1,
 
+         %% Socket Registry
+         reg_s_single_open_and_close_and_count/1,
+
          %% *** Socket Closure ***
          sc_cpe_socket_cleanup_tcp4/1,
          sc_cpe_socket_cleanup_tcp6/1,
@@ -695,6 +698,7 @@ groups() ->
      {api_options_udp,             [], api_options_udp_cases()},
      %% {api_options_sctp,            [], api_options_sctp_cases()},
      {api_op_with_timeout,         [], api_op_with_timeout_cases()},
+     {reg,                         [], reg_simple_cases()},
      {socket_close,                [], socket_close_cases()},
      {sc_ctrl_proc_exit,           [], sc_cp_exit_cases()},
      {sc_local_close,              [], sc_lc_cases()},
@@ -998,6 +1002,13 @@ api_op_with_timeout_cases() ->
      api_to_recvmsg_tcp4,
      api_to_recvmsg_tcp6
     ].
+
+%% Socket Registry "simple" test cases
+reg_simple_cases() ->
+    [
+     reg_s_single_open_and_close_and_count
+    ].
+
 
 %% These cases tests what happens when the socket is closed/shutdown,
 %% locally or remotely.
@@ -22897,6 +22908,319 @@ api_to_recvmsg_tcp6(_Config) when is_list(_Config) ->
                    ok = api_to_receive_tcp(InitState)
            end).
 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                             REGISTRY                                %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% We create a bunch of different sockets and ensure that the registry
+%% has the correct info.
+
+reg_s_single_open_and_close_and_count(suite) ->
+    [];
+reg_s_single_open_and_close_and_count(doc) ->
+    [];
+reg_s_single_open_and_close_and_count(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(reg_s_single_open_and_close_and_count,
+           fun() ->
+                   ok = reg_s_single_open_and_close_and_count()
+           end).
+
+
+reg_s_single_open_and_close_and_count() ->
+    SupportsIPV6 =
+        case (catch has_support_ipv6()) of
+            ok ->
+                true;
+            _ ->
+                false
+        end,
+    SupportsLOCAL =
+        case (catch has_support_unix_domain_socket()) of
+            ok ->
+                true;
+            _ ->
+                false
+        end,
+    SupportsSCTP =
+        case (catch has_support_sctp()) of
+            ok ->
+                true;
+            _ ->
+                false
+        end,
+    InitSockInfos =
+        [
+         {inet, stream, tcp},
+         {inet, dgram,  udp}
+        ] ++
+        case SupportsIPV6 of
+            true ->
+                [
+                 {inet6, stream, tcp},
+                 {inet6, dgram,  udp}
+                ];
+            false ->
+                []
+        end ++
+        case SupportsLOCAL of
+            true ->
+                [
+                 {local, stream, default},
+                 {local, dgram,  default}
+                ];
+            false ->
+                []
+        end ++
+        [
+         {inet, stream, tcp},
+         {inet, dgram,  udp}
+        ] ++
+        case SupportsSCTP of
+            true ->
+                [
+                 {inet, seqpacket, sctp},
+                 {inet, seqpacket, sctp}
+                ];
+            false ->
+                []
+        end ++
+        [
+         {inet, stream, tcp},
+         {inet, dgram,  udp}
+        ] ++
+        case SupportsSCTP andalso SupportsIPV6 of
+            true ->
+                [
+                 {inet6, seqpacket, sctp},
+                 {inet6, seqpacket, sctp}
+                ];
+            false ->
+                []
+        end,
+    
+    i("open sockets"),
+    Socks =
+        [fun({Domain, Type, Proto}) ->
+                 i("open socket: ~w, ~w, ~w", [Domain, Type, Proto]),
+                 {ok, Sock} = socket:open(Domain, Type, Proto),
+                 Sock
+         end(InitSockInfo) || InitSockInfo <- InitSockInfos],
+    
+    ?SLEEP(1000),
+
+
+    %% **** Total Number Of Sockets ****
+
+    NumSocks1 = length(Socks),
+    NumberOf1 = socket:number_of(),
+
+    i("verify (total) number of sockets(1): ~w, ~w", [NumSocks1, NumberOf1]),
+    case (NumSocks1 =:= NumberOf1) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_sockets1, NumSocks1, NumberOf1})
+    end,
+
+
+    %% **** Number Of IPv4 TCP Sockets ****
+
+    %% inet, stream, tcp
+    SiNumTCP = reg_si_num(InitSockInfos, inet, stream, tcp),
+    SrNumTCP = reg_sr_num(inet, stream, tcp),
+
+    i("verify number of IPv4 TCP sockets: ~w, ~w", [SiNumTCP, SrNumTCP]),
+    case (SiNumTCP =:= SrNumTCP) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_ipv4_tcp_sockets, SiNumTCP, SrNumTCP})
+    end,
+
+
+    %% **** Number Of IPv4 UDP Sockets ****
+
+    %% inet, dgram, udp
+    SiNumUDP = reg_si_num(InitSockInfos, inet, dgram, udp),
+    SrNumUDP = reg_sr_num(inet, dgram, udp),
+
+    i("verify number of IPv4 UDP sockets: ~w, ~w", [SiNumUDP, SrNumUDP]),
+    case (SiNumUDP =:= SrNumUDP) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_ipv4_udp_sockets, SiNumUDP, SrNumUDP})
+    end,
+
+
+    %% **** Number Of IPv4 SCTP Sockets ****
+
+    %% inet, seqpacket, sctp
+    SiNumSCTP = reg_si_num(InitSockInfos, inet, seqpacket, sctp),
+    SrNumSCTP = reg_sr_num(inet, seqpacket, sctp),
+
+    i("verify number of IPv4 SCTP sockets: ~w, ~w", [SiNumSCTP, SrNumSCTP]),
+    case (SiNumSCTP =:= SrNumSCTP) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_sctp_sockets, SiNumSCTP, SrNumSCTP})
+    end,
+
+
+    %% **** Number Of IPv4 Sockets ****
+
+    %% inet
+    SiNumINET = reg_si_num(InitSockInfos, inet),
+    SrNumINET = reg_sr_num(inet),
+
+    i("verify number of IPv4 sockets: ~w, ~w", [SiNumINET, SrNumINET]),
+    case (SiNumINET =:= SrNumINET) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_ipv4_sockets, SiNumINET, SrNumINET})
+    end,
+
+
+    %% **** Number Of IPv6 Sockets ****
+
+    %% inet6
+    SiNumINET6 = reg_si_num(InitSockInfos, inet6),
+    SrNumINET6 = reg_sr_num(inet6),
+
+    i("verify number of IPv6 sockets: ~w, ~w", [SiNumINET6, SrNumINET6]),
+    case (SiNumINET6 =:= SrNumINET6) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_ipv6_sockets, SiNumINET6, SrNumINET6})
+    end,
+
+
+    %% **** Number Of Unix Domain Sockets Sockets ****
+
+    %% local
+    SiNumLOCAL = reg_si_num(InitSockInfos, local),
+    SrNumLOCAL = reg_sr_num(local),
+
+    i("verify number of Unix Domain Sockets sockets: ~w, ~w",
+      [SiNumLOCAL, SrNumLOCAL]),
+    case (SiNumLOCAL =:= SrNumLOCAL) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_local_sockets, SiNumLOCAL, SrNumLOCAL})
+    end,
+
+
+    %% **** Close *all* Sockets then verify Number Of Sockets ****
+    
+    i("close sockets"),
+    lists:foreach(fun(S) ->
+                          i("close socket"),                          
+                          ok = socket:close(S)
+                  end, Socks),
+
+    ?SLEEP(1000),
+
+    NumSocks2 = 0,
+    NumberOf2 = socket:number_of(),
+    
+    i("verify number of sockets(2): ~w, ~w", [NumSocks2, NumberOf2]),
+    case (NumSocks2 =:= NumberOf2) of
+        true ->
+            ok;
+        false ->
+            exit({wrong_number_of_sockets2, NumSocks2, NumberOf2})
+    end,
+    
+    ok.
+
+
+reg_si_num(SocksInfo, Domain)
+  when ((Domain =:= inet) orelse (Domain =:= inet6) orelse (Domain =:= local)) ->
+    reg_si_num(SocksInfo, Domain, undefined, undefined);
+reg_si_num(SocksInfo, Type)
+  when ((Type =:= stream) orelse (Type =:= dgram) orelse (Type =:= seqpacket)) ->
+    reg_si_num(SocksInfo, undefined, Type, undefined);
+reg_si_num(SocksInfo, Proto)
+  when ((Proto =:= sctp) orelse (Proto =:= tcp) orelse (Proto =:= udp)) ->
+    reg_si_num(SocksInfo, undefined, undefined, Proto).
+
+reg_si_num(SocksInfo, Domain, undefined, undefined) ->
+    F = fun({D, _T, _P}) when (D =:= Domain) -> true;
+           (_) -> false
+        end,
+    reg_si_num2(F, SocksInfo);
+reg_si_num(SocksInfo, undefined, Type, undefined) ->
+    F = fun({_D, T, _P}) when (T =:= Type) -> true;
+           (_) -> false
+        end,
+    reg_si_num2(F, SocksInfo);
+reg_si_num(SocksInfo, undefined, undefined, Proto) ->
+    F = fun({_D, _T, P}) when (P =:= Proto) -> true;
+           (_) -> false
+        end,
+    reg_si_num2(F, SocksInfo);
+reg_si_num(SocksInfo, Domain, Type, Proto) ->
+    F = fun({D, T, P}) when (D =:= Domain) andalso
+                            (T =:= Type) andalso
+                            (P =:= Proto) ->
+                true;
+           (_) ->
+                false
+        end,
+    reg_si_num2(F, SocksInfo).
+
+reg_si_num2(F, SocksInfo) ->
+    length(lists:filter(F, SocksInfo)).
+
+
+reg_sr_num(Domain)
+  when ((Domain =:= inet) orelse (Domain =:= inet6)) ->
+    length(socket:which_sockets(Domain));
+reg_sr_num(Domain)
+  when (Domain =:= local) ->
+    reg_sr_num(Domain, undefined, undefined);
+reg_sr_num(Type)
+  when ((Type =:= stream) orelse (Type =:= dgram) orelse (Type =:= seqpacket)) ->
+    length(socket:which_sockets(Type));
+reg_sr_num(Proto)
+  when ((Proto =:= sctp) orelse (Proto =:= tcp) orelse (Proto =:= udp)) ->
+    length(socket:which_sockets(Proto)).
+
+reg_sr_num(Domain, undefined, undefined) ->
+    F = fun(#{domain := D}) when (D =:= Domain) ->
+                true;
+           (_X) ->
+                false
+        end,
+    reg_sr_num2(F);
+reg_sr_num(Domain, Type, Proto) ->
+    F = fun(#{domain   := D,
+              type     := T,
+              protocol := P}) when (D =:= Domain) andalso
+                                   (T =:= Type) andalso
+                                   (P =:= Proto) ->
+                true;
+           (_X) ->
+                %% i("reg_sr_num -> not counting: "
+                %%   "~n   ~p", [_X]),
+                false
+        end,
+    reg_sr_num2(F).
+
+reg_sr_num2(F) ->
+    length(socket:which_sockets(F)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

@@ -27,6 +27,9 @@
 -export([
 	 on_load/0, on_load/1,
 
+         number_of/0,
+         which_sockets/0, which_sockets/1,
+
          ensure_sockaddr/1,
 
          debug/1,
@@ -148,6 +151,9 @@
              ]).
 
 
+-define(REGISTRY, socket_registry).
+
+
 %% The command type has the general form: 
 %% #{
 %%   command := atom(),
@@ -164,10 +170,16 @@
 -type socket_counter()  :: read_byte | read_fails | read_pkg | read_tries |
                            read_waits | write_byte | write_fails | write_pkg |
                            write_tries | write_waits.
--type socket_info() :: #{counters      := socket_counters(),
+-type socket_info() :: #{domain        := domain(),
+                         type          := type(),
+                         protocol      := protocol(),
+                         ctrl          := pid(),
+                         counters      := socket_counters(),
                          num_readers   := non_neg_integer(),
                          num_writers   := non_neg_integer(),
-                         num_acceptors := non_neg_integer()}.
+                         num_acceptors := non_neg_integer(),
+                         writable      := boolean(),
+                         readable      := boolean()}.
 
 -type uint8()  :: 0..16#FF.
 -type uint16() :: 0..16#FFFF.
@@ -949,7 +961,60 @@ on_load() ->
       Extra :: map().
 
 on_load(Extra) ->
-    ok = erlang:load_nif(atom_to_list(?MODULE), Extra).
+    %% This is spawned as a system process to prevent init:restart/0 from
+    %% killing it.
+    Pid = erts_internal:spawn_system_process(?REGISTRY, start, []),
+    ok  = erlang:load_nif(atom_to_list(?MODULE), Extra#{registry => Pid}).
+
+
+%% *** number_of ***
+%%
+%% Interface function to the socket registry
+%% returns the number of existing (and "alive") sockets.
+%%
+-spec number_of() -> non_neg_integer().
+
+number_of() ->
+    ?REGISTRY:number_of().
+
+
+%% *** which_sockets/0,1 ***
+%%
+%% Interface function to the socket registry
+%% Returns a list of all the sockets, accoring to the filter rule.
+%%
+-spec which_sockets() -> [socket()].
+
+which_sockets() ->
+    ?REGISTRY:which_sockets(fun(_) -> true end).
+
+-spec which_sockets(FilterRule) -> [socket()] when
+      FilterRule :: inet | inet6 |
+                    stream | dgram | seqpacket |
+                    sctp | tcp | udp |
+                    pid() |
+                    fun((socket_info()) -> boolean()).
+
+which_sockets(Domain)
+  when ((Domain =:= inet) orelse (Domain =:= inet6)) ->
+    ?REGISTRY:which_sockets(fun(#{domain := D}) when (D =:= Domain) -> true; 
+                               (_) -> false end);
+which_sockets(Type)
+  when ((Type =:= stream) orelse (Type =:= dgram) orelse (Type =:= seqpacket)) ->
+    ?REGISTRY:which_sockets(fun(#{type := T}) when (T =:= Type) -> true;
+                               (_) -> false end);
+which_sockets(Proto)
+  when ((Proto =:= sctp) orelse (Proto =:= tcp) orelse (Proto =:= udp)) ->
+    ?REGISTRY:which_sockets(fun(#{protocol := P}) when (P =:= Proto) -> true;
+                               (_) -> false end);
+which_sockets(CTRL)
+  when is_pid(CTRL) ->
+    ?REGISTRY:which_sockets(fun(#{ctrl := C}) when (C =:= CTRL) -> true;
+                               (_) -> false end);
+which_sockets(Filter) when is_function(Filter, 1) ->
+    ?REGISTRY:which_sockets(Filter).
+
+
 
 
 

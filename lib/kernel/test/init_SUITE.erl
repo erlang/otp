@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -68,7 +68,7 @@ end_per_group(_GroupName, Config) ->
     Config.
 
 
-init_per_testcase(Func, Config) ->
+init_per_testcase(_Func, Config) ->
     Config.
 
 end_per_testcase(_Func, _Config) ->
@@ -368,7 +368,8 @@ restart(Config) when is_list(Config) ->
     io:format("SysProcs0=~p~n", [SysProcs0]),
     [InitPid, PurgerPid, LitCollectorPid,
      DirtySigNPid, DirtySigHPid, DirtySigMPid,
-     PrimFilePid] = SysProcs0,
+     PrimFilePid,
+     ESockRegPid] = SysProcs0,
     InitPid = rpc:call(Node, erlang, whereis, [init]),
     PurgerPid = rpc:call(Node, erlang, whereis, [erts_code_purger]),
     Procs = rpc:call(Node, erlang, processes, []),
@@ -387,7 +388,8 @@ restart(Config) when is_list(Config) ->
     io:format("SysProcs1=~p~n", [SysProcs1]),
     [InitPid1, PurgerPid1, LitCollectorPid1,
      DirtySigNPid1, DirtySigHPid1, DirtySigMPid1,
-     PrimFilePid1] = SysProcs1,
+     PrimFilePid1,
+     ESockRegPid1] = SysProcs1,
 
     %% Still the same init process!
     InitPid1 = rpc:call(Node, erlang, whereis, [init]),
@@ -417,6 +419,10 @@ restart(Config) when is_list(Config) ->
     PrimFileP = pid_to_list(PrimFilePid),
     PrimFileP = pid_to_list(PrimFilePid1),
 
+    %% and same socket_registry helper process!
+    ESockRegP = pid_to_list(ESockRegPid),
+    ESockRegP = pid_to_list(ESockRegPid1),
+
     NewProcs0 = rpc:call(Node, erlang, processes, []),
     NewProcs = NewProcs0 -- SysProcs1,
     case check_processes(NewProcs, MaxPid) of
@@ -444,7 +450,8 @@ restart(Config) when is_list(Config) ->
 		    dirty_sig_handler_normal,
 		    dirty_sig_handler_high,
 		    dirty_sig_handler_max,
-                    prim_file}).
+                    prim_file,
+                    socket_registry}).
 
 find_system_processes() ->
     find_system_procs(processes(), #sys_procs{}).
@@ -456,7 +463,8 @@ find_system_procs([], SysProcs) ->
      SysProcs#sys_procs.dirty_sig_handler_normal,
      SysProcs#sys_procs.dirty_sig_handler_high,
      SysProcs#sys_procs.dirty_sig_handler_max,
-     SysProcs#sys_procs.prim_file];
+     SysProcs#sys_procs.prim_file,
+     SysProcs#sys_procs.socket_registry];
 find_system_procs([P|Ps], SysProcs) ->
     case process_info(P, [initial_call, priority]) of
 	[{initial_call,{erl_init,start,2}},_] ->
@@ -483,6 +491,9 @@ find_system_procs([P|Ps], SysProcs) ->
         [{initial_call,{prim_file,start,0}},_] ->
 	    undefined = SysProcs#sys_procs.prim_file,
 	    find_system_procs(Ps, SysProcs#sys_procs{prim_file = P});
+        [{initial_call,{socket_registry,start,0}},_] ->
+	    undefined = SysProcs#sys_procs.socket_registry,
+	    find_system_procs(Ps, SysProcs#sys_procs{socket_registry = P});
 	_ ->
 	    find_system_procs(Ps, SysProcs)
     end.
