@@ -24,8 +24,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
-all() -> [encrypt_decrypt__crypto_one_time,
-          prop__crypto_init_update_final
+all() -> [encrypt_decrypt_one_time,
+          init_update,
+          init_update_multi
          ].
 
 %%% First prepare Config and compile the property tests for the found tool:
@@ -38,14 +39,21 @@ end_per_suite(Config) ->
 %%%================================================================
 %%% Test suites
 %%%
-encrypt_decrypt__crypto_one_time(Config) ->
+encrypt_decrypt_one_time(Config) ->
     ct_property_test:quickcheck(
       crypto_ng_api:prop__crypto_one_time(),
       Config
      ).
 
-prop__crypto_init_update_final(Config) ->
+init_update(Config) ->
     ct_property_test:quickcheck(
       crypto_ng_api:prop__crypto_init_update_final(),
       Config
      ).
+
+init_update_multi(Config) ->
+    ct_property_test:quickcheck(
+      crypto_ng_api_stateful:prop__crypto_init_multi(Config),
+      Config
+     ).
+

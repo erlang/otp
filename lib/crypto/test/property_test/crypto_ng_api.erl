@@ -23,35 +23,7 @@
 
 -compile(export_all).
 
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
-%%-define(EQC,true).
--define(PROPER,true).
-%%-define(TRIQ,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
+-include_lib("common_test/include/ct_property_test.hrl").
 
 -include("crypto_prop_generators.hrl").
 
@@ -62,9 +34,12 @@ prop__crypto_one_time() ->
     numtests(10000,
              ?FORALL({TextPlain, Cipher, Key, IV, Padding}, ?LET(Ciph,cipher(),
                                                                  {text_plain(), Ciph, key(Ciph), iv(Ciph), padding()}),
-                     equal(TextPlain,
-                           full_blocks(TextPlain, Cipher, Padding),
-                           decrypt_encrypt_one_time(Cipher, Key, IV, TextPlain, Padding))
+                     begin
+                         R = equal(TextPlain,
+                                   full_blocks(TextPlain, Cipher, Padding),
+                                   decrypt_encrypt_one_time(Cipher, Key, IV, TextPlain, Padding)),
+                         prt_inf(Cipher, TextPlain, R)
+                     end
                     )
             ).
 
@@ -72,11 +47,24 @@ prop__crypto_init_update_final() ->
     numtests(10000,
              ?FORALL({TextPlain, Cipher, Key, IV, Padding}, ?LET(Ciph,cipher(),
                                                                  {text_plain(), Ciph, key(Ciph), iv(Ciph), padding()}),
-                     equal(TextPlain,
-                           full_blocks(TextPlain, Cipher, Padding),
-                           decrypt_encrypt_init_update_final(Cipher, Key, IV, TextPlain, Padding))
-                    )
+                     begin
+                         R = equal(TextPlain,
+                                   full_blocks(TextPlain, Cipher, Padding),
+                                   decrypt_encrypt_init_update_final(Cipher, Key, IV, TextPlain, Padding)),
+                         prt_inf(Cipher, TextPlain, R)
+                             )
             ).
+
+prt_inf(Cipher, TextPlain, R) ->
+    aggregate(ct_property_test:title("text lengths",
+                                     ct_property_test:print_frequency_ranges(),
+                                     fun ct:pal/2),
+              [iolist_size(TextPlain)],
+    aggregate(ct_property_test:title("ciphers",
+                                     ct_property_test:print_frequency(),
+                                     fun ct:pal/2),
+              [Cipher],
+   R)).
 
 %%%================================================================
 %%% Lib
