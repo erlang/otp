@@ -21,37 +21,19 @@
 
 -module(crypto_prop_generators).
 
--compile(export_all).
+-export([text_plain/0,
+         cipher/0,
+         key/1,
+         iv/1,
+         iolist/0,
+         mybinary/1,
+         non_aead_ciphers/0,
+         block_size/1,
+         key_length/1,
+         iv_length/1
+        ]).
 
--proptest(eqc).
--proptest([triq,proper]).
-
--ifndef(EQC).
--ifndef(PROPER).
--ifndef(TRIQ).
-%%-define(EQC,true).
--define(PROPER,true).
-%%-define(TRIQ,true).
--endif.
--endif.
--endif.
-
--ifdef(EQC).
--include_lib("eqc/include/eqc.hrl").
--define(MOD_eqc,eqc).
-
--else.
--ifdef(PROPER).
--include_lib("proper/include/proper.hrl").
--define(MOD_eqc,proper).
--else.
--ifdef(TRIQ).
--define(MOD_eqc,triq).
--include_lib("triq/include/triq.hrl").
-
--endif.
--endif.
--endif.
+-include_lib("common_test/include/ct_property_test.hrl").
 
 %%%================================================================
 %%% Generators
