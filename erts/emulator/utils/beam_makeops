@@ -2595,6 +2595,39 @@ sub tr_gen_from {
     #
     push(@code, make_op($may_fail ? '' : 'always reached', 'commit'));
 
+    #
+    # Peephole optimization: combine instructions.
+    #
+    for (my $i = 0; $i < @code; $i++) {
+        if (is_instr($code[$i], 'is_type')) {
+            my(undef, $is_type_ref, $type_comment) = @{$code[$i]};
+            if (is_instr($code[$i+1], 'set_var_next_arg')) {
+                my(undef, $next_ref, $next_comment) = @{$code[$i+1]};
+                my $comment = "$type_comment $next_comment";
+                my $op = make_op($comment, 'is_type_set_var_next_arg',
+                                 $is_type_ref->[1], $next_ref->[1]);
+                splice @code, $i, 2, ($op);
+            } elsif (is_instr($code[$i+1], 'next_arg')) {
+                my $op = make_op($type_comment, 'is_type_next_arg', $is_type_ref->[1]);
+                splice @code, $i, 2, ($op);
+            }
+        } elsif (is_instr($code[$i], 'is_type_eq')) {
+            my(undef, $is_type_ref, $type_comment) = @{$code[$i]};
+            if (is_instr($code[$i+1], 'set_var_next_arg')) {
+                my(undef, $next_ref, $next_comment) = @{$code[$i+1]};
+                my $comment = "$type_comment $next_comment";
+                my $op = make_op($comment, 'is_type_eq_set_var_next_arg',
+                                 $is_type_ref->[1], $is_type_ref->[2],
+                                 $next_ref->[1]);
+                splice @code, $i, 2, ($op);
+            } elsif (is_instr($code[$i+1], 'next_arg')) {
+                my $op = make_op($type_comment, 'is_type_eq_next_arg',
+                                 $is_type_ref->[1], $is_type_ref->[2]);
+                splice @code, $i, 2, ($op);
+            }
+        }
+    }
+
     $te_max_vars = $var_num
 	if $te_max_vars < $var_num;
     [\%var, \%var_type, \@code];
@@ -2670,11 +2703,10 @@ sub tr_gen_to {
 		op_slot_usage($op, $var{$var});
 		push(@code, $op);
 	    } elsif ($type ne '') {
-		push(@code, make_op('', 'store_type', "TAG_$type"));
-		if ($type_val) {
-		    push(@code, make_op('', 'store_val', $type_val));
-		}
-		push(@code, make_op('', 'next_arg'));
+                my $val = $type_val || 0;
+                my $comment = "$type=$val";
+                my $op = make_op($comment, 'store_val_next_arg', "TAG_$type", $val);
+                push @code, $op;
 	    }
 	}
 	pop(@code) if is_instr($code[$#code], 'next_arg');
@@ -2685,6 +2717,7 @@ sub tr_gen_to {
 
     tr_maybe_keep(\@code);
     tr_maybe_rename(\@code);
+    combine_commit(\@code);
     tr_remove_unused(\@code);
 
     #
@@ -2726,6 +2759,10 @@ sub tr_maybe_keep {
 	    @last_instr = ($args[0]);
 	} elsif ($op eq 'set_var_next_arg') {
 	    push @last_instr, $args[0];
+	} elsif ($op eq 'is_type_set_var_next_arg') {
+	    push @last_instr, $args[1];
+	} elsif ($op eq 'is_type_eq_set_var_next_arg') {
+	    push @last_instr, $args[2];
 	} elsif ($op eq 'next_arg') {
 	    push @last_instr, 'ignored';
 	} elsif ($op eq 'new_instr') {
@@ -2752,6 +2789,22 @@ sub tr_maybe_keep {
     }
 }
 
+sub combine_commit {
+    my($ref) = @_;
+
+    for (my $i = 1; $i < @$ref; $i++) {
+        my $instr = $$ref[$i];
+	my($size, $instr_ref, $comment) = @$instr;
+	my($op, @args) = @$instr_ref;
+        if ($op eq 'rest_args') {
+            return;
+        } elsif ($op eq 'new_instr' and is_instr($$ref[$i-1], 'commit')) {
+            my $op = make_op($comment, 'commit_new_instr', @args);
+            splice @$ref, $i - 1, 2, ($op);
+        }
+    }
+}
+
 sub tr_maybe_rename {
     my($ref) = @_;
     my $s = 'left';
@@ -2772,7 +2825,21 @@ sub tr_maybe_rename {
 		    $num_args++;
 		}
 		$a++;
+            } elsif ($op eq 'is_type_set_var_next_arg') {
+	        if ($num_args == $a and $args[1] == $a) {
+	            $num_args++;
+	        }
+	        $a++;
+            } elsif ($op eq 'is_type_eq_set_var_next_arg') {
+	        if ($num_args == $a and $args[2] == $a) {
+	            $num_args++;
+	        }
+	        $a++;
 	    } elsif ($op eq 'next_arg') {
+		$a++;
+	    } elsif ($op eq 'is_type_next_arg') {
+		$a++;
+	    } elsif ($op eq 'is_type_eq_next_arg') {
 		$a++;
 	    } elsif ($op eq 'commit') {
 		$a = 0;
@@ -2817,8 +2884,7 @@ sub tr_remove_unused {
 	}
     }
 
-    # Replace 'set_var_next_arg' with 'next_arg' if the variable
-    # is never used.
+    # If a variable is not used, don't store the variable.
     for my $instr (@$ref) {
 	my($size, $instr_ref, $comment) = @$instr;
 	my($op, @args) = @$instr_ref;
@@ -2826,7 +2892,16 @@ sub tr_remove_unused {
 	    my $var = $args[0];
 	    next if $used{$var};
 	    $instr = make_op("$comment (ignored)", 'next_arg');
-	}
+	} elsif ($op eq 'is_type_set_var_next_arg') {
+            my($type,$var) = @args;
+            next if $used{$var};
+	    $instr = make_op("$comment (ignored)", 'is_type_next_arg', $type);
+	} elsif ($op eq 'is_type_eq_set_var_next_arg') {
+            my($type,$val,$var) = @args;
+            next if $used{$var};
+            $instr = make_op("$comment (ignored)", 'is_type_eq_next_arg',
+                             $type, $val);
+        }
     }
 
     # Delete a sequence of 'next_arg' instructions when they are
