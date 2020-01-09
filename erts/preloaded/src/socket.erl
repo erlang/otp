@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -3974,8 +3974,7 @@ invalid_domain(Domain) ->
 invalid_type(Type) ->
     error({invalid_type, Type}).
 
--spec invalid_protocol(Type, Proto) -> no_return() when
-      Type  :: term(),
+-spec invalid_protocol(Proto) -> no_return() when
       Proto :: term().
 
 invalid_protocol(Proto) ->
