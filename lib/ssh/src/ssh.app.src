@@ -48,7 +48,7 @@
   {env, []},
   {mod, {ssh_app, []}},
   {runtime_dependencies, [
-			  "crypto-4.5",
+			  "crypto-@OTP-16376@",
 			  "erts-9.0",
 			  "kernel-5.3",
 			  "public_key-1.6.1",
