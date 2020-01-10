@@ -47,7 +47,7 @@
 -compile({inline,[{badarg,2}]}).
 
 -ifdef(USE_ESOCK).
--define(ESOCK_SOCKET_MODS, [socket]).
+-define(ESOCK_SOCKET_MODS, [socket, socket_registry]).
 -define(ESOCK_NET_MODS,    [prim_net]).
 -else.
 -define(ESOCK_SOCKET_MODS, []).
