@@ -859,6 +859,7 @@ request_and_no_reply(Config) when is_list(Config) ->
     d("stop nodes"),
     ?STOP_NODES(lists:reverse(Nodes)),
 
+    i("done", []),
     ok.
 
 
@@ -883,7 +884,7 @@ request_and_reply_pending_ack_no_pending(Config) when is_list(Config) ->
       "~n   MgNode:  ~p",
       [MgcNode, MgNode]),
     Nodes = [MgcNode, MgNode], 
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -929,6 +930,10 @@ request_and_reply_pending_ack_no_pending(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -1481,7 +1486,8 @@ request_and_reply_pending_ack_one_pending(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p",
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator"),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -1529,6 +1535,10 @@ request_and_reply_pending_ack_one_pending(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -2173,8 +2183,8 @@ single_trans_req_and_reply(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+    Nodes = [MgcNode, MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -2220,6 +2230,10 @@ single_trans_req_and_reply(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -2689,8 +2703,8 @@ single_trans_req_and_reply_sendopts(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+    Nodes = [MgcNode, MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -2736,6 +2750,10 @@ single_trans_req_and_reply_sendopts(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -3245,7 +3263,8 @@ request_and_reply_and_ack(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p",
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -3291,6 +3310,10 @@ request_and_reply_and_ack(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -3866,7 +3889,8 @@ request_and_reply_and_no_ack(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p",
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -3912,6 +3936,10 @@ request_and_reply_and_no_ack(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -4473,7 +4501,8 @@ request_and_reply_and_late_ack(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p",
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -4519,6 +4548,10 @@ request_and_reply_and_late_ack(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -5110,8 +5143,8 @@ trans_req_and_reply_and_req(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -5157,6 +5190,10 @@ trans_req_and_reply_and_req(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -5767,7 +5804,8 @@ pending_ack_plain(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p",
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -5813,6 +5851,10 @@ pending_ack_plain(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -6460,7 +6502,8 @@ request_and_pending_and_late_reply(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p",
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -6506,6 +6549,10 @@ request_and_pending_and_late_reply(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -7306,7 +7353,8 @@ otp_4836(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -7362,6 +7410,10 @@ otp_4836(Config) when is_list(Config) ->
     %% Tell Mgc to stop
     i("[MGC] stop generator"),
     megaco_test_tcp_generator:stop(Mgc),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -7559,7 +7611,8 @@ otp_5805(Config) when is_list(Config) ->
 	 "~n   MgcNode: ~p"
 	 "~n   MgNode:  ~p", 
 	 [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -7604,6 +7657,10 @@ otp_5805(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -8031,7 +8088,8 @@ otp_5881(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -8096,6 +8154,10 @@ otp_5881(Config) when is_list(Config) ->
     %% Tell Mgc to stop
     i("[MGC] stop generator"),
     megaco_test_tcp_generator:stop(Mgc),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -8284,7 +8346,8 @@ otp_5887(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -8370,6 +8433,10 @@ otp_5887(Config) when is_list(Config) ->
     %% Tell Mgc to stop
     i("[MGC] stop generator"),
     megaco_test_tcp_generator:stop(Mgc),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -8627,7 +8694,8 @@ otp_6275(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -8667,6 +8735,10 @@ otp_6275(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -9123,7 +9195,8 @@ otp_6276(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -9172,6 +9245,10 @@ otp_6276(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -9795,7 +9872,8 @@ otp_6442_resend_request1(Config) when is_list(Config) ->
 
     MgNode = make_node_name(mg),
     d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
+    Nodes = [MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -9846,6 +9924,10 @@ otp_6442_resend_request1(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -10165,7 +10247,8 @@ otp_6442_resend_request2(Config) when is_list(Config) ->
 
     MgNode = make_node_name(mg),
     d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
+    Nodes = [MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -10211,6 +10294,10 @@ otp_6442_resend_request2(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -10467,7 +10554,8 @@ otp_6442_resend_reply1(Config) when is_list(Config) ->
 
     MgNode = make_node_name(mg),
     d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
+    Nodes = [MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -10524,6 +10612,10 @@ otp_6442_resend_reply1(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -10856,7 +10948,8 @@ otp_6442_resend_reply2(Config) when is_list(Config) ->
 
     MgNode = make_node_name(mg),
     d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
+    Nodes = [MgNode],
+    ok = ?START_NODES(Nodes, true),
 
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -10912,6 +11005,10 @@ otp_6442_resend_reply2(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -11349,7 +11446,8 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode],
+    ok = ?START_NODES(Nodes, true),
 
 
     d("[MGC] start the simulator "),
@@ -11396,6 +11494,10 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
 
     i("stop tc controller"),
     ok = megaco_tc_controller:stop(),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -12224,7 +12326,8 @@ otp_7189(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
@@ -12270,6 +12373,10 @@ otp_7189(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -12738,7 +12845,8 @@ otp_7259(Config) when is_list(Config) ->
 
     MgNode = make_node_name(mg),
     d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
+    Nodes = [MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -12789,6 +12897,10 @@ otp_7259(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -13171,7 +13283,8 @@ otp_8183_request1(Config) when is_list(Config) ->
 
     MgNode = make_node_name(mg),
     d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
+    Nodes = [MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
@@ -13219,6 +13332,10 @@ otp_8183_request1(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
