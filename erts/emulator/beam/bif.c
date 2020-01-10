@@ -801,8 +801,6 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
     arity = erts_list_length(BIF_ARG_3);
     if (arity < 0)
         goto badarg;
-    if (arity > MAX_SMALL)
-        goto system_limit;
 
     /*
      * Fail order:
@@ -811,6 +809,8 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
      * - Bad options
      */
     opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, &tag, &timeout);
+    if (arity > MAX_SMALL)
+        goto system_limit;
     if (opts_error) {
         if (opts_error > 0)
             goto badarg;
