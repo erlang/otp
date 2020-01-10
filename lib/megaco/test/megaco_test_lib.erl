@@ -644,7 +644,22 @@ start_nodes(Nodes, File, Line) when is_list(Nodes) ->
 
 start_nodes(Nodes, Force, File, Line)
   when is_list(Nodes) andalso is_boolean(Force) ->
-    lists:foreach(fun(N) -> start_node(N, Force, true, File, Line) end, Nodes).
+    start_nodes(Nodes, Force, File, Line, []).
+
+start_nodes([], _Force, _File, _Line, _Started) ->
+    ok;
+start_nodes([Node|Nodes], Force, File, Line, Started) ->
+    try start_node(Node, Force, true, File, Line) of
+        ok ->
+            start_nodes(Nodes, Force, File, Line, [Node|Started])
+    catch
+        exit:{skip, _} = SKIP:_ ->
+            (catch stop_nodes(lists:reverse(Started), File, Line)),
+            exit(SKIP);
+        C:E:S ->
+            (catch stop_nodes(lists:reverse(Started), File, Line)),
+            erlang:raise(C, E, S)
+    end.
 
 start_node(Node, File, Line) ->
     start_node(Node, false, false, File, Line).
