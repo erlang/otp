@@ -692,26 +692,31 @@ request_and_no_reply(suite) ->
 request_and_no_reply(doc) ->
     [];
 request_and_no_reply(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        request_and_no_reply),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  Mg1Node = make_node_name(mg1),
+                  Mg2Node = make_node_name(mg2),
+                  Mg3Node = make_node_name(mg3),
+                  Mg4Node = make_node_name(mg4),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      Mg1Node: ~p"
+                    "~n      Mg2Node: ~p"
+                    "~n      Mg3Node: ~p"
+                    "~n      Mg4Node: ~p", 
+                    [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
+                  Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_no_reply/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(request_and_no_reply, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-    Mg2Node = make_node_name(mg2),
-    Mg3Node = make_node_name(mg3),
-    Mg4Node = make_node_name(mg4),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p"
-      "~n   Mg2Node: ~p"
-      "~n   Mg3Node: ~p"
-      "~n   Mg4Node: ~p", 
-      [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
-    Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node], 
-    ok = ?START_NODES(Nodes, true),
-
+do_request_and_no_reply([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     %% Start the MGC
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -855,12 +860,9 @@ request_and_no_reply(Config) when is_list(Config) ->
     i("[MGC] stop"),
     ?MGC_STOP(Mgc),
 
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
-
     i("done", []),
     ok.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -14160,6 +14162,59 @@ to(To, Start) ->
 mtime() ->
     {A,B,C} = erlang:timestamp(),
     A*1000000000+B*1000+(C div 1000).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post)
+  when is_function(Pre, 0)  andalso 
+       is_function(Case, 1) andalso
+       is_function(Post, 1) ->
+    put(verbosity, Verbosity),
+    put(sname,     Name),
+    put(tc,        TCName),
+    i("try_tc -> starting: try pre"),
+    try Pre() of
+        State ->
+            i("try_tc -> pre done: try case"),
+            try Case(State) of
+                Res ->
+                    i("try_tc -> case done: try post"),
+                    (catch Post(State)),
+                    i("try_tc -> done"),
+                    Res
+            catch
+                throw:{skip, _} = SKIP:_ ->
+                    i("try_tc -> case (throw) skip: try post"),
+                    (catch Post(State)),
+                    i("try_tc -> case (throw) skip: done"),
+                    SKIP;
+                exit:{skip, _} = SKIP:_ ->
+                    i("try_tc -> case (exit) skip: try post"),
+                    (catch Post(State)),
+                    i("try_tc -> case (exit) skip: done"),
+                    SKIP;
+                C:E:S ->
+                    i("try_tc -> case failed: try post"),
+                    (catch Post(State)),
+                    i("try_tc -> case failed: done"),
+                    {error, {case_catched, C, E, S}}
+            end
+    catch
+        throw:{skip, _} = SKIP:_ ->
+            i("try_tc -> pre (throw) skip"),
+            SKIP;
+        exit:{skip, _} = SKIP:_ ->
+            i("try_tc -> pre (exit) skip"),
+            SKIP;
+        C:E:S ->
+            i("try_tc -> pre failed: done"),
+            {error, {pre_catched, C, E, S}}
+    end.
 
 
 
