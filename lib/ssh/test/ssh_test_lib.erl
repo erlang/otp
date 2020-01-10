@@ -353,12 +353,6 @@ receive_exec_result(Data, ConnectionRef, ChannelId) ->
     expected = receive_exec_result(Closed).
 
 
-inet_port()->
-    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
-    {ok, Port} = inet:port(Socket),
-    gen_tcp:close(Socket),
-    Port.
-
 setup_ssh_auth_keys(RSAFile, DSAFile, Dir) ->
     Entries = ssh_file_entry(RSAFile) ++ ssh_file_entry(DSAFile),
     AuthKeys = public_key:ssh_encode(Entries , auth_keys),
@@ -610,16 +604,6 @@ del_dirs(Dir) ->
 	_ ->
 	    ok
     end.
-
-inet_port(Node) ->
-    {Port, Socket} = do_inet_port(Node),
-     rpc:call(Node, gen_tcp, close, [Socket]),
-     Port.
-
-do_inet_port(Node) ->
-    {ok, Socket} = rpc:call(Node, gen_tcp, listen, [0, [{reuseaddr, true}]]),
-    {ok, Port} = rpc:call(Node, inet, port, [Socket]),
-    {Port, Socket}.
 
 openssh_sanity_check(Config) ->
     ssh:start(),
