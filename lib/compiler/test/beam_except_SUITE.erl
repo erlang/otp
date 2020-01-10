@@ -127,13 +127,19 @@ coverage(_) ->
     {'EXIT',{function_clause,[{?MODULE,foobar,[[fail],1,2],
                                [{file,"fake.erl"},{line,16}]}|_]}} =
         (catch foobar([fail], 1, 2)),
-    {'EXIT',{function_clause,[{?MODULE,fake_function_clause,[{a,b},42.0],_}|_]}} =
-        (catch fake_function_clause({a,b})),
+    {'EXIT',{function_clause,[{?MODULE,fake_function_clause1,[{a,b},42.0],_}|_]}} =
+        (catch fake_function_clause1({a,b})),
+
+    {'EXIT',{function_clause,[{?MODULE,fake_function_clause2,[42|bad_tl],_}|_]}} =
+        (catch fake_function_clause2(42, bad_tl)),
+    {'EXIT',{function_clause,[{?MODULE,fake_function_clause3,[x,y],_}|_]}} =
+        (catch fake_function_clause3(42, id([x,y]))),
 
     ok.
 
-fake_function_clause(A) -> error(function_clause, [A,42.0]).
-
+fake_function_clause1(A) -> error(function_clause, [A,42.0]).
+fake_function_clause2(A, Tl) -> error(function_clause, [A|Tl]).
+fake_function_clause3(_, Stk) -> error(function_clause, Stk).
 
 binary_construction_allocation(_Config) ->
     ok = do_binary_construction_allocation("PUT"),
