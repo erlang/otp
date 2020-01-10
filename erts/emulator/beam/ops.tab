@@ -389,16 +389,6 @@ move2_par X1=x X2=x X3=x X4=x | move X5=x X6=x => move3 X1 X2 X3 X4 X5 X6
 move3 y x y x y x
 move3 x x x x x x
 
-# move_x1, move_x2
-
-move C=aiq X=x==1 => move_x1 C
-move C=aiq X=x==2 => move_x2 C
-
-move n D=y => init D
-
-move_x1 c
-move_x2 c
-
 move xy xy
 move c xy
 move n x
@@ -1718,3 +1708,21 @@ i_recv_set
 
 build_stacktrace
 raw_raise
+
+#
+# Specialized move instructions. Since they don't require a second
+# instruction, we have intentionally placed them after any other
+# transformation rules that starts with a move instruction in order to
+# produce better code for the transformation engine.
+#
+
+# move_x1, move_x2
+
+move C=aiq X=x==1 => move_x1 C
+move C=aiq X=x==2 => move_x2 C
+
+move n D=y => init D
+
+move_x1 c
+move_x2 c
+
