@@ -2970,6 +2970,29 @@ int erts_utf8_to_latin1(byte* dest, const byte* source, int slen)
     return dp - dest;
 }
 
+int erts_utf8_to_latin1_length(const byte* source, int slen)
+{
+    /*
+     * Assumes source contains valid utf8 that can be encoded as latin1
+     */
+    int dlen = 0;
+    while (slen > 0) {
+        if ((source[0] & 0x80) == 0) {
+            source++;
+            --slen;
+        }
+        else {
+            ASSERT(slen > 1);
+            ASSERT((source[0] & 0xFE) == 0xC2);
+            ASSERT((source[1] & 0xC0) == 0x80);
+            source += 2;
+            slen -= 2;
+        }
+        dlen++;
+    }
+    return dlen;
+}
+
 BIF_RETTYPE io_printable_range_0(BIF_ALIST_0)
 {
     if (erts_get_printable_characters() == ERL_PRINTABLE_CHARACTERS_UNICODE) {

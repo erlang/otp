@@ -183,7 +183,8 @@ typedef enum
 
 typedef enum
 {
-    ERL_NIF_LATIN1 = 1
+    ERL_NIF_LATIN1 = 1,
+    ERL_NIF_UTF8 = 2
 }ErlNifCharEncoding;
 
 typedef struct

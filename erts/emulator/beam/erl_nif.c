@@ -1588,27 +1588,40 @@ int enif_has_pending_exception(ErlNifEnv* env, ERL_NIF_TERM* reason)
 }
 
 int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
-		  ErlNifCharEncoding encoding)
+                  ErlNifCharEncoding encoding)
 {
     Atom* ap;
-    ASSERT(encoding == ERL_NIF_LATIN1);
+    ASSERT(encoding == ERL_NIF_LATIN1 || enc == ERL_NIF_UTF8);
     if (is_not_atom(atom) || len==0) {
-	return 0;
+        return 0;
     }
     ap = atom_tab(atom_val(atom));
+    int dlen;
 
-    if (ap->latin1_chars < 0 || ap->latin1_chars >= len) {
-	return 0;
+    if (encoding == ERL_NIF_LATIN1) {
+        if (ap->latin1_chars >= len) return 0;
+
+        if (ap->len == ap->latin1_chars) {
+            sys_memcpy(buf, (char *) ap->name, ap->len);
+            dlen = ap->len;
+        } else if (ap->latin1_chars < 0) {
+            return 0;
+        } else {
+            dlen = erts_utf8_to_latin1_length(ap->name, ap->len);
+            if (dlen >= len) return 0;
+
+            dlen = erts_utf8_to_latin1((byte*)buf, ap->name, ap->len);
+            ASSERT(dlen == ap->latin1_chars); (void)dlen;
+        }
+    } else {
+        if (ap->len >= len) return 0;
+
+        sys_memcpy(buf, (char *) ap->name, ap->len);
+        dlen = ap->len;
     }
-    if (ap->latin1_chars == ap->len) {
-	sys_memcpy(buf, ap->name, ap->len);
-    }
-    else {
-	int dlen = erts_utf8_to_latin1((byte*)buf, ap->name, ap->len);
-	ASSERT(dlen == ap->latin1_chars); (void)dlen;
-    }
-    buf[ap->latin1_chars] = '\0';
-    return ap->latin1_chars + 1;
+
+    buf[dlen] = '\0';
+    return dlen + 1;
 }
 
 int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
@@ -1704,16 +1717,25 @@ int enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)
 }
 
 int enif_get_atom_length(ErlNifEnv* env, Eterm atom, unsigned* len,
-			 ErlNifCharEncoding enc)
+                         ErlNifCharEncoding enc)
 {
     Atom* ap;
-    ASSERT(enc == ERL_NIF_LATIN1);
+    ASSERT(enc == ERL_NIF_LATIN1 || enc == ERL_NIF_UTF8);
     if (is_not_atom(atom)) return 0;
     ap = atom_tab(atom_val(atom));
-    if (ap->latin1_chars < 0) {
-	return 0;
+
+    if (enc == ERL_NIF_UTF8) {
+        *len = ap->len;
+    } else if ((enc == ERL_NIF_LATIN1) & (ap->latin1_chars > 0)) {
+        if (ap->len == ap->latin1_chars) {
+            *len = ap->len;
+        } else {
+            *len = erts_utf8_to_latin1_length(ap->name, ap->len);
+            ASSERT(*len == a->latin1_chars);
+        }}
+    else {
+        return 0;
     }
-    *len = ap->latin1_chars;
     return 1;
 }
 
