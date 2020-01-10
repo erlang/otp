@@ -81,6 +81,7 @@ MODULES = \
 	file_io_server \
 	file_server \
 	gen_tcp \
+	gen_tcp_socket \
 	gen_udp \
 	gen_sctp \
 	global \
