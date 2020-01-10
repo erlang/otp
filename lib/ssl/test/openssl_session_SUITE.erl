@@ -39,14 +39,13 @@ all() ->
             [{group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'},
-             {group, 'sslv3'},
              {group, 'dtlsv1.2'},
              {group, 'dtlsv1'}];
         false ->
             [{group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
-             {group, 'tlsv1'},
-             {group, 'sslv3'}]
+             {group, 'tlsv1'}
+             ]
     end.
 
 groups() ->
@@ -55,15 +54,13 @@ groups() ->
              [{'tlsv1.2', [], tests()},
               {'tlsv1.1', [], tests()},
               {'tlsv1', [], tests()},
-              {'sslv3', [], tests()},
               {'dtlsv1.2', [], tests()},
               {'dtlsv1', [], tests()}
              ];
         false ->
              [{'tlsv1.2', [], tests()},
               {'tlsv1.1', [], tests()},
-              {'tlsv1', [], tests()},
-              {'sslv3', [], tests()}
+              {'tlsv1', [], tests()}
            ]
      end.
  

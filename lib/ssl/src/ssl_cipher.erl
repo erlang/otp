@@ -296,8 +296,6 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
 %%
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
-suites({3, 0}) ->
-    ssl_v3:suites();
 suites({3, Minor}) ->
     tls_v1:suites(Minor);
 suites({_, Minor}) ->
@@ -445,8 +443,6 @@ psk_suites_anon(0) ->
 %% Description: Returns a list of the SRP cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
-srp_suites({3,0}) ->
-    [];
 srp_suites(_) ->
     [?TLS_SRP_SHA_RSA_WITH_3DES_EDE_CBC_SHA,
      ?TLS_SRP_SHA_DSS_WITH_3DES_EDE_CBC_SHA,
@@ -461,8 +457,6 @@ srp_suites(_) ->
 %% Description: Returns a list of the SRP anonymous cipher suites, only supported
 %% if explicitly set by user.
 %%--------------------------------------------------------------------
-srp_suites_anon({3,0}) ->
-    [];
 srp_suites_anon(_) ->
     [?TLS_SRP_SHA_WITH_3DES_EDE_CBC_SHA,
      ?TLS_SRP_SHA_WITH_AES_128_CBC_SHA,
@@ -741,8 +735,6 @@ hash_size(sha512) ->
 mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->
     <<>>;
-mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
-    ssl_v3:mac_hash(MacAlg, MacSecret, SeqNo, Type, Length, Fragment);
 mac_hash({3, N} = Version, MacAlg, MacSecret, SeqNo, Type, Length, Fragment)  
   when N =:= 1; N =:= 2; N =:= 3; N =:= 4 ->
     tls_v1:mac_hash(MacAlg, MacSecret, SeqNo, Type, Version,

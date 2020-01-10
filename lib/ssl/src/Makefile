@@ -83,7 +83,6 @@ MODULES= \
 	ssl_session_cache \
 	ssl_srp_primes \
 	ssl_sup \
-	ssl_v3 \
 	tls_bloom_filter \
 	tls_connection \
 	tls_connection_sup \

@@ -100,5 +100,11 @@
 	deprecated as of OTP 18.
       </p>
     </section> 
+
+     <section>
+       <title>SSL/TLS</title>
+       <p>For security reasons SSL-3.0 is no longer supported at all.</p>
+     </section>
+
   </section>
 </chapter>

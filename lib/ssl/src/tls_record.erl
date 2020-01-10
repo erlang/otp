@@ -468,7 +468,7 @@ validate_tls_records_type(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
             validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length);
         true ->
             %% Not ?KNOWN_RECORD_TYPE(Type)
-            ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)
+            ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, {unsupported_record_type, Type})
     end.
 
 validate_tls_record_version(_Versions, Q, _SslOpts, Acc, Type, undefined, _Length) ->
@@ -481,7 +481,7 @@ validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
                 true ->
                     validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
                 false ->
-                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+                    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
             end;
         {3, 4} when Version =:= {3, 3} ->
             validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
@@ -489,7 +489,7 @@ validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
             %% Exact version match
             validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
         _ ->
-            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+            ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
     end.
 
 validate_tls_record_length(_Versions, Q, _SslOpts, Acc, Type, Version, undefined) ->

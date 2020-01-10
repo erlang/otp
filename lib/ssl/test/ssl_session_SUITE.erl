@@ -40,7 +40,6 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -51,8 +50,7 @@ groups() ->
      {'tlsv1.3', [], session_tests()},
      {'tlsv1.2', [], session_tests()},
      {'tlsv1.1', [], session_tests()},
-     {'tlsv1', [], session_tests()},
-     {'sslv3', [], session_tests()}
+     {'tlsv1', [], session_tests()}
     ].
 
 session_tests() ->

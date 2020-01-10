@@ -948,8 +948,6 @@ cipher_suites(Suites, true) ->
 %%
 %% Description: use the TLS PRF to generate key material
 %%--------------------------------------------------------------------
-prf({3,0}, _, _, _, _, _) ->
-    {error, undefined};
 prf({3,_N}, PRFAlgo, Secret, Label, Seed, WantedLength) ->
     {ok, tls_v1:prf(PRFAlgo, Secret, Label, Seed, WantedLength)}.
 
@@ -1910,13 +1908,8 @@ encrypted_premaster_secret(Secret, RSAPublicKey) ->
             throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, premaster_encryption_failed))
     end.
 
-calc_certificate_verify({3, 0}, HashAlgo, MasterSecret, Handshake) ->
-    ssl_v3:certificate_verify(HashAlgo, MasterSecret, lists:reverse(Handshake));
 calc_certificate_verify({3, N}, HashAlgo, _MasterSecret, Handshake) ->
     tls_v1:certificate_verify(HashAlgo, N, lists:reverse(Handshake)).
-
-calc_finished({3, 0}, Role, _PrfAlgo, MasterSecret, Handshake) ->
-    ssl_v3:finished(Role, MasterSecret, lists:reverse(Handshake));
 calc_finished({3, N}, Role, PrfAlgo, MasterSecret, Handshake) ->
     tls_v1:finished(Role, N, PrfAlgo, MasterSecret, lists:reverse(Handshake)).
 
@@ -1946,20 +1939,10 @@ master_secret(Version, MasterSecret,
     {MasterSecret,
      ssl_record:set_pending_cipher_state(ConnStates2, ClientCipherState,
 					 ServerCipherState, Role)}.
-
-setup_keys({3,0}, _PrfAlgo, MasterSecret,
-	   ServerRandom, ClientRandom, HashSize, KML, EKML, IVS) ->
-    ssl_v3:setup_keys(MasterSecret, ServerRandom,
-			ClientRandom, HashSize, KML, EKML, IVS);
-
 setup_keys({3,N}, PrfAlgo, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
     tls_v1:setup_keys(N, PrfAlgo, MasterSecret, ServerRandom, ClientRandom, HashSize,
 			KML, IVS).
-
-calc_master_secret({3,0}, _PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
-    ssl_v3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
-
 calc_master_secret({3,_}, PrfAlgo, PremasterSecret, ClientRandom, ServerRandom) ->
     tls_v1:master_secret(PrfAlgo, PremasterSecret, ClientRandom, ServerRandom).
 	
@@ -3182,9 +3165,6 @@ handle_renegotiation_info(_, _RecordCB, server, #renegotiation_info{renegotiated
                       throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, server_renegotiation))
 	      end
       end;
-handle_renegotiation_info({3,0}, _RecordCB, client, undefined, ConnectionStates, true, _SecureRenegotation, _) ->
-    {ok, ssl_record:set_renegotiation_flag(true, ConnectionStates)};
-
 handle_renegotiation_info(_, RecordCB, client, undefined, ConnectionStates, true, SecureRenegotation, _) ->
     handle_renegotiation_info(RecordCB, ConnectionStates, SecureRenegotation);
 
@@ -3271,8 +3251,6 @@ empty_extensions({3,4}, hello_retry_request) ->
       key_share => undefined,
       pre_shared_key => undefined
      };
-empty_extensions({3,0}, _) ->
-    empty_extensions();
 empty_extensions(_, server_hello) ->
     #{renegotiation_info => undefined,
       alpn => undefined,

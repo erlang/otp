@@ -152,7 +152,7 @@
 -type protocol_version()         :: tls_version() | dtls_version(). % exported
 -type tls_version()              :: 'tlsv1.2' | 'tlsv1.3' | tls_legacy_version().
 -type dtls_version()             :: 'dtlsv1.2' | dtls_legacy_version().
--type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' | sslv3.
+-type tls_legacy_version()       ::  tlsv1 | 'tlsv1.1' .
 -type dtls_legacy_version()      :: 'dtlsv1'.
 -type verify_type()              :: verify_none | verify_peer.
 -type cipher()                   :: aes_128_cbc |
@@ -1012,8 +1012,7 @@ cipher_suites(all) ->
 cipher_suites(Base, Version) when Version == 'tlsv1.3';
                                   Version == 'tlsv1.2';
                                   Version == 'tlsv1.1';
-                                  Version == tlsv1;
-                                  Version == sslv3 ->
+                                  Version == tlsv1 ->
     cipher_suites(Base, tls_record:protocol_version(Version));
 cipher_suites(Base, Version)  when Version == 'dtlsv1.2';
                                    Version == 'dtlsv1'->
@@ -1031,8 +1030,7 @@ cipher_suites(Base, Version) ->
 %%--------------------------------------------------------------------
 cipher_suites(Base, Version, StringType) when Version == 'tlsv1.2';
                                               Version == 'tlsv1.1';
-                                                  Version == tlsv1;
-                                              Version == sslv3 ->
+                                              Version == tlsv1 ->
     cipher_suites(Base, tls_record:protocol_version(Version), StringType);
 cipher_suites(Base, Version, StringType)  when Version == 'dtlsv1.2';
                                                Version == 'dtlsv1'->
@@ -1118,8 +1116,6 @@ eccs() ->
 %% Description: returns the curves supported for a given version of
 %% ssl/tls.
 %%--------------------------------------------------------------------
-eccs(sslv3) ->
-    [];
 eccs('dtlsv1') ->
     eccs('tlsv1.1');
 eccs('dtlsv1.2') ->
@@ -1507,21 +1503,13 @@ handle_options(Opts0, Role, Host) ->
 
     %% Ensure all options are evaluated at startup
     SslOpts1 = add_missing_options(SslOpts0, ?RULES),
-    SslOpts = #{protocol := Protocol,
-                versions := Versions}
+    SslOpts = #{protocol := Protocol}
         = process_options(SslOpts1,
                           #{},
                           #{role => Role,
                             host => Host,
                             rules => ?RULES}),
-
-    case Versions of
-        [{3, 0}] ->
-            reject_alpn_next_prot_options(SslOpts0);
-        _ ->
-            ok
-    end,
-
+    
     %% Handle special options
     {Sock, Emulated} = emulated_options(Protocol, SockOpts),
     ConnetionCb = connection_cb(Protocol),
@@ -2255,8 +2243,7 @@ validate_versions([], Versions) ->
 validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
                                                    Version == 'tlsv1.2';
                                                    Version == 'tlsv1.1';
-                                                   Version == tlsv1;
-                                                   Version == sslv3 ->
+                                                   Version == tlsv1 ->
     tls_validate_versions(Rest, Versions);                                      
 validate_versions([Version | Rest], Versions) when Version == 'dtlsv1';
                                                    Version == 'dtlsv1.2'->
@@ -2269,8 +2256,7 @@ tls_validate_versions([], Versions) ->
 tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
                                                        Version == 'tlsv1.2';
                                                        Version == 'tlsv1.1';
-                                                       Version == tlsv1;
-                                                       Version == sslv3 ->
+                                                       Version == tlsv1 ->
     tls_validate_versions(Rest, Versions);                  
 tls_validate_versions([Ver| _], Versions) ->
     throw({error, {options, {Ver, {versions, Versions}}}}).
@@ -2543,25 +2529,6 @@ server_name_indication_default(Host) when is_list(Host) ->
     Host;
 server_name_indication_default(_) ->
     undefined.
-
-
-reject_alpn_next_prot_options({Opts,_,_}) ->
-    AlpnNextOpts = [alpn_advertised_protocols,
-                    alpn_preferred_protocols,
-                    next_protocols_advertised,
-                    next_protocol_selector,
-                    client_preferred_next_protocols],
-    reject_alpn_next_prot_options(AlpnNextOpts, Opts).
-
-reject_alpn_next_prot_options([], _) ->
-    ok;
-reject_alpn_next_prot_options([Opt| AlpnNextOpts], Opts) ->
-    case lists:keyfind(Opt, 1, Opts) of
-        {Opt, Value} ->
-            throw({error, {options, {not_supported_in_sslv3, {Opt, Value}}}});
-        false ->
-            reject_alpn_next_prot_options(AlpnNextOpts, Opts)
-    end.
 
 add_filter(undefined, Filters) ->
     Filters;

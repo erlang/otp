@@ -42,7 +42,6 @@ all_protocol_groups() ->
     [{group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
      ].
@@ -56,7 +55,6 @@ groups() ->
      {'tlsv1.2', [], kex()},
      {'tlsv1.1', [], kex()},
      {'tlsv1', [], kex()},
-     {'sslv3', [], kex()},
      {'dtlsv1.2', [], dtls_kex()},
      {'dtlsv1', [], dtls_kex()},
      {dhe_rsa, [],[dhe_rsa_3des_ede_cbc, 

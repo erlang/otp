@@ -91,6 +91,7 @@
 
   <section>
     <title>SSL 3.0</title>
+    <p>For security reasons SSL-3.0 is no longer supported at all. (OTP 23) </p>
     <p>For security reasons SSL-3.0 is no longer supported by default, but can be configured. (OTP 19)</p>
   </section>
 

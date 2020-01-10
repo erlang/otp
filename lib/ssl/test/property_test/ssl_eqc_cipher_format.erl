@@ -55,14 +55,13 @@
 -define('TLS_v1.2', 'tlsv1.2').
 -define('TLS_v1.1', 'tlsv1.1').
 -define('TLS_v1',   'tlsv1').
--define('SSL_v3',   'sslv3').
 
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
 %%--------------------------------------------------------------------
 
 prop_tls_cipher_suite_rfc_name() ->
-    ?FORALL({CipherSuite, TLSVersion}, ?LET(Version, tls_version(), {cipher_suite(Version), Version}),
+    ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, tls_version(), {cipher_suite(Version), Version}),
             case ssl:str_to_suite(ssl:suite_to_str(CipherSuite)) of
 		CipherSuite ->
 		    true;
@@ -72,7 +71,7 @@ prop_tls_cipher_suite_rfc_name() ->
 	   ).
 
 prop_tls_cipher_suite_openssl_name() ->
-    ?FORALL({CipherSuite, TLSVersion}, ?LET(Version, tls_version(), {cipher_suite(Version), Version}),
+    ?FORALL({CipherSuite, _TLSVersion}, ?LET(Version, tls_version(), {cipher_suite(Version), Version}),
             case ssl:str_to_suite(ssl:suite_to_openssl_str(CipherSuite)) of
 		CipherSuite ->
 		    true;
@@ -86,7 +85,7 @@ prop_tls_cipher_suite_openssl_name() ->
 %% Generators  -----------------------------------------------
 %%--------------------------------------------------------------------
 tls_version() ->
-    oneof([?'TLS_v1.2', ?'TLS_v1.1', ?'TLS_v1', ?'SSL_v3']).
+    oneof([?'TLS_v1.3', ?'TLS_v1.2', ?'TLS_v1.1', ?'TLS_v1']).
 
 cipher_suite(Version) ->
     oneof(cipher_suites(Version)).

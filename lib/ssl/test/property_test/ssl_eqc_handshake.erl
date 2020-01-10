@@ -62,7 +62,6 @@
 -define('TLS_v1.2', {3,3}).
 -define('TLS_v1.1', {3,2}).
 -define('TLS_v1',   {3,1}).
--define('SSL_v3',   {3,0}).
 
 %%--------------------------------------------------------------------
 %% Properties --------------------------------------------------------
@@ -132,14 +131,6 @@ client_hello(Version) ->
 		  compression_methods = compressions(Version),
 		  random = client_random(Version),
 		  extensions = client_hello_extensions(Version)    
-                 };
-client_hello(?'SSL_v3' = Version) ->
-    #client_hello{session_id = session_id(),
-		  client_version = Version,
-                  cipher_suites = cipher_suites(Version),
-		  compression_methods = compressions(Version),
-		  random = client_random(Version),
-		  extensions = ssl_handshake:empty_extensions(Version, client_hello)
                  }.
 
 server_hello(?'TLS_v1.3' = Version) ->
@@ -149,14 +140,6 @@ server_hello(?'TLS_v1.3' = Version) ->
                   cipher_suite = cipher_suite(Version),
 		  compression_method = compression(Version),
 		  extensions = server_hello_extensions(Version)    
-                 };
-server_hello(?'SSL_v3' = Version) ->
-    #server_hello{server_version = Version,
-		  session_id = session_id(),
-                  random = server_random(Version),
-                  cipher_suite = cipher_suite(Version),
-		  compression_method = compression(Version),
-		  extensions = ssl_handshake:empty_extensions(Version, server_hello)
                  };
 server_hello(Version) ->
     #server_hello{server_version = Version,
@@ -214,7 +197,7 @@ key_update() ->
 %%--------------------------------------------------------------------
 
 tls_version() ->
-    oneof([?'TLS_v1.3', ?'TLS_v1.2', ?'TLS_v1.1', ?'TLS_v1', ?'SSL_v3']).
+    oneof([?'TLS_v1.3', ?'TLS_v1.2', ?'TLS_v1.1', ?'TLS_v1']).
 
 cipher_suite(Version) ->
     oneof(cipher_suites(Version)).
@@ -382,8 +365,6 @@ extensions(?'TLS_v1.3' = Version, MsgType = client_hello) ->
                         %% post_handshake_auth => PostHandshakeAuth,
                         signature_algs_cert => SignatureAlgorithmsCert
                        }));
-extensions(?'SSL_v3', client_hello) ->
-    #{};
 extensions(Version, client_hello) ->
     ?LET({
           SNI,

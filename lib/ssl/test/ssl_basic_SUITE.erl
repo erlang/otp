@@ -173,7 +173,7 @@ connect_twice(Config) when is_list(Config) ->
     ssl_test_lib:close(Client1).
 defaults(Config) when is_list(Config)->
     Versions = ssl:versions(),
-    true = lists:member(sslv3, proplists:get_value(available, Versions)),
+    false = lists:member(sslv3, proplists:get_value(available, Versions)),
     false = lists:member(sslv3,  proplists:get_value(supported, Versions)),
     true = lists:member('tlsv1', proplists:get_value(available, Versions)),
     false = lists:member('tlsv1',  proplists:get_value(supported, Versions)),
@@ -406,7 +406,6 @@ eccs() ->
 
 eccs(Config) when is_list(Config) ->
     [_|_] = All = ssl:eccs(),
-    [] = ssl:eccs(sslv3),
     [_|_] = Tls = ssl:eccs(tlsv1),
     [_|_] = Tls1 = ssl:eccs('tlsv1.1'),
     [_|_] = Tls2 = ssl:eccs('tlsv1.2'),

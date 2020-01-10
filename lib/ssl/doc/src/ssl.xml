@@ -632,7 +632,7 @@ fun(Chain::[public_key:der_encoded()]) ->
       <desc><p>TLS protocol versions supported by started clients and servers.
       This option overrides the application environment option
       <c>protocol_version</c> and  <c>dtls_protocol_version</c>. If the environment option is not set, it defaults
-      to all versions, except SSL-3.0, supported by the SSL application.
+      to all versions, supported by the SSL application.
       See also <seealso marker="ssl:ssl_app">ssl(6).</seealso></p>
       </desc>
     </datatype>
@@ -721,7 +721,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
     <datatype>
       <name name="beast_mitigation"/>
-      <desc><p>Affects SSL-3.0 and TLS-1.0 connections only. Used to change the BEAST
+      <desc><p>Affects TLS-1.0 connections only. Used to change the BEAST
        mitigation strategy to interoperate with legacy software.
        Defaults to <c>one_n_minus_one</c>.</p>
 
@@ -731,7 +731,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
       <p><c>disabled</c> - Disable BEAST mitigation.</p>
 
-      <warning><p>Using <c>{beast_mitigation, disabled}</c> makes SSL-3.0 or TLS-1.0
+      <warning><p>Using <c>{beast_mitigation, disabled}</c> makes TLS-1.0
         vulnerable to the BEAST attack.</p></warning>
       </desc>
     </datatype>
@@ -886,10 +886,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <warning><p>Note this option is not needed in normal TLS usage and should not be used
 	  to implement new clients. But legacy clients that retries connections in the following manner</p>
 	  
-	  <p><c> ssl:connect(Host, Port, [...{versions, ['tlsv2', 'tlsv1.1', 'tlsv1', 'sslv3']}])</c></p>
-	  <p><c>  ssl:connect(Host, Port, [...{versions, [tlsv1.1', 'tlsv1', 'sslv3']}, {fallback, true}])</c></p>
-	  <p><c>  ssl:connect(Host, Port, [...{versions, ['tlsv1', 'sslv3']}, {fallback, true}]) </c></p>
-	  <p><c>  ssl:connect(Host, Port, [...{versions, ['sslv3']}, {fallback, true}]) </c></p>
+	  <p><c> ssl:connect(Host, Port, [...{versions, ['tlsv2', 'tlsv1.1', 'tlsv1']}])</c></p>
+	  <p><c>  ssl:connect(Host, Port, [...{versions, [tlsv1.1', 'tlsv1']}, {fallback, true}])</c></p>
+	  <p><c>  ssl:connect(Host, Port, [...{versions, ['tlsv1']}, {fallback, true}]) </c></p>
 	  
 	  <p>may use it to avoid undesired TLS version downgrade. Note that TLS_FALLBACK_SCSV must also
 	  be supported by the server for the prevention to work.
@@ -1585,8 +1584,6 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  extra key material. It either takes user-generated values for
 	  <c>Secret</c> and <c>Seed</c> or atoms directing it to use a specific
 	  value from the session security parameters.</p>
-        <p>Can only be used with TLS/DTLS connections; <c>{error, undefined}</c>
-	  is returned for SSLv3 connections.</p>
       </desc>
     </func>
     

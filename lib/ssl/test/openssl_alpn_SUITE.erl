@@ -35,7 +35,6 @@
 %%--------------------------------------------------------------------
 
 all() ->
-    %% Note: ALPN not supported in sslv3
     case ssl_test_lib:openssl_sane_dtls_alpn() of 
         true ->
             [

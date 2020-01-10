@@ -37,7 +37,6 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, 'sslv3'},
      {group, 'dtlsv1.2'},
      {group, 'dtlsv1'}
     ].
@@ -48,7 +47,6 @@ groups() ->
      {'tlsv1.2', [], alpn_tests() ++ alpn_npn_coexist()},
      {'tlsv1.1', [], alpn_tests() ++ alpn_npn_coexist()},
      {'tlsv1', [], alpn_tests() ++ alpn_npn_coexist()},
-     {'sslv3', [], alpn_not_supported()},
      {'dtlsv1.2', [], alpn_tests() ++ alpn_npn_coexist()},
      {'dtlsv1', [], alpn_tests() ++ alpn_npn_coexist()}
     ].
@@ -74,10 +72,6 @@ alpn_npn_coexist() ->
      client_alpn_and_server_alpn_npn
     ].
 
-alpn_not_supported() ->
-    [alpn_not_supported_client,
-     alpn_not_supported_server
-    ].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -274,30 +268,6 @@ session_reused(Config) when  is_list(Config)->
     ServerOpts = [{alpn_preferred_protocols, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]}] ++  ServerOpts0,
 
     ssl_test_lib:reuse_session(ClientOpts, ServerOpts, Config).
-%--------------------------------------------------------------------------------
-
-alpn_not_supported_client(Config) when is_list(Config) ->
-    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
-    PrefProtocols = {client_preferred_next_protocols,
-		     {client, [<<"http/1.0">>], <<"http/1.1">>}},
-    ClientOpts = [PrefProtocols] ++ ClientOpts0,
-    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Client = ssl_test_lib:start_client_error([{node, ClientNode}, 
-			    {port, 8888}, {host, Hostname},
-			    {from, self()},  {options, ClientOpts}]),
-    
-    ssl_test_lib:check_result(Client, {error, 
-				       {options, 
-					{not_supported_in_sslv3, PrefProtocols}}}).
-
-%--------------------------------------------------------------------------------
-
-alpn_not_supported_server(Config) when is_list(Config)->
-    ServerOpts0 =  ssl_test_lib:ssl_options(server_rsa_opts, Config),
-    AdvProtocols = {next_protocols_advertised, [<<"spdy/2">>, <<"http/1.1">>, <<"http/1.0">>]},
-    ServerOpts = [AdvProtocols] ++  ServerOpts0,
-  
-    {error, {options, {not_supported_in_sslv3, AdvProtocols}}} = ssl:listen(0, ServerOpts).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
