@@ -83,6 +83,8 @@
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
 
+-define(DEFAULT_KERNEL_INET, inet). % inet | socket
+
 %% Record Signature
 -define(RS(Record),
 	{Record, record_info(size, Record)}).
@@ -931,7 +933,8 @@ tcp_module_1(Opts, Address) ->
 gen_tcp_module([{inet, Flag}|Opts]) ->
     gen_tcp_module(Opts, Flag);
 gen_tcp_module(Opts) ->
-    gen_tcp_module(Opts, persistent_term:get({kernel, inet}, inet)).
+    gen_tcp_module(
+      Opts, persistent_term:get({kernel, inet}, ?DEFAULT_KERNEL_INET)).
 %%
 gen_tcp_module(Opts, inet) ->
     {gen_tcp, Opts};
