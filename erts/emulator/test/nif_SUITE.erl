@@ -1176,6 +1176,13 @@ get_atom(Config) when is_list(Config) ->
     {0, <<>>} = atom_to_bin(hejsan,0),
     {1, <<0>>} = atom_to_bin('',1),
     {0, <<>>} = atom_to_bin('',0),
+
+    Uatom = 'чзöÄ',
+    UBin = erlang:atom_to_binary(Uatom),
+    UBsize = size(UBin),
+    {9, <<UBin:UBsize/binary,0,_>>} = atom_to_bin(Uatom,UBsize + 2),
+    {9, <<UBin:UBsize/binary,0>>} = atom_to_bin(Uatom,UBsize + 1),
+    {0, <<_:UBsize/binary>>} = atom_to_bin(Uatom,UBsize),
     ok.
 
 %% Test NIF maps handling.
@@ -2215,7 +2222,7 @@ is_checks(Config) when is_list(Config) ->
 %% Test all enif_get_length functions
 get_length(Config) when is_list(Config) ->
     ensure_lib_loaded(Config, 1),
-    ok = length_test(hejsan, "hejsan", [], [], not_a_list, [1,2|3]).
+    ok = length_test(hejsan, "hejsan", [], [], not_a_list, [1,2|3], 'чзöÄ').
 
 ensure_lib_loaded(Config) ->
     ensure_lib_loaded(Config, 1).

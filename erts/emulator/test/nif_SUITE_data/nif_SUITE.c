@@ -804,6 +804,9 @@ static ERL_NIF_TERM atom_to_bin(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 	return enif_make_badarg(env);
     }
     n = enif_get_atom(env, argv[0], (char*)obin.data, size, ERL_NIF_LATIN1);
+    if (n == 0) {
+        n = enif_get_atom(env, argv[0], (char*)obin.data, size, ERL_NIF_UTF8);
+    }
     return enif_make_tuple(env, 2, enif_make_int(env,n),
 			   enif_make_binary(env,&obin));
 }
@@ -1088,6 +1091,7 @@ static ERL_NIF_TERM check_is_exception(ErlNifEnv* env, int argc, const ERL_NIF_T
  * argv[3] not an atom
  * argv[4] not a list
  * argv[5] improper list
+ * argv[6] utf-8 atom with length of 8
  */
 static ERL_NIF_TERM length_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
@@ -1110,6 +1114,9 @@ static ERL_NIF_TERM length_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     if (enif_get_list_length(env, argv[5], &len))
 	return enif_make_badarg(env);
+
+    if (!enif_get_atom_length(env, argv[6], &len, ERL_NIF_UTF8) || len != 8)
+        return enif_make_badarg(env);
 
     return enif_make_atom(env, "ok");
 }
