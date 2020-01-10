@@ -2316,7 +2316,10 @@ static int db_lookup_dbterm_catree(Process *p, DbTable *tbl, Eterm key, Eterm ob
 static void db_finalize_dbterm_catree(int cret, DbUpdateHandle *handle)
 {
     DbTableCATree *tb = &(handle->tb->catree);
-    db_finalize_dbterm_tree_common(cret, handle, NULL);
+    db_finalize_dbterm_tree_common(cret,
+                                   handle,
+                                   &handle->u.catree.base_node->u.base.root,
+                                   NULL);
     wunlock_adapt_base_node(tb, handle->u.catree.base_node,
                             handle->u.catree.parent,
                             handle->u.catree.current_level);

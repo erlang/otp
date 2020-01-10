@@ -55,6 +55,7 @@
          fixtable_insert/1, rename/1, rename_unnamed/1, evil_rename/1,
 	 update_element/1, update_counter/1, evil_update_counter/1, partly_bound/1, match_heavy/1]).
 -export([update_counter_with_default/1]).
+-export([update_counter_with_default_bad_pos/1]).
 -export([update_counter_table_growth/1]).
 -export([member/1]).
 -export([memory/1]).
@@ -136,7 +137,9 @@ all() ->
      interface_equality, fixtable_next, fixtable_iter_bag, fixtable_insert,
      rename, rename_unnamed, evil_rename, update_element,
      update_counter, evil_update_counter,
-     update_counter_with_default, partly_bound,
+     update_counter_with_default,
+     update_counter_with_default_bad_pos,
+     partly_bound,
      update_counter_table_growth,
      match_heavy, {group, fold}, member, t_delete_object,
      select_bound_chunk,
@@ -2655,6 +2658,21 @@ update_counter_with_default_do(Opts) ->
     %% No third element in default value.
     {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, [{3,1}], {roquefort,1})),
 
+    ok.
+
+%% ERL-1125
+update_counter_with_default_bad_pos(Config) when is_list(Config) ->
+    repeat_for_all_ord_set_table_types(fun update_counter_with_default_bad_pos_do/1).
+
+update_counter_with_default_bad_pos_do(Opts) ->
+    T = ets_new(a, Opts),
+    0 = ets:info(T, size),
+    ok = try ets:update_counter(T, 101065, {1, 1}, {101065, 0})
+         catch
+             error:badarg -> ok;
+             Class:Reason -> {Class, Reason}
+         end,
+    0 = ets:info(T, size),
     ok.
 
 update_counter_table_growth(_Config) ->

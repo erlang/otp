@@ -3442,7 +3442,9 @@ db_lookup_dbterm_tree(Process *p, DbTable *tbl, Eterm key, Eterm obj,
     return db_lookup_dbterm_tree_common(p, tbl, &tb->root, key, obj, handle, tb);
 }
 
-void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
+void db_finalize_dbterm_tree_common(int cret,
+                                    DbUpdateHandle *handle,
+                                    TreeDbTerm **root,
                                     DbTableTree *stack_container)
 {
     DbTable *tbl = handle->tb;
@@ -3450,7 +3452,12 @@ void db_finalize_dbterm_tree_common(int cret, DbUpdateHandle *handle,
 
     if (handle->flags & DB_NEW_OBJECT && cret != DB_ERROR_NONE) {
         Eterm ret;
-        db_erase_tree(tbl, GETKEY(&tbl->common, bp->dbterm.tpl), &ret);
+        db_erase_tree_common(tbl,
+                             root,
+                             GETKEY(&tbl->common, bp->dbterm.tpl),
+                             &ret,
+                             (stack_container == NULL ?
+                              NULL : &stack_container->static_stack));
     } else if (handle->flags & DB_MUST_RESIZE) {
 	db_finalize_resize(handle, offsetof(TreeDbTerm,dbterm));
         reset_static_stack(stack_container);
@@ -3468,7 +3475,7 @@ db_finalize_dbterm_tree(int cret, DbUpdateHandle *handle)
 {
     DbTable *tbl = handle->tb;
     DbTableTree *tb = &tbl->tree;
-    db_finalize_dbterm_tree_common(cret, handle, tb);
+    db_finalize_dbterm_tree_common(cret, handle, &tb->root, tb);
 }
 
 static int db_get_binary_info_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
