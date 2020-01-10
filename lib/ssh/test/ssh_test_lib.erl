@@ -1108,3 +1108,19 @@ report(Comment, Line) ->
             crypto:info_lib(),
             crypto:info_fips(),
             crypto:supports()]).
+
+%%%----------------------------------------------------------------
+lc_name_in(Names) ->
+    case inet:gethostname() of
+        {ok,Name} ->
+            lists:member(string:to_lower(Name), Names);
+        Other ->
+            ct:log("~p:~p  inet:gethostname() returned ~p", [?MODULE,?LINE,Other]),
+            false
+    end.
+
+
+                    
+            
+
+
