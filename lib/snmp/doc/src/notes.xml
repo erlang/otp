@@ -80,6 +80,32 @@
 
 </section>
 
+  <section><title>SNMP 5.4.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Its now possible to remove selected varbinds (from the
+	    final message) when sending a notification. This is done
+	    by setting the 'value' (in the varbind(s) of the varbinds
+	    list) to '?NOTIFICATION_IGNORE_VB_VALUE'.</p>
+          <p>
+	    Own Id: OTP-16349 Aux Id: ERIERL-444 </p>
+        </item>
+        <item>
+          <p>
+	    Its now possible to specify that an oid shall be
+	    "truncated" (trailing ".0" to be removed) when sending an
+	    notification.</p>
+          <p>
+	    Own Id: OTP-16360 Aux Id: ERIERL-451 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SNMP 5.4.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
