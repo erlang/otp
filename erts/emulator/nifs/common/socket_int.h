@@ -207,6 +207,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(keepcnt);                  \
     GLOBAL_ATOM_DEF(keepidle);                 \
     GLOBAL_ATOM_DEF(keepintvl);                \
+    GLOBAL_ATOM_DEF(kernel);                   \
     GLOBAL_ATOM_DEF(leave_group);              \
     GLOBAL_ATOM_DEF(level);                    \
     GLOBAL_ATOM_DEF(linger);                   \

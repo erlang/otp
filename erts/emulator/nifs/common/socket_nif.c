@@ -2867,6 +2867,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(keepcnt);                         \
     GLOBAL_ATOM_DECL(keepidle);                        \
     GLOBAL_ATOM_DECL(keepintvl);                       \
+    GLOBAL_ATOM_DECL(kernel);                          \
     GLOBAL_ATOM_DECL(leave_group);                     \
     GLOBAL_ATOM_DECL(level);                           \
     GLOBAL_ATOM_DECL(linger);                          \
