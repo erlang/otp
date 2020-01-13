@@ -93,7 +93,7 @@ write(XF,ReqID, Handle, Offset, Data) ->
 		is_binary(Data) ->
 		    Data;
 		is_list(Data) -> 
-		    unicode:characters_to_binary(Data)
+		    ?to_binary(Data)
 	    end,
     xf_request(XF,?SSH_FXP_WRITE,
 	       [?uint32(ReqID),
@@ -240,7 +240,7 @@ xf_request(XF, Op, Arg) ->
 	       is_binary(Arg) -> 
 		   Arg;
 	       is_list(Arg) ->
-		   list_to_binary(Arg)
+		   ?to_binary(Arg)
 	   end,
     Size = 1+size(Data),
     ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).
@@ -250,7 +250,7 @@ xf_send_reply(#ssh_xfer{cm = CM, channel = Channel}, Op, Arg) ->
 	       is_binary(Arg) ->
 		   Arg;
 	       is_list(Arg) ->
-		   list_to_binary(Arg)
+		   ?to_binary(Arg)
 	   end,
     Size = 1 + size(Data),
     ssh_connection:send(CM, Channel, [<<?UINT32(Size), Op, Data/binary>>]).

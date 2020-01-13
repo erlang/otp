@@ -104,6 +104,7 @@ init_per_group(not_unicode, Config) ->
     [{user, "Alladin"},
      {passwd, "Sesame"},
      {data, <<"Hello world!">>},
+     {data_pos, ["Hej ","hopp"]},
      {filename,     "sftp.txt"},
      {testfile,     "test.txt"},
      {linktest,     "link_test.txt"},
@@ -122,7 +123,8 @@ init_per_group(unicode, Config) ->
 	    NewConfig =
 		[{user, "åke高兴"},
 		 {passwd, "ärlig日本じん"},
-		 {data, <<"foobar å 一二三四いちにさんち">>},
+                 {data, "foobar å 一二三四いちにさんち"},
+                 {data_pos, ["中","国"]},
 		 {filename,     "sftp瑞点.txt"},
 		 {testfile,     "testハンス.txt"},
 		 {linktest,     "link_test語.txt"},
@@ -381,10 +383,10 @@ write_file() ->
 write_file(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
     {Sftp, _} = proplists:get_value(sftp, Config),
-
-    Data = list_to_binary("Hej hopp!"),
+    Data = proplists:get_value(data, Config),
+    Expected = unicode:characters_to_binary(Data),
     ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
-    {ok, Data} = file:read_file(FileName).
+    {ok, Expected} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
 write_file_iolist() ->
@@ -393,18 +395,19 @@ write_file_iolist(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
-    Data = list_to_binary("Hej hopp!"),
+    Data = proplists:get_value(data, Config),
+    DataB = unicode:characters_to_binary(Data),
     lists:foreach(
       fun(D) ->
 	      ok = ssh_sftp:write_file(Sftp, FileName, [D]),
-	      Expected = if is_binary(D) -> D;
-			    is_list(D) -> list_to_binary(D)
+	      Expected = try iolist_to_binary(D)
+                         catch _:_ -> unicode:characters_to_binary(D)
 			 end,
 	      {ok, Expected} = file:read_file(FileName)
       end,
       [Data, [Data,Data], [[Data],[Data]], [[[Data]],[[[[Data]],Data]]],
-       [[[[Data]],Data],binary_to_list(Data)],
-       [[[[Data]],Data],[[binary_to_list(Data)],[[binary_to_list(Data)]]]]
+       [[[[Data]],Data],DataB],
+       [[[[Data]],Data],[[DataB],[[DataB]]]]
       ]).
 
 %%--------------------------------------------------------------------
@@ -414,9 +417,11 @@ write_big_file(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
-    Data = list_to_binary(lists:duplicate(750000,"a")),
-    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
-    {ok, Data} = file:read_file(FileName).
+    Data = [lists:duplicate(750000,"a"),
+            proplists:get_value(data, Config)],
+    ok = ssh_sftp:write_file(Sftp, FileName, Data),
+    Expected = unicode:characters_to_binary(Data),
+    {ok, Expected} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
 sftp_read_big_file() ->
@@ -425,10 +430,11 @@ sftp_read_big_file(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
-    Data = list_to_binary(lists:duplicate(750000,"a")),
-    ct:log("Data size to write is ~p bytes",[size(Data)]),
-    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
-    {ok, Data} = ssh_sftp:read_file(Sftp, FileName).
+    Data = [lists:duplicate(750000,"a"),
+            proplists:get_value(data, Config)],
+    ok = ssh_sftp:write_file(Sftp, FileName, Data),
+    Expected = unicode:characters_to_binary(Data),
+    {ok, Expected} = ssh_sftp:read_file(Sftp, FileName).
 
 %%--------------------------------------------------------------------
 remove_file() ->
@@ -577,12 +583,13 @@ async_write(Config) when is_list(Config) ->
     {Sftp, _} = proplists:get_value(sftp, Config),
     FileName = proplists:get_value(testfile, Config),
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [write]),
-    Data = list_to_binary("foobar"),
+    Data = proplists:get_value(data, Config),
+    Expected = unicode:characters_to_binary(Data),
     {async, Ref} = ssh_sftp:awrite(Sftp, Handle, Data),
 
     receive
 	{async_reply, Ref, ok} ->
-	    {ok, Data} = file:read_file(FileName);
+	    {ok, Expected} = file:read_file(FileName);
 	Msg ->
 	    ct:fail(Msg)
     end.
@@ -596,7 +603,7 @@ position(Config) when is_list(Config) ->
     {Sftp, _} = proplists:get_value(sftp, Config),
 
     Data = list_to_binary("1234567890"),
-    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, FileName, Data),
     {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
 
     {ok, 3} = ssh_sftp:position(Sftp, Handle, {bof, 3}),
@@ -623,16 +630,19 @@ pos_read() ->
 pos_read(Config) when is_list(Config) ->
     FileName = proplists:get_value(testfile, Config),
     {Sftp, _} = proplists:get_value(sftp, Config),
-    Data = list_to_binary("Hej hopp!"),
-    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
+    Data = proplists:get_value(data_pos, Config),
+    [Expect1,Expect2] = Es = [binary_to_list(unicode:characters_to_binary(D)) || D <- Data],
+    [Len1,Len2] = [length(E) || E <- Es],
+    ok = ssh_sftp:write_file(Sftp, FileName, Data),
 
-    {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
-    {async, Ref} = ssh_sftp:apread(Sftp, Handle, {bof, 5}, 4),
+    {ok,Read} = file:read_file(FileName),
+    ct:log("File: <~ts>~n<~p>~nExpect1: <~p>~nExpect2: <~p>", [Read, Read, Expect1, Expect2]),
 
-    NewData  = "opp!",
+    {ok,Handle} = ssh_sftp:open(Sftp, FileName, [read]),
+    {async,Ref} = ssh_sftp:apread(Sftp, Handle, {bof, Len1}, Len2),
 
     receive
-	{async_reply, Ref, {ok, NewData}} ->
+	{async_reply, Ref, {ok,Expect2}} ->
 	    ok;
 	Msg ->
 	    ct:fail(Msg)
@@ -640,9 +650,7 @@ pos_read(Config) when is_list(Config) ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
 
-    NewData1  = "hopp",
-
-    {ok, NewData1} = ssh_sftp:pread(Sftp, Handle, {bof, 4}, 4).
+   {ok,Expect1} = ssh_sftp:pread(Sftp, Handle, {bof,0}, Len1).
 
 %%--------------------------------------------------------------------
 pos_write() ->
@@ -667,9 +675,10 @@ pos_write(Config) when is_list(Config) ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
 
-    ok = ssh_sftp:pwrite(Sftp, Handle, eof, list_to_binary("!")),
+    LastData = proplists:get_value(data, Config),
+    ok = ssh_sftp:pwrite(Sftp, Handle, eof, LastData),
 
-    NewData1 = list_to_binary("Bye, see you tomorrow!"),
+    NewData1 = unicode:characters_to_binary("Bye, see you tomorrow" ++ LastData),
     {ok, NewData1} = ssh_sftp:read_file(Sftp, FileName).
 
 %%--------------------------------------------------------------------

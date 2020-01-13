@@ -87,6 +87,9 @@
 -define(Empint(X),       (ssh_bits:mpint(X))/binary ).
 -define(Ebinary(X),      ?STRING(X) ).
 
+%% Other macros
+-define(to_binary(X), (try iolist_to_binary(X) catch _:_ -> unicode:characters_to_binary(X) end) ).
+
 %% Cipher details
 -define(SSH_CIPHER_NONE, 0).
 -define(SSH_CIPHER_3DES, 3).

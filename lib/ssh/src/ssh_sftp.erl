@@ -816,7 +816,7 @@ write_file(Pid, Name, List) ->
       Timeout :: timeout(),
       Error :: {error, reason()}.
 write_file(Pid, Name, List, FileOpTimeout) when is_list(List) ->
-    write_file(Pid, Name, list_to_binary(List), FileOpTimeout);
+    write_file(Pid, Name, to_bin(List), FileOpTimeout);
 write_file(Pid, Name, Bin, FileOpTimeout) ->
     case open(Pid, Name, [write, binary], FileOpTimeout) of
 	{ok, Handle} ->
@@ -1619,7 +1619,7 @@ lseek_pos(_, _, _) ->
 
 %%%================================================================
 %%%
-to_bin(Data) when is_list(Data) -> list_to_binary(Data);
+to_bin(Data) when is_list(Data) -> ?to_binary(Data);
 to_bin(Data) when is_binary(Data) -> Data.
 
 

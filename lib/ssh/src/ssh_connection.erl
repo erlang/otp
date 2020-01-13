@@ -433,12 +433,7 @@ channel_data(ChannelId, DataType, Data0,
 	     From) ->
     case ssh_client_channel:cache_lookup(Cache, ChannelId) of
 	#channel{remote_id = Id, sent_close = false} = Channel0 ->
-            Data =
-               try iolist_to_binary(Data0)
-               catch
-                   _:_ -> 
-                       unicode:characters_to_binary(Data0)
-               end,
+            Data = ?to_binary(Data0),
 	    {SendList, Channel} =
 		update_send_window(Channel0#channel{flow_control = From}, DataType,
 				   Data, Connection),
