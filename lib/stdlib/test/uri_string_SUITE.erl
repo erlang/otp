@@ -29,6 +29,7 @@
          normalize_pct_encoded_userinfo/1,
          normalize_pct_encoded_query/1,
          normalize_pct_encoded_fragment/1,
+         normalize_pct_encoded_negative/1,
          parse_binary_fragment/1, parse_binary_host/1, parse_binary_host_ipv4/1,
          parse_binary_host_ipv6/1,
          parse_binary_path/1, parse_binary_pct_encoded_fragment/1, parse_binary_pct_encoded_query/1,
@@ -86,6 +87,7 @@ all() ->
      normalize_pct_encoded_userinfo,
      normalize_pct_encoded_query,
      normalize_pct_encoded_fragment,
+     normalize_pct_encoded_negative,
      parse_binary_scheme,
      parse_binary_userinfo,
      parse_binary_pct_encoded_userinfo,
@@ -1138,6 +1140,16 @@ normalize_pct_encoded_fragment(_Config) ->
         uri_string:normalize("foo://example.com#%E5%90%88%E6%B0%97%E9%81%93", [return_map]),
     #{host := "example.com", path := "/", fragment := "合気道"} =
         uri_string:normalize("//example.com/#%E5%90%88%E6%B0%97%E9%81%93", [return_map]).
+
+normalize_pct_encoded_negative(_Config) ->
+    {error,invalid_utf8,<<0,0,0,246>>} =
+        uri_string:normalize(#{host => "%00%00%00%F6",path => []}, [return_map]),
+    {error,invalid_utf8,<<0,0,0,246>>} =
+        uri_string:normalize(#{host => "%00%00%00%F6",path => []}, []),
+    {error,invalid_utf8,<<0,0,0,246>>} =
+        uri_string:normalize("//%00%00%00%F6", [return_map]),
+    {error,invalid_utf8,<<0,0,0,246>>} =
+        uri_string:normalize("//%00%00%00%F6", []).
 
 interop_query_utf8(_Config) ->
     Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
