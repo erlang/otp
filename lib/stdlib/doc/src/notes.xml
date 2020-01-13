@@ -31,6 +31,23 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>ets:update_counter/4</c> core dumped when given an
+	    ordered_set with write_concurrency enabled and an invalid
+	    position. This bug has been fixed.</p>
+          <p>
+	    Own Id: OTP-16378 Aux Id: ERL-1125 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,35 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.8.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed that <c>ssh_connection:send</c> could allocate a
+	    large amount of memory if given an iolist() as input
+	    data.</p>
+          <p>
+	    Own Id: OTP-16373</p>
+        </item>
+        <item>
+          <p>
+	    Safe atom conversions.</p>
+          <p>
+	    Own Id: OTP-16375</p>
+        </item>
+        <item>
+          <p>
+	    Constant time comparisons added.</p>
+          <p>
+	    Own Id: OTP-16376</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.8.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
