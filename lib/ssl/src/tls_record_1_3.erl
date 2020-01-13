@@ -64,7 +64,7 @@ encode_alert_record(#alert{level = Level, description = Description},
     encode_plain_text(?ALERT, <<?BYTE(Level), ?BYTE(Description)>>,
 		      ConnectionStates).
 %%--------------------------------------------------------------------
--spec encode_data(binary(), ssl_record:connection_states()) ->
+-spec encode_data(iolist(), ssl_record:connection_states()) ->
 			 {iolist(), ssl_record:connection_states()}.
 %%
 %% Description: Encodes data to send on the ssl-socket.

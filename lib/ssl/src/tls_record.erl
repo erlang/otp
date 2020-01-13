@@ -504,8 +504,9 @@ validate_tls_record_length(_Versions, Q, _SslOpts, Acc, Type, Version, undefined
 validate_tls_record_length(Versions, {_,Size0,_} = Q0,
                            #{log_level := LogLevel} = SslOpts,
                            Acc, Type, Version, Length) ->
+    Max = max_len(Versions),
     if
-        Length =< ?MAX_CIPHER_TEXT_LENGTH ->
+        Length =< Max ->
             if
                 Length =< Size0 ->
                     %% Complete record
@@ -671,4 +672,7 @@ sufficient_tlsv1_2_crypto_support() ->
     CryptoSupport = crypto:supports(),
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).
 
-
+max_len([{3,4}|_])->
+    ?TLS13_MAX_CIPHER_TEXT_LENGTH;
+max_len(_) ->
+    ?MAX_CIPHER_TEXT_LENGTH.
