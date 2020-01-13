@@ -33,9 +33,38 @@
 
 typedef long ErlDrvEvent; /* An event to be selected on. */
 
-/* typedef struct _SysDriverOpts SysDriverOpts; defined in sys.h */
+typedef struct _SysDriverOpts SysDriverOpts;
 
 #include "erl_driver.h"
+
+/*
+ * This structure contains options to all built in drivers.
+ * None of the drivers use all of the fields.
+ */
+
+struct _SysDriverOpts {
+    Uint ifd;			/* Input file descriptor (fd driver). */
+    Uint ofd;			/* Outputfile descriptor (fd driver). */
+    int packet_bytes;		/* Number of bytes in packet header. */
+    int read_write;		/* Read and write bits. */
+    int use_stdio;		/* Use standard I/O: TRUE or FALSE. */
+    int redir_stderr;           /* Redirect stderr to stdout: TRUE/FALSE. */
+    int hide_window;		/* Hide this windows (Windows). */
+    int exit_status;		/* Report exit status of subprocess. */
+    int overlapped_io;          /* Only has effect on windows NT et al */
+    erts_osenv_t envir;		/* Environment of the port process */
+    char **argv;                /* Argument vector in Unix'ish format. */
+    char *wd;			/* Working directory. */
+    unsigned spawn_type;        /* Bitfield of ERTS_SPAWN_DRIVER | 
+				   ERTS_SPAWN_EXTERNAL | both*/ 
+    int parallelism;            /* Optimize for parallelism */
+    ErlDrvSizeT high_watermark;
+    ErlDrvSizeT low_watermark;
+    ErlDrvSizeT high_msgq_watermark;
+    ErlDrvSizeT low_msgq_watermark;
+    char port_watermarks_set;
+    char msgq_watermarks_set;
+};
 
 #endif
 
