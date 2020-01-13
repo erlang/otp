@@ -319,7 +319,8 @@ file_1(Parent, Name, Opts) ->
 
 file_2(Name, Opts) ->
     Opts1 = Opts ++ file__defaults(),
-    Forms = read_module(Name, Opts1),
+    {Forms, EmptyLines} = read_module(Name, Opts1),
+    Opts2 = [{empty_lines, EmptyLines} | Opts1],
     Comments = erl_comment_scan:file(Name),
     Forms1 = erl_recomment:recomment_forms(Forms, Comments),
     Tree = module(Forms1, [{file, Name} | Opts1]),
@@ -329,10 +330,10 @@ file_2(Name, Opts) ->
         false ->
 			case proplists:get_bool(stdout, Opts1) of
 				true ->
-					print_module(Tree, Opts1),
+					print_module(Tree, Opts2),
 					ok;
 				false ->
-					write_module(Tree, Name, Opts1),
+					write_module(Tree, Name, Opts2),
 					ok
 			end
 	end.
@@ -341,31 +342,25 @@ read_module(Name, Opts) ->
     verbose("reading module `~ts'.", [filename(Name)], Opts),
     case epp_dodger:parse_file(Name, [no_fail]) of
         {ok, Forms} ->
-            check_forms(Forms, Name),
-            Forms;
+            {Forms, empty_lines(Name)};
         {error, R} ->
             error_read_file(Name),
             exit({error, R})
     end.
 
-check_forms(Fs, Name) ->
-    Fun = fun (F) ->
-                  case erl_syntax:type(F) of
-                      error_marker ->
-                          S = case erl_syntax:error_marker_info(F) of
-                                  {_, M, D} ->
-                                      M:format_error(D);
-                                  _ ->
-                                      "unknown error"
-                              end,
-                          report_error({Name, erl_syntax:get_pos(F),
-                                        "\n  ~ts"}, [S]),
-                          exit(error);
-                      _ ->
-                          ok
-                  end
-          end,
-    lists:foreach(Fun, Fs).
+empty_lines(Name) ->
+    {ok, Data} = file:read_file(Name),
+    List = binary:split(Data, [<<"\n">>], [global]),
+    {ok, NonEmptyLineRe} = re:compile("\\S"),
+    {Res, _} = lists:foldl(
+        fun(Line, {Set, N}) ->
+            case re:run(Line, NonEmptyLineRe) of
+                {match, _} -> {Set, N + 1};
+                nomatch -> {sets:add_element(N, Set), N + 1}
+            end
+        end,
+        {sets:new(), 1}, List),
+    Res.
 
 %% Create the target directory and make a backup file if necessary,
 %% then open the file, output the text and close the file

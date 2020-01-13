@@ -569,6 +569,9 @@ format(D, W, R) ->
 layout(L) ->
     lists:reverse(layout(0, L, [])).
 
+layout(N, #above{d1 = #text{s = [_ | ""]}, d2 = L}, Cs) ->
+    %% Text for this line is empty. Print newline but no indentation.
+    layout(N, L, [$\n | Cs]);
 layout(N, #above{d1 = #text{s = S}, d2 = L}, Cs) ->
     layout(N, L, [$\n | flatrev(string_chars(S), indent(N, Cs))]);
 layout(N, #nest{n = N1, d = L}, Cs) ->
@@ -578,8 +581,6 @@ layout(N, #text{s = S}, Cs) ->
 layout(_N, null, Cs) ->
     Cs.
 
-indent(N, Cs) when N >= 8 ->
-    indent(N - 8, [$\t | Cs]);
 indent(N, Cs) when N > 0 ->
     indent(N - 1, [$\s | Cs]);
 indent(_N, Cs) ->
