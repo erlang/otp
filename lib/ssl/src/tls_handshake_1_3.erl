@@ -779,7 +779,7 @@ do_wait_finished(#finished{verify_data = VerifyData},
     {Ref,Maybe} = maybe(),
 
     try
-        Maybe(validate_client_finished(State0, VerifyData)),
+        Maybe(validate_finished(State0, VerifyData)),
 
         State1 = calculate_traffic_secrets(State0),
         State2 = maybe_calculate_resumption_master_secret(State1),
@@ -795,13 +795,13 @@ do_wait_finished(#finished{verify_data = VerifyData},
             Alert
     end;
 %% TLS Client
-do_wait_finished(#finished{verify_data = _VerifyData},
+do_wait_finished(#finished{verify_data = VerifyData},
                  #state{static_env = #static_env{role = client}} = State0) ->
 
     {Ref,Maybe} = maybe(),
 
     try
-        %% Maybe(validate_client_finished(State0, VerifyData)),
+        Maybe(validate_finished(State0, VerifyData)),
 
         %% Maybe send Certificate + CertificateVerify
         State1 = Maybe(maybe_queue_cert_cert_cv(State0)),
@@ -1012,17 +1012,17 @@ maybe_queue_cert_verify(_Certificate,
 %% Recipients of Finished messages MUST verify that the contents are
 %% correct and if incorrect MUST terminate the connection with a
 %% "decrypt_error" alert.
-validate_client_finished(#state{connection_states = ConnectionStates,
-                handshake_env =
-                    #handshake_env{
-                       tls_handshake_history = {Messages0, _}}}, VerifyData) ->
+validate_finished(#state{connection_states = ConnectionStates,
+                         handshake_env =
+                             #handshake_env{
+                                tls_handshake_history = {Messages0, _}}}, VerifyData) ->
     #{security_parameters := SecParamsR,
-     cipher_state := #cipher_state{finished_key = FinishedKey}} =
+      cipher_state := #cipher_state{finished_key = FinishedKey}} =
         ssl_record:current_connection_state(ConnectionStates, read),
     #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
-    %% Drop the client's finished message, it is not part of the handshake context
-    %% when the client calculates its finished message.
+    %% Drop the peer's finished message, it is not part of the handshake context
+    %% when the client/server calculates its finished message.
     [_|Messages] = Messages0,
 
     ControlData = tls_v1:finished_verify_data(FinishedKey, HKDFAlgo, Messages),
