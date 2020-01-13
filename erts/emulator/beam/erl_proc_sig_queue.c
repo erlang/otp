@@ -560,8 +560,7 @@ erts_make_dirty_proc_handled(Eterm pid,
     ErtsMessage *mp;
     Process *sig_handler;
 
-    ASSERT(state & (ERTS_PSFLG_DIRTY_RUNNING |
-                    ERTS_PSFLG_DIRTY_RUNNING_SYS));
+    ASSERT(state & ERTS_PSFLG_DIRTY_RUNNING);
 
     if (prio < 0)
         prio = (int) ERTS_PSFLGS_GET_USR_PRIO(state);
@@ -765,10 +764,13 @@ maybe_elevate_sig_handling_prio(Process *c_p, Eterm other)
             if (res) {
                 /* ensure handled if dirty executing... */
                 state = erts_atomic32_read_nob(&rp->state);
-                if (state & (ERTS_PSFLG_DIRTY_RUNNING
-                             | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+                /*
+                 * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
+                 * more info see erts_execute_dirty_system_task()
+                 * in erl_process.c.
+                 */
+                if (state & ERTS_PSFLG_DIRTY_RUNNING)
                     erts_make_dirty_proc_handled(other, state, my_prio);
-                }
             }
         }
     }
@@ -4565,8 +4567,12 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
         BIF_RET(am_noproc);
 
     state = erts_atomic32_read_nob(&rp->state);
-    dirty = (state & (ERTS_PSFLG_DIRTY_RUNNING
-                      | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
+    /*
+     * Ignore ERTS_PSFLG_DIRTY_RUNNING_SYS (see
+     * comment in erts_execute_dirty_system_task()
+     * in erl_process.c).
+     */
     if (!dirty)
         BIF_RET(am_normal);
 
@@ -4574,8 +4580,7 @@ erts_internal_dirty_process_handle_signals_1(BIF_ALIST_1)
 
     state = erts_atomic32_read_mb(&rp->state);
     noproc = (state & ERTS_PSFLG_FREE);
-    dirty = (state & (ERTS_PSFLG_DIRTY_RUNNING
-                      | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+    dirty = (state & ERTS_PSFLG_DIRTY_RUNNING);
 
     if (busy) {
         if (noproc)
