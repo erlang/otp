@@ -719,7 +719,7 @@ sub emulator_output {
     print "const GenOpEntry gen_opc[] = {\n";
     for ($i = 0; $i < @gen_opname; $i++) {
 	if ($i == $num_file_opcodes) {
-	    print "\n/*\n * Internal generic instructions.\n */\n\n";
+            print starred_comment("Internal generic instructions.");
 	}
 	my($name) = $gen_opname[$i];
 	my($arity) = $gen_arity[$i];
@@ -2240,6 +2240,7 @@ sub parse_transformation {
 	    (undef,$_) = compile_transform(0, $rest_var, @op);
 	}
     }
+    $orig =~ tr/ \t/ /s;
     push(@transformations, [$., $orig, [@from], [reverse @to]]);
 }
 
@@ -2398,6 +2399,13 @@ sub tr_gen {
     }
 
     #
+    # Group instructions.
+    #
+    foreach $key (sort keys %gen_transform) {
+        $gen_transform{$key} = group_tr($gen_transform{$key});
+    }
+
+    #
     # Print the generated transformation engine.
     #
     my($offset) = 0;
@@ -2406,29 +2414,18 @@ sub tr_gen {
 	$gen_transform_offset{$key} = $offset;
 	my @instr = @{$gen_transform{$key}};
 
-	#
-	# If the last instruction is 'fail', remove it and
-	# convert the previous 'try_me_else' to 'try_me_else_fail'.
-	#
-	if (is_instr($instr[$#instr], 'fail')) {
-	    pop(@instr);
-	    my $i = $#instr;
-	    $i-- while !is_instr($instr[$i], 'try_me_else');
-	    $instr[$i] = make_op('', 'try_me_else_fail');
-	}
-
 	foreach $instr (@instr) {
 	    my($size, $instr_ref, $comment) = @$instr;
 	    my($op, @args) = @$instr_ref;
-	    print "    ";
 	    if (!defined $op) {
 		$comment =~ s/\n(.)/\n    $1/g;
-		print "\n", $comment;
+		print $comment;
 	    } else {
+                print "    ";
 		$op = "TOP_$op";
 		$match_engine_ops{$op} = 1;
 		if ($comment ne '') {
-		    printf "%-24s /* %s */\n", (join(", ", ($op, @args)) . ","),
+		    printf "%-30s /* %s */\n", (join(", ", ($op, @args)) . ","),
 		    $comment;
 		} else {
 		    print join(", ", ($op, @args)), ",\n";
@@ -2438,9 +2435,7 @@ sub tr_gen {
 	}
 	print "\n";
     }
-    print "/*\n";
-    print " * Total number of words: $offset\n";
-    print " */\n";
+    print starred_comment("Total number of words: $offset");
     print "};\n\n";
 }
 
@@ -2454,6 +2449,7 @@ sub tr_gen_from {
     my $where = "left side of transformation in line $line: ";
     my $may_fail = 0;
     my $is_first = 1;
+    my @instrs;
 
     foreach $ref (@tr) {
 	my($name, $arity, @ops) = @$ref;
@@ -2471,20 +2467,26 @@ sub tr_gen_from {
 	    $name = $1;
 	    $may_fail = 1;
 	    my $var;
-	    my(@args);
+	    my @args;
+            my @vars;
 
 	    foreach $var (@ops) {
-		error($where, "variable '$var' unbound")
+                if ($var =~ /^-?\d+$/) {
+                    push @args, $var;
+                    next;
+                }
+		error($where, "'$var' unbound")
 		    unless defined $var{$var};
+                push @vars, $var;
 		if ($var_type{$var} eq 'scalar') {
 		    push(@args, "var[$var{$var}]");
 		} else {
 		    push(@args, "rest_args");
 		}
 	    }
-	    my $pi = tr_next_index(\@pred_table, \%pred_table, $name, @args);
-	    my $op = make_op("$name()", 'pred', $pi);
-	    my @slots = grep(/^\d+/, map { $var{$_} } @ops);
+	    my $pi = tr_next_index(\@{pred_table}, \%pred_table, $name, @args);
+            my $op = make_op("$name()", 'pred', $pi);
+            my @slots = grep(/^\d+/, map { $var{$_} } @vars);
 	    op_slot_usage($op, @slots);
 	    push(@code, $op);
 	    next;
@@ -2499,6 +2501,7 @@ sub tr_gen_from {
 	$opnum = $gen_opnum{$name,$arity};
 
 	push(@code, make_op("$name/$arity", 'next_instr', $opnum));
+        push @instrs, "$name/$arity";
 	foreach $op (@ops) {
 	    my($var, $type, $type_val, $cond, $val) = @$op;
 	    my $ignored_var = "$var (ignored)";
@@ -2589,14 +2592,47 @@ sub tr_gen_from {
     #
     push(@code, make_op($may_fail ? '' : 'always reached', 'commit'));
 
+    #
+    # Peephole optimization: combine instructions.
+    #
+    for (my $i = 0; $i < @code; $i++) {
+        if (is_instr($code[$i], 'is_type')) {
+            my(undef, $is_type_ref, $type_comment) = @{$code[$i]};
+            if (is_instr($code[$i+1], 'set_var_next_arg')) {
+                my(undef, $next_ref, $next_comment) = @{$code[$i+1]};
+                my $comment = "$type_comment $next_comment";
+                my $op = make_op($comment, 'is_type_set_var_next_arg',
+                                 $is_type_ref->[1], $next_ref->[1]);
+                splice @code, $i, 2, ($op);
+            } elsif (is_instr($code[$i+1], 'next_arg')) {
+                my $op = make_op($type_comment, 'is_type_next_arg', $is_type_ref->[1]);
+                splice @code, $i, 2, ($op);
+            }
+        } elsif (is_instr($code[$i], 'is_type_eq')) {
+            my(undef, $is_type_ref, $type_comment) = @{$code[$i]};
+            if (is_instr($code[$i+1], 'set_var_next_arg')) {
+                my(undef, $next_ref, $next_comment) = @{$code[$i+1]};
+                my $comment = "$type_comment $next_comment";
+                my $op = make_op($comment, 'is_type_eq_set_var_next_arg',
+                                 $is_type_ref->[1], $is_type_ref->[2],
+                                 $next_ref->[1]);
+                splice @code, $i, 2, ($op);
+            } elsif (is_instr($code[$i+1], 'next_arg')) {
+                my $op = make_op($type_comment, 'is_type_eq_next_arg',
+                                 $is_type_ref->[1], $is_type_ref->[2]);
+                splice @code, $i, 2, ($op);
+            }
+        }
+    }
+
     $te_max_vars = $var_num
 	if $te_max_vars < $var_num;
-    [\%var, \%var_type, \@code];
+    [\%var, \%var_type, \@instrs, \@code];
 }
 
 sub tr_gen_to {
     my($line, $orig_transform, $so_far, @tr) = @_;
-    my($var_ref, $var_type_ref, $code_ref) = @$so_far;
+    my($var_ref, $var_type_ref, $instrs_ref, $code_ref) = @$so_far;
     my(%var) = %$var_ref;
     my(%var_type) = %$var_type_ref;
     my(@code) = @$code_ref;
@@ -2664,11 +2700,10 @@ sub tr_gen_to {
 		op_slot_usage($op, $var{$var});
 		push(@code, $op);
 	    } elsif ($type ne '') {
-		push(@code, make_op('', 'store_type', "TAG_$type"));
-		if ($type_val) {
-		    push(@code, make_op('', 'store_val', $type_val));
-		}
-		push(@code, make_op('', 'next_arg'));
+                my $val = $type_val || 0;
+                my $comment = "$type=$val";
+                my $op = make_op($comment, 'store_val_next_arg', "TAG_$type", $val);
+                push @code, $op;
 	    }
 	}
 	pop(@code) if is_instr($code[$#code], 'next_arg');
@@ -2679,31 +2714,133 @@ sub tr_gen_to {
 
     tr_maybe_keep(\@code);
     tr_maybe_rename(\@code);
+    combine_commit(\@code);
     tr_remove_unused(\@code);
 
-    #
-    # Chain together all codes segments having the same first operation.
-    #
-    my($first_ref) = shift(@code);
-    my($size, $first, $key) = @$first_ref;
-    my($dummy, $arity);
-    ($dummy, $op, $arity) = @$first;
-    my($comment) = "\n/*\n * Line $line:\n *   $orig_transform\n */\n\n";
+    chain_instructions($instrs_ref, $line, $orig_transform,
+                       $cannot_fail, @code);
+}
 
-    my $prev_last;
-    $prev_last = pop(@{$gen_transform{$key}})
-	if defined $gen_transform{$key}; # Fail
+#
+# Chain together all codes segments having the same first instruction.
+#
+sub chain_instructions() {
+    my($instrs_ref, $line, $orig_transform, $cannot_fail, @code) = @_;
+    my($first,$second) = @$instrs_ref;
 
-    if ($prev_last && !is_instr($prev_last, 'fail')) {
-	error("Line $line: A previous transformation shadows '$orig_transform'");
+    my $tr_ref = $gen_transform{$first};
+
+    if ($tr_ref) {
+        my (undef, $cant_fail) = $$tr_ref[$#{$tr_ref}];
+        if ($cant_fail) {
+            error("Line $line: A previous transformation shadows '$orig_transform'");
+        }
     }
-    unless ($cannot_fail) {
-	unshift(@code, make_op('', 'try_me_else',
-			       tr_code_len(@code)));
-	push(@code, make_op("$key", 'fail'));
+    shift @code;
+    my $comment = starred_comment("Line $line:", "  $orig_transform");
+    push @$tr_ref, [$first,$second,$cannot_fail,$comment,@code];
+
+    $gen_transform{$first} = $tr_ref;
+}
+
+#
+# Optimize the code for transformations matching the same first
+# instruction.
+#
+
+sub group_tr {
+    my($lref) = @_;
+
+    #
+    # Group tranformations (while keeping the order) that all match the same
+    # second instruction.
+    #
+    for (my $i = 0; $i < @$lref; $i++) {
+        my(undef,$current) = @{${$lref}[$i]};
+        next unless defined $current;
+
+        # Find the next instruction that as the same second instruction.
+        for (my $j = $i + 1; $j < @$lref; $j++) {
+            my(undef,$other) = @{${$lref}[$j]};
+
+            # If this instruction does not match a second instruction,
+            # we must not continue the search.
+            last unless defined $other;
+
+            if ($other eq $current) {
+                # Found an instruction. If it is already the very next
+                # instruction, place it directly after the current instruction.
+                if ($j > $i + 1) {
+                    my($el) = splice @$lref, $j, 1;
+                    splice @$lref, $i, 0, ($el);
+                }
+                last;
+            }
+        }
     }
-    unshift(@code, make_op($comment));
-    push(@{$gen_transform{$key}}, @code),
+
+    #
+    # Add 'try_me_else' instructions to try the next transformation
+    # when the current transformation fails.
+    #
+    for (my $i = 0; $i < @$lref; $i++) {
+        my($first,$second,$cannot_fail,$comment,@c) = @{${$lref}[$i]};
+        unless ($cannot_fail) {
+            if ($i == $#{$lref}) {
+                unshift @c, make_op('', 'try_me_else_fail');
+            } else {
+                unshift @c, make_op('', 'try_me_else', code_len(@c));
+            }
+        }
+        ${$lref}[$i] = [$first,$second,$cannot_fail,$comment,@c];
+    }
+
+    #
+    # Find consecutive runs of at least two transformation matching
+    # the same second instruction. When a run is found, add a
+    # 'skip_unless' instruction that will skip all of the instructions in the run
+    # when the second instruction is wrong.
+    #
+    for (my $i = 0; $i < @$lref; $i++) {
+        my(undef,$current) = @{${$lref}[$i]};
+        next unless defined $current;
+        my $j;
+        my $skip_len = 0;
+
+        for ($j = $i; $j < @$lref; $j++) {
+            my(undef,$other,undef,undef,@c) = @{${$lref}[$j]};
+            last unless defined $other and $other eq $current;
+            $skip_len += code_len(@c);
+        }
+
+        if ($j > $i + 1) {
+            my $num_rules_skipped = $j - $i;
+            my $comment = "Skip $num_rules_skipped rules" .
+                " unless the second instruction is $current.";
+            $comment = starred_comment($comment);
+            my($name, $arity) = split('/', $current);
+            my $op = make_op('', 'skip_unless',
+                             $gen_opnum{$name,$arity}, $skip_len);
+            splice @$lref, $i, 0, (['','',1,$comment,$op]);
+            $i = $j + 1;
+            if ($j == $#{$lref}) {
+                my($first,$second,$cannot_fail,$comment,@c) = @{${$lref}[$j]};
+                push @c, make_op('wrong second instruction', 'fail');
+                ${$lref}[$j] = [$first,$second,$cannot_fail,$comment,@c];
+            }
+        }
+    }
+
+    #
+    # Flatten the code to a one-dimensional sequence of instructions.
+    #
+    my @code;
+    for (my $i = 0; $i < @$lref; $i++) {
+        my($first,$second,$cannot_fail,$comment,@c) = @{${$lref}[$i]};
+        push @code, make_op($comment);
+        push @code, @c;
+    }
+    \@code;
 }
 
 sub tr_maybe_keep {
@@ -2720,6 +2857,10 @@ sub tr_maybe_keep {
 	    @last_instr = ($args[0]);
 	} elsif ($op eq 'set_var_next_arg') {
 	    push @last_instr, $args[0];
+	} elsif ($op eq 'is_type_set_var_next_arg') {
+	    push @last_instr, $args[1];
+	} elsif ($op eq 'is_type_eq_set_var_next_arg') {
+	    push @last_instr, $args[2];
 	} elsif ($op eq 'next_arg') {
 	    push @last_instr, 'ignored';
 	} elsif ($op eq 'new_instr') {
@@ -2746,6 +2887,22 @@ sub tr_maybe_keep {
     }
 }
 
+sub combine_commit {
+    my($ref) = @_;
+
+    for (my $i = 1; $i < @$ref; $i++) {
+        my $instr = $$ref[$i];
+	my($size, $instr_ref, $comment) = @$instr;
+	my($op, @args) = @$instr_ref;
+        if ($op eq 'rest_args') {
+            return;
+        } elsif ($op eq 'new_instr' and is_instr($$ref[$i-1], 'commit')) {
+            my $op = make_op($comment, 'commit_new_instr', @args);
+            splice @$ref, $i - 1, 2, ($op);
+        }
+    }
+}
+
 sub tr_maybe_rename {
     my($ref) = @_;
     my $s = 'left';
@@ -2766,7 +2923,21 @@ sub tr_maybe_rename {
 		    $num_args++;
 		}
 		$a++;
+            } elsif ($op eq 'is_type_set_var_next_arg') {
+	        if ($num_args == $a and $args[1] == $a) {
+	            $num_args++;
+	        }
+	        $a++;
+            } elsif ($op eq 'is_type_eq_set_var_next_arg') {
+	        if ($num_args == $a and $args[2] == $a) {
+	            $num_args++;
+	        }
+	        $a++;
 	    } elsif ($op eq 'next_arg') {
+		$a++;
+	    } elsif ($op eq 'is_type_next_arg') {
+		$a++;
+	    } elsif ($op eq 'is_type_eq_next_arg') {
 		$a++;
 	    } elsif ($op eq 'commit') {
 		$a = 0;
@@ -2811,8 +2982,7 @@ sub tr_remove_unused {
 	}
     }
 
-    # Replace 'set_var_next_arg' with 'next_arg' if the variable
-    # is never used.
+    # If a variable is not used, don't store the variable.
     for my $instr (@$ref) {
 	my($size, $instr_ref, $comment) = @$instr;
 	my($op, @args) = @$instr_ref;
@@ -2820,7 +2990,16 @@ sub tr_remove_unused {
 	    my $var = $args[0];
 	    next if $used{$var};
 	    $instr = make_op("$comment (ignored)", 'next_arg');
-	}
+	} elsif ($op eq 'is_type_set_var_next_arg') {
+            my($type,$var) = @args;
+            next if $used{$var};
+	    $instr = make_op("$comment (ignored)", 'is_type_next_arg', $type);
+	} elsif ($op eq 'is_type_eq_set_var_next_arg') {
+            my($type,$val,$var) = @args;
+            next if $used{$var};
+            $instr = make_op("$comment (ignored)", 'is_type_eq_next_arg',
+                             $type, $val);
+        }
     }
 
     # Delete a sequence of 'next_arg' instructions when they are
@@ -2848,7 +3027,7 @@ sub tr_remove_unused {
     }
 }
 
-sub tr_code_len {
+sub code_len {
     my($sum) = 0;
     my($ref);
 
@@ -2878,6 +3057,10 @@ sub get_comment {
     my($ref,$op) = @_;
     return '' unless ref($ref) eq 'ARRAY';
     $ref->[2];
+}
+
+sub starred_comment {
+    "\n/*" . join("\n * ", '', @_) . "\n */\n\n";
 }
 
 sub tr_next_index {

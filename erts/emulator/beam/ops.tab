@@ -74,35 +74,29 @@ trace_jump W
 
 return
 
-# To ensure that a "move Src x(0)" instruction can be combined with
-# the following call instruction, we need to make sure that there is
-# no line/1 instruction between the move and the call.
-
-move S X0=x==0 | line Loc | call Ar Func => \
-     line Loc | move S X0 | call Ar Func
-
-move S X0=x==0 | line Loc | call_ext Ar Func => \
-     line Loc | move S X0 | call_ext Ar Func
-
 #
 # A tail call will not refer to the current function on error unless it's a
 # BIF, so we can omit the line instruction for non-BIFs.
 #
 
-move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_bif D => \
-     line Loc | move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_bif => \
-     line Loc | move S X0 | call_ext_only Ar Func
-
-move S X0=x==0 | line Loc | call_ext_last Ar Func D => \
+move S X0=x==0 | line Loc | call_ext_last Ar Func=u$is_not_bif D => \
      move S X0 | call_ext_last Ar Func D
-move S X0=x==0 | line Loc | call_ext_only Ar Func => \
+move S X0=x==0 | line Loc | call_ext_only Ar Func=u$is_not_bif => \
      move S X0 | call_ext_only Ar Func
 
 move S X0=x==0 | line Loc | call_last Ar Func D => \
      move S X0 | call_last Ar Func D
 move S X0=x==0 | line Loc | call_only Ar Func => \
      move S X0 | call_only Ar Func
+
+# To ensure that a "move Src x(0)" instruction can be combined with
+# the following call instruction, we need to make sure that there is
+# no line/1 instruction between the move and the call. (We don't
+# need to match the call instruction, because reordering the move
+# and line instructions would be harmless even if no call instruction
+# follows.)
+
+move S X0=x==0 | line Loc => line Loc | move S X0
 
 line Loc | func_info M F A => func_info M F A | line Loc
 
@@ -286,26 +280,19 @@ move_jump f c r
 # Movement to and from the stack is common.
 # Try to pack as much as we can into one instruction.
 
-# Window move
-move_window/5
-move_window/6
-
 # x -> y
 
-move X1=x Y1=y | move X2=x Y2=y | move X3=x Y3=y | succ(Y1,Y2) | succ(Y2,Y3) => \
-    move_window X1 X2 X3 Y1 Y3
-
-move X1=x Y1=y | move X2=x Y2=y | succ(Y1,Y2) => \
+move X1=x Y1=y | move X2=x Y2=y | succ(Y1, Y2) => \
     move_window2 X1 X2 Y1
 
-move_window X1=x X2=x X3=x Y1=y Y3=y | move X4=x Y4=y | succ(Y3,Y4) => \
-    move_window X1 X2 X3 X4 Y1 Y4
+move_window2 X1 X2 Y1 | move X3=x Y3=y | offset(Y1, Y3, 2) => \
+    move_window3 X1 X2 X3 Y1
 
-move_window X1=x X2=x X3=x X4=x Y1=y Y4=y | move X5=x Y5=y | succ(Y4,Y5) => \
+move_window3 X1 X2 X3 Y1 | move X4=x Y4=y | offset(Y1, Y4, 3) => \
+    move_window4 X1 X2 X3 X4 Y1
+
+move_window4 X1 X2 X3 X4 Y1=y | move X5=x Y5=y | offset(Y1, Y5, 4) => \
     move_window5 X1 X2 X3 X4 X5 Y1
-
-move_window X1=x X2=x X3=x Y1=y Y3=y => move_window3 X1 X2 X3 Y1
-move_window X1=x X2=x X3=x X4=x Y1=y Y4=y => move_window4 X1 X2 X3 X4 Y1
 
 move_window2 x x y
 move_window3 x x x y
@@ -401,16 +388,6 @@ move2_par X1=x X2=x X3=x X4=x | move X5=x X6=x => move3 X1 X2 X3 X4 X5 X6
 
 move3 y x y x y x
 move3 x x x x x x
-
-# move_x1, move_x2
-
-move C=aiq X=x==1 => move_x1 C
-move C=aiq X=x==2 => move_x2 C
-
-move n D=y => init D
-
-move_x1 c
-move_x2 c
 
 move xy xy
 move c xy
@@ -1731,3 +1708,21 @@ i_recv_set
 
 build_stacktrace
 raw_raise
+
+#
+# Specialized move instructions. Since they don't require a second
+# instruction, we have intentionally placed them after any other
+# transformation rules that starts with a move instruction in order to
+# produce better code for the transformation engine.
+#
+
+# move_x1, move_x2
+
+move C=aiq X=x==1 => move_x1 C
+move C=aiq X=x==2 => move_x2 C
+
+move n D=y => init D
+
+move_x1 c
+move_x2 c
+
