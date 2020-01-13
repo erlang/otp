@@ -2890,3 +2890,15 @@ openssl_sane_dtls_session_reuse() ->
         _->
             openssl_sane_dtls()
     end.
+
+-define(BIG_BUF, 10000000).
+%% Workaround data delivery issues on solaris | openbsd  when kernel buffers are small
+bigger_buffers() ->
+    case os:type() of
+        {unix,sunos} ->
+            [{recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
+        {unix,openbsd} ->
+            [{recbuf, ?BIG_BUF},{sndbuf, ?BIG_BUF}];
+        _ ->
+            []
+    end.

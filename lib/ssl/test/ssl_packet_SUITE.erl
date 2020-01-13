@@ -2007,7 +2007,8 @@ packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},
 					{mfa, {?MODULE, Send ,[Data, Quantity]}},
-					{options, [{packet, Packet}, {nodelay, true}| ServerOpts]}]),
+					{options, [{packet, Packet}, {nodelay, true}| ServerOpts]
+                                         ++ ssl_test_lib:bigger_buffers()}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
 					{host, Hostname},
@@ -2016,7 +2017,7 @@ packet(Config, Data, Send, Recv, Quantity, Packet, Active) ->
 					{options, [{active, Active},
                                                    {nodelay, true},
 						   {packet, Packet} |
-						   ClientOpts]}]),
+						   ClientOpts] ++ ssl_test_lib:bigger_buffers()}]),
 
     ssl_test_lib:check_result(Client, ok),
 
