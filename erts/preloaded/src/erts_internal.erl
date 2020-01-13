@@ -103,6 +103,8 @@
 -export([ets_lookup_binary_info/2, ets_super_user/1, ets_info_binary/1,
          ets_raw_first/1, ets_raw_next/2]).
 
+-export([get_internal_state_blocked/1]).
+
 %%
 %% Await result of send to port
 %%
@@ -816,3 +818,15 @@ ets_info_binary_iter(Tab, Key, Acc) ->
                  [_|_] = BIL -> BIL ++ Acc
              end,
     ets_info_binary_iter(Tab, erts_internal:ets_raw_next(Tab, Key), NewAcc).
+
+-spec get_internal_state_blocked(Arg :: term()) -> term().
+
+get_internal_state_blocked(Arg) ->
+    erlang:system_flag(multi_scheduling, block),
+    Result = try
+                 erts_debug:get_internal_state({Arg,
+                                                blocked})
+             after
+                 erlang:system_flag(multi_scheduling, unblock)
+             end,
+    Result.
