@@ -50,6 +50,7 @@
 %%--------------------------------------------------------------------
 all() -> 
     [
+     {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
@@ -59,7 +60,8 @@ all() ->
     ].
 
 groups() ->
-    [{'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
+    [{'tlsv1.3', [], socket_packet_tests() ++ protocol_packet_tests()},
+     {'tlsv1.2', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'tlsv1.1', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'tlsv1', [], socket_packet_tests() ++ protocol_packet_tests()},
      {'sslv3', [], socket_packet_tests() ++ protocol_packet_tests()},
