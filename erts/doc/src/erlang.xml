@@ -4159,6 +4159,71 @@ RealSystem = system + MissedSystem</code>
               <seealso marker="erl#+spp"><c>+spp</c></seealso> to
               <c>erl(1)</c>.</p>
           </item>
+	  <tag><c>{busy_limits_port, {Low, High} | disabled}</c></tag>
+	  <item>
+	    <p>Sets limits that will be used for controlling the
+            busy state of the port.</p>
+	    <p>When the ports internal output queue size becomes
+	    larger than or equal to <c>High</c> bytes, it enters
+	    the busy state. When it becomes less than <c>Low</c>
+	    bytes it leaves the busy state. When the port is in
+	    the busy state, processes sending commands to it will
+	    be suspended until the port leaves the busy state.
+	    Commands are in this context either
+            <c>Port ! {Owner, {command, Data}}</c> or
+            <c>port_command/[2,3]</c>.</p>
+	    <p>
+	    The <c>Low</c> limit is automatically adjusted to the
+	    same as <c>High</c> if it is set larger then <c>High</c>.
+	    Valid range of values for <c>Low</c> and <c>High</c> is
+	    <c>[1, (1 bsl (8*erlang:system_info(wordsize)))-2]</c>.
+	    If the atom <c>disabled</c> is passed, the port will
+	    never enter the busy state.</p>
+	    <p>The defaults are <c>Low = 4096</c> and
+	    <c>High = 8192</c>.</p>
+	    <p><em>Note</em> that this option is only valid when
+	    spawning an executable (port program) by opening the
+	    spawn driver and when opening the <c>fd</c> driver.
+	    This option will cause a failure with a <c>badarg</c>
+	    exception when opening other drivers.</p>
+	  </item>
+	  <tag><c>{busy_limits_msgq, {Low, High} | disabled}</c></tag>
+	  <item>
+	    <p>Sets limits that will be used for controlling the
+            busy state of the port message queue.</p>
+	    <p>When the ports message queue size becomes larger
+	    than or equal to <c>High</c> bytes it enters the busy
+	    state. When it becomes less than <c>Low</c> bytes it
+	    leaves the busy state. When the port message queue is
+	    in the busy state, processes sending commands to it
+	    will be suspended until the port message queue leaves
+	    the busy state. Commands are in this context either
+            <c>Port ! {Owner, {command, Data}}</c> or
+            <c>port_command/[2,3]</c>.</p>
+	    <p>The <c>Low</c> limit is automatically adjusted to the
+	    same as <c>High</c> if it is set larger then <c>High</c>.
+	    Valid range of values for <c>Low</c> and <c>High</c> is
+	    <c>[1, (1 bsl (8*erlang:system_info(wordsize)))-2]</c>.
+	    If the atom <c>disabled</c> is passed, the port
+	    message queue will never enter the busy state.</p>
+	    <p><em>Note</em> that if the driver statically has
+	    disabled the use of this feature, a failure with a
+	    <c>badarg</c> exception will be raised unless this
+	    option also is set to <c>disable</c> or not passed
+	    at all.</p>
+	    <p>The defaults are <c>Low = 4096</c> and
+	    <c>High = 8192</c> unless the driver itself does
+	    modifications of these values.</p>
+	    <p><em>Note</em> that the driver might fail if
+	    it also adjust these limits by itself and you
+	    have disabled this feature.</p>
+	    <p>The spawn driver (used when spawning an executable)
+	    and the <c>fd</c> driver do not disable this feature
+	    and do not adjust these limits by themselves.</p>
+	    <p>For more information see the documentation
+	    <seealso marker="erl_driver#erl_drv_busy_msgq_limits"><c>erl_drv_busy_msgq_limits()</c></seealso>.
+	    </p>
+	  </item>
         </taglist>
         <p>Default is <c>stream</c> for all port types and
           <c>use_stdio</c> for spawned ports.</p>

@@ -692,6 +692,10 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     opts.spawn_type = ERTS_SPAWN_ANY; 
     opts.argv = NULL;
     opts.parallelism = erts_port_parallelism;
+    opts.high_watermark = 8192;
+    opts.low_watermark = opts.high_watermark / 2;
+    opts.port_watermarks_set = 0;
+    opts.msgq_watermarks_set = 0;
     erts_osenv_init(&opts.envir);
 
     linebuf = 0;
@@ -783,6 +787,62 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 			opts.parallelism = 0;
 		    else
 			goto badarg;
+                } else if (option == am_busy_limits_port) {
+                    Uint high, low;
+                    if (*tp == am_disabled)
+                        low = high = ERL_DRV_BUSY_MSGQ_DISABLED;
+                    else if (!is_tuple_arity(*tp, 2))
+                        goto badarg;
+                    else {
+                        Eterm *wtp = tuple_val(*tp);
+                        if (!term_to_Uint(wtp[1], &low))
+                            goto badarg;
+                        if (!term_to_Uint(wtp[2], &high))
+                            goto badarg;
+                        if (high < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+                            goto badarg;
+                        if (high > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+                            goto badarg;
+                        if (low < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+                            goto badarg;
+                        if (low > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+                            goto badarg;
+                        if (high == ~((Uint) 0) || low == ~((Uint) 0))
+                            goto badarg;
+                        if (low > high)
+                            low = high;
+                    }
+                    opts.low_watermark = low;
+                    opts.high_watermark = high;
+                    opts.port_watermarks_set = !0;
+                } else if (option == am_busy_limits_msgq) {
+                    Uint high, low;
+                    if (*tp == am_disabled)
+                        low = high = ERL_DRV_BUSY_MSGQ_DISABLED;
+                    else if (!is_tuple_arity(*tp, 2))
+                        goto badarg;
+                    else {
+                        Eterm *wtp = tuple_val(*tp);
+                        if (!term_to_Uint(wtp[1], &low))
+                            goto badarg;
+                        if (!term_to_Uint(wtp[2], &high))
+                            goto badarg;
+                        if (high < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+                            goto badarg;
+                        if (high > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+                            goto badarg;
+                        if (low < ERL_DRV_BUSY_MSGQ_LIM_MIN)
+                            goto badarg;
+                        if (low > ERL_DRV_BUSY_MSGQ_LIM_MAX)
+                            goto badarg;
+                        if (high == ~((Uint) 0) || low == ~((Uint) 0))
+                            goto badarg;
+                        if (low > high)
+                            low = high;
+                    }
+                    opts.low_msgq_watermark = low;
+                    opts.high_msgq_watermark = high;
+                    opts.msgq_watermarks_set = !0;
 		} else {
 		    goto badarg;
 		}
@@ -821,6 +881,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
 	    nargs = list_val(*nargs);
 	}
     }
+
     if (opts.read_write == 0)	/* implement default */
 	opts.read_write = DO_READ|DO_WRITE;
 
@@ -828,7 +889,7 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_typep, int *err_nump)
     if((linebuf && opts.packet_bytes) || 
        (opts.redir_stderr && !opts.use_stdio)) {
 	goto badarg;
-}
+    }
 
     /* If we lacked an env option, fill in the global environment without
      * changes. */

@@ -2252,7 +2252,9 @@ nodes(_Arg) ->
            | binary
            | eof
 	   | {parallelism, Boolean :: boolean()}
-	   | hide.
+	   | hide
+           | {busy_limits_port, {non_neg_integer(), non_neg_integer()} | disabled}
+           | {busy_limits_msgq, {non_neg_integer(), non_neg_integer()} | disabled}.
 open_port(PortName, PortSettings) ->
     case case erts_internal:open_port(PortName, PortSettings) of
 	     Ref when erlang:is_reference(Ref) -> receive {Ref, Res} -> Res end;

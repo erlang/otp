@@ -145,6 +145,8 @@ atom bsr_unicode
 atom build_type
 atom busy
 atom busy_dist_port
+atom busy_limits_port
+atom busy_limits_msgq
 atom busy_port
 atom call
 atom call_count
