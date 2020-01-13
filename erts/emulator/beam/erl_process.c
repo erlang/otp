@@ -7608,18 +7608,31 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 		for (i = 0; msb[i]; i++) {
 		    erts_aint32_t clr_flg = 0;
 
-		    if (msb[i] == &schdlr_sspnd.nmsb
-			&& schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
-						    ERTS_SCHED_NORMAL) == 1) {
-			clr_flg = ERTS_SCHDLR_SSPND_CHNG_NMSB;
+                    if (!msb[i]->ongoing)
+                        continue;
+
+		    if (msb[i] == &schdlr_sspnd.nmsb) {
+			if (schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
+                                                     ERTS_SCHED_NORMAL) == 1) {
+                            clr_flg = ERTS_SCHDLR_SSPND_CHNG_NMSB;
+                        }
 		    }
-		    else if (schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
-                                                      ERTS_SCHED_NORMAL) == 1
-                             && schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
-                                                         ERTS_SCHED_DIRTY_CPU) == 0
-                             && schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
-                                                         ERTS_SCHED_DIRTY_IO) == 0) {
-                        clr_flg = ERTS_SCHDLR_SSPND_CHNG_MSB;
+		    else {
+                        ASSERT(msb[i] == &schdlr_sspnd.msb);
+                        if (schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
+                                                     ERTS_SCHED_NORMAL) == 1
+                            && schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
+                                                        ERTS_SCHED_DIRTY_CPU) == 0
+                            && schdlr_sspnd_get_nscheds(&schdlr_sspnd.active,
+                                                        ERTS_SCHED_DIRTY_IO) == 0) {
+
+                            clr_flg = ERTS_SCHDLR_SSPND_CHNG_MSB;
+                            
+                            /* Begin switching between scheduler types executing... */
+                            ERTS_RUNQ_FLGS_SET_NOB(ERTS_RUNQ_IX(0), ERTS_RUNQ_FLG_MSB_EXEC);
+                            erts_atomic32_read_bor_nob(&ERTS_RUNQ_IX(0)->scheduler->ssi->flags,
+                                                       ERTS_SSI_FLG_MSB_EXEC);
+                        }
 		    }
 
 		    if (clr_flg) {
@@ -8253,9 +8266,6 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int normal
             }
 
             if (!normal) {
-                ERTS_RUNQ_FLGS_SET_NOB(ERTS_RUNQ_IX(0), ERTS_RUNQ_FLG_MSB_EXEC);
-                erts_atomic32_read_bor_nob(&ERTS_RUNQ_IX(0)->scheduler->ssi->flags,
-                                               ERTS_SSI_FLG_MSB_EXEC);
                 for (ix = 0; ix < erts_no_dirty_cpu_schedulers; ix++)
                     dcpu_sched_ix_suspend_wake(ix);
                 for (ix = 0; ix < erts_no_dirty_io_schedulers; ix++)
