@@ -31,6 +31,54 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Taking a scheduler offline could cause timers set while
+	    executing on that scheduler to be delayed until the
+	    scheduler was put online again. This bug was introduced
+	    in ERTS version 10.0 (OTP 21.0).</p>
+          <p>
+	    Own Id: OTP-16371</p>
+        </item>
+        <item>
+          <p>
+	    The <c>ets:update_counter/4</c> core dumped when given an
+	    ordered_set with write_concurrency enabled and an invalid
+	    position. This bug has been fixed.</p>
+          <p>
+	    Own Id: OTP-16378 Aux Id: ERL-1125 </p>
+        </item>
+        <item>
+          <p>
+	    A process calling <seealso
+	    marker="erts:erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
+	    block)</c></seealso> could end up blocked waiting for the
+	    operation to complete indefinitely.</p>
+          <p>
+	    Own Id: OTP-16379</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Duplicate entries for [socket:]getopt and [socket:]setopt
+	    in man page.</p>
+          <p>
+	    Own Id: OTP-16333 Aux Id: ERL-1104 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.6.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
