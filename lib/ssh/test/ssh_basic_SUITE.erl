@@ -866,7 +866,7 @@ daemon_already_started(Config) when is_list(Config) ->
 %%% Test that a failed daemon start does not leave the port open
 daemon_error_closes_port(Config) ->
     GoodSystemDir = proplists:get_value(data_dir, Config),
-    Port = ssh_test_lib:inet_port(),
+    Port = inet_port(),
     {error,_} = ssh_test_lib:daemon(Port, []), % No system dir
     case ssh_test_lib:daemon(Port, [{system_dir, GoodSystemDir}]) of
         {error,eaddrinuse} ->
@@ -1681,9 +1681,7 @@ renegotiate1(Config) ->
     {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							 {preferred_algorithms,Algs}]),
 
-    RPort = ssh_test_lib:inet_port(),
-    {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
-
+    {ok,RelayPid,_,RPort} = ssh_relay:start_link({0,0,0,0}, 0, Host, DPort),
 
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
@@ -1721,8 +1719,7 @@ renegotiate2(Config) ->
     {Pid, Host, DPort} = ssh_test_lib:std_daemon(Config,[{max_random_length_padding,0},
 							 {preferred_algorithms,Algs}]),
 
-    RPort = ssh_test_lib:inet_port(),
-    {ok,RelayPid} = ssh_relay:start_link({0,0,0,0}, RPort, Host, DPort),
+    {ok,RelayPid,_,RPort} = ssh_relay:start_link({0,0,0,0}, 0, Host, DPort),
 
     ConnectionRef = ssh_test_lib:std_connect(Config, Host, RPort, [{max_random_length_padding,0}]),
     {ok, SftpPid} = ssh_sftp:start_channel(ConnectionRef),
@@ -1931,3 +1928,8 @@ new_do_shell_prompt(IO, N, Op, Str, More) ->
     new_do_shell(IO, N, [{Op,Str}|More]).
   
 %%--------------------------------------------------------------------
+inet_port() ->
+    {ok, Socket} = gen_tcp:listen(0, [{reuseaddr, true}]),
+    {ok, Port} = inet:port(Socket),
+    gen_tcp:close(Socket),
+    Port.
