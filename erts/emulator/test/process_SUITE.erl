@@ -2894,18 +2894,20 @@ spawn_request_link_parent_exit_test(Node) ->
                end,
     ParentFun = case node() == Node of
                     true ->
-                        fun () ->
+                        fun (Wait) ->
                                 spawn_request(ChildFun, [link,{priority,max}]),
+                                receive after Wait -> ok end,
                                 exit(kaboom)
                         end;
                     false ->
-                        fun () ->
+                        fun (Wait) ->
                                 spawn_request(Node, ChildFun, [link,{priority,max}]),
+                                receive after Wait -> ok end,
                                 exit(kaboom)
                         end
                 end,
-    lists:foreach(fun (_) ->
-                          spawn(ParentFun)
+    lists:foreach(fun (N) ->
+                          spawn(fun () -> ParentFun(N rem 10) end)
                   end,
                   lists:seq(1, 1000)),
     N = gather_kabooms(),

@@ -12738,7 +12738,7 @@ proc_exit_handle_pend_spawn_monitors(ErtsMonitor *mon, void *vctxt, Sint reds)
 
     code = erts_dist_pend_spawn_exit_parent_wait(c_p,
                                                  ERTS_PROC_LOCK_MAIN,
-                                                 &mdp->target);
+                                                 mon);
     if (code == 0) {
         /* Connection closing; cleanup... */
         mdp = NULL;

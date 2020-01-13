@@ -501,8 +501,8 @@ dist_pend_spawn_exit_save_child_result(Eterm result, Eterm ref, ErtsMonLnkDist *
                      */
                     erts_monitor_tree_insert(&dist->dist_pend_spawn_exit,
                                              &new_mdp->target);
-                    erts_monitor_release(&new_mdp->target);
                     done = !0;
+                    new_mdp = NULL;
                 }
             }
             else {
@@ -533,8 +533,6 @@ dist_pend_spawn_exit_save_child_result(Eterm result, Eterm ref, ErtsMonLnkDist *
                                       EXTERNAL_THING_HEAD_SIZE + 1,
                                       &hp, &oh);
                     mdep->uptr.ohhp = oh.first;
-                    if (new_mdp)
-                        erts_monitor_release(&new_mdp->origin);
                 }
                 done = !0;
             }
@@ -556,6 +554,7 @@ dist_pend_spawn_exit_save_child_result(Eterm result, Eterm ref, ErtsMonLnkDist *
 
         ((ErtsMonitorDataExtended *) new_mdp)->dist = dist;
         erts_mon_link_dist_inc_refc(dist);
+        erts_monitor_release(&new_mdp->origin);
     }
 
     if (proc)
@@ -601,7 +600,9 @@ erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon)
     ErtsMonitorData *mdp;
     ErtsMonLnkDist *dist;
     int res;
-    
+
+    ASSERT(erts_monitor_is_origin(mon));
+
     mdp = (ErtsMonitorData *) erts_monitor_to_data(mon);
 
     if (!erts_monitor_dist_delete(&mdp->target))
@@ -620,17 +621,14 @@ erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon)
             tmp_mon = NULL;
         }
         else {
+            res = !0;
             tmp_mon = erts_monitor_tree_lookup(dist->dist_pend_spawn_exit,
                                                mdp->ref);
-            if (!tmp_mon) {
+            if (!tmp_mon)
                 erts_monitor_tree_insert(&dist->dist_pend_spawn_exit,
                                          &mdp->target);
-                res = -1;
-            }
-            else {
+            else
                 erts_monitor_tree_delete(&dist->dist_pend_spawn_exit, tmp_mon);
-                res = 1;
-            }
         }
     
         erts_mtx_unlock(&dist->mtx);
@@ -646,35 +644,39 @@ erts_dist_pend_spawn_exit_parent_setup(ErtsMonitor *mon)
              * original target end in 'dist_pend_spawn_exit'
              */
             ErtsMonitorData *tmp_mdp = erts_monitor_to_data(tmp_mon);
-            ErtsMonitorDataExtended *mdep;
-            ErlOffHeap oh;
-            Eterm *hp;
 
             if (is_atom(tmp_mdp->origin.other.item)) {
                 erts_monitor_release(tmp_mon);
                 erts_monitor_release(&mdp->target);
                 return 0; /* Spawn failed; drop it... */
             }
-        
-            mdep = (ErtsMonitorDataExtended *) mdp;
+
+            /*
+             * If mdp->origin.other.item != am_pending, the other
+             * end is behaving badly by sending multiple
+             * responses...
+             */
+            if (mdp->origin.other.item == am_pending) {
+                ErtsMonitorDataExtended *mdep = (ErtsMonitorDataExtended *) mdp;
+                ErlOffHeap oh;
+                Eterm *hp;
 #ifdef DEBUG
-            {
                 int i;
 
                 ASSERT(is_external_pid(tmp_mdp->origin.other.item));
                 for (i = 0; i < EXTERNAL_THING_HEAD_SIZE + 1; i++) {
                     ASSERT(is_non_value(mdep->heap[i]));
                 }
-            }
 #endif
-            hp = &(mdep)->heap[0];
-            ERTS_INIT_OFF_HEAP(&oh);
-            oh.first = mdep->uptr.ohhp;
-            mdep->md.origin.other.item
-                = copy_struct(tmp_mdp->origin.other.item,
-                              EXTERNAL_THING_HEAD_SIZE + 1,
-                              &hp, &oh);
-            mdep->uptr.ohhp = oh.first;
+                hp = &(mdep)->heap[0];
+                ERTS_INIT_OFF_HEAP(&oh);
+                oh.first = mdep->uptr.ohhp;
+                mdep->md.origin.other.item
+                    = copy_struct(tmp_mdp->origin.other.item,
+                                  EXTERNAL_THING_HEAD_SIZE + 1,
+                                  &hp, &oh);
+                mdep->uptr.ohhp = oh.first;
+            }
             erts_monitor_release(tmp_mon);
         }
     }
@@ -693,51 +695,37 @@ erts_dist_pend_spawn_exit_parent_wait(Process *c_p,
      */
     ErtsMonitorData *mdp;
     ErtsMonLnkDist *dist;
-    int res, suspended = 0;
+    int res;
     
+    ASSERT(erts_monitor_is_origin(mon));
+
     mdp = (ErtsMonitorData *) erts_monitor_to_data(mon);
     dist = ((ErtsMonitorDataExtended *) mdp)->dist;
 
-    while (1) {
-        erts_mtx_lock(&dist->mtx);
+    erts_mtx_lock(&dist->mtx);
 
-        if (!dist->alive) {
-            res = 0;
+    if (!dist->alive) {
+        res = 0;
+    }
+    else {
+        ASSERT(&mdp->target ==
+               erts_monitor_tree_lookup(dist->dist_pend_spawn_exit, mdp->ref));
+        if (mdp->origin.other.item != am_pending) {
+            erts_monitor_tree_delete(&dist->dist_pend_spawn_exit, &mdp->target);
+            res = 1;
         }
         else {
-            ASSERT(erts_monitor_tree_lookup(dist->dist_pend_spawn_exit, mdp->ref));
-            if (mdp->origin.other.item != am_pending) {
-                if (suspended)
-                    mdp->target.other.ptr = NULL; /* Leave it for next time... */
-                else
-                    erts_monitor_tree_delete(&dist->dist_pend_spawn_exit, &mdp->target);
-                res = 1;
-            }
-            else {
-                if (suspended)
-                    mdp->target.other.ptr = (void *) c_p;
-                res = -1;
-            
-            }
+            /* We need to suspend wait and wait for the result... */
+            mdp->target.other.ptr = (void *) c_p;
+            erts_suspend(c_p, locks, NULL);
+            res = -1;
         }
-    
-        erts_mtx_unlock(&dist->mtx);
-
-        if (res >= 0 || suspended)
-            break;
-
-        erts_suspend(c_p, locks, NULL);
-        suspended = !0;
-    }
-
-    if (res >= 0 && suspended) {
-        erts_resume(c_p, locks);
-        return -1; /* Force reschedule... */
     }
     
+    erts_mtx_unlock(&dist->mtx);
+
     return res;
 }
-
 
 /*
 ** A full node name consists of a "n@h"
