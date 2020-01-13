@@ -70,7 +70,9 @@ init_per_suite(Config) ->
 	   {error,econnrefused} ->
 	       {skip,"No openssh deamon (econnrefused)"};
 	   _ ->
-	       ssh_test_lib:openssh_sanity_check(Config)
+               [{ptty_supported, not ssh_test_lib:lc_name_in(["fobi"])}
+                | ssh_test_lib:openssh_sanity_check(Config)
+               ]
        end
       ).
 
@@ -134,14 +136,26 @@ erlang_shell_client_openssh_server(Config) when is_list(Config) ->
     Prev = lists:usort(supervisor:which_children(sshc_sup)),
     Shell = ssh_test_lib:start_shell(?SSH_DEFAULT_PORT, IO),
     IO ! {input, self(), "echo Hej\n"},
-    receive_data("Hej", undefined),
-    IO ! {input, self(), "exit\n"},
-    receive_logout(),
-    receive_normal_exit(Shell),
-    %% Check that the connection is closed:
-    ct:log("Expects ~p", [Prev]),
-    ?wait_match(Prev, lists:usort(supervisor:which_children(sshc_sup))).
-   
+    case proplists:get_value(ptty_supported, Config) of
+        true ->
+            ct:log("~p:~p  ptty supported", [?MODULE,?LINE]),
+            receive_data("Hej", undefined),
+            IO ! {input, self(), "exit\n"},
+            receive_logout(),
+            receive_normal_exit(Shell),
+            %% Check that the connection is closed:
+            ct:log("Expects ~p", [Prev]),
+            ?wait_match(Prev, lists:usort(supervisor:which_children(sshc_sup)));
+        false ->
+            ct:log("~p:~p  ptty unsupported", [?MODULE,?LINE]),
+            receive_exit(Shell,
+                         fun({{badmatch,failure},
+                              [{ssh,shell,_,_} | _]}) -> true;
+                            (_) ->
+                                 false
+                         end)
+    end.
+
 %%--------------------------------------------------------------------
 %% Test that the server could redirect stdin and stdout from/to an
 %% OpensSSH client when handling an exec request
@@ -431,14 +445,14 @@ receive_data(Data, Conn) ->
 	    Lines = string:tokens(binary_to_list(Info), "\r\n "),
 	    case lists:member(Data, Lines) of
 		true ->
-		    ct:log("Expected result ~p found in lines: ~p~n", [Data,Lines]),
+		    ct:log("~p:~p  Expected result ~p found in lines: ~p~n", [?MODULE,?LINE,Data,Lines]),
 		    ok;
 		false ->
-		    ct:log("Extra info: ~p~n", [Info]),
+		    ct:log("~p:~p  Extra info: ~p~n", [?MODULE,?LINE,Info]),
 		    receive_data(Data, Conn)
 	    end;
 	Other ->
-	    ct:log("Unexpected: ~p",[Other]),
+	    ct:log("~p:~p  Unexpected: ~p",[?MODULE,?LINE,Other]),
 	    receive_data(Data, Conn)
     after
 	30000 ->
@@ -467,17 +481,31 @@ receive_logout() ->
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
 
+
 receive_normal_exit(Shell) ->
+    receive_exit(Shell, fun(Reason) -> Reason == normal end).
+
+
+receive_exit(Shell, F) when is_function(F,1) ->
     receive
-	{'EXIT', Shell, normal} ->
-	    ok;
-	<<"\r\n">> ->
-	    receive_normal_exit(Shell);
-	Other ->
-	    ct:fail({unexpected_msg, Other})
-    after 
+        {'EXIT', Shell, Reason} ->
+            case F(Reason) of
+                true ->
+                    ok;
+                false ->
+                    ct:fail({unexpected_exit, Reason})
+            end;
+
+        <<"\r\n">> ->
+            receive_normal_exit(Shell);
+
+        Other ->
+            ct:fail({unexpected_msg, Other})
+
+        after 
 	30000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end.
+
 
 extra_logout() ->
     receive 	

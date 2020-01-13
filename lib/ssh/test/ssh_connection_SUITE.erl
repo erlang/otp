@@ -95,7 +95,10 @@ sock() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    ?CHECK_CRYPTO(Config).
+    ?CHECK_CRYPTO(
+       [{ptty_supported, not ssh_test_lib:lc_name_in(["fobi"])}
+        | Config]
+      ).
 
 end_per_suite(_Config) ->
     catch ssh:stop(),
@@ -117,7 +120,7 @@ end_per_group(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
-init_per_testcase(_TestCase, Config) ->
+init_per_testcase(TestCase, Config) ->
     %% To make sure we start clean as it is not certain that
     %% end_per_testcase will be run!
     end_per_testcase(Config),
@@ -347,7 +350,11 @@ ptty_alloc_default(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+    Expect = case proplists:get_value(ptty_supported, Config) of
+                 true -> success;
+                 false -> failure
+             end,
+    Expect = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------
@@ -358,8 +365,12 @@ ptty_alloc(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {width, 70}, {height, 20}]),
+    Expect = case proplists:get_value(ptty_supported, Config) of
+                 true -> success;
+                 false -> failure
+             end,
+    Expect = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
+                                       [{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {width, 70}, {height, 20}]),
     ssh:close(ConnectionRef).
 
 
@@ -371,8 +382,12 @@ ptty_alloc_pixel(Config) when is_list(Config) ->
     ConnectionRef = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [{silently_accept_hosts, true},
 							     {user_interaction, false}]),
     {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
-    success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
-					[{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {pixel_widh, 630}, {pixel_hight, 470}]),
+    Expect = case proplists:get_value(ptty_supported, Config) of
+                 true -> success;
+                 false -> failure
+             end,
+    Expect = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, 
+                                       [{term, os:getenv("TERM", ?DEFAULT_TERMINAL)}, {pixel_widh, 630}, {pixel_hight, 470}]),
     ssh:close(ConnectionRef).
 
 %%--------------------------------------------------------------------

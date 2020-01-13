@@ -58,11 +58,10 @@ end_per_group(_GroupName, Config) ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        begin
-	   Port = ssh_test_lib:inet_port(node()),
 	   PrivDir = proplists:get_value(priv_dir, Config),
 	   UserDir = filename:join(PrivDir, nopubkey), % to make sure we don't use public-key-auth
 	   file:make_dir(UserDir),
-	   [{userdir, UserDir},{port, Port}, {host, "localhost"}, {host_ip, any} | Config]
+	   [{userdir, UserDir} | Config]
        end).
 
 end_per_suite(_) ->
@@ -139,13 +138,11 @@ sshc_subtree(Config) when is_list(Config) ->
 sshd_subtree() ->
     [{doc, "Make sure the sshd subtree is correct"}].
 sshd_subtree(Config) when is_list(Config) ->
-    HostIP = proplists:get_value(host_ip, Config),
-    Port = proplists:get_value(port, Config),
     SystemDir = proplists:get_value(data_dir, Config),
-    {ok,Daemon} = ssh:daemon(HostIP, Port, [{system_dir, SystemDir},
-                                            {failfun, fun ssh_test_lib:failfun/2},
-                                            {user_passwords,
-                                             [{?USER, ?PASSWD}]}]),
+    {Daemon, HostIP, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                                  {failfun, fun ssh_test_lib:failfun/2},
+                                                  {user_passwords,
+                                                   [{?USER, ?PASSWD}]}]),
 
     ct:log("Expect HostIP=~p, Port=~p, Daemon=~p",[HostIP,Port,Daemon]),
     ?wait_match([{{server,ssh_system_sup, ListenIP, Port, ?DEFAULT_PROFILE},
@@ -154,7 +151,7 @@ sshd_subtree(Config) when is_list(Config) ->
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
-    check_sshd_system_tree(Daemon, Config),
+    check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
     ?wait_match([], supervisor:which_children(sshd_sup)).
@@ -163,16 +160,14 @@ sshd_subtree(Config) when is_list(Config) ->
 sshd_subtree_profile() ->
     [{doc, "Make sure the sshd subtree using profile option is correct"}].	
 sshd_subtree_profile(Config) when is_list(Config) ->
-    HostIP = proplists:get_value(host_ip, Config),
-    Port = proplists:get_value(port, Config),
     Profile = proplists:get_value(profile, Config), 
     SystemDir = proplists:get_value(data_dir, Config),
 
-    {ok, Daemon} = ssh:daemon(HostIP, Port, [{system_dir, SystemDir},
-                                             {failfun, fun ssh_test_lib:failfun/2},
-                                             {user_passwords,
-                                              [{?USER, ?PASSWD}]},
-                                             {profile, Profile}]),
+    {Daemon, HostIP, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                                  {failfun, fun ssh_test_lib:failfun/2},
+                                                  {user_passwords,
+                                                   [{?USER, ?PASSWD}]},
+                                                  {profile, Profile}]),
     ct:log("Expect HostIP=~p, Port=~p, Profile=~p, Daemon=~p",[HostIP,Port,Profile,Daemon]),
     ?wait_match([{{server,ssh_system_sup, ListenIP,Port,Profile},
 		  Daemon, supervisor,
@@ -180,7 +175,7 @@ sshd_subtree_profile(Config) when is_list(Config) ->
 		supervisor:which_children(sshd_sup),
 		[ListenIP,Daemon]),
     true = ssh_test_lib:match_ip(HostIP, ListenIP),
-    check_sshd_system_tree(Daemon, Config),
+    check_sshd_system_tree(Daemon, HostIP, Port, Config),
     ssh:stop_daemon(HostIP, Port, Profile),
     ct:sleep(?WAIT_FOR_SHUTDOWN),
     ?wait_match([], supervisor:which_children(sshd_sup)).
@@ -362,9 +357,7 @@ chk_empty_con_daemon(Daemon) ->
 %%-------------------------------------------------------------------------
 %% Help functions
 %%-------------------------------------------------------------------------
-check_sshd_system_tree(Daemon, Config) -> 
-    Host = proplists:get_value(host, Config),
-    Port = proplists:get_value(port, Config),
+check_sshd_system_tree(Daemon, Host, Port, Config) -> 
     UserDir = proplists:get_value(userdir, Config),
     {ok, Client} = ssh:connect(Host, Port, [{silently_accept_hosts, true},
                                             {user_interaction, false},
