@@ -18779,7 +18779,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         enif_set_pid_undefined(&descP->connPid);
         MON_INIT(&descP->connMon);
 
-        sprintf(buf, "esock[w,%d]", sock);
+        sprintf(buf, "esock.w[%d]", sock);
         descP->writeMtx       = MCREATE(buf);
         enif_set_pid_undefined(&descP->currentWriter.pid);
         MON_INIT(&descP->currentWriter.mon);
@@ -18797,7 +18797,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->writeWaits     = 0;
         descP->writeFails     = 0;
 
-        sprintf(buf, "esock[r,%d]", sock);
+        sprintf(buf, "esock.r[%d]", sock);
         descP->readMtx        = MCREATE(buf);
         enif_set_pid_undefined(&descP->currentReader.pid);
         MON_INIT(&descP->currentReader.mon);
@@ -18815,7 +18815,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->readWaits      = 0;
         descP->readFails      = 0;
 
-        sprintf(buf, "esock[acc,%d]", sock);
+        sprintf(buf, "esock.acc[%d]", sock);
         descP->accMtx           = MCREATE(buf);
         enif_set_pid_undefined(&descP->currentAcceptor.pid);
         MON_INIT(&descP->currentAcceptor.mon);
@@ -18829,14 +18829,14 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->accTries         = 0;
         descP->accWaits         = 0;
 
-        sprintf(buf, "esock[close,%d]", sock);
+        sprintf(buf, "esock.close[%d]", sock);
         descP->closeMtx         = MCREATE(buf);
         descP->closeEnv         = NULL;
         descP->closeRef         = esock_atom_undefined;
         enif_set_pid_undefined(&descP->closerPid);
         MON_INIT(&descP->closerMon);
 
-        sprintf(buf, "esock[cfg,%d]", sock);
+        sprintf(buf, "esock.cfg[%d]", sock);
         descP->cfgMtx           = MCREATE(buf);
         descP->rBufSz           = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
         descP->rNum             = 0;
@@ -21104,7 +21104,7 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
                                MKA(env, "registry"), &data.regPid);
 
     /* +++ Global Counters +++ */
-    data.cntMtx         = MCREATE("esock[gcnt]");
+    data.cntMtx         = MCREATE("esock.gcnt");
     data.numSockets     = 0;
     data.numTypeDGrams  = 0;
     data.numTypeStreams = 0;
