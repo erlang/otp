@@ -601,6 +601,160 @@ valfun_1({jump,{f,Lbl}}, Vst) ->
                    %% The next instruction is never executed.
                    kill_state(SuccVst)
            end);
+
+valfun_1(return, Vst) ->
+    assert_durable_term({x,0}, Vst),
+    verify_return(Vst),
+    kill_state(Vst);
+
+valfun_1({set_tuple_element,Src,Tuple,N}, Vst) ->
+    I = N + 1,
+    assert_term(Src, Vst),
+    assert_type({tuple_element,I}, Tuple, Vst),
+    %% Manually update the tuple type; we can't rely on the ordinary update
+    %% helpers as we must support overwriting (rather than just widening or
+    %% narrowing) known elements, and we can't use extract_term either since
+    %% the source tuple may be aliased.
+    {tuple, Sz, Es0} = get_term_type(Tuple, Vst),
+    Es = set_element_type({integer,I}, get_term_type(Src, Vst), Es0),
+    override_type({tuple, Sz, Es}, Tuple, Vst);
+
+%% Match instructions.
+valfun_1({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
+    assert_term(Src, Vst),
+    assert_choices(Choices),
+    validate_select_val(Fail, Choices, Src, Vst);
+valfun_1({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
+    assert_type(tuple, Tuple, Vst),
+    assert_arities(Choices),
+    validate_select_tuple_arity(Fail, Choices, Tuple, Vst);
+
+%% New bit syntax matching instructions.
+valfun_1({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
+    validate_bs_start_match(Fail, Live, bsm_match_state(), Src, Dst, Vst);
+valfun_1({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst) ->
+    validate_bs_start_match(Fail, Live, bsm_match_state(Slots), Src, Dst, Vst);
+valfun_1({test,bs_match_string,{f,Fail},[Ctx,_,_]}, Vst) ->
+    bsm_validate_context(Ctx, Vst),
+    branch(Fail, Vst, fun(V) -> V end);
+valfun_1({test,bs_skip_bits2,{f,Fail},[Ctx,Src,_,_]}, Vst) ->
+    bsm_validate_context(Ctx, Vst),
+    assert_term(Src, Vst),
+    branch(Fail, Vst, fun(V) -> V end);
+valfun_1({test,bs_test_tail2,{f,Fail},[Ctx,_]}, Vst) ->
+    bsm_validate_context(Ctx, Vst),
+    branch(Fail, Vst, fun(V) -> V end);
+valfun_1({test,bs_test_unit,{f,Fail},[Ctx,_]}, Vst) ->
+    bsm_validate_context(Ctx, Vst),
+    branch(Fail, Vst, fun(V) -> V end);
+valfun_1({test,bs_skip_utf8,{f,Fail},[Ctx,Live,_]}, Vst) ->
+    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
+valfun_1({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
+    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
+valfun_1({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
+    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
+valfun_1({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_1({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {float, []}, Dst, Vst);
+valfun_1({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, binary, Dst, Vst);
+valfun_1({test,bs_get_utf8=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_1({test,bs_get_utf16=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_1({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
+    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
+valfun_1({bs_save2,Ctx,SavePoint}, Vst) ->
+    bsm_save(Ctx, SavePoint, Vst);
+valfun_1({bs_restore2,Ctx,SavePoint}, Vst) ->
+    bsm_restore(Ctx, SavePoint, Vst);
+valfun_1({bs_get_position, Ctx, Dst, Live}, Vst0) ->
+    bsm_validate_context(Ctx, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+    Vst = prune_x_regs(Live, Vst0),
+    create_term(ms_position, bs_get_position, [Ctx], Dst, Vst, Vst0);
+valfun_1({bs_set_position, Ctx, Pos}, Vst) ->
+    bsm_validate_context(Ctx, Vst),
+    assert_type(ms_position, Pos, Vst),
+    Vst;
+valfun_1({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
+    assert_type(map, Src, Vst),
+    assert_unique_map_keys(List),
+    branch(Lbl, Vst, fun(V) -> V end);
+valfun_1({test,is_atom,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, {atom,[]}, Src, Vst);
+valfun_1({test,is_binary,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, binary, Src, Vst);
+valfun_1({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, binary, Src, Vst);
+valfun_1({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, bool, Src, Vst);
+valfun_1({test,is_float,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, {float,[]}, Src, Vst);
+valfun_1({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, {tuple,[0],#{}}, Src, Vst);
+valfun_1({test,is_integer,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, {integer,[]}, Src, Vst);
+valfun_1({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, cons, Src, Vst);
+valfun_1({test,is_number,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, number, Src, Vst);
+valfun_1({test,is_list,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, list, Src, Vst);
+valfun_1({test,is_map,{f,Lbl},[Src]}, Vst) ->
+    type_test(Lbl, map, Src, Vst);
+valfun_1({test,is_nil,{f,Lbl},[Src]}, Vst) ->
+    %% is_nil is an exact check against the 'nil' value, and should not be
+    %% treated as a simple type test.
+    assert_term(Src, Vst),
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_ne_types(Src, nil, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_eq_types(Src, nil, SuccVst)
+           end);
+valfun_1({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
+    assert_type(tuple, Tuple, Vst),
+    Type = {tuple, Sz, #{}},
+    type_test(Lbl, Type, Tuple, Vst);
+valfun_1({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
+    assert_term(Src, Vst),
+    Type = {tuple, Sz, #{ {integer,1} => Atom }},
+    type_test(Lbl, Type, Src, Vst);
+valfun_1({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    validate_src(Ss, Vst),
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_ne_types(Src, Val, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_eq_types(Src, Val, SuccVst)
+           end);
+valfun_1({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    validate_src(Ss, Vst),
+    branch(Lbl, Vst,
+           fun(FailVst) ->
+                   update_eq_types(Src, Val, FailVst)
+           end,
+           fun(SuccVst) ->
+                   update_ne_types(Src, Val, SuccVst)
+           end);
+valfun_1({test,_Op,{f,Lbl},Src}, Vst) ->
+    %% is_pid, is_reference, et cetera.
+    validate_src(Src, Vst),
+    branch(Lbl, Vst, fun(V) -> V end);
+
+%% Map instructions.
+valfun_1({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
+valfun_1({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
+valfun_1({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
+    verify_get_map(Fail, Src, List, Vst);
+
 valfun_1(I, Vst) ->
     valfun_2(I, Vst).
 
@@ -782,10 +936,6 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Ss,Dst}, #vst{current=St0}=Vst0) ->
                    %% registers were pruned before the branch.
                    extract_term(Type, {gc_bif,Op}, Ss, Dst, SuccVst, Vst0)
            end);
-valfun_4(return, Vst) ->
-    assert_durable_term({x,0}, Vst),
-    verify_return(Vst),
-    kill_state(Vst);
 valfun_4({loop_rec,{f,Fail},Dst}, Vst) ->
     %% This term may not be part of the root set until remove_message/0 is
     %% executed. If control transfers to the loop_rec_end/1 instruction, no
@@ -813,146 +963,8 @@ valfun_4(timeout, Vst0) ->
     prune_x_regs(0, Vst);
 valfun_4(send, Vst) ->
     call(send, 2, Vst);
-valfun_4({set_tuple_element,Src,Tuple,N}, Vst) ->
-    I = N + 1,
-    assert_term(Src, Vst),
-    assert_type({tuple_element,I}, Tuple, Vst),
-    %% Manually update the tuple type; we can't rely on the ordinary update
-    %% helpers as we must support overwriting (rather than just widening or
-    %% narrowing) known elements, and we can't use extract_term either since
-    %% the source tuple may be aliased.
-    {tuple, Sz, Es0} = get_term_type(Tuple, Vst),
-    Es = set_element_type({integer,I}, get_term_type(Src, Vst), Es0),
-    override_type({tuple, Sz, Es}, Tuple, Vst);
-%% Match instructions.
-valfun_4({select_val,Src,{f,Fail},{list,Choices}}, Vst) ->
-    assert_term(Src, Vst),
-    assert_choices(Choices),
-    validate_select_val(Fail, Choices, Src, Vst);
-valfun_4({select_tuple_arity,Tuple,{f,Fail},{list,Choices}}, Vst) ->
-    assert_type(tuple, Tuple, Vst),
-    assert_arities(Choices),
-    validate_select_tuple_arity(Fail, Choices, Tuple, Vst);
-
-%% New bit syntax matching instructions.
-valfun_4({test,bs_start_match3,{f,Fail},Live,[Src],Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, bsm_match_state(), Src, Dst, Vst);
-valfun_4({test,bs_start_match2,{f,Fail},Live,[Src,Slots],Dst}, Vst) ->
-    validate_bs_start_match(Fail, Live, bsm_match_state(Slots), Src, Dst, Vst);
-valfun_4({test,bs_match_string,{f,Fail},[Ctx,_,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
-valfun_4({test,bs_skip_bits2,{f,Fail},[Ctx,Src,_,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
-    assert_term(Src, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
-valfun_4({test,bs_test_tail2,{f,Fail},[Ctx,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
-valfun_4({test,bs_test_unit,{f,Fail},[Ctx,_]}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
-valfun_4({test,bs_skip_utf8,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
-valfun_4({test,bs_skip_utf16,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
-valfun_4({test,bs_skip_utf32,{f,Fail},[Ctx,Live,_]}, Vst) ->
-    validate_bs_skip_utf(Fail, Ctx, Live, Vst);
-valfun_4({test,bs_get_integer2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
-valfun_4({test,bs_get_float2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {float, []}, Dst, Vst);
-valfun_4({test,bs_get_binary2=Op,{f,Fail},Live,[Ctx,_,_,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, binary, Dst, Vst);
-valfun_4({test,bs_get_utf8=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
-valfun_4({test,bs_get_utf16=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
-valfun_4({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
-    validate_bs_get(Op, Fail, Ctx, Live, {integer, []}, Dst, Vst);
-valfun_4({bs_save2,Ctx,SavePoint}, Vst) ->
-    bsm_save(Ctx, SavePoint, Vst);
-valfun_4({bs_restore2,Ctx,SavePoint}, Vst) ->
-    bsm_restore(Ctx, SavePoint, Vst);
-valfun_4({bs_get_position, Ctx, Dst, Live}, Vst0) ->
-    bsm_validate_context(Ctx, Vst0),
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-    Vst = prune_x_regs(Live, Vst0),
-    create_term(ms_position, bs_get_position, [Ctx], Dst, Vst, Vst0);
-valfun_4({bs_set_position, Ctx, Pos}, Vst) ->
-    bsm_validate_context(Ctx, Vst),
-    assert_type(ms_position, Pos, Vst),
-    Vst;
 
 %% Other test instructions.
-valfun_4({test,has_map_fields,{f,Lbl},Src,{list,List}}, Vst) ->
-    assert_type(map, Src, Vst),
-    assert_unique_map_keys(List),
-    branch(Lbl, Vst, fun(V) -> V end);
-valfun_4({test,is_atom,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {atom,[]}, Src, Vst);
-valfun_4({test,is_binary,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, binary, Src, Vst);
-valfun_4({test,is_bitstr,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, binary, Src, Vst);
-valfun_4({test,is_boolean,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, bool, Src, Vst);
-valfun_4({test,is_float,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {float,[]}, Src, Vst);
-valfun_4({test,is_tuple,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {tuple,[0],#{}}, Src, Vst);
-valfun_4({test,is_integer,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, {integer,[]}, Src, Vst);
-valfun_4({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, cons, Src, Vst);
-valfun_4({test,is_number,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, number, Src, Vst);
-valfun_4({test,is_list,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, list, Src, Vst);
-valfun_4({test,is_map,{f,Lbl},[Src]}, Vst) ->
-    type_test(Lbl, map, Src, Vst);
-valfun_4({test,is_nil,{f,Lbl},[Src]}, Vst) ->
-    %% is_nil is an exact check against the 'nil' value, and should not be
-    %% treated as a simple type test.
-    assert_term(Src, Vst),
-    branch(Lbl, Vst,
-           fun(FailVst) ->
-                   update_ne_types(Src, nil, FailVst)
-           end,
-           fun(SuccVst) ->
-                   update_eq_types(Src, nil, SuccVst)
-           end);
-valfun_4({test,test_arity,{f,Lbl},[Tuple,Sz]}, Vst) when is_integer(Sz) ->
-    assert_type(tuple, Tuple, Vst),
-    Type = {tuple, Sz, #{}},
-    type_test(Lbl, Type, Tuple, Vst);
-valfun_4({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
-    assert_term(Src, Vst),
-    Type = {tuple, Sz, #{ {integer,1} => Atom }},
-    type_test(Lbl, Type, Src, Vst);
-valfun_4({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
-    validate_src(Ss, Vst),
-    branch(Lbl, Vst,
-           fun(FailVst) ->
-                   update_ne_types(Src, Val, FailVst)
-           end,
-           fun(SuccVst) ->
-                   update_eq_types(Src, Val, SuccVst)
-           end);
-valfun_4({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
-    validate_src(Ss, Vst),
-    branch(Lbl, Vst,
-           fun(FailVst) ->
-                   update_eq_types(Src, Val, FailVst)
-           end,
-           fun(SuccVst) ->
-                   update_ne_types(Src, Val, SuccVst)
-           end);
-valfun_4({test,_Op,{f,Lbl},Src}, Vst) ->
-    %% is_pid, is_reference, et cetera.
-    validate_src(Src, Vst),
-    branch(Lbl, Vst, fun(V) -> V end);
 valfun_4({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
     assert_term(A, Vst),
     assert_term(B, Vst),
@@ -1061,13 +1073,6 @@ valfun_4({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
            fun(SuccVst) ->
                    update_type(fun meet/2, {integer,[]}, Src, SuccVst)
            end);
-%% Map instructions.
-valfun_4({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
-    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
-valfun_4({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
-    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
-valfun_4({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
-    verify_get_map(Fail, Src, List, Vst);
 valfun_4(_, _) ->
     error(unknown_instruction).
 
