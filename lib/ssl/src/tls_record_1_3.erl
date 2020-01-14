@@ -47,7 +47,7 @@ encode_handshake(Frag, ConnectionStates) ->
     case iolist_size(Frag) of
 	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
             %% TODO: Consider padding here
-	    Data = split_bin(iolist_to_binary(Frag), ?MAX_PLAIN_TEXT_LENGTH),
+	    Data = tls_record:split_iovec(Frag),
 	    encode_iolist(?HANDSHAKE, Data, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Frag, ConnectionStates)
@@ -64,13 +64,13 @@ encode_alert_record(#alert{level = Level, description = Description},
     encode_plain_text(?ALERT, <<?BYTE(Level), ?BYTE(Description)>>,
 		      ConnectionStates).
 %%--------------------------------------------------------------------
--spec encode_data(binary(), ssl_record:connection_states()) ->
+-spec encode_data(iolist(), ssl_record:connection_states()) ->
 			 {iolist(), ssl_record:connection_states()}.
 %%
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
 encode_data(Frag, ConnectionStates) ->
-    Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH, {3,4}),
+    Data = tls_record:split_iovec(Frag),
     encode_iolist(?APPLICATION_DATA, Data, ConnectionStates).
 
 encode_plain_text(Type, Data0, #{current_write := Write0} = ConnectionStates) ->
@@ -180,21 +180,6 @@ decode_cipher_text(#ssl_tls{type = Type}, _) ->
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
-split_bin(Bin, ChunkSize) ->
-    split_bin(Bin, ChunkSize, []).
-split_bin(Bin, ChunkSize, _) ->
-    do_split_bin(Bin, ChunkSize, []).
-
-do_split_bin(<<>>, _, Acc) ->
-    lists:reverse(Acc);
-do_split_bin(Bin, ChunkSize, Acc) ->
-    case Bin of
-        <<Chunk:ChunkSize/binary, Rest/binary>> ->
-            do_split_bin(Rest, ChunkSize, [Chunk | Acc]);
-        _ ->
-            lists:reverse(Acc, [Bin])
-    end.
-
 inner_plaintext(Type, Data, Length) ->
     #inner_plaintext{
        content = Data,
