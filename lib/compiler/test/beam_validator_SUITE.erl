@@ -37,7 +37,7 @@
          receive_stacked/1,aliased_types/1,type_conflict/1,
          infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
          branch_to_try_handler/1,call_without_stack/1,
-         receive_marker/1]).
+         receive_marker/1,safe_instructions/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -780,6 +780,15 @@ receive_marker(Config) when is_list(Config) ->
      {{receive_marker,t2,1},
       {{call_last,1,{f,2},1},_,
        {return_with_receive_marker,committed}}}] = Errors,
+
+    ok.
+
+%% ERL-1128: the validator erroneously thought that many non-throwing
+%% instructions like is_eq_exact could throw.
+safe_instructions(Config) when is_list(Config) ->
+    Errors = do_val(safe_instructions, Config),
+
+    [] = Errors,
 
     ok.
 
