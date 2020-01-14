@@ -33,7 +33,8 @@
          rpc_test/1,
          ei_send_funs/1,
          ei_threaded_send/1,
-         ei_set_get_tracelevel/1]).
+         ei_set_get_tracelevel/1,
+         ei_connect_host_port_test/1]).
 
 -import(runner, [get_term/1,send_term/2]).
 
@@ -43,6 +44,7 @@ suite() ->
 
 all() -> 
     [ei_threaded_send,
+     ei_connect_host_port_test,
      {group, default},
      {group, ussi}].
 
@@ -185,6 +187,27 @@ ei_set_get_tracelevel(Config) when is_list(Config) ->
     ok.
 
 
+ei_connect_host_port_test(Config) when is_list(Config) ->
+    P = runner:start(Config, ?interpret),
+    0 = ei_connect_init(P, 42, erlang:get_cookie(), 0, default),
+    [NodeName, Hostname] = string:lexemes(atom_to_list(node()), "@"),
+    {ok, NamePortList} = net_adm:names(),
+    {value, {_, Port}}
+        = lists:search(fun({N, _}) ->
+                               string:equal(N, NodeName)
+                       end,
+                       NamePortList),
+    {ok,Fd} = ei_connect_host_port(P,
+                                   erlang:list_to_atom(Hostname),
+                                   Port),
+    ok = ei_send(P, Fd, self(), AMsg={a,message}),
+    receive AMsg -> ok end,
+
+    runner:send_eot(P),
+    runner:recv_eot(P),
+    ok.
+
+
 %%% Interface functions for ei (erl_interface) functions.
 
 ei_connect_init(P, Num, Cookie, Creation, SockImpl) ->
@@ -195,6 +218,13 @@ ei_connect_init(P, Num, Cookie, Creation, SockImpl) ->
 
 ei_connect(P, Node) ->
     send_command(P, ei_connect, [Node]),
+    case get_term(P) of
+        {term,{Fd,_}} when Fd >= 0 -> {ok,Fd};
+        {term,{-1,Errno}} -> {error,Errno}
+    end.
+
+ei_connect_host_port(P, Hostname, Port) ->
+    send_command(P, ei_connect_host_port, [Hostname, Port]),
     case get_term(P) of
         {term,{Fd,_}} when Fd >= 0 -> {ok,Fd};
         {term,{-1,Errno}} -> {error,Errno}
