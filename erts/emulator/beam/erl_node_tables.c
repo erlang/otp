@@ -178,9 +178,8 @@ dist_table_alloc(void *dep_tmpl)
     dep->state				= ERTS_DE_STATE_IDLE;
     dep->pending_nodedown               = 0;
     dep->suspended_nodeup               = NULL;
-    dep->flags				= 0;
+    dep->dflags				= 0;
     dep->opts                           = 0;
-    dep->version			= 0;
 
     dep->mld                            = NULL;
 
@@ -635,7 +634,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
     else {
         ASSERT(dep->state != ERTS_DE_STATE_IDLE);
         ASSERT(is_internal_port(dep->cid) || is_internal_pid(dep->cid));
-        if (dep->flags & DFLAG_PUBLISHED) {
+        if (dep->dflags & DFLAG_PUBLISHED) {
             ASSERT(erts_no_of_visible_dist_entries > 0);
             erts_no_of_visible_dist_entries--;
             head = &erts_visible_dist_entries;
@@ -659,7 +658,7 @@ erts_set_dist_entry_not_connected(DistEntry *dep)
 	dep->next->prev = dep->prev;
 
     dep->state = ERTS_DE_STATE_IDLE;
-    dep->flags = 0;
+    dep->dflags = 0;
     dep->opts = 0;
     dep->prev = NULL;
     dep->cid = NIL;
@@ -701,7 +700,7 @@ erts_set_dist_entry_pending(DistEntry *dep)
     erts_no_of_not_connected_dist_entries--;
 
     dep->state = ERTS_DE_STATE_PENDING;
-    dep->flags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY | DFLAG_PENDING_CONNECT);
+    dep->dflags = (DFLAG_DIST_MANDATORY | DFLAG_DIST_HOPEFULLY | DFLAG_PENDING_CONNECT);
     dep->connection_id = (dep->connection_id + 1) & ERTS_DIST_CON_ID_MASK;
 
     ASSERT(!dep->mld);
@@ -720,7 +719,7 @@ erts_set_dist_entry_pending(DistEntry *dep)
 }
 
 void
-erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
+erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint64 flags)
 {
     erts_aint32_t set_qflgs;
 
@@ -751,7 +750,7 @@ erts_set_dist_entry_connected(DistEntry *dep, Eterm cid, Uint flags)
     erts_no_of_pending_dist_entries--;
 
     dep->state = ERTS_DE_STATE_CONNECTED;
-    dep->flags = flags & ~DFLAG_PENDING_CONNECT;
+    dep->dflags = flags & ~DFLAG_PENDING_CONNECT;
     dep->cid = cid;
     erts_atomic_set_nob(&dep->input_handler,
                             (erts_aint_t) cid);

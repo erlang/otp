@@ -162,13 +162,13 @@ struct TTBEncodeContext_;
 void erts_init_atom_cache_map(ErtsAtomCacheMap *);
 void erts_reset_atom_cache_map(ErtsAtomCacheMap *);
 void erts_destroy_atom_cache_map(ErtsAtomCacheMap *);
-void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint32);
+void erts_finalize_atom_cache_map(ErtsAtomCacheMap *, Uint64);
 
 Uint erts_encode_ext_dist_header_size(struct TTBEncodeContext_ *ctx, ErtsAtomCacheMap *, Uint);
 byte *erts_encode_ext_dist_header_setup(struct TTBEncodeContext_ *ctx, byte *,
                                         ErtsAtomCacheMap *, Uint, Eterm);
 byte *erts_encode_ext_dist_header_fragment(byte **, Uint, Eterm);
-Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint32 dflags, Sint reds);
+Sint erts_encode_ext_dist_header_finalize(ErtsDistOutputBuf*, DistEntry *, Uint64 dflags, Sint reds);
 struct erts_dsig_send_context;
 
 typedef enum {
@@ -181,7 +181,7 @@ ErtsExtSzRes erts_encode_dist_ext_size(Eterm term, ErtsAtomCacheMap *acmp,
                                        struct TTBSizeContext_ *ctx,
                                        Uint* szp, Sint *redsp,
                                        Sint *vlenp, Uint *fragments);
-int erts_encode_dist_ext(Eterm, byte **, Uint32, ErtsAtomCacheMap *,
+int erts_encode_dist_ext(Eterm, byte **, Uint64, ErtsAtomCacheMap *,
                          struct TTBEncodeContext_ *, Uint *,
                          Sint *);
 ErtsExtSzRes erts_encode_ext_size(Eterm, Uint *szp);
@@ -214,7 +214,7 @@ Sint erts_decode_ext_size_ets(byte*, Uint);
 Eterm erts_decode_ext(ErtsHeapFactory*, byte**, Uint32 flags);
 Eterm erts_decode_ext_ets(ErtsHeapFactory*, byte*);
 
-Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint flags);
+Eterm erts_term_to_binary(Process* p, Eterm Term, int level, Uint64 flags);
 Eterm erts_debug_term_to_binary(Process *p, Eterm term, Eterm opts);
 
 Sint erts_binary2term_prepare(ErtsBinary2TermState *, byte *, Sint);
