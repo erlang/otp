@@ -167,8 +167,9 @@
 %% -type command() :: debug_command().
 
 -type socket_counters() :: [{socket_counter(), non_neg_integer()}].
--type socket_counter()  :: read_byte | read_fails | read_pkg | read_tries |
-                           read_waits | write_byte | write_fails | write_pkg |
+-type socket_counter()  :: read_byte | read_fails | read_pkg | read_pkg_max |
+                           read_tries | read_waits |
+                           write_byte | write_fails | write_pkg | write_pkg_max |
                            write_tries | write_waits.
 -type socket_info() :: #{domain        := domain(),
                          type          := type(),

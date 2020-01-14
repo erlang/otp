@@ -875,6 +875,8 @@ typedef struct {
     ESockRequestQueue  writersQ;
     BOOLEAN_T          isWritable;
     Uint64             writePkgCnt;
+    Uint64             writePkgMax;
+    Uint64             writePkgMaxCnt;
     Uint64             writeByteCnt;
     Uint64             writeTries;
     Uint64             writeWaits;
@@ -889,6 +891,8 @@ typedef struct {
     ErlNifBinary       rbuffer;      // DO WE NEED THIS
     Uint32             readCapacity; // DO WE NEED THIS
     Uint64             readPkgCnt;
+    Uint64             readPkgMax;
+    Uint64             readPkgMaxCnt;
     Uint64             readByteCnt;
     Uint64             readTries;
     Uint64             readWaits;
@@ -3090,6 +3094,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(read_byte);        \
     LOCAL_ATOM_DECL(read_fails);       \
     LOCAL_ATOM_DECL(read_pkg);         \
+    LOCAL_ATOM_DECL(read_pkg_max);     \
     LOCAL_ATOM_DECL(read_tries);       \
     LOCAL_ATOM_DECL(read_waits);       \
     LOCAL_ATOM_DECL(reject_route);     \
@@ -3110,6 +3115,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(write_byte);       \
     LOCAL_ATOM_DECL(write_fails);      \
     LOCAL_ATOM_DECL(write_pkg);        \
+    LOCAL_ATOM_DECL(write_pkg_max);    \
     LOCAL_ATOM_DECL(write_tries);      \
     LOCAL_ATOM_DECL(write_waits);      \
     LOCAL_ATOM_DECL(zerocopy);
@@ -3439,16 +3445,18 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
         ERL_NIF_TERM readByteCnt  = MKCT(env, atom_read_byte, descP->readByteCnt);
         ERL_NIF_TERM readFails    = MKCT(env, atom_read_fails, descP->readFails);
         ERL_NIF_TERM readPkgCnt   = MKCT(env, atom_read_pkg, descP->readPkgCnt);
+        ERL_NIF_TERM readPkgMax   = MKCT(env, atom_read_pkg_max, descP->readPkgMax);
         ERL_NIF_TERM readTries    = MKCT(env, atom_read_tries, descP->readTries);
         ERL_NIF_TERM readWaits    = MKCT(env, atom_read_waits, descP->readWaits);
         ERL_NIF_TERM writeByteCnt = MKCT(env, atom_write_byte, descP->writeByteCnt);
         ERL_NIF_TERM writeFails   = MKCT(env, atom_write_fails, descP->writeFails);
         ERL_NIF_TERM writePkgCnt  = MKCT(env, atom_write_pkg, descP->writePkgCnt);
+        ERL_NIF_TERM writePkgMax  = MKCT(env, atom_write_pkg_max, descP->writePkgMax);
         ERL_NIF_TERM writeTries   = MKCT(env, atom_write_tries, descP->writeTries);
         ERL_NIF_TERM writeWaits   = MKCT(env, atom_write_waits, descP->writeWaits);
-        ERL_NIF_TERM acnt[]       = {readByteCnt, readFails, readPkgCnt,
+        ERL_NIF_TERM acnt[]       = {readByteCnt, readFails, readPkgCnt, readPkgMax,
                                      readTries, readWaits,
-                                     writeByteCnt, writeFails, writePkgCnt,
+                                     writeByteCnt, writeFails, writePkgCnt, writePkgMax,
                                      writeTries, writeWaits};
         unsigned int lenACnt      = sizeof(acnt) / sizeof(ERL_NIF_TERM);
 
@@ -15371,6 +15379,10 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                  atom_write_pkg, &descP->writePkgCnt, 1);
     SOCK_CNT_INC(env, descP, sockRef,
                  atom_write_byte, &descP->writeByteCnt, written);
+    descP->writePkgMaxCnt += written;
+    if (descP->writePkgMaxCnt > descP->writePkgMax)
+        descP->writePkgMax = descP->writePkgMaxCnt;
+    descP->writePkgMaxCnt = 0;
 
     if (descP->currentWriterP != NULL) {
         DEMONP("send_check_ok -> current writer",
@@ -15498,10 +15510,17 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
 
         /* Partial *write* success */
 
+        descP->writePkgMaxCnt += written;
+
         if (sres < 0) {
             /* Returned: {error, Reason}
              * Reason:   {select_failed, sres, written}
              */
+
+            if (descP->writePkgMaxCnt > descP->writePkgMax)
+                descP->writePkgMax = descP->writePkgMaxCnt;
+            descP->writePkgMaxCnt = 0;
+
             res = esock_make_error(env,
                                    MKT3(env,
                                         esock_atom_select_failed,
@@ -15771,7 +15790,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
     
         /* There is a special case: If the provided 'to read' value is
          * zero (0) (only for type =/= stream).
-         * That means that we reads as much as we can, using the default
+         * That means that we read as much as we can, using the default
          * read buffer size.
          */
 
@@ -15901,6 +15920,7 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
     char* xres;
 
     SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+    descP->readPkgMaxCnt += read;
 
     if (descP->rNum > 0) {
 
@@ -15910,6 +15930,9 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
             descP->rNumCnt = 0;
 
             SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+            if (descP->readPkgMaxCnt > descP->readPkgMax)
+                descP->readPkgMax = descP->readPkgMaxCnt;
+            descP->readPkgMaxCnt = 0;
 
             recv_update_current_reader(env, descP, sockRef);
 
@@ -15926,6 +15949,11 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 
     if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL) {
         descP->rNumCnt = 0;
+
+        if (descP->readPkgMaxCnt > descP->readPkgMax)
+            descP->readPkgMax = descP->readPkgMaxCnt;
+        descP->readPkgMaxCnt = 0;
+
         FREE_BIN(bufP);
         return esock_make_error_str(env, xres);
     }
@@ -15959,6 +15987,11 @@ ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
 
     SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+
+    descP->readPkgMaxCnt += read;
+    if (descP->readPkgMaxCnt > descP->readPkgMax)
+        descP->readPkgMax = descP->readPkgMaxCnt;
+    descP->readPkgMaxCnt = 0;
 
     recv_update_current_reader(env, descP, sockRef);
 
@@ -16179,6 +16212,11 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
     descP->rNumCnt = 0;
     SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+
+    descP->readPkgMaxCnt += read;
+    if (descP->readPkgMaxCnt > descP->readPkgMax)
+        descP->readPkgMax = descP->readPkgMaxCnt;
+    descP->readPkgMaxCnt = 0;
 
     recv_update_current_reader(env, descP, sockRef);
 
@@ -18672,6 +18710,8 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->writersQ.last  = NULL;
         descP->isWritable     = FALSE; // TRUE;
         descP->writePkgCnt    = 0;
+        descP->writePkgMax    = 0;
+        descP->writePkgMaxCnt = 0;
         descP->writeByteCnt   = 0;
         descP->writeTries     = 0;
         descP->writeWaits     = 0;
@@ -18688,6 +18728,8 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->readersQ.last  = NULL;
         descP->isReadable     = FALSE; // TRUE;
         descP->readPkgCnt     = 0;
+        descP->readPkgMax     = 0;
+        descP->readPkgMaxCnt  = 0;
         descP->readByteCnt    = 0;
         descP->readTries      = 0;
         descP->readWaits      = 0;
@@ -20310,22 +20352,26 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     SSDBG( descP, ("SOCKET", "esock_stop -> "
                    "[%d, %T] all mutex(s) locked when counters:"
                    "\r\n   writePkgCnt:  %u"
+                   "\r\n   writePkgMax:  %u"
                    "\r\n   writeByteCnt: %u"
                    "\r\n   writeTries:   %u"
                    "\r\n   writeWaits:   %u"
                    "\r\n   writeFails:   %u"
                    "\r\n   readPkgCnt:   %u"
+                   "\r\n   readPkgMax:   %u"
                    "\r\n   readByteCnt:  %u"
                    "\r\n   readTries:    %u"
                    "\r\n   readWaits:    %u"
                    "\r\n",
                    descP->sock, descP->ctrlPid,
                    descP->writePkgCnt,
+                   descP->writePkgMax,
                    descP->writeByteCnt,
                    descP->writeTries,
                    descP->writeWaits,
                    descP->writeFails,
                    descP->readPkgCnt,
+                   descP->readPkgMax,
                    descP->readByteCnt,
                    descP->readTries,
                    descP->readWaits) );
