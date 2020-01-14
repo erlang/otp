@@ -33,6 +33,7 @@
 %%--------------------------------------------------------------------
 all() -> 
     [
+     {group, 'tlsv1.3'},
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
@@ -41,6 +42,7 @@ all() ->
 
 groups() ->
     [
+     {'tlsv1.3', [], payload_tests()},
      {'tlsv1.2', [], payload_tests()},
      {'tlsv1.1', [], payload_tests()},
      {'tlsv1', [], payload_tests()},

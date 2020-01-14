@@ -38,7 +38,7 @@
 %% Encoding TLS records
 -export([encode_handshake/3, encode_alert_record/3,
 	 encode_change_cipher_spec/2, encode_data/3]).
--export([encode_plain_text/4]).
+-export([encode_plain_text/4, split_iovec/1]).
 
 %% Decoding
 -export([decode_cipher_text/4]).
@@ -395,6 +395,12 @@ hello_version([Highest|_]) when Highest >= {3,3} ->
 hello_version(Versions) ->
     lowest_protocol_version(Versions).
 
+split_iovec([]) ->
+    [];
+split_iovec(Data) ->
+    {Part,Rest} = split_iovec(Data, ?MAX_PLAIN_TEXT_LENGTH, []),
+    [Part|split_iovec(Rest)].
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -498,8 +504,9 @@ validate_tls_record_length(_Versions, Q, _SslOpts, Acc, Type, Version, undefined
 validate_tls_record_length(Versions, {_,Size0,_} = Q0,
                            #{log_level := LogLevel} = SslOpts,
                            Acc, Type, Version, Length) ->
+    Max = max_len(Versions),
     if
-        Length =< ?MAX_CIPHER_TEXT_LENGTH ->
+        Length =< Max ->
             if
                 Length =< Size0 ->
                     %% Complete record
@@ -630,12 +637,6 @@ split_iovec(Data, Version, BCA, zero_n)
 split_iovec(Data, _Version, _BCA, _BeatMitigation) ->
     split_iovec(Data).
 
-split_iovec([]) ->
-    [];
-split_iovec(Data) ->
-    {Part,Rest} = split_iovec(Data, ?MAX_PLAIN_TEXT_LENGTH, []),
-    [Part|split_iovec(Rest)].
-%%
 split_iovec([Bin|Data] = Bin_Data, SplitSize, Acc) ->
     BinSize = byte_size(Bin),
     if
@@ -671,4 +672,7 @@ sufficient_tlsv1_2_crypto_support() ->
     CryptoSupport = crypto:supports(),
     proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).
 
-
+max_len([{3,4}|_])->
+    ?TLS13_MAX_CIPHER_TEXT_LENGTH;
+max_len(_) ->
+    ?MAX_CIPHER_TEXT_LENGTH.
