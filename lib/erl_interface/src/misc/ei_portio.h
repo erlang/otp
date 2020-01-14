@@ -47,7 +47,7 @@ int ei_writev_fill_ctx_t__(ei_socket_callbacks *cbs, void *ctx, const struct iov
 int ei_socket_callbacks_have_writev__(ei_socket_callbacks *cbs);
 #endif
 
-ei_socket_callbacks ei_default_socket_callbacks;
+extern ei_socket_callbacks ei_default_socket_callbacks;
 
 #define EI_FD_AS_CTX__(FD)                                              \
     ((void *) (long) (FD))
