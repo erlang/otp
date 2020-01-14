@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1257,8 +1257,8 @@ open(Domain, Type, Protocol, Extra) when is_map(Extra) ->
     try
         begin
             EDomain   = enc_domain(Domain),
-            EType     = enc_type(Domain, Type),
-            EProtocol = enc_protocol(Type, Protocol),
+            EType     = enc_type(Type),
+            EProtocol = enc_protocol(Protocol),
             case nif_open(EDomain, EType, EProtocol, Extra) of
                 {ok, SockRef} ->
                     Socket = #socket{ref = SockRef},
@@ -2841,33 +2841,29 @@ enc_domain(inet)   -> ?SOCKET_DOMAIN_INET;
 enc_domain(inet6)  -> ?SOCKET_DOMAIN_INET6;
 enc_domain(Domain) -> invalid_domain(Domain).
 
-%% -spec enc_type(Domain, Type) -> non_neg_integer() when
-%%       Domain :: domain(),
+%% -spec enc_type(Type) -> non_neg_integer() when
 %%       Type   :: type().
 
-%% What combos are valid?
-enc_type(_, stream)    -> ?SOCKET_TYPE_STREAM;
-enc_type(_, dgram)     -> ?SOCKET_TYPE_DGRAM;
-enc_type(_, raw)       -> ?SOCKET_TYPE_RAW;
-enc_type(_, seqpacket) -> ?SOCKET_TYPE_SEQPACKET;
-enc_type(_, Type)      -> invalid_type(Type).
+enc_type(stream)    -> ?SOCKET_TYPE_STREAM;
+enc_type(dgram)     -> ?SOCKET_TYPE_DGRAM;
+enc_type(raw)       -> ?SOCKET_TYPE_RAW;
+enc_type(seqpacket) -> ?SOCKET_TYPE_SEQPACKET;
+enc_type(Type)      -> invalid_type(Type).
 
--spec enc_protocol(Type, Protocol) -> non_neg_integer() | 
-                                      {raw, non_neg_integer()} when
-      Type     :: type(),
+-spec enc_protocol(Protocol) -> non_neg_integer() |
+                                {raw, non_neg_integer()} when
       Protocol :: protocol().
 
-enc_protocol(_,         default) -> ?SOCKET_PROTOCOL_DEFAULT;
-enc_protocol(dgram,     ip)      -> ?SOCKET_PROTOCOL_IP;
-enc_protocol(stream,    tcp)     -> ?SOCKET_PROTOCOL_TCP;
-enc_protocol(dgram,     udp)     -> ?SOCKET_PROTOCOL_UDP;
-enc_protocol(seqpacket, sctp)    -> ?SOCKET_PROTOCOL_SCTP;
-enc_protocol(dgram,     icmp)    -> ?SOCKET_PROTOCOL_ICMP;
-enc_protocol(raw,       icmp)    -> ?SOCKET_PROTOCOL_ICMP;
-enc_protocol(raw,       igmp)    -> ?SOCKET_PROTOCOL_IGMP;
-enc_protocol(raw,       {raw, P} = RAW) when is_integer(P) -> RAW;
-enc_protocol(Type, Proto) -> 
-    invalid_protocol(Type, Proto).
+enc_protocol(default) -> ?SOCKET_PROTOCOL_DEFAULT;
+enc_protocol(ip)      -> ?SOCKET_PROTOCOL_IP;
+enc_protocol(tcp)     -> ?SOCKET_PROTOCOL_TCP;
+enc_protocol(udp)     -> ?SOCKET_PROTOCOL_UDP;
+enc_protocol(sctp)    -> ?SOCKET_PROTOCOL_SCTP;
+enc_protocol(icmp)    -> ?SOCKET_PROTOCOL_ICMP;
+enc_protocol(igmp)    -> ?SOCKET_PROTOCOL_IGMP;
+enc_protocol({raw, P} = RAW) when is_integer(P) -> RAW;
+enc_protocol(Proto) ->
+    invalid_protocol(Proto).
 
 
 -spec enc_send_flags(Flags) -> non_neg_integer() when
@@ -4043,12 +4039,11 @@ invalid_domain(Domain) ->
 invalid_type(Type) ->
     error({invalid_type, Type}).
 
--spec invalid_protocol(Type, Proto) -> no_return() when
-      Type  :: term(),
+-spec invalid_protocol(Proto) -> no_return() when
       Proto :: term().
 
-invalid_protocol(Type, Proto) ->
-    error({invalid_protocol, {Type, Proto}}).
+invalid_protocol(Proto) ->
+    error({invalid_protocol, Proto}).
 
 -spec not_supported(What) -> no_return() when
       What :: term().
