@@ -38,7 +38,8 @@ all() ->
     %% Note: SNI not supported in sslv3
     case ssl_test_lib:openssl_sane_dtls() of 
         true ->
-            [{group, 'tlsv1.2'},
+            [{group, 'tlsv1.3'},
+             {group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'}
              %% Seems broken in openssl 
@@ -46,7 +47,8 @@ all() ->
              %%{group, 'dtlsv1'}
             ];
         false ->
-            [{group, 'tlsv1.2'},
+            [{group, 'tlsv1.3'},
+             {group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'}]
     end.
@@ -54,7 +56,8 @@ all() ->
 groups() ->
      case ssl_test_lib:openssl_sane_dtls() of 
          true ->
-             [{'tlsv1.2', [], sni_tests()},
+             [{'tlsv1.3', [], sni_tests()},
+              {'tlsv1.2', [], sni_tests()},
               {'tlsv1.1', [], sni_tests()},
               {'tlsv1', [], sni_tests()}
               %% Seems broken in openssl 
@@ -62,7 +65,8 @@ groups() ->
               %%{'dtlsv1', [], sni_tests()}
              ];
         false ->
-             [{'tlsv1.2', [], sni_tests()},
+             [{'tlsv1.3', [], sni_tests()},
+              {'tlsv1.2', [], sni_tests()},
               {'tlsv1.1', [], sni_tests()},
               {'tlsv1', [], sni_tests()}
              ]
