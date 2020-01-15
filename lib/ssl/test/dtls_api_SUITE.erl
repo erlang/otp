@@ -39,7 +39,8 @@ groups() ->
 api_tests() ->
     [
      dtls_listen_owner_dies,
-     dtls_listen_close
+     dtls_listen_close,
+     dtls_listen_reopen
     ].
 
 init_per_suite(Config0) ->
@@ -114,7 +115,7 @@ dtls_listen_owner_dies(Config) when is_list(Config) ->
     {ok, LSocket} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
     spawn(fun() -> 
                   {ok, ASocket} = ssl:transport_accept(LSocket),
-                  _ = ssl:handshake(ASocket),
+                  {ok, Socket} = ssl:handshake(ASocket),
                    receive 
                        {ssl, Socket, "from client"} ->
                            ssl:send(Socket, "from server"),
@@ -141,6 +142,49 @@ dtls_listen_close(Config) when is_list(Config) ->
     {ok, ListenSocket} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
     ok = ssl:close(ListenSocket).
 
+
+dtls_listen_reopen() ->
+    [{doc, "Test that you close a DTLS 'listner' socket and open a new one for the same port"}].
+
+dtls_listen_reopen(Config) when is_list(Config) -> 
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Port = ssl_test_lib:inet_port(ServerNode),
+    {ok, LSocket0} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
+     spawn(fun() ->
+                  {ok, ASocket} = ssl:transport_accept(LSocket0),
+                   {ok, Socket} = ssl:handshake(ASocket),
+                   receive
+                       {ssl, Socket, "from client"} ->
+                           ssl:send(Socket, "from server 1"),
+                           ssl:close(Socket)
+                   end
+           end),
+    {ok, Client1} = ssl:connect(Hostname, Port, ClientOpts),
+    ok = ssl:close(LSocket0),
+    {ok, LSocket1} = ssl:listen(Port, [{protocol, dtls} | ServerOpts]),
+    spawn(fun() ->
+                  {ok, ASocket} = ssl:transport_accept(LSocket1),
+                  {ok, Socket} = ssl:handshake(ASocket),
+                  receive
+                      {ssl, Socket, "from client"} ->
+                          ssl:send(Socket, "from server 2"),
+                          ssl:close(Socket)
+                   end
+          end),
+    {ok, Client2} = ssl:connect(Hostname, Port, [{protocol, dtls} | ClientOpts]),
+    ssl:send(Client2, "from client"),
+    ssl:send(Client1, "from client"),
+    receive
+        {ssl, Client1, "from server 1"} ->
+            ssl:close(Client1)
+    end,
+    receive
+        {ssl, Client2, "from server 2"} ->
+            ssl:close(Client2)
+    end.
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
