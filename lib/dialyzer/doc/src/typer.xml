@@ -64,7 +64,7 @@ typer [--help] [--version] [--plt PLT] [--edoc]
 
     <taglist>
 
-      <tag><c>--r</c></tag>
+      <tag><c>-r</c></tag>
       <item>
         <p>Search directories recursively for .erl files below them.</p>
       </item>
