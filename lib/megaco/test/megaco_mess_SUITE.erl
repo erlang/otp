@@ -3256,20 +3256,25 @@ request_and_reply_and_ack(suite) ->
 request_and_reply_and_ack(doc) ->
     ["This test case tests that megaco correctly handles three-way-handshake"];
 request_and_reply_and_ack(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        raraa),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_reply_and_ack/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(raraa, Pre, Case, Post).     
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    Nodes = [MgcNode, MgNode],
-    ok = ?START_NODES(Nodes, true),
-
+do_request_and_reply_and_ack([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -3314,10 +3319,6 @@ request_and_reply_and_ack(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
