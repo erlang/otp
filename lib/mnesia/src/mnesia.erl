@@ -2057,8 +2057,14 @@ dirty_rpc(Tab, M, F, Args) ->
 
 do_dirty_rpc(_Tab, nowhere, _, _, Args) ->
     mnesia:abort({no_exists, Args});
+do_dirty_rpc(_Tab, Local, M, F, Args) when Local =:= node() ->
+    try apply(M,F,Args)
+    catch
+        throw:Res -> Res;
+        _:_ -> mnesia:abort({badarg, Args})
+    end;
 do_dirty_rpc(Tab, Node, M, F, Args) ->
-    case rpc:call(Node, M, F, Args) of
+    case mnesia_rpc:call(Node, M, F, Args) of
 	{badrpc, Reason} ->
 	    timer:sleep(20), %% Do not be too eager, and can't use yield on SMP
 	    %% Sync with mnesia_monitor
@@ -2166,7 +2172,7 @@ raw_table_info(Tab, Item) ->
 	    disc_only_copies ->
 		info_reply(dets:info(Tab, Item), Tab, Item);
             {ext, Alias, Mod} ->
-                info_reply(catch Mod:info(Alias, Tab, Item), Tab, Item);
+                info_reply(Mod:info(Alias, Tab, Item), Tab, Item);
 	    unknown ->
 		bad_info_reply(Tab, Item)
 	end

@@ -2497,8 +2497,12 @@ mnesia:create_table(employee,
               table.</p>
           </item>
           <item>
-            <p><c>memory</c>. Returns the number of
-              words allocated to the table on this node.</p>
+            <p><c>memory</c>. Returns for <c>ram_copies</c> and
+            <c>disc_copies</c> tables the number of words allocated in
+            memory to the table on this node.
+	    For <c>disc_only_copies</c> tables the number of bytes stored
+	    on disc is returned.
+	    </p>
           </item>
           <item>
             <p><c>ram_copies</c>. Returns the nodes where a

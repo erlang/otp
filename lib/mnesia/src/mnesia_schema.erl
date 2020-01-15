@@ -1271,7 +1271,7 @@ verify_nodes(Cs) ->
     lists:foreach(AtomCheck, Nodes).
 
 verify(Expected, Fun, Error) when is_function(Fun) ->
-    do_verify(Expected, catch Fun(), Error);
+    do_verify(Expected, ?CATCH(Fun()), Error);
 verify(Expected, Actual, Error) ->
     do_verify(Expected, Actual, Error).
 

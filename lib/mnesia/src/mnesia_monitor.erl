@@ -83,9 +83,9 @@
 		going_down = [], tm_started = false, early_connects = [],
 		connecting, mq = [], remote_node_status = []}).
 
--define(current_protocol_version,  {8,4}).
+-define(current_protocol_version,  {8,5}).
 
--define(previous_protocol_version, {8,3}).
+-define(previous_protocol_version, {8,4}).
 
 start() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE,
@@ -196,7 +196,7 @@ protocol_version() ->
 %% A sorted list of acceptable protocols the
 %% preferred protocols are first in the list
 acceptable_protocol_versions() ->
-    [protocol_version(), ?previous_protocol_version].
+    [protocol_version(), ?previous_protocol_version, {8,3}].
 
 needs_protocol_conversion(Node) ->
     case {?catch_val({protocol, Node}), protocol_version()} of
@@ -409,7 +409,7 @@ handle_call({unsafe_close_log, Name}, _From, State) ->
     {reply, ok, State};
 
 handle_call({unsafe_create_external, Tab, Alias, Mod, Cs}, _From, State) ->
-    case catch Mod:create_table(Alias, Tab, mnesia_schema:cs2list(Cs)) of
+    case ?CATCH(Mod:create_table(Alias, Tab, mnesia_schema:cs2list(Cs))) of
 	{'EXIT', ExitReason} ->
 	    {reply, {error, ExitReason}, State};
 	Reply ->
