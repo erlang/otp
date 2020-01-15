@@ -2867,6 +2867,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(keepcnt);                         \
     GLOBAL_ATOM_DECL(keepidle);                        \
     GLOBAL_ATOM_DECL(keepintvl);                       \
+    GLOBAL_ATOM_DECL(kernel);                          \
     GLOBAL_ATOM_DECL(leave_group);                     \
     GLOBAL_ATOM_DECL(level);                           \
     GLOBAL_ATOM_DECL(linger);                          \
@@ -2987,6 +2988,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(unicast_hops);                    \
     GLOBAL_ATOM_DECL(unknown);                         \
     GLOBAL_ATOM_DECL(usec);                            \
+    GLOBAL_ATOM_DECL(user);                            \
     GLOBAL_ATOM_DECL(user_timeout);                    \
     GLOBAL_ATOM_DECL(use_ext_recvinfo);                \
     GLOBAL_ATOM_DECL(use_min_mtu);                     \

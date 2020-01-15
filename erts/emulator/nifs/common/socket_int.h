@@ -207,6 +207,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(keepcnt);                  \
     GLOBAL_ATOM_DEF(keepidle);                 \
     GLOBAL_ATOM_DEF(keepintvl);                \
+    GLOBAL_ATOM_DEF(kernel);                   \
     GLOBAL_ATOM_DEF(leave_group);              \
     GLOBAL_ATOM_DEF(level);                    \
     GLOBAL_ATOM_DEF(linger);                   \
@@ -328,6 +329,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(unicast_hops);             \
     GLOBAL_ATOM_DEF(unknown);                  \
     GLOBAL_ATOM_DEF(usec);                     \
+    GLOBAL_ATOM_DEF(user);                     \
     GLOBAL_ATOM_DEF(user_timeout);             \
     GLOBAL_ATOM_DEF(use_ext_recvinfo);         \
     GLOBAL_ATOM_DEF(use_min_mtu);              \
