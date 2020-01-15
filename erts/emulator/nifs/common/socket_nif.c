@@ -903,6 +903,10 @@ typedef struct {
     ESockRequestor     currentAcceptor;
     ESockRequestor*    currentAcceptorP; // NULL or points to currentAcceptor
     ESockRequestQueue  acceptorsQ;
+    Uint64             accSuccess;
+    Uint64             accTries;
+    Uint64             accWaits;
+    Uint64             accFails;
 
     /* +++ Config & Misc stuff +++ */
     ErlNifMutex*       cfgMtx;
@@ -1132,6 +1136,7 @@ static ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
                                                  int              save_errno);
 static ERL_NIF_TERM esock_accept_listening_accept(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     sockRef,
                                                   SOCKET           accSock,
                                                   ErlNifPid        caller,
                                                   ESockAddress*    remote);
@@ -1165,6 +1170,7 @@ static ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                             unsigned int     nextState);
 static BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
                                        SOCKET           accSock,
                                        ErlNifPid        pid,
                                        ESockAddress*    remote,
@@ -3016,6 +3022,10 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
 
 /* *** Local atoms *** */
 #define LOCAL_ATOMS                    \
+    LOCAL_ATOM_DECL(acc_success);      \
+    LOCAL_ATOM_DECL(acc_fails);        \
+    LOCAL_ATOM_DECL(acc_tries);        \
+    LOCAL_ATOM_DECL(acc_waits);        \
     LOCAL_ATOM_DECL(adaptation_layer); \
     LOCAL_ATOM_DECL(add);              \
     LOCAL_ATOM_DECL(addr_unreach);     \
@@ -3454,10 +3464,16 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
         ERL_NIF_TERM writePkgMax  = MKCT(env, atom_write_pkg_max, descP->writePkgMax);
         ERL_NIF_TERM writeTries   = MKCT(env, atom_write_tries, descP->writeTries);
         ERL_NIF_TERM writeWaits   = MKCT(env, atom_write_waits, descP->writeWaits);
+
+        ERL_NIF_TERM accSuccess   = MKCT(env, atom_acc_success, descP->accSuccess);
+        ERL_NIF_TERM accFails     = MKCT(env, atom_acc_fails, descP->accFails);
+        ERL_NIF_TERM accTries     = MKCT(env, atom_acc_tries, descP->accTries);
+        ERL_NIF_TERM accWaits     = MKCT(env, atom_acc_waits, descP->accWaits);
         ERL_NIF_TERM acnt[]       = {readByteCnt, readFails, readPkgCnt, readPkgMax,
                                      readTries, readWaits,
                                      writeByteCnt, writeFails, writePkgCnt, writePkgMax,
-                                     writeTries, writeWaits};
+                                     writeTries, writeWaits,
+                                     accSuccess, accFails, accTries, accWaits};
         unsigned int lenACnt      = sizeof(acnt) / sizeof(ERL_NIF_TERM);
 
         info = MKLA(env, acnt, lenACnt);
@@ -6180,7 +6196,8 @@ ERL_NIF_TERM esock_accept_listening(ErlNifEnv*       env,
 
       SSDBG( descP, ("SOCKET", "esock_accept_listening -> success\r\n") );
 
-        res = esock_accept_listening_accept(env, descP, accSock, caller, &remote);
+      res = esock_accept_listening_accept(env, descP,
+                                          sockRef, accSock, caller, &remote);
 
     }
 
@@ -6214,6 +6231,8 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET", "esock_accept_listening_error -> would block\r\n") );
 
+        SOCK_CNT_INC(env, descP, sockRef, atom_acc_tries, &descP->accTries, 1);
+
         descP->currentAcceptor.pid = caller;
         if (MONP("esock_accept_listening -> current acceptor",
                  env, descP,
@@ -6235,6 +6254,9 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET",
                 "esock_accept_listening -> errno: %d\r\n", save_errno) );
+
+        SOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
+
         res = esock_make_error_errno(env, save_errno);
     }
 
@@ -6249,13 +6271,14 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esock_accept_listening_accept(ErlNifEnv*       env,
                                            ESockDescriptor* descP,
+                                           ERL_NIF_TERM     sockRef,
                                            SOCKET           accSock,
                                            ErlNifPid        caller,
                                            ESockAddress*    remote)
 {
     ERL_NIF_TERM res;
 
-    esock_accept_accepted(env, descP, accSock, caller, remote, &res);
+    esock_accept_accepted(env, descP, sockRef, accSock, caller, remote, &res);
     
     return res;
 }
@@ -6376,7 +6399,7 @@ ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    if (esock_accept_accepted(env, descP, accSock,
+    if (esock_accept_accepted(env, descP, sockRef, accSock,
                               descP->currentAcceptor.pid, remote, &res)) {
 
         /* Clean out the old cobweb's before trying to invite a new spider */
@@ -6439,12 +6462,16 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
                 "esock_accept_accepting_current_error -> "
                 "would block: try again\r\n") );
 
+        SOCK_CNT_INC(env, descP, sockRef, atom_acc_waits, &descP->accWaits, 1);
+
         res = esock_accept_busy_retry(env, descP, sockRef, opRef,
                                       &descP->currentAcceptor.pid,
                                       /* No state change */
                                       descP->state);
 
     } else {
+
+        SOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
 
         reason = MKA(env, erl_errno_id(save_errno));
         res    = esock_make_error(env, reason);
@@ -6528,6 +6555,7 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
 static
 BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
                                 SOCKET           accSock,
                                 ErlNifPid        pid,
                                 ESockAddress*    remote,
@@ -6541,6 +6569,8 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     /*
      * We got one
      */
+
+    SOCK_CNT_INC(env, descP, sockRef, atom_acc_success, &descP->accSuccess, 1);
 
     if ((accEvent = sock_create_event(accSock)) == INVALID_EVENT) {
         save_errno = sock_errno();
@@ -18744,6 +18774,10 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->currentAcceptorP = NULL; // currentAcceptor not used
         descP->acceptorsQ.first = NULL;
         descP->acceptorsQ.last  = NULL;
+        descP->accSuccess       = 0;
+        descP->accFails         = 0;
+        descP->accTries         = 0;
+        descP->accWaits         = 0;
 
         sprintf(buf, "esock[close,%d]", sock);
         descP->closeMtx         = MCREATE(buf);
