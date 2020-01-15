@@ -1140,12 +1140,12 @@ client_await_message(State, ExpectMessage, Timeout)
 
 client_block(#client{handle = Handle} = State) 
   when (Handle =/= undefined) ->
-    megaco_udp:block(Handle),
+    ok = megaco_udp:block(Handle),
     {ok, State}.
 
 client_unblock(#client{handle = Handle} = State) 
   when (Handle =/= undefined) ->
-    megaco_udp:unblock(Handle),
+    ok = megaco_udp:unblock(Handle),
     {ok, State}.
 
 client_close(#client{handle = {socket, Socket}} = State) ->
