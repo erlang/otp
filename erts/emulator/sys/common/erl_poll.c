@@ -2346,7 +2346,7 @@ uint32_t epoll_events(int kp_fd, int fd)
     char s[256];
     FILE *f;
     unsigned int pos, flags, mnt_id;
-    int line = 0;
+    int hdr_lines, line = 1;
     sprintf(fname,"/proc/%d/fdinfo/%d",getpid(), kp_fd);
     f = fopen(fname,"r");
     if (!f) {
@@ -2354,13 +2354,14 @@ uint32_t epoll_events(int kp_fd, int fd)
         ASSERT(0);
         return 0;
     }
-    if (fscanf(f,"pos:\t%x\nflags:\t%x", &pos, &flags) != 2) {
+    hdr_lines = fscanf(f,"pos:\t%x\nflags:\t%x\nmnt_id:\t%x\n",
+                       &pos, &flags, &mnt_id);
+    if (hdr_lines < 2) {
         fprintf(stderr,"failed to parse file %s, errno = %d\n", fname, errno);
         ASSERT(0);
         return 0;
     }
-    if (fscanf(f,"\nmnt_id:\t%x\n", &mnt_id));
-    line += 3;
+    line += hdr_lines;
     while (fgets(s, sizeof(s) / sizeof(*s), f)) {
         /* tfd:       10 events: 40000019 data:       180000000a */
         int ev_fd;
@@ -2414,7 +2415,7 @@ ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet *ps,
     char s[256];
     FILE *f;
     unsigned int pos, flags, mnt_id;
-    int line = 0;
+    int hdr_lines, line = 1;
     sprintf(fname,"/proc/%d/fdinfo/%d",getpid(), ps->kp_fd);
     for (fd = 0; fd < len; fd++)
         ev[fd] = ERTS_POLL_EV_NONE;
@@ -2423,14 +2424,15 @@ ERTS_POLL_EXPORT(erts_poll_get_selected_events)(ErtsPollSet *ps,
         fprintf(stderr,"failed to open file %s, errno = %d\n", fname, errno);
         return;
     }
-    if (fscanf(f,"pos:\t%x\nflags:\t%x", &pos, &flags) != 2) {
+    hdr_lines = fscanf(f,"pos:\t%x\nflags:\t%x\nmnt_id:\t%x\n",
+                       &pos, &flags, &mnt_id);
+    if (hdr_lines < 2) {
         fprintf(stderr,"failed to parse file %s, errno = %d\n", fname, errno);
         ASSERT(0);
         fclose(f);
         return;
     }
-    if (fscanf(f,"\nmnt_id:\t%x\n", &mnt_id));
-    line += 3;
+    line += hdr_lines;
     while (fgets(s, sizeof(s) / sizeof(*s), f)) {
         /* tfd:       10 events: 40000019 data:       180000000a */
         int fd;
