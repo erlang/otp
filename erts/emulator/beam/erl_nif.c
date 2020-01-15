@@ -4275,17 +4275,12 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
 		ret = load_nif_error(c_p,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
 	    }
-	    else if (f->flags) {
-		/*
-		 * If the flags field is non-zero and this emulator was
-		 * built with dirty scheduler support, check that the flags
-		 * value is legal. But if this emulator was built without
-		 * dirty scheduler support, treat a non-zero flags field as
-		 * a load error.
-		 */
-		if (f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND && f->flags != ERL_NIF_DIRTY_JOB_CPU_BOUND)
-		    ret = load_nif_error(c_p, bad_lib, "Illegal flags field value %d for NIF %T:%s/%u",
-					 f->flags, mod_atom, f->name, f->arity);
+	    else if (f->flags != 0 &&
+                     f->flags != ERL_NIF_DIRTY_JOB_IO_BOUND &&
+                     f->flags != ERL_NIF_DIRTY_JOB_CPU_BOUND) {
+                ret = load_nif_error(c_p, bad_lib,
+                                     "Illegal flags field value %d for NIF %T:%s/%u",
+                                     f->flags, mod_atom, f->name, f->arity);
 	    }
 
             ASSERT(erts_codeinfo_to_code(ci_pp[1]) - erts_codeinfo_to_code(ci_pp[0])

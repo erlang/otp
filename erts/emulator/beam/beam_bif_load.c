@@ -1465,12 +1465,14 @@ rla_resume(void *literal_area)
 }
 
 
+#ifdef DEBUG
 static ERTS_INLINE Sint
 rla_bc_read(int sched_ix, int block_ix)
 {
     return (Sint) erts_atomic_read_nob(
         &release_literal_areas.bc[sched_ix].u.block.counter[block_ix]);
 }
+#endif
 
 static ERTS_INLINE Sint
 rla_bc_read_acqb(int sched_ix, int block_ix)
