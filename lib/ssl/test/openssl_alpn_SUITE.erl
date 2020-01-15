@@ -45,7 +45,9 @@ all() ->
              {group, 'dtlsv1.2'},
              {group, 'dtlsv1'}];
         false ->
-            [{group, 'tlsv1.2'},
+            [
+             {group, 'tlsv1.3'},
+             {group, 'tlsv1.2'},
              {group, 'tlsv1.1'},
              {group, 'tlsv1'}]
     end.
