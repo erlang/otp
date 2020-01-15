@@ -27501,13 +27501,31 @@ traffic_send_and_recv_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock}) ->
                            socket:listen(LSock)
                    end},
+         #{desc => "initial (listen socket) counter validation (=zero)",
+           cmd  => fun(#{lsock := LSock} = _State) ->
+                           try socket:info(LSock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("Validate initial listen socket counters: "
+                                               "~s", [format_counters(listen,
+                                                                      Counters)]),
+                                   traffic_sar_counters_validation(Counters)
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{domain   := local,
                          tester   := Tester,
                          local_sa := #{path := Path}}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, Path),
                            ok;
-                      (#{tester   := Tester,
+                      (#{lsock    := LSock,
+                         tester   := Tester,
                          lport    := Port}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, Port),
                            ok
@@ -27521,8 +27539,22 @@ traffic_send_and_recv_tcp(InitState) ->
          #{desc => "accept",
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
-                               {ok, Sock} ->
-                                   {ok, State#{csock => Sock}};
+                               {ok, CSock} ->
+                                   #{counters := LCnts} = socket:info(LSock),
+                                   ?SEV_IPRINT("Validate listen counters: "
+                                               "~s", [format_counters(listen,
+                                                                      LCnts)]),
+                                   traffic_sar_counters_validation(
+                                     LCnts,
+                                     [{acc_success, 1},
+                                      {acc_fails,   0},
+                                      {acc_tries,   1},
+                                      {acc_waits,   0}]),
+                                   #{counters := CCnts} = socket:info(CSock),
+                                   ?SEV_IPRINT("Validate initial accept counters: "
+                                               "~s", [format_counters(CCnts)]),
+                                   traffic_sar_counters_validation(CCnts),
+                                   {ok, State#{csock => CSock}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -28299,9 +28331,12 @@ traffic_send_and_recv_tcp(InitState) ->
 
 
 format_counters(Counters) ->
-    format_counters("   ", Counters).
+    format_counters(traffic, Counters).
 
-format_counters(Prefix, Counters) ->
+format_counters(Type, Counters) when (Type =:= listen) orelse (Type =:= traffic) ->
+    format_counters("   ", Type, Counters).
+
+format_counters(Prefix, traffic, Counters) ->
     ReadByte    = proplists:get_value(read_byte,     Counters, -1),
     ReadFails   = proplists:get_value(read_fails,    Counters, -1),
     ReadPkg     = proplists:get_value(read_pkg,      Counters, -1),
@@ -28337,7 +28372,21 @@ format_counters(Prefix, Counters) ->
        Prefix, WritePkg,
        Prefix, WriteTries,
        Prefix, WriteWaits,
-       Prefix, WritePkgMax]).
+       Prefix, WritePkgMax]);
+
+format_counters(Prefix, listen, Counters) ->
+    AccSuccess = proplists:get_value(acc_success, Counters, -1),
+    AccFails   = proplists:get_value(acc_fails,   Counters, -1),
+    AccTries   = proplists:get_value(acc_tries,   Counters, -1),
+    AccWaits   = proplists:get_value(acc_waits,   Counters, -1),
+    f("~n~sNumber Of Successful Accepts: ~p"
+      "~n~sNumber Of Failed Accepts:     ~p"
+      "~n~sNumber Of Accept Attempts:    ~p"
+      "~n~sNumber Of Accept Waits:       ~p",
+      [Prefix, AccSuccess,
+       Prefix, AccFails,
+       Prefix, AccTries,
+       Prefix, AccWaits]).
 
 all_counters() ->
     [
@@ -28352,7 +28401,11 @@ all_counters() ->
      write_pkg,
      write_pkg_max,
      write_tries,
-     write_waits
+     write_waits,
+     acc_success,
+     acc_fails,
+     acc_tries,
+     acc_waits
     ].
 
 zero_counters() ->
