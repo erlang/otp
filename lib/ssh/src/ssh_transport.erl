@@ -222,7 +222,7 @@ is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
     true;
 is_valid_mac(Mac, Data, #ssh{recv_mac = Algorithm,
 			     recv_mac_key = Key, recv_sequence = SeqNum}) ->
-    Mac == mac(Algorithm, Key, SeqNum, Data).
+    crypto:equal_const_time(Mac, mac(Algorithm, Key, SeqNum, Data)).
 
 format_version({Major,Minor}, SoftwareVersion) ->
     "SSH-" ++ integer_to_list(Major) ++ "." ++ 
