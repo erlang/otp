@@ -7613,11 +7613,6 @@ otp_5805(suite) ->
     [];
 otp_5805(Config) when is_list(Config) ->
     Pre = fun() ->
-                  put(verbosity, ?TEST_VERBOSITY),
-                  put(sname,     "TEST"),
-                  put(tc,        otp_5805),
-                  i("starting"),
-
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
@@ -8354,11 +8349,6 @@ otp_5887(suite) ->
     [];
 otp_5887(Config) when is_list(Config) ->
     Pre = fun() ->
-                  put(verbosity, ?TEST_VERBOSITY),
-                  put(sname,     "TEST"),
-                  put(tc,        otp_5887),
-                  i("starting"),
-
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
@@ -8708,11 +8698,6 @@ otp_6275(suite) ->
     [];
 otp_6275(Config) when is_list(Config) ->
     Pre = fun() ->
-                  put(verbosity, ?TEST_VERBOSITY),
-                  put(sname,     "TEST"),
-                  put(tc,        otp_6275),
-                  i("starting"),
-
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
@@ -9897,11 +9882,6 @@ otp_6442_resend_request1(suite) ->
     [];
 otp_6442_resend_request1(Config) when is_list(Config) ->
     Pre = fun() ->
-                  put(verbosity, debug),
-                  put(sname,     "TEST"),
-                  put(tc,        otp6442rreq1),
-                  i("starting"),
-
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
                   Nodes = [MgNode],
@@ -10278,11 +10258,6 @@ otp_6442_resend_request2(suite) ->
     [];
 otp_6442_resend_request2(Config) when is_list(Config) ->
     Pre = fun() ->
-                  put(verbosity, debug),
-                  put(sname,     "TEST"),
-                  put(tc,        otp6442rreq2),
-                  i("starting"),
-
                   MgNode = make_node_name(mg),
                   d("start (MG) node: ~p", [MgNode]),
                   Nodes = [MgNode],
@@ -10590,16 +10565,21 @@ otp_6442_resend_request2_mg_notify_request_ar(Rid, Tid, Cid) ->
 otp_6442_resend_reply1(suite) ->
     [];
 otp_6442_resend_reply1(Config) when is_list(Config) ->
-    put(sname,     "TEST"),
-    put(verbosity, debug),
-    put(tc,        otp6442rrep1),
-    i("starting"),
+    Pre = fun() ->
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6442_resend_reply1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(request_and_no_reply, Pre, Case, Post).
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    Nodes = [MgNode],
-    ok = ?START_NODES(Nodes, true),
-
+do_otp_6442_resend_reply1([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -10655,10 +10635,6 @@ otp_6442_resend_reply1(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
