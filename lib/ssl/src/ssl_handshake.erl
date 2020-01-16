@@ -2447,8 +2447,17 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_EXT), ?UINT16(Len),
   when Version =:= {3,4} ->
     SignSchemeListLen = Len - 2,
     <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
-    SignSchemes = [ssl_cipher:signature_scheme(SignScheme) ||
-			<<?UINT16(SignScheme)>> <= SignSchemeList],
+    %% Ignore unknown signature algorithms
+    Fun = fun(Elem) ->
+                  case ssl_cipher:signature_scheme(Elem) of
+                      unassigned ->
+                          false;
+                      Value ->
+                          {true, Value}
+                  end
+          end,
+    SignSchemes= lists:filtermap(Fun, [SignScheme ||
+                                          <<?UINT16(SignScheme)>> <= SignSchemeList]),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{signature_algs =>
                                #signature_algorithms{
@@ -2458,8 +2467,17 @@ decode_extensions(<<?UINT16(?SIGNATURE_ALGORITHMS_CERT_EXT), ?UINT16(Len),
 		       ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
     SignSchemeListLen = Len - 2,
     <<?UINT16(SignSchemeListLen), SignSchemeList/binary>> = ExtData,
-    SignSchemes = [ssl_cipher:signature_scheme(SignScheme) ||
-			<<?UINT16(SignScheme)>> <= SignSchemeList],
+    %% Ignore unknown signature algorithms
+    Fun = fun(Elem) ->
+                  case ssl_cipher:signature_scheme(Elem) of
+                      unassigned ->
+                          false;
+                      Value ->
+                          {true, Value}
+                  end
+          end,
+    SignSchemes= lists:filtermap(Fun, [SignScheme ||
+                                          <<?UINT16(SignScheme)>> <= SignSchemeList]),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{signature_algs_cert =>
                                #signature_algorithms_cert{
@@ -2634,11 +2652,18 @@ decode_client_shares(ClientShares) ->
 %%
 decode_client_shares(<<>>, Acc) ->
     lists:reverse(Acc);
-decode_client_shares(<<?UINT16(Group),?UINT16(Len),KeyExchange:Len/binary,Rest/binary>>, Acc) ->
-    decode_client_shares(Rest, [#key_share_entry{
-                                   group = tls_v1:enum_to_group(Group),
-                                   key_exchange= KeyExchange
-                                  }|Acc]).
+decode_client_shares(<<?UINT16(Group0),?UINT16(Len),KeyExchange:Len/binary,Rest/binary>>, Acc) ->
+    case tls_v1:enum_to_group(Group0) of
+        undefined ->
+            %% Ignore key_share with unknown group
+            decode_client_shares(Rest, Acc);
+        Group ->
+            decode_client_shares(Rest, [#key_share_entry{
+                                           group = Group,
+                                           key_exchange= KeyExchange
+                                          }|Acc])
+    end.
+
 
 decode_next_protocols({next_protocol_negotiation, Protocols}) ->
     decode_protocols(Protocols, []).
@@ -2664,7 +2689,10 @@ decode_psk_key_exchange_modes(<<>>, Acc) ->
 decode_psk_key_exchange_modes(<<?BYTE(?PSK_KE), Rest/binary>>, Acc) ->
     decode_psk_key_exchange_modes(Rest, [psk_ke|Acc]);
 decode_psk_key_exchange_modes(<<?BYTE(?PSK_DHE_KE), Rest/binary>>, Acc) ->
-    decode_psk_key_exchange_modes(Rest, [psk_dhe_ke|Acc]).
+    decode_psk_key_exchange_modes(Rest, [psk_dhe_ke|Acc]);
+%% Ignore unknown PskKeyExchangeModes
+decode_psk_key_exchange_modes(<<?BYTE(_), Rest/binary>>, Acc) ->
+    decode_psk_key_exchange_modes(Rest, Acc).
 
 
 decode_psk_identities(Identities) ->
