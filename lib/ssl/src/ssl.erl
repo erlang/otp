@@ -786,8 +786,8 @@ handshake_cancel(Socket) ->
 %%--------------------------------------------------------------------
 close(#sslsocket{pid = [Pid|_]}) when is_pid(Pid) ->
     ssl_connection:close(Pid, {close, ?DEFAULT_TIMEOUT});
-close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, _}}}}) ->
-   dtls_packet_demux:close(Pid);
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {_, _}}}} = DTLSListen) ->
+    dtls_socket:close(DTLSListen);
 close(#sslsocket{pid = {ListenSocket, #config{transport_info={Transport,_,_,_,_}}}}) ->
     Transport:close(ListenSocket).
 
