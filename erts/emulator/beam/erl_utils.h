@@ -131,15 +131,28 @@ Sint erts_cmp_compound(Eterm, Eterm, int, int);
 #define CMP_GT(a,b)          ((a) != (b) && CMP((a),(b)) >  0)
 
 #define CMP_EQ_ACTION(X,Y,Action)	\
-    if ((X) != (Y)) { CMP_SPEC((X),(Y),!=,Action,1); }
+    if ((X) != (Y)) { EQ_SPEC((X),(Y),!=,Action); }
 #define CMP_NE_ACTION(X,Y,Action)	\
-    if ((X) == (Y)) { Action; } else { CMP_SPEC((X),(Y),==,Action,1); }
-#define CMP_GE_ACTION(X,Y,Action)	\
-    if ((X) != (Y)) { CMP_SPEC((X),(Y),<,Action,0); }
-#define CMP_LT_ACTION(X,Y,Action)	\
-    if ((X) == (Y)) { Action; } else { CMP_SPEC((X),(Y),>=,Action,0); }
+    if ((X) == (Y)) { Action; } else { EQ_SPEC((X),(Y),==,Action); }
 
-#define CMP_SPEC(X,Y,Op,Action,EqOnly)				\
+#define EQ_SPEC(X,Y,Op,Action)                                  \
+    if (is_both_immed(X, Y)) {                                  \
+        if (X Op Y) { Action; };                                \
+    } else if (is_float(X) && is_float(Y)) {                    \
+        FloatDef af, bf;                                        \
+        GET_DOUBLE(X, af);                                      \
+        GET_DOUBLE(Y, bf);                                      \
+        if (af.fd Op bf.fd) { Action; };                        \
+    } else {                                                    \
+        if (erts_cmp_compound(X,Y,0,1) Op 0) { Action; };       \
+    }
+
+#define CMP_GE_ACTION(X,Y,Action)                       \
+    if ((X) != (Y)) { CMP_SPEC((X),(Y),<,Action); }
+#define CMP_LT_ACTION(X,Y,Action)	\
+    if ((X) == (Y)) { Action; } else { CMP_SPEC((X),(Y),>=,Action); }
+
+#define CMP_SPEC(X,Y,Op,Action)                                 \
     if (is_atom(X) && is_atom(Y)) {				\
 	if (erts_cmp_atoms(X, Y) Op 0) { Action; };		\
     } else if (is_both_small(X, Y)) {				\
@@ -150,7 +163,26 @@ Sint erts_cmp_compound(Eterm, Eterm, int, int);
         GET_DOUBLE(Y, bf);					\
         if (af.fd Op bf.fd) { Action; };			\
     } else {							\
-	if (erts_cmp_compound(X,Y,0,EqOnly) Op 0) { Action; };	\
+	if (erts_cmp_compound(X,Y,0,0) Op 0) { Action; };	\
+    }
+
+/*
+ * When either operand for is_lt or is_ge is a literal, that literal is
+ * almost always an integer and almost never an atom. Therefore, only
+ * special case the comparison of small integers before calling the
+ * general compare function.
+ */
+
+#define CMP_GE_LITERAL_ACTION(X,Y,Action)                       \
+    if ((X) != (Y)) { CMP_LITERAL_SPEC((X),(Y),<,Action); }
+#define CMP_LT_LITERAL_ACTION(X,Y,Action)	\
+    if ((X) == (Y)) { Action; } else { CMP_LITERAL_SPEC((X),(Y),>=,Action); }
+
+#define CMP_LITERAL_SPEC(X,Y,Op,Action)                         \
+    if (is_both_small(X, Y)) {                                  \
+        if (signed_val(X) Op signed_val(Y)) { Action; };        \
+    } else {                                                    \
+        if (erts_cmp_compound(X,Y,0,0) Op 0) { Action; };       \
     }
 
 #define erts_float_comp(x,y) (((x)<(y)) ? -1 : (((x)==(y)) ? 0 : 1))
