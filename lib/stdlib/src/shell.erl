@@ -1496,8 +1496,8 @@ catch_exception(Bool) ->
       PromptFunc :: 'default' | {module(),atom()},
       PromptFunc2 :: 'default' | {module(),atom()}.
 
-prompt_func(String) ->
-    set_env(stdlib, shell_prompt_func, String, ?DEF_PROMPT_FUNC).
+prompt_func(PromptFunc) ->
+    set_env(stdlib, shell_prompt_func, PromptFunc, ?DEF_PROMPT_FUNC).
 
 -spec strings(Strings) -> Strings2 when
       Strings :: boolean(),
