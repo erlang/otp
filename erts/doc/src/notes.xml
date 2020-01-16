@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 9.3.3.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process calling <seealso
+	    marker="erts:erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
+	    block)</c></seealso> could end up blocked waiting for the
+	    operation to complete indefinitely.</p>
+          <p>
+	    Own Id: OTP-16379</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
