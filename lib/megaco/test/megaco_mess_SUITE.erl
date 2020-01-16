@@ -8707,20 +8707,30 @@ otp_6253(Config) when is_list(Config) ->
 otp_6275(suite) ->
     [];
 otp_6275(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_6275),
-    i("starting"),
+    Pre = fun() ->
+                  put(verbosity, ?TEST_VERBOSITY),
+                  put(sname,     "TEST"),
+                  put(tc,        otp_6275),
+                  i("starting"),
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    Nodes = [MgcNode, MgNode], 
-    ok = ?START_NODES(Nodes, true),
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6275/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_6275, Pre, Case, Post).
 
+do_otp_6275([MgcNode, MgNode]) ->
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
@@ -8759,10 +8769,6 @@ otp_6275(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
