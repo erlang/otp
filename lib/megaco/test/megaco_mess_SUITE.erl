@@ -6501,20 +6501,25 @@ request_and_pending_and_late_reply(doc) ->
      "i.e. return with {pending, _}. Then, expect the sender "
      "to keep re-sending the request until the reply is sent."];
 request_and_pending_and_late_reply(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rapalr),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_pending_and_late_reply/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rapalr, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    Nodes = [MgcNode, MgNode], 
-    ok = ?START_NODES(Nodes, true),
-
+do_request_and_pending_and_late_reply([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
@@ -6559,10 +6564,6 @@ request_and_pending_and_late_reply(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -14125,44 +14126,6 @@ sleep(X) -> receive after X -> ok end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-i(F) ->
-    i(F, []).
-
-i(F, A) ->
-    print(info, "INF", F, A).
-
-
-d(F) ->
-    d(F, []).
-
-d(F, A) ->
-    print(debug, "DBG", F, A).
-
-
-print(Severity, PRE, FMT, ARGS) ->
-    print(Severity, get(verbosity), erlang:timestamp(), get(tc), PRE, FMT, ARGS).
-
-print(Severity, Verbosity, Ts, Tc, P, F, A) ->
-    print(printable(Severity,Verbosity), Ts, Tc, P, F, A).
-
-print(true, TS, TC, P, F, A) ->
-    S = ?F("*** [~s] ~s ~p ~s:~w ***"
-           "~n   " ++ F ++ "~n", 
-           [megaco:format_timestamp(TS), P, self(), get(sname), TC | A]),
-    io:format("~s", [S]),
-    io:format(user, "~s", [S]);
-print(_, _, _, _, _, _) ->
-    ok.
-
-
-printable(_, debug)   -> true;
-printable(info, info) -> true;
-printable(_,_)        -> false.
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 to(To, Start) ->
     To - (mtime() - Start).
 
@@ -14242,5 +14205,43 @@ p(_S, F, A) ->
     io:format("*** [~s] ~p *** "
 	      "~n   " ++ F ++ "~n", 
 	      [?FTS(), self() | A]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+i(F) ->
+    i(F, []).
+
+i(F, A) ->
+    print(info, "INF", F, A).
+
+
+d(F) ->
+    d(F, []).
+
+d(F, A) ->
+    print(debug, "DBG", F, A).
+
+
+print(Severity, PRE, FMT, ARGS) ->
+    print(Severity, get(verbosity), erlang:timestamp(), get(tc), PRE, FMT, ARGS).
+
+print(Severity, Verbosity, Ts, Tc, P, F, A) ->
+    print(printable(Severity,Verbosity), Ts, Tc, P, F, A).
+
+print(true, TS, TC, P, F, A) ->
+    S = ?F("*** [~s] ~s ~p ~s:~w ***"
+           "~n   " ++ F ++ "~n", 
+           [?FTS(TS), P, self(), get(sname), TC | A]),
+    io:format("~s", [S]),
+    io:format(user, "~s", [S]);
+print(_, _, _, _, _, _) ->
+    ok.
+
+
+printable(_, debug)   -> true;
+printable(info, info) -> true;
+printable(_,_)        -> false.
+
 
 
