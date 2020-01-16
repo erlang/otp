@@ -13298,16 +13298,26 @@ otp_7713(Config) when is_list(Config) ->
 otp_8183_request1(suite) ->
     [];
 otp_8183_request1(Config) when is_list(Config) ->
+    Pre = fun() ->
     put(verbosity, debug),
     put(sname,     "TEST"),
     put(tc,        otp8183r1),
     i("starting"),
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    Nodes = [MgNode], 
-    ok = ?START_NODES(Nodes, true),
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_8183_request1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp8183r1, Pre, Case, Post).
 
+do_otp_8183_request1([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -13354,10 +13364,6 @@ otp_8183_request1(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
