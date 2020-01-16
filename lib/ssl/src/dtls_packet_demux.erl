@@ -32,6 +32,7 @@
          accept/2,
          sockname/1,
          close/1,
+         new_owner/1,
          get_all_opts/1,
          set_all_opts/2,
          get_sock_opts/2,
@@ -76,16 +77,23 @@ accept(PacketSocket, Accepter) ->
 
 sockname(PacketSocket) ->
     call(PacketSocket, sockname).
+
 close(PacketSocket) ->
     call(PacketSocket, close).
+
+new_owner(PacketSocket) ->
+    call(PacketSocket, new_owner).
+
 get_sock_opts(PacketSocket, SplitSockOpts) ->
     call(PacketSocket,  {get_sock_opts, SplitSockOpts}).
 get_all_opts(PacketSocket) ->
     call(PacketSocket, get_all_opts).
+
 set_sock_opts(PacketSocket, Opts) ->
     call(PacketSocket, {set_sock_opts, Opts}).
 set_all_opts(PacketSocket, Opts) ->
     call(PacketSocket, {set_all_opts, Opts}).
+
 getstat(PacketSocket, Opts) ->
     call(PacketSocket, {getstat, Opts}).
 
@@ -143,6 +151,8 @@ handle_call(close, _, #state{dtls_processes = Processes,
                           end, queue:to_list(Accepters)),
             {reply, ok,  State#state{close = true, accepters = queue:new()}}
     end;
+handle_call(new_owner, _, State) ->
+    {reply, ok,  State#state{close = false, first = true}};
 handle_call({get_sock_opts, {SocketOptNames, EmOptNames}}, _, #state{listener = Socket,
                                                                emulated_options = EmOpts} = State) ->
     case get_socket_opts(Socket, SocketOptNames) of
