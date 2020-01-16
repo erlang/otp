@@ -9211,22 +9211,27 @@ otp_6276(suite) ->
 otp_6276(doc) ->
     "OTP-6276: Cancel when receiving reply raise condition";
 otp_6276(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_6276),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6276/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_6276, Pre, Case, Post).
 
+do_otp_6276([MgcNode, MgNode]) ->
     d("create sequence controller"),
     CtrlPid = otp_6276_sequence_controller_start(),
-    
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    Nodes = [MgcNode, MgNode], 
-    ok = ?START_NODES(Nodes, true),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -9275,10 +9280,6 @@ otp_6276(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
