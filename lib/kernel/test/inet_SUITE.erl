@@ -698,6 +698,8 @@ t_gethostnative(Config) when is_list(Config) ->
 	{error,notfound} ->
 	    ok;
 	{error,no_data} ->
+	    ok;
+	{error,try_again} ->
 	    ok
     end.
 
