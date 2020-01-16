@@ -12336,11 +12336,6 @@ otp_7189(doc) ->
     "...";
 otp_7189(Config) when is_list(Config) ->
     Pre = fun() ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_7189),
-    i("starting"),
-
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
@@ -12864,16 +12859,21 @@ otp_7259(suite) ->
 otp_7259(doc) ->
     ["This is a variant of ticket OTP-6442"];
 otp_7259(Config) when is_list(Config) ->
-    put(verbosity, debug),
-    put(sname,     "TEST"),
-    put(tc,        otp7259rr),
-    i("starting"),
+    Pre = fun() ->
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_7259/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp7259rr, Pre, Case, Post).
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    Nodes = [MgNode], 
-    ok = ?START_NODES(Nodes, true),
-
+do_otp_7259([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -12923,10 +12923,6 @@ otp_7259(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_megaco_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
