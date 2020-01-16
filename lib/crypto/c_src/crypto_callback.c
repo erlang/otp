@@ -22,9 +22,15 @@
 #include <string.h>
 #include <openssl/opensslconf.h>
 #include <stdint.h>
-
 #include <erl_nif.h>
+
 #include "crypto_callback.h"
+
+#define PACKED_OPENSSL_VERSION(MAJ, MIN, FIX, P)                        \
+    ((((((((MAJ << 8) | MIN) << 8 ) | FIX) << 8) | (P-'a'+1)) << 4) | 0xf)
+
+#define PACKED_OPENSSL_VERSION_PLAIN(MAJ, MIN, FIX)     \
+    PACKED_OPENSSL_VERSION(MAJ,MIN,FIX,('a'-1))
 
 #ifdef DEBUG
     #  define ASSERT(e) \
@@ -100,8 +106,9 @@ static void crypto_free(void* ptr CCB_FILE_LINE_ARGS)
 
 
 #ifdef OPENSSL_THREADS /* vvvvvvvvvvvvvvv OPENSSL_THREADS vvvvvvvvvvvvvvvv */
-
+#if OPENSSL_VERSION_NUMBER < 0x10100000
 static ErlNifRWLock** lock_vec = NULL; /* Static locks used by openssl */
+#endif
 
 #include <openssl/crypto.h>
 
@@ -125,6 +132,7 @@ static INLINE void locking(int mode, ErlNifRWLock* lock)
     }
 }
 
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 static void locking_function(int mode, int n, const char *file, int line)
 {
     locking(mode, lock_vec[n]);
@@ -149,7 +157,7 @@ static void dyn_destroy_function(struct CRYPTO_dynlock_value *ptr, const char *f
 {
     enif_rwlock_destroy((ErlNifRWLock*)ptr);
 }
-
+#endif /* ^^^^^^^^^^^^ OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0) ^^^^^^^^^^^ */
 #endif /* ^^^^^^^^^^^^^^^^^^^^^^ OPENSSL_THREADS ^^^^^^^^^^^^^^^^^^^^^^ */
 
 DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
@@ -197,8 +205,12 @@ DLLEXPORT struct crypto_callbacks* get_crypto_callbacks(int nlocks)
     }
     return &the_struct;
 
+#if OPENSSL_VERSION_NUMBER < 0x10100000
+#ifdef OPENSSL_THREADS
  err:
     return NULL;
+#endif
+#endif
 }
 
 #ifdef HAVE_DYNAMIC_CRYPTO_LIB
