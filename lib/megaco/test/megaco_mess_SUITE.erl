@@ -5134,26 +5134,31 @@ trans_req_and_reply_and_req(doc) ->
      "The MGC is a megaco instance (megaco event sequence) and the "
      "MG is emulated (tcp event sequence)"];
 trans_req_and_reply_and_req(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    Skippable = [{unix, [darwin, linux]}],
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
+    Pre = fun() ->
+                  %% <CONDITIONAL-SKIP>
+                  Skippable = [{unix, [darwin, linux]}],
+                  Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+                  ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
+                  %% </CONDITIONAL-SKIP>
 
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        trarar),
-    i("starting"),
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_trans_req_and_reply_and_req/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(request_and_no_reply, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    Nodes = [MgcNode, MgNode], 
-    ok = ?START_NODES(Nodes, true),
-
+do_trans_req_and_reply_and_req([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -5198,10 +5203,6 @@ trans_req_and_reply_and_req(Config) when is_list(Config) ->
     %% Tell Mg to stop
     i("[MG] stop generator"),
     megaco_test_tcp_generator:stop(Mg),
-
-    %% Cleanup
-    d("stop nodes"),
-    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
