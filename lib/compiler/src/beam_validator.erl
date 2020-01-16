@@ -332,11 +332,10 @@ validate_instrs([I|Is], MFA, Offset, Vst0) ->
 %%% vi_safe/2 handles instructions that will never throw an exception, and can
 %%% thus be used when the state is undecided in some way.
 %%%
-
 vi_safe({label,Lbl}, #vst{current=St0,
-                           ref_ctr=Counter0,
-                           branched=B,
-                           labels=Lbls}=Vst) ->
+                          ref_ctr=Counter0,
+                          branched=B,
+                          labels=Lbls}=Vst) ->
     {St, Counter} = merge_states(Lbl, St0, B, Counter0),
     Vst#vst{current=St,
             ref_ctr=Counter,
@@ -345,9 +344,6 @@ vi_safe({label,Lbl}, #vst{current=St0,
 vi_safe(_I, #vst{current=none}=Vst) ->
     %% Ignore all unreachable code.
     Vst;
-%%
-%% Instructions that cannot cause exceptions
-%%
 vi_safe({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     assert_type(#t_bs_context{}, Ctx, Vst0),
     verify_live(Live, Vst0),
@@ -2396,14 +2392,14 @@ fork_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
 
 merge_states(L, St, Branched, Counter) when L =/= 0 ->
     case gb_trees:lookup(L, Branched) of
-        none ->
-            {St, Counter};
-        {value,OtherSt} when St =:= none ->
-            {OtherSt, Counter};
-        {value,OtherSt} ->
-             merge_states_1(St, OtherSt, Counter)
+        {value, OtherSt} -> merge_states_1(St, OtherSt, Counter);
+        none -> {St, Counter}
     end.
 
+merge_states_1(St, none, Counter) ->
+    {St, Counter};
+merge_states_1(none, St, Counter) ->
+    {St, Counter};
 merge_states_1(StA, StB, Counter0) ->
     #st{xs=XsA,ys=YsA,vs=VsA,fragile=FragA,numy=NumYA,
         h=HA,ct=CtA,recv_marker=MarkerA} = StA,
