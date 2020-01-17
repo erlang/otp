@@ -73,6 +73,7 @@ MODULES = \
 	erl_epmd \
 	erl_reply \
 	erl_signal_handler \
+	erpc \
 	erts_debug \
 	error_handler \
 	error_logger \

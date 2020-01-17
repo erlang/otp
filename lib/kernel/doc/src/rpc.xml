@@ -37,13 +37,29 @@
       a function on a remote node and collect the answer. It is used
       for collecting information on a remote node, or for running a
       function with some specific side effects on the remote node.</p>
+      <note><p>
+	<c>rpc:call()</c> and friends makes it quite hard to distinguish
+	between successful results, raised exceptions, and other errors.
+	This cannot be changed due to compatibility reasons. As of OTP 23,
+	a new module <seealso marker="erpc"><c>erpc</c></seealso> was
+	introduced in order to provide an API that makes it possible
+	to distingush between the different results. The <c>erpc</c>
+	module provides a subset (however, the central subset) of the
+	functionality available in the <c>rpc</c> module. The <c>erpc</c>
+	implementation also provides a more scalable implementation with
+	better performance than the original <c>rpc</c> implementation.
+	However, since the introduction of <c>erpc</c>, the <c>rpc</c>
+	module implements large parts of its central functionality using
+	<c>erpc</c>, so the <c>rpc</c> module wont not suffer scalability
+	wise and performance wise compared to <c>erpc</c>.
+      </p></note>
   </description>
 
   <datatypes>
     <datatype>
       <name name="key"/>
       <desc>
-        <p>As returned by
+        <p>Opaque value returned by
           <seealso marker="#async_call/4"><c>async_call/4</c></seealso>.</p>
       </desc>
     </datatype>
@@ -87,7 +103,17 @@
           <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
           to retrieve the value of evaluating <c>apply(<anno>Module</anno>,
           <anno>Function</anno>, <anno>Args</anno>)</c> on node
-          <c><anno>Node</anno></c>.</p>
+        <c><anno>Node</anno></c>.</p>
+	<note>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <seealso marker="erpc#send_request/4"><c>erpc:send_request()</c></seealso>
+	    function from the <c>erpc</c> module instead. This also
+	    gives you the ability retrieve the results in other useful
+	    ways.
+	  </p>
+	</note>
         <note>
           <p><seealso marker="#yield/1"><c>yield/1</c></seealso> and
             <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
@@ -99,34 +125,34 @@
 
     <func>
       <name name="block_call" arity="4" since=""/>
-      <fsummary>Evaluate a function call on a node in the RPC server's
-        context.</fsummary>
-      <desc>
-        <p>Same as <seealso marker="#call/4"><c>call/4</c></seealso>,
-          but the RPC server at <c><anno>Node</anno></c> does
-          not create a separate process to handle the call. Thus,
-          this function can be used if the intention of the call is to
-          block the RPC server from any other incoming requests until
-          the request has been handled. The function can also be used
-          for efficiency reasons when very small fast functions are
-          evaluated, for example, BIFs that are guaranteed not to
-          suspend.</p>
-	  <p>See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
-	  for more details of the return value.</p>
+      <fsummary>Evaluate a function call on a node.</fsummary>
+	<desc>
+	<p>
+	  The same as calling
+	  <seealso marker="#block_call/5"><c>rpc:block_call(<anno>Node</anno>,
+	  <anno>Module</anno>, <anno>Function</anno>,
+	  <anno>Args</anno>, infinity)</c></seealso>.
+	</p>
       </desc>
     </func>
 
     <func>
       <name name="block_call" arity="5" since=""/>
-      <fsummary>Evaluate a function call on a node in the RPC server's
-        context.</fsummary>
+      <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
-        <p>Same as
-          <seealso marker="#block_call/4"><c>block_call/4</c></seealso>,
-          but with a time-out value in the same manner as
-          <seealso marker="#call/5"><c>call/5</c></seealso>.</p>
-	  <p>See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
-	  for more details of the return value.</p>
+	  <p>
+	    The same as calling
+	    <seealso marker="#call/5"><c>rpc:call(<anno>Node</anno>,
+	    <anno>Module</anno>, <anno>Function</anno>,
+	    <anno>Args</anno>, <anno>Timeout</anno>)</c></seealso> with
+	    the exception that it also blocks other <c>rpc:block_call()</c>
+	    operations from executing concurrently on the node
+	    <c><anno>Node</anno></c>.
+	  </p>
+	  <warning><p>
+	    Note that it also blocks other operations than just
+	    <c>rpc:block_call()</c> operations, so use it with care.
+	  </p></warning>
       </desc>
     </func>
 
@@ -135,9 +161,38 @@
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
         <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+        <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
+          the corresponding value <c><anno>Res</anno></c>, or
+          <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.
+	  The same as calling
+	  <seealso marker="#call/5"><c>rpc:call(<anno>Node</anno>,
+	  <anno>Module</anno>, <anno>Function</anno>,
+	  <anno>Args</anno>, infinity)</c></seealso>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="call" arity="5" since=""/>
+      <fsummary>Evaluate a function call on a node.</fsummary>
+      <desc>
+        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
           <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
           the corresponding value <c><anno>Res</anno></c>, or
-        <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.</p>
+          <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.
+          <c><anno>Timeout</anno></c> is
+          a time-out value in milliseconds. If the call times out,
+          <c><anno>Reason</anno></c> is <c>timeout</c>.</p>
+        <p>If the reply arrives after the call times out, no message
+          contaminates the caller's message queue.</p>
+	<note>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <seealso marker="erpc#call/4"><c>erpc:call()</c></seealso>
+	    function from the <c>erpc</c> module instead.
+	  </p>
+	</note>
 	<note>
 	  <p>Here follows the details of what exactly is returned.</p>
 	  <p><c>{badrpc, <anno>Reason</anno>}</c> will be returned in the
@@ -159,28 +214,14 @@
 	    <strong>not</strong> match <c>{'EXIT',_}</c>.</item>
           </list>
 	</note>
-      </desc>
-    </func>
-
-    <func>
-      <name name="call" arity="5" since=""/>
-      <fsummary>Evaluate a function call on a node.</fsummary>
-      <desc>
-        <p>Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
-          <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
-          the corresponding value <c><anno>Res</anno></c>, or
-          <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.
-          <c><anno>Timeout</anno></c> is
-          a time-out value in milliseconds. If the call times out,
-          <c><anno>Reason</anno></c> is <c>timeout</c>.
-	  See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
-	  for more details of the return value.</p>
-        <p>If the reply arrives after the call times out, no message
-          contaminates the caller's message queue, as this
-          function spawns off a middleman process to act as (a void)
-          destination for such an orphan reply. This feature also makes
-          this function more expensive than <c>call/4</c> at
-          the caller's end.</p>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be the calling process itself, an <c>rpc</c> server,
+	    another server, or a freshly spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -194,6 +235,14 @@
           process is not suspended until the evaluation is complete, as
           is the case with
           <seealso marker="#call/4"><c>call/4,5</c></seealso>.</p>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be an <c>rpc</c> server, another server, or a
+	    freshly spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -226,7 +275,7 @@
           <anno>Name</anno>, <anno>Msg</anno>)</c>.</p>
       </desc>
     </func>
-
+    
     <func>
       <name name="multi_server_call" arity="3" since=""/>
       <fsummary>Interact with the servers on a number of nodes.</fsummary>
@@ -311,6 +360,14 @@
 {ResL, _} = rpc:multicall(code, load_binary, [Mod, File, Bin]),
 
 %% and then maybe check the ResL list.</code>
+	<note>
+	  <p>
+	    If you want the ability to distinguish between results,
+	    you may want to consider using the
+	    <seealso marker="erpc#multicall/4"><c>erpc:multicall()</c></seealso>
+	    function from the <c>erpc</c> module instead.
+	  </p>
+	</note>
       </desc>
     </func>
 
