@@ -22,9 +22,26 @@
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
 
--export([send/3, listen/2, accept/3, connect/4, socket/4, setopts/3, getopts/3, getstat/3, 
-	 peername/2, sockname/2, port/2, close/2]).
--export([emulated_options/0, emulated_options/1, internal_inet_values/0, default_inet_values/0, default_cb_info/0]).
+-export([send/3,
+         listen/2,
+         accept/3,
+         connect/4,
+         socket/4,
+         setopts/3,
+         getopts/3,
+         getstat/3,
+	 peername/2,
+         sockname/2,
+         port/2,
+         close/2,
+         close/1
+        ]).
+
+-export([emulated_options/0,
+         emulated_options/1,
+         internal_inet_values/0,
+         default_inet_values/0,
+         default_cb_info/0]).
 
 send(Transport, {{IP,Port},Socket}, Data) ->
     Transport:send(Socket, IP, Port, Data).
@@ -41,6 +58,7 @@ listen(Port, #config{transport_info = TransportInfo,
                      dtls_listener_sup:register_listner({self(), Listner0}, Port),
                      Result0;
                  {ok, Listner0} = Result0 ->
+                     dtls_packet_demux:new_owner(Listner0),
                      dtls_packet_demux:set_all_opts(Listner0, {Options, emulated_socket_options(EmOpts0, #socket_options{}), SslOpts}),
                      dtls_listener_sup:register_listner({self(), Listner0}, Port),
                      Result0;
@@ -81,6 +99,12 @@ connect(Address, Port, #config{transport_info = {Transport, _, _, _, _} = CbInfo
 	    Error
     end.
 
+
+close(#sslsocket{pid = {dtls, #config{dtls_handler = {Pid, Port}}}}) ->
+    dtls_listener_sup:register_listner({undefined, Pid}, Port),
+    dtls_packet_demux:close(Pid).   
+close(_, dtls) ->
+    ok;
 close(gen_udp, {_Client, _Socket}) ->
     ok;
 close(Transport, {_Client, Socket}) ->
