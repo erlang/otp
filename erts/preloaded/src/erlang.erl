@@ -3173,8 +3173,11 @@ spawn_request(F) ->
 
 -spec spawn_request(Fun, Options) -> ReqId when
       Fun :: function(),
-      Option :: {reply_tag, ReplyTag} | spawn_opt_option(),
+      Option :: {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | spawn_opt_option(),
       ReplyTag :: term(),
+      Reply :: yes | no | error_only | success_only,
       Options :: [Option],
       ReqId :: reference();
                    (Node, Fun) -> ReqId when
@@ -3207,8 +3210,13 @@ spawn_request(A1, A2) ->
       Node :: node(),
       Fun :: function(),
       Options :: [Option],
-      Option :: monitor | link | {reply_tag, ReplyTag} | OtherOption,
+      Option :: monitor
+              | link
+              | {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | OtherOption,
       ReplyTag :: term(),
+      Reply :: yes | no | error_only | success_only,
       OtherOption :: term(),
       ReqId :: reference();
                    (Module, Function, Args) ->
@@ -3249,8 +3257,11 @@ spawn_request(M, F, A) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Option :: {reply_tag, ReplyTag} | spawn_opt_option(),
+      Option :: {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | spawn_opt_option(),
       ReplyTag :: term(),
+      Reply :: yes | no | error_only | success_only,
       Options :: [Option],
       ReqId :: reference().
 
@@ -3280,8 +3291,13 @@ spawn_request(M, F, A, O) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [Option],
-      Option :: monitor | link | {reply_tag, ReplyTag} | OtherOption,
+      Option :: monitor
+              | link
+              | {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | OtherOption,
       ReplyTag :: term(),
+      Reply :: yes | no | error_only | success_only,
       OtherOption :: term(),
       ReqId :: reference().
 

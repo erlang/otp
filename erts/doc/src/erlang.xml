@@ -6690,12 +6690,13 @@ true</pre>
 	<marker id="spawn_request_success_message"/>
 	<p>
 	  If the spawn operation succeeds, a new process is
-	  created on the node identified by <c><anno>Node</anno></c>
-	  and the caller will be sent a message on the form
+	  created on the node identified by <c><anno>Node</anno></c>.
+	  When a spawn operation succeeds, the caller will by
+	  default be sent a message on the form
 	  <c>{<anno>ReplyTag</anno>, <anno>ReqId</anno>, ok, Pid}</c>
 	  where <c>Pid</c> is the process identifier of the
-	  newly created process. Such a message is referred
-	  to as a <i>success message</i> below in the text.
+	  newly created process. Such a message is referred to as a
+	  <i>success message</i> below in the text.
 	  <c><anno>ReplyTag</anno></c> is by default the atom
 	  <c>spawn_reply</c> unless modified by
 	  the <c>{reply_tag, <anno>ReplyTag</anno>}</c> option. The
@@ -6705,14 +6706,15 @@ true</pre>
 	</p>
 
 	<marker id="spawn_request_error_message"/>
-	<p>If the spawn operation fails, a
+	<p>The spawn operation fails either if creation of a new process
+	failed or if the spawn operation was interrupted by a connection
+	failure. When a spawn operation fails, the caller will by default
+	be sent a message on the form
 	<c>{<anno>ReplyTag</anno>, <anno>ReqId</anno>, error, Reason}</c>
-	message will be sent to the caller. Such a message is referred
-	to as an <i>error message</i> below in the text. The spawn operation
-	fail either if creation of a new process failed or if the
-	spawn operation was interrupted by a connection failure.
-	Currently the following failure <c>Reason</c>s are defined, but
-	other reasons can appear at any time without prior notice:</p>
+	where <c>Reason</c> is the error reason. Such a message is
+	referred to as an <i>error message</i> below in the text.
+	Currently the following spawn error <c>Reason</c>s are defined,
+	but other reasons can appear at any time without prior notice:</p>
 	<taglist>
 	  <tag><c>badopt</c></tag>
 	  <item>
@@ -6720,14 +6722,6 @@ true</pre>
 	      An invalid <c><anno>Option</anno></c> was passed as
 	      argument. Note that different runtime systems may
 	      support different options.
-	    </p>
-	  </item>
-	  <tag><c>system_limit</c></tag>
-	  <item>
-	    <p>
-	      Could not create a new process due to that some
-	      system limit was reached. Typically the process table
-	      was full.
 	    </p>
 	  </item>
 	  <tag><c>notsup</c></tag>
@@ -6749,6 +6743,14 @@ true</pre>
 	      not have been created.
 	    </p>
 	  </item>
+	  <tag><c>system_limit</c></tag>
+	  <item>
+	    <p>
+	      Could not create a new process due to that some
+	      system limit was reached. Typically the process table
+	      was full.
+	    </p>
+	  </item>
 	</taglist>
 	<p>Valid <c><anno>Option</anno></c>s:</p>
 	<taglist>
@@ -6763,26 +6765,26 @@ true</pre>
 	      newly created process. The <c><anno>ReqId</anno></c>
 	      returned by <c>spawn_request()</c> is also used as
 	      monitor reference as if it was returned from
-	      <c>monitor(process, Pid)</c>. A <c>'DOWN'</c> message
-	      for the corresponding monitor is guaranteed not
-	      to be delivered before the 
-	      <seealso marker="#spawn_request_success_message"><i>success
-	      message</i></seealso>. The monitor can not be
+	      <c>monitor(process, Pid)</c>.
+	    </p>
+	    <p>
+	      The monitor will not be activated for the calling
+	      process until the spawn operation has succeeded.
+	      The monitor can not be
 	      <seealso marker="#demonitor/1">demonitored</seealso>
-	      before the operation has succeeded and the <i>success
-	      message</i> has been delivered. If the operation does
-	      not succeed and an
-	      <seealso marker="#spawn_request_error_message"><i>error
-	      message</i></seealso> is delivered, no <c>'DOWN'</c>
-	      message will be delivered.
+	      before the operation has succeeded. A <c>'DOWN'</c>
+	      message for the corresponding monitor is guaranteed
+	      not to be delivered before a
+	      <seealso marker="#spawn_request_success_message"><i>success
+	      message</i></seealso> that corresponds to the spawn
+	      operation. If the spawn operation fails, no
+	      <c>'DOWN'</c> message will be delivered.
 	    </p>
 	    <p>
 	      If the connection between the nodes involved in
 	      the spawn operation is lost during the spawn
-	      operation, the spawn operation will fail and an
-	      <i>error message</i> with a <c>Reason</c> of
-	      <c>noconnection</c> will be delivered to the
-	      caller of <c>spawn_request()</c>. A new process
+	      operation, the spawn operation will fail with an
+	      error reason of <c>noconnection</c>. A new process
 	      may or may not have been created.
 	    </p>
 	  </item>
@@ -6795,26 +6797,71 @@ true</pre>
 	      process had called
 	      <seealso marker="#link/1"><c>link(Pid)</c></seealso>
 	      where <c>Pid</c> is the process identifier of the
-	      newly created process. An exit signal due to the
-	      link is guaranteed not to be delivered before the
+	      newly created process.
+	    </p>
+	    <p>
+	      The link will not be activated for the calling
+	      process until the spawn operation has succeeded.
+	      The link can not be removed before the operation
+	      has succeeded. An exit signal due to the link is
+	      guaranteed not to be delivered before a
 	      <seealso marker="#spawn_request_success_message"><i>success
-	      message</i></seealso>. If the spawn operation fail, an
-	      <seealso marker="#spawn_request_error_message"><i>error
-	      message</i></seealso> is delivered, but no exit signal
-	      due to the link will be delivered to the caller of
-	      <c>spawn_request()</c>.
+	      message</i></seealso> that corresponds to the spawn
+	      operation. If the spawn operation fails, no
+	      exit signal due to the link will be delivered to
+	      the caller of <c>spawn_request()</c>.
 	    </p>
 	    <p>
 	      If the connection between the nodes involved in
 	      the spawn operation is lost during the spawn
-	      operation, the spawn operation will fail and an
-	      <i>error message</i> with a <c>Reason</c> of
-	      <c>noconnection</c> will be delivered to the
-	      caller of <c>spawn_request()</c>. A new process
-	      may or may not have been created. If it has been
-	      created, it will be delivered an exit signal with
-	      an exit reason of <c>noconnection</c>.
+	      operation, the spawn operation will fail with
+	      an error reason of <c>noconnection</c>. A new
+	      process may or may not have been created. If it
+	      has been created, it will be delivered an exit
+	      signal with an exit reason of <c>noconnection</c>.
 	    </p>
+	  </item>
+	  <tag><c>{reply, <anno>Reply</anno>}</c></tag>
+	  <item>
+	    <p>Valid <c>Reply</c> values:</p>
+	    <taglist>
+	      <tag><c>yes</c></tag>
+	      <item><p>
+		A spawn reply message will be sent to the caller
+		regardless of whether the operation succeeds or
+		not. If the call to <c>spawn_request()</c> returns
+		without raising an exception and the <c>reply</c>
+		option is set to <c>yes</c>, the caller is
+		guaranteed to be delivered either a
+		<seealso marker="#spawn_request_success_message"><i>success
+		message</i></seealso> or an 
+		<seealso marker="#spawn_request_error_message"><i>error
+		message</i></seealso>. The <c>reply</c> option is by
+		default set to <c>yes</c>.
+	      </p></item>
+	      <tag><c>no</c></tag>
+	      <item><p>
+		No spawn reply message will be sent to the caller
+		when the spawn operation completes. This regardless of
+		whether the operation succeeds or not.
+	      </p></item>
+	      <tag><c>error_only</c></tag>
+	      <item><p>
+		No spawn reply message will be sent to the caller
+		if the spawn operation succeeds, but an
+		<seealso marker="#spawn_request_error_message"><i>error
+		message</i></seealso> will be sent to the caller
+		if the operation fails.
+	      </p></item>
+	      <tag><c>success_only</c></tag>
+	      <item><p>
+		No spawn reply message will be sent to the caller
+		if the spawn operation fails, but a
+		<seealso marker="#spawn_request_success_message"><i>success
+		message</i></seealso> will be sent to the caller
+		if the operation succeeds.
+	      </p></item>
+	    </taglist>
 	  </item>
 	  <tag><c>{reply_tag, <anno>ReplyTag</anno>}</c></tag>
 	  <item>
@@ -6823,7 +6870,7 @@ true</pre>
 	      the reply message. That is, in the
 	      <seealso marker="#spawn_request_success_message"><i>success</i></seealso>
 	      or <seealso marker="#spawn_request_error_message"><i>error</i></seealso>
-	      message that will be sent to the caller due to the
+	      message that is sent to the caller due to the
 	      spawn operation. The default reply tag is the atom
 	      <c>spawn_reply</c>.
 	    </p>
@@ -6855,23 +6902,12 @@ true</pre>
 	</list>
 	<p>
 	  Note that not all individual <c><anno>Option</anno></c>s
-	  are checked when the spawn request is sent, but instead
-	  on reception of the request. Therefore an invalid option
+	  are checked when the spawn request is sent. Some
+	  <c><anno>Option</anno></c>s can only be checked on
+	  reception of the request. Therefore an invalid option
 	  does <em>not</em> cause a <c>badarg</c> exception, but
-	  will cause the spawn operation to fail. An
-	  <seealso marker="#spawn_request_error_message"><i>error
-	  message</i></seealso> with a <c>Reason</c> of <c>badopt</c>
-	  will be sent to the caller.
-	</p>
-	<p>
-	  If the call to <c>spawn_request()</c> returns without
-	  raising an exception, the caller is guaranteed to be
-	  delivered either a 
-	  <seealso marker="#spawn_request_success_message"><i>success
-	  message</i></seealso> or an 
-	  <seealso marker="#spawn_request_error_message"><i>error
-	  message</i></seealso>
-	  as described above.
+	  will cause the spawn operation to fail with an error
+	  reason of <c>badopt</c>.
 	</p>
 	<p>
 	  A spawn request can be abandoned by calling

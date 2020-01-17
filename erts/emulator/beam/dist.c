@@ -2518,7 +2518,7 @@ int erts_net_message(Port *prt,
                 goto invalid_message;
         }
 
-        opts_error = erts_parse_spawn_opts(&so, opts, NULL);
+        opts_error = erts_parse_spawn_opts(&so, opts, NULL, 0);
         if (opts_error) {
             ErtsDSigSendContext ctx;
             if (opts_error > 1)
@@ -5291,9 +5291,10 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     DistEntry *dep = NULL;
     Eterm list;
     ErtsDSigSendContext ctx;
-    int code, link = 0, monitor = 0;
+    int code, link = 0, monitor = 0, success_message, error_message;
     
     ok_result = THE_NON_VALUE;
+    success_message = error_message = !0;
     
     if (!is_node_name_atom(node))
         goto badarg;
@@ -5345,9 +5346,34 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                 switch (tp[1]) {
                     
                 case am_reply_tag:
+                    tag = tp[2];
+
+                    if (0) {
+                    case am_reply:
+                        switch (tp[2]) {
+                        case am_error_only:
+                            success_message = 0;
+                            error_message = !0;
+                            break;
+                        case am_success_only:
+                            success_message = !0;
+                            error_message = 0;
+                            break;
+                        case am_no:
+                            success_message = 0;
+                            error_message = 0;
+                            break;
+                        case am_yes:
+                            success_message = !0;
+                            error_message = !0;
+                            break;
+                        default:
+                            goto badarg;
+                        }
+                    }
+
                     if (BIF_ARG_4 != am_spawn_request)
                         goto badarg;
-                    tag = tp[2];
                     
                     rm_opts++;
                     new_opts = list;
@@ -5404,7 +5430,8 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                 list = CDR(cp);
                 if (is_tuple_arity(car, 2)) {
                     Eterm *tp = tuple_val(car);
-                    if (am_reply_tag == tp[1]) {
+                    if (am_reply_tag == tp[1]
+                        || am_reply == tp[1]) {
                         rm_cnt++;
                         /* skip option */
                         if (rm_cnt == rm_opts) {
@@ -5480,6 +5507,11 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             mdp->origin.flags |= ERTS_ML_FLG_SPAWN_MONITOR;
         if (link)
             mdp->origin.flags |= ERTS_ML_FLG_SPAWN_LINK;
+        if (!success_message)
+            mdp->origin.flags |= ERTS_ML_FLG_SPAWN_NO_SMSG;
+        if (!error_message)
+            mdp->origin.flags |= ERTS_ML_FLG_SPAWN_NO_EMSG;
+            
         erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P),
                                  &mdp->origin);
         inserted = erts_monitor_dist_insert(&mdp->target, dep->mld);
@@ -5565,8 +5597,9 @@ notsup:
     /* fall through... */
 send_error:
     ASSERT(is_value(ok_result));
-    erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
-                                tag, ref, error, am_undefined);
+    if (error_message)
+        erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
+                                    tag, ref, error, am_undefined);
     ERTS_BIF_PREP_RET(ret_val, ok_result);
     goto do_return;
 }

@@ -73,7 +73,8 @@
          spawn_request_abandon_bif/1,
          dist_spawn_monitor/1,
          spawn_old_node/1,
-         spawn_new_node/1]).
+         spawn_new_node/1,
+         spawn_request_reply_option/1]).
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -111,6 +112,7 @@ all() ->
      dist_spawn_monitor,
      spawn_old_node,
      spawn_new_node,
+     spawn_request_reply_option,
      otp_6237,
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
@@ -3219,6 +3221,92 @@ spawn_current_node_test(Node, Disconnect) ->
     Node = node(P5),
     receive
         {'EXIT', P5, hej} ->
+            ok
+    end.
+
+spawn_request_reply_option(Config) when is_list(Config) ->
+    spawn_request_reply_option_test(node()),
+    {ok, Node} = start_node(Config),
+    spawn_request_reply_option_test(Node).
+    
+spawn_request_reply_option_test(Node) ->
+    io:format("Testing on node: ~p~n", [Node]),
+    Parent = self(),
+    Done1 = make_ref(),
+    RID1 = spawn_request(Node, fun () -> Parent ! Done1 end, [{reply, yes}]),
+    receive Done1 -> ok end,
+    receive
+        {spawn_reply, RID1, ok, _} -> ok
+    after 0 ->
+            ct:fail(missing_spawn_reply)
+    end,
+    Done2 = make_ref(),
+    RID2 = spawn_request(Node, fun () -> Parent ! Done2 end, [{reply, success_only}]),
+    receive Done2 -> ok end,
+    receive
+        {spawn_reply, RID2, ok, _} -> ok
+    after 0 ->
+            ct:fail(missing_spawn_reply)
+    end,
+    Done3 = make_ref(),
+    RID3 = spawn_request(Node, fun () -> Parent ! Done3 end, [{reply, error_only}]),
+    receive Done3 -> ok end,
+    receive
+        {spawn_reply, RID3, _, _} ->
+            ct:fail(unexpected_spawn_reply)
+    after 0 ->
+            ok
+    end,
+    Done4 = make_ref(),
+    RID4 = spawn_request(Node, fun () -> Parent ! Done4 end, [{reply, no}]),
+    receive Done4 -> ok end,
+    receive
+        {spawn_reply, RID4, _, _} ->
+            ct:fail(unexpected_spawn_reply)
+    after 0 ->
+            ok
+    end,
+    RID5 = spawn_request(Node, fun () -> ok end, [{reply, yes}, bad_option]),
+    receive
+        {spawn_reply, RID5, error, badopt} -> ok
+    end,
+    RID6 = spawn_request(Node, fun () -> ok end, [{reply, success_only}, bad_option]),
+    receive
+        {spawn_reply, RID6, error, badopt} -> ct:fail(unexpected_spawn_reply)
+    after 1000 -> ok
+    end,
+    RID7 = spawn_request(Node, fun () -> ok end, [{reply, error_only}, bad_option]),
+    receive
+        {spawn_reply, RID7, error, badopt} -> ok
+    end,
+    RID8 = spawn_request(Node, fun () -> ok end, [{reply, no}, bad_option]),
+    receive
+        {spawn_reply, RID8, error, badopt} -> ct:fail(unexpected_spawn_reply)
+    after 1000 -> ok
+    end,
+    case Node == node() of
+        true ->
+            ok;
+        false ->
+            stop_node(Node),
+            RID9 = spawn_request(Node, fun () -> ok end, [{reply, yes}]),
+            receive
+                {spawn_reply, RID9, error, noconnection} -> ok
+            end,
+            RID10 = spawn_request(Node, fun () -> ok end, [{reply, success_only}]),
+            receive
+                {spawn_reply, RID10, error, noconnection} -> ct:fail(unexpected_spawn_reply)
+            after 1000 -> ok
+            end,
+            RID11 = spawn_request(Node, fun () -> ok end, [{reply, error_only}]),
+            receive
+                {spawn_reply, RID11, error, noconnection} -> ok
+            end,
+            RID12 = spawn_request(Node, fun () -> ok end, [{reply, no}]),
+            receive
+                {spawn_reply, RID12, error, noconnection} -> ct:fail(unexpected_spawn_reply)
+            after 1000 -> ok
+            end,
             ok
     end.
 

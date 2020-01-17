@@ -2456,8 +2456,12 @@ convert_to_down_message(Process *c_p,
         /* Should only happen when connection breaks... */
         ASSERT(reason == am_noconnection);
 
-        if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_ABANDONED) {
-            /* Operation has been abandoned... */
+        if (mdp->origin.flags & (ERTS_ML_FLG_SPAWN_ABANDONED
+                                 | ERTS_ML_FLG_SPAWN_NO_EMSG)) {
+            /*
+             * Operation has been been abandoned or
+             * error message has been disabled...
+             */
             erts_monitor_release(*omon);
             *omon = NULL;
             return 1;
@@ -2499,14 +2503,14 @@ convert_to_down_message(Process *c_p,
                 mp->data.heap_frag = tag_hfrag;
             }
         }
-        mdep->u.name = NIL; /* Restore to normal monitor */
+        
+        /* Restore to normal monitor */
+        mdep->u.name = NIL;
+        mdp->origin.flags &= ~ERTS_ML_FLGS_SPAWN;
 
         ERL_MESSAGE_FROM(mp) = am_undefined;
         ERL_MESSAGE_TERM(mp) = TUPLE4(hp, tag, ref, am_error, reason);
 
-        mdp->origin.flags &= ~(ERTS_ML_FLG_SPAWN_PENDING
-                               | ERTS_ML_FLG_SPAWN_MONITOR
-                               | ERTS_ML_FLG_SPAWN_LINK);
     }
     else {
         /*
@@ -3430,7 +3434,8 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         ASSERT(is_not_atom(result) || !datap->link);
         /* delete monitor structure... */
         adjust_monitor = 0;
-        if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED)
+        if (omon->flags & (ERTS_ML_FLG_SPAWN_ABANDONED
+                           | ERTS_ML_FLG_SPAWN_NO_EMSG))
             convert_to_message = 0;
     }
     else if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED) {
@@ -3491,7 +3496,10 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
     else {
         /* Success... */
         ASSERT(is_external_pid(result));
-        
+
+        if (omon->flags & ERTS_ML_FLG_SPAWN_NO_SMSG)
+            convert_to_message = 0;
+
         if (datap->link) {
             cnt++;
             erts_link_tree_insert(&ERTS_P_LINKS(c_p), datap->link);
@@ -3510,9 +3518,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
             Eterm *hp;
             mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
             hp = &(mdep)->heap[0];
-            omon->flags &= ~(ERTS_ML_FLG_SPAWN_PENDING
-                             | ERTS_ML_FLG_SPAWN_MONITOR
-                             | ERTS_ML_FLG_SPAWN_LINK);
+            omon->flags &= ~ERTS_ML_FLGS_SPAWN;
             ERTS_INIT_OFF_HEAP(&oh);
             oh.first = mdep->uptr.ohhp;
             omon->other.item = copy_struct(result,
@@ -3529,6 +3535,8 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
          * or no monitor requested...
          */
         ErtsMonitorData *mdp = erts_monitor_to_data(omon);
+
+        omon->flags &= ~ERTS_ML_FLGS_SPAWN;
 
         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), omon);
 

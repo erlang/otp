@@ -250,6 +250,7 @@ atom erlang
 atom erl_signal_server
 atom error_handler
 atom error_logger
+atom error_only
 atom erts_code_purger
 atom erts_debug
 atom erts_dflags
@@ -560,6 +561,7 @@ atom register
 atom registered_name
 atom reload
 atom rem
+atom reply
 atom reply_tag
 atom report_errors
 atom reset
@@ -638,6 +640,7 @@ atom stop
 atom stream
 atom strict_monotonic
 atom strict_monotonic_timestamp
+atom success_only
 atom sunrm
 atom suspend
 atom suspended

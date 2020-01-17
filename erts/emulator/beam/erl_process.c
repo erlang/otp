@@ -11486,7 +11486,8 @@ alloc_process(ErtsRunQueue *rq, int bound, erts_aint32_t state)
 }
 
 int
-erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag)
+erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
+                      int message_opt)
 {
     /*
      * Returns:
@@ -11614,6 +11615,27 @@ erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag)
                     result = -1;
                 else
                     sop->scheduler = (int) scheduler;
+            } else if (arg == am_reply) {
+                if (!message_opt)
+                    result = -1;
+                else if (val == am_error_only) {
+                    sop->flags |= SPO_NO_SMSG;
+                    sop->flags &= ~SPO_NO_EMSG;
+                }
+                else if (val == am_success_only) {
+                    sop->flags &= ~SPO_NO_SMSG;
+                    sop->flags |= SPO_NO_EMSG;
+                }
+                else if (val == am_no) {
+                    sop->flags |= SPO_NO_SMSG;
+                    sop->flags |= SPO_NO_EMSG;
+                }
+                else if (val == am_yes) {
+                    sop->flags &= ~SPO_NO_SMSG;
+                    sop->flags &= ~SPO_NO_EMSG;
+                }
+                else
+                    result = -1;
             } else if (arg == am_reply_tag) {
                 if (!tag)
                     result = -1;
@@ -12099,14 +12121,16 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
                 seq_trace_update_serial(p);
                 token = SEQ_TRACE_TOKEN(p);
             }
-            
-            /*
-             * Ensure spawn reply success message reach parent before
-             * any down or exit signals from child...
-             */
-            erts_send_local_spawn_reply(parent, locks, p,
-                                        so->tag, spawn_ref,
-                                        p->common.id, token);
+
+            if (!(so->flags & SPO_NO_SMSG)) {
+                /*
+                 * Ensure spawn reply success message reach parent before
+                 * any down or exit signals from child...
+                 */
+                erts_send_local_spawn_reply(parent, locks, p,
+                                            so->tag, spawn_ref,
+                                            p->common.id, token);
+            }
         }
         else { /* synchronous spawn */
 

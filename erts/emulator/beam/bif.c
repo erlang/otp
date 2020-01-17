@@ -742,7 +742,7 @@ BIF_RETTYPE spawn_opt_4(BIF_ALIST_4)
      * - Bad types
      * - Bad options
      */
-    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, NULL);
+    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, NULL, 0);
     if (opts_error) {
         Sint arity;
         if (is_not_atom(BIF_ARG_1) || is_not_atom(BIF_ARG_2))
@@ -804,7 +804,7 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
      * - Bad types
      * - Bad options
      */
-    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, &tag);
+    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, &tag, !0);
     if (arity > MAX_SMALL)
         goto system_limit;
     if (opts_error) {
@@ -857,8 +857,9 @@ badopt:
     /* fall through... */
 send_error: {
         Eterm ref = erts_make_ref(BIF_P);
-        erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
-                                    tag, ref, error, am_undefined);
+        if (!(so.flags & SPO_NO_EMSG))
+            erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
+                                        tag, ref, error, am_undefined);
         BIF_RET(ref);
     }
     
