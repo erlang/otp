@@ -315,6 +315,12 @@ if test "x$GCC" = xyes; then
         WFLAGS="$WFLAGS -fno-strict-aliasing";;
   esac
   CFLAGS="$WERRORFLAGS $CFLAGS"
+
+  # Use -fno-common for gcc, that is link error if multiple definitions of
+  # global variables are encountered. This is ISO C compliant.
+  # Until version 10, gcc has had -fcommon as default, which allows and merges
+  # such dubious duplicates.
+  LM_TRY_ENABLE_CFLAG([-fno-common], [CFLAGS])
 else
   WFLAGS=""
   WERRORFLAGS=""
