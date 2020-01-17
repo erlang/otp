@@ -27501,13 +27501,31 @@ traffic_send_and_recv_tcp(InitState) ->
            cmd  => fun(#{lsock := LSock}) ->
                            socket:listen(LSock)
                    end},
+         #{desc => "initial (listen socket) counter validation (=zero)",
+           cmd  => fun(#{lsock := LSock} = _State) ->
+                           try socket:info(LSock) of
+                               #{counters := Counters} ->
+                                   ?SEV_IPRINT("Validate initial listen socket counters: "
+                                               "~s", [format_counters(listen,
+                                                                      Counters)]),
+                                   traffic_sar_counters_validation(Counters)
+                           catch
+                               C:E:S ->
+                                   ?SEV_EPRINT("Failed get socket info: "
+                                               "~n   Class: ~p"
+                                               "~n   Error: ~p"
+                                               "~n   Stack: ~p", [C, E, S]),
+                                   {error, {socket_info_failed, {C, E, S}}}
+                           end
+                   end},
          #{desc => "announce ready (init)",
            cmd  => fun(#{domain   := local,
                          tester   := Tester,
                          local_sa := #{path := Path}}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, Path),
                            ok;
-                      (#{tester   := Tester,
+                      (#{lsock    := LSock,
+                         tester   := Tester,
                          lport    := Port}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, Port),
                            ok
@@ -27521,8 +27539,22 @@ traffic_send_and_recv_tcp(InitState) ->
          #{desc => "accept",
            cmd  => fun(#{lsock := LSock} = State) ->
                            case socket:accept(LSock) of
-                               {ok, Sock} ->
-                                   {ok, State#{csock => Sock}};
+                               {ok, CSock} ->
+                                   #{counters := LCnts} = socket:info(LSock),
+                                   ?SEV_IPRINT("Validate listen counters: "
+                                               "~s", [format_counters(listen,
+                                                                      LCnts)]),
+                                   traffic_sar_counters_validation(
+                                     LCnts,
+                                     [{acc_success, 1},
+                                      {acc_fails,   0},
+                                      {acc_tries,   1},
+                                      {acc_waits,   0}]),
+                                   #{counters := CCnts} = socket:info(CSock),
+                                   ?SEV_IPRINT("Validate initial accept counters: "
+                                               "~s", [format_counters(CCnts)]),
+                                   traffic_sar_counters_validation(CCnts),
+                                   {ok, State#{csock => CSock}};
                                {error, _} = ERROR ->
                                    ERROR
                            end
@@ -27532,7 +27564,7 @@ traffic_send_and_recv_tcp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("Validate initial counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(Counters)
                            catch
                                C:E:S ->
@@ -27572,12 +27604,13 @@ traffic_send_and_recv_tcp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,   Pkg},
-                                      {read_byte,  Byte},
-                                      {read_tries, any}])
+                                     [{read_pkg,     Pkg},
+                                      {read_byte,    Byte},
+                                      {read_tries,   any},
+                                      {read_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -27619,15 +27652,17 @@ traffic_send_and_recv_tcp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -27670,15 +27705,17 @@ traffic_send_and_recv_tcp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -27722,15 +27759,17 @@ traffic_send_and_recv_tcp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -27879,12 +27918,13 @@ traffic_send_and_recv_tcp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {write_tries, any}])
+                                     [{write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {write_tries,   any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -27917,23 +27957,25 @@ traffic_send_and_recv_tcp(InitState) ->
                            end
                    end},
          #{desc => "validate (recv 1)",
-           cmd  => fun(#{sock      := Sock,
-                         read_pkg  := RPkg,
-                         read_byte := RByte,
+           cmd  => fun(#{sock       := Sock,
+                         read_pkg   := RPkg,
+                         read_byte  := RByte,
                          write_pkg  := SPkg,
                          write_byte := SByte} = _State) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -27977,15 +28019,17 @@ traffic_send_and_recv_tcp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -28028,15 +28072,17 @@ traffic_send_and_recv_tcp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -28284,34 +28330,153 @@ traffic_send_and_recv_tcp(InitState) ->
     ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
 
 
+format_counters(Counters) ->
+    format_counters(traffic, Counters).
+
+format_counters(Type, Counters) when (Type =:= listen) orelse (Type =:= traffic) ->
+    format_counters("   ", Type, Counters).
+
+format_counters(Prefix, traffic, Counters) ->
+    ReadByte    = proplists:get_value(read_byte,     Counters, -1),
+    ReadFails   = proplists:get_value(read_fails,    Counters, -1),
+    ReadPkg     = proplists:get_value(read_pkg,      Counters, -1),
+    ReadPkgMax  = proplists:get_value(read_pkg_max,  Counters, -1),
+    ReadTries   = proplists:get_value(read_tries,    Counters, -1),
+    ReadWaits   = proplists:get_value(read_waits,    Counters, -1),
+    WriteByte   = proplists:get_value(write_byte,    Counters, -1),
+    WriteFails  = proplists:get_value(write_fails,   Counters, -1),
+    WritePkg    = proplists:get_value(write_pkg,     Counters, -1),
+    WritePkgMax = proplists:get_value(write_pkg_max, Counters, -1),
+    WriteTries  = proplists:get_value(write_tries,   Counters, -1),
+    WriteWaits  = proplists:get_value(write_waits,   Counters, -1),
+    f("~n~sNumber Of Read Bytes:     ~p"
+      "~n~sNumber Of Read Fails:     ~p"
+      "~n~sNumber Of Read Packages:  ~p"
+      "~n~sNumber Of Read Tries:     ~p"
+      "~n~sNumber Of Read Waits:     ~p"
+      "~n~sMax Read Package Size:    ~p"
+      "~n~sNumber Of Write Bytes:    ~p"
+      "~n~sNumber Of Write Fails:    ~p"
+      "~n~sNumber Of Write Packages: ~p"
+      "~n~sNumber Of Write Tries:    ~p"
+      "~n~sNumber Of Write Waits:    ~p"
+      "~n~sMax Write Package Size:   ~p",
+      [Prefix, ReadByte,
+       Prefix, ReadFails,
+       Prefix, ReadPkg,
+       Prefix, ReadTries,
+       Prefix, ReadWaits,
+       Prefix, ReadPkgMax,
+       Prefix, WriteByte,
+       Prefix, WriteFails,
+       Prefix, WritePkg,
+       Prefix, WriteTries,
+       Prefix, WriteWaits,
+       Prefix, WritePkgMax]);
+
+format_counters(Prefix, listen, Counters) ->
+    AccSuccess = proplists:get_value(acc_success, Counters, -1),
+    AccFails   = proplists:get_value(acc_fails,   Counters, -1),
+    AccTries   = proplists:get_value(acc_tries,   Counters, -1),
+    AccWaits   = proplists:get_value(acc_waits,   Counters, -1),
+    f("~n~sNumber Of Successful Accepts: ~p"
+      "~n~sNumber Of Failed Accepts:     ~p"
+      "~n~sNumber Of Accept Attempts:    ~p"
+      "~n~sNumber Of Accept Waits:       ~p",
+      [Prefix, AccSuccess,
+       Prefix, AccFails,
+       Prefix, AccTries,
+       Prefix, AccWaits]).
+
+all_counters() ->
+    [
+     read_byte,
+     read_fails,
+     read_pkg,
+     read_pkg_max,
+     read_tries,
+     read_waits,
+     write_byte,
+     write_fails,
+     write_pkg,
+     write_pkg_max,
+     write_tries,
+     write_waits,
+     acc_success,
+     acc_fails,
+     acc_tries,
+     acc_waits
+    ].
+
+zero_counters() ->
+    [{Cnt, 0} || Cnt <- all_counters()].
+
+any_counters() ->
+    [{Cnt, any} || Cnt <- all_counters()].
+
+
+%% This function ensures that we have a list of "validate counters"
+%% that have an entry for each existing counter.
+
+ensure_counters(Counters) ->
+    ensure_counters(any_counters(), Counters, []).
+
+ensure_counters([], [], Acc) ->
+    lists:reverse(Acc);
+ensure_counters([{Cnt, Val}|DefCounters], Counters, Acc) ->
+    case lists:keysearch(Cnt, 1, Counters) of
+        {value, {Cnt, _} = T} ->
+            Counters2 = lists:keydelete(Cnt, 1, Counters),
+            ensure_counters(DefCounters, Counters2, [T|Acc]);
+        false ->
+            ensure_counters(DefCounters, Counters, [{Cnt, Val}|Acc])
+    end.
 
 traffic_sar_counters_validation(Counters) ->
-    traffic_sar_counters_validation(Counters, []).
+    traffic_sar_counters_validation2(Counters, zero_counters()).
 
-traffic_sar_counters_validation(Counters, []) ->
+traffic_sar_counters_validation(Counters, ValidateCounters) ->
+    traffic_sar_counters_validation2(Counters, ensure_counters(ValidateCounters)).
+
+traffic_sar_counters_validation2(Counters, []) ->
+    %% ?SEV_IPRINT("traffic_sar_counters_validation2 -> Remaining Counters: "
+    %%             "~n   ~p", [Counters]),
     (catch lists:foreach(
              fun({_Cnt, 0})   -> ok;
-                ({Cnt,  Val}) -> throw({error, {invalid_counter, Cnt, Val}})
+                ({Cnt,  Val}) ->
+                     throw({error, {invalid_counter, Cnt, Val}})
              end,
              Counters));
-traffic_sar_counters_validation(Counters, [{Cnt, Val}|ValidateCounters]) ->
+traffic_sar_counters_validation2(Counters, [{Cnt, Val}|ValidateCounters]) ->
+    %% ?SEV_IPRINT("traffic_sar_counters_validation2 -> try validate ~w when"
+    %%             "~n   Counters:         ~p"
+    %%             "~n   ValidateCounters: ~p", [Cnt, Counters, ValidateCounters]),
     case lists:keysearch(Cnt, 1, Counters) of
         {value, {Cnt, Val}} ->
+            %% ?SEV_IPRINT("traffic_sar_counters_validation2 -> ~w validated", [Cnt]),
             Counters2 = lists:keydelete(Cnt, 1, Counters),
-            traffic_sar_counters_validation(Counters2, ValidateCounters);
+            traffic_sar_counters_validation2(Counters2, ValidateCounters);
         {value, {Cnt, _Val}} when (Val =:= any) ->
+            %% ?SEV_IPRINT("traffic_sar_counters_validation2 -> "
+            %%             "~w validated (any) when"
+            %%             "~n   Counters: ~p", [Cnt, Counters]),
             Counters2 = lists:keydelete(Cnt, 1, Counters),
-            traffic_sar_counters_validation(Counters2, ValidateCounters);
+            traffic_sar_counters_validation2(Counters2, ValidateCounters);
         {value, {Cnt, InvVal}} ->
+            ?SEV_EPRINT("traffic_sar_counters_validation2 -> ~w validation failed: "
+                        "~n   Expected Value: ~p"
+                        "~n   Actual Value:   ~p", [Cnt, Val, InvVal]),
             {error, {invalid_counter, Cnt, InvVal, Val}};
         false ->
+            ?SEV_EPRINT("traffic_sar_counters_validation2 -> "
+                        "~w validation failed: Unknown", [Cnt]),
             {error, {unknown_counter, Cnt, Counters}}
     end.
 
                           
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test that the counters
+%% This test case is intended to (simply) test the counters
 %% for both read and write.
 %% So that its easy to extend, we use fun's for read and write.
 %% We use UDP on IPv4.
@@ -28337,7 +28502,7 @@ traffic_sendto_and_recvfrom_counters_udp4(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test that the counters
+%% This test case is intended to (simply) test the counters
 %% for both read and write.
 %% So that its easy to extend, we use fun's for read and write.
 %% We use UDP on IPv6.
@@ -28364,7 +28529,7 @@ traffic_sendto_and_recvfrom_counters_udp6(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test that the counters
+%% This test case is intended to (simply) test the counters
 %% for both read and write.
 %% So that its easy to extend, we use fun's for read and write.
 %% We use default (UDP) on local.
@@ -28391,7 +28556,7 @@ traffic_sendto_and_recvfrom_counters_udpL(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test that the counters
+%% This test case is intended to (simply) test the counters
 %% for both read and write.
 %% So that its easy to extend, we use fun's for read and write.
 %% We use UDP on IPv4.
@@ -28425,7 +28590,7 @@ traffic_sendmsg_and_recvmsg_counters_udp4(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test that the counters
+%% This test case is intended to (simply) test the counters
 %% for both read and write.
 %% So that its easy to extend, we use fun's for read and write.
 %% We use UDP on IPv6.
@@ -28460,7 +28625,7 @@ traffic_sendmsg_and_recvmsg_counters_udp6(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% This test case is intended to (simply) test that the counters
+%% This test case is intended to (simply) test the counters
 %% for both read and write.
 %% So that its easy to extend, we use fun's for read and write.
 %% We use default (UDP) on local.
@@ -28550,7 +28715,7 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("Validate initial counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(Counters)
                            catch
                                C:E:S ->
@@ -28598,7 +28763,7 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
                                      [{read_pkg,   Pkg},
@@ -28646,7 +28811,7 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
                                      [{read_pkg,    RPkg},
@@ -28698,7 +28863,7 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
                                      [{read_pkg,    RPkg},
@@ -28751,7 +28916,7 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
                                      [{read_pkg,    RPkg},
@@ -28860,7 +29025,7 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("Validate initial counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(Counters)
                            catch
                                C:E:S ->
@@ -28903,12 +29068,13 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {write_tries, any}])
+                                     [{write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {write_tries,   any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -28961,15 +29127,17 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -29014,15 +29182,17 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -29079,15 +29249,17 @@ traffic_send_and_recv_udp(InitState) ->
                            try socket:info(Sock) of
                                #{counters := Counters} ->
                                    ?SEV_IPRINT("validate counters: "
-                                               "~n   ~p", [Counters]),
+                                               "~s", [format_counters(Counters)]),
                                    traffic_sar_counters_validation(
                                      Counters,
-                                     [{read_pkg,    RPkg},
-                                      {read_byte,   RByte},
-                                      {write_pkg,   SPkg},
-                                      {write_byte,  SByte},
-                                      {read_tries,  any},
-                                      {write_tries, any}])
+                                     [{read_pkg,      RPkg},
+                                      {read_byte,     RByte},
+                                      {write_pkg,     SPkg},
+                                      {write_byte,    SByte},
+                                      {read_tries,    any},
+                                      {write_tries,   any},
+                                      {read_pkg_max,  any},
+                                      {write_pkg_max, any}])
                            catch
                                C:E:S ->
                                    ?SEV_EPRINT("Failed get socket info: "
@@ -31802,7 +31974,7 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                          client := Client} = State) ->
                            case ?SEV_AWAIT_READY(Client, client, send, 
                                                  [{server, Server}]) of
-                               {ok, {_, _, _, _} = Result} ->
+                               {ok, {_, _, _, _, _} = Result} ->
                                    ?SEV_IPRINT("client result: "
                                                "~n   ~p", [Result]),
                                    {ok, State#{client_result => Result}};
@@ -31838,7 +32010,7 @@ traffic_ping_pong_send_and_receive_tcp2(InitState) ->
                          client_result := CRes,
                          num           := Num} = State) ->
                            {SSent, SReceived, SStart, SStop} = SRes,
-                           {CSent, CReceived, CStart, CStop} = CRes,
+                           {CSent, CReceived, _, CStart, CStop} = CRes,
                            STime = tdiff(SStart, SStop),
                            CTime = tdiff(CStart, CStop),
                            %% Note that the sizes we are counting is only 
@@ -32092,9 +32264,10 @@ tpp_tcp_client_msg_exchange_loop(Sock, _Send, _Recv, _Msg,
                                  Num, Num, Sent, Received,
                                  Start) ->
     Stop = ?LIB:timestamp(),
+    Info = socket:info(Sock),
     case socket:close(Sock) of
         ok ->
-            {Sent, Received, Start, Stop};
+            {Sent, Received, Info, Start, Stop};
         {error, Reason} ->
             exit({failed_closing, Reason})
     end;
