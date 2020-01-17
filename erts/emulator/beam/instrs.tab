@@ -1026,6 +1026,14 @@ is_ge(Fail, X, Y) {
     CMP_GE_ACTION($X, $Y, $FAIL($Fail));
 }
 
+is_lt_literal(Fail, X, Y) {
+    CMP_LT_LITERAL_ACTION($X, $Y, $FAIL($Fail));
+}
+
+is_ge_literal(Fail, X, Y) {
+    CMP_GE_LITERAL_ACTION($X, $Y, $FAIL($Fail));
+}
+
 badarg(Fail) {
     $BADARG($Fail);
     //| -no_next;

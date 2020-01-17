@@ -471,16 +471,27 @@ is_eq_exact f? y y
 
 is_ne_exact f? S S
 
+# When either operand for is_lt or is_ge is a literal,
+# that literal is almost always an integer and almost never
+# an atom. Therefore we use a specialized instruction when
+# one of the operands is a literal.
+
+is_lt Fail Src=x Lit=c => is_lt_literal Fail Src Lit
+is_lt Fail Lit=c Src=x => is_lt_literal Fail Lit Src
+
 is_lt f? x x
-is_lt f? x c
-is_lt f? c x
+is_lt_literal f? x c
+is_lt_literal f? c x
 %cold
 is_lt f? s s
 %hot
 
+is_ge Fail Src=x Lit=c => is_ge_literal Fail Src Lit
+is_ge Fail Lit=c Src=x => is_ge_literal Fail Lit Src
+
 is_ge f? x x
-is_ge f? x c
-is_ge f? c x
+is_ge_literal f? x c
+is_ge_literal f? c x
 %cold
 is_ge f? s s
 %hot
