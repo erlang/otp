@@ -750,8 +750,6 @@ valfun_1({test,_Op,{f,Lbl},Src}, Vst) ->
 %% Map instructions.
 valfun_1({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
-valfun_1({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
-    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 valfun_1({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
     verify_get_map(Fail, Src, List, Vst);
 
@@ -841,6 +839,8 @@ valfun_3(I, Vst) ->
     end.
 
 %% Instructions that can cause exceptions.
+valfun_4({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 valfun_4({apply,Live}, Vst) ->
     call(apply, Live+2, Vst);
 valfun_4({apply_last,Live,_}, Vst) ->
