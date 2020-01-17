@@ -380,6 +380,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
     enif_make_tuple8((E), (E1), (E2), (E3), (E4), (E5), (E6), (E7), (E8))
 #define MKTA(E, A, AL)      enif_make_tuple_from_array((E), (A), (AL))
 #define MKUI(E,UI)          enif_make_uint((E), (UI))
+#define MKUI64(E,UI)        enif_make_uint64((E), (UI))
 #define MKUL(E,UL)          enif_make_ulong((E), (UL))
 
 #define MCREATE(N)          enif_mutex_create((N))

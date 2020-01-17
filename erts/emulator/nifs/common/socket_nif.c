@@ -874,11 +874,13 @@ typedef struct {
     ESockRequestor*    currentWriterP; // NULL or points to currentWriter
     ESockRequestQueue  writersQ;
     BOOLEAN_T          isWritable;
-    Uint32             writePkgCnt;
-    Uint32             writeByteCnt;
-    Uint32             writeTries;
-    Uint32             writeWaits;
-    Uint32             writeFails;
+    Uint64             writePkgCnt;
+    Uint64             writePkgMax;
+    Uint64             writePkgMaxCnt;
+    Uint64             writeByteCnt;
+    Uint64             writeTries;
+    Uint64             writeWaits;
+    Uint64             writeFails;
 
     /* +++ Read stuff +++ */
     ErlNifMutex*       readMtx;
@@ -888,17 +890,23 @@ typedef struct {
     BOOLEAN_T          isReadable;
     ErlNifBinary       rbuffer;      // DO WE NEED THIS
     Uint32             readCapacity; // DO WE NEED THIS
-    Uint32             readPkgCnt;
-    Uint32             readByteCnt;
-    Uint32             readTries;
-    Uint32             readWaits;
-    Uint32             readFails;
+    Uint64             readPkgCnt;
+    Uint64             readPkgMax;
+    Uint64             readPkgMaxCnt;
+    Uint64             readByteCnt;
+    Uint64             readTries;
+    Uint64             readWaits;
+    Uint64             readFails;
 
     /* +++ Accept stuff +++ */
     ErlNifMutex*       accMtx;
     ESockRequestor     currentAcceptor;
     ESockRequestor*    currentAcceptorP; // NULL or points to currentAcceptor
     ESockRequestQueue  acceptorsQ;
+    Uint64             accSuccess;
+    Uint64             accTries;
+    Uint64             accWaits;
+    Uint64             accFails;
 
     /* +++ Config & Misc stuff +++ */
     ErlNifMutex*       cfgMtx;
@@ -941,17 +949,21 @@ typedef struct {
 
     BOOLEAN_T    iow; // Where do we send this? Subscription?
     ErlNifMutex* cntMtx;
-    Uint32       numSockets;
-    Uint32       numTypeStreams;
-    Uint32       numTypeDGrams;
-    Uint32       numTypeSeqPkgs;
-    Uint32       numDomainInet;
-    Uint32       numDomainInet6;
-    Uint32       numDomainLocal;
-    Uint32       numProtoIP;
-    Uint32       numProtoTCP;
-    Uint32       numProtoUDP;
-    Uint32       numProtoSCTP;
+    /* Its extreme overkill to have these counters be 64-bit,
+     * but since the other counters are, its much simpler to
+     * let to let these be 64-but also
+     */
+    Uint64       numSockets;
+    Uint64       numTypeStreams;
+    Uint64       numTypeDGrams;
+    Uint64       numTypeSeqPkgs;
+    Uint64       numDomainInet;
+    Uint64       numDomainInet6;
+    Uint64       numDomainLocal;
+    Uint64       numProtoIP;
+    Uint64       numProtoTCP;
+    Uint64       numProtoUDP;
+    Uint64       numProtoSCTP;
 } ESockData;
 
 
@@ -1124,6 +1136,7 @@ static ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
                                                  int              save_errno);
 static ERL_NIF_TERM esock_accept_listening_accept(ErlNifEnv*       env,
                                                   ESockDescriptor* descP,
+                                                  ERL_NIF_TERM     sockRef,
                                                   SOCKET           accSock,
                                                   ErlNifPid        caller,
                                                   ESockAddress*    remote);
@@ -1157,6 +1170,7 @@ static ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                             unsigned int     nextState);
 static BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
                                        SOCKET           accSock,
                                        ErlNifPid        pid,
                                        ESockAddress*    remote,
@@ -2537,8 +2551,8 @@ static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
 static BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err);
 #endif
 
-static BOOLEAN_T cnt_inc(Uint32* cnt, Uint32 inc);
-static void      cnt_dec(Uint32* cnt, Uint32 dec);
+static BOOLEAN_T cnt_inc(Uint64* cnt, Uint64 inc);
+static void      cnt_dec(Uint64* cnt, Uint64 dec);
 
 static void inc_socket(int domain, int type, int protocol);
 static void dec_socket(int domain, int type, int protocol);
@@ -3010,6 +3024,10 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
 
 /* *** Local atoms *** */
 #define LOCAL_ATOMS                    \
+    LOCAL_ATOM_DECL(acc_success);      \
+    LOCAL_ATOM_DECL(acc_fails);        \
+    LOCAL_ATOM_DECL(acc_tries);        \
+    LOCAL_ATOM_DECL(acc_waits);        \
     LOCAL_ATOM_DECL(adaptation_layer); \
     LOCAL_ATOM_DECL(add);              \
     LOCAL_ATOM_DECL(addr_unreach);     \
@@ -3088,6 +3106,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(read_byte);        \
     LOCAL_ATOM_DECL(read_fails);       \
     LOCAL_ATOM_DECL(read_pkg);         \
+    LOCAL_ATOM_DECL(read_pkg_max);     \
     LOCAL_ATOM_DECL(read_tries);       \
     LOCAL_ATOM_DECL(read_waits);       \
     LOCAL_ATOM_DECL(reject_route);     \
@@ -3108,6 +3127,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(write_byte);       \
     LOCAL_ATOM_DECL(write_fails);      \
     LOCAL_ATOM_DECL(write_pkg);        \
+    LOCAL_ATOM_DECL(write_pkg_max);    \
     LOCAL_ATOM_DECL(write_tries);      \
     LOCAL_ATOM_DECL(write_waits);      \
     LOCAL_ATOM_DECL(zerocopy);
@@ -3213,7 +3233,7 @@ static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
  * Description:
  * This is currently just a placeholder...
  */
-#define MKCT(E, T, C) MKT2((E), (T), MKUI((E), (C)))
+#define MKCT(E, T, C) MKT2((E), (T), MKUI64((E), (C)))
 
 static
 ERL_NIF_TERM nif_info(ErlNifEnv*         env,
@@ -3437,17 +3457,25 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
         ERL_NIF_TERM readByteCnt  = MKCT(env, atom_read_byte, descP->readByteCnt);
         ERL_NIF_TERM readFails    = MKCT(env, atom_read_fails, descP->readFails);
         ERL_NIF_TERM readPkgCnt   = MKCT(env, atom_read_pkg, descP->readPkgCnt);
+        ERL_NIF_TERM readPkgMax   = MKCT(env, atom_read_pkg_max, descP->readPkgMax);
         ERL_NIF_TERM readTries    = MKCT(env, atom_read_tries, descP->readTries);
         ERL_NIF_TERM readWaits    = MKCT(env, atom_read_waits, descP->readWaits);
         ERL_NIF_TERM writeByteCnt = MKCT(env, atom_write_byte, descP->writeByteCnt);
         ERL_NIF_TERM writeFails   = MKCT(env, atom_write_fails, descP->writeFails);
         ERL_NIF_TERM writePkgCnt  = MKCT(env, atom_write_pkg, descP->writePkgCnt);
+        ERL_NIF_TERM writePkgMax  = MKCT(env, atom_write_pkg_max, descP->writePkgMax);
         ERL_NIF_TERM writeTries   = MKCT(env, atom_write_tries, descP->writeTries);
         ERL_NIF_TERM writeWaits   = MKCT(env, atom_write_waits, descP->writeWaits);
-        ERL_NIF_TERM acnt[]       = {readByteCnt, readFails, readPkgCnt,
+
+        ERL_NIF_TERM accSuccess   = MKCT(env, atom_acc_success, descP->accSuccess);
+        ERL_NIF_TERM accFails     = MKCT(env, atom_acc_fails, descP->accFails);
+        ERL_NIF_TERM accTries     = MKCT(env, atom_acc_tries, descP->accTries);
+        ERL_NIF_TERM accWaits     = MKCT(env, atom_acc_waits, descP->accWaits);
+        ERL_NIF_TERM acnt[]       = {readByteCnt, readFails, readPkgCnt, readPkgMax,
                                      readTries, readWaits,
-                                     writeByteCnt, writeFails, writePkgCnt,
-                                     writeTries, writeWaits};
+                                     writeByteCnt, writeFails, writePkgCnt, writePkgMax,
+                                     writeTries, writeWaits,
+                                     accSuccess, accFails, accTries, accWaits};
         unsigned int lenACnt      = sizeof(acnt) / sizeof(ERL_NIF_TERM);
 
         info = MKLA(env, acnt, lenACnt);
@@ -6170,7 +6198,8 @@ ERL_NIF_TERM esock_accept_listening(ErlNifEnv*       env,
 
       SSDBG( descP, ("SOCKET", "esock_accept_listening -> success\r\n") );
 
-        res = esock_accept_listening_accept(env, descP, accSock, caller, &remote);
+      res = esock_accept_listening_accept(env, descP,
+                                          sockRef, accSock, caller, &remote);
 
     }
 
@@ -6204,6 +6233,8 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET", "esock_accept_listening_error -> would block\r\n") );
 
+        SOCK_CNT_INC(env, descP, sockRef, atom_acc_tries, &descP->accTries, 1);
+
         descP->currentAcceptor.pid = caller;
         if (MONP("esock_accept_listening -> current acceptor",
                  env, descP,
@@ -6225,6 +6256,9 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET",
                 "esock_accept_listening -> errno: %d\r\n", save_errno) );
+
+        SOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
+
         res = esock_make_error_errno(env, save_errno);
     }
 
@@ -6239,13 +6273,14 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
 static
 ERL_NIF_TERM esock_accept_listening_accept(ErlNifEnv*       env,
                                            ESockDescriptor* descP,
+                                           ERL_NIF_TERM     sockRef,
                                            SOCKET           accSock,
                                            ErlNifPid        caller,
                                            ESockAddress*    remote)
 {
     ERL_NIF_TERM res;
 
-    esock_accept_accepted(env, descP, accSock, caller, remote, &res);
+    esock_accept_accepted(env, descP, sockRef, accSock, caller, remote, &res);
     
     return res;
 }
@@ -6366,7 +6401,7 @@ ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
 {
     ERL_NIF_TERM res;
 
-    if (esock_accept_accepted(env, descP, accSock,
+    if (esock_accept_accepted(env, descP, sockRef, accSock,
                               descP->currentAcceptor.pid, remote, &res)) {
 
         /* Clean out the old cobweb's before trying to invite a new spider */
@@ -6429,12 +6464,16 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
                 "esock_accept_accepting_current_error -> "
                 "would block: try again\r\n") );
 
+        SOCK_CNT_INC(env, descP, sockRef, atom_acc_waits, &descP->accWaits, 1);
+
         res = esock_accept_busy_retry(env, descP, sockRef, opRef,
                                       &descP->currentAcceptor.pid,
                                       /* No state change */
                                       descP->state);
 
     } else {
+
+        SOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
 
         reason = MKA(env, erl_errno_id(save_errno));
         res    = esock_make_error(env, reason);
@@ -6518,6 +6557,7 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
 static
 BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
                                 SOCKET           accSock,
                                 ErlNifPid        pid,
                                 ESockAddress*    remote,
@@ -6531,6 +6571,8 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     /*
      * We got one
      */
+
+    SOCK_CNT_INC(env, descP, sockRef, atom_acc_success, &descP->accSuccess, 1);
 
     if ((accEvent = sock_create_event(accSock)) == INVALID_EVENT) {
         save_errno = sock_errno();
@@ -6696,7 +6738,6 @@ ERL_NIF_TERM esock_send(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    // cnt_inc(&descP->writeTries, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     written = sock_send(descP->sock, sndDataP->data, sndDataP->size, flags);
@@ -6829,7 +6870,6 @@ ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    // cnt_inc(&descP->writeTries, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     if (toAddrP != NULL) {
@@ -7071,7 +7111,6 @@ ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    // cnt_inc(&descP->writeTries, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     /* And now, finally, try to send the message */
@@ -7272,7 +7311,6 @@ ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
     if (!ALLOC_BIN(bufSz, &buf))
         return esock_make_error(env, atom_exalloc);
 
-    // cnt_inc(&descP->readTries, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     // If it fails (read = -1), we need errno...
@@ -7436,7 +7474,6 @@ ERL_NIF_TERM esock_recvfrom(ErlNifEnv*       env,
     if (!ALLOC_BIN(bufSz, &buf))
         return esock_make_error(env, atom_exalloc);
 
-    // cnt_inc(&descP->readTries, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     addrLen = sizeof(fromAddr);
@@ -7624,7 +7661,6 @@ ERL_NIF_TERM esock_recvmsg(ErlNifEnv*       env,
     if (!ALLOC_BIN(ctrlSz, &ctrl))
         return esock_make_error(env, atom_exalloc);
 
-    // cnt_inc(&descP->readTries, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     addrLen = sizeof(addr);
@@ -15382,12 +15418,14 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                            ssize_t          dataSize,
                            ERL_NIF_TERM     sockRef)
 {
-    // cnt_inc(&descP->writePkgCnt,  1);
     SOCK_CNT_INC(env, descP, sockRef,
                  atom_write_pkg, &descP->writePkgCnt, 1);
-    // cnt_inc(&descP->writeByteCnt, written);
     SOCK_CNT_INC(env, descP, sockRef,
                  atom_write_byte, &descP->writeByteCnt, written);
+    descP->writePkgMaxCnt += written;
+    if (descP->writePkgMaxCnt > descP->writePkgMax)
+        descP->writePkgMax = descP->writePkgMaxCnt;
+    descP->writePkgMaxCnt = 0;
 
     if (descP->currentWriterP != NULL) {
         DEMONP("send_check_ok -> current writer",
@@ -15433,7 +15471,6 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
     ERL_NIF_TERM   reason;
 
     req.env = NULL;
-    // cnt_inc(&descP->writeFails, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_write_fails, &descP->writeFails, 1);
 
     SSDBG( descP, ("SOCKET", "send_check_fail -> error: %d\r\n", saveErrno) );
@@ -15508,7 +15545,6 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
         }
     }
 
-    // cnt_inc(&descP->writeWaits, 1);
     SOCK_CNT_INC(env, descP, sockRef, atom_write_waits, &descP->writeWaits, 1);
 
     sres = esock_select_write(env, descP->sock, descP, NULL, sockRef, sendRef);
@@ -15517,10 +15553,17 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
 
         /* Partial *write* success */
 
+        descP->writePkgMaxCnt += written;
+
         if (sres < 0) {
             /* Returned: {error, Reason}
              * Reason:   {select_failed, sres, written}
              */
+
+            if (descP->writePkgMaxCnt > descP->writePkgMax)
+                descP->writePkgMax = descP->writePkgMaxCnt;
+            descP->writePkgMaxCnt = 0;
+
             res = esock_make_error(env,
                                    MKT3(env,
                                         esock_atom_select_failed,
@@ -15790,7 +15833,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
     
         /* There is a special case: If the provided 'to read' value is
          * zero (0) (only for type =/= stream).
-         * That means that we reads as much as we can, using the default
+         * That means that we read as much as we can, using the default
          * read buffer size.
          */
 
@@ -15919,8 +15962,8 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 {
     char* xres;
 
-    // cnt_inc(&descP->readByteCnt, read);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+    descP->readPkgMaxCnt += read;
 
     if (descP->rNum > 0) {
 
@@ -15929,8 +15972,10 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 
             descP->rNumCnt = 0;
 
-            // cnt_inc(&descP->readPkgCnt, 1);
             SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+            if (descP->readPkgMaxCnt > descP->readPkgMax)
+                descP->readPkgMax = descP->readPkgMaxCnt;
+            descP->readPkgMaxCnt = 0;
 
             recv_update_current_reader(env, descP, sockRef);
 
@@ -15947,6 +15992,11 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 
     if ((xres = recv_init_current_reader(env, descP, recvRef)) != NULL) {
         descP->rNumCnt = 0;
+
+        if (descP->readPkgMaxCnt > descP->readPkgMax)
+            descP->readPkgMax = descP->readPkgMaxCnt;
+        descP->readPkgMaxCnt = 0;
+
         FREE_BIN(bufP);
         return esock_make_error_str(env, xres);
     }
@@ -15978,10 +16028,13 @@ ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
 {
     ERL_NIF_TERM data;
 
-    // cnt_inc(&descP->readPkgCnt,  1);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-    // cnt_inc(&descP->readByteCnt, read);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+
+    descP->readPkgMaxCnt += read;
+    if (descP->readPkgMaxCnt > descP->readPkgMax)
+        descP->readPkgMax = descP->readPkgMaxCnt;
+    descP->readPkgMaxCnt = 0;
 
     recv_update_current_reader(env, descP, sockRef);
 
@@ -16019,7 +16072,6 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         SSDBG( descP, ("SOCKET", "recv_check_fail -> closed\r\n") );
 
         // This is a bit overkill (to count here), but just in case...
-        // cnt_inc(&descP->readFails, 1);
         SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         res = recv_check_fail_closed(env, descP, sockRef, recvRef);
@@ -16036,7 +16088,6 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         SSDBG( descP, ("SOCKET", "recv_check_fail -> errno: %d\r\n",
                        saveErrno) );
 
-        // cnt_inc(&descP->readFails, 1);
         SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
@@ -16202,10 +16253,13 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
     ERL_NIF_TERM data;
 
     descP->rNumCnt = 0;
-    // cnt_inc(&descP->readPkgCnt,  1);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-    // cnt_inc(&descP->readByteCnt, read);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+
+    descP->readPkgMaxCnt += read;
+    if (descP->readPkgMaxCnt > descP->readPkgMax)
+        descP->readPkgMax = descP->readPkgMaxCnt;
+    descP->readPkgMaxCnt = 0;
 
     recv_update_current_reader(env, descP, sockRef);
 
@@ -16248,7 +16302,6 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
     data = MKBIN(env, bufP);
     data = MKSBIN(env, data, 0, read);
 
-    // cnt_inc(&descP->readByteCnt, read);
     SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
 
     /* SELECT for more data */
@@ -16336,9 +16389,7 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
             data = MKSBIN(env, data, 0, read);
         }
 
-        // cnt_inc(&descP->readPkgCnt,  1);
         SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-        // cnt_inc(&descP->readByteCnt, read);
         SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
                      &descP->readByteCnt, read);
 
@@ -18702,6 +18753,8 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->writersQ.last  = NULL;
         descP->isWritable     = FALSE; // TRUE;
         descP->writePkgCnt    = 0;
+        descP->writePkgMax    = 0;
+        descP->writePkgMaxCnt = 0;
         descP->writeByteCnt   = 0;
         descP->writeTries     = 0;
         descP->writeWaits     = 0;
@@ -18718,6 +18771,8 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->readersQ.last  = NULL;
         descP->isReadable     = FALSE; // TRUE;
         descP->readPkgCnt     = 0;
+        descP->readPkgMax     = 0;
+        descP->readPkgMaxCnt  = 0;
         descP->readByteCnt    = 0;
         descP->readTries      = 0;
         descP->readWaits      = 0;
@@ -18732,6 +18787,10 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->currentAcceptorP = NULL; // currentAcceptor not used
         descP->acceptorsQ.first = NULL;
         descP->acceptorsQ.last  = NULL;
+        descP->accSuccess       = 0;
+        descP->accFails         = 0;
+        descP->accTries         = 0;
+        descP->accWaits         = 0;
 
         sprintf(buf, "esock[close,%d]", sock);
         descP->closeMtx         = MCREATE(buf);
@@ -20111,11 +20170,11 @@ BOOLEAN_T qunqueue(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-BOOLEAN_T cnt_inc(Uint32* cnt, Uint32 inc)
+BOOLEAN_T cnt_inc(Uint64* cnt, Uint64 inc)
 {
     BOOLEAN_T wrap;
-    Uint32    max     = 0xFFFFFFFF;
-    Uint32    current = *cnt;
+    Uint64    max     = 0xFFFFFFFFFFFFFFFF;
+    Uint64    current = *cnt;
 
     if ((max - inc) >= current) {
         *cnt += inc;
@@ -20130,9 +20189,9 @@ BOOLEAN_T cnt_inc(Uint32* cnt, Uint32 inc)
 
 
 static
-void cnt_dec(Uint32* cnt, Uint32 dec)
+void cnt_dec(Uint64* cnt, Uint64 dec)
 {
-    Uint32 current = *cnt;
+    Uint64 current = *cnt;
 
     if (dec > current)
         *cnt = 0; // The counter cannot be < 0 so this is the best we can do...
@@ -20340,22 +20399,26 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     SSDBG( descP, ("SOCKET", "esock_stop -> "
                    "[%d, %T] all mutex(s) locked when counters:"
                    "\r\n   writePkgCnt:  %u"
+                   "\r\n   writePkgMax:  %u"
                    "\r\n   writeByteCnt: %u"
                    "\r\n   writeTries:   %u"
                    "\r\n   writeWaits:   %u"
                    "\r\n   writeFails:   %u"
                    "\r\n   readPkgCnt:   %u"
+                   "\r\n   readPkgMax:   %u"
                    "\r\n   readByteCnt:  %u"
                    "\r\n   readTries:    %u"
                    "\r\n   readWaits:    %u"
                    "\r\n",
                    descP->sock, descP->ctrlPid,
                    descP->writePkgCnt,
+                   descP->writePkgMax,
                    descP->writeByteCnt,
                    descP->writeTries,
                    descP->writeWaits,
                    descP->writeFails,
                    descP->readPkgCnt,
+                   descP->readPkgMax,
                    descP->readByteCnt,
                    descP->readTries,
                    descP->readWaits) );
