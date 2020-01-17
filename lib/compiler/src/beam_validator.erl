@@ -821,8 +821,6 @@ vi_safe({test,_Op,{f,Lbl},Src}, Vst) ->
     branch(Lbl, Vst, fun(V) -> V end);
 vi_safe({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
-vi_safe({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
-    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 vi_safe({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
     verify_get_map(Fail, Src, List, Vst);
 vi_safe(I, Vst0) ->
@@ -982,7 +980,6 @@ vi_float(I, Vst) ->
 %%%
 %%% vi_throwing/2 handles instructions that can cause exceptions.
 %%%
-
 vi_throwing({badmatch,Src}, Vst) ->
     assert_durable_term(Src, Vst),
     verify_y_init(Vst),
@@ -1158,6 +1155,8 @@ vi_throwing({bs_put_utf32,{f,Fail},_,Src}, Vst) ->
                    update_type(fun meet/2, #t_integer{}, Src, SuccVst)
            end);
 %% Map instructions.
+vi_throwing({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
+    verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 vi_throwing(_, _) ->
     error(unknown_instruction).
 
