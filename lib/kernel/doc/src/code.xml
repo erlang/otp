@@ -315,6 +315,9 @@ zip:create("mnesia-4.4.7.ez",
       <name name="load_error_rsn"/>
     </datatype>
     <datatype>
+      <name name="module_status"/>
+    </datatype>
+    <datatype>
       <name name="prepared_code"/>
       <desc><p>An opaque term holding prepared code.</p></desc>
     </datatype>
@@ -901,10 +904,20 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
       </desc>
     </func>
     <func>
-      <name name="module_status" arity="1" since="OTP 20.0"/>
-      <fsummary>Return the status of the module in relation to object file on disk.</fsummary>
+      <name name="module_status" arity="0" since="OTP 23.0"/>
+      <fsummary>Return the statuses of all loaded modules.</fsummary>
+      <type name="module_status"/>
       <desc>
-	<p>Returns:</p>
+        <p>See <seealso marker="#module_status/1"><c>module_status/1</c></seealso> and <seealso marker="#all_loaded/0"><c>all_loaded/0</c></seealso> for details.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="module_status" arity="1" since="OTP 20.0"/>
+      <fsummary>Return the status of a module or modules in relation to the
+      object files on disk.</fsummary>
+      <type name="module_status"/>
+      <desc>
+	<p>The status of a module can be one of:</p>
 	<taglist>
 	<tag><c>not_loaded</c></tag>
 	<item><p>If <c><anno>Module</anno></c> is not currently loaded.</p></item>
