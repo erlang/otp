@@ -23,7 +23,8 @@
 -include_lib("common_test/include/ct.hrl").
 
 -export([load_nif_lib/2, load_nif_lib/3, start/0, lib_version/0,
-	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2]).
+	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2,
+         monitor_process/3]).
 
 -export([loop/0, upgrade/1]).
 
@@ -89,6 +90,7 @@ nif_api_version() -> %NIF
 get_priv_data_ptr() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
 get_resource(_,_) -> ?nif_stub.
+monitor_process(_,_,_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

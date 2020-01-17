@@ -38,6 +38,7 @@
          monitor_process_b/1,
          monitor_process_c/1,
          monitor_process_d/1,
+         monitor_process_purge/1,
          demonitor_process/1,
          monitor_frenzy/1,
          hipe/1,
@@ -67,6 +68,7 @@
          nif_whereis_threaded/1, nif_whereis_proxy/1,
          nif_ioq/1,
          pid/1,
+         id/1,
          nif_term_type/1
 	]).
 
@@ -75,6 +77,9 @@
 -define(nif_stub,nif_stub_error(?LINE)).
 
 -define(is_resource, is_reference).
+
+-define(RT_CREATE,1).
+-define(RT_TAKEOVER,2).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -125,6 +130,7 @@ groups() ->
                     monitor_process_b,
                     monitor_process_c,
                     monitor_process_d,
+                    monitor_process_purge,
                     demonitor_process]}].
 
 api_groups() -> [api_latest, api_2_4, api_2_0].
@@ -823,6 +829,57 @@ monitor_process_d(Config) ->
 
     ok.
 
+%% OTP-16399: Test fire resource monitor after the NIF module been purged.
+monitor_process_purge(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,NifModBin} = compile:file(File, [binary,return_errors]),
+
+    monitor_process_purge_do(Config, NifModBin, resource_dtor_A),
+    erlang:garbage_collect(),
+    receive after 10 -> ok end,
+    [{{resource_dtor_A_v1,_},1,4,104},
+     {unload,1,5,105}] = nif_mod_call_history(),
+
+    %% This used to crash VM as only resources with destructor
+    %% prevented NIF lib from being unloaded.
+    monitor_process_purge_do(Config, NifModBin, null),
+    erlang:garbage_collect(),
+    receive after 10 -> ok end,
+    [{unload,1,4,104}] = nif_mod_call_history(),
+    ok.
+
+monitor_process_purge_do(Config, NifModBin, Dtor) ->
+    io:format("Test with destructor = ~p\n", [Dtor]),
+
+    {module,nif_mod} = erlang:load_module(nif_mod,NifModBin),
+
+    ok = nif_mod:load_nif_lib(Config, 1, [{resource_type, 0, ?RT_CREATE,
+                                           "monitor_process_purge", Dtor,
+                                           ?RT_CREATE, resource_down_D}
+                                         ]),
+    hold_nif_mod_priv_data(nif_mod:get_priv_data_ptr()),
+    [{load,1,1,101},
+     {get_priv_data_ptr,1,2,102}] = nif_mod_call_history(),
+
+    {Pid,MRef} = spawn_opt(fun() ->
+                                receive
+                                    return -> ok
+                                end
+                        end,
+                        [link, monitor]),
+    RBin = <<"blahblah">>,
+    R = nif_mod:make_new_resource(0, RBin),
+    0 = nif_mod:monitor_process(0, R, Pid),
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+    Pid ! return,
+    [{'DOWN', MRef, process, Pid, normal}] = flush(),
+    [{{resource_down_D_v1,RBin},1,3,103}] = nif_mod_call_history(),
+    keep_alive(R),
+    ok.
+
+
 %% Test basic demonitoring
 demonitor_process(Config) ->
     ensure_lib_loaded(Config),
@@ -1413,10 +1470,6 @@ resource_binary_do() ->
     ResInfo = get_resource(binary_resource_type,ResBin1),
     ResInfo = get_resource(binary_resource_type,ResBin2),
     ResInfo.
-
-    
--define(RT_CREATE,1).
--define(RT_TAKEOVER,2).
 
 %% Test resource takeover by module upgrade
 resource_takeover(Config) when is_list(Config) ->    
@@ -3439,6 +3492,7 @@ last_resource_dtor_call() ->
     last_resource_dtor_call_nif().
 
 id(I) -> I.
+keep_alive(Term) -> ?MODULE:id(Term).
 
 %% The NIFs:
 lib_version() -> undefined.

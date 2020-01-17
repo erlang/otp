@@ -2209,6 +2209,10 @@ static ErlNifResourceType* find_resource_type(Eterm module, Eterm name)
 #define in_area(ptr,start,nbytes) \
     ((UWord)((char*)(ptr) - (char*)(start)) < (nbytes))
 
+static ERTS_INLINE int rt_have_callbacks(ErlNifResourceType* rt)
+{
+    return rt->dtor != NULL;
+}
 
 static void close_lib(struct erl_module_nif* lib)
 {
@@ -2231,7 +2235,7 @@ static void steal_resource_type(ErlNifResourceType* type)
 {
     struct erl_module_nif* lib = type->owner;
 
-    if (type->dtor != NULL
+    if (rt_have_callbacks(type)
 	&& erts_refc_dectest(&lib->rt_dtor_cnt, 0) == 0
 	&& lib->mod == NULL) {
 	/* last type with destructor gone, close orphan lib */
@@ -2242,6 +2246,11 @@ static void steal_resource_type(ErlNifResourceType* type)
 	&& lib->mod == NULL) {
 	erts_free(ERTS_ALC_T_NIF, lib);
     }
+}
+
+static void resource_dtor_nop(ErlNifEnv* env, void* obj)
+{
+    /* do nothing */
 }
 
 /* The opened_rt_list is used by enif_open_resource_type()
@@ -2306,6 +2315,12 @@ ErlNifResourceType* open_resource_type(ErlNifEnv* env,
         sys_memzero(&ort->new_callbacks, sizeof(ErlNifResourceTypeInit));
         ASSERT(sizeof_init > 0 && sizeof_init <= sizeof(ErlNifResourceTypeInit));
         sys_memcpy(&ort->new_callbacks, init, sizeof_init);
+        if (!ort->new_callbacks.dtor && (ort->new_callbacks.down ||
+                                         ort->new_callbacks.stop)) {
+            /* Set dummy dtor for fast rt_have_callbacks()
+             * This case should be rare anyway */
+            ort->new_callbacks.dtor = resource_dtor_nop;
+        }
 	ort->next = opened_rt_list;
 	opened_rt_list = ort;
     }
@@ -2362,7 +2377,7 @@ static void commit_opened_resource_types(struct erl_module_nif* lib)
         type->stop = ort->new_callbacks.stop;
         type->down = ort->new_callbacks.down;
 
-	if (type->dtor != NULL) {
+	if (rt_have_callbacks(type)) {
 	    erts_refc_inc(&lib->rt_dtor_cnt, 1);
 	}
 	erts_refc_inc(&lib->rt_cnt, 1);
@@ -4403,7 +4418,7 @@ erts_unload_nif(struct erl_module_nif* lib)
 	    rt->next = NULL;
 	    rt->prev = NULL;
 	    if (erts_refc_dectest(&rt->refc, 0) == 0) {
-		if (rt->dtor != NULL) {
+		if (rt_have_callbacks(rt)) {
 		    erts_refc_dec(&lib->rt_dtor_cnt, 0);
 		}
 		erts_refc_dec(&lib->rt_cnt, 0);
