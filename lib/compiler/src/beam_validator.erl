@@ -514,17 +514,6 @@ vi_safe({apply,Live}, Vst) ->
     validate_body_call(apply, Live+2, Vst);
 vi_safe({apply_last,Live,N}, Vst) ->
     validate_tail_call(N, apply, Live+2, Vst);
-vi_safe({call_fun,Live}, Vst) ->
-    Fun = {x,Live},
-    assert_term(Fun, Vst),
-
-    %% An exception is raised on error, hence branching to 0.
-    branch(0, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
-                                         Fun, SuccVst0),
-                   validate_body_call('fun', Live+1, SuccVst)
-           end);
 vi_safe({call,Live,Func}, Vst) ->
     validate_body_call(Func, Live, Vst);
 vi_safe({call_ext,Live,Func}, Vst) ->
@@ -994,6 +983,17 @@ vi_throwing({try_case_end,Src}, Vst) ->
     verify_y_init(Vst),
     assert_durable_term(Src, Vst),
     kill_state(Vst);
+vi_throwing({call_fun,Live}, Vst) ->
+    Fun = {x,Live},
+    assert_term(Fun, Vst),
+
+    %% An exception is raised on error, hence branching to 0.
+    branch(0, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
+                                         Fun, SuccVst0),
+                   validate_body_call('fun', Live+1, SuccVst)
+           end);
 vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
     #{ arity := Arity0 } = gb_trees:get(Lbl, Ft),
     Arity = Arity0 - NumFree,
