@@ -52,7 +52,7 @@
       is to be regarded as opaque by other modules. Any code
       assuming knowledge of the format is running on thin ice.</p>
 
-    <p>All operations has an amortized O(1) running time, except
+    <p>All operations have an amortized O(1) running time, except
       <seealso marker="#filter/2"><c>filter/2</c></seealso>,
       <seealso marker="#join/2"><c>join/2</c></seealso>,
       <seealso marker="#len/1"><c>len/1</c></seealso>,
