@@ -36,6 +36,9 @@ static void usage(EpmdVars *);
 static void run_daemon(EpmdVars*);
 static char* get_addresses(void);
 static int get_port_no(void);
+#if defined(SO_BINDTODEVICE)
+static char* get_interface(void);
+#endif
 static int check_relaxed(void);
 #ifdef __WIN32__
 static int has_console(void);
@@ -163,6 +166,9 @@ int main(int argc, char** argv)
 
     g->addresses      = get_addresses();
     g->port           = get_port_no();
+#if defined(SO_BINDTODEVICE)
+    g->interface     = get_interface();
+#endif
     g->debug          = 0;
 
     g->silent         = 0; 
@@ -227,6 +233,13 @@ int main(int argc, char** argv)
 		((g->port = atoi(argv[1])) == 0))
 	      usage(g);
 	    argv += 2; argc -= 2;
+#if defined(SO_BINDTODEVICE)
+	} else if (strcmp(argv[0], "-interface") == 0) {
+	    if (argc == 1)
+	      usage(g);
+	    g->interface = argv[1];
+	    argv += 2; argc -= 2;
+#endif
 	} else if (strcmp(argv[0], "-names") == 0) {
 	    if (argc == 1)
 		epmd_call(g, EPMD_NAMES_REQ);
@@ -423,6 +436,10 @@ static void usage(EpmdVars *g)
     fprintf(stderr, "    -port No\n");
     fprintf(stderr, "        Let epmd listen to another port than default %d\n",
 	    EPMD_PORT_NO);
+#if defined(SO_BINDTODEVICE)
+    fprintf(stderr, "    -interface Name\n");
+    fprintf(stderr, "        Bind epmd's socket to the specified interface\n");
+#endif
     fprintf(stderr, "    -d\n");
     fprintf(stderr, "    -debug\n");
     fprintf(stderr, "        Enable debugging. This will give a log to\n");
@@ -614,4 +631,9 @@ static int check_relaxed(void)
     char* port_str = getenv("ERL_EPMD_RELAXED_COMMAND_CHECK");
     return (port_str != NULL) ? 1 : 0;
 }
-
+#if defined(SO_BINDTODEVICE)
+static char* get_interface(void)
+{
+    return getenv("ERL_EPMD_INTERFACE");
+}
+#endif

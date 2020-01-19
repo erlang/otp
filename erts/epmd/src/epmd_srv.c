@@ -388,6 +388,17 @@ void run(EpmdVars *g)
 	}
 #endif
 
+#if defined(SO_BINDTODEVICE)
+      if (g->interface && g->interface[0]) {
+          if (setsockopt(listensock[i], SOL_SOCKET, SO_BINDTODEVICE,
+                         g->interface, strlen(g->interface) + 1) < 0)
+          {
+              dbg_perror(g,"can't bind to interface");
+              epmd_cleanup_exit(g,1);
+          }
+      }
+#endif
+
       /*
        * Note that we must not enable the SO_REUSEADDR on Windows,
        * because addresses will be reused even if they are still in use.
