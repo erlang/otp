@@ -32,6 +32,21 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug in the compiler that could cause it to
+	    reject valid code.</p>
+          <p>
+	    Own Id: OTP-16385 Aux Id: ERL-1128 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
