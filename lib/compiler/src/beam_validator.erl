@@ -639,8 +639,7 @@ vi_safe({jump,{f,Lbl}}, Vst) ->
 
 vi_safe(return, Vst) ->
     assert_durable_term({x,0}, Vst),
-    verify_return(Vst),
-    kill_state(Vst);
+    verify_return(Vst);
 
 %%
 %% Matching and test instructions.
@@ -1285,7 +1284,7 @@ verify_return(#vst{current=#st{recv_marker=Mark}}) when Mark =/= none ->
     error({return_with_receive_marker,Mark});
 verify_return(Vst) ->
     verify_no_ct(Vst),
-    ok.
+    kill_state(Vst).
 
 %%
 %% Common code for validating BIFs.
@@ -1501,8 +1500,7 @@ tail_call(Name, Live, Vst0) ->
     verify_y_init(Vst0),
     Vst = deallocate(Vst0),
     verify_call_args(Name, Live, Vst),
-    verify_return(Vst),
-    kill_state(Vst).
+    verify_return(Vst).
 
 verify_call_args(_, 0, #vst{}) ->
     ok;
@@ -2291,7 +2289,7 @@ get_raw_type(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
         #{ Ref := #value{type=Type} } -> Type;
         #{} -> none
     end;
-get_raw_type(Src, #vst{}) ->
+get_raw_type(Src, #vst{current=#st{}}) ->
     get_literal_type(Src).
 
 get_literal_type(nil) -> 
