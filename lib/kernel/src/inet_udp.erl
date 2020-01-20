@@ -50,20 +50,23 @@ open(Port) -> open(Port, []).
 
 -spec open(_, _) -> {ok, inet:socket()} | {error, atom()}.
 open(Port, Opts) ->
-    case inet:udp_options(
-	   [{port,Port}, {recbuf, ?RECBUF} | Opts], 
-	   ?MODULE) of
-	{error, Reason} -> exit(Reason);
-	{ok,
-	 #udp_opts{
-	    fd = Fd,
-	    ifaddr = BAddr = {A,B,C,D},
-	    port = BPort,
-	    opts = SockOpts}}
-	  when ?ip(A,B,C,D), ?port(BPort) ->
-	    inet:open(
-	      Fd, BAddr, BPort, SockOpts, ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
-	{ok, _} -> exit(badarg)
+    case inet:udp_options([{port,Port} | Opts], ?MODULE) of
+        {error, Reason} ->
+            exit(Reason);
+        {ok, #udp_opts{fd     = Fd,
+                       ifaddr = BAddr = {A,B,C,D},
+                       port   = BPort,
+                       opts   = SockOpts}}
+          when ?ip(A,B,C,D), ?port(BPort) ->
+            inet:open(Fd, BAddr, BPort, SockOpts,
+                      ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
+        {ok, #udp_opts{fd     = Fd,
+                       ifaddr = BAddr = undefined,
+                       opts   = SockOpts}} ->
+            inet:open(Fd, BAddr, 0, SockOpts,
+                      ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
+        {ok, _} ->
+            exit(badarg)
     end.
 
 send(S, {A,B,C,D} = IP, Port, Data)
@@ -81,7 +84,7 @@ send(S, {?FAMILY, {loopback, Port}} = Address, AncData, Data)
 
 send(S, Data) ->
     prim_inet:sendto(S, {any, 0}, [], Data).
-    
+
 connect(S, Addr = {A,B,C,D}, Port)
   when ?ip(A,B,C,D), ?port(Port) ->
     prim_inet:connect(S, Addr, Port).
