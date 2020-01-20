@@ -381,26 +381,33 @@ multi_ack_timeout(suite) ->
 multi_ack_timeout(doc) ->
     [];
 multi_ack_timeout(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    Skippable = [win32, {unix, [darwin, linux, sunos]}], % Is there any left?
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
+    Pre = fun() ->
+                  %% <CONDITIONAL-SKIP>
+                  Skippable = [win32, {unix, [darwin, linux, sunos]}],
+                  Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+                  ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
+                  %% </CONDITIONAL-SKIP>
 
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_ack_timeout),
-    i("starting"),
+                  MgcNode  = make_node_name(mgc),
+                  MgNode   = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_ack_timeout/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_ack_timeout, Pre, Case, Post).
 
+do_multi_ack_timeout([MgcNode, MgNode]) ->
 
     MaxCount = 20,
-    MgcNode  = make_node_name(mgc),
-    MgNode   = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
