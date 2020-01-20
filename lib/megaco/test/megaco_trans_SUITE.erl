@@ -2445,19 +2445,30 @@ multi_trans_req_maxsize1(suite) ->
 multi_trans_req_maxsize1(doc) ->
     "Test that the message is sent when req_maxsize is reached";
 multi_trans_req_maxsize1(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_trans_req_maxsize1),
-    i("starting"),
+    Pre = fun() ->
+                  put(verbosity, ?TEST_VERBOSITY),
+                  put(sname,     "TEST"),
+                  put(tc,        multi_trans_req_maxsize1),
+                  i("starting"),
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_trans_req_maxsize1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(request_and_no_reply, Pre, Case, Post).
 
+do_multi_trans_req_maxsize1([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
