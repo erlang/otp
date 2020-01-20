@@ -59,7 +59,7 @@
         release as the libraries themselves. For information about how to
         communicate with Erlang/OTP components from earlier releases, see
         function <seealso marker="ei#ei_set_compat_rel">
-        <c>ei:ei_set_compat_rel</c></seealso>.</p>
+        <c>ei_set_compat_rel</c></seealso>.</p>
     </note>
 
     <section>
@@ -236,7 +236,7 @@ ei_x_free(&buf);      ]]></code>
     <p>To connect to a distributed Erlang node, you must first
       initialize the connection routine with one of the
       <seealso marker="ei_connect#ei_connect_init">
-      <c>ei_connect:ei_connect_init_*</c></seealso> functions,
+      <c>ei_connect_init_*</c></seealso> functions,
       which stores information, such as the hostname, and node name
       for later use:</p>
 
@@ -322,9 +322,9 @@ pub = ei_publish(ec, port);    ]]></code>
 
     <list type="bulleted">
       <item><seealso marker="ei_connect#ei_send">
-        <c>ei_connect:ei_send</c></seealso></item>
+        <c>ei_send</c></seealso></item>
       <item><seealso marker="ei_connect#ei_reg_send">
-        <c>ei_connect:ei_reg_send</c></seealso></item>
+        <c>ei_reg_send</c></seealso></item>
     </list>
 
     <p>As in Erlang, messages can be sent to a
@@ -336,9 +336,9 @@ pub = ei_publish(ec, port);    ]]></code>
 
     <list type="bulleted">
       <item><seealso marker="ei_connect#ei_receive">
-        <c>ei_connect:ei_receive</c></seealso></item>
+        <c>ei_receive</c></seealso></item>
       <item><seealso marker="ei_connect#ei_receive_msg">
-        <c>ei_connect:ei_receive_msg</c></seealso></item>
+        <c>ei_receive_msg</c></seealso></item>
     </list>
 
     <section>
@@ -474,7 +474,7 @@ if (names)
 free(names);    ]]></code>
 
     <p><seealso marker="ei_global#ei_global_names">
-      <c>ei_global:ei_global_names</c></seealso>
+      <c>ei_global_names</c></seealso>
       allocates and returns a buffer containing
       all the names known to the <c>global</c> module in <c>Kernel</c>.
       <c>count</c> is initialized to
@@ -519,7 +519,7 @@ ei_global_register(fd,servicename,ei_self(ec));    ]]></code>
 
     <p>After registering the name, use
         <seealso marker="ei_connect#ei_accept">
-        <c>ei_connect:ei_accept</c></seealso>
+        <c>ei_accept</c></seealso>
         to wait for incoming connections.</p>
 
     <note>
@@ -692,9 +692,9 @@ ei_reg_restore(fd, reg, "mtab");      ]]></code>
         <c>Mnesia</c> backup of the registry contents. This can be avoided if
         you mark the object as dirty after any such changes with
         <seealso marker="registry#ei_reg_markdirty">
-        <c>registry:ei_reg_markdirty</c></seealso>, or pass appropriate flags to
+        <c>ei_reg_markdirty</c></seealso>, or pass appropriate flags to
         <seealso marker="registry#ei_reg_dump">
-        <c>registry:ei_reg_dump</c></seealso>.</p>
+        <c>ei_reg_dump</c></seealso>.</p>
     </section>
   </section>
 </chapter>
