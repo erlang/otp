@@ -640,6 +640,21 @@
 
 </section>
 
+<section><title>Crypto 4.2.2.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Constant time comparisons added.</p>
+          <p>
+	    Own Id: OTP-16376</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.2.2.3</title>
 
     <section><title>Improvements and New Features</title>
