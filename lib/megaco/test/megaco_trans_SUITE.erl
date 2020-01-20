@@ -308,19 +308,25 @@ single_ack(suite) ->
 single_ack(doc) ->
     [];
 single_ack(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        single_ack),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_single_ack/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rsingle_ack, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_single_ack([MgcNode, MgNode]) ->
     %% Start the MGC and MGs
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
@@ -9452,6 +9458,16 @@ await_completion(Ids, Timeout) ->
               "~n   ~p", [Timeout, Reply]),
             ?ERROR({failed, Reply})
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
