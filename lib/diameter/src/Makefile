@@ -96,6 +96,12 @@ APPUP_FILE   = diameter.appup
 APPUP_SRC    = $(APPUP_FILE).src
 APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
+ifeq ($(TARGET),win32)
+  EXE_SUFFIX=.exe
+else
+  EXE_SUFFIX=
+endif
+
 # ----------------------------------------------------
 # Flags
 # ----------------------------------------------------
@@ -123,7 +129,7 @@ ERL_COMPILE_FLAGS += \
 # erl/hrl from dictionary file.
 gen/diameter_gen_%.erl gen/diameter_gen_%.hrl: dict/%.dia
 	$(dia_verbose) \
-	escript ../bin/diameterc -o gen -i $(EBIN) $<
+	escript$(EXE_SUFFIX) ../bin/diameterc -o gen -i $(EBIN) $<
 
 opt: $(TARGET_FILES)
 
