@@ -69,7 +69,7 @@ groups() ->
        receive_stacked,aliased_types,type_conflict,
        infer_on_eq,infer_dead_value,infer_on_ne,
        branch_to_try_handler,call_without_stack,
-       receive_marker]}].
+       receive_marker,safe_instructions]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
