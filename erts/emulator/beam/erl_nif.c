@@ -4056,6 +4056,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     /* Block system (is this the right place to do it?) */
     erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
+    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 
     /* Find calling module */
     ASSERT(BIF_P->current != NULL);
@@ -4270,7 +4271,6 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     }
 
     erts_thr_progress_unblock();
-    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
     erts_release_code_write_permission();
     erts_free(ERTS_ALC_T_TMP, lib_name);
 

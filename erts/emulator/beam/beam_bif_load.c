@@ -377,6 +377,7 @@ finish_loading_1(BIF_ALIST_1)
 	    /* tracing or hipe need thread blocking */
 	    erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    erts_thr_progress_block();
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    is_blocking = 1;
 	    break;
 	}
@@ -464,7 +465,6 @@ staging_epilogue(Process* c_p, int commit, Eterm res, int is_blocking,
 	}
 	if (is_blocking) {
 	    erts_thr_progress_unblock();
-	    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 	}
 	erts_release_code_write_permission();
 	return res;
@@ -661,6 +661,7 @@ BIF_RETTYPE delete_module_1(BIF_ALIST_1)
 		/* tracing or hipe need to go single threaded */
 		erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		erts_thr_progress_block();
+                erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 		is_blocking = 1;
 		if (modp->curr.num_breakpoints) {
 		    erts_clear_module_break(modp);
@@ -794,6 +795,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 
             erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
             erts_thr_progress_block();
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
             is_blocking = 1;
 	}
 
