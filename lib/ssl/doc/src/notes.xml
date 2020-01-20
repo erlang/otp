@@ -27,6 +27,32 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix the handling of GREASE values sent by web browsers
+	    when establishing TLS 1.3 connections. This change
+	    improves handling of GREASE values in various protocol
+	    elements sent in a TLS 1.3 ClientHello.</p>
+          <p>
+	    Own Id: OTP-16388 Aux Id: ERL-1130 </p>
+        </item>
+        <item>
+          <p>
+	    Correct DTLS listen emulation, could cause problems with
+	    opening a new DTLS listen socket for a port previously
+	    used by a now closed DTLS listen socket.</p>
+          <p>
+	    Own Id: OTP-16396 Aux Id: ERL-1118 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
