@@ -472,19 +472,26 @@ multi_ack_maxcount(suite) ->
 multi_ack_maxcount(doc) ->
     [];
 multi_ack_maxcount(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        multi_ack_maxcount),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode  = make_node_name(mgc),
+                  MgNode   = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_multi_ack_maxcount/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(multi_ack_maxcount, Pre, Case, Post).
 
+do_multi_ack_maxcount([MgcNode, MgNode]) ->
     MaxCount = 10,
-    MgcNode  = make_node_name(mgc),
-    MgNode   = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
 
     %% Start the MGC and MGs
     i("[MGC] start"),    
@@ -535,7 +542,6 @@ multi_ack_maxcount(Config) when is_list(Config) ->
 
     i("wait some time before closing down"),
     sleep(5000),
-
 
     %% Tell MG to stop
     i("[MG] stop"),
