@@ -66,7 +66,8 @@ groups() ->
        map_field_lists,cover_bin_opt,val_dsetel,
        bad_tuples,bad_try_catch_nesting,
        receive_stacked,aliased_types,type_conflict,
-       infer_on_eq,infer_dead_value,receive_marker]}].
+       infer_on_eq,infer_dead_value,receive_marker,
+       safe_instructions]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
