@@ -332,11 +332,10 @@ validate_instrs([I|Is], MFA, Offset, Vst0) ->
 %%% vi_safe/2 handles instructions that will never throw an exception, and can
 %%% thus be used when the state is undecided in some way.
 %%%
-
 vi_safe({label,Lbl}, #vst{current=St0,
-                           ref_ctr=Counter0,
-                           branched=B,
-                           labels=Lbls}=Vst) ->
+                          ref_ctr=Counter0,
+                          branched=B,
+                          labels=Lbls}=Vst) ->
     {St, Counter} = merge_states(Lbl, St0, B, Counter0),
     Vst#vst{current=St,
             ref_ctr=Counter,
@@ -345,9 +344,6 @@ vi_safe({label,Lbl}, #vst{current=St0,
 vi_safe(_I, #vst{current=none}=Vst) ->
     %% Ignore all unreachable code.
     Vst;
-%%
-%% Instructions that cannot cause exceptions
-%%
 vi_safe({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     assert_type(#t_bs_context{}, Ctx, Vst0),
     verify_live(Live, Vst0),
@@ -518,17 +514,6 @@ vi_safe({apply,Live}, Vst) ->
     validate_body_call(apply, Live+2, Vst);
 vi_safe({apply_last,Live,N}, Vst) ->
     validate_tail_call(N, apply, Live+2, Vst);
-vi_safe({call_fun,Live}, Vst) ->
-    Fun = {x,Live},
-    assert_term(Fun, Vst),
-
-    %% An exception is raised on error, hence branching to 0.
-    branch(0, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
-                                         Fun, SuccVst0),
-                   validate_body_call('fun', Live+1, SuccVst)
-           end);
 vi_safe({call,Live,Func}, Vst) ->
     validate_body_call(Func, Live, Vst);
 vi_safe({call_ext,Live,Func}, Vst) ->
@@ -654,8 +639,7 @@ vi_safe({jump,{f,Lbl}}, Vst) ->
 
 vi_safe(return, Vst) ->
     assert_durable_term({x,0}, Vst),
-    verify_return(Vst),
-    kill_state(Vst);
+    verify_return(Vst);
 
 %%
 %% Matching and test instructions.
@@ -995,6 +979,17 @@ vi_throwing({try_case_end,Src}, Vst) ->
     verify_y_init(Vst),
     assert_durable_term(Src, Vst),
     kill_state(Vst);
+vi_throwing({call_fun,Live}, Vst) ->
+    Fun = {x,Live},
+    assert_term(Fun, Vst),
+
+    %% An exception is raised on error, hence branching to 0.
+    branch(0, Vst,
+           fun(SuccVst0) ->
+                   SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
+                                         Fun, SuccVst0),
+                   validate_body_call('fun', Live+1, SuccVst)
+           end);
 vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
     #{ arity := Arity0 } = gb_trees:get(Lbl, Ft),
     Arity = Arity0 - NumFree,
@@ -1288,7 +1283,7 @@ verify_return(#vst{current=#st{recv_marker=Mark}}) when Mark =/= none ->
     error({return_with_receive_marker,Mark});
 verify_return(Vst) ->
     verify_no_ct(Vst),
-    ok.
+    kill_state(Vst).
 
 %%
 %% Common code for validating BIFs.
@@ -1504,8 +1499,7 @@ tail_call(Name, Live, Vst0) ->
     verify_y_init(Vst0),
     Vst = deallocate(Vst0),
     verify_call_args(Name, Live, Vst),
-    verify_return(Vst),
-    kill_state(Vst).
+    verify_return(Vst).
 
 verify_call_args(_, 0, #vst{}) ->
     ok;
@@ -2294,7 +2288,7 @@ get_raw_type(#value_ref{}=Ref, #vst{current=#st{vs=Vs}}) ->
         #{ Ref := #value{type=Type} } -> Type;
         #{} -> none
     end;
-get_raw_type(Src, #vst{}) ->
+get_raw_type(Src, #vst{current=#st{}}) ->
     get_literal_type(Src).
 
 get_literal_type(nil) -> 
@@ -2395,14 +2389,14 @@ fork_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
 
 merge_states(L, St, Branched, Counter) when L =/= 0 ->
     case gb_trees:lookup(L, Branched) of
-        none ->
-            {St, Counter};
-        {value,OtherSt} when St =:= none ->
-            {OtherSt, Counter};
-        {value,OtherSt} ->
-             merge_states_1(St, OtherSt, Counter)
+        {value, OtherSt} -> merge_states_1(St, OtherSt, Counter);
+        none -> {St, Counter}
     end.
 
+merge_states_1(St, none, Counter) ->
+    {St, Counter};
+merge_states_1(none, St, Counter) ->
+    {St, Counter};
 merge_states_1(StA, StB, Counter0) ->
     #st{xs=XsA,ys=YsA,vs=VsA,fragile=FragA,numy=NumYA,
         h=HA,ct=CtA,recv_marker=MarkerA} = StA,
