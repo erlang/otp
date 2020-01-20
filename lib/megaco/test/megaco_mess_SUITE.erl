@@ -14158,51 +14158,8 @@ mtime() ->
 try_tc(TCName, Pre, Case, Post) ->
     try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
 
-try_tc(TCName, Name, Verbosity, Pre, Case, Post)
-  when is_function(Pre, 0)  andalso 
-       is_function(Case, 1) andalso
-       is_function(Post, 1) ->
-    put(verbosity, Verbosity),
-    put(sname,     Name),
-    put(tc,        TCName),
-    i("try_tc -> starting: try pre"),
-    try Pre() of
-        State ->
-            i("try_tc -> pre done: try case"),
-            try Case(State) of
-                Res ->
-                    i("try_tc -> case done: try post"),
-                    (catch Post(State)),
-                    i("try_tc -> done"),
-                    Res
-            catch
-                throw:{skip, _} = SKIP:_ ->
-                    i("try_tc -> case (throw) skip: try post"),
-                    (catch Post(State)),
-                    i("try_tc -> case (throw) skip: done"),
-                    SKIP;
-                exit:{skip, _} = SKIP:_ ->
-                    i("try_tc -> case (exit) skip: try post"),
-                    (catch Post(State)),
-                    i("try_tc -> case (exit) skip: done"),
-                    SKIP;
-                C:E:S ->
-                    i("try_tc -> case failed: try post"),
-                    (catch Post(State)),
-                    i("try_tc -> case failed: done"),
-                    {error, {case_catched, C, E, S}}
-            end
-    catch
-        throw:{skip, _} = SKIP:_ ->
-            i("try_tc -> pre (throw) skip"),
-            SKIP;
-        exit:{skip, _} = SKIP:_ ->
-            i("try_tc -> pre (exit) skip"),
-            SKIP;
-        C:E:S ->
-            i("try_tc -> pre failed: done"),
-            {error, {pre_catched, C, E, S}}
-    end.
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
 
 
 

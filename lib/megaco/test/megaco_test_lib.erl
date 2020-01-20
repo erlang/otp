@@ -46,6 +46,8 @@
          display_alloc_info/0,
          display_system_info/1, display_system_info/2, display_system_info/3,
 
+         try_tc/6,
+
          prepare_test_case/5,
 
          proxy_start/1, proxy_start/2,
@@ -581,6 +583,56 @@ reset_kill_timer(Config) ->
     end.
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post)
+  when is_function(Pre, 0)  andalso 
+       is_function(Case, 1) andalso
+       is_function(Post, 1) ->
+    put(verbosity, Verbosity),
+    put(sname,     Name),
+    put(tc,        TCName),
+    p("try_tc -> starting: try pre"),
+    try Pre() of
+        State ->
+            p("try_tc -> pre done: try case"),
+            try Case(State) of
+                Res ->
+                    p("try_tc -> case done: try post"),
+                    (catch Post(State)),
+                    p("try_tc -> done"),
+                    Res
+            catch
+                throw:{skip, _} = SKIP:_ ->
+                    p("try_tc -> case (throw) skip: try post"),
+                    (catch Post(State)),
+                    p("try_tc -> case (throw) skip: done"),
+                    SKIP;
+                exit:{skip, _} = SKIP:_ ->
+                    p("try_tc -> case (exit) skip: try post"),
+                    (catch Post(State)),
+                    p("try_tc -> case (exit) skip: done"),
+                    SKIP;
+                C:E:S ->
+                    p("try_tc -> case failed: try post"),
+                    (catch Post(State)),
+                    p("try_tc -> case failed: done"),
+                    {error, {case_catched, C, E, S}}
+            end
+    catch
+        throw:{skip, _} = SKIP:_ ->
+            p("try_tc -> pre (throw) skip"),
+            SKIP;
+        exit:{skip, _} = SKIP:_ ->
+            p("try_tc -> pre (exit) skip"),
+            SKIP;
+        C:E:S ->
+            p("try_tc -> pre failed: done"),
+            {error, {pre_catched, C, E, S}}
+    end.
+
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 prepare_test_case(Actions, N, Config, File, Line) ->
@@ -764,6 +816,9 @@ f(F, A) ->
 
 e(F, A) ->
     print("<ERROR> ", F, A).
+
+p(F) ->
+    p(F, []).
 
 p(F, A) ->
     print("<INFO> ", F, A).

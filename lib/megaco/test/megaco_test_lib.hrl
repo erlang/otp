@@ -80,6 +80,9 @@
 -define(MULTI_RECEIVE(Expected),
 	?VERIFY(lists:sort(Expected), lists:sort(?LIB:flush()))).
 
+-define(TRY_TC(TCN, N, V, PRE, CASE, POST),
+        ?LIB:try_tc(TCN, N, V, PRE, CASE, POST)).
+
 -define(ACQUIRE_NODES(N, Config),
 	?LIB:prepare_test_case([init, {stop_app, megaco}],
                                N, Config, ?FILE, ?LINE)).
