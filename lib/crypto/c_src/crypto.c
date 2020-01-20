@@ -150,8 +150,10 @@ static int verify_lib_version(void)
 
 static int initialize(ErlNifEnv* env, ERL_NIF_TERM load_info)
 {
+#if OPENSSL_VERSION_NUMBER < PACKED_OPENSSL_VERSION_PLAIN(1,1,0)
 #ifdef OPENSSL_THREADS
     ErlNifSysInfo sys_info;
+#endif
 #endif
     get_crypto_callbacks_t* funcp;
     struct crypto_callbacks* ccb;
