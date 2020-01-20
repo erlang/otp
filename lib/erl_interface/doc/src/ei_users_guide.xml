@@ -199,7 +199,7 @@ ei_x_encode_long(&buf, 3928);    ]]></code>
     <marker id="building_terms_and_patterns"/>
     <title>Building Terms</title>
     <p>The previous example can be simplified by using the
-      <seealso marker="ei:ei_x_format_wo_ver"><c>ei_x_format_wo_ver</c></seealso> function
+      <seealso marker="ei#ei_x_format_wo_ver"><c>ei_x_format_wo_ver</c></seealso> function
       to create an Erlang term:</p>
 
     <code type="none"><![CDATA[
@@ -208,7 +208,7 @@ ei_x_new(&buf);
 ei_x_format_wo_ver(&buf, "{~a,~i}", "tobbe", 3928);    ]]></code>
 
     <p>For a complete description of the different format directives, see the
-      the <seealso marker="ei:ei_x_format_wo_ver"><c>ei_x_format_wo_ver</c></seealso> function.</p>
+      the <seealso marker="ei#ei_x_format_wo_ver"><c>ei_x_format_wo_ver</c></seealso> function.</p>
 
     <p>The following example is more complex:</p>
 
