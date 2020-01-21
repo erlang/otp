@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -616,8 +616,15 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
                 C:E:S ->
                     p("try_tc -> case failed: try post"),
                     (catch Post(State)),
-                    p("try_tc -> case failed: done"),
-                    {error, {case_catched, C, E, S}}
+                    case megaco_test_global_sys_monitor:events() of
+                        [] ->
+                            p("try_tc -> case failed: done"),
+                            {error, {case_catched, C, E, S}};
+                        SysEvs ->
+                            p("try_tc -> case failed with system event(s): "
+                              "~n   ~p", [SysEvs]),
+                            {skip, "TC failure with system events"}
+                    end
             end
     catch
         throw:{skip, _} = SKIP:_ ->
@@ -627,8 +634,15 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
             p("try_tc -> pre (exit) skip"),
             SKIP;
         C:E:S ->
-            p("try_tc -> pre failed: done"),
-            {error, {pre_catched, C, E, S}}
+            case megaco_test_global_sys_monitor:events() of
+                [] ->
+                    p("try_tc -> pre failed: done"),
+                    {error, {pre_catched, C, E, S}};
+                SysEvs ->
+                    p("try_tc -> pre failed with system event(s): "
+                      "~n   ~p", [SysEvs]),
+                    {skip, "TC pre failure with system events"}
+            end
     end.
 
 
