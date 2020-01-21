@@ -278,23 +278,21 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
     case ssl_connection:read_application_data(Data, State0) of
        {stop, _, _} = Stop->
             Stop;
-       {Record, #state{start_or_recv_from = Caller} = State1} ->
+        {Record, #state{start_or_recv_from = Caller} = State} ->
             TimerAction = case Caller of
                               undefined -> %% Passive recv complete cancel timer
                                   [{{timeout, recv}, infinity, timeout}];
                               _ ->
                                   []
                           end,
-            {next_state, StateName, State, Actions} = next_event(StateName, Record, State1, TimerAction), 
-            ssl_connection:hibernate_after(StateName, State, Actions)
+            next_event(StateName, Record, State, TimerAction)
     end;
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName, State0) ->
     case ssl_connection:read_application_data(Data, State0) of
 	{stop, _, _} = Stop->
             Stop;
-	{Record, State1} ->
-            {next_state, StateName, State, Actions} = next_event(StateName, Record, State1), 
-            ssl_connection:hibernate_after(StateName, State, Actions)
+	{Record, State} ->
+            next_event(StateName, Record, State)
     end;
 %%% TLS record protocol level handshake messages 
 handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, fragment = Data}, 
