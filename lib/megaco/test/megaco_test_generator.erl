@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -535,28 +535,38 @@ debug(F, A) ->
     debug(get(debug), F, A).
 
 debug(true, F, A) ->
-    print(" DBG", F, A);
-debug(_, _F, _A) ->
+    print(false, " DBG", F, A);
+debug(_, _, _) ->
     ok.
 
 
+print(Pre, F, A) ->
+    print(true, Pre, F, A).
+
+
 error(F, A) ->
-    print(" ERROR", F, A).
+    print(true, " ERROR", F, A).
 
 
-print(P, F, A) ->
-    print(P, get(name), F, A).
+print(true = _Verbose, Pre, F, A) ->
+    FStr = ?F("*** [~s] ~p ~s~s *** " ++ 
+                  "~n   " ++ F ++ "~n~n", 
+              [?FTS(), self(), string_name(), Pre | A]),
+    io:format(user, FStr, []),
+    io:format(standard_io, FStr, []);
+print(false = _Verbose, Pre, F, A) ->
+    FStr = ?F("*** [~s] ~p ~s~s *** " ++ 
+                  "~n   " ++ F ++ "~n~n", 
+              [?FTS(), self(), string_name(), Pre | A]),
+    io:format(FStr, []).
 
-print([], undefined, F, A) ->
-    io:format("*** [~s] ~p *** " ++ 
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self() | A]);
-print(P, undefined, F, A) ->
-    io:format("*** [~s] ~p ~s *** " ++ 
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self(), P | A]);
-print(P, N, F, A) ->
-    io:format("*** [~s] ~p ~s~s *** " ++ 
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self(), N, P | A]).
+string_name() ->
+    case get(name) of
+        N when is_list(N) ->
+            N;
+        undefined ->
+            "";
+        N when is_atom(N) ->
+            atom_to_list(N)
+    end.
 

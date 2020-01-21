@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2007-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -373,6 +373,8 @@ handle_exec({expect_nothing, To}, State) ->
     p("expect_nothing: ~p", [To]),
     receive
         Any ->
+            e("received unexpected: "
+              "~n   ~p", [Any]),
             error({expect_nothing, Any})
     after To ->
         {ok, State}
@@ -424,6 +426,7 @@ handle_exec({megaco_start_user, Mid, RecvInfo, Conf}, State) ->
 
 handle_exec(megaco_stop_user, #state{mid = Mid} = State)
   when Mid /= undefined ->
+    p("megaco_stop_user: ~p", [Mid]),
     megaco_cleanup(State),
     ok = megaco:stop_user(Mid),
     {ok, State#state{mid = undefined}};
@@ -448,7 +451,7 @@ handle_exec(start_transport, #state{recv_handle = RH} = State) ->
 handle_exec({listen, Opts0, MaybeRetry},
      #state{recv_handle = RH, port = Port, transport_sup = Pid} = State)
   when RH#megaco_receive_handle.send_mod =:= megaco_tcp ->
-    p("listen(tcp)", []),
+    p("listen(tcp)"),
     Opts = [{module,         ?DELIVER_MOD}, 
 	    {port,           Port}, 
 	    {receive_handle, RH},
@@ -636,7 +639,7 @@ handle_exec({megaco_cast, ARs, Opts}, #state{conn_handle = CH} = State)
         ok ->
             {ok, State};
         Error ->
-            d("failed sending (cast) message: ~n~p", [Error]),
+            e("failed sending (cast) message: ~n~p", [Error]),
             #state{result = Acc} = State,
             {error, State#state{result = [Error|Acc]}}
     end;
@@ -651,7 +654,7 @@ handle_exec({megaco_cast, RemoteMid, ARs, Opts}, #state{mid = Mid} = State) ->
         ok ->
             {ok, State};
         Error ->
-            d("failed sending (cast) message: ~n~p", [Error]),
+            e("failed sending (cast) message: ~n~p", [Error]),
             #state{result = Acc} = State,
             {error, State#state{result = [Error|Acc]}}
     end;
@@ -661,7 +664,7 @@ handle_exec({megaco_callback, nocall, Timeout}, State) ->
     p("megaco_callback [~w,~w]", [nocall, Timeout]),
     receive
         {handle_megaco_callback, Type, Msg, Pid} ->
-            d("received unexpected megaco callback: ~n~p", [Msg]),
+            e("received unexpected megaco callback: ~n~p", [Msg]),
             #state{result = Res} = State,
             Err = {unexpected_callback, Type, Msg, Pid},
             {error, State#state{result = [Err|Res]}}
@@ -740,7 +743,7 @@ handle_exec({megaco_cancel, Reason}, #state{conn_handle = CH} = State) ->
         ok ->
             {ok, State};
         Error ->
-            d("failed cancel: ~n~p", [Error]),
+            e("failed cancel: ~n~p", [Error]),
             #state{result = Acc} = State,
             {error, State#state{result = [Error|Acc]}}
     end;
@@ -1050,29 +1053,29 @@ handle_trans_request_abort(RH, PV, TransNo, Pid, Extra, P) ->
     handle_megaco_callback_cast(P, Msg, Reply).
 
 handle_megaco_callback_cast(P, Msg, Reply) ->
-    p("handle_megaco_callback_cast -> entry with Msg: ~n~p", [Msg]),
+    d("handle_megaco_callback_cast -> entry with Msg: ~n~p", [Msg]),
     P ! {handle_megaco_callback, cast, Msg, self()},
     Reply.
 
 handle_megaco_callback_call(P, Msg) ->
-    p("handle_megaco_callback_call -> entry with"
+    d("handle_megaco_callback_call -> entry with"
       "~n   P:   ~p"
       "~n   Msg: ~p", [P, Msg]),
     P ! {handle_megaco_callback, call, Msg, self()},
     receive
         {handle_megaco_callback_reply, Reply} ->
-            p("handle_megaco_callback_call -> received reply: ~n~p", [Reply]),
+            d("handle_megaco_callback_call -> received reply: ~n~p", [Reply]),
             Reply;
         {handle_megaco_callback_reply, Delay, Reply} when is_integer(Delay) ->
-            p("handle_megaco_callback_call -> "
+            d("handle_megaco_callback_call -> "
               "received reply [~w]: "
               "~n   ~p", [Delay, Reply]),
             sleep(Delay),
-            p("handle_megaco_callback_call -> deliver reply after delay [~w]",
+            d("handle_megaco_callback_call -> deliver reply after delay [~w]",
               [Delay]),
             Reply;
         {'EXIT', SomePid, SomeReason} ->
-            p("handle_megaco_callback_call -> "
+            d("handle_megaco_callback_call -> "
               "received unexpected EXIT signal: "
               "~n   SomePid:    ~p"
               "~n   SomeReason: ~p", [SomePid, SomeReason]),
