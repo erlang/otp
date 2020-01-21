@@ -6342,18 +6342,25 @@ recv_segmented_msg_missing_seg1(doc) ->
     "Received segmented megaco message with one segment missing "
 	"using plain integer recv segment timer";
 recv_segmented_msg_missing_seg1(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rsmms1),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_recv_segmented_msg_missing_seg1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rsmms1, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+do_recv_segmented_msg_missing_seg1([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
