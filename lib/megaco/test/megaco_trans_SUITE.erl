@@ -3414,19 +3414,30 @@ single_trans_req_and_ack(suite) ->
 single_trans_req_and_ack(doc) ->
     [];
 single_trans_req_and_ack(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        single_trans_req_and_ack),
-    i("starting"),
+    Pre = fun() ->
+                  put(verbosity, ?TEST_VERBOSITY),
+                  put(sname,     "TEST"),
+                  put(tc,        single_trans_req_and_ack),
+                  i("starting"),
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n      MGC Node: ~p"
-      "~n      MG Node:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MGC Node: ~p"
+                    "~n      MG Node:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_single_trans_req_and_ack/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(single_trans_req_and_ack, Pre, Case, Post).
 
+do_single_trans_req_and_ack([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
