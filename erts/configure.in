@@ -2,7 +2,7 @@ dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
 dnl
-dnl Copyright Ericsson AB 1997-2019. All Rights Reserved.
+dnl Copyright Ericsson AB 1997-2020. All Rights Reserved.
 dnl
 dnl Licensed under the Apache License, Version 2.0 (the "License");
 dnl you may not use this file except in compliance with the License.
@@ -1399,6 +1399,40 @@ if test "x$USE_ESOCK" = "xyes"; then
 fi
 
 AC_SUBST(USE_ESOCK)
+
+
+AC_ARG_WITH(esock-counter-size, 
+AS_HELP_STRING([--with-esock-counter-size=SZ], 
+               [Size of the esock counters, in number of bits: 16 | 24 | 32 | 48 | 64; default is 64]), 
+[], 
+[with_esock_counter_size=64])
+
+case "$with_esock_counter_size" in
+     16)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [16], [ESOCK counter size])
+	;;
+     24)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [24], [ESOCK counter size])
+	;;
+     32)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [32], [ESOCK counter size])
+	;;
+     48)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [48], [ESOCK counter size])
+	;;
+     64)
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [64], [ESOCK counter size])
+	;;
+     *)
+	AC_MSG_WARN([Invalid esock counter size ($with_esock_counter_size), using default (64)])
+	AC_DEFINE(ESOCK_COUNTER_SIZE, [64], [ESOCK counter size])
+	dnl with_esock_counter_size=64
+	;;
+esac
+dnl ESOCK_COUNTER_SIZE=$with_esock_counter_size
+
+dnl We don't actually (currently) use this in erlang
+dnl AC_SUBST(ESOCK_COUNTER_SIZE)
 
 
 dnl

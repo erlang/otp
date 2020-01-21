@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -837,6 +837,48 @@ typedef struct {
     ESockRequestQueueElement* last;
 } ESockRequestQueue;
 
+/*** The point of this is primarily testing ***/
+
+// #define ESOCK_COUNTER_SIZE 16
+// #define ESOCK_COUNTER_SIZE 24
+// #define ESOCK_COUNTER_SIZE 32
+// #define ESOCK_COUNTER_SIZE 48
+
+#if ESOCK_COUNTER_SIZE == 16
+
+typedef Uint16 ESockCounter;
+#define ESOCK_COUNTER_MAX 0xFFFF
+#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI((ENV), (CNT)))
+
+#elif ESOCK_COUNTER_SIZE == 24
+
+typedef Uint32 ESockCounter;
+#define ESOCK_COUNTER_MAX 0xFFFFFF
+#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI((ENV), (CNT)))
+
+#elif ESOCK_COUNTER_SIZE == 32
+
+typedef Uint32 ESockCounter;
+#define ESOCK_COUNTER_MAX 0xFFFFFFFF
+#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI((ENV), (CNT)))
+
+#elif ESOCK_COUNTER_SIZE == 48
+
+typedef Uint64 ESockCounter;
+#define ESOCK_COUNTER_MAX 0xFFFFFFFFFFFF
+#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI64((ENV), (CNT)))
+
+#elif ESOCK_COUNTER_SIZE == 64
+
+typedef Uint64 ESockCounter;
+#define ESOCK_COUNTER_MAX 0xFFFFFFFFFFFFFFFF
+#define MKCT(ENV, TAG, CNT) MKT2((ENV), (TAG), MKUI64((ENV), (CNT)))
+
+#else
+
+#error "Invalid counter size"
+
+#endif
 
 typedef struct {
     /* 
@@ -874,13 +916,13 @@ typedef struct {
     ESockRequestor*    currentWriterP; // NULL or points to currentWriter
     ESockRequestQueue  writersQ;
     BOOLEAN_T          isWritable;
-    Uint64             writePkgCnt;
-    Uint64             writePkgMax;
-    Uint64             writePkgMaxCnt;
-    Uint64             writeByteCnt;
-    Uint64             writeTries;
-    Uint64             writeWaits;
-    Uint64             writeFails;
+    ESockCounter       writePkgCnt;
+    ESockCounter       writePkgMax;
+    ESockCounter       writePkgMaxCnt;
+    ESockCounter       writeByteCnt;
+    ESockCounter       writeTries;
+    ESockCounter       writeWaits;
+    ESockCounter       writeFails;
 
     /* +++ Read stuff +++ */
     ErlNifMutex*       readMtx;
@@ -890,23 +932,23 @@ typedef struct {
     BOOLEAN_T          isReadable;
     ErlNifBinary       rbuffer;      // DO WE NEED THIS
     Uint32             readCapacity; // DO WE NEED THIS
-    Uint64             readPkgCnt;
-    Uint64             readPkgMax;
-    Uint64             readPkgMaxCnt;
-    Uint64             readByteCnt;
-    Uint64             readTries;
-    Uint64             readWaits;
-    Uint64             readFails;
+    ESockCounter       readPkgCnt;
+    ESockCounter       readPkgMax;
+    ESockCounter       readPkgMaxCnt;
+    ESockCounter       readByteCnt;
+    ESockCounter       readTries;
+    ESockCounter       readWaits;
+    ESockCounter       readFails;
 
     /* +++ Accept stuff +++ */
     ErlNifMutex*       accMtx;
     ESockRequestor     currentAcceptor;
     ESockRequestor*    currentAcceptorP; // NULL or points to currentAcceptor
     ESockRequestQueue  acceptorsQ;
-    Uint64             accSuccess;
-    Uint64             accTries;
-    Uint64             accWaits;
-    Uint64             accFails;
+    ESockCounter       accSuccess;
+    ESockCounter       accTries;
+    ESockCounter       accWaits;
+    ESockCounter       accFails;
 
     /* +++ Config & Misc stuff +++ */
     ErlNifMutex*       cfgMtx;
@@ -951,19 +993,19 @@ typedef struct {
     ErlNifMutex* cntMtx;
     /* Its extreme overkill to have these counters be 64-bit,
      * but since the other counters are, its much simpler to
-     * let to let these be 64-but also
+     * let to let these be 64-bit also
      */
-    Uint64       numSockets;
-    Uint64       numTypeStreams;
-    Uint64       numTypeDGrams;
-    Uint64       numTypeSeqPkgs;
-    Uint64       numDomainInet;
-    Uint64       numDomainInet6;
-    Uint64       numDomainLocal;
-    Uint64       numProtoIP;
-    Uint64       numProtoTCP;
-    Uint64       numProtoUDP;
-    Uint64       numProtoSCTP;
+    ESockCounter numSockets;
+    ESockCounter numTypeStreams;
+    ESockCounter numTypeDGrams;
+    ESockCounter numTypeSeqPkgs;
+    ESockCounter numDomainInet;
+    ESockCounter numDomainInet6;
+    ESockCounter numDomainLocal;
+    ESockCounter numProtoIP;
+    ESockCounter numProtoTCP;
+    ESockCounter numProtoUDP;
+    ESockCounter numProtoSCTP;
 } ESockData;
 
 
@@ -2551,8 +2593,8 @@ static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
 static BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err);
 #endif
 
-static BOOLEAN_T cnt_inc(Uint64* cnt, Uint64 inc);
-static void      cnt_dec(Uint64* cnt, Uint64 dec);
+static BOOLEAN_T cnt_inc(ESockCounter* cnt, ESockCounter inc);
+static void      cnt_dec(ESockCounter* cnt, ESockCounter dec);
 
 static void inc_socket(int domain, int type, int protocol);
 static void dec_socket(int domain, int type, int protocol);
@@ -3052,7 +3094,6 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
     LOCAL_ATOM_DECL(frag_needed);      \
-    LOCAL_ATOM_DECL(global_counters);  \
     LOCAL_ATOM_DECL(host_unknown);     \
     LOCAL_ATOM_DECL(host_unreach);     \
     LOCAL_ATOM_DECL(in4_sockaddr);     \
@@ -3078,6 +3119,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(not_neighbour);    \
     LOCAL_ATOM_DECL(null);             \
     LOCAL_ATOM_DECL(num_acceptors);    \
+    LOCAL_ATOM_DECL(num_cnt_bits);     \
     LOCAL_ATOM_DECL(num_dinet);        \
     LOCAL_ATOM_DECL(num_dinet6);       \
     LOCAL_ATOM_DECL(num_dlocal);       \
@@ -3233,7 +3275,6 @@ static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
  * Description:
  * This is currently just a placeholder...
  */
-#define MKCT(E, T, C) MKT2((E), (T), MKUI64((E), (C)))
 
 static
 ERL_NIF_TERM nif_info(ErlNifEnv*         env,
@@ -3276,11 +3317,16 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
 
 /*
  * This function return a property list containing "global" info.
+ *
+ * Note that we also include something in the counter list that is not
+ * actually a counter, the num_cnt_bits. This is the "size" of each counter,
+ * in number of bits: 16 | 24 | 32 | 48 | 64.
  */
 #if !defined(__WIN32__)
 static
 ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
 {
+    ERL_NIF_TERM numBits        = MKCT(env, atom_num_cnt_bits, ESOCK_COUNTER_SIZE);
     ERL_NIF_TERM numSockets     = MKCT(env, atom_num_sockets,  data.numSockets);
     ERL_NIF_TERM numTypeDGrams  = MKCT(env, atom_num_tdgrams,  data.numTypeDGrams);
     ERL_NIF_TERM numTypeStreams = MKCT(env, atom_num_tstreams, data.numTypeStreams);
@@ -3292,13 +3338,14 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
     ERL_NIF_TERM numProtoTCP    = MKCT(env, atom_num_ptcp,     data.numProtoTCP);
     ERL_NIF_TERM numProtoUDP    = MKCT(env, atom_num_pudp,     data.numProtoUDP);
     ERL_NIF_TERM numProtoSCTP   = MKCT(env, atom_num_psctp,    data.numProtoSCTP);
-    ERL_NIF_TERM gcnt[]  = {numSockets,
+    ERL_NIF_TERM gcnt[]  = {numBits,
+                            numSockets,
                             numTypeDGrams, numTypeStreams, numTypeSeqPkgs,
                             numDomLocal, numDomInet, numDomInet6,
                             numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP};
     unsigned int lenGCnt = sizeof(gcnt) / sizeof(ERL_NIF_TERM);
     ERL_NIF_TERM lgcnt   = MKLA(env, gcnt, lenGCnt);
-    ERL_NIF_TERM keys[]  = {esock_atom_debug, atom_iow, atom_global_counters};
+    ERL_NIF_TERM keys[]  = {esock_atom_debug, atom_iow, atom_counters};
     ERL_NIF_TERM vals[]  = {BOOL2ATOM(data.dbg), BOOL2ATOM(data.iow), lgcnt};
     ERL_NIF_TERM info;
     unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
@@ -6596,6 +6643,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     accDescP->rNumCnt  = 0;
     accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
     accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
+    accDescP->iow      = descP->iow;     // Inherit iow
 
     accRef = enif_make_resource(env, accDescP);
     enif_release_resource(accDescP);
@@ -20170,11 +20218,11 @@ BOOLEAN_T qunqueue(ErlNifEnv*         env,
 
 #if !defined(__WIN32__)
 static
-BOOLEAN_T cnt_inc(Uint64* cnt, Uint64 inc)
+BOOLEAN_T cnt_inc(ESockCounter* cnt, ESockCounter inc)
 {
-    BOOLEAN_T wrap;
-    Uint64    max     = 0xFFFFFFFFFFFFFFFF;
-    Uint64    current = *cnt;
+    BOOLEAN_T    wrap;
+    ESockCounter max     = ESOCK_COUNTER_MAX;
+    ESockCounter current = *cnt;
 
     if ((max - inc) >= current) {
         *cnt += inc;
@@ -20189,9 +20237,9 @@ BOOLEAN_T cnt_inc(Uint64* cnt, Uint64 inc)
 
 
 static
-void cnt_dec(Uint64* cnt, Uint64 dec)
+void cnt_dec(ESockCounter* cnt, ESockCounter dec)
 {
-    Uint64 current = *cnt;
+    ESockCounter current = *cnt;
 
     if (dec > current)
         *cnt = 0; // The counter cannot be < 0 so this is the best we can do...
