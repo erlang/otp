@@ -23,21 +23,7 @@
 # basically means running the command wslpath on whatever is a path...
 
 CMD=""
-save_IFS=$IFS
-IFS=":"
-NEWCLASSPATH=""
-for x in $CLASSPATH; do
-  TMP=`wslpath -m $x`
-  if [ -z "$NEWCLASSPATH" ]; then
-      NEWCLASSPATH="$TMP"
-  else
-      NEWCLASSPATH="$NEWCLASSPATH;$TMP"
-  fi
-done
-IFS=$save_IFS
-CLASSPATH="$NEWCLASSPATH"
-export CLASSPATH
-#echo "CLASSPATH=$CLASSPATH"
+
 SAVE="$@"
 while test -n "$1" ; do
     x="$1"
@@ -63,4 +49,5 @@ while test -n "$1" ; do
     shift
 done
 #echo javac.exe "$CMD"
+export WSLENV=CLASSPATH/l
 eval javac.exe "$CMD"
