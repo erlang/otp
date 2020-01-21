@@ -41,7 +41,7 @@ delete(Tid,Id) ->
 
 allow(Tid,Level,Module) ->
     LevelInt = level_to_int(Level),
-    case ets:lookup(Tid,Module) of
+    try ets:lookup(Tid,Module) of
         [{Module,{ModLevel,cached}}] when is_integer(ModLevel),
                                           LevelInt =< ModLevel ->
             true;
@@ -53,11 +53,17 @@ allow(Tid,Level,Module) ->
             allow(Tid,Level);
         _ ->
             false
+    catch error:badarg ->
+            true
     end.
 
 allow(Tid,Level) ->
-    GlobalLevelInt = ets:lookup_element(Tid,?PRIMARY_KEY,2),
-    level_to_int(Level) =< GlobalLevelInt.
+    try ets:lookup_element(Tid,?PRIMARY_KEY,2) of
+        GlobalLevelInt ->
+            level_to_int(Level) =< GlobalLevelInt
+    catch error:badarg ->
+            true
+    end.
 
 exist(Tid,What) ->
     ets:member(Tid,table_key(What)).
