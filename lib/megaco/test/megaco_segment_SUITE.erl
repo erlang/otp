@@ -2789,11 +2789,6 @@ send_segmented_msg_ooo1(doc) ->
 	"Send window = 3. ";
 send_segmented_msg_ooo1(Config) when is_list(Config) ->
     Pre = fun() ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        ssmo1),
-    i("starting"),
-
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
@@ -3471,8 +3466,6 @@ ssmo1_mg_notify_reply_ar(Cid, Tid) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
 send_segmented_msg_missing_seg_reply1(suite) ->
     [];
 send_segmented_msg_missing_seg_reply1(doc) ->
@@ -3481,18 +3474,25 @@ send_segmented_msg_missing_seg_reply1(doc) ->
 	"when a segment reply goes missing. Ack expected. "
 	"Send window = 3. ";
 send_segmented_msg_missing_seg_reply1(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        ssmmsr1),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_send_segmented_msg_missing_seg_reply1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(ssmmsr1, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+do_send_segmented_msg_missing_seg_reply1([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
