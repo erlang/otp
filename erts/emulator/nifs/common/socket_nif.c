@@ -6798,7 +6798,7 @@ ERL_NIF_TERM esock_send(ErlNifEnv*       env,
     if (!descP->isWritable)
         return enif_make_badarg(env);
 
-    /* Check if there is already a current writer and if its us */
+    /* Ensure that we either have no current writer or we are it */
     if (!send_check_writer(env, descP, sendRef, &writerCheck))
         return writerCheck;
     
@@ -6930,7 +6930,7 @@ ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
     if (!descP->isWritable)
         return enif_make_badarg(env);
 
-    /* Check if there is already a current writer and if its us */
+    /* Ensure that we either have no current writer or we are it */
     if (!send_check_writer(env, descP, sendRef, &writerCheck))
         return writerCheck;
     
@@ -7060,7 +7060,7 @@ ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
       return enif_make_badarg(env);
     }
 
-    /* Check if there is already a current writer and if its us */
+    /* Ensure that we either have no current writer or we are it */
     if (!send_check_writer(env, descP, sendRef, &writerCheck)) {
 
       SSDBG( descP,
@@ -15668,11 +15668,14 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
             enif_set_pid_undefined(&descP->currentWriter.pid);
             return esock_make_error(env, atom_exmon);
         } else {
-            ESOCK_ASSERT(!descP->currentWriter.env);
+            ESOCK_ASSERT(descP->currentWriter.env == NULL);
             descP->currentWriter.env = esock_alloc_env("current-writer");
-            descP->currentWriter.ref = CP_TERM(descP->currentWriter.env, sendRef);
+            descP->currentWriter.ref =
+                CP_TERM(descP->currentWriter.env, sendRef);
             descP->currentWriterP    = &descP->currentWriter;
         }
+    } else {
+        descP->currentWriter.ref = CP_TERM(descP->currentWriter.env, sendRef);
     }
 
     ESOCK_CNT_INC(env, descP, sockRef, atom_write_waits, &descP->writeWaits, 1);
