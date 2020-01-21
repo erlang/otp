@@ -1163,9 +1163,19 @@ match1({map,_,Fs}, #{}=Map, Bs, BBs) ->
 match1({map,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
 match1({bin, _, Fs}, <<_/bitstring>>=B, Bs0, BBs) ->
-    eval_bits:match_bits(Fs, B, Bs0, BBs,
-			 match_fun(BBs),
-			 fun(E, Bs) -> expr(E, Bs, none, none, none) end);
+    EvalFun = fun(E, Bs) ->
+                      case erl_lint:is_guard_expr(E) of
+                          true -> ok;
+                          false -> throw(invalid)
+                      end,
+                      try
+                          expr(E, Bs, none, none, none)
+                      catch
+                          error:{unbound, _} ->
+                              throw(invalid)
+                      end
+              end,
+    eval_bits:match_bits(Fs, B, Bs0, BBs, match_fun(BBs), EvalFun);
 match1({bin,_,_}, _, _Bs, _BBs) ->
     throw(nomatch);
 match1({op,_,'++',{nil,_},R}, Term, Bs, BBs) ->

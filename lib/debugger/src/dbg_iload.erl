@@ -204,7 +204,7 @@ pattern({tuple,Anno,Ps0}) ->
     {tuple,ln(Anno),Ps1};
 pattern({map,Anno,Fs0}) ->
     Fs1 = lists:map(fun ({map_field_exact,L,K,V}) ->
-                            {map_field_exact,L,expr(K, false),pattern(V)}
+                            {map_field_exact,L,gexpr(K),pattern(V)}
                     end, Fs0),
     {map,ln(Anno),Fs1};
 pattern({op,_,'-',{integer,Anno,I}}) ->
@@ -226,7 +226,7 @@ pattern({bin_element,Anno,Expr0,Size0,Type0}) ->
     {Size1,Type} = make_bit_type(Anno, Size0, Type0),
     Expr1 = pattern(Expr0),
     Expr = coerce_to_float(Expr1, Type0),
-    Size = pattern(Size1),
+    Size = expr(Size1, false),
     {bin_element,ln(Anno),Expr,Size,Type};
 %% Evaluate compile-time expressions.
 pattern({op,_,'++',{nil,_},R}) ->

@@ -601,7 +601,7 @@ otp_5327(Config) when is_list(Config) ->
         comm_err(<<"<<103133:64/binary>> = <<103133:64/float>>.">>),
     "exception error: interpreted function with arity 1 called with two arguments" =
         comm_err(<<"(fun(X) -> X end)(a,b).">>),
-    {'EXIT', {{illegal_pattern,_}, _}} =
+    {'EXIT', {{badmatch,<<17:32>>}, _}} =
         (catch evaluate("<<A:a>> = <<17:32>>.", [])),
     C = <<"
          <<A:4,B:4,C:4,D:4,E:4,F:4>> = <<\"hej\">>,
@@ -614,6 +614,9 @@ otp_5327(Config) when is_list(Config) ->
     %% unbound_var would be nicer...
     {'EXIT',{{illegal_pattern,_},_}} =
         (catch evaluate(<<"<<A:B>> = <<17:32>>.">>, [])),
+    %% A badarith exception is turned into badmatch.
+    {'EXIT', {{badmatch,<<1777:32>>}, _}} =
+        (catch evaluate(<<"<<A:(1/0)>> = <<1777:32>>.">>, [])),
     %% undefined_bittype is turned into badmatch:
     {'EXIT',{{badmatch,<<17:32>>},_}} =
         (catch evaluate(<<"<<A/apa>> = <<17:32>>.">>, [])),
