@@ -226,18 +226,21 @@ dirty_call_while_terminated(Config) when is_list(Config) ->
 						  element(2,
 							  process_info(self(),
 								       binary))),
-    receive after 2000 -> ok end,
     receive
 	Msg ->
 	    ct:fail({unexpected_message, Msg})
     after
-	0 ->
+	1000 ->
 	    ok
     end,
-    {value, {BinAddr, 4711, 1}} = lists:keysearch(4711, 2,
-						  element(2,
-							  process_info(self(),
-								       binary))),
+    ok = wait_until(fun() ->
+                       {value, {BinAddr, 4711, 1}} ==
+                           lists:keysearch(4711, 2,
+                                           element(2,
+                                                   process_info(self(),
+                                                                binary)))
+               end,
+               10000),
     process_flag(trap_exit, OT),
     try
 	blipp:blupp(Bin)
@@ -713,6 +716,39 @@ nif_whereis_proxy(Ref) ->
         {Ref, quit} ->
             ok
     end.
+
+wait_until(Fun, infinity) ->
+    wait_until_aux(Fun, infinity);
+wait_until(Fun, MaxTime) ->
+    End = erlang:monotonic_time(millisecond) + MaxTime,
+    wait_until_aux(Fun, End).
+
+wait_until_aux(Fun, End) ->
+    case Fun() of
+        true ->
+            ok;
+        _ ->
+            if End == infinity ->
+                    receive after 100 -> ok end,
+                    wait_until_aux(Fun, infinity);
+               true ->
+                    Now = erlang:monotonic_time(millisecond),
+                    case End =< Now of
+                        true ->
+                            timeout;
+                        _ ->
+                            Wait = case End - Now of
+                                       Short when End - Now < 100 ->
+                                           Short;
+                                       _ ->
+                                           100
+                                   end,
+                            receive after Wait -> ok end,
+                            wait_until_aux(Fun, End)
+                    end
+            end
+    end.
+
 
 %% The NIFs:
 lib_loaded() -> false.
