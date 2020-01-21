@@ -2780,8 +2780,6 @@ ssmp4_mg_notify_reply_ar(Cid, Tid) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
 send_segmented_msg_ooo1(suite) ->
     [];
 send_segmented_msg_ooo1(doc) ->
@@ -2790,20 +2788,32 @@ send_segmented_msg_ooo1(doc) ->
 	"segment reply is sent out-of-order. "
 	"Send window = 3. ";
 send_segmented_msg_ooo1(Config) when is_list(Config) ->
+    Pre = fun() ->
     put(verbosity, ?TEST_VERBOSITY),
     put(sname,     "TEST"),
     put(tc,        ssmo1),
     i("starting"),
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_send_segmented_msg_ooo1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(ssmo1, Pre, Case, Post).
 
-    d("[MGC] start the simulator "),
+do_send_segmented_msg_ooo1([MgcNode, MgNode]) ->
+
+    d("[MGC] start the simulator"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
