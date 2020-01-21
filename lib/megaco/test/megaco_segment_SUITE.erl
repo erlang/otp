@@ -3478,8 +3478,8 @@ send_segmented_msg_missing_seg_reply1(Config) when is_list(Config) ->
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
-                    "~n   MgcNode: ~p"
-                    "~n   MgNode:  ~p",
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
                     [MgcNode, MgNode]),
                   Nodes = [MgcNode, MgNode],
                   ok = ?START_NODES(Nodes),
@@ -4249,8 +4249,8 @@ send_segmented_msg_missing_seg_reply2(Config) when is_list(Config) ->
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
-                    "~n   MgcNode: ~p"
-                    "~n   MgNode:  ~p",
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
                     [MgcNode, MgNode]),
                   Nodes = [MgcNode, MgNode],
                   ok = ?START_NODES(Nodes),
@@ -4992,18 +4992,25 @@ recv_segmented_msg_plain(suite) ->
 recv_segmented_msg_plain(doc) ->
     "Received segmented megaco message [plain]";
 recv_segmented_msg_plain(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rsmp),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_recv_segmented_msg_plain/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rsmp, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+do_recv_segmented_msg_plain([MgcNode, MgNode]) ->
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
