@@ -1412,11 +1412,6 @@ send_segmented_msg_plain3(doc) ->
 	"Send window = 1. ";
 send_segmented_msg_plain3(Config) when is_list(Config) ->
     Pre = fun() ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        ssmp3),
-    i("starting"),
-
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
                   d("start nodes: "
@@ -2102,27 +2097,31 @@ ssmp3_mg_notify_reply_ar(Cid, Tid) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
 send_segmented_msg_plain4(suite) ->
     [];
 send_segmented_msg_plain4(doc) ->
     "Forth plain test that it is possible to send segmented messages. "
 	"Send window = 3. ";
 send_segmented_msg_plain4(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        ssmp4),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_send_segmented_msg_plain4/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(ssmp4, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_send_segmented_msg_plain4([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
