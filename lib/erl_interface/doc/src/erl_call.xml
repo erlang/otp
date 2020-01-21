@@ -91,7 +91,7 @@
             <c>-sname</c> or <c>-s</c>.</p>
             <p>The <c>-address</c> flag is typically useful when one
             wants to call a node that is running on machine without an
-            accessible <seealso marker="epmd">epmd</seealso>
+            accessible <seealso marker="erts:epmd">epmd</seealso>
             instance.</p>
           </item>
           <tag><c>-c Cookie</c></tag>
