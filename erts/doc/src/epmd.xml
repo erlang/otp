@@ -72,6 +72,12 @@
       therefore required for an Erlang network to function
       correctly.</p>
 
+    <note><p>On Windows the maximum number of nodes allowed in one
+      epmd instance is 60. This is because of limitations in the current
+      implementation. If you need more nodes, you should look into using
+      and erlang based epmd implementation such as
+      <url href="https://github.com/erlang/epmd">Erlang EPMD</url>.</p></note>
+
     <taglist>
       <tag>Starting the port mapper daemon</tag>
       <item>
