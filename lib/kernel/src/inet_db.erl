@@ -234,7 +234,7 @@ set_resolv_conf(Fname) -> res_option(resolv_conf, Fname).
 set_hosts_file(Fname) -> res_option(hosts_file, Fname).
 
 get_hosts_file() ->
-    get_rc_hosts([], [], inet_hosts_file_byname).
+    get_rc_hosts([], [], inet_hosts_file_byaddr).
 
 %% set socks options
 set_socks_server(Server) -> call({set_socks_server, Server}).
@@ -318,7 +318,7 @@ get_rc() ->
 
 get_rc([K | Ks], Ls) ->
     case K of
-	hosts      -> get_rc_hosts(Ks, Ls, inet_hosts_byname);
+	hosts      -> get_rc_hosts(Ks, Ls, inet_hosts_byaddr);
 	domain     -> get_rc(domain, res_domain, "", Ks, Ls);
 	nameservers -> get_rc_ns(db_get(res_ns),nameservers,Ks,Ls);
 	alt_nameservers -> get_rc_ns(db_get(res_alt_ns),alt_nameservers,Ks,Ls);
@@ -371,17 +371,10 @@ get_rc_ns([], _Tag, Ks, Ls) ->
     get_rc(Ks, Ls).
 
 get_rc_hosts(Ks, Ls, Tab) ->
-    case lists:keysort(3, ets:tab2list(Tab)) of
+    case ets:tab2list(Tab) of
 	[] -> get_rc(Ks, Ls);
-	[{N,_,IP}|Hosts] -> get_rc_hosts(Ks, Ls, IP, Hosts, [N])
+	Hosts -> get_rc(Ks, [ [{host, IP, Names} || {{IP, _}, Names} <- Hosts] | Ls])
     end.
-
-get_rc_hosts(Ks, Ls, IP, [], Ns) ->
-    get_rc(Ks, [{host,IP,lists:reverse(Ns)}|Ls]);
-get_rc_hosts(Ks, Ls, IP, [{N,_,IP}|Hosts], Ns) ->
-    get_rc_hosts(Ks, Ls, IP, Hosts, [N|Ns]);
-get_rc_hosts(Ks, Ls, IP, [{N,_,NewIP}|Hosts], Ns) ->
-    [{host,IP,lists:reverse(Ns)}|get_rc_hosts(Ks, Ls, NewIP, Hosts, [N])].
 
 %%
 %% Resolver options
@@ -853,12 +846,10 @@ init([]) ->
     reset_db(Db),
     CacheOpts = [public, bag, {keypos,#dns_rr.domain}, named_table],
     Cache = ets:new(inet_cache, CacheOpts),
-    BynameOpts = [protected, bag, named_table, {keypos,1}],
-    ByaddrOpts = [protected, bag, named_table, {keypos,3}],
-    HostsByname = ets:new(inet_hosts_byname, BynameOpts),
-    HostsByaddr = ets:new(inet_hosts_byaddr, ByaddrOpts),
-    HostsFileByname = ets:new(inet_hosts_file_byname, BynameOpts),
-    HostsFileByaddr = ets:new(inet_hosts_file_byaddr, ByaddrOpts),
+    HostsByname = ets:new(inet_hosts_byname, [named_table]),
+    HostsByaddr = ets:new(inet_hosts_byaddr, [named_table]),
+    HostsFileByname = ets:new(inet_hosts_file_byname, [named_table]),
+    HostsFileByaddr = ets:new(inet_hosts_file_byaddr, [named_table]),
     {ok, #state{db = Db,
 		cache = Cache,
 		hosts_byname = HostsByname,
@@ -908,22 +899,7 @@ reset_db(Db) ->
 handle_call(Request, From, #state{db=Db}=State) ->
     case Request of
 	{load_hosts_file,IPNmAs} when is_list(IPNmAs) ->
-	    NIPs =
-		lists:flatten(
-		  [ [{N,
-		      if tuple_size(IP) =:= 4 -> inet;
-			 tuple_size(IP) =:= 8 -> inet6
-		      end,IP} || N <- [Nm|As]]
-		    || {IP,Nm,As} <- IPNmAs]),
-	    Byname = State#state.hosts_file_byname,
-	    Byaddr = State#state.hosts_file_byaddr,
-	    ets:delete_all_objects(Byname),
-	    ets:delete_all_objects(Byaddr),
-	    %% Byname has lowercased names while Byaddr keep the name casing.
-	    %% This is to be able to reconstruct the original
-	    %% /etc/hosts entry.
-	    ets:insert(Byname, [{tolower(N),Type,IP} || {N,Type,IP} <- NIPs]),
-	    ets:insert(Byaddr, NIPs),
+	    load_hosts_list(IPNmAs, State#state.hosts_file_byname, State#state.hosts_file_byaddr),
 	    {reply, ok, State};
 
 	{add_host,{A,B,C,D}=IP,[N|As]=Names}
@@ -1246,16 +1222,76 @@ handle_set_file(ParseFun, Bin, From, State) ->
 
 do_add_host(Byname, Byaddr, Names, Type, IP) ->
     do_del_host(Byname, Byaddr, IP),
-    ets:insert(Byname, [{tolower(N),Type,IP} || N <- Names]),
-    ets:insert(Byaddr, [{N,Type,IP} || N <- Names]),
+    ets:insert(Byname, [{tolower(N), [{IP,Type}], Names} || N <- Names]),
+    ets:insert(Byaddr, {{IP, Type}, Names}),
     ok.
 
 do_del_host(Byname, Byaddr, IP) ->
-    _ =
-	[ets:delete_object(Byname, {tolower(Name),Type,Addr}) ||
-	    {Name,Type,Addr} <- ets:lookup(Byaddr, IP)],
-    ets:delete(Byaddr, IP),
-    ok.
+    IpWithType = {IP, inet_family(IP)},
+    case ets:lookup(Byaddr, IpWithType) of
+	[{IpWithType, AllNames}] ->
+	    lists:foreach(fun (Name) ->
+		case ets:lookup(Byname, Name) of
+		    [{Name, [IpWithType], _}] ->
+			ets:delete(Byname, Name);
+		    [{Name, [_|_] = OldIps, Aliases}] ->
+			ets:insert(Byname, {Name, lists:delete(IpWithType, OldIps), Aliases})
+		end
+	    end, AllNames),
+	    ets:delete(Byaddr, IpWithType),
+	    ok;
+	_ -> ok
+    end.
+
+inet_family(T) when tuple_size(T) =:= 4 -> inet;
+inet_family(T) when tuple_size(T) =:= 8 -> inet6.
+
+populate_hosts_tables_byname([], _Names, _IP, _ByName) ->
+    ok;
+populate_hosts_tables_byname([NameOrAlias | Tail], Names, IP, ByName) ->
+    case ets:insert_new(ByName, {NameOrAlias, [IP], Names}) of
+        true -> ok;
+        false ->
+            [{NameOrAlias, ExistingIPs, ExistingPrimary}] = ets:lookup(ByName, NameOrAlias),
+            ets:insert(ByName, {NameOrAlias, ExistingIPs ++ [IP], ExistingPrimary})
+    end,
+    populate_hosts_tables_byname(Tail, Names, IP, ByName).
+
+populate_hosts_tables([], _ByName, _ByAddr) ->
+    ok;
+populate_hosts_tables([{IP0, Name, Aliases} | Tail], ByName, ByAddr) ->
+    IP = {IP0, inet_family(IP0)},
+    Names = [Name | Aliases],
+    case ets:insert_new(ByAddr, {IP, Names}) of
+        true  -> ok;
+        false ->
+            [{IP, ExistingNames}] = ets:lookup(ByAddr, IP),
+            ets:insert(ByAddr, {IP, ExistingNames ++ Names})
+    end,
+    populate_hosts_tables_byname(Names, Names, IP, ByName),
+    populate_hosts_tables(Tail, ByName, ByAddr).
+
+clean_hosts_tables([], _ByNameTmp, _ByAddrTmp, _ByName, _ByAddr) ->
+    ok;
+clean_hosts_tables([{IP, Names} | Tail], ByNameTmp, ByAddrTmp, ByName, ByAddr) ->
+    _ = case ets:lookup(ByAddrTmp, IP) of
+        [{IP, Names}] -> ok;
+        _ ->
+            ets:delete(ByAddr, IP),
+            lists:map(fun(N) -> ets:delete(ByName, N) end, Names)
+    end,
+    clean_hosts_tables(Tail, ByNameTmp, ByAddrTmp, ByName, ByAddr).
+
+%% Synchronises internal tables with .hosts/aliases file
+load_hosts_list(IPNmAs, ByName, ByAddr) ->
+    ByAddrTmp = ets:new(load_hosts_list_by_addr, [private]),
+    ByNameTmp = ets:new(load_hosts_list_by_name, [private]),
+    populate_hosts_tables(IPNmAs, ByNameTmp, ByAddrTmp),
+    clean_hosts_tables(ets:tab2list(ByAddr), ByNameTmp, ByAddrTmp, ByName, ByAddr),
+    ets:insert(ByAddr, ets:tab2list(ByAddrTmp)),
+    ets:insert(ByName, ets:tab2list(ByNameTmp)),
+    ets:delete(ByAddrTmp),
+    ets:delete(ByNameTmp).
 
 %% Loop over .inetrc option list and call handle_call/3 for each
 %%

@@ -43,6 +43,7 @@
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
 	 parse_strict_address/1, ipv4_mapped_ipv6_address/1,
          simple_netns/1, simple_netns_open/1,
+         add_del_host/1, add_del_host_v6/1,
          simple_bind_to_device/1, simple_bind_to_device_open/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
@@ -62,6 +63,7 @@ all() ->
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
      getifaddrs, parse_strict_address, simple_netns, simple_netns_open,
+     add_del_host, add_del_host_v6,
      simple_bind_to_device, simple_bind_to_device_open].
 
 groups() -> 
@@ -1413,3 +1415,46 @@ jog_bind_to_device_opt(S) ->
     ok = inet:setopts(S, [{bind_to_device,<<"lo">>}]),
     {ok,[{bind_to_device,<<"lo">>}]} = inet:getopts(S, [bind_to_device]),
     ok.
+
+add_del_host(_Config) ->
+    Name = "foo.com",
+    Alias = "bar.org",
+    Ip = {69,89,31,226},
+    HostEnt = #hostent{
+        h_name = Name,
+        h_aliases = [Alias],
+        h_addrtype = inet,
+        h_length = 4,
+        h_addr_list = [Ip]
+    },
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Alias, inet),
+    ok = inet_db:del_host(Ip),
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet),
+    {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet).
+
+add_del_host_v6(_Config) ->
+    Name = "foo.com",
+    Alias = "bar.org",
+    Ip = {32,1,219,8,10,11,18,240},
+    HostEnt = #hostent{
+        h_name = Name,
+        h_aliases = [Alias],
+        h_addrtype = inet6,
+        h_length = 16,
+        h_addr_list = [Ip]
+    },
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet6),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Alias, inet6),
+    ok = inet_db:del_host(Ip),
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet6),
+    {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet6),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6).
+

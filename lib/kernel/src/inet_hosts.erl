@@ -42,11 +42,9 @@ gethostbyname(Name, Type) when is_list(Name), is_atom(Type) ->
     %% Byname has lowercased names while Byaddr keep the name casing.
     %% This is to be able to reconstruct the original /etc/hosts entry.
     N = inet_db:tolower(Name),
-    case gethostbyname(N, Type, inet_hosts_byname, inet_hosts_byaddr) of
+    case gethostbyname(N, Type, inet_hosts_byname) of
 	false ->
-	    case gethostbyname(N, Type,
-			       inet_hosts_file_byname,
-			       inet_hosts_file_byaddr) of
+	    case gethostbyname(N, Type, inet_hosts_file_byname) of
 		false -> {error,nxdomain};
 		Hostent -> {ok,Hostent}
 	    end;
@@ -56,15 +54,16 @@ gethostbyname(Name, Type) when is_atom(Name), is_atom(Type) ->
     gethostbyname(atom_to_list(Name), Type);
 gethostbyname(_, _) -> {error, formerr}.
 
-gethostbyname(Name, Type, Byname, Byaddr) ->
+gethostbyname(Name, Type, Byname) ->
     inet_db:res_update_hosts(),
-    case [I || [I] <- ets:match(Byname, {Name,Type,'$1'})] of
+    case ets:lookup(Byname, Name) of
 	[] -> false;
-	[IP|_]=IPs ->
-	    %% Use the primary IP address to generate aliases
-	    [Nm|As] = [N || [N] <- ets:match(Byaddr,
-					     {'$1',Type,IP})],
-	    make_hostent(Nm, IPs, As, Type)
+	[{Name, IPs, [Primary | Aliases]}] ->
+	    %% Filter by IP type
+	    case lists:filtermap(fun ({IP, T}) when T =:= Type -> {true, IP}; (_) -> false end, IPs) of
+		[] -> false;
+		List -> make_hostent(Primary, List, Aliases, Type)
+	    end
     end.
 
 
@@ -97,11 +96,10 @@ gethostbyaddr(IP, Type) ->
 
 gethostbyaddr(IP, Type, Byaddr) ->
     inet_db:res_update_hosts(),
-    case [N || [N] <- ets:match(Byaddr, {'$1',Type,IP})] of
+    case ets:lookup(Byaddr, {IP, Type}) of
 	[] -> false;
-	[Nm|As] -> make_hostent(Nm, [IP], As, Type)
+	[{_, [Primary | Aliases]}] -> make_hostent(Primary, [IP], Aliases, Type)
     end.
-
 
 
 make_hostent(Name, Addrs, Aliases, inet) ->
