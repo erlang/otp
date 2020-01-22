@@ -707,244 +707,245 @@
 
 %% This is used in messages sent from the nif-code to erlang processes:
 %%
-%%         {?SOCKET_TAG, Socket :: socket(), Tag :: atom(), Info :: term()}
+%%         {?ESOCK_TAG, Socket :: socket(), Tag :: atom(), Info :: term()}
 %%
--define(SOCKET_TAG, '$socket').
+-define(ESOCK_TAG, '$socket').
 
--define(SOCKET_DOMAIN_LOCAL, 1).
--define(SOCKET_DOMAIN_UNIX,  ?SOCKET_DOMAIN_LOCAL).
--define(SOCKET_DOMAIN_INET,  2).
--define(SOCKET_DOMAIN_INET6, 3).
+-define(ESOCK_DOMAIN_LOCAL, 1).
+-define(ESOCK_DOMAIN_UNIX,  ?ESOCK_DOMAIN_LOCAL).
+-define(ESOCK_DOMAIN_INET,  2).
+-define(ESOCK_DOMAIN_INET6, 3).
 
--define(SOCKET_TYPE_STREAM,    1).
--define(SOCKET_TYPE_DGRAM,     2).
--define(SOCKET_TYPE_RAW,       3).
-%% -define(SOCKET_TYPE_RDM,       4).
--define(SOCKET_TYPE_SEQPACKET, 5).
+-define(ESOCK_TYPE_STREAM,    1).
+-define(ESOCK_TYPE_DGRAM,     2).
+-define(ESOCK_TYPE_RAW,       3).
+%% -define(ESOCK_TYPE_RDM,       4).
+-define(ESOCK_TYPE_SEQPACKET, 5).
 
--define(SOCKET_PROTOCOL_DEFAULT, 0).
--define(SOCKET_PROTOCOL_IP,      1).
--define(SOCKET_PROTOCOL_TCP,     2).
--define(SOCKET_PROTOCOL_UDP,     3).
--define(SOCKET_PROTOCOL_SCTP,    4).
--define(SOCKET_PROTOCOL_ICMP,    5).
--define(SOCKET_PROTOCOL_IGMP,    6).
+-define(ESOCK_PROTOCOL_DEFAULT, 0).
+-define(ESOCK_PROTOCOL_IP,      1).
+-define(ESOCK_PROTOCOL_TCP,     2).
+-define(ESOCK_PROTOCOL_UDP,     3).
+-define(ESOCK_PROTOCOL_SCTP,    4).
+-define(ESOCK_PROTOCOL_ICMP,    5).
+-define(ESOCK_PROTOCOL_IGMP,    6).
 
--define(SOCKET_LISTEN_BACKLOG_DEFAULT, 5).
+-define(ESOCK_LISTEN_BACKLOG_DEFAULT, 5).
 
--define(SOCKET_ACCEPT_TIMEOUT_DEFAULT, infinity).
+-define(ESOCK_ACCEPT_TIMEOUT_DEFAULT, infinity).
 
--define(SOCKET_SEND_FLAG_CONFIRM,    0).
--define(SOCKET_SEND_FLAG_DONTROUTE,  1).
--define(SOCKET_SEND_FLAG_EOR,        2).
--define(SOCKET_SEND_FLAG_MORE,       3).
--define(SOCKET_SEND_FLAG_NOSIGNAL,   4).
--define(SOCKET_SEND_FLAG_OOB,        5).
+-define(ESOCK_SEND_FLAG_CONFIRM,    0).
+-define(ESOCK_SEND_FLAG_DONTROUTE,  1).
+-define(ESOCK_SEND_FLAG_EOR,        2).
+-define(ESOCK_SEND_FLAG_MORE,       3).
+-define(ESOCK_SEND_FLAG_NOSIGNAL,   4).
+-define(ESOCK_SEND_FLAG_OOB,        5).
 
--define(SOCKET_SEND_FLAGS_DEFAULT,      []).
--define(SOCKET_SEND_TIMEOUT_DEFAULT,    infinity).
--define(SOCKET_SENDTO_FLAGS_DEFAULT,    []).
--define(SOCKET_SENDTO_TIMEOUT_DEFAULT,  ?SOCKET_SEND_TIMEOUT_DEFAULT).
--define(SOCKET_SENDMSG_FLAGS_DEFAULT,   []).
--define(SOCKET_SENDMSG_TIMEOUT_DEFAULT, ?SOCKET_SEND_TIMEOUT_DEFAULT).
+-define(ESOCK_SEND_FLAGS_DEFAULT,      []).
+-define(ESOCK_SEND_TIMEOUT_DEFAULT,    infinity).
+-define(ESOCK_SENDTO_FLAGS_DEFAULT,    []).
+-define(ESOCK_SENDTO_TIMEOUT_DEFAULT,  ?ESOCK_SEND_TIMEOUT_DEFAULT).
+-define(ESOCK_SENDMSG_FLAGS_DEFAULT,   []).
+-define(ESOCK_SENDMSG_TIMEOUT_DEFAULT, ?ESOCK_SEND_TIMEOUT_DEFAULT).
 
--define(SOCKET_RECV_FLAG_CMSG_CLOEXEC, 0).
--define(SOCKET_RECV_FLAG_ERRQUEUE,     1).
--define(SOCKET_RECV_FLAG_OOB,          2).
--define(SOCKET_RECV_FLAG_PEEK,         3).
--define(SOCKET_RECV_FLAG_TRUNC,        4).
+-define(ESOCK_RECV_FLAG_CMSG_CLOEXEC, 0).
+-define(ESOCK_RECV_FLAG_ERRQUEUE,     1).
+-define(ESOCK_RECV_FLAG_OOB,          2).
+-define(ESOCK_RECV_FLAG_PEEK,         3).
+-define(ESOCK_RECV_FLAG_TRUNC,        4).
 
--define(SOCKET_RECV_FLAGS_DEFAULT,   []).
--define(SOCKET_RECV_TIMEOUT_DEFAULT, infinity).
+-define(ESOCK_RECV_FLAGS_DEFAULT,   []).
+-define(ESOCK_RECV_TIMEOUT_DEFAULT, infinity).
 
--define(SOCKET_OPT_LEVEL_OTP,            0).
--define(SOCKET_OPT_LEVEL_SOCKET,         1).
--define(SOCKET_OPT_LEVEL_IP,             2).
--define(SOCKET_OPT_LEVEL_IPV6,           3).
--define(SOCKET_OPT_LEVEL_TCP,            4).
--define(SOCKET_OPT_LEVEL_UDP,            5).
--define(SOCKET_OPT_LEVEL_SCTP,           6).
+-define(ESOCK_OPT_LEVEL_OTP,            0).
+-define(ESOCK_OPT_LEVEL_SOCKET,         1).
+-define(ESOCK_OPT_LEVEL_IP,             2).
+-define(ESOCK_OPT_LEVEL_IPV6,           3).
+-define(ESOCK_OPT_LEVEL_TCP,            4).
+-define(ESOCK_OPT_LEVEL_UDP,            5).
+-define(ESOCK_OPT_LEVEL_SCTP,           6).
 
 %% *** OTP (socket) options
--define(SOCKET_OPT_OTP_DEBUG,            1).
--define(SOCKET_OPT_OTP_IOW,              2).
--define(SOCKET_OPT_OTP_CTRL_PROC,        3).
--define(SOCKET_OPT_OTP_RCVBUF,           4).
-%%-define(SOCKET_OPT_OTP_SNDBUF,           5).
--define(SOCKET_OPT_OTP_RCVCTRLBUF,       6).
--define(SOCKET_OPT_OTP_SNDCTRLBUF,       7).
--define(SOCKET_OPT_OTP_FD,               8).
--define(SOCKET_OPT_OTP_DOMAIN,           16#FF01). % INTERNAL
--define(SOCKET_OPT_OTP_TYPE,             16#FF02). % INTERNAL
--define(SOCKET_OPT_OTP_PROTOCOL,         16#FF03). % INTERNAL
+-define(ESOCK_OPT_OTP_DEBUG,            1).
+-define(ESOCK_OPT_OTP_IOW,              2).
+-define(ESOCK_OPT_OTP_CTRL_PROC,        3).
+-define(ESOCK_OPT_OTP_RCVBUF,           4).
+%%-define(ESOCK_OPT_OTP_SNDBUF,           5).
+-define(ESOCK_OPT_OTP_RCVCTRLBUF,       6).
+-define(ESOCK_OPT_OTP_SNDCTRLBUF,       7).
+-define(ESOCK_OPT_OTP_FD,               8).
+-define(ESOCK_OPT_OTP_META,             9).
+-define(ESOCK_OPT_OTP_DOMAIN,           16#FF01). % INTERNAL
+-define(ESOCK_OPT_OTP_TYPE,             16#FF02). % INTERNAL
+-define(ESOCK_OPT_OTP_PROTOCOL,         16#FF03). % INTERNAL
 
 %% *** SOCKET (socket) options
--define(SOCKET_OPT_SOCK_ACCEPTCONN,      1).
-%% -define(SOCKET_OPT_SOCK_ACCEPTFILTER,    2). % FreeBSD
--define(SOCKET_OPT_SOCK_BINDTODEVICE,    3).
--define(SOCKET_OPT_SOCK_BROADCAST,       4).
-%% -define(SOCKET_OPT_SOCK_BUSY_POLL,       5).
--define(SOCKET_OPT_SOCK_DEBUG,           6).
--define(SOCKET_OPT_SOCK_DOMAIN,          7).
--define(SOCKET_OPT_SOCK_DONTROUTE,       8).
-%% -define(SOCKET_OPT_SOCK_ERROR,           9).
--define(SOCKET_OPT_SOCK_KEEPALIVE,      10).
--define(SOCKET_OPT_SOCK_LINGER,         11).
-%% -define(SOCKET_OPT_SOCK_MARK,           12).
--define(SOCKET_OPT_SOCK_OOBINLINE,      13).
--define(SOCKET_OPT_SOCK_PASSCRED,       14).
--define(SOCKET_OPT_SOCK_PEEK_OFF,       15).
-%% -define(SOCKET_OPT_SOCK_PEERCRED,       16).
--define(SOCKET_OPT_SOCK_PRIORITY,       17).
--define(SOCKET_OPT_SOCK_PROTOCOL,       18).
--define(SOCKET_OPT_SOCK_RCVBUF,         19).
-%% -define(SOCKET_OPT_SOCK_RCVBUFFORCE,    20).
--define(SOCKET_OPT_SOCK_RCVLOWAT,       21).
--define(SOCKET_OPT_SOCK_RCVTIMEO,       22).
--define(SOCKET_OPT_SOCK_REUSEADDR,      23).
--define(SOCKET_OPT_SOCK_REUSEPORT,      24).
-%% -define(SOCKET_OPT_SOCK_RXQ_OVFL,       25).
-%% -define(SOCKET_OPT_SOCK_SETFIB,         26). % FreeBSD
--define(SOCKET_OPT_SOCK_SNDBUF,         27).
-%% -define(SOCKET_OPT_SOCK_SNDBUFFORCE,    28).
--define(SOCKET_OPT_SOCK_SNDLOWAT,       29).
--define(SOCKET_OPT_SOCK_SNDTIMEO,       30).
--define(SOCKET_OPT_SOCK_TIMESTAMP,      31).
--define(SOCKET_OPT_SOCK_TYPE,           32).
+-define(ESOCK_OPT_SOCK_ACCEPTCONN,      1).
+%% -define(ESOCK_OPT_SOCK_ACCEPTFILTER,    2). % FreeBSD
+-define(ESOCK_OPT_SOCK_BINDTODEVICE,    3).
+-define(ESOCK_OPT_SOCK_BROADCAST,       4).
+%% -define(ESOCK_OPT_SOCK_BUSY_POLL,       5).
+-define(ESOCK_OPT_SOCK_DEBUG,           6).
+-define(ESOCK_OPT_SOCK_DOMAIN,          7).
+-define(ESOCK_OPT_SOCK_DONTROUTE,       8).
+%% -define(ESOCK_OPT_SOCK_ERROR,           9).
+-define(ESOCK_OPT_SOCK_KEEPALIVE,      10).
+-define(ESOCK_OPT_SOCK_LINGER,         11).
+%% -define(ESOCK_OPT_SOCK_MARK,           12).
+-define(ESOCK_OPT_SOCK_OOBINLINE,      13).
+-define(ESOCK_OPT_SOCK_PASSCRED,       14).
+-define(ESOCK_OPT_SOCK_PEEK_OFF,       15).
+%% -define(ESOCK_OPT_SOCK_PEERCRED,       16).
+-define(ESOCK_OPT_SOCK_PRIORITY,       17).
+-define(ESOCK_OPT_SOCK_PROTOCOL,       18).
+-define(ESOCK_OPT_SOCK_RCVBUF,         19).
+%% -define(ESOCK_OPT_SOCK_RCVBUFFORCE,    20).
+-define(ESOCK_OPT_SOCK_RCVLOWAT,       21).
+-define(ESOCK_OPT_SOCK_RCVTIMEO,       22).
+-define(ESOCK_OPT_SOCK_REUSEADDR,      23).
+-define(ESOCK_OPT_SOCK_REUSEPORT,      24).
+%% -define(ESOCK_OPT_SOCK_RXQ_OVFL,       25).
+%% -define(ESOCK_OPT_SOCK_SETFIB,         26). % FreeBSD
+-define(ESOCK_OPT_SOCK_SNDBUF,         27).
+%% -define(ESOCK_OPT_SOCK_SNDBUFFORCE,    28).
+-define(ESOCK_OPT_SOCK_SNDLOWAT,       29).
+-define(ESOCK_OPT_SOCK_SNDTIMEO,       30).
+-define(ESOCK_OPT_SOCK_TIMESTAMP,      31).
+-define(ESOCK_OPT_SOCK_TYPE,           32).
 
 %% *** IP (socket) options
--define(SOCKET_OPT_IP_ADD_MEMBERSHIP,         1).
--define(SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
--define(SOCKET_OPT_IP_BLOCK_SOURCE,           3).
-%% -define(SOCKET_OPT_IP_DONTFRAG,               4). % FreeBSD
--define(SOCKET_OPT_IP_DROP_MEMBERSHIP,        5).
--define(SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
--define(SOCKET_OPT_IP_FREEBIND,               7).
--define(SOCKET_OPT_IP_HDRINCL,                8).
--define(SOCKET_OPT_IP_MINTTL,                 9).
--define(SOCKET_OPT_IP_MSFILTER,              10).
--define(SOCKET_OPT_IP_MTU,                   11).
--define(SOCKET_OPT_IP_MTU_DISCOVER,          12).
--define(SOCKET_OPT_IP_MULTICAST_ALL,         13).
--define(SOCKET_OPT_IP_MULTICAST_IF,          14).
--define(SOCKET_OPT_IP_MULTICAST_LOOP,        15).
--define(SOCKET_OPT_IP_MULTICAST_TTL,         16).
--define(SOCKET_OPT_IP_NODEFRAG,              17).
-%% -define(SOCKET_OPT_IP_OPTIONS,               18). % FreeBSD
--define(SOCKET_OPT_IP_PKTINFO,               19).
--define(SOCKET_OPT_IP_RECVDSTADDR,           20). % FreeBSD
--define(SOCKET_OPT_IP_RECVERR,               21).
--define(SOCKET_OPT_IP_RECVIF,                22).
--define(SOCKET_OPT_IP_RECVOPTS,              23).
--define(SOCKET_OPT_IP_RECVORIGDSTADDR,       24).
--define(SOCKET_OPT_IP_RECVTOS,               25).
--define(SOCKET_OPT_IP_RECVTTL,               26).
--define(SOCKET_OPT_IP_RETOPTS,               27).
--define(SOCKET_OPT_IP_ROUTER_ALERT,          28).
--define(SOCKET_OPT_IP_SENDSRCADDR,           29). % FreeBSD
--define(SOCKET_OPT_IP_TOS,                   30).
--define(SOCKET_OPT_IP_TRANSPARENT,           31).
--define(SOCKET_OPT_IP_TTL,                   32).
--define(SOCKET_OPT_IP_UNBLOCK_SOURCE,        33).
+-define(ESOCK_OPT_IP_ADD_MEMBERSHIP,         1).
+-define(ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP,  2).
+-define(ESOCK_OPT_IP_BLOCK_SOURCE,           3).
+%% -define(ESOCK_OPT_IP_DONTFRAG,               4). % FreeBSD
+-define(ESOCK_OPT_IP_DROP_MEMBERSHIP,        5).
+-define(ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP, 6).
+-define(ESOCK_OPT_IP_FREEBIND,               7).
+-define(ESOCK_OPT_IP_HDRINCL,                8).
+-define(ESOCK_OPT_IP_MINTTL,                 9).
+-define(ESOCK_OPT_IP_MSFILTER,              10).
+-define(ESOCK_OPT_IP_MTU,                   11).
+-define(ESOCK_OPT_IP_MTU_DISCOVER,          12).
+-define(ESOCK_OPT_IP_MULTICAST_ALL,         13).
+-define(ESOCK_OPT_IP_MULTICAST_IF,          14).
+-define(ESOCK_OPT_IP_MULTICAST_LOOP,        15).
+-define(ESOCK_OPT_IP_MULTICAST_TTL,         16).
+-define(ESOCK_OPT_IP_NODEFRAG,              17).
+%% -define(ESOCK_OPT_IP_OPTIONS,               18). % FreeBSD
+-define(ESOCK_OPT_IP_PKTINFO,               19).
+-define(ESOCK_OPT_IP_RECVDSTADDR,           20). % FreeBSD
+-define(ESOCK_OPT_IP_RECVERR,               21).
+-define(ESOCK_OPT_IP_RECVIF,                22).
+-define(ESOCK_OPT_IP_RECVOPTS,              23).
+-define(ESOCK_OPT_IP_RECVORIGDSTADDR,       24).
+-define(ESOCK_OPT_IP_RECVTOS,               25).
+-define(ESOCK_OPT_IP_RECVTTL,               26).
+-define(ESOCK_OPT_IP_RETOPTS,               27).
+-define(ESOCK_OPT_IP_ROUTER_ALERT,          28).
+-define(ESOCK_OPT_IP_SENDSRCADDR,           29). % FreeBSD
+-define(ESOCK_OPT_IP_TOS,                   30).
+-define(ESOCK_OPT_IP_TRANSPARENT,           31).
+-define(ESOCK_OPT_IP_TTL,                   32).
+-define(ESOCK_OPT_IP_UNBLOCK_SOURCE,        33).
 
 %% *** IPv6 (socket) options
--define(SOCKET_OPT_IPV6_ADDRFORM,           1).
--define(SOCKET_OPT_IPV6_ADD_MEMBERSHIP,     2).
--define(SOCKET_OPT_IPV6_AUTHHDR,            3). % Obsolete?
-%% -define(SOCKET_OPT_IPV6_AUTH_LEVEL,         4). % FreeBSD
-%% -define(SOCKET_OPT_IPV6_CHECKSUM,           5). % FreeBSD
--define(SOCKET_OPT_IPV6_DROP_MEMBERSHIP,    6).
--define(SOCKET_OPT_IPV6_DSTOPTS,            7).
-%% -define(SOCKET_OPT_IPV6_ESP_NETWORK_LEVEL,  8). % FreeBSD
-%% -define(SOCKET_OPT_IPV6_ESP_TRANS_LEVEL,    9). % FreeBSD
-%% -define(SOCKET_OPT_IPV6_FAITH,             10). % FreeBSD
--define(SOCKET_OPT_IPV6_FLOWINFO,          11).
--define(SOCKET_OPT_IPV6_HOPLIMIT,          12).
--define(SOCKET_OPT_IPV6_HOPOPTS,           13).
-%% -define(SOCKET_OPT_IPV6_IPCOMP_LEVEL,      14). % FreeBSD
-%% -define(SOCKET_OPT_IPV6_JOIN_GROUP,        15). % FreeBSD
-%% -define(SOCKET_OPT_IPV6_LEAVE_GROUP,       16). % FreeBSD
--define(SOCKET_OPT_IPV6_MTU,               17).
--define(SOCKET_OPT_IPV6_MTU_DISCOVER,      18).
--define(SOCKET_OPT_IPV6_MULTICAST_HOPS,    19).
--define(SOCKET_OPT_IPV6_MULTICAST_IF,      20).
--define(SOCKET_OPT_IPV6_MULTICAST_LOOP,    21).
-%% -define(SOCKET_OPT_IPV6_PORTRANGE,         22). % FreeBSD
-%% -define(SOCKET_OPT_IPV6_PKTOPTIONS,        23). % FreeBSD
--define(SOCKET_OPT_IPV6_RECVERR,           24).
--define(SOCKET_OPT_IPV6_RECVHOPLIMIT,      25).
--define(SOCKET_OPT_IPV6_RECVPKTINFO,       26). % On FreeBSD: PKTINFO
--define(SOCKET_OPT_IPV6_RECVTCLASS,        27).
--define(SOCKET_OPT_IPV6_ROUTER_ALERT,      28).
--define(SOCKET_OPT_IPV6_RTHDR,             29).
--define(SOCKET_OPT_IPV6_TCLASS,            30). % FreeBSD
--define(SOCKET_OPT_IPV6_UNICAST_HOPS,      31).
-%% -define(SOCKET_OPT_IPV6_USE_MIN_MTU,       32). % FreeBSD
--define(SOCKET_OPT_IPV6_V6ONLY,            33).
+-define(ESOCK_OPT_IPV6_ADDRFORM,           1).
+-define(ESOCK_OPT_IPV6_ADD_MEMBERSHIP,     2).
+-define(ESOCK_OPT_IPV6_AUTHHDR,            3). % Obsolete?
+%% -define(ESOCK_OPT_IPV6_AUTH_LEVEL,         4). % FreeBSD
+%% -define(ESOCK_OPT_IPV6_CHECKSUM,           5). % FreeBSD
+-define(ESOCK_OPT_IPV6_DROP_MEMBERSHIP,    6).
+-define(ESOCK_OPT_IPV6_DSTOPTS,            7).
+%% -define(ESOCK_OPT_IPV6_ESP_NETWORK_LEVEL,  8). % FreeBSD
+%% -define(ESOCK_OPT_IPV6_ESP_TRANS_LEVEL,    9). % FreeBSD
+%% -define(ESOCK_OPT_IPV6_FAITH,             10). % FreeBSD
+-define(ESOCK_OPT_IPV6_FLOWINFO,          11).
+-define(ESOCK_OPT_IPV6_HOPLIMIT,          12).
+-define(ESOCK_OPT_IPV6_HOPOPTS,           13).
+%% -define(ESOCK_OPT_IPV6_IPCOMP_LEVEL,      14). % FreeBSD
+%% -define(ESOCK_OPT_IPV6_JOIN_GROUP,        15). % FreeBSD
+%% -define(ESOCK_OPT_IPV6_LEAVE_GROUP,       16). % FreeBSD
+-define(ESOCK_OPT_IPV6_MTU,               17).
+-define(ESOCK_OPT_IPV6_MTU_DISCOVER,      18).
+-define(ESOCK_OPT_IPV6_MULTICAST_HOPS,    19).
+-define(ESOCK_OPT_IPV6_MULTICAST_IF,      20).
+-define(ESOCK_OPT_IPV6_MULTICAST_LOOP,    21).
+%% -define(ESOCK_OPT_IPV6_PORTRANGE,         22). % FreeBSD
+%% -define(ESOCK_OPT_IPV6_PKTOPTIONS,        23). % FreeBSD
+-define(ESOCK_OPT_IPV6_RECVERR,           24).
+-define(ESOCK_OPT_IPV6_RECVHOPLIMIT,      25).
+-define(ESOCK_OPT_IPV6_RECVPKTINFO,       26). % On FreeBSD: PKTINFO
+-define(ESOCK_OPT_IPV6_RECVTCLASS,        27).
+-define(ESOCK_OPT_IPV6_ROUTER_ALERT,      28).
+-define(ESOCK_OPT_IPV6_RTHDR,             29).
+-define(ESOCK_OPT_IPV6_TCLASS,            30). % FreeBSD
+-define(ESOCK_OPT_IPV6_UNICAST_HOPS,      31).
+%% -define(ESOCK_OPT_IPV6_USE_MIN_MTU,       32). % FreeBSD
+-define(ESOCK_OPT_IPV6_V6ONLY,            33).
 
 %% *** TCP (socket) options
--define(SOCKET_OPT_TCP_CONGESTION,      1).
--define(SOCKET_OPT_TCP_CORK,            2).
-%% -define(SOCKET_OPT_TCP_INFO,            3).
-%% -define(SOCKET_OPT_TCP_KEEPCNT,         4).
-%% -define(SOCKET_OPT_TCP_KEEPIDLE,        5).
-%% -define(SOCKET_OPT_TCP_KEEPINTVL,       6).
--define(SOCKET_OPT_TCP_MAXSEG,          7).
-%% -define(SOCKET_OPT_TCP_MD5SIG,          8).
--define(SOCKET_OPT_TCP_NODELAY,         9).
-%% -define(SOCKET_OPT_TCP_NOOPT,          10).
-%% -define(SOCKET_OPT_TCP_NOPUSH,         11).
-%% -define(SOCKET_OPT_TCP_SYNCNT,         12).
-%% -define(SOCKET_OPT_TCP_USER_TIMEOUT,   13).
+-define(ESOCK_OPT_TCP_CONGESTION,      1).
+-define(ESOCK_OPT_TCP_CORK,            2).
+%% -define(ESOCK_OPT_TCP_INFO,            3).
+%% -define(ESOCK_OPT_TCP_KEEPCNT,         4).
+%% -define(ESOCK_OPT_TCP_KEEPIDLE,        5).
+%% -define(ESOCK_OPT_TCP_KEEPINTVL,       6).
+-define(ESOCK_OPT_TCP_MAXSEG,          7).
+%% -define(ESOCK_OPT_TCP_MD5SIG,          8).
+-define(ESOCK_OPT_TCP_NODELAY,         9).
+%% -define(ESOCK_OPT_TCP_NOOPT,          10).
+%% -define(ESOCK_OPT_TCP_NOPUSH,         11).
+%% -define(ESOCK_OPT_TCP_SYNCNT,         12).
+%% -define(ESOCK_OPT_TCP_USER_TIMEOUT,   13).
 
 %% *** UDP (socket) options
--define(SOCKET_OPT_UDP_CORK,            1).
+-define(ESOCK_OPT_UDP_CORK,            1).
 
 %% *** SCTP (socket) options
-%% -define(SOCKET_OPT_SCTP_ADAPTION_LAYER,          1).
--define(SOCKET_OPT_SCTP_ASSOCINFO,               2).
-%% -define(SOCKET_OPT_SCTP_AUTH_ACTIVE_KEY,         3).
-%% -define(SOCKET_OPT_SCTP_AUTH_ASCONF,             4).
-%% -define(SOCKET_OPT_SCTP_AUTH_CHUNK,              5).
-%% -define(SOCKET_OPT_SCTP_AUTH_KEY,                6).
-%% -define(SOCKET_OPT_SCTP_AUTH_DELETE_KEY,         7).
--define(SOCKET_OPT_SCTP_AUTOCLOSE,               8).
-%% -define(SOCKET_OPT_SCTP_CONTEXT,                 9).
-%% -define(SOCKET_OPT_SCTP_DEFAULT_SEND_PARAMS,    10).
-%% -define(SOCKET_OPT_SCTP_DELAYED_ACK_TIME,       11).
--define(SOCKET_OPT_SCTP_DISABLE_FRAGMENTS,      12).
-%% -define(SOCKET_OPT_SCTP_HMAC_IDENT,             13).
--define(SOCKET_OPT_SCTP_EVENTS,                 14).
-%% -define(SOCKET_OPT_SCTP_EXPLICIT_EOR,           15).
-%% -define(SOCKET_OPT_SCTP_FRAGMENT_INTERLEAVE,    16).
-%% -define(SOCKET_OPT_SCTP_GET_PEER_ADDR_INFO,     17).
--define(SOCKET_OPT_SCTP_INITMSG,                18).
-%% -define(SOCKET_OPT_SCTP_I_WANT_MAPPED_V4_ADDR,  19).
-%% -define(SOCKET_OPT_SCTP_LOCAL_AUTH_CHUNKS,      20).
--define(SOCKET_OPT_SCTP_MAXSEG,                 21).
-%% -define(SOCKET_OPT_SCTP_MAXBURST,               22).
--define(SOCKET_OPT_SCTP_NODELAY,                23).
-%% -define(SOCKET_OPT_SCTP_PARTIAL_DELIVERY_POINT, 24).
-%% -define(SOCKET_OPT_SCTP_PEER_ADDR_PARAMS,       25).
-%% -define(SOCKET_OPT_SCTP_PEER_AUTH_CHUNKS,       26).
-%% -define(SOCKET_OPT_SCTP_PRIMARY_ADDR,           27).
-%% -define(SOCKET_OPT_SCTP_RESET_STREAMS,          28).
--define(SOCKET_OPT_SCTP_RTOINFO,                29).
-%% -define(SOCKET_OPT_SCTP_SET_PEER_PRIMARY_ADDR,  30).
-%% -define(SOCKET_OPT_SCTP_STATUS,                 31).
-%% -define(SOCKET_OPT_SCTP_USE_EXT_RECVINFO,       32).
+%% -define(ESOCK_OPT_SCTP_ADAPTION_LAYER,          1).
+-define(ESOCK_OPT_SCTP_ASSOCINFO,               2).
+%% -define(ESOCK_OPT_SCTP_AUTH_ACTIVE_KEY,         3).
+%% -define(ESOCK_OPT_SCTP_AUTH_ASCONF,             4).
+%% -define(ESOCK_OPT_SCTP_AUTH_CHUNK,              5).
+%% -define(ESOCK_OPT_SCTP_AUTH_KEY,                6).
+%% -define(ESOCK_OPT_SCTP_AUTH_DELETE_KEY,         7).
+-define(ESOCK_OPT_SCTP_AUTOCLOSE,               8).
+%% -define(ESOCK_OPT_SCTP_CONTEXT,                 9).
+%% -define(ESOCK_OPT_SCTP_DEFAULT_SEND_PARAMS,    10).
+%% -define(ESOCK_OPT_SCTP_DELAYED_ACK_TIME,       11).
+-define(ESOCK_OPT_SCTP_DISABLE_FRAGMENTS,      12).
+%% -define(ESOCK_OPT_SCTP_HMAC_IDENT,             13).
+-define(ESOCK_OPT_SCTP_EVENTS,                 14).
+%% -define(ESOCK_OPT_SCTP_EXPLICIT_EOR,           15).
+%% -define(ESOCK_OPT_SCTP_FRAGMENT_INTERLEAVE,    16).
+%% -define(ESOCK_OPT_SCTP_GET_PEER_ADDR_INFO,     17).
+-define(ESOCK_OPT_SCTP_INITMSG,                18).
+%% -define(ESOCK_OPT_SCTP_I_WANT_MAPPED_V4_ADDR,  19).
+%% -define(ESOCK_OPT_SCTP_LOCAL_AUTH_CHUNKS,      20).
+-define(ESOCK_OPT_SCTP_MAXSEG,                 21).
+%% -define(ESOCK_OPT_SCTP_MAXBURST,               22).
+-define(ESOCK_OPT_SCTP_NODELAY,                23).
+%% -define(ESOCK_OPT_SCTP_PARTIAL_DELIVERY_POINT, 24).
+%% -define(ESOCK_OPT_SCTP_PEER_ADDR_PARAMS,       25).
+%% -define(ESOCK_OPT_SCTP_PEER_AUTH_CHUNKS,       26).
+%% -define(ESOCK_OPT_SCTP_PRIMARY_ADDR,           27).
+%% -define(ESOCK_OPT_SCTP_RESET_STREAMS,          28).
+-define(ESOCK_OPT_SCTP_RTOINFO,                29).
+%% -define(ESOCK_OPT_SCTP_SET_PEER_PRIMARY_ADDR,  30).
+%% -define(ESOCK_OPT_SCTP_STATUS,                 31).
+%% -define(ESOCK_OPT_SCTP_USE_EXT_RECVINFO,       32).
 
--define(SOCKET_SHUTDOWN_HOW_READ,       0).
--define(SOCKET_SHUTDOWN_HOW_WRITE,      1).
--define(SOCKET_SHUTDOWN_HOW_READ_WRITE, 2).
+-define(ESOCK_SHUTDOWN_HOW_READ,       0).
+-define(ESOCK_SHUTDOWN_HOW_WRITE,      1).
+-define(ESOCK_SHUTDOWN_HOW_READ_WRITE, 2).
 
 
--define(SOCKET_SUPPORTS_OPTIONS,      16#0001).
--define(SOCKET_SUPPORTS_SCTP,         16#0002).
--define(SOCKET_SUPPORTS_IPV6,         16#0003).
--define(SOCKET_SUPPORTS_LOCAL,        16#0004).
--define(SOCKET_SUPPORTS_SEND_FLAGS,   16#0005).
--define(SOCKET_SUPPORTS_RECV_FLAGS,   16#0006).
+-define(ESOCK_SUPPORTS_OPTIONS,      16#0001).
+-define(ESOCK_SUPPORTS_SCTP,         16#0002).
+-define(ESOCK_SUPPORTS_IPV6,         16#0003).
+-define(ESOCK_SUPPORTS_LOCAL,        16#0004).
+-define(ESOCK_SUPPORTS_SEND_FLAGS,   16#0005).
+-define(ESOCK_SUPPORTS_RECV_FLAGS,   16#0006).
 
 
 %% ===========================================================================
@@ -1114,17 +1115,17 @@ supports() ->
       Key1 :: term().
                         
 supports(options) ->
-    nif_supports(?SOCKET_SUPPORTS_OPTIONS);
+    nif_supports(?ESOCK_SUPPORTS_OPTIONS);
 supports(sctp) ->
-    nif_supports(?SOCKET_SUPPORTS_SCTP);
+    nif_supports(?ESOCK_SUPPORTS_SCTP);
 supports(ipv6) ->
-    nif_supports(?SOCKET_SUPPORTS_IPV6);
+    nif_supports(?ESOCK_SUPPORTS_IPV6);
 supports(local) ->
-    nif_supports(?SOCKET_SUPPORTS_LOCAL);
+    nif_supports(?ESOCK_SUPPORTS_LOCAL);
 supports(send_flags) ->
-    nif_supports(?SOCKET_SUPPORTS_SEND_FLAGS);
+    nif_supports(?ESOCK_SUPPORTS_SEND_FLAGS);
 supports(recv_flags) ->
-    nif_supports(?SOCKET_SUPPORTS_RECV_FLAGS);
+    nif_supports(?ESOCK_SUPPORTS_RECV_FLAGS);
 supports(_Key1) ->
     false.
 
@@ -1461,7 +1462,7 @@ connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
             %% Connecting...
 	    NewTimeout = next_timeout(TS, Timeout),
 	    receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, Ref} -> 
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, Ref} ->
 		    nif_finalize_connection(SockRef)
 	    after NewTimeout ->
                     cancel(SockRef, connect, Ref),
@@ -1482,7 +1483,7 @@ connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
       Reason  :: term().
 
 listen(Socket) ->
-    listen(Socket, ?SOCKET_LISTEN_BACKLOG_DEFAULT).
+    listen(Socket, ?ESOCK_LISTEN_BACKLOG_DEFAULT).
 
 -spec listen(Socket, Backlog) -> ok | {error, Reason} when
       Socket  :: socket(),
@@ -1507,7 +1508,7 @@ listen(#socket{ref = SockRef}, Backlog)
       Reason  :: term().
 
 accept(Socket) ->
-    accept(Socket, ?SOCKET_ACCEPT_TIMEOUT_DEFAULT).
+    accept(Socket, ?ESOCK_ACCEPT_TIMEOUT_DEFAULT).
 
 -spec accept(LSocket, nowait) -> 
                     {ok, Socket} |
@@ -1551,10 +1552,10 @@ do_accept(LSockRef, Timeout) ->
             %% the receive.
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
-                {?SOCKET_TAG, #socket{ref = LSockRef}, select, AccRef} -> 
+                {?ESOCK_TAG, #socket{ref = LSockRef}, select, AccRef} ->
                     do_accept(LSockRef, next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {AccRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {AccRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1580,7 +1581,7 @@ do_accept(LSockRef, Timeout) ->
       Reason  :: term().
 
 send(Socket, Data) ->
-    send(Socket, Data, ?SOCKET_SEND_FLAGS_DEFAULT, ?SOCKET_SEND_TIMEOUT_DEFAULT).
+    send(Socket, Data, ?ESOCK_SEND_FLAGS_DEFAULT, ?ESOCK_SEND_TIMEOUT_DEFAULT).
 
 -spec send(Socket, Data, Flags) -> ok | {error, Reason} when
       Socket     :: socket(),
@@ -1603,9 +1604,9 @@ send(Socket, Data) ->
       Reason     :: term().
 
 send(Socket, Data, Flags) when is_list(Flags) ->
-    send(Socket, Data, Flags, ?SOCKET_SEND_TIMEOUT_DEFAULT);
+    send(Socket, Data, Flags, ?ESOCK_SEND_TIMEOUT_DEFAULT);
 send(Socket, Data, Timeout) ->
-    send(Socket, Data, ?SOCKET_SEND_FLAGS_DEFAULT, Timeout).
+    send(Socket, Data, ?ESOCK_SEND_FLAGS_DEFAULT, Timeout).
 
 -spec send(Socket, Data, Flags, nowait) -> ok |
                                            {select, SelectInfo} |
@@ -1655,17 +1656,17 @@ do_send(SockRef, Data, EFlags, Timeout) ->
 	    NewTimeout = next_timeout(TS, Timeout),
 	    %% We are partially done, wait for continuation
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, SendRef} 
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef}
                   when (Written > 0) -> 
                     <<_:Written/binary, Rest/binary>> = Data,
                     do_send(SockRef, Rest, EFlags,
                             next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
                     do_send(SockRef, Data, EFlags,
                             next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {SendRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -1680,11 +1681,11 @@ do_send(SockRef, Data, EFlags, Timeout) ->
 
         {error, eagain} ->
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
                     do_send(SockRef, Data, EFlags,
                             next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {SendRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after Timeout ->
@@ -1710,7 +1711,7 @@ do_send(SockRef, Data, EFlags, Timeout) ->
       Reason :: term().
 
 sendto(Socket, Data, Dest) ->
-    sendto(Socket, Data, Dest, ?SOCKET_SENDTO_FLAGS_DEFAULT).
+    sendto(Socket, Data, Dest, ?ESOCK_SENDTO_FLAGS_DEFAULT).
 
 -spec sendto(Socket, Data, Dest, Flags) -> ok | {error, Reason} when
       Socket    :: socket(),
@@ -1734,9 +1735,9 @@ sendto(Socket, Data, Dest) ->
       Reason     :: term().
 
 sendto(Socket, Data, Dest, Flags) when is_list(Flags) ->
-    sendto(Socket, Data, Dest, Flags, ?SOCKET_SENDTO_TIMEOUT_DEFAULT);
+    sendto(Socket, Data, Dest, Flags, ?ESOCK_SENDTO_TIMEOUT_DEFAULT);
 sendto(Socket, Data, Dest, Timeout) ->
-    sendto(Socket, Data, Dest, ?SOCKET_SENDTO_FLAGS_DEFAULT, Timeout).
+    sendto(Socket, Data, Dest, ?ESOCK_SENDTO_FLAGS_DEFAULT, Timeout).
 
 
 -spec sendto(Socket, Data, Dest, Flags, nowait) -> ok |
@@ -1785,17 +1786,17 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
         {ok, Written} ->
 	    %% We are partially done, wait for continuation
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, SendRef} 
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef}
                   when (Written > 0) ->
                     <<_:Written/binary, Rest/binary>> = Data,
                     do_sendto(SockRef, Rest, Dest, EFlags,
                               next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
                     do_sendto(SockRef, Data, Dest, EFlags,
                               next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {SendRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after Timeout ->
@@ -1810,11 +1811,11 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
 
         {error, eagain} ->
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
                     do_sendto(SockRef, Data, Dest, EFlags, 
                               next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {SendRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
                     {error, Reason}
 
             after Timeout ->
@@ -1843,7 +1844,7 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
 
 sendmsg(Socket, MsgHdr) ->
     sendmsg(Socket, MsgHdr,
-            ?SOCKET_SENDMSG_FLAGS_DEFAULT, ?SOCKET_SENDMSG_TIMEOUT_DEFAULT).
+            ?ESOCK_SENDMSG_FLAGS_DEFAULT, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT).
 
 
 -spec sendmsg(Socket, MsgHdr, Flags) -> ok | {error, Reason} when
@@ -1865,10 +1866,10 @@ sendmsg(Socket, MsgHdr) ->
       Reason     :: term().
 
 sendmsg(Socket, MsgHdr, Flags) when is_list(Flags) ->
-    sendmsg(Socket, MsgHdr, Flags, ?SOCKET_SENDMSG_TIMEOUT_DEFAULT);
+    sendmsg(Socket, MsgHdr, Flags, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
 sendmsg(Socket, MsgHdr, Timeout) 
   when is_integer(Timeout) orelse (Timeout =:= infinity) ->
-    sendmsg(Socket, MsgHdr, ?SOCKET_SENDMSG_FLAGS_DEFAULT, Timeout).
+    sendmsg(Socket, MsgHdr, ?ESOCK_SENDMSG_FLAGS_DEFAULT, Timeout).
 
 
 -spec sendmsg(Socket, MsgHdr, Flags, nowait) -> 
@@ -1937,7 +1938,7 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
 
         {error, eagain} ->
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
                     do_sendmsg(SockRef, MsgHdr, EFlags, 
                               next_timeout(TS, Timeout))
 
@@ -2009,8 +2010,8 @@ recv(Socket) ->
 
 recv(Socket, Length) ->
     recv(Socket, Length,
-         ?SOCKET_RECV_FLAGS_DEFAULT,
-         ?SOCKET_RECV_TIMEOUT_DEFAULT).
+         ?ESOCK_RECV_FLAGS_DEFAULT,
+         ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
 -spec recv(Socket, Length, Flags) -> {ok, Data} |
                                      {error, Reason} when
@@ -2037,9 +2038,9 @@ recv(Socket, Length) ->
       Reason  :: term().
 
 recv(Socket, Length, Flags) when is_list(Flags) ->
-    recv(Socket, Length, Flags, ?SOCKET_RECV_TIMEOUT_DEFAULT);
+    recv(Socket, Length, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
 recv(Socket, Length, Timeout) ->
-    recv(Socket, Length, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
+    recv(Socket, Length, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
 
 -spec recv(Socket, Length, Flags, nowait) -> {ok, Data} |
                                              {select, SelectInfo} |
@@ -2114,13 +2115,13 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
             %% is more to read.
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
                     do_recv(SockRef, RecvRef,
                             Length-size(Bin), EFlags,
                             Bin,
                             next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2132,13 +2133,13 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
             %% We got a chunk of it!
 	    NewTimeout = next_timeout(TS, Timeout),
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
                     do_recv(SockRef, RecvRef,
                             Length-size(Bin), EFlags,
                             <<Acc/binary, Bin/binary>>,
                             next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2167,13 +2168,13 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
             %% is something to read (a select message).
             NewTimeout = next_timeout(TS, Timeout),
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
                     do_recv(SockRef, RecvRef,
                             Length, EFlags,
                             Acc,
                             next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2244,8 +2245,8 @@ recvfrom(Socket) ->
 
 recvfrom(Socket, BufSz) ->
     recvfrom(Socket, BufSz,
-             ?SOCKET_RECV_FLAGS_DEFAULT,
-             ?SOCKET_RECV_TIMEOUT_DEFAULT).
+             ?ESOCK_RECV_FLAGS_DEFAULT,
+             ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
 -spec recvfrom(Socket, Flags, nowait) -> 
                       {ok, {Source, Data}} |
@@ -2296,9 +2297,9 @@ recvfrom(Socket, BufSz) ->
 recvfrom(Socket, Flags, Timeout) when is_list(Flags) ->
     recvfrom(Socket, 0, Flags, Timeout);
 recvfrom(Socket, BufSz, Flags) when is_list(Flags) ->
-    recvfrom(Socket, BufSz, Flags, ?SOCKET_RECV_TIMEOUT_DEFAULT);
+    recvfrom(Socket, BufSz, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
 recvfrom(Socket, BufSz, Timeout) ->
-    recvfrom(Socket, BufSz, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
+    recvfrom(Socket, BufSz, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
 
 -spec recvfrom(Socket, BufSz, Flags, nowait) -> 
                       {ok, {Source, Data}} |
@@ -2348,11 +2349,11 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
             %% is something to read (a select message).
             NewTimeout = next_timeout(TS, Timeout),
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
                     do_recvfrom(SockRef, BufSz, EFlags,
                                 next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2376,7 +2377,7 @@ do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
 
 recvmsg(Socket) ->
     recvmsg(Socket, 0, 0,
-            ?SOCKET_RECV_FLAGS_DEFAULT, ?SOCKET_RECV_TIMEOUT_DEFAULT).
+            ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
 -spec recvmsg(Socket, Flags) -> {ok, MsgHdr} | {error, Reason} when
       Socket  :: socket(),
@@ -2397,9 +2398,9 @@ recvmsg(Socket) ->
       Reason     :: term().
 
 recvmsg(Socket, Flags) when is_list(Flags) ->
-    recvmsg(Socket, 0, 0, Flags, ?SOCKET_RECV_TIMEOUT_DEFAULT);
+    recvmsg(Socket, 0, 0, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
 recvmsg(Socket, Timeout) ->
-    recvmsg(Socket, 0, 0, ?SOCKET_RECV_FLAGS_DEFAULT, Timeout).
+    recvmsg(Socket, 0, 0, ?ESOCK_RECV_FLAGS_DEFAULT, Timeout).
 
 -spec recvmsg(Socket, Flags, nowait) -> {ok, MsgHdr} |
                                         {select, SelectInfo} |
@@ -2426,7 +2427,7 @@ recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, Timeout);
 recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz) andalso is_integer(CtrlSz) ->
     recvmsg(Socket, BufSz, CtrlSz,
-            ?SOCKET_RECV_FLAGS_DEFAULT, ?SOCKET_RECV_TIMEOUT_DEFAULT).
+            ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
 
 -spec recvmsg(Socket, 
@@ -2479,11 +2480,11 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
             %% is something to read (a select message).
             NewTimeout = next_timeout(TS, Timeout),
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, select, RecvRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
                     do_recvmsg(SockRef, BufSz, CtrlSz, EFlags,
                                next_timeout(TS, Timeout));
 
-                {?SOCKET_TAG, _Socket, abort, {RecvRef, Reason}} ->
+                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
             after NewTimeout ->
@@ -2532,7 +2533,7 @@ do_close(SockRef) ->
             %% We must wait for the socket_stop callback function to 
             %% complete its work
             receive
-                {?SOCKET_TAG, #socket{ref = SockRef}, close, CloseRef} ->
+                {?ESOCK_TAG, #socket{ref = SockRef}, close, CloseRef} ->
                     nif_finalize_close(SockRef)
             end;
         {error, _} = ERROR ->
@@ -2741,7 +2742,7 @@ getopt(#socket{ref = SockRef}, Level, Key) ->
 
 which_domain(SockRef) ->
     case nif_getopt(SockRef, true,
-                    ?SOCKET_OPT_LEVEL_OTP, ?SOCKET_OPT_OTP_DOMAIN) of
+                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_DOMAIN) of
         {ok, Domain} ->
             Domain;
         {error, _} = ERROR ->
@@ -2755,7 +2756,7 @@ which_domain(SockRef) ->
 
 which_type(SockRef) ->
     case nif_getopt(SockRef, true,
-                    ?SOCKET_OPT_LEVEL_OTP, ?SOCKET_OPT_OTP_TYPE) of
+                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_TYPE) of
         {ok, Type} ->
             Type;
         {error, _} = ERROR ->
@@ -2768,7 +2769,7 @@ which_type(SockRef) ->
 
 which_protocol(SockRef) ->
     case nif_getopt(SockRef, true,
-                    ?SOCKET_OPT_LEVEL_OTP, ?SOCKET_OPT_OTP_PROTOCOL) of
+                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_PROTOCOL) of
         {ok, Proto} ->
             Proto;
         {error, _} = ERROR ->
@@ -2838,31 +2839,31 @@ cancel(#socket{ref = SockRef}, ?SELECT_INFO(Tag, Ref)) ->
 %% -spec enc_domain(Domain) -> non_neg_integer() when
 %%       Domain :: domain().
 
-enc_domain(local)  -> ?SOCKET_DOMAIN_LOCAL;
-enc_domain(inet)   -> ?SOCKET_DOMAIN_INET;
-enc_domain(inet6)  -> ?SOCKET_DOMAIN_INET6;
+enc_domain(local)  -> ?ESOCK_DOMAIN_LOCAL;
+enc_domain(inet)   -> ?ESOCK_DOMAIN_INET;
+enc_domain(inet6)  -> ?ESOCK_DOMAIN_INET6;
 enc_domain(Domain) -> invalid_domain(Domain).
 
 %% -spec enc_type(Type) -> non_neg_integer() when
 %%       Type   :: type().
 
-enc_type(stream)    -> ?SOCKET_TYPE_STREAM;
-enc_type(dgram)     -> ?SOCKET_TYPE_DGRAM;
-enc_type(raw)       -> ?SOCKET_TYPE_RAW;
-enc_type(seqpacket) -> ?SOCKET_TYPE_SEQPACKET;
+enc_type(stream)    -> ?ESOCK_TYPE_STREAM;
+enc_type(dgram)     -> ?ESOCK_TYPE_DGRAM;
+enc_type(raw)       -> ?ESOCK_TYPE_RAW;
+enc_type(seqpacket) -> ?ESOCK_TYPE_SEQPACKET;
 enc_type(Type)      -> invalid_type(Type).
 
 -spec enc_protocol(Protocol) -> non_neg_integer() |
                                 {raw, non_neg_integer()} when
       Protocol :: protocol().
 
-enc_protocol(default) -> ?SOCKET_PROTOCOL_DEFAULT;
-enc_protocol(ip)      -> ?SOCKET_PROTOCOL_IP;
-enc_protocol(tcp)     -> ?SOCKET_PROTOCOL_TCP;
-enc_protocol(udp)     -> ?SOCKET_PROTOCOL_UDP;
-enc_protocol(sctp)    -> ?SOCKET_PROTOCOL_SCTP;
-enc_protocol(icmp)    -> ?SOCKET_PROTOCOL_ICMP;
-enc_protocol(igmp)    -> ?SOCKET_PROTOCOL_IGMP;
+enc_protocol(default) -> ?ESOCK_PROTOCOL_DEFAULT;
+enc_protocol(ip)      -> ?ESOCK_PROTOCOL_IP;
+enc_protocol(tcp)     -> ?ESOCK_PROTOCOL_TCP;
+enc_protocol(udp)     -> ?ESOCK_PROTOCOL_UDP;
+enc_protocol(sctp)    -> ?ESOCK_PROTOCOL_SCTP;
+enc_protocol(icmp)    -> ?ESOCK_PROTOCOL_ICMP;
+enc_protocol(igmp)    -> ?ESOCK_PROTOCOL_IGMP;
 enc_protocol({raw, P} = RAW) when is_integer(P) -> RAW;
 enc_protocol(Proto) ->
     invalid_protocol(Proto).
@@ -2872,23 +2873,23 @@ enc_protocol(Proto) ->
       Flags :: send_flags().
 
 enc_send_flags(Flags) ->
-    EFlags = [{confirm,   ?SOCKET_SEND_FLAG_CONFIRM},
-              {dontroute, ?SOCKET_SEND_FLAG_DONTROUTE},
-              {eor,       ?SOCKET_SEND_FLAG_EOR},
-              {more,      ?SOCKET_SEND_FLAG_MORE},
-              {nosignal,  ?SOCKET_SEND_FLAG_NOSIGNAL},
-              {oob,       ?SOCKET_SEND_FLAG_OOB}],
+    EFlags = [{confirm,   ?ESOCK_SEND_FLAG_CONFIRM},
+              {dontroute, ?ESOCK_SEND_FLAG_DONTROUTE},
+              {eor,       ?ESOCK_SEND_FLAG_EOR},
+              {more,      ?ESOCK_SEND_FLAG_MORE},
+              {nosignal,  ?ESOCK_SEND_FLAG_NOSIGNAL},
+              {oob,       ?ESOCK_SEND_FLAG_OOB}],
     enc_flags(Flags, EFlags).
 
 -spec enc_recv_flags(Flags) -> non_neg_integer() when
       Flags :: recv_flags().
 
 enc_recv_flags(Flags) ->
-    EFlags = [{cmsg_cloexec, ?SOCKET_RECV_FLAG_CMSG_CLOEXEC},
-              {errqueue,     ?SOCKET_RECV_FLAG_ERRQUEUE},
-              {oob,          ?SOCKET_RECV_FLAG_OOB},
-              {peek,         ?SOCKET_RECV_FLAG_PEEK},
-              {trunc,        ?SOCKET_RECV_FLAG_TRUNC}],
+    EFlags = [{cmsg_cloexec, ?ESOCK_RECV_FLAG_CMSG_CLOEXEC},
+              {errqueue,     ?ESOCK_RECV_FLAG_ERRQUEUE},
+              {oob,          ?ESOCK_RECV_FLAG_OOB},
+              {peek,         ?ESOCK_RECV_FLAG_PEEK},
+              {trunc,        ?ESOCK_RECV_FLAG_TRUNC}],
     enc_flags(Flags, EFlags).
 
 
@@ -2914,19 +2915,19 @@ enc_flags(Flags, EFlags) ->
       EncodedLevel :: integer().
 
 enc_setopt_level(otp) ->
-    {true, ?SOCKET_OPT_LEVEL_OTP};
+    {true, ?ESOCK_OPT_LEVEL_OTP};
 enc_setopt_level(socket) ->
-    {true, ?SOCKET_OPT_LEVEL_SOCKET};
+    {true, ?ESOCK_OPT_LEVEL_SOCKET};
 enc_setopt_level(ip) ->
-    {true, ?SOCKET_OPT_LEVEL_IP};
+    {true, ?ESOCK_OPT_LEVEL_IP};
 enc_setopt_level(ipv6) ->
-    {true, ?SOCKET_OPT_LEVEL_IPV6};
+    {true, ?ESOCK_OPT_LEVEL_IPV6};
 enc_setopt_level(tcp) ->
-    {true, ?SOCKET_OPT_LEVEL_TCP};
+    {true, ?ESOCK_OPT_LEVEL_TCP};
 enc_setopt_level(udp) ->
-    {true, ?SOCKET_OPT_LEVEL_UDP};
+    {true, ?ESOCK_OPT_LEVEL_UDP};
 enc_setopt_level(sctp) ->
-    {true, ?SOCKET_OPT_LEVEL_SCTP};
+    {true, ?ESOCK_OPT_LEVEL_SCTP};
 %% Any option that is of an plain level must be provided as a binary
 %% already fully encoded!
 enc_setopt_level(L) when is_integer(L) ->
@@ -3027,6 +3028,8 @@ enc_setopt_value(otp, rcvctrlbuf, V, _, _, _) when is_integer(V) andalso (V > 0)
 enc_setopt_value(otp, sndctrlbuf, V, _, _, _) when (V =:= default) ->
     0;
 enc_setopt_value(otp, sndctrlbuf, V, _, _, _) when is_integer(V) andalso (V > 0) ->
+    V;
+enc_setopt_value(otp, meta, V, _, _, _) ->
     V;
 enc_setopt_value(otp = L, Opt, V, _D, _T, _P) ->
     not_supported({L, Opt, V});
@@ -3519,25 +3522,27 @@ dec_getopt_value(_L, _Opt, V, _D, _T, _P) ->
 
 %% +++ OTP socket options +++
 enc_sockopt_key(otp, debug, _, _, _, _) ->
-    ?SOCKET_OPT_OTP_DEBUG;
+    ?ESOCK_OPT_OTP_DEBUG;
 enc_sockopt_key(otp, iow, _, _, _, _) ->
-    ?SOCKET_OPT_OTP_IOW;
+    ?ESOCK_OPT_OTP_IOW;
 enc_sockopt_key(otp, controlling_process, _, _, _, _) ->
-    ?SOCKET_OPT_OTP_CTRL_PROC;
+    ?ESOCK_OPT_OTP_CTRL_PROC;
 enc_sockopt_key(otp, rcvbuf, _, _, _, _) ->
-    ?SOCKET_OPT_OTP_RCVBUF;
+    ?ESOCK_OPT_OTP_RCVBUF;
 enc_sockopt_key(otp, rcvctrlbuf, _, _, _, _) ->
-    ?SOCKET_OPT_OTP_RCVCTRLBUF;
+    ?ESOCK_OPT_OTP_RCVCTRLBUF;
 enc_sockopt_key(otp, sndctrlbuf, _, _, _, _) ->
-    ?SOCKET_OPT_OTP_SNDCTRLBUF;
+    ?ESOCK_OPT_OTP_SNDCTRLBUF;
 enc_sockopt_key(otp, fd, get = _Dir, _, _, _) ->
-    ?SOCKET_OPT_OTP_FD;
+    ?ESOCK_OPT_OTP_FD;
+enc_sockopt_key(otp, meta, _, _, _, _) ->
+    ?ESOCK_OPT_OTP_META;
 enc_sockopt_key(otp = L, Opt, _, _, _, _) ->
     not_supported({L, Opt});
 
 %% +++ SOCKET socket options +++
 enc_sockopt_key(socket = _L, acceptconn = _Opt, get = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_ACCEPTCONN;
+    ?ESOCK_OPT_SOCK_ACCEPTCONN;
 enc_sockopt_key(socket = L, acceptconn = Opt, Dir, _D, _T, _P) ->
     not_supported({L, Opt, Dir});
 enc_sockopt_key(socket = L, acceptfilter = Opt, _Dir, _D, _T, _P) ->
@@ -3546,182 +3551,182 @@ enc_sockopt_key(socket = L, acceptfilter = Opt, _Dir, _D, _T, _P) ->
 %% Maximum size of buffer for name: IFNAMSIZ
 %% So, we let the implementation decide.
 enc_sockopt_key(socket = _L, bindtodevice = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_BINDTODEVICE;
+    ?ESOCK_OPT_SOCK_BINDTODEVICE;
 enc_sockopt_key(socket, broadcast = _Opt, _Dir, _D, dgram = _T, _P) ->
-    ?SOCKET_OPT_SOCK_BROADCAST;
+    ?ESOCK_OPT_SOCK_BROADCAST;
 enc_sockopt_key(socket = L, busy_poll = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = _L, debug = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_DEBUG;
+    ?ESOCK_OPT_SOCK_DEBUG;
 enc_sockopt_key(socket, domain = _Opt, get = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_DOMAIN;
+    ?ESOCK_OPT_SOCK_DOMAIN;
 enc_sockopt_key(socket, dontroute = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_DONTROUTE;
+    ?ESOCK_OPT_SOCK_DONTROUTE;
 enc_sockopt_key(socket = L, error = Opt, get = _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% This is only for connection-oriented sockets, but who are those?
 %% Type = stream or Protocol = tcp?
 %% For now, we just let is pass and it will fail later if not ok...
 enc_sockopt_key(socket, keepalive = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_KEEPALIVE;
+    ?ESOCK_OPT_SOCK_KEEPALIVE;
 enc_sockopt_key(socket, linger = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_LINGER;
+    ?ESOCK_OPT_SOCK_LINGER;
 enc_sockopt_key(socket = L, mark = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = _L, oobinline = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_OOBINLINE;
+    ?ESOCK_OPT_SOCK_OOBINLINE;
 enc_sockopt_key(socket, passcred, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_PASSCRED;
+    ?ESOCK_OPT_SOCK_PASSCRED;
 enc_sockopt_key(socket = L, peek_off = Opt, _Dir, local = _D, _T, _P) ->
-    %% ?SOCKET_OPT_SOCK_PEEK_OFF;
+    %% ?ESOCK_OPT_SOCK_PEEK_OFF;
     not_supported({L, Opt});
 enc_sockopt_key(socket = L, peercred = Opt, get = _Dir, local = _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket, priority = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_PRIORITY;
+    ?ESOCK_OPT_SOCK_PRIORITY;
 enc_sockopt_key(socket, protocol = _Opt, get = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_PROTOCOL;
+    ?ESOCK_OPT_SOCK_PROTOCOL;
 enc_sockopt_key(socket, rcvbuf = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_RCVBUF;
+    ?ESOCK_OPT_SOCK_RCVBUF;
 enc_sockopt_key(socket = L, rcvbufforce = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% May not work on linux.
 enc_sockopt_key(socket = _L, rcvlowat = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_RCVLOWAT;
+    ?ESOCK_OPT_SOCK_RCVLOWAT;
 enc_sockopt_key(socket = _L, rcvtimeo = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_RCVTIMEO;
+    ?ESOCK_OPT_SOCK_RCVTIMEO;
 enc_sockopt_key(socket = _L, reuseaddr = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_REUSEADDR;
+    ?ESOCK_OPT_SOCK_REUSEADDR;
 enc_sockopt_key(socket = _L, reuseport = _Opt, _Dir, D, _T, _P)
   when ((D =:= inet) orelse (D =:= inet6)) ->
-    ?SOCKET_OPT_SOCK_REUSEPORT;
+    ?ESOCK_OPT_SOCK_REUSEPORT;
 enc_sockopt_key(socket = L, rxq_ovfl = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = L, setfib = Opt, set = _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(socket = _L, sndbuf = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_SNDBUF;
+    ?ESOCK_OPT_SOCK_SNDBUF;
 enc_sockopt_key(socket = L, sndbufforce = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 %% Not changeable on linux.
 enc_sockopt_key(socket = _L, sndlowat = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_SNDLOWAT;
+    ?ESOCK_OPT_SOCK_SNDLOWAT;
 enc_sockopt_key(socket = _L, sndtimeo = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_SNDTIMEO;
+    ?ESOCK_OPT_SOCK_SNDTIMEO;
 enc_sockopt_key(socket = _L, timestamp = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_TIMESTAMP;
+    ?ESOCK_OPT_SOCK_TIMESTAMP;
 enc_sockopt_key(socket = _L, type = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SOCK_TYPE;
+    ?ESOCK_OPT_SOCK_TYPE;
 enc_sockopt_key(socket = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
 %% +++ IP socket options +++
 enc_sockopt_key(ip = _L, add_membership = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_ADD_MEMBERSHIP;
+    ?ESOCK_OPT_IP_ADD_MEMBERSHIP;
 enc_sockopt_key(ip = _L, add_source_membership = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_ADD_SOURCE_MEMBERSHIP;
+    ?ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP;
 enc_sockopt_key(ip = _L, block_source = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_BLOCK_SOURCE;
+    ?ESOCK_OPT_IP_BLOCK_SOURCE;
 %% FreeBSD only?
 %% Only respected on udp and raw ip (unless the hdrincl option has been set).
 enc_sockopt_key(ip = L, dontfrag = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ip = _L, drop_membership = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_DROP_MEMBERSHIP;
+    ?ESOCK_OPT_IP_DROP_MEMBERSHIP;
 enc_sockopt_key(ip = _L, drop_source_membership = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_DROP_SOURCE_MEMBERSHIP;
+    ?ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP;
 %% Linux only?
 enc_sockopt_key(ip = _L, freebind = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_FREEBIND;
+    ?ESOCK_OPT_IP_FREEBIND;
 enc_sockopt_key(ip = _L, hdrincl = _Opt, _Dir, _D, raw = _T, _P) ->
-    ?SOCKET_OPT_IP_HDRINCL;
+    ?ESOCK_OPT_IP_HDRINCL;
 enc_sockopt_key(ip = _L, minttl = _Opt, _Dir, _D, raw = _T, _P) ->
-    ?SOCKET_OPT_IP_MINTTL;
+    ?ESOCK_OPT_IP_MINTTL;
 enc_sockopt_key(ip = _L, msfilter = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_MSFILTER;
+    ?ESOCK_OPT_IP_MSFILTER;
 enc_sockopt_key(ip = _L, mtu = _Opt, get = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_MTU;
+    ?ESOCK_OPT_IP_MTU;
 enc_sockopt_key(ip = _L, mtu_discover = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_MTU_DISCOVER;
+    ?ESOCK_OPT_IP_MTU_DISCOVER;
 enc_sockopt_key(ip = _L, multicast_all = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_MULTICAST_ALL;
+    ?ESOCK_OPT_IP_MULTICAST_ALL;
 enc_sockopt_key(ip = _L, multicast_if = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_MULTICAST_IF;
+    ?ESOCK_OPT_IP_MULTICAST_IF;
 enc_sockopt_key(ip = _L, multicast_loop = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_MULTICAST_LOOP;
+    ?ESOCK_OPT_IP_MULTICAST_LOOP;
 enc_sockopt_key(ip = _L, multicast_ttl = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_MULTICAST_TTL;
+    ?ESOCK_OPT_IP_MULTICAST_TTL;
 enc_sockopt_key(ip = _L, nodefrag = _Opt, _Dir, _D, raw = _T, _P) ->
-    ?SOCKET_OPT_IP_NODEFRAG;
+    ?ESOCK_OPT_IP_NODEFRAG;
 enc_sockopt_key(ip = L, options = Opt, _Dir, _D, _T, _P) ->
     not_supported({Opt, L});
 enc_sockopt_key(ip = _L, pktinfo = _Opt, _Dir, _D, dgram = _T, _P) ->
-    ?SOCKET_OPT_IP_PKTINFO;
+    ?ESOCK_OPT_IP_PKTINFO;
 enc_sockopt_key(ip = _L, recvdstaddr = _Opt, _Dir, _D, T, _P) when (T =:= dgram) ->
-    ?SOCKET_OPT_IP_RECVDSTADDR;
+    ?ESOCK_OPT_IP_RECVDSTADDR;
 enc_sockopt_key(ip = _L, recverr = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_RECVERR;
+    ?ESOCK_OPT_IP_RECVERR;
 enc_sockopt_key(ip = _L, recvif = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
-    ?SOCKET_OPT_IP_RECVIF;
+    ?ESOCK_OPT_IP_RECVIF;
 enc_sockopt_key(ip = _L, recvopts = _Opt, _Dir, _D, T, _P) when (T =/= stream) ->
-    ?SOCKET_OPT_IP_RECVOPTS;
+    ?ESOCK_OPT_IP_RECVOPTS;
 enc_sockopt_key(ip = _L, recvorigdstaddr = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_RECVORIGDSTADDR;
+    ?ESOCK_OPT_IP_RECVORIGDSTADDR;
 enc_sockopt_key(ip, recvtos = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_RECVTOS;
+    ?ESOCK_OPT_IP_RECVTOS;
 enc_sockopt_key(ip = _L, recvttl = _Opt, _Dir, _D, T, _P) when (T =/= stream) ->
-    ?SOCKET_OPT_IP_RECVTTL;
+    ?ESOCK_OPT_IP_RECVTTL;
 enc_sockopt_key(ip = _L, retopts = _Opt, _Dir, _D, T, _P) when (T =/= stream) ->
-    ?SOCKET_OPT_IP_RETOPTS;
+    ?ESOCK_OPT_IP_RETOPTS;
 enc_sockopt_key(ip, router_alert = _Opt, _Dir, _D, raw = _T, _P) ->
-    ?SOCKET_OPT_IP_ROUTER_ALERT;
+    ?ESOCK_OPT_IP_ROUTER_ALERT;
 enc_sockopt_key(ip, sendsrcaddr = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_SENDSRCADDR;
+    ?ESOCK_OPT_IP_SENDSRCADDR;
 %% On FreeBSD it specifies that this option is only valid
 %% for stream, dgram and "some" raw sockets...
 %% No such condition on linux (in the man page)...
 enc_sockopt_key(ip, tos = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_TOS;
+    ?ESOCK_OPT_IP_TOS;
 enc_sockopt_key(ip = _L, transparent = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_TRANSPARENT;
+    ?ESOCK_OPT_IP_TRANSPARENT;
 enc_sockopt_key(ip, ttl = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_TTL;
+    ?ESOCK_OPT_IP_TTL;
 enc_sockopt_key(ip = _L, unblock_source = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IP_UNBLOCK_SOURCE;
+    ?ESOCK_OPT_IP_UNBLOCK_SOURCE;
 enc_sockopt_key(ip = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
 %% IPv6 socket options
 enc_sockopt_key(ipv6 = _L, addrform = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_ADDRFORM;
+    ?ESOCK_OPT_IPV6_ADDRFORM;
 enc_sockopt_key(ipv6, add_membership = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_ADD_MEMBERSHIP;
+    ?ESOCK_OPT_IPV6_ADD_MEMBERSHIP;
 enc_sockopt_key(ipv6 = _L, authhdr = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
-    ?SOCKET_OPT_IPV6_AUTHHDR;
+    ?ESOCK_OPT_IPV6_AUTHHDR;
 enc_sockopt_key(ipv6 = L, auth_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, checksum = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6, drop_membership = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_DROP_MEMBERSHIP;
+    ?ESOCK_OPT_IPV6_DROP_MEMBERSHIP;
 enc_sockopt_key(ipv6 = _L, dstopts = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
-    ?SOCKET_OPT_IPV6_DSTOPTS;
+    ?ESOCK_OPT_IPV6_DSTOPTS;
 enc_sockopt_key(ipv6 = L, esp_trans_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, esp_network_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = _L, flowinfo = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
-    ?SOCKET_OPT_IPV6_FLOWINFO;
+    ?ESOCK_OPT_IPV6_FLOWINFO;
 enc_sockopt_key(ipv6, hoplimit = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
-    ?SOCKET_OPT_IPV6_HOPLIMIT;
+    ?ESOCK_OPT_IPV6_HOPLIMIT;
 enc_sockopt_key(ipv6 = _L, hopopts = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
-    ?SOCKET_OPT_IPV6_HOPOPTS;
+    ?ESOCK_OPT_IPV6_HOPOPTS;
 enc_sockopt_key(ipv6 = L, ipcomp_level = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, join_group = Opt, _Dir, _D, _T, _P) ->
@@ -3729,44 +3734,44 @@ enc_sockopt_key(ipv6 = L, join_group = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(ipv6 = L, leave_group = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = _L, mtu = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_MTU;
+    ?ESOCK_OPT_IPV6_MTU;
 enc_sockopt_key(ipv6 = _L, mtu_discover = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_MTU_DISCOVER;
+    ?ESOCK_OPT_IPV6_MTU_DISCOVER;
 enc_sockopt_key(ipv6 = _L, multicast_hops = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_MULTICAST_HOPS;
+    ?ESOCK_OPT_IPV6_MULTICAST_HOPS;
 enc_sockopt_key(ipv6 = _L, multicast_if = _Opt, _Dir, _D, T, _P) 
   when (T =:= dgram) orelse (T =:= raw) ->
-    ?SOCKET_OPT_IPV6_MULTICAST_IF;
+    ?ESOCK_OPT_IPV6_MULTICAST_IF;
 enc_sockopt_key(ipv6 = _L, multicast_loop = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_MULTICAST_LOOP;
+    ?ESOCK_OPT_IPV6_MULTICAST_LOOP;
 enc_sockopt_key(ipv6 = L, portrange = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = L, pktoptions = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = _L, recverr = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_RECVERR;
+    ?ESOCK_OPT_IPV6_RECVERR;
 enc_sockopt_key(ipv6, recvhoplimit = _Opt, _Dir, _D, T, _P)
   when (T =:= dgram) orelse (T =:= raw) ->
-    ?SOCKET_OPT_IPV6_RECVHOPLIMIT;
+    ?ESOCK_OPT_IPV6_RECVHOPLIMIT;
 enc_sockopt_key(ipv6 = _L, Opt, _Dir, _D, T, _P) 
   when ((Opt =:= recvpktinfo) orelse (Opt =:= pktinfo)) andalso 
        ((T =:= dgram) orelse (T =:= raw)) ->
-    ?SOCKET_OPT_IPV6_RECVPKTINFO;
+    ?ESOCK_OPT_IPV6_RECVPKTINFO;
 enc_sockopt_key(ipv6 = _L, recvtclass = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_RECVTCLASS;
+    ?ESOCK_OPT_IPV6_RECVTCLASS;
 enc_sockopt_key(ipv6 = _L, router_alert = _Opt, _Dir, _D, T, _P) when (T =:= raw) ->
-    ?SOCKET_OPT_IPV6_ROUTER_ALERT;
+    ?ESOCK_OPT_IPV6_ROUTER_ALERT;
 enc_sockopt_key(ipv6 = _L, rthdr = _Opt, _Dir, _D, T, _P) 
   when ((T =:= dgram) orelse (T =:= raw)) ->
-    ?SOCKET_OPT_IPV6_RTHDR;
+    ?ESOCK_OPT_IPV6_RTHDR;
 enc_sockopt_key(ipv6 = _L, tclass = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_TCLASS;
+    ?ESOCK_OPT_IPV6_TCLASS;
 enc_sockopt_key(ipv6 = _L, unicast_hops = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_UNICAST_HOPS;
+    ?ESOCK_OPT_IPV6_UNICAST_HOPS;
 enc_sockopt_key(ipv6 = L, use_min_mtu = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(ipv6 = _L, v6only = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_IPV6_V6ONLY;
+    ?ESOCK_OPT_IPV6_V6ONLY;
 enc_sockopt_key(ipv6 = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
@@ -3774,9 +3779,9 @@ enc_sockopt_key(ipv6 = L, UnknownOpt, _Dir, _D, _T, _P) ->
 %% There are other options that would be useful; info,
 %% but they are difficult to get portable...
 enc_sockopt_key(tcp, congestion = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_TCP_CONGESTION;
+    ?ESOCK_OPT_TCP_CONGESTION;
 enc_sockopt_key(tcp = _L, cork = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_TCP_CORK;
+    ?ESOCK_OPT_TCP_CORK;
 enc_sockopt_key(tcp = L, keepidle = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(tcp = L, keepintvl = Opt, _Dir, _D, _T, _P) ->
@@ -3784,11 +3789,11 @@ enc_sockopt_key(tcp = L, keepintvl = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(tcp = L, keepcnt = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(tcp, maxseg = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_TCP_MAXSEG;
+    ?ESOCK_OPT_TCP_MAXSEG;
 enc_sockopt_key(tcp = L, md5sig = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(tcp, nodelay = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_TCP_NODELAY;
+    ?ESOCK_OPT_TCP_NODELAY;
 enc_sockopt_key(tcp = L, noopt = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(tcp = L, nopush = Opt, _Dir, _D, _T, _P) ->
@@ -3802,7 +3807,7 @@ enc_sockopt_key(tcp = L, UnknownOpt, _Dir, _D, _T, _P) ->
 
 %% UDP socket options
 enc_sockopt_key(udp, cork = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_UDP_CORK;
+    ?ESOCK_OPT_UDP_CORK;
 enc_sockopt_key(udp = L, UnknownOpt, _Dir, _D, _T, _P) ->
     unknown({L, UnknownOpt});
 
@@ -3810,7 +3815,7 @@ enc_sockopt_key(udp = L, UnknownOpt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(sctp = L, adaption_layer = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = _L, associnfo = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SCTP_ASSOCINFO;
+    ?ESOCK_OPT_SCTP_ASSOCINFO;
 enc_sockopt_key(sctp = L, auth_active_key = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, auth_asconf = Opt, _Dir, _D, _T, _P) ->
@@ -3822,7 +3827,7 @@ enc_sockopt_key(sctp = L, auth_key = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(sctp = L, auth_delete_key = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp, autoclose = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SCTP_AUTOCLOSE;
+    ?ESOCK_OPT_SCTP_AUTOCLOSE;
 enc_sockopt_key(sctp = L, context = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, default_send_params = Opt, _Dir, _D, _T, _P) ->
@@ -3830,11 +3835,11 @@ enc_sockopt_key(sctp = L, default_send_params = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(sctp = L, delayed_ack_time = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = _L, disable_fragments = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SCTP_DISABLE_FRAGMENTS;
+    ?ESOCK_OPT_SCTP_DISABLE_FRAGMENTS;
 enc_sockopt_key(sctp = L, hmac_ident = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = _L, events = _Opt, set = _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SCTP_EVENTS;
+    ?ESOCK_OPT_SCTP_EVENTS;
 enc_sockopt_key(sctp = L, explicit_eor = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, fragment_interleave = Opt, _Dir, _D, _T, _P) ->
@@ -3842,17 +3847,17 @@ enc_sockopt_key(sctp = L, fragment_interleave = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(sctp = L, get_peer_addr_info = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = _L, initmsg = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SCTP_INITMSG;
+    ?ESOCK_OPT_SCTP_INITMSG;
 enc_sockopt_key(sctp = L, i_want_mapped_v4_addr = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, local_auth_chunks = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = _L, maxseg = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SCTP_MAXSEG;
+    ?ESOCK_OPT_SCTP_MAXSEG;
 enc_sockopt_key(sctp = L, maxburst = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp, nodelay = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SCTP_NODELAY;
+    ?ESOCK_OPT_SCTP_NODELAY;
 enc_sockopt_key(sctp = L, partial_delivery_point = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, peer_addr_params = Opt, _Dir, _D, _T, _P) ->
@@ -3864,11 +3869,11 @@ enc_sockopt_key(sctp = L, primary_addr = Opt, _Dir, _D, _T, _P) ->
 enc_sockopt_key(sctp = L, reset_streams = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = _L, rtoinfo = _Opt, _Dir, _D, _T, _P) ->
-    ?SOCKET_OPT_SCTP_RTOINFO;
+    ?ESOCK_OPT_SCTP_RTOINFO;
 enc_sockopt_key(sctp = L, set_peer_primary_addr = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, status = Opt, get = _Dir, _D, _T, _P) ->
-    not_supported({L, Opt}); % ?SOCKET_OPT_SCTP_RTOINFO;
+    not_supported({L, Opt}); % ?ESOCK_OPT_SCTP_RTOINFO;
 enc_sockopt_key(sctp = L, use_exp_recvinfo = Opt, _Dir, _D, _T, _P) ->
     not_supported({L, Opt});
 enc_sockopt_key(sctp = L, UnknownOpt, _Dir, _D, _T, _P) ->
@@ -3891,11 +3896,11 @@ enc_sockopt_key(Level, Opt, _Dir, _Domain, _Type, _Protocol) ->
 
 
 enc_shutdown_how(read) ->
-    ?SOCKET_SHUTDOWN_HOW_READ;
+    ?ESOCK_SHUTDOWN_HOW_READ;
 enc_shutdown_how(write) ->
-    ?SOCKET_SHUTDOWN_HOW_WRITE;
+    ?ESOCK_SHUTDOWN_HOW_WRITE;
 enc_shutdown_how(read_write) ->
-    ?SOCKET_SHUTDOWN_HOW_READ_WRITE.
+    ?ESOCK_SHUTDOWN_HOW_READ_WRITE.
 
 
 
@@ -3945,7 +3950,7 @@ cancel(SockRef, Op, OpRef) ->
 
 flush_select_msgs(SockRef, Ref) ->
     receive
-        {?SOCKET_TAG, #socket{ref = SockRef}, select, Ref} ->
+        {?ESOCK_TAG, #socket{ref = SockRef}, select, Ref} ->
             flush_select_msgs(SockRef, Ref)
     after 0 ->
             ok
