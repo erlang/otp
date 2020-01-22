@@ -777,9 +777,9 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 {/* (Cipher, Key, IVec, Data, Encrypt, PaddingType) */
     struct evp_cipher_ctx ctx_res;
     const struct cipher_type_t *cipherp;
-    ERL_NIF_TERM ret, ret1;
+    ERL_NIF_TERM ret;
     ErlNifBinary out_data_bin, final_data_bin;
-    int appended_size, first_part_size;
+    unsigned char *append_buf;
     
     ctx_res.ctx = NULL;
 #if !defined(HAVE_EVP_AES_CTR)
@@ -788,49 +788,42 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     /* EVP_CipherInit */
     if (!get_init_args(env, &ctx_res, argv[0], argv[1], argv[2], argv[4], argv[5], &cipherp, &ret))
-        goto err;
+        goto out;
 
     /* out_data = EVP_CipherUpdate */
     if (!get_update_args(env, &ctx_res, argv[3], &ret))
-        goto err;
+        /* Got an exception as result in &ret */
+        goto out;
 
-    /* final_data = EVP_CipherFinal_ex */
-    if (!get_final_args(env, &ctx_res, &ret1, NULL))
-        {
-            ret = ret1;
-            goto err;
-        }
-
-    if (!enif_inspect_binary(env, ret1, &final_data_bin) )
-        {
-            ret = EXCP_ERROR(env, "Can't inspect final");
-            goto err;
-        }
-
-    if (!enif_inspect_binary(env, ret,  &out_data_bin) )
+    if (!enif_inspect_binary(env, ret, &out_data_bin) )
         {
             ret = EXCP_ERROR(env, "Can't inspect first");
-            goto err;
+            goto out;
         }
-    //enif_fprintf(stderr, "update -> %T\r\nfinal  -> %T\r\n", ret, ret1);
-    if (final_data_bin.size > 0)
-        /* Need to append the result of final to the main result */
+
+    /* final_data = EVP_CipherFinal_ex */
+    if (!get_final_args(env, &ctx_res, &ret, NULL))
+        /* Got an exception as result in &ret */
+        goto out;
+
+    if (!enif_inspect_binary(env, ret, &final_data_bin) )
         {
-            /* Make ret = << out_data/binary, final_data/binary >> */
-            first_part_size = out_data_bin.size;
-            appended_size = first_part_size + final_data_bin.size;
-            if (!enif_realloc_binary(&out_data_bin, (size_t)appended_size))
-                {
-                    ret = EXCP_ERROR(env, "Can't reallocate final");
-                    goto err;
-                }
-            memcpy(out_data_bin.data + first_part_size, final_data_bin.data, (size_t)final_data_bin.size);
+            ret = EXCP_ERROR(env, "Can't inspect final");
+            goto out;
         }
 
-    /* Exit here */
-    ret = enif_make_binary(env,&out_data_bin);
+    /* Concatenate out_data and final_date into a new binary kept in the variable ret. */
+    append_buf = enif_make_new_binary(env, out_data_bin.size + final_data_bin.size, &ret);
+    if (!append_buf)
+        {
+            ret = EXCP_ERROR(env, "Can't append");
+            goto out;
+        }
 
- err:
+    memcpy(append_buf,                   out_data_bin.data,   out_data_bin.size);
+    memcpy(append_buf+out_data_bin.size, final_data_bin.data, final_data_bin.size);
+
+ out:
     if (ctx_res.ctx)
         EVP_CIPHER_CTX_free(ctx_res.ctx);
 
