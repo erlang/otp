@@ -1300,8 +1300,8 @@ bind(#socket{ref = SockRef}, Addr)
                 nif_bind(SockRef, ?SOCKADDR_IN4_DEFAULT(Addr));
             inet6 when (Addr =:= any) orelse (Addr =:= loopback) ->
                 nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr));
-            _ ->
-                einval()
+            Domain ->
+                invalid_domain(Domain)
         end
     catch
         throw:ERROR ->
@@ -1353,16 +1353,16 @@ ensure_type(SockRef, Type) ->
     case which_type(SockRef) of
         Type ->
             ok;
-        _InvalidType ->
-            einval()
+        InvalidType ->
+            invalid_type(InvalidType)
     end.
 
 ensure_proto(SockRef, Proto) ->
     case which_protocol(SockRef) of
         Proto ->
             ok;
-        _InvalidProto ->
-            einval()
+        InvalidProto ->
+            invalid_protocol(InvalidProto)
     end.
 
 validate_addrs(inet = _Domain, Addrs) ->
@@ -3876,8 +3876,8 @@ ensure_sockaddr(#{family := local, path := Path} = SockAddr)
        (byte_size(Path) > 0) andalso 
        (byte_size(Path) =< 255) ->
     SockAddr;
-ensure_sockaddr(_SockAddr) ->
-    einval().
+ensure_sockaddr(SockAddr) ->
+    invalid_address(SockAddr).
 
 
 
@@ -4023,6 +4023,12 @@ invalid_type(Type) ->
 
 invalid_protocol(Proto) ->
     error({invalid_protocol, Proto}).
+
+-spec invalid_address(SockAddr) -> no_return() when
+      SockAddr :: sockaddr().
+
+invalid_address(SockAddr) ->
+    error({invalid_address, SockAddr}).
 
 -spec not_supported(What) -> no_return() when
       What :: term().
