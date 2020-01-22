@@ -1262,23 +1262,17 @@ open(Domain, Type, Protocol, Extra) when is_map(Extra) ->
             EDomain   = enc_domain(Domain),
             EType     = enc_type(Type),
             EProtocol = enc_protocol(Protocol),
-            case nif_open(EDomain, EType, EProtocol, Extra) of
-                {ok, SockRef} ->
-                    Socket = #socket{ref = SockRef},
-                    {ok, Socket};
-                {error, _} = ERROR ->
-                    ERROR
-            end
+            nif_open(EDomain, EType, EProtocol, Extra)
         end
+    of
+        {ok, SockRef} ->
+            Socket = #socket{ref = SockRef},
+            {ok, Socket};
+        {error, _} = ERROR ->
+            ERROR
     catch
-        throw:T ->
-            T;
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
-        error:Reason ->
-            {error, Reason}
+        throw:ERROR ->
+            ERROR
     end.
 
 
@@ -1310,23 +1304,13 @@ bind(#socket{ref = SockRef}, Addr)
                 einval()
         end
     catch
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end;
 bind(#socket{ref = SockRef} = _Socket, Addr) when is_map(Addr) ->
     try
-        begin
-            nif_bind(SockRef, ensure_sockaddr(Addr))
-        end
+        nif_bind(SockRef, ensure_sockaddr(Addr))
     catch
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end.
@@ -1361,10 +1345,6 @@ bind(#socket{ref = SockRef}, Addrs, Action)
             nif_bind(SockRef, Addrs, Action)
         end
     catch
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end.
@@ -1451,7 +1431,7 @@ connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
        ((Timeout =:= nowait) orelse 
         (Timeout =:= infinity) orelse is_integer(Timeout)) ->
     TS = timestamp(Timeout),
-    case nif_connect(SockRef, ensure_sockaddr(SockAddr)) of
+    try nif_connect(SockRef, ensure_sockaddr(SockAddr)) of
         ok ->
             %% Connected!
             ok;
@@ -1472,6 +1452,9 @@ connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
 	    end;
 	{error, _} = ERROR ->
 	    ERROR
+    catch
+        throw:ERROR ->
+            ERROR
     end.
 
 
@@ -1637,10 +1620,16 @@ send(#socket{ref = SockRef}, Data, Flags, Timeout)
         (Timeout =:= infinity) orelse
         (is_integer(Timeout) andalso (Timeout > 0)))  ->
     To = undefined,
-    EFlags = enc_send_flags(Flags),
-    Deadline = deadline(Timeout),
-    send_common(SockRef, Data, To, EFlags, Deadline, send).
-
+    try
+        begin
+            EFlags = enc_send_flags(Flags),
+            Deadline = deadline(Timeout),
+            send_common(SockRef, Data, To, EFlags, Deadline, send)
+        end
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
 send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
 
@@ -1787,10 +1776,17 @@ sendto(#socket{ref = SockRef}, Data, #{family := Fam} = Dest, Flags, Timeout)
        ((Timeout =:= nowait) orelse
         (Timeout =:= infinity) orelse
         (is_integer(Timeout) andalso (Timeout > 0))) ->
-    To = ensure_sockaddr(Dest),
-    EFlags = enc_send_flags(Flags),
-    Deadline = deadline(Timeout),
-    send_common(SockRef, Data, To, EFlags, Deadline, sendto).
+    try
+        begin
+            To = ensure_sockaddr(Dest),
+            EFlags = enc_send_flags(Flags),
+            Deadline = deadline(Timeout),
+            send_common(SockRef, Data, To, EFlags, Deadline, sendto)
+        end
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
 
 %% ---------------------------------------------------------------------------
@@ -1872,15 +1868,10 @@ sendmsg(#socket{ref = SockRef}, #{iov := IOV} = MsgHdr, Flags, Timeout)
             do_sendmsg(SockRef, M, EFlags, Deadline)
         end
     catch
-        throw:T ->
-            T;
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
-        error:Reason ->
-            {error, Reason}
+        throw:ERROR ->
+            ERROR
     end.
+
 
 do_sendmsg(SockRef, MsgHdr, EFlags, Deadline) ->
 
@@ -1950,7 +1941,6 @@ ensure_msghdr(#{iov := IOV} = M)
     M#{iov => erlang:iolist_to_iovec(IOV)};
 ensure_msghdr(_) ->
     einval().
-
 
 
 
@@ -2522,10 +2512,7 @@ close(#socket{ref = SockRef}) ->
 
 shutdown(#socket{ref = SockRef}, How) ->
     try
-        begin
-            EHow = enc_shutdown_how(How),
-            nif_shutdown(SockRef, EHow)
-        end
+        nif_shutdown(SockRef, enc_shutdown_how(How))
     catch
         throw:T ->
             T;
@@ -2603,14 +2590,8 @@ setopt(#socket{ref = SockRef}, Level, Key, Value) ->
             nif_setopt(SockRef, EIsEncoded, ELevel, EKey, EVal)
         end
     catch
-        throw:T ->
-            T;
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
-        error:Reason ->
-            {error, Reason} % Process more?
+        throw:ERROR ->
+            ERROR
     end.
 
 
@@ -2684,19 +2665,13 @@ getopt(#socket{ref = SockRef}, Level, Key) ->
                     Val = dec_getopt_value(Level, Key, EVal,
                                            Domain, Type, Protocol),
                     {ok, Val};
-                {error, _} = ERROR ->
-                    ERROR
+                {error, _} = E ->
+                    E
             end
         end
     catch
-        throw:E:_S ->
-            E;
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
-        error:Reason:_Stack ->
-            {error, Reason} % Process more?
+        throw:ERROR ->
+            ERROR
     end.
 
 
