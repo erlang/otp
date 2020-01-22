@@ -317,80 +317,160 @@ insert_labels([], Lc, Acc) ->
 %%% (1) We try to share the code for identical code segments by replacing all
 %%% occurrences except the last with jumps to the last occurrence.
 %%%
+%%% We must not share code that raises an exception from outside a
+%%% try/catch block with code inside a try/catch block and vice versa,
+%%% because beam_validator will probably flag it as unsafe
+%%% (ambiguous_catch_try_state). The same goes for a plain catch.
+%%%
 
 share(Is0) ->
     Is1 = eliminate_fallthroughs(Is0, []),
     Is2 = find_fixpoint(fun(Is) ->
-                                share_1(Is, #{}, #{}, [], [])
+                                share_1(Is)
                         end, Is1),
     reverse(Is2).
 
-share_1([{label,L}=Lbl|Is], Dict0, Lbls0, [_|_]=Seq, Acc) ->
-    case maps:find(Seq, Dict0) of
-        error ->
-            Dict = maps:put(Seq, L, Dict0),
-            share_1(Is, Dict, Lbls0, [], [[Lbl|Seq]|Acc]);
-        {ok,Label} ->
-            Lbls = maps:put(L, Label, Lbls0),
-            share_1(Is, Dict0, Lbls, [], [[Lbl,{jump,{f,Label}}]|Acc])
+share_1(Is) ->
+    Safe = classify_labels(Is),
+    share_1(Is, Safe, #{}, #{}, [], []).
+
+%% Note that we examine the instructions in reverse execution order.
+share_1([{label,L}=Lbl|Is], Safe, Dict0, Lbls0, [_|_]=Seq, Acc) ->
+    case Dict0 of
+        #{Seq := Label} ->
+            %% This sequence of instructions has been seen previously. Find out
+            %% whether it would be safe to jump the label for previous occurrence.
+            case is_safely_shareable(L, Label, Seq, Safe) of
+                true ->
+                    %% Safe, because either the sequence never raises an exception
+                    %% or the jump to the label will not pass a try/catch or catch
+                    %% boundary.
+                    Lbls = Lbls0#{L => Label},
+                    share_1(Is, Safe, Dict0, Lbls, [],
+                            [[Lbl,{jump,{f,Label}}]|Acc]);
+                false ->
+                    %% Not safe, because the sequence can raise an exception
+                    %% and the jump would pass the boundary going in
+                    %% or out of a try/catch or catch block.
+                    share_1(Is, Safe, Dict0, Lbls0, [], [[Lbl|Seq]|Acc])
+            end;
+        #{} ->
+            %% This is first time we have seen this sequence of instructions.
+            case is_shareable(Seq) of
+                true ->
+                    Dict = Dict0#{Seq => L},
+                    share_1(Is, Safe, Dict, Lbls0, [], [[Lbl|Seq]|Acc]);
+                false ->
+                    %% The sequence begins with an inappropriate instruction.
+                    share_1(Is, Safe, Dict0, Lbls0, [], [[Lbl|Seq]|Acc])
+            end
     end;
-share_1([{func_info,_,_,_}|_]=Is0, _, Lbls, [], Acc0) when Lbls =/= #{} ->
-    lists:foldl(fun(Is, Acc) ->
-        beam_utils:replace_labels(Is, Acc, Lbls, fun(Old) -> Old end)
-    end, Is0, Acc0);
-share_1([{func_info,_,_,_}|_]=Is, _, Lbls, [], Acc) when Lbls =:= #{} ->
-    lists:foldl(fun lists:reverse/2, Is, Acc);
-share_1([{'catch',_,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
-    {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
-    share_1(Is, Dict, Lbls, [I|Seq], Acc);
-share_1([{'try',_,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
-    {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
-    share_1(Is, Dict, Lbls, [I|Seq], Acc);
-share_1([{try_case,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
-    {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
-    share_1(Is, Dict, Lbls, [I|Seq], Acc);
-share_1([{catch_end,_}=I|Is], Dict0, Lbls0, Seq, Acc) ->
-    {Dict,Lbls} = clean_non_sharable(Dict0, Lbls0),
-    share_1(Is, Dict, Lbls, [I|Seq], Acc);
-share_1([{jump,{f,To}}=I,{label,L}=Lbl|Is], Dict0, Lbls0, _Seq, Acc) ->
-    Lbls = maps:put(L, To, Lbls0),
-    share_1(Is, Dict0, Lbls, [], [[Lbl,I]|Acc]);
-share_1([I|Is], Dict, Lbls, Seq, Acc) ->
+share_1([{func_info,_,_,_}|_]=Is0, _Safe, _, Lbls, [], Acc0) ->
+    %% Replace jumps to jumps with a jump to the final destination
+    %% (jump threading). This optimization is done in the main
+    %% optimization pass of this module, but we do it here too because
+    %% it can give more opportunities for sharing code.
+    F = case Lbls =:= #{} of
+            true ->
+                fun lists:reverse/2;
+            false ->
+                fun(Is, Acc) ->
+                        beam_utils:replace_labels(Is, Acc, Lbls,
+                                                  fun(Old) -> Old end)
+                end
+        end,
+    foldl(F, Is0, Acc0);
+share_1([{'catch',_,_}=I|Is], Safe, Dict, _Lbls0, Seq, Acc) ->
+    %% Disable the jump threading optimization because it may be unsafe.
+    share_1(Is, Safe, Dict, #{}, [I|Seq], Acc);
+share_1([{'try',_,_}=I|Is], Safe, Dict, _Lbls, Seq, Acc) ->
+    %% Disable the jump threading optimization because it may be unsafe.
+    share_1(Is, Safe, Dict, #{}, [I|Seq], Acc);
+share_1([{jump,{f,To}}=I,{label,From}=Lbl|Is], Safe, Dict0, Lbls0, _Seq, Acc) ->
+    Lbls = Lbls0#{From => To},
+    share_1(Is, Safe, Dict0, Lbls, [], [[Lbl,I]|Acc]);
+share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
     case is_unreachable_after(I) of
 	false ->
-	    share_1(Is, Dict, Lbls, [I|Seq], Acc);
+	    share_1(Is, Safe, Dict, Lbls, [I|Seq], Acc);
 	true ->
-	    share_1(Is, Dict, Lbls, [I], Acc)
+	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
 
-clean_non_sharable(Dict0, Lbls0) ->
-    %% We are passing in or out of a 'catch' or 'try' block. Remove
-    %% sequences that should not be shared over the boundaries of the
-    %% block. Since the end of the sequence must match, the only
-    %% possible match between a sequence outside and a sequence inside
-    %% the 'catch'/'try' block is a sequence that ends with an
-    %% instruction that causes an exception. Any sequence that causes
-    %% an exception must contain a line/1 instruction.
-    Dict1 = maps:to_list(Dict0),
-    Lbls1 = maps:to_list(Lbls0),
-    {Dict2,Lbls2} = foldl(fun({K, V}, {Dict,Lbls}) ->
-                                  case sharable_with_try(K) of
-                                      true ->
-                                          {[{K,V}|Dict],lists:keydelete(V, 2, Lbls)};
-                                      false ->
-                                          {Dict,Lbls}
-                                  end
-                          end, {[],Lbls1}, Dict1),
-    {maps:from_list(Dict2),maps:from_list(Lbls2)}.
+is_shareable([{'catch',_,_}|_]) -> false;
+is_shareable([{catch_end,_}|_]) -> false;
+is_shareable([{'try',_,_}|_]) -> false;
+is_shareable([{try_case,_}|_]) -> false;
+is_shareable([{try_end,_}|_]) -> false;
+is_shareable(_) -> true.
 
-sharable_with_try([{line,_}|_]) ->
-    %% This sequence may cause an exception and may potentially
+%% There are identical code sequences Seq at labels Lbl1 and Lbl2. Is it
+%% safe to replace the sequence at label Lbl1 with a jump to Lbl2?
+
+is_safely_shareable(Lbl1, Lbl2, Seq, Safe) ->
+    case no_exception(Seq) of
+        true ->
+            %% Safe, because the sequence Seq can't raise an exception.
+            true;
+        false ->
+            %% Safe if both labels are either ouside try/catch or inside
+            %% the same part of the same try/catch or catch block.
+            case Safe of
+                #{Lbl1 := Scope, Lbl2 := Scope} -> true;
+                #{} -> false
+            end
+    end.
+
+no_exception([{line,_}|_]) ->
+    %% This sequence may raise an exception and may potentially
     %% match a sequence on the other side of the 'catch'/'try' block
     %% boundary.
     false;
-sharable_with_try([_|Is]) ->
-    sharable_with_try(Is);
-sharable_with_try([]) -> true.
+no_exception([_|Is]) ->
+    no_exception(Is);
+no_exception([]) -> true.
+
+%%
+%% Classify labels according to where the instructions that branch to
+%% the labels are located. Each label is assigned a scope identifer.
+%% If two labels have different scope identfiers, sharing a sequence
+%% that raises an exception between the labels may not be safe, because
+%% one label is inside a try/catch, and the other label is outside.
+%%
+%% Note that we don't care where the labels themselves are located,
+%% only from where the branches to them are located. This is essential
+%% to ensure that beam_jump is idempotent, ensuring that beam_jump
+%% will not do any unsafe optimizations when when compiling from a .S
+%% file. The move/1 optimization pass below (2) will move instruction
+%% sequences that end in an exception raising instruction to the end
+%% of the function. Thus instruction sequences initially being in
+%% different scopes could be placed next to each other.
+%%
+
+classify_labels(Is) ->
+    classify_labels(Is, 0, #{}).
+
+classify_labels([{'catch',_,_}|Is], Scope, Safe) ->
+    classify_labels(Is, Scope+1, Safe);
+classify_labels([{catch_end,_}|Is], Scope, Safe) ->
+    classify_labels(Is, Scope+1, Safe);
+classify_labels([{'try',_,_}|Is], Scope, Safe) ->
+    classify_labels(Is, Scope+1, Safe);
+classify_labels([{'try_end',_}|Is], Scope, Safe) ->
+    classify_labels(Is, Scope+1, Safe);
+classify_labels([{'try_case',_}|Is], Scope, Safe) ->
+    classify_labels(Is, Scope+1, Safe);
+classify_labels([I|Is], Scope, Safe0) ->
+    Labels = instr_labels(I),
+    Safe = foldl(fun(L, A) ->
+                         case A of
+                             #{L := Scope} -> A;
+                             #{L := _} -> maps:remove(L, A);
+                             #{} -> A#{L => Scope}
+                         end
+                 end, Safe0, Labels),
+    classify_labels(Is, Scope, Safe);
+classify_labels([], _Scope, Safe) -> Safe.
 
 %% Eliminate all fallthroughs. Return the result reversed.
 
