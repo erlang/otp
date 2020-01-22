@@ -5739,8 +5739,8 @@ ERL_NIF_TERM nif_connect(ErlNifEnv*         env,
      * safe side we do the best we can to avoid complications...
      */
 
-    MLOCK(descP->writeMtx);
     MLOCK(descP->readMtx);
+    MLOCK(descP->writeMtx);
     MLOCK(descP->cfgMtx);
 
     res = esock_connect(env, descP, sockRef);
