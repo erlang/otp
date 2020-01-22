@@ -14212,8 +14212,7 @@ erts_dbg_check_halloc_lock(Process *p)
     esdp = erts_proc_sched_data(p);
     if (esdp && p == esdp->match_pseudo_process)
 	return 1;
-    if (erts_thr_progress_is_blocking())
-	return 1;
+    /* erts_thr_progress_is_blocking() is not enough as dirty NIFs may run */
     return 0;
 }
 #endif

@@ -1121,6 +1121,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     if ( (key == am_call_time) || (key == am_all)) {
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 	erts_thr_progress_block();
+        erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
     erts_mtx_lock(&erts_dirty_bp_ix_mtx);
 
@@ -1130,7 +1131,6 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     erts_mtx_unlock(&erts_dirty_bp_ix_mtx);
     if ( (key == am_call_time) || (key == am_all)) {
 	erts_thr_progress_unblock();
-	erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 
     switch (r) {
@@ -2081,6 +2081,7 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	system_blocked = 1;
 	erts_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
 	erts_thr_progress_block();
+        erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
 	if (!erts_pid2proc(p, ERTS_PROC_LOCK_MAIN, monitor_pid, 0))
 	    goto error;
@@ -2120,7 +2121,6 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 	erts_system_monitor_flags.busy_dist_port = !!busy_dist_port;
 
 	erts_thr_progress_unblock();
-	erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 	BIF_RET(prev);
     }
 
@@ -2128,7 +2128,6 @@ system_monitor(Process *p, Eterm monitor_pid, Eterm list)
 
     if (system_blocked) {
 	erts_thr_progress_unblock();
-	erts_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     }
 
     BIF_ERROR(p, BADARG);

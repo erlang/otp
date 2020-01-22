@@ -4187,6 +4187,7 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
     /* Block system (is this the right place to do it?) */
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     /* Find calling module */
     caller = find_function_from_pc(I);
@@ -4389,7 +4390,6 @@ Eterm erts_load_nif(Process *c_p, BeamInstr *I, Eterm filename, Eterm args)
     }
 
     erts_thr_progress_unblock();
-    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
     erts_free(ERTS_ALC_T_TMP, lib_name);
 
     BIF_RET(ret);

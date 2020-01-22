@@ -6340,6 +6340,7 @@ erts_processes_monitoring_nodes(Process *c_p)
 
     erts_proc_unlock(c_p, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
+    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     erts_mtx_lock(&nodes_monitors_mtx);
 
@@ -6370,7 +6371,6 @@ erts_processes_monitoring_nodes(Process *c_p)
     erts_mtx_unlock(&nodes_monitors_mtx);
 
     erts_thr_progress_unblock();
-    erts_proc_lock(c_p, ERTS_PROC_LOCK_MAIN);
 
     return ctxt.res;
 }

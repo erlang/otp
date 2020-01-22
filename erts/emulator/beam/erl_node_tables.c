@@ -1271,7 +1271,9 @@ erts_get_node_and_dist_references(struct process *proc)
 
     erts_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
     erts_thr_progress_block();
-    /* No need to lock any thing since we are alone... */
+    erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
+    /* No need to lock any thing else since we are alone...
+       ... except dirty stuff... (?) */
 
     if (references_atoms_need_init) {
 	INIT_AM(heap);
@@ -1326,7 +1328,6 @@ erts_get_node_and_dist_references(struct process *proc)
     clear_system();
 
     erts_thr_progress_unblock();
-    erts_proc_lock(proc, ERTS_PROC_LOCK_MAIN);
     return res;
 }
 
