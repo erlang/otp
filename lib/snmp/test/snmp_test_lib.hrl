@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -43,8 +43,12 @@
 
 
 %% - Test case macros - 
--define(TC_TRY(C, TC),            ?LIB:tc_try(C, TC)).
--define(TC_TRY(C, TCCond, TC),    ?LIB:tc_try(C, TCCond, TC)).
+
+-define(TC_TRY(C, TC),                     ?LIB:tc_try(C, TC)).
+-define(TC_TRY(C, TCCond, TC),             ?LIB:tc_try(C, TCCond, TC)).
+-define(TC_TRY(C, Pre, TC, Post),          ?LIB:tc_try(C, Pre, TC, Post)).
+-define(TC_TRY(C, TCCond, Pre, TC, Post),  ?LIB:tc_try(C, TCCond, Pre, TC, Post)).
+
 -define(OS_BASED_SKIP(Skippable), ?LIB:os_based_skip(Skippable)).
 -define(NON_PC_TC_MAYBE_SKIP(Config, Condition),
         ?LIB:non_pc_tc_maybe_skip(Config, Condition, ?MODULE, ?LINE)).

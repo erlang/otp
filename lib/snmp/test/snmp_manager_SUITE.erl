@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -337,14 +337,17 @@ ipv6_tests() ->
 
 init_per_suite(Config0) when is_list(Config0) ->
 
-    ?DBG("init_per_suite -> entry with"
-	 "~n   Config0: ~p", [Config0]),
+    p("init_per_suite -> entry with"
+      "~n      Config0: ~p", [Config0]),
 
     case ?LIB:init_per_suite(Config0) of
         {skip, _} = SKIP ->
             SKIP;
 
         Config1 ->
+
+            p("init_per_suite -> common init done"
+              "~n      Config1: ~p", [Config1]),
 
             %% Preferably this test SUITE should be divided into groups
             %% so that if crypto does not work only v3 tests that
@@ -788,13 +791,16 @@ do_simple_start_and_stop1(Config) ->
 
 simple_start_and_stop2(suite) -> [];
 simple_start_and_stop2(Config) when is_list(Config) ->
-    ?TC_TRY(simple_start_and_stop2,
-            fun() -> do_simple_start_and_stop2(Config) end).
+    Pre  = fun() ->
+                   ManagerNode = start_manager_node(), 
+                   [ManagerNode]
+           end,
+    Case = fun(State) -> do_simple_start_and_stop2(State, Config) end,
+    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    ?TC_TRY(simple_start_and_stop2, Pre, Case, Post).
 
-do_simple_start_and_stop2(Config) ->
+do_simple_start_and_stop2([ManagerNode], Config) ->
     p("starting with Config: ~p~n", [Config]),
-
-    ManagerNode = start_manager_node(), 
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -822,10 +828,6 @@ do_simple_start_and_stop2(Config) ->
 
     p("try stopping snmp application (with only manager)"),
     ?line ok = stop_snmp(ManagerNode),
-
-    ?SLEEP(1000),
-
-    stop_node(ManagerNode),
 
     ?SLEEP(1000),
 
@@ -1405,13 +1407,16 @@ verify_info([{Key, SubKeys}|Keys], Info) ->
 
 register_user1(suite) -> [];
 register_user1(Config) when is_list(Config) ->
-    ?TC_TRY(register_user1,
-            fun() -> do_register_user1(Config) end).
+    Pre  = fun() ->
+                   ManagerNode = start_manager_node(), 
+                   [ManagerNode]
+           end,
+    Case = fun(State) -> do_register_user1(State, Config) end,
+    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    ?TC_TRY(register_user1, Pre, Case, Post).
 
-do_register_user1(Config) ->
+do_register_user1([ManagerNode], Config) ->
     p("starting with Config: ~p~n", [Config]),
-
-    ManagerNode = start_manager_node(), 
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1478,10 +1483,6 @@ do_register_user1(Config) ->
 
     ?SLEEP(1000),
 
-    stop_node(ManagerNode),
-
-    ?SLEEP(1000),
-
     ok.
 
 verify_users([], []) ->
@@ -1504,13 +1505,16 @@ register_agent_old(doc) ->
 register_agent_old(suite) -> 
     [];
 register_agent_old(Config) when is_list(Config) ->
-    ?TC_TRY(register_agent_old,
-            fun() -> do_register_agent_old(Config) end).
+    Pre  = fun() ->
+                   ManagerNode = start_manager_node(), 
+                   [ManagerNode]
+           end,
+    Case = fun(State) -> do_register_agent_old(State, Config) end,
+    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    ?TC_TRY(register_agent_old, Pre, Case, Post).
 
-do_register_agent_old(Config) ->
+do_register_agent_old([ManagerNode], Config) ->
     p("starting with Config: ~p~n", [Config]),
-
-    ManagerNode = start_manager_node(), 
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1618,10 +1622,6 @@ do_register_agent_old(Config) ->
 
     ?SLEEP(1000),
 
-    stop_node(ManagerNode),
-
-    ?SLEEP(1000),
-
     ok.
 
 
@@ -1632,18 +1632,20 @@ register_agent2(doc) ->
 register_agent2(suite) -> 
     [];
 register_agent2(Config) when is_list(Config) ->
-    ?TC_TRY(register_agent2,
-            fun() -> do_register_agent2(Config) end).
+    Pre  = fun() ->
+                   ManagerNode = start_manager_node(), 
+                   [ManagerNode]
+           end,
+    Case = fun(State) -> do_register_agent2(State, Config) end,
+    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    ?TC_TRY(register_agent2, Pre, Case, Post).
 
-do_register_agent2(Config) ->
+do_register_agent2([ManagerNode], Config) ->
     p("starting with Config: ~p~n", [Config]),
 
-    ManagerNode = start_manager_node(), 
-
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    ConfDir   = ?config(manager_conf_dir, Config),
+    DbDir     = ?config(manager_db_dir, Config),
     LocalHost = snmp_test_lib:localhost(), 
-
 
     write_manager_conf(ConfDir),
 
@@ -1651,7 +1653,6 @@ do_register_agent2(Config) ->
 	    {net_if,     [{verbosity, trace}]},
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
-
 
     p("load snmp application"),
     ?line ok = load_snmp(ManagerNode),
@@ -1764,10 +1765,6 @@ do_register_agent2(Config) ->
 
     ?SLEEP(1000),
 
-    stop_node(ManagerNode),
-
-    ?SLEEP(1000),
-
     ok.
 
 
@@ -1779,13 +1776,16 @@ register_agent3(doc) ->
 register_agent3(suite) -> 
     [];
 register_agent3(Config) when is_list(Config) ->
-    ?TC_TRY(register_agent3,
-            fun() -> do_register_agent3(Config) end).
+    Pre  = fun() ->
+                   ManagerNode = start_manager_node(), 
+                   [ManagerNode]
+           end,
+    Case = fun(State) -> do_register_agent3(State, Config) end,
+    Post = fun([ManagerNode]) -> stop_node(ManagerNode) end,
+    ?TC_TRY(register_agent3, Pre, Case, Post).
 
-do_register_agent3(Config) ->
+do_register_agent3([ManagerNode], Config) ->
     p("starting with Config: ~p~n", [Config]),
-
-    ManagerNode = start_manager_node(), 
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1915,10 +1915,6 @@ do_register_agent3(Config) ->
 
     ?SLEEP(1000),
 
-    stop_node(ManagerNode),
-
-    ?SLEEP(1000),
-
     ok.
 
 
@@ -1937,9 +1933,9 @@ do_simple_sync_get2(Config) ->
 		  mgr_user_sync_get(Node, TargetName, Oids) 
 	  end, 
     PostVerify = fun() -> ok end,
-    do_simple_sync_get2(Config, Get, PostVerify),
+    Res = do_simple_sync_get2(Config, Get, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 do_simple_sync_get2(Config, Get, PostVerify) ->
     p("starting with Config: ~p~n", [Config]),
@@ -2018,9 +2014,9 @@ do_simple_sync_get3(Config) ->
 			ok
 		end
 	end,
-    do_simple_sync_get2(Config, Get, PostVerify),
+    Res = do_simple_sync_get2(Config, Get, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 
 
@@ -2167,9 +2163,9 @@ do_simple_async_get3(Config) ->
     PostVerify = fun(ok)    -> receive Msg -> ok end;
 		    (Error) -> Error 
 		 end,
-    do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify),
+    Res = do_simple_async_sync_get2(Config, MgrNode, AgentNode, Get, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 async_g_exec3(Node, TargetName, Oids, SendOpts) ->
     mgr_user_async_get2(Node, TargetName, Oids, SendOpts).
@@ -2225,9 +2221,9 @@ do_simple_sync_get_next2(Config) ->
 		      mgr_user_sync_get_next(Node, TargetName, Oids) 
 	      end,
     PostVerify = fun(Res) -> Res end,
-    do_simple_sync_get_next2(Config, GetNext, PostVerify),
+    Res = do_simple_sync_get_next2(Config, GetNext, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 
 do_simple_sync_get_next2(Config, GetNext, PostVerify) 
@@ -2388,9 +2384,9 @@ do_simple_async_get_next2(Config) ->
 		      async_gn_exec2(MgrNode, TargetName, Oids)
 	      end,
     PostVerify = fun(Res) -> Res end,
-    do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify),
+    Res = do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify) 
   when is_function(GetNext, 1) andalso is_function(PostVerify, 1) ->
@@ -2532,9 +2528,9 @@ do_simple_async_get_next3(Config) ->
 		    (Error) -> Error 
 		 end,
 
-    do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify),
+    Res = do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 async_gn_exec3(Node, TargetName, Oids, SendOpts) ->
     mgr_user_async_get_next2(Node, TargetName, Oids, SendOpts).
@@ -2570,9 +2566,9 @@ do_simple_sync_set2(Config) ->
 	  end,
     PostVerify = fun() -> ok end,
 
-    do_simple_sync_set2(Config, Set, PostVerify),
+    Res = do_simple_sync_set2(Config, Set, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 do_simple_sync_set2(Config, Set, PostVerify) 
   when is_function(Set, 3) andalso is_function(PostVerify, 0) ->
@@ -2651,9 +2647,9 @@ do_simple_sync_set3(Config) ->
 	  end,
     PostVerify = fun() -> receive Msg -> ok end end,
 
-    do_simple_sync_set2(Config, Set, PostVerify),
+    Res = do_simple_sync_set2(Config, Set, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 
 %%======================================================================
@@ -2715,9 +2711,9 @@ do_simple_async_set2(Config) ->
 	end,
     PostVerify = fun(Res) -> Res end,
 
-    do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify),
+    Res = do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify) ->
     Requests = 
@@ -2816,9 +2812,9 @@ do_simple_async_set3(Config) ->
 		    (Res) -> Res 
 		 end,
 
-    do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify),
+    Res = do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 async_s_exec3(Node, TargetName, VAVs, SendOpts) ->
     mgr_user_async_set2(Node, TargetName, VAVs, SendOpts).
@@ -2884,9 +2880,9 @@ do_simple_sync_get_bulk2(Config) ->
 	end,
     PostVerify = fun(Res) -> Res end,
 
-    do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify),
+    Res = do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% -- 1 --
@@ -3053,9 +3049,9 @@ do_simple_sync_get_bulk3(Config) ->
 		    (Res) -> Res 
 		 end,
 
-    do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify),
+    Res = do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 
 %%======================================================================
@@ -3085,9 +3081,9 @@ do_simple_async_get_bulk2(Config) ->
 	end,
     PostVerify = fun(Res) -> Res end,
 
-    do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify),
+    Res = do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify) ->
     %% We re-use the verification functions from the ssgb test-case
@@ -3258,9 +3254,9 @@ do_simple_async_get_bulk3(Config) ->
 		    (Res) -> Res 
 		 end,
 
-    do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify),
+    Res = do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify),
     display_log(Config),
-    ok.
+    Res.
 
 async_gb_exec3(Node, TargetName, {NR, MR, Oids}, SendOpts) ->
     mgr_user_async_get_bulk2(Node, TargetName, NR, MR, Oids, SendOpts).
@@ -3690,9 +3686,9 @@ do_trap1(Config) ->
 	 {5, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands),
+    Res = command_handler(Commands),
     display_log(Config),
-    ok.
+    Res.
 
     
 %%======================================================================
@@ -3885,9 +3881,9 @@ do_trap2(Config) ->
 	 {7, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands),
+    Res = command_handler(Commands),
     display_log(Config),
-    ok.
+    Res.
 
     
 %%======================================================================
@@ -4014,9 +4010,9 @@ do_inform1(Config) ->
 	 {6, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands),
+    Res = command_handler(Commands),
     display_log(Config),
-    ok.
+    Res.
 
 
 %%======================================================================
@@ -4188,9 +4184,9 @@ do_inform2(Config) ->
 	 {8, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands),
+    Res = command_handler(Commands),
     display_log(Config),
-    ok.
+    Res.
 
     
 %%======================================================================
@@ -4326,9 +4322,9 @@ do_inform3(Config) ->
 	 {9, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands),
+    Res = command_handler(Commands),
     display_log(Config),
-    ok.
+    Res.
 
     
 %%======================================================================
@@ -4446,9 +4442,9 @@ do_inform4(Config) ->
 	 {6, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands),
+    Res = command_handler(Commands),
     display_log(Config),
-    ok.
+    Res.
 
 
 %%======================================================================
@@ -4553,9 +4549,9 @@ do_inform_swarm(Config) ->
 	 {5, "Manager and agent info after test completion", Cmd1}
 	],
 
-    command_handler(Commands),
+    Res = command_handler(Commands),
     display_log(Config),
-    ok.
+    Res.
 
 
 inform_swarm_collector(N) ->
@@ -5931,9 +5927,12 @@ p(F) ->
 p(F, A) ->
     p(get(tname), F, A).
 
+p(undefined, F, A) ->
+    io:format("*** [~s] ***"
+              "~n   " ++ F ++ "~n", [formated_timestamp()|A]);
 p(TName, F, A) ->
-    io:format("*** [~w][~s] ***"
-              "~n   " ++ F ++ "~n", [TName, formated_timestamp()|A]).
+    io:format("*** [~s][~w] ***"
+              "~n   " ++ F ++ "~n", [formated_timestamp(),TName|A]).
 
 formated_timestamp() ->
     snmp_test_lib:formated_timestamp().

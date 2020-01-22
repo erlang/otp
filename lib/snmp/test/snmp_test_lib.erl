@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,8 @@
 -include_lib("kernel/include/file.hrl").
 
 
--export([tc_try/2, tc_try/3]).
+-export([tc_try/2, tc_try/3,
+         tc_try/4, tc_try/5]).
 -export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
 	 display_suite_info/1]).
 -export([non_pc_tc_maybe_skip/4,
@@ -56,45 +57,108 @@
 %% Run test-case
 %%
 
-%% *** tc_try/2,3 ***
-%% Case:      Basically the test case name
-%% TCCondFun: A fun that is evaluated before the actual test case
-%%            The point of this is that it can performs checks to
-%%            see if we shall run the test case at all.
-%%            For instance, the test case may only work in specific
-%%            conditions.
-%% FCFun:     The test case fun
-tc_try(Case, TCFun) ->
-    tc_try(Case, fun() -> ok end, TCFun).
-                        
-tc_try(Case, TCCondFun, TCFun)
-  when is_atom(Case) andalso 
-       is_function(TCCondFun, 0) andalso 
-       is_function(TCFun, 0) ->
+%% *** tc_try/2,3,4,5 ***
+%% Case:   Basically the test case name
+%% TCCond: A fun that is evaluated before the actual test case
+%%         The point of this is that it can performs checks to
+%%         see if we shall run the test case at all.
+%%         For instance, the test case may only work in specific
+%%         conditions.
+%% Pre:    A fun that is nominally part of the test case
+%%         but is an initiation that must be "undone". This is
+%%         done by the Post fun (regardless if the TC is successfull
+%%         or not). Example: Starts a couple of nodes,
+%% TC:     The test case fun
+%% Post:   A fun that undo what was done by the Pre fun.
+%%         Example: Stops the nodes created by the Pre function.
+tc_try(Case, TC) ->
+    tc_try(Case, fun() -> ok end, TC).
+
+tc_try(Case, TCCond, TC0) when is_function(TC0, 0) ->
+    Pre  = fun()  -> undefined end,
+    TC   = fun(_) -> TC0() end,
+    Post = fun(_) -> ok end,
+    tc_try(Case, TCCond, Pre, TC, Post).
+
+tc_try(Case, Pre, TC, Post)
+  when is_atom(Case) andalso
+       is_function(Pre, 0) andalso
+       is_function(TC, 1) andalso
+       is_function(Post, 1) ->
+    TCCond = fun() -> ok end,
+    tc_try(Case, TCCond, Pre, TC, Post).
+
+tc_try(Case, TCCond, Pre, TC, Post)
+  when is_atom(Case) andalso
+       is_function(TCCond, 0) andalso
+       is_function(Pre, 0) andalso
+       is_function(TC, 1) andalso
+       is_function(Post, 1) ->
     tc_begin(Case),
-    try TCCondFun() of
+    try TCCond() of
         ok ->
-            try 
-                begin
-                    TCFun(),
-                    sleep(seconds(1)),
-                    tc_end("ok")
-                end
+            try Pre() of
+                State ->
+                    try
+                        begin
+                            TC(State),
+                            sleep(seconds(1)),
+                            (catch Post(State)),
+                            tc_end("ok")
+                        end
+                    catch
+                        C:{skip, _} = SKIP when (C =:= throw) orelse
+                                                (C =:= exit) ->
+                            (catch Post(State)),
+                             tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                            SKIP;
+                        C:E:S ->
+                            %% We always check the system events
+                            %% before we accept a failure.
+                            %% We do *not* run the Post here because it might
+                            %% generate sys events itself...
+                            case snmp_test_global_sys_monitor:events() of
+                                [] ->
+                                    (catch Post(State)),
+                                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                                    erlang:raise(C, E, S);
+                                SysEvs ->
+                                    tc_print("System Events received: "
+                                             "~n   ~p"
+                                             "~nwhen tc failed:"
+                                             "~n   C: ~p"
+                                             "~n   E: ~p"
+                                             "~n   S: ~p",
+                                             [SysEvs, C, E, S], "", ""),
+                                    (catch Post(State)),
+                                    tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                              [C]) ),
+                                    SKIP = {skip, "TC failure with system events"},
+                                    SKIP
+                            end
+                    end
             catch
-                C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-                    tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                C:{skip, _} = SKIP when (C =:= throw) orelse
+                                        (C =:= exit) ->
+                    tc_end( f("skipping(catched,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    %% We always check the system events before we accept a failure
+                    %% We always check the system events
+                    %% before we accept a failure
                     case snmp_test_global_sys_monitor:events() of
                         [] ->
-                            tc_end( f("failed(catched,~w,tc)", [C]) ),
+                            tc_end( f("failed(catched,~w,tc-pre)", [C]) ),
                             erlang:raise(C, E, S);
                         SysEvs ->
                             tc_print("System Events received: "
-                                     "~n   ~p", [SysEvs], "", ""),
-                            tc_end( f("skipping(catched-sysevs,~w,tc)", [C]) ),
-                            SKIP = {skip, "TC failure with system events"},
+                                     "~n   ~p"
+                                     "~nwhen tc-pre failed:"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [SysEvs, C, E, S], "", ""),
+                            tc_end( f("skipping(catched-sysevs,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, "TC-Pre failure with system events"},
                             SKIP
                     end
             end;
@@ -153,7 +217,8 @@ tc_print(F, A, Before, After) ->
     Name = tc_which_name(),
     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
              [formated_timestamp(),Name,self()|A]),
-    io:format(user, Before ++ FStr ++ After, []).
+    io:format(user, Before ++ FStr ++ After, []),
+    io:format(standard_io, Before ++ FStr ++ After, []).
 
 tc_which_name() ->
     case tc_get_name() of
