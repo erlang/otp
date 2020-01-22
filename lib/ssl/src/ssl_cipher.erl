@@ -290,8 +290,8 @@ all_suites({3, _} = Version) ->
 	++ psk_suites(Version)
 	++ srp_suites(Version)
         ++ rsa_suites(Version)
-        ++ rc4_suites(Version)
-        ++ des_suites(Version);
+        ++ des_suites(Version)
+        ++ rc4_suites(Version);
 
 all_suites(Version) ->
     dtls_v1:all_suites(Version).
