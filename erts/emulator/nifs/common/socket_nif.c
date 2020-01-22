@@ -2317,6 +2317,10 @@ static ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
                                     int              saveErrno,
                                     ERL_NIF_TERM     sockRef);
+static void send_error_waiting_writers(ErlNifEnv*       env,
+                                       ESockDescriptor* descP,
+                                       ERL_NIF_TERM     sockRef,
+                                       ERL_NIF_TERM     reason);
 static ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
                                      ssize_t          written,
@@ -2370,10 +2374,10 @@ static ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
                                     ErlNifBinary*    buf2P,
                                     ERL_NIF_TERM     sockRef,
                                     ERL_NIF_TERM     recvRef);
-static ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*       env,
-                                           ESockDescriptor* descP,
-                                           ERL_NIF_TERM     sockRef,
-                                           ERL_NIF_TERM     recvRef);
+static ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
+                                               ESockDescriptor* descP,
+                                               ERL_NIF_TERM     sockRef,
+                                               ERL_NIF_TERM     recvRef);
 static ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
                                        ssize_t          read,
@@ -3189,6 +3193,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
 
 /* Local error reason atoms */
 #define LOCAL_ERROR_REASON_ATOMS                \
+    LOCAL_ATOM_DECL(econnreset);                \
     LOCAL_ATOM_DECL(eisconn);                   \
     LOCAL_ATOM_DECL(enotclosing);               \
     LOCAL_ATOM_DECL(enotconn);                  \
@@ -3510,8 +3515,8 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
 {
     ERL_NIF_TERM info;
 
-    MLOCK(descP->writeMtx);
     MLOCK(descP->readMtx);
+    MLOCK(descP->writeMtx);
 
     {
         ERL_NIF_TERM readByteCnt  = MKCT(env, atom_read_byte, descP->readByteCnt);
@@ -3547,8 +3552,8 @@ ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
 
     }
 
-    MUNLOCK(descP->readMtx);
     MUNLOCK(descP->writeMtx);
+    MUNLOCK(descP->readMtx);
 
     SSDBG( descP, ("SOCKET", "esock_socket_info_counters -> done with"
                    "\r\n   info: %T"
@@ -6509,10 +6514,8 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
                                                   ERL_NIF_TERM     opRef,
                                                   int              save_errno)
 {
-    ESockRequestor req;
     ERL_NIF_TERM   res, reason;
 
-    req.env = NULL;
     if (save_errno == ERRNO_BLOCK) {
 
         /*
@@ -6532,9 +6535,11 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
                                       descP->state);
 
     } else {
+        ESockRequestor req;
 
         ESOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
 
+        req.env = NULL;
         reason = MKA(env, erl_errno_id(save_errno));
         res    = esock_make_error(env, reason);
 
@@ -6657,6 +6662,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
     accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
     accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
     accDescP->iow      = descP->iow;     // Inherit iow
+    accDescP->dbg      = descP->dbg;     // Inherit debug flag
 
     accRef = enif_make_resource(env, accDescP);
     enif_release_resource(accDescP);
@@ -7331,6 +7337,8 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     res = esock_recv(env, descP, sockRef, recvRef, (size_t)len, flags);
 
     MUNLOCK(descP->readMtx);
+
+    SSDBG( descP, ("SOCKET", "nif_recv -> done: %T\r\n", res) );
 
     return res;
 
@@ -8095,13 +8103,14 @@ ERL_NIF_TERM nif_shutdown(ErlNifEnv*         env,
         return enif_make_badarg(env);
     }
 
-    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+    if (IS_CLOSED(descP))
         return esock_make_error(env, atom_closed);
     
     if (!ehow2how(ehow, &how))
         return enif_make_badarg(env);
 
     return esock_shutdown(env, descP, how);
+
 #endif // if defined(__WIN32__)
 }
 
@@ -11890,7 +11899,7 @@ ERL_NIF_TERM nif_getopt(ErlNifEnv*         env,
     eIsEncoded = argv[1];
     eOpt       = argv[3]; // Is "normally" an int, but if raw mode: {Int, ValueSz}
 
-    if (IS_CLOSED(descP) || IS_CLOSING(descP))
+    if (IS_CLOSED(descP))
         return esock_make_error(env, atom_closed);
     
     SSDBG( descP,
@@ -15572,10 +15581,8 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
                              int              saveErrno,
                              ERL_NIF_TERM     sockRef)
 {
-    ESockRequestor req;
-    ERL_NIF_TERM   reason;
+    ERL_NIF_TERM reason;
 
-    req.env = NULL;
     ESOCK_CNT_INC(env, descP, sockRef, atom_write_fails, &descP->writeFails, 1);
 
     SSDBG( descP, ("SOCKET", "send_check_fail -> error: %d\r\n", saveErrno) );
@@ -15594,19 +15601,37 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
             DEMONP("send_check_fail -> current writer",
                    env, descP, &descP->currentWriter.mon);
 
-            while (writer_pop(env, descP, &req)) {
-                SSDBG( descP,
-                       ("SOCKET", "send_check_fail -> abort %T\r\n", req.pid) );
-                esock_send_abort_msg(env, sockRef, req.ref, req.env,
-                                     reason, &req.pid);
-                req.env = NULL;
-                DEMONP("send_check_fail -> pop'ed writer",
-                       env, descP, &req.mon);
-            }
+            send_error_waiting_writers(env, descP, sockRef, reason);
         }
     }
-
     return esock_make_error(env, reason);
+}
+
+/* *** send_error_current_writer ***
+ *
+ * Process all waiting writers when a fatal error has occured.
+ * All waiting writers will be "aborted", that is a
+ * nif_abort message will be sent (with ref and reason).
+ */
+static
+void send_error_waiting_writers(ErlNifEnv*       env,
+                                ESockDescriptor* descP,
+                                ERL_NIF_TERM     sockRef,
+                                ERL_NIF_TERM     reason)
+{
+    ESockRequestor req;
+
+    req.env = NULL; /* read by writer_pop before free */
+    while (writer_pop(env, descP, &req)) {
+        SSDBG( descP,
+               ("SOCKET", "send_error_current_writer -> abort %T\r\n",
+                req.pid) );
+        esock_send_abort_msg(env, sockRef, req.ref, req.env,
+                             reason, &req.pid);
+        req.env = NULL;
+        DEMONP("send_error_current_writer -> pop'ed writer",
+               env, descP, &req.mon);
+    }
 }
 
 
@@ -15851,7 +15876,7 @@ ERL_NIF_TERM recv_update_current_reader(ErlNifEnv*       env,
  * Process the current reader and any waiting readers
  * when a read (fatal) error has occured.
  * All waiting readers will be "aborted", that is a 
- * nif_abort message will be sent (with reaf and reason).
+ * nif_abort message will be sent (with ref and reason).
  */
 static
 void recv_error_current_reader(ErlNifEnv*       env,
@@ -15859,14 +15884,13 @@ void recv_error_current_reader(ErlNifEnv*       env,
                                ERL_NIF_TERM     sockRef,
                                ERL_NIF_TERM     reason)
 {
-    ESockRequestor req;
-
-    req.env = NULL;
     if (descP->currentReaderP != NULL) {
+        ESockRequestor req;
 
         DEMONP("recv_error_current_reader -> current reader",
                env, descP, &descP->currentReader.mon);
 
+        req.env = NULL; /* read by reader_pop before free */
         while (reader_pop(env, descP, &req)) {
             SSDBG( descP,
                    ("SOCKET", "recv_error_current_reader -> abort %T\r\n",
@@ -16178,13 +16202,13 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
 
         /* +++ Oups - closed +++ */
 
-        SSDBG( descP, ("SOCKET", "recv_check_fail -> closed\r\n") );
+        SSDBG( descP, ("SOCKET", "recv_check_fail econnreset -> closed\r\n") );
 
         // This is a bit overkill (to count here), but just in case...
         ESOCK_CNT_INC(env, descP, sockRef, atom_read_fails,
                       &descP->readFails, 1);
 
-        res = recv_check_fail_closed(env, descP, sockRef, recvRef);
+        res = recv_check_fail_econnreset(env, descP, sockRef, recvRef);
 
     } else if ((saveErrno == ERRNO_BLOCK) ||
                (saveErrno == EAGAIN)) {
@@ -16209,19 +16233,18 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
 
 
 
-/* *** recv_check_fail_closed ***
+/* *** recv_check_fail_econnreset ***
  *
  * We detected that the socket was closed wile reading.
  * Inform current and waiting readers.
  */
 static
-ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*       env,
-                                    ESockDescriptor* descP,
-                                    ERL_NIF_TERM     sockRef,
-                                    ERL_NIF_TERM     recvRef)
+ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
+                                        ESockDescriptor* descP,
+                                        ERL_NIF_TERM     sockRef,
+                                        ERL_NIF_TERM     recvRef)
 {
-    ERL_NIF_TERM res = esock_make_error(env, atom_closed);
-    int          sres;
+    ERL_NIF_TERM reason = esock_make_error(env, atom_econnreset);
 
     /* <KOLLA>
      *
@@ -16238,25 +16261,31 @@ ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*       env,
      * </KOLLA>
      */
 
+    MLOCK(descP->writeMtx);
+    MLOCK(descP->closeMtx);
+
     descP->closeLocal = FALSE;
     descP->state      = ESOCK_STATE_CLOSING;
+    descP->isReadable = FALSE;
+    descP->isWritable = FALSE;
 
-    recv_error_current_reader(env, descP, sockRef, res);
-
-    /* Here we have readMtx.
-     * Release it and lock closeMtx over this call
-     */
-    MUNLOCK(descP->readMtx);
-    MLOCK(descP->closeMtx);
-    if ((sres = esock_select_stop(env, descP->sock, descP)) < 0) {
-        esock_warning_msg("Failed stop select (closed) "
-                          "for current reader (%T): %d\r\n",
-                          recvRef, sres);
-    }
     MUNLOCK(descP->closeMtx);
-    MLOCK(descP->readMtx);
 
-    return res;
+    recv_error_current_reader(env, descP, sockRef, reason);
+
+    if (descP->currentWriterP != NULL) {
+        ESockRequestor *reqP = descP->currentWriterP;
+        esock_send_abort_msg(env, sockRef, reqP->ref, reqP->env,
+                             reason, &reqP->pid);
+        reqP->env = NULL;
+        DEMONP("recv_check_fail_econnreset -> current writer",
+               env, descP, &reqP->mon);
+        descP->currentWriterP = NULL;
+        send_error_waiting_writers(env, descP, sockRef, reason);
+    }
+
+    MUNLOCK(descP->writeMtx);
+    return reason;
 }
 
 
@@ -20449,11 +20478,11 @@ void esock_dtor(ErlNifEnv* env, void* obj)
 #if !defined(__WIN32__)    
   ESockDescriptor* descP = (ESockDescriptor*) obj;
 
-  SGDBG( ("SOCKET", "dtor -> try destroy write mutex\r\n") );
-  MDESTROY(descP->writeMtx); descP->writeMtx = NULL;
-
   SGDBG( ("SOCKET", "dtor -> try destroy read mutex\r\n") );
   MDESTROY(descP->readMtx);  descP->readMtx  = NULL;
+
+  SGDBG( ("SOCKET", "dtor -> try destroy write mutex\r\n") );
+  MDESTROY(descP->writeMtx); descP->writeMtx = NULL;
 
   SGDBG( ("SOCKET", "dtor -> try destroy accept mutex\r\n") );
   MDESTROY(descP->accMtx);   descP->accMtx   = NULL;
@@ -20527,8 +20556,8 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 
     /* If we are called with a direct call; we already have closeMtx
      */
-    MLOCK(descP->writeMtx);
     MLOCK(descP->readMtx);
+    MLOCK(descP->writeMtx);
     MLOCK(descP->accMtx);
     MLOCK(descP->cfgMtx);
     if (!is_direct_call) MLOCK(descP->closeMtx);
@@ -20691,8 +20720,8 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
     if (!is_direct_call) MUNLOCK(descP->closeMtx);
     MUNLOCK(descP->cfgMtx);
     MUNLOCK(descP->accMtx);
-    MUNLOCK(descP->readMtx);
     MUNLOCK(descP->writeMtx);
+    MUNLOCK(descP->readMtx);
 
     /* And finally update the registry */
     esock_send_reg_del_msg(env, sockRef);    

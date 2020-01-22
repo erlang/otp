@@ -2182,15 +2182,6 @@ do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
                     {error, timeout}
             end;
 
-        {error, closed = Reason} ->
-            do_close(SockRef),
-            if
-                (size(Acc) =:= 0) ->
-                    {error, Reason};
-                true ->
-                    {error, {Reason, Acc}}
-            end;
-
         {error, _} = ERROR when (size(Acc) =:= 0) ->
             ERROR;
 
@@ -2492,10 +2483,6 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
                     {error, timeout}
             end;
 
-        {error, closed} = ERROR ->
-            do_close(SockRef),
-            ERROR;
-
         {error, _Reason} = ERROR ->
             ERROR
 
@@ -2523,9 +2510,6 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
       Reason :: term().
 
 close(#socket{ref = SockRef}) ->
-    do_close(SockRef).
-
-do_close(SockRef) ->
     case nif_close(SockRef) of
         ok ->
             nif_finalize_close(SockRef);
