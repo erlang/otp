@@ -19678,6 +19678,7 @@ char* esock_send_close_msg(ErlNifEnv*       env,
 {
     ERL_NIF_TERM sockRef, msg;
     ErlNifEnv*   menv;
+    char* result;
     
     if (descP->closeEnv != NULL) {
         sockRef = enif_make_resource(descP->closeEnv, descP);
@@ -19689,7 +19690,9 @@ char* esock_send_close_msg(ErlNifEnv*       env,
         menv    = NULL; // This has the effect that the message will be copied
     }
     
-    return esock_send_msg(env, pid, msg, menv);
+    result = esock_send_msg(env, pid, msg, menv);
+    descP->closeEnv = NULL;
+    return result;
 }
 
 
@@ -20735,7 +20738,10 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
         }
     }
 
-    esock_free_env("esoc_stop - meta-env", descP->meta.env);
+    if (descP->meta.env != NULL) {
+        esock_free_env("esock_stop - meta-env", descP->meta.env);
+        descP->meta.env = NULL;
+    }
 
     SSDBG( descP, ("SOCKET", "esock_stop -> unlock all mutex(s)\r\n") );
 
