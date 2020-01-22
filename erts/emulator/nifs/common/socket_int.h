@@ -417,6 +417,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define GET_STR(E, L, B, SZ)      \
     enif_get_string((E), (L), (B), (SZ), ERL_NIF_LATIN1)
 #define GET_UINT(E, TE, UIP)        enif_get_uint((E), (TE), (UIP))
+#define GET_UINT64(E, TE, UIP)      enif_get_uint64((E), (TE), (UIP))
 #define GET_ULONG(E, TE, ULP)       enif_get_long((E), (TE), (ULP))
 #define GET_TUPLE(E, TE, TSZ, TA)   enif_get_tuple((E), (TE), (TSZ), (TA))
 #define GET_MAP_VAL(E, M, K, V)     enif_get_map_value((E), (M), (K), (V))

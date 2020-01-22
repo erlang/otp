@@ -130,6 +130,7 @@
 
          %% *** API Options ***
          api_opt_simple_otp_options/1,
+         api_opt_simple_otp_meta_option/1,
          api_opt_simple_otp_rcvbuf_option/1,
          api_opt_simple_otp_controlling_process/1,
          api_opt_sock_acceptconn_udp/1,
@@ -860,6 +861,7 @@ api_options_cases() ->
 api_options_otp_cases() ->
     [
      api_opt_simple_otp_options,
+     api_opt_simple_otp_meta_option,
      api_opt_simple_otp_rcvbuf_option,
      api_opt_simple_otp_controlling_process
     ].
@@ -8836,6 +8838,181 @@ api_opt_simple_otp_options() ->
     i("await udp evaluator"),
     ok = ?SEV_AWAIT_FINISH([Tester2]).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Perform some simple getopt and setopt otp meta option
+api_opt_simple_otp_meta_option(suite) ->
+    [];
+api_opt_simple_otp_meta_option(doc) ->
+    [];
+api_opt_simple_otp_meta_option(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_opt_simple_otp_meta_option,
+           fun() -> api_opt_simple_otp_meta_option() end).
+
+api_opt_simple_otp_meta_option() ->
+    Get = fun(S) ->
+                  socket:getopt(S, otp, meta)
+          end,
+    Set = fun(S, Val) ->
+                  socket:setopt(S, otp, meta, Val)
+          end,
+
+    MainSeq =
+        [
+         #{desc => "monitor helper",
+           cmd => fun(#{helper := Pid}) ->
+                          _ = erlang:monitor(process, Pid),
+                          ok
+                  end},
+
+         #{desc => "create socket",
+           cmd  => fun(#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol} = State) ->
+                           Sock = sock_open(Domain, Type, Protocol),
+                           {ok, State#{sock => Sock}}
+                   end},
+
+         #{desc => "get default",
+           cmd => fun(#{sock := Sock}) ->
+                          case Get(Sock) of
+                              {ok, undefined} ->
+                                  ok;
+                              {ok, Invalid} ->
+                                  {error, {invalid, Invalid}};
+                              {error, _} = ERROR ->
+                                  ERROR
+                          end
+                  end},
+
+         #{desc => "set value",
+           cmd => fun(#{sock := Sock} = State) ->
+                          Value = make_ref(),
+                          case Set(Sock, Value) of
+                              ok ->
+                                  {ok, State#{value => Value}};
+                              {error, _} = ERROR ->
+                                  ERROR
+                          end
+                  end},
+
+         #{desc => "get value",
+           cmd => fun(#{sock := Sock, value := Value}) ->
+                          case Get(Sock) of
+                              {ok, Value} ->
+                                  ok;
+                              {ok, Invalid} ->
+                                  {error, {invalid, Invalid}};
+                              {error, _} = ERROR ->
+                                  ERROR
+                          end
+                  end},
+
+         #{desc => "set complex value",
+           cmd => fun(#{sock := Sock} = State) ->
+                          Value =
+                              #{a => 1,
+                                b => {2, 3},
+                                c => make_ref(),
+                                d => self(),
+                                e => State},
+                          case Set(Sock, Value) of
+                              ok ->
+                                  {ok, State#{value := Value}};
+                              {error, _} = ERROR ->
+                                  ERROR
+                          end
+                  end},
+
+         #{desc => "get complex value",
+           cmd => fun(#{sock := Sock, value := Value}) ->
+                          case Get(Sock) of
+                              {ok, Value} ->
+                                  ok;
+                              {ok, Invalid} ->
+                                  {error, {invalid, Invalid}};
+                              {error, _} = ERROR ->
+                                  ERROR
+                          end
+                  end},
+
+         #{desc => "start helper",
+           cmd => fun(#{helper := Pid,  sock := Sock, value := Value}) ->
+                          ?SEV_ANNOUNCE_START(Pid, {Sock, Value}),
+                          ok
+                  end},
+
+         #{desc => "wait for helper ready",
+           cmd => fun(#{helper := Pid}) ->
+                          ?SEV_AWAIT_READY(Pid, helper, test)
+                  end},
+
+         #{desc => "socket close",
+           cmd => fun(#{sock := Sock}) ->
+                          socket:close(Sock)
+                  end},
+
+        ?SEV_FINISH_NORMAL],
+
+    HelperSeq =
+        [#{desc => "await start",
+           cmd => fun (State) ->
+                          {Main, {Sock, Value}} = ?SEV_AWAIT_START(),
+                          {ok, State#{main => Main,
+                                      sock => Sock,
+                                      value => Value}}
+                  end},
+         #{desc => "monitor main",
+           cmd => fun(#{main := Main}) ->
+                          _ = erlang:monitor(process, Main),
+                          ok
+                  end}
+
+         #{desc => "get value",
+           cmd => fun(#{sock := Sock, value := Value}) ->
+                          case Get(Sock) of
+                              {ok, Value} ->
+                                  ok;
+                              {ok, Invalid} ->
+                                  {error, {invalid, Invalid}};
+                              {error, _} = ERROR ->
+                                  ERROR
+                          end
+                  end},
+
+         #{desc => "set and fail",
+           cmd => fun(#{sock := Sock}) ->
+                          Value = self(),
+                          case Set(Sock, Value) of
+                              ok ->
+                                  {error, only_owner_may_set};
+                              {error, not_owner} ->
+                                  ok;
+                              {error, _} = ERROR ->
+                                  ERROR
+                          end
+                  end},
+
+         #{desc => "announce ready (test)",
+           cmd  => fun(#{main := Main}) ->
+                           ?SEV_ANNOUNCE_READY(Main, test),
+                           ok
+                   end},
+
+         ?SEV_FINISH_NORMAL],
+
+
+    i("start tcp helper evaluator"),
+    Helper = ?SEV_START("tcp-helper", HelperSeq, #{}),
+
+    i("start tcp main evaluator"),
+    MainState = #{domain => inet, type => stream, protocol => tcp,
+                  helper => Helper#ev.pid},
+    Main = ?SEV_START("tcp-main", MainSeq, MainState),
+
+    i("await tcp evaluators"),
+    ok = ?SEV_AWAIT_FINISH([Helper, Main]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 

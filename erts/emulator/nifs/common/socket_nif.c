@@ -532,6 +532,7 @@ typedef union {
 /*----------------------------------------------------------------------------
  * Interface constants.
  *
+ * This section must be "identical" to the corresponding socket.erl
  */
 
 /* domain */
@@ -576,6 +577,7 @@ typedef union {
 #define ESOCK_OPT_OTP_RCVCTRLBUF   6
 #define ESOCK_OPT_OTP_SNDCTRLBUF   7
 #define ESOCK_OPT_OTP_FD           8
+#define ESOCK_OPT_OTP_META         9
 #define ESOCK_OPT_OTP_DOMAIN       0xFF01 // INTERNAL AND ONLY GET
 #define ESOCK_OPT_OTP_TYPE         0xFF02 // INTERNAL AND ONLY GET
 #define ESOCK_OPT_OTP_PROTOCOL     0xFF03 // INTERNAL AND ONLY GET
@@ -702,7 +704,7 @@ typedef union {
 /* Socket specific debug */
 #define SSDBG( __D__ , proto ) ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
 
-#define SOCK_CNT_INC( __E__, __D__, SF, ACNT, CNT, INC)  \
+#define ESOCK_CNT_INC( __E__, __D__, SF, ACNT, CNT, INC)  \
     {                                                    \
         if (cnt_inc(CNT, INC) && (__D__)->iow) {         \
             esock_send_wrap_msg(__E__, __D__, SF, ACNT); \
@@ -826,6 +828,12 @@ typedef struct {
     ErlNifEnv*   env;
     ERL_NIF_TERM ref; // The (unique) reference (ID) of the request
 } ESockRequestor;
+
+typedef struct{
+    // Holding the socket level 'otp' option 'meta' term
+    ErlNifEnv* env;
+    ERL_NIF_TERM ref;
+} ESockMeta;
 
 typedef struct esock_request_queue_element {
     struct esock_request_queue_element* nextP;
@@ -964,6 +972,7 @@ typedef struct {
     unsigned int rNumCnt; // recv: Current number of reads (so far)
     size_t       rCtrlSz; // Read control buffer size
     size_t       wCtrlSz; // Write control buffer size
+    ESockMeta    meta;    // Level 'otp' option 'meta' term
     BOOLEAN_T    iow;     // Inform On (counter) Wrap
     BOOLEAN_T    dbg;
 
@@ -1241,7 +1250,7 @@ static ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
                                ESockDescriptor* descP,
                                ERL_NIF_TERM     sendRef,
                                ERL_NIF_TERM     recvRef,
-                               int              len,
+                               size_t           len,
                                int              flags);
 static ERL_NIF_TERM esock_recvfrom(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
@@ -1285,9 +1294,11 @@ static ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
  * *** esock_setopt_otp_rcvbuf     ***
  * *** esock_setopt_otp_rcvctrlbuf ***
  * *** esock_setopt_otp_sndctrlbuf ***
+ * *** esock_setopt_otp_meta       ***
  */
 #define ESOCK_SETOPT_OTP_FUNCS             \
     ESOCK_SETOPT_OTP_FUNC_DEF(debug);      \
+    ESOCK_SETOPT_OTP_FUNC_DEF(meta);       \
     ESOCK_SETOPT_OTP_FUNC_DEF(iow);        \
     ESOCK_SETOPT_OTP_FUNC_DEF(ctrl_proc);  \
     ESOCK_SETOPT_OTP_FUNC_DEF(rcvbuf);     \
@@ -1816,12 +1827,14 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
  * *** esock_getopt_otp_rcvctrlbuf ***
  * *** esock_getopt_otp_sndctrlbuf ***
  * *** esock_getopt_otp_fd         ***
+ * *** esock_getopt_otp_meta       ***
  * *** esock_getopt_otp_domain     ***
  * *** esock_getopt_otp_type       ***
  * *** esock_getopt_otp_protocol   ***
  */
 #define ESOCK_GETOPT_OTP_FUNCS             \
     ESOCK_GETOPT_OTP_FUNC_DEF(debug);      \
+    ESOCK_GETOPT_OTP_FUNC_DEF(meta);       \
     ESOCK_GETOPT_OTP_FUNC_DEF(iow);        \
     ESOCK_GETOPT_OTP_FUNC_DEF(ctrl_proc);  \
     ESOCK_GETOPT_OTP_FUNC_DEF(rcvbuf);     \
@@ -2325,29 +2338,29 @@ static void recv_error_current_reader(ErlNifEnv*       env,
                                       ERL_NIF_TERM     reason);
 static ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
                                       ESockDescriptor* descP,
-                                      int              read,
-                                      int              toRead,
+                                      ssize_t          read,
+                                      size_t           toRead,
                                       int              saveErrno,
                                       ErlNifBinary*    bufP,
                                       ERL_NIF_TERM     sockRef,
                                       ERL_NIF_TERM     recvRef);
 static ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
                                     ESockDescriptor* descP,
-                                    int              read,
-                                    int              toRead,
+                                    ssize_t          read,
+                                    size_t           toRead,
                                     ErlNifBinary*    bufP,
                                     ERL_NIF_TERM     sockRef,
                                     ERL_NIF_TERM     recvRef);
 static ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
                                                ESockDescriptor* descP,
-                                               int              read,
-                                               int              toRead,
+                                               ssize_t          read,
+                                               size_t           toRead,
                                                ErlNifBinary*    bufP,
                                                ERL_NIF_TERM     sockRef,
                                                ERL_NIF_TERM     recvRef);
 static ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
                                          ESockDescriptor* descP,
-                                         int              read,
+                                         ssize_t          read,
                                          ErlNifBinary*    bufP,
                                          ERL_NIF_TERM     sockRef);
 static ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
@@ -2363,19 +2376,19 @@ static ERL_NIF_TERM recv_check_fail_closed(ErlNifEnv*       env,
                                            ERL_NIF_TERM     recvRef);
 static ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
                                        ESockDescriptor* descP,
-                                       int              read,
-                                       int              toRead,
+                                       ssize_t          read,
+                                       size_t           toRead,
                                        ErlNifBinary*    bufP,
                                        ERL_NIF_TERM     sockRef,
                                        ERL_NIF_TERM     recvRef);
 static ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
-                                            int              read,
+                                            ssize_t          read,
                                             ErlNifBinary*    bufP,
                                             ERL_NIF_TERM     sockRef);
 static ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
                                             ESockDescriptor* descP,
-                                            int              read,
+                                            ssize_t          read,
                                             ErlNifBinary*    bufP,
                                             ERL_NIF_TERM     sockRef,
                                             ERL_NIF_TERM     recvRef);
@@ -6280,7 +6293,7 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET", "esock_accept_listening_error -> would block\r\n") );
 
-        SOCK_CNT_INC(env, descP, sockRef, atom_acc_tries, &descP->accTries, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_acc_tries, &descP->accTries, 1);
 
         descP->currentAcceptor.pid = caller;
         if (MONP("esock_accept_listening -> current acceptor",
@@ -6304,7 +6317,7 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
                ("SOCKET",
                 "esock_accept_listening -> errno: %d\r\n", save_errno) );
 
-        SOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
 
         res = esock_make_error_errno(env, save_errno);
     }
@@ -6511,7 +6524,7 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
                 "esock_accept_accepting_current_error -> "
                 "would block: try again\r\n") );
 
-        SOCK_CNT_INC(env, descP, sockRef, atom_acc_waits, &descP->accWaits, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_acc_waits, &descP->accWaits, 1);
 
         res = esock_accept_busy_retry(env, descP, sockRef, opRef,
                                       &descP->currentAcceptor.pid,
@@ -6520,7 +6533,7 @@ ERL_NIF_TERM esock_accept_accepting_current_error(ErlNifEnv*       env,
 
     } else {
 
-        SOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_acc_fails, &descP->accFails, 1);
 
         reason = MKA(env, erl_errno_id(save_errno));
         res    = esock_make_error(env, reason);
@@ -6619,7 +6632,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
      * We got one
      */
 
-    SOCK_CNT_INC(env, descP, sockRef, atom_acc_success, &descP->accSuccess, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_acc_success, &descP->accSuccess, 1);
 
     if ((accEvent = sock_create_event(accSock)) == INVALID_EVENT) {
         save_errno = sock_errno();
@@ -6786,7 +6799,7 @@ ERL_NIF_TERM esock_send(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     written = sock_send(descP->sock, sndDataP->data, sndDataP->size, flags);
     if (IS_SOCKET_ERROR(written))
@@ -6918,7 +6931,7 @@ ERL_NIF_TERM esock_sendto(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     if (toAddrP != NULL) {
         written = sock_sendto(descP->sock,
@@ -7159,7 +7172,7 @@ ERL_NIF_TERM esock_sendmsg(ErlNifEnv*       env,
     /* We ignore the wrap for the moment.
      * Maybe we should issue a wrap-message to controlling process...
      */
-    SOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_write_tries, &descP->writeTries, 1);
 
     /* And now, finally, try to send the message */
     written = sock_sendmsg(descP->sock, &msgHdr, flags);
@@ -7278,16 +7291,20 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
 #else
     ESockDescriptor* descP;
     ERL_NIF_TERM     sockRef, recvRef;
-    int              len;
+    ErlNifUInt64     elen;
     unsigned int     eflags;
+    ssize_t          len; /* ssize_t due to the return type of recv() */
     int              flags;
     ERL_NIF_TERM     res;
 
     if ((argc != 4) ||
-        !GET_INT(env, argv[2], &len) ||
+        !GET_UINT64(env, argv[2], &elen) ||
         !GET_UINT(env, argv[3], &eflags)) {
         return enif_make_badarg(env);
     }
+    len = (ssize_t) elen;
+    if (elen != (ErlNifUInt64)len) return enif_make_badarg(env);
+
     sockRef = argv[0]; // We need this in case we send abort (to the caller)
     recvRef = argv[1];
 
@@ -7298,7 +7315,8 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
     if (!erecvflags2recvflags(eflags, &flags))
         return esock_make_error(env, esock_atom_einval);
 
-    SSDBG( descP, ("SOCKET", "nif_recv -> flags: 0x%lX\r\n", flags) );
+    SSDBG( descP, ("SOCKET", "nif_recv -> flags: 0x%lX\r\n",
+                   (unsigned)flags) );
 
     MLOCK(descP->readMtx);
 
@@ -7310,7 +7328,7 @@ ERL_NIF_TERM nif_recv(ErlNifEnv*         env,
      * is done!
      */
 
-    res = esock_recv(env, descP, sockRef, recvRef, len, flags);
+    res = esock_recv(env, descP, sockRef, recvRef, (size_t)len, flags);
 
     MUNLOCK(descP->readMtx);
 
@@ -7331,19 +7349,21 @@ ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
                         ESockDescriptor* descP,
                         ERL_NIF_TERM     sockRef,
                         ERL_NIF_TERM     recvRef,
-                        int              len,
+                        size_t           len,
                         int              flags)
 {
     ssize_t      read;
     ErlNifBinary buf;
     ERL_NIF_TERM readerCheck;
     int          save_errno;
-    int          bufSz = (len ? len : descP->rBufSz);
+    size_t       bufSz = (len ? len : descP->rBufSz);
 
     SSDBG( descP, ("SOCKET", "esock_recv -> entry with"
-                   "\r\n   len:   %d (%d:%d)"
+                   "\r\n   len:   %lu (%d:lu)"
                    "\r\n   flags: %d"
-                   "\r\n", len, descP->rNumCnt, bufSz, flags) );
+                   "\r\n",
+                   (unsigned long)len, descP->rNumCnt, (unsigned long)bufSz,
+                   flags) );
 
     if (!descP->isReadable)
         return enif_make_badarg(env);
@@ -7359,10 +7379,11 @@ ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
     if (!ALLOC_BIN(bufSz, &buf))
         return esock_make_error(env, atom_exalloc);
 
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     // If it fails (read = -1), we need errno...
-    SSDBG( descP, ("SOCKET", "esock_recv -> try read (%d)\r\n", buf.size) );
+    SSDBG( descP, ("SOCKET", "esock_recv -> try read (%lu)\r\n",
+                   (unsigned long)buf.size) );
     read = sock_recv(descP->sock, buf.data, buf.size, flags);
     if (IS_SOCKET_ERROR(read)) {
         save_errno = sock_errno();
@@ -7371,7 +7392,8 @@ ERL_NIF_TERM esock_recv(ErlNifEnv*       env,
     }
     
     SSDBG( descP, ("SOCKET",
-                   "esock_recv -> read: %d (%d)\r\n", read, save_errno) );
+                   "esock_recv -> read: %ld (%d)\r\n",
+                   (long)read, save_errno) );
 
     return recv_check_result(env, descP,
                              read, len,
@@ -7522,7 +7544,7 @@ ERL_NIF_TERM esock_recvfrom(ErlNifEnv*       env,
     if (!ALLOC_BIN(bufSz, &buf))
         return esock_make_error(env, atom_exalloc);
 
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     addrLen = sizeof(fromAddr);
     sys_memzero((char*) &fromAddr, addrLen);
@@ -7709,7 +7731,7 @@ ERL_NIF_TERM esock_recvmsg(ErlNifEnv*       env,
     if (!ALLOC_BIN(ctrlSz, &ctrl))
         return esock_make_error(env, atom_exalloc);
 
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_tries, &descP->readTries, 1);
 
     addrLen = sizeof(addr);
     sys_memzero((char*) &addr,   addrLen);
@@ -8278,6 +8300,10 @@ ERL_NIF_TERM esock_setopt_otp(ErlNifEnv*       env,
         result = esock_setopt_otp_sndctrlbuf(env, descP, eVal);
         break;
 
+    case ESOCK_OPT_OTP_META:
+        result = esock_setopt_otp_meta(env, descP, eVal);
+        break;
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -8472,6 +8498,32 @@ ERL_NIF_TERM esock_setopt_otp_sndctrlbuf(ErlNifEnv*       env,
 
     descP->wCtrlSz = val;
     
+    return esock_atom_ok;
+}
+
+
+/* esock_setopt_otp_meta - Handle the OTP (level) meta options
+ */
+static
+ERL_NIF_TERM esock_setopt_otp_meta(ErlNifEnv*       env,
+                                   ESockDescriptor* descP,
+                                   ERL_NIF_TERM     eVal)
+{
+    ErlNifPid caller;
+
+    if (enif_self(env, &caller) == NULL)
+        return esock_make_error(env, atom_exself);
+
+    if (COMPARE_PIDS(&descP->ctrlPid, &caller) != 0) {
+        SSDBG( descP, ("SOCKET",
+                       "esock_setopt_otp_meta -> not owner (%T)\r\n",
+                       descP->ctrlPid) );
+        return esock_make_error(env, esock_atom_not_owner);
+    }
+
+    enif_clear_env(descP->meta.env);
+    descP->meta.ref = CP_TERM(descP->meta.env, eVal);
+
     return esock_atom_ok;
 }
 
@@ -11968,6 +12020,10 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
         result = esock_getopt_otp_fd(env, descP);
         break;
 
+    case ESOCK_OPT_OTP_META:
+        result = esock_getopt_otp_meta(env, descP);
+        break;
+
         /* *** INTERNAL *** */
     case ESOCK_OPT_OTP_DOMAIN:
         result = esock_getopt_otp_domain(env, descP);
@@ -12081,6 +12137,18 @@ ERL_NIF_TERM esock_getopt_otp_fd(ErlNifEnv*       env,
                                  ESockDescriptor* descP)
 {
     ERL_NIF_TERM eVal = MKI(env, descP->sock);
+
+    return esock_make_ok2(env, eVal);
+}
+
+
+/* esock_getopt_otp_meta - Handle the OTP (level) meta option
+ */
+static
+ERL_NIF_TERM esock_getopt_otp_meta(ErlNifEnv*       env,
+                                   ESockDescriptor* descP)
+{
+    ERL_NIF_TERM eVal = CP_TERM(env, descP->meta.ref);
 
     return esock_make_ok2(env, eVal);
 }
@@ -15466,10 +15534,10 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
                            ssize_t          dataSize,
                            ERL_NIF_TERM     sockRef)
 {
-    SOCK_CNT_INC(env, descP, sockRef,
-                 atom_write_pkg, &descP->writePkgCnt, 1);
-    SOCK_CNT_INC(env, descP, sockRef,
-                 atom_write_byte, &descP->writeByteCnt, written);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  atom_write_pkg, &descP->writePkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef,
+                  atom_write_byte, &descP->writeByteCnt, written);
     descP->writePkgMaxCnt += written;
     if (descP->writePkgMaxCnt > descP->writePkgMax)
         descP->writePkgMax = descP->writePkgMaxCnt;
@@ -15519,7 +15587,7 @@ ERL_NIF_TERM send_check_fail(ErlNifEnv*       env,
     ERL_NIF_TERM   reason;
 
     req.env = NULL;
-    SOCK_CNT_INC(env, descP, sockRef, atom_write_fails, &descP->writeFails, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_write_fails, &descP->writeFails, 1);
 
     SSDBG( descP, ("SOCKET", "send_check_fail -> error: %d\r\n", saveErrno) );
 
@@ -15593,7 +15661,7 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
         }
     }
 
-    SOCK_CNT_INC(env, descP, sockRef, atom_write_waits, &descP->writeWaits, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_write_waits, &descP->writeWaits, 1);
 
     sres = esock_select_write(env, descP->sock, descP, NULL, sockRef, sendRef);
 
@@ -15832,8 +15900,8 @@ void recv_error_current_reader(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
                                ESockDescriptor* descP,
-                               int              read,
-                               int              toRead,
+                               ssize_t          read,
+                               size_t           toRead,
                                int              saveErrno,
                                ErlNifBinary*    bufP,
                                ERL_NIF_TERM     sockRef,
@@ -15843,11 +15911,12 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET", "recv_check_result -> entry with"
-            "\r\n   read:      %d"
-            "\r\n   toRead:    %d"
+            "\r\n   read:      %ld"
+            "\r\n   toRead:    %lu"
             "\r\n   saveErrno: %d"
             "\r\n   recvRef:   %T"
-            "\r\n", read, toRead, saveErrno, recvRef) );
+            "\r\n",
+            (long)read, (unsigned long)toRead, saveErrno, recvRef) );
 
 
     /* <KOLLA>
@@ -15862,7 +15931,7 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
         res = esock_make_error(env, atom_closed);
         
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         /*
          * When a stream socket peer has performed an orderly shutdown,
@@ -15891,8 +15960,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
             SSDBG( descP,
                    ("SOCKET",
-                    "recv_check_result -> [%d] filled the buffer\r\n",
-                    toRead) );
+                    "recv_check_result -> [%lu] filled the buffer\r\n",
+                    (unsigned long)toRead) );
 
             res = recv_check_full(env, descP, read, toRead, bufP,
                                   sockRef, recvRef);
@@ -15910,9 +15979,10 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 
             SSDBG( descP,
                    ("SOCKET",
-                    "recv_check_result -> [%d] "
-                    "did not fill the buffer (%d of %d)\r\n",
-                    toRead, read, bufP->size) );
+                    "recv_check_result -> [%lu] "
+                    "did not fill the buffer (%ld of %lu)\r\n",
+                    (unsigned long)toRead,
+                    (long)read, (unsigned long)bufP->size) );
 
             res = recv_check_partial(env, descP, read, toRead, bufP,
                                      sockRef, recvRef);
@@ -15936,8 +16006,8 @@ ERL_NIF_TERM recv_check_result(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
                              ESockDescriptor* descP,
-                             int              read,
-                             int              toRead,
+                             ssize_t          read,
+                             size_t           toRead,
                              ErlNifBinary*    bufP,
                              ERL_NIF_TERM     sockRef,
                              ERL_NIF_TERM     recvRef)
@@ -15961,10 +16031,10 @@ ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET", "recv_check_full -> shall we continue reading"
-                "\r\n   read:    %d"
-                "\r\n   rNum:    %d"
-                "\r\n   rNumCnt: %d"
-                "\r\n", read, descP->rNum, descP->rNumCnt) );
+                "\r\n   read:    %ld"
+                "\r\n   rNum:    %u"
+                "\r\n   rNumCnt: %u"
+                "\r\n", (unsigned long)read, descP->rNum, descP->rNumCnt) );
 
         res = recv_check_full_maybe_done(env, descP, read, toRead, bufP,
                                          sockRef, recvRef);
@@ -15975,8 +16045,9 @@ ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET",
-                "recv_check_full -> [%d] "
-                "we got exactly what we could fit\r\n", toRead) );
+                "recv_check_full -> [%lu] "
+                "we got exactly what we could fit\r\n",
+                (unsigned long)toRead) );
 
         res = recv_check_full_done(env, descP, read, bufP, sockRef);
 
@@ -16002,15 +16073,15 @@ ERL_NIF_TERM recv_check_full(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
                                         ESockDescriptor* descP,
-                                        int              read,
-                                        int              toRead,
+                                        ssize_t          read,
+                                        size_t           toRead,
                                         ErlNifBinary*    bufP,
                                         ERL_NIF_TERM     sockRef,
                                         ERL_NIF_TERM     recvRef)
 {
     char* xres;
 
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
     descP->readPkgMaxCnt += read;
 
     if (descP->rNum > 0) {
@@ -16020,7 +16091,7 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 
             descP->rNumCnt = 0;
 
-            SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+            ESOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
             if (descP->readPkgMaxCnt > descP->readPkgMax)
                 descP->readPkgMax = descP->readPkgMaxCnt;
             descP->readPkgMaxCnt = 0;
@@ -16055,8 +16126,8 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 
     SSDBG( descP,
            ("SOCKET",
-            "recv_check_full_maybe_done -> [%d] "
-            "we are done for now - read more\r\n", toRead) );
+            "recv_check_full_maybe_done -> [%lu] "
+            "we are done for now - read more\r\n", (unsigned long)toRead) );
 
     return esock_make_ok3(env, atom_false, MKBIN(env, bufP));
 }
@@ -16070,14 +16141,15 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_full_done(ErlNifEnv*       env,
                                   ESockDescriptor* descP,
-                                  int              read,
+                                  ssize_t          read,
                                   ErlNifBinary*    bufP,
                                   ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM data;
 
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                  &descP->readByteCnt, read);
 
     descP->readPkgMaxCnt += read;
     if (descP->readPkgMaxCnt > descP->readPkgMax)
@@ -16120,7 +16192,8 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         SSDBG( descP, ("SOCKET", "recv_check_fail -> closed\r\n") );
 
         // This is a bit overkill (to count here), but just in case...
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_fails,
+                      &descP->readFails, 1);
 
         res = recv_check_fail_closed(env, descP, sockRef, recvRef);
 
@@ -16136,7 +16209,8 @@ ERL_NIF_TERM recv_check_fail(ErlNifEnv*       env,
         SSDBG( descP, ("SOCKET", "recv_check_fail -> errno: %d\r\n",
                        saveErrno) );
 
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_fails,
+                      &descP->readFails, 1);
 
         res = recv_check_fail_gen(env, descP, saveErrno, sockRef);
     }
@@ -16253,8 +16327,8 @@ ERL_NIF_TERM recv_check_fail_gen(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
                                 ESockDescriptor* descP,
-                                int              read,
-                                int              toRead,
+                                ssize_t          read,
+                                size_t           toRead,
                                 ErlNifBinary*    bufP,
                                 ERL_NIF_TERM     sockRef,
                                 ERL_NIF_TERM     recvRef)
@@ -16270,14 +16344,16 @@ ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
 
         SSDBG( descP,
                ("SOCKET",
-                "recv_check_partial -> [%d] split buffer\r\n", toRead) );
+                "recv_check_partial -> [%lu] split buffer\r\n",
+                (unsigned long)toRead) );
 
         res = recv_check_partial_done(env, descP, read, bufP, sockRef);
 
     } else {
 
-        SSDBG( descP, ("SOCKET", "recv_check_partial -> [%d] "
-                       "only part of message - expect more\r\n", toRead) );
+        SSDBG( descP, ("SOCKET", "recv_check_partial -> [%lu] "
+                       "only part of message - expect more\r\n",
+                       (unsigned long)toRead) );
 
         res = recv_check_partial_part(env, descP, read, bufP, sockRef, recvRef);
     }
@@ -16294,15 +16370,16 @@ ERL_NIF_TERM recv_check_partial(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
-                                     int              read,
+                                     ssize_t          read,
                                      ErlNifBinary*    bufP,
                                      ERL_NIF_TERM     sockRef)
 {
     ERL_NIF_TERM data;
 
     descP->rNumCnt = 0;
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                  &descP->readByteCnt, read);
 
     descP->readPkgMaxCnt += read;
     if (descP->readPkgMaxCnt > descP->readPkgMax)
@@ -16318,7 +16395,8 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
     data = MKSBIN(env, data, 0, read);
 
     SSDBG( descP,
-           ("SOCKET", "recv_check_partial_done -> [%d] done\r\n", read) );
+           ("SOCKET", "recv_check_partial_done -> [%ld] done\r\n",
+            (long)read) );
 
     return esock_make_ok3(env, atom_true, data);
 }
@@ -16333,7 +16411,7 @@ ERL_NIF_TERM recv_check_partial_done(ErlNifEnv*       env,
 static
 ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
                                      ESockDescriptor* descP,
-                                     int              read,
+                                     ssize_t          read,
                                      ErlNifBinary*    bufP,
                                      ERL_NIF_TERM     sockRef,
                                      ERL_NIF_TERM     recvRef)
@@ -16350,7 +16428,8 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
     data = MKBIN(env, bufP);
     data = MKSBIN(env, data, 0, read);
 
-    SOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
+    ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                  &descP->readByteCnt, read);
 
     /* SELECT for more data */
 
@@ -16437,9 +16516,10 @@ ERL_NIF_TERM recvfrom_check_result(ErlNifEnv*       env,
             data = MKSBIN(env, data, 0, read);
         }
 
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
-                     &descP->readByteCnt, read);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_pkg,
+                      &descP->readPkgCnt, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+                      &descP->readByteCnt, read);
 
         recv_update_current_reader(env, descP, sockRef);
         
@@ -16498,7 +16578,7 @@ ERL_NIF_TERM recvmsg_check_result(ErlNifEnv*       env,
          * *We* do never actually try to read 0 bytes from a stream socket!
          */
 
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
 
         FREE_BIN(dataBufP); FREE_BIN(ctrlBufP);
 
@@ -16579,9 +16659,9 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
          * For now, we increment all three...
          */
          
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_fails, &descP->readFails, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
                      &descP->readByteCnt, read);
 
         recv_update_current_reader(env, descP, sockRef);
@@ -16595,8 +16675,8 @@ ERL_NIF_TERM recvmsg_check_msg(ErlNifEnv*       env,
         SSDBG( descP,
                ("SOCKET", "recvmsg_check_result -> (msghdr) encode ok\r\n") );
 
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-        SOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
+        ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte,
                      &descP->readByteCnt, read);
 
         recv_update_current_reader(env, descP, sockRef);
@@ -18856,6 +18936,9 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;
         descP->iow              = FALSE;
         descP->dbg              = ESOCK_DEBUG_DEFAULT;
+        descP->meta.env         = esock_alloc_env("alloc_descriptor - "
+                                                  "meta-env");
+        descP->meta.ref         = esock_atom_undefined;
 
         descP->sock             = sock;
         descP->event            = event;
@@ -20594,7 +20677,8 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
             }
         }
     }
-    
+
+    esock_free_env("esoc_stop - meta-env", descP->meta.env);
 
     SSDBG( descP, ("SOCKET", "esock_stop -> unlock all mutex(s)\r\n") );
 
