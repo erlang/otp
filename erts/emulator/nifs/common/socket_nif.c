@@ -368,7 +368,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define ESOCK_GLOBAL_DEBUG_DEFAULT FALSE
 #define ESOCK_DEBUG_DEFAULT        FALSE
 
-/* Counters and stuff (Don't know where to sent this stuff anyway) */
+/* Counters and stuff (Don't know where to sen2 this stuff anyway) */
 #define ESOCK_NIF_IOW_DEFAULT FALSE
 
 
@@ -7809,6 +7809,9 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
     ESockDescriptor* descP;
+    ERL_NIF_TERM res;
+
+    SGDBG( ("SOCKET", "nif_close -> entry with argc: %d\r\n", argc) );
 
     if ((argc != 1) ||
         !ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
@@ -7818,7 +7821,15 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
     if (IS_CLOSED(descP) || IS_CLOSING(descP))
         return esock_make_error(env, atom_closed);
     
-    return esock_close(env, descP);
+    MLOCK(descP->closeMtx);
+
+    res = esock_close(env, descP);
+
+    MUNLOCK(descP->closeMtx);
+
+    SSDBG( descP, ("SOCKET", "nif_close -> res: %T\r\n", res) );
+
+    return res;
 #endif // if defined(__WIN32__)
 }
 
@@ -7839,8 +7850,6 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
                    descP->currentReaderP,
                    descP->currentAcceptorP) );
 
-    MLOCK(descP->closeMtx);
-
     doClose = esock_close_check(env, descP, &reason);
 
     if (doClose) {
@@ -7848,8 +7857,6 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
     } else {
         reply = esock_make_error(env, reason);
     }
-
-    MUNLOCK(descP->closeMtx);
 
     SSDBG( descP,
            ("SOCKET", "esock_close -> [%d] done when: "
@@ -15385,14 +15392,19 @@ ERL_NIF_TERM esock_cancel_mode_select(ErlNifEnv*       env,
                                       int              smode,
                                       int              rmode)
 {
+    /* Assumes cancelling only one mode */
+
     int selectRes = esock_select_cancel(env, descP->sock, smode, descP);
 
-    if (selectRes & rmode) {
-        /* Was cancelled */
-        return esock_atom_ok;
-    } else if (selectRes > 0) {
-        /* Has already sent the message */
-        return esock_make_error(env, esock_atom_select_sent);
+    if (selectRes >= 0) {
+        /* Success */
+        if ((selectRes & rmode) != 0) {
+            /* Was cancelled */
+            return esock_atom_ok;
+        } else {
+            /* Has already sent the message */
+            return esock_make_error(env, esock_atom_select_sent);
+        }
     } else {
         /* Stopped? */
         SSDBG( descP, ("SOCKET",
@@ -16506,7 +16518,7 @@ ERL_NIF_TERM recv_check_partial_part(ErlNifEnv*       env,
 
 
 /* The recvfrom function delivers one (1) message. If our buffer
- * is to small, the message will be truncated. So, regardless
+ * is too small, the message will be truncated. So, regardless
  * if we filled the buffer or not, we have got what we are going
  * to get regarding this message.
  */
@@ -20901,6 +20913,8 @@ void esock_down(ErlNifEnv*           env,
              * we leave it to the stop callback function.
              */
 
+            MLOCK(descP->closeMtx);
+
             SSDBG( descP,
                    ("SOCKET", "esock_down -> controlling process exit\r\n") );
 
@@ -20992,6 +21006,8 @@ void esock_down(ErlNifEnv*           env,
                                   "\r\n", sres, pid, descP->sock,
                                   MON2T(env, mon));
             }
+
+            MUNLOCK(descP->closeMtx);
 
         } else if (COMPARE_PIDS(&descP->connPid, pid) == 0) {
 
