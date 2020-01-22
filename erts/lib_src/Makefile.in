@@ -656,8 +656,10 @@ endif
 endif
 	@echo "# EOF" >> $(DEPEND_MK);
 
+ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)
 -include $(DEPEND_MK)
+endif
 endif
 
 # eof
