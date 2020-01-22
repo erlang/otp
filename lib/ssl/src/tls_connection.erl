@@ -751,15 +751,19 @@ connection({call, From}, {user_renegotiate, WriteState},
      [{next_event,{call, From}, renegotiate}]};
 connection({call, From}, 
            {close, {Pid, _Timeout}}, 
-           #state{connection_env = #connection_env{terminated = closed} =CEnv} = State) ->
+           #state{connection_env = #connection_env{terminated = closed} = CEnv,
+                 protocol_specific = PS} = State) ->
     {next_state, downgrade, State#state{connection_env = 
-                                            CEnv#connection_env{terminated = true, 
-                                                                downgrade = {Pid, From}}}, 
+                                            CEnv#connection_env{terminated = true,
+                                                                downgrade = {Pid, From}},
+                                        protocol_specific = PS#{active_n_toggle => true,
+                                                                active_n => 1}
+                                       },
      [{next_event, internal, ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY)}]};
 connection({call, From}, 
            {close,{Pid, Timeout}},
            #state{connection_states = ConnectionStates,
-                  protocol_specific = #{sender := Sender},
+                  protocol_specific = #{sender := Sender} = PS,
                   connection_env = CEnv
                  } = State0) ->
     case tls_sender:downgrade(Sender, Timeout) of
@@ -773,7 +777,10 @@ connection({call, From},
                                                 ConnectionStates#{current_write => Write}}),
             {next_state, downgrade, State#state{connection_env = 
                                                     CEnv#connection_env{downgrade = {Pid, From},
-                                                                        terminated = true}}, 
+                                                                        terminated = true},
+                                                protocol_specific = PS#{active_n_toggle => true,
+                                                                        active_n => 1}
+                                               },
              [{timeout, Timeout, downgrade}]};
         {error, timeout} ->
             {stop_and_reply, {shutdown, downgrade_fail}, [{reply, From, {error, timeout}}]}
