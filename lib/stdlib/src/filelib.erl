@@ -333,6 +333,7 @@ match_part([_|_], []) ->
     false.
 
 will_always_match([accept]) -> true;
+will_always_match([double_star]) -> true;
 will_always_match(_) -> false.
 
 prepare_base(Base0) ->
@@ -340,22 +341,33 @@ prepare_base(Base0) ->
     "x"++Base2 = lists:reverse(Base1),
     lists:reverse(Base2).
 
-do_double_star(Base, [H|T], Rest, Result, Mod, Root) ->
+do_double_star(Base, [H|T], Patterns, Result0, Mod, Root) ->
     Full = case Root of
-	       false -> filename:join(Base, H);
-	       true -> H
-	   end,
+               false -> filename:join(Base, H);
+               true -> H
+           end,
     Result1 = case do_list_dir(Full, Mod) of
-        {ok, Files} ->
-            do_double_star(Full, Files, Rest, Result, Mod, false);
-        _ -> Result
-    end,
-    Result2 = case Root andalso Rest == [] of
-        true  -> Result1;
-        false -> do_wildcard_3(Full, Rest, Result1, Mod)
-    end,
-    do_double_star(Base, T, Rest, Result2, Mod, Root);
-do_double_star(_Base, [], _Rest, Result, _Mod, _Root) ->
+                  {ok, Files} ->
+                      do_double_star(Full, Files, Patterns, Result0, Mod, false);
+                  _ -> Result0
+              end,
+    Result2 = case Patterns of
+                  %% The root is never included in the result.
+                  _ when Root -> Result1;
+
+                  %% An empty pattern includes all results (except the root).
+                  [] -> [Full | Result1];
+
+                  %% Otherwise we check if the current entry matches
+                  %% and continue recursively.
+                  [Pattern | Rest] ->
+                      case match_part(Pattern, H) of
+                          true ->  do_wildcard_2([Full], Rest, Result1, Mod);
+                          false -> Result1
+                      end
+              end,
+    do_double_star(Base, T, Patterns, Result2, Mod, Root);
+do_double_star(_Base, [], _Patterns, Result, _Mod, _Root) ->
     Result.
 
 do_star(Pattern, [_|Rest]=File) ->
