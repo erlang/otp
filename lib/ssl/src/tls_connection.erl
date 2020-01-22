@@ -256,12 +256,15 @@ next_record_done(#state{protocol_buffers = Buffers} = State, CipherTexts, Connec
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
 %%
-next_event(StateName, no_record, State0, Actions) ->
+next_event(StateName, no_record, #state{static_env = #static_env{role = Role}} = State0, Actions) ->
     case next_record(StateName, State0) of
  	{no_record, State} ->
             ssl_connection:hibernate_after(StateName, State, Actions);
         {Record, State} ->
-            next_event(StateName, Record, State, Actions)
+            next_event(StateName, Record, State, Actions);
+        #alert{} = Alert ->
+            ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State0),
+	    {stop, {shutdown, own_alert}, State0}
     end;
 next_event(StateName,  #ssl_tls{} = Record, State, Actions) ->
     {next_state, StateName, State, [{next_event, internal, {protocol_record, Record}} | Actions]};
@@ -1146,7 +1149,10 @@ handle_info({PassiveTag, Socket},  StateName,
     next_event(StateName, no_record, 
                State#state{protocol_specific = PS#{active_n_toggle => true}});
 handle_info({CloseTag, Socket}, StateName,
-            #state{static_env = #static_env{socket = Socket, close_tag = CloseTag},
+            #state{static_env = #static_env{
+                                   role = Role,
+                                   socket = Socket, 
+                                   close_tag = CloseTag},
                    connection_env = #connection_env{negotiated_version = Version},
                    socket_options = #socket_options{active = Active},
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
@@ -1170,8 +1176,8 @@ handle_info({CloseTag, Socket}, StateName,
                     %%invalidate_session(Role, Host, Port, Session)
                     ok
             end,
-
-            ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
+            Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
+            ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
             {stop, {shutdown, transport_closed}, State};
         true ->
             %% Fixes non-delivery of final TLS record in {active, once}.
