@@ -2952,6 +2952,12 @@ fi
 # DED_EMU_THR_DEFS=$EMU_THR_DEFS
 DED_CFLAGS="$CFLAGS $CPPFLAGS $DED_CFLAGS"
 if test "x$GCC" = xyes; then
+    # Use -fno-common for gcc, that is link error if multiple definitions of
+    # global variables are encountered. This is ISO C compliant.
+    # Until version 10, gcc has had -fcommon as default, which allows and merges
+    # such dubious duplicates.
+    LM_TRY_ENABLE_CFLAG([-fno-common], [DED_CFLAGS])
+
     DED_STATIC_CFLAGS="$DED_CFLAGS"
     DED_CFLAGS="$DED_CFLAGS -fPIC"
 fi
