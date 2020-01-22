@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
          calls/1,tuple_matching/1,recv/1,maps/1,
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
-         beam_ssa_dead_crash/1,stack_init/1]).
+         beam_ssa_dead_crash/1,stack_init/1,grab_bag/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -40,7 +40,8 @@ groups() ->
        combine_sw,
        share_opt,
        beam_ssa_dead_crash,
-       stack_init
+       stack_init,
+       grab_bag
       ]}].
 
 init_per_suite(Config) ->
@@ -692,6 +693,51 @@ stack_init(Key, Map) ->
     %% y(0) would be uninitialized here if the key was not present in the map
     %% (if the second clause was executed).
     id(Res).
+
+grab_bag(_Config) ->
+    {'EXIT',_} = (catch grab_bag_1()),
+    {'EXIT',_} = (catch grab_bag_2()),
+    {'EXIT',_} = (catch grab_bag_3()),
+    ok.
+
+grab_bag_1() ->
+    %% beam_kernel_to_ssa would crash when attempting to translate a make_fun
+    %% instruction without a destination variable.
+    (catch fun () -> 15 end)(true#{}).
+
+grab_bag_2() ->
+    %% is_guard_cg_safe/1 will be called with #cg_unreachable{}, which was
+    %% not handled.
+    27
+        or
+    try
+        try
+            x#{}
+        catch
+            _:_ ->
+                []
+        end
+    after
+        false
+    end.
+
+grab_bag_3() ->
+    case
+        fun (V0)
+              when
+                  %% The only thing left after optimizations would be
+                  %% a bs_add instruction not followed by succeeded,
+                  %% which would crash beam_ssa_codegen because there
+                  %% was no failure label available.
+                  binary_part(<<>>,
+                              <<V0:V0/unit:196>>) ->
+                []
+        end
+    of
+        <<>> ->
+            []
+    end.
+
 
 %% The identity function.
 id(I) -> I.

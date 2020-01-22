@@ -192,6 +192,7 @@ no_side_effect(#b_set{op=Op}) ->
     case Op of
         {bif,_} -> true;
         {float,get} -> true;
+        bs_add -> true;
         bs_init -> true;
         bs_extract -> true;
         bs_match -> true;
