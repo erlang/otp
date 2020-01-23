@@ -283,19 +283,20 @@ multi_user_light_load(suite) ->
 multi_user_light_load(doc) ->
     [];
 multi_user_light_load(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        multi_user_light_load),
-    put(sname,     "TEST"),
-    i("starting"),
+    %% put(verbosity, ?TEST_VERBOSITY),
+    %% put(tc,        multi_user_light_load),
+    %% put(sname,     "TEST"),
+    %% i("starting"),
 
-    load_controller(Config, 
-		    fun(Env) -> 
-			    populate(Env), 
-			    exit( multi_user_load(3,1) ) 
-		    end),
+    %% load_controller(Config, 
+    %% 		    fun(Env) -> 
+    %% 			    populate(Env), 
+    %% 			    exit( multi_user_load(3,1) ) 
+    %% 		    end),
 
-    i("done", []),
-    ok.
+    %% i("done", []),
+    %% ok.
+    try_multi_user_load(multi_user_light_load, Config, 3, 1).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -305,19 +306,20 @@ multi_user_medium_load(suite) ->
 multi_user_medium_load(doc) ->
     [];
 multi_user_medium_load(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        multi_user_medium_load),
-    put(sname,     "TEST"),
-    i("starting"),
+    %% put(verbosity, ?TEST_VERBOSITY),
+    %% put(tc,        multi_user_medium_load),
+    %% put(sname,     "TEST"),
+    %% i("starting"),
 
-    load_controller(Config, 
-		    fun(Env) -> 
-			    populate(Env), 
-			    exit( multi_user_load(3,5) ) 
-		    end),
+    %% load_controller(Config, 
+    %% 		    fun(Env) -> 
+    %% 			    populate(Env), 
+    %% 			    exit( multi_user_load(3,5) ) 
+    %% 		    end),
 
-    i("done", []),
-    ok.
+    %% i("done", []),
+    %% ok.
+    try_multi_user_load(multi_user_medium_load, Config, 3, 5).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -327,19 +329,20 @@ multi_user_heavy_load(suite) ->
 multi_user_heavy_load(doc) ->
     [];
 multi_user_heavy_load(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        multi_user_heavy_load),
-    put(sname,     "TEST"),
-    i("starting"),
+    %% put(verbosity, ?TEST_VERBOSITY),
+    %% put(tc,        multi_user_heavy_load),
+    %% put(sname,     "TEST"),
+    %% i("starting"),
 
-    load_controller(Config, 
-		    fun(Env) -> 
-			    populate(Env), 
-			    exit( multi_user_load(3,10) ) 
-		    end),
+    %% load_controller(Config, 
+    %% 		    fun(Env) -> 
+    %% 			    populate(Env), 
+    %% 			    exit( multi_user_load(3,10) ) 
+    %% 		    end),
 
-    i("done", []),
-    ok.
+    %% i("done", []),
+    %% ok.
+    try_multi_user_load(multi_user_heavy_load, Config, 3, 10).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -349,19 +352,20 @@ multi_user_extreme_load(suite) ->
 multi_user_extreme_load(doc) ->
     [];
 multi_user_extreme_load(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        multi_user_extreme_load),
-    put(sname,     "TEST"),
-    i("starting"),
+    %% put(verbosity, ?TEST_VERBOSITY),
+    %% put(tc,        multi_user_extreme_load),
+    %% put(sname,     "TEST"),
+    %% i("starting"),
 
-    load_controller(Config, 
-		    fun(Env) -> 
-			    populate(Env), 
-			    exit( multi_user_load(3,15) ) 
-		    end),
+    %% load_controller(Config, 
+    %% 		    fun(Env) -> 
+    %% 			    populate(Env), 
+    %% 			    exit( multi_user_load(3,15) ) 
+    %% 		    end),
 
-    i("done", []),
-    ok.
+    %% i("done", []),
+    %% ok.
+    try_multi_user_load(multi_user_extreme_load, Config, 3, 15).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -505,16 +509,39 @@ single_user_load([MgcNode, MgNode], NumLoaders) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-multi_user_load(NumUsers, NumLoaders) 
+try_multi_user_load(Name, Config, NumUsers, NumLoaders) ->
+    Pre = fun() ->
+		  MgcNode = make_node_name(mgc),
+		  MgNodes = make_node_names(mg, NumUsers),
+		  d("Nodes: "
+		    "~n      MgcNode: ~p"
+		    "~n      MgNodes: ~p", [MgcNode, MgNodes]),
+		  Nodes = [MgcNode | MgNodes],
+		  ok = ?START_NODES(Nodes),
+		  Nodes
+	  end,
+    Case = fun(State) ->
+		   multi_user_load(State, Config, NumUsers, NumLoaders)
+	   end,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(Name, Pre, Case, Post).
+
+
+multi_user_load(State, Config, NumUsers, NumLoaders) ->
+    load_controller(
+      Config, 
+      fun(Env) -> 
+	      populate(Env), 
+	      exit( multi_user_load(State, NumUsers, NumLoaders) ) 
+      end).
+
+
+multi_user_load([MgcNode | MgNodes], NumUsers, NumLoaders) 
   when (is_integer(NumUsers) andalso (NumUsers > 1) andalso 
 	is_integer(NumLoaders) andalso (NumLoaders >= 1)) ->
-    MgcNode = make_node_name(mgc),
-    MgNodes = make_node_names(mg, NumUsers),
-    d("Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNodes: ~p", [MgcNode, MgNodes]),
-    ok = megaco_test_lib:start_nodes([MgcNode| MgNodes], ?FILE, ?LINE),
-
     %% Start the MGC and MGs
     i("[MGC] start"),
     MgcMid = {deviceName, "ctrl"},
