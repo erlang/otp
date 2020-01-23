@@ -64,14 +64,14 @@ start(Node, Commands, InitialState, ShortName)
 		  process_flag(trap_exit, true),
 		  Result = command_handler(Commands, InitialState),
 		  print("command handler terminated with: "
-			"~n   Result: ~p", [Result]),
+			"~n      ~p", [Result]),
 		  exit(Result)
 	  end,
     erlang:spawn_link(Node, Fun).
 		  
 command_handler([], State) ->
     print("command_handler -> entry when done with"
-	  "~n   State: ~p", [State]),
+	  "~n      State: ~p", [State]),
     {ok, State};
 command_handler([#{id   := Id,
 		   desc := Desc,
@@ -112,29 +112,30 @@ await_completion(Pids, Timeout) ->
     await_completion(Pids, [], [], Timeout).
 
 await_completion([], [], _Good, _Timeout) ->
-    print("await_completion -> entry when done"),
+    print("await_completion -> entry when done (success)"),
     ok;
 await_completion([], Bad, Good, _Timeout) ->
     print("await_completion -> entry when done with bad result: "
-	  "~n   Bad:  ~p"
-	  "~n   Good: ~p", [Bad, Good]),
+	  "~n      Bad:  ~p"
+	  "~n      Good: ~p", [Bad, Good]),
     {error, Bad, Good};
 await_completion(Pids, Bad, Good, Timeout) ->
     print("await_completion -> entry when waiting for"
-	  "~n   Pids:    ~p"
-	  "~n   Bad:     ~p"
-	  "~n   Good:    ~p"
-	  "~n   Timeout: ~p", [Pids, Bad, Good, Timeout]), 
+	  "~n      Pids:    ~p"
+	  "~n      Bad:     ~p"
+	  "~n      Good:    ~p"
+	  "~n      Timeout: ~p", [Pids, Bad, Good, Timeout]), 
     Begin = ms(), 
     receive 
 	{'EXIT', Pid, {ok, FinalState}} ->
-	    print("await_completion -> received ok EXIT signal from ~p", [Pid]),
 	    case lists:delete(Pid, Pids) of
 		Pids ->
+		    print("await_completion -> "
+			  "received ok EXIT signal from unknown ~p", [Pid]),
 		    await_completion(Pids, Bad, Good, 
 				     Timeout - (ms() - Begin));
 		Pids2 ->
-		    print("await_completion -> ~p done", [Pid]), 
+		    print("await_completion -> success from  ~p", [Pid]),
 		    await_completion(Pids2, 
 				     Bad, 
 				     [{Pid, FinalState}|Good],
@@ -142,15 +143,14 @@ await_completion(Pids, Bad, Good, Timeout) ->
 	    end;
 
 	{'EXIT', Pid, {error, Reason}} ->
-	    print("await_completion -> "
-		  "received error EXIT signal from ~p", [Pid]), 
 	    case lists:delete(Pid, Pids) of
 		Pids ->
-		    await_completion(Pids, Bad, Good, 
+		    print("await_completion -> "
+			  "received error EXIT signal from unknown ~p", [Pid]),
+		    await_completion(Pids, Bad, Good,
 				     Timeout - (ms() - Begin));
 		Pids2 ->
-		    print("await_completion -> ~p done with"
-			  "~n   ~p", [Pid, Reason]), 
+		    print("await_completion -> failure from ~p", [Pid]), 
 		    await_completion(Pids2, 
 				     [{Pid, Reason}|Bad], 
 				     Good, 
@@ -158,9 +158,8 @@ await_completion(Pids, Bad, Good, Timeout) ->
 	    end;
 
 	{'EXIT', Pid, {skip, Reason}} ->
-	    print("await_completion -> "
-		  "received skip EXIT signal from ~p with"
-		  "~p", [Pid, Reason]), 
+	    print("await_completion -> skip (exit) from ~p:"
+		  "      ~p", [Pid, Reason]), 
 	    ?SKIP(Reason)
 
     after Timeout ->

@@ -406,17 +406,22 @@ sendreceive(suite) ->
 sendreceive(doc) ->
     ["Test send and receive with the UDP transport. "];
 sendreceive(Config) when is_list(Config) ->
-    put(sname, "sendreceive"),
-    p("BEGIN TEST-CASE"),
+    Pre = fun() ->
+		  p("create nodes"),
+		  ServerNode = make_node_name(server),
+		  ClientNode = make_node_name(client),
+		  Nodes = [ServerNode, ClientNode],
+		  ok = ?START_NODES(Nodes),
+		  Nodes
+	  end,
+    Case = fun do_sendreceive/1,
+    Post = fun(Nodes) ->
+                   p("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(sendreceive, Pre, Case, Post).
 
-    process_flag(trap_exit, true),
-
-    p("create nodes"),
-    ServerNode = make_node_name(server),
-    ClientNode = make_node_name(client),
-    Nodes = [ServerNode, ClientNode],
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
-
+do_sendreceive([ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
     ServerPort = 2944,
@@ -426,9 +431,11 @@ sendreceive(Config) when is_list(Config) ->
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
-    Server = server_start_command_handler(ServerNode, ServerCmds),
+    %% Server = server_start_command_handler(ServerNode, ServerCmds),
+    Server = ?CH:start(ServerNode, ServerCmds, #{}, "server"),
     p("server command handler started: ~p", [Server]),
-    Client = client_start_command_handler(ClientNode, ClientCmds),
+    %% Client = client_start_command_handler(ClientNode, ClientCmds),
+    Client = ?CH:start(ClientNode, ClientCmds, #{}, "client"),
     p("client command handler started: ~p", [Client]),
 
     ok =
@@ -446,7 +453,8 @@ sendreceive(Config) when is_list(Config) ->
                 {error, server_timeout}
         end,
 
-    ok = await_command_handler_completion([Server, Client], timer:seconds(20)),
+    %% ok = await_command_handler_completion([Server, Client], timer:seconds(20)),
+    ok = ?CH:await_completion([Server, Client], timer:seconds(20)),
     p("done"),
     ok.
 
@@ -455,168 +463,167 @@ sendreceive_server_commands(Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#server{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		       {ok, State#{parent => Self}} 
+	       end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     server_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		       server_start_transport(State) 
+	       end},
 
-     #command{id   = 3,
-              desc = "Open",
-              cmd  = fun(State) ->
-                             server_open(State, Opts)
-                     end},
+     #{id   => 3,
+       desc => "Open",
+       cmd  => fun(State) ->
+		       server_open(State, Opts)
+	       end},
 
-     #command{id   = 4,
-              desc = "Notify operational",
-              cmd  = fun(State) ->
-                             server_notify_operational(State)
-                     end},
+     #{id   => 4,
+       desc => "Notify operational",
+       cmd  => fun(State) ->
+		       server_notify_operational(State)
+	       end},
 
-     #command{id   = 5,
-	      desc = "Await initial message (ping)",
-	      cmd  = fun(State) -> 
-			     server_await_initial_message(State, "ping", 5000) 
-		     end},
+     #{id   => 5,
+       desc => "Await initial message (ping)",
+       cmd  => fun(State) -> 
+		       server_await_initial_message(State, "ping", 5000) 
+	       end},
 
-     #command{id   = 6,
-	      desc = "Send reply (pong) to initial message",
-	      cmd  = fun(State) -> 
-			     server_send_message(State, "pong") 
-		     end},
+     #{id   => 6,
+       desc => "Send reply (pong) to initial message",
+       cmd  => fun(State) -> 
+		       server_send_message(State, "pong") 
+	       end},
 
-     #command{id   = 7,
-	      desc = "Await nothing before sending a message (hejsan)",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
+     #{id   => 7,
+       desc => "Await nothing before sending a message (hejsan)",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 8,
-	      desc = "Send message (hejsan)",
-	      cmd  = fun(State) -> 
-			     server_send_message(State, "hejsan") 
-		     end},
+     #{id   => 8,
+       desc => "Send message (hejsan)",
+       cmd  => fun(State) -> 
+		       server_send_message(State, "hejsan") 
+	       end},
 
-     #command{id   = 9,
-	      desc = "Await reply (hoppsan) to message",
-	      cmd  = fun(State) -> 
-			     server_await_message(State, "hoppsan", 1000) 
-		     end},
+     #{id   => 9,
+       desc => "Await reply (hoppsan) to message",
+       cmd  => fun(State) -> 
+		       server_await_message(State, "hoppsan", 1000) 
+	       end},
 
-     #command{id   = 10,
-	      desc = "Await nothing before closing",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
-
-     #command{id   = 11,
-	      desc = "Close",
-	      cmd  = fun(State) -> 
-			     server_close(State) 
-		     end},
-
-     #command{id   = 12,
-	      desc = "Await nothing before stopping transport",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
-
-     #command{id   = 13,
-	      desc = "Stop",
-	      cmd  = fun(State) -> 
-			     server_stop_transport(State) 
-		     end}
-
+     #{id   => 10,
+       desc => "Await nothing before closing",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
+     
+     #{id   => 11,
+       desc => "Close",
+       cmd  => fun(State) -> 
+		       server_close(State) 
+	       end},
+     
+     #{id   => 12,
+       desc => "Await nothing before stopping transport",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
+     
+     #{id   => 13,
+       desc => "Stop",
+       cmd  => fun(State) -> 
+		       server_stop_transport(State) 
+	       end}
     ].
 
 sendreceive_client_commands(ServerPort, ServerHost) ->
     OwnPort = ServerPort+1, 
-    Opts = [{port, OwnPort}], 
-    Self = self(),
+    Opts    = [{port, OwnPort}], 
+    Self    = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#client{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		       {ok, State#{parent => Self}} 
+	       end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     client_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		       client_start_transport(State) 
+	       end},
 
-     #command{id   = 3,
-              desc = "Open",
-              cmd  = fun(State) ->
-                             client_open(State, Opts)
-                     end},
+     #{id   => 3,
+       desc => "Open",
+       cmd  => fun(State) ->
+		       client_open(State, Opts)
+	       end},
 
-     #command{id   = 4,
-              desc = "Await continue",
-              cmd  = fun(State) ->
-                             client_await_continue_signal(State, 5000)
-                     end},
+     #{id   => 4,
+       desc => "Await continue",
+       cmd  => fun(State) ->
+		       client_await_continue_signal(State, 5000)
+	       end},
 
-     #command{id   = 5,
-              desc = "Connect",
-              cmd  = fun(State) ->
-                             client_connect(State, ServerHost, ServerPort)
-                     end},
+     #{id   => 5,
+       desc => "Connect",
+       cmd  => fun(State) ->
+		       client_connect(State, ServerHost, ServerPort)
+	       end},
 
-     #command{id   = 6,
-	      desc = "Send initial message (ping)",
-	      cmd  = fun(State) -> 
-			     client_send_message(State, "ping") 
-		     end},
+     #{id   => 6,
+       desc => "Send initial message (ping)",
+       cmd  => fun(State) -> 
+		       client_send_message(State, "ping") 
+	       end},
 
-     #command{id   = 7,
-	      desc = "Await reply (pong) to initial message",
-	      cmd  = fun(State) -> 
-			     client_await_message(State, "pong", 1000) 
-		     end},
+     #{id   => 7,
+       desc => "Await reply (pong) to initial message",
+       cmd  => fun(State) -> 
+		       client_await_message(State, "pong", 1000) 
+	       end},
 
-     #command{id   = 8,
-	      desc = "Await message (hejsan)",
-	      cmd  = fun(State) -> 
-			     client_await_message(State, "hejsan", 5000) 
-		     end},
+     #{id   => 8,
+       desc => "Await message (hejsan)",
+       cmd  => fun(State) -> 
+		       client_await_message(State, "hejsan", 5000) 
+	       end},
 
-     #command{id   = 9,
-	      desc = "Send reply (hoppsan) to message",
-	      cmd  = fun(State) -> 
-			     client_send_message(State, "hoppsan") 
-		     end},
+     #{id   => 9,
+       desc => "Send reply (hoppsan) to message",
+       cmd  => fun(State) -> 
+		       client_send_message(State, "hoppsan") 
+	       end},
 
-     #command{id   = 10,
-	      desc = "Await nothing before closing",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 1000) 
-		     end},
+     #{id   => 10,
+       desc => "Await nothing before closing",
+       cmd  => fun(State) -> 
+		       client_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 11,
-	      desc = "Close",
-	      cmd  = fun(State) -> 
-			     client_close(State) 
-		     end},
+     #{id   => 11,
+       desc => "Close",
+       cmd  => fun(State) -> 
+		       client_close(State) 
+	       end},
 
-     #command{id   = 12,
-	      desc = "Await nothing before stopping transport",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 1000) 
-		     end},
+     #{id   => 12,
+       desc => "Await nothing before stopping transport",
+       cmd  => fun(State) -> 
+		       client_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 13,
-	      desc = "Stop transport",
-	      cmd  = fun(State) -> 
-			     client_stop_transport(State) 
-		     end}
+     #{id   => 13,
+       desc => "Stop transport",
+       cmd  => fun(State) -> 
+		       client_stop_transport(State) 
+	       end}
     ].
 
 
@@ -961,6 +968,9 @@ process_received_message(ReceiveHandle, ControlPid, SendHandle, BinMsg)
 server_start_command_handler(Node, Commands) ->
     start_command_handler(Node, Commands, #server{}, "server").
 
+%% server_start_command_handler(Node, Commands) ->
+%%     ?CH:start(Node, Commands, #{}, "server").
+
 server_start_transport(State) when is_record(State, server) ->
     case (catch megaco_udp:start_transport()) of
 	{ok, Ref} ->
@@ -1029,8 +1039,8 @@ server_await_initial_message(State, InitialMessage, Timeout)
     receive 
 	{receive_message, {ControlPid, Handle, InitialMessage}} ->
 	    p("received expected event with: "
-	      "~n   ControlPid: ~p"
-	      "~n   Handle:     ~p", [ControlPid, Handle]),
+	      "~n      ControlPid: ~p"
+	      "~n      Handle:     ~p", [ControlPid, Handle]),
 	    NewState = State#server{handle = Handle},
 	    {ok, NewState};
 
@@ -1167,6 +1177,8 @@ server_stop_transport(#{transport_ref := Ref} = State)
 
 client_start_command_handler(Node, Commands) ->
     start_command_handler(Node, Commands, #client{}, "client").
+%% client_start_command_handler(Node, Commands) ->
+%%     ?CH:start(Node, Commands, #{}, "client").
 		  
 client_start_transport(State) when is_record(State, client) ->
     case (catch megaco_udp:start_transport()) of
@@ -1392,6 +1404,8 @@ command_handler([#command{id   = Id,
 
 await_command_handler_completion(Pids, Timeout) ->
     await_command_handler_completion(Pids, [], [], Timeout).
+%% await_command_handler_completion(Pids, Timeout) ->
+%%     ?CH:await_completion(Pids, [], [], Timeout).
 
 await_command_handler_completion([], [], _Good, _Timeout) ->
     p("await_command_handler_completion -> entry when done"),
