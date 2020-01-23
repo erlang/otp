@@ -908,12 +908,13 @@ handle_client_hello(#client_hello{client_version = ClientVersion} = Hello,
 
 %% raw data from socket, unpack records
 handle_info({Protocol, _, _, _, Data}, StateName,
-            #state{static_env = #static_env{data_tag = Protocol}} = State0) ->
+            #state{static_env = #static_env{role = Role,
+                                            data_tag = Protocol}} = State0) ->
     case next_dtls_record(Data, StateName, State0) of
 	{Record, State} ->
 	    next_event(StateName, Record, State);
 	#alert{} = Alert ->
-	    ssl_connection:handle_normal_shutdown(Alert, StateName, State0), 
+	    ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State0), 
             {stop, {shutdown, own_alert}, State0}
     end;
 
@@ -925,8 +926,10 @@ handle_info({PassiveTag, Socket}, StateName,
                State#state{protocol_specific = PS#{active_n_toggle => true}});
 
 handle_info({CloseTag, Socket}, StateName,
-	    #state{static_env = #static_env{socket = Socket,
-                                            close_tag = CloseTag},
+	    #state{static_env = #static_env{
+                                   role = Role,
+                                   socket = Socket,
+                                   close_tag = CloseTag},
                    connection_env = #connection_env{negotiated_version = Version},
                    socket_options = #socket_options{active = Active},
                    protocol_buffers = #protocol_buffers{dtls_cipher_texts = CTs},
@@ -947,7 +950,8 @@ handle_info({CloseTag, Socket}, StateName,
                     %%invalidate_session(Role, Host, Port, Session)
                     ok
             end,
-            ssl_connection:handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
+            Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
+            ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
             {stop, {shutdown, transport_closed}, State};
         true ->
             %% Fixes non-delivery of final DTLS record in {active, once}.

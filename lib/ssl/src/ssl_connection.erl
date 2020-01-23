@@ -1504,12 +1504,15 @@ handle_info({ErrorTag, Socket, econnaborted}, StateName,
 	       StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
 
-handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{socket = Socket,
-                                                                                   error_tag = ErrorTag},
+handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{
+                                                                          role = Role,
+                                                                          socket = Socket,
+                                                                          error_tag = ErrorTag},
                                                           ssl_options = #{log_level := Level}} = State)  ->
     ssl_logger:log(info, Level, #{description => "Socket error", 
                                   reason => [{error_tag, ErrorTag}, {description, Reason}]}, ?LOCATION),
-    handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), StateName, State),
+    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, {transport_error, Reason}),
+    handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
     {stop, {shutdown,normal}, State};
 
 handle_info({'DOWN', MonitorRef, _, _, Reason}, _,
@@ -2797,9 +2800,11 @@ ssl_options_list([{Key, Value}|T], Acc) ->
 handle_active_option(false, connection = StateName, To, Reply, State) ->
     hibernate_after(StateName, State, [{reply, To, Reply}]);
 
-handle_active_option(_, connection = StateName, To, _Reply, #state{connection_env = #connection_env{terminated = true},
+handle_active_option(_, connection = StateName, To, _Reply, #state{static_env = #static_env{role = Role},
+                                                                   connection_env = #connection_env{terminated = true},
                                                                    user_data_buffer = {_,0,_}} = State) ->
-    handle_normal_shutdown(?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, all_data_deliverd), StateName, 
+    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, all_data_deliverd),
+    handle_normal_shutdown(Alert#alert{role = Role}, StateName, 
                            State#state{start_or_recv_from = To}),
     {stop,{shutdown, peer_close}, State};
 handle_active_option(_, connection = StateName0, To, Reply, #state{static_env = #static_env{protocol_cb = Connection},
