@@ -40,7 +40,7 @@
          strong_components/2]).
 
 %% Debugging.
--define(DEBUG, true).
+-define(DEBUG, false).
 -if(?DEBUG).
 -export([dump/1,dump/2,dump/3]).
 -endif.
