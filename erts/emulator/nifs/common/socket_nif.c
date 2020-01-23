@@ -20790,9 +20790,9 @@ void esock_stop_handle_current(ErlNifEnv*       env,
                                  atom_closed, &reqP->pid) != NULL) {
 
             esock_warning_msg("esock_stop_handle_current: "
-                              "Failed sending abort (%T, closed) message to "
+                              "Failed sending abort (closed) message to "
                               "current %s %T\r\n",
-                              reqP->ref, role, reqP->pid);
+                              role, reqP->pid);
         }
         reqP->env = NULL;
     }
@@ -20845,9 +20845,8 @@ void inform_waiting_procs(ErlNifEnv*         env,
                                  &currentP->data.pid) != NULL) {
 
             esock_warning_msg("inform_waiting_procs: "
-                              "Failed sending abort (%T, %T) message to "
+                              "Failed sending abort (%T) message to "
                               "current %s %T\r\n",
-                              currentP->data.ref,
                               reason,
                               role,
                               currentP->data.pid);
