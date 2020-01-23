@@ -30,8 +30,6 @@
 -include_lib("megaco/src/tcp/megaco_tcp.hrl").
 -include("megaco_test_lib.hrl").
 
-%% -compile(export_all).
-
 
 %%----------------------------------------------------------------------
 %% External exports
@@ -68,6 +66,9 @@
 %%----------------------------------------------------------------------
 %% Macros
 %%----------------------------------------------------------------------
+
+-define(TEST_VERBOSITY, debug).
+
 
 %%----------------------------------------------------------------------
 %% Records
@@ -248,17 +249,22 @@ start_and_stop(doc) ->
     ["This test case sets up a connection and then cloises it. "
      "No data is sent. "];
 start_and_stop(Config) when is_list(Config) ->
-    put(sname, "start_and_stop"),
-    p("BEGIN TEST-CASE"), 
+    Pre = fun() ->
+		  p("create nodes"),
+		  ServerNode = make_node_name(server),
+		  ClientNode = make_node_name(client),
+		  Nodes = [ServerNode, ClientNode], 
+		  ok = ?START_NODES(Nodes),
+		  Nodes
+	  end,
+    Case = fun do_start_and_stop/1,
+    Post = fun(Nodes) ->
+                   p("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(start_and_stop, Pre, Case, Post).
 
-    process_flag(trap_exit, true),
-
-    p("create nodes"),
-    ServerNode = make_node_name(server),
-    ClientNode = make_node_name(client),
-    Nodes = [ServerNode, ClientNode], 
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
-
+do_start_and_stop([ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
     ServerPort = 2944, 
@@ -275,9 +281,9 @@ start_and_stop(Config) when is_list(Config) ->
 
     await_server_listening(Server, Client),
 
-    await_command_handler_completion([Server, Client], timer:seconds(20)),
+    Res = await_command_handler_completion([Server, Client], timer:seconds(20)),
     p("done"),
-    ok.
+    Res.
 
 
 start_and_stop_server_commands(Port) ->
@@ -1281,6 +1287,17 @@ make_node_name(Name) ->
             exit("Test node must be started with '-sname'")
     end.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 p(F) ->
     p(F, []).

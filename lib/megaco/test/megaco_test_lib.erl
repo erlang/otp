@@ -589,6 +589,7 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
   when is_function(Pre, 0)  andalso 
        is_function(Case, 1) andalso
        is_function(Post, 1) ->
+    process_flag(trap_exit, true),
     put(verbosity, Verbosity),
     put(sname,     Name),
     put(tc,        TCName),
