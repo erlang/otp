@@ -53,8 +53,9 @@ int wmain(int argc, wchar_t **argv)
   HANDLE erlexec_handle; /* Instance */
   ErlexecFunction *win_erlexec;
   wchar_t *path = malloc(100*sizeof(wchar_t));
+  wchar_t *wslpath = malloc(100*sizeof(wchar_t));
   wchar_t *npath;
-  int pathlen;
+  int pathlen, wslpathlen;
   char ** utf8argv;
   int i, len;
 
@@ -66,9 +67,23 @@ int wmain(int argc, wchar_t **argv)
     path = realloc(path,pathlen*sizeof(wchar_t));
     GetEnvironmentVariableW(L"PATH",path,pathlen);
   }
-  pathlen = (wcslen(path) + wcslen(erlexec_dir) + 2);
+
+  if ((wslpathlen = GetEnvironmentVariableW(L"WSLENV",wslpath,100)) > 0) {
+      if ((wslpathlen = GetEnvironmentVariableW(L"WSLPATH",wslpath,100)) > 0) {
+          if (wslpathlen > 100) {
+              wslpath = realloc(wslpath,wslpathlen*sizeof(wchar_t));
+              GetEnvironmentVariableW(L"WSLPATH",wslpath,wslpathlen);
+          }
+          wslpathlen = wcslen(wslpath);
+      }
+  }
+  pathlen = (wcslen(path) + wslpathlen + wcslen(erlexec_dir) + 2);
   npath = (wchar_t *) malloc(pathlen*sizeof(wchar_t));
-  swprintf(npath,pathlen,L"%s;%s",erlexec_dir,path);
+  if(wslpathlen > 0) {
+      swprintf(npath,pathlen,L"%s;%s;%s",erlexec_dir,path,wslpath);
+  } else {
+      swprintf(npath,pathlen,L"%s;%s",erlexec_dir,path);
+  }
   SetEnvironmentVariableW(L"PATH",npath);
 
   if ((erlexec_handle = LoadLibraryW(erlexec_name)) == NULL) {
