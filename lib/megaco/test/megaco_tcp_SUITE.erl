@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -67,6 +67,7 @@
 %% Macros
 %%----------------------------------------------------------------------
 
+-define(CH,             megaco_test_command_handler).
 -define(TEST_VERBOSITY, debug).
 
 
@@ -274,14 +275,17 @@ do_start_and_stop([ServerNode, ClientNode]) ->
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
-    Server = server_start_command_handler(ServerNode, ServerCmds),
+    %% Server = server_start_command_handler(ServerNode, ServerCmds),
+    Server = ?CH:start(ServerNode, ServerCmds, #{}, "server"),
     p("server command handler started: ~p", [Server]),
-    Client = client_start_command_handler(ClientNode, ClientCmds),
+    %% Client = client_start_command_handler(ClientNode, ClientCmds),
+    Client = ?CH:start(ClientNode, ClientCmds, #{}, "client"),
     p("client command handler started: ~p", [Client]),
 
     await_server_listening(Server, Client),
 
-    Res = await_command_handler_completion([Server, Client], timer:seconds(20)),
+    %% Res = await_command_handler_completion([Server, Client], timer:seconds(20)),
+    Res = ?CH:await_completion([Server, Client], ?SECS(20)),
     p("done"),
     Res.
 
@@ -290,41 +294,41 @@ start_and_stop_server_commands(Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#server{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		      {ok, State#{parent => Self}} 
+	      end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     server_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		      server_start_transport(State) 
+	      end},
 
-     #command{id   = 3,
-	      desc = "Listen",
-	      cmd  = fun(State) -> 
-			     server_listen(State, Opts) 
-		     end},
+     #{id   => 3,
+       desc => "Listen",
+       cmd  => fun(State) -> 
+		      server_listen(State, Opts) 
+	      end},
 
-     #command{id   = 4,
-	      desc = "Notify listening",
-	      cmd  = fun(State) -> 
-			     server_notify_listening(State) 
-		     end},
+     #{id   => 4,
+       desc => "Notify listening",
+       cmd  => fun(State) -> 
+		      server_notify_listening(State) 
+	      end},
 
-     #command{id   = 5,
-	      desc = "Await nothing",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 6000) 
-		     end},
+     #{id   => 5,
+       desc => "Await nothing",
+       cmd  => fun(State) -> 
+		      server_await_nothing(State, 6000) 
+	      end},
 
-     #command{id   = 6,
-	      desc = "Stop",
-	      cmd  = fun(State) -> 
-			     server_stop_transport(State) 
-		     end}
+     #{id   => 6,
+       desc => "Stop",
+       cmd  => fun(State) -> 
+		      server_stop_transport(State) 
+	      end}
 
     ].
 
@@ -333,47 +337,47 @@ start_and_stop_client_commands(ServerPort, ServerHost) ->
     Opts = [{port, ServerPort}, {host, ServerHost}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#client{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		      {ok, State#{parent => Self}} 
+	      end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     client_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		      client_start_transport(State) 
+	      end},
 
-     #command{id   = 3,
-	      desc = "Await continue",
-	      cmd  = fun(State) -> 
-			     client_await_continue_signal(State, 5000) 
-		     end},
+     #{id   => 3,
+       desc => "Await continue",
+       cmd  => fun(State) -> 
+		      client_await_continue_signal(State, 5000) 
+	      end},
 
-     #command{id   = 4,
-	      desc = "Connect",
-	      cmd  = fun(State) -> 
-			     client_connect(State, Opts) 
-		     end},
+     #{id   => 4,
+       desc => "Connect",
+       cmd  => fun(State) -> 
+		      client_connect(State, Opts) 
+	      end},
 
-     #command{id   = 5,
-	      desc = "Await nothing",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 5000) 
-		     end},
+     #{id   => 5,
+       desc => "Await nothing",
+       cmd  => fun(State) -> 
+		      client_await_nothing(State, 5000) 
+	      end},
 
-     #command{id   = 6,
-	      desc = "Disconnect",
-	      cmd  = fun(State) -> 
-			     client_disconnect(State) 
-		     end},
+     #{id   => 6,
+       desc => "Disconnect",
+       cmd  => fun(State) -> 
+		      client_disconnect(State) 
+	      end},
 
-     #command{id   = 7,
-	      desc = "Stop transport",
-	      cmd  = fun(State) -> 
-			     client_stop_transport(State) 
-		     end}
+     #{id   => 7,
+       desc => "Stop transport",
+       cmd  => fun(State) -> 
+		      client_stop_transport(State) 
+	      end}
     ].
 
 
@@ -962,7 +966,11 @@ await_server_listening(Server, Client) ->
               "send continue to client [~p]"
               "~n", [Server, Client]),
             Client ! {continue, self()},
-            ok
+            ok;
+	{'EXIT', Server, SReason} ->
+	    exit({server_crash, SReason});
+	{'EXIT', Client, CReason} ->
+	    exit({client_crash, CReason})
     after 5000 ->
             %% There is no normal reason why this should take any time.
             %% Normally, this takes a few milli seconds. So, if we are not
@@ -979,7 +987,11 @@ await_client_blocked(Server, Client) ->
             p("received blocked message from client [~p] => "
               "send continue to server [~p]~n", [Client, Server]),
             Server ! {continue, self()},
-            ok
+            ok;
+	{'EXIT', Client, CReason} ->
+	    exit({client_crash, CReason});
+	{'EXIT', Server, SReason} ->
+	    exit({server_crash, SReason})
     after 5000 ->
             %% There is no normal reason why this should take any time.
             %% Normally, this takes a few milli seconds. So, if we are not
@@ -995,11 +1007,20 @@ await_client_blocked(Server, Client) ->
 
 server_start_command_handler(Node, Commands) ->
     start_command_handler(Node, Commands, #server{}, "server").
+%% server_start_command_handler(Node, Commands) ->
+%%     start_command_handler(Node, Commands, #{}, "server").
 
 server_start_transport(State) when is_record(State, server) ->
     case (catch megaco_tcp:start_transport()) of
 	{ok, Ref} ->
 	    {ok, State#server{transport_ref = Ref}};
+	Error ->
+	    Error
+    end;
+server_start_transport(State) when is_map(State) ->
+    case (catch megaco_tcp:start_transport()) of
+	{ok, Ref} ->
+	    {ok, State#{transport_ref => Ref}};
 	Error ->
 	    Error
     end.
@@ -1012,14 +1033,33 @@ server_listen(#server{transport_ref = Ref} = State, Options)
 	    {ok, State};
 	Error ->
 	    Error
+    end;
+server_listen(#{transport_ref := Ref} = State, Options) 
+  when is_list(Options) ->
+    Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
+    case (catch megaco_tcp:listen(Ref, Opts)) of
+	ok ->
+	    {ok, State};
+	Error ->
+	    Error
     end.
 
 server_notify_listening(#server{parent = Parent} = State) 
   when is_record(State, server) ->
     Parent ! {listening, self()},
+    {ok, State};
+server_notify_listening(#{parent := Parent} = State) ->
+    Parent ! {listening, self()},
     {ok, State}.
 
 server_await_continue_signal(#server{parent = Parent} = State, Timeout) ->
+    receive
+	{continue, Parent} ->
+	    {ok, State}
+    after Timeout ->
+	    {error, timeout}
+    end;
+server_await_continue_signal(#{parent := Parent} = State, Timeout) ->
     receive
 	{continue, Parent} ->
 	    {ok, State}
@@ -1041,9 +1081,27 @@ server_await_initial_message(State, InitialMessage, Timeout)
 
     after Timeout ->
 	    {error, timeout}
+    end;
+server_await_initial_message(State, InitialMessage, Timeout) 
+  when is_map(State) ->
+    receive 
+	{receive_message, {ControlPid, Handle, InitialMessage}} ->
+	    NewState = State#{control_pid => ControlPid,
+			      handle      => Handle},
+	    {ok, NewState};
+
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
+
+    after Timeout ->
+	    {error, timeout}
     end.
 
 server_send_message(#server{handle = Handle} = State, Message) ->
+    megaco_tcp:send_message(Handle, Message),
+    {ok, State};
+server_send_message(#{handle := Handle} = State, Message) ->
     megaco_tcp:send_message(Handle, Message),
     {ok, State}.
 
@@ -1056,11 +1114,33 @@ server_await_nothing(State, Timeout)
 
     after Timeout ->
 	    {ok, State}
-    end.
+    end;
+server_await_nothing(State, Timeout) 
+  when is_map(State) ->
+    receive 
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
 
+    after Timeout ->
+	    {ok, State}
+    end.
 
 server_await_message(State, ExpectMessage, Timeout) 
   when is_record(State, server) ->
+    receive
+	{receive_message, {_, _, ExpectMessage}} ->
+	    {ok, State};
+
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
+
+    after Timeout ->
+	    {error, timeout}
+    end;
+server_await_message(State, ExpectMessage, Timeout) 
+  when is_map(State) ->
     receive
 	{receive_message, {_, _, ExpectMessage}} ->
 	    {ok, State};
@@ -1076,19 +1156,17 @@ server_await_message(State, ExpectMessage, Timeout)
 server_disconnect(#server{handle = Handle} = State) 
   when (Handle =/= undefined) ->
      megaco_tcp:close(Handle),
+    {ok, State#server{handle = undefined}};
+server_disconnect(#server{handle = Handle} = State) 
+  when (Handle =/= undefined) ->
+     megaco_tcp:close(Handle),
     {ok, State#server{handle = undefined}}.
 
-%% server_block(#server{handle = Handle} = State) 
-%%   when (Handle =/= undefined) ->
-%%      megaco_tcp:block(Handle),
-%%     {ok, State}.
-
-%% server_unblock(#server{handle = Handle} = State) 
-%%   when (Handle =/= undefined) ->
-%%      megaco_tcp:unblock(Handle),
-%%     {ok, State}.
-
 server_stop_transport(#server{transport_ref = Ref} = State) 
+  when (Ref =/= undefined) ->
+    megaco_tcp:stop_transport(Ref),
+    {ok, State};
+server_stop_transport(#{transport_ref := Ref} = State) 
   when (Ref =/= undefined) ->
     megaco_tcp:stop_transport(Ref),
     {ok, State}.
@@ -1098,11 +1176,20 @@ server_stop_transport(#server{transport_ref = Ref} = State)
 
 client_start_command_handler(Node, Commands) ->
     start_command_handler(Node, Commands, #client{}, "client").
+%% client_start_command_handler(Node, Commands) ->
+%%     start_command_handler(Node, Commands, #{}, "client").
 		  
 client_start_transport(State) when is_record(State, client) ->
     case (catch megaco_tcp:start_transport()) of
 	{ok, Ref} ->
 	    {ok, State#client{transport_ref = Ref}};
+	Error ->
+	    Error
+    end;
+client_start_transport(State) when is_map(State) ->
+    case (catch megaco_tcp:start_transport()) of
+	{ok, Ref} ->
+	    {ok, State#{transport_ref => Ref}};
 	Error ->
 	    Error
     end.
@@ -1116,6 +1203,16 @@ client_connect(#client{transport_ref = Ref} = State, Options)
 			      handle      = Handle}};
 	Error ->
 	    Error
+    end;
+client_connect(#{transport_ref := Ref} = State, Options) 
+  when is_list(Options) ->
+    Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
+    case (catch megaco_tcp:connect(Ref, Opts)) of
+	{ok, Handle, ControlPid} ->
+	    {ok, State#{control_pid => ControlPid, 
+			handle      => Handle}};
+	Error ->
+	    Error
     end.
 
 client_await_continue_signal(#client{parent = Parent} = State, Timeout) ->
@@ -1124,9 +1221,19 @@ client_await_continue_signal(#client{parent = Parent} = State, Timeout) ->
 	    {ok, State}
     after Timeout ->
 	    {error, timeout}
+    end;
+client_await_continue_signal(#{parent := Parent} = State, Timeout) ->
+    receive
+	{continue, Parent} ->
+	    {ok, State}
+    after Timeout ->
+	    {error, timeout}
     end.
     
 client_notify_blocked(#client{parent = Parent} = State) ->
+    Parent ! {blocked, self()},
+    {ok, State};
+client_notify_blocked(#{parent := Parent} = State) ->
     Parent ! {blocked, self()},
     {ok, State}.
 
@@ -1138,9 +1245,21 @@ client_await_nothing(State, Timeout)
 	    {error, {unexpected_event, Any}}
     after Timeout ->
 	    {ok, State}
+    end;
+client_await_nothing(State, Timeout) 
+  when is_map(State) ->
+    receive 
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
+    after Timeout ->
+	    {ok, State}
     end.
 
 client_send_message(#client{handle = Handle} = State, Message) ->
+    megaco_tcp:send_message(Handle, Message),
+    {ok, State};
+client_send_message(#{handle := Handle} = State, Message) ->
     megaco_tcp:send_message(Handle, Message),
     {ok, State}.
 
@@ -1156,9 +1275,26 @@ client_await_message(State, ExpectMessage, Timeout)
 
     after Timeout ->
 	    {error, timeout}
+    end;
+client_await_message(State, ExpectMessage, Timeout) 
+  when is_map(State) ->
+    receive
+	{receive_message, {_, _, ExpectMessage}} ->
+	    {ok, State};
+
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
+
+    after Timeout ->
+	    {error, timeout}
     end.
 
 client_block(#client{handle = Handle} = State) 
+  when (Handle =/= undefined) ->
+    megaco_tcp:block(Handle),
+    {ok, State};
+client_block(#{handle := Handle} = State) 
   when (Handle =/= undefined) ->
     megaco_tcp:block(Handle),
     {ok, State}.
@@ -1166,14 +1302,26 @@ client_block(#client{handle = Handle} = State)
 client_unblock(#client{handle = Handle} = State) 
   when (Handle =/= undefined) ->
     megaco_tcp:unblock(Handle),
+    {ok, State};
+client_unblock(#{handle := Handle} = State) 
+  when (Handle =/= undefined) ->
+    megaco_tcp:unblock(Handle),
     {ok, State}.
 
 client_disconnect(#client{handle = Handle} = State) 
   when (Handle =/= undefined) ->
     megaco_tcp:close(Handle),
-    {ok, State#client{handle = undefined, control_pid = undefined}}.
+    {ok, State#client{handle = undefined, control_pid = undefined}};
+client_disconnect(#{handle := Handle} = State) 
+  when (Handle =/= undefined) ->
+    megaco_tcp:close(Handle),
+    {ok, State#{handle => undefined, control_pid => undefined}}.
 
 client_stop_transport(#client{transport_ref = Ref} = State) 
+  when (Ref =/= undefined) ->
+    megaco_tcp:stop_transport(Ref),
+    {ok, State};
+client_stop_transport(#{transport_ref := Ref} = State) 
   when (Ref =/= undefined) ->
     megaco_tcp:stop_transport(Ref),
     {ok, State}.
@@ -1181,7 +1329,7 @@ client_stop_transport(#client{transport_ref = Ref} = State)
     
 %% -------- Command handler ---------
 
-start_command_handler(Node, Commands, State, ShortName) ->
+start_command_handler(Node, Commands, State, ShortName) when is_tuple(State) ->
     Fun = fun() ->
 		  put(sname, ShortName), 
 		  process_flag(trap_exit, true),
@@ -1190,7 +1338,9 @@ start_command_handler(Node, Commands, State, ShortName) ->
 		    "~n   Result: ~p", [Result]),
 		  exit(Result)
 	  end,
-    erlang:spawn_link(Node, Fun).
+    erlang:spawn_link(Node, Fun);
+start_command_handler(Node, Commands, State, ShortName) ->
+    ?CH:start(Node, Commands, State, ShortName).
 		  
 command_handler([], State) ->
     p("command_handler -> entry when done with"
@@ -1199,25 +1349,31 @@ command_handler([], State) ->
 command_handler([#command{id   = Id,
 			  desc = Desc,
 			  cmd  = Cmd}|Commands], State) ->
-    p("command_handler -> entry with"
-      "~n   Id:   ~p"
-      "~n   Desc: ~p", [Id, Desc]),
-    case (catch Cmd(State)) of
+    p("command_handler -> [~w] ~s", [Id, Desc]),
+    try Cmd(State) of
 	{ok, NewState} ->
 	    p("command_handler -> cmd ~w ok", [Id]),
 	    command_handler(Commands, NewState);
 	{error, Reason} ->
 	    p("command_handler -> cmd ~w error: "
 	      "~n   Reason: ~p", [Id, Reason]),
-	    {error, {cmd_error, Reason}};
-	{'EXIT', Reason} ->
-	    p("command_handler -> cmv ~w exit: "
-	      "~n   Reason: ~p", [Id, Reason]),
-	    {error, {cmd_exit, Reason}};
-	Error ->
+	    {error, {cmd_error, Reason}}
+    catch
+	C:E:S ->
 	    p("command_handler -> cmd ~w failure: "
-	      "~n   Error: ~p", [Id, Error]),
-	    {error, {cmd_failure, Error}}
+	      "~n   C: ~p"
+	      "~n   E: ~p"
+	      "~n   S: ~p", [Id, C, E, S]),
+	    {error, {cmd_failure, {C, E, S}}}
+	    
+	%% {'EXIT', Reason} ->
+	%%     p("command_handler -> cmd ~w exit: "
+	%%       "~n   Reason: ~p", [Id, Reason]),
+	%%     {error, {cmd_exit, Reason}};
+	%% Error ->
+	%%     p("command_handler -> cmd ~w failure: "
+	%%       "~n   Error: ~p", [Id, Error]),
+	%%     {error, {cmd_failure, Error}}
     end.
 
 
