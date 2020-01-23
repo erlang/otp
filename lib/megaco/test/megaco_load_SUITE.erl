@@ -243,20 +243,7 @@ single_user_light_load(suite) ->
 single_user_light_load(doc) ->
     [];
 single_user_light_load(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        single_user_light_load),
-    put(sname,     "TEST"),
-    i("starting"),
-
-    load_controller(Config, 
-		    fun(Env) -> 
-			    populate(Env), 
-			    exit( single_user_load(5) ) 
-		    end),
-
-    i("done", []),
-    ok.
-
+    try_single_user_load(single_user_light_load, Config, 5).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -266,19 +253,7 @@ single_user_medium_load(suite) ->
 single_user_medium_load(doc) ->
     [];
 single_user_medium_load(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        single_user_medium_load),
-    put(sname,     "TEST"),
-    i("starting"),
-
-    load_controller(Config, 
-		    fun(Env) -> 
-			    populate(Env), 
-			    exit( single_user_load(15) ) 
-		    end),
-
-    i("done", []),
-    ok.
+    try_single_user_load(single_user_medium_load, Config, 15).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -288,19 +263,7 @@ single_user_heavy_load(suite) ->
 single_user_heavy_load(doc) ->
     [];
 single_user_heavy_load(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        single_user_heavy_load),
-    put(sname,     "TEST"),
-    i("starting"),
-
-    load_controller(Config, 
-		    fun(Env) -> 
-			    populate(Env), 
-			    exit( single_user_load(25) ) 
-		    end),
-
-    i("done", []),
-    ok.
+    try_single_user_load(single_user_heavy_load, Config, 25).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -310,19 +273,7 @@ single_user_extreme_load(suite) ->
 single_user_extreme_load(doc) ->
     [];
 single_user_extreme_load(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(tc,        single_user_extreme_load),
-    put(sname,     "TEST"),
-    i("starting"),
-
-    load_controller(Config, 
-		    fun(Env) -> 
-			    populate(Env), 
-			    exit( single_user_load(100) ) 
-		    end),
-
-    i("done", []),
-    ok.
+    try_single_user_load(single_user_extreme_load, Config, 100).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -462,14 +413,36 @@ load_controller(Config, Fun) when is_list(Config) and is_function(Fun) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-single_user_load(NumLoaders) ->
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+try_single_user_load(Name, Config, NumLoaders) ->
+    Pre = fun() ->
+		  MgcNode = make_node_name(mgc),
+		  MgNode  = make_node_name(mg),
+		  d("Nodes: "
+		    "~n      MgcNode: ~p"
+		    "~n      MgNode:  ~p", [MgcNode, MgNode]),
+		  Nodes = [MgcNode, MgNode],
+		  ok = ?START_NODES(Nodes),
+		  Nodes
+	  end,
+    Case = fun(State) -> single_user_load(State, Config, NumLoaders) end,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(Name, Pre, Case, Post).
 
+
+single_user_load(State, Config, NumLoaders) ->
+    i("starting"),
+    load_controller(Config, 
+		    fun(Env) -> 
+			    populate(Env), 
+			    exit( single_user_load(State, NumLoaders) ) 
+		    end),
+    i("done"),
+    ok.
+
+single_user_load([MgcNode, MgNode], NumLoaders) ->
     %% Start the MGC and MGs
     i("[MGC] start"),
     MgcMid = {deviceName, "ctrl"},
@@ -757,6 +730,15 @@ maybe_display_system_info(NumLoaders) when NumLoaders > 10 ->
     [{display_system_info, timer:seconds(1)}];
 maybe_display_system_info(_) ->
     [].
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
