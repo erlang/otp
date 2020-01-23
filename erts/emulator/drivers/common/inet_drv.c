@@ -9637,8 +9637,8 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    sz = desc->name_addr_len;
 	}
 	else {
-	if (!IS_INET(desc->sfamily))
-	    return ctl_error(EINVAL, rbuf, rsize);
+	    if (!IS_INET(desc->sfamily))
+	        return ctl_error(EINVAL, rbuf, rsize);
 
 	    ptr = &name;
 	    sz = sizeof(name);
