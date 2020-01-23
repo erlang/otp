@@ -620,7 +620,7 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
                     case megaco_test_global_sys_monitor:events() of
                         [] ->
                             p("try_tc -> case failed: done"),
-                            {error, {case_catched, C, E, S}};
+                            exit({case_catched, C, E, S});
                         SysEvs ->
                             p("try_tc -> case failed with system event(s): "
                               "~n   ~p", [SysEvs]),
@@ -638,7 +638,7 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
             case megaco_test_global_sys_monitor:events() of
                 [] ->
                     p("try_tc -> pre failed: done"),
-                    {error, {pre_catched, C, E, S}};
+                    exit({pre_catched, C, E, S});
                 SysEvs ->
                     p("try_tc -> pre failed with system event(s): "
                       "~n   ~p", [SysEvs]),

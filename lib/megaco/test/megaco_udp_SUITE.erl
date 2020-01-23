@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020 All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,6 +62,10 @@
 %%----------------------------------------------------------------------
 %% Macros
 %%----------------------------------------------------------------------
+
+-define(CH,             megaco_test_command_handler).
+-define(TEST_VERBOSITY, debug).
+
 
 %%----------------------------------------------------------------------
 %% Records
@@ -239,17 +243,22 @@ start_and_stop(doc) ->
     ["This test case sets up a connection and then cloises it. "
      "No data is sent. "];
 start_and_stop(Config) when is_list(Config) ->
-    put(sname, "start_and_stop"),
-    p("BEGIN TEST-CASE"),
+    Pre = fun() ->
+		  p("create nodes"),
+		  ServerNode = make_node_name(server),
+		  ClientNode = make_node_name(client),
+		  Nodes = [ServerNode, ClientNode],
+		  ok = ?START_NODES(Nodes),
+		  Nodes
+	  end,
+    Case = fun do_start_and_stop/1,
+    Post = fun(Nodes) ->
+                   p("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(start_and_stop, Pre, Case, Post).
 
-    process_flag(trap_exit, true),
-
-    p("create nodes"),
-    ServerNode = make_node_name(server),
-    ClientNode = make_node_name(client),
-    Nodes = [ServerNode, ClientNode],
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
-
+do_start_and_stop([ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
     ServerPort = 2944,
@@ -259,9 +268,11 @@ start_and_stop(Config) when is_list(Config) ->
 
     %% Start the test procs used in the test-case, one for each node
     p("start command handlers"),
-    Server = server_start_command_handler(ServerNode, ServerCmds),
+    %% Server = server_start_command_handler(ServerNode, ServerCmds),
+    Server = ?CH:start(ServerNode, ServerCmds, #{}, "server"),
     p("server command handler started: ~p", [Server]),
-    Client = client_start_command_handler(ClientNode, ClientCmds),
+    %% Client = client_start_command_handler(ClientNode, ClientCmds),
+    Client = ?CH:start(ClientNode, ClientCmds, #{}, "client"),
     p("client command handler started: ~p", [Client]),
 
     ok =
@@ -279,7 +290,8 @@ start_and_stop(Config) when is_list(Config) ->
                 {error, server_timeout}
         end,
 
-    ok = await_command_handler_completion([Server, Client], timer:seconds(20)),
+    %% ok = await_command_handler_completion([Server, Client], timer:seconds(20)),
+    ok = ?CH:await_completion([Server, Client], timer:seconds(20)),
     p("done"),
     ok.
 
@@ -288,47 +300,47 @@ start_and_stop_server_commands(Port) ->
     Opts = [{port, Port}],
     Self = self(),
     [
-     #command{id   = 1,
-              desc = "Command sequence init",
-              cmd  = fun(State) ->
-                             {ok, State#server{parent = Self}}
-                     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) ->
+		       {ok, State#{parent => Self}}
+	       end},
 
-     #command{id   = 2,
-              desc = "Start transport",
-              cmd  = fun(State) ->
-                             server_start_transport(State)
-                     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) ->
+		       server_start_transport(State)
+	       end},
 
-     #command{id   = 3,
-              desc = "Open",
-              cmd  = fun(State) ->
-                             server_open(State, Opts)
-                     end},
+     #{id   => 3,
+       desc => "Open",
+       cmd  => fun(State) ->
+		      server_open(State, Opts)
+	      end},
 
-     #command{id   = 4,
-              desc = "Notify operational",
-              cmd  = fun(State) ->
-                             server_notify_operational(State)
-                     end},
-
-     #command{id   = 5,
-              desc = "Await nothing",
-              cmd  = fun(State) ->
-                             server_await_nothing(State, 5000)
-                     end},
-
-     #command{id   = 6,
-              desc = "Close",
-              cmd  = fun(State) ->
-                             server_close(State)
-                     end},
-
-     #command{id   = 7,
-              desc = "Stop",
-              cmd  = fun(State) ->
-                             server_stop_transport(State)
-                     end}
+     #{id   => 4,
+       desc => "Notify operational",
+       cmd  => fun(State) ->
+		      server_notify_operational(State)
+	      end},
+     
+     #{id   => 5,
+       desc => "Await nothing",
+       cmd  => fun(State) ->
+		      server_await_nothing(State, 5000)
+	      end},
+     
+     #{id   => 6,
+       desc => "Close",
+       cmd  => fun(State) ->
+		      server_close(State)
+	      end},
+     
+     #{id   => 7,
+       desc => "Stop",
+       cmd  => fun(State) ->
+		      server_stop_transport(State)
+	      end}
 
     ].
 
@@ -336,47 +348,47 @@ start_and_stop_client_commands(ServerPort, _ServerHost) ->
     Opts = [{port, ServerPort}],
     Self = self(),
     [
-     #command{id   = 1,
-              desc = "Command sequence init",
-              cmd  = fun(State) ->
-                             {ok, State#client{parent = Self}}
-                     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) ->
+		       {ok, State#{parent => Self}}
+	       end},
 
-     #command{id   = 2,
-              desc = "Start transport",
-              cmd  = fun(State) ->
-                             client_start_transport(State)
-                     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) ->
+		       client_start_transport(State)
+	       end},
 
-     #command{id   = 3,
-              desc = "Open",
-              cmd  = fun(State) ->
-                             client_open(State, Opts)
-                     end},
+     #{id   => 3,
+       desc => "Open",
+       cmd  => fun(State) ->
+		       client_open(State, Opts)
+	       end},
 
-     #command{id   = 4,
-              desc = "Await continue",
-              cmd  = fun(State) ->
-                             client_await_continue_signal(State, 5000)
-                     end},
+     #{id   => 4,
+       desc => "Await continue",
+       cmd  => fun(State) ->
+		       client_await_continue_signal(State, 5000)
+	       end},
 
-     #command{id   = 5,
-              desc = "Await nothing",
-              cmd  = fun(State) ->
-                             client_await_nothing(State, 5000)
-                     end},
+     #{id   => 5,
+       desc => "Await nothing",
+       cmd  => fun(State) ->
+		       client_await_nothing(State, 5000)
+	       end},
 
-     #command{id   = 6,
-              desc = "Close",
-              cmd  = fun(State) ->
-                             client_close(State)
-                     end},
+     #{id   => 6,
+       desc => "Close",
+       cmd  => fun(State) ->
+		       client_close(State)
+	       end},
 
-     #command{id   = 7,
-              desc = "Stop transport",
-              cmd  = fun(State) ->
-                             client_stop_transport(State)
-                     end}
+     #{id   => 7,
+       desc => "Stop transport",
+       cmd  => fun(State) ->
+		       client_stop_transport(State)
+	       end}
     ].
 
 
@@ -955,6 +967,13 @@ server_start_transport(State) when is_record(State, server) ->
 	    {ok, State#server{transport_ref = Ref}};
 	Error ->
 	    Error
+    end;
+server_start_transport(State) when is_map(State) ->
+    case (catch megaco_udp:start_transport()) of
+	{ok, Ref} ->
+	    {ok, State#{transport_ref => Ref}};
+	Error ->
+	    Error
     end.
 
 server_open(#server{transport_ref = Ref} = State, Options) 
@@ -968,14 +987,36 @@ server_open(#server{transport_ref = Ref} = State, Options)
 	    {skip, {server, eaddrinuse}};
 	Error ->
 	    Error
+    end;
+server_open(#{transport_ref := Ref} = State, Options) 
+  when is_list(Options) ->
+    Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
+    case (catch megaco_udp:open(Ref, Opts)) of
+	{ok, Socket, ControlPid} ->
+	    {ok, State#{handle      => {socket, Socket},  % Temporary
+			control_pid => ControlPid}};
+	{error, {could_not_open_udp_port, eaddrinuse}} ->
+	    {skip, {server, eaddrinuse}};
+	Error ->
+	    Error
     end.
 
 server_notify_operational(#server{parent = Parent} = State) 
   when is_record(State, server) ->
     Parent ! {operational, self()},
+    {ok, State};
+server_notify_operational(#{parent := Parent} = State) ->
+    Parent ! {operational, self()},
     {ok, State}.
 
 server_await_continue_signal(#server{parent = Parent} = State, Timeout) ->
+    receive
+	{continue, Parent} ->
+	    {ok, State}
+    after Timeout ->
+	    {error, timeout}
+    end;
+server_await_continue_signal(#{parent := Parent} = State, Timeout) ->
     receive
 	{continue, Parent} ->
 	    {ok, State}
@@ -999,9 +1040,35 @@ server_await_initial_message(State, InitialMessage, Timeout)
 
     after Timeout ->
 	    {error, timeout}
+    end;
+server_await_initial_message(State, InitialMessage, Timeout) 
+  when is_map(State) ->
+    receive 
+	{receive_message, {ControlPid, Handle, InitialMessage}} ->
+	    p("received expected event with: "
+	      "~n   ControlPid: ~p"
+	      "~n   Handle:     ~p", [ControlPid, Handle]),
+	    NewState = State#{handle => Handle},
+	    {ok, NewState};
+
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
+
+    after Timeout ->
+	    {error, timeout}
     end.
 
 server_send_message(#server{handle = Handle} = State, Message) ->
+    Bin = if
+	      is_list(Message) ->
+		  list_to_binary(Message);
+	      true ->
+		  Message
+	  end,
+    megaco_udp:send_message(Handle, Bin),
+    {ok, State};
+server_send_message(#{handle := Handle} = State, Message) ->
     Bin = if
 	      is_list(Message) ->
 		  list_to_binary(Message);
@@ -1020,11 +1087,34 @@ server_await_nothing(State, Timeout)
 
     after Timeout ->
 	    {ok, State}
-    end.
+    end;
+server_await_nothing(State, Timeout) 
+  when is_map(State) ->
+    receive 
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
 
+    after Timeout ->
+	    {ok, State}
+    end.
 
 server_await_message(State, ExpectMessage, Timeout) 
   when is_record(State, server) ->
+    receive
+	{receive_message, {_, _, ExpectMessage}} ->
+	    p("received expected message [~p]", [ExpectMessage]),
+	    {ok, State};
+
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
+
+    after Timeout ->
+	    {error, timeout}
+    end;
+server_await_message(State, ExpectMessage, Timeout) 
+  when is_map(State) ->
     receive
 	{receive_message, {_, _, ExpectMessage}} ->
 	    p("received expected message [~p]", [ExpectMessage]),
@@ -1044,7 +1134,14 @@ server_close(#server{handle = {socket, Socket}} = State) ->
 server_close(#server{handle = Handle} = State) 
   when (Handle =/= undefined) ->
     megaco_udp:close(Handle),
-    {ok, State#server{handle = undefined, control_pid = undefined}}.
+    {ok, State#server{handle = undefined, control_pid = undefined}};
+server_close(#{handle := {socket, Socket}} = State) ->
+    megaco_udp:close(Socket),
+    {ok, State#{handle => undefined, control_pid => undefined}};
+server_close(#{handle := Handle} = State) 
+  when (Handle =/= undefined) ->
+    megaco_udp:close(Handle),
+    {ok, State#{handle => undefined, control_pid => undefined}}.
 
 %% server_block(#server{handle = Handle} = State) 
 %%   when (Handle =/= undefined) ->
@@ -1059,7 +1156,11 @@ server_close(#server{handle = Handle} = State)
 server_stop_transport(#server{transport_ref = Ref} = State) 
   when (Ref =/= undefined) ->
     megaco_udp:stop_transport(Ref),
-    {ok, State#server{transport_ref = undefined}}.
+    {ok, State#server{transport_ref = undefined}};
+server_stop_transport(#{transport_ref := Ref} = State) 
+  when (Ref =/= undefined) ->
+    megaco_udp:stop_transport(Ref),
+    {ok, State#{transport_ref => undefined}}.
 
 
 %% -------  Client command handler and utility functions ----------
@@ -1071,6 +1172,13 @@ client_start_transport(State) when is_record(State, client) ->
     case (catch megaco_udp:start_transport()) of
 	{ok, Ref} ->
 	    {ok, State#client{transport_ref = Ref}};
+	Error ->
+	    Error
+    end;
+client_start_transport(State) when is_map(State) ->
+    case (catch megaco_udp:start_transport()) of
+	{ok, Ref} ->
+	    {ok, State#{transport_ref => Ref}};
 	Error ->
 	    Error
     end.
@@ -1086,6 +1194,18 @@ client_open(#client{transport_ref = Ref} = State, Options)
 	    {skip, {client, eaddrinuse}};
 	Error ->
 	    Error
+    end;
+client_open(#{transport_ref := Ref} = State, Options) 
+  when is_list(Options) ->
+    Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
+    case (catch megaco_udp:open(Ref, Opts)) of
+	{ok, Socket, ControlPid} ->
+	    {ok, State#{handle      => {socket, Socket}, 
+			control_pid => ControlPid}};
+	{error, {could_not_open_udp_port, eaddrinuse}} ->
+	    {skip, {client, eaddrinuse}};
+	Error ->
+	    Error
     end.
 
 client_await_continue_signal(#client{parent = Parent} = State, Timeout) ->
@@ -1094,9 +1214,19 @@ client_await_continue_signal(#client{parent = Parent} = State, Timeout) ->
 	    {ok, State}
     after Timeout ->
 	    {error, timeout}
+    end;
+client_await_continue_signal(#{parent := Parent} = State, Timeout) ->
+    receive
+	{continue, Parent} ->
+	    {ok, State}
+    after Timeout ->
+	    {error, timeout}
     end.
     
 client_notify_blocked(#client{parent = Parent} = State) ->
+    Parent ! {blocked, self()},
+    {ok, State};
+client_notify_blocked(#{parent := Parent} = State) ->
     Parent ! {blocked, self()},
     {ok, State}.
 
@@ -1108,13 +1238,34 @@ client_await_nothing(State, Timeout)
 	    {error, {unexpected_event, Any}}
     after Timeout ->
 	    {ok, State}
+    end;
+client_await_nothing(State, Timeout) 
+  when is_map(State) ->
+    receive 
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
+    after Timeout ->
+	    {ok, State}
     end.
 
 client_connect(#client{handle = {socket, Socket}} = State, Host, Port) ->
     Handle = megaco_udp:create_send_handle(Socket, Host, Port),
-    {ok, State#client{handle = Handle}}.
+    {ok, State#client{handle = Handle}};
+client_connect(#{handle := {socket, Socket}} = State, Host, Port) ->
+    Handle = megaco_udp:create_send_handle(Socket, Host, Port),
+    {ok, State#{handle => Handle}}.
 
 client_send_message(#client{handle = Handle} = State, Message) ->
+    Bin = if
+	      is_list(Message) ->
+		  list_to_binary(Message);
+	      true ->
+		  Message
+	  end,
+    megaco_udp:send_message(Handle, Bin),
+    {ok, State};
+client_send_message(#{handle := Handle} = State, Message) ->
     Bin = if
 	      is_list(Message) ->
 		  list_to_binary(Message);
@@ -1136,14 +1287,35 @@ client_await_message(State, ExpectMessage, Timeout)
 
     after Timeout ->
 	    {error, timeout}
+    end;
+client_await_message(State, ExpectMessage, Timeout) 
+  when is_map(State) ->
+    receive
+	{receive_message, {_, _, ExpectMessage}} ->
+	    {ok, State};
+
+	Any ->
+	    p("received unexpected event: ~p", [Any]),
+	    {error, {unexpected_event, Any}}
+
+    after Timeout ->
+	    {error, timeout}
     end.
 
 client_block(#client{handle = Handle} = State) 
   when (Handle =/= undefined) ->
     ok = megaco_udp:block(Handle),
+    {ok, State};
+client_block(#{handle := Handle} = State) 
+  when (Handle =/= undefined) ->
+    ok = megaco_udp:block(Handle),
     {ok, State}.
 
 client_unblock(#client{handle = Handle} = State) 
+  when (Handle =/= undefined) ->
+    ok = megaco_udp:unblock(Handle),
+    {ok, State};
+client_unblock(#{handle := Handle} = State) 
   when (Handle =/= undefined) ->
     ok = megaco_udp:unblock(Handle),
     {ok, State}.
@@ -1154,12 +1326,23 @@ client_close(#client{handle = {socket, Socket}} = State) ->
 client_close(#client{handle = Handle} = State) 
   when (Handle =/= undefined) ->
     megaco_udp:close(Handle),
-    {ok, State#client{handle = undefined, control_pid = undefined}}.
+    {ok, State#client{handle = undefined, control_pid = undefined}};
+client_close(#{handle := {socket, Socket}} = State) ->
+    megaco_udp:close(Socket),
+    {ok, State#{handle => undefined, control_pid => undefined}};
+client_close(#{handle := Handle} = State) 
+  when (Handle =/= undefined) ->
+    megaco_udp:close(Handle),
+    {ok, State#{handle => undefined, control_pid => undefined}}.
 
 client_stop_transport(#client{transport_ref = Ref} = State) 
   when (Ref =/= undefined) ->
     megaco_udp:stop_transport(Ref),
-    {ok, State#client{transport_ref = undefined}}.
+    {ok, State#client{transport_ref = undefined}};
+client_stop_transport(#{transport_ref := Ref} = State) 
+  when (Ref =/= undefined) ->
+    megaco_udp:stop_transport(Ref),
+    {ok, State#{transport_ref => undefined}}.
 
     
 %% -------- Command handler ---------
@@ -1269,6 +1452,17 @@ await_command_handler_completion(Pids, Bad, Good, Timeout) ->
     end.
 
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% ------- Misc functions --------
 

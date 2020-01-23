@@ -33,6 +33,7 @@ TEST_UTIL_MODULES = \
 	megaco_mess_otp8212_test \
 	megaco_profile \
 	megaco_tc_controller \
+	megaco_test_command_handler \
 	megaco_test_global_sys_monitor \
 	megaco_test_sys_monitor \
 	megaco_test_generator_lib \
