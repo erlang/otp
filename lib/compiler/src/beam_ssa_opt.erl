@@ -1877,33 +1877,20 @@ opt_tup_size_is([], _, _, _Acc) -> none.
 %%%
 %%% Optimize #b_switch{} instructions.
 %%%
-%%% If the argument for a #b_switch{} comes from a phi node with all
-%%% literals, any values in the switch list which are not in the phi
-%%% node can be removed.
-%%%
-%%% If the values in the phi node and switch list are the same,
-%%% the failure label can't be reached and be eliminated.
-%%%
 %%% A #b_switch{} with only one value can be rewritten to
 %%% a #b_br{}. A switch that only verifies that the argument
-%%% is 'true' or 'false' can be rewritten to a is_boolean test.
-%%%
+%%% is 'true' or 'false' can be rewritten to an is_boolean test.
+%%%b
 
 ssa_opt_sw({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     {Linear,Count} = opt_sw(Linear0, Count0, []),
     {St#opt_st{ssa=Linear,cnt=Count}, FuncDb}.
 
 opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
-    %% Ensure that no label in the switch list is the same
-    %% as the failure label.
-    #b_switch{fail=Fail,list=List0} = Sw0,
-    List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
-    Sw1 = beam_ssa:normalize(Sw0#b_switch{list=List}),
-    case Sw1 of
+    case Sw0 of
         #b_switch{arg=Arg,fail=Fail,list=[{Lit,Lbl}]} ->
             %% Rewrite a single value switch to a br.
-            Bool = #b_var{name={'@ssa_bool',Count0}},
-            Count = Count0 + 1,
+            {Bool,Count} = new_var('@ssa_bool', Count0),
             IsEq = #b_set{op={bif,'=:='},dst=Bool,args=[Arg,Lit]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsEq],last=Br},
@@ -1912,17 +1899,13 @@ opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
                   list=[{#b_literal{val=B1},Lbl},{#b_literal{val=B2},Lbl}]}
           when B1 =:= not B2 ->
             %% Replace with is_boolean test.
-            Bool = #b_var{name={'@ssa_bool',Count0}},
-            Count = Count0 + 1,
+            {Bool,Count} = new_var('@ssa_bool', Count0),
             IsBool = #b_set{op={bif,is_boolean},dst=Bool,args=[Arg]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsBool],last=Br},
             opt_sw(Bs, Count, [{L,Blk}|Acc]);
-        Sw0 ->
-            opt_sw(Bs, Count0, [{L,Blk0}|Acc]);
-        Sw ->
-            Blk = Blk0#b_blk{last=Sw},
-            opt_sw(Bs, Count0, [{L,Blk}|Acc])
+        _ ->
+            opt_sw(Bs, Count0, [{L,Blk0}|Acc])
     end;
 opt_sw([{L,#b_blk{}=Blk}|Bs], Count, Acc) ->
     opt_sw(Bs, Count, [{L,Blk}|Acc]);
