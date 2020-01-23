@@ -1423,39 +1423,43 @@ connect(Socket, SockAddr) ->
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
 %% </KOLLA>
-connect(_Socket, _SockAddr, Timeout)
-  when (is_integer(Timeout) andalso (Timeout =< 0)) ->
-    {error, timeout};
-connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
-  when ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso
-       ((Timeout =:= nowait) orelse 
-        (Timeout =:= infinity) orelse is_integer(Timeout)) ->
-    TS = timestamp(Timeout),
-    try nif_connect(SockRef, ensure_sockaddr(SockAddr)) of
+connect(#socket{ref = SockRef}, SockAddr, Timeout) ->
+    try
+        do_connect(SockRef, ensure_sockaddr(SockAddr), deadline(Timeout))
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
+
+
+do_connect(SockRef, SockAddr, Deadline) ->
+    case nif_connect(SockRef, ensure_sockaddr(SockAddr)) of
+
         ok ->
             %% Connected!
             ok;
 
-        {ok, Ref} when (Timeout =:= nowait) ->
+
+        {ok, Ref} when (Deadline =:= nowait) ->
             %% Connecting, but the caller does not want to wait...
             ?SELECT(connect, Ref);
 
         {ok, Ref} ->
             %% Connecting...
-	    NewTimeout = next_timeout(TS, Timeout),
-	    receive
+            Timeout = timeout(Deadline),
+            receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, Ref} ->
-		    nif_finalize_connection(SockRef)
-	    after NewTimeout ->
+                    nif_finalize_connection(SockRef)
+            after Timeout ->
                     cancel(SockRef, connect, Ref),
-		    {error, timeout}
-	    end;
-	{error, _} = ERROR ->
-	    ERROR
-    catch
-        throw:ERROR ->
+                    {error, timeout}
+            end;
+
+
+        {error, _} = ERROR ->
             ERROR
     end.
+
 
 
 %% ===========================================================================
@@ -1509,44 +1513,43 @@ accept(Socket) ->
       Socket     :: socket(),
       Reason     :: term().
 
-%% Do we really need this optimization?
-accept(_, Timeout) when is_integer(Timeout) andalso (Timeout =< 0) ->
-    {error, timeout};
-accept(#socket{ref = LSockRef}, Timeout)
-  when is_integer(Timeout) orelse
-       (Timeout =:= infinity)  orelse
-       (Timeout =:= nowait) ->
-    do_accept(LSockRef, Timeout).
+accept(#socket{ref = LSockRef}, Timeout) ->
+    try
+        do_accept(LSockRef, deadline(Timeout))
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-do_accept(LSockRef, Timeout) ->
-    TS     = timestamp(Timeout),
+do_accept(LSockRef, Deadline) ->
     AccRef = make_ref(),
     case nif_accept(LSockRef, AccRef) of
+
         {ok, SockRef} ->
             Socket = #socket{ref = SockRef},
             {ok, Socket};
 
 
-        {error, eagain} when (Timeout =:= nowait) ->
+        {error, eagain} when (Deadline =:= nowait) ->
             ?SELECT(accept, AccRef);
-
 
         {error, eagain} ->
             %% Each call is non-blocking, but even then it takes
             %% *some* time, so just to be sure, recalculate before 
             %% the receive.
-	    NewTimeout = next_timeout(TS, Timeout),
+	    Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = LSockRef}, select, AccRef} ->
-                    do_accept(LSockRef, next_timeout(TS, Timeout));
+                    do_accept(LSockRef, Deadline);
 
                 {?ESOCK_TAG, _Socket, abort, {AccRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(LSockRef, accept, AccRef),
                     {error, timeout}
             end;
+
 
         {error, _} = ERROR ->
             cancel(LSockRef, accept, AccRef), % Just to be on the safe side...
@@ -1681,7 +1684,7 @@ send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
         {error, exbusy = Reason} ->
             %% Internal error:
             %%   we called send, got eagain, and called send again
-            %%   - without waiting for continuation
+            %%   - without waiting for select message
             erlang:error(Reason);
 
 
@@ -1899,7 +1902,7 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Deadline) ->
         {error, exbusy = Reason} ->
             %% Internal error:
             %%   we called send, got eagain, and called send again
-            %%   - without waiting for continuation
+            %%   - without waiting for select message
             erlang:error(Reason);
 
 
@@ -2035,145 +2038,131 @@ recv(Socket, Length, Timeout) ->
       Reason     :: term().
 
 recv(#socket{ref = SockRef}, Length, Flags, Timeout)
-  when (is_integer(Length) andalso (Length >= 0)) andalso
-       is_list(Flags) andalso
-       (is_integer(Timeout) orelse 
-        (Timeout =:= infinity) orelse 
-        (Timeout =:= nowait))  ->
-    EFlags = enc_recv_flags(Flags),
-    do_recv(SockRef, undefined, Length, EFlags, <<>>, Timeout).
+  when is_integer(Length), Length >= 0, is_list(Flags) ->
+    try
+        EFlags = enc_recv_flags(Flags),
+        Deadline = deadline(Timeout),
+        do_recv(SockRef, Length, EFlags, Deadline, <<>>)
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-%% We need to pass the "old recv ref" around because of the special case
-%% with Length = 0. This case makes it neccessary to have a timeout function
-%% clause since we may never wait for anything (no receive select), and so the
-%% the only timeout check will be the function clause.
-%% Note that the Timeout value of 'nowait' has a special meaning. It means
+%% We will only recurse with Length == 0 if Length is 0,
+%% so Length == 0 means to return all available data also when recursing
+%%
+%% Note that the Deadline value of 'nowait' has a special meaning. It means
 %% that we will either return with data or with the with {error, NNNN}. In
 %% wich case the caller will receive a select message at some later time.
-do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
-  when (Timeout =:= nowait) orelse
-       (Timeout =:= infinity) orelse
-       (is_integer(Timeout) andalso (Timeout > 0)) ->
-    TS      = timestamp(Timeout),
+%%
+do_recv(SockRef, Length, EFlags, Deadline, Acc) ->
+
     RecvRef = make_ref(),
     case nif_recv(SockRef, RecvRef, Length, EFlags) of
-        {ok, true = _Complete, Bin} when (size(Acc) =:= 0) ->
-            {ok, Bin};
+
         {ok, true = _Complete, Bin} ->
-            {ok, <<Acc/binary, Bin/binary>>};
+            {ok, bincat(Acc, Bin)};
+
 
         %% It depends on the amount of bytes we tried to read:
         %%    0   - Read everything available
         %%          We got something, but there may be more - keep reading.
         %%    > 0 - We got a part of the message and we will be notified
         %%          when there is more to read (a select message)
-        {ok, false = _Complete, Bin} when (Length =:= 0) ->
-            do_recv(SockRef, RecvRef,
-                    Length, EFlags,
-                    <<Acc/binary, Bin/binary>>,
-                    next_timeout(TS, Timeout));
-
+        {ok, false = _Complete, Bin} when Length =:= 0 ->
+            do_recv(
+              SockRef, Length, EFlags, Deadline, bincat(Acc, Bin));
 
         %% Did not get all the user asked for, but the user also
         %% specified 'nowait', so deliver what we got and the 
         %% select info.
-        {ok, false = _Completed, Bin} when (Timeout =:= nowait) andalso 
-                                           (size(Acc) =:= 0) ->
-            {ok, {Bin, ?SELECT_INFO(recv, RecvRef)}};
-
-
-        {ok, false = _Completed, Bin} when (size(Acc) =:= 0) ->
-            %% We got the first chunk of it.
-            %% We will be notified (select message) when there
-            %% is more to read.
-	    NewTimeout = next_timeout(TS, Timeout),
-            receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recv(SockRef, RecvRef,
-                            Length-size(Bin), EFlags,
-                            Bin,
-                            next_timeout(TS, Timeout));
-
-                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
-                    {error, Reason}
-
-            after NewTimeout ->
-                    cancel(SockRef, recv, RecvRef),
-                    {error, {timeout, Acc}}
-            end;
+        {ok, false = _Completed, Bin} when Deadline =:= nowait ->
+            {ok, {bincat(Acc, Bin), ?SELECT_INFO(recv, RecvRef)}};
 
         {ok, false = _Completed, Bin} ->
             %% We got a chunk of it!
-	    NewTimeout = next_timeout(TS, Timeout),
+	    Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recv(SockRef, RecvRef,
-                            Length-size(Bin), EFlags,
-                            <<Acc/binary, Bin/binary>>,
-                            next_timeout(TS, Timeout));
+                    Remaining = Length - byte_size(Bin),
+                    Data = bincat(Acc, Bin),
+                    if
+                        0 < Remaining, 0 < Timeout ->
+                            do_recv(
+                              SockRef, Remaining, EFlags, Deadline, Data);
+                        0 < Remaining ->
+                            {error, {timeout, Data}};
+                        true -> % Got all
+                            {ok, Data}
+                    end;
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(SockRef, recv, RecvRef),
-                    {error, {timeout, Acc}}
+                    {error, {timeout, bincat(Acc, Bin)}}
             end;
+
+
+        {error, exbusy} = Error when Deadline =:= nowait -> Error;
+
+        {error, exbusy = Reason} ->
+            %% Internal error:
+            %%   we called recv, got eagain, and called recv again
+            %%   - without waiting for select message
+            erlang:error(Reason);
 
 
         %% The user does not want to wait!
         %% The user will be informed that there is something to read
         %% via the select socket message (see below).
-
-        {error, eagain} when (Timeout =:= nowait) andalso (size(Acc) =:= 0) ->
-            ?SELECT(recv, RecvRef);
-        {error, eagain} when (Timeout =:= nowait) ->
-            {ok, {Acc, ?SELECT_INFO(recv, RecvRef)}};
+        {error, eagain} when Deadline =:= nowait ->
+            if
+                byte_size(Acc) =:= 0 ->
+                    ?SELECT(recv, RecvRef);
+                true ->
+                    {ok, {Acc, ?SELECT_INFO(recv, RecvRef)}}
+            end;
 
 
         %% We return with the accumulated binary (if its non-empty)
-        {error, eagain} when (Length =:= 0) andalso (size(Acc) > 0) ->
-            %% CAN WE REALLY DO THIS? THE NIF HAS SELECTED!! OR?
+        {error, eagain} when Length =:= 0, 0 < byte_size(Acc) ->
+            cancel(SockRef, recv, RecvRef),
             {ok, Acc};
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
-            NewTimeout = next_timeout(TS, Timeout),
+            Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recv(SockRef, RecvRef,
-                            Length, EFlags,
-                            Acc,
-                            next_timeout(TS, Timeout));
+                    if
+                        0 < Timeout ->
+                            do_recv(
+                              SockRef, Length, EFlags, Deadline, Acc);
+                        0 < byte_size(Acc) ->
+                            {error, {timeout, Acc}};
+                        true ->
+                            {error, timeout}
+                    end;
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(SockRef, recv, RecvRef),
                     {error, timeout}
             end;
 
-        {error, _} = ERROR when (size(Acc) =:= 0) ->
+
+        {error, _} = ERROR when byte_size(Acc) =:= 0 ->
             ERROR;
 
         {error, Reason} ->
             {error, {Reason, Acc}}
 
-    end;
-
-do_recv(SockRef, RecvRef, 0 = _Length, _Eflags, Acc, _Timeout) ->
-    %% The current recv operation is to be cancelled, so no need for a ref...
-    %% The cancel will end our 'read everything you have' and "activate"
-    %% any waiting reader.
-    cancel(SockRef, recv, RecvRef),
-    {ok, Acc};
-do_recv(_SockRef, _RecvRef, _Length, _EFlags, Acc, _Timeout)
-  when (size(Acc) > 0) ->
-    {error, {timeout, Acc}};
-do_recv(_SockRef, _RecvRef, _Length, _EFlags, _Acc, _Timeout) ->
-    {error, timeout}.
+    end.
 
 
 
@@ -2288,42 +2277,52 @@ recvfrom(Socket, BufSz, Timeout) ->
       Reason  :: term().
 
 recvfrom(#socket{ref = SockRef}, BufSz, Flags, Timeout)
-  when (is_integer(BufSz) andalso (BufSz >= 0)) andalso
-       is_list(Flags) andalso
-       (is_integer(Timeout) orelse
-        (Timeout =:= infinity) orelse
-        (Timeout =:= nowait)) ->
-    EFlags = enc_recv_flags(Flags),
-    do_recvfrom(SockRef, BufSz, EFlags, Timeout).
+  when is_integer(BufSz), 0 =< BufSz, is_list(Flags) ->
+    try
+        EFlags = enc_recv_flags(Flags),
+        Deadline = deadline(Timeout),
+        do_recvfrom(SockRef, BufSz, EFlags, Deadline)
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
-    TS      = timestamp(Timeout),
+do_recvfrom(SockRef, BufSz, EFlags, Deadline)  ->
+
     RecvRef = make_ref(),
     case nif_recvfrom(SockRef, RecvRef, BufSz, EFlags) of
         {ok, {_Source, _NewData}} = OK ->
             OK;
 
 
-        {error, eagain} when (Timeout =:= nowait) ->
-            ?SELECT(recvfrom, RecvRef);
+        {error, exbusy} = Error when Deadline =:= nowait -> Error;
 
+        {error, exbusy = Reason} ->
+            %% Internal error:
+            %%   we called recvfrom, got eagain, and called recvfrom again
+            %%   - without waiting for select message
+            erlang:error(Reason);
+
+
+        {error, eagain} when Deadline =:= nowait ->
+            ?SELECT(recvfrom, RecvRef);
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
-            NewTimeout = next_timeout(TS, Timeout),
+            Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recvfrom(SockRef, BufSz, EFlags,
-                                next_timeout(TS, Timeout));
+                    do_recvfrom(SockRef, BufSz, EFlags, Deadline);
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(SockRef, recvfrom, RecvRef),
                     {error, timeout}
             end;
+
 
         {error, _Reason} = ERROR ->
             ERROR
@@ -2418,49 +2417,59 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz) andalso is_integer(CtrlSz)
       Reason     :: term().
 
 recvmsg(#socket{ref = SockRef}, BufSz, CtrlSz, Flags, Timeout)
-  when (is_integer(BufSz) andalso (BufSz >= 0)) andalso
-       (is_integer(CtrlSz) andalso (CtrlSz >= 0)) andalso
-       is_list(Flags) andalso
-       (is_integer(Timeout) orelse
-        (Timeout =:= infinity) orelse
-        (Timeout =:= nowait)) ->
-    EFlags = enc_recv_flags(Flags),
-    do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout).
+  when is_integer(BufSz), 0 =< BufSz,
+       is_integer(CtrlSz), 0 =< CtrlSz,
+       is_list(Flags) ->
+    try
+        EFlags = enc_recv_flags(Flags),
+        Deadline = deadline(Timeout),
+        do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Deadline)
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
-    TS      = timestamp(Timeout),
+do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Deadline)  ->
+
     RecvRef = make_ref(),
     case nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags) of
         {ok, _MsgHdr} = OK ->
             OK;
 
 
-        {error, eagain} when (Timeout =:= nowait) ->
-            ?SELECT(recvmsg, RecvRef);
+        {error, exbusy} = Error when Deadline =:= nowait -> Error;
 
+        {error, exbusy = Reason} ->
+            %% Internal error:
+            %%   we called recvmsg, got eagain, and called recvmsg again
+            %%   - without waiting for select message
+            erlang:error(Reason);
+
+
+        {error, eagain} when Deadline =:= nowait ->
+            ?SELECT(recvmsg, RecvRef);
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
-            NewTimeout = next_timeout(TS, Timeout),
+            Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recvmsg(SockRef, BufSz, CtrlSz, EFlags,
-                               next_timeout(TS, Timeout));
+                    do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Deadline);
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(SockRef, recvmsg, RecvRef),
                     {error, timeout}
             end;
+
 
         {error, _Reason} = ERROR ->
             ERROR
 
     end.
-
 
 
 
@@ -3939,12 +3948,15 @@ deadline(Timeout) ->
     case Timeout of
         nowait -> Timeout;
         infinity -> Timeout;
+        _ when is_integer(Timeout), 0 =< Timeout ->
+            timestamp() + Timeout;
         _ ->
-            timestamp() + Timeout
+            invalid_timeout(Timeout)
     end.
 
 timeout(Deadline) ->
     case Deadline of
+        %% nowait -> 0; % This should be handled by caller
         infinity -> infinity;
         _ ->
             Now = timestamp(),
@@ -3955,34 +3967,14 @@ timeout(Deadline) ->
     end.
 
 
-%% A timestamp in ms
-
-timestamp(nowait = T) ->
-    T;
-timestamp(infinity) ->
-    undefined;
-timestamp(_) ->
-    timestamp().
-
 timestamp() ->
     erlang:monotonic_time(milli_seconds).
 
-next_timeout(_, nowait = Timeout) ->
-    Timeout;
-next_timeout(_, infinity = Timeout) ->
-    Timeout;
-next_timeout(TS, Timeout) ->
-    NewTimeout = Timeout - tdiff(TS, timestamp()),
-    if
-        (NewTimeout > 0) ->
-            NewTimeout;
-        true ->
-            0
-    end.
-
-tdiff(T1, T2) ->
-    T2 - T1.
-
+-compile({inline, [bincat/2]}).
+bincat(<<>>, <<B/binary>>) -> B;
+bincat(<<A/binary>>, <<>>) -> A;
+bincat(<<A/binary>>, <<B/binary>>) ->
+    <<A/binary, B/binary>>.
 
 
 %% p(F) ->
@@ -4008,48 +4000,45 @@ tdiff(T1, T2) ->
 
 -spec invalid_domain(Domain) -> no_return() when
       Domain :: term().
-
 invalid_domain(Domain) ->
     error({invalid_domain, Domain}).
 
 -spec invalid_type(Type) -> no_return() when
       Type :: term().
-
 invalid_type(Type) ->
     error({invalid_type, Type}).
 
 -spec invalid_protocol(Proto) -> no_return() when
       Proto :: term().
-
 invalid_protocol(Proto) ->
     error({invalid_protocol, Proto}).
 
 -spec invalid_address(SockAddr) -> no_return() when
-      SockAddr :: sockaddr().
-
+      SockAddr :: term().
 invalid_address(SockAddr) ->
     error({invalid_address, SockAddr}).
 
+-spec invalid_timeout(Timeout) -> no_return() when
+      Timeout :: term().
+invalid_timeout(Timeout) ->
+    error({invalid_timeout, Timeout}).
+
 -spec not_supported(What) -> no_return() when
       What :: term().
-
 not_supported(What) ->
     error({not_supported, What}).
 
 -spec unknown(What) -> no_return() when
       What :: term().
-
 unknown(What) ->
     error({unknown, What}).
 
 -spec einval() -> no_return().
-
 einval() ->
     error(einval).
 
 -spec error(Reason) -> no_return() when
       Reason :: term().
-
 error(Reason) ->
     throw({error, Reason}).
 
