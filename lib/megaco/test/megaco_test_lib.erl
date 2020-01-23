@@ -443,18 +443,6 @@ pprint(F, A) ->
 
 init_per_suite(Config) ->
 
-    io:format("Host info:"
-              "~n   OS Type:    ~p"
-              "~n   OS Version: ~s"
-              "~n", 
-              [os:type(), 
-               case os:version() of
-                   {Major, Minor, Release} ->
-                       ?F("~w.~w.~w", [Major, Minor, Release]);
-                   Str when is_list(Str) ->
-                       Str
-               end]),
-
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
     %% checking for the host name...
@@ -490,13 +478,15 @@ init_per_suite(Config) ->
                 %% This version is *not* ok: Skip
                 true
         end,
-    COND = [{unix, [{linux, LinuxVersionVerify}, {darwin, DarwinVersionVerify}]}],
+    COND = [{unix, [{linux,  LinuxVersionVerify}, 
+		    {darwin, DarwinVersionVerify}]}],
     case os_based_skip(COND) of
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
         false ->
+            Factor = analyze_and_print_host_info(),
             maybe_start_global_sys_monitor(Config),
-            Config
+            [{megaco_factor, Factor} | Config]
     end.
 
 %% We start the global system monitor unless explicitly disabled
@@ -550,6 +540,362 @@ end_per_testcase(_Case, Config) ->
 	    ok
     end,
     reset_kill_timer(Config).
+
+
+%% This function prints various host info, which might be usefull
+%% when analyzing the test suite (results).
+%% It also returns a "factor" that can be used when deciding 
+%% the load for some test cases. Such as run time or number of
+%% iteraions. This only works for some OSes.
+%%
+%% We make some calculations on Linux, OpenBSD and FreeBSD.
+%% On SunOS we always set the factor to 2 (just to be on the safe side)
+%% On all other os:es (mostly windows) we check the number of schedulers,
+%% but at least the factor will be 2.
+analyze_and_print_host_info() ->
+    {OsFam, OsName} = os:type(),
+    Version         =
+        case os:version() of
+            {Maj, Min, Rel} ->
+                f("~w.~w.~w", [Maj, Min, Rel]);
+            VStr ->
+                VStr
+        end,
+    case {OsFam, OsName} of
+        {unix, linux} ->
+            analyze_and_print_linux_host_info(Version);
+        {unix, openbsd} ->
+            analyze_and_print_openbsd_host_info(Version);
+        {unix, freebsd} ->
+            analyze_and_print_freebsd_host_info(Version);           
+        {unix, sunos} ->
+            io:format("Solaris: ~s"
+                      "~n", [Version]),
+            2;
+        _ ->
+            io:format("OS Family: ~p"
+                      "~n   OS Type: ~p"
+                      "~n   Version: ~p"
+                      "~n", [OsFam, OsName, Version]),
+            try erlang:system_info(schedulers) of
+                1 ->
+                    10;
+                2 ->
+                    5;
+                N when (N =< 6) ->
+                    2;
+                _ ->
+                    1
+            catch
+                _:_:_ ->
+                    10
+            end
+    end.
+    
+analyze_and_print_linux_host_info(Version) ->
+    case file:read_file_info("/etc/issue") of
+        {ok, _} ->
+            io:format("Linux: ~s"
+                      "~n   ~s"
+                      "~n",
+                      [Version, string:trim(os:cmd("cat /etc/issue"))]);
+        _ ->
+            io:format("Linux: ~s"
+                      "~n", [Version])
+    end,
+    Factor =
+        case (catch linux_which_cpuinfo()) of
+            {ok, {CPU, BogoMIPS}} ->
+                io:format("CPU: "
+                          "~n   Model:    ~s"
+                          "~n   BogoMIPS: ~s"
+                          "~n", [CPU, BogoMIPS]),
+                %% We first assume its a float, and if not try integer
+                try list_to_float(string:trim(BogoMIPS)) of
+                    F when F > 1000 ->
+                        1;
+                    F when F > 1000 ->
+                        2;
+                    _ ->
+                        3
+                catch
+                    _:_:_ ->
+                        %% 
+                        try list_to_integer(string:trim(BogoMIPS)) of
+                            I when I > 1000 ->
+                                1;
+                            I when I > 1000 ->
+                                2;
+                            _ ->
+                                3
+                        catch
+                            _:_:_ ->
+                                1
+                        end
+                end;
+            _ ->
+                1
+        end,
+    %% Check if we need to adjust the factor because of the memory
+    try linux_which_meminfo() of
+        AddFactor ->
+            Factor + AddFactor
+    catch
+        _:_:_ ->
+            Factor
+    end.
+
+linux_which_cpuinfo() ->
+    %% Check for x86 (Intel or AMD)
+    CPU =
+        try [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])] of
+            ["model name", ModelName | _] ->
+                ModelName;
+            _ ->
+                %% ARM (at least some distros...)
+                try [string:trim(S) || S <- string:tokens(os:cmd("grep \"Processor\" /proc/cpuinfo"), [$:,$\n])] of
+                    ["Processor", Proc | _] ->
+                        Proc;
+                    _ ->
+                        %% Ok, we give up
+                        throw(noinfo)
+                catch
+                    _:_:_ ->
+                        throw(noinfo)
+                end
+        catch
+            _:_:_ ->
+                throw(noinfo)
+        end,
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i \"bogomips\" /proc/cpuinfo"), [$:,$\n])] of
+        [_, BMips | _] ->
+            {ok, {CPU, BMips}};
+        _ ->
+            {ok, CPU}
+    catch
+        _:_:_ ->
+            {ok, CPU}
+    end.
+
+%% We *add* the value this return to the Factor.
+linux_which_meminfo() ->
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
+        [_, MemTotal] ->
+            io:format("Memory:"
+                      "~n   ~s"
+                      "~n", [MemTotal]),
+            case string:tokens(MemTotal, [$ ]) of
+                [MemSzStr, MemUnit] ->
+                    MemSz2 = list_to_integer(MemSzStr),
+                    MemSz3 = 
+                        case string:to_lower(MemUnit) of
+                            "kb" ->
+                                MemSz2;
+                            "mb" ->
+                                MemSz2*1024;
+                            "gb" ->
+                                MemSz2*1024*1024;
+                            _ ->
+                                throw(noinfo)
+                        end,
+                    if
+                        (MemSz3 >= 8388608) ->
+                            0;
+                        (MemSz3 >= 4194304) ->
+                            1;
+                        (MemSz3 >= 2097152) ->
+                            2;
+                        true ->
+                            3
+                    end;
+                _X ->
+                    0
+            end;
+        _ ->
+            0
+    catch
+        _:_:_ ->
+            0
+    end.
+
+
+%% Just to be clear: This is ***not*** scientific...
+analyze_and_print_openbsd_host_info(Version) ->
+    io:format("OpenBSD:"
+              "~n   Version: ~p"
+              "~n", [Version]),
+    Extract =
+        fun(Key) -> 
+                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$=])
+        end,
+    try
+        begin
+            CPU =
+                case Extract("hw.model") of
+                    ["hw.model", Model] ->
+                        string:trim(Model);
+                    _ ->
+                        "-"
+                end,
+            CPUSpeed =
+                case Extract("hw.cpuspeed") of
+                    ["hw.cpuspeed", Speed] ->
+                        list_to_integer(Speed);
+                    _ ->
+                        -1
+                end,
+            NCPU =
+                case Extract("hw.ncpufound") of
+                    ["hw.ncpufound", N] ->
+                        list_to_integer(N);
+                    _ ->
+                        -1
+                end,
+            Memory =
+                case Extract("hw.physmem") of
+                    ["hw.physmem", PhysMem] ->
+                        list_to_integer(PhysMem) div 1024;
+                    _ ->
+                        -1
+                end,
+            io:format("CPU:"
+                      "~n   Model: ~s"
+                      "~n   Speed: ~w"
+                      "~n   N:     ~w"
+                      "~nMemory:"
+                      "~n   ~w KB"
+                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+            CPUFactor =
+                if
+                    (CPUSpeed =:= -1) ->
+                        1;
+                    (CPUSpeed >= 2000) ->
+                        if
+                            (NCPU >= 4) ->
+                                1;
+                            (NCPU >= 2) ->
+                                2;
+                            true ->
+                                3
+                        end;
+                    true ->
+                        if
+                            (NCPU >= 4) ->
+                                2;
+                            (NCPU >= 2) ->
+                                3;
+                            true ->
+                                4
+                        end
+                end,
+            MemAddFactor =
+                if
+                    (Memory =:= -1) ->
+                        0;
+                    (Memory >= 8388608) ->
+                        0;
+                    (Memory >= 4194304) ->
+                        1;
+                    (Memory >= 2097152) ->
+                        2;
+                    true ->
+                        3
+                end,
+            CPUFactor + MemAddFactor
+        end
+    catch
+        _:_:_ ->
+            1
+    end.
+
+
+analyze_and_print_freebsd_host_info(Version) ->
+    io:format("FreeBSD:"
+              "~n   Version: ~p"
+              "~n", [Version]),
+    Extract =
+        fun(Key) -> 
+                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$:])
+        end,
+    try
+        begin
+            CPU =
+                case Extract("hw.model") of
+                    ["hw.model", Model] ->
+                        string:trim(Model);
+                    _ ->
+                        "-"
+                end,
+            CPUSpeed =
+                case Extract("hw.clockrate") of
+                    ["hw.clockrate", Speed] ->
+                        list_to_integer(string:trim(Speed));
+                    _ ->
+                        -1
+                end,
+            NCPU =
+                case Extract("hw.ncpu") of
+                    ["hw.ncpu", N] ->
+                        list_to_integer(string:trim(N));
+                    _ ->
+                        -1
+                end,
+            Memory =
+                case Extract("hw.physmem") of
+                    ["hw.physmem", PhysMem] ->
+                        list_to_integer(string:trim(PhysMem)) div 1024;
+                    _ ->
+                        -1
+                end,
+            io:format("CPU:"
+                      "~n   Model: ~s"
+                      "~n   Speed: ~w"
+                      "~n   N:     ~w"
+                      "~nMemory:"
+                      "~n   ~w KB"
+                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+            CPUFactor =
+                if
+                    (CPUSpeed =:= -1) ->
+                        1;
+                    (CPUSpeed >= 2000) ->
+                        if
+                            (NCPU >= 4) ->
+                                1;
+                            (NCPU >= 2) ->
+                                2;
+                            true ->
+                                3
+                        end;
+                    true ->
+                        if
+                            (NCPU >= 4) ->
+                                2;
+                            (NCPU >= 2) ->
+                                3;
+                            true ->
+                                4
+                        end
+                end,
+            MemAddFactor =
+                if
+                    (Memory =:= -1) ->
+                        0;
+                    (Memory >= 8388608) ->
+                        0;
+                    (Memory >= 4194304) ->
+                        1;
+                    (Memory >= 2097152) ->
+                        2;
+                    true ->
+                        3
+                end,
+            CPUFactor + MemAddFactor
+        end
+    catch
+        _:_:_ ->
+            1
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
