@@ -487,6 +487,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define ESOCK_RECV_FLAG_LOW          ESOCK_RECV_FLAG_CMSG_CLOEXEC
 #define ESOCK_RECV_FLAG_HIGH         ESOCK_RECV_FLAG_TRUNC
 
+#define ESOCK_RECV_BUFFER_COUNT_DEFAULT     0
 #define ESOCK_RECV_BUFFER_SIZE_DEFAULT      8192
 #define ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
 #define ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT 1024
@@ -581,6 +582,7 @@ typedef union {
 #define ESOCK_OPT_OTP_DOMAIN       0xFF01 // INTERNAL AND ONLY GET
 #define ESOCK_OPT_OTP_TYPE         0xFF02 // INTERNAL AND ONLY GET
 #define ESOCK_OPT_OTP_PROTOCOL     0xFF03 // INTERNAL AND ONLY GET
+#define ESOCK_OPT_OTP_DTP          0xFF04 // INTERNAL AND ONLY GET
 
 #define ESOCK_OPT_SOCK_ACCEPTCONN     1
 #define ESOCK_OPT_SOCK_BINDTODEVICE   3
@@ -1831,6 +1833,7 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
  * *** esock_getopt_otp_domain     ***
  * *** esock_getopt_otp_type       ***
  * *** esock_getopt_otp_protocol   ***
+ * *** esock_getopt_otp_dtp        ***
  */
 #define ESOCK_GETOPT_OTP_FUNCS             \
     ESOCK_GETOPT_OTP_FUNC_DEF(debug);      \
@@ -1843,7 +1846,8 @@ static ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
     ESOCK_GETOPT_OTP_FUNC_DEF(fd);         \
     ESOCK_GETOPT_OTP_FUNC_DEF(domain);     \
     ESOCK_GETOPT_OTP_FUNC_DEF(type);       \
-    ESOCK_GETOPT_OTP_FUNC_DEF(protocol);
+    ESOCK_GETOPT_OTP_FUNC_DEF(protocol);   \
+    ESOCK_GETOPT_OTP_FUNC_DEF(dtp);
 #define ESOCK_GETOPT_OTP_FUNC_DEF(F)                               \
     static ERL_NIF_TERM esock_getopt_otp_##F(ErlNifEnv*        env, \
                                              ESockDescriptor* descP)
@@ -12058,6 +12062,10 @@ ERL_NIF_TERM esock_getopt_otp(ErlNifEnv*       env,
         result = esock_getopt_otp_protocol(env, descP);
         break;
 
+    case ESOCK_OPT_OTP_DTP:
+        result = esock_getopt_otp_dtp(env, descP);
+        break;
+
     default:
         result = esock_make_error(env, esock_atom_einval);
         break;
@@ -12175,128 +12183,175 @@ ERL_NIF_TERM esock_getopt_otp_meta(ErlNifEnv*       env,
 }
 
 
-/* esock_getopt_otp_domain - Handle the OTP (level) domain option
- */
 static
-ERL_NIF_TERM esock_getopt_otp_domain(ErlNifEnv*       env,
-                                     ESockDescriptor* descP)
+ERL_NIF_TERM getopt_otp_domain(ErlNifEnv* env, int domain)
 {
-    ERL_NIF_TERM result, reason;
-    int          val = descP->domain;
+    ERL_NIF_TERM result;
 
-    switch (val) {
+    switch (domain) {
     case AF_INET:
-        result = esock_make_ok2(env, esock_atom_inet);
+        result = esock_atom_inet;
         break;
 
 #if defined(HAVE_IN6) && defined(AF_INET6)
     case AF_INET6:
-        result = esock_make_ok2(env, esock_atom_inet6);
+        result = esock_atom_inet6;
         break;
 #endif
 
 #if defined(HAVE_SYS_UN_H)
     case AF_UNIX:
-        result = esock_make_ok2(env, esock_atom_local);
+        result = esock_atom_local;
         break;
 #endif
 
     default:
-        reason = MKT2(env, esock_atom_unknown, MKI(env, val));
-        result = esock_make_error(env, reason);
+        result = MKI(env, domain);
         break;
     }
     
     return result;
 }
+/*
+ * esock_getopt_otp_domain - Handle the OTP (level) domain option
+ */
+static
+ERL_NIF_TERM esock_getopt_otp_domain(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
+{
+    ERL_NIF_TERM domain, result;
+
+    domain = getopt_otp_domain(env, descP->domain);
+    result = esock_make_ok2(env, domain);
+
+    return result;
+}
 
 
-/* esock_getopt_otp_type - Handle the OTP (level) type options.
+static
+ERL_NIF_TERM getopt_otp_type(ErlNifEnv* env, int type)
+{
+    ERL_NIF_TERM result;
+
+    switch (type) {
+    case SOCK_STREAM:
+        result = esock_atom_stream;
+        break;
+
+    case SOCK_DGRAM:
+        result = esock_atom_dgram;
+        break;
+
+#ifdef HAVE_SCTP
+    case SOCK_SEQPACKET:
+        result = esock_atom_seqpacket;
+        break;
+#endif
+    case SOCK_RAW:
+        result = esock_atom_raw;
+        break;
+
+    case SOCK_RDM:
+        result = esock_atom_rdm;
+        break;
+
+    default:
+        result = MKI(env, type);
+        break;
+    }
+
+    return result;
+}
+/*
+ * esock_getopt_otp_type - Handle the OTP (level) type options.
  */
 static
 ERL_NIF_TERM esock_getopt_otp_type(ErlNifEnv*       env,
                                    ESockDescriptor* descP)
 {
-    ERL_NIF_TERM result, reason;
-    int          val = descP->type;
+    ERL_NIF_TERM type, result;
 
-    switch (val) {
-    case SOCK_STREAM:
-        result = esock_make_ok2(env, esock_atom_stream);
-        break;
-
-    case SOCK_DGRAM:
-        result = esock_make_ok2(env, esock_atom_dgram);
-        break;
-
-#ifdef HAVE_SCTP
-    case SOCK_SEQPACKET:
-        result = esock_make_ok2(env, esock_atom_seqpacket);
-        break;
-#endif
-    case SOCK_RAW:
-        result = esock_make_ok2(env, esock_atom_raw);
-        break;
-
-    case SOCK_RDM:
-        result = esock_make_ok2(env, esock_atom_rdm);
-        break;
-
-    default:
-        reason = MKT2(env, esock_atom_unknown, MKI(env, val));
-        result = esock_make_error(env, reason);
-        break;
-    }
+    type = getopt_otp_type(env, descP->type);
+    result = esock_make_ok2(env, type);
 
     return result;
 }
 
 
-/* esock_getopt_otp_protocol - Handle the OTP (level) protocol options.
+static
+ERL_NIF_TERM getopt_otp_protocol(ErlNifEnv*       env,
+                                 ESockDescriptor* descP)
+{
+    ERL_NIF_TERM result;
+    int          val = descP->protocol;
+
+    switch (val) {
+    case IPPROTO_IP:
+#if defined(AF_LOCAL)
+        if (descP->domain == AF_LOCAL) {
+            result = esock_atom_default;
+        } else {
+            result = esock_atom_ip;
+        }
+#else
+        result = esock_atom_ip;
+#endif
+        break;
+
+    case IPPROTO_TCP:
+        result = esock_atom_tcp;
+        break;
+
+    case IPPROTO_UDP:
+        result = esock_atom_udp;
+        break;
+
+#if defined(HAVE_SCTP)
+    case IPPROTO_SCTP:
+        result = esock_atom_sctp;
+        break;
+#endif
+
+    default:
+        result = MKI(env, val);
+        break;
+    }
+
+    return result;
+}
+/*
+ * esock_getopt_otp_protocol - Handle the OTP (level) protocol options.
  */
 static
 ERL_NIF_TERM esock_getopt_otp_protocol(ErlNifEnv*       env,
                                        ESockDescriptor* descP)
 {
-    ERL_NIF_TERM result, reason;
-    int          val = descP->protocol;
+    ERL_NIF_TERM protocol, result;
 
-        switch (val) {
-        case IPPROTO_IP:
-#if defined(AF_LOCAL)
-            if (descP->domain == AF_LOCAL) {
-                result = esock_make_ok2(env, esock_atom_default);
-            } else {
-                result = esock_make_ok2(env, esock_atom_ip);
-            }
-#else
-            result = esock_make_ok2(env, esock_atom_ip);
-#endif
-            break;
-
-        case IPPROTO_TCP:
-            result = esock_make_ok2(env, esock_atom_tcp);
-            break;
-
-        case IPPROTO_UDP:
-            result = esock_make_ok2(env, esock_atom_udp);
-            break;
-
-#if defined(HAVE_SCTP)
-        case IPPROTO_SCTP:
-            result = esock_make_ok2(env, esock_atom_sctp);
-            break;
-#endif
-
-        default:
-            reason = MKT2(env, esock_atom_unknown, MKI(env, val));
-            result = esock_make_error(env, reason);
-            break;
-    }
+    protocol = getopt_otp_protocol(env, descP);
+    result = esock_make_ok2(env, protocol);
 
     return result;
 }
 
+
+/*
+ * esock_getopt_otp_dtp - Handle the OTP (level) type options.
+ */
+static
+ERL_NIF_TERM esock_getopt_otp_dtp(ErlNifEnv*       env,
+                                   ESockDescriptor* descP)
+{
+    ERL_NIF_TERM domain, type, protocol, dtp, result;
+
+    domain = getopt_otp_domain(env, descP->domain);
+    type = getopt_otp_type(env, descP->type);
+    protocol = getopt_otp_protocol(env, descP);
+    dtp = MKT3(env, domain, type, protocol);
+    result = esock_make_ok2(env, dtp);
+
+    return result;
+}
 
 
 /* The option has *not* been encoded. Instead it has been provided
@@ -16127,27 +16182,25 @@ ERL_NIF_TERM recv_check_full_maybe_done(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef, atom_read_byte, &descP->readByteCnt, read);
     descP->readPkgMaxCnt += read;
 
-    if (descP->rNum > 0) {
+    descP->rNumCnt++;
+    if (descP->rNumCnt >= descP->rNum) {
 
-        descP->rNumCnt++;
-        if (descP->rNumCnt >= descP->rNum) {
+        descP->rNumCnt = 0;
 
-            descP->rNumCnt = 0;
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      atom_read_pkg, &descP->readPkgCnt, 1);
+        if (descP->readPkgMaxCnt > descP->readPkgMax)
+            descP->readPkgMax = descP->readPkgMaxCnt;
+        descP->readPkgMaxCnt = 0;
 
-            ESOCK_CNT_INC(env, descP, sockRef, atom_read_pkg, &descP->readPkgCnt, 1);
-            if (descP->readPkgMaxCnt > descP->readPkgMax)
-                descP->readPkgMax = descP->readPkgMaxCnt;
-            descP->readPkgMaxCnt = 0;
+        recv_update_current_reader(env, descP, sockRef);
 
-            recv_update_current_reader(env, descP, sockRef);
+        /* This transfers "ownership" of the *allocated* binary to an
+         * erlang term (no need for an explicit free).
+         */
 
-            /* This transfers "ownership" of the *allocated* binary to an
-             * erlang term (no need for an explicit free).
-             */
+        return esock_make_ok3(env, atom_true, MKBIN(env, bufP));
 
-            return esock_make_ok3(env, atom_true, MKBIN(env, bufP));
-
-        }
     }
 
     /* Yes, we *do* need to continue reading */
@@ -18986,7 +19039,7 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
         sprintf(buf, "esock[cfg,%d]", sock);
         descP->cfgMtx           = MCREATE(buf);
         descP->rBufSz           = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
-        descP->rNum             = 0;
+        descP->rNum             = ESOCK_RECV_BUFFER_COUNT_DEFAULT;
         descP->rNumCnt          = 0;
         descP->rCtrlSz          = ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT;
         descP->wCtrlSz          = ESOCK_SEND_CTRL_BUFFER_SIZE_DEFAULT;

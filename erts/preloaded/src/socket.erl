@@ -778,6 +778,7 @@
 -define(ESOCK_OPT_OTP_DOMAIN,           16#FF01). % INTERNAL
 -define(ESOCK_OPT_OTP_TYPE,             16#FF02). % INTERNAL
 -define(ESOCK_OPT_OTP_PROTOCOL,         16#FF03). % INTERNAL
+-define(ESOCK_OPT_OTP_DTP,              16#FF04). % INTERNAL
 
 %% *** SOCKET (socket) options
 -define(ESOCK_OPT_SOCK_ACCEPTCONN,      1).
@@ -1339,9 +1340,11 @@ bind(#socket{ref = SockRef}, Addrs, Action)
   when is_list(Addrs) andalso ((Action =:= add) orelse (Action =:= remove)) ->
     try
         begin
-            ensure_type(SockRef, seqpacket),
-            ensure_proto(SockRef, sctp),
-            validate_addrs(which_domain(SockRef), Addrs),
+            {Domain, Type, Proto} = which_dtp(SockRef),
+            ensure_domain(Domain, [inet, inet6]),
+            ensure_type(Type, seqpacket),
+            ensure_protocol(Proto, sctp),
+            validate_addrs(Domain, Addrs),
             nif_bind(SockRef, Addrs, Action)
         end
     catch
@@ -1349,21 +1352,16 @@ bind(#socket{ref = SockRef}, Addrs, Action)
             ERROR
     end.
 
-ensure_type(SockRef, Type) ->
-    case which_type(SockRef) of
-        Type ->
-            ok;
-        InvalidType ->
-            invalid_type(InvalidType)
-    end.
+ensure_domain(Domain, [Domain | _]) -> ok;
+ensure_domain(Domain, [_ | Domains]) -> ensure_domain(Domain, Domains);
+ensure_domain(Domain, []) -> invalid_domain(Domain).
 
-ensure_proto(SockRef, Proto) ->
-    case which_protocol(SockRef) of
-        Proto ->
-            ok;
-        InvalidProto ->
-            invalid_protocol(InvalidProto)
-    end.
+ensure_type(Type, Type) -> ok;
+ensure_type(Type, _) -> invalid_type(Type).
+
+ensure_protocol(Proto, Proto) -> ok;
+ensure_protocol(Proto, _) -> invalid_protocol(Proto).
+
 
 validate_addrs(inet = _Domain, Addrs) ->
     validate_inet_addrs(Addrs);
@@ -1617,11 +1615,7 @@ send(Socket, Data, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     send(Socket, Bin, Flags, Timeout);
 send(#socket{ref = SockRef}, Data, Flags, Timeout)
-  when is_binary(Data) andalso 
-       is_list(Flags) andalso
-       ((Timeout =:= nowait) orelse
-        (Timeout =:= infinity) orelse
-        (is_integer(Timeout) andalso (Timeout > 0)))  ->
+  when is_binary(Data), is_list(Flags) ->
     To = undefined,
     try
         begin
@@ -1772,13 +1766,8 @@ sendto(Socket, Data, Dest, Timeout) ->
 sendto(Socket, Data, Dest, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     sendto(Socket, Bin, Dest, Flags, Timeout);
-sendto(#socket{ref = SockRef}, Data, #{family := Fam} = Dest, Flags, Timeout)
-  when is_binary(Data) andalso
-       ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso 
-       is_list(Flags) andalso
-       ((Timeout =:= nowait) orelse
-        (Timeout =:= infinity) orelse
-        (is_integer(Timeout) andalso (Timeout > 0))) ->
+sendto(#socket{ref = SockRef}, Data, Dest, Flags, Timeout)
+  when is_binary(Data), is_list(Flags) ->
     try
         begin
             To = ensure_sockaddr(Dest),
@@ -1830,8 +1819,7 @@ sendmsg(Socket, MsgHdr) ->
 
 sendmsg(Socket, MsgHdr, Flags) when is_list(Flags) ->
     sendmsg(Socket, MsgHdr, Flags, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
-sendmsg(Socket, MsgHdr, Timeout) 
-  when is_integer(Timeout) orelse (Timeout =:= infinity) ->
+sendmsg(Socket, MsgHdr, Timeout) ->
     sendmsg(Socket, MsgHdr, ?ESOCK_SENDMSG_FLAGS_DEFAULT, Timeout).
 
 
@@ -1858,11 +1846,7 @@ sendmsg(Socket, MsgHdr, Timeout)
       Reason     :: term().
 
 sendmsg(#socket{ref = SockRef}, #{iov := IOV} = MsgHdr, Flags, Timeout)
-  when is_list(IOV) andalso 
-       is_list(Flags) andalso
-       ((Timeout =:= nowait) orelse
-        (Timeout =:= infinity) orelse
-        (is_integer(Timeout) andalso (Timeout > 0))) ->
+  when is_list(IOV), is_list(Flags) ->
     try
         begin
             M = ensure_msghdr(MsgHdr),
@@ -2070,8 +2054,14 @@ do_recv(SockRef, Length, EFlags, Deadline, Acc) ->
         %%    > 0 - We got a part of the message and we will be notified
         %%          when there is more to read (a select message)
         {ok, false = _Complete, Bin} when Length =:= 0 ->
-            do_recv(
-              SockRef, Length, EFlags, Deadline, bincat(Acc, Bin));
+            Timeout = timeout(Deadline),
+            if
+                0 < Timeout ->
+                    do_recv(
+                      SockRef, Length, EFlags, Deadline, bincat(Acc, Bin));
+                true ->
+                    {ok, bincat(Acc, Bin)}
+            end;
 
         %% Did not get all the user asked for, but the user also
         %% specified 'nowait', so deliver what we got and the 
@@ -2084,16 +2074,13 @@ do_recv(SockRef, Length, EFlags, Deadline, Acc) ->
 	    Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    Remaining = Length - byte_size(Bin),
-                    Data = bincat(Acc, Bin),
                     if
-                        0 < Remaining, 0 < Timeout ->
+                        0 < Timeout ->
                             do_recv(
-                              SockRef, Remaining, EFlags, Deadline, Data);
-                        0 < Remaining ->
-                            {error, {timeout, Data}};
-                        true -> % Got all
-                            {ok, Data}
+                              SockRef, Length - byte_size(Bin), EFlags,
+                              Deadline, bincat(Acc, Bin));
+                        true ->
+                            {error, {timeout, bincat(Acc, Bin)}}
                     end;
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
@@ -2291,6 +2278,7 @@ do_recvfrom(SockRef, BufSz, EFlags, Deadline)  ->
 
     RecvRef = make_ref(),
     case nif_recvfrom(SockRef, RecvRef, BufSz, EFlags) of
+
         {ok, {_Source, _NewData}} = OK ->
             OK;
 
@@ -2388,7 +2376,7 @@ recvmsg(Socket, Timeout) ->
 
 recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, Timeout);
-recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz) andalso is_integer(CtrlSz) ->
+recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
     recvmsg(Socket, BufSz, CtrlSz,
             ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
@@ -2433,6 +2421,7 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Deadline)  ->
 
     RecvRef = make_ref(),
     case nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags) of
+
         {ok, _MsgHdr} = OK ->
             OK;
 
@@ -2590,12 +2579,10 @@ shutdown(#socket{ref = SockRef}, How) ->
 setopt(#socket{ref = SockRef}, Level, Key, Value) ->
     try
         begin
-            Domain               = which_domain(SockRef),
-            Type                 = which_type(SockRef),
-            Protocol             = which_protocol(SockRef),
+            {Domain, Type, Proto} = which_dtp(SockRef),
             {EIsEncoded, ELevel} = enc_setopt_level(Level),
-            EKey = enc_setopt_key(Level, Key, Domain, Type, Protocol),
-            EVal = enc_setopt_value(Level, Key, Value, Domain, Type, Protocol),
+            EKey = enc_setopt_key(Level, Key, Domain, Type, Proto),
+            EVal = enc_setopt_value(Level, Key, Value, Domain, Type, Proto),
             nif_setopt(SockRef, EIsEncoded, ELevel, EKey, EVal)
         end
     catch
@@ -2660,19 +2647,18 @@ setopt(#socket{ref = SockRef}, Level, Key, Value) ->
 getopt(#socket{ref = SockRef}, Level, Key) ->
     try
         begin
-            Domain   = which_domain(SockRef),
-            Type     = which_type(SockRef),
-            Protocol = which_protocol(SockRef),
+            {Domain, Type, Proto} = which_dtp(SockRef),
             {EIsEncoded, ELevel} = enc_getopt_level(Level),
-            EKey     = enc_getopt_key(Level, Key, Domain, Type, Protocol),
+            EKey     = enc_getopt_key(Level, Key, Domain, Type, Proto),
             %% We may need to decode the value (for the same reason
             %% we (may have) needed to encode the value for setopt).
             case nif_getopt(SockRef, EIsEncoded, ELevel, EKey) of
                 ok ->
                     ok;
                 {ok, EVal} ->
-                    Val = dec_getopt_value(Level, Key, EVal,
-                                           Domain, Type, Protocol),
+                    Val =
+                        dec_getopt_value(
+                          Level, Key, EVal, Domain, Type, Proto),
                     {ok, Val};
                 {error, _} = E ->
                     E
@@ -2695,38 +2681,72 @@ which_domain(SockRef) ->
     case nif_getopt(SockRef, true,
                     ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_DOMAIN) of
         {ok, Domain} ->
-            Domain;
+            if
+                is_atom(Domain) ->
+                    Domain;
+                is_integer(Domain) ->
+                    invalid_domain(Domain)
+            end;
         {error, _} = ERROR ->
             throw(ERROR)
     end.
         
 
--spec which_type(SockRef) -> Type when
-      SockRef :: reference(),
-      Type    :: type().
+%%%-spec which_type(SockRef) -> Type when
+%%%      SockRef :: reference(),
+%%%      Type    :: type().
+%%%
+%%%which_type(SockRef) ->
+%%%    case nif_getopt(SockRef, true,
+%%%                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_TYPE) of
+%%%        {ok, Type} ->
+%%%            if
+%%%                is_atom(Type) ->
+%%%                    Type;
+%%%                is_integer(Type) ->
+%%%                    invalid_type(Type)
+%%%            end;
+%%%        {error, _} = ERROR ->
+%%%            throw(ERROR)
+%%%    end.
+%%%
+%%%-spec which_protocol(SockRef) -> Protocol when
+%%%      SockRef  :: reference(),
+%%%      Protocol :: protocol().
+%%%
+%%%which_protocol(SockRef) ->
+%%%    case nif_getopt(SockRef, true,
+%%%                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_PROTOCOL) of
+%%%        {ok, Proto} ->
+%%%            if
+%%%                is_atom(Proto) ->
+%%%                    Proto;
+%%%                is_integer(Proto) ->
+%%%                    invalid_protocol(Proto)
+%%%            end;
+%%%        {error, _} = ERROR ->
+%%%            throw(ERROR)
+%%%    end.
 
-which_type(SockRef) ->
-    case nif_getopt(SockRef, true,
-                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_TYPE) of
-        {ok, Type} ->
-            Type;
+which_dtp(SockRef) ->
+    case
+        nif_getopt(
+          SockRef, true, ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_DTP)
+    of
+        {ok, {Domain, Type, Proto} = DTP} ->
+            if
+                is_integer(Domain) ->
+                    invalid_domain(Domain);
+                is_integer(Type) ->
+                    invalid_type(Type);
+                is_integer(Proto) ->
+                    invalid_protocol(Proto);
+                is_atom(Domain), is_atom(Type), is_atom(Proto) ->
+                    DTP
+            end;
         {error, _} = ERROR ->
             throw(ERROR)
     end.
-
--spec which_protocol(SockRef) -> Protocol when
-      SockRef  :: reference(),
-      Protocol :: protocol().
-
-which_protocol(SockRef) ->
-    case nif_getopt(SockRef, true,
-                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_PROTOCOL) of
-        {ok, Proto} ->
-            Proto;
-        {error, _} = ERROR ->
-            throw(ERROR)
-    end.
-
 
 
 
@@ -3956,7 +3976,7 @@ deadline(Timeout) ->
 
 timeout(Deadline) ->
     case Deadline of
-        %% nowait -> 0; % This should be handled by caller
+        nowait -> 0;
         infinity -> infinity;
         _ ->
             Now = timestamp(),
@@ -3966,14 +3986,14 @@ timeout(Deadline) ->
             end
     end.
 
-
 timestamp() ->
     erlang:monotonic_time(milli_seconds).
 
+
 -compile({inline, [bincat/2]}).
-bincat(<<>>, <<B/binary>>) -> B;
-bincat(<<A/binary>>, <<>>) -> A;
-bincat(<<A/binary>>, <<B/binary>>) ->
+bincat(<<>>, <<_/binary>> = B) -> B;
+bincat(<<_/binary>> = A, <<>>) -> A;
+bincat(<<_/binary>> = A, <<_/binary>> = B) ->
     <<A/binary, B/binary>>.
 
 
