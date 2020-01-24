@@ -224,12 +224,15 @@ do_req_and_rep([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
 
     %% Collect the (initial) MGs statistics
     Stats1 = rar_get_mg_stats(MgConf, []),
-    d("stats for the MGs: ~n~p", [Stats1]),
+    d("stats for the MGs: "
+      "~n      ~p", [Stats1]),
 
     %% Collect and check the MGC statistics
     i("collect and check the MGC stats"),    
     {ok, MgcStats1} = ?MGC_GET_STATS(Mgc, 1),
-    d("stats (1) for Mgc: ~n~p~n", [MgcStats1]),
+    d("stats (1) for Mgc: "
+      "~n      ~p"
+      "~n", [MgcStats1]),
 
 
     sleep(1000),
@@ -249,11 +252,14 @@ do_req_and_rep([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
 
     i("collect the MGs statistics"),
     Stats2 = rar_get_mg_stats(MgConf, []),
-    d("stats for MGs: ~n~p", [Stats2]),
+    d("stats for MGs: "
+      "~n      ~p", [Stats2]),
 
     i("collect the MGC statistics"),
     {ok, MgcStats2} = ?MGC_GET_STATS(Mgc, 1),
-    d("stats (1) for Mgc: ~n~p~n", [MgcStats2]),
+    d("stats (1) for Mgc: "
+      "~n      ~p"
+      "~n", [MgcStats2]),
 
 
     sleep(1000),
@@ -263,12 +269,15 @@ do_req_and_rep([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     i("reset the MGs statistics"),
     rar_reset_mg_stats(MgConf),
     Stats3 = rar_get_mg_stats(MgConf, []),
-    d("stats for the MGs: ~n~p", [Stats3]),
+    d("stats for the MGs: "
+      "~n      ~p", [Stats3]),
 
     i("reset the MGC statistics"),
     rar_reset_mgc_stats(Mgc),
     {ok, MgcStats3} = ?MGC_GET_STATS(Mgc, 1),
-    d("stats (1) for Mgc: ~n~p~n", [MgcStats3]),
+    d("stats (1) for Mgc: "
+      "~n      ~p"
+      "~n", [MgcStats3]),
 
 
     sleep(1000),
@@ -285,9 +294,12 @@ do_req_and_rep([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     %% Collect the statistics
     i("collect the MGC statistics"),
     {ok, MgcStats4} = ?MGC_GET_STATS(Mgc, 1),
-    d("stats (1) for Mgc: ~n~p~n", [MgcStats4]),
+    d("stats (1) for Mgc: "
+      "~n      ~p", [MgcStats4]),
     {ok, MgcStats5} = ?MGC_GET_STATS(Mgc, 2),
-    d("stats (2) for Mgc: ~n~p~n", [MgcStats5]),
+    d("stats (2) for Mgc: "
+      "~n      ~p"
+      "~n", [MgcStats5]),
 
     %% Tell Mgc to stop
     i("stop the MGC"),
@@ -322,7 +334,9 @@ rar_get_mg_stats([], Acc) ->
     lists:reverse(Acc);
 rar_get_mg_stats([{Name, Pid}|Mgs], Acc) ->
     {ok, Stats} = ?MG_GET_STATS(Pid),
-    d("rar_get_mg_stats -> stats for ~s: ~n~p~n", [Name, Stats]),
+    d("rar_get_mg_stats -> stats for ~s: "
+      "~n      ~p"
+      "~n", [Name, Stats]),
     rar_get_mg_stats(Mgs, [{Name, Stats}|Acc]).
 
 
@@ -437,82 +451,89 @@ req_and_cancel(suite) ->
 req_and_cancel(doc) ->
     [];
 req_and_cancel(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("req_and_cancel -> starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("try start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok    = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_req_and_cancel/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes (in the reverse order):"
+                     "~n       ~p", [Nodes]),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(req_and_cancel, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-
-    d("req_and_cancel -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p", 
-      [MgcNode, Mg1Node]),
-    ok = megaco_test_lib:start_nodes([MgcNode, Mg1Node], 
-				     ?FILE, ?LINE),
-
+do_req_and_cancel([MgcNode, MgNode]) ->
     %% Start the MGC and MGs
-    i("req_and_cancel -> start the MGC"),    
+    i("start the MGC"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
-    i("req_and_cancel -> start the MG"),
-    {ok, Mg1} = 
-	?MG_START(Mg1Node, {deviceName, "mg1"}, text, tcp, ?MG_VERBOSITY),
+    i("start the MG"),
+    {ok, Mg} =
+	?MG_START(MgNode, {deviceName, "mg"}, text, tcp, ?MG_VERBOSITY),
 
-    i("req_and_cancel -> connect the MG"),
-    Res1 = ?MG_SERV_CHANGE(Mg1),
-    d("req_and_cancel -> service change result: ~p", [Res1]),
+    i("connect the MG"),
+    Res1 = ?MG_SERV_CHANGE(Mg),
+    d("service change result: ~p", [Res1]),
 
 
     sleep(1000),
 
-    i("req_and_cancel -> change request action to pending"),
+    i("change request action to pending"),
     {ok, _} = ?MGC_REQ_DISC(Mgc,5000),
 
-    i("req_and_cancel -> send notify request"),
-    ?MG_NOTIF_REQ(Mg1),
+    i("send notify request"),
+    ?MG_NOTIF_REQ(Mg),
     
-    d("req_and_cancel -> wait some to get it going",[]),
+    d("wait some to get it going",[]),
     sleep(1000),
 
-    i("req_and_cancel -> now cancel the notify request"),
-    ok = ?MG_CANCEL(Mg1,req_and_cancel),
+    i("now cancel the notify request"),
+    ok = ?MG_CANCEL(Mg, req_and_cancel),
 
-    i("req_and_cancel -> now await the notify request result"),
-    Res2 = ?MG_NOTIF_AR(Mg1),
-    req_and_cancel_analyze_result(Res2),
+    i("now await the notify request result"),
+    Res2 = ?MG_NOTIF_AR(Mg),
+    rac_analyze_result(Res2),
     
 
     %% Tell MGs to stop
-    i("req_and_cancel -> stop the MGs"),
-    ?MG_STOP(Mg1),
+    i("stop the MG"),
+    ?MG_STOP(Mg),
 
     %% Tell Mgc to stop
-    i("req_and_cancel -> stop the MGC"),
+    i("stop the MGC"),
     ?MGC_STOP(Mgc),
 
-    i("req_and_cancel -> done", []),
-    ok.% ?SKIP(not_implemented_yet).
+    i("done", []),
+    ok.
 
 
-req_and_cancel_analyze_result({ok,{_PV,Res}}) ->
-    i("req_and_cancel_analyze_result -> notify request result: ~n   ~p", [Res]),
-    req_and_cancel_analyze_result2(Res);
-req_and_cancel_analyze_result(Unexpected) ->
-    e("req_and_cancel_analyze_result -> unexpected result: "
+rac_analyze_result({ok, {_PV,Res}}) ->
+    i("rac_analyze_result -> notify request result:"
+      "~n      ~p", [Res]),
+    rac_analyze_result2(Res);
+rac_analyze_result(Unexpected) ->
+    e("rac_analyze_result -> unexpected result: "
       "~n      ~p", [Unexpected]),
     exit({unexpected_result, Unexpected}).
 
-req_and_cancel_analyze_result2({error,{user_cancel,req_and_cancel}}) ->
+rac_analyze_result2({error,{user_cancel, req_and_cancel}}) ->
     ok;
-req_and_cancel_analyze_result2([]) ->
+rac_analyze_result2([]) ->
     ok;
-req_and_cancel_analyze_result2([{error,{user_cancel,req_and_cancel}}|Res]) ->
-    req_and_cancel_analyze_result2(Res);
-req_and_cancel_analyze_result2([Unknown|_Res]) ->
-    e("req_and_cancel_analyze_result2 -> unexpected result: "
+rac_analyze_result2([{error,{user_cancel, req_and_cancel}}|Res]) ->
+    rac_analyze_result2(Res);
+rac_analyze_result2([Unknown|_Res]) ->
+    e("rac_analyze_result2 -> unexpected result: "
       "~n      ~p", [Unknown]),
     exit({unknown_result, Unknown}).
     
