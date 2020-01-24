@@ -554,7 +554,7 @@ api_ng_cipher_increment({Type, Key, IV, PlainText0, ExpectedEncText}=_X) ->
     RefEnc = crypto:crypto_init(Type, Key, IV, true),
     RefDec = crypto:crypto_init(Type, Key, IV, false),
     EncTexts = api_ng_cipher_increment_loop(RefEnc, PlainTexts),
-    {_PadSize,EncFinal} = crypto:crypto_final(RefEnc),
+    EncFinal = crypto:crypto_final(RefEnc),
     Enc = iolist_to_binary(EncTexts++[EncFinal]),
     case ExpectedEncText of
         undefined ->

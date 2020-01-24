@@ -128,7 +128,9 @@ decrypt_encrypt_init_update_final(Cipher, Key, IV, TextPlain, Padding) ->
                                   [crypto:crypto_update(Cenc,TextIn) | TextOutAcc]
                           end, [], TextPlain),
     try
-        crypto:crypto_final(Cenc)
+        Rf = crypto:crypto_final(Cenc),
+        Rps = maps:get(padding_size,crypto:crypto_get_data(Cenc)),
+        {Rps,Rf}
     of
         {PadSize0,LastTextOut} ->
             TextCrypto = lists:reverse([LastTextOut|TextOut]),

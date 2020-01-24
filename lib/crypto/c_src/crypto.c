@@ -83,6 +83,7 @@ static ErlNifFunc nif_funcs[] = {
     {"ng_crypto_update_nif", 2, ng_crypto_update_nif, 0},
     {"ng_crypto_update_nif", 3, ng_crypto_update_nif, 0},
     {"ng_crypto_final_nif", 1, ng_crypto_final_nif, 0},
+    {"ng_crypto_get_data_nif", 1, ng_crypto_get_data_nif, 0},
     {"ng_crypto_one_time_nif", 6, ng_crypto_one_time_nif, 0},
     {"strong_rand_bytes_nif", 1, strong_rand_bytes_nif, 0},
     {"strong_rand_range_nif", 1, strong_rand_range_nif, 0},
