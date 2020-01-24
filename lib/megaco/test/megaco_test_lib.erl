@@ -1176,14 +1176,14 @@ f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
 e(F, A) ->
-    print("<ERROR> ", F, A).
+    print("ERROR", F, A).
 
 p(F) ->
     p(F, []).
 
 p(F, A) ->
-    print("<INFO> ", F, A).
+    print("INFO", F, A).
 
 print(Pre, F, A) ->
-    io:format("~s ~p ~s " ++ F ++ "~n", [?FTS(), self(), Pre | A]).
+    io:format("*** [~s] [~s] ~p " ++ F ++ "~n", [?FTS(), Pre, self() | A]).
 
