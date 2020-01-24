@@ -75,6 +75,7 @@
 #include "erl_check_io.h"
 #include "erl_cpu_topology.h"
 #include "erl_osenv.h"
+#include "erl_dyn_lock_check.h"
 extern int  driver_interrupt(int, int);
 extern void do_break(void);
 
@@ -276,7 +277,9 @@ erts_sys_pre_init(void)
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_init();
 #endif
-
+#ifdef ERTS_DYN_LOCK_CHECK
+    erts_dlc_init();
+#endif
 
     erts_init_sys_time_sup();
 
