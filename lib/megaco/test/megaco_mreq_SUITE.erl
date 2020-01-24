@@ -33,6 +33,7 @@
          req_and_rep/1,
          req_and_pending/1,
          req_and_cancel/1
+
         ]).
 
 -include_lib("megaco/include/megaco.hrl").
@@ -371,54 +372,60 @@ req_and_pending(suite) ->
 req_and_pending(doc) ->
     [];
 req_and_pending(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("req_and_pending -> starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("try starting nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok    = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_req_and_pending/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes (in the reverse order):"
+                     "~n       ~p", [Nodes]),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(req_and_pending, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-
-    d("req_and_pending -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p", 
-      [MgcNode, Mg1Node]),
-    ok = megaco_test_lib:start_nodes([MgcNode, Mg1Node], 
-				     ?FILE, ?LINE),
+do_req_and_pending([MgcNode, MgNode]) ->
 
     %% Start the MGC and MGs
-    i("req_and_pending -> start the MGC"),    
+    i("try start the MGC"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
-    i("req_and_pending -> start the MG"),
-    {ok, Mg1} = 
-	?MG_START(Mg1Node, {deviceName, "mg1"}, text, tcp, ?MG_VERBOSITY),
+    i("try start the MG"),
+    {ok, Mg} = 
+	?MG_START(MgNode, {deviceName, "mg"}, text, tcp, ?MG_VERBOSITY),
 
-    i("req_and_pending -> connect the MG"),
-    Res1 = ?MG_SERV_CHANGE(Mg1),
-    d("req_and_pending -> service change result: ~p", [Res1]),
-
-    sleep(1000),
-
-    i("req_and_pending -> change request action to pending"),
-    {ok, _} = ?MGC_REQ_PEND(Mgc,3500),
-
-    i("req_and_pending -> send notify request"),
-    {ok, Res2} = ?MG_NOTIF_RAR(Mg1),
-    d("req_and_pending -> notify reply: ~p",[Res2]),
+    i("connect MG (to MFC)"),
+    Res1 = ?MG_SERV_CHANGE(Mg),
+    d("service change result: ~p", [Res1]),
 
     sleep(1000),
 
-    %% Tell MGs to stop
-    i("req_and_pending -> stop the MGs"),
-    ?MG_STOP(Mg1),
+    i("[MGC] change request action to pending"),
+    {ok, _} = ?MGC_REQ_PEND(Mgc, 3500),
+
+    i("[MG] send notify request"),
+    {ok, Res2} = ?MG_NOTIF_RAR(Mg),
+    d("notify reply: ~p", [Res2]),
+
+    sleep(1000),
+
+    %% Tell MG to stop
+    i("stop the MG"),
+    ?MG_STOP(Mg),
 
     %% Tell Mgc to stop
-    i("req_and_pending -> stop the MGC"),
+    i("stop the MGC"),
     ?MGC_STOP(Mgc),
 
-    i("req_and_pending -> done", []),
+    i("done", []),
     ok.
 
 
