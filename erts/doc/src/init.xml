@@ -101,7 +101,7 @@
           </item>
           <tag><c>home</c></tag>
           <item>
-            <p>The home directory:</p>
+            <p>The home directory (on Unix, the value of $HOME):</p>
             <pre>
 4> <input>init:get_argument(home).</input>
 {ok,[["/home/harry"]]}</pre>
