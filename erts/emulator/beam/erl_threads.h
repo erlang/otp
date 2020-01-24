@@ -249,6 +249,7 @@
 
 #include "erl_lock_check.h"
 #include "erl_lock_count.h"
+#include "erl_dyn_lock_check.h"
 
 #if defined(__GLIBC__) && (__GLIBC__ << 16) + __GLIBC_MINOR__ < (2 << 16) + 5
 /*
@@ -295,6 +296,9 @@ typedef struct {
 #ifdef DEBUG
     erts_lock_flags_t flags;
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_t dlc;
+#endif
 } erts_mtx_t;
 typedef ethr_cond erts_cnd_t;
 
@@ -309,6 +313,9 @@ typedef struct {
 #endif
 #ifdef DEBUG
     erts_lock_flags_t flags;
+#endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_t dlc;
 #endif
 } erts_rwmtx_t;
 
@@ -1619,6 +1626,9 @@ erts_mtx_init(erts_mtx_t *mtx, char *name, Eterm extra, erts_lock_flags_t flags)
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init_ref_x(&mtx->lcnt, name, extra, flags);
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_create_lock(&mtx->dlc, name);
+#endif
 }
 
 ERTS_GLB_INLINE void
@@ -1629,6 +1639,9 @@ erts_mtx_init_locked(erts_mtx_t *mtx, char *name, Eterm extra, erts_lock_flags_t
     ethr_mutex_lock(&mtx->mtx);
     #ifdef ERTS_ENABLE_LOCK_CHECK
         erts_lc_trylock(1, &mtx->lc);
+    #endif
+    #ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+        erts_dlc_trylock(&mtx->dlc, 1);
     #endif
     #ifdef ERTS_ENABLE_LOCK_COUNT
         erts_lcnt_trylock(&mtx->lcnt, 1);
@@ -1686,11 +1699,13 @@ erts_mtx_trylock(erts_mtx_t *mtx)
     erts_lc_trylock(res == 0, &mtx->lc);
 #endif
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_trylock(&mtx->dlc, res == 0);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_trylock(&mtx->lcnt, res);
 #endif    
     return res;
-
 }
 
 ERTS_GLB_INLINE void
@@ -1707,6 +1722,9 @@ erts_mtx_lock(erts_mtx_t *mtx)
     erts_lc_lock(&mtx->lc);
 #endif
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_lock(&mtx->dlc);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock(&mtx->lcnt);
 #endif
@@ -1721,6 +1739,9 @@ erts_mtx_unlock(erts_mtx_t *mtx)
 {
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_unlock(&mtx->lc);
+#endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_unlock(&mtx->dlc);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock(&mtx->lcnt);
@@ -1847,6 +1868,9 @@ erts_rwmtx_init_opt(erts_rwmtx_t *rwmtx, erts_rwmtx_opt_t *opt,
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_init_lock_x(&rwmtx->lc, name, flags, extra);
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_create_lock(&rwmtx->dlc, name);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_init_ref_x(&rwmtx->lcnt, name, extra, flags);
 #endif
@@ -1909,6 +1933,9 @@ erts_rwmtx_tryrlock(erts_rwmtx_t *rwmtx)
     erts_lc_trylock_flg(res == 0, &rwmtx->lc, ERTS_LOCK_OPTIONS_READ);
 #endif
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_trylock(&rwmtx->dlc, res == 0);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_trylock_opt(&rwmtx->lcnt, res, ERTS_LOCK_OPTIONS_READ);
 #endif
@@ -1930,6 +1957,9 @@ erts_rwmtx_rlock(erts_rwmtx_t *rwmtx)
     erts_lc_lock_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_READ);
 #endif
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_lock(&rwmtx->dlc);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_READ);
 #endif
@@ -1944,6 +1974,9 @@ erts_rwmtx_runlock(erts_rwmtx_t *rwmtx)
 {
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_unlock_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_READ);
+#endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_unlock(&rwmtx->dlc);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_READ);
@@ -1976,6 +2009,9 @@ erts_rwmtx_tryrwlock(erts_rwmtx_t *rwmtx)
     erts_lc_trylock_flg(res == 0, &rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR);
 #endif
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_trylock(&rwmtx->dlc, res == 0);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_trylock_opt(&rwmtx->lcnt, res, ERTS_LOCK_OPTIONS_RDWR);
 #endif
@@ -1997,6 +2033,9 @@ erts_rwmtx_rwlock(erts_rwmtx_t *rwmtx)
     erts_lc_lock_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR);
 #endif
 #endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_lock(&rwmtx->dlc);
+#endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_lock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_RDWR);
 #endif
@@ -2011,6 +2050,9 @@ erts_rwmtx_rwunlock(erts_rwmtx_t *rwmtx)
 {
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_unlock_flg(&rwmtx->lc, ERTS_LOCK_OPTIONS_RDWR);
+#endif
+#ifdef ERTS_DYN_LOCK_CHECK_INTERNAL
+    erts_dlc_unlock(&rwmtx->dlc);
 #endif
 #ifdef ERTS_ENABLE_LOCK_COUNT
     erts_lcnt_unlock_opt(&rwmtx->lcnt, ERTS_LOCK_OPTIONS_RDWR);
