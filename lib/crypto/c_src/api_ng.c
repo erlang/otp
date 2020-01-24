@@ -404,8 +404,7 @@ static int get_update_args(ErlNifEnv* env,
 
 static int get_final_args(ErlNifEnv* env,
                           struct evp_cipher_ctx *ctx_res,
-                          ERL_NIF_TERM *return_term,
-                          int *padded_size
+                          ERL_NIF_TERM *return_term
                           )
 {
     ErlNifBinary out_data_bin;
@@ -423,7 +422,7 @@ static int get_final_args(ErlNifEnv* env,
                 *return_term = EXCP_ERROR(env, "Can't allocate empty outdata");
                 goto err0;
             }
-        if (padded_size) *padded_size = 0;
+        ctx_res->padded_size = 0;
         out_len = 0;
     } else
 #endif
@@ -446,20 +445,20 @@ static int get_final_args(ErlNifEnv* env,
                     /* First set lengths etc and do the otp_padding */
                     if (ctx_res->padding == atom_undefined)
                         {
-                            if (padded_size) *padded_size = pad_size;
+                            ctx_res->padded_size = pad_size;
                             pad_offset = 0;
                         }
 
                     else if (ctx_res->padding == atom_none)
                         {
-                            if (padded_size) *padded_size = pad_size; // Should be == 0
+                            ctx_res->padded_size = pad_size; // Should be == 0
                             pad_offset = 0;
                         }
 
                     else if (ctx_res->padding == atom_pkcs_padding)
                         {
-                            if (ctx_res->encflag && padded_size)
-                                *padded_size =
+                            if (ctx_res->encflag)
+                                ctx_res->padded_size =
                                     pad_size==0 ? block_size : pad_size;
                             pad_offset = 0;
                         }
@@ -484,7 +483,7 @@ static int get_final_args(ErlNifEnv* env,
                             else
                                 out_len = 0;
 
-                            if (padded_size) *padded_size = pad_size;
+                            ctx_res->padded_size = pad_size;
                             pad_offset = out_len;
                         }
 
@@ -722,7 +721,6 @@ ERL_NIF_TERM ng_crypto_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     struct evp_cipher_ctx *ctx_res;
     struct evp_cipher_ctx ctx_res_copy;
     ERL_NIF_TERM ret;
-    int padded_size;
 
     ctx_res_copy.ctx = NULL;
 
@@ -746,10 +744,10 @@ ERL_NIF_TERM ng_crypto_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
     ctx_res = &ctx_res_copy;
         
-    if (get_final_args(env, ctx_res, &ret, &padded_size))
+    if (get_final_args(env, ctx_res, &ret))
         {
             if (ctx_res->encflag)
-                ret = enif_make_tuple2(env, enif_make_int(env,padded_size), ret);
+                ret = enif_make_tuple2(env, enif_make_int(env,ctx_res->padded_size), ret);
         }
 
  err:
@@ -802,7 +800,7 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
         }
 
     /* final_data = EVP_CipherFinal_ex */
-    if (!get_final_args(env, &ctx_res, &ret, NULL))
+    if (!get_final_args(env, &ctx_res, &ret))
         /* Got an exception as result in &ret */
         goto out;
 

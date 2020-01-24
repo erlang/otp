@@ -62,9 +62,10 @@ extern ErlNifResourceType* evp_cipher_ctx_rtype;
 struct evp_cipher_ctx {
     EVP_CIPHER_CTX* ctx;
     int iv_len;
-    ERL_NIF_TERM padding;
+    ERL_NIF_TERM padding; /* id of the padding to add by get_final_args() */
+    int padded_size;   /* Length of the padding that was added */
     int encflag; /* 1 if encrypting, 0 if decrypting */
-    unsigned int size;
+    unsigned int size; /* The sum of all sizes of input texts to get_update_args() */
 #if !defined(HAVE_EVP_AES_CTR)
     ErlNifEnv* env;
     ERL_NIF_TERM state; /* Is == atom_undefined if not handling an aes_ctr crypto */
