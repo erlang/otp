@@ -259,10 +259,6 @@ expand_opt(no_bsm4, Os) ->
     %% bsm4 instructions are only used when type optimization has determined
     %% that a match instruction won't fail.
     expand_opt(no_type_opt, Os);
-expand_opt(r16, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r17, Os) ->
-    expand_opt_before_21(Os);
 expand_opt(r18, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r19, Os) ->
