@@ -205,7 +205,7 @@ silly_coverage(Config) when is_list(Config) ->
 
     %% beam_ssa_opt
     BadSSABlocks = #{0 => {b_blk,#{},[bad_code],{b_ret,#{},arg}}},
-    BadSSAOpt = {b_module,#{},a,[],c,
+    BadSSAOpt = {b_module,#{},a,[],[],
                  [{b_function,#{func_info=>{mod,foo,0}},[],
                    BadSSABlocks,0}]},
     expect_error(fun() -> beam_ssa_opt:module(BadSSAOpt, []) end),

@@ -192,13 +192,17 @@ no_side_effect(#b_set{op=Op}) ->
     case Op of
         {bif,_} -> true;
         {float,get} -> true;
+        bs_add -> true;
         bs_init -> true;
+        bs_init_writable -> true;
         bs_extract -> true;
         bs_match -> true;
         bs_start_match -> true;
         bs_test_tail -> true;
         bs_get_tail -> true;
         bs_put -> true;
+        bs_utf16_size -> true;
+        bs_utf8_size -> true;
         extract -> true;
         get_hd -> true;
         get_tl -> true;

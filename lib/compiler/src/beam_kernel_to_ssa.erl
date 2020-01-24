@@ -688,6 +688,12 @@ internal_cg(Op, As, [#k_var{name=Dst0}], St0) when is_atom(Op) ->
     {Dst,St} = new_ssa_var(Dst0, St0),
     Args = ssa_args(As, St),
     Set = #b_set{op=Op,dst=Dst,args=Args},
+    {[Set],St};
+internal_cg(Op, As, [], St0) when is_atom(Op) ->
+    %% This behaves like a function call.
+    {Dst,St} = new_ssa_var('@ssa_ignored', St0),
+    Args = ssa_args(As, St),
+    Set = #b_set{op=Op,dst=Dst,args=Args},
     {[Set],St}.
 
 bif_cg(Bif, As0, [#k_var{name=Dst0}], Le, St0) ->
@@ -845,7 +851,8 @@ is_guard_cg_safe(#b_br{}) -> true;
 is_guard_cg_safe(#b_switch{}) -> true;
 is_guard_cg_safe(#cg_break{}) -> true;
 is_guard_cg_safe(#cg_phi{}) -> true;
-is_guard_cg_safe({label,_}) -> true.
+is_guard_cg_safe({label,_}) -> true;
+is_guard_cg_safe(#cg_unreachable{}) -> false.
 
 try_enter_cg(Ta, Vs, Tb, Evs, Th, St0) ->
     {B,St1} = new_label(St0),			%Body label

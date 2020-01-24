@@ -290,6 +290,7 @@ epilogue_passes(Opts) ->
           %% Run live one more time to clean up after the float and sw
           %% passes.
           ?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_try),
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_sink),
@@ -1401,6 +1402,102 @@ live_opt_is([], Live, Acc) ->
     {Acc,Live}.
 
 %%%
+%%% Do a strength reduction of try/catch and catch.
+%%%
+%%% In try/catch constructs where the expression is restricted
+%%% (essentially a guard expression) and the error reason is ignored
+%%% in the catch part, such as:
+%%%
+%%%   try
+%%%      <RestrictedExpression>
+%%%   catch
+%%%      _:_ ->
+%%%        ...
+%%%   end
+%%%
+%%% the try/catch can be eliminated by simply removing the `new_try_tag`,
+%%% `landingpad`, and `kill_try_tag` instructions.
+
+ssa_opt_try({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Linear = opt_try(Linear0),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+opt_try([{L,#b_blk{is=[#b_set{op=new_try_tag}],
+                      last=Last}=Blk0}|Bs0]) ->
+    #b_br{succ=Succ,fail=Fail} = Last,
+    Ws = cerl_sets:from_list([Succ,Fail]),
+    try do_opt_try(Bs0, Ws) of
+        Bs ->
+            Blk = Blk0#b_blk{is=[],
+                             last=#b_br{bool=#b_literal{val=true},
+                                        succ=Succ,fail=Succ}},
+            [{L,Blk}|opt_try(Bs)]
+    catch
+        throw:not_possible ->
+            [{L,Blk0}|opt_try(Bs0)]
+    end;
+opt_try([{L,Blk}|Bs]) ->
+    [{L,Blk}|opt_try(Bs)];
+opt_try([]) -> [].
+
+do_opt_try([{L,Blk}|Bs]=Bs0, Ws0) ->
+    case cerl_sets:is_element(L, Ws0) of
+        false ->
+            %% This block is not reachable from the block with the
+            %% `new_try_tag` instruction. Retain it. There is no
+            %% need to check it for safety.
+            case cerl_sets:size(Ws0) of
+                0 -> Bs0;
+                _ -> [{L,Blk}|do_opt_try(Bs, Ws0)]
+            end;
+        true ->
+            Ws1 = cerl_sets:del_element(L, Ws0),
+            #b_blk{is=Is0} = Blk,
+            case is_safe_without_try(Is0) of
+                safe ->
+                    %% This block does not execute any instructions
+                    %% that would require a try. Analyze successors.
+                    Successors = beam_ssa:successors(Blk),
+                    Ws = cerl_sets:union(cerl_sets:from_list(Successors),
+                                         Ws1),
+                    [{L,Blk}|do_opt_try(Bs, Ws)];
+                unsafe ->
+                    %% There is something unsafe in the block, for
+                    %% example a `call` instruction or an `extract`
+                    %% instruction.
+                    throw(not_possible);
+                {done,Is} ->
+                    %% This block kills the try tag (either after successful
+                    %% execution or at the landing pad). Don't analyze
+                    %% successors.
+                    [{L,Blk#b_blk{is=Is}}|do_opt_try(Bs, Ws1)]
+            end
+    end;
+do_opt_try([], Ws) ->
+    0 = cerl_sets:size(Ws),                     %Assertion.
+    [].
+
+is_safe_without_try([#b_set{op=kill_try_tag}|Is]) ->
+    %% Remove the rest of the block (effectively deleting the `kill_try_tag`
+    %% and `landingpad` instructions).
+    {done,Is};
+is_safe_without_try([#b_set{op=extract}|_]) ->
+    %% The error reason is accessed.
+    unsafe;
+is_safe_without_try([#b_set{op=Op}=I|Is]) ->
+    IsSafe = case Op of
+                 exception_trampoline -> true;
+                 landingpad -> true;
+                 phi -> true;
+                 _ -> beam_ssa:no_side_effect(I)
+             end,
+    case IsSafe of
+        true -> is_safe_without_try(Is);
+        false -> unsafe
+    end;
+is_safe_without_try([]) -> safe.
+
+%%%
 %%% Optimize binary matching.
 %%%
 %%% * If the value of segment is never extracted, rewrite
@@ -1877,33 +1974,20 @@ opt_tup_size_is([], _, _, _Acc) -> none.
 %%%
 %%% Optimize #b_switch{} instructions.
 %%%
-%%% If the argument for a #b_switch{} comes from a phi node with all
-%%% literals, any values in the switch list which are not in the phi
-%%% node can be removed.
-%%%
-%%% If the values in the phi node and switch list are the same,
-%%% the failure label can't be reached and be eliminated.
-%%%
 %%% A #b_switch{} with only one value can be rewritten to
 %%% a #b_br{}. A switch that only verifies that the argument
-%%% is 'true' or 'false' can be rewritten to a is_boolean test.
-%%%
+%%% is 'true' or 'false' can be rewritten to an is_boolean test.
+%%%b
 
 ssa_opt_sw({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     {Linear,Count} = opt_sw(Linear0, Count0, []),
     {St#opt_st{ssa=Linear,cnt=Count}, FuncDb}.
 
 opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
-    %% Ensure that no label in the switch list is the same
-    %% as the failure label.
-    #b_switch{fail=Fail,list=List0} = Sw0,
-    List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
-    Sw1 = beam_ssa:normalize(Sw0#b_switch{list=List}),
-    case Sw1 of
+    case Sw0 of
         #b_switch{arg=Arg,fail=Fail,list=[{Lit,Lbl}]} ->
             %% Rewrite a single value switch to a br.
-            Bool = #b_var{name={'@ssa_bool',Count0}},
-            Count = Count0 + 1,
+            {Bool,Count} = new_var('@ssa_bool', Count0),
             IsEq = #b_set{op={bif,'=:='},dst=Bool,args=[Arg,Lit]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsEq],last=Br},
@@ -1912,17 +1996,13 @@ opt_sw([{L,#b_blk{is=Is,last=#b_switch{}=Sw0}=Blk0}|Bs], Count0, Acc) ->
                   list=[{#b_literal{val=B1},Lbl},{#b_literal{val=B2},Lbl}]}
           when B1 =:= not B2 ->
             %% Replace with is_boolean test.
-            Bool = #b_var{name={'@ssa_bool',Count0}},
-            Count = Count0 + 1,
+            {Bool,Count} = new_var('@ssa_bool', Count0),
             IsBool = #b_set{op={bif,is_boolean},dst=Bool,args=[Arg]},
             Br = #b_br{bool=Bool,succ=Lbl,fail=Fail},
             Blk = Blk0#b_blk{is=Is++[IsBool],last=Br},
             opt_sw(Bs, Count, [{L,Blk}|Acc]);
-        Sw0 ->
-            opt_sw(Bs, Count0, [{L,Blk0}|Acc]);
-        Sw ->
-            Blk = Blk0#b_blk{last=Sw},
-            opt_sw(Bs, Count0, [{L,Blk}|Acc])
+        _ ->
+            opt_sw(Bs, Count0, [{L,Blk0}|Acc])
     end;
 opt_sw([{L,#b_blk{}=Blk}|Bs], Count, Acc) ->
     opt_sw(Bs, Count, [{L,Blk}|Acc]);

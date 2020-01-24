@@ -598,13 +598,20 @@ opt_finish_1([], [], Acc) ->
 simplify_terminator(#b_br{bool=Bool}=Br0, Ts, Ds, Sub) ->
     Br = beam_ssa:normalize(Br0#b_br{bool=simplify_arg(Bool, Ts, Sub)}),
     simplify_not(Br, Ts, Ds, Sub);
-simplify_terminator(#b_switch{arg=Arg0}=Sw0, Ts, Ds, Sub) ->
+simplify_terminator(#b_switch{arg=Arg0,fail=Fail,list=List0}=Sw0,
+                    Ts, Ds, Sub) ->
     Arg = simplify_arg(Arg0, Ts, Sub),
-    Sw = Sw0#b_switch{arg=Arg},
-
-    case beam_types:is_boolean_type(raw_type(Arg, Ts)) of
-        true -> simplify_switch_bool(Sw, Ts, Ds, Sub);
-        false -> beam_ssa:normalize(Sw)
+    %% Ensure that no label in the switch list is the same as the
+    %% failure label.
+    List = [{Val,Lbl} || {Val,Lbl} <- List0, Lbl =/= Fail],
+    case beam_ssa:normalize(Sw0#b_switch{arg=Arg,list=List}) of
+        #b_switch{}=Sw ->
+            case beam_types:is_boolean_type(raw_type(Arg, Ts)) of
+                true -> simplify_switch_bool(Sw, Ts, Ds, Sub);
+                false -> Sw
+            end;
+        #b_br{}=Br ->
+            simplify_terminator(Br, Ts, Ds, Sub)
     end;
 simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
     %% Reducing the result of a call to a literal (fairly common for 'ok')
