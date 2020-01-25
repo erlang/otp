@@ -880,8 +880,8 @@ start(Ref, Type, Opts, N, #state{watchdogT = WatchdogT,
     T = {TOpts, SOpts, RecvData, Svc},
     Rec = #watchdog{type = Type,
                     ref = Ref,
-                    options = TOpts},
-
+                    options = Opts},  %% original options, returned
+                                      %% by service_info/2
     diameter_lib:fold_n(fun(_,A) ->
                                 [wd(Type, Ref, T, WatchdogT, Rec) | A]
                         end,

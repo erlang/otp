@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2017. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -28,6 +28,8 @@
 
 -export([suite/0,
          all/0,
+         init_per_suite/1,
+         end_per_suite/1,
          init_per_testcase/2,
          end_per_testcase/2]).
 
@@ -85,6 +87,13 @@ all() ->
      cea_timeout,
      stop].
 
+%% Not used, but a convenient place to enable trace.
+init_per_suite(Config) ->
+    Config.
+
+end_per_suite(_Config) ->
+    ok.
+
 init_per_testcase(Name, Config) ->
     [{name, Name} | Config].
 
@@ -109,17 +118,19 @@ start_server(Config) ->
 %% Connect with matching capabilities and expect the connection to
 %% come up.
 up(Config) ->
-    {Svc, Ref} = connect(Config, [{connect_timer, 5000},
-                                  {watchdog_timer, 15000}]),
+    {Svc, Ref, T} = connect(Config, [{strict_mbit, false},
+                                     {connect_timer, 5000},
+                                     {watchdog_timer, 15000}]),
     start = event(Svc),
-    {up, Ref, {TPid, Caps}, Cfg, #diameter_packet{msg = M}} = event(Svc),
+    {{up, Ref, {TPid, Caps}, T, #diameter_packet{msg = M}}, _}
+        = {event(Svc), T},
     ['CEA' | #{}] = M,  %% assert
     {watchdog, Ref, _, {initial, okay}, _} = event(Svc),
     %% Kill the transport process and see that the connection is
     %% reestablished after a watchdog timeout, not after connect_timer
     %% expiry.
     exit(TPid, kill),
-    {down, Ref, {TPid, Caps}, Cfg} = event(Svc),
+    {{down, Ref, {TPid, Caps}, T}, _} = {event(Svc), T},
     {watchdog, Ref, _, {okay, down}, _} = event(Svc),
     {reconnect, Ref, _} = event(Svc, 10000, 20000).
 
@@ -127,24 +138,25 @@ up(Config) ->
 %% to indicate as much and then for the transport to be restarted
 %% (after connect_timer).
 down(Config) ->
-    {Svc, Ref} = connect(Config, [{capabilities, [{'Acct-Application-Id',
-                                                   [?DICT_ACCT:id()]}]},
-                                  {applications, [?DICT_ACCT]},
-                                  {connect_timer, 5000},
-                                  {watchdog_timer, 20000}]),
+    {Svc, Ref, T} = connect(Config, [{capabilities, [{'Acct-Application-Id',
+                                                      [?DICT_ACCT:id()]}]},
+                                     {applications, [?DICT_ACCT]},
+                                     {connect_timer, 5000},
+                                     {watchdog_timer, 20000}]),
     start = event(Svc),
-    {closed, Ref, {'CEA', ?NO_COMMON_APP, _, #diameter_packet{msg = M}}, _}
-        = event(Svc),
+    {{closed, Ref, {'CEA', ?NO_COMMON_APP, _, #diameter_packet{msg = M}}, T},
+     _}
+        = {event(Svc), T},
     ['CEA' | #{}] = M,  %% assert
     {reconnect, Ref, _} = event(Svc, 4000, 10000).
 
 %% Connect with matching capabilities but have the server delay its
 %% CEA and cause the client to timeout.
 cea_timeout(Config) ->
-    {Svc, Ref} = connect(Config, [{capx_timeout, ?SERVER_CAPX_TMO div 2},
-                                  {connect_timer, 2*?SERVER_CAPX_TMO}]),
+    {Svc, Ref, T} = connect(Config, [{capx_timeout, ?SERVER_CAPX_TMO div 2},
+                                     {connect_timer, 2*?SERVER_CAPX_TMO}]),
     start = event(Svc),
-    {closed, Ref, {'CEA', timeout}, _} = event(Svc).
+    {{closed, Ref, {'CEA', timeout}, T}, _} = {event(Svc), T}.
 
 stop(_Config) ->
     ok = diameter:stop().
@@ -168,8 +180,9 @@ connect(Config, Opts) ->
     Name = Pre ++ uniq() ++ ?CLIENT,
     diameter:subscribe(Name),
     ok = start_service(Name, ?SERVICE(Name, [?DICT_COMMON, ?DICT_ACCT])),
-    {ok, Ref} = diameter:add_transport(Name, opts(Config, Opts)),
-    {Name, Ref}.
+    {connect, _} = T = opts(Config, Opts),
+    {ok, Ref} = diameter:add_transport(Name, T),
+    {Name, Ref, T}.
 
 uniq() ->
     "-" ++ diameter_util:unique_string().
