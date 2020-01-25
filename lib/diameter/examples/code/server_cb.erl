@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2015. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@
 -module(server_cb).
 
 -include_lib("diameter/include/diameter.hrl").
--include_lib("diameter/include/diameter_gen_base_rfc6733.hrl").
 
 %% diameter callbacks
 -export([peer_up/3,
@@ -37,67 +36,87 @@
          handle_error/4,
          handle_request/3]).
 
--define(UNEXPECTED, erlang:error({unexpected, ?MODULE, ?LINE})).
+%% Raise an error on callbacks that aren't expected.
+-define(ERROR, error({unexpected, ?MODULE, ?LINE})).
+
+%% peer_up/3
 
 peer_up(_SvcName, _Peer, State) ->
     State.
 
+%% peer_down/3
+
 peer_down(_SvcName, _Peer, State) ->
     State.
 
-pick_peer(_, _, _SvcName, _State) ->
-    ?UNEXPECTED.
+%% pick_peer/3
 
-prepare_request(_, _SvcName, _Peer) ->
-    ?UNEXPECTED.
+%% Don't let requests be sent, so other request callbacks shouldn't
+%% happen.
+pick_peer(_LocalCandidates, _RemoteCandidates, _SvcName, _State) ->
+    false.
+
+%% prepare_request/3
+
+prepare_request(_Packet, _SvcName, _Peer) ->
+    ?ERROR.
+
+%% prepare_retransmit/3
 
 prepare_retransmit(_Packet, _SvcName, _Peer) ->
-    ?UNEXPECTED.
+    ?ERROR.
+
+%% handle_answer/4
 
 handle_answer(_Packet, _Request, _SvcName, _Peer) ->
-    ?UNEXPECTED.
+    ?ERROR.
+
+%% handle_error/4
 
 handle_error(_Reason, _Request, _SvcName, _Peer) ->
-    ?UNEXPECTED.
+    ?ERROR.
 
-%% A request whose decode was successful ...
-handle_request(#diameter_packet{msg = Req, errors = []}, _SvcName, {_, Caps})
-  when is_record(Req, diameter_base_RAR) ->
+%% handle_request/3
+
+%% ACR without decode errors.
+handle_request(#diameter_packet{msg = ['ACR' | #{} = Request],
+                                errors = []},
+               _SvcName,
+               {_, Caps}) ->
     #diameter_caps{origin_host = {OH,_},
                    origin_realm = {OR,_}}
         = Caps,
-    #diameter_base_RAR{'Session-Id' = Id,
-                       'Re-Auth-Request-Type' = Type}
-        = Req,
 
-    {reply, #diameter_base_RAA{'Result-Code' = rc(Type),
-                               'Origin-Host' = OH,
-                               'Origin-Realm' = OR,
-                               'Session-Id' = Id}};
+    #{'Session-Id' := Sid,
+      'Accounting-Record-Type' := T,
+      'Accounting-Record-Number' := N}
+        = Request,
 
-%% ... or one that wasn't. 3xxx errors are answered by diameter itself
-%% but these are 5xxx errors for which we must contruct a reply.
-%% diameter will set Result-Code and Failed-AVP's.
-handle_request(#diameter_packet{msg = Req}, _SvcName, {_, Caps})
-  when is_record(Req, diameter_base_RAR) ->
+    Answer = #{'Result-Code' => 2001,  %% DIAMETER_SUCCESS
+               'Origin-Host' => OH,
+               'Origin-Realm' => OR,
+               'Session-Id' => Sid,
+               'Accounting-Record-Type' => T,
+               'Accounting-Record-Number' => N},
+
+    {reply, ['ACA' | Answer]};
+
+%% ACR with decode errors.
+handle_request(#diameter_packet{msg = ['ACR' | #{} = Request]},
+               _SvcName,
+               {_, Caps}) ->
     #diameter_caps{origin_host = {OH,_},
                    origin_realm = {OR,_}}
         = Caps,
-    #diameter_base_RAR{'Session-Id' = Id}
-        = Req,
 
-    {reply, #diameter_base_RAA{'Origin-Host' = OH,
-                               'Origin-Realm' = OR,
-                               'Session-Id' = Id}};
+    Answer = maps:merge(maps:with(['Session-Id'], Request),
+                        #{'Origin-Host' => OH,
+                          'Origin-Realm' => OR}),
 
-%% Answer that any other message is unsupported.
+    %% Let diameter set Result-Code and Failed-AVP if there were
+    %% decode errors.
+    {reply, ['answer-message' | Answer]};
+
+%% Answer anything else as unsupported.
 handle_request(#diameter_packet{}, _SvcName, _) ->
     {answer_message, 3001}.  %% DIAMETER_COMMAND_UNSUPPORTED
-
-%% Map Re-Auth-Request-Type to Result-Code just for the purpose of
-%% generating different answers.
-
-rc(0) ->
-    2001;  %% DIAMETER_SUCCESS
-rc(_) ->
-    5012.  %% DIAMETER_UNABLE_TO_COMPLY

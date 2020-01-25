@@ -1,0 +1,105 @@
+
+This directory contains small examples of simple Diameter nodes. They
+don't do everything a real node should do obviously, but they're a
+starting point.
+
+Each example consists of an interface module with functions to start
+and stop a service and add transport, and a corresponding callback
+module for the Diameter application the service configures. A real
+node might support multiple Diameter applications, either with the
+same callback or sharing a common callback, maybe using extra
+arguments to distinguish between callbacks for the different
+applications.
+
+The interface functions are named start, stop, connect, and listen;
+the client example also has a call function that sends an example
+message. Service names should be atoms in these modules (since the
+default setting of Origin-Host assumes this), but doesn't need to be
+in general. Options are passed directly to diameter:start_service/2
+and diameter:add_transport/2, with some additional convenience options
+for the latter; in particular, the atoms tcp and sctp to connect to or
+listen on default endpoints (127.0.01:3868), or tuples with protocol
+and another endpoint {eg. {tcp, {192,168,1,5}, 3869}. This convenience
+makes the simplest usage like this in an Erlang shell:
+
+  diameter:start().
+  server:start().
+  server:listen(tcp).
+  client:start().
+  client:connect(tcp).
+  client:call().
+
+Or put a relay between the client and server:
+
+  diameter:start().
+  server:start().
+  server:listen(sctp).
+  relay:start().
+  relay:connect(sctp).
+  relay:listen(tcp).
+  client:start().
+  client:connect(tcp).
+  client:call().
+
+Most services should probably set the following options, which have
+been added to solve various problems over the years, while the
+defaults have not been changed for backwards compatibility.
+
+  {decode_format, map}
+
+      Provide decoded messages in #diameter_packet.msg of a
+      handle_request or handle_answer callback in the form [Name | Avps],
+      where Name is the atom() name of the message in the (Diameter)
+      application dictionary in question (eg. 'ACR') and Avps is a map
+      of AVP values. This avoids compile-time dependencies on the
+      generated records and their (generally) long-winded names. The
+      hrl files generated from dictionaries are best avoided.
+
+  {restrict_connections, false}
+
+      Accept multiple connections with the same peer. By default,
+      diameter will only accept a single connection with a given peer,
+      which the Diameter RFC can be interpreted as requiring. In
+      practice, wanting multiple connections to the same peer is
+      common.
+
+  {string_decode, false}
+
+      Disable the decoding of string-ish Diameter types to Erlang
+      strings, leaving them as binary(). Strings can be costly if
+      decoded Diameter messages are passed between processes.
+
+  {strict_mbit, false}
+
+      Relax the interpretation of the M-bit so that an AVP setting
+      this bit is not regarded as a 5001 error when the message
+      grammar in question doesn't explicitly list the AVP. Without
+      this, a Redirect-Host AVP received in a 3006
+      (DIAMETER_REDIRECT_INDICATION) answer-message from a redirect
+      agent will be treated as error, and there have been other
+      situations in which the default value has caused problems (or at
+      least surprise).
+
+  {call_mutates_state, false}    (on each configured application)
+
+      Avoid pick_peer and subsequent callbacks going through a single
+      process, which can be a bottleneck. Better to use the tid() of
+      an ets table as (immutable) state, for example.
+
+Other options that are particularly useful/necessary in some
+situations are:
+
+  pool_size - Create a pool of accepting processes for a listening
+              transport, to avoid refused connections when many peers
+              connect simultaneously. Can also be used on a connecting
+              transport to establish multiple connections with a
+              single call to diameter:add_transport/2.
+
+  sequence  - Ensure unique End-to-End and Hop-by-Hop identifiers over
+              a cluster of Erlang nodes.
+
+  share_peers       - Share peer connections across a cluster of
+  use_shared_peers    Erlang nodes.
+
+  spawn_opt - Replace diameter's spawning of a new handler process for
+              each request by something else: diameter_dist is an example.
