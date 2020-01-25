@@ -1179,9 +1179,28 @@ eval_type_test_bif(I, Op, Types) ->
         [#t_integer{},#t_integer{elements={1,1}}] when Op =:= '*'; Op =:= 'div' ->
             #b_set{args=[Result,_]} = I,
             Result;
+        [#t_integer{elements={LMin,LMax}},#t_integer{elements={RMin,RMax}}] ->
+            case is_inequality_op(Op) of
+                true ->
+                    case {erlang:Op(LMin, RMin),erlang:Op(LMax, RMin),
+                          erlang:Op(LMin, RMax),erlang:Op(LMax, RMax)} of
+                        {Bool,Bool,Bool,Bool} ->
+                            #b_literal{val=Bool};
+                        _ ->
+                            I
+                    end;
+                false ->
+                    I
+            end;
         _ ->
             I
     end.
+
+is_inequality_op('<') -> true;
+is_inequality_op('=<') -> true;
+is_inequality_op('>') -> true;
+is_inequality_op('>=') -> true;
+is_inequality_op(_) -> false.
 
 eval_type_test_bif_1(I, ArgType, Required) ->
     case beam_types:meet(ArgType, Required) of
