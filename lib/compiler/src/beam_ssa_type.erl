@@ -1168,8 +1168,20 @@ eval_type_test_bif(I, is_number, [Type]) ->
     eval_type_test_bif_1(I, Type, number);
 eval_type_test_bif(I, is_tuple, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_tuple{});
-eval_type_test_bif(I, _, _) ->
-    I.
+eval_type_test_bif(I, Op, Types) ->
+    case Types of
+        [#t_integer{},#t_integer{elements={0,0}}]
+          when Op =:= '+'; Op =:= '-'; Op =:= 'bor'; Op =:= 'bxor' ->
+            #b_set{args=[Result,_]} = I,
+            Result;
+        [#t_integer{},#t_integer{elements={0,0}}] when Op =:= '*'; Op =:= 'band' ->
+            #b_literal{val=0};
+        [#t_integer{},#t_integer{elements={1,1}}] when Op =:= '*'; Op =:= 'div' ->
+            #b_set{args=[Result,_]} = I,
+            Result;
+        _ ->
+            I
+    end.
 
 eval_type_test_bif_1(I, ArgType, Required) ->
     case beam_types:meet(ArgType, Required) of
