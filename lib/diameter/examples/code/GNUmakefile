@@ -18,7 +18,7 @@
 # %CopyrightEnd%
 #
 
-EXAMPLES  = client server relay # redirect proxy
+EXAMPLES  = client server relay redirect # proxy
 
 CALLBACKS = $(EXAMPLES:%=%_cb)
 MODULES   = $(EXAMPLES) $(EXAMPLES:%=%_cb)

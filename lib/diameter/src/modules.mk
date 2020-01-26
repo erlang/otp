@@ -104,6 +104,8 @@ EXAMPLES = \
 	code/server_cb.erl \
 	code/relay.erl \
 	code/relay_cb.erl \
+	code/redirect.erl \
+	code/redirect_cb.erl \
 	dict/rfc4004_mip.dia \
 	dict/rfc4005_nas.dia \
 	dict/rfc4006_cc.dia \
