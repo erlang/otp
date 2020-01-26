@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<!-- %ExternalCopyright% -->
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2020</year><year>2020</year>
+      <holder>Maxim Fedorov, WhatsApp Inc.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>pg</title>
+    <prepared>maximfca@gmail.com</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>pg.xml</file>
+  </header>
+  <module since="OTP 23.0">pg</module>
+  <modulesummary>Distributed named process groups.</modulesummary>
+  <description>
+    <p>This module implements process groups. A message can be sent
+      to one, some, or all group members.</p>
+    <p>A group of processes can be accessed by a common name. For
+      example, if there is a group named <c>foobar</c>, there can be a
+      set of processes (which can be located on different nodes) that
+      are all members of the group <c>foobar</c>. There are no special
+      functions for sending a message to the group. Instead, client
+      functions are to be written with the functions
+      <seealso marker="#get_members/1"><c>get_members/1</c></seealso> and
+      <seealso marker="#get_local_members/1"><c>get_local_members/1</c></seealso>
+      to determine which processes are members of the group.
+      Then the message can be sent to one or more group members.</p>
+    <p>If a member terminates, it is automatically removed from the group.</p>
+
+    <p>A process may join multiple groups. It may join the same group multiple times.
+      It is only allowed to join processes running on local node.
+    </p>
+
+    <p>Process Groups implement strong eventual consistency.
+      Unlike <seealso marker="kernel_app"><c>pg2</c></seealso>, that provides
+      strong ordering guarantees, Process Groups membership view may temporarily
+      diverge. For example, when processes on <c>node1</c> and <c>node2</c>
+      join concurrently, <c>node3</c> and <c>node4</c> may receive updates in
+      a different order.</p>
+
+    <p> Membership view is not transitive. If <c>node1</c> is not directly
+      connected to <c>node2</c>, they will not see each other groups. But if
+      both are connected to <c>node3</c>, <c>node3</c> will have the full view. </p>
+
+    <p>Groups are automatically created when any process joins,
+      and are removed when all processes leave the group. Non-existing group is
+      considered empty (containing no processes).</p>
+
+    <p>Process groups can be organised into multiple scopes. Scopes are
+      completely independent of each other. A process may join any
+      number of groups in any number of scopes. Scopes are designed to
+      decouple single mesh into a set of overlay networks, reducing
+      amount of traffic required to propagate group membership
+      information. Default scope <c>pg</c> is started automatically
+      when <seealso marker="kernel_app#start_pg"><c>kernel(6)</c></seealso>
+      is configured to do so.
+    </p>
+
+    <note><p>
+      Scope name is used to register process locally, and to name an ETS table.
+      If there is another process registered under this name, or another ETS table
+      exists, scope fails to start.</p>
+      <p>Local membership is not preserved if scope process exits and
+        restarts. This behaviour is different from
+        <seealso marker="kernel_app"><c>pg2</c></seealso>, that recovers
+        local membership from remote nodes.
+    </p></note>
+
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="group"/>
+      <desc><p>The identifier of a process group.</p></desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+
+    <func>
+      <name name="start_link" arity="0" since="OTP 23.0"/>
+      <fsummary>Start the default <c>pg</c> scope.</fsummary>
+      <desc>
+        <p>Starts the default <c>pg</c> scope within supervision tree.
+          Kernel may be configured to do it automatically, see
+          <seealso marker="kernel_app#start_pg"><c>kernel(6)</c></seealso>
+          configuration manual.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="start" arity="1" since="OTP 23.0"/>
+      <name name="start_link" arity="1" since="OTP 23.0"/>
+      <fsummary>Start additional scope.</fsummary>
+      <desc>
+        <p>Starts additional scope.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="join" arity="2" since="OTP 23.0"/>
+      <name name="join" arity="3" since="OTP 23.0"/>
+      <fsummary>Join a process or a list of processes to a group.</fsummary>
+      <desc>
+        <p>Joins single process or multiple processes to the
+          group <c>Name</c>. A process can join a group many times and
+          must then leave the group the same number of times.</p>
+        <p><c>PidOrPids</c> may contain the same process multiple times.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="leave" arity="2" since="OTP 23.0"/>
+      <name name="leave" arity="3" since="OTP 23.0"/>
+      <fsummary>Make a process leave a group.</fsummary>
+      <desc>
+        <p>Makes the process <c>PidOrPids</c> leave the group <c>Name</c>.
+	  If the process is not a member of the group, <c>not_joined</c> is
+	  returned.</p>
+        <p>When list of processes is passed as <c>PidOrPids</c>, function
+        returns <c>not_joined</c> only when all processes of the list
+        are not joined.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_local_members" arity="1" since="OTP 23.0"/>
+      <name name="get_local_members" arity="2" since="OTP 23.0"/>
+      <fsummary>Return all local processes in a group.</fsummary>
+      <desc>
+        <p>Returns all processes running on the local node in the
+          group <c>Name</c>. Processes are returned in no specific order.
+          This function is optimised for speed.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="get_members" arity="1" since="OTP 23.0"/>
+      <name name="get_members" arity="2" since="OTP 23.0"/>
+      <fsummary>Return all processes in a group.</fsummary>
+      <desc>
+        <p>Returns all processes in the group <c>Name</c>.
+          Processes are returned in no specific order.
+          This function is optimised for speed.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="which_groups" arity="0" since="OTP 23.0"/>
+      <name name="which_groups" arity="1" since="OTP 23.0"/>
+      <fsummary>Return a list of all known groups.</fsummary>
+      <desc>
+        <p>Returns a list of all known groups.</p>
+      </desc>
+    </func>
+
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="kernel_app"><c>kernel(6)</c></seealso></p>
+  </section>
+</erlref>
+

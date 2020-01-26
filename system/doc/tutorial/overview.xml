@@ -64,7 +64,7 @@
        (describes the BIFs)</item>
        <item><seealso marker="kernel:global">global</seealso> manual page in Kernel</item>
        <item><seealso marker="kernel:net_adm">net_adm</seealso> manual page in Kernel</item>
-       <item><seealso marker="kernel:pg2">pg2</seealso> manual page in Kernel</item>
+       <item><seealso marker="kernel:pg">pg</seealso> manual page in Kernel</item>
        <item><seealso marker="kernel:rpc">rpc</seealso> manual page in Kernel</item>
        <item><seealso marker="stdlib:pool">pool</seealso> manual page in STDLIB</item>
        <item><seealso marker="stdlib:slave">slave</seealso> manual page in STDLIB</item>

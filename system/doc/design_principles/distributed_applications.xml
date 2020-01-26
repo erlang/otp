@@ -45,7 +45,7 @@
       addressing mechanism is required to ensure that it can be
       addressed by other applications, regardless on which node it
       currently executes. This issue is not addressed here, but the
-      <c>global</c> or <c>pg2</c> modules in Kernel
+      <c>global</c> or <c>pg</c> modules in Kernel
       can be used for this purpose.</p>
   </section>
 

@@ -30,6 +30,7 @@
   <xi:include href="../specs/specs_net_adm.xml"/>
   <xi:include href="../specs/specs_net_kernel.xml"/>
   <xi:include href="../specs/specs_os.xml"/>
+  <xi:include href="../specs/specs_pg.xml"/>
   <xi:include href="../specs/specs_pg2.xml"/>
   <xi:include href="../specs/specs_rpc.xml"/>
   <xi:include href="../specs/specs_seq_trace.xml"/>

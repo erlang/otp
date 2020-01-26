@@ -128,6 +128,7 @@ MODULES = \
 	net_adm \
 	net_kernel \
 	os \
+	pg \
 	pg2 \
 	ram_file \
 	rpc \
