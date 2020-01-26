@@ -526,7 +526,7 @@ request_cb(noreply, _App, EvalPktFs, EvalFs) ->
 
 %% Relay a request to another peer. This is equivalent to doing an
 %% explicit call/4 with the message in question except that (1) a loop
-%% will be detected by examining Route-Record AVP's, (3) a
+%% will be detected by examining Route-Record AVP's, (2) a
 %% Route-Record AVP will be added to the outgoing request and (3) the
 %% End-to-End Identifier will default to that in the
 %% #diameter_header{} without the need for an end_to_end_identifier
@@ -562,14 +562,7 @@ request_cb(T, App, _, _) ->
 send_A({reply, Ans}, TPid, App, Dict0, RecvData, Pkt, _Caps, Fs) ->
     AppDict = App#diameter_app.dictionary,
     MsgDict = msg_dict(AppDict, Dict0, Ans),
-    send_answer(Ans,
-                TPid,
-                MsgDict,
-                AppDict,
-                Dict0,
-                RecvData,
-                Pkt,
-                Fs);
+    send_answer(Ans, TPid, MsgDict, AppDict, Dict0, RecvData, Pkt, Fs);
 
 send_A({call, Opts}, TPid, App, Dict0, RecvData, Pkt, Caps, Fs) ->
     AppDict = App#diameter_app.dictionary,
@@ -673,7 +666,7 @@ is_answer_message(#diameter_packet{msg = Msg}, Dict0) ->
 is_answer_message([#diameter_header{is_request = R, is_error = E} | _], _) ->
     E andalso not R;
 
-%% Message sent as a map or tagged avp/value list.
+%% Message sent as a map or avp list.
 is_answer_message([Name | _], _) ->
     Name == 'answer-message';
 

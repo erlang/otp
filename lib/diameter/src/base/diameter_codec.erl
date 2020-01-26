@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -208,7 +208,7 @@ values(Avps) ->
 encode_avps(_, _, [#diameter_avp{} | _] = Avps, Opts) ->
     encode_avps(Avps, Opts);
 
-%% ... or as a tuple list or record.
+%% ... or as a tuple list, map, or record.
 encode_avps(Mod, MsgName, Values, Opts) ->
     Mod:encode_avps(MsgName, Values, Opts).
 
