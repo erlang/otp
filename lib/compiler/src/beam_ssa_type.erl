@@ -726,6 +726,11 @@ simplify(#b_set{op={bif,size},args=[Term]}=I, Ts) ->
     case normalized_type(Term, Ts) of
         #t_tuple{} ->
             simplify(I#b_set{op={bif,tuple_size}}, Ts);
+        #t_bitstring{size_unit=U} when U rem 8 =:= 0 ->
+            %% If the bitstring is a binary (the size in bits is
+            %% evenly divisibly by 8), byte_size/1 gives
+            %% the same result as size/1.
+            simplify(I#b_set{op={bif,byte_size}}, Ts);
         _ ->
             eval_bif(I, Ts)
     end;
