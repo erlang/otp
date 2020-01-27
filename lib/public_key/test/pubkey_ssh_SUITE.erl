@@ -39,13 +39,7 @@ suite() ->
 
 all() -> 
     [{group, ssh_public_key_decode_encode},
-     ssh_hostkey_fingerprint_md5_implicit,
-     ssh_hostkey_fingerprint_md5,
-     ssh_hostkey_fingerprint_sha,
-     ssh_hostkey_fingerprint_sha256,
-     ssh_hostkey_fingerprint_sha384,
-     ssh_hostkey_fingerprint_sha512,
-     ssh_hostkey_fingerprint_list
+     {group, ssh_hostkey_fingerprint}
     ].
 
 groups() -> 
@@ -55,7 +49,16 @@ groups() ->
        ssh_rfc4716_rsa_subject,
        ssh_known_hosts,
        ssh_auth_keys, ssh1_known_hosts, ssh1_auth_keys, ssh_openssh_public_key_with_comment,
-       ssh_openssh_public_key_long_header]}
+       ssh_openssh_public_key_long_header]},
+
+     {ssh_hostkey_fingerprint, [],
+      [ssh_hostkey_fingerprint_md5_implicit,
+       ssh_hostkey_fingerprint_md5,
+       ssh_hostkey_fingerprint_sha,
+       ssh_hostkey_fingerprint_sha256,
+       ssh_hostkey_fingerprint_sha384,
+       ssh_hostkey_fingerprint_sha512,
+       ssh_hostkey_fingerprint_list]}
     ].
 %%-------------------------------------------------------------------
 init_per_suite(Config) ->
