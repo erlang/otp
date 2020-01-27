@@ -783,12 +783,13 @@ do_wait_finished(#finished{verify_data = VerifyData},
 
         State1 = calculate_traffic_secrets(State0),
         State2 = maybe_calculate_resumption_master_secret(State1),
+        State3 = forget_master_secret(State2),
 
         %% Configure traffic keys
-        State3 = ssl_record:step_encryption_state(State2),
+        State4 = ssl_record:step_encryption_state(State3),
 
         %% Send session ticket
-        maybe_send_session_ticket(State3)
+        maybe_send_session_ticket(State4)
 
     catch
         {Ref, #alert{} = Alert} ->
@@ -816,9 +817,10 @@ do_wait_finished(#finished{verify_data = VerifyData},
 
         State4 = calculate_traffic_secrets(State3),
         State5 = maybe_calculate_resumption_master_secret(State4),
+        State6 = forget_master_secret(State5),
 
         %% Configure traffic keys
-        ssl_record:step_encryption_state(State5)
+        ssl_record:step_encryption_state(State6)
 
     catch
         {Ref, #alert{} = Alert} ->
@@ -1489,6 +1491,22 @@ maybe_calculate_resumption_master_secret(#state{
     {Messages0, _} = HHistory,
     RMS = tls_v1:resumption_master_secret(HKDFAlgo, MasterSecret, lists:reverse(Messages0)),
     update_resumption_master_secret(State, RMS).
+
+
+forget_master_secret(#state{connection_states =
+                                #{pending_read := PendingRead,
+                                  pending_write := PendingWrite,
+                                  current_read := CurrentRead,
+                                  current_write := CurrentWrite} = CS} = State) ->
+    State#state{connection_states = CS#{pending_read => overwrite_master_secret(PendingRead),
+                                        pending_write => overwrite_master_secret(PendingWrite),
+                                        current_read => overwrite_master_secret(CurrentRead),
+                                        current_write => overwrite_master_secret(CurrentWrite)}}.
+
+
+overwrite_master_secret(ConnectionState = #{security_parameters := SecurityParameters0}) ->
+    SecurityParameters = SecurityParameters0#security_parameters{master_secret = {master_secret, <<0>>}},
+    ConnectionState#{security_parameters => SecurityParameters}.
 
 
 update_pending_connection_states(#state{
