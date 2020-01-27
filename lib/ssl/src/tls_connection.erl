@@ -88,7 +88,7 @@
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
--export([encode_handshake/4]).
+-export([encode_handshake/4, update_cipher_key/2]).
 
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
@@ -415,7 +415,6 @@ renegotiate(#state{static_env = #static_env{role = server,
 	     
 send_handshake(Handshake, State) ->
     send_handshake_flight(queue_handshake(Handshake, State)).
-
 
 queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
 				  connection_env = #connection_env{negotiated_version = Version},
@@ -884,6 +883,11 @@ connection(internal, #client_hello{},
 connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
     %% TLS 1.3
     handle_new_session_ticket(NewSessionTicket, State),
+    next_event(?FUNCTION_NAME, no_record, State);
+
+connection(internal, #key_update{} = KeyUpdate, State0) ->
+    %% TLS 1.3
+    State = handle_key_update(KeyUpdate, State0),
     next_event(?FUNCTION_NAME, no_record, State);
 
 connection(Type, Event, State) ->
@@ -1442,6 +1446,46 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
     RMS = SecParams#security_parameters.resumption_master_secret,
     PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
     tls_client_ticket_store:store_ticket(NewSessionTicket, HKDF, SNI, PSK).
+
+
+handle_key_update(#key_update{request_update = update_not_requested}, State0) ->
+    %% Update read key in connection
+    update_cipher_key(current_read, State0);
+handle_key_update(#key_update{request_update = update_requested}, State0) ->
+    %% Update read key in connection
+    State1 = update_cipher_key(current_read, State0),
+    %% Send key_update and update sender's write key
+    send_key_update(update_not_requested, State1),
+    State1.
+
+
+update_cipher_key(ConnStateName, #state{connection_states = CS0} = State0) ->
+    CS = update_cipher_key(ConnStateName, CS0),
+    State0#state{connection_states = CS};
+update_cipher_key(ConnStateName, CS0) ->
+    #{security_parameters := SecParams0,
+      cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),
+    HKDF = SecParams0#security_parameters.prf_algorithm,
+    CipherSuite = SecParams0#security_parameters.cipher_suite,
+    ApplicationTrafficSecret0 = SecParams0#security_parameters.application_traffic_secret,
+    ApplicationTrafficSecret = tls_v1:update_traffic_secret(HKDF, ApplicationTrafficSecret0),
+
+    %% Calculate traffic keys
+    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
+    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, Cipher, ApplicationTrafficSecret),
+
+    SecParams = SecParams0#security_parameters{application_traffic_secret = ApplicationTrafficSecret},
+    CipherState = CipherState0#cipher_state{key = Key, iv = IV},
+    ConnState = ConnState0#{security_parameters => SecParams,
+                            cipher_state => CipherState,
+                            sequence_number => 0},
+    CS0#{ConnStateName => ConnState}.
+
+
+send_key_update(update_not_requested = Type, #state{protocol_specific = #{sender := Sender}}) ->
+    KeyUpdate = tls_handshake_1_3:key_update(Type),
+    tls_sender:send_post_handshake(Sender, KeyUpdate),
+    tls_sender:key_update(Sender).
 
 
 %% Send ticket data to user as opaque binary

@@ -28,9 +28,11 @@
 -include("ssl_api.hrl").
 
 %% API
--export([start/0, start/1, initialize/2, send_data/2, send_alert/2,
+-export([start/0, start/1, initialize/2, send_data/2,
+         send_post_handshake/2, key_update/1, send_alert/2,
          send_and_ack_alert/2, setopts/2, renegotiate/1, peer_renegotiate/1, downgrade/2,
-         update_connection_state/3, dist_tls_socket/1, dist_handshake_complete/3]).
+         update_connection_state/3,
+         dist_tls_socket/1, dist_handshake_complete/3]).
 
 %% gen_statem callbacks
 -export([callback_mode/0, init/1, terminate/3, code_change/4]).
@@ -92,6 +94,20 @@ initialize(Pid, InitMsg) ->
 send_data(Pid, AppData) ->
     %% Needs error handling for external API
     call(Pid, {application_data, AppData}).
+
+%%--------------------------------------------------------------------
+-spec send_post_handshake(pid(), iodata()) -> ok | {error, term()}.
+%%  Description: Send post handshake data
+%%--------------------------------------------------------------------
+send_post_handshake(Pid, HandshakeData) ->
+    call(Pid, {post_handshake_data, HandshakeData}).
+
+%%--------------------------------------------------------------------
+-spec key_update(pid()) -> ok | {error, term()}.
+%%  Description: Update cipher key
+%%--------------------------------------------------------------------
+key_update(Pid) ->
+    call(Pid, {key_update}).
 
 %%--------------------------------------------------------------------
 -spec send_alert(pid(), #alert{}) -> _. 
@@ -239,6 +255,8 @@ connection({call, From}, {application_data, AppData},
         Data ->
             send_application_data(Data, From, ?FUNCTION_NAME, StateData)
     end;
+connection({call, From}, {post_handshake_data, HSData}, StateData) ->
+    send_post_handshake_data(HSData, From, ?FUNCTION_NAME, StateData);
 connection({call, From}, {ack_alert, #alert{} = Alert}, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, ?FUNCTION_NAME, StateData,
@@ -273,6 +291,12 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
               [{next_event, internal,
                {application_packets,{self(),undefined},erlang:iolist_to_iovec(Data)}}]
       end]};
+connection({call, From}, {key_update},
+           #data{connection_states = ConnectionStates0} = StateData) ->
+    ConnectionStates = tls_connection:update_cipher_key(current_write, ConnectionStates0),
+    {next_state, connection, StateData#data{connection_states = ConnectionStates},
+     [{reply,From,ok}]};
+
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
 %%
@@ -444,6 +468,32 @@ send_application_data(Data, From, StateName,
                 Result ->
                     {next_state, StateName, StateData,  [{reply, From, Result}]}
             end
+    end.
+
+%% TLS 1.3 Post Handshake Data
+send_post_handshake_data(Handshake, From, StateName,
+                         #data{static = #static{socket = Socket,
+                                                dist_handle = DistHandle,
+                                                negotiated_version = Version,
+                                                transport_cb = Transport,
+                                                log_level = LogLevel},
+                               connection_states = ConnectionStates0} = StateData0) ->
+    BinHandshake = tls_handshake:encode_handshake(Handshake, Version),
+    {Encoded, ConnectionStates} =
+        tls_record:encode_handshake(BinHandshake, Version, ConnectionStates0),
+    ssl_logger:debug(LogLevel, outbound, 'handshake', Handshake),
+    StateData = StateData0#data{connection_states = ConnectionStates},
+    case tls_socket:send(Transport, Socket, Encoded) of
+        ok when DistHandle =/=  undefined ->
+            ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
+            {next_state, StateName, StateData, []};
+        Reason when DistHandle =/= undefined ->
+            {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
+        ok ->
+            ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
+            {next_state, StateName, StateData,  [{reply, From, ok}]};
+        Result ->
+            {next_state, StateName, StateData,  [{reply, From, Result}]}
     end.
 
 -compile({inline, encode_packet/2}).

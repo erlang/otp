@@ -39,7 +39,8 @@
 %% Create handshake messages
 -export([certificate/5,
          certificate_verify/4,
-         encrypted_extensions/1]).
+         encrypted_extensions/1,
+         key_update/1]).
 
 -export([do_start/2,
          do_negotiated/2,
@@ -250,6 +251,10 @@ finished(#state{connection_states = ConnectionStates,
       }.
 
 
+key_update(Type) ->
+    #key_update{request_update = Type}.
+
+
 %%====================================================================
 %% Encode handshake
 %%====================================================================
@@ -290,7 +295,8 @@ encode_handshake(#new_session_ticket{
 encode_handshake(#end_of_early_data{}) ->
     {?END_OF_EARLY_DATA, <<>>};
 encode_handshake(#key_update{request_update = Update}) ->
-    {?KEY_UPDATE, <<?BYTE(Update)>>};
+    EncUpdate = encode_key_update(Update),
+    {?KEY_UPDATE, <<EncUpdate/binary>>};
 encode_handshake(HandshakeMsg) ->
     ssl_handshake:encode_handshake(HandshakeMsg, {3,4}).
 
@@ -360,7 +366,7 @@ decode_handshake(?NEW_SESSION_TICKET, <<?UINT32(LifeTime), ?UINT32(Age),
 decode_handshake(?END_OF_EARLY_DATA, _) ->
     #end_of_early_data{};
 decode_handshake(?KEY_UPDATE, <<?BYTE(Update)>>) ->
-    #key_update{request_update = Update};
+    #key_update{request_update = decode_key_update(Update)};
 decode_handshake(Tag, HandshakeMsg) ->
     ssl_handshake:decode_handshake({3,4}, Tag, HandshakeMsg).
 
@@ -407,6 +413,16 @@ encode_signature(Signature) ->
     Size = byte_size(Signature),
     <<?UINT16(Size), Signature/binary>>.
 
+encode_key_update(update_not_requested) ->
+    <<?BYTE(0)>>;
+encode_key_update(update_requested) ->
+    <<?BYTE(1)>>.
+
+decode_key_update(0) ->
+    update_not_requested;
+decode_key_update(1) ->
+    update_requested.
+
 decode_cert_entries(Entries) ->
     decode_cert_entries(Entries, []).
 
@@ -420,6 +436,7 @@ decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts
 
 encode_extensions(Exts)->
     ssl_handshake:encode_extensions(extensions_list(Exts)).
+
 decode_extensions(Exts, MessageType) ->
     ssl_handshake:decode_extensions(Exts, {3,4}, MessageType).
 
@@ -1355,6 +1372,7 @@ calculate_handshake_secrets(PublicKey, PrivateKey, SelectedGroup, PSK,
     WriteFinishedKey = tls_v1:finished_key(ServerHSTrafficSecret, HKDFAlgo),
 
     update_pending_connection_states(State0, HandshakeSecret, undefined,
+                                     undefined, undefined,
                                      ReadKey, ReadIV, ReadFinishedKey,
                                      WriteKey, WriteIV, WriteFinishedKey).
 
@@ -1441,6 +1459,7 @@ calculate_traffic_secrets(#state{
     {WriteKey, WriteIV} = tls_v1:calculate_traffic_keys(HKDFAlgo, Cipher, ServerAppTrafficSecret0),
 
     update_pending_connection_states(State0, MasterSecret, undefined,
+                                     ClientAppTrafficSecret0, ServerAppTrafficSecret0,
                                      ReadKey, ReadIV, undefined,
                                      WriteKey, WriteIV, undefined).
 
@@ -1515,11 +1534,14 @@ update_pending_connection_states(#state{
                                         CS = #{pending_read := PendingRead0,
                                                pending_write := PendingWrite0}} = State,
                                  HandshakeSecret, ResumptionMasterSecret,
+                                 ClientAppTrafficSecret, ServerAppTrafficSecret,
                                  ReadKey, ReadIV, ReadFinishedKey,
                                  WriteKey, WriteIV, WriteFinishedKey) ->
     PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ResumptionMasterSecret,
+                                          ClientAppTrafficSecret,
                                           ReadKey, ReadIV, ReadFinishedKey),
     PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, ResumptionMasterSecret,
+                                           ServerAppTrafficSecret,
                                            WriteKey, WriteIV, WriteFinishedKey),
     State#state{connection_states = CS#{pending_read => PendingRead,
                                         pending_write => PendingWrite}};
@@ -1529,22 +1551,27 @@ update_pending_connection_states(#state{
                                         CS = #{pending_read := PendingRead0,
                                                pending_write := PendingWrite0}} = State,
                                  HandshakeSecret, ResumptionMasterSecret,
+                                 ClientAppTrafficSecret, ServerAppTrafficSecret,
                                  ReadKey, ReadIV, ReadFinishedKey,
                                  WriteKey, WriteIV, WriteFinishedKey) ->
     PendingRead = update_connection_state(PendingRead0, HandshakeSecret, ResumptionMasterSecret,
+                                          ServerAppTrafficSecret,
                                           WriteKey, WriteIV, WriteFinishedKey),
     PendingWrite = update_connection_state(PendingWrite0, HandshakeSecret, ResumptionMasterSecret,
+                                           ClientAppTrafficSecret,
                                            ReadKey, ReadIV, ReadFinishedKey),
     State#state{connection_states = CS#{pending_read => PendingRead,
                                         pending_write => PendingWrite}}.
 
 
 update_connection_state(ConnectionState = #{security_parameters := SecurityParameters0},
-                        HandshakeSecret, ResumptionMasterSecret, Key, IV, FinishedKey) ->
+                        HandshakeSecret, ResumptionMasterSecret,
+                        ApplicationTrafficSecret, Key, IV, FinishedKey) ->
     %% Store secret
     SecurityParameters = SecurityParameters0#security_parameters{
                            master_secret = HandshakeSecret,
-                           resumption_master_secret = ResumptionMasterSecret},
+                           resumption_master_secret = ResumptionMasterSecret,
+                           application_traffic_secret = ApplicationTrafficSecret},
     ConnectionState#{security_parameters => SecurityParameters,
                      cipher_state => cipher_init(Key, IV, FinishedKey)}.
 
