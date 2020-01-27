@@ -322,7 +322,7 @@ static int get_update_args(ErlNifEnv* env,
     if (!enif_inspect_binary(env, indata_arg, &in_data_bin) )
         {
             *return_term = EXCP_BADARG(env, "Bad 2:nd arg");
-            goto err;
+            goto err0;
         }
 
     ASSERT(in_data_bin.size <= INT_MAX);
@@ -369,7 +369,7 @@ static int get_update_args(ErlNifEnv* env,
         if (!enif_alloc_binary((size_t)in_data_bin.size+block_size, &out_data_bin))
             {
                 *return_term = EXCP_ERROR(env, "Can't allocate outdata");
-                goto err;
+                goto err0;
             }
 
         if (!EVP_CipherUpdate(ctx_res->ctx, out_data_bin.data, &out_len, in_data_bin.data, in_data_bin.size))
@@ -393,6 +393,8 @@ static int get_update_args(ErlNifEnv* env,
     return 1;
 
  err:
+    enif_release_binary(&out_data_bin);
+ err0:
     return 0;
 }
 
