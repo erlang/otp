@@ -2540,7 +2540,8 @@ include_security_info([Item | Items]) ->
     end.
 
 server_name_indication_default(Host) when is_list(Host) ->
-    Host;
+    %% SNI should not contain a trailing dot that a hostname may
+    string:strip(Host, right, $.);
 server_name_indication_default(_) ->
     undefined.
 

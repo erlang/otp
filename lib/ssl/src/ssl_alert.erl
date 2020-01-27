@@ -201,8 +201,8 @@ description_txt(?UNSUPPORTED_EXTENSION) ->
     "Unsupported Extension";
 description_txt(?CERTIFICATE_UNOBTAINABLE) ->
     "Certificate Unobtainable";
-description_txt(?UNRECOGNISED_NAME) ->
-    "Unrecognised Name";
+description_txt(?UNRECOGNIZED_NAME) ->
+    "Unrecognized Name";
 description_txt(?BAD_CERTIFICATE_STATUS_RESPONSE) ->
     "Bad Certificate Status Response";
 description_txt(?BAD_CERTIFICATE_HASH_VALUE) ->
@@ -272,8 +272,8 @@ description_atom(?UNSUPPORTED_EXTENSION) ->
     unsupported_extension;
 description_atom(?CERTIFICATE_UNOBTAINABLE) ->
     certificate_unobtainable;
-description_atom(?UNRECOGNISED_NAME) ->
-    unrecognised_name;
+description_atom(?UNRECOGNIZED_NAME) ->
+    unrecognized_name;
 description_atom(?BAD_CERTIFICATE_STATUS_RESPONSE) ->
     bad_certificate_status_response;
 description_atom(?BAD_CERTIFICATE_HASH_VALUE) ->
