@@ -5317,8 +5317,6 @@ mtrtaarac_mg_verify_handle_connect(Else) ->
 
 mtrtaarac_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION, 
 					  {ok, [AR]}, _}) ->
-    io:format("mtrtaarac_mg_verify_service_change_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
     case AR of
 	#'ActionReply'{commandReply = [SCR]} ->
 	    case SCR of
@@ -5332,37 +5330,55 @@ mtrtaarac_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION,
 				{serviceChangeResParms,
 				 #'ServiceChangeResParm'{
 				   serviceChangeMgcId = _RemoteMid}} ->
+                                    i("received expected handle_trans_reply "
+                                      "(service change) with ok"
+                                      "~n      AR: ~p", [AR]),
 				    {ok, AR, ok};
 				{Tag, Val} ->
+                                    e("received expected handle_trans_reply "
+                                      "(service change) with error"
+                                      "~n      Tag: ~p"
+                                      "~n      Val: ~p", [Tag, Val]),
 				    Err = {invalid_service_change_result, 
 					   Tag, Val},
 				    {error, Err, ok}
 			    end;
 			_ ->
+                            e("received expected handle_trans_reply "
+                              "(service change) with error"
+                              "~n      Tid: ~p", [Tid]),
 			    Err = {invalid_termination_id, Tid},
 			    {error, Err, ok}
 		    end;
 		{Tag, Val} ->
+                    e("received expected handle_trans_reply "
+                      "(action reply) with error"
+                      "~n      Tag: ~p"
+                      "~n      Val: ~p", [Tag, Val]),
 		    Err = {invalid_command_reply, Tag, Val},
 		    {error, Err, ok}
 	    end;
 	_ ->
+            e("received expected handle_trans_reply with error"
+              "~n      AR: ~p", [AR]),
 	    Err = {invalid_action_reply, AR},
 	    {error, Err, ok}
     end;
 mtrtaarac_mg_verify_service_change_reply(Else) ->
-    io:format("mtrtaarac_mg_verify_service_change_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("mtrtaarac_mg_verify_service_change_reply -> invalid service change reply"
+      "~n      Expected: handle_trans_reply (service change) with ok"
+      "~n      Received; ~p", [Else]),
     {error, Else, ok}.
 
 mtrtaarac_mg_verify_notify_reply({handle_trans_reply, _CH, ?VERSION, 
 				  {ok, [AR]}, _}) ->
-    io:format("mtrtaarac_mg_verify_notify_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("received expected handle_notify_reply with ok"
+      "~n   AR: ~p~n", [AR]),
     {ok, AR, ok};
 mtrtaarac_mg_verify_notify_reply(Else) ->
-    io:format("mtrtaarac_mg_verify_notify_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("mtrtaarac_mg_verify_notify_reply -> invalid notify reply"
+      "~n      Expected: handle_trans_reply with ok"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
 
 mtrtaarac_mg_service_change_request_ar(_Mid, Cid) ->
@@ -5374,13 +5390,6 @@ mtrtaarac_mg_service_change_request_ar(_Mid, Cid) ->
     CR    = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
 
-%% mtrtaarac_mg_service_change_request_msg(Mid, TransId, Cid) ->
-%%     AR    = mtrtaarac_mg_service_change_request_ar(Mid, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
-
 mtrtaarac_mg_notify_request_ar(Rid, Tid, Cid) ->
     TT      = cre_timeNotation("19990729", "22000000"),
     Ev      = cre_obsEvent("al/of", TT),
@@ -5389,13 +5398,6 @@ mtrtaarac_mg_notify_request_ar(Rid, Tid, Cid) ->
     CMD     = cre_command(NR),
     CR      = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
-
-%% mtrtaarac_notify_request_msg(Mid, TransId, Rid, TermId, Cid) ->
-%%     AR      = mtrtaarac_mg_notify_request_ar(Rid, TermId, Cid),
-%%     TR      = cre_transReq(TransId, [AR]),
-%%     Trans   = cre_transaction(TR),
-%%     Mess    = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
 
 
 %%
@@ -9602,14 +9604,14 @@ p(F, A) ->
 %%     e(F, []).
 
 e(F, A) ->
-    print(error, "ERR", F, A).
+    print(error, "ERROR", F, A).
 
 
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, "INF", F, A).
+    print(info, "INFO", F, A).
 
 
 d(F) ->
