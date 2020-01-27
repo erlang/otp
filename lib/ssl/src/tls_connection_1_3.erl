@@ -191,7 +191,8 @@ wait_finished(internal,
             ssl_connection:handle_own_alert(Alert, {3,4}, finished, State0);
         State1 ->
             {Record, State} = ssl_connection:prepare_connection(State1, Module),
-            tls_connection:next_event(connection, Record, State)
+            tls_connection:next_event(connection, Record, State,
+                                      [{{timeout, handshake}, cancel}])
     end;
 wait_finished(Type, Msg, State, Connection) ->
     ssl_connection:handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
