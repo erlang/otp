@@ -944,7 +944,7 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  Here <c>M0</c> is any map. It follows that <c>M1 .. M4</c> are maps as well.
 	  </p>
 	  <p>
-		  More <em>Examples:</em>
+		  <em>More examples:</em>
 	  </p>
 <pre>
 1> <input>M = #{1 => a}.</input>
@@ -973,15 +973,20 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 
 	  <code>#{ K := V } = M</code>
 	  <p>
-		  Here <c>M</c> is any map. The key <c>K</c> must be an expression with bound
-		  variables or literals. <c>V</c> can be any pattern with either bound or
-		  unbound variables.
+	    Here <c>M</c> is any map. The key <c>K</c> must be a
+	    <seealso marker="#guard_expressions">guard
+	    expression</seealso>, with all variables already bound.
+	    <c>V</c> can be any pattern with either bound or unbound
+	    variables.
 	  </p>
 	  <p>
 		  If the variable <c>V</c> is unbound, it becomes bound to the value associated
 		  with the key <c>K</c>, which must exist in the map <c>M</c>. If the variable
 		  <c>V</c> is bound, it must match the value associated with <c>K</c> in <c>M</c>.
 	  </p>
+	  <note><p>Before OTP 23, the expression defining the key
+	  <c>K</c> was restricted to be either a single variable or a
+	  literal.</p></note>
 	  <p><em>Example:</em></p>
 <pre>
 1> <input>M = #{"tuple" => {1,2}}.</input>
@@ -998,9 +1003,12 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  </p>
 	  <code>#{ K1 := V1, .., Kn := Vn } = M</code>
 	  <p>
-		  Here keys <c>K1 .. Kn</c> are any expressions with literals or bound variables. If all
-		  keys exist in map <c>M</c>, all variables in <c>V1 .. Vn</c> is  matched to the
-		  associated values of their respective keys.
+		  Here keys <c>K1 .. Kn</c> are any expressions with
+		  literals or bound variables. If all key expressions
+		  evalute successfully and all keys exist in map
+		  <c>M</c>, all variables in <c>V1 .. Vn</c> is
+		  matched to the associated values of their respective
+		  keys.
 	  </p>
 	  <p>
 		  If the matching conditions are not met, the match fails, either with:
@@ -1034,6 +1042,9 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 		  This expression matches if the expression <c>Expr</c> is of type map, otherwise
 		  it fails with an exception <c>badmatch</c>.
 	  </p>
+	  <p>Here the key to be retrieved is constructed from an expression:</p>
+	  <code>#{{tag,length(List)} := V} = Map</code>
+	  <p><c>List</c> must be an already bound variable.</p>
 	  <section>
 		  <title>Matching Syntax</title>
 		  <p>
@@ -1057,11 +1068,15 @@ handle_call(change, From, #{ state := start } = S) ->
 		  Maps are allowed in guards as long as all subexpressions are valid guard expressions.
 	  </p>
 	  <p>
-		  Two guard BIFs handle maps:
+		  The following guard BIFs handle maps:
 	  </p>
 	  <list>
 		  <item>
 			  <seealso marker="erts:erlang#is_map/1">is_map/1</seealso>
+			   in the <c>erlang</c> module
+		  </item>
+		  <item>
+			  <seealso marker="erts:erlang#map_get/2">map_get/2</seealso>
 			   in the <c>erlang</c> module
 		  </item>
 		  <item>
@@ -1100,8 +1115,13 @@ Ei = Value |
     <p>Used in a bit string construction, <c>Size</c> is an expression
     that is to evaluate to an integer.</p>
     
-    <p>Used in a bit string matching, <c>Size</c> must be an integer, or a
-    variable bound to an integer.</p>
+    <p>Used in a bit string matching, <c>Size</c> must be a
+    <seealso marker="#guard_expressions">guard expression</seealso>
+    that evaluates to an integer. All variables in the guard expression
+    must be already bound.</p>
+
+    <note><p>Before OTP 23, <c>Size</c> was restricted to be an
+    integer or a variable bound to an integer.</p></note>
 
     <p>The value of <c>Size</c> specifies the size of the segment in
     units (see below). The default value depends on the type (see
@@ -1630,16 +1650,26 @@ end</pre>
       by comma (,). The guard is true if all guard expressions
       evaluate to <c>true</c>.</p>
     <p><c>GuardExpr1,...,GuardExprN</c></p>
-    <p>The set of valid <em>guard expressions</em> (sometimes called
-      guard tests) is a subset of the set of valid Erlang expressions.
-      The reason for restricting the set of valid expressions is that
-      evaluation of a guard expression must be guaranteed to be free
-      of side effects. Valid guard expressions are the following:</p>
+  </section>
+
+  <section>
+    <marker id="guard_expressions"></marker>
+    <title>Guard Expressions</title>
+    <p>The set of valid <em>guard expressions</em> is a subset of the
+    set of valid Erlang expressions.  The reason for restricting the
+    set of valid expressions is that evaluation of a guard expression
+    must be guaranteed to be free of side effects. Valid guard
+    expressions are the following:</p>
     <list type="bulleted">
-      <item>The atom <c>true</c></item>
-      <item>Other constants (terms and bound variables), all regarded
-       as false</item>
-      <item>Calls to the BIFs specified in table <c>Type Test BIFs</c></item>
+      <item>Variables</item>
+      <item>Constants (atoms, integer, floats, lists, tuples, records,
+      binaries, and maps)</item>
+      <item>Expressions that construct atoms, integer, floats, lists,
+      tuples, records, binaries, and maps</item>
+      <item>Expressions that update a map</item>
+      <item>The record epxressions <c>Expr#Name.Field</c> and <c>#Name.Field</c></item>
+      <item>Calls to the BIFs specified in tables <em>Type Test BIFs</em> and
+      <em>Other BIFs Allowed in Guard Expressions</em></item>
       <item>Term comparisons</item>
       <item>Arithmetic expressions</item>
       <item>Boolean expressions</item>
@@ -1725,6 +1755,9 @@ end</pre>
       </row>
       <row>
         <cell align="left" valign="middle"><c>length(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>map_get(Key, Map)</c></cell>
       </row>
       <row>
         <cell align="left" valign="middle"><c>map_size(Map)</c></cell>
