@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2002-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2002-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,12 +23,14 @@
 -include_lib("kernel/include/file.hrl").
 
 
--export([tc_try/2, tc_try/3]).
+-export([tc_try/2, tc_try/3,
+         tc_try/4, tc_try/5]).
 -export([hostname/0, hostname/1, localhost/0, localhost/1, os_type/0, sz/1,
 	 display_suite_info/1]).
--export([non_pc_tc_maybe_skip/4, os_based_skip/1,
-         has_support_ipv6/0, has_support_ipv6/1,
-         is_ipv6_host/0, is_ipv6_host/1]).
+-export([non_pc_tc_maybe_skip/4,
+         os_based_skip/1,
+         has_support_ipv6/0
+        ]).
 -export([init_per_suite/1, end_per_suite/1,
          init_suite_top_dir/2, init_group_top_dir/2, init_testcase_top_dir/2, 
 	 fix_data_dir/1, 
@@ -48,49 +50,115 @@
 -export([f/2, p/2, print1/2, print2/2, print/5, formated_timestamp/0]).
 
 
+-define(SKIP(R), skip(R, ?MODULE, ?LINE)).
+
+
 %% ----------------------------------------------------------------------
 %% Run test-case
 %%
 
-%% *** tc_try/2,3 ***
-%% Case:      Basically the test case name
-%% TCCondFun: A fun that is evaluated before the actual test case
-%%            The point of this is that it can performs checks to
-%%            see if we shall run the test case at all.
-%%            For instance, the test case may only work in specific
-%%            conditions.
-%% FCFun:     The test case fun
-tc_try(Case, TCFun) ->
-    tc_try(Case, fun() -> ok end, TCFun).
-                        
-tc_try(Case, TCCondFun, TCFun)
-  when is_atom(Case) andalso 
-       is_function(TCCondFun, 0) andalso 
-       is_function(TCFun, 0) ->
+%% *** tc_try/2,3,4,5 ***
+%% Case:   Basically the test case name
+%% TCCond: A fun that is evaluated before the actual test case
+%%         The point of this is that it can performs checks to
+%%         see if we shall run the test case at all.
+%%         For instance, the test case may only work in specific
+%%         conditions.
+%% Pre:    A fun that is nominally part of the test case
+%%         but is an initiation that must be "undone". This is
+%%         done by the Post fun (regardless if the TC is successfull
+%%         or not). Example: Starts a couple of nodes,
+%% TC:     The test case fun
+%% Post:   A fun that undo what was done by the Pre fun.
+%%         Example: Stops the nodes created by the Pre function.
+tc_try(Case, TC) ->
+    tc_try(Case, fun() -> ok end, TC).
+
+tc_try(Case, TCCond, TC0) when is_function(TC0, 0) ->
+    Pre  = fun()  -> undefined end,
+    TC   = fun(_) -> TC0() end,
+    Post = fun(_) -> ok end,
+    tc_try(Case, TCCond, Pre, TC, Post).
+
+tc_try(Case, Pre, TC, Post)
+  when is_atom(Case) andalso
+       is_function(Pre, 0) andalso
+       is_function(TC, 1) andalso
+       is_function(Post, 1) ->
+    TCCond = fun() -> ok end,
+    tc_try(Case, TCCond, Pre, TC, Post).
+
+tc_try(Case, TCCond, Pre, TC, Post)
+  when is_atom(Case) andalso
+       is_function(TCCond, 0) andalso
+       is_function(Pre, 0) andalso
+       is_function(TC, 1) andalso
+       is_function(Post, 1) ->
     tc_begin(Case),
-    try TCCondFun() of
+    try TCCond() of
         ok ->
-            try 
-                begin
-                    TCFun(),
-                    sleep(seconds(1)),
-                    tc_end("ok")
-                end
+            try Pre() of
+                State ->
+                    try
+                        begin
+                            TC(State),
+                            sleep(seconds(1)),
+                            (catch Post(State)),
+                            tc_end("ok")
+                        end
+                    catch
+                        C:{skip, _} = SKIP when (C =:= throw) orelse
+                                                (C =:= exit) ->
+                            (catch Post(State)),
+                             tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                            SKIP;
+                        C:E:S ->
+                            %% We always check the system events
+                            %% before we accept a failure.
+                            %% We do *not* run the Post here because it might
+                            %% generate sys events itself...
+                            case snmp_test_global_sys_monitor:events() of
+                                [] ->
+                                    (catch Post(State)),
+                                    tc_end( f("failed(catched,~w,tc)", [C]) ),
+                                    erlang:raise(C, E, S);
+                                SysEvs ->
+                                    tc_print("System Events received: "
+                                             "~n   ~p"
+                                             "~nwhen tc failed:"
+                                             "~n   C: ~p"
+                                             "~n   E: ~p"
+                                             "~n   S: ~p",
+                                             [SysEvs, C, E, S], "", ""),
+                                    (catch Post(State)),
+                                    tc_end( f("skipping(catched-sysevs,~w,tc)",
+                                              [C]) ),
+                                    SKIP = {skip, "TC failure with system events"},
+                                    SKIP
+                            end
+                    end
             catch
-                C:{skip, _} = SKIP when ((C =:= throw) orelse (C =:= exit)) ->
-                    tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                C:{skip, _} = SKIP when (C =:= throw) orelse
+                                        (C =:= exit) ->
+                    tc_end( f("skipping(catched,~w,tc-pre)", [C]) ),
                     SKIP;
                 C:E:S ->
-                    %% We always check the system events before we accept a failure
+                    %% We always check the system events
+                    %% before we accept a failure
                     case snmp_test_global_sys_monitor:events() of
                         [] ->
-                            tc_end( f("failed(catched,~w,tc)", [C]) ),
+                            tc_end( f("failed(catched,~w,tc-pre)", [C]) ),
                             erlang:raise(C, E, S);
                         SysEvs ->
                             tc_print("System Events received: "
-                                     "~n   ~p", [SysEvs], "", ""),
-                            tc_end( f("skipping(catched-sysevs,~w,tc)", [C]) ),
-                            SKIP = {skip, "TC failure with system events"},
+                                     "~n   ~p"
+                                     "~nwhen tc-pre failed:"
+                                     "~n   C: ~p"
+                                     "~n   E: ~p"
+                                     "~n   S: ~p",
+                                     [SysEvs, C, E, S], "", ""),
+                            tc_end( f("skipping(catched-sysevs,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, "TC-Pre failure with system events"},
                             SKIP
                     end
             end;
@@ -149,7 +217,8 @@ tc_print(F, A, Before, After) ->
     Name = tc_which_name(),
     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
              [formated_timestamp(),Name,self()|A]),
-    io:format(user, Before ++ FStr ++ After, []).
+    io:format(user, Before ++ FStr ++ After, []),
+    io:format(standard_io, Before ++ FStr ++ After, []).
 
 tc_which_name() ->
     case tc_get_name() of
@@ -406,43 +475,120 @@ os_based_skip_check(OsName, OsNames) ->
     end.
 
 
-%% A basic test to check if current host supports IPv6
+%% A modern take on the "Check if our host handle IPv6" question.
+%% 
 has_support_ipv6() ->
-    case inet:gethostname() of
-        {ok, Hostname} ->
-            has_support_ipv6(Hostname);
+    case os:type() of
+        {win32, _} ->
+            %% We do not yet have support for windows in the socket nif,
+            %% so for windows we need to use the old style...
+            old_has_support_ipv6();
         _ ->
-            false
+            socket:supports(ipv6) andalso has_valid_ipv6_address()
     end.
 
-has_support_ipv6(Hostname) ->
-    case inet:getaddr(Hostname, inet6) of
-        {ok, Addr} when (size(Addr) =:= 8) andalso
-                        (element(1, Addr) =/= 0) andalso
-                        (element(1, Addr) =/= 16#fe80) ->
-            true;
+has_valid_ipv6_address() ->
+    case net:getifaddrs(fun(#{addr  := #{family := inet6},
+                              flags := Flags}) ->
+                                not lists:member(loopback, Flags);
+                           (_) ->
+                                false
+                        end) of
+        {ok, [#{addr := #{addr := LocalAddr}}|_]} ->
+            %% At least one valid address, we pick the first...
+            try validate_ipv6_address(LocalAddr)
+            catch
+                _:_:_ ->
+                    false
+            end;
         {ok, _} ->
             false;
         {error, _} ->
             false
     end.
-		
 
-is_ipv6_host() ->
+validate_ipv6_address(LocalAddr) ->
+    Domain = inet6,
+    ServerSock =
+        case socket:open(Domain, dgram, udp) of
+            {ok, SS} ->
+                SS;
+            {error, R2} ->
+                ?SKIP(f("(server) socket open failed: ~p", [R2]))
+        end,
+    LocalSA = #{family => Domain, addr => LocalAddr},
+    ServerPort =
+        case socket:bind(ServerSock, LocalSA) of
+            {ok, P1} ->
+                P1;
+            {error, R3} ->
+                socket:close(ServerSock),
+                ?SKIP(f("(server) socket bind failed: ~p", [R3]))
+        end,
+    ServerSA = LocalSA#{port => ServerPort},
+    ClientSock =
+        case socket:open(Domain, dgram, udp) of
+            {ok, CS} ->
+                CS;
+            {error, R4} ->
+                ?SKIP(f("(client) socket open failed: ~p", [R4]))
+        end,
+    case socket:bind(ClientSock, LocalSA) of
+        {ok, _} ->
+            ok;
+        {error, R5} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            ?SKIP(f("(client) socket bind failed: ~p", [R5]))
+    end,
+    case socket:sendto(ClientSock, <<"hejsan">>, ServerSA) of
+        ok ->
+            ok;
+        {error, R6} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            ?SKIP(f("failed socket sendto test: ~p", [R6]))
+    end,
+    case socket:recvfrom(ServerSock) of
+        {ok, {_, <<"hejsan">>}} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            true;
+        {error, R7} ->
+            socket:close(ServerSock),
+            socket:close(ClientSock),
+            ?SKIP(f("failed socket recvfrom test: ~p", [R7]))
+   end.
+
+
+
+
+old_has_support_ipv6() ->
     case inet:gethostname() of
         {ok, Hostname} ->
-            is_ipv6_host(Hostname);
-        {error, _} ->
+            old_has_support_ipv6(Hostname) andalso old_is_ipv6_host(Hostname);
+        _ ->
             false
     end.
 
-is_ipv6_host(Hostname) ->
+old_has_support_ipv6(Hostname) ->
+    case inet:getaddr(Hostname, inet6) of
+        {ok, Addr} when (size(Addr) =:= 8) andalso
+                        (element(1, Addr) =/= 0) andalso
+                        (element(1, Addr) =/= 16#fe80) ->
+            true;
+        _ ->
+            false
+    end.
+            
+old_is_ipv6_host(Hostname) ->
     case ct:require(ipv6_hosts) of
         ok ->
             lists:member(list_to_atom(Hostname), ct:get_config(ipv6_hosts));
         _ ->
             false
     end.
+
 
 
 %% ----------------------------------------------------------------
@@ -486,8 +632,9 @@ init_per_suite(Config) ->
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
         false ->
+            Factor = analyze_and_print_host_info(),
             snmp_test_global_sys_monitor:start(),
-            Config
+            [{snmp_factor, Factor} | Config]
     end.
 
 
@@ -624,6 +771,360 @@ skip(Reason, Module, Line) ->
 					 [Module, Line, Reason])),
     exit({skip, String}).
     
+
+%% This function prints various host info, which might be usefull
+%% when analyzing the test suite (results).
+%% It also returns a "factor" that can be used when deciding 
+%% the load for some test cases. Such as run time or number of
+%% iteraions. This only works for some OSes.
+%%
+%% We make some calculations on Linux, OpenBSD and FreeBSD.
+%% On SunOS we always set the factor to 2 (just to be on the safe side)
+%% On all other os:es (mostly windows) we check the number of schedulers,
+%% but at least the factor will be 2.
+analyze_and_print_host_info() ->
+    {OsFam, OsName} = os:type(),
+    Version         =
+        case os:version() of
+            {Maj, Min, Rel} ->
+                f("~w.~w.~w", [Maj, Min, Rel]);
+            VStr ->
+                VStr
+        end,
+    case {OsFam, OsName} of
+        {unix, linux} ->
+            analyze_and_print_linux_host_info(Version);
+        {unix, openbsd} ->
+            analyze_and_print_openbsd_host_info(Version);
+        {unix, freebsd} ->
+            analyze_and_print_freebsd_host_info(Version);           
+        {unix, sunos} ->
+            io:format("Solaris: ~s"
+                      "~n", [Version]),
+            2;
+        _ ->
+            io:format("OS Family: ~p"
+                      "~n   OS Type: ~p"
+                      "~n   Version: ~p"
+                      "~n", [OsFam, OsName, Version]),
+            try erlang:system_info(schedulers) of
+                1 ->
+                    10;
+                2 ->
+                    5;
+                _ ->
+                    2
+            catch
+                _:_:_ ->
+                    10
+            end
+    end.
+    
+analyze_and_print_linux_host_info(Version) ->
+    case file:read_file_info("/etc/issue") of
+        {ok, _} ->
+            io:format("Linux: ~s"
+                      "~n   ~s"
+                      "~n",
+                      [Version, string:trim(os:cmd("cat /etc/issue"))]);
+        _ ->
+            io:format("Linux: ~s"
+                      "~n", [Version])
+    end,
+    Factor =
+        case (catch linux_which_cpuinfo()) of
+            {ok, {CPU, BogoMIPS}} ->
+                io:format("CPU: "
+                          "~n   Model:    ~s"
+                          "~n   BogoMIPS: ~s"
+                          "~n", [CPU, BogoMIPS]),
+                %% We first assume its a float, and if not try integer
+                try list_to_float(string:trim(BogoMIPS)) of
+                    F when F > 1000 ->
+                        1;
+                    F when F > 1000 ->
+                        2;
+                    _ ->
+                        3
+                catch
+                    _:_:_ ->
+                        %% 
+                        try list_to_integer(string:trim(BogoMIPS)) of
+                            I when I > 1000 ->
+                                1;
+                            I when I > 1000 ->
+                                2;
+                            _ ->
+                                3
+                        catch
+                            _:_:_ ->
+                                1
+                        end
+                end;
+            _ ->
+                1
+        end,
+    %% Check if we need to adjust the factor because of the memory
+    try linux_which_meminfo() of
+        AddFactor ->
+            Factor + AddFactor
+    catch
+        _:_:_ ->
+            Factor
+    end.
+
+linux_which_cpuinfo() ->
+    %% Check for x86 (Intel or AMD)
+    CPU =
+        try [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])] of
+            ["model name", ModelName | _] ->
+                ModelName;
+            _ ->
+                %% ARM (at least some distros...)
+                try [string:trim(S) || S <- string:tokens(os:cmd("grep \"Processor\" /proc/cpuinfo"), [$:,$\n])] of
+                    ["Processor", Proc | _] ->
+                        Proc;
+                    _ ->
+                        %% Ok, we give up
+                        throw(noinfo)
+                catch
+                    _:_:_ ->
+                        throw(noinfo)
+                end
+        catch
+            _:_:_ ->
+                throw(noinfo)
+        end,
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i \"bogomips\" /proc/cpuinfo"), [$:,$\n])] of
+        [_, BMips | _] ->
+            {ok, {CPU, BMips}};
+        _ ->
+            {ok, CPU}
+    catch
+        _:_:_ ->
+            {ok, CPU}
+    end.
+
+%% We *add* the value this return to the Factor.
+linux_which_meminfo() ->
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
+        [_, MemTotal] ->
+            io:format("Memory:"
+                      "~n   ~s"
+                      "~n", [MemTotal]),
+            case string:tokens(MemTotal, [$ ]) of
+                [MemSzStr, MemUnit] ->
+                    MemSz2 = list_to_integer(MemSzStr),
+                    MemSz3 = 
+                        case string:to_lower(MemUnit) of
+                            "kb" ->
+                                MemSz2;
+                            "mb" ->
+                                MemSz2*1024;
+                            "gb" ->
+                                MemSz2*1024*1024;
+                            _ ->
+                                throw(noinfo)
+                        end,
+                    if
+                        (MemSz3 >= 8388608) ->
+                            0;
+                        (MemSz3 >= 4194304) ->
+                            1;
+                        (MemSz3 >= 2097152) ->
+                            2;
+                        true ->
+                            3
+                    end;
+                _X ->
+                    0
+            end;
+        _ ->
+            0
+    catch
+        _:_:_ ->
+            0
+    end.
+
+
+%% Just to be clear: This is ***not*** scientific...
+analyze_and_print_openbsd_host_info(Version) ->
+    io:format("OpenBSD:"
+              "~n   Version: ~p"
+              "~n", [Version]),
+    Extract =
+        fun(Key) -> 
+                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$=])
+        end,
+    try
+        begin
+            CPU =
+                case Extract("hw.model") of
+                    ["hw.model", Model] ->
+                        string:trim(Model);
+                    _ ->
+                        "-"
+                end,
+            CPUSpeed =
+                case Extract("hw.cpuspeed") of
+                    ["hw.cpuspeed", Speed] ->
+                        list_to_integer(Speed);
+                    _ ->
+                        -1
+                end,
+            NCPU =
+                case Extract("hw.ncpufound") of
+                    ["hw.ncpufound", N] ->
+                        list_to_integer(N);
+                    _ ->
+                        -1
+                end,
+            Memory =
+                case Extract("hw.physmem") of
+                    ["hw.physmem", PhysMem] ->
+                        list_to_integer(PhysMem) div 1024;
+                    _ ->
+                        -1
+                end,
+            io:format("CPU:"
+                      "~n   Model: ~s"
+                      "~n   Speed: ~w"
+                      "~n   N:     ~w"
+                      "~nMemory:"
+                      "~n   ~w KB"
+                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+            CPUFactor =
+                if
+                    (CPUSpeed =:= -1) ->
+                        1;
+                    (CPUSpeed >= 2000) ->
+                        if
+                            (NCPU >= 4) ->
+                                1;
+                            (NCPU >= 2) ->
+                                2;
+                            true ->
+                                3
+                        end;
+                    true ->
+                        if
+                            (NCPU >= 4) ->
+                                2;
+                            (NCPU >= 2) ->
+                                3;
+                            true ->
+                                4
+                        end
+                end,
+            MemAddFactor =
+                if
+                    (Memory =:= -1) ->
+                        0;
+                    (Memory >= 8388608) ->
+                        0;
+                    (Memory >= 4194304) ->
+                        1;
+                    (Memory >= 2097152) ->
+                        2;
+                    true ->
+                        3
+                end,
+            CPUFactor + MemAddFactor
+        end
+    catch
+        _:_:_ ->
+            1
+    end.
+    
+
+analyze_and_print_freebsd_host_info(Version) ->
+    io:format("FreeBSD:"
+              "~n   Version: ~p"
+              "~n", [Version]),
+    Extract =
+        fun(Key) -> 
+                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$:])
+        end,
+    try
+        begin
+            CPU =
+                case Extract("hw.model") of
+                    ["hw.model", Model] ->
+                        string:trim(Model);
+                    _ ->
+                        "-"
+                end,
+            CPUSpeed =
+                case Extract("hw.clockrate") of
+                    ["hw.clockrate", Speed] ->
+                        list_to_integer(string:trim(Speed));
+                    _ ->
+                        -1
+                end,
+            NCPU =
+                case Extract("hw.ncpu") of
+                    ["hw.ncpu", N] ->
+                        list_to_integer(string:trim(N));
+                    _ ->
+                        -1
+                end,
+            Memory =
+                case Extract("hw.physmem") of
+                    ["hw.physmem", PhysMem] ->
+                        list_to_integer(string:trim(PhysMem)) div 1024;
+                    _ ->
+                        -1
+                end,
+            io:format("CPU:"
+                      "~n   Model: ~s"
+                      "~n   Speed: ~w"
+                      "~n   N:     ~w"
+                      "~nMemory:"
+                      "~n   ~w KB"
+                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+            CPUFactor =
+                if
+                    (CPUSpeed =:= -1) ->
+                        1;
+                    (CPUSpeed >= 2000) ->
+                        if
+                            (NCPU >= 4) ->
+                                1;
+                            (NCPU >= 2) ->
+                                2;
+                            true ->
+                                3
+                        end;
+                    true ->
+                        if
+                            (NCPU >= 4) ->
+                                2;
+                            (NCPU >= 2) ->
+                                3;
+                            true ->
+                                4
+                        end
+                end,
+            MemAddFactor =
+                if
+                    (Memory =:= -1) ->
+                        0;
+                    (Memory >= 8388608) ->
+                        0;
+                    (Memory >= 4194304) ->
+                        1;
+                    (Memory >= 2097152) ->
+                        2;
+                    true ->
+                        3
+                end,
+            CPUFactor + MemAddFactor
+        end
+    catch
+        _:_:_ ->
+            1
+    end.
+
 
 %% ----------------------------------------------------------------
 %% Time related function

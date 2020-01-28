@@ -131,15 +131,19 @@ snmpd_cases() ->
 %%
 
 init_per_suite(Config) ->
-    try
-        begin
-            Config2 = ?LIB:init_per_suite(netsnmp_init(Config)),
-            snmp_test_sys_monitor:start(),
-            Config2
-        end
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
+    case netsnmp_init(Config) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 ->
+            case ?LIB:init_per_suite(Config1) of
+                {skip, _} = SKIP ->
+                    SKIP;
+
+                Config2 when is_list(Config2) ->
+                    snmp_test_sys_monitor:start(),
+                    Config2
+            end
     end.
 
 netsnmp_init(Config) ->
@@ -150,10 +154,10 @@ netsnmp_init(Config) ->
                     [{agent_port,   ?AGENT_PORT},
                      {manager_port, ?MANAGER_PORT} | Config];
                 false ->
-                    throw({skip, "Buggy NetSNMP"})
+                    {skip, "Buggy NetSNMP"}
             end;
         false ->
-            throw({skip, "No NetSNMP"})
+            {skip, "No NetSNMP"}
     end.
 
 has_netsnmp() ->
@@ -208,7 +212,7 @@ init_per_group(_, Config) ->
     Config.
 
 init_per_group_ipv6(Families, Config) ->
-    case ?LIB:has_support_ipv6() of
+    case ?HAS_SUPPORT_IPV6() of
         true ->
             init_per_group_ip(Families, Config);
         false ->

@@ -67,7 +67,7 @@
 %% Internal exports
 %%----------------------------------------------------------------------
 -export([
-	 log_writer_main/5, 
+	 log_writer_main/6,
 	 log_reader_main/1,
 	 next_seqno/2
         ]).
@@ -431,13 +431,15 @@ log_to_io2(Config) when is_list(Config) ->
     put(verbosity,debug),
     ?DBG("log_to_io2 -> start", []),
     Dir    = ?config(log_dir, Config),
+    Factor = ?config(snmp_factor, Config),
     Name   = "snmp_test_l2i2",
     File   = join(Dir, "snmp_test_l2i2.log"),
     Size   = {1024, 10},
     Repair = true,
     
     ?DBG("log_to_io2 -> create log writer process", []),
-    ?line {ok, Log, Logger} = log_writer_start(Name, File, Size, Repair),
+    ?line {ok, Log, Logger} =
+        log_writer_start(Name, File, Size, Repair, Factor),
 
     ?DBG("log_to_io2 -> create log reader process", []),
     ?line {ok, Reader} = log_reader_start(),
@@ -645,6 +647,7 @@ log_to_txt3(Config) when is_list(Config) ->
     put(verbosity,debug),
     ?DBG("log_to_txt3 -> start", []),
     Dir     = ?config(log_dir, Config),
+    Factor  = ?config(snmp_factor, Config),
     Name    = "snmp_test_l2t3",
     LogFile = join(Dir, "snmp_test_l2t3.log"),
     TxtFile = join(Dir, "snmp_test_l2t3.txt"),
@@ -656,7 +659,8 @@ log_to_txt3(Config) when is_list(Config) ->
     Mibs = [join(StdMibDir, "SNMPv2-MIB")],
 
     ?DBG("log_to_txt3 -> create log writer process", []),
-    ?line {ok, Log, Logger} = log_writer_start(Name, LogFile, Size, Repair),
+    ?line {ok, Log, Logger} =
+        log_writer_start(Name, LogFile, Size, Repair, Factor),
 
     ?DBG("log_to_txt3 -> create log reader process", []),
     ?line {ok, Reader} = log_reader_start(),
@@ -730,9 +734,9 @@ validate_size(A, B) ->
 %% Internal functions
 %%======================================================================
 
-log_writer_start(Name, File, Size, Repair) ->
+log_writer_start(Name, File, Size, Repair, Factor) ->
     Pid = spawn_link(?MODULE, log_writer_main, 
-		     [Name, File, Size, Repair, self()]),
+		     [Name, File, Size, Repair, self(), Factor]),
     receive
 	{log, Log, Pid} ->
 	    {ok, Log, Pid};
@@ -750,7 +754,8 @@ log_writer_stop(Pid) ->
     receive
 	{'EXIT', Pid, normal} ->
 	    _T2 = snmp_misc:now(ms),
-	    ?DBG("it took ~w ms to stop the writer", [_T2 - _T1]),
+	    io:format("[~s] it took ~w ms to stop the writer~n",
+                      [?FTS(), _T2 - _T1]),
 	    ok
     after 60000 ->
 	    Msg  = receive Any -> Any after 0 -> nothing end,
@@ -767,7 +772,8 @@ log_writer_sleep(Pid, Time) ->
     receive 
 	{sleeping, Pid} ->
 	    _T2 = snmp_misc:now(ms),
-	    ?DBG("it took ~w ms to put the writer to sleep", [_T2 - _T1]),
+	    io:format("[~s] it took ~w ms to put the writer to sleep~n",
+                      [?FTS(), _T2 - _T1]),
 	    ok;
 	{'EXIT', Pid, Reason} ->
 	    {error, Reason}
@@ -777,13 +783,17 @@ log_writer_sleep(Pid, Time) ->
 	    exit({failed_put_writer_to_sleep, timeout, Msg, Info})
     end.
 
-log_writer_main(Name, File, Size, Repair, P) ->
+log_writer_main(Name, File, Size, Repair, P, Factor) ->
     process_flag(trap_exit, true),
     %% put(sname,log_writer),
     %% put(verbosity,trace),
     {ok, Log} = snmp_log:create(Name, File, Size, Repair),
     P ! {log, Log, self()},
-    Msgs   = lists:flatten(lists:duplicate(10, messages())),
+    Msgs   = lists:flatten(lists:duplicate(if 
+                                               (Factor > 10) -> 1;
+                                               true   -> 10 div Factor
+                                           end,
+                                           messages())),
     Addr   = ?LOCALHOST(),
     Port   = 162,
     Logger =  fun(Packet) ->
@@ -815,8 +825,8 @@ log_writer(Log, Fun, P) ->
 	    lp("done sleeping"),
 	    log_writer(Log, Fun, P);
 	ELSE ->
-	    io:format("ERROR:logger - received unknown message: "
-		      "~n   ~p~n", [ELSE]),
+	    error_logger:error_msg("ERROR:logger - received unknown message: "
+                                   "~n   ~p~n", [ELSE]),
 	    log_writer(Log, Fun, P)
     after 1000 ->
 	    lp("log some messages"),
@@ -829,7 +839,7 @@ lp(F) ->
     lp(F, []).
 
 lp(F, A) ->
-    io:format(user,"writer [~w] " ++ F ++ "~n", [self()|A]).
+    io:format("[~s] writer [~w] " ++ F ++ "~n", [?FTS(),self()|A]).
 
 %% --
 
@@ -839,7 +849,8 @@ log_reader_start() ->
     receive 
 	{started, Pid} ->
 	    _T2 = snmp_misc:now(ms),
-	    ?DBG("it took ~w ms to start the reader", [_T2 - _T1]),
+	    io:format("[~s] it took ~w ms to start the reader~n",
+                      [?FTS(), _T2 - _T1]),
 	    {ok, Pid};
 	{'EXIT', Pid, Reason} ->
 	    {error, Reason}
@@ -853,7 +864,8 @@ log_reader_stop(Pid) ->
     receive
 	{'EXIT', Pid, normal} ->
 	    _T2 = snmp_misc:now(ms),
-	    ?DBG("it took ~w ms to put the reader to eleep", [_T2 - _T1]),
+	    io:format("[~s] it took ~w ms to stop the reader~n", 
+                      [?FTS(), _T2 - _T1]),
 	    ok
     after 1000 ->
 	    Msg = receive Any -> Any after 0 -> nothing end,
@@ -886,8 +898,8 @@ log_reader(P) ->
 	    P ! {log_to_reply, Res, self()}, 
 	    log_reader(P);
 	ELSE ->
-	    io:format("ERROR:reader - received unknown message: "
-		      "~n   ~p~n", [ELSE]),
+	    error_logger:error_msg("reader - received unknown message: "
+                                   "~n   ~p~n", [ELSE]),
 	    log_reader(P)
     end.
     
@@ -895,7 +907,7 @@ rp(F) ->
     rp(F, []).
 
 rp(F, A) ->
-    io:format(user, "reader [~w] " ++ F ++ "~n", [self()|A]).
+    io:format("[~s] reader [~w] " ++ F ++ "~n", [?FTS(),self()|A]).
 
 
 %%======================================================================

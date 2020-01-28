@@ -739,7 +739,7 @@ init_per_group_ipv6(GroupName, Config, Init) ->
         false ->
             %% Even if this host supports IPv6 we don't use it unless its
             %% one of the configured/supported IPv6 hosts...
-            case (?HAS_SUPPORT_IPV6() andalso ?IS_IPV6_HOST()) of
+            case ?HAS_SUPPORT_IPV6() of
                 true ->
                     Init(
                       snmp_test_lib:init_group_top_dir(
@@ -6757,10 +6757,16 @@ otp_16092_simple_start_and_stop1(Config) ->
     ?P(otp_16092_simple_start_and_stop1), 
     ?DBG("otp_16092_simple_start_and_stop1 -> entry", []),
 
-    otp_16092_simple_start_and_stop(Config, default, success),
+    TC = fun() ->
+                 otp_16092_simple_start_and_stop(Config, default, success)
+         end,
 
-    ?DBG("otp_16092_simple_start_and_stop1 -> done", []),
-    ok.
+    Result = otp_16092_try(TC),
+
+    ?DBG("otp_16092_simple_start_and_stop1 -> done: "
+         "~n      ~p", [Result]),
+
+    Result.
 
 
 otp_16092_simple_start_and_stop2(suite) -> [];
@@ -6768,10 +6774,16 @@ otp_16092_simple_start_and_stop2(Config) ->
     ?P(otp_16092_simple_start_and_stop2), 
     ?DBG("otp_16092_simple_start_and_stop2 -> entry", []),
 
-    otp_16092_simple_start_and_stop(Config, [], success),
+    TC = fun() ->
+                 otp_16092_simple_start_and_stop(Config, [], success)
+         end,
 
-    ?DBG("otp_16092_simple_start_and_stop2 -> done", []),
-    ok.
+    Result = otp_16092_try(TC),
+
+    ?DBG("otp_16092_simple_start_and_stop2 -> done: "
+         "~n      ~p", [Result]),
+
+    Result.
 
 
 otp_16092_simple_start_and_stop3(suite) -> [];
@@ -6779,10 +6791,18 @@ otp_16092_simple_start_and_stop3(Config) ->
     ?P(otp_16092_simple_start_and_stop3), 
     ?DBG("otp_16092_simple_start_and_stop3 -> entry", []),
 
-    otp_16092_simple_start_and_stop(Config, 'this-should-be-ignored', success),
+    TC = fun() ->
+                 otp_16092_simple_start_and_stop(Config,
+                                                 'this-should-be-ignored',
+                                                 success)
+         end,
 
-    ?DBG("otp_16092_simple_start_and_stop3 -> done", []),
-    ok.
+    Result = otp_16092_try(TC),
+
+    ?DBG("otp_16092_simple_start_and_stop3 -> done: "
+         "~n      ~p", [Result]),
+
+    Result.
 
 
 otp_16092_simple_start_and_stop4(suite) -> [];
@@ -6790,29 +6810,36 @@ otp_16092_simple_start_and_stop4(Config) ->
     ?P(otp_16092_simple_start_and_stop4), 
     ?DBG("otp_16092_simple_start_and_stop4 -> entry", []),
 
-    otp_16092_simple_start_and_stop(Config, ['this-should-fail'], failure),
+    TC = fun() ->
+                 otp_16092_simple_start_and_stop(Config,
+                                                 ['this-should-fail'],
+                                                 failure)
+         end,
+    
+    Result = otp_16092_try(TC),
 
-    ?DBG("otp_16092_simple_start_and_stop4 -> done", []),
-    ok.
+    ?DBG("otp_16092_simple_start_and_stop4 -> done: "
+         "~n      ", [Result]),
+
+    Result.
 
 
+otp_16092_try(TC) ->
+    try TC() of
+        Any ->
+            Any
+    catch
+        _:{skip, _} = SKIP ->
+            SKIP
+    end.
+        
 otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
     ?line ConfDir = ?config(agent_conf_dir, Config),
     ?line DbDir   = ?config(agent_db_dir,   Config),
 
     p("try start agent node~n"),
     p(user, "try start agent node~n"),
-    Node = case ?ALIB:start_node(agent_16092) of
-               {ok, N} ->
-                   p("agent node ~p started~n", [N]),
-                   p(user, "agent node ~p started~n", [N]),
-                   N;
-               {error, Reason} ->
-                   e("Failed starting agent node: "
-                     "~n   ~p"
-                     "~n", [Reason]),
-                   ?SKIP({failed_starting_node, Reason})
-           end,
+    {ok, Node} = ?ALIB:start_node(agent_16092),
 
     Vsns      = [v1],
     IP        = tuple_to_list(?config(ip, Config)),
@@ -6841,7 +6868,6 @@ otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
             {config,     ConfOpts},
             {net_if,     NiOpts}],
 
-    
     otp16092_try_start_and_stop_agent(Node, Opts, Expected),
 
     p("try stop agent node ~p~n", [Node]),
@@ -6854,7 +6880,7 @@ otp_16092_simple_start_and_stop(Config, ESO, Expected) ->
     p(user, "done~n"),
     ok.
 
-    
+
 otp16092_try_start_and_stop_agent(Node, Opts, Expected) ->
     i("try start snmp (agent) supervisor (on ~p) - expect ~p~n", [Node, Expected]),
     case start_standalone_agent(Node, Opts) of
@@ -7102,7 +7128,7 @@ otp9884({fin, Config}) when is_list(Config) ->
     fin_v1_agent(Config);
 
 otp9884(doc) ->
-    "OTP-9884 - Simlutaneous backup call should not work. ";
+    "OTP-9884 - Simultaneous backup(s) call should not work. ";
 
 otp9884(Config) when is_list(Config) ->
     ?DBG("otp9884 -> entry with"
@@ -7111,10 +7137,15 @@ otp9884(Config) when is_list(Config) ->
     AgentNode = ?config(agent_node, Config),
     [AgentBkpDir1, AgentBkpDir2] = ?config(agent_backup_dirs, Config),
     Self = self(), 
-    timer:apply_after(1000, 
-		      ?MODULE, otp9884_backup, [AgentNode, Self, first,  AgentBkpDir1]), 
-    timer:apply_after(1000, 
-		      ?MODULE, otp9884_backup, [AgentNode, Self, second, AgentBkpDir2]),
+    timer:apply_after(1000,
+		      ?MODULE,
+                      otp9884_backup,
+                      [AgentNode, Self, first,  AgentBkpDir1]),
+    timer:apply_after(1000,
+		      ?MODULE,
+                      otp9884_backup,
+                      [AgentNode, Self, second, AgentBkpDir2]),
+    otp9884_await_backup_started(),
     otp9884_await_backup_completion(undefined, undefined),
 
     ?DBG("otp9884 -> done", []),
@@ -7122,20 +7153,47 @@ otp9884(Config) when is_list(Config) ->
 
 
 otp9884_backup(Node, Pid, Tag, Dir) ->
-    io:format("[~w] call backup function~n", [Tag]),
+    i("[~w] backup - await continue", [Tag]),
+    Pid ! {otp9884_backup_started, Tag, self()},
+    receive
+        {otp9884_backup_continue, Tag, Pid} ->
+            ok
+    end,
+    i("[~w] backup start", [Tag]),
     Res = rpc:call(Node, snmpa, backup, [Dir]),
-    io:format("[~w] backup result: ~p~n", [Tag, Res]),
+    i("[~w] backup result: ~p", [Tag, Res]),
     Pid ! {otp9884_backup_complete, Tag, Res}.
 
+
+otp9884_await_backup_started() ->
+    otp9884_await_backup_started(undefined, undefined).
+
+otp9884_await_backup_started(First, Second)
+  when is_pid(First) andalso is_pid(Second) ->
+    i("otp9884_await_backup_started -> order first continue"),
+    First  ! {otp9884_backup_continue, first, self()},
+    i("otp9884_await_backup_started -> order second continue"),
+    Second ! {otp9884_backup_continue, second, self()},
+    ok;
+otp9884_await_backup_started(First, Second) ->
+    receive
+        {otp9884_backup_started, first, Pid} when (First =:= undefined) ->
+            i("otp9884_await_backup_started -> received started from first"),
+            otp9884_await_backup_started(Pid, Second);
+        {otp9884_backup_started, second, Pid} when (Second =:= undefined) ->
+            i("otp9884_await_backup_started -> received started from second"),
+            otp9884_await_backup_started(First, Pid)
+    end.
+    
 otp9884_await_backup_completion(ok, Second) 
   when ((Second =/= ok) andalso (Second =/= undefined)) ->
-    io:format("otp9884_await_backup_completion -> "
-	      "first backup succeed and second failed (~p)~n", [Second]),
+    i("otp9884_await_backup_completion -> "
+      "first backup succeed and second failed (~p)", [Second]),
     ok;
 otp9884_await_backup_completion(First, ok) 
   when ((First =/= ok) andalso (First =/= undefined)) ->
-    io:format("otp9884_await_backup_completion -> "
-	      "second backup succeed and first failed (~p)~n", [First]),
+    i("otp9884_await_backup_completion -> "
+      "second backup succeed and first failed (~p)", [First]),
     ok;
 otp9884_await_backup_completion(First, Second) 
   when (((First =:= undefined) andalso (Second =:= undefined)) 
@@ -7143,22 +7201,27 @@ otp9884_await_backup_completion(First, Second)
 	((First =:= undefined) andalso (Second =/= undefined)) 
 	orelse 
 	((First =/= undefined) andalso (Second =:= undefined))) ->
-    io:format("otp9884_await_backup_completion -> await complete messages~n", []),
+    i("otp9884_await_backup_completion -> await complete messages"),
     receive
 	{otp9884_backup_complete, first, Res} ->
-	    io:format("otp9884_await_backup_completion -> "
-		      "received complete message for first: ~p~n", [Res]),
+	    i("otp9884_await_backup_completion -> "
+              "received complete message for first: ~p", [Res]),
 	    otp9884_await_backup_completion(Res, Second);
 	{otp9884_backup_complete, second, Res} ->
-	    io:format("otp9884_await_backup_completion -> "
-		      "received complete message for second: ~p~n", [Res]),
+	    i("otp9884_await_backup_completion -> "
+              "received complete message for second: ~p", [Res]),
 	    otp9884_await_backup_completion(First, Res)
     after 10000 ->
 	    %% we have waited long enough
 	    throw({error, {timeout, First, Second}})
     end;
 otp9884_await_backup_completion(First, Second) ->
+    e("Bad Completion: "
+      "~n      First:  ~p"
+      "~n      Second: ~p", [First, Second]),
     throw({error, {bad_completion, First, Second}}).
+
+
 %%-----------------------------------------------------------------
 
 agent_log_validation(Node) ->
