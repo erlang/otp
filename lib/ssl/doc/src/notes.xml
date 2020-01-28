@@ -27,6 +27,39 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Enhance error handling, all ALERTS shall be handled
+	    gracefully and not cause a crash.</p>
+          <p>
+	    Own Id: OTP-16413 Aux Id: ERL-1136 </p>
+        </item>
+        <item>
+          <p>
+	    Enhance alert logging, in some places the role indication
+	    of the alert origin was missing. So the log would say
+	    undefined instead of client or server.</p>
+          <p>
+	    Own Id: OTP-16424</p>
+        </item>
+        <item>
+          <p>
+	    Two different optimizations did not work together and
+	    resulted in the possible breakage of connections using
+	    stream ciphers (that is RC4). Reworked the implementation
+	    to avoid this.</p>
+          <p>
+	    Own Id: OTP-16426 Aux Id: ERL-1136 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
