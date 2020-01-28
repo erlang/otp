@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -322,9 +322,11 @@ ltype(T) ->
     ltype(T, 0).
 
 ltype({ann_type,_Line,[V,T]}, Prec) ->
-    {_L,P,_R} = type_inop_prec('::'),
-    E = typed(lexpr(V, options(none)), T),
-    maybe_paren(P, Prec, E);
+    {L,P,R} = type_inop_prec('::'),
+    Vl = ltype(V, L),
+    Tr = ltype(T, R),
+    El = {list,[{cstep,[Vl,' ::'],Tr}]},
+    maybe_paren(P, Prec, El);
 ltype({paren_type,_Line,[T]}, P) ->
     %% Generated before Erlang/OTP 18.
     ltype(T, P);
@@ -410,8 +412,7 @@ field_type({type,_Line,field_type,[Name,Type]}, _Prec) ->
     typed(lexpr(Name, options(none)), Type).
 
 typed(B, Type) ->
-    {_L,_P,R} = type_inop_prec('::'),
-    {list,[{cstep,[B,' ::'],ltype(Type, R)}]}.
+    {list,[{cstep,[B,' ::'],ltype(Type)}]}.
 
 tuple_type([], _) ->
     leaf("{}");

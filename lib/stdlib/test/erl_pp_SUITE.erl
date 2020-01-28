@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2006-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2006-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -52,7 +52,8 @@
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
           otp_10302/1, otp_10820/1, otp_11100/1, otp_11861/1, pr_1014/1,
-          otp_13662/1, otp_14285/1, otp_15592/1, otp_15751/1, otp_15755/1]).
+          otp_13662/1, otp_14285/1, otp_15592/1, otp_15751/1, otp_15755/1,
+          otp_16435/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -82,7 +83,7 @@ groups() ->
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
        otp_10302, otp_10820, otp_11100, otp_11861, pr_1014, otp_13662,
-       otp_14285, otp_15592, otp_15751, otp_15755]}].
+       otp_14285, otp_15592, otp_15751, otp_15755, otp_16435]}].
 
 init_per_suite(Config) ->
     Config.
@@ -1259,6 +1260,17 @@ otp_15755(_Config) ->
         lists:flatten(parse_and_pp_forms(
              "-type t() :: {{a}, 0, 16, {16}, 8, 80, 48, a, b, e, f,"
              " 'sf s sdf', [], {}, {[]}}.", [])),
+    ok.
+
+otp_16435(_Config) ->
+    CheckF = fun(S) -> S = lists:flatten(parse_and_pp_forms(S, [])) end,
+    CheckF("-type t() :: A :: integer().\n"),
+    CheckF("-type t() :: A :: (B :: integer()).\n"),
+    CheckF("-type t() :: {A :: (B :: integer())}.\n"),
+    CheckF("-record(r,{f :: {A :: (B :: integer())}}).\n"),
+    CheckF("-record(r,{f = 3 :: {A :: (B :: integer())}}).\n"),
+    CheckF("-type t() :: #r{f :: A :: (B :: integer())}.\n"),
+    CheckF("-spec t(X) -> X when X :: Y :: (Z :: #r{}).\n"),
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

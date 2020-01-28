@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -1584,7 +1584,7 @@ max_prec() -> 900.
 -spec type_inop_prec(type_inop()) -> {prec(), prec(), prec()}.
 
 type_inop_prec('=') -> {150,100,100};
-type_inop_prec('::') -> {160,150,150};
+type_inop_prec('::') -> {150,150,160};
 type_inop_prec('|') -> {180,170,170};
 type_inop_prec('..') -> {300,200,300};
 type_inop_prec('+') -> {400,400,500};
