@@ -8325,7 +8325,7 @@ otp71922_mgc_event_sequence(text, tcp, MgMid) ->
 	  {encoding_config,  []},
 	  {transport_module, megaco_tcp}
 	 ],
-    Tid = #megaco_term_id{id = ["00000000","00000000","01101101"]},
+    Tid = #megaco_term_id{id = ["00000000","00000100","01101101"]},
     NR = fun(Cid, Rid) ->
 		 [otp71922_mgc_notify_request_ar(Rid, Tid, Cid)]
 	 end,
@@ -8368,12 +8368,14 @@ otp71922_mgc_event_sequence(text, tcp, MgMid) ->
 
 
 otp71922_mgc_verify_handle_connect({handle_connect, CH, ?VERSION}) -> 
-    io:format("otp71922_mgc_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    i("received expected handle_connect with"
+      "~n      CH: ~p"
+      "~n      => force a 2 second sleep before return", [CH]),
     {ok, timer:seconds(2), CH, ok};
 otp71922_mgc_verify_handle_connect(Else) ->
-    io:format("otp71922_mgc_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("otp71922_mgc_verify_handle_connect -> invalid handle-connect: "
+      "~n      Extected: handle_connect"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
 
 otp71922_mgc_verify_service_change_req_fun(Mid) ->
@@ -8383,8 +8385,8 @@ otp71922_mgc_verify_service_change_req_fun(Mid) ->
 
 otp71922_mgc_verify_service_change_req(
   {handle_trans_request, _, ?VERSION, [AR]}, Mid) ->
-    io:format("otp71922_mgc_verify_service_change_req -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("otp71922_mgc_verify_service_change_req -> ok"
+      "~n   AR: ~p", [AR]),
     case AR of
 	#'ActionRequest'{commandRequests = [CR]} ->
 	    case CR of
@@ -8595,8 +8597,11 @@ otp71922_mg_event_sequence(text, tcp, Mid) ->
 	  {transport_module, megaco_tcp}
 	 ],
     ServiceChangeReq = [otp71922_mg_service_change_request_ar(Mid, 1)],
-    Tid = #megaco_term_id{id = ["00000000","00000000","01101101"]},
-    NR = fun(Cid, Rid) ->
+    %% This is so that we can match notify request and reply
+    Tid1 = #megaco_term_id{id = ["00000000","00000001","01101101"]},
+    Tid2 = #megaco_term_id{id = ["00000000","00000010","01101101"]},
+    Tid3 = #megaco_term_id{id = ["00000000","00000011","01101101"]},
+    NR = fun(Cid, Rid, Tid) ->
 		 [otp71922_mg_notify_request_ar(Rid, Tid, Cid)]
 	 end,
     ConnectVerify            = ?otp71922_mg_verify_handle_connect_fun(), 
@@ -8629,20 +8634,20 @@ otp71922_mg_event_sequence(text, tcp, Mid) ->
 	     {megaco_update_conn_info, trans_ack,          true},
 	     {megaco_update_conn_info, trans_req,          true},
 	     {megaco_conn_info, all},
-	     {megaco_cast, NR(1,1), []},
-	     {megaco_cast, NR(1,2), []},
-	     {megaco_cast, NR(1,3), []},
+	     {megaco_cast, NR(1,1,Tid1), []},
+	     {megaco_cast, NR(1,2,Tid2), []},
+	     {megaco_cast, NR(1,3,Tid3), []},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
 	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
 	     {megaco_update_conn_info, trans_timer,        120000},
-	     {megaco_cast, NR(2,1), []},
-	     {megaco_cast, NR(2,2), []},
-	     {megaco_cast, NR(2,3), []},
+	     {megaco_cast, NR(2,1,Tid1), []},
+	     {megaco_cast, NR(2,2,Tid2), []},
+	     {megaco_cast, NR(2,3,Tid3), []},
 	     {megaco_callback, handle_trans_request, NotifyReqVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
-	     {megaco_callback, handle_trans_reply, NotifyReplyVerify},
+	     {megaco_callback, handle_trans_reply,   NotifyReplyVerify},
+	     {megaco_callback, handle_trans_reply,   NotifyReplyVerify},
+	     {megaco_callback, handle_trans_reply,   NotifyReplyVerify},
 	     {sleep, 3000},
 	     megaco_stop_user,
 	     megaco_stop,
@@ -8651,18 +8656,17 @@ otp71922_mg_event_sequence(text, tcp, Mid) ->
     EvSeq.
 
 otp71922_mg_verify_handle_connect({handle_connect, CH, ?VERSION}) -> 
-    io:format("otp71922_mg_verify_handle_connect -> ok"
-	      "~n   CH: ~p~n", [CH]),
+    i("received expected handle_connect:"
+      "~n      CH: ~p", [CH]),
     {ok, CH, ok};
 otp71922_mg_verify_handle_connect(Else) ->
-    io:format("otp71922_mg_verify_handle_connect -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("otp71922_mg_verify_handle_connect -> received unexpected:"
+      "~n      Expected: handle_connect"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
 
 otp71922_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION, 
 					{ok, [AR]}, _}) ->
-    io:format("otp71922_mg_verify_service_change_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
     case AR of
 	#'ActionReply'{commandReply = [SCR]} ->
 	    case SCR of
@@ -8676,70 +8680,55 @@ otp71922_mg_verify_service_change_reply({handle_trans_reply, _CH, ?VERSION,
 				{serviceChangeResParms,
 				 #'ServiceChangeResParm'{
 				   serviceChangeMgcId = _RemoteMid}} ->
+                                    i("received expected handle_trans_reply "
+                                      "(service change) with ok"
+                                      "~n      AR: ~p", [AR]),
 				    {ok, AR, ok};
 				{Tag, Val} ->
+                                    e("received expected handle_trans_reply "
+                                      "(service change) with error"
+                                      "~n      Tag: ~p"
+                                      "~n      Val: ~p", [Tag, Val]),
 				    Err = {invalid_service_change_result, 
 					   Tag, Val},
 				    {error, Err, ok}
 			    end;
 			_ ->
+                            e("received expected handle_trans_reply "
+                              "(service change) with error"
+                              "~n      Tid: ~p", [Tid]),
 			    Err = {invalid_termination_id, Tid},
 			    {error, Err, ok}
 		    end;
 		{Tag, Val} ->
+                    e("received expected handle_trans_reply "
+                      "(action reply) with error"
+                      "~n      Tag: ~p"
+                      "~n      Val: ~p", [Tag, Val]),
 		    Err = {invalid_command_reply, Tag, Val},
 		    {error, Err, ok}
 	    end;
 	_ ->
+            e("received expected handle_trans_reply with error"
+              "~n      AR: ~p", [AR]),
 	    Err = {invalid_action_reply, AR},
 	    {error, Err, ok}
     end;
 otp71922_mg_verify_service_change_reply(Else) ->
-    io:format("otp71922_mg_verify_service_change_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("invalid service change reply:"
+      "~n      Expected: handle_trans_reply"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
-
-%% otp71922_mg_verify_notify_request_fun() ->
-%%     fun(Ev) ->
-%% 	    otp71922_mg_verify_notify_request(Ev)
-%%     end.
-
-%% otp71922_mg_verify_notify_request(
-%%   {handle_trans_request, _, ?VERSION, [AR]}) ->
-%%     io:format("otp71922_mg_verify_notify_request -> ok"
-%% 	      "~n   AR: ~p~n", [AR]),
-%%     case AR of
-%% 	#'ActionRequest'{contextId = 1 = Cid, 
-%% 			 commandRequests = [CR]} ->
-%% 	    #'CommandRequest'{command = Cmd} = CR,
-%% 	    {notifyReq, NR} = Cmd,
-%% 	    #'NotifyRequest'{terminationID = [Tid],
-%% 			     observedEventsDescriptor = OED,
-%% 			     errorDescriptor = asn1_NOVALUE} = NR,
-%% 	    #'ObservedEventsDescriptor'{observedEventLst = [OE]} = OED,
-%% 	    #'ObservedEvent'{eventName = "al/of"} = OE,
-%% 	    Reply = {discard_ack, [otp71922_mg_notify_reply_ar(Cid, Tid)]},
-%% 	    {ok, AR, Reply};
-%% 	_ ->
-%% 	    ED = otp71922_err_desc(AR),
-%% 	    ErrReply = {discard_ack, ED},
-%% 	    {error, AR, ErrReply}
-%%     end;
-%% otp71922_mg_verify_notify_request(Else) ->
-%%     io:format("otp71922_mg_verify_notify_request -> unknown"
-%% 	      "~n   Else: ~p~n", [Else]),
-%%     ED = otp71922_err_desc(Else),
-%%     ErrReply = {discard_ack, ED},
-%%     {error, Else, ErrReply}.
 
 otp71922_mg_verify_notify_reply({handle_trans_reply, _CH, ?VERSION, 
 				{ok, [AR]}, _}) ->
-    io:format("otp71922_mg_verify_notify_reply -> ok"
-	      "~n   AR: ~p~n", [AR]),
+    i("received expected handle_notify_reply -> ok"
+      "~n      AR: ~p", [AR]),
     {ok, AR, ok};
 otp71922_mg_verify_notify_reply(Else) ->
-    io:format("otp71922_mg_verify_notify_reply -> unknown"
-	      "~n   Else: ~p~n", [Else]),
+    e("otp71922_mg_verify_notify_reply -> invalid notify reply"
+      "~n      Expected: handle_trans_reply with ok"
+      "~n      Received: ~p", [Else]),
     {error, Else, ok}.
 
 otp71922_mg_service_change_request_ar(_Mid, Cid) ->
@@ -8751,18 +8740,6 @@ otp71922_mg_service_change_request_ar(_Mid, Cid) ->
     CR    = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
 
-%% otp71922_mg_service_change_request_msg(Mid, TransId, Cid) ->
-%%     AR    = otp71922_mg_service_change_request_ar(Mid, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
-
-%% otp71922_mg_notify_reply_ar(Cid, TermId) ->
-%%     NR = cre_notifyReply([TermId]),
-%%     CR = cre_cmdReply(NR),
-%%     cre_actionReply(Cid, [CR]).
-
 otp71922_mg_notify_request_ar(Rid, Tid, Cid) ->
     TT      = cre_timeNotation("19990729", "22000000"),
     Ev      = cre_obsEvent("al/of", TT),
@@ -8771,13 +8748,6 @@ otp71922_mg_notify_request_ar(Rid, Tid, Cid) ->
     CMD     = cre_command(NR),
     CR      = cre_cmdReq(CMD),
     cre_actionReq(Cid, [CR]).
-
-%% otp71922_notify_request_msg(Mid, TransId, Rid, TermId, Cid) ->
-%%     AR    = otp71922_mg_notify_request_ar(Rid, TermId, Cid),
-%%     TR    = cre_transReq(TransId, [AR]),
-%%     Trans = cre_transaction(TR),
-%%     Mess  = cre_message(?VERSION, Mid, cre_transactions([Trans])),
-%%     cre_megacoMessage(Mess).
 
 
 %%
