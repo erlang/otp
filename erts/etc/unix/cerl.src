@@ -220,6 +220,12 @@ while [ $# -gt 0 ]; do
 	    run_valgrind=yes
 	    skip_erlexec=yes
 	    ;;
+        "-emu_type")
+            shift
+            cargs="$cargs -$1"
+            TYPE=.$1
+            shift
+            ;;
 	"-rr")
 	    shift
 	    cargs="$cargs -rr"
