@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,8 +29,6 @@
 %%----------------------------------------------------------------------
 -include_lib("megaco/src/tcp/megaco_tcp.hrl").
 -include("megaco_test_lib.hrl").
-
-%% -compile(export_all).
 
 
 %%----------------------------------------------------------------------
@@ -69,13 +67,13 @@
 %% Macros
 %%----------------------------------------------------------------------
 
+-define(CH,             megaco_test_command_handler).
+-define(TEST_VERBOSITY, debug).
+
+
 %%----------------------------------------------------------------------
 %% Records
 %%----------------------------------------------------------------------
-
--record(command, {id, desc, cmd}).
--record(server,  {parent, transport_ref, control_pid, handle}).
--record(client,  {parent, transport_ref, control_pid, handle}).
 
 
 %%======================================================================
@@ -248,17 +246,22 @@ start_and_stop(doc) ->
     ["This test case sets up a connection and then cloises it. "
      "No data is sent. "];
 start_and_stop(Config) when is_list(Config) ->
-    put(sname, "start_and_stop"),
-    p("BEGIN TEST-CASE"), 
+    Pre = fun() ->
+		  p("create nodes"),
+		  ServerNode = make_node_name(server),
+		  ClientNode = make_node_name(client),
+		  Nodes = [ServerNode, ClientNode], 
+		  ok = ?START_NODES(Nodes),
+		  Nodes
+	  end,
+    Case = fun do_start_and_stop/1,
+    Post = fun(Nodes) ->
+                   p("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(start_and_stop, Pre, Case, Post).
 
-    process_flag(trap_exit, true),
-
-    p("create nodes"),
-    ServerNode = make_node_name(server),
-    ClientNode = make_node_name(client),
-    Nodes = [ServerNode, ClientNode], 
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
-
+do_start_and_stop([ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
     ServerPort = 2944, 
@@ -275,7 +278,7 @@ start_and_stop(Config) when is_list(Config) ->
 
     await_server_listening(Server, Client),
 
-    await_command_handler_completion([Server, Client], timer:seconds(20)),
+    ok = await_command_handler_completion([Server, Client], ?SECS(20)),
     p("done"),
     ok.
 
@@ -284,41 +287,41 @@ start_and_stop_server_commands(Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#server{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		      {ok, State#{parent => Self}} 
+	      end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     server_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		      server_start_transport(State) 
+	      end},
 
-     #command{id   = 3,
-	      desc = "Listen",
-	      cmd  = fun(State) -> 
-			     server_listen(State, Opts) 
-		     end},
+     #{id   => 3,
+       desc => "Listen",
+       cmd  => fun(State) -> 
+		      server_listen(State, Opts) 
+	      end},
 
-     #command{id   = 4,
-	      desc = "Notify listening",
-	      cmd  = fun(State) -> 
-			     server_notify_listening(State) 
-		     end},
+     #{id   => 4,
+       desc => "Notify listening",
+       cmd  => fun(State) -> 
+		      server_notify_listening(State) 
+	      end},
 
-     #command{id   = 5,
-	      desc = "Await nothing",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 6000) 
-		     end},
+     #{id   => 5,
+       desc => "Await nothing",
+       cmd  => fun(State) -> 
+		      server_await_nothing(State, 6000) 
+	      end},
 
-     #command{id   = 6,
-	      desc = "Stop",
-	      cmd  = fun(State) -> 
-			     server_stop_transport(State) 
-		     end}
+     #{id   => 6,
+       desc => "Stop",
+       cmd  => fun(State) -> 
+		      server_stop_transport(State) 
+	      end}
 
     ].
 
@@ -327,47 +330,47 @@ start_and_stop_client_commands(ServerPort, ServerHost) ->
     Opts = [{port, ServerPort}, {host, ServerHost}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#client{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		      {ok, State#{parent => Self}} 
+	      end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     client_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		      client_start_transport(State) 
+	      end},
 
-     #command{id   = 3,
-	      desc = "Await continue",
-	      cmd  = fun(State) -> 
-			     client_await_continue_signal(State, 5000) 
-		     end},
+     #{id   => 3,
+       desc => "Await continue",
+       cmd  => fun(State) -> 
+		      client_await_continue_signal(State, 5000) 
+	      end},
 
-     #command{id   = 4,
-	      desc = "Connect",
-	      cmd  = fun(State) -> 
-			     client_connect(State, Opts) 
-		     end},
+     #{id   => 4,
+       desc => "Connect",
+       cmd  => fun(State) -> 
+		      client_connect(State, Opts) 
+	      end},
 
-     #command{id   = 5,
-	      desc = "Await nothing",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 5000) 
-		     end},
+     #{id   => 5,
+       desc => "Await nothing",
+       cmd  => fun(State) -> 
+		      client_await_nothing(State, 5000) 
+	      end},
 
-     #command{id   = 6,
-	      desc = "Disconnect",
-	      cmd  = fun(State) -> 
-			     client_disconnect(State) 
-		     end},
+     #{id   => 6,
+       desc => "Disconnect",
+       cmd  => fun(State) -> 
+		      client_disconnect(State) 
+	      end},
 
-     #command{id   = 7,
-	      desc = "Stop transport",
-	      cmd  = fun(State) -> 
-			     client_stop_transport(State) 
-		     end}
+     #{id   => 7,
+       desc => "Stop transport",
+       cmd  => fun(State) -> 
+		      client_stop_transport(State) 
+	      end}
     ].
 
 
@@ -378,17 +381,22 @@ start_and_stop_client_commands(ServerPort, ServerHost) ->
 sendreceive(suite) ->
     [];
 sendreceive(Config) when is_list(Config) ->
-    put(sname, "sendreceive"),
-    p("BEGIN TEST-CASE"), 
+    Pre = fun() ->
+		  p("create nodes"),
+		  ServerNode = make_node_name(server),
+		  ClientNode = make_node_name(client),
+		  Nodes = [ServerNode, ClientNode], 
+		  ok = ?START_NODES(Nodes),
+		  Nodes
+	  end,
+    Case = fun do_sendreceive/1,
+    Post = fun(Nodes) ->
+                   p("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(sendreceive, Pre, Case, Post).
 
-    process_flag(trap_exit, true),
-
-    p("create nodes"),
-    ServerNode = make_node_name(server),
-    ClientNode = make_node_name(client),
-    Nodes = [ServerNode, ClientNode], 
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
-
+do_sendreceive([ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
     ServerPort = 2944, 
@@ -405,7 +413,7 @@ sendreceive(Config) when is_list(Config) ->
 
     await_server_listening(Server, Client),
     
-    await_command_handler_completion([Server, Client], timer:seconds(20)),
+    ok = await_command_handler_completion([Server, Client], ?SECS(20)),
     p("done"),
     ok.
 
@@ -414,83 +422,83 @@ sendreceive_server_commands(Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#server{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		       {ok, State#{parent => Self}} 
+	       end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     server_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		       server_start_transport(State) 
+	       end},
 
-     #command{id   = 3,
-	      desc = "Listen",
-	      cmd  = fun(State) -> 
-			     server_listen(State, Opts) 
-		     end},
+     #{id   => 3,
+       desc => "Listen",
+       cmd  => fun(State) -> 
+		       server_listen(State, Opts) 
+	       end},
 
-     #command{id   = 4,
-	      desc = "Notify listening",
-	      cmd  = fun(State) -> 
-			     server_notify_listening(State) 
-		     end},
+     #{id   => 4,
+       desc => "Notify listening",
+       cmd  => fun(State) -> 
+		       server_notify_listening(State) 
+	       end},
 
-     #command{id   = 5,
-	      desc = "Await initial message (ping)",
-	      cmd  = fun(State) -> 
-			     server_await_initial_message(State, "ping", 5000) 
-		     end},
+     #{id   => 5,
+       desc => "Await initial message (ping)",
+       cmd  => fun(State) -> 
+		       server_await_initial_message(State, "ping", 5000) 
+	       end},
 
-     #command{id   = 6,
-	      desc = "Send reply (pong) to initial message",
-	      cmd  = fun(State) -> 
-			     server_send_message(State, "pong") 
-		     end},
+     #{id   => 6,
+       desc => "Send reply (pong) to initial message",
+       cmd  => fun(State) -> 
+		       server_send_message(State, "pong") 
+	       end},
 
-     #command{id   = 7,
-	      desc = "Await nothing before sending a message (hejsan)",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
+     #{id   => 7,
+       desc => "Await nothing before sending a message (hejsan)",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 8,
-	      desc = "Send message (hejsan)",
-	      cmd  = fun(State) -> 
-			     server_send_message(State, "hejsan") 
-		     end},
+     #{id   => 8,
+       desc => "Send message (hejsan)",
+       cmd  => fun(State) -> 
+		       server_send_message(State, "hejsan") 
+	       end},
 
-     #command{id   = 9,
-	      desc = "Await reply (hoppsan) to message",
-	      cmd  = fun(State) -> 
-			     server_await_message(State, "hoppsan", 1000) 
-		     end},
+     #{id   => 9,
+       desc => "Await reply (hoppsan) to message",
+       cmd  => fun(State) -> 
+		       server_await_message(State, "hoppsan", 1000) 
+	       end},
 
-     #command{id   = 10,
-	      desc = "Await nothing before disconnecting",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
+     #{id   => 10,
+       desc => "Await nothing before disconnecting",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 11,
-	      desc = "Disconnect",
-	      cmd  = fun(State) -> 
-			     server_disconnect(State) 
-		     end},
+     #{id   => 11,
+       desc => "Disconnect",
+       cmd  => fun(State) -> 
+		       server_disconnect(State) 
+	       end},
 
-     #command{id   = 12,
-	      desc = "Await nothing before stopping transport",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
+     #{id   => 12,
+       desc => "Await nothing before stopping transport",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 13,
-	      desc = "Stop",
-	      cmd  = fun(State) -> 
-			     server_stop_transport(State) 
-		     end}
+     #{id   => 13,
+       desc => "Stop",
+       cmd  => fun(State) -> 
+		       server_stop_transport(State) 
+	       end}
 
     ].
 
@@ -498,77 +506,77 @@ sendreceive_client_commands(ServerPort, ServerHost) ->
     Opts = [{port, ServerPort}, {host, ServerHost}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#client{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		       {ok, State#{parent => Self}} 
+	       end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     client_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		       client_start_transport(State) 
+	       end},
 
-     #command{id   = 3,
-	      desc = "Await continue",
-	      cmd  = fun(State) -> 
-			     client_await_continue_signal(State, 5000) 
-		     end},
+     #{id   => 3,
+       desc => "Await continue",
+       cmd  => fun(State) -> 
+		       client_await_continue_signal(State, 5000) 
+	       end},
 
-     #command{id   = 4,
-	      desc = "Connect",
-	      cmd  = fun(State) -> 
-			     client_connect(State, Opts) 
-		     end},
+     #{id   => 4,
+       desc => "Connect",
+       cmd  => fun(State) -> 
+		       client_connect(State, Opts) 
+	       end},
 
-     #command{id   = 5,
-	      desc = "Send initial message (ping)",
-	      cmd  = fun(State) -> 
-			     client_send_message(State, "ping") 
-		     end},
+     #{id   => 5,
+       desc => "Send initial message (ping)",
+       cmd  => fun(State) -> 
+		       client_send_message(State, "ping") 
+	       end},
 
-     #command{id   = 6,
-	      desc = "Await reply (pong) to initial message",
-	      cmd  = fun(State) -> 
-			     client_await_message(State, "pong", 1000) 
-		     end},
+     #{id   => 6,
+       desc => "Await reply (pong) to initial message",
+       cmd  => fun(State) -> 
+		       client_await_message(State, "pong", 1000) 
+	       end},
 
-     #command{id   = 7,
-	      desc = "Await message (hejsan)",
-	      cmd  = fun(State) -> 
-			     client_await_message(State, "hejsan", 5000) 
-		     end},
+     #{id   => 7,
+       desc => "Await message (hejsan)",
+       cmd  => fun(State) -> 
+		       client_await_message(State, "hejsan", 5000) 
+	       end},
 
-     #command{id   = 8,
-	      desc = "Send reply (hoppsan) to message",
-	      cmd  = fun(State) -> 
-			     client_send_message(State, "hoppsan") 
-		     end},
+     #{id   => 8,
+       desc => "Send reply (hoppsan) to message",
+       cmd  => fun(State) -> 
+		       client_send_message(State, "hoppsan") 
+	       end},
 
-     #command{id   = 9,
-	      desc = "Await nothing before disconnecting",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 1000) 
-		     end},
+     #{id   => 9,
+       desc => "Await nothing before disconnecting",
+       cmd  => fun(State) -> 
+		       client_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 10,
-	      desc = "Disconnect",
-	      cmd  = fun(State) -> 
-			     client_disconnect(State) 
-		     end},
+     #{id   => 10,
+       desc => "Disconnect",
+       cmd  => fun(State) -> 
+		       client_disconnect(State) 
+	       end},
 
-     #command{id   = 11,
-	      desc = "Await nothing before stopping transport",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 1000) 
-		     end},
+     #{id   => 11,
+       desc => "Await nothing before stopping transport",
+       cmd  => fun(State) -> 
+		       client_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 12,
-	      desc = "Stop transport",
-	      cmd  = fun(State) -> 
-			     client_stop_transport(State) 
-		     end}
+     #{id   => 12,
+       desc => "Stop transport",
+       cmd  => fun(State) -> 
+		       client_stop_transport(State) 
+	       end}
     ].
 
 
@@ -578,17 +586,22 @@ sendreceive_client_commands(ServerPort, ServerHost) ->
 block_unblock(suite) ->
     [];
 block_unblock(Config) when is_list(Config) ->
-    put(sname, "block_unblock"),
-    p("BEGIN TEST-CASE"), 
+    Pre = fun() ->
+		  p("create nodes"),
+		  ServerNode = make_node_name(server),
+		  ClientNode = make_node_name(client),
+		  Nodes = [ServerNode, ClientNode], 
+		  ok = ?START_NODES(Nodes),
+		  Nodes
+	  end,
+    Case = fun do_block_unblock/1,
+    Post = fun(Nodes) ->
+                   p("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(block_unblock, Pre, Case, Post).
 
-    process_flag(trap_exit, true),
-
-    p("create nodes"),
-    ServerNode = make_node_name(server),
-    ClientNode = make_node_name(client),
-    Nodes = [ServerNode, ClientNode], 
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
-
+do_block_unblock([ServerNode, ClientNode]) ->
     %% Create command sequences
     p("create command sequences"),
     ServerPort = 2944, 
@@ -607,7 +620,7 @@ block_unblock(Config) when is_list(Config) ->
 
     await_client_blocked(Server, Client),
 
-    await_command_handler_completion([Server, Client], timer:seconds(30)),
+    ok = await_command_handler_completion([Server, Client], ?SECS(30)),
     p("done"),
     ok.
 
@@ -616,89 +629,89 @@ block_unblock_server_commands(Port) ->
     Opts = [{port, Port}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#server{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		       {ok, State#{parent => Self}} 
+	       end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     server_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		       server_start_transport(State) 
+	       end},
 
-     #command{id   = 3,
-	      desc = "Listen",
-	      cmd  = fun(State) -> 
-			     server_listen(State, Opts) 
-		     end},
+     #{id   => 3,
+       desc => "Listen",
+       cmd  => fun(State) -> 
+		       server_listen(State, Opts) 
+	       end},
 
-     #command{id   = 4,
-	      desc = "Notify listening",
-	      cmd  = fun(State) -> 
-			     server_notify_listening(State) 
-		     end},
+     #{id   => 4,
+       desc => "Notify listening",
+       cmd  => fun(State) -> 
+		       server_notify_listening(State) 
+	       end},
 
-     #command{id   = 5,
-	      desc = "Await initial message (ping)",
-	      cmd  = fun(State) -> 
-			     server_await_initial_message(State, "ping", 5000) 
-		     end},
+     #{id   => 5,
+       desc => "Await initial message (ping)",
+       cmd  => fun(State) -> 
+		       server_await_initial_message(State, "ping", 5000) 
+	       end},
 
-     #command{id   = 6,
-	      desc = "Send reply (pong) to initial message",
-	      cmd  = fun(State) -> 
-			     server_send_message(State, "pong") 
-		     end},
+     #{id   => 6,
+       desc => "Send reply (pong) to initial message",
+       cmd  => fun(State) -> 
+		       server_send_message(State, "pong") 
+	       end},
 
-     #command{id   = 7,
-	      desc = "Await continue",
-	      cmd  = fun(State) -> 
-			     server_await_continue_signal(State, 5000) 
-		     end},
+     #{id   => 7,
+       desc => "Await continue",
+       cmd  => fun(State) -> 
+		       server_await_continue_signal(State, 5000) 
+	       end},
 
-     #command{id   = 9,
-	      desc = "Await nothing before sending a message (hejsan)",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
+     #{id   => 9,
+       desc => "Await nothing before sending a message (hejsan)",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 10,
-	      desc = "Send message (hejsan)",
-	      cmd  = fun(State) -> 
-			     server_send_message(State, "hejsan") 
-		     end},
+     #{id   => 10,
+       desc => "Send message (hejsan)",
+       cmd  => fun(State) -> 
+		       server_send_message(State, "hejsan") 
+	       end},
 
-     #command{id   = 11,
-	      desc = "Await reply (hoppsan) to message",
-	      cmd  = fun(State) -> 
-			     server_await_message(State, "hoppsan", 10000) 
-		     end},
+     #{id   => 11,
+       desc => "Await reply (hoppsan) to message",
+       cmd  => fun(State) -> 
+		       server_await_message(State, "hoppsan", 10000) 
+	       end},
 
-     #command{id   = 12,
-	      desc = "Await nothing before disconnecting",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
+     #{id   => 12,
+       desc => "Await nothing before disconnecting",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 13,
-	      desc = "Disconnect",
-	      cmd  = fun(State) -> 
-			     server_disconnect(State) 
-		     end},
+     #{id   => 13,
+       desc => "Disconnect",
+       cmd  => fun(State) -> 
+		       server_disconnect(State) 
+	       end},
 
-     #command{id   = 14,
-	      desc = "Await nothing before stopping transport",
-	      cmd  = fun(State) -> 
-			     server_await_nothing(State, 1000) 
-		     end},
+     #{id   => 14,
+       desc => "Await nothing before stopping transport",
+       cmd  => fun(State) -> 
+		       server_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 15,
-	      desc = "Stop",
-	      cmd  = fun(State) -> 
-			     server_stop_transport(State) 
-		     end}
+     #{id   => 15,
+       desc => "Stop",
+       cmd  => fun(State) -> 
+		       server_stop_transport(State) 
+	       end}
 
     ].
 
@@ -706,107 +719,107 @@ block_unblock_client_commands(ServerPort, ServerHost) ->
     Opts = [{port, ServerPort}, {host, ServerHost}], 
     Self = self(),
     [
-     #command{id   = 1,
-	      desc = "Command sequence init",
-	      cmd  = fun(State) -> 
-			     {ok, State#client{parent = Self}} 
-		     end},
+     #{id   => 1,
+       desc => "Command sequence init",
+       cmd  => fun(State) -> 
+		       {ok, State#{parent => Self}} 
+	       end},
 
-     #command{id   = 2,
-	      desc = "Start transport",
-	      cmd  = fun(State) -> 
-			     client_start_transport(State) 
-		     end},
+     #{id   => 2,
+       desc => "Start transport",
+       cmd  => fun(State) -> 
+		       client_start_transport(State) 
+	       end},
 
-     #command{id   = 3,
-	      desc = "Await continue",
-	      cmd  = fun(State) -> 
-			     client_await_continue_signal(State, 5000) 
-		     end},
+     #{id   => 3,
+       desc => "Await continue",
+       cmd  => fun(State) -> 
+		       client_await_continue_signal(State, 5000) 
+	       end},
 
-     #command{id   = 4,
-	      desc = "Connect",
-	      cmd  = fun(State) -> 
-			     client_connect(State, Opts) 
-		     end},
+     #{id   => 4,
+       desc => "Connect",
+       cmd  => fun(State) -> 
+		       client_connect(State, Opts) 
+	       end},
 
-     #command{id   = 5,
-	      desc = "Send initial message (ping)",
-	      cmd  = fun(State) -> 
-			     client_send_message(State, "ping") 
-		     end},
+     #{id   => 5,
+       desc => "Send initial message (ping)",
+       cmd  => fun(State) -> 
+		       client_send_message(State, "ping") 
+	       end},
 
-     #command{id   = 6,
-	      desc = "Await reply (pong) to initial message",
-	      cmd  = fun(State) -> 
-			     client_await_message(State, "pong", 1000) 
-		     end},
+     #{id   => 6,
+       desc => "Await reply (pong) to initial message",
+       cmd  => fun(State) -> 
+		       client_await_message(State, "pong", 1000) 
+	       end},
 
-     #command{id   = 7,
-	      desc = "Await nothing before blocking",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 1000) 
-		     end},
+     #{id   => 7,
+       desc => "Await nothing before blocking",
+       cmd  => fun(State) -> 
+		       client_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 8,
-	      desc = "Block",
-	      cmd  = fun(State) -> 
-			     client_block(State) 
-		     end},
+     #{id   => 8,
+       desc => "Block",
+       cmd  => fun(State) -> 
+		       client_block(State) 
+	       end},
 
-     #command{id   = 9,
-	      desc = "Notify blocked",
-	      cmd  = fun(State) -> 
-			     client_notify_blocked(State) 
-		     end},
+     #{id   => 9,
+       desc => "Notify blocked",
+       cmd  => fun(State) -> 
+		       client_notify_blocked(State) 
+	       end},
 
-     #command{id   = 10,
-	      desc = "Await nothing before unblocking",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 5000) 
-		     end},
+     #{id   => 10,
+       desc => "Await nothing before unblocking",
+       cmd  => fun(State) -> 
+		       client_await_nothing(State, 5000) 
+	       end},
 
-     #command{id   = 11,
-	      desc = "Unblock",
-	      cmd  = fun(State) -> 
-			     client_unblock(State) 
-		     end},
+     #{id   => 11,
+       desc => "Unblock",
+       cmd  => fun(State) -> 
+		       client_unblock(State) 
+	       end},
 
-     #command{id   = 12,
-	      desc = "Await message (hejsan)",
-	      cmd  = fun(State) -> 
-			     client_await_message(State, "hejsan", 100) 
-		     end},
+     #{id   => 12,
+       desc => "Await message (hejsan)",
+       cmd  => fun(State) -> 
+		       client_await_message(State, "hejsan", 100) 
+	       end},
 
-     #command{id   = 13,
-	      desc = "Send reply (hoppsan) to message",
-	      cmd  = fun(State) -> 
-			     client_send_message(State, "hoppsan") 
-		     end},
+     #{id   => 13,
+       desc => "Send reply (hoppsan) to message",
+       cmd  => fun(State) -> 
+		       client_send_message(State, "hoppsan") 
+	       end},
 
-     #command{id   = 14,
-	      desc = "Await nothing before disconnecting",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 1000) 
-		     end},
+     #{id   => 14,
+       desc => "Await nothing before disconnecting",
+       cmd  => fun(State) -> 
+		       client_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 15,
-	      desc = "Disconnect",
-	      cmd  = fun(State) -> 
-			     client_disconnect(State) 
-		     end},
+     #{id   => 15,
+       desc => "Disconnect",
+       cmd  => fun(State) -> 
+		       client_disconnect(State) 
+	       end},
 
-     #command{id   = 16,
-	      desc = "Await nothing before stopping transport",
-	      cmd  = fun(State) -> 
-			     client_await_nothing(State, 1000) 
-		     end},
+     #{id   => 16,
+       desc => "Await nothing before stopping transport",
+       cmd  => fun(State) -> 
+		       client_await_nothing(State, 1000) 
+	       end},
 
-     #command{id   = 17,
-	      desc = "Stop transport",
-	      cmd  = fun(State) -> 
-			     client_stop_transport(State) 
-		     end}
+     #{id   => 17,
+       desc => "Stop transport",
+       cmd  => fun(State) -> 
+		       client_stop_transport(State) 
+	       end}
     ].
 
 
@@ -956,7 +969,11 @@ await_server_listening(Server, Client) ->
               "send continue to client [~p]"
               "~n", [Server, Client]),
             Client ! {continue, self()},
-            ok
+            ok;
+	{'EXIT', Server, SReason} ->
+	    exit({server_crash, SReason});
+	{'EXIT', Client, CReason} ->
+	    exit({client_crash, CReason})
     after 5000 ->
             %% There is no normal reason why this should take any time.
             %% Normally, this takes a few milli seconds. So, if we are not
@@ -973,7 +990,11 @@ await_client_blocked(Server, Client) ->
             p("received blocked message from client [~p] => "
               "send continue to server [~p]~n", [Client, Server]),
             Server ! {continue, self()},
-            ok
+            ok;
+	{'EXIT', Client, CReason} ->
+	    exit({client_crash, CReason});
+	{'EXIT', Server, SReason} ->
+	    exit({server_crash, SReason})
     after 5000 ->
             %% There is no normal reason why this should take any time.
             %% Normally, this takes a few milli seconds. So, if we are not
@@ -988,18 +1009,18 @@ await_client_blocked(Server, Client) ->
 %% -------  Server command handler and utility functions ----------
 
 server_start_command_handler(Node, Commands) ->
-    start_command_handler(Node, Commands, #server{}, "server").
+    start_command_handler(Node, Commands, #{}, "server").
 
-server_start_transport(State) when is_record(State, server) ->
+server_start_transport(State) when is_map(State) ->
     case (catch megaco_tcp:start_transport()) of
 	{ok, Ref} ->
-	    {ok, State#server{transport_ref = Ref}};
+	    {ok, State#{transport_ref => Ref}};
 	Error ->
 	    Error
     end.
 
-server_listen(#server{transport_ref = Ref} = State, Options) 
-  when is_record(State, server) andalso is_list(Options) ->
+server_listen(#{transport_ref := Ref} = State, Options) 
+  when is_list(Options) ->
     Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
     case (catch megaco_tcp:listen(Ref, Opts)) of
 	ok ->
@@ -1008,12 +1029,11 @@ server_listen(#server{transport_ref = Ref} = State, Options)
 	    Error
     end.
 
-server_notify_listening(#server{parent = Parent} = State) 
-  when is_record(State, server) ->
+server_notify_listening(#{parent := Parent} = State) ->
     Parent ! {listening, self()},
     {ok, State}.
 
-server_await_continue_signal(#server{parent = Parent} = State, Timeout) ->
+server_await_continue_signal(#{parent := Parent} = State, Timeout) ->
     receive
 	{continue, Parent} ->
 	    {ok, State}
@@ -1022,11 +1042,11 @@ server_await_continue_signal(#server{parent = Parent} = State, Timeout) ->
     end.
     
 server_await_initial_message(State, InitialMessage, Timeout) 
-  when is_record(State, server) ->
+  when is_map(State) ->
     receive 
 	{receive_message, {ControlPid, Handle, InitialMessage}} ->
-	    NewState = State#server{control_pid = ControlPid,
-				    handle      = Handle},
+	    NewState = State#{control_pid => ControlPid,
+			      handle      => Handle},
 	    {ok, NewState};
 
 	Any ->
@@ -1037,12 +1057,12 @@ server_await_initial_message(State, InitialMessage, Timeout)
 	    {error, timeout}
     end.
 
-server_send_message(#server{handle = Handle} = State, Message) ->
+server_send_message(#{handle := Handle} = State, Message) ->
     megaco_tcp:send_message(Handle, Message),
     {ok, State}.
 
 server_await_nothing(State, Timeout) 
-  when is_record(State, server) ->
+  when is_map(State) ->
     receive 
 	Any ->
 	    p("received unexpected event: ~p", [Any]),
@@ -1052,9 +1072,8 @@ server_await_nothing(State, Timeout)
 	    {ok, State}
     end.
 
-
 server_await_message(State, ExpectMessage, Timeout) 
-  when is_record(State, server) ->
+  when is_map(State) ->
     receive
 	{receive_message, {_, _, ExpectMessage}} ->
 	    {ok, State};
@@ -1067,22 +1086,12 @@ server_await_message(State, ExpectMessage, Timeout)
 	    {error, timeout}
     end.
 
-server_disconnect(#server{handle = Handle} = State) 
+server_disconnect(#{handle := Handle} = State) 
   when (Handle =/= undefined) ->
      megaco_tcp:close(Handle),
-    {ok, State#server{handle = undefined}}.
+    {ok, State#{handle => undefined}}.
 
-%% server_block(#server{handle = Handle} = State) 
-%%   when (Handle =/= undefined) ->
-%%      megaco_tcp:block(Handle),
-%%     {ok, State}.
-
-%% server_unblock(#server{handle = Handle} = State) 
-%%   when (Handle =/= undefined) ->
-%%      megaco_tcp:unblock(Handle),
-%%     {ok, State}.
-
-server_stop_transport(#server{transport_ref = Ref} = State) 
+server_stop_transport(#{transport_ref := Ref} = State) 
   when (Ref =/= undefined) ->
     megaco_tcp:stop_transport(Ref),
     {ok, State}.
@@ -1091,28 +1100,28 @@ server_stop_transport(#server{transport_ref = Ref} = State)
 %% -------  Client command handler and utility functions ----------
 
 client_start_command_handler(Node, Commands) ->
-    start_command_handler(Node, Commands, #client{}, "client").
+    start_command_handler(Node, Commands, #{}, "client").
 		  
-client_start_transport(State) when is_record(State, client) ->
+client_start_transport(State) when is_map(State) ->
     case (catch megaco_tcp:start_transport()) of
 	{ok, Ref} ->
-	    {ok, State#client{transport_ref = Ref}};
+	    {ok, State#{transport_ref => Ref}};
 	Error ->
 	    Error
     end.
 
-client_connect(#client{transport_ref = Ref} = State, Options) 
-  when is_record(State, client) andalso is_list(Options) ->
+client_connect(#{transport_ref := Ref} = State, Options) 
+  when is_list(Options) ->
     Opts = [{receive_handle, self()}, {module, ?MODULE} | Options], 
     case (catch megaco_tcp:connect(Ref, Opts)) of
 	{ok, Handle, ControlPid} ->
-	    {ok, State#client{control_pid = ControlPid, 
-			      handle      = Handle}};
+	    {ok, State#{control_pid => ControlPid, 
+			handle      => Handle}};
 	Error ->
 	    Error
     end.
 
-client_await_continue_signal(#client{parent = Parent} = State, Timeout) ->
+client_await_continue_signal(#{parent := Parent} = State, Timeout) ->
     receive
 	{continue, Parent} ->
 	    {ok, State}
@@ -1120,12 +1129,12 @@ client_await_continue_signal(#client{parent = Parent} = State, Timeout) ->
 	    {error, timeout}
     end.
     
-client_notify_blocked(#client{parent = Parent} = State) ->
+client_notify_blocked(#{parent := Parent} = State) ->
     Parent ! {blocked, self()},
     {ok, State}.
 
 client_await_nothing(State, Timeout) 
-  when is_record(State, client) ->
+  when is_map(State) ->
     receive 
 	Any ->
 	    p("received unexpected event: ~p", [Any]),
@@ -1134,12 +1143,12 @@ client_await_nothing(State, Timeout)
 	    {ok, State}
     end.
 
-client_send_message(#client{handle = Handle} = State, Message) ->
+client_send_message(#{handle := Handle} = State, Message) ->
     megaco_tcp:send_message(Handle, Message),
     {ok, State}.
 
 client_await_message(State, ExpectMessage, Timeout) 
-  when is_record(State, client) ->
+  when is_map(State) ->
     receive
 	{receive_message, {_, _, ExpectMessage}} ->
 	    {ok, State};
@@ -1152,22 +1161,22 @@ client_await_message(State, ExpectMessage, Timeout)
 	    {error, timeout}
     end.
 
-client_block(#client{handle = Handle} = State) 
+client_block(#{handle := Handle} = State) 
   when (Handle =/= undefined) ->
     megaco_tcp:block(Handle),
     {ok, State}.
 
-client_unblock(#client{handle = Handle} = State) 
+client_unblock(#{handle := Handle} = State) 
   when (Handle =/= undefined) ->
     megaco_tcp:unblock(Handle),
     {ok, State}.
 
-client_disconnect(#client{handle = Handle} = State) 
+client_disconnect(#{handle := Handle} = State) 
   when (Handle =/= undefined) ->
     megaco_tcp:close(Handle),
-    {ok, State#client{handle = undefined, control_pid = undefined}}.
+    {ok, State#{handle => undefined, control_pid => undefined}}.
 
-client_stop_transport(#client{transport_ref = Ref} = State) 
+client_stop_transport(#{transport_ref := Ref} = State) 
   when (Ref =/= undefined) ->
     megaco_tcp:stop_transport(Ref),
     {ok, State}.
@@ -1176,100 +1185,22 @@ client_stop_transport(#client{transport_ref = Ref} = State)
 %% -------- Command handler ---------
 
 start_command_handler(Node, Commands, State, ShortName) ->
-    Fun = fun() ->
-		  put(sname, ShortName), 
-		  process_flag(trap_exit, true),
-		  Result = (catch command_handler(Commands, State)),
-		  p("command handler terminated with: "
-		    "~n   Result: ~p", [Result]),
-		  exit(Result)
-	  end,
-    erlang:spawn_link(Node, Fun).
+    ?CH:start(Node, Commands, State, ShortName).
 		  
-command_handler([], State) ->
-    p("command_handler -> entry when done with"
-      "~n   State: ~p", [State]),
-    {ok, State};
-command_handler([#command{id   = Id,
-			  desc = Desc,
-			  cmd  = Cmd}|Commands], State) ->
-    p("command_handler -> entry with"
-      "~n   Id:   ~p"
-      "~n   Desc: ~p", [Id, Desc]),
-    case (catch Cmd(State)) of
-	{ok, NewState} ->
-	    p("command_handler -> cmd ~w ok", [Id]),
-	    command_handler(Commands, NewState);
-	{error, Reason} ->
-	    p("command_handler -> cmd ~w error: "
-	      "~n   Reason: ~p", [Id, Reason]),
-	    {error, {cmd_error, Reason}};
-	{'EXIT', Reason} ->
-	    p("command_handler -> cmv ~w exit: "
-	      "~n   Reason: ~p", [Id, Reason]),
-	    {error, {cmd_exit, Reason}};
-	Error ->
-	    p("command_handler -> cmd ~w failure: "
-	      "~n   Error: ~p", [Id, Error]),
-	    {error, {cmd_failure, Error}}
-    end.
-
-
 await_command_handler_completion(Pids, Timeout) ->
-    await_command_handler_completion(Pids, [], [], Timeout).
-
-await_command_handler_completion([], [], _Good, _Timeout) ->
-    p("await_command_handler_completion -> entry when done"),
-    ok;
-await_command_handler_completion([], Bad, Good, _Timeout) ->
-    p("await_command_handler_completion -> entry when done with bad result: "
-      "~n   Bad:  ~p"
-      "~n   Good: ~p", [Bad, Good]),
-    ok;
-await_command_handler_completion(Pids, Bad, Good, Timeout) ->
-    p("await_command_handler_completion -> entry when waiting for"
-      "~n   Pids:    ~p"
-      "~n   Bad:     ~p"
-      "~n   Good:    ~p"
-      "~n   Timeout: ~p", [Pids, Bad, Good, Timeout]), 
-    Begin = ms(), 
-    receive 
-	{'EXIT', Pid, {ok, FinalState}} ->
-	    p("await_command_handler_completion -> "
-	      "received ok EXIT signal from ~p", [Pid]), 
-	    case lists:delete(Pid, Pids) of
-		Pids ->
-		    await_command_handler_completion(Pids, Bad, Good, 
-						     Timeout - (ms() - Begin));
-		Pids2 ->
-		    p("await_command_handler_completion -> ~p done", [Pid]), 
-		    await_command_handler_completion(Pids2, 
-						     Bad, 
-						     [{Pid, FinalState}|Good],
-						     Timeout - (ms() - Begin))
-	    end;
-
-	{'EXIT', Pid, {error, Reason}} ->
-	    p("await_command_handler_completion -> "
-	      "received error EXIT signal from ~p", [Pid]), 
-	    case lists:delete(Pid, Pids) of
-		Pids ->
-		    await_command_handler_completion(Pids, Bad, Good, 
-						     Timeout - (ms() - Begin));
-		Pids2 ->
-		    p("await_command_handler_completion -> ~p done", [Pid]), 
-		    await_command_handler_completion(Pids2, 
-						     [{Pid, Reason}|Bad], 
-						     Good, 
-						     Timeout - (ms() - Begin))
-	    end
-
-    after Timeout ->
-	    p("await_command_handler_completion -> timeout"), 
-	    exit({timeout, Pids})
-    end.
+    ?CH:await_completion(Pids, Timeout).
 
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %% ------- Misc functions --------
 
@@ -1296,9 +1227,5 @@ p(_S, F, A) ->
     io:format("*** [~s] ~p *** "
 	      "~n   " ++ F ++ "~n", 
 	      [?FTS(), self() | A]).
-
-
-ms() ->
-    erlang:monotonic_time(milli_seconds).
 
 

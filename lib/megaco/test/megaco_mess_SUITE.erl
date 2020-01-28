@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -499,6 +499,9 @@ end_per_group(_GroupName, Config) ->
 %%
 
 init_per_testcase(Case, Config) ->
+    process_flag(trap_exit, true),
+
+    ?ANNOUNCE_CASE_INIT(Case),
 
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -689,31 +692,35 @@ request_and_no_reply(suite) ->
 request_and_no_reply(doc) ->
     [];
 request_and_no_reply(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        request_and_no_reply),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  Mg1Node = make_node_name(mg1),
+                  Mg2Node = make_node_name(mg2),
+                  Mg3Node = make_node_name(mg3),
+                  Mg4Node = make_node_name(mg4),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      Mg1Node: ~p"
+                    "~n      Mg2Node: ~p"
+                    "~n      Mg3Node: ~p"
+                    "~n      Mg4Node: ~p", 
+                    [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
+                  Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_no_reply/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(request_and_no_reply, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-    Mg2Node = make_node_name(mg2),
-    Mg3Node = make_node_name(mg3),
-    Mg4Node = make_node_name(mg4),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p"
-      "~n   Mg2Node: ~p"
-      "~n   Mg3Node: ~p"
-      "~n   Mg4Node: ~p", 
-      [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
-    Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node], 
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
-
+do_request_and_no_reply([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     %% Start the MGC
     i("[MGC] start"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    {ok, Mgc} = 
-	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
+    {ok, Mgc} = ?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, [], ?MGC_VERBOSITY),
     ?SLEEP(?SECONDS(1)),
 
     i("[MG] start"),    
@@ -833,7 +840,29 @@ request_and_no_reply(Config) when is_list(Config) ->
     d("MG4 user info: ~p", [?MG_USER_INFO(Mg4, all)]),
     d("MG4 conn info: ~p", [?MG_CONN_INFO(Mg4, all)]),
 
+    %% Tell MG4 to stop
+    i("[MG4] stop"),
+    ?MG_STOP(Mg4),
+
+    %% Tell MG3 to stop
+    i("[MG3] stop"),
+    ?MG_STOP(Mg3),
+
+    %% Tell MG2 to stop
+    i("[MG2] stop"),
+    ?MG_STOP(Mg2),
+
+    %% Tell MG1 to stop
+    i("[MG1] stop"),
+    ?MG_STOP(Mg1),
+
+    %% Tell Mgc to stop
+    i("[MGC] stop"),
+    ?MGC_STOP(Mgc),
+
+    i("done", []),
     ok.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -845,20 +874,26 @@ request_and_reply_pending_ack_no_pending(doc) ->
      "value handle_pending_ack from handle_trans_request when NO "
      "pending message has been sent"];
 request_and_reply_pending_ack_no_pending(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rar_panp),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_reply_pending_ack_no_pending/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes)),
+                   ok
+           end,
+    try_tc(rar_panp, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    Nodes = [MgcNode, MgNode], 
-    ok = megaco_test_lib:start_nodes(Nodes, ?FILE, ?LINE),
-
+do_request_and_reply_pending_ack_no_pending([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -870,9 +905,6 @@ request_and_reply_pending_ack_no_pending(Config) when is_list(Config) ->
 
     d("[MGC] start the simulation"),
     {ok, MgcId} = megaco_test_megaco_generator:exec(Mgc, MgcEvSeq),
-
-    %% i("wait some time before starting the MG simulator"),
-    %% sleep(1000),
 
     i("await MGC ready announcement"),
     receive
@@ -1444,19 +1476,25 @@ request_and_reply_pending_ack_one_pending(doc) ->
      "value handle_pending_ack from handle_trans_request when ONE "
      "pending message has been sent"];
 request_and_reply_pending_ack_one_pending(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rar_paop),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_reply_pending_ack_one_pending/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rar_paop, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_request_and_reply_pending_ack_one_pending([MgcNode, MgNode]) ->
     d("[MGC] start the simulator"),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -2136,20 +2174,25 @@ single_trans_req_and_reply(doc) ->
      "The MGC is a megaco instance (megaco event sequence) and the "
      "MG is emulated (tcp event sequence)"];
 single_trans_req_and_reply(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        strar),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_single_trans_req_and_reply/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(strar, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
-
+do_single_trans_req_and_reply([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -2646,26 +2689,31 @@ single_trans_req_and_reply_sendopts(doc) ->
      "The MGC is a megaco instance (megaco event sequence) and the "
      "MG is emulated (tcp event sequence)"];
 single_trans_req_and_reply_sendopts(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    Skippable = [{unix, [darwin, linux]}],
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
+    Pre = fun() ->
+                  %% <CONDITIONAL-SKIP>
+                  Skippable = [{unix, [darwin, linux]}],
+                  Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+                  ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
+                  %% </CONDITIONAL-SKIP>
 
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        straro),
-    i("starting"),
-
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
-
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_single_trans_req_and_reply_sendopts/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(straro, Pre, Case, Post).
+    
+do_single_trans_req_and_reply_sendopts([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -3208,19 +3256,25 @@ request_and_reply_and_ack(suite) ->
 request_and_reply_and_ack(doc) ->
     ["This test case tests that megaco correctly handles three-way-handshake"];
 request_and_reply_and_ack(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        raraa),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_reply_and_ack/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(raraa, Pre, Case, Post).     
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_request_and_reply_and_ack([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -3829,19 +3883,26 @@ request_and_reply_and_no_ack(doc) ->
     ["This test case tests that megaco handles a failed three-way-handshake,"
      " i.e. when the ack never arrives"];
 request_and_reply_and_no_ack(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rarana),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_reply_and_no_ack/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rarana, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
 
+do_request_and_reply_and_no_ack([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -4436,19 +4497,25 @@ request_and_reply_and_late_ack(doc) ->
     ["This test case tests that megaco handles three-way-handshake "
      "when the ack is late (and requeire a retransmission)"];
 request_and_reply_and_late_ack(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rarala),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_reply_and_late_ack/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rarala, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_request_and_reply_and_late_ack([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -5067,26 +5134,31 @@ trans_req_and_reply_and_req(doc) ->
      "The MGC is a megaco instance (megaco event sequence) and the "
      "MG is emulated (tcp event sequence)"];
 trans_req_and_reply_and_req(Config) when is_list(Config) ->
-    %% <CONDITIONAL-SKIP>
-    Skippable = [{unix, [darwin, linux]}],
-    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
-    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
-    %% </CONDITIONAL-SKIP>
+    Pre = fun() ->
+                  %% <CONDITIONAL-SKIP>
+                  Skippable = [{unix, [darwin, linux]}],
+                  Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+                  ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
+                  %% </CONDITIONAL-SKIP>
 
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        trarar),
-    i("starting"),
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_trans_req_and_reply_and_req/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(request_and_no_reply, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
-
+do_trans_req_and_reply_and_req([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -5730,19 +5802,25 @@ pending_ack_plain(doc) ->
      "i.e. return with {pending, _} and expect a call to the "
      "long request function"];
 pending_ack_plain(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        pap),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_pending_ack_plain/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(pap, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_pending_ack_plain([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -6423,19 +6501,25 @@ request_and_pending_and_late_reply(doc) ->
      "i.e. return with {pending, _}. Then, expect the sender "
      "to keep re-sending the request until the reply is sent."];
 request_and_pending_and_late_reply(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        rapalr),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p",
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_request_and_pending_and_late_reply/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(rapalr, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p",
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_request_and_pending_and_late_reply([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
@@ -7269,19 +7353,25 @@ otp_4359_analyze_encoded_message(RH, ExpErrorCode, M)
 otp_4836(suite) ->
     [];
 otp_4836(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_4836),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_4836/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_4836, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_otp_4836([MgcNode, MgNode]) ->
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
@@ -7522,19 +7612,25 @@ otp_4836_mgc_verify_notify_req_msg(M) ->
 otp_5805(suite) ->
     [];
 otp_5805(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_5805),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_5805/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_5805, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-	 "~n   MgcNode: ~p"
-	 "~n   MgNode:  ~p", 
-	 [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_otp_5805([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -8005,7 +8101,8 @@ otp_5881(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode], 
+    ok = ?START_NODES(Nodes, true),
 
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -8070,6 +8167,10 @@ otp_5881(Config) when is_list(Config) ->
     %% Tell Mgc to stop
     i("[MGC] stop generator"),
     megaco_test_tcp_generator:stop(Mgc),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -8247,19 +8348,25 @@ otp_5881_mgc_verify_notify_req_msg(M) ->
 otp_5887(suite) ->
     [];
 otp_5887(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_5887),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_5887/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_5887, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_otp_5887([MgcNode, MgNode]) ->
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
@@ -8590,19 +8697,25 @@ otp_6253(Config) when is_list(Config) ->
 otp_6275(suite) ->
     [];
 otp_6275(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_6275),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6275/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_6275, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_otp_6275([MgcNode, MgNode]) ->
     d("start the MGC simulator (generator)"),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
@@ -9083,21 +9196,27 @@ otp_6276(suite) ->
 otp_6276(doc) ->
     "OTP-6276: Cancel when receiving reply raise condition";
 otp_6276(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_6276),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6276/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_6276, Pre, Case, Post).
 
+do_otp_6276([MgcNode, MgNode]) ->
     d("create sequence controller"),
     CtrlPid = otp_6276_sequence_controller_start(),
-    
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
 
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
@@ -9762,15 +9881,21 @@ otp_6276(Config) when is_list(Config) ->
 otp_6442_resend_request1(suite) ->
     [];
 otp_6442_resend_request1(Config) when is_list(Config) ->
-    put(verbosity, debug),
-    put(sname,     "TEST"),
-    put(tc,        otp6442rreq1),
-    i("starting"),
+    Pre = fun() ->
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6442_resend_request1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp6442rreq1, Pre, Case, Post).
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
-
+do_otp_6442_resend_request1([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -10132,15 +10257,21 @@ otp_6442_resend_request1_mg_notify_request_ar(Rid, Tid, Cid) ->
 otp_6442_resend_request2(suite) ->
     [];
 otp_6442_resend_request2(Config) when is_list(Config) ->
-    put(verbosity, debug),
-    put(sname,     "TEST"),
-    put(tc,        otp6442rreq2),
-    i("starting"),
+    Pre = fun() ->
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6442_resend_request2/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp6442rreq2, Pre, Case, Post).
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
-
+do_otp_6442_resend_request2([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -10434,15 +10565,21 @@ otp_6442_resend_request2_mg_notify_request_ar(Rid, Tid, Cid) ->
 otp_6442_resend_reply1(suite) ->
     [];
 otp_6442_resend_reply1(Config) when is_list(Config) ->
-    put(sname,     "TEST"),
-    put(verbosity, debug),
-    put(tc,        otp6442rrep1),
-    i("starting"),
+    Pre = fun() ->
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6442_resend_reply1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(request_and_no_reply, Pre, Case, Post).
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
-
+do_otp_6442_resend_reply1([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -10823,15 +10960,21 @@ otp_6442_resend_reply1_err_desc(T) ->
 otp_6442_resend_reply2(suite) ->
     [];
 otp_6442_resend_reply2(Config) when is_list(Config) ->
-    put(sname,     "TEST"),
-    put(verbosity, debug),
-    put(tc,        otp6442rrep2),
-    i("starting"),
+    Pre = fun() ->
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_6442_resend_reply2/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp6442rrep2, Pre, Case, Post).
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
-
+do_otp_6442_resend_reply2([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -11323,7 +11466,8 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
       "~n   MgcNode: ~p"
       "~n   MgNode:  ~p", 
       [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
+    Nodes = [MgcNode, MgNode],
+    ok = ?START_NODES(Nodes, true),
 
 
     d("[MGC] start the simulator "),
@@ -11370,6 +11514,10 @@ otp_6865_request_and_reply_plain_extra2(Config) when is_list(Config) ->
 
     i("stop tc controller"),
     ok = megaco_tc_controller:stop(),
+
+    %% Cleanup
+    d("stop nodes"),
+    ?STOP_NODES(lists:reverse(Nodes)),
 
     i("done", []),
     ok.
@@ -12187,19 +12335,25 @@ otp_7189(suite) ->
 otp_7189(doc) ->
     "...";
 otp_7189(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    put(tc,        otp_7189),
-    i("starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_7189/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp_7189, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    MgNode  = make_node_name(mg),
-    d("start nodes: "
-      "~n   MgcNode: ~p"
-      "~n   MgNode:  ~p", 
-      [MgcNode, MgNode]),
-    ok = megaco_test_lib:start_nodes([MgcNode, MgNode], ?FILE, ?LINE),
-
+do_otp_7189([MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_megaco_generator:start_link("MGC", MgcNode),
 
@@ -12705,15 +12859,21 @@ otp_7259(suite) ->
 otp_7259(doc) ->
     ["This is a variant of ticket OTP-6442"];
 otp_7259(Config) when is_list(Config) ->
-    put(verbosity, debug),
-    put(sname,     "TEST"),
-    put(tc,        otp7259rr),
-    i("starting"),
+    Pre = fun() ->
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_7259/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp7259rr, Pre, Case, Post).
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
-
+do_otp_7259([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -13138,15 +13298,26 @@ otp_7713(Config) when is_list(Config) ->
 otp_8183_request1(suite) ->
     [];
 otp_8183_request1(Config) when is_list(Config) ->
+    Pre = fun() ->
     put(verbosity, debug),
     put(sname,     "TEST"),
     put(tc,        otp8183r1),
     i("starting"),
 
-    MgNode = make_node_name(mg),
-    d("start (MG) node: ~p", [MgNode]),
-    ok = megaco_test_lib:start_nodes([MgNode], ?FILE, ?LINE),
+                  MgNode = make_node_name(mg),
+                  d("start (MG) node: ~p", [MgNode]),
+                  Nodes = [MgNode], 
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_otp_8183_request1/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(otp8183r1, Pre, Case, Post).
 
+do_otp_8183_request1([MgNode]) ->
     d("[MG] start the simulator "),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
@@ -13972,6 +14143,46 @@ sleep(X) -> receive after X -> ok end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+to(To, Start) ->
+    To - (mtime() - Start).
+
+%% Time in milli seconds
+mtime() ->
+    {A,B,C} = erlang:timestamp(),
+    A*1000000000+B*1000+(C div 1000).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% p(F) ->
+%%     p(F, []).
+
+p(F, A) ->
+    p(get(sname), F, A).
+
+p(S, F, A) when is_list(S) ->
+    io:format("*** [~s] ~p ~s ***" 
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self(), S | A]);
+p(_S, F, A) ->
+    io:format("*** [~s] ~p *** "
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), self() | A]).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 i(F) ->
     i(F, []).
 
@@ -13995,7 +14206,7 @@ print(Severity, Verbosity, Ts, Tc, P, F, A) ->
 print(true, TS, TC, P, F, A) ->
     S = ?F("*** [~s] ~s ~p ~s:~w ***"
            "~n   " ++ F ++ "~n", 
-           [megaco:format_timestamp(TS), P, self(), get(sname), TC | A]),
+           [?FTS(TS), P, self(), get(sname), TC | A]),
     io:format("~s", [S]),
     io:format(user, "~s", [S]);
 print(_, _, _, _, _, _) ->
@@ -14006,35 +14217,5 @@ printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.
 
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-to(To, Start) ->
-    To - (mtime() - Start).
-
-%% Time in milli seconds
-mtime() ->
-    {A,B,C} = erlang:timestamp(),
-    A*1000000000+B*1000+(C div 1000).
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%% p(F) ->
-%%     p(F, []).
-
-p(F, A) ->
-    p(get(sname), F, A).
-
-p(S, F, A) when is_list(S) ->
-    io:format("*** [~s] ~p ~s ***" 
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self(), S | A]);
-p(_S, F, A) ->
-    io:format("*** [~s] ~p *** "
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), self() | A]).
 
 

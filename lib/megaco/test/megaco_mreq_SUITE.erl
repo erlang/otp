@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@
          req_and_rep/1,
          req_and_pending/1,
          req_and_cancel/1
+
         ]).
 
 -include_lib("megaco/include/megaco.hrl").
@@ -182,177 +183,198 @@ req_and_rep(suite) ->
 req_and_rep(doc) ->
     [];
 req_and_rep(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("req_and_rep -> starting"),
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-    Mg2Node = make_node_name(mg2),
-    Mg3Node = make_node_name(mg3),
-    Mg4Node = make_node_name(mg4),
-    d("req_and_rep -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p"
-      "~n   Mg2Node: ~p"
-      "~n   Mg3Node: ~p"
-      "~n   Mg4Node: ~p", 
-      [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
-    ok = megaco_test_lib:start_nodes([MgcNode, 
-				      Mg1Node, Mg2Node, Mg3Node, Mg4Node], 
-				     ?FILE, ?LINE),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  Mg1Node = make_node_name(mg1),
+                  Mg2Node = make_node_name(mg2),
+                  Mg3Node = make_node_name(mg3),
+                  Mg4Node = make_node_name(mg4),
+                  d("try start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      Mg1Node: ~p"
+                    "~n      Mg2Node: ~p"
+                    "~n      Mg3Node: ~p"
+                    "~n      Mg4Node: ~p", 
+                    [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
+                  Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node],
+                  ok    = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_req_and_rep/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes (in the reverse order):"
+                     "~n       ~p", [Nodes]),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(req_and_rep, Pre, Case, Post).
 
+do_req_and_rep([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     %% Start the MGC and MGs
-    i("req_and_rep -> start the MGC"),    
+    i("start the MGC"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
-    i("req_and_rep -> start and connect the MGs"),    
+    i("start and connect the MGs"),    
     MgConf0 = [{Mg1Node, "mg1", text,   tcp, ?MG_VERBOSITY},
 	       {Mg2Node, "mg2", text,   udp, ?MG_VERBOSITY},
 	       {Mg3Node, "mg3", binary, tcp, ?MG_VERBOSITY},
 	       {Mg4Node, "mg4", binary, udp, ?MG_VERBOSITY}],
-    MgConf = req_and_rep_connect_mg(MgConf0, []),
+    MgConf = rar_connect_mg(MgConf0, []),
 
     %% Collect the (initial) MGs statistics
-    Stats1 = req_and_rep_get_mg_stats(MgConf, []),
-    d("req_and_rep -> stats for the MGs: ~n~p", [Stats1]),
+    Stats1 = rar_get_mg_stats(MgConf, []),
+    d("stats for the MGs: "
+      "~n      ~p", [Stats1]),
 
     %% Collect and check the MGC statistics
-    i("req_and_rep -> collect and check the MGC stats"),    
+    i("collect and check the MGC stats"),    
     {ok, MgcStats1} = ?MGC_GET_STATS(Mgc, 1),
-    d("req_and_rep  -> stats (1) for Mgc: ~n~p~n", [MgcStats1]),
+    d("stats (1) for Mgc: "
+      "~n      ~p"
+      "~n", [MgcStats1]),
 
 
     sleep(1000),
 
 
     %% And apply some load 
-    i("req_and_rep -> apply traffic load"),
-    ok = req_and_rep_apply_load(MgConf),
+    i("apply traffic load"),
+    ok = rar_apply_load(MgConf),
 
     %% Await completion of load part and the collect traffic
-    i("req_and_rep -> await load completion"),
-    ok = req_and_rep_await_load_complete(MgConf),
+    i("await load completion"),
+    ok = rar_await_load_complete(MgConf),
 
 
     sleep(1000),
 
 
-    i("req_and_rep -> collect the MGs statistics"),
-    Stats2 = req_and_rep_get_mg_stats(MgConf, []),
-    d("req_and_rep -> stats for MGs: ~n~p", [Stats2]),
+    i("collect the MGs statistics"),
+    Stats2 = rar_get_mg_stats(MgConf, []),
+    d("stats for MGs: "
+      "~n      ~p", [Stats2]),
 
-    i("req_and_rep -> collect the MGC statistics"),
+    i("collect the MGC statistics"),
     {ok, MgcStats2} = ?MGC_GET_STATS(Mgc, 1),
-    d("req_and_rep  -> stats (1) for Mgc: ~n~p~n", [MgcStats2]),
+    d("stats (1) for Mgc: "
+      "~n      ~p"
+      "~n", [MgcStats2]),
 
 
     sleep(1000),
 
 
     %% Reset counters
-    i("req_and_rep -> reset the MGs statistics"),
-    req_and_rep_reset_mg_stats(MgConf),
-    Stats3 = req_and_rep_get_mg_stats(MgConf, []),
-    d("req_and_rep -> stats for the MGs: ~n~p", [Stats3]),
+    i("reset the MGs statistics"),
+    rar_reset_mg_stats(MgConf),
+    Stats3 = rar_get_mg_stats(MgConf, []),
+    d("stats for the MGs: "
+      "~n      ~p", [Stats3]),
 
-    i("req_and_rep -> reset the MGC statistics"),
-    req_and_rep_reset_mgc_stats(Mgc),
+    i("reset the MGC statistics"),
+    rar_reset_mgc_stats(Mgc),
     {ok, MgcStats3} = ?MGC_GET_STATS(Mgc, 1),
-    d("req_and_rep  -> stats (1) for Mgc: ~n~p~n", [MgcStats3]),
+    d("stats (1) for Mgc: "
+      "~n      ~p"
+      "~n", [MgcStats3]),
 
 
     sleep(1000),
 
 
     %% Tell MGs to stop
-    i("req_and_rep -> stop the MGs"),
-    req_and_rep_stop_mg(MgConf),
+    i("stop the MGs"),
+    rar_stop_mg(MgConf),
 
 
     sleep(1000),
 
 
     %% Collect the statistics
-    i("req_and_rep -> collect the MGC statistics"),
+    i("collect the MGC statistics"),
     {ok, MgcStats4} = ?MGC_GET_STATS(Mgc, 1),
-    d("req_and_rep -> stats (1) for Mgc: ~n~p~n", [MgcStats4]),
+    d("stats (1) for Mgc: "
+      "~n      ~p", [MgcStats4]),
     {ok, MgcStats5} = ?MGC_GET_STATS(Mgc, 2),
-    d("req_and_rep -> stats (2) for Mgc: ~n~p~n", [MgcStats5]),
+    d("stats (2) for Mgc: "
+      "~n      ~p"
+      "~n", [MgcStats5]),
 
     %% Tell Mgc to stop
-    i("req_and_rep -> stop the MGC"),
+    i("stop the MGC"),
     ?MGC_STOP(Mgc),
 
-    i("req_and_rep -> done", []),
+    i("done", []),
     ok.
 
 
-req_and_rep_connect_mg([], Acc) ->
+rar_connect_mg([], Acc) ->
     lists:reverse(Acc);
-req_and_rep_connect_mg([{Node, Name, Coding, Trans, Verb}|Mg], Acc) ->
-    Pid = req_and_rep_connect_mg(Node, Name, Coding, Trans, Verb),
-    req_and_rep_connect_mg(Mg, [{Name, Pid}|Acc]).
+rar_connect_mg([{Node, Name, Coding, Trans, Verb}|Mg], Acc) ->
+    Pid = rar_connect_mg(Node, Name, Coding, Trans, Verb),
+    rar_connect_mg(Mg, [{Name, Pid}|Acc]).
 
-req_and_rep_connect_mg(Node, Name, Coding, Trans, Verb) ->
+rar_connect_mg(Node, Name, Coding, Trans, Verb) ->
     Mid = {deviceName, Name}, 
     {ok, Pid} = ?MG_START(Node, Mid, Coding, Trans, Verb),
 
     %% Ask the MGs to do a service change
     Res = ?MG_SERV_CHANGE(Pid),
-    d("req_and_rep_connect_mg -> (~s) service change result: ~p", [Name,Res]),
+    d("rar_connect_mg -> (~s) service change result: ~p", [Name,Res]),
 
     Pid.
 
 
-req_and_rep_stop_mg(MGs) ->
+rar_stop_mg(MGs) ->
     [?MG_STOP(Pid) || {_Name, Pid} <- MGs].
 
 
-req_and_rep_get_mg_stats([], Acc) ->
+rar_get_mg_stats([], Acc) ->
     lists:reverse(Acc);
-req_and_rep_get_mg_stats([{Name, Pid}|Mgs], Acc) ->
+rar_get_mg_stats([{Name, Pid}|Mgs], Acc) ->
     {ok, Stats} = ?MG_GET_STATS(Pid),
-    d("req_and_rep_get_mg_stats -> stats for ~s: ~n~p~n", [Name, Stats]),
-    req_and_rep_get_mg_stats(Mgs, [{Name, Stats}|Acc]).
+    d("rar_get_mg_stats -> stats for ~s: "
+      "~n      ~p"
+      "~n", [Name, Stats]),
+    rar_get_mg_stats(Mgs, [{Name, Stats}|Acc]).
 
 
-req_and_rep_apply_load([]) ->
+rar_apply_load([]) ->
     ok;
-req_and_rep_apply_load([{_, MG}|MGs]) ->
+rar_apply_load([{_, MG}|MGs]) ->
     ?MG_APPLY_LOAD(MG,?LOAD_COUNTER_START),
-    req_and_rep_apply_load(MGs).
+    rar_apply_load(MGs).
 
 
-req_and_rep_reset_mg_stats([]) ->
+rar_reset_mg_stats([]) ->
     ok;
-req_and_rep_reset_mg_stats([{Name, Pid}|MGs]) ->
-    d("req_and_rep_reset_mg_stats -> resetting ~s", [Name]),
+rar_reset_mg_stats([{Name, Pid}|MGs]) ->
+    d("rar_reset_mg_stats -> resetting ~s", [Name]),
     ?MG_RESET_STATS(Pid),
-    req_and_rep_reset_mg_stats(MGs).
+    rar_reset_mg_stats(MGs).
 
-req_and_rep_reset_mgc_stats(Mgc) ->
-    d("req_and_rep_reset_mgc_stats -> resetting ~p", [Mgc]),
+rar_reset_mgc_stats(Mgc) ->
+    d("rar_reset_mgc_stats -> resetting ~p", [Mgc]),
     ?MGC_RESET_STATS(Mgc).
 
     
-req_and_rep_await_load_complete([]) ->
+rar_await_load_complete([]) ->
     ok;
-req_and_rep_await_load_complete(MGs0) ->
+rar_await_load_complete(MGs0) ->
     receive
 	{load_complete, Pid} ->
 	    d("received load_complete from ~p", [Pid]),
 	    MGs1 = lists:keydelete(Pid, 2, MGs0),
-	    req_and_rep_await_load_complete(lists:delete(Pid, MGs1));
+	    rar_await_load_complete(lists:delete(Pid, MGs1));
 	{'EXIT', Pid, Reason} ->
-	    i("exit signal from ~p: ~p", [Pid, Reason]),
+	    e("exit signal from ~p: ~p", [Pid, Reason]),
 	    case lists:keymember(Pid, 2, MGs0) of
 		true ->
 		    exit({mg_exit, Pid, Reason});
 		false ->
 		    MGs1 = lists:keydelete(Pid, 2, MGs0),
-		    req_and_rep_await_load_complete(lists:delete(Pid, MGs1))
+		    rar_await_load_complete(lists:delete(Pid, MGs1))
 	    end
     end.
 	    
@@ -364,54 +386,60 @@ req_and_pending(suite) ->
 req_and_pending(doc) ->
     [];
 req_and_pending(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("req_and_pending -> starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("try starting nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode], 
+                  ok    = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_req_and_pending/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes (in the reverse order):"
+                     "~n       ~p", [Nodes]),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(req_and_pending, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-
-    d("req_and_pending -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p", 
-      [MgcNode, Mg1Node]),
-    ok = megaco_test_lib:start_nodes([MgcNode, Mg1Node], 
-				     ?FILE, ?LINE),
+do_req_and_pending([MgcNode, MgNode]) ->
 
     %% Start the MGC and MGs
-    i("req_and_pending -> start the MGC"),    
+    i("try start the MGC"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
-    i("req_and_pending -> start the MG"),
-    {ok, Mg1} = 
-	?MG_START(Mg1Node, {deviceName, "mg1"}, text, tcp, ?MG_VERBOSITY),
+    i("try start the MG"),
+    {ok, Mg} = 
+	?MG_START(MgNode, {deviceName, "mg"}, text, tcp, ?MG_VERBOSITY),
 
-    i("req_and_pending -> connect the MG"),
-    Res1 = ?MG_SERV_CHANGE(Mg1),
-    d("req_and_pending -> service change result: ~p", [Res1]),
-
-    sleep(1000),
-
-    i("req_and_pending -> change request action to pending"),
-    {ok, _} = ?MGC_REQ_PEND(Mgc,3500),
-
-    i("req_and_pending -> send notify request"),
-    {ok, Res2} = ?MG_NOTIF_RAR(Mg1),
-    d("req_and_pending -> notify reply: ~p",[Res2]),
+    i("connect MG (to MFC)"),
+    Res1 = ?MG_SERV_CHANGE(Mg),
+    d("service change result: ~p", [Res1]),
 
     sleep(1000),
 
-    %% Tell MGs to stop
-    i("req_and_rep -> stop the MGs"),
-    ?MG_STOP(Mg1),
+    i("[MGC] change request action to pending"),
+    {ok, _} = ?MGC_REQ_PEND(Mgc, 3500),
+
+    i("[MG] send notify request"),
+    {ok, Res2} = ?MG_NOTIF_RAR(Mg),
+    d("notify reply: ~p", [Res2]),
+
+    sleep(1000),
+
+    %% Tell MG to stop
+    i("stop the MG"),
+    ?MG_STOP(Mg),
 
     %% Tell Mgc to stop
-    i("req_and_pending -> stop the MGC"),
+    i("stop the MGC"),
     ?MGC_STOP(Mgc),
 
-    i("req_and_pending -> done", []),
+    i("done", []),
     ok.
 
 
@@ -423,80 +451,91 @@ req_and_cancel(suite) ->
 req_and_cancel(doc) ->
     [];
 req_and_cancel(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("req_and_cancel -> starting"),
+    Pre = fun() ->
+                  MgcNode = make_node_name(mgc),
+                  MgNode  = make_node_name(mg),
+                  d("try start nodes: "
+                    "~n      MgcNode: ~p"
+                    "~n      MgNode:  ~p", 
+                    [MgcNode, MgNode]),
+                  Nodes = [MgcNode, MgNode],
+                  ok    = ?START_NODES(Nodes),
+                  Nodes
+          end,
+    Case = fun do_req_and_cancel/1,
+    Post = fun(Nodes) ->
+                   d("stop nodes (in the reverse order):"
+                     "~n       ~p", [Nodes]),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(req_and_cancel, Pre, Case, Post).
 
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-
-    d("req_and_cancel -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p", 
-      [MgcNode, Mg1Node]),
-    ok = megaco_test_lib:start_nodes([MgcNode, Mg1Node], 
-				     ?FILE, ?LINE),
-
+do_req_and_cancel([MgcNode, MgNode]) ->
     %% Start the MGC and MGs
-    i("req_and_cancel -> start the MGC"),    
+    i("start the MGC"),    
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	?MGC_START(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
 
-    i("req_and_cancel -> start the MG"),
-    {ok, Mg1} = 
-	?MG_START(Mg1Node, {deviceName, "mg1"}, text, tcp, ?MG_VERBOSITY),
+    i("start the MG"),
+    {ok, Mg} =
+	?MG_START(MgNode, {deviceName, "mg"}, text, tcp, ?MG_VERBOSITY),
 
-    i("req_and_cancel -> connect the MG"),
-    Res1 = ?MG_SERV_CHANGE(Mg1),
-    d("req_and_cancel -> service change result: ~p", [Res1]),
+    i("connect the MG"),
+    Res1 = ?MG_SERV_CHANGE(Mg),
+    d("service change result: ~p", [Res1]),
 
 
     sleep(1000),
 
-    i("req_and_cancel -> change request action to pending"),
+    i("change request action to pending"),
     {ok, _} = ?MGC_REQ_DISC(Mgc,5000),
 
-    i("req_and_cancel -> send notify request"),
-    ?MG_NOTIF_REQ(Mg1),
+    i("send notify request"),
+    ?MG_NOTIF_REQ(Mg),
     
-    d("req_and_cancel -> wait some to get it going",[]),
+    d("wait some to get it going",[]),
     sleep(1000),
 
-    i("req_and_cancel -> now cancel the notify request"),
-    ok = ?MG_CANCEL(Mg1,req_and_cancel),
+    i("now cancel the notify request"),
+    ok = ?MG_CANCEL(Mg, req_and_cancel),
 
-    i("req_and_cancel -> now await the notify request result"),
-    Res2 = ?MG_NOTIF_AR(Mg1),
-    req_and_cancel_analyze_result(Res2),
+    i("now await the notify request result"),
+    Res2 = ?MG_NOTIF_AR(Mg),
+    rac_analyze_result(Res2),
     
 
     %% Tell MGs to stop
-    i("req_and_rep -> stop the MGs"),
-    ?MG_STOP(Mg1),
+    i("stop the MG"),
+    ?MG_STOP(Mg),
 
     %% Tell Mgc to stop
-    i("req_and_cancel -> stop the MGC"),
+    i("stop the MGC"),
     ?MGC_STOP(Mgc),
 
-    i("req_and_cancel -> done", []),
-    ok.% ?SKIP(not_implemented_yet).
+    i("done", []),
+    ok.
 
 
-req_and_cancel_analyze_result({ok,{_PV,Res}}) ->
-    i("req_and_cancel -> notify request result: ~n   ~p", [Res]),
-    req_and_cancel_analyze_result2(Res);
-req_and_cancel_analyze_result(Unexpected) ->
-    exit({unexpected_result,Unexpected}).
+rac_analyze_result({ok, {_PV,Res}}) ->
+    i("rac_analyze_result -> notify request result:"
+      "~n      ~p", [Res]),
+    rac_analyze_result2(Res);
+rac_analyze_result(Unexpected) ->
+    e("rac_analyze_result -> unexpected result: "
+      "~n      ~p", [Unexpected]),
+    exit({unexpected_result, Unexpected}).
 
-req_and_cancel_analyze_result2({error,{user_cancel,req_and_cancel}}) ->
+rac_analyze_result2({error,{user_cancel, req_and_cancel}}) ->
     ok;
-req_and_cancel_analyze_result2([]) ->
+rac_analyze_result2([]) ->
     ok;
-req_and_cancel_analyze_result2([{error,{user_cancel,req_and_cancel}}|Res]) ->
-    req_and_cancel_analyze_result2(Res);
-req_and_cancel_analyze_result2([Unknown|_Res]) ->
-    exit({unknown_result,Unknown}).
+rac_analyze_result2([{error,{user_cancel, req_and_cancel}}|Res]) ->
+    rac_analyze_result2(Res);
+rac_analyze_result2([Unknown|_Res]) ->
+    e("rac_analyze_result2 -> unexpected result: "
+      "~n      ~p", [Unknown]),
+    exit({unknown_result, Unknown}).
     
     
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -518,36 +557,53 @@ sleep(X) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 p(F, A) ->
     io:format("*** [~s] ~p ***"
 	      "~n   " ++ F ++ "~n", 
 	      [?FTS(), self() | A]).
 
+%% e(F) ->
+%%     i(F, []).
+
+e(F, A) ->
+    print(info, get(verbosity), "ERROR", get(tc), F, A).
+
+
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), "", F, A).
+    print(info, get(verbosity), "INFO", get(tc), F, A).
 
 
 %% d(F) ->
 %%     d(F, []).
 
 d(F, A) ->
-    print(debug, get(verbosity), "DBG: ", F, A).
+    print(debug, get(verbosity), "DBG", get(tc), F, A).
 
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;
 printable(_,_)        -> false.
 
-print(Severity, Verbosity, P, F, A) ->
-    print(printable(Severity,Verbosity), P, F, A).
+print(Severity, Verbosity, P, TC, F, A) ->
+    print(printable(Severity,Verbosity), P, TC, F, A).
 
-print(true, P, F, A) ->
-    io:format("*** [~s] ~s ~p ~s ***"
+print(true, P, TC, F, A) ->
+    io:format("*** [~s] [~s] ~p ~s:~w ***"
 	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), P, self(), get(sname) | A]);
-print(_, _, _, _) ->
+	      [?FTS(), P, self(), get(sname), TC | A]);
+print(_, _, _, _, _) ->
     ok.
 
