@@ -86,6 +86,7 @@
                            string_decode := boolean(),
                            strict_arities => diameter:strict_arities(),
                            strict_mbit := boolean(),
+                           ordered_encode => boolean(),
                            incoming_maxlen := diameter:message_length()}}).
 %% Note that incoming_maxlen is currently handled in diameter_peer_fsm,
 %% so that any message exceeding the maximum is discarded. Retain the
