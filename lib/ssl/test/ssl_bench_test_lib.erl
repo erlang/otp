@@ -41,13 +41,13 @@ setup(Name) ->
 		   lists:append([" -pa " ++ P || [P] <- PaPaths]);
 	       _ -> []
 	   end,
-    %% io:format("Slave args: ~p~n",[SlaveArgs]),
+    %% ct:pal("Slave args: ~p~n",[SlaveArgs]),
     Prog =
 	case os:find_executable("erl") of
 	    false -> "erl";
 	    P -> P
 	end,
-    io:format("Prog = ~p~n", [Prog]),
+    ct:pal("Prog = ~p~n", [Prog]),
 
     case net_adm:ping(Node) of
 	pong -> ok;
@@ -58,13 +58,13 @@ setup(Name) ->
     Path = code:get_path(),
     true = rpc:call(Node, code, set_path, [Path]),
     ok = rpc:call(Node, ?MODULE, setup_server, [node()]),
-    io:format("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
+    ct:pal("Client (~p) using ~ts~n",[node(), code:which(ssl)]),
     (Node =:= node()) andalso restrict_schedulers(client),
     Node.
 
 setup_server(ClientNode) ->
     (ClientNode =:= node()) andalso restrict_schedulers(server),
-    io:format("Server (~p) using ~ts~n",[node(), code:which(ssl)]),
+    ct:pal("Server (~p) using ~ts~n",[node(), code:which(ssl)]),
     ok.
 
 restrict_schedulers(Type) ->

@@ -87,7 +87,8 @@ init_per_suite(Config) ->
 	{Node, Host} = setup(Config, node()),
 	init_ssl(Config),
 	[{iter, 10}, {server_node, Node}, {server_host, Host} | Config]
-    catch _:_ ->
+    catch E:R:ST ->
+            ct:pal("~p:~p:~p",[E,R,ST]),
 	    {skipped, "Benchmark machines only"}
     end.
 
