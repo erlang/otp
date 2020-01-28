@@ -26,6 +26,7 @@
 -include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_api.hrl").
+-include("tls_handshake_1_3.hrl").
 
 %% API
 -export([start/0, start/1, initialize/2, send_data/2,
@@ -96,7 +97,7 @@ send_data(Pid, AppData) ->
     call(Pid, {application_data, AppData}).
 
 %%--------------------------------------------------------------------
--spec send_post_handshake(pid(), iodata()) -> ok | {error, term()}.
+-spec send_post_handshake(pid(), #key_update{}) -> ok | {error, term()}.
 %%  Description: Send post handshake data
 %%--------------------------------------------------------------------
 send_post_handshake(Pid, HandshakeData) ->

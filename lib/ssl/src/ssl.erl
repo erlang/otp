@@ -87,6 +87,7 @@
          groups/1,
          format_error/1, 
          renegotiate/1, 
+         update_keys/2,
          prf/5, 
          negotiated_protocol/1, 
 	 connection_information/1, 
@@ -1350,6 +1351,28 @@ renegotiate(#sslsocket{pid = {dtls,_}}) ->
     {error, enotconn};
 renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
+
+
+%%---------------------------------------------------------------
+-spec update_keys(SslSocket, Type) -> ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Type :: write | read_write.
+%%
+%% Description: Initiate a key update.
+%%--------------------------------------------------------------------
+update_keys(#sslsocket{pid = [Pid, Sender |_]}, Type0) when is_pid(Pid) andalso
+                                                            is_pid(Sender) andalso
+                                                            (Type0 =:= write orelse
+                                                             Type0 =:= read_write) ->
+    Type = case Type0 of
+               write ->
+                   update_not_requested;
+               read_write ->
+                   update_requested
+           end,
+    tls_connection:send_key_update(Sender, Type);
+update_keys(_, Type) ->
+    {error, {illegal_parameter, Type}}.
 
 %%--------------------------------------------------------------------
 -spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->

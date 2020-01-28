@@ -418,10 +418,20 @@ encode_key_update(update_not_requested) ->
 encode_key_update(update_requested) ->
     <<?BYTE(1)>>.
 
+%% enum {
+%%     update_not_requested(0), update_requested(1), (255)
+%% } KeyUpdateRequest;
+%%
+%% request_update:  Indicates whether the recipient of the KeyUpdate
+%%    should respond with its own KeyUpdate.  If an implementation
+%%    receives any other value, it MUST terminate the connection with an
+%%    "illegal_parameter" alert.
 decode_key_update(0) ->
     update_not_requested;
 decode_key_update(1) ->
-    update_requested.
+    update_requested;
+decode_key_update(N) ->
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {request_update,N})).
 
 decode_cert_entries(Entries) ->
     decode_cert_entries(Entries, []).

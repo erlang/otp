@@ -88,7 +88,7 @@
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
--export([encode_handshake/4, update_cipher_key/2]).
+-export([encode_handshake/4, send_key_update/2, update_cipher_key/2]).
 
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
@@ -887,8 +887,13 @@ connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
 
 connection(internal, #key_update{} = KeyUpdate, State0) ->
     %% TLS 1.3
-    State = handle_key_update(KeyUpdate, State0),
-    next_event(?FUNCTION_NAME, no_record, State);
+    case handle_key_update(KeyUpdate, State0) of
+        {ok, State} ->
+            next_event(?FUNCTION_NAME, no_record, State);
+        {error, State, Alert} ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, connection, State),
+            next_event(?FUNCTION_NAME, no_record, State)
+    end;
 
 connection(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
@@ -1450,13 +1455,18 @@ handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSession
 
 handle_key_update(#key_update{request_update = update_not_requested}, State0) ->
     %% Update read key in connection
-    update_cipher_key(current_read, State0);
-handle_key_update(#key_update{request_update = update_requested}, State0) ->
+    {ok, update_cipher_key(current_read, State0)};
+handle_key_update(#key_update{request_update = update_requested},
+                  #state{protocol_specific = #{sender := Sender}} = State0) ->
     %% Update read key in connection
     State1 = update_cipher_key(current_read, State0),
     %% Send key_update and update sender's write key
-    send_key_update(update_not_requested, State1),
-    State1.
+    case send_key_update(Sender, update_not_requested) of
+        ok ->
+            {ok, State1};
+        {error, Reason} ->
+            {error, State1, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason)}
+    end.
 
 
 update_cipher_key(ConnStateName, #state{connection_states = CS0} = State0) ->
@@ -1482,7 +1492,7 @@ update_cipher_key(ConnStateName, CS0) ->
     CS0#{ConnStateName => ConnState}.
 
 
-send_key_update(update_not_requested = Type, #state{protocol_specific = #{sender := Sender}}) ->
+send_key_update(Sender, Type) ->
     KeyUpdate = tls_handshake_1_3:key_update(Type),
     tls_sender:send_post_handshake(Sender, KeyUpdate),
     tls_sender:key_update(Sender).
