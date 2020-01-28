@@ -1271,6 +1271,11 @@ otp_16435(_Config) ->
     CheckF("-record(r,{f = 3 :: {A :: (B :: integer())}}).\n"),
     CheckF("-type t() :: #r{f :: A :: (B :: integer())}.\n"),
     CheckF("-spec t(X) -> X when X :: Y :: (Z :: #r{}).\n"),
+
+    CheckF("f() ->\n    << \n      (catch <<1:4>>) ||\n"
+           "          A <- []\n    >>.\n"),
+    CheckF("f() ->\n    [ \n     (catch foo) ||\n         A <- []\n    ].\n"),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
