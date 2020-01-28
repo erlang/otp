@@ -570,10 +570,19 @@ do_expand_cstruct(Cs, FH, N, Pool, NR, ND, NDO, NExt, Mode) ->
 verify_n_fragments(N, Cs, Mode) when is_integer(N), N >= 1 ->
     case Mode of
 	create ->
-	    Cs#cstruct{ram_copies = [],
-		       disc_copies = [],
-		       disc_only_copies = [],
-		       external_copies = []};
+            case Cs#cstruct.external_copies of
+                [{Mod, _Ns}] ->
+                    NExtCopies = [{Mod, []}],
+                    Cs#cstruct{ram_copies = [],
+                               disc_copies = [],
+                               disc_only_copies = [],
+                               external_copies = NExtCopies};
+                _ ->
+                     Cs#cstruct{ram_copies = [],
+                               disc_copies = [],
+                               disc_only_copies = [],
+                               external_copies = []}
+            end;
 	activate  ->
 	    Reason = {combine_error, Cs#cstruct.name, {n_fragments, N}},
 	    mnesia_schema:verify(1, N, Reason),
@@ -668,8 +677,8 @@ set_frag_nodes(NR, ND, NDO, NExt, Cs, [Head | Tail], Acc) when NDO > 0 ->
     {Cs2, Head2} = set_frag_node(Cs, Pos, Head),
     set_frag_nodes(NR, ND, NDO - 1, NExt, Cs2, Tail, [Head2 | Acc]);
 set_frag_nodes(NR, ND, NDO, NExt, Cs, [Head | Tail], Acc) when NExt > 0 ->
-    Pos = #cstruct.external_copies,
-    {Cs2, Head2} = set_frag_node(Cs, Pos, Head),
+    %% Pos = #cstruct.external_copies,
+    {Cs2, Head2} = set_ext_frag_node(Cs, Head),
     set_frag_nodes(NR, ND, NDO, NExt - 1, Cs2, Tail, [Head2 | Acc]);
 set_frag_nodes(0, 0, 0, 0, Cs, RestDist, ModDist) ->
     {Cs, ModDist, RestDist};
@@ -691,6 +700,23 @@ set_frag_node(Cs, Pos, Head) ->
  			 lists:member(Node, val({current,db_nodes})),
  			 {not_active, Cs#cstruct.name, Node}),
     Cs2 = setelement(Pos, Cs, [Node | Ns]),
+    {Cs2, {Node, Count2}}.
+
+set_ext_frag_node(Cs, Head) ->
+    [{Mod, Ns}] = Cs#cstruct.external_copies,
+    {Node, Count2} =
+        case Head of
+            {N, Count} when is_atom(N), is_integer(Count), Count >= 0 ->
+		{N, Count + 1};
+	    N when is_atom(N) ->
+		{N, 1};
+	    BadNode ->
+		mnesia:abort({bad_type, Cs#cstruct.name, BadNode})
+	end,
+    mnesia_schema:verify(true,
+			 lists:member(Node, val({current,db_nodes})),
+			 {not_active, Cs#cstruct.name, Node}),
+    Cs2 = Cs#cstruct{external_copies = [{Mod, [Node | Ns]}]},
     {Cs2, {Node, Count2}}.
 
 rearrange_dist(Cs, [{Node, Count} | ModDist], Dist, Pool) ->
@@ -850,13 +876,26 @@ make_add_frag(Tab, SortedNs) ->
     NR = length(Cs#cstruct.ram_copies),
     ND = length(Cs#cstruct.disc_copies),
     NDO = length(Cs#cstruct.disc_only_copies),
-    NExt = length(Cs#cstruct.external_copies),
-    NewCs = Cs#cstruct{name = NewFrag,
-		       frag_properties = [{base_table, Tab}],
-		       ram_copies = [],
-		       disc_copies = [],
-		       disc_only_copies = [],
-                       external_copies = []},
+
+    NewCs = case Cs#cstruct.external_copies of
+                [{Mod, Ns}] ->
+                    NExt = length(Ns),
+                    NExtCopies = [{Mod, []}],
+                    Cs#cstruct{name = NewFrag,
+                               frag_properties = [{base_table, Tab}],
+                               ram_copies = [],
+                               disc_copies = [],
+                               disc_only_copies = [],
+                               external_copies = NExtCopies};
+                [] ->
+                    NExt = 0,
+                    Cs#cstruct{name = NewFrag,
+                               frag_properties = [{base_table, Tab}],
+                               ram_copies = [],
+                               disc_copies = [],
+                               disc_only_copies = [],
+                               external_copies = []}
+            end,
 
     {NewCs2, _, _} = set_frag_nodes(NR, ND, NDO, NExt, NewCs, SortedNs, []),
     [NewOp] = mnesia_schema:make_create_table(NewCs2),
