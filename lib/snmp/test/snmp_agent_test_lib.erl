@@ -1518,7 +1518,7 @@ get_req(Id, Vars) ->
 
 get_next_req(Vars) ->
     ?DBG("get_next_req -> entry with"
-	 "~n   Vars: ~p",[Vars]),
+	 "~n   Vars: ~p", [Vars]),
     snmp_test_mgr:gn(Vars),
     ?DBG("get_next_req -> await response",[]),
     Response = snmp_test_mgr:receive_response(),
@@ -1534,36 +1534,31 @@ start_node(Name) ->
 	 "~n when"
 	 "~n   hostname of this node: ~p",
 	 [Name, list_to_atom(?HOSTNAME(node()))]),
-    Pa = filename:dirname(code:which(?MODULE)),
-    ?DBG("start_node -> Pa: ~p",[Pa]),
 
-    Args = case init:get_argument('CC_TEST') of
-	       {ok, [[]]} ->
-		   " -pa /clearcase/otp/libraries/snmp/ebin ";
-	       {ok, [[Path]]} ->
-		   " -pa " ++ Path;
-	       error ->
-		      ""
-	      end,
-    %% Do not use start_link!!! (the proc that calls this one is tmp)
-    ?DBG("start_node -> Args: ~p~n", [Args]),
-    A = Args ++ " -pa " ++ Pa ++ 
+    Pa = filename:dirname(code:which(?MODULE)),
+    ?DBG("start_node -> Pa: ~p", [Pa]),
+
+    A = " -pa " ++ Pa ++ 
         " -s " ++ atom_to_list(snmp_test_sys_monitor) ++ " start" ++ 
         " -s global sync",
-    case (catch ?START_NODE(Name, A)) of
+    case ?START_NODE(Name, A) of
 	{ok, Node} ->
-	    %% Tell the test_server to not clean up things it never started.
-	    ?DBG("start_node -> Node: ~p",[Node]),
+	    ?DBG("start_node -> Node: ~p", [Node]),
             global:sync(),
 	    {ok, Node};
+	{error, Reason}  -> 
+	    ?ERR("start_node -> failed starting node ~p:"
+                 "~n      Reason: ~p", [Name, Reason]),
+	    ?line ?SKIP({failed_start_node, Reason});
 	Else  -> 
-	    ?ERR("start_node -> failed with(other): Else: ~p",[Else]),
+	    ?ERR("start_node -> failed starting node ~p:"
+                 "~n      ~p", [Name, Else]),
 	    ?line ?FAIL(Else)
     end.
 
 
 stop_node(Node) ->
-    ?LOG("stop_node -> Node: ~p",[Node]),
+    ?LOG("stop_node -> Node: ~p", [Node]),
     rpc:cast(Node, erlang, halt, []).
 
 
