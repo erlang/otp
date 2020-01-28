@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2001-2019. All Rights Reserved.
+# Copyright Ericsson AB 2001-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ TEST_UTIL_MODULES = \
 	megaco_mess_otp8212_test \
 	megaco_profile \
 	megaco_tc_controller \
+	megaco_test_command_handler \
 	megaco_test_global_sys_monitor \
 	megaco_test_sys_monitor \
 	megaco_test_generator_lib \

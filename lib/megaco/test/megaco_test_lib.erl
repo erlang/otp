@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,13 +46,18 @@
          display_alloc_info/0,
          display_system_info/1, display_system_info/2, display_system_info/3,
 
+         try_tc/6,
+
          prepare_test_case/5,
 
          proxy_start/1, proxy_start/2,
 
          mk_nodes/1,
-         start_nodes/3,
-         start_node/3
+         start_nodes/3, start_nodes/4,
+         start_node/3,  start_node/4,
+
+         stop_nodes/3,
+         stop_node/3
 
         ]).
 -export([init_per_suite/1,    end_per_suite/1,
@@ -438,18 +443,6 @@ pprint(F, A) ->
 
 init_per_suite(Config) ->
 
-    io:format("Host info:"
-              "~n   OS Type:    ~p"
-              "~n   OS Version: ~s"
-              "~n", 
-              [os:type(), 
-               case os:version() of
-                   {Major, Minor, Release} ->
-                       ?F("~w.~w.~w", [Major, Minor, Release]);
-                   Str when is_list(Str) ->
-                       Str
-               end]),
-
     %% We have some crap machines that causes random test case failures
     %% for no obvious reason. So, attempt to identify those without actually
     %% checking for the host name...
@@ -485,13 +478,15 @@ init_per_suite(Config) ->
                 %% This version is *not* ok: Skip
                 true
         end,
-    COND = [{unix, [{linux, LinuxVersionVerify}, {darwin, DarwinVersionVerify}]}],
+    COND = [{unix, [{linux,  LinuxVersionVerify}, 
+		    {darwin, DarwinVersionVerify}]}],
     case os_based_skip(COND) of
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
         false ->
+            Factor = analyze_and_print_host_info(),
             maybe_start_global_sys_monitor(Config),
-            Config
+            [{megaco_factor, Factor} | Config]
     end.
 
 %% We start the global system monitor unless explicitly disabled
@@ -547,6 +542,362 @@ end_per_testcase(_Case, Config) ->
     reset_kill_timer(Config).
 
 
+%% This function prints various host info, which might be usefull
+%% when analyzing the test suite (results).
+%% It also returns a "factor" that can be used when deciding 
+%% the load for some test cases. Such as run time or number of
+%% iteraions. This only works for some OSes.
+%%
+%% We make some calculations on Linux, OpenBSD and FreeBSD.
+%% On SunOS we always set the factor to 2 (just to be on the safe side)
+%% On all other os:es (mostly windows) we check the number of schedulers,
+%% but at least the factor will be 2.
+analyze_and_print_host_info() ->
+    {OsFam, OsName} = os:type(),
+    Version         =
+        case os:version() of
+            {Maj, Min, Rel} ->
+                f("~w.~w.~w", [Maj, Min, Rel]);
+            VStr ->
+                VStr
+        end,
+    case {OsFam, OsName} of
+        {unix, linux} ->
+            analyze_and_print_linux_host_info(Version);
+        {unix, openbsd} ->
+            analyze_and_print_openbsd_host_info(Version);
+        {unix, freebsd} ->
+            analyze_and_print_freebsd_host_info(Version);           
+        {unix, sunos} ->
+            io:format("Solaris: ~s"
+                      "~n", [Version]),
+            2;
+        _ ->
+            io:format("OS Family: ~p"
+                      "~n   OS Type: ~p"
+                      "~n   Version: ~p"
+                      "~n", [OsFam, OsName, Version]),
+            try erlang:system_info(schedulers) of
+                1 ->
+                    10;
+                2 ->
+                    5;
+                N when (N =< 6) ->
+                    2;
+                _ ->
+                    1
+            catch
+                _:_:_ ->
+                    10
+            end
+    end.
+    
+analyze_and_print_linux_host_info(Version) ->
+    case file:read_file_info("/etc/issue") of
+        {ok, _} ->
+            io:format("Linux: ~s"
+                      "~n   ~s"
+                      "~n",
+                      [Version, string:trim(os:cmd("cat /etc/issue"))]);
+        _ ->
+            io:format("Linux: ~s"
+                      "~n", [Version])
+    end,
+    Factor =
+        case (catch linux_which_cpuinfo()) of
+            {ok, {CPU, BogoMIPS}} ->
+                io:format("CPU: "
+                          "~n   Model:    ~s"
+                          "~n   BogoMIPS: ~s"
+                          "~n", [CPU, BogoMIPS]),
+                %% We first assume its a float, and if not try integer
+                try list_to_float(string:trim(BogoMIPS)) of
+                    F when F > 1000 ->
+                        1;
+                    F when F > 1000 ->
+                        2;
+                    _ ->
+                        3
+                catch
+                    _:_:_ ->
+                        %% 
+                        try list_to_integer(string:trim(BogoMIPS)) of
+                            I when I > 1000 ->
+                                1;
+                            I when I > 1000 ->
+                                2;
+                            _ ->
+                                3
+                        catch
+                            _:_:_ ->
+                                1
+                        end
+                end;
+            _ ->
+                1
+        end,
+    %% Check if we need to adjust the factor because of the memory
+    try linux_which_meminfo() of
+        AddFactor ->
+            Factor + AddFactor
+    catch
+        _:_:_ ->
+            Factor
+    end.
+
+linux_which_cpuinfo() ->
+    %% Check for x86 (Intel or AMD)
+    CPU =
+        try [string:trim(S) || S <- string:tokens(os:cmd("grep \"model name\" /proc/cpuinfo"), [$:,$\n])] of
+            ["model name", ModelName | _] ->
+                ModelName;
+            _ ->
+                %% ARM (at least some distros...)
+                try [string:trim(S) || S <- string:tokens(os:cmd("grep \"Processor\" /proc/cpuinfo"), [$:,$\n])] of
+                    ["Processor", Proc | _] ->
+                        Proc;
+                    _ ->
+                        %% Ok, we give up
+                        throw(noinfo)
+                catch
+                    _:_:_ ->
+                        throw(noinfo)
+                end
+        catch
+            _:_:_ ->
+                throw(noinfo)
+        end,
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep -i \"bogomips\" /proc/cpuinfo"), [$:,$\n])] of
+        [_, BMips | _] ->
+            {ok, {CPU, BMips}};
+        _ ->
+            {ok, CPU}
+    catch
+        _:_:_ ->
+            {ok, CPU}
+    end.
+
+%% We *add* the value this return to the Factor.
+linux_which_meminfo() ->
+    try [string:trim(S) || S <- string:tokens(os:cmd("grep MemTotal /proc/meminfo"), [$:])] of
+        [_, MemTotal] ->
+            io:format("Memory:"
+                      "~n   ~s"
+                      "~n", [MemTotal]),
+            case string:tokens(MemTotal, [$ ]) of
+                [MemSzStr, MemUnit] ->
+                    MemSz2 = list_to_integer(MemSzStr),
+                    MemSz3 = 
+                        case string:to_lower(MemUnit) of
+                            "kb" ->
+                                MemSz2;
+                            "mb" ->
+                                MemSz2*1024;
+                            "gb" ->
+                                MemSz2*1024*1024;
+                            _ ->
+                                throw(noinfo)
+                        end,
+                    if
+                        (MemSz3 >= 8388608) ->
+                            0;
+                        (MemSz3 >= 4194304) ->
+                            1;
+                        (MemSz3 >= 2097152) ->
+                            2;
+                        true ->
+                            3
+                    end;
+                _X ->
+                    0
+            end;
+        _ ->
+            0
+    catch
+        _:_:_ ->
+            0
+    end.
+
+
+%% Just to be clear: This is ***not*** scientific...
+analyze_and_print_openbsd_host_info(Version) ->
+    io:format("OpenBSD:"
+              "~n   Version: ~p"
+              "~n", [Version]),
+    Extract =
+        fun(Key) -> 
+                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$=])
+        end,
+    try
+        begin
+            CPU =
+                case Extract("hw.model") of
+                    ["hw.model", Model] ->
+                        string:trim(Model);
+                    _ ->
+                        "-"
+                end,
+            CPUSpeed =
+                case Extract("hw.cpuspeed") of
+                    ["hw.cpuspeed", Speed] ->
+                        list_to_integer(Speed);
+                    _ ->
+                        -1
+                end,
+            NCPU =
+                case Extract("hw.ncpufound") of
+                    ["hw.ncpufound", N] ->
+                        list_to_integer(N);
+                    _ ->
+                        -1
+                end,
+            Memory =
+                case Extract("hw.physmem") of
+                    ["hw.physmem", PhysMem] ->
+                        list_to_integer(PhysMem) div 1024;
+                    _ ->
+                        -1
+                end,
+            io:format("CPU:"
+                      "~n   Model: ~s"
+                      "~n   Speed: ~w"
+                      "~n   N:     ~w"
+                      "~nMemory:"
+                      "~n   ~w KB"
+                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+            CPUFactor =
+                if
+                    (CPUSpeed =:= -1) ->
+                        1;
+                    (CPUSpeed >= 2000) ->
+                        if
+                            (NCPU >= 4) ->
+                                1;
+                            (NCPU >= 2) ->
+                                2;
+                            true ->
+                                3
+                        end;
+                    true ->
+                        if
+                            (NCPU >= 4) ->
+                                2;
+                            (NCPU >= 2) ->
+                                3;
+                            true ->
+                                4
+                        end
+                end,
+            MemAddFactor =
+                if
+                    (Memory =:= -1) ->
+                        0;
+                    (Memory >= 8388608) ->
+                        0;
+                    (Memory >= 4194304) ->
+                        1;
+                    (Memory >= 2097152) ->
+                        2;
+                    true ->
+                        3
+                end,
+            CPUFactor + MemAddFactor
+        end
+    catch
+        _:_:_ ->
+            1
+    end.
+
+
+analyze_and_print_freebsd_host_info(Version) ->
+    io:format("FreeBSD:"
+              "~n   Version: ~p"
+              "~n", [Version]),
+    Extract =
+        fun(Key) -> 
+                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$:])
+        end,
+    try
+        begin
+            CPU =
+                case Extract("hw.model") of
+                    ["hw.model", Model] ->
+                        string:trim(Model);
+                    _ ->
+                        "-"
+                end,
+            CPUSpeed =
+                case Extract("hw.clockrate") of
+                    ["hw.clockrate", Speed] ->
+                        list_to_integer(string:trim(Speed));
+                    _ ->
+                        -1
+                end,
+            NCPU =
+                case Extract("hw.ncpu") of
+                    ["hw.ncpu", N] ->
+                        list_to_integer(string:trim(N));
+                    _ ->
+                        -1
+                end,
+            Memory =
+                case Extract("hw.physmem") of
+                    ["hw.physmem", PhysMem] ->
+                        list_to_integer(string:trim(PhysMem)) div 1024;
+                    _ ->
+                        -1
+                end,
+            io:format("CPU:"
+                      "~n   Model: ~s"
+                      "~n   Speed: ~w"
+                      "~n   N:     ~w"
+                      "~nMemory:"
+                      "~n   ~w KB"
+                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+            CPUFactor =
+                if
+                    (CPUSpeed =:= -1) ->
+                        1;
+                    (CPUSpeed >= 2000) ->
+                        if
+                            (NCPU >= 4) ->
+                                1;
+                            (NCPU >= 2) ->
+                                2;
+                            true ->
+                                3
+                        end;
+                    true ->
+                        if
+                            (NCPU >= 4) ->
+                                2;
+                            (NCPU >= 2) ->
+                                3;
+                            true ->
+                                4
+                        end
+                end,
+            MemAddFactor =
+                if
+                    (Memory =:= -1) ->
+                        0;
+                    (Memory >= 8388608) ->
+                        0;
+                    (Memory >= 4194304) ->
+                        1;
+                    (Memory >= 2097152) ->
+                        2;
+                    true ->
+                        3
+                end,
+            CPUFactor + MemAddFactor
+        end
+    catch
+        _:_:_ ->
+            1
+    end.
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Set kill timer
 
@@ -576,6 +927,71 @@ reset_kill_timer(Config) ->
 	_ ->
 	    Config
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post)
+  when is_function(Pre, 0)  andalso 
+       is_function(Case, 1) andalso
+       is_function(Post, 1) ->
+    process_flag(trap_exit, true),
+    put(verbosity, Verbosity),
+    put(sname,     Name),
+    put(tc,        TCName),
+    p("try_tc -> starting: try pre"),
+    try Pre() of
+        State ->
+            p("try_tc -> pre done: try case"),
+            try Case(State) of
+                Res ->
+                    p("try_tc -> case done: try post"),
+                    (catch Post(State)),
+                    p("try_tc -> done"),
+                    Res
+            catch
+                throw:{skip, _} = SKIP:_ ->
+                    p("try_tc -> case (throw) skip: try post"),
+                    (catch Post(State)),
+                    p("try_tc -> case (throw) skip: done"),
+                    SKIP;
+                exit:{skip, _} = SKIP:_ ->
+                    p("try_tc -> case (exit) skip: try post"),
+                    (catch Post(State)),
+                    p("try_tc -> case (exit) skip: done"),
+                    SKIP;
+                C:E:S ->
+                    p("try_tc -> case failed: try post"),
+                    (catch Post(State)),
+                    case megaco_test_global_sys_monitor:events() of
+                        [] ->
+                            p("try_tc -> case failed: done"),
+                            exit({case_catched, C, E, S});
+                        SysEvs ->
+                            p("try_tc -> case failed with system event(s): "
+                              "~n   ~p", [SysEvs]),
+                            {skip, "TC failure with system events"}
+                    end
+            end
+    catch
+        throw:{skip, _} = SKIP:_ ->
+            p("try_tc -> pre (throw) skip"),
+            SKIP;
+        exit:{skip, _} = SKIP:_ ->
+            p("try_tc -> pre (exit) skip"),
+            SKIP;
+        C:E:S ->
+            case megaco_test_global_sys_monitor:events() of
+                [] ->
+                    p("try_tc -> pre failed: done"),
+                    exit({pre_catched, C, E, S});
+                SysEvs ->
+                    p("try_tc -> pre failed with system event(s): "
+                      "~n   ~p", [SysEvs]),
+                    {skip, "TC pre failure with system events"}
+            end
+    end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -637,14 +1053,59 @@ node_to_name_and_host(Node) ->
 
 
 start_nodes(Nodes, File, Line) when is_list(Nodes) ->
-    lists:foreach(fun(N) -> start_node(N, File, Line) end, Nodes).
+    start_nodes(Nodes, false, File, Line).
+
+start_nodes(Nodes, Force, File, Line)
+  when is_list(Nodes) andalso is_boolean(Force) ->
+    start_nodes(Nodes, Force, File, Line, []).
+
+start_nodes([], _Force, _File, _Line, _Started) ->
+    ok;
+start_nodes([Node|Nodes], Force, File, Line, Started) ->
+    try start_node(Node, Force, true, File, Line) of
+        ok ->
+            start_nodes(Nodes, Force, File, Line, [Node|Started])
+    catch
+        exit:{skip, _} = SKIP:_ ->
+            (catch stop_nodes(lists:reverse(Started), File, Line)),
+            exit(SKIP);
+        C:E:S ->
+            (catch stop_nodes(lists:reverse(Started), File, Line)),
+            erlang:raise(C, E, S)
+    end.
 
 start_node(Node, File, Line) ->
+    start_node(Node, false, false, File, Line).
+
+start_node(Node, Force, File, Line)
+  when is_atom(Node) andalso is_boolean(Force) ->
+    start_node(Node, Force, false, File, Line).
+
+start_node(Node, Force, Retry, File, Line) ->
     case net_adm:ping(Node) of
-	pong ->
+        %% Do not require a *new* node
+	pong when (Force =:= false) ->
             p("node ~p already running", [Node]),
 	    ok;
-	pang ->
+
+        %% Do require a *new* node, so kill this one and try again
+	pong when ((Force =:= true) andalso (Retry =:= true)) ->
+            e("node ~p already running - kill and retry", [Node]),
+            case stop_node(Node) of
+                ok ->
+                    start_node(Node, Force, false, File, Line);
+                error ->
+                    e("node ~p already running - failed kill (no retry)", [Node]),
+                    fatal_skip({node_already_running, Node}, File, Line)
+            end;
+
+        %% Do require a *new* node, but no retry so give up and fail
+        pong when (Force =:= true) ->
+            e("node ~p already running", [Node]),
+            fatal_skip({node_already_running, Node}, File, Line);
+
+        % Not (yet) running
+        pang ->
 	    [Name, Host] = node_to_name_and_host(Node),
             Pa = filename:dirname(code:which(?MODULE)),
             Args = " -pa " ++ Pa ++
@@ -662,11 +1123,51 @@ start_node(Node, File, Line) ->
 		    {_, []} = rpc:multicall(global, sync, []),
 		    ok;
 		Other ->
-                    p("failed starting node ~p: ~p", [Node, Other]),
+                    e("failed starting node ~p: ~p", [Node, Other]),
 		    fatal_skip({cannot_start_node, Node, Other}, File, Line)
 	    end
     end.
+
+
+stop_nodes(Nodes, File, Line) when is_list(Nodes) ->
+    stop_nodes(Nodes, [], File, Line).
+
+stop_nodes([], [], _File, _Line) ->
+    ok;
+stop_nodes([], StillRunning, File, Line) ->
+    e("Failed stopping nodes: "
+      "~n   ~p", [StillRunning]),
+    fatal_skip({failed_stop_nodes, lists:reverse(StillRunning)}, File, Line);
+stop_nodes([Node|Nodes], Acc, File, Line) ->
+    case stop_node(Node) of
+        ok ->
+            stop_nodes(Nodes, Acc, File, Line);
+        error ->
+            stop_nodes(Nodes, [Node|Acc], File, Line)
+    end.
     
+
+stop_node(Node, File, Line) when is_atom(Node) ->
+    p("try stop node ~p", [Node]),
+    case stop_node(Node) of
+        ok ->
+            ok;
+        error ->
+            fatal_skip({failed_stop_node, Node}, File, Line)
+    end.
+
+stop_node(Node) ->
+    p("try stop node ~p", [Node]),
+    erlang:monitor_node(Node, true),
+    rpc:call(Node, erlang, halt, []),
+    receive
+        {nodedown, Node} ->
+            ok
+    after 10000 ->
+            e("failed stop node ~p", [Node]),
+            error
+    end.
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -674,5 +1175,15 @@ start_node(Node, File, Line) ->
 f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
+e(F, A) ->
+    print("ERROR", F, A).
+
+p(F) ->
+    p(F, []).
+
 p(F, A) ->
-    io:format("~s ~p " ++ F ++ "~n", [?FTS(), self() | A]).
+    print("INFO", F, A).
+
+print(Pre, F, A) ->
+    io:format("*** [~s] [~s] ~p " ++ F ++ "~n", [?FTS(), Pre, self() | A]).
+
