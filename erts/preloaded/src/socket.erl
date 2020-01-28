@@ -1105,7 +1105,7 @@ supports() ->
      {recv_flags, supports(recv_flags)}].
 
 
--dialyzer({nowarn_function, supports/1}).
+-dialyzer({no_contracts, supports/1}).
 -spec supports(options)    -> supports_options();
               (sctp)       -> boolean();
               (ipv6)       -> boolean();
@@ -1130,7 +1130,7 @@ supports(recv_flags) ->
 supports(_Key1) ->
     false.
 
--dialyzer({nowarn_function, supports/2}).
+-dialyzer({no_contracts, supports/2}).
 -spec supports(options,    socket)   -> supports_options_socket();
               (options,    ip)       -> supports_options_ip();
               (options,    ipv6)     -> supports_options_ipv6();
@@ -1153,7 +1153,6 @@ supports(_Key1, _Level) ->
     false.
 
 
--dialyzer({nowarn_function, supports/3}).
 -spec supports(options, socket, Opt :: socket_option()) -> boolean();
               (options, ip,     Opt :: ip_socket_option()) -> boolean();
               (options, ipv6,   Opt :: ipv6_socket_option()) -> boolean();
@@ -1165,6 +1164,7 @@ supports(_Key1, _Level) ->
       Key2 :: term(),
       Key3 :: term().
 
+-dialyzer({no_contracts, supports/3}).
 supports(options, Level, Opt) ->
     case supports(options, Level) of
         S when is_list(S) ->
@@ -1573,17 +1573,19 @@ send(Socket, Data) ->
       Socket     :: socket(),
       Data       :: iodata(),
       Flags      :: send_flags(),
-      Reason     :: term()
-                 ; (Socket, Data, Timeout :: nowait) -> ok |
-                                             {select, SelectInfo} |
-                                             {ok, {RestData, SelectInfo}} |
-                                             {error, Reason} when
+      Reason     :: term();
+          (Socket, Data, Timeout :: nowait) ->
+                  ok |
+                  {ok, {binary(), SelectInfo}} |
+                  {select, SelectInfo} |
+                  {ok, {RestData, SelectInfo}} |
+                  {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
       RestData   :: binary(),
       SelectInfo :: select_info(),
-      Reason     :: term()
-                 ; (Socket, Data, Timeout) -> ok | {error, Reason} when
+      Reason     :: term();
+          (Socket, Data, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
       Timeout    :: timeout(),
@@ -1746,9 +1748,11 @@ sendto(Socket, Data, Dest, Timeout) ->
     sendto(Socket, Data, Dest, ?ESOCK_SENDTO_FLAGS_DEFAULT, Timeout).
 
 
--spec sendto(Socket, Data, Dest, Flags, nowait) -> ok |
-                                                   {select, SelectInfo} |
-                                                   {error, Reason} when
+-spec sendto(Socket, Data, Dest, Flags, nowait) ->
+                    ok |
+                    {ok, {binary(), SelectInfo}} |
+                    {select, SelectInfo} |
+                    {error, Reason} when
       Socket     :: socket(),
       Data       :: binary(),
       Dest       :: sockaddr(),
@@ -1789,9 +1793,13 @@ sendto(#socket{ref = SockRef}, Data, Dest, Flags, Timeout)
 %% used when sending.
 %%
 
--spec sendmsg(Socket, MsgHdr) -> ok | {error, Reason} when
+-spec sendmsg(Socket, MsgHdr) ->
+                     ok |
+                     {ok, Remaining} |
+                     {error, Reason} when
       Socket  :: socket(),
       MsgHdr  :: msghdr(),
+      Remaining :: erlang:iovec(),
       Reason  :: term().
 
 sendmsg(Socket, MsgHdr) ->
@@ -1803,15 +1811,16 @@ sendmsg(Socket, MsgHdr) ->
       Socket  :: socket(),
       MsgHdr  :: msghdr(),
       Flags   :: send_flags(),
-      Reason  :: term()
-                 ; (Socket, MsgHdr, Timeout :: nowait) -> ok |
-                                               {select, SelectInfo} |
-                                               {error, Reason} when
+      Reason  :: term();
+             (Socket, MsgHdr, Timeout :: nowait) ->
+                     ok |
+                     {ok, Remaining} |
+                     {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
-      SelectInfo :: select_info(),
-      Reason     :: term()
-                 ; (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
+      Remaining :: erlang:iovec(),
+      Reason     :: term();
+             (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
       Timeout    :: timeout(),
@@ -1826,13 +1835,11 @@ sendmsg(Socket, MsgHdr, Timeout) ->
 -spec sendmsg(Socket, MsgHdr, Flags, nowait) -> 
                      ok |
                      {ok, Remaining} |
-                     {select, SelectInfo} |
                      {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
       Flags      :: send_flags(),
       Remaining  :: erlang:iovec(),
-      SelectInfo :: select_info(),
       Reason     :: term()
                    ; (Socket, MsgHdr, Flags, Timeout) -> 
                      ok |
@@ -2924,7 +2931,6 @@ enc_setopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% encode the value into an more "manageable" type.
 %% It also handles "aliases" (see linger).
 
--dialyzer({nowarn_function, enc_setopt_value/6}).
 -spec enc_setopt_value(otp, otp_socket_option(),
                        Value, Domain, Type, Protocol) -> term() when
       Value    :: term(),
@@ -3392,12 +3398,6 @@ enc_getopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% For the most part, we simply let the value pass through, but for some
 %% values we may need to do an actual decode.
 %%
-%% For some reason dialyzer thinks that the only valid value for Opt to 
-%% this function is otp_socket_option(). Of course without explaining
-%% how it came to that conclusion... And since I know that to be false...
-%%
-
--dialyzer({nowarn_function, dec_getopt_value/6}).
 
 %% This string is NULL-terminated, but the general function we use
 %% in the nif code does not know that. So, deal with it here.
@@ -3414,78 +3414,77 @@ dec_getopt_value(_L, _Opt, V, _D, _T, _P) ->
 
 %% Most options are usable both for set and get, but some are
 %% are only available for e.g. get.
--spec enc_sockopt_key(Level, Opt,
-                      Direction,
+-spec enc_sockopt_key(Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: otp,
       Direction :: set | get,
       Opt       :: otp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: socket,
       Direction :: set | get,
       Opt       :: socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: ip,
       Direction :: set | get,
       Opt       :: ip_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: ipv6,
       Direction :: set | get,
       Opt       :: ipv6_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
-                      Domain, Type, Protocol) -> non_neg_integer() when
+      Protocol  :: protocol();
+                   (Level, Opt, Direction,
+                    Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: tcp,
       Direction :: set | get,
       Opt       :: tcp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: udp,
       Direction :: set | get,
       Opt       :: udp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: sctp,
       Direction :: set | get,
       Opt       :: sctp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
-                      Domain, Type, Protocol) -> non_neg_integer() when
+      Protocol  :: protocol();
+                   (Level, Opt, Direction,
+                    Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: integer(),
       Direction :: set,
       Opt       :: integer(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
-                      Domain, Type, Protocol) -> non_neg_integer() when
+      Protocol  :: protocol();
+                   (Level, Opt, Direction,
+                    Domain, Type, Protocol) -> {NativeOpt, ValueSize} when
       Level     :: integer(),
       Direction :: get,
       Opt       :: {NativeOpt, ValueSize},
       NativeOpt :: integer(),
-      ValueSize :: non_neg_integer(),
+      ValueSize :: non_neg_integer() | 'int' | 'bool',
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol().
