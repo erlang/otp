@@ -1190,36 +1190,34 @@ otp_15592(_Config) ->
     ok.
 
 otp_15751(_Config) ->
-    ok = pp_expr(<<"try foo:bar()
-                        catch
-                            Reason : Stacktrace ->
-                                {Reason, Stacktrace}
-                    end">>),
-    ok = pp_expr(<<"try foo:bar()
-                        catch
-                            throw: Reason : Stacktrace ->
-                                {Reason, Stacktrace}
-                    end">>),
-    ok = pp_expr(<<"try foo:bar()
-                        catch
-                            Reason : _ ->
-                                Reason
-                    end">>),
-    ok = pp_expr(<<"try foo:bar()
-                        catch
-                            throw: Reason : _ ->
-                                Reason
-                    end">>),
-    ok = pp_expr(<<"try foo:bar()
-                        catch
-                            Reason ->
-                                Reason
-                    end">>),
-    ok = pp_expr(<<"try foo:bar()
-                        catch
-                            throw: Reason ->
-                                Reason
-                    end">>),
+    Check = fun(L) ->
+                    ok = pp_expr(L),
+                    remove_indentation(flat_parse_and_pp_expr(L, 0, []))
+            end,
+    "try foo:bar() catch Reason:Stacktrace -> {Reason, Stacktrace} end" =
+        Check("try foo:bar()
+           catch Reason:Stacktrace -> {Reason, Stacktrace}  end"),
+
+    "try foo:bar() catch throw:Reason:Stacktrace -> {Reason, Stacktrace} end" =
+        Check("try foo:bar()
+           catch throw:Reason:Stacktrace -> {Reason, Stacktrace} end"),
+
+    "try foo:bar() catch Reason:_ -> Reason end" =
+        Check("try foo:bar()
+           catch Reason:_ -> Reason end"),
+
+    "try foo:bar() catch throw:Reason -> Reason end" = % ":_" removed
+        Check("try foo:bar()
+           catch throw:Reason:_-> Reason end"),
+
+    "try foo:bar() catch throw:Reason -> Reason end" = % "throw:" added
+        Check("try foo:bar()
+           catch Reason -> Reason end"),
+
+    "try foo:bar() catch throw:Reason -> Reason end" =
+        Check("try foo:bar()
+           catch throw:Reason -> Reason end"),
+
     ok.
 
 otp_15755(_Config) ->
