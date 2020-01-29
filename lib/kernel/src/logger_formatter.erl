@@ -35,7 +35,7 @@
                     template        => template(),
                     time_designator => byte(),
                     time_offset     => integer() | [byte()]}.
--type template() :: [metakey() | {metakey(),template(),template()} | string() | binary()].
+-type template() :: [metakey() | {metakey(),template(),template()} | unicode:chardata()].
 -type metakey() :: atom() | [atom()].
 
 %%%-----------------------------------------------------------------
