@@ -11077,10 +11077,14 @@ fetch_sys_task(Process *c_p, erts_aint32_t state, int *qmaskp, int *priop)
 
     qmask = c_p->sys_task_qs->qmask;
 
-    if ((state & (ERTS_PSFLG_ACTIVE
+    if ((state & (ERTS_PSFLGS_DIRTY_WORK
+                  | ERTS_PSFLG_ACTIVE
 		  | ERTS_PSFLG_EXITING
 		  | ERTS_PSFLG_SUSPENDED)) == ERTS_PSFLG_ACTIVE) {
-	/* No sys tasks if we got exclusively higher prio user work to do */
+	/*
+         * No sys tasks if we got exclusively higher prio user work
+         * to do; ignoring dirty work...
+         */
 	st = NULL;
 	switch (ERTS_PSFLGS_GET_USR_PRIO(state)) {
 	case PRIORITY_MAX:
