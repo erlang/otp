@@ -23,6 +23,7 @@
 
 -export([all/0, suite/0]).
 -export([hd_test/1,tl_test/1,t_length/1,t_list_to_pid/1,
+         t_list_to_ref/1, t_list_to_ext_pidportref/1,
          t_list_to_port/1,t_list_to_float/1,t_list_to_integer/1]).
 
 
@@ -33,6 +34,7 @@ suite() ->
 
 all() -> 
     [hd_test, tl_test, t_length, t_list_to_pid, t_list_to_port,
+     t_list_to_ref, t_list_to_ext_pidportref,
      t_list_to_float, t_list_to_integer].
 
 %% Tests list_to_integer and string:to_integer
@@ -125,6 +127,61 @@ t_list_to_port(Config) when is_list(Config) ->
                     "Result: ~p", [Res])
     end,
     ok.
+
+t_list_to_ref(Config) when is_list(Config) ->
+    Ref = make_ref(),
+    RefStr = ref_to_list(Ref),
+    Ref = list_to_ref(RefStr),
+    case catch list_to_ref(id("Incorrect list")) of
+        {'EXIT', {badarg, _}} ->
+            ok;
+        Res ->
+            ct:fail("list_to_ref/1 with incorrect arg succeeded.~n"
+                    "Result: ~p", [Res])
+    end,
+    ok.
+
+%% Test list_to_pid/port/ref for external pids/ports/refs.
+t_list_to_ext_pidportref(Config) when is_list(Config) ->
+    {ok, Node} = slave:start(net_adm:localhost(), t_list_to_ext_pidportref),
+    Pid = rpc:call(Node, erlang, self, []),
+    Port = hd(rpc:call(Node, erlang, ports, [])),
+    Ref = rpc:call(Node, erlang, make_ref, []),
+
+    PidStr  = pid_to_list(Pid),
+    PortStr = port_to_list(Port),
+    RefStr  = ref_to_list(Ref),
+
+    Pid2  = list_to_pid(PidStr),
+    Port2 = list_to_port(PortStr),
+    Ref2  = list_to_ref(RefStr),
+
+    %% The local roundtrips of externals does not work
+    %% as 'creation' is missing in the string formats and we don't know
+    %% the 'creation' of the connected node.
+    false = (Pid =:= Pid2),
+    false = (Port =:= Port2),
+    false = (Ref =:= Ref2),
+
+    %% Local roundtrip kind of "works" for '==' since OTP-22.0 (bf7c722bd3b)
+    %% Operator '==' treats 0-creations as wildcards
+    %% which breaks term transitivity (A==B and B==C => B==C).
+    true = (Pid == Pid2),
+    true = (Port == Port2),
+    true = (Ref == Ref2),
+
+    %% It works when sent back to node with matching name, as 0-creations
+    %% will be converted to the local node creation.
+    true = rpc:call(Node, erlang, '=:=', [Pid, Pid2]),
+    true = rpc:call(Node, erlang, '==',  [Pid, Pid2]),
+    true = rpc:call(Node, erlang, '=:=', [Port, Port2]),
+    true = rpc:call(Node, erlang, '==',  [Port, Port2]),
+    true = rpc:call(Node, erlang, '=:=', [Ref, Ref2]),
+    true = rpc:call(Node, erlang, '==',  [Ref, Ref2]),
+
+    slave:stop(Node),
+    ok.
+
 
 %% Test list_to_float/1 with correct and incorrect arguments.
 
