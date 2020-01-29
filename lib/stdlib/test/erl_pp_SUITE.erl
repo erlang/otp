@@ -1274,6 +1274,14 @@ otp_16435(_Config) ->
            "          A <- []\n    >>.\n"),
     CheckF("f() ->\n    [ \n     (catch foo) ||\n         A <- []\n    ].\n"),
 
+
+    Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
+    Check("5 #r4.f1"),
+    Check("17 #{[] => true}"),
+    Check("0 #r1{f2 = foo}"),
+    Check("fun foo:bar/17 #{}"),
+    Check("fun a/2 #{}"),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

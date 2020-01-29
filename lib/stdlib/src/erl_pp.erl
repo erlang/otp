@@ -567,14 +567,16 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
 lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
-    Nl = [$#,{atom,Name},$.],
+    Sep = hash_after_integer(Rec, [$#]),
+    Nl = [Sep,{atom,Name},$.],
     El = [Rl,Nl,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
 lexpr({record, _, Rec, Name, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
+    Sep = hash_after_integer(Rec, []),
     Nl = record_name(Name),
-    El = {first,[Rl,Nl],record_fields(Fs, Opts)},
+    El = {first,[Rl,Sep,Nl],record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({record_field, _, {atom,_,''}, F}, Prec, Opts) ->
     {_L,P,R} = inop_prec('.'),
@@ -591,7 +593,8 @@ lexpr({map, _, Fs}, Prec, Opts) ->
 lexpr({map, _, Map, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Map, L, Opts),
-    El = {first,[Rl,$#],map_fields(Fs, Opts)},
+    Sep = hash_after_integer(Map, [$#]),
+    El = {first,[Rl|Sep],map_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({block,_,Es}, _, Opts) ->
     {list,[{step,'begin',body(Es, Opts)},{reserved,'end'}]};
@@ -720,6 +723,17 @@ lexpr(HookExpr, Precedence, #options{hook = {Mod,Func,Eas}})
     {ehook,HookExpr,Precedence,{Mod,Func,Eas}};
 lexpr(HookExpr, Precedence, #options{hook = Func, opts = Options}) ->
     {hook,HookExpr,Precedence,Func,Options}.
+
+%% An integer is separated from the following '#' by a space, which
+%% erl_scan can handle.
+hash_after_integer({integer, _, _}, C) ->
+    [$\s|C];
+hash_after_integer({'fun',_,{function, _, _}}, C) ->
+    [$\s|C];
+hash_after_integer({'fun',_,{function, _, _, _}}, C) ->
+    [$\s|C];
+hash_after_integer(_, C) ->
+    C.
 
 call(Name, Args, Prec, Opts) ->
     {F,P} = func_prec(),
