@@ -4368,12 +4368,16 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
                                      make_boxed(&etp->header));
       ASSERT(enp != erts_this_node);
 
-      etp->header = make_external_ref_header(n/2);
+#if defined(ARCH_64)
+      etp->header = make_external_ref_header(n/2 + 1);
+#else
+      etp->header = make_external_ref_header(n);
+#endif
       etp->next = BIF_P->off_heap.first;
       etp->node = enp;
       i = 0;
 #if defined(ARCH_64)
-      etp->data.ui32[i] = n;
+      etp->data.ui32[i++] = n;
 #endif
       for (j = 0; j < n; j++) {
           etp->data.ui32[i] = refn[j];
