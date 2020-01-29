@@ -705,6 +705,21 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
+      <name name="all_available" arity="0" since="OTP @OTP-16494@"/>
+      <fsummary>Get all available modules.</fsummary>
+      <type name="loaded_filename"/>
+      <type name="loaded_ret_atoms"/>
+      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute
+      filename.</type_desc>
+      <desc>
+        <p>Returns a list of tuples <c>{<anno>Module</anno>, <anno>Filename</anno>,
+          <anno>Loaded</anno>}</c> for all available modules. A module is considered
+          to be available if it either is loaded or would be loaded if called.
+          <c><anno>Filename</anno></c> is normally the absolute filename, as described for
+          <seealso marker="#is_loaded/1"><c>is_loaded/1</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="all_loaded" arity="0" since=""/>
       <fsummary>Get all loaded modules.</fsummary>
       <type name="loaded_filename"/>

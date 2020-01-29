@@ -44,6 +44,7 @@
 	 soft_purge/1,
 	 is_loaded/1,
 	 all_loaded/0,
+         all_available/0,
 	 stop/0,
 	 root_dir/0,
 	 lib_dir/0,
@@ -219,6 +220,53 @@ get_object_code(Mod) when is_atom(Mod) -> call({get_object_code, Mod}).
       Module :: module(),
       Loaded :: loaded_filename().
 all_loaded() -> call(all_loaded).
+
+-spec all_available() -> [{Module, Filename, Loaded}] when
+      Module :: string(),
+      Filename :: loaded_filename(),
+      Loaded :: boolean().
+all_available() ->
+    case code:get_mode() of
+        interactive ->
+            all_available(get_path(), #{});
+        embedded ->
+            all_available([], #{})
+    end.
+all_available([Path|Tail], Acc) ->
+    case erl_prim_loader:list_dir(Path) of
+        {ok, Files} ->
+            all_available(Tail, all_available(Path, Files, Acc));
+        _Error ->
+            all_available(Tail, Acc)
+    end;
+all_available([], AllModules) ->
+    AllLoaded = [{atom_to_list(M),Path,true} || {M,Path} <- all_loaded()],
+    AllAvailable =
+        maps:fold(
+          fun(File, Path, Acc) ->
+                  [{filename:rootname(File), filename:append(Path, File), false} | Acc]
+          end, [], AllModules),
+    OrderFun = fun F({A,_,_},{B,_,_}) ->
+                       F(A,B);
+                   F(A,B) ->
+                       A =< B
+               end,
+    lists:umerge(OrderFun, lists:sort(OrderFun, AllLoaded), lists:sort(OrderFun, AllAvailable)).
+
+all_available(Path, [File | T], Acc) ->
+    case filename:extension(File) of
+        ".beam" ->
+            case maps:is_key(File, Acc) of
+                false ->
+                    all_available(Path, T, Acc#{ File => Path });
+                true ->
+                    all_available(Path, T, Acc)
+            end;
+        _Else ->
+                    all_available(Path, T, Acc)
+    end;
+all_available(_Path, [], Acc) ->
+    Acc.
 
 -spec stop() -> no_return().
 stop() -> call(stop).
