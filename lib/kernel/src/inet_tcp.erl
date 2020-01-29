@@ -134,30 +134,42 @@ do_connect(Addr = {A,B,C,D}, Port, Opts, Time)
 	{ok, _} -> exit(badarg)
     end.
 
-%% 
+%%
 %% Listen
 %%
 listen(Port, Opts) ->
     case inet:listen_options([{port,Port} | Opts], ?MODULE) of
-	{error, Reason} -> exit(Reason);
-	{ok,
-	 #listen_opts{
-	    fd = Fd,
-	    ifaddr = BAddr = {A,B,C,D},
-	    port = BPort,
-	    opts = SockOpts} = R}
-	when ?ip(A,B,C,D), ?port(BPort) ->
-	    case inet:open(
-		   Fd, BAddr, BPort, SockOpts,
-		   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
-		{ok, S} ->
-		    case prim_inet:listen(S, R#listen_opts.backlog) of
-			ok -> {ok, S};
-			Error -> prim_inet:close(S), Error
-		    end;
-		Error -> Error
-	    end;
-	{ok, _} -> exit(badarg)
+        {error, Reason} -> exit(Reason);
+        {ok,
+         #listen_opts{
+            fd = Fd,
+            ifaddr = BAddr = {A,B,C,D},
+            port = BPort,
+            opts = SockOpts} = R}
+          when ?ip(A,B,C,D), ?port(BPort) ->
+            case inet:open(
+                   Fd, BAddr, BPort, SockOpts,
+                   ?PROTO, ?FAMILY, ?TYPE, ?MODULE) of
+                {ok, S} ->
+                    case prim_inet:listen(S, R#listen_opts.backlog) of
+                        ok -> {ok, S};
+                        Error -> prim_inet:close(S), Error
+                    end;
+                Error -> Error
+            end;
+        {ok,
+         #listen_opts{
+            fd = Fd,
+            ifaddr = undefined,
+            port = BPort,
+            opts = SockOpts}}
+          when ?port(BPort) ->
+            % We assume that the port is already created, binded and ready for
+            % accepting connections, so no need for prim_inet:listen/2 there
+            inet:open(
+              Fd, BAddr, BPort, SockOpts,
+              ?PROTO, ?FAMILY, ?TYPE, ?MODULE);
+        {ok, _} -> exit(badarg)
     end.
 
 %%
