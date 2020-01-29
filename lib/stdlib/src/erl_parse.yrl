@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -27,10 +27,10 @@ attribute attr_val
 function function_clauses function_clause
 clause_args clause_guard clause_body
 expr expr_100 expr_150 expr_160 expr_200 expr_300 expr_400 expr_500
-expr_600 expr_700 expr_800
+expr_600 expr_650 expr_700 expr_800
 expr_max
 pat_expr pat_expr_200 pat_expr_300 pat_expr_400 pat_expr_500
-pat_expr_600 pat_expr_700 pat_expr_800
+pat_expr_600 pat_expr_650 pat_expr_700 pat_expr_800
 pat_expr_max map_pat_expr record_pat_expr
 pat_argument_list pat_exprs
 list tail
@@ -251,10 +251,12 @@ expr_500 -> expr_500 mult_op expr_600 :
 	?mkop2('$1', '$2', '$3').
 expr_500 -> expr_600 : '$1'.
 
-expr_600 -> prefix_op expr_700 :
+expr_600 -> prefix_op expr_600 :
 	?mkop1('$1', '$2').
-expr_600 -> map_expr : '$1'.
-expr_600 -> expr_700 : '$1'.
+expr_600 -> expr_650 : '$1'.
+
+expr_650 -> map_expr : '$1'.
+expr_650 -> expr_700 : '$1'.
 
 expr_700 -> function_call : '$1'.
 expr_700 -> record_expr : '$1'.
@@ -298,10 +300,12 @@ pat_expr_500 -> pat_expr_500 mult_op pat_expr_600 :
 	?mkop2('$1', '$2', '$3').
 pat_expr_500 -> pat_expr_600 : '$1'.
 
-pat_expr_600 -> prefix_op pat_expr_700 :
+pat_expr_600 -> prefix_op pat_expr_600 :
 	?mkop1('$1', '$2').
-pat_expr_600 -> map_pat_expr : '$1'.
-pat_expr_600 -> pat_expr_700 : '$1'.
+pat_expr_600 -> pat_expr_650 : '$1'.
+
+pat_expr_650 -> map_pat_expr : '$1'.
+pat_expr_650 -> pat_expr_700 : '$1'.
 
 pat_expr_700 -> record_pat_expr : '$1'.
 pat_expr_700 -> pat_expr_800 : '$1'.
