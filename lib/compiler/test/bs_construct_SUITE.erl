@@ -31,7 +31,7 @@
 	 two/1,test1/1,fail/1,float_bin/1,in_guard/1,in_catch/1,
 	 nasty_literals/1,coerce_to_float/1,side_effect/1,
 	 opt/1,otp_7556/1,float_arith/1,otp_8054/1,
-         cover/1]).
+         cover/1,bad_size/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -47,7 +47,7 @@ groups() ->
       [verify_highest_opcode,
        two,test1,fail,float_bin,in_guard,in_catch,
        nasty_literals,side_effect,opt,otp_7556,float_arith,
-       otp_8054,cover]}].
+       otp_8054,cover,bad_size]}].
 
 
 init_per_suite(Config) ->
@@ -559,6 +559,7 @@ otp_7556(Bin, A, B, C) ->
 
 float_arith(Config) when is_list(Config) ->
     {<<1,2,3,64,69,0,0,0,0,0,0>>,21.0} = do_float_arith(<<1,2,3>>, 42, 2),
+
     ok.
 
 do_float_arith(Bin0, X, Y)  ->
@@ -597,3 +598,30 @@ cover(Config) ->
     Bin = id(<<L:32,?LONG_STRING>>),
     <<L:32,?LONG_STRING>> = Bin,
     ok.
+
+bad_size(_Config) ->
+    {'EXIT',{badarg,_}} = (catch bad_float_size()),
+    {'EXIT',{badarg,_}} = (catch bad_float_size(<<"abc">>)),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size()),
+    {'EXIT',{badarg,_}} = (catch bad_integer_size(<<"xyz">>)),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size()),
+    {'EXIT',{badarg,_}} = (catch bad_binary_size(<<"xyz">>)),
+    ok.
+    
+bad_float_size() ->
+    <<4.087073429964284:case 0 of 0 -> art end/float>>.
+
+bad_float_size(Bin) ->
+    <<Bin/binary,4.087073429964284:case 0 of 0 -> art end/float>>.
+
+bad_integer_size() ->
+    <<0:case 0 of 0 -> art end/integer>>.
+
+bad_integer_size(Bin) ->
+    <<Bin/binary,0:case 0 of 0 -> art end/integer>>.
+
+bad_binary_size() ->
+    <<<<"abc">>:case 0 of 0 -> art end/binary>>.
+
+bad_binary_size(Bin) ->
+    <<Bin/binary,<<"abc">>:case 0 of 0 -> art end/binary>>.

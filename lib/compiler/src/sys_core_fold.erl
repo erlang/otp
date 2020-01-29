@@ -734,10 +734,14 @@ eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
 	    end;
 	float when is_float(Val) ->
 	    %% Bad float size.
-	    case Sz*Unit of
+	    try Sz*Unit of
 		32 -> ok;
 		64 -> ok;
-		_ -> throw(impossible)
+		_ ->
+                    throw({badarg,bad_float_size})
+            catch
+                error:_ ->
+                    throw({badarg,bad_float_size})
 	    end;
 	utf8 -> ok;
 	utf16 -> ok;
@@ -2926,6 +2930,9 @@ format_error({embedded_unit,Unit,Size}) ->
 format_error(bad_unicode) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid Unicode code point in a utf8/utf16/utf32 segment)";
+format_error(bad_float_size) ->
+    "binary construction will fail with a 'badarg' exception "
+	"(invalid size for a float segment)";
 format_error({nomatch_shadow,Line,{Name, Arity}}) ->
     M = io_lib:format("this clause for ~ts/~B cannot match because a previous "
 		      "clause at line ~p always matches", [Name, Arity, Line]),

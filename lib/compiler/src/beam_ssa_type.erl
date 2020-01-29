@@ -953,6 +953,36 @@ will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts, _Sub) ->
 will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts, _Sub) ->
     yes;
 
+%% Remove the success branch from binary operations with invalid
+%% sizes. That will remove subsequent bs_put instructions that are
+%% probably not loadable.
+will_succeed_1(#b_set{op=bs_add,args=[_,#b_literal{val=Size},_]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_init,
+                      args=[#b_literal{val=new},#b_literal{val=Size},_Unit]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_init,
+                      args=[#b_literal{},_,#b_literal{val=Size},_Unit]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+
 %% These operations may fail even though we know their return value on success.
 will_succeed_1(#b_set{op=call}, _Src, _Ts, _Sub) ->
     maybe;
