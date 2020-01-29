@@ -40,12 +40,6 @@
 -export([callback_mode/0, init/1, terminate/3, code_change/4]).
 -export([init/3, connection/3, handshake/3, death_row/3]).
 
-%% http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf
-%% Number of records * Record length
-%% 2^24.5 * 2^14 = 2^38.5
--define(AES_GCM_MAX, 388736063997).
--define(UINT64_MAX, 18446744073709551615).
-
 -record(static,
         {connection_pid,
          role,
@@ -228,6 +222,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                            transport_cb := Transport,
                            negotiated_version := Version,
                            renegotiate_at := RenegotiateAt,
+                           key_update_at := KeyUpdateAt,
                            log_level := LogLevel}},
      #data{connection_states = ConnectionStates, static = Static0} = StateData0) ->
     Monitor = erlang:monitor(process, Pid),
@@ -242,7 +237,7 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 transport_cb = Transport,
                                                 negotiated_version = Version,
                                                 renegotiate_at = RenegotiateAt,
-                                                key_update_at = ?AES_GCM_MAX,
+                                                key_update_at = KeyUpdateAt,
                                                 bytes_sent = 0,
                                                 log_level = LogLevel}},
     {next_state, handshake, StateData, [{reply, From, ok}]};
@@ -542,11 +537,11 @@ update_bytes_sent(_, #data{static = #static{bytes_sent = Sent} = Static} = State
 %% safety limit is reached.
 key_update_at(Version, #{security_parameters :=
                              #security_parameters{
-                                bulk_cipher_algorithm = CipherAlgo}}, _)
+                                bulk_cipher_algorithm = CipherAlgo}}, KeyUpdateAt)
   when Version >= {3,4} ->
     case CipherAlgo of
         ?AES_GCM ->
-            ?AES_GCM_MAX;
+            KeyUpdateAt;
         ?CHACHA20_POLY1305 ->
             seq_num_wrap
     end;
@@ -572,7 +567,7 @@ set_opts(SocketOptions, [{packet, N}]) ->
 
 
 time_to_rekey(Version, _Data,
-              #{current_write := #{sequence_number := ?UINT64_MAX}},
+              #{current_write := #{sequence_number := ?MAX_SEQUENCE_NUMBER}},
               _, _, _) when Version >= {3,4} ->
     key_update;
 time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when Version >= {3,4} ->

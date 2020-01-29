@@ -109,6 +109,12 @@
 -define('24H_in_msec', 86400000).
 -define('24H_in_sec', 86400).
 
+%% https://tools.ietf.org/html/rfc8446#section-5.5
+%% Limits on Key Usage
+%% http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf
+%% Number of records * Record length
+%% 2^24.5 * 2^14 = 2^38.5
+-define(KEY_USAGE_LIMIT_AES_GCM, 388736063997).
 
 %% This map stores all supported options with default values and
 %% list of dependencies:
@@ -144,6 +150,7 @@
           key                        => {undefined, [versions]},
           keyfile                    => {undefined, [versions,
                                                      certfile]},
+          key_update_at              => {?KEY_USAGE_LIMIT_AES_GCM, [versions]},
           log_level                  => {notice,    [versions]},
           max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
           next_protocol_selector     => {undefined, [versions]},
