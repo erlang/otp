@@ -43,24 +43,32 @@ expand(Bef0) ->
  	    expand_module_name(Word)
     end.
 
+expand_module_name("") ->
+    {no, [], []};
 expand_module_name(Prefix) ->
-    match(Prefix, code:all_loaded(), ":").
+    match(Prefix, [{list_to_atom(M),P} || {M,P,_} <- code:all_available()], ":").
 
 expand_function_name(ModStr, FuncPrefix) ->
     case to_atom(ModStr) of
 	{ok, Mod} ->
-	    case erlang:module_loaded(Mod) of
-		true ->
-		    L = Mod:module_info(),
-		    case lists:keyfind(exports, 1, L) of
-			{_, Exports} ->
-			    match(FuncPrefix, Exports, "(");
-			_ ->
-			    {no, [], []}
-		    end;
-		false ->
-		    {no, [], []}
-	    end;
+            Exports =
+                case erlang:module_loaded(Mod) of
+                    true ->
+                        Mod:module_info(exports);
+                    false ->
+                        case beam_lib:chunks(code:which(Mod), [exports]) of
+                            {ok, {Mod, [{exports,E}]}} ->
+                                E;
+                            _ ->
+                                {no, [], []}
+                        end
+                end,
+            case Exports of
+                {no, [], []} ->
+                    {no, [], []};
+                Exports ->
+                    match(FuncPrefix, Exports, "(")
+            end;
 	error ->
 	    {no, [], []}
     end.
@@ -99,8 +107,10 @@ match(Prefix, Alts, Extra0) ->
  	    {no, [], []}
     end.
 
-flat_write(T) ->
-    lists:flatten(io_lib:fwrite("~tw",[T])).
+flat_write(T) when is_atom(T) ->
+    lists:flatten(io_lib:fwrite("~tw",[T]));
+flat_write(S) ->
+    S.
 
 %% Return the list of names L in multiple columns.
 format_matches(L) ->
