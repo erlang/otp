@@ -490,16 +490,10 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn, load_dot_erlang=LoadErlangRc},
 
          %% Apply user specific customizations
          {started,
-          [
-           case LoadErlangRc of
-               true -> {apply, {c, erlangrc, []}};
-               false -> []
-           end]},
-
-         %% Apply user specific customizations
-         {started,
-          [
-           {apply, {c, erlangrc, []}}]}
+          case LoadErlangRc of
+              true -> [{apply, {c, erlangrc, []}}];
+              false -> []
+          end}
         ],
     {ok, {script,
           {RelName, RelVsn},
