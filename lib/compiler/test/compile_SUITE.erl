@@ -1405,14 +1405,10 @@ bc_options(Config) ->
 
          {153, big, [no_shared_fun_wrappers,
                      no_put_tuple2,no_get_hd_tl, no_ssa_opt_record]},
-         {153, big, [r16]},
-         {153, big, [r17]},
          {153, big, [r18]},
          {153, big, [r19]},
-         {153, small_float, [r16]},
          {153, small_float, [no_shared_fun_wrappers]},
 
-         {158, small_maps, [r17]},
          {158, small_maps, [r18]},
          {158, small_maps, [r19]},
          {158, small_maps, [r20]},

@@ -259,10 +259,6 @@ expand_opt(no_bsm4, Os) ->
     %% bsm4 instructions are only used when type optimization has determined
     %% that a match instruction won't fail.
     expand_opt(no_type_opt, Os);
-expand_opt(r16, Os) ->
-    expand_opt_before_21(Os);
-expand_opt(r17, Os) ->
-    expand_opt_before_21(Os);
 expand_opt(r18, Os) ->
     expand_opt_before_21(Os);
 expand_opt(r19, Os) ->
@@ -925,8 +921,6 @@ remove_file(Code, St) ->
 		     exports,
 		     labels,
 		     functions=[],
-		     cfun,
-		     code,
 		     attributes=[]}).
 
 preprocess_asm_forms(Forms) ->
@@ -936,36 +930,30 @@ preprocess_asm_forms(Forms) ->
      {R1#asm_module.module,
       R1#asm_module.exports,
       R1#asm_module.attributes,
-      R1#asm_module.functions,
+      reverse(R1#asm_module.functions),
       R1#asm_module.labels}}.
 
-collect_asm([], R) ->
-    case R#asm_module.cfun of
-	undefined ->
-	    R;
-	{A,B,C} ->
-	    R#asm_module{functions=R#asm_module.functions++
-			 [{function,A,B,C,R#asm_module.code}]}
-    end;
 collect_asm([{module,M} | Rest], R) ->
     collect_asm(Rest, R#asm_module{module=M});
 collect_asm([{exports,M} | Rest], R) ->
     collect_asm(Rest, R#asm_module{exports=M});
 collect_asm([{labels,M} | Rest], R) ->
     collect_asm(Rest, R#asm_module{labels=M});
-collect_asm([{function,A,B,C} | Rest], R) ->
-    R1 = case R#asm_module.cfun of
-	     undefined ->
-		 R;
-	     {A0,B0,C0} ->
-		 R#asm_module{functions=R#asm_module.functions++
-			      [{function,A0,B0,C0,R#asm_module.code}]}
-	 end,
-    collect_asm(Rest, R1#asm_module{cfun={A,B,C}, code=[]});
+collect_asm([{function,A,B,C} | Rest0], R0) ->
+    {Code,Rest} = collect_asm_function(Rest0, []),
+    Func = {function,A,B,C,Code},
+    R = R0#asm_module{functions=[Func | R0#asm_module.functions]},
+    collect_asm(Rest, R);
 collect_asm([{attributes, Attr} | Rest], R) ->
     collect_asm(Rest, R#asm_module{attributes=Attr});
-collect_asm([X | Rest], R) ->
-    collect_asm(Rest, R#asm_module{code=R#asm_module.code++[X]}).
+collect_asm([], R) -> R.
+
+collect_asm_function([{function,_,_,_}|_]=Is, Acc) ->
+    {reverse(Acc),Is};
+collect_asm_function([I|Is], Acc) ->
+    collect_asm_function(Is, [I|Acc]);
+collect_asm_function([], Acc) ->
+    {reverse(Acc),[]}.
 
 beam_consult_asm(_Code, St) ->
     case file:consult(St#compile.ifile) of

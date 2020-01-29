@@ -726,6 +726,11 @@ simplify(#b_set{op={bif,size},args=[Term]}=I, Ts) ->
     case normalized_type(Term, Ts) of
         #t_tuple{} ->
             simplify(I#b_set{op={bif,tuple_size}}, Ts);
+        #t_bitstring{size_unit=U} when U rem 8 =:= 0 ->
+            %% If the bitstring is a binary (the size in bits is
+            %% evenly divisibly by 8), byte_size/1 gives
+            %% the same result as size/1.
+            simplify(I#b_set{op={bif,byte_size}}, Ts);
         _ ->
             eval_bif(I, Ts)
     end;
@@ -1059,10 +1064,11 @@ is_non_numeric([H|T]) ->
 is_non_numeric(Tuple) when is_tuple(Tuple) ->
     is_non_numeric_tuple(Tuple, tuple_size(Tuple));
 is_non_numeric(Map) when is_map(Map) ->
-    %% Note that 17.x and 18.x compare keys in different ways.
-    %% Be very conservative -- require that both keys and values
-    %% are non-numeric.
-    is_non_numeric(maps:to_list(Map));
+    %% Starting from OTP 18, map keys are compared using `=:=`.
+    %% Therefore, we only need to check that the values in the map are
+    %% non-numeric. (Support for compiling BEAM files for OTP releases
+    %% older than OTP 18 has been dropped.)
+    is_non_numeric(maps:values(Map));
 is_non_numeric(Num) when is_number(Num) ->
     false;
 is_non_numeric(_) -> true.
@@ -1074,6 +1080,12 @@ is_non_numeric_tuple(_Tuple, 0) -> true.
 
 is_non_numeric_type(#t_atom{}) -> true;
 is_non_numeric_type(#t_bitstring{}) -> true;
+is_non_numeric_type(#t_cons{type=Type,terminator=Terminator}) ->
+    is_non_numeric_type(Type) andalso is_non_numeric_type(Terminator);
+is_non_numeric_type(#t_list{type=Type,terminator=Terminator}) ->
+    is_non_numeric_type(Type) andalso is_non_numeric_type(Terminator);
+is_non_numeric_type(#t_map{super_value=Value}) ->
+    is_non_numeric_type(Value);
 is_non_numeric_type(nil) -> true;
 is_non_numeric_type(#t_tuple{size=Size,exact=true,elements=Types})
   when map_size(Types) =:= Size ->
@@ -1161,8 +1173,39 @@ eval_type_test_bif(I, is_number, [Type]) ->
     eval_type_test_bif_1(I, Type, number);
 eval_type_test_bif(I, is_tuple, [Type]) ->
     eval_type_test_bif_1(I, Type, #t_tuple{});
-eval_type_test_bif(I, _, _) ->
-    I.
+eval_type_test_bif(I, Op, Types) ->
+    case Types of
+        [#t_integer{},#t_integer{elements={0,0}}]
+          when Op =:= '+'; Op =:= '-'; Op =:= 'bor'; Op =:= 'bxor' ->
+            #b_set{args=[Result,_]} = I,
+            Result;
+        [#t_integer{},#t_integer{elements={0,0}}] when Op =:= '*'; Op =:= 'band' ->
+            #b_literal{val=0};
+        [#t_integer{},#t_integer{elements={1,1}}] when Op =:= '*'; Op =:= 'div' ->
+            #b_set{args=[Result,_]} = I,
+            Result;
+        [#t_integer{elements={LMin,LMax}},#t_integer{elements={RMin,RMax}}] ->
+            case is_inequality_op(Op) of
+                true ->
+                    case {erlang:Op(LMin, RMin),erlang:Op(LMax, RMin),
+                          erlang:Op(LMin, RMax),erlang:Op(LMax, RMax)} of
+                        {Bool,Bool,Bool,Bool} ->
+                            #b_literal{val=Bool};
+                        _ ->
+                            I
+                    end;
+                false ->
+                    I
+            end;
+        _ ->
+            I
+    end.
+
+is_inequality_op('<') -> true;
+is_inequality_op('=<') -> true;
+is_inequality_op('>') -> true;
+is_inequality_op('>=') -> true;
+is_inequality_op(_) -> false.
 
 eval_type_test_bif_1(I, ArgType, Required) ->
     case beam_types:meet(ArgType, Required) of
