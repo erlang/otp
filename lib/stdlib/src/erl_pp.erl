@@ -658,20 +658,20 @@ lexpr({'try',_,Es,Scs,Ccs,As}, _, Opts) ->
                true ->
                    {step,{list,[{step,'try',body(Es, Opts)},{reserved,'of'}]},
                     cr_clauses(Scs, Opts)}
-           end,
+           end] ++
            if
                Ccs =:= [] ->
                    [];
                true ->
-                   {step,'catch',try_clauses(Ccs, Opts)}
-           end,
+                   [{step,'catch',try_clauses(Ccs, Opts)}]
+           end ++
            if
                As =:= [] ->
                    [];
                true ->
-                   {step,'after',body(As, Opts)}
-           end,
-           {reserved,'end'}]};
+                   [{step,'after',body(As, Opts)}]
+           end ++
+           [{reserved,'end'}]};
 lexpr({'catch',_,Expr}, Prec, Opts) ->
     {P,R} = preop_prec('catch'),
     El = {list,[{step,'catch',lexpr(Expr, R, Opts)}]},
@@ -983,7 +983,7 @@ frmt(Item, I, PP) ->
 %%% - {prefer_nl,Sep,IPs}: forces linebreak between Is unlesss negative
 %%%   indentation.
 %%% - {atom,A}: an atom
-%%% - {singleton_atom_type,A}: an singleton atom type
+%%% - {singleton_atom_type,A}: a singleton atom type
 %%% - {char,C}: a character
 %%% - {string,S}: a string.
 %%% - {value,T}: a term.

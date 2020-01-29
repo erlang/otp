@@ -1282,6 +1282,21 @@ otp_16435(_Config) ->
     Check("fun foo:bar/17 #{}"),
     Check("fun a/2 #{}"),
 
+    Check("try foo:bar() of\n"
+          "    a ->\n"
+          "        b\n"
+          "after\n"
+          "    d\n"
+          "end"),
+
+    Check("try foo:bar() of\n"
+          "    a ->\n"
+          "        b\n"
+          "catch\n"
+          "    _:_ ->\n"
+          "        c\n"
+          "end"),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
