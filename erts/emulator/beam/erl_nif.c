@@ -1468,6 +1468,11 @@ size_t enif_binary_to_term_int(ErlNifEnv *dst_env,
     ErtsHeapFactory factory;
     byte *bp = (byte*) data;
 
+    if (ERL_NIF_BIN2TERM_SAFE != ERTS_DIST_EXT_BTT_SAFE) {
+        printf("\n===> enif_binary_to_term_int: %i != %i\n",
+               ERL_NIF_BIN2TERM_SAFE, ERTS_DIST_EXT_BTT_SAFE);
+    }
+
     ERTS_ASSERT(ERL_NIF_BIN2TERM_SAFE == ERTS_DIST_EXT_BTT_SAFE);
 
     if (opts & ~ERL_NIF_BIN2TERM_SAFE) {
