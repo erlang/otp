@@ -6479,13 +6479,6 @@ ERL_NIF_TERM esock_accept_accepting_current_accept(ErlNifEnv*       env,
     if (esock_accept_accepted(env, descP, sockRef, accSock,
                               descP->currentAcceptor.pid, remote, &res)) {
 
-        /* Clean out the old cobweb's before trying to invite a new spider */
-
-        esock_free_env("esock_accept_accepting_current_accept - "
-                       "current-accept-env",
-                       descP->currentAcceptor.env);
-        descP->currentAcceptor.env =  NULL;
-
         if (!activate_next_acceptor(env, descP, sockRef)) {
 
             SSDBG( descP,
@@ -6610,8 +6603,8 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
     if ((sres = esock_select_read(env, descP->sock, descP, pid,
                                   sockRef, accRef)) < 0) {
 
-        esock_release_current("esock_accept_busy_retry", env,
-                              descP, descP->currentAcceptorP);
+        DEMONP("esock_accept_busy_retry - select failed",
+               env, descP, &descP->currentAcceptor.mon);
         /* It is very unlikely that a next acceptor will be able
          * to do anything succesful, but we will clean the queue
          */
@@ -15165,12 +15158,6 @@ ERL_NIF_TERM esock_cancel_accept_current(ErlNifEnv*       env,
     SSDBG( descP, ("SOCKET",
                    "esock_cancel_accept_current -> cancel res: %T\r\n", res) );
 
-    /* Clean out the old cobweb's before trying to invite a new spider */
-
-    esock_free_env("esock_cancel_accept_current - current-accept-env",
-                   descP->currentAcceptor.env);
-    descP->currentAcceptor.env =  NULL;
-
     if (!activate_next_acceptor(env, descP, sockRef)) {
 
         SSDBG( descP,
@@ -15632,21 +15619,17 @@ ERL_NIF_TERM send_check_ok(ErlNifEnv*       env,
         descP->writePkgMax = descP->writePkgMaxCnt;
     descP->writePkgMaxCnt = 0;
 
-    if (descP->currentWriterP != NULL) {
-        DEMONP("send_check_ok -> current writer",
-               env, descP, &descP->currentWriter.mon);
-        esock_free_env("send_check_ok", descP->currentWriter.env);
-        descP->currentWriter.env = NULL;
-    }
-
     SSDBG( descP,
            ("SOCKET", "send_check_ok -> "
             "everything written (%d,%d) - done\r\n", dataSize, written) );
 
+    if (descP->currentWriterP != NULL) {
+        DEMONP("send_check_ok -> current writer",
+               env, descP, &descP->currentWriter.mon);
+    }
     /*
      * Ok, this write is done maybe activate the next (if any)
      */
-
     if (!activate_next_writer(env, descP, sockRef)) {
 
         SSDBG( descP,
@@ -15939,10 +15922,6 @@ ERL_NIF_TERM recv_update_current_reader(ErlNifEnv*       env,
         
         DEMONP("recv_update_current_reader",
                env, descP, &descP->currentReader.mon);
-
-        esock_free_env("recv_update_current_reader - current-read-env",
-                       descP->currentReader.env);
-        descP->currentReader.env = NULL;
 
         if (!activate_next_reader(env, descP, sockRef)) {
 
