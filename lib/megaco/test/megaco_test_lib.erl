@@ -569,14 +569,13 @@ analyze_and_print_host_info() ->
         {unix, freebsd} ->
             analyze_and_print_freebsd_host_info(Version);           
         {unix, sunos} ->
-            io:format("Solaris: ~s"
-                      "~n", [Version]),
-            2;
+            analyze_and_print_solaris_host_info(Version);
         _ ->
             io:format("OS Family: ~p"
-                      "~n   OS Type: ~p"
-                      "~n   Version: ~p"
-                      "~n", [OsFam, OsName, Version]),
+                      "~n   OS Type:        ~p"
+                      "~n   Version:        ~p"
+                      "~n   Num Schedulers: ~s"
+                      "~n", [OsFam, OsName, Version, str_num_schedulers()]),
             try erlang:system_info(schedulers) of
                 1 ->
                     10;
@@ -591,6 +590,14 @@ analyze_and_print_host_info() ->
                     10
             end
     end.
+
+str_num_schedulers() ->
+    try erlang:system_info(schedulers) of
+        N -> f("~w", [N])
+    catch
+        _:_:_ -> "-"
+    end.
+
     
 analyze_and_print_linux_host_info(Version) ->
     case file:read_file_info("/etc/issue") of
@@ -607,34 +614,44 @@ analyze_and_print_linux_host_info(Version) ->
         case (catch linux_which_cpuinfo()) of
             {ok, {CPU, BogoMIPS}} ->
                 io:format("CPU: "
-                          "~n   Model:    ~s"
-                          "~n   BogoMIPS: ~s"
-                          "~n", [CPU, BogoMIPS]),
+                          "~n   Model:          ~s"
+                          "~n   BogoMIPS:       ~s"
+                          "~n   Num Schedulers: ~s"
+                          "~n", [CPU, BogoMIPS, str_num_schedulers()]),
                 %% We first assume its a float, and if not try integer
                 try list_to_float(string:trim(BogoMIPS)) of
-                    F when F > 1000 ->
+                    F when F > 4000 ->
                         1;
                     F when F > 1000 ->
                         2;
+                    F when F > 500 ->
+                        3;
                     _ ->
-                        3
+                        5
                 catch
                     _:_:_ ->
-                        %% 
                         try list_to_integer(string:trim(BogoMIPS)) of
-                            I when I > 1000 ->
+                            I when I > 4000 ->
                                 1;
                             I when I > 1000 ->
                                 2;
+                            I when I > 500 ->
+                                3;
                             _ ->
-                                3
+                                5
                         catch
                             _:_:_ ->
-                                1
+                                5 % Be a "bit" conservative...
                         end
                 end;
+            {ok, CPU} ->
+                io:format("CPU: "
+                          "~n   Model:          ~s"
+                          "~n   Num Schedulers: ~s"
+                          "~n", [CPU, str_num_schedulers()]),
+                2; % Be a "bit" conservative...
             _ ->
-                1
+                5 % Be a "bit" (more) conservative...
         end,
     %% Check if we need to adjust the factor because of the memory
     try linux_which_meminfo() of
@@ -896,6 +913,105 @@ analyze_and_print_freebsd_host_info(Version) ->
         _:_:_ ->
             1
     end.
+
+
+analyze_and_print_solaris_host_info(Version) ->
+    Release =
+        case file:read_file_info("/etc/release") of
+            {ok, _} ->
+                case [string:trim(S) || S <- string:tokens(os:cmd("cat /etc/release"), [$\n])] of
+                    [Rel | _] ->
+                        Rel;
+                    _ ->
+                        "-"
+                end;
+            _ ->
+                "-"
+        end,
+    %% Display the firmware device tree root properties (prtconf -b)
+    Props = [list_to_tuple([string:trim(PS) || PS <- Prop]) ||
+                Prop <- [string:tokens(S, [$:]) ||
+                            S <- string:tokens(os:cmd("prtconf -b"), [$\n])]],
+    BannerName = case lists:keysearch("banner-name", 1, Props) of
+                     {value, {_, BN}} ->
+                         string:trim(BN);
+                     _ ->
+                         "-"
+                 end,
+    PtrConf = [list_to_tuple([string:trim(S) || S <- Items]) || Items <- [string:tokens(S, [$:]) || S <- string:tokens(os:cmd("prtconf"), [$\n])], length(Items) > 1],
+    SysConf =
+        case lists:keysearch("System Configuration", 1, PtrConf) of
+            {value, {_, SC}} ->
+                SC;
+            _ ->
+                "-"
+        end,
+    MemSz =
+        case lists:keysearch("Memory size", 1, PtrConf) of
+            {value, {_, MS}} ->
+                MS;
+            _ ->
+                "-"
+        end,
+    io:format("Solaris: ~s"
+              "~n   Release:         ~s"
+              "~n   Banner Name:     ~s"
+              "~n   Instruction Set: ~s"
+              "~n   System Config:   ~s"
+              "~n   Memory Size:     ~s"
+              "~n   Num Schedulers:  ~s"
+              "~n", [Version, Release, BannerName,
+                     SysConf, MemSz,
+                     str_num_schedulers()]),
+    MemFactor =
+        try string:tokens(MemSz, [$ ]) of
+            [SzStr, "Mega" ++ _] ->
+                try list_to_integer(SzStr) of
+                    Sz when Sz > 8192 ->
+                        0;
+                    Sz when Sz > 4096 ->
+                        1;
+                    Sz when Sz > 2048 ->
+                        2;
+                    _ -> 
+                        5
+                catch
+                    _:_:_ ->
+                        10
+                end;
+            [SzStr, "Giga" ++ _] ->
+                try list_to_integer(SzStr) of
+                    Sz when Sz > 8 ->
+                        0;
+                    Sz when Sz > 4 ->
+                        1;
+                    Sz when Sz > 2 ->
+                        2;
+                    _ -> 
+                        5
+                catch
+                    _:_:_ ->
+                        10
+                end;
+            _ ->
+                10
+        catch
+            _:_:_ ->
+                10
+        end,
+    try erlang:system_info(schedulers) of
+        1 ->
+            10;
+        2 ->
+            5;
+        N when (N =< 6) ->
+            2;
+        _ ->
+            1
+    catch
+        _:_:_ ->
+            10
+    end + MemFactor.    
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
