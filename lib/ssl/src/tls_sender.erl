@@ -26,6 +26,7 @@
 -include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").
 -include("ssl_api.hrl").
+-include("ssl_record.hrl").
 -include("tls_handshake_1_3.hrl").
 
 %% API
@@ -39,7 +40,11 @@
 -export([callback_mode/0, init/1, terminate/3, code_change/4]).
 -export([init/3, connection/3, handshake/3, death_row/3]).
 
--define(SERVER, ?MODULE).
+%% http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf
+%% Number of records * Record length
+%% 2^24.5 * 2^14 = 2^38.5
+-define(AES_GCM_MAX, 388736063997).
+-define(UINT64_MAX, 18446744073709551615).
 
 -record(static,
         {connection_pid,
@@ -50,6 +55,8 @@
          transport_cb,
          negotiated_version,
          renegotiate_at,
+         key_update_at,  %% TLS 1.3
+         bytes_sent,     %% TLS 1.3
          connection_monitor,
          dist_handle,
          log_level
@@ -235,6 +242,8 @@ init({call, From}, {Pid, #{current_write := WriteState,
                                                 transport_cb = Transport,
                                                 negotiated_version = Version,
                                                 renegotiate_at = RenegotiateAt,
+                                                key_update_at = ?AES_GCM_MAX,
+                                                bytes_sent = 0,
                                                 log_level = LogLevel}},
     {next_state, handshake, StateData, [{reply, From, ok}]};
 init(_, _, _) ->
@@ -292,14 +301,15 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
               [{next_event, internal,
                {application_packets,{self(),undefined},erlang:iolist_to_iovec(Data)}}]
       end]};
-connection({call, From}, {key_update},
-           #data{connection_states = ConnectionStates0} = StateData) ->
-    ConnectionStates = tls_connection:update_cipher_key(current_write, ConnectionStates0),
-    {next_state, connection, StateData#data{connection_states = ConnectionStates},
-     [{reply,From,ok}]};
+connection({call, From}, {key_update}, StateData) ->
+    update_cipher_key(From, StateData);
 
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
+connection(internal, {post_handshake_data, From, KeyUpdate}, StateData) ->
+    send_post_handshake_data(KeyUpdate, From, ?FUNCTION_NAME, StateData);
+connection(internal, {key_update, From}, StateData) ->
+    update_cipher_key(From, StateData);
 %%
 connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
@@ -349,11 +359,14 @@ handshake({call, _}, _, _) ->
     {keep_state_and_data, [postpone]};
 handshake(internal, {application_packets,_,_}, _) ->
     {keep_state_and_data, [postpone]};
-handshake(cast, {new_write, WritesState, Version}, 
-          #data{connection_states = ConnectionStates, static = Static} = StateData) ->
+handshake(cast, {new_write, WriteState, Version},
+          #data{connection_states = ConnectionStates,
+                static = #static{key_update_at = KeyUpdateAt0} = Static} = StateData) ->
+    KeyUpdateAt = key_update_at(Version, WriteState, KeyUpdateAt0),
     {next_state, connection, 
-     StateData#data{connection_states = ConnectionStates#{current_write => WritesState},
-                    static = Static#static{negotiated_version = Version}}};
+     StateData#data{connection_states = ConnectionStates#{current_write => WriteState},
+                    static = Static#static{negotiated_version = Version,
+                                           key_update_at = KeyUpdateAt}}};
 handshake(info, dist_data, _) ->
     {keep_state_and_data, [postpone]};
 handshake(info, tick, _) ->
@@ -447,10 +460,17 @@ send_application_data(Data, From, StateName,
                                               negotiated_version = Version,
                                               transport_cb = Transport,
                                               renegotiate_at = RenegotiateAt,
+                                              key_update_at = KeyUpdateAt,
+                                              bytes_sent = BytesSent,
                                               log_level = LogLevel},
                              connection_states = ConnectionStates0} = StateData0) ->
-    case time_to_renegotiate(Data, ConnectionStates0, RenegotiateAt) of
-	true ->
+    case time_to_rekey(Version, Data, ConnectionStates0, RenegotiateAt, KeyUpdateAt, BytesSent) of
+        key_update ->
+            KeyUpdate = tls_handshake_1_3:key_update(update_requested),
+            {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
+                                   {next_event, internal, {key_update, From}},
+                                   {next_event, internal, {application_packets, From, Data}}]};
+	renegotiate ->
 	    ssl_connection:internal_renegotiation(Pid, ConnectionStates0),
             {next_state, handshake, StateData0, 
              [{next_event, internal, {application_packets, From, Data}}]};
@@ -460,12 +480,14 @@ send_application_data(Data, From, StateName,
 	    case tls_socket:send(Transport, Socket, Msgs) of
                 ok when DistHandle =/=  undefined ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
-                    {next_state, StateName, StateData, []};
+                    StateData1 = update_bytes_sent(Version, StateData, Data),
+                    {next_state, StateName, StateData1, []};
                 Reason when DistHandle =/= undefined ->
                     {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
                 ok ->
                     ssl_logger:debug(LogLevel, outbound, 'record', Msgs),
-                    {next_state, StateName, StateData,  [{reply, From, ok}]};
+                    StateData1 = update_bytes_sent(Version, StateData, Data),
+                    {next_state, StateName, StateData1,  [{reply, From, ok}]};
                 Result ->
                     {next_state, StateName, StateData,  [{reply, From, Result}]}
             end
@@ -497,6 +519,40 @@ send_post_handshake_data(Handshake, From, StateName,
             {next_state, StateName, StateData,  [{reply, From, Result}]}
     end.
 
+update_cipher_key(From, #data{connection_states = ConnectionStates0,
+                              static = Static0} = StateData) ->
+    ConnectionStates = tls_connection:update_cipher_key(current_write, ConnectionStates0),
+    Static = Static0#static{bytes_sent = 0},
+    {next_state, connection, StateData#data{connection_states = ConnectionStates,
+                                            static = Static},
+     [{reply,From,ok}]}.
+
+update_bytes_sent(Version, StateData, _) when Version < {3,4} ->
+    StateData;
+%% Count bytes sent in TLS 1.3 for AES-GCM
+update_bytes_sent(_, #data{static = #static{key_update_at = seq_num_wrap}} = StateData, _) ->
+    StateData;  %% Chacha20-Poly1305
+update_bytes_sent(_, #data{static = #static{bytes_sent = Sent} = Static} = StateData, Data) ->
+    StateData#data{static = Static#static{bytes_sent = Sent + iolist_size(Data)}}.  %% AES-GCM
+
+%% For AES-GCM, up to 2^24.5 full-size records (about 24 million) may be
+%% encrypted on a given connection while keeping a safety margin of
+%% approximately 2^-57 for Authenticated Encryption (AE) security.  For
+%% ChaCha20/Poly1305, the record sequence number would wrap before the
+%% safety limit is reached.
+key_update_at(Version, #{security_parameters :=
+                             #security_parameters{
+                                bulk_cipher_algorithm = CipherAlgo}}, _)
+  when Version >= {3,4} ->
+    case CipherAlgo of
+        ?AES_GCM ->
+            ?AES_GCM_MAX;
+        ?CHACHA20_POLY1305 ->
+            seq_num_wrap
+    end;
+key_update_at(_, _, KeyUpdateAt) ->
+    KeyUpdateAt.
+
 -compile({inline, encode_packet/2}).
 encode_packet(Packet, Data) ->
     Len = iolist_size(Data),
@@ -514,9 +570,23 @@ encode_packet(Packet, Data) ->
 set_opts(SocketOptions, [{packet, N}]) ->
     SocketOptions#socket_options{packet = N}.
 
-time_to_renegotiate(_Data, 
-		    #{current_write := #{sequence_number := Num}}, 
-		    RenegotiateAt) ->
+
+time_to_rekey(Version, _Data,
+              #{current_write := #{sequence_number := ?UINT64_MAX}},
+              _, _, _) when Version >= {3,4} ->
+    key_update;
+time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when Version >= {3,4} ->
+    false;
+time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when Version >= {3,4} ->
+    case (BytesSent + iolist_size(Data)) > KeyUpdateAt of
+        true ->
+            key_update;
+        false ->
+            false
+    end;
+time_to_rekey(_, _Data,
+              #{current_write := #{sequence_number := Num}},
+              RenegotiateAt, _, _) ->
     
     %% We could do test:
     %% is_time_to_renegotiate((erlang:byte_size(_Data) div
@@ -527,7 +597,7 @@ time_to_renegotiate(_Data,
 is_time_to_renegotiate(N, M) when N < M->
     false;
 is_time_to_renegotiate(_,_) ->
-    true.
+    renegotiate.
 
 call(FsmPid, Event) ->
     try gen_statem:call(FsmPid, Event)
