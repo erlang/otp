@@ -2303,9 +2303,7 @@ fix_catch(Type, Lbl, ContLbl, Code, HandledCatchLbls, Instr) ->
   TLbl = {Type, Lbl},
   case gb_trees:lookup(TLbl, HandledCatchLbls) of
     {value, Catch} when is_integer(Catch) ->
-      NewCode = fix_catches(Code, HandledCatchLbls),
-      Cont = hipe_icode:label_name(ContLbl),
-      [hipe_icode:mk_begin_try(Catch,Cont),ContLbl | NewCode];
+      nyi(unsafe_catch);
     none ->
       OldCatch = map_label(Lbl),
       OldCatchLbl = hipe_icode:mk_label(OldCatch),
