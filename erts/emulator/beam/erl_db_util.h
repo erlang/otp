@@ -131,7 +131,8 @@ typedef struct db_table_method
 		   Eterm* ret);
     int (*db_put)(DbTable* tb, /* [in out] */ 
 		  Eterm obj,
-		  int key_clash_fail); /* DB_ERROR_BADKEY if key exists */ 
+		  int key_clash_fail, /* DB_ERROR_BADKEY if key exists */
+                  SWord *consumed_reds_p);
     int (*db_get)(Process* p, 
 		  DbTable* tb, /* [in out] */ 
 		  Eterm key, 
@@ -240,7 +241,8 @@ typedef struct db_table_method
     void* (*db_dbterm_list_remove_first)(void** list);
     int (*db_put_dbterm)(DbTable* tb, /* [in out] */
                          void* obj,
-                         int key_clash_fail); /* DB_ERROR_BADKEY if key exists */
+                         int key_clash_fail, /* DB_ERROR_BADKEY if key exists */
+                         SWord *consumed_reds_p);
     void (*db_free_dbterm)(int compressed, void* obj);
     Eterm (*db_get_dbterm_key)(DbTable* tb, void* db_term);
     int (*db_get_binary_info)(Process*, DbTable* tb, Eterm key, Eterm* ret);

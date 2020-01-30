@@ -1499,6 +1499,18 @@ ets_cret_to_return_value(Process* p, int cret)
                               "Called the normal version of ets_insert_2_list_lock_tbl.\n"     \
                               "But only the yieldable version of ets_insert_2_list_lock_tbl should be called\n")
 #define YCF_GET_EXTRA_CONTEXT() NULL
+#define YCF_CONSUME_REDS(X) (void)(X)
+
+/*
+ * The LOCAL_VARIABLE macro is a trick to create a local variable that does not
+ * get renamed by YCF.
+ * Such variables will not retain their values over yields. Beware!
+ *
+ * I use this as a workaround for a limitation/bug in YCF. It does not do
+ * proper variable name substitution in expressions passed as argument to
+ * YCF_CONSUME_REDS(Expr).
+ */
+#define LOCAL_VARIABLE(TYPE, NAME) TYPE NAME
 
 static long ets_insert_2_list_check(int keypos, Eterm list)
 {
@@ -1539,9 +1551,12 @@ static int ets_insert_2_list_from_p_heap(DbTable* tb, Eterm list)
     DbTableMethod* meth = tb->common.meth;
     int cret = DB_ERROR_NONE;
     for (lst = list; is_list(lst); lst = CDR(list_val(lst))) {
-        cret = meth->db_put(tb, CAR(list_val(lst)), 0);
+        LOCAL_VARIABLE(SWord, consumed_reds);
+        consumed_reds = 1;
+        cret = meth->db_put(tb, CAR(list_val(lst)), 0, &consumed_reds);
         if (cret != DB_ERROR_NONE)
             return cret;
+        YCF_CONSUME_REDS(consumed_reds);
     }
     return DB_ERROR_NONE;
 }
@@ -1615,8 +1630,11 @@ static void ets_insert_2_list_insert_db_term_list(DbTable* tb,
     void* term = NULL;
     DbTableMethod* meth = tb->common.meth;
     do {
+        LOCAL_VARIABLE(SWord, consumed_reds);
+        consumed_reds = 1;
         term = meth->db_dbterm_list_remove_first(&lst);
-        meth->db_put_dbterm(tb, term, 0);
+        meth->db_put_dbterm(tb, term, 0, &consumed_reds);
+        YCF_CONSUME_REDS(consumed_reds);
     } while (lst != NULL);
     return;
 }
@@ -1813,12 +1831,13 @@ static int db_insert_new_2_res_bin_dtor(Binary *context_bin)
     return 1;
 }
 
+#define ITERATIONS_PER_RED 8
+
 static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
                                             Eterm tid,
                                             Eterm list,
                                             int is_insert_new) {
-    const Uint iterations_per_red = 10;
-    const long reds = iterations_per_red * ERTS_BIF_REDS_LEFT(p);
+    const long reds = ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(p);
     long nr_of_reductions =
         IF_DEBUG_OR(reds * 0.1 * erts_sched_local_random_float((Uint)&p),
                     reds);
@@ -1904,7 +1923,7 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
             *ctx = ictx;
         }
     }
-    BUMP_REDS(p, (init_reds - nr_of_reductions) / iterations_per_red);
+    BUMP_REDS(p, (init_reds - nr_of_reductions) / ITERATIONS_PER_RED);
     if (ctx->status == ETS_INSERT_2_LIST_GLOBAL &&
         ctx->continuation_state != NULL &&
         ctx->tb->common.continuation == NULL) {
@@ -1948,6 +1967,7 @@ BIF_RETTYPE ets_insert_2(BIF_ALIST_2)
     int cret = DB_ERROR_NONE;
     Eterm insert_term;
     DbTableMethod* meth;
+    SWord consumed_reds = 0;
     CHECK_TABLES();
     if (BIF_ARG_2 == NIL) {
         /* Check that the table exists */
@@ -1975,10 +1995,11 @@ BIF_RETTYPE ets_insert_2(BIF_ALIST_2)
         db_unlock(tb, LCK_WRITE_REC);
         BIF_ERROR(BIF_P, BADARG);
     }
-    cret = meth->db_put(tb, insert_term, 0);
+    cret = meth->db_put(tb, insert_term, 0, &consumed_reds);
 
     db_unlock(tb, LCK_WRITE_REC);
 
+    BUMP_REDS(BIF_P, consumed_reds / ITERATIONS_PER_RED);
     return ets_cret_to_return_value(BIF_P, cret);
 }
 
@@ -1993,6 +2014,7 @@ BIF_RETTYPE ets_insert_new_2(BIF_ALIST_2)
     Eterm ret = am_true;
     Eterm obj;
     db_lock_kind_t kind;
+    SWord consumed_reds = 0;
     CHECK_TABLES();
 
     if (BIF_ARG_2 == NIL) {
@@ -2020,10 +2042,12 @@ BIF_RETTYPE ets_insert_new_2(BIF_ALIST_2)
         BIF_ERROR(BIF_P, BADARG);
     }
     cret = tb->common.meth->db_put(tb, obj,
-				   1); /* key_clash_fail */
+				   1,  /* key_clash_fail */
+                                   &consumed_reds);
 
     db_unlock(tb, kind);
 
+    BUMP_REDS(BIF_P, consumed_reds / ITERATIONS_PER_RED);
     switch (cret) {
     case DB_ERROR_NONE:
 	BIF_RET(ret);
