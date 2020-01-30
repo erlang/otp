@@ -1653,6 +1653,20 @@ static void ets_insert_2_list_lock_tbl(Eterm table_id,
     } while (tb == NULL);
 }
 
+static ERTS_INLINE int can_insert_without_yield(Uint32 tb_type,
+                                                long list_len,
+                                                long reds_left)
+{
+    if (tb_type & DB_BAG) {
+        /* Bag inserts can be really bad and we don't know how much searching
+         * for duplicates we will do */
+        return 0;
+    }
+    else {
+        return list_len <= reds_left;
+    }
+}
+
 ERTS_GCC_DIAG_OFF(unused-function)
 static BIF_RETTYPE ets_insert_2_list(Process* p,
                                      Eterm table_id,
@@ -1666,6 +1680,7 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
     DbTableMethod* meth = tb->common.meth;
     int compressed = tb->common.compress;
     int keypos = tb->common.keypos;
+    Uint32 tb_type = tb->common.type;
     Uint bif_ix = (is_insert_new ? BIF_ets_insert_new_2 : BIF_ets_insert_2);
     long list_len;
     /* tb should not be accessed after this point unless the table
@@ -1675,7 +1690,7 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
     if (list_len < 0) {
         return ets_cret_to_return_value(p, DB_ERROR_BADITEM);
     }
-    if (list_len < YCF_NR_OF_REDS_LEFT()) {
+    if (can_insert_without_yield(tb_type, list_len, YCF_NR_OF_REDS_LEFT())) {
         long reds_boost;
         /* There is enough reductions left to do the inserts directly
            from the heap without yielding */
