@@ -484,8 +484,7 @@ gethostname() ->
 	{ok,U} ->
 	    {ok,Res} = gethostname(U),
 	    inet_udp:close(U),
-	    {Res2,_} = lists:splitwith(fun($.)->false;(_)->true end,Res),
-	    {ok, Res2};
+	    {ok, Res};
 	_ ->
 	    {ok, "nohost.nodomain"}
     end.
