@@ -1092,50 +1092,43 @@ char* esock_decode_timeval(ErlNifEnv*      env,
     if (!GET_MAP_VAL(env, eTime, esock_atom_usec, &eUSec))
         return ESOCK_STR_EINVAL;
 
-    /* On some platforms (e.g. OpenBSD) this is a 'long long' and on others
-     * (e.g. Linux) its a long.
-     * As long as they are both 64 bits, its easy (use our own signed 64-bit int
-     * and then cast). But if they are either not 64 bit, or they are of different size
-     * then we make it easy on ourselves and use long and then cast to whatever
-     * type sec is.
+    /* Use the appropriate variable type and nif function
+     * to decode the value from Erlang into the struct timeval fields
      */
-#if (SIZEOF_LONG_LONG == SIZEOF_LONG) && (SIZEOF_LONG == 8)
-    {
+    { /* time_t tv_sec; */
+#if (SIZEOF_TIME_T == 8)
         ErlNifSInt64 sec;
         if (!GET_INT64(env, eSec, &sec))
             return ESOCK_STR_EINVAL;
-        timeP->tv_sec = (typeof(timeP->tv_sec)) sec;
-    }
-#else
-    {
+#elif (SIZEOF_TIME_T == SIZEOF_INT)
+        int sec;
+        if (!GET_INT(env, eSec, &sec))
+            return ESOCK_STR_EINVAL;
+#else /* long or other e.g undefined */
         long sec;
         if (!GET_LONG(env, eSec, &sec))
             return ESOCK_STR_EINVAL;
-        timeP->tv_sec = (typeof(timeP->tv_sec)) sec;
-    }
 #endif
+        timeP->tv_sec = sec;
+    }
 
- #if (SIZEOF_INT == 4)
-    {
+    { /* suseconds_t tv_usec; */
+#if (SIZEOF_SUSECONDS_T == 8)
+        ErlNifSInt64 usec;
+        if (!GET_INT64(env, eSec, &usec))
+            return ESOCK_STR_EINVAL;
+#elif (SIZEOF_SUSECONDS_T == SIZEOF_INT)
         int usec;
-        if (!GET_INT(env, eUSec, &usec))
+        if (!GET_INT(env, eSec, &usec))
             return ESOCK_STR_EINVAL;
-        timeP->tv_usec = (typeof(timeP->tv_usec)) usec;
-    }
-#elif (SIZEOF_LONG == 4)
-    {
+#else /* long or other e.g undefined */
         long usec;
-        if (!GET_LONG(env, eUSec, &usec))
+        if (!GET_LONG(env, eSec, &usec))
             return ESOCK_STR_EINVAL;
-        timeP->tv_usec = (typeof(timeP->tv_usec)) usec;
-    }
-#else
-    /* Ok, we give up... */
-    if (!GET_LONG(env, eUSec, &timeP->tv_usec))
-        return ESOCK_STR_EINVAL;
-
 #endif
-    
+        timeP->tv_usec = usec;
+    }
+
     return NULL;
 }
 
