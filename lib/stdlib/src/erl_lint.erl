@@ -183,6 +183,14 @@ format_error({invalid_deprecated,D}) ->
 format_error({bad_deprecated,{F,A}}) ->
     io_lib:format("deprecated function ~tw/~w undefined or not exported",
                   [F,A]);
+format_error({invalid_removed,D}) ->
+    io_lib:format("badly formed removed attribute ~tw", [D]);
+format_error({bad_removed,{F,A}}) when F =:= '_'; A =:= '_' ->
+    io_lib:format("at least one function matching ~tw/~w is still exported",
+                  [F,A]);
+format_error({bad_removed,{F,A}}) ->
+    io_lib:format("removed function ~tw/~w is still exported",
+                  [F,A]);
 format_error({bad_nowarn_unused_function,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
 format_error({bad_nowarn_bif_clash,{F,A}}) ->
@@ -918,7 +926,8 @@ post_traversal_check(Forms, St0) ->
     StE = check_unused_records(Forms, StD),
     StF = check_local_opaque_types(StE),
     StG = check_dialyzer_attribute(Forms, StF),
-    check_callback_information(StG).
+    StH = check_callback_information(StG),
+    check_removed(Forms, StH).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -1074,7 +1083,68 @@ depr_fa(F, A, _X, _Mod) ->
 deprecated_flag(next_version) -> true;
 deprecated_flag(next_major_release) -> true;
 deprecated_flag(eventually) -> true;
-deprecated_flag(_) -> false.
+deprecated_flag(String) -> deprecated_desc(String).
+
+deprecated_desc([Char | Str]) when is_integer(Char) -> deprecated_desc(Str);
+deprecated_desc([]) -> true;
+deprecated_desc(_) -> false.
+
+%% check_removed(Forms, State0) -> State
+
+check_removed(Forms, St0) ->
+    %% Get the correct list of exported functions.
+    Exports = case member(export_all, St0#lint.compile) of
+                  true -> St0#lint.defined;
+                  false -> St0#lint.exports
+              end,
+    X = gb_sets:to_list(Exports),
+    #lint{module = Mod} = St0,
+    Bad = [{E,L} || {attribute, L, removed, Removed} <- Forms,
+                    R <- lists:flatten([Removed]),
+                    E <- removed_cat(R, X, Mod)],
+    foldl(fun ({E,L}, St1) ->
+                  add_error(L, E, St1)
+          end, St0, Bad).
+
+removed_cat({F, A, Desc}=R, X, Mod) ->
+    case removed_desc(Desc) of
+        false -> [{invalid_removed,R}];
+        true -> removed_fa(F, A, X, Mod)
+    end;
+removed_cat({F, A}, X, Mod) ->
+    removed_fa(F, A, X, Mod);
+removed_cat(module, X, Mod) ->
+    removed_fa('_', '_', X, Mod);
+removed_cat(R, _X, _Mod) ->
+    [{invalid_removed,R}].
+
+removed_fa('_', '_', X, _Mod) ->
+    case X of
+        [_|_] -> [{bad_removed,{'_','_'}}];
+        [] -> []
+    end;
+removed_fa(F, '_', X, _Mod) when is_atom(F) ->
+    %% Don't use this syntax for built-in functions.
+    case lists:filter(fun({F1,_}) -> F1 =:= F end, X) of
+        [_|_] -> [{bad_removed,{F,'_'}}];
+        _ -> []
+    end;
+removed_fa(F, A, X, Mod) when is_atom(F), is_integer(A), A >= 0 ->
+    case lists:member({F,A}, X) of
+        true ->
+            [{bad_removed,{F,A}}];
+        false ->
+            case erlang:is_builtin(Mod, F, A) of
+                true -> [{bad_removed,{F,A}}];
+                false -> []
+            end
+    end;
+removed_fa(F, A, _X, _Mod) ->
+    [{invalid_removed,{F,A}}].
+
+removed_desc([Char | Str]) when is_integer(Char) -> removed_desc(Str);
+removed_desc([]) -> true;
+removed_desc(_) -> false.
 
 %% check_imports(Forms, State0) -> State
 

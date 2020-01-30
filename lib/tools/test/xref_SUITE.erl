@@ -1479,12 +1479,13 @@ deprecated(Conf) when is_list(Conf) ->
 
     Test2= <<"-module(depr).
 
-              -export([t/0,f/1,bar/2,f/2,g/3]).
+              -export([t/0,f/1,bar/2,f/2,g/3,string/0]).
 
               -deprecated([{'_','_',eventually}]).            % DF_3
               -deprecated([{f,'_',next_major_release}]).      % DF_2
               -deprecated([{g,'_',next_version}]).            % DF_1
               -deprecated([{bar,2}]).                         % DF
+              -deprecated([{string,0,\"hello\"}]).            % DF
 
               t() ->
                   g(1,2, 3),
@@ -1499,6 +1500,9 @@ deprecated(Conf) when is_list(Conf) ->
               g(F, G, H) ->
                   ?MODULE:bar(F, {G,H}).
 
+              string() ->
+                  ?MODULE:string().
+
               bar(_, _) ->
                   ?MODULE:t().
              ">>,
@@ -1512,7 +1516,8 @@ deprecated(Conf) when is_list(Conf) ->
     M = depr,
     DFa_1 = usort([{{M,f,2},{M,g,3}}]),
     DFa_2 = usort(DFa_1++[{{M,f,1},{M,f,2}},{{M,t,0},{M,f,1}}]),
-    DFa_3 = usort(DFa_2++[{{M,bar,2},{M,t,0}},{{M,g,3},{M,bar,2}}]),
+    DFa_3 = usort(DFa_2++[{{M,bar,2},{M,t,0}},{{M,g,3},{M,bar,2}},
+                          {{M,string,0},{M,string,0}}]),
     DFa = DFa_3,
 
     {ok,DFa} = xref:analyze(s, deprecated_function_calls),

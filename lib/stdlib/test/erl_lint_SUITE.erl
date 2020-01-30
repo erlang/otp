@@ -69,7 +69,7 @@
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
-         unused_type/1]).
+         unused_type/1,removed/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -91,7 +91,7 @@ all() ->
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
-     otp_15456, otp_15563, unused_type].
+     otp_15456, otp_15563, unused_type, removed].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4288,6 +4288,30 @@ otp_15563(Config) when is_list(Config) ->
            {errors,[{2,erl_lint,{bad_module,{lists,flatten,1}}},
                     {3,erl_lint,{bad_callback,{lists,concat,1}}}],
             []}}],
+    [] = run(Config, Ts),
+    ok.
+
+removed(Config) when is_list(Config) ->
+    Ts = [{removed,
+          <<"-removed([{nonexistent,1,\"hi\"}]). %% okay since it doesn't exist
+             -removed([frutt/0]).   %% okay since frutt/0 is not exported
+             -removed([t/0]).       %% not okay since t/0 is exported
+             -removed([{t,'_'}]).   %% not okay since t/0 is exported
+             -removed([{'_','_'}]). %% not okay since t/0 is exported
+             -removed([{{badly,formed},1}]).
+             -removed('badly formed').
+             -export([t/0]).
+             frutt() -> ok.
+             t() -> ok.
+            ">>,
+           {[]},
+           {error,[{3,erl_lint,{bad_removed,{t,0}}},
+                   {4,erl_lint,{bad_removed,{t,'_'}}},
+                   {5,erl_lint,{bad_removed,{'_','_'}}},
+                   {6,erl_lint,{invalid_removed,{{badly,formed},1}}},
+                   {7,erl_lint,{invalid_removed,'badly formed'}}],
+                   [{9,erl_lint,{unused_function,{frutt,0}}}]}}
+         ],
     [] = run(Config, Ts),
     ok.
 

@@ -138,6 +138,9 @@ debug information, which is an abstract
       <tag>-deprecated({f,1}).</tag>
       <item>The exported function <c>f/1</c> is deprecated. Nothing is
        said whether <c>f/1</c> will be removed or not.</item>
+      <tag>-deprecated({f,1,"Use g/1 instead"}).</tag>
+      <item>As above but with a descriptive string. The string is currently
+       unused by <c>xref</c> but other tools can make use of it.</item>
       <tag>-deprecated({f,'_'}).</tag>
       <item>All exported functions <c>f/0</c>, <c>f/1</c> and so on are
        deprecated.</item>
