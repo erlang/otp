@@ -81,7 +81,8 @@ will_succeed(erlang, setelement, [#t_integer{elements={Min,Max}},
         false -> maybe
     end;
 will_succeed(erlang, size, [Arg]) ->
-    succeeds_if_type(Arg, #t_bitstring{});
+    ArgType = beam_types:join(#t_tuple{}, #t_bitstring{}),
+    succeeds_if_type(Arg, ArgType);
 will_succeed(erlang, tuple_size, [Arg]) ->
     succeeds_if_type(Arg, #t_tuple{});
 will_succeed(erlang, tl, [Arg]) ->
@@ -251,7 +252,8 @@ types(erlang, 'node', [_]) ->
 types(erlang, 'node', []) ->
     sub_unsafe(#t_atom{}, []);
 types(erlang, 'size', [_]) ->
-    sub_unsafe(#t_integer{}, [any]);
+    ArgType = beam_types:join(#t_tuple{}, #t_bitstring{}),
+    sub_unsafe(#t_integer{}, [ArgType]);
 
 %% Tuple element ops
 types(erlang, element, [PosType, TupleType]) ->
