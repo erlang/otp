@@ -268,9 +268,9 @@ sig_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
 sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State) ->
     case simplify(I0, Ts0, Ds0, Ls, Sub0) of
-        {#b_set{}, Ts, Ds, Sub} ->
-            sig_is(Is, Ts, Ds, Ls, Fdb, Sub, State);
-        {_Value, Sub} ->
+        {#b_set{}, Ts, Ds} ->
+            sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
+        Sub when is_map(Sub) ->
             sig_is(Is, Ts0, Ds0, Ls, Fdb, Sub, State)
     end;
 sig_is([], Ts, Ds, _Ls, _Fdb, Sub, State) ->
@@ -493,9 +493,9 @@ opt_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
     opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I|Acc]);
 opt_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, Meta, Acc) ->
     case simplify(I0, Ts0, Ds0, Ls, Sub0) of
-        {#b_set{}=I, Ts, Ds, Sub} ->
-            opt_is(Is, Ts, Ds, Ls, Fdb, Sub, Meta, [I | Acc]);
-        {_Value, Sub} ->
+        {#b_set{}=I, Ts, Ds} ->
+            opt_is(Is, Ts, Ds, Ls, Fdb, Sub0, Meta, [I | Acc]);
+        Sub when is_map(Sub) ->
             opt_is(Is, Ts0, Ds0, Ls, Fdb, Sub, Meta, Acc)
     end;
 opt_is([], Ts, Ds, _Ls, Fdb, Sub, _Meta, Acc) ->
@@ -621,34 +621,37 @@ simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
         #{} -> Ret#b_ret{arg=simplify_arg(Arg, Ts, Sub)}
     end.
 
-simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub0) ->
+%%
+%% Simplifies an instruction, returning either a new instruction (with updated
+%% type and definition maps), or an updated substitution map if the instruction
+%% was redundant.
+%%
+
+simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
-    Args = [{simplify_arg(Arg, Ts0, Sub0), From} ||
+    Args = [{simplify_arg(Arg, Ts0, Sub), From} ||
                {Arg,From} <- Args0, maps:is_key(From, Ls)],
     case all_same(Args) of
         true ->
             %% Eliminate the phi node if there is just one source
             %% value or if the values are identical.
             [{Val,_}|_] = Args,
-            Sub = Sub0#{ Dst => Val },
-            {Val, Sub};
+            Sub#{ Dst => Val };
         false ->
             I = I0#b_set{args=Args},
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{Dst=>I},
-            {I, Ts, Ds, Sub0}
+            {I, Ts, Ds}
     end;
-simplify(#b_set{op=succeeded,dst=Dst}=I0, Ts0, Ds0, _Ls, Sub0) ->
-    case will_succeed(I0, Ts0, Ds0, Sub0) of
+simplify(#b_set{op=succeeded,dst=Dst}=I0, Ts0, Ds0, _Ls, Sub) ->
+    case will_succeed(I0, Ts0, Ds0, Sub) of
         yes ->
             Lit = #b_literal{val=true},
-            Sub = Sub0#{ Dst => Lit },
-            {Lit, Sub};
+            Sub#{ Dst => Lit };
         no ->
             Lit = #b_literal{val=false},
-            Sub = Sub0#{ Dst => Lit },
-            {Lit, Sub};
+            Sub#{ Dst => Lit };
         maybe ->
             %% Note that we never simplify args; this instruction is specific
             %% to the operation being checked, and simplifying could break that
@@ -656,23 +659,21 @@ simplify(#b_set{op=succeeded,dst=Dst}=I0, Ts0, Ds0, _Ls, Sub0) ->
             I = beam_ssa:normalize(I0),
             Ts = Ts0#{ Dst => beam_types:make_boolean() },
             Ds = Ds0#{ Dst => I },
-            {I, Ts, Ds, Sub0}
+            {I, Ts, Ds}
     end;
-simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub0) ->
-    Args = simplify_args(Args0, Ts0, Sub0),
+simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+    Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
     case simplify(I1, Ts0) of
         #b_set{}=I2 ->
             I = beam_ssa:normalize(I2),
             Ts = update_types(I, Ts0, Ds0),
             Ds = Ds0#{ Dst => I },
-            {I, Ts, Ds, Sub0};
+            {I, Ts, Ds};
         #b_literal{}=Lit ->
-            Sub = Sub0#{ Dst => Lit },
-            {Lit, Sub};
+            Sub#{ Dst => Lit };
         #b_var{}=Var ->
-            Sub = Sub0#{ Dst => Var },
-            {Var, Sub}
+            Sub#{ Dst => Var }
     end.
 
 simplify(#b_set{op={bif,'and'},args=Args}=I, Ts) ->
