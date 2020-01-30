@@ -1694,18 +1694,57 @@ app_dir(App) ->
     end.
 
 create_local_db_dir(Config) when is_list(Config) ->
-    ?P(create_local_db_dir),
-    DataDir = snmp_test_lib:lookup(data_dir, Config),
-    UName = erlang:unique_integer([positive]),
-    T = {UName, UName, UName},
-    [As,Bs,Cs] = [integer_to_list(I) || I <- tuple_to_list(T)],
-    DbDir = filename:join([DataDir, As, Bs, Cs]),
-    ok = del_dir(DbDir, 3),
-    Name = list_to_atom(atom_to_list(create_local_db_dir)
-                        ++"-"++As++"-"++Bs++"-"++Cs),
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = ?t:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
+    Pre = fun() ->
+                  DataDir    = snmp_test_lib:lookup(data_dir, Config),
+                  T          = {erlang:unique_integer([positive]),
+                                erlang:unique_integer([positive]),
+                                erlang:unique_integer([positive])},
+                  [As,Bs,Cs] = [integer_to_list(I) || I <- tuple_to_list(T)],
+                  DbDir      = filename:join([DataDir, As, Bs, Cs]),
+                  Name       = list_to_atom(atom_to_list(create_local_db_dir)
+                                            ++"_"++As++"_"++Bs++"_"++Cs),
+                  p("try ensuring db-dir does not exist"),
+                  try del_dir(DbDir, 3) of
+                      ok ->
+                          ok
+                  catch
+                      C:E:S ->
+                          e("Failed pre db-dir delete: "
+                             "~n   Class: ~p"
+                             "~n   Error: ~p"
+                             "~n   Stack: ~p", [C, E, S]),
+                          throw({skip, "Failed pre db-dir cleanup"})
+                  end,
+                  p("try start node ~p", [Name]),
+                  case ?ALIB:start_node(Name) of
+                      {ok, Node} ->
+                          {DbDir, Node};
+                      {error, Reason} ->
+                          e("Failed starting node ~p:"
+                            "~n   ~p", [Reason]),
+                          throw({skip, ?F("Failed starting node ~p", [Name])})
+                  end
+          end,
+    Case = fun do_create_local_db_dir/1,
+    Post = fun({DbDir, Node}) ->
+                   p("try stop node ~p", [Node]),
+                   ?ALIB:stop_node(Node),
+                   p("try delete db-dir"),
+                   try del_dir(DbDir, 3)
+                   catch
+                       C:E:S ->
+                           e("Failed post db-dir delete: "
+                             "~n   DbDir  ~s"
+                             "~n   Class: ~p"
+                             "~n   Error: ~p"
+                             "~n   Stack: ~p", [DbDir, C, E, S]),
+                           ok
+                   end
+           end,
+    ?TC_TRY(create_local_db_dir, Pre, Case, Post).
 
+do_create_local_db_dir({DbDir, Node}) ->
+    ?P(create_local_db_dir),
     %% first start with a nonexisting DbDir
     Fun1 = fun() ->
                    false = filelib:is_dir(DbDir),
@@ -1729,21 +1768,21 @@ create_local_db_dir(Config) when is_list(Config) ->
                    {ok, found}
            end,
     {ok, found} = nodecall(Node, Fun2),
-    %% cleanup
-    ?t:stop_node(Node),
-    ok = del_dir(DbDir, 3),
     ok.
 
 nodecall(Node, Fun) ->
     Parent = self(),
-    Ref = make_ref(),
-    spawn_link(Node,
-               fun() ->
-                       Res = Fun(),
-                       unlink(Parent),
-                       Parent ! {Ref, Res}
-               end),
+    Ref    = make_ref(),
+    Pid    = spawn_link(Node,
+                        fun() ->
+                                Res = Fun(),
+                                unlink(Parent),
+                                Parent ! {Ref, Res}
+                        end),
     receive
+        %% Just so we are not left hanging
+        {'EXIT', Pid, Reason} ->
+            Reason;
         {Ref, Res} ->
             Res
     end.

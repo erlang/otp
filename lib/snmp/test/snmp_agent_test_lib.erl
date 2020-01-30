@@ -1559,7 +1559,7 @@ start_node(Name) ->
 
 stop_node(Node) ->
     ?LOG("stop_node -> Node: ~p", [Node]),
-    rpc:cast(Node, erlang, halt, []).
+    test_server:stop_node(Node).
 
 
 %%%-----------------------------------------------------------------
