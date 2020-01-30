@@ -1493,27 +1493,28 @@ ets_cret_to_return_value(Process* p, int cret)
 #define YCF_SPECIAL_CODE_START(PARAM)
 #define YCF_SPECIAL_CODE_END()
 #define YCF_NR_OF_REDS_LEFT() 0
-#define YCF_SET_NR_OF_REDS_LEFT(NOT_USED)
+#define YCF_MAX_NR_OF_REDS LONG_MAX
+#define YCF_SET_NR_OF_REDS_LEFT(NOT_USED) (void)(NOT_USED)
 #define YCF_YIELD() erts_exit(1,                                                               \
                               "Called the normal version of ets_insert_2_list_lock_tbl.\n"     \
                               "But only the yieldable version of ets_insert_2_list_lock_tbl should be called\n")
 #define YCF_GET_EXTRA_CONTEXT() NULL
 
-static int ets_insert_2_list_check(int keypos, Eterm list)
+static long ets_insert_2_list_check(int keypos, Eterm list)
 {
     Eterm lst = THE_NON_VALUE;
-    int i = 0;
+    long i = 0;
     for (lst = list; is_list(lst); lst = CDR(list_val(lst))) {
         i++;
         if (is_not_tuple(CAR(list_val(lst))) ||
             (arityval(*tuple_val(CAR(list_val(lst)))) < keypos)) {
-            return DB_ERROR_BADITEM;
+            return -1;
         }
     }
     if (lst != NIL) {
-        return DB_ERROR_BADITEM;
+        return -1;
     }
-    return DB_ERROR_NONE;
+    return i;
 }
 
 static int ets_insert_new_2_list_has_member(DbTable* tb, Eterm list)
@@ -1662,26 +1663,25 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
     int cret = DB_ERROR_NONE;
     void* db_term_list = NULL; /* OBS: memory managements depends on that
                                   db_term_list is initialized to NULL */
-    const int without_trap_const = 2;
-    long nr_of_reductions_given = YCF_NR_OF_REDS_LEFT();
-    long consumed_reds;
     DbTableMethod* meth = tb->common.meth;
     int compressed = tb->common.compress;
     int keypos = tb->common.keypos;
     Uint bif_ix = (is_insert_new ? BIF_ets_insert_new_2 : BIF_ets_insert_2);
+    long list_len;
     /* tb should not be accessed after this point unless the table
        lock is held as the table can get deleted while the function is
        yielding */
-    cret = ets_insert_2_list_check(keypos, list);
-    if (cret != DB_ERROR_NONE) {
-        return ets_cret_to_return_value(p, cret);
+    list_len = ets_insert_2_list_check(keypos, list);
+    if (list_len < 0) {
+        return ets_cret_to_return_value(p, DB_ERROR_BADITEM);
     }
-    consumed_reds = nr_of_reductions_given - YCF_NR_OF_REDS_LEFT();
-    if (consumed_reds < (nr_of_reductions_given/without_trap_const)) {
+    if (list_len < YCF_NR_OF_REDS_LEFT()) {
+        long reds_boost;
         /* There is enough reductions left to do the inserts directly
            from the heap without yielding */
         ets_insert_2_list_lock_tbl(table_id, p, bif_ix, ETS_INSERT_2_LIST_PROCESS_LOCAL);
         /* Ensure that we will not yield while inserting from heap */
+        reds_boost = YCF_MAX_NR_OF_REDS - YCF_NR_OF_REDS_LEFT();
         YCF_SET_NR_OF_REDS_LEFT(YCF_MAX_NR_OF_REDS);
         if (is_insert_new) {
             if (ets_insert_new_2_list_has_member(tb, list)) {
@@ -1693,8 +1693,7 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
             cret = ets_insert_2_list_from_p_heap(tb, list);
         }
         db_unlock(tb, LCK_WRITE);
-        YCF_SET_NR_OF_REDS_LEFT(consumed_reds -
-                                (YCF_MAX_NR_OF_REDS - YCF_NR_OF_REDS_LEFT()));
+        YCF_SET_NR_OF_REDS_LEFT(YCF_NR_OF_REDS_LEFT() - reds_boost);
         return ets_cret_to_return_value(p, cret);
     }
     /* Copy term list from heap so that other processes can help */
