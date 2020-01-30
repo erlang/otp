@@ -986,6 +986,9 @@ typedef struct {
     ERL_NIF_TERM  closeRef;
     BOOLEAN_T     closeLocal;
 
+    /* Lock order: closeMtx, readMtx, accMtx, writeMtx, cfgMtx
+     * unordered: cntMtx
+     */
 } ESockDescriptor;
 
 
@@ -995,13 +998,19 @@ typedef struct {
     /* These are for debugging, testing and the like */
     // ERL_NIF_TERM version;
     // ERL_NIF_TERM buildDate;
+
+    /* XXX Should be locked but too awkward and small gain */
     BOOLEAN_T    dbg;
 
     /* Registry stuff */
-    ErlNifPid    regPid;
+    ErlNifPid    regPid; /* Constant - not locked */
 
+    /* XXX
+     * Should be locked but too awkward for no gain since it is not used yet
+     */
     BOOLEAN_T    iow; // Where do we send this? Subscription?
-    ErlNifMutex* cntMtx;
+
+    ErlNifMutex* cntMtx; /* Locks the below */
     /* Its extreme overkill to have these counters be 64-bit,
      * but since the other counters are, its much simpler to
      * let to let these be 64-bit also
@@ -16344,15 +16353,18 @@ ERL_NIF_TERM recv_check_fail_econnreset(ErlNifEnv*       env,
      * </KOLLA>
      */
 
-    MLOCK(descP->closeMtx);
+    recv_error_current_reader(env, descP, sockRef, reason);
 
+    MUNLOCK(descP->readMtx);
+
+    MLOCK(descP->closeMtx);
+    MLOCK(descP->readMtx);
+
+    descP->isReadable = FALSE;
     descP->closeLocal = FALSE;
     descP->state      = ESOCK_STATE_CLOSING;
-    descP->isReadable = FALSE;
 
     MUNLOCK(descP->closeMtx);
-
-    recv_error_current_reader(env, descP, sockRef, reason);
 
     return res;
 }
@@ -20634,11 +20646,11 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 
     /* If we are called with a direct call; we already have closeMtx
      */
-    MLOCK(descP->readMtx);
-    MLOCK(descP->writeMtx);
-    MLOCK(descP->accMtx);
-    MLOCK(descP->cfgMtx);
     if (!is_direct_call) MLOCK(descP->closeMtx);
+    MLOCK(descP->readMtx);
+    MLOCK(descP->accMtx);
+    MLOCK(descP->writeMtx);
+    MLOCK(descP->cfgMtx);
     
     SSDBG( descP, ("SOCKET", "esock_stop -> "
                    "[%d, %T] all mutex(s) locked when counters:"
@@ -20798,11 +20810,11 @@ void esock_stop(ErlNifEnv* env, void* obj, int fd, int is_direct_call)
 
     SSDBG( descP, ("SOCKET", "esock_stop -> unlock all mutex(s)\r\n") );
 
-    if (!is_direct_call) MUNLOCK(descP->closeMtx);
     MUNLOCK(descP->cfgMtx);
-    MUNLOCK(descP->accMtx);
     MUNLOCK(descP->writeMtx);
+    MUNLOCK(descP->accMtx);
     MUNLOCK(descP->readMtx);
+    if (!is_direct_call) MUNLOCK(descP->closeMtx);
 
     /* And finally update the registry */
     esock_send_reg_del_msg(env, sockRef);    
@@ -21073,19 +21085,19 @@ void esock_down(ErlNifEnv*           env,
 
             sockRef = enif_make_resource(env, descP);
 
-            MLOCK(descP->accMtx);
-            if (descP->currentAcceptorP != NULL)
-                esock_down_acceptor(env, descP, sockRef, pid);
-            MUNLOCK(descP->accMtx);
-
-            MLOCK(descP->writeMtx);
-            if (descP->currentWriterP != NULL)
-                esock_down_writer(env, descP, sockRef, pid);
-            MUNLOCK(descP->writeMtx);
-
             MLOCK(descP->readMtx);
+            MLOCK(descP->accMtx);
+            MLOCK(descP->writeMtx);
+
             if (descP->currentReaderP != NULL)
                 esock_down_reader(env, descP, sockRef, pid);
+            if (descP->currentAcceptorP != NULL)
+                esock_down_acceptor(env, descP, sockRef, pid);
+            if (descP->currentWriterP != NULL)
+                esock_down_writer(env, descP, sockRef, pid);
+
+            MUNLOCK(descP->writeMtx);
+            MUNLOCK(descP->accMtx);
             MUNLOCK(descP->readMtx);
 
         }
