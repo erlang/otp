@@ -1480,8 +1480,8 @@ ets_cret_to_return_value(Process* p, int cret)
  * ets_insert_new_2 prefixes below are not called directly. YCF
  * generates yieldable versions of these functions before "erl_db.c" is
  * compiled. These generated functions are placed in the file
- * "erl_db_insert_list.inc" which is included below. The generation of
- * "erl_db_insert_list.inc" is defined in
+ * "erl_db_insert_list.ycf.h" which is included below. The generation of
+ * "erl_db_insert_list.ycf.h" is defined in
  * "$ERL_TOP/erts/emulator/Makefile.in". See
  * "$ERL_TOP/erts/emulator/internal_doc/AutomaticYieldingOfCCode.md"
  * for more information about YCF.
@@ -1760,7 +1760,7 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
  * <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
  * <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
  */
-#include "erl_db_insert_list.inc"
+#include "erl_db_insert_list.ycf.h"
 
 static void* ets_insert_2_yield_alloc(size_t size, void* ctx)
 {
