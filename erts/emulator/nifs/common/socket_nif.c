@@ -3354,37 +3354,51 @@ ERL_NIF_TERM nif_info(ErlNifEnv*         env,
 static
 ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
 {
-    ERL_NIF_TERM numBits        = MKCT(env, atom_num_cnt_bits, ESOCK_COUNTER_SIZE);
-    ERL_NIF_TERM numSockets     = MKCT(env, atom_num_sockets,  data.numSockets);
-    ERL_NIF_TERM numTypeDGrams  = MKCT(env, atom_num_tdgrams,  data.numTypeDGrams);
-    ERL_NIF_TERM numTypeStreams = MKCT(env, atom_num_tstreams, data.numTypeStreams);
-    ERL_NIF_TERM numTypeSeqPkgs = MKCT(env, atom_num_tseqpkgs, data.numTypeSeqPkgs);
-    ERL_NIF_TERM numDomLocal    = MKCT(env, atom_num_dlocal,   data.numDomainLocal);
-    ERL_NIF_TERM numDomInet     = MKCT(env, atom_num_dinet,    data.numDomainInet);
-    ERL_NIF_TERM numDomInet6    = MKCT(env, atom_num_dinet6,   data.numDomainInet6);
-    ERL_NIF_TERM numProtoIP     = MKCT(env, atom_num_pip,      data.numProtoIP);
-    ERL_NIF_TERM numProtoTCP    = MKCT(env, atom_num_ptcp,     data.numProtoTCP);
-    ERL_NIF_TERM numProtoUDP    = MKCT(env, atom_num_pudp,     data.numProtoUDP);
-    ERL_NIF_TERM numProtoSCTP   = MKCT(env, atom_num_psctp,    data.numProtoSCTP);
-    ERL_NIF_TERM gcnt[]  = {numBits,
-                            numSockets,
-                            numTypeDGrams, numTypeStreams, numTypeSeqPkgs,
-                            numDomLocal, numDomInet, numDomInet6,
-                            numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP};
-    unsigned int lenGCnt = sizeof(gcnt) / sizeof(ERL_NIF_TERM);
-    ERL_NIF_TERM lgcnt   = MKLA(env, gcnt, lenGCnt);
-    ERL_NIF_TERM keys[]  = {esock_atom_debug, atom_iow, atom_counters};
-    ERL_NIF_TERM vals[]  = {BOOL2ATOM(data.dbg), BOOL2ATOM(data.iow), lgcnt};
-    ERL_NIF_TERM info;
-    unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
-    unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+    ERL_NIF_TERM
+        numBits, numSockets, numTypeDGrams, numTypeStreams,
+        numTypeSeqPkgs, numDomLocal, numDomInet, numDomInet6,
+        numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP;
 
-    ESOCK_ASSERT( (numKeys == numVals) );
+    MLOCK(data.cntMtx);
+    numBits        = MKCT(env, atom_num_cnt_bits, ESOCK_COUNTER_SIZE);
+    numSockets     = MKCT(env, atom_num_sockets,  data.numSockets);
+    numTypeDGrams  = MKCT(env, atom_num_tdgrams,  data.numTypeDGrams);
+    numTypeStreams = MKCT(env, atom_num_tstreams, data.numTypeStreams);
+    numTypeSeqPkgs = MKCT(env, atom_num_tseqpkgs, data.numTypeSeqPkgs);
+    numDomLocal    = MKCT(env, atom_num_dlocal,   data.numDomainLocal);
+    numDomInet     = MKCT(env, atom_num_dinet,    data.numDomainInet);
+    numDomInet6    = MKCT(env, atom_num_dinet6,   data.numDomainInet6);
+    numProtoIP     = MKCT(env, atom_num_pip,      data.numProtoIP);
+    numProtoTCP    = MKCT(env, atom_num_ptcp,     data.numProtoTCP);
+    numProtoUDP    = MKCT(env, atom_num_pudp,     data.numProtoUDP);
+    numProtoSCTP   = MKCT(env, atom_num_psctp,    data.numProtoSCTP);
+    MUNLOCK(data.cntMtx);
 
-    if (!MKMA(env, keys, vals, numKeys, &info))
-        return enif_make_badarg(env);
+    {
+        ERL_NIF_TERM gcnt[] =
+            {numBits,
+             numSockets,
+             numTypeDGrams, numTypeStreams, numTypeSeqPkgs,
+             numDomLocal, numDomInet, numDomInet6,
+             numProtoIP, numProtoTCP, numProtoUDP, numProtoSCTP};
+        unsigned int lenGCnt =
+            sizeof(gcnt) / sizeof(ERL_NIF_TERM);
+        ERL_NIF_TERM
+            lgcnt  = MKLA(env, gcnt, lenGCnt),
+            keys[] = {esock_atom_debug, atom_iow, atom_counters},
+            vals[] = {BOOL2ATOM(data.dbg), BOOL2ATOM(data.iow), lgcnt},
+            info;
+        unsigned int
+            numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM),
+            numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
 
-    return info;
+        ESOCK_ASSERT( (numKeys == numVals) );
+
+        if (!MKMA(env, keys, vals, numKeys, &info))
+            return enif_make_badarg(env);
+
+        return info;
+    }
 }
 
 
