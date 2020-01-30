@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -43,7 +43,7 @@
       Windows services applet in a manner similar to other services.</p>
 
     <p>Notice that <c>erlsrv</c> is not a general service utility for Windows,
-      but designed for embedded Erlang systems.</p> 
+      but designed for embedded Erlang systems.</p>
 
     <p><c>erlsrv</c> also provides a command-line interface for registering,
       changing, starting, and stopping services.</p>
@@ -471,10 +471,10 @@
 
     <code type="none"><![CDATA[
 #include <windows.h>
-/* 
+/*
 ** A Console control handler that ignores the log off events,
 ** and lets the default handler take care of other events.
-*/   
+*/
 BOOL WINAPI service_aware_handler(DWORD ctrl){
     if(ctrl == CTRL_LOGOFF_EVENT)
         return TRUE;
@@ -485,8 +485,8 @@ BOOL WINAPI service_aware_handler(DWORD ctrl){
 
 void initialize_handler(void){
     char buffer[2];
-    /* 
-     * We assume we are running as a service if this  
+    /*
+     * We assume we are running as a service if this
      * environment variable is defined.
      */
     if(GetEnvironmentVariable("ERLSRV_SERVICE_NAME",buffer,
@@ -530,4 +530,3 @@ void initialize_handler(void){
       <c>release_handler(3)</c></seealso></p>
   </section>
 </comref>
-

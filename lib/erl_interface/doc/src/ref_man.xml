@@ -36,5 +36,5 @@
   <xi:include href="ei_connect.xml"/>
   <xi:include href="registry.xml"/>
   <xi:include href="ei_global.xml"/>
-  <xi:include href="erl_call.xml"/>
+  <xi:include href="erl_call_cmd.xml"/>
 </application>

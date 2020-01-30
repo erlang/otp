@@ -28,11 +28,6 @@ VSN=$(HIPE_VSN)
 APPLICATION=hipe
 
 # ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES =  ref_man.xml
@@ -47,73 +42,4 @@ XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
 
-GIF_FILES =
-
-# ----------------------------------------------------
-
-HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-INFO_FILE = ../../info
-EXTRA_FILES = \
-	$(DEFAULT_GIF_FILES) \
-	$(DEFAULT_HTML_FILES) \
-	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
-
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE =  $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
-	$(INSTALL_DATA) $< $@
-
-docs: pdf html man
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: gifs $(HTML_REF_MAN_FILE)
-
-man: $(MAN3_FILES)
-
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
-
-debug opt:
-
-clean clean_docs:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN3DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~
-
-distclean: clean
-realclean: clean
-
-# ----------------------------------------------------
-# Release Target
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-
-
-release_spec:
+include $(ERL_TOP)/make/doc.mk

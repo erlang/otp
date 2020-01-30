@@ -21,17 +21,13 @@
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
+
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
 include ../../vsn.mk
 VSN=$(ASN1_VSN)
 APPLICATION=asn1
-
-# ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 
 # ----------------------------------------------------
 # Target Specs
@@ -47,6 +43,7 @@ XML_PART_FILES = part.xml
 XML_HTML_FILE =  \
 	notes_history.xml
 
+
 XML_CHAPTER_FILES = \
 	asn1_introduction.xml \
 	asn1_getting_started.xml \
@@ -60,77 +57,11 @@ XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES) \
 
 XML_GEN_FILES = $(GEN_XML:%=$(XMLDIR)/%)
 
-GIF_FILES = \
+IMAGE_FILES = \
 	exclusive_Win_But.gif \
 	selective_Window2.gif \
 	selective_TypeList.gif
 
-# ----------------------------------------------------
+include $(ERL_TOP)/make/doc.mk
 
-ASN1_FILES = \
-	Seq.asn \
-	Seq.asn1config
-
-INFO_FILE = ../../info
-EXTRA_FILES = \
-	$(DEFAULT_HTML_FILES) \
-	$(ASN1_FILES) \
-	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(GEN_XML:%.xml=$(HTMLDIR)/%.html) \
-
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-# ----------------------------------------------------
-# FLAGS 
-# ----------------------------------------------------
-XML_FLAGS += 
-DVIPS_FLAGS += 
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
-	$(INSTALL_DATA) $< $@
-
-docs: pdf html man
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: gifs $(HTML_REF_MAN_FILE)
-
-clean clean_docs:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN3DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f $(GEN_XML) errs core *~
-
-man: $(MAN3_FILES)
-
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
-
-debug opt: 
-
-# ----------------------------------------------------
-# Release Target
-# ---------------------------------------------------- 
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
-
-release_spec:
+.SECONDARY: $(XML_GEN_FILES)

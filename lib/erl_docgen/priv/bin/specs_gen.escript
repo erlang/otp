@@ -48,7 +48,8 @@ main(Args) ->
 parse(["-o"++Dir | Opts], InclFs, _, Module) ->
     parse(Opts, InclFs, Dir, Module);
 parse(["-I"++I | Opts], InclFs, Dir, Module) ->
-    parse(Opts, [I | InclFs], Dir, Module);
+    Is = filelib:wildcard(I),
+    parse(Opts, Is ++ InclFs, Dir, Module);
 parse(["-module", Module | Opts], InclFs, Dir, _) ->
     parse(Opts, InclFs, Dir, Module);
 parse([File], InclFs, Dir, no_module) ->

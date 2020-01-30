@@ -60,7 +60,7 @@ endif
 
 ifeq ($(TOPDOC),)
 
-$(HTMLDIR)/index.html: $(XML_GEN_FILES) $(SPECS_FILES)
+$(HTMLDIR)/index.html: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --noout \
           --stringparam outdir $(HTMLDIR) \
@@ -83,7 +83,7 @@ $(HTMLDIR)/index.html: $(XML_GEN_FILES) $(SPECS_FILES)
 
 endif
 
-$(HTMLDIR)/users_guide.html: $(XML_GEN_FILES)
+$(HTMLDIR)/users_guide.html: $(XML_GEN_FILES) $(TOP_SPECS_FILE)
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) --noout  \
 		--stringparam outdir  $(HTMLDIR)  \
@@ -104,7 +104,7 @@ $(HTMLDIR)/users_guide.html: $(XML_GEN_FILES)
 	        -path $(DOCGEN)/priv/dtd_html_entities \
 	        $(DOCGEN)/priv/xsl/db_html.xsl $(XMLDIR)/book.xml
 
-%.fo: $(XML_GEN_FILES) $(SPECS_FILES)
+%.fo: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	$(XSLTPROC) \
          --stringparam docgen "$(DOCGEN)" \

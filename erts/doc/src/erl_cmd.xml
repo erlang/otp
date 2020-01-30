@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -181,7 +181,7 @@
           which is used to start the system; see
           <seealso marker="init"><c>init(3)</c></seealso>. Unless
           <c><![CDATA[File]]></c> contains an absolute path, the system searches
-          for <c><![CDATA[File.boot]]></c> in the current and 
+          for <c><![CDATA[File.boot]]></c> in the current and
           <c><![CDATA[$ROOT/bin]]></c> directories.</p>
         <p>Defaults to <c><![CDATA[$ROOT/bin/start.boot]]></c>.</p>
       </item>
@@ -852,7 +852,7 @@
         <p>Sets the range of characters that the system considers printable in
           heuristic detection of strings. This typically affects the shell,
           debugger, and <c>io:format</c> functions (when <c>~tp</c> is used in
-          the format string).</p> 
+          the format string).</p>
         <p>Two values are supported for <c>Range</c>:</p>
         <taglist>
           <tag><c>latin1</c></tag>
@@ -1275,7 +1275,7 @@
               node identifiers can be omitted. If omitted, the thread ID
               defaults to <c>t0</c>, the core ID defaults to <c>c0</c>,
               the processor ID defaults to <c>p0</c>, and the node ID is
-              left undefined. Either each logical processor must 
+              left undefined. Either each logical processor must
               belong to only one NUMA node, or no logical
               processors must belong to any NUMA nodes.</p>
             <p>Both increasing and decreasing <c><![CDATA[<IdRange>]]></c>s

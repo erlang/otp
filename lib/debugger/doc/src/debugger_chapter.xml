@@ -153,7 +153,7 @@
 
       <p>A line breakpoint is created at a certain line in a module.</p>
 
-      <image file="images/line_break_dialog.jpg">
+      <image file="line_break_dialog.jpg">
         <icaption>Line Break Dialog Window</icaption>
       </image>
 
@@ -185,7 +185,7 @@
         <seealso marker="int#get_binding/2"><c>int:get_binding(Variable,Bindings)</c></seealso>.
         The function returns <c>unbound</c> or <c>{value,Value}</c>.</p>
 	
-      <image file="images/cond_break_dialog.jpg">
+      <image file="cond_break_dialog.jpg">
         <icaption>Conditional Break Dialog Window</icaption>
       </image>
 
@@ -225,7 +225,7 @@ c_break(Bindings) ->
       <p>A function breakpoint is a set of line breakpoints, one at
         the first line of each clause in the specified function.</p>
 
-      <image file="images/function_break_dialog.jpg">
+      <image file="function_break_dialog.jpg">
         <icaption>Function Break Dialog Window</icaption>
       </image>
 
@@ -307,7 +307,7 @@ c_break(Bindings) ->
         modules</p></item>
       </list>
 
-    <image file="images/monitor.jpg">
+    <image file="monitor.jpg">
       <icaption>Monitor Window</icaption>
     </image>
 
@@ -593,7 +593,7 @@ c_break(Bindings) ->
     <pre>
 4> c(module, debug_info).</pre>
 
-    <image file="images/interpret.jpg">
+    <image file="interpret.jpg">
       <icaption>Interpret Modules Window</icaption>
     </image>
 
@@ -624,7 +624,7 @@ c_break(Bindings) ->
       been attached to. Notice that when attaching to a process, its
       execution is automatically stopped.</p>
 
-    <image file="images/attach.jpg">
+    <image file="attach.jpg">
       <icaption>Attach Process Window</icaption>
     </image>
 
@@ -819,7 +819,7 @@ c_break(Bindings) ->
     <p>The View Module window displays the contents of an interpreted
       module and makes it possible to set breakpoints.</p>
 
-    <image file="images/view.jpg">
+    <image file="view.jpg">
       <icaption>View Module Window</icaption>
     </image>
 

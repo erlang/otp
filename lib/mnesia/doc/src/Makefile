@@ -30,11 +30,6 @@ VSN=$(MNESIA_VSN)
 APPLICATION=mnesia
 
 # ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
@@ -70,81 +65,9 @@ XML_FILES = \
 
 XML_GEN_FILES = $(XML_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
-GIF_FILES = \
+IMAGE_FILES = \
 	company.gif
 
-XML_HTML_FILES = \
-	notes_history.xml
-
-
 # ----------------------------------------------------
 
-HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_HTML_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-INFO_FILE = ../../info
-EXTRA_FILES = \
-	$(DEFAULT_GIF_FILES) \
-	$(DEFAULT_HTML_FILES) \
-	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
-
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
-DVIPS_FLAGS +=
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
-	$(INSTALL_DATA) $< $@
-
-docs: pdf html man
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: gifs $(HTML_REF_MAN_FILE)
-
-clean clean_docs:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN3DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~
-
-man: $(MAN3_FILES)
-
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
-
-$(INDEX_TARGET): $(INDEX_SRC) ../../vsn.mk
-	sed -e 's;%VSN%;$(VSN);' $< > $@
-
-debug opt:
-
-# ----------------------------------------------------
-# Release Target
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3_FILES) "$(RELEASE_PATH)/man/man3"
-
-release_spec:
+include $(ERL_TOP)/make/doc.mk
