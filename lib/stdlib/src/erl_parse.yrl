@@ -736,7 +736,7 @@ Erlang code.
 
 -type af_template() :: abstract_expr().
 
--type af_qualifier_seq() :: [af_qualifier()].
+-type af_qualifier_seq() :: [af_qualifier(), ...].
 
 -type af_qualifier() :: af_generator() | af_filter().
 
@@ -753,7 +753,7 @@ Erlang code.
 
 -type af_try() :: {'try',
                    anno(),
-                   af_body() | [],
+                   af_body(),
                    af_clause_seq() | [],
                    af_clause_seq() | [],
                    af_body() | []}.
@@ -769,7 +769,10 @@ Erlang code.
 
 -type af_remote_fun() ::
         {'fun', anno(), {'function', module(), function_name(), arity()}}
-      | {'fun', anno(), {'function', af_atom(), af_atom(), af_integer()}}.
+      | {'fun', anno(), {'function',
+                         af_atom() | af_variable(),
+                         af_atom() | af_variable(),
+                         af_integer() | af_variable()}}.
 
 -type af_fun() :: {'fun', anno(), {'clauses', af_clause_seq()}}.
 
@@ -799,8 +802,8 @@ Erlang code.
                        | af_record_creation(af_guard_test())
                        | af_record_index()
                        | af_record_field_access(af_guard_test())
-                       | af_map_creation(abstract_expr())
-                       | af_map_update(abstract_expr())
+                       | af_map_creation(af_guard_test())
+                       | af_map_update(af_guard_test())
                        | af_guard_call()
                        | af_remote_guard_call().
 
@@ -816,7 +819,7 @@ Erlang code.
 
 -type af_assoc_exact(T) :: {'map_field_exact', anno(), T, T}.
 
--type af_guard_call() :: {'call', anno(), function_name(), [af_guard_test()]}.
+-type af_guard_call() :: {'call', anno(), af_atom(), [af_guard_test()]}.
 
 -type af_remote_guard_call() ::
         {'call', anno(),
@@ -845,7 +848,7 @@ Erlang code.
 -type af_record_field(T) :: {'record_field', anno(), af_field_name(), T}.
 
 -type af_map_pattern() ::
-        {'map', anno(), [af_assoc_exact(abstract_expr())]}.
+        {'map', anno(), [af_assoc_exact(af_pattern())]}.
 
 -type abstract_type() :: af_annotated_type()
                        | af_atom()
@@ -907,7 +910,8 @@ Erlang code.
 -type af_tuple_type() :: {'type', anno(), 'tuple', 'any'}
                        | {'type', anno(), 'tuple', [abstract_type()]}.
 
--type af_type_union() :: {'type', anno(), 'union', [abstract_type()]}.
+-type af_type_union() ::
+        {'type', anno(), 'union', [abstract_type(), ...]}. % at least two
 
 -type af_type_variable() :: {'var', anno(), atom()}. % except '_'
 
@@ -915,7 +919,7 @@ Erlang code.
         {'user_type', anno(), type_name(),  [abstract_type()]}.
 
 -type af_function_type_list() :: [af_constrained_function_type() |
-                                  af_function_type()].
+                                  af_function_type(), ...].
 
 -type af_constrained_function_type() ::
         {'type', anno(), 'bounded_fun', [af_function_type() | % [Ft, Fc]
@@ -925,7 +929,7 @@ Erlang code.
         {'type', anno(), 'fun',
          [{'type', anno(), 'product', [abstract_type()]} | abstract_type()]}.
 
--type af_function_constraint() :: [af_constraint()].
+-type af_function_constraint() :: [af_constraint(), ...].
 
 -type af_constraint() :: {'type', anno(), 'constraint',
                           [af_lit_atom('is_subtype') |
