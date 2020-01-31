@@ -754,6 +754,13 @@ simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
         _ ->
             #b_literal{val=false}
     end;
+simplify(#b_set{op={bif,is_map_key},args=[Key,Map]}=I, Ts) ->
+    case normalized_type(Map, Ts) of
+        #t_map{} ->
+            I#b_set{op=has_map_field,args=[Map,Key]};
+        _ ->
+            I
+    end;
 simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '==';
                                                     Op0 =:= '/=' ->
     Types = normalized_types(Args, Ts),
@@ -938,6 +945,8 @@ will_succeed_1(#b_set{op=call,
 will_succeed_1(#b_set{op=get_hd}, _Src, _Ts, _Sub) ->
     yes;
 will_succeed_1(#b_set{op=get_tl}, _Src, _Ts, _Sub) ->
+    yes;
+will_succeed_1(#b_set{op=has_map_field}, _Src, _Ts, _Sub) ->
     yes;
 will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts, _Sub) ->
     yes;
