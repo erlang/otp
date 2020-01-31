@@ -6549,20 +6549,6 @@ true</pre>
               <c>process_flag(message_queue_data,
               <anno>MQD</anno>)</c></seealso>.</p>
           </item>
-          <tag><c>{timeout, <anno>Timeout</anno>}</c></tag>
-          <item>
-	    <p>
-	      Sets a timeout on the spawn operation to
-	      <c><anno>Timeout</anno></c> milliseconds. If
-	      the operation has not succeeded or failed before
-	      the timeout triggers, the spawn operation will
-	      fail and an a <c>timeout</c> exception is raised.
-	      A new process may or may not have been created. If
-	      it has been created and the <c>link</c> option was
-	      passed as well, it will be delivered an exit signal
-	      with an exit reason of <c>timeout</c>.
-	    </p>
-          </item>
         </taglist>
       </desc>
     </func>
@@ -6724,10 +6710,9 @@ true</pre>
 	message will be sent to the caller. Such a message is referred
 	to as an <i>error message</i> below in the text. The spawn operation
 	fail either if creation of a new process failed or if the
-	spawn operation was interrupted by a connection failure or a
-	timeout before it completed. Currently the following failure
-	<c>Reason</c>s are defined, but other reasons can appear at any
-	time without prior notice:</p>
+	spawn operation was interrupted by a connection failure.
+	Currently the following failure <c>Reason</c>s are defined, but
+	other reasons can appear at any time without prior notice:</p>
 	<taglist>
 	  <tag><c>badopt</c></tag>
 	  <item>
@@ -6762,16 +6747,6 @@ true</pre>
 	      the spawn operation. In the case the
 	      connection was lost, a process may or may
 	      not have been created.
-	    </p>
-	  </item>
-	  <tag><c>timeout</c></tag>
-	  <item>
-	    <p>
-	      A timeout had been set on the operation using
-	      the <c>{timeout, <anno>Timeout</anno>}</c> option,
-	      and the spawn operation failed to complete before
-	      the timeout expired. A process may or may not
-	      have been created.
 	    </p>
 	  </item>
 	</taglist>
@@ -6851,29 +6826,6 @@ true</pre>
 	      message that will be sent to the caller due to the
 	      spawn operation. The default reply tag is the atom
 	      <c>spawn_reply</c>.
-	    </p>
-	  </item>
-	  <tag><c>{timeout, <anno>Timeout</anno>}</c></tag>
-	  <item>
-	    <p>
-	      Sets a timeout on the spawn request operation to
-	      <c><anno>Timeout</anno></c> milliseconds. Valid range
-	      of <c><anno>Timeout</anno></c> is
-	      <c>[0, </c><seealso marker="#convert_time_unit/3"><c>erlang:convert_time_unit</c></seealso><c>(</c><seealso marker="#system_info_end_time"><c>erlang:system_info(end_time)</c></seealso><c>
-	      - </c><seealso marker="#monotonic_time/0"><c>erlang:monotonic_time()</c></seealso><c>,
-	      native, millisecond)]</c>.
-
-	      If the operation has not succeeded or failed before
-	      the timeout triggers, the spawn operation will
-	      fail and an
-	      <seealso marker="#spawn_request_error_message"><i>error
-	      message</i></seealso> with a <c>Reason</c> of
-	      <c>timeout</c> will be delivered to the
-	      caller of <c>spawn_request()</c>. A new process
-	      may or may not have been created. If it has been
-	      created and the <c>link</c> option was passed as
-	      well, it will be delivered an exit signal with
-	      an exit reason of <c>timeout</c>.
 	    </p>
 	  </item>
 	  <tag><c><anno>OtherOption</anno></c></tag>

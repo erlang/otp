@@ -434,8 +434,6 @@
 #define ERTS_ML_FLG_SPAWN_PENDING       (((Uint16) 1) << 5)
 #define ERTS_ML_FLG_SPAWN_MONITOR       (((Uint16) 1) << 6)
 #define ERTS_ML_FLG_SPAWN_LINK          (((Uint16) 1) << 7)
-#define ERTS_ML_FLG_SPAWN_TIMEOUT       (((Uint16) 1) << 8)
-#define ERTS_ML_FLG_SPAWN_TIMED_OUT     (((Uint16) 1) << 9)
 
 #define ERTS_ML_FLG_DBG_VISITED         (((Uint16) 1) << 15)
 

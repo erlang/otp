@@ -68,9 +68,6 @@ erts_handle_canceled_timers(void *vesdp,
 			    int *need_thr_progress,
 			    ErtsThrPrgrVal *thr_prgr_p,
 			    int *need_more_work);
-int erts_setup_spawn_timer(Process *c_p, Eterm ref, Eterm timeout);
-void erts_cancel_spawn_timer(Process *c_p, Eterm ref);
-int erts_check_spawn_timer_timeout(Eterm);
 
 Uint erts_bif_timer_memory_size(void);
 void erts_print_bif_timer_info(fmtfn_t to, void *to_arg);

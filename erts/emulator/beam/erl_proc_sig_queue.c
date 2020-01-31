@@ -2424,7 +2424,6 @@ static int
 convert_to_down_message(Process *c_p,
                         ErtsMessage *sig,
                         ErtsMonitorData *mdp,
-                        ErtsMonitor **omon,
                         Uint16 mon_type,
                         ErtsMessage ***next_nm_sig)
 {
@@ -2455,13 +2454,6 @@ convert_to_down_message(Process *c_p,
 
         /* Should only happen when connection breaks... */
         ASSERT(reason == am_noconnection);
-
-        if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-            /* Operation had already timed out... */
-            erts_monitor_release(*omon);
-            *omon = NULL;
-            return 1;
-        }
 
         cnt += 4;
 
@@ -3428,85 +3420,13 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         /* Dist code should not have created a link on failure... */
 
         ASSERT(is_not_atom(result) || !datap->link);
-        /* delete monitor structure unless timeout (with link)... */
-        adjust_monitor = 0;
-
-        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-            omon->flags &= ~ERTS_ML_FLG_SPAWN_TIMEOUT;
-            if (result == am_timeout
-                && ERL_MESSAGE_FROM(sig) == am_clock_service
-                && (omon->flags & ERTS_ML_FLG_SPAWN_LINK)) {
-                adjust_monitor = -1; /* Leave it for the link... */
-                omon->flags |= ERTS_ML_FLG_SPAWN_TIMED_OUT;
-            }
-            else {
-                erts_cancel_spawn_timer(c_p, datap->ref);
-            }
-        }
-    }
-    else if (omon->flags & ERTS_ML_FLG_SPAWN_TIMED_OUT) {
-        /*
-         * Spawn operation has already timed out and
-         * link option was passed. Send exit signal
-         * with exit reason 'timeout'...
-         */
-        DistEntry *dep;
-        ErtsMonLnkDist *dist;
-        ErtsMonitorDataExtended *mdep;
-        ErtsLink *lnk;
-        
-        mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
-        dist = mdep->dist;
-
-        ASSERT(!(omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT));
-        ASSERT(omon->flags & ERTS_ML_FLG_SPAWN_LINK);
-        
-        lnk = datap->link;
-        if (lnk) {
-            ErtsLinkData *ldp;
-            ErtsLink *dlnk;
-            dlnk = erts_link_to_other(lnk, &ldp);
-            if (erts_link_dist_delete(dlnk))
-                erts_link_release_both(ldp);
-            else
-                erts_link_release(lnk);
-        }
-        
-        ASSERT(is_external_pid(result));
-        dep = external_pid_dist_entry(result);
-
-        if (dep != erts_this_dist_entry && dist->nodename == dep->sysname) {
-            ErtsDSigSendContext ctx;
-            int code = erts_dsig_prepare(&ctx, dep, c_p, 0,
-                                         ERTS_DSP_NO_LOCK, 1, 1, 0);
-            switch (code) {
-            case ERTS_DSIG_PREP_CONNECTED:
-            case ERTS_DSIG_PREP_PENDING:
-                if (dist->connection_id == ctx.connection_id) {
-                    code = erts_dsig_send_exit_tt(&ctx,
-                                                  c_p->common.id,
-                                                  result,
-                                                  am_timeout,
-                                                  SEQ_TRACE_TOKEN(c_p));
-                    ASSERT(code == ERTS_DSIG_SEND_OK);
-                }
-                break;
-            default:
-                break;
-            }
-        }
         /* delete monitor structure... */
         adjust_monitor = 0;
-        /* drop message... */
-        convert_to_message = 0;
     }
     else {
         /* Success... */
         ASSERT(is_external_pid(result));
         
-        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT)
-            erts_cancel_spawn_timer(c_p, datap->ref);
-
         if (datap->link) {
             cnt++;
             erts_link_tree_insert(&ERTS_P_LINKS(c_p), datap->link);
@@ -3527,8 +3447,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
             hp = &(mdep)->heap[0];
             omon->flags &= ~(ERTS_ML_FLG_SPAWN_PENDING
                              | ERTS_ML_FLG_SPAWN_MONITOR
-                             | ERTS_ML_FLG_SPAWN_LINK
-                             | ERTS_ML_FLG_SPAWN_TIMEOUT);
+                             | ERTS_ML_FLG_SPAWN_LINK);
             ERTS_INIT_OFF_HEAP(&oh);
             oh.first = mdep->uptr.ohhp;
             omon->other.item = copy_struct(result,
@@ -3636,8 +3555,6 @@ handle_dist_spawn_reply_exiting(Process *c_p,
                 /* This link exit *should* have actual reason... */
                 ErtsProcExitContext pectxt = {c_p, reason};
                 /* unless operation already had timed out... */
-                if (omon->flags & ERTS_ML_FLG_SPAWN_TIMED_OUT)
-                    pectxt.reason = am_timeout;
                 erts_proc_exit_handle_link(datap->link, (void *) &pectxt, -1);
                 cnt++;
             }
@@ -3768,7 +3685,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     omon = &mdp->origin;
                     erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p),
                                              omon);
-                    cnt += convert_to_down_message(c_p, sig, mdp, &omon,
+                    cnt += convert_to_down_message(c_p, sig, mdp,
                                                    type, next_nm_sig);
                 }
                 break;
@@ -3790,13 +3707,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                         mdp = erts_monitor_to_data(omon);
                         if (erts_monitor_dist_delete(&mdp->target))
                             tmon = &mdp->target;
-                        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-                            /* Already timed out... */
-                            tmon = &mdp->target;
-                            erts_monitor_release(omon);
-                            omon = NULL;
-                            break;
-                        }
                     }
                     cnt += convert_prepared_down_message(c_p, sig,
                                                          xsigd->message,
