@@ -47,6 +47,32 @@
 %% reduced it to 'any'. Since few operations can make direct use of this extra
 %% type information, types should generally be normalized to one of the above
 %% before use.
+%%
+%% When adding a new type it's important that the lattice stays consistent [1].
+%% In brief, the following properties must hold:
+%%
+%% * All types must be unambiguous; any given value must narrow down to a
+%%   single type, and multiple supertypes are not allowed.
+%%
+%% * `meet` is used when we know more about a value (e.g. type tests), so it
+%%   must not return a more general type than either of its arguments. In other
+%%   words, we're only allowed to *add* knowledge in a `meet`.
+%%
+%% * `join` is used when we know less about a value (e.g. phi node), so it
+%%   must not return a more specific type than either of its arguments. In
+%%   other words we're only allowed to *remove* knowledge in a `join`.
+%%
+%% * Both `join` and `meet` must be commutative, associative, and idempotent.
+%%
+%% Maintaining the above may seem trivial but subtle errors can creep in when
+%% adding fields or restrictions to a type. ?TUPLE_ELEMENT_LIMIT is a great
+%% example of this.
+%%
+%% The property test suite ensures that the above holds, so don't forget to
+%% add your new types there. You should also consider increasing ?REPETITIONS
+%% during development to ensure it hits all nooks and crannies.
+%%
+%% [1] https://en.wikipedia.org/wiki/Lattice_(order)#General_lattice
 
 -define(ATOM_SET_SIZE, 5).
 

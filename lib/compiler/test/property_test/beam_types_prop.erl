@@ -50,10 +50,10 @@ absorption_1() ->
             absorption_check(TypeA, TypeB)).
 
 absorption_check(A, B) ->
-    %% a ∨ (a ∧ b) = a,
+    %% a ∨ (a ∧ b) = a
     A = join(A, meet(A, B)),
 
-    %% a ∧ (a ∨ b) = a.
+    %% a ∧ (a ∨ b) = a
     A = meet(A, join(A, B)),
 
     true.
@@ -69,12 +69,12 @@ associativity_1() ->
             associativity_check(TypeA, TypeB, TypeC)).
 
 associativity_check(A, B, C) ->
-    %% a ∨ (b ∨ c) = (a ∨ b) ∨ c,
+    %% a ∨ (b ∨ c) = (a ∨ b) ∨ c
     LHS_Join = join(A, join(B, C)),
     RHS_Join = join(join(A, B), C),
     LHS_Join = RHS_Join,
 
-    %% a ∧ (b ∧ c) = (a ∧ b) ∧ c.
+    %% a ∧ (b ∧ c) = (a ∧ b) ∧ c
     LHS_Meet = meet(A, meet(B, C)),
     RHS_Meet = meet(meet(A, B), C),
     LHS_Meet = RHS_Meet,
@@ -91,10 +91,10 @@ commutativity_1() ->
             commutativity_check(TypeA, TypeB)).
 
 commutativity_check(A, B) ->
-    %% a ∨ b = b ∨ a,
+    %% a ∨ b = b ∨ a
     true = join(A, B) =:= join(B, A),
 
-    %% a ∧ b = b ∧ a.
+    %% a ∧ b = b ∧ a
     true = meet(A, B) =:= meet(B, A),
 
     true.
@@ -106,10 +106,10 @@ idempotence_1() ->
     ?FORALL(Type, type(), idempotence_check(Type)).
 
 idempotence_check(Type) ->
-    %% a ∨ a = a,
+    %% a ∨ a = a
     Type = join(Type, Type),
 
-    %% a ∧ a = a.
+    %% a ∧ a = a
     Type = meet(Type, Type),
 
     true.
@@ -118,10 +118,10 @@ identity() ->
     ?FORALL(Type, type(), identity_check(Type)).
 
 identity_check(Type) ->
-    %% a ∨ [bottom element] = a,
+    %% a ∨ [bottom element] = a
     Type = join(Type, none),
 
-    %% a ∧ [top element] = a.
+    %% a ∧ [top element] = a
     Type = meet(Type, any),
 
     true.
