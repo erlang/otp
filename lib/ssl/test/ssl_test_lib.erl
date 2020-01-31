@@ -118,7 +118,30 @@ do_run_server(ListenSocket, AcceptSocket, Opts) ->
 	    ct:log("~p:~p~nServer Msg: ~p ~n", [?MODULE,?LINE, Msg]),
 	    Pid ! {self(), Msg}
     end,
+    do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid).
+
+do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
     receive
+        {data, Data} ->
+            ct:log("Send: ~p~n", [Data]),
+            Transport:send(AcceptSocket, Data),
+            do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
+        {active_receive, Data} ->
+            case active_recv(AcceptSocket, length(Data)) of
+                Data ->
+                    Pid ! {self(), ok};
+                _Else ->
+                    Pid ! {self(), active_receive_failed}
+            end,
+            do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
+        {update_keys, Type} ->
+            case ssl:update_keys(AcceptSocket, Type) of
+                ok ->
+                    Pid ! {self(), ok};
+                {error, Reason} ->
+                    Pid ! {error, Reason}
+            end,
+            do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
 	listen ->
 	    run_server(ListenSocket, Opts);
 	{listen, MFA} ->
@@ -390,15 +413,7 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
 		    ct:log("~p:~p~nClient Msg: ~p ~n", [?MODULE,?LINE, Msg]),
 		    Pid ! {self(), Msg}
 	    end,
-	    receive
-		close ->
-		    ct:log("~p:~p~nClient closing~n", [?MODULE,?LINE]),
-		    Transport:close(Socket);
-		{ssl_closed, Socket} ->
-		    ok;
-		{gen_tcp, closed} ->
-		    ok
-	    end;
+            client_loop_core(Socket, Pid, Transport);
 	{error, econnrefused = Reason} ->
 	    case get(retries) of
 		N when N < 5 ->
@@ -424,6 +439,37 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
 	{error, Reason} ->
 	    ct:log("~p:~p~nClient: connection failed: ~p ~n", [?MODULE,?LINE, Reason]),
 	    Pid ! {connect_failed, Reason}
+    end.
+
+client_loop_core(Socket, Pid, Transport) ->
+    receive
+        {data, Data} ->
+            ct:log("Send: ~p~n", [Data]),
+            Transport:send(Socket, Data),
+            client_loop_core(Socket, Pid, Transport);
+        {active_receive, Data} ->
+            case active_recv(Socket, length(Data)) of
+                Data ->
+                    Pid ! {self(), ok};
+                _Else ->
+                    Pid ! {self(), active_receive_failed}
+            end,
+            client_loop_core(Socket, Pid, Transport);
+        {update_keys, Type} ->
+            case ssl:update_keys(Socket, Type) of
+                ok ->
+                    Pid ! {self(), ok};
+                {error, Reason} ->
+                    Pid ! {error, Reason}
+            end,
+            client_loop_core(Socket, Pid, Transport);
+        close ->
+            ct:log("~p:~p~nClient closing~n", [?MODULE,?LINE]),
+            Transport:close(Socket);
+        {ssl_closed, Socket} ->
+            ok;
+        {gen_tcp, closed} ->
+            ok
     end.
 
 client_cont_loop(_Node, Host, Port, Pid, Transport, Options, cancel, _Opts) ->
@@ -1951,6 +1997,32 @@ send_recv_result_active(Socket) ->
     ssl:send(Socket, Data),
     Data = active_recv(Socket, length(Data)),
     ok.
+
+send_recv_result_active(Socket, Data) ->
+    ssl:send(Socket, Data),
+    Data = active_recv(Socket, length(Data)),
+    ok.
+
+send(Pid, Data) ->
+    Pid ! {data, Data}.
+
+check_active_receive(Pid, Data) ->
+    Pid ! {active_receive, Data},
+    receive
+        {Pid, ok} ->
+            ok;
+        {Pid, active_receive_failed} ->
+            ct:fail("Receive failed!")
+    end.
+
+update_keys(Pid, Type) ->
+    Pid ! {update_keys, Type},
+    receive
+        {Pid, ok} ->
+            ok;
+        {Pid, Reason} ->
+            ct:fail("Failed to update keys: ~p", [Reason])
+    end.
 
 send_recv_result_active_once(Socket) ->
     Data = "Hello world",
