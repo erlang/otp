@@ -1342,18 +1342,22 @@ handle_common_event(internal, {handshake, {#hello_request{}, _}}, StateName,
   when StateName =/= connection ->
     keep_state_and_data;
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
-		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0}} = State0,
+		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0},
+                           connection_env = #connection_env{negotiated_version = Version}} = State0,
 		    Connection) ->
    
     PossibleSNI = Connection:select_sni_extension(Handshake),
     %% This function handles client SNI hello extension when Handshake is
     %% a client_hello, which needs to be determined by the connection callback.
     %% In other cases this is a noop
-    State = #state{handshake_env = HsEnv} = handle_sni_extension(PossibleSNI, State0),
-
-    Hist = ssl_handshake:update_handshake_history(Hist0, Raw),
-    {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}}, 
-     [{next_event, internal, Handshake}]};
+    case handle_sni_extension(PossibleSNI, State0) of
+        #state{handshake_env = HsEnv} = State ->
+            Hist = ssl_handshake:update_handshake_history(Hist0, Raw),
+            {next_state, StateName, State#state{handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist}},
+             [{next_event, internal, Handshake}]};
+        #alert{} = Alert ->
+            handle_own_alert(Alert, Version, StateName, State0)
+    end;
 handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName, State, Connection) -> 
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
 handle_common_event(timeout, hibernate, _, _, _) ->
@@ -3016,9 +3020,16 @@ invalidate_session(server, _, Port, Session) ->
 
 handle_sni_extension(undefined, State) ->
     State;
-handle_sni_extension(#sni{hostname = Hostname}, #state{static_env = #static_env{role = Role} = InitStatEnv0,
-                                                       handshake_env = HsEnv,
-                                                       connection_env = CEnv} = State0) ->
+handle_sni_extension(#sni{hostname = Hostname}, State) ->
+    case is_sni_value(Hostname) of
+        true ->
+          handle_sni_extension(Hostname, State);
+        false ->
+            ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME, {sni_included_trailing_dot, Hostname})
+    end;
+handle_sni_extension(Hostname, #state{static_env = #static_env{role = Role} = InitStatEnv0,
+                                                                   handshake_env = HsEnv,
+                                                                   connection_env = CEnv} = State0) ->
     NewOptions = update_ssl_options_from_sni(State0#state.ssl_options, Hostname),
     case NewOptions of
 	undefined ->
@@ -3075,3 +3086,11 @@ no_records(Extensions) ->
     maps:map(fun(_, Value) ->
                      ssl_handshake:extension_value(Value)
              end, Extensions).  
+
+is_sni_value(Hostname) ->
+    case hd(lists:reverse(Hostname)) of
+        $. ->
+            false;
+        _ ->
+            true
+    end.
