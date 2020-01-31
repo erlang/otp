@@ -63,6 +63,7 @@
          system_task_failed_enqueue/1,
 	 gc_request_when_gc_disabled/1,
 	 gc_request_blast_when_gc_disabled/1,
+         otp_16436/1,
          spawn_huge_arglist/1,
          spawn_request_bif/1,
          spawn_request_monitor_demonitor/1,
@@ -131,7 +132,8 @@ groups() ->
      {system_task, [],
       [no_priority_inversion, no_priority_inversion2,
        system_task_blast, system_task_on_suspended, system_task_failed_enqueue,
-       gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled]}].
+       gc_request_when_gc_disabled, gc_request_blast_when_gc_disabled,
+       otp_16436]}].
 
 init_per_suite(Config) ->
     A0 = case application:start(sasl) of
@@ -3868,6 +3870,15 @@ gc_request_blast_when_gc_disabled(Config) when is_list(Config) ->
     receive {'DOWN', M, process, P, _Reason} -> ok end,
     ok.
 
+otp_16436(Config) when is_list(Config) ->
+    P = spawn_opt(fun () ->
+                          erts_debug:dirty_io(wait, 1000)
+                  end,
+                  [{priority,high},link]),
+    erlang:check_process_code(P, non_existing),
+    unlink(P),
+    exit(P, kill),
+    ok.
 
 %% Internal functions
 
