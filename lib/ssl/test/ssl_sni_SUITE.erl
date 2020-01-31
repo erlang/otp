@@ -60,7 +60,9 @@ sni_tests() ->
      ip_fallback,
      no_ip_fallback,
      dns_name_reuse,
-     customize_hostname_check].
+     customize_hostname_check,
+     sni_no_trailing_dot,
+     hostname_trailing_dot].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -288,6 +290,58 @@ customize_hostname_check(Config) when is_list(Config) ->
                                               ]),    
     ssl_test_lib:check_client_alert(Server, Client1, handshake_failure).
 
+sni_no_trailing_dot() ->
+      [{doc,"Test that sni may not include a triling dot"}].
+sni_no_trailing_dot(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_cert_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+                                 {from, self()},
+                                 {mfa, {ssl_test_lib, no_result, []}},
+                                 {options, [{log_level, debug} | ServerOpts]}]),
+
+    Port  = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+                                              {mfa, {ssl_test_lib, no_result, []}},
+					      {options, [{log_level, debug},
+                                                         {server_name_indication, Hostname ++ "."} |ClientOpts]}]),
+    ssl_test_lib:check_server_alert(Server, Client, unrecognized_name).
+
+hostname_trailing_dot() ->
+    [{doc,"Test that fallback sni removes trailing dot of hostname"}].
+
+hostname_trailing_dot(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname0} = ssl_test_lib:run_where(Config),
+
+    case trailing_dot_hostname(Hostname0) of
+        {ok, Hostname} ->
+            Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+                                                {from, self()},
+                                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                                {options, ServerOpts}]),
+            Port = ssl_test_lib:inet_port(Server),
+            Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+                                                {host, Hostname ++ "."},
+                                                {from, self()},
+                                                {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                        {options, ClientOpts}]),
+
+            ssl_test_lib:check_result(Server, ok, Client, ok),
+
+            ssl_test_lib:close(Server),
+            ssl_test_lib:close(Client);
+        {skip, _ } = Skip ->
+            Skip
+    end.
+
 %%--------------------------------------------------------------------
 %% Internal Functions ------------------------------------------------
 %%--------------------------------------------------------------------
@@ -426,3 +480,20 @@ host_name(undefined, Hostname) ->
     Hostname;
 host_name(Hostname, _) ->
     Hostname.
+
+
+trailing_dot_hostname(HostName) ->
+    case inet:gethostbyname(HostName) of
+        {ok, HostEnt} ->
+            do_trailing_dot_hostname(HostEnt);
+        _ ->
+            {skip, "Trailing dot conf not possible"}
+    end.
+
+do_trailing_dot_hostname(#hostent{h_name = Name}) ->
+    case lists:member($., Name) andalso lists:last(Name) =/= $. of
+        true ->
+            {ok, Name ++ "."};
+        _ ->
+            {skip, "Trailing dot conf not possible"}
+    end.
