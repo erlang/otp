@@ -9786,25 +9786,33 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    }
 	}
 	else {
-            if (!(state & ERTS_PSFLGS_DIRTY_WORK)) {
-                /* Dirty work completed... */
-		goto sunlock_sched_out_proc;
+            /* On dirty scheduler */
+	    if (!(state & ERTS_PSFLGS_DIRTY_WORK)
+                | !!(state & (ERTS_PSFLG_SYS_TASKS
+                              | ERTS_PSFLG_EXITING
+                              | ERTS_PSFLG_DIRTY_ACTIVE_SYS))) {
+                
+                if (!(state & ERTS_PSFLGS_DIRTY_WORK)) {
+                    /* Dirty work completed... */
+                    goto sunlock_sched_out_proc;
+                }
+                if (state & (ERTS_PSFLG_SYS_TASKS
+                             | ERTS_PSFLG_EXITING)) {
+                    /*
+                     * IMPORTANT! We need to take care of
+                     * scheduled check-process-code requests
+                     * before continuing with dirty execution!
+                     */
+                    /* Migrate to normal scheduler... */
+                    goto sunlock_sched_out_proc;
+                }
+                if ((state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
+                    && rq == ERTS_DIRTY_IO_RUNQ) {
+                    /* Migrate to dirty cpu scheduler... */
+                    goto sunlock_sched_out_proc;
+                }
+
             }
-	    if (state & (ERTS_PSFLG_ACTIVE_SYS
-			 | ERTS_PSFLG_EXITING)) {
-		/*
-		 * IMPORTANT! We need to take care of
-		 * scheduled check-process-code requests
-		 * before continuing with dirty execution!
-		 */
-		/* Migrate to normal scheduler... */
-		goto sunlock_sched_out_proc;
-	    }
-	    if ((state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
-		&& rq == ERTS_DIRTY_IO_RUNQ) {
-		/* Migrate to dirty cpu scheduler... */
-		goto sunlock_sched_out_proc;
-	    }
 
 	    ASSERT(rq == ERTS_DIRTY_CPU_RUNQ
 		   ? (state & (ERTS_PSFLG_DIRTY_CPU_PROC
@@ -9818,7 +9826,17 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         if (IS_TRACED(p))
             trace_schedule_in(p, state);
 
-        if (is_normal_sched) {
+        if (!is_normal_sched) {
+            /* On dirty scheduler */
+            if (!!(state & ERTS_PSFLG_DIRTY_RUNNING)
+                & !!(state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))) {
+                /* Ensure signals are handled while executing dirty... */
+                int prio = ERTS_PSFLGS_GET_ACT_PRIO(state);
+                erts_make_dirty_proc_handled(p->common.id, state, prio);
+            }
+        }
+        else {
+            /* On normal scheduler */
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
                     int local_only = (!!(p->sig_qs.flags & FS_LOCAL_SIGS_ONLY)
