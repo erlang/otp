@@ -278,7 +278,12 @@ share(Is0) ->
 share_1([{label,L}=Lbl|Is], Dict0, Lbls0, [_|_]=Seq, Acc) ->
     case maps:find(Seq, Dict0) of
         error ->
-            Dict = maps:put(Seq, L, Dict0),
+            Dict = case is_shareable(Seq) of
+                       true ->
+                           maps:put(Seq, L, Dict0);
+                       false ->
+                           Dict0
+                   end,
             share_1(Is, Dict, Lbls0, [], [[Lbl|Seq]|Acc]);
         {ok,Label} ->
             Lbls = maps:put(L, Label, Lbls0),
@@ -312,6 +317,13 @@ share_1([I|Is], Dict, Lbls, Seq, Acc) ->
 	true ->
 	    share_1(Is, Dict, Lbls, [I], Acc)
     end.
+
+is_shareable([{'catch',_,_}|_]) -> false;
+is_shareable([{catch_end,_}|_]) -> false;
+is_shareable([{'try',_,_}|_]) -> false;
+is_shareable([{try_case,_}|_]) -> false;
+is_shareable([{try_end,_}|_]) -> false;
+is_shareable(_) -> true.
 
 clean_non_sharable(Dict0, Lbls0) ->
     %% We are passing in or out of a 'catch' or 'try' block. Remove
