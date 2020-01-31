@@ -118,6 +118,7 @@ all() ->
     [add_remove_instance_tty,
      add_remove_instance_standard_io,
      add_remove_instance_standard_error,
+     add_remove_instance_custom_device,
      add_remove_instance_file1,
      add_remove_instance_file2,
      add_remove_instance_file3,
@@ -173,6 +174,11 @@ add_remove_instance_tty(_Config) ->
 add_remove_instance_standard_io(_Config) ->
     add_remove_instance_nofile(standard_io).
 add_remove_instance_standard_io(cleanup,_Config) ->
+    logger_std_h_remove().
+
+add_remove_instance_custom_device(_Config) ->
+    add_remove_instance_nofile({device,user}).
+add_remove_instance_custom_device(cleanup,_Config) ->
     logger_std_h_remove().
 
 add_remove_instance_standard_error(_Config) ->
