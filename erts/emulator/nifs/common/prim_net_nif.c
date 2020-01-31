@@ -1061,7 +1061,7 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
 
     return result;
 #else // HAVE_GETIFADDRS
-    return esock_make_error(env, esock_atom_notsup);
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
