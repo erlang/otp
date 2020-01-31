@@ -314,7 +314,8 @@
                                 {padding_check, padding_check()} |
                                 {beast_mitigation, beast_mitigation()} |
                                 {ssl_imp, ssl_imp()} |
-                                {session_tickets, session_tickets()}.
+                                {session_tickets, session_tickets()} |
+                                {key_update_at, key_update_at()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -357,6 +358,7 @@
 -type client_session_tickets()   :: disabled | manual | auto.
 -type server_session_tickets()   :: disabled | stateful | stateless.
 -type session_tickets()          :: client_session_tickets() | server_session_tickets().
+-type key_update_at()            :: integer().
 -type bloom_filter_window_size()    :: integer().
 -type bloom_filter_hash_functions() :: integer().
 -type bloom_filter_bits()           :: integer().

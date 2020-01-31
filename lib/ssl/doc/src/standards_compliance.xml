@@ -1721,14 +1721,14 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em>Client</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.3</em></cell>
       </row>
       <row>
         <cell align="left" valign="middle"></cell>
         <cell align="left" valign="middle"><em>Server</em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.3</em></cell>
       </row>
 
       <row>
@@ -1824,8 +1824,8 @@
 	  </url>
 	</cell>
         <cell align="left" valign="middle"><em></em></cell>
-	<cell align="left" valign="middle"><em>NC</em></cell>
-	<cell align="left" valign="middle"><em></em></cell>
+	<cell align="left" valign="middle"><em>C</em></cell>
+	<cell align="left" valign="middle"><em>22.3</em></cell>
       </row>
 
       <row>
