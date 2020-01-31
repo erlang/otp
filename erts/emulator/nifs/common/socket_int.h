@@ -166,6 +166,7 @@ typedef unsigned int BOOLEAN_T;
     GLOBAL_ATOM_DEF(drop_source_membership);   \
     GLOBAL_ATOM_DEF(dstopts);                  \
     GLOBAL_ATOM_DEF(egp);                      \
+    GLOBAL_ATOM_DEF(enotsup);                  \
     GLOBAL_ATOM_DEF(eor);                      \
     GLOBAL_ATOM_DEF(error);                    \
     GLOBAL_ATOM_DEF(errqueue);                 \

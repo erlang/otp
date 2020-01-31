@@ -2895,6 +2895,7 @@ static char str_exsend[]         = "exsend";     // failed send
     GLOBAL_ATOM_DECL(drop_source_membership);          \
     GLOBAL_ATOM_DECL(dstopts);                         \
     GLOBAL_ATOM_DECL(egp);                             \
+    GLOBAL_ATOM_DECL(enotsup);                         \
     GLOBAL_ATOM_DECL(eor);                             \
     GLOBAL_ATOM_DECL(error);                           \
     GLOBAL_ATOM_DECL(errqueue);                        \
