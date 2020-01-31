@@ -57,8 +57,14 @@ init_per_suite(Config) ->
         {error,bad_name} ->
             Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
             {ok,_} = xref:add_directory(Server, Erts, []);
-        _ ->
-            ok
+        LibDir ->
+            case file:read_file_info(filename:join([LibDir,"ebin"])) of
+                {error,enoent} ->
+                    Erts = filename:join([LibDir, "preloaded","ebin"]),
+                    {ok,_} = xref:add_directory(Server, Erts, []);
+                _ ->
+                    ok
+            end
     end,
     [{xref_server,Server}|Config].
 
