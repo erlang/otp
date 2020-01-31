@@ -1041,47 +1041,43 @@ analyze_and_print_freebsd_host_info(Version) ->
     io:format("FreeBSD:"
               "~n   Version: ~p"
               "~n", [Version]),
-    Extract =
-        fun(Key) -> 
-                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$:])
-        end,
+    %% This test require that the program 'sysctl' is in the path.
+    %% First test with 'which sysctl', if that does not work
+    %% try with 'which /sbin/sysctl'. If that does not work either,
+    %% we skip the test...
     try
         begin
-            CPU =
-                case Extract("hw.model") of
-                    ["hw.model", Model] ->
-                        string:trim(Model);
-                    _ ->
-                        "-"
+            SysCtl =
+                case string:trim(os:cmd("which sysctl")) of
+                    [] ->
+                        case string:trim(os:cmd("which /sbin/sysctl")) of
+                            [] ->
+                                throw(sysctl);
+                            SC2 ->
+                                SC2
+                        end;
+                    SC1 ->
+                        SC1
                 end,
-            CPUSpeed =
-                case Extract("hw.clockrate") of
-                    ["hw.clockrate", Speed] ->
-                        list_to_integer(string:trim(Speed));
-                    _ ->
-                        -1
+            Extract =
+                fun(Key) ->
+                        string:tokens(string:trim(os:cmd(SysCtl ++ " " ++ Key)),
+                                      [$:])
                 end,
-            NCPU =
-                case Extract("hw.ncpu") of
-                    ["hw.ncpu", N] ->
-                        list_to_integer(string:trim(N));
-                    _ ->
-                        -1
-                end,
-            Memory =
-                case Extract("hw.physmem") of
-                    ["hw.physmem", PhysMem] ->
-                        list_to_integer(string:trim(PhysMem)) div 1024;
-                    _ ->
-                        -1
-                end,
+            CPU      = analyze_freebsd_cpu(Extract),
+            CPUSpeed = analyze_freebsd_cpu_speed(Extract),
+            NCPU     = analyze_freebsd_ncpu(Extract),
+            Memory   = analyze_freebsd_memory(Extract),
             io:format("CPU:"
-                      "~n   Model: ~s"
-                      "~n   Speed: ~w"
-                      "~n   N:     ~w"
+                      "~n   Model:          ~s"
+                      "~n   Speed:          ~w"
+                      "~n   N:              ~w"
+                      "~n   Num Schedulers: ~w"
                       "~nMemory:"
                       "~n   ~w KB"
-                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+                      "~n",
+                      [CPU, CPUSpeed, NCPU,
+                       erlang:system_info(schedulers), Memory]),
             CPUFactor =
                 if
                     (CPUSpeed =:= -1) ->
@@ -1097,6 +1093,8 @@ analyze_and_print_freebsd_host_info(Version) ->
                         end;
                     true ->
                         if
+                            (NCPU =:= -1) ->
+                                1;
                             (NCPU >= 4) ->
                                 2;
                             (NCPU >= 2) ->
@@ -1122,8 +1120,56 @@ analyze_and_print_freebsd_host_info(Version) ->
         end
     catch
         _:_:_ ->
-            1
+            io:format("CPU:"
+                      "~n   Num Schedulers: ~w"
+                      "~n", [erlang:system_info(schedulers)]),
+            case erlang:system_info(schedulers) of
+                1 ->
+                    10;
+                2 ->
+                    5;
+                _ ->
+                    2
+            end
     end.
+
+
+analyze_freebsd_cpu(Extract) ->
+    analyze_freebsd_item(Extract, "hw.model", fun(X) -> X end, "-").
+
+analyze_freebsd_cpu_speed(Extract) ->
+    analyze_freebsd_item(Extract,
+                         "hw.clockrate",
+                         fun(X) -> list_to_integer(X) end,
+                         -1).
+
+analyze_freebsd_ncpu(Extract) ->
+    analyze_freebsd_item(Extract,
+                         "hw.ncpu",
+                         fun(X) -> list_to_integer(X) end,
+                         -1).
+
+analyze_freebsd_memory(Extract) ->
+    analyze_freebsd_item(Extract,
+                         "hw.physmem",
+                         fun(X) -> list_to_integer(X) div 1024 end,
+                         -1).
+
+analyze_freebsd_item(Extract, Key, Process, Default) ->
+    try
+        begin
+            case Extract(Key) of
+                [Key, Model] ->
+                    Process(string:trim(Model));
+                _ ->
+                    Default
+            end
+        end
+    catch
+        _:_:_ ->
+            Default
+    end.
+
 
 
 %% ----------------------------------------------------------------
