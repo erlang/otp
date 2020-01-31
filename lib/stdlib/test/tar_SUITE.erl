@@ -602,19 +602,22 @@ incompatible_options(Config) when is_list(Config) ->
 symlinks(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     Dir = filename:join(PrivDir, "symlinks"),
+    VulnerableDir = filename:join(PrivDir, "vulnerable_symlinks"),
     ok = file:make_dir(Dir),
+    ok = file:make_dir(VulnerableDir),
     ABadSymlink = filename:join(Dir, "bad_symlink"),
-    PointsTo = "/a/definitely/non_existing/path",
-    Res = case make_symlink("/a/definitely/non_existing/path", ABadSymlink) of
+    PointsTo = "a/definitely/non_existing/path",
+    Res = case make_symlink("a/definitely/non_existing/path", ABadSymlink) of
 	      {error, enotsup} ->
 		  {skip, "Symbolic links not supported on this platform"};
 	      ok ->
 		  symlinks(Dir, "bad_symlink", PointsTo),
-		  long_symlink(Dir)
+		  long_symlink(Dir),
+                  symlink_vulnerability(VulnerableDir)
 	  end,
 
     %% Clean up.
-    delete_files([Dir]),
+    delete_files([Dir,VulnerableDir]),
     verify_ports(Config),
     Res.
 
@@ -702,7 +705,7 @@ long_symlink(Dir) ->
     ok = file:set_cwd(Dir),
 
     AFile = "long_symlink",
-    RequiresPAX = "/tmp/aarrghh/this/path/is/far/longer/than/one/hundred/characters/which/is/the/maximum/number/of/characters/allowed",
+    RequiresPAX = "tmp/aarrghh/this/path/is/far/longer/than/one/hundred/characters/which/is/the/maximum/number/of/characters/allowed",
     ok = file:make_symlink(RequiresPAX, AFile),
     ok = erl_tar:create(Tar, [AFile], [verbose]),
     false = is_ustar(Tar),
@@ -712,6 +715,23 @@ long_symlink(Dir) ->
     ok = file:set_cwd(NewDir),
     {ok, #file_info{type=symlink}} = file:read_link_info(AFile),
     {ok, RequiresPAX} = file:read_link(AFile),
+    ok.
+
+symlink_vulnerability(Dir) ->
+    ok = file:set_cwd(Dir),
+    ok = file:make_dir("tar"),
+    ok = file:set_cwd("tar"),
+    ok = file:make_symlink("..", "link"),
+    ok = file:write_file("../file", <<>>),
+    ok = erl_tar:create("../my.tar", ["link","link/file"]),
+    ok = erl_tar:tt("../my.tar"),
+
+    ok = file:set_cwd(Dir),
+    delete_files(["file","tar"]),
+    ok = file:make_dir("tar"),
+    ok = file:set_cwd("tar"),
+    {error,{"..",unsafe_symlink}} = erl_tar:extract("../my.tar"),
+
     ok.
 
 init(Config) when is_list(Config) ->
