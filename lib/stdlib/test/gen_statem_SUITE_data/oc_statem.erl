@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,16 +22,19 @@
 -behaviour(gen_statem).
 
 %% API
--export([start/0]).
+-export([start/1]).
 
 %% gen_statem callbacks
--export([init/1, callback_mode/0]).
+-export([init/1, callback_mode/0, handle_event/4]).
 
-start() ->
-    gen_statem:start({local, ?MODULE}, ?MODULE, [], []).
+start(Opts) ->
+    gen_statem:start({local, ?MODULE}, ?MODULE, [], Opts).
 
 init([]) ->
-    {ok, state_name, #{}}.
+    {ok, start, #{}}.
 
 callback_mode() ->
-    handle_event_function.
+    [handle_event_function, state_enter].
+
+handle_event(enter, start, start, _Data) ->
+    keep_state_and_data.

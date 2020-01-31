@@ -149,6 +149,7 @@
 	{'next_event', % Insert event as the next to handle
 	 EventType :: event_type(),
 	 EventContent :: term()} |
+        {'change_callback_module', NewModule :: module()} |
 	enter_action().
 -type enter_action() ::
 	'hibernate' | % Set the hibernate option
@@ -337,12 +338,13 @@
     terminate/3, % Has got a default implementation
     code_change/4, % Only needed by advanced soft upgrade
     %%
-    state_name/3, % Example for callback_mode() =:= state_functions:
+    state_name/3, % Just an example callback;
+    %% for callback_mode() =:= state_functions
     %% there has to be a StateName/3 callback function
-    %% for every StateName in your state machine but the state name
-    %% 'state_name' does of course not have to be used.
+    %% for every StateName in your state machine,
+    %% but not one has to be named 'state_name'
     %%
-    handle_event/4 % For callback_mode() =:= handle_event_function
+    handle_event/4 % Only for callback_mode() =:= handle_event_function
    ]).
 
 
@@ -1443,6 +1445,28 @@ loop_actions_list(
               P, Debug, S, Q, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postpone,
               CallEnter, StateCall, Actions, Type, Content);
+        %%
+        {change_callback_module, NewModule}
+          when is_atom(NewModule) ->
+            if
+                StateCall ->
+                    P_1 =
+                        P#params{
+                          callback_mode = undefined, module = NewModule},
+                    loop_actions_list(
+                      P_1, Debug, S, Q, NextState_NewData,
+                      NextEventsR, Hibernate, TimeoutsR, Postpone,
+                      CallEnter, StateCall, Actions);
+                true ->
+                    terminate(
+                      error,
+                      {bad_state_enter_action_from_state_function,Action},
+                      ?STACKTRACE(), P, Debug,
+                      S#state{
+                        state_data = NextState_NewData,
+                        hibernate = Hibernate},
+                      Q)
+            end;
 	%%
         Timeout ->
             loop_actions_timeout(
