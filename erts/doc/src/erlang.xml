@@ -6873,6 +6873,76 @@ true</pre>
 	  message</i></seealso>
 	  as described above.
 	</p>
+	<p>
+	  A spawn request can be abandoned by calling
+	  <seealso marker="#spawn_request_abandon/1"><c>spawn_request_abandon/1</c></seealso>.
+	</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="spawn_request_abandon" arity="1" since="OTP @OTP-15251@"/>
+      <fsummary>Abandon a previously issued spawn request.</fsummary>
+      <desc>
+	<p>
+	  Abandon a previously issued spawn request. <c><anno>ReqId</anno></c>
+	  corresponds to a request identifier previously returned by
+	  <seealso marker="#spawn_request/5"><c>spawn_request()</c></seealso>
+	  in a call from current process. That is, only the process that
+	  has made the request can abandon the request.
+	</p>
+	<p>
+	  A spawn request can only be successfully abandoned until the
+	  spawn request has completed. When a spawn request has been
+	  successfully abandoned, the caller will not be effected by
+	  future direct effects of the spawn request itself.
+	  For example, it will not receive a spawn reply message. The
+	  request is however not withdrawn, so a new process may or may
+	  not be created due to the request. If a new process is created
+	  after the spawn request was abandoned, no monitors nor links
+	  will be set up to the caller of <c>spawn_request_abandon/1</c>
+	  due to the spawn request. If the spawn request included the
+	  <c>link</c> option, the process created due to this request
+	  will be sent an exit signal from its parent with the exit
+	  reason <c>abandoned</c> when it is detected that the
+	  spawn operation has succeeded.
+	</p>
+	<note><p>
+	  A process created due to a spawn request that has been
+	  abandoned may communicate with its parent as any other
+	  process. It is <em>only</em> the direct effects on the
+	  parent of the actual spawn request, that will be canceled
+	  by abandoning a spawn request.
+	</p></note>
+	<p>Return values:</p>
+	<taglist>
+	  <tag><c>true</c></tag>
+	  <item><p>
+	    The spawn request was successfully abandoned.
+	  </p></item>
+	  <tag><c>false</c></tag>
+	  <item><p>
+	    No spawn request was abandoned. The <c><anno>ReqId</anno></c>
+	    request identifier did not correspond to an outstanding
+	    spawn request issued by the calling process. The reason for
+	    this is either:</p>
+	    <list>
+	      <item><p>
+		<c><anno>ReqId</anno></c> corresponds to a spawn request
+		previoulsy made by the calling process. The spawn operation
+		has completed and a spawn reply has already been delivered
+		to the calling process unless the spawn reply was disabled
+		in the request.
+	      </p></item>
+	      <item><p>
+		<c><anno>ReqId</anno></c> does not correspond to a spawn
+		request that has been made by the calling process.
+	      </p></item>
+	    </list>
+	  </item>
+	</taglist>
+	<p>This function fail with a <c>badarg</c> exception if
+	<c><anno>ReqId</anno></c> is not a reference.</p>
       </desc>
     </func>
     

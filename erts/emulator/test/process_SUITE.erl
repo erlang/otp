@@ -70,6 +70,7 @@
          spawn_request_monitor_child_exit/1,
          spawn_request_link_child_exit/1,
          spawn_request_link_parent_exit/1,
+         spawn_request_abandon_bif/1,
          dist_spawn_monitor/1,
          spawn_old_node/1,
          spawn_new_node/1]).
@@ -106,6 +107,7 @@ all() ->
      spawn_request_monitor_child_exit,
      spawn_request_link_child_exit,
      spawn_request_link_parent_exit,
+     spawn_request_abandon_bif,
      dist_spawn_monitor,
      spawn_old_node,
      spawn_new_node,
@@ -2910,7 +2912,7 @@ spawn_request_link_parent_exit_test(Node) ->
                           spawn(fun () -> ParentFun(N rem 10) end)
                   end,
                   lists:seq(1, 1000)),
-    N = gather_kabooms(),
+    N = gather_parent_exits(kaboom, false),
     Comment = case node() == Node of
                   true ->
                       C = "Got " ++ integer_to_list(N) ++ " node local kabooms!",
@@ -2919,25 +2921,141 @@ spawn_request_link_parent_exit_test(Node) ->
                   false ->
                       C = "Got " ++ integer_to_list(N) ++ " node remote kabooms!",
                       erlang:display(C),
-                      true = C /= 0,
+                      true = N /= 0,
                       C
               end,
     Comment.
 
-gather_kabooms() ->
-    receive after 2000 -> ok end,
-    gather_kabooms(0).
+spawn_request_abandon_bif(Config) when is_list(Config) ->
+    {ok, Node} = start_node(Config),
+    false = spawn_request_abandon(make_ref()),
+    false = spawn_request_abandon(spawn_request(fun () -> ok end)),
+    false = spawn_request_abandon(rpc:call(Node, erlang, make_ref, [])),
+    try
+        noreturn = spawn_request_abandon(self()) 
+    catch
+        error:badarg ->
+            ok
+    end,
+    try
+        noreturn = spawn_request_abandon(4711)
+    catch
+        error:badarg ->
+            ok
+    end,
 
-gather_kabooms(N) ->
+    verify_nc(node()),
+
+    %% Ensure code loaded on other node...
+    _ = rpc:call(Node, ?MODULE, module_info, []),
+
+
+    TotOps = 1000,
+    Tester = self(),
+
+    ChildFun = fun () ->
+                       Child = self(),
+                       spawn_opt(fun () ->
+                                         process_flag(trap_exit, true),
+                                         receive
+                                             {'EXIT', Child, Reason} ->
+                                                 Tester ! {parent_exit, Reason}
+                                         end
+                                 end, [link,{priority,max}]),
+                       receive after infinity -> ok end
+               end,
+    ParentFun = fun (Wait, Opts) ->
+                        ReqId = spawn_request(Node, ChildFun, Opts),
+                        receive after Wait -> ok end,
+                        case spawn_request_abandon(ReqId) of
+                            true ->
+                                ok;
+                            false ->
+                                receive
+                                    {spawn_reply, ReqId, error, _} ->
+                                        exit(spawn_failed);
+                                    {spawn_reply, ReqId, ok, Pid} ->
+                                        unlink(Pid),
+                                        exit(Pid, bye)
+                                after
+                                    0 ->
+                                        exit(missing_spawn_reply)
+                                end
+                        end
+                end,
+    %% Parent exit early...
+    lists:foreach(fun (N) ->
+                          spawn_opt(fun () ->
+                                            ParentFun(N rem 50, [link])
+                                    end, [link,{priority,max}])
+                  end,
+                  lists:seq(1, TotOps)),
+    NoA1 = gather_parent_exits(abandoned, true),
+    %% Parent exit late...
+    lists:foreach(fun (N) ->
+                          spawn_opt(fun () ->
+                                            ParentFun(N rem 50, [link]),
+                                            receive
+                                                {spawn_reply, _, _, _} ->
+                                                    exit(unexpected_spawn_reply)
+                                            after
+                                                1000 -> ok
+                                            end
+                                    end, [link,{priority,max}])
+                  end,
+                  lists:seq(1, TotOps)),
+    NoA2 = gather_parent_exits(abandoned, true),
+    %% Parent exit early...
+    lists:foreach(fun (N) ->
+                          spawn_opt(fun () ->
+                                            ParentFun(N rem 50, [])
+                                    end, [link,{priority,max}])
+                  end,
+                  lists:seq(1, TotOps)),
+    0 = gather_parent_exits(abandoned, true),
+    %% Parent exit late...
+    lists:foreach(fun (N) ->
+                          spawn_opt(fun () ->
+                                            ParentFun(N rem 50, []),
+                                            receive
+                                                {spawn_reply, _, _, _} ->
+                                                    exit(unexpected_spawn_reply)
+                                            after
+                                                1000 -> ok
+                                            end
+                                    end, [link,{priority,max}])
+                  end,
+                  lists:seq(1, TotOps)),
+    0 = gather_parent_exits(abandoned, true),
+    stop_node(Node),
+    C = "Got " ++ integer_to_list(NoA1) ++ " and "
+        ++ integer_to_list(NoA2) ++ " abandoneds of 2*"
+        ++ integer_to_list(TotOps) ++ " ops!",
+    erlang:display(C),
+    true = NoA1 /= 0,
+    true = NoA1 /= TotOps,
+    true = NoA2 /= 0,
+    true = NoA2 /= TotOps,
+    {comment, C}.
+
+gather_parent_exits(Reason, AllowOther) ->
+    receive after 2000 -> ok end,
+    gather_parent_exits(Reason, AllowOther, 0).
+
+gather_parent_exits(Reason, AllowOther, N) ->
     receive
-        {parent_exit, kaboom} ->
-            gather_kabooms(N+1);
+        {parent_exit, Reason} ->
+            gather_parent_exits(Reason, AllowOther, N+1);
         {parent_exit, _} = ParentExit ->
-            ct:fail(ParentExit)
+            case AllowOther of
+                false ->
+                    ct:fail(ParentExit);
+                true ->
+                    gather_parent_exits(Reason, AllowOther, N)
+            end
     after 0 ->
             N
     end.
-
 dist_spawn_monitor(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config),
     R1 = spawn_request(Node, erlang, exit, [hej], [monitor]),

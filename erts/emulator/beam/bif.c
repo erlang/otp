@@ -864,6 +864,45 @@ send_error: {
     
 }
 
+BIF_RETTYPE spawn_request_abandon_1(BIF_ALIST_1)
+{
+    ErtsMonitor *omon;
+
+    if (is_not_internal_ref(BIF_ARG_1)) {
+        if (is_not_ref(BIF_ARG_1))
+            BIF_ERROR(BIF_P, BADARG);
+        /* Not an outstanding spawn_request of this process... */
+        BIF_RET(am_false);
+    }
+
+    omon = erts_monitor_tree_lookup(ERTS_P_MONITORS(BIF_P), BIF_ARG_1);
+    if (!omon
+        || ((omon->flags & (ERTS_ML_FLG_SPAWN_PENDING
+                            | ERTS_ML_FLG_SPAWN_ABANDONED))
+            != ERTS_ML_FLG_SPAWN_PENDING)) {
+        /* Not an outstanding spawn_request of this process... */
+        BIF_RET(am_false);
+    }
+
+    ASSERT(erts_monitor_is_origin(omon));
+
+    if (omon->flags & ERTS_ML_FLG_SPAWN_LINK) {
+        /* Leave it for reply... */
+        omon->flags |= ERTS_ML_FLG_SPAWN_ABANDONED;
+    }
+    else {
+        /* We don't need it anymore; remove it... */
+        ErtsMonitorData *mdp;
+        erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), omon);
+        mdp = erts_monitor_to_data(omon);
+        if (erts_monitor_dist_delete(&mdp->target))
+            erts_monitor_release_both(mdp);
+        else
+            erts_monitor_release(omon);
+    }
+    BIF_RET(am_true);
+}
+
   
 /**********************************************************************/
 /* remove a link from a process */

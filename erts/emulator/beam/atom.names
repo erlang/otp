@@ -68,6 +68,7 @@ atom ErtsSecretAtom='3RT$'
 atom DOWN='DOWN'
 atom UP='UP'
 atom EXIT='EXIT'
+atom abandoned
 atom abort
 atom abs_path
 atom absoluteURI

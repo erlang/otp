@@ -25,7 +25,7 @@
 	 spawn_opt/2,spawn_opt/3,spawn_opt/4,spawn_opt/5,
          spawn_request/1, spawn_request/2,
          spawn_request/3, spawn_request/4, spawn_request/5,
-         disconnect_node/1]).
+         spawn_request_abandon/1, disconnect_node/1]).
 -export([spawn/1, spawn_link/1, spawn/2, spawn_link/2]).
 -export([yield/0]).
 -export([fun_info/1]).
@@ -3299,6 +3299,11 @@ spawn_request(N, M, F, A, O) ->
         badarg ->
             erlang:error(badarg, [N, M, F, A, O])
     end.
+
+-spec spawn_request_abandon(ReqId :: reference()) -> boolean().
+
+spawn_request_abandon(_ReqId) ->
+    erlang:nif_error(undefined).
 
 -spec erlang:yield() -> 'true'.
 yield() ->

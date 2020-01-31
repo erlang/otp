@@ -12790,6 +12790,9 @@ proc_exit_handle_pend_spawn_monitors(ErtsMonitor *mon, void *vctxt, Sint reds)
     if (is_not_external_pid(mon->other.item))
         goto done; /* Cleanup */
 
+    if (mon->flags & ERTS_ML_FLG_SPAWN_ABANDONED)
+        reason = am_abandoned;
+    
     /* Send exit signal... */
     dep = external_pid_dist_entry(mon->other.item);
 

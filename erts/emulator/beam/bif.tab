@@ -202,6 +202,7 @@ bif erts_internal:ets_super_user/1
 
 bif erts_internal:spawn_request/4
 bif erts_internal:dist_spawn_request/4
+bif erlang:spawn_request_abandon/1
 
 # inet_db support
 bif erlang:port_set_data/2

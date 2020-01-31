@@ -2424,6 +2424,7 @@ static int
 convert_to_down_message(Process *c_p,
                         ErtsMessage *sig,
                         ErtsMonitorData *mdp,
+                        ErtsMonitor **omon,
                         Uint16 mon_type,
                         ErtsMessage ***next_nm_sig)
 {
@@ -2454,6 +2455,13 @@ convert_to_down_message(Process *c_p,
 
         /* Should only happen when connection breaks... */
         ASSERT(reason == am_noconnection);
+
+        if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_ABANDONED) {
+            /* Operation has been abandoned... */
+            erts_monitor_release(*omon);
+            *omon = NULL;
+            return 1;
+        }
 
         cnt += 4;
 
@@ -3422,6 +3430,63 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         ASSERT(is_not_atom(result) || !datap->link);
         /* delete monitor structure... */
         adjust_monitor = 0;
+        if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED)
+            convert_to_message = 0;
+    }
+    else if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED) {
+        /*
+         * Spawn operation has been abandoned and
+         * link option was passed. Send exit signal
+         * with exit reason 'abandoned'...
+         */
+        DistEntry *dep;
+        ErtsMonLnkDist *dist;
+        ErtsMonitorDataExtended *mdep;
+        ErtsLink *lnk;
+        
+        mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
+        dist = mdep->dist;
+
+        ASSERT(omon->flags & ERTS_ML_FLG_SPAWN_LINK);
+        
+        lnk = datap->link;
+        if (lnk) {
+            ErtsLinkData *ldp;
+            ErtsLink *dlnk;
+            dlnk = erts_link_to_other(lnk, &ldp);
+            if (erts_link_dist_delete(dlnk))
+                erts_link_release_both(ldp);
+            else
+                erts_link_release(lnk);
+        }
+        
+        ASSERT(is_external_pid(result));
+        dep = external_pid_dist_entry(result);
+
+        if (dep != erts_this_dist_entry && dist->nodename == dep->sysname) {
+            ErtsDSigSendContext ctx;
+            int code = erts_dsig_prepare(&ctx, dep, c_p, 0,
+                                         ERTS_DSP_NO_LOCK, 1, 1, 0);
+            switch (code) {
+            case ERTS_DSIG_PREP_CONNECTED:
+            case ERTS_DSIG_PREP_PENDING:
+                if (dist->connection_id == ctx.connection_id) {
+                    code = erts_dsig_send_exit_tt(&ctx,
+                                                  c_p->common.id,
+                                                  result,
+                                                  am_abandoned,
+                                                  SEQ_TRACE_TOKEN(c_p));
+                    ASSERT(code == ERTS_DSIG_SEND_OK);
+                }
+                break;
+            default:
+                break;
+            }
+        }
+        /* delete monitor structure... */
+        adjust_monitor = 0;
+        /* drop message... */
+        convert_to_message = 0;
     }
     else {
         /* Success... */
@@ -3554,7 +3619,9 @@ handle_dist_spawn_reply_exiting(Process *c_p,
             if (datap->link) {
                 /* This link exit *should* have actual reason... */
                 ErtsProcExitContext pectxt = {c_p, reason};
-                /* unless operation already had timed out... */
+                /* unless operation has been abandoned... */
+                if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED)
+                    pectxt.reason = am_abandoned;
                 erts_proc_exit_handle_link(datap->link, (void *) &pectxt, -1);
                 cnt++;
             }
@@ -3685,7 +3752,7 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     omon = &mdp->origin;
                     erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p),
                                              omon);
-                    cnt += convert_to_down_message(c_p, sig, mdp,
+                    cnt += convert_to_down_message(c_p, sig, mdp, &omon,
                                                    type, next_nm_sig);
                 }
                 break;
