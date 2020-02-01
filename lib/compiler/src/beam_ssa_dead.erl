@@ -726,7 +726,7 @@ eval_boolean(_, _, _) ->
 %%  PrevCondition is a condition known to be true. This function
 %%  will tell whether Condition will succeed.
 
-will_succeed({_Op,_Var,_Value}=Same, {_Op,_Var,_Value}=Same) ->
+will_succeed({_,_,_}=Same, {_,_,_}=Same) ->
     %% Repeated test.
     yes;
 will_succeed({Op1,Var,#b_literal{val=A}}, {Op2,Var,#b_literal{val=B}}) ->
