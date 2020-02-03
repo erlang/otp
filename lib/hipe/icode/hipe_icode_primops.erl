@@ -435,14 +435,8 @@ type(Primop, Args) ->
     #element{} ->
       erl_bif_types:type(erlang, element, 2, Args);
     #unsafe_element{index = N} ->
-      [Type] = Args,
-      case erl_types:t_is_tuple(Type) of
-	false ->
-	  erl_types:t_none();
-	true ->
-	  Index = erl_types:t_from_term(N),
-	  erl_bif_types:type(erlang, element, 2, [Index|Args])
-      end;
+      Index = erl_types:t_from_term(N),
+      erl_bif_types:type(erlang, element, 2, [Index | Args]);
     #unsafe_update_element{index = N} ->
       %% Same, same
       erl_bif_types:type(erlang, setelement, 3, [erl_types:t_integer(N)|Args]);
