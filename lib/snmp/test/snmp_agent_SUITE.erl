@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -481,22 +481,22 @@
 
 
 -define(expect1(What), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   What)).
 -define(expect2(What, ExpVBs), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   What, ExpVBs)).
 -define(expect3(Err, Idx, ExpVBs), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   Err, Idx, ExpVBs)).
 -define(expect4(Err, Idx, ExpVBs, To), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   Err, Idx, ExpVBs, To)).
 -define(expect5(Type, Ent, Gen, Spec, ExpVBs), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   Type, Ent, Gen, Spec, ExpVBs)).
 -define(expect6(Type, Ent, Gen, Spec, ExpVBs, To), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   Type, Ent, Gen, Spec, ExpVBs, To)).
 
 
@@ -975,37 +975,37 @@ end_per_testcase1(_Case, Config) when is_list(Config) ->
 
 init_all(Conf) ->
     ?DISPLAY_SUITE_INFO(), 
-    snmp_agent_test_lib:init_all(Conf).
+    ?ALIB:init_all(Conf).
 
 finish_all(Conf) ->
-    snmp_agent_test_lib:finish_all(Conf).
+    ?ALIB:finish_all(Conf).
 
 start_v1_agent(Config) ->
-    snmp_agent_test_lib:start_v1_agent(Config).
+    ?ALIB:start_v1_agent(Config).
 
 start_v1_agent(Config, Opts) ->
-    snmp_agent_test_lib:start_v1_agent(Config, Opts).
+    ?ALIB:start_v1_agent(Config, Opts).
 
 start_v2_agent(Config) ->
-    snmp_agent_test_lib:start_v2_agent(Config).
+    ?ALIB:start_v2_agent(Config).
 
 start_v2_agent(Config, Opts) ->
-    snmp_agent_test_lib:start_v2_agent(Config, Opts).
+    ?ALIB:start_v2_agent(Config, Opts).
 
 %% start_v3_agent(Config) ->
-%%     snmp_agent_test_lib:start_v3_agent(Config).
+%%     ?ALIB:start_v3_agent(Config).
 
 start_v3_agent(Config, Opts) ->
-    snmp_agent_test_lib:start_v3_agent(Config, Opts).
+    ?ALIB:start_v3_agent(Config, Opts).
 
 start_bilingual_agent(Config) ->
-    snmp_agent_test_lib:start_bilingual_agent(Config).
+    ?ALIB:start_bilingual_agent(Config).
 
 start_multi_threaded_agent(Config) when is_list(Config) ->
-    snmp_agent_test_lib:start_mt_agent(Config).
+    ?ALIB:start_mt_agent(Config).
 
 stop_agent(Config) ->
-    snmp_agent_test_lib:stop_agent(Config).
+    ?ALIB:stop_agent(Config).
 
 
 create_tables(SaNode) ->
@@ -2085,7 +2085,7 @@ finish_mt(Config) when is_list(Config) ->
 
 %% This one *must* be run first in each case.
 init_case(Config) ->
-    snmp_agent_test_lib:init_case(Config).
+    ?ALIB:init_case(Config).
 
 
 load_master(Mib) ->
@@ -2118,10 +2118,10 @@ unload_mibs(Mibs) ->
     ok = snmpa:unload_mibs(snmp_master_agent, Mibs).
 
 start_subagent(SaNode, RegTree, Mib) ->
-    snmp_agent_test_lib:start_subagent(SaNode, RegTree, Mib).
+    ?ALIB:start_subagent(SaNode, RegTree, Mib).
 
 stop_subagent(SA) ->
-    snmp_agent_test_lib:stop_subagent(SA).
+    ?ALIB:stop_subagent(SA).
 
 
 %%-----------------------------------------------------------------
@@ -7485,15 +7485,15 @@ is(S) -> [length(S) | S].
 
 try_test(Func) ->
     ?P2("try test ~w...", [Func]),     
-    snmp_agent_test_lib:try_test(?MODULE, Func).
+    ?ALIB:try_test(?MODULE, Func).
 
 try_test(Func, A) ->
     ?P2("try test ~w...", [Func]),     
-    snmp_agent_test_lib:try_test(?MODULE, Func, A).
+    ?ALIB:try_test(?MODULE, Func, A).
 
 try_test(Func, A, Opts) ->
     ?P2("try test ~w...", [Func]),     
-    snmp_agent_test_lib:try_test(?MODULE, Func, A, Opts).
+    ?ALIB:try_test(?MODULE, Func, A, Opts).
 
 
 %% Test manager wrapperfunctions:
@@ -7504,77 +7504,80 @@ gb(NR, MR, Oids) -> snmp_test_mgr:gb(NR, MR, Oids).
 s(VAV)           -> snmp_test_mgr:s(VAV).
    
 get_req(Id, Vars) ->
-    snmp_agent_test_lib:get_req(Id, Vars).
+    ?ALIB:get_req(Id, Vars).
 
 get_next_req(Vars) ->
-    snmp_agent_test_lib:get_next_req(Vars).
+    ?ALIB:get_next_req(Vars).
 
 
 start_node(Name) ->
-    snmp_agent_test_lib:start_node(Name).
+    ?ALIB:start_node(Name).
 
+stop_node(undefined) ->
+    ok;
 stop_node(Node) ->
-    snmp_agent_test_lib:stop_node(Node).
+    ?ALIB:stop_node(Node).
 
 
 %%%-----------------------------------------------------------------
 %%% Configuration
 %%%-----------------------------------------------------------------
 delete_files(Config) ->
-    snmp_agent_test_lib:delete_files(Config).
+    ?ALIB:delete_files(Config).
 
 config(Vsns, MgrDir, AgentDir, MIp, AIp) ->
-    snmp_agent_test_lib:config(Vsns, MgrDir, AgentDir, MIp, AIp).
+    ?ALIB:config(Vsns, MgrDir, AgentDir, MIp, AIp).
 
 config(Vsns, MgrDir, AgentDir, MIp, AIp, IpFamily) ->
-    snmp_agent_test_lib:config(Vsns, MgrDir, AgentDir, MIp, AIp, IpFamily).
+    ?ALIB:config(Vsns, MgrDir, AgentDir, MIp, AIp, IpFamily).
 
 update_usm(Vsns, Dir) ->
-    snmp_agent_test_lib:update_usm(Vsns, Dir).
+    ?ALIB:update_usm(Vsns, Dir).
     
 update_usm_mgr(Vsns, Dir) ->
-    snmp_agent_test_lib:update_usm_mgr(Vsns, Dir).
+    ?ALIB:update_usm_mgr(Vsns, Dir).
 
 rewrite_usm_mgr(Dir, ShaKey, DesKey) -> 
-    snmp_agent_test_lib:rewrite_usm_mgr(Dir, ShaKey, DesKey).
+    ?ALIB:rewrite_usm_mgr(Dir, ShaKey, DesKey).
 
 reset_usm_mgr(Dir) ->
-    snmp_agent_test_lib:reset_usm_mgr(Dir).
+    ?ALIB:reset_usm_mgr(Dir).
 
 
 update_vacm(Vsn, Dir) ->
-    snmp_agent_test_lib:update_vacm(Vsn, Dir).
+    ?ALIB:update_vacm(Vsn, Dir).
 
 write_community_conf(Dir, Conf) ->
-    snmp_agent_test_lib:write_community_conf(Dir, Conf).
+    ?ALIB:write_community_conf(Dir, Conf).
     
 write_target_addr_conf(Dir, Conf) ->
-    snmp_agent_test_lib:write_target_addr_conf(Dir, Conf).
+    ?ALIB:write_target_addr_conf(Dir, Conf).
 
 
 rewrite_target_addr_conf(Dir, NewPort) ->
-    snmp_agent_test_lib:rewrite_target_addr_conf(Dir, NewPort).
+    ?ALIB:rewrite_target_addr_conf(Dir, NewPort).
 
 
 reset_target_addr_conf(Dir) ->
-    snmp_agent_test_lib:reset_target_addr_conf(Dir).
+    ?ALIB:reset_target_addr_conf(Dir).
 
 write_target_params_conf(Dir, Vsns) ->
-    snmp_agent_test_lib:write_target_params_conf(Dir, Vsns).
+    ?ALIB:write_target_params_conf(Dir, Vsns).
 
 rewrite_target_params_conf(Dir, SecName, SecLevel) -> 
-    snmp_agent_test_lib:rewrite_target_params_conf(Dir, SecName, SecLevel).
+    ?ALIB:rewrite_target_params_conf(Dir, SecName, SecLevel).
 
 reset_target_params_conf(Dir) ->
-    snmp_agent_test_lib:reset_target_params_conf(Dir).
+    ?ALIB:reset_target_params_conf(Dir).
 
 write_notify_conf(Dir) -> 
-    snmp_agent_test_lib:write_notify_conf(Dir).
+    ?ALIB:write_notify_conf(Dir).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 copy_file(From, To) ->
-    snmp_agent_test_lib:copy_file(From, To).
+    ?ALIB:copy_file(From, To).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
