@@ -1452,7 +1452,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       returns false for any part of the cipher suite. If no filter function is supplied for some
       part the default behaviour regards it as if there was a filter function that returned true.
       
-      For examples see <seealso marker="ssl:using_ssl#Customizing-cipher-suits"> Customizing cipher suits </seealso> 
+      For examples see <seealso marker="ssl:using_ssl#customizing-cipher-suits"> Customizing cipher suits </seealso> 
       
       Additionaly this function also filters the cipher suites to
       exclude cipher suites not supported by the cryptolib used by the
