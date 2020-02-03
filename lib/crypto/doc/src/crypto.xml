@@ -826,6 +826,36 @@
     </func>
 
     <func>
+      <name name="crypto_get_data" arity="1" since=""/>
+      <fsummary>Get information about crypto states</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
+	</p>
+	<p>
+	  Returns information about the State in the argument. The information is the form of a map,
+	  which currently contains at least:
+	</p>
+	<taglist>
+	  <tag><c>size</c></tag>
+	  <item>The number of bytes encrypted or decrypted so far.
+	  </item>
+	  <tag><c>padding_size</c></tag>
+	  <item>After a call to
+	  <seealso marker="#crypto_final/1">crypto_final/1</seealso> it contains
+	  the number of bytes padded. Otherwise 0.
+	  </item>
+	  <tag><c>padding_type</c></tag>
+	  <item>The type of the padding as provided in the call ot
+	  <seealso marker="#crypto_init/3">crypto_init/3,4</seealso>.
+	  </item>
+	  <tag><c>encrypt</c></tag>
+	  <item>Is <c>true</c> if encryption is performed. It is <c>false</c> otherwise.
+	  </item>
+	</taglist>
+      </desc>
+    </func>
+
+    <func>
       <name name="crypto_dyn_iv_update" arity="3" since="OTP 22.0"/>
       <fsummary>Do an actual crypto operation on a part of the full text and the IV is supplied for each part</fsummary>
       <desc>
