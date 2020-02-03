@@ -31,6 +31,40 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process could end up in a state where it got endlessly
+	    rescheduled without making any progress. This occurred
+	    when a system task, such as check of process code (part
+	    of a code purge), was scheduled on a high priority
+	    process trying to execute on a dirty scheduler.</p>
+          <p>
+	    Own Id: OTP-16436 Aux Id: ERL-1152 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved signal handling for processes executing dirty.
+	    For example, avoid busy wait in dirty signal handler
+	    process when process is doing garbage collection on dirty
+	    scheduler.</p>
+          <p>
+	    Own Id: OTP-16358</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.6.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
