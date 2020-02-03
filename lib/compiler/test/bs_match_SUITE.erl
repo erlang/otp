@@ -1266,9 +1266,22 @@ zero_width(Config) when is_list(Config) ->
 %% OTP_7650: A invalid size for binary segments could crash the compiler.
 bad_size(Config) when is_list(Config) ->
     Tuple = {a,b,c},
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Tuple>> = id(<<>>)),
     Binary = <<1,2,3>>,
+    Atom = an_atom,
+
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Binary>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Atom>> = id(<<>>)),
+
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Tuple/float>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Binary/float>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Atom/float>> = id(<<>>)),
+
+    %% Matched out value is ignored.
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Binary>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Tuple>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Atom>> = id(<<>>)),
+
     ok.
 
 haystack(Config) when is_list(Config) ->

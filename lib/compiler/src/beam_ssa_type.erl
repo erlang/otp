@@ -954,8 +954,8 @@ will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts, _Sub) ->
     yes;
 
 %% Remove the success branch from binary operations with invalid
-%% sizes. That will remove subsequent bs_put instructions that are
-%% probably not loadable.
+%% sizes. That will remove subsequent bs_put and bs_match instructions,
+%% which are probably not loadable.
 will_succeed_1(#b_set{op=bs_add,args=[_,#b_literal{val=Size},_]},
                _Src, _Ts, _Sub) ->
     if
@@ -980,6 +980,20 @@ will_succeed_1(#b_set{op=bs_init,
         is_integer(Size), Size >= 0 ->
             maybe;
         true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_match,
+                      args=[#b_literal{val=Type},_,_,#b_literal{val=Size},_]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        Type =:= binary, Size =:= all ->
+            %% `all` is a legal size for binary segments at the end of
+            %% a binary pattern.
+            maybe;
+        true ->
+            %% Invalid size. Matching will fail.
             no
     end;
 
