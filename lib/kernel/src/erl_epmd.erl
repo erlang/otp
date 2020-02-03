@@ -88,7 +88,7 @@ stop() ->
 port_please(Node, Host) ->
   port_please(Node, Host, infinity).
 
--spec port_please(Name, Host, Timeout) -> {ok, Port, Version} | noport when
+-spec port_please(Name, Host, Timeout) -> {port, Port, Version} | noport when
 	  Name :: atom() | string(),
 	  Host :: atom() | string() | inet:ip_address(),
 	  Timeout :: non_neg_integer() | infinity,
