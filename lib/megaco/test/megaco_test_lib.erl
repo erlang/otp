@@ -938,6 +938,13 @@ analyze_and_print_solaris_host_info(Version) ->
                      _ ->
                          "-"
                  end,
+    InstructionSet =
+        case string:trim(os:cmd("isainfo -k")) of
+            "Pseudo-terminal will not" ++ _ ->
+                "-";
+            IS ->
+                IS
+        end,
     PtrConf = [list_to_tuple([string:trim(S) || S <- Items]) || Items <- [string:tokens(S, [$:]) || S <- string:tokens(os:cmd("prtconf"), [$\n])], length(Items) > 1],
     SysConf =
         case lists:keysearch("System Configuration", 1, PtrConf) of
@@ -946,6 +953,24 @@ analyze_and_print_solaris_host_info(Version) ->
             _ ->
                 "-"
         end,
+    NumPhysProc =
+        begin
+            NPPStr = string:trim(os:cmd("psrinfo -p")),
+            try list_to_integer(NPPStr) of
+                _ ->
+                    NPPStr
+            catch
+                _:_:_ ->
+                    "-"
+            end
+        end,
+    NumProc = try integer_to_list(length(string:tokens(os:cmd("psrinfo"), [$\n]))) of
+                  NPStr ->
+                      NPStr
+              catch
+                  _:_:_ ->
+                      "-"
+              end,
     MemSz =
         case lists:keysearch("Memory size", 1, PtrConf) of
             {value, {_, MS}} ->
@@ -957,12 +982,14 @@ analyze_and_print_solaris_host_info(Version) ->
               "~n   Release:         ~s"
               "~n   Banner Name:     ~s"
               "~n   Instruction Set: ~s"
+              "~n   CPUs:            ~s (~s)"
               "~n   System Config:   ~s"
               "~n   Memory Size:     ~s"
               "~n   Num Schedulers:  ~s"
-              "~n", [Version, Release, BannerName,
-                     SysConf, MemSz,
-                     str_num_schedulers()]),
+              "~n~n", [Version, Release, BannerName, InstructionSet,
+                       NumPhysProc, NumProc,
+                       SysConf, MemSz,
+                       str_num_schedulers()]),
     MemFactor =
         try string:tokens(MemSz, [$ ]) of
             [SzStr, "Mega" ++ _] ->
