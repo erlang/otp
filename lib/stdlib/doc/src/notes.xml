@@ -566,6 +566,26 @@
 
 </section>
 
+<section><title>STDLIB 3.8.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A directory traversal vulnerability has been
+	    eliminated in erl_tar. erl_tar will now refuse to extract
+	    symlinks that points outside the targeted extraction
+	    directory and will return
+	    <c>{error,{Path,unsafe_symlink}}</c>. (Thanks to Eric
+	    Meadows-Jönsson for the bug report and for suggesting a
+	    fix.)</p>
+          <p>
+	    Own Id: OTP-16441</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.8.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
