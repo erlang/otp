@@ -1380,6 +1380,11 @@ int enif_term_to_binary(ErlNifEnv *dst_env, ERL_NIF_TERM term,
 }
 
 /* OTP may add similar functionality */
+/* The main difference between term_to_binary and term_to_binary_int,
+ * and between binarty_to_term and binary_to_term_int is that they
+ * use the erts_encode_ext_size_int() function to calculate size,
+ * and that encoding is done using erts_encode_ext_int.
+ */
 int enif_term_to_binary_int(ErlNifEnv *dst_env, ERL_NIF_TERM term,
                             ErlNifBinary *bin)
 {
@@ -1389,6 +1394,16 @@ int enif_term_to_binary_int(ErlNifEnv *dst_env, ERL_NIF_TERM term,
     ErtsHeapFactory factory;
 
     size = erts_encode_ext_size_int(term);
+
+    switch (size) {
+    case ERTS_EXT_SZ_SYSTEM_LIMIT:
+        return 0; /* system limit */
+    case ERTS_EXT_SZ_YIELD:
+        ERTS_INTERNAL_ERROR("Unexpected yield");
+    case ERTS_EXT_SZ_OK:
+        break;
+    }
+
     if (!enif_alloc_binary(size, bin))
         return 0;
 
@@ -1458,25 +1473,21 @@ size_t enif_binary_to_term(ErlNifEnv *dst_env,
     return bp - data;
 }
 
-size_t enif_binary_to_term_int(ErlNifEnv *dst_env,
-                               const unsigned char* data,
-                               size_t data_sz,
-                               ERL_NIF_TERM *term,
-                               ErlNifBinaryToTerm opts)
+size_t enif_binary_to_term(ErlNifEnv *dst_env,
+                           const unsigned char* data,
+                           size_t data_sz,
+                           ERL_NIF_TERM *term,
+                           ErlNifBinaryToTerm opts)
 {
     Sint size;
     ErtsHeapFactory factory;
     byte *bp = (byte*) data;
+    Uint32 flags = 0;
 
-//    if (ERL_NIF_BIN2TERM_SAFE != ERTS_DIST_EXT_BTT_SAFE) {
-//        printf("\n===> enif_binary_to_term_int: %i != %i\n",
-//               ERL_NIF_BIN2TERM_SAFE, ERTS_DIST_EXT_BTT_SAFE);
-//    }
-//
-//    ERTS_ASSERT(ERL_NIF_BIN2TERM_SAFE == ERTS_DIST_EXT_BTT_SAFE);
-
-    if (opts & ~ERL_NIF_BIN2TERM_SAFE) {
-        return 0;
+    switch ((Uint32)opts) {
+    case 0: break;
+    case ERL_NIF_BIN2TERM_SAFE: flags = ERTS_DIST_EXT_BTT_SAFE; break;
+    default: return 0;
     }
     if ((size = erts_decode_ext_size_int(bp, data_sz)) < 0)
         return 0;
@@ -1488,7 +1499,7 @@ size_t enif_binary_to_term_int(ErlNifEnv *dst_env,
         erts_factory_dummy_init(&factory);
     }
 
-    *term = erts_decode_ext(&factory, &bp, (Uint32)opts);
+    *term = erts_decode_ext(&factory, &bp, flags);
 
     if (is_non_value(*term)) {
         return 0;
@@ -1501,7 +1512,6 @@ size_t enif_binary_to_term_int(ErlNifEnv *dst_env,
     ASSERT(bp > data);
     return bp - data;
 }
-
 
 int enif_is_identical(Eterm lhs, Eterm rhs)
 {
