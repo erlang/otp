@@ -9786,25 +9786,33 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 	    }
 	}
 	else {
-            if (!(state & ERTS_PSFLGS_DIRTY_WORK)) {
-                /* Dirty work completed... */
-		goto sunlock_sched_out_proc;
+            /* On dirty scheduler */
+	    if (!(state & ERTS_PSFLGS_DIRTY_WORK)
+                | !!(state & (ERTS_PSFLG_SYS_TASKS
+                              | ERTS_PSFLG_EXITING
+                              | ERTS_PSFLG_DIRTY_ACTIVE_SYS))) {
+                
+                if (!(state & ERTS_PSFLGS_DIRTY_WORK)) {
+                    /* Dirty work completed... */
+                    goto sunlock_sched_out_proc;
+                }
+                if (state & (ERTS_PSFLG_SYS_TASKS
+                             | ERTS_PSFLG_EXITING)) {
+                    /*
+                     * IMPORTANT! We need to take care of
+                     * scheduled check-process-code requests
+                     * before continuing with dirty execution!
+                     */
+                    /* Migrate to normal scheduler... */
+                    goto sunlock_sched_out_proc;
+                }
+                if ((state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
+                    && rq == ERTS_DIRTY_IO_RUNQ) {
+                    /* Migrate to dirty cpu scheduler... */
+                    goto sunlock_sched_out_proc;
+                }
+
             }
-	    if (state & (ERTS_PSFLG_ACTIVE_SYS
-			 | ERTS_PSFLG_EXITING)) {
-		/*
-		 * IMPORTANT! We need to take care of
-		 * scheduled check-process-code requests
-		 * before continuing with dirty execution!
-		 */
-		/* Migrate to normal scheduler... */
-		goto sunlock_sched_out_proc;
-	    }
-	    if ((state & ERTS_PSFLG_DIRTY_ACTIVE_SYS)
-		&& rq == ERTS_DIRTY_IO_RUNQ) {
-		/* Migrate to dirty cpu scheduler... */
-		goto sunlock_sched_out_proc;
-	    }
 
 	    ASSERT(rq == ERTS_DIRTY_CPU_RUNQ
 		   ? (state & (ERTS_PSFLG_DIRTY_CPU_PROC
@@ -9818,7 +9826,17 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
         if (IS_TRACED(p))
             trace_schedule_in(p, state);
 
-        if (is_normal_sched) {
+        if (!is_normal_sched) {
+            /* On dirty scheduler */
+            if (!!(state & ERTS_PSFLG_DIRTY_RUNNING)
+                & !!(state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q))) {
+                /* Ensure signals are handled while executing dirty... */
+                int prio = ERTS_PSFLGS_GET_ACT_PRIO(state);
+                erts_make_dirty_proc_handled(p->common.id, state, prio);
+            }
+        }
+        else {
+            /* On normal scheduler */
             if (state & ERTS_PSFLG_RUNNING_SYS) {
                 if (state & (ERTS_PSFLG_SIG_Q|ERTS_PSFLG_SIG_IN_Q)) {
                     int local_only = (!!(p->sig_qs.flags & FS_LOCAL_SIGS_ONLY)
@@ -10516,6 +10534,34 @@ erts_execute_dirty_system_task(Process *c_p)
     Eterm cla_res = THE_NON_VALUE;
     ErtsProcSysTask *stasks;
 
+    ASSERT(erts_atomic32_read_nob(&c_p->state)
+           & ERTS_PSFLG_DIRTY_RUNNING_SYS);
+    /*
+     * Currently all dirty system tasks are handled while holding
+     * the main lock. The process is during this in the state
+     * ERTS_PSFLG_DIRTY_RUNNING_SYS. The dirty signal handlers
+     * (erts/preloaded/src/erts_dirty_process_signal_handler.erl)
+     * cannot execute any signal handling on behalf of a process
+     * executing dirty unless they will be able to acquire the
+     * main lock. If they try to, they will just end up in a
+     * busy wait until the lock has been released.
+     *
+     * We now therefore do not schedule any handling on dirty
+     * signal handlers while a process is in the state
+     * ERTS_PSFLG_DIRTY_RUNNING_SYS. We instead leave the work
+     * scheduled on the process an let it detect it itself
+     * when it leaves the ERTS_PSFLG_DIRTY_RUNNING_SYS state.
+     * See erts_proc_notify_new_sig() in erl_proc_sig_queue.h,
+     * request_system_task() (check_process_code) in
+     * erl_process.c, and maybe_elevate_sig_handling_prio()
+     * in erl_proc_sig_queue.c for scheduling points.
+     *
+     * If there are dirty system tasks introduced that execute
+     * without the main lock held, we most likely want to trigger
+     * handling of signals via dirty signal handlers for these
+     * states.
+     */
+
     /*
      * If multiple operations, perform them in the following
      * order (in order to avoid unnecessary GC):
@@ -10611,8 +10657,7 @@ dispatch_system_task(Process *c_p, erts_aint_t fail_state,
     switch (st->type) {
     case ERTS_PSTT_CPC:
 	rp = erts_dirty_process_signal_handler;
-	ASSERT(fail_state & (ERTS_PSFLG_DIRTY_RUNNING
-			     | ERTS_PSFLG_DIRTY_RUNNING_SYS));
+	ASSERT(fail_state & ERTS_PSFLG_DIRTY_RUNNING);
 	if (c_p == rp) {
 	    ERTS_BIF_PREP_RET(ret, am_dirty_execution);
 	    return ret;
@@ -10758,9 +10803,12 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	 * If the process should start executing dirty
 	 * code it is important that this task is
 	 * aborted. Therefore this strict fail state...
-	 */
-	fail_state |= (ERTS_PSFLG_DIRTY_RUNNING
-		       | ERTS_PSFLG_DIRTY_RUNNING_SYS);
+         *
+         * We ignore ERTS_PSFLG_DIRTY_RUNNING_SYS. For
+         * more info see erts_execute_dirty_system_task()
+         * in erl_process.c.
+         */
+	fail_state |= ERTS_PSFLG_DIRTY_RUNNING;
 	break;
 
     case am_copy_literals:
@@ -10783,8 +10831,7 @@ request_system_task(Process *c_p, Eterm requester, Eterm target,
 	noproc:
 	    failure = noproc_res;
 	}
-	else if (fail_state & (ERTS_PSFLG_DIRTY_RUNNING
-			       | ERTS_PSFLG_DIRTY_RUNNING_SYS)) {
+	else if (fail_state & ERTS_PSFLG_DIRTY_RUNNING) {
 	    ret = dispatch_system_task(c_p, fail_state, st,
 				       target, priority, operation);
 	    goto cleanup_return;
