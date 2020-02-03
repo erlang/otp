@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<!DOCTYPE comref SYSTEM "comref.dtd">
 
-<erlref>
+<comref>
   <header>
     <copyright>
       <year>2006</year><year>2017</year>
@@ -29,9 +29,9 @@
     <rev></rev>
     <file>type.xml</file>
   </header>
-  <module>typer</module>
-  <modulesummary>Typer, a Type annotator for ERlang programs.
-  </modulesummary>
+  <com>typer</com>
+  <comsummary>Typer, a Type annotator for ERlang programs.
+  </comsummary>
   <description>
     <p>TypEr shows type information for Erlang modules to the user.
     Additionally, it can annotate the code of files with such type
@@ -154,4 +154,4 @@ typer [--help] [--version] [--plt PLT] [--edoc]
 
   </section>
 
-</erlref>
+</comref>

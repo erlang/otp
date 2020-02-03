@@ -29,7 +29,8 @@ APPLICATION=dialyzer
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
-XML_REF3_FILES = dialyzer.xml typer.xml
+XML_REF3_FILES = dialyzer.xml
+XML_REF1_FILES = typer_cmd.xml
 
 XML_PART_FILES = part.xml
 XML_CHAPTER_FILES = dialyzer_chapter.xml notes.xml
@@ -38,7 +39,8 @@ BOOK_FILES = book.xml
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
+	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF1_FILES) \
+	$(XML_APPLICATION_FILES)
 
 
 # ----------------------------------------------------
