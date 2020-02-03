@@ -799,21 +799,22 @@ analyze_and_print_host_info() ->
         {unix, freebsd} ->
             analyze_and_print_freebsd_host_info(Version);           
         {unix, sunos} ->
-            io:format("Solaris: ~s"
-                      "~n", [Version]),
-            2;
+            analyze_and_print_solaris_host_info(Version);
         _ ->
             io:format("OS Family: ~p"
-                      "~n   OS Type: ~p"
-                      "~n   Version: ~p"
-                      "~n", [OsFam, OsName, Version]),
+                      "~n   OS Type:        ~p"
+                      "~n   Version:        ~p"
+                      "~n   Num Schedulers: ~s"
+                      "~n", [OsFam, OsName, Version, str_num_schedulers()]),
             try erlang:system_info(schedulers) of
                 1 ->
                     10;
                 2 ->
                     5;
+                N when (N =< 6) ->
+                    2;
                 _ ->
-                    2
+                    1
             catch
                 _:_:_ ->
                     10
@@ -1072,12 +1073,11 @@ analyze_and_print_freebsd_host_info(Version) ->
                       "~n   Model:          ~s"
                       "~n   Speed:          ~w"
                       "~n   N:              ~w"
-                      "~n   Num Schedulers: ~w"
+                      "~n   Num Schedulers: ~s"
                       "~nMemory:"
                       "~n   ~w KB"
                       "~n",
-                      [CPU, CPUSpeed, NCPU,
-                       erlang:system_info(schedulers), Memory]),
+                      [CPU, CPUSpeed, NCPU, str_num_schedulers(), Memory]),
             CPUFactor =
                 if
                     (CPUSpeed =:= -1) ->
@@ -1121,8 +1121,8 @@ analyze_and_print_freebsd_host_info(Version) ->
     catch
         _:_:_ ->
             io:format("CPU:"
-                      "~n   Num Schedulers: ~w"
-                      "~n", [erlang:system_info(schedulers)]),
+                      "~n   Num Schedulers: ~s"
+                      "~n", [str_num_schedulers()]),
             case erlang:system_info(schedulers) of
                 1 ->
                     10;
@@ -1171,6 +1171,141 @@ analyze_freebsd_item(Extract, Key, Process, Default) ->
     end.
 
 
+analyze_and_print_solaris_host_info(Version) ->
+    Release =
+        case file:read_file_info("/etc/release") of
+            {ok, _} ->
+                case [string:trim(S) || S <- string:tokens(os:cmd("cat /etc/release"), [$\n])] of
+                    [Rel | _] ->
+                        Rel;
+                    _ ->
+                        "-"
+                end;
+            _ ->
+                "-"
+        end,
+    %% Display the firmware device tree root properties (prtconf -b)
+    Props = [list_to_tuple([string:trim(PS) || PS <- Prop]) ||
+                Prop <- [string:tokens(S, [$:]) ||
+                            S <- string:tokens(os:cmd("prtconf -b"), [$\n])]],
+    BannerName = case lists:keysearch("banner-name", 1, Props) of
+                     {value, {_, BN}} ->
+                         string:trim(BN);
+                     _ ->
+                         "-"
+                 end,
+    InstructionSet =
+        case string:trim(os:cmd("isainfo -k")) of
+            "Pseudo-terminal will not" ++ _ ->
+                "-";
+            IS ->
+                IS
+        end,
+    PtrConf = [list_to_tuple([string:trim(S) || S <- Items]) || Items <- [string:tokens(S, [$:]) || S <- string:tokens(os:cmd("prtconf"), [$\n])], length(Items) > 1],
+    SysConf =
+        case lists:keysearch("System Configuration", 1, PtrConf) of
+            {value, {_, SC}} ->
+                SC;
+            _ ->
+                "-"
+        end,
+    NumPhysProc =
+        begin
+            NPPStr = string:trim(os:cmd("psrinfo -p")),
+            try list_to_integer(NPPStr) of
+                _ ->
+                    NPPStr
+            catch
+                _:_:_ ->
+                    "-"
+            end
+        end,
+    NumProc = try integer_to_list(length(string:tokens(os:cmd("psrinfo"), [$\n]))) of
+                  NPStr ->
+                      NPStr
+              catch
+                  _:_:_ ->
+                      "-"
+              end,
+    MemSz =
+        case lists:keysearch("Memory size", 1, PtrConf) of
+            {value, {_, MS}} ->
+                MS;
+            _ ->
+                "-"
+        end,
+    io:format("Solaris: ~s"
+              "~n   Release:         ~s"
+              "~n   Banner Name:     ~s"
+              "~n   Instruction Set: ~s"
+              "~n   CPUs:            ~s (~s)"
+              "~n   System Config:   ~s"
+              "~n   Memory Size:     ~s"
+              "~n   Num Schedulers:  ~s"
+              "~n~n", [Version, Release, BannerName, InstructionSet,
+                       NumPhysProc, NumProc,
+                       SysConf, MemSz,
+                       str_num_schedulers()]),
+    MemFactor =
+        try string:tokens(MemSz, [$ ]) of
+            [SzStr, "Mega" ++ _] ->
+                try list_to_integer(SzStr) of
+                    Sz when Sz > 8192 ->
+                        0;
+                    Sz when Sz > 4096 ->
+                        1;
+                    Sz when Sz > 2048 ->
+                        2;
+                    _ -> 
+                        5
+                catch
+                    _:_:_ ->
+                        10
+                end;
+            [SzStr, "Giga" ++ _] ->
+                try list_to_integer(SzStr) of
+                    Sz when Sz > 8 ->
+                        0;
+                    Sz when Sz > 4 ->
+                        1;
+                    Sz when Sz > 2 ->
+                        2;
+                    _ -> 
+                        5
+                catch
+                    _:_:_ ->
+                        10
+                end;
+            _ ->
+                10
+        catch
+            _:_:_ ->
+                10
+        end,
+    try erlang:system_info(schedulers) of
+        1 ->
+            10;
+        2 ->
+            5;
+        N when (N =< 6) ->
+            2;
+        _ ->
+            1
+    catch
+        _:_:_ ->
+            10
+    end + MemFactor.    
+
+
+
+str_num_schedulers() ->
+    try erlang:system_info(schedulers) of
+        N -> f("~w", [N])
+    catch
+        _:_:_ -> "-"
+    end.
+
+    
 
 %% ----------------------------------------------------------------
 %% Time related function

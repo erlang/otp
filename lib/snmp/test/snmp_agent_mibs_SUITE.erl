@@ -457,7 +457,7 @@ do_size_check(Config) ->
     ?DBG("do_size_check -> stop symbolic store", []),
     ?line sym_stop(),
 
-    ?PEINT2("do_size_check -> done", []),
+    ?PRINT2("do_size_check -> done", []),
     ok.
 
 
