@@ -1052,7 +1052,9 @@ huge_env(Config) when is_list(Config) ->
 %% Test to spawn program with command payload buffer
 %% just around pipe capacity (9f779819f6bda734c5953468f7798)
 pipe_limit_env(Config) when is_list(Config) ->
+    WSL = os:getenv("WSLENV") =/= false,
     Cmd = case os:type() of
+              {win32,_} when WSL -> "cmd.exe /q /c wsl true";
               {win32,_} -> "cmd /q /c true";
               _ -> "true"
           end,
@@ -1706,7 +1708,11 @@ spawn_executable(Config) when is_list(Config) ->
     ok.
 
 unregister_name(Config) when is_list(Config) ->
-    true = register(crash, open_port({spawn, "sleep 100"}, [])),
+    Cmd = case os:getenv("WSLENV") of
+              false -> "sleep 5";
+              _ -> "wsl.exe sleep 5"
+          end,
+    true = register(crash, open_port({spawn, Cmd}, [])),
     true = unregister(crash).
 
 test_bat_file(Dir) ->

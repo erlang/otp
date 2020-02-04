@@ -324,14 +324,18 @@ close_stdin(Config) ->
     "-1" = os:cmd(Fds).
 
 max_size_command(_Config) ->
+    WSL = case os:getenv("WSLENV") of
+              false -> "";
+              _ -> "wsl "
+          end,
 
-    Res20 = os:cmd("cat /dev/zero", #{ max_size => 20 }),
+    Res20 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 20 }),
     20 = length(Res20),
 
-    Res0 = os:cmd("cat /dev/zero", #{ max_size => 0 }),
+    Res0 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 0 }),
     0 = length(Res0),
 
-    Res32768 = os:cmd("cat /dev/zero", #{ max_size => 32768 }),
+    Res32768 = os:cmd(WSL ++ "cat /dev/zero", #{ max_size => 32768 }),
     32768 = length(Res32768),
 
     ResHello = string:trim(os:cmd("echo hello", #{ max_size => 20 })),
