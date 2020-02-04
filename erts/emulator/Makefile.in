@@ -627,12 +627,12 @@ $(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
 	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(NIF_OBJS) $(STATIC_NIF_LIBS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
 GENERATE += $(TTF_DIR)/driver_tab.c
 
-beam/erl_db_insert_list.inc: $(YCF_EXECUTABLE) beam/erl_db.c
+beam/erl_db_insert_list.ycf.h: $(YCF_EXECUTABLE) beam/erl_db.c
 	$(gen_verbose)$(YCF_EXECUTABLE) \
 		-yield \
 		-static_aux_funs \
 		-only_yielding_funs \
-		-output_file_name beam/erl_db_insert_list.inc \
+		-output_file_name beam/erl_db_insert_list.ycf.h \
 		-f ets_insert_2_list_check \
 		-f ets_insert_new_2_list_has_member \
 		-f ets_insert_2_list_from_p_heap \
@@ -644,7 +644,7 @@ beam/erl_db_insert_list.inc: $(YCF_EXECUTABLE) beam/erl_db.c
 		-fnoauto ets_insert_2_list_lock_tbl \
 		beam/erl_db.c
 
-GENERATE += beam/erl_db_insert_list.inc
+GENERATE += beam/erl_db_insert_list.ycf.h
 
 # Preloaded code.
 # 

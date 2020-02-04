@@ -409,7 +409,7 @@ static int db_last_tree(Process *p, DbTable *tbl,
 static int db_prev_tree(Process *p, DbTable *tbl, 
 			Eterm key,
 			Eterm *ret);
-static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail);
+static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail, SWord *consumed_reds_p);
 static int db_get_tree(Process *p, DbTable *tbl, 
 		       Eterm key,  Eterm *ret);
 static int db_member_tree(DbTable *tbl, Eterm key, Eterm *ret);
@@ -474,7 +474,8 @@ db_finalize_dbterm_tree(int cret, DbUpdateHandle *);
 static int db_get_binary_info_tree(Process*, DbTable*, Eterm key, Eterm *ret);
 static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
                               void* obj,
-                              int key_clash_fail);
+                              int key_clash_fail,
+                              SWord *consumed_reds_p);
 
 /*
 ** Static variables
@@ -806,7 +807,8 @@ int db_put_dbterm_tree_common(DbTableCommon *tb,
 
 static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
                               void* obj,
-                              int key_clash_fail) /* DB_ERROR_BADKEY if key exists */
+                              int key_clash_fail, /* DB_ERROR_BADKEY if key exists */
+                              SWord *consumed_reds_p)
 {
     DbTableTree *tb = &tbl->tree;
     return db_put_dbterm_tree_common(&tb->common, &tb->root, obj, key_clash_fail, tb);
@@ -924,7 +926,8 @@ int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
     return DB_ERROR_NONE;
 }
 
-static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail)
+static int db_put_tree(DbTable *tbl, Eterm obj, int key_clash_fail,
+                       SWord *consumed_reds_p)
 {
     DbTableTree *tb = &tbl->tree;
     return db_put_tree_common(&tb->common, &tb->root, obj, key_clash_fail, tb);
