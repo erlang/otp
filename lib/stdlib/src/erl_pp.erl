@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -330,9 +330,11 @@ ltype(T) ->
     ltype(T, 0).
 
 ltype({ann_type,_Line,[V,T]}, Prec) ->
-    {_L,P,_R} = type_inop_prec('::'),
-    E = typed(lexpr(V, options(none)), T),
-    maybe_paren(P, Prec, E);
+    {L,P,R} = type_inop_prec('::'),
+    Vl = ltype(V, L),
+    Tr = ltype(T, R),
+    El = {list,[{cstep,[Vl,' ::'],Tr}]},
+    maybe_paren(P, Prec, El);
 ltype({paren_type,_Line,[T]}, P) ->
     %% Generated before Erlang/OTP 18.
     ltype(T, P);
@@ -418,8 +420,7 @@ field_type({type,_Line,field_type,[Name,Type]}, _Prec) ->
     typed(lexpr(Name, options(none)), Type).
 
 typed(B, Type) ->
-    {_L,_P,R} = type_inop_prec('::'),
-    {list,[{cstep,[B,' ::'],ltype(Type, R)}]}.
+    {list,[{cstep,[B,' ::'],ltype(Type)}]}.
 
 tuple_type([], _) ->
     leaf("{}");
@@ -548,11 +549,13 @@ lexpr({nil,_}, _, _) -> '[]';
 lexpr({cons,_,H,T}, _, Opts) ->
     list(T, [H], Opts);
 lexpr({lc,_,E,Qs}, _Prec, Opts) ->
-    Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
+    P = max_prec(),
+    Lcl = {list,[{step,[lexpr(E, P, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,$[,[],[[]],[{force_nl,leaf(" "),[Lcl]}]},$]]};
     %% {list,[{step,$[,Lcl},$]]};
 lexpr({bc,_,E,Qs}, _Prec, Opts) ->
-    Lcl = {list,[{step,[lexpr(E, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
+    P = max_prec(),
+    Lcl = {list,[{step,[lexpr(E, P, Opts),leaf(" ||")],lc_quals(Qs, Opts)}]},
     {list,[{seq,'<<',[],[[]],[{force_nl,leaf(" "),[Lcl]}]},'>>']};
     %% {list,[{step,'<<',Lcl},'>>']};
 lexpr({tuple,_,Elts}, _, Opts) ->
@@ -572,14 +575,16 @@ lexpr({record, _, Name, Fs}, Prec, Opts) ->
 lexpr({record_field, _, Rec, Name, F}, Prec, Opts) ->
     {L,P,R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
-    Nl = [$#,{atom,Name},$.],
+    Sep = hash_after_integer(Rec, [$#]),
+    Nl = [Sep,{atom,Name},$.],
     El = [Rl,Nl,lexpr(F, R, Opts)],
     maybe_paren(P, Prec, El);
 lexpr({record, _, Rec, Name, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Rec, L, Opts),
+    Sep = hash_after_integer(Rec, []),
     Nl = record_name(Name),
-    El = {first,[Rl,Nl],record_fields(Fs, Opts)},
+    El = {first,[Rl,Sep,Nl],record_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({record_field, _, {atom,_,''}, F}, Prec, Opts) ->
     {_L,P,R} = inop_prec('.'),
@@ -596,7 +601,8 @@ lexpr({map, _, Fs}, Prec, Opts) ->
 lexpr({map, _, Map, Fs}, Prec, Opts) ->
     {L,P,_R} = inop_prec('#'),
     Rl = lexpr(Map, L, Opts),
-    El = {first,[Rl,$#],map_fields(Fs, Opts)},
+    Sep = hash_after_integer(Map, [$#]),
+    El = {first,[Rl|Sep],map_fields(Fs, Opts)},
     maybe_paren(P, Prec, El);
 lexpr({block,_,Es}, _, Opts) ->
     {list,[{step,'begin',body(Es, Opts)},{reserved,'end'}]};
@@ -660,20 +666,20 @@ lexpr({'try',_,Es,Scs,Ccs,As}, _, Opts) ->
                true ->
                    {step,{list,[{step,'try',body(Es, Opts)},{reserved,'of'}]},
                     cr_clauses(Scs, Opts)}
-           end,
+           end] ++
            if
                Ccs =:= [] ->
                    [];
                true ->
-                   {step,'catch',try_clauses(Ccs, Opts)}
-           end,
+                   [{step,'catch',try_clauses(Ccs, Opts)}]
+           end ++
            if
                As =:= [] ->
                    [];
                true ->
-                   {step,'after',body(As, Opts)}
-           end,
-           {reserved,'end'}]};
+                   [{step,'after',body(As, Opts)}]
+           end ++
+           [{reserved,'end'}]};
 lexpr({'catch',_,Expr}, Prec, Opts) ->
     {P,R} = preop_prec('catch'),
     El = {list,[{step,'catch',lexpr(Expr, R, Opts)}]},
@@ -725,6 +731,17 @@ lexpr(HookExpr, Precedence, #options{hook = {Mod,Func,Eas}})
     {ehook,HookExpr,Precedence,{Mod,Func,Eas}};
 lexpr(HookExpr, Precedence, #options{hook = Func, opts = Options}) ->
     {hook,HookExpr,Precedence,Func,Options}.
+
+%% An integer is separated from the following '#' by a space, which
+%% erl_scan can handle.
+hash_after_integer({integer, _, _}, C) ->
+    [$\s|C];
+hash_after_integer({'fun',_,{function, _, _}}, C) ->
+    [$\s|C];
+hash_after_integer({'fun',_,{function, _, _, _}}, C) ->
+    [$\s|C];
+hash_after_integer(_, C) ->
+    C.
 
 call(Name, Args, Prec, Opts) ->
     {F,P} = func_prec(),
@@ -847,12 +864,6 @@ cr_clause({clause,_,[T],G,B}, Opts) ->
 try_clauses(Cs, Opts) ->
     clauses(fun try_clause/2, Opts, Cs).
 
-try_clause({clause,_,[{tuple,_,[{atom,_,throw},V,S]}],G,B}, Opts) ->
-    El = lexpr(V, 0, Opts),
-    Sl = stack_backtrace(S, [El], Opts),
-    Gl = guard_when(Sl, G, Opts),
-    Bl = body(B, Opts),
-    {step,Gl,Bl};
 try_clause({clause,_,[{tuple,_,[C,V,S]}],G,B}, Opts) ->
     Cs = lexpr(C, 0, Opts),
     El = lexpr(V, 0, Opts),
@@ -980,7 +991,7 @@ frmt(Item, I, PP) ->
 %%% - {prefer_nl,Sep,IPs}: forces linebreak between Is unlesss negative
 %%%   indentation.
 %%% - {atom,A}: an atom
-%%% - {singleton_atom_type,A}: an singleton atom type
+%%% - {singleton_atom_type,A}: a singleton atom type
 %%% - {char,C}: a character
 %%% - {string,S}: a string.
 %%% - {value,T}: a term.
