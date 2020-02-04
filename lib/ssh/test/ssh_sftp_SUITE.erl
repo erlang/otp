@@ -999,7 +999,7 @@ cipher_crypto_tar(Cipher, Config) ->
     Cendw = fun(PlainBin, State) ->
                     CipherBin1 = crypto:crypto_update(State, PlainBin),
                     Sz1 = size(CipherBin1),
-		    {_PadSize, CipherBin2} = crypto:crypto_final(State),
+		    CipherBin2 = crypto:crypto_final(State),
                     Sz2 = size(CipherBin2),
 		    {ok, <<CipherBin1:Sz1/binary, CipherBin2:Sz2/binary>>}
 	    end,
