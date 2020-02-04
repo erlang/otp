@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2018</year>
+      <year>2001</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -134,7 +134,7 @@
       <item>
         <p>If F is a type declaration <c>-Type Name(V_1, ..., V_k) :: T</c>,
           where <c>Type</c> is either the atom <c>type</c> or the atom
-          <c>opaque</c>, each <c>V_i</c> is a variable, and <c>T</c> is a type,
+          <c>opaque</c>, each <c>V_i</c> is a type variable, and <c>T</c> is a type,
           then Rep(F) =
           <c>{attribute,LINE,Type,{Name,Rep(T),[Rep(V_1), ...,
           Rep(V_k)]}}</c>.</p>

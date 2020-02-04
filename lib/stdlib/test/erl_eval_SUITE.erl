@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -48,7 +48,8 @@
 	 zero_width/1,
          eep37/1,
          eep43/1,
-         otp_15035/1]).
+         otp_15035/1,
+         otp_16439/1]).
 
 %%
 %% Define to run outside of test server
@@ -88,7 +89,7 @@ all() ->
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, try_catch, eval_expr_5, zero_width,
-     eep37, eep43, otp_15035].
+     eep37, eep43, otp_15035, otp_16439].
 
 groups() -> 
     [].
@@ -1664,6 +1665,17 @@ otp_15035(Config) when is_list(Config) ->
                   {F(#{}), F(#{a => b})}
           end().",
           {e, d}),
+    ok.
+
+otp_16439(Config) when is_list(Config) ->
+    check(fun() -> + - 5 end, "+ - 5.", -5),
+    check(fun() -> - + - 5 end, "- + - 5.", 5),
+    check(fun() -> case 7 of - - 7 -> seven end end,
+         "case 7 of - - 7 -> seven end.", seven),
+
+    {ok,Ts,_} = erl_scan:string("- #{}. "),
+    {ok,[{op,1,'-',{map,1,[]}}]} = erl_parse:parse_exprs(Ts),
+
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.
