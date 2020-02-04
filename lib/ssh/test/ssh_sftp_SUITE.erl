@@ -1079,16 +1079,22 @@ prepare(Config0) ->
     PrivDir = proplists:get_value(priv_dir, Config0),
     Dir = filename:join(PrivDir, ssh_test_lib:random_chars(10)),
     file:make_dir(Dir),
+    ct:log("~p:~p created the directory~nsftp_priv_dir = ~p", [?MODULE,?LINE,Dir]),
     Keys = [filename,
 	    testfile,
 	    linktest,
 	    tar_filename],
     Config1 = foldl_keydelete(Keys, Config0),
     Config2 = lists:foldl(fun({Key,Name}, ConfAcc) ->
-				  [{Key, filename:join(Dir,Name)} | ConfAcc]
+                                  [{Key, filename:join(Dir,Name)} | ConfAcc]
 			  end,
 			  Config1,
 			  lists:zip(Keys, [proplists:get_value(K,Config0) || K<-Keys])),
+
+    catch ct:log("~p:~p Prepared filenames (Key -> Value):~n~ts",
+                 [?MODULE,?LINE,
+                  [io_lib:format("~p -> ~ts~n", [K,V]) || {K,V} <- Config2,
+                                                          lists:member(K, Keys)]]),
 
     DataDir =  proplists:get_value(data_dir, Config2),
     FilenameSrc = filename:join(DataDir, "sftp.txt"),
