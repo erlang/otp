@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2018</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1486,6 +1486,21 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <p>Sets verbosity for the designated process. For the lowest 
           verbosity <c>silence</c>, nothing is printed. The higher the
           verbosity, the more is printed.</p>
+
+        <marker id="restart"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name since="">restart(Ref) -> void()</name>
+      <fsummary>Restart the indicated process</fsummary>
+      <type>
+        <v>Ref = net_if</v>
+      </type>
+      <desc>
+	<p>Restart the indicated process (<c>Ref</c>). Note that its not
+	without risk to restart a process, and should therefor be used
+	with care. </p>
 
         <marker id="format_reason"></marker>
       </desc>
