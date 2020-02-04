@@ -8,6 +8,9 @@
 
 -export([test/0]).
 
+% Ensure type optimization is turned off for id/1
+-export([id/1]).
+
 test() ->
   ok = test_ets_bifs(),
   ok = test_szar_bug(),
@@ -19,6 +22,7 @@ test() ->
   ok = test_switch_neg_int(),
   ok = test_icode_range_anal(),
   ok = test_icode_range_call(),
+  ok = test_icode_type_miscompile(),
   ok.
 
 %%-----------------------------------------------------------------------
@@ -503,3 +507,25 @@ range_client(Server, N) ->
     receive proceed -> ok end,
     range_client(Server, N - 1), % non-tailrecursive call with ignored result
     ok.
+
+test_icode_type_miscompile() ->
+    List0 = id([{1,1},{1,1}]),
+
+    %% The expressions below produce a list that the SSA type pass knows is
+    %% a list of two-tuples, but hipe_icode_type does not.
+    %%
+    %% Changing the `F(X)` call to just `X` helps the icode type pass figure
+    %% things out, making the bug disappear.
+    F = fun({_, _}=X) -> X end,
+    List = [F(X) || {_,_}=X <- List0],
+
+    type_miscompile(List, List, []).
+
+type_miscompile([{Same, Same} | As], [{Same, Same} | Bs], Acc) ->
+    type_miscompile(As, Bs, [gaffel | Acc]);
+type_miscompile([], [], Acc) ->
+    %% Acc is non-empty when everything works as expected.
+    true = Acc =/= [],
+    ok.
+
+id(I) -> I.
