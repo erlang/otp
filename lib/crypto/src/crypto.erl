@@ -97,6 +97,7 @@
          crypto_dyn_iv_init/3,
          crypto_dyn_iv_update/3,
          crypto_final/1,
+         crypto_get_data/1,
 
          supports/1,
          mac/3, mac/4, macN/4, macN/5,
@@ -1213,10 +1214,19 @@ crypto_dyn_iv_update(State, Data, IV) ->
 
 -spec crypto_final(State) -> FinalResult | descriptive_error()
                             when State :: crypto_state(),
-                                 FinalResult :: binary() | {PadSize, binary()},
-                                 PadSize :: non_neg_integer() .
+                                 FinalResult :: binary() .
 crypto_final(State) ->
     ng_crypto_final_nif(State).
+
+%%%----------------------------------------------------------------
+%%%
+%%% Get result of padding etc
+
+-spec crypto_get_data(State) -> Result
+                            when State :: crypto_state(),
+                                 Result :: map() .
+crypto_get_data(State) ->
+    ng_crypto_get_data_nif(State).
 
 %%%----------------------------------------------------------------
 %%%
@@ -1316,6 +1326,7 @@ ng_crypto_update_nif(_State, _Data, _IV) -> ?nif_stub.
 
 ng_crypto_final_nif(_State) -> ?nif_stub.
 
+ng_crypto_get_data_nif(_State) -> ?nif_stub.
 
 ng_crypto_one_time_nif(Cipher, Key, IVec, Data,  #{encrypt := EncryptFlag,
                                                    padding := Padding}) ->

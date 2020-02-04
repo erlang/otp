@@ -822,15 +822,36 @@
 	<seealso marker="#crypto_init/3">crypto_init/3,4</seealso> or
 	<seealso marker="#crypto_dyn_iv_init/3">crypto_dyn_iv_init/3</seealso>.
 	</p>
-	<p>The <c>FinalResult</c> is a binary if decoding was set in the call of
-	<seealso marker="#crypto_init/3">crypto_init/3,4</seealso>. If encryption was ordered, the
-	<c>FinalResult</c> is <c>{PadSize, binary()}</c>.
+      </desc>
+    </func>
+
+    <func>
+      <name name="crypto_get_data" arity="1" since=""/>
+      <fsummary>Get information about crypto states</fsummary>
+      <desc>
+	<p>Part of the <seealso marker="crypto:new_api#the-new-api">new API</seealso>.
 	</p>
-	<p>The <c>PadSize</c> is 0 for
-	<seealso marker="#type-cryptolib_padding">cryptolib_padding()</seealso>.
-	For <seealso marker="#type-otp_padding">otp_padding()</seealso>	it tells how many bytes
-	that was added.
+	<p>
+	  Returns information about the State in the argument. The information is the form of a map,
+	  which currently contains at least:
 	</p>
+	<taglist>
+	  <tag><c>size</c></tag>
+	  <item>The number of bytes encrypted or decrypted so far.
+	  </item>
+	  <tag><c>padding_size</c></tag>
+	  <item>After a call to
+	  <seealso marker="#crypto_final/1">crypto_final/1</seealso> it contains
+	  the number of bytes padded. Otherwise 0.
+	  </item>
+	  <tag><c>padding_type</c></tag>
+	  <item>The type of the padding as provided in the call ot
+	  <seealso marker="#crypto_init/3">crypto_init/3,4</seealso>.
+	  </item>
+	  <tag><c>encrypt</c></tag>
+	  <item>Is <c>true</c> if encryption is performed. It is <c>false</c> otherwise.
+	  </item>
+	</taglist>
       </desc>
     </func>
 

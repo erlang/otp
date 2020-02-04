@@ -28,7 +28,6 @@
  */
 ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-ERL_NIF_TERM ng_crypto_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 /*************************************************************************/
 /* Compatibility functions.                                              */
@@ -103,8 +102,9 @@ static int get_init_args(ErlNifEnv* env,
     ctx_res->ctx = NULL; /* For testing if *ctx should be freed after errors */
 #if !defined(HAVE_EVP_AES_CTR)
     ctx_res->env = NULL; /* For testing if *env should be freed after errors */
-    ctx_res->padding = atom_undefined;
 #endif
+    ctx_res->padding = atom_undefined;
+    ctx_res->padded_size = -1;
     ctx_res->size = 0;
     
     /* Fetch the flag telling if we are going to encrypt (=true) or decrypt (=false) */
@@ -404,8 +404,7 @@ static int get_update_args(ErlNifEnv* env,
 
 static int get_final_args(ErlNifEnv* env,
                           struct evp_cipher_ctx *ctx_res,
-                          ERL_NIF_TERM *return_term,
-                          int *padded_size
+                          ERL_NIF_TERM *return_term
                           )
 {
     ErlNifBinary out_data_bin;
@@ -418,13 +417,14 @@ static int get_final_args(ErlNifEnv* env,
         /* Padding size is always 0, because the block_size is 1 and therefore
            always filled
         */
-        if (!enif_alloc_binary(0, &out_data_bin))
+        ctx_res->padded_size = 0;
+        out_len = 0;
+
+        if (!enif_alloc_binary(out_len, &out_data_bin))
             {
                 *return_term = EXCP_ERROR(env, "Can't allocate empty outdata");
                 goto err0;
             }
-        if (padded_size) *padded_size = 0;
-        out_len = 0;
     } else
 #endif
         {
@@ -446,21 +446,20 @@ static int get_final_args(ErlNifEnv* env,
                     /* First set lengths etc and do the otp_padding */
                     if (ctx_res->padding == atom_undefined)
                         {
-                            if (padded_size) *padded_size = pad_size;
+                            ctx_res->padded_size = pad_size;
                             pad_offset = 0;
                         }
 
                     else if (ctx_res->padding == atom_none)
                         {
-                            if (padded_size) *padded_size = pad_size; // Should be == 0
+                            ASSERT(pad_size == 0);
+                            ctx_res->padded_size = pad_size;
                             pad_offset = 0;
                         }
 
                     else if (ctx_res->padding == atom_pkcs_padding)
                         {
-                            if (ctx_res->encflag && padded_size)
-                                *padded_size =
-                                    pad_size==0 ? block_size : pad_size;
+                            ctx_res->padded_size = pad_size ? pad_size : block_size;
                             pad_offset = 0;
                         }
 
@@ -484,7 +483,7 @@ static int get_final_args(ErlNifEnv* env,
                             else
                                 out_len = 0;
 
-                            if (padded_size) *padded_size = pad_size;
+                            ctx_res->padded_size = pad_size;
                             pad_offset = out_len;
                         }
 
@@ -630,6 +629,7 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
         return EXCP_BADARG(env, "Bad 1:st arg");
     
     if (argc == 3) {
+        /* We have an IV in this call. Make a copy of the context */
         ErlNifBinary ivec_bin;
 
         memcpy(&ctx_res_copy, ctx_res, sizeof ctx_res_copy);
@@ -645,8 +645,6 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                     goto err;
                 }
             }
-
-        ctx_res = &ctx_res_copy;
 
         if (!enif_inspect_iolist_as_binary(env, argv[2], &ivec_bin))
             {
@@ -680,7 +678,9 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
                 }
         
         get_update_args(env, &ctx_res_copy, argv[1], &ret);
+        ctx_res->size = ctx_res_copy.size;
     } else
+        /* argc != 3, that is, argc = 2 (we don't have an IV in this call) */
         get_update_args(env, ctx_res, argv[1], &ret);
 
  err:
@@ -694,8 +694,6 @@ ERL_NIF_TERM ng_crypto_update(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context, Data [, IV]) */
     ErlNifBinary   data_bin;
-
-    ASSERT(argc <= 3);
 
     if (!enif_inspect_binary(env, argv[1], &data_bin))
         return EXCP_BADARG(env, "expected binary as data");
@@ -717,57 +715,19 @@ ERL_NIF_TERM ng_crypto_update_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
 /* Final                                                                 */
 /*************************************************************************/
 
-ERL_NIF_TERM ng_crypto_final(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+ERL_NIF_TERM ng_crypto_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {/* (Context) */
+    /* No need for enif_schedule_nif since maximum BlockSize-1 bytes are handled */
     struct evp_cipher_ctx *ctx_res;
-    struct evp_cipher_ctx ctx_res_copy;
     ERL_NIF_TERM ret;
-    int padded_size;
-
-    ctx_res_copy.ctx = NULL;
 
     if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
         return EXCP_BADARG(env, "Bad arg");
 
-    memcpy(&ctx_res_copy, ctx_res, sizeof ctx_res_copy);
-
-#if !defined(HAVE_EVP_AES_CTR)
-    if (ctx_res_copy.state == atom_undefined)
-        /* Not going to use aes_ctr compat functions */
-#endif
-        {
-            ctx_res_copy.ctx = EVP_CIPHER_CTX_new();
-
-            if (!EVP_CIPHER_CTX_copy(ctx_res_copy.ctx, ctx_res->ctx)) {
-                ret = EXCP_ERROR(env, "Can't copy ctx_res");
-                goto err;
-            }
-        }
-
-    ctx_res = &ctx_res_copy;
-        
-    if (get_final_args(env, ctx_res, &ret, &padded_size))
-        {
-            if (ctx_res->encflag)
-                ret = enif_make_tuple2(env, enif_make_int(env,padded_size), ret);
-        }
-
- err:
-    if (ctx_res_copy.ctx)
-        EVP_CIPHER_CTX_free(ctx_res_copy.ctx);
+    get_final_args(env, ctx_res, &ret);
 
     return ret;
 }
-
-
-ERL_NIF_TERM ng_crypto_final_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Context) */
-
-    /* No need for enif_schedule_nif since maximum BlockSize-1 bytes are handled */
-
-    return ng_crypto_final(env, argc, argv);
-}
-
 
 /*************************************************************************/
 /* One shot                                                              */
@@ -777,9 +737,9 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 {/* (Cipher, Key, IVec, Data, Encrypt, PaddingType) */
     struct evp_cipher_ctx ctx_res;
     const struct cipher_type_t *cipherp;
-    ERL_NIF_TERM ret, ret1;
+    ERL_NIF_TERM ret;
     ErlNifBinary out_data_bin, final_data_bin;
-    int appended_size, first_part_size;
+    unsigned char *append_buf;
     
     ctx_res.ctx = NULL;
 #if !defined(HAVE_EVP_AES_CTR)
@@ -788,49 +748,42 @@ ERL_NIF_TERM ng_crypto_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 
     /* EVP_CipherInit */
     if (!get_init_args(env, &ctx_res, argv[0], argv[1], argv[2], argv[4], argv[5], &cipherp, &ret))
-        goto err;
+        goto out;
 
     /* out_data = EVP_CipherUpdate */
     if (!get_update_args(env, &ctx_res, argv[3], &ret))
-        goto err;
+        /* Got an exception as result in &ret */
+        goto out;
 
-    /* final_data = EVP_CipherFinal_ex */
-    if (!get_final_args(env, &ctx_res, &ret1, NULL))
-        {
-            ret = ret1;
-            goto err;
-        }
-
-    if (!enif_inspect_binary(env, ret1, &final_data_bin) )
-        {
-            ret = EXCP_ERROR(env, "Can't inspect final");
-            goto err;
-        }
-
-    if (!enif_inspect_binary(env, ret,  &out_data_bin) )
+    if (!enif_inspect_binary(env, ret, &out_data_bin) )
         {
             ret = EXCP_ERROR(env, "Can't inspect first");
-            goto err;
+            goto out;
         }
-    //enif_fprintf(stderr, "update -> %T\r\nfinal  -> %T\r\n", ret, ret1);
-    if (final_data_bin.size > 0)
-        /* Need to append the result of final to the main result */
+
+    /* final_data = EVP_CipherFinal_ex */
+    if (!get_final_args(env, &ctx_res, &ret))
+        /* Got an exception as result in &ret */
+        goto out;
+
+    if (!enif_inspect_binary(env, ret, &final_data_bin) )
         {
-            /* Make ret = << out_data/binary, final_data/binary >> */
-            first_part_size = out_data_bin.size;
-            appended_size = first_part_size + final_data_bin.size;
-            if (!enif_realloc_binary(&out_data_bin, (size_t)appended_size))
-                {
-                    ret = EXCP_ERROR(env, "Can't reallocate final");
-                    goto err;
-                }
-            memcpy(out_data_bin.data + first_part_size, final_data_bin.data, (size_t)final_data_bin.size);
+            ret = EXCP_ERROR(env, "Can't inspect final");
+            goto out;
         }
 
-    /* Exit here */
-    ret = enif_make_binary(env,&out_data_bin);
+    /* Concatenate out_data and final_date into a new binary kept in the variable ret. */
+    append_buf = enif_make_new_binary(env, out_data_bin.size + final_data_bin.size, &ret);
+    if (!append_buf)
+        {
+            ret = EXCP_ERROR(env, "Can't append");
+            goto out;
+        }
 
- err:
+    memcpy(append_buf,                   out_data_bin.data,   out_data_bin.size);
+    memcpy(append_buf+out_data_bin.size, final_data_bin.data, final_data_bin.size);
+
+ out:
     if (ctx_res.ctx)
         EVP_CIPHER_CTX_free(ctx_res.ctx);
 
@@ -848,8 +801,6 @@ ERL_NIF_TERM ng_crypto_one_time_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
   */
     ErlNifBinary   data_bin;
 
-    ASSERT(argc == 6);
-
     if (!enif_inspect_binary(env, argv[3], &data_bin))
         return EXCP_BADARG(env, "expected binary as data");
 
@@ -864,4 +815,38 @@ ERL_NIF_TERM ng_crypto_one_time_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     }
 
     return ng_crypto_one_time(env, argc, argv);
+}
+
+
+/*************************************************************************/
+/* Get data from the cipher resource                                     */
+/*************************************************************************/
+
+ERL_NIF_TERM ng_crypto_get_data_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{/* (Context) -> map */
+    struct evp_cipher_ctx *ctx_res;
+    ERL_NIF_TERM ret;
+
+    if (!enif_get_resource(env, argv[0], (ErlNifResourceType*)evp_cipher_ctx_rtype, (void**)&ctx_res))
+        return EXCP_BADARG(env, "Bad arg");
+
+    ret = enif_make_new_map(env);
+
+    enif_make_map_put(env, ret, atom_size,
+                      enif_make_int(env, ctx_res->size),
+                      &ret);
+
+    enif_make_map_put(env, ret, atom_padding_size,
+                      enif_make_int(env, ctx_res->padded_size),
+                      &ret);
+
+    enif_make_map_put(env, ret, atom_padding_type,
+                      ctx_res->padding,
+                      &ret);
+
+    enif_make_map_put(env, ret, atom_encrypt,
+                      (ctx_res->encflag) ? atom_true : atom_false,
+                      &ret);
+
+    return ret;
 }
