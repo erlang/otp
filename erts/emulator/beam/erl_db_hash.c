@@ -3148,16 +3148,19 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
         }
 
         WUNLOCK_HASH(lck);
-        DEC_NITEMS(tb);
+        if (!(handle->flags & DB_INC_TRY_GROW))
+            DEC_NITEMS(tb);
         try_shrink(tb);
     } else {
         if (handle->flags & DB_MUST_RESIZE) {
+            ASSERT(cret == DB_ERROR_NONE);
             db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
             free_me = b;
         }
         if (handle->flags & DB_INC_TRY_GROW) {
             int nactive;
             int nitems = INC_NITEMS(tb);
+            ASSERT(cret == DB_ERROR_NONE);
             WUNLOCK_HASH(lck);
             nactive = NACTIVE(tb);
 
