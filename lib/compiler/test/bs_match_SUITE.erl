@@ -1282,7 +1282,63 @@ bad_size(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Atom>> = id(<<>>)),
 
+    no_match = bad_all_size(<<>>),
+    no_match = bad_all_size(<<1,2,3>>),
+
     ok.
+
+bad_all_size(Bin) ->
+    Res = bad_all_size_1(Bin),
+    Res = bad_all_size_2(Bin),
+    Res = bad_all_size_3(Bin),
+    Res = bad_all_size_4(Bin),
+    Res = bad_all_size_5(Bin),
+    Res = bad_all_size_6(Bin),
+    Res.
+
+bad_all_size_1(Bin) ->
+    case Bin of
+        <<B:all/binary>> -> B;
+        _ -> no_match
+    end.
+
+bad_all_size_2(Bin) ->
+    case Bin of
+        <<_:all/binary>> -> ok;
+        _ -> no_match
+    end.
+
+bad_all_size_3(Bin) ->
+    All = all,
+    case Bin of
+        <<B:All/binary>> -> B;
+        _ -> no_match
+    end.
+
+bad_all_size_4(Bin) ->
+    All = all,
+    case Bin of
+        <<_:All/binary>> -> ok;
+        _ -> no_match
+    end.
+
+bad_all_size_5(Bin) ->
+    All = case 0 of
+              0 -> all
+          end,
+    case Bin of
+        <<B:All/binary>> -> B;
+        _ -> no_match
+    end.
+
+bad_all_size_6(Bin) ->
+    All = case 0 of
+              0 -> all
+          end,
+    case Bin of
+        <<_:All/binary>> -> ok;
+        _ -> no_match
+    end.
 
 haystack(Config) when is_list(Config) ->
     <<0:10/unit:8>> = haystack_1(<<0:10/unit:8>>),

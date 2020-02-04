@@ -661,6 +661,25 @@ simplify(#b_set{op=succeeded,dst=Dst}=I0, Ts0, Ds0, _Ls, Sub) ->
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
+simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I2 = case {Args0,Args} of
+             {[_,_,_,#b_var{},_],[Type,Val,Flags,#b_literal{val=all},Unit]} ->
+                 %% The size `all` is used for the size of the final binary
+                 %% segment in a pattern. Using `all` explicitly is not allowed,
+                 %% so we convert it to an obvious invalid size.
+                 I1#b_set{args=[Type,Val,Flags,#b_literal{val=bad_size},Unit]};
+             {_,_} ->
+                 I1
+         end,
+    %% We KNOW that simplify/2 will return a #b_set{} record when called with
+    %% a bs_match instruction.
+    #b_set{} = I3 = simplify(I2, Ts0),
+    I = beam_ssa:normalize(I3),
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    {I, Ts, Ds};
 simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
