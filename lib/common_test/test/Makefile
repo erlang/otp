@@ -134,6 +134,6 @@ release_tests_spec:
 	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(COVERFILE) "$(RELSYSDIR)"
 	$(INSTALL_DATA) common_test.spec common_test.cover "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	@tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	@tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 
 release_docs_spec:
