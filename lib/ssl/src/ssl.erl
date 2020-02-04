@@ -358,7 +358,7 @@
 -type client_session_tickets()   :: disabled | manual | auto.
 -type server_session_tickets()   :: disabled | stateful | stateless.
 -type session_tickets()          :: client_session_tickets() | server_session_tickets().
--type key_update_at()            :: integer().
+-type key_update_at()            :: pos_integer().
 -type bloom_filter_window_size()    :: integer().
 -type bloom_filter_hash_functions() :: integer().
 -type bloom_filter_bits()           :: integer().
@@ -2005,7 +2005,8 @@ validate_option(keyfile, Value) when is_binary(Value) ->
     Value;
 validate_option(keyfile, Value) when is_list(Value), Value =/= "" ->
     binary_filename(Value);
-validate_option(key_update_at, Value) when is_integer(Value) ->
+validate_option(key_update_at, Value) when is_integer(Value) andalso
+                                           Value > 0 ->
     Value;
 validate_option(password, Value) when is_list(Value) ->
     Value;

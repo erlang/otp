@@ -124,14 +124,17 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
     receive
         {data, Data} ->
             ct:log("Send: ~p~n", [Data]),
-            Transport:send(AcceptSocket, Data),
+            case Transport:send(AcceptSocket, Data) of
+                ok ->
+                    Pid ! {self(), ok};
+                {error, Reason} ->
+                    Pid ! {self(), Reason}
+            end,
             do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
         {active_receive, Data} ->
             case active_recv(AcceptSocket, length(Data)) of
-                Data ->
-                    Pid ! {self(), ok};
-                _Else ->
-                    Pid ! {self(), active_receive_failed}
+                ReceivedData ->
+                    Pid ! {self(), ReceivedData}
             end,
             do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
         {update_keys, Type} ->
@@ -139,7 +142,7 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
                 ok ->
                     Pid ! {self(), ok};
                 {error, Reason} ->
-                    Pid ! {error, Reason}
+                    Pid ! {self(), Reason}
             end,
             do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
 	listen ->
@@ -445,14 +448,17 @@ client_loop_core(Socket, Pid, Transport) ->
     receive
         {data, Data} ->
             ct:log("Send: ~p~n", [Data]),
-            Transport:send(Socket, Data),
+            case Transport:send(Socket, Data) of
+                ok ->
+                    Pid ! {self(), ok};
+                {error, Reason} ->
+                    Pid ! {self(), Reason}
+            end,
             client_loop_core(Socket, Pid, Transport);
         {active_receive, Data} ->
             case active_recv(Socket, length(Data)) of
-                Data ->
-                    Pid ! {self(), ok};
-                _Else ->
-                    Pid ! {self(), active_receive_failed}
+                ReceivedData ->
+                    Pid ! {self(), ReceivedData}
             end,
             client_loop_core(Socket, Pid, Transport);
         {update_keys, Type} ->
@@ -460,7 +466,7 @@ client_loop_core(Socket, Pid, Transport) ->
                 ok ->
                     Pid ! {self(), ok};
                 {error, Reason} ->
-                    Pid ! {error, Reason}
+                    Pid ! {self(), Reason}
             end,
             client_loop_core(Socket, Pid, Transport);
         close ->
@@ -2004,15 +2010,19 @@ send_recv_result_active(Socket, Data) ->
     ok.
 
 send(Pid, Data) ->
-    Pid ! {data, Data}.
+    Pid ! {data, Data},
+    receive
+        {Pid, ok} ->
+            ok;
+        {Pid, Reason} ->
+            {error, Reason}
+    end.
 
 check_active_receive(Pid, Data) ->
     Pid ! {active_receive, Data},
     receive
-        {Pid, ok} ->
-            ok;
-        {Pid, active_receive_failed} ->
-            ct:fail("Receive failed!")
+        {Pid, Data} ->
+            Data
     end.
 
 update_keys(Pid, Type) ->
@@ -2021,7 +2031,7 @@ update_keys(Pid, Type) ->
         {Pid, ok} ->
             ok;
         {Pid, Reason} ->
-            ct:fail("Failed to update keys: ~p", [Reason])
+            {error, Reason}
     end.
 
 send_recv_result_active_once(Socket) ->

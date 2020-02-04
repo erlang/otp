@@ -469,6 +469,14 @@ send_application_data(Data, From, StateName,
 	    ssl_connection:internal_renegotiation(Pid, ConnectionStates0),
             {next_state, handshake, StateData0, 
              [{next_event, internal, {application_packets, From, Data}}]};
+        chunk_and_key_update ->
+            KeyUpdate = tls_handshake_1_3:key_update(update_requested),
+            %% Prevent infinite loop of key updates
+            {Chunk, Rest} = chunk_data(Data, KeyUpdateAt),
+            {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
+                                   {next_event, internal, {key_update, From}},
+                                   {next_event, internal, {application_packets, From, Chunk}},
+                                   {next_event, internal, {application_packets, From, Rest}}]};
 	false ->
 	    {Msgs, ConnectionStates} = tls_record:encode_data(Data, Version, ConnectionStates0),
             StateData = StateData0#data{connection_states = ConnectionStates},
@@ -565,7 +573,6 @@ encode_packet(Packet, Data) ->
 set_opts(SocketOptions, [{packet, N}]) ->
     SocketOptions#socket_options{packet = N}.
 
-
 time_to_rekey(Version, _Data,
               #{current_write := #{sequence_number := ?MAX_SEQUENCE_NUMBER}},
               _, _, _) when Version >= {3,4} ->
@@ -573,9 +580,16 @@ time_to_rekey(Version, _Data,
 time_to_rekey(Version, _Data, _, _, seq_num_wrap, _) when Version >= {3,4} ->
     false;
 time_to_rekey(Version, Data, _, _, KeyUpdateAt, BytesSent) when Version >= {3,4} ->
-    case (BytesSent + iolist_size(Data)) > KeyUpdateAt of
+    DataSize = iolist_size(Data),
+    case (BytesSent + DataSize) > KeyUpdateAt of
         true ->
-            key_update;
+            %% Handle special case that causes an invite loop of key updates.
+            case DataSize > KeyUpdateAt of
+                true ->
+                    chunk_and_key_update;
+                false ->
+                    key_update
+                end;
         false ->
             false
     end;
@@ -588,6 +602,10 @@ time_to_rekey(_, _Data,
     %% ?MAX_PLAIN_TEXT_LENGTH) + 1, RenegotiateAt), but we chose to
     %% have a some what lower renegotiateAt and a much cheaper test
     is_time_to_renegotiate(Num, RenegotiateAt).
+
+chunk_data(Data, Size) ->
+    {Chunk, Rest} = split_binary(iolist_to_binary(Data), Size),
+    {[Chunk], [Rest]}.
 
 is_time_to_renegotiate(N, M) when N < M->
     false;

@@ -756,6 +756,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
       will not be breached with probability greater than 1/2^57. For more information see
       <url href="http://www.isg.rhul.ac.uk/~kp/TLS-AEbounds.pdf">Limits on Authenticated
       Encryption Use in TLS</url>.</p>
+      <warning><p>The default value of this option shall provide the above mentioned security
+      guarantees and it shall be reasonable for most applications (~353 TB).</p>
+      </warning>
       </desc>
     </datatype>
 

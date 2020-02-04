@@ -115,8 +115,12 @@ ssl_client_ssl_server_key_update_at(Config) ->
 
     %% Sending bytes over limit triggers key update
     ssl_test_lib:send(Client, Data),
-    ok = ssl_test_lib:check_active_receive(Server, Data),
+    Data = ssl_test_lib:check_active_receive(Server, Data),
     %% TODO check if key has been updated (needs debug logging of secrets)
+
+    %% Test mechanism to prevent infinite loop of key updates
+    BigData = binary:copy(<<"1234567890">>, 10),  %% 100 bytes
+    ok = ssl_test_lib:send(Client, BigData),
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
@@ -149,13 +153,13 @@ ssl_client_ssl_server_explicit_key_update(Config) ->
     ssl_test_lib:update_keys(Client, read_write),
 
     ssl_test_lib:send(Client, Data),
-    ok = ssl_test_lib:check_active_receive(Server, Data),
+    Data = ssl_test_lib:check_active_receive(Server, Data),
 
     ssl_test_lib:update_keys(Server, write),
     ssl_test_lib:update_keys(Server, read_write),
 
     ssl_test_lib:send(Client, Data),
-    ok = ssl_test_lib:check_active_receive(Server, Data),
+    Data = ssl_test_lib:check_active_receive(Server, Data),
     %% TODO check if key has been updated (needs debug logging of secrets)
 
     ssl_test_lib:close(Server),
