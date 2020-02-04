@@ -51,11 +51,14 @@ erts_atomic_t erts_ets_misc_mem_size;
 ** Utility macros
 */
 
-#ifdef DEBUG
-#define IF_DEBUG_OR(DEBUG_EXP, NORMAL_EXP) (DEBUG_EXP)
+#if defined(DEBUG)
+# define DBG_RANDOM_REDS(REDS, SEED) \
+         ((REDS) * 0.1 * erts_sched_local_random_float(SEED))
 #else
-#define IF_DEBUG_OR(DEBUG_EXP, NORMAL_EXP) (NORMAL_EXP)
+# define DBG_RANDOM_REDS(REDS, SEED) (REDS)
 #endif
+
+
 
 #define DB_BIF_GET_TABLE(TB, WHAT, KIND, BIF_IX) \
         DB_GET_TABLE(TB, BIF_ARG_1, WHAT, KIND, BIF_IX, NULL, BIF_P)
@@ -703,9 +706,7 @@ static DbTable* handle_lacking_permission(Process* p, DbTable* tb,
         if (continuation_state != NULL) {
             const long iterations_per_red = 10;
             const long reds = iterations_per_red * ERTS_BIF_REDS_LEFT(p);
-            long nr_of_reductions =
-                IF_DEBUG_OR(reds * 0.1 * erts_sched_local_random_float((Uint)freason_p),
-                            reds);
+            long nr_of_reductions = DBG_RANDOM_REDS(reds, (Uint)freason_p);
             const long init_reds = nr_of_reductions;
             tb->common.continuation(&nr_of_reductions,
                                     &continuation_state,
@@ -1471,14 +1472,13 @@ ets_cret_to_return_value(Process* p, int cret)
 }
 
 /*
- * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
- * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ * > > > > > > > > > > > > > > > > > > > > > > > > > > > > > >
+ * > > > > > > > > > > > > > > > > > > > > > > > > > > > > > >
  *
  * Start of code section that Yielding C Fun (YCF) transforms
  *
- * The functions starting with the ets_insert_2_list and
- * ets_insert_new_2 prefixes below are not called directly. YCF
- * generates yieldable versions of these functions before "erl_db.c" is
+ * The functions within #idef YCF_FUNCTIONS below are not called directly.
+ * YCF generates yieldable versions of these functions before "erl_db.c" is
  * compiled. These generated functions are placed in the file
  * "erl_db_insert_list.ycf.h" which is included below. The generation of
  * "erl_db_insert_list.ycf.h" is defined in
@@ -1486,20 +1486,9 @@ ets_cret_to_return_value(Process* p, int cret)
  * "$ERL_TOP/erts/emulator/internal_doc/AutomaticYieldingOfCCode.md"
  * for more information about YCF.
  *
- * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
- * >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+ * > > > > > > > > > > > > > > > > > > > > > > > > > > > > > >
+ * > > > > > > > > > > > > > > > > > > > > > > > > > > > > > >
  */
-#define ON_DESTROY_STATE
-#define YCF_SPECIAL_CODE_START(PARAM)
-#define YCF_SPECIAL_CODE_END()
-#define YCF_NR_OF_REDS_LEFT() 0
-#define YCF_MAX_NR_OF_REDS LONG_MAX
-#define YCF_SET_NR_OF_REDS_LEFT(NOT_USED) (void)(NOT_USED)
-#define YCF_YIELD() erts_exit(1,                                                               \
-                              "Called the normal version of ets_insert_2_list_lock_tbl.\n"     \
-                              "But only the yieldable version of ets_insert_2_list_lock_tbl should be called\n")
-#define YCF_GET_EXTRA_CONTEXT() NULL
-#define YCF_CONSUME_REDS(X) (void)(X)
 
 /*
  * The LOCAL_VARIABLE macro is a trick to create a local variable that does not
@@ -1512,6 +1501,7 @@ ets_cret_to_return_value(Process* p, int cret)
  */
 #define LOCAL_VARIABLE(TYPE, NAME) TYPE NAME
 
+#ifdef YCF_FUNCTIONS
 static long ets_insert_2_list_check(int keypos, Eterm list)
 {
     Eterm lst = THE_NON_VALUE;
@@ -1560,7 +1550,9 @@ static int ets_insert_2_list_from_p_heap(DbTable* tb, Eterm list)
     }
     return DB_ERROR_NONE;
 }
+#endif /* YCF_FUNCTIONS */
 
+/* This function is called both as is, and as YCF transformed. */
 static void ets_insert_2_list_destroy_copied_dbterms(DbTableMethod* meth,
                                                      int compressed,
                                                      void* db_term_list)
@@ -1573,6 +1565,7 @@ static void ets_insert_2_list_destroy_copied_dbterms(DbTableMethod* meth,
     }
 }
 
+#ifdef YCF_FUNCTIONS
 static void* ets_insert_2_list_copy_term_list(DbTableMethod* meth,
                                               int compress,
                                               int keypos,
@@ -1670,6 +1663,7 @@ static void ets_insert_2_list_lock_tbl(Eterm table_id,
         }
     } while (tb == NULL);
 }
+#endif /* YCF_FUNCTIONS */
 
 static ERTS_INLINE int can_insert_without_yield(Uint32 tb_type,
                                                 long list_len,
@@ -1685,7 +1679,7 @@ static ERTS_INLINE int can_insert_without_yield(Uint32 tb_type,
     }
 }
 
-ERTS_GCC_DIAG_OFF(unused-function)
+#ifdef YCF_FUNCTIONS
 static BIF_RETTYPE ets_insert_2_list(Process* p,
                                      Eterm table_id,
                                      DbTable *tb,
@@ -1772,25 +1766,16 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
                                                  db_term_list);
     } YCF_SPECIAL_CODE_END();
 }
-/* ERTS_GCC_DIAG_ON(unused-function) */
-/* gcc 5.4.0 produces unused-function warnings if the above line is
-   uncommented. This issue seems to be fixed in gcc 7.4.0. */
+#endif /* YCF_FUNCTIONS */
 
-#undef YCF_YIELD
-#undef YCF_GET_EXTRA_CONTEXT
-#undef YCF_NR_OF_REDS_LEFT
-#undef YCF_SET_NR_OF_REDS_LEFT
-#undef ON_DESTROY_STATE
-#undef YCF_SPECIAL_CODE_START
-#undef YCF_SPECIAL_CODE_END
 /*
- * <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
- * <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+ * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
+ * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
  *
  * End of code section that Yielding C Fun (YCF) transforms
  *
- * <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
- * <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+ * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
+ * < < < < < < < < < < < < < < < < < < < < < < < < < < < < < <
  */
 #include "erl_db_insert_list.ycf.h"
 
@@ -1838,9 +1823,7 @@ static BIF_RETTYPE ets_insert_2_list_driver(Process* p,
                                             Eterm list,
                                             int is_insert_new) {
     const long reds = ITERATIONS_PER_RED * ERTS_BIF_REDS_LEFT(p);
-    long nr_of_reductions =
-        IF_DEBUG_OR(reds * 0.1 * erts_sched_local_random_float((Uint)&p),
-                    reds);
+    long nr_of_reductions = DBG_RANDOM_REDS(reds, (Uint)&p);
     const long init_reds = nr_of_reductions;
     ets_insert_2_list_info* ctx = NULL;
     ets_insert_2_list_info ictx;
