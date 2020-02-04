@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,13 +45,13 @@
 
 	 %% discovery/2, discovery/3, discovery/4, discovery/5, discovery/6, 
 
-	 %% system_info_updated/2, 
 	 get_log_type/0,      set_log_type/1, 
 
 	 reconfigure/0,
 
 	 info/0, 
-	 verbosity/1, verbosity/2 
+	 verbosity/1, verbosity/2,
+         restart/1
 
 	]).
 
@@ -492,6 +492,9 @@ cancel_async_request(UserId, ReqId) ->
     call({cancel_async_request, UserId, ReqId}).
 
 
+info() ->
+    call(info).
+
 verbosity(Verbosity) ->
     case ?vvalidate(Verbosity) of
 	Verbosity ->
@@ -499,9 +502,6 @@ verbosity(Verbosity) ->
 	_ ->
 	    {error, {invalid_verbosity, Verbosity}}
     end.
-
-info() ->
-    call(info).
 
 verbosity(net_if = Ref, Verbosity) ->
     verbosity2(Ref, Verbosity);
@@ -516,9 +516,10 @@ verbosity2(Ref, Verbosity) ->
 	    {error, {invalid_verbosity, Verbosity}}
     end.
 
-%% Target -> all | server | net_if
-%% system_info_updated(Target, What) ->
-%%     call({system_info_updated, Target, What}).
+
+restart(net_if = What) ->
+    cast({restart, What}).
+
 
 get_log_type() ->
     call(get_log_type).
@@ -624,7 +625,7 @@ do_init_note_store(Prio) ->
     end.
 
 do_init_net_if(NoteStore) ->
-    ?vdebug("try start net if", []),
+    ?vdebug("try start net-if", []),
     {ok, NetIfModule} = snmpm_config:system_info(net_if_module),
     case snmpm_misc_sup:start_net_if(NetIfModule, NoteStore) of
 	{ok, Pid} ->
@@ -637,6 +638,7 @@ do_init_net_if(NoteStore) ->
 		  "~n", [Reason]),
 	    throw({error, {failed_starting_net_if, Reason}})
     end.
+
 
 %% ---------------------------------------------------------------------
 %% ---------------------------------------------------------------------
@@ -1017,6 +1019,13 @@ handle_call(Req, _From, State) ->
     {reply, {error, unknown_request}, State}.
 
 
+handle_cast({restart, net_if},
+	    #state{net_if = Pid} = State) ->
+    ?vlog("received net_if (~p) restart message", [Pid]),
+    %% We will get an exit signel/message, which will trigger a (re-)start
+    exit(Pid, kill),
+    {noreply, State};
+
 handle_cast(Msg, State) ->
     warning_msg("received unknown message: ~n~p", [Msg]),
     {noreply, State}.
@@ -1080,7 +1089,7 @@ handle_info(gc_timeout, #state{gct = GCT} = State) ->
 handle_info({'DOWN', _MonRef, process, Pid, _Reason}, 
 	    #state{note_store = NoteStore, 
 		   net_if     = Pid} = State) ->
-    ?vlog("received 'DOWN' message regarding net_if", []),
+    ?vlog("received 'DOWN' message regarding net_if (~p)", [Pid]),
     {NetIf, _, Ref} = do_init_net_if(NoteStore),
     {noreply, State#state{net_if = NetIf, net_if_ref = Ref}};
 
@@ -1089,7 +1098,7 @@ handle_info({'DOWN', _MonRef, process, Pid, _Reason},
 	    #state{note_store = Pid, 
 		   net_if     = NetIf,
 		   net_if_mod = Mod} = State) ->
-    ?vlog("received 'DOWN' message regarding note_store", []),
+    ?vlog("received 'DOWN' message regarding note_store (~p)", [Pid]),
     {ok, Prio} = snmpm_config:system_info(prio),
     {NoteStore, Ref} = do_init_note_store(Prio),
     Mod:note_store(NetIf, NoteStore),
@@ -3651,6 +3660,9 @@ is_started(#state{net_if = _Pid, net_if_mod = _Mod}) ->
 
 %%----------------------------------------------------------------------
 	
+cast(Req) ->
+    gen_server:cast(?SERVER, Req).
+
 call(Req) ->
     call(Req, infinity).
 
