@@ -1298,6 +1298,10 @@ unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
 		  << <<X,Tail/bits>> || <<X,Tail/bits>> <= Bin >>;
 	      t({bc,bitstring,Bin}) ->
 		  << <<X,Tail/bits>> || <<X,Tail/bitstring>> <= Bin >>;
+              t({bc,binary_lit,Bin}) ->
+		  << <<X>> || <<X,1/binary>> <= Bin >>;
+	      t({bc,bytes_lit,Bin}) ->
+		  << <<X>> || <<X,a/bytes>> <= Bin >>;
 	      t({lc,binary,Bin}) ->
 		  [ {X,Tail} || <<X,Tail/binary>> <= Bin ];
 	      t({lc,bytes,Bin}) ->
@@ -1305,17 +1309,25 @@ unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
 	      t({lc,bits,Bin}) ->
 		  [ {X,Tail} || <<X,Tail/bits>> <= Bin ];
 	      t({lc,bitstring,Bin}) ->
-		  [ {X,Tail} || <<X,Tail/bitstring>> <= Bin ].">>,
+		  [ {X,Tail} || <<X,Tail/bitstring>> <= Bin ];
+              t({lc,bits_lit,Bin}) ->
+		  [ X || <<X,42/bits>> <= Bin ];
+	      t({lc,bitstring_lit,Bin}) ->
+		  [ X || <<X,b/bitstring>> <= Bin ].">>,
 	   [],
 	   {errors,
 	    [{2,erl_lint,unsized_binary_in_bin_gen_pattern},
 	     {4,erl_lint,unsized_binary_in_bin_gen_pattern},
 	     {6,erl_lint,unsized_binary_in_bin_gen_pattern},
 	     {8,erl_lint,unsized_binary_in_bin_gen_pattern},
-	     {10,erl_lint,unsized_binary_in_bin_gen_pattern},
-	     {12,erl_lint,unsized_binary_in_bin_gen_pattern},
-	     {14,erl_lint,unsized_binary_in_bin_gen_pattern},
-	     {16,erl_lint,unsized_binary_in_bin_gen_pattern}],
+             {10,erl_lint,unsized_binary_in_bin_gen_pattern},
+             {12,erl_lint,unsized_binary_in_bin_gen_pattern},
+             {14,erl_lint,unsized_binary_in_bin_gen_pattern},
+             {16,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {18,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {20,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {22,erl_lint,unsized_binary_in_bin_gen_pattern},
+	     {24,erl_lint,unsized_binary_in_bin_gen_pattern}],
 	     []}}],
     [] = run(Config, Ts),
     ok.
