@@ -58,7 +58,8 @@
 	 scheduler_suspend/1,
 	 dirty_scheduler_threads/1,
          poll_threads/1,
-	 reader_groups/1]).
+	 reader_groups/1,
+         otp_16446/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -74,7 +75,8 @@ all() ->
      scheduler_suspend_basic, scheduler_suspend,
      dirty_scheduler_threads,
      poll_threads,
-     reader_groups].
+     reader_groups,
+     otp_16446].
 
 groups() -> 
     [{scheduler_bind, [],
@@ -1832,6 +1834,77 @@ reader_groups_map(CPUT, Groups) ->
     Res = erts_debug:get_internal_state({reader_groups_map, Groups}),
     erlang:system_flag(cpu_topology, Old),
     lists:sort(Res).
+
+otp_16446(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 1}),
+    
+    process_flag(priority, high),
+
+    DIO = erlang:system_info(dirty_io_schedulers),
+    NoPrioProcs = 10*DIO,
+    io:format("DIO = ~p~nNoPrioProcs = ~p~n", [DIO, NoPrioProcs]),
+
+    DirtyLoop = fun Loop(P, N) ->
+                        erts_debug:dirty_io(wait,1),
+                        receive {get, From} -> From ! {P, N}
+                        after 0 -> Loop(P,N+1)
+                        end
+                end,
+
+    Spawn = fun SpawnLoop(_Prio, 0, Acc) ->
+                    Acc;
+                SpawnLoop(Prio, N, Acc) ->
+                    Pid = spawn_opt(fun () -> DirtyLoop(Prio, 0) end,
+                                    [link, {priority, Prio}]),
+                    SpawnLoop(Prio, N-1, [Pid|Acc])
+            end,
+
+    Ns = Spawn(normal, NoPrioProcs, []),
+    Ls = Spawn(low, NoPrioProcs, []),
+
+    receive after 10000 -> ok end,
+    
+    RequestInfo = fun (P) -> P ! {get, self()} end,
+    lists:foreach(RequestInfo, Ns),
+    lists:foreach(RequestInfo, Ls),
+    
+    Collect = fun CollectFun(0, LLs, NLs) ->
+                      {LLs, NLs};
+                  CollectFun(N, LLs, NLs) ->
+                      receive
+                          {low, Calls} ->
+                              CollectFun(N-1, LLs+Calls, NLs);
+                          {normal, Calls} ->
+                              CollectFun(N-1, LLs, NLs+Calls)
+                      end
+              end,
+    
+    {LLs, NLs} = Collect(2*NoPrioProcs, 0, 0),
+    
+    %% expected ratio 0.125, but this is not especially exact...
+    Ratio = LLs / NLs,
+
+    io:format("LLs = ~p~nNLs = ~p~nRatio = ~p~n", [LLs, NLs, Ratio]),
+    
+    true = Ratio > 0.05,
+    true = Ratio < 0.5,
+    
+    WaitUntilDead = fun (P) ->
+                            case is_process_alive(P) of
+                                false ->
+                                    ok;
+                                true ->
+                                    unlink(P),
+                                    exit(P, kill),
+                                    false = is_process_alive(P)
+                            end
+                    end,
+
+    lists:foreach(WaitUntilDead, Ns),
+    lists:foreach(WaitUntilDead, Ls),
+    Comment = "low/normal ratio: " ++ erlang:float_to_list(Ratio,[{decimals,4}]),
+    erlang:display(Comment),
+    {comment, Comment}.
 
 %%
 %% Utils

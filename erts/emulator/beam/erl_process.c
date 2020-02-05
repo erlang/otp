@@ -9622,6 +9622,24 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 
 	    ASSERT(p); /* Wrong qmask in rq->flags? */
 
+#ifdef DEBUG
+            switch (((erts_aint32_t) 1) << ERTS_PSFLGS_GET_PRQ_PRIO(state)) {
+	    case MAX_BIT:
+                ASSERT(qbit == MAX_BIT);
+                break;
+            case HIGH_BIT:
+                ASSERT(qbit == HIGH_BIT);
+                break;
+            case NORMAL_BIT:
+	    case LOW_BIT:
+                ASSERT(qbit == NORMAL_BIT || qbit == LOW_BIT);
+                break;
+            default:
+                ASSERT(0);
+                break;
+            }
+#endif
+
 	    if (is_normal_sched) {
 		psflg_running = ERTS_PSFLG_RUNNING;
 		psflg_running_sys = ERTS_PSFLG_RUNNING_SYS;
@@ -9632,6 +9650,7 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		psflg_running = ERTS_PSFLG_DIRTY_RUNNING;
 		psflg_running_sys = ERTS_PSFLG_DIRTY_RUNNING_SYS;
 		psflg_band_mask = ~((erts_aint32_t) 0);
+                qbit = ((erts_aint32_t) 1) << ERTS_PSFLGS_GET_PRQ_PRIO(state);
 	    }
 
 	    if (!(state & ERTS_PSFLG_PROXY))
