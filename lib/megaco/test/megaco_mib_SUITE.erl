@@ -315,14 +315,17 @@ connect(Config) when is_list(Config) ->
 
 do_connect([MgcNode, Mg1Node, Mg2Node]) ->
     %% Start the MGC and MGs
-    ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    progress("start MGC"),
+
+    ET = [{text, tcp}, {text, udp}, {binary, tcp}, {binary, udp}],
+    progress("start MGC (on ~p)", [MgcNode]),
     {ok, Mgc} = 
 	start_mgc(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
-    progress("start MG1"),
+
+    progress("start MG1 (on ~p) using tcp", [Mg1Node]),
     {ok, Mg1} = 
 	start_mg(Mg1Node,  {deviceName, "mg1"}, text,   tcp, ?MG_VERBOSITY),
-    progress("start MG2"),
+
+    progress("start MG2 (on ~p) using udp", [Mg2Node]),
     {ok, Mg2} = 
 	start_mg(Mg2Node,  {deviceName, "mg2"}, binary, udp, ?MG_VERBOSITY),
 
@@ -405,27 +408,36 @@ traffic(suite) ->
 traffic(doc) ->
     [];
 traffic(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("traffic -> starting"),
-    progress("start nodes"),
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-    Mg2Node = make_node_name(mg2),
-    Mg3Node = make_node_name(mg3),
-    Mg4Node = make_node_name(mg4),
-    d("traffic -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p"
-      "~n   Mg2Node: ~p"
-      "~n   Mg3Node: ~p"
-      "~n   Mg4Node: ~p", 
-      [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
-    ok = ?START_NODES([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
+    Pre = fun() ->
+                  progress("start nodes"),
+                  MgcNode = make_node_name(mgc),
+                  Mg1Node = make_node_name(mg1),
+                  Mg2Node = make_node_name(mg2),
+                  Mg3Node = make_node_name(mg3),
+                  Mg4Node = make_node_name(mg4),
+                  Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node],
+                  d("traffic -> Nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   Mg1Node: ~p"
+                    "~n   Mg2Node: ~p"
+                    "~n   Mg3Node: ~p"
+                    "~n   Mg4Node: ~p", 
+                    [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_traffic/1,
+    Post = fun(Nodes) ->
+                   progress("stop nodes"),
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(traffic, Pre, Case, Post).
 
+do_traffic([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     %% Start the MGC and MGs
-    i("traffic -> start the MGC"),    
-    progress("start MGC"),
+    i("start the MGC"),    
+    progress("start MGC (on ~p)", [MgcNode]),
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	start_mgc(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
@@ -558,7 +570,6 @@ traffic(Config) when is_list(Config) ->
     stop(Mgc),
 
     i("traffic -> done", []),
-    progress("done"),
     ok.
 
 
@@ -679,10 +690,12 @@ traffic_connect_mg([{Node, Name, Coding, Trans}|Mg], Acc) ->
     traffic_connect_mg(Mg, [{Name, Pid}|Acc]).
 
 traffic_connect_mg(Node, Name, Coding, Trans) ->
+    progress("start (and connect) ~s (on ~p) using ~p", [Name, Node, Trans]),
     Mid = {deviceName, Name}, 
     {ok, Pid} = start_mg(Node, Mid, Coding, Trans, ?MG_VERBOSITY),
 
     %% Ask the MGs to do a service change
+    progress("perform ~s service change", [Name]),
     {ok, Res} = service_change(Pid),
     d("traffic_connect_mg -> (~s) service change result: ~p", [Name, Res]),
     Pid.
