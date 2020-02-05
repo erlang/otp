@@ -292,19 +292,28 @@ connect(suite) ->
 connect(doc) ->
     [];
 connect(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("connect -> starting"),
-    progress("start nodes"),
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-    Mg2Node = make_node_name(mg2),
-    d("connect -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p"
-      "~n   Mg2Node: ~p", [MgcNode, Mg1Node, Mg2Node]),
-    ok = ?START_NODES([MgcNode, Mg1Node, Mg2Node]),
+    Pre = fun() ->
+                  progress("start nodes"),
+                  MgcNode = make_node_name(mgc),
+                  Mg1Node = make_node_name(mg1),
+                  Mg2Node = make_node_name(mg2),
+                  d("connect -> Nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   Mg1Node: ~p"
+                    "~n   Mg2Node: ~p", [MgcNode, Mg1Node, Mg2Node]),
+                  Nodes = [MgcNode, Mg1Node, Mg2Node],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_connect/1,
+    Post = fun(Nodes) ->
+                   progress("stop nodes"),
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(connect, Pre, Case, Post).
 
+do_connect([MgcNode, Mg1Node, Mg2Node]) ->
     %% Start the MGC and MGs
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     progress("start MGC"),
@@ -385,7 +394,6 @@ connect(Config) when is_list(Config) ->
     stop(Mgc),
 
     i("connect -> done", []),
-    progress("done"),
     ok.
 
 
@@ -1746,6 +1754,16 @@ which_local_addr2([{addr, Addr}|_])
     {ok, Addr};
 which_local_addr2([_|T]) ->
     which_local_addr2(T).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
