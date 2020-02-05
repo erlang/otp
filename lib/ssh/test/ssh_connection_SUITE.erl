@@ -96,7 +96,7 @@ sock() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
-       [{ptty_supported, not ssh_test_lib:lc_name_in(["fobi"])}
+       [{ptty_supported, ssh_test_lib:ptty_supported()}
         | Config]
       ).
 
