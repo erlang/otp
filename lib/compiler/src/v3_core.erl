@@ -841,6 +841,8 @@ sanitize({tuple,L,Ps0}) ->
 sanitize({map,L,Ps0}) ->
     Ps = [sanitize(V) || {map_field_exact,_,_,V} <- Ps0],
     {tuple,L,Ps};
+sanitize({op,L,_Name,P1,P2}) ->
+    {tuple,L,[sanitize(P1),sanitize(P2)]};
 sanitize(P) -> P.
 
 make_bool_switch(L, E, V, T, F, #core{in_guard=true}) ->

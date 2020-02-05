@@ -260,6 +260,7 @@ non_matching_aliases(_Config) ->
     none = mixed_aliases(<<6789:16>>),
     none = mixed_aliases(#{key=>value}),
 
+    {'EXIT',{{badmatch,bar},_}} = (catch plus_plus_prefix()),
     {'EXIT',{{badmatch,42},_}} = (catch nomatch_alias(42)),
     {'EXIT',{{badmatch,job},_}} = (catch entirely()),
     {'EXIT',{{badmatch,associates},_}} = (catch printer()),
@@ -294,7 +295,11 @@ mixed_aliases([X] = #{key:=X}) -> {k,X};
 mixed_aliases(#{key:=X} = [X]) -> {l,X};
 mixed_aliases({a,X} = #{key:=X}) -> {m,X};
 mixed_aliases(#{key:=X} = {a,X}) -> {n,X};
+mixed_aliases([] ++ (foo = [])) -> o;
 mixed_aliases(_) -> none.
+
+plus_plus_prefix() ->
+    [] ++ (foo = []) = bar.
 
 nomatch_alias(I) ->
     {ok={A,B}} = id(I),
