@@ -119,8 +119,8 @@ passes(Opts) ->
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
-          ?PASS(fix_bs),
           ?PASS(exception_trampolines),
+          ?PASS(fix_bs),
           ?PASS(sanitize),
           ?PASS(match_fail_instructions),
           case FixTuples of
