@@ -23,7 +23,7 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--export([start_link/0,start_link/2,init/1,start/1,stop/0]).
+-export([start_link/0,start_link/3,init/1,start/1,stop/0]).
 
 -define(DBG,erlang:display([?MODULE,?LINE])).
 
@@ -37,7 +37,7 @@ start_link() ->
 
 start(Args) ->
     C = #{id => net_sup_dynamic,
-          start => {?MODULE,start_link,[Args,false]},
+          start => {?MODULE,start_link,[Args,false,net_sup_dynamic]},
           restart => permanent,
           shutdown => 1000,
           type => supervisor,
@@ -66,8 +66,8 @@ stop() ->
 
 %% Helper start function.
 
-start_link(Args, CleanHalt) ->
-    supervisor:start_link({local,net_sup}, ?MODULE, [Args,CleanHalt]).
+start_link(Args, CleanHalt, NetSup) ->
+    supervisor:start_link({local,net_sup}, ?MODULE, [Args,CleanHalt,NetSup]).
 
 init(NetArgs) ->
     Epmd = 
@@ -104,11 +104,11 @@ init(NetArgs) ->
 do_start_link([{Arg,Flag}|T]) ->
     case init:get_argument(Arg) of
 	{ok,[[Name]]} ->
-	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+	    start_link([list_to_atom(Name),Flag|ticktime()], true, net_sup);
         {ok,[[Name]|_Rest]} ->
             ?LOG_WARNING("Multiple -~p given to erl, using the first, ~p",
                          [Arg, Name]),
-	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+	    start_link([list_to_atom(Name),Flag|ticktime()], true, net_sup);
 	_ ->
 	    do_start_link(T)
     end;

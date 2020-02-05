@@ -688,8 +688,26 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
         </item>
         <tag>3) <c>recv_status</c>/<c>send_status</c></tag>
         <item>
-          <p><c>B</c> sends a status message to <c>A</c>, which indicates if the
-            connection is allowed. The following status codes are defined:</p>
+          <p>
+	    <c>B</c> sends a status message to <c>A</c>, which indicates if the
+            connection is allowed.
+	  </p>
+	  <table align="left">
+            <row>
+              <cell align="center">1</cell>
+	      <cell align="center">Slen</cell>
+            </row>
+            <row>
+              <cell align="center"><c>'s'</c></cell>
+	      <cell align="center"><c>Status</c></cell>
+            </row>
+            <tcaption>The format of the status message</tcaption>
+	  </table>
+          <p>
+	    's' is the message tag. <c>Status</c> is the status code as a
+            string (not null terminated). The following status codes are
+	    defined:
+	  </p>
           <taglist>
             <tag><c>ok</c></tag>
             <item>
@@ -720,21 +738,37 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
                 breakdown of a previous node with this name has not yet reached
                 node <c>B</c>. See step 3B below.</p>
             </item>
+	    <tag><c>named:</c></tag>
+            <item><p>
+	      The handshake willl continue, but <c>A</c> requested a dynamic
+	      node name by setting flag <seealso marker="#DFLAG_NAME_ME">
+	      <c>DFLAG_NAME_ME</c></seealso>. The dynamic node name of
+	      <c>A</c> is supplied at the end of the status message from
+	      <c>B</c>.</p>
+            </item>
           </taglist>
 	  <table align="left">
             <row>
               <cell align="center">1</cell>
-	      <cell align="center">Slen</cell>
+	      <cell align="center">Slen=6</cell>
+	      <cell align="center">2</cell>
+	      <cell align="center">Nlen</cell>
             </row>
             <row>
               <cell align="center"><c>'s'</c></cell>
-	      <cell align="center"><c>Status</c></cell>
+	      <cell align="center"><c>Status='named:'</c></cell>
+	      <cell align="center"><c>Nlen</c></cell>
+	      <cell align="center"><c>Name</c></cell>
             </row>
-            <tcaption>The format of the status message</tcaption>
+            <tcaption>The format of the 'named:' status message</tcaption>
 	  </table>
-          <p>'s' is the message tag. <c>Status</c> is the status as a
-            string (not null terminated).</p>
-        </item>
+	  <p>
+	    <c>Name</c> is the full dynamic node name of <c>A</c>, as a
+	    string of bytes. <c>Nlen</c> is the byte length of the node name in
+	    16-bit big endian. Any extra data after the node <c>Name</c> must be
+	    accepted and ignored.
+	  </p>
+          </item>
         <tag>3B) <c>send_status</c>/<c>recv_status</c></tag>
         <item>
           <p>If status was <c>alive</c>, node <c>A</c> answers with another
@@ -1067,7 +1101,7 @@ DiB == gen_digest(ChA, ICA)?
           <p>The node supports the new connection setup handshake (version 6)
 	  introduced in OTP 23.</p>
         </item>
-        <tag><marker id="DFLAG_SPAWN"/><c>-define(DFLAG_SPAWN, 16#100000000).</c></tag>
+        <tag><marker id="DFLAG_SPAWN"/><c>-define(DFLAG_SPAWN, (1 bsl 32)).</c></tag>
         <item>
           <p>Set if the <seealso marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seealso>,
 	  <seealso marker="#SPAWN_REQUEST_TT"><c>SPAWN_REQUEST_TT</c></seealso>,
@@ -1075,6 +1109,12 @@ DiB == gen_digest(ChA, ICA)?
 	  <seealso marker="#SPAWN_REPLY_TT"><c>SPAWN_REPLY_TT</c></seealso>
 	  control messages are supported.</p>
         </item>
+	<tag><marker id="DFLAG_NAME_ME"/><c>-define(DFLAG_NAME_ME, (1 bsl 33)).</c></tag>
+        <item><p>
+	  Dynamic node name. This is not a capability but rather used as a
+	  request from the connecting node to receive its node name from the
+	  accepting node as part of the handshake.</p>
+	</item>
       </taglist>
       <p>
 	There is also function <c>dist_util:strict_order_flags/0</c>
