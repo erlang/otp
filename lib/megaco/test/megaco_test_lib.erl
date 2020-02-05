@@ -1129,33 +1129,33 @@ try_tc(TCName, Name, Verbosity, Pre, Case, Post)
     p("try_tc -> starting: try pre"),
     try Pre() of
         State ->
-            p("try_tc -> pre done: try case"),
+            p("try_tc -> pre done: try test case"),
             try Case(State) of
                 Res ->
-                    p("try_tc -> case done: try post"),
+                    p("try_tc -> test case done: try post"),
                     (catch Post(State)),
                     p("try_tc -> done"),
                     Res
             catch
                 throw:{skip, _} = SKIP:_ ->
-                    p("try_tc -> case (throw) skip: try post"),
+                    p("try_tc -> test case (throw) skip: try post"),
                     (catch Post(State)),
-                    p("try_tc -> case (throw) skip: done"),
+                    p("try_tc -> test case (throw) skip: done"),
                     SKIP;
                 exit:{skip, _} = SKIP:_ ->
-                    p("try_tc -> case (exit) skip: try post"),
+                    p("try_tc -> test case (exit) skip: try post"),
                     (catch Post(State)),
-                    p("try_tc -> case (exit) skip: done"),
+                    p("try_tc -> test case (exit) skip: done"),
                     SKIP;
                 C:E:S ->
-                    p("try_tc -> case failed: try post"),
+                    p("try_tc -> test case failed: try post"),
                     (catch Post(State)),
                     case megaco_test_global_sys_monitor:events() of
                         [] ->
-                            p("try_tc -> case failed: done"),
+                            p("try_tc -> test case failed: done"),
                             exit({case_catched, C, E, S});
                         SysEvs ->
-                            p("try_tc -> case failed with system event(s): "
+                            p("try_tc -> test case failed with system event(s): "
                               "~n   ~p", [SysEvs]),
                             {skip, "TC failure with system events"}
                     end

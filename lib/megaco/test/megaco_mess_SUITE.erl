@@ -9896,10 +9896,10 @@ otp_6442_resend_request1(Config) when is_list(Config) ->
     try_tc(otp6442rreq1, Pre, Case, Post).
 
 do_otp_6442_resend_request1([MgNode]) ->
-    d("[MG] start the simulator "),
+    d("[MG] start the simulator"),
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
-    d("[MG] create the event sequence"),
+    d("[MG] create the event sequence (~p)", [Mg]),
     MgMid = {deviceName,"mg"},
     MgEvSeq = otp_6442_resend_request1_mg_event_sequence(MgMid),
 
@@ -10103,11 +10103,6 @@ otp_6442_resend_request1_mg_event_sequence(Mid) ->
 	?otp_6442_resend_request1_mg_verify_service_change_rep_fun(),
     NotifyReplyVerify = 
 	?otp_6442_resend_request1_mg_verify_notify_rep_fun(),
-    %%     ConnectVerify = 
-    %% 	otp_6442_resend_request1_mg_verify_handle_connect_fun(),
-    %%     ServiceChangeReplyVerify = 
-    %% 	otp_6442_resend_request1_mg_verify_service_change_reply_fun(),
-    %%     NotifyReplyVerify = otp_6442_resend_request1_mg_verify_notify_reply_fun(),
     EvSeq = [
              {debug, false},
              megaco_start,
