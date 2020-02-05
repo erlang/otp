@@ -31,6 +31,25 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process could get into an inconsistent state where it
+	    was runnable, but never scheduled for execution. This
+	    could occur when a mix of <c>normal</c> and <c>low</c>
+	    priority processes where scheduled on the same type of
+	    dirty scheduler simultaneously.</p>
+          <p>
+	    Own Id: OTP-16446 Aux Id: ERL-1157 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.6.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
