@@ -2829,6 +2829,7 @@ bif_return_type(is_function, [_,_], _) -> bool;
 bif_return_type(is_integer, [_], _) -> bool;
 bif_return_type(is_list, [_], _) -> bool;
 bif_return_type(is_map, [_], _) -> bool;
+bif_return_type(is_map_key, [_, _], _) -> bool;
 bif_return_type(is_number, [_], _) -> bool;
 bif_return_type(is_pid, [_], _) -> bool;
 bif_return_type(is_port, [_], _) -> bool;
