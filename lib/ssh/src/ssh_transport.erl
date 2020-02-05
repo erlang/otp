@@ -50,7 +50,7 @@
          parallell_gen_key/1,
 	 extract_public_key/1,
 	 ssh_packet/2, pack/2,
-         valid_key_sha_alg/2,
+         valid_key_sha_alg/3,
 	 sha/1, sign/3, verify/5,
          get_host_key/2,
          call_KeyCb/3]).
@@ -786,7 +786,7 @@ get_host_key(SignAlg, Opts) ->
     case call_KeyCb(host_key, [SignAlg], Opts) of
 	{ok, PrivHostKey} ->
             %% Check the key - the KeyCb may be a buggy plugin
-            case valid_key_sha_alg(PrivHostKey, SignAlg) of
+            case valid_key_sha_alg(private, PrivHostKey, SignAlg) of
                 true -> PrivHostKey;
                 false -> exit({error, bad_hostkey})
             end;
@@ -1787,29 +1787,29 @@ kex_alg_dependent({Min, NBits, Max, Prime, Gen, E, F, K}) ->
 
 %%%----------------------------------------------------------------
 
-valid_key_sha_alg(#{engine:=_, key_id:=_}, _Alg) -> true; % Engine key
+valid_key_sha_alg(_, #{engine:=_, key_id:=_}, _Alg) -> true; % Engine key
 
-valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-512') -> true;
-valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-384') -> true;
-valid_key_sha_alg(#'RSAPublicKey'{}, 'rsa-sha2-256') -> true;
-valid_key_sha_alg(#'RSAPublicKey'{}, 'ssh-rsa'     ) -> true;
+valid_key_sha_alg(public, #'RSAPublicKey'{}, 'rsa-sha2-512') -> true;
+valid_key_sha_alg(public, #'RSAPublicKey'{}, 'rsa-sha2-384') -> true;
+valid_key_sha_alg(public, #'RSAPublicKey'{}, 'rsa-sha2-256') -> true;
+valid_key_sha_alg(public, #'RSAPublicKey'{}, 'ssh-rsa'     ) -> true;
 
-valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-512') -> true;
-valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-384') -> true;
-valid_key_sha_alg(#'RSAPrivateKey'{}, 'rsa-sha2-256') -> true;
-valid_key_sha_alg(#'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
+valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-512') -> true;
+valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-384') -> true;
+valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-256') -> true;
+valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
 
-valid_key_sha_alg({_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
-valid_key_sha_alg(#'DSAPrivateKey'{},  'ssh-dss') -> true;
+valid_key_sha_alg(public, {_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
+valid_key_sha_alg(private, #'DSAPrivateKey'{},  'ssh-dss') -> true;
 
-valid_key_sha_alg({ed_pub, ed25519,_},  'ssh-ed25519') -> true;
-valid_key_sha_alg({ed_pri, ed25519,_,_},'ssh-ed25519') -> true;
-valid_key_sha_alg({ed_pub, ed448,_},    'ssh-ed448') -> true;
-valid_key_sha_alg({ed_pri, ed448,_,_},  'ssh-ed448') -> true;
+valid_key_sha_alg(public, {ed_pub, ed25519,_},  'ssh-ed25519') -> true;
+valid_key_sha_alg(private, {ed_pri, ed25519,_,_},'ssh-ed25519') -> true;
+valid_key_sha_alg(public, {ed_pub, ed448,_},    'ssh-ed448') -> true;
+valid_key_sha_alg(private, {ed_pri, ed448,_,_},  'ssh-ed448') -> true;
 
-valid_key_sha_alg({#'ECPoint'{},{namedCurve,OID}},                Alg) -> valid_key_sha_alg_ec(OID, Alg);
-valid_key_sha_alg(#'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) -> valid_key_sha_alg_ec(OID, Alg);
-valid_key_sha_alg(_, _) -> false.
+valid_key_sha_alg(public, {#'ECPoint'{},{namedCurve,OID}},                Alg) -> valid_key_sha_alg_ec(OID, Alg);
+valid_key_sha_alg(private, #'ECPrivateKey'{parameters = {namedCurve,OID}}, Alg) -> valid_key_sha_alg_ec(OID, Alg);
+valid_key_sha_alg(_, _, _) -> false.
     
 valid_key_sha_alg_ec(OID, Alg) -> 
     Curve = public_key:oid2ssh_curvename(OID),
