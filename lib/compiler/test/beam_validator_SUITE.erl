@@ -37,7 +37,8 @@
          receive_stacked/1,aliased_types/1,type_conflict/1,
          infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
          branch_to_try_handler/1,call_without_stack/1,
-         receive_marker/1,safe_instructions/1]).
+         receive_marker/1,safe_instructions/1,
+         missing_return_type/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -69,7 +70,8 @@ groups() ->
        receive_stacked,aliased_types,type_conflict,
        infer_on_eq,infer_dead_value,infer_on_ne,
        branch_to_try_handler,call_without_stack,
-       receive_marker,safe_instructions]}].
+       receive_marker,safe_instructions,
+       missing_return_type]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -791,6 +793,21 @@ safe_instructions(Config) when is_list(Config) ->
     [] = Errors,
 
     ok.
+
+missing_return_type(Config) when is_list(Config) ->
+    %% ERL-1161: the validator didn't know that is_map_key always returns a
+    %% bool.
+    Map = #{ hello => there },
+    true = mrt_1(true),
+    false = mrt_1(false),
+    true = mrt_1(is_map_key(id(hello), Map)),
+    false = mrt_1(is_map_key(id(there), Map)),
+
+    ok.
+
+mrt_1(Bool) ->
+    true = is_boolean(Bool),
+    Bool.
 
 %%%-------------------------------------------------------------------------
 
