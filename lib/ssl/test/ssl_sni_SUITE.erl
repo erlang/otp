@@ -329,7 +329,7 @@ hostname_trailing_dot(Config) when is_list(Config) ->
                                                 {options, ServerOpts}]),
             Port = ssl_test_lib:inet_port(Server),
             Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
-                                                {host, Hostname ++ "."},
+                                                {host, Hostname},
                                                 {from, self()},
                                                 {mfa, {ssl_test_lib, send_recv_result_active, []}},
                                         {options, ClientOpts}]),
@@ -481,19 +481,16 @@ host_name(undefined, Hostname) ->
 host_name(Hostname, _) ->
     Hostname.
 
-
 trailing_dot_hostname(HostName) ->
-    case inet:gethostbyname(HostName) of
-        {ok, HostEnt} ->
-            do_trailing_dot_hostname(HostEnt);
-        _ ->
-            {skip, "Trailing dot conf not possible"}
-    end.
-
-do_trailing_dot_hostname(#hostent{h_name = Name}) ->
-    case lists:member($., Name) andalso lists:last(Name) =/= $. of
+    case lists:member($., HostName) of
         true ->
-            {ok, Name ++ "."};
+            case lists:last(HostName) =/= $. of
+                true ->
+                    {ok, HostName ++ "."};
+                false ->
+                    {ok, HostName}
+            end;
         _ ->
             {skip, "Trailing dot conf not possible"}
-    end.
+     end.
+
