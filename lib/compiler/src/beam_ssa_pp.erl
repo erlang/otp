@@ -35,10 +35,10 @@ format_function(#b_function{anno=Anno0,args=Args,
                    #{} ->
                        Anno0
                end,
-     ReachableBlocks = beam_ssa:rpo(Blocks),
-     All = maps:keys(Blocks),
-     Unreachable = ordsets:subtract(ordsets:from_list(All),
-                                    ordsets:from_list(ReachableBlocks)),
+    ReachableBlocks = beam_ssa:rpo(Blocks),
+    All = maps:keys(Blocks),
+    Unreachable = ordsets:subtract(ordsets:from_list(All),
+                                   ordsets:from_list(ReachableBlocks)),
     [case Anno0 of
          #{location:={Filename,Line}} ->
              io_lib:format("%% ~ts:~p\n", [Filename,Line]);
@@ -48,7 +48,8 @@ format_function(#b_function{anno=Anno0,args=Args,
      io_lib:format("%% Counter = ~p\n", [Counter]),
      [format_anno(Key, Value) ||
          {Key,Value} <- lists:sort(maps:to_list(Anno))],
-     io_lib:format("function ~p:~p(~ts) {\n", [M,F,format_args(Args, FuncAnno)]),
+     io_lib:format("function `~p`:`~p`(~ts) {\n",
+                   [M, F, format_args(Args, FuncAnno)]),
      [format_live_interval(Var, FuncAnno) || Var <- Args],
      format_blocks(ReachableBlocks, Blocks, FuncAnno),
      case Unreachable of
@@ -140,16 +141,20 @@ format_i_number(#{n:=N}) ->
 format_i_number(#{}) -> [].
 
 format_terminator(#b_br{anno=A,bool=#b_literal{val=true},succ=Lbl}, _) ->
-    io_lib:format("  ~sbr label ~p\n", [format_i_number(A),Lbl]);
+    io_lib:format("  ~sbr ~ts\n", [format_i_number(A),format_label(Lbl)]);
 format_terminator(#b_br{anno=A,bool=#b_literal{val=false},fail=Lbl}, _) ->
-    io_lib:format("  ~sbr label ~p\n", [format_i_number(A),Lbl]);
+    io_lib:format("  ~sbr ~ts\n", [format_i_number(A),format_label(Lbl)]);
 format_terminator(#b_br{anno=A,bool=Bool,succ=Succ,fail=Fail}, FuncAnno) ->
-    io_lib:format("  ~sbr ~ts, label ~p, label ~p\n",
-                  [format_i_number(A),format_arg(Bool, FuncAnno),Succ,Fail]);
+    io_lib:format("  ~sbr ~ts, ~ts, ~ts\n",
+                  [format_i_number(A),
+                   format_arg(Bool, FuncAnno),
+                   format_label(Succ),
+                   format_label(Fail)]);
 format_terminator(#b_switch{anno=A,arg=Arg,fail=Fail,list=List}, FuncAnno) ->
-    io_lib:format("  ~sswitch ~ts, label ~p, ~ts\n",
-                  [format_i_number(A),format_arg(Arg, FuncAnno),Fail,
-                   format_list(List,FuncAnno)]);
+    io_lib:format("  ~sswitch ~ts, ~ts, ~ts\n",
+                  [format_i_number(A),format_arg(Arg, FuncAnno),
+                   format_label(Fail),
+                   format_switch_list(List, FuncAnno)]);
 format_terminator(#b_ret{anno=A,arg=Arg}, FuncAnno) ->
     io_lib:format("  ~sret ~ts\n", [format_i_number(A),format_arg(Arg, FuncAnno)]).
 
@@ -189,24 +194,25 @@ format_args(Args, FuncAnno) ->
 format_arg(#b_var{}=Arg, FuncAnno) ->
     format_var(Arg, FuncAnno);
 format_arg(#b_literal{val=Val}, _FuncAnno) ->
-    io_lib:format("literal ~p", [Val]);
+    io_lib:format("`~p`", [Val]);
 format_arg(#b_remote{mod=Mod,name=Name,arity=Arity}, FuncAnno) ->
-    io_lib:format("remote (~ts):(~ts)/~p",
+    io_lib:format("(~ts:~ts/~p)",
                   [format_arg(Mod, FuncAnno),format_arg(Name, FuncAnno),Arity]);
 format_arg(#b_local{name=Name,arity=Arity}, FuncAnno) ->
-    io_lib:format("local ~ts/~p", [format_arg(Name, FuncAnno),Arity]);
+    io_lib:format("(~ts/~p)", [format_arg(Name, FuncAnno),Arity]);
 format_arg({Value,Label}, FuncAnno) when is_integer(Label) ->
-    io_lib:format("{ ~ts, ~p }", [format_arg(Value, FuncAnno),Label]);
+    io_lib:format("{ ~ts, ~ts }", [format_arg(Value, FuncAnno),
+                                   format_label(Label)]);
 format_arg(Other, _) ->
     io_lib:format("*** ~p ***", [Other]).
 
-format_list(List, FuncAnno) ->
-    Ss = [io_lib:format("{ ~ts, ~ts }", [format_arg(Val, FuncAnno),format_label(L)]) ||
-             {Val,L} <- List],
-    io_lib:format("[ ~ts ]", [lists:join(", ", Ss)]).
+format_switch_list(List, FuncAnno) ->
+    Ss = [io_lib:format("{ ~ts, ~ts }", [format_arg(Val, FuncAnno),
+                                         format_label(L)]) || {Val,L} <- List],
+    io_lib:format("[\n    ~ts\n  ]", [lists:join(",\n    ", Ss)]).
 
 format_label(L) ->
-    ["label ",integer_to_list(L)].
+    io_lib:format("^~w", [L]).
 
 format_anno(#{n:=_}=Anno) ->
     format_anno(maps:remove(n, Anno));
