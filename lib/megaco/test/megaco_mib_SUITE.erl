@@ -53,8 +53,8 @@
 -include("megaco_test_lib.hrl").
 
 -define(TEST_VERBOSITY, info). % silence | info | debug
--define(MGC_VERBOSITY,  info).
--define(MG_VERBOSITY,   info).
+-define(MGC_VERBOSITY,  debug).
+-define(MG_VERBOSITY,   debug).
 
 -define(LOAD_COUNTER_START, 100).
 -define(A4444, ["11111111", "00000000", "00000000"]).
