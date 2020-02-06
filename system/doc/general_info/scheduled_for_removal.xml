@@ -60,6 +60,14 @@
       <p>For replacement functions see the
       <seealso marker="crypto:new_api#the-new-api">New API</seealso>.</p>
     </section>
+    <section>
+      <title>pg2</title>
+      <p>
+	<seealso marker="kernel:pg2">pg2</seealso> is as of
+	<seealso marker="deprecations#OTP-23">OTP 23 deprecated</seealso>
+	and will be removed in OTP 24.
+      </p>
+    </section>
   </section>
 
   <section>

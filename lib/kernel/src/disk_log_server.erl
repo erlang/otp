@@ -38,6 +38,12 @@
 
 -record(state, {pending = [] :: [#pending{}]}).
 
+-compile({nowarn_deprecated_function, [{pg2, create, 1}]}).
+-compile({nowarn_deprecated_function, [{pg2, join, 2}]}).
+-compile({nowarn_deprecated_function, [{pg2, leave, 2}]}).
+-compile({nowarn_deprecated_function, [{pg2, which_groups, 0}]}).
+-compile({nowarn_deprecated_function, [{pg2, get_members, 1}]}).
+
 %%%-----------------------------------------------------------------
 %%% This module implements the disk_log server.  Its primary purpose
 %%% is to keep the ets table 'disk_log_names' updated and to handle
