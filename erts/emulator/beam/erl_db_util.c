@@ -2868,9 +2868,6 @@ Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr)
 
 /* Must be called to read elements after db_lookup_dbterm.
 ** Will decompress if needed.
-** HEALFWORD_HEAP:
-** 	Will convert from relative to Wterm format if needed.
-**      (but only on top level, tuples and lists will still contain rterms)
 */
 Wterm db_do_read_element(DbUpdateHandle* handle, Sint position)
 {

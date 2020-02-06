@@ -2629,35 +2629,61 @@ update_counter_with_default_do(Opts) ->
     T1 = ets_new(a, [set | Opts]),
     %% Insert default object.
     3 = ets:update_counter(T1, foo, 2, {beaufort,1}),
+    1 = ets:info(T1, size),
     %% Increment.
     5 = ets:update_counter(T1, foo, 2, {cabecou,1}),
+    1 = ets:info(T1, size),
     %% Increment with list.
     [9] = ets:update_counter(T1, foo, [{2,4}], {camembert,1}),
+    1 = ets:info(T1, size),
     %% Same with non-immediate key.
     3 = ets:update_counter(T1, {foo,bar}, 2, {{chaource,chevrotin},1}),
+    2 = ets:info(T1, size),
     5 = ets:update_counter(T1, {foo,bar}, 2, {{cantal,comté},1}),
+    2 = ets:info(T1, size),
     [9] = ets:update_counter(T1, {foo,bar}, [{2,4}], {{emmental,de,savoie},1}),
+    2 = ets:info(T1, size),
+    %% default counter is not an integer.
+    {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, 3, {saint,félicien})),
+    2 = ets:info(T1, size),
+    %% No third element in default value.
+    {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, [{3,1}], {roquefort,1})),
+    2 = ets:info(T1, size),
+
     %% Same with ordered set.
     T2 = ets_new(b, [ordered_set | Opts]),
     3 = ets:update_counter(T2, foo, 2, {maroilles,1}),
+    1 = ets:info(T2, size),
     5 = ets:update_counter(T2, foo, 2, {mimolette,1}),
+    1 = ets:info(T2, size),
     [9] = ets:update_counter(T2, foo, [{2,4}], {morbier,1}),
+    1 = ets:info(T2, size),
     3 = ets:update_counter(T2, {foo,bar}, 2, {{laguiole},1}),
+    2 = ets:info(T2, size),
     5 = ets:update_counter(T2, {foo,bar}, 2, {{saint,nectaire},1}),
+    2 = ets:info(T2, size),
     [9] = ets:update_counter(T2, {foo,bar}, [{2,4}], {{rocamadour},1}),
+    2 = ets:info(T2, size),
     %% Arithmetically-equal keys.
     3 = ets:update_counter(T2, 1.0, 2, {1,1}),
+    3 = ets:info(T2, size),
     5 = ets:update_counter(T2, 1, 2, {1,1}),
+    3 = ets:info(T2, size),
     7 = ets:update_counter(T2, 1, 2, {1.0,1}),
+    3 = ets:info(T2, size),
     %% Same with reversed type difference.
     3 = ets:update_counter(T2, 2, 2, {2.0,1}),
+    4 = ets:info(T2, size),
     5 = ets:update_counter(T2, 2.0, 2, {2.0,1}),
+    4 = ets:info(T2, size),
     7 = ets:update_counter(T2, 2.0, 2, {2,1}),
-    %% bar is not an integer.
+    4 = ets:info(T2, size),
+    %% default counter is not an integer.
     {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, 3, {saint,félicien})),
+    4 = ets:info(T2, size),
     %% No third element in default value.
     {'EXIT',{badarg,_}} = (catch ets:update_counter(T1, qux, [{3,1}], {roquefort,1})),
-
+    4 = ets:info(T2, size),
     ok.
 
 %% ERL-1125

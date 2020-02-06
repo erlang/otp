@@ -3602,18 +3602,21 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
             *bp = b->next;
             free_me = b;
         }
-        DEC_NITEMS(tb, lck_ctr, hval);
+        if (!(handle->flags & DB_INC_TRY_GROW))
+            DEC_NITEMS(tb, lck_ctr, hval);
         nitems = NITEMS_ESTIMATE(tb, lck_ctr, hval);
         WUNLOCK_HASH_LCK_CTR(lck_ctr);
         try_shrink(tb, nitems);
     } else {
         if (handle->flags & DB_MUST_RESIZE) {
+            ASSERT(cret == DB_ERROR_NONE);
             db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
             free_me = b;
         }
         if (handle->flags & DB_INC_TRY_GROW) {
             int nactive;
             int nitems;
+            ASSERT(cret == DB_ERROR_NONE);
             INC_NITEMS(tb, lck_ctr, hval);
             nitems = NITEMS_ESTIMATE(tb, lck_ctr, hval);
             WUNLOCK_HASH_LCK_CTR(lck_ctr);
