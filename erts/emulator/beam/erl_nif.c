@@ -1418,7 +1418,8 @@ int enif_term_to_binary_int(ErlNifEnv *dst_env, ERL_NIF_TERM term,
 
     bp = bin->data;
 
-    erts_encode_ext_int(term, &bp, &factory.off_heap->first);
+    erts_encode_ext_int(term, &bp, (struct erl_off_heap_header **)
+                        &factory.off_heap);
 
     if (size > 0) {
         erts_factory_close(&factory);
