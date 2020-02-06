@@ -35,10 +35,10 @@ format_function(#b_function{anno=Anno0,args=Args,
                    #{} ->
                        Anno0
                end,
-     ReachableBlocks = beam_ssa:rpo(Blocks),
-     All = maps:keys(Blocks),
-     Unreachable = ordsets:subtract(ordsets:from_list(All),
-                                    ordsets:from_list(ReachableBlocks)),
+    ReachableBlocks = beam_ssa:rpo(Blocks),
+    All = maps:keys(Blocks),
+    Unreachable = ordsets:subtract(ordsets:from_list(All),
+                                   ordsets:from_list(ReachableBlocks)),
     [case Anno0 of
          #{location:={Filename,Line}} ->
              io_lib:format("%% ~ts:~p\n", [Filename,Line]);
