@@ -60,6 +60,22 @@
       RFC.  
       </p>
     </section>
+    
+    <section>
+      <title>pg2</title>
+      <p>
+	As of OTP 23, a new process group implementation
+	<seealso marker="kernel:pg">pg</seealso> is introduced.
+	<c>pg</c> is similar to <seealso marker="kernel:pg2">pg2</seealso>,
+	but with much better scalability properties. The API and behaviour
+	is however not compatible.
+      </p>
+      <p>
+	<c>pg2</c> is now deprecated and has also been
+	<seealso marker="scheduled_for_removal#OTP-24">scheduled for removal</seealso>
+	in OTP 24.
+      </p>
+    </section>
   </section>
   
   <section>

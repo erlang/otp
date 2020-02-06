@@ -39,6 +39,12 @@
   <description>
     <p>This module implements process groups. A message can be sent
       to one, some, or all group members.</p>
+
+    <p>Up until OTP 17 there used to exist an experimental <c>pg</c>
+      module in <c>stdlib</c>. This <c>pg</c> module is not the same
+      module as that experimental <c>pg</c> module, and only share
+      the same module name.</p>
+
     <p>A group of processes can be accessed by a common name. For
       example, if there is a group named <c>foobar</c>, there can be a
       set of processes (which can be located on different nodes) that
@@ -56,7 +62,7 @@
     </p>
 
     <p>Process Groups implement strong eventual consistency.
-      Unlike <seealso marker="kernel_app"><c>pg2</c></seealso>, that provides
+      Unlike <seealso marker="pg2"><c>pg2</c></seealso>, that provides
       strong ordering guarantees, Process Groups membership view may temporarily
       diverge. For example, when processes on <c>node1</c> and <c>node2</c>
       join concurrently, <c>node3</c> and <c>node4</c> may receive updates in
@@ -86,7 +92,7 @@
       exists, scope fails to start.</p>
       <p>Local membership is not preserved if scope process exits and
         restarts. This behaviour is different from
-        <seealso marker="kernel_app"><c>pg2</c></seealso>, that recovers
+        <seealso marker="pg2"><c>pg2</c></seealso>, that recovers
         local membership from remote nodes.
     </p></note>
 

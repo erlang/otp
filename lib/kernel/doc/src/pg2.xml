@@ -35,6 +35,16 @@
   <module since="">pg2</module>
   <modulesummary>Distributed named process groups.</modulesummary>
   <description>
+    <warning>
+      <p>
+	The <c>pg2</c> module is deprecated as of OTP 23 and scheduled
+	for removal in OTP 24. You are advised to replace the usage of
+	<c>pg2</c> with <seealso marker="kernel:pg">pg</seealso>.
+	<c>pg</c> has a similar API, but with an implementation that
+	is more scalable. See the documentation of <c>pg</c> for more
+	information about differences.
+      </p>
+    </warning>
     <p>This module implements process groups. Each message can be sent
       to one, some, or all group members.</p>
     <p>A group of processes can be accessed by a common name. For
