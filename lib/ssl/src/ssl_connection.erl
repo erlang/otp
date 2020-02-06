@@ -65,9 +65,10 @@
 	 prepare_connection/2, hibernate_after/3]).
 
 %% General gen_statem state functions with extra callback argument 
-%% to determine if it is an SSL/TLS or DTLS gen_statem machine
+%% to determine if it is an SSL/TLS or DTLS gen_statem machine, and gen_handshake that wrapps
+%% handling of common state handling for handshake messages
 -export([init/4, error/4, hello/4, user_hello/4, abbreviated/4, certify/4, wait_ocsp_stapling/4, cipher/4,
-         connection/4, downgrade/4]).
+         connection/4, downgrade/4, gen_handshake/5]).
 
 %% gen_statem callbacks
 -export([terminate/3, format_status/2]).
@@ -1382,6 +1383,18 @@ connection(Type, Msg, State, Connection) ->
 %%--------------------------------------------------------------------
 downgrade(Type, Event, State, Connection) ->
     handle_common_event(Type, Event, ?FUNCTION_NAME, State, Connection).
+
+gen_handshake(StateName, Type, Event,
+	      #state{connection_env = #connection_env{negotiated_version = Version}} = State, Connection) ->
+    try ssl_connection:StateName(Type, Event, State, Connection) of
+	Result ->
+	    Result
+    catch
+	_:_ ->
+	    handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+                                        malformed_handshake_data),
+                             Version, StateName, State)
+    end.
 
 %%--------------------------------------------------------------------
 %% Event handling functions called by state functions to handle

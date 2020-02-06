@@ -44,7 +44,7 @@
 %% Internal application API
 
 %% Setup
--export([start_fsm/8, start_link/8, init/1, pids/1]).
+-export([start_fsm/8, init/1, pids/1, initialize_tls_sender/1]).
 
 %% State transition handling	 
 -export([next_event/3, next_event/4, 
@@ -55,7 +55,7 @@
          send_handshake_flight/1,
 	 queue_handshake/2, queue_change_cipher/2,
 	 reinit/1, reinit_handshake_data/1, select_sni_extension/1, 
-         empty_connection_state/2]).
+         empty_connection_state/2, maybe_generate_client_shares/1]).
 
 %% Alert and close handling
 -export([send_alert/2, send_alert_in_connection/2,
@@ -63,32 +63,17 @@
          close/5, protocol_name/0]).
 
 %% Data handling
--export([socket/4, setopts/3, getopts/3]).
+-export([socket/4, setopts/3, getopts/3, handle_info/3]).
 
 %% gen_statem state functions
 -export([init/3, error/3, downgrade/3, %% Initiation and take down states
 	 hello/3, user_hello/3, wait_ocsp_stapling/3, certify/3, cipher/3, abbreviated/3, %% Handshake states 
 	 connection/3]).
-%% TLS 1.3 state functions (server)
--export([start/3,         %% common state with client
-         negotiated/3,
-         recvd_ch/3,
-         wait_cert/3,     %% common state with client
-         wait_cv/3,       %% common state with client
-         wait_eoed/3,
-         wait_finished/3, %% common state with client
-         wait_flight2/3,
-         connected/3      %% common state with client
-        ]).
-%% TLS 1.3 state functions (client)
--export([wait_cert_cr/3,
-         wait_ee/3,
-         wait_sh/3
-        ]).
+
 %% gen_statem callbacks
 -export([callback_mode/0, terminate/3, code_change/4, format_status/2]).
  
--export([encode_handshake/4, send_key_update/2, update_cipher_key/2]).
+-export([encode_handshake/4]).
 
 -define(DIST_CNTRL_SPAWN_OPTS, [{priority, max}]).
 
@@ -126,29 +111,22 @@ start_fsm(Role, Host, Port, Socket, {#{erl_dist := true},_, Trackers} = Opts,
 	    Error
     end.
 
-%%--------------------------------------------------------------------
--spec start_link(atom(), pid(), ssl:host(), inet:port_number(), port(), list(), pid(), tuple()) ->
-    {ok, pid()} | ignore |  {error, reason()}.
-%%
-%% Description: Creates a gen_statem process which calls Module:init/1 to
-%% initialize. 
-%%--------------------------------------------------------------------
-start_link(Role, Sender, Host, Port, Socket, Options, User, CbInfo) ->
-    {ok, proc_lib:spawn_link(?MODULE, init, [[Role, Sender, Host, Port, Socket, Options, User, CbInfo]])}.
-
-init([Role, Sender, Host, Port, Socket, {#{erl_dist := ErlDist}, _, _} = Options,  User, CbInfo]) ->
-    process_flag(trap_exit, true),
-    link(Sender),
-    case ErlDist of
-        true ->
-            process_flag(priority, max);
-        _ ->
-            ok
-    end,
+init([Role, Sender, Host, Port, Socket, Options,  User, CbInfo]) ->
     State0 = #state{protocol_specific = Map} = initial_state(Role, Sender,
                                                              Host, Port, Socket, Options, User, CbInfo),
     try 
-	State = ssl_connection:ssl_config(State0#state.ssl_options, Role, State0),
+	State1 = #state{static_env = #static_env{session_cache = Cache,
+                                                 session_cache_cb = CacheCb
+                                                },
+                        ssl_options = SslOptions,
+                        session = Session0} = ssl_connection:ssl_config(State0#state.ssl_options, Role, State0),
+        State = case Role of
+                    client ->
+                        Session = ssl_session:client_select_session({Host, Port, SslOptions}, Cache, CacheCb, Session0),
+                        State1#state{session = Session};
+                    server ->
+                        State1
+                end,
         initialize_tls_sender(State),
         gen_statem:enter_loop(?MODULE, [], init, State)
     catch throw:Error ->
@@ -591,15 +569,12 @@ getopts(Transport, Socket, Tag) ->
 	   {start, timeout()} | term(), #state{}) ->
 		   gen_statem:state_function_result().
 %%--------------------------------------------------------------------
-
 init({call, From}, {start, Timeout}, 
      #state{static_env = #static_env{role = client,
                                      host = Host,
                                      port = Port,
                                      transport_cb = Transport,
-                                     socket = Socket,
-                                     session_cache = Cache,
-                                     session_cache_cb = CacheCb},
+                                     socket = Socket},
             handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
                                            ocsp_stapling_state = OcspState0} = HsEnv,
             connection_env = CEnv,
@@ -610,11 +585,11 @@ init({call, From}, {start, Timeout},
                         session_tickets := SessionTickets,
                         ocsp_stapling := OcspStaplingOpt,
                         ocsp_nonce := OcspNonceOpt} = SslOpts,
-	                    session = NewSession,
-	                    connection_states = ConnectionStates0
+            session = Session,
+            connection_states = ConnectionStates0
 	    } = State0) ->
+
     KeyShare = maybe_generate_client_shares(SslOpts),
-    Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession),
     %% Update UseTicket in case of automatic session resumption
     {UseTicket, State1} = tls_handshake_1_3:maybe_automatic_session_resumption(State0),
     TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
@@ -661,7 +636,7 @@ init({call, From}, {start, Timeout},
     next_event(hello, no_record, State, [{{timeout, handshake}, Timeout, close}]);
 
 init(Type, Event, State) ->
-    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    ssl_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State, ?MODULE).
  
 %%--------------------------------------------------------------------
 -spec error(gen_statem:event_type(),
@@ -674,7 +649,7 @@ error({call, From}, {start, _Timeout},
      [{reply, From, {error, Error}}], State};
 
 error({call, _} = Call, Msg, State) ->
-    gen_handshake(?FUNCTION_NAME, Call, Msg, State);
+    ssl_connection:gen_handshake(?FUNCTION_NAME, Call, Msg, State, ?MODULE);
 error(_, _, _) ->
      {keep_state_and_data, [postpone]}.
  
@@ -703,11 +678,11 @@ hello(internal, #server_hello{extensions = Extensions} = Hello,
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
       #state{ssl_options = SslOpts0} = State0) ->
 
-    case choose_tls_version(SslOpts0, Hello) of
-        'tls_v1.3' ->
+    case choose_tls_fsm(SslOpts0, Hello) of
+        tls_1_3_fsm ->
             %% Continue in TLS 1.3 'start' state
-            {next_state, start, State0, [{next_event, internal, Hello}]};
-        'tls_v1.2' ->
+            {next_state, start, State0, [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]};
+        tls_1_0_to_1_2_fsm ->
             case ssl_connection:handle_sni_extension(State0, Hello) of
                 #state{connection_states = ConnectionStates0,
                        static_env = #static_env{trackers = Trackers},
@@ -743,17 +718,17 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                                     false ->
                                         ServerHelloExt0
                                 end,
-                            gen_handshake(?FUNCTION_NAME,
-                                          internal,
-                                          {common_client_hello, Type, ServerHelloExt},
-                                          State#state{connection_states  = ConnectionStates,
-                                                      connection_env = CEnv#connection_env{negotiated_version = Version},
-                                                      handshake_env = HsEnv#handshake_env{
-                                                                        hashsign_algorithm = HashSign,
-                                                                        client_hello_version = ClientVersion,
-                                                                        negotiated_protocol = Protocol},
-                                                      session = Session
-                                                     })
+                            ssl_connection:gen_handshake(?FUNCTION_NAME,
+                                                         internal,
+                                                         {common_client_hello, Type, ServerHelloExt},
+                                                         State#state{connection_states  = ConnectionStates,
+                                                                     connection_env = CEnv#connection_env{negotiated_version = Version},
+                                                                     handshake_env = HsEnv#handshake_env{
+                                                                                       hashsign_algorithm = HashSign,
+                                                                                       client_hello_version = ClientVersion,
+                                                                                       negotiated_protocol = Protocol},
+                                                                     session = Session
+                                                                    }, ?MODULE)
                     end;
                 Alert ->
                     Alert
@@ -787,15 +762,15 @@ hello(internal, #server_hello{} = Hello,
             {next_state, wait_sh,
              State#state{handshake_env = HsEnv#handshake_env{ocsp_stapling_state =  maps:merge(OcspState0,OcspState)}, 
                          connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
-             [{next_event, internal, Hello}]}
+             [{change_callback_module, tls_connection_1_3}, {next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
     handle_info(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
-    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    ssl_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State, ?MODULE).
 
 user_hello(Type, Event, State) ->
-    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    ssl_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
 -spec abbreviated(gen_statem:event_type(), term(), #state{}) ->
@@ -804,7 +779,7 @@ user_hello(Type, Event, State) ->
 abbreviated(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 abbreviated(Type, Event, State) ->
-    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    ssl_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
 -spec wait_ocsp_stapling(gen_statem:event_type(), term(), #state{}) ->
@@ -813,7 +788,7 @@ abbreviated(Type, Event, State) ->
 wait_ocsp_stapling(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 wait_ocsp_stapling(Type, Event, State) ->
-    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    ssl_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
 -spec certify(gen_statem:event_type(), term(), #state{}) ->
@@ -822,7 +797,7 @@ wait_ocsp_stapling(Type, Event, State) ->
 certify(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 certify(Type, Event, State) ->
-    gen_handshake(?FUNCTION_NAME, Type, Event, State).
+    ssl_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
 -spec cipher(gen_statem:event_type(), term(), #state{}) ->
@@ -831,7 +806,7 @@ certify(Type, Event, State) ->
 cipher(info, Event, State) ->
     gen_info(Event, ?FUNCTION_NAME, State);
 cipher(Type, Event, State) ->
-     gen_handshake(?FUNCTION_NAME, Type, Event, State).
+     ssl_connection:gen_handshake(?FUNCTION_NAME, Type, Event, State, ?MODULE).
 
 %%--------------------------------------------------------------------
 -spec connection(gen_statem:event_type(),  
@@ -948,22 +923,6 @@ connection(internal, #client_hello{},
     send_alert_in_connection(Alert, State0),
     State = reinit_handshake_data(State0),
     next_event(?FUNCTION_NAME, no_record, State);
-
-connection(internal, #new_session_ticket{} = NewSessionTicket, State) ->
-    %% TLS 1.3
-    handle_new_session_ticket(NewSessionTicket, State),
-    next_event(?FUNCTION_NAME, no_record, State);
-
-connection(internal, #key_update{} = KeyUpdate, State0) ->
-    %% TLS 1.3
-    case handle_key_update(KeyUpdate, State0) of
-        {ok, State} ->
-            next_event(?FUNCTION_NAME, no_record, State);
-        {error, State, Alert} ->
-            ssl_connection:handle_own_alert(Alert, {3,4}, connection, State),
-            next_event(?FUNCTION_NAME, no_record, State)
-    end;
-
 connection(Type, Event, State) ->
     ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
 
@@ -990,117 +949,6 @@ downgrade(info, Info, State) ->
     handle_info(Info, ?FUNCTION_NAME, State);
 downgrade(Type, Event, State) ->
      ssl_connection:?FUNCTION_NAME(Type, Event, State, ?MODULE).
-
-%%--------------------------------------------------------------------
-%% TLS 1.3 state functions
-%%--------------------------------------------------------------------
-%%--------------------------------------------------------------------
--spec start(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-start(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-start(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec negotiated(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-negotiated(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-negotiated(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec recvd_ch(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-recvd_ch(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-recvd_ch(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec wait_cert(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-wait_cert(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-wait_cert(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec wait_cv(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-wait_cv(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-wait_cv(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec wait_eoed(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-wait_eoed(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-wait_eoed(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec wait_finished(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-wait_finished(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-wait_finished(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec wait_flight2(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-wait_flight2(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-wait_flight2(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec connected(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-connected(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-connected(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec wait_cert_cr(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-wait_cert_cr(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-wait_cert_cr(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec wait_ee(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-wait_ee(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-wait_ee(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
-
-%%--------------------------------------------------------------------
--spec wait_sh(gen_statem:event_type(), term(), #state{}) ->
-			 gen_statem:state_function_result().
-%%--------------------------------------------------------------------
-wait_sh(info, Event, State) ->
-    gen_info_1_3(Event, ?FUNCTION_NAME, State);
-wait_sh(Type, Event, State) ->
-    gen_handshake_1_3(?FUNCTION_NAME, Type, Event, State).
 
 %--------------------------------------------------------------------
 %% gen_statem callbacks
@@ -1366,32 +1214,6 @@ encode_change_cipher(#change_cipher_spec{}, Version, ConnectionStates) ->
 decode_alerts(Bin) ->
     ssl_alert:decode(Bin).
 
-gen_handshake(StateName, Type, Event, 
-	      #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try ssl_connection:StateName(Type, Event, State, ?MODULE) of
-	Result ->
-	    Result
-    catch 
-	_:_ ->
- 	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, 
-						       malformed_handshake_data),
-					    Version, StateName, State)  
-    end.
-
-
-gen_handshake_1_3(StateName, Type, Event,
-	      #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try tls_connection_1_3:StateName(Type, Event, State, ?MODULE) of
-	Result ->
-	    Result
-    catch
-	_:_ ->
-            ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
-						       malformed_handshake_data),
-					    Version, StateName, State)
-    end.
-
-
 gen_info(Event, connection = StateName,  #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
     try handle_info(Event, StateName, State) of
 	Result ->
@@ -1413,29 +1235,6 @@ gen_info(Event, StateName, #state{connection_env = #connection_env{negotiated_ve
 						       malformed_handshake_data), 
 					    Version, StateName, State)  
     end.
-
-gen_info_1_3(Event, connected = StateName,  #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try handle_info(Event, StateName, State) of
-	Result ->
-	    Result
-    catch
-        _:_ ->
-	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?INTERNAL_ERROR,
-						       malformed_data),
-					    Version, StateName, State)
-    end;
-
-gen_info_1_3(Event, StateName, #state{connection_env = #connection_env{negotiated_version = Version}} = State) ->
-    try handle_info(Event, StateName, State) of
-	Result ->
-	    Result
-    catch
-        _:_ ->
-	    ssl_connection:handle_own_alert(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
-						       malformed_handshake_data),
-					    Version, StateName, State)
-    end.
-
 	    
 unprocessed_events(Events) ->
     %% The first handshake event will be processed immediately
@@ -1491,20 +1290,20 @@ maybe_generate_client_shares(#{versions := [Version|_],
 maybe_generate_client_shares(_) ->
     undefined.
 
-choose_tls_version(#{versions := Versions},
-                   #client_hello{
-                      extensions = #{client_hello_versions :=
-                                         #client_hello_versions{versions = ClientVersions}
-                                    }
-                     }) ->
+choose_tls_fsm(#{versions := Versions},
+               #client_hello{
+                  extensions = #{client_hello_versions :=
+                                     #client_hello_versions{versions = ClientVersions}
+                                }
+                 }) ->
     case ssl_handshake:select_supported_version(ClientVersions, Versions) of
         {3,4} ->
-            'tls_v1.3';
+            tls_1_3_fsm;
         _Else ->
-            'tls_v1.2'
+            tls_1_0_to_1_2_fsm
     end;
-choose_tls_version(_, _) ->
-    'tls_v1.2'.
+choose_tls_fsm(_, _) ->
+    tls_1_0_to_1_2_fsm.
 
 
 %% Special version handling for TLS 1.3 clients:
@@ -1522,84 +1321,3 @@ effective_version(undefined, #{versions := [Version|_]}, _) ->
 effective_version(Version, _, _) ->
     Version.
 
-
-handle_new_session_ticket(_, #state{ssl_options = #{session_tickets := disabled}}) ->
-    ok;
-handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSessionTicket,
-                          #state{connection_states = ConnectionStates,
-                                 ssl_options = #{session_tickets := SessionTickets,
-                                                 server_name_indication := SNI},
-                                 connection_env = #connection_env{user_application = {_, User}}})
-  when SessionTickets =:= manual ->
-    #{security_parameters := SecParams} =
-	ssl_record:current_connection_state(ConnectionStates, read),
-    HKDF = SecParams#security_parameters.prf_algorithm,
-    RMS = SecParams#security_parameters.resumption_master_secret,
-    PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    send_ticket_data(User, NewSessionTicket, HKDF, SNI, PSK);
-handle_new_session_ticket(#new_session_ticket{ticket_nonce = Nonce} = NewSessionTicket,
-                          #state{connection_states = ConnectionStates,
-                                 ssl_options = #{session_tickets := SessionTickets,
-                                                 server_name_indication := SNI}})
-  when SessionTickets =:= auto ->
-    #{security_parameters := SecParams} =
-	ssl_record:current_connection_state(ConnectionStates, read),
-    HKDF = SecParams#security_parameters.prf_algorithm,
-    RMS = SecParams#security_parameters.resumption_master_secret,
-    PSK = tls_v1:pre_shared_key(RMS, Nonce, HKDF),
-    tls_client_ticket_store:store_ticket(NewSessionTicket, HKDF, SNI, PSK).
-
-
-handle_key_update(#key_update{request_update = update_not_requested}, State0) ->
-    %% Update read key in connection
-    {ok, update_cipher_key(current_read, State0)};
-handle_key_update(#key_update{request_update = update_requested},
-                  #state{protocol_specific = #{sender := Sender}} = State0) ->
-    %% Update read key in connection
-    State1 = update_cipher_key(current_read, State0),
-    %% Send key_update and update sender's write key
-    case send_key_update(Sender, update_not_requested) of
-        ok ->
-            {ok, State1};
-        {error, Reason} ->
-            {error, State1, ?ALERT_REC(?FATAL, ?INTERNAL_ERROR, Reason)}
-    end.
-
-
-update_cipher_key(ConnStateName, #state{connection_states = CS0} = State0) ->
-    CS = update_cipher_key(ConnStateName, CS0),
-    State0#state{connection_states = CS};
-update_cipher_key(ConnStateName, CS0) ->
-    #{security_parameters := SecParams0,
-      cipher_state := CipherState0} = ConnState0 = maps:get(ConnStateName, CS0),
-    HKDF = SecParams0#security_parameters.prf_algorithm,
-    CipherSuite = SecParams0#security_parameters.cipher_suite,
-    ApplicationTrafficSecret0 = SecParams0#security_parameters.application_traffic_secret,
-    ApplicationTrafficSecret = tls_v1:update_traffic_secret(HKDF, ApplicationTrafficSecret0),
-
-    %% Calculate traffic keys
-    #{cipher := Cipher} = ssl_cipher_format:suite_bin_to_map(CipherSuite),
-    {Key, IV} = tls_v1:calculate_traffic_keys(HKDF, Cipher, ApplicationTrafficSecret),
-
-    SecParams = SecParams0#security_parameters{application_traffic_secret = ApplicationTrafficSecret},
-    CipherState = CipherState0#cipher_state{key = Key, iv = IV},
-    ConnState = ConnState0#{security_parameters => SecParams,
-                            cipher_state => CipherState,
-                            sequence_number => 0},
-    CS0#{ConnStateName => ConnState}.
-
-
-send_key_update(Sender, Type) ->
-    KeyUpdate = tls_handshake_1_3:key_update(Type),
-    tls_sender:send_post_handshake(Sender, KeyUpdate).
-
-
-%% Send ticket data to user as opaque binary
-send_ticket_data(User, NewSessionTicket, HKDF, SNI, PSK) ->
-    Timestamp = erlang:system_time(seconds),
-    TicketData = #{hkdf => HKDF,
-                   sni => SNI,
-                   psk => PSK,
-                   timestamp => Timestamp,
-                   ticket => NewSessionTicket},
-    User ! {ssl, session_ticket, {SNI, erlang:term_to_binary(TicketData)}}.
