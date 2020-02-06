@@ -61,7 +61,7 @@
     <list type="bulleted">
       <item>Specifies where the application <c>Application = atom()</c>
       can execute.</item>
-      <item>><c>NodeDesc = [Node | {Node,...,Node}]</c> is a list of
+      <item><c>NodeDesc = [Node | {Node,...,Node}]</c> is a list of
       node names in priority order. The order between nodes in a tuple
       is undefined.</item>
       <item><c>Timeout = integer()</c> specifies how many milliseconds

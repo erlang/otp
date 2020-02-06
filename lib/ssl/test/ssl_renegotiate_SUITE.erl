@@ -113,6 +113,18 @@ end_per_group(GroupName, Config) ->
           Config
   end.
 
+init_per_testcase(TestCase, Config)  when TestCase == renegotiate_dos_mitigate_active;
+                                          TestCase == renegotiate_dos_mitigate_passive;
+                                          TestCase == renegotiate_dos_mitigate_absolute ->
+    ct:timetrap({seconds, 160}),
+    Config;
+init_per_testcase(_, Config) ->
+    ct:timetrap({seconds, 15}),
+    Config.
+
+end_per_testcase(_, Config) ->
+    Config.
+
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
