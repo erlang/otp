@@ -3322,8 +3322,8 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	    }
 	    goto generic;
 	}
-    } else {
-	GENOP_NAME_ARITY(op, i_bs_get_integer, 6);
+    } else if (Size.type == TAG_x || Size.type == TAG_y) {
+        GENOP_NAME_ARITY(op, i_bs_get_integer, 6);
 	op->a[0] = Ms;
 	op->a[1] = Fail;
 	op->a[2] = Live;
@@ -3333,6 +3333,9 @@ gen_get_integer2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	op->a[5] = Dst;
 	op->next = NULL;
 	return op;
+    } else {
+        /* Invalid literal size. */
+        goto error;
     }
     op->next = NULL;
     return op;
@@ -3389,7 +3392,7 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	    op->a[4] = Flags;
 	    op->a[5] = Dst;
 	}
-    } else {
+    } else if (Size.type == TAG_x || Size.type == TAG_y) {
 	GENOP_NAME_ARITY(op, i_bs_get_binary2, 6);
 	op->a[0] = Ms;
 	op->a[1] = Fail;
@@ -3398,6 +3401,9 @@ gen_get_binary2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms, GenOpArg Live,
 	op->a[4].type = TAG_u;
 	op->a[4].val = (Unit.val << 3) | Flags.val;
 	op->a[5] = Dst;
+    } else {
+        /* Invalid literal size. */
+        goto error;
     }
     op->next = NULL;
     return op;
@@ -3634,12 +3640,20 @@ gen_skip_bits2(LoaderState* stp, GenOpArg Fail, GenOpArg Ms,
 		goto error;
 	    }
 	}
-    } else {
+    } else if (Size.type == TAG_x || Size.type == TAG_y) {
 	GENOP_NAME_ARITY(op, i_bs_skip_bits2, 4);
 	op->a[0] = Ms;
 	op->a[1] = Size;
 	op->a[2] = Fail;
 	op->a[3] = Unit;
+    } else {
+        /*
+         * Invalid literal size. Can only happen if compiler
+         * optimizations are selectively disabled.  For example,
+         * at the time of writing, [no_copt, no_type_opt] will allow
+         * skip instructions with invalid sizes to slip through.
+         */
+        goto error;
     }
     op->next = NULL;
     return op;

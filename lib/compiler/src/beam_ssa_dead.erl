@@ -97,38 +97,38 @@ shortcut_opt(#st{bs=Blocks}=St) ->
     %% in the first clause of shortcut_2/5).
 
     Ls = beam_ssa:rpo(Blocks),
-    shortcut_opt(Ls, #{}, St).
+    shortcut_opt(Ls, St).
 
-shortcut_opt([L|Ls], Bs, #st{bs=Blocks0}=St) ->
+shortcut_opt([L|Ls], #st{bs=Blocks0}=St) ->
     #b_blk{is=Is,last=Last0} = Blk0 = get_block(L, St),
-    case shortcut_terminator(Last0, Is, L, Bs, St) of
+    case shortcut_terminator(Last0, Is, L, St) of
         Last0 ->
             %% No change. No need to update the block.
-            shortcut_opt(Ls, Bs, St);
+            shortcut_opt(Ls, St);
         Last ->
             %% The terminator was simplified in some way.
             %% Update the block.
             Blk = Blk0#b_blk{last=Last},
             Blocks = Blocks0#{L=>Blk},
-            shortcut_opt(Ls, Bs, St#st{bs=Blocks})
+            shortcut_opt(Ls, St#st{bs=Blocks})
     end;
-shortcut_opt([], _, St) -> St.
+shortcut_opt([], St) -> St.
 
 shortcut_terminator(#b_br{bool=#b_literal{val=true},succ=Succ0},
-                    _Is, From, Bs, St0) ->
+                    _Is, From, St0) ->
     St = St0#st{rel_op=none},
-    shortcut(Succ0, From, Bs, St);
+    shortcut(Succ0, From, #{}, St);
 shortcut_terminator(#b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0}=Br,
-                    Is, From, Bs, St0) ->
+                    Is, From, St0) ->
     St = St0#st{target=one_way},
     RelOp = get_rel_op(Bool, Is),
 
     %% The boolean in a `br` is seldom used by the successors. By
     %% not binding its value unless it is actually used we might be able
     %% to skip some work in shortcut/4 and sub/2.
-    SuccBs = bind_var_if_used(Succ0, Bool, #b_literal{val=true}, Bs, St),
+    SuccBs = bind_var_if_used(Succ0, Bool, #b_literal{val=true}, St),
     BrSucc = shortcut(Succ0, From, SuccBs, St#st{rel_op=RelOp}),
-    FailBs = bind_var_if_used(Fail0, Bool, #b_literal{val=false}, Bs, St),
+    FailBs = bind_var_if_used(Fail0, Bool, #b_literal{val=false}, St),
     BrFail = shortcut(Fail0, From, FailBs, St#st{rel_op=invert_op(RelOp)}),
 
     case {BrSucc,BrFail} of
@@ -142,33 +142,33 @@ shortcut_terminator(#b_br{bool=#b_var{}=Bool,succ=Succ0,fail=Fail0}=Br,
             Br
     end;
 shortcut_terminator(#b_switch{arg=Bool,fail=Fail0,list=List0}=Sw,
-                    _Is, From, Bs, St) ->
-    Fail = shortcut_sw_fail(Fail0, List0, Bool, From, Bs, St),
-    List = shortcut_sw_list(List0, Bool, From, Bs, St),
+                    _Is, From, St) ->
+    Fail = shortcut_sw_fail(Fail0, List0, Bool, From, St),
+    List = shortcut_sw_list(List0, Bool, From, St),
     beam_ssa:normalize(Sw#b_switch{fail=Fail,list=List});
-shortcut_terminator(Last, _Is, _Bs, _From, _St) ->
+shortcut_terminator(Last, _Is, _From, _St) ->
     Last.
 
-shortcut_sw_fail(Fail0, List, Bool, From, Bs, St0) ->
+shortcut_sw_fail(Fail0, List, Bool, From, St0) ->
     case sort(List) of
         [{#b_literal{val=false},_},
          {#b_literal{val=true},_}] ->
             RelOp = {{'not',is_boolean},Bool},
             St = St0#st{rel_op=RelOp,target=one_way},
             #b_br{bool=#b_literal{val=true},succ=Fail} =
-                shortcut(Fail0, From, Bs, St),
+                shortcut(Fail0, From, #{}, St),
             Fail;
         _ ->
             Fail0
     end.
 
-shortcut_sw_list([{Lit,L0}|T], Bool, From, Bs, St0) ->
+shortcut_sw_list([{Lit,L0}|T], Bool, From, St0) ->
     RelOp = {'=:=',Bool,Lit},
     St = St0#st{rel_op=RelOp},
     #b_br{bool=#b_literal{val=true},succ=L} =
-        shortcut(L0, From, bind_var(Bool, Lit, Bs), St#st{target=one_way}),
-    [{Lit,L}|shortcut_sw_list(T, Bool, From, Bs, St0)];
-shortcut_sw_list([], _, _, _, _) -> [].
+        shortcut(L0, From, bind_var(Bool, Lit, #{}), St#st{target=one_way}),
+    [{Lit,L}|shortcut_sw_list(T, Bool, From, St0)];
+shortcut_sw_list([], _, _, _) -> [].
 
 shortcut(L, _From, Bs, #st{rel_op=none,target=one_way}) when map_size(Bs) =:= 0 ->
     %% There is no way that we can find a suitable branch, because there is no
@@ -549,13 +549,10 @@ eval_switch_1([], _Arg, _PrevOp, Fail) ->
     %% Fail is now either the failure label or 'none'.
     Fail.
 
-bind_var_if_used(L, Var, Val0, Bs, #st{us=Us}) ->
+bind_var_if_used(L, Var, Val, #st{us=Us}) ->
     case cerl_sets:is_element(Var, map_get(L, Us)) of
-        true ->
-            Val = get_value(Val0, Bs),
-            Bs#{Var=>Val};
-        false ->
-            Bs
+        true -> #{Var=>Val};
+        false -> #{}
     end.
 
 bind_var(Var, failed, Bs) ->
@@ -729,7 +726,7 @@ eval_boolean(_, _, _) ->
 %%  PrevCondition is a condition known to be true. This function
 %%  will tell whether Condition will succeed.
 
-will_succeed({_Op,_Var,_Value}=Same, {_Op,_Var,_Value}=Same) ->
+will_succeed({_,_,_}=Same, {_,_,_}=Same) ->
     %% Repeated test.
     yes;
 will_succeed({Op1,Var,#b_literal{val=A}}, {Op2,Var,#b_literal{val=B}}) ->
@@ -964,17 +961,14 @@ combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
     end;
 combine_eqs_1([], St) -> St.
 
-comb_get_sw(L, Blocks) ->
-    comb_get_sw(L, true, Blocks).
-
-comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}) ->
+comb_get_sw(L, #st{bs=Blocks,skippable=Skippable}) ->
     #b_blk{is=Is,last=Last} = map_get(L, Blocks),
-    Safe1 = Safe0 andalso is_map_key(L, Skippable),
+    Safe0 = is_map_key(L, Skippable),
     case Last of
         #b_ret{} ->
             none;
         #b_br{bool=#b_var{}=Bool,succ=Succ,fail=Fail} ->
-            case comb_is(Is, Bool, Safe1) of
+            case comb_is(Is, Bool, Safe0) of
                 {none,_} ->
                     none;
                 {#b_set{op={bif,'=:='},args=[#b_var{}=Arg,#b_literal{}=Lit]},Safe} ->
@@ -985,7 +979,7 @@ comb_get_sw(L, Safe0, #st{bs=Blocks,skippable=Skippable}) ->
         #b_br{} ->
             none;
         #b_switch{arg=#b_var{}=Arg,fail=Fail,list=List} ->
-            {none,Safe} = comb_is(Is, none, Safe1),
+            {none,Safe} = comb_is(Is, none, Safe0),
             {Safe,Arg,L,Fail,List}
     end.
 

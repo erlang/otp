@@ -3513,7 +3513,7 @@ handle_generator(P,E,Vt,Uvt,St0) ->
 
 handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
     case lists:last(Segments) of
-        {bin_element,Line,{var,_,_},default,Flags} when is_list(Flags) ->
+        {bin_element,Line,_,default,Flags} when is_list(Flags) ->
             case member(binary, Flags) orelse member(bytes, Flags)
               orelse member(bits, Flags) orelse member(bitstring, Flags) of
                 true ->

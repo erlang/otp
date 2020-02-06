@@ -1453,7 +1453,7 @@ do_opt_try([{L,Blk}|Bs]=Bs0, Ws0) ->
         true ->
             Ws1 = cerl_sets:del_element(L, Ws0),
             #b_blk{is=Is0} = Blk,
-            case is_safe_without_try(Is0) of
+            case is_safe_without_try(Is0, []) of
                 safe ->
                     %% This block does not execute any instructions
                     %% that would require a try. Analyze successors.
@@ -1477,25 +1477,28 @@ do_opt_try([], Ws) ->
     0 = cerl_sets:size(Ws),                     %Assertion.
     [].
 
-is_safe_without_try([#b_set{op=kill_try_tag}|Is]) ->
-    %% Remove the rest of the block (effectively deleting the `kill_try_tag`
-    %% and `landingpad` instructions).
-    {done,Is};
-is_safe_without_try([#b_set{op=extract}|_]) ->
+is_safe_without_try([#b_set{op=kill_try_tag}|Is], Acc) ->
+    %% Remove this kill_try_tag instruction. If there was a landingpad
+    %% instruction in this block, it has already been removed. Preserve
+    %% all other instructions in the block.
+    {done,reverse(Is, Acc)};
+is_safe_without_try([#b_set{op=extract}|_], _Acc) ->
     %% The error reason is accessed.
     unsafe;
-is_safe_without_try([#b_set{op=Op}=I|Is]) ->
+is_safe_without_try([#b_set{op=exception_trampoline}|Is], Acc) ->
+    is_safe_without_try(Is, Acc);
+is_safe_without_try([#b_set{op=landingpad}|Is], Acc) ->
+    is_safe_without_try(Is, Acc);
+is_safe_without_try([#b_set{op=Op}=I|Is], Acc) ->
     IsSafe = case Op of
-                 exception_trampoline -> true;
-                 landingpad -> true;
                  phi -> true;
                  _ -> beam_ssa:no_side_effect(I)
              end,
     case IsSafe of
-        true -> is_safe_without_try(Is);
+        true -> is_safe_without_try(Is, [I|Acc]);
         false -> unsafe
     end;
-is_safe_without_try([]) -> safe.
+is_safe_without_try([], _Acc) -> safe.
 
 %%%
 %%% Optimize binary matching.

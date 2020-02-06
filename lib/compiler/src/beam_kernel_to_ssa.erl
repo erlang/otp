@@ -402,7 +402,15 @@ select_bin_end(#k_val_clause{val=#k_bin_end{},body=B}, Src, Tf, St0) ->
 select_extract_bin(#k_var{name=Hd}, Size0, Unit, Type, Flags, Vf,
                    Ctx, Anno, St0) ->
     {Dst,St1} = new_ssa_var(Hd, St0),
-    Size = ssa_arg(Size0, St0),
+    Size = case {Size0,ssa_arg(Size0, St0)} of
+               {#k_var{},#b_literal{val=all}} ->
+                   %% The size `all` is used for the size of the final binary
+                   %% segment in a pattern. Using `all` explicitly is not allowed,
+                   %% so we convert it to an obvious invalid size.
+                   #b_literal{val=bad_size};
+               {_,Size1} ->
+                   Size1
+           end,
     build_bs_instr(Anno, Type, Vf, Ctx, Size, Unit, Flags, Dst, St1).
 
 select_extract_int(#k_var{name=Tl}, 0, #k_literal{val=0}, _U, _Fs, _Vf,

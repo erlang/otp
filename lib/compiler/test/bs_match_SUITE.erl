@@ -1266,10 +1266,79 @@ zero_width(Config) when is_list(Config) ->
 %% OTP_7650: A invalid size for binary segments could crash the compiler.
 bad_size(Config) when is_list(Config) ->
     Tuple = {a,b,c},
-    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Tuple>> = id(<<>>)),
     Binary = <<1,2,3>>,
+    Atom = an_atom,
+
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Binary>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Atom>> = id(<<>>)),
+
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Tuple/float>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Binary/float>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Atom/float>> = id(<<>>)),
+
+    %% Matched out value is ignored.
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Binary>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Tuple>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Atom>> = id(<<>>)),
+
+    no_match = bad_all_size(<<>>),
+    no_match = bad_all_size(<<1,2,3>>),
+
     ok.
+
+bad_all_size(Bin) ->
+    Res = bad_all_size_1(Bin),
+    Res = bad_all_size_2(Bin),
+    Res = bad_all_size_3(Bin),
+    Res = bad_all_size_4(Bin),
+    Res = bad_all_size_5(Bin),
+    Res = bad_all_size_6(Bin),
+    Res.
+
+bad_all_size_1(Bin) ->
+    case Bin of
+        <<B:all/binary>> -> B;
+        _ -> no_match
+    end.
+
+bad_all_size_2(Bin) ->
+    case Bin of
+        <<_:all/binary>> -> ok;
+        _ -> no_match
+    end.
+
+bad_all_size_3(Bin) ->
+    All = all,
+    case Bin of
+        <<B:All/binary>> -> B;
+        _ -> no_match
+    end.
+
+bad_all_size_4(Bin) ->
+    All = all,
+    case Bin of
+        <<_:All/binary>> -> ok;
+        _ -> no_match
+    end.
+
+bad_all_size_5(Bin) ->
+    All = case 0 of
+              0 -> all
+          end,
+    case Bin of
+        <<B:All/binary>> -> B;
+        _ -> no_match
+    end.
+
+bad_all_size_6(Bin) ->
+    All = case 0 of
+              0 -> all
+          end,
+    case Bin of
+        <<_:All/binary>> -> ok;
+        _ -> no_match
+    end.
 
 haystack(Config) when is_list(Config) ->
     <<0:10/unit:8>> = haystack_1(<<0:10/unit:8>>),

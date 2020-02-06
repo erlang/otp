@@ -119,8 +119,8 @@ passes(Opts) ->
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
-          ?PASS(fix_bs),
           ?PASS(exception_trampolines),
+          ?PASS(fix_bs),
           ?PASS(sanitize),
           ?PASS(match_fail_instructions),
           case FixTuples of
@@ -893,12 +893,17 @@ sanitize_instr(is_tagged_tuple, [#b_literal{val=Tuple},
         true ->
             {value,false}
     end;
+sanitize_instr(bs_add, [_,#b_literal{val=Sz},_|_], I0) ->
+    if
+        is_integer(Sz), Sz >= 0 -> ok;
+        true -> {ok,sanitize_badarg(I0)}
+    end;
 sanitize_instr(bs_init, [#b_literal{val=new},#b_literal{val=Sz}|_], I0) ->
     if
         is_integer(Sz), Sz >= 0 -> ok;
         true -> {ok,sanitize_badarg(I0)}
     end;
-sanitize_instr(bs_init, [#b_literal{val=append},_,#b_literal{val=Sz}|_], I0) ->
+sanitize_instr(bs_init, [#b_literal{},_,#b_literal{val=Sz}|_], I0) ->
     if
         is_integer(Sz), Sz >= 0 -> ok;
         true -> {ok,sanitize_badarg(I0)}
@@ -2087,11 +2092,9 @@ number_is_2([], N, Acc) ->
 
 live_intervals(#st{args=Args,ssa=Blocks}=St) ->
     Vars0 = [{V,{0,1}} || #b_var{}=V <- Args],
-    F = fun(L, _, A) -> live_interval_blk(L, Blocks, A) end,
-    LiveMap0 = #{},
-    Acc0 = {[],LiveMap0},
-    {Vars,_} = beam_ssa:fold_po(F, Acc0, Blocks),
-    Intervals = merge_ranges(rel2fam(Vars0++Vars)),
+    PO = reverse(beam_ssa:rpo(Blocks)),
+    Vars = live_interval_blk(PO, Blocks, Vars0, #{}),
+    Intervals = merge_ranges(rel2fam(Vars)),
     St#st{intervals=Intervals}.
 
 merge_ranges([{V,Rs}|T]) ->
@@ -2104,32 +2107,51 @@ merge_ranges_1([R|Rs]) ->
     [R|merge_ranges_1(Rs)];
 merge_ranges_1([]) -> [].
 
-live_interval_blk(L, Blocks, {Vars0,LiveMap0}) ->
+live_interval_blk([L|Ls], Blocks, Vars0, LiveMap0) ->
     Live0 = [],
-    Successors = beam_ssa:successors(L, Blocks),
+    Blk = map_get(L, Blocks),
+    Successors = beam_ssa:successors(Blk),
     Live1 = update_successors(Successors, L, Blocks, LiveMap0, Live0),
 
     %% Add ranges for all variables that are live in the successors.
-    #b_blk{is=Is,last=Last} = map_get(L, Blocks),
+    #b_blk{is=Is,last=Last} = Blk,
     End = beam_ssa:get_anno(n, Last),
-    Use = [{V,{use,End+1}} || V <- Live1],
+    EndUse = {use,End+1},
+    Use = [{V,EndUse} || V <- Live1],
 
     %% Determine used and defined variables in this block.
     FirstNumber = first_number(Is, Last),
-    UseDef0 = live_interval_blk_1([Last|reverse(Is)], FirstNumber, Use),
-    UseDef = rel2fam(UseDef0),
+    UseDef0 = live_interval_last(Last, Use),
+    UseDef1 = live_interval_blk_is(Is, FirstNumber, UseDef0),
+    UseDef = rel2fam(UseDef1),
 
     %% Update what is live at the beginning of this block and
     %% store it.
-    Used = [V || {V,[{use,_}|_]} <- UseDef],
-    Live2 = ordsets:union(Live1, Used),
-    Killed = [V || {V,[{def,_}|_]} <- UseDef],
-    Live = ordsets:subtract(Live2, Killed),
+    Live = [V || {V,[{use,_}|_]} <- UseDef],
     LiveMap = LiveMap0#{L=>Live},
 
     %% Construct the ranges for this block.
     Vars = make_block_ranges(UseDef, FirstNumber, Vars0),
-    {Vars,LiveMap}.
+    live_interval_blk(Ls, Blocks, Vars, LiveMap);
+live_interval_blk([], _Blocks, Vars, _LiveMap) ->
+    Vars.
+
+live_interval_last(I, Acc) ->
+    N = beam_ssa:get_anno(n, I),
+    Used = beam_ssa:used(I),
+    [{V,{use,N}} || V <- Used] ++ Acc.
+
+live_interval_blk_is([#b_set{op=phi,dst=Dst}|Is], FirstNumber, Acc0) ->
+    Acc = [{Dst,{def,FirstNumber}}|Acc0],
+    live_interval_blk_is(Is, FirstNumber, Acc);
+live_interval_blk_is([#b_set{dst=Dst}=I|Is], FirstNumber, Acc0) ->
+    N = beam_ssa:get_anno(n, I),
+    Acc1 = [{Dst,{def,N}}|Acc0],
+    Used = beam_ssa:used(I),
+    Acc = [{V,{use,N}} || V <- Used] ++ Acc1,
+    live_interval_blk_is(Is, FirstNumber, Acc);
+live_interval_blk_is([], _FirstNumber, Acc) ->
+    Acc.
 
 make_block_ranges([{V,[{def,Def}]}|Vs], First, Acc) ->
     make_block_ranges(Vs, First, [{V,{Def,Def}}|Acc]);
@@ -2140,23 +2162,6 @@ make_block_ranges([{V,[{use,_}|_]=Uses}|Vs], First, Acc) ->
     {use,Last} = last(Uses),
     make_block_ranges(Vs, First, [{V,{First,Last}}|Acc]);
 make_block_ranges([], _, Acc) -> Acc.
-
-live_interval_blk_1([#b_set{op=phi,dst=Dst}|Is], FirstNumber, Acc0) ->
-    Acc = [{Dst,{def,FirstNumber}}|Acc0],
-    live_interval_blk_1(Is, FirstNumber, Acc);
-live_interval_blk_1([I|Is], FirstNumber, Acc0) ->
-    N = beam_ssa:get_anno(n, I),
-    Acc1 = case I of
-               #b_set{dst=Dst} ->
-                   [{Dst,{def,N}}|Acc0];
-               _ ->
-                   Acc0
-           end,
-    Used = beam_ssa:used(I),
-    Acc = [{V,{use,N}} || V <- Used] ++ Acc1,
-    live_interval_blk_1(Is, FirstNumber, Acc);
-live_interval_blk_1([], _FirstNumber, Acc) ->
-    Acc.
 
 %% first_number([#b_set{}]) -> InstructionNumber.
 %%  Return the number for the first instruction for the block.

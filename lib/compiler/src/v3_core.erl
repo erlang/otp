@@ -841,6 +841,8 @@ sanitize({tuple,L,Ps0}) ->
 sanitize({map,L,Ps0}) ->
     Ps = [sanitize(V) || {map_field_exact,_,_,V} <- Ps0],
     {tuple,L,Ps};
+sanitize({op,L,_Name,P1,P2}) ->
+    {tuple,L,[sanitize(P1),sanitize(P2)]};
 sanitize(P) -> P.
 
 make_bool_switch(L, E, V, T, F, #core{in_guard=true}) ->
@@ -1013,13 +1015,29 @@ bin_element({bin_element,Line,Expr,Size0,Type0}) ->
 
 make_bit_type(Line, default, Type0) ->
     case erl_bits:set_bit_type(default, Type0) of
-        {ok,all,Bt} -> {{atom,Line,all},erl_bits:as_list(Bt)};
+        {ok,all,Bt} -> {make_all_size(Line),erl_bits:as_list(Bt)};
 	{ok,undefined,Bt} -> {{atom,Line,undefined},erl_bits:as_list(Bt)};
         {ok,Size,Bt} -> {{integer,Line,Size},erl_bits:as_list(Bt)}
+    end;
+make_bit_type(_Line, {atom,Anno,all}=Size, Type0) ->
+    case erl_anno:generated(Anno) of
+        true ->
+            %% This `all` was created by the compiler from a binary
+            %% segment without a size.
+            {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
+            {Size,erl_bits:as_list(Bt)};
+        false ->
+            %% This `all` was present in the source code. It is not
+            %% a valid size.
+            throw(nomatch)
     end;
 make_bit_type(_Line, Size, Type0) ->            %Integer or 'all'
     {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
     {Size,erl_bits:as_list(Bt)}.
+
+make_all_size(Line) ->
+    Anno = erl_anno:set_generated(true, Line),
+    {atom,Anno,all}.
 
 %% constant_bin([{bin_element,_,_,_,_}]) -> binary() | error
 %%  If the binary construction is truly constant (no variables,
@@ -1285,7 +1303,7 @@ bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
     bc_tq_build(Bl, [], AccVar, Elements, St0);
 bc_tq1(Line, E0, [], AccVar, St0) ->
     BsFlags = [binary,{unit,1}],
-    BsSize = {atom,Line,all},
+    BsSize = make_all_size(Line),
     {E1,Pre0,St1} = safe(E0, St0),
     case E1 of
 	#c_var{name=VarName} ->
@@ -1308,7 +1326,7 @@ bc_tq1(Line, E0, [], AccVar, St0) ->
     end.
 
 bc_tq_build(Line, Pre0, #c_var{name=AccVar}, Elements0, St0) ->
-    Elements = [{bin_element,Line,{var,Line,AccVar},{atom,Line,all},
+    Elements = [{bin_element,Line,{var,Line,AccVar},make_all_size(Line),
 		 [binary,{unit,1}]}|Elements0],
     {E,Pre,St} = expr({bin,Line,Elements}, St0),
     #a{anno=A} = Anno0 = get_anno(E),

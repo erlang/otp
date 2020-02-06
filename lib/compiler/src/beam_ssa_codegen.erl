@@ -1690,6 +1690,8 @@ cg_instr(get_tl=Op, [Src], Dst) ->
     [{Op,Src,Dst}];
 cg_instr(get_tuple_element=Op, [Src,{integer,N}], Dst) ->
     [{Op,Src,N,Dst}];
+cg_instr(has_map_field, [Map,Key], Dst) ->
+    [{bif,is_map_key,{f,0},[Key,Map],Dst}];
 cg_instr(put_list=Op, [Hd,Tl], Dst) ->
     [{Op,Hd,Tl,Dst}];
 cg_instr(put_tuple, Elements, Dst) ->

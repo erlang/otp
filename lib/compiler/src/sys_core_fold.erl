@@ -734,10 +734,14 @@ eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
 	    end;
 	float when is_float(Val) ->
 	    %% Bad float size.
-	    case Sz*Unit of
+	    try Sz*Unit of
 		32 -> ok;
 		64 -> ok;
-		_ -> throw(impossible)
+		_ ->
+                    throw({badarg,bad_float_size})
+            catch
+                error:_ ->
+                    throw({badarg,bad_float_size})
 	    end;
 	utf8 -> ok;
 	utf16 -> ok;
@@ -1226,13 +1230,23 @@ bin_pattern_list(Ps0, Isub, Osub0) ->
     {Ps,Osub}.
 
 bin_pattern(#c_bitstr{val=E0,size=Size0}=Pat0, {Isub0,Osub0}) ->
-    Size1 = expr(Size0, Isub0),
+    Size = case {Size0,expr(Size0, Isub0)} of
+               {#c_var{},#c_literal{val=all}} ->
+                   %% The size `all` is used for the size of the final binary
+                   %% segment in a pattern. Using `all` explicitly is not allowed,
+                   %% so we convert it to an obvious invalid size. We also need
+                   %% to add an annotation to get the correct wording of the warning
+                   %% that will soon be issued.
+                   #c_literal{anno=[size_was_all],val=bad_size};
+               {_,Size1} ->
+                   Size1
+           end,
     {E1,Osub} = pattern(E0, Isub0, Osub0),
     Isub = case E0 of
 	       #c_var{} -> sub_set_var(E0, E1, Isub0);
 	       _ -> Isub0
 	   end,
-    Pat = Pat0#c_bitstr{val=E1,size=Size1},
+    Pat = Pat0#c_bitstr{val=E1,size=Size},
     bin_pat_warn(Pat),
     {Pat,{Isub,Osub}}.
 
@@ -1257,7 +1271,7 @@ var_list(Vs, Sub0) ->
 
 bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
 		       val=Val0,
-		       size=#c_literal{val=Sz},
+		       size=#c_literal{anno=SizeAnno,val=Sz},
 		       unit=#c_literal{val=Unit},
 		       flags=Fl}=Pat) ->
     case {Type,Sz} of
@@ -1267,7 +1281,12 @@ bin_pat_warn(#c_bitstr{type=#c_literal{val=Type},
 	{utf16,undefined} -> ok;
 	{utf32,undefined} -> ok;
 	{_,_} ->
-	    add_warning(Pat, {nomatch_bit_syntax_size,Sz}),
+            case member(size_was_all, SizeAnno) of
+                true ->
+                    add_warning(Pat, {nomatch_bit_syntax_size,all});
+                false ->
+                    add_warning(Pat, {nomatch_bit_syntax_size,Sz})
+            end,
 	    throw(nomatch)
     end,
     case {Type,Val0} of
@@ -2926,6 +2945,9 @@ format_error({embedded_unit,Unit,Size}) ->
 format_error(bad_unicode) ->
     "binary construction will fail with a 'badarg' exception "
 	"(invalid Unicode code point in a utf8/utf16/utf32 segment)";
+format_error(bad_float_size) ->
+    "binary construction will fail with a 'badarg' exception "
+	"(invalid size for a float segment)";
 format_error({nomatch_shadow,Line,{Name, Arity}}) ->
     M = io_lib:format("this clause for ~ts/~B cannot match because a previous "
 		      "clause at line ~p always matches", [Name, Arity, Line]),

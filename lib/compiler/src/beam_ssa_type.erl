@@ -661,6 +661,25 @@ simplify(#b_set{op=succeeded,dst=Dst}=I0, Ts0, Ds0, _Ls, Sub) ->
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
+simplify(#b_set{op=bs_match,dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
+    Args = simplify_args(Args0, Ts0, Sub),
+    I1 = beam_ssa:normalize(I0#b_set{args=Args}),
+    I2 = case {Args0,Args} of
+             {[_,_,_,#b_var{},_],[Type,Val,Flags,#b_literal{val=all},Unit]} ->
+                 %% The size `all` is used for the size of the final binary
+                 %% segment in a pattern. Using `all` explicitly is not allowed,
+                 %% so we convert it to an obvious invalid size.
+                 I1#b_set{args=[Type,Val,Flags,#b_literal{val=bad_size},Unit]};
+             {_,_} ->
+                 I1
+         end,
+    %% We KNOW that simplify/2 will return a #b_set{} record when called with
+    %% a bs_match instruction.
+    #b_set{} = I3 = simplify(I2, Ts0),
+    I = beam_ssa:normalize(I3),
+    Ts = update_types(I, Ts0, Ds0),
+    Ds = Ds0#{ Dst => I },
+    {I, Ts, Ds};
 simplify(#b_set{dst=Dst,args=Args0}=I0, Ts0, Ds0, _Ls, Sub) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = beam_ssa:normalize(I0#b_set{args=Args}),
@@ -753,6 +772,13 @@ simplify(#b_set{op={bif,is_function},args=[Fun,#b_literal{val=Arity}]}=I, Ts)
             I;
         _ ->
             #b_literal{val=false}
+    end;
+simplify(#b_set{op={bif,is_map_key},args=[Key,Map]}=I, Ts) ->
+    case normalized_type(Map, Ts) of
+        #t_map{} ->
+            I#b_set{op=has_map_field,args=[Map,Key]};
+        _ ->
+            I
     end;
 simplify(#b_set{op={bif,Op0},args=Args}=I, Ts) when Op0 =:= '==';
                                                     Op0 =:= '/=' ->
@@ -939,10 +965,56 @@ will_succeed_1(#b_set{op=get_hd}, _Src, _Ts, _Sub) ->
     yes;
 will_succeed_1(#b_set{op=get_tl}, _Src, _Ts, _Sub) ->
     yes;
+will_succeed_1(#b_set{op=has_map_field}, _Src, _Ts, _Sub) ->
+    yes;
 will_succeed_1(#b_set{op=get_tuple_element}, _Src, _Ts, _Sub) ->
     yes;
 will_succeed_1(#b_set{op=put_tuple}, _Src, _Ts, _Sub) ->
     yes;
+
+%% Remove the success branch from binary operations with invalid
+%% sizes. That will remove subsequent bs_put and bs_match instructions,
+%% which are probably not loadable.
+will_succeed_1(#b_set{op=bs_add,args=[_,#b_literal{val=Size},_]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_init,
+                      args=[#b_literal{val=new},#b_literal{val=Size},_Unit]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_init,
+                      args=[#b_literal{},_,#b_literal{val=Size},_Unit]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        true ->
+            no
+    end;
+will_succeed_1(#b_set{op=bs_match,
+                      args=[#b_literal{val=Type},_,_,#b_literal{val=Size},_]},
+               _Src, _Ts, _Sub) ->
+    if
+        is_integer(Size), Size >= 0 ->
+            maybe;
+        Type =:= binary, Size =:= all ->
+            %% `all` is a legal size for binary segments at the end of
+            %% a binary pattern.
+            maybe;
+        true ->
+            %% Invalid size. Matching will fail.
+            no
+    end;
 
 %% These operations may fail even though we know their return value on success.
 will_succeed_1(#b_set{op=call}, _Src, _Ts, _Sub) ->
