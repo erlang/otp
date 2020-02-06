@@ -691,8 +691,12 @@ typedef union {
 #define ESOCK_SUPPORTS_SEND_FLAGS   0x0005
 #define ESOCK_SUPPORTS_RECV_FLAGS   0x0006
 
-#define ESOCK_WHICH_PROTO_ERROR -1
-#define ESOCK_WHICH_PROTO_UNSUP -2
+#define ESOCK_WHICH_DOMAIN_ERROR -1
+#define ESOCK_WHICH_DOMAIN_UNSUP -2
+#define ESOCK_WHICH_TYPE_ERROR   -1
+#define ESOCK_WHICH_TYPE_UNSUP   -2
+#define ESOCK_WHICH_PROTO_ERROR  -1
+#define ESOCK_WHICH_PROTO_UNSUP  -2
 
 
 /* =================================================================== *
@@ -702,9 +706,10 @@ typedef union {
  * =================================================================== */
 
 /* Global socket debug */
-#define SGDBG( proto )         ESOCK_DBG_PRINTF( data.dbg , proto )
+#define SGDBG( proto )            ESOCK_DBG_PRINTF( data.dbg , proto )
+#define SGDBG2( __DBG__ , proto ) ESOCK_DBG_PRINTF( __DBG__ || data.dbg , proto )
 /* Socket specific debug */
-#define SSDBG( __D__ , proto ) ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
+#define SSDBG( __D__ , proto )    ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
 
 #define ESOCK_CNT_INC( __E__, __D__, SF, ACNT, CNT, INC)  \
     {                                                    \
@@ -902,6 +907,8 @@ typedef struct {
     /* +++ The actual socket +++ */
     SOCKET             sock;
     HANDLE             event;
+    SOCKET             origFD; // A 'socket' created from this FD
+    BOOLEAN_T          closeOnClose; // Have we dup'ed or not
 
     /* +++ Stuff "about" the socket +++ */
     int                domain;
@@ -1165,11 +1172,29 @@ static ERL_NIF_TERM esock_supports_local(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env);
 
-static ERL_NIF_TERM esock_open(ErlNifEnv* env,
-                          int        domain,
-                          int        type,
-                          int        protocol,
-                          char*      netns);
+static ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
+                                int          fd,
+                                ERL_NIF_TERM eextra);
+static BOOLEAN_T esock_open2_is_debug(ErlNifEnv*   env,
+                                      ERL_NIF_TERM eextra);
+static BOOLEAN_T esock_open2_todup(ErlNifEnv*   env,
+                                   ERL_NIF_TERM eextra);
+static BOOLEAN_T esock_open2_get_domain(ErlNifEnv*   env,
+                                        ERL_NIF_TERM eopts,
+                                        int*         domain);
+static BOOLEAN_T esock_open2_get_type(ErlNifEnv*   env,
+                                      ERL_NIF_TERM eopt,
+                                      int*         type);
+static BOOLEAN_T esock_open2_get_protocol(ErlNifEnv*   env,
+                                          ERL_NIF_TERM eopts,
+                                          int*         protocol);
+static ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
+                                int          domain,
+                                int          type,
+                                int          protocol,
+                                ERL_NIF_TERM eopts);
+static BOOLEAN_T esock_open_which_domain(SOCKET sock,   int* domain);
+static BOOLEAN_T esock_open_which_type(SOCKET sock,     int* type);
 static BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto);
 
 static ERL_NIF_TERM esock_bind(ErlNifEnv*       env,
@@ -2618,7 +2643,9 @@ static BOOLEAN_T elevel2level(BOOLEAN_T  isEncoded,
                               BOOLEAN_T* isOTP,
                               int*       level);
 #ifdef HAVE_SETNS
-static BOOLEAN_T emap2netns(ErlNifEnv* env, ERL_NIF_TERM map, char** netns);
+static BOOLEAN_T esock_open4_get_netns(ErlNifEnv*   env,
+                                       ERL_NIF_TERM opts,
+                                       char**       netns);
 static BOOLEAN_T change_network_namespace(char* netns, int* cns, int* err);
 static BOOLEAN_T restore_network_namespace(int ns, SOCKET sock, int* err);
 #endif
@@ -3147,6 +3174,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(max_instreams);    \
     LOCAL_ATOM_DECL(max_rxt);          \
     LOCAL_ATOM_DECL(min);              \
+    LOCAL_ATOM_DECL(missing);          \
     LOCAL_ATOM_DECL(mode);             \
     LOCAL_ATOM_DECL(multiaddr);        \
     LOCAL_ATOM_DECL(net_unknown);      \
@@ -3277,6 +3305,7 @@ static ESOCK_INLINE ErlNifEnv* esock_alloc_env(const char* slogan)
  *
  * The "proper" socket functions:
  * ------------------------------
+ * nif_open(FD, Extra)
  * nif_open(Domain, Type, Protocol, Extra)
  * nif_bind(Sock, LocalAddr)
  * nif_connect(Sock, SockAddr)
@@ -5265,16 +5294,35 @@ ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env)
  *
  * Description:
  * Create an endpoint for communication.
+ * This function "exist" in two variants.
+ * One with two args and onewith four.
  *
- * Arguments:
+ * Arguments (2):
+ * FD       - File Descriptor (of an already open socket).
+ * Extra    - A map with extra options.
+ *            The options are:
+ *               [M] dup    - boolean() - Shall the fd be dup'ed or not.
+ *               [O] bound  - boolean() - Is the fd already bound.
+ *               [O] domain - domain()  - We may not be able to retrieve
+ *                                        this on all platforms, and in
+ *                                        *those* cases this *must* be
+ *                                        provided.
+ *               [O] type   - type()    - We may not be able to retrieve
+ *                                        this on all platforms, and in
+ *                                        *those* cases this *must* be
+ *                                        provided.
+ *               [O] proto - protocol() - We may not be able to retrieve
+ *                                        this on all platforms, and in
+ *                                        *those* cases this *must* be
+ *                                        provided.
+ * Arguments (4):
  * Domain   - The domain, for example 'inet'
  * Type     - Type of socket, for example 'stream'
  * Protocol - The protocol, for example 'tcp'
  * Extra    - A map with "obscure" options.
  *            Currently the only allowed option is netns (network namespace).
  *            This is *only* allowed on linux!
- *            We should also use this for the fd value, in case we should use
- *            an already existing (file) descriptor.
+ * 
  */
 static
 ERL_NIF_TERM nif_open(ErlNifEnv*         env,
@@ -5284,64 +5332,89 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    int          edomain, etype;
-    ERL_NIF_TERM eproto; // This is normally an int, but can also be '{raw, int}'
-    ERL_NIF_TERM emap;
-    int          domain, type, proto;
-    char*        netns;
     ERL_NIF_TERM result;
 
-    SGDBG( ("SOCKET", "nif_open -> entry with %d args\r\n", argc) );
-    
-    /* Extract arguments and perform preliminary validation */
-
-    if ((argc != 4) ||
-        !GET_INT(env, argv[0], &edomain) ||
-        !GET_INT(env, argv[1], &etype) ||
-        !IS_MAP(env,  argv[3])) {
-        return enif_make_badarg(env);
-    }
-    eproto = argv[2];
-    emap   = argv[3];
-
     SGDBG( ("SOCKET", "nif_open -> "
-            "\r\n   edomain: %T"
-            "\r\n   etype:   %T"
-            "\r\n   eproto:  %T"
-            "\r\n   extra:   %T"
-            "\r\n", argv[0], argv[1], eproto, emap) );
+            "\r\n   argc: %d"
+            "\r\n", argc) );
 
-    if (!edomain2domain(edomain, &domain)) {
-        SGDBG( ("SOCKET", "nif_open -> invalid domain: %d\r\n", edomain) );
-        return esock_make_error(env, esock_atom_einval);
+    switch (argc) {
+    case 2:
+        /* The FD-version */
+        {
+            int          fd;
+            ERL_NIF_TERM eopts;
+
+            if (!GET_INT(env, argv[0], &fd) ||
+                !IS_MAP(env,  argv[1])) {
+                return enif_make_badarg(env);
+            }
+            eopts = argv[1];
+
+            SGDBG( ("SOCKET", "nif_open -> "
+                    "\r\n   FD:    %d"
+                    "\r\n   eopts: %T"
+                    "\r\n", fd, eopts) );
+
+            result = esock_open2(env, fd, eopts);
+        }
+        break;
+
+    case 4:
+        /* The normal version */
+        {
+            int          edomain, etype;
+            ERL_NIF_TERM eproto; // integer() (normal case) | {raw, integer()}
+            ERL_NIF_TERM eopts;
+            int          domain, type, proto;
+
+            /* Extract arguments and perform preliminary validation */
+
+            if (!GET_INT(env, argv[0], &edomain) ||
+                !GET_INT(env, argv[1], &etype) ||
+                !IS_MAP(env,  argv[3])) {
+                return enif_make_badarg(env);
+            }
+            eproto = argv[2];
+            eopts  = argv[3];
+
+            SGDBG( ("SOCKET", "nif_open -> "
+                    "\r\n   edomain: %T"
+                    "\r\n   etype:   %T"
+                    "\r\n   eproto:  %T"
+                    "\r\n   eopts:   %T"
+                    "\r\n", argv[0], argv[1], eproto, eopts) );
+
+            if (!edomain2domain(edomain, &domain)) {
+                SGDBG( ("SOCKET", "nif_open -> invalid domain: %d\r\n", edomain) );
+                return esock_make_error(env, esock_atom_einval);
+            }
+
+            if (!etype2type(etype, &type)) {
+                SGDBG( ("SOCKET", "nif_open -> invalid type: %d\r\n", etype) );
+                return esock_make_error(env, esock_atom_einval);
+            }
+
+            if (!eproto2proto(env, eproto, &proto)) {
+                SGDBG( ("SOCKET", "nif_open -> invalid protocol: %d\r\n", eproto) );
+                return esock_make_error(env, esock_atom_einval);
+            }
+
+            result = esock_open4(env, domain, type, proto, eopts);
+
+        }
+        break;
+
+    default:
+        SGDBG( ("SOCKET", "nif_open -> invalid number of arguments: %d"
+                "\r\n", argc) );
+        result = enif_make_badarg(env);
+        break;
     }
-
-    if (!etype2type(etype, &type)) {
-        SGDBG( ("SOCKET", "nif_open -> invalid type: %d\r\n", etype) );
-        return esock_make_error(env, esock_atom_einval);
-    }
-
-    if (!eproto2proto(env, eproto, &proto)) {
-        SGDBG( ("SOCKET", "nif_open -> invalid protocol: %d\r\n", eproto) );
-        return esock_make_error(env, esock_atom_einval);
-    }
-
-#ifdef HAVE_SETNS
-    /* We *currently* only support one extra option: netns */
-    if (!emap2netns(env, emap, &netns)) {
-        SGDBG( ("SOCKET", "nif_open -> namespace: %s\r\n", netns) );
-        return enif_make_badarg(env);
-    }
-#else
-    netns = NULL;
-#endif
-
-
-    result = esock_open(env, domain, type, proto, netns);
 
     SGDBG( ("SOCKET", "nif_open -> done with result: "
-           "\r\n   %T"
-           "\r\n", result) );
+            "\r\n   %T"
+            "\r\n", result) );
 
     return result;
 
@@ -5349,7 +5422,7 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
 }
 
 
-/* esock_open - create an endpoint for communication
+/* esock_open - create an endpoint (from an existing fd) for communication
  *
  * Assumes the input has been validated.
  *
@@ -5358,38 +5431,322 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
  * yet, we must use the global debug flag.
  */
 #if !defined(__WIN32__)
-
 static
-ERL_NIF_TERM esock_open(ErlNifEnv* env,
-                        int domain, int type, int protocol,
-                        char* netns)
+ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
+                         int          fd,
+                         ERL_NIF_TERM eopts)
 {
+    BOOLEAN_T        dbg = esock_open2_is_debug(env, eopts);
+    ESockDescriptor* descP;
+    ERL_NIF_TERM     res, reason;
+    int              domain, type, protocol;
+    int              save_errno = 0;
+    BOOLEAN_T        closeOnClose;
+    SOCKET           sock;
+    HANDLE           event;
+
+    SGDBG2( dbg,
+            ("SOCKET", "esock_open2 -> entry with"
+             "\r\n   fd:    %d"
+             "\r\n   eopts: %T"
+             "\r\n", fd, eopts) );
+
+    /*
+     * Before we do anything else, we try to retrieve domain, type and protocol
+     * This information is either present in the eextra map or if not we need
+     * to "get" it from the system (getsockopt).
+     * Note that its not possible to get all of these on all platoforms,
+     * and in those cases the user *must* provide us with them (eextra).
+     *
+     * We try the system first (since its more reliable) and if that fails
+     * we check the eextra map. If neither one works, we *give up*!
+     */
+
+    if (!esock_open_which_domain(fd, &domain)) {
+        SGDBG2( dbg,
+                ("SOCKET",
+                 "esock_open2 -> failed get domain from system\r\n") );
+        if (!esock_open2_get_domain(env, eopts, &domain)) {
+            reason = MKT2(env, atom_missing, esock_atom_domain);
+            return esock_make_error(env, reason);
+        }
+    }
+    
+    if (!esock_open_which_type(fd, &type)) {
+        SGDBG2( dbg,
+                ("SOCKET", "esock_open2 -> failed get type from system\r\n") );
+        if (!esock_open2_get_type(env, eopts, &type)) {
+            reason = MKT2(env, atom_missing, esock_atom_type);
+            return esock_make_error(env, reason);
+                                    
+        }
+    }
+    
+    if (!esock_open_which_protocol(fd, &protocol)) {
+        SGDBG2( dbg,
+                ("SOCKET", "esock_open2 -> failed get protocol from system\r\n") );
+        if (!esock_open2_get_protocol(env, eopts, &protocol)) {
+            reason = MKT2(env, atom_missing, esock_atom_protocol);
+            return esock_make_error(env, reason);
+        }
+    }
+
+
+    SGDBG2( dbg,
+            ("SOCKET", "esock_open2 -> "
+             "\r\n   domain:   %d"
+             "\r\n   type:     %d"
+             "\r\n   protocol: %d"
+             "\r\n", domain, type, protocol) );
+
+    
+    if (esock_open2_todup(env, eopts)) {
+        /* We shall dup the socket */
+        if ((sock = dup(fd)) == INVALID_SOCKET) {
+            save_errno = sock_errno();
+
+            SGDBG2( dbg,
+                    ("SOCKET", "esock_open2 -> dup failed: %d\r\n", save_errno) );
+
+            /* reason = {dup, 'errno atom'} */
+            reason = MKT2(env, MKA(env, "dup"), MKA(env, erl_errno_id(save_errno)));
+            return esock_make_error(env, reason);
+        }
+        closeOnClose = TRUE;
+    } else {
+        sock         = fd;
+        closeOnClose = FALSE;
+    }
+
+    event = sock;
+
+    SET_NONBLOCKING(sock);
+
+    /* Create and initiate the socket "descriptor" */
+    if ((descP = alloc_descriptor(sock, event)) == NULL) {
+        if (closeOnClose) sock_close(sock);
+        // Not sure if this is really the proper error, but...
+        return enif_make_badarg(env);
+    }
+
+    descP->state        = ESOCK_STATE_OPEN;
+    descP->domain       = domain;
+    descP->type         = type;
+    descP->protocol     = protocol;
+    descP->closeOnClose = closeOnClose;
+    descP->origFD       = fd;
+
+    /* Does this apply to other types? Such as RAW?
+     * Also, is this really correct? Should we not wait for bind?
+     */
+    if ((type == SOCK_DGRAM) ||
+	(type == SOCK_SEQPACKET)) {
+        descP->isReadable = TRUE;
+        descP->isWritable = TRUE;
+    } else if (type == SOCK_STREAM) {
+        /* Check if we are already connected, if so change state */
+	unsigned int sz   = sizeof(descP->remote);
+	int          code = sock_peer(descP->sock,
+                                      (struct sockaddr*) &descP->remote, &sz);
+        if (!IS_SOCKET_ERROR(code)) {
+            SGDBG2( dbg, ("SOCKET", "esock_open2 -> connected\r\n") );
+	    descP->state      = ESOCK_STATE_CONNECTED;
+            descP->isReadable = TRUE;
+            descP->isWritable = TRUE;
+            enif_set_pid_undefined(&descP->connPid);
+        } else {
+            SGDBG2( dbg, ("SOCKET", "esock_open2 -> not connected\r\n") );
+        }
+    }
+
+    /* And create the 'socket' resource */
+    res = enif_make_resource(env, descP);
+    enif_release_resource(descP);
+
+    /* Keep track of the creator
+     * This should not be a problem, but just in case
+     * the *open* function is used with the wrong kind
+     * of environment...
+     */
+    if (enif_self(env, &descP->ctrlPid) == NULL)
+        return esock_make_error(env, atom_exself);
+
+    if (MONP("esock_open2 -> ctrl",
+             env, descP,
+             &descP->ctrlPid,
+             &descP->ctrlMon) != 0)
+        return esock_make_error(env, atom_exmon);
+
+
+    inc_socket(domain, type, protocol);
+
+    /* And finally update the registry.
+     * Shall we keep track of the fact that this socket is created elsewhere?
+     */
+    esock_send_reg_add_msg(env, res);
+
+    SGDBG2( dbg,
+            ("SOCKET", "esock_open2 -> done: %T\r\n", res) );
+
+    return esock_make_ok2(env, res);
+}
+
+
+/* The eextra map "may" contain a boolean 'debug' key, if not we assume
+ * the default of FALSE.
+ */
+static
+BOOLEAN_T esock_open2_is_debug(ErlNifEnv* env, ERL_NIF_TERM eextra)
+{
+    return esock_get_bool_from_map(env, eextra, MKA(env, "debug"), FALSE);
+}
+
+
+/* The eextra contains a boolean 'dup' key. Defaults to TRUE.
+ */
+static
+BOOLEAN_T esock_open2_todup(ErlNifEnv* env, ERL_NIF_TERM eextra)
+{
+    return esock_get_bool_from_map(env, eextra, MKA(env, "dup"), TRUE);
+}
+
+/* The eextra contains an integer 'domain' key.
+ */
+static
+BOOLEAN_T esock_open2_get_domain(ErlNifEnv* env,
+                                 ERL_NIF_TERM eopts, int* domain)
+{
+    ERL_NIF_TERM key = MKA(env, "domain");
+    int          edomain;
+    
+    SGDBG( ("SOCKET", "esock_open2_get_domain -> entry with"
+            "\r\n   eopts: %T"
+            "\r\n", eopts) );
+
+    if (esock_get_int_from_map(env, eopts, key, &edomain)) {
+        /* decode */
+        if (edomain2domain(edomain, domain))
+            return TRUE;
+        else
+            return FALSE;
+    } else {
+        *domain = edomain; // Contains an "error code"
+        return FALSE;
+    }
+}
+
+/* The eextra contains an integer 'type' key.
+ */
+static
+BOOLEAN_T esock_open2_get_type(ErlNifEnv* env,
+                               ERL_NIF_TERM eopts, int* type)
+{
+    ERL_NIF_TERM key = MKA(env, "type");
+    int          etype;
+    
+    SGDBG( ("SOCKET", "esock_open2_get_type -> entry with"
+            "\r\n   eopts: %T"
+            "\r\n", eopts) );
+
+    if (esock_get_int_from_map(env, eopts, key, &etype)) {
+        /* decode */
+        if (etype2type(etype, type))
+            return TRUE;
+        else
+            return FALSE;
+    } else {
+        *type = etype; // Contains an "error code"
+        return FALSE;
+    }
+}
+
+/* The eextra contains an integer 'protocol' key.
+ */
+static
+BOOLEAN_T esock_open2_get_protocol(ErlNifEnv* env,
+                                   ERL_NIF_TERM eopts, int* protocol)
+{
+    ERL_NIF_TERM key = MKA(env, "protocol");
+    int          eproto;
+    
+    SGDBG( ("SOCKET", "esock_open2_get_protocol -> entry with"
+            "\r\n   eopts: %T"
+            "\r\n", eopts) );
+
+    if (esock_get_int_from_map(env, eopts, key, &eproto)) {
+        /* decode */
+        if (eproto2proto(env, eproto, protocol))
+            return TRUE;
+        else
+            return FALSE;
+    } else {
+        *protocol = eproto; // Contains an "error code"
+        return FALSE;
+    }
+}
+
+#endif // if defined(__WIN32__)
+
+    
+/* esock_open4 - create an endpoint for communication
+ *
+ * Assumes the input has been validated.
+ *
+ * Normally we want debugging on (individual) sockets to be controlled
+ * by the sockets own debug flag. But since we don't even have a socket
+ * yet, we must use the global debug flag.
+ */
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
+                         int          domain,
+                         int          type,
+                         int          protocol,
+                         ERL_NIF_TERM eopts)
+{
+    BOOLEAN_T        dbg = esock_open2_is_debug(env, eopts);
     ESockDescriptor* descP;
     ERL_NIF_TERM     res;
     int              proto = protocol, save_errno = 0;
     SOCKET           sock;
     HANDLE           event;
+    char*            netns;
 #ifdef HAVE_SETNS
     int              current_ns = 0;
 #endif
 
-    SGDBG( ("SOCKET", "esock_open -> entry with"
-            "\r\n   domain:   %d"
-            "\r\n   type:     %d"
-            "\r\n   protocol: %d"
-            "\r\n   netns:    %s"
-            "\r\n", domain, type, protocol, ((netns == NULL) ? "NULL" : netns)) );
+    SGDBG2( dbg,
+            ("SOCKET", "esock_open4 -> entry with"
+             "\r\n   domain:   %d"
+             "\r\n   type:     %d"
+             "\r\n   protocol: %d"
+             "\r\n   eopts:    %T"
+             "\r\n", domain, type, protocol, eopts) );
+
+
+#ifdef HAVE_SETNS
+    if (esock_open4_get_netns(env, eopts, &netns)) {
+        SGDBG( ("SOCKET", "nif_open -> namespace: %s\r\n", netns) );
+    }
+#else
+    netns = NULL;
+#endif
+
 
 #ifdef HAVE_SETNS
     if ((netns != NULL) &&
-        !change_network_namespace(netns, &current_ns, &save_errno))
+        !change_network_namespace(netns, &current_ns, &save_errno)) {
+        FREE(netns);
         return esock_make_error_errno(env, save_errno);
+    }
 #endif
 
-    if ((sock = sock_open(domain, type, proto)) == INVALID_SOCKET)
+    if ((sock = sock_open(domain, type, proto)) == INVALID_SOCKET) {
+        if (netns != NULL) FREE(netns);
         return esock_make_error_errno(env, sock_errno());
+    }
 
-    SGDBG( ("SOCKET", "esock_open -> open success: %d\r\n", sock) );
+    SGDBG2( dbg, ("SOCKET", "esock_open -> open success: %d\r\n", sock) );
 
 
     /* NOTE that if the protocol = 0 (default) and the domain is not
@@ -5406,10 +5763,12 @@ ERL_NIF_TERM esock_open(ErlNifEnv* env,
                 save_errno = sock_errno();
                 while ((sock_close(sock) == INVALID_SOCKET) &&
                        (sock_errno() == EINTR));
+                if (netns != NULL) FREE(netns);
                 return esock_make_error_errno(env, save_errno);
             } else {
                 while ((sock_close(sock) == INVALID_SOCKET) &&
                        (sock_errno() == EINTR));
+                if (netns != NULL) FREE(netns);
                 return esock_make_error(env, esock_atom_eafnosupport);
             }
         }
@@ -5417,11 +5776,13 @@ ERL_NIF_TERM esock_open(ErlNifEnv* env,
 
 #ifdef HAVE_SETNS
     if ((netns != NULL) &&
-        !restore_network_namespace(current_ns, sock, &save_errno))
-        return esock_make_error_errno(env, save_errno);
-
-    if (netns != NULL)
+        !restore_network_namespace(current_ns, sock, &save_errno)) {
         FREE(netns);
+        return esock_make_error_errno(env, save_errno);
+    }
+
+    if (netns != NULL) FREE(netns);
+
 #endif
 
 
@@ -5431,7 +5792,7 @@ ERL_NIF_TERM esock_open(ErlNifEnv* env,
         return esock_make_error_errno(env, save_errno);
     }
 
-    SGDBG( ("SOCKET", "esock_open -> event success: %d\r\n", event) );
+    SGDBG2( dbg, ("SOCKET", "esock_open4 -> event success: %d\r\n", event) );
 
     SET_NONBLOCKING(sock);
 
@@ -5486,6 +5847,54 @@ ERL_NIF_TERM esock_open(ErlNifEnv* env,
     esock_send_reg_add_msg(env, res);
 
     return esock_make_ok2(env, res);
+}
+
+
+static
+BOOLEAN_T esock_open_which_domain(SOCKET sock, int* domain)
+{
+#if defined(SO_DOMAIN)
+    int          val;
+    SOCKOPTLEN_T valSz = sizeof(val);
+    int          res;
+
+    res = sock_getopt(sock, SOL_SOCKET, SO_DOMAIN, &val, &valSz);
+
+    if (res != 0) {
+        *domain = ESOCK_WHICH_DOMAIN_ERROR;
+        return FALSE;
+    } else {
+        *domain = val;
+        return TRUE;
+    }
+#else
+    *domain = ESOCK_WHICH_DOMAIN_UNSUP;
+    return FALSE;
+#endif
+}
+
+
+static
+BOOLEAN_T esock_open_which_type(SOCKET sock, int* type)
+{
+#if defined(SO_TYPE)
+    int          val;
+    SOCKOPTLEN_T valSz = sizeof(val);
+    int          res;
+
+    res = sock_getopt(sock, SOL_SOCKET, SO_TYPE, &val, &valSz);
+
+    if (res != 0) {
+        *type = ESOCK_WHICH_TYPE_ERROR;
+        return FALSE;
+    } else {
+        *type = val;
+        return TRUE;
+    }
+#else
+    *type = ESOCK_WHICH_TYPE_UNSUP;
+    return FALSE;
+#endif
 }
 
 
@@ -8108,7 +8517,7 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
      */
     SET_BLOCKING(descP->sock);
 
-    if (sock_close(descP->sock) != 0) {
+    if (descP->closeOnClose && (sock_close(descP->sock) != 0)) {
         int save_errno = sock_errno();
 
         if (save_errno != ERRNO_BLOCK) {
@@ -19051,6 +19460,8 @@ ESockDescriptor* alloc_descriptor(SOCKET sock, HANDLE event)
 
         descP->sock             = sock;
         descP->event            = event;
+        descP->origFD           = -1;
+        descP->closeOnClose     = TRUE;
 
         enif_set_pid_undefined(&descP->ctrlPid);
         MON_INIT(&descP->ctrlMon);
@@ -19315,58 +19726,12 @@ BOOLEAN_T eproto2proto(ErlNifEnv*   env,
 
 
 #ifdef HAVE_SETNS
- /* emap2netns - extract the netns field from the extra map
- *
- * Note that currently we only support one extra option, the netns.
+/* esock_open4_get_netns - extract the netns field from the opts map
  */
 static
-BOOLEAN_T emap2netns(ErlNifEnv* env, ERL_NIF_TERM map, char** netns)
+BOOLEAN_T esock_open4_get_netns(ErlNifEnv* env, ERL_NIF_TERM opts, char** netns)
 {
-    size_t       sz;
-    ERL_NIF_TERM key;
-    ERL_NIF_TERM value;
-    unsigned int len;
-    char*        buf;
-    int          written;
-
-    /* Note that its acceptable that the extra map is empty */
-    if (!enif_get_map_size(env, map, &sz) ||
-        (sz != 1)) {
-        *netns = NULL;
-        return TRUE;
-    }
-
-    /* The currently only supported extra option is: netns */
-    key = enif_make_atom(env, "netns");
-    if (!GET_MAP_VAL(env, map, key, &value)) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    /* So far so good. The value should be a string, check. */
-    if (!enif_is_list(env, value)) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    if (!enif_get_list_length(env, value, &len)) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    if ((buf = MALLOC(len+1)) == NULL) {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
-
-    written = enif_get_string(env, value, buf, len+1, ERL_NIF_LATIN1);
-    if (written == (len+1)) {
-        *netns = buf;
-        return TRUE;
-    } else {
-        *netns = NULL; // Just in case...
-        return FALSE;
-    }
+    return esock_get_string_from_map(env, opts, MKA(env, "netns"), netns);
 }
 #endif
 
@@ -21006,7 +21371,7 @@ void esock_down(ErlNifEnv*           env,
                  * If the owner wish to ensure the buffer are written,
                  * it should have closed the socket explicitly...
                  */
-                if (sock_close(descP->sock) != 0) {
+                if (descP->closeOnClose && (sock_close(descP->sock) != 0)) {
                     int save_errno = sock_errno();
 
                     esock_warning_msg("Failed closing socket for terminating "
@@ -21045,7 +21410,7 @@ void esock_down(ErlNifEnv*           env,
                  * for later (when the stop function actually gets called...
                  */
 
-                if (sock_close(descP->sock) != 0) {
+                if (descP->closeOnClose && (sock_close(descP->sock) != 0)) {
                     int save_errno = sock_errno();
 
                     esock_warning_msg("Failed closing socket for terminating "
@@ -21260,8 +21625,7 @@ ErlNifFunc esock_funcs[] =
     {"nif_command",             1, nif_command, 0},
 
     // The proper "socket" interface
-    // nif_open/1 is (supposed to be) used when we already have a file descriptor
-    // {"nif_open",                1, nif_open, 0},
+    {"nif_open",                2, nif_open, 0},
     {"nif_open",                4, nif_open, 0},
     {"nif_bind",                2, nif_bind, 0},
     {"nif_connect",             2, nif_connect, 0},

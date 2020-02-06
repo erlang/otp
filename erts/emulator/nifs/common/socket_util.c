@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -110,6 +110,119 @@ static BOOLEAN_T esock_extract_from_map(ErlNifEnv*    env,
                                         ERL_NIF_TERM  map,
                                         ERL_NIF_TERM  key,
                                         ERL_NIF_TERM* val);
+
+
+
+/* *** esock_get_bool_from_map ***
+ *
+ * Simple utility function used to extract a boolean value from a map.
+ * If it fails to extract the value (for whatever reason) the default
+ * value is returned.
+ */
+
+extern
+BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
+                                  ERL_NIF_TERM map,
+                                  ERL_NIF_TERM key,
+                                  BOOLEAN_T    def)
+{
+    ERL_NIF_TERM val;
+
+    if (!GET_MAP_VAL(env, map, key, &val)) {
+        return def;
+    } else {
+        if (COMPARE(val, esock_atom_true) == 0)
+            return TRUE;
+        else
+            return FALSE;
+    }
+}
+
+
+/* *** esock_get_bool_from_map ***
+ *
+ * Simple utility function used to extract a integer value from a map.
+ */
+
+extern
+BOOLEAN_T esock_get_int_from_map(ErlNifEnv*   env,
+                                 ERL_NIF_TERM map,
+                                 ERL_NIF_TERM key,
+                                 int*         val)
+{
+    ERL_NIF_TERM eval;
+
+    if (!GET_MAP_VAL(env, map, key, &eval)) {
+        *val = -1;
+        return FALSE;
+    }
+
+    if (!IS_NUM(env, eval)) {
+        *val = -2;
+        return FALSE;        
+    }
+
+    if (!GET_INT(env, eval, val)) {
+        *val = -3;
+        return FALSE;        
+    }
+
+    return TRUE;
+}
+
+
+
+/* *** esock_get_string_from_map ***
+ *
+ * Simple utility function used to extract a (latin1) string value from a map.
+ * This function will allocate a buffer to put the string!
+ */
+
+extern
+BOOLEAN_T esock_get_string_from_map(ErlNifEnv*   env,
+                                    ERL_NIF_TERM map,
+                                    ERL_NIF_TERM key,
+                                    char**       str)
+{
+    ERL_NIF_TERM value;
+    unsigned int len;
+    char*        buf;
+    int          written;
+
+    /* The currently only supported extra option is: netns */
+    if (!GET_MAP_VAL(env, map, key, &value)) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    /* So far so good. The value should be a string, check. */
+    if (!enif_is_list(env, value)) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    if (!enif_get_list_length(env, value, &len)) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    if ((buf = MALLOC(len+1)) == NULL) {
+        *str = NULL;
+        return FALSE;
+    }
+
+    written = enif_get_string(env, value, buf, len+1, ERL_NIF_LATIN1);
+    if (written == (len+1)) {
+        *str = buf;
+        return TRUE;
+    } else {
+        *str = NULL;
+        return FALSE;
+    }
+}
+
+
+
 
 /* +++ esock_encode_iov +++
  *

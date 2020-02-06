@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
  * %CopyrightEnd%
  *
  * ----------------------------------------------------------------------
- *  Purpose : Utility "stuff" for socket and net.
+ *  Purpose : Utility "stuff" for socket and prim_net (nifs).
  * ----------------------------------------------------------------------
  *
  */
@@ -41,6 +41,22 @@
 
 #define ESOCK_ABORT(E)  esock_abort(E, __func__, __FILE__, __LINE__)
 #define ESOCK_ASSERT(e) ((void) ((e) ? 1 : (ESOCK_ABORT(#e), 0)))
+
+extern
+BOOLEAN_T esock_get_bool_from_map(ErlNifEnv*   env,
+                                  ERL_NIF_TERM map,
+                                  ERL_NIF_TERM key,
+                                  BOOLEAN_T    def);
+extern
+BOOLEAN_T esock_get_int_from_map(ErlNifEnv*   env,
+                                 ERL_NIF_TERM map,
+                                 ERL_NIF_TERM key,
+                                 int*         val);
+extern
+BOOLEAN_T esock_get_string_from_map(ErlNifEnv*   env,
+                                    ERL_NIF_TERM map,
+                                    ERL_NIF_TERM key,
+                                    char**       str);
 
 extern
 char* esock_encode_iov(ErlNifEnv*    env,
