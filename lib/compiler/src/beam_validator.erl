@@ -1460,6 +1460,8 @@ validate_mutation(I, Vst) ->
 
 vm_1({move,_,_}, Vst) ->
     Vst;
+vm_1({swap,_,_}, Vst) ->
+    Vst;
 vm_1({call_ext,3,{extfunc,erlang,setelement,3}}, #vst{current=#st{}=St}=Vst) ->
     Vst#vst{current=St#st{setelem=true}};
 vm_1({set_tuple_element,_,_,_}, #vst{current=#st{setelem=false}}) ->
