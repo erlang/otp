@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2018</year><year>2019</year>
+      <year>2018</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -94,7 +94,7 @@
     <datatype>
       <name>socket()</name>
       <desc><p>As returned by
-        <seealso marker="#open/2"><c>open/2,3,4</c></seealso> and
+        <seealso marker="#open/1"><c>open/1,2,3,4</c></seealso> and
         <seealso marker="#accept/1"><c>accept/1,2</c></seealso>.</p>
       </desc>
     </datatype>
@@ -513,7 +513,58 @@
     </func>
 
     <func>
-      <name name="open" arity="2" since="OTP 22.0"/>
+      <name name="open" arity="1" since="OTP @OTP-16398@"/>
+      <name name="open" arity="2" clause_i="1" since="OTP @OTP-16398@"/>
+      <fsummary>Create an endpoint for communication.</fsummary>
+      <desc>
+	<p>Create an endpoint (socket) for communication based on an
+	already existing file descriptor.
+	The function attempts to retrieve domain, type and protocol from
+	the system. This is however not possible on all platforms, and
+	in those cases it expects it in <c>Opts</c>. </p>
+
+	<p>The <c>Opts</c> argument is intended for providing extra
+	information for the open call:</p>
+	<taglist>
+	  <tag><c><![CDATA[dup: boolean()]]></c></tag>
+	  <item>
+	    <p>Shall the provided descriptor be duplicated (dup) or not.
+	    <br/>Defaults to <c>true</c>. </p>
+	  </item>
+
+	  <tag><c><![CDATA[debug: boolean()]]></c></tag>
+	  <item>
+	    <p>Enable or disable debug during the open call.
+	    <br/>Defaults to <c>false</c>. </p>
+	  </item>
+
+	  <tag><c><![CDATA[domain: socket:domain()]]></c></tag>
+	  <item>
+	    <p>Which domain is the descriptor of. </p>
+	  </item>
+
+	  <tag><c><![CDATA[type: socket:type()]]></c></tag>
+	  <item>
+	    <p>Which type is the descriptor of. </p>
+	  </item>
+
+	  <tag><c><![CDATA[protocol: socket:protocol()]]></c></tag>
+	  <item>
+	    <p>Which protocol is the descriptor of. </p>
+	  </item>
+
+	</taglist>
+
+	<note>
+	  <p>This function should be used with care! </p>
+	  <p>On some platforms its <em>necessary</em> to provide the
+	  <c>protocol</c> as its impossible to retrieve it. </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="open" arity="2" clause_i="2" since="OTP 22.0"/>
       <name name="open" arity="3" since="OTP 22.0"/>
       <name name="open" arity="4" since="OTP 22.0"/>
       <fsummary>Create an endpoint for communication.</fsummary>
@@ -526,9 +577,10 @@
 	And for <c>Domain = local</c>, if a protocol <em>is</em> pecified,
 	it <em>must</em> be <c>default</c>. </p>
 
-	<p>The <c>Extra</c> argument is intended for "obscure" options.
-	Currently the only supported option is <c>netns</c>, which
-	is only supported on the linux platform.</p>
+	<p>The <c>Opts</c> argument is intended for "other" options.
+	Currently the only supported option(s) are <c>netns</c>, which
+	is only supported on the linux platform and <c>debug</c> (controls debug
+	printouts during the open call).</p>
 
 	<note>
 	  <p>It may not be possible to specify the default protocol (except
