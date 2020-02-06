@@ -64,7 +64,7 @@ config_change(Changed, New, Removed) ->
 %%%   (file,code,  | erl_dist (A)| | safe_sup (1)|
 %%%    rpc, ...)    -------------   -------------
 %%%		          |               |
-%%%                  (net_kernel,  (disk_log, pg2,
+%%%                  (net_kernel,  (disk_log, pg,
 %%%          	      auth, ...)     ...)
 %%%
 %%% The rectangular boxes are supervisors.  All supervisors except
@@ -180,7 +180,7 @@ init(safe) ->
 
     Boot = start_boot_server(),
     DiskLog = start_disk_log(),
-    Pg2 = start_pg2(),
+    Pg = start_pg2() ++ start_pg(),
 
     %% Run the on_load handlers for all modules that have been
     %% loaded so far. Running them at this point means that
@@ -188,7 +188,7 @@ init(safe) ->
     %% (and in particular call code:priv_dir/1 or code:lib_dir/1).
     init:run_on_load_handlers(),
 
-    {ok, {SupFlags, Boot ++ DiskLog ++ Pg2}}.
+    {ok, {SupFlags, Boot ++ DiskLog ++ Pg}}.
 
 start_distribution() ->
     Rpc = #{id => rex,
@@ -275,6 +275,19 @@ start_disk_log() ->
                shutdown => 1000,
                type => supervisor,
                modules => [disk_log_sup]}];
+        _ ->
+            []
+    end.
+
+start_pg() ->
+    case application:get_env(kernel, start_pg) of
+        {ok, true} ->
+            [#{id => pg,
+                start => {pg, start_link, []},
+                restart => permanent,
+                shutdown => 1000,
+                type => worker,
+                modules => [pg]}];
         _ ->
             []
     end.

@@ -64,6 +64,7 @@
   <xi:include href="net_adm.xml"/>
   <xi:include href="net_kernel.xml"/>
   <xi:include href="os.xml"/>
+  <xi:include href="pg.xml"/>
   <xi:include href="pg2.xml"/>
   <xi:include href="rpc.xml"/>
   <xi:include href="seq_trace.xml"/>

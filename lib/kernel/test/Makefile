@@ -85,6 +85,7 @@ MODULES= \
 	logger_test_lib \
 	net_SUITE \
 	os_SUITE \
+	pg_SUITE \
 	pg2_SUITE \
 	seq_trace_SUITE \
 	wrap_log_reader_SUITE \

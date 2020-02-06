@@ -766,6 +766,7 @@ sys_tables() ->
      mnesia_gvar, mnesia_stats,
 						%     mnesia_transient_decision,
      pg2_table,
+     pg,
      queue,
      schema,
      shell_records,
@@ -777,7 +778,7 @@ sys_tables() ->
 
 sys_processes() ->
     [auth, code_server, global_name_server, inet_db,
-     mnesia_recover, net_kernel, timer_server, wxe_master].
+     mnesia_recover, net_kernel, pg, timer_server, wxe_master].
 
 mnesia_tables() ->
     [ir_AliasDef, ir_ArrayDef, ir_AttributeDef, ir_ConstantDef,

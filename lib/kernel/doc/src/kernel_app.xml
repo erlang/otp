@@ -414,6 +414,15 @@ MaxT = TickTime + TickTime / 4</code>
 	  using this service.</p>
         <p>Defaults to <c>false</c>.</p>
       </item>
+      <tag><c>start_pg = true | false</c></tag>
+      <item>
+        <marker id="start_pg"></marker>
+        <p>Starts the default <c>pg</c> scope server (see
+          <seealso marker="pg"><c>pg(3)</c></seealso>) if
+          the parameter is <c>true</c>. This parameter is to be set to
+          <c>true</c> in an embedded system that uses this service.</p>
+        <p>Defaults to <c>false</c>.</p>
+      </item>
       <tag><c>start_pg2 = true | false</c></tag>
       <item>
         <marker id="start_pg2"></marker>
@@ -556,6 +565,7 @@ erl -kernel logger '[{handler,default,logger_std_h,#{formatter=>{logger_formatte
       <seealso marker="logger"><c>logger(3)</c></seealso>,
       <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso>,
       <seealso marker="os"><c>os(3)</c></seealso>,
+      <seealso marker="pg"><c>pg(3)</c></seealso>,
       <seealso marker="pg2"><c>pg2(3)</c></seealso>,
       <seealso marker="rpc"><c>rpc(3)</c></seealso>,
       <seealso marker="seq_trace"><c>seq_trace(3)</c></seealso>,
