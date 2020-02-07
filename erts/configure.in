@@ -1835,6 +1835,7 @@ AC_CHECK_SIZEOF(long long)
 AC_CHECK_SIZEOF(size_t)
 AC_CHECK_SIZEOF(off_t)
 AC_CHECK_SIZEOF(time_t)
+AC_CHECK_SIZEOF(suseconds_t)
 
 BITS64=
 
