@@ -539,7 +539,7 @@ compute_md5_from_file(File) ->
       Filtered = [[ID, Chunk] || {ID, Chunk} <- Chunks, ID =/= "CInf", ID =/= "Docs"],
       erlang:md5(lists:sort(Filtered));
     {error, beam_lib, {file_error, _, enoent}} ->
-      Msg = io_lib:format("Not a regular file: ~ts\n", [File]),
+      Msg = io_lib:format("File not found: ~ts\n", [File]),
       throw({dialyzer_error, Msg});
     {error, beam_lib, _} ->
       Msg = io_lib:format("Could not compute MD5 for .beam: ~ts\n", [File]),
