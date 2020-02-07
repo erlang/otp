@@ -778,6 +778,7 @@
 -define(ESOCK_OPT_OTP_DOMAIN,           16#FF01). % INTERNAL
 -define(ESOCK_OPT_OTP_TYPE,             16#FF02). % INTERNAL
 -define(ESOCK_OPT_OTP_PROTOCOL,         16#FF03). % INTERNAL
+-define(ESOCK_OPT_OTP_DTP,              16#FF04). % INTERNAL
 
 %% *** SOCKET (socket) options
 -define(ESOCK_OPT_SOCK_ACCEPTCONN,      1).
@@ -1104,7 +1105,7 @@ supports() ->
      {recv_flags, supports(recv_flags)}].
 
 
--dialyzer({nowarn_function, supports/1}).
+-dialyzer({no_contracts, supports/1}).
 -spec supports(options)    -> supports_options();
               (sctp)       -> boolean();
               (ipv6)       -> boolean();
@@ -1129,7 +1130,7 @@ supports(recv_flags) ->
 supports(_Key1) ->
     false.
 
--dialyzer({nowarn_function, supports/2}).
+-dialyzer({no_contracts, supports/2}).
 -spec supports(options,    socket)   -> supports_options_socket();
               (options,    ip)       -> supports_options_ip();
               (options,    ipv6)     -> supports_options_ipv6();
@@ -1152,7 +1153,6 @@ supports(_Key1, _Level) ->
     false.
 
 
--dialyzer({nowarn_function, supports/3}).
 -spec supports(options, socket, Opt :: socket_option()) -> boolean();
               (options, ip,     Opt :: ip_socket_option()) -> boolean();
               (options, ipv6,   Opt :: ipv6_socket_option()) -> boolean();
@@ -1164,6 +1164,7 @@ supports(_Key1, _Level) ->
       Key2 :: term(),
       Key3 :: term().
 
+-dialyzer({no_contracts, supports/3}).
 supports(options, Level, Opt) ->
     case supports(options, Level) of
         S when is_list(S) ->
@@ -1262,23 +1263,17 @@ open(Domain, Type, Protocol, Extra) when is_map(Extra) ->
             EDomain   = enc_domain(Domain),
             EType     = enc_type(Type),
             EProtocol = enc_protocol(Protocol),
-            case nif_open(EDomain, EType, EProtocol, Extra) of
-                {ok, SockRef} ->
-                    Socket = #socket{ref = SockRef},
-                    {ok, Socket};
-                {error, _} = ERROR ->
-                    ERROR
-            end
+            nif_open(EDomain, EType, EProtocol, Extra)
         end
+    of
+        {ok, SockRef} ->
+            Socket = #socket{ref = SockRef},
+            {ok, Socket};
+        {error, _} = ERROR ->
+            ERROR
     catch
-        throw:T ->
-            T;
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
-        error:Reason ->
-            {error, Reason}
+        throw:ERROR ->
+            ERROR
     end.
 
 
@@ -1300,31 +1295,23 @@ bind(#socket{ref = SockRef}, Addr)
   when ((Addr =:= any) orelse
 	(Addr =:= broadcast) orelse
 	(Addr =:= loopback)) ->
-    try which_domain(SockRef) of
-        inet ->
-            nif_bind(SockRef, ?SOCKADDR_IN4_DEFAULT(Addr));
-        inet6 when (Addr =:= any) orelse (Addr =:= loopback) ->
-            nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr));
-	_ ->
-	    einval()
+    try
+        case which_domain(SockRef) of
+            inet ->
+                nif_bind(SockRef, ?SOCKADDR_IN4_DEFAULT(Addr));
+            inet6 when (Addr =:= any) orelse (Addr =:= loopback) ->
+                nif_bind(SockRef, ?SOCKADDR_IN6_DEFAULT(Addr));
+            Domain ->
+                invalid_domain(Domain)
+        end
     catch
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end;
 bind(#socket{ref = SockRef} = _Socket, Addr) when is_map(Addr) ->
     try
-        begin
-            nif_bind(SockRef, ensure_sockaddr(Addr))
-        end
+        nif_bind(SockRef, ensure_sockaddr(Addr))
     catch
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end.
@@ -1353,35 +1340,28 @@ bind(#socket{ref = SockRef}, Addrs, Action)
   when is_list(Addrs) andalso ((Action =:= add) orelse (Action =:= remove)) ->
     try
         begin
-            ensure_type(SockRef, seqpacket),
-            ensure_proto(SockRef, sctp),
-            validate_addrs(which_domain(SockRef), Addrs),
+            {Domain, Type, Proto} = which_dtp(SockRef),
+            ensure_domain(Domain, [inet, inet6]),
+            ensure_type(Type, seqpacket),
+            ensure_protocol(Proto, sctp),
+            validate_addrs(Domain, Addrs),
             nif_bind(SockRef, Addrs, Action)
         end
     catch
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
         throw:ERROR ->
             ERROR
     end.
 
-ensure_type(SockRef, Type) ->
-    case which_type(SockRef) of
-        Type ->
-            ok;
-        _InvalidType ->
-            einval()
-    end.
+ensure_domain(Domain, [Domain | _]) -> ok;
+ensure_domain(Domain, [_ | Domains]) -> ensure_domain(Domain, Domains);
+ensure_domain(Domain, []) -> invalid_domain(Domain).
 
-ensure_proto(SockRef, Proto) ->
-    case which_protocol(SockRef) of
-        Proto ->
-            ok;
-        _InvalidProto ->
-            einval()
-    end.
+ensure_type(Type, Type) -> ok;
+ensure_type(Type, _) -> invalid_type(Type).
+
+ensure_protocol(Proto, Proto) -> ok;
+ensure_protocol(Proto, _) -> invalid_protocol(Proto).
+
 
 validate_addrs(inet = _Domain, Addrs) ->
     validate_inet_addrs(Addrs);
@@ -1441,36 +1421,43 @@ connect(Socket, SockAddr) ->
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
 %% </KOLLA>
-connect(_Socket, _SockAddr, Timeout)
-  when (is_integer(Timeout) andalso (Timeout =< 0)) ->
-    {error, timeout};
-connect(#socket{ref = SockRef}, #{family := Fam} = SockAddr, Timeout)
-  when ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso
-       ((Timeout =:= nowait) orelse 
-        (Timeout =:= infinity) orelse is_integer(Timeout)) ->
-    TS = timestamp(Timeout),
+connect(#socket{ref = SockRef}, SockAddr, Timeout) ->
+    try
+        do_connect(SockRef, ensure_sockaddr(SockAddr), deadline(Timeout))
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
+
+
+do_connect(SockRef, SockAddr, Deadline) ->
     case nif_connect(SockRef, ensure_sockaddr(SockAddr)) of
+
         ok ->
             %% Connected!
             ok;
 
-        {ok, Ref} when (Timeout =:= nowait) ->
+
+        {ok, Ref} when (Deadline =:= nowait) ->
             %% Connecting, but the caller does not want to wait...
             ?SELECT(connect, Ref);
 
         {ok, Ref} ->
             %% Connecting...
-	    NewTimeout = next_timeout(TS, Timeout),
-	    receive
+            Timeout = timeout(Deadline),
+            receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, Ref} ->
-		    nif_finalize_connection(SockRef)
-	    after NewTimeout ->
+                    nif_finalize_connection(SockRef)
+            after Timeout ->
                     cancel(SockRef, connect, Ref),
-		    {error, timeout}
-	    end;
-	{error, _} = ERROR ->
-	    ERROR
+                    {error, timeout}
+            end;
+
+
+        {error, _} = ERROR ->
+            ERROR
     end.
+
 
 
 %% ===========================================================================
@@ -1524,44 +1511,43 @@ accept(Socket) ->
       Socket     :: socket(),
       Reason     :: term().
 
-%% Do we really need this optimization?
-accept(_, Timeout) when is_integer(Timeout) andalso (Timeout =< 0) ->
-    {error, timeout};
-accept(#socket{ref = LSockRef}, Timeout)
-  when is_integer(Timeout) orelse
-       (Timeout =:= infinity)  orelse
-       (Timeout =:= nowait) ->
-    do_accept(LSockRef, Timeout).
+accept(#socket{ref = LSockRef}, Timeout) ->
+    try
+        do_accept(LSockRef, deadline(Timeout))
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-do_accept(LSockRef, Timeout) ->
-    TS     = timestamp(Timeout),
+do_accept(LSockRef, Deadline) ->
     AccRef = make_ref(),
     case nif_accept(LSockRef, AccRef) of
+
         {ok, SockRef} ->
             Socket = #socket{ref = SockRef},
             {ok, Socket};
 
 
-        {error, eagain} when (Timeout =:= nowait) ->
+        {error, eagain} when (Deadline =:= nowait) ->
             ?SELECT(accept, AccRef);
-
 
         {error, eagain} ->
             %% Each call is non-blocking, but even then it takes
             %% *some* time, so just to be sure, recalculate before 
             %% the receive.
-	    NewTimeout = next_timeout(TS, Timeout),
+	    Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = LSockRef}, select, AccRef} ->
-                    do_accept(LSockRef, next_timeout(TS, Timeout));
+                    do_accept(LSockRef, Deadline);
 
                 {?ESOCK_TAG, _Socket, abort, {AccRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(LSockRef, accept, AccRef),
                     {error, timeout}
             end;
+
 
         {error, _} = ERROR ->
             cancel(LSockRef, accept, AccRef), % Just to be on the safe side...
@@ -1587,17 +1573,19 @@ send(Socket, Data) ->
       Socket     :: socket(),
       Data       :: iodata(),
       Flags      :: send_flags(),
-      Reason     :: term()
-                 ; (Socket, Data, Timeout :: nowait) -> ok |
-                                             {select, SelectInfo} |
-                                             {ok, {RestData, SelectInfo}} |
-                                             {error, Reason} when
+      Reason     :: term();
+          (Socket, Data, Timeout :: nowait) ->
+                  ok |
+                  {ok, {binary(), SelectInfo}} |
+                  {select, SelectInfo} |
+                  {ok, {RestData, SelectInfo}} |
+                  {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
       RestData   :: binary(),
       SelectInfo :: select_info(),
-      Reason     :: term()
-                 ; (Socket, Data, Timeout) -> ok | {error, Reason} when
+      Reason     :: term();
+          (Socket, Data, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       Data       :: iodata(),
       Timeout    :: timeout(),
@@ -1629,75 +1617,95 @@ send(Socket, Data, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     send(Socket, Bin, Flags, Timeout);
 send(#socket{ref = SockRef}, Data, Flags, Timeout)
-  when is_binary(Data) andalso 
-       is_list(Flags) andalso
-       ((Timeout =:= nowait) orelse
-        (Timeout =:= infinity) orelse
-        (is_integer(Timeout) andalso (Timeout > 0)))  ->
-    EFlags = enc_send_flags(Flags),
-    do_send(SockRef, Data, EFlags, Timeout).
+  when is_binary(Data), is_list(Flags) ->
+    To = undefined,
+    try
+        begin
+            EFlags = enc_send_flags(Flags),
+            Deadline = deadline(Timeout),
+            send_common(SockRef, Data, To, EFlags, Deadline, send)
+        end
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-do_send(SockRef, Data, EFlags, Timeout) ->
-    TS      = timestamp(Timeout),
+send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
+
     SendRef = make_ref(),
-    case nif_send(SockRef, SendRef, Data, EFlags) of
-        ok ->
-            ok;
+
+    case
+        case SendName of
+            send ->
+                nif_send(SockRef, SendRef, Data, EFlags);
+            sendto ->
+                nif_sendto(SockRef, SendRef, Data, To, EFlags)
+        end
+    of
+
+        ok -> ok;
 
 
-        {ok, Written} when (Timeout =:= nowait) ->
-            <<_:Written/binary, Rest/binary>> = Data,
+        {ok, Written} when (Deadline =:= nowait) ->
 	    %% We are partially done, but the user don't want to wait (here) 
             %% for completion
-            {ok, {Rest, ?SELECT_INFO(send, SendRef)}};
-
+            <<_:Written/binary, Rest/binary>> = Data,
+            {ok, {Rest, ?SELECT_INFO(SendName, SendRef)}};
 
         {ok, Written} ->
-	    NewTimeout = next_timeout(TS, Timeout),
 	    %% We are partially done, wait for continuation
+            Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef}
                   when (Written > 0) -> 
                     <<_:Written/binary, Rest/binary>> = Data,
-                    do_send(SockRef, Rest, EFlags,
-                            next_timeout(TS, Timeout));
+                    send_common(
+                      SockRef, Rest, To, EFlags, Deadline, SendName);
 
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
-                    do_send(SockRef, Data, EFlags,
-                            next_timeout(TS, Timeout));
+                    send_common(
+                      SockRef, Data, To, EFlags, Deadline, SendName);
 
                 {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
-                    {error, Reason}
-
-            after NewTimeout ->
-                    cancel(SockRef, send, SendRef),
-                    {error, {timeout, size(Data)}}
-            end;
-
-
-        {error, eagain} when (Timeout =:= nowait) ->
-            ?SELECT(send, SendRef);
-
-
-        {error, eagain} ->
-            receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
-                    do_send(SockRef, Data, EFlags,
-                            next_timeout(TS, Timeout));
-
-                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
-                    {error, Reason}
+                    {error, {Reason, size(Data)}}
 
             after Timeout ->
-                    cancel(SockRef, send, SendRef),
+                    _ = cancel(SockRef, SendName, SendRef),
                     {error, {timeout, size(Data)}}
             end;
 
-        {error, _} = ERROR ->
-            ERROR
+
+        {error, exbusy} = Error when Deadline =:= nowait -> Error;
+
+        {error, exbusy = Reason} ->
+            %% Internal error:
+            %%   we called send, got eagain, and called send again
+            %%   - without waiting for select message
+            erlang:error(Reason);
+
+
+        {error, eagain} when (Deadline =:= nowait) ->
+            ?SELECT(SendName, SendRef);
+
+        {error, eagain} ->
+            Timeout = timeout(Deadline),
+            receive
+                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                    send_common(
+                      SockRef, Data, To, EFlags, Deadline, SendName);
+
+                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
+                    {error, {Reason, size(Data)}}
+
+            after Timeout ->
+                    _ = cancel(SockRef, SendName, SendRef),
+                    {error, {timeout, size(Data)}}
+            end;
+
+
+        {error, Reason} ->
+            {error, {Reason, size(Data)}}
     end.
-
-
 
 
 %% ---------------------------------------------------------------------------
@@ -1740,9 +1748,11 @@ sendto(Socket, Data, Dest, Timeout) ->
     sendto(Socket, Data, Dest, ?ESOCK_SENDTO_FLAGS_DEFAULT, Timeout).
 
 
--spec sendto(Socket, Data, Dest, Flags, nowait) -> ok |
-                                                   {select, SelectInfo} |
-                                                   {error, Reason} when
+-spec sendto(Socket, Data, Dest, Flags, nowait) ->
+                    ok |
+                    {ok, {binary(), SelectInfo}} |
+                    {select, SelectInfo} |
+                    {error, Reason} when
       Socket     :: socket(),
       Data       :: binary(),
       Dest       :: sockaddr(),
@@ -1760,73 +1770,19 @@ sendto(Socket, Data, Dest, Timeout) ->
 sendto(Socket, Data, Dest, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     sendto(Socket, Bin, Dest, Flags, Timeout);
-sendto(#socket{ref = SockRef}, Data, #{family := Fam} = Dest, Flags, Timeout)
-  when is_binary(Data) andalso
-       ((Fam =:= inet) orelse (Fam =:= inet6) orelse (Fam =:= local)) andalso 
-       is_list(Flags) andalso
-       ((Timeout =:= nowait) orelse
-        (Timeout =:= infinity) orelse
-        (is_integer(Timeout) andalso (Timeout > 0))) ->
-    EFlags = enc_send_flags(Flags),
-    do_sendto(SockRef, Data, ensure_sockaddr(Dest), EFlags, Timeout).
-
-do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
-    TS      = timestamp(Timeout),
-    SendRef = make_ref(),
-    case nif_sendto(SockRef, SendRef, Data, Dest, EFlags) of
-        ok ->
-            %% We are done
-            ok;
-
-        {ok, Written} when (Timeout =:= nowait) ->
-            <<_:Written/binary, Rest/binary>> = Data,
-            {ok, {Rest, ?SELECT_INFO(sendto, SendRef)}};
-
-
-        {ok, Written} ->
-	    %% We are partially done, wait for continuation
-            receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef}
-                  when (Written > 0) ->
-                    <<_:Written/binary, Rest/binary>> = Data,
-                    do_sendto(SockRef, Rest, Dest, EFlags,
-                              next_timeout(TS, Timeout));
-
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
-                    do_sendto(SockRef, Data, Dest, EFlags,
-                              next_timeout(TS, Timeout));
-
-                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
-                    {error, Reason}
-
-            after Timeout ->
-                    cancel(SockRef, sendto, SendRef),
-                    {error, timeout}
-            end;
-
-
-        {error, eagain} when (Timeout =:= nowait) ->
-            ?SELECT(sendto, SendRef);
-
-
-        {error, eagain} ->
-            receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
-                    do_sendto(SockRef, Data, Dest, EFlags, 
-                              next_timeout(TS, Timeout));
-
-                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
-                    {error, Reason}
-
-            after Timeout ->
-                    cancel(SockRef, sendto, SendRef),
-                    {error, timeout}
-            end;
-
-        {error, _} = ERROR ->
+sendto(#socket{ref = SockRef}, Data, Dest, Flags, Timeout)
+  when is_binary(Data), is_list(Flags) ->
+    try
+        begin
+            To = ensure_sockaddr(Dest),
+            EFlags = enc_send_flags(Flags),
+            Deadline = deadline(Timeout),
+            send_common(SockRef, Data, To, EFlags, Deadline, sendto)
+        end
+    catch
+        throw:ERROR ->
             ERROR
     end.
-
 
 
 %% ---------------------------------------------------------------------------
@@ -1837,9 +1793,13 @@ do_sendto(SockRef, Data, Dest, EFlags, Timeout) ->
 %% used when sending.
 %%
 
--spec sendmsg(Socket, MsgHdr) -> ok | {error, Reason} when
+-spec sendmsg(Socket, MsgHdr) ->
+                     ok |
+                     {ok, Remaining} |
+                     {error, Reason} when
       Socket  :: socket(),
       MsgHdr  :: msghdr(),
+      Remaining :: erlang:iovec(),
       Reason  :: term().
 
 sendmsg(Socket, MsgHdr) ->
@@ -1851,15 +1811,16 @@ sendmsg(Socket, MsgHdr) ->
       Socket  :: socket(),
       MsgHdr  :: msghdr(),
       Flags   :: send_flags(),
-      Reason  :: term()
-                 ; (Socket, MsgHdr, Timeout :: nowait) -> ok |
-                                               {select, SelectInfo} |
-                                               {error, Reason} when
+      Reason  :: term();
+             (Socket, MsgHdr, Timeout :: nowait) ->
+                     ok |
+                     {ok, Remaining} |
+                     {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
-      SelectInfo :: select_info(),
-      Reason     :: term()
-                 ; (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
+      Remaining :: erlang:iovec(),
+      Reason     :: term();
+             (Socket, MsgHdr, Timeout) -> ok | {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
       Timeout    :: timeout(),
@@ -1867,21 +1828,18 @@ sendmsg(Socket, MsgHdr) ->
 
 sendmsg(Socket, MsgHdr, Flags) when is_list(Flags) ->
     sendmsg(Socket, MsgHdr, Flags, ?ESOCK_SENDMSG_TIMEOUT_DEFAULT);
-sendmsg(Socket, MsgHdr, Timeout) 
-  when is_integer(Timeout) orelse (Timeout =:= infinity) ->
+sendmsg(Socket, MsgHdr, Timeout) ->
     sendmsg(Socket, MsgHdr, ?ESOCK_SENDMSG_FLAGS_DEFAULT, Timeout).
 
 
 -spec sendmsg(Socket, MsgHdr, Flags, nowait) -> 
                      ok |
                      {ok, Remaining} |
-                     {select, SelectInfo} |
                      {error, Reason} when
       Socket     :: socket(),
       MsgHdr     :: msghdr(),
       Flags      :: send_flags(),
       Remaining  :: erlang:iovec(),
-      SelectInfo :: select_info(),
       Reason     :: term()
                    ; (Socket, MsgHdr, Flags, Timeout) -> 
                      ok |
@@ -1895,25 +1853,24 @@ sendmsg(Socket, MsgHdr, Timeout)
       Reason     :: term().
 
 sendmsg(#socket{ref = SockRef}, #{iov := IOV} = MsgHdr, Flags, Timeout)
-  when is_list(IOV) andalso 
-       is_list(Flags) andalso
-       ((Timeout =:= nowait) orelse
-        (Timeout =:= infinity) orelse
-        (is_integer(Timeout) andalso (Timeout > 0))) ->
-    try ensure_msghdr(MsgHdr) of
-        M ->
+  when is_list(IOV), is_list(Flags) ->
+    try
+        begin
+            M = ensure_msghdr(MsgHdr),
             EFlags = enc_send_flags(Flags),
-            do_sendmsg(SockRef, M, EFlags, Timeout)
+            Deadline = deadline(Timeout),
+            do_sendmsg(SockRef, M, EFlags, Deadline)
+        end
     catch
-        throw:T ->
-            T;
-        error:Reason ->
-            {error, Reason}
+        throw:ERROR ->
+            ERROR
     end.
 
-do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
-    TS      = timestamp(Timeout),
+
+do_sendmsg(SockRef, MsgHdr, EFlags, Deadline) ->
+
     SendRef = make_ref(),
+
     case nif_sendmsg(SockRef, SendRef, MsgHdr, EFlags) of
         ok ->
             %% We are done
@@ -1925,27 +1882,38 @@ do_sendmsg(SockRef, MsgHdr, EFlags, Timeout) ->
             %% be able to handle a message being split. Leave it to
             %% the caller to figure out (call again with the rest).
             %%
-            %% We should really not need to cancel, since this is
-            %% accepted for sendmsg!
+            %% We need to cancel this partial write.
             %%
-            cancel(SockRef, sendmsg, SendRef),
+            _ = cancel(SockRef, sendmsg, SendRef),
             {ok, do_sendmsg_rest(maps:get(iov, MsgHdr), Written)};
 
 
-        {error, eagain} when (Timeout =:= nowait) ->
+        {error, exbusy} = Error when Deadline =:= nowait -> Error;
+
+        {error, exbusy = Reason} ->
+            %% Internal error:
+            %%   we called send, got eagain, and called send again
+            %%   - without waiting for select message
+            erlang:error(Reason);
+
+
+        {error, eagain} when (Deadline =:= nowait) ->
             ?SELECT(sendmsg, SendRef);
             
-
         {error, eagain} ->
+	    Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
-                    do_sendmsg(SockRef, MsgHdr, EFlags, 
-                              next_timeout(TS, Timeout))
+                    do_sendmsg(SockRef, MsgHdr, EFlags, Deadline);
+
+                {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
+                    {error, Reason}
 
             after Timeout ->
-                    cancel(SockRef, sendmsg, SendRef),
+                    _ = cancel(SockRef, sendmsg, SendRef),
                     {error, timeout}
             end;
+
 
         {error, _} = ERROR ->
             ERROR
@@ -1967,7 +1935,6 @@ ensure_msghdr(#{iov := IOV} = M)
     M#{iov => erlang:iolist_to_iovec(IOV)};
 ensure_msghdr(_) ->
     einval().
-
 
 
 
@@ -2062,154 +2029,134 @@ recv(Socket, Length, Timeout) ->
       Reason     :: term().
 
 recv(#socket{ref = SockRef}, Length, Flags, Timeout)
-  when (is_integer(Length) andalso (Length >= 0)) andalso
-       is_list(Flags) andalso
-       (is_integer(Timeout) orelse 
-        (Timeout =:= infinity) orelse 
-        (Timeout =:= nowait))  ->
-    EFlags = enc_recv_flags(Flags),
-    do_recv(SockRef, undefined, Length, EFlags, <<>>, Timeout).
+  when is_integer(Length), Length >= 0, is_list(Flags) ->
+    try
+        EFlags = enc_recv_flags(Flags),
+        Deadline = deadline(Timeout),
+        do_recv(SockRef, Length, EFlags, Deadline, <<>>)
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-%% We need to pass the "old recv ref" around because of the special case
-%% with Length = 0. This case makes it neccessary to have a timeout function
-%% clause since we may never wait for anything (no receive select), and so the
-%% the only timeout check will be the function clause.
-%% Note that the Timeout value of 'nowait' has a special meaning. It means
+%% We will only recurse with Length == 0 if Length is 0,
+%% so Length == 0 means to return all available data also when recursing
+%%
+%% Note that the Deadline value of 'nowait' has a special meaning. It means
 %% that we will either return with data or with the with {error, NNNN}. In
 %% wich case the caller will receive a select message at some later time.
-do_recv(SockRef, _OldRef, Length, EFlags, Acc, Timeout)
-  when (Timeout =:= nowait) orelse
-       (Timeout =:= infinity) orelse
-       (is_integer(Timeout) andalso (Timeout > 0)) ->
-    TS      = timestamp(Timeout),
+%%
+do_recv(SockRef, Length, EFlags, Deadline, Acc) ->
+
     RecvRef = make_ref(),
     case nif_recv(SockRef, RecvRef, Length, EFlags) of
-        {ok, true = _Complete, Bin} when (size(Acc) =:= 0) ->
-            {ok, Bin};
+
         {ok, true = _Complete, Bin} ->
-            {ok, <<Acc/binary, Bin/binary>>};
+            {ok, bincat(Acc, Bin)};
+
 
         %% It depends on the amount of bytes we tried to read:
         %%    0   - Read everything available
         %%          We got something, but there may be more - keep reading.
         %%    > 0 - We got a part of the message and we will be notified
         %%          when there is more to read (a select message)
-        {ok, false = _Complete, Bin} when (Length =:= 0) ->
-            do_recv(SockRef, RecvRef,
-                    Length, EFlags,
-                    <<Acc/binary, Bin/binary>>,
-                    next_timeout(TS, Timeout));
-
+        {ok, false = _Complete, Bin} when Length =:= 0 ->
+            Timeout = timeout(Deadline),
+            if
+                0 < Timeout ->
+                    do_recv(
+                      SockRef, Length, EFlags, Deadline, bincat(Acc, Bin));
+                true ->
+                    {ok, bincat(Acc, Bin)}
+            end;
 
         %% Did not get all the user asked for, but the user also
         %% specified 'nowait', so deliver what we got and the 
         %% select info.
-        {ok, false = _Completed, Bin} when (Timeout =:= nowait) andalso 
-                                           (size(Acc) =:= 0) ->
-            {ok, {Bin, ?SELECT_INFO(recv, RecvRef)}};
-
-
-        {ok, false = _Completed, Bin} when (size(Acc) =:= 0) ->
-            %% We got the first chunk of it.
-            %% We will be notified (select message) when there
-            %% is more to read.
-	    NewTimeout = next_timeout(TS, Timeout),
-            receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recv(SockRef, RecvRef,
-                            Length-size(Bin), EFlags,
-                            Bin,
-                            next_timeout(TS, Timeout));
-
-                {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
-                    {error, Reason}
-
-            after NewTimeout ->
-                    cancel(SockRef, recv, RecvRef),
-                    {error, {timeout, Acc}}
-            end;
+        {ok, false = _Completed, Bin} when Deadline =:= nowait ->
+            {ok, {bincat(Acc, Bin), ?SELECT_INFO(recv, RecvRef)}};
 
         {ok, false = _Completed, Bin} ->
             %% We got a chunk of it!
-	    NewTimeout = next_timeout(TS, Timeout),
+	    Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recv(SockRef, RecvRef,
-                            Length-size(Bin), EFlags,
-                            <<Acc/binary, Bin/binary>>,
-                            next_timeout(TS, Timeout));
+                    if
+                        0 < Timeout ->
+                            do_recv(
+                              SockRef, Length - byte_size(Bin), EFlags,
+                              Deadline, bincat(Acc, Bin));
+                        true ->
+                            {error, {timeout, bincat(Acc, Bin)}}
+                    end;
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(SockRef, recv, RecvRef),
-                    {error, {timeout, Acc}}
+                    {error, {timeout, bincat(Acc, Bin)}}
             end;
+
+
+        {error, exbusy} = Error when Deadline =:= nowait -> Error;
+
+        {error, exbusy = Reason} ->
+            %% Internal error:
+            %%   we called recv, got eagain, and called recv again
+            %%   - without waiting for select message
+            erlang:error(Reason);
 
 
         %% The user does not want to wait!
         %% The user will be informed that there is something to read
         %% via the select socket message (see below).
-
-        {error, eagain} when (Timeout =:= nowait) andalso (size(Acc) =:= 0) ->
-            ?SELECT(recv, RecvRef);
-        {error, eagain} when (Timeout =:= nowait) ->
-            {ok, {Acc, ?SELECT_INFO(recv, RecvRef)}};
+        {error, eagain} when Deadline =:= nowait ->
+            if
+                byte_size(Acc) =:= 0 ->
+                    ?SELECT(recv, RecvRef);
+                true ->
+                    {ok, {Acc, ?SELECT_INFO(recv, RecvRef)}}
+            end;
 
 
         %% We return with the accumulated binary (if its non-empty)
-        {error, eagain} when (Length =:= 0) andalso (size(Acc) > 0) ->
-            %% CAN WE REALLY DO THIS? THE NIF HAS SELECTED!! OR?
+        {error, eagain} when Length =:= 0, 0 < byte_size(Acc) ->
+            cancel(SockRef, recv, RecvRef),
             {ok, Acc};
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
-            NewTimeout = next_timeout(TS, Timeout),
+            Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recv(SockRef, RecvRef,
-                            Length, EFlags,
-                            Acc,
-                            next_timeout(TS, Timeout));
+                    if
+                        0 < Timeout ->
+                            do_recv(
+                              SockRef, Length, EFlags, Deadline, Acc);
+                        0 < byte_size(Acc) ->
+                            {error, {timeout, Acc}};
+                        true ->
+                            {error, timeout}
+                    end;
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(SockRef, recv, RecvRef),
                     {error, timeout}
             end;
 
-        {error, closed = Reason} ->
-            do_close(SockRef),
-            if
-                (size(Acc) =:= 0) ->
-                    {error, Reason};
-                true ->
-                    {error, {Reason, Acc}}
-            end;
 
-        {error, _} = ERROR when (size(Acc) =:= 0) ->
+        {error, _} = ERROR when byte_size(Acc) =:= 0 ->
             ERROR;
 
         {error, Reason} ->
             {error, {Reason, Acc}}
 
-    end;
-
-do_recv(SockRef, RecvRef, 0 = _Length, _Eflags, Acc, _Timeout) ->
-    %% The current recv operation is to be cancelled, so no need for a ref...
-    %% The cancel will end our 'read everything you have' and "activate"
-    %% any waiting reader.
-    cancel(SockRef, recv, RecvRef),
-    {ok, Acc};
-do_recv(_SockRef, _RecvRef, _Length, _EFlags, Acc, _Timeout)
-  when (size(Acc) > 0) ->
-    {error, {timeout, Acc}};
-do_recv(_SockRef, _RecvRef, _Length, _EFlags, _Acc, _Timeout) ->
-    {error, timeout}.
+    end.
 
 
 
@@ -2324,42 +2271,53 @@ recvfrom(Socket, BufSz, Timeout) ->
       Reason  :: term().
 
 recvfrom(#socket{ref = SockRef}, BufSz, Flags, Timeout)
-  when (is_integer(BufSz) andalso (BufSz >= 0)) andalso
-       is_list(Flags) andalso
-       (is_integer(Timeout) orelse
-        (Timeout =:= infinity) orelse
-        (Timeout =:= nowait)) ->
-    EFlags = enc_recv_flags(Flags),
-    do_recvfrom(SockRef, BufSz, EFlags, Timeout).
+  when is_integer(BufSz), 0 =< BufSz, is_list(Flags) ->
+    try
+        EFlags = enc_recv_flags(Flags),
+        Deadline = deadline(Timeout),
+        do_recvfrom(SockRef, BufSz, EFlags, Deadline)
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-do_recvfrom(SockRef, BufSz, EFlags, Timeout)  ->
-    TS      = timestamp(Timeout),
+do_recvfrom(SockRef, BufSz, EFlags, Deadline)  ->
+
     RecvRef = make_ref(),
     case nif_recvfrom(SockRef, RecvRef, BufSz, EFlags) of
+
         {ok, {_Source, _NewData}} = OK ->
             OK;
 
 
-        {error, eagain} when (Timeout =:= nowait) ->
-            ?SELECT(recvfrom, RecvRef);
+        {error, exbusy} = Error when Deadline =:= nowait -> Error;
 
+        {error, exbusy = Reason} ->
+            %% Internal error:
+            %%   we called recvfrom, got eagain, and called recvfrom again
+            %%   - without waiting for select message
+            erlang:error(Reason);
+
+
+        {error, eagain} when Deadline =:= nowait ->
+            ?SELECT(recvfrom, RecvRef);
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
-            NewTimeout = next_timeout(TS, Timeout),
+            Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recvfrom(SockRef, BufSz, EFlags,
-                                next_timeout(TS, Timeout));
+                    do_recvfrom(SockRef, BufSz, EFlags, Deadline);
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(SockRef, recvfrom, RecvRef),
                     {error, timeout}
             end;
+
 
         {error, _Reason} = ERROR ->
             ERROR
@@ -2425,7 +2383,7 @@ recvmsg(Socket, Timeout) ->
 
 recvmsg(Socket, Flags, Timeout) when is_list(Flags) ->
     recvmsg(Socket, 0, 0, Flags, Timeout);
-recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz) andalso is_integer(CtrlSz) ->
+recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
     recvmsg(Socket, BufSz, CtrlSz,
             ?ESOCK_RECV_FLAGS_DEFAULT, ?ESOCK_RECV_TIMEOUT_DEFAULT).
 
@@ -2454,53 +2412,60 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz) andalso is_integer(CtrlSz)
       Reason     :: term().
 
 recvmsg(#socket{ref = SockRef}, BufSz, CtrlSz, Flags, Timeout)
-  when (is_integer(BufSz) andalso (BufSz >= 0)) andalso
-       (is_integer(CtrlSz) andalso (CtrlSz >= 0)) andalso
-       is_list(Flags) andalso
-       (is_integer(Timeout) orelse
-        (Timeout =:= infinity) orelse
-        (Timeout =:= nowait)) ->
-    EFlags = enc_recv_flags(Flags),
-    do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout).
+  when is_integer(BufSz), 0 =< BufSz,
+       is_integer(CtrlSz), 0 =< CtrlSz,
+       is_list(Flags) ->
+    try
+        EFlags = enc_recv_flags(Flags),
+        Deadline = deadline(Timeout),
+        do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Deadline)
+    catch
+        throw:ERROR ->
+            ERROR
+    end.
 
-do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
-    TS      = timestamp(Timeout),
+do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Deadline)  ->
+
     RecvRef = make_ref(),
     case nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags) of
+
         {ok, _MsgHdr} = OK ->
             OK;
 
 
-        {error, eagain} when (Timeout =:= nowait) ->
-            ?SELECT(recvmsg, RecvRef);
+        {error, exbusy} = Error when Deadline =:= nowait -> Error;
 
+        {error, exbusy = Reason} ->
+            %% Internal error:
+            %%   we called recvmsg, got eagain, and called recvmsg again
+            %%   - without waiting for select message
+            erlang:error(Reason);
+
+
+        {error, eagain} when Deadline =:= nowait ->
+            ?SELECT(recvmsg, RecvRef);
 
         {error, eagain} ->
             %% There is nothing just now, but we will be notified when there
             %% is something to read (a select message).
-            NewTimeout = next_timeout(TS, Timeout),
+            Timeout = timeout(Deadline),
             receive
                 {?ESOCK_TAG, #socket{ref = SockRef}, select, RecvRef} ->
-                    do_recvmsg(SockRef, BufSz, CtrlSz, EFlags,
-                               next_timeout(TS, Timeout));
+                    do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Deadline);
 
                 {?ESOCK_TAG, _Socket, abort, {RecvRef, Reason}} ->
                     {error, Reason}
 
-            after NewTimeout ->
+            after Timeout ->
                     cancel(SockRef, recvmsg, RecvRef),
                     {error, timeout}
             end;
 
-        {error, closed} = ERROR ->
-            do_close(SockRef),
-            ERROR;
 
         {error, _Reason} = ERROR ->
             ERROR
 
     end.
-
 
 
 
@@ -2523,9 +2488,6 @@ do_recvmsg(SockRef, BufSz, CtrlSz, EFlags, Timeout)  ->
       Reason :: term().
 
 close(#socket{ref = SockRef}) ->
-    do_close(SockRef).
-
-do_close(SockRef) ->
     case nif_close(SockRef) of
         ok ->
             nif_finalize_close(SockRef);
@@ -2555,10 +2517,7 @@ do_close(SockRef) ->
 
 shutdown(#socket{ref = SockRef}, How) ->
     try
-        begin
-            EHow = enc_shutdown_how(How),
-            nif_shutdown(SockRef, EHow)
-        end
+        nif_shutdown(SockRef, enc_shutdown_how(How))
     catch
         throw:T ->
             T;
@@ -2627,23 +2586,15 @@ shutdown(#socket{ref = SockRef}, How) ->
 setopt(#socket{ref = SockRef}, Level, Key, Value) ->
     try
         begin
-            Domain               = which_domain(SockRef),
-            Type                 = which_type(SockRef),
-            Protocol             = which_protocol(SockRef),
+            {Domain, Type, Proto} = which_dtp(SockRef),
             {EIsEncoded, ELevel} = enc_setopt_level(Level),
-            EKey = enc_setopt_key(Level, Key, Domain, Type, Protocol),
-            EVal = enc_setopt_value(Level, Key, Value, Domain, Type, Protocol),
+            EKey = enc_setopt_key(Level, Key, Domain, Type, Proto),
+            EVal = enc_setopt_value(Level, Key, Value, Domain, Type, Proto),
             nif_setopt(SockRef, EIsEncoded, ELevel, EKey, EVal)
         end
     catch
-        throw:T ->
-            T;
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
-        error:Reason ->
-            {error, Reason} % Process more?
+        throw:ERROR ->
+            ERROR
     end.
 
 
@@ -2703,33 +2654,26 @@ setopt(#socket{ref = SockRef}, Level, Key, Value) ->
 getopt(#socket{ref = SockRef}, Level, Key) ->
     try
         begin
-            Domain   = which_domain(SockRef),
-            Type     = which_type(SockRef),
-            Protocol = which_protocol(SockRef),
+            {Domain, Type, Proto} = which_dtp(SockRef),
             {EIsEncoded, ELevel} = enc_getopt_level(Level),
-            EKey     = enc_getopt_key(Level, Key, Domain, Type, Protocol),
+            EKey     = enc_getopt_key(Level, Key, Domain, Type, Proto),
             %% We may need to decode the value (for the same reason
             %% we (may have) needed to encode the value for setopt).
             case nif_getopt(SockRef, EIsEncoded, ELevel, EKey) of
                 ok ->
                     ok;
                 {ok, EVal} ->
-                    Val = dec_getopt_value(Level, Key, EVal,
-                                           Domain, Type, Protocol),
+                    Val =
+                        dec_getopt_value(
+                          Level, Key, EVal, Domain, Type, Proto),
                     {ok, Val};
-                {error, _} = ERROR ->
-                    ERROR
+                {error, _} = E ->
+                    E
             end
         end
     catch
-        throw:E:_S ->
-            E;
-        %% <WIN32-TEMPORARY>
-        error:notsup:S ->
-            erlang:raise(error, notsup, S);
-        %% </WIN32-TEMPORARY>
-        error:Reason:_Stack ->
-            {error, Reason} % Process more?
+        throw:ERROR ->
+            ERROR
     end.
 
 
@@ -2744,38 +2688,72 @@ which_domain(SockRef) ->
     case nif_getopt(SockRef, true,
                     ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_DOMAIN) of
         {ok, Domain} ->
-            Domain;
+            if
+                is_atom(Domain) ->
+                    Domain;
+                is_integer(Domain) ->
+                    invalid_domain(Domain)
+            end;
         {error, _} = ERROR ->
             throw(ERROR)
     end.
         
 
--spec which_type(SockRef) -> Type when
-      SockRef :: reference(),
-      Type    :: type().
+%%%-spec which_type(SockRef) -> Type when
+%%%      SockRef :: reference(),
+%%%      Type    :: type().
+%%%
+%%%which_type(SockRef) ->
+%%%    case nif_getopt(SockRef, true,
+%%%                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_TYPE) of
+%%%        {ok, Type} ->
+%%%            if
+%%%                is_atom(Type) ->
+%%%                    Type;
+%%%                is_integer(Type) ->
+%%%                    invalid_type(Type)
+%%%            end;
+%%%        {error, _} = ERROR ->
+%%%            throw(ERROR)
+%%%    end.
+%%%
+%%%-spec which_protocol(SockRef) -> Protocol when
+%%%      SockRef  :: reference(),
+%%%      Protocol :: protocol().
+%%%
+%%%which_protocol(SockRef) ->
+%%%    case nif_getopt(SockRef, true,
+%%%                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_PROTOCOL) of
+%%%        {ok, Proto} ->
+%%%            if
+%%%                is_atom(Proto) ->
+%%%                    Proto;
+%%%                is_integer(Proto) ->
+%%%                    invalid_protocol(Proto)
+%%%            end;
+%%%        {error, _} = ERROR ->
+%%%            throw(ERROR)
+%%%    end.
 
-which_type(SockRef) ->
-    case nif_getopt(SockRef, true,
-                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_TYPE) of
-        {ok, Type} ->
-            Type;
+which_dtp(SockRef) ->
+    case
+        nif_getopt(
+          SockRef, true, ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_DTP)
+    of
+        {ok, {Domain, Type, Proto} = DTP} ->
+            if
+                is_integer(Domain) ->
+                    invalid_domain(Domain);
+                is_integer(Type) ->
+                    invalid_type(Type);
+                is_integer(Proto) ->
+                    invalid_protocol(Proto);
+                is_atom(Domain), is_atom(Type), is_atom(Proto) ->
+                    DTP
+            end;
         {error, _} = ERROR ->
             throw(ERROR)
     end.
-
--spec which_protocol(SockRef) -> Protocol when
-      SockRef  :: reference(),
-      Protocol :: protocol().
-
-which_protocol(SockRef) ->
-    case nif_getopt(SockRef, true,
-                    ?ESOCK_OPT_LEVEL_OTP, ?ESOCK_OPT_OTP_PROTOCOL) of
-        {ok, Proto} ->
-            Proto;
-        {error, _} = ERROR ->
-            throw(ERROR)
-    end.
-
 
 
 
@@ -2953,7 +2931,6 @@ enc_setopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% encode the value into an more "manageable" type.
 %% It also handles "aliases" (see linger).
 
--dialyzer({nowarn_function, enc_setopt_value/6}).
 -spec enc_setopt_value(otp, otp_socket_option(),
                        Value, Domain, Type, Protocol) -> term() when
       Value    :: term(),
@@ -3421,12 +3398,6 @@ enc_getopt_key(Level, Opt, Domain, Type, Protocol) ->
 %% For the most part, we simply let the value pass through, but for some
 %% values we may need to do an actual decode.
 %%
-%% For some reason dialyzer thinks that the only valid value for Opt to 
-%% this function is otp_socket_option(). Of course without explaining
-%% how it came to that conclusion... And since I know that to be false...
-%%
-
--dialyzer({nowarn_function, dec_getopt_value/6}).
 
 %% This string is NULL-terminated, but the general function we use
 %% in the nif code does not know that. So, deal with it here.
@@ -3443,78 +3414,77 @@ dec_getopt_value(_L, _Opt, V, _D, _T, _P) ->
 
 %% Most options are usable both for set and get, but some are
 %% are only available for e.g. get.
--spec enc_sockopt_key(Level, Opt,
-                      Direction,
+-spec enc_sockopt_key(Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: otp,
       Direction :: set | get,
       Opt       :: otp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: socket,
       Direction :: set | get,
       Opt       :: socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: ip,
       Direction :: set | get,
       Opt       :: ip_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: ipv6,
       Direction :: set | get,
       Opt       :: ipv6_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
-                      Domain, Type, Protocol) -> non_neg_integer() when
+      Protocol  :: protocol();
+                   (Level, Opt, Direction,
+                    Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: tcp,
       Direction :: set | get,
       Opt       :: tcp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: udp,
       Direction :: set | get,
       Opt       :: udp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
+      Protocol  :: protocol();
+                     (Level, Opt, Direction,
                       Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: sctp,
       Direction :: set | get,
       Opt       :: sctp_socket_option(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
-                      Domain, Type, Protocol) -> non_neg_integer() when
+      Protocol  :: protocol();
+                   (Level, Opt, Direction,
+                    Domain, Type, Protocol) -> non_neg_integer() when
       Level     :: integer(),
       Direction :: set,
       Opt       :: integer(),
       Domain    :: domain(),
       Type      :: type(),
-      Protocol  :: protocol()
-                   ; (Level, Direction, Opt,
-                      Domain, Type, Protocol) -> non_neg_integer() when
+      Protocol  :: protocol();
+                   (Level, Opt, Direction,
+                    Domain, Type, Protocol) -> {NativeOpt, ValueSize} when
       Level     :: integer(),
       Direction :: get,
       Opt       :: {NativeOpt, ValueSize},
       NativeOpt :: integer(),
-      ValueSize :: non_neg_integer(),
+      ValueSize :: non_neg_integer() | 'int' | 'bool',
       Domain    :: domain(),
       Type      :: type(),
       Protocol  :: protocol().
@@ -3934,8 +3904,8 @@ ensure_sockaddr(#{family := local, path := Path} = SockAddr)
        (byte_size(Path) > 0) andalso 
        (byte_size(Path) =< 255) ->
     SockAddr;
-ensure_sockaddr(_SockAddr) ->
-    einval().
+ensure_sockaddr(SockAddr) ->
+    invalid_address(SockAddr).
 
 
 
@@ -3943,19 +3913,29 @@ cancel(SockRef, Op, OpRef) ->
     case nif_cancel(SockRef, Op, OpRef) of
         %% The select has already completed
         {error, select_sent} ->
-            flush_select_msgs(SockRef, OpRef);
+            flush_select_msg(SockRef, OpRef),
+            _ = flush_abort_msg(SockRef, OpRef),
+            ok;
         Other ->
+            _ = flush_abort_msg(SockRef, OpRef),
             Other
     end.
 
-flush_select_msgs(SockRef, Ref) ->
+flush_select_msg(SockRef, Ref) ->
     receive
         {?ESOCK_TAG, #socket{ref = SockRef}, select, Ref} ->
-            flush_select_msgs(SockRef, Ref)
+            ok
     after 0 ->
             ok
     end.
 
+flush_abort_msg(SockRef, Ref) ->
+    receive
+        {?ESOCK_TAG, #socket{ref = SockRef}, abort, {Ref, Reason}} ->
+            Reason
+    after 0 ->
+            ok
+    end.
 
 %% formated_timestamp() ->
 %%     format_timestamp(os:timestamp()).
@@ -3983,34 +3963,37 @@ flush_select_msgs(SockRef, Ref) ->
 %%     lists:flatten(FormatDate).
 
 
-%% A timestamp in ms
+deadline(Timeout) ->
+    case Timeout of
+        nowait -> Timeout;
+        infinity -> Timeout;
+        _ when is_integer(Timeout), 0 =< Timeout ->
+            timestamp() + Timeout;
+        _ ->
+            invalid_timeout(Timeout)
+    end.
 
-timestamp(nowait = T) ->
-    T;
-timestamp(infinity) ->
-    undefined;
-timestamp(_) ->
-    timestamp().
+timeout(Deadline) ->
+    case Deadline of
+        nowait -> 0;
+        infinity -> infinity;
+        _ ->
+            Now = timestamp(),
+            if
+                Now < Deadline -> Deadline - Now;
+                true -> 0
+            end
+    end.
 
 timestamp() ->
     erlang:monotonic_time(milli_seconds).
 
-next_timeout(_, nowait = Timeout) ->
-    Timeout;
-next_timeout(_, infinity = Timeout) ->
-    Timeout;
-next_timeout(TS, Timeout) ->
-    NewTimeout = Timeout - tdiff(TS, timestamp()),
-    if
-        (NewTimeout > 0) ->
-            NewTimeout;
-        true ->
-            0
-    end.
 
-tdiff(T1, T2) ->
-    T2 - T1.
-
+-compile({inline, [bincat/2]}).
+bincat(<<>>, <<_/binary>> = B) -> B;
+bincat(<<_/binary>> = A, <<>>) -> A;
+bincat(<<_/binary>> = A, <<_/binary>> = B) ->
+    <<A/binary, B/binary>>.
 
 
 %% p(F) ->
@@ -4036,42 +4019,45 @@ tdiff(T1, T2) ->
 
 -spec invalid_domain(Domain) -> no_return() when
       Domain :: term().
-
 invalid_domain(Domain) ->
     error({invalid_domain, Domain}).
 
 -spec invalid_type(Type) -> no_return() when
       Type :: term().
-
 invalid_type(Type) ->
     error({invalid_type, Type}).
 
 -spec invalid_protocol(Proto) -> no_return() when
       Proto :: term().
-
 invalid_protocol(Proto) ->
     error({invalid_protocol, Proto}).
 
+-spec invalid_address(SockAddr) -> no_return() when
+      SockAddr :: term().
+invalid_address(SockAddr) ->
+    error({invalid_address, SockAddr}).
+
+-spec invalid_timeout(Timeout) -> no_return() when
+      Timeout :: term().
+invalid_timeout(Timeout) ->
+    error({invalid_timeout, Timeout}).
+
 -spec not_supported(What) -> no_return() when
       What :: term().
-
 not_supported(What) ->
     error({not_supported, What}).
 
 -spec unknown(What) -> no_return() when
       What :: term().
-
 unknown(What) ->
     error({unknown, What}).
 
 -spec einval() -> no_return().
-
 einval() ->
     error(einval).
 
 -spec error(Reason) -> no_return() when
       Reason :: term().
-
 error(Reason) ->
     throw({error, Reason}).
 

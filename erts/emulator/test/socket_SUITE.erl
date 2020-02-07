@@ -15826,6 +15826,16 @@ api_opt_sock_timestamp_tcp(InitState) ->
                                    ERROR
                            end                                   
                    end},
+         %% Linux pecularity observed here...
+         %% Detected on Kernel 4.15.0-72 x96_64.
+         %% The option set to enable receiving timestamps just above
+         %% has failed to be effective down in "await recv reply 2
+         %% (from server, w timestamp)" below, unless we put the
+         %% sleep between setting the option and informing
+         %% the writer that it shall write to the other socket end.
+         %% A sleep 1 ms improves a lot but does not remove
+         %% problem completely. Believe it or not.
+         ?SEV_SLEEP(100),
          #{desc => "announce ready (timestamp on)",
            cmd  => fun(#{tester := Tester}) ->
                            ?SEV_ANNOUNCE_READY(Tester, timestamp_on),
@@ -15846,7 +15856,7 @@ api_opt_sock_timestamp_tcp(InitState) ->
                            ok
                    end},
          #{desc => "await recv reply 2 (from server, w timestamp)",
-           cmd  => fun(#{sock := Sock, recv := Recv}) ->
+           cmd  => fun(#{sock := Sock, recv := Recv, get := Get}) ->
                            case Recv(Sock) of
                                {ok, {[#{level := socket,
                                         type   := timestamp,
@@ -15856,6 +15866,8 @@ api_opt_sock_timestamp_tcp(InitState) ->
                                                "~n   ~p", [TS]),
                                    ok;
                                {ok, {BadCMsgHdrs, ?BASIC_REP}} ->
+                                   ?SEV_EPRINT("Current timestamp value:"
+                                               "   ~p", [Get(Sock)]),
                                    {error, {unexpected_reply_cmsghdrs,
                                             BadCMsgHdrs}};
                                {ok, {[#{level := socket,
@@ -16012,7 +16024,7 @@ api_opt_sock_timestamp_tcp(InitState) ->
                            ?SEV_ANNOUNCE_CONTINUE(Server, accept),
                            ok
                    end},
-         ?SEV_SLEEP(?SECS(1)),
+%%%         ?SEV_SLEEP(?SECS(1)),
          #{desc => "order client to continue (with connect)",
            cmd  => fun(#{client := Client} = _State) ->
                            ?SEV_ANNOUNCE_CONTINUE(Client, connect),
@@ -16186,8 +16198,6 @@ api_opt_sock_timestamp_tcp(InitState) ->
     Tester = ?SEV_START("tester", TesterSeq, TesterInitState),
 
     ok = ?SEV_AWAIT_FINISH([Server, Client, Tester]).
-
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -27701,8 +27711,7 @@ traffic_send_and_recv_tcp(InitState) ->
                          local_sa := #{path := Path}}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, Path),
                            ok;
-                      (#{lsock    := LSock,
-                         tester   := Tester,
+                      (#{tester   := Tester,
                          lport    := Port}) ->
                            ?SEV_ANNOUNCE_READY(Tester, init, Port),
                            ok
