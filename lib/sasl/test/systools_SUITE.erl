@@ -1011,6 +1011,12 @@ additional_files_tar(Config) ->
     RandomFile = "somefile",
     ok = file:write_file(RandomFile,"hello\n"),
 
+    TopLevelDir = "some_dir",
+    TopLevelFile = filename:join(TopLevelDir, "top_level_file"),
+
+    filelib:ensure_dir(TopLevelFile),
+    ok = file:write_file(TopLevelFile, "hello there\n"),
+
     {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
     ok = systools:make_tar(LatestName, [{path, P}]),
     ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
@@ -1019,14 +1025,17 @@ additional_files_tar(Config) ->
     {error, _} = check_tar(fname(["releases","LATEST",RandomFile]), LatestName),
 
     RandomFilePathInTar = filename:join(["releases", "LATEST", RandomFile]),
+
     {ok, _, []} = systools:make_tar(LatestName,
                                     [{path, P}, silent,
-                                     {extra_files, [{RandomFile, RandomFilePathInTar}]}]),
+                                     {extra_files, [{RandomFile, RandomFilePathInTar},
+                                                    {TopLevelDir, TopLevelDir}]}]),
     ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
     ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
 
-    %% random file should be in this tarball
+    %% random file and dir should be in this tarball
     ok = check_tar(fname(["releases","LATEST",RandomFile]), LatestName),
+    ok = check_tar(fname([TopLevelFile]), LatestName),
 
     ok = file:set_cwd(OldDir),
 
