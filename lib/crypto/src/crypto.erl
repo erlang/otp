@@ -45,39 +45,162 @@
 -export([rand_seed/1]).
 
 %%%----------------------------------------------------------------
+%% Removed functions.
+%%
+-removed([{rand_bytes,1,"use crypto:strong_rand_bytes/1 instead"}]).
+
+-removed([{md4,1,"use crypto:hash/2 instead"}]).
+-removed([{md5,1,"use crypto:hash/2 instead"}]).
+-removed([{sha,1,"use crypto:hash/2 instead"}]).
+
+-removed([{md4_init,0,"use crypto:hash_init/1 instead"}]).
+-removed([{md5_init,0,"use crypto:hash_init/1 instead"}]).
+-removed([{sha_init,0,"use crypto:hash_init/1 instead"}]).
+
+-removed([{md4_update,2,"use crypto:hash_update/2 instead"}]).
+-removed([{md5_update,2,"use crypto:hash_update/2 instead"}]).
+-removed([{sha_update,2,"use crypto:hash_update/2 instead"}]).
+
+-removed([{md4_final,1,"use crypto:hash_final/1 instead"}]).
+-removed([{md5_final,1,"use crypto:hash_final/1 instead"}]).
+-removed([{sha_final,1,"use crypto:hash_final/1 instead"}]).
+
+-removed([{md5_mac,2,"use crypto:hmac/3 instead"}]).
+-removed([{md5_mac_96,2,"use crypto:hmac/4 instead"}]).
+
+-removed([{sha_mac,2,"use crypto:hmac/3 instead"}]).
+-removed([{sha_mac,3,"use crypto:hmac/4 instead"}]).
+-removed([{sha_mac_96,2,"use crypto:hmac/4 instead"}]).
+
+-removed([{rsa_sign,'_',"use crypto:sign/4 instead"}]).
+-removed([{rsa_verify,'_',"use crypto:verify/5 instead"}]).
+
+-removed([{dss_sign,'_',"use crypto:sign/4 instead"}]).
+-removed([{dss_verify,'_',"use crypto:verify/5 instead"}]).
+
+-removed([{mod_exp,3,"use crypto:mod_pow/3 instead"}]).
+
+-removed([{dh_compute_key,3,"use crypto:compute_key/4 instead"}]).
+-removed([{dh_generate_key,1,"use crypto:generate_key/2 instead"}]).
+-removed([{dh_generate_key,2,"use crypto:generate_key/3 instead"}]).
+
+%% DES
+
+-removed([{des_cfb_ivec,2,"use crypto:next_iv/3 instead"}]).
+-removed([{des_cbc_ivec,2,"use crypto:next_iv/2 instead"}]).
+
+-removed([{des_ecb_encrypt,2,"use crypto:block_encrypt/3 instead"}]).
+-removed([{des_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{des_ede3_cbc_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
+-removed([{des_cfb_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{des_ecb_decrypt,2,"use crypto:block_decrypt/3 instead"}]).
+-removed([{des_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{des_cfb_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+
+%% Triple-DES
+
+-removed([{des3_cbc_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
+-removed([{des3_cfb_encrypt,5,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{des3_cbc_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
+-removed([{des3_cfb_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
+-removed([{des3_ede3_cbc_decrypt,5,"use crypto:block_decrypt/4 instead"}]).
+
+%% Blowfish
+
+-removed([{blowfish_ecb_encrypt,2,"use crypto:block_encrypt/3 instead"}]).
+-removed([{blowfish_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{blowfish_cfb64_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{blowfish_ofb64_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{blowfish_ecb_decrypt,2,"use crypto:block_decrypt/3 instead"}]).
+-removed([{blowfish_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{blowfish_cfb64_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{blowfish_ofb64_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+
+%% AES
+
+-removed([{aes_cfb_128_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{aes_cbc_128_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{aes_cbc_256_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{aes_cfb_128_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{aes_cbc_128_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{aes_cbc_256_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+
+-removed([{aes_ctr_stream_init,2,"use crypto:stream_init/3 instead"}]).
+-removed([{aes_ctr_stream_encrypt,2,"use crypto:stream_encrypt/2 instead"}]).
+-removed([{aes_ctr_encrypt,3,"use crypto:stream_encrypt/2 instead"}]).
+-removed([{aes_ctr_stream_decrypt,2,"use crypto:stream_decrypt/2 instead"}]).
+-removed([{aes_ctr_decrypt,3,"use crypto:stream_decrypt/2 instead"}]).
+
+-removed([{aes_cbc_ivec,2,"use crypto:next_iv/2 instead"}]).
+
+%% RC2
+
+-removed([{rc2_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+-removed([{rc2_40_cbc_encrypt,3,"use crypto:block_encrypt/4 instead"}]).
+
+-removed([{rc2_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+-removed([{rc2_40_cbc_decrypt,3,"use crypto:block_decrypt/4 instead"}]).
+
+%% RC4
+
+-removed([{rc4_set_key,2,"use crypto:stream_init/2 instead"}]).
+-removed([{rc4_encrypt,2,"use crypto:stream_encrypt/2 instead"}]).
+-removed([{rc4_encrypt_with_state,2,"use crypto:stream_encrypt/2 instead"}]).
+
+%% Other
+
+-removed([{info,0,"use crypto:module_info/0 instead"}]).
+
+-removed([{strong_rand_mpint,3,"only needed by other removed functions"}]).
+-removed([{erlint,1,"only needed by other removed functions"}]).
+-removed([{mpint,1,"only needed by other removed functions"}]).
+
+%%%----------------------------------------------------------------
 %% Old interface. Now implemented with the New interface
 
--deprecated([{next_iv, 2, next_major_release},
-             {next_iv, 3, next_major_release}
-           ]).
+-deprecated([{next_iv, '_',
+              "see the 'New and Old API' chapter of the CRYPTO User's guide"}]).
 -export([next_iv/2, next_iv/3]).
 
--deprecated([{hmac, 3, next_major_release},
-             {hmac, 4, next_major_release},
-             {hmac_init, 2, next_major_release},
-             {hmac_update, 2, next_major_release},
-             {hmac_final, 1, next_major_release},
-             {hmac_final_n, 2, next_major_release}
-            ]).
+-deprecated([{hmac, 3, "use crypto:mac/4 instead"},
+             {hmac, 4, "use crypto:macN/5 instead"},
+             {hmac_init, 2, "use crypto:mac_init/3 instead"},
+             {hmac_update, 2, "use crypto:mac_update/2 instead"},
+             {hmac_final, 1, "use crypto:mac_final/1 instead"},
+             {hmac_final_n, 2, "use crypto:mac_finalN/2 instead"}]).
+
 -export([hmac/3, hmac/4, hmac_init/2, hmac_update/2, hmac_final/1, hmac_final_n/2]).
 
--deprecated([{cmac, 3, next_major_release},
-             {cmac, 4, next_major_release}
-            ]).
+-deprecated([{cmac, 3, "use crypto:mac/4 instead"},
+             {cmac, 4, "use crypto:macN/5 instead"}]).
 -export([cmac/3, cmac/4]).
 
--deprecated([{poly1305, 2, next_major_release}
-            ]).
+-deprecated([{poly1305, 2, "use crypto:mac/3 instead"}]).
 -export([poly1305/2]).
 
--deprecated([{stream_init, 2, next_major_release},
-             {stream_init, 3, next_major_release},
-             {stream_encrypt, 2, next_major_release},
-             {stream_decrypt, 2, next_major_release},
-             {block_encrypt, 3, next_major_release},
-             {block_encrypt, 4, next_major_release},
-             {block_decrypt, 3, next_major_release},
-             {block_decrypt, 4, next_major_release}
+-deprecated([{stream_init, '_',
+              "use crypto:crypto_init/3 + crypto:crypto_update/2 + "
+              "crypto:crypto_final/1 or crypto:crypto_one_time/4 instead"},
+             {stream_encrypt, 2, "use crypto:crypto_update/2 instead"},
+             {stream_decrypt, 2, "use crypto:crypto_update/2 instead"},
+             {block_encrypt, 3,
+              "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
+              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
+             {block_encrypt, 4, 
+              "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+              "or crypto:crypto_(dyn_iv)?_init + "
+              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"},
+             {block_decrypt, 3,
+              "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + "
+              "crypto:crypto_update/2 + crypto:crypto_final/1 instead"},
+             {block_decrypt, 4,
+              "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 "
+              "or crypto:crypto_(dyn_iv)?_init + "
+              "crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"}
             ]).
 -export([stream_init/2, stream_init/3,
          stream_encrypt/2,
@@ -157,7 +280,7 @@
 	 get_test_engine/0]).
 -export([rand_plugin_aes_jump_2pow20/1]).
 
--deprecated({rand_uniform, 2, next_major_release}).
+-deprecated({rand_uniform, 2, "use rand:rand_uniform/1 instead"}).
 
 %% This should correspond to the similar macro in crypto.c
 -define(MAX_BYTES_TO_NIF, 20000). %%  Current value is: erlang:system_info(context_reductions) * 10

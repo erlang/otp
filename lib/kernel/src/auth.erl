@@ -24,7 +24,11 @@
 
 %% Old documented interface - deprecated
 -export([is_auth/1, cookie/0, cookie/1, node_cookie/1, node_cookie/2]).
--deprecated([{is_auth,1}, {cookie,'_'}, {node_cookie, '_'}]).
+-deprecated([{is_auth,1,"use net_adm:ping/1 instead"},
+             {cookie,0,"use erlang:get_cookie/0 instead"},
+             {cookie,1,"use erlang:set_cookie/2 instead"},
+             {node_cookie, '_',
+              "use erlang:set_cookie/2 and net_adm:ping/1 instead"}]).
 
 %% New interface - meant for internal use within kernel only
 -export([get_cookie/0, get_cookie/1,

@@ -33,6 +33,10 @@
 
 -import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
 
+%% Removed functions
+
+-removed([{modify_line,2,"use erl_parse:map_anno/2 instead"}]).
+
 %% bool_option(OnOpt, OffOpt, Default, Options) -> boolean().
 %% value_option(Flag, Default, Options) -> Value.
 %% value_option(Flag, Default, OnOpt, OnVal, OffOpt, OffVal, Options) ->

@@ -37,7 +37,7 @@
 
 %% Mis-spelled, deprecated.
 -export([lait/1]).
--deprecated([lait/1]).
+-deprecated([{lait,1,"use queue:liat/1 instead"}]).
 
 %%--------------------------------------------------------------------------
 %% Efficient implementation of double ended fifo queues

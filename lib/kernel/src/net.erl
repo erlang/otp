@@ -69,12 +69,12 @@
              ]).
 
 
--deprecated({call,      4, eventually}).
--deprecated({cast,      4, eventually}).
--deprecated({broadcast, 3, eventually}).
--deprecated({ping,      1, eventually}).
--deprecated({relay,     1, eventually}).
--deprecated({sleep,     1, eventually}).
+-deprecated({call,      4, "use rpc:call/4 instead"}).
+-deprecated({cast,      4, "use rpc:cast/4 instead"}).
+-deprecated({broadcast, 3, "use rpc:eval_everywhere/3 instead"}).
+-deprecated({ping,      1, "use net_adm:ping/1 instead"}).
+-deprecated({relay,     1, "use slave:relay/1 instead"}).
+-deprecated({sleep,     1, "use 'receive after T -> ok end' instead"}).
 
 
 -type ifaddrs_flag() :: up | broadcast | debug | loopback | pointopoint |

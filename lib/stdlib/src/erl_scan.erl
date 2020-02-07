@@ -66,6 +66,17 @@
               token/0,
               tokens_result/0]).
 
+%% Removed functions and types
+-removed([{set_attribute,3,"use erl_anno:set_line/2 instead"},
+          {attributes_info,'_',
+           "erl_anno:{column,line,location,text}/1 instead"},
+          {token_info,'_',
+           "erl_scan:{category,column,line,location,symbol,text}/1 instead"}]).
+
+-removed_type([{column,0,"use erl_anno:column() instead"},
+               {line,0,"use erl_anno:line() instead"},
+               {location,0,"use erl_anno:location() instead"}]).
+
 %%%
 %%% Defines and type definitions
 %%%

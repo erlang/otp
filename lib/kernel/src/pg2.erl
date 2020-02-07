@@ -25,11 +25,9 @@
 -export([start/0,start_link/0,init/1,handle_call/3,handle_cast/2,handle_info/2,
          terminate/2]).
 
--deprecated([create/1, delete/1, join/2, leave/2]).
--deprecated([get_members/1, get_local_members/1]).
--deprecated([get_closest_pid/1, which_groups/0]).
--deprecated([start/0,start_link/0,init/1,handle_call/3,handle_cast/2,handle_info/2,
-             terminate/2]).
+-deprecated([{'_','_',
+             "the 'pg2' module is deprecated and scheduled for removal "
+             "in OTP 24; use 'pg' instead."}]).
 
 %%% As of R13B03 monitors are used instead of links.
 

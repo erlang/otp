@@ -77,7 +77,7 @@
          modified_modules/0,
          get_mode/0]).
 
--deprecated({rehash,0,next_major_release}).
+-deprecated({rehash,0,"the code path cache feature has been removed"}).
 
 -export_type([load_error_rsn/0, load_ret/0]).
 -export_type([prepared_code/0]).

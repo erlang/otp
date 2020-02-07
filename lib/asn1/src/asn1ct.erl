@@ -76,6 +76,11 @@
 -define(ALTERNATIVE_UNDECODED,alt_undec).
 -define(ALTERNATIVE_PARTS,alt_parts).
 
+%% Removed functions
+
+-removed({decode,'_',"use Mod:decode/2 instead"}).
+-removed({encode,'_',"use Mod:encode/2 instead"}).
+
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% This is the interface to the compiler
 

@@ -61,6 +61,11 @@
 
 -export_type([key/0]).
 
+%% Removed functions
+
+-removed([{safe_multi_server_call,2,"use rpc:multi_server_call/2 instead"},
+          {safe_multi_server_call,3,"use rpc:multi_server_call/3 instead"}]).
+
 %%------------------------------------------------------------------------
 
 -type state() :: map().

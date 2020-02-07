@@ -123,7 +123,7 @@
 	      mib_storage_options/0
              ]).
 
--deprecated([{old_info_format, 1, next_major_release}]).
+-deprecated([{old_info_format, 1, "use \"new\" format instead"}]).
 
 
 -include("snmpa_atl.hrl").

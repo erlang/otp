@@ -99,9 +99,12 @@
          suite_to_openssl_str/1,
          str_to_suite/1]).
 
--deprecated({ssl_accept, 1, eventually}).
--deprecated({ssl_accept, 2, eventually}).
--deprecated({ssl_accept, 3, eventually}).
+-deprecated({ssl_accept, '_', "use ssl_handshake/1,2,3 instead"}).
+
+-removed([{negotiated_next_protocol,1,
+          "use ssl:negotiated_protocol/1 instead"}]).
+-removed([{connection_info,1,
+          "use ssl:connection_information/[1,2] instead"}]).
 
 -export_type([socket/0,
               sslsocket/0,

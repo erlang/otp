@@ -31,7 +31,10 @@
 	 install/2, install/3, remove/2, remove/3]).
 -export([handle_system_msg/6, handle_system_msg/7, handle_debug/4,
 	 print_log/1, get_log/1, get_debug/3, debug_options/1, suspend_loop_hib/6]).
--deprecated([{get_debug,3,eventually}]).
+
+-deprecated([{get_debug,3,
+              "incorrectly documented and only for internal use. Can often "
+              "be replaced with sys:get_log/1"}]).
 
 %%-----------------------------------------------------------------
 %% Types

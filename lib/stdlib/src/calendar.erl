@@ -54,7 +54,8 @@
 	 valid_date/1,
 	 valid_date/3]).
 
--deprecated([{local_time_to_universal_time,1}]).
+-deprecated([{local_time_to_universal_time,1,
+              "use calendar:local_time_to_universal_time_dst/1 instead"}]).
 
 -define(SECONDS_PER_MINUTE, 60).
 -define(SECONDS_PER_HOUR, 3600).
