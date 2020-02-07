@@ -66,7 +66,7 @@ endif # gcov
 ZLIB_CFLAGS := $(filter-out -Werror=undef,$(ZLIB_CFLAGS))
 
 # ASLR - Address Space Layout Randomization
-ifneq ($(BUILDNCS), true)
+ifeq ($(DISABLE_ASLR),no)
 ZLIB_CFLAGS  += -fPIC
 endif
 
