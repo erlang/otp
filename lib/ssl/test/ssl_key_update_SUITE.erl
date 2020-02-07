@@ -32,7 +32,8 @@ groups() ->
 tls_1_3_tests() ->
     [ssl_client_ssl_server_key_update_at,
      ssl_client_ssl_server_explicit_key_update,
-     openssl_client_ssl_server_explicit_key_update].
+     openssl_client_ssl_server_explicit_key_update,
+     ssl_client_openssl_server_explicit_key_update].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -41,7 +42,7 @@ init_per_suite(Config0) ->
             ssl_test_lib:clean_start(),
             case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
                 true ->
-                    ssl_test_lib:init_ecdsa_certs(Config0);
+                    ssl_test_lib:make_ecdsa_cert(Config0);
                 false ->
                     {skip, "Missing EC crypto support"}
             end
@@ -125,7 +126,7 @@ ssl_client_ssl_server_explicit_key_update(Config) ->
     Server = ssl_test_lib:start_server(erlang, [{log_level, debug}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    Client = ssl_test_lib:start_client(erlang, [{port, Port}], Config),
+    Client = ssl_test_lib:start_client(erlang, [{port, Port}, {log_level, debug}], Config),
     ssl_test_lib:send_recv_result_active(Client, Server, Data),
 
     ssl_test_lib:update_keys(Client, write),
@@ -157,6 +158,31 @@ openssl_client_ssl_server_explicit_key_update(Config) ->
     %% ssl_test_lib:update_keys(Client, read_write),
     ssl_test_lib:update_keys(Server, write),
     ssl_test_lib:update_keys(Server, read_write),
+
+    ssl_test_lib:send_recv_result_active(Client, Server, Data),
+
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Server).
+
+ssl_client_openssl_server_explicit_key_update() ->
+    [{doc,"Test ssl:update_key/2 between ssl client and s_server."}].
+
+ssl_client_openssl_server_explicit_key_update(Config) ->
+    Data = "123456789012345",  %% 15 bytes
+
+    Server = ssl_test_lib:start_server(openssl, [], Config),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client(erlang, [{port, Port},
+                                                {log_level, debug},
+                                                {versions, ['tlsv1.2','tlsv1.3']}],Config),
+    ssl_test_lib:send_recv_result_active(Server, Client, Data),
+
+    %% TODO s_client can hang after sending special commands e.g "k", "K"
+    %% ssl_test_lib:update_keys(Client, write),
+    %% ssl_test_lib:update_keys(Client, read_write),
+    %% ssl_test_lib:update_keys(Server, write),
+    %% ssl_test_lib:update_keys(Server, read_write),
 
     ssl_test_lib:send_recv_result_active(Client, Server, Data),
 

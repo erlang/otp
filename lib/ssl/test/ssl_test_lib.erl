@@ -44,8 +44,8 @@ start_client(Type, _Args, _Config) ->
 
 start_server(erlang, Options, Config) ->
     start_server(Options, Config);
-%% start_server(openssl, Options, Config) ->
-%%     start_openssl_server(Options, Config);
+start_server(openssl, Options, Config) ->
+    start_openssl_server(Options, Config);
 start_server(Type, _Args, _Config) ->
     {error, unsupported_server_type, Type}.
 
@@ -69,11 +69,11 @@ init_ecdsa_certs(Config) ->
 
 %% Options
 get_server_opts(Config) ->
-    #{server_config := SOpts} = proplists:get_value(tls_config, Config),
+    SOpts = proplists:get_value(server_ecdsa_opts, Config),
     ssl_test_lib:ssl_options(SOpts, Config).
 
 get_client_opts(Config) ->
-    #{client_config := COpts} = proplists:get_value(tls_config, Config),
+    COpts = proplists:get_value(client_ecdsa_opts, Config),
     ssl_test_lib:ssl_options(COpts, Config).
 
 
@@ -439,6 +439,103 @@ remove_close_msg(ReconnectTimes) ->
     end.
 
 
+start_openssl_server(Args0, Config) ->
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    ServerOpts = ssl_test_lib:get_server_opts(Config),
+    Node = proplists:get_value(node, Args0, ServerNode),
+    Port = proplists:get_value(port, Args0, 0),
+    Args = [{from, self()}, {port, Port}] ++ ServerOpts ++ Args0,
+    Result = spawn_link(Node, ?MODULE, init_openssl_server, [lists:delete(return_socket, Args)]),
+    receive
+	{started, Socket} ->
+	    case lists:member(return_socket, Args) of
+		true -> {Result, Socket};
+		false -> Result
+	    end;
+	{start_failed, Reason} ->
+	    {start_failed, Reason}
+    end.
+
+init_openssl_server(Options) ->
+    {ok, Version} = application:get_env(ssl,protocol_version),
+    %% Port = proplists:get_value(port, Options),
+    Port = inet_port(node()),
+    Pid = proplists:get_value(from, Options),
+
+    Exe = "openssl",
+    Ciphers = proplists:get_value(ciphers, Options, ssl:cipher_suites(default,Version)),
+    Groups0 = proplists:get_value(groups, Options),
+    CertArgs = openssl_cert_options(Options, server),
+    Exe = "openssl",
+
+    Args =  case Groups0 of
+                undefined ->
+                    ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
+                     ciphers(Ciphers, Version),
+                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"];
+                Group ->
+                       ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
+                        ciphers(Ciphers, Version), "-groups", Group,
+                        ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
+            end,
+    SslPort = ssl_test_lib:portable_open_port(Exe, Args),
+    Pid ! {started, Port},
+    Pid ! {self(), {port, Port}},
+    case openssl_server_started(SslPort) of
+        true ->
+            openssl_server_loop(Pid, SslPort, Args);
+        false ->
+            {error, openssl_server}
+    end.
+
+openssl_server_started(_Port) ->
+    receive
+        {Port, {data, Data}} ->
+            ct:log("~p:~p~n Openssl~n ~s~n",[?MODULE,?LINE, Data]),
+            verify_openssl_server_started(Port, Data)
+    after
+        5000 ->
+            false
+    end.
+
+openssl_server_loop(Pid, SslPort, Args) ->
+    receive
+        {data, Data} ->
+            case port_command(SslPort, Data, [nosuspend]) of
+                true ->
+                    ct:log("[openssl server] Send data: ~p~n", [Data]),
+                    Pid ! {self(), ok};
+                _Else ->
+                    ct:log("[openssl server] Send failed, data: ~p~n", [Data]),
+                    Pid ! {self(), {error, port_command_failed}}
+            end,
+            openssl_server_loop(Pid, SslPort, Args);
+        {active_receive, Data} ->
+            case active_recv(SslPort, length(Data)) of
+                ReceivedData ->
+                    Pid ! {self(), ReceivedData}
+            end,
+            openssl_server_loop(Pid, SslPort, Args);
+        {update_keys, Type} ->
+            case Type of
+                write ->
+                    ct:log("[openssl server] Update keys: ~p", [Type]),
+                    true = port_command(SslPort, "k", [nosuspend]),
+                    Pid ! {self(), ok};
+                read_write ->
+                    ct:log("[openssl server] Update keys: ~p", [Type]),
+                    true = port_command(SslPort, "K", [nosuspend]),
+                    Pid ! {self(), ok}
+            end,
+            openssl_server_loop(Pid, SslPort, Args);
+        close ->
+            ct:log("~p:~p~n[openssl server] Server closing~n", [?MODULE,?LINE]),
+            port_close(SslPort);
+        {ssl_closed, _Socket} ->
+            %% TODO
+            ok
+    end.
+
 start_openssl_client(Args0, Config) ->
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     ClientOpts = ssl_test_lib:get_client_opts(Config),
@@ -484,20 +581,28 @@ init_openssl_client(Options) ->
         true ->
             openssl_client_loop(Pid, SslPort, Args);
         false ->
-            {error, openssl_s_client}
+            {error, openssl_client}
     end.
 
 openssl_client_started(Port) ->
     receive
         {Port, {data, Data}} ->
             ct:log("~p:~p~n Openssl~n ~s~n",[?MODULE,?LINE, Data]),
-            verify_openssl_started(Port, Data)
+            verify_openssl_client_started(Port, Data)
     after
-        500 ->
+        5000 ->
             false
     end.
 
-verify_openssl_started(Port, Data) ->
+verify_openssl_server_started(Port, Data) ->
+    case re:run(Data, ".*CIPHER is.*") of
+        nomatch ->
+            openssl_server_started(Port);
+        {match, _} ->
+            true
+    end.
+
+verify_openssl_client_started(Port, Data) ->
     case re:run(Data, ".*New, TLSv\\d[.]\\d, Cipher is.*") of
         nomatch ->
             openssl_client_started(Port);
@@ -2313,7 +2418,7 @@ active_recv(Socket, N, Acc) ->
 
 filter_openssl_debug_data(Bytes) ->
     re:replace(Bytes,
-               "(read.*\n|write to.*\n|\\d{4,4} -.*\n|>>> .*\n|<<< .*\n|    \\d\\d.*\n|KEYUPDATE\n)*",
+               "(read.*\n|write to.*\n|[\\dabcdefABCDEF]{4,4} -.*\n|>>> .*\n|<<< .*\n|    \\d\\d.*\n|KEYUPDATE\n)*",
                "", [{return, list}]).
 
 active_once_recv(_Socket, 0) ->
