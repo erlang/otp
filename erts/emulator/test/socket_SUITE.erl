@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2018-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,6 +94,13 @@
          api_b_sendmsg_and_recvmsg_tcp4/1,
          api_b_sendmsg_and_recvmsg_tcpL/1,
          api_b_sendmsg_and_recvmsg_sctp4/1,
+
+         %% *** API socket from FD ***
+         api_ffd_open_and_info_udp4/1,
+         api_ffd_open_and_info_udp6/1,
+         api_ffd_open_and_info_tcp4/1,
+         api_ffd_open_and_info_tcp6/1,
+
 
          %% *** API async ***
          api_a_connect_tcp4/1,
@@ -682,6 +689,7 @@ groups() ->
     [{api,                         [], api_cases()},
      {api_misc,                    [], api_misc_cases()},
      {api_basic,                   [], api_basic_cases()},
+     {api_from_fd,                 [], api_from_fd_cases()},
      {api_async,                   [], api_async_cases()},
      {api_options,                 [], api_options_cases()},
      {api_options_otp,             [], api_options_otp_cases()},
@@ -811,6 +819,14 @@ api_basic_cases() ->
      api_b_sendmsg_and_recvmsg_tcp4,
      api_b_sendmsg_and_recvmsg_tcpL,
      api_b_sendmsg_and_recvmsg_sctp4
+    ].
+
+api_from_fd_cases() ->
+    [
+     api_ffd_open_and_info_udp4,
+     api_ffd_open_and_info_udp6,
+     api_ffd_open_and_info_tcp4,
+     api_ffd_open_and_info_tcp6
     ].
 
 api_async_cases() ->
@@ -4235,6 +4251,248 @@ api_b_send_and_recv_sctp(_InitState) ->
 
     ok.
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                           API FROM FD                               %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) a socket from an already existing 
+%% file descriptor (FD) and info of an IPv4 UDP (dgram) socket.
+%% With some extra checks...
+api_ffd_open_and_info_udp4(suite) ->
+    [];
+api_ffd_open_and_info_udp4(doc) ->
+    [];
+api_ffd_open_and_info_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_ffd_open_and_info_udp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = api_ffd_open_and_info(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) a socket from an already existing 
+%% file descriptor (FD) and info of an IPv6 UDP (dgram) socket.
+%% With some extra checks...
+api_ffd_open_and_info_udp6(suite) ->
+    [];
+api_ffd_open_and_info_udp6(doc) ->
+    [];
+api_ffd_open_and_info_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_ffd_open_and_info_udp6,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 type     => dgram,
+                                 protocol => udp},
+                   ok = api_ffd_open_and_info(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) a socket from an already existing 
+%% file descriptor (FD) and info of an IPv4 TCP (stream) socket.
+%% With some extra checks...
+api_ffd_open_and_info_tcp4(suite) ->
+    [];
+api_ffd_open_and_info_tcp4(doc) ->
+    [];
+api_ffd_open_and_info_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_ffd_open_and_info_tcp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = api_ffd_open_and_info(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) a socket from an already existing 
+%% file descriptor (FD) and info of an IPv6 TCP (stream) socket.
+%% With some extra checks...
+api_ffd_open_and_info_tcp6(suite) ->
+    [];
+api_ffd_open_and_info_tcp6(doc) ->
+    [];
+api_ffd_open_and_info_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_ffd_open_and_info_tcp6,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp},
+                   ok = api_ffd_open_and_info(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+api_ffd_open_and_info(InitState) ->
+    Seq = 
+        [
+         #{desc => "open",
+           cmd  => fun(#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol} = State) -> 
+                           case socket:open(Domain, Type, Protocol) of
+                               {ok, Sock1} ->
+                                   {ok, State#{sock1 => Sock1}};
+                               {error, _} = ERROR ->
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get socket (1) FD",
+           cmd  => fun(#{sock1 := Sock1} = State) ->
+                           case socket:getopt(Sock1, otp, fd) of
+                               {ok, FD} ->
+                                   ?SEV_IPRINT("FD: ~w", [FD]),
+                                   {ok, State#{fd => FD}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("failed get FD: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "check if we need to provide protocol or not",
+           cmd  => fun(#{sock1 := Sock1} = State) ->
+                           case socket:getopt(Sock1, socket, protocol) of
+                               {ok, _} ->
+                                   ?SEV_IPRINT("protocol accessible"),
+                                   {ok, State#{provide_protocol => false}};
+                               {error, Reason} ->
+                                   ?SEV_IPRINT("failed get protocol: "
+                                               "~n   ~p", [Reason]),
+                                   {ok, State#{provide_protocol => true}}
+                           end
+                   end},
+         #{desc => "open with FD",
+           cmd  => fun(#{fd               := FD,
+                         provide_protocol := true,
+                         protocol         := Protocol} = State) -> 
+                           case socket:open(FD, #{protocol => Protocol}) of
+                               {ok, Sock2} ->
+                                   ?SEV_IPRINT("socket 2 open"),
+                                   {ok, State#{sock2 => Sock2}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("failed open socket with FD (~w): "
+                                               "~n   ~p", [FD, Reason]),
+                                   ERROR
+                           end;
+                      (#{fd               := FD,
+                         provide_protocol := false} = State) -> 
+                           case socket:open(FD) of
+                               {ok, Sock2} ->
+                                   ?SEV_IPRINT("socket 2 open"),
+                                   {ok, State#{sock2 => Sock2}};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("failed open socket with FD (~w): "
+                                               "~n   ~p", [FD, Reason]),
+                                   ERROR
+                           end
+                   end},
+         #{desc => "get socket (1) info",
+           cmd  => fun(#{sock1 := Sock} = State) ->
+                           Info = socket:info(Sock),
+                           ?SEV_IPRINT("Got Info: "
+                                       "~n   ~p", [Info]),
+                           {ok, State#{info1 => Info}}
+                   end},
+         #{desc => "get socket (2) info",
+           cmd  => fun(#{sock2 := Sock} = State) ->
+                           Info = socket:info(Sock),
+                           ?SEV_IPRINT("Got Info: "
+                                       "~n   ~p", [Info]),
+                           {ok, State#{info2 => Info}}
+                   end},
+         #{desc => "validate socket (1) info",
+           cmd  => fun(#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol,
+                         info1    := #{domain        := Domain,
+                                       type          := Type,
+                                       protocol      := Protocol,
+                                       counters      := _,
+                                       num_readers   := 0,
+                                       num_writers   := 0,
+                                       num_acceptors := 0}}) ->
+                           ok;
+                      (#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol,
+                         info     := Info}) ->
+                           ?SEV_EPRINT("Unexpected Info for socket 1: "
+                                       "~n   (expected) Domain:   ~p"
+                                       "~n   (expected) Type:     ~p"
+                                       "~n   (expected) Protocol: ~p"
+                                       "~n   ~p",
+                                       [Domain, Type, Protocol, Info]),
+                           {error, unexpected_infio}
+                   end},
+         #{desc => "validate socket (2) info",
+           cmd  => fun(#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol,
+                         info2    := #{domain        := Domain,
+                                       type          := Type,
+                                       protocol      := Protocol,
+                                       counters      := _,
+                                       num_readers   := 0,
+                                       num_writers   := 0,
+                                       num_acceptors := 0}}) ->
+                           ok;
+                      (#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol,
+                         info     := Info}) ->
+                           ?SEV_EPRINT("Unexpected Info for socket 2: "
+                                       "~n   (expected) Domain:   ~p"
+                                       "~n   (expected) Type:     ~p"
+                                       "~n   (expected) Protocol: ~p"
+                                       "~n   ~p",
+                                       [Domain, Type, Protocol, Info]),
+                           {error, unexpected_infio}
+                   end},
+         #{desc => "close socket (1)",
+           cmd  => fun(#{sock1 := Sock} = _State) ->
+                           socket:close(Sock)
+                   end},
+         #{desc => "close socket (2)",
+           cmd  => fun(#{sock2 := Sock} = _State) ->
+                           socket:close(Sock)
+                   end},
+
+         %% *** We are done ***
+         ?SEV_FINISH_NORMAL
+        ],
+    Evaluator = ?SEV_START("tester", Seq, InitState),
+    ok = ?SEV_AWAIT_FINISH([Evaluator]).
+
+
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%                                                                     %%
+%%                           API ASYNC                                 %%
+%%                                                                     %%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
