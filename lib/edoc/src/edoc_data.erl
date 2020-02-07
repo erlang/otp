@@ -328,8 +328,6 @@ get_deprecated(Ts, F, A, Env) ->
 	    case otp_internal:obsolete(M, F, A) of
 		{Tag, Text} when Tag =:= deprecated; Tag =:= removed ->
 		    deprecated([Text]);
-		{Tag, Repl, _Rel} when Tag =:= deprecated; Tag =:= removed ->
-		    deprecated(Repl, Env);
 		_ ->
 		    []
 	    end;
@@ -337,23 +335,8 @@ get_deprecated(Ts, F, A, Env) ->
 	    Es
     end.
 
-deprecated(Repl, Env) ->
-    {Text, Ref} = replacement_function(Env#env.module, Repl),
-    Desc = ["Use ", {a, href(Ref, Env), [{code, [Text]}]}, " instead."],
-    deprecated(Desc).
-
 deprecated(Desc) ->
     [{deprecated, description(Desc)}].
-
--dialyzer({no_match, replacement_function/2}).
-
-replacement_function(M0, {M,F,A}) when is_list(A) ->
-    %% refer to the largest listed arity - the most general version
-    replacement_function(M0, {M,F,lists:last(lists:sort(A))});
-replacement_function(M, {M,F,A}) ->
-    {io_lib:fwrite("~w/~w", [F, A]), edoc_refs:function(F, A)};
-replacement_function(_, {M,F,A}) ->
-    {io_lib:fwrite("~w:~w/~w", [M, F, A]), edoc_refs:function(M, F, A)}.
 
 get_expr_ref(Expr) ->
     case catch {ok, erl_syntax_lib:analyze_application(Expr)} of

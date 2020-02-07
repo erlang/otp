@@ -79,6 +79,7 @@ usage ()
 	git)
 	    echo "update_primary [--no-commit] - build and maybe commit a new primary bootstrap"
 	    echo "update_preloaded [--no-commit] - build and maybe commit the preloaded modules"
+	    echo "update_deprecations [--no-commit] - build and maybe commit deprecations"
 	    ;;
     esac
 }
@@ -865,6 +866,35 @@ get_do_commit ()
     fi
 }
   
+do_deprecations_git ()
+{
+    get_do_commit $1
+    setup_make
+
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        deprecations || exit 1;
+
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+        primary_bootstrap || exit 1;
+
+    if [ $do_commit = true ]; then
+        git add -A bootstrap/lib/stdlib/ebin/otp_internal.beam
+        git add -A lib/stdlib/src/otp_internal.erl
+        git commit --no-verify -m 'Update deprecations'
+        echo ""
+        echo "Deprecations updated and committed."
+        echo ""
+    else
+        echo ""
+        echo "Deprecations updated. Use the following commands to stage "
+        echo "changed files:"
+        echo ""
+        echo "$ git add bootstrap/lib/stdlib/ebin/otp_internal.beam"
+        echo "$ git add lib/stdlib/src/otp_internal.erl"
+        echo ""
+    fi
+}
+  
 do_primary_git ()
 {
     get_do_commit $1
@@ -1179,6 +1209,11 @@ case "$1" in
 		fi;
 		FLAVOR=$1
 		do_boot;;
+	update_deprecations)
+		case $version_controller in
+		    git) do_deprecations_git "$2";;
+		    none) git_required ;;
+		esac ;;
 	update_primary)
 		case $version_controller in
 		    git) do_primary_git "$2";;
