@@ -292,8 +292,9 @@ X:4/little-signed-integer-unit:8</code>
     <p>When matching <c>Value</c>, value must be either a variable or
       an integer, or a floating point literal. Expressions are not
       allowed.</p>
-    <p><c>Size</c> must be an integer literal, or a previously bound
-      variable. The following is not allowed:</p>
+      <p><c>Size</c> must be a
+      <seealso marker="doc/reference_manual:expressions#guard_expressions">guard expression</seealso>, which can use literals and previously bound variables.
+      The following is not allowed:</p>
     <code type="none"><![CDATA[
 foo(N, <<X:N,T/binary>>) ->
    {X,T}.]]></code>
@@ -304,6 +305,33 @@ foo(N, <<X:N,T/binary>>) ->
 foo(N, Bin) ->
    <<X:N,T/binary>> = Bin,
    {X,T}.]]></code>
+    <note><p>Before OTP 23, <c>Size</c> was restricted to be an
+    integer or a variable bound to an integer.</p></note>
+
+    <section>
+      <title>Binding and Using a Size Variable</title>
+      <p>There is one exception to the rule that a variable that is
+      as size must be previously bound. It is possible to match and
+      bind a variable, and use it as a size within the the same
+      binary pattern. For example:</p>
+
+    <code type="none"><![CDATA[
+bar(<<Sz:8,Payload:Sz/binary-unit:8,Rest/binary>>) ->
+   {Payload,Rest}.]]></code>
+
+    <p>Here <c>Sz</c> is bound to the value in the first byte of
+    the binary. <c>Sz</c> is then used at the number of bytes
+    to match out as a binary.</p>
+
+    <p>Starting in OTP 23, the size can be a guard expression:</p>
+    <code type="none"><![CDATA[
+bar(<<Sz:8,Payload:((Sz-1)*8)/binary,Rest/binary>>) ->
+   {Payload,Rest}.]]></code>
+
+    <p>Here <c>Sz</c> is the combined size of the header and the
+    payload, so we will need to subtract one byte to get the size
+    of the payload.</p>
+    </section>
 
     <section>
       <title>Getting the Rest of the Binary or Bitstring</title>

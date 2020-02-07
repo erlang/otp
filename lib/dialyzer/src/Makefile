@@ -53,6 +53,7 @@ MODULES =  \
 	dialyzer_callgraph \
 	dialyzer_cl \
 	dialyzer_cl_parse \
+	dialyzer_clean_core \
 	dialyzer_codeserver \
 	dialyzer_contracts \
 	dialyzer_dataflow \

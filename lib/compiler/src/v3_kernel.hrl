@@ -52,12 +52,12 @@
 -record(k_test, {anno=[],op,args}).
 -record(k_call, {anno=[],op,args,ret=[]}).
 -record(k_enter, {anno=[],op,args}).
--record(k_receive, {anno=[],var,body,timeout,action,ret=[]}).
--record(k_receive_accept, {anno=[]}).
--record(k_receive_next, {anno=[]}).
 -record(k_try, {anno=[],arg,vars,body,evars,handler,ret=[]}).
 -record(k_try_enter, {anno=[],arg,vars,body,evars,handler}).
 -record(k_catch, {anno=[],body,ret=[]}).
+
+-record(k_letrec_goto, {anno=[],label,first,then,ret=[]}).
+-record(k_goto, {anno=[],label}).
 
 -record(k_match, {anno=[],body,ret=[]}).
 -record(k_alt, {anno=[],first,then}).

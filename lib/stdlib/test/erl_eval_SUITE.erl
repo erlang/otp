@@ -49,7 +49,8 @@
          eep37/1,
          eep43/1,
          otp_15035/1,
-         otp_16439/1]).
+         otp_16439/1,
+         otp_14708/1]).
 
 %%
 %% Define to run outside of test server
@@ -89,7 +90,7 @@ all() ->
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, try_catch, eval_expr_5, zero_width,
-     eep37, eep43, otp_15035, otp_16439].
+     eep37, eep43, otp_15035, otp_16439, otp_14708].
 
 groups() -> 
     [].
@@ -1675,6 +1676,53 @@ otp_16439(Config) when is_list(Config) ->
 
     {ok,Ts,_} = erl_scan:string("- #{}. "),
     {ok,[{op,1,'-',{map,1,[]}}]} = erl_parse:parse_exprs(Ts),
+
+    ok.
+
+%% Test guard expressions in keys for maps and in sizes in binary matching.
+
+otp_14708(Config) when is_list(Config) ->
+    check(fun() -> X = 42, #{{tag,X} := V} = #{{tag,X} => a}, V end,
+          "begin X = 42, #{{tag,X} := V} = #{{tag,X} => a}, V end.",
+          a),
+    check(fun() ->
+                  T = {x,y,z},
+                  Map = #{x => 99, y => 100},
+                  #{element(1, T) := V1, element(2, T) := V2} = Map,
+                  {V1, V2}
+          end,
+          "begin
+                  T = {x,y,z},
+                  Map = #{x => 99, y => 100},
+                  #{element(1, T) := V1, element(2, T) := V2} = Map,
+                  {V1, V2}
+          end.",
+          {99, 100}),
+    error_check("#{term_to_binary(42) := _} = #{}.", illegal_guard_expr),
+
+    check(fun() ->
+                  <<Sz:16,Body:(Sz-1)/binary>> = <<4:16,1,2,3>>,
+                  Body
+          end,
+          "begin
+              <<Sz:16,Body:(Sz-1)/binary>> = <<4:16,1,2,3>>,
+             Body
+          end.",
+          <<1,2,3>>),
+    check(fun() ->
+                  Sizes = #{0 => 3, 1 => 7},
+                  <<SzTag:1,Body:(map_get(SzTag, Sizes))/binary>> =
+                      <<1:1,1,2,3,4,5,6,7>>,
+                  Body
+          end,
+          "begin
+             Sizes = #{0 => 3, 1 => 7},
+             <<SzTag:1,Body:(map_get(SzTag, Sizes))/binary>> =
+                 <<1:1,1,2,3,4,5,6,7>>,
+             Body
+          end.",
+          <<1,2,3,4,5,6,7>>),
+    error_check("<<X:(process_info(self()))>> = <<>>.", illegal_bitsize),
 
     ok.
 

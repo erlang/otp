@@ -392,11 +392,6 @@ expr(#c_case{}=Case0, Ctxt, Sub) ->
 	Other ->
 	    expr(Other, Ctxt, Sub)
     end;
-expr(#c_receive{anno=Anno,clauses=Cs0,timeout=T0,action=A0}=Recv, Ctxt, Sub) ->
-    Cs1 = clauses(#c_var{name='_'}, Cs0, Ctxt, Sub, false, Anno),
-    T1 = expr(T0, value, Sub),
-    A1 = body(A0, Ctxt, Sub),
-    Recv#c_receive{clauses=Cs1,timeout=T1,action=A1};
 expr(#c_apply{anno=Anno,op=Op0,args=As0}=Apply0, _, Sub) ->
     Op1 = expr(Op0, value, Sub),
     As1 = expr_list(As0, value, Sub),
@@ -541,10 +536,6 @@ ifes_1(FVar, #c_map_pair{key=Key,val=Val}, _Safe) ->
     ifes_1(FVar, Key, false) andalso ifes_1(FVar, Val, false);
 ifes_1(FVar, #c_primop{args=Args}, _Safe) ->
     ifes_list(FVar, Args, false);
-ifes_1(FVar, #c_receive{timeout=Timeout,action=Action,clauses=Clauses}, Safe) ->
-    ifes_1(FVar, Timeout, false) andalso
-        ifes_1(FVar, Action, Safe) andalso
-        ifes_list(FVar, Clauses, Safe);
 ifes_1(FVar, #c_seq{arg=Arg,body=Body}, Safe) ->
     %% Arg of a #c_seq{} has no effect so it's okay to use FVar there even if
     %% Safe=false.
@@ -1095,10 +1086,6 @@ clause_1(#c_clause{guard=G0,body=B0}=Cl, Ps1, Cexpr, Ctxt, Sub1) ->
 		   %% No need for substitution tricks when the guard
 		   %% does not contain any variables.
 		   Sub1;
-	       {#c_var{name='_'},_,_} ->
-		   %% In a 'receive', Cexpr is the variable '_', which represents the
-		   %% message being matched. We must NOT do any extra substiutions.
-		   Sub1;
 	       {#c_var{},[#c_var{}=Var],_} ->
 		   %% The idea here is to optimize expressions such as
 		   %%
@@ -1225,30 +1212,27 @@ map_pair_pattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,{Isub,
     {V,Osub} = pattern(V0,Isub,Osub0),
     {Pair#c_map_pair{key=K,val=V},{Isub,Osub}}.
 
-bin_pattern_list(Ps0, Isub, Osub0) ->
-    {Ps,{_,Osub}} = mapfoldl(fun bin_pattern/2, {Isub,Osub0}, Ps0),
-    {Ps,Osub}.
+bin_pattern_list(Ps, Isub, Osub0) ->
+    mapfoldl(fun(P, Osub) ->
+                     bin_pattern(P, Isub, Osub)
+             end, Osub0, Ps).
 
-bin_pattern(#c_bitstr{val=E0,size=Size0}=Pat0, {Isub0,Osub0}) ->
-    Size = case {Size0,expr(Size0, Isub0)} of
-               {#c_var{},#c_literal{val=all}} ->
-                   %% The size `all` is used for the size of the final binary
-                   %% segment in a pattern. Using `all` explicitly is not allowed,
-                   %% so we convert it to an obvious invalid size. We also need
-                   %% to add an annotation to get the correct wording of the warning
-                   %% that will soon be issued.
-                   #c_literal{anno=[size_was_all],val=bad_size};
-               {_,Size1} ->
-                   Size1
-           end,
-    {E1,Osub} = pattern(E0, Isub0, Osub0),
-    Isub = case E0 of
-	       #c_var{} -> sub_set_var(E0, E1, Isub0);
-	       _ -> Isub0
-	   end,
-    Pat = Pat0#c_bitstr{val=E1,size=Size},
+bin_pattern(#c_bitstr{val=E0,size=Size0}=Pat0, Isub, Osub0) ->
+    Size2 = case {Size0,expr(Size0, Isub)} of
+                {#c_var{},#c_literal{val=all}} ->
+                    %% The size `all` is used for the size of the final binary
+                    %% segment in a pattern. Using `all` explicitly is not allowed,
+                    %% so we convert it to an obvious invalid size. We also need
+                    %% to add an annotation to get the correct wording of the warning
+                    %% that will soon be issued.
+                    #c_literal{anno=[size_was_all],val=bad_size};
+                {_,Size1} ->
+                    Size1
+            end, 
+    {E1,Osub} = pattern(E0, Isub, Osub0),
+    Pat = Pat0#c_bitstr{val=E1,size=Size2},
     bin_pat_warn(Pat),
-    {Pat,{Isub,Osub}}.
+    {Pat,Osub}.
 
 pattern_list(Ps, Sub) -> pattern_list(Ps, Sub, Sub).
 
@@ -2603,19 +2587,6 @@ delay_build_expr_1(#c_case{clauses=Cs0}=Case, TypeSig) ->
 delay_build_expr_1(#c_let{body=B0}=Let, TypeSig) ->
     B = delay_build_expr(B0, TypeSig),
     Let#c_let{body=B};
-delay_build_expr_1(#c_receive{clauses=Cs0,
-			      timeout=Timeout,
-			      action=A0}=Rec, TypeSig) ->
-    Cs = delay_build_cs(Cs0, TypeSig),
-    A = case {Timeout,A0} of
-	    {#c_literal{val=infinity},#c_literal{}} ->
-                {_Type,Arity} = TypeSig,
-                Es = lists:duplicate(Arity, A0),
-                core_lib:make_values(Es);
-	    _ ->
-                delay_build_expr(A0, TypeSig)
-	end,
-    Rec#c_receive{clauses=Cs,action=A};
 delay_build_expr_1(#c_seq{body=B0}=Seq, TypeSig) ->
     B = delay_build_expr(B0, TypeSig),
     Seq#c_seq{body=B};

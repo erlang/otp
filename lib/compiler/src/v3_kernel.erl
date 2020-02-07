@@ -82,7 +82,7 @@
 		keyfind/3,keyreplace/4,
                 last/1,partition/2,reverse/1,
                 sort/1,sort/2,splitwith/2]).
--import(ordsets, [add_element/2,del_element/2,intersection/2,
+-import(ordsets, [add_element/2,intersection/2,
                   subtract/2,union/2,union/1]).
 
 -include("core_parse.hrl").
@@ -105,8 +105,6 @@ copy_anno(Kdst, Ksrc) ->
 -record(iletrec, {anno=[],defs}).
 -record(ialias, {anno=[],vars,pat}).
 -record(iclause, {anno=[],isub,osub,pats,guard,body}).
--record(ireceive_accept, {anno=[],arg}).
--record(ireceive_next, {anno=[],arg}).
 
 -type warning() :: term().	% XXX: REFINE
 
@@ -119,7 +117,8 @@ copy_anno(Kdst, Ksrc) ->
 	       funs=[],				%Fun functions
 	       free=#{},			%Free variables
 	       ws=[]   :: [warning()],		%Warnings.
-               no_shared_fun_wrappers=false :: boolean()
+               no_shared_fun_wrappers=false :: boolean(),
+               labels=cerl_sets:new()
               }).
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -183,8 +182,6 @@ body(#c_values{anno=A,es=Ces}, Sub, St0) ->
     %% Do this here even if only in bodies.
     {Kes,Pe,St1} = atomic_list(Ces, Sub, St0),
     {#ivalues{anno=A,args=Kes},Pe,St1};
-body(#ireceive_next{anno=A}, _, St) ->
-    {#k_receive_next{anno=A},[],St};
 body(Ce, Sub, St0) ->
     expr(Ce, Sub, St0).
 
@@ -312,47 +309,19 @@ expr(#c_let{anno=A,vars=Cvs,arg=Ca,body=Cb}, Sub0, St0) ->
 	   end,
     {Kb,Pb,St3} = body(Cb, Sub1, St2),
     {Kb,Pa ++ Sets ++ Pb,St3};
-expr(#c_letrec{anno=A,defs=Cfs,body=Cb}, Sub0, St0) ->
-    %% Make new function names and store substitution.
-    {Fs0,{Sub1,St1}} =
-	mapfoldl(fun ({#c_var{name={F,Ar}},B0}, {Sub,S0}) ->
-			 {N,St1} = new_fun_name(atom_to_list(F)
-						++ "/" ++
-						integer_to_list(Ar),
-						S0),
-			 B = set_kanno(B0, [{letrec_name,N}]),
-			 {{N,B},{set_fsub(F, Ar, N, Sub),St1}}
-		 end, {Sub0,St0}, Cfs),
-    %% Run translation on functions and body.
-    {Fs1,St2} = mapfoldl(fun ({N,Fd0}, S1) ->
-				 {Fd1,[],St2} = expr(Fd0, Sub1, S1),
-				 Fd = set_kanno(Fd1, A),
-				 {{N,Fd},St2}
-			 end, St1, Fs0),
-    {Kb,Pb,St3} = body(Cb, Sub1, St2),
-    {Kb,[#iletrec{anno=A,defs=Fs1}|Pb],St3};
+expr(#c_letrec{anno=A,defs=Cfs,body=Cb}, Sub, St) ->
+    case member(letrec_goto, A) of
+        true ->
+            letrec_goto(Cfs, Cb, Sub, St);
+        false ->
+            letrec_local_function(A, Cfs, Cb, Sub, St)
+    end;
 expr(#c_case{arg=Ca,clauses=Ccs}, Sub, St0) ->
     {Ka,Pa,St1} = body(Ca, Sub, St0),		%This is a body!
     {Kvs,Pv,St2} = match_vars(Ka, St1),		%Must have variables here!
     {Km,St3} = kmatch(Kvs, Ccs, Sub, St2),
     Match = flatten_seq(build_match(Km)),
     {last(Match),Pa ++ Pv ++ droplast(Match),St3};
-expr(#c_receive{anno=A,clauses=Ccs0,timeout=Ce,action=Ca}, Sub, St0) ->
-    {Ke,Pe,St1} = atomic(Ce, Sub, St0),		%Force this to be atomic!
-    {Rvar,St2} = new_var(St1),
-    %% Need to massage accept clauses and add reject clause before matching.
-    Ccs1 = map(fun (#c_clause{anno=Banno,body=B0}=C) ->
-		       B1 = #c_seq{arg=#ireceive_accept{anno=A},body=B0},
-		       C#c_clause{anno=Banno,body=B1}
-	       end, Ccs0),
-    {Mpat,St3} = new_var_name(St2),
-    Rc = #c_clause{anno=[compiler_generated|A],
-		   pats=[#c_var{name=Mpat}],guard=#c_literal{anno=A,val=true},
-		   body=#ireceive_next{anno=A}},
-    {Km,St4} = kmatch([Rvar], Ccs1 ++ [Rc], Sub, add_var_def(Rvar, St3)),
-    {Ka,Pa,St5} = body(Ca, Sub, St4),
-    {#k_receive{anno=A,var=Rvar,body=Km,timeout=Ke,action=pre_seq(Pa, Ka)},
-     Pe,St5};
 expr(#c_apply{anno=A,op=Cop,args=Cargs}, Sub, St) ->
     c_apply(A, Cop, Cargs, Sub, St);
 expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
@@ -393,9 +362,48 @@ expr(#c_try{anno=A,arg=Ca,vars=Cvs,body=Cb,evars=Evs,handler=Ch}, Sub0, St0) ->
 	    evars=Kevs,handler=pre_seq(Ph, Kh)},[],St5};
 expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
     {Kb,Pb,St1} = body(Cb, Sub, St0),
-    {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1};
-%% Handle internal expressions.
-expr(#ireceive_accept{anno=A}, _Sub, St) -> {#k_receive_accept{anno=A},[],St}.
+    {#k_catch{anno=A,body=pre_seq(Pb, Kb)},[],St1}.
+
+%% Implement letrec in the traditional way as a local
+%% function for each definition in the letrec.
+
+letrec_local_function(A, Cfs, Cb, Sub0, St0) ->
+    %% Make new function names and store substitution.
+    {Fs0,{Sub1,St1}} =
+	mapfoldl(fun ({#c_var{name={F,Ar}},B0}, {Sub,S0}) ->
+			 {N,St1} = new_fun_name(atom_to_list(F)
+						++ "/" ++
+						integer_to_list(Ar),
+						S0),
+			 B = set_kanno(B0, [{letrec_name,N}]),
+			 {{N,B},{set_fsub(F, Ar, N, Sub),St1}}
+		 end, {Sub0,St0}, Cfs),
+    %% Run translation on functions and body.
+    {Fs1,St2} = mapfoldl(fun ({N,Fd0}, S1) ->
+				 {Fd1,[],St2} = expr(Fd0, Sub1, S1),
+				 Fd = set_kanno(Fd1, A),
+				 {{N,Fd},St2}
+			 end, St1, Fs0),
+    {Kb,Pb,St3} = body(Cb, Sub1, St2),
+    {Kb,[#iletrec{anno=A,defs=Fs1}|Pb],St3}.
+
+%% Implement letrec with the single definition as a label and each
+%% apply of it as a goto.
+
+letrec_goto([{#c_var{name={Label,0}},Cfail}], Cb, Sub0,
+            #kern{labels=Labels0}=St0) ->
+    Labels = cerl_sets:add_element(Label, Labels0),
+    {Kb,Pb,St1} = body(Cb, Sub0, St0#kern{labels=Labels}),
+    #c_fun{body=FailBody} = Cfail,
+    {Kfail,Fb,St2} = body(FailBody, Sub0, St1),
+    case {Kb,Kfail,Fb} of
+        {#k_goto{label=Label},#k_goto{}=InnerGoto,[]} ->
+            {InnerGoto,Pb,St2};
+        {_,_,_} ->
+            St3 = St2#kern{labels=Labels0},
+            Alt = #k_letrec_goto{label=Label,first=Kb,then=pre_seq(Fb, Kfail)},
+            {Alt,Pb,St3}
+    end.
 
 %% translate_match_fail(Arg, Sub, Anno, St) -> {Kexpr,[PreKexpr],State}.
 %%  Translate a match_fail primop to a call erlang:error/1 or
@@ -546,13 +554,19 @@ match_vars(Ka, St0) ->
     {[V],Vp,St1}.
 
 %% c_apply(A, Op, [Carg], Sub, State) -> {Kexpr,[PreKexpr],State}.
-%%  Transform application, detect which are guaranteed to be bifs.
+%%  Transform application.
 
-c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, St0) ->
-    {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
-    F1 = get_fsub(F0, Ar, Sub),			%Has it been rewritten
-    {#k_call{anno=A,op=#k_local{anno=Ra,name=F1,arity=Ar},args=Kargs},
-     Ap,St1};
+c_apply(A, #c_var{anno=Ra,name={F0,Ar}}, Cargs, Sub, #kern{labels=Labels}=St0) ->
+    case Ar =:= 0 andalso cerl_sets:is_element(F0, Labels) of
+        true ->
+            %% This is a goto to a label in a letrec_goto construct.
+            {#k_goto{label=F0},[],St0};
+        false ->
+            {Kargs,Ap,St1} = atomic_list(Cargs, Sub, St0),
+            F1 = get_fsub(F0, Ar, Sub),         %Has it been rewritten
+            {#k_call{anno=A,op=#k_local{anno=Ra,name=F1,arity=Ar},args=Kargs},
+             Ap,St1}
+    end;
 c_apply(A, Cop, Cargs, Sub, St0) ->
     {Kop,Op,St1} = variable(Cop, Sub, St0),
     {Kargs,Ap,St2} = atomic_list(Cargs, Sub, St1),
@@ -704,13 +718,12 @@ pattern_map_pairs(Ces0, Isub, Osub0, St0) ->
 	end, Kes),
     {Kes1,Osub1,St1}.
 
-pattern_bin(Es, Isub, Osub0, St0) ->
-    {Kbin,{_,Osub},St} = pattern_bin_1(Es, Isub, Osub0, St0),
-    {Kbin,Osub,St}.
+pattern_bin(Es, Isub, Osub0, St) ->
+    pattern_bin_1(Es, Isub, Osub0, St).
 
-pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0], 
-	    Isub0, Osub0, St0) ->
-    {S1,[],St1} = expr(S0, Isub0, St0),
+pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U0,type=T,flags=Fs0}|Es0],
+              Isub, Osub0, St0) ->
+    {S1,[],St1} = expr(S0, Isub, St0),
     S = case S1 of
 	    #k_var{} -> S1;
             #k_literal{val=Val} when is_integer(Val); is_atom(Val) -> S1;
@@ -721,18 +734,13 @@ pattern_bin_1([#c_bitstr{anno=A,val=E0,size=S0,unit=U,type=T,flags=Fs}|Es0],
 		%% problems.
 		#k_literal{val=bad_size}
 	end,
-    U0 = cerl:concrete(U),
-    Fs0 = cerl:concrete(Fs),
-    %%ok= io:fwrite("~w: ~p~n", [?LINE,{B0,S,U0,Fs0}]),
-    {E,Osub1,St2} = pattern(E0, Isub0, Osub0, St1),
-    Isub1 = case E0 of
-		#c_var{name=V} ->
-		    set_vsub(V, E#k_var.name, Isub0);
-		_ -> Isub0
-	    end,
-    {Es,{Isub,Osub},St3} = pattern_bin_1(Es0, Isub1, Osub1, St2),
-    {build_bin_seg(A, S, U0, cerl:concrete(T), Fs0, E, Es),{Isub,Osub},St3};
-pattern_bin_1([], Isub, Osub, St) -> {#k_bin_end{},{Isub,Osub},St}.
+    U = cerl:concrete(U0),
+    Fs = cerl:concrete(Fs0),
+    {E,Osub1,St2} = pattern(E0, Isub, Osub0, St1),
+    {Es,Osub,St3} = pattern_bin_1(Es0, Isub, Osub1, St2),
+    {build_bin_seg(A, S, U, cerl:concrete(T), Fs, E, Es),Osub,St3};
+pattern_bin_1([], _Isub, Osub, St) ->
+    {#k_bin_end{},Osub,St}.
 
 %% build_bin_seg(Anno, Size, Unit, Type, Flags, Seg, Next) -> #k_bin_seg{}.
 %%  This function normalizes literal integers with size > 8 and literal
@@ -914,9 +922,6 @@ new_vars(0, St, Vs) -> {Vs,St}.
 
 make_vars(Vs) -> [ #k_var{name=V} || V <- Vs ].
 
-add_var_def(V, St) ->
-    St#kern{ds=cerl_sets:add_element(V#k_var.name, St#kern.ds)}.
-
 %% is_remote_bif(Mod, Name, Arity) -> true | false.
 %%  Test if function is really a BIF.
 
@@ -953,6 +958,7 @@ is_remote_bif(_, _, _) -> false.
 %%  return multiple values.  Only used in bodies where a BIF may be
 %%  called for effect only.
 
+bif_vals(recv_peek_message, 0) -> 2;
 bif_vals(_, _) -> 1.
 
 bif_vals(_, _, _) -> 1.
@@ -1795,6 +1801,8 @@ ubody(#ivalues{anno=A,args=As}, return, St) ->
 ubody(#ivalues{anno=A,args=As}, {break,_Vbs}, St) ->
     Au = lit_list_vars(As),
     {#k_break{anno=A,args=As},Au,St};
+ubody(#k_goto{}=Goto, _Br, St) ->
+    {Goto,[],St};
 ubody(E, return, St0) ->
     %% Enterable expressions need no trailing return.
     case is_enter_expr(E) of
@@ -1804,24 +1812,13 @@ ubody(E, return, St0) ->
 	    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), return, St1)
     end;
 ubody(E, {break,[_]} = Break, St0) ->
-    %%ok = io:fwrite("ubody ~w:~p~n", [?LINE,{E,Br}]),
-    %% Exiting expressions need no trailing break.
-    case is_exit_expr(E) of
-	true -> uexpr(E, return, St0);
-	false ->
-	    {Ea,Pa,St1} = force_atomic(E, St0),
-	    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), Break, St1)
-    end;
+    {Ea,Pa,St1} = force_atomic(E, St0),
+    ubody(pre_seq(Pa, #ivalues{args=[Ea]}), Break, St1);
 ubody(E, {break,Rs}=Break, St0) ->
-    case is_exit_expr(E) of
-        true ->
-            uexpr(E, return, St0);
-        false ->
-            {Vs,St1} = new_vars(length(Rs), St0),
-            Iset = #iset{vars=Vs,arg=E},
-            PreSeq = pre_seq([Iset], #ivalues{args=Vs}),
-            ubody(PreSeq, Break, St1)
-    end.
+    {Vs,St1} = new_vars(length(Rs), St0),
+    Iset = #iset{vars=Vs,arg=E},
+    PreSeq = pre_seq([Iset], #ivalues{args=Vs}),
+    ubody(PreSeq, Break, St1).
 
 iletrec_funs(#iletrec{defs=Fs}, St0) ->
     %% Use union of all free variables.
@@ -1854,12 +1851,6 @@ iletrec_funs_gen(Fs, FreeVs, St) ->
 	  end, St, Fs).
 
 
-%% is_exit_expr(Kexpr) -> boolean().
-%%  Test whether Kexpr always exits and never returns.
-
-is_exit_expr(#k_receive_next{}) -> true;
-is_exit_expr(_) -> false.
-
 %% is_enter_expr(Kexpr) -> boolean().
 %%  Test whether Kexpr is "enterable", i.e. can handle return from
 %%  within itself without extra #k_return{}.
@@ -1867,8 +1858,7 @@ is_exit_expr(_) -> false.
 is_enter_expr(#k_try{}) -> true;
 is_enter_expr(#k_call{}) -> true;
 is_enter_expr(#k_match{}) -> true;
-is_enter_expr(#k_receive{}) -> true;
-is_enter_expr(#k_receive_next{}) -> true;
+is_enter_expr(#k_letrec_goto{}) -> true;
 is_enter_expr(_) -> false.
 
 %% uexpr(Expr, Break, State) -> {Expr,[UsedVar],State}.
@@ -1913,18 +1903,6 @@ uexpr(#k_match{anno=A,body=B0}, Br, St0) ->
     Rs = break_rets(Br),
     {B1,Bu,St1} = umatch(B0, Br, St0),
     {#k_match{anno=A,body=B1,ret=Rs},Bu,St1};
-uexpr(#k_receive{anno=A,var=V,body=B0,timeout=T,action=A0}, Br, St0) ->
-    Rs = break_rets(Br),
-    Tu = lit_vars(T),				%Timeout is atomic
-    {B1,Bu,St1} = umatch(B0, Br, St0),
-    {A1,Au,St2} = ubody(A0, Br, St1),
-    Used = del_element(V#k_var.name, union(Bu, union(Tu, Au))),
-    {#k_receive{anno=A,var=V,body=B1,timeout=T,action=A1,ret=Rs},
-     Used,St2};
-uexpr(#k_receive_accept{anno=A}, _, St) ->
-    {#k_receive_accept{anno=A},[],St};
-uexpr(#k_receive_next{anno=A}, _, St) ->
-    {#k_receive_next{anno=A},[],St};
 uexpr(#k_try{anno=A,arg=A0,vars=Vs,body=B0,evars=Evs,handler=H0},
       {break,Rs0}=Br, St0) ->
     case {Vs,B0,H0,Rs0} of
@@ -1991,6 +1969,12 @@ uexpr(#ifun{anno=A,vars=Vs,body=B0}, {break,Rs}, St0) ->
 	    args=[Local|Fvs],
  	    ret=Rs},
      Free,add_local_function(Fun, St)};
+uexpr(#k_letrec_goto{anno=A,first=F0,then=T0}=MatchAlt, Br, St0) ->
+    Rs = break_rets(Br),
+    {F1,Fu,St1} = ubody(F0, Br, St0),
+    {T1,Tu,St2} = ubody(T0, Br, St1),
+    Used = union(Fu, Tu),
+    {MatchAlt#k_letrec_goto{anno=A,first=F1,then=T1,ret=Rs},Used,St2};
 uexpr(Lit, {break,Rs0}, St0) ->
     %% Transform literals to puts here.
     %%ok = io:fwrite("uexpr ~w:~p~n", [?LINE,Lit]),

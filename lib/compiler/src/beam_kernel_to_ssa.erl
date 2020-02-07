@@ -40,7 +40,8 @@
              vars=#{} :: map(),     %Defined variables.
              break=0 :: label(),    %Break label
              recv=0 :: label(),     %Receive label
-             ultimate_failure=0 :: label() %Label for ultimate match failure.
+             ultimate_failure=0 :: label(), %Label for ultimate match failure.
+             labels=#{} :: #{atom() => label()}
             }).
 
 %% Internal records.
@@ -122,14 +123,6 @@ cg(#k_try_enter{arg=Ta,vars=Vs,body=Tb,evars=Evs,handler=Th}, St) ->
     try_enter_cg(Ta, Vs, Tb, Evs, Th, St);
 cg(#k_catch{body=Cb,ret=[R]}, St) ->
     do_catch_cg(Cb, R, St);
-cg(#k_receive{anno=Le,timeout=Te,var=Rvar,body=Rm,action=Tes,ret=Rs}, St) ->
-    recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, St);
-cg(#k_receive_next{}, #cg{recv=Recv}=St) ->
-    Is = [#b_set{op=recv_next},make_uncond_branch(Recv)],
-    {Is,St};
-cg(#k_receive_accept{}, St) ->
-    Remove = #b_set{op=remove_message},
-    {[Remove],St};
 cg(#k_put{anno=Le,arg=Con,ret=Var}, St) ->
     put_cg(Var, Con, Le, St);
 cg(#k_return{args=[Ret0]}, St) ->
@@ -137,7 +130,21 @@ cg(#k_return{args=[Ret0]}, St) ->
     {[#b_ret{arg=Ret}],St};
 cg(#k_break{args=Bs}, #cg{break=Br}=St) ->
     Args = ssa_args(Bs, St),
-    {[#cg_break{args=Args,phi=Br}],St}.
+    {[#cg_break{args=Args,phi=Br}],St};
+cg(#k_letrec_goto{label=Label,first=First,then=Then,ret=Rs},
+   #cg{break=OldBreak,labels=Labels0}=St0) ->
+    {Tf,St1} = new_label(St0),
+    {B,St2} = new_label(St1),
+    Labels = Labels0#{Label=>Tf},
+    {Fis,St3} = cg(First, St2#cg{labels=Labels,break=B}),
+    {Sis,St4} = cg(Then, St3),
+    St5 = St4#cg{labels=Labels0},
+    {BreakVars,St} = new_ssa_vars(Rs, St5),
+    Phi = #cg_phi{vars=BreakVars},
+    {Fis ++ [{label,Tf}] ++ Sis ++ [{label,B},Phi],St#cg{break=OldBreak}};
+cg(#k_goto{label=Label}, #cg{labels=Labels}=St) ->
+    Branch = map_get(Label, Labels),
+    {[make_uncond_branch(Branch)],St}.
 
 %% match_cg(Matc, [Ret], State) -> {[Ainstr],State}.
 %%  Generate code for a match.
@@ -203,6 +210,22 @@ select_cg(#k_type_clause{type=Type,values=Scs}, Var, Tf, Vf, St0) ->
     {Is,St} = select_val_cg(Type, Arg, Vls, Tf, Vf, Sis, St2),
     {Is,St}.
 
+select_val_cg(k_atom, {succeeded,Dst}, Vls, _Tf, _Vf, Sis, St0) ->
+    [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
+    case Dst of
+        #b_var{} ->
+            %% Generate a `succeeded` instruction and two-way branch
+            %% following the `peek_message` and `wait_timeout`
+            %% instructions.
+            {Bool,St} = new_ssa_var('@ssa_bool', St0),
+            Succeeded = #b_set{op=succeeded,dst=Bool,args=[Dst]},
+            Br = #b_br{bool=Bool,succ=Succ,fail=Fail},
+            {[Succeeded,Br|Sis],St};
+        #b_literal{val=true}=Bool ->
+            %% A 'wait_timeout 0' instruction was optimized away.
+            Br = #b_br{bool=Bool,succ=Succ,fail=Succ},
+            {[Br|Sis],St0}
+    end;
 select_val_cg(k_tuple, Tuple, Vls, Tf, Vf, Sis, St0) ->
     {Is0,St1} = make_cond_branch({bif,is_tuple}, [Tuple], Tf, St0),
     {Arity,St2} = new_ssa_var('@ssa_arity', St1),
@@ -691,6 +714,30 @@ internal_cg(raise, As, [#k_var{name=Dst0}], St0) ->
             Is = [Resume,make_uncond_branch(Catch),#cg_unreachable{}],
             {Is,St}
     end;
+internal_cg(recv_peek_message, [], [#k_var{name=Succeeded0},
+                                    #k_var{name=Dst0}], St0) ->
+    {Dst,St1} = new_ssa_var(Dst0, St0),
+    St = new_succeeded_value(Succeeded0, Dst, St1),
+    Set = #b_set{op=peek_message,dst=Dst,args=[]},
+    {[Set],St};
+internal_cg(recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
+    case ssa_args(As, St0) of
+        [#b_literal{val=0}] ->
+            %% If beam_ssa_opt is run (which is default), the
+            %% `wait_timeout` instruction will be removed if the
+            %% operand is a literal 0.  However, if optimizations have
+            %% been turned off, we must not not generate a
+            %% `wait_timeout` instruction with a literal 0 timeout,
+            %% because the BEAM instruction will not handle it
+            %% correctly.
+            St = new_succeeded_value(Succeeded0, #b_literal{val=true}, St0),
+            {[],St};
+        Args ->
+            {Wait,St1} = new_ssa_var('@ssa_wait', St0),
+            St = new_succeeded_value(Succeeded0, Wait, St1),
+            Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
+            {[Set],St}
+    end;
 internal_cg(Op, As, [#k_var{name=Dst0}], St0) when is_atom(Op) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
@@ -740,59 +787,6 @@ bif_is_record_cg(Dst, Tuple, TagVal, ArityVal, St0) ->
            {label,Phi},
            #cg_phi{vars=[Dst]}],
     Is = Is0 ++ [GetArity] ++ Is1 ++ [GetTag] ++ Is2 ++ Is3,
-    {Is,St}.
-
-%% recv_loop_cg(TimeOut, ReceiveVar, ReceiveMatch, TimeOutExprs,
-%%              [Ret], Le, St) -> {[Ainstr],St}.
-
-recv_loop_cg(Te, _Rvar, #k_receive_next{}, Tes, Rs, _Le, St0) ->
-    {Tl,St1} = new_label(St0),
-    {Bl,St2} = new_label(St1),
-    St3 = St2#cg{break=Bl,recv=Tl},
-    {Wis,St4} = cg_recv_wait(Te, Tes, St3),
-    {BreakVars,St} = new_ssa_vars(Rs, St4),
-    {[make_uncond_branch(Tl),{label,Tl}] ++ Wis ++
-         [{label,Bl},#cg_phi{vars=BreakVars}],
-     St#cg{break=St0#cg.break,recv=St0#cg.recv}};
-recv_loop_cg(Te, Rvar, Rm, Tes, Rs, Le, St0) ->
-    %% Get labels.
-    {Rl,St1} = new_label(St0),
-    {Tl,St2} = new_label(St1),
-    {Bl,St3} = new_label(St2),
-    St4 = St3#cg{break=Bl,recv=Rl},
-    {Ris,St5} = cg_recv_mesg(Rvar, Rm, Tl, Le, St4),
-    {Wis,St6} = cg_recv_wait(Te, Tes, St5),
-    {BreakVars,St} = new_ssa_vars(Rs, St6),
-    {Ris ++ [{label,Tl}] ++ Wis ++
-         [{label,Bl},#cg_phi{vars=BreakVars}],
-     St#cg{break=St0#cg.break,recv=St0#cg.recv}}.
-
-%% cg_recv_mesg( ) -> {[Ainstr],St}.
-
-cg_recv_mesg(#k_var{name=R}, Rm, Tl, Le, St0) ->
-    {Dst,St1} = new_ssa_var(R, St0),
-    {Mis,St2} = match_cg(Rm, none, St1),
-    RecvLbl = St1#cg.recv,
-    {TestIs,St} = make_succeeded(Dst, {guard, Tl}, St2),
-    Is = [#b_br{anno=line_anno(Le),bool=#b_literal{val=true},
-                succ=RecvLbl,fail=RecvLbl},
-          {label,RecvLbl},
-          #b_set{op=peek_message,dst=Dst}|TestIs],
-    {Is++Mis,St}.
-
-%% cg_recv_wait(Te, Tes, St) -> {[Ainstr],St}.
-
-cg_recv_wait(#k_literal{val=0}, Es, St0) ->
-    {Tis,St} = cg(Es, St0),
-    {[#b_set{op=timeout}|Tis],St};
-cg_recv_wait(Te, Es, St0) ->
-    {Tis,St1} = cg(Es, St0),
-    Args = [ssa_arg(Te, St1)],
-    {WaitDst,St2} = new_ssa_var('@ssa_wait', St1),
-    {WaitIs,St} = make_succeeded(WaitDst, {guard, St1#cg.recv}, St2),
-    %% Infinite timeout will be optimized later.
-    Is = [#b_set{op=wait_timeout,dst=WaitDst,args=Args}] ++ WaitIs ++
-        [#b_set{op=timeout}] ++ Tis,
     {Is,St}.
 
 %% try_cg(TryBlock, [BodyVar], TryBody, [ExcpVar], TryHandler, [Ret], St) ->
@@ -1159,6 +1153,10 @@ ssa_arg(#k_remote{mod=Mod0,name=Name0,arity=Arity}, St) ->
 ssa_arg(#k_local{name=Name,arity=Arity}, _) when is_atom(Name) ->
     #b_local{name=#b_literal{val=Name},arity=Arity}.
 
+new_succeeded_value(VarBase, Var, #cg{vars=Vars0}=St) ->
+    Vars = Vars0#{VarBase=>{succeeded,Var}},
+    St#cg{vars=Vars}.
+
 new_ssa_vars(Vs, St) ->
     mapfoldl(fun(#k_var{name=V}, S) ->
                      new_ssa_var(V, S)
@@ -1285,6 +1283,28 @@ collect_preds([[First|Rest]|T], ColAcc, RestAcc) ->
 collect_preds([], ColAcc, RestAcc) ->
     {keysort(2, ColAcc),RestAcc}.
 
+fix_sets([#b_set{op=Op,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
+    NoValue = case Op of
+                  remove_message -> true;
+                  timeout -> true;
+                  _ -> false
+              end,
+    case NoValue of
+        true ->
+            %% An instruction without value was used in effect
+            %% context in `after` block. Example:
+            %%
+            %%   try
+            %%       ...
+            %%   after
+            %%       receive _ -> ignored end
+            %%   end,
+            %%   ok.
+            %%
+            fix_sets(Is, [Ret#b_ret{arg=#b_literal{val=ok}},Set|Acc], St);
+        false ->
+            fix_sets(Is, [Ret,Set|Acc], St)
+    end;
 fix_sets([#b_set{dst=none}=Set|Is], Acc, St0) ->
     {Dst,St} = new_ssa_var('@ssa_ignored', St0),
     I = Set#b_set{dst=Dst},

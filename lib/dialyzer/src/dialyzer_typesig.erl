@@ -296,7 +296,7 @@ traverse(Tree, DefinedVars, State) ->
       {State4, mk_var(Tree)};
     'case' ->
       Arg = cerl:case_arg(Tree),
-      Clauses = filter_match_fail(cerl:case_clauses(Tree)),
+      Clauses = cerl:case_clauses(Tree),
       {State1, ArgVar} = traverse(Arg, DefinedVars, State),
       handle_clauses(Clauses, mk_var(Tree), ArgVar, DefinedVars, State1);
     call ->
@@ -423,10 +423,31 @@ traverse(Tree, DefinedVars, State) ->
           Type = erl_bif_types:type(erlang, build_stacktrace, 0),
           State1 = state__store_conj(V, sub, Type, State),
           {State1, V};
+        dialyzer_unknown ->
+          %% See dialyzer_clean_core:clean_letrec/1.
+          {State, mk_var(Tree)};
+        recv_peek_message ->
+          {State1, Vars} = state__mk_vars(2, State),
+          {State1, t_product(Vars)};
+        recv_wait_timeout ->
+          [Timeout] = cerl:primop_args(Tree),
+          case cerl:is_c_atom(Timeout) andalso
+            cerl:atom_val(Timeout) =:= infinity of
+            true ->
+              {State, t_none()};
+            false ->
+              {State1, TimeoutVar} = traverse(Timeout, DefinedVars, State),
+              State2 = state__store_conj(TimeoutVar, sub, t_timeout(), State1),
+              {State2, mk_var(Tree)}
+          end;
+        remove_message ->
+          {State, t_any()};
+        timeout ->
+          {State, t_any()};
 	Other -> erlang:error({'Unsupported primop', Other})
       end;
     'receive' ->
-      Clauses = filter_match_fail(cerl:receive_clauses(Tree)),
+      Clauses = cerl:receive_clauses(Tree),
       Timeout = cerl:receive_timeout(Tree),
       case (cerl:is_c_atom(Timeout) andalso
 	    (cerl:atom_val(Timeout) =:= infinity)) of
@@ -828,24 +849,6 @@ get_plt_constr(MFA, Dst, ArgVars, State) ->
 
 get_contract_return(C, ArgTypes) ->
   dialyzer_contracts:get_contract_return(C, ArgTypes).
-
-filter_match_fail([Clause] = Cls) ->
-  Body = cerl:clause_body(Clause),
-  case cerl:type(Body) of
-    primop ->
-      case cerl:atom_val(cerl:primop_name(Body)) of
-	match_fail -> [];
-	raise -> [];
-	_ -> Cls
-      end;
-    _ -> Cls
-  end;
-filter_match_fail([H|T]) ->
-  [H|filter_match_fail(T)];
-filter_match_fail([]) ->
-  %% This can actually happen, for example in
-  %%      receive after 1 -> ok end
-  [].
 
 %% If there is a significant number of clauses, we cannot apply the
 %% list subtraction scheme since it causes the analysis to be too

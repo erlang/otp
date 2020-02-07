@@ -191,7 +191,13 @@ coverage_trimmer(Params) ->
 coverage_summer(A, B, C, D) -> A+B+C+D.
 
 nomatch(Config) when is_list(Config) ->
+    Bin = id(<<1,2,3,4,5>>),
     <<>> = << <<X:8>> || X = {_,_} = [_|_] <- [1,2,3] >>,
+    [] = [X || <<X:all/binary>> <= Bin],
+    [] = [X || <<X:bad/binary>> <= Bin],
+    <<>> = << <<X:32>> || <<X:all/binary>> <= Bin >>,
+    <<>> = << <<X:32>> || <<X:bad/binary>> <= Bin >>,
+
     ok.
 
 sizes(Config) when is_list(Config) ->

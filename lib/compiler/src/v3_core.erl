@@ -22,7 +22,7 @@
 %% At this stage all preprocessing has been done. All that is left are
 %% "pure" Erlang functions.
 %%
-%% Core transformation is done in three stages:
+%% Core transformation is done in four stages:
 %%
 %% 1. Flatten expressions into an internal core form without doing
 %%    matching.
@@ -36,6 +36,12 @@
 %% 3. Step "backwards" over icore code using variable usage
 %%    annotations to change implicit exported variables to explicit
 %%    returns.
+%%
+%% 4. Lower receives to more primitive operations.  Split binary
+%%    patterns where a value is matched out and then used used as
+%%    a size in the same pattern.  That simplifies the subsequent
+%%    passes as all variables are within a single pattern are either
+%%    new or used, but never both at the same time.
 %%
 %% To ensure the evaluation order we ensure that all arguments are
 %% safe.  A "safe" is basically a core_lib simple with VERY restricted
@@ -91,6 +97,7 @@
 
 -record(iapply,    {anno=#a{},op,args}).
 -record(ibinary,   {anno=#a{},segments}).	%Not used in patterns.
+-record(ibitstr,   {anno=#a{},val,size,unit,type,flags}).
 -record(icall,     {anno=#a{},module,name,args}).
 -record(icase,     {anno=#a{},args,clauses,fc}).
 -record(icatch,    {anno=#a{},body}).
@@ -98,6 +105,8 @@
 -record(ifun,      {anno=#a{},id,vars,clauses,fc,name=unnamed}).
 -record(iletrec,   {anno=#a{},defs,body}).
 -record(imatch,    {anno=#a{},pat,guard=[],arg,fc}).
+-record(imap,      {anno=#a{},arg=#c_literal{val=#{}},es,is_pat=false}).
+-record(imappair,  {anno=#a{},op,key,val}).
 -record(iprimop,   {anno=#a{},name,args}).
 -record(iprotect,  {anno=#a{},body}).
 -record(ireceive1, {anno=#a{},clauses}).
@@ -105,7 +114,7 @@
 -record(iset,      {anno=#a{},var,arg}).
 -record(itry,      {anno=#a{},args,vars,body,evars,handler}).
 -record(ifilter,   {anno=#a{},arg}).
--record(igen,      {anno=#a{},ceps=[],acc_pat,acc_guard,
+-record(igen,      {anno=#a{},acc_pat,acc_guard,
 		    skip_pat,tail,tail_pat,arg}).
 -record(isimple,   {anno=#a{},term :: cerl:cerl()}).
 
@@ -118,6 +127,7 @@
 -type ifun()      :: #ifun{}.
 -type iletrec()   :: #iletrec{}.
 -type imatch()    :: #imatch{}.
+-type imap()      :: #imap{}.
 -type iprimop()   :: #iprimop{}.
 -type iprotect()  :: #iprotect{}.
 -type ireceive1() :: #ireceive1{}.
@@ -128,19 +138,21 @@
 -type igen()      :: #igen{}.
 -type isimple()   :: #isimple{}.
 
--type i() :: iapply()   | ibinary()   | icall()     | icase()  | icatch()
-           | iclause()  | ifun()      | iletrec()   | imatch() | iprimop()
-           | iprotect() | ireceive1() | ireceive2() | iset()   | itry()
-           | ifilter()  | igen()      | isimple().
+-type i() :: iapply()    | ibinary()   | icall()     | icase()  | icatch()
+           | iclause()   | ifun()      | iletrec()   | imatch() | imap()
+           | iprimop()   | iprotect()  | ireceive1() | ireceive2()
+           | iset()      | itry()      | ifilter()
+           | igen()      | isimple().
 
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
 
 -record(core, {vcount=0 :: non_neg_integer(),	%Variable counter
 	       fcount=0 :: non_neg_integer(),	%Function counter
+               gcount=0 :: non_neg_integer(),   %Goto counter
 	       function={none,0} :: fa(),	%Current function.
 	       in_guard=false :: boolean(),	%In guard or not.
 	       wanted=true :: boolean(),	%Result wanted or not.
-	       opts     :: [compile:option()],	%Options.
+	       opts=[]     :: [compile:option()], %Options.
                dialyzer=false :: boolean(),     %Help dialyzer or not.
 	       ws=[]    :: [warning()],		%Warnings.
                file=[{file,""}]			%File.
@@ -222,12 +234,14 @@ function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
                     dialyzer=member(dialyzer, Opts),
                     ws=Ws0,file=[{file,File}]},
         {B0,St1} = body(Cs0, Name, Arity, St0),
-        %% ok = function_dump(Name,Arity,"body:~n~p~n",[B0]),
+        %% ok = function_dump(Name, Arity, "body:~n~p~n",[B0]),
         {B1,St2} = ubody(B0, St1),
-        %% ok = function_dump(Name,Arity,"ubody:~n~p~n",[B1]),
-        {B2,#core{ws=Ws}} = cbody(B1, St2),
-        %% ok = function_dump(Name,Arity,"cbody:~n~p~n",[B2]),
-        {{#c_var{name={Name,Arity}},B2},Ws}
+        %% ok = function_dump(Name, Arity, "ubody:~n~p~n",[B1]),
+        {B2,St3} = cbody(B1, St2),
+        %% ok = function_dump(Name, Arity, "cbody:~n~p~n",[B2]),
+        {B3,#core{ws=Ws}} = lbody(B2, St3),
+        %% ok = function_dump(Name, Arity, "lbody:~n~p~n",[B3]),
+        {{#c_var{name={Name,Arity}},B3},Ws}
     catch
         Class:Error:Stack ->
 	    io:fwrite("Function: ~w/~w\n", [Name,Arity]),
@@ -239,55 +253,37 @@ body(Cs0, Name, Arity, St0) ->
     FunAnno = [{function,{Name,Arity}} | Anno],
     {Args0,St1} = new_vars(Anno, Arity, St0),
     Args = reverse(Args0),                      %Nicer order
-    case clauses(Cs0, St1) of
-	{Cs1,[],St2} ->
-	    {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
-	    Fc = function_clause(Ps, Anno),
-	    {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3};
-	{Cs1,Eps,St2} ->
-	    %% We have pre-expressions from patterns and
-	    %% these needs to be letified before matching
-	    %% since only bound variables are allowed
-	    AnnoGen = #a{anno=[compiler_generated]},
-	    {Ps1,St3} = new_vars(Arity, St2),    %Need new variables here
-	    Fc1 = function_clause(Ps1, Anno),
-	    {Ps2,St4} = new_vars(Arity, St3),    %Need new variables here
-	    Fc2 = function_clause(Ps2, Anno),
-	    Case = #icase{anno=AnnoGen,args=Args,
-			  clauses=Cs1,
-			  fc=Fc2},
-	    {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,
-		   clauses=[#iclause{anno=AnnoGen,pats=Ps1,
-				     guard=[#c_literal{val=true}],
-				     body=Eps ++ [Case]}],
-		   fc=Fc1},St4}
-    end.
+    {Cs1,St2} = clauses(Cs0, St1),
+    {Ps,St3} = new_vars(Arity, St2),    %Need new variables here
+    Fc = function_clause(Ps, Anno),
+    {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3}.
 
 %% clause(Clause, State) -> {Cclause,State} | noclause.
 %% clauses([Clause], State) -> {[Cclause],State}.
 %%  Convert clauses.  Trap bad pattern aliases and remove clause from
 %%  clause list.
 
-clauses([C0|Cs0],St0) ->
+clauses([C0|Cs0], St0) ->
     case clause(C0, St0) of
-	{noclause,_,St} -> clauses(Cs0,St);
-	{C,Eps1,St1} ->
-	    {Cs,Eps2,St2} = clauses(Cs0, St1),
-	    {[C|Cs],Eps1++Eps2,St2}
+        {noclause,St} ->
+            clauses(Cs0, St);
+        {C,St1} ->
+            {Cs,St2} = clauses(Cs0, St1),
+            {[C|Cs],St2}
     end;
-clauses([],St) -> {[],[],St}.
+clauses([], St) -> {[],St}.
 
 clause({clause,Lc,H0,G0,B0}, St0) ->
     try head(H0, St0) of
-	{H1,Eps,St1} ->
+	{H1,St1} ->
 	    {G1,St2} = guard(G0, St1),
 	    {B1,St3} = exprs(B0, St2),
             Anno = lineno_anno(Lc, St3),
-	    {#iclause{anno=#a{anno=Anno},pats=H1,guard=G1,body=B1},Eps,St3}
+            {#iclause{anno=#a{anno=Anno},pats=H1,guard=G1,body=B1},St3}
     catch
 	throw:nomatch ->
 	    St = add_warning(Lc, nomatch, St0),
-	    {noclause,[],St}			%Bad pattern
+            {noclause,St}			%Bad pattern
     end.
 
 clause_arity({clause,_,H0,_,_}) -> length(H0).
@@ -622,26 +618,26 @@ expr({block,_,Es0}, St0) ->
     {E1,Eps,St2} = expr(last(Es0), St1),
     {E1,Es1 ++ Eps,St2};
 expr({'if',L,Cs0}, St0) ->
-    {Cs1,Ceps,St1} = clauses(Cs0, St0),
+    {Cs1,St1} = clauses(Cs0, St0),
     Lanno = lineno_anno(L, St1),
     Fc = fail_clause([], Lanno, #c_literal{val=if_clause}),
-    {#icase{anno=#a{anno=Lanno},args=[],clauses=Cs1,fc=Fc},Ceps,St1};
+    {#icase{anno=#a{anno=Lanno},args=[],clauses=Cs1,fc=Fc},[],St1};
 expr({'case',L,E0,Cs0}, St0) ->
     {E1,Eps,St1} = novars(E0, St0),
-    {Cs1,Ceps,St2} = clauses(Cs0, St1),
+    {Cs1,St2} = clauses(Cs0, St1),
     {Fpat,St3} = new_var(St2),
     Lanno = lineno_anno(L, St2),
     Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=case_clause},Fpat])),
-    {#icase{anno=#a{anno=Lanno},args=[E1],clauses=Cs1,fc=Fc},Eps++Ceps,St3};
+    {#icase{anno=#a{anno=Lanno},args=[E1],clauses=Cs1,fc=Fc},Eps,St3};
 expr({'receive',L,Cs0}, St0) ->
-    {Cs1,Ceps,St1} = clauses(Cs0, St0),
-    {#ireceive1{anno=#a{anno=lineno_anno(L, St1)},clauses=Cs1},Ceps, St1};
+    {Cs1,St1} = clauses(Cs0, St0),
+    {#ireceive1{anno=#a{anno=lineno_anno(L, St1)},clauses=Cs1},[],St1};
 expr({'receive',L,Cs0,Te0,Tes0}, St0) ->
     {Te1,Teps,St1} = novars(Te0, St0),
     {Tes1,St2} = exprs(Tes0, St1),
-    {Cs1,Ceps,St3} = clauses(Cs0, St2),
+    {Cs1,St3} = clauses(Cs0, St2),
     {#ireceive2{anno=#a{anno=lineno_anno(L, St3)},
-		clauses=Cs1,timeout=Te1,action=Tes1},Teps++Ceps,St3};
+		clauses=Cs1,timeout=Te1,action=Tes1},Teps,St3};
 expr({'try',L,Es0,[],Ecs,[]}, St0) ->
     %% 'try ... catch ... end'
     {Es1,St1} = exprs(Es0, St0),
@@ -655,7 +651,7 @@ expr({'try',L,Es0,Cs0,Ecs,[]}, St0) ->
     %% 'try ... of ... catch ... end'
     {Es1,St1} = exprs(Es0, St0),
     {V,St2} = new_var(St1),		%This name should be arbitrary
-    {Cs1,Ceps,St3} = clauses(Cs0, St2),
+    {Cs1,St3} = clauses(Cs0, St2),
     {Fpat,St4} = new_var(St3),
     Lanno = lineno_anno(L, St4),
     Fc = fail_clause([Fpat], Lanno,
@@ -664,7 +660,7 @@ expr({'try',L,Es0,Cs0,Ecs,[]}, St0) ->
     {#itry{anno=#a{anno=lineno_anno(L, St5)},args=Es1,
 	   vars=[V],body=[#icase{anno=#a{anno=Lanno},args=[V],clauses=Cs1,fc=Fc}],
 	   evars=Evs,handler=Hs},
-     Ceps,St5};
+     [],St5};
 expr({'try',L,Es0,[],[],As0}, St0) ->
     %% 'try ... after ... end'
     {Es1,St1} = exprs(Es0, St0),
@@ -733,12 +729,12 @@ expr({match,L,P0,E0}, St0) ->
 	  end,
     {E2,Eps1,St2} = novars(E1, St1),
     St3 = St2#core{wanted=St0#core.wanted},
-    {P2,Eps2,St4} = try
-	    pattern(P1, St3)
-	 catch
-	     throw:Thrown ->
-		{Thrown,[],St3}
-	 end,
+    {P2,St4} = try
+                   pattern(P1, St3)
+               catch
+                   throw:Thrown ->
+                       {Thrown,St3}
+               end,
     {Fpat,St5} = new_var(St4),
     Lanno = lineno_anno(L, St5),
     Fc = fail_clause([Fpat], Lanno, c_tuple([#c_literal{val=badmatch},Fpat])),
@@ -767,15 +763,15 @@ expr({match,L,P0,E0}, St0) ->
 	    St6 = add_warning(L, nomatch, St5),
 	    {Expr,Eps3,St7} = safe(E1, St6),
 	    SanPat0 = sanitize(P1),
-	    {SanPat,Eps4,St} = pattern(SanPat0, St7),
+	    {SanPat,St} = pattern(SanPat0, St7),
 	    Badmatch = c_tuple([#c_literal{val=badmatch},Expr]),
 	    Fail = #iprimop{anno=#a{anno=Lanno},
 			    name=#c_literal{val=match_fail},
 			    args=[Badmatch]},
-	    Eps = Eps3 ++ Eps4 ++ [Fail],
+	    Eps = Eps3 ++ [Fail],
 	    {#imatch{anno=#a{anno=Lanno},pat=SanPat,arg=Expr,fc=Fc},Eps,St};
 	Other when not is_atom(Other) ->
-	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps1++Eps2,St5}
+	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps1,St5}
     end;
 expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     %% Optimise '++' here because of the list comprehension algorithm.
@@ -947,7 +943,7 @@ is_valid_map_src(_)         -> false.
 try_exception(Ecs0, St0) ->
     %% Note that Tag is not needed for rethrow - it is already in Info.
     {Evs,St1} = new_vars(3, St0), % Tag, Value, Info
-    {Ecs1,Ceps,St2} = clauses(Ecs0, St1),
+    {Ecs1,St2} = clauses(Ecs0, St1),
     Ecs2 = try_build_stacktrace(Ecs1, hd(Evs)),
     [_,Value,Info] = Evs,
     LA = case Ecs2 of
@@ -960,7 +956,7 @@ try_exception(Ecs0, St0) ->
 				 name=#c_literal{val=raise},
 				 args=[Info,Value]}]},
     Hs = [#icase{anno=#a{anno=LA},args=[c_tuple(Evs)],clauses=Ecs2,fc=Ec}],
-    {Evs,Ceps++Hs,St2}.
+    {Evs,Hs,St2}.
 
 try_after(As, St0) ->
     %% See above.
@@ -1181,7 +1177,7 @@ bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 
 fun_tq(Cs0, L, St0, NameInfo) ->
     Arity = clause_arity(hd(Cs0)),
-    {Cs1,Ceps,St1} = clauses(Cs0, St0),
+    {Cs1,St1} = clauses(Cs0, St0),
     {Args,St2} = new_vars(Arity, St1),
     {Ps,St3} = new_vars(Arity, St2),		%Need new variables here
     Anno = full_anno(L, St3),
@@ -1191,12 +1187,12 @@ fun_tq(Cs0, L, St0, NameInfo) ->
     Fun = #ifun{anno=#a{anno=Anno},
 		id=[{id,Id}],				%We KNOW!
 		vars=Args,clauses=Cs1,fc=Fc,name=NameInfo},
-    {Fun,Ceps,St4}.
+    {Fun,[],St4}.
 
 %% lc_tq(Line, Exp, [Qualifier], Mc, State) -> {LetRec,[PreExp],State}.
 %%  This TQ from Simon PJ pp 127-138.  
 
-lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,ceps=Ceps,
+lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
 		      acc_pat=AccPat,acc_guard=AccGuard,
                       skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
                       arg={Pre,Arg}}|Qs], Mc, St0) ->
@@ -1232,7 +1228,7 @@ lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,ceps=Ceps,
     Fun = #ifun{anno=GAnno,id=[],vars=[Var],clauses=Cs,fc=Fc},
     {#iletrec{anno=GAnno#a{anno=[list_comprehension|GA]},defs=[{{Name,1},Fun}],
               body=Pre ++ [#iapply{anno=GAnno,op=F,args=[Arg]}]},
-     Ceps,St4};
+     [],St4};
 lc_tq(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun lc_tq/5);
 lc_tq(Line, E0, [], Mc0, St0) ->
@@ -1257,7 +1253,7 @@ bc_tq(Line, Exp, Qs0, St0) ->
 			    args=[Sz]}}] ++ BcPre,
     {E,Pre,St}.
 
-bc_tq1(Line, E, [#igen{anno=GAnno,ceps=Ceps,
+bc_tq1(Line, E, [#igen{anno=GAnno,
 		       acc_pat=AccPat,acc_guard=AccGuard,
                        skip_pat=SkipPat,tail=Tail,tail_pat=TailPat,
                        arg={Pre,Arg}}|Qs], Mc, St0) ->
@@ -1296,7 +1292,7 @@ bc_tq1(Line, E, [#igen{anno=GAnno,ceps=Ceps,
     Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,2},Fun}],
               body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg,Mc]}]},
-     Ceps,St4};
+     [],St4};
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
@@ -1438,7 +1434,7 @@ get_qual_anno(Abstract) -> element(2, Abstract).
 generator(Line, {generate,Lg,P0,E}, Gs, St0) ->
     LA = lineno_anno(Line, St0),
     GA = lineno_anno(Lg, St0),
-    {Head,Ceps,St1} = list_gen_pattern(P0, Line, St0),
+    {Head,St1} = list_gen_pattern(P0, Line, St0),
     {[Tail,Skip],St2} = new_vars(2, St1),
     {Cg,St3} = lc_guard_tests(Gs, St2),
     {AccPat,SkipPat} = case Head of
@@ -1458,44 +1454,55 @@ generator(Line, {generate,Lg,P0,E}, Gs, St0) ->
                                 ann_c_cons(LA, Skip, Tail)}
                        end,
     {Ce,Pre,St4} = safe(E, St3),
-    Gen = #igen{anno=#a{anno=GA},ceps=Ceps,
+    Gen = #igen{anno=#a{anno=GA},
 		acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
                 tail=Tail,tail_pat=#c_literal{anno=LA,val=[]},arg={Pre,Ce}},
     {Gen,St4};
 generator(Line, {b_generate,Lg,P,E}, Gs, St0) ->
     LA = lineno_anno(Line, St0),
     GA = lineno_anno(Lg, St0),
-    {Cp = #c_binary{segments=Segs},[],St1} = pattern(P, St0),
-    
-    %% The function append_tail_segment/2 keeps variable patterns as-is, making
-    %% it possible to have the same skip clause removal as with list generators.
-    {AccSegs,Tail,TailSeg,St2} = append_tail_segment(Segs, St1),
-    AccPat = Cp#c_binary{segments=AccSegs},
-    {Cg,St3} = lc_guard_tests(Gs, St2),
-    {SkipSegs,St4} = emasculate_segments(AccSegs, St3),
-    SkipPat = Cp#c_binary{segments=SkipSegs},
-    {Ce,Pre,St5} = safe(E, St4),
-    Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,skip_pat=SkipPat,
-                tail=Tail,tail_pat=#c_binary{anno=LA,segments=[TailSeg]},
-                arg={Pre,Ce}},
-    {Gen,St5}.
+    try pattern(P, St0) of
+        {#ibinary{segments=Segs}=Cp,St1} ->
+            %% The function append_tail_segment/2 keeps variable
+            %% patterns as-is, making it possible to have the same
+            %% skip clause removal as with list generators.
+            {AccSegs,Tail,TailSeg,St2} = append_tail_segment(Segs, St1),
+            AccPat = Cp#ibinary{segments=AccSegs},
+            {Cg,St3} = lc_guard_tests(Gs, St2),
+            {SkipSegs,St4} = emasculate_segments(AccSegs, St3),
+            SkipPat = Cp#ibinary{segments=SkipSegs},
+            {Ce,Pre,St5} = safe(E, St4),
+            Gen = #igen{anno=#a{anno=GA},acc_pat=AccPat,acc_guard=Cg,
+                        skip_pat=SkipPat,tail=Tail,
+                        tail_pat=#ibinary{anno=#a{anno=LA},segments=[TailSeg]},
+                        arg={Pre,Ce}},
+            {Gen,St5}
+    catch
+        throw:nomatch ->
+            {Ce,Pre,St1} = safe(E, St0),
+            Gen = #igen{anno=#a{anno=GA},acc_pat=nomatch,acc_guard=[],
+                        skip_pat=nomatch,
+                        tail_pat=#c_var{name='_'},
+                        arg={Pre,Ce}},
+            {Gen,St1}
+    end.
 
 append_tail_segment(Segs, St0) ->
     {Var,St} = new_var(St0),
-    Tail = #c_bitstr{val=Var,size=#c_literal{val=all},
-		     unit=#c_literal{val=1},
-		     type=#c_literal{val=binary},
-		     flags=#c_literal{val=[unsigned,big]}},
+    Tail = #ibitstr{val=Var,size=[#c_literal{val=all}],
+                    unit=#c_literal{val=1},
+                    type=#c_literal{val=binary},
+                    flags=#c_literal{val=[unsigned,big]}},
     {Segs++[Tail],Var,Tail,St}.
 
 emasculate_segments(Segs, St) ->
     emasculate_segments(Segs, St, []).
 
-emasculate_segments([#c_bitstr{val=#c_var{}}=B|Rest], St, Acc) ->
+emasculate_segments([#ibitstr{val=#c_var{}}=B|Rest], St, Acc) ->
     emasculate_segments(Rest, St, [B|Acc]);
 emasculate_segments([B|Rest], St0, Acc) ->
     {Var,St1} = new_var(St0),
-    emasculate_segments(Rest, St1, [B#c_bitstr{val=Var}|Acc]);
+    emasculate_segments(Rest, St1, [B#ibitstr{val=Var}|Acc]);
 emasculate_segments([], St, Acc) ->
     {reverse(Acc),St}.
 
@@ -1507,9 +1514,9 @@ lc_guard_tests(Gs0, St0) ->
 
 list_gen_pattern(P0, Line, St) ->
     try
-	pattern(P0,St)
-    catch 
-	nomatch -> {nomatch,[],add_warning(Line, nomatch, St)}
+	pattern(P0, St)
+    catch
+	nomatch -> {nomatch,add_warning(Line, nomatch, St)}
     end.
 
 %%%
@@ -1541,7 +1548,9 @@ bc_initial_size(E0, Q, St0) ->
 	end
     catch
 	throw:impossible ->
-	    {#c_literal{val=256},[],St0}
+	    {#c_literal{val=256},[],St0};
+        throw:nomatch ->
+	    {#c_literal{val=1},[],St0}
     end.
 
 bc_elem_size({bin,_,El}, St0) ->
@@ -1776,18 +1785,6 @@ force_novars(#c_map{}=Bin, St) -> {Bin,[],St};
 force_novars(Ce, St) ->
     force_safe(Ce, St).
 
-
-%% safe_pattern_expr(Expr, State) -> {Cexpr,[PreExpr],State}.
-%%   only literals and variables are safe expressions in patterns
-safe_pattern_expr(E,St0) ->
-    case safe(E,St0) of
-	{#c_var{},_,_}=Safe -> Safe;
-	{#c_literal{},_,_}=Safe -> Safe;
-	{Ce,Eps,St1} ->
-	    {V,St2} = new_var(St1),
-	    {V,Eps++[#iset{var=V,arg=Ce}],St2}
-    end.
-
 %% safe(Expr, State) -> {Safe,[PreExpr],State}.
 %%  Generate an internal safe expression.  These are simples without
 %%  binaries which can fail.  At this level we do not need to do a
@@ -1855,44 +1852,33 @@ fold_match({match,L,P0,E0}, P) ->
 fold_match(E, P) -> {P,E}.
 
 %% pattern(Pattern, State) -> {CorePat,[PreExp],State}.
-%% Transform a pattern by removing line numbers.  We also normalise
-%% aliases in patterns to standard form, {alias,Pat,[Var]}.
-%%
-%% In patterns we may have expressions
-%% 1) Binaries -> #c_bitstr{size=Expr}
-%% 2) Maps -> #c_map_pair{key=Expr}
-%%
-%% Both of these may generate pre-expressions since only bound variables
-%% or literals are allowed for these in core patterns.
-%%
-%% Therefor, we need to drag both the state and the collection of pre-expression
-%% around in the whole pattern transformation tree.
+%%  Transform a pattern by removing line numbers.  We also normalise
+%%  aliases in patterns to standard form: {alias,Pat,[Var]}.
 
-pattern({var,L,V}, St) -> {#c_var{anno=lineno_anno(L, St),name=V},[],St};
-pattern({char,L,C}, St) -> {#c_literal{anno=lineno_anno(L, St),val=C},[],St};
-pattern({integer,L,I}, St) -> {#c_literal{anno=lineno_anno(L, St),val=I},[],St};
-pattern({float,L,F}, St) -> {#c_literal{anno=lineno_anno(L, St),val=F},[],St};
-pattern({atom,L,A}, St) -> {#c_literal{anno=lineno_anno(L, St),val=A},[],St};
-pattern({string,L,S}, St) -> {#c_literal{anno=lineno_anno(L, St),val=S},[],St};
-pattern({nil,L}, St) -> {#c_literal{anno=lineno_anno(L, St),val=[]},[],St};
+pattern({var,L,V}, St) -> {#c_var{anno=lineno_anno(L, St),name=V},St};
+pattern({char,L,C}, St) -> {#c_literal{anno=lineno_anno(L, St),val=C},St};
+pattern({integer,L,I}, St) -> {#c_literal{anno=lineno_anno(L, St),val=I},St};
+pattern({float,L,F}, St) -> {#c_literal{anno=lineno_anno(L, St),val=F},St};
+pattern({atom,L,A}, St) -> {#c_literal{anno=lineno_anno(L, St),val=A},St};
+pattern({string,L,S}, St) -> {#c_literal{anno=lineno_anno(L, St),val=S},St};
+pattern({nil,L}, St) -> {#c_literal{anno=lineno_anno(L, St),val=[]},St};
 pattern({cons,L,H,T}, St) ->
-    {Ph,Eps1,St1} = pattern(H, St),
-    {Pt,Eps2,St2} = pattern(T, St1),
-    {annotate_cons(lineno_anno(L, St), Ph, Pt, St2),Eps1++Eps2,St2};
+    {Ph,St1} = pattern(H, St),
+    {Pt,St2} = pattern(T, St1),
+    {annotate_cons(lineno_anno(L, St), Ph, Pt, St2),St2};
 pattern({tuple,L,Ps}, St) ->
-    {Ps1,Eps,St1} = pattern_list(Ps,St),
-    {annotate_tuple(record_anno(L, St), Ps1, St),Eps,St1};
+    {Ps1,St1} = pattern_list(Ps, St),
+    {annotate_tuple(record_anno(L, St), Ps1, St),St1};
 pattern({map,L,Pairs}, St0) ->
-    {Ps,Eps,St1} = pattern_map_pairs(Pairs, St0),
-    {#c_map{anno=lineno_anno(L, St1),es=Ps,is_pat=true},Eps,St1};
-pattern({bin,L,Ps}, St) ->
-    %% We don't create a #ibinary record here, since there is
-    %% no need to hold any used/new annotations in a pattern.
-    {#c_binary{anno=lineno_anno(L, St),segments=pat_bin(Ps, St)},[],St};
+    {Ps,St1} = pattern_map_pairs(Pairs, St0),
+    {#imap{anno=#a{anno=lineno_anno(L, St1)},es=Ps},St1};
+pattern({bin,L,Ps}, St0) ->
+    {Segments,St} = pat_bin(Ps, St0),
+    {#ibinary{anno=#a{anno=lineno_anno(L, St)},segments=Segments},St};
 pattern({match,_,P1,P2}, St) ->
-    {Cp1,Eps1,St1} = pattern(P1,St),
-    {Cp2,Eps2,St2} = pattern(P2,St1),
-    {pat_alias(Cp1,Cp2),Eps1++Eps2,St2};
+    {Cp1,St1} = pattern(P1, St),
+    {Cp2,St2} = pattern(P2, St1),
+    {pat_alias(Cp1, Cp2),St2};
 %% Evaluate compile-time expressions.
 pattern({op,_,'++',{nil,_},R}, St) ->
     pattern(R, St);
@@ -1906,30 +1892,22 @@ pattern({op,_Line,_Op,_L,_R}=Op, St) ->
     pattern(erl_eval:partial_eval(Op), St).
 
 %% pattern_map_pairs([MapFieldExact],State) -> [#c_map_pairs{}]
-pattern_map_pairs(Ps, St) ->
-    %% check literal key uniqueness
-    %%   - guaranteed via aliasing map pairs
-    %% pattern all pairs in two steps
-    %% 1) Construct Core Pattern
-    %% 2) Alias Keys in Core Pattern
-    {CMapPairs, {Eps,St1}} = lists:mapfoldl(fun
-	    (P,{EpsM,Sti0}) ->
-		{CMapPair,EpsP,Sti1} = pattern_map_pair(P,Sti0),
-		{CMapPair, {EpsM++EpsP,Sti1}}
-	end, {[],St}, Ps),
-    {pat_alias_map_pairs(CMapPairs),Eps,St1}.
+pattern_map_pairs(Ps, St0) ->
+    {CMapPairs,St1} = mapfoldl(fun pattern_map_pair/2, St0, Ps),
+    {pat_alias_map_pairs(CMapPairs),St1}.
 
 pattern_map_pair({map_field_exact,L,K,V}, St0) ->
-    {Ck,EpsK,St1} = safe_pattern_expr(K, St0),
-    {Cv,EpsV,St2} = pattern(V, St1),
-    {#c_map_pair{anno=lineno_anno(L, St2),
-		 op=#c_literal{val=exact},
-		 key=Ck,
-		 val=Cv},EpsK++EpsV,St2}.
+    Ck0 = erl_eval:partial_eval(K),
+    {Ck,St1} = exprs([Ck0], St0),
+    {Cv,St2} = pattern(V, St1),
+    {#imappair{anno=#a{anno=lineno_anno(L, St2)},
+               op=#c_literal{val=exact},
+               key=Ck,
+               val=Cv},St2}.
 
 pat_alias_map_pairs(Ps) ->
-    D0 = foldl(fun(#c_map_pair{key=K0}=Pair, A) ->
-                       K = cerl:set_ann(K0, []),
+    D0 = foldl(fun(#imappair{key=K0}=Pair, A) ->
+                       K = map_sort_key(K0, A),
                        case A of
                            #{K:=Aliases} ->
                                A#{K:=[Pair|Aliases]};
@@ -1942,29 +1920,48 @@ pat_alias_map_pairs(Ps) ->
     D = sort(maps:to_list(D0)),
     pat_alias_map_pairs_1(D).
 
-pat_alias_map_pairs_1([{_,[#c_map_pair{val=V0}=Pair|Vs]}|T]) ->
-    V = foldl(fun(#c_map_pair{val=V}, Pat) ->
+pat_alias_map_pairs_1([{_,[#imappair{val=V0}=Pair|Vs]}|T]) ->
+    V = foldl(fun(#imappair{val=V}, Pat) ->
 		      pat_alias(V, Pat)
 	      end, V0, Vs),
-    [Pair#c_map_pair{val=V}|pat_alias_map_pairs_1(T)];
+    [Pair#imappair{val=V}|pat_alias_map_pairs_1(T)];
 pat_alias_map_pairs_1([]) -> [].
+
+map_sort_key(Key, KeyMap) ->
+    case Key of
+        [#c_literal{}=Lit] ->
+            {atomic,cerl:set_ann(Lit, [])};
+        [#c_var{}=Var] ->
+            {atomic,cerl:set_ann(Var, [])};
+        _ ->
+            {expr,map_size(KeyMap)}
+    end.
 
 %% pat_bin([BinElement], State) -> [BinSeg].
 
-pat_bin(Ps, St) -> [pat_segment(P, St) || P <- bin_expand_strings(Ps)].
+pat_bin(Ps0, St) ->
+    Ps = bin_expand_strings(Ps0),
+    pat_segments(Ps, St).
+
+pat_segments([P0|Ps0], St0) ->
+    {P,St1} = pat_segment(P0, St0),
+    {Ps,St2} = pat_segments(Ps0, St1),
+    {[P|Ps],St2};
+pat_segments([], St) -> {[],St}.
 
 pat_segment({bin_element,L,Val,Size0,Type0}, St) ->
-    {Size,Type1} = make_bit_type(L, Size0, Type0),
+    {Size1,Type1} = make_bit_type(L, Size0, Type0),
     [Type,{unit,Unit}|Flags] = Type1,
     Anno = lineno_anno(L, St),
-    {Pval0,[],St1} = pattern(Val, St),
+    {Pval0,St1} = pattern(Val, St),
     Pval = coerce_to_float(Pval0, Type0),
-    {Psize,[],_St2} = pattern(Size, St1),
-    #c_bitstr{anno=Anno,
-	      val=Pval,size=Psize,
-	      unit=#c_literal{val=Unit},
-	      type=#c_literal{val=Type},
-	      flags=#c_literal{val=Flags}}.
+    Size = erl_eval:partial_eval(Size1),
+    {Psize,St2} = exprs([Size], St1),
+    {#ibitstr{anno=#a{anno=Anno},
+              val=Pval,size=Psize,
+              unit=#c_literal{val=Unit},
+              type=#c_literal{val=Type},
+              flags=#c_literal{val=Flags}},St2}.
 
 coerce_to_float(#c_literal{val=Int}=E, [float|_]) when is_integer(Int) ->
     try
@@ -2002,8 +1999,8 @@ pat_alias(#c_alias{var=#c_var{name=V1}=Var1,pat=P1},
 pat_alias(#c_alias{var=#c_var{}=Var,pat=P1}, P2) ->
     #c_alias{var=Var,pat=pat_alias(P1, P2)};
 
-pat_alias(#c_map{es=Es1}=M, #c_map{es=Es2}) ->
-    M#c_map{es=pat_alias_map_pairs(Es1 ++ Es2)};
+pat_alias(#imap{es=Es1}=M, #imap{es=Es2}) ->
+    M#imap{es=pat_alias_map_pairs(Es1 ++ Es2)};
 
 pat_alias(P1, #c_var{}=Var) ->
     #c_alias{var=Var,pat=P1};
@@ -2037,11 +2034,11 @@ pat_alias_list(_, _) -> throw(nomatch).
 %% pattern_list([P], State) -> {[P],Exprs,St}
 
 pattern_list([P0|Ps0], St0) ->
-    {P1,Eps,St1} = pattern(P0, St0),
-    {Ps1,Epsl,St2} = pattern_list(Ps0, St1),
-    {[P1|Ps1], Eps ++ Epsl, St2};
+    {P1,St1} = pattern(P0, St0),
+    {Ps1,St2} = pattern_list(Ps0, St1),
+    {[P1|Ps1],St2};
 pattern_list([], St) ->
-    {[],[],St}.
+    {[],St}.
 
 string_to_conses(Line, Cs, Tail) ->
     foldr(fun (C, T) -> {cons,Line,{char,Line,C},T} end, Tail, Cs).
@@ -2247,18 +2244,26 @@ uexpr(#icase{anno=#a{anno=Anno}=A,args=As0,clauses=Cs0,fc=Fc0}, Ks, St0) ->
               false -> new_in_all(Cs1)
           end,
     {#icase{anno=A#a{us=Used,ns=New},args=As1,clauses=Cs1,fc=Fc1},St3};
-uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}, Ks0, St0) ->
+uexpr(#ifun{anno=A0,id=Id,vars=As,clauses=Cs0,fc=Fc0,name=Name}=Fun0, Ks0, St0) ->
+    {Fun1,St2} = case Ks0 of
+                     [] ->
+                         {Fun0,St0};
+                     [_|_] ->
+                         {Cs1,St1} = rename_shadowing_clauses(Cs0, Ks0, St0),
+                         {Fun0#ifun{clauses=Cs1},St1}
+                 end,
+    #ifun{clauses=Cs2} = Fun1,
     Avs = lit_list_vars(As),
     Ks1 = case Name of
               unnamed -> Ks0;
               {named,FName} -> union(subtract([FName], Avs), Ks0)
           end,
     Ks2 = union(Avs, Ks1),
-    {Cs1,St1} = ufun_clauses(Cs0, Ks2, St0),
-    {Fc1,St2} = ufun_clause(Fc0, Ks2, St1),
-    Used = subtract(intersection(used_in_any(Cs1), Ks1), Avs),
+    {Cs3,St3} = ufun_clauses(Cs2, Ks2, St2),
+    {Fc1,St4} = ufun_clause(Fc0, Ks2, St3),
+    Used = subtract(intersection(used_in_any(Cs3), Ks1), Avs),
     A1 = A0#a{us=Used,ns=[]},
-    {#ifun{anno=A1,id=Id,vars=As,clauses=Cs1,fc=Fc1,name=Name},St2};
+    {#ifun{anno=A1,id=Id,vars=As,clauses=Cs3,fc=Fc1,name=Name},St4};
 uexpr(#iapply{anno=A,op=Op,args=As}, _, St) ->
     Used = union(lit_vars(Op), lit_list_vars(As)),
     {#iapply{anno=A#a{us=Used},op=Op,args=As},St};
@@ -2355,20 +2360,17 @@ upattern(#c_cons{hd=H0,tl=T0}=Cons, Ks, St0) ->
 upattern(#c_tuple{es=Es0}=Tuple, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
     {Tuple#c_tuple{es=Es1},Esg,Esv,Eus,St1};
-upattern(#c_map{es=Es0}=Map, Ks, St0) ->
+upattern(#imap{es=Es0}=Map, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upattern_list(Es0, Ks, St0),
-    {Map#c_map{es=Es1},Esg,Esv,Eus,St1};
-upattern(#c_map_pair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,Ks,St0) ->
+    {Map#imap{es=Es1},Esg,Esv,Eus,St1};
+upattern(#imappair{op=#c_literal{val=exact},key=K0,val=V0}=Pair,Ks,St0) ->
     {V,Vg,Vn,Vu,St1} = upattern(V0, Ks, St0),
-    % A variable key must be considered used here
-    Ku = case K0 of
-	#c_var{name=Name} -> [Name];
-	_ -> []
-    end,
-    {Pair#c_map_pair{val=V},Vg,Vn,union(Ku,Vu),St1};
-upattern(#c_binary{segments=Es0}=Bin, Ks, St0) ->
+    {K,St2} = uexprs(K0, Ks, St1),
+    Ku = used_in_expr(K),
+    {Pair#imappair{key=K,val=V},Vg,Vn,union(Ku, Vu),St2};
+upattern(#ibinary{segments=Es0}=Bin, Ks, St0) ->
     {Es1,Esg,Esv,Eus,St1} = upat_bin(Es0, Ks, St0),
-    {Bin#c_binary{segments=Es1},Esg,Esv,Eus,St1};
+    {Bin#ibinary{segments=Es1},Esg,Esv,Eus,St1};
 upattern(#c_alias{var=V0,pat=P0}=Alias, Ks, St0) ->
     {V1,Vg,Vv,Vu,St1} = upattern(V0, Ks, St0),
     {P1,Pg,Pv,Pu,St2} = upattern(P0, union(Vv, Ks), St1),
@@ -2414,7 +2416,7 @@ upat_bin([], _, _, St) -> {[],[],[],[],St}.
 
 %% upat_element(Segment, [KnownVar], [LocalVar], State) ->
 %%        {Segment,[GuardTest],[NewVar],[UsedVar],[LocalVar],State}
-upat_element(#c_bitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
+upat_element(#ibitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
     {H1,Hg,Hv,[],St1} = upattern(H0, Ks, St0),
     Bs1 = case H0 of
 	      #c_var{name=Hname} ->
@@ -2427,13 +2429,22 @@ upat_element(#c_bitstr{val=H0,size=Sz0}=Seg, Ks, Bs0, St0) ->
 	      _ ->
 		  Bs0
 	  end,
-    {Sz1,Us} = case Sz0 of
-		   #c_var{name=Vname} -> 
-		       rename_bitstr_size(Vname, Bs0);
-		   _Other ->
-		       {Sz0,[]}
-	       end,
-    {Seg#c_bitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St1}.
+    case Sz0 of
+        [#c_var{name=Vname}] ->
+            {Sz1,Us} = rename_bitstr_size(Vname, Bs0),
+            {Sz2,St2} = uexprs([Sz1], Ks, St1),
+            {Seg#ibitstr{val=H1,size=Sz2},Hg,Hv,Us,Bs1,St2};
+        [#c_literal{}] ->
+            {Sz1,St2} = uexprs(Sz0, Ks, St1),
+            Us = [],
+            {Seg#ibitstr{val=H1,size=Sz1},Hg,Hv,Us,Bs1,St2};
+        Expr when is_list(Expr) ->
+            Sz1 = [#iset{var=#c_var{name=Old},arg=#c_var{name=New}} ||
+                      {Old,New} <- Bs0] ++ Expr,
+            {Sz2,St2} = uexprs(Sz1, Ks, St1),
+            Us = used_in_expr(Sz2),
+            {Seg#ibitstr{val=H1,size=Sz2},Hg,Hv,Us,Bs1,St2}
+    end.
 
 rename_bitstr_size(V, [{V,N}|_]) ->
     New = #c_var{name=N},
@@ -2443,7 +2454,13 @@ rename_bitstr_size(V, [_|Rest]) ->
 rename_bitstr_size(V, []) ->
     Old = #c_var{name=V},
     {Old,[V]}.
- 
+
+used_in_expr([Le|Les]) ->
+    #a{us=Us,ns=Ns} = get_anno(Le),
+    Used = used_in_expr(Les),
+    union(Us, subtract(Used, Ns));
+used_in_expr([]) -> [].
+
 used_in_any(Les) ->
     foldl(fun (Le, Ns) -> union((get_anno(Le))#a.us, Ns) end,
 	  [], Les).
@@ -2457,6 +2474,114 @@ new_in_all([Le|Les]) ->
 	  (get_anno(Le))#a.ns, Les);
 new_in_all([]) -> [].
 
+%%%
+%%% Rename shadowing variables in fun heads.
+%%%
+%%% Pattern variables in fun heads always shadow variables bound in
+%%% the enclosing environment. Because that is the way that variables
+%%% behave in Core Erlang, there was previously no need to rename
+%%% the variables.
+%%%
+%%% However, to support splitting of patterns and/or pattern matching
+%%% compilation in Core Erlang, there is a need to rename all
+%%% shadowing variables to avoid changing the semantics of the Erlang
+%%% program.
+%%%
+
+rename_shadowing_clauses([C0|Cs0], Ks, St0) ->
+    {C,St1} = rename_shadowing_clause(C0, Ks, St0),
+    {Cs,St} = rename_shadowing_clauses(Cs0, Ks, St1),
+    {[C|Cs],St};
+rename_shadowing_clauses([], _Ks, St) ->
+    {[],St}.
+
+rename_shadowing_clause(#iclause{pats=Ps0,guard=G0,body=B0}=C, Ks, St0) ->
+    Subs = {[],[]},
+    {Ps,{_Isub,Osub},St} = ren_pats(Ps0, Ks, Subs, St0),
+    G = case G0 of
+            [] -> G0;
+            [_|_] -> Osub ++ G0
+        end,
+    B = Osub ++ B0,
+    {C#iclause{pats=Ps,guard=G,body=B},St}.
+
+ren_pats([P0|Ps0], Ks, {_,_}=Subs0, St0) ->
+    {P,Subs1,St1} = ren_pat(P0, Ks, Subs0, St0),
+    {Ps,Subs,St} = ren_pats(Ps0, Ks, Subs1, St1),
+    {[P|Ps],Subs,St};
+ren_pats([], _Ks, {_,_}=Subs, St) ->
+    {[],Subs,St}.
+
+ren_pat(#c_var{name='_'}=P, _Ks, Subs, St) ->
+    {P,Subs,St};
+ren_pat(#c_var{name=V}=Old, Ks, {Isub0,Osub0}=Subs, St0) ->
+    case member(V, Ks) of
+        true ->
+            case ren_is_subst(V, Osub0) of
+                {yes,New} ->
+                    {New,Subs,St0};
+                no ->
+                    {New,St} = new_var(St0),
+                    Osub = [#iset{var=Old,arg=New}|Osub0],
+                    {New,{Isub0,Osub},St}
+            end;
+        false ->
+            {Old,Subs,St0}
+    end;
+ren_pat(#c_literal{}=P, _Ks, {_,_}=Subs, St) ->
+    {P,Subs,St};
+ren_pat(#c_alias{var=Var0,pat=Pat0}=Alias, Ks, {_,_}=Subs0, St0) ->
+    {Var,Subs1,St1} = ren_pat(Var0, Ks, Subs0, St0),
+    {Pat,Subs,St} = ren_pat(Pat0, Ks, Subs1, St1),
+    {Alias#c_alias{var=Var,pat=Pat},Subs,St};
+ren_pat(#imap{es=Es0}=Map, Ks, {_,_}=Subs0, St0) ->
+    {Es,Subs,St} = ren_pat_map(Es0, Ks, Subs0, St0),
+    {Map#imap{es=Es},Subs,St};
+ren_pat(#ibinary{segments=Es0}=P, Ks, {Isub,Osub0}, St0) ->
+    {Es,_Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub, Osub0, St0),
+    {P#ibinary{segments=Es},{Isub,Osub},St};
+ren_pat(P, Ks0, {_,_}=Subs0, St0) ->
+    Es0 = cerl:data_es(P),
+    {Es,Subs,St} = ren_pats(Es0, Ks0, Subs0, St0),
+    {cerl:make_data(cerl:data_type(P), Es),Subs,St}.
+
+ren_pat_bin([#ibitstr{val=Val0,size=Sz0}=E|Es0], Ks, Isub0, Osub0, St0) ->
+    Sz = ren_get_subst(Sz0, Isub0),
+    {Val,{_,Osub1},St1} = ren_pat(Val0, Ks, {Isub0,Osub0}, St0),
+    Isub1 = case Val0 of
+                #c_var{} ->
+                    [#iset{var=Val0,arg=Val}|Isub0];
+                _ ->
+                    Isub0
+            end,
+    {Es,Isub,Osub,St} = ren_pat_bin(Es0, Ks, Isub1, Osub1, St1),
+    {[E#ibitstr{val=Val,size=Sz}|Es],Isub,Osub,St};
+ren_pat_bin([], _Ks, Isub, Osub, St) ->
+    {[],Isub,Osub,St}.
+
+ren_pat_map([#imappair{val=Val0}=MapPair|Es0], Ks, Subs0, St0) ->
+    {Val,Subs1,St1} = ren_pat(Val0, Ks, Subs0, St0),
+    {Es,Subs,St} = ren_pat_map(Es0, Ks, Subs1, St1),
+    {[MapPair#imappair{val=Val}|Es],Subs,St};
+ren_pat_map([], _Ks, Subs, St) ->
+    {[],Subs,St}.
+
+ren_get_subst([#c_var{name=V}]=Old, Sub) ->
+    case ren_is_subst(V, Sub) of
+        no -> Old;
+        {yes,New} -> [New]
+    end;
+ren_get_subst([#c_literal{}]=Old, _Sub) ->
+    Old;
+ren_get_subst(Expr, Sub) when is_list(Expr) ->
+    Sub ++ Expr.
+
+ren_is_subst(V, [#iset{var=#c_var{name=V},arg=Arg}|_]) ->
+    {yes,Arg};
+ren_is_subst(V, [_|Sub]) ->
+    ren_is_subst(V, Sub);
+ren_is_subst(_V, []) -> no.
+
 %% The AfterVars are the variables which are used afterwards.  We need
 %% this to work out which variables are actually exported and used
 %% from case/receive.  In subblocks/clauses the AfterVars of the block
@@ -2469,7 +2594,8 @@ cbody(B0, St0) ->
 %% cclause(Lclause, [AfterVar], State) -> {Cclause,State}.
 %%  The AfterVars are the exported variables.
 
-cclause(#iclause{anno=#a{anno=Anno},pats=Ps,guard=G0,body=B0}, Exp, St0) ->
+cclause(#iclause{anno=#a{anno=Anno},pats=Ps0,guard=G0,body=B0}, Exp, St0) ->
+    Ps = cpattern_list(Ps0),
     {B1,_Us1,St1} = cexprs(B0, Exp, St0),
     {G1,St2} = cguard(G0, St1),
     {#c_clause{anno=Anno,pats=Ps,guard=G1,body=B1},St2}.
@@ -2481,7 +2607,36 @@ cguard([], St) -> {#c_literal{val=true},St};
 cguard(Gs, St0) ->
     {G,_,St1} = cexprs(Gs, [], St0),
     {G,St1}.
- 
+
+cpattern_list([P|Ps]) ->
+    [cpattern(P)|cpattern_list(Ps)];
+cpattern_list([]) -> [].
+
+cpattern(#c_alias{pat=Pat}=Alias) ->
+    Alias#c_alias{pat=cpattern(Pat)};
+cpattern(#c_cons{hd=Hd,tl=Tl}=Cons) ->
+    Cons#c_cons{hd=cpattern(Hd),tl=cpattern(Tl)};
+cpattern(#c_tuple{es=Es}=Tup) ->
+    Tup#c_tuple{es=cpattern_list(Es)};
+cpattern(#imap{anno=#a{anno=Anno},es=Es}) ->
+    #c_map{anno=Anno,es=cpat_map_pairs(Es),is_pat=true};
+cpattern(#ibinary{anno=#a{anno=Anno},segments=Segs0}) ->
+    Segs = [cpat_bin_seg(S) || S <- Segs0],
+    #c_binary{anno=Anno,segments=Segs};
+cpattern(Other) -> Other.
+
+cpat_map_pairs([#imappair{anno=#a{anno=Anno},op=Op,key=Key0,val=Val0}|T]) ->
+    {Key,_,_} = cexprs(Key0, [], #core{}),
+    Val = cpattern(Val0),
+    Pair = #c_map_pair{anno=Anno,op=Op,key=Key,val=Val},
+    [Pair|cpat_map_pairs(T)];
+cpat_map_pairs([]) -> [].
+
+cpat_bin_seg(#ibitstr{anno=#a{anno=Anno},val=E,size=Sz0,unit=Unit,
+                      type=Type,flags=Flags}) ->
+    {Sz,_,_} = cexprs(Sz0, [], #core{}),
+    #c_bitstr{anno=Anno,val=E,size=Sz,unit=Unit,type=Type,flags=Flags}.
+
 %% cexprs([Lexpr], [AfterVar], State) -> {Cexpr,[AfterVar],State}.
 %%  Must be sneaky here at the last expr when combining exports for the
 %%  whole sequence and exports for that expr.
@@ -2661,6 +2816,506 @@ cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
 c_call_erl(Fun, Args) ->
     As = [compiler_generated],
     cerl:ann_c_call(As, cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
+
+%%%
+%%% Lower a `receive` to more primitive operations. Rewrite patterns
+%%% that use and bind the same variable as nested cases.
+%%%
+%%% Here follows an example of how a receive in this Erlang code:
+%%%
+%%% foo(Timeout) ->
+%%%     receive
+%%%         {tag,Msg} -> Msg
+%%%     after
+%%%         Timeout ->
+%%%             no_message
+%%%     end.
+%%%
+%%% is translated into Core Erlang:
+%%%
+%%% 'foo'/1 =
+%%%     fun (Timeout) ->
+%%%         ( letrec
+%%%               'recv$^0'/0 =
+%%%                   fun () ->
+%%%                       let <PeekSucceeded,Message> =
+%%%                           primop 'recv_peek_message'()
+%%%                       in  case PeekSucceeded of
+%%%                             <'true'> when 'true' ->
+%%%                                 case Message of
+%%%                                   <{'tag',Msg}> when 'true' ->
+%%%                                       do  primop 'remove_message'()
+%%%                                           Msg
+%%%                                   ( <Other> when 'true' ->
+%%%                                         do  primop 'recv_next'()
+%%%                                             apply 'recv$^0'/0()
+%%%                                     -| ['compiler_generated'] )
+%%%                                 end
+%%%                             <'false'> when 'true' ->
+%%%                                 let <TimedOut> =
+%%%                                     primop 'recv_wait_timeout'(Timeout)
+%%%                                 in  case TimedOut of
+%%%                                       <'true'> when 'true' ->
+%%%                                           do  primop 'timeout'()
+%%%                                               'no_message'
+%%%                                       <'false'> when 'true' ->
+%%%                                           apply 'recv$^0'/0()
+%%%                                     end
+%%%                           end
+%%%           in  apply 'recv$^0'/0()
+%%%           -| ['letrec_goto'] )
+
+lbody(B, St) ->
+    cerl_trees:mapfold(fun lexpr/2, St, B).
+
+lexpr(#c_case{}=Case, St) ->
+    %% Split patterns that bind and use the same variable.
+    split_case(Case, St);
+lexpr(#c_receive{clauses=[],timeout=Timeout0,action=Action}, St0) ->
+    %% Lower a receive with only an after to its primitive operations.
+    False = #c_literal{val=false},
+    True = #c_literal{val=true},
+
+    {Timeout,Outer0,St1} =
+        case is_safe(Timeout0) of
+            true ->
+                {Timeout0,False,St0};
+            false ->
+                {TimeoutVar,Sti0} = new_var(St0),
+                OuterLet = #c_let{vars=[TimeoutVar],arg=Timeout0,body=False},
+                {TimeoutVar,OuterLet,Sti0}
+        end,
+
+    MaybeIgnore = case Timeout of
+                      #c_literal{val=infinity} -> [dialyzer_ignore];
+                      _ -> []
+                  end,
+
+    {LoopName,St2} = new_fun_name("recv", St1),
+    LoopFun = #c_var{name={LoopName,0}},
+    ApplyLoop = #c_apply{anno=[dialyzer_ignore],op=LoopFun,args=[]},
+
+    TimeoutCs = [#c_clause{anno=MaybeIgnore,pats=[True],guard=True,
+                           body=#c_seq{arg=primop(timeout),
+                                       body=Action}},
+                 #c_clause{anno=[compiler_generated,dialyzer_ignore],
+                           pats=[False],guard=True,
+                           body=ApplyLoop}],
+    {TimeoutBool,St3} = new_var(St2),
+    TimeoutCase = #c_case{anno=[receive_timeout],arg=TimeoutBool,
+                          clauses=TimeoutCs},
+    TimeoutLet = #c_let{vars=[TimeoutBool],
+                        arg=primop(recv_wait_timeout, [Timeout]),
+                        body=TimeoutCase},
+
+    Fun = #c_fun{vars=[],body=TimeoutLet},
+
+    Letrec = #c_letrec{anno=[letrec_goto],
+                       defs=[{LoopFun,Fun}],
+                       body=ApplyLoop},
+
+    %% If the 'after' expression is unsafe we evaluate it in an outer 'let'.
+    Outer = case Outer0 of
+                #c_let{} -> Outer0#c_let{body=Letrec};
+                _ -> Letrec
+            end,
+    {Outer,St3};
+lexpr(#c_receive{clauses=Cs0,timeout=Timeout0,action=Action}, St0) ->
+    %% Lower receive to its primitive operations.
+    False = #c_literal{val=false},
+    True = #c_literal{val=true},
+
+    {Timeout,Outer0,St1} =
+        case is_safe(Timeout0) of
+            true ->
+                {Timeout0,False,St0};
+            false ->
+                {TimeoutVar,Sti0} = new_var(St0),
+                OuterLet = #c_let{vars=[TimeoutVar],arg=Timeout0,body=False},
+                {TimeoutVar,OuterLet,Sti0}
+        end,
+
+    MaybeIgnore = case Timeout of
+                      #c_literal{val=infinity} -> [dialyzer_ignore];
+                      _ -> []
+                  end,
+
+    {LoopName,St2} = new_fun_name("recv", St1),
+    LoopFun = #c_var{name={LoopName,0}},
+    ApplyLoop = #c_apply{anno=[dialyzer_ignore],op=LoopFun,args=[]},
+
+    Cs1 = rewrite_cs(Cs0),
+    RecvNext = #c_seq{arg=primop(recv_next),
+                      body=ApplyLoop},
+    RecvNextC = #c_clause{anno=[compiler_generated,dialyzer_ignore],
+                          pats=[#c_var{name='Other'}],guard=True,body=RecvNext},
+    Cs = Cs1 ++ [RecvNextC],
+    {Msg,St3} = new_var(St2),
+    {MsgCase,St4} = split_case(#c_case{arg=Msg,clauses=Cs}, St3),
+
+    TimeoutCs = [#c_clause{pats=[True],guard=True,
+                           body=#c_seq{arg=primop(timeout),
+                                       body=Action}},
+                 #c_clause{anno=[dialyzer_ignore],pats=[False],guard=True,
+                           body=ApplyLoop}],
+    {TimeoutBool,St5} = new_var(St4),
+    TimeoutCase = #c_case{arg=TimeoutBool,clauses=TimeoutCs},
+    TimeoutLet = #c_let{vars=[TimeoutBool],
+                        arg=primop(recv_wait_timeout, [Timeout]),
+                        body=TimeoutCase},
+
+    {PeekSucceeded,St6} = new_var(St5),
+    PeekCs = [#c_clause{pats=[True],guard=True,
+                        body=MsgCase},
+              #c_clause{anno=MaybeIgnore,
+                        pats=[False],guard=True,
+                        body=TimeoutLet}],
+    PeekCase = #c_case{arg=PeekSucceeded,clauses=PeekCs},
+    PeekLet = #c_let{vars=[PeekSucceeded,Msg],
+                     arg=primop(recv_peek_message),
+                     body=PeekCase},
+    Fun = #c_fun{vars=[],body=PeekLet},
+
+    Letrec = #c_letrec{anno=[letrec_goto],
+                       defs=[{LoopFun,Fun}],
+                       body=ApplyLoop},
+
+    %% If the 'after' expression is unsafe we evaluate it in an outer 'let'.
+    Outer = case Outer0 of
+                #c_let{} -> Outer0#c_let{body=Letrec};
+                _ -> Letrec
+            end,
+    {Outer,St6};
+lexpr(Tree, St) ->
+    {Tree,St}.
+
+rewrite_cs([#c_clause{body=B0}=C|Cs]) ->
+    B = #c_seq{arg=primop(remove_message),body=B0},
+    [C#c_clause{body=B}|rewrite_cs(Cs)];
+rewrite_cs([]) -> [].
+
+primop(Name) ->
+    primop(Name, []).
+
+primop(Name, Args) ->
+    #c_primop{name=#c_literal{val=Name},args=Args}.
+
+%%%
+%%% Split patterns such as <<Size:32,Tail:Size>> that bind
+%%% and use a variable in the same pattern. Rewrite to a
+%%% nested case in a letrec.
+%%%
+
+split_case(#c_case{arg=Arg,clauses=Cs0}=Case0, St0) ->
+    Args = case Arg of
+               #c_values{es=Es} -> Es;
+               _ -> [Arg]
+           end,
+    {VarArgs,St1} = split_var_args(Args, St0),
+    case split_clauses(Cs0, VarArgs, St1) of
+        none ->
+            {Case0,St0};
+        {PreCase,AftCs,St2} ->
+            AftCase = Case0#c_case{arg=core_lib:make_values(VarArgs),
+                                   clauses=AftCs},
+            AftFun = #c_fun{vars=[],body=AftCase},
+            {Letrec,St3} = split_case_letrec(AftFun, PreCase, St2),
+            Body = split_letify(VarArgs, Args, Letrec, [], []),
+            {Body,St3}
+    end.
+
+split_var_args(Args, St) ->
+    mapfoldl(fun(#c_var{}=Var, S0) ->
+                     {Var,S0};
+                (#c_literal{}=Lit, S0) ->
+                     {Lit,S0};
+                (_, S0) ->
+                     new_var(S0)
+             end, St, Args).
+
+split_letify([Same|Vs], [Same|Args], Body, VsAcc, ArgAcc) ->
+    split_letify(Vs, Args, Body, VsAcc, ArgAcc);
+split_letify([V|Vs], [Arg|Args], Body, VsAcc, ArgAcc) ->
+    split_letify(Vs, Args, Body, [V|VsAcc], [Arg|ArgAcc]);
+split_letify([], [], Body, [], []) ->
+    Body;
+split_letify([], [], Body, [_|_]=VsAcc, [_|_]=ArgAcc) ->
+    #c_let{vars=reverse(VsAcc),
+           arg=core_lib:make_values(reverse(ArgAcc)),
+           body=Body}.
+
+split_case_letrec(#c_fun{anno=FunAnno0}=Fun0, Body, #core{gcount=C}=St0) ->
+    FunAnno = [compiler_generated|FunAnno0],
+    Fun = Fun0#c_fun{anno=FunAnno},
+    Anno = [letrec_goto],
+    DefFunName = goto_func(C),
+    Letrec = #c_letrec{anno=Anno,defs=[{#c_var{name=DefFunName},Fun}],body=Body},
+    St = St0#core{gcount=C+1},
+    lbody(Letrec, St).
+
+split_clauses([C0|Cs0], Args, St0) ->
+    case split_clauses(Cs0, Args, St0) of
+        none ->
+            case split_clause(C0, St0) of
+                none ->
+                    none;
+                {Ps,Nested,St1} ->
+                    {Case,St2} = split_reconstruct(Args, Ps, Nested, C0, St1),
+                    {Case,Cs0,St2}
+            end;
+        {Case0,Cs,St} ->
+            #c_case{clauses=NewClauses} = Case0,
+            Case = Case0#c_case{clauses=[C0|NewClauses]},
+            {Case,Cs,St}
+    end;
+split_clauses([], _, _) ->
+    none.
+
+goto_func(Count) ->
+    {list_to_atom("label^" ++ integer_to_list(Count)),0}.
+
+split_reconstruct(Args, Ps, nil, #c_clause{anno=Anno}=C0, St0) ->
+    C = C0#c_clause{pats=Ps},
+    {Fc,St1} = split_fc_clause(Ps, Anno, St0),
+    {#c_case{arg=core_lib:make_values(Args),clauses=[C,Fc]},St1};
+split_reconstruct(Args, Ps, {split,SplitArgs,Pat,Nested}, C, St) ->
+    Split = {split,SplitArgs,fun(Body) -> Body end,Pat,Nested},
+    split_reconstruct(Args, Ps, Split, C, St);
+split_reconstruct(Args, Ps, {split,SplitArgs,Wrap,Pat,Nested},
+                  #c_clause{anno=Anno}=C0, St0) ->
+    {InnerCase,St1} = split_reconstruct(SplitArgs, [Pat], Nested, C0, St0),
+    {Fc,St2} = split_fc_clause(Args, Anno, St1),
+    Wrapped = Wrap(InnerCase),
+    C = C0#c_clause{pats=Ps,guard=#c_literal{val=true},body=Wrapped},
+    {#c_case{arg=core_lib:make_values(Args),clauses=[C,Fc]},St2}.
+
+split_fc_clause(Args, Anno0, #core{gcount=Count}=St0) ->
+    Anno = [compiler_generated|Anno0],
+    Arity = length(Args),
+    {Vars,St1} = new_vars(Arity, St0),
+    Op = #c_var{name=goto_func(Count)},
+    Apply = #c_apply{anno=Anno,op=Op,args=[]},
+    {#c_clause{anno=[dialyzer_ignore|Anno],pats=Vars,
+               guard=#c_literal{val=true},body=Apply},St1}.
+
+split_clause(#c_clause{pats=Ps0}, St0) ->
+    case split_pats(Ps0, St0) of
+        none ->
+            none;
+        {Ps,Case,St} ->
+            {Ps,Case,St}
+    end.
+
+split_pats([P0|Ps0], St0) ->
+    case split_pats(Ps0, St0) of
+        none ->
+            case split_pat(P0, St0) of
+                none ->
+                    none;
+                {P,Case,St} ->
+                    {[P|Ps0],Case,St}
+            end;
+        {Ps,Case,St} ->
+            {[P0|Ps],Case,St}
+    end;
+split_pats([], _) ->
+    none.
+
+split_pat(#c_binary{segments=Segs0}=Bin, St0) ->
+    Vars = gb_sets:empty(),
+    case split_bin_segments(Segs0, Vars, St0, []) of
+        none ->
+            none;
+        {TailVar,Wrap,Bef,Aft,St} ->
+            BefBin = Bin#c_binary{segments=Bef},
+            {BefBin,{split,[TailVar],Wrap,Bin#c_binary{segments=Aft},nil},St}
+    end;
+split_pat(#c_map{es=Es}=Map, St) ->
+    split_map_pat(Es, Map, St, []);
+split_pat(#c_var{}, _) ->
+    none;
+split_pat(#c_alias{pat=Pat}=Alias0, St0) ->
+    case split_pat(Pat, St0) of
+        none ->
+            none;
+        {Ps,Split,St1} ->
+            {Var,St} = new_var(St1),
+            Alias = Alias0#c_alias{pat=Var},
+            {Alias,{split,[Var],Ps,Split},St}
+    end;
+split_pat(Data, St0) ->
+    Type = cerl:data_type(Data),
+    Es = cerl:data_es(Data),
+    split_data(Es, Type, St0, []).
+
+split_map_pat([#c_map_pair{key=Key,val=Val}=E0|Es], Map0, St0, Acc) ->
+    case eval_map_key(Key, E0, Es, Map0, St0) of
+        none ->
+            case split_pat(Val, St0) of
+                none ->
+                    split_map_pat(Es, Map0, St0, [E0|Acc]);
+                {Ps,Split,St1} ->
+                    {Var,St} = new_var(St1),
+                    E = E0#c_map_pair{val=Var},
+                    Map = Map0#c_map{es=reverse(Acc, [E|Es])},
+                    {Map,{split,[Var],Ps,Split},St}
+            end;
+        {MapVar,Split,St1} ->
+            BefMap0 = Map0#c_map{es=reverse(Acc)},
+            BefMap = #c_alias{var=MapVar,pat=BefMap0},
+            {BefMap,Split,St1}
+    end;
+split_map_pat([], _, _, _) -> none.
+
+eval_map_key(#c_var{}, _E, _Es, _Map, _St) ->
+    none;
+eval_map_key(#c_literal{}, _E, _Es, _Map, _St) ->
+    none;
+eval_map_key(Key, E0, Es, Map, St0) ->
+    {[KeyVar,MapVar],St1} = new_vars(2, St0),
+    E = E0#c_map_pair{key=KeyVar},
+    AftMap0 = Map#c_map{es=[E|Es]},
+    {Wrap,CaseArg,AftMap,St2} = wrap_map_key_fun(Key, KeyVar, MapVar, AftMap0, St1),
+    {MapVar,{split,[CaseArg],Wrap,AftMap,nil},St2}.
+
+wrap_map_key_fun(Key, KeyVar, MapVar, AftMap, St0) ->
+    case is_safe(Key) of
+        true ->
+            {fun(Body) ->
+                     #c_let{vars=[KeyVar],arg=Key,body=Body}
+             end,MapVar,AftMap,St0};
+        false ->
+            {[SuccVar|Evars],St} = new_vars(4, St0),
+            {fun(Body) ->
+                     Try = #c_try{arg=Key,vars=[KeyVar],
+                                  body=#c_values{es=[#c_literal{val=true},KeyVar]},
+                                  evars=Evars,
+                                  handler=#c_values{es=[#c_literal{val=false},
+                                                        #c_literal{val=false}]}},
+                     #c_let{vars=[SuccVar,KeyVar],arg=Try,body=Body}
+             end,
+             #c_tuple{es=[SuccVar,MapVar]},
+             #c_tuple{es=[#c_literal{val=true},AftMap]},
+             St}
+    end.
+
+split_data([E|Es0], Type, St0, Acc) ->
+    case split_pat(E, St0) of
+        none ->
+            split_data(Es0, Type, St0, [E|Acc]);
+        {Ps,Split,St1} ->
+            {Var,St} = new_var(St1),
+            Data = cerl:make_data(Type, reverse(Acc, [Var|Es0])),
+            {Data,{split,[Var],Ps,Split},St}
+    end;
+split_data([], _, _, _) -> none.
+
+split_bin_segments([#c_bitstr{val=Val,size=Size}=S0|Segs], Vars0, St0, Acc) ->
+    Vars = case Val of
+               #c_var{name=V} -> gb_sets:add(V, Vars0);
+               _ -> Vars0
+           end,
+    case Size of
+        #c_literal{} ->
+            split_bin_segments(Segs, Vars, St0, [S0|Acc]);
+        #c_var{name=SizeVar} ->
+            case gb_sets:is_member(SizeVar, Vars0) of
+                true ->
+                    %% The size variable is variable previously bound
+                    %% in this same segment. Split the clause here to
+                    %% avoid a variable that is both defined and used
+                    %% in the same pattern.
+                    {TailVar,Tail,St} = split_tail_seg(S0, Segs, St0),
+                    Wrap = fun(Body) -> Body end,
+                    {TailVar,Wrap,reverse(Acc, [Tail]),[S0|Segs],St};
+                false ->
+                    split_bin_segments(Segs, Vars, St0, [S0|Acc])
+            end;
+        _ ->
+            %% The size is an expression. Split the clause here,
+            %% calculate the expression in a try/catch, and finally
+            %% continue the match in an inner case.
+            {TailVar,Tail,St1} = split_tail_seg(S0, Segs, St0),
+            {SizeVar,St2} = new_var(St1),
+            S = S0#c_bitstr{size=SizeVar},
+            {Wrap,St3} = split_wrap(SizeVar, Size, St2),
+            {TailVar,Wrap,reverse(Acc, [Tail]),[S|Segs],St3}
+    end;
+split_bin_segments(_, _, _, _) ->
+    none.
+
+split_tail_seg(#c_bitstr{anno=A}=S, Segs, St0) ->
+    {TailVar,St} = new_var(St0),
+    Unit = split_bin_unit([S|Segs], St0),
+    {TailVar,
+     #c_bitstr{anno=A,val=TailVar,
+               size=#c_literal{val=all},
+               unit=#c_literal{val=Unit},
+               type=#c_literal{val=binary},
+               flags=#c_literal{val=[unsigned,big]}},
+    St}.
+
+split_wrap(SizeVar, SizeExpr, St0) ->
+    {Evars,St1} = new_vars(3, St0),
+    {fun(Body) ->
+             Try = #c_try{arg=SizeExpr,vars=[SizeVar],body=SizeVar,
+                          evars=Evars,handler=#c_literal{val=bad_size}},
+             #c_let{vars=[SizeVar],arg=Try,body=Body}
+     end,St1}.
+
+split_bin_unit(Ss, #core{dialyzer=Dialyzer}) ->
+    case Dialyzer of
+        true ->
+            %% When a binary match has been rewritten to a nested
+            %% case like this:
+            %%
+            %%    case Bin of
+            %%      <<Size:32,Tail:Size/bitstring-unit:1>> ->
+            %%         case Tail of
+            %%            <<Result/binary-unit:8>> -> Result;
+            %%         ...
+            %%    end
+            %%
+            %% dialyzer will determine the type of Bin based solely on
+            %% the binary pattern in the outer case. It will not
+            %% back-propagate any type information for Tail to Bin. For
+            %% this example, dialyzer would infer the type of Bin to
+            %% be <<_:8,_:_*1>>.
+            %%
+            %% Help dialyzer to infer a better type by calculating the
+            %% greatest common unit for the segments in the inner case
+            %% expression. For this example, the greatest common unit
+            %% for the pattern in the inner case is 8; it will allow
+            %% dialyzer to infer the type for Bin to be
+            %% <<_:32,_:_*8>>.
+
+            split_bin_unit_1(Ss, 0);
+        false ->
+            %% Return the unit for pattern in the outer case that
+            %% results in the best code.
+
+            1
+    end.
+
+split_bin_unit_1([#c_bitstr{type=#c_literal{val=Type},size=Size,
+                            unit=#c_literal{val=U}}|Ss],
+                 GCU) ->
+    Bits = case {Type,Size} of
+               {utf8,_} -> 8;
+               {utf16,_} -> 16;
+               {utf32,_} -> 32;
+               {_,#c_literal{val=0}} -> 1;
+               {_,#c_literal{val=Sz}} when is_integer(Sz) -> Sz * U;
+               {_,_} -> U
+           end,
+    split_bin_unit_1(Ss, gcd(GCU, Bits));
+split_bin_unit_1([], GCU) -> GCU.
+
+gcd(A, B) ->
+    case A rem B of
+        0 -> B;
+        X -> gcd(B, X)
+    end.
 
 %% lit_vars(Literal) -> [Var].
 

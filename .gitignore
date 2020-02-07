@@ -258,6 +258,7 @@ JAVADOC-GENERATED
 /lib/compiler/test/*_r21_SUITE.erl
 /lib/compiler/test/*_no_module_opt_SUITE.erl
 /lib/compiler/test/*_no_type_opt_SUITE.erl
+/lib/compiler/test/*_dialyzer_SUITE.erl
 
 # crypto
 /lib/crypto/test/crypto_SUITE_data/*.rsp

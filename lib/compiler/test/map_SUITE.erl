@@ -73,7 +73,10 @@
         t_reused_key_variable/1,
 
         %% new in OTP 22
-        t_mixed_clause/1,cover_beam_trim/1
+        t_mixed_clause/1,cover_beam_trim/1,
+
+        %% new in OTP 23
+        t_key_expressions/1
     ]).
 
 suite() -> [].
@@ -130,7 +133,10 @@ all() ->
         t_reused_key_variable,
 
         %% new in OTP 22
-        t_mixed_clause,cover_beam_trim
+        t_mixed_clause,cover_beam_trim,
+
+        %%
+        t_key_expressions
     ].
 
 groups() -> [].
@@ -2191,6 +2197,59 @@ do_cover_beam_trim(Id, OldMax, Max, Id, M) ->
     #{Id:=Val} = id(M),
     Val.
 
+t_key_expressions(_Config) ->
+    Int = id(42),
+    #{{tag,Int} := 42} = id(#{{tag,Int} => 42}),
+    #{{tag,Int+1} := 42} = id(#{{tag,Int+1} => 42}),
+    #{{a,b} := x, {tag,Int} := 42, Int := 0} =
+        id(#{{a,b} => x, {tag,Int} => 42, Int => 0}),
+
+    F1 = fun(#{Int + 1 := Val}) -> Val end,
+    val = F1(#{43 => val}),
+    {'EXIT',_} = (catch F1(a)),
+
+    F2 = fun(M, X, Y) ->
+                 case M of
+                     #{element(X, Y) := <<Sz:16,Bin:Sz/binary>>} ->
+                         Bin;
+                     #{} ->
+                         not_found;
+                     {A,B} ->
+                         A + B
+                 end
+         end,
+    <<"xyz">> = F2(#{b => <<3:16,"xyz">>}, 2, {a,b,c}),
+    not_found = F2(#{b => <<3:16,"xyz">>}, 999, {a,b,c}),
+    13 = F2({6,7}, 1, 2),
+
+    #{<<"Спутник"/utf8>> := 1} = id(#{<<"Спутник"/utf8>> => 1}),
+
+    F3 = fun(Arg) ->
+                 erase(once),
+                 RunOnce = fun(I) ->
+                                   undefined = put(once, twice),
+                                   id(I)
+                           end,
+                 case RunOnce(Arg) of
+                     #{{tag,<<Int:42>>} := Value} -> Value;
+                     {X,Y} -> X + Y
+                 end
+         end,
+    10 = F3({7,3}),
+    whatever = F3(#{{tag,<<Int:42>>} => whatever}),
+
+    F4 = fun(K1, K2, M) ->
+                 case M of
+                     #{K1 div K2 := V} -> V;
+                     #{} -> no_match
+                 end
+         end,
+    value = F4(42, 21, #{2 => value}),
+    no_match = F4(42, 21, #{}),
+    no_match = F4(42, 0, #{2 => value}),
+    no_match = F4(42, a, #{2 => value}),
+
+    ok.
 
 %% aux
 

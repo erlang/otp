@@ -99,7 +99,7 @@ get_core_from_src(File, Opts) ->
   case compile:noenv_file(File, Opts ++ src_compiler_opts()) of
     error -> {error, []};
     {error, Errors, _} -> {error, format_errors(Errors)};
-    {ok, _, Core} -> {ok, Core}
+    {ok, _, Core} -> {ok, dialyzer_clean_core:clean(Core)}
   end.
 
 -type get_core_from_beam_ret() :: {'ok', cerl:c_module()} | {'error', string()}.
@@ -116,7 +116,7 @@ get_core_from_beam(File, Opts) ->
     {ok, {Module, [{debug_info, {debug_info_v1, Backend, Metadata}}]}} ->
       case Backend:debug_info(core_v1, Module, Metadata, Opts ++ src_compiler_opts()) of
 	{ok, Core} ->
-	  {ok, Core};
+          {ok, dialyzer_clean_core:clean(Core)};
 	{error, _} ->
 	  {error, "  Could not get Core Erlang code for: " ++ File ++ "\n"}
       end;

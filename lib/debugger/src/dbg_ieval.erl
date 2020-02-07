@@ -1592,12 +1592,17 @@ match_tuple([], _, _, Bs, _BBs) ->
     {match,Bs}.
 
 match_map([{map_field_exact,_,K0,Pat}|Fs], Map, Bs0, BBs) ->
-    {value,K,BBs} = expr(K0, BBs, #ieval{}),
-    case maps:find(K, Map) of
-        {ok,Value} ->
-            {match,Bs} = match1(Pat, Value, Bs0, BBs),
-            match_map(Fs, Map, Bs, BBs);
-        error -> throw(nomatch)
+    try guard_expr(K0, BBs) of
+        {value,K} ->
+            case Map of
+                #{K := Value} ->
+                    {match,Bs} = match1(Pat, Value, Bs0, BBs),
+                    match_map(Fs, Map, Bs, BBs);
+                #{} ->
+                    throw(nomatch)
+            end
+    catch _:_ ->
+            throw(nomatch)
     end;
 match_map([], _, Bs, _BBs) ->
     {match,Bs}.

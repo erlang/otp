@@ -187,7 +187,6 @@ bin_gen_field({bin_element,Line,{string,SLine,S},Size0,Options0},
               Bin0, Bs0, BBs0, Mfun, Efun) ->
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
         make_bit_type(Line, Size0, Options0),
-    match_check_size(Mfun, Size1, BBs0),
     {value, Size, _BBs} = Efun(Size1, BBs0),
     F = fun(C, Bin, Bs, BBs) ->
                 bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian,
@@ -200,7 +199,6 @@ bin_gen_field({bin_element,Line,VE,Size0,Options0},
         make_bit_type(Line, Size0, Options0),
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
-    match_check_size(Mfun, Size1, BBs0, false),
     {value, Size, _BBs} = Efun(Size1, BBs0),
     bin_gen_field1(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun).
 
@@ -269,7 +267,6 @@ match_field_1({bin_element,Line,{string,SLine,S},Size0,Options0},
     {Size1, [Type,{unit,Unit},Sign,Endian]} =
         make_bit_type(Line, Size0, Options0),
     Size2 = erl_eval:partial_eval(Size1),
-    match_check_size(Mfun, Size2, BBs0),
     {value, Size, _BBs} = Efun(Size2, BBs0),
     F = fun(C, Bin, Bs, BBs) ->
                 match_field(Bin, Type, Size, Unit, Sign, Endian,
@@ -283,7 +280,6 @@ match_field_1({bin_element,Line,VE,Size0,Options0},
     V = erl_eval:partial_eval(VE),
     NewV = coerce_to_float(V, Type),
     Size2 = erl_eval:partial_eval(Size1),
-    match_check_size(Mfun, Size2, BBs0),
     {value, Size, _BBs} = Efun(Size2, BBs0),
     match_field(Bin, Type, Size, Unit, Sign, Endian, NewV, Bs0, BBs0, Mfun).
 
@@ -387,24 +383,3 @@ make_bit_type(_Line, Size, Type0) -> %Size evaluates to an integer or 'all'
         {ok,Size,Bt} -> {Size,erl_bits:as_list(Bt)};
         {error,Reason} -> erlang:raise(error, Reason, ?STACKTRACE)
     end.
-
-match_check_size(Mfun, Size, Bs) ->
-    match_check_size(Mfun, Size, Bs, true).
-
-match_check_size(Mfun, {var,_,V}, Bs, _AllowAll) ->
-    case Mfun(binding, {V,Bs}) of
-        {value,_} -> ok;
-	unbound -> throw(invalid) % or, rather, error({unbound,V})
-    end;
-match_check_size(_, {atom,_,all}, _Bs, true) ->
-    ok;
-match_check_size(_, {atom,_,all}, _Bs, false) ->
-    throw(invalid);
-match_check_size(_, {atom,_,undefined}, _Bs, _AllowAll) ->
-    ok;
-match_check_size(_, {integer,_,_}, _Bs, _AllowAll) ->
-    ok;
-match_check_size(_, {value,_,_}, _Bs, _AllowAll) ->
-    ok;	%From the debugger.
-match_check_size(_, _, _Bs, _AllowAll) ->
-    throw(invalid).

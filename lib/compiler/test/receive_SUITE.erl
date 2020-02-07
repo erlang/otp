@@ -27,7 +27,8 @@
 	 export/1,recv/1,coverage/1,otp_7980/1,ref_opt/1,
 	 wait/1,recv_in_try/1,double_recv/1,receive_var_zero/1,
          match_built_terms/1,elusive_common_exit/1,
-         return_before_receive/1,trapping/1]).
+         return_before_receive/1,trapping/1,
+         after_expression/1,in_after/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -49,7 +50,8 @@ groups() ->
       [recv,coverage,otp_7980,export,wait,
        recv_in_try,double_recv,receive_var_zero,
        match_built_terms,elusive_common_exit,
-       return_before_receive,trapping]},
+       return_before_receive,trapping,
+       after_expression,in_after]},
      {slow,[],[ref_opt]}].
 
 init_per_suite(Config) ->
@@ -94,6 +96,8 @@ recv(Config) when is_list(Config) ->
 	    io:format("Unexpected extra message: ~p", [X]),
 	    ct:fail(unexpected)
     after 10 ->
+            unlink(Pid),
+            exit(Pid, kill),
 	    ok
     end,
     ok.
@@ -416,7 +420,9 @@ receive_var_zero(Config) when is_list(Config) ->
               end,
     self() ! w,
     receive
-	x -> ok;
+	x ->
+            receive y -> ok end,
+            receive w -> ok end;
 	Other ->
 	    ct:fail({bad_message,Other})
     end.
@@ -555,5 +561,53 @@ do_trapping(N) ->
     end,
     receive Ref -> ok end,
     receive after 1 -> ok end.
+
+after_expression(_Config) ->
+    self() ! {a,message},
+    {a,message} = after_expr(0),
+    timeout = after_expr(0),
+    timeout = after_expr(10),
+    ok = after_expr_timeout(0),
+    ok = after_expr_timeout(1),
+    ok.
+
+after_expr(Timeout) ->
+    receive
+        Msg -> Msg
+    after id(Timeout) ->
+            timeout
+    end.
+
+after_expr_timeout(Timeout) ->
+    receive
+    after id(Timeout) ->
+            ok
+    end.
+
+in_after(_Config) ->
+    self() ! first,
+    self() ! message,
+    do_in_after(fun() -> ok end),
+    do_in_after(fun() -> ok end),
+    self() ! message,
+    catch do_in_after(fun() -> error(bad) end),
+    catch do_in_after(fun() -> error(bad) end),
+    self() ! last,
+    first = receive M1 -> M1 end,
+    last = receive M2 -> M2 end,
+    ok.
+
+do_in_after(E) ->
+    try
+        E()
+    after
+        receive
+            message ->
+                ok
+        after 1 ->
+                ok
+        end
+    end,
+    ok.
 
 id(I) -> I.

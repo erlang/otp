@@ -197,8 +197,13 @@ module_defs(B, Def, St) ->
 
 %% functions([Fdef], Defined, State) -> State.
 
-functions(Fs, Def, St0) ->
-    foldl(fun (F, St) -> function(F, Def, St) end, St0, Fs).
+functions(Fs, Def, Rt, St0) ->
+    foldl(fun ({_Name,#c_fun{vars=Vs,body=B}}, Sti0) ->
+                  {Vvs,St} = variable_list(Vs, Sti0),
+                  body(B, union(Vvs, Def), Rt, St);
+              (_, St) ->
+                  add_error({illegal_expr,St#lint.func}, St)
+          end, St0, Fs).
 
 %% function(CoreFunc, Defined, State) -> State.
 
@@ -343,7 +348,7 @@ expr(#c_let{vars=Vs,arg=Arg,body=B}, Def, Rt, St0) ->
     body(B, union(Lvs, Def), Rt, St2);
 expr(#c_letrec{defs=Fs,body=B}, Def0, Rt, St0) ->
     Def1 = union(defined_funcs(Fs), Def0),	%All defined stuff
-    St1 = functions(Fs, Def1, St0),
+    St1 = functions(Fs, Def1, Rt, St0),
     body(B, Def1, Rt, St1#lint{func=St0#lint.func});
 expr(#c_case{arg=Arg,clauses=Cs}, Def, Rt, St0) ->
     Pc = case_patcount(Cs),
@@ -353,9 +358,9 @@ expr(#c_receive{clauses=Cs,timeout=T,action=A}, Def, Rt, St0) ->
     St1 = expr(T, Def, 1, St0),
     St2 = body(A, Def, Rt, St1),
     clauses(Cs, Def, 1, Rt, St2);
-expr(#c_apply{op=Op,args=As}, Def, Rt, St0) ->
+expr(#c_apply{op=Op,args=As}, Def, _Rt, St0) ->
     St1 = apply_op(Op, Def, length(As), St0),
-    return_match(Rt, 1, expr_list(As, Def, St1));
+    return_match(any, 1, expr_list(As, Def, St1));
 expr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
      Def, Rt, St0) when is_atom(Name) ->
     St1 = expr_list(As, Def, St0),
@@ -371,6 +376,7 @@ expr(#c_primop{name=#c_literal{val=A},args=As}, Def, Rt, St0) when is_atom(A) ->
     St1 = expr_list(As, Def, St0),
     case A of
         match_fail -> St1;
+        recv_peek_message -> return_match(Rt, 2, St1);
         _ -> return_match(Rt, 1, St1)
     end;
 expr(#c_catch{body=B}, Def, Rt, St) ->
@@ -509,22 +515,16 @@ pat_var(N, _Def, Ps, St) ->
 
 %% pat_bin_list([Elem], Defined, [PatVar], State) -> {[PatVar],State}.
 
-pat_bin(Es, Def0, Ps0, St0) ->
-    {Ps,_,St} = foldl(fun (E, {Ps,Def,St}) ->
-			      pat_segment(E, Def, Ps, St)
-		      end, {Ps0,Def0,St0}, Es),
-    {Ps,St}.
+pat_bin(Es, Def, Ps0, St0) ->
+    foldl(fun (E, {Ps,St}) ->
+                  pat_segment(E, Def, Ps, St)
+          end, {Ps0,St0}, Es).
 
-pat_segment(#c_bitstr{val=V,size=S,type=T}, Def0, Ps0, St0) ->
-    St1 = pat_bit_expr(S, T, Def0, St0),
-    {Ps,St2} = pattern(V, Def0, Ps0, St1),
-    Def = case V of
-	      #c_var{name=Name} -> add_element(Name, Def0);
-	      _ -> Def0
-	  end,
-    {Ps,Def,St2};
-pat_segment(_, Def, Ps, St) ->
-    {Ps,Def,add_error({not_bs_pattern,St#lint.func}, St)}.
+pat_segment(#c_bitstr{val=V,size=S,type=T}, Def, Ps0, St0) ->
+    St1 = pat_bit_expr(S, T, Def, St0),
+    pattern(V, Def, Ps0, St1);
+pat_segment(_, _, Ps, St) ->
+    {Ps,add_error({not_bs_pattern,St#lint.func}, St)}.
 
 %% pat_bin_tail_check([Elem], State) -> State.
 %%  There must be at most one tail segment (a size-less segment of

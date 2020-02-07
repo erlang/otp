@@ -65,7 +65,7 @@
 	       map_pair_op/1, map_pair_key/1, map_pair_val/1
 	   ]).
 
--import(lists, [foldl/3, foldr/3, mapfoldl/3, reverse/1]).
+-import(lists, [foldl/3, foldr/3, member/2, mapfoldl/3, reverse/1]).
 
 %%
 %% Constants
@@ -142,7 +142,7 @@ weight(module) -> 1.    % Like a letrec with a constant body
 %% environment, the state location, and the effort counter at the call
 %% site (cf. `visit').
 
--record(opnd, {expr, ren, env, loc, effort}).
+-record(opnd, {expr, ren, env, loc, effort, no_inline}).
 
 %% Since expressions are only visited in `effect' context when they are
 %% not bound to a referenced variable, only expressions visited in
@@ -903,10 +903,14 @@ i_fun(E, Ctxt, Ren, Env, S) ->
 %% side of each definition.
 
 i_letrec(E, Ctxt, Ren, Env, S) ->
+    %% We must turn off inlining if this `letrec' is specially
+    %% implemented.
+    NoInline = member(letrec_goto, get_ann(E)),
+
     %% Note that we pass an empty list for the auto-referenced
     %% (exported) functions here.
     {Es, B, _, S1} = i_letrec(letrec_defs(E), letrec_body(E), [], Ctxt,
-			      Ren, Env, S),
+			      Ren, Env, NoInline, S),
 
     %% If no bindings remain, only the body is returned.
     case Es of
@@ -920,12 +924,13 @@ i_letrec(E, Ctxt, Ren, Env, S) ->
 %% The major part of this is shared by letrec-expressions and module
 %% definitions alike.
 
-i_letrec(Es, B, Xs, Ctxt, Ren, Env, S) ->
+i_letrec(Es, B, Xs, Ctxt, Ren, Env, NoInline, S) ->
     %% First, we create operands with dummy renamings and environments,
     %% and with fresh store locations for cached expressions and operand
     %% info.
     {Opnds, S1} = mapfoldl(fun ({_, E}, S) ->
-                                   make_opnd(E, undefined, undefined, S)
+                                   make_opnd(E, undefined, undefined,
+                                             NoInline, S)
                            end,
                            S, Es),
 
@@ -1277,7 +1282,7 @@ i_module(E, Ctxt, Ren, Env, S) ->
     %% "body" parameter.
     Exps = i_module_exports(E),
     {Es, _, Xs1, S1} = i_letrec(module_defs(E), void(),
-                                Exps, Ctxt, Ren, Env, S),
+                                Exps, Ctxt, Ren, Env, false, S),
     %% Sanity check:
     case Es of
         [] ->
@@ -1666,6 +1671,8 @@ copy_var(R, Ctxt, Env, S) ->
             end
     end.
 
+copy_1(R, #opnd{no_inline = true}, _E, _Ctxt, _Env, S) ->
+    residualize_var(R, S);
 copy_1(R, Opnd, E, Ctxt, Env, S) ->
     case type(E) of
         'fun' ->
@@ -2067,9 +2074,13 @@ ref_to_var(#ref{name = Name}) ->
 %% passive, the operands will also be processed with a passive counter.
 
 make_opnd(E, Ren, Env, S) ->
+    make_opnd(E, Ren, Env, false, S).
+
+make_opnd(E, Ren, Env, NoInline, S) ->
     {L, S1} = st__new_opnd_loc(S),
     C = st__get_effort(S1),
-    Opnd = #opnd{expr = E, ren = Ren, env = Env, loc = L, effort = C},
+    Opnd = #opnd{expr = E, ren = Ren, env = Env, loc = L,
+                 effort = C, no_inline = NoInline},
     {Opnd, S1}.
 
 keep_referenced(Rs, S) ->
