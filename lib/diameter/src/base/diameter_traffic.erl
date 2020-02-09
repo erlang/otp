@@ -1870,10 +1870,13 @@ z(#diameter_packet{header = H, bin = Bin, transport_data = T}) ->
                      transport_data = T}.
 
 %% send/1
+%%
+%% Send from a remote node using a peer connection on this one. Pkt is
+%% already stripped.
 
 send({TPid, Pkt, #request{handler = Pid} = Req0, SvcName, Timeout, TRef}) ->
     Req = Req0#request{handler = self()},
-    recv(TPid, Pid, TRef, zend_requezt(TPid, Pkt, Req, SvcName, Timeout)).
+    recv(TPid, Pid, TRef, send_request(TPid, Pkt, Req, SvcName, Timeout)).
 
 %% recv/4
 %%
