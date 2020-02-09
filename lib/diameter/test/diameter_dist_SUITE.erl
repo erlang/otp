@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -160,15 +160,32 @@ ping(Config) ->
 %%
 %% Start diameter services.
 
-start(SvcName)
-  when is_atom(SvcName) ->
+%% There's no need to start diameter on a node that only services
+%% diameter_dist as a handler of incoming requests, but the
+%% diameter_dist server must be started since the servers communicate
+%% to determine who services what. The typical case is probably that
+%% handler nodes also want to be able to send Diameter requests, in
+%% which case the application needs to be started and diameter_dist is
+%% started as a part of this, but only start the server here to ensure
+%% everything still works as expected.
+start({_SvcName, [_, {S1, _}, {S2, _}, _]}) 
+  when node() == S1;    %% server1
+       node() == S2 ->  %% server2
+    Mod = diameter_dist,
+    {ok, _} = gen_server:start({local, Mod}, Mod, _Args = [], _Opts  = []),
+    ok;
+
+start({SvcName, [{S0, _}, _, _, {C, _}]})
+  when node() == S0;    %% server0
+       node() == C ->   %% client
     ok = diameter:start(),
     ok = diameter:start_service(SvcName, ?SERVICE((?L(SvcName))));
 
-start(Config) ->
+start(Config)
+  when is_list(Config) ->
     Nodes = ?util:read_priv(Config, nodes),
     [] = [{N,RC} || {N,S} <- Nodes,
-                    RC <- [rpc:call(N, ?MODULE, start, [S])],
+                    RC <- [rpc:call(N, ?MODULE, start, [{S, Nodes}])],
                     RC /= ok].
 
 sequence() ->
@@ -194,13 +211,12 @@ origin(Server) ->
 %% Establish one connection from the client, terminated on the first
 %% server node, the others handling requests.
 
-connect({?SERVER, Config, [{Node, _} | _]}) ->
-    if Node == node() ->  %% server0
-            ?util:write_priv(Config, lref, {Node, ?util:listen(?SERVER, tcp)});
-       true ->
-            diameter_dist:attach([?SERVER])
-    end,
-    ok;
+connect({?SERVER, Config, [{Node, _} | _]})
+  when Node == node() ->  %% server0
+    ok = ?util:write_priv(Config, lref, {Node, ?util:listen(?SERVER, tcp)});
+
+connect({?SERVER, _Config, _}) -> %% server[12]: register to receive requests
+    ok = diameter_dist:attach([?SERVER]);
 
 connect({?CLIENT, Config, _}) ->
     ?util:connect(?CLIENT, tcp, ?util:read_priv(Config, lref)),
@@ -239,7 +255,18 @@ send(Config) ->
 send(Config, 0, Dict) ->
     [{Server0, _} | _] = ?util:read_priv(Config, nodes) ,
     Node = atom_to_binary(Server0, utf8),
-    {false, _} = {dict:is_key(Node, Dict), dict:to_list(Dict)};
+    {false, _} = {dict:is_key(Node, Dict), dict:to_list(Dict)},
+    %% Check that counters have been incremented as expected on server0.
+    [Info] = rpc:call(Server0, diameter, service_info, [?SERVER, connections]),
+    {[Stats], _} = {[S || {statistics, S} <- Info], Info},
+    {[{recv, 1, 100}, {send, 0, 100}], _}
+        = {[{D,R,N} || T <- [recv, send],
+                       {{{0,275,R}, D}, N} <- Stats,
+                       D == T],
+           Stats},
+    {[{send, 0, 100, 2001}], _}
+        = {[{D,R,N,C} || {{{0,275,R}, D, {'Result-Code', C}}, N} <- Stats],
+           Stats};
 
 send(Config, N, Dict) ->
     #diameter_base_STA{'Result-Code' = ?SUCCESS,

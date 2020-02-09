@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -340,6 +340,11 @@ handle_cast(_, State) ->
     {noreply, State}.
 
 %% handle_info/1
+
+%% Counter increment from a remote handler process.
+handle_info({incr, Counter}, State) ->
+    diameter_stats:incr(Counter, self(), 1),
+    {noreply, State};
 
 handle_info(T, #state{} = State) ->
     try transition(T, State) of
