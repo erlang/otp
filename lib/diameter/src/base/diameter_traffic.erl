@@ -1876,20 +1876,20 @@ z(#diameter_packet{header = H, bin = Bin, transport_data = T}) ->
 
 send({TPid, Pkt, #request{handler = Pid} = Req0, SvcName, Timeout, TRef}) ->
     Req = Req0#request{handler = self()},
-    recv(TPid, Pid, TRef, send_request(TPid, Pkt, Req, SvcName, Timeout)).
+    Pid ! recv(TPid, TRef, send_request(TPid, Pkt, Req, SvcName, Timeout)).
 
-%% recv/4
+%% recv/3
 %%
 %% Relay an answer from a remote node.
 
-recv(TPid, Pid, TRef, {LocalTRef, MRef}) ->
+recv(TPid, TRef, {LocalTRef, MRef}) ->
     receive
         {answer, _, _, _, _} = A ->
-            Pid ! A;
+            A;
         {'DOWN', MRef, process, _, _} ->
-            Pid ! {failover, TRef};
+            {failover, TRef};
         {failover = T, LocalTRef} ->
-            Pid ! {T, TRef};
+            {T, TRef};
         T ->
             exit({timeout, LocalTRef, TPid} = T)
     end.
