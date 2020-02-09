@@ -284,12 +284,18 @@ recv(false, false, TPid, Pkt, _, _) ->
 spawn_request(false, _, _, _, _, _, _) ->  %% no transport
     discard;
 
-%% An MFA should return the pid() of a process in which the argument
-%% fun in applied, or the atom 'discard' if the fun is not applied.
-%% The latter results in an acknowledgment back to the transport
-%% process when appropriate, to ensure that send/recv callbacks can
-%% count outstanding requests. Acknowledgement is implicit if the
-%% handler process dies (in a handle_request callback for example).
+%% An MFA should return the pid() of a process that invokes
+%% diameter_traffic:request(ReqT), or the atom 'discard' if the
+%% function is not called. The latter results in an acknowledgment
+%% back to the transport process when appropriate, to ensure that
+%% send/recv callbacks can count outstanding requests. Acknowledgement
+%% is implicit if the handler process dies (in a handle_request
+%% callback for example).
+%%
+%% There is no requirement that diameter be started on nodes on which
+%% handler processes are spawned, just that diameter and application
+%% callbacks are on the code path. (Although the MFA itself may have
+%% requirements, as in the case of diameter_dist.)
 spawn_request(AppT, {M,F,A}, Ack, TPid, Pkt, Dict0, RecvData) ->
     %% Term to pass to request/1 in an appropriate process. Module
     %% diameter_dist implements callbacks.

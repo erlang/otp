@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2019. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,21 @@
 %% Implements callbacks that can be configured as a spawn_opt
 %% transport configuration, to be able to distribute incoming Diameter
 %% requests to handler processes (local or remote) in various ways.
+%%
+%% The gen_server implemented here must be started on each node on
+%% which {diameter_dist, route_session, _} is configured as a
+%% spawn_opt MFA, as well as each node that wants to receive requests.
+%% This happens as a consequence of diameter application start, but a
+%% minimal solution could start only this server on nodes that should
+%% handle requests but not configure transport. (Although the typical
+%% case is probably that diameter should be started in any case; for
+%% example, to be able to originate requests.)
+%%
+%% Moreover, attach/1 must be called to communicate the list of
+%% services for which the local node is willing to handle requests.
+%% The servers on different nodes communicate so that each server
+%% knows which nodes are prepared to handle requests for which
+%% services.
 %%
 
 %% spawn_opt callbacks
