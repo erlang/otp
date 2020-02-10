@@ -44,7 +44,18 @@
 -define(DFLAG_BIG_SEQTRACE_LABELS, 16#100000).
 %% -define(DFLAG_NO_MAGIC, 16#200000). %% Used internally only
 -define(DFLAG_EXIT_PAYLOAD, 16#400000).
--define(DFLAG_FRAGMENTS, 16#800000).
+-define(DFLAG_FRAGMENTS,    16#00800000).
+-define(DFLAG_HANDSHAKE_23, 16#01000000).
+-define(DFLAG_RESERVED,     16#fe000000).
+-define(DFLAG_SPAWN,       16#100000000).
 
 %% Also update dflag2str() in ../src/dist_util.erl
 %% when adding flags...
+
+
+-define(ERL_DIST_VER_5, 5).  % OTP-22 or (much) older
+-define(ERL_DIST_VER_6, 6).  % OTP-23 (or maybe newer?)
+
+-define(ERL_DIST_VER_LOW, ?ERL_DIST_VER_5).
+-define(ERL_DIST_VER_HIGH, ?ERL_DIST_VER_6).
+

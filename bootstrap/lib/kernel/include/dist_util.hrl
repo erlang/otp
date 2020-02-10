@@ -84,7 +84,10 @@
           f_handshake_complete, %% Notify handshake complete
           add_flags,         %% dflags to add
           reject_flags,      %% dflags not to use (not all can be rejected)
-          require_flags     %% dflags that are required
+          require_flags,     %% dflags that are required
+
+          %% New in kernel-@master@ (OTP-23.0)
+          other_creation
 }).
 	  
 

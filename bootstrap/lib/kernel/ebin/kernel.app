@@ -22,7 +22,7 @@
 {application, kernel,
  [
   {description, "ERTS  CXC 138 10"},
-  {vsn, "6.5"},
+  {vsn, "6.5.1"},
   {modules, [application,
 	     application_controller,
 	     application_master,
@@ -103,6 +103,7 @@
              inet_tcp,
              inet_udp,
 	     inet_sctp,
+             pg,
              pg2,
              raw_file_io,
              raw_file_io_compressed,
@@ -143,12 +144,13 @@
                 ddll_server,
                 erl_epmd,
                 inet_db,
+                pg,
                 pg2]},
   {applications, []},
   {env, [{logger_level, notice},
          {logger_sasl_compatible, false}
         ]},
   {mod, {kernel, []}},
-  {runtime_dependencies, ["erts-@OTP-16216@", "stdlib-3.5", "sasl-3.0"]}
+  {runtime_dependencies, ["erts-@OTP-15251@", "stdlib-@OTP-15251@", "sasl-3.0"]}
  ]
 }.

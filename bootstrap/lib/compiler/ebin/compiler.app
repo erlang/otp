@@ -19,7 +19,7 @@
 
 {application, compiler,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "7.4.9"},
+  {vsn, "7.5.1"},
   {modules, [
 	     beam_a,
 	     beam_asm,
@@ -71,6 +71,7 @@
 	     sys_core_fold,
 	     sys_core_fold_lists,
 	     sys_core_inline,
+	     sys_core_prepare,
 	     sys_pre_attributes,
 	     v3_core,
 	     v3_kernel,
@@ -79,5 +80,5 @@
   {registered, []},
   {applications, [kernel, stdlib]},
   {env, []},
-  {runtime_dependencies, ["stdlib-2.5","kernel-4.0","hipe-3.12","erts-9.0",
+  {runtime_dependencies, ["stdlib-@OTP-15251@","kernel-@OTP-15251@","hipe-3.12","erts-@OTP-15251@",
 			  "crypto-3.6"]}]}.
