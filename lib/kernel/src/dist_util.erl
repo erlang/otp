@@ -962,8 +962,8 @@ recv_challenge_reply(#hs_data{socket = Socket,
 		SumA ->
 		    ChallengeB;
 		_ ->
-		    error_msg("** Connection attempt from "
-			      "disallowed node ~w ** ~n", [NodeB]),
+		    error_msg("** Connection attempt from node ~w rejected."
+                              " Invalid challenge reply. **~n", [NodeB]),
 		    ?shutdown2(NodeB, {recv_challenge_reply_failed, bad_cookie})
 	    end;
 	Other ->
@@ -982,8 +982,8 @@ recv_challenge_ack(#hs_data{socket = Socket, f_recv = FRecv,
 		SumA ->
 		    ok;
 		_ ->
-		    error_msg("** Connection attempt to "
-			      "disallowed node ~w ** ~n", [NodeB]),
+		    error_msg("** Connection attempt to node ~w cancelled."
+                              " Invalid challenge ack. **~n", [NodeB]),
 		    ?shutdown2(NodeB, {recv_challenge_ack_failed, bad_cookie})
 	    end;
 	Other ->
