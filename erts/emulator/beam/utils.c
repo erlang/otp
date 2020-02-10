@@ -2973,10 +2973,14 @@ tailrecur_ne:
 		    bb = hashmap_val(b) + 1;
 		    switch (hdr & _HEADER_MAP_SUBTAG_MASK) {
 		    case HAMT_SUBTAG_HEAD_ARRAY:
+                        if (aa[0] != bb[0])
+                            goto not_equal;
 			aa++; bb++;
 			sz = 16;
 			break;
 		    case HAMT_SUBTAG_HEAD_BITMAP:
+                        if (aa[0] != bb[0])
+                            goto not_equal;
 			aa++; bb++;
 		    case HAMT_SUBTAG_NODE_BITMAP:
 			sz = hashmap_bitcount(MAP_HEADER_VAL(hdr));
