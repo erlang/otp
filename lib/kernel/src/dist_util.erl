@@ -360,21 +360,10 @@ shutdown(_Module, _Line, _Data, Reason) ->
     ?shutdown_trace("Net Kernel 2: shutting down connection "
 		    "~p:~p, data ~p,reason ~p~n",
 		    [_Module,_Line, _Data, Reason]),
-    flush_down(),
     exit(Reason).
 %% Use this line to debug connection.  
 %% Set net_kernel verbose = 1 as well.
 %%    exit({Reason, ?MODULE, _Line, _Data, erlang:timestamp()}).
-
-
-flush_down() ->
-    receive
-	{From, get_status} ->
-	    From ! {self(), get_status, error},
-	    flush_down()
-    after 0 ->
-	    ok
-    end.
 
 handshake_we_started(#hs_data{request_type=ReqType,
 			      other_node=Node,
