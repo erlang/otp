@@ -143,7 +143,7 @@
         <v>Name = string()</v>
         <v>Opt = src_tests | {path,[Dir]} | local | {variables,[Var]} | exref |
 	  {exref,[App]}] | silent | {outdir,Dir} | no_dot_erlang | no_warn_sasl |
-	  warnings_as_errors</v>
+	  warnings_as_errors | {script_name, Name}</v>
         <v>&nbsp;Dir = string()</v>
         <v>&nbsp;Var = {VarName,Prefix}</v>
         <v>&nbsp;&nbsp;VarName = Prefix = string()</v>
@@ -154,7 +154,9 @@
       </type>
       <desc>
         <p>Generates a boot script <c>Name.script</c> and its binary
-          version, the boot file <c>Name.boot</c>. The boot file
+          version, the boot file <c>Name.boot</c>, unless the <c>{script_name, ScriptName}</c>
+          option is given, in which case the names are <c>ScriptName.script</c>
+          and <c>ScriptName.boot</c>  The boot file
           specifies which code to be loaded and which applications
           to be started when the Erlang runtime system is started.
           See <seealso marker="script"><c>script(4)</c></seealso>.</p>
@@ -268,7 +270,7 @@
       <fsummary>Creates a release package.</fsummary>
       <type>
         <v>Name = string()</v>
-        <v>Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | src_tests | exref | {exref,[App]} | silent | {outdir,Dir} | | no_warn_sasl | warnings_as_errors</v>
+        <v>Opt = {dirs,[IncDir]} | {path,[Dir]} | {variables,[Var]} | {var_tar,VarTar} | {erts,Dir} | src_tests | exref | {exref,[App]} | silent | {outdir,Dir} | | no_warn_sasl | warnings_as_errors | {extra_files, ExtraFiles}</v>
         <v>&nbsp;Dir = string()</v>
         <v>&nbsp;IncDir = src | include | atom()</v>
         <v>&nbsp;Var = {VarName,PreFix}</v>
@@ -279,6 +281,8 @@
         <v>Result = ok | error | {ok,Module,Warnings} | {error,Module,Error}</v>
         <v>&nbsp;Module = atom()</v>
         <v>&nbsp;Warning = Error = term()</v>
+        <v>&nbsp;ExtraFiles = [{NameInArchive, file:filename_all()}]</v>
+        <v>&nbsp;NameInArchive = string()</v>
       </type>
       <desc>
         <p>Creates a release package file <c>Name.tar.gz</c>.
@@ -311,6 +315,11 @@
           appended to the current path. Wildcard <c>*</c> is
           expanded to all matching directories.
           Example: <c>"lib/*/ebin"</c>.</p>
+        <p>If the <c>{extra_files, ExtraFiles}</c> option is given then the
+          <c>ExtraFiles</c> are added to the tarball after everything else to be
+          included has been added. The <c>ExtraFiles</c> list is a list of files
+          or directories in the same format as the <c>add_type()</c> tuple for
+          <seealso marker="stdlib:erl_tar#add-3">erl_tar:add/3,4</seealso></p>
         <p>Option <c>variables</c> can be used to specify an
           installation directory other than <c>lib</c> for some of
           the applications. If variable <c>{VarName,Prefix}</c> is
