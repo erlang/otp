@@ -78,7 +78,8 @@ all() ->
      pending_exit_process_display,
      pending_exit_process_info_1,
      pending_exit_process_info_2, pending_exit_group_leader,
-     exit_before_pending_exit].
+     exit_before_pending_exit,
+     kill2killed].
 
 
 %% Test that exit signals and messages are received in correct order
