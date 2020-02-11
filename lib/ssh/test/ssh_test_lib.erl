@@ -432,7 +432,7 @@ setup_eddsa(Alg, DataDir, UserDir) ->
     file:copy(filename:join(DataDir, HostPub), filename:join(System, HostPub)),
 ct:log("DataDir ~p:~n ~p~n~nSystDir ~p:~n ~p~n~nUserDir ~p:~n ~p",[DataDir, file:list_dir(DataDir), System, file:list_dir(System), UserDir, file:list_dir(UserDir)]),
     setup_eddsa_known_host(HostPub, DataDir, UserDir),
-    setup_eddsa_auth_keys(IdPriv, DataDir, UserDir).
+    setup_eddsa_auth_keys(Alg, DataDir, UserDir).
 
 clean_dsa(UserDir) ->
     del_dirs(filename:join(UserDir, "system")),
@@ -572,9 +572,12 @@ setup_ecdsa_auth_keys(Size, Dir, UserDir) ->
     PKey = #'ECPoint'{point = Q},
     setup_auth_keys([{ {PKey,Param}, [{comment, "Test"}]}], UserDir).
 
-setup_eddsa_auth_keys(IdPriv, Dir, UserDir) ->
-    {ok, Pem} = file:read_file(filename:join(Dir, IdPriv)),
-    {ed_pri, Alg, Pub, _} = public_key:pem_entry_decode(hd(public_key:pem_decode(Pem))),
+setup_eddsa_auth_keys(Alg, Dir, UserDir) ->
+    SshAlg = case Alg of
+                 ed25519 -> 'ssh-ed25519';
+                 ed448 -> 'ssh-ed448'
+             end,
+    {ok, {ed_pri,Alg,Pub,_}} = ssh_file:user_key(SshAlg, [{user_dir,Dir}]),
     setup_auth_keys([{{ed_pub,Alg,Pub}, [{comment, "Test"}]}], UserDir).
 
 setup_auth_keys(Keys, Dir) ->
