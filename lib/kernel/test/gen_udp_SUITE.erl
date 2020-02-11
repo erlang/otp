@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1998-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@
 
 -export([send_to_closed/1, active_n/1,
 	 buffer_size/1, binary_passive_recv/1, max_buffer_size/1, bad_address/1,
-	 read_packets/1, open_fd/1, connect/1, implicit_inet6/1,
+	 read_packets/1, recv_poll_after_active_once/1,
+         open_fd/1, connect/1, implicit_inet6/1,
          recvtos/1, recvtosttl/1, recvttl/1, recvtclass/1,
          sendtos/1, sendtosttl/1, sendttl/1, sendtclass/1,
 	 local_basic/1, local_unbound/1,
@@ -47,7 +48,8 @@ suite() ->
 
 all() -> 
     [send_to_closed, buffer_size, binary_passive_recv, max_buffer_size,
-     bad_address, read_packets, open_fd, connect,
+     bad_address, read_packets, recv_poll_after_active_once,
+     open_fd, connect,
      implicit_inet6, active_n,
      recvtos, recvtosttl, recvttl, recvtclass,
      sendtos, sendtosttl, sendttl, sendtclass,
@@ -435,6 +437,27 @@ flush() ->
 	    []
     end.
 
+
+%% OTP-16059
+%% UDP recv with timeout 0 corrupts internal state so that after a
+%% recv under {active, once} the UDP recv poll wastes incoming data
+recv_poll_after_active_once(Config) when is_list(Config) ->
+    Msg1 = <<"Hej!">>,
+    Msg2 = <<"Hej igen!">>,
+    Addr = {127,0,0,1},
+    {ok,S1} = gen_udp:open(0, [binary, {active, once}]),
+    {ok,P1} = inet:port(S1),
+    {ok,S2} = gen_udp:open(0, [binary, {active, false}]),
+    {ok,P2} = inet:port(S2),
+    ok = gen_udp:send(S2, Addr, P1, Msg1),
+    receive
+        {udp, S1, Addr, P2, Msg1} ->
+            {error, timeout} = gen_udp:recv(S1, 0, 0),
+            ok = gen_udp:send(S2, Addr, P1, Msg2),
+            receive after 500 -> ok end, % Give the kernel time to deliver
+            {ok, {Addr, P2, Msg2}} = gen_udp:recv(S1, 0, 0),
+            ok
+    end.
 
 
 %% Test that the 'fd' option works.
