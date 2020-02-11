@@ -1496,8 +1496,7 @@ update_cipher_key(ConnStateName, CS0) ->
 
 send_key_update(Sender, Type) ->
     KeyUpdate = tls_handshake_1_3:key_update(Type),
-    tls_sender:send_post_handshake(Sender, KeyUpdate),
-    tls_sender:key_update(Sender).
+    tls_sender:send_post_handshake(Sender, KeyUpdate).
 
 
 %% Send ticket data to user as opaque binary

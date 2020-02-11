@@ -31,7 +31,7 @@
 
 %% API
 -export([start/0, start/1, initialize/2, send_data/2,
-         send_post_handshake/2, key_update/1, send_alert/2,
+         send_post_handshake/2, send_alert/2,
          send_and_ack_alert/2, setopts/2, renegotiate/1, peer_renegotiate/1, downgrade/2,
          update_connection_state/3,
          dist_tls_socket/1, dist_handshake_complete/3]).
@@ -103,13 +103,6 @@ send_data(Pid, AppData) ->
 %%--------------------------------------------------------------------
 send_post_handshake(Pid, HandshakeData) ->
     call(Pid, {post_handshake_data, HandshakeData}).
-
-%%--------------------------------------------------------------------
--spec key_update(pid()) -> ok | {error, term()}.
-%%  Description: Update cipher key
-%%--------------------------------------------------------------------
-key_update(Pid) ->
-    call(Pid, {key_update}).
 
 %%--------------------------------------------------------------------
 -spec send_alert(pid(), #alert{}) -> _. 
@@ -296,16 +289,10 @@ connection({call, From}, {dist_handshake_complete, _Node, DHandle},
               [{next_event, internal,
                {application_packets,{self(),undefined},erlang:iolist_to_iovec(Data)}}]
       end]};
-connection({call, From}, {key_update}, StateData) ->
-    update_cipher_key(From, StateData);
-
 connection(internal, {application_packets, From, Data}, StateData) ->
     send_application_data(Data, From, ?FUNCTION_NAME, StateData);
-connection(internal, {post_handshake_data, From, KeyUpdate}, StateData) ->
-    send_post_handshake_data(KeyUpdate, From, ?FUNCTION_NAME, StateData);
-connection(internal, {key_update, From}, StateData) ->
-    update_cipher_key(From, StateData);
-%%
+connection(internal, {post_handshake_data, From, HSData}, StateData) ->
+    send_post_handshake_data(HSData, From, ?FUNCTION_NAME, StateData);
 connection(cast, #alert{} = Alert, StateData0) ->
     StateData = send_tls_alert(Alert, StateData0),
     {next_state, ?FUNCTION_NAME, StateData};
@@ -474,7 +461,6 @@ send_application_data(Data, From, StateName,
             %% Prevent infinite loop of key updates
             {Chunk, Rest} = chunk_data(Data, KeyUpdateAt),
             {keep_state_and_data, [{next_event, internal, {post_handshake_data, From, KeyUpdate}},
-                                   {next_event, internal, {key_update, From}},
                                    {next_event, internal, {application_packets, From, Chunk}},
                                    {next_event, internal, {application_packets, From, Rest}}]};
 	false ->
@@ -508,27 +494,30 @@ send_post_handshake_data(Handshake, From, StateName,
     {Encoded, ConnectionStates} =
         tls_record:encode_handshake(BinHandshake, Version, ConnectionStates0),
     ssl_logger:debug(LogLevel, outbound, 'handshake', Handshake),
-    StateData = StateData0#data{connection_states = ConnectionStates},
+    StateData1 = StateData0#data{connection_states = ConnectionStates},
     case tls_socket:send(Transport, Socket, Encoded) of
         ok when DistHandle =/=  undefined ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
+            StateData = maybe_update_cipher_key(StateData1, Handshake),
             {next_state, StateName, StateData, []};
         Reason when DistHandle =/= undefined ->
-            {next_state, death_row, StateData, [{state_timeout, 5000, Reason}]};
+            {next_state, death_row, StateData1, [{state_timeout, 5000, Reason}]};
         ok ->
             ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
+            StateData = maybe_update_cipher_key(StateData1, Handshake),
             {next_state, StateName, StateData,  [{reply, From, ok}]};
         Result ->
-            {next_state, StateName, StateData,  [{reply, From, Result}]}
+            {next_state, StateName, StateData1,  [{reply, From, Result}]}
     end.
 
-update_cipher_key(From, #data{connection_states = ConnectionStates0,
-                              static = Static0} = StateData) ->
+maybe_update_cipher_key(#data{connection_states = ConnectionStates0,
+                              static = Static0} = StateData, #key_update{}) ->
     ConnectionStates = tls_connection:update_cipher_key(current_write, ConnectionStates0),
     Static = Static0#static{bytes_sent = 0},
-    {next_state, connection, StateData#data{connection_states = ConnectionStates,
-                                            static = Static},
-     [{reply,From,ok}]}.
+    StateData#data{connection_states = ConnectionStates,
+                   static = Static};
+maybe_update_cipher_key(StateData, _) ->
+    StateData.
 
 update_bytes_sent(Version, StateData, _) when Version < {3,4} ->
     StateData;
