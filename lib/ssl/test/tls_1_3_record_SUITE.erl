@@ -744,14 +744,12 @@ encode_decode(_Config) ->
     %%    PRK (32 octets):  7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41 b0 bf
     %%       da f8 6c c8 56 23 1f 2d 5a ba 46 c4 34 ec 19 6c
     %%
-    RMS = hexstr2bin("7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41 b0 bf
+    _RMS = hexstr2bin("7d f2 35 f2 03 1d 2a 05 12 87 d0 2b 02 41 b0 bf
                       da f8 6c c8 56 23 1f 2d 5a ba 46 c4 34 ec 19 6c"),
 
     %% Verify calculation of resumption master secret that is used to create
     %% the pre shared key in '0-RTT'.
-    Temp = tls_v1:resumption_master_secret(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
-    erlang:display({rms, RMS}),
-    erlang:display({new_rms, Temp}),
+    _Temp = tls_v1:resumption_master_secret(HKDFAlgo, {master_secret, MasterSecret}, CHSF),
 
     %% {server}  derive secret "tls13 exp master":
     %%
