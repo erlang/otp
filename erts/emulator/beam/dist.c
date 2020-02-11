@@ -1680,7 +1680,7 @@ int erts_net_message(Port *prt,
 					 reason,
 					 token,
 					 NULL,
-					 0);
+					 ERTS_XSIG_FLG_EXIT2);
 	    erts_smp_proc_unlock(rp, rp_locks);
 	}
 	break;

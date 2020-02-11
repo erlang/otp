@@ -13298,7 +13298,10 @@ send_exit_signal(Process *c_p,		/* current process if and only
     )		
 {
     erts_aint32_t state = erts_smp_atomic32_read_nob(&rp->state);
-    Eterm rsn = reason == am_kill ? am_killed : reason;
+    Eterm rsn = reason;
+
+    if ((flags & ERTS_XSIG_FLG_EXIT2) && reason == am_kill)
+        rsn = am_killed;
 
     ERTS_SMP_LC_ASSERT(*rp_locks == erts_proc_lc_my_proc_locks(rp));
     ERTS_SMP_LC_ASSERT((*rp_locks & ERTS_PROC_LOCKS_XSIG_SEND)
