@@ -178,11 +178,10 @@ ssl_client_openssl_server_explicit_key_update(Config) ->
                                                 {versions, ['tlsv1.2','tlsv1.3']}],Config),
     ssl_test_lib:send_recv_result_active(Server, Client, Data),
 
-    %% TODO s_client can hang after sending special commands e.g "k", "K"
-    %% ssl_test_lib:update_keys(Client, write),
-    %% ssl_test_lib:update_keys(Client, read_write),
-    %% ssl_test_lib:update_keys(Server, write),
-    %% ssl_test_lib:update_keys(Server, read_write),
+    ssl_test_lib:update_keys(Client, write),
+    ssl_test_lib:update_keys(Client, read_write),
+    ssl_test_lib:update_keys(Server, write),
+    ssl_test_lib:update_keys(Server, read_write),
 
     ssl_test_lib:send_recv_result_active(Client, Server, Data),
 

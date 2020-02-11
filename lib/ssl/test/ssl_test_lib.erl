@@ -197,7 +197,7 @@ client_apply_mfa(AcceptSocket, {Module, Function, Args}) ->
 do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
     receive
         {data, Data} ->
-            ct:log("Send: ~p~n", [Data]),
+            ct:log("[server] Send: ~p~n", [Data]),
             case Transport:send(AcceptSocket, Data) of
                 ok ->
                     Pid ! {self(), ok};
@@ -208,14 +208,17 @@ do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid) ->
         {active_receive, Data} ->
             case active_recv(AcceptSocket, length(Data)) of
                 ReceivedData ->
+                    ct:log("[server] Received: ~p~n", [Data]),
                     Pid ! {self(), ReceivedData}
             end,
             do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
         {update_keys, Type} ->
             case ssl:update_keys(AcceptSocket, Type) of
                 ok ->
+                    ct:log("[server] Update keys: ~p", [Type]),
                     Pid ! {self(), ok};
                 {error, Reason} ->
+                    ct:log("[server] Update keys failed: ~p", [Type]),
                     Pid ! {self(), Reason}
             end,
             do_run_server_core(ListenSocket, AcceptSocket, Opts, Transport, Pid);
@@ -513,6 +516,7 @@ openssl_server_loop(Pid, SslPort, Args) ->
         {active_receive, Data} ->
             case active_recv(SslPort, length(Data)) of
                 ReceivedData ->
+                    ct:log("[openssl server] Received: ~p~n", [Data]),
                     Pid ! {self(), ReceivedData}
             end,
             openssl_server_loop(Pid, SslPort, Args);
@@ -619,27 +623,28 @@ openssl_client_loop_core(Pid, SslPort, Args) ->
         {data, Data} ->
             case port_command(SslPort, Data, [nosuspend]) of
                 true ->
-                    ct:log("Send (port_command) data: ~p~n", [Data]),
+                    ct:log("[openssl client] Send data: ~p~n", [Data]),
                     Pid ! {self(), ok};
                 _Else ->
-                    ct:log("Send (port_command) failed, data: ~p~n", [Data]),
+                    ct:log("[openssl client] Send failed, data: ~p~n", [Data]),
                     Pid ! {self(), {error, port_command_failed}}
             end,
             openssl_client_loop_core(Pid, SslPort, Args);
         {active_receive, Data} ->
             case active_recv(SslPort, length(Data)) of
                 ReceivedData ->
+                    ct:log("[openssl client] Received: ~p~n", [Data]),
                     Pid ! {self(), ReceivedData}
             end,
             openssl_client_loop_core(Pid, SslPort, Args);
         {update_keys, Type} ->
             case Type of
                 write ->
-                    ct:log("Update keys: ~p", [Type]),
+                    ct:log("[openssl client] Update keys: ~p", [Type]),
                     true = port_command(SslPort, "k", [nosuspend]),
                     Pid ! {self(), ok};
                 read_write ->
-                    ct:log("Update keys: ~p", [Type]),
+                    ct:log("[openssl client] Update keys: ~p", [Type]),
                     true = port_command(SslPort, "K", [nosuspend]),
                     Pid ! {self(), ok}
             end,
@@ -743,7 +748,7 @@ client_loop(_Node, Host, Port, Pid, Transport, Options, Opts) ->
 client_loop_core(Socket, Pid, Transport) ->
     receive
         {data, Data} ->
-            ct:log("Send: ~p~n", [Data]),
+            ct:log("[client] Send: ~p~n", [Data]),
             case Transport:send(Socket, Data) of
                 ok ->
                     Pid ! {self(), ok};
@@ -754,14 +759,17 @@ client_loop_core(Socket, Pid, Transport) ->
         {active_receive, Data} ->
             case active_recv(Socket, length(Data)) of
                 ReceivedData ->
+                    ct:log("[client] Received: ~p~n", [Data]),
                     Pid ! {self(), ReceivedData}
             end,
             client_loop_core(Socket, Pid, Transport);
         {update_keys, Type} ->
             case ssl:update_keys(Socket, Type) of
                 ok ->
+                    ct:log("[client] Update keys: ~p", [Type]),
                     Pid ! {self(), ok};
                 {error, Reason} ->
+                    ct:log("[client] Update keys failed: ~p", [Type]),
                     Pid ! {self(), Reason}
             end,
             client_loop_core(Socket, Pid, Transport);
@@ -2318,7 +2326,7 @@ check_active_receive(Pid, Data) ->
     Pid ! {active_receive, Data},
     receive
         {Pid, Data} ->
-            ct:log("Received: ~p~n", [Data]),
+            %% ct:log("Received: ~p~n", [Data]),
             Data
     end.
 
@@ -2407,6 +2415,9 @@ active_recv(Socket, N) ->
 
 active_recv(_Socket, 0, Acc) ->
     Acc;
+active_recv(_Socket, N, Acc) when N < 0 ->
+    {_, T} = lists:split(0 - N, Acc),
+    T;
 active_recv(Socket, N, Acc) ->
     receive 
 	{ssl, Socket, Bytes} ->
@@ -2418,7 +2429,7 @@ active_recv(Socket, N, Acc) ->
 
 filter_openssl_debug_data(Bytes) ->
     re:replace(Bytes,
-               "(read.*\n|write to.*\n|[\\dabcdefABCDEF]{4,4} -.*\n|>>> .*\n|<<< .*\n|    \\d\\d.*\n|KEYUPDATE\n)*",
+               "(read.*\n|write to.*\n|[\\dabcdefABCDEF]{4,4} -.*\n|>>> .*\n|<<< .*\n|    \\d\\d.*\n|KEYUPDATE\n|.*Read BLOCK\n)*",
                "", [{return, list}]).
 
 active_once_recv(_Socket, 0) ->
