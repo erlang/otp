@@ -190,7 +190,8 @@ asn1rtt_%.$(EMULATOR): asn1rtt_%.erl
 	$(V_ERLC) +debug_info $<
 
 $(EVAL_CT_MODULES:%=%.erl): prepare_templates.$(EMULATOR) \
-			    $(EBIN)/asn1ct_rtt.$(EMULATOR)
+			    $(EBIN)/asn1ct_rtt.$(EMULATOR) \
+			    $(EBIN)/asn1ct_func.$(EMULATOR) \
 
 #
 # Dependencies
