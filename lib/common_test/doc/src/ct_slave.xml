@@ -159,7 +159,7 @@
             occurs during initialization or startup. Defaults to <c>true</c>.
             Notice that the node can also be still alive it the boot time-out
             occurred, but it is not killed in this case.</p></item>
-          <tag><c>erlang_flags</c></tag>
+          <tag><c>erl_flags</c></tag>
           <item><p>Specifies which flags are added to the parameters of the
             executable <c>erl</c>.</p></item>
           <tag><c>env</c></tag>
