@@ -65,6 +65,14 @@
 
 #ifdef HAVE_IFADDRS_H
 #include <ifaddrs.h>
+#elif defined(__PASE__)
+/* PASE has this, but under a different name because AIX doesn't have it. */
+#include <as400_protos.h>
+/*
+ * We don't redefine the function names because they're used in other
+ * contexts, but the struct is safe to rename.
+ */
+#define ifaddrs ifaddrs_pase
 #endif
 
 #ifdef HAVE_NETPACKET_PACKET_H
@@ -1030,7 +1038,7 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#elif defined(HAVE_GETIFADDRS)
+#elif defined(HAVE_GETIFADDRS) || defined(__PASE__)
     ERL_NIF_TERM extra;
     char*        netns;
     ERL_NIF_TERM result;
@@ -1066,7 +1074,7 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
 }
 
 
-#ifdef HAVE_GETIFADDRS
+#if defined(HAVE_GETIFADDRS) || defined(__PASE__)
 #ifdef HAVE_SETNS
 /* enet_getifaddrs_netns - extract the netns field from the 'extra' map
  *
@@ -1146,9 +1154,17 @@ ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env, char* netns)
         return esock_make_error_errno(env, save_errno);
 #endif
 
+#ifdef __PASE__
+    if (0 == Qp2getifaddrs(&ifap)) {
+#else
     if (0 == getifaddrs(&ifap)) {
+#endif
         result = enet_getifaddrs_process(env, ifap);
+#ifdef __PASE__
+        Qp2freeifaddrs(ifap);
+#else
         freeifaddrs(ifap);
+#endif
     } else {
         save_errno = get_errno();
 
