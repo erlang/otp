@@ -54,7 +54,8 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() -> 
-    [xm_sig_order].
+    [xm_sig_order,
+     kill2killed].
 
 
 %% Test that exit signals and messages are received in correct order
