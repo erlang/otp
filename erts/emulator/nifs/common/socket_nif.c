@@ -690,6 +690,7 @@ typedef union {
 #define ESOCK_SUPPORTS_LOCAL        0x0004
 #define ESOCK_SUPPORTS_SEND_FLAGS   0x0005
 #define ESOCK_SUPPORTS_RECV_FLAGS   0x0006
+#define ESOCK_SUPPORTS_NETNS        0x0007
 
 #define ESOCK_WHICH_DOMAIN_ERROR -1
 #define ESOCK_WHICH_DOMAIN_UNSUP -2
@@ -1171,6 +1172,7 @@ static ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_sctp(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_ipv6(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_local(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_netns(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env);
 
@@ -3863,6 +3865,9 @@ ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
  * sctp            boolean()
  * ipv6            boolean()
  * local           boolean()
+ * netns           boolean()
+ * send_flags      [{SendFlag, boolean()}]
+ * recv_flags      [{RecvFlag, boolean()}]
  */
 
 static
@@ -3918,6 +3923,10 @@ ERL_NIF_TERM esock_supports(ErlNifEnv* env, int key)
 
     case ESOCK_SUPPORTS_LOCAL:
         result = esock_supports_local(env);
+        break;
+
+    case ESOCK_SUPPORTS_NETNS:
+        result = esock_supports_netns(env);
         break;
 
     case ESOCK_SUPPORTS_SEND_FLAGS:
@@ -5188,6 +5197,24 @@ ERL_NIF_TERM esock_supports_local(ErlNifEnv* env)
     ERL_NIF_TERM supports;
 
 #if defined(AF_LOCAL)
+    supports = esock_atom_true;
+#else
+    supports = esock_atom_false;
+#endif
+
+    return supports;
+}
+#endif
+
+
+
+#if !defined(__WIN32__)
+static
+ERL_NIF_TERM esock_supports_netns(ErlNifEnv* env)
+{
+    ERL_NIF_TERM supports;
+
+#if defined(HAVE_SETNS)
     supports = esock_atom_true;
 #else
     supports = esock_atom_false;

@@ -951,6 +951,7 @@
 -define(ESOCK_SUPPORTS_LOCAL,        16#0004).
 -define(ESOCK_SUPPORTS_SEND_FLAGS,   16#0005).
 -define(ESOCK_SUPPORTS_RECV_FLAGS,   16#0006).
+-define(ESOCK_SUPPORTS_NETNS,        16#0007).
 
 
 %% ===========================================================================
@@ -1098,15 +1099,19 @@ info(#socket{ref = SockRef}) ->
                      {ipv6,       boolean()} |
                      {local,      boolean()} |
                      {send_flags, supports_send_flags()} |
-                     {recv_flags, supports_recv_flags()}].
+                     {recv_flags, supports_recv_flags()} |
+                     {netns,      boolean()}].
 
 supports() ->
-    [{options,    supports(options)},
+    [
+     {options,    supports(options)},
      {sctp,       supports(sctp)},
      {ipv6,       supports(ipv6)},
      {local,      supports(local)},
      {send_flags, supports(send_flags)},
-     {recv_flags, supports(recv_flags)}].
+     {recv_flags, supports(recv_flags)},
+     {netns,      supports(netns)}
+    ].
 
 
 -dialyzer({no_contracts, supports/1}).
@@ -1116,7 +1121,8 @@ supports() ->
               (local)      -> boolean();
               (send_flags) -> supports_send_flags();
               (recv_flags) -> supports_recv_flags();
-              (Key1)    -> false when
+              (netns)      -> boolean();
+              (Key1)       -> false when
       Key1 :: term().
                         
 supports(options) ->
@@ -1131,6 +1137,8 @@ supports(send_flags) ->
     nif_supports(?ESOCK_SUPPORTS_SEND_FLAGS);
 supports(recv_flags) ->
     nif_supports(?ESOCK_SUPPORTS_RECV_FLAGS);
+supports(netns) ->
+    nif_supports(?ESOCK_SUPPORTS_NETNS);
 supports(_Key1) ->
     false.
 
