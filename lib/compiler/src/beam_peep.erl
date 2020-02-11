@@ -22,7 +22,7 @@
 
 -export([module/2]).
 
--import(lists, [reverse/1,member/2]).
+-import(lists, [reverse/1,member/2,usort/1]).
 
 -spec module(beam_utils:module_code(), [compile:option()]) ->
                     {'ok',beam_utils:module_code()}.
@@ -207,7 +207,7 @@ simplify_has_map_fields(Fail, [Src|Keys0],
                         [{test,has_map_fields,Fail,[Src|Keys1]}|Acc]) ->
     case are_keys_literals(Keys0) andalso are_keys_literals(Keys1) of
         true ->
-            Keys = Keys0 ++ Keys1,
+            Keys = usort(Keys0 ++ Keys1),
             {ok,[{test,has_map_fields,Fail,[Src|Keys]}|Acc]};
         false ->
             error

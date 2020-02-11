@@ -74,6 +74,7 @@
 
         %% new in OTP 22
         t_mixed_clause/1,cover_beam_trim/1,
+        t_duplicate_keys/1,
 
         %% new in OTP 23
         t_key_expressions/1
@@ -134,8 +135,9 @@ all() ->
 
         %% new in OTP 22
         t_mixed_clause,cover_beam_trim,
+        t_duplicate_keys,
 
-        %%
+        %% new in OTP 23
         t_key_expressions
     ].
 
@@ -2250,6 +2252,27 @@ t_key_expressions(_Config) ->
     no_match = F4(42, a, #{2 => value}),
 
     ok.
+
+t_duplicate_keys(Config) when is_list(Config) ->
+    Map = #{ gurka => gaffel },
+    Map = dup_keys_1(id(Map)),
+
+    ok = dup_keys_1(#{ '__struct__' => ok }),
+
+    ok.
+
+dup_keys_1(Map) ->
+    case Map of
+        #{'__struct__' := _} ->
+            case Map of
+                #{'__struct__' := _} ->
+                    ok;
+                O1 ->
+                    O1
+            end;
+        O2 ->
+            O2
+    end.
 
 %% aux
 
