@@ -2653,6 +2653,8 @@ opt_simple_let_2(Let0, Vs0, Arg0, Body, PrevBody, Sub) ->
                     post_opt_let(Let1, Sub)
 	    end;
         {_,_,_} ->
+            %% The argument for a sequence must be a single value (not
+            %% #c_values{}). Therefore, we must keep the let.
             Let1 = Let0#c_let{vars=Vs0,arg=Arg0,body=Body},
             post_opt_let(Let1, Sub)
     end.

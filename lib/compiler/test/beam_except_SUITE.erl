@@ -135,7 +135,14 @@ coverage(_) ->
     {'EXIT',{function_clause,[{?MODULE,fake_function_clause3,[x,y],_}|_]}} =
         (catch fake_function_clause3(42, id([x,y]))),
 
+    {'EXIT',{{badmatch,0.0},_}} = (catch coverage_1(id(42))),
+    {'EXIT',{badarith,_}} = (catch coverage_1(id(a))),
+
     ok.
+
+coverage_1(X) ->
+    %% ERL-1167: Would crash beam_except.
+    true = 0 / X.
 
 fake_function_clause1(A) -> error(function_clause, [A,42.0]).
 fake_function_clause2(A, Tl) -> error(function_clause, [A|Tl]).
