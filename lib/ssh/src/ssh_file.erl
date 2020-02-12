@@ -245,6 +245,14 @@ decode_ssh_file(PrivPub, Algorithm, Pem, Password) ->
                 [] -> {error,bad_keytype_in_file}
             end;
 
+        {rfc4716, Bin, _KeyValues} ->
+            %% rfc4716 only defines public keys
+            Key = ssh_message:ssh2_pubkey_decode(Bin),
+            case ssh_transport:valid_key_sha_alg(PrivPub, Key, Algorithm) of
+                true -> {ok,Key};
+                false -> {error,bad_keytype_in_file}
+            end;
+
         {Type, Bin, KeyValues} ->
             Key =
                 case get_encrypt_hdrs(KeyValues) of
@@ -380,6 +388,12 @@ get_key_part(RawBin) when is_binary(RawBin) ->
            binary:replace(RawBin, <<"\\\n">>, <<"">>, [global]),
            <<"\n">>, [global,trim_all])
     of
+        [<<"---- BEGIN SSH2 PUBLIC KEY ----">> | Lines0] ->
+            %% RFC 4716 format
+            {KeyValues,Lines} = get_hdr_lines(Lines0, []),
+            ExpectedEndLine = <<"---- END SSH2 PUBLIC KEY ----">>,
+            {rfc4716, get_body(Lines,ExpectedEndLine), KeyValues};
+
         [<<"-----BEGIN ", Rest/binary>> | Lines0] ->
             %% PEM format
             ExpectedEndLine = <<"-----END ",Rest/binary>>,
