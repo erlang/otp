@@ -35,9 +35,10 @@
 -export([dlist_next/1, uniq/1, fun_parent/1, is_string/1, command/1,
 	 command/2, command/3, trie_new/0, trie_store/2, trie_match/2,
 	 split_node/1, consult_file/1, list_dir/1, format_exit_term/1,
-	 format_exception/1, format_exception/2, format_error/1,
+	 format_exception/1, format_exception/2, format_error/1, format_error/2,
          is_not_test/1]).
 
+-define(DEFAULT_DEPTH, 20).
 
 %% Type definitions for describing exceptions
 %%
@@ -56,7 +57,7 @@
 %% ---------------------------------------------------------------------
 %% Formatting of error descriptors
 format_exception(Exception) ->
-    format_exception(Exception, 20).
+    format_exception(Exception, ?DEFAULT_DEPTH).
 
 format_exception({Class,Term,Trace}, Depth)
   when is_atom(Class), is_list(Trace) ->
@@ -159,38 +160,41 @@ is_op(erlang, F, A) ->
 is_op(_M, _F, _A) ->
     false.
 
-format_error({bad_test, Term}) ->
-    error_msg("bad test descriptor", "~tP", [Term, 15]);
-format_error({bad_generator, {{M,F,A}, Term}}) ->
+format_error(Error) ->
+    format_error(Error, ?DEFAULT_DEPTH).
+
+format_error({bad_test, Term}, Depth) ->
+    error_msg("bad test descriptor", "~tP", [Term, Depth]);
+format_error({bad_generator, {{M,F,A}, Term}}, Depth) ->
     error_msg(io_lib:format("result from generator ~w:~tw/~w is not a test",
                             [M,F,A]),
-              "~tP", [Term, 15]);
-format_error({generator_failed, {{M,F,A}, Exception}}) ->
+              "~tP", [Term, Depth]);
+format_error({generator_failed, {{M,F,A}, Exception}}, Depth) ->
     error_msg(io_lib:format("test generator ~w:~tw/~w failed",[M,F,A]),
-              "~ts", [format_exception(Exception)]);
-format_error({no_such_function, {M,F,A}})
+              "~ts", [format_exception(Exception, Depth)]);
+format_error({no_such_function, {M,F,A}}, _)
   when is_atom(M), is_atom(F), is_integer(A) ->
     error_msg(io_lib:format("no such function: ~w:~tw/~w", [M,F,A]),
 	      "", []);
-format_error({module_not_found, M}) ->
+format_error({module_not_found, M}, _) ->
     error_msg("test module not found", "~tp", [M]);
-format_error({application_not_found, A}) when is_atom(A) ->
+format_error({application_not_found, A}, _) when is_atom(A) ->
     error_msg("application not found", "~w", [A]);
-format_error({file_read_error, {_R, Msg, F}}) ->
+format_error({file_read_error, {_R, Msg, F}}, _) ->
     error_msg("error reading file", "~ts: ~ts", [Msg, F]);
-format_error({setup_failed, Exception}) ->
+format_error({setup_failed, Exception}, Depth) ->
     error_msg("context setup failed", "~ts",
-	      [format_exception(Exception)]);
-format_error({cleanup_failed, Exception}) ->
+	      [format_exception(Exception, Depth)]);
+format_error({cleanup_failed, Exception}, Depth) ->
     error_msg("context cleanup failed", "~ts",
-	      [format_exception(Exception)]);
-format_error({{bad_instantiator, {{M,F,A}, Term}}, _DummyException}) ->
+	      [format_exception(Exception, Depth)]);
+format_error({{bad_instantiator, {{M,F,A}, Term}}, _DummyException}, Depth) ->
     error_msg(io_lib:format("result from instantiator ~w:~tw/~w is not a test",
                             [M,F,A]),
-              "~tP", [Term, 15]);
-format_error({instantiation_failed, Exception}) ->
+              "~tP", [Term, Depth]);
+format_error({instantiation_failed, Exception}, Depth) ->
     error_msg("instantiation of subtests failed", "~ts",
-	      [format_exception(Exception)]).
+	      [format_exception(Exception, Depth)]).
 
 error_msg(Title, Fmt, Args) ->
     Msg = io_lib:format("**"++Fmt, Args),    % gets indentation right
