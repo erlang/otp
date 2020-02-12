@@ -80,6 +80,15 @@
 
 -define(CALL_TIMEOUT, 15000). % 3x the default
 
+-type trace_point() :: atom().
+-type trace_points() :: [trace_point()].
+
+-callback ssh_dbg_trace_points() -> trace_points().
+-callback ssh_dbg_flags(trace_point()) -> [atom()].
+-callback ssh_dbg_on(trace_point() | trace_points()) -> term().
+-callback ssh_dbg_off(trace_point() | trace_points()) -> term().
+-callback ssh_dbg_format(trace_point(), term()) -> iolist().
+
 %%%================================================================
 
 -define(ALL_DBG_TYPES, get_all_dbg_types()).
@@ -170,13 +179,13 @@ init(_) ->
 %%%----------------------------------------------------------------
 handle_call({switch,on,Types}, _From, D) ->
     NowOn = lists:usort(Types ++ D#data.types_on),
-    call_modules(on, Types, NowOn),
+    call_modules(on, Types),
     {reply, {ok,NowOn}, D#data{types_on = NowOn}};
 
 handle_call({switch,off,Types}, _From, D) ->
     StillOn = D#data.types_on -- Types,
-    call_modules(off, Types, StillOn),
-    call_modules(on, StillOn, StillOn),
+    call_modules(off, Types),
+    call_modules(on, StillOn),
     {reply, {ok,StillOn}, D#data{types_on = StillOn}};
 
 handle_call(get_on, _From, D) ->
@@ -202,52 +211,54 @@ handle_info(C, D) ->
 ssh_modules_with_trace() ->
     {ok,AllSshModules} = application:get_key(ssh, modules),
     [M || M <- AllSshModules,
-          lists:member({dbg_trace,3}, M:module_info(exports))].
+          {behaviour,Bs} <- M:module_info(attributes),
+          lists:member(?MODULE, Bs)
+    ].
 
 %%%----------------------------------------------------------------
 get_all_trace_flags() ->
-    get_all_trace_flags(ssh_modules_with_trace()).
-
-get_all_trace_flags(Modules) ->
     lists:usort(
-      lists:flatten(
-        lists:foldl(
-          fun(Type, Acc) ->
-                  call_modules(flags, Type, undefined, Acc, Modules)
-          end, [timestamp], ?ALL_DBG_TYPES))).
+      lists:flatten([timestamp |  call_modules(flags, ?ALL_DBG_TYPES)]
+                   )).
 
 %%%----------------------------------------------------------------
 get_all_dbg_types() ->
     lists:usort(
       lists:flatten(
-        call_modules(points, undefined) )).
+        call_modules(points) )).
 
 %%%----------------------------------------------------------------
-call_modules(Cmnd, Type) ->
-    call_modules(Cmnd, Type, undefined).
+call_modules(points) ->
+    F = fun(Mod) -> Mod:ssh_dbg_trace_points() end,
+    fold_modules(F, [], ssh_modules_with_trace()).
 
-call_modules(Cmnd, Type, Arg) ->
-    call_modules(Cmnd, Type, Arg, []).
+call_modules(Cmnd, Types) when is_list(Types) ->
+    F = case Cmnd of
+            flags -> fun(Type) ->
+                             fun(Mod) -> Mod:ssh_dbg_flags(Type) end
+                     end;
+            on -> fun(Type) ->
+                          fun(Mod) -> Mod:ssh_dbg_on(Type) end
+                  end;
+            off -> fun(Type) ->
+                           fun(Mod) -> Mod:ssh_dbg_off(Type) end
+                   end
+        end,
+    lists:foldl(fun(T, Acc) ->
+                        fold_modules(F(T), Acc, ssh_modules_with_trace())
+                end, [], Types).
 
-call_modules(Cmnd, Type, Arg, Acc0) ->
-    call_modules(Cmnd, Type, Arg, Acc0, ssh_modules_with_trace()).
 
-call_modules(Cmnd, Types, Arg, Acc0, Modules) when is_list(Types) ->
-    lists:foldl(
-       fun(Type, Acc) ->
-               call_modules(Cmnd, Type, Arg, Acc, Modules)
-       end, Acc0, Types);
 
-call_modules(Cmnd, Type, Arg, Acc0, Modules) ->
-    lists:foldl(
-      fun(Mod, Acc) ->
-              try Mod:dbg_trace(Cmnd, Type, Arg)
-              of
-                  Result -> [Result|Acc]
-              catch
-                  _:_ -> Acc
-              end
-      end, Acc0, Modules).
+fold_modules(F, Acc0, Modules) ->
+     lists:foldl(
+       fun(Mod, Acc) ->
+               try F(Mod) of
+                   Result -> [Result|Acc]
+               catch
+                   _:_ -> Acc
+               end
+       end, Acc0, Modules).
 
 %%%----------------------------------------------------------------
 switch(X, Type) when is_atom(Type) ->
@@ -314,7 +325,9 @@ try_all_types_in_all_modules(TypesOn, Arg, WriteFun, Acc0) ->
               lists:foldl(
                 fun(SshMod,Acc) ->
                         try WriteFun("~n~s ~p ~s~n", 
-                                     [lists:flatten(TS), PID, lists:flatten(SshMod:dbg_trace(format,Type,INFO))],
+                                     [lists:flatten(TS),
+                                      PID,
+                                      lists:flatten(SshMod:ssh_dbg_format(Type, INFO))],
                                      Acc)
                         catch
                             _:_ -> Acc

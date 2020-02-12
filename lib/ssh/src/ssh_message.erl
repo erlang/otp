@@ -32,7 +32,9 @@
 
 -export([encode/1, decode/1, decode_keyboard_interactive_prompts/2]).
 
--export([dbg_trace/3]).
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
+
 
 ucl(B) ->
     try unicode:characters_to_list(B) of
@@ -606,34 +608,36 @@ encode_signature({ed_pub, ed448,_}, _SigAlg, Signature) ->
 %%%# Tracing
 %%%#
 
-dbg_trace(points,         _,  _) -> [ssh_messages, raw_messages];
+ssh_dbg_trace_points() -> [ssh_messages, raw_messages].
 
-dbg_trace(flags, ssh_messages, _) -> [c];
-dbg_trace(on,    ssh_messages, _) -> dbg:tp(?MODULE,encode,1,x),
-                                     dbg:tp(?MODULE,decode,1,x);
-dbg_trace(off,   ssh_messages, _) -> dbg:ctpg(?MODULE,encode,1),
-                                     dbg:ctpg(?MODULE,decode,1);
+ssh_dbg_flags(ssh_messages) -> [c];
+ssh_dbg_flags(raw_messages) -> [c].
 
-dbg_trace(flags, raw_messages, A) -> dbg_trace(flags, ssh_messages, A);
-dbg_trace(on,    raw_messages, A) -> dbg_trace(on,    ssh_messages, A);
-dbg_trace(off,   raw_messages, A) -> dbg_trace(off,   ssh_messages, A);
+ssh_dbg_on(P) when P==ssh_messages ;
+                   P==raw_messages ->
+    dbg:tp(?MODULE,encode,1,x),
+    dbg:tp(?MODULE,decode,1,x).
 
-dbg_trace(format, ssh_messages, {call,{?MODULE,encode,[Msg]}}) ->
+ssh_dbg_off(P) when P==ssh_messages ;
+                    P==raw_messages ->
+    dbg:ctpg(?MODULE,encode,1),
+    dbg:ctpg(?MODULE,decode,1).
+
+ssh_dbg_format(ssh_messages, {call,{?MODULE,encode,[Msg]}}) ->
     Name = string:to_upper(atom_to_list(element(1,Msg))),
     ["Going to send ",Name,":\n",
      wr_record(ssh_dbg:shrink_bin(Msg))
     ];
-dbg_trace(format, ssh_messages, {return_from,{?MODULE,decode,1},Msg}) ->
+ssh_dbg_format(ssh_messages, {return_from,{?MODULE,decode,1},Msg}) ->
     Name = string:to_upper(atom_to_list(element(1,Msg))),
     ["Received ",Name,":\n",
      wr_record(ssh_dbg:shrink_bin(Msg))
     ];
-
-dbg_trace(format, raw_messages, {call,{?MODULE,decode,[BytesPT]}}) ->
+ssh_dbg_format(raw_messages, {call,{?MODULE,decode,[BytesPT]}}) ->
     ["Received plain text bytes (shown after decryption):\n",
      io_lib:format("~p",[BytesPT])
     ];
-dbg_trace(format, raw_messages, {return_from,{?MODULE,encode,1},BytesPT}) ->
+ssh_dbg_format(raw_messages, {return_from,{?MODULE,encode,1},BytesPT}) ->
     ["Going to send plain text bytes (shown before encryption):\n",
      io_lib:format("~p",[BytesPT])
     ].

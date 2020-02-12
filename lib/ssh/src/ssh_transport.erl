@@ -55,7 +55,8 @@
          get_host_key/2,
          call_KeyCb/3]).
 
--export([dbg_trace/3]).
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
 %%% For test suites
 -export([pack/3, adjust_algs_for_peer_version/2]).
@@ -1983,34 +1984,43 @@ trim_tail(Str) ->
 %%%# Tracing
 %%%#
 
-dbg_trace(points,    _, _) -> [alg, ssh_messages, raw_messages, hello];
+ssh_dbg_trace_points() -> [alg, ssh_messages, raw_messages, hello].
 
-dbg_trace(flags, hello, _) -> [c];
-dbg_trace(on,    hello, _) -> dbg:tp(?MODULE,hello_version_msg,1,x),
-                              dbg:tp(?MODULE,handle_hello_version,1,x);
-dbg_trace(off,   hello, _) -> dbg:ctpg(?MODULE,hello_version_msg,1),
-                              dbg:ctpg(?MODULE,handle_hello_version,1);
-
-dbg_trace(C, raw_messages, A) -> dbg_trace(C, hello, A);
-dbg_trace(C, ssh_messages, A) -> dbg_trace(C, hello, A);
-
-dbg_trace(flags, alg,   _) -> [c];
-dbg_trace(on,    alg,   _) -> dbg:tpl(?MODULE,select_algorithm,4,x);
-dbg_trace(off,   alg,   _) -> dbg:ctpl(?MODULE,select_algorithm,4);
+ssh_dbg_flags(alg) -> [c];
+ssh_dbg_flags(hello) -> [c];
+ssh_dbg_flags(raw_messages) -> ssh_dbg_flags(hello);
+ssh_dbg_flags(ssh_messages) -> ssh_dbg_flags(hello).
 
 
-dbg_trace(format, hello, {return_from,{?MODULE,hello_version_msg,1},Hello}) ->
+ssh_dbg_on(alg) -> dbg:tpl(?MODULE,select_algorithm,4,x);
+ssh_dbg_on(hello) -> dbg:tp(?MODULE,hello_version_msg,1,x),
+                     dbg:tp(?MODULE,handle_hello_version,1,x);
+ssh_dbg_on(raw_messages) -> ssh_dbg_on(hello);
+ssh_dbg_on(ssh_messages) -> ssh_dbg_on(hello).
+
+
+ssh_dbg_off(alg) -> dbg:ctpl(?MODULE,select_algorithm,4);
+ssh_dbg_off(hello) -> dbg:ctpg(?MODULE,hello_version_msg,1),
+                      dbg:ctpg(?MODULE,handle_hello_version,1);
+ssh_dbg_off(raw_messages) -> ssh_dbg_off(hello);
+ssh_dbg_off(ssh_messages) -> ssh_dbg_off(hello).
+
+
+
+
+ssh_dbg_format(hello, {return_from,{?MODULE,hello_version_msg,1},Hello}) ->
     ["Going to send hello message:\n",
      Hello
     ];
-dbg_trace(format, hello, {call,{?MODULE,handle_hello_version,[Hello]}}) ->
+ssh_dbg_format(hello, {call,{?MODULE,handle_hello_version,[Hello]}}) ->
     ["Received hello message:\n",
      Hello
     ];
-
-dbg_trace(format, alg, {return_from,{?MODULE,select_algorithm,4},{ok,Alg}}) ->
+ssh_dbg_format(alg, {return_from,{?MODULE,select_algorithm,4},{ok,Alg}}) ->
     ["Negotiated algorithms:\n",
      wr_record(Alg)
-    ].
+    ];
+ssh_dbg_format(raw_messages, X) -> ssh_dbg_format(hello, X);
+ssh_dbg_format(ssh_messages, X) -> ssh_dbg_format(hello, X).
 
 ?wr_record(alg).
