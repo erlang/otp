@@ -32,6 +32,15 @@
 -include("httpd.hrl").
 -include_lib("inets/src/http_lib/http_internal.hrl").
 
+%% Removed functions
+
+-removed([{check_enum,2,"use lists:member/2 instead"},
+          {clean,1,"use sting:strip/1 instead or possibly the re module"},
+          {custom_clean,3,"use sting:strip/1 instead or possibly the re module"},
+          {is_directory,1,"use filelib:is_dir/1 instead"},
+          {is_file,1,"use filelib:is_file/1 instead"},
+          {make_integer,1,"use erlang:list_to_integer/1 instead"}]).
+
 %%%=========================================================================
 %%%  Application internal API
 %%%=========================================================================

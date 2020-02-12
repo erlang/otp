@@ -62,12 +62,12 @@
 	 encode/1, decode/1]).
 
 
--deprecated({parse, 1, next_major_release}).
--deprecated({parse, 2, next_major_release}).
--deprecated({encode, 1, next_major_release}).
--deprecated({decode, 1, next_major_release}).
--deprecated({scheme_defaults, 0, next_major_release}).
-
+-deprecated({parse, 1, "use uri_string functions instead"}).
+-deprecated({parse, 2, "use uri_string functions instead"}).
+-deprecated({encode, 1, "use uri_string functions instead"}).
+-deprecated({decode, 1, "use uri_string functions instead"}).
+-deprecated({scheme_defaults, 0, "use uri_string functions instead"}).
+ 
 
 -export_type([uri/0,
               user_info/0,

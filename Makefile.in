@@ -518,6 +518,15 @@ $(APPS):
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) $(TYPE) BUILD_ALL=true
 
+##
+## Generate `otp_internal` from the -deprecated() attributes in source.
+##
+deprecations: all
+	$(ERL_TOP)/lib/stdlib/scripts/update_deprecations \
+	    $(ERL_TOP)/lib/*/ebin $(ERL_TOP)/erts/preloaded/ebin \
+	    > $(ERL_TOP)/lib/stdlib/src/otp_internal.erl \
+	    && $(MAKE) stdlib
+
 preloaded:
 	$(make_verbose)cd erts/preloaded/src && \
 	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \

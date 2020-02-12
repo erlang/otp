@@ -33,6 +33,10 @@
 
 -import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
 
+%% Removed functions
+
+-removed([{modify_line,2,"use erl_parse:map_anno/2 instead"}]).
+
 %% bool_option(OnOpt, OffOpt, Default, Options) -> boolean().
 %% value_option(Flag, Default, Options) -> Value.
 %% value_option(Flag, Default, OnOpt, OnVal, OffOpt, OffVal, Options) ->
@@ -244,18 +248,18 @@ format_error({redefine_bif_import,{F,A}}) ->
 format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("~s is deprecated and will be removed in ~s; use ~s",
 		  [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
-format_error({deprecated, {M1, F1, A1}, String}) when is_list(String) ->
-    io_lib:format("~p:~p/~p: ~s", [M1, F1, A1, String]);
+format_error({deprecated, MFA, String}) when is_list(String) ->
+    io_lib:format("~s is deprecated; ~s", [format_mfa(MFA), String]);
 format_error({deprecated_type, {M1, F1, A1}, String}) when is_list(String) ->
-    io_lib:format("~p:~p~s: ~s", [M1, F1, gen_type_paren(A1), String]);
+    io_lib:format("the type ~p:~p~s is deprecated; ~s",
+                  [M1, F1, gen_type_paren(A1), String]);
 format_error({removed, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("call to ~s will fail, since it was removed in ~s; "
 		  "use ~s", [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]);
 format_error({removed, MFA, String}) when is_list(String) ->
-    io_lib:format("~s: ~s", [format_mfa(MFA), String]);
-format_error({removed_type, MNA, ReplacementMNA, Rel}) ->
-    io_lib:format("the type ~s was removed in ~s; use ~s instead",
-                  [format_mna(MNA), Rel, format_mna(ReplacementMNA)]);
+    io_lib:format("~s is removed; ~s", [format_mfa(MFA), String]);
+format_error({removed_type, MNA, String}) ->
+    io_lib:format("the type ~s is removed; ~s", [format_mna(MNA), String]);
 format_error({obsolete_guard, {F, A}}) ->
     io_lib:format("~p/~p obsolete (use is_~p/~p)", [F, A, F, A]);
 format_error({obsolete_guard_overridden,Test}) ->
@@ -1058,7 +1062,7 @@ check_deprecated(Forms, St0) ->
 		  true -> St0#lint.defined;
 		  false -> St0#lint.exports
 	      end,
-    X = gb_sets:to_list(Exports),
+    X = ignore_predefined_funcs(gb_sets:to_list(Exports)),
     #lint{module = Mod} = St0,
     Bad = [{E,L} || {attribute, L, deprecated, Depr} <- Forms,
                     D <- lists:flatten([Depr]),
@@ -1116,7 +1120,7 @@ check_removed(Forms, St0) ->
                   true -> St0#lint.defined;
                   false -> St0#lint.exports
               end,
-    X = gb_sets:to_list(Exports),
+    X = ignore_predefined_funcs(gb_sets:to_list(Exports)),
     #lint{module = Mod} = St0,
     Bad = [{E,L} || {attribute, L, removed, Removed} <- Forms,
                     R <- lists:flatten([Removed]),
@@ -1164,6 +1168,18 @@ removed_fa(F, A, _X, _Mod) ->
 removed_desc([Char | Str]) when is_integer(Char) -> removed_desc(Str);
 removed_desc([]) -> true;
 removed_desc(_) -> false.
+
+%% Ignores functions added by erl_internal:add_predefined_functions/1
+ignore_predefined_funcs([{behaviour_info,1} | Fs]) ->
+    ignore_predefined_funcs(Fs);
+ignore_predefined_funcs([{module_info,0} | Fs]) ->
+    ignore_predefined_funcs(Fs);
+ignore_predefined_funcs([{module_info,1} | Fs]) ->
+    ignore_predefined_funcs(Fs);
+ignore_predefined_funcs([Other | Fs]) ->
+    [Other | ignore_predefined_funcs(Fs)];
+ignore_predefined_funcs([]) ->
+    [].
 
 %% check_imports(Forms, State0) -> State
 
@@ -3900,8 +3916,8 @@ deprecated_type(L, M, N, As, St) ->
                 false ->
                     St
             end;
-        {removed, Replacement, Rel} ->
-            add_warning(L, {removed_type, {M,N,NAs}, Replacement, Rel}, St);
+        {removed, String} ->
+            add_warning(L, {removed_type, {M,N,NAs}, String}, St);
         no ->
             St
     end.

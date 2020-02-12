@@ -72,7 +72,8 @@
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
 -export_type([wxMDIClientWindow/0]).
--deprecated([new/1,new/2]).
+-deprecated([{new,1,"not available in wxWidgets-2.9 and later"},
+             {new,2,"not available in wxWidgets-2.9 and later"}]).
 
 %% @hidden
 parent_class(wxWindow) -> true;

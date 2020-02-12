@@ -611,6 +611,11 @@ Erlang code.
 %% The following types are exported because they are used by syntax_tools
 -export_type([af_binelement/1, af_generator/0, af_remote_function/0]).
 
+%% Removed functions
+-removed([{set_line,2,"use erl_anno:set_line/2"},
+          {get_attributes,1,"erl_anno:{column,line,location,text}/1 instead"},
+          {get_attribute,2,"erl_anno:{column,line,location,text}/1 instead"}]).
+
 %% Start of Abstract Format
 
 -type anno() :: erl_anno:anno().

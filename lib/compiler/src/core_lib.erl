@@ -26,6 +26,15 @@
 
 -include("core_parse.hrl").
 
+%% Removed functions
+
+-removed([{get_anno,1,"use cerl:get_ann/1 instead"},
+          {set_anno,2,"use cerl:set_ann/2 instead"}]).
+
+-removed([{is_literal,1,"use cerl:is_literal/1 instead"},
+          {is_literal_list,1,"use cerl:is_literal_list/1 instead"},
+          {literal_value,1,"use cerl:concrete/1 instead"}]).
+
 %% Make a suitable values structure, expr or values, depending on Expr.
 -spec make_values([cerl:cerl()] | cerl:cerl()) -> cerl:cerl().
 

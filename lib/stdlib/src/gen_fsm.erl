@@ -129,25 +129,7 @@
 %% logger callback
 -export([format_log/1, format_log/2]).
 
--deprecated({start, 3, eventually}).
--deprecated({start, 4, eventually}).
--deprecated({start_link, 3, eventually}).
--deprecated({start_link, 4, eventually}).
--deprecated({stop, 1, eventually}).
--deprecated({stop, 3, eventually}).
--deprecated({send_event, 2, eventually}).
--deprecated({sync_send_event, 2, eventually}).
--deprecated({sync_send_event, 3, eventually}).
--deprecated({send_all_state_event, 2, eventually}).
--deprecated({sync_send_all_state_event, 2, eventually}).
--deprecated({sync_send_all_state_event, 3, eventually}).
--deprecated({reply, 2, eventually}).
--deprecated({start_timer, 2, eventually}).
--deprecated({send_event_after, 2, eventually}).
--deprecated({cancel_timer, 1, eventually}).
--deprecated({enter_loop, 4, eventually}).
--deprecated({enter_loop, 5, eventually}).
--deprecated({enter_loop, 6, eventually}).
+-deprecated({'_','_', "use the 'gen_statem' module instead"}).
 
 %%% ---------------------------------------------------
 %%% Interface functions.

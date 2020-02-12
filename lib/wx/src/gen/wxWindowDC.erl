@@ -54,7 +54,7 @@
   startPage/1]).
 
 -export_type([wxWindowDC/0]).
--deprecated([new/0]).
+-deprecated([{new,0,"not available in wxWidgets-2.9 and later"}]).
 
 -compile([{nowarn_deprecated_function, {wxDC,computeScaleAndOrigin,1}}]).
 

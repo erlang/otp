@@ -2072,8 +2072,9 @@ otp_5362(Config) when is_list(Config) ->
            {error,
             [{5,erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
             [{4,erl_lint,{deprecated,{erlang,now,0},
-                          "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
-                          "chapter of the ERTS User's Guide for more information."}}]}},
+                          "see the \"Time and Time Correction in Erlang\" "
+                          "chapter of the ERTS User's Guide for more "
+                          "information"}}]}},
           {otp_5362_5,
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
@@ -2130,8 +2131,9 @@ otp_5362(Config) when is_list(Config) ->
              {nowarn_bif_clash,{spawn,1}}]}, % has no effect
            {warnings,
             [{5,erl_lint,{deprecated,{erlang,now,0},
-                          "Deprecated BIF. See the \"Time and Time Correction in Erlang\" "
-                          "chapter of the ERTS User's Guide for more information."}}]}},
+                          "see the \"Time and Time Correction in Erlang\" "
+                          "chapter of the ERTS User's Guide for more "
+                          "information"}}]}},
 
           {otp_5362_9,
            <<"-include_lib(\"stdlib/include/qlc.hrl\").
@@ -2161,13 +2163,15 @@ otp_5362(Config) when is_list(Config) ->
 	   [],
 	   {warnings,
             [{1,erl_lint,{deprecated,{calendar,local_time_to_universal_time,1},
-			  {calendar,local_time_to_universal_time_dst,1}, "a future release"}}]}},
+                          "use calendar:local_time_to_universal_time_dst/1 "
+                          "instead"}}]}},
 
 	  {call_removed_function,
 	   <<"t(X) -> erlang:hash(X, 10000).">>,
 	   [],
 	   {warnings,
-            [{1,erl_lint,{removed,{erlang,hash,2},{erlang,phash2,2},"20.0"}}]}},
+            [{1,erl_lint,{removed,{erlang,hash,2},
+                          "use erlang:phash2/2 instead"}}]}},
 
 	  {nowarn_call_removed_function_1,
 	   <<"t(X) -> erlang:hash(X, 10000).">>,
@@ -2184,7 +2188,7 @@ otp_5362(Config) when is_list(Config) ->
 	   [],
            {warnings,[{1,erl_lint,
                        {removed,{os_mon_mib,any_function_really,1},
-                        "was removed in 22.0"}}]}},
+                        "this module was removed in OTP 22.0"}}]}},
 
 	  {nowarn_call_removed_module,
 	   <<"t(X) -> os_mon_mib:any_function_really(X).">>,
@@ -2223,7 +2227,6 @@ otp_15456(Config) when is_list(Config) ->
              warn_deprecated_function]},
            {warnings,[{5,erl_lint,
                        {deprecated,{random,seed,3},
-                        "the 'random' module is deprecated; "
                         "use the 'rand' module instead"}}]}},
 
           %% {nowarn_unused_function,[{M,F,A}]} can be given
@@ -4148,9 +4151,9 @@ otp_14378(Config) ->
            [],
            {warnings,[{4,erl_lint,
                        {deprecated,{erlang,now,0},
-                        "Deprecated BIF. See the \"Time and Time Correction"
-                        " in Erlang\" chapter of the ERTS User's Guide"
-                        " for more information."}}]}}],
+                        "see the \"Time and Time Correction in Erlang\" "
+                        "chapter of the ERTS User's Guide for more "
+                        "information"}}]}}],
     [] = run(Config, Ts),
     ok.
 

@@ -54,7 +54,13 @@
          dist_ctrl_set_opt/3,
          dist_get_stat/1]).
 
--deprecated([get_stacktrace/0,now/0]).
+-deprecated([{get_stacktrace,0,
+              "use the new try/catch syntax for retrieving the "
+              "stack backtrace"}]).
+-deprecated([{now,0,
+              "see the \"Time and Time Correction in Erlang\" "
+              "chapter of the ERTS User's Guide for more information"}]).
+-removed([{hash,2,"use erlang:phash2/2 instead"}]).
 
 %% Get rid of autoimports of spawn to avoid clashes with ourselves.
 -compile({no_auto_import,[spawn_link/1]}).

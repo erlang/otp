@@ -44,7 +44,8 @@
          info/3
         ]).
 
--deprecated({parse_query, 1, next_major_release}).
+-deprecated({parse_query, 1,
+            "use uri_string:dissect_query/1 instead"}).
 
 %%%========================================================================
 %%% API

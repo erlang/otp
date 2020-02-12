@@ -51,7 +51,8 @@
 -export([parent_class/1]).
 
 -export_type([wxDC/0]).
--deprecated([computeScaleAndOrigin/1]).
+-deprecated([{computeScaleAndOrigin,1,
+              "not available in wxWidgets-2.9 and later"}]).
 
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).

@@ -78,7 +78,8 @@
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
 -export_type([wxCalendarCtrl/0]).
--deprecated([enableYearChange/1,enableYearChange/2]).
+-deprecated([{enableYearChange,'_',
+              "not available in wxWidgets-2.9 and later"}]).
 
 %% @hidden
 parent_class(wxControl) -> true;
