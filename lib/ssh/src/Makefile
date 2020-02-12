@@ -39,7 +39,13 @@ RELSYSDIR = $(RELEASE_PATH)/lib/ssh-$(VSN)
 
 # Behaviour (api) modules are first so they are compiled when
 # the compiler reaches a callback module using them.
-BEHAVIOUR_MODULES= \
+# The $(BEHAVIOUR_MODULES_1) has a behaviour used in one or more
+# of the $(BEHAVIOUR_MODULES_2)
+
+BEHAVIOUR_MODULES_1= \
+	ssh_dbg
+
+BEHAVIOUR_MODULES_2= \
 	ssh_client_key_api \
 	ssh_daemon_channel \
 	ssh_server_channel \
@@ -60,7 +66,6 @@ MODULES= \
 	ssh_connection \
 	ssh_connection_handler \
 	ssh_connection_sup \
-	ssh_dbg \
 	ssh_file \
 	ssh_info \
 	ssh_io \
@@ -87,12 +92,15 @@ HRL_FILES =
 
 ERL_FILES= \
 	$(MODULES:%=%.erl) \
-	$(BEHAVIOUR_MODULES:%=%.erl)
+	$(BEHAVIOUR_MODULES_1:%=%.erl) \
+	$(BEHAVIOUR_MODULES_2:%=%.erl)
 
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_MODULES:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES_1= $(BEHAVIOUR_MODULES_1:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES_2= $(BEHAVIOUR_MODULES_2:%=$(EBIN)/%.$(EMULATOR))
+BEHAVIOUR_TARGET_FILES= $(BEHAVIOUR_TARGET_FILES_1) $(BEHAVIOUR_TARGET_FILES_2)
 
 APP_FILE= ssh.app
 APPUP_FILE= ssh.appup
@@ -119,7 +127,8 @@ ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/src \
 # Targets
 # ----------------------------------------------------
 
-$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES)
+$(TARGET_FILES): $(BEHAVIOUR_TARGET_FILES_2)
+$(BEHAVIOUR_TARGET_FILES_2): $(BEHAVIOUR_TARGET_FILES_1)
 
 debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 

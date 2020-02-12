@@ -79,7 +79,8 @@
 	 renegotiate/1, alg/1 % Export intended for test cases
 	]).
 
--export([dbg_trace/3]).
+-behaviour(ssh_dbg).
+-export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
 
 
 -define(send_disconnect(Code, DetailedText, StateName, State),
@@ -2439,14 +2440,37 @@ update_inet_buffers(Socket) ->
 %%%# Tracing
 %%%#
 
-dbg_trace(points,         _,  _) -> [terminate, disconnect, connections, connection_events, renegotiation];
+ssh_dbg_trace_points() -> [terminate, disconnect, connections, connection_events, renegotiation].
 
-dbg_trace(flags,  connections,  A) -> [c] ++ dbg_trace(flags, terminate, A);
-dbg_trace(on,     connections,  A) -> dbg:tp(?MODULE,  init_connection_handler, 3, x),
-                                      dbg_trace(on, terminate, A);
-dbg_trace(off,    connections,  A) -> dbg:ctpg(?MODULE, init_connection_handler, 3),
-                                      dbg_trace(off, terminate, A);
-dbg_trace(format, connections, {call, {?MODULE,init_connection_handler, [Role, Sock, Opts]}}) ->
+ssh_dbg_flags(connections) -> [c | ssh_dbg_flags(terminate)];
+ssh_dbg_flags(renegotiation) -> [c];
+ssh_dbg_flags(connection_events) -> [c];
+ssh_dbg_flags(terminate) -> [c];
+ssh_dbg_flags(disconnect) -> [c].
+
+ssh_dbg_on(connections) -> dbg:tp(?MODULE,  init_connection_handler, 3, x),
+                           ssh_dbg_on(terminate);
+ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x);
+ssh_dbg_on(renegotiation) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 2, x),
+                             dbg:tpl(?MODULE,   pause_renegotiate_timers, 2, x),
+                             dbg:tpl(?MODULE,   check_data_rekeying_dbg, 2, x),
+                             dbg:tpl(?MODULE,   start_rekeying, 2, x);
+ssh_dbg_on(terminate) -> dbg:tp(?MODULE,  terminate, 3, x);
+ssh_dbg_on(disconnect) -> dbg:tpl(?MODULE,  send_disconnect, 7, x).
+
+
+ssh_dbg_off(disconnect) -> dbg:ctpl(?MODULE, send_disconnect, 7);
+ssh_dbg_off(terminate) -> dbg:ctpg(?MODULE, terminate, 3);
+ssh_dbg_off(renegotiation) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 2),
+                              dbg:ctpl(?MODULE,   pause_renegotiate_timers, 2),
+                              dbg:ctpl(?MODULE,   check_data_rekeying_dbg, 2),
+                              dbg:ctpl(?MODULE,   start_rekeying, 2);
+ssh_dbg_off(connection_events) -> dbg:ctpg(?MODULE, handle_event, 4);
+ssh_dbg_off(connections) -> dbg:ctpg(?MODULE, init_connection_handler, 3),
+                            ssh_dbg_off(terminate).
+
+
+ssh_dbg_format(connections, {call, {?MODULE,init_connection_handler, [Role, Sock, Opts]}}) ->
     DefaultOpts = ssh_options:handle_options(Role,[]),
     ExcludedKeys = [internal_options, user_options],
     NonDefaultOpts =
@@ -2467,41 +2491,29 @@ dbg_trace(format, connections, {call, {?MODULE,init_connection_handler, [Role, S
                    [Sock,inet:ntoa(IPp),Portp,inet:ntoa(IPs),Ports,
                     NonDefaultOpts])
     ];
-dbg_trace(format, connections, F) ->
-    dbg_trace(format, terminate, F);
+ssh_dbg_format(connections, F) ->
+    ssh_dbg_format(terminate, F);
 
-dbg_trace(flags,  connection_events,  _) -> [c];
-dbg_trace(on,     connection_events,  _) -> dbg:tp(?MODULE,   handle_event, 4, x);
-dbg_trace(off,    connection_events,  _) -> dbg:ctpg(?MODULE, handle_event, 4);
-dbg_trace(format, connection_events, {call, {?MODULE,handle_event, [EventType, EventContent, State, _Data]}}) ->
+ssh_dbg_format(connection_events, {call, {?MODULE,handle_event, [EventType, EventContent, State, _Data]}}) ->
     ["Connection event\n",
      io_lib:format("EventType: ~p~nEventContent: ~p~nState: ~p~n", [EventType, EventContent, State])
     ];
-dbg_trace(format, connection_events, {return_from, {?MODULE,handle_event,4}, Ret}) ->
+ssh_dbg_format(connection_events, {return_from, {?MODULE,handle_event,4}, Ret}) ->
     ["Connection event result\n",
      io_lib:format("~p~n", [event_handler_result(Ret)])
     ];
 
-dbg_trace(flags,  renegotiation,  _) -> [c];
-dbg_trace(on,     renegotiation,  _) -> dbg:tpl(?MODULE,   init_renegotiate_timers, 2, x),
-                                        dbg:tpl(?MODULE,   pause_renegotiate_timers, 2, x),
-                                        dbg:tpl(?MODULE,   check_data_rekeying_dbg, 2, x),
-                                        dbg:tpl(?MODULE,   start_rekeying, 2, x);
-dbg_trace(off,    renegotiation,  _) -> dbg:ctpl(?MODULE,   init_renegotiate_timers, 2),
-                                        dbg:ctpl(?MODULE,   pause_renegotiate_timers, 2),
-                                        dbg:ctpl(?MODULE,   check_data_rekeying_dbg, 2),
-                                        dbg:ctpl(?MODULE,   start_rekeying, 2);
-dbg_trace(format, renegotiation, {call, {?MODULE,init_renegotiate_timers,[_State,D]}}) ->
+ssh_dbg_format(renegotiation, {call, {?MODULE,init_renegotiate_timers,[_State,D]}}) ->
     ["Renegotiation init\n",
      io_lib:format("rekey_limit: ~p ({ms,bytes})~ncheck_data_size: ~p (ms)~n", 
                    [?GET_OPT(rekey_limit, (D#data.ssh_params)#ssh.opts),
                     ?REKEY_DATA_TIMOUT])
     ];
-dbg_trace(format, renegotiation, {call, {?MODULE,pause_renegotiate_timers,[_State,_D]}}) ->
+ssh_dbg_format(renegotiation, {call, {?MODULE,pause_renegotiate_timers,[_State,_D]}}) ->
     ["Renegotiation pause\n"];
-dbg_trace(format, renegotiation, {call, {?MODULE,start_rekeying,[_Role,_D]}}) ->
+ssh_dbg_format(renegotiation, {call, {?MODULE,start_rekeying,[_Role,_D]}}) ->
     ["Renegotiation start rekeying\n"];
-dbg_trace(format, renegotiation, {call, {?MODULE,check_data_rekeying_dbg,[SentSinceRekey, MaxSent]}}) ->
+ssh_dbg_format(renegotiation, {call, {?MODULE,check_data_rekeying_dbg,[SentSinceRekey, MaxSent]}}) ->
     ["Renegotiation check data sent\n",
      io_lib:format("TotalSentSinceRekey: ~p~nMaxBeforeRekey: ~p~nStartRekey: ~p~n",
                    [SentSinceRekey, MaxSent, SentSinceRekey >= MaxSent])
@@ -2509,10 +2521,7 @@ dbg_trace(format, renegotiation, {call, {?MODULE,check_data_rekeying_dbg,[SentSi
 
 
 
-dbg_trace(flags,  terminate,  _) -> [c];
-dbg_trace(on,     terminate,  _) -> dbg:tp(?MODULE,  terminate, 3, x);
-dbg_trace(off,    terminate,  _) -> dbg:ctpg(?MODULE, terminate, 3);
-dbg_trace(format, terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}) ->
+ssh_dbg_format(terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}) ->
     ExtraInfo =
         try
             {conn_info(peer,D),
@@ -2545,11 +2554,8 @@ dbg_trace(format, terminate, {call, {?MODULE,terminate, [Reason, StateName, D]}}
             ]
     end;
 
-dbg_trace(flags,  disconnect, _) -> [c];
-dbg_trace(on,     disconnect, _) -> dbg:tpl(?MODULE,  send_disconnect, 7, x);
-dbg_trace(off,    disconnect, _) -> dbg:ctpl(?MODULE, send_disconnect, 7);
-dbg_trace(format, disconnect, {call,{?MODULE,send_disconnect,
-                                    [Code, Reason, DetailedText, Module, Line, StateName, _D]}}) ->
+ssh_dbg_format(disconnect, {call,{?MODULE,send_disconnect,
+                                     [Code, Reason, DetailedText, Module, Line, StateName, _D]}}) ->
     ["Disconnecting:\n",
      io_lib:format(" Module = ~p, Line = ~p, StateName = ~p,~n"
                    " Code = ~p, Reason = ~p,~n"
