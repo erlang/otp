@@ -1141,6 +1141,8 @@ static ERL_NIF_TERM esock_socket_info_protocol(ErlNifEnv*       env,
                                                ESockDescriptor* descP);
 static ERL_NIF_TERM esock_socket_info_counters(ErlNifEnv*       env,
                                                ESockDescriptor* descP);
+static ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
+                                            ESockDescriptor* descP);
 #define ESOCK_SOCKET_INFO_REQ_FUNCS              \
     ESOCK_SOCKET_INFO_REQ_FUNC_DEF(readers);     \
     ESOCK_SOCKET_INFO_REQ_FUNC_DEF(writers);     \
@@ -3150,6 +3152,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(cookie_life);      \
     LOCAL_ATOM_DECL(counter_wrap);     \
     LOCAL_ATOM_DECL(counters);         \
+    LOCAL_ATOM_DECL(ctype);            \
     LOCAL_ATOM_DECL(data_in);          \
     LOCAL_ATOM_DECL(del);              \
     LOCAL_ATOM_DECL(dest_unreach);     \
@@ -3465,6 +3468,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
     ERL_NIF_TERM type      = esock_socket_info_type(env, descP);
     ERL_NIF_TERM protocol  = esock_socket_info_protocol(env, descP);
     ERL_NIF_TERM ctrlPid   = MKPID(env, &descP->ctrlPid);
+    ERL_NIF_TERM ctype     = esock_socket_info_ctype(env, descP);
     ERL_NIF_TERM readable  = BOOL2ATOM(descP->isReadable);
     ERL_NIF_TERM writable  = BOOL2ATOM(descP->isWritable);
     // ERL_NIF_TERM connected = BOOL2ATOM(descP->isConnected);
@@ -3476,6 +3480,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                               esock_atom_type,
                               esock_atom_protocol,
                               esock_atom_ctrl,
+                              atom_ctype,
                               atom_readable,
                               atom_writable,
                               atom_counters,
@@ -3486,6 +3491,7 @@ ERL_NIF_TERM esock_socket_info(ErlNifEnv*       env,
                               type,
                               protocol,
                               ctrlPid,
+                              ctype,
                               readable,
                               writable,
                               counters,
@@ -3566,6 +3572,45 @@ ERL_NIF_TERM esock_socket_info_protocol(ErlNifEnv*       env,
     }
 
     return eproto;
+}
+
+
+/*
+ * Encode the socket "create type"
+ * That is "show" how this socket was created:
+ *
+ *           normal | fromfd | {fromfd, integer()}
+ */
+static
+ERL_NIF_TERM esock_socket_info_ctype(ErlNifEnv*       env,
+                                     ESockDescriptor* descP)
+{
+    ERL_NIF_TERM ctype;
+
+    SSDBG( descP, ("SOCKET", "esock_socket_info_ctype -> entry with"
+                   "\r\n   origFD:       %d"
+                   "\r\n   closeOnClose: %s"
+                   "\r\n", descP->origFD, B2S(descP->closeOnClose)) );
+
+    if (descP->origFD > 0) {
+        /* Created from other FD */
+        if (descP->closeOnClose) {
+            /* We *have* dup'ed: {fromfd, integer()} */
+            ctype = MKT2(env, MKA(env, "fromfd"), MKI(env, descP->origFD));
+        } else {
+            /* We have *not* dup'ed: fromfd */
+            ctype = MKA(env, "fromfd");
+        }
+    } else {
+        /* Normal socket */
+        ctype = MKA(env, "normal");
+    }
+
+    SSDBG( descP, ("SOCKET", "esock_socket_info_ctype -> done:"
+                   "\r\n   ctype: %T"
+                   "\r\n", ctype) );
+
+    return ctype;
 }
 
 

@@ -176,6 +176,7 @@
                          type          := type(),
                          protocol      := protocol(),
                          ctrl          := pid(),
+                         ctype         := normal | fromfd | {fromfd, integer()},
                          counters      := socket_counters(),
                          num_readers   := non_neg_integer(),
                          num_writers   := non_neg_integer(),
