@@ -87,6 +87,7 @@
          groups/1,
          format_error/1, 
          renegotiate/1, 
+         update_keys/2,
          prf/5, 
          negotiated_protocol/1, 
 	 connection_information/1, 
@@ -313,7 +314,8 @@
                                 {padding_check, padding_check()} |
                                 {beast_mitigation, beast_mitigation()} |
                                 {ssl_imp, ssl_imp()} |
-                                {session_tickets, session_tickets()}.
+                                {session_tickets, session_tickets()} |
+                                {key_update_at, key_update_at()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -356,6 +358,7 @@
 -type client_session_tickets()   :: disabled | manual | auto.
 -type server_session_tickets()   :: disabled | stateful | stateless.
 -type session_tickets()          :: client_session_tickets() | server_session_tickets().
+-type key_update_at()            :: pos_integer().
 -type bloom_filter_window_size()    :: integer().
 -type bloom_filter_hash_functions() :: integer().
 -type bloom_filter_bits()           :: integer().
@@ -1351,6 +1354,28 @@ renegotiate(#sslsocket{pid = {dtls,_}}) ->
 renegotiate(#sslsocket{pid = {Listen,_}}) when is_port(Listen) ->
     {error, enotconn}.
 
+
+%%---------------------------------------------------------------
+-spec update_keys(SslSocket, Type) -> ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Type :: write | read_write.
+%%
+%% Description: Initiate a key update.
+%%--------------------------------------------------------------------
+update_keys(#sslsocket{pid = [Pid, Sender |_]}, Type0) when is_pid(Pid) andalso
+                                                            is_pid(Sender) andalso
+                                                            (Type0 =:= write orelse
+                                                             Type0 =:= read_write) ->
+    Type = case Type0 of
+               write ->
+                   update_not_requested;
+               read_write ->
+                   update_requested
+           end,
+    tls_connection:send_key_update(Sender, Type);
+update_keys(_, Type) ->
+    {error, {illegal_parameter, Type}}.
+
 %%--------------------------------------------------------------------
 -spec prf(SslSocket, Secret, Label, Seed, WantedLength) ->
                  {ok, binary()} | {error, reason()} when
@@ -1642,6 +1667,13 @@ handle_option(honor_ecc_order = Option, Value0, OptionsMap, #{role := Role}) ->
     OptionsMap#{Option => Value};
 handle_option(keyfile = Option, unbound, #{certfile := CertFile} = OptionsMap, _Env) ->
     Value = validate_option(Option, CertFile),
+    OptionsMap#{Option => Value};
+handle_option(key_update_at = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(key_update_at = Option, Value0, #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.3']),
+    Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(next_protocol_selector = Option, unbound, OptionsMap, #{rules := Rules}) ->
     Value = default_value(Option, Rules),
@@ -1973,6 +2005,9 @@ validate_option(keyfile, Value) when is_binary(Value) ->
     Value;
 validate_option(keyfile, Value) when is_list(Value), Value =/= "" ->
     binary_filename(Value);
+validate_option(key_update_at, Value) when is_integer(Value) andalso
+                                           Value > 0 ->
+    Value;
 validate_option(password, Value) when is_list(Value) ->
     Value;
 
