@@ -1121,6 +1121,7 @@ local_uninstall_fallback(Master, FA) ->
             Bup = FA2#fallback_args.fallback_bup,
             file:delete(Tmp),
             Res = file:delete(Bup),
+            unregister(mnesia_fallback),
             ?eval_debug_fun({?MODULE, uninstall_fallback2, post_delete}, []),
             Master ! {self(), Res},
             unlink(Master),
