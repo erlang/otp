@@ -67,6 +67,7 @@
           compression_algorithm,		% unit 8 
           master_secret,			% opaque 48
           resumption_master_secret,
+          application_traffic_secret,
           client_random,			% opaque 32
           server_random,			% opaque 32
           exportable				% boolean
@@ -74,7 +75,7 @@
 
 -define(INITIAL_BYTES, 5).
 
--define(MAX_SEQENCE_NUMBER, 18446744073709551615). %% (1 bsl 64) - 1 = 18446744073709551615
+-define(MAX_SEQUENCE_NUMBER, 18446744073709551615). %% (1 bsl 64) - 1 = 18446744073709551615
 %% Sequence numbers cannot wrap so when max is about to be reached we should renegotiate.
 %% We will renegotiate a little before so that there will be sequence numbers left
 %% for the rehandshake and a little data. Currently we decided to renegotiate a little more

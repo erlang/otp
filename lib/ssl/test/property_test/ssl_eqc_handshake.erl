@@ -572,7 +572,7 @@ server_hello_selected_version() ->
     #server_hello_selected_version{selected_version = {3,4}}.
 
 request_update() ->
-     oneof([?UPDATE_NOT_REQUESTED, ?UPDATE_REQUESTED]).
+     oneof([update_not_requested, update_requested]).
 
 certificate_chain()->
     Conf = cert_conf(),
