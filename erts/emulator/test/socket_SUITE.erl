@@ -96,10 +96,14 @@
          api_b_sendmsg_and_recvmsg_sctp4/1,
 
          %% *** API socket from FD ***
-         api_ffd_open_and_info_udp4/1,
-         api_ffd_open_and_info_udp6/1,
-         api_ffd_open_and_info_tcp4/1,
-         api_ffd_open_and_info_tcp6/1,
+         api_ffd_open_wod_and_info_udp4/1,
+         api_ffd_open_wod_and_info_udp6/1,
+         api_ffd_open_wod_and_info_tcp4/1,
+         api_ffd_open_wod_and_info_tcp6/1,
+         api_ffd_open_wd_and_info_udp4/1,
+         api_ffd_open_wd_and_info_udp6/1,
+         api_ffd_open_wd_and_info_tcp4/1,
+         api_ffd_open_wd_and_info_tcp6/1,
          api_ffd_open_and_open_wod_and_send_udp4/1,
          api_ffd_open_and_open_wod_and_send_udp6/1,
          api_ffd_open_and_open_wd_and_send_udp4/1,
@@ -831,10 +835,14 @@ api_basic_cases() ->
 
 api_from_fd_cases() ->
     [
-     api_ffd_open_and_info_udp4,
-     api_ffd_open_and_info_udp6,
-     api_ffd_open_and_info_tcp4,
-     api_ffd_open_and_info_tcp6,
+     api_ffd_open_wod_and_info_udp4,
+     api_ffd_open_wod_and_info_udp6,
+     api_ffd_open_wod_and_info_tcp4,
+     api_ffd_open_wod_and_info_tcp6,
+     api_ffd_open_wd_and_info_udp4,
+     api_ffd_open_wd_and_info_udp6,
+     api_ffd_open_wd_and_info_tcp4,
+     api_ffd_open_wd_and_info_tcp6,
      api_ffd_open_and_open_wod_and_send_udp4,
      api_ffd_open_and_open_wod_and_send_udp6,
      api_ffd_open_and_open_wd_and_send_udp4,
@@ -4281,17 +4289,20 @@ api_b_send_and_recv_sctp(_InitState) ->
 %% Basically open (create) a socket from an already existing 
 %% file descriptor (FD) and info of an IPv4 UDP (dgram) socket.
 %% With some extra checks...
-api_ffd_open_and_info_udp4(suite) ->
+%% IPv4
+%% Without dup
+api_ffd_open_wod_and_info_udp4(suite) ->
     [];
-api_ffd_open_and_info_udp4(doc) ->
+api_ffd_open_wod_and_info_udp4(doc) ->
     [];
-api_ffd_open_and_info_udp4(_Config) when is_list(_Config) ->
+api_ffd_open_wod_and_info_udp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_ffd_open_and_info_udp4,
+    tc_try(api_ffd_open_wod_and_info_udp4,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => dgram,
-                                 protocol => udp},
+                                 protocol => udp,
+                                 dup      => false},
                    ok = api_ffd_open_and_info(InitState)
            end).
 
@@ -4301,18 +4312,68 @@ api_ffd_open_and_info_udp4(_Config) when is_list(_Config) ->
 %% Basically open (create) a socket from an already existing 
 %% file descriptor (FD) and info of an IPv6 UDP (dgram) socket.
 %% With some extra checks...
-api_ffd_open_and_info_udp6(suite) ->
+%% IPv6
+%% Without dup
+api_ffd_open_wod_and_info_udp6(suite) ->
     [];
-api_ffd_open_and_info_udp6(doc) ->
+api_ffd_open_wod_and_info_udp6(doc) ->
     [];
-api_ffd_open_and_info_udp6(_Config) when is_list(_Config) ->
+api_ffd_open_wod_and_info_udp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_ffd_open_and_info_udp6,
+    tc_try(api_ffd_open_wod_and_info_udp6,
            fun() -> has_support_ipv6() end,
            fun() ->
                    InitState = #{domain   => inet6,
                                  type     => dgram,
-                                 protocol => udp},
+                                 protocol => udp,
+                                 dup      => false},
+                   ok = api_ffd_open_and_info(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) a socket from an already existing 
+%% file descriptor (FD) and info of an IPv4 UDP (dgram) socket.
+%% With some extra checks...
+%% IPv4
+%% With dup
+api_ffd_open_wd_and_info_udp4(suite) ->
+    [];
+api_ffd_open_wd_and_info_udp4(doc) ->
+    [];
+api_ffd_open_wd_and_info_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_ffd_wd_open_and_info_udp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => dgram,
+                                 protocol => udp,
+                                 dup      => true},
+                   ok = api_ffd_open_and_info(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) a socket from an already existing 
+%% file descriptor (FD) and info of an IPv4 UDP (dgram) socket.
+%% With some extra checks...
+%% IPv6
+%% With dup
+api_ffd_open_wd_and_info_udp6(suite) ->
+    [];
+api_ffd_open_wd_and_info_udp6(doc) ->
+    [];
+api_ffd_open_wd_and_info_udp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_ffd_wd_open_and_info_udp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => dgram,
+                                 protocol => udp,
+                                 dup      => true},
                    ok = api_ffd_open_and_info(InitState)
            end).
 
@@ -4322,17 +4383,20 @@ api_ffd_open_and_info_udp6(_Config) when is_list(_Config) ->
 %% Basically open (create) a socket from an already existing 
 %% file descriptor (FD) and info of an IPv4 TCP (stream) socket.
 %% With some extra checks...
-api_ffd_open_and_info_tcp4(suite) ->
+%% IPv6
+%% Without dup
+api_ffd_open_wod_and_info_tcp4(suite) ->
     [];
-api_ffd_open_and_info_tcp4(doc) ->
+api_ffd_open_wod_and_info_tcp4(doc) ->
     [];
-api_ffd_open_and_info_tcp4(_Config) when is_list(_Config) ->
+api_ffd_open_wod_and_info_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_ffd_open_and_info_tcp4,
+    tc_try(api_ffd_open_wod_and_info_tcp4,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => stream,
-                                 protocol => tcp},
+                                 protocol => tcp,
+                                 dup      => false},
                    ok = api_ffd_open_and_info(InitState)
            end).
 
@@ -4342,18 +4406,68 @@ api_ffd_open_and_info_tcp4(_Config) when is_list(_Config) ->
 %% Basically open (create) a socket from an already existing 
 %% file descriptor (FD) and info of an IPv6 TCP (stream) socket.
 %% With some extra checks...
-api_ffd_open_and_info_tcp6(suite) ->
+%% IPv6
+%% Without dup
+api_ffd_open_wod_and_info_tcp6(suite) ->
     [];
-api_ffd_open_and_info_tcp6(doc) ->
+api_ffd_open_wod_and_info_tcp6(doc) ->
     [];
-api_ffd_open_and_info_tcp6(_Config) when is_list(_Config) ->
+api_ffd_open_wod_and_info_tcp6(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
-    tc_try(api_ffd_open_and_info_tcp6,
+    tc_try(api_ffd_open_wod_and_info_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
                    InitState = #{domain   => inet6,
                                  type     => stream,
-                                 protocol => tcp},
+                                 protocol => tcp,
+                                 dup      => false},
+                   ok = api_ffd_open_and_info(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) a socket from an already existing 
+%% file descriptor (FD) and info of an IPv4 TCP (stream) socket.
+%% With some extra checks...
+%% IPv6
+%% With dup
+api_ffd_open_wd_and_info_tcp4(suite) ->
+    [];
+api_ffd_open_wd_and_info_tcp4(doc) ->
+    [];
+api_ffd_open_wd_and_info_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_ffd_open_wd_and_info_tcp4,
+           fun() ->
+                   InitState = #{domain   => inet,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 dup      => true},
+                   ok = api_ffd_open_and_info(InitState)
+           end).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% Basically open (create) a socket from an already existing 
+%% file descriptor (FD) and info of an IPv6 TCP (stream) socket.
+%% With some extra checks...
+%% IPv6
+%% With dup
+api_ffd_open_wd_and_info_tcp6(suite) ->
+    [];
+api_ffd_open_wd_and_info_tcp6(doc) ->
+    [];
+api_ffd_open_wd_and_info_tcp6(_Config) when is_list(_Config) ->
+    ?TT(?SECS(5)),
+    tc_try(api_ffd_open_wd_and_info_tcp6,
+           fun() -> has_support_ipv6() end,
+           fun() ->
+                   InitState = #{domain   => inet6,
+                                 type     => stream,
+                                 protocol => tcp,
+                                 dup      => true},
                    ok = api_ffd_open_and_info(InitState)
            end).
 
@@ -4400,9 +4514,11 @@ api_ffd_open_and_info(InitState) ->
                    end},
          #{desc => "open with FD",
            cmd  => fun(#{fd               := FD,
+                         dup              := DUP,
                          provide_protocol := true,
                          protocol         := Protocol} = State) -> 
-                           case socket:open(FD, #{protocol => Protocol}) of
+                           case socket:open(FD, #{dup      => DUP,
+                                                  protocol => Protocol}) of
                                {ok, Sock2} ->
                                    ?SEV_IPRINT("socket 2 open"),
                                    {ok, State#{sock2 => Sock2}};
@@ -4412,8 +4528,9 @@ api_ffd_open_and_info(InitState) ->
                                    ERROR
                            end;
                       (#{fd               := FD,
+                         dup              := DUP,
                          provide_protocol := false} = State) -> 
-                           case socket:open(FD) of
+                           case socket:open(FD, #{dup => DUP}) of
                                {ok, Sock2} ->
                                    ?SEV_IPRINT("socket 2 open"),
                                    {ok, State#{sock2 => Sock2}};
@@ -4425,14 +4542,18 @@ api_ffd_open_and_info(InitState) ->
                    end},
          #{desc => "get socket (1) info",
            cmd  => fun(#{sock1 := Sock} = State) ->
+                           %% socket:setopt(Sock, otp, debug, true),
                            Info = socket:info(Sock),
+                           %% socket:setopt(Sock, otp, debug, false),
                            ?SEV_IPRINT("Got Info: "
                                        "~n   ~p", [Info]),
                            {ok, State#{info1 => Info}}
                    end},
          #{desc => "get socket (2) info",
            cmd  => fun(#{sock2 := Sock} = State) ->
+                           %% socket:setopt(Sock, otp, debug, true),
                            Info = socket:info(Sock),
+                           %% socket:setopt(Sock, otp, debug, false),
                            ?SEV_IPRINT("Got Info: "
                                        "~n   ~p", [Info]),
                            {ok, State#{info2 => Info}}
@@ -4444,6 +4565,7 @@ api_ffd_open_and_info(InitState) ->
                          info1    := #{domain        := Domain,
                                        type          := Type,
                                        protocol      := Protocol,
+                                       ctype         := normal,
                                        counters      := _,
                                        num_readers   := 0,
                                        num_writers   := 0,
@@ -4454,20 +4576,24 @@ api_ffd_open_and_info(InitState) ->
                          protocol := Protocol,
                          info     := Info}) ->
                            ?SEV_EPRINT("Unexpected Info for socket 1: "
-                                       "~n   (expected) Domain:   ~p"
-                                       "~n   (expected) Type:     ~p"
-                                       "~n   (expected) Protocol: ~p"
+                                       "~n   (expected) Domain:      ~p"
+                                       "~n   (expected) Type:        ~p"
+                                       "~n   (expected) Protocol:    ~p"
+                                       "~n   (expected) Create Type: ~p"
                                        "~n   ~p",
-                                       [Domain, Type, Protocol, Info]),
+                                       [Domain, Type, Protocol, normal, Info]),
                            {error, unexpected_infio}
                    end},
          #{desc => "validate socket (2) info",
            cmd  => fun(#{domain   := Domain,
                          type     := Type,
                          protocol := Protocol,
+                         fd       := _FD,
+                         dup      := false,
                          info2    := #{domain        := Domain,
                                        type          := Type,
                                        protocol      := Protocol,
+                                       ctype         := fromfd,
                                        counters      := _,
                                        num_readers   := 0,
                                        num_writers   := 0,
@@ -4476,14 +4602,47 @@ api_ffd_open_and_info(InitState) ->
                       (#{domain   := Domain,
                          type     := Type,
                          protocol := Protocol,
+                         fd       := _FD,
+                         dup      := false,
                          info     := Info}) ->
                            ?SEV_EPRINT("Unexpected Info for socket 2: "
-                                       "~n   (expected) Domain:   ~p"
-                                       "~n   (expected) Type:     ~p"
-                                       "~n   (expected) Protocol: ~p"
+                                       "~n   (expected) Domain:      ~p"
+                                       "~n   (expected) Type:        ~p"
+                                       "~n   (expected) Protocol:    ~p"
+                                       "~n   (expected) Create Type: ~p"
                                        "~n   ~p",
-                                       [Domain, Type, Protocol, Info]),
-                           {error, unexpected_infio}
+                                       [Domain, Type, Protocol,
+                                        fromfd, Info]),
+                           {error, unexpected_info};
+                      (#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol,
+                         fd       := FD,
+                         dup      := true,
+                         info2    := #{domain        := Domain,
+                                       type          := Type,
+                                       protocol      := Protocol,
+                                       ctype         := {fromfd, FD},
+                                       counters      := _,
+                                       num_readers   := 0,
+                                       num_writers   := 0,
+                                       num_acceptors := 0}}) ->
+                           ok;
+                      (#{domain   := Domain,
+                         type     := Type,
+                         protocol := Protocol,
+                         fd       := FD,
+                         dup      := true,
+                         info     := Info}) ->
+                           ?SEV_EPRINT("Unexpected Info for socket 2: "
+                                       "~n   (expected) Domain:      ~p"
+                                       "~n   (expected) Type:        ~p"
+                                       "~n   (expected) Protocol:    ~p"
+                                       "~n   (expected) Create Type: ~p"
+                                       "~n   ~p",
+                                       [Domain, Type, Protocol,
+                                        {fromfd, FD}, Info]),
+                           {error, unexpected_info}
                    end},
          #{desc => "close socket (1)",
            cmd  => fun(#{sock1 := Sock} = _State) ->
