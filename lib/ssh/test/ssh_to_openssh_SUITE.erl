@@ -70,9 +70,10 @@ init_per_suite(Config) ->
 	   {error,econnrefused} ->
 	       {skip,"No openssh deamon (econnrefused)"};
 	   _ ->
-               [{ptty_supported, not ssh_test_lib:lc_name_in(["fobi"])}
-                | ssh_test_lib:openssh_sanity_check(Config)
-               ]
+               ssh_test_lib:openssh_sanity_check(
+                 [{ptty_supported, ssh_test_lib:ptty_supported()}
+                  | Config]
+                )
        end
       ).
 
@@ -198,6 +199,7 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
     ct:pal("Cmd = ~p~n",[Cmd]),
     case os:cmd(Cmd) of
         "? {ciao,\"oaic\"}" -> ok;
+        "'? '{ciao,\"oaic\"}" -> ok; % WSL
         "{ciao,\"oaic\"}? " -> ok; % Could happen if the client sends the piped
                                    % input before receiving the prompt ("? ").
         Other -> ct:fail("Received ~p",[Other])

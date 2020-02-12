@@ -28,6 +28,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssh/src/ssh_transport.hrl").
+-include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
 
 %%%----------------------------------------------------------------
@@ -607,7 +608,10 @@ del_dirs(Dir) ->
 
 openssh_sanity_check(Config) ->
     ssh:start(),
-    case ssh:connect("localhost", 22, [{password,""}]) of
+    case ssh:connect("localhost", 22, [{password,""},
+                                       {silently_accept_hosts, true},
+                                       {user_interaction, false}
+                                      ]) of
 	{ok, Pid} ->
 	    ssh:close(Pid),
 	    ssh:stop(),
@@ -1119,8 +1123,57 @@ lc_name_in(Names) ->
             false
     end.
 
+ptty_supported() -> not lc_name_in([]). %%["fobi"]).
 
-                    
-            
+%%%----------------------------------------------------------------
+has_WSL() ->
+    os:getenv("WSLENV") =/= false. % " =/= false" =/= "== true" :)
 
+winpath_to_linuxpath(Path) ->
+    case {has_WSL(), Path} of
+        {true, [_,$:|WithoutWinInit]} ->
+            "/mnt/c" ++ WithoutWinInit;
+        _ ->
+            Path
+    end.
+    
+%%%----------------------------------------------------------------
+copy_recursive(Src, Dst) ->
+    {ok,S} = file:read_file_info(Src),
+    case S#file_info.type of
+        directory ->
+            %%ct:log("~p:~p copy dir  ~ts -> ~ts", [?MODULE,?LINE,Src,Dst]),
+            {ok,Names} = file:list_dir(Src),
+            mk_dir_path(Dst),
+            %%ct:log("~p:~p Names = ~p", [?MODULE,?LINE,Names]),
+            lists:foreach(fun(Name) ->
+                                  copy_recursive(filename:join(Src, Name),
+                                                 filename:join(Dst, Name))
+                          end, Names);
+        _ ->
+            %%ct:log("~p:~p copy file ~ts -> ~ts", [?MODULE,?LINE,Src,Dst]),
+            {ok,_NumBytesCopied} = file:copy(Src, Dst)
+    end.
 
+%%%----------------------------------------------------------------
+%% Make a directory even if parts of the path does not exist
+
+mk_dir_path(DirPath) ->
+    case file:make_dir(DirPath) of
+        {error,eexist} ->
+            %%ct:log("~p:~p dir exists ~ts", [?MODULE,?LINE,DirPath]),
+            ok;
+        {error,enoent} ->
+            %%ct:log("~p:~p try make dirname of ~ts", [?MODULE,?LINE,DirPath]),
+            case mk_dir_path( filename:dirname(DirPath) ) of
+                ok ->
+                    %%ct:log("~p:~p redo ~ts", [?MODULE,?LINE,DirPath]),
+                    file:make_dir(DirPath);
+                Error ->
+                    %%ct:log("~p:~p return Error ~p ~ts", [?MODULE,?LINE,Error,DirPath]),
+                    Error
+            end;
+        Other ->
+            %%ct:log("~p:~p return Other ~p ~ts", [?MODULE,?LINE,Other,DirPath]),
+            Other
+    end.

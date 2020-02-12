@@ -100,7 +100,8 @@ groups() ->
 
 init_per_group(not_unicode, Config) ->
     ct:comment("Begin ~p",[grps(Config)]),
-    DataDir = proplists:get_value(data_dir, Config),
+    {ok,TestDataDir} =
+        make_data_sub_dir(Config, "test_data", "test_data_not_unicode"),
     [{user, "Alladin"},
      {passwd, "Sesame"},
      {data, <<"Hello world!">>},
@@ -110,16 +111,16 @@ init_per_group(not_unicode, Config) ->
      {linktest,     "link_test.txt"},
      {tar_filename, "sftp_tar_test.tar"},
      {tar_F1_txt,   "f1.txt"},
-     {datadir_tar, filename:join(DataDir,"sftp_tar_test_data")}
+     {datadir_tar, TestDataDir}
      | Config];
 
 init_per_group(unicode, Config) ->
-    case (file:native_name_encoding() == utf8) 
-	andalso ("四" == [22235])
-    of
+    case have_unicode_support() of
 	true ->
 	    ct:comment("Begin ~p",[grps(Config)]),
-	    DataDir = proplists:get_value(data_dir, Config),
+            {ok,TestDataDir} =
+                make_data_sub_dir(Config, "test_data", "test_data_高兴_unicöde"),
+            populate_non_unicode(TestDataDir),
 	    NewConfig =
 		[{user, "åke高兴"},
 		 {passwd, "ärlig日本じん"},
@@ -132,14 +133,14 @@ init_per_group(unicode, Config) ->
 		 {tar_F1_txt,   "F一.txt"},
 		 {tar_F3_txt,   "f3.txt"},
 		 {tar_F4_txt,   "g四.txt"},
-		 {datadir_tar, filename:join(DataDir,"sftp_tar_test_data_高兴")}
-		 | lists:foldl(fun(K,Cf) -> lists:keydelete(K,1,Cf) end, 
-			       Config,
-			       [user, passwd, data,
-				filename, testfile, linktest,
-				tar_filename, tar_F1_txt, datadir_tar
-			       ]
-			      )
+		 {datadir_tar, TestDataDir}
+		 | Config %% lists:foldl(fun(K,Cf) -> lists:keydelete(K,1,Cf) end,
+			  %%      Config,
+			  %%      [user, passwd, data,
+			  %%       filename, testfile, linktest,
+			  %%       tar_filename, tar_F1_txt, datadir_tar
+			  %%      ]
+                          %%     )
 		],
 	    FN = fn(proplists:get_value(tar_F1_txt,NewConfig), NewConfig),
 	    case catch file:read_file(FN) of
@@ -180,7 +181,8 @@ init_per_group(openssh_server, Config) ->
 	{ok, _ChannelPid, Connection} ->
 	    [{peer, {_HostName,{IPx,Portx}}}] = ssh:connection_info(Connection,[peer]),
 	    ssh:close(Connection),
-	    [{peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
+	    [{w2l, fun w2l/1},
+             {peer, {fmt_host(IPx),Portx}}, {group, openssh_server} | Config];
 	{error,"Key exchange failed"} ->
 	    {skip, "openssh server doesn't support the tested kex algorithm"};
 	Other ->
@@ -332,15 +334,16 @@ open_close_file() ->
     [{doc, "Test API functions open/3 and close/2"}].
 open_close_file(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
-
+    SftpFileName = w2l(Config, FileName),
+    ct:log("FileName     = ~p~nSftpFileName = ~p", [FileName, SftpFileName]),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
-    ok = open_close_file(Sftp, FileName, [read]),
-    ok = open_close_file(Sftp, FileName, [write]),
-    ok = open_close_file(Sftp, FileName, [write, creat]),
-    ok = open_close_file(Sftp, FileName, [write, trunc]),
-    ok = open_close_file(Sftp, FileName, [append]),
-    ok = open_close_file(Sftp, FileName, [read, binary]).
+    ok = open_close_file(Sftp, SftpFileName, [read]),
+    ok = open_close_file(Sftp, SftpFileName, [write]),
+    ok = open_close_file(Sftp, SftpFileName, [write, creat]),
+    ok = open_close_file(Sftp, SftpFileName, [write, trunc]),
+    ok = open_close_file(Sftp, SftpFileName, [append]),
+    ok = open_close_file(Sftp, SftpFileName, [read, binary]).
 
 open_close_file(Server, File, Mode) ->
     {ok, Handle} = ssh_sftp:open(Server, File, Mode),
@@ -351,21 +354,24 @@ open_close_dir() ->
     [{doc, "Test API functions opendir/2 and close/2"}].
 open_close_dir(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(sftp_priv_dir, Config),
+    SftpPrivDir = w2l(Config, PrivDir),
     {Sftp, _} = proplists:get_value(sftp, Config),
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
 
-    {ok, Handle} = ssh_sftp:opendir(Sftp, PrivDir),
+    {ok, Handle} = ssh_sftp:opendir(Sftp, SftpPrivDir),
     ok = ssh_sftp:close(Sftp, Handle),
-    {error, _} =  ssh_sftp:opendir(Sftp, FileName).
+    {error, _} =  ssh_sftp:opendir(Sftp, SftpFileName).
 
 %%--------------------------------------------------------------------
 read_file() ->
     [{doc, "Test API funtion read_file/2"}].
 read_file(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
-    {ok, Data} = ssh_sftp:read_file(Sftp, FileName),
-    {ok, Data} = ssh_sftp:read_file(Sftp, FileName),
+    {ok, Data} = ssh_sftp:read_file(Sftp, SftpFileName),
+    {ok, Data} = ssh_sftp:read_file(Sftp, SftpFileName),
     {ok, Data} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
@@ -373,8 +379,10 @@ read_dir() ->
     [{doc,"Test API function list_dir/2"}].
 read_dir(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(sftp_priv_dir, Config),
+    SftpPrivDir = w2l(Config, PrivDir),
+
     {Sftp, _} = proplists:get_value(sftp, Config),
-    {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
+    {ok, Files} = ssh_sftp:list_dir(Sftp, SftpPrivDir),
     ct:log("sftp list dir: ~p~n", [Files]).
 
 %%--------------------------------------------------------------------
@@ -382,10 +390,11 @@ write_file() ->
     [{doc, "Test API function write_file/2"}].
 write_file(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
     Data = proplists:get_value(data, Config),
     Expected = unicode:characters_to_binary(Data),
-    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, SftpFileName, [Data]),
     {ok, Expected} = file:read_file(FileName).
 
 %%--------------------------------------------------------------------
@@ -393,13 +402,14 @@ write_file_iolist() ->
     [{doc, "Test API function write_file/2 with iolists"}].
 write_file_iolist(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
     Data = proplists:get_value(data, Config),
     DataB = unicode:characters_to_binary(Data),
     lists:foreach(
       fun(D) ->
-	      ok = ssh_sftp:write_file(Sftp, FileName, [D]),
+	      ok = ssh_sftp:write_file(Sftp, SftpFileName, [D]),
 	      Expected = try iolist_to_binary(D)
                          catch _:_ -> unicode:characters_to_binary(D)
 			 end,
@@ -415,11 +425,12 @@ write_big_file() ->
     [{doc, "Test API function write_file/2 with big data"}].
 write_big_file(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
     Data = [lists:duplicate(750000,"a"),
             proplists:get_value(data, Config)],
-    ok = ssh_sftp:write_file(Sftp, FileName, Data),
+    ok = ssh_sftp:write_file(Sftp, SftpFileName, Data),
     Expected = unicode:characters_to_binary(Data),
     {ok, Expected} = file:read_file(FileName).
 
@@ -428,43 +439,49 @@ sftp_read_big_file() ->
     [{doc, "Test API function read_file/2 with big data"}].
 sftp_read_big_file(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
     Data = [lists:duplicate(750000,"a"),
             proplists:get_value(data, Config)],
-    ok = ssh_sftp:write_file(Sftp, FileName, Data),
+    ok = ssh_sftp:write_file(Sftp, SftpFileName, Data),
     Expected = unicode:characters_to_binary(Data),
-    {ok, Expected} = ssh_sftp:read_file(Sftp, FileName).
+    {ok, Expected} = ssh_sftp:read_file(Sftp, SftpFileName).
 
 %%--------------------------------------------------------------------
 remove_file() ->
     [{doc,"Test API function delete/2"}].
 remove_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(sftp_priv_dir, Config),
+    SftpPrivDir = w2l(Config, PrivDir),
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
-    {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
+    {ok, Files} = ssh_sftp:list_dir(Sftp, SftpPrivDir),
     true = lists:member(filename:basename(FileName), Files),
-    ok = ssh_sftp:delete(Sftp, FileName),
-    {ok, NewFiles} = ssh_sftp:list_dir(Sftp, PrivDir),
+    ok = ssh_sftp:delete(Sftp, SftpFileName),
+    {ok, NewFiles} = ssh_sftp:list_dir(Sftp, SftpPrivDir),
     false = lists:member(filename:basename(FileName), NewFiles),
-    {error, no_such_file} = ssh_sftp:delete(Sftp, FileName).
+    {error, no_such_file} = ssh_sftp:delete(Sftp, SftpFileName).
 %%--------------------------------------------------------------------
 rename_file() ->
     [{doc, "Test API function rename_file/2"}].
 rename_file(Config) when is_list(Config) ->
     PrivDir =  proplists:get_value(sftp_priv_dir, Config),
+    SftpPrivDir = w2l(Config, PrivDir),
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
     NewFileName = proplists:get_value(testfile, Config),
+    SftpNewFileName = w2l(Config, NewFileName),
 
     {Sftp, _} = proplists:get_value(sftp, Config),
-    {ok, Files} = ssh_sftp:list_dir(Sftp, PrivDir),
+    {ok, Files} = ssh_sftp:list_dir(Sftp, SftpPrivDir),
     ct:log("FileName: ~p, Files: ~p~n", [FileName, Files]),
     true = lists:member(filename:basename(FileName), Files),
     false = lists:member(filename:basename(NewFileName), Files),
-    ok = ssh_sftp:rename(Sftp, FileName, NewFileName),
-    {ok, NewFiles} = ssh_sftp:list_dir(Sftp, PrivDir),
+    ok = ssh_sftp:rename(Sftp, SftpFileName, SftpNewFileName),
+    {ok, NewFiles} = ssh_sftp:list_dir(Sftp, SftpPrivDir),
     ct:log("FileName: ~p, Files: ~p~n", [FileName, NewFiles]),
 
     false = lists:member(filename:basename(FileName), NewFiles),
@@ -475,14 +492,17 @@ mk_rm_dir() ->
     [{doc,"Test API functions make_dir/2, del_dir/2"}].
 mk_rm_dir(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(sftp_priv_dir, Config),
+    SftpPrivDir = w2l(Config, PrivDir),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
     DirName = filename:join(PrivDir, "test"),
-    ok = ssh_sftp:make_dir(Sftp, DirName),
-    ok = ssh_sftp:del_dir(Sftp, DirName),
+    SftpDirName = w2l(Config, DirName),
+    ok = ssh_sftp:make_dir(Sftp, SftpDirName),
+    ok = ssh_sftp:del_dir(Sftp, SftpDirName),
     NewDirName = filename:join(PrivDir, "foo/bar"),
-    {error, _} = ssh_sftp:make_dir(Sftp, NewDirName),
-    {error, _} = ssh_sftp:del_dir(Sftp, PrivDir).
+    SftpNewDirName = w2l(Config, NewDirName),
+    {error, _} = ssh_sftp:make_dir(Sftp, SftpNewDirName),
+    {error, _} = ssh_sftp:del_dir(Sftp, SftpPrivDir).
 
 %%--------------------------------------------------------------------
 links() ->
@@ -494,10 +514,12 @@ links(Config) when is_list(Config) ->
 	_ ->
 	    {Sftp, _} = proplists:get_value(sftp, Config),
 	    FileName = proplists:get_value(filename, Config),
+            SftpFileName = w2l(Config, FileName),
 	    LinkFileName = proplists:get_value(linktest, Config),
+            SftpLinkFileName = w2l(Config, LinkFileName),
 
-	    ok = ssh_sftp:make_symlink(Sftp, LinkFileName, FileName),
-	    {ok, FileName} = ssh_sftp:read_link(Sftp, LinkFileName)
+	    ok = ssh_sftp:make_symlink(Sftp, SftpLinkFileName, SftpFileName),
+	    {ok, FileName} = ssh_sftp:read_link(Sftp, SftpLinkFileName)
     end.
 
 %%--------------------------------------------------------------------
@@ -505,9 +527,10 @@ retrieve_attributes() ->
     [{doc, "Test API function read_file_info/3"}].
 retrieve_attributes(Config) when is_list(Config) ->
     FileName = proplists:get_value(filename, Config),
+    SftpFileName = w2l(Config, FileName),
 
     {Sftp, _} = proplists:get_value(sftp, Config),
-    {ok, FileInfo} = ssh_sftp:read_file_info(Sftp, FileName),
+    {ok, FileInfo} = ssh_sftp:read_file_info(Sftp, SftpFileName),
     {ok, NewFileInfo} = file:read_file_info(FileName),
 
     %% TODO comparison. There are some differences now is that ok?
@@ -518,13 +541,14 @@ set_attributes() ->
     [{doc,"Test API function write_file_info/3"}].
 set_attributes(Config) when is_list(Config) ->
     FileName = proplists:get_value(testfile, Config),
+    SftpFileName = w2l(Config, FileName),
 
     {Sftp, _} = proplists:get_value(sftp, Config),
     {ok,Fd} = file:open(FileName, write),
     io:put_chars(Fd,"foo"),
-    ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#400}),
+    ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=8#400}),
     {error, eacces} = file:write_file(FileName, "hello again"),
-    ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
+    ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=8#600}),
     ok = file:write_file(FileName, "hello again").
 
 %%--------------------------------------------------------------------
@@ -536,23 +560,24 @@ file_owner_access(Config) when is_list(Config) ->
             {skip, "Not a relevant test on Windows"};
         _ ->
             FileName = proplists:get_value(filename, Config),
+            SftpFileName = w2l(Config, FileName),
             {Sftp, _} = proplists:get_value(sftp, Config),
 
             {ok, #file_info{mode = InitialMode}} = ssh_sftp:read_file_info(Sftp, FileName),
 
-            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#000}),
-            {ok, #file_info{access = none}} = ssh_sftp:read_file_info(Sftp, FileName),
+            ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=8#000}),
+            {ok, #file_info{access = none}} = ssh_sftp:read_file_info(Sftp, SftpFileName),
 
-            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#400}),
-            {ok, #file_info{access = read}} = ssh_sftp:read_file_info(Sftp, FileName),
+            ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=8#400}),
+            {ok, #file_info{access = read}} = ssh_sftp:read_file_info(Sftp, SftpFileName),
 
-            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#200}),
-            {ok, #file_info{access = write}} = ssh_sftp:read_file_info(Sftp, FileName),
+            ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=8#200}),
+            {ok, #file_info{access = write}} = ssh_sftp:read_file_info(Sftp, SftpFileName),
 
-            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=8#600}),
-            {ok, #file_info{access = read_write}} = ssh_sftp:read_file_info(Sftp, FileName),
+            ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=8#600}),
+            {ok, #file_info{access = read_write}} = ssh_sftp:read_file_info(Sftp, SftpFileName),
 
-            ok = ssh_sftp:write_file_info(Sftp, FileName, #file_info{mode=InitialMode}),
+            ok = ssh_sftp:write_file_info(Sftp, SftpFileName, #file_info{mode=InitialMode}),
 
             ok
     end.
@@ -564,7 +589,8 @@ async_read(Config) when is_list(Config) ->
     {Sftp, _} = proplists:get_value(sftp, Config),
 
     FileName = proplists:get_value(filename, Config),
-    {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
+    SftpFileName = w2l(Config, FileName),
+    {ok, Handle} = ssh_sftp:open(Sftp, SftpFileName, [read]),
     {async, Ref} = ssh_sftp:aread(Sftp, Handle, 20),
 
     receive
@@ -582,7 +608,8 @@ async_write() ->
 async_write(Config) when is_list(Config) ->
     {Sftp, _} = proplists:get_value(sftp, Config),
     FileName = proplists:get_value(testfile, Config),
-    {ok, Handle} = ssh_sftp:open(Sftp, FileName, [write]),
+    SftpFileName = w2l(Config, FileName),
+    {ok, Handle} = ssh_sftp:open(Sftp, SftpFileName, [write]),
     Data = proplists:get_value(data, Config),
     Expected = unicode:characters_to_binary(Data),
     {async, Ref} = ssh_sftp:awrite(Sftp, Handle, Data),
@@ -600,11 +627,12 @@ position() ->
     [{doc, "Test API functions position/3"}].
 position(Config) when is_list(Config) ->
     FileName = proplists:get_value(testfile, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
     Data = list_to_binary("1234567890"),
-    ok = ssh_sftp:write_file(Sftp, FileName, Data),
-    {ok, Handle} = ssh_sftp:open(Sftp, FileName, [read]),
+    ok = ssh_sftp:write_file(Sftp, SftpFileName, Data),
+    {ok, Handle} = ssh_sftp:open(Sftp, SftpFileName, [read]),
 
     {ok, 3} = ssh_sftp:position(Sftp, Handle, {bof, 3}),
     {ok, "4"} = ssh_sftp:read(Sftp, Handle, 1),
@@ -629,16 +657,17 @@ pos_read() ->
     [{doc,"Test API functions pread/3 and apread/3"}].
 pos_read(Config) when is_list(Config) ->
     FileName = proplists:get_value(testfile, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
     Data = proplists:get_value(data_pos, Config),
     [Expect1,Expect2] = Es = [binary_to_list(unicode:characters_to_binary(D)) || D <- Data],
     [Len1,Len2] = [length(E) || E <- Es],
-    ok = ssh_sftp:write_file(Sftp, FileName, Data),
+    ok = ssh_sftp:write_file(Sftp, SftpFileName, Data),
 
     {ok,Read} = file:read_file(FileName),
     ct:log("File: <~ts>~n<~p>~nExpect1: <~p>~nExpect2: <~p>", [Read, Read, Expect1, Expect2]),
 
-    {ok,Handle} = ssh_sftp:open(Sftp, FileName, [read]),
+    {ok,Handle} = ssh_sftp:open(Sftp, SftpFileName, [read]),
     {async,Ref} = ssh_sftp:apread(Sftp, Handle, {bof, Len1}, Len2),
 
     receive
@@ -657,12 +686,13 @@ pos_write() ->
     [{doc,"Test API functions pwrite/4 and apwrite/4"}].
 pos_write(Config) when is_list(Config) ->
     FileName = proplists:get_value(testfile, Config),
+    SftpFileName = w2l(Config, FileName),
     {Sftp, _} = proplists:get_value(sftp, Config),
 
-    {ok, Handle} = ssh_sftp:open(Sftp, FileName, [write]),
+    {ok, Handle} = ssh_sftp:open(Sftp, SftpFileName, [write]),
 
     Data = list_to_binary("Bye,"),
-    ok = ssh_sftp:write_file(Sftp, FileName, [Data]),
+    ok = ssh_sftp:write_file(Sftp, SftpFileName, [Data]),
 
     NewData = list_to_binary(" see you tomorrow"),
     {async, Ref} = ssh_sftp:apwrite(Sftp, Handle, {bof, 4}, NewData),
@@ -679,7 +709,7 @@ pos_write(Config) when is_list(Config) ->
     ok = ssh_sftp:pwrite(Sftp, Handle, eof, LastData),
 
     NewData1 = unicode:characters_to_binary("Bye, see you tomorrow" ++ LastData),
-    {ok, NewData1} = ssh_sftp:read_file(Sftp, FileName).
+    {ok, NewData1} = ssh_sftp:read_file(Sftp, SftpFileName).
 
 %%--------------------------------------------------------------------
 start_channel_sock(Config) ->
@@ -706,25 +736,27 @@ start_channel_sock(Config) ->
     
     %% Test that the channel is usable
     FileName = proplists:get_value(filename, Config),
-    ok = open_close_file(ChPid1, FileName, [read]),
-    ok = open_close_file(ChPid1, FileName, [write]),
+    SftpFileName = w2l(Config, FileName),
+
+    ok = open_close_file(ChPid1, SftpFileName, [read]),
+    ok = open_close_file(ChPid1, SftpFileName, [write]),
 
     %% Try to open a second channel on the Connection
     {ok, ChPid2} = ssh_sftp:start_channel(Conn, Opts),
-    ok = open_close_file(ChPid1, FileName, [read]),
-    ok = open_close_file(ChPid2, FileName, [read]),
+    ok = open_close_file(ChPid1, SftpFileName, [read]),
+    ok = open_close_file(ChPid2, SftpFileName, [read]),
 
     %% Test that the second channel still works after closing the first one
     ok = ssh_sftp:stop_channel(ChPid1),
-    ok = open_close_file(ChPid2, FileName, [write]),
+    ok = open_close_file(ChPid2, SftpFileName, [write]),
     
     %% Test the Connection survives that all channels are closed
     ok = ssh_sftp:stop_channel(ChPid2),
     {ok, ChPid3} = ssh_sftp:start_channel(Conn, Opts),
-    ok = open_close_file(ChPid3, FileName, [write]),
+    ok = open_close_file(ChPid3, SftpFileName, [write]),
     
     %% Test that a closed channel really is closed
-    {error, closed} = ssh_sftp:open(ChPid2, FileName, [write]),
+    {error, closed} = ssh_sftp:open(ChPid2, SftpFileName, [write]),
     ok = ssh_sftp:stop_channel(ChPid3),
 
     %% Test that the socket is closed when the Connection closes
@@ -758,17 +790,19 @@ version_option(Config) when is_list(Config) ->
 create_empty_tar(Config) ->
     ChPid2 = proplists:get_value(channel_pid2, Config),
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
     erl_tar:close(Handle),
     {ChPid,_} = proplists:get_value(sftp,Config),
     {ok, #file_info{type=regular}} =
-	ssh_sftp:read_file_info(ChPid, TarFileName).
+	ssh_sftp:read_file_info(ChPid, SftpTarFileName).
 
 %%--------------------------------------------------------------------
 files_to_tar(Config) ->
     ChPid2 = proplists:get_value(channel_pid2, Config),
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
     F1 = proplists:get_value(tar_F1_txt, Config),
     ok = erl_tar:add(Handle, fn(F1,Config), F1, [verbose]),
     ok = erl_tar:add(Handle, fn("f2.txt",Config), "f2.txt", [verbose]),
@@ -779,7 +813,8 @@ files_to_tar(Config) ->
 ascii_filename_ascii_contents_to_tar(Config) ->
     ChPid2 = proplists:get_value(channel_pid2, Config),
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
     ok = erl_tar:add(Handle, fn("f2.txt",Config), "f2.txt", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar(["f2.txt"], Config).
@@ -792,7 +827,8 @@ ascii_filename_unicode_contents_to_tar(Config) ->
 	Fn ->
 	    ChPid2 = proplists:get_value(channel_pid2, Config),
 	    TarFileName = proplists:get_value(tar_filename, Config),
-	    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+            SftpTarFileName = w2l(Config, TarFileName),
+	    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
 	    ok = erl_tar:add(Handle, fn(Fn,Config), Fn, [verbose]),
 	    ok = erl_tar:close(Handle),
 	    chk_tar([Fn], Config)
@@ -806,7 +842,8 @@ unicode_filename_ascii_contents_to_tar(Config) ->
 	Fn ->
 	    ChPid2 = proplists:get_value(channel_pid2, Config),
 	    TarFileName = proplists:get_value(tar_filename, Config),
-	    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+            SftpTarFileName = w2l(Config, TarFileName),
+	    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
 	    ok = erl_tar:add(Handle, fn(Fn,Config), Fn, [verbose]),
 	    ok = erl_tar:close(Handle),
 	    chk_tar([Fn], Config)
@@ -816,7 +853,8 @@ unicode_filename_ascii_contents_to_tar(Config) ->
 big_file_to_tar(Config) ->
     ChPid2 = proplists:get_value(channel_pid2, Config),
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]), 
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]), 
     ok = erl_tar:add(Handle, fn("big.txt",Config), "big.txt", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar(["big.txt"], Config).
@@ -826,7 +864,8 @@ big_file_to_tar(Config) ->
 files_chunked_to_tar(Config) ->
     ChPid2 = proplists:get_value(channel_pid2, Config),
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
     F1 = proplists:get_value(tar_F1_txt, Config),
     ok = erl_tar:add(Handle, fn(F1,Config), F1, [verbose,{chunks,2}]),
     ok = erl_tar:close(Handle),
@@ -836,7 +875,8 @@ files_chunked_to_tar(Config) ->
 directory_to_tar(Config) ->
     ChPid2 = proplists:get_value(channel_pid2, Config),
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
     ok = erl_tar:add(Handle, fn("d1",Config), "d1", [verbose]),
     ok = erl_tar:close(Handle),
     chk_tar(["d1"], Config).
@@ -845,7 +885,8 @@ directory_to_tar(Config) ->
 binaries_to_tar(Config) ->
     ChPid2 = proplists:get_value(channel_pid2, Config),
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
     Bin = <<"A binary">>,
     ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
     ok = erl_tar:close(Handle),
@@ -859,7 +900,8 @@ null_crypto_tar(Config) ->
     Cend = fun(Bin,_CState) -> {ok,Bin} end,
     C = {Cinit,Cenc,Cend},
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,C}]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write,{crypto,C}]),
     Bin = <<"A binary">>,
     F1 = proplists:get_value(tar_F1_txt, Config),
     ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
@@ -877,7 +919,8 @@ simple_crypto_tar_small(Config) ->
     Cend = fun(Bin,_CState) -> {ok,stuff(Bin)} end,
     C = {Cinit,Cenc,Cend},
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,C}]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write,{crypto,C}]),
     Bin = <<"A binary">>,
     F1 = proplists:get_value(tar_F1_txt, Config),
     ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
@@ -894,7 +937,8 @@ simple_crypto_tar_big(Config) ->
     Cend = fun(Bin,_CState) -> {ok,stuff(Bin)} end,
     C = {Cinit,Cenc,Cend},
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,Handle} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,C}]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,Handle} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write,{crypto,C}]),
     Bin = <<"A binary">>,
     F1 = proplists:get_value(tar_F1_txt, Config),
     ok = erl_tar:add(Handle, Bin, "b1", [verbose]),
@@ -915,7 +959,8 @@ read_tar(Config) ->
 		  {"b2",list_to_binary(lists:duplicate(750000,"a"))}
 		 ]),
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
      ||	{Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
@@ -938,7 +983,8 @@ read_null_crypto_tar(Config) ->
     Cr = {Cinitr,Cdec},
 
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,Cw}]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write,{crypto,Cw}]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
      ||	{Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
@@ -962,7 +1008,8 @@ read_crypto_tar(Config) ->
     Cr = {Cinitr,Cdec},
 
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,Cw}]),
+    SftpTarFileName = w2l(Config, TarFileName),
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write,{crypto,Cw}]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose])
      ||	{Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
@@ -1006,7 +1053,9 @@ cipher_crypto_tar(Cipher, Config) ->
 
     Cw = {Cinitw,Cenc,Cendw},
     TarFileName = proplists:get_value(tar_filename, Config),
-    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, TarFileName, [write,{crypto,Cw}]),
+    SftpTarFileName = w2l(Config, TarFileName),
+
+    {ok,HandleWrite} = ssh_sftp:open_tar(ChPid2, SftpTarFileName, [write,{crypto,Cw}]),
     [ok = erl_tar:add(HandleWrite, Bin, Name, [verbose]) || {Name,Bin} <- NameBins],
     ok = erl_tar:close(HandleWrite),
 
@@ -1016,46 +1065,75 @@ cipher_crypto_tar(Cipher, Config) ->
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
-oldprep(Config) ->
-    DataDir =  proplists:get_value(data_dir, Config),
-    TestFile = proplists:get_value(filename, Config),
-    TestFile1 = proplists:get_value(testfile, Config),
-    TestLink = proplists:get_value(linktest, Config),
-    TarFileName = proplists:get_value(tar_filename, Config),
-
-    file:delete(TestFile),
-    file:delete(TestFile1),
-    file:delete(TestLink),
-    file:delete(TarFileName),
-
-    %% Initial config
-    FileName = filename:join(DataDir, "sftp.txt"),
-    file:copy(FileName, TestFile),
-    Mode = 8#00400 bor 8#00200 bor 8#00040, % read & write owner, read group
-    {ok, FileInfo} = file:read_file_info(TestFile),
-    ok = file:write_file_info(TestFile,
-			      FileInfo#file_info{mode = Mode}).
-
-prepare(Config0) ->
+old_prepare(Config0) ->
     PrivDir = proplists:get_value(priv_dir, Config0),
     Dir = filename:join(PrivDir, ssh_test_lib:random_chars(10)),
     file:make_dir(Dir),
+    ct:log("~p:~p created the directory~nsftp_priv_dir = ~p", [?MODULE,?LINE,Dir]),
     Keys = [filename,
 	    testfile,
 	    linktest,
 	    tar_filename],
     Config1 = foldl_keydelete(Keys, Config0),
     Config2 = lists:foldl(fun({Key,Name}, ConfAcc) ->
-				  [{Key, filename:join(Dir,Name)} | ConfAcc]
+                                  [{Key, filename:join(Dir,Name)} | ConfAcc]
 			  end,
 			  Config1,
 			  lists:zip(Keys, [proplists:get_value(K,Config0) || K<-Keys])),
+
+    catch ct:log("~p:~p Prepared filenames (Key -> Value):~n~ts",
+                 [?MODULE,?LINE,
+                  [io_lib:format("~p -> ~ts~n", [K,V]) || {K,V} <- Config2,
+                                                          lists:member(K, Keys)]]),
 
     DataDir =  proplists:get_value(data_dir, Config2),
     FilenameSrc = filename:join(DataDir, "sftp.txt"),
     FilenameDst = proplists:get_value(filename, Config2),
     {ok,_} = file:copy(FilenameSrc, FilenameDst),
     [{sftp_priv_dir,Dir} | Config2].
+
+
+have_unicode_support() -> (file:native_name_encoding() == utf8) andalso ("四" == [22235]).
+
+
+make_data_sub_dir(Config, SubDir) ->
+    make_data_sub_dir(Config, SubDir, SubDir).
+
+make_data_sub_dir(Config, SubDirSrc, SubDirDst) ->
+    SrcDir = filename:join(proplists:get_value(data_dir, Config),
+                           SubDirSrc
+                          ),
+    DstDir = filename:join(proplists:get_value(data_dir, Config),
+                           SubDirDst),
+    ssh_test_lib:copy_recursive(SrcDir, DstDir),
+    {ok,DstDir}.
+    
+
+prepare(Config0) ->
+    SrcDir = proplists:get_value(datadir_tar,Config0),
+    DstDir = filename:join(proplists:get_value(priv_dir,Config0), ssh_test_lib:random_chars(10)),
+    ssh_test_lib:copy_recursive(SrcDir, DstDir),
+    Keys = [filename,
+	    testfile,
+	    linktest,
+	    tar_filename],
+    Config1 = foldl_keydelete(Keys, Config0),
+    Config2 = lists:foldl(fun({Key,Name}, ConfAcc) ->
+                                  [{Key, filename:join(DstDir,Name)} | ConfAcc]
+			  end,
+			  Config1,
+                          lists:zip(Keys, [proplists:get_value(K,Config0) || K<-Keys])),
+
+    catch ct:log("~p:~p Prepared filenames (Key -> Value):~n~ts",
+                 [?MODULE,?LINE,
+                  [io_lib:format("~p -> ~ts~n", [K,V]) || {K,V} <- Config2,
+                                                          lists:member(K, Keys)]]),
+
+    DataDir =  proplists:get_value(data_dir, Config2),
+    FilenameSrc = filename:join(DataDir, "sftp.txt"),
+    FilenameDst = proplists:get_value(filename, Config2),
+    {ok,_} = file:copy(FilenameSrc, FilenameDst),
+    [{sftp_priv_dir,DstDir} | Config2].
 
 
 foldl_keydelete(Keys, L) ->
@@ -1072,9 +1150,10 @@ chk_tar(Items, Config, Opts) ->
     chk_tar(Items, TarFileName, Config, Opts).
 
 chk_tar(Items, TarFileName, Config, Opts)  when is_list(Opts) ->
+    SftpTarFileName = w2l(Config, TarFileName),
     tar_size(TarFileName, Config),
     {ChPid,_} = proplists:get_value(sftp,Config),
-    {ok,HandleRead} = ssh_sftp:open_tar(ChPid, TarFileName, [read|Opts]),
+    {ok,HandleRead} = ssh_sftp:open_tar(ChPid, SftpTarFileName, [read|Opts]),
     {ok,NameValueList} = erl_tar:extract(HandleRead,[memory,verbose]),
     ok = erl_tar:close(HandleRead),
     case {lists:sort(expand_items(Items,Config)), lists:sort(NameValueList)} of
@@ -1115,8 +1194,9 @@ analyze_report([], []) ->
     "".
 
 tar_size(TarFileName, Config) ->
+    SftpTarFileName = w2l(Config, TarFileName),
     {ChPid,_} = proplists:get_value(sftp,Config),
-    {ok,Data} = ssh_sftp:read_file(ChPid, TarFileName),
+    {ok,Data} = ssh_sftp:read_file(ChPid, SftpTarFileName),
     io:format('Tar file ~p is~n ~p bytes.~n',[TarFileName, size(Data)]).
 
 expand_items(Items, Config) ->    
@@ -1148,3 +1228,22 @@ fn(Name, Config) ->
 fmt_host({A,B,C,D}) -> lists:concat([A,".",B,".",C,".",D]);
 fmt_host(S) -> S.
 
+
+%%%----------------------------------------------------------------
+populate_non_unicode(Dir) ->
+    file:delete("f1.txt"),
+    ok = file:write_file(filename:join(Dir,"f3.txt"),
+                         unicode:characters_to_binary("你好")),
+    ok = file:write_file(filename:join(Dir,"F一.txt"),
+                         unicode:characters_to_binary("你好")),
+    ok = file:write_file(filename:join(Dir,"g四.txt"),
+                         <<"How are you?">>).
+
+w2l(P) ->
+    ssh_test_lib:winpath_to_linuxpath(P).
+
+w2l(Config, P) ->
+    W2L = proplists:get_value(w2l, Config, fun(X) -> X end),
+    W2L(P).
+
+    
