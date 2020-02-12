@@ -1671,52 +1671,13 @@ opt_bool_not_invert(#c_clause{pats=[#c_literal{val=Bool}]}=C) ->
 opt_bool_case_redundant(#c_case{arg=Arg,clauses=Cs}=Case) ->
     case all(fun opt_bool_case_redundant_1/1, Cs) of
 	true -> Arg;
-	false -> opt_bool_case_guard(Case)
+	false -> Case
     end.
 
 opt_bool_case_redundant_1(#c_clause{pats=[#c_literal{val=B}],
 				    body=#c_literal{val=B}}) ->
     true;
 opt_bool_case_redundant_1(_) -> false.
-
-%% opt_bool_case_guard(Case) -> Case'.
-%%  Move a boolean case expression into the guard if we are sure that
-%%  it cannot fail.
-%%
-%%    case SafeBoolExpr of	 	case <> of
-%%      true -> TrueClause;    	   ==>    <> when SafeBoolExpr -> TrueClause;
-%%      false -> FalseClause		  <> when true -> FalseClause
-%%    end.		 		end.
-%%
-%%  Generally, evaluting a boolean expression in a guard should
-%%  be faster than evaulating it in the body.
-%%
-opt_bool_case_guard(#c_case{arg=#c_literal{}}=Case) ->
-    %% It is not necessary to move a literal case expression into the
-    %% guard, because it will be handled quite well in other
-    %% optimizations, and moving the literal into the guard will
-    %% cause some extra warnings, for instance for this code
-    %%
-    %%    case true of
-    %%       true -> ...;
-    %%       false -> ...
-    %%    end.
-    %%
-    Case;
-opt_bool_case_guard(#c_case{arg=Arg,clauses=Cs0}=Case) ->
-    case is_safe_bool_expr(Arg) of
-	false ->
-	    Case;
-	true ->
-	    Cs = opt_bool_case_guard(Arg, Cs0),
-	    Case#c_case{arg=#c_values{anno=cerl:get_ann(Arg),es=[]},
-			clauses=Cs}
-    end.
-
-opt_bool_case_guard(Arg, [#c_clause{pats=[#c_literal{val=true}]}=Tc,Fc]) ->
-    [Tc#c_clause{pats=[],guard=Arg},Fc#c_clause{pats=[]}];
-opt_bool_case_guard(Arg, [#c_clause{pats=[#c_literal{val=false}]}=Fc,Tc]) ->
-    [Tc#c_clause{pats=[],guard=Arg},Fc#c_clause{pats=[]}].
 
 %% eval_case(Case) -> #c_case{} | #c_let{}.
 %%  If possible, evaluate a case at compile time.  We know that the
@@ -2224,29 +2185,11 @@ is_bool_expr_list([]) -> true.
 
 %% is_safe_bool_expr(Core) -> true|false
 %%  Check whether the Core expression ALWAYS returns a boolean
-%%  (i.e. it cannot fail). Also make sure that the expression
-%%  is suitable for a guard (no calls to non-guard BIFs, local
-%%  functions, or is_record/2).
+%%  (i.e. it cannot fail).
 %%
 is_safe_bool_expr(Core) ->
     is_safe_bool_expr_1(Core, cerl_sets:new()).
 
-is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
-                            name=#c_literal{val=is_record},
-                            args=[A,#c_literal{val=Tag},#c_literal{val=Size}]},
-                    _BoolVars) when is_atom(Tag), is_integer(Size) ->
-    is_safe_simple(A);
-is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
-                            name=#c_literal{val=is_record}},
-                    _BoolVars) ->
-    %% The is_record/2 BIF is NOT allowed in guards.
-    %% The is_record/3 BIF where its second argument is not an atom or its third
-    %% is not an integer is NOT allowed in guards.
-    %%
-    %% NOTE: Calls like is_record(Expr, LiteralTag), where LiteralTag
-    %% is a literal atom referring to a defined record, have already
-    %% been rewritten to is_record(Expr, LiteralTag, TupleSize).
-    false;
 is_safe_bool_expr_1(#c_call{module=#c_literal{val=erlang},
                             name=#c_literal{val=is_function},
                             args=[A,#c_literal{val=Arity}]},
