@@ -8271,7 +8271,7 @@ Metadata = #{ pid => pid(),
     </func>
 
     <func>
-      <name name="system_info" arity="1" clause_i="76" since=""/>
+      <name name="system_info" arity="1" clause_i="77" since=""/>
       <fsummary>System info overview.</fsummary>
       <desc>
         <p>Returns information about the current system.
@@ -9602,6 +9602,7 @@ Metadata = #{ pid => pid(),
       <name name="system_info" arity="1" clause_i="75" since=""/>  <!-- version -->
       <name name="system_info" arity="1" clause_i="76" since=""/>  <!-- wordsize -->
       <!-- <name name="system_info" arity="1" clause_i="77"/>  overview -->
+      <!--    When adding any entry, make sure to update the overview clause_i -->
       <fsummary>Information about the system.</fsummary>
       <desc>
         <marker id="system_info_misc_tags"/>
