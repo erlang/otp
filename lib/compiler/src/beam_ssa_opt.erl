@@ -39,9 +39,9 @@
 
 -include("beam_ssa_opt.hrl").
 
--import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,keyfind/3,
-                member/2,reverse/1,reverse/2,splitwith/2,sort/1,
-                takewhile/2,unzip/1]).
+-import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,
+                keyfind/3,last/1,member/2,reverse/1,reverse/2,
+                splitwith/2,sort/1,takewhile/2,unzip/1]).
 
 -define(MAX_REPETITIONS, 16).
 
@@ -272,6 +272,7 @@ module_passes(Opts) ->
 %% are repeated as required.
 repeated_passes(Opts) ->
     Ps = [?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_ne),
           ?PASS(ssa_opt_bs_puts),
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),
@@ -2137,6 +2138,71 @@ update_in_try_catch(Tag, Map) ->
         #{Tag := _} ->  Map;
         _ -> unsafe
     end.
+
+%%% Try to replace `=/=` with `=:=` and `/=` with `==`. For example,
+%%% this code:
+%%%
+%%%    Bool = bif:'=/=' Anything, AnyValue
+%%%    br Bool, ^Succ, ^Fail
+%%%
+%%% can be rewritten like this:
+%%%
+%%%    Bool = bif:'=:=' Anything, AnyValue
+%%%    br Bool, ^Fail, ^Succ
+%%%
+%%% The transformation is only safe if the only used of Bool is in the
+%%% terminator. We therefore need to verify that there is only one
+%%% use.
+%%%
+%%% This transformation is not an optimization in itself, but it opens
+%%% up for other optimizations in beam_ssa_type and beam_ssa_dead.
+%%%
+
+ssa_opt_ne({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Linear = opt_ne(Linear0, {uses,Linear0}),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+opt_ne([{L,#b_blk{is=[_|_]=Is0,last=#b_br{bool=#b_var{}=Bool}}=Blk0}|Bs], Uses0) ->
+    case last(Is0) of
+        #b_set{op={bif,'=/='},dst=Bool}=I0 ->
+            I = I0#b_set{op={bif,'=:='}},
+            {Blk,Uses} = opt_ne_replace(I, Blk0, Uses0),
+            [{L,Blk}|opt_ne(Bs, Uses)];
+        #b_set{op={bif,'/='},dst=Bool}=I0 ->
+            I = I0#b_set{op={bif,'=='}},
+            {Blk,Uses} = opt_ne_replace(I, Blk0, Uses0),
+            [{L,Blk}|opt_ne(Bs, Uses)];
+        _ ->
+            [{L,Blk0}|opt_ne(Bs, Uses0)]
+    end;
+opt_ne([{L,Blk}|Bs], Uses) ->
+    [{L,Blk}|opt_ne(Bs, Uses)];
+opt_ne([], _Uses) -> [].
+
+opt_ne_replace(#b_set{dst=Bool}=I,
+               #b_blk{is=Is0,last=#b_br{succ=Succ,fail=Fail}=Br0}=Blk,
+               Uses0) ->
+    case opt_ne_single_use(Bool, Uses0) of
+        {true,Uses} ->
+            Is = replace_last(Is0, I),
+            Br = Br0#b_br{succ=Fail,fail=Succ},
+            {Blk#b_blk{is=Is,last=Br},Uses};
+        {false,Uses} ->
+            %% The variable is used more than once. Not safe.
+            {Blk,Uses}
+    end.
+
+replace_last([_], Repl) -> [Repl];
+replace_last([I|Is], Repl) -> [I|replace_last(Is, Repl)].
+
+opt_ne_single_use(Var, {uses,Linear}) ->
+    Uses = beam_ssa:uses(maps:from_list(Linear)),
+    opt_ne_single_use(Var, Uses);
+opt_ne_single_use(Var, Uses) when is_map(Uses) ->
+    {case Uses of
+         #{Var:=[_]} -> true;
+         #{Var:=[_|_]} -> false
+     end,Uses}.
 
 %%%
 %%% Merge blocks.
