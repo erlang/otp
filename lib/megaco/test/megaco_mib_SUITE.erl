@@ -852,8 +852,12 @@ mgc_init(Config) ->
     RH = megaco:user_info(Mid,receive_handle),
     d("mgc_init -> parse receive info"),
     ListenTo = mgc_parse_receive_info(RI, RH),
-    i("mgc_init -> start transport(s)"),
+    i("mgc_init -> start transport(s) with:"
+      "~n      ListenTo: ~p", [ListenTo]),
     {Tcp, Udp} = mgc_start_transports(ListenTo),
+    i("mgc_init -> transport(s) started:"
+      "~n      Tcp: ~p"
+      "~n      Udp: ~p", [Tcp, Udp]),
     {Mid, Tcp, Udp}.
     
 
@@ -1268,10 +1272,15 @@ mg_loop(#mg{state = State} = S) ->
 	%% Do a service change
 	{service_change, Parent} when S#mg.parent == Parent, 
 				      State == initiated ->
-	    i("mg_loop(~p) -> received request to perform service change", 
-	      [State]),
+	    i("mg_loop(~p) -> received request to perform service change when:"
+              "~n      Conn Handle: ~p"
+              "~n      Conn Data:   ~p", 
+	      [State,
+               S#mg.conn_handle,
+               megaco:conn_info(S#mg.conn_handle, conn_data)]),
 	    Res = mg_service_change(S#mg.conn_handle),
-	    d("mg_loop(~p) -> result: ~p", [State, Res]),
+	    d("mg_loop(~p) -> service change request send result: ~p",
+              [State, Res]),
 	    mg_loop(S#mg{state = connecting}); 
 
 
