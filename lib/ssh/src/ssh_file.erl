@@ -416,6 +416,9 @@ asn1_type(_) -> undefined.
 %%%================================================================
 %%% From https://github.com/openssh/openssh-portable/blob/master/PROTOCOL.key
 %%%
+
+-define(NON_CRYPT_BLOCKSIZE, 8).
+
 new_openssh_decode(<<"openssh-key-v1",0,
                      ?DEC_BIN(CipherName, _L1),
                      ?DEC_BIN(KdfName, _L2),
@@ -427,7 +430,7 @@ new_openssh_decode(<<"openssh-key-v1",0,
 
 
 new_openssh_decode(<<?DEC_BIN(BinKey,_L1), Rest/binary>>, I, Pwd, CipherName, KdfName, KdfOptions, N, PubKeyAcc) when I>0 ->
-    PublicKey = ssh2_pubkey_decode(BinKey),
+    PublicKey = ssh_message:ssh2_pubkey_decode(BinKey),
     new_openssh_decode(Rest, I-1, Pwd, CipherName, KdfName, KdfOptions, N, [PublicKey|PubKeyAcc]);
 
 new_openssh_decode(<<?DEC_BIN(Encrypted,_L)>>,
@@ -451,7 +454,7 @@ new_openssh_decode(<<?DEC_BIN(Encrypted,_L)>>,
 
 
 new_openssh_decode_priv_keys(Bin, I, N, KeyAcc, CmntAcc) when I>0 ->
-    {PrivKey, <<?DEC_BIN(Comment,_Lc),Rest/binary>>} = ssh2_privkey_decode2(Bin),
+    {PrivKey, <<?DEC_BIN(Comment,_Lc),Rest/binary>>} = ssh_message:ssh2_privkey_decode2(Bin),
     new_openssh_decode_priv_keys(Rest, I-1, N, [PrivKey|KeyAcc], [Comment|CmntAcc]);
 new_openssh_decode_priv_keys(_Padding, 0, _N, PrivKeyAccRev, CommentAccRev) ->
     {lists:reverse(PrivKeyAccRev),
@@ -459,111 +462,36 @@ new_openssh_decode_priv_keys(_Padding, 0, _N, PrivKeyAccRev, CommentAccRev) ->
 
 
 decrypt_new_openssh(Encrypted, <<"none">>, <<>>, _CipherName, _Pwd) ->
-    check_valid_decryption(Encrypted);
+    check_valid_decryption(Encrypted, ?NON_CRYPT_BLOCKSIZE);
 decrypt_new_openssh(Encrypted, <<>>, <<>>, _CipherName, _Pwd) ->
-    check_valid_decryption(Encrypted);
+    check_valid_decryption(Encrypted, ?NON_CRYPT_BLOCKSIZE);
 decrypt_new_openssh(_Encrypted, <<"bcrypt">>, <<?DEC_BIN(_Salt,_L),?UINT32(_Rounds)>>, _CipherName, _Pwd) ->
     error({decryption, {not_supported,bcrypt}});
 decrypt_new_openssh(_Encrypted, KdfName, _KdfOpts, _CipherName, _Pwd) ->
     error({decryption, {not_supported,KdfName}}).
 
 
-check_valid_decryption(<<?UINT32(Checkint1),?UINT32(Checkint2),Plain/binary>>) when Checkint2==Checkint1 ->
-    case check_padding(Plain) of
+check_valid_decryption(<<?UINT32(Checkint1),?UINT32(Checkint2),Plain/binary>>, BlockSize) when Checkint2==Checkint1 ->
+    case check_padding(Plain, BlockSize) of
         true ->
             Plain;
         false ->
             error({decryption,bad_padding})
     end;
-check_valid_decryption(_) ->
+check_valid_decryption(_, _) ->
     error({decryption,bad_result}).
 
 
-check_padding(Bin) ->
-    %% Check that Bin is <<...,1,2,...,N>>
+check_padding(Bin, BlockSize) ->
     N = binary:last(Bin),
-    Padding = binary:part(Bin, {byte_size(Bin),-N}),
-    ExpectedPadding = list_to_binary(lists:seq(1,N)), % <<1,2,...,N>>
-    Padding == ExpectedPadding.
-
-
-ssh2_pubkey_decode(<<?DEC_BIN(Type,_TL), Bin/binary>>) ->
-    ssh2_pubkey_decode(Type, Bin).
-
-%% ssh2_pubkey_decode(<<"rsa-sha2-256">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
-%% ssh2_pubkey_decode(<<"rsa-sha2-512">>, Bin) -> ssh2_pubkey_decode(<<"ssh-rsa">>, Bin);
-ssh2_pubkey_decode(Type, Bin) ->
-    {Key, _Rest} = ssh2_pubkey_decode2(Type, Bin),
-    Key.
-
-
-ssh2_pubkey_decode2(<<"ssh-rsa">>,
-                   <<?DEC_INT(E, _EL),
-                     ?DEC_INT(N, _NL),
-                     Rest/binary>>) ->
-    {#'RSAPublicKey'{modulus = N,
-                     publicExponent = E}, Rest};
-
-ssh2_pubkey_decode2(<<"ssh-dss">>,
-                   <<?DEC_INT(P, _PL),
-                     ?DEC_INT(Q, _QL),
-                     ?DEC_INT(G, _GL),
-                     ?DEC_INT(Y, _YL),
-                     Rest/binary>>) ->
-    {{Y, #'Dss-Parms'{p = P,
-                     q = Q,
-                     g = G}}, Rest};
-
-ssh2_pubkey_decode2(<<"ecdsa-sha2-",Id/binary>>,
-                   <<?DEC_BIN(Id, _IL),
-                     ?DEC_BIN(Q, _QL),
-                     Rest/binary>>) ->
-    {{#'ECPoint'{point = Q}, {namedCurve,public_key:ssh_curvename2oid(Id)}}, Rest};
-
-ssh2_pubkey_decode2(<<"ssh-ed25519">>,
-                   <<?DEC_BIN(Key, _L),
-                     Rest/binary>>) ->
-    {{ed_pub, ed25519, Key}, Rest};
-
-ssh2_pubkey_decode2(<<"ssh-ed448">>,
-                   <<?DEC_BIN(Key, _L),
-                     Rest/binary>>) ->
-    {{ed_pub, ed448, Key}, Rest}.
-
-
-
-
-ssh2_privkey_decode2(<<?DEC_BIN(Type,_TL), Bin/binary>>) ->
-    ssh2_privkey_decode2(Type, Bin).
-
-ssh2_privkey_decode2(<<"ssh-rsa">>,
-                     <<?DEC_INT(N, _NL), % Yes, N and E is reversed relative pubkey format
-                       ?DEC_INT(E, _EL), % --"--
-                       ?DEC_INT(D, _DL),
-                       ?DEC_INT(IQMP, _IQMPL),
-                       ?DEC_INT(P, _PL),
-                       ?DEC_INT(Q, _QL),
-                       Rest/binary>>) ->
-    {#'RSAPrivateKey'{version = 'two-prime', % Found this in public_key:generate_key/1 ..
-                      modulus = N,
-                      publicExponent = E,
-                      privateExponent = D,
-                      prime1 = P,
-                      prime2 = Q,
-                      %exponent1, % D_mod_P_1
-                      %exponent2, % D_mod_Q_1
-                      coefficient = IQMP
-                     }, Rest};
-ssh2_privkey_decode2(<<"ssh-ed25519">>,
-                     <<?DEC_BIN(Pub,_Lpub),
-                       ?DEC_BIN(Priv,_Lpriv),
-                       Rest/binary>>) ->
-    {{ed_pri, ed25519, Pub, Priv}, Rest};
-ssh2_privkey_decode2(<<"ssh-ed448">>,
-                     <<?DEC_BIN(Pub,_Lpub),
-                       ?DEC_BIN(Priv,_Lpriv),
-                       Rest/binary>>) ->
-    {{ed_pri, ed448, Pub, Priv}, Rest}.
-
+    if
+        N < BlockSize ->
+            %% Check that Bin is <<...,1,2,...,N>>
+            Padding = binary:part(Bin, {byte_size(Bin),-N}),
+            ExpectedPadding = list_to_binary(lists:seq(1,N)), % <<1,2,...,N>>
+            Padding == ExpectedPadding;
+        true ->
+            true
+    end.
 
 %%%================================================================
