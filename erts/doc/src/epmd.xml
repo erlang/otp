@@ -295,9 +295,8 @@
     <title>Logging</title>
     <p>On some operating systems <em>syslog</em> will be used for
       error reporting when <c>epmd</c> runs as a daemon. To enable
-      the error logging, you must edit the
-      <path unix="" windows="">/etc/syslog.conf</path> file and add an
-      entry:</p>
+      the error logging, you must edit the /etc/syslog.conf file and
+      add an entry:</p>
 
     <code type="none"><![CDATA[
   !epmd

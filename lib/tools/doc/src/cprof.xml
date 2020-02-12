@@ -44,7 +44,7 @@
       </p>
     <p>Since breakpoints are used there is no need for special
       compilation of any module to be profiled. For now these
-      breakpoints can only be set on BEAM code so <term id="BIF"></term>s
+      breakpoints can only be set on BEAM code so BIFs
       cannot be call count traced.
       </p>
     <p>The size of the call counters is the host machine word

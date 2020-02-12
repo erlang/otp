@@ -171,45 +171,5 @@
     </p>
   </section>
 
-  <section>
-    <marker id="termTAG"></marker>
-    <marker id="termdefTAG"></marker>
-    <title>&lt;term&gt;, &lt;termdef&gt; - Glossary</title>
-
-    <p>Used to highlight a term with a local (for this document only) or
-      global definition. The identity of the term is given by
-      the <c>id</c> attribute.</p>
-
-    <p>For a locally defined term, the tag contains a
-      <c>&lt;termdef&gt;</c>, which in turn contains an explanation of
-      the term as plain text. Example:</p>
-    <pre><![CDATA[
-<term id="HTML"><termdef>Hyper-Text Markup Language</termdef></term>
-      ]]></pre>
-
-    <p>In the generated HTML, it is the term name which will be visible.
-      For locally defined terms, the id and the name are the same.
-      The name has a hypertext link to the definition in the glossary.
-      Example:</p>
-    <pre><![CDATA[
-<term id="HTML"><termdef>Hyper-Text Markup Language</termdef></term>
-      ]]></pre>
-    <p>results in: <term id="HTML"><termdef>Hyper-Text Markup Language</termdef></term>
-    </p>
-
-    <p>If a term is defined both locally and globally, the global
-      definition takes precedence.</p>
-  </section>
-
-  <section>
-    <marker id="citeTAG"></marker>
-    <marker id="citedefTAG"></marker>
-    <title>&lt;cite&gt;, &lt;citedef&gt; - Bibliography</title>
-
-    <p>Works the same way as <c>&lt;term&gt;</c> and
-      <c>&lt;termdef&gt;</c>, but for a bibliography list rather than
-      a glossary.</p>
-
-  </section>
 </chapter>
 
