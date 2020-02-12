@@ -404,6 +404,7 @@ handle_exec({expect_receive, Desc, {Verify, To}},
             e("received unknown message: ~p", [Else]),
             {error, {expect_receive, {unexpected_message, Else}}}
     after To ->
+            e("(expect) receive timeout: ~w", [To]),
             {error, {expect_receive, timeout}}
     end;
 
@@ -419,7 +420,7 @@ handle_exec({expect_closed, To},
             {ok, State#state{connection = undefined,
 			     result     = [closed|Acc]}}
     after To ->
-            e("expect_closed timeout after ~w", [To]),
+            e("(expect) closed timeout after ~w", [To]),
             {error, {expect_closed, timeout}}
     end;
 
@@ -434,7 +435,7 @@ handle_exec({expect_nothing, To},
             e("expect_nothing - received: ~p", [Any]),
             {error, {expect_nothing, Any}}
     after To ->
-            p("expect_nothing timeout after ~w", [To]),
+            p("got nothing (~w) as expected", [To]),
             {ok, State#state{result = [{nothing, To}|Acc]}}
     end;
 

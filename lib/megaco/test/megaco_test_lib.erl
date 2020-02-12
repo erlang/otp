@@ -721,9 +721,9 @@ linux_which_meminfo() ->
                         (MemSz3 >= 4194304) ->
                             1;
                         (MemSz3 >= 2097152) ->
-                            2;
+                            3;
                         true ->
-                            3
+                            5
                     end;
                 _X ->
                     0

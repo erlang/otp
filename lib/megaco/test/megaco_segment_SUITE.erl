@@ -47,6 +47,7 @@
 	
 	]).
 
+-include_lib("common_test/include/ct.hrl").
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v3.hrl").
@@ -2103,6 +2104,8 @@ send_segmented_msg_plain4(doc) ->
     "Forth plain test that it is possible to send segmented messages. "
 	"Send window = 3. ";
 send_segmented_msg_plain4(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(Factor * ?SECS(60)),
     Pre = fun() ->
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
@@ -2114,19 +2117,19 @@ send_segmented_msg_plain4(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_send_segmented_msg_plain4/1,
+    Case = fun(X) -> do_send_segmented_msg_plain4(Factor, X) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(ssmp4, Pre, Case, Post).
 
-do_send_segmented_msg_plain4([MgcNode, MgNode]) ->
+do_send_segmented_msg_plain4(Factor, [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = ssmp4_mgc_event_sequence(text, tcp),
+    MgcEvSeq = ssmp4_mgc_event_sequence(Factor, text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -2141,7 +2144,7 @@ do_send_segmented_msg_plain4([MgcNode, MgNode]) ->
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
     d("[MG] create the event sequence"),
-    MgEvSeq = ssmp4_mg_event_sequence(text, tcp),
+    MgEvSeq = ssmp4_mg_event_sequence(Factor, text, tcp),
 
     i("wait some time before starting the MG simulation"),
     sleep(1000),
@@ -2169,7 +2172,7 @@ do_send_segmented_msg_plain4([MgcNode, MgNode]) ->
 %% MGC generator stuff
 %%
 
-ssmp4_mgc_event_sequence(text, tcp) ->
+ssmp4_mgc_event_sequence(Factor, text, tcp) ->
     DecodeFun = ssmp4_mgc_decode_msg_fun(megaco_pretty_text_encoder, []),
     EncodeFun = ssmp4_mgc_encode_msg_fun(megaco_pretty_text_encoder, []),
     Mid       = {deviceName,"mgc"},
@@ -2238,42 +2241,43 @@ ssmp4_mgc_event_sequence(text, tcp) ->
     SegmentRep7 = ssmp4_mgc_segment_reply_msg(Mid, TransId, 7, false),
     SegmentRep8 = ssmp4_mgc_segment_reply_msg(Mid, TransId, 8, true),
     TransAck    = ssmp4_mgc_trans_ack_msg(Mid, TransId),
+    TO = fun(T) -> Factor*T end,
     EvSeq = [{debug,  true},
              {decode, DecodeFun},
              {encode, EncodeFun},
              {listen, 2944},
 	     {expect_accept, any},
-             {expect_receive, "service-change-request",  {ScrVerifyFun, 5000}},
+             {expect_receive, "service-change-request",  {ScrVerifyFun, TO(5000)}},
              {send, "service-change-reply",              ServiceChangeRep},
-	     {expect_nothing, 1000}, 
+	     {expect_nothing, TO(1000)}, 
              {send, "notify request",                    NotifyReq},
-             {expect_receive, "notify reply: segment 1", {NrVerifyFun1, 1000}},
-             {expect_receive, "notify reply: segment 2", {NrVerifyFun2, 1000}},
-             {expect_receive, "notify reply: segment 3", {NrVerifyFun3, 1000}},
-	     {expect_nothing, 1000},
+             {expect_receive, "notify reply: segment 1", {NrVerifyFun1, TO(1000)}},
+             {expect_receive, "notify reply: segment 2", {NrVerifyFun2, TO(1000)}},
+             {expect_receive, "notify reply: segment 3", {NrVerifyFun3, TO(1000)}},
+	     {expect_nothing, TO(1000)},
              {send, "segment reply 1",                   SegmentRep1},
-             {expect_receive, "notify reply: segment 4", {NrVerifyFun4, 1000}},
-	     {expect_nothing, 1000},
+             {expect_receive, "notify reply: segment 4", {NrVerifyFun4, TO(1000)}},
+	     {expect_nothing, TO(1000)},
              {send, "segment reply 2",                   SegmentRep2},
-             {expect_receive, "notify reply: segment 5", {NrVerifyFun5, 1000}},
-	     {expect_nothing, 1000},
+             {expect_receive, "notify reply: segment 5", {NrVerifyFun5, TO(1000)}},
+	     {expect_nothing, TO(1000)},
              {send, "segment reply 3",                   SegmentRep3},
-             {expect_receive, "notify reply: segment 6", {NrVerifyFun6, 1000}},
-	     {expect_nothing, 1000},
+             {expect_receive, "notify reply: segment 6", {NrVerifyFun6, TO(1000)}},
+	     {expect_nothing, TO(1000)},
              {send, "segment reply 4",                   SegmentRep4},
-             {expect_receive, "notify reply: segment 7", {NrVerifyFun7, 1000}},
-	     {expect_nothing, 1000},
+             {expect_receive, "notify reply: segment 7", {NrVerifyFun7, TO(1000)}},
+	     {expect_nothing, TO(1000)},
              {send, "segment reply 5",                   SegmentRep5},
-             {expect_receive, "notify reply: segment 8", {NrVerifyFun8, 1000}},
-	     {expect_nothing, 1000},
+             {expect_receive, "notify reply: segment 8", {NrVerifyFun8, TO(1000)}},
+	     {expect_nothing, TO(1000)},
              {send, "segment reply 6",                   SegmentRep6},
-	     {expect_nothing, 1000},
+	     {expect_nothing, TO(1000)},
              {send, "segment reply 7",                   SegmentRep7},
-	     {expect_nothing, 1000},
+	     {expect_nothing, TO(1000)},
              {send, "segment reply 8",                   SegmentRep8},
-	     {expect_nothing, 1000},
+	     {expect_nothing, TO(1000)},
 	     {send, "transaction-ack",                   TransAck},
-             {expect_closed,  5000},
+             {expect_closed,  TO(5000)},
              disconnect
             ],
     EvSeq.
@@ -2531,7 +2535,7 @@ ssmp4_mgc_trans_ack_msg(Mid, TransId) ->
 %%
 %% MG generator stuff
 %%
-ssmp4_mg_event_sequence(text, tcp) ->
+ssmp4_mg_event_sequence(Factor, text, tcp) ->
     Mid = {deviceName,"mg"},
     RI = [
           {port,             2944},
@@ -2552,7 +2556,8 @@ ssmp4_mg_event_sequence(text, tcp) ->
     Tid8 = #megaco_term_id{id = ["00000000","00000000","00000008"]},
     Tids = [Tid1, Tid2, Tid3, Tid4, Tid5, Tid6, Tid7, Tid8], 
     NotifyReqVerify = ssmp4_mg_verify_notify_request_fun(Tids),
-    AckVerify = ssmp4_mg_verify_ack_fun(), 
+    AckVerify = ssmp4_mg_verify_ack_fun(),
+    TO = fun(T) -> Factor*T end,
     EvSeq = [
              {debug, true},
 	     {megaco_trace, disable},
@@ -2571,12 +2576,12 @@ ssmp4_mg_event_sequence(text, tcp) ->
 	     {megaco_update_conn_info, protocol_version, ?VERSION}, 
 	     {megaco_update_conn_info, segment_send,     3}, 
 	     {megaco_update_conn_info, max_pdu_size,     128}, 
-             {sleep, 1000},
+             {sleep, TO(1000)},
              {megaco_callback, handle_trans_request, NotifyReqVerify},
-             {megaco_callback, handle_trans_ack,     AckVerify, 15000},
+             {megaco_callback, handle_trans_ack,     AckVerify, TO(15000)},
              megaco_stop_user,
              megaco_stop,
-             {sleep, 1000}
+             {sleep, TO(1000)}
             ],
     EvSeq.
 

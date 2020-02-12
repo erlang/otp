@@ -377,7 +377,8 @@ handle_exec({expect_nothing, To}, State) ->
               "~n   ~p", [Any]),
             error({expect_nothing, Any})
     after To ->
-        {ok, State}
+            p("go nothing (~p) as expected", [To]),
+            {ok, State}
     end;
 
 handle_exec({megaco_trace, disable}, State) ->
@@ -683,6 +684,7 @@ handle_exec({megaco_callback, nocall, Timeout}, State) ->
             Err = {unexpected_callback, Type, Msg, Pid},
             {error, State#state{result = [Err|Res]}}
     after Timeout ->
+            p("got no callback (~p) as expected", [Timeout]),
             {ok, State}
     end;
 
