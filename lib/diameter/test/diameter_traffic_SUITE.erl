@@ -305,7 +305,8 @@ names() ->
                              S  <- ?STRING_DECODES,
                              ST <- ?CALLBACKS,
                              SS <- ?SENDERS,
-                             CS <- ?SENDERS].
+                             CS <- ?SENDERS,
+                             ?SKIP =< rand:uniform()].
 
 names(Names, []) ->
     [N || N <- Names,
@@ -336,14 +337,9 @@ init_per_group(_) ->
 init_per_group(Name, Config)
   when Name == shuffle;
        Name == parallel ->
-    case rand:uniform() < ?SKIP of
-        true ->
-            {skip, random};
-        false ->
-            start_services(Config),
-            add_transports(Config),
-            replace({sleep, Name == parallel}, Config)
-    end;
+    start_services(Config),
+    add_transports(Config),
+    replace({sleep, Name == parallel}, Config);
 
 init_per_group(sctp = Name, Config) ->
     {_, Sctp} = lists:keyfind(Name, 1, Config),
