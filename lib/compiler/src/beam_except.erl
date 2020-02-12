@@ -131,7 +131,8 @@ fix_block(Is, 0) ->
 fix_block(Is, Words) ->
     reverse(fix_block_1(Is, Words)).
 
-fix_block_1([{set,[],[],{alloc,Live,{F1,F2,Needed0,F3}}}|Is], Words) ->
+fix_block_1([{set,[],[],{alloc,Live,{F1,F2,Needed0,F3}}}|Is], Words)
+  when is_integer(Needed0) ->
     case Needed0 - Words of
         0 ->
             Is;
