@@ -83,12 +83,40 @@ format_var(V) ->
 %%% Local functions.
 %%%
 
+format_anno(parameter_info, Map) when is_map(Map) ->
+    case map_size(Map) of
+        0 ->
+            [];
+        _ ->
+            Params = lists:sort(maps:to_list(Map)),
+            Break = "\n%%     ",
+            [io_lib:format("%% Parameters\n", []),
+             [io_lib:format("%%    ~s =>~s~s\n",
+                            [format_var(V),
+                             Break,
+                             format_param_info(I, Break)]) ||
+                 {V,I} <- Params]]
+    end;
 format_anno(Key, Map) when is_map(Map) ->
     Sorted = lists:sort(maps:to_list(Map)),
     [io_lib:format("%% ~s:\n", [Key]),
      [io_lib:format("%%    ~w => ~w\n", [K,V]) || {K,V} <- Sorted]];
 format_anno(Key, Value) ->
     io_lib:format("%% ~s: ~p\n", [Key,Value]).
+
+format_param_info([{type, T} | Infos], Break) ->
+    [format_type(T, Break) |
+     format_param_info(Infos, Break)];
+format_param_info([Info | Infos], Break) ->
+    [io_lib:format("~s~p", [Break, Info]) |
+     format_param_info(Infos, Break)];
+format_param_info([], _Break) ->
+    [].
+
+format_type(T, Break) ->
+    %% Gross hack, but it's short and simple.
+    Indented = lists:flatten(io_lib:format("~p", [T])),
+    string:replace(Indented, [$\n], Break, all).
 
 format_blocks(Ls, Blocks, Anno) ->
     PP = [format_block(L, Blocks, Anno) || L <- Ls],
@@ -218,7 +246,12 @@ format_anno(#{n:=_}=Anno) ->
     format_anno(maps:remove(n, Anno));
 format_anno(#{location:={File,Line}}=Anno0) ->
     Anno = maps:remove(location, Anno0),
-    [io_lib:format("  %% ~ts:~p\n", [File,Line])|format_anno_1(Anno)];
+    [io_lib:format("  %% ~ts:~p\n", [File,Line])|format_anno(Anno)];
+format_anno(#{result_type:=T}=Anno0) ->
+    Anno = maps:remove(result_type, Anno0),
+    Break = "\n  %%    ",
+    [io_lib:format("  %% Result type:~s~s\n",
+                   [Break, format_type(T, Break)]) | format_anno(Anno)];
 format_anno(Anno) ->
     format_anno_1(Anno).
 
