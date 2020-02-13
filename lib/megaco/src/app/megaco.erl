@@ -66,7 +66,8 @@
 	 decode_binary_term_id/2,
 
 	 encode_sdp/1,
-	 decode_sdp/1, 
+	 decode_sdp/1,
+         get_sdp_record_from_PropertyGroup/2,
 
 	 versions1/0, versions2/0, 
 	 print_version_info/0, print_version_info/1, 
@@ -487,6 +488,18 @@ encode_sdp(SDP) ->
 
 decode_sdp(PP) ->
     megaco_sdp:decode(PP).
+
+
+%%-----------------------------------------------------------------
+%% dget_sdp_record_from_PropertyGroup(Type, PG) ->
+%% 
+%%   [sdp()]}
+%%
+%% Get all sdp records of a certain type from a property group
+%%-----------------------------------------------------------------
+
+get_sdp_record_from_PropertyGroup(Type, PG) ->
+    megaco_sdp:get_sdp_record_from_PropertyGroup(Type, PG).
 
 
 %%-----------------------------------------------------------------
