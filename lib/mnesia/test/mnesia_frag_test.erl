@@ -28,7 +28,7 @@
          all/0, groups/0]).
 
 
--export([nice_single/1, nice_multi/1, nice_access/1, iter_access/1,
+-export([nice_single/1, nice_multi/1, nice_access/1, iter_access/1, nice_ext/1,
          consistency/1, evil_create/1, evil_delete/1, evil_change/1, evil_combine/1,
          evil_loop/1, evil_delete_db_node/1]).
 
@@ -55,7 +55,7 @@ groups() ->
     [{light, [], [{group, nice}, {group, evil}]},
      {medium, [], [consistency]},
      {nice, [],
-      [nice_single, nice_multi, nice_access, iter_access]},
+      [nice_single, nice_multi, nice_access, iter_access, nice_ext]},
      {evil, [],
       [evil_create, evil_delete, evil_change, evil_combine,
        evil_loop, evil_delete_db_node]}].
@@ -156,6 +156,17 @@ nice_single(Config) when is_list(Config) ->
     ?match(false, lists:member(Tab, mnesia:system_info(tables))),
 	     
     ?verify_mnesia(Nodes, []).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+nice_ext(suite) -> [];
+nice_ext(Config) when is_list(Config) ->
+    [Node1] = Nodes = ?acquire_nodes(1, Config),
+
+    ?match({ok, test_mnesia_be}, rpc:call(Node1, mnesia_ext_be_stub,register,[])),
+    %% Create a table with 2 fragments and 2 copies
+    Tab = nice_ext_frag,
+    Props = [{n_fragments, 2}, {n_external_copies,1}, {node_pool, [Node1]}],
+    ?match({atomic, ok}, mnesia:create_table(Tab, [{test_mnesia_be, [Node1]},{frag_properties, Props}])).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
