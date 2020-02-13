@@ -698,6 +698,7 @@ grab_bag(_Config) ->
     {'EXIT',_} = (catch grab_bag_1()),
     {'EXIT',_} = (catch grab_bag_2()),
     {'EXIT',_} = (catch grab_bag_3()),
+    {'EXIT',_} = (catch grab_bag_4()),
     ok.
 
 grab_bag_1() ->
@@ -736,6 +737,27 @@ grab_bag_3() ->
     of
         <<>> ->
             []
+    end.
+
+grab_bag_4() ->
+    %% beam_kernel_to_ssa would crash because there was a #cg_phi{}
+    %% instruction that was not referenced from any #cg_break{}.
+    case $f of
+        V0 ->
+            try
+                try fy of
+                    V0 ->
+                        fu
+                catch
+                    throw:$s ->
+                        fy
+                end
+            catch
+                error:#{#{[] + [] => []} := false} when [] ->
+                    fy
+            after
+                ok
+            end
     end.
 
 
