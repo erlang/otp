@@ -801,6 +801,22 @@ try_cg(Ta, Vs, Tb, Evs, Th, Rs, St0) ->
     {SsaVs,St6} = new_ssa_vars(Vs, St5),
     {SsaEvs,St7} = new_ssa_vars(Evs, St6),
     {Ais,St8} = cg(Ta, St7#cg{break=B,catch_label=H}),
+
+    %% We try to avoid constructing a try/catch if the expression to
+    %% be evaluated don't have any side effects and if the error
+    %% reason is not explicitly matched.
+    %%
+    %% Starting in OTP 23, segment sizes in binary matching and keys
+    %% in map matching are allowed to be arbitrary guard
+    %% expressions. Those expressions are evaluated in a try/catch
+    %% so that matching can continue with the next clause if the evaluation
+    %% of such expression fails.
+    %%
+    %% It is not allowed to use try/catch during matching in a receive
+    %% (the try/catch would force the saving of fragile message references
+    %% to the stack frame). Therefore, avoiding creating try/catch is
+    %% not merely an optimization but necessary for correctness.
+
     case {Vs,Tb,Th,is_guard_cg_safe_list(Ais)} of
         {[#k_var{name=X}],#k_break{args=[#k_var{name=X}]},
          #k_break{args=[#k_literal{}]},true} ->
@@ -808,6 +824,36 @@ try_cg(Ta, Vs, Tb, Evs, Th, Rs, St0) ->
             %% and the exception is not matched. Therefore, a
             %% try/catch is not needed. This code is probably located
             %% in a guard.
+            {ProtIs,St9} = guard_cg(Ta, H, St7#cg{break=B,bfail=H}),
+            {His,St10} = cg(Th, St9),
+            {RetVars,St} = new_ssa_vars(Rs, St10),
+            Is = ProtIs ++ [{label,H}] ++ His ++
+                [{label,B},#cg_phi{vars=RetVars}],
+            {Is,St#cg{break=St0#cg.break,bfail=St7#cg.bfail}};
+        {[#k_var{name=X}],#k_break{args=[#k_literal{}=SuccLit0,#k_var{name=X}]},
+         #k_break{args=[#k_literal{val=false},#k_literal{}]},true} ->
+            %% There are no instructions that will clobber X registers
+            %% and the exception is not matched. Therefore, a
+            %% try/catch is not needed. This code probably evaluates
+            %% a key expression in map matching.
+            {FinalLabel,St9} = new_label(St7),
+            {ProtIs,St10} = guard_cg(Ta, H, St9#cg{break=B,bfail=H}),
+            {His,St11} = cg(Th, St10#cg{break=FinalLabel}),
+            {RetVars,St12} = new_ssa_vars(Rs, St11),
+            {Result,St} = new_ssa_var('@ssa_result', St12),
+            SuccLit = ssa_arg(SuccLit0, St),
+            Is = ProtIs ++ [{label,H}] ++ His ++
+                [{label,B},
+                 #cg_phi{vars=[Result]},
+                 #cg_break{args=[SuccLit,Result],phi=FinalLabel},
+                 {label,FinalLabel},
+                 #cg_phi{vars=RetVars}],
+            {Is,St#cg{break=St0#cg.break,bfail=St7#cg.bfail}};
+        {_,#k_break{args=[]},#k_break{args=[]},true} ->
+            %% There are no instructions that will clobber X registers
+            %% and the exception is not matched. Therefore, a
+            %% try/catch is not needed. This code probably does the
+            %% size calculation for a segment in binary matching.
             {ProtIs,St9} = guard_cg(Ta, H, St7#cg{break=B,bfail=H}),
             {His,St10} = cg(Th, St9),
             {RetVars,St} = new_ssa_vars(Rs, St10),

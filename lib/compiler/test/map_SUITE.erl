@@ -2251,6 +2251,38 @@ t_key_expressions(_Config) ->
     no_match = F4(42, 0, #{2 => value}),
     no_match = F4(42, a, #{2 => value}),
 
+    F5 = fun(Term) ->
+                 self() ! Term,
+                 receive
+                     #{[<<(3 bsr 30 + 2):0,$k:[]/signed-integer>>] := _} ->
+                         ok;
+                     0.5 ->
+                         error
+                 end
+         end,
+    error = F5(0.5),
+
+    F6 = fun(Term) ->
+                 self() ! Term,
+                 receive
+                     #{<<a/utf8>> := {a,b,c}} -> ok;
+                     Other -> {error,Other}
+                 end
+         end,
+    {error,any} = F6(any),
+
+    F7 = fun(Term) ->
+                 self() ! Term,
+                 (?MODULE:all()):a(catch
+                                       receive
+                                           <<1.14:{<<"a":(tuple_size(1))>>}>> ->
+                                               4;
+                                           Other ->
+                                               Other
+                                       end)
+         end,
+    {'EXIT',{badarg,_}} = (catch F7(whatever)),
+
     ok.
 
 t_duplicate_keys(Config) when is_list(Config) ->

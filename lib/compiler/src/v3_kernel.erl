@@ -1789,6 +1789,8 @@ ubody(#iset{vars=[],arg=#iletrec{}=Let,body=B0}, Br, St0) ->
     %% An iletrec{} should never be last.
     St = iletrec_funs(Let, St0),
     ubody(B0, Br, St);
+ubody(#iset{vars=[],arg=#k_literal{},body=B0}, Br, St0) ->
+    ubody(B0, Br, St0);
 ubody(#iset{anno=A,vars=Vs,arg=E0,body=B0}, Br, St0) ->
     {E1,Eu,St1} = uexpr(E0, {break,Vs}, St0),
     {B1,Bu,St2} = ubody(B0, Br, St1),
