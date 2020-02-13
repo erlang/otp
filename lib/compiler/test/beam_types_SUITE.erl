@@ -20,6 +20,7 @@
 
 -module(beam_types_SUITE).
 
+-define(BEAM_TYPES_INTERNAL, true).
 -include_lib("compiler/src/beam_types.hrl").
 
 -export([all/0, suite/0, groups/0,
@@ -35,7 +36,8 @@
 -export([binary_absorption/1,
          integer_absorption/1,
          integer_associativity/1,
-         tuple_absorption/1]).
+         tuple_absorption/1,
+         tuple_set_limit/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -45,7 +47,8 @@ all() ->
      binary_absorption,
      integer_absorption,
      integer_associativity,
-     tuple_absorption].
+     tuple_absorption,
+     tuple_set_limit].
 
 groups() ->
     [{property_tests,[parallel],
@@ -140,5 +143,24 @@ tuple_absorption(Config) when is_list(Config) ->
 
     A = beam_types:meet(A, beam_types:join(A, B)),
     A = beam_types:join(A, beam_types:meet(A, B)),
+
+    ok.
+
+tuple_set_limit(Config) when is_list(Config) ->
+    %% When joining two tuple sets of differing sizes, the resulting set could
+    %% become larger than ?TUPLE_SET_LIMIT.
+
+    As = [#t_tuple{size=N,exact=true,
+                   elements=#{ 1 => #t_integer{elements={N,N}} }} ||
+             N <- lists:seq(1, ?TUPLE_SET_LIMIT)],
+
+    Bs = [#t_tuple{size=1,exact=true,
+                   elements=#{ 1 => #t_integer{elements={N,N}} }} ||
+             N <- lists:seq(1, ?TUPLE_SET_LIMIT)],
+
+    A = beam_types:join(As),
+    B = beam_types:join(Bs),
+
+    beam_types:verified_type(beam_types:join(A, B)),
 
     ok.

@@ -23,7 +23,7 @@
 -define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").
 
--import(lists, [foldl/3, reverse/1, reverse/2]).
+-import(lists, [foldl/3, reverse/1]).
 
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
@@ -304,6 +304,8 @@ jts_tuple([], Acc) ->
 jts_records(RsA, RsB) ->
     jts_records(RsA, RsB, 0, []).
 
+jts_records([], [], _N, Acc) ->
+    reverse(Acc);
 jts_records(RsA, RsB, N, Acc) when N > ?TUPLE_SET_LIMIT ->
     A = normalize_tuple_set(RsA, none),
     B = normalize_tuple_set(RsB, A),
@@ -314,10 +316,10 @@ jts_records([{KeyA, _} | _]=RsA, [{KeyB, B} | RsB], N, Acc) when KeyA > KeyB ->
     jts_records(RsA, RsB, N + 1, [{KeyB, B} | Acc]);
 jts_records([{KeyA, A} | RsA], [{KeyB, _} | _] = RsB, N, Acc) when KeyA < KeyB ->
     jts_records(RsA, RsB, N + 1, [{KeyA, A} | Acc]);
-jts_records([], RsB, _N, Acc) ->
-    reverse(Acc, RsB);
-jts_records(RsA, [], _N, Acc) ->
-    reverse(Acc, RsA).
+jts_records([{KeyA, A} | RsA], [], N, Acc) ->
+    jts_records(RsA, [], N + 1, [{KeyA, A} | Acc]);
+jts_records([], [{KeyB, B} | RsB], N, Acc) ->
+    jts_records([], RsB, N + 1, [{KeyB, B} | Acc]).
 
 %% Subtract Type2 from Type1. Example:
 %%    subtract(list, cons) -> nil
@@ -1060,13 +1062,20 @@ verified_type(T) ->
     verified_normal_type(T).
 
 verify_tuple_set([_|_]=T) ->
-    _ = [verified_normal_type(Rec) || {_, Rec} <- T],
+    _ = verify_tuple_set_1(T, 0),
     T;
 verify_tuple_set(#t_tuple{}=T) ->
     none = record_key(T),                       %Assertion.
     T;
 verify_tuple_set(none=T) ->
     T.
+
+verify_tuple_set_1([{_Tag, Record} | Records], Size) ->
+    true = Size =< ?TUPLE_SET_LIMIT,            %Assertion.
+    _ = verified_normal_type(Record),
+    verify_tuple_set_1(Records, Size + 1);
+verify_tuple_set_1([], _Size) ->
+    ok.
 
 -spec verified_normal_type(T) -> T when
       T :: normal_type().
