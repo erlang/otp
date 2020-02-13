@@ -48,7 +48,7 @@
 
   <funcs>
     <func>
-      <name since="">init_mpd(Vsns) -> mpd_state()</name>
+      <name since="">init(Vsns) -> mpd_state()</name>
       <fsummary>Initialize the MPD module</fsummary>
       <type>
         <v>Vsns = [Vsn]</v>
