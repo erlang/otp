@@ -66,6 +66,30 @@
                     , b :: any()
                     }.
 
+
+-type combined() :: { atom(),
+                      atom()
+                    , integer()
+                    }
+                  | [ atom() |
+                      atom()
+                    | integer()
+                    ].
+
+-type a_list1() :: [ atom() |
+                     t()
+                   | tuple()
+                   ].
+
+
+-type a_list_with_fun() ::
+        %% ERL-1140
+        [ atom() |
+          fun()
+        | tuple()
+        ].
+
+
 %% Spec
 
 -spec t1(FooBar :: t99()) -> t99();
