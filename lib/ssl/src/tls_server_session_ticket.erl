@@ -221,7 +221,7 @@ stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk,
                                           max := Max,
                                           ref_index := Index0} = Stateful} 
                       = State0) ->    
-    Id = erlang:monotonic_time(),
+    Id = {erlang:monotonic_time(), erlang:unique_integer([monotonic])},
     StatefulTicket = {NewSessionTicket, Hash, Psk},
     case gb_trees:size(Tree0) of
         Max ->
@@ -288,7 +288,7 @@ stateful_usable_ticket(Key, Prf, Binder, HandshakeHist, Tree) ->
             false
     end.
 
-stateful_living_ticket(TimeStamp, 
+stateful_living_ticket({TimeStamp,_}, 
                        #new_session_ticket{ticket_lifetime = LifeTime}) ->
     Now = erlang:monotonic_time(),
     Lived = erlang:convert_time_unit(Now-TimeStamp, native, seconds),
