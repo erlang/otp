@@ -507,15 +507,25 @@ normalize_tuple_set(A, B) ->
 make_type_from_value(Value) ->
     mtfv_1(Value).
 
-mtfv_1(A) when is_atom(A) -> #t_atom{elements=[A]};
-mtfv_1(B) when is_binary(B) -> #t_bitstring{size_unit=8};
-mtfv_1(B) when is_bitstring(B) -> #t_bitstring{};
-mtfv_1(F) when is_float(F) -> make_float(F);
+mtfv_1(A) when is_atom(A) ->
+    #t_atom{elements=[A]};
+mtfv_1(B) when is_bitstring(B) ->
+    case bit_size(B) of
+        0 ->
+            %% This is a bit of a hack, but saying that empty binaries have a
+            %% unit of 8 helps us get rid of is_binary/1 checks.
+            #t_bitstring{size_unit=8};
+        Size ->
+            #t_bitstring{size_unit=Size}
+    end;
+mtfv_1(F) when is_float(F) ->
+    make_float(F);
 mtfv_1(F) when is_function(F) ->
     {arity, Arity} = erlang:fun_info(F, arity),
     #t_fun{arity=Arity};
-mtfv_1(I) when is_integer(I) -> make_integer(I);
-mtfv_1(L) when is_list(L)->
+mtfv_1(I) when is_integer(I) ->
+    make_integer(I);
+mtfv_1(L) when is_list(L) ->
     case L of
         [_|_] -> mtfv_cons(L, none);
         [] -> nil
