@@ -5054,7 +5054,7 @@ BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)
     Eterm* hp;
     Eterm dhandle;
 
-    if (is_not_atom(BIF_ARG_1)) {
+    if (!is_node_name_atom(BIF_ARG_1)) {
 	BIF_ERROR(BIF_P, BADARG);
     }
     dep = erts_find_or_insert_dist_entry(BIF_ARG_1);
