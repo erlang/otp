@@ -809,8 +809,9 @@ glb(_, _) ->
     %% Inconsistent types. There will be an exception at runtime.
     none.
 
-glb_tuples(#t_tuple{size=Sz1,exact=true},
-           #t_tuple{size=Sz2,exact=true}) when Sz1 =/= Sz2 ->
+glb_tuples(#t_tuple{size=Sz1,exact=Ex1}, #t_tuple{size=Sz2,exact=Ex2})
+  when Ex1, Sz1 < Sz2;
+       Ex2, Sz2 < Sz1 ->
     none;
 glb_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
            #t_tuple{size=Sz2,exact=Ex2,elements=Es2}) ->

@@ -34,7 +34,8 @@
 
 -export([binary_absorption/1,
          integer_absorption/1,
-         integer_associativity/1]).
+         integer_associativity/1,
+         tuple_absorption/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -43,7 +44,8 @@ all() ->
     [{group,property_tests},
      binary_absorption,
      integer_absorption,
-     integer_associativity].
+     integer_associativity,
+     tuple_absorption].
 
 groups() ->
     [{property_tests,[parallel],
@@ -128,3 +130,15 @@ integer_associativity(Config) when is_list(Config) ->
 
     ok.
 
+tuple_absorption(Config) when is_list(Config) ->
+    %% An inexact tuple can't meet an exact one that's smaller
+
+    A = #t_tuple{size=3,exact=true,
+                 elements=#{1 => #t_atom{elements=[gurka]}}},
+    B = #t_tuple{size=5,exact=false,
+                 elements=#{3 => #t_atom{elements=[gaffel]}}},
+
+    A = beam_types:meet(A, beam_types:join(A, B)),
+    A = beam_types:join(A, beam_types:meet(A, B)),
+
+    ok.
