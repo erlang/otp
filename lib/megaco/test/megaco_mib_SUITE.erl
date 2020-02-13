@@ -1388,9 +1388,12 @@ mg_start_tcp(MgcPort, RH) ->
 		    {port,           MgcPort}, 
 		    {receive_handle, RH}, 
 		    {tcp_options,    [{nodelay, true}]}],
+            i("tcp transport started: attempt (tcp) connect to MGC at:"
+              "~n   ~p", [LocalHost]),
 	    case megaco_tcp:connect(Sup, Opts) of
 		{ok, SendHandle, ControlPid} ->
                     PrelMgcMid = preliminary_mid,
+                    i("tcp transport (tcp) connected: attempt (megaco) connect:"),
 		    {ok, ConnHandle} = 
 			megaco:connect(RH, PrelMgcMid, 
 				       SendHandle, ControlPid),
@@ -1412,12 +1415,18 @@ mg_start_udp(MgcPort, RH) ->
             %% local host. Try instead to "figure out" tha actual address...
             LocalAddr = which_local_addr(),
 	    Opts = [{port, 0}, {receive_handle, RH}],
+            i("udp transport started: attempt (udp) open"),
 	    case megaco_udp:open(Sup, Opts) of
 		{ok, Handle, ControlPid} ->
                     MgcMid = preliminary_mid,
+                    i("udp transport open: "
+                      "now create send handle with MGC address: "
+                      "~n   ~p", [LocalAddr]),
                     SendHandle = megaco_udp:create_send_handle(Handle, 
 							       LocalAddr, 
 							       MgcPort),
+                    i("udp transport: attempt (megaco) connect to:"
+                      "~n   ~p", [SendHandle]),
 		    {ok, ConnHandle} = 
 			megaco:connect(RH, MgcMid, 
 				       SendHandle, ControlPid),
@@ -1742,6 +1751,7 @@ get_conf(Key, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Tries to find a valid local address...
 which_local_addr() ->
     case inet:getifaddrs() of
         {ok, IFs} ->
@@ -1752,10 +1762,10 @@ which_local_addr() ->
             ?SKIP({failed_get_local_addr, Reason})
     end.
 
+%% We explicitly skip some interfaces that we know is not "valid" 
+%% (docker stuff)
 which_local_addr([]) ->
     ?SKIP(failed_get_local_addr);
-which_local_addr([{"lo" = _IfName, _IfOpts}|IFs]) ->
-    which_local_addr(IFs);
 which_local_addr([{"br-" ++ _ = _IfName, _IfOpts}|IFs]) ->
     which_local_addr(IFs);
 which_local_addr([{"docker" ++ _ = _IfName, _IfOpts}|IFs]) ->
@@ -1768,14 +1778,28 @@ which_local_addr([{_IfName, IfOpts}|IFs]) ->
             which_local_addr(IFs)
     end.
 
+which_local_addr2(IfOpts) ->
+    case if_is_running(IfOpts) of
+        true ->
+            which_local_addr3(IfOpts);
+        false ->
+            error
+    end.
 
-which_local_addr2([]) ->
+if_is_running(If) ->
+    lists:keymember(flags, 1, If) andalso
+        begin
+            {value, {flags, Flags}} = lists:keysearch(flags, 1, If),
+            (not lists:member(loopback, Flags)) andalso lists:member(running, Flags)
+        end.
+    
+which_local_addr3([]) ->
     error;
-which_local_addr2([{addr, Addr}|_]) 
+which_local_addr3([{addr, Addr}|_]) 
   when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
     {ok, Addr};
-which_local_addr2([_|T]) ->
-    which_local_addr2(T).
+which_local_addr3([_|T]) ->
+    which_local_addr3(T).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
