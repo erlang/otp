@@ -20,6 +20,7 @@
 
 -module(beam_types).
 
+-define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").
 
 -import(lists, [foldl/3, reverse/1, reverse/2]).
@@ -47,6 +48,10 @@
 
 -export([limit_depth/1]).
 
+%% This is exported to help catch errors in property test generators and is not
+%% meant to be used outside of test suites.
+-export([verified_type/1]).
+
 -define(IS_LIST_TYPE(N),
         is_record(N, t_list) orelse
         is_record(N, t_cons) orelse
@@ -56,9 +61,6 @@
         N =:= number orelse
         is_record(N, t_float) orelse
         is_record(N, t_integer)).
-
--define(TUPLE_SET_LIMIT, 12).
--define(MAX_TYPE_DEPTH, 4).
 
 %% Folds meet/2 over a list.
 

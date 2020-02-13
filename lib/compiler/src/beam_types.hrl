@@ -146,3 +146,9 @@
                   other=none :: normal_type()}).
 
 -type type() :: #t_union{} | normal_type().
+
+-ifdef(BEAM_TYPES_INTERNAL).
+%% Internal constants used by beam_types.erl and its whitebox tests
+-define(TUPLE_SET_LIMIT, 12).
+-define(MAX_TYPE_DEPTH, 4).
+-endif.
