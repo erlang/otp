@@ -3035,9 +3035,9 @@ Return nil if inside string, t if in a comment."
                   (save-excursion
                     (goto-char (nth 1 stack-top))
                     (if (and erlang-icr-indent
-                             (looking-at "\\(if\\|case\\|receive\\)[^_a-zA-Z0-9]"))
+                             (looking-at "\\(if\\|case\\|receive\\|try\\)[^_a-zA-Z0-9]"))
                         (+ (nth 2 stack-top) erlang-icr-indent)
-                      (if (looking-at "\\(case\\|receive\\)[^_a-zA-Z0-9]")
+                      (if (looking-at "\\(case\\|receive\\|try\\)[^_a-zA-Z0-9]")
                           (+ (nth 2 stack-top) erlang-indent-level)
                         (skip-chars-forward "a-z")
                         (skip-chars-forward " \t")
