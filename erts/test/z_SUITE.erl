@@ -48,7 +48,7 @@ all() ->
 core_files(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} ->
-	    {skipped, "No idea searching for core-files on windows"};
+            win32_search(true, os:getenv("OTP_DAILY_BUILD_TOP_DIR"));
 	{unix, darwin} ->
 	    core_file_search(
 	      core_search_conf(true,
@@ -63,7 +63,7 @@ core_files(Config) when is_list(Config) ->
 search_for_core_files(Dir) ->
     case os:type() of
 	{win32, _} ->
-	    io:format("No idea searching for core-files on windows");
+            win32_search(false, Dir);
 	{unix, darwin} ->
 	    core_file_search(core_search_conf(false, Dir, "/cores"));
 	_ ->
@@ -103,18 +103,7 @@ core_search_conf(RunByTS, DBTop) ->
     core_search_conf(RunByTS, DBTop, false).
 
 core_search_conf(RunByTS, DBTop, XDir) ->
-    SearchDir = case is_dir(DBTop) of
-		    false ->
-			case code:which(test_server) of
-			    non_existing ->
-				{ok, CWD} = file:get_cwd(),
-				CWD;
-			    TS ->
-				filename:dirname(filename:dirname(TS))
-			end;
-		    true ->
-			DBTop
-		end,
+    SearchDir = search_dir(DBTop),
     XSearchDir = case is_dir(XDir) of
 		     false ->
 			 false;
@@ -129,6 +118,20 @@ core_search_conf(RunByTS, DBTop, XDir) ->
 		      cerl = find_cerl(DBTop),
 		      file = os:find_executable("file"),
 		      run_by_ts = RunByTS}.
+
+search_dir(DBTop) ->
+    case is_dir(DBTop) of
+        false ->
+            case code:which(test_server) of
+                non_existing ->
+                    {ok, CWD} = file:get_cwd(),
+                    CWD;
+                TS ->
+                    filename:dirname(filename:dirname(TS))
+            end;
+        true ->
+            DBTop
+    end.
 
 file_inspect(#core_search_conf{file = File}, Core) ->
     FRes0 = os:cmd(File ++ " " ++ Core),
@@ -326,4 +329,40 @@ core_file_search(#core_search_conf{search_dir = Base,
 		{true, _, _} -> ct:fail(Res);
 		_ -> Res
 	    end
+    end.
+
+win32_search(RunByTS, DBTop) ->
+    case os:getenv("WSLENV") of
+        false when RunByTS ->
+            {skipped, "No idea searching for core-files on old windows"};
+        false ->
+            io:format("No idea searching for core-files on old windows");
+        _ ->
+            win32_search_2(RunByTS, DBTop)
+    end.
+
+win32_search_2(true, DBTop0) ->
+    DBTop = search_dir(DBTop0),
+    Dir = "c:/ldisk/daily_build",
+    io:format("Find and move 'dmp' files in: ~s to ~s~n",[Dir, DBTop]),
+    case filelib:wildcard("*.dmp", Dir) of
+        [] -> ok;
+        Dumps ->
+            %% We move the "daily" dmp files to this test-run
+            Str = lists:flatten(["Core-files found:", lists:join($\s, lists:reverse(Dumps))]),
+            Rename = fun(File) ->
+                             FP = filename:join(Dir, File),
+                             _ = file:rename(FP, filename:join(DBTop, File))
+                     end,
+            [Rename(File) || File <- Dumps],
+            ct:fail(Str)
+    end;
+win32_search_2(false, _DBTop0) ->
+    DBTop = search_dir("c:/ldisk/daily_build"),
+    io:format("Search for 'dmp' files in: ~s~n",[DBTop]),
+    case filelib:wildcard("*.dmp", DBTop) of
+        [] -> "Core-files found: Ignored core-files found:";
+        Dumps ->
+            io:format("The dmp files must be removed manually\n", []),
+            lists:flatten(["Core-files found:", lists:join($\s, lists:reverse(Dumps))])
     end.

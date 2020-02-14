@@ -654,7 +654,7 @@ int main(int argc, char **argv)
                                                       config_script_cnt * sizeof(char*));
                             config_scripts[config_script_cnt-1] = strsave(argv[i+1]);
                             i++;
-                        } while (argv[i+1][0] != '-' && argv[i+1][0] != '+');
+                        } while ((i+1) < argc && argv[i+1][0] != '-' && argv[i+1][0] != '+');
 		    }
 #endif
 		    else {

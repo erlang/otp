@@ -24,7 +24,8 @@ tsd@dll@: tester.c testcase_driver.h
 
 DRIVER_DIR = ../erl_drv_thread_SUITE_data
 
+WSL=@WSL@
+
 basic.c rwlock.c tsd.c: $(DRIVER_DIR)/$@
-	cat head.txt > $@
-	cat $(DRIVER_DIR)/$@ | sed -e 's/erl_drv_/enif_/g' -e 's/driver_/enif_/g' -e 's/ErlDrv/ErlNif/g' >> $@
-	cat tail.txt >> $@
+	$(WSL) cat head.txt $(DRIVER_DIR)/$@ tail.txt > $@
+	$(WSL) sed -e 's/erl_drv_/enif_/g' -e 's/driver_/enif_/g' -e 's/ErlDrv/ErlNif/g' -i.bak $@

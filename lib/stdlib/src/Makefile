@@ -149,6 +149,12 @@ APPUP_FILE= stdlib.appup
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
+ifeq ($(TARGET),win32)
+  EXE_SUFFIX=.exe
+else
+  EXE_SUFFIX=
+endif
+
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
@@ -207,7 +213,7 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	$(vsn_verbose)sed -e 's;%VSN%;$(VSN);' $< > $@
 
 unicode_util.erl: ../uc_spec/*
-	escript ../uc_spec/gen_unicode_mod.escript
+	escript$(EXE_SUFFIX) ../uc_spec/gen_unicode_mod.escript
 
 # ----------------------------------------------------
 # Release Target

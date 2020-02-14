@@ -2809,6 +2809,31 @@ close_loop(Port, Time, SentClose) ->
 	    end
     end.
 
+portable_open_port("openssl" = Exe, Args0) ->
+    case os:getenv("WSLENV") of
+	false ->
+	    AbsPath = os:find_executable(Exe),
+	    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).",
+		   [AbsPath, Args0]),
+	    open_port({spawn_executable, AbsPath},
+		      [{args, Args0}, stderr_to_stdout]);
+	_ ->
+	    %% I can't get the new windows version of openssl.exe to be stable
+	    %% certain server tests are failing for no reason.
+	    %% This is using "linux" openssl via wslenv
+
+	    Translate = fun("c:/" ++ _ = Path) ->
+				string:trim(os:cmd("wsl wslpath -u " ++ Path));
+			   (Arg) ->
+				Arg
+			end,
+	    Args1 = [Translate(Arg) || Arg <- Args0],
+	    Args = ["/C","wsl","openssl"| Args1] ++ ["2>&1"],
+	    Cmd =  os:find_executable("cmd"),
+	    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [Cmd,Args]),
+	    open_port({spawn_executable, Cmd},
+		      [{args, Args}, stderr_to_stdout, hide])
+    end;
 portable_open_port(Exe, Args) ->
     AbsPath = os:find_executable(Exe),
     ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
@@ -3221,10 +3246,13 @@ digest() ->
 
 kill_openssl() ->
     case os:type() of
-        {unix, _} ->
-            os:cmd("pkill openssl");
         {win32, _} ->
-            os:cmd("cmd.exe /C \"taskkill /IM openssl.exe /F\"")
+            case os:getenv("WSLENV") of
+                false -> os:cmd("cmd.exe /C \"taskkill /IM openssl.exe /F\"");
+                _ -> os:cmd("wsl pkill openssl")
+            end;
+        _ ->
+            os:cmd("pkill openssl")
     end.
 
 hostname_format(Hostname) ->

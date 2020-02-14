@@ -812,7 +812,24 @@ setup_win32_cl_env ()
     echo_setenv LIB "$LIB" ';'
     echo_setenv LIBPATH "$LIBPATH" ';'
     echo_setenv VCToolsRedistDir "$VCToolsRedistDir" ';'
-    echo_setenv WSLENV "$WSLENV" ';'
+    echo_setenv WSLENV "$WSLENV:WSLPATH/l:CLASSPATH/l" ';'
+
+    save_ifs=$IFS
+    IFS=:
+    WSLPATH=""
+    for p in $PATH; do
+	if [ -d "$p" ]; then
+	    case "$p" in
+		/mnt/c/*)
+		    WSLPATH=$WSLPATH:$p
+		    ;;
+		*)
+		    ;;
+	    esac
+	fi
+    done
+    IFS=$save_ifs
+    echo_setenv WSLPATH "$WSLPATH" ';'
 }
 
 lookup_prog_in_path ()

@@ -17,7 +17,7 @@ YCF_OBJECTS = $(patsubst $(YCF_SOURCE_DIR)/%.c, $(YCF_SOURCE_DIR)/%.o, $(YCF_SOU
 
 YCF_CFLAGS = $(filter-out -Wstrict-prototypes -Wdeclaration-after-statement -Wmissing-prototypes,$(CFLAGS))
 
-YCF_EXECUTABLE = $(YCF_SOURCE_DIR)/bin/yielding_c_fun.bin
+YCF_EXECUTABLE = $(YCF_SOURCE_DIR)/bin/yielding_c_fun.bin$(EXE_SUFFIX)
 
 $(YCF_EXECUTABLE): $(YCF_OBJECTS)
 	$(V_LD) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_OBJECTS) -o $@

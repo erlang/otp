@@ -274,9 +274,11 @@ USING_MINGW=@MIXED_MINGW@
 ifeq ($(TARGET),win32)
 LIB_PREFIX=
 LIB_SUFFIX=.lib
+EXE_SUFFIX=.exe
 else
 LIB_PREFIX=lib
 LIB_SUFFIX=.a
+EXE_SUFFIX=
 endif
 
 ifeq (@EMU_LOCK_CHECKING@,yes)
@@ -1303,10 +1305,12 @@ endif
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) depend
 endif
 
+ifneq ($(ERTS_SKIP_DEPEND),true)
 ifneq ($(MAKECMDGOALS),clean)
 ifneq ($(MAKECMDGOALS),generate)
 ifndef VOID_EMULATOR
 -include $(TTF_DIR)/depend.mk
+endif
 endif
 endif
 endif

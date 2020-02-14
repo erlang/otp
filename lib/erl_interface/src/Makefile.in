@@ -782,6 +782,7 @@ $(MDD_OBJDIR)/ei_fake_prog_mdd_cxx$(EXE): prog/ei_fake_prog.c $(MDD_EILIB)
 #  Create dependency file using gcc -MM
 ###########################################################################
 
+ifneq ($(ERTS_SKIP_DEPEND),true)
 depend: $(TARGET)/depend.mk
 
 $(TARGET)/depend.mk: $(TARGET)/config.h
@@ -802,7 +803,9 @@ $(TARGET)/depend.mk: $(TARGET)/config.h
 
 # For some reason this has to be after 'opt' target
 -include $(TARGET)/depend.mk
-
+else
+depend:
+endif
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
