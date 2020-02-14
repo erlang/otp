@@ -20,9 +20,10 @@
 
 -module(beam_types).
 
+-define(BEAM_TYPES_INTERNAL, true).
 -include("beam_types.hrl").
 
--import(lists, [foldl/3, reverse/1, reverse/2]).
+-import(lists, [foldl/3, reverse/1]).
 
 -export([meet/1, meet/2, join/1, join/2, subtract/2]).
 
@@ -47,6 +48,10 @@
 
 -export([limit_depth/1]).
 
+%% This is exported to help catch errors in property test generators and is not
+%% meant to be used outside of test suites.
+-export([verified_type/1]).
+
 -define(IS_LIST_TYPE(N),
         is_record(N, t_list) orelse
         is_record(N, t_cons) orelse
@@ -56,9 +61,6 @@
         N =:= number orelse
         is_record(N, t_float) orelse
         is_record(N, t_integer)).
-
--define(TUPLE_SET_LIMIT, 12).
--define(MAX_TYPE_DEPTH, 4).
 
 %% Folds meet/2 over a list.
 
@@ -302,6 +304,8 @@ jts_tuple([], Acc) ->
 jts_records(RsA, RsB) ->
     jts_records(RsA, RsB, 0, []).
 
+jts_records([], [], _N, Acc) ->
+    reverse(Acc);
 jts_records(RsA, RsB, N, Acc) when N > ?TUPLE_SET_LIMIT ->
     A = normalize_tuple_set(RsA, none),
     B = normalize_tuple_set(RsB, A),
@@ -312,10 +316,10 @@ jts_records([{KeyA, _} | _]=RsA, [{KeyB, B} | RsB], N, Acc) when KeyA > KeyB ->
     jts_records(RsA, RsB, N + 1, [{KeyB, B} | Acc]);
 jts_records([{KeyA, A} | RsA], [{KeyB, _} | _] = RsB, N, Acc) when KeyA < KeyB ->
     jts_records(RsA, RsB, N + 1, [{KeyA, A} | Acc]);
-jts_records([], RsB, _N, Acc) ->
-    reverse(Acc, RsB);
-jts_records(RsA, [], _N, Acc) ->
-    reverse(Acc, RsA).
+jts_records([{KeyA, A} | RsA], [], N, Acc) ->
+    jts_records(RsA, [], N + 1, [{KeyA, A} | Acc]);
+jts_records([], [{KeyB, B} | RsB], N, Acc) ->
+    jts_records([], RsB, N + 1, [{KeyB, B} | Acc]).
 
 %% Subtract Type2 from Type1. Example:
 %%    subtract(list, cons) -> nil
@@ -507,15 +511,25 @@ normalize_tuple_set(A, B) ->
 make_type_from_value(Value) ->
     mtfv_1(Value).
 
-mtfv_1(A) when is_atom(A) -> #t_atom{elements=[A]};
-mtfv_1(B) when is_binary(B) -> #t_bitstring{size_unit=8};
-mtfv_1(B) when is_bitstring(B) -> #t_bitstring{};
-mtfv_1(F) when is_float(F) -> make_float(F);
+mtfv_1(A) when is_atom(A) ->
+    #t_atom{elements=[A]};
+mtfv_1(B) when is_bitstring(B) ->
+    case bit_size(B) of
+        0 ->
+            %% This is a bit of a hack, but saying that empty binaries have a
+            %% unit of 8 helps us get rid of is_binary/1 checks.
+            #t_bitstring{size_unit=8};
+        Size ->
+            #t_bitstring{size_unit=Size}
+    end;
+mtfv_1(F) when is_float(F) ->
+    make_float(F);
 mtfv_1(F) when is_function(F) ->
     {arity, Arity} = erlang:fun_info(F, arity),
     #t_fun{arity=Arity};
-mtfv_1(I) when is_integer(I) -> make_integer(I);
-mtfv_1(L) when is_list(L)->
+mtfv_1(I) when is_integer(I) ->
+    make_integer(I);
+mtfv_1(L) when is_list(L) ->
     case L of
         [_|_] -> mtfv_cons(L, none);
         [] -> nil
@@ -797,8 +811,9 @@ glb(_, _) ->
     %% Inconsistent types. There will be an exception at runtime.
     none.
 
-glb_tuples(#t_tuple{size=Sz1,exact=true},
-           #t_tuple{size=Sz2,exact=true}) when Sz1 =/= Sz2 ->
+glb_tuples(#t_tuple{size=Sz1,exact=Ex1}, #t_tuple{size=Sz2,exact=Ex2})
+  when Ex1, Sz1 < Sz2;
+       Ex2, Sz2 < Sz1 ->
     none;
 glb_tuples(#t_tuple{size=Sz1,exact=Ex1,elements=Es1},
            #t_tuple{size=Sz2,exact=Ex2,elements=Es2}) ->
@@ -1047,13 +1062,20 @@ verified_type(T) ->
     verified_normal_type(T).
 
 verify_tuple_set([_|_]=T) ->
-    _ = [verified_normal_type(Rec) || {_, Rec} <- T],
+    _ = verify_tuple_set_1(T, 0),
     T;
 verify_tuple_set(#t_tuple{}=T) ->
     none = record_key(T),                       %Assertion.
     T;
 verify_tuple_set(none=T) ->
     T.
+
+verify_tuple_set_1([{_Tag, Record} | Records], Size) ->
+    true = Size =< ?TUPLE_SET_LIMIT,            %Assertion.
+    _ = verified_normal_type(Record),
+    verify_tuple_set_1(Records, Size + 1);
+verify_tuple_set_1([], _Size) ->
+    ok.
 
 -spec verified_normal_type(T) -> T when
       T :: normal_type().
