@@ -2666,30 +2666,34 @@ ssmp4_mg_verify_notify_request_fun(Tids) ->
 	     
 ssmp4_mg_verify_notify_request(
   {handle_trans_request, _CH, ?VERSION, ARs}, Tids) 
-  when length(ARs) == length(Tids) ->
+  when length(ARs) =:= length(Tids) ->
     (catch ssmp4_mg_do_verify_notify_request(Tids, ARs));
 ssmp4_mg_verify_notify_request(
   {handle_trans_request, _CH, ?VERSION, ARs}, _Tids) ->
+    e("MG Notify Request verification failed: invalid action requests"
+      "~n   ARs: ~p", [ARs]),
     {error, {invalid_action_requests, ARs}, ok};
 ssmp4_mg_verify_notify_request(
   {handle_trans_request, CH, V, ARs}, _Tids) ->
+    e("MG Notify Request verification failed: invalid trans request"
+      "~n   CH:  ~p"
+      "~n   V:   ~p"
+      "~n   ARs: ~p", [CH, V, ARs]),
     {error, {invalid_trans_request, {CH, V, ARs}}, ok};
 ssmp4_mg_verify_notify_request(Crap, _Tids) ->
-    io:format("ssmp4_mg_verify_notify_request -> unknown request"
-	      "~n   Crap: ~p"
-	      "~n   Tids: ~p"
-	      "~n", [Crap, _Tids]),
+    e("MG Notify Request verification failed: unknown request"
+      "~n   Crap: ~p"
+      "~n   Tids: ~p", [Crap, _Tids]),
     {error, {unexpected_event, Crap}, ok}.
 
 ssmp4_mg_do_verify_notify_request(Tids, ARs) ->
-    io:format("ssmp4_mg_do_verify_notify_request -> ok"
-	      "~n   Tids: ~p"
-	      "~n   ARs:  ~p"
-	      "~n", [Tids, ARs]),
+    p("MG Notify Request verification - attempt verify action request(s):"
+      "~n   Tids: ~p"
+      "~n   ARs:  ~p", [Tids, ARs]),
     ActionReplies = ssmp4_mg_do_verify_notify_request_ars(Tids, ARs), 
-    io:format("ssmp4_mg_do_verify_notify_request -> ok"
-	      "~n   ActionReplies:  ~p"
-	      "~n", [ActionReplies]),
+    p("MG Notify Request verification - ok"
+      "~n   ActionReplies:  ~p"
+      "~n", [ActionReplies]),
     Reply = {{handle_ack, ssmp4}, ActionReplies}, 
     {ok, ARs, Reply}.
 
@@ -2703,10 +2707,9 @@ ssmp4_mg_do_verify_notify_request_ars([Tid|Tids], [AR|ARs], Acc) ->
     ssmp4_mg_do_verify_notify_request_ars(Tids, ARs, [ActionReply|Acc]).
 
 ssmp4_mg_do_verify_notify_request_ar(Tid, AR) ->
-    io:format("ssmp4_mg_do_verify_notify_request_ar -> ok"
-	      "~n   Tid: ~p"
-	      "~n   AR:  ~p"
-	      "~n", [Tid, AR]),
+    p("ssmp4_mg_do_verify_notify_request_ar -> ok"
+      "~n   Tid: ~p"
+      "~n   AR:  ~p", [Tid, AR]),
     {Cid, CR} = 
 	case AR of
 	    #'ActionRequest'{contextId       = CtxId, 
@@ -3653,6 +3656,10 @@ ssmmsr1_mgc_event_sequence(text, tcp) ->
     TransAck    = ssmmsr1_mgc_trans_ack_msg(Mid, TransId),
     ReadyForSegments = ssmmsr1_mgc_ready_for_segments_fun(), 
     EvSeq = [{debug,  true},
+             {trigger, "verbosity",
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
              {decode, DecodeFun},
              {encode, EncodeFun},
              {listen, 2944},
@@ -3982,6 +3989,10 @@ ssmmsr1_mg_event_sequence(text, tcp) ->
     ReadyForSegments = ssmmsr1_mg_ready_for_segments_fun(), 
     EvSeq = [
              {debug, true},
+             {trigger,
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
 	     {megaco_trace, disable},
              %% {megaco_trace, max},
              megaco_start,
@@ -4398,6 +4409,10 @@ ssmmsr2_mgc_event_sequence(text, tcp) ->
     SegmentRep1 = ssmmsr2_mgc_segment_reply_msg(Mid, TransId, 1, false),
     ReadyForSegments = ssmmsr2_mgc_ready_for_segments_fun(), 
     EvSeq = [{debug,  true},
+             {trigger, "verbosity",
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
              {decode, DecodeFun},
              {encode, EncodeFun},
              {listen, 2944},
@@ -4706,6 +4721,10 @@ ssmmsr2_mg_event_sequence(text, tcp) ->
     ReadyForSegments = ssmmsr2_mg_ready_for_segments_fun(), 
     EvSeq = [
              {debug, true},
+             {trigger,
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
 	     {megaco_trace, disable},
              %% {megaco_trace, max},
              megaco_start,
@@ -7917,33 +7936,48 @@ p(F, A) ->
 	      [?FTS(), self() | A]).
 
 
+%% e(F) ->
+%%     e(F, []).
+
+e(F, A) ->
+    print(error, get(verbosity), "ERROR", get(tc), F, A).
+
+
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), get(tc), "INF", F, A).
+    print(info, get(verbosity), "INFO", get(tc), F, A).
 
 
 d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(debug, get(verbosity), get(tc), "DBG", F, A).
+    print(debug, get(verbosity), "DBG", get(tc), F, A).
 
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;
+printable(error, _)   -> true;
 printable(_,_)        -> false.
 
-print(Severity, Verbosity, Tc, P, F, A) ->
-    print(printable(Severity, Verbosity), Tc, P, F, A).
+print(Severity, Verbosity, P, TC, F, A) ->
+    print(printable(Severity, Verbosity), P, TC, F, A).
 
-print(true, Tc, P, F, A) ->
-    io:format("*** [~s] ~s ~p ~s:~w ***"
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), P, self(), get(sname), Tc | A]);
+print(true, P, TC, F, A) when (TC =:= undefined) ->
+    print(P, "", F, A);
+print(true, P, TC, F, A) when is_atom(TC) ->
+    print(P, ":" ++ atom_to_list(TC), F, A);
+print(true, P, TC, F, A) when is_list(TC) ->
+    print(P, TC, F, A);
 print(_, _, _, _, _) ->
     ok.
+
+print(P, TCStr, F, A) ->
+    io:format("*** [~s] ~s ~p ~s~s ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), P, self(), get(sname), TCStr | A]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
