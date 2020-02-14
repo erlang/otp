@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -373,7 +373,7 @@ get_rc_ns([], _Tag, Ks, Ls) ->
 get_rc_hosts(Ks, Ls, Tab) ->
     case ets:tab2list(Tab) of
 	[] -> get_rc(Ks, Ls);
-	Hosts -> get_rc(Ks, [ [{host, IP, Names} || {{IP, _}, Names} <- Hosts] | Ls])
+	Hosts -> get_rc(Ks, [ [{host, IP, Names} || {{_Fam, IP}, Names} <- Hosts] | Ls])
     end.
 
 %%
@@ -1221,77 +1221,199 @@ handle_set_file(ParseFun, Bin, From, State) ->
 %% This is to be able to reconstruct the original /etc/hosts entry.
 
 do_add_host(Byname, Byaddr, Names, Type, IP) ->
-    do_del_host(Byname, Byaddr, IP),
-    ets:insert(Byname, [{tolower(N), [{IP,Type}], Names} || N <- Names]),
-    ets:insert(Byaddr, {{IP, Type}, Names}),
+    Nms = [tolower(Nm) || Nm <- Names],
+    add_ip_bynms(Byname, Type, IP, Nms, Names),
+    Key = {Type, IP},
+    case ets:lookup(Byaddr, Key) of
+        [{_Key, Names_0}] ->
+            %% Delete IP address from byname entries
+            NmsSet = % Set of new tolower(Name)s
+                lists:foldl(
+                  fun (Nm, Set) ->
+                          maps:put(Nm, [], Set)
+                  end, #{}, Nms),
+            del_ip_bynms(
+              Byname, Type, IP,
+              [Nm || Nm <- [tolower(Name) || Name <- Names_0],
+                     not maps:is_key(Nm, NmsSet)]);
+        [] ->
+            ok
+    end,
+    %% Replace the entry in the byaddr table
+    ets:insert(Byaddr, {Key, Names}),
     ok.
 
 do_del_host(Byname, Byaddr, IP) ->
-    IpWithType = {IP, inet_family(IP)},
-    case ets:lookup(Byaddr, IpWithType) of
-	[{IpWithType, AllNames}] ->
-	    lists:foreach(fun (Name) ->
-		case ets:lookup(Byname, Name) of
-		    [{Name, [IpWithType], _}] ->
-			ets:delete(Byname, Name);
-		    [{Name, [_|_] = OldIps, Aliases}] ->
-			ets:insert(Byname, {Name, lists:delete(IpWithType, OldIps), Aliases})
-		end
-	    end, AllNames),
-	    ets:delete(Byaddr, IpWithType),
-	    ok;
-	_ -> ok
+    Fam = inet_family(IP),
+    Key = {Fam, IP},
+    case ets:lookup(Byaddr, Key) of
+        [{_Key, Names}] ->
+            %% Delete IP address from byname entries
+            del_ip_bynms(
+              Byname, Fam, IP,
+              [tolower(Name) || Name <- Names]),
+            %% Delete from byaddr table
+            true = ets:delete(Byaddr, Key),
+            ok;
+        [] ->
+            ok
     end.
+
+
+add_ip_bynms(Byname, Fam, IP, Nms, Names) ->
+    lists:foreach(
+      fun (Nm) ->
+              Key = {Fam, Nm},
+              case ets:lookup(Byname, Key) of
+                  [{_Key, [IP | _] = IPs, _Names_1}] ->
+                      %% Replace names in the byname entry
+                      true =
+                          ets:insert(
+                            Byname,
+                            {Key, IPs, Names});
+                  [{_Key, IPs, Names_0}] ->
+                      case lists:member(IP, IPs) of
+                          true ->
+                              ok;
+                          false ->
+                              %% Add the IP address
+                              true =
+                                  ets:insert(
+                                    Byname,
+                                    {Key, IPs ++ [IP], Names_0})
+                      end;
+                  [] ->
+                      %% Create a new byname entry
+                      true =
+                          ets:insert(Byname, {Key, [IP], Names})
+              end
+      end, Nms).
+
+del_ip_bynms(Byname, Fam, IP, Nms) ->
+    lists:foreach(
+      fun (Nm) ->
+              Key = {Fam, Nm},
+              case ets:lookup(Byname, Key) of
+                  [{_Key, [IP], _Names}] ->
+                      %% Delete whole entry
+                      true = ets:delete(Byname, Key);
+                  [{_Key, IPs_0, Names_0}] ->
+                      case lists:member(IP, IPs_0) of
+                          true ->
+                              %% Delete the IP address from list
+                              IPs = lists:delete(IP, IPs_0),
+                              true =
+                                  ets:insert(
+                                    Byname, {Key, IPs, Names_0});
+                          false ->
+                              ok
+                      end;
+                  [] ->
+                      ok
+              end
+      end, Nms).
+
 
 inet_family(T) when tuple_size(T) =:= 4 -> inet;
 inet_family(T) when tuple_size(T) =:= 8 -> inet6.
 
-populate_hosts_tables_byname([], _Names, _IP, _ByName) ->
-    ok;
-populate_hosts_tables_byname([NameOrAlias | Tail], Names, IP, ByName) ->
-    case ets:insert_new(ByName, {NameOrAlias, [IP], Names}) of
-        true -> ok;
-        false ->
-            [{NameOrAlias, ExistingIPs, ExistingPrimary}] = ets:lookup(ByName, NameOrAlias),
-            ets:insert(ByName, {NameOrAlias, ExistingIPs ++ [IP], ExistingPrimary})
-    end,
-    populate_hosts_tables_byname(Tail, Names, IP, ByName).
 
-populate_hosts_tables([], _ByName, _ByAddr) ->
-    ok;
-populate_hosts_tables([{IP0, Name, Aliases} | Tail], ByName, ByAddr) ->
-    IP = {IP0, inet_family(IP0)},
-    Names = [Name | Aliases],
-    case ets:insert_new(ByAddr, {IP, Names}) of
-        true  -> ok;
-        false ->
-            [{IP, ExistingNames}] = ets:lookup(ByAddr, IP),
-            ets:insert(ByAddr, {IP, ExistingNames ++ Names})
-    end,
-    populate_hosts_tables_byname(Names, Names, IP, ByName),
-    populate_hosts_tables(Tail, ByName, ByAddr).
-
-clean_hosts_tables([], _ByNameTmp, _ByAddrTmp, _ByName, _ByAddr) ->
-    ok;
-clean_hosts_tables([{IP, Names} | Tail], ByNameTmp, ByAddrTmp, ByName, ByAddr) ->
-    _ = case ets:lookup(ByAddrTmp, IP) of
-        [{IP, Names}] -> ok;
-        _ ->
-            ets:delete(ByAddr, IP),
-            lists:map(fun(N) -> ets:delete(ByName, N) end, Names)
-    end,
-    clean_hosts_tables(Tail, ByNameTmp, ByAddrTmp, ByName, ByAddr).
+%% Hosts =  [ {IP, Name, Aliases}, ... ]
+%% ByaddrMap = #{ {Fam, IP} := rev(Names) }
+%% BynameMap = #{ {Fam, tolower(Name)} := {rev([IP, ...]), Names}}
 
 %% Synchronises internal tables with .hosts/aliases file
-load_hosts_list(IPNmAs, ByName, ByAddr) ->
-    ByAddrTmp = ets:new(load_hosts_list_by_addr, [private]),
-    ByNameTmp = ets:new(load_hosts_list_by_name, [private]),
-    populate_hosts_tables(IPNmAs, ByNameTmp, ByAddrTmp),
-    clean_hosts_tables(ets:tab2list(ByAddr), ByNameTmp, ByAddrTmp, ByName, ByAddr),
-    ets:insert(ByAddr, ets:tab2list(ByAddrTmp)),
-    ets:insert(ByName, ets:tab2list(ByNameTmp)),
-    ets:delete(ByAddrTmp),
-    ets:delete(ByNameTmp).
+load_hosts_list(Hosts, Byname, Byaddr) ->
+    %% Create byaddr and byname maps
+    {ByaddrMap, BynameMap} = load_hosts_list(Hosts),
+    %% Insert or overwrite existing keys
+    ets:insert(
+      Byaddr,
+      [{Addr, lists:reverse(NamesR)}
+       || {Addr, NamesR} <- maps:to_list(ByaddrMap)]),
+    ets:insert(
+      Byname,
+      [{Fam_Nm, lists:reverse(IPsR), Names}
+       || {Fam_Nm, {IPsR, Names}} <- maps:to_list(BynameMap)]),
+    %% Delete no longer existing keys
+    ets_clean_map_keys(Byaddr, ByaddrMap),
+    ets_clean_map_keys(Byname, BynameMap).
+
+load_hosts_list(Hosts) ->
+    load_hosts_list_byaddr(Hosts, #{}, []).
+
+load_hosts_list_byaddr(
+  [], ByaddrMap, Addrs) ->
+    %% Now for the byname table...
+    load_hosts_list_byname(lists:reverse(Addrs), ByaddrMap, #{});
+%% Traverse hosts list, create byaddr map and insertion order list
+load_hosts_list_byaddr(
+  [{IP, Name, Aliases} | Hosts], ByaddrMap, Addrs) ->
+    Addr = {inet_family(IP), IP},
+    case ByaddrMap of
+        #{Addr := NamesR} ->
+            %% Concatenate names to existing IP address entry
+            load_hosts_list_byaddr(
+              Hosts,
+              ByaddrMap#{Addr := lists:reverse(Aliases, [Name | NamesR])},
+              Addrs);
+        #{} ->
+            %% First entry for an IP address
+            load_hosts_list_byaddr(
+              Hosts,
+              ByaddrMap#{Addr => lists:reverse(Aliases, [Name])},
+              [Addr | Addrs])
+    end.
+
+%% Traverse in insertion order from byaddr pass
+load_hosts_list_byname(
+  [], ByaddrMap, BynameMap) ->
+    {ByaddrMap, BynameMap};
+load_hosts_list_byname(
+  [{Fam, IP} = Addr | Addrs], ByaddrMap, BynameMap) ->
+    Names = lists:reverse(maps:get(Addr, ByaddrMap)),
+    %% Traverse all names for this IP address
+    load_hosts_list_byname(
+      Addrs, ByaddrMap,
+      load_hosts_list_byname(Fam, IP, BynameMap, Names, Names)).
+
+load_hosts_list_byname(_Fam, _IP, BynameMap, _Names_0, []) ->
+    BynameMap;
+load_hosts_list_byname(
+  Fam, IP, BynameMap, Names_0, [Name | Names]) ->
+    Key = {Fam, tolower(Name)},
+    case BynameMap of
+        #{Key := {IPsR, Names_1}} ->
+            %% Add IP address to existing name entry
+            load_hosts_list_byname(
+              Fam, IP,
+              BynameMap#{Key := {[IP | IPsR], Names_1}},
+              Names_0, Names);
+        #{} ->
+            %% First entry for a name
+            load_hosts_list_byname(
+              Fam, IP,
+              BynameMap#{Key => {[IP], Names_0}},
+              Names_0, Names)
+    end.
+
+ets_clean_map_keys(Tab, Map) ->
+    true = ets:safe_fixtable(Tab, true),
+    ets_clean_map_keys(Tab, Map, ets:first(Tab)),
+    true = ets:safe_fixtable(Tab, false),
+    ok.
+%%
+ets_clean_map_keys(_Tab, _Map, '$end_of_table') ->
+    ok;
+ets_clean_map_keys(Tab, Map, Key) ->
+    case maps:is_key(Key, Map) of
+        true ->
+            ets_clean_map_keys(Tab, Map, ets:next(Tab, Key));
+        false ->
+            true = ets:delete(Tab, Key),
+            ets_clean_map_keys(Tab, Map, ets:next(Tab, Key))
+    end.
+
 
 %% Loop over .inetrc option list and call handle_call/3 for each
 %%

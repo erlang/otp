@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,10 +41,10 @@ gethostbyname(_) -> {error, formerr}.
 gethostbyname(Name, Type) when is_list(Name), is_atom(Type) ->
     %% Byname has lowercased names while Byaddr keep the name casing.
     %% This is to be able to reconstruct the original /etc/hosts entry.
-    N = inet_db:tolower(Name),
-    case gethostbyname(N, Type, inet_hosts_byname) of
+    Nm = inet_db:tolower(Name),
+    case gethostbyname(Nm, Type, inet_hosts_byname) of
 	false ->
-	    case gethostbyname(N, Type, inet_hosts_file_byname) of
+	    case gethostbyname(Nm, Type, inet_hosts_file_byname) of
 		false -> {error,nxdomain};
 		Hostent -> {ok,Hostent}
 	    end;
@@ -54,16 +54,12 @@ gethostbyname(Name, Type) when is_atom(Name), is_atom(Type) ->
     gethostbyname(atom_to_list(Name), Type);
 gethostbyname(_, _) -> {error, formerr}.
 
-gethostbyname(Name, Type, Byname) ->
+gethostbyname(Nm, Type, Byname) ->
     inet_db:res_update_hosts(),
-    case ets:lookup(Byname, Name) of
+    case ets:lookup(Byname, {Type, Nm}) of
 	[] -> false;
-	[{Name, IPs, [Primary | Aliases]}] ->
-	    %% Filter by IP type
-	    case lists:filtermap(fun ({IP, T}) when T =:= Type -> {true, IP}; (_) -> false end, IPs) of
-		[] -> false;
-		List -> make_hostent(Primary, List, Aliases, Type)
-	    end
+	[{_, IPs, [Primary | Aliases]}] ->
+            make_hostent(Primary, IPs, Aliases, Type)
     end.
 
 
@@ -96,7 +92,7 @@ gethostbyaddr(IP, Type) ->
 
 gethostbyaddr(IP, Type, Byaddr) ->
     inet_db:res_update_hosts(),
-    case ets:lookup(Byaddr, {IP, Type}) of
+    case ets:lookup(Byaddr, {Type, IP}) of
 	[] -> false;
 	[{_, [Primary | Aliases]}] -> make_hostent(Primary, [IP], Aliases, Type)
     end.
