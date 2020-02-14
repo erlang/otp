@@ -40,7 +40,6 @@ suite() ->
 all() -> 
     [app, appup,
      {group, pem_decode_encode},
-     {group, ssh_public_key_decode_encode},
      encrypt_decrypt,
      {group, sign_verify},
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
@@ -53,14 +52,7 @@ all() ->
      pkix_verify_hostname_options,
      pkix_test_data_all_default,
      pkix_test_data,
-     short_cert_issuer_hash, short_crl_issuer_hash,
-     ssh_hostkey_fingerprint_md5_implicit,
-     ssh_hostkey_fingerprint_md5,
-     ssh_hostkey_fingerprint_sha,
-     ssh_hostkey_fingerprint_sha256,
-     ssh_hostkey_fingerprint_sha384,
-     ssh_hostkey_fingerprint_sha512,
-     ssh_hostkey_fingerprint_list
+     short_cert_issuer_hash, short_crl_issuer_hash
     ].
 
 groups() -> 
@@ -70,13 +62,6 @@ groups() ->
                               ec_pem_encode_generated,
                               gen_ec_param_prime_field, gen_ec_param_char_2_field
                              ]},
-     {ssh_public_key_decode_encode, [],
-      [ssh_rsa_public_key, ssh_dsa_public_key, ssh_ecdsa_public_key,
-       ssh_rfc4716_rsa_comment, ssh_rfc4716_dsa_comment,
-       ssh_rfc4716_rsa_subject,
-       ssh_known_hosts,
-       ssh_auth_keys, ssh1_known_hosts, ssh1_auth_keys, ssh_openssh_public_key_with_comment,
-       ssh_openssh_public_key_long_header]},
      {sign_verify, [], [rsa_sign_verify, dsa_sign_verify]}
     ].
 %%-------------------------------------------------------------------
@@ -118,24 +103,11 @@ init_per_testcase(gen_ec_param_char_2_field=TC, Config) ->
 
 init_per_testcase(TestCase, Config) ->
     case TestCase of
-	ssh_hostkey_fingerprint_md5_implicit -> init_fingerprint_testcase([md5], Config);
-	ssh_hostkey_fingerprint_md5 ->    init_fingerprint_testcase([md5], Config);
-	ssh_hostkey_fingerprint_sha ->    init_fingerprint_testcase([sha], Config);
-	ssh_hostkey_fingerprint_sha256 -> init_fingerprint_testcase([sha256], Config);
-	ssh_hostkey_fingerprint_sha384 -> init_fingerprint_testcase([sha384], Config);
-	ssh_hostkey_fingerprint_sha512 -> init_fingerprint_testcase([sha512], Config);
-	ssh_hostkey_fingerprint_list   -> init_fingerprint_testcase([sha,md5], Config);
-    ec_pem_encode_generated        -> init_ec_pem_encode_generated(Config);
+        ec_pem_encode_generated ->
+            init_ec_pem_encode_generated(Config);
 	_ -> init_common_per_testcase(Config)
     end.
 	
-init_fingerprint_testcase(Algs, Config) ->
-    Hashs = proplists:get_value(hashs, crypto:supports(), []),
-    case Algs -- Hashs of
-        [] -> init_common_per_testcase(Config);
-        UnsupportedAlgs ->  {skip,{UnsupportedAlgs,not_supported}}
-    end.
-
 init_common_per_testcase(Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = ct:timetrap(?TIMEOUT),
@@ -402,313 +374,6 @@ cert_pem(Config) when is_list(Config) ->
     
     asn1_encode_decode(Entry1),
     asn1_encode_decode(Entry2).
-
-%%--------------------------------------------------------------------
-ssh_rsa_public_key() ->
-    [{doc, "ssh rsa public key decode/encode"}].
-ssh_rsa_public_key(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_rsa_pub")),
-    [{PubKey, Attributes1}] = public_key:ssh_decode(RSARawSsh2, public_key),
-    [{PubKey, Attributes1}] = public_key:ssh_decode(RSARawSsh2, rfc4716_public_key),
-
-    {ok, RSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_rsa_pub")),
-    [{PubKey, Attributes2}] = public_key:ssh_decode(RSARawOpenSsh, public_key),
-    [{PubKey, Attributes2}] = public_key:ssh_decode(RSARawOpenSsh, openssh_public_key),
-
-    %% Can not check EncodedSSh == RSARawSsh2 and EncodedOpenSsh
-    %% = RSARawOpenSsh as line breakpoints may differ
-
-    EncodedSSh = public_key:ssh_encode([{PubKey, Attributes1}], rfc4716_public_key),
-    EncodedOpenSsh = public_key:ssh_encode([{PubKey, Attributes2}], openssh_public_key),
-
-    [{PubKey, Attributes1}] =
-	public_key:ssh_decode(EncodedSSh, public_key),
-    [{PubKey, Attributes2}] =
-	public_key:ssh_decode(EncodedOpenSsh, public_key).
-
-%%--------------------------------------------------------------------
-
-ssh_dsa_public_key() ->
-    [{doc, "ssh dsa public key decode/encode"}].
-ssh_dsa_public_key(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, DSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_dsa_pub")),
-    [{PubKey, Attributes1}] = public_key:ssh_decode(DSARawSsh2, public_key),
-    [{PubKey, Attributes1}] = public_key:ssh_decode(DSARawSsh2, rfc4716_public_key),
-
-    {ok, DSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_dsa_pub")),
-    [{PubKey, Attributes2}] = public_key:ssh_decode(DSARawOpenSsh, public_key),
-    [{PubKey, Attributes2}] = public_key:ssh_decode(DSARawOpenSsh, openssh_public_key),
-
-    %% Can not check EncodedSSh == DSARawSsh2 and EncodedOpenSsh
-    %% = DSARawOpenSsh as line breakpoints may differ
-
-    EncodedSSh = public_key:ssh_encode([{PubKey, Attributes1}], rfc4716_public_key),
-    EncodedOpenSsh = public_key:ssh_encode([{PubKey, Attributes2}], openssh_public_key),
-
-    [{PubKey, Attributes1}] =
-	public_key:ssh_decode(EncodedSSh, public_key),
-    [{PubKey, Attributes2}] =
-	public_key:ssh_decode(EncodedOpenSsh, public_key).
-
-%%--------------------------------------------------------------------
-
-ssh_ecdsa_public_key() ->
-    [{doc, "ssh ecdsa public key decode/encode"}].
-ssh_ecdsa_public_key(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, ECDSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_ecdsa_pub")),
-    [{PubKey, Attributes1}] = public_key:ssh_decode(ECDSARawSsh2, public_key),
-    [{PubKey, Attributes1}] = public_key:ssh_decode(ECDSARawSsh2, rfc4716_public_key),
-
-    {ok, ECDSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_ecdsa_pub")),
-    [{PubKey, Attributes2}] = public_key:ssh_decode(ECDSARawOpenSsh, public_key),
-    [{PubKey, Attributes2}] = public_key:ssh_decode(ECDSARawOpenSsh, openssh_public_key),
-
-    %% Can not check EncodedSSh == ECDSARawSsh2 and EncodedOpenSsh
-    %% = ECDSARawOpenSsh as line breakpoints may differ
-
-    EncodedSSh = public_key:ssh_encode([{PubKey, Attributes1}], rfc4716_public_key),
-    EncodedOpenSsh = public_key:ssh_encode([{PubKey, Attributes2}], openssh_public_key),
-
-    [{PubKey, Attributes1}] =
-	public_key:ssh_decode(EncodedSSh, public_key),
-    [{PubKey, Attributes2}] =
-	public_key:ssh_decode(EncodedOpenSsh, public_key).
-
-%%--------------------------------------------------------------------
-ssh_rfc4716_rsa_comment() ->
-    [{doc, "Test comment header and rsa key"}].
-ssh_rfc4716_rsa_comment(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_rsa_comment_pub")),
-    [{#'RSAPublicKey'{} = PubKey, Attributes}] =
-        public_key:ssh_decode(RSARawSsh2, public_key),
-
-    Headers = proplists:get_value(headers, Attributes),
-
-    Value = proplists:get_value("Comment", Headers, undefined),
-    true = Value =/= undefined,
-    RSARawSsh2 = public_key:ssh_encode([{PubKey, Attributes}], rfc4716_public_key).
-
-%%--------------------------------------------------------------------
-ssh_rfc4716_dsa_comment() ->
-     [{doc, "Test comment header and dsa key"}].
-ssh_rfc4716_dsa_comment(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, DSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_dsa_comment_pub")),
-    [{{_, #'Dss-Parms'{}} = PubKey, Attributes}] =
-        public_key:ssh_decode(DSARawSsh2, public_key),
-
-    Headers = proplists:get_value(headers, Attributes),
-
-    Value = proplists:get_value("Comment", Headers, undefined),
-    true = Value =/= undefined,
-
-    %% Can not check Encoded == DSARawSsh2 as line continuation breakpoints may differ
-    Encoded  = public_key:ssh_encode([{PubKey, Attributes}], rfc4716_public_key),
-    [{PubKey, Attributes}] =
-        public_key:ssh_decode(Encoded, public_key).
-
-%%--------------------------------------------------------------------
-ssh_rfc4716_rsa_subject() ->
-    [{doc,  "Test another header value than comment"}].
-ssh_rfc4716_rsa_subject(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, RSARawSsh2} = file:read_file(filename:join(Datadir, "ssh2_subject_pub")),
-    [{#'RSAPublicKey'{} = PubKey, Attributes}] =
-        public_key:ssh_decode(RSARawSsh2, public_key),
-
-    Headers = proplists:get_value(headers, Attributes),
-
-    Value = proplists:get_value("Subject", Headers, undefined),
-    true = Value =/= undefined,
-
-    %% Can not check Encoded == RSARawSsh2 as line continuation breakpoints may differ
-    Encoded  = public_key:ssh_encode([{PubKey, Attributes}], rfc4716_public_key),
-    [{PubKey, Attributes}] =
-        public_key:ssh_decode(Encoded, public_key).
-
-%%--------------------------------------------------------------------
-ssh_known_hosts() ->
-    [{doc, "ssh known hosts file encode/decode"}].
-ssh_known_hosts(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, SshKnownHosts} = file:read_file(filename:join(Datadir, "known_hosts")),
-    [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2},
-     {#'RSAPublicKey'{}, Attributes3}, {#'RSAPublicKey'{}, Attributes4}] = Decoded =
-        public_key:ssh_decode(SshKnownHosts, known_hosts),
-
-    Comment1 = undefined,
-    Comment2 = "foo@bar.com",
-    Comment3 = "Comment with whitespaces",
-    Comment4 = "foo@bar.com Comment with whitespaces",
-    	
-    Comment1 = proplists:get_value(comment, Attributes1, undefined),
-    Comment2 = proplists:get_value(comment, Attributes2),
-    Comment3 = proplists:get_value(comment, Attributes3),
-    Comment4 = proplists:get_value(comment, Attributes4),	
-
-    Value1 = proplists:get_value(hostnames, Attributes1, undefined),
-    Value2 = proplists:get_value(hostnames, Attributes2, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
-
-    Encoded = public_key:ssh_encode(Decoded, known_hosts),
-    Decoded = public_key:ssh_decode(Encoded, known_hosts).
-
-%%--------------------------------------------------------------------
-
-ssh1_known_hosts() ->
-    [{doc, "ssh (ver 1) known hosts file encode/decode"}].
-ssh1_known_hosts(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, SshKnownHosts} = file:read_file(filename:join(Datadir, "ssh1_known_hosts")),
-    [{#'RSAPublicKey'{}, Attributes1}, {#'RSAPublicKey'{}, Attributes2},{#'RSAPublicKey'{}, Attributes3}] 
-	= Decoded = public_key:ssh_decode(SshKnownHosts, known_hosts),
-
-    Value1 = proplists:get_value(hostnames, Attributes1, undefined),
-    Value2 = proplists:get_value(hostnames, Attributes2, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
-
-    Comment ="dhopson@VMUbuntu-DSH comment with whitespaces",
-    Comment = proplists:get_value(comment, Attributes3),
-
-    Encoded = public_key:ssh_encode(Decoded, known_hosts),
-    Decoded = public_key:ssh_decode(Encoded, known_hosts).
-
-%%--------------------------------------------------------------------
-ssh_auth_keys() ->
-    [{doc, "ssh authorized keys file encode/decode"}].
-ssh_auth_keys(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, SshAuthKeys} = file:read_file(filename:join(Datadir, "auth_keys")),
-    [{#'RSAPublicKey'{}, Attributes1}, {{_, #'Dss-Parms'{}}, Attributes2},
-     {#'RSAPublicKey'{}, Attributes3}, {{_, #'Dss-Parms'{}}, Attributes4}
-    ] = Decoded =
-        public_key:ssh_decode(SshAuthKeys, auth_keys),
-
-    Value1 = proplists:get_value(options, Attributes1, undefined),
-    true = Value1 =/= undefined,
-
-    Comment1 = Comment2 = "dhopson@VMUbuntu-DSH",
-    Comment3 = Comment4 ="dhopson@VMUbuntu-DSH comment with whitespaces",
-    
-    Comment1 = proplists:get_value(comment, Attributes1),
-    Comment2 = proplists:get_value(comment, Attributes2),
-    Comment3 = proplists:get_value(comment, Attributes3),
-    Comment4 = proplists:get_value(comment, Attributes4),
-
-    Encoded = public_key:ssh_encode(Decoded, auth_keys),
-    Decoded = public_key:ssh_decode(Encoded, auth_keys).
-
-%%--------------------------------------------------------------------
-ssh1_auth_keys() ->
-    [{doc, "ssh (ver 1) authorized keys file encode/decode"}].
-ssh1_auth_keys(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, SshAuthKeys} = file:read_file(filename:join(Datadir, "ssh1_auth_keys")),
-    [{#'RSAPublicKey'{}, Attributes1},
-     {#'RSAPublicKey'{}, Attributes2}, {#'RSAPublicKey'{}, Attributes3},
-     {#'RSAPublicKey'{}, Attributes4}, {#'RSAPublicKey'{}, Attributes5}] = Decoded =
-        public_key:ssh_decode(SshAuthKeys, auth_keys),
-
-    Value1 = proplists:get_value(bits, Attributes2, undefined),
-    Value2 = proplists:get_value(bits, Attributes3, undefined),
-    true = (Value1 =/= undefined) and (Value2 =/= undefined),
-
-    Comment2 = Comment3 = "dhopson@VMUbuntu-DSH",
-    Comment4 = Comment5 ="dhopson@VMUbuntu-DSH comment with whitespaces",
-    
-    undefined = proplists:get_value(comment, Attributes1, undefined),
-    Comment2 = proplists:get_value(comment, Attributes2),
-    Comment3 = proplists:get_value(comment, Attributes3),
-    Comment4 = proplists:get_value(comment, Attributes4),
-    Comment5 = proplists:get_value(comment, Attributes5),
-
-    Encoded = public_key:ssh_encode(Decoded, auth_keys),
-    Decoded = public_key:ssh_decode(Encoded, auth_keys).
-
-%%--------------------------------------------------------------------
-ssh_openssh_public_key_with_comment() ->
-    [{doc, "Test that emty lines and lines starting with # are ignored"}].
-ssh_openssh_public_key_with_comment(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok, DSARawOpenSsh} = file:read_file(filename:join(Datadir, "openssh_dsa_with_comment_pub")),
-    [{{_, #'Dss-Parms'{}}, _}] = public_key:ssh_decode(DSARawOpenSsh, openssh_public_key).
-
-%%--------------------------------------------------------------------
-ssh_openssh_public_key_long_header() ->
-  [{doc, "Test that long headers are handled"}].
-ssh_openssh_public_key_long_header(Config) when is_list(Config) ->
-    Datadir = proplists:get_value(data_dir, Config),
-
-    {ok,RSARawOpenSsh} = file:read_file(filename:join(Datadir, "ssh_rsa_long_header_pub")),
-    [{#'RSAPublicKey'{}, _}] = Decoded = public_key:ssh_decode(RSARawOpenSsh, public_key),
-
-    Encoded = public_key:ssh_encode(Decoded, rfc4716_public_key),
-    Decoded = public_key:ssh_decode(Encoded, rfc4716_public_key).
-
-%%--------------------------------------------------------------------
-%% Check of different host keys left to later
-ssh_hostkey_fingerprint_md5_implicit(_Config) ->
-    Expected = "4b:0b:63:de:0f:a7:3a:ab:2c:cc:2d:d1:21:37:1d:3a",
-    Expected = public_key:ssh_hostkey_fingerprint(ssh_hostkey(rsa)).
-
-%%--------------------------------------------------------------------
-%% Check of different host keys left to later
-ssh_hostkey_fingerprint_md5(_Config) ->
-    Expected = "MD5:4b:0b:63:de:0f:a7:3a:ab:2c:cc:2d:d1:21:37:1d:3a",
-    Expected = public_key:ssh_hostkey_fingerprint(md5, ssh_hostkey(rsa)).
-
-%%--------------------------------------------------------------------
-%% Since this kind of fingerprint is not available yet on standard
-%% distros, we do like this instead. The Expected is generated with:
-%%       $ openssh-7.3p1/ssh-keygen -E sha1 -lf <file>
-%%       2048 SHA1:Soammnaqg06jrm2jivMSnzQGlmk none@example.org (RSA)
-ssh_hostkey_fingerprint_sha(_Config) ->
-    Expected = "SHA1:Soammnaqg06jrm2jivMSnzQGlmk",
-    Expected = public_key:ssh_hostkey_fingerprint(sha, ssh_hostkey(rsa)).
-
-%%--------------------------------------------------------------------
-%% Since this kind of fingerprint is not available yet on standard
-%% distros, we do like this instead.
-ssh_hostkey_fingerprint_sha256(_Config) ->
-    Expected = "SHA256:T7F1BahkJWR7iJO8+rpzWOPbp7LZP4MlNrDExdNYOvY",
-    Expected = public_key:ssh_hostkey_fingerprint(sha256, ssh_hostkey(rsa)).
-
-%%--------------------------------------------------------------------
-%% Since this kind of fingerprint is not available yet on standard
-%% distros, we do like this instead.
-ssh_hostkey_fingerprint_sha384(_Config) ->
-    Expected = "SHA384:QhkLoGNI4KXdPvC//HxxSCP3uTQVADqxdajbgm+Gkx9zqz8N94HyP1JmH8C4/aEl",
-    Expected = public_key:ssh_hostkey_fingerprint(sha384, ssh_hostkey(rsa)).
-
-%%--------------------------------------------------------------------
-%% Since this kind of fingerprint is not available yet on standard
-%% distros, we do like this instead.
-ssh_hostkey_fingerprint_sha512(_Config) ->
-    Expected = "SHA512:ezUismvm3ADQQb6Nm0c1DwQ6ydInlJNfsnSQejFkXNmABg1Aenk9oi45CXeBOoTnlfTsGG8nFDm0smP10PBEeA",
-    Expected = public_key:ssh_hostkey_fingerprint(sha512, ssh_hostkey(rsa)).
-
-%%--------------------------------------------------------------------
-%% Since this kind of fingerprint is not available yet on standard
-%% distros, we do like this instead.
-ssh_hostkey_fingerprint_list(_Config) ->
-    Expected = ["SHA1:Soammnaqg06jrm2jivMSnzQGlmk",
-                "MD5:4b:0b:63:de:0f:a7:3a:ab:2c:cc:2d:d1:21:37:1d:3a"],
-    Expected = public_key:ssh_hostkey_fingerprint([sha,md5], ssh_hostkey(rsa)).
 
 %%--------------------------------------------------------------------
 encrypt_decrypt() ->
@@ -1412,13 +1077,6 @@ incorrect_emailaddress_pkix_cert() ->
     <<48,130,3,74,48,130,2,50,2,9,0,133,49,203,25,198,156,252,230,48,13,6,9,42,134, 72,134,247,13,1,1,5,5,0,48,103,49,11,48,9,6,3,85,4,6,19,2,65,85,49,19,48,17, 6,3,85,4,8,12,10,83,111,109,101,45,83,116,97,116,101,49,33,48,31,6,3,85,4,10, 12,24,73,110,116,101,114,110,101,116,32,87,105,100,103,105,116,115,32,80,116, 121,32,76,116,100,49,32,48,30,6,9,42,134,72,134,247,13,1,9,1,12,17,105,110, 118,97,108,105,100,64,101,109,97,105,108,46,99,111,109,48,30,23,13,49,51,49, 49,48,55,50,48,53,54,49,56,90,23,13,49,52,49,49,48,55,50,48,53,54,49,56,90, 48,103,49,11,48,9,6,3,85,4,6,19,2,65,85,49,19,48,17,6,3,85,4,8,12,10,83,111, 109,101,45,83,116,97,116,101,49,33,48,31,6,3,85,4,10,12,24,73,110,116,101, 114,110,101,116,32,87,105,100,103,105,116,115,32,80,116,121,32,76,116,100,49, 32,48,30,6,9,42,134,72,134,247,13,1,9,1,12,17,105,110,118,97,108,105,100,64, 101,109,97,105,108,46,99,111,109,48,130,1,34,48,13,6,9,42,134,72,134,247,13, 1,1,1,5,0,3,130,1,15,0,48,130,1,10,2,130,1,1,0,190,243,49,213,219,60,232,105, 1,127,126,9,130,15,60,190,78,100,148,235,246,223,21,91,238,200,251,84,55,212, 78,32,120,61,85,172,0,144,248,5,165,29,143,79,64,178,51,153,203,76,115,238, 192,49,173,37,121,203,89,62,157,13,181,166,30,112,154,40,202,140,104,211,157, 73,244,9,78,236,70,153,195,158,233,141,42,238,2,143,160,225,249,27,30,140, 151,176,43,211,87,114,164,108,69,47,39,195,123,185,179,219,28,218,122,53,83, 77,48,81,184,14,91,243,12,62,146,86,210,248,228,171,146,225,87,51,146,155, 116,112,238,212,36,111,58,41,67,27,6,61,61,3,84,150,126,214,121,57,38,12,87, 121,67,244,37,45,145,234,131,115,134,58,194,5,36,166,52,59,229,32,47,152,80, 237,190,58,182,248,98,7,165,198,211,5,31,231,152,116,31,108,71,218,64,188, 178,143,27,167,79,15,112,196,103,116,212,65,197,94,37,4,132,103,91,217,73, 223,207,185,7,153,221,240,232,31,44,102,108,82,83,56,242,210,214,74,71,246, 177,217,148,227,220,230,4,176,226,74,194,37,2,3,1,0,1,48,13,6,9,42,134,72, 134,247,13,1,1,5,5,0,3,130,1,1,0,89,247,141,154,173,123,123,203,143,85,28,79, 73,37,164,6,17,89,171,224,149,22,134,17,198,146,158,192,241,41,253,58,230, 133,71,189,43,66,123,88,15,242,119,227,249,99,137,61,200,54,161,0,177,167, 169,114,80,148,90,22,97,78,162,181,75,93,209,116,245,46,81,232,64,157,93,136, 52,57,229,113,197,218,113,93,42,161,213,104,205,137,30,144,183,58,10,98,47, 227,177,96,40,233,98,150,209,217,68,22,221,133,27,161,152,237,46,36,179,59, 172,97,134,194,205,101,137,71,192,57,153,20,114,27,173,233,166,45,56,0,61, 205,45,202,139,7,132,103,248,193,157,184,123,43,62,172,236,110,49,62,209,78, 249,83,219,133,1,213,143,73,174,16,113,143,189,41,84,60,128,222,30,177,104, 134,220,52,239,171,76,59,176,36,113,176,214,118,16,44,235,21,167,199,216,200, 76,219,142,248,13,70,145,205,216,230,226,148,97,223,216,179,68,209,222,63, 140,137,24,164,192,149,194,79,119,247,75,159,49,116,70,241,70,116,11,40,119, 176,157,36,160,102,140,255,34,248,25,231,136,59>>.
 
 
-
-ssh_hostkey(rsa) ->
-    [{PKdecoded,_}] =
-	public_key:ssh_decode(
-	  <<"ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDYXcYmsyJBstl4EfFYzfQJmSiUE162zvSGSoMYybShYOI6rnnyvvihfw8Aml+2gZ716F2tqG48FQ/yPZEGWNPMrCejPpJctaPWhpNdNMJ8KFXSEgr5bY2mEpa19DHmuDeXKzeJJ+X7s3fVdYc4FMk5731KIW6Huf019ZnTxbx0VKG6b1KAJBg3vpNsDxEMwQ4LFMB0JHVklOTzbxmpaeULuIxvl65A+eGeFVeo2Q+YI9UnwY1vSgmc9Azwy8Ie9Z0HpQBN5I7Uc5xnknT8V6xDhgNfXEfzsgsRdDfZLECt1WO/1gP9wkosvAGZWt5oG8pbNQWiQdFq536ck8WQD9WD none@example.org">>,
-	  public_key),
-    PKdecoded.
 
 hardcode_rsa_key() ->
     #'RSAPrivateKey'{
