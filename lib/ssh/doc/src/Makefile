@@ -55,7 +55,8 @@ XML_CHAPTER_FILES = \
 	using_ssh.xml \
 	terminology.xml \
 	configurations.xml \
-	configure_algos.xml
+	configure_algos.xml \
+	hardening.xml
 
 BOOK_FILES = book.xml
 
