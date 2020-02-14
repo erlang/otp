@@ -145,6 +145,11 @@ coverage(Config) when is_list(Config) ->
     ok = receive_sink_tuple({any,pattern}),
     {b,a} = receive_sink_tuple({a,b}),
 
+    %% Basically a smoke test of no_clauses_left/0.
+    NoClausesLeft = spawn(fun no_clauses_left/0),
+    receive after 1 -> ok end,
+    exit(NoClausesLeft, kill),
+
     ok.
 
 monitor_plus_badmap(Pid) ->
@@ -192,6 +197,16 @@ tuple_to_values(Timeout, X) ->
 		    end
 	    end,
     A+B.
+
+no_clauses_left() ->
+    receive
+        %% This clause would be removed because it cannot match...
+        a = b ->
+            V = whatever
+    end,
+    %% ... leaving a reference to an unbound variable. Crash.
+    V.
+
 
 %% Cover a help function for beam_ssa_opt:ssa_opt_sink/1.
 receive_sink_tuple({Line,Pattern}) ->

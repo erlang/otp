@@ -2191,6 +2191,20 @@ uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
 	    uexprs([#icase{anno=A,args=[Arg],
 			   clauses=[Mc],fc=Fc}], Ks, St0)
     end;
+uexprs([#ireceive1{clauses=[]}=Le0|_], Ks, St0) ->
+    %% All clauses have been optimized away because they had impossible patterns.
+    %% For example:
+    %%
+    %%     receive
+    %%         a = b ->
+    %%             V = whatever
+    %%     end,
+    %%     V
+    %%
+    %% Discard the unreachable code following the receive to ensure
+    %% that there are no references to unbound variables.
+    {Le1,St1} = uexpr(Le0, Ks, St0),
+    {[Le1],St1};
 uexprs([Le0|Les0], Ks, St0) ->
     {Le1,St1} = uexpr(Le0, Ks, St0),
     {Les1,St2} = uexprs(Les0, union((get_anno(Le1))#a.ns, Ks), St1),
