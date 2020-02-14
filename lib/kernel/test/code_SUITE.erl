@@ -28,7 +28,7 @@
 	 delete/1, purge/1, purge_many_exits/0, purge_many_exits/1,
          soft_purge/1, is_loaded/1, all_loaded/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
-	 upgrade/1,
+	 upgrade/0, upgrade/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
 	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 where_is_file/1,
@@ -522,6 +522,9 @@ load_binary(Config) when is_list(Config) ->
     code:delete(code_b_test),
     ok.
 
+
+upgrade() ->
+    [{timetrap,{minutes,2}}].
 
 upgrade(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
