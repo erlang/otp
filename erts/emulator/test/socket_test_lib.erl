@@ -194,49 +194,34 @@ which_local_host_info(Domain) ->
 
 which_local_host_info(_Domain, []) ->
     {error, no_address};
-which_local_host_info(Domain, [{"lo" ++ _, _}|IFL]) ->
-    which_local_host_info(Domain, IFL);
 which_local_host_info(Domain, [{"docker" ++ _, _}|IFL]) ->
     which_local_host_info(Domain, IFL);
 which_local_host_info(Domain, [{"br-" ++ _, _}|IFL]) ->
     which_local_host_info(Domain, IFL);
 which_local_host_info(Domain, [{Name, IFO}|IFL]) ->
-    try which_local_host_info2(Domain, IFO) of
-        Info ->
-            {ok, Info#{name => Name}}
-    catch
-        throw:_:_ ->
+    case if_is_running_and_not_loopback(IFO) of
+        true ->
+            try which_local_host_info2(Domain, IFO) of
+                Info ->
+                    {ok, Info#{name => Name}}
+            catch
+                throw:_:_ ->
+                    which_local_host_info(Domain, IFL)
+            end;
+        false ->
             which_local_host_info(Domain, IFL)
     end;
 which_local_host_info(Domain, [_|IFL]) ->
     which_local_host_info(Domain, IFL).
 
-%% which_local_host_info2(Domain, IFO) ->
-%%     case lists:keysearch(flags, 1, IFO) of
-%%         {value, {flags, Flags}} ->
-%%             which_local_host_info2(Domain, IFO, Flags);
-%%         false ->
-%%             {error, no_flags}
-%%     end.
+if_is_running_and_not_loopback(If) ->
+    lists:keymember(flags, 1, If) andalso
+        begin
+            {value, {flags, Flags}} = lists:keysearch(flags, 1, If),
+            (not lists:member(loopback, Flags)) andalso
+                lists:member(running, Flags)
+        end.
 
-
-%% which_local_host_info2(_Domain, [], _Flags) ->
-%%     {error, no_address};
-%% which_local_host_info2(inet = _Domain, [{addr, Addr}|_IFO], Flags)
-%%   when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
-%%     {ok, {Flags, Addr}};
-%% which_local_host_info2(inet6 = _Domain, [{addr, Addr}|_IFO], Flags)
-%%   when (size(Addr) =:= 8) andalso 
-%%        (element(1, Addr) =/= 0) andalso
-%%        (element(1, Addr) =/= 16#fe80) ->
-%%     {ok, {Flags, Addr}};
-%% which_local_host_info2(Domain, [_|IFO], Flags) ->
-%%     which_local_host_info2(Domain, IFO, Flags).
-
-%% foo(Info, inet = Domain, IFO) ->
-%%     foo(Info, Domain, IFO, [flags, addr, netmask, broadaddr, hwaddr]);
-%% foo(Info, inet6 = Domain, IFO) ->
-%%     foo(Info, Domain, IFO, [flags, addr, netmask, hwaddr]).
 
 which_local_host_info2(inet = _Domain, IFO) ->
     Addr      = which_local_host_info3(addr,  IFO,
