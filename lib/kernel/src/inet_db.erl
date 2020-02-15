@@ -1184,7 +1184,7 @@ handle_set_file(
 	    File = filename:flatten(Fname),
 	    ets:insert(Db, {res_optname(Option), File}),
 	    ets:insert(Db, {TagInfo, undefined}),
-	    TimeZero = - (?RES_FILE_UPDATE_TM + 1), % Early enough
+	    TimeZero = times() - (?RES_FILE_UPDATE_TM + 1), % Early enough
 	    ets:insert(Db, {TagTm, TimeZero}),
 	    {reply,ok,State};
 	true ->
@@ -1554,8 +1554,9 @@ cache_rr(_Db, Cache, RR) ->
     ets:insert(Cache, RR).
 
 times() ->
-    erlang:convert_time_unit(erlang:monotonic_time() - erlang:system_info(start_time),
-			     native, second).
+    erlang:monotonic_time(second).
+    %% erlang:convert_time_unit(erlang:monotonic_time() - erlang:system_info(start_time),
+    %%     		     native, second).
 
 %% lookup and remove old entries
 
