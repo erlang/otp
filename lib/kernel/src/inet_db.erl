@@ -229,9 +229,11 @@ set_edns(Version) -> res_option(edns, Version).
 
 set_udp_payload_size(Size) -> res_option(udp_payload_size, Size).
 
-set_resolv_conf(Fname) -> res_option(resolv_conf, Fname).
+set_resolv_conf(Fname) when is_list(Fname) ->
+    res_option(resolv_conf, Fname).
 
-set_hosts_file(Fname) -> res_option(hosts_file, Fname).
+set_hosts_file(Fname) when is_list(Fname) ->
+    res_option(hosts_file, Fname).
 
 get_hosts_file() ->
     get_rc_hosts([], [], inet_hosts_file_byaddr).
@@ -495,41 +497,19 @@ socks_option(noproxy) -> db_get(socks5_noproxy).
 gethostname()         -> db_get(hostname).
 
 res_update_conf() ->
-    res_update(res_resolv_conf, res_resolv_conf_tm, res_resolv_conf_info,
-	       set_resolv_conf_tm, fun set_resolv_conf/1).
+    res_update(resolv_conf, res_resolv_conf_tm).
 
 res_update_hosts() ->
-    res_update(res_hosts_file, res_hosts_file_tm, res_hosts_file_info,
-	       set_hosts_file_tm, fun set_hosts_file/1).
+    res_update(hosts_file, res_hosts_file_tm).
 
-res_update(Tag, TagTm, TagInfo, TagSetTm, SetFun) ->
+res_update(Option, TagTm) ->
     case db_get(TagTm) of
 	undefined -> ok;
-	TM ->
+	Tm ->
 	    case times() of
-		Now when Now >= TM + ?RES_FILE_UPDATE_TM ->
-		    case db_get(Tag) of
-			undefined ->
-			    SetFun("");
-			"" ->
-			    SetFun("");
-			File ->
-			    case erl_prim_loader:read_file_info(File) of
-				{ok, Finfo0} ->
-				    Finfo =
-					Finfo0#file_info{access = undefined,
-							 atime = undefined},
-				    case db_get(TagInfo) of
-					Finfo ->
-					    call({TagSetTm, Now});
-					_ ->
-					    SetFun(File)
-				    end;
-				_ ->
-				    call({TagSetTm, Now}),
-				    error
-			    end
-		    end;
+		Now when Now >= Tm + ?RES_FILE_UPDATE_TM ->
+                    %% Enough time has passed - request server to update
+                    res_option(Option, Tm);
 		_ -> ok
 	    end
     end.
@@ -979,12 +959,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	      Option, Fname, res_resolv_conf_tm, res_resolv_conf_info,
 	      undefined, From, State);
 
-	{res_set, hosts_file=Option, Fname} ->
+	{res_set, hosts_file=Option, Fname_or_Tm} ->
 	    handle_set_file(
-	      Option, Fname, res_hosts_file_tm, res_hosts_file_info,
-	      fun (Bin) ->
+	      Option, Fname_or_Tm, res_hosts_file_tm, res_hosts_file_info,
+	      fun (File, Bin) ->
 		      case inet_parse:hosts(
-			     Fname, {chars,Bin}) of
+			     File, {chars,Bin}) of
 			  {ok,Opts} ->
 			      [{load_hosts_file,Opts}];
 			  _ -> error
@@ -992,12 +972,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	      end,
 	      From, State);
 	%%
-	{res_set, resolv_conf=Option, Fname} ->
+	{res_set, resolv_conf=Option, Fname_or_Tm} ->
 	    handle_set_file(
-	      Option, Fname, res_resolv_conf_tm, res_resolv_conf_info,
-	      fun (Bin) ->
+	      Option, Fname_or_Tm, res_resolv_conf_tm, res_resolv_conf_info,
+	      fun (File, Bin) ->
 		      case inet_parse:resolv(
-			     Fname, {chars,Bin}) of
+			     File, {chars,Bin}) of
 			  {ok,Opts} ->
 			      Search =
 				  lists:foldl(
@@ -1170,15 +1150,37 @@ terminate(_Reason, State) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
-handle_set_file(Option, Fname, TagTm, TagInfo, ParseFun, From,
-		#state{db=Db}=State) ->
+handle_set_file(
+  Option, Tm, TagTm, TagInfo, ParseFun, From, #state{db=Db}=State)
+  when is_integer(Tm) ->
+    %%
+    %% Maybe update file content
+    %%
+    case ets:lookup(Db, TagTm) of
+        [] ->
+            %% Option no longer set - ignore update
+            {reply, ok, State};
+        [{_, Tm}] ->
+            %% Current update request
+            [{_, File}] = ets:lookup(Db, res_optname(Option)),
+            [{_, Finfo}] = ets:lookup(Db, TagInfo),
+            handle_update_file(
+              Finfo, File, TagTm, TagInfo, ParseFun, From, State);
+        [_] ->
+            %% Late request - ignore update
+            {reply, ok, State}
+    end;
+handle_set_file(
+  Option, Fname, TagTm, TagInfo, ParseFun, From, #state{db=Db}=State) ->
     case res_check_option(Option, Fname) of
 	true when Fname =:= "" ->
+            %% Delete file content and monitor
 	    ets:insert(Db, {res_optname(Option), Fname}),
 	    ets:delete(Db, TagInfo),
 	    ets:delete(Db, TagTm),
-	    handle_set_file(ParseFun, <<>>, From, State);
+	    handle_set_file(ParseFun, Fname, <<>>, From, State);
 	true when ParseFun =:= undefined ->
+            %% Set file name and monitor
 	    File = filename:flatten(Fname),
 	    ets:insert(Db, {res_optname(Option), File}),
 	    ets:insert(Db, {TagInfo, undefined}),
@@ -1186,35 +1188,46 @@ handle_set_file(Option, Fname, TagTm, TagInfo, ParseFun, From,
 	    ets:insert(Db, {TagTm, TimeZero}),
 	    {reply,ok,State};
 	true ->
+            %% Set file name and monitor, read content
 	    File = filename:flatten(Fname),
 	    ets:insert(Db, {res_optname(Option), File}),
-	    Bin =
-		case erl_prim_loader:read_file_info(File) of
-		    {ok, Finfo0} ->
-			Finfo = Finfo0#file_info{access = undefined,
-						 atime = undefined},
-			ets:insert(Db, {TagInfo, Finfo}),
-			ets:insert(Db, {TagTm, times()}),
-			case erl_prim_loader:get_file(File) of
-			    {ok, B, _} -> B;
-			    _ -> <<>>
-			end;
-		    _ ->
-                        ets:insert(Db, {TagInfo, undefined}),
-                        TimeZero = - (?RES_FILE_UPDATE_TM + 1), % Early enough
-                        ets:insert(Db, {TagTm, TimeZero}),
-                        <<>>
-		end,
-	    handle_set_file(ParseFun, Bin, From, State);
+            handle_update_file(
+              undefined, File, TagTm, TagInfo, ParseFun, From, State);
 	false -> {reply,error,State}
     end.
 
-handle_set_file(ParseFun, Bin, From, State) ->
-    case ParseFun(Bin) of
+handle_set_file(ParseFun, File, Bin, From, State) ->
+    case ParseFun(File, Bin) of
 	error ->
 	    {reply,error,State};
 	Opts ->
 	    handle_rc_list(Opts, From, State)
+    end.
+
+handle_update_file(
+  Finfo, File, TagTm, TagInfo, ParseFun, From, #state{db = Db} = State) ->
+    %%
+    %% Update file content if file has been updated
+    %%
+    case erl_prim_loader:read_file_info(File) of
+        {ok, Finfo} ->
+            %% No file update - we are done
+            {reply, ok, State};
+        {ok, Finfo_1} ->
+            %% File updated - read content
+            ets:insert(Db, {TagInfo, Finfo_1}),
+            ets:insert(Db, {TagTm, times()}),
+            Bin =
+                case erl_prim_loader:get_file(File) of
+                    {ok, B, _} -> B;
+                    _ -> <<>>
+                end,
+            handle_set_file(ParseFun, File, Bin, From, State);
+        _ ->
+            %% No file - clear content and reset monitor
+            ets:insert(Db, {TagInfo, undefined}),
+            ets:insert(Db, {TagTm, times()}),
+            handle_set_file(ParseFun, File, <<>>, From, State)
     end.
 
 %% Byname has lowercased names while Byaddr keep the name casing.
