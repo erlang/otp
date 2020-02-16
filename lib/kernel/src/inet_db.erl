@@ -515,9 +515,8 @@ res_update(Option, TagTm) ->
     end.
 
 db_get(Name) ->
-    case ets:lookup(inet_db, Name) of
-	[] -> undefined;
-	[{_,Val}] -> Val
+    try ets:lookup_element(inet_db, Name, 2)
+    catch error:badarg -> undefined
     end.
 
 add_rr(RR) ->
@@ -839,29 +838,31 @@ init([]) ->
 		cache_timer = init_timer() }}.
 
 reset_db(Db) ->
-    ets:insert(Db, {hostname, []}),
-    ets:insert(Db, {res_ns, []}),
-    ets:insert(Db, {res_alt_ns, []}),
-    ets:insert(Db, {res_search, []}),
-    ets:insert(Db, {res_domain, ""}),
-    ets:insert(Db, {res_lookup, []}),
-    ets:insert(Db, {res_recurse, true}),
-    ets:insert(Db, {res_usevc, false}),
-    ets:insert(Db, {res_id, 0}),
-    ets:insert(Db, {res_retry, ?RES_RETRY}),
-    ets:insert(Db, {res_timeout, ?RES_TIMEOUT}),
-    ets:insert(Db, {res_inet6, false}),
-    ets:insert(Db, {res_edns, false}),
-    ets:insert(Db, {res_udp_payload_size, ?DNS_UDP_PAYLOAD_SIZE}),
-    ets:insert(Db, {cache_size, ?CACHE_LIMIT}),
-    ets:insert(Db, {cache_refresh_interval,?CACHE_REFRESH}),
-    ets:insert(Db, {socks5_server, ""}),
-    ets:insert(Db, {socks5_port, ?IPPORT_SOCKS}),
-    ets:insert(Db, {socks5_methods, [none]}),
-    ets:insert(Db, {socks5_noproxy, []}),
-    ets:insert(Db, {tcp_module,  ?DEFAULT_TCP_MODULE}),
-    ets:insert(Db, {udp_module,  ?DEFAULT_UDP_MODULE}),
-    ets:insert(Db, {sctp_module, ?DEFAULT_SCTP_MODULE}).
+    ets:insert(
+      Db,
+      [{hostname, []},
+       {res_ns, []},
+       {res_alt_ns, []},
+       {res_search, []},
+       {res_domain, ""},
+       {res_lookup, []},
+       {res_recurse, true},
+       {res_usevc, false},
+       {res_id, 0},
+       {res_retry, ?RES_RETRY},
+       {res_timeout, ?RES_TIMEOUT},
+       {res_inet6, false},
+       {res_edns, false},
+       {res_udp_payload_size, ?DNS_UDP_PAYLOAD_SIZE},
+       {cache_size, ?CACHE_LIMIT},
+       {cache_refresh_interval,?CACHE_REFRESH},
+       {socks5_server, ""},
+       {socks5_port, ?IPPORT_SOCKS},
+       {socks5_methods, [none]},
+       {socks5_noproxy, []},
+       {tcp_module,  ?DEFAULT_TCP_MODULE},
+       {udp_module,  ?DEFAULT_UDP_MODULE},
+       {sctp_module, ?DEFAULT_SCTP_MODULE}]).
 
 %%----------------------------------------------------------------------
 %% Func: handle_call/3
@@ -925,7 +926,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    case res_check_option(Opt, El) of
 		true ->
 		    Optname = res_optname(Opt),
-		    [{_,Es}] = ets:lookup(Db, Optname),
+		    Es = ets:lookup_element(Db, Optname, 2),
 		    NewEs = case Op of
 				ins -> [E | lists_delete(E, Es)];
 				add -> lists_delete(E, Es) ++ El;
@@ -1031,13 +1032,13 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    {reply, ok, State};
 
 	{add_socks_methods, Ls} -> 
-	    [{_,As}] = ets:lookup(Db, socks5_methods),
+	    As = ets:lookup_element(Db, socks5_methods, 2),
 	    As1 = lists_subtract(As, Ls),
 	    ets:insert(Db, {socks5_methods, As1 ++ Ls}),
 	    {reply, ok, State};
 	    
 	{del_socks_methods, Ls} ->
-	    [{_,As}] = ets:lookup(Db, socks5_methods),
+	    As = ets:lookup_element(Db, socks5_methods, 2),
 	    As1 = lists_subtract(As, Ls),
 	    case lists:member(none, As1) of
 		false -> ets:insert(Db, {socks5_methods, As1 ++ [none]});
@@ -1051,12 +1052,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 
 	{add_socks_noproxy, {{A,B,C,D},{MA,MB,MC,MD}}} 
 	when ?ip(A,B,C,D), ?ip(MA,MB,MC,MD) ->
-	    [{_,As}] = ets:lookup(Db, socks5_noproxy),
+	    As = ets:lookup_element(Db, socks5_noproxy, 2),
 	    ets:insert(Db, {socks5_noproxy, As++[{{A,B,C,D},{MA,MB,MC,MD}}]}),
 	    {reply, ok, State};
 
 	{del_socks_noproxy, {A,B,C,D}=IP} when ?ip(A,B,C,D) ->
-	    [{_,As}] = ets:lookup(Db, socks5_noproxy),
+	    As = ets:lookup_element(Db, socks5_noproxy, 2),
 	    ets:insert(Db, {socks5_noproxy, lists_keydelete(IP, 1, As)}),
 	    {reply, ok, State};
 
@@ -1156,18 +1157,18 @@ handle_set_file(
     %%
     %% Maybe update file content
     %%
-    case ets:lookup(Db, TagTm) of
-        [] ->
-            %% Option no longer set - ignore update
-            {reply, ok, State};
-        [{_, Tm}] ->
+    try ets:lookup_element(Db, TagTm, 2) of
+        Tm ->
             %% Current update request
-            [{_, File}] = ets:lookup(Db, res_optname(Option)),
-            [{_, Finfo}] = ets:lookup(Db, TagInfo),
+            File = ets:lookup_element(Db, res_optname(Option), 2),
+            Finfo = ets:lookup_element(Db, TagInfo, 2),
             handle_update_file(
               Finfo, File, TagTm, TagInfo, ParseFun, From, State);
-        [_] ->
+        _ ->
             %% Late request - ignore update
+            {reply, ok, State}
+    catch error:badarg ->
+            %% Option no longer set - ignore update
             {reply, ok, State}
     end;
 handle_set_file(
@@ -1237,8 +1238,8 @@ do_add_host(Byname, Byaddr, Names, Type, IP) ->
     Nms = [tolower(Nm) || Nm <- Names],
     add_ip_bynms(Byname, Type, IP, Nms, Names),
     Key = {Type, IP},
-    case ets:lookup(Byaddr, Key) of
-        [{_Key, Names_0}] ->
+    try ets:lookup_element(Byaddr, Key, 2) of
+        Names_0 ->
             %% Delete IP address from byname entries
             NmsSet = % Set of new tolower(Name)s
                 lists:foldl(
@@ -1248,8 +1249,8 @@ do_add_host(Byname, Byaddr, Names, Type, IP) ->
             del_ip_bynms(
               Byname, Type, IP,
               [Nm || Nm <- [tolower(Name) || Name <- Names_0],
-                     not maps:is_key(Nm, NmsSet)]);
-        [] ->
+                     not maps:is_key(Nm, NmsSet)])
+    catch error:badarg ->
             ok
     end,
     %% Replace the entry in the byaddr table
@@ -1259,16 +1260,16 @@ do_add_host(Byname, Byaddr, Names, Type, IP) ->
 do_del_host(Byname, Byaddr, IP) ->
     Fam = inet_family(IP),
     Key = {Fam, IP},
-    case ets:lookup(Byaddr, Key) of
-        [{_Key, Names}] ->
+    try ets:lookup_element(Byaddr, Key, 2) of
+        Names ->
             %% Delete IP address from byname entries
             del_ip_bynms(
               Byname, Fam, IP,
               [tolower(Name) || Name <- Names]),
             %% Delete from byaddr table
             true = ets:delete(Byaddr, Key),
-            ok;
-        [] ->
+            ok
+    catch error:badarg ->
             ok
     end.
 
@@ -1690,12 +1691,12 @@ do_refresh_cache(Key, CacheDb, Now, OldestT) ->
 %% -------------------------------------------------------------------
 alloc_entry(Db, CacheDb, TM) ->
     CurSize = ets:info(CacheDb, size),
-    case ets:lookup(Db, cache_size) of
-	[{cache_size, Size}] when Size =< CurSize, Size > 0 ->
+    case ets:lookup_element(Db, cache_size, 2) of
+	Size when Size =< CurSize, Size > 0 ->
 	    alloc_entry(CacheDb, CurSize, TM, trunc(Size * 0.1) + 1);
-	[{cache_size, Size}] when Size =< 0 ->
+	Size when Size =< 0 ->
 	    false;
-	_ ->
+	_Size ->
 	    true
     end.
 
