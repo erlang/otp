@@ -3134,8 +3134,7 @@ Sint erts_cmp_compound(Eterm a, Eterm b, int exact, int eq_only)
             if((AN)->sysname != (BN)->sysname)				\
                 RETURN_NEQ(erts_cmp_atoms((AN)->sysname, (BN)->sysname));	\
 	    ASSERT((AN)->creation != (BN)->creation);			\
-            if ((AN)->creation != 0 && (BN)->creation != 0)             \
-                RETURN_NEQ(((AN)->creation < (BN)->creation) ? -1 : 1);	\
+	    RETURN_NEQ(((AN)->creation < (BN)->creation) ? -1 : 1);	\
 	}								\
     } while (0)
 

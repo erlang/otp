@@ -168,8 +168,6 @@ t_list_to_ext_pidportref(Config) when is_list(Config) ->
 
     %% And it works when sent back to the same node instance,
     %% which was connected when list_to_* were called.
-    %% Prior to OTP-23 it worked toward any node instance with same name
-    %% as 0-creations are converted to local node creations.
     true = rpc:call(Node, erlang, '=:=', [Pid, Pid2]),
     true = rpc:call(Node, erlang, '==',  [Pid, Pid2]),
     true = rpc:call(Node, erlang, '=:=', [Port, Port2]),
@@ -177,8 +175,56 @@ t_list_to_ext_pidportref(Config) when is_list(Config) ->
     true = rpc:call(Node, erlang, '=:=', [Ref, Ref2]),
     true = rpc:call(Node, erlang, '==',  [Ref, Ref2]),
 
+    %% Make sure no ugly comparison with 0-creation as wildcard is done.
+    Pid0 = make_0_creation(Pid),
+    Port0 = make_0_creation(Port),
+    Ref0 = make_0_creation(Ref),
+    false = (Pid =:= Pid0),
+    false = (Port =:= Port0),
+    false = (Ref =:= Ref0),
+    false = (Pid == Pid0),
+    false = (Port == Port0),
+    false = (Ref == Ref0),
+
+    %% Check 0-creations are converted to local node creations
+    %% when sent to matching node name.
+    true = rpc:call(Node, erlang, '=:=', [Pid, Pid0]),
+    true = rpc:call(Node, erlang, '==',  [Pid, Pid0]),
+    true = rpc:call(Node, erlang, '=:=', [Port, Port0]),
+    true = rpc:call(Node, erlang, '==',  [Port, Port0]),
+    true = rpc:call(Node, erlang, '=:=', [Ref, Ref0]),
+    true = rpc:call(Node, erlang, '==',  [Ref, Ref0]),
+
     slave:stop(Node),
     ok.
+
+-define(NEW_PID_EXT, 88).
+-define(NEW_PORT_EXT, 89).
+-define(NEWER_REFERENCE_EXT, 90).
+
+%% Copy pid/port/ref but set creation=0
+make_0_creation(X) when is_pid(X); is_port(X); is_reference(X) ->
+    B = term_to_binary(X),
+    Sz = byte_size(B),
+    B2 = case B of
+             <<131, ?NEW_PID_EXT, _/binary>> ->
+                 PreSz = Sz - 4,
+                 <<_:PreSz/binary, Cr:32>> = B,
+                 true = (Cr =/= 0),
+                 <<B:PreSz/binary, 0:32>>;
+             <<131, ?NEW_PORT_EXT, _/binary>> ->
+                 PreSz = Sz - 4,
+                 <<_:PreSz/binary, Cr:32>> = B,
+                 true = (Cr =/= 0),
+                 <<B:PreSz/binary, 0:32>>;
+             <<131, ?NEWER_REFERENCE_EXT, Len:16, _/binary>> ->
+                 PostSz = Len*4,
+                 PreSz = Sz - (4 + PostSz),
+                 <<_:PreSz/binary, Cr:32, PostFix:PostSz/binary>> = B,
+                 true = (Cr =/= 0),
+                 <<B:PreSz/binary, 0:32, PostFix/binary>>
+         end,
+    binary_to_term(B2).
 
 
 %% Test list_to_float/1 with correct and incorrect arguments.
