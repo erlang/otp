@@ -2194,30 +2194,30 @@ create_binders(Context, [{_, _, _, PSK, _, HKDF}|T], Acc) ->
 %%     PskBinderEntry binders<33..2^16-1>;
 %% } OfferedPsks;
 truncate_client_hello(HelloBin0) ->
-    HelloBin1 = remove_binders(HelloBin0),
-    {Truncated, _} = split_binary(HelloBin1, size(HelloBin1) - 2),
+    <<?BYTE(Type), ?UINT24(_Length), Body/binary>> = HelloBin0,
+    CH0 = #client_hello{
+             extensions = #{pre_shared_key := PSK0} = Extensions0} =
+        tls_handshake:decode_handshake({3,4}, Type, Body),
+    #pre_shared_key_client_hello{offered_psks = OfferedPsks0} = PSK0,
+    OfferedPsks = OfferedPsks0#offered_psks{binders = []},
+    PSK = PSK0#pre_shared_key_client_hello{offered_psks = OfferedPsks},
+    Extensions = Extensions0#{pre_shared_key => PSK},
+    CH = CH0#client_hello{extensions = Extensions},
+
+    %% Decoding a ClientHello from an another TLS implementation can contain
+    %% unsupported extensions and thus executing decoding and encoding on
+    %% the input can result in a different handshake binary.
+    %% The original length of the binders can still be determined by
+    %% re-encoding the original ClientHello and using its size as reference
+    %% when we substract the size of the truncated binary.
+    TruncatedSize = iolist_size(tls_handshake:encode_handshake(CH, {3,4})),
+    RefSize = iolist_size(tls_handshake:encode_handshake(CH0, {3,4})),
+    BindersSize = RefSize - TruncatedSize,
+
+    %% Return the truncated ClientHello by cutting of the binders from the original
+    %% ClientHello binary.
+    {Truncated, _} = split_binary(HelloBin0, size(HelloBin0) - BindersSize - 2),
     Truncated.
-
-
-remove_binders(Binary0) ->
-    OrigSize = byte_size(Binary0),
-    HashSize256 = ssl_cipher:hash_size(sha256),
-    HashSize384 = ssl_cipher:hash_size(sha384),
-    HashSize512 = ssl_cipher:hash_size(sha512),
-
-    NewSize256 = OrigSize - HashSize256 - 1,
-    NewSize384 = OrigSize - HashSize384 - 1,
-    NewSize512 = OrigSize - HashSize512 - 1,
-    case Binary0 of
-        <<Binary:NewSize256/binary,?BYTE(HashSize256),_:HashSize256/binary>> ->
-            remove_binders(Binary);
-        <<Binary:NewSize384/binary,?BYTE(HashSize384),_:HashSize384/binary>> ->
-            remove_binders(Binary);
-        <<Binary:NewSize512/binary,?BYTE(HashSize512),_:HashSize512/binary>> ->
-            remove_binders(Binary);
-        Else ->
-            Else
-    end.
 
 
 %% The PskBinderEntry is computed in the same way as the Finished
