@@ -702,12 +702,16 @@ bif_cg(#k_bif{op=#k_remote{mod=#k_atom{val=erlang},name=#k_atom{val=Name}},
 internal_cg(make_fun, [Name0,Arity0|As], Rs, _Le, St0) ->
     #k_atom{val=Name} = Name0,
     #k_int{val=Arity} = Arity0,
-    [#k_var{name=Dst0}] = Rs,
-    {Dst,St} = new_ssa_var(Dst0, St0),
-    Args = ssa_args(As, St),
-    Local = #b_local{name=#b_literal{val=Name},arity=Arity},
-    MakeFun = #b_set{op=make_fun,dst=Dst,args=[Local|Args]},
-    {[MakeFun],St};
+    case Rs of
+        [#k_var{name=Dst0}] ->
+            {Dst,St} = new_ssa_var(Dst0, St0),
+            Args = ssa_args(As, St),
+            Local = #b_local{name=#b_literal{val=Name},arity=Arity},
+            MakeFun = #b_set{op=make_fun,dst=Dst,args=[Local|Args]},
+            {[MakeFun],St};
+        [] ->
+            {[],St0}
+    end;
 internal_cg(bs_init_writable=I, As, [#k_var{name=Dst0}], _Le, St0) ->
     %% This behaves like a function call.
     {Dst,St} = new_ssa_var(Dst0, St0),
