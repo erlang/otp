@@ -37,7 +37,7 @@ all() ->
                  dont_reconnect_after_stop, stop_node_after_disconnect,
                  export_import, otp_5031, otp_6115,
                  otp_8270, otp_10979_hanging_node, otp_14817,
-                 local_only, startup_race],
+                 local_only, startup_race, otp_16476],
     case whereis(cover_server) of
         undefined ->
             [coverage,StartStop ++ NoStartStop];
@@ -1801,6 +1801,17 @@ startup_race_1([{Pid, Ref} | PidRefs]) ->
     end;
 startup_race_1([]) ->
     cover:stop(),
+    ok.
+
+otp_16476(Config) when is_list(Config) ->
+    Mod = obvious_booleans,
+    Dir = filename:join(proplists:get_value(data_dir, Config),
+                        ?FUNCTION_NAME),
+    ok = file:set_cwd(Dir),
+    {ok, Mod} = compile:file(Mod, [debug_info]),
+    {ok, Mod} = cover:compile(Mod),
+    ok = Mod:Mod(),
+    ok = cover:stop(),
     ok.
 
 %%--Auxiliary------------------------------------------------------------
