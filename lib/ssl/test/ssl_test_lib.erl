@@ -1978,7 +1978,7 @@ common_ciphers(crypto) ->
     ssl:cipher_suites();
 common_ciphers(openssl) ->
     OpenSslSuites =
-        string:tokens(string:strip(os:cmd("openssl ciphers"), right, $\n), ":"),
+        string:tokens(string:strip(portable_cmd("openssl", ["ciphers"]), right, $\n), ":"),
     [ssl_cipher_format:suite_bin_to_map(S)
      || S <- ssl_cipher:suites(tls_record:highest_protocol_version([])),
         lists:member(ssl_cipher_format:suite_map_to_openssl_str(ssl_cipher_format:suite_bin_to_map(S)), OpenSslSuites)
@@ -2042,7 +2042,7 @@ openssl_ecdh_rsa_suites() ->
 		 end, Ciphers).
 
 openssl_filter(FilterStr) ->
-    Ciphers = string:tokens(os:cmd("openssl ciphers"), ":"),
+    Ciphers = string:tokens(portable_cmd("openssl", ["ciphers"]), ":"),
     lists:filter(fun(Str) -> string_regex_filter(Str, FilterStr)
 		 end, Ciphers).
 
@@ -2470,7 +2470,7 @@ active_once_disregard(Socket, N) ->
     end.
 
 is_ipv6_supported() ->
-    case os:cmd("openssl version") of
+    case portable_cmd("openssl", ["version"]) of
         "OpenSSL 0.9.8" ++ _ -> % Does not support IPv6
             false;
         "OpenSSL 1.0" ++ _ ->   % Does not support IPv6
@@ -2480,7 +2480,7 @@ is_ipv6_supported() ->
     end.
 
 is_sane_ecc(openssl) ->
-    case os:cmd("openssl version") of
+    case portable_cmd("openssl", ["version"]) of
 	"OpenSSL 1.0.0a" ++ _ -> % Known bug in openssl
 	    %% manifests as SSL_CHECK_SERVERHELLO_TLSEXT:tls invalid ecpointformat list
 	    false;
@@ -2520,7 +2520,7 @@ is_sane_oppenssl_client() ->
     end.
 
 is_fips(openssl) ->
-    VersionStr = os:cmd("openssl version"),
+    VersionStr = portable_cmd("openssl",["version"]),
     case re:split(VersionStr, "fips") of
 	[_] ->
 	    false;
@@ -2554,7 +2554,7 @@ cipher_restriction(Config0) ->
     end.
 
 openssl_dsa_support() ->
-    case os:cmd("openssl version") of
+    case portable_cmd("openssl", ["version"]) of
         "LibreSSL 2.6.1" ++ _ ->
             true;
         "LibreSSL 2.6.2" ++ _ ->
@@ -2583,7 +2583,7 @@ openssl_dsa_support() ->
 
 %% Acctual support is tested elsewhere, this is to exclude some LibreSSL and OpenSSL versions
 openssl_sane_dtls() -> 
-    case os:cmd("openssl version") of
+    case portable_cmd("openssl", ["version"]) of
         "OpenSSL 0." ++ _ ->
             false;
         "OpenSSL 1.0.1s-freebsd" ++ _ ->
@@ -2602,7 +2602,7 @@ openssl_sane_dtls() ->
             false
         end.
 openssl_sane_client_cert() -> 
-    case os:cmd("openssl version") of
+    case portable_cmd("openssl", ["version"]) of
         "LibreSSL 2.5.2" ++ _ ->
             true;
         "LibreSSL 2.4" ++ _ ->
@@ -2624,7 +2624,7 @@ openssl_sane_client_cert() ->
 check_sane_openssl_version(Version) ->
     case supports_ssl_tls_version(Version) of 
 	true ->
-	    case {Version, os:cmd("openssl version")} of
+	    case {Version, portable_cmd("openssl",["version"])} of
                 {'dtlsv1', "OpenSSL 0" ++ _} ->
 		    false;
 		{'dtlsv1.2', "OpenSSL 0" ++ _} ->
@@ -2660,7 +2660,7 @@ check_sane_openssl_version(Version) ->
 check_sane_openssl_renegotaite(Config, Version) when  Version == 'tlsv1';
                                                       Version == 'tlsv1.1';
                                                       Version == 'tlsv1.2' ->
-    case os:cmd("openssl version") of     
+    case portable_cmd("openssl", ["version"]) of
 	"OpenSSL 1.0.1c" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
 	"OpenSSL 1.0.1b" ++ _ ->
@@ -2840,26 +2840,45 @@ portable_open_port(Exe, Args) ->
     open_port({spawn_executable, AbsPath}, 
 	      [{args, Args}, stderr_to_stdout]). 
 
-supports_ssl_tls_version(sslv2 = Version) ->
-    case os:cmd("openssl version") of
-	"OpenSSL 1" ++ _ -> 
-	    false;
-        %% Appears to be broken
-        "OpenSSL 0.9.8.o" ++ _ -> 
-            false;
-	_ ->
-            VersionFlag = version_flag(Version),
-            Exe = "openssl",
-            Args = ["s_client", VersionFlag],
-            [{trap_exit, Trap}] = process_info(self(), [trap_exit]),
-            process_flag(trap_exit, true),
-            Port = ssl_test_lib:portable_open_port(Exe, Args),
-            Bool = do_supports_ssl_tls_version(Port, ""),
-            consume_port_exit(Port),
-            process_flag(trap_exit, Trap),
-            Bool
-    end;
+portable_cmd(Exe, Args) ->
+    AbsPath = os:find_executable(Exe),
+    ct:pal("open_port({spawn_executable, ~p}, [{args, ~p}, stderr_to_stdout]).", [AbsPath, Args]),
+    Port = open_port({spawn_executable, AbsPath},
+                     [{args, Args}, stderr_to_stdout]),
+    receive
+         {Port, {data, Data}} ->
+            catch erlang:port_close(Port),
+            Data
+    end.
 
+supports_ssl_tls_version(Version) when Version == sslv2;
+                                       Version == sslv3 ->
+
+    case ubuntu_legacy_support() of
+        true ->   
+            case portable_cmd("openssl", ["version"]) of
+                "OpenSSL 1.1" ++ _ ->
+                    false;
+                "OpenSSL 1" ++ _ ->
+                    Version =/= sslv2;
+                %% Appears to be broken
+                "OpenSSL 0.9.8.o" ++ _ -> 
+                    false;
+                _ ->
+                    VersionFlag = version_flag(Version),
+                    Exe = "openssl",
+                    Args = ["s_client", VersionFlag],
+                    [{trap_exit, Trap}] = process_info(self(), [trap_exit]),
+                    process_flag(trap_exit, true),
+                    Port = ssl_test_lib:portable_open_port(Exe, Args),
+                    Bool = do_supports_ssl_tls_version(Port, ""),
+                    consume_port_exit(Port),
+                    process_flag(trap_exit, Trap),
+                    Bool
+            end;
+        false ->
+            false             
+    end;
 supports_ssl_tls_version(Version) ->
     VersionFlag = version_flag(Version),
     Exe = "openssl",
@@ -2889,6 +2908,20 @@ do_supports_ssl_tls_version(Port, Acc) ->
     after 1000 ->
             true                        
     end.
+
+ubuntu_legacy_support() -> 
+    case os:type() of
+        {unix, linux} ->
+            Issue = os:cmd("more /etc/issue"),
+            case re:run(Issue, "Ubuntu 1[6-9]+", [global]) of
+                nomatch ->
+                    true;
+                _ ->
+                    false
+            end;
+        _ ->
+            true
+    end.       
 
 ssl_options(Option, Config) when is_atom(Option) ->
     ProtocolOpts = proplists:get_value(protocol_opts, Config, []),
