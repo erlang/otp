@@ -152,6 +152,7 @@ dump_maps() ->
     Pid = spawn_link(F),
     receive
         {Pid,done} ->
+            unlink(Pid),
             {ok,Pid}
     end.
 
@@ -198,6 +199,7 @@ dump_persistent_terms() ->
     Pid = spawn_link(F),
     receive
         {Pid,done} ->
+            unlink(Pid),
             {ok,Pid}
     end.
 

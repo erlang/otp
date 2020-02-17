@@ -1361,7 +1361,11 @@ start_tracer(Node) ->
                              Me ! Ref,
                              simple_tracer([], 0)
                      end),
-    receive Ref -> Pid end.
+    receive
+        Ref ->
+            unlink(Pid),
+            Pid
+    end.
            
 
 set_token_flags([]) ->
