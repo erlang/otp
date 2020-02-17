@@ -39,9 +39,9 @@
 
 -include("beam_ssa_opt.hrl").
 
--import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,keyfind/3,
-                member/2,reverse/1,reverse/2,splitwith/2,sort/1,
-                takewhile/2,unzip/1]).
+-import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,
+                keyfind/3,last/1,member/2,reverse/1,reverse/2,
+                splitwith/2,sort/1,takewhile/2,unzip/1]).
 
 -define(MAX_REPETITIONS, 16).
 
@@ -271,6 +271,7 @@ module_passes(Opts) ->
 %% are repeated as required.
 repeated_passes(Opts) ->
     Ps = [?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_ne),
           ?PASS(ssa_opt_bs_puts),
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),
@@ -2011,6 +2012,50 @@ opt_sw([{L,#b_blk{}=Blk}|Bs], Count, Acc) ->
     opt_sw(Bs, Count, [{L,Blk}|Acc]);
 opt_sw([], Count, Acc) ->
     {reverse(Acc),Count}.
+
+%%%
+%%% Try to replace `=/=` with `=:=` and `/=` with `==`. For example,
+%%% this code:
+%%%
+%%%    Bool = bif:'=/=' Anything, AnyValue
+%%%    br Bool, ^Succ, ^Fail
+%%%
+%%% can be rewritten like this:
+%%%
+%%%    Bool = bif:'=:=' Anything, AnyValue
+%%%    br Bool, ^Fail, ^Succ
+%%%
+%%% This transformation is not an optimization in itself, but it opens
+%%% up for other optimizations in beam_ssa_type and beam_ssa_dead.
+%%%
+
+ssa_opt_ne({#opt_st{ssa=Linear}=St, FuncDb}) ->
+    {St#opt_st{ssa=opt_ne(Linear)}, FuncDb}.
+
+opt_ne([{L,#b_blk{is=[_|_]=Is0,last=#b_br{bool=#b_var{}=Bool}}=Blk0}|Bs]) ->
+    case last(Is0) of
+        #b_set{op={bif,'=/='},dst=Bool}=I0 ->
+            I = I0#b_set{op={bif,'=:='}},
+            Blk = opt_ne_replace(I, Blk0),
+            [{L,Blk}|opt_ne(Bs)];
+        #b_set{op={bif,'/='},dst=Bool}=I0 ->
+            I = I0#b_set{op={bif,'=='}},
+            Blk = opt_ne_replace(I, Blk0),
+            [{L,Blk}|opt_ne(Bs)];
+        _ ->
+            [{L,Blk0}|opt_ne(Bs)]
+    end;
+opt_ne([{L,Blk}|Bs]) ->
+    [{L,Blk}|opt_ne(Bs)];
+opt_ne([]) -> [].
+
+opt_ne_replace(I, #b_blk{is=Is0,last=#b_br{succ=Succ,fail=Fail}=Br0}=Blk) ->
+    Is = replace_last(Is0, I),
+    Br = Br0#b_br{succ=Fail,fail=Succ},
+    Blk#b_blk{is=Is,last=Br}.
+
+replace_last([_], Repl) -> [Repl];
+replace_last([I|Is], Repl) -> [I|replace_last(Is, Repl)].
 
 %%%
 %%% Merge blocks.

@@ -801,6 +801,22 @@ try_cg(Ta, Vs, Tb, Evs, Th, Rs, St0) ->
     {SsaVs,St6} = new_ssa_vars(Vs, St5),
     {SsaEvs,St7} = new_ssa_vars(Evs, St6),
     {Ais,St8} = cg(Ta, St7#cg{break=B,catch_label=H}),
+
+    %% We try to avoid constructing a try/catch if the expression to
+    %% be evaluated don't have any side effects and if the error
+    %% reason is not explicitly matched.
+    %%
+    %% Starting in OTP 23, segment sizes in binary matching and keys
+    %% in map matching are allowed to be arbitrary guard
+    %% expressions. Those expressions are evaluated in a try/catch
+    %% so that matching can continue with the next clause if the evaluation
+    %% of such expression fails.
+    %%
+    %% It is not allowed to use try/catch during matching in a receive
+    %% (the try/catch would force the saving of fragile message references
+    %% to the stack frame). Therefore, avoiding creating try/catch is
+    %% not merely an optimization but necessary for correctness.
+
     case {Vs,Tb,Th,is_guard_cg_safe_list(Ais)} of
         {[#k_var{name=X}],#k_break{args=[#k_var{name=X}]},
          #k_break{args=[#k_literal{}]},true} ->
@@ -808,6 +824,36 @@ try_cg(Ta, Vs, Tb, Evs, Th, Rs, St0) ->
             %% and the exception is not matched. Therefore, a
             %% try/catch is not needed. This code is probably located
             %% in a guard.
+            {ProtIs,St9} = guard_cg(Ta, H, St7#cg{break=B,bfail=H}),
+            {His,St10} = cg(Th, St9),
+            {RetVars,St} = new_ssa_vars(Rs, St10),
+            Is = ProtIs ++ [{label,H}] ++ His ++
+                [{label,B},#cg_phi{vars=RetVars}],
+            {Is,St#cg{break=St0#cg.break,bfail=St7#cg.bfail}};
+        {[#k_var{name=X}],#k_break{args=[#k_literal{}=SuccLit0,#k_var{name=X}]},
+         #k_break{args=[#k_literal{val=false},#k_literal{}]},true} ->
+            %% There are no instructions that will clobber X registers
+            %% and the exception is not matched. Therefore, a
+            %% try/catch is not needed. This code probably evaluates
+            %% a key expression in map matching.
+            {FinalLabel,St9} = new_label(St7),
+            {ProtIs,St10} = guard_cg(Ta, H, St9#cg{break=B,bfail=H}),
+            {His,St11} = cg(Th, St10#cg{break=FinalLabel}),
+            {RetVars,St12} = new_ssa_vars(Rs, St11),
+            {Result,St} = new_ssa_var('@ssa_result', St12),
+            SuccLit = ssa_arg(SuccLit0, St),
+            Is = ProtIs ++ [{label,H}] ++ His ++
+                [{label,B},
+                 #cg_phi{vars=[Result]},
+                 #cg_break{args=[SuccLit,Result],phi=FinalLabel},
+                 {label,FinalLabel},
+                 #cg_phi{vars=RetVars}],
+            {Is,St#cg{break=St0#cg.break,bfail=St7#cg.bfail}};
+        {_,#k_break{args=[]},#k_break{args=[]},true} ->
+            %% There are no instructions that will clobber X registers
+            %% and the exception is not matched. Therefore, a
+            %% try/catch is not needed. This code probably does the
+            %% size calculation for a segment in binary matching.
             {ProtIs,St9} = guard_cg(Ta, H, St7#cg{break=B,bfail=H}),
             {His,St10} = cg(Th, St9),
             {RetVars,St} = new_ssa_vars(Rs, St10),
@@ -1228,27 +1274,37 @@ finalize(Asm0, St0) ->
     {Asm,St} = fix_sets(Asm1, [], St0),
     {build_map(Asm),St}.
 
+%% fix_phis(Is0) -> Is.
+%%  Rewrite #cg_break{} and #cg_phi{} records to #b_set{} records.
+%%  A #cg_break{} is rewritten to an unconditional branch, and
+%%  and a #cg_phi{} is rewritten to one or more phi nodes.
+
 fix_phis(Is) ->
     fix_phis_1(Is, none, #{}).
 
-fix_phis_1([{label,L},#cg_phi{vars=[]}=Phi|Is0], _Lbl, Map0) ->
-    case maps:is_key(L, Map0) of
-        false ->
-            %% No #cg_break{} references this label. Nothing else can
-            %% reference it, so it can be safely be removed.
-            {Is,Map} = drop_upto_label(Is0, Map0),
-            fix_phis_1(Is, none, Map);
-        true ->
-            %% There is a break referencing this label; probably caused
-            %% by a try/catch whose return value is ignored.
-            [{label,L}|fix_phis_1([Phi|Is0], L, Map0)]
+fix_phis_1([{label,Lbl},#cg_phi{vars=Vars}|Is0], _Lbl, Map0) ->
+    case Map0 of
+        #{Lbl:=Pairs} ->
+            %% This phi node was referenced by at least one #cg_break{}.
+            %% Create the phi nodes.
+            Phis = gen_phis(Vars, Pairs),
+            Map = maps:remove(Lbl, Map0),
+            [{label,Lbl}] ++ Phis ++ fix_phis_1(Is0, Lbl, Map);
+        #{} ->
+            %% No #cg_break{} instructions reference this label.
+            %% #cg_break{} instructions must reference the labels for
+            %% #cg_phi{} instructions; therefore this label is
+            %% unreachable and can be dropped.
+            Is = drop_upto_label(Is0),
+            fix_phis_1(Is, none, Map0)
     end;
 fix_phis_1([{label,L}=I|Is], _Lbl, Map) ->
     [I|fix_phis_1(Is, L, Map)];
-fix_phis_1([#cg_unreachable{}|Is0], _Lbl, Map0) ->
-    {Is,Map} = drop_upto_label(Is0, Map0),
+fix_phis_1([#cg_unreachable{}|Is0], _Lbl, Map) ->
+    Is = drop_upto_label(Is0),
     fix_phis_1(Is, none, Map);
 fix_phis_1([#cg_break{args=Args,phi=Target}|Is], Lbl, Map) when is_integer(Lbl) ->
+    %% Pair each argument with the label for this block and save in the map.
     Pairs1 = case Map of
                  #{Target:=Pairs0} -> Pairs0;
                  #{} -> []
@@ -1256,17 +1312,6 @@ fix_phis_1([#cg_break{args=Args,phi=Target}|Is], Lbl, Map) when is_integer(Lbl) 
     Pairs = [[{Arg,Lbl} || Arg <- Args]|Pairs1],
     I = make_uncond_branch(Target),
     [I|fix_phis_1(Is, none, Map#{Target=>Pairs})];
-fix_phis_1([#cg_phi{vars=Vars}|Is0], Lbl, Map0) ->
-    Pairs = maps:get(Lbl, Map0),
-    Map1 = maps:remove(Lbl, Map0),
-    case gen_phis(Vars, Pairs) of
-        [#b_set{op=phi,args=[]}] ->
-            {Is,Map} = drop_upto_label(Is0, Map1),
-            Ret = #b_ret{arg=#b_literal{val=unreachable}},
-            [Ret|fix_phis_1(Is, none, Map)];
-        Phis ->
-            Phis ++ fix_phis_1(Is0, Lbl, Map1)
-    end;
 fix_phis_1([I|Is], Lbl, Map) ->
     [I|fix_phis_1(Is, Lbl, Map)];
 fix_phis_1([], _, Map) ->
@@ -1275,6 +1320,7 @@ fix_phis_1([], _, Map) ->
 
 gen_phis([V|Vs], Preds0) ->
     {Pairs,Preds} = collect_preds(Preds0, [], []),
+    [_|_] = Pairs,                              %Assertion.
     [#b_set{op=phi,dst=V,args=Pairs}|gen_phis(Vs, Preds)];
 gen_phis([], _) -> [].
 
@@ -1282,6 +1328,14 @@ collect_preds([[First|Rest]|T], ColAcc, RestAcc) ->
     collect_preds(T, [First|ColAcc], [Rest|RestAcc]);
 collect_preds([], ColAcc, RestAcc) ->
     {keysort(2, ColAcc),RestAcc}.
+
+drop_upto_label([{label,_}|_]=Is) -> Is;
+drop_upto_label([_|Is]) -> drop_upto_label(Is).
+
+%% fix_sets(Is0, Acc, St0) -> {Is,St}.
+%%  Ensure that #b_set.dst is filled in with a proper variable.
+%%  (For convenience, for instructions that don't have a useful return value,
+%%  the code generator would set #b_set.dst to `none`.)
 
 fix_sets([#b_set{op=Op,dst=Dst}=Set,#b_ret{arg=Dst}=Ret|Is], Acc, St) ->
     NoValue = case Op of
@@ -1314,6 +1368,10 @@ fix_sets([I|Is], Acc, St) ->
 fix_sets([], Acc, St) ->
     {reverse(Acc),St}.
 
+%% build_map(Is) -> #{}.
+%%  Split up the sequential instruction stream into blocks and
+%%  store them in a map.
+
 build_map(Is) ->
     Blocks = build_graph_1(Is, [], []),
     maps:from_list(Blocks).
@@ -1331,14 +1389,3 @@ make_blocks(Lbls, [Last|Is0]) ->
     Is = reverse(Is0),
     Block = #b_blk{is=Is,last=Last},
     [{L,Block} || L <- Lbls].
-
-drop_upto_label([{label,_}|_]=Is, Map) ->
-    {Is,Map};
-drop_upto_label([#cg_break{phi=Target}|Is], Map) ->
-    Pairs = case Map of
-                #{Target:=Pairs0} -> Pairs0;
-                #{} -> []
-            end,
-    drop_upto_label(Is, Map#{Target=>Pairs});
-drop_upto_label([_|Is], Map) ->
-    drop_upto_label(Is, Map).

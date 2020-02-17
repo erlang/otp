@@ -2191,6 +2191,20 @@ uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
 	    uexprs([#icase{anno=A,args=[Arg],
 			   clauses=[Mc],fc=Fc}], Ks, St0)
     end;
+uexprs([#ireceive1{clauses=[]}=Le0|_], Ks, St0) ->
+    %% All clauses have been optimized away because they had impossible patterns.
+    %% For example:
+    %%
+    %%     receive
+    %%         a = b ->
+    %%             V = whatever
+    %%     end,
+    %%     V
+    %%
+    %% Discard the unreachable code following the receive to ensure
+    %% that there are no references to unbound variables.
+    {Le1,St1} = uexpr(Le0, Ks, St0),
+    {[Le1],St1};
 uexprs([Le0|Les0], Ks, St0) ->
     {Le1,St1} = uexpr(Le0, Ks, St0),
     {Les1,St2} = uexprs(Les0, union((get_anno(Le1))#a.ns, Ks), St1),
@@ -2920,7 +2934,7 @@ lexpr(#c_receive{clauses=[],timeout=Timeout0,action=Action}, St0) ->
                 _ -> Letrec
             end,
     {Outer,St3};
-lexpr(#c_receive{clauses=Cs0,timeout=Timeout0,action=Action}, St0) ->
+lexpr(#c_receive{anno=RecvAnno,clauses=Cs0,timeout=Timeout0,action=Action}, St0) ->
     %% Lower receive to its primitive operations.
     False = #c_literal{val=false},
     True = #c_literal{val=true},
@@ -2951,7 +2965,7 @@ lexpr(#c_receive{clauses=Cs0,timeout=Timeout0,action=Action}, St0) ->
                           pats=[#c_var{name='Other'}],guard=True,body=RecvNext},
     Cs = Cs1 ++ [RecvNextC],
     {Msg,St3} = new_var(St2),
-    {MsgCase,St4} = split_case(#c_case{arg=Msg,clauses=Cs}, St3),
+    {MsgCase,St4} = split_case(#c_case{anno=RecvAnno,arg=Msg,clauses=Cs}, St3),
 
     TimeoutCs = [#c_clause{pats=[True],guard=True,
                            body=#c_seq{arg=primop(timeout),
@@ -3006,13 +3020,13 @@ primop(Name, Args) ->
 %%% nested case in a letrec.
 %%%
 
-split_case(#c_case{arg=Arg,clauses=Cs0}=Case0, St0) ->
+split_case(#c_case{anno=CaseAnno,arg=Arg,clauses=Cs0}=Case0, St0) ->
     Args = case Arg of
                #c_values{es=Es} -> Es;
                _ -> [Arg]
            end,
     {VarArgs,St1} = split_var_args(Args, St0),
-    case split_clauses(Cs0, VarArgs, St1) of
+    case split_clauses(Cs0, VarArgs, CaseAnno, St1) of
         none ->
             {Case0,St0};
         {PreCase,AftCs,St2} ->
@@ -3053,14 +3067,15 @@ split_case_letrec(#c_fun{anno=FunAnno0}=Fun0, Body, #core{gcount=C}=St0) ->
     St = St0#core{gcount=C+1},
     lbody(Letrec, St).
 
-split_clauses([C0|Cs0], Args, St0) ->
-    case split_clauses(Cs0, Args, St0) of
+split_clauses([C0|Cs0], Args, CaseAnno, St0) ->
+    case split_clauses(Cs0, Args, CaseAnno, St0) of
         none ->
             case split_clause(C0, St0) of
                 none ->
                     none;
                 {Ps,Nested,St1} ->
-                    {Case,St2} = split_reconstruct(Args, Ps, Nested, C0, St1),
+                    {Case,St2} = split_reconstruct(Args, Ps, Nested,
+                                                   C0, CaseAnno, St1),
                     {Case,Cs0,St2}
             end;
         {Case0,Cs,St} ->
@@ -3068,26 +3083,27 @@ split_clauses([C0|Cs0], Args, St0) ->
             Case = Case0#c_case{clauses=[C0|NewClauses]},
             {Case,Cs,St}
     end;
-split_clauses([], _, _) ->
+split_clauses([], _, _, _) ->
     none.
 
 goto_func(Count) ->
     {list_to_atom("label^" ++ integer_to_list(Count)),0}.
 
-split_reconstruct(Args, Ps, nil, #c_clause{anno=Anno}=C0, St0) ->
+split_reconstruct(Args, Ps, nil, #c_clause{anno=Anno}=C0, CaseAnno, St0) ->
     C = C0#c_clause{pats=Ps},
     {Fc,St1} = split_fc_clause(Ps, Anno, St0),
-    {#c_case{arg=core_lib:make_values(Args),clauses=[C,Fc]},St1};
-split_reconstruct(Args, Ps, {split,SplitArgs,Pat,Nested}, C, St) ->
+    {#c_case{anno=CaseAnno,arg=core_lib:make_values(Args),clauses=[C,Fc]},St1};
+split_reconstruct(Args, Ps, {split,SplitArgs,Pat,Nested}, C, CaseAnno, St) ->
     Split = {split,SplitArgs,fun(Body) -> Body end,Pat,Nested},
-    split_reconstruct(Args, Ps, Split, C, St);
+    split_reconstruct(Args, Ps, Split, C, CaseAnno, St);
 split_reconstruct(Args, Ps, {split,SplitArgs,Wrap,Pat,Nested},
-                  #c_clause{anno=Anno}=C0, St0) ->
-    {InnerCase,St1} = split_reconstruct(SplitArgs, [Pat], Nested, C0, St0),
+                  #c_clause{anno=Anno}=C0, CaseAnno, St0) ->
+    {InnerCase,St1} = split_reconstruct(SplitArgs, [Pat], Nested, C0,
+                                        CaseAnno, St0),
     {Fc,St2} = split_fc_clause(Args, Anno, St1),
     Wrapped = Wrap(InnerCase),
     C = C0#c_clause{pats=Ps,guard=#c_literal{val=true},body=Wrapped},
-    {#c_case{arg=core_lib:make_values(Args),clauses=[C,Fc]},St2}.
+    {#c_case{anno=CaseAnno,arg=core_lib:make_values(Args),clauses=[C,Fc]},St2}.
 
 split_fc_clause(Args, Anno0, #core{gcount=Count}=St0) ->
     Anno = [compiler_generated|Anno0],
