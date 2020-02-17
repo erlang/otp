@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2016</year><year>2019</year>
+      <year>2016</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -99,6 +99,14 @@
 	  </seealso>
 	  were added.
 	</item>
+	<item>
+	  In OTP 22.3 the possibility to change the callback module
+	  with action
+	  <seealso marker="#type-action">
+	    <c>change_callback_module</c>
+	  </seealso>
+	  was added.
+	</item>
       </list>
     </note>
     <p>
@@ -119,6 +127,7 @@
 	Reply from other state than the request, <c>sys</c> traceable
       </item>
       <item>Multiple <c>sys</c> traceable replies</item>
+      <item>Changing the callback module</item>
     </list>
 
 
@@ -129,15 +138,17 @@
     </p>
     <list type="bulleted">
       <item>
-        <p>One for finite-state machines
+        <p>
+	  One for finite-state machines
           (<seealso marker="gen_fsm"><c>gen_fsm</c></seealso> like),
           which requires the state to be an atom and uses that state as
-          the name of the current callback function
+          the name of the current callback function.
         </p>
       </item>
       <item>
-        <p>One without restriction on the state data type
-          that uses one callback function for all states
+        <p>
+	  One that allows the state to be any term and
+          that uses one callback function for all states.
         </p>
       </item>
     </list>
@@ -150,7 +161,7 @@
       </seealso> <c>gen_fsm</c> to <c>gen_statem</c>.
     </p>
     <p>
-      A generic state machine process (<c>gen_statem</c>) implemented
+      A generic state machine server process (<c>gen_statem</c>) implemented
       using this module has a standard set of interface functions
       and includes functionality for tracing and error reporting.
       It also fits into an OTP supervision tree. For more information, see
@@ -627,9 +638,12 @@ handle_event(_, _, State, Data) ->
 	  If the
 	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
 	  is <c>state_functions</c>,
-	  the state must be of this type.
+	  the state must be an atom.
 	  After a <em>state change</em> (<c>NextState =/= State</c>),
 	  all postponed events are retried.
+	  Note that the state <c>terminate</c> is not possible
+	  to use since it would collide with the optional callback function
+	  <seealso marker="#Module:terminate/3"><c>Module:terminate/3</c></seealso>.
 	</p>
       </desc>
     </datatype>
@@ -709,10 +723,9 @@ handle_event(_, _, State, Data) ->
       <name name="callback_mode"/>
       <desc>
 	<p>
-	  The <em>callback mode</em> is selected when starting the
-	  <c>gen_statem</c> and after code change
-	  using the return value from
-	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>.
+	  The <em>callback mode</em> is selected
+	  with the return value from
+	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>:
 	</p>
 	<taglist>
 	  <tag><c>state_functions</c></tag>
@@ -734,6 +747,16 @@ handle_event(_, _, State, Data) ->
 	    </p>
 	  </item>
 	</taglist>
+	<p>
+	  The function
+	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>
+	  is called when starting the <c>gen_statem</c>,
+	  after code change
+	  and after changing the callback module with action
+	  <seealso marker="#type-action"><c>change_callback_module</c></seealso>.
+	  The result is cached for subsequent calls to
+	  <seealso marker="#state callback">state callbacks</seealso>.
+	</p>
       </desc>
     </datatype>
     <datatype>
@@ -1168,6 +1191,46 @@ handle_event(_, _, State, Data) ->
 	      <seealso marker="#type-event_type"><c>internal</c></seealso>
 	      is to be used when you want to reliably distinguish
 	      an event inserted this way from any external event.
+	    </p>
+	  </item>
+	  <tag><c>change_callback_module</c></tag>
+	  <item>
+	    <p>
+	      Changes the callback module to
+	      <c><anno>NewModule</anno></c>
+	      which will be used when calling all subsequent
+	      <seealso marker="#state callback">state callbacks</seealso>.
+	    </p>
+	    <p>
+	      The <c>gen_statem</c> engine will find out the
+	      <seealso marker="#type-callback_mode">
+		<em>callback mode</em>
+	      </seealso>
+	      of <c><anno>NewModule</anno></c> by calling
+	      <seealso marker="#Module:callback_mode/0">
+		<c>NewModule:callback_mode/0</c>
+	      </seealso>
+	      before the next
+	      <seealso marker="#state callback">state callback</seealso>.
+	    </p>
+	    <p>
+	      Changing the callback module does not affect the
+	      <em>state transition</em> in any way,
+	      it only changes which module that handles the events.
+	      Be aware that all relevant callback functions in
+	      <c><anno>NewModule</anno></c>
+	      such as the
+	      <seealso marker="#state callback">state callback</seealso>,
+	      <seealso marker="#Module:code_change/4"><c><anno>NewModule</anno>:code_change/4</c></seealso>,
+	      <seealso marker="#Module:format_status/2">
+		<c><anno>NewModule</anno>:format_status/2</c>
+	      </seealso>
+	      and
+	      <seealso marker="#Module:terminate/3">
+		<c><anno>NewModule</anno>:terminate/3</c>
+	      </seealso>
+	      must be able to handle the state and data
+	      from the old module.
 	    </p>
 	  </item>
 	</taglist>
@@ -2041,7 +2104,9 @@ handle_event(_, _, State, Data) ->
   <funcs>
     <func>
       <name since="OTP 19.1">Module:callback_mode() -> CallbackMode</name>
-      <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
+      <fsummary>
+	Define the callback mode for the callback module.
+      </fsummary>
       <type>
 	<v>
 	  CallbackMode =
@@ -2057,10 +2122,11 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#type-callback_mode"><em>callback mode</em></seealso>
 	  of the callback module.  The value is cached by <c>gen_statem</c>
 	  for efficiency reasons, so this function is only called
-	  once after server start and after code change,
+	  once after server start, after code change,
+	  and after changing the callback module,
 	  but before the first
 	  <seealso marker="#state callback"><em>state callback</em></seealso>
-	  in the current code version is called.
+	  in the current callback module's code version is called.
 	  More occasions may be added in future versions
 	  of <c>gen_statem</c>.
 	</p>
@@ -2069,9 +2135,14 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
 	  returns or when
 	  <seealso marker="#enter_loop/4"><c>enter_loop/4-6</c></seealso>
-	  is called.  Code change happens when
+	  is called.
+	  Code change happens when
 	  <seealso marker="#Module:code_change/4"><c>Module:code_change/4</c></seealso>
 	  returns.
+	  A change of the callback module happens when a
+	  <seealso marker="#state callback"><em>state callback</em></seealso>
+	  returns the action
+	  <seealso marker="#type-action"><c>change_callback_module</c></seealso>.
 	</p>
 	<p>
 	  The <c>CallbackMode</c> is either just
@@ -2094,7 +2165,9 @@ handle_event(_, _, State, Data) ->
       <name since="OTP 19.0">Module:code_change(OldVsn, OldState, OldData, Extra) ->
         Result
       </name>
-      <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
+      <fsummary>
+	Update the internal state during upgrade/downgrade.
+      </fsummary>
       <type>
         <v>OldVsn = Vsn | {down,Vsn}</v>
         <v>&nbsp;&nbsp;Vsn = term()</v>
@@ -2182,7 +2255,7 @@ handle_event(_, _, State, Data) ->
     <func>
       <name since="OTP 19.0">Module:init(Args) -> Result(StateType)</name>
       <fsummary>
-	Initializing process and internal state.
+	Initialize process and internal state.
       </fsummary>
       <type>
         <v>Args = term()</v>
@@ -2225,8 +2298,9 @@ init(Args) -> erlang:error(not_implemented, [Args]).</pre>
       <name since="OTP 19.0">Module:format_status(Opt, [PDict,State,Data]) ->
         Status
       </name>
-      <fsummary>Optional function for providing a term describing the
-        current <c>gen_statem</c> status.</fsummary>
+      <fsummary>
+	Describe the current <c>gen_statem</c> status (optional).
+      </fsummary>
       <type>
         <v>Opt = normal | terminate</v>
         <v>PDict = [{Key, Value}]</v>

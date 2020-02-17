@@ -182,6 +182,21 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       handles the system messages, and calls the <em>callback module</em>
       with machine specific events.
     </p>
+    <p>
+      The <em>callback module</em> can be changed for a running server
+      using the
+      <seealso marker="#Transition Actions">transition action</seealso>
+      <seealso marker="stdlib:gen_statem#type-action"><c>{change_callback_module, NewModule}</c></seealso>.
+      Note that this is a pretty esotheric thing to do...
+      The origin for this feature is a protocol that after
+      version negotiation branches off into quite different
+      state machines depending on the protocol version.
+      There <i>might</i> be other use cases.
+      <i>Beware</i> that the <c>NewModule</c>
+      completely replaces the previous behaviour module,
+      so all relevant callback functions has to handle
+      the state and data from the previous callback module.
+    </p>
   </section>
 
 <!-- =================================================================== -->
@@ -215,8 +230,10 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       </item>
     </taglist>
     <p>
-      The <em>callback mode</em> is selected at server start
-      and may be changed with a code upgrade/downgrade.
+      The <em>callback mode</em> is a property of
+      the <em>callback module</em> and is set at server start.
+      It may be changed due to a code upgrade/downgrade,
+      or when changing the <em>callback module</em>.
     </p>
     <p>
       See the section
@@ -628,6 +645,22 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	Generate the next event to handle, see section 
 	<seealso marker="#Inserted Events">Inserted Events</seealso>.
       </item>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-action">
+	  <c>{change_callback_module, NewModule}</c>
+	</seealso>
+      </tag>
+      <item>
+	Change the
+	<seealso marker="#Callback Module">
+	  <em>callback module</em>
+	</seealso>
+	for the running server.
+	This can be done during any <em>state transition</em>,
+	whether it is a <em>state change</em> or not,
+	but it can <i>not</i> be done from a
+	<seealso marker="#State Enter Calls"><em>state enter call</em></seealso>.
+      </item>
     </taglist>
     <p>
       For details, see the <c>gen_statem(3)</c>
@@ -809,8 +842,10 @@ StateName(EventType, EventContent, Data) ->
       <seealso marker="#Transition Actions">State Transition Actions</seealso>.
       You may not change the state,
       <seealso marker="#Postponing Events">postpone</seealso>
-      this non-event, or
-      <seealso marker="#Inserted Events">insert any events</seealso>.
+      this non-event,
+      <seealso marker="#Inserted Events">insert any events</seealso>,
+      or change the
+      <seealso marker="#Callback Module"><em>callback module</em></seealso>.
     </p>
     <p>
       The first state that is entered

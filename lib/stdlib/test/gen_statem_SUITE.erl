@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,7 +69,8 @@ tcs(sys) ->
      error_format_status, terminate_crash_format,
      get_state, replace_state];
 tcs(undef_callbacks) ->
-    [undef_code_change, undef_terminate1, undef_terminate2];
+    [undef_code_change, undef_terminate1, undef_terminate2,
+     function_clause_after_change_callback_module];
 tcs(format_log) ->
     [format_log_1, format_log_2].
 
@@ -86,9 +87,7 @@ init_per_group(GroupName, Config)
        GroupName =:= sys_handle_event ->
     [{callback_mode,handle_event_function}|Config];
 init_per_group(undef_callbacks, Config) ->
-    DataDir = ?config(data_dir, Config),
-    StatemPath = filename:join(DataDir, "oc_statem.erl"),
-    {ok, oc_statem} = compile:file(StatemPath),
+    compile_oc_statem(Config),
     Config;
 init_per_group(_GroupName, Config) ->
     Config.
@@ -101,6 +100,9 @@ init_per_testcase(_CaseName, Config) ->
 %%%    dbg:tracer(),
 %%%    dbg:p(all, c),
 %%%    dbg:tpl(gen_statem, cx),
+%%%    dbg:tpl(gen_statem, loop_receive, cx),
+%%%    dbg:tpl(gen_statem, loop_state_callback, cx),
+%%%    dbg:tpl(gen_statem, loop_callback_mode_result, cx),
 %%%    dbg:tpl(proc_lib, cx),
 %%%    dbg:tpl(gen, cx),
 %%%    dbg:tpl(sys, cx),
@@ -109,6 +111,12 @@ init_per_testcase(_CaseName, Config) ->
 end_per_testcase(_CaseName, Config) ->
 %%%    dbg:stop(),
     Config.
+
+compile_oc_statem(Config) ->
+    DataDir = ?config(data_dir, Config),
+    StatemPath = filename:join(DataDir, "oc_statem.erl"),
+    {ok, oc_statem} = compile:file(StatemPath),
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(EXPECT_FAILURE(Code, Reason),
@@ -1725,7 +1733,7 @@ enter_loop(Reg1, Reg2, Opts) ->
     end.
 
 undef_code_change(_Config) ->
-    {ok, Statem} = gen_statem:start(oc_statem, [], []),
+    {ok, Statem} = gen_statem:start(oc_statem, [], [{debug, [trace]}]),
     {error, {'EXIT',
              {undef, [{oc_statem, code_change, [_, _, _, _], _}|_]}}}
         = fake_upgrade(Statem, oc_statem).
@@ -1738,7 +1746,7 @@ fake_upgrade(Pid, Mod) ->
     Ret.
 
 undef_terminate1(_Config) ->
-    {ok, Statem} = gen_statem:start(oc_statem, [], []),
+    {ok, Statem} = gen_statem:start(oc_statem, [], [{debug,[trace]}]),
     MRef = monitor(process, Statem),
     ok = gen_statem:stop(Statem),
     verify_down(Statem, MRef, normal),
@@ -1746,7 +1754,7 @@ undef_terminate1(_Config) ->
 
 undef_terminate2(_Config) ->
     Reason = {error, test},
-    {ok, Statem} = oc_statem:start(),
+    {ok, Statem} = oc_statem:start([{debug,[trace]}]),
     MRef = monitor(process, Statem),
     ok = gen_statem:stop(Statem, Reason, infinity),
     verify_down(Statem, MRef, Reason).
@@ -1771,6 +1779,45 @@ verify_down(Statem, MRef, Reason) ->
     after 5000 ->
         ct:fail(default_terminate_failed)
     end.
+
+
+function_clause_after_change_callback_module(_Config) ->
+    _ = process_flag(trap_exit, true),
+
+    Machine =
+	#{init =>
+	      fun () ->
+		      {ok,start,undefined}
+	      end,
+	  start =>
+	      fun ({call, From}, {change_callback_module, _Module} = Action,
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [{reply,From,ok},
+                        Action]}
+	      end},
+    {ok, STM} =
+	gen_statem:start_link(
+          ?MODULE,
+          {map_statem, Machine, []},
+          [{debug, [trace]}]),
+
+    ok = gen_statem:call(STM, {change_callback_module, oc_statem}),
+
+    Call = unhandled_call,
+    {{function_clause,
+      [{oc_statem, handle_event,
+        [{call, _From}, Call, start, _Data], _Line}
+       | _RestStacktrace]} = Undef,
+     {gen_statem, call, [STM,Call,_Timeout]}} =
+        ?EXPECT_FAILURE(gen_statem:call(STM, Call), Reason),
+    receive
+        {'EXIT', STM, Undef} ->
+            ok;
+        Other ->
+            ct:fail({surprise, Other})
+    end.
+
 
 %% Test the order for multiple {next_event,T,C}
 next_events(Config) ->

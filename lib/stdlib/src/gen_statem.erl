@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2016-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2016-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -151,6 +151,7 @@
 	{'next_event', % Insert event as the next to handle
 	 EventType :: event_type(),
 	 EventContent :: term()} |
+        {'change_callback_module', NewModule :: module()} |
 	enter_action().
 -type enter_action() ::
 	'hibernate' | % Set the hibernate option
@@ -340,12 +341,13 @@
     terminate/3, % Has got a default implementation
     code_change/4, % Only needed by advanced soft upgrade
     %%
-    state_name/3, % Example for callback_mode() =:= state_functions:
+    state_name/3, % Just an example callback;
+    %% for callback_mode() =:= state_functions
     %% there has to be a StateName/3 callback function
-    %% for every StateName in your state machine but the state name
-    %% 'state_name' does of course not have to be used.
+    %% for every StateName in your state machine,
+    %% but not one has to be named 'state_name'
     %%
-    handle_event/4 % For callback_mode() =:= handle_event_function
+    handle_event/4 % Only for callback_mode() =:= handle_event_function
    ]).
 
 
@@ -717,7 +719,7 @@ enter(
            hibernate_after = HibernateAfterTimeout},
     S = #state{state_data = {State,Data}},
     Debug_1 = ?sys_debug(Debug, Name, {enter,State}),
-    loop_callback_mode(
+    loop_state_callback(
       P, Debug_1, S, Q, {State,Data},
       %% Tunneling Actions through CallbackEvent here...
       %% Special path to go to action handling, after first
@@ -1069,79 +1071,7 @@ loop_event_handler(
     %% restored when looping back to loop/3 or loop_event/5.
     %%
     Q = [Event|Events],
-    loop_callback_mode(P, Debug, S, Q, State_Data, Event).
-
-%% Figure out the callback mode
-%%
-loop_callback_mode(
-  #params{callback_mode = undefined} = P, Debug, S,
-  Q, State_Data, CallbackEvent) ->
-    %%
-    Module = P#params.module,
-    try Module:callback_mode() of
-	CallbackMode ->
-	    loop_callback_mode_result(
-              P, Debug, S,
-              Q, State_Data, CallbackEvent,
-              CallbackMode, listify(CallbackMode), undefined, false)
-    catch
-	CallbackMode ->
-	    loop_callback_mode_result(
-              P, Debug, S,
-              Q, State_Data, CallbackEvent,
-              CallbackMode, listify(CallbackMode), undefined, false);
-	Class:Reason:Stacktrace ->
-	    terminate(
-	      Class, Reason, Stacktrace, P, Debug, S, Q)
-    end;
-loop_callback_mode(P, Debug, S, Q, State_Data, CallbackEvent) ->
-    loop_state_callback(P, Debug, S, Q, State_Data, CallbackEvent).
-
-%% Check the result of Module:callback_mode()
-%%
-loop_callback_mode_result(
-  P, Debug, S, Q, State_Data, CallbackEvent,
-  CallbackMode, [H|T], NewCallbackMode, NewStateEnter) ->
-    %%
-    case callback_mode(H) of
-        true ->
-            loop_callback_mode_result(
-              P, Debug, S, Q, State_Data, CallbackEvent,
-              CallbackMode, T, H, NewStateEnter);
-        false ->
-            case state_enter(H) of
-                true ->
-                    loop_callback_mode_result(
-                      P, Debug, S, Q, State_Data, CallbackEvent,
-                      CallbackMode, T, NewCallbackMode, true);
-                false ->
-                    terminate(
-                      error,
-                      {bad_return_from_callback_mode,CallbackMode},
-                      ?STACKTRACE(),
-                      P, Debug, S, Q)
-            end
-    end;
-loop_callback_mode_result(
-  P, Debug, S, Q, State_Data, CallbackEvent,
-  CallbackMode, [], NewCallbackMode, NewStateEnter) ->
-    %%
-    case NewCallbackMode of
-        undefined ->
-            terminate(
-              error,
-              {bad_return_from_callback_mode,CallbackMode},
-              ?STACKTRACE(),
-              P, Debug, S, Q);
-        _ ->
-            P_1 =
-                P#params{
-                  callback_mode = NewCallbackMode,
-                  state_enter = NewStateEnter},
-            loop_state_callback(
-              P_1, Debug, S, Q, State_Data, CallbackEvent)
-    end.
-
+    loop_state_callback(P, Debug, S, Q, State_Data, Event).
 
 %% Make a state enter call to the state function, we loop back here
 %% from further down if state enter calls are enabled
@@ -1171,6 +1101,32 @@ loop_state_callback(P, Debug, S, Q, State_Data, CallbackEvent) ->
       NextEventsR, Hibernate, TimeoutsR, Postpone,
       StateCall, CallbackEvent).
 %%
+loop_state_callback(
+  #params{callback_mode = undefined, module = Module} = P,
+  Debug, S, Q, State_Data,
+  NextEventsR, Hibernate, TimeoutsR, Postpone,
+  StateCall, CallbackEvent) ->
+    %%
+    %% Figure out the callback mode
+    %%
+    try Module:callback_mode() of
+	CallbackMode ->
+	    loop_callback_mode_result(
+              P, Debug, S, Q, State_Data,
+              NextEventsR, Hibernate, TimeoutsR, Postpone,
+              StateCall, CallbackEvent,
+              CallbackMode, listify(CallbackMode), undefined, false)
+    catch
+	CallbackMode ->
+	    loop_callback_mode_result(
+              P, Debug, S, Q, State_Data,
+              NextEventsR, Hibernate, TimeoutsR, Postpone,
+              StateCall, CallbackEvent,
+              CallbackMode, listify(CallbackMode), undefined, false);
+	Class:Reason:Stacktrace ->
+	    terminate(
+	      Class, Reason, Stacktrace, P, Debug, S, Q)
+    end;
 loop_state_callback(
   #params{callback_mode = CallbackMode, module = Module} = P,
   Debug, S, Q, {State,Data} = State_Data,
@@ -1208,6 +1164,61 @@ loop_state_callback(
       P, Debug, S, Q, State_Data,
       NextEventsR, Hibernate, TimeoutsR, Postpone,
       CallEnter, StateCall, Actions).
+
+%% Check the result of Module:callback_mode()
+%%
+loop_callback_mode_result(
+  P, Debug, S, Q, State_Data,
+  NextEventsR, Hibernate, TimeoutsR, Postpone,
+  StateCall, CallbackEvent,
+  CallbackMode, [H|T], NewCallbackMode, NewStateEnter) ->
+    %%
+    case callback_mode(H) of
+        true ->
+            loop_callback_mode_result(
+              P, Debug, S, Q, State_Data,
+              NextEventsR, Hibernate, TimeoutsR, Postpone,
+              StateCall, CallbackEvent,
+              CallbackMode, T, H, NewStateEnter);
+        false ->
+            case state_enter(H) of
+                true ->
+                    loop_callback_mode_result(
+                      P, Debug, S, Q, State_Data,
+                      NextEventsR, Hibernate, TimeoutsR, Postpone,
+                      StateCall, CallbackEvent,
+                      CallbackMode, T, NewCallbackMode, true);
+                false ->
+                    terminate(
+                      error,
+                      {bad_return_from_callback_mode,CallbackMode},
+                      ?STACKTRACE(),
+                      P, Debug, S, Q)
+            end
+    end;
+loop_callback_mode_result(
+  P, Debug, S, Q, State_Data,
+  NextEventsR, Hibernate, TimeoutsR, Postpone,
+  StateCall, CallbackEvent,
+  CallbackMode, [], NewCallbackMode, NewStateEnter) ->
+    %%
+    case NewCallbackMode of
+        undefined ->
+            terminate(
+              error,
+              {bad_return_from_callback_mode,CallbackMode},
+              ?STACKTRACE(),
+              P, Debug, S, Q);
+        _ ->
+            P_1 =
+                P#params{
+                  callback_mode = NewCallbackMode,
+                  state_enter = NewStateEnter},
+            loop_state_callback(
+              P_1, Debug, S, Q, State_Data,
+              NextEventsR, Hibernate, TimeoutsR, Postpone,
+              StateCall, CallbackEvent)
+    end.
 
 %% Process the result from the state function
 %%
@@ -1457,6 +1468,28 @@ loop_actions_list(
               P, Debug, S, Q, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postpone,
               CallEnter, StateCall, Actions, Type, Content);
+        %%
+        {change_callback_module, NewModule}
+          when is_atom(NewModule) ->
+            if
+                StateCall ->
+                    P_1 =
+                        P#params{
+                          callback_mode = undefined, module = NewModule},
+                    loop_actions_list(
+                      P_1, Debug, S, Q, NextState_NewData,
+                      NextEventsR, Hibernate, TimeoutsR, Postpone,
+                      CallEnter, StateCall, Actions);
+                true ->
+                    terminate(
+                      error,
+                      {bad_state_enter_action_from_state_function,Action},
+                      ?STACKTRACE(), P, Debug,
+                      S#state{
+                        state_data = NextState_NewData,
+                        hibernate = Hibernate},
+                      Q)
+            end;
 	%%
         Timeout ->
             loop_actions_timeout(
