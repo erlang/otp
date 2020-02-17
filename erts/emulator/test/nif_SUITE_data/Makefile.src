@@ -27,5 +27,5 @@ DRIVER_DIR = ../erl_drv_thread_SUITE_data
 WSL=@WSL@
 
 basic.c rwlock.c tsd.c: $(DRIVER_DIR)/$@
-	$(WSL) cat head.txt $(DRIVER_DIR)/$@ tail.txt > $@
-	$(WSL) sed -e 's/erl_drv_/enif_/g' -e 's/driver_/enif_/g' -e 's/ErlDrv/ErlNif/g' -i.bak $@
+	$(WSL) sed -e 's/erl_drv_/enif_/g' -e 's/driver_/enif_/g' -e 's/ErlDrv/ErlNif/g' $(DRIVER_DIR)/$@ > $@.tmp
+	$(WSL) cat head.txt $@.tmp tail.txt > $@
