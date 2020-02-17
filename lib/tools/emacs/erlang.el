@@ -4,7 +4,7 @@
 ;; Author:   Anders Lindgren
 ;; Keywords: erlang, languages, processes
 ;; Date:     2011-12-11
-;; Version:  2.8.3
+;; Version:  2.8.4
 ;; Package-Requires: ((emacs "24.3"))
 
 ;; %CopyrightBegin%
@@ -87,7 +87,7 @@
   "The Erlang programming language."
   :group 'languages)
 
-(defconst erlang-version "2.8.3"
+(defconst erlang-version "2.8.4"
   "The version number of Erlang mode.")
 
 (defcustom erlang-root-dir nil
@@ -2889,7 +2889,7 @@ Value is list (stack token-start token-type in-what)."
        ((looking-at "-type\\s \\|-opaque\\s ")
         (if stack
             (forward-char 1)
-          (erlang-push (list 'icr token (current-column)) stack)
+          (erlang-push (list 'type token (current-column)) stack)
           (forward-char 6)))
        ((looking-at "-spec\\s ")
         (if stack
@@ -2932,7 +2932,7 @@ Value is list (stack token-start token-type in-what)."
              (erlang-pop stack)
              (if (and (eq (car (car stack)) 'fun)
                       (or (eq (car (car (last stack))) 'spec)
-                          (eq (car (car (cdr stack))) '::))) ;; -type()
+                          (eq (car (car (last stack))) 'type))) ;; -type()
                  ;; Inside fun type def ') closes fun definition
                  (erlang-pop stack)))
             ((eq (car (car stack)) 'icr)
@@ -2994,7 +2994,9 @@ Return nil if inside string, t if in a comment."
                              (- (+ previous erlang-argument-indent) 1))))
                         (t
                          (nth 2 stack-top))))
-                 ((= (following-char) ?,)
+                 ((looking-at "||")
+                  (erlang-indent-element stack-top indent-point token))
+                 ((memq (following-char) '(?, ?|))
                   ;; a comma at the start of the line: line up with opening parenthesis.
                   (min (nth 2 stack-top)
                        (erlang-indent-element stack-top indent-point token)))
@@ -3032,9 +3034,9 @@ Return nil if inside string, t if in a comment."
                   (save-excursion
                     (goto-char (nth 1 stack-top))
                     (if (and erlang-icr-indent
-                             (looking-at "\\(if\\|case\\|receive\\)[^_a-zA-Z0-9]"))
+                             (looking-at "\\(if\\|case\\|receive\\|try\\)[^_a-zA-Z0-9]"))
                         (+ (nth 2 stack-top) erlang-icr-indent)
-                      (if (looking-at "\\(case\\|receive\\)[^_a-zA-Z0-9]")
+                      (if (looking-at "\\(case\\|receive\\|try\\)[^_a-zA-Z0-9]")
                           (+ (nth 2 stack-top) erlang-indent-level)
                         (skip-chars-forward "a-z")
                         (skip-chars-forward " \t")

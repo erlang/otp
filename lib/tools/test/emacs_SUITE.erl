@@ -214,11 +214,12 @@ emacs(EmacsCmds) when is_list(EmacsCmds) ->
            "--directory ", dquote(emacs_dir()), " ",
            "--eval \"(require 'erlang-start)\" "
            | EmacsCmds],
+    io:format("Cmd: ~ts~n", [Cmd]),
     Res0 = os:cmd(Cmd ++ " ; echo $?"),
     Rows = string:lexemes(Res0, ["\r\n", $\n]),
     Res = lists:last(Rows),
     Output = string:join(lists:droplast(Rows), "\n"),
-    io:format("Cmd ~ts:~n  => ~s ~ts~n", [Cmd, Res, Output]),
+    io:format(" => ~s ~ts~n", [Res, Output]),
     "0" = Res,
     Output.
 
