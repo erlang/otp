@@ -1434,9 +1434,11 @@ end</code>
       the patterns <c>Pattern</c> are sequentially matched against
       the result in the same way as for a
       <seealso marker="#case">case</seealso> expression, except that if
-      the matching fails, a <c>try_clause</c> run-time error occurs.</p>
-    <p>An exception occurring during the evaluation of <c>Body</c> is
-      not caught.</p>
+      the matching fails, a <c>try_clause</c> run-time error occurs instead of a
+      <c>case_clause</c>.</p>
+    <p>Only exceptions occurring during the evaluation of <c>Exprs</c> can be
+      caught by the <c>catch</c> section. Exceptions occurring in a <c>Body</c>
+      or due to a failed match are not caught.</p>
     <p>The <c>try</c> expression can also be augmented with an
       <c>after</c> section, intended to be used for cleanup with side
       effects:</p>
