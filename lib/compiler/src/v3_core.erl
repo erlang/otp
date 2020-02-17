@@ -603,14 +603,14 @@ expr({bin,L,Es0}, St0) ->
     try expr_bin(Es0, full_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
     catch
-	throw:bad_binary ->
-	    St = add_warning(L, bad_binary, St0),
+	throw:{bad_binary,Eps,St1} ->
+	    St = add_warning(L, bad_binary, St1),
 	    LineAnno = lineno_anno(L, St),
 	    As = [#c_literal{anno=LineAnno,val=badarg}],
 	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
 		    module=#c_literal{anno=LineAnno,val=erlang},
 		    name=#c_literal{anno=LineAnno,val=error},
-		    args=As},[],St}
+		    args=As},Eps,St}
     end;
 expr({block,_,Es0}, St0) ->
     %% Inline the block directly.
@@ -1147,8 +1147,9 @@ expr_bin_1(Es, St) ->
 	  end, {[],[],St}, Es).
 
 bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
-    {E1,Eps,St1} = safe(E0, St0),
-    {Size1,Eps2,St2} = safe(Size0, St1),
+    {E1,Eps0,St1} = safe(E0, St0),
+    {Size1,Eps1,St2} = safe(Size0, St1),
+    Eps = Eps0 ++ Eps1,
     case {Type,E1} of
 	{_,#c_var{}} -> ok;
 	{integer,#c_literal{val=I}} when is_integer(I) -> ok;
@@ -1158,20 +1159,22 @@ bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
 	{float,#c_literal{val=V}} when is_number(V) -> ok;
 	{binary,#c_literal{val=V}} when is_bitstring(V) -> ok;
 	{_,_} ->
-	    throw(bad_binary)
+            %% Note that the pre expressions may bind variables that
+            %% are used later or have side effects.
+	    throw({bad_binary,Eps,St2})
     end,
     case Size1 of
 	#c_var{} -> ok;
 	#c_literal{val=Sz} when is_integer(Sz), Sz >= 0 -> ok;
 	#c_literal{val=undefined} -> ok;
 	#c_literal{val=all} -> ok;
-	_ -> throw(bad_binary)
+	_ -> throw({bad_binary,Eps,St2})
     end,
     {#c_bitstr{val=E1,size=Size1,
 	       unit=#c_literal{val=Unit},
 	       type=#c_literal{val=Type},
 	       flags=#c_literal{val=Flags}},
-     Eps ++ Eps2,St2}.
+     Eps,St2}.
 
 %% fun_tq(Id, [Clauses], Line, State, NameInfo) -> {Fun,[PreExp],State}.
 
