@@ -105,49 +105,32 @@ borderline_test(Size, TempDir) ->
 
 
     %% Verify that Unix zip can read it. (if we have a unix zip that is!)
-    unzip_list(Archive, Name),
+    zipinfo_match(Archive, Name),
 
     ok.
 
-unzip_list(Archive, Name) ->
-    case unix_unzip_exists() of
-	true ->
-            unzip_list1(Archive, Name);
+zipinfo_match(Archive, Name) ->
+    case check_zipinfo_exists() of
+        true ->
+            Encoding = file:native_name_encoding(),
+            Expect = unicode:characters_to_binary(Name ++ "\n",
+                                                  Encoding, Encoding),
+            cmd_expect("zipinfo -1 " ++ Archive, Expect);
         _ ->
             ok
     end.
 
-%% Used to do os:find_executable() to check if unzip exists, but on
-%% some hosts that would give an unzip program which did not take the
-%% "-Z" option.
-%% Here we check that "unzip -Z" (which should display usage) and
-%% check that it exists with status 0.
-unix_unzip_exists() ->
-    case os:type() of
-	{unix,_} ->
-	    Port = open_port({spawn,"unzip -Z > /dev/null"}, [exit_status]),
-	    receive
-		{Port,{exit_status,0}} ->
-		    true;
-		{Port,{exit_status,_Fail}} ->
-		    false
-	    end;
-	_ ->
-	    false
-    end.
-
-unzip_list1(Archive, Name) ->
-    Expect = Name ++ "\n",
-    cmd_expect("unzip -Z -1 " ++ Archive, Expect).
+check_zipinfo_exists() ->
+    is_list(os:find_executable("zipinfo")).
 
 cmd_expect(Cmd, Expect) ->
-    Port = open_port({spawn, make_cmd(Cmd)}, [stream, in, eof]),
-    get_data(Port, Expect).
+    Port = open_port({spawn, make_cmd(Cmd)}, [stream, in, binary, eof]),
+    get_data(Port, Expect, <<>>).
 
-get_data(Port, Expect) ->
+get_data(Port, Expect, Acc) ->
     receive
         {Port, {data, Bytes}} ->
-            get_data(Port, match_output(Bytes, Expect, Port));
+            get_data(Port, Expect, <<Acc/binary, Bytes/binary>>);
         {Port, eof} ->
             Port ! {self(), close},
             receive
@@ -160,21 +143,17 @@ get_data(Port, Expect) ->
             after 1 ->                          % force context switch
                     ok
             end,
-            match_output(eof, Expect, Port)
+            match_output(Acc, Expect, Port)
     end.
 
-match_output([C|Output], [C|Expect], Port) ->
+match_output(<<C, Output/bits>>, <<C,Expect/bits>>, Port) ->
     match_output(Output, Expect, Port);
-match_output([_|_], [_|_], Port) ->
+match_output(<<_, _/bits>>, <<_, _/bits>>, Port) ->
     kill_port_and_fail(Port, badmatch);
-match_output([X|Output], [], Port) ->
-    kill_port_and_fail(Port, {too_much_data, [X|Output]});
-match_output([], Expect, _Port) ->
-    Expect;
-match_output(eof, [], _Port) ->
-    [];
-match_output(eof, Expect, Port) ->
-    kill_port_and_fail(Port, {unexpected_end_of_input, Expect}).
+match_output(<<_, _/bits>>=Rest, <<>>, Port) ->
+    kill_port_and_fail(Port, {too_much_data, Rest});
+match_output(<<>>, <<>>, _Port) ->
+    ok.
 
 kill_port_and_fail(Port, Reason) ->
     unlink(Port),
@@ -925,6 +904,7 @@ unicode(Config) ->
             test_archive_comment(DataDir),
             test_bad_comment(DataDir),
             test_latin1_archive(DataDir),
+            test_filename_compatibility(),
             case has_zip() of
                 false ->
                     {comment, "No zip program found; skipping some tests"};
@@ -937,6 +917,15 @@ unicode(Config) ->
                     end
             end
     end.
+
+test_filename_compatibility() ->
+    FancyName = "üñíĉòdë한",
+    Archive = "test.zip",
+
+    {ok, Archive} = zip:zip(Archive, [{FancyName, <<"test">>}]),
+    zipinfo_match(Archive, FancyName),
+
+    ok.
 
 test_file_comment(DataDir) ->
     Archive = filename:join(DataDir, "zip_file_comment.zip"),
