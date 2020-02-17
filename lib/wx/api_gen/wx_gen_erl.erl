@@ -159,7 +159,13 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    w("-export_type([~s/0]).~n", [Name]),
 	    case lists:filter(fun({_F,Depr}) -> Depr end, ExportList) of
 		[] -> ok;
-		Depr -> w("-deprecated([~s]).~n~n", [args(fun({EF,_}) -> EF end, ",", Depr, 60)])
+		Depr ->
+                    DepStr = "not available in wxWidgets-2.9 and later",
+                    w("-deprecated([~s]).~n~n",
+                      [args(fun({EF,_}) ->
+                                    [DFun,DArgs] = string:split(EF, "/"),
+                                    io_lib:format("{~s,~s,\"~s\"}", [DFun,DArgs,DepStr])
+                            end, ",\n             ", Depr, 60)])
 	    end,
 	    case lists:filter(fun({_,_,Depr}) -> Depr end, InExported) of
 		[] -> ok;
