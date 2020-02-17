@@ -294,7 +294,7 @@ store_ticket(#state{db = Db0, max = Max} = State, Ticket, HKDF, SNI, PSK) ->
              true ->
                   Db0
           end,
-    Key = erlang:monotonic_time(),
+    Key =  {erlang:monotonic_time(), erlang:unique_integer([monotonic])},
     Db = gb_trees:insert(Key,
                          #data{hkdf = HKDF,
                                sni = SNI,
