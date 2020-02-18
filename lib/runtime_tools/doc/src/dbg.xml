@@ -295,7 +295,7 @@ Error: fun containing local erlang function calls ('is_atomm' called in guard)\
           specifications of how many processes and ports that matched (in the
           case of a pure pid() exactly 1). The specification of
           matched processes is <c>{matched, Node, N}</c>. If the
-          remote processor call,<c>rpc</c>, to a remote node fails,
+          remote processor call, <c>rpc</c>, to a remote node fails,
           the <c>rpc</c> error message is delivered as a fourth
           argument and the number of matched processes are 0. Note
           that the result {ok, List} may contain a list where
