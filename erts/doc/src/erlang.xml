@@ -2120,8 +2120,9 @@ true</pre>
       <fsummary>Get the call stack back-trace of the last exception.</fsummary>
       <type name="stack_item"/>
       <desc>
-	<warning><p><c>erlang:get_stacktrace/0</c> is deprecated and will stop working
-	in a future release.</p></warning>
+	<warning><p><c>erlang:get_stacktrace/0</c> is deprecated and
+	will be removed in OTP 24. Starting from OTP 23,
+	<c>erlang:get_stacktrace/0</c> returns <c>[]</c>.</p></warning>
       <p>Instead of using <c>erlang:get_stacktrace/0</c> to retrieve
       the call stack back-trace, use the following syntax:</p>
 <pre>
@@ -2130,53 +2131,6 @@ catch
   Class:Reason:Stacktrace ->
    {Class,Reason,Stacktrace}
 end</pre>
-        <p><c>erlang:get_stacktrace/0</c> retrieves the call stack back-trace
-        (<em>stacktrace</em>) for an exception that has just been
-        caught in the calling process as a list of
-        <c>{<anno>Module</anno>,<anno>Function</anno>,<anno>Arity</anno>,<anno>Location</anno>}</c>
-        tuples. Field <c><anno>Arity</anno></c> in the first tuple can
-        be the argument list of that function call instead of an arity
-        integer, depending on the exception.</p>
-        <p>If there has not been any exceptions in a process, the
-          stacktrace is <c>[]</c>. After a code change for the process,
-          the stacktrace can also be reset to <c>[]</c>.</p>
-        <p>The stacktrace is the same data as operator <c>catch</c>
-          returns, for example:</p>
-        <pre>
-{'EXIT',{badarg,Stacktrace}} = catch abs(x)</pre>
-        <p><c><anno>Location</anno></c> is a (possibly empty) list
-          of two-tuples that
-          can indicate the location in the source code of the function.
-          The first element is an atom describing the type of
-          information in the second element. The following
-          items can occur:</p>
-        <taglist>
-          <tag><c>file</c></tag>
-          <item>The second element of the tuple is a string (list of
-            characters) representing the filename of the source file
-            of the function.
-          </item>
-          <tag><c>line</c></tag>
-          <item>The second element of the tuple is the line number
-            (an integer &gt; 0) in the source file
-            where the exception occurred or the function was called.
-          </item>
-        </taglist>
-        <warning><p>Developers should rely on stacktrace entries only for
-          debugging purposes.</p>
-          <p>The VM performs tail call optimization, which
-          does not add new entries to the stacktrace, and also limits stacktraces
-          to a certain depth. Furthermore, compiler options, optimizations and
-          future changes may add or remove stacktrace entries, causing any code
-          that expects the stacktrace to be in a certain order or contain specific
-          items to fail.</p>
-          <p>The only exception to this rule is <c>error:undef</c> which
-          guarantees to include the <anno>Module</anno>, <anno>Function</anno> and <anno>Arity</anno>
-          of the attempted function as the first stacktrace entry.</p>
-        </warning>	
-        <p>See also
-          <seealso marker="#error/1"><c>error/1</c></seealso> and
-          <seealso marker="#error/2"><c>error/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -5432,12 +5386,13 @@ RealSystem = system + MissedSystem</code>
           </item>
           <tag><c>{current_stacktrace, <anno>Stack</anno>}</c></tag>
           <item>
-            <p>Returns the current call stack back-trace (<em>stacktrace</em>)
-              of the process. The stack has the same format as returned by
-              <seealso marker="#get_stacktrace/0">
-              <c>erlang:get_stacktrace/0</c></seealso>. The depth of the
-              stacktrace is truncated according to the <c>backtrace_depth</c>
-              system flag setting.</p>
+            <p>Returns the current call stack back-trace
+            (<em>stacktrace</em>) of the process. The stack has the
+            same format as in the <c>catch</c> part of a
+            <c>try</c>. See <seealso
+            marker="doc/reference_manual:errors#stacktrace">The call-stack back trace (stacktrace)</seealso>.
+            The depth of the stacktrace is truncated according to the
+            <c>backtrace_depth</c> system flag setting.</p>
           </item>
           <tag><c>{dictionary, <anno>Dictionary</anno>}</c></tag>
           <item>

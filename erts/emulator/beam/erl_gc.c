@@ -2575,13 +2575,17 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 
     /*
      * The process may be garbage-collected while it is terminating.
-     * (fvalue contains the EXIT reason and ftrace the saved stack trace.)
+     * fvalue contains the EXIT reason.
      */
     if (is_not_immed(p->fvalue)) {
 	roots[n].v  = &p->fvalue;
 	roots[n].sz = 1;
 	n++;
     }
+
+    /*
+     * The raise/3 BIF will store the stacktrace in ftrace.
+     */
     if (is_not_immed(p->ftrace)) {
 	roots[n].v  = &p->ftrace;
 	roots[n].sz = 1;

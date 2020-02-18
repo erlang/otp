@@ -3,10 +3,15 @@
 
 ?MODULE() ->
     OldDepth = erlang:system_flag(backtrace_depth, 32),
-    done = (catch do_try()),
-    Stk = trim(erlang:get_stacktrace()),
-    erlang:system_flag(backtrace_depth, OldDepth),
-    {done,Stk}.
+    try
+        do_try()
+    catch
+        throw:done:Stk0 ->
+            Stk = trim(Stk0),
+            {done,Stk}
+    after
+        erlang:system_flag(backtrace_depth, OldDepth)
+    end.
 
 trim([{int_eval_SUITE,_,_,_}|_]) ->
     [];

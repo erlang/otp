@@ -1079,7 +1079,7 @@ stacktrace(_Config) ->
         error:{badmatch,_}:Stk2 ->
             [{?MODULE,stacktrace_2,0,_},
              {?MODULE,stacktrace,1,_}|_] = Stk2,
-            Stk2 = erlang:get_stacktrace(),
+            [] = erlang:get_stacktrace(),
             ok
     end,
 
@@ -1087,7 +1087,7 @@ stacktrace(_Config) ->
         stacktrace_3(a, b)
     catch
         error:function_clause:Stk3 ->
-            Stk3 = erlang:get_stacktrace(),
+            [] = erlang:get_stacktrace(),
             case lists:module_info(native) of
                 false ->
                     [{lists,prefix,[a,b],_}|_] = Stk3;
@@ -1108,14 +1108,16 @@ stacktrace_1(X, C1, Y) ->
             C1 -> value1
         catch
             C1:D1:Stk1 ->
-                Stk1 = erlang:get_stacktrace(),
+                [] = erlang:get_stacktrace(),
                 {caught1,D1,Stk1}
         after
             foo(Y)
         end of
         V2 -> {value2,V2}
     catch
-        C2:D2:Stk2 -> {caught2,{C2,D2},Stk2=erlang:get_stacktrace()}
+        C2:D2:Stk2 ->
+            [] = erlang:get_stacktrace(),
+            {caught2,{C2,D2},Stk2}
     end.
 
 stacktrace_2() ->
@@ -1160,12 +1162,10 @@ nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
         V1 -> value1
     catch
         C1:V1:S1 ->
-            S1 = erlang:get_stacktrace(),
             T2 = try foo(X2) of
                      V2 -> value2
                  catch
                      C2:V2:S2 ->
-                         S2 = erlang:get_stacktrace(),
                          {caught2,S2}
                  end,
             {caught1,S1,T2}
