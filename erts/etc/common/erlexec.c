@@ -1240,7 +1240,7 @@ start_epmd(char *epmd)
     if (!epmd) {
 	epmd = epmd_cmd;
 #ifdef __WIN32__
-	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "%s" DIRSEP "epmd", bindir);
+	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "\"%s" DIRSEP "epmd\"", bindir);
 	arg1 = "-daemon";
 #else
 	erts_snprintf(epmd_cmd, sizeof(epmd_cmd), "\"%s" DIRSEP "epmd\" -daemon", bindir);
