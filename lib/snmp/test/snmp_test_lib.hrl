@@ -84,6 +84,10 @@
 -define(FLUSH(),        ?LIB:flush_mqueue()).
 -define(ETRAP_GET(),    ?LIB:trap_exit()).
 -define(ETRAP_SET(O),   ?LIB:trap_exit(O)).
+-define(PINFO(__P__),   try process_info(__P__)
+                        catch _:_:_ ->
+                                {not_running, __P__}
+                        end).
 
 
 %% - Node utility macros - 

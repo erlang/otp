@@ -868,9 +868,11 @@ analyze_and_print_linux_host_info(Version) ->
     %% Check if we need to adjust the factor because of the memory
     try linux_which_meminfo() of
         AddFactor ->
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             Factor + AddFactor
     catch
         _:_:_ ->
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             Factor
     end.
 
@@ -994,6 +996,7 @@ analyze_and_print_openbsd_host_info(Version) ->
                       "~nMemory:"
                       "~n   ~w KB"
                       "~n", [CPU, CPUSpeed, NCPU, Memory]),
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             CPUFactor =
                 if
                     (CPUSpeed =:= -1) ->
@@ -1034,6 +1037,7 @@ analyze_and_print_openbsd_host_info(Version) ->
         end
     catch
         _:_:_ ->
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             1
     end.
     
@@ -1078,6 +1082,7 @@ analyze_and_print_freebsd_host_info(Version) ->
                       "~n   ~w KB"
                       "~n",
                       [CPU, CPUSpeed, NCPU, str_num_schedulers(), Memory]),
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             CPUFactor =
                 if
                     (CPUSpeed =:= -1) ->
@@ -1123,6 +1128,7 @@ analyze_and_print_freebsd_host_info(Version) ->
             io:format("CPU:"
                       "~n   Num Schedulers: ~s"
                       "~n", [str_num_schedulers()]),
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             case erlang:system_info(schedulers) of
                 1 ->
                     10;
@@ -1209,24 +1215,37 @@ analyze_and_print_solaris_host_info(Version) ->
             _ ->
                 "-"
         end,
-    NumPhysProc =
-        begin
-            NPPStr = string:trim(os:cmd("psrinfo -p")),
-            try list_to_integer(NPPStr) of
-                _ ->
-                    NPPStr
-            catch
+    %% Because we count the lines of the output (which may contain
+    %% any number of extra crap lines) we need to ensure we only
+    %% count the "proper" stdout. So send it to a tmp file first
+    %% and then count its number of lines...
+    NumPhysCPU =
+       try
+            begin
+                File1 = f("/tmp/psrinfo_p.~s.~w", [os:getpid(), os:system_time()]),
+                os:cmd("psrinfo -p > " ++ File1),
+                string:trim(os:cmd("cat " ++ File1))
+            end
+        catch
                 _:_:_ ->
                     "-"
-            end
         end,
-    NumProc = try integer_to_list(length(string:tokens(os:cmd("psrinfo"), [$\n]))) of
-                  NPStr ->
-                      NPStr
-              catch
-                  _:_:_ ->
-                      "-"
-              end,
+    %% Because we count the lines of the output (which may contain
+    %% any number of extra crap lines) we need to ensure we only
+    %% count the "proper" stdout. So send it to a tmp file first
+    %% and then count its number of lines...
+    NumVCPU =
+        try
+            begin
+                File2 = f("/tmp/psrinfo.~s.~w", [os:getpid(), os:system_time()]),
+                os:cmd("psrinfo > " ++ File2),
+                [NumVCPUStr | _] = string:tokens(os:cmd("wc -l " ++ File2), [$\ ]),
+                NumVCPUStr
+            end
+        catch
+            _:_:_ ->
+                "-"
+        end,
     MemSz =
         case lists:keysearch("Memory size", 1, PtrConf) of
             {value, {_, MS}} ->
@@ -1243,9 +1262,10 @@ analyze_and_print_solaris_host_info(Version) ->
               "~n   Memory Size:     ~s"
               "~n   Num Schedulers:  ~s"
               "~n~n", [Version, Release, BannerName, InstructionSet,
-                       NumPhysProc, NumProc,
+                       NumPhysCPU, NumVCPU,
                        SysConf, MemSz,
                        str_num_schedulers()]),
+    io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
     MemFactor =
         try string:tokens(MemSz, [$ ]) of
             [SzStr, "Mega" ++ _] ->
