@@ -26,7 +26,8 @@
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
 	 fold_files/1,otp_5960/1,ensure_dir_eexist/1,ensure_dir_symlink/1,
 	 wildcard_symlink/1, is_file_symlink/1, file_props_symlink/1,
-         find_source/1, find_source_subdir/1]).
+         find_source/1, find_source_subdir/1, safe_relative_path/1,
+         safe_relative_path_links/1]).
 
 -import(lists, [foreach/2]).
 
@@ -49,7 +50,8 @@ all() ->
     [wildcard_one, wildcard_two, wildcard_errors,
      fold_files, otp_5960, ensure_dir_eexist, ensure_dir_symlink,
      wildcard_symlink, is_file_symlink, file_props_symlink,
-     find_source, find_source_subdir].
+     find_source, find_source_subdir, safe_relative_path,
+     safe_relative_path_links].
 
 groups() -> 
     [].
@@ -647,3 +649,139 @@ find_source_subdir(Config) when is_list(Config) ->
     {ok, SrcFile} = filelib:find_file(SrcName, BeamDir),
 
     ok.
+
+safe_relative_path(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Root = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Root),
+    ok = file:set_cwd(Root),
+
+    ok = file:make_dir("a"),
+    ok = file:set_cwd("a"),
+    ok = file:make_dir("b"),
+    ok = file:set_cwd("b"),
+    ok = file:make_dir("c"),
+
+    ok = file:set_cwd(Root),
+
+    "a" = test_srp("a"),
+    "a/b" = test_srp("a/b"),
+    "a/b" = test_srp("a/./b"),
+    "a/b" = test_srp("a/./b/."),
+
+    "" = test_srp("a/.."),
+    "" = test_srp("a/./.."),
+    "" = test_srp("a/../."),
+    "a" = test_srp("a/b/.."),
+    "a" = test_srp("a/../a"),
+    "a" = test_srp("a/../a/../a"),
+    "a/b/c" = test_srp("a/../a/b/c"),
+
+    unsafe = test_srp("a/../.."),
+    unsafe = test_srp("a/../../.."),
+    unsafe = test_srp("a/./../.."),
+    unsafe = test_srp("a/././../../.."),
+    unsafe = test_srp("a/b/././../../.."),
+
+    unsafe = test_srp(PrivDir),                 %Absolute path.
+
+    ok.
+
+test_srp(RelPath) ->
+    Res = do_test_srp(RelPath),
+    Res = case do_test_srp(list_to_binary(RelPath)) of
+              Bin when is_binary(Bin) ->
+                  binary_to_list(Bin);
+              Other ->
+                  Other
+          end.
+
+do_test_srp(RelPath) ->
+    {ok,Root} = file:get_cwd(),
+    ok = file:set_cwd(RelPath),
+    {ok,Cwd} = file:get_cwd(),
+    ok = file:set_cwd(Root),
+    case filelib:safe_relative_path(RelPath, Cwd) of
+        unsafe ->
+            true = length(Cwd) < length(Root),
+            unsafe;
+        "" ->
+            "";
+        SafeRelPath ->
+            ok = file:set_cwd(SafeRelPath),
+            {ok,Cwd} = file:get_cwd(),
+            true = length(Cwd) >= length(Root),
+            ok = file:set_cwd(Root),
+            SafeRelPath
+    end.
+
+safe_relative_path_links(Config) ->
+    simple_test(Config),
+    inside_directory_test(Config),
+    nested_links_test(Config),
+    loop_test(Config),
+    loop_with_parent_test(Config),
+    revist_links_test(Config).
+
+simple_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    file:make_dir(filename:join(BaseDir, "simple_test")),
+    file:make_symlink("..", filename:join(BaseDir, "simple_test/link")),
+
+    unsafe = filelib:safe_relative_path("link/file", filename:join(BaseDir, "simple_test")),
+    "file" = filelib:safe_relative_path("file", filename:join(BaseDir, "simple_test/link")).
+
+inside_directory_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    file:make_dir(filename:join(BaseDir, "inside_directory_test")),
+    file:make_symlink("..", filename:join(BaseDir, "inside_directory_test/link")),
+
+    unsafe = filelib:safe_relative_path("link/file", filename:join(BaseDir, "inside_directory_test")),
+    "file" = filelib:safe_relative_path("file", filename:join(BaseDir, "inside_directory_test/link")).
+
+nested_links_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    file:make_dir(filename:join(BaseDir, "nested_links_test")),
+    file:make_dir(filename:join(BaseDir, "nested_links_test/a")),
+    file:make_symlink("a/b/c", filename:join(BaseDir, "nested_links_test/link")),
+    file:make_symlink("..", filename:join(BaseDir, "nested_links_test/a/b")),
+
+    "c/file" = filelib:safe_relative_path("link/file", filename:join(BaseDir, "nested_links_test")),
+
+    file:delete(filename:join(BaseDir, "nested_links_test/a/b")),
+    file:make_symlink("../..", filename:join(BaseDir, "nested_links_test/a/b")),
+    unsafe = filelib:safe_relative_path("link/file", filename:join(BaseDir, "nested_links_test")).
+
+loop_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    file:make_dir(filename:join(BaseDir, "loop_test")),
+
+    file:make_symlink("b", filename:join(BaseDir, "loop_test/c")),
+    file:make_symlink("c", filename:join(BaseDir, "loop_test/b")),
+
+    unsafe = filelib:safe_relative_path("c", filename:join(BaseDir, "loop_test")).
+
+loop_with_parent_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    file:make_dir(filename:join(BaseDir, "loop_with_parent_test")),
+    file:make_dir(filename:join(BaseDir, "loop_with_parent_test/bar")),
+
+    file:make_symlink("../bar/foo", filename:join(BaseDir, "loop_with_parent_test/bar/foo")),
+
+    unsafe = filelib:safe_relative_path("bar/foo", filename:join(BaseDir, "loop_with_parent_test")).
+
+revist_links_test(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    file:make_dir(filename:join(BaseDir, "revist_links_test")),
+
+    file:make_symlink(".", filename:join(BaseDir, "revist_links_test/x")),
+    file:make_symlink("x", filename:join(BaseDir, "revist_links_test/y")),
+    file:make_symlink("y", filename:join(BaseDir, "revist_links_test/z")),
+
+    "file" = filelib:safe_relative_path("x/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("y/x/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/x/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/y/x/y/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/y/z/x/y/z/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/x/y/y/file", filename:join(BaseDir, "revist_links_test")),
+    "file" = filelib:safe_relative_path("x/z/y/x/./z/foo/../x/./y/file", filename:join(BaseDir, "revist_links_test")).

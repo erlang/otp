@@ -25,6 +25,7 @@
 -export([wildcard/3, is_dir/2, is_file/2, is_regular/2]).
 -export([fold_files/6, last_modified/2, file_size/2]).
 -export([find_file/2, find_file/3, find_source/1, find_source/2, find_source/3]).
+-export([safe_relative_path/2]).
 
 %% For debugging/testing.
 -export([compile_wildcard/1]).
@@ -718,3 +719,71 @@ find_regular_file([File|Files]) ->
         true -> {ok, File};
         false -> find_regular_file(Files)
     end.
+
+-spec safe_relative_path(Filename, Cwd) -> unsafe | SafeFilename when
+      Filename :: filename_all(),
+      Cwd :: filename_all(),
+      SafeFilename :: filename_all().
+
+safe_relative_path(Path, Cwd) ->
+    case filename:pathtype(Path) of
+        relative -> safe_relative_path(filename:split(Path), Cwd, [], "");
+        _ -> unsafe
+    end.
+
+safe_relative_path([], _Cwd, _PrevLinks, Acc) ->
+    Acc;
+
+safe_relative_path([Segment | Segments], Cwd, PrevLinks, Acc) ->
+    AccSegment = join(Acc, Segment),
+    case safe_relative_path(AccSegment) of
+        unsafe ->
+            unsafe;
+        SafeAccSegment ->
+            case file:read_link(join(Cwd, SafeAccSegment)) of
+                {ok, LinkPath} ->
+                    case lists:member(LinkPath, PrevLinks) of
+                        true ->
+                            unsafe;
+                        false ->
+                            case safe_relative_path(filename:split(LinkPath), Cwd, [LinkPath | PrevLinks], Acc) of
+                                unsafe -> unsafe;
+                                NewAcc -> safe_relative_path(Segments, Cwd, [], NewAcc)
+                            end
+                    end;
+                {error, _} ->
+                    safe_relative_path(Segments, Cwd, PrevLinks, SafeAccSegment)
+            end
+  end.
+
+join([], Path) -> Path;
+join(Left, Right) -> filename:join(Left, Right).
+
+safe_relative_path(Path) ->
+    case filename:pathtype(Path) of
+        relative ->
+            Cs0 = filename:split(Path),
+            safe_relative_path_1(Cs0, []);
+        _ ->
+            unsafe
+    end.
+
+safe_relative_path_1(["."|T], Acc) ->
+    safe_relative_path_1(T, Acc);
+safe_relative_path_1([<<".">>|T], Acc) ->
+    safe_relative_path_1(T, Acc);
+safe_relative_path_1([".."|T], Acc) ->
+    climb(T, Acc);
+safe_relative_path_1([<<"..">>|T], Acc) ->
+    climb(T, Acc);
+safe_relative_path_1([H|T], Acc) ->
+    safe_relative_path_1(T, [H|Acc]);
+safe_relative_path_1([], []) ->
+    [];
+safe_relative_path_1([], Acc) ->
+    filename:join(lists:reverse(Acc)).
+
+climb(_, []) ->
+    unsafe;
+climb(T, [_|Acc]) ->
+    safe_relative_path_1(T, Acc).

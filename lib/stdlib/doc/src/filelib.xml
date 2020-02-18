@@ -307,5 +307,35 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
         marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
       </desc>
     </func>
+    <func>
+      <name name="safe_relative_path" arity="2" since="OTP 23.0"/>
+      <fsummary>Sanitize a relative path to avoid directory traversal attacks.</fsummary>
+      <desc>
+        <p>Sanitizes the relative path by eliminating ".." and "."
+        components to protect against directory traversal attacks.
+        Either returns the sanitized path name, or the atom
+        <c>unsafe</c> if the path is unsafe.
+        The path is considered unsafe in the following circumstances:</p>
+        <list type="bulleted">
+          <item><p>The path is not relative.</p></item>
+          <item><p>A ".." component would climb up above the root of
+          the relative path.</p></item>
+          <item><p>A symbolic link in the path points above the root
+          of the relative path.</p></item>
+        </list>
+        <p><em>Examples:</em></p>
+        <pre>
+1> <input>{ok, Cwd} = file:get_cwd().</input>
+...
+2> <input>filelib:safe_relative_path("dir/sub_dir/..", Cwd).</input>
+"dir"
+3> <input>filelib:safe_relative_path("dir/..", Cwd).</input>
+[]
+4> <input>filelib:safe_relative_path("dir/../..", Cwd).</input>
+unsafe
+5> <input>filelib:safe_relative_path("/abs/path", Cwd).</input>
+unsafe</pre>
+      </desc>
+    </func>
   </funcs>
 </erlref>
