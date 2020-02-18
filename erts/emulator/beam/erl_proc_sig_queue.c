@@ -2434,7 +2434,6 @@ convert_to_down_message(Process *c_p,
     ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
     Uint hsz;
     Eterm *hp, ref, from, type, reason;
-    ErlHeapFragment *tag_hfrag = NULL;
     ErlOffHeap *ohp;
 
     ASSERT(mdp);
@@ -2479,11 +2478,26 @@ convert_to_down_message(Process *c_p,
         
         ref = STORE_NC(&hp, ohp, mdp->ref);
         
+        /*
+         * The tag to patch into the resulting message
+         * is stored in mdep->u.name via a little trick
+         * (see pending_flag in erts_monitor_create()).
+         */
         if (is_immed(mdep->u.name))
             tag = mdep->u.name;
         else {
+            ErlHeapFragment *tag_hfrag;
             tag_hfrag = (ErlHeapFragment *) cp_val(mdep->u.name);
             tag = tag_hfrag->mem[0];
+            /* Save heap fragment of tag in message... */
+            if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
+                tag_hfrag->next = mp->hfrag.next;
+                mp->hfrag.next = tag_hfrag;
+            }
+            else {
+                tag_hfrag->next = mp->data.heap_frag;
+                mp->data.heap_frag = tag_hfrag;
+            }
         }
         mdep->u.name = NIL; /* Restore to normal monitor */
 
@@ -2590,12 +2604,6 @@ convert_to_down_message(Process *c_p,
     ERL_MESSAGE_TOKEN(mp) = am_undefined;
     /* Replace original signal with the exit message... */
     convert_to_msg(c_p, sig, mp, next_nm_sig);
-
-    if (tag_hfrag) {
-        /* Save heap fragment of tag in message... */
-        tag_hfrag->next = sig->hfrag.next;
-        sig->hfrag.next = tag_hfrag;
-    }
 
     cnt += 4;
 
@@ -3642,6 +3650,7 @@ handle_dist_spawn_reply_exiting(Process *c_p,
     }
     sig->data.attached = ERTS_MSG_COMBINED_HFRAG;
     ERL_MESSAGE_TERM(sig) = msg;
+    sig->next = NULL;
     erts_cleanup_messages(sig);
     cnt++;
     return cnt;
