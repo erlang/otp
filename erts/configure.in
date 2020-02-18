@@ -3253,37 +3253,42 @@ dnl
 dnl Test whether code pointers are always short (32 bits).
 dnl
 
-AC_MSG_CHECKING([whether the code model is small])
-saved_LDFLAGS="$LDFLAGS"
-LDFLAGS="$LDFLAGS $HIPEBEAMLDFLAGS"
-AC_TRY_RUN([
-   #include <stdlib.h>
-   int main() {
-    if ((unsigned long long)&main < (1ull << 32)) {
-       exit(0);
-    }
-    exit(1);
-   }
-],
-erl_code_model_small=yes,
-erl_code_model_small=no,
-[case X$erl_xcomp_code_model_small in
-      X) erl_code_model_small=no;;
-      Xyes|Xno) erl_code_model_small=$erl_xcomp_code_model_small;;
-      *) AC_MSG_ERROR([Bad erl_xcomp_code_model_small value: $erl_xcomp_code_model_small]);;
- esac])
-AC_MSG_RESULT([$erl_code_model_small])
-LDFLAGS="$saved_LDFLAGS"
-case $erl_code_model_small in
-     yes)
-        AC_DEFINE(CODE_MODEL_SMALL,[1],
-	[Define if the code model is small (code fits below 2Gb)])
-	CODE_MODEL=small
-	;;
-     no)
-	CODE_MODEL=unknown
-        ;;
-esac
+if test "x$DISABLE_ASLR" = xyes; then
+       AC_MSG_CHECKING([whether the code model is small])
+       saved_LDFLAGS="$LDFLAGS"
+       LDFLAGS="$LDFLAGS $HIPEBEAMLDFLAGS"
+       AC_TRY_RUN([
+          #include <stdlib.h>
+          int main() {
+           if ((unsigned long long)&main < (1ull << 32)) {
+              exit(0);
+           }
+           exit(1);
+          }
+       ],
+       erl_code_model_small=yes,
+       erl_code_model_small=no,
+       [case X$erl_xcomp_code_model_small in
+             X) erl_code_model_small=no;;
+             Xyes|Xno) erl_code_model_small=$erl_xcomp_code_model_small;;
+             *) AC_MSG_ERROR([Bad erl_xcomp_code_model_small value: $erl_xcomp_code_model_small]);;
+        esac])
+       AC_MSG_RESULT([$erl_code_model_small])
+       LDFLAGS="$saved_LDFLAGS"
+       case $erl_code_model_small in
+            yes)
+               AC_DEFINE(CODE_MODEL_SMALL,[1],
+               [Define if the code model is small (code fits below 2Gb)])
+               CODE_MODEL=small
+               ;;
+            no)
+               CODE_MODEL=unknown
+               ;;
+       esac
+else
+    AC_MSG_WARN([the code model is not small because ASLR is enabled])
+    CODE_MODEL=unknown
+fi
 AC_SUBST(CODE_MODEL)
 
 dnl
