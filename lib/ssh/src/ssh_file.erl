@@ -63,13 +63,12 @@
 host_key(Algorithm, Opts) ->
     read_ssh_key_file(system, private, Algorithm, Opts).
 
-is_auth_key(Key, User,Opts) ->
-    case lookup_user_key(Key, User, Opts) of
-	{ok, Key} ->
-	    true;
-	_ ->
-	    false
-    end.
+is_auth_key(Key, User ,Opts) ->
+    KeyType =  erlang:atom_to_binary(ssh_transport:public_algo(Key), latin1),
+    Dir = ssh_dir({remoteuser,User}, Opts),
+    lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys"))
+        orelse
+    lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys2")).
 
 %%%---------------- CLIENT API ------------------------------------
 user_key(Algorithm, Opts) ->
@@ -113,50 +112,40 @@ add_host_key(Host, Key, Opts) ->
 
 %%%---------------- SERVER FUNCTIONS ------------------------------
 
-%%% Try to find the User's public key Key in "authorized_keys" or "authorized_keys2"
-lookup_user_key(Key, User, Opts) ->
-    SshDir = ssh_dir({remoteuser,User}, Opts),
-    case lookup_user_key_f(Key, User, SshDir, "authorized_keys", Opts) of
-	{ok, Key} ->
-	    {ok, Key};
-	_ ->
-	    lookup_user_key_f(Key, User, SshDir, "authorized_keys2", Opts)
+lookup_auth_keys(KeyType, Key, File) ->
+    case file:read_file(File) of
+        {ok,Bin} ->
+            Lines = binary:split(Bin, <<"\n">>, [global,trim_all]),
+            find_key(KeyType, Key, Lines);
+        _ ->
+            false
     end.
 
-lookup_user_key_f(_, _User, [], _F, _Opts) ->
-    {error, nouserdir};
-lookup_user_key_f(_, _User, nouserdir, _F, _Opts) ->
-    {error, nouserdir};
-lookup_user_key_f(Key, _User, Dir, F, _Opts) ->
-    FileName = filename:join(Dir, F),
-    case file:open(FileName, [read, binary]) of
-	{ok, Fd} ->
-	    Res = lookup_user_key_fd(Fd, Key),
-	    file:close(Fd),
-	    Res;
-	{error, Reason} ->
-	    {error, {{openerr, Reason}, {file, FileName}}}
-    end.
+find_key(KeyType, Key, [Line|Lines]) ->
+    case find_key_in_line(KeyType, Key, binary:split(Line, <<" ">>, [global,trim_all])) of
+        true ->
+            true;
+        false ->
+            find_key(KeyType, Key, Lines)
+    end;
+find_key(_, _, _) ->
+    false.
 
-lookup_user_key_fd(Fd, Key) ->
-    case io:get_line(Fd, '') of
-	eof ->
-	    {error, not_found};
-	{error,Error} ->
-	    %% Rare... For example NFS errors
-	    {error,Error};
-	Line ->
-	    try public_key:ssh_decode(Line, auth_keys)
-            of
-		[{Key, _}] ->
-                    {ok, Key};
-                _ ->
-                    lookup_user_key_fd(Fd, Key)
-            catch
-                _:_ ->
-                    []
-	    end
-    end.
+        
+find_key_in_line(_KeyType, _Key, [<<"#",_/binary>> |_]) ->
+    false;
+find_key_in_line(KeyType, Key, [KeyType, Base64EncodedKey, _Comment]) ->
+    %% Right KeyType. Try to decode to see if it matches
+    Key == decode_key(Base64EncodedKey);
+find_key_in_line(KeyType, Key, [_Option | [_,_,_|_]=Rest]) ->
+    %% Dont care for options
+    find_key_in_line(KeyType, Key, Rest);
+find_key_in_line(_, _, _) ->
+    false.
+
+decode_key(Base64EncodedKey) ->
+    ssh_message:ssh2_pubkey_decode(
+      base64:mime_decode(Base64EncodedKey)).
 
 %%%---------------- CLIENT FUNCTIONS ------------------------------
 
@@ -509,3 +498,4 @@ check_padding(Bin, BlockSize) ->
     end.
 
 %%%================================================================
+%%%
