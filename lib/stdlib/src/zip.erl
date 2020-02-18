@@ -142,6 +142,8 @@
 -define(PKWARE_RESERVED, 11).
 -define(BZIP2_COMPRESSED, 12).
 
+%% Version 2.0, attribute compatibility type 3 (Unix)
+-define(VERSION_MADE_BY, 20 bor (3 bsl 8)).
 -define(GP_BIT_11, 16#800). % Filename and file comment UTF-8 encoded.
 
 %% zip-file records
@@ -166,6 +168,7 @@
 -define(CENTRAL_DIR_DIGITAL_SIG_MAGIC, 16#05054b50).
 -define(CENTRAL_DIR_DIGITAL_SIG_SZ, (4+2)).
 
+-define(CENTRAL_FILE_EXT_ATTRIBUTES, 8#644 bsl 16).
 -define(CENTRAL_FILE_MAGIC, 16#02014b50).
 
 -record(cd_file_header, {version_made_by,
@@ -1027,7 +1030,7 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		       uncomp_size = UncompSize,
 		       file_name_length = FileNameLength,
 		       extra_field_length = ExtraFieldLength} = LH,
-    #cd_file_header{version_made_by = 20,
+    #cd_file_header{version_made_by = ?VERSION_MADE_BY,
 		    version_needed = VersionNeeded,
 		    gp_flag = GPFlag,
 		    comp_method = CompMethod,
@@ -1041,7 +1044,7 @@ cd_file_header_from_lh_and_pos(LH, Pos) ->
 		    file_comment_length = 0, % FileCommentLength,
 		    disk_num_start = 0, % DiskNumStart,
 		    internal_attr = 0, % InternalAttr,
-		    external_attr = 0, % ExternalAttr,
+		    external_attr = ?CENTRAL_FILE_EXT_ATTRIBUTES, % ExternalAttr,
 		    local_header_offset = Pos}.
 
 cd_file_header_to_bin(
