@@ -1462,7 +1462,19 @@ abstract(List, A, E) when is_list(List) ->
 abstract(Tuple, A, E) when is_tuple(Tuple) ->
     {tuple,A,abstract_tuple_list(tuple_to_list(Tuple), A, E)};
 abstract(Map, A, E) when is_map(Map) ->
-    {map,A,abstract_map_fields(maps:to_list(Map),A,E)}.
+    {map,A,abstract_map_fields(maps:to_list(Map),A,E)};
+abstract(Fun, A, E) when is_function(Fun) ->
+    case erlang:fun_info(Fun, type) of
+        {type, external} ->
+            Info = erlang:fun_info(Fun),
+            {module, M} = lists:keyfind(module, 1, Info),
+            {name, F} = lists:keyfind(name, 1, Info),
+            {arity, Arity} = lists:keyfind(arity, 1, Info),
+            {'fun', A, {function,
+                        abstract(M, A, E),
+                        abstract(F, A, E),
+                        abstract(Arity, A, E)}}
+    end.
 
 abstract_list([H|T], String, A, E) ->
     case is_integer(H) andalso H >= 0 andalso E(H) of
