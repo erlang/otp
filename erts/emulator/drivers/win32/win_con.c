@@ -157,7 +157,7 @@ static RECT winPos;
 static BOOL toolbarVisible;
 static BOOL destroyed = FALSE;
 
-static int lines_to_save = 1000; /* Maximum number of screen lines to save. */
+static int lines_to_save = 10000; /* Maximum number of screen lines to save. */
 
 #define TITLE_BUF_SZ 256
 
