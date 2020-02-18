@@ -277,8 +277,21 @@ ttb:p(all, call).</input></pre>
     </func>
 
     <func>
-      <name since="">tp, tpl, ctp, ctpl, ctpg</name>
-      <name since="OTP 19.0">tpe, ctpe</name>
+      <name since="">tp(Module [, Function [, Arity]], MatchSpec)</name>
+      <name since="">tp({Module, Function , Arity}, MatchSpec)</name>
+      <name since="">tpl(Module [, Function [, Arity]], MatchSpec)</name>
+      <name since="">tpl({Module, Function , Arity}, MatchSpec)</name>
+      <name since="">ctp()</name>
+      <name since="">ctp(Module [, Function [, Arity]])</name>
+      <name since="">ctp({Module, Function, Arity})</name>
+      <name since="">ctpl()</name>
+      <name since="">ctpl(Module [, Function [, Arity]])</name>
+      <name since="">ctpl({Module, Function, Arity})</name>
+      <name since="">ctpg()</name>
+      <name since="">ctpg(Module [, Function [, Arity]])</name>
+      <name since="">ctpg({Module, Function, Arity})</name>
+      <name since="OTP 19.0">tpe(Event,MatchSpec)</name>
+      <name since="OTP 19.0">ctpe(Event)</name>
       <fsummary>Set and clear trace patterns.</fsummary>
       <desc>
         <p>These functions are to be used with trace

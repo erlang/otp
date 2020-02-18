@@ -41,7 +41,8 @@
          reload_config/2,
          info/1,
          info/2,
-         info/3
+         info/3,
+         info/4
         ]).
 
 -deprecated({parse_query, 1,

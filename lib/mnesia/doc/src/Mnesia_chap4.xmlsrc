@@ -761,7 +761,7 @@ mnesia:all_keys/1</seealso>.
       node but not the others. If the table resides locally, no waiting
       occurs.</p>
     <p>By passing the same "fun" as an argument to the function
-       <seealso marker="mnesia#sync_dirty/2">mnesia:sync_dirty(Fun [, Args])</seealso>,
+       <seealso marker="mnesia#sync_dirty/1">mnesia:sync_dirty(Fun [, Args])</seealso>,
       it is performed in almost the same context as the function
       <seealso marker="mnesia#async_dirty/2">mnesia:async_dirty/1,2</seealso>.
       The difference is that the operations are performed

@@ -1969,23 +1969,6 @@ megaco_incr_timer() = #megaco_incr_timer{}
     </func>
 
     <func>
-      <name since="">get_sdp_record_from_PropertGroup(Type, PG) -> [sdp()]</name>
-      <fsummary>Get all sdp records of a certain type from a property group</fsummary>
-      <type>
-        <v>Type = v | c | m | o | a | b | t | r | z | k | s | i | u | e | p</v>
-        <v>PG = sdp_property_group()</v>
-        <v>Reason = term()</v>
-      </type>
-      <desc>
-        <p>Retreive all the sdp records of type <c>Type</c> from the
-          property group <c>PG</c>.</p>
-
-        <marker id="versions1"></marker>
-        <marker id="versions2"></marker>
-      </desc>
-    </func>
-
-    <func>
       <name since="">versions1() -> {ok, VersionInfo} | {error, Reason}</name>
       <name since="">versions2() -> {ok, Info} | {error, Reason}</name>
       <fsummary>Retreive various system and application info</fsummary>
