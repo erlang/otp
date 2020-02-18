@@ -510,27 +510,41 @@ do_get_state(Mod, Misc) ->
     end.
 
 do_replace_state(StateFun, Mod, Misc) ->
-    case erlang:function_exported(Mod, system_replace_state, 2) of
-	true ->
-	    try
-		{ok, State, NMisc} = Mod:system_replace_state(StateFun, Misc),
-		{State, NMisc}
-	    catch
-		Cl:Exc ->
-		    {{error, {callback_failed,{Mod,system_replace_state},{Cl,Exc}}}, Misc}
-	    end;
-	false ->
-	    try
-		NMisc = StateFun(Misc),
-		{NMisc, NMisc}
-	    catch
-		Cl:Exc ->
-		    {{error, {callback_failed,StateFun,{Cl,Exc}}}, Misc}
-	    end
-    end.
+Sensitivity = erlang:process_flag(sensitive, false),
+    Result = 
+        case {Sensitivity, erlang:function_exported(Mod, system_replace_state, 2)} of
+            {true, _} ->
+                {{error, sensitive}, Misc};
+            {_, true} ->
+                try
+                    {ok, State, NMisc} = Mod:system_replace_state(StateFun, Misc),
+                    {State, NMisc}
+                catch
+                    Cl:Exc ->
+                        {{error, {callback_failed,{Mod,system_replace_state},{Cl,Exc}}}, Misc}
+                end;
+            _ -> % {false, false}
+                try
+                    NMisc = StateFun(Misc),
+                    {NMisc, NMisc}
+                catch
+                    Cl:Exc ->
+                        {{error, {callback_failed,StateFun,{Cl,Exc}}}, Misc}
+                end
+        end,
+    _ = erlang:process_flag(sensitive, Sensitivity),
+    Result.
 
 get_status(SysState, Parent, Mod, Debug, Misc) ->
-    PDict = get(),
+    PDict = 
+        case erlang:process_flag(sensitive, false) of
+            false ->
+                get();
+            _ -> % true
+                _ = erlang:process_flag(sensitive, true),
+                % Because erlang:process_info/1 Shows empty list:
+                []
+        end,
     FmtMisc =
         case erlang:function_exported(Mod, format_status, 2) of
             true ->
