@@ -72,7 +72,7 @@
 	       ]},
     {registered, [ssl_sup, ssl_manager]},
     {applications, [crypto, public_key, kernel, stdlib]},
-    {env, []},
+    {env, [{protocol_version, ['tlsv1.3']}]},
     {mod, {ssl_app, []}},
     {runtime_dependencies, ["stdlib-3.5","public_key-1.7.2","kernel-6.0",
 			    "erts-10.0","crypto-4.2", "inets-5.10.7"]}]}.
