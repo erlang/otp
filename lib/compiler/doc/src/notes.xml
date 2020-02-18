@@ -32,6 +32,42 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a bug that could cause the compiler to reject
+	    valid code that used the <c>is_map_key/2</c> BIF.</p>
+          <p>
+	    Own Id: OTP-16452 Aux Id: ERL-1161 </p>
+        </item>
+        <item>
+	    <p>Fixed a bug that could cause the compiler to reject
+	    valid code that matched the same map key several
+	    times.</p>
+          <p>
+	    Own Id: OTP-16456 Aux Id: ERL-1163 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when compiling a convoluted
+	    <c>receive</c> statement.</p>
+          <p>
+	    Own Id: OTP-16466 Aux Id: ERL-1170 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash when a fun was created but
+	    never used.</p>
+	    <p>The compiler could crash when compiling the expression
+	    <c>true = 0 / X</c>.</p>
+          <p>
+	    Own Id: OTP-16467 Aux Id: ERL-1166, ERL-1167 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
