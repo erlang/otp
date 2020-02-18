@@ -112,6 +112,7 @@ MODULES= \
 	sets \
 	shell \
 	shell_default \
+	shell_docs \
 	slave \
 	sofs \
 	string \

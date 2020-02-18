@@ -26,6 +26,7 @@ RELSYSDIR = $(RELEASE_PATH)/$(APPLICATION)-$(VSN)
 else
 RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 endif
+RELCHUNKSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 
 APP_DIR = $(ERL_TOP)/lib/$(APPLICATION)/src
 
@@ -56,6 +57,12 @@ ifneq ($(TOP_SPECS_FILE),)
 SPECS_FILES = $(XML_ALL_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
 endif
 
+ifneq ($(strip $(CHUNKSDIR)),)
+_create_chunksdir_dirs := $(shell mkdir -p $(CHUNKSDIR))
+endif
+CHUNK_REF3_FILES = $(filter-out $(NO_CHUNKS), $(XML_ALL_REF3_FILES))
+CHUNK_FILES = $(CHUNK_REF3_FILES:%.xml=$(CHUNKSDIR)/%.chunk)
+
 
 # ----------------------------------------------------
 # FLAGS
@@ -73,7 +80,7 @@ $(HTMLDIR)/%.png: %.png
 $(HTMLDIR)/%.jpg: %.jpg
 	$(INSTALL_DATA) $< $@
 
-docs: man pdf html $(INFO_FILE)
+docs: man pdf html chunks $(INFO_FILE)
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -82,6 +89,8 @@ pdf: $(TOP_PDF_FILE)
 html: images $(HTML_REF_MAN_FILE)
 
 man: $(MAN1_FILES) $(MAN2_FILES) $(MAN3_FILES) $(MAN4_FILES) $(MAN5_FILES) $(MAN6_FILES) $(MAN7_FILES)
+
+chunks: $(CHUNK_FILES)
 
 images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 
@@ -107,7 +116,7 @@ info:
 
 debug opt lcnt:
 
-clean clean_docs: clean_xml clean_pdf clean_html clean_man
+clean clean_docs: clean_xml clean_pdf clean_html clean_man clean_chunks
 	rm -rf $(EXTRA_FILES)
 	rm -f  errs core *~ *.eps
 
@@ -124,6 +133,9 @@ clean_xml:
 clean_html:
 	rm -rf $(HTMLDIR)/*
 
+clean_chunks:
+	rm -f  $(CHUNKDIR)/*
+
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
@@ -136,6 +148,10 @@ release_docs_spec: docs
 	$(INSTALL_DIR_DATA) $(HTMLDIR) "$(RELSYSDIR)/doc/html"
 ifneq ($(HTML_EXTRA_FILES),)
 	$(INSTALL_DATA) $(HTML_EXTRA_FILES) "$(RELSYSDIR)/doc/html"
+endif
+ifneq ($(CHUNK_FILES),)
+	$(INSTALL_DIR) "$(RELCHUNKSDIR)/doc/chunks"
+	$(INSTALL_DATA) $(CHUNKSDIR)/* "$(RELCHUNKSDIR)/doc/chunks"
 endif
 	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
 ifneq ($(MAN1_FILES),)
@@ -175,5 +191,5 @@ release_spec:
 
 .PHONY: clean clean_xml clean_html clean_man clean_pdf \
         debug opt info \
-        docs images html man pdf \
+        docs images html man pdf chunks \
         release_docs_spec release_spec

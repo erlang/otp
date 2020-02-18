@@ -186,6 +186,7 @@ JAVADOC-GENERATED
 /lib/*/doc/src/*.fo
 /lib/*/doc/xml/*.xml
 /lib/*/doc/xml/*.ent
+/lib/*/doc/chunks/*.chunk
 
 /lib/config.log
 /lib/config.status
@@ -285,6 +286,7 @@ JAVADOC-GENERATED
 /erts/doc/src/*.fo
 /erts/doc/xml/*.xml
 /erts/doc/xml/figures/*.png
+/erts/doc/chunks/*.chunk
 /erts/doc/man[0-9]/*.[0-9]
 /erts/doc/CONF_INFO
 

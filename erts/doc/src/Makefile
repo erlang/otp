@@ -132,7 +132,7 @@ HTML_EXTRA_FILES = $(ERL_TOP)/erts/example/time_compat.erl \
 
 XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
 
-NO_CHUNKS = $(XML_REF3_CREF)
+NO_CHUNKS = $(XML_REF3_CREF) erl_tracer.xml
 
 # ----------------------------------------------------
 

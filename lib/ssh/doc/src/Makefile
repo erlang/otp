@@ -64,5 +64,7 @@ IMAGE_FILES = SSH_protocols.png
 
 TOP_SPECS_FILE = specs.xml
 
+NO_CHUNKS = ssh_client_key_api.xml ssh_server_key_api.xml ssh_server_channel.xml
+
 # ----------------------------------------------------
 include $(ERL_TOP)/make/doc.mk

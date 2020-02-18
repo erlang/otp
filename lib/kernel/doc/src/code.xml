@@ -736,6 +736,7 @@ ok = code:finish_loading(Prepared),
     <func>
       <name name="which" arity="1" since=""/>
       <fsummary>The object code file of a module.</fsummary>
+      <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
       <desc>
         <p>If the module is not loaded, this function searches the code
@@ -765,6 +766,22 @@ ok = code:finish_loading(Prepared),
 {_Module, Binary, Filename} = code:get_object_code(Module),
 rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
 ...</code>
+      </desc>
+    </func>
+    <func>
+      <name name="get_doc" arity="1" since="OTP @OTP-16406@"/>
+      <fsummary>Gets the documentation for a module.</fsummary>
+      <desc>
+        <p>Searches the code path for a documentation chunk
+          and returns ut if available. If no documentation chunk
+          can be found the function tries to generate documentation
+          from the debug information in the module. If no debug
+          information is available, this function will return
+          <c>{error,missing}</c>.
+        </p>
+        <p>For more information about the documentation chunk see
+          <seealso marker="documentation_chapter">Documentation</seealso>
+          in the Kernel User's Guide.</p>
       </desc>
     </func>
     <func>

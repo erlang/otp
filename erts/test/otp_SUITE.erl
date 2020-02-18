@@ -97,9 +97,9 @@ undefined_functions(Config) when is_list(Config) ->
         _ ->
             Fd = open_log(Config, "undefined_functions"),
             foreach(fun ({MFA1,MFA2}) ->
-                            io:format("~s calls undefined ~s",
-                                      [format_mfa(Server, MFA1),
-                                       format_mfa(MFA2)]),
+                            ct:pal("~s calls undefined ~s",
+                                   [format_mfa(Server, MFA1),
+                                    format_mfa(MFA2)]),
                             io:format(Fd, "~s ~s\n",
                                       [format_mfa(Server, MFA1),
                                        format_mfa(MFA2)])

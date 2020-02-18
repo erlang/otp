@@ -86,6 +86,8 @@ XML_FILES=$(XML_APPLICATION_FILES) $(XML_REF1_FILES)  $(XML_REF3_FILES) $(XML_RE
 
 TOP_SPECS_FILE = specs.xml
 
+NO_CHUNKS = ct_hooks.xml
+
 # ----------------------------------------------------
 
 include $(ERL_TOP)/make/doc.mk

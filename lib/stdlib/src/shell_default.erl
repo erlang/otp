@@ -28,6 +28,7 @@
 	 erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1, 
          y/1, y/2,
 	 xm/1, bt/1, q/0,
+         h/1, h/2, h/3, ht/1, ht/2, ht/3,
 	 ni/0, nregs/0]).
 
 -export([ih/0,iv/0,im/0,ii/1,ii/2,iq/1,ini/1,ini/2,inq/1,ib/2,ib/3,
@@ -43,7 +44,13 @@ help() ->
     format("e(N)       -- repeat the expression in query <N>\n"),
     format("f()        -- forget all variable bindings\n"),
     format("f(X)       -- forget the binding of variable X\n"),
-    format("h()        -- history\n"),    
+    format("h()        -- history\n"),
+    format("h(Mod)     -- help about module\n"),
+    format("h(Mod,Func)-- help about function in module\n"),
+    format("h(Mod,Func,Arity) -- help about function with arity in module\n"),
+    format("ht(Mod)    -- help about a module's types\n"),
+    format("ht(Mod,Func) -- help about type in module\n"),
+    format("ht(Mod,Func,Arity) -- help about type with arity in module\n"),
     format("history(N) -- set how many previous commands to keep\n"),
     format("results(N) -- set how many previous command results to keep\n"),
     format("catch_exception(B) -- how exceptions are handled\n"),
@@ -76,6 +83,12 @@ c(File, Opt, Filter) -> c:c(File, Opt, Filter).
 cd(D)           -> c:cd(D).
 erlangrc(X) 	-> c:erlangrc(X).
 flush()         -> c:flush().
+h(M)            -> c:h(M).
+h(M,F)          -> c:h(M,F).
+h(M,F,A)        -> c:h(M,F,A).
+ht(M)           -> c:ht(M).
+ht(M,F)         -> c:ht(M,F).
+ht(M,F,A)       -> c:ht(M,F,A).
 i() 		-> c:i().
 i(X,Y,Z) 	-> c:i(X,Y,Z).
 l(Mod)       	-> c:l(Mod).

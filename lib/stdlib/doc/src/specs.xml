@@ -51,6 +51,7 @@
   <xi:include href="../specs/specs_sets.xml"/>
   <xi:include href="../specs/specs_shell.xml"/>
   <xi:include href="../specs/specs_shell_default.xml"/>
+  <xi:include href="../specs/specs_shell_docs.xml"/>
   <xi:include href="../specs/specs_slave.xml"/>
   <xi:include href="../specs/specs_sofs.xml"/>
   <xi:include href="../specs/specs_string.xml"/>

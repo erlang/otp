@@ -32,23 +32,51 @@
 %%  function name must be on the same line. CurrentBefore is reversed
 %%  and over_word/3 reverses the characters it finds. In certain cases
 %%  possible expansions are printed.
+%%
+%%  The function also handles expansion with "h(" for module and functions.
 expand(Bef0) ->
     {Bef1,Word,_} = edlin:over_word(Bef0, [], 0),
     case over_white(Bef1, [], 0) of
- 	{[$:|Bef2],_White,_Nwh} ->
+        {[$,|Bef2],_White,_Nwh} ->
+	    {Bef3,_White1,_Nwh1} = over_white(Bef2, [], 0),
+	    {Bef4,Mod,_Nm} = edlin:over_word(Bef3, [], 0),
+            case expand_function(Bef4) of
+                help ->
+                    expand_function_name(Mod, Word, ",");
+                _ ->
+                    expand_module_name(Word, ",")
+            end;
+        {[$:|Bef2],_White,_Nwh} ->
  	    {Bef3,_White1,_Nwh1} = over_white(Bef2, [], 0),
  	    {_,Mod,_Nm} = edlin:over_word(Bef3, [], 0),
- 	    expand_function_name(Mod, Word);
+	    expand_function_name(Mod, Word, "(");
  	{_,_,_} ->
- 	    expand_module_name(Word)
+            CompleteChar
+                = case expand_function(Bef1) of
+                      help -> ",";
+                      _ -> ":"
+                  end,
+	    expand_module_name(Word, CompleteChar)
     end.
 
-expand_module_name("") ->
-    {no, [], []};
-expand_module_name(Prefix) ->
-    match(Prefix, [{list_to_atom(M),P} || {M,P,_} <- code:all_available()], ":").
+expand_function("("++Str) ->
+    case edlin:over_word(Str, [], 0) of
+        {_,"h",_} ->
+            help;
+        {_,"ht",_} ->
+            help_type;
+        _ ->
+            module
+    end;
+expand_function(_) ->
+    module.
 
-expand_function_name(ModStr, FuncPrefix) ->
+expand_module_name("",_) ->
+    {no, [], []};
+expand_module_name(Prefix,CompleteChar) ->
+    match(Prefix, [{list_to_atom(M),P} || {M,P,_} <- code:all_available()], CompleteChar).
+
+expand_function_name(ModStr, FuncPrefix, CompleteChar) ->
     case to_atom(ModStr) of
 	{ok, Mod} ->
             Exports =
@@ -67,7 +95,7 @@ expand_function_name(ModStr, FuncPrefix) ->
                 {no, [], []} ->
                     {no, [], []};
                 Exports ->
-                    match(FuncPrefix, Exports, "(")
+                    match(FuncPrefix, Exports, CompleteChar)
             end;
 	error ->
 	    {no, [], []}

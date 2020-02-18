@@ -66,8 +66,7 @@ XML_FILES = \
 	$(XML_REF3_FILES)    \
 	$(XML_APPLICATION_FILES)
 
-# IMAGE_FILES = inets.gif
-
+NO_CHUNKS = httpd_custom_api.xml
 
 # ----------------------------------------------------
 

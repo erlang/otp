@@ -67,6 +67,8 @@ IMAGE_FILES = \
 
 TOP_SPECS_FILE = specs.xml
 
+NO_CHUNKS = erlang_mode.xml
+
 # ----------------------------------------------------
 
 # erlang_mode doesn't have erlang source so we generate a dummy file for it.

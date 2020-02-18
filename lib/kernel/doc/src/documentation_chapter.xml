@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE part SYSTEM "part.dtd">
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
 
-<part xmlns:xi="http://www.w3.org/2001/XInclude">
+<chapter>
   <header>
     <copyright>
-      <year>2018</year>
+      <year>2020</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,20 +19,27 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
-    <title>Kernel User's Guide</title>
-    <prepared>OTP Team</prepared>
+    <title>Embedded Documentation</title>
+    <prepared></prepared>
     <docno></docno>
-    <date>2018-06-06</date>
-    <file>part.xml</file>
+    <date></date>
+    <rev></rev>
+    <file>documentation_chapter.xml</file>
   </header>
-  <description>
-    <p></p>
-  </description>
-  <xi:include href="introduction_chapter.xml"/>
-  <xi:include href="logger_chapter.xml"/>
-  <xi:include href="logger_cookbook.xml"/>
-  <xi:include href="documentation_chapter.xml"/>
-</part>
+
+  <p>Erlang/OTP 23.0</p>
+
+  <section>
+    <title>Overview</title>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>
+      <seealso marker="code#get_doc-1"><c>code:get_doc(3)</c></seealso>
+    </p>
+  </section>
+</chapter>

@@ -60,6 +60,8 @@ XML_FILES = \
 IMAGE_FILES = \
 	et_processes.gif \
 	et_modsprocs.gif
+
+NO_CHUNKS = crashdump.xml
 # ----------------------------------------------------
 
 include $(ERL_TOP)/make/doc.mk

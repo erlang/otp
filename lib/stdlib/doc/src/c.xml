@@ -120,6 +120,64 @@
     </func>
 
     <func>
+      <name name="h" arity="1" since="OTP @OTP-16222@"/>
+      <fsummary>Module help information</fsummary>
+      <type name="h_return"/>
+      <desc>
+        <p>Print the documentation for <c>Module</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="h" arity="2" since="OTP @OTP-16222@"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hf_return"/>
+      <desc>
+        <p>Print the documentation for all <c>Module:Function</c>s (regardless of arity).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="h" arity="3" since="OTP @OTP-16222@"/>
+      <fsummary>Function help information</fsummary>
+      <type name="h_return"/>
+      <type name="hf_return"/>
+      <desc>
+        <p>Print the documentation for <c>Module:Function/Arity</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ht" arity="1" since="OTP @OTP-16222@"/>
+      <fsummary>Type help information</fsummary>
+      <type name="h_return"/>
+      <desc>
+        <p>Print the type documentation for <c>Module</c></p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ht" arity="2" since="OTP @OTP-16222@"/>
+      <fsummary>Type help information</fsummary>
+      <type name="h_return"/>
+      <type name="ht_return"/>
+      <desc>
+        <p>Print the type documentation for <c>Type</c> in <c>Module</c> regardless of arity.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="ht" arity="3" since="OTP @OTP-16222@"/>
+      <fsummary>Type help information</fsummary>
+      <type name="h_return"/>
+      <type name="ht_return"/>
+      <desc>
+        <p>Print the type documentation for <c>Type/Arity</c> in <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="i" arity="0" since=""/>
       <name name="ni" arity="0" since=""/>
       <fsummary>System information.</fsummary>

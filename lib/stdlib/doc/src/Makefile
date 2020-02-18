@@ -84,6 +84,7 @@ XML_REF3_FILES = \
 	sets.xml \
 	shell.xml \
 	shell_default.xml \
+	shell_docs.xml \
 	slave.xml \
 	sofs.xml \
 	string.xml \
@@ -113,5 +114,7 @@ TOP_SPECS_FILE = specs.xml
 $(SPECDIR)/specs_erl_id_trans.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
 		-o$(dir $@) -module erl_id_trans
+
+NO_CHUNKS = erl_id_trans.xml
 
 include $(ERL_TOP)/make/doc.mk

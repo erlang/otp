@@ -235,6 +235,7 @@ TEXDIR = .
 
 SPECDIR = $(DOCDIR)/specs
 XMLDIR = $(DOCDIR)/xml
+CHUNKSDIR = $(DOCDIR)/chunks
 
 ifeq ($(CSS_FILE),)
 CSS_FILE = otp_doc.css
@@ -325,3 +326,9 @@ $(XMLDIR)/%.xml: $(XMLDIR)/%.xmlsrc
 
 $(PDFDIR)/%.pdf: %.fo
 	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@
+
+$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../ebin/%.beam $(DOCGEN)/priv/bin/chunk.escript
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@
+
+$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../preloaded/ebin/%.beam $(DOCGEN)/priv/bin/chunk.escript
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@

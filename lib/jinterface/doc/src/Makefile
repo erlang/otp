@@ -87,8 +87,6 @@ JAVA_GEN_FILES = \
 	$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/package-tree.html \
 	$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/package-frame.html
 
-NO_CHUNKS=yes
-
 # ----------------------------------------------------
 
 

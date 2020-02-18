@@ -45,6 +45,11 @@ STANDARDS = $(STANDARD_DIR)/rfc3525.txt \
             $(STANDARD_DIR)/rfc4566.txt \
             $(STANDARD_DIR)/implementors_guide_v10-13.pdf
 
+NO_CHUNKS = megaco_edist_compress.xml megaco_user.xml megaco_encoder.xml \
+	megaco_transport.xml megaco_tcp.xml megaco_udp.xml \
+	megaco_codec_meas.xml megaco_codec_mstone1.xml \
+	megaco_codec_mstone2.xml megaco_codec_transform.xml
+
 include $(ERL_TOP)/make/doc.mk
 
 $(HTMLDIR)/megaco_architecture.html: megaco_architecture.xml

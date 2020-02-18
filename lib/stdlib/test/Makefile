@@ -74,6 +74,7 @@ MODULES= \
 	supervisor_deadlock \
 	naughty_child \
 	shell_SUITE \
+	shell_docs_SUITE \
 	supervisor_SUITE \
 	supervisor_bridge_SUITE \
 	sys_SUITE \

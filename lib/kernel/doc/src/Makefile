@@ -80,6 +80,7 @@ XML_CHAPTER_FILES = \
         notes.xml \
         introduction_chapter.xml \
 	logger_chapter.xml \
+	documentation_chapter.xml \
 	logger_cookbook.xml
 
 BOOK_FILES = book.xml
@@ -107,6 +108,8 @@ $(SPECDIR)/specs_init_stub.xml:
 $(SPECDIR)/specs_zlib_stub.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module zlib_stub
+
+NO_CHUNKS = erl_prim_loader_stub.xml erlang_stub.xml init_stub.xml zlib_stub.xml
 
 # ----------------------------------------------------
 # FIGURES
