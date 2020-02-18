@@ -1856,7 +1856,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
 	  <tag><c>available</c></tag>
 	  <item>All SSL/TLS versions supported by the SSL application.
-	  TLS 1.2 requires sufficient support from the Crypto
+	  TLS 1.2 and TLS 1.3 requires sufficient support from the Crypto
 	  application.</item>
 
 	  <tag><c>available_dtls</c></tag>

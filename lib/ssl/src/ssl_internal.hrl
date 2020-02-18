@@ -78,7 +78,7 @@
 -define(ALL_AVAILABLE_VERSIONS, ['tlsv1.3', 'tlsv1.2', 'tlsv1.1', tlsv1]).
 -define(ALL_AVAILABLE_DATAGRAM_VERSIONS, ['dtlsv1.2', dtlsv1]).
 %% Defines the default versions when not specified by an ssl option.
--define(ALL_SUPPORTED_VERSIONS, ['tlsv1.2']).
+-define(ALL_SUPPORTED_VERSIONS, ['tlsv1.3', 'tlsv1.2']).
 -define(MIN_SUPPORTED_VERSIONS, ['tlsv1.1']).
 
 %% Versions allowed in TLSCiphertext.version (TLS 1.2 and prior) and
