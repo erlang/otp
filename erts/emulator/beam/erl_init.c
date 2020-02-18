@@ -586,7 +586,7 @@ void erts_usage(void)
 		 ERTS_ASYNC_THREAD_MIN_STACK_SIZE,
 		 ERTS_ASYNC_THREAD_MAX_STACK_SIZE);
     erts_fprintf(stderr, "-A number      set number of threads in async thread pool,\n");
-    erts_fprintf(stderr, "               valid range is [0-%d]\n",
+    erts_fprintf(stderr, "               valid range is [1-%d]\n",
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
     erts_fprintf(stderr, "-B[c|d|i]      c to have Ctrl-c interrupt the Erlang shell,\n");
     erts_fprintf(stderr, "               d (or no extra option) to disable the break\n");
@@ -1142,6 +1142,9 @@ early_init(int *argc, char **argv) /*
 	    }
 	    i++;
 	}
+
+        if (erts_async_max_threads < 1)
+            erts_async_max_threads = 1;
 
 	/* apply any scheduler percentages */
 	if (schdlrs_percentage != 100 || schdlrs_onln_percentage != 100) {

@@ -575,7 +575,7 @@
       <tag><marker id="async_thread_pool_size"/><c><![CDATA[+A size]]></c></tag>
       <item>
         <p>Sets the number of threads in async thread pool. Valid range
-          is 0-1024. Defaults to 1.</p>
+          is 1-1024. Defaults to 1.</p>
       </item>
       <tag><c><![CDATA[+B [c | d | i]]]></c></tag>
       <item>
@@ -1049,9 +1049,7 @@
       <item>
         <p>Sets the number of dirty I/O scheduler threads to create.
           Valid range is 0-1024. By
-          default, the number of dirty I/O scheduler threads created is 10,
-          same as the default number of threads in the <seealso
-          marker="#async_thread_pool_size">async thread pool</seealso>.</p>
+          default, the number of dirty I/O scheduler threads created is 10.</p>
 	<p>The amount of dirty IO schedulers is not limited by the amount of
 	  normal schedulers <seealso marker="#+SDcpu">like the amount of
 	  dirty CPU schedulers</seealso>. This since only I/O bound work is
