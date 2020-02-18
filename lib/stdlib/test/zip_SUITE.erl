@@ -904,13 +904,13 @@ unicode(Config) ->
             test_archive_comment(DataDir),
             test_bad_comment(DataDir),
             test_latin1_archive(DataDir),
-            test_filename_compatibility(),
             case has_zip() of
                 false ->
                     {comment, "No zip program found; skipping some tests"};
                 true ->
                     case zip_is_unicode_aware() of
                         true ->
+                            test_filename_compatibility(),
                             ok;
                         false ->
                             {comment, "Old zip program; skipping some tests"}
@@ -923,9 +923,7 @@ test_filename_compatibility() ->
     Archive = "test.zip",
 
     {ok, Archive} = zip:zip(Archive, [{FancyName, <<"test">>}]),
-    zipinfo_match(Archive, FancyName),
-
-    ok.
+    zipinfo_match(Archive, FancyName).
 
 test_file_comment(DataDir) ->
     Archive = filename:join(DataDir, "zip_file_comment.zip"),
