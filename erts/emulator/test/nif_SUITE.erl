@@ -33,6 +33,7 @@
 	 init_per_testcase/2, end_per_testcase/2,
          basic/1, reload_error/1, upgrade/1, heap_frag/1,
          t_on_load/1,
+         load_traced_nif/1,
          select/1, select_steal/1,
          monitor_process_a/1,
          monitor_process_b/1,
@@ -93,6 +94,7 @@ all() ->
      {group, monitor},
      monitor_frenzy,
      hipe,
+     load_traced_nif,
      binaries, get_string, get_atom, maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
      threading, send, send2, send3,
@@ -499,6 +501,47 @@ t_on_load(Config) when is_list(Config) ->
     true = lists:member(nif_mod, erlang:system_info(taints)),
     verify_tmpmem(TmpMem),
     ok.
+
+%% Test load of module where a NIF stub is already traced.
+load_traced_nif(Config) when is_list(Config) ->
+    TmpMem = tmpmem(),
+
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "nif_mod"),
+    {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
+    {module,nif_mod} = erlang:load_module(nif_mod,Bin),
+
+    Tracee = spawn_link(fun Loop() -> receive {lib_version,ExpRet} ->
+                                              ExpRet = nif_mod:lib_version()
+                                      end,
+                                      Loop()
+                        end),
+    1 = erlang:trace_pattern({nif_mod,lib_version,0}, true, [local]),
+    1 = erlang:trace(Tracee, true, [call]),
+
+    Tracee ! {lib_version, undefined},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    ok = nif_mod:load_nif_lib(Config, 1),
+
+    Tracee ! {lib_version, 1},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    %% Wait for NIF loading to finish and write final call_nif instruction
+    timer:sleep(500),
+
+    Tracee ! {lib_version, 1},
+    {trace, Tracee, call, {nif_mod,lib_version,[]}} = receive_any(1000),
+
+    true = erlang:delete_module(nif_mod),
+    true = erlang:purge_module(nif_mod),
+
+    unlink(Tracee),
+    exit(Tracee, kill),
+
+    verify_tmpmem(TmpMem),
+    ok.
+
 
 -define(ERL_NIF_SELECT_READ, (1 bsl 0)).
 -define(ERL_NIF_SELECT_WRITE, (1 bsl 1)).

@@ -577,6 +577,7 @@ normal_exit
 continue_exit
 call_bif W
 call_nif W W W
+call_nif_early
 call_error_handler
 error_action_code
 return_trace

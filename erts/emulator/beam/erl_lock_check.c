@@ -84,6 +84,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"reg_tab",				NULL			},
     {	"proc_main",				"pid"			},
     {   "old_code",                             "address"               },
+    {   "nif_call_tab",                         NULL                    },
 #ifdef HIPE
     {	"hipe_mfait_lock",			NULL			},
 #endif
@@ -148,6 +149,7 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"instr_x",				NULL			},
     {	"instr",				NULL			},
     {   "dyn_lock_check",                       NULL                    },
+    {   "nif_load",                             NULL                    },
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
     {	"get_time",				NULL			},

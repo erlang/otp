@@ -133,6 +133,15 @@ ErtsCodeIndex erts_staging_code_ix(void);
  */
 int erts_try_seize_code_write_permission(struct process* c_p);
 
+/* Try seize exclusive code write permission for aux work.
+ * System thread progress must not be blocked.
+ * On success return true.
+ * On failure return false and aux work func(arg) will be scheduled when
+ * permission is released.                                                                             .
+ */
+int erts_try_seize_code_write_permission_aux(void (*func)(void *),
+                                             void *arg);
+
 /* Release code write permission.
  * Will resume any suspended waiters.
  */

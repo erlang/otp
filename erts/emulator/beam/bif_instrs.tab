@@ -445,6 +445,15 @@ send() {
     }
 }
 
+call_nif_early() {
+    HEAVY_SWAPOUT;
+    I = erts_call_nif_early(c_p, erts_code_to_codeinfo(I));
+    HEAVY_SWAPIN;
+    ASSERT(VALID_INSTR(*I));
+    Goto(*I);
+    //| -no_next
+}
+
 call_nif := nif_bif.call_nif.epilogue;
 call_bif := nif_bif.call_bif.epilogue;
 

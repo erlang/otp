@@ -3634,7 +3634,6 @@ static ErlNifFunc nif_funcs[] =
     {"release_resource", 1, release_resource},
     {"release_resource_from_thread", 1, release_resource_from_thread},
     {"last_resource_dtor_call_nif", 0, last_resource_dtor_call_nif},
-    {"make_new_resource", 2, make_new_resource},
     {"check_is", 11, check_is},
     {"check_is_exception", 0, check_is_exception},
     {"length_test", 6, length_test},
