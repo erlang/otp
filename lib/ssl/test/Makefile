@@ -74,6 +74,7 @@ MODULES = \
 	ssl_session_SUITE \
 	ssl_session_cache_SUITE	\
 	ssl_session_ticket_SUITE \
+	openssl_session_ticket_SUITE \
 	openssl_session_SUITE \
 	ssl_ECC_SUITE \
 	ssl_ECC_openssl_SUITE \

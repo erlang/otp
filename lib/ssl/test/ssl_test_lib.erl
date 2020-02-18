@@ -76,6 +76,43 @@ get_client_opts(Config) ->
     COpts = proplists:get_value(client_ecdsa_opts, Config),
     ssl_test_lib:ssl_options(COpts, Config).
 
+%% Default callback functions
+init_per_group(GroupName, Config) ->
+    clean_tls_version(Config),
+    case is_tls_version(GroupName) andalso sufficient_crypto_support(GroupName) of
+	true ->
+	    init_tls_version(GroupName, Config);
+	_ ->
+	    case sufficient_crypto_support(GroupName) of
+		true ->
+		    ssl:start(),
+		    Config;
+		false ->
+		    {skip, "Missing crypto support"}
+	    end
+    end.
+
+init_per_group_openssl(GroupName, Config) ->
+    case is_tls_version(GroupName) of
+	true ->
+	    case check_sane_openssl_version(GroupName) of
+		true ->
+		    [{version, GroupName}|init_tls_version(GroupName, Config)];
+		false ->
+		    {skip, "Missing openssl support"}
+	    end;
+	_ ->
+	    ssl:start(),
+	    Config
+    end.
+
+end_per_group(GroupName, Config) ->
+  case is_tls_version(GroupName) of
+      true ->
+          clean_tls_version(Config);
+      false ->
+          Config
+  end.
 
 %%====================================================================
 %% Internal functions
