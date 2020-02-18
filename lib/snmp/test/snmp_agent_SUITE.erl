@@ -813,6 +813,23 @@ end_per_group(_GroupName, Config) ->
 %% ----- Init Per TestCase -----
 %%
 
+%% T is in number of minutes
+wd_start(T, Config) ->
+    Factor = case ?config(snmp_factor, Config) of
+                 F when (F > 0) ->
+                     F-1;
+                 _ ->
+                     0
+             end,
+    Dog = ?WD_START(?MINS(T + Factor)),
+    [{watchdog, Dog} | Config ].
+    
+    
+wd_stop(Config) ->
+    Dog = ?config(watchdog, Config),
+    ?WD_STOP(Dog),
+    lists:keydelete(Dog, 2, Config).
+    
 init_per_testcase(Case, Config) when is_list(Config) ->
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -841,8 +858,7 @@ init_per_testcase1(otp_7157 = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(1)),
-    [{watchdog, Dog} | Config ];
+    wd_start(1, Config);
 init_per_testcase1(Case, Config) 
   when ((Case =:= otp_16092_simple_start_and_stop1)  orelse
         (Case =:= otp_16092_simple_start_and_stop2)  orelse
@@ -852,30 +868,26 @@ init_per_testcase1(Case, Config)
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(1)),
-    init_per_testcase2(Case, [{watchdog, Dog} | Config]);
+    init_per_testcase2(Case, wd_start(1, Config));
 init_per_testcase1(v2_inform_i = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(10)),
-    [{watchdog, Dog} | Config ];
+    wd_start(10, Config);
 init_per_testcase1(v3_inform_i = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(10)),
-    [{watchdog, Dog} | Config ];
+    wd_start(10, Config);
 init_per_testcase1(_Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(6)),
-    [{watchdog, Dog}| Config ].
+    wd_start(6, Config).
 
 init_per_testcase2(Case, Config) ->
 
-    ?DBG("end_per_testcase2 -> entry with"
+    ?DBG("init_per_testcase2 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [Case, Config]),
 
@@ -912,14 +924,19 @@ init_per_testcase2(Case, Config) ->
 
 end_per_testcase(Case, Config) when is_list(Config) ->
     p("end_per_testcase -> entry with"
-      "~n   Config: ~p"
-      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
-
-    display_log(Config),
+      "~n   Config:        ~p"
+      "~n   Nodes:         ~p",
+      [Config, erlang:nodes()]),
 
     p("system events during test: "
       "~n   ~p", [snmp_test_global_sys_monitor:events()]),
-    
+
+    %% We should really timetrap this, since it *can* take some time:
+    %% Cancel the (current) timetrap, start a new one for 2 minutes,
+    %% give the 'display_log' 1 minute to complete, and if it does
+    %% not, kill it.
+    display_log(Config),
+
     Result = end_per_testcase1(Case, Config),
 
     p("end_per_testcase -> done with"
@@ -935,9 +952,7 @@ end_per_testcase1(_Case, Config) when is_list(Config) ->
     ?DBG("end_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?config(watchdog, Config),
-    ?WD_STOP(Dog),
-    Config.
+    wd_stop(Config).
 
 
 

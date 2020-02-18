@@ -335,7 +335,7 @@ await_tc_runner_started(Runner, OldFlag) ->
     after 10000 -> %% We should *really* not have to wait this long, but...
             trap_exit(OldFlag),
             unlink_and_flush_exit(Runner),
-            RunnerInfo = process_info(Runner),
+            RunnerInfo = ?PINFO(Runner),
             ?EPRINT2("TC runner start timeout: "
                      "~n   ~p", [RunnerInfo]),
             %% If we don't get a start ack within 10 seconds, we are f*ed
@@ -824,9 +824,7 @@ stop_agent(Config) when is_list(Config) ->
             "~n      ~p"
             "~n   Sub Par info: "
             "~n      ~p",
-            [SubSup,
-             (catch process_info(SubSup)),
-             (catch process_info(SubPar))]),
+            [SubSup, ?PINFO(SubSup), ?PINFO(SubPar)]),
     stop_sup(SubSup, SubPar),
     Config2 = lists:keydelete(snmp_sub, 1, Config),
 
@@ -840,9 +838,8 @@ stop_agent(Config) when is_list(Config) ->
             "~n      ~p"
             "~n   Agent Info: "
             "~n      ~p",
-            [MasterSup, 
-             (catch process_info(MasterSup)),
-             (catch process_info(MasterPar)),
+            [MasterSup,
+             ?PINFO(MasterSup), ?PINFO(MasterPar),
              agent_info(MasterSup)]),
     stop_sup(MasterSup, MasterPar),
     Config3 = lists:keydelete(snmp_sup, 1, Config2),
@@ -852,8 +849,7 @@ stop_agent(Config) when is_list(Config) ->
     AppSup = ?config(snmp_app_sup, Config),
     ?PRINT2("stop_agent -> attempt to app sup ~p"
             "~n   App Sup: ~p",
-            [AppSup, 
-             (catch process_info(AppSup))]),
+            [AppSup, ?PINFO(AppSup)]),
     Config4 = lists:keydelete(snmp_app_sup, 1, Config3),
 
 
