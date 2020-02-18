@@ -381,7 +381,7 @@
   <funcs>
 
     <func>
-      <name since="">ContinuationFun(State) -> {NewBytes, NewState}</name>
+      <name since="">Module:ContinuationFun(State) -> {NewBytes, NewState}</name>
       <fsummary>Continuation call back function.</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -402,7 +402,7 @@
     </func>
 
     <func>
-      <name since="">EventFun(Event, Location, State) -> NewState</name>
+      <name since="">Module:EventFun(Event, Location, State) -> NewState</name>
       <fsummary>Event call back function.</fsummary>
       <type>
         <v>Event = event()</v>
