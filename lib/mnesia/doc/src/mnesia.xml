@@ -453,7 +453,7 @@ mnesia:add_table_index(person, age)</code>
       </desc>
     </func>
     <func>
-      <name since="">async_dirty(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
+      <name since="">async_dirty(Fun [, Args]) -> ResultOfFun | exit(Reason)</name>
       <fsummary>Calls the <c>Fun</c> in a context that is not protected by a transaction.</fsummary>
       <desc>
       <marker id="async_dirty"></marker>
@@ -1259,7 +1259,7 @@ mnesia:create_table(person,
       </desc>
     </func>
     <func>
-      <name since="">ets(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
+      <name since="">ets(Fun [, Args]) -> ResultOfFun | exit(Reason)</name>
       <fsummary>Calls the <c>Fun</c> in a raw context that is not protected by a transaction.</fsummary>
       <desc>
       <marker id="ets"></marker>
@@ -2134,7 +2134,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name since="">sync_dirty(Fun, [, Args]) -> ResultOfFun | exit(Reason)</name>
+      <name since="">sync_dirty(Fun [, Args]) -> ResultOfFun | exit(Reason)</name>
       <fsummary>Calls the <c>Fun</c> in a context that is not protected by a transaction.</fsummary>
       <desc>
       <marker id="sync_dirty"></marker>
