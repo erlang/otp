@@ -1009,7 +1009,7 @@
       <tag><marker id="+SDio"/><c><![CDATA[+SDio DirtyIOSchedulers]]></c></tag>
       <item>
         <p>Sets the number of dirty I/O scheduler threads to create when
-          threading support has been enabled. Valid range is 0-1024. By
+          threading support has been enabled. Valid range is 1-1024. By
           default, the number of dirty I/O scheduler threads created is 10,
           same as the default number of threads in the <seealso
           marker="#async_thread_pool_size">async thread pool</seealso>.</p>
