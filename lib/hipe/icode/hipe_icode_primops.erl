@@ -133,6 +133,7 @@ is_safe({hipe_bs_primop, {bs_append, _, _, _, _}}) -> false;
 is_safe({hipe_bs_primop, {bs_private_append, _, _}}) -> false;
 is_safe({hipe_bs_primop, bs_init_writable}) -> true;
 is_safe(build_stacktrace) -> true;
+is_safe(raw_raise) -> false;
 is_safe(#mkfun{}) -> true;
 is_safe(#unsafe_element{}) -> true;
 is_safe(#unsafe_update_element{}) -> true;
