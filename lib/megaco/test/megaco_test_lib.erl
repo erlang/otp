@@ -498,8 +498,8 @@ init_per_suite(Config) ->
     end,
     COND = [
             {unix, [{linux,  LinuxVersionVerify}, 
-		    {darwin, DarwinVersionVerify}]},
-            {win32, [{nt, WinVersionVerify}]}
+		    {darwin, DarwinVersionVerify}]}%% ,
+            %% {win32, [{nt, WinVersionVerify}]}
            ],
     case os_based_skip(COND) of
         true ->
