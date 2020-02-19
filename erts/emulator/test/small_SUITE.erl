@@ -78,6 +78,15 @@ sp2_1(N, MinS, MaxS) when N > 0 ->
     [N | sp2_1(N bsl 1, MinS, MaxS)].
 
 arith_test(A, B, MinS, MaxS) ->
+    try arith_test_1(A, B, MinS, MaxS) of
+        ok -> ok
+    catch
+        error:Reason:Stk ->
+            ct:fail("arith_test failed with ~p~n\tA = ~p~n\tB = ~p\n\t~p",
+                    [Reason, A, B, Stk])
+    end.
+
+arith_test_1(A, B, MinS, MaxS) ->
     verify_kind(A + B, MinS, MaxS),
     verify_kind(B + A, MinS, MaxS),
     verify_kind(A - B, MinS, MaxS),
@@ -96,6 +105,9 @@ arith_test(A, B, MinS, MaxS) ->
 
     true = B =:= 0 orelse ((A * B) div id(B) =:= A),
     true = A =:= 0 orelse ((B * A) div id(A) =:= B),
+
+    true = B =:= 0 orelse (((A div id(B)) * id(B) + A rem id(B)) =:= A),
+    true = A =:= 0 orelse (((B div id(A)) * id(A) + B rem id(A)) =:= B),
 
     ok.
 

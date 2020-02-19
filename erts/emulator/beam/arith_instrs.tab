@@ -217,6 +217,11 @@ i_int_div(Fail, Op1, Op2, Dst) {
         $BIF_ERROR_ARITY_2($Fail, BIF_intdiv_2, op1, op2);
     } else if (ERTS_LIKELY(is_both_small(op1, op2))) {
         Sint ires = signed_val(op1) / signed_val(op2);
+
+        /* We could skip this check if it weren't for the fact that dividing
+         * MIN_SMALL by -1 causes an overflow, and we have nothing to gain from
+         * fixed-point optimizing this instruction since there's no
+         * __builtin_div_overflow. */
         if (ERTS_LIKELY(IS_SSMALL(ires))) {
             $Dst = make_small(ires);
             $NEXT0();
@@ -241,7 +246,14 @@ rem.execute(Fail, Dst) {
         c_p->freason = BADARITH;
         $BIF_ERROR_ARITY_2($Fail, BIF_rem_2, RemOp1, RemOp2);
     } else if (ERTS_LIKELY(is_both_small(RemOp1, RemOp2))) {
-        $Dst = make_small(signed_val(RemOp1) % signed_val(RemOp2));
+        Sint lhs_untagged, rhs_untagged, untagged_result;
+
+        /* See plus.execute */
+        lhs_untagged = (RemOp1 & ~_TAG_IMMED1_MASK);
+        rhs_untagged = (RemOp2 & ~_TAG_IMMED1_MASK);
+        untagged_result = lhs_untagged % rhs_untagged;
+
+        $Dst = untagged_result | _TAG_IMMED1_SMALL;
         $NEXT0();
     } else {
         $OUTLINED_ARITH_2($Fail, int_rem, BIF_rem_2, RemOp1, RemOp2, $Dst);
