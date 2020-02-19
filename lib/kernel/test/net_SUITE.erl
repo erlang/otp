@@ -219,6 +219,8 @@ api_b_getifaddrs() ->
             i("IfAddrs: "
               "~n   ~p", [IfAddrs]),
             ok;
+        {error, enotsup = Reason} ->
+            skip(Reason);
         {error, Reason} ->
             ?FAIL(Reason)
     end.
