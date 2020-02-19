@@ -940,8 +940,6 @@ vxworks_reclaim=""  AC_SUBST(vxworks_reclaim)
 dnl We want to use $(CC) as linker for the emulator regardless of
 dnl what the user say. This might not be the right way to do it, but
 dnl for now that is the way we do it.
-USER_LD=$LD
-USER_LDFLAGS="$LDFLAGS"
 LD='$(CC)'
 case $host_os in
      darwin*)

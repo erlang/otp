@@ -2960,6 +2960,8 @@ if test "x$GCC" = xyes; then
 
     DED_STATIC_CFLAGS="$DED_CFLAGS"
     DED_CFLAGS="$DED_CFLAGS -fPIC"
+    # Remove -fPIE and -fno-PIE
+    DED_CFLAGS=`echo $DED_CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
 fi
 
 DED_EXT=so

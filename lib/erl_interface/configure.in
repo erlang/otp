@@ -336,6 +336,10 @@ if test "X$host" = "Xwin32"; then
   LIB_CFLAGS="$CFLAGS"
 else
   if test "x$GCC" = xyes; then
+        # Remove all PIE stuff
+        CFLAGS=`echo $CFLAGS | sed 's/-f\(no-\)\?PIE//g'`
+        LDFLAGS=`echo $LDFLAGS | sed 's/-\(no-\)\?pie//g'`
+
 	LIB_CFLAGS="$CFLAGS -fPIC"
   else
 	LIB_CFLAGS="$CFLAGS"
