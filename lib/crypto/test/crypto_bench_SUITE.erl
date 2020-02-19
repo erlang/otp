@@ -67,7 +67,7 @@ init_per_suite(Config0) ->
             calibrate([{sec_goal,10} | Config1])
 
     catch _:_ ->
-	    {fail, "Crypto did not start"}
+	    {skip, "Crypto did not start"}
     end.
 
 end_per_suite(_Config) ->
