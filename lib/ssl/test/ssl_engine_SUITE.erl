@@ -101,15 +101,18 @@ private_key(Config) when is_list(Config) ->
     #{server_config := ServerConf,
       client_config := ClientConf} = GenCertData =
         public_key:pkix_test_data(#{server_chain => 
-                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
-                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
-                                          peer => [{extensions, Ext},
+                                        #{root => [{digest, sha256},
+                                                   {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                                          intermediates => [[{digest, sha256},
+                                                            {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                                          peer => [{extensions, Ext}, {digest, sha256},
                                                    {key, ssl_test_lib:hardcode_rsa_key(3)}
                                                   ]},
                                     client_chain => 
-                                        #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
-                                          intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
-                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
+                                      #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}, {digest, sha256}],
+                                        intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)},
+                                                             {digest, sha256}]],
+                                          peer => [{key, ssl_test_lib:hardcode_rsa_key(6)},{digest, sha256}]}}),
     [{server_config, FileServerConf}, 
      {client_config, FileClientConf}] = 
         x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),

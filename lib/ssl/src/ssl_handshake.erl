@@ -1795,6 +1795,10 @@ bad_key(#'DSAPrivateKey'{}) ->
 bad_key(#'RSAPrivateKey'{}) ->
     unacceptable_rsa_key;
 bad_key(#'ECPrivateKey'{}) ->
+    unacceptable_ecdsa_key;
+bad_key(#{algorithm := rsa}) ->
+    unacceptable_rsa_key;
+bad_key(#{algorithm := ecdsa}) ->
     unacceptable_ecdsa_key.
 
 crl_check(_, false, _,_,_, _, _, _) ->
