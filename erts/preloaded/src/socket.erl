@@ -39,7 +39,7 @@
         ]).
 
 -export([
-         open/2, open/3, open/4,
+         open/1, open/2, open/3, open/4,
          bind/2, bind/3,
          connect/2, connect/3,
          listen/1, listen/2,
@@ -176,6 +176,7 @@
                          type          := type(),
                          protocol      := protocol(),
                          ctrl          := pid(),
+                         ctype         := normal | fromfd | {fromfd, integer()},
                          counters      := socket_counters(),
                          num_readers   := non_neg_integer(),
                          num_writers   := non_neg_integer(),
@@ -350,6 +351,9 @@
                     sockaddr_in6() |
                     sockaddr_un()  |
                     sockaddr_ll().
+
+-define(OPEN2_OPTS_DEFAULTS, #{debug => false, dup => true}).
+-define(OPEN4_OPTS_DEFAULTS, #{debug => false}).
 
 -define(SOCKADDR_IN4_DEFAULTS(A), #{port => 0,
                                     addr => A}).
@@ -1187,29 +1191,6 @@ supports(_Key1, _Key2, _Key3) ->
 %%
 %% <KOLLA>
 %%
-%% How do we handle the case when an fd has been created (somehow)
-%% and we shall create a socket "from it".
-%% Can we figure out Domain, Type and Protocol from fd?
-%% No we can't: For instance, its not possible to 'get' domain on FreeBSD.
-%% 
-%% Instead, require: open(Domain, Stream, Proto, #{fd => FD}).
-%% The last argument, Extra, is used to provide the fd.
-%% 
-%% </KOLLA>
-%%
-%%
-%% <KOLLA>
-%%
-%% Possibly add a "registry" in the nif, allowing the user processes to 
-%% "register" themselves.
-%% The point of this would be to ensure that these processes are
-%% informed if the socket "terminates". Could possibly be used for
-%% other things? If gen_tcp implements the active feature using
-%% a reader process, the nif may need to know about this process,
-%% since its probably "hidden" from the socket "owner" (someone
-%% needs to handle it if it dies).
-%% Register under a name?
-%%
 %% The nif sets up a monitor to this process, and if it dies the socket
 %% is closed. It is also used if someone wants to monitor the socket.
 %%
@@ -1230,12 +1211,33 @@ supports(_Key1, _Key2, _Key3) ->
 %% Extra: Currently only used for netns
 %%
 
--spec open(Domain, Type) -> {ok, Socket} | {error, Reason} when
+-spec open(FD) -> {ok, Socket} | {error, Reason} when
+      FD     :: integer(),
+      Socket :: socket(),
+      Reason :: term().
+
+open(FD) ->
+    open(FD, ?OPEN2_OPTS_DEFAULTS).
+                  
+-spec open(FD, Opts) -> {ok, Socket} | {error, Reason} when
+      FD       :: integer(),
+      Opts     :: map(),
+      Socket   :: socket(),
+      Reason   :: term();
+          (Domain, Type) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
       Socket   :: socket(),
       Reason   :: term().
 
+open(FD, Opts) when is_integer(FD) andalso is_map(Opts) ->
+    case nif_open(FD, ensure_open2_opts(Opts)) of
+        {ok, SockRef} ->
+            Socket = #socket{ref = SockRef},
+            {ok, Socket};
+        {error, _} = ERROR ->
+            ERROR
+    end;
 open(Domain, Type) ->
     open(Domain, Type, default).
 
@@ -1247,23 +1249,23 @@ open(Domain, Type) ->
       Reason   :: term().
 
 open(Domain, Type, Protocol) ->
-    open(Domain, Type, Protocol, #{}).
+    open(Domain, Type, Protocol, ?OPEN4_OPTS_DEFAULTS).
 
--spec open(Domain, Type, Protocol, Extra) -> {ok, Socket} | {error, Reason} when
+-spec open(Domain, Type, Protocol, Opts) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
       Protocol :: default | protocol(),
-      Extra    :: map(),
+      Opts     :: map(),
       Socket   :: socket(),
       Reason   :: term().
 
-open(Domain, Type, Protocol, Extra) when is_map(Extra) ->
+open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
     try
         begin
             EDomain   = enc_domain(Domain),
             EType     = enc_type(Type),
             EProtocol = enc_protocol(Protocol),
-            nif_open(EDomain, EType, EProtocol, Extra)
+            nif_open(EDomain, EType, EProtocol, Opts)
         end
     of
         {ok, SockRef} ->
@@ -3908,6 +3910,25 @@ ensure_sockaddr(SockAddr) ->
     invalid_address(SockAddr).
 
 
+ensure_open2_opts(M) when is_map(M) ->
+    ensure_open2_opts(maps:to_list(M), ?OPEN2_OPTS_DEFAULTS).
+
+ensure_open2_opts([], Acc) ->
+    Acc;
+ensure_open2_opts([{domain,   D}|Opts], Acc) ->
+    ensure_open2_opts(Opts, Acc#{domain => enc_domain(D)});
+ensure_open2_opts([{type,     T}|Opts], Acc) ->
+    ensure_open2_opts(Opts, Acc#{type => enc_type(T)});
+ensure_open2_opts([{protocol, P}|Opts], Acc) ->
+    ensure_open2_opts(Opts, Acc#{protocol => enc_protocol(P)});
+ensure_open2_opts([{dup,      D}|Opts], Acc) when is_boolean(D) ->
+    ensure_open2_opts(Opts, Acc#{dup => D});
+ensure_open2_opts([{debug,    D}|Opts], Acc) when is_boolean(D) ->
+    ensure_open2_opts(Opts, Acc#{debug => D});
+ensure_open2_opts([_|Opts], Acc) ->
+    ensure_open2_opts(Opts, Acc).
+
+
 
 cancel(SockRef, Op, OpRef) ->
     case nif_cancel(SockRef, Op, OpRef) of
@@ -4080,7 +4101,10 @@ nif_command(_Command) ->
 nif_supports(_Key) ->
     erlang:nif_error(undef).
 
-nif_open(_Domain, _Type, _Protocol, _Extra) ->
+nif_open(_FD, _Opts) ->
+    erlang:nif_error(undef).
+
+nif_open(_Domain, _Type, _Protocol, _Opts) ->
     erlang:nif_error(undef).
 
 nif_bind(_SRef, _SockAddr) ->
