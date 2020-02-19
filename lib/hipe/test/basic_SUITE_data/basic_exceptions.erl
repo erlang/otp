@@ -25,6 +25,7 @@ test() ->
   ok = test_guard_bif(),
   ok = test_eclectic(),
   ok = test_raise(),
+  ok = test_effect(),
   ok.
 
 %%--------------------------------------------------------------------
@@ -674,5 +675,19 @@ do_test_raise_3(Expr) ->
       %% not actually used.
       erlang:raise(exit, {exception,C,E}, Stk)
   end.
+
+test_effect() ->
+  ok = effect_try(2),
+  {'EXIT',{badarith,_}} = (catch effect_try(bad)),
+  ok.
+
+effect_try(X) ->
+  try
+    X + 1
+  catch
+    C:E:Stk ->
+      erlang:raise(C, E, Stk)
+  end,
+  ok.
 
 id(I) -> I.
