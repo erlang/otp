@@ -496,9 +496,11 @@ init_per_suite(Config) ->
            (_) ->
                 false
     end,
-    COND = [{unix, [{linux,  LinuxVersionVerify}, 
+    COND = [
+            {unix, [{linux,  LinuxVersionVerify}, 
 		    {darwin, DarwinVersionVerify}]},
-            {win32, [{nt, WinVersionVerify}]}],
+            {win32, [{nt, WinVersionVerify}]}
+           ],
     case os_based_skip(COND) of
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
@@ -1176,7 +1178,7 @@ win_sys_info_lookup(Key, SysInfo) ->
     win_sys_info_lookup(Key, SysInfo, "-").
 
 win_sys_info_lookup(Key, SysInfo, Def) ->
-    case lists:keysearch(os_name, 1, SysInfo) of
+    case lists:keysearch(Key, 1, SysInfo) of
         {value, {Key, Value}} ->
             Value;
         false ->
@@ -1186,7 +1188,7 @@ win_sys_info_lookup(Key, SysInfo, Def) ->
 %% This function only extracts the prop we actually care about!
 which_win_system_info() ->
     SysInfo = os:cmd("systeminfo"),
-    try process_win_system_info(SysInfo, [])
+    try process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
     catch
         _:_:_ ->
             io:format("Failed process System info: "
@@ -1194,27 +1196,29 @@ which_win_system_info() ->
             []
     end.
 
+process_win_system_info([], Acc) ->
+    Acc;
 process_win_system_info([H|T], Acc) ->
     case string:tokens(H, [$:]) of
         [Key, Value] ->
             case string:to_lower(Key) of
                 "os name" ->
                     process_win_system_info(T,
-                                            [{os_name, Value}|Acc]);
+                                            [{os_name, string:trim(Value)}|Acc]);
                 "os version" ->
                     process_win_system_info(T,
-                                            [{os_version, Value}|Acc]);
+                                            [{os_version, string:trim(Value)}|Acc]);
                 "system manufacturer" ->
                     process_win_system_info(T,
-                                            [{system_manufacturer, Value}|Acc]);
+                                            [{system_manufacturer, string:trim(Value)}|Acc]);
                 "processor(s)" ->
                     [NumProcStr|_] = string:tokens(Value, [$\ ]),
-                    T2 = lists:nthtail(T, list_to_integer(NumProcStr)),
+                    T2 = lists:nthtail(list_to_integer(NumProcStr), T),
                     process_win_system_info(T2,
                                             [{num_processors, NumProcStr}|Acc]);
                 "total physical memory" ->
                     process_win_system_info(T,
-                                            [{total_phys_memory, Value}|Acc]);
+                                            [{total_phys_memory, string:trim(Value)}|Acc]);
                 _ ->
                     process_win_system_info(T, Acc)
             end;
