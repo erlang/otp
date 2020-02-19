@@ -931,11 +931,33 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     p("system events during test: "
       "~n   ~p", [snmp_test_global_sys_monitor:events()]),
 
-    %% We should really timetrap this, since it *can* take some time:
-    %% Cancel the (current) timetrap, start a new one for 2 minutes,
-    %% give the 'display_log' 1 minute to complete, and if it does
-    %% not, kill it.
-    display_log(Config),
+    %% On some hosts, this operation can take a long time.
+    %% So long, that the timetrap expires and the test case
+    %% will be "failed".
+    %% So, wrap it in a process and for a successful test case,
+    %% give it 30 seconds, then kill it. If the test case has
+    %% already failed, we will want to get as much of the logs
+    %% as possible. So, set no timeout (infinity) and let the
+    %% test framework take care of things...
+    DisplayLogTimeout =
+        case ?config(tc_status, Config) of
+            ok ->
+                ?SECS(30);
+            _ ->
+                infinity
+        end,
+    Flag = process_flag(trap_exit, true),
+    Pid = spawn_link(fun() -> display_log(Config), exit(normal) end),
+    receive
+        {'EXIT', Pid, _} ->
+            process_flag(trap_exit, Flag),
+            ok
+    after DisplayLogTimeout ->
+            p("Display Log process fail to complete in time (~w msec): kill it",
+              [DisplayLogTimeout]),
+            process_flag(trap_exit, Flag),
+            exit(Pid, kill)
+    end,
 
     Result = end_per_testcase1(Case, Config),
 
@@ -1221,11 +1243,16 @@ init_size_check_ms(Config, Opts) when is_list(Config) ->
 	ok ->
 	    case ?CRYPTO_SUPPORT() of
 		{no, Reason} ->
+                    ?INF("crypto support not sufficient:"
+                         "~n      ~p", [Reason]),
 		    ?SKIP({unsupported_encryption, Reason});
 		yes ->
+                    ?INF("crypto started"),
 		    ok
 	    end;
 	{error, Reason} ->
+            ?INF("crypto not started:"
+                 "~n      ~p", [Reason]),
 	    ?SKIP({failed_starting_crypto, Reason})
     end,
     create_tables(SaNode),
@@ -2046,11 +2073,16 @@ init_v3(Config) when is_list(Config) ->
 	ok ->
 	    case ?CRYPTO_SUPPORT() of
 		{no, Reason} ->
+                    ?INF("crypto support not sufficient:"
+                         "~n      ~p", [Reason]),
 		    ?SKIP({unsupported_encryption, Reason});
 		yes ->
+                    ?INF("crypto started"),
 		    ok
 	    end;
 	{error, Reason} ->
+            ?INF("crypto not started:"
+                 "~n      ~p", [Reason]),
 	    ?SKIP({failed_starting_crypto, Reason})
     end,
     SaNode = ?config(snmp_sa, Config),
@@ -5283,13 +5315,19 @@ snmp_framework_mib_test() ->
             "~n      Time to acquire: ~w ms"
             "~n   EngineTime 2: ~p"
             "~n      Time to acquire: ~w ms"
-            "~n   => (5 sec sleep between get(snmpEngineTime))"
+            "~n   => (5 sec (~w msec) sleep between get(snmpEngineTime))"
             "~n      Total time to acquire: ~w ms",
-            [EngineTime, T2-T1, EngineTime2, T4-T3, T4-T1]),
-    if 
+            [EngineTime, T2-T1, EngineTime2, T4-T3, T3-T2, T4-T1]),
+    if
 	(EngineTime+7) < EngineTime2 ->
+            ?PRINT2("snmp_framework_mib -> Engine Time diff (~w) too large: "
+                    "~n      ~w < ~w",
+                    [EngineTime2-EngineTime, EngineTime+7, EngineTime2]),
 	    ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
 	(EngineTime+4) > EngineTime2 ->
+            ?PRINT2("snmp_framework_mib -> Engine Time diff (~w) too large: "
+                    "~n      ~w > ~w",
+                    [EngineTime2-EngineTime, EngineTime+4, EngineTime2]),
 	    ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
 	true -> 
 	    ok
@@ -7086,9 +7124,7 @@ otp8395({init, Config}) when is_list(Config) ->
     %% Create watchdog 
     %% 
 
-    Dog = ?WD_START(?MINS(1)),
-
-    [{watchdog, Dog} | Config2];
+    wd_start(1, Config2);
 
 otp8395({fin, Config}) when is_list(Config) ->
     ?DBG("otp8395(fin) -> entry with"
@@ -7127,9 +7163,7 @@ otp8395({fin, Config}) when is_list(Config) ->
     ?DBG("otp8395(fin) -> stop manager node", []),
     stop_node(ManagerNode),
 
-    Dog = ?config(watchdog, Config),
-    ?WD_STOP(Dog),
-    lists:keydelete(watchdog, 1, Config);
+    wd_stop(Config);
 
 otp8395(doc) ->
     "OTP-8395 - ATL with sequence numbering. ";
@@ -7870,9 +7904,7 @@ init_v1_agent(Config) ->
     %% Create watchdog 
     %% 
 
-    Dog = ?WD_START(?MINS(1)),
-
-    [{watchdog, Dog} | Config2].
+    wd_start(1, Config2).
 
 fin_v1_agent(Config) ->
     AgentNode   = ?config(agent_node, Config),
@@ -7907,10 +7939,7 @@ fin_v1_agent(Config) ->
     %% 
     stop_node(ManagerNode),
 
-    Dog = ?config(watchdog, Config),
-    ?WD_STOP(Dog),
-    lists:keydelete(watchdog, 1, Config).
-
+    wd_stop(Config).
 
 
 config_ipfamily(Config) ->

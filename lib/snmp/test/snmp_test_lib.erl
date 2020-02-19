@@ -1419,15 +1419,16 @@ is_snmp_running() ->
     is_app_running(snmp).
 
 crypto_start() ->
-    case (catch crypto:start()) of
+    try crypto:start() of
         ok ->
             ok;
         {error, {already_started,crypto}} ->
-            ok;
-	{'EXIT', Reason} ->
-	    {error, {exit, Reason}};
-        Else ->
-            Else
+            ok
+    catch
+        exit:{undef, [{crypto, start, [], []} | _]}:_ ->
+            {error, no_crypto};
+        C:E:S ->
+            {error, {C, E, S}}
     end.
  
 crypto_support() ->
