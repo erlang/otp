@@ -5301,37 +5301,59 @@ snmp_framework_mib_3(Config) when is_list(Config) ->
 
 
 %% Req. SNMP-FRAMEWORK-MIB
+%% snmpEngineID in number of seconds.
+%% In theory, the Engine Time diff of the engine, should be exactly
+%% the same as the number of seconds we sleep (5 in this case).
+%% But because, on some (slow or/and high loaded) hosts, the actual
+%% time we sleep could be a lot larger (due to, for instance, scheduling).
+%% Therefor we must take that into account when we check if the 
+%% Engine Time diff (between the two checks) is acceptably.
 snmp_framework_mib_test() ->
+    Sleep = 5,
     ?line ["agentEngine"] = get_req(1, [[snmpEngineID,0]]),
     T1 = snmp_misc:now(ms),
     ?line [EngineTime] = get_req(2, [[snmpEngineTime,0]]),
     T2 = snmp_misc:now(ms),
-    ?SLEEP(5000),
+    ?SLEEP(?SECS(Sleep)),
     T3 = snmp_misc:now(ms),
     ?line [EngineTime2] = get_req(3, [[snmpEngineTime,0]]),
     T4 = snmp_misc:now(ms),
+
+    %% Ok, we tried to sleep 5 seconds, but how long did we actually sleep
+    ASleep         = ((T3-T2) + 500) div 1000,
+    EngineTimeDiff = EngineTime2 - EngineTime,
+    HighEngineTime = EngineTime + ASleep + 2,
+    LowEngineTime  = EngineTime + ASleep - 1,
+
     ?PRINT2("snmp_framework_mib -> time(s): "
-            "~n   EngineTime 1: ~p"
-            "~n      Time to acquire: ~w ms"
-            "~n   EngineTime 2: ~p"
-            "~n      Time to acquire: ~w ms"
-            "~n   => (5 sec (~w msec) sleep between get(snmpEngineTime))"
-            "~n      Total time to acquire: ~w ms",
-            [EngineTime, T2-T1, EngineTime2, T4-T3, T3-T2, T4-T1]),
+            "~n   EngineTime 1:                         ~p"
+            "~n      Time to acquire:                   ~w msec"
+            "~n   EngineTime 2:                         ~p"
+            "~n      Time to acquire:                   ~w msec"
+            "~n   => Total time to acquire:             ~w msec"
+            "~n      Sleep between get(snmpEngineTime): ~w (~w) sec"
+            "~n      Engine Time Diff:                  ~w sec"
+            "~n      Success if:"
+            "~n           ~w (low) =< Engine Time 2 =< ~w (high)",
+            [EngineTime, T2-T1, 
+             EngineTime2, T4-T3,
+             T4-T1, ASleep, Sleep, EngineTimeDiff, LowEngineTime, HighEngineTime]),
+
     if
-	(EngineTime+7) < EngineTime2 ->
-            ?PRINT2("snmp_framework_mib -> Engine Time diff (~w) too large: "
+        (HighEngineTime < EngineTime2) ->
+            ?PRINT2("snmp_framework_mib -> (High) Engine Time diff (~w) too large: "
                     "~n      ~w < ~w",
-                    [EngineTime2-EngineTime, EngineTime+7, EngineTime2]),
-	    ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
-	(EngineTime+4) > EngineTime2 ->
-            ?PRINT2("snmp_framework_mib -> Engine Time diff (~w) too large: "
+                    [EngineTimeDiff, HighEngineTime, EngineTime2]),
+            ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
+        (LowEngineTime > EngineTime2) ->
+             ?PRINT2("snmp_framework_mib -> (Low) Engine Time diff (~w) too large: "
                     "~n      ~w > ~w",
-                    [EngineTime2-EngineTime, EngineTime+4, EngineTime2]),
-	    ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
-	true -> 
-	    ok
+                    [EngineTimeDiff, LowEngineTime, EngineTime2]),
+            ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
+        true -> 
+            ok
     end,
+
     T5 = snmp_misc:now(ms),
     ?line case get_req(4, [[snmpEngineBoots,0]]) of
 	      [Boots] when is_integer(Boots) -> 
