@@ -85,6 +85,8 @@ integers(_Config) ->
     two = do_integers_5(0, 2),
     three = do_integers_5(0, 3),
 
+    {'EXIT',{badarith,_}} = (catch do_integers_6()),
+
     ok.
 
 do_integers_1(B0) ->
@@ -130,6 +132,9 @@ do_integers_5(X0, Y0) ->
         2 -> two;
         3 -> three
     end.
+
+do_integers_6() ->
+    try b after 1 end band 0.
 
 numbers(_Config) ->
     Int = id(42),
