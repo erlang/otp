@@ -568,7 +568,7 @@ FrameWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
     case WM_CREATE:
         /* client window creation */
 	window_title(&title);
-        hClientWnd = CreateWindowEx(WS_EX_CLIENTEDGE, szClientClass, title.name,
+        hClientWnd = CreateWindowEx(0, szClientClass, title.name,
 				    WS_CHILD|WS_VISIBLE|WS_VSCROLL|WS_HSCROLL,
 				    CW_USEDEFAULT, CW_USEDEFAULT,
 				    CW_USEDEFAULT, CW_USEDEFAULT,		
@@ -1332,13 +1332,21 @@ LoadUserPreferences(void)
     DWORD size;
     DWORD res;
     DWORD type;
-
+    HFONT hfont;
     /* default prefs */
-    GetObject(GetStockObject(SYSTEM_FIXED_FONT),sizeof(LOGFONT),(PSTR)&logfont);
+    hfont = CreateFont(0,0, 0,0, 0, FALSE,FALSE,FALSE,
+                       ANSI_CHARSET, OUT_TT_ONLY_PRECIS, CLIP_DEFAULT_PRECIS,
+                       CLEARTYPE_QUALITY, FIXED_PITCH, TEXT("Consolas"));
+    if(hfont) {
+        GetObject(hfont, sizeof(LOGFONT), (PSTR)&logfont);
+        DeleteObject(hfont);
+    } else {
+        GetObject(GetStockObject(SYSTEM_FIXED_FONT),sizeof(LOGFONT),(PSTR)&logfont);
+    }
     fgColor = GetSysColor(COLOR_WINDOWTEXT);
     bkgColor = GetSysColor(COLOR_WINDOW);
     winPos.left = -1;
-    toolbarVisible = TRUE;
+    toolbarVisible = FALSE;
 
     if (RegCreateKeyEx(HKEY_CURRENT_USER, USER_KEY, 0, 0,
 		       REG_OPTION_NON_VOLATILE, KEY_ALL_ACCESS, NULL,
