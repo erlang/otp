@@ -1,8 +1,38 @@
 /* erl_comm.c */
 
+#include <stdio.h>
+#include <unistd.h>
+
 typedef unsigned char byte;
 
-read_cmd(byte *buf)
+int read_exact(byte *buf, int len)
+{
+  int i, got=0;
+
+  do {
+      if ((i = read(0, buf+got, len-got)) <= 0){
+          return(i);
+      }
+    got += i;
+  } while (got<len);
+
+  return(len);
+}
+
+int write_exact(byte *buf, int len)
+{
+  int i, wrote = 0;
+
+  do {
+    if ((i = write(1, buf+wrote, len-wrote)) <= 0)
+      return (i);
+    wrote += i;
+  } while (wrote<len);
+
+  return (len);
+}
+
+int read_cmd(byte *buf)
 {
   int len;
 
@@ -12,7 +42,7 @@ read_cmd(byte *buf)
   return read_exact(buf, len);
 }
 
-write_cmd(byte *buf, int len)
+int write_cmd(byte *buf, int len)
 {
   byte li;
 
@@ -25,28 +55,3 @@ write_cmd(byte *buf, int len)
   return write_exact(buf, len);
 }
 
-read_exact(byte *buf, int len)
-{
-  int i, got=0;
-
-  do {
-    if ((i = read(0, buf+got, len-got)) <= 0)
-      return(i);
-    got += i;
-  } while (got<len);
-
-  return(len);
-}
-
-write_exact(byte *buf, int len)
-{
-  int i, wrote = 0;
-
-  do {
-    if ((i = write(1, buf+wrote, len-wrote)) <= 0)
-      return (i);
-    wrote += i;
-  } while (wrote<len);
-
-  return (len);
-}

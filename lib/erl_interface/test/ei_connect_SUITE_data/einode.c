@@ -35,7 +35,6 @@
 #endif
 
 #include "ei.h"
-#include "erl_interface.h"
 
 #ifdef VXWORKS
 #define MAIN cnode
@@ -116,7 +115,7 @@ MAIN(int argc, char *argv[])
     if (argc < 3)
 	exit(1);
 
-    erl_init(NULL, 0);
+    ei_init();
 
     cookie = argv[1];
     n = atoi(argv[2]);

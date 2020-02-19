@@ -24,8 +24,8 @@
 #include "eisend.h"
 #include "eirecv.h"
 #include "ei_connect_int.h"
-#include "erl_interface.h"
-#include "erl_connect.h"
+#include "ei.h"
+#include "ei_connect.h"
 
 #define GLOBALNAMEBUF (16*1024) /* not very small actually */
 
@@ -36,14 +36,14 @@
  * caller can make one call to free().
  */
 /* global:registered_names() -> [name1,name2,...] */
-char **erl_global_names(int fd, int *count)
+char **ei_global_names(ei_cnode *ec, int fd, int *count)
 {
   char buf[GLOBALNAMEBUF];
   char *bufp=buf;
   char tmpbuf[64];
   int size = 0;
   int index = 0;
-  erlang_pid *self = erl_self();
+  erlang_pid *self = ei_self(ec);
   erlang_msg msg;
   int i;
   int version;

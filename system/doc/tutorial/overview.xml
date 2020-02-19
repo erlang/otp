@@ -126,25 +126,7 @@
       <title>Erl_Interface</title>
       <p>The program at the other side of a port is often a C program.
         To help the C programmer, the Erl_Interface library
-        has been developed, including the following five parts:</p>
-      <list type="bulleted">
-        <item>
-	<c>erl_marshal</c>, <c>erl_eterm</c>, <c>erl_format</c>, and
-	<c>erl_malloc</c>: Handling of the Erlang external term format</item>
-        <item>
-	<c>erl_connect</c>:
-	Communication with distributed Erlang, see <seealso
-	marker="#cnode">C nodes</seealso> below</item>
-        <item>
-	<c>erl_error</c>:
-	Error print routines</item>
-        <item>
-	<c>erl_global</c>:
-	Access globally registered names</item>
-        <item>
-	<c>Registry</c>:
-	Store and backup of key-value pairs</item>
-      </list>
+        has been developed</p>
       <p>The Erlang external term format is a representation of an
         Erlang term as a sequence of bytes, that is, a binary.
         Conversion between the two representations is done using the
@@ -181,12 +163,13 @@ Term = binary_to_term(Binary)</pre>
         processors (as opposed to control processors) where C is a
         better choice than Erlang due to memory limitations or
         application characteristics, or both.</p>
-      <p><em>Where to read more:</em> See the <c>erl_connect</c> part
-        of the Erl_Interface documentation. The programmer also needs
-        to be familiar with TCP/IP sockets, see Sockets in <seealso
-        marker="#sockets">Standard
-        Protocols</seealso> and Distributed Erlang in <seealso
-        marker="#dist">Built-In Mechanisms</seealso>.</p>
+      <p><em>Where to read more:</em> See the <c>ei_connect</c> part
+      of the <seealso marker="erl_interface">Erl_Interface</seealso>
+      documentation. The programmer also needs to be familiar with
+      TCP/IP sockets, see Sockets in <seealso
+      marker="#sockets">Standard Protocols</seealso> and Distributed
+      Erlang in <seealso marker="#dist">Built-In
+      Mechanisms</seealso>.</p>
       <p><em>Example:</em> C node example in <seealso marker="cnode">
         C Nodes</seealso>.</p>
     </section>

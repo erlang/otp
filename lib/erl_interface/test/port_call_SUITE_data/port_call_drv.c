@@ -21,7 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include "erl_interface.h"
+#include "ei.h"
 #include "erl_driver.h"
 
 static ErlDrvPort my_erlang_port;

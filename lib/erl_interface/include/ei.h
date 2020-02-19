@@ -552,8 +552,6 @@ int ei_encode_port(char *buf, int *index, const erlang_port *p);
 int ei_x_encode_port(ei_x_buff* x, const erlang_port *p);
 int ei_encode_ref(char *buf, int *index, const erlang_ref *p);
 int ei_x_encode_ref(ei_x_buff* x, const erlang_ref *p);
-int ei_encode_term(char *buf, int *index, void *t) EI_DEPRECATED_ATTR;
-int ei_x_encode_term(ei_x_buff* x, void* t) EI_DEPRECATED_ATTR;
 int ei_encode_trace(char *buf, int *index, const erlang_trace *p);
 int ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p);
 int ei_encode_tuple_header(char *buf, int *index, int arity);
@@ -601,7 +599,6 @@ void free_fun(erlang_fun* f);
 int ei_decode_pid(const char *buf, int *index, erlang_pid *p);
 int ei_decode_port(const char *buf, int *index, erlang_port *p);
 int ei_decode_ref(const char *buf, int *index, erlang_ref *p);
-int ei_decode_term(const char *buf, int *index, void *t) EI_DEPRECATED_ATTR;
 int ei_decode_trace(const char *buf, int *index, erlang_trace *p);
 int ei_decode_tuple_header(const char *buf, int *index, int *arity);
 int ei_decode_list_header(const char *buf, int *index, int *arity);
@@ -817,6 +814,13 @@ int ei_reg_dump(int fd, ei_reg *reg, const char *mntab, int flags);
 int ei_reg_restore(int fd, ei_reg *reg, const char *mntab);
 int ei_reg_purge(ei_reg *reg);
 
+/* -------------------------------------------------------------------- */
+/*            The ei_global functions */
+/* -------------------------------------------------------------------- */
+char **ei_global_names(ei_cnode *ec, int fd, int *count);
+int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, char *node);
+int ei_global_register(int fd, const char *name, erlang_pid *self);
+int ei_global_unregister(ei_cnode *ec, int fd, const char *name);
 
 /* -------------------------------------------------------------------- */
 /*            Encoding/decoding bugnums to GNU MP format                */

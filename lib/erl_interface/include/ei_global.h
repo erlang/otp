@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2016. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2016. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,13 @@
  * 
  * %CopyrightEnd%
  */
-#ifndef _ERL_ERROR_H
-#define _ERL_ERROR_H
+#ifndef _EI_GLOBAL_H
+#define _EI_GLOBAL_H
+#include "ei.h"
 
-/* Initialize thread/task-safe erl_errno handling */
-void erl_init_errno(void);
+char **ei_global_names(ei_cnode *ec, int fd, int *count);
+int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, char *node);
+int ei_global_register(int fd, const char *name, erlang_pid *self);
+int ei_global_unregister(ei_cnode *ec, int fd, const char *name);
 
-#endif /* _ERL_ERROR_H */
+#endif /* _EI_GLOBAL_H */

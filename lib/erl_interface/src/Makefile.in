@@ -128,7 +128,7 @@ endif
 WARNFLAGS += -DEI_NO_DEPR_WARN
 
 CFLAGS = @LIB_CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS)
-PROG_CFLAGS = @CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) -Ilegacy
+PROG_CFLAGS = @CFLAGS@ $(WARNFLAGS) $(INCFLAGS) $(TYPE_FLAGS) -Iglobal
 
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 PROG_CFLAGS += -nostartfiles -Wl,-r,-d
@@ -159,7 +159,7 @@ BINDIR     = $(ERL_TOP)/lib/erl_interface/bin/$(TARGET)
 # -Wno-char-subscripts
 # -Wshadow
 
-vpath %.c connect:encode:decode:misc:epmd:legacy:registry
+vpath %.c connect:encode:decode:misc:epmd:global:registry
 
 ###########################################################################
 #  List targets
@@ -191,17 +191,12 @@ ERL_CALL   = $(BINDIR)/erl_call$(EXE)
 
 ifdef THR_DEFS
 ST_EILIB   = $(OBJDIR)/$(LIBPRE)ei_st$(LIBEXT)
-ST_ERLLIB  = $(OBJDIR)/$(LIBPRE)erl_interface_st$(LIBEXT)
 MT_EILIB   = $(OBJDIR)/$(LIBPRE)ei$(LIBEXT)
-MT_ERLLIB  = $(OBJDIR)/$(LIBPRE)erl_interface$(LIBEXT)
 else
 ST_EILIB   = $(OBJDIR)/$(LIBPRE)ei$(LIBEXT)
-ST_ERLLIB  = $(OBJDIR)/$(LIBPRE)erl_interface$(LIBEXT)
 endif
 MD_EILIB   = $(OBJDIR)/$(LIBPRE)ei_md$(LIBEXT)
 MDD_EILIB  = $(OBJDIR)/$(LIBPRE)ei_mdd$(LIBEXT)
-MD_ERLLIB  = $(OBJDIR)/$(LIBPRE)erl_interface_md$(LIBEXT)
-MDD_ERLLIB = $(OBJDIR)/$(LIBPRE)erl_interface_mdd$(LIBEXT)
 
 ###########################################################################
 #  Specify targets to build
@@ -223,10 +218,7 @@ TARGETS = \
 OBJ_TARGETS = \
 	$(MT_EILIB) \
 	$(MD_EILIB) \
-	$(MDD_EILIB) \
-	$(MT_ERLLIB) \
-	$(MD_ERLLIB) \
-	$(MDD_ERLLIB)
+	$(MDD_EILIB)
 
 FAKE_TARGETS = \
 	$(OBJDIR)/erl_fake_prog_mt$(EXE) \
@@ -252,8 +244,7 @@ TARGETS = \
 	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
-	$(MD_EILIB) \
-	$(MD_ERLLIB)
+	$(MD_EILIB)
 
 FAKE_TARGETS = \
 	$(OBJDIR)/erl_fake_prog_md$(EXE) \
@@ -273,9 +264,7 @@ TARGETS = \
 
 OBJ_TARGETS = \
 	$(ST_EILIB) \
-	$(ST_ERLLIB) \
-	$(MT_EILIB) \
-	$(MT_ERLLIB)
+	$(MT_EILIB)
 
 FAKE_TARGETS = \
 	$(ST_OBJDIR)/erl_fake_prog_st$(EXE) \
@@ -296,8 +285,7 @@ TARGETS = \
 	$(APPUP_TARGET)
 
 OBJ_TARGETS = \
-	$(ST_EILIB) \
-	$(ST_ERLLIB)
+	$(ST_EILIB)
 
 FAKE_TARGETS = \
 	$(ST_OBJDIR)/erl_fake_prog_st$(EXE) \
@@ -319,8 +307,7 @@ endif
 HEADERS = \
 	../include/ei.h \
 	../include/ei_connect.h \
-	../include/eicode.h \
-	../include/erl_interface.h
+	../include/eicode.h
 
 EISOURCES = \
 	$(CONNECTSRC) \
@@ -328,7 +315,8 @@ EISOURCES = \
 	$(ENCODESRC) \
 	$(EPMDSRC) \
 	$(MISCSRC) \
-	$(REGISTRYSRC)
+	$(REGISTRYSRC) \
+	$(GLOBALSOURCES)
 
 CONNECTSRC = \
 	connect/ei_connect.c \
@@ -455,24 +443,13 @@ REGISTRYSRC = \
 	registry/reg_stat.c \
 	registry/reg_tabstat.c
 
-ERLSOURCES = \
-	legacy/decode_term.c \
-	legacy/encode_term.c \
-	legacy/erl_connect.c \
-	legacy/erl_error.c \
-	legacy/erl_eterm.c \
-	legacy/erl_fix_alloc.c \
-	legacy/erl_format.c \
-	legacy/erl_malloc.c \
-	legacy/erl_marshal.c \
-	legacy/erl_resolve.c \
-	legacy/erl_timeout.c \
-	legacy/global_names.c \
-	legacy/global_register.c \
-	legacy/global_unregister.c \
-	legacy/global_whereis.c
+GLOBALSOURCES = \
+	global/global_names.c \
+	global/global_register.c \
+	global/global_unregister.c \
+	global/global_whereis.c
 
-SOURCES = $(EISOURCES) $(ERLSOURCES)
+SOURCES = $(EISOURCES)
 
 NEVERUSED = \
 	whereis.c \
@@ -489,13 +466,9 @@ ERLCALL = \
 # located in the erl_interface library, not ei library.
 
 ST_EIOBJECTS  = $(addprefix $(ST_OBJDIR)/,$(notdir $(EISOURCES:.c=.o)))
-ST_ERLOBJECTS = $(addprefix $(ST_OBJDIR)/,$(notdir $(ERLSOURCES:.c=.o)))
 MT_EIOBJECTS  = $(addprefix $(MT_OBJDIR)/,$(notdir $(EISOURCES:.c=.o)))
-MT_ERLOBJECTS = $(addprefix $(MT_OBJDIR)/,$(notdir $(ERLSOURCES:.c=.o)))
 MD_EIOBJECTS  = $(addprefix $(MD_OBJDIR)/,$(notdir $(EISOURCES:.c=.o)))
-MD_ERLOBJECTS = $(addprefix $(MD_OBJDIR)/,$(notdir $(ERLSOURCES:.c=.o)))
 MDD_EIOBJECTS  = $(addprefix $(MDD_OBJDIR)/,$(notdir $(EISOURCES:.c=.o)))
-MDD_ERLOBJECTS = $(addprefix $(MDD_OBJDIR)/,$(notdir $(ERLSOURCES:.c=.o)))
 
 ###########################################################################
 #  Main targets
@@ -511,10 +484,10 @@ docs:
 tests:
 
 clean:
-	rm -f $(ST_EIOBJECTS)  $(ST_ERLOBJECTS)  $(ST_EILIB)  $(ST_ERLLIB)
-	rm -f $(MT_EIOBJECTS)  $(MT_ERLOBJECTS)  $(MT_EILIB)  $(MT_ERLLIB)
-	rm -f $(MD_EIOBJECTS)  $(MD_ERLOBJECTS)  $(MD_EILIB)  $(MD_ERLLIB)
-	rm -f $(MDD_EIOBJECTS) $(MDD_ERLOBJECTS) $(MDD_EILIB) $(MDD_ERLLIB)
+	rm -f $(ST_EIOBJECTS)  $(ST_EILIB)
+	rm -f $(MT_EIOBJECTS)  $(MT_EILIB)
+	rm -f $(MD_EIOBJECTS)  $(MD_EILIB)
+	rm -f $(MDD_EIOBJECTS) $(MDD_EILIB
 	rm -f $(ERL_CALL)
 	rm -f $(FAKE_TARGETS)
 	rm -f $(APP_TARGET)
@@ -580,32 +553,16 @@ $(ST_EILIB) : $(ST_EIOBJECTS)
 	$(V_AR) -out:$@ $(ST_EIOBJECTS)
 	$(V_RANLIB) $@
 
-$(ST_ERLLIB) : $(ST_ERLOBJECTS)
-	$(V_AR) -out:$@ $(ST_ERLOBJECTS)
-	$(V_RANLIB) $@
-
 $(MT_EILIB) : $(MT_EIOBJECTS)
 	$(V_AR) -out:$@ $(MT_EIOBJECTS)
-	$(V_RANLIB) $@
-
-$(MT_ERLLIB) : $(MT_ERLOBJECTS)
-	$(V_AR) -out:$@ $(MT_ERLOBJECTS)
 	$(V_RANLIB) $@
 
 $(MD_EILIB) : $(MD_EIOBJECTS)
 	$(V_AR) -out:$@ $(MD_EIOBJECTS)
 	$(V_RANLIB) $@
 
-$(MD_ERLLIB) : $(MD_ERLOBJECTS)
-	$(V_AR) -out:$@ $(MD_ERLOBJECTS)
-	$(V_RANLIB) $@
-
 $(MDD_EILIB) : $(MDD_EIOBJECTS)
 	$(V_AR) -out:$@ $(MDD_EIOBJECTS)
-	$(V_RANLIB) $@
-
-$(MDD_ERLLIB) : $(MDD_ERLOBJECTS)
-	$(V_AR) -out:$@ $(MDD_ERLOBJECTS)
 	$(V_RANLIB) $@
 
 else
@@ -619,23 +576,10 @@ ifdef RANLIB
 	$(V_RANLIB) $@
 endif
 
-$(ST_ERLLIB) : $(ST_ERLOBJECTS)
-	$(V_at)rm -f $@
-	$(V_AR) $(AR_FLAGS) $@ $(ST_ERLOBJECTS)
-ifdef RANLIB
-	$(V_RANLIB) $@
-endif
 
 $(MT_EILIB) : $(MT_EIOBJECTS)
 	$(V_at)rm -f $@
 	$(V_AR) $(AR_FLAGS) $@ $(MT_EIOBJECTS)
-ifdef RANLIB
-	$(V_RANLIB) $@
-endif
-
-$(MT_ERLLIB) : $(MT_ERLOBJECTS)
-	$(V_at)rm -f $@
-	$(V_AR) $(AR_FLAGS) $@ $(MT_ERLOBJECTS)
 ifdef RANLIB
 	$(V_RANLIB) $@
 endif
@@ -681,7 +625,7 @@ endif
 check: $(FAKE_TARGETS)
 
 ifndef THR_DEFS
-$(ST_OBJDIR)/erl_fake_prog_st$(EXE): prog/erl_fake_prog.c $(ST_ERLLIB) $(ST_EILIB)
+$(ST_OBJDIR)/erl_fake_prog_st$(EXE): prog/erl_fake_prog.c $(ST_EILIB)
 	$(V_CC) $(PROG_CFLAGS) -o $@ $< -L$(OBJDIR) -lerl_interface -lei \
 		$(LIBS)
 
@@ -689,7 +633,7 @@ $(ST_OBJDIR)/ei_fake_prog_st$(EXE): prog/ei_fake_prog.c $(ST_EILIB)
 	$(V_CC) $(PROG_CFLAGS) -o $@ $< -L$(OBJDIR) -lei $(LIBS)
 
 $(ST_OBJDIR)/erl_fake_prog_cxx_st$(EXE): prog/erl_fake_prog.c \
-		$(ST_ERLLIB) $(ST_EILIB)
+		$(ST_EILIB)
 	$(V_CC) $(PROG_CFLAGS) -o $@ -xc++ $< -L$(OBJDIR) \
 		-lerl_interface -lei $(LIBS)
 
@@ -698,7 +642,7 @@ $(ST_OBJDIR)/ei_fake_prog_cxx_st$(EXE): prog/ei_fake_prog.c $(ST_EILIB)
 
 else
 
-$(ST_OBJDIR)/erl_fake_prog_st$(EXE): prog/erl_fake_prog.c $(ST_ERLLIB) $(ST_EILIB)
+$(ST_OBJDIR)/erl_fake_prog_st$(EXE): prog/erl_fake_prog.c $(ST_EILIB)
 	$(V_CC) $(PROG_CFLAGS) -o $@ $< -L$(OBJDIR) -lerl_interface_st -lei_st \
 		$(LIBS)
 
@@ -706,7 +650,7 @@ $(ST_OBJDIR)/ei_fake_prog_st$(EXE): prog/ei_fake_prog.c $(ST_EILIB)
 	$(V_CC) $(PROG_CFLAGS) -o $@ $< -L$(OBJDIR) -lei_st $(LIBS)
 
 $(ST_OBJDIR)/erl_fake_prog_cxx_st$(EXE): prog/erl_fake_prog.c \
-		$(ST_ERLLIB) $(ST_EILIB)
+		$(ST_EILIB)
 	$(V_CC) $(PROG_CFLAGS) -o $@ -xc++ $< -L$(OBJDIR) \
 		-lerl_interface_st -lei_st $(LIBS)
 
@@ -718,7 +662,7 @@ endif
 ####
 
 $(MT_OBJDIR)/erl_fake_prog_mt$(EXE): prog/erl_fake_prog.c \
-		$(MT_ERLLIB) $(MT_EILIB)
+		$(MT_EILIB)
 	$(V_CC) $(MTFLAG) $(PROG_CFLAGS) $(THR_DEFS) -o $@ $< -L$(OBJDIR) \
 		-lerl_interface -lei $(THR_LIBS) $(LIBS)
 
@@ -727,7 +671,7 @@ $(MT_OBJDIR)/ei_fake_prog_mt$(EXE): prog/ei_fake_prog.c $(MT_EILIB)
 		-L$(OBJDIR) -lei $(THR_LIBS) $(LIBS)
 
 $(MT_OBJDIR)/erl_fake_prog_mt_cxx$(EXE): prog/erl_fake_prog.c \
-		$(MT_ERLLIB) $(MT_EILIB)
+		$(MT_EILIB)
 	$(V_CC) $(MTFLAG) $(PROG_CFLAGS) $(THR_DEFS) -o $@ -xc++ $< \
 		-L$(OBJDIR) -lerl_interface -lei \
 		$(THR_LIBS) $(LIBS)
@@ -739,7 +683,7 @@ $(MT_OBJDIR)/ei_fake_prog_mt_cxx$(EXE): prog/ei_fake_prog.c $(MT_EILIB)
 ####
 
 $(MD_OBJDIR)/erl_fake_prog_md$(EXE): prog/erl_fake_prog.c \
-		$(MD_ERLLIB) $(MD_EILIB)
+		$(MD_EILIB)
 	$(V_CC) -MD $(PROG_CFLAGS) $(THR_DEFS) -o $@ $< -L$(OBJDIR) \
 		-lerl_interface_r -lei_r $(THR_LIBS) $(LIBS)
 
@@ -748,7 +692,7 @@ $(MD_OBJDIR)/ei_fake_prog_md$(EXE): prog/ei_fake_prog.c $(MD_EILIB)
 		-L$(OBJDIR) -lei_r $(THR_LIBS) $(LIBS)
 
 $(MD_OBJDIR)/erl_fake_prog_md_cxx$(EXE): prog/erl_fake_prog.c \
-		$(MD_ERLLIB) $(MD_EILIB)
+		$(MD_EILIB)
 	$(V_CC) -MD $(PROG_CFLAGS) $(THR_DEFS) -o $@ -xc++ $< \
 		-L$(OBJDIR) -lerl_interface_r -lei_r \
 		$(THR_LIBS) $(LIBS)
@@ -760,7 +704,7 @@ $(MD_OBJDIR)/ei_fake_prog_md_cxx$(EXE): prog/ei_fake_prog.c $(MD_EILIB)
 ####
 
 $(MDD_OBJDIR)/erl_fake_prog_mdd$(EXE): prog/erl_fake_prog.c \
-		$(MDD_ERLLIB) $(MDD_EILIB)
+		$(MDD_EILIB)
 	$(V_CC) -MDD $(PROG_CFLAGS) $(THR_DEFS) -o $@ $< -L$(OBJDIR) \
 		-lerl_interface_r -lei_r $(THR_LIBS) $(LIBS)
 
@@ -769,7 +713,7 @@ $(MDD_OBJDIR)/ei_fake_prog_mdd$(EXE): prog/ei_fake_prog.c $(MDD_EILIB)
 		-L$(OBJDIR) -lei_r $(THR_LIBS) $(LIBS)
 
 $(MDD_OBJDIR)/erl_fake_prog_mdd_cxx$(EXE): prog/erl_fake_prog.c \
-		$(MDD_ERLLIB) $(MDD_EILIB)
+		$(MDD_EILIB)
 	$(V_CC) -MDD $(PROG_CFLAGS) $(THR_DEFS) -o $@ -xc++ $< \
 		-L$(OBJDIR) -lerl_interface_r -lei_r \
 		$(THR_LIBS) $(LIBS)
@@ -828,7 +772,7 @@ release: opt
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/decode"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/encode"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/epmd"
-	$(INSTALL_DIR) "$(RELSYSDIR)/src/legacy"
+	$(INSTALL_DIR) "$(RELSYSDIR)/src/global"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/misc"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/prog"
 	$(INSTALL_DIR) "$(RELSYSDIR)/src/registry"
@@ -850,7 +794,7 @@ endif
 	$(INSTALL_DATA) epmd/*.[ch]     "$(RELSYSDIR)/src/epmd"
 	$(INSTALL_DATA) misc/*.[ch]     "$(RELSYSDIR)/src/misc"
 	$(INSTALL_DATA) registry/*.[ch] "$(RELSYSDIR)/src/registry"
-	$(INSTALL_DATA) legacy/*.[ch]   "$(RELSYSDIR)/src/legacy"
+	$(INSTALL_DATA) global/*.[ch]   "$(RELSYSDIR)/src/global"
 	$(INSTALL_DATA) prog/*.[ch]     "$(RELSYSDIR)/src/prog"
 
 release_docs:

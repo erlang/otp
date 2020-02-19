@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>erl_global</title>
+    <title>ei_global</title>
     <prepared>Gordon Beaton</prepared>
     <responsible>Gordon Beaton</responsible>
     <docno></docno>
@@ -30,20 +30,14 @@
     <checked>Gordon Beaton</checked>
     <date>1998-07-03</date>
     <rev>A</rev>
-    <file>erl_global.xml</file>
+    <file>ei_global.xml</file>
   </header>
-  <lib>erl_global</lib>
+  <lib>ei_global</lib>
   <libsummary>Access globally registered names.</libsummary>
   <description>
     <note><p>The support for VxWorks is deprecated as of OTP 22, and
     will be removed in OTP 23.</p></note>
-    <note><p>The old legacy <c>erl_interface</c> library (functions
-    with prefix <c>erl_</c>) is deprecated as of OTP 22, and will be
-    removed in OTP 23. This does not apply to the <c>ei</c>
-    library. Reasonably new <c>gcc</c> compilers will issue deprecation
-    warnings. In order to disable these warnings, define the macro
-    <c>EI_NO_DEPR_WARN</c>.</p></note>
-    
+
     <p>This module provides support for registering, looking
       up, and unregistering names in the <c>global</c> module.
       For more information, see
@@ -57,15 +51,17 @@
 
   <funcs>
     <func>
-      <name since=""><ret>char **</ret><nametext>erl_global_names(fd,count)</nametext></name>
+      <name since=""><ret>char **</ret><nametext>ei_global_names(ec,fd,count)</nametext></name>
       <fsummary>Obtain list of global names.</fsummary>
       <type>
+        <v>ei_cnode *ec;</v>
         <v>int fd;</v>
         <v>int *count;</v>
       </type>
       <desc>
         <p>Retrieves a list of all known global names.</p>
         <list type="bulleted">
+          <item><c>ec</c> is the ei_cnode representing the current cnode.</item>
           <item><c>fd</c> is an open descriptor to an Erlang
             connection.</item>
           <item><c>count</c> is the address of an integer, or
@@ -88,12 +84,12 @@
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>erl_global_register(fd,name,pid)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_global_register(fd,name,pid)</nametext></name>
       <fsummary>Register a name in global.</fsummary>
       <type>
         <v>int fd;</v>
         <v>const char *name;</v>
-        <v>ETERM *pid;</v>
+        <v>erlang_pid *pid;</v>
       </type>
       <desc>
         <p>Registers a name in <c>global</c>.</p>
@@ -112,15 +108,17 @@
     </func>
 
     <func>
-      <name since=""><ret>int</ret><nametext>erl_global_unregister(fd,name)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_global_unregister(ec,fd,name)</nametext></name>
       <fsummary>Unregister a name from global.</fsummary>
       <type>
+        <v>ei_cnode *ec;</v>
         <v>int fd;</v>
         <v>const char *name;</v>
       </type>
       <desc>
         <p>Unregisters a name from <c>global</c>.</p>
         <list type="bulleted">
+          <item><c>ec</c> is the ei_cnode representing the current cnode.</item>
           <item><c>fd</c> is an open descriptor to an Erlang
             connection.</item>
           <item><c>name</c> is the name to unregister from
@@ -131,30 +129,35 @@
     </func>
 
     <func>
-      <name since=""><ret>ETERM *</ret><nametext>erl_global_whereis(fd,name,node)</nametext></name>
+      <name since=""><ret>int</ret><nametext>ei_global_whereis(ec,fd,name,pid,node)</nametext></name>
       <fsummary>Look up a name in global.</fsummary>
       <type>
+        <v>ei_cnode *ec;</v>
         <v>int fd;</v>
         <v>const char *name;</v>
+        <v>erlang_pid* pid;</v>
         <v>char *node;</v>
       </type>
       <desc>
         <p>Looks up a name in <c>global</c>.</p>
         <list type="bulleted">
+          <item><c>ec</c> is the ei_cnode representing the current cnode.</item>
           <item><c>fd</c> is an open descriptor to an Erlang
             connection.</item>
           <item><c>name</c> is the name that is to be looked up in
             <c>global</c>.</item>
         </list>
+        <p>The <c>pid</c> parameter is a pointer to a
+        <c>erlang_pid</c> that the function will update with the pid associated
+           with the global name, if successful.</p>
         <p>If <c>node</c> is not <c>NULL</c>, it is a pointer to a
           buffer where the function can fill in the name of the node where
           <c>name</c> is found. <c>node</c> can be
-          passed directly to <c>erl_connect()</c> if necessary.</p>
-        <p>On success, the function returns an Erlang pid containing the address
-          of the specified name, and the node is initialized to
+          passed directly to <c>ei_connect()</c> if necessary.</p>
+          <p>On success, the function returns 0, updates the <c>erlang_pid</c>
+          pointed to by the pid parameter, and the <c>node</c> parameter is initialized to
           the node name where <c>name</c> is found. On failure,
-          <c>NULL</c> is returned and <c>node</c> is not
-          modified.</p>
+          a negative number is returned.</p>
       </desc>
     </func>
   </funcs>
