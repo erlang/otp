@@ -1722,7 +1722,10 @@ bool_switch(E, T, F, AllVars, AuxVarN) ->
     {'case',Line,E,
      [{clause,Line,[{atom,Line,true}],[],[T]},
       {clause,Line,[{atom,Line,false}],[],[F]},
-      {clause,Line,[AuxVar],[],
+      %% Mark the next clause as compiler-generated to suppress
+      %% a warning if the case expression is an obvious boolean
+      %% value.
+      {clause,erl_anno:set_generated(true, Line),[AuxVar],[],
        [{call,Line,
          {remote,Line,{atom,Line,erlang},{atom,Line,error}},
          [{tuple,Line,[{atom,Line,badarg},AuxVar]}]}]}]}.
