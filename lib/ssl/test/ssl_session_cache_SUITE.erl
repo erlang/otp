@@ -27,7 +27,6 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(DELAY, 500).
 -define(SLEEP, 1000).
 -define(TIMEOUT, 60000).
 -define(LONG_TIMEOUT, 600000).
@@ -43,7 +42,26 @@
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
-all() ->
+
+all() -> 
+    [
+     {group, 'tlsv1.2'},
+     {group, 'tlsv1.1'},
+     {group, 'tlsv1'},
+     {group, 'dtlsv1.2'},
+     {group, 'dtlsv1'}
+    ].
+
+groups() ->
+    [{'dtlsv1.2', [], session_tests()},
+     {'dtlsv1', [], session_tests()},
+     {'tlsv1.2', [], session_tests()},
+     {'tlsv1.1', [], session_tests()},
+     {'tlsv1', [], session_tests()}
+    ].
+
+
+session_tests() ->
     [session_cleanup,
      session_cache_process_list,
      session_cache_process_mnesia,
@@ -51,9 +69,6 @@ all() ->
      max_table_size,
      save_specific_session
      ].
-
-groups() ->
-    [].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -70,11 +85,28 @@ end_per_suite(_Config) ->
     ssl:stop(),
     application:stop(crypto).
 
-init_per_group(_GroupName, Config) ->
-    Config.
+init_per_group(GroupName, Config) ->
+    ssl_test_lib:clean_tls_version(Config),                          
+    case ssl_test_lib:is_tls_version(GroupName) andalso ssl_test_lib:sufficient_crypto_support(GroupName) of
+	true ->
+	    ssl_test_lib:init_tls_version(GroupName, Config);
+	_ ->
+	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
+		true ->
+		    ssl:start(),
+		    Config;
+		false ->
+		    {skip, "Missing crypto support"}
+	    end
+    end.
 
-end_per_group(_GroupName, Config) ->
-    Config.
+end_per_group(GroupName, Config) ->
+  case ssl_test_lib:is_tls_version(GroupName) of
+      true ->
+          ssl_test_lib:clean_tls_version(Config);
+      false ->
+          Config
+  end.
 
 init_per_testcase(session_cache_process_list, Config) ->
     init_customized_session_cache(list, Config);
@@ -84,37 +116,47 @@ init_per_testcase(session_cache_process_mnesia, Config) ->
     init_customized_session_cache(mnesia, Config);
 
 init_per_testcase(session_cleanup, Config) ->
+    Versions = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:set_protocol_versions(Versions),
     application:set_env(ssl, session_lifetime, 5),
-    application:set_env(ssl, session_delay_cleanup_time, ?DELAY),
     ssl:start(),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 20}),
     Config;
 
 init_per_testcase(client_unique_session, Config) ->
     ct:timetrap({seconds, 40}),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Config;
 init_per_testcase(save_specific_session, Config) ->
+    Versions = ssl_test_lib:protocol_version(Config),
     ssl_test_lib:clean_start(),
+    ssl_test_lib:set_protocol_versions(Versions),
     ct:timetrap({seconds, 5}),
     Config;
 init_per_testcase(max_table_size, Config) ->
+    Versions = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:set_protocol_versions(Versions),
     application:set_env(ssl, session_cache_server_max, ?MAX_TABLE_SIZE),
     application:set_env(ssl, session_cache_client_max, ?MAX_TABLE_SIZE),
-    application:set_env(ssl, session_delay_cleanup_time, ?DELAY),	
-    ssl:start(),			  
+    ssl:start(),	
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 40}),
     Config.
 
 init_customized_session_cache(Type, Config) ->
+    Versions = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:set_protocol_versions(Versions),
     application:set_env(ssl, session_cb, ?MODULE),
     application:set_env(ssl, session_cb_init_args, [{type, Type}]),
     ssl:start(),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     catch (end_per_testcase(list_to_atom("session_cache_process" ++ atom_to_list(Type)),
 	   Config)),
     ets:new(ssl_test, [named_table, public, set]),
@@ -133,7 +175,6 @@ end_per_testcase(session_cache_process_mnesia, Config) ->
     ssl:start(),
     end_per_testcase(default_action, Config);
 end_per_testcase(session_cleanup, Config) ->
-    application:unset_env(ssl, session_delay_cleanup_time),
     application:unset_env(ssl, session_lifetime),
     end_per_testcase(default_action, Config);
 end_per_testcase(max_table_size, Config) ->
@@ -155,8 +196,8 @@ client_unique_session() ->
       "sets up many connections"}].
 client_unique_session(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -253,8 +294,8 @@ save_specific_session() ->
      }].
 save_specific_session(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    ClientOpts = proplists:get_value(client_rsa_verify_opts, Config),
-    ServerOpts = proplists:get_value(server_rsa_opts, Config),
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server =
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
@@ -511,7 +552,7 @@ check_timer(Timer) ->
     case erlang:read_timer(Timer) of
 	false ->
 	    {status, _, _, _} = sys:get_status(whereis(ssl_manager)),
-	    timer:sleep(?SLEEP),
+	    ct:sleep(?SLEEP),
 	    {status, _, _, _} = sys:get_status(whereis(ssl_manager)),
 	    ok;
 	Int ->

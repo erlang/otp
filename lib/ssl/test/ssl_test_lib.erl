@@ -2895,13 +2895,8 @@ do_supports_ssl_tls_version(Port, Acc) ->
                 "s_client: Option unknown" ++ _->
                     false;
                 Info when length(Info) >= 24 ->
-                    case lists:member("error", string:tokens(Info, ":")) of
-                        true ->
-                            false;
-                        false ->
-                            ct:pal("~p", [Info]),
-                            true
-                    end;
+                    ct:pal("~p", [Info]),
+                    true;
                 _ ->
                     do_supports_ssl_tls_version(Port, Acc ++ Data)
             end
@@ -3367,3 +3362,16 @@ bigger_buffers() ->
         _ ->
             []
     end.
+
+set_protocol_versions(Version) when Version == 'tlsv1';
+                                    Version == 'tlsv1.1';
+                                    Version == 'tlsv1.2' ->    
+    set_protocol_versions(protocol_version, [Version]);
+set_protocol_versions(Version) when Version == 'dtlsv1';
+                                    Version == 'dtlsv1.2' ->    
+    set_protocol_versions(dtls_protocol_version, [Version]).
+
+set_protocol_versions(_, undefined) ->
+    ok;
+set_protocol_versions(AppVar, Value) ->
+    application:set_env(ssl, AppVar, Value).

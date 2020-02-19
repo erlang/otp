@@ -321,7 +321,7 @@ cipher_suites_mix(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()},
 					{mfa, {ssl_test_lib, send_recv_result_active, []}},
-					{options, [{ciphers, CipherSuites} | ClientOpts]}]),
+					{options, [{versions, ['tlsv1.2']},{ciphers, CipherSuites} | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, ok, Client, ok),
     ssl_test_lib:close(Server),
