@@ -716,12 +716,24 @@ do_test_srp(RelPath) ->
     end.
 
 safe_relative_path_links(Config) ->
-    simple_test(Config),
-    inside_directory_test(Config),
-    nested_links_test(Config),
-    loop_test(Config),
-    loop_with_parent_test(Config),
-    revist_links_test(Config).
+    case check_symlink_support(Config) of
+        true ->
+            simple_test(Config),
+            inside_directory_test(Config),
+            nested_links_test(Config),
+            loop_test(Config),
+            loop_with_parent_test(Config),
+            revist_links_test(Config);
+        false ->
+            {skipped, "This platform/user can't create symlinks."}
+    end.
+
+check_symlink_support(Config) ->
+    BaseDir = ?config(priv_dir, Config),
+    Canary = filename:join(BaseDir, "symlink_canary"),
+    Link = filename:join(BaseDir, "symlink_canary_link"),
+    ok = file:write_file(Canary, <<"chirp">>),
+    ok =:= file:make_symlink(Canary, Link).
 
 simple_test(Config) ->
     BaseDir = ?config(priv_dir, Config),
