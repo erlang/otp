@@ -69,6 +69,8 @@ obsolete(erlang, get_stacktrace, 0) ->
     {deprecated, "use the new try/catch syntax for retrieving the stack backtrace"};
 obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
+obsolete(filename, safe_relative_path, 1) ->
+    {deprecated, "use filelib:safe_relative_path/2 instead"};
 obsolete(http_uri, decode, 1) ->
     {deprecated, "use uri_string functions instead"};
 obsolete(http_uri, encode, 1) ->
