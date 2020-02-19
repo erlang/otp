@@ -205,6 +205,18 @@ static void window_title(struct title_buf *);
 static void free_window_title(struct title_buf *);
 static void Client_OnMouseMove(HWND hwnd, int x, int y, UINT keyFlags);
 
+#ifdef HARDDEBUG
+/* For really hard GUI startup debugging, place DEBUGBOX() macros in code
+   and get modal message boxes with the line number. */
+static void debug_box(int line) {
+  TCHAR buff[1024];
+  swprintf(buff,1024,TEXT("DBG:%d"),line);
+  MessageBox(NULL,buff,TEXT("DBG"),MB_OK|MB_APPLMODAL);
+}
+
+#define DEBUGBOX() debug_box(__LINE__)
+#endif
+
 #define CON_VPRINTF_BUF_INC_SIZE 1024
 
 static erts_dsprintf_buf_t *
@@ -430,6 +442,13 @@ ConThreadInit(LPVOID param)
     struct title_buf title;
 
     /*DebugBreak();*/
+#ifdef HARDDEBUG
+    if(AttachConsole(ATTACH_PARENT_PROCESS) || AllocConsole()) {
+        freopen("CONOUT$", "w", stdout);
+        freopen("CONOUT$", "w", stderr);
+    }
+#endif
+
     hInstance = GetModuleHandle(NULL);
     StartupInfo.dwFlags = 0;
     GetStartupInfo(&StartupInfo);
@@ -610,7 +629,7 @@ FrameWndProc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 		lpttt->hinst = hInstance;
 		/* check for combobox handle */
 		if (lpttt->uFlags&TTF_IDISHWND) {
-		    if ((lpttt->hdr.idFrom == (UINT) hComboWnd)) {
+		    if ((lpttt->hdr.idFrom == (UINT_PTR) hComboWnd)) {
 			lstrcpy(lpttt->lpszText,TEXT("Command History"));
 			break;
 		    }
@@ -1774,7 +1793,7 @@ void ConChooseColor(HWND hwnd)
         SetBkColor(hdc,bkgColor);
         ReleaseDC(hwnd,hdc);
         hbrush = CreateSolidBrush(bkgColor);
-        DeleteObject((HBRUSH)SetClassLong(hClientWnd,GCL_HBRBACKGROUND,(LONG)hbrush));
+        DeleteObject((HBRUSH)SetClassLongPtr(hClientWnd,GCL_HBRBACKGROUND,(LONG_PTR)hbrush));
         InvalidateRect(hwnd,NULL,TRUE);		
     }    
 }
@@ -2012,7 +2031,7 @@ ConDrawText(HWND hwnd)
 	TCHAR *bu = (TCHAR *) ALLOC((num_chars+1) * sizeof(TCHAR));
 	memcpy(bu,buf,num_chars * sizeof(TCHAR));
 	bu[num_chars]='\0';
-	fprintf(stderr,TEXT("ConDrawText\"%s\"\n"),bu);
+	fprintf(stderr,"ConDrawText\"%S\"\n",bu);
 	FREE(bu);
 	fflush(stderr);
     }
@@ -2211,17 +2230,6 @@ static TBADDBITMAP tbbitmap =
     HINST_COMMCTRL, IDB_STD_SMALL_COLOR,
 };
 
-#ifdef HARDDEBUG
-/* For really hard GUI startup debugging, place DEBUGBOX() macros in code
-   and get modal message boxes with the line number. */
-static void debug_box(int line) {
-  TCHAR buff[1024];
-  swprintf(buff,1024,TEXT("DBG:%d"),line);
-  MessageBox(NULL,buff,TEXT("DBG"),MB_OK|MB_APPLMODAL);
-}
-
-#define DEBUGBOX() debug_box(__LINE__)  
-#endif
 
 static HWND
 InitToolBar(HWND hwndParent) 
@@ -2243,7 +2251,7 @@ InitToolBar(HWND hwndParent)
     SendMessage(hwndTB,TB_BUTTONSTRUCTSIZE,
 		(WPARAM) sizeof(TBBUTTON),0); 
     tbbitmap.hInst = NULL;
-    tbbitmap.nID   = (UINT) CreateMappedBitmap(beam_module, 1,0, &colorMap, 1);
+    tbbitmap.nID   = (UINT_PTR) CreateMappedBitmap(beam_module, 1,0, &colorMap, 1);
     SendMessage(hwndTB, TB_ADDBITMAP, (WPARAM) 4, 
 		(LPARAM) &tbbitmap); 
 
@@ -2269,7 +2277,7 @@ InitToolBar(HWND hwndParent)
     ti.cbSize = sizeof(TOOLINFO);
     ti.uFlags = TTF_IDISHWND|TTF_CENTERTIP|TTF_SUBCLASS;
     ti.hwnd = hwndTB;;
-    ti.uId = (UINT)hComboWnd;
+    ti.uId = (UINT_PTR)hComboWnd;
     ti.lpszText = LPSTR_TEXTCALLBACK;
     hwndTT = (HWND)SendMessage(hwndTB,TB_GETTOOLTIPS,0,0);
     SendMessage(hwndTT,TTM_ADDTOOL,0,(LPARAM)&ti);
