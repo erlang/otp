@@ -332,3 +332,6 @@ $(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../ebin/%.beam $(DOCGEN)/priv/bin/chunk
 
 $(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../preloaded/ebin/%.beam $(DOCGEN)/priv/bin/chunk.escript
 	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@
+
+$(CHUNKSDIR)/%.chunk: ../../ebin/%.beam $(DOCGEN)/priv/bin/chunk.escript
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@

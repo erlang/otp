@@ -333,7 +333,9 @@ get_local_doc(_Missing, ModuleDoc) when map_size(ModuleDoc) > 0 ->
     %% Otherwise take first alternative found
     binary_to_term(maps:get(hd(maps:keys(ModuleDoc)), ModuleDoc));
 get_local_doc(Missing, hidden) ->
-    [{p,[],[<<"The documentation for ">>,Missing,<<" is hidden">>]}];
+    [{p,[],[<<"The documentation for ">>,Missing,
+            <<" is hidden. This probably means that it is internal "
+              "and not to be used by other applications.">>]}];
 get_local_doc(Missing, None) when None =:= none; None =:= #{} ->
     [{p,[],[<<"There is no documentation for ">>,Missing]}].
 

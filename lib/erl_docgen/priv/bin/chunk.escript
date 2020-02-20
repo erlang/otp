@@ -30,6 +30,14 @@
 
 -include_lib("kernel/include/eep48.hrl").
 
+main([FromBeam, _Escript, ToChunk]) ->
+    %% This module is not documented, generate an empty beam chunk file
+    Name = filename:basename(filename:rootname(FromBeam)) ++ ".erl",
+
+    EmptyDocs = #docs_v1{ anno = erl_anno:set_file(Name, erl_anno:new(0)),
+                          module_doc = hidden, docs = []},
+    file:write_file(ToChunk, term_to_binary(EmptyDocs,[compressed])),
+    ok;
 main([FromXML, FromBeam, _Escript, ToChunk]) ->
     erlang:process_flag(max_heap_size,20 * 1000 * 1000),
     case docs(FromXML, FromBeam) of

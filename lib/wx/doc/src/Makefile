@@ -64,7 +64,7 @@ TOP_SPECS_FILE = specs.xml
 
 include $(ERL_TOP)/make/doc.mk
 
-$(XMLDIR)/%.xml: $(APP_DIR)/gen/%.erl
+$(XMLDIR)/%.xml: $(APP_SRC_DIR)/gen/%.erl
 	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript \
 	  -def vsn $(VSN) $(EDOC_FLAGS) -dir $(XMLDIR) $<
 

@@ -28,7 +28,9 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 endif
 RELCHUNKSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 
-APP_DIR = $(ERL_TOP)/lib/$(APPLICATION)/src
+APP_DIR = $(ERL_TOP)/lib/$(APPLICATION)
+APP_SRC_DIR = $(APP_DIR)/src
+APP_EBIN_DIR = $(APP_DIR)/src
 
 # ----------------------------------------------------
 HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
@@ -63,6 +65,9 @@ endif
 CHUNK_REF3_FILES = $(filter-out $(NO_CHUNKS), $(XML_ALL_REF3_FILES))
 CHUNK_FILES = $(CHUNK_REF3_FILES:%.xml=$(CHUNKSDIR)/%.chunk)
 
+ERL_CHUNK_FILES = $(patsubst $(APP_EBIN_DIR)/%.BEAM,$(CHUNKSDIR)/%.chunk,$(wildcard $(APP_EBIN_DIR)/*.beam))
+EMPTY_CHUNK_FILES = $(filter-out $(NO_CHUNKS:%.xml=$(CHUNKSDIR)/%.chunk) $(CHUNK_FILES), $(ERL_CHUNK_FILES))
+
 
 # ----------------------------------------------------
 # FLAGS
@@ -90,13 +95,13 @@ html: images $(HTML_REF_MAN_FILE)
 
 man: $(MAN1_FILES) $(MAN2_FILES) $(MAN3_FILES) $(MAN4_FILES) $(MAN5_FILES) $(MAN6_FILES) $(MAN7_FILES)
 
-chunks: $(CHUNK_FILES)
+chunks: $(CHUNK_FILES) $(EMPTY_CHUNK_FILES)
 
 images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
 
-$(EDOC_REF3_FILES:%=$(XMLDIR)/%): $(APP_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
+$(EDOC_REF3_FILES:%=$(XMLDIR)/%): $(APP_SRC_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
 	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript \
-	  -def vsn $(VSN) $(EDOC_FLAGS) -dir $(XMLDIR) $(APP_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
+	  -def vsn $(VSN) $(EDOC_FLAGS) -dir $(XMLDIR) $(APP_SRC_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
 $(XMLDIR)/$(EDOC_CHAPTER_FILE): ../overview.edoc
 	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(VSN) \
 	-chapter -dir $(XMLDIR) $<
