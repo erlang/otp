@@ -66,7 +66,7 @@
 	 register_agent3/1,
 
 	 info/1,
-	 usm_priv_aes/1,
+         usm_priv_aes/1,
 	 
 	 simple_sync_get2/1, 
 	 simple_sync_get3/1, 
@@ -1457,33 +1457,41 @@ verify_info([{Key, SubKeys}|Keys], Info) ->
 
 %%======================================================================
 
-% USM privacy fails with AES in OTP 22.2.3. Test to prevent
-% regression in future releases.
-%
+%% USM privacy fails with AES in OTP 22.2.3. Test to prevent
+%% regression in future releases.
+%%
 usm_priv_aes(suite) -> [];
 usm_priv_aes(Config) when is_list(Config) ->
-    ?TC_TRY(info,
-            fun() -> do_usm_priv_aes(Config) end).
+    Pre = fun() ->
+                  ConfDir = ?config(manager_conf_dir, Config),
+                  DbDir   = ?config(manager_db_dir, Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config,     [{verbosity, trace},
+                                        {dir,       ConfDir},
+                                        {db_dir,    DbDir}]}],
+
+                  p("try starting manager"),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000) % Give it time to settle
+          end,
+    Case = fun(ok) -> do_usm_priv_aes(Config) end,
+    Post = fun(ok) ->
+                   p("try stop manager"),
+                   ok = snmpm:stop(), % Give it time to settle
+                   ?SLEEP(1000)
+           end,
+    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
 
 do_usm_priv_aes(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    p("starting with Config: "
+      "~n      ~p", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
-
-    write_manager_conf(ConfDir),
-
-    Opts = [{server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
-	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
-
-    p("try starting manager"),
-    ok = snmpm:start(Opts),
-
-    ?SLEEP(1000),
-
-    p("manager started, now generate AES-encrypted message"),
+    p("generate AES-encrypted message"),
 
     EngineID = [128,0,0,0,6],
     SecName  = "v3_user",
@@ -1599,12 +1607,9 @@ do_usm_priv_aes(Config) ->
 
     Data = ScopedPDUBytes,
 
-    p("Message decrypted, now try to stop"),
-    ok = snmpm:stop(),
-
-    ?SLEEP(1000),
-
+    p("Message decrypted"),
     ok.
+
 
 %%======================================================================
 
