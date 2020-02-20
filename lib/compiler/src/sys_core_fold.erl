@@ -683,15 +683,7 @@ eval_binary(#c_binary{anno=Anno,segments=Ss}=Bin) ->
 eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
 			 unit=#c_literal{val=Unit},type=#c_literal{val=Type},
 			 flags=#c_literal{val=Flags}}|Ss], Acc0) ->
-    Endian = case member(big, Flags) of
-		 true ->
-		     big;
-		 false ->
-		     case member(little, Flags) of
-			 true -> little;
-			 false -> throw(impossible) %Native endian.
-		     end
-	     end,
+    Endian = bs_endian(Flags),
 
     %% Make sure that the size is reasonable.
     case Type of
@@ -739,6 +731,11 @@ eval_binary_1([#c_bitstr{val=#c_literal{val=Val},size=#c_literal{val=Sz},
 	utf32 -> ok;
 	_ ->
 	    throw(impossible)
+    end,
+
+    case Endian =:= native andalso Type =/= binary of
+        true -> throw(impossible);
+        false -> ok
     end,
 
     %% Evaluate the field.
@@ -803,6 +800,11 @@ eval_binary_2(Acc, Val, all, Unit, binary, _) ->
     end;
 eval_binary_2(Acc, Val, Size, Unit, binary, _) ->
     <<Acc/bitstring,Val:(Size*Unit)/bitstring>>.
+
+bs_endian([big=E|_]) -> E;
+bs_endian([little=E|_]) -> E;
+bs_endian([native=E|_]) -> E;
+bs_endian([_|Fs]) -> bs_endian(Fs).
 
 %% Count the number of bits approximately needed to store Int.
 %% (We don't need an exact result for this purpose.)

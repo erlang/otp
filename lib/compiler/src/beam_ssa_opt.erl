@@ -1784,8 +1784,13 @@ opt_bs_put(#b_set{args=[#b_literal{val=Type},#b_literal{val=Flags},
                     I = I0#b_set{args=Args},
                     opt_bs_put(I);
                 {binary,_} when is_bitstring(Val) ->
-                    <<Bitstring:EffectiveSize/bits,_/bits>> = Val,
-                    [Bitstring];
+                    case Val of
+                        <<Bitstring:EffectiveSize/bits,_/bits>> ->
+                            [Bitstring];
+                        _ ->
+                            %% Specified size exceeds size of bitstring.
+                            not_possible
+                    end;
                 {float,Endian} ->
                     try
                         [opt_bs_put_float(Val, EffectiveSize, Endian)]
