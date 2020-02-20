@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1998-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2]).
 
 -export([error_1/1, error_2/1, iso88591/1, otp_7810/1, otp_10302/1,
-	 otp_10990/1, otp_10992/1, otp_11807/1]).
+	 otp_10990/1, otp_10992/1, otp_11807/1, otp_16480/1]).
 
 -import(lists, [nth/2,flatten/1]).
 -import(io_lib, [print/1]).
@@ -58,7 +58,7 @@ suite() ->
 
 all() -> 
     [{group, error}, iso88591, otp_7810, otp_10302, otp_10990, otp_10992,
-     otp_11807].
+     otp_11807, otp_16480].
 
 groups() -> 
     [{error, [], [error_1, error_2]}].
@@ -1196,6 +1196,11 @@ otp_11807(Config) when is_list(Config) ->
     {'EXIT', {{badarg,bad},_}} = % minor backward incompatibility
          (catch erl_parse:abstract("string", [{encoding,bad}])),
    ok.
+
+otp_16480(Config) when is_list(Config) ->
+    F = fun mod:func/19,
+    F = erl_parse:normalise(erl_parse_abstract(F)),
+    ok.
 
 test_string(String, ExpectedWithCol) ->
     {ok, ExpectedWithCol, _EndWithCol} = erl_scan_string(String, {1, 1}, []),
