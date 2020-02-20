@@ -353,28 +353,13 @@ supported_protocol_versions() ->
     end.
 
 supported_protocol_versions([]) ->
-    Vsns = case sufficient_tlsv1_2_crypto_support() of
-	       true ->
-		   ?ALL_SUPPORTED_VERSIONS;
-	       false ->
-		   ?MIN_SUPPORTED_VERSIONS
-	   end,
+    Vsns = sufficient_support(?ALL_SUPPORTED_VERSIONS),
     application:set_env(ssl, protocol_version, Vsns),
     Vsns;
 
 supported_protocol_versions([_|_] = Vsns) ->
-    case sufficient_tlsv1_2_crypto_support() of
-	true -> 
-	    Vsns;
-	false ->
-	    case Vsns -- ['tlsv1.2'] of
-		[] ->
-		    ?MIN_SUPPORTED_VERSIONS;
-		NewVsns ->
-		    NewVsns
-	    end
-    end.
-
+    sufficient_support(Vsns).
+        
 -spec is_acceptable_version(tls_version()) -> boolean().
 is_acceptable_version({N,_}) 
   when N >= ?LOWEST_MAJOR_SUPPORTED_VERSION ->
@@ -668,11 +653,23 @@ highest_protocol_version() ->
 lowest_protocol_version() ->
     lowest_protocol_version(supported_protocol_versions()).
 
-sufficient_tlsv1_2_crypto_support() ->
-    CryptoSupport = crypto:supports(),
-    proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)).
-
 max_len([{3,4}|_])->
     ?TLS13_MAX_CIPHER_TEXT_LENGTH;
 max_len(_) ->
     ?MAX_CIPHER_TEXT_LENGTH.
+
+sufficient_support(Versions) ->
+    CryptoSupport = crypto:supports(),
+    case proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)) of
+        false ->
+            Versions -- ['tlsv1.3', 'tlsv1.2'];
+        true ->
+            case proplists:get_bool(aes_gcm, proplists:get_value(ciphers, CryptoSupport)) of
+               false ->
+                    Versions -- ['tlsv1.3'];
+                true  ->
+                    Versions
+            end
+    end.
+
+
