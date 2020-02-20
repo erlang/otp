@@ -1244,12 +1244,13 @@ is_result(RC, true, _) ->
 
 %% incr/2
 
-incr(TPid, Counter)
-  when node(TPid) == node() ->
-    diameter_stats:incr(Counter, TPid, 1);
-
 incr(TPid, Counter) ->
-    TPid ! {incr, Counter}.
+    Node = node(TPid),
+    if Node == node() ->
+            diameter_stats:incr(Counter, TPid, 1);
+       true ->
+            spawn(Node, diameter_stats, incr, [Counter, TPid, 1])
+    end.
 
 %% rcc/1
 

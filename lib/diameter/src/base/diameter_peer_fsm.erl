@@ -341,11 +341,6 @@ handle_cast(_, State) ->
 
 %% handle_info/1
 
-%% Counter increment from a remote handler process.
-handle_info({incr, Counter}, State) ->
-    diameter_stats:incr(Counter, self(), 1),
-    {noreply, State};
-
 handle_info(T, #state{} = State) ->
     try transition(T, State) of
         ok ->
