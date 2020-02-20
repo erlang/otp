@@ -377,7 +377,8 @@ handle_exec({expect_nothing, To}, State) ->
               "~n   ~p", [Any]),
             error({expect_nothing, Any})
     after To ->
-        {ok, State}
+            p("go nothing (~p) as expected", [To]),
+            {ok, State}
     end;
 
 handle_exec({megaco_trace, disable}, State) ->
@@ -683,6 +684,7 @@ handle_exec({megaco_callback, nocall, Timeout}, State) ->
             Err = {unexpected_callback, Type, Msg, Pid},
             {error, State#state{result = [Err|Res]}}
     after Timeout ->
+            p("got no callback (~p) as expected", [Timeout]),
             {ok, State}
     end;
 
@@ -1090,11 +1092,16 @@ handle_megaco_callback_call(P, Msg) ->
             d("handle_megaco_callback_call -> deliver reply after delay [~w]",
               [Delay]),
             Reply;
+        {'EXIT', Pid, Reason} when (Pid =:= P) ->
+            d("handle_megaco_callback_call -> "
+              "received unexpected EXIT signal (from ~p): "
+              "~n   Reason: ~p", [Pid, Reason]),
+            exit({unexpected_EXIT_signal, Pid, Reason});
         {'EXIT', SomePid, SomeReason} ->
             d("handle_megaco_callback_call -> "
-              "received unexpected EXIT signal: "
-              "~n   SomePid:    ~p"
-              "~n   SomeReason: ~p", [SomePid, SomeReason]),
+              "received unexpected EXIT signal from unknown process: "
+              "~n   Pid:    ~p"
+              "~n   Reason: ~p", [SomePid, SomeReason]),
             exit({unexpected_EXIT_signal, SomePid, SomeReason})
     end.
 
