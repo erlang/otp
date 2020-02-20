@@ -72,22 +72,25 @@
 #endif
 
 /* Distribution capability flags */
-#define DFLAG_PUBLISHED           1
-#define DFLAG_ATOM_CACHE          2
-#define DFLAG_EXTENDED_REFERENCES 4
-#define DFLAG_DIST_MONITOR        8
-#define DFLAG_FUN_TAGS            16
-#define DFLAG_NEW_FUN_TAGS        0x80
-#define DFLAG_EXTENDED_PIDS_PORTS 0x100
-#define DFLAG_EXPORT_PTR_TAG      0x200
-#define DFLAG_BIT_BINARIES        0x400
-#define DFLAG_NEW_FLOATS          0x800
-#define DFLAG_SMALL_ATOM_TAGS     0x4000
-#define DFLAG_UTF8_ATOMS          0x10000
-#define DFLAG_MAP_TAG             0x20000
-#define DFLAG_BIG_CREATION        0x40000
-#define DFLAG_HANDSHAKE_23       0x1000000
-#define DFLAG_HANDSHAKE_XX      0xfe000000 /* bits reserved for handshake changes */
+typedef EI_ULONGLONG DistFlags;
+
+#define DFLAG_PUBLISHED                   1
+#define DFLAG_ATOM_CACHE                  2
+#define DFLAG_EXTENDED_REFERENCES         4
+#define DFLAG_DIST_MONITOR                8
+#define DFLAG_FUN_TAGS                 0x10
+#define DFLAG_NEW_FUN_TAGS             0x80
+#define DFLAG_EXTENDED_PIDS_PORTS     0x100
+#define DFLAG_EXPORT_PTR_TAG          0x200
+#define DFLAG_BIT_BINARIES            0x400
+#define DFLAG_NEW_FLOATS              0x800
+#define DFLAG_SMALL_ATOM_TAGS        0x4000
+#define DFLAG_UTF8_ATOMS            0x10000
+#define DFLAG_MAP_TAG               0x20000
+#define DFLAG_BIG_CREATION          0x40000
+#define DFLAG_HANDSHAKE_23        0x1000000
+#define DFLAG_RESERVED           0xfe000000
+#define DFLAG_NAME_ME            ((DistFlags)0x2 << 32)
 
 ei_cnode   *ei_fd_to_cnode(int fd);
 int         ei_distversion(int fd);

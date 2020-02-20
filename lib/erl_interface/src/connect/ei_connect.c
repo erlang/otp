@@ -87,8 +87,6 @@ int ei_tracelevel = 0;
     (offsetof(ei_socket_callbacks, get_fd)              \
      + sizeof(int (*)(void *)))
 
-typedef EI_ULONGLONG DistFlags;
-
 static char *null_cookie = "";
 
 static int get_cookie(char *buf, int len);
@@ -100,7 +98,7 @@ static void gen_digest(unsigned challenge, char cookie[],
 		       unsigned char digest[16]);
 static int send_status(ei_socket_callbacks *cbs, void *ctx,
                        int pkt_sz, char *status, unsigned ms);
-static int recv_status(ei_socket_callbacks *cbs, void *ctx,
+static int recv_status(ei_cnode*, void *ctx,
                        int pkt_sz, unsigned ms);
 static int send_challenge(ei_cnode *ec, void *ctx, int pkt_sz,
                           unsigned challenge,
@@ -671,26 +669,34 @@ int ei_connect_xinit_ussi(ei_cnode* ec, const char *thishostname,
     }
     strcpy(ec->thishostname, thishostname);
     
-    if (strlen(thisalivename) >= sizeof(ec->thisalivename)) {
-	EI_TRACE_ERR0("ei_connect_init","Thisalivename too long");
-	return ERL_ERROR;
+    if (thisalivename) {
+        if (strlen(thisalivename) >= sizeof(ec->thisalivename)) {
+            EI_TRACE_ERR0("ei_connect_init","Thisalivename too long");
+            return ERL_ERROR;
+        }
+
+        strcpy(ec->thisalivename, thisalivename);
+
+        if (strlen(thisnodename) >= sizeof(ec->thisnodename)) {
+            EI_TRACE_ERR0("ei_connect_init","Thisnodename too long");
+            return ERL_ERROR;
+        }
+        strcpy(ec->thisnodename, thisnodename);
+
+        strcpy(ec->self.node, thisnodename);
+        ec->self.num = 0;
+        ec->self.serial = 0;
+        ec->self.creation = creation;
     }
-	
-    strcpy(ec->thisalivename, thisalivename);
-    
-    if (strlen(thisnodename) >= sizeof(ec->thisnodename)) {
-	EI_TRACE_ERR0("ei_connect_init","Thisnodename too long");
-	return ERL_ERROR;
+    else {
+        /* dynamic name */
+        ec->thisalivename[0] = 0;
+        ec->thisnodename[0] = 0;
     }
-    strcpy(ec->thisnodename, thisnodename);
 
 /* FIXME right now this_ipaddr is never used */    
-/*    memmove(&ec->this_ipaddr, thisipaddr, sizeof(ec->this_ipaddr)); */
+    /*    memmove(&ec->this_ipaddr, thisipaddr, sizeof(ec->this_ipaddr)); */
     
-    strcpy(ec->self.node,thisnodename);
-    ec->self.num = 0;
-    ec->self.serial = 0;
-    ec->self.creation = creation;
 
     ec->cbs = cbs;
     ec->setup_context = setup_context;
@@ -1010,7 +1016,7 @@ static int ei_connect_helper(ei_cnode* ec,
         
     if (send_name(ec, ctx, pkt_sz, epmd_says_version, tmo))
         goto error;
-    if (recv_status(cbs, ctx, pkt_sz, tmo))
+    if (recv_status(ec, ctx, pkt_sz, tmo))
         goto error;
     if (recv_challenge(cbs, ctx, pkt_sz, &her_challenge, &her_version,
                        &her_flags, NULL, tmo))
@@ -1863,7 +1869,7 @@ static int send_status(ei_socket_callbacks *cbs, void *ctx,
     return 0;
 }
 
-static int recv_status(ei_socket_callbacks *cbs, void *ctx,
+static int recv_status(ei_cnode *ec, void *ctx,
                        int pkt_sz, unsigned ms)
 {
     char dbuf[DEFBUF_SIZ];
@@ -1872,7 +1878,7 @@ static int recv_status(ei_socket_callbacks *cbs, void *ctx,
     int buflen = DEFBUF_SIZ;
     int rlen;
     
-    if ((rlen = read_hs_package(cbs, ctx, pkt_sz,
+    if ((rlen = read_hs_package(ec->cbs, ctx, pkt_sz,
                                 &buf, &buflen, &is_static, ms)) <= 0) {
 	EI_TRACE_ERR1("recv_status",
 		      "<- RECV_STATUS socket read failed (%d)", rlen);
@@ -1882,11 +1888,48 @@ static int recv_status(ei_socket_callbacks *cbs, void *ctx,
     EI_TRACE_CONN2("recv_status",
                    "<- RECV_STATUS (%.*s)", (rlen>20 ? 20 : rlen), buf);
 
-    if (rlen >= 3 && buf[0] == 's' && buf[1] == 'o' && buf[2] == 'k') {
-        /* Expecting "sok" or "sok_simultaneous" */
-	if (!is_static)
-	    free(buf);
-	return 0;
+    if (ec->thisnodename[0]) {
+        if (rlen >= 3 && buf[0] == 's' && buf[1] == 'o' && buf[2] == 'k') {
+            /* Expecting "sok" or "sok_simultaneous" */
+            if (!is_static)
+                free(buf);
+            return 0;
+        }
+    }
+    else { /* dynamic node name */
+        const char* at;
+        int namelen;
+        if (rlen >= 7 && strncmp(buf, "snamed:", 7) == 0) {
+            buf += 7;
+            rlen -= 7;
+            namelen = get16be(buf);
+            rlen -= 2;
+            if (namelen > MAXNODELEN || (namelen+4) > rlen) {
+                EI_TRACE_ERR1("recv_status","<- RECV_STATUS nodename too long (%d)",
+                              namelen);
+                goto error;
+            }
+            memcpy(ec->thisnodename, buf, namelen);
+            ec->thisnodename[namelen] = '\0';
+            buf += namelen;
+            ec->creation = get32be(buf);
+
+            /* extract alive part from nodename */
+            if (!(at = strchr(ec->thisnodename,'@'))) {
+                EI_TRACE_ERR0("ei_connect","Dynamic node name has no @ in name");
+                return ERL_ERROR;
+            } else {
+                const int alen = at - ec->thisnodename;
+                strncpy(ec->thisalivename, ec->thisnodename, alen);
+                ec->thisalivename[alen] = '\0';
+            }
+
+            strcpy(ec->self.node, ec->thisnodename);
+            ec->self.num = 0;
+            ec->self.serial = 0;
+            ec->self.creation = ec->creation;
+            return 0;
+        }
     }
 error:
     if (!is_static)
@@ -1926,17 +1969,31 @@ static int send_name(ei_cnode *ec,
     char *buf;
     unsigned char *s;
     char dbuf[DEFBUF_SIZ];
-    const unsigned int nodename_len = strlen(ec->thisnodename);
+    const char* name_ptr;
+    unsigned int name_len;
     int siz;
     int err;
     ssize_t len;
-    DistFlags flags;
-    const char tag = (version == EI_DIST_5) ? 'n' : 'N';
+    DistFlags flags = preferred_flags();
+    char tag;
+
+    if (ec->thisnodename[0]) {
+        name_ptr = ec->thisnodename;
+        tag = (version == EI_DIST_5) ? 'n' : 'N';
+    }
+    else {
+        /* dynamic node name */
+        name_ptr = ec->thishostname;
+        tag = 'N'; /* presume ver 6 */
+        flags |= DFLAG_NAME_ME;
+    }
+
+    name_len = strlen(name_ptr);
 
     if (tag == 'n')
-        siz = pkt_sz + 1 + 2 + 4 + nodename_len;
+        siz = pkt_sz + 1 + 2 + 4 + name_len;
     else
-        siz = pkt_sz + 1 + 8 + 4 + 2 + nodename_len;
+        siz = pkt_sz + 1 + 8 + 4 + 2 + name_len;
 
     buf = (siz > DEFBUF_SIZ) ? malloc(siz) : dbuf;
     if (!buf) {
@@ -1954,7 +2011,6 @@ static int send_name(ei_cnode *ec,
     default:
         return -1;
     }
-    flags = preferred_flags();
 
     put8(s, tag);
     if (tag == 'n') {
@@ -1964,9 +2020,9 @@ static int send_name(ei_cnode *ec,
     else { /* tag == 'N' */
         put64be(s, flags);
         put32be(s, ec->creation);
-        put16be(s, nodename_len);
+        put16be(s, name_len);
     }
-    memcpy(s, ec->thisnodename, nodename_len);
+    memcpy(s, name_ptr, name_len);
     len = (ssize_t) siz;
     err = ei_write_fill_ctx_t__(ec->cbs, ctx, buf, &len, ms);
     if (!err && len != (ssize_t) siz)
