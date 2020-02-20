@@ -53,8 +53,8 @@
 -include("megaco_test_lib.hrl").
 
 -define(TEST_VERBOSITY, info). % silence | info | debug
--define(MGC_VERBOSITY,  info).
--define(MG_VERBOSITY,   info).
+-define(MGC_VERBOSITY,  debug).
+-define(MG_VERBOSITY,   debug).
 
 -define(LOAD_COUNTER_START, 100).
 -define(A4444, ["11111111", "00000000", "00000000"]).
@@ -292,28 +292,40 @@ connect(suite) ->
 connect(doc) ->
     [];
 connect(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("connect -> starting"),
-    progress("start nodes"),
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-    Mg2Node = make_node_name(mg2),
-    d("connect -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p"
-      "~n   Mg2Node: ~p", [MgcNode, Mg1Node, Mg2Node]),
-    ok = ?START_NODES([MgcNode, Mg1Node, Mg2Node]),
+    Pre = fun() ->
+                  progress("start nodes"),
+                  MgcNode = make_node_name(mgc),
+                  Mg1Node = make_node_name(mg1),
+                  Mg2Node = make_node_name(mg2),
+                  d("connect -> Nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   Mg1Node: ~p"
+                    "~n   Mg2Node: ~p", [MgcNode, Mg1Node, Mg2Node]),
+                  Nodes = [MgcNode, Mg1Node, Mg2Node],
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_connect/1,
+    Post = fun(Nodes) ->
+                   progress("stop nodes"),
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(connect, Pre, Case, Post).
 
+do_connect([MgcNode, Mg1Node, Mg2Node]) ->
     %% Start the MGC and MGs
-    ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
-    progress("start MGC"),
+
+    ET = [{text, tcp}, {text, udp}, {binary, tcp}, {binary, udp}],
+    progress("start MGC (on ~p)", [MgcNode]),
     {ok, Mgc} = 
 	start_mgc(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
-    progress("start MG1"),
+
+    progress("start MG1 (on ~p) using tcp", [Mg1Node]),
     {ok, Mg1} = 
 	start_mg(Mg1Node,  {deviceName, "mg1"}, text,   tcp, ?MG_VERBOSITY),
-    progress("start MG2"),
+
+    progress("start MG2 (on ~p) using udp", [Mg2Node]),
     {ok, Mg2} = 
 	start_mg(Mg2Node,  {deviceName, "mg2"}, binary, udp, ?MG_VERBOSITY),
 
@@ -385,7 +397,6 @@ connect(Config) when is_list(Config) ->
     stop(Mgc),
 
     i("connect -> done", []),
-    progress("done"),
     ok.
 
 
@@ -397,27 +408,36 @@ traffic(suite) ->
 traffic(doc) ->
     [];
 traffic(Config) when is_list(Config) ->
-    put(verbosity, ?TEST_VERBOSITY),
-    put(sname,     "TEST"),
-    i("traffic -> starting"),
-    progress("start nodes"),
-    MgcNode = make_node_name(mgc),
-    Mg1Node = make_node_name(mg1),
-    Mg2Node = make_node_name(mg2),
-    Mg3Node = make_node_name(mg3),
-    Mg4Node = make_node_name(mg4),
-    d("traffic -> Nodes: "
-      "~n   MgcNode: ~p"
-      "~n   Mg1Node: ~p"
-      "~n   Mg2Node: ~p"
-      "~n   Mg3Node: ~p"
-      "~n   Mg4Node: ~p", 
-      [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
-    ok = ?START_NODES([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
+    Pre = fun() ->
+                  progress("start nodes"),
+                  MgcNode = make_node_name(mgc),
+                  Mg1Node = make_node_name(mg1),
+                  Mg2Node = make_node_name(mg2),
+                  Mg3Node = make_node_name(mg3),
+                  Mg4Node = make_node_name(mg4),
+                  Nodes = [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node],
+                  d("traffic -> Nodes: "
+                    "~n   MgcNode: ~p"
+                    "~n   Mg1Node: ~p"
+                    "~n   Mg2Node: ~p"
+                    "~n   Mg3Node: ~p"
+                    "~n   Mg4Node: ~p", 
+                    [MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]),
+                  ok = ?START_NODES(Nodes, true),
+                  Nodes
+          end,
+    Case = fun do_traffic/1,
+    Post = fun(Nodes) ->
+                   progress("stop nodes"),
+                   d("stop nodes"),
+                   ?STOP_NODES(lists:reverse(Nodes))
+           end,
+    try_tc(traffic, Pre, Case, Post).
 
+do_traffic([MgcNode, Mg1Node, Mg2Node, Mg3Node, Mg4Node]) ->
     %% Start the MGC and MGs
-    i("traffic -> start the MGC"),    
-    progress("start MGC"),
+    i("start the MGC"),    
+    progress("start MGC (on ~p)", [MgcNode]),
     ET = [{text,tcp}, {text,udp}, {binary,tcp}, {binary,udp}],
     {ok, Mgc} = 
 	start_mgc(MgcNode, {deviceName, "ctrl"}, ET, ?MGC_VERBOSITY),
@@ -550,7 +570,6 @@ traffic(Config) when is_list(Config) ->
     stop(Mgc),
 
     i("traffic -> done", []),
-    progress("done"),
     ok.
 
 
@@ -671,10 +690,12 @@ traffic_connect_mg([{Node, Name, Coding, Trans}|Mg], Acc) ->
     traffic_connect_mg(Mg, [{Name, Pid}|Acc]).
 
 traffic_connect_mg(Node, Name, Coding, Trans) ->
+    progress("start (and connect) ~s (on ~p) using ~p", [Name, Node, Trans]),
     Mid = {deviceName, Name}, 
     {ok, Pid} = start_mg(Node, Mid, Coding, Trans, ?MG_VERBOSITY),
 
     %% Ask the MGs to do a service change
+    progress("perform ~s service change", [Name]),
     {ok, Res} = service_change(Pid),
     d("traffic_connect_mg -> (~s) service change result: ~p", [Name, Res]),
     Pid.
@@ -831,8 +852,12 @@ mgc_init(Config) ->
     RH = megaco:user_info(Mid,receive_handle),
     d("mgc_init -> parse receive info"),
     ListenTo = mgc_parse_receive_info(RI, RH),
-    i("mgc_init -> start transport(s)"),
+    i("mgc_init -> start transport(s) with:"
+      "~n      ListenTo: ~p", [ListenTo]),
     {Tcp, Udp} = mgc_start_transports(ListenTo),
+    i("mgc_init -> transport(s) started:"
+      "~n      Tcp: ~p"
+      "~n      Udp: ~p", [Tcp, Udp]),
     {Mid, Tcp, Udp}.
     
 
@@ -1247,10 +1272,15 @@ mg_loop(#mg{state = State} = S) ->
 	%% Do a service change
 	{service_change, Parent} when S#mg.parent == Parent, 
 				      State == initiated ->
-	    i("mg_loop(~p) -> received request to perform service change", 
-	      [State]),
+	    i("mg_loop(~p) -> received request to perform service change when:"
+              "~n      Conn Handle: ~p"
+              "~n      Conn Data:   ~p", 
+	      [State,
+               S#mg.conn_handle,
+               megaco:conn_info(S#mg.conn_handle, conn_data)]),
 	    Res = mg_service_change(S#mg.conn_handle),
-	    d("mg_loop(~p) -> result: ~p", [State, Res]),
+	    d("mg_loop(~p) -> service change request send result: ~p",
+              [State, Res]),
 	    mg_loop(S#mg{state = connecting}); 
 
 
@@ -1358,9 +1388,12 @@ mg_start_tcp(MgcPort, RH) ->
 		    {port,           MgcPort}, 
 		    {receive_handle, RH}, 
 		    {tcp_options,    [{nodelay, true}]}],
+            i("tcp transport started: attempt (tcp) connect to MGC at:"
+              "~n   ~p", [LocalHost]),
 	    case megaco_tcp:connect(Sup, Opts) of
 		{ok, SendHandle, ControlPid} ->
                     PrelMgcMid = preliminary_mid,
+                    i("tcp transport (tcp) connected: attempt (megaco) connect:"),
 		    {ok, ConnHandle} = 
 			megaco:connect(RH, PrelMgcMid, 
 				       SendHandle, ControlPid),
@@ -1382,12 +1415,18 @@ mg_start_udp(MgcPort, RH) ->
             %% local host. Try instead to "figure out" tha actual address...
             LocalAddr = which_local_addr(),
 	    Opts = [{port, 0}, {receive_handle, RH}],
+            i("udp transport started: attempt (udp) open"),
 	    case megaco_udp:open(Sup, Opts) of
 		{ok, Handle, ControlPid} ->
                     MgcMid = preliminary_mid,
+                    i("udp transport open: "
+                      "now create send handle with MGC address: "
+                      "~n   ~p", [LocalAddr]),
                     SendHandle = megaco_udp:create_send_handle(Handle, 
 							       LocalAddr, 
 							       MgcPort),
+                    i("udp transport: attempt (megaco) connect to:"
+                      "~n   ~p", [SendHandle]),
 		    {ok, ConnHandle} = 
 			megaco:connect(RH, MgcMid, 
 				       SendHandle, ControlPid),
@@ -1712,6 +1751,7 @@ get_conf(Key, Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Tries to find a valid local address...
 which_local_addr() ->
     case inet:getifaddrs() of
         {ok, IFs} ->
@@ -1722,10 +1762,10 @@ which_local_addr() ->
             ?SKIP({failed_get_local_addr, Reason})
     end.
 
+%% We explicitly skip some interfaces that we know is not "valid" 
+%% (docker stuff)
 which_local_addr([]) ->
     ?SKIP(failed_get_local_addr);
-which_local_addr([{"lo" = _IfName, _IfOpts}|IFs]) ->
-    which_local_addr(IFs);
 which_local_addr([{"br-" ++ _ = _IfName, _IfOpts}|IFs]) ->
     which_local_addr(IFs);
 which_local_addr([{"docker" ++ _ = _IfName, _IfOpts}|IFs]) ->
@@ -1738,14 +1778,38 @@ which_local_addr([{_IfName, IfOpts}|IFs]) ->
             which_local_addr(IFs)
     end.
 
+which_local_addr2(IfOpts) ->
+    case if_is_running(IfOpts) of
+        true ->
+            which_local_addr3(IfOpts);
+        false ->
+            error
+    end.
 
-which_local_addr2([]) ->
+if_is_running(If) ->
+    lists:keymember(flags, 1, If) andalso
+        begin
+            {value, {flags, Flags}} = lists:keysearch(flags, 1, If),
+            (not lists:member(loopback, Flags)) andalso lists:member(running, Flags)
+        end.
+    
+which_local_addr3([]) ->
     error;
-which_local_addr2([{addr, Addr}|_]) 
+which_local_addr3([{addr, Addr}|_]) 
   when (size(Addr) =:= 4) andalso (element(1, Addr) =/= 127) ->
     {ok, Addr};
-which_local_addr2([_|T]) ->
-    which_local_addr2(T).
+which_local_addr3([_|T]) ->
+    which_local_addr3(T).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+try_tc(TCName, Pre, Case, Post) ->
+    try_tc(TCName, "TEST", ?TEST_VERBOSITY, Pre, Case, Post).
+
+try_tc(TCName, Name, Verbosity, Pre, Case, Post) ->
+    ?TRY_TC(TCName, Name, Verbosity, Pre, Case, Post).
+
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

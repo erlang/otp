@@ -423,7 +423,7 @@ handler_main(Parent, Mod, State, []) ->
 	
 handler_main(Parent, Mod, State, [Instruction|Instructions]) ->
     d("handler_main -> entry with"
-      "~n   Instruction: ~p", [Instruction]),
+      "~n      Instruction: ~p", [Instruction]),
     receive
 	{stop, Parent} ->
 	    d("handler_main -> premature stop requested"),
@@ -435,6 +435,8 @@ handler_main(Parent, Mod, State, [Instruction|Instructions]) ->
 	    Result = (catch Mod:terminate({parent_died, Reason}, State)),
 	    exit({parent_died, Reason, Result})
     after 0 ->
+            d("handler_main -> exec: "
+              "~n      Instruction: ~p", [Instruction]),
 	    case (catch handler_callback_exec(Mod, State, Instruction)) of
 		{ok, NewState} ->
 		    handler_main(Parent, Mod, NewState, Instructions);

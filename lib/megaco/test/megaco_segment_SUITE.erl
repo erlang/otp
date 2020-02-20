@@ -47,6 +47,7 @@
 	
 	]).
 
+-include_lib("common_test/include/ct.hrl").
 -include("megaco_test_lib.hrl").
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v3.hrl").
@@ -2103,6 +2104,8 @@ send_segmented_msg_plain4(doc) ->
     "Forth plain test that it is possible to send segmented messages. "
 	"Send window = 3. ";
 send_segmented_msg_plain4(Config) when is_list(Config) ->
+    Factor = ?config(megaco_factor, Config),
+    ct:timetrap(Factor * ?SECS(60)),
     Pre = fun() ->
                   MgcNode = make_node_name(mgc),
                   MgNode  = make_node_name(mg),
@@ -2114,19 +2117,19 @@ send_segmented_msg_plain4(Config) when is_list(Config) ->
                   ok = ?START_NODES(Nodes),
                   Nodes
           end,
-    Case = fun do_send_segmented_msg_plain4/1,
+    Case = fun(X) -> do_send_segmented_msg_plain4(Factor, X) end,
     Post = fun(Nodes) ->
                    d("stop nodes"),
                    ?STOP_NODES(lists:reverse(Nodes))
            end,
     try_tc(ssmp4, Pre, Case, Post).
 
-do_send_segmented_msg_plain4([MgcNode, MgNode]) ->
+do_send_segmented_msg_plain4(Factor, [MgcNode, MgNode]) ->
     d("[MGC] start the simulator "),
     {ok, Mgc} = megaco_test_tcp_generator:start_link("MGC", MgcNode),
 
     d("[MGC] create the event sequence"),
-    MgcEvSeq = ssmp4_mgc_event_sequence(text, tcp),
+    MgcEvSeq = ssmp4_mgc_event_sequence(Factor, text, tcp),
 
     i("wait some time before starting the MGC simulation"),
     sleep(1000),
@@ -2141,7 +2144,7 @@ do_send_segmented_msg_plain4([MgcNode, MgNode]) ->
     {ok, Mg} = megaco_test_megaco_generator:start_link("MG", MgNode),
 
     d("[MG] create the event sequence"),
-    MgEvSeq = ssmp4_mg_event_sequence(text, tcp),
+    MgEvSeq = ssmp4_mg_event_sequence(Factor, text, tcp),
 
     i("wait some time before starting the MG simulation"),
     sleep(1000),
@@ -2169,7 +2172,7 @@ do_send_segmented_msg_plain4([MgcNode, MgNode]) ->
 %% MGC generator stuff
 %%
 
-ssmp4_mgc_event_sequence(text, tcp) ->
+ssmp4_mgc_event_sequence(Factor, text, tcp) ->
     DecodeFun = ssmp4_mgc_decode_msg_fun(megaco_pretty_text_encoder, []),
     EncodeFun = ssmp4_mgc_encode_msg_fun(megaco_pretty_text_encoder, []),
     Mid       = {deviceName,"mgc"},
@@ -2238,33 +2241,38 @@ ssmp4_mgc_event_sequence(text, tcp) ->
     SegmentRep7 = ssmp4_mgc_segment_reply_msg(Mid, TransId, 7, false),
     SegmentRep8 = ssmp4_mgc_segment_reply_msg(Mid, TransId, 8, true),
     TransAck    = ssmp4_mgc_trans_ack_msg(Mid, TransId),
+    TO = fun(T) -> Factor*T end,
     EvSeq = [{debug,  true},
+             {trigger, "verbosity",
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
              {decode, DecodeFun},
              {encode, EncodeFun},
              {listen, 2944},
 	     {expect_accept, any},
-             {expect_receive, "service-change-request",  {ScrVerifyFun, 5000}},
+             {expect_receive, "service-change-request",  {ScrVerifyFun, TO(5000)}},
              {send, "service-change-reply",              ServiceChangeRep},
 	     {expect_nothing, 1000}, 
              {send, "notify request",                    NotifyReq},
-             {expect_receive, "notify reply: segment 1", {NrVerifyFun1, 1000}},
-             {expect_receive, "notify reply: segment 2", {NrVerifyFun2, 1000}},
-             {expect_receive, "notify reply: segment 3", {NrVerifyFun3, 1000}},
+             {expect_receive, "notify reply: segment 1", {NrVerifyFun1, TO(1000)}},
+             {expect_receive, "notify reply: segment 2", {NrVerifyFun2, TO(1000)}},
+             {expect_receive, "notify reply: segment 3", {NrVerifyFun3, TO(1000)}},
 	     {expect_nothing, 1000},
              {send, "segment reply 1",                   SegmentRep1},
-             {expect_receive, "notify reply: segment 4", {NrVerifyFun4, 1000}},
+             {expect_receive, "notify reply: segment 4", {NrVerifyFun4, TO(1000)}},
 	     {expect_nothing, 1000},
              {send, "segment reply 2",                   SegmentRep2},
-             {expect_receive, "notify reply: segment 5", {NrVerifyFun5, 1000}},
+             {expect_receive, "notify reply: segment 5", {NrVerifyFun5, TO(1000)}},
 	     {expect_nothing, 1000},
              {send, "segment reply 3",                   SegmentRep3},
-             {expect_receive, "notify reply: segment 6", {NrVerifyFun6, 1000}},
+             {expect_receive, "notify reply: segment 6", {NrVerifyFun6, TO(1000)}},
 	     {expect_nothing, 1000},
              {send, "segment reply 4",                   SegmentRep4},
-             {expect_receive, "notify reply: segment 7", {NrVerifyFun7, 1000}},
+             {expect_receive, "notify reply: segment 7", {NrVerifyFun7, TO(1000)}},
 	     {expect_nothing, 1000},
              {send, "segment reply 5",                   SegmentRep5},
-             {expect_receive, "notify reply: segment 8", {NrVerifyFun8, 1000}},
+             {expect_receive, "notify reply: segment 8", {NrVerifyFun8, TO(1000)}},
 	     {expect_nothing, 1000},
              {send, "segment reply 6",                   SegmentRep6},
 	     {expect_nothing, 1000},
@@ -2531,7 +2539,7 @@ ssmp4_mgc_trans_ack_msg(Mid, TransId) ->
 %%
 %% MG generator stuff
 %%
-ssmp4_mg_event_sequence(text, tcp) ->
+ssmp4_mg_event_sequence(Factor, text, tcp) ->
     Mid = {deviceName,"mg"},
     RI = [
           {port,             2944},
@@ -2552,7 +2560,8 @@ ssmp4_mg_event_sequence(text, tcp) ->
     Tid8 = #megaco_term_id{id = ["00000000","00000000","00000008"]},
     Tids = [Tid1, Tid2, Tid3, Tid4, Tid5, Tid6, Tid7, Tid8], 
     NotifyReqVerify = ssmp4_mg_verify_notify_request_fun(Tids),
-    AckVerify = ssmp4_mg_verify_ack_fun(), 
+    AckVerify = ssmp4_mg_verify_ack_fun(),
+    TO = fun(T) -> Factor*T end,
     EvSeq = [
              {debug, true},
 	     {megaco_trace, disable},
@@ -2573,7 +2582,7 @@ ssmp4_mg_event_sequence(text, tcp) ->
 	     {megaco_update_conn_info, max_pdu_size,     128}, 
              {sleep, 1000},
              {megaco_callback, handle_trans_request, NotifyReqVerify},
-             {megaco_callback, handle_trans_ack,     AckVerify, 15000},
+             {megaco_callback, handle_trans_ack,     AckVerify, TO(15000)},
              megaco_stop_user,
              megaco_stop,
              {sleep, 1000}
@@ -2661,30 +2670,34 @@ ssmp4_mg_verify_notify_request_fun(Tids) ->
 	     
 ssmp4_mg_verify_notify_request(
   {handle_trans_request, _CH, ?VERSION, ARs}, Tids) 
-  when length(ARs) == length(Tids) ->
+  when length(ARs) =:= length(Tids) ->
     (catch ssmp4_mg_do_verify_notify_request(Tids, ARs));
 ssmp4_mg_verify_notify_request(
   {handle_trans_request, _CH, ?VERSION, ARs}, _Tids) ->
+    e("MG Notify Request verification failed: invalid action requests"
+      "~n   ARs: ~p", [ARs]),
     {error, {invalid_action_requests, ARs}, ok};
 ssmp4_mg_verify_notify_request(
   {handle_trans_request, CH, V, ARs}, _Tids) ->
+    e("MG Notify Request verification failed: invalid trans request"
+      "~n   CH:  ~p"
+      "~n   V:   ~p"
+      "~n   ARs: ~p", [CH, V, ARs]),
     {error, {invalid_trans_request, {CH, V, ARs}}, ok};
 ssmp4_mg_verify_notify_request(Crap, _Tids) ->
-    io:format("ssmp4_mg_verify_notify_request -> unknown request"
-	      "~n   Crap: ~p"
-	      "~n   Tids: ~p"
-	      "~n", [Crap, _Tids]),
+    e("MG Notify Request verification failed: unknown request"
+      "~n   Crap: ~p"
+      "~n   Tids: ~p", [Crap, _Tids]),
     {error, {unexpected_event, Crap}, ok}.
 
 ssmp4_mg_do_verify_notify_request(Tids, ARs) ->
-    io:format("ssmp4_mg_do_verify_notify_request -> ok"
-	      "~n   Tids: ~p"
-	      "~n   ARs:  ~p"
-	      "~n", [Tids, ARs]),
+    p("MG Notify Request verification - attempt verify action request(s):"
+      "~n   Tids: ~p"
+      "~n   ARs:  ~p", [Tids, ARs]),
     ActionReplies = ssmp4_mg_do_verify_notify_request_ars(Tids, ARs), 
-    io:format("ssmp4_mg_do_verify_notify_request -> ok"
-	      "~n   ActionReplies:  ~p"
-	      "~n", [ActionReplies]),
+    p("MG Notify Request verification - ok"
+      "~n   ActionReplies:  ~p"
+      "~n", [ActionReplies]),
     Reply = {{handle_ack, ssmp4}, ActionReplies}, 
     {ok, ARs, Reply}.
 
@@ -2698,10 +2711,9 @@ ssmp4_mg_do_verify_notify_request_ars([Tid|Tids], [AR|ARs], Acc) ->
     ssmp4_mg_do_verify_notify_request_ars(Tids, ARs, [ActionReply|Acc]).
 
 ssmp4_mg_do_verify_notify_request_ar(Tid, AR) ->
-    io:format("ssmp4_mg_do_verify_notify_request_ar -> ok"
-	      "~n   Tid: ~p"
-	      "~n   AR:  ~p"
-	      "~n", [Tid, AR]),
+    p("ssmp4_mg_do_verify_notify_request_ar -> ok"
+      "~n   Tid: ~p"
+      "~n   AR:  ~p", [Tid, AR]),
     {Cid, CR} = 
 	case AR of
 	    #'ActionRequest'{contextId       = CtxId, 
@@ -3648,6 +3660,10 @@ ssmmsr1_mgc_event_sequence(text, tcp) ->
     TransAck    = ssmmsr1_mgc_trans_ack_msg(Mid, TransId),
     ReadyForSegments = ssmmsr1_mgc_ready_for_segments_fun(), 
     EvSeq = [{debug,  true},
+             {trigger, "verbosity",
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
              {decode, DecodeFun},
              {encode, EncodeFun},
              {listen, 2944},
@@ -3977,6 +3993,10 @@ ssmmsr1_mg_event_sequence(text, tcp) ->
     ReadyForSegments = ssmmsr1_mg_ready_for_segments_fun(), 
     EvSeq = [
              {debug, true},
+             {trigger,
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
 	     {megaco_trace, disable},
              %% {megaco_trace, max},
              megaco_start,
@@ -4393,6 +4413,10 @@ ssmmsr2_mgc_event_sequence(text, tcp) ->
     SegmentRep1 = ssmmsr2_mgc_segment_reply_msg(Mid, TransId, 1, false),
     ReadyForSegments = ssmmsr2_mgc_ready_for_segments_fun(), 
     EvSeq = [{debug,  true},
+             {trigger, "verbosity",
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
              {decode, DecodeFun},
              {encode, EncodeFun},
              {listen, 2944},
@@ -4701,6 +4725,10 @@ ssmmsr2_mg_event_sequence(text, tcp) ->
     ReadyForSegments = ssmmsr2_mg_ready_for_segments_fun(), 
     EvSeq = [
              {debug, true},
+             {trigger,
+              fun() ->
+                      put(verbosity, ?TEST_VERBOSITY)
+              end}, 
 	     {megaco_trace, disable},
              %% {megaco_trace, max},
              megaco_start,
@@ -7912,33 +7940,48 @@ p(F, A) ->
 	      [?FTS(), self() | A]).
 
 
+%% e(F) ->
+%%     e(F, []).
+
+e(F, A) ->
+    print(error, get(verbosity), "ERROR", get(tc), F, A).
+
+
 i(F) ->
     i(F, []).
 
 i(F, A) ->
-    print(info, get(verbosity), get(tc), "INF", F, A).
+    print(info, get(verbosity), "INFO", get(tc), F, A).
 
 
 d(F) ->
     d(F, []).
 
 d(F, A) ->
-    print(debug, get(verbosity), get(tc), "DBG", F, A).
+    print(debug, get(verbosity), "DBG", get(tc), F, A).
 
 
 printable(_, debug)   -> true;
 printable(info, info) -> true;
+printable(error, _)   -> true;
 printable(_,_)        -> false.
 
-print(Severity, Verbosity, Tc, P, F, A) ->
-    print(printable(Severity, Verbosity), Tc, P, F, A).
+print(Severity, Verbosity, P, TC, F, A) ->
+    print(printable(Severity, Verbosity), P, TC, F, A).
 
-print(true, Tc, P, F, A) ->
-    io:format("*** [~s] ~s ~p ~s:~w ***"
-	      "~n   " ++ F ++ "~n", 
-	      [?FTS(), P, self(), get(sname), Tc | A]);
+print(true, P, TC, F, A) when (TC =:= undefined) ->
+    print(P, "", F, A);
+print(true, P, TC, F, A) when is_atom(TC) ->
+    print(P, ":" ++ atom_to_list(TC), F, A);
+print(true, P, TC, F, A) when is_list(TC) ->
+    print(P, TC, F, A);
 print(_, _, _, _, _) ->
     ok.
+
+print(P, TCStr, F, A) ->
+    io:format("*** [~s] ~s ~p ~s~s ***"
+	      "~n   " ++ F ++ "~n", 
+	      [?FTS(), P, self(), get(sname), TCStr | A]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

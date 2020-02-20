@@ -60,6 +60,8 @@ init(Config) when is_list(Config) ->
     %% 	      "~n", [?MODULE, Res]),
     process_flag(trap_exit, Flag),
     case Res of
+	{error, {failed_loading_flex_scanner_driver, Reason}} ->
+	    skip(?F("Failed loading flex driver: ~p", [Reason]));
 	{error, Reason} ->
 	    skip(Reason);
 	{ok, FlexConfig} ->
