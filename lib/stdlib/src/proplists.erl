@@ -419,7 +419,7 @@ substitute_aliases_1([], P) ->
 %% <p>Example: <code>substitute_negations([{no_foo, foo}], L)</code>
 %% will replace any atom <code>no_foo</code> or tuple <code>{no_foo,
 %% true}</code> in <code>L</code> with <code>{foo, false}</code>, and
-%% any other tuple <code>{no_foo, ...}</code> with <code>foo</code.</p>
+%% any other tuple <code>{no_foo, ...}</code> with <code>foo</code>.</p>
 %%
 %% @see get_bool/2
 %% @see substitute_aliases/2
