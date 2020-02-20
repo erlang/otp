@@ -35,9 +35,19 @@
                   io_columns = element(2,io:columns())
                 }).
 
--define(ALL_TAGS,[a,anno,p,h1,h2,h3,c,i,br,em,pre,code,ul,ol,li,dl,dt,dd]).
--type chunk_element_type() :: a | anno | p | c | i | br | em | pre |
-                              code | ul | ol | li | dl | dt | dd.
+-define(ALL_ELEMENTS,[a,p,h1,h2,h3,i,br,em,pre,code,ul,ol,li,dl,dt,dd]).
+%% inline elements are:
+-define(INLINE,[i,br,em,code,a]).
+-define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= code)
+                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= br)
+                         orelse ((ELEM) =:= em))).
+%% non-inline elements are:
+-define(BLOCK,[p,pre,ul,ol,li,dl,dt,dd,h1,h2,h3]).
+-define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
+-define(IS_PRE(ELEM),(((ELEM) =:= pre))).
+
+-type chunk_element_type() :: a | p | i | br | em | pre | code | ul |
+                              ol | li | dl | dt | dd.
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
 -type chunk_element_attrs() :: [chunk_element_attr()].
 -type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
@@ -54,6 +64,13 @@ validate(Module) when is_atom(Module) ->
     {ok, Doc} = code:get_doc(Module),
     validate(Doc);
 validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
+
+    %% Check some macro in-variants
+    AE = lists:sort(?ALL_ELEMENTS),
+    AE = lists:sort(?INLINE ++ ?BLOCK),
+    true = lists:all(fun(Elem) -> ?IS_INLINE(Elem) end, ?INLINE),
+    true = lists:all(fun(Elem) -> ?IS_BLOCK(Elem) end, ?BLOCK),
+
     _ = maps:map(fun(_Key,MDoc) -> validate(binary_to_term(MDoc)) end, MDocs),
     lists:map(fun({_,_Anno, Sig, Docs, _Meta}) ->
                       case lists:all(fun erlang:is_binary/1, Sig) of
@@ -66,7 +83,7 @@ validate([H|T]) when is_tuple(H) ->
     _ = validate(H),
     validate(T);
 validate({Tag,Attr,Content}) ->
-    case lists:member(Tag,?ALL_TAGS) of
+    case lists:member(Tag,?ALL_ELEMENTS) of
         false ->
             throw({invalid_tag,Tag});
         true ->
@@ -101,9 +118,8 @@ normalize_trim(Bin,true) when is_binary(Bin) ->
     re:replace(NoNewLine,"\\s+"," ",[global,{return,binary}]);
 normalize_trim(Bin,false) when is_binary(Bin) ->
     Bin;
-normalize_trim([{Tag,Attr,Content}|T],Trim) when Tag =:= pre;
-                                                 Tag =:= code ->
-    [{Tag,Attr,normalize_trim(Content,false)} | normalize_trim(T,Trim)];
+normalize_trim([{pre,Attr,Content}|T],Trim) ->
+    [{pre,Attr,normalize_trim(Content,false)} | normalize_trim(T,Trim)];
 normalize_trim([{Tag,Attr,Content}|T],Trim) ->
     [{Tag,Attr,normalize_trim(Content,Trim)} | normalize_trim(T,Trim)];
 normalize_trim([<<>>|T],Trim) ->
@@ -119,17 +135,6 @@ normalize_trim([],_Trim) ->
 %% cross into other inline elements.
 %% For non-inline elements we just need to make sure that any
 %% leading or trailing spaces are stripped.
-%%
-%% inline elements are:
--define(INLINE,[c,anno,c,i,br,em]).
--define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= c)
-                         orelse ((ELEM) =:= anno) orelse ((ELEM) =:= c)
-                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= br)
-                         orelse ((ELEM) =:= em))).
-%% non-inline elements are:
--define(BLOCK,[p,pre,code,ul,ol,li,dl,dt,dd,h1,h2,h3]).
--define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
--define(IS_PRE(ELEM),(((ELEM) =:= pre) orelse ((ELEM) =:= code))).
 normalize_space([{Pre,Attr,Content}|T]) when ?IS_PRE(Pre) ->
     [{Pre,Attr,trim_first_and_last(Content,$\n)} | normalize_space(T)];
 normalize_space([{Block,Attr,Content}|T]) when ?IS_BLOCK(Block) ->
@@ -328,10 +333,10 @@ get_local_doc({F,A}, Docs) ->
     get_local_doc(unicode:characters_to_binary(io_lib:format("~tp/~p",[F,A])), Docs);
 get_local_doc(_Missing, #{ <<"en">> := Docs }) ->
     %% English if it exists
-    binary_to_term(Docs);
+    normalize(binary_to_term(Docs));
 get_local_doc(_Missing, ModuleDoc) when map_size(ModuleDoc) > 0 ->
     %% Otherwise take first alternative found
-    binary_to_term(maps:get(hd(maps:keys(ModuleDoc)), ModuleDoc));
+    normalize(binary_to_term(maps:get(hd(maps:keys(ModuleDoc)), ModuleDoc)));
 get_local_doc(Missing, hidden) ->
     [{p,[],[<<"The documentation for ">>,Missing,
             <<" is hidden. This probably means that it is internal "
@@ -431,11 +436,11 @@ render_element({IgnoreMe,_,Content}, State, Pos, Ind,D)
 
 %% Catch h1, h2 and h3 before the padding is done as there reset padding
 render_element({h1,_,Content},State,0 = Pos,_Ind,D) ->
-    trimnlnl(render_element({c,[],[{em,[],Content}]}, State, Pos, 0, D));
+    trimnlnl(render_element({code,[],[{em,[],Content}]}, State, Pos, 0, D));
 render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
     trimnlnl(render_element({em,[],Content}, State, Pos, 0, D));
 render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
-    trimnlnl(render_element({c,[],Content}, State, Pos, 2, D));
+    trimnlnl(render_element({code,[],Content}, State, Pos, 2, D));
 
 render_element({p,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind ->
     {Docs,NewPos} = render_element(E,State,0,Ind,D),
@@ -452,9 +457,12 @@ render_element(Elem,State,Pos,Ind,D) when Pos < Ind ->
 
     {[pad(Ind - Pos), Docs],NewPos};
 
-render_element({c,_,Content},State,Pos,Ind,D) ->
+render_element({code,_,Content},[pre|_]  = State,Pos,Ind,D) ->
+    %% When code is within a pre we don't emit any underline
+    render_docs(Content, [code|State], Pos, Ind,D);
+render_element({code,_,Content},State,Pos,Ind,D) ->
     Underline = sansi(underline),
-    {Docs, NewPos} = render_docs(Content, [c|State], Pos, Ind,D),
+    {Docs, NewPos} = render_docs(Content, [code|State], Pos, Ind,D),
     {[Underline,Docs,ransi(underline)], NewPos};
 
 render_element({i,_,Content},State,Pos,Ind,D) ->
@@ -469,9 +477,8 @@ render_element({em,_,Content},State,Pos,Ind,D) ->
     {Docs, NewPos} = render_docs(Content, State, Pos, Ind,D),
     {[Bold,Docs,ransi(bold)], NewPos};
 
-render_element({PreCode,_,Content},State,Pos,Ind,D)
-  when PreCode =:= pre; PreCode =:= code ->
-    %% For pre we make sure to respect the newlines in code and pre
+render_element({pre,_,Content},State,Pos,Ind,D) ->
+    %% For pre we make sure to respect the newlines in pre
     trimnlnl(render_docs(Content, [pre|State], Pos, Ind+2, D));
 
 render_element({ul,[{class,"types"}],Content},State,_Pos,Ind,D) ->

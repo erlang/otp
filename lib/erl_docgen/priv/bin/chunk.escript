@@ -320,9 +320,20 @@ transform([{list,Attr,Content}|T],Acc) ->
 transform([{taglist,Attr,Content}|T],Acc) ->
     transform([transform_taglist(Attr,Content)|T],Acc);
 
-%% transform <c><anno>text</anno></c> to <anno>text</anno>
-transform([{c,[],[{anno,[],AnnoContent}]}|T],Acc) ->
-    transform(T,[{a,[{type,anno}],AnnoContent}|Acc]);
+%% remove <anno> as it is only used to validate specs vs xml src
+transform([{anno,[],Content}|T],Acc) ->
+    transform([Content|T],Acc);
+
+%% transform <c> to <code>
+transform([{c,[],Content}|T],Acc) ->
+    transform(T, [{code,[],transform(Content,[])}|Acc]);
+
+%% transform <code> to <pre><code>
+transform([{code,Attr,Content}|T],Acc) ->
+    transform(T, [{pre,[],[{code,Attr,transform(Content,[])}]}|Acc]);
+%% transform <pre> to <pre><code>
+transform([{pre,Attr,Content}|T],Acc) ->
+    transform(T, [{pre,[],[{code,Attr,transform(Content,[])}]}|Acc]);
 
 %% transform <funcs> with <func> as children
 transform([{funcs,_Attr,Content}|T],Acc) ->
@@ -388,7 +399,7 @@ transform([{d,[],Content}|T],Acc) ->
     transform(T, [{li,[{class,"description"}],transform(Content,[])}|Acc]);
 
 transform([Tag = {seealso,_Attr,_Content}|T],Acc) ->
-    transform(T,[transform_seealso(Tag)|Acc]);
+    transform([transform_seealso(Tag)|T],Acc);
 
 transform([{term,Attr,[]}|T],Acc) ->
     transform([list_to_binary(proplists:get_value(id,Attr))|T],Acc);
@@ -440,9 +451,9 @@ transform_types(Dom,Acc) ->
 transform_taglist(Attr,Content) ->
     Items =
         lists:map(fun({tag,A,C}) ->
-                          {dt,A,transform(C, [])};
+                          {dt,A,C};
                      ({item,A,C}) ->
-                          {dd,A,transform(C, [])}
+                          {dd,A,C}
                   end, Content),
     {dl,Attr,Items}.
 
@@ -587,8 +598,8 @@ transform_datatype(Dom,_Acc) ->
                          {signature,Signature}],ContentsNoName}
       end || N = {name,_,_} <- Dom].
 
-transform_seealso(_S = {seealso,_Attr,_Content}) ->
-    _Content.
+transform_seealso({seealso,Attr,_Content}) ->
+    {a, Attr, _Content}.
 
 to_chunk(Dom, Source, Module, AST) ->
     [{module,MAttr,Mcontent}] = Dom,
