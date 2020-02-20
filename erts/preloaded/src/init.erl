@@ -51,6 +51,7 @@
 -export([restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
+-export([boot_msg/1]).
 
 %% for the on_load functionality; not for general use
 -export([run_on_load_handlers/0]).
@@ -89,7 +90,7 @@
 	}).
 
 -define(ON_LOAD_HANDLER, init__boot__on_load_handler).
-
+-define(DETACH_PORT, init__detach_port).
 
 debug(false, _) -> ok;
 debug(_, T)     -> erlang:display(T).
@@ -251,6 +252,7 @@ code_path_choice() ->
     end.
 
 boot(Start,Flags,Args) ->
+    start_detach_port(Flags),
     start_on_load_handler_process(),
     BootPid = do_boot(Flags,Start),
     State = #state{flags = Flags,
@@ -324,7 +326,15 @@ halt_string(String, List) ->
 %% Items in List are truncated if found to be too large
 -spec crash(_, _) -> no_return().
 crash(String, List) ->
-    halt(halt_string(String, List)).
+    Msg = halt_string(String, List),
+    boot_msg(Msg ++ "\n", false),
+    case whereis(?DETACH_PORT) of
+	undefined ->
+            ok;
+        _ ->
+            sleep(100) % need to sleep b/c halt/1 doesn't flush to the port
+    end,
+    halt(Msg).
 
 %% Status is {InternalStatus,ProvidedStatus}
 -spec boot_loop(pid(), state()) -> no_return().
@@ -346,6 +356,7 @@ boot_loop(BootPid, State) ->
 	{BootPid,{script_id,Id}} ->
 	    boot_loop(BootPid,State#state{script_id = Id});
 	{'EXIT',BootPid,normal} ->
+            detach_daemon(),
             {_,PS} = State#state.status,
 	    notify(State#state.subscribed),
 	    loop(State#state{status = {started,PS},
@@ -1456,3 +1467,38 @@ collect_mfas([MFA|MFAs],Info) ->
 collect_mfa(Mfa,[],Count,Time) -> {{Time,Count},Mfa};
 collect_mfa(Mfa,[{_Pid,C,S,Us}|Data],Count,Time) ->
     collect_mfa(Mfa,Data,Count + C,Time + S * 1000000 + Us).
+
+%% connect to the pipe that erlexec.c opened
+start_detach_port(Flags) ->
+    case get_argument('detach-fd', Flags) of
+	{ok, [[FdStr]]} ->
+	    Fd = list_to_integer(FdStr),
+	    Port = open_port({fd, Fd, Fd}, [out]),
+	    register(?DETACH_PORT, Port);
+	_ ->
+	    ok
+    end.
+
+detach_daemon() ->
+    case whereis(?DETACH_PORT) of
+	undefined ->
+	    undefined;
+	Port ->
+	    port_command(Port, [0]),
+	    port_close(Port)
+    end.
+
+%% display a message during boot
+-spec boot_msg(Msg) -> true when
+      Msg :: string().
+boot_msg(Msg) ->
+    boot_msg(Msg, _UseDisplay = true).
+boot_msg(Msg, UseDisplay) ->
+    case whereis(?DETACH_PORT) of
+	undefined when UseDisplay ->
+            erlang:display(Msg);
+        undefined ->
+            true;
+	Port ->
+	    port_command(Port, Msg)
+    end.

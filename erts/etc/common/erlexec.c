@@ -32,6 +32,8 @@
 #  include "erl_version.h"
 #  include "init_file.h"
 #  include <Shlobj.h>
+#else
+#  include <sys/wait.h>
 #endif
 
 #define NO 0
@@ -245,6 +247,11 @@ static int verbose = 0;		/* If non-zero, print some extra information. */
 static int start_detached = 0;	/* If non-zero, the emulator should be
 				 * started detached (in the background).
 				 */
+static int delayed_detach = 0;  /* If non-zero, we will delay exiting until an
+                                 * exit message has been received on a pipe from
+                                 * the emulator. This is to make it possible
+                                 * to generate error messages from a daemon.
+                                 */
 static int start_smp_emu = 1;   /* Start the smp emulator. */
 static const char* emu_type = 0; /* Type of emulator (lcnt, valgrind, etc) */
 
@@ -663,11 +670,15 @@ int main(int argc, char **argv)
 		    break;
 
 		  case 'd':
-		    if (strcmp(argv[i], "-detached") != 0) {
-			add_arg(argv[i]);
-		    } else {
+		    if (strcmp(argv[i], "-detached") == 0) {
 			start_detached = 1;
 			add_args("-noshell", "-noinput", NULL);
+		    } else if (strcmp(argv[i], "-delayed-detach") == 0) {
+			start_detached = 1;
+			delayed_detach = 1;
+			add_args(argv[i], "-noshell", "-noinput", NULL);
+		    } else {
+			add_arg(argv[i]);
 		    }
 		    break;
 
@@ -1129,10 +1140,80 @@ int main(int argc, char **argv)
 
  skip_arg_massage:
     if (start_detached) {
-	int status = fork();
-	if (status != 0)	/* Parent */
-	    return 0;
+	int pid, status;
 
+	if (delayed_detach) {
+	    int pipefd[2];
+	    static char fdbuf[10];
+
+	    if (pipe(pipefd) != 0) {
+		perror("pipe");
+		return 1;
+	    }
+	    /* Pass fd number of pipe to init.erl */
+	    add_Eargs("-detach-fd");
+	    snprintf(fdbuf, sizeof(fdbuf), "%d", pipefd[1]);
+	    add_Eargs(fdbuf);
+	    Eargsp[EargsCnt] = NULL;
+
+	    pid = fork();
+	    if (pid != 0) {	/* Parent */
+		int done = 0, got_ok = 0;
+		char buf[1024];
+                int i, n;
+
+		close(pipefd[1]);	/* close child's end of pipe */
+
+		while (!done) {
+		    n = read(pipefd[0], buf, sizeof(buf));
+		    if (n < 0) {
+			perror("read");
+			return 1;
+		    }
+		    if (n == 0) { /* EOF */
+			done = 1;
+		    } else {
+                        for (i = 0; i < n && buf[i] != '\0'; i++)
+                            fputc(buf[i], stderr);
+                        if (i < n) {
+                            /* got 0 - OK */
+                            got_ok = 1;
+                            done = 1;
+                        }
+                    }
+		}
+
+		if (got_ok) {
+                    status = 0;
+                } else {
+		    /* we got EOF but not OK - child exited */
+		    int w = waitpid(pid, &status, 0);
+		    if (w <= 0) {
+			perror("waitpid");
+			return 1;
+		    }
+		    status = WIFEXITED(status) ?
+			WEXITSTATUS(status) :
+			128 + WTERMSIG(status);
+		}
+
+		return status;
+
+	    } else {
+		/* Child */
+		close(pipefd[0]);	/* Close parent's end of pipe */
+	    }
+	}
+	else {
+	    /* not delayed_detach */
+	    pid = fork();
+	    if (pid != 0)	/* Parent */
+		return 0;
+	}
+
+	/*
+	 * Child.
+	 */
 	if (reset_cerl_detached)
 	    putenv("CERL_DETACHED_PROG=");
 
@@ -1149,13 +1230,6 @@ int main(int argc, char **argv)
 	}
 #endif
 
-	status = fork();
-	if (status != 0)	/* Parent */
-	    return 0;
-
-	/*
-	 * Grandchild.
-	 */
 	close(0);
 	open("/dev/null", O_RDONLY);
 	close(1);

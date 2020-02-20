@@ -69,6 +69,18 @@
     </func>
 
     <func>
+      <!-- FIXME: update 'since' below and remove comment
+          <name name="boot_msg" arity="1" since="OTP R??"/>
+      -->
+      <name name="boot_msg" arity="1" since=""/>
+      <fsummary>Print a message to stderr during the boot phase.</fsummary>
+      <desc>
+        <p>Print a message to stderr during the boot phase if the
+        system was started with <c>-delayed-detach</c>.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="get_argument" arity="1" since=""/>
       <fsummary>Get the values associated with a command-line user flag.
       </fsummary>
