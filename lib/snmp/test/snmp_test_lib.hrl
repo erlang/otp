@@ -84,6 +84,10 @@
 -define(FLUSH(),        ?LIB:flush_mqueue()).
 -define(ETRAP_GET(),    ?LIB:trap_exit()).
 -define(ETRAP_SET(O),   ?LIB:trap_exit(O)).
+-define(PINFO(__P__),   try process_info(__P__)
+                        catch _:_:_ ->
+                                {not_running, __P__}
+                        end).
 
 
 %% - Node utility macros - 
@@ -133,7 +137,7 @@
 -endif.
 
 -ifdef(snmp_debug).
--define(DBG(F,A), ?PRINT("DBG", F, A)).
+-define(DBG(F,A), ?PRINT("DEBUG", F, A)).
 -else.
 -define(DBG(F,A), ok).
 -endif.
@@ -145,12 +149,13 @@
 -endif.
 
 -ifdef(snmp_error).
--define(ERR(F,A), ?PRINT("ERR", F, A)).
+-define(ERR(F,A), ?PRINT("ERROR", F, A)).
 -else.
 -define(ERR(F,A), ok).
 -endif.
 
--define(INF(F,A),      ?PRINT("INF", F, A)).
+-define(INF(F),        ?INF(F, [])).
+-define(INF(F,A),      ?PRINT("INFO", F, A)).
 
 -define(PRINT(P,F,A),  ?LIB:print(P, ?MODULE, ?LINE, F, A)).
 
