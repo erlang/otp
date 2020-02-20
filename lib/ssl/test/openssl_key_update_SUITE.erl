@@ -17,7 +17,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(ssl_key_update_SUITE).
+-module(openssl_key_update_SUITE).
 
 %% Callback functions
 -export([all/0,
@@ -30,10 +30,10 @@
          end_per_testcase/2]).
 
 %% Testcases
--export([key_update_at/0,
-         key_update_at/1,
-         explicit_key_update/0,
-         explicit_key_update/1]).
+-export([openssl_client_explicit_key_update/0,
+         openssl_client_explicit_key_update/1,
+         openssl_server_explicit_key_update/0,
+         openssl_server_explicit_key_update/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -44,8 +44,8 @@ groups() ->
     [{'tlsv1.3', [], tls_1_3_tests()}].
 
 tls_1_3_tests() ->
-    [key_update_at,
-     explicit_key_update].
+    [openssl_client_explicit_key_update,
+     openssl_server_explicit_key_update].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -68,7 +68,7 @@ end_per_suite(_Config) ->
     application:stop(crypto).
 
 init_per_group(GroupName, Config) ->
-    ssl_test_lib:init_per_group(GroupName, Config).
+    ssl_test_lib:init_per_group_openssl(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
@@ -86,51 +86,49 @@ end_per_testcase(_TestCase, Config) ->
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
 
-key_update_at() ->
-    [{doc,"Test option 'key_update_at' between erlang client and erlang server."}].
+openssl_client_explicit_key_update() ->
+    [{doc,"Test ssl:update_key/2 between openssl s_client and erlang server."}].
 
-key_update_at(Config) ->
-    %% {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Data = "123456789012345",  %% 15 bytes
-
-    Server = ssl_test_lib:start_server(erlang, [{log_level, debug},
-                                                {key_update_at, 15}], Config),
-    Port = ssl_test_lib:inet_port(Server),
-    Client = ssl_test_lib:start_client(erlang, [{port, Port},
-                                                {log_level, debug},
-                                                {key_update_at, 15}], Config),
-    %% Sending bytes over limit triggers key update
-    ssl_test_lib:send(Client, Data),
-    Data = ssl_test_lib:check_active_receive(Server, Data),
-    %% TODO check if key has been updated (needs debug logging of secrets)
-
-    %% Test mechanism to prevent infinite loop of key updates
-    BigData = binary:copy(<<"1234567890">>, 10),  %% 100 bytes
-    ok = ssl_test_lib:send(Client, BigData),
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-
-explicit_key_update() ->
-    [{doc,"Test ssl:update_key/2 between erlang client and erlang server."}].
-
-explicit_key_update(Config) ->
+openssl_client_explicit_key_update(Config) ->
     Data = "123456789012345",  %% 15 bytes
 
     Server = ssl_test_lib:start_server(erlang, [{log_level, debug}], Config),
     Port = ssl_test_lib:inet_port(Server),
 
-    Client = ssl_test_lib:start_client(erlang, [{port, Port}, {log_level, debug}], Config),
+    Client = ssl_test_lib:start_client(openssl, [{port, Port}], Config),
     ssl_test_lib:send_recv_result_active(Client, Server, Data),
+
+    %% TODO s_client can hang after sending special commands e.g "k", "K"
+    %% ssl_test_lib:update_keys(Client, write),
+    %% ssl_test_lib:update_keys(Client, read_write),
+    ssl_test_lib:update_keys(Server, write),
+    ssl_test_lib:update_keys(Server, read_write),
+
+    ssl_test_lib:send_recv_result_active(Client, Server, Data),
+
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Server).
+
+openssl_server_explicit_key_update() ->
+    [{doc,"Test ssl:update_key/2 between ssl client and s_server."}].
+
+openssl_server_explicit_key_update(Config) ->
+    Data = "123456789012345",  %% 15 bytes
+
+    Server = ssl_test_lib:start_server(openssl, [], Config),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client(erlang, [{port, Port},
+                                                {log_level, debug},
+                                                {versions, ['tlsv1.2','tlsv1.3']}],Config),
+    ssl_test_lib:send_recv_result_active(Server, Client, Data),
 
     ssl_test_lib:update_keys(Client, write),
     ssl_test_lib:update_keys(Client, read_write),
-    ssl_test_lib:send_recv_result_active(Client, Server, Data),
-
     ssl_test_lib:update_keys(Server, write),
     ssl_test_lib:update_keys(Server, read_write),
-    ssl_test_lib:send_recv_result_active(Client, Server, Data),
-    %% TODO check if key has been updated (needs debug logging of secrets)
 
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ssl_test_lib:send_recv_result_active(Client, Server, Data),
+
+    ssl_test_lib:close(Client),
+    ssl_test_lib:close(Server).
