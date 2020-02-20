@@ -1337,6 +1337,8 @@ void erts_check_for_holes(Process* p);
 #define SPO_IX_MAX_HEAP_SIZE    9
 #define SPO_IX_SCHEDULER        10
 #define SPO_IX_ASYNC            11
+#define SPO_IX_NO_SMSG          12
+#define SPO_IX_NO_EMSG          13
 
 #define SPO_NO_INDICES          (SPO_IX_ASYNC+1)
 
@@ -1352,8 +1354,10 @@ void erts_check_for_holes(Process* p);
 #define SPO_MAX_HEAP_SIZE       (1 << SPO_IX_MAX_HEAP_SIZE)
 #define SPO_SCHEDULER           (1 << SPO_IX_SCHEDULER)
 #define SPO_ASYNC               (1 << SPO_IX_ASYNC)
+#define SPO_NO_SMSG             (1 << SPO_IX_NO_SMSG)
+#define SPO_NO_EMSG             (1 << SPO_IX_NO_EMSG)
 
-#define SPO_MAX_FLAG            SPO_ASYNC
+#define SPO_MAX_FLAG            SPO_NO_EMSG
 
 #define SPO_USE_ARGS                 \
     (SPO_MIN_HEAP_SIZE               \
@@ -1898,7 +1902,8 @@ Eterm erts_bind_schedulers(Process *c_p, Eterm how);
 ErtsRunQueue *erts_schedid2runq(Uint);
 Process *erts_schedule(ErtsSchedulerData *, Process*, int);
 void erts_schedule_misc_op(void (*)(void *), void *);
-int erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag, int *timeout);
+int erts_parse_spawn_opts(ErlSpawnOpts *sop, Eterm opts_list, Eterm *tag,
+                          int success_message_opt);
 void
 erts_send_local_spawn_reply(Process *parent, ErtsProcLocks parent_locks,
                             Process *child, Eterm tag, Eterm ref,

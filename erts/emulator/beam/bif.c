@@ -735,16 +735,15 @@ BIF_RETTYPE spawn_opt_4(BIF_ALIST_4)
     ErlSpawnOpts so;
     Eterm pid;
     Eterm res;
-    int timeout, opts_error;
+    int opts_error;
 
     /*
      * Fail order:
      * - Bad types
-     * - Timeout
      * - Bad options
      */
-    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, NULL, &timeout);
-    if (opts_error || timeout) {
+    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, NULL, 0);
+    if (opts_error) {
         Sint arity;
         if (is_not_atom(BIF_ARG_1) || is_not_atom(BIF_ARG_2))
             BIF_ERROR(BIF_P, BADARG);
@@ -755,8 +754,6 @@ BIF_RETTYPE spawn_opt_4(BIF_ALIST_4)
             BIF_ERROR(BIF_P, SYSTEM_LIMIT);
         if (opts_error > 0)
             BIF_ERROR(BIF_P, BADARG);
-        if (timeout)
-            BIF_ERROR(BIF_P, EXC_TIMEOUT);
         BIF_ERROR(BIF_P, BADARG);        
     }
     
@@ -791,7 +788,7 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
     Eterm tmp_heap_mfna[4];
     Eterm tmp_heap_alist[4 + 2];
     Sint arity;
-    int timeout, opts_error;
+    int opts_error;
     Eterm tag, tmp, error;
 
     if (!is_atom(BIF_ARG_1))
@@ -805,21 +802,16 @@ BIF_RETTYPE erts_internal_spawn_request_4(BIF_ALIST_4)
     /*
      * Fail order:
      * - Bad types
-     * - Timeout
      * - Bad options
      */
-    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, &tag, &timeout);
+    opts_error = erts_parse_spawn_opts(&so, BIF_ARG_4, &tag, !0);
     if (arity > MAX_SMALL)
         goto system_limit;
     if (opts_error) {
         if (opts_error > 0)
             goto badarg;
-        if (timeout)
-            goto timeout;
         goto badopt;
     }
-    if (timeout)
-        goto timeout;
 
     /* Make argument list for erts_internal:spawn_init/1 */
     tmp = TUPLE3(&tmp_heap_alist[0], BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
@@ -860,19 +852,56 @@ badarg:
 system_limit:
     error = am_system_limit;
     goto send_error;
-timeout:
-    error = am_timeout;
-    goto send_error;
 badopt:
     error = am_badopt;
     /* fall through... */
 send_error: {
         Eterm ref = erts_make_ref(BIF_P);
-        erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
-                                    tag, ref, error, am_undefined);
+        if (!(so.flags & SPO_NO_EMSG))
+            erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
+                                        tag, ref, error, am_undefined);
         BIF_RET(ref);
     }
     
+}
+
+BIF_RETTYPE spawn_request_abandon_1(BIF_ALIST_1)
+{
+    ErtsMonitor *omon;
+
+    if (is_not_internal_ref(BIF_ARG_1)) {
+        if (is_not_ref(BIF_ARG_1))
+            BIF_ERROR(BIF_P, BADARG);
+        /* Not an outstanding spawn_request of this process... */
+        BIF_RET(am_false);
+    }
+
+    omon = erts_monitor_tree_lookup(ERTS_P_MONITORS(BIF_P), BIF_ARG_1);
+    if (!omon
+        || ((omon->flags & (ERTS_ML_FLG_SPAWN_PENDING
+                            | ERTS_ML_FLG_SPAWN_ABANDONED))
+            != ERTS_ML_FLG_SPAWN_PENDING)) {
+        /* Not an outstanding spawn_request of this process... */
+        BIF_RET(am_false);
+    }
+
+    ASSERT(erts_monitor_is_origin(omon));
+
+    if (omon->flags & ERTS_ML_FLG_SPAWN_LINK) {
+        /* Leave it for reply... */
+        omon->flags |= ERTS_ML_FLG_SPAWN_ABANDONED;
+    }
+    else {
+        /* We don't need it anymore; remove it... */
+        ErtsMonitorData *mdp;
+        erts_monitor_tree_delete(&ERTS_P_MONITORS(BIF_P), omon);
+        mdp = erts_monitor_to_data(omon);
+        if (erts_monitor_dist_delete(&mdp->target))
+            erts_monitor_release_both(mdp);
+        else
+            erts_monitor_release(omon);
+    }
+    BIF_RET(am_true);
 }
 
   

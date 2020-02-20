@@ -25,7 +25,7 @@
 	 spawn_opt/2,spawn_opt/3,spawn_opt/4,spawn_opt/5,
          spawn_request/1, spawn_request/2,
          spawn_request/3, spawn_request/4, spawn_request/5,
-         disconnect_node/1]).
+         spawn_request_abandon/1, disconnect_node/1]).
 -export([spawn/1, spawn_link/1, spawn/2, spawn_link/2]).
 -export([yield/0]).
 -export([fun_info/1]).
@@ -2931,8 +2931,7 @@ spawn_monitor(M, F, A) ->
       | {min_heap_size, Size :: non_neg_integer()}
       | {min_bin_vheap_size, VSize :: non_neg_integer()}
       | {max_heap_size, Size :: max_heap_size()}
-      | {message_queue_data, MQD :: message_queue_data()}
-      | {timeout, Timeout :: non_neg_integer()}.
+      | {message_queue_data, MQD :: message_queue_data()}.
 
 -spec spawn_opt(Fun, Options) -> pid() | {pid(), reference()} when
       Fun :: function(),
@@ -2947,8 +2946,7 @@ spawn_opt(F, O) ->
 -spec spawn_opt(Node, Fun, Options) -> pid() | {pid(), reference()} when
       Node :: node(),
       Fun :: function(),
-      Options :: [monitor | link | {timeout, Timeout} | OtherOption],
-      Timeout :: non_neg_integer(),
+      Options :: [monitor | link | OtherOption],
       OtherOption :: term().
 spawn_opt(N, F, O) when N =:= erlang:node() ->
     erlang:spawn_opt(F, O);
@@ -3066,8 +3064,7 @@ spawn_opt(_Module, _Function, _Args, _Options) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Options :: [monitor | link | {timeout, Timeout} | OtherOption],
-      Timeout :: non_neg_integer(),
+      Options :: [monitor | link | OtherOption],
       OtherOption :: term().
 
 spawn_opt(N, M, F, A, O) when N =:= erlang:node(),
@@ -3111,10 +3108,8 @@ spawn_opt(N,M,F,A,O) ->
     erlang:error(badarg, [N,M,F,A,O]).
 
 old_remote_spawn_opt(N, M, F, A, O) ->
-    case {lists:member(monitor, O), lists:keymember(timeout,1,O)} of
-	{true,_} ->
-            badarg;
-	{_,true} ->
+    case lists:member(monitor, O) of
+	true ->
             badarg;
 	_ ->
             {L,NO} = lists:foldl(fun (link, {_, NewOpts}) ->
@@ -3178,8 +3173,11 @@ spawn_request(F) ->
 
 -spec spawn_request(Fun, Options) -> ReqId when
       Fun :: function(),
-      Option :: {reply_tag, ReplyTag} | spawn_opt_option(),
+      Option :: {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | spawn_opt_option(),
       ReplyTag :: term(),
+      Reply :: yes | no | error_only | success_only,
       Options :: [Option],
       ReqId :: reference();
                    (Node, Fun) -> ReqId when
@@ -3212,9 +3210,13 @@ spawn_request(A1, A2) ->
       Node :: node(),
       Fun :: function(),
       Options :: [Option],
-      Option :: monitor | link | {reply_tag, ReplyTag} | {timeout, Timeout} | OtherOption,
+      Option :: monitor
+              | link
+              | {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | OtherOption,
       ReplyTag :: term(),
-      Timeout :: non_neg_integer(),
+      Reply :: yes | no | error_only | success_only,
       OtherOption :: term(),
       ReqId :: reference();
                    (Module, Function, Args) ->
@@ -3255,8 +3257,11 @@ spawn_request(M, F, A) ->
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
-      Option :: {reply_tag, ReplyTag} | spawn_opt_option(),
+      Option :: {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | spawn_opt_option(),
       ReplyTag :: term(),
+      Reply :: yes | no | error_only | success_only,
       Options :: [Option],
       ReqId :: reference().
 
@@ -3286,9 +3291,13 @@ spawn_request(M, F, A, O) ->
       Function :: atom(),
       Args :: [term()],
       Options :: [Option],
-      Option :: monitor | link | {reply_tag, ReplyTag} | {timeout, Timeout} | OtherOption,
+      Option :: monitor
+              | link
+              | {reply_tag, ReplyTag}
+              | {reply, Reply}
+              | OtherOption,
       ReplyTag :: term(),
-      Timeout :: non_neg_integer(),
+      Reply :: yes | no | error_only | success_only,
       OtherOption :: term(),
       ReqId :: reference().
 
@@ -3306,6 +3315,11 @@ spawn_request(N, M, F, A, O) ->
         badarg ->
             erlang:error(badarg, [N, M, F, A, O])
     end.
+
+-spec spawn_request_abandon(ReqId :: reference()) -> boolean().
+
+spawn_request_abandon(_ReqId) ->
+    erlang:nif_error(undefined).
 
 -spec erlang:yield() -> 'true'.
 yield() ->

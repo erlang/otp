@@ -1251,7 +1251,6 @@ Eterm error_atom[NUMBER_EXIT_CODES] = {
   am_notsup,		/* 17 */
   am_badmap,		/* 18 */
   am_badkey,		/* 19 */
-  am_timeout            /* 20 */
 };
 
 /* Returns the return address at E[0] in printable form, skipping tracing in

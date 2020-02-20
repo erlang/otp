@@ -391,7 +391,7 @@ bif(spawn_request, 2) -> true;
 bif(spawn_request, 3) -> true;
 bif(spawn_request, 4) -> true;
 bif(spawn_request, 5) -> true;
-bif(spawn_request, 6) -> true;
+bif(spawn_request_abandon, 1) -> true;
 bif(spawn_monitor, 1) -> true;
 bif(spawn_monitor, 2) -> true;
 bif(spawn_monitor, 3) -> true;

@@ -2518,7 +2518,7 @@ int erts_net_message(Port *prt,
                 goto invalid_message;
         }
 
-        opts_error = erts_parse_spawn_opts(&so, opts, NULL, NULL);
+        opts_error = erts_parse_spawn_opts(&so, opts, NULL, 0);
         if (opts_error) {
             ErtsDSigSendContext ctx;
             if (opts_error > 1)
@@ -5285,15 +5285,16 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     Eterm mfa = BIF_ARG_2;
     Eterm opts = BIF_ARG_3;
     Eterm tag = am_spawn_reply;
-    Eterm mod, func, alist, new_opts, error, timeout, ref,
+    Eterm mod, func, alist, new_opts, error, ref,
         ok_result;
     Uint nargs, nopts, rm_opts, rebuild_opts;
     DistEntry *dep = NULL;
     Eterm list;
     ErtsDSigSendContext ctx;
-    int code, link = 0, monitor = 0, timer_set = 0;
+    int code, link = 0, monitor = 0, success_message, error_message;
     
-    ok_result = timeout = THE_NON_VALUE;
+    ok_result = THE_NON_VALUE;
+    success_message = error_message = !0;
     
     if (!is_node_name_atom(node))
         goto badarg;
@@ -5345,17 +5346,35 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                 switch (tp[1]) {
                     
                 case am_reply_tag:
-                    if (BIF_ARG_4 != am_spawn_request)
-                        goto badarg;
                     tag = tp[2];
-                    
+
                     if (0) {
-                    case am_timeout:
-                        timeout = tp[2];
+                    case am_reply:
+                        switch (tp[2]) {
+                        case am_error_only:
+                            success_message = 0;
+                            error_message = !0;
+                            break;
+                        case am_success_only:
+                            success_message = !0;
+                            error_message = 0;
+                            break;
+                        case am_no:
+                            success_message = 0;
+                            error_message = 0;
+                            break;
+                        case am_yes:
+                            success_message = !0;
+                            error_message = !0;
+                            break;
+                        default:
+                            goto badarg;
+                        }
                     }
 
-                    /* common for options to remove... */
-
+                    if (BIF_ARG_4 != am_spawn_request)
+                        goto badarg;
+                    
                     rm_opts++;
                     new_opts = list;
                     rebuild_opts = nopts - rm_opts;
@@ -5385,9 +5404,8 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             Uint rm_cnt;
             Eterm *hp, *prev_cp;
             /*
-             * Remove 'reply_tag' and 'timeout' options
-             * in option list. These options are mixed
-             * with other options.
+             * Remove 'reply_tag' option in option list.
+             * This options are mixed with other options.
              *
              * We build the list backwards and reuse tail
              * without options to remove, if such exist.
@@ -5413,7 +5431,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
                 if (is_tuple_arity(car, 2)) {
                     Eterm *tp = tuple_val(car);
                     if (am_reply_tag == tp[1]
-                        || am_timeout == tp[1]) {
+                        || am_reply == tp[1]) {
                         rm_cnt++;
                         /* skip option */
                         if (rm_cnt == rm_opts) {
@@ -5449,14 +5467,6 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
         Eterm *hp = HAlloc(BIF_P, 3);
         ASSERT(BIF_ARG_4 == am_spawn_opt);
         ok_result = TUPLE2(hp, ref, monitor ? am_true : am_false);
-    }
-
-    if (is_value(timeout)) {
-        if (timeout == make_small(0))
-            goto timeout;
-        if (!erts_setup_spawn_timer(BIF_P, ref, timeout))
-            goto badopt;
-        timer_set = !0;
     }
 
     code = erts_dsig_prepare(&ctx, dep,
@@ -5497,8 +5507,11 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
             mdp->origin.flags |= ERTS_ML_FLG_SPAWN_MONITOR;
         if (link)
             mdp->origin.flags |= ERTS_ML_FLG_SPAWN_LINK;
-        if (timer_set)
-            mdp->origin.flags |= ERTS_ML_FLG_SPAWN_TIMEOUT;
+        if (!success_message)
+            mdp->origin.flags |= ERTS_ML_FLG_SPAWN_NO_SMSG;
+        if (!error_message)
+            mdp->origin.flags |= ERTS_ML_FLG_SPAWN_NO_EMSG;
+            
         erts_monitor_tree_insert(&ERTS_P_MONITORS(BIF_P),
                                  &mdp->origin);
         inserted = erts_monitor_dist_insert(&mdp->target, dep->mld);
@@ -5581,17 +5594,12 @@ noconnection:
     goto send_error;
 notsup:
     error = am_notsup;
-    goto send_error;
-timeout:
-    error = am_timeout;
-    goto send_error;
-badopt:
-    error = am_badopt;
     /* fall through... */
 send_error:
     ASSERT(is_value(ok_result));
-    erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
-                                tag, ref, error, am_undefined);
+    if (error_message)
+        erts_send_local_spawn_reply(BIF_P, ERTS_PROC_LOCK_MAIN, NULL,
+                                    tag, ref, error, am_undefined);
     ERTS_BIF_PREP_RET(ret_val, ok_result);
     goto do_return;
 }

@@ -434,10 +434,18 @@
 #define ERTS_ML_FLG_SPAWN_PENDING       (((Uint16) 1) << 5)
 #define ERTS_ML_FLG_SPAWN_MONITOR       (((Uint16) 1) << 6)
 #define ERTS_ML_FLG_SPAWN_LINK          (((Uint16) 1) << 7)
-#define ERTS_ML_FLG_SPAWN_TIMEOUT       (((Uint16) 1) << 8)
-#define ERTS_ML_FLG_SPAWN_TIMED_OUT     (((Uint16) 1) << 9)
+#define ERTS_ML_FLG_SPAWN_ABANDONED     (((Uint16) 1) << 8)
+#define ERTS_ML_FLG_SPAWN_NO_SMSG       (((Uint16) 1) << 9)
+#define ERTS_ML_FLG_SPAWN_NO_EMSG       (((Uint16) 1) << 10)
 
 #define ERTS_ML_FLG_DBG_VISITED         (((Uint16) 1) << 15)
+
+#define ERTS_ML_FLGS_SPAWN              (ERTS_ML_FLG_SPAWN_PENDING      \
+                                         | ERTS_ML_FLG_SPAWN_MONITOR    \
+                                         | ERTS_ML_FLG_SPAWN_LINK       \
+                                         | ERTS_ML_FLG_SPAWN_ABANDONED  \
+                                         | ERTS_ML_FLG_SPAWN_NO_SMSG    \
+                                         | ERTS_ML_FLG_SPAWN_NO_EMSG)
 
 /* Flags that should be the same on both monitor/link halves */
 #define ERTS_ML_FLGS_SAME \

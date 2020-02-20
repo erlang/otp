@@ -2434,7 +2434,6 @@ convert_to_down_message(Process *c_p,
     ErtsProcLocks locks = ERTS_PROC_LOCK_MAIN;
     Uint hsz;
     Eterm *hp, ref, from, type, reason;
-    ErlHeapFragment *tag_hfrag = NULL;
     ErlOffHeap *ohp;
 
     ASSERT(mdp);
@@ -2457,8 +2456,12 @@ convert_to_down_message(Process *c_p,
         /* Should only happen when connection breaks... */
         ASSERT(reason == am_noconnection);
 
-        if (mdp->origin.flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-            /* Operation had already timed out... */
+        if (mdp->origin.flags & (ERTS_ML_FLG_SPAWN_ABANDONED
+                                 | ERTS_ML_FLG_SPAWN_NO_EMSG)) {
+            /*
+             * Operation has been been abandoned or
+             * error message has been disabled...
+             */
             erts_monitor_release(*omon);
             *omon = NULL;
             return 1;
@@ -2479,20 +2482,35 @@ convert_to_down_message(Process *c_p,
         
         ref = STORE_NC(&hp, ohp, mdp->ref);
         
+        /*
+         * The tag to patch into the resulting message
+         * is stored in mdep->u.name via a little trick
+         * (see pending_flag in erts_monitor_create()).
+         */
         if (is_immed(mdep->u.name))
             tag = mdep->u.name;
         else {
+            ErlHeapFragment *tag_hfrag;
             tag_hfrag = (ErlHeapFragment *) cp_val(mdep->u.name);
             tag = tag_hfrag->mem[0];
+            /* Save heap fragment of tag in message... */
+            if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
+                tag_hfrag->next = mp->hfrag.next;
+                mp->hfrag.next = tag_hfrag;
+            }
+            else {
+                tag_hfrag->next = mp->data.heap_frag;
+                mp->data.heap_frag = tag_hfrag;
+            }
         }
-        mdep->u.name = NIL; /* Restore to normal monitor */
+        
+        /* Restore to normal monitor */
+        mdep->u.name = NIL;
+        mdp->origin.flags &= ~ERTS_ML_FLGS_SPAWN;
 
         ERL_MESSAGE_FROM(mp) = am_undefined;
         ERL_MESSAGE_TERM(mp) = TUPLE4(hp, tag, ref, am_error, reason);
 
-        mdp->origin.flags &= ~(ERTS_ML_FLG_SPAWN_PENDING
-                               | ERTS_ML_FLG_SPAWN_MONITOR
-                               | ERTS_ML_FLG_SPAWN_LINK);
     }
     else {
         /*
@@ -2590,12 +2608,6 @@ convert_to_down_message(Process *c_p,
     ERL_MESSAGE_TOKEN(mp) = am_undefined;
     /* Replace original signal with the exit message... */
     convert_to_msg(c_p, sig, mp, next_nm_sig);
-
-    if (tag_hfrag) {
-        /* Save heap fragment of tag in message... */
-        tag_hfrag->next = sig->hfrag.next;
-        sig->hfrag.next = tag_hfrag;
-    }
 
     cnt += 4;
 
@@ -3420,27 +3432,17 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         /* Dist code should not have created a link on failure... */
 
         ASSERT(is_not_atom(result) || !datap->link);
-        /* delete monitor structure unless timeout (with link)... */
+        /* delete monitor structure... */
         adjust_monitor = 0;
-
-        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-            omon->flags &= ~ERTS_ML_FLG_SPAWN_TIMEOUT;
-            if (result == am_timeout
-                && ERL_MESSAGE_FROM(sig) == am_clock_service
-                && (omon->flags & ERTS_ML_FLG_SPAWN_LINK)) {
-                adjust_monitor = -1; /* Leave it for the link... */
-                omon->flags |= ERTS_ML_FLG_SPAWN_TIMED_OUT;
-            }
-            else {
-                erts_cancel_spawn_timer(c_p, datap->ref);
-            }
-        }
+        if (omon->flags & (ERTS_ML_FLG_SPAWN_ABANDONED
+                           | ERTS_ML_FLG_SPAWN_NO_EMSG))
+            convert_to_message = 0;
     }
-    else if (omon->flags & ERTS_ML_FLG_SPAWN_TIMED_OUT) {
+    else if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED) {
         /*
-         * Spawn operation has already timed out and
+         * Spawn operation has been abandoned and
          * link option was passed. Send exit signal
-         * with exit reason 'timeout'...
+         * with exit reason 'abandoned'...
          */
         DistEntry *dep;
         ErtsMonLnkDist *dist;
@@ -3450,7 +3452,6 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
         dist = mdep->dist;
 
-        ASSERT(!(omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT));
         ASSERT(omon->flags & ERTS_ML_FLG_SPAWN_LINK);
         
         lnk = datap->link;
@@ -3478,7 +3479,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
                     code = erts_dsig_send_exit_tt(&ctx,
                                                   c_p->common.id,
                                                   result,
-                                                  am_timeout,
+                                                  am_abandoned,
                                                   SEQ_TRACE_TOKEN(c_p));
                     ASSERT(code == ERTS_DSIG_SEND_OK);
                 }
@@ -3495,9 +3496,9 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
     else {
         /* Success... */
         ASSERT(is_external_pid(result));
-        
-        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT)
-            erts_cancel_spawn_timer(c_p, datap->ref);
+
+        if (omon->flags & ERTS_ML_FLG_SPAWN_NO_SMSG)
+            convert_to_message = 0;
 
         if (datap->link) {
             cnt++;
@@ -3517,10 +3518,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
             Eterm *hp;
             mdep = (ErtsMonitorDataExtended *) erts_monitor_to_data(omon);
             hp = &(mdep)->heap[0];
-            omon->flags &= ~(ERTS_ML_FLG_SPAWN_PENDING
-                             | ERTS_ML_FLG_SPAWN_MONITOR
-                             | ERTS_ML_FLG_SPAWN_LINK
-                             | ERTS_ML_FLG_SPAWN_TIMEOUT);
+            omon->flags &= ~ERTS_ML_FLGS_SPAWN;
             ERTS_INIT_OFF_HEAP(&oh);
             oh.first = mdep->uptr.ohhp;
             omon->other.item = copy_struct(result,
@@ -3537,6 +3535,8 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
          * or no monitor requested...
          */
         ErtsMonitorData *mdp = erts_monitor_to_data(omon);
+
+        omon->flags &= ~ERTS_ML_FLGS_SPAWN;
 
         erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), omon);
 
@@ -3627,9 +3627,9 @@ handle_dist_spawn_reply_exiting(Process *c_p,
             if (datap->link) {
                 /* This link exit *should* have actual reason... */
                 ErtsProcExitContext pectxt = {c_p, reason};
-                /* unless operation already had timed out... */
-                if (omon->flags & ERTS_ML_FLG_SPAWN_TIMED_OUT)
-                    pectxt.reason = am_timeout;
+                /* unless operation has been abandoned... */
+                if (omon->flags & ERTS_ML_FLG_SPAWN_ABANDONED)
+                    pectxt.reason = am_abandoned;
                 erts_proc_exit_handle_link(datap->link, (void *) &pectxt, -1);
                 cnt++;
             }
@@ -3642,6 +3642,7 @@ handle_dist_spawn_reply_exiting(Process *c_p,
     }
     sig->data.attached = ERTS_MSG_COMBINED_HFRAG;
     ERL_MESSAGE_TERM(sig) = msg;
+    sig->next = NULL;
     erts_cleanup_messages(sig);
     cnt++;
     return cnt;
@@ -3781,13 +3782,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                         mdp = erts_monitor_to_data(omon);
                         if (erts_monitor_dist_delete(&mdp->target))
                             tmon = &mdp->target;
-                        if (omon->flags & ERTS_ML_FLG_SPAWN_TIMEOUT) {
-                            /* Already timed out... */
-                            tmon = &mdp->target;
-                            erts_monitor_release(omon);
-                            omon = NULL;
-                            break;
-                        }
                     }
                     cnt += convert_prepared_down_message(c_p, sig,
                                                          xsigd->message,

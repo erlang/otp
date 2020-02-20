@@ -70,10 +70,11 @@
          spawn_request_monitor_child_exit/1,
          spawn_request_link_child_exit/1,
          spawn_request_link_parent_exit/1,
+         spawn_request_abandon_bif/1,
          dist_spawn_monitor/1,
-         spawn_timeout/1,
          spawn_old_node/1,
-         spawn_new_node/1]).
+         spawn_new_node/1,
+         spawn_request_reply_option/1]).
 -export([prio_server/2, prio_client/2, init/1, handle_event/2]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
@@ -107,10 +108,11 @@ all() ->
      spawn_request_monitor_child_exit,
      spawn_request_link_child_exit,
      spawn_request_link_parent_exit,
+     spawn_request_abandon_bif,
      dist_spawn_monitor,
-     spawn_timeout,
      spawn_old_node,
      spawn_new_node,
+     spawn_request_reply_option,
      otp_6237,
      {group, processes_bif},
      {group, otp_7738}, garb_other_running,
@@ -2912,7 +2914,7 @@ spawn_request_link_parent_exit_test(Node) ->
                           spawn(fun () -> ParentFun(N rem 10) end)
                   end,
                   lists:seq(1, 1000)),
-    N = gather_kabooms(),
+    N = gather_parent_exits(kaboom, false),
     Comment = case node() == Node of
                   true ->
                       C = "Got " ++ integer_to_list(N) ++ " node local kabooms!",
@@ -2921,25 +2923,141 @@ spawn_request_link_parent_exit_test(Node) ->
                   false ->
                       C = "Got " ++ integer_to_list(N) ++ " node remote kabooms!",
                       erlang:display(C),
-                      true = C /= 0,
+                      true = N /= 0,
                       C
               end,
     Comment.
 
-gather_kabooms() ->
-    receive after 2000 -> ok end,
-    gather_kabooms(0).
+spawn_request_abandon_bif(Config) when is_list(Config) ->
+    {ok, Node} = start_node(Config),
+    false = spawn_request_abandon(make_ref()),
+    false = spawn_request_abandon(spawn_request(fun () -> ok end)),
+    false = spawn_request_abandon(rpc:call(Node, erlang, make_ref, [])),
+    try
+        noreturn = spawn_request_abandon(self()) 
+    catch
+        error:badarg ->
+            ok
+    end,
+    try
+        noreturn = spawn_request_abandon(4711)
+    catch
+        error:badarg ->
+            ok
+    end,
 
-gather_kabooms(N) ->
+    verify_nc(node()),
+
+    %% Ensure code loaded on other node...
+    _ = rpc:call(Node, ?MODULE, module_info, []),
+
+
+    TotOps = 1000,
+    Tester = self(),
+
+    ChildFun = fun () ->
+                       Child = self(),
+                       spawn_opt(fun () ->
+                                         process_flag(trap_exit, true),
+                                         receive
+                                             {'EXIT', Child, Reason} ->
+                                                 Tester ! {parent_exit, Reason}
+                                         end
+                                 end, [link,{priority,max}]),
+                       receive after infinity -> ok end
+               end,
+    ParentFun = fun (Wait, Opts) ->
+                        ReqId = spawn_request(Node, ChildFun, Opts),
+                        receive after Wait -> ok end,
+                        case spawn_request_abandon(ReqId) of
+                            true ->
+                                ok;
+                            false ->
+                                receive
+                                    {spawn_reply, ReqId, error, _} ->
+                                        exit(spawn_failed);
+                                    {spawn_reply, ReqId, ok, Pid} ->
+                                        unlink(Pid),
+                                        exit(Pid, bye)
+                                after
+                                    0 ->
+                                        exit(missing_spawn_reply)
+                                end
+                        end
+                end,
+    %% Parent exit early...
+    lists:foreach(fun (N) ->
+                          spawn_opt(fun () ->
+                                            ParentFun(N rem 50, [link])
+                                    end, [link,{priority,max}])
+                  end,
+                  lists:seq(1, TotOps)),
+    NoA1 = gather_parent_exits(abandoned, true),
+    %% Parent exit late...
+    lists:foreach(fun (N) ->
+                          spawn_opt(fun () ->
+                                            ParentFun(N rem 50, [link]),
+                                            receive
+                                                {spawn_reply, _, _, _} ->
+                                                    exit(unexpected_spawn_reply)
+                                            after
+                                                1000 -> ok
+                                            end
+                                    end, [link,{priority,max}])
+                  end,
+                  lists:seq(1, TotOps)),
+    NoA2 = gather_parent_exits(abandoned, true),
+    %% Parent exit early...
+    lists:foreach(fun (N) ->
+                          spawn_opt(fun () ->
+                                            ParentFun(N rem 50, [])
+                                    end, [link,{priority,max}])
+                  end,
+                  lists:seq(1, TotOps)),
+    0 = gather_parent_exits(abandoned, true),
+    %% Parent exit late...
+    lists:foreach(fun (N) ->
+                          spawn_opt(fun () ->
+                                            ParentFun(N rem 50, []),
+                                            receive
+                                                {spawn_reply, _, _, _} ->
+                                                    exit(unexpected_spawn_reply)
+                                            after
+                                                1000 -> ok
+                                            end
+                                    end, [link,{priority,max}])
+                  end,
+                  lists:seq(1, TotOps)),
+    0 = gather_parent_exits(abandoned, true),
+    stop_node(Node),
+    C = "Got " ++ integer_to_list(NoA1) ++ " and "
+        ++ integer_to_list(NoA2) ++ " abandoneds of 2*"
+        ++ integer_to_list(TotOps) ++ " ops!",
+    erlang:display(C),
+    true = NoA1 /= 0,
+    true = NoA1 /= TotOps,
+    true = NoA2 /= 0,
+    true = NoA2 /= TotOps,
+    {comment, C}.
+
+gather_parent_exits(Reason, AllowOther) ->
+    receive after 2000 -> ok end,
+    gather_parent_exits(Reason, AllowOther, 0).
+
+gather_parent_exits(Reason, AllowOther, N) ->
     receive
-        {parent_exit, kaboom} ->
-            gather_kabooms(N+1);
+        {parent_exit, Reason} ->
+            gather_parent_exits(Reason, AllowOther, N+1);
         {parent_exit, _} = ParentExit ->
-            ct:fail(ParentExit)
+            case AllowOther of
+                false ->
+                    ct:fail(ParentExit);
+                true ->
+                    gather_parent_exits(Reason, AllowOther, N)
+            end
     after 0 ->
             N
     end.
-
 dist_spawn_monitor(Config) when is_list(Config) ->
     {ok, Node} = start_node(Config),
     R1 = spawn_request(Node, erlang, exit, [hej], [monitor]),
@@ -2962,227 +3080,6 @@ dist_spawn_monitor(Config) when is_list(Config) ->
     end,
     stop_node(Node),
     ok.
-
-spawn_timeout(Config) when is_list(Config) ->
-
-    RID0 = spawn_request(fun () -> ok end, [{timeout, 0}]),
-    receive
-        {spawn_reply, RID0, _, _} = SReply0 ->
-            {spawn_reply, RID0, error, timeout} = SReply0
-    end,
-
-    RID1 = spawn_request(fun () -> ok end, [bad_option, {timeout, 0}]),
-    receive
-        {spawn_reply, RID1, _, _} = SReply1 ->
-            {spawn_reply, RID1, error, timeout} = SReply1
-    end,
-
-    try
-        spawn_request(fun () -> ok end, [bad_option, {timeout, 0}|oops])
-    catch
-        error:badarg ->
-            ok
-    end,
-
-    try
-        spawn_opt(fun () -> ok end, [{timeout, 0}])
-    catch
-        error:timeout -> ok
-    end,
-
-    try
-        spawn_opt(fun () -> ok end, [bad_option, {timeout, 0}])
-    catch
-        error:timeout -> ok
-    end,
-
-    try
-        spawn_opt(fun () -> ok end, [bad_option, {timeout, 0}|oops])
-    catch
-        error:badarg -> ok
-    end,
-
-    {ok, Node1} = start_node(Config),
-
-    %% Ensure code loaded on other node...
-    _ = rpc:call(Node1, ?MODULE, module_info, []),
-
-    RID2 = spawn_request(Node1, fun () -> ok end, [{timeout, 0}]),
-    receive
-        {spawn_reply, RID2, _, _} = SReply2 ->
-            {spawn_reply, RID2, error, timeout} = SReply2
-    end,
-
-    RID3 = spawn_request(Node1, fun () -> ok end, [bad_option, {timeout, 0}]),
-    receive
-        {spawn_reply, RID3, _, _} = SReply3 ->
-            {spawn_reply, RID3, error, timeout} = SReply3
-    end,
-
-    try
-        spawn_request(Node1, fun () -> ok end, [bad_option, {timeout, 0}|oops])
-    catch
-        error:badarg ->
-            ok
-    end,
-
-    try
-        spawn_opt(Node1, fun () -> ok end, [{timeout, 0}])
-    catch
-        error:timeout -> ok
-    end,
-
-    try
-        spawn_opt(Node1, fun () -> ok end, [bad_option, {timeout, 0}])
-    catch
-        error:timeout -> ok
-    end,
-
-    try
-        spawn_opt(Node1, fun () -> ok end, [bad_option, {timeout, 0}|oops])
-    catch
-        error:badarg -> ok
-    end,
-
-
-    Tester = self(),
-
-    ChildFun = fun () ->
-                       Child = self(),
-                       spawn_opt(fun () ->
-                                         process_flag(trap_exit, true),
-                                         receive
-                                             {'EXIT', Child, Reason} ->
-                                                 Tester ! {parent_exit, Reason}
-                                         end
-                                 end, [link,{priority,max}]),
-                       Tester ! expect_parent_exit,
-                       receive after infinity -> ok end
-               end,
-
-    stop_node(Node1),
-
-    verify_nc(node()),
-
-    {ok, Node2} = start_node(Config),
-
-    %% Ensure code loaded on other node...
-    _ = rpc:call(Node2, ?MODULE, module_info, []),
-
-    BlockFun = fun () ->
-                       erts_debug:set_internal_state(available_internal_state, true),
-                       erts_debug:set_internal_state(block, 2500),
-                       ok
-               end,
-
-    %% Block receiver node...
-    B1 = spawn_request(Node2, BlockFun, [{priority,max}, monitor, link]),
-    receive after 500 -> ok end,
-    S1 = erlang:monotonic_time(),
-    T1 = spawn_request(Node2, ChildFun, [link, monitor,
-                                        {timeout, 1000},
-                                        {priority,max}]),
-    receive
-        {spawn_reply, T1, _, _} = T1Reply ->
-            E1 = erlang:monotonic_time(),
-            Time1 = erlang:convert_time_unit(E1 - S1, native, millisecond),
-            io:format("T1Reply=~p Time1=~p~n",[T1Reply, Time1]),
-            true = Time1 >= 1000,
-            true = Time1 < 2000,
-            T1Reply = {spawn_reply, T1, error, timeout}
-    end,
-
-    receive
-        {spawn_reply, B1, _, _} ->
-            ok
-    end,
-    receive
-        {'DOWN', B1, _, _, _} ->
-            ok
-    end,
-
-    Wait1 = receive expect_parent_exit -> infinity
-            after 500 -> 0
-            end,
-    PT1 = receive
-              {parent_exit, What1} ->
-                  timeout = What1
-          after Wait1 ->
-                  no_timeout
-          end,
-
-    receive
-        {spawn_reply, T1, _, _} = T1ReplyE ->
-            ct:fail(T1ReplyE)
-    after 100 ->
-            ok
-    end,
-
-    receive
-        {'DOWN', T1, _, _, _} = T1D ->
-            ct:fail({unexpected_down, T1D})
-    after 100 ->
-            ok
-    end,
-
-    stop_node(Node2),
-    verify_nc(node()),
-    {ok, Node3} = start_node(Config),
-
-    %% Ensure code loaded on other node...
-    _ = rpc:call(Node3, ?MODULE, module_info, []),
-
-    %% Block receiver node...
-    B2 = spawn_request(Node3, BlockFun, [{priority,max}, monitor, link]),
-    receive after 1000 -> ok end,
-    S2 = erlang:monotonic_time(),
-    try
-        spawn_opt(Node3, ChildFun, [link,
-                                   {timeout, 1000},
-                                   {priority,max}])
-    catch
-        error:timeout ->
-            E2 = erlang:monotonic_time(),
-            Time2 = erlang:convert_time_unit(E2 - S2, native, millisecond),
-            io:format("Time2=~p~n",[Time1]),
-            true = Time2 >= 1000,
-            true = Time2 < 2000
-    end,
-
-    receive
-        {spawn_reply, B2, _, _} ->
-            ok
-    end,
-    receive
-        {'DOWN', B2, _, _, _} ->
-            ok
-    end,
-
-    Wait2 = receive expect_parent_exit -> infinity
-            after 500 -> 0
-            end,
-    PT2 = receive
-              {parent_exit, What2} ->
-                  timeout = What2
-          after Wait2 ->
-                  no_timeout
-          end,
-
-    stop_node(Node3),
-    verify_nc(node()),
-
-    Comment = case {PT1, PT2} of
-                  {timeout, timeout} ->
-                      "Got both timeout exits!";
-                  {timeout, _} ->
-                      "Got spawn_request() timeout exit!";
-                  {_, timeout} ->
-                      "Got spawn_opt() timeout exit!";
-                  _ ->
-                      "Got no timeout exit!"
-              end,
-    io:format("~s", [Comment]),
-    {comment, Comment}.
     
 spawn_old_node(Config) when is_list(Config) ->
     Cookie = atom_to_list(erlang:get_cookie()),
@@ -3324,6 +3221,92 @@ spawn_current_node_test(Node, Disconnect) ->
     Node = node(P5),
     receive
         {'EXIT', P5, hej} ->
+            ok
+    end.
+
+spawn_request_reply_option(Config) when is_list(Config) ->
+    spawn_request_reply_option_test(node()),
+    {ok, Node} = start_node(Config),
+    spawn_request_reply_option_test(Node).
+    
+spawn_request_reply_option_test(Node) ->
+    io:format("Testing on node: ~p~n", [Node]),
+    Parent = self(),
+    Done1 = make_ref(),
+    RID1 = spawn_request(Node, fun () -> Parent ! Done1 end, [{reply, yes}]),
+    receive Done1 -> ok end,
+    receive
+        {spawn_reply, RID1, ok, _} -> ok
+    after 0 ->
+            ct:fail(missing_spawn_reply)
+    end,
+    Done2 = make_ref(),
+    RID2 = spawn_request(Node, fun () -> Parent ! Done2 end, [{reply, success_only}]),
+    receive Done2 -> ok end,
+    receive
+        {spawn_reply, RID2, ok, _} -> ok
+    after 0 ->
+            ct:fail(missing_spawn_reply)
+    end,
+    Done3 = make_ref(),
+    RID3 = spawn_request(Node, fun () -> Parent ! Done3 end, [{reply, error_only}]),
+    receive Done3 -> ok end,
+    receive
+        {spawn_reply, RID3, _, _} ->
+            ct:fail(unexpected_spawn_reply)
+    after 0 ->
+            ok
+    end,
+    Done4 = make_ref(),
+    RID4 = spawn_request(Node, fun () -> Parent ! Done4 end, [{reply, no}]),
+    receive Done4 -> ok end,
+    receive
+        {spawn_reply, RID4, _, _} ->
+            ct:fail(unexpected_spawn_reply)
+    after 0 ->
+            ok
+    end,
+    RID5 = spawn_request(Node, fun () -> ok end, [{reply, yes}, bad_option]),
+    receive
+        {spawn_reply, RID5, error, badopt} -> ok
+    end,
+    RID6 = spawn_request(Node, fun () -> ok end, [{reply, success_only}, bad_option]),
+    receive
+        {spawn_reply, RID6, error, badopt} -> ct:fail(unexpected_spawn_reply)
+    after 1000 -> ok
+    end,
+    RID7 = spawn_request(Node, fun () -> ok end, [{reply, error_only}, bad_option]),
+    receive
+        {spawn_reply, RID7, error, badopt} -> ok
+    end,
+    RID8 = spawn_request(Node, fun () -> ok end, [{reply, no}, bad_option]),
+    receive
+        {spawn_reply, RID8, error, badopt} -> ct:fail(unexpected_spawn_reply)
+    after 1000 -> ok
+    end,
+    case Node == node() of
+        true ->
+            ok;
+        false ->
+            stop_node(Node),
+            RID9 = spawn_request(Node, fun () -> ok end, [{reply, yes}]),
+            receive
+                {spawn_reply, RID9, error, noconnection} -> ok
+            end,
+            RID10 = spawn_request(Node, fun () -> ok end, [{reply, success_only}]),
+            receive
+                {spawn_reply, RID10, error, noconnection} -> ct:fail(unexpected_spawn_reply)
+            after 1000 -> ok
+            end,
+            RID11 = spawn_request(Node, fun () -> ok end, [{reply, error_only}]),
+            receive
+                {spawn_reply, RID11, error, noconnection} -> ok
+            end,
+            RID12 = spawn_request(Node, fun () -> ok end, [{reply, no}]),
+            receive
+                {spawn_reply, RID12, error, noconnection} -> ct:fail(unexpected_spawn_reply)
+            after 1000 -> ok
+            end,
             ok
     end.
 
