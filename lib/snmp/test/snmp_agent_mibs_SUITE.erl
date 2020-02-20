@@ -67,6 +67,9 @@
 	]).
 
 
+-define(ALIB, snmp_agent_test_lib).
+
+
 %%======================================================================
 %% Common Test interface functions
 %%======================================================================
@@ -166,27 +169,18 @@ init_per_testcase(Case, Config0) when is_list(Config0) ->
 
 init_per_testcase2(size_check_ets2_bad_file1, Config) when is_list(Config) ->
     DbDir = ?config(db_dir, Config),
-    %% Create a ad file
+    %% Create a bad file
     ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
 			 "calvin and hoppes play chess"),
     Config;
 init_per_testcase2(size_check_ets3_bad_file1, Config) when is_list(Config) ->
     DbDir = ?config(db_dir, Config),
-    %% Create a ad file
+    %% Create a bad file
     ok = file:write_file(join(DbDir, "snmpa_symbolic_store.db"), 
 			 "calvin and hoppes play chess"),
     Config;
 init_per_testcase2(size_check_mnesia, Config) when is_list(Config) ->
-    DbDir = ?config(db_dir, Config),
-    try
-        begin
-            mnesia_start([{dir, DbDir}]),
-            Config
-        end
-    catch
-        throw:{skip, _} = SKIP ->
-            SKIP
-    end;
+    Config;
 init_per_testcase2(cache_test, Config) when is_list(Config) ->
     Min = timer:minutes(5), 
     Timeout =
@@ -301,7 +295,8 @@ size_check_ets1(suite) ->
     [];
 size_check_ets1(Config) when is_list(Config) ->
     MibStorage = [{module, snmpa_mib_storage_ets}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets1,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_ets2(suite) ->
     [];
@@ -309,7 +304,8 @@ size_check_ets2(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),    
     MibStorage = [{module,  snmpa_mib_storage_ets}, 
 		  {options, [{dir, Dir}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets2,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_ets2_bad_file1(suite) ->
     [];
@@ -319,7 +315,8 @@ size_check_ets2_bad_file1(Config) when is_list(Config) ->
     MibStorage = [{module,  snmpa_mib_storage_ets}, 
 		  {options, [{dir,    Dir}, 
 			     {action, clear}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets2_bad_file1,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_ets3(suite) ->
     [];
@@ -328,7 +325,8 @@ size_check_ets3(Config) when is_list(Config) ->
     MibStorage = [{module,  snmpa_mib_storage_ets}, 
 		  {options, [{dir,      Dir}, 
 			     {checksum, true}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets3,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_ets3_bad_file1(suite) ->
     [];
@@ -339,7 +337,8 @@ size_check_ets3_bad_file1(Config) when is_list(Config) ->
 		  {options, [{dir,      Dir}, 
 			     {action,   clear}, 
 			     {checksum, true}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_ets3_bad_file1,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_dets(suite) ->
     [];
@@ -347,18 +346,72 @@ size_check_dets(Config) when is_list(Config) ->
     Dir = ?config(db_dir, Config),
     MibStorage = [{module,  snmpa_mib_storage_dets}, 
 		  {options, [{dir, Dir}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+    do_size_check(size_check_dets,
+                  [{mib_storage, MibStorage}|Config]).
 
 size_check_mnesia(suite) ->
     [];
 size_check_mnesia(Config) when is_list(Config) ->
     MibStorage = [{module,  snmpa_mib_storage_mnesia}, 
-		  {options, [{nodes, [node()]}]}], 
-    do_size_check([{mib_storage, MibStorage}|Config]).
+                  {options, [{nodes, []}]}],
+    DbDir      = ?config(db_dir, Config),
+    Init       = fun() -> mnesia_start([{dir, DbDir}]), ok end,
+    do_size_check(size_check_mnesia,
+                  Init,
+                  [{mib_storage, MibStorage}|Config]).
+
+do_size_check(Name, Config) ->
+    Init = fun() -> ok end,
+    do_size_check(Name, Init, Config).
+
+do_size_check(Name, Init, Config) ->
+    Pre = fun() ->
+                  {ok, Node} = ?ALIB:start_node(unique(Name)),
+                  ok = run_on(Node, Init),
+                  Node
+          end,
+    Case = fun(Node) ->
+                   monitor_node(Node, true),
+                   Pid = spawn_link(Node, fun() -> do_size_check(Config) end),
+                   receive
+                       {nodedown, Node} = N ->
+                           exit(N);
+                       {'EXIT', Pid, normal} ->
+                           monitor_node(Node, false),                           
+                           ok;
+                       {'EXIT', Pid, ok} ->
+                           monitor_node(Node, false),                           
+                           ok;
+                       {'EXIT', Pid, Reason} ->
+                           monitor_node(Node, false),                           
+                           exit(Reason)
+                   end
+           end,
+    Post = fun({Node, _}) ->
+                   ?STOP_NODE(Node)
+           end,
+    ?TC_TRY(Name, Pre, Case, Post).
+
+run_on(Node, F) when is_atom(Node) andalso is_function(F, 0) ->
+    monitor_node(Node, true),
+    Pid = spawn_link(Node, F),
+    receive
+        {nodedown, Node} = N ->
+            exit(N);
+        {'EXIT', Pid, normal} ->
+            monitor_node(Node, false),                           
+            ok;
+        {'EXIT', Pid, Reason} ->
+            monitor_node(Node, false),                           
+            Reason
+    end.
+    
+unique(PreName) ->
+    list_to_atom(?F("~w_~w", [PreName, erlang:system_time(millisecond)])).
 
 do_size_check(Config) ->
-    ?DBG("do_size_check -> start with"
-	 "~n   Config: ~p", [Config]),
+    ?PRINT2("do_size_check -> start with"
+            "~n   Config: ~p", [Config]),
     Prio      = normal,
     Verbosity = trace,
 
@@ -404,7 +457,7 @@ do_size_check(Config) ->
     ?DBG("do_size_check -> stop symbolic store", []),
     ?line sym_stop(),
 
-    ?DBG("do_size_check -> done", []),
+    ?PRINT2("do_size_check -> done", []),
     ok.
 
 

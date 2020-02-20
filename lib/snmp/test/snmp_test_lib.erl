@@ -799,21 +799,22 @@ analyze_and_print_host_info() ->
         {unix, freebsd} ->
             analyze_and_print_freebsd_host_info(Version);           
         {unix, sunos} ->
-            io:format("Solaris: ~s"
-                      "~n", [Version]),
-            2;
+            analyze_and_print_solaris_host_info(Version);
         _ ->
             io:format("OS Family: ~p"
-                      "~n   OS Type: ~p"
-                      "~n   Version: ~p"
-                      "~n", [OsFam, OsName, Version]),
+                      "~n   OS Type:        ~p"
+                      "~n   Version:        ~p"
+                      "~n   Num Schedulers: ~s"
+                      "~n", [OsFam, OsName, Version, str_num_schedulers()]),
             try erlang:system_info(schedulers) of
                 1 ->
                     10;
                 2 ->
                     5;
+                N when (N =< 6) ->
+                    2;
                 _ ->
-                    2
+                    1
             catch
                 _:_:_ ->
                     10
@@ -867,9 +868,11 @@ analyze_and_print_linux_host_info(Version) ->
     %% Check if we need to adjust the factor because of the memory
     try linux_which_meminfo() of
         AddFactor ->
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             Factor + AddFactor
     catch
         _:_:_ ->
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             Factor
     end.
 
@@ -993,6 +996,7 @@ analyze_and_print_openbsd_host_info(Version) ->
                       "~nMemory:"
                       "~n   ~w KB"
                       "~n", [CPU, CPUSpeed, NCPU, Memory]),
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             CPUFactor =
                 if
                     (CPUSpeed =:= -1) ->
@@ -1033,6 +1037,7 @@ analyze_and_print_openbsd_host_info(Version) ->
         end
     catch
         _:_:_ ->
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             1
     end.
     
@@ -1041,47 +1046,43 @@ analyze_and_print_freebsd_host_info(Version) ->
     io:format("FreeBSD:"
               "~n   Version: ~p"
               "~n", [Version]),
-    Extract =
-        fun(Key) -> 
-                string:tokens(string:trim(os:cmd("sysctl " ++ Key)), [$:])
-        end,
+    %% This test require that the program 'sysctl' is in the path.
+    %% First test with 'which sysctl', if that does not work
+    %% try with 'which /sbin/sysctl'. If that does not work either,
+    %% we skip the test...
     try
         begin
-            CPU =
-                case Extract("hw.model") of
-                    ["hw.model", Model] ->
-                        string:trim(Model);
-                    _ ->
-                        "-"
+            SysCtl =
+                case string:trim(os:cmd("which sysctl")) of
+                    [] ->
+                        case string:trim(os:cmd("which /sbin/sysctl")) of
+                            [] ->
+                                throw(sysctl);
+                            SC2 ->
+                                SC2
+                        end;
+                    SC1 ->
+                        SC1
                 end,
-            CPUSpeed =
-                case Extract("hw.clockrate") of
-                    ["hw.clockrate", Speed] ->
-                        list_to_integer(string:trim(Speed));
-                    _ ->
-                        -1
+            Extract =
+                fun(Key) ->
+                        string:tokens(string:trim(os:cmd(SysCtl ++ " " ++ Key)),
+                                      [$:])
                 end,
-            NCPU =
-                case Extract("hw.ncpu") of
-                    ["hw.ncpu", N] ->
-                        list_to_integer(string:trim(N));
-                    _ ->
-                        -1
-                end,
-            Memory =
-                case Extract("hw.physmem") of
-                    ["hw.physmem", PhysMem] ->
-                        list_to_integer(string:trim(PhysMem)) div 1024;
-                    _ ->
-                        -1
-                end,
+            CPU      = analyze_freebsd_cpu(Extract),
+            CPUSpeed = analyze_freebsd_cpu_speed(Extract),
+            NCPU     = analyze_freebsd_ncpu(Extract),
+            Memory   = analyze_freebsd_memory(Extract),
             io:format("CPU:"
-                      "~n   Model: ~s"
-                      "~n   Speed: ~w"
-                      "~n   N:     ~w"
+                      "~n   Model:          ~s"
+                      "~n   Speed:          ~w"
+                      "~n   N:              ~w"
+                      "~n   Num Schedulers: ~s"
                       "~nMemory:"
                       "~n   ~w KB"
-                      "~n", [CPU, CPUSpeed, NCPU, Memory]),
+                      "~n",
+                      [CPU, CPUSpeed, NCPU, str_num_schedulers(), Memory]),
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
             CPUFactor =
                 if
                     (CPUSpeed =:= -1) ->
@@ -1097,6 +1098,8 @@ analyze_and_print_freebsd_host_info(Version) ->
                         end;
                     true ->
                         if
+                            (NCPU =:= -1) ->
+                                1;
                             (NCPU >= 4) ->
                                 2;
                             (NCPU >= 2) ->
@@ -1122,9 +1125,207 @@ analyze_and_print_freebsd_host_info(Version) ->
         end
     catch
         _:_:_ ->
-            1
+            io:format("CPU:"
+                      "~n   Num Schedulers: ~s"
+                      "~n", [str_num_schedulers()]),
+            io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+            case erlang:system_info(schedulers) of
+                1 ->
+                    10;
+                2 ->
+                    5;
+                _ ->
+                    2
+            end
     end.
 
+
+analyze_freebsd_cpu(Extract) ->
+    analyze_freebsd_item(Extract, "hw.model", fun(X) -> X end, "-").
+
+analyze_freebsd_cpu_speed(Extract) ->
+    analyze_freebsd_item(Extract,
+                         "hw.clockrate",
+                         fun(X) -> list_to_integer(X) end,
+                         -1).
+
+analyze_freebsd_ncpu(Extract) ->
+    analyze_freebsd_item(Extract,
+                         "hw.ncpu",
+                         fun(X) -> list_to_integer(X) end,
+                         -1).
+
+analyze_freebsd_memory(Extract) ->
+    analyze_freebsd_item(Extract,
+                         "hw.physmem",
+                         fun(X) -> list_to_integer(X) div 1024 end,
+                         -1).
+
+analyze_freebsd_item(Extract, Key, Process, Default) ->
+    try
+        begin
+            case Extract(Key) of
+                [Key, Model] ->
+                    Process(string:trim(Model));
+                _ ->
+                    Default
+            end
+        end
+    catch
+        _:_:_ ->
+            Default
+    end.
+
+
+analyze_and_print_solaris_host_info(Version) ->
+    Release =
+        case file:read_file_info("/etc/release") of
+            {ok, _} ->
+                case [string:trim(S) || S <- string:tokens(os:cmd("cat /etc/release"), [$\n])] of
+                    [Rel | _] ->
+                        Rel;
+                    _ ->
+                        "-"
+                end;
+            _ ->
+                "-"
+        end,
+    %% Display the firmware device tree root properties (prtconf -b)
+    Props = [list_to_tuple([string:trim(PS) || PS <- Prop]) ||
+                Prop <- [string:tokens(S, [$:]) ||
+                            S <- string:tokens(os:cmd("prtconf -b"), [$\n])]],
+    BannerName = case lists:keysearch("banner-name", 1, Props) of
+                     {value, {_, BN}} ->
+                         string:trim(BN);
+                     _ ->
+                         "-"
+                 end,
+    InstructionSet =
+        case string:trim(os:cmd("isainfo -k")) of
+            "Pseudo-terminal will not" ++ _ ->
+                "-";
+            IS ->
+                IS
+        end,
+    PtrConf = [list_to_tuple([string:trim(S) || S <- Items]) || Items <- [string:tokens(S, [$:]) || S <- string:tokens(os:cmd("prtconf"), [$\n])], length(Items) > 1],
+    SysConf =
+        case lists:keysearch("System Configuration", 1, PtrConf) of
+            {value, {_, SC}} ->
+                SC;
+            _ ->
+                "-"
+        end,
+    %% Because we count the lines of the output (which may contain
+    %% any number of extra crap lines) we need to ensure we only
+    %% count the "proper" stdout. So send it to a tmp file first
+    %% and then count its number of lines...
+    NumPhysCPU =
+       try
+            begin
+                File1 = f("/tmp/psrinfo_p.~s.~w", [os:getpid(), os:system_time()]),
+                os:cmd("psrinfo -p > " ++ File1),
+                string:trim(os:cmd("cat " ++ File1))
+            end
+        catch
+                _:_:_ ->
+                    "-"
+        end,
+    %% Because we count the lines of the output (which may contain
+    %% any number of extra crap lines) we need to ensure we only
+    %% count the "proper" stdout. So send it to a tmp file first
+    %% and then count its number of lines...
+    NumVCPU =
+        try
+            begin
+                File2 = f("/tmp/psrinfo.~s.~w", [os:getpid(), os:system_time()]),
+                os:cmd("psrinfo > " ++ File2),
+                [NumVCPUStr | _] = string:tokens(os:cmd("wc -l " ++ File2), [$\ ]),
+                NumVCPUStr
+            end
+        catch
+            _:_:_ ->
+                "-"
+        end,
+    MemSz =
+        case lists:keysearch("Memory size", 1, PtrConf) of
+            {value, {_, MS}} ->
+                MS;
+            _ ->
+                "-"
+        end,
+    io:format("Solaris: ~s"
+              "~n   Release:         ~s"
+              "~n   Banner Name:     ~s"
+              "~n   Instruction Set: ~s"
+              "~n   CPUs:            ~s (~s)"
+              "~n   System Config:   ~s"
+              "~n   Memory Size:     ~s"
+              "~n   Num Schedulers:  ~s"
+              "~n~n", [Version, Release, BannerName, InstructionSet,
+                       NumPhysCPU, NumVCPU,
+                       SysConf, MemSz,
+                       str_num_schedulers()]),
+    io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+    MemFactor =
+        try string:tokens(MemSz, [$ ]) of
+            [SzStr, "Mega" ++ _] ->
+                try list_to_integer(SzStr) of
+                    Sz when Sz > 8192 ->
+                        0;
+                    Sz when Sz > 4096 ->
+                        1;
+                    Sz when Sz > 2048 ->
+                        2;
+                    _ -> 
+                        5
+                catch
+                    _:_:_ ->
+                        10
+                end;
+            [SzStr, "Giga" ++ _] ->
+                try list_to_integer(SzStr) of
+                    Sz when Sz > 8 ->
+                        0;
+                    Sz when Sz > 4 ->
+                        1;
+                    Sz when Sz > 2 ->
+                        2;
+                    _ -> 
+                        5
+                catch
+                    _:_:_ ->
+                        10
+                end;
+            _ ->
+                10
+        catch
+            _:_:_ ->
+                10
+        end,
+    try erlang:system_info(schedulers) of
+        1 ->
+            10;
+        2 ->
+            5;
+        N when (N =< 6) ->
+            2;
+        _ ->
+            1
+    catch
+        _:_:_ ->
+            10
+    end + MemFactor.    
+
+
+
+str_num_schedulers() ->
+    try erlang:system_info(schedulers) of
+        N -> f("~w", [N])
+    catch
+        _:_:_ -> "-"
+    end.
+
+    
 
 %% ----------------------------------------------------------------
 %% Time related function
@@ -1218,15 +1419,16 @@ is_snmp_running() ->
     is_app_running(snmp).
 
 crypto_start() ->
-    case (catch crypto:start()) of
+    try crypto:start() of
         ok ->
             ok;
         {error, {already_started,crypto}} ->
-            ok;
-	{'EXIT', Reason} ->
-	    {error, {exit, Reason}};
-        Else ->
-            Else
+            ok
+    catch
+        exit:{undef, [{crypto, start, [], []} | _]}:_ ->
+            {error, no_crypto};
+        C:E:S ->
+            {error, {C, E, S}}
     end.
  
 crypto_support() ->

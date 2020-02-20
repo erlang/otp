@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -481,22 +481,22 @@
 
 
 -define(expect1(What), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   What)).
 -define(expect2(What, ExpVBs), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   What, ExpVBs)).
 -define(expect3(Err, Idx, ExpVBs), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   Err, Idx, ExpVBs)).
 -define(expect4(Err, Idx, ExpVBs, To), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   Err, Idx, ExpVBs, To)).
 -define(expect5(Type, Ent, Gen, Spec, ExpVBs), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   Type, Ent, Gen, Spec, ExpVBs)).
 -define(expect6(Type, Ent, Gen, Spec, ExpVBs, To), 
-	snmp_agent_test_lib:expect(?MODULE, ?LINE, 
+	?ALIB:expect(?MODULE, ?LINE, 
 				   Type, Ent, Gen, Spec, ExpVBs, To)).
 
 
@@ -813,6 +813,23 @@ end_per_group(_GroupName, Config) ->
 %% ----- Init Per TestCase -----
 %%
 
+%% T is in number of minutes
+wd_start(T, Config) ->
+    Factor = case ?config(snmp_factor, Config) of
+                 F when (F > 0) ->
+                     F-1;
+                 _ ->
+                     0
+             end,
+    Dog = ?WD_START(?MINS(T + Factor)),
+    [{watchdog, Dog} | Config ].
+    
+    
+wd_stop(Config) ->
+    Dog = ?config(watchdog, Config),
+    ?WD_STOP(Dog),
+    lists:keydelete(Dog, 2, Config).
+    
 init_per_testcase(Case, Config) when is_list(Config) ->
     p("init_per_testcase -> entry with"
       "~n   Config: ~p"
@@ -841,8 +858,7 @@ init_per_testcase1(otp_7157 = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(1)),
-    [{watchdog, Dog} | Config ];
+    wd_start(1, Config);
 init_per_testcase1(Case, Config) 
   when ((Case =:= otp_16092_simple_start_and_stop1)  orelse
         (Case =:= otp_16092_simple_start_and_stop2)  orelse
@@ -852,30 +868,26 @@ init_per_testcase1(Case, Config)
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(1)),
-    init_per_testcase2(Case, [{watchdog, Dog} | Config]);
+    init_per_testcase2(Case, wd_start(1, Config));
 init_per_testcase1(v2_inform_i = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(10)),
-    [{watchdog, Dog} | Config ];
+    wd_start(10, Config);
 init_per_testcase1(v3_inform_i = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(10)),
-    [{watchdog, Dog} | Config ];
+    wd_start(10, Config);
 init_per_testcase1(_Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?WD_START(?MINS(6)),
-    [{watchdog, Dog}| Config ].
+    wd_start(6, Config).
 
 init_per_testcase2(Case, Config) ->
 
-    ?DBG("end_per_testcase2 -> entry with"
+    ?DBG("init_per_testcase2 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [Case, Config]),
 
@@ -912,14 +924,41 @@ init_per_testcase2(Case, Config) ->
 
 end_per_testcase(Case, Config) when is_list(Config) ->
     p("end_per_testcase -> entry with"
-      "~n   Config: ~p"
-      "~n   Nodes:  ~p", [Config, erlang:nodes()]),
-
-    display_log(Config),
+      "~n   Config:        ~p"
+      "~n   Nodes:         ~p",
+      [Config, erlang:nodes()]),
 
     p("system events during test: "
       "~n   ~p", [snmp_test_global_sys_monitor:events()]),
-    
+
+    %% On some hosts, this operation can take a long time.
+    %% So long, that the timetrap expires and the test case
+    %% will be "failed".
+    %% So, wrap it in a process and for a successful test case,
+    %% give it 30 seconds, then kill it. If the test case has
+    %% already failed, we will want to get as much of the logs
+    %% as possible. So, set no timeout (infinity) and let the
+    %% test framework take care of things...
+    DisplayLogTimeout =
+        case ?config(tc_status, Config) of
+            ok ->
+                ?SECS(30);
+            _ ->
+                infinity
+        end,
+    Flag = process_flag(trap_exit, true),
+    Pid = spawn_link(fun() -> display_log(Config), exit(normal) end),
+    receive
+        {'EXIT', Pid, _} ->
+            process_flag(trap_exit, Flag),
+            ok
+    after DisplayLogTimeout ->
+            p("Display Log process fail to complete in time (~w msec): kill it",
+              [DisplayLogTimeout]),
+            process_flag(trap_exit, Flag),
+            exit(Pid, kill)
+    end,
+
     Result = end_per_testcase1(Case, Config),
 
     p("end_per_testcase -> done with"
@@ -935,9 +974,7 @@ end_per_testcase1(_Case, Config) when is_list(Config) ->
     ?DBG("end_per_testcase1 -> entry with"
 	 "~n   Case:   ~p"
 	 "~n   Config: ~p", [_Case, Config]),
-    Dog = ?config(watchdog, Config),
-    ?WD_STOP(Dog),
-    Config.
+    wd_stop(Config).
 
 
 
@@ -975,37 +1012,37 @@ end_per_testcase1(_Case, Config) when is_list(Config) ->
 
 init_all(Conf) ->
     ?DISPLAY_SUITE_INFO(), 
-    snmp_agent_test_lib:init_all(Conf).
+    ?ALIB:init_all(Conf).
 
 finish_all(Conf) ->
-    snmp_agent_test_lib:finish_all(Conf).
+    ?ALIB:finish_all(Conf).
 
 start_v1_agent(Config) ->
-    snmp_agent_test_lib:start_v1_agent(Config).
+    ?ALIB:start_v1_agent(Config).
 
 start_v1_agent(Config, Opts) ->
-    snmp_agent_test_lib:start_v1_agent(Config, Opts).
+    ?ALIB:start_v1_agent(Config, Opts).
 
 start_v2_agent(Config) ->
-    snmp_agent_test_lib:start_v2_agent(Config).
+    ?ALIB:start_v2_agent(Config).
 
 start_v2_agent(Config, Opts) ->
-    snmp_agent_test_lib:start_v2_agent(Config, Opts).
+    ?ALIB:start_v2_agent(Config, Opts).
 
 %% start_v3_agent(Config) ->
-%%     snmp_agent_test_lib:start_v3_agent(Config).
+%%     ?ALIB:start_v3_agent(Config).
 
 start_v3_agent(Config, Opts) ->
-    snmp_agent_test_lib:start_v3_agent(Config, Opts).
+    ?ALIB:start_v3_agent(Config, Opts).
 
 start_bilingual_agent(Config) ->
-    snmp_agent_test_lib:start_bilingual_agent(Config).
+    ?ALIB:start_bilingual_agent(Config).
 
 start_multi_threaded_agent(Config) when is_list(Config) ->
-    snmp_agent_test_lib:start_mt_agent(Config).
+    ?ALIB:start_mt_agent(Config).
 
 stop_agent(Config) ->
-    snmp_agent_test_lib:stop_agent(Config).
+    ?ALIB:stop_agent(Config).
 
 
 create_tables(SaNode) ->
@@ -1206,11 +1243,16 @@ init_size_check_ms(Config, Opts) when is_list(Config) ->
 	ok ->
 	    case ?CRYPTO_SUPPORT() of
 		{no, Reason} ->
+                    ?INF("crypto support not sufficient:"
+                         "~n      ~p", [Reason]),
 		    ?SKIP({unsupported_encryption, Reason});
 		yes ->
+                    ?INF("crypto started"),
 		    ok
 	    end;
 	{error, Reason} ->
+            ?INF("crypto not started:"
+                 "~n      ~p", [Reason]),
 	    ?SKIP({failed_starting_crypto, Reason})
     end,
     create_tables(SaNode),
@@ -1694,18 +1736,57 @@ app_dir(App) ->
     end.
 
 create_local_db_dir(Config) when is_list(Config) ->
-    ?P(create_local_db_dir),
-    DataDir = snmp_test_lib:lookup(data_dir, Config),
-    UName = erlang:unique_integer([positive]),
-    T = {UName, UName, UName},
-    [As,Bs,Cs] = [integer_to_list(I) || I <- tuple_to_list(T)],
-    DbDir = filename:join([DataDir, As, Bs, Cs]),
-    ok = del_dir(DbDir, 3),
-    Name = list_to_atom(atom_to_list(create_local_db_dir)
-                        ++"-"++As++"-"++Bs++"-"++Cs),
-    Pa = filename:dirname(code:which(?MODULE)),
-    {ok,Node} = ?t:start_node(Name, slave, [{args, "-pa " ++ Pa}]),
+    Pre = fun() ->
+                  DataDir    = snmp_test_lib:lookup(data_dir, Config),
+                  T          = {erlang:unique_integer([positive]),
+                                erlang:unique_integer([positive]),
+                                erlang:unique_integer([positive])},
+                  [As,Bs,Cs] = [integer_to_list(I) || I <- tuple_to_list(T)],
+                  DbDir      = filename:join([DataDir, As, Bs, Cs]),
+                  Name       = list_to_atom(atom_to_list(create_local_db_dir)
+                                            ++"_"++As++"_"++Bs++"_"++Cs),
+                  p("try ensuring db-dir does not exist"),
+                  try del_dir(DbDir, 3) of
+                      ok ->
+                          ok
+                  catch
+                      C:E:S ->
+                          e("Failed pre db-dir delete: "
+                             "~n   Class: ~p"
+                             "~n   Error: ~p"
+                             "~n   Stack: ~p", [C, E, S]),
+                          throw({skip, "Failed pre db-dir cleanup"})
+                  end,
+                  p("try start node ~p", [Name]),
+                  case ?ALIB:start_node(Name) of
+                      {ok, Node} ->
+                          {DbDir, Node};
+                      {error, Reason} ->
+                          e("Failed starting node ~p:"
+                            "~n   ~p", [Reason]),
+                          throw({skip, ?F("Failed starting node ~p", [Name])})
+                  end
+          end,
+    Case = fun do_create_local_db_dir/1,
+    Post = fun({DbDir, Node}) ->
+                   p("try stop node ~p", [Node]),
+                   ?ALIB:stop_node(Node),
+                   p("try delete db-dir"),
+                   try del_dir(DbDir, 3)
+                   catch
+                       C:E:S ->
+                           e("Failed post db-dir delete: "
+                             "~n   DbDir  ~s"
+                             "~n   Class: ~p"
+                             "~n   Error: ~p"
+                             "~n   Stack: ~p", [DbDir, C, E, S]),
+                           ok
+                   end
+           end,
+    ?TC_TRY(create_local_db_dir, Pre, Case, Post).
 
+do_create_local_db_dir({DbDir, Node}) ->
+    ?P(create_local_db_dir),
     %% first start with a nonexisting DbDir
     Fun1 = fun() ->
                    false = filelib:is_dir(DbDir),
@@ -1729,21 +1810,21 @@ create_local_db_dir(Config) when is_list(Config) ->
                    {ok, found}
            end,
     {ok, found} = nodecall(Node, Fun2),
-    %% cleanup
-    ?t:stop_node(Node),
-    ok = del_dir(DbDir, 3),
     ok.
 
 nodecall(Node, Fun) ->
     Parent = self(),
-    Ref = make_ref(),
-    spawn_link(Node,
-               fun() ->
-                       Res = Fun(),
-                       unlink(Parent),
-                       Parent ! {Ref, Res}
-               end),
+    Ref    = make_ref(),
+    Pid    = spawn_link(Node,
+                        fun() ->
+                                Res = Fun(),
+                                unlink(Parent),
+                                Parent ! {Ref, Res}
+                        end),
     receive
+        %% Just so we are not left hanging
+        {'EXIT', Pid, Reason} ->
+            Reason;
         {Ref, Res} ->
             Res
     end.
@@ -1992,11 +2073,16 @@ init_v3(Config) when is_list(Config) ->
 	ok ->
 	    case ?CRYPTO_SUPPORT() of
 		{no, Reason} ->
+                    ?INF("crypto support not sufficient:"
+                         "~n      ~p", [Reason]),
 		    ?SKIP({unsupported_encryption, Reason});
 		yes ->
+                    ?INF("crypto started"),
 		    ok
 	    end;
 	{error, Reason} ->
+            ?INF("crypto not started:"
+                 "~n      ~p", [Reason]),
 	    ?SKIP({failed_starting_crypto, Reason})
     end,
     SaNode = ?config(snmp_sa, Config),
@@ -2046,7 +2132,7 @@ finish_mt(Config) when is_list(Config) ->
 
 %% This one *must* be run first in each case.
 init_case(Config) ->
-    snmp_agent_test_lib:init_case(Config).
+    ?ALIB:init_case(Config).
 
 
 load_master(Mib) ->
@@ -2079,10 +2165,10 @@ unload_mibs(Mibs) ->
     ok = snmpa:unload_mibs(snmp_master_agent, Mibs).
 
 start_subagent(SaNode, RegTree, Mib) ->
-    snmp_agent_test_lib:start_subagent(SaNode, RegTree, Mib).
+    ?ALIB:start_subagent(SaNode, RegTree, Mib).
 
 stop_subagent(SA) ->
-    snmp_agent_test_lib:stop_subagent(SA).
+    ?ALIB:stop_subagent(SA).
 
 
 %%-----------------------------------------------------------------
@@ -5215,31 +5301,59 @@ snmp_framework_mib_3(Config) when is_list(Config) ->
 
 
 %% Req. SNMP-FRAMEWORK-MIB
+%% snmpEngineID in number of seconds.
+%% In theory, the Engine Time diff of the engine, should be exactly
+%% the same as the number of seconds we sleep (5 in this case).
+%% But because, on some (slow or/and high loaded) hosts, the actual
+%% time we sleep could be a lot larger (due to, for instance, scheduling).
+%% Therefor we must take that into account when we check if the 
+%% Engine Time diff (between the two checks) is acceptably.
 snmp_framework_mib_test() ->
+    Sleep = 5,
     ?line ["agentEngine"] = get_req(1, [[snmpEngineID,0]]),
     T1 = snmp_misc:now(ms),
     ?line [EngineTime] = get_req(2, [[snmpEngineTime,0]]),
     T2 = snmp_misc:now(ms),
-    ?SLEEP(5000),
+    ?SLEEP(?SECS(Sleep)),
     T3 = snmp_misc:now(ms),
     ?line [EngineTime2] = get_req(3, [[snmpEngineTime,0]]),
     T4 = snmp_misc:now(ms),
+
+    %% Ok, we tried to sleep 5 seconds, but how long did we actually sleep
+    ASleep         = ((T3-T2) + 500) div 1000,
+    EngineTimeDiff = EngineTime2 - EngineTime,
+    HighEngineTime = EngineTime + ASleep + 2,
+    LowEngineTime  = EngineTime + ASleep - 1,
+
     ?PRINT2("snmp_framework_mib -> time(s): "
-            "~n   EngineTime 1: ~p"
-            "~n      Time to acquire: ~w ms"
-            "~n   EngineTime 2: ~p"
-            "~n      Time to acquire: ~w ms"
-            "~n   => (5 sec sleep between get(snmpEngineTime))"
-            "~n      Total time to acquire: ~w ms",
-            [EngineTime, T2-T1, EngineTime2, T4-T3, T4-T1]),
-    if 
-	(EngineTime+7) < EngineTime2 ->
-	    ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
-	(EngineTime+4) > EngineTime2 ->
-	    ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
-	true -> 
-	    ok
+            "~n   EngineTime 1:                         ~p"
+            "~n      Time to acquire:                   ~w msec"
+            "~n   EngineTime 2:                         ~p"
+            "~n      Time to acquire:                   ~w msec"
+            "~n   => Total time to acquire:             ~w msec"
+            "~n      Sleep between get(snmpEngineTime): ~w (~w) sec"
+            "~n      Engine Time Diff:                  ~w sec"
+            "~n      Success if:"
+            "~n           ~w (low) =< Engine Time 2 =< ~w (high)",
+            [EngineTime, T2-T1, 
+             EngineTime2, T4-T3,
+             T4-T1, ASleep, Sleep, EngineTimeDiff, LowEngineTime, HighEngineTime]),
+
+    if
+        (HighEngineTime < EngineTime2) ->
+            ?PRINT2("snmp_framework_mib -> (High) Engine Time diff (~w) too large: "
+                    "~n      ~w < ~w",
+                    [EngineTimeDiff, HighEngineTime, EngineTime2]),
+            ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
+        (LowEngineTime > EngineTime2) ->
+             ?PRINT2("snmp_framework_mib -> (Low) Engine Time diff (~w) too large: "
+                    "~n      ~w > ~w",
+                    [EngineTimeDiff, LowEngineTime, EngineTime2]),
+            ?line ?FAIL({too_large_diff, EngineTime, EngineTime2});
+        true -> 
+            ok
     end,
+
     T5 = snmp_misc:now(ms),
     ?line case get_req(4, [[snmpEngineBoots,0]]) of
 	      [Boots] when is_integer(Boots) -> 
@@ -7032,9 +7146,7 @@ otp8395({init, Config}) when is_list(Config) ->
     %% Create watchdog 
     %% 
 
-    Dog = ?WD_START(?MINS(1)),
-
-    [{watchdog, Dog} | Config2];
+    wd_start(1, Config2);
 
 otp8395({fin, Config}) when is_list(Config) ->
     ?DBG("otp8395(fin) -> entry with"
@@ -7073,9 +7185,7 @@ otp8395({fin, Config}) when is_list(Config) ->
     ?DBG("otp8395(fin) -> stop manager node", []),
     stop_node(ManagerNode),
 
-    Dog = ?config(watchdog, Config),
-    ?WD_STOP(Dog),
-    lists:keydelete(watchdog, 1, Config);
+    wd_stop(Config);
 
 otp8395(doc) ->
     "OTP-8395 - ATL with sequence numbering. ";
@@ -7446,15 +7556,15 @@ is(S) -> [length(S) | S].
 
 try_test(Func) ->
     ?P2("try test ~w...", [Func]),     
-    snmp_agent_test_lib:try_test(?MODULE, Func).
+    ?ALIB:try_test(?MODULE, Func).
 
 try_test(Func, A) ->
     ?P2("try test ~w...", [Func]),     
-    snmp_agent_test_lib:try_test(?MODULE, Func, A).
+    ?ALIB:try_test(?MODULE, Func, A).
 
 try_test(Func, A, Opts) ->
     ?P2("try test ~w...", [Func]),     
-    snmp_agent_test_lib:try_test(?MODULE, Func, A, Opts).
+    ?ALIB:try_test(?MODULE, Func, A, Opts).
 
 
 %% Test manager wrapperfunctions:
@@ -7465,77 +7575,80 @@ gb(NR, MR, Oids) -> snmp_test_mgr:gb(NR, MR, Oids).
 s(VAV)           -> snmp_test_mgr:s(VAV).
    
 get_req(Id, Vars) ->
-    snmp_agent_test_lib:get_req(Id, Vars).
+    ?ALIB:get_req(Id, Vars).
 
 get_next_req(Vars) ->
-    snmp_agent_test_lib:get_next_req(Vars).
+    ?ALIB:get_next_req(Vars).
 
 
 start_node(Name) ->
-    snmp_agent_test_lib:start_node(Name).
+    ?ALIB:start_node(Name).
 
+stop_node(undefined) ->
+    ok;
 stop_node(Node) ->
-    snmp_agent_test_lib:stop_node(Node).
+    ?ALIB:stop_node(Node).
 
 
 %%%-----------------------------------------------------------------
 %%% Configuration
 %%%-----------------------------------------------------------------
 delete_files(Config) ->
-    snmp_agent_test_lib:delete_files(Config).
+    ?ALIB:delete_files(Config).
 
 config(Vsns, MgrDir, AgentDir, MIp, AIp) ->
-    snmp_agent_test_lib:config(Vsns, MgrDir, AgentDir, MIp, AIp).
+    ?ALIB:config(Vsns, MgrDir, AgentDir, MIp, AIp).
 
 config(Vsns, MgrDir, AgentDir, MIp, AIp, IpFamily) ->
-    snmp_agent_test_lib:config(Vsns, MgrDir, AgentDir, MIp, AIp, IpFamily).
+    ?ALIB:config(Vsns, MgrDir, AgentDir, MIp, AIp, IpFamily).
 
 update_usm(Vsns, Dir) ->
-    snmp_agent_test_lib:update_usm(Vsns, Dir).
+    ?ALIB:update_usm(Vsns, Dir).
     
 update_usm_mgr(Vsns, Dir) ->
-    snmp_agent_test_lib:update_usm_mgr(Vsns, Dir).
+    ?ALIB:update_usm_mgr(Vsns, Dir).
 
 rewrite_usm_mgr(Dir, ShaKey, DesKey) -> 
-    snmp_agent_test_lib:rewrite_usm_mgr(Dir, ShaKey, DesKey).
+    ?ALIB:rewrite_usm_mgr(Dir, ShaKey, DesKey).
 
 reset_usm_mgr(Dir) ->
-    snmp_agent_test_lib:reset_usm_mgr(Dir).
+    ?ALIB:reset_usm_mgr(Dir).
 
 
 update_vacm(Vsn, Dir) ->
-    snmp_agent_test_lib:update_vacm(Vsn, Dir).
+    ?ALIB:update_vacm(Vsn, Dir).
 
 write_community_conf(Dir, Conf) ->
-    snmp_agent_test_lib:write_community_conf(Dir, Conf).
+    ?ALIB:write_community_conf(Dir, Conf).
     
 write_target_addr_conf(Dir, Conf) ->
-    snmp_agent_test_lib:write_target_addr_conf(Dir, Conf).
+    ?ALIB:write_target_addr_conf(Dir, Conf).
 
 
 rewrite_target_addr_conf(Dir, NewPort) ->
-    snmp_agent_test_lib:rewrite_target_addr_conf(Dir, NewPort).
+    ?ALIB:rewrite_target_addr_conf(Dir, NewPort).
 
 
 reset_target_addr_conf(Dir) ->
-    snmp_agent_test_lib:reset_target_addr_conf(Dir).
+    ?ALIB:reset_target_addr_conf(Dir).
 
 write_target_params_conf(Dir, Vsns) ->
-    snmp_agent_test_lib:write_target_params_conf(Dir, Vsns).
+    ?ALIB:write_target_params_conf(Dir, Vsns).
 
 rewrite_target_params_conf(Dir, SecName, SecLevel) -> 
-    snmp_agent_test_lib:rewrite_target_params_conf(Dir, SecName, SecLevel).
+    ?ALIB:rewrite_target_params_conf(Dir, SecName, SecLevel).
 
 reset_target_params_conf(Dir) ->
-    snmp_agent_test_lib:reset_target_params_conf(Dir).
+    ?ALIB:reset_target_params_conf(Dir).
 
 write_notify_conf(Dir) -> 
-    snmp_agent_test_lib:write_notify_conf(Dir).
+    ?ALIB:write_notify_conf(Dir).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 copy_file(From, To) ->
-    snmp_agent_test_lib:copy_file(From, To).
+    ?ALIB:copy_file(From, To).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -7813,9 +7926,7 @@ init_v1_agent(Config) ->
     %% Create watchdog 
     %% 
 
-    Dog = ?WD_START(?MINS(1)),
-
-    [{watchdog, Dog} | Config2].
+    wd_start(1, Config2).
 
 fin_v1_agent(Config) ->
     AgentNode   = ?config(agent_node, Config),
@@ -7850,10 +7961,7 @@ fin_v1_agent(Config) ->
     %% 
     stop_node(ManagerNode),
 
-    Dog = ?config(watchdog, Config),
-    ?WD_STOP(Dog),
-    lists:keydelete(watchdog, 1, Config).
-
+    wd_stop(Config).
 
 
 config_ipfamily(Config) ->
