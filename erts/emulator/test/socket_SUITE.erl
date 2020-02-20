@@ -26351,7 +26351,9 @@ sc_lc_recvfrom_response_udpL(_Config) when is_list(_Config) ->
     tc_try(sc_lc_recvfrom_response_udpL,
            fun() -> has_support_unix_domain_socket() end,
            fun() ->
-                   Recv      = fun(Sock, To) -> socket:recvfrom(Sock, [], To) end,
+                   Recv      = fun(Sock, To) ->
+                                       socket:recvfrom(Sock, [], To)
+                               end,
                    InitState = #{domain   => local,
                                  protocol => default,
                                  recv     => Recv},
@@ -26385,8 +26387,20 @@ sc_lc_receive_response_udp(InitState) ->
          #{desc => "open socket",
            cmd  => fun(#{domain := Domain, protocol := Proto} = State) ->
                            Sock = sock_open(Domain, dgram, Proto),
-                           SA   = sock_sockname(Sock),
-                           {ok, State#{sock => Sock, sa => SA}}
+                           %% SA   = sock_sockname(Sock),
+                           case socket:sockname(Sock) of
+                               {ok, SA} ->
+                                   {ok, State#{sock => Sock, sa => SA}};
+                               {error, eafnosupport = Reason} ->
+                                   ?SEV_IPRINT("Failed get socket name: "
+                                               "~n   ~p", [Reason]),
+                                   (catch socket:close(Sock)),
+                                   {skip, Reason};
+                               {error, Reason} = ERROR ->
+                                   ?SEV_EPRINT("Failed get socket name: "
+                                               "~n   ~p", [Reason]),
+                                   ERROR
+                           end
                    end},
          #{desc => "bind socket",
            cmd  => fun(#{sock := Sock, local_sa := LSA}) ->
