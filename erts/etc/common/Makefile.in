@@ -490,9 +490,7 @@ ifneq ($(INSTALL_OBJS),)
 endif
 	$(INSTALL_DIR) "$(RELEASE_PATH)/erts-$(VSN)/bin"
 ifneq ($(TARGET), win32)
-ifneq ($(findstring vxworks,$(TARGET)), vxworks)
 	$(INSTALL_SCRIPT) erl.src "$(RELEASE_PATH)/erts-$(VSN)/bin"
-endif
 endif
 ifneq ($(INSTALL_PROGS),)
 	$(INSTALL_PROGRAM) $(INSTALL_PROGS) "$(RELEASE_PATH)/erts-$(VSN)/bin"

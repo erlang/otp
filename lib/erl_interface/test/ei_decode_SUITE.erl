@@ -77,29 +77,19 @@ test_ei_decode_ulong(Config) when is_list(Config) ->
 %% ######################################################################## %%
 
 test_ei_decode_longlong(Config) when is_list(Config) ->
-    case os:type() of
-        vxworks ->
-            {skip,"Skipped on VxWorks"};
-        _ ->
-            P = runner:start(Config, ?test_ei_decode_longlong),
-            send_integers2(P),
-            runner:recv_eot(P),
-            ok
-    end.
+    P = runner:start(Config, ?test_ei_decode_longlong),
+    send_integers2(P),
+    runner:recv_eot(P),
+    ok.
 
 
 %% ######################################################################## %%
 
 test_ei_decode_ulonglong(Config) when is_list(Config) ->
-    case os:type() of
-        vxworks ->
-            {skip,"Skipped on VxWorks"};
-        _ ->
-            P = runner:start(Config, ?test_ei_decode_ulonglong),
-            send_integers2(P),
-            runner:recv_eot(P),
-            ok
-    end.
+    P = runner:start(Config, ?test_ei_decode_ulonglong),
+    send_integers2(P),
+    runner:recv_eot(P),
+    ok.
 
 
 %% ######################################################################## %%
@@ -128,13 +118,8 @@ test_ei_decode_nonoptimal(Config) when is_list(Config) ->
     send_non_optimal_pos(P),			% decode_char
     send_non_optimal(P),			% decode_long
     send_non_optimal_pos(P),			% decode_ulong
-    case os:type() of
-        vxworks ->
-            ok;
-        _ ->
-            send_non_optimal(P),			% decode_longlong
-            send_non_optimal_pos(P)			% decode_ulonglong
-    end,
+    send_non_optimal(P),			% decode_longlong
+    send_non_optimal_pos(P),			% decode_ulonglong
 
     runner:recv_eot(P),
     ok.

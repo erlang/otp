@@ -22,16 +22,6 @@
 #include <windows.h>
 #include <winbase.h>
 
-#elif  VXWORKS
-#include <vxWorks.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <inetLib.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-
 #else
 #include <unistd.h>
 #include <sys/types.h>

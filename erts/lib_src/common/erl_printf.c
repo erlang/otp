@@ -18,11 +18,6 @@
  * %CopyrightEnd%
  */
 
-/* Without this, variable argument lists break on VxWorks */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #ifdef HAVE_CONFIG_H
 #include "config.h"
 #endif

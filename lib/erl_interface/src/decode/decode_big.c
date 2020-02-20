@@ -144,13 +144,6 @@ int ei_big_comp(erlang_big *x, erlang_big *y)
  * Handling of floating point exceptions.
  */
 
-#if defined(VXWORKS) && CPU == PPC860
-#undef NO_FPE_SIGNALS
-#define NO_FPE_SIGNALS 1
-#undef INLINED_FP_CONVERSION
-#define INLINED_FP_CONVERSION 1
-#endif
-
 #ifdef NO_FPE_SIGNALS
 #  define ERTS_FP_CHECK_INIT() do {} while (0)
 #  define ERTS_FP_ERROR(f, Action) if (!isfinite(f)) { Action; } else {}

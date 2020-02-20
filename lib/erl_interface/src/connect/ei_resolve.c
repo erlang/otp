@@ -21,19 +21,7 @@
  * Interface functions to different versions of gethostbyname
  */
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <stdio.h>
-#include <semLib.h>
-#include <hostLib.h>
-#include <resolvLib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <errno.h>
-#include <symLib.h>
-#include <sysSymTbl.h>
-
-#elif __WIN32__
+#ifdef __WIN32__
 #include <winsock2.h>
 #include <windows.h>
 #include <winbase.h>
@@ -95,18 +83,6 @@ int h_errno;
 #define DEBUGF(X) /* Nothing */
 #endif
 
-#ifdef VXWORKS
-/* FIXME problem for threaded ? */
-static struct hostent *(*sens_gethostbyname)(const char *name,
-					     char *, int) = NULL;
-static struct hostent *(*sens_gethostbyaddr)(const char *addr,
-					     char *, int) = NULL;
-#endif
-
-#ifdef VXWORKS
-static int verify_dns_configuration(void);
-#endif
-
 /*
  * If we find SENS resolver, use the functions found there, i.e.
  * resolvGetHostByName() and resolvGetHostByAddr(). Otherwise we use
@@ -115,32 +91,6 @@ static int verify_dns_configuration(void);
  */
 int ei_init_resolve(void)
 {
-
-#ifdef VXWORKS
-  void *sym;
-  SYM_TYPE symtype;
-
-  if (symFindByName(sysSymTbl,"resolvGetHostByName",
-		    (char **)&sym,&symtype) == OK && 
-      verify_dns_configuration()) {
-      sens_gethostbyname = sym;
-      DEBUGF((stderr,"found SENS resolver - using it for gethostbyname()\n"));
-      if (symFindByName(sysSymTbl,"resolvGetHostByAddr",
-			(char **)&sym,&symtype) == OK) {
-	  sens_gethostbyaddr = sym;
-	  DEBUGF((stderr,"found SENS resolver - "
-		  "using it for gethostbyaddr()\n"));
-      }
-      else {
-	  DEBUGF((stderr,"SENS resolver not found - "
-		  "using default gethostbyaddr()\n"));
-      }
-  }
-  else {
-      DEBUGF((stderr,"SENS resolver not found - "
-	      "using default gethostbyname()\n"));
-  }
-#endif /* VXWORKS */
 
 #ifdef _REENTRANT
   ei_gethost_sem = ei_mutex_create();
@@ -152,42 +102,7 @@ int ei_init_resolve(void)
   return 0;
 }
 
-#ifdef VXWORKS
-/*
-** Function to verify the DNS configuration on VwXorks SENS.
-** Actually configures to a default value if unconfigured...
-*/
-static int verify_dns_configuration(void) 
-{
-    /* FIXME problem for threaded ? */ 
-    static char resolv_params[sizeof(RESOLV_PARAMS_S)];
-    void (*rpg)(char *);
-    STATUS (*rps)(char *);
-    SYM_TYPE dummy;
-    int get_result, set_result;
-
-    get_result = symFindByName(sysSymTbl,"resolvParamsGet", (char **) &rpg, &dummy);
-    set_result = symFindByName(sysSymTbl,"resolvParamsSet", (char **) &rps, &dummy);
-
-    if (!(get_result == OK &&
-	  set_result == OK))
-	return -1;
-    (*rpg)(resolv_params);
-    if (*resolv_params == '\0') {
-	/* It exists, but is not configured, ei_connect would fail
-	   if we left it this way... The best we can do is to configure
-	   it to use the local host database on the card, as a fallback */
-	*resolv_params = (char) 1;
-	fprintf(stderr,"Trying to fix up DNS configuration.\n");
-	if (((*rps)(resolv_params)) != OK)
-	  return -1;
-    }
-    return 0;
-}
-
-#endif    
-
-#if defined(VXWORKS) || _REENTRANT
+#if _REENTRANT
 
 /* 
  * Copy the contents of one struct hostent to another, i.e. don't just
@@ -375,9 +290,9 @@ static struct hostent *my_gethostbyname_r(const char *name,
   return rval;
 }
 
-#endif /* defined(VXWORKS) || _REENTRANT */
+#endif /* _REENTRANT */
 
-#if defined(VXWORKS) || EI_THREADS != false
+#if EI_THREADS != false
 
 static struct hostent *my_gethostbyaddr_r(const char *addr,
 					  int length, 
@@ -443,7 +358,7 @@ static struct hostent *my_gethostbyaddr_r(const char *addr,
   return rval;
 }
 
-#endif /* defined(VXWORKS) || EI_THREADS != false */
+#endif /*  EI_THREADS != false */
 
 #endif /* !HAVE_GETHOSTBYNAME_R */
 
@@ -457,154 +372,6 @@ struct hostent *ei_gethostbyname(const char *name)
 struct hostent *ei_gethostbyaddr(const char *addr, int len, int type)
 {
     return gethostbyaddr(addr, len, type);
-}
-
-#elif VXWORKS
-
-
-/* these are a couple of substitutes for the real thing when we run on
- * stock vxworks (i.e. no sens).
- *
- * len and type are ignored, but we make up some reasonable values and
- * insert them
- */
-static struct hostent *my_gethostbyname(const char *name)
-{
-  /* FIXME problem for threaded ? */
-  static struct hostent h;
-  static char hostname[EI_MAXHOSTNAMELEN+1];
-  static char *aliases[1] = {NULL};
-  static char *addrp[2] = {NULL,NULL};
-  static unsigned long addr = 0;
-
-  strcpy(hostname,name);
-  if ((addr = (unsigned long)hostGetByName(hostname)) == ERROR) {
-    h_errno = HOST_NOT_FOUND;
-    return NULL;
-  }
-
-  h_errno = 0;
-  h.h_name = hostname;
-  h.h_aliases = aliases;
-  h.h_length = 4;
-  h.h_addrtype = AF_INET;
-  addrp[0] = (char *)&addr;
-  h.h_addr_list = addrp;
-  
-  return &h;
-}
-
-static struct hostent *my_gethostbyaddr(const char *addr, int len, int type)
-{
-  /* FIXME problem for threaded ? */
-  static struct hostent h;
-  static char hostname[EI_MAXHOSTNAMELEN+1];
-  static char *aliases[1] = { NULL };
-  static unsigned long inaddr;
-  static char *addrp[2] = {(char *)&inaddr, NULL};
-
-  memmove(&inaddr,addr,sizeof(inaddr));
-  
-  if ((hostGetByAddr(inaddr,hostname)) == ERROR) {
-    h_errno = HOST_NOT_FOUND;
-    return NULL;
-  }
-  
-  h_errno = 0;
-  h.h_name = hostname;
-  h.h_aliases = aliases;
-  h.h_length = 4;
-  h.h_addrtype = AF_INET;
-  h.h_addr_list = addrp;
-
-  return &h;
-}
-
-/* use sens functions for these, if found. */
-struct hostent *ei_gethostbyname(const char *name)
-{
-  struct hostent *h = NULL;
-  
-  if (!sens_gethostbyname) {
-    h = my_gethostbyname(name);
-  }
-  else {
-    /* FIXME problem for threaded ? */
-    static char buf[1024];
-    h = sens_gethostbyname(name,buf,1024);
-  }
-
-  return h;
-}
-
-struct hostent *ei_gethostbyaddr(const char *addr, int len, int type)
-{
-  struct hostent *h = NULL;
-  
-  if (!sens_gethostbyaddr) { 
-    h = my_gethostbyaddr(addr,len,type);
-  }
-  else {
-    /* FIXME problem for threaded ? */
-    static char buf[1024];
-    h = sens_gethostbyaddr(addr,buf,1024);
-  }
-
-  return h;
-}
-
-struct hostent *ei_gethostbyaddr_r(const char *addr,
-				int length, 
-				int type, 
-				struct hostent *hostp,
-				char *buffer,  
-				int buflen, 
-				int *h_errnop)
-{
-  struct hostent *h = NULL;
-  
-  /* use own func if sens function not available */
-  if (!sens_gethostbyaddr) {
-    h = my_gethostbyaddr_r(addr,length,type,hostp,buffer,buflen,h_errnop);
-  }
-  else {
-    if (!(h = sens_gethostbyaddr(addr,buffer,buflen))) {
-      /* sens returns status via errno */
-      *h_errnop = errno; 
-    }
-    else {
-      *hostp = *h;
-      *h_errnop = 0;
-    }
-  }
-      
-  return h;
-}
-
-struct hostent *ei_gethostbyname_r(const char *name, 
-				    struct hostent *hostp, 
-				    char *buffer, 
-				    int buflen, 
-				    int *h_errnop)
-{
-  struct hostent *h = NULL;
-  
-  /* use own func if sens function not available */
-  if (!sens_gethostbyname) {
-    h = my_gethostbyname_r(name,hostp,buffer,buflen,h_errnop);
-  }
-  else {
-    if (!(h = sens_gethostbyname(name,buffer,buflen))) {
-      /* sens returns status via errno */
-      *h_errnop = errno; 
-    }
-    else {
-      *hostp = *h;
-      *h_errnop = 0;
-    }
-  }
-      
-  return h;
 }
 
 #else /* unix of some kind */
@@ -677,5 +444,5 @@ struct hostent *ei_gethostbyname_r(const char *name,
 #endif
 }
 
-#endif /* vxworks, win, unix */
+#endif /* win, unix */
 

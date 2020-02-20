@@ -24,13 +24,6 @@
 # include <windows.h>
 # include <winbase.h>
 
-#elif VXWORKS
-
-# include <sys/types.h>
-# include <unistd.h>
-# include <sysLib.h>
-# include <tickLib.h>
-
 #else /* unix */
 
 # include <sys/types.h>

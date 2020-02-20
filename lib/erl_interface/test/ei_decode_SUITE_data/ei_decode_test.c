@@ -20,10 +20,6 @@
 
 #include <string.h>
 
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
-
 #include "ei_runner.h"
 
 /*
@@ -31,15 +27,9 @@
  * Author:  Kent
  */
 
-#ifdef VXWORKS
-#define MESSAGE_BACK(SIZE) \
-    message("err = %d, size2 = %d, expected size = %d", \
-             err, size1, SIZE); 
-#else
 #define MESSAGE_BACK(SIZE) \
     message("err = %d, size2 = %d, expected size = %d, long long val = %lld", \
              err, size1, SIZE, (EI_LONGLONG)p); 
-#endif
 
 #define ERLANG_ANY (ERLANG_ASCII|ERLANG_LATIN1|ERLANG_UTF8)
 
@@ -483,7 +473,6 @@ TESTCASE(test_ei_decode_longlong)
 {
     ei_init();
 
-#ifndef VXWORKS
     EI_DECODE_2     (decode_longlong,  2, EI_LONGLONG, 0);
     EI_DECODE_2     (decode_longlong,  2, EI_LONGLONG, 255);
     EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, 256);
@@ -509,7 +498,6 @@ TESTCASE(test_ei_decode_longlong)
     EI_DECODE_2_FAIL(decode_longlong, 11, EI_LONGLONG,  ll(0xffffffffffffffff));
 
     EI_DECODE_2_FAIL(decode_longlong,  1, EI_LONGLONG,  0); /* Illegal type */
-#endif
     report(1);
 }
 
@@ -519,7 +507,6 @@ TESTCASE(test_ei_decode_ulonglong)
 {
     ei_init();
 
-#ifndef VXWORKS
     EI_DECODE_2     (decode_ulonglong, 2, EI_ULONGLONG, 0);
     EI_DECODE_2     (decode_ulonglong, 2, EI_ULONGLONG, 255);
     EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG, 256);
@@ -545,7 +532,6 @@ TESTCASE(test_ei_decode_ulonglong)
     EI_DECODE_2     (decode_ulonglong,11, EI_ULONGLONG,  ll(0xffffffffffffffff));
 
     EI_DECODE_2_FAIL(decode_ulonglong, 1, EI_ULONGLONG, 0); /* Illegal type */
-#endif
     report(1);
 }
 
@@ -637,8 +623,6 @@ TESTCASE(test_ei_decode_nonoptimal)
 
     /* ---------------------------------------------------------------- */
 
-#ifndef VXWORKS
-
     EI_DECODE_2(decode_longlong,  2, EI_LONGLONG, 42);
     EI_DECODE_2(decode_longlong,  5, EI_LONGLONG, 42);
     EI_DECODE_2(decode_longlong,  4, EI_LONGLONG, 42);
@@ -680,8 +664,6 @@ TESTCASE(test_ei_decode_nonoptimal)
 /*  EI_DECODE_2(decode_ulonglong, EI_ULONGLONG, -42); */
 /*  EI_DECODE_2(decode_ulonglong, EI_ULONGLONG, -42); */
 /*  EI_DECODE_2(decode_ulonglong, EI_ULONGLONG, -42); */
-
-#endif /* !VXWORKS */
 
     /* ---------------------------------------------------------------- */
 

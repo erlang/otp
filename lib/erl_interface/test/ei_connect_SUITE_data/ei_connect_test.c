@@ -27,9 +27,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
 
 #include "ei_runner.h"
 #include "my_ussi.h"
@@ -154,11 +151,6 @@ static void cmd_ei_connect(char* buf, int len)
     if (ei_decode_atom(buf, &index, node) < 0)
 	fail("expected atom");
     i=ei_connect(&ec, node);
-#ifdef VXWORKS
-    if(i >= 0) {
-	save_fd(i);
-    }
-#endif
     send_errno_result(i);
 }
 
@@ -173,11 +165,6 @@ static void cmd_ei_connect_host_port(char* buf, int len)
     if (ei_decode_long(buf, &index, &port) < 0)
 	fail("expected int");
     i = ei_connect_host_port(&ec, hostname, (int)port);
-#ifdef VXWORKS
-    if(i >= 0) {
-	save_fd(i);
-    }
-#endif
     send_errno_result(i);
 }
 

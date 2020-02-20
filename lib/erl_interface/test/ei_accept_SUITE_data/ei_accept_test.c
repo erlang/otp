@@ -27,9 +27,6 @@
 
 #include <stdio.h>
 #include <string.h>
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
 
 #ifdef __WIN32__
 #include <winsock2.h>
@@ -165,9 +162,6 @@ static void cmd_ei_publish(char* buf, int len)
     
     if ((i = ei_publish(&ec, lport)) == -1)
 	fail("ei_publish");
-#ifdef VXWORKS
-    save_fd(i);
-#endif
     /* send listen-fd, result and errno */
     ei_x_new_with_version(&x);
     ei_x_encode_tuple_header(&x, 3);
@@ -192,9 +186,6 @@ static void cmd_ei_accept(char* buf, int len)
 	fail("expected int (listen fd)");
 
     r = ei_accept(&ec, listen, &conn);
-#ifdef VXWORKS
-    save_fd(r);
-#endif
     /* send result, errno and nodename */
     ei_x_new_with_version(&x);
     ei_x_encode_tuple_header(&x, 3);

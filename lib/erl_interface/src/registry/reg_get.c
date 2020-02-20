@@ -19,10 +19,6 @@
  *
 
  */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #include <stdarg.h>
 #include "reg.h"
 

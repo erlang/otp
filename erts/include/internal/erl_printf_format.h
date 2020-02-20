@@ -21,10 +21,6 @@
 #ifndef ERL_PRINTF_FORMAT_H__
 #define ERL_PRINTF_FORMAT_H__
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #include <sys/types.h>
 #include <stdarg.h>
 #include <stdlib.h>
