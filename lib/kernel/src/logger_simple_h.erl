@@ -61,15 +61,20 @@ log(#{meta:=#{error_logger:=#{tag:=info_report,type:=Type}}},_Config)
     %% Skip info reports that are not 'std_info' (ref simple logger in
     %% error_logger)
     ok;
-log(#{msg:=_,meta:=#{time:=_}}=Log,_Config) ->
+log(#{msg:=_,meta:=#{time:=_}=M}=Log,_Config) ->
     _ = case whereis(?MODULE) of
             undefined ->
                 %% Is the node on the way down? Real emergency?
                 %% Log directly from client just to get it out
-                do_log(
-                  #{level=>error,
-                    msg=>{report,{error,simple_handler_process_dead}},
-                    meta=>#{time=>logger:timestamp()}}),
+                case maps:get(internal_log_event, M, false) of
+                    false ->
+                        do_log(
+                          #{level=>error,
+                            msg=>{report,{error,simple_handler_process_dead}},
+                            meta=>#{time=>logger:timestamp()}});
+                    true ->
+                        ok
+                end,
                 do_log(Log);
             _ ->
                 ?MODULE ! {log,Log}

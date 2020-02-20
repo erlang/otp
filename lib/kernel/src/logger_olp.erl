@@ -141,8 +141,8 @@ restart(Fun) ->
         catch C:R:S ->
                 {error,{restart_failed,Fun,C,R,S}}
         end,
-    ?LOG_INTERNAL(debug,[{logger_olp,restart},
-                         {result,Result}]),
+    ?LOG_INTERNAL(debug,#{},[{logger_olp,restart},
+                             {result,Result}]),
     ok.
 
 -spec get_ref() -> olp_ref().

@@ -570,6 +570,7 @@ filter_failed(cleanup,_Config) ->
     ok.
 
 handler_failed(_Config) ->
+    logger:set_primary_config(level,all),
     register(callback_receiver,self()),
     {error,{invalid_id,1}} = logger:add_handler(1,?MODULE,#{}),
     {error,{invalid_module,"nomodule"}} = logger:add_handler(h1,"nomodule",#{}),
@@ -613,7 +614,7 @@ handler_failed(_Config) ->
         logger:add_handler(h1,?MODULE,#{add_call=>KillHandler}),
 
     check_no_log(),
-    ok = logger:add_handler(h1,?MODULE,#{}),
+    ok = logger:add_handler(h1,?MODULE,#{tc_proc=>self()}),
     {error,{attempting_syncronous_call_to_self,_}} =
         logger:set_handler_config(h1,#{conf_call=>CallAddHandler}),
     {error,{callback_crashed,_}} =
@@ -629,7 +630,8 @@ handler_failed(_Config) ->
         logger:set_handler_config(h1,conf_call,KillHandler),
 
     ok = logger:remove_handler(h1),
-    [add,remove] = test_server:messages_get(),
+    [add,{#{level:=error},_},{#{level:=error},_},
+     {#{level:=error},_},{#{level:=error},_},remove] = test_server:messages_get(),
 
     check_no_log(),
     ok = logger:add_handler(h1,?MODULE,#{rem_call=>CallAddHandler}),
@@ -645,6 +647,7 @@ handler_failed(_Config) ->
 handler_failed(cleanup,_Config) ->
     logger:remove_handler(h1),
     logger:remove_handler(h2),
+    logger:set_primary_config(level,info),
     ok.
 
 config_sanity_check(_Config) ->

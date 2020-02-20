@@ -56,6 +56,7 @@ call_handlers(#{level:=Level}=Log,[Id|Handlers],Tid) ->
                                       error,{removed_failing_handler,Id}),
                                     ?LOG_INTERNAL(
                                        debug,
+                                       Log1,
                                        [{logger,removed_failing_handler},
                                         {handler,{Id,Module}},
                                         {log_event,Log1},
@@ -68,6 +69,7 @@ call_handlers(#{level:=Level}=Log,[Id|Handlers],Tid) ->
                                 {error,Reason} ->
                                     ?LOG_INTERNAL(
                                        debug,
+                                       Log1,
                                        [{logger,remove_handler_failed},
                                         {reason,Reason}])
                             end
@@ -119,6 +121,7 @@ handle_filter_failed({Id,_}=Filter,Owner,Log,Reason) ->
         ok ->
             logger:internal_log(error,{removed_failing_filter,Id}),
             ?LOG_INTERNAL(debug,
+                          Log,
                           [{logger,removed_failing_filter},
                            {filter,Filter},
                            {owner,Owner},

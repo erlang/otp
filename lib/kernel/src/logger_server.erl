@@ -31,7 +31,7 @@
          update_formatter_config/2]).
 
 %% Helper
--export([diff_maps/2]).
+-export([diff_maps/2,do_internal_log/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -353,12 +353,14 @@ handle_info(Unexpected,State) when element(1,Unexpected) == 'EXIT' ->
     %% The simple handler will send an 'EXIT' message when it is replaced
     %% We may as well ignore all 'EXIT' messages that we get
     ?LOG_INTERNAL(debug,
+                  #{},
                   [{logger,got_unexpected_message},
                    {process,?SERVER},
                    {message,Unexpected}]),
     {noreply,State};
 handle_info(Unexpected,State) ->
     ?LOG_INTERNAL(info,
+                  #{},
                   [{logger,got_unexpected_message},
                    {process,?SERVER},
                    {message,Unexpected}]),
@@ -544,6 +546,7 @@ call_h(Module, Function, Args, DefRet) ->
                 _ ->
                     ST = logger:filter_stacktrace(?MODULE,S),
                     ?LOG_INTERNAL(error,
+                                  #{},
                                   [{logger,callback_crashed},
                                    {process,?SERVER},
                                    {reason,{C,R,ST}}]),
@@ -586,6 +589,7 @@ call_h_reply({'DOWN',Ref,_Proc,Pid,Reason}, #state{ async_req = {Ref,_PostFun,_F
     %% to the spawned process. It is only here to make sure that the logger_server does
     %% not deadlock if that happens.
     ?LOG_INTERNAL(error,
+                  #{},
                   [{logger,process_exited},
                    {process,Pid},
                    {reason,Reason}]),
@@ -594,6 +598,7 @@ call_h_reply({'DOWN',Ref,_Proc,Pid,Reason}, #state{ async_req = {Ref,_PostFun,_F
       State);
 call_h_reply(Unexpected,State) ->
     ?LOG_INTERNAL(info,
+                  #{},
                   [{logger,got_unexpected_message},
                    {process,?SERVER},
                    {message,Unexpected}]),
@@ -609,3 +614,18 @@ diffs([{K,V1}|T1],[{K,V2}|T2],D1,D2) ->
     diffs(T1,T2,D1#{K=>V1},D2#{K=>V2});
 diffs([],[],D1,D2) ->
     {D1,D2}.
+
+do_internal_log(Level,Location,Log,[Report] = Data) ->
+    do_internal_log(Level,Location,Log,Data,{report,Report});
+do_internal_log(Level,Location,Log,[Fmt,Args] = Data) ->
+    do_internal_log(Level,Location,Log,Data,{Fmt,Args}).
+do_internal_log(Level,Location,Log,Data,Msg) ->
+    Meta = logger:add_default_metadata(maps:merge(Location,maps:get(meta,Log,#{}))),
+    %% Spawn these to avoid deadlocks
+    case Log of
+        #{ meta := #{ internal_log_event := true } } ->
+            _ = spawn(logger_simple_h,log,[#{level=>Level,msg=>Msg,meta=>Meta},#{}]);
+        _ ->
+            _ = spawn(logger,macro_log,[Location,Level|Data]++
+                          [Meta#{internal_log_event=>true}])
+    end.
