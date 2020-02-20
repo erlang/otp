@@ -437,6 +437,9 @@ render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
 render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
     trimnlnl(render_element({c,[],Content}, State, Pos, 2, D));
 
+render_element({p,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind ->
+    {Docs,NewPos} = render_element(E,State,0,Ind,D),
+    {["\n",Docs],NewPos};
 render_element({p,[{class,What}],Content},State,Pos,Ind,D) ->
     {Docs,_} = render_docs(Content, [p|State], 0, Ind+2, D),
     trimnlnl([pad(Ind - Pos),string:titlecase(What),":\n",Docs]);
