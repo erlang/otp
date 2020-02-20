@@ -1999,9 +1999,11 @@ DIALOG_PROC_RET CALLBACK AboutDlgProc(HWND hDlg, UINT iMsg, WPARAM wParam, LPARA
         OffsetRect(&rc, -rc.left, -rc.top); 
         OffsetRect(&rc, -rcDlg.right, -rcDlg.bottom); 
         SetWindowPos(hDlg,HWND_TOP,rcOwner.left + (rc.right / 2), 
-		     rcOwner.top + (rc.bottom / 2),0,0,SWP_NOSIZE); 
-        SetDlgItemText(hDlg, ID_VERSIONSTRING,
-		       TEXT("Erlang emulator version ") TEXT(ERLANG_VERSION)); 
+		     rcOwner.top + (rc.bottom / 2),0,0,SWP_NOSIZE);
+        SetDlgItemText(hDlg, ID_OTP_VERSIONSTRING,
+		       TEXT("OTP version ") TEXT(ERLANG_OTP_VERSION));
+        SetDlgItemText(hDlg, ID_ERTS_VERSIONSTRING,
+		       TEXT("Erlang emulator version ") TEXT(ERLANG_VERSION));
         return (DIALOG_PROC_RET) TRUE;
     case WM_COMMAND:
         switch (LOWORD(wParam)) {
