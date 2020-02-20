@@ -46,8 +46,9 @@
 -export([crypto_start/0, crypto_support/0]).
 -export([watchdog/3, watchdog_start/1, watchdog_start/2, watchdog_stop/1]).
 -export([del_dir/1]).
--export([cover/1]).
--export([f/2, p/2, print1/2, print2/2, print/5, formated_timestamp/0]).
+-export([f/2, formated_timestamp/0]).
+-export([p/2, print1/2, print2/2, print/5]).
+-export([eprint/2, wprint/2, nprint/2, iprint/2]).
 
 
 -define(SKIP(R), skip(R, ?MODULE, ?LINE)).
@@ -1578,19 +1579,6 @@ del_file_or_dir(FileOrDir) ->
 	    
 
 %% ----------------------------------------------------------------------
-%% cover functions
-%%
-
-cover([Suite, Case] = Args) when is_atom(Suite) andalso is_atom(Case) ->
-    Mods0 = cover:compile_directory("../src"),
-    Mods1 = [Mod || {ok, Mod} <- Mods0],
-    snmp_test_server:t(Args),
-    Files0 = [cover:analyse_to_file(Mod) || Mod <- Mods1],
-    [io:format("Cover output: ~s~n", [File]) || {ok, File} <- Files0],
-    ok.
-
-
-%% ----------------------------------------------------------------------
 %% (debug) Print functions
 %%
 
@@ -1635,4 +1623,50 @@ print(Prefix, Module, Line, Format, Args) ->
 
 formated_timestamp() ->
     snmp_misc:formated_timestamp().
+
+
+%% ----------------------------------------------------------------------
+%%
+%% General purpose print functions
+%% ERROR, WARNING and NOTICE are written both to 'user' and 'standard_io'.
+%% INFO only to 'standard_io'.
+%%
+%% Should we also allow for (optional) a "short name" (sname)?
+%%
+
+%% ERROR print (both to user and standard_io)
+eprint(F, A) ->
+    Str = format_print("ERROR", F, A),
+    io:format(user,        "~s~n", [Str]),
+    io:format(standard_io, "~s~n", [Str]).
+
+%% WARNING print (both to user and standard_io)
+wprint(F, A) ->
+    Str = format_print("WARNING", F, A),
+    io:format(user,        "~s~n", [Str]),
+    io:format(standard_io, "~s~n", [Str]).
+
+%% NOTICE print (both to user and standard_io)
+nprint(F, A) ->
+    Str = format_print("NOTICE", F, A),
+    io:format(user,        "~s~n", [Str]),
+    io:format(standard_io, "~s~n", [Str]).
+
+%% INFO print (only to user)
+iprint(F, A) -> 
+    Str = format_print("INFO", F, A),
+    io:format(standard_io, "~s~n", [Str]).
+
+format_print(Prefix, F, A) ->
+    format_print(get(tname), Prefix, F, A).
+
+format_print(undefined, Prefix, F, A) ->
+    f("*** [~s] ~s ~p ~p *** ~n" ++ F ++ "~n",
+      [formated_timestamp(), Prefix, node(), self() | A]);
+format_print(TName, Prefix, F, A) when is_atom(TName) ->
+    format_print(atom_to_list(TName), Prefix, F, A);
+format_print(TName, Prefix, F, A) when is_list(TName) ->
+    f("*** [~s] ~s ~s ~p ~p *** ~n" ++ F ++ "~n",
+      [formated_timestamp(), Prefix, TName, node(), self() | A]).
+
 
