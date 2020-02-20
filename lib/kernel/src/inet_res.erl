@@ -691,21 +691,22 @@ udp_send(#sock{inet=I}, {A,B,C,D}=IP, Port, Buffer)
     gen_udp:send(I, IP, Port, Buffer).
 
 udp_recv(#sock{inet6=I}, {A,B,C,D,E,F,G,H}=IP, Port, Timeout, Decode)
-  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port) ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, time_now(), Timeout);
+  when ?ip6(A,B,C,D,E,F,G,H), ?port(Port), 0 =< Timeout ->
+    do_udp_recv(I, IP, Port, Timeout, Decode, deadline(Timeout), Timeout);
 udp_recv(#sock{inet=I}, {A,B,C,D}=IP, Port, Timeout, Decode)
-  when ?ip(A,B,C,D), ?port(Port) ->
-    do_udp_recv(I, IP, Port, Timeout, Decode, time_now(), Timeout).
+  when ?ip(A,B,C,D), ?port(Port), 0 =< Timeout ->
+    do_udp_recv(I, IP, Port, Timeout, Decode, deadline(Timeout), Timeout).
 
-do_udp_recv(_I, _IP, _Port, 0, _Decode, _Start, _T) ->
+do_udp_recv(_I, _IP, _Port, 0, _Decode, _Deadline, PollCnt)
+  when PollCnt =< 0 ->
     timeout;
-do_udp_recv(I, IP, Port, Timeout, Decode, Start, T) ->
-    case gen_udp:recv(I, 0, T) of
+do_udp_recv(I, IP, Port, Timeout, Decode, Deadline, PollCnt) ->
+    case gen_udp:recv(I, 0, Timeout) of
 	{ok,Reply} ->
 	    case Decode(Reply) of
-		false when T =:= 0 ->
+		false when Timeout =:= 0 ->
 		    %% This is a compromize between the hard way i.e
-		    %% in the clause below if NewT becomes 0 bailout
+		    %% in the clause below if Timeout becomes 0 bailout
 		    %% immediately and risk that the right reply lies
 		    %% ahead after some bad id replies, and the
 		    %% forgiving way i.e go on with Timeout 0 until
@@ -713,15 +714,12 @@ do_udp_recv(I, IP, Port, Timeout, Decode, Start, T) ->
 		    %% which opens for a DOS attack by a malicious
 		    %% DNS server flooding with bad id replies causing
 		    %% an infinite loop here.
-		    %%
-		    %% Timeout is used as a sanity limit counter
-		    %% just to put an end to the loop.
-		    NewTimeout = erlang:max(0, Timeout - 50),
-		    do_udp_recv(I, IP, Port, NewTimeout, Decode, Start, T);
+                    %%
+		    do_udp_recv(
+                      I, IP, Port, Timeout, Decode, Deadline, PollCnt-50);
 		false ->
-		    Now = time_now(),
-		    NewT = erlang:max(0, Timeout - now_ms(Now, Start)),
-		    do_udp_recv(I, IP, Port, Timeout, Decode, Start, NewT);
+                    T = timeout(Deadline),
+		    do_udp_recv(I, IP, Port, T, Decode, Deadline, PollCnt);
 		Result ->
 		    Result
 	    end;
@@ -1086,10 +1084,11 @@ dns_msg(Msg) ->
 	    {Type,dns_msg(Fields)}
     end.
 
--compile({inline, [now_ms/2]}).
-now_ms(Int1, Int0) ->
-    Int1 - Int0.
-
--compile({inline, [time_now/0]}).
-time_now() ->
-	erlang:monotonic_time(1000).
+-compile({inline, [deadline/1, timeout/1]}).
+deadline(Timeout) -> % When is the deadline? [ms]
+    erlang:monotonic_time(1000) + Timeout.
+timeout(Deadline) -> % How long to deadline? [ms] >= 0
+    case Deadline - erlang:monotonic_time(1000) of
+        Timeout when 0 =< Timeout -> Timeout;
+        _ -> 0
+    end.
