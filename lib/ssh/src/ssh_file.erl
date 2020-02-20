@@ -76,9 +76,10 @@ user_key(Algorithm, Opts) ->
 
 is_host_key(Key, PeerName, Algorithm, Opts) ->
     KeyType = erlang:atom_to_binary(Algorithm, latin1),
-    Host = list_to_binary(replace_localhost(PeerName)),
+    Hosts = binary:split(list_to_binary(replace_localhost(PeerName)),
+                         <<",">>, [global]), % make a list of hosts
     Dir = ssh_dir(user, Opts),
-    lookup_host_keys(Host, KeyType, Key, filename:join(Dir,"known_hosts")).
+    lookup_host_keys(Hosts, KeyType, Key, filename:join(Dir,"known_hosts")).
 
 add_host_key(Host, Key, Opts) ->
     Host1 = add_ip(replace_localhost(Host)),
@@ -165,59 +166,48 @@ replace_localhost(Host) ->
     Host.
 
 %%%--------------------------------
-lookup_host_keys(Host, KeyType, Key, File) ->
+lookup_host_keys(Hosts, KeyType, Key, File) ->
     case file:read_file(File) of
         {ok,Bin} ->
             Lines = binary:split(Bin, <<"\n">>, [global,trim_all]),
-            find_key(Host, KeyType, Key, Lines);
+            find_key(Hosts, KeyType, Key, Lines);
         _ ->
             false
     end.
 
-find_key(Host, KeyType, Key, [Line|Lines]) ->
-    case find_key_in_line(Host, KeyType, Key, binary:split(Line, <<" ">>, [global,trim_all])) of
+find_key(Hosts, KeyType, Key, [Line|Lines]) ->
+    case find_key_in_line(Hosts, KeyType, Key, binary:split(Line, <<" ">>, [global,trim_all])) of
         true ->
             true;
         false ->
-            find_key(Host, KeyType, Key, Lines)
+            find_key(Hosts, KeyType, Key, Lines)
     end;
 find_key(_, _, _, _) ->
     false.
 
-        
-find_key_in_line(_Host, _KeyType, _Key, [<<"#",_/binary>> |_]) ->
+
+find_key_in_line(_Hosts, _KeyType, _Key, [<<"#",_/binary>> |_]) ->
     false;
-find_key_in_line(Host, KeyType, Key, [HostNames, KeyType, Base64EncodedKey, _Comment]) ->
-    host_match(Host, HostNames) andalso
+find_key_in_line(Hosts, KeyType, Key, [Patterns, KeyType, Base64EncodedKey, _Comment]) ->
+    host_match(Hosts, Patterns) andalso
         Key == decode_key(Base64EncodedKey);
-find_key_in_line(Host, KeyType, Key, [HostNames, KeyType, Base64EncodedKey]) ->
-    host_match(Host, HostNames) andalso
+find_key_in_line(Hosts, KeyType, Key, [Patterns, KeyType, Base64EncodedKey]) ->
+    host_match(Hosts, Patterns) andalso
         Key == decode_key(Base64EncodedKey);
-find_key_in_line(Host, KeyType, Key, [_Option | [_,_,_|_]=Rest]) ->
+find_key_in_line(Hosts, KeyType, Key, [_Option | [_,_,_|_]=Rest]) ->
     %% Dont care for options
-    find_key_in_line(Host, KeyType, Key, Rest);
+    find_key_in_line(Hosts, KeyType, Key, Rest);
 find_key_in_line(_, _, _, _) ->
     false.
 
 
-host_match(Host, HostNames) ->
-    Sz = size(Host),
-    host_match1(Host, Sz, binary:split(HostNames, <<",">>, [global])).
-
-host_match1(Host, Sz, [Pat|Pats]) ->
-    
-    case Pat of
-        Host ->
-            true;
-        <<Host:Sz/binary,":",_Port/binary>> ->
-            true;
-        <<"[",Host:Sz/binary,"]:",_Port/binary>> ->
-            true;
-        _ ->
-            host_match1(Host, Sz, Pats)
-    end;
-host_match1(_, _, []) ->
-    false.
+host_match(Hosts, PatternsBin) ->
+    Patterns = binary:split(PatternsBin, <<",">>, [global]),
+    lists:any(fun(Pat) ->
+                      lists:any(fun(Hst) ->
+                                        Pat == Hst
+                                end, Hosts)
+              end, Patterns).
 
 %%%---------------- COMMON FUNCTIONS ------------------------------
 
