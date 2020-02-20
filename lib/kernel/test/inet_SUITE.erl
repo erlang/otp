@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -35,7 +35,8 @@
 	 ipv4_to_ipv6/0, ipv4_to_ipv6/1,
 	 host_and_addr/0, host_and_addr/1,
 	 t_gethostnative/1, 
-	 gethostnative_parallell/1, cname_loop/1, missing_hosts_reload/1,
+	 gethostnative_parallell/1, cname_loop/1,
+         missing_hosts_reload/1, hosts_file_quirks/1,
          gethostnative_soft_restart/0, gethostnative_soft_restart/1,
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
 	 lookup_bad_search_option/1,
@@ -43,6 +44,7 @@
 	 getif_ifr_name_overflow/1,getservbyname_overflow/1, getifaddrs/1,
 	 parse_strict_address/1, ipv4_mapped_ipv6_address/1,
          simple_netns/1, simple_netns_open/1,
+         add_del_host/1, add_del_host_v6/1,
          simple_bind_to_device/1, simple_bind_to_device_open/1]).
 
 -export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
@@ -57,11 +59,13 @@ all() ->
     [t_gethostbyaddr, t_gethostbyname, t_getaddr,
      t_gethostbyaddr_v6, t_gethostbyname_v6, t_getaddr_v6,
      ipv4_to_ipv6, host_and_addr, {group, parse},
-     t_gethostnative, gethostnative_parallell, cname_loop, missing_hosts_reload,
+     t_gethostnative, gethostnative_parallell, cname_loop,
+     missing_hosts_reload, hosts_file_quirks,
      gethostnative_debug_level, gethostnative_soft_restart,
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
      getifaddrs, parse_strict_address, simple_netns, simple_netns_open,
+     add_del_host, add_del_host_v6,
      simple_bind_to_device, simple_bind_to_device_open].
 
 groups() -> 
@@ -870,6 +874,176 @@ missing_hosts_reload(Config) when is_list(Config) ->
     % cleanup
     true = test_server:stop_node(TestNode).
 
+
+%% The /etc/hosts file format and limitations is quite undocumented.
+%%
+%% Our implementation of the hosts file resolver tries to
+%% do the right thing.  Here is an attempt to define "the right thing",
+%% and this test case tries to check most of these rules:
+%%
+%% * A hosts file consists of entries with one IP address,
+%%   and a list of host names.  The IP address is IPv4 or IPv6.
+%%   The first host name is the primary host name
+%%   and the others are aliases.
+%%
+%% * A lookup for an IP address should return one #hostent{} record
+%%   with the one IP address from the query, and the host names
+%%   from all entries with the same IP address concatenated.
+%%   The first host name from the first hosts file entry
+%%   with the requested IP address will be the primary host name
+%%   and all others are aliases.  All host names are returned
+%%   as in the hosts file entries i.e character case is preserved.
+%%
+%% * A lookup for a host name is character case insensitive.
+%%
+%% * A lookup for a host name should return one #hostent{} record
+%%   with the host name list from the first hosts file entry
+%%   with an IP address of the requested address family
+%%   that has a matching host name, as it is in the hosts file
+%%   i.e character case is preserved.  The IP addresses in the
+%%   returned #hostent{} record should be the first from the
+%%   same matching hosts file entry, followed by all others
+%%   for which there is a matching host name and address family.
+%%   There should be no duplicates among the returned IP addresses.
+%%
+%% * These rules are of the opinion that if duplicate host names
+%%   with the same character casing occurs for the same IP
+%%   address, it is a configuration error, so it is not tested for
+%%   and there is no preferred behaviour.
+hosts_file_quirks(Config) when is_list(Config) ->
+    Records = [R1, R2, R3, R4, R5] =
+        [#hostent{
+            h_name = h_ex(Name),
+            h_aliases = [h_ex(Alias) || Alias <- Aliases],
+            h_addrtype = Fam,
+            h_length =
+                case Fam of
+                    inet -> 4;
+                    inet6 -> 16
+                end,
+            h_addr_list =
+                [case Fam of
+                     inet -> inet_ex(N);
+                     inet6 -> inet6_ex(N)
+                 end]}
+         || {{Fam,N}, Name, Aliases} <-
+                [{{inet,1}, "a", ["B"]},
+                 {{inet,2}, "D", []},
+                 {{inet6,3}, "A", ["c"]},
+                 {{inet,1}, "c", []},
+                 {{inet,5}, "A", []}]],
+    true = R1#hostent.h_addr_list =:= R4#hostent.h_addr_list,
+    R14 =
+        R1#hostent{
+          h_aliases =
+              R1#hostent.h_aliases ++
+              [R4#hostent.h_name | R4#hostent.h_aliases]},
+    R145 =
+        R14#hostent{
+          h_addr_list =
+              R1#hostent.h_addr_list ++ R5#hostent.h_addr_list},
+    %%
+    RootDir = proplists:get_value(priv_dir,Config),
+    HostsFile = filename:join(RootDir, atom_to_list(?MODULE) ++ "-quirks.hosts"),
+    InetRc = filename:join(RootDir, "quirks.inetrc"),
+    ok = file:write_file(HostsFile, hostents_to_list(Records)),
+    ok = file:write_file(InetRc, "{hosts_file, \"" ++ HostsFile ++ "\"}.\n"),
+    %%
+    %% start a node
+    Pa = filename:dirname(code:which(?MODULE)),
+    {ok, TestNode} = test_server:start_node(?MODULE, slave,
+        [{args, "-pa " ++ Pa ++ " -kernel inetrc '\"" ++ InetRc ++ "\"'"}]),
+    %% ensure it has our RC
+    Rc = rpc:call(TestNode, inet_db, get_rc, []),
+    {hosts_file, HostsFile} = lists:keyfind(hosts_file, 1, Rc),
+    %%
+    %% check entries
+    io:format("Check hosts file contents~n", []),
+    V1 =
+      [{R14, inet_ex(1)},
+       {R2, inet_ex(2)},
+       {R3, inet6_ex(3)},
+       {R5, inet_ex(5)},
+       {R145, h_ex("a"), inet},
+       {R14, h_ex("b"), inet},
+       {R14, h_ex("c"), inet},
+       {R2, h_ex("d"), inet},
+       {R3, h_ex("a"), inet6},
+       {R3, h_ex("c"), inet6}
+      ],
+    hosts_file_quirks_verify(TestNode, V1),
+    %%
+    %% test add and del
+    ok =
+        rpc:call(
+          TestNode, inet_db, add_host,
+          [inet_ex(1), [h_ex("a"), h_ex("B")]]),
+    io:format("Check after add host~n", []),
+    hosts_file_quirks_verify(
+      TestNode,
+      [{R1, inet_ex(1)},
+       {R2, inet_ex(2)},
+       {R3, inet6_ex(3)},
+       {R5, inet_ex(5)},
+       {R1, h_ex("a"), inet},
+       {R1, h_ex("b"), inet},
+       {R14, h_ex("c"), inet},
+       {R2, h_ex("d"), inet},
+       {R3, h_ex("a"), inet6},
+       {R3, h_ex("c"), inet6}
+      ]),
+    ok = rpc:call(TestNode, inet_db, del_host, [inet_ex(1)]),
+    io:format("Check after del host~n", []),
+    hosts_file_quirks_verify(TestNode, V1),
+    %%
+    %% cleanup
+    true = test_server:stop_node(TestNode).
+
+hosts_file_quirks_verify(_TestNode, Vs) ->
+    hosts_file_quirks_verify(_TestNode, Vs, true).
+%%
+hosts_file_quirks_verify(_TestNode, [], Ok) ->
+    case Ok of
+        true -> ok;
+        false -> error(verify_failed)
+    end;
+hosts_file_quirks_verify(TestNode, [V | Vs], Ok) ->
+    case
+        case V of
+            {R, Addr} ->
+                {R, rpc:call(TestNode, inet_hosts, gethostbyaddr, [Addr])};
+            {R, Host, Fam} ->
+                {R, rpc:call(TestNode, inet_hosts, gethostbyname, [Host, Fam])}
+        end
+    of
+        {nxdomain, {error, nxdomain}} ->
+            hosts_file_quirks_verify(TestNode, Vs, Ok);
+        {_R_1, {error, nxdomain}} ->
+            io:format("Verify failed ~p: nxdomain~n", [V]),
+            hosts_file_quirks_verify(TestNode, Vs, false);
+        {R_1, {ok, R_1}} ->
+            hosts_file_quirks_verify(TestNode, Vs, Ok);
+        {_R_1, {ok, R_2}} ->
+            io:format("Verify failed ~p: ~p~n", [V, R_2]),
+            hosts_file_quirks_verify(TestNode, Vs, false)
+    end.
+
+%% Expand entry
+h_ex(H) -> H ++ ".example.com".
+inet_ex(N) -> {127,17,17,N}.
+inet6_ex(N) -> {0,0,0,0,17,17,17,N}.
+
+hostents_to_list([]) -> [];
+hostents_to_list([R | Rs]) ->
+    #hostent{
+       h_name = Name,
+       h_aliases = Aliases,
+       h_addr_list = [IP]} = R,
+    [inet:ntoa(IP), $\t,
+     lists:join($\s, [Name | Aliases]), $\r, $\n
+     | hostents_to_list(Rs)].
+
+
 %% These must be run in the whole suite since they need
 %% the host list and require inet_gethost_native to be started.
 %%
@@ -1415,3 +1589,46 @@ jog_bind_to_device_opt(S) ->
     ok = inet:setopts(S, [{bind_to_device,<<"lo">>}]),
     {ok,[{bind_to_device,<<"lo">>}]} = inet:getopts(S, [bind_to_device]),
     ok.
+
+add_del_host(_Config) ->
+    Name = "foo.com",
+    Alias = "bar.org",
+    Ip = {69,89,31,226},
+    HostEnt = #hostent{
+        h_name = Name,
+        h_aliases = [Alias],
+        h_addrtype = inet,
+        h_length = 4,
+        h_addr_list = [Ip]
+    },
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Alias, inet),
+    ok = inet_db:del_host(Ip),
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet),
+    {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet).
+
+add_del_host_v6(_Config) ->
+    Name = "foo.com",
+    Alias = "bar.org",
+    Ip = {32,1,219,8,10,11,18,240},
+    HostEnt = #hostent{
+        h_name = Name,
+        h_aliases = [Alias],
+        h_addrtype = inet6,
+        h_length = 16,
+        h_addr_list = [Ip]
+    },
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet6),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Alias, inet6),
+    ok = inet_db:del_host(Ip),
+    {error, nxdomain} = inet_hosts:gethostbyname(Name, inet6),
+    {error, nxdomain} = inet_hosts:gethostbyname(Alias, inet6),
+    ok = inet_db:add_host(Ip, [Name, Alias]),
+    {ok, HostEnt} = inet_hosts:gethostbyname(Name, inet6).
+

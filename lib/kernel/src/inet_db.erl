@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -229,12 +229,14 @@ set_edns(Version) -> res_option(edns, Version).
 
 set_udp_payload_size(Size) -> res_option(udp_payload_size, Size).
 
-set_resolv_conf(Fname) -> res_option(resolv_conf, Fname).
+set_resolv_conf(Fname) when is_list(Fname) ->
+    res_option(resolv_conf, Fname).
 
-set_hosts_file(Fname) -> res_option(hosts_file, Fname).
+set_hosts_file(Fname) when is_list(Fname) ->
+    res_option(hosts_file, Fname).
 
 get_hosts_file() ->
-    get_rc_hosts([], [], inet_hosts_file_byname).
+    get_rc_hosts([], [], inet_hosts_file_byaddr).
 
 %% set socks options
 set_socks_server(Server) -> call({set_socks_server, Server}).
@@ -318,7 +320,7 @@ get_rc() ->
 
 get_rc([K | Ks], Ls) ->
     case K of
-	hosts      -> get_rc_hosts(Ks, Ls, inet_hosts_byname);
+	hosts      -> get_rc_hosts(Ks, Ls, inet_hosts_byaddr);
 	domain     -> get_rc(domain, res_domain, "", Ks, Ls);
 	nameservers -> get_rc_ns(db_get(res_ns),nameservers,Ks,Ls);
 	alt_nameservers -> get_rc_ns(db_get(res_alt_ns),alt_nameservers,Ks,Ls);
@@ -371,17 +373,10 @@ get_rc_ns([], _Tag, Ks, Ls) ->
     get_rc(Ks, Ls).
 
 get_rc_hosts(Ks, Ls, Tab) ->
-    case lists:keysort(3, ets:tab2list(Tab)) of
+    case ets:tab2list(Tab) of
 	[] -> get_rc(Ks, Ls);
-	[{N,_,IP}|Hosts] -> get_rc_hosts(Ks, Ls, IP, Hosts, [N])
+	Hosts -> get_rc(Ks, [ [{host, IP, Names} || {{_Fam, IP}, Names} <- Hosts] | Ls])
     end.
-
-get_rc_hosts(Ks, Ls, IP, [], Ns) ->
-    get_rc(Ks, [{host,IP,lists:reverse(Ns)}|Ls]);
-get_rc_hosts(Ks, Ls, IP, [{N,_,IP}|Hosts], Ns) ->
-    get_rc_hosts(Ks, Ls, IP, Hosts, [N|Ns]);
-get_rc_hosts(Ks, Ls, IP, [{N,_,NewIP}|Hosts], Ns) ->
-    [{host,IP,lists:reverse(Ns)}|get_rc_hosts(Ks, Ls, NewIP, Hosts, [N])].
 
 %%
 %% Resolver options
@@ -502,49 +497,26 @@ socks_option(noproxy) -> db_get(socks5_noproxy).
 gethostname()         -> db_get(hostname).
 
 res_update_conf() ->
-    res_update(res_resolv_conf, res_resolv_conf_tm, res_resolv_conf_info,
-	       set_resolv_conf_tm, fun set_resolv_conf/1).
+    res_update(resolv_conf, res_resolv_conf_tm).
 
 res_update_hosts() ->
-    res_update(res_hosts_file, res_hosts_file_tm, res_hosts_file_info,
-	       set_hosts_file_tm, fun set_hosts_file/1).
+    res_update(hosts_file, res_hosts_file_tm).
 
-res_update(Tag, TagTm, TagInfo, TagSetTm, SetFun) ->
+res_update(Option, TagTm) ->
     case db_get(TagTm) of
 	undefined -> ok;
-	TM ->
+	Tm ->
 	    case times() of
-		Now when Now >= TM + ?RES_FILE_UPDATE_TM ->
-		    case db_get(Tag) of
-			undefined ->
-			    SetFun("");
-			"" ->
-			    SetFun("");
-			File ->
-			    case erl_prim_loader:read_file_info(File) of
-				{ok, Finfo0} ->
-				    Finfo =
-					Finfo0#file_info{access = undefined,
-							 atime = undefined},
-				    case db_get(TagInfo) of
-					Finfo ->
-					    call({TagSetTm, Now});
-					_ ->
-					    SetFun(File)
-				    end;
-				_ ->
-				    call({TagSetTm, Now}),
-				    error
-			    end
-		    end;
+		Now when Now >= Tm + ?RES_FILE_UPDATE_TM ->
+                    %% Enough time has passed - request server to update
+                    res_option(Option, Tm);
 		_ -> ok
 	    end
     end.
 
 db_get(Name) ->
-    case ets:lookup(inet_db, Name) of
-	[] -> undefined;
-	[{_,Val}] -> Val
+    try ets:lookup_element(inet_db, Name, 2)
+    catch error:badarg -> undefined
     end.
 
 add_rr(RR) ->
@@ -853,12 +825,10 @@ init([]) ->
     reset_db(Db),
     CacheOpts = [public, bag, {keypos,#dns_rr.domain}, named_table],
     Cache = ets:new(inet_cache, CacheOpts),
-    BynameOpts = [protected, bag, named_table, {keypos,1}],
-    ByaddrOpts = [protected, bag, named_table, {keypos,3}],
-    HostsByname = ets:new(inet_hosts_byname, BynameOpts),
-    HostsByaddr = ets:new(inet_hosts_byaddr, ByaddrOpts),
-    HostsFileByname = ets:new(inet_hosts_file_byname, BynameOpts),
-    HostsFileByaddr = ets:new(inet_hosts_file_byaddr, ByaddrOpts),
+    HostsByname = ets:new(inet_hosts_byname, [named_table]),
+    HostsByaddr = ets:new(inet_hosts_byaddr, [named_table]),
+    HostsFileByname = ets:new(inet_hosts_file_byname, [named_table]),
+    HostsFileByaddr = ets:new(inet_hosts_file_byaddr, [named_table]),
     {ok, #state{db = Db,
 		cache = Cache,
 		hosts_byname = HostsByname,
@@ -868,29 +838,31 @@ init([]) ->
 		cache_timer = init_timer() }}.
 
 reset_db(Db) ->
-    ets:insert(Db, {hostname, []}),
-    ets:insert(Db, {res_ns, []}),
-    ets:insert(Db, {res_alt_ns, []}),
-    ets:insert(Db, {res_search, []}),
-    ets:insert(Db, {res_domain, ""}),
-    ets:insert(Db, {res_lookup, []}),
-    ets:insert(Db, {res_recurse, true}),
-    ets:insert(Db, {res_usevc, false}),
-    ets:insert(Db, {res_id, 0}),
-    ets:insert(Db, {res_retry, ?RES_RETRY}),
-    ets:insert(Db, {res_timeout, ?RES_TIMEOUT}),
-    ets:insert(Db, {res_inet6, false}),
-    ets:insert(Db, {res_edns, false}),
-    ets:insert(Db, {res_udp_payload_size, ?DNS_UDP_PAYLOAD_SIZE}),
-    ets:insert(Db, {cache_size, ?CACHE_LIMIT}),
-    ets:insert(Db, {cache_refresh_interval,?CACHE_REFRESH}),
-    ets:insert(Db, {socks5_server, ""}),
-    ets:insert(Db, {socks5_port, ?IPPORT_SOCKS}),
-    ets:insert(Db, {socks5_methods, [none]}),
-    ets:insert(Db, {socks5_noproxy, []}),
-    ets:insert(Db, {tcp_module,  ?DEFAULT_TCP_MODULE}),
-    ets:insert(Db, {udp_module,  ?DEFAULT_UDP_MODULE}),
-    ets:insert(Db, {sctp_module, ?DEFAULT_SCTP_MODULE}).
+    ets:insert(
+      Db,
+      [{hostname, []},
+       {res_ns, []},
+       {res_alt_ns, []},
+       {res_search, []},
+       {res_domain, ""},
+       {res_lookup, []},
+       {res_recurse, true},
+       {res_usevc, false},
+       {res_id, 0},
+       {res_retry, ?RES_RETRY},
+       {res_timeout, ?RES_TIMEOUT},
+       {res_inet6, false},
+       {res_edns, false},
+       {res_udp_payload_size, ?DNS_UDP_PAYLOAD_SIZE},
+       {cache_size, ?CACHE_LIMIT},
+       {cache_refresh_interval,?CACHE_REFRESH},
+       {socks5_server, ""},
+       {socks5_port, ?IPPORT_SOCKS},
+       {socks5_methods, [none]},
+       {socks5_noproxy, []},
+       {tcp_module,  ?DEFAULT_TCP_MODULE},
+       {udp_module,  ?DEFAULT_UDP_MODULE},
+       {sctp_module, ?DEFAULT_SCTP_MODULE}]).
 
 %%----------------------------------------------------------------------
 %% Func: handle_call/3
@@ -908,22 +880,7 @@ reset_db(Db) ->
 handle_call(Request, From, #state{db=Db}=State) ->
     case Request of
 	{load_hosts_file,IPNmAs} when is_list(IPNmAs) ->
-	    NIPs =
-		lists:flatten(
-		  [ [{N,
-		      if tuple_size(IP) =:= 4 -> inet;
-			 tuple_size(IP) =:= 8 -> inet6
-		      end,IP} || N <- [Nm|As]]
-		    || {IP,Nm,As} <- IPNmAs]),
-	    Byname = State#state.hosts_file_byname,
-	    Byaddr = State#state.hosts_file_byaddr,
-	    ets:delete_all_objects(Byname),
-	    ets:delete_all_objects(Byaddr),
-	    %% Byname has lowercased names while Byaddr keep the name casing.
-	    %% This is to be able to reconstruct the original
-	    %% /etc/hosts entry.
-	    ets:insert(Byname, [{tolower(N),Type,IP} || {N,Type,IP} <- NIPs]),
-	    ets:insert(Byaddr, NIPs),
+	    load_hosts_list(IPNmAs, State#state.hosts_file_byname, State#state.hosts_file_byaddr),
 	    {reply, ok, State};
 
 	{add_host,{A,B,C,D}=IP,[N|As]=Names}
@@ -969,7 +926,7 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    case res_check_option(Opt, El) of
 		true ->
 		    Optname = res_optname(Opt),
-		    [{_,Es}] = ets:lookup(Db, Optname),
+		    Es = ets:lookup_element(Db, Optname, 2),
 		    NewEs = case Op of
 				ins -> [E | lists_delete(E, Es)];
 				add -> lists_delete(E, Es) ++ El;
@@ -1003,12 +960,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	      Option, Fname, res_resolv_conf_tm, res_resolv_conf_info,
 	      undefined, From, State);
 
-	{res_set, hosts_file=Option, Fname} ->
+	{res_set, hosts_file=Option, Fname_or_Tm} ->
 	    handle_set_file(
-	      Option, Fname, res_hosts_file_tm, res_hosts_file_info,
-	      fun (Bin) ->
+	      Option, Fname_or_Tm, res_hosts_file_tm, res_hosts_file_info,
+	      fun (File, Bin) ->
 		      case inet_parse:hosts(
-			     Fname, {chars,Bin}) of
+			     File, {chars,Bin}) of
 			  {ok,Opts} ->
 			      [{load_hosts_file,Opts}];
 			  _ -> error
@@ -1016,12 +973,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	      end,
 	      From, State);
 	%%
-	{res_set, resolv_conf=Option, Fname} ->
+	{res_set, resolv_conf=Option, Fname_or_Tm} ->
 	    handle_set_file(
-	      Option, Fname, res_resolv_conf_tm, res_resolv_conf_info,
-	      fun (Bin) ->
+	      Option, Fname_or_Tm, res_resolv_conf_tm, res_resolv_conf_info,
+	      fun (File, Bin) ->
 		      case inet_parse:resolv(
-			     Fname, {chars,Bin}) of
+			     File, {chars,Bin}) of
 			  {ok,Opts} ->
 			      Search =
 				  lists:foldl(
@@ -1075,13 +1032,13 @@ handle_call(Request, From, #state{db=Db}=State) ->
 	    {reply, ok, State};
 
 	{add_socks_methods, Ls} -> 
-	    [{_,As}] = ets:lookup(Db, socks5_methods),
+	    As = ets:lookup_element(Db, socks5_methods, 2),
 	    As1 = lists_subtract(As, Ls),
 	    ets:insert(Db, {socks5_methods, As1 ++ Ls}),
 	    {reply, ok, State};
 	    
 	{del_socks_methods, Ls} ->
-	    [{_,As}] = ets:lookup(Db, socks5_methods),
+	    As = ets:lookup_element(Db, socks5_methods, 2),
 	    As1 = lists_subtract(As, Ls),
 	    case lists:member(none, As1) of
 		false -> ets:insert(Db, {socks5_methods, As1 ++ [none]});
@@ -1095,12 +1052,12 @@ handle_call(Request, From, #state{db=Db}=State) ->
 
 	{add_socks_noproxy, {{A,B,C,D},{MA,MB,MC,MD}}} 
 	when ?ip(A,B,C,D), ?ip(MA,MB,MC,MD) ->
-	    [{_,As}] = ets:lookup(Db, socks5_noproxy),
+	    As = ets:lookup_element(Db, socks5_noproxy, 2),
 	    ets:insert(Db, {socks5_noproxy, As++[{{A,B,C,D},{MA,MB,MC,MD}}]}),
 	    {reply, ok, State};
 
 	{del_socks_noproxy, {A,B,C,D}=IP} when ?ip(A,B,C,D) ->
-	    [{_,As}] = ets:lookup(Db, socks5_noproxy),
+	    As = ets:lookup_element(Db, socks5_noproxy, 2),
 	    ets:insert(Db, {socks5_noproxy, lists_keydelete(IP, 1, As)}),
 	    {reply, ok, State};
 
@@ -1194,68 +1151,283 @@ terminate(_Reason, State) ->
 %%% Internal functions
 %%%----------------------------------------------------------------------
 
-handle_set_file(Option, Fname, TagTm, TagInfo, ParseFun, From,
-		#state{db=Db}=State) ->
+handle_set_file(
+  Option, Tm, TagTm, TagInfo, ParseFun, From, #state{db=Db}=State)
+  when is_integer(Tm) ->
+    %%
+    %% Maybe update file content
+    %%
+    try ets:lookup_element(Db, TagTm, 2) of
+        Tm ->
+            %% Current update request
+            File = ets:lookup_element(Db, res_optname(Option), 2),
+            Finfo = ets:lookup_element(Db, TagInfo, 2),
+            handle_update_file(
+              Finfo, File, TagTm, TagInfo, ParseFun, From, State);
+        _ ->
+            %% Late request - ignore update
+            {reply, ok, State}
+    catch error:badarg ->
+            %% Option no longer set - ignore update
+            {reply, ok, State}
+    end;
+handle_set_file(
+  Option, Fname, TagTm, TagInfo, ParseFun, From, #state{db=Db}=State) ->
     case res_check_option(Option, Fname) of
 	true when Fname =:= "" ->
+            %% Delete file content and monitor
 	    ets:insert(Db, {res_optname(Option), Fname}),
 	    ets:delete(Db, TagInfo),
 	    ets:delete(Db, TagTm),
-	    handle_set_file(ParseFun, <<>>, From, State);
+	    handle_set_file(ParseFun, Fname, <<>>, From, State);
 	true when ParseFun =:= undefined ->
+            %% Set file name and monitor
 	    File = filename:flatten(Fname),
 	    ets:insert(Db, {res_optname(Option), File}),
 	    ets:insert(Db, {TagInfo, undefined}),
-	    TimeZero = - (?RES_FILE_UPDATE_TM + 1), % Early enough
+	    TimeZero = times() - (?RES_FILE_UPDATE_TM + 1), % Early enough
 	    ets:insert(Db, {TagTm, TimeZero}),
 	    {reply,ok,State};
 	true ->
+            %% Set file name and monitor, read content
 	    File = filename:flatten(Fname),
 	    ets:insert(Db, {res_optname(Option), File}),
-	    Bin =
-		case erl_prim_loader:read_file_info(File) of
-		    {ok, Finfo0} ->
-			Finfo = Finfo0#file_info{access = undefined,
-						 atime = undefined},
-			ets:insert(Db, {TagInfo, Finfo}),
-			ets:insert(Db, {TagTm, times()}),
-			case erl_prim_loader:get_file(File) of
-			    {ok, B, _} -> B;
-			    _ -> <<>>
-			end;
-		    _ ->
-                        ets:insert(Db, {TagInfo, undefined}),
-                        TimeZero = - (?RES_FILE_UPDATE_TM + 1), % Early enough
-                        ets:insert(Db, {TagTm, TimeZero}),
-                        <<>>
-		end,
-	    handle_set_file(ParseFun, Bin, From, State);
+            handle_update_file(
+              undefined, File, TagTm, TagInfo, ParseFun, From, State);
 	false -> {reply,error,State}
     end.
 
-handle_set_file(ParseFun, Bin, From, State) ->
-    case ParseFun(Bin) of
+handle_set_file(ParseFun, File, Bin, From, State) ->
+    case ParseFun(File, Bin) of
 	error ->
 	    {reply,error,State};
 	Opts ->
 	    handle_rc_list(Opts, From, State)
     end.
 
+handle_update_file(
+  Finfo, File, TagTm, TagInfo, ParseFun, From, #state{db = Db} = State) ->
+    %%
+    %% Update file content if file has been updated
+    %%
+    case erl_prim_loader:read_file_info(File) of
+        {ok, Finfo} ->
+            %% No file update - we are done
+            {reply, ok, State};
+        {ok, Finfo_1} ->
+            %% File updated - read content
+            ets:insert(Db, {TagInfo, Finfo_1}),
+            ets:insert(Db, {TagTm, times()}),
+            Bin =
+                case erl_prim_loader:get_file(File) of
+                    {ok, B, _} -> B;
+                    _ -> <<>>
+                end,
+            handle_set_file(ParseFun, File, Bin, From, State);
+        _ ->
+            %% No file - clear content and reset monitor
+            ets:insert(Db, {TagInfo, undefined}),
+            ets:insert(Db, {TagTm, times()}),
+            handle_set_file(ParseFun, File, <<>>, From, State)
+    end.
+
 %% Byname has lowercased names while Byaddr keep the name casing.
 %% This is to be able to reconstruct the original /etc/hosts entry.
 
 do_add_host(Byname, Byaddr, Names, Type, IP) ->
-    do_del_host(Byname, Byaddr, IP),
-    ets:insert(Byname, [{tolower(N),Type,IP} || N <- Names]),
-    ets:insert(Byaddr, [{N,Type,IP} || N <- Names]),
+    Nms = [tolower(Nm) || Nm <- Names],
+    add_ip_bynms(Byname, Type, IP, Nms, Names),
+    Key = {Type, IP},
+    try ets:lookup_element(Byaddr, Key, 2) of
+        Names_0 ->
+            %% Delete IP address from byname entries
+            NmsSet = % Set of new tolower(Name)s
+                lists:foldl(
+                  fun (Nm, Set) ->
+                          maps:put(Nm, [], Set)
+                  end, #{}, Nms),
+            del_ip_bynms(
+              Byname, Type, IP,
+              [Nm || Nm <- [tolower(Name) || Name <- Names_0],
+                     not maps:is_key(Nm, NmsSet)])
+    catch error:badarg ->
+            ok
+    end,
+    %% Replace the entry in the byaddr table
+    ets:insert(Byaddr, {Key, Names}),
     ok.
 
 do_del_host(Byname, Byaddr, IP) ->
-    _ =
-	[ets:delete_object(Byname, {tolower(Name),Type,Addr}) ||
-	    {Name,Type,Addr} <- ets:lookup(Byaddr, IP)],
-    ets:delete(Byaddr, IP),
+    Fam = inet_family(IP),
+    Key = {Fam, IP},
+    try ets:lookup_element(Byaddr, Key, 2) of
+        Names ->
+            %% Delete IP address from byname entries
+            del_ip_bynms(
+              Byname, Fam, IP,
+              [tolower(Name) || Name <- Names]),
+            %% Delete from byaddr table
+            true = ets:delete(Byaddr, Key),
+            ok
+    catch error:badarg ->
+            ok
+    end.
+
+
+add_ip_bynms(Byname, Fam, IP, Nms, Names) ->
+    lists:foreach(
+      fun (Nm) ->
+              Key = {Fam, Nm},
+              case ets:lookup(Byname, Key) of
+                  [{_Key, [IP | _] = IPs, _Names_1}] ->
+                      %% Replace names in the byname entry
+                      true =
+                          ets:insert(
+                            Byname,
+                            {Key, IPs, Names});
+                  [{_Key, IPs, Names_0}] ->
+                      case lists:member(IP, IPs) of
+                          true ->
+                              ok;
+                          false ->
+                              %% Add the IP address
+                              true =
+                                  ets:insert(
+                                    Byname,
+                                    {Key, IPs ++ [IP], Names_0})
+                      end;
+                  [] ->
+                      %% Create a new byname entry
+                      true =
+                          ets:insert(Byname, {Key, [IP], Names})
+              end
+      end, Nms).
+
+del_ip_bynms(Byname, Fam, IP, Nms) ->
+    lists:foreach(
+      fun (Nm) ->
+              Key = {Fam, Nm},
+              case ets:lookup(Byname, Key) of
+                  [{_Key, [IP], _Names}] ->
+                      %% Delete whole entry
+                      true = ets:delete(Byname, Key);
+                  [{_Key, IPs_0, Names_0}] ->
+                      case lists:member(IP, IPs_0) of
+                          true ->
+                              %% Delete the IP address from list
+                              IPs = lists:delete(IP, IPs_0),
+                              true =
+                                  ets:insert(
+                                    Byname, {Key, IPs, Names_0});
+                          false ->
+                              ok
+                      end;
+                  [] ->
+                      ok
+              end
+      end, Nms).
+
+
+inet_family(T) when tuple_size(T) =:= 4 -> inet;
+inet_family(T) when tuple_size(T) =:= 8 -> inet6.
+
+
+%% Hosts =  [ {IP, Name, Aliases}, ... ]
+%% ByaddrMap = #{ {Fam, IP} := rev(Names) }
+%% BynameMap = #{ {Fam, tolower(Name)} := {rev([IP, ...]), Names}}
+
+%% Synchronises internal tables with .hosts/aliases file
+load_hosts_list(Hosts, Byname, Byaddr) ->
+    %% Create byaddr and byname maps
+    {ByaddrMap, BynameMap} = load_hosts_list(Hosts),
+    %% Insert or overwrite existing keys
+    ets:insert(
+      Byaddr,
+      [{Addr, lists:reverse(NamesR)}
+       || {Addr, NamesR} <- maps:to_list(ByaddrMap)]),
+    ets:insert(
+      Byname,
+      [{Fam_Nm, lists:reverse(IPsR), Names}
+       || {Fam_Nm, {IPsR, Names}} <- maps:to_list(BynameMap)]),
+    %% Delete no longer existing keys
+    ets_clean_map_keys(Byaddr, ByaddrMap),
+    ets_clean_map_keys(Byname, BynameMap).
+
+load_hosts_list(Hosts) ->
+    load_hosts_list_byaddr(Hosts, #{}, []).
+
+load_hosts_list_byaddr(
+  [], ByaddrMap, Addrs) ->
+    %% Now for the byname table...
+    load_hosts_list_byname(lists:reverse(Addrs), ByaddrMap, #{});
+%% Traverse hosts list, create byaddr map and insertion order list
+load_hosts_list_byaddr(
+  [{IP, Name, Aliases} | Hosts], ByaddrMap, Addrs) ->
+    Addr = {inet_family(IP), IP},
+    case ByaddrMap of
+        #{Addr := NamesR} ->
+            %% Concatenate names to existing IP address entry
+            load_hosts_list_byaddr(
+              Hosts,
+              ByaddrMap#{Addr := lists:reverse(Aliases, [Name | NamesR])},
+              Addrs);
+        #{} ->
+            %% First entry for an IP address
+            load_hosts_list_byaddr(
+              Hosts,
+              ByaddrMap#{Addr => lists:reverse(Aliases, [Name])},
+              [Addr | Addrs])
+    end.
+
+%% Traverse in insertion order from byaddr pass
+load_hosts_list_byname(
+  [], ByaddrMap, BynameMap) ->
+    {ByaddrMap, BynameMap};
+load_hosts_list_byname(
+  [{Fam, IP} = Addr | Addrs], ByaddrMap, BynameMap) ->
+    Names = lists:reverse(maps:get(Addr, ByaddrMap)),
+    %% Traverse all names for this IP address
+    load_hosts_list_byname(
+      Addrs, ByaddrMap,
+      load_hosts_list_byname(Fam, IP, BynameMap, Names, Names)).
+
+load_hosts_list_byname(_Fam, _IP, BynameMap, _Names_0, []) ->
+    BynameMap;
+load_hosts_list_byname(
+  Fam, IP, BynameMap, Names_0, [Name | Names]) ->
+    Key = {Fam, tolower(Name)},
+    case BynameMap of
+        #{Key := {IPsR, Names_1}} ->
+            %% Add IP address to existing name entry
+            load_hosts_list_byname(
+              Fam, IP,
+              BynameMap#{Key := {[IP | IPsR], Names_1}},
+              Names_0, Names);
+        #{} ->
+            %% First entry for a name
+            load_hosts_list_byname(
+              Fam, IP,
+              BynameMap#{Key => {[IP], Names_0}},
+              Names_0, Names)
+    end.
+
+ets_clean_map_keys(Tab, Map) ->
+    true = ets:safe_fixtable(Tab, true),
+    ets_clean_map_keys(Tab, Map, ets:first(Tab)),
+    true = ets:safe_fixtable(Tab, false),
     ok.
+%%
+ets_clean_map_keys(_Tab, _Map, '$end_of_table') ->
+    ok;
+ets_clean_map_keys(Tab, Map, Key) ->
+    case maps:is_key(Key, Map) of
+        true ->
+            ets_clean_map_keys(Tab, Map, ets:next(Tab, Key));
+        false ->
+            true = ets:delete(Tab, Key),
+            ets_clean_map_keys(Tab, Map, ets:next(Tab, Key))
+    end.
+
 
 %% Loop over .inetrc option list and call handle_call/3 for each
 %%
@@ -1383,8 +1555,9 @@ cache_rr(_Db, Cache, RR) ->
     ets:insert(Cache, RR).
 
 times() ->
-    erlang:convert_time_unit(erlang:monotonic_time() - erlang:system_info(start_time),
-			     native, second).
+    erlang:monotonic_time(second).
+    %% erlang:convert_time_unit(erlang:monotonic_time() - erlang:system_info(start_time),
+    %%     		     native, second).
 
 %% lookup and remove old entries
 
@@ -1518,12 +1691,12 @@ do_refresh_cache(Key, CacheDb, Now, OldestT) ->
 %% -------------------------------------------------------------------
 alloc_entry(Db, CacheDb, TM) ->
     CurSize = ets:info(CacheDb, size),
-    case ets:lookup(Db, cache_size) of
-	[{cache_size, Size}] when Size =< CurSize, Size > 0 ->
+    case ets:lookup_element(Db, cache_size, 2) of
+	Size when Size =< CurSize, Size > 0 ->
 	    alloc_entry(CacheDb, CurSize, TM, trunc(Size * 0.1) + 1);
-	[{cache_size, Size}] when Size =< 0 ->
+	Size when Size =< 0 ->
 	    false;
-	_ ->
+	_Size ->
 	    true
     end.
 
