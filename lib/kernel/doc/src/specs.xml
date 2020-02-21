@@ -9,6 +9,7 @@
   <xi:include href="../specs/specs_erl_epmd.xml"/>
   <xi:include href="../specs/specs_erl_prim_loader_stub.xml"/>
   <xi:include href="../specs/specs_erlang_stub.xml"/>
+  <xi:include href="../specs/specs_erpc.xml"/>
   <xi:include href="../specs/specs_error_handler.xml"/>
   <xi:include href="../specs/specs_error_logger.xml"/>
   <xi:include href="../specs/specs_file.xml"/>

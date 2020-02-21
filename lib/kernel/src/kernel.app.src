@@ -36,6 +36,7 @@
 	     erl_distribution,
 	     erl_reply,
              erl_signal_handler,
+	     erpc,
 	     error_handler,
 	     error_logger,
 	     file,

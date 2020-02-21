@@ -1,0 +1,513 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2020</year><year>2020</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+    
+    </legalnotice>
+
+    <title>erpc</title>
+    <prepared>Rickard Green</prepared>
+    <docno>1</docno>
+    <date>2020-02-20</date>
+    <rev>A</rev>
+  </header>
+  <module since="OTP @OTP-13450@">erpc</module>
+  <modulesummary>Enhanced Remote Procedure Call</modulesummary>
+  <description>
+    <p>
+      This module provide services similar to Remote Procedure Calls.
+      A remote procedure call is a method to call a function on a remote
+      node and collect the answer. It is used for collecting information
+      on a remote node, or for running a function with some specific side
+      effects on the remote node.
+    </p>
+    <p>
+      This is an enhanced subset of the operations provided by the
+      <seealso marker="rpc"><c>rpc</c></seealso> module. Enhanced in the
+      sense that it makes it possible to distinguish between returned
+      value, raised exceptions, and other errors. <c>erpc</c> also has
+      better performance and scalability than the original <c>rpc</c>
+      implementation. However, current <c>rpc</c> module will utilize
+      <c>erpc</c> in order to also provide these properties when
+      possible.
+    </p>
+    <p>
+      In order for an <c>erpc</c> operation to succeed, the remote
+      node also needs to support <c>erpc</c>. Typically only ordinary
+      Erlang nodes as of OTP 23 have <c>erpc</c> support.
+    </p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="request_id"/>
+      <desc>
+        <p>
+	  An opaque type of call request identifiers. For more
+	  information see
+          <seealso marker="#send_request/4"><c>send_request/4</c></seealso>.
+	</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+
+    <func>
+      <name name="call" arity="4" since="OTP @OTP-13450@"/>
+      <name name="call" arity="5" since="OTP @OTP-13450@"/>
+      <fsummary>Evaluate a function call on a node.</fsummary>
+      <desc>
+        <p>
+	  Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
+          the corresponding value <c><anno>Result</anno></c>.
+	  <c><anno>Timeout</anno></c> is an integer representing
+	  the timeout in milliseconds or the atom <c>infinity</c>.
+	</p>
+	<p>The call <c>erpc:call(<anno>Node</anno>, <anno>Module</anno>,
+	<anno>Function</anno>, <anno>Args</anno>)</c> is equivalent
+	to the call <c>erpc:call(<anno>Node</anno>, <anno>Module</anno>,
+	<anno>Function</anno>, <anno>Args</anno>, infinity)</c></p>
+	<p>
+	  The <c>call()</c> function only returns if the applied
+	  function successfully returned without raising any uncaught
+	  exceptions, the operation did not time out, and no failures
+	  occurred. In all other cases an exception is raised. The
+	  following exceptions, listed by exception class, can
+	  currently be raised by <c>erpc:call()</c>:
+	</p>
+	<taglist>
+	  <tag><c>throw</c></tag>
+	  <item><p>
+	    The applied function called <c>throw(Value)</c>
+	    and did not catch this exception. The exception
+	    reason <c>Value</c> equals the argument passed to
+	    <c>throw/1</c>.
+	  </p></item>
+	  
+	  <tag><c>exit</c></tag>
+	  <item><p>
+	    Exception reason:
+	  </p>
+	  <taglist>
+	    <tag><c>{exception, ExitReason}</c></tag>
+	    <item><p>
+	      The applied function called <c>exit(ExitReason)</c>
+	      and did not catch this exception. The exit
+	      reason <c>ExitReason</c> equals the argument passed
+	      to <c>exit/1</c>.
+	    </p></item>
+	    <tag><c>{signal, ExitReason}</c></tag>
+	    <item><p>
+	      The process that applied the function received an
+	      exit signal and terminated due to this signal. The
+	      process terminated with exit reason <c>ExitReason</c>.
+	    </p></item>
+	  </taglist>
+	  </item>
+	  
+	  <tag><c>error</c></tag>
+	  <item><p>
+	    Exception reason:
+	  </p>
+	  <taglist>
+	    
+	    <tag><c>{exception, ErrorReason, StackTrace}</c></tag>
+	    <item><p>
+	      A runtime error occurred which raised and error
+	      exception while applying the function,
+	      and the applied function did not catch the
+	      exception. The error reason <c>ErrorReason</c>
+	      indicates the type of error that occurred.
+	      <c>StackTrace</c> is formatted as when caught in a
+	      <c>try/catch</c> construct. The <c>StackTrace</c>
+	      is limited to the applied function and functions
+	      called by it.
+	    </p></item>
+	    
+	    <tag><c>{erpc, ERpcErrorReason}</c></tag>
+	    <item><p>
+	      The <c>erpc</c> operation failed. The following
+	      <c>ERpcErrorReason</c>s are the most common ones:
+	    </p>
+	    
+	    <taglist>
+	      <tag><c>badarg</c></tag>
+	      <item>
+		<p>If any one of these are true:</p>
+		<list>
+		  <item><p><c><anno>Node</anno></c> is not a valid
+		  node name atom.</p></item>
+		  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
+		  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
+		  <item><p><c><anno>Args</anno></c> is not a proper list
+		  of terms.</p></item>
+		  <item><p><c><anno>Timeout</anno></c> is not the
+		  atom <c>infinity</c> or an integer in valid
+		  range.</p></item>
+		</list>
+	      </item>
+	      
+	      <tag><c>noconnection</c></tag>
+	      <item><p>
+		The connection to <c>Node</c> was lost or could
+		not be established. The function may or may not
+		be applied.
+	      </p></item>
+	      
+	      <tag><c>system_limit</c></tag>
+	      <item><p>
+		The <c>erpc</c> operation failed due to some system
+		limit being reached. This typically due to failure
+		to create a process on the remote node <c>Node</c>,
+		but can be other things as well.
+	      </p></item>
+	      
+	      <tag><c>timeout</c></tag>
+	      <item><p>
+		The <c>erpc</c> operation timed out. The function may
+		or may not be applied.
+	      </p></item>
+	      
+	      <tag><c>notsup</c></tag>
+	      <item><p>
+		The remote node <c>Node</c> does not support
+		this <c>erpc</c> operation.
+	      </p>
+	      </item>
+	      
+	    </taglist>
+	    </item>
+	    
+	  </taglist>
+	  </item>
+	</taglist>
+
+	<p>
+	  If the <c>erpc</c> operation fails, but it is unknown if
+	  the function is/will be applied (that is, a timeout or
+	  a connection loss), the caller will not receive any
+	  further information about the result if/when the applied
+	  function completes. If the applied function explicitly
+	  communicates with the calling process, such communication
+	  may, of course, reach the calling process.
+        </p>
+
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be the calling process itself, a server, or a freshly
+	    spawned process.
+	  </p>
+	</note>
+      </desc>
+    </func>
+
+    <func>
+      <name name="cast" arity="4" since="OTP @OTP-13450@"/>
+      <fsummary>Evaluate a function call on a node ignoring the result.</fsummary>
+      <desc>
+        <p>
+	  Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on node
+          <c><anno>Node</anno></c>. No response is delivered to the
+	  calling process. <c>erpc:cast()</c> returns immediately
+	  after the cast request has been sent. Any failures beside
+	  bad arguments are silently ignored.
+	</p>
+	<p><c>erpc:cast/4</c> fails with an <c>{erpc, badarg}</c>
+	<c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Node</anno></c> is not a valid
+	  node name atom.</p></item>
+	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Args</anno></c> is not a proper list
+	  of terms.</p></item>
+	</list>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be a server, or a freshly spawned process.
+	  </p>
+	</note>
+      </desc>
+    </func>
+    
+    <func>
+      <name name="check_response" arity="2" since="OTP @OTP-13450@"/>
+      <fsummary>Check if a message is a response corresponding to a
+      previously sent call request.</fsummary>
+      <desc>
+	<p>
+	  Check if a message is a response to a <c>call</c> request
+	  previously made by the calling process using
+	  <seealso marker="#send_request/4"><c>erpc:send_request/4</c></seealso>.
+	  <c><anno>RequestId</anno></c> should be the value returned
+	  from the previously made <c>erpc:send_request()</c> call,
+	  and the corresponding response should not already have been
+	  received and handled to completion by <c>erpc:check_response()</c>,
+	  <seealso marker="#receive_response/2"><c>erpc:receive_response()</c></seealso>, or
+	  <seealso marker="#wait_response/2"><c>erpc:wait_response()</c></seealso>.
+	  <c><anno>Message</anno></c> is the message to check.
+	</p>
+	<p>
+	  If <c><anno>Message</anno></c> does not correspond to the
+	  response, the atom <c>no_response</c> is returned. If
+	  <c><anno>Message</anno></c> corresponds to the response, the
+	  <c>call</c> operation is completed and either the result is
+	  returned as <c>{response, Result}</c> where <c>Result</c>
+	  corresponds to the value returned from the applied function
+	  or an exception is raised. The exceptions that can be raised
+	  corresponds to the same exceptions as can be raised by
+	  <seealso marker="#call/4"><c>erpc:call/4</c></seealso>.
+	  That is, no <c>{erpc, timeout}</c> <c>error</c> exception
+	  can be raised.
+	</p>
+	<p>
+	  If the <c>erpc</c> operation fails, but it is unknown if
+	  the function is/will be applied (that is, a connection loss),
+	  the caller will not receive any further information about the
+	  result if/when the applied function completes. If the applied
+	  function explicitly communicates with the calling process,
+	  such communication may, of course, reach the calling process.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="multicall" arity="4" since="OTP @OTP-13450@"/>
+      <name name="multicall" arity="5" since="OTP @OTP-13450@"/>
+      <fsummary>Evaluate a function call on a number of nodes.</fsummary>
+      <type name="caught_call_exception"/>
+      <type name="stack_item"/>
+      <desc>
+	<p>
+	  Performs multiple <c>call</c> operations in parallel
+	  on multiple nodes. The result is returned as a list where
+	  the result from each node is placed at the same position
+	  as the node name is placed in <c><anno>Nodes</anno></c>.
+	  Each item in the resulting list is formatted as either:
+	</p>
+	<taglist>
+	  <tag><c>{ok, Result}</c></tag>
+	  <item><p>
+	    The <c>call</c> operation for this specific node
+	    returned <c>Result</c>.
+	  </p></item>
+	  <tag><c>{Class, ExceptionReason}</c></tag>
+	  <item><p>
+	    The <c>call</c> operation for this specific node
+	    raised an exception of class <c>Class</c> with
+	    exception reason <c>ExceptionReason</c>. These
+	    corresponds the the exceptions that
+	    <seealso marker="#call/5"><c>erpc:call/5</c></seealso>
+	    can raise.
+	  </p></item>
+	</taglist>
+	<p>
+	  The call <c>erpc:multicall(<anno>Nodes</anno>, <anno>Module</anno>,
+	  <anno>Function</anno>, <anno>Args</anno>)</c> is equivalent
+	  to the call <c>erpc:multicall(<anno>Nodes</anno>, <anno>Module</anno>,
+	  <anno>Function</anno>, <anno>Args</anno>, infinity)</c>. These
+	  calls are also equivalent to calling <c>my_multicall(Nodes, Module,
+	  Function, Args)</c> if one disregards performance:
+	</p>
+	<pre>
+my_multicall(Nodes, Module, Function, Args) ->
+  ReqIds = lists:map(fun (Node) ->
+                       <seealso marker="#send_request/4">erpc:send_request(Node, Module, Function, Args)</seealso>
+                     end,
+                     Nodes),
+  lists:map(fun (ReqId) ->
+              try
+                {ok, <seealso marker="#receive_response/2">erpc:receive_response(ReqId, infinity)</seealso>}
+              catch
+                Class:Reason ->
+                  {Class, Reason}
+              end
+            end,
+            ReqIds).
+</pre>
+
+        <p>
+	  The <c><anno>Timeout</anno></c> value in milliseconds
+	  sets an upper time limit for all <c>call</c> operations
+	  to complete.
+	</p>
+
+	<p>
+	  If an <c>erpc</c> operation fails, but it is unknown if
+	  the function is/will be applied (that is, a timeout or
+	  connection loss), the caller will not receive any
+	  further information about the result if/when the applied
+	  function completes. If the applied function communicates
+	  with the calling process, such communication may, of
+	  course, reach the calling process.
+	</p>
+      </desc>
+      
+    </func>
+    
+    <func>
+      <name name="receive_response" arity="1" since="OTP @OTP-13450@"/>
+      <name name="receive_response" arity="2" since="OTP @OTP-13450@"/>
+      <fsummary>Receive a call response corresponding to a
+      previously sent call request.</fsummary>
+      <desc>
+	<p>
+	  Receive a response to a <c>call</c> request previously
+	  made by the calling process using
+	  <seealso marker="#send_request/4"><c>erpc:send_request/4</c></seealso>.
+	  <c><anno>RequestId</anno></c> should be the value returned from
+	  the previously made <c>erpc:send_request()</c> call, and
+	  the corresponding response should not already have been received
+	  and handled to completion by
+	  <seealso marker="#check_response/2"><c>erpc:check_response()</c></seealso>,
+	  <c>erpc:receive_response()</c>, or
+	  <seealso marker="#wait_response/2"><c>erpc:wait_response()</c></seealso>.
+	  <c><anno>Timeout</anno></c> equals the timeout time in milliseconds
+	  or the atom <c>infinity</c>. The <c>call</c> operation is completed
+	  once the <c>erpc:receive_response()</c> call returns or raise an
+	  exception.
+	</p>
+	<p>
+	  The call <c>erpc:receive_response(<anno>RequestId</anno>)</c> is
+	  equivalent to the call
+	  <c>erpc:receive_response(<anno>RequestId</anno>, infinity)</c>.
+	</p>
+	<p>
+	  A call to the function
+	  <c>my_call(Node, Module, Function, Args, Timeout)</c>
+	  below is equivalent to the call
+	  <seealso marker="#call/5"><c>erpc:call(Node, Module, Function, Args,
+	  Timeout)</c></seealso> if one disregards performance. <c>erpc:call()</c>
+	  can utilize a message queue optimization which removes the need to scan
+	  the whole message queue which the combination
+	  <c>erpc:send_request()/erpc:receive_response()</c> cannot.
+	</p>
+	<pre>
+my_call(Node, Module, Function, Args, Timeout) ->
+  RequestId = <seealso marker="#send_request/4">erpc:send_request(Node, Module, Function, Args)</seealso>,
+  erpc:receive_response(RequestId, Timeout).
+</pre>
+	<p>
+	  If the <c>erpc</c> operation fails, but it is unknown if
+	  the function is/will be applied (that is, a timeout, or
+	  a connection loss), the caller will not receive any
+	  further information about the result if/when the applied
+	  function completes. If the applied function explicitly
+	  communicates with the calling process, such communication
+	  may, of course, reach the calling process.
+        </p>
+	
+	<p>
+	  <c>erpc:receive_response()</c> will return or raise exceptions the
+	  same way as <seealso marker="#call/5"><c>erpc:call/5</c></seealso>
+	  does.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="send_request" arity="4" since="OTP @OTP-13450@"/>
+      <fsummary>Send a request to evaluate a function call on a node.</fsummary>
+      <desc>
+	<p>
+	  Send an asynchronous <c>call</c> request to the node
+	  <c><anno>Node</anno></c>. <c>erpc:send_request()</c>
+	  returns a request identifier that later is to be passed
+	  as argument to either
+	  <seealso marker="#receive_response/1"><c>erpc:receive_response()</c></seealso>,
+	  <seealso marker="#wait_response/1"><c>erpc:wait_response()</c></seealso>,
+	  or,
+	  <seealso marker="#check_response/2"><c>erpc:check_response()</c></seealso>
+	  in order to get the response of the call request.
+	</p>
+	<p><c>erpc:send_request()</c> fails with an <c>{erpc, badarg}</c>
+	<c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Node</anno></c> is not a valid
+	  node name atom.</p></item>
+	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Args</anno></c> is not a proper list
+	  of terms.</p></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="wait_response" arity="1" since="OTP @OTP-13450@"/>
+      <name name="wait_response" arity="2" since="OTP @OTP-13450@"/>
+      <fsummary>Wait or poll for a call response corresponding to a previously
+      sent call request.</fsummary>
+      <desc>
+	<p>
+	  Wait or poll for a response message to a <c>call</c> request
+	  previously made by the calling process using
+	  <seealso marker="#send_request/4"><c>erpc:send_request/4</c></seealso>.
+	  <c><anno>RequestId</anno></c> should be the value returned from
+	  the previously made <c>erpc:send_request()</c> call, and the
+	  corresponding response should not already have been received and handled
+	  to completion by
+	  <seealso marker="#check_response/2"><c>erpc:check_response()</c></seealso>,
+	  <seealso marker="#receive_response/2"><c>erpc:receive_response()</c></seealso>,
+	  or <c>erpc:wait_response()</c>. <c><anno>WaitTime</anno></c> equals the
+	  time to wait in milliseconds (or the atom <c>infinity</c>) during the wait.
+	</p>
+	<p>
+	  The call <c>erpc:wait_response(<anno>RequestId</anno>)</c> is equivalent
+	  to the call <c>erpc:wait_response(<anno>RequestId</anno>, 0)</c>. That is,
+	  poll for a response message to a <c>call</c> request previously made by
+	  the calling process.
+	</p>
+	<p>
+	  If no response is received before <c><anno>WaitTime</anno></c> milliseconds,
+	  the atom <c>no_response</c> is returned. It is valid to continue waiting
+	  for a response as many times as needed up until a response has
+	  been received and completed by <c>erpc:check_response()</c>,
+	  <c>erpc:receive_response()</c>, or <c>erpc:wait_response()</c>. If a
+	  response is received, the <c>call</c> operation is completed and either
+	  the result is returned as <c>{response, Result}</c> where <c>Result</c>
+	  corresponds to the value returned from the applied function or an
+	  exception is raised. The exceptions that can be raised corresponds to the
+	  same exceptions as can be raised by
+	  <seealso marker="#call/4"><c>erpc:call/4</c></seealso>.
+	  That is, no <c>{erpc, timeout}</c> <c>error</c> exception can be raised.
+	</p>
+	<p>
+	  If the <c>erpc</c> operation fails, but it is unknown if
+	  the function is/will be applied (that is, a too large wait time
+	  value, or a connection loss), the caller will not receive any
+	  further information about the result if/when the applied function
+	  completes. If the applied function explicitly communicates with the
+	  calling process, such communication may, of course, reach the
+	  calling process.
+        </p>
+      </desc>
+    </func>
+
+  </funcs>
+</erlref>
+

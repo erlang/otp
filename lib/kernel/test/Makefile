@@ -25,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 
 MODULES= \
+	erpc_SUITE \
 	rpc_SUITE \
 	pdict_SUITE \
 	bif_SUITE \

@@ -46,6 +46,7 @@ XML_REF3_FILES = application.xml \
 	erl_epmd.xml \
 	erl_prim_loader_stub.xml \
 	erlang_stub.xml \
+	erpc.xml \
 	error_handler.xml \
 	error_logger.xml \
 	file.xml \

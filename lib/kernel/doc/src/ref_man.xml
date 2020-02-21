@@ -43,6 +43,7 @@
   <xi:include href="erl_epmd.xml"/>
   <xi:include href="erl_prim_loader_stub.xml"/>
   <xi:include href="erlang_stub.xml"/>
+  <xi:include href="erpc.xml"/>
   <xi:include href="error_handler.xml"/>
   <xi:include href="error_logger.xml"/>
   <xi:include href="file.xml"/>

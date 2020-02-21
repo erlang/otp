@@ -25,7 +25,13 @@
          call/1, block_call/1, multicall/1, multicall_timeout/1,
 	 multicall_dies/1, multicall_node_dies/1,
 	 called_dies/1, called_node_dies/1, 
-	 called_throws/1, call_benchmark/1, async_call/1]).
+	 called_throws/1, call_benchmark/1, async_call/1,
+         call_against_old_node/1,
+         multicall_mix/1,
+         timeout_limit/1]).
+-export([init_per_testcase/2, end_per_testcase/2]).
+
+-export([call_func1/1]).
 
 -export([suicide/2, suicide/3, f/0, f2/0]).
 
@@ -39,10 +45,16 @@ all() ->
     [off_heap, call, block_call, multicall, multicall_timeout,
      multicall_dies, multicall_node_dies, called_dies,
      called_node_dies, called_throws, call_benchmark,
-     async_call].
+     async_call, call_against_old_node, multicall_mix, timeout_limit].
 
 groups() -> 
     [].
+
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
+    [{testcase, Func}|Config].
+
+end_per_testcase(_Func, _Config) ->
+    ok.
 
 init_per_suite(Config) ->
     Config.
@@ -224,7 +236,6 @@ do_multicall_2_nodes_dies(Mod, Func, Args) ->
     ok.
 
 
-
 %% OTP-3766.
 called_dies(Config) when is_list(Config) ->
     PA = filename:dirname(code:which(?MODULE)),
@@ -254,20 +265,23 @@ called_dies(Config) when is_list(Config) ->
     %%
     TrapExit = process_flag(trap_exit, true),
     %%
-    rep(fun (Tag, Call, Args=[Node|_]) when Node == node() ->
+    rep(fun (Tag, call, Args=[Node|_]) when Node == node() ->
 		{Tag,timeout} =
-		    {Tag,apply(rpc, Call, Args)},
+		    {Tag,apply(rpc, call, Args)},
 		{Tag,flush,[{'EXIT',_,normal}]} =
 		    {Tag,flush,flush([])};
 	    (Tag, Call, Args) ->
 		{Tag,timeout} =
 		    {Tag,apply(rpc, Call, Args)}
 	end, N, ?MODULE, suicide, [link,normal]),
-    rep(fun (Tag, Call, Args=[Node|_]) when Node == node() ->
+    rep(fun (Tag, call, Args=[Node|_]) when Node == node() ->
 		{Tag,timeout} =
-		    {Tag,apply(rpc, Call, Args)},
+		    {Tag,apply(rpc, call, Args)},
 		{Tag,flush,[{'EXIT',_,abnormal}]} =
 		    {Tag,flush,flush([])};
+	    (Tag, Call, Args=[Node|_]) when Node == node() ->
+		{Tag,timeout} =
+		    {Tag,apply(rpc, Call, Args)};
 	    (Tag, block_call, Args) ->
 		{Tag,timeout} =
 		    {Tag,apply(rpc, block_call, Args)};
@@ -275,20 +289,23 @@ called_dies(Config) when is_list(Config) ->
 		{Tag,{badrpc,{'EXIT',abnormal}}} =
 		    {Tag,apply(rpc, Call, Args)}
 	end, N, ?MODULE, suicide, [link,abnormal]),
-    rep(fun (Tag, Call, Args=[Node|_]) when Node == node() ->
+    rep(fun (Tag, call, Args=[Node|_]) when Node == node() ->
 		{Tag,timeout} =
-		    {Tag,apply(rpc, Call, Args)},
+		    {Tag,apply(rpc, call, Args)},
 		{Tag,flush,[{'EXIT',_,normal}]} =
 		    {Tag,flush,flush([])};
 	    (Tag, Call, Args) ->
 		{Tag,timeout} =
 		    {Tag,apply(rpc, Call, Args)}
 	end, N, ?MODULE, suicide, [exit,normal]),
-    rep(fun (Tag, Call, Args=[Node|_]) when Node == node() ->
+    rep(fun (Tag, call, Args=[Node|_]) when Node == node() ->
 		{Tag,timeout} =
-		    {Tag,apply(rpc, Call, Args)},
+		    {Tag,apply(rpc, call, Args)},
 		{Tag,flush,[{'EXIT',_,abnormal}]} =
 		    {Tag,flush,flush([])};
+	    (Tag, Call, Args=[Node|_]) when Node == node() ->
+		{Tag,timeout} =
+		    {Tag,apply(rpc, Call, Args)};
 	    (Tag, block_call, Args) ->
 		{Tag,timeout} =
 		    {Tag,apply(rpc, block_call, Args)};
@@ -370,8 +387,10 @@ called_node_dies(Config) when is_list(Config) ->
       PA, ?MODULE, suicide, [init,stop,[]]),
 
     node_rep(
-      fun (Call, Args=[_|_]) ->
-	      {badrpc,{'EXIT',{killed,_}}} = apply(rpc, Call, Args)
+      fun (block_call, Args=[_|_]) ->
+	      {badrpc,{'EXIT',{killed,_}}} = apply(rpc, block_call, Args);
+          (call, Args=[_|_]) ->
+	      {badrpc,nodedown} = apply(rpc, call, Args)
       end, "rpc_SUITE_called_node_dies_3",
       PA, ?MODULE, suicide, [erlang,exit,[rex,kill]]),
 
@@ -380,7 +399,7 @@ called_node_dies(Config) when is_list(Config) ->
 	      %% Cannot block call rpc - will hang
 	      ok;
 	  (Call, Args=[_|_]) ->
-	      {badrpc,{'EXIT',{normal,_}}} = apply(rpc, Call, Args)
+	      {badrpc,nodedown} = apply(rpc, Call, Args)
       end, "rpc_SUITE_called_node_dies_4",
       PA, ?MODULE, suicide, [rpc,stop,[]]),
 
@@ -474,9 +493,152 @@ async_call(Config) when is_list(Config) ->
 
     ok.
 
+call_against_old_node(Config) ->
+    case start_22_node(Config) of
+        {ok, Node22} ->
+            Node22 = rpc:call(Node22, erlang, node, []),
+            stop_node(Node22),
+            ok;
+        _ ->
+	    {skipped, "No OTP 22 available"}
+    end.
+
+multicall_mix(Config) ->
+    {ok, Node1} = start_node(Config),
+    {ok, Node2} = start_node(Config),
+    {Node3, OldNodeTest} = case start_22_node(Config) of
+                               {ok, N3} ->
+                                   {N3, true};
+                               _ ->
+                                   {ok, N3} = start_node(Config),
+                                   {N3, false}
+                        end,
+    {ok, Node4} = start_node(Config),
+    {ok, Node5} = start_node(Config),
+    stop_node(Node2),
+    
+    ThisNode = node(),
+    Nodes = [ThisNode, Node1, Node2, Node3, Node4, Node5],
+    
+    {[ThisNode,
+      Node1,
+      Node3,
+      Node4,
+      Node5],
+     [Node2]}
+        = rpc:multicall(Nodes, erlang, node, []),
+    
+    {[BlingError,
+      BlingError,
+      {badrpc, {'EXIT', _}},
+      BlingError,
+      BlingError],
+     [Node2]}
+        = rpc:multicall(Nodes, ?MODULE, call_func1, [bling]),
+
+    {badrpc, {'EXIT',
+              {bling,
+               [{?MODULE, call_func2, A, _},
+                {?MODULE, call_func1, 1, _}]}}} = BlingError,
+    true = (A == 1) orelse (A == [bling]),
+
+    {[], Nodes}
+        = rpc:multicall(Nodes, erlang, processes, [], 0),
+
+    OtherNodes = Nodes -- [ThisNode],
+
+    {[], OtherNodes}
+        = rpc:multicall(OtherNodes, erlang, halt, []),
+
+    case OldNodeTest of
+        true -> {comment, "Test with OTP 22 node as well"};
+        false -> {comment, "Test without OTP 22"}
+    end.
+
+call_func1(X) ->
+    call_func2(X),
+    ok.
+
+call_func2(X) ->
+    erlang:error(X, [X]).
+
+timeout_limit(Config) when is_list(Config) ->
+    Node = node(),
+    MaxTmo = (1 bsl 32) - 1,
+    erlang:send_after(100, self(), dummy_message),
+    try
+        receive
+            M ->
+                M
+        after MaxTmo + 1 ->
+                ok
+        end,
+        ct:fail("The ?MAX_INT_TIMEOUT define in rpc.erl needs "
+                "to be updated to reflect max timeout value "
+                "in a receive/after...")
+    catch
+        error:timeout_value ->
+            ok
+    end,
+    Node = rpc:call(Node, erlang, node, [], MaxTmo),
+    try
+        {badrpc, _} = rpc:call(Node, erlang, node, [], MaxTmo+1),
+        ct:fail(unexpected)
+    catch
+        error:_ ->
+            ok
+    end,
+    Node = rpc:block_call(Node, erlang, node, [], MaxTmo),
+    try
+        {badrpc, _} = rpc:block_call(Node, erlang, node, [], MaxTmo+1),
+        ct:fail(unexpected)
+    catch
+        error:_ ->
+            ok
+    end,
+    {[Node],[]} = rpc:multicall([Node], erlang, node, [], MaxTmo),
+    try
+        rpc:multicall([Node], erlang, node, [], MaxTmo+1),
+        ct:fail(unexpected)
+    catch
+        error:_ ->
+            ok
+    end,
+    ok.
+    
+
 %%%
 %%% Utility functions.
 %%%
+
+start_node(Config) ->
+    Name = list_to_atom(atom_to_list(?MODULE)
+			++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
+			++ "-" ++ integer_to_list(erlang:system_time(second))
+			++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
+    Pa = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, slave, [{args,  "-pa " ++ Pa}]).
+
+start_22_node(Config) ->
+    Rel = "22_latest",
+    case test_server:is_release_available(Rel) of
+	false ->
+            notsup;
+        true ->
+            Cookie = atom_to_list(erlang:get_cookie()),
+            Name = list_to_atom(atom_to_list(?MODULE)
+                                ++ "-" ++ atom_to_list(proplists:get_value(testcase, Config))
+                                ++ "-" ++ integer_to_list(erlang:system_time(second))
+                                ++ "-" ++ integer_to_list(erlang:unique_integer([positive]))),
+            Pa = filename:dirname(code:which(?MODULE)),
+	    test_server:start_node(Name,
+                                   peer,
+                                   [{args, "-pa " ++ Pa ++ " -setcookie "++Cookie},
+                                    {erl, [{release, Rel}]}])
+    end.
+
+stop_node(Node) ->
+    test_server:stop_node(Node).
 
 flush(L) ->
     receive

@@ -43,7 +43,7 @@
 -export([global_load/3, lock_global/2, lock_global2/2]).
 
 -export([]).
--export([mass_spawn/1]).
+-export([init_mass_spawn/1]).
 
 -export([start_tracer/0, stop_tracer/0, get_trace/0]).
 
@@ -3887,7 +3887,7 @@ mass_death(Config) when is_list(Config) ->
     io:format("Nodes: ~p~n", [Nodes]),
     Ns = lists:seq(1, 40),
     %% Start processes with globally registered names on the nodes
-    {Pids,[]} = rpc:multicall(Nodes, ?MODULE, mass_spawn, [Ns]),
+    {Pids,[]} = rpc:multicall(Nodes, ?MODULE, init_mass_spawn, [Ns]),
     io:format("Pids: ~p~n", [Pids]),
     %% Wait...
     ct:sleep(10000),
@@ -3924,6 +3924,11 @@ wait_mass_death(Nodes, OrigNames, Then, Config) ->
 	    wait_mass_death(Nodes, OrigNames, Then, Config)
     end.
 
+init_mass_spawn(N) ->
+    Pid = mass_spawn(N),
+    unlink(Pid),
+    Pid.
+
 mass_spawn([]) ->
     ok;
 mass_spawn([N|T]) ->
@@ -3937,7 +3942,10 @@ mass_spawn([N|T]) ->
 		  Parent ! self(),
 		  loop()
 	  end),
-    receive Pid -> Pid end.
+    receive
+        Pid ->
+            Pid
+    end.
 
 mass_names([], _) ->
     [];
