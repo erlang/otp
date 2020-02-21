@@ -1215,6 +1215,41 @@
     </desc>
    </func>
 
+<!-- SET_SOCK_OPTS/2 -->
+   <func>
+     <name name="set_sock_opts" arity="2" since=""/>
+     <fsummary>Set tcp socket options on connections</fsummary>
+     <desc>
+       <p>Sets tcp socket options on the tcp-socket below an ssh connection.</p>
+       <p>This function calls the
+       <seealso marker="kernel:inet#setopts/2">inet:setopts/2</seealso>, read that documentation and
+       for <seealso marker="kernel:gen_tcp#type-option">gen_tcp:option()</seealso>.
+       All gen_tcp socket options except <c>active</c>, <c>deliver</c>, <c>mode</c> and <c>packet</c>
+       are allowed. The excluded options are reserved by the SSH application.
+       </p>
+       <warning>
+	 <p>This is an extremly dangerous function. You use it on your own risk.</p>
+	 <p>Some options are OS and OS version dependent.
+	 Do not use it unless you know what effect your option values will have
+	 on an TCP stream.</p>
+	 <p>Some values may destroy the functionality of the SSH protocol.
+	 </p>
+       </warning>
+     </desc>
+   </func>
+
+<!-- GET_SOCK_OPTS/2 -->
+   <func>
+     <name name="get_sock_opts" arity="2" since=""/>
+     <fsummary>Get tcp socket options on connections</fsummary>
+     <desc>
+       <p>Get tcp socket option values of the tcp-socket below an ssh connection.</p>
+       <p>This function calls the
+       <seealso marker="kernel:inet#getopts/2">inet:getopts/2</seealso>, read that documentation.
+       </p>
+     </desc>
+   </func>
+
 <!-- DEAMON/1,2,3 -->
    <func>
      <name since="">daemon(Port | TcpSocket) -> Result</name>

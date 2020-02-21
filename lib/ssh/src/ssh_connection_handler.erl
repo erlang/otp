@@ -62,7 +62,8 @@
 	 channel_info/3,
 	 adjust_window/3, close/2,
 	 disconnect/4,
-	 get_print_info/1
+	 get_print_info/1,
+         set_sock_opts/2, get_sock_opts/2
 	]).
 
 -type connection_ref() :: ssh:connection_ref().
@@ -360,6 +361,29 @@ retrieve(#connection{options=Opts}, Key) ->
 retrieve(ConnectionHandler, Key) ->
     call(ConnectionHandler, {retrieve,Key}).
     
+%%--------------------------------------------------------------------
+%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+set_sock_opts(ConnectionRef, SocketOptions) ->
+    try lists:foldr(fun({Name,_Val}, Acc) ->
+                            case lists:member(Name, [active, deliver, mode, packet]) of
+                                true -> [Name|Acc];
+                                false -> Acc
+                            end
+                     end, [], SocketOptions)
+    of
+        [] ->
+            call(ConnectionRef, {set_sock_opts,SocketOptions});
+        Bad ->
+            {error, {not_allowed,Bad}}
+    catch
+        _:_ ->
+            {error, badarg}
+    end.
+
+%%--------------------------------------------------------------------
+%% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+get_sock_opts(ConnectionRef, SocketGetOptions) ->
+    call(ConnectionRef, {get_sock_opts,SocketGetOptions}).
 
 %%====================================================================
 %% Test support
@@ -1261,6 +1285,20 @@ handle_event({call,From}, {info, ChannelPid}, _, D) ->
 		       Acc
 	       end, [], cache(D)),
     {keep_state_and_data, [{reply, From, {ok,Result}}]};
+
+handle_event({call,From}, {set_sock_opts,SocketOptions}, _StateName, D) ->
+    Result = try inet:setopts(D#data.socket, SocketOptions)
+             catch
+                 _:_ -> {error, badarg}
+             end,
+    {keep_state_and_data, [{reply,From,Result}]};
+
+handle_event({call,From}, {get_sock_opts,SocketGetOptions}, _StateName, D) ->
+    Result = try inet:getopts(D#data.socket, SocketGetOptions)
+             catch
+                 _:_ -> {error, badarg}
+             end,
+    {keep_state_and_data, [{reply,From,Result}]};
 
 handle_event({call,From}, stop, _StateName, D0) ->
     {Repls,D} = send_replies(ssh_connection:handle_stop(D0#data.connection_state), D0),

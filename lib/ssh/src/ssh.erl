@@ -35,6 +35,7 @@
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 daemon_info/1, daemon_info/2,
+         set_sock_opts/2, get_sock_opts/2,
 	 default_algorithms/0,
          chk_algos_opts/1,
 	 stop_listener/1, stop_listener/2,  stop_listener/3,
@@ -574,6 +575,25 @@ chk_algos_opts(Opts) ->
         OtherOps ->
             {error, {non_algo_opts_found,OtherOps}}
     end.
+
+
+%%--------------------------------------------------------------------
+-spec set_sock_opts(ConnectionRef, SocketOptions) ->
+                           ok | {error, inet:posix()}  when
+      ConnectionRef :: connection_ref(),
+      SocketOptions :: [gen_tcp:option()] .
+%%--------------------------------------------------------------------
+set_sock_opts(ConnectionRef, SocketOptions) ->
+    ssh_connection_handler:set_sock_opts(ConnectionRef, SocketOptions).
+
+%%--------------------------------------------------------------------
+-spec get_sock_opts(ConnectionRef, SocketGetOptions) ->
+                           ok | {error, inet:posix()}  when
+      ConnectionRef :: connection_ref(),
+      SocketGetOptions :: [gen_tcp:option_name()] .
+%%--------------------------------------------------------------------
+get_sock_opts(ConnectionRef, SocketGetOptions) ->
+    ssh_connection_handler:get_sock_opts(ConnectionRef, SocketGetOptions).
 
 %%--------------------------------------------------------------------
 %% Ask local client to listen to ListenHost:ListenPort.  When someone
