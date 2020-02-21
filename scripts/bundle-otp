@@ -6,8 +6,8 @@ if [ "$TRAVIS_PULL_REQUEST" = "false" -a "$TRAVIS_REPO_SLUG" != "erlang/otp" ]; 
     exit 0
 fi
 
-OTP_META_FILE=$ERL_TOP/${TRAVIS_TAG}-bundle.txt
-OTP_FILE=$ERL_TOP/${TRAVIS_TAG}-bundle.tar.gz
+OTP_META_FILE=$ERL_TOP/${TRAVIS_TAG}.0-bundle.txt
+OTP_FILE=$ERL_TOP/${TRAVIS_TAG}.0-bundle.tar.gz
 
 REPOSITORIES="otp,$TRAVIS_TAG corba,.*"
 

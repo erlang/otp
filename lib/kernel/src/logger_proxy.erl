@@ -42,11 +42,16 @@
       StringOrReport :: unicode:chardata() | logger:report(),
       Meta :: logger:metadata().
 log(RemoteLog) ->
-    Olp = persistent_term:get(?MODULE),
-    case logger_olp:get_pid(Olp) =:= self() of
+    Olp = persistent_term:get(?MODULE, undefined),
+    case (Olp =:= undefined) orelse (logger_olp:get_pid(Olp) =:= self()) of
         true ->
             %% This happens when the log event comes from the
             %% emulator, and the group leader is on a remote node.
+            %%
+            %% OR
+            %%
+            %% when we are to log a remote message before the logger_proxy
+            %% has started
             _ = handle_load(RemoteLog, no_state),
             ok;
         false ->
@@ -112,9 +117,12 @@ init([]) ->
 
 %% Log event to send to the node where the group leader of it's client resides
 handle_load({remote,Node,Log},State) ->
-    %% If the connection is overloaded (send_nosuspend returns false),
-    %% we drop the message.
-    _ = erlang:send_nosuspend({?SERVER,Node},Log),
+    case erlang:send({?SERVER,Node},Log,[nosuspend]) of
+        _ok_or_nosuspend ->
+            %% If the connection is overloaded (send returns nosuspend),
+            %% we drop the message.
+            ok
+    end,
     State;
 %% Log event to log on this node
 handle_load({log,Level,Format,Args,Meta},State) ->
