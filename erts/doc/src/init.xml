@@ -48,6 +48,15 @@
       the system.</p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name name="mode"/>
+      <desc>
+        <p>Code loading mode.</p>
+      </desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
       <name name="boot" arity="1" since=""/>
