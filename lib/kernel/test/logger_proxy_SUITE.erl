@@ -72,6 +72,7 @@ all() ->
     [basic,
      emulator,
      remote,
+     remote_disconnect,
      remote_emulator,
      config,
      restart_after,
@@ -116,6 +117,19 @@ remote(Config) ->
     ok = ensure(L2),
     ok.
 remote(cleanup,_Config) ->
+    ok = logger:remove_handler(?HNAME).
+
+remote_disconnect(Config) ->
+    {ok,_,Node} = logger_test_lib:setup(Config,[{logger,[{proxy,#{}}]}]),
+    ok = logger:add_handler(?HNAME,?MODULE,#{config=>self()}),
+    RemoteGL = rpc:call(Node, erlang, whereis, [user]),
+    net_kernel:disconnect(Node),
+    L1 = ?LOC#{ gl => RemoteGL }, logger:notice("Log from ~p; ~p",[?FUNCTION_NAME,?LINE],L1),
+    ok = ensure(L1),
+    L2 = ?LOC#{ gl => RemoteGL }, logger:notice([{test_case,?FUNCTION_NAME},{line,?LINE}],L2),
+    ok = ensure(L2),
+    ok.
+remote_disconnect(cleanup,_Config) ->
     ok = logger:remove_handler(?HNAME).
 
 remote_emulator(Config) ->
