@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -51,8 +51,7 @@
 -export([parent_class/1]).
 
 -export_type([wxDC/0]).
--deprecated([{computeScaleAndOrigin,1,
-              "not available in wxWidgets-2.9 and later"}]).
+-deprecated([{computeScaleAndOrigin,1,"not available in wxWidgets-2.9 and later"}]).
 
 %% @hidden
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).

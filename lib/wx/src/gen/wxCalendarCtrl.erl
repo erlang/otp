@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -78,8 +78,8 @@
   update/1,updateWindowUI/1,updateWindowUI/2,validate/1,warpPointer/3]).
 
 -export_type([wxCalendarCtrl/0]).
--deprecated([{enableYearChange,'_',
-              "not available in wxWidgets-2.9 and later"}]).
+-deprecated([{enableYearChange,1,"not available in wxWidgets-2.9 and later"},
+             {enableYearChange,2,"not available in wxWidgets-2.9 and later"}]).
 
 %% @hidden
 parent_class(wxControl) -> true;
