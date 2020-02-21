@@ -52,7 +52,8 @@ all() ->
 
 groups() ->
     [{all_tests, [?PARALLEL], [{group, ssh_renegotiate_SUITE},
-                              {group, ssh_basic_SUITE}
+                               {group, ssh_basic_SUITE},
+                               ssh_file_is_host_key4
                              ]},
      {ssh_basic_SUITE, [], [app_test,
                             appup_test,
@@ -926,7 +927,60 @@ known_hosts(Config) when is_list(Config) ->
              ct:fail("wrong num lines", [])
     end,
 
+    Binary3 = <<"localhost,",Binary/binary>>,
+    ok = file:write_file(KnownHosts, Binary3),
+     _ConnectionRef3 =
+	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
+					  {user_interaction, false},
+					  silently_accept_hosts]),
+    ct:log("New known_hosts:~n~p",[Binary3]),
+    {ok, Binary4} = file:read_file(KnownHosts),
+    case Binary3 of
+        Binary4 -> ok;
+        _ -> ct:log("2nd differ~n~p", [Binary4]),
+             ct:fail("wrong num lines", [])
+    end,
+
+
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+ssh_file_is_host_key4(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    KnownHosts = filename:join(PrivDir, "known_hosts"),
+
+    Key1 = {ed_pub,ed25519,<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
+                             214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
+    Key2 = {ed_pub,ed448,<<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
+                           161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
+                           36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
+                           190,175,232,37,97,128>>},
+
+    FileContents = <<"h11,h12,h13,h14 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIElI66JgZZo72XJ7wGBp+h3WTDw/pxXddvaomAIHrIl9\n",
+                     "h21,[h22]:2345,h23 ssh-ed448 AAAACXNzaC1lZDQ0OAAAADlf10SbWbRh/Sznh+xhatRqHaE0JIWnDh"
+                                                             "+KDqddgOlneO3xJHabRscGG9Z4PfHlD2zR+hq+r+glYYA=\n"
+                   >>,
+    ok = file:write_file(KnownHosts, FileContents),
+
+    true = ssh_file:is_host_key(Key1, "h11", 'ssh-ed25519', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key1, "h12", 'ssh-ed25519', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key1, "h13", 'ssh-ed25519', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key1, "h14", 'ssh-ed25519', [{user_dir,PrivDir}]),
+    
+    true = ssh_file:is_host_key(Key1, "h11,noh1",      'ssh-ed25519', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key1, "noh1,h11",      'ssh-ed25519', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key1, "noh1,h12,noh2", 'ssh-ed25519', [{user_dir,PrivDir}]),
+
+    true = ssh_file:is_host_key(Key2,  "h21",  'ssh-ed448', [{user_dir,PrivDir}]),
+    false = ssh_file:is_host_key(Key2, "h22",  'ssh-ed448', [{user_dir,PrivDir}]),
+    false = ssh_file:is_host_key(Key2, "[h22]",'ssh-ed448', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key2 , "[h22]:2345",'ssh-ed448', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key2,  "h23",  'ssh-ed448', [{user_dir,PrivDir}]),
+    
+    false =  ssh_file:is_host_key(Key2, "h11", 'ssh-ed448', [{user_dir,PrivDir}]),
+    false =  ssh_file:is_host_key(Key1, "h21", 'ssh-ed25519', [{user_dir,PrivDir}]),
+
+    ok.
 
 %%--------------------------------------------------------------------
 
