@@ -575,8 +575,8 @@
       <tag><marker id="async_thread_pool_size"/><c><![CDATA[+A size]]></c></tag>
       <item>
         <p>Sets the number of threads in async thread pool. Valid range
-          is 0-1024. The async thread pool is used by linked-in drivers to
-          handle work that may take a very long time. Since OTP-21 there are
+          is 1-1024. The async thread pool is used by linked-in drivers to
+          handle work that may take a very long time. Since OTP 21 there are
           very few linked-in drivers in the default Erlang/OTP distribution
           that uses the async thread pool. Most of them have been migrated to
           dirty IO schedulers. Defaults to 1.</p>
