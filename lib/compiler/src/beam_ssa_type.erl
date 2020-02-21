@@ -1464,9 +1464,20 @@ update_successors(#b_switch{arg=#b_var{}=V,fail=Fail0,list=List0}=Last0,
     case FailTs of
         none ->
             %% The fail block is unreachable; swap it with one of the choices.
-            [{_, Fail} | List] = List1,
-            Last = Last0#b_switch{fail=Fail,list=List},
-            {Last, Ls1};
+            case List1 of
+                [{#b_literal{val=0},_}|_] ->
+                    %% Swap with the last choice in order to keep the zero the
+                    %% first choice. If the loader can substitute a jump table
+                    %% instruction, then a shorter version of the jump table
+                    %% instruction can be used if the first value is zero.
+                    {List, [{_,Fail}]} = split(length(List1)-1, List1),
+                    Last = Last0#b_switch{fail=Fail,list=List},
+                    {Last, Ls1};
+                [{_,Fail}|List] ->
+                    %% Swap with the first choice in the list.
+                    Last = Last0#b_switch{fail=Fail,list=List},
+                    {Last, Ls1}
+            end;
         #{} ->
             Ls = update_successor(Fail0, FailTs, Ls1),
             Last = Last0#b_switch{list=List1},

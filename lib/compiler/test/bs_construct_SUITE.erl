@@ -332,6 +332,24 @@ fail(Config) when is_list(Config) ->
     %% Unaligned sizes with literal binaries.
     {'EXIT',{badarg,_}} = (catch <<0,(<<7777:17>>)/binary>>),
 
+    %% Make sure that variables are bound even if binary
+    %% construction fails.
+    {'EXIT',{badarg,_}} = (catch case <<face:(V0 = 42)>> of
+                                    _Any -> V0
+                                end),
+    {'EXIT',{badarg,_}} = (catch case <<face:(V1 = 3)>> of
+                                     a when V1 ->
+                                         office
+                                 end),
+    {'EXIT',{badarg,_}} = (catch <<13:(put(?FUNCTION_NAME, 17))>>),
+    17 = erase(?FUNCTION_NAME),
+
+    %% Size exceeds length of binary. 'native' is redundant for
+    %% binaries, but when it was present sys_core_fold would not
+    %% detect the overlong binary and beam_ssa_opt would crash.
+    {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/native-bytes >>),
+    {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/bytes >>),
+
     ok.
 
 float_bin(Config) when is_list(Config) ->

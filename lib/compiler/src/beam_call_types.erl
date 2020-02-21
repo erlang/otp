@@ -731,13 +731,14 @@ erlang_band_type_1(LHS, Int) ->
         _ when Int >= 0 ->
             %% The range is either unknown or too wide, conservatively assume
             %% that the new range is 0 .. Int.
-            #t_integer{elements={0,Int}};
-        _ when Int < 0 ->
-            %% We can't infer boundaries when the range is unknown and the
-            %% other operand is a negative number, as the latter sign-extends
-            %% to infinity and we can't express an inverted range at the
-            %% moment (cf. X band -8; either less than -7 or greater than 7).
-            #t_integer{}
+            beam_types:meet(LHS, #t_integer{elements={0,Int}});
+        _ ->
+            %% We can't infer boundaries when LHS is not an integer or
+            %% the range is unknown and the other operand is a
+            %% negative number, as the latter sign-extends to infinity
+            %% and we can't express an inverted range at the moment
+            %% (cf. X band -8; either less than -7 or greater than 7).
+            beam_types:meet(LHS, #t_integer{})
     end.
 
 erlang_map_get_type(Key, Map) ->
