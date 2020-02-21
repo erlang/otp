@@ -146,9 +146,9 @@ coverage(Config) when is_list(Config) ->
     {b,a} = receive_sink_tuple({a,b}),
 
     %% Basically a smoke test of no_clauses_left/0.
-    NoClausesLeft = spawn(fun no_clauses_left/0),
-    receive after 1 -> ok end,
-    exit(NoClausesLeft, kill),
+    smoke_receive(fun no_clauses_left_1/0),
+    smoke_receive(fun no_clauses_left_2/0),
+    smoke_receive(fun no_clauses_left_3/0),
 
     ok.
 
@@ -198,7 +198,7 @@ tuple_to_values(Timeout, X) ->
 	    end,
     A+B.
 
-no_clauses_left() ->
+no_clauses_left_1() ->
     receive
         %% This clause would be removed because it cannot match...
         a = b ->
@@ -207,6 +207,24 @@ no_clauses_left() ->
     %% ... leaving a reference to an unbound variable. Crash.
     V.
 
+no_clauses_left_2() ->
+    [receive
+         %% This clause would be removed because it cannot match...
+         a = <<V0:(node())>> ->
+             year
+     end],
+    %% ... leaving a reference to an unbound variable. Crash.
+    V0.
+
+no_clauses_left_3() ->
+    case id([]) of
+        [] ->
+            receive
+                [Var] = [] ->
+                    ok
+            end
+    end,
+    Var.
 
 %% Cover a help function for beam_ssa_opt:ssa_opt_sink/1.
 receive_sink_tuple({Line,Pattern}) ->

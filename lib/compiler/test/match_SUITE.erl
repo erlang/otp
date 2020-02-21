@@ -279,6 +279,10 @@ non_matching_aliases(_Config) ->
     1 = erase(shark),
 
     {'EXIT',{{badmatch,_},_}} = (catch radio(research)),
+
+    {'EXIT',{{case_clause,whatever},_}} = (catch pike1(whatever)),
+    {'EXIT',{{case_clause,whatever},_}} = (catch pike2(whatever)),
+
     ok.
 
 mixed_aliases(<<X:8>> = x) -> {a,X};
@@ -340,6 +344,26 @@ radio(research) ->
     (connection = proof) =
 	(catch erlang:trace_pattern(catch mechanisms + assist,
 				    summary = mechanisms)).
+
+pike1(X) ->
+    case id([]) of
+        [] ->
+            case X of
+                [Var] = [] ->
+                    ok
+            end
+    end,
+    Var.
+
+pike2(X) ->
+    case id([]) of
+        [] ->
+            case X of
+                [_] = [] ->
+                    Var = 42
+            end
+    end,
+    Var.
 
 %% OTP-7018.
 

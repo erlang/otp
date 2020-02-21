@@ -258,19 +258,14 @@ body(Cs0, Name, Arity, St0) ->
     Fc = function_clause(Ps, Anno),
     {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3}.
 
-%% clause(Clause, State) -> {Cclause,State} | noclause.
+%% clause(Clause, State) -> {Cclause,State}.
 %% clauses([Clause], State) -> {[Cclause],State}.
-%%  Convert clauses.  Trap bad pattern aliases and remove clause from
-%%  clause list.
+%%  Convert clauses. Trap bad pattern aliases.
 
 clauses([C0|Cs0], St0) ->
-    case clause(C0, St0) of
-        {noclause,St} ->
-            clauses(Cs0, St);
-        {C,St1} ->
-            {Cs,St2} = clauses(Cs0, St1),
-            {[C|Cs],St2}
-    end;
+    {C,St1} = clause(C0, St0),
+    {Cs,St2} = clauses(Cs0, St1),
+    {[C|Cs],St2};
 clauses([], St) -> {[],St}.
 
 clause({clause,Lc,H0,G0,B0}, St0) ->
@@ -282,8 +277,18 @@ clause({clause,Lc,H0,G0,B0}, St0) ->
             {#iclause{anno=#a{anno=Anno},pats=H1,guard=G1,body=B1},St3}
     catch
 	throw:nomatch ->
-	    St = add_warning(Lc, nomatch, St0),
-            {noclause,St}			%Bad pattern
+            %% This pattern can't possibly match. If we simply remove
+            %% the clause, varibles that are used later might not be
+            %% bound. Therefore, we must keep the clause, but rewrite
+            %% the pattern to a pattern that will bind the same
+            %% variables and ensure that the clause can't be executed
+            %% by letting the guard return false.
+            St1 = add_warning(Lc, nomatch, St0),
+            H1 = [sanitize(P) || P <- H0],
+            false = H0 =:= H1,                  %Assertion.
+            G1 = [[{atom,Lc,false}]],
+            LcNoWarn = no_compiler_warning(Lc),
+            clause({clause,LcNoWarn,H1,G1,B0}, St1)
     end.
 
 clause_arity({clause,_,H0,_,_}) -> length(H0).
@@ -834,6 +839,9 @@ sanitize({cons,L,H,T}) ->
 sanitize({tuple,L,Ps0}) ->
     Ps = [sanitize(P) || P <- Ps0],
     {tuple,L,Ps};
+sanitize({bin,L,Segs0}) ->
+    Segs = [Var || {bin_element,_,{var,_,_}=Var,_,_} <- Segs0],
+    {tuple,L,Segs};
 sanitize({map,L,Ps0}) ->
     Ps = [sanitize(V) || {map_field_exact,_,_,V} <- Ps0],
     {tuple,L,Ps};
@@ -2244,20 +2252,6 @@ uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
 	    uexprs([#icase{anno=A,args=[Arg],
 			   clauses=[Mc],fc=Fc}], Ks, St0)
     end;
-uexprs([#ireceive1{clauses=[]}=Le0|_], Ks, St0) ->
-    %% All clauses have been optimized away because they had impossible patterns.
-    %% For example:
-    %%
-    %%     receive
-    %%         a = b ->
-    %%             V = whatever
-    %%     end,
-    %%     V
-    %%
-    %% Discard the unreachable code following the receive to ensure
-    %% that there are no references to unbound variables.
-    {Le1,St1} = uexpr(Le0, Ks, St0),
-    {[Le1],St1};
 uexprs([Le0|Les0], Ks, St0) ->
     {Le1,St1} = uexpr(Le0, Ks, St0),
     {Les1,St2} = uexprs(Les0, union((get_anno(Le1))#a.ns, Ks), St1),
