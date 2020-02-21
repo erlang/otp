@@ -665,7 +665,7 @@ to_chunk(Dom, Source, Module, AST) ->
 
 docs_v1(DocContents, Anno, Metadata, Docs) ->
     #docs_v1{ anno = Anno,
-              module_doc = #{<<"en">> => term_to_binary(shell_docs:normalize(DocContents))},
+              module_doc = #{<<"en">> => shell_docs:normalize(DocContents)},
               metadata = maps:merge(Metadata, (#docs_v1{})#docs_v1.metadata),
               docs = Docs }.
 
@@ -678,7 +678,7 @@ docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->
                 Anno
         end,
     {{Kind, Name, Arity}, AnnoWLine, lists:flatten(Signature),
-     #{ <<"en">> => term_to_binary(shell_docs:normalize(DocContents))}, Metadata}.
+     #{ <<"en">> => shell_docs:normalize(DocContents)}, Metadata}.
 
 %% A special list_to_atom that handles
 %%  'and'

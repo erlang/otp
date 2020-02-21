@@ -71,13 +71,13 @@ validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
     true = lists:all(fun(Elem) -> ?IS_INLINE(Elem) end, ?INLINE),
     true = lists:all(fun(Elem) -> ?IS_BLOCK(Elem) end, ?BLOCK),
 
-    _ = maps:map(fun(_Key,MDoc) -> validate(binary_to_term(MDoc)) end, MDocs),
+    _ = maps:map(fun(_Key,MDoc) -> validate(MDoc) end, MDocs),
     lists:map(fun({_,_Anno, Sig, Docs, _Meta}) ->
                       case lists:all(fun erlang:is_binary/1, Sig) of
                           false -> throw({invalid_signature,Sig});
                           true -> ok
                       end,
-                      maps:map(fun(_Key,Doc) -> validate(binary_to_term(Doc)) end, Docs)
+                      maps:map(fun(_Key,Doc) -> validate(Doc) end, Docs)
               end, AllDocs);
 validate([H|T]) when is_tuple(H) ->
     _ = validate(H),
@@ -333,10 +333,10 @@ get_local_doc({F,A}, Docs) ->
     get_local_doc(unicode:characters_to_binary(io_lib:format("~tp/~p",[F,A])), Docs);
 get_local_doc(_Missing, #{ <<"en">> := Docs }) ->
     %% English if it exists
-    normalize(binary_to_term(Docs));
+    normalize(Docs);
 get_local_doc(_Missing, ModuleDoc) when map_size(ModuleDoc) > 0 ->
     %% Otherwise take first alternative found
-    normalize(binary_to_term(maps:get(hd(maps:keys(ModuleDoc)), ModuleDoc)));
+    normalize(maps:get(hd(maps:keys(ModuleDoc)), ModuleDoc));
 get_local_doc(Missing, hidden) ->
     [{p,[],[<<"The documentation for ">>,Missing,
             <<" is hidden. This probably means that it is internal "
