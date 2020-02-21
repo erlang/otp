@@ -438,8 +438,6 @@ expr({'fun',Anno,{function,M,F,A}}, _Lc) ->
     {make_ext_fun,ln(Anno),MFA};
 expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,self}},[]}, _Lc) ->
     {dbg,ln(Anno),self,[]};
-expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,get_stacktrace}},[]}, _Lc) ->
-    {dbg,ln(Anno),get_stacktrace,[]};
 expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,throw}},[_]=As}, _Lc) ->
     {dbg,ln(Anno),throw,expr_list(As)};
 expr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,error}},[_]=As}, _Lc) ->

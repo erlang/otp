@@ -2336,9 +2336,8 @@ catch_handler('catch', [TagVar,ValueVar,TraceVar], OldCatchLbl) ->
 				       ValueVar]),
    hipe_icode:mk_goto(Cont),
    ErrorLbl,
-   %% We use the trace variable to hold the symbolic trace. Its previous
-   %% value is just that in p->ftrace, so get_stacktrace() works fine.
-   hipe_icode:mk_call([TraceVar],erlang,get_stacktrace,[],remote),
+   %% We use the trace variable to hold the symbolic trace.
+   hipe_icode:mk_primop([TraceVar],build_stacktrace,[TraceVar]),
    hipe_icode:mk_primop([ValueVar],mktuple, [ValueVar, TraceVar]),
    hipe_icode:mk_goto(hipe_icode:label_name(ExitLbl)),
    OldCatchLbl,  % normal execution paths must go through end_try

@@ -773,11 +773,11 @@ post_204(Config) ->
 	    ct:fail({connect_error, ConnectError,
 		     [SockType, Host, Port, TranspOpts]})
     catch
-	T:E ->
+	T:E:Stk ->
 	    ct:fail({connect_failure,
 		     [{type,       T},
 		      {error,      E},
-		      {stacktrace, erlang:get_stacktrace()},
+		      {stacktrace, Stk},
 		      {args,       [SockType, Host, Port, TranspOpts]}]})
     end.
 

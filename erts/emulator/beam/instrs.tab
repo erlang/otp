@@ -1073,6 +1073,7 @@ catch_end(Y) {
     $try_end($Y);
     if (is_non_value(r(0))) {
         c_p->fvalue = NIL;
+        c_p->ftrace = NIL;
         if (x(1) == am_throw) {
             r(0) = x(2);
         } else {
@@ -1106,6 +1107,7 @@ try_case(Y) {
     $try_end($Y);
     ASSERT(is_non_value(r(0)));
     c_p->fvalue = NIL;
+    c_p->ftrace = NIL;
     r(0) = x(1);
     x(1) = x(2);
     x(2) = x(3);

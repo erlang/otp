@@ -1490,6 +1490,8 @@ terminate_proc(Process* c_p, Eterm Value)
     if (GET_EXC_CLASS(c_p->freason) == EXTAG_ERROR) {
         Value = add_stacktrace(c_p, Value, c_p->ftrace);
     }
+    c_p->ftrace = NIL;
+
     /* EXF_LOG is a primary exception flag */
     if (c_p->freason & EXF_LOG) {
 	int alive = erts_is_alive;

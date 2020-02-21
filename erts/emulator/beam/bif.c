@@ -1035,8 +1035,7 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
 
 BIF_RETTYPE get_stacktrace_0(BIF_ALIST_0)
 {
-    Eterm t = build_stacktrace(BIF_P, BIF_P->ftrace);
-    BIF_RET(t);
+    BIF_RET(NIL);
 }
 
 /**********************************************************************/

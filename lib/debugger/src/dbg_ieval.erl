@@ -693,7 +693,7 @@ expr({'try',Line,Es,CaseCs,CatchCs,[]}, Bs0, Ieval0) ->
 	    end
     catch
 	Class:Reason when CatchCs =/= [] ->
-	    catch_clauses({Class,Reason,[]}, CatchCs, Bs0, Ieval)
+	    catch_clauses({Class,Reason,get_stacktrace()}, CatchCs, Bs0, Ieval)
     end;
 expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
@@ -706,7 +706,7 @@ expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
 	    end
     catch
 	Class:Reason when CatchCs =/= [] ->
-	    catch_clauses({Class,Reason,[]}, CatchCs, Bs0, Ieval)
+	    catch_clauses({Class,Reason,get_stacktrace()}, CatchCs, Bs0, Ieval)
     after
             seq(As, Bs0, Ieval#ieval{top=false})
     end;
@@ -905,14 +905,9 @@ expr({dbg,Line,self,[]}, Bs, #ieval{level=Le}) ->
     Self = get(self),
     trace(return, {Le,Self}),
     {value,Self,Bs};
-expr({dbg,Line,get_stacktrace,[]}, Bs, #ieval{level=Le}) ->
-    trace(bif, {Le,Line,erlang,get_stacktrace,[]}),
-    Stacktrace = get_stacktrace(),
-    trace(return, {Le,Stacktrace}),
-    {value,Stacktrace,Bs};
 expr({dbg,Line,raise,As0}, Bs0, #ieval{level=Le}=Ieval0) ->
-    %% Since erlang:get_stacktrace/0 is emulated, we will
-    %% need to emulate erlang:raise/3 too so that we can
+    %% Since stacktraces are emulated, we will
+    %% need to emulate erlang:raise/3 so that we can
     %% capture the stacktrace.
     Ieval = Ieval0#ieval{line=Line},
     {[Class,Reason,Stk0]=As,Bs} = eval_list(As0, Bs0, Ieval),
@@ -1383,7 +1378,7 @@ catch_clauses(Exception, [{clause,_,[P],G,B}|CatchCs], Bs0, Ieval) ->
 	nomatch ->
 	    catch_clauses(Exception, CatchCs, Bs0, Ieval)
     end;
-catch_clauses({Class,Reason,[]}, [], _Bs, _Ieval) ->
+catch_clauses({Class,Reason,_}, [], _Bs, _Ieval) ->
     erlang:Class(Reason).
 
 receive_clauses(Cs, Bs0, [Msg|Msgs]) ->

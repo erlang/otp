@@ -1111,12 +1111,14 @@ x_exc_body(ExcOpts, {M,F}=Func, Args, Apply) ->
             end,
             {value,Value}
     catch
-        Thrown when Nocatch ->
+        throw:Thrown:Stk when Nocatch ->
+            put(get_stacktrace, Stk),
             CR = {error,{nocatch,Thrown}},
             x_exc_exception(Rtt, M, F, Args, Arity, CR),
             expect({eft,{?MODULE,exc,2},CR}),
             CR;
-        Class:Reason ->
+        Class:Reason:Stk ->
+            put(get_stacktrace, Stk),
             CR = {Class,Reason},
             x_exc_exception(Rtt, M, F, Args, Arity, CR),
             expect({eft,{?MODULE,exc,2},CR}),
@@ -1157,7 +1159,8 @@ x_exc_exception(_Rtt, M, F, _, Arity, CR) ->
     expect({eft,{M,F,Arity},CR}).
 
 x_exc_stacktrace() ->
-    x_exc_stacktrace(erlang:get_stacktrace()).
+    x_exc_stacktrace(get(get_stacktrace)).
+
 %% Truncate stacktrace to below exc/2
 x_exc_stacktrace([{?MODULE,x_exc,4,_}|_]) -> [];
 x_exc_stacktrace([{?MODULE,x_exc_func,4,_}|_]) -> [];

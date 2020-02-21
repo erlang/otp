@@ -119,11 +119,11 @@ verify_request(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, Ti
 	    ct:fail({connect_error, ConnectError, 
 		     [SocketType, Host, Port, TranspOpts]})
     catch
-	T:E ->
+	T:E:Stk ->
 	    ct:fail({connect_failure, 
 		     [{type,       T}, 
 		      {error,      E}, 
-		      {stacktrace, erlang:get_stacktrace()}, 
+		      {stacktrace, Stk},
 		      {args,       [SocketType, Host, Port, TranspOpts]}]}) 
     end.
 
@@ -136,11 +136,11 @@ verify_request_N(SocketType, Host, Port, TranspOpts, Node, RequestStr, Options, 
 	    ct:fail({connect_error, ConnectError, 
 		     [SocketType, Host, Port, TranspOpts]})
     catch
-	T:E ->
+	T:E:Stk ->
 	    ct:fail({connect_failure, 
 		     [{type,       T}, 
 		      {error,      E}, 
-		      {stacktrace, erlang:get_stacktrace()}, 
+		      {stacktrace, Stk},
 		      {args,       [SocketType, Host, Port, TranspOpts]}]}) 
     end.
 

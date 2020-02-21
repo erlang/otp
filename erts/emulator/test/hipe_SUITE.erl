@@ -131,8 +131,8 @@ t_trycatch(Config) ->
 t_trycatch_1([S|Ss]) ->
     io:format("~p", [S]),
     compile_and_load(S),
-    call_trycatch(try_catch),
-    call_trycatch(plain_catch),
+    call_trycatch(),
+    call_catch(),
     io:nl(),
     t_trycatch_1(Ss);
 t_trycatch_1([]) ->
@@ -144,38 +144,49 @@ trycatch_combine([N|Ns]) ->
 trycatch_combine([]) ->
     [[]].
 
-call_trycatch(Func) ->
-    case do_call_trycatch(error, Func, {error,whatever}) of
+call_trycatch() ->
+    case trycatch_1:one_try_catch({error,whatever}) of
         {error,whatever,[{trycatch_3,three,1,_}|_]} ->
             ok
     end,
-    case do_call_trycatch(error, Func, fc) of
+    case trycatch_1:one_try_catch(fc) of
         {error,function_clause,[{trycatch_3,three,[fc],_}|_]} ->
             ok;
         {error,function_clause,[{trycatch_3,three,1,_}|_]} ->
+            true = trycatch_3:module_info(native),
             ok
     end,
-    case do_call_trycatch(throw, Func, {throw,{a,b}}) of
+    case trycatch_1:one_try_catch({throw,{a,b}}) of
         {throw,{a,b},[{trycatch_3,three,1,_}|_]} ->
             ok
     end,
-    case do_call_trycatch(exit, Func, {exit,{a,b,c}}) of
+    case trycatch_1:one_try_catch({exit,{a,b,c}}) of
         {exit,{a,b,c},[{trycatch_3,three,1,_}|_]} ->
             ok
     end,
     ok.
 
-do_call_trycatch(_Class, try_catch, Argument) ->
-    trycatch_1:one_try_catch(Argument);
-do_call_trycatch(error, plain_catch, Argument) ->
-    {{'EXIT',{Reason,Stk}},Stk} = trycatch_1:one_plain_catch(Argument),
-    {error,Reason,Stk};
-do_call_trycatch(throw, plain_catch, Argument) ->
-    {Reason,Stk} = trycatch_1:one_plain_catch(Argument),
-    {throw,Reason,Stk};
-do_call_trycatch(exit, plain_catch, Argument) ->
-    {{'EXIT',Reason},Stk} = trycatch_1:one_plain_catch(Argument),
-    {exit,Reason,Stk}.
+call_catch() ->
+    case trycatch_1:one_plain_catch({error,whatever}) of
+        {'EXIT',{whatever,[{trycatch_3,three,1,_}|_]}} ->
+            ok
+    end,
+
+    case trycatch_1:one_plain_catch(fc) of
+        {'EXIT',{function_clause,[{trycatch_3,three,[fc],_}|_]}} ->
+            ok;
+        {'EXIT',{function_clause,[{trycatch_3,three,1,_}|_]}} ->
+            true = trycatch_3:module_info(native)
+    end,
+    case trycatch_1:one_plain_catch({throw,{a,b}}) of
+        {a,b} ->
+            ok
+    end,
+    case trycatch_1:one_plain_catch({exit,{a,b,c}}) of
+        {'EXIT',{a,b,c}} ->
+            ok
+    end,
+    ok.
 
 compile_and_load(Sources) ->
     _ = [begin

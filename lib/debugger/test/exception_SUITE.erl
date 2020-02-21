@@ -275,67 +275,43 @@ ba_bnot(A) ->
     {'EXIT', {badarith, _}} = (catch bnot A).
 
 stacktrace(Conf) when is_list(Conf) ->
-    Tag = make_ref(),
-    {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
-    {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
     V = [make_ref()|self()],
     {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]=St1}} =
 	stacktrace_1({'abs',V}, error, {value,V}),
-    St1 = erase(stacktrace1),
-    St1 = erase(stacktrace2),
-    St1 = erlang:get_stacktrace(),
     {caught2,{error,badarith},[{?MODULE,my_add,2,_}|_]=St2} =
 	stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
-    [{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
-    St2 = erase(stacktrace2),
-    St2 = erlang:get_stacktrace(),
     {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
 	stacktrace_1({value,V}, error, {value,V}),
-    St3 = erase(stacktrace1),
-    St3 = erase(stacktrace2),
-    St3 = erlang:get_stacktrace(),
     {caught2,{throw,V},[{?MODULE,foo,1,_}|_]=St4} =
 	stacktrace_1({value,V}, error, {throw,V}),
-    [{?MODULE,stacktrace_1,3,_}|_] = erase(stacktrace1),
-    St4 = erase(stacktrace2),
-    St4 = erlang:get_stacktrace(),
     ok.
 
 stacktrace_1(X, C1, Y) ->
-    erase(stacktrace1),
-    erase(stacktrace2),
     try try foo(X) of
             C1 -> value1
         catch
-            C1:D1 -> {caught1,D1,erlang:get_stacktrace()}
+            C1:D1:S1 -> {caught1,D1,S1}
         after
-            put(stacktrace1, erlang:get_stacktrace()),
 	    foo(Y)
         end of
         V2 -> {value2,V2}
     catch
-        C2:D2 -> {caught2,{C2,D2},erlang:get_stacktrace()}
-    after
-        put(stacktrace2, erlang:get_stacktrace())
+        C2:D2:S2 -> {caught2,{C2,D2},S2}
     end.
 
 
 
 nested_stacktrace(Conf) when is_list(Conf) ->
     V = [{make_ref()}|[self()]],
-    value1 =
-	nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
-			    {void,void,void}),
+    value1 = nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
+                                 {void,void,void}),
     {caught1,
      [{?MODULE,my_add,2,_}|_],
-     value2,
-     [{?MODULE,my_add,2,_}|_]} =
-	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
-			    {{value,{V,x2}},void,{V,x2}}),
+     value2} = nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                                   {{value,{V,x2}},void,{V,x2}}),
     {caught1,
      [{?MODULE,my_add,2,_}|_],
-     {caught2,[{erlang,abs,[V],_}|_]},
-     [{erlang,abs,[V],_}|_]} =
+     {caught2,[{erlang,abs,[V],_}|_]}} =
 	nested_stacktrace_1({{'add',{V,x1}},error,badarith},
 			    {{'abs',V},error,badarg}),
     ok.
@@ -344,15 +320,13 @@ nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
     try foo(X1) of
         V1 -> value1
     catch
-        C1:V1 ->
-	    S1 = erlang:get_stacktrace(),
-            T2 =
-                try foo(X2) of
-	            V2 -> value2
-                catch
-                    C2:V2 -> {caught2,erlang:get_stacktrace()}
+        C1:V1:S1 ->
+            T2 = try foo(X2) of
+                     V2 -> value2
+                 catch
+                     C2:V2:S2 -> {caught2,S2}
                 end,
-            {caught1,S1,T2,erlang:get_stacktrace()}
+            {caught1,S1,T2}
     end.
 
 
@@ -363,17 +337,14 @@ raise(Conf) when is_list(Conf) ->
 	try
 	    try foo({'div',{1,0}})
 	    catch
-		error:badarith ->
-		    put(raise, A0 = erlang:get_stacktrace()),
+		error:badarith:A0 ->
+		    put(raise, A0),
 		    erlang:raise(error, badarith, A0)
 	    end
 	catch
-	    error:badarith ->
-		A1 = erlang:get_stacktrace(),
+	    error:badarith:A1 ->
 		A1 = get(raise)
 	end,
-    A = erlang:get_stacktrace(),
-    A = get(raise),
     [{?MODULE,my_div,2,_}|_] = A,
     %%
     N = 8, % Must be even
@@ -381,19 +352,18 @@ raise(Conf) when is_list(Conf) ->
     try even(N)
     catch error:function_clause -> ok
     end,
-    B = odd_even(N, []),
-    B = erlang:get_stacktrace(),
     %%
-    C0 = odd_even(N+1, []),
-    C = lists:sublist(C0, N),
-    try odd(N+1)
-    catch error:function_clause -> ok
+    C = odd_even(N+1, []),
+    try
+        odd(N+1)
+    catch
+        error:function_clause -> ok
     end,
-    C = erlang:get_stacktrace(),
-    try erlang:raise(error, function_clause, C0)
-    catch error:function_clause -> ok
+    try
+        erlang:raise(error, function_clause, C)
+    catch
+        error:function_clause -> ok
     end,
-    C = erlang:get_stacktrace(),
     ok.
 
 odd_even(N, R) when is_integer(N), N > 1 ->
@@ -436,7 +406,6 @@ my_abs(X) -> abs(X).
 
 gunilla(Config) when is_list(Config) ->
     {throw,kalle} = gunilla_1(),
-    [] = erlang:get_stacktrace(),
     ok.
 
 gunilla_1() ->

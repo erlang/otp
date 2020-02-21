@@ -303,57 +303,42 @@ maxbig_gc() ->
     Maxbig.
 
 stacktrace(Conf) when is_list(Conf) ->
-    Tag = make_ref(),
-    {_,Mref} = spawn_monitor(fun() -> exit({Tag,erlang:get_stacktrace()}) end),
-    {Tag,[]} = receive {'DOWN',Mref,_,_,Info} -> Info end,
     V = [make_ref()|self()],
-    {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]=St1}} =
-    stacktrace_1({'abs',V}, error, {value,V}),
-    St1 = erase(stacktrace1),
-    St1 = erase(stacktrace2),
-    St1 = erlang:get_stacktrace(),
-    {caught2,{error,badarith},[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]=St2} =
-    stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
-    [{erlang,'div',[1,0],_},{?MODULE,my_div,2,_}|_] = erase(stacktrace1),
-    St2 = erase(stacktrace2),
-    St2 = erlang:get_stacktrace(),
-    {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]=St3} =
-    stacktrace_1({value,V}, error, {value,V}),
-    St3 = erase(stacktrace1),
-    St3 = erase(stacktrace2),
-    St3 = erlang:get_stacktrace(),
-    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]=St4} =
-    stacktrace_1({value,V}, error, {throw,V}),
-    [{?MODULE,stacktrace_1,3,_}|_] = erase(stacktrace1),
-    St4 = erase(stacktrace2),
-    St4 = erlang:get_stacktrace(),
+    {value2,{caught1,badarg,[{erlang,abs,[V],_}|_]}} =
+        stacktrace_1({'abs',V}, error, {value,V}),
+    {caught2,{error,badarith},[{erlang,'+',[0,a],_},{?MODULE,my_add,2,_}|_]} =
+        stacktrace_1({'div',{1,0}}, error, {'add',{0,a}}),
+    {caught2,{error,{try_clause,V}},[{?MODULE,stacktrace_1,3,_}|_]} =
+        stacktrace_1({value,V}, error, {value,V}),
+    {caught2,{throw,V},[{?MODULE,foo,1,_}|_]} =
+        stacktrace_1({value,V}, error, {throw,V}),
 
     try
         stacktrace_2()
     catch
-        error:{badmatch,_} ->
+        error:{badmatch,_}:Stk ->
             [{?MODULE,stacktrace_2,0,_},
-             {?MODULE,stacktrace,1,_}|_] =
-            erlang:get_stacktrace(),
+             {?MODULE,stacktrace,1,_}|_] = Stk,
             ok
     end.
 
 stacktrace_1(X, C1, Y) ->
-    erase(stacktrace1),
-    erase(stacktrace2),
     try try foo(X) of
             C1 -> value1
         catch
-            C1:D1 -> {caught1,D1,erlang:get_stacktrace()}
+            C1:D1:Stk1 ->
+                [] = erlang:get_stacktrace(),
+                {caught1,D1,Stk1}
         after
-            put(stacktrace1, erlang:get_stacktrace()),
             foo(Y)
         end of
         V2 -> {value2,V2}
     catch
-        C2:D2 -> {caught2,{C2,D2},erlang:get_stacktrace()}
+        C2:D2:Stk2 ->
+            [] = erlang:get_stacktrace(),
+            {caught2,{C2,D2},Stk2}
     after
-        put(stacktrace2, erlang:get_stacktrace())
+        ok
     end.
 
 stacktrace_2() ->
@@ -364,76 +349,71 @@ stacktrace_2() ->
 nested_stacktrace(Conf) when is_list(Conf) ->
     V = [{make_ref()}|[self()]],
     value1 =
-    nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
-                        {void,void,void}),
+        nested_stacktrace_1({{value,{V,x1}},void,{V,x1}},
+                            {void,void,void}),
     {caught1,
      [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
-     value2,
-     [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_]} =
-    nested_stacktrace_1({{'add',{V,x1}},error,badarith},
-                        {{value,{V,x2}},void,{V,x2}}),
+     value2} =
+        nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                            {{value,{V,x2}},void,{V,x2}}),
     {caught1,
      [{erlang,'+',[V,x1],_},{?MODULE,my_add,2,_}|_],
-     {caught2,[{erlang,abs,[V],_}|_]},
-     [{erlang,abs,[V],_}|_]} =
-    nested_stacktrace_1({{'add',{V,x1}},error,badarith},
-                        {{'abs',V},error,badarg}),
+     {caught2,[{erlang,abs,[V],_}|_]}} =
+        nested_stacktrace_1({{'add',{V,x1}},error,badarith},
+                            {{'abs',V},error,badarg}),
     ok.
 
 nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
     try foo(X1) of
         V1 -> value1
     catch
-        C1:V1 ->
-            S1 = erlang:get_stacktrace(),
-            T2 =
-            try foo(X2) of
-                V2 -> value2
-            catch
-                C2:V2 -> {caught2,erlang:get_stacktrace()}
+        C1:V1:S1 ->
+            T2 = try foo(X2) of
+                     V2 -> value2
+                 catch
+                     C2:V2:S2 -> {caught2,S2}
             end,
-            {caught1,S1,T2,erlang:get_stacktrace()}
+            {caught1,S1,T2}
     end.
 
 
 
 raise(Conf) when is_list(Conf) ->
     erase(raise),
-    A = 
-    try 
-        try foo({'div',{1,0}}) 
+    A =
+        try
+            try foo({'div',{1,0}})
+            catch
+                error:badarith:A0 ->
+                    put(raise, A0),
+                    erlang:raise(error, badarith, A0)
+            end
         catch
-            error:badarith:A0 ->
-                put(raise, A0 = erlang:get_stacktrace()),
-                erlang:raise(error, badarith, A0)
-        end
-    catch
-        error:badarith:A1 ->
-            A1 = erlang:get_stacktrace(),
-            A1 = get(raise)
-    end,
-    A = erlang:get_stacktrace(),
+            error:badarith:A1 ->
+                A1 = get(raise)
+        end,
     A = get(raise),
     [{erlang,'div',[1, 0], _},{?MODULE,my_div,2,_}|_] = A,
     %%
     N = 8, % Must be even
     N = erlang:system_flag(backtrace_depth, N),
-    B = odd_even(N, []),
-    try even(N) 
-    catch error:function_clause -> ok
+    try
+        even(N)
+    catch
+        error:function_clause -> ok
     end,
-    B = erlang:get_stacktrace(),
     %%
-    C0 = odd_even(N+1, []),
-    C = lists:sublist(C0, N),
-    try odd(N+1) 
-    catch error:function_clause -> ok
+    C = odd_even(N+1, []),
+    try
+        odd(N+1)
+    catch
+        error:function_clause -> ok
     end,
-    C = erlang:get_stacktrace(),
-    try erlang:raise(error, function_clause, C0)
-    catch error:function_clause -> ok
+    try
+        erlang:raise(error, function_clause, C)
+    catch
+        error:function_clause -> ok
     end,
-    C = erlang:get_stacktrace(),
     ok.
 
 odd_even(N, R) when is_integer(N), N > 1 ->
@@ -601,11 +581,11 @@ do_exception_with_heap_frag(Bin, [Sz|Sizes]) ->
                   try
                       binary_to_term(Bin)
                   catch
-                      _:_ ->
+                      _:_:Stk ->
                           %% term_to_binary/1 is an easy way to traverse the
                           %% entire stacktrace term to make sure that every part
                           %% of it is OK.
-                          term_to_binary(erlang:get_stacktrace())
+                          term_to_binary(Stk)
                   end,
                   id(Filler)
           end),
@@ -811,8 +791,8 @@ close_calls(Where) ->				%Line 2
         call2(),				%Line 6
         call3(),				%Line 7
         no_crash				%Line 8
-    catch error:crash ->
-              erlang:get_stacktrace()		%Line 10
+    catch error:crash:Stk ->
+            Stk                                 %Line 10
     end.					%Line 11
 
 call1() ->					%Line 13
