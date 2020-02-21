@@ -212,6 +212,37 @@
 	</seealso>.</p>
       </desc>
     </datatype>
+    <datatype>
+      <name name="spawn_opt_option"></name>
+      <desc>
+        <p>Options for <seealso marker="#spawn_opt/4"><c>spawn_opt()</c></seealso>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="priority_level"></name>
+      <desc>
+        <p>Process priority level. For more info see
+        <seealso marker="#process_flag_priority"><c>process_flag(priority,
+	Level)</c></seealso> </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="max_heap_size"></name>
+      <desc>
+        <p>Process max heap size configuration. For more info see
+        <seealso marker="#process_flag_max_heap_size"><c>process_flag(max_heap_size,
+	MaxHeapSize)</c></seealso> </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="message_queue_data"></name>
+      <desc>
+        <p>Process message queue data configuration. For more info see
+        <seealso marker="#process_flag_message_queue_data"><c>process_flag(message_queue_data,
+	MQD)</c></seealso> </p>
+      </desc>
+    </datatype>
+    
 
   </datatypes>
 
@@ -6547,10 +6578,6 @@ true</pre>
     <func>
       <name name="spawn_request" arity="2" clause_i="1" since="OTP @OTP-15251@"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
-      <type name="priority_level"/>
-      <type name="max_heap_size"/>
-      <type name="message_queue_data"/>
-      <type name="spawn_opt_option"/>
       <desc>
         <p>
 	  The same as the call
@@ -6620,10 +6647,6 @@ true</pre>
     <func>
       <name name="spawn_request" arity="4" clause_i="2" since="OTP @OTP-15251@"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
-      <type name="priority_level"/>
-      <type name="max_heap_size"/>
-      <type name="message_queue_data"/>
-      <type name="spawn_opt_option"/>
       <desc>
         <p>
 	  The same as the call

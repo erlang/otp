@@ -21,9 +21,15 @@
 
 -include("logger.hrl").
 
+%%%
+%%% NOTE: If init_ack() return values are modified, see comment
+%%%       above monitor_return() in gen.erl!
+%%%
+
 %% API
 -export(
    [start/3,start/4,start_link/3,start_link/4,
+    start_monitor/3,start_monitor/4,
     stop/1,stop/3,
     cast/2,call/2,call/3,
     send_request/2,wait_response/1,wait_response/2,check_response/2,
@@ -456,10 +462,14 @@ timeout_event_type(Type) ->
       | {'via', RegMod :: module(), ViaName :: term()}.
 -type start_opt() ::
         {'timeout', Time :: timeout()}
-      | {'spawn_opt', [proc_lib:spawn_option()]}
+      | {'spawn_opt', [proc_lib:start_spawn_option()]}
       | enter_loop_opt().
 -type start_ret() ::
         {'ok', pid()}
+      | 'ignore'
+      | {'error', term()}.
+-type start_mon_ret() ::
+        {'ok', {pid(),reference()}}
       | 'ignore'
       | {'error', term()}.
 -type enter_loop_opt() ::
@@ -495,6 +505,20 @@ start_link(Module, Args, Opts) ->
 		   start_ret().
 start_link(ServerName, Module, Args, Opts) ->
     gen:start(?MODULE, link, ServerName, Module, Args, Opts).
+
+%% Start and monitor a state machine
+-spec start_monitor(
+	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
+		   start_mon_ret().
+start_monitor(Module, Args, Opts) ->
+    gen:start(?MODULE, monitor, Module, Args, Opts).
+%%
+-spec start_monitor(
+	ServerName :: server_name(),
+	Module :: module(), Args :: term(), Opts :: [start_opt()]) ->
+		   start_mon_ret().
+start_monitor(ServerName, Module, Args, Opts) ->
+    gen:start(?MODULE, monitor, ServerName, Module, Args, Opts).
 
 %% Stop a state machine
 -spec stop(ServerRef :: server_ref()) -> ok.

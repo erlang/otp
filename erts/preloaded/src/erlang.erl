@@ -72,6 +72,10 @@
 -export_type([timestamp/0]).
 -export_type([time_unit/0]).
 -export_type([deprecated_time_unit/0]).
+-export_type([spawn_opt_option/0]).
+-export_type([priority_level/0]).
+-export_type([max_heap_size/0]).
+-export_type([message_queue_data/0]).
 
 -type ext_binary() :: binary().
 -type ext_iovec() :: iovec().

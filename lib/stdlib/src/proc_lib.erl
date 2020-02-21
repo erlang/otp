@@ -28,6 +28,7 @@
          spawn/3, spawn_link/3, spawn/4, spawn_link/4,
          spawn_opt/2, spawn_opt/3, spawn_opt/4, spawn_opt/5,
 	 start/3, start/4, start/5, start_link/3, start_link/4, start_link/5,
+         start_monitor/3, start_monitor/4, start_monitor/5,
 	 hibernate/3,
 	 init_ack/1, init_ack/2,
 	 init_p/3,init_p/5,format/1,format/2,format/3,report_cb/2,
@@ -39,29 +40,33 @@
 -export([wake_up/3]).
 
 -export_type([spawn_option/0]).
+-export_type([start_spawn_option/0]).
 
 -include("logger.hrl").
 
 %%-----------------------------------------------------------------------------
 
--type priority_level() :: 'high' | 'low' | 'max' | 'normal'.
--type max_heap_size()  :: non_neg_integer() |
-                          #{ size => non_neg_integer(),
-                             kill => true,
-                             error_logger => true}.
--type spawn_option()   :: 'link'
-                        | 'monitor'
-                        | {'priority', priority_level()}
-                        | {'max_heap_size', max_heap_size()}
-                        | {'min_heap_size', non_neg_integer()}
-                        | {'min_bin_vheap_size', non_neg_integer()}
-                        | {'fullsweep_after', non_neg_integer()}
-                        | {'message_queue_data',
-                             'off_heap' | 'on_heap' | 'mixed' }.
+-type start_spawn_option() :: 'link'
+                            | {'priority', erlang:priority_level()}
+                            | {'max_heap_size', erlang:max_heap_size()}
+                            | {'min_heap_size', non_neg_integer()}
+                            | {'min_bin_vheap_size', non_neg_integer()}
+                            | {'fullsweep_after', non_neg_integer()}
+                            | {'message_queue_data', erlang:message_queue_data() }.
+
+-type spawn_option()   :: erlang:spawn_opt_option().
 
 -type dict_or_pid()    :: pid()
                         | (ProcInfo :: [_])
                         | {X :: integer(), Y :: integer(), Z :: integer()}.
+
+%%-----------------------------------------------------------------------------
+
+-define(VERIFY_NO_MONITOR_OPT(M, F, A, T, Opts),
+        case lists:member(monitor, Opts) of
+            true -> erlang:error(badarg, [M,F,A,T,Opts]);
+            false -> ok
+        end).
 
 %%-----------------------------------------------------------------------------
 
@@ -141,17 +146,16 @@ spawn_link(Node, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_link(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A]).
 
--spec spawn_opt(Fun, SpawnOpts) -> pid() when
+-spec spawn_opt(Fun, SpawnOpts) -> pid() | {pid(), reference()} when
       Fun :: function(),
       SpawnOpts :: [spawn_option()].
 
 spawn_opt(F, Opts) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,F],Opts).
 
--spec spawn_opt(Node, Function, SpawnOpts) -> pid() when
+-spec spawn_opt(Node, Function, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Function :: function(),
       SpawnOpts :: [spawn_option()].
@@ -159,10 +163,9 @@ spawn_opt(F, Opts) when is_function(F) ->
 spawn_opt(Node, F, Opts) when is_function(F) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
     erlang:spawn_opt(Node, ?MODULE, init_p, [Parent,Ancestors,F], Opts).
 
--spec spawn_opt(Module, Function, Args, SpawnOpts) -> pid() when
+-spec spawn_opt(Module, Function, Args, SpawnOpts) -> pid() | {pid(), reference()} when
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
@@ -171,10 +174,9 @@ spawn_opt(Node, F, Opts) when is_function(F) ->
 spawn_opt(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
     erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,M,F,A], Opts).
 
--spec spawn_opt(Node, Module, Function, Args, SpawnOpts) -> pid() when
+-spec spawn_opt(Node, Module, Function, Args, SpawnOpts) -> pid() | {pid(), reference()} when
       Node :: node(),
       Module :: module(),
       Function :: atom(),
@@ -184,29 +186,12 @@ spawn_opt(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
 spawn_opt(Node, M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
     erlang:spawn_opt(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A], Opts).
-
-%% OTP-6345
-%% monitor spawn_opt option is currently not possible to use
-check_for_monitor(SpawnOpts) ->
-    case lists:member(monitor, SpawnOpts) of
-	true ->
-	    erlang:error(badarg);
-	false ->
-	    false
-    end.
 
 spawn_mon(M,F,A) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
     erlang:spawn_monitor(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
-
-spawn_opt_mon(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
-    Parent = get_my_name(),
-    Ancestors = get_ancestors(),
-    check_for_monitor(Opts),
-    erlang:spawn_opt(?MODULE, init_p, [Parent,Ancestors,M,F,A], [monitor|Opts]).
 
 -spec hibernate(Module, Function, Args) -> no_return() when
       Module :: module(),
@@ -215,14 +200,6 @@ spawn_opt_mon(M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
 
 hibernate(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     erlang:hibernate(?MODULE, wake_up, [M, F, A]).
-
-ensure_link(SpawnOpts) ->
-    case lists:member(link, SpawnOpts) of
-	true -> 
-	    SpawnOpts;
-	false ->
-	    [link|SpawnOpts]
-    end.
 
 -spec init_p(pid(), [pid()], function()) -> term().
 
@@ -299,20 +276,32 @@ start(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    PidRef = spawn_mon(M, F, A),
-    sync_wait_mon(PidRef, Timeout).
+    sync_start(spawn_mon(M, F, A), Timeout).
 
 -spec start(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
       Time :: timeout(),
-      SpawnOpts :: [spawn_option()],
+      SpawnOpts :: [start_spawn_option()],
       Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout, SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
-    PidRef = spawn_opt_mon(M, F, A, SpawnOpts),
-    sync_wait_mon(PidRef, Timeout).
+    ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
+    sync_start(?MODULE:spawn_opt(M, F, A, [monitor|SpawnOpts]), Timeout).
+
+sync_start({Pid, Ref}, Timeout) ->
+    receive
+	{ack, Pid, Return} ->
+	    erlang:demonitor(Ref, [flush]),
+            Return;
+	{'DOWN', Ref, process, Pid, Reason} ->
+            {error, Reason}
+    after Timeout ->
+	    erlang:demonitor(Ref, [flush]),
+            kill_flush(Pid),
+            {error, timeout}
+    end.
 
 -spec start_link(Module, Function, Args) -> Ret when
       Module :: module(),
@@ -331,60 +320,88 @@ start_link(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start_link(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    Pid = ?MODULE:spawn_link(M, F, A),
-    sync_wait(Pid, Timeout).
+    sync_start_link(?MODULE:spawn_link(M, F, A), Timeout).
 
 -spec start_link(Module, Function, Args, Time, SpawnOpts) -> Ret when
       Module :: module(),
       Function :: atom(),
       Args :: [term()],
       Time :: timeout(),
-      SpawnOpts :: [spawn_option()],
+      SpawnOpts :: [start_spawn_option()],
       Ret :: term() | {error, Reason :: term()}.
 
 start_link(M,F,A,Timeout,SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
-    Pid = ?MODULE:spawn_opt(M, F, A, ensure_link(SpawnOpts)),
-    sync_wait(Pid, Timeout).
+    ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
+    sync_start_link(?MODULE:spawn_opt(M, F, A, [link|SpawnOpts]), Timeout).
 
-sync_wait(Pid, Timeout) ->
+sync_start_link(Pid, Timeout) ->
     receive
 	{ack, Pid, Return} ->
-	    Return;
+            Return;
 	{'EXIT', Pid, Reason} ->
-	    {error, Reason}
+            {error, Reason}
     after Timeout ->
-	    unlink(Pid),
-	    exit(Pid, kill),
-	    flush(Pid),
-	    {error, timeout}
+            kill_flush(Pid),
+            {error, timeout}
     end.
 
-sync_wait_mon({Pid, Ref}, Timeout) ->
+-spec start_monitor(Module, Function, Args) -> {Ret, Mon} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Mon :: reference(),
+      Ret :: term() | {error, Reason :: term()}.
+
+start_monitor(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
+    start_monitor(M, F, A, infinity).
+
+-spec start_monitor(Module, Function, Args, Time) -> {Ret, Mon} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Time :: timeout(),
+      Mon :: reference(),
+      Ret :: term() | {error, Reason :: term()}.
+
+start_monitor(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
+    sync_start_monitor(spawn_mon(M, F, A), Timeout).
+
+-spec start_monitor(Module, Function, Args, Time, SpawnOpts) -> {Ret, Mon} when
+      Module :: module(),
+      Function :: atom(),
+      Args :: [term()],
+      Time :: timeout(),
+      SpawnOpts :: [start_spawn_option()],
+      Mon :: reference(),
+      Ret :: term() | {error, Reason :: term()}.
+
+start_monitor(M,F,A,Timeout,SpawnOpts) when is_atom(M),
+                                            is_atom(F),
+                                            is_list(A) ->
+    ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
+    sync_start_monitor(?MODULE:spawn_opt(M, F, A, [monitor|SpawnOpts]),
+                       Timeout).
+
+sync_start_monitor({Pid, Ref}, Timeout) ->
     receive
 	{ack, Pid, Return} ->
-	    erlang:demonitor(Ref, [flush]),
-	    Return;
-	{'DOWN', Ref, _Type, Pid, Reason} ->
-	    {error, Reason};
-	{'EXIT', Pid, Reason} -> %% link as spawn_opt?
-	    erlang:demonitor(Ref, [flush]),
-	    {error, Reason}
+            {Return, Ref};
+	{'DOWN', Ref, process, Pid, Reason} = Down ->
+            self() ! Down,
+            {{error, Reason}, Ref}
     after Timeout ->
-	    erlang:demonitor(Ref, [flush]),
-	    exit(Pid, kill),
-	    flush(Pid),
-	    {error, timeout}
+            kill_flush(Pid),
+            {{error, timeout}, Ref}
     end.
 
--spec flush(pid()) -> 'true'.
+-spec kill_flush(Pid) -> 'ok' when
+      Pid :: pid().
 
-flush(Pid) ->
-    receive
-	{'EXIT', Pid, _} ->
-	    true
-    after 0 ->
-	    true
-    end.
+kill_flush(Pid) ->
+    unlink(Pid),
+    exit(Pid, kill),
+    receive {'EXIT', Pid, _} -> ok after 0 -> ok end,
+    ok.
 
 -spec init_ack(Parent, Ret) -> 'ok' when
       Parent :: pid(),
