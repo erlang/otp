@@ -1501,11 +1501,155 @@ loop_actions_list(
                       Q)
             end;
 	%%
-        Timeout ->
-            loop_actions_timeout(
+        _ ->
+            loop_actions_list(
               P, Debug, S, Q, NextState_NewData,
               NextEventsR, Hibernate, TimeoutsR, Postpone,
-              CallEnter, StateCall, Actions, Timeout)
+              CallEnter, StateCall, Actions, Action)
+    end.
+
+%% Process all other actions, i.e timeout actions,
+%% all others are unrecognized
+%%
+loop_actions_list(
+  P, Debug, S, Q, NextState_NewData,
+  NextEventsR, Hibernate, TimeoutsR, Postpone,
+  CallEnter, StateCall, Actions,
+  {TimeoutType,Time,TimeoutMsg,TimeoutOpts} = Timeout) ->
+    %%
+    case timeout_event_type(TimeoutType) of
+        true ->
+            case listify(TimeoutOpts) of
+                %% Optimization cases
+                [{abs,true}] when ?absolute_timeout(Time) ->
+                    loop_actions_list(
+                      P, Debug, S, Q, NextState_NewData,
+                      NextEventsR, Hibernate,
+                      [Timeout|TimeoutsR], Postpone,
+                      CallEnter, StateCall, Actions);
+                [{abs,false}] when ?relative_timeout(Time) ->
+                    RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
+                    loop_actions_list(
+                      P, Debug, S, Q, NextState_NewData,
+                      NextEventsR, Hibernate,
+                      [RelativeTimeout|TimeoutsR], Postpone,
+                      CallEnter, StateCall, Actions);
+                [] when ?relative_timeout(Time) ->
+                    RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
+                    loop_actions_list(
+                      P, Debug, S, Q, NextState_NewData,
+                      NextEventsR, Hibernate,
+                      [RelativeTimeout|TimeoutsR], Postpone,
+                      CallEnter, StateCall, Actions);
+                %% Generic case
+                TimeoutOptsList ->
+                    case parse_timeout_opts_abs(TimeoutOptsList) of
+                        true when ?absolute_timeout(Time) ->
+                            loop_actions_list(
+                              P, Debug, S, Q, NextState_NewData,
+                              NextEventsR, Hibernate,
+                              [Timeout|TimeoutsR], Postpone,
+                              CallEnter, StateCall, Actions);
+                        false when ?relative_timeout(Time) ->
+                            RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
+                            loop_actions_list(
+                              P, Debug, S, Q, NextState_NewData,
+                              NextEventsR, Hibernate,
+                              [RelativeTimeout|TimeoutsR], Postpone,
+                              CallEnter, StateCall, Actions);
+                        _ ->
+                            terminate(
+                              error,
+                              {bad_action_from_state_function,Timeout},
+                              ?STACKTRACE(), P, Debug,
+                              S#state{
+                                state_data = NextState_NewData,
+                                hibernate = Hibernate},
+                              Q)
+                    end
+            end;
+        false ->
+            terminate(
+              error,
+              {bad_action_from_state_function,Timeout},
+              ?STACKTRACE(), P, Debug,
+              S#state{
+                state_data = NextState_NewData,
+                hibernate = Hibernate},
+              Q)
+    end;
+loop_actions_list(
+  P, Debug, S, Q, NextState_NewData,
+  NextEventsR, Hibernate, TimeoutsR, Postpone,
+  CallEnter, StateCall, Actions,
+  {TimeoutType,Time,_TimeoutMsg} = Timeout) ->
+    %%
+    case timeout_event_type(TimeoutType) of
+        true
+          when ?relative_timeout(Time);
+               Time =:= update ->
+            loop_actions_list(
+              P, Debug, S, Q, NextState_NewData,
+              NextEventsR, Hibernate,
+              [Timeout|TimeoutsR], Postpone,
+              CallEnter, StateCall, Actions);
+        _ ->
+            terminate(
+              error,
+              {bad_action_from_state_function,Timeout},
+              ?STACKTRACE(), P, Debug,
+              S#state{
+                state_data = NextState_NewData,
+                hibernate = Hibernate},
+              Q)
+    end;
+loop_actions_list(
+  P, Debug, S, Q, NextState_NewData,
+  NextEventsR, Hibernate, TimeoutsR, Postpone,
+  CallEnter, StateCall, Actions,
+  {TimeoutType,cancel} = Action) ->
+    %%
+    case timeout_event_type(TimeoutType) of
+        true ->
+            Timeout = {TimeoutType,infinity,undefined},
+            loop_actions_list(
+              P, Debug, S, Q, NextState_NewData,
+              NextEventsR, Hibernate,
+              [Timeout|TimeoutsR], Postpone,
+              CallEnter, StateCall, Actions);
+        false ->
+            terminate(
+              error,
+              {bad_action_from_state_function,Action},
+              ?STACKTRACE(), P, Debug,
+              S#state{
+                state_data = NextState_NewData,
+                hibernate = Hibernate},
+              Q)
+    end;
+loop_actions_list(
+  P, Debug, S, Q, NextState_NewData,
+  NextEventsR, Hibernate, TimeoutsR, Postpone,
+  CallEnter, StateCall, Actions,
+  Time) ->
+    %%
+    if
+        ?relative_timeout(Time) ->
+            Timeout = {timeout,Time,Time},
+            loop_actions_list(
+              P, Debug, S, Q, NextState_NewData,
+              NextEventsR, Hibernate,
+              [Timeout|TimeoutsR], Postpone,
+              CallEnter, StateCall, Actions);
+        true ->
+            terminate(
+              error,
+              {bad_action_from_state_function,Time},
+              ?STACKTRACE(), P, Debug,
+              S#state{
+                state_data = NextState_NewData,
+                hibernate = Hibernate},
+              Q)
     end.
 
 %% Process a reply action
@@ -1575,149 +1719,6 @@ loop_actions_next_event(
                        bad_state_enter_action_from_state_function
                end,
                {next_event,Type,Content}},
-              ?STACKTRACE(), P, Debug,
-              S#state{
-                state_data = NextState_NewData,
-                hibernate = Hibernate},
-              Q)
-    end.
-
-%% Process a timeout action, or also any unrecognized action
-%%
-loop_actions_timeout(
-  P, Debug, S, Q, NextState_NewData,
-  NextEventsR, Hibernate, TimeoutsR, Postpone,
-  CallEnter, StateCall, Actions,
-  {TimeoutType,Time,TimeoutMsg,TimeoutOpts} = Timeout) ->
-    %%
-    case timeout_event_type(TimeoutType) of
-        true ->
-            case listify(TimeoutOpts) of
-                %% Optimization cases
-                [{abs,true}] when ?absolute_timeout(Time) ->
-                    loop_actions_list(
-                      P, Debug, S, Q, NextState_NewData,
-                      NextEventsR, Hibernate,
-                      [Timeout|TimeoutsR], Postpone,
-                      CallEnter, StateCall, Actions);
-                [{abs,false}] when ?relative_timeout(Time) ->
-                    RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
-                    loop_actions_list(
-                      P, Debug, S, Q, NextState_NewData,
-                      NextEventsR, Hibernate,
-                      [RelativeTimeout|TimeoutsR], Postpone,
-                      CallEnter, StateCall, Actions);
-                [] when ?relative_timeout(Time) ->
-                    RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
-                    loop_actions_list(
-                      P, Debug, S, Q, NextState_NewData,
-                      NextEventsR, Hibernate,
-                      [RelativeTimeout|TimeoutsR], Postpone,
-                      CallEnter, StateCall, Actions);
-                %% Generic case
-                TimeoutOptsList ->
-                    case parse_timeout_opts_abs(TimeoutOptsList) of
-                        true when ?absolute_timeout(Time) ->
-                            loop_actions_list(
-                              P, Debug, S, Q, NextState_NewData,
-                              NextEventsR, Hibernate,
-                              [Timeout|TimeoutsR], Postpone,
-                              CallEnter, StateCall, Actions);
-                        false when ?relative_timeout(Time) ->
-                            RelativeTimeout = {TimeoutType,Time,TimeoutMsg},
-                            loop_actions_list(
-                              P, Debug, S, Q, NextState_NewData,
-                              NextEventsR, Hibernate,
-                              [RelativeTimeout|TimeoutsR], Postpone,
-                              CallEnter, StateCall, Actions);
-                        _ ->
-                            terminate(
-                              error,
-                              {bad_action_from_state_function,Timeout},
-                              ?STACKTRACE(), P, Debug,
-                              S#state{
-                                state_data = NextState_NewData,
-                                hibernate = Hibernate},
-                              Q)
-                    end
-            end;
-        false ->
-            terminate(
-              error,
-              {bad_action_from_state_function,Timeout},
-              ?STACKTRACE(), P, Debug,
-              S#state{
-                state_data = NextState_NewData,
-                hibernate = Hibernate},
-              Q)
-    end;
-loop_actions_timeout(
-  P, Debug, S, Q, NextState_NewData,
-  NextEventsR, Hibernate, TimeoutsR, Postpone,
-  CallEnter, StateCall, Actions,
-  {TimeoutType,Time,_TimeoutMsg} = Timeout) ->
-    %%
-    case timeout_event_type(TimeoutType) of
-        true
-          when ?relative_timeout(Time);
-               Time =:= update ->
-            loop_actions_list(
-              P, Debug, S, Q, NextState_NewData,
-              NextEventsR, Hibernate,
-              [Timeout|TimeoutsR], Postpone,
-              CallEnter, StateCall, Actions);
-        _ ->
-            terminate(
-              error,
-              {bad_action_from_state_function,Timeout},
-              ?STACKTRACE(), P, Debug,
-              S#state{
-                state_data = NextState_NewData,
-                hibernate = Hibernate},
-              Q)
-    end;
-loop_actions_timeout(
-  P, Debug, S, Q, NextState_NewData,
-  NextEventsR, Hibernate, TimeoutsR, Postpone,
-  CallEnter, StateCall, Actions,
-  {TimeoutType,cancel} = Action) ->
-    %%
-    case timeout_event_type(TimeoutType) of
-        true ->
-            Timeout = {TimeoutType,infinity,undefined},
-            loop_actions_list(
-              P, Debug, S, Q, NextState_NewData,
-              NextEventsR, Hibernate,
-              [Timeout|TimeoutsR], Postpone,
-              CallEnter, StateCall, Actions);
-        false ->
-            terminate(
-              error,
-              {bad_action_from_state_function,Action},
-              ?STACKTRACE(), P, Debug,
-              S#state{
-                state_data = NextState_NewData,
-                hibernate = Hibernate},
-              Q)
-    end;
-loop_actions_timeout(
-  P, Debug, S, Q, NextState_NewData,
-  NextEventsR, Hibernate, TimeoutsR, Postpone,
-  CallEnter, StateCall, Actions,
-  Time) ->
-    %%
-    if
-        ?relative_timeout(Time) ->
-            Timeout = {timeout,Time,Time},
-            loop_actions_list(
-              P, Debug, S, Q, NextState_NewData,
-              NextEventsR, Hibernate,
-              [Timeout|TimeoutsR], Postpone,
-              CallEnter, StateCall, Actions);
-        true ->
-            terminate(
-              error,
-              {bad_action_from_state_function,Time},
               ?STACKTRACE(), P, Debug,
               S#state{
                 state_data = NextState_NewData,
