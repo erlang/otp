@@ -356,6 +356,10 @@ matched_out_size_1(Binary) ->
 no_generator(Config) ->
     [<<"abc">>] = [<<(id(<<"abc">>)) || true >>],
     {<<>>} = {<<(id(<<"abc">>)) || false >>},
+
+    %% Would crash the compiler when compiled with +no_type_opt.
+    {'EXIT',{badarg,_}} = (catch << (catch "\001") || true >>),
+
     ok.
 
 cs_init() ->
