@@ -79,7 +79,8 @@ groups() ->
                             packet_size,
                             ssh_info_print,
                             {group, login_bad_pwd_no_retry},
-                            shell_exit_status
+                            shell_exit_status,
+                            setopts_getopts
                            ]},
 
      {ssh_renegotiate_SUITE, [?PARALLEL], [rekey0,
@@ -1438,6 +1439,43 @@ shell_exit_status(Config) when is_list(Config) ->
     ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId),
     ssh:stop_daemon(Pid).
 
+
+%%----------------------------------------------------------------------------
+setopts_getopts(Config) ->
+    process_flag(trap_exit, true),
+    SystemDir = proplists:get_value(data_dir, Config),
+    UserDir = proplists:get_value(priv_dir, Config),
+
+    ShellFun = fun (_User) -> spawn(fun() -> ok end) end,
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
+                                             {user_dir, UserDir},
+                                             {user_passwords, [{"vego", "morot"}]},
+                                             {shell, ShellFun},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+    ConnectionRef =
+        ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user_dir, UserDir},
+                                          {user, "vego"},
+                                          {password, "morot"},
+                                          {user_interaction, false}]),
+    %% Test get_sock_opts
+    {ok,[{active,once},{deliver,term},{mode,binary},{packet,0}]} =
+        ssh:get_sock_opts(ConnectionRef, [active, deliver, mode, packet]),
+
+    %% Test to set forbidden opts
+    {error,{not_allowed,[active,deliver,mode,packet]}} =
+        ssh:set_sock_opts(ConnectionRef, [{active,once},{deliver,term},{mode,binary},{packet,0}]),
+    
+    %% Test to set some other opt
+    {ok,[{delay_send,DS0},{reuseaddr,RA0}]} =
+        ssh:get_sock_opts(ConnectionRef, [delay_send, reuseaddr]),
+    DS1 = not DS0,
+    RA1 = not RA0,
+    ok = ssh:set_sock_opts(ConnectionRef, [{delay_send,DS1},{reuseaddr,RA1}]),
+    {ok,[{reuseaddr,RA1},{delay_send,DS1}]} =
+        ssh:get_sock_opts(ConnectionRef, [reuseaddr,delay_send]),
+    
+     ssh:stop_daemon(Pid).
 
 %%----------------------------------------------------------------------------
 %%% Idle timeout test
