@@ -487,7 +487,7 @@ clean:
 	rm -f $(ST_EIOBJECTS)  $(ST_EILIB)
 	rm -f $(MT_EIOBJECTS)  $(MT_EILIB)
 	rm -f $(MD_EIOBJECTS)  $(MD_EILIB)
-	rm -f $(MDD_EIOBJECTS) $(MDD_EILIB
+	rm -f $(MDD_EIOBJECTS) $(MDD_EILIB)
 	rm -f $(ERL_CALL)
 	rm -f $(FAKE_TARGETS)
 	rm -f $(APP_TARGET)
