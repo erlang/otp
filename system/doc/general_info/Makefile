@@ -79,6 +79,15 @@ html: $(GIF_FILES) $(HTML_UG_FILE)
 
 debug opt: 
 
+DEPRECATIONS_SCRIPT = $(ERL_TOP)/lib/stdlib/scripts/update_deprecations
+
+deprecations.xml: DEPRECATIONS
+	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml deprecations $(ERL_TOP)
+
+scheduled_for_removal.xml: DEPRECATIONS
+	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml removals $(ERL_TOP)
+
+
 clean clean_docs:
 	rm -f $(XMLDIR)/*.xml
 	rm -f $(HTMLDIR)/*.gif $(HTMLDIR)/*.html
