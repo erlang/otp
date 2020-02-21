@@ -570,6 +570,10 @@ true
           <item><p>A ".." component would climb up above the root of
           the relative path.</p></item>
         </list>
+        <warning>
+          <p>This function is deprecated. Use <seealso marker="filelib#safe_relative_path/2">
+          <c>filelib:safe_relative_path/2</c></seealso> instead for sanitizing paths.</p>
+        </warning>
         <p><em>Examples:</em></p>
         <pre>
 1> <input>filename:safe_relative_path("dir/sub_dir/..").</input>

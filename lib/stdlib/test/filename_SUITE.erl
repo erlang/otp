@@ -886,7 +886,7 @@ t_nativename_bin(Config) when is_list(Config) ->
 
 safe_relative_path(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
-    Root = filename:join(PrivDir, ?FUNCTION_NAME),
+    Root = filename:join(PrivDir, "filename_SUITE_safe_relative_path"),
     ok = file:make_dir(Root),
     ok = file:set_cwd(Root),
 
