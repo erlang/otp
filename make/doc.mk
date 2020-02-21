@@ -75,6 +75,8 @@ EMPTY_CHUNK_FILES = $(filter-out $(NO_CHUNKS:%.xml=$(CHUNKSDIR)/%.chunk) $(CHUNK
 
 SPECS_FLAGS = -I$(ERL_TOP)/lib -I$(ERL_TOP)/lib/*/include -I$(ERL_TOP)/lib/*/src
 
+
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
@@ -85,13 +87,15 @@ $(HTMLDIR)/%.png: %.png
 $(HTMLDIR)/%.jpg: %.jpg
 	$(INSTALL_DATA) $< $@
 
-docs: man pdf html chunks $(INFO_FILE)
+DOC_TARGETS?=man pdf html chunks
+
+docs: $(INFO_FILE) $(DOC_TARGETS)
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html: images $(HTML_REF_MAN_FILE)
+html: images $(HTML_REF_MAN_FILE) $(HTMLDIR)/$(APPLICATION).eix
 
 man: $(MAN1_FILES) $(MAN2_FILES) $(MAN3_FILES) $(MAN4_FILES) $(MAN5_FILES) $(MAN6_FILES) $(MAN7_FILES)
 
@@ -146,19 +150,27 @@ clean_chunks:
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_docs_spec: docs
+$(RELSYSDIR):
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+
+release_pdf_spec: pdf
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
 	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
+
+release_html_spec: html
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
 	$(INSTALL_DIR_DATA) $(HTMLDIR) "$(RELSYSDIR)/doc/html"
 ifneq ($(HTML_EXTRA_FILES),)
 	$(INSTALL_DATA) $(HTML_EXTRA_FILES) "$(RELSYSDIR)/doc/html"
 endif
+
+release_chunks_spec: chunks
 ifneq ($(CHUNK_FILES),)
 	$(INSTALL_DIR) "$(RELCHUNKSDIR)/doc/chunks"
 	$(INSTALL_DATA) $(CHUNKSDIR)/* "$(RELCHUNKSDIR)/doc/chunks"
 endif
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
+
+release_man_spec: man
 ifneq ($(MAN1_FILES),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man1"
 	$(INSTALL_DATA) $(MAN1DIR)/* "$(RELEASE_PATH)/man/man1"
@@ -187,6 +199,9 @@ ifneq ($(MAN7_FILES),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man7"
 	$(INSTALL_DATA) $(MAN7_FILES) "$(RELEASE_PATH)/man/man7"
 endif
+
+release_docs_spec: $(RELSYSDIR) $(INFO_FILE) $(DOC_TARGETS:%=release_%_spec)
+	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
 ifneq ($(STANDARDS),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/standard"
 	$(INSTALL_DATA) $(STANDARDS) "$(RELEASE_PATH)/doc/standard"

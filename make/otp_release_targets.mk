@@ -142,8 +142,6 @@ $(HTMLDIR)/$(APPLICATION).eix: $(XML_GEN_FILES) $(SPECS_FILES)
 	        -path $(DOCGEN)/priv/dtd_html_entities \
 	        $(DOCGEN)/priv/xsl/db_eix.xsl $(XMLDIR)/book.xml >  $@
 
-docs: $(HTMLDIR)/$(APPLICATION).eix
-
 ## Here awk is used to find all xi:include files in $(BOOK_FILES)
 ## Then we look into all those files check for xi:includes
 BOOK_XI_INC_FILES:=$(foreach file,$(BOOK_FILES),$(shell awk -F\" '/xi:include/ {print $$2}' $(file))) $(BOOK_FILES)
@@ -207,15 +205,21 @@ endif
 # Standard release target
 # ----------------------------------------------------
 
+pdf man chunks html: $(XML_GEN_FILES) $(SPECS_FILES) $(TOP_SPECS_FILE)
+release_man_spec: man
+release_pdf_spec: pdf
+release_chunks_spec: chunks
+release_html_spec: html
+
 ifeq ($(TESTROOT),)
 
-release release_docs release_tests release_html:
+release release_docs release_tests:
 	$(MAKE) $(MFLAGS) RELEASE_PATH=$(OTP_DEFAULT_RELEASE_PATH) \
 		$(TARGET_MAKEFILE)  $@_spec
 
 else
 
-release release_docs release_tests release_html:
+release release_docs release_tests:
 	$(MAKE) $(MFLAGS) RELEASE_PATH="$(TESTROOT)" $(TARGET_MAKEFILE)  $@_spec 
 
 endif

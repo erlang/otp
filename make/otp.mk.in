@@ -271,7 +271,7 @@ DEFAULT_HTML_FILES = \
 	$(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.kwc) \
 	$(HTMLDIR)/index.html
 
-DEFAULT_GIF_FILES = $(HTMLDIR)/min_head.gif
+DEFAULT_GIF_FILES =
 
 #
 # Flags & Commands

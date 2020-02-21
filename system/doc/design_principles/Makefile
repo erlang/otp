@@ -95,7 +95,9 @@ $(HTMLDIR)/%.gif: %.gif
 $(HTMLDIR)/%.svg: %.svg
 	$(INSTALL_DATA) $< $@
 
-docs: html
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 local_docs: PDFDIR=../../pdf
 
@@ -116,12 +118,11 @@ clean clean_docs:
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_docs_spec: docs
-#	$(INSTALL_DIR) "$(RELEASE_PATH)/pdf"
-#	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELEASE_PATH)/pdf"
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(IMAGE_FILES) $(HTMLDIR)/*.html \
+release_html_spec: html
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(IMAGE_FILES) $(EXTRA_FILES) $(HTMLDIR)/*.html \
 		$(RELSYSDIR)
 
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
 
 release_spec:

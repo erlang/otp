@@ -18,6 +18,7 @@
 # %CopyrightEnd%
 #
 #
+
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
@@ -25,10 +26,10 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Application version
 # ----------------------------------------------------
 include $(ERL_TOP)/erts/vsn.mk
-#VSN=$(SYSTEM_VSN)
 
 APPLICATION=otp-system-documentation
 XMLDIR := $(XMLDIR)/reference_manual
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -40,6 +41,7 @@ RELSYSDIR = "$(RELEASE_PATH)/doc/reference_manual"
 XML_PART_FILES = part.xml
 
 include xmlfiles.mk
+
 XML_CHAPTER_FILES=$(REF_MAN_CHAPTER_FILES)
 
 TOPDOCDIR=..
@@ -47,7 +49,6 @@ TOPDOCDIR=..
 BOOK_FILES = book.xml
 
 GIF_FILES= 
-
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
@@ -65,14 +66,6 @@ HTML_FILES = \
 
 HTMLDIR = ../html/reference_manual
 
-EXTRA_FILES = $(DEFAULT_GIF_FILES) \
-	$(DEFAULT_HTML_FILES) \
-	$(C_FILES) \
-	$(ERL_FILES) \
-	$(HRL_FILES) \
-	$(MISC_FILES) \
-	$(XML_CHAPTER_FILES:%.xml=%.html)
-
 HTML_UG_FILE = $(HTMLDIR)/users_guide.html
 
 # ----------------------------------------------------
@@ -85,7 +78,9 @@ DVIPS_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
-docs: html
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 local_docs: PDFDIR=../../pdf
 
@@ -104,14 +99,11 @@ clean clean_docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-release_docs_spec: docs
-#	$(INSTALL_DIR) "$(RELEASE_PATH)/pdf"
-#	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELEASE_PATH)/pdf"
-	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html \
+release_html_spec: html
+	$(INSTALL_DIR) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTMLDIR)/*.html \
 		$(RELSYSDIR)
 
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
+
 release_spec:
-
-
-

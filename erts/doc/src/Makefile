@@ -156,7 +156,7 @@ _create_dirs := $(shell mkdir -p $(XML_FIGURE_DIR))
 $(XML_FIGURE_DIR)/%.png: ../../emulator/internal_doc/figures/%.png
 	$(INSTALL_DATA) $< $@
 
-docs: figures
+html: figures
 
 $(INFO_FILE): $(INFO_FILE_SRC) $(ERL_TOP)/make/$(TARGET)/otp.mk
 	sed -e 's;%RELEASE%;$(SYSTEM_VSN);' $(INFO_FILE_SRC) > $(INFO_FILE)
@@ -188,7 +188,7 @@ specs.xml: specs.xml.src
 # Release Target
 # ----------------------------------------------------
 
-release_docs_spec: release_figures
+release_html_spec: release_figures
 
 release_figures:
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html/figures"

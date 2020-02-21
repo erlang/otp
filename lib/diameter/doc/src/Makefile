@@ -50,11 +50,11 @@ include $(ERL_TOP)/make/doc.mk
 $(XMLDIR)/seehere.ent: Makefile seealso.ent
 	$(gen_verbose) sed -f seehere.sed seealso.ent > $@
 $(XMLDIR)/%.ent: %.ent
-	cp $< $@
+	$(gen_verbose) cp $< $@
 
 ldocs: local_docs $(INDEX_TARGET)
 
-depend.mk: depend.sed Makefile $(XMLDIR)/seehere.ent $(XML_REF_FILES) $(XML_CHAPTER_FILES)
+depend.mk: depend.sed Makefile $(XMLDIR)/seehere.ent $(XMLDIR)/seealso.ent $(XML_REF_FILES) $(XML_CHAPTER_FILES)
 	$(gen_verbose) \
 	(for f in $(XML_REF_FILES) $(XML_CHAPTER_FILES); do \
 	     sed -f $< $$f | sed "s@%FILE%@`basename $$f .xml`@g"; \
