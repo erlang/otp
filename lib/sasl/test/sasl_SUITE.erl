@@ -32,6 +32,8 @@
 	 log_file/1,
 	 utc_log/1]).
 
+-compile(r21).
+
 all() -> 
     [log_mf_h_env, log_file, app_test, appup_test, utc_log].
 
@@ -104,7 +106,7 @@ appup_tests(App,{OkVsns0,NokVsns}) ->
 create_test_vsns(App) ->
     ThisMajor = erlang:system_info(otp_release),
     FirstMajor = previous_major(ThisMajor),
-    SecondMajor = previous_major(FirstMajor),
+    SecondMajor = previous_major(previous_major(FirstMajor)),
     Ok = app_vsn(App,[ThisMajor,FirstMajor]),
     Nok0 = app_vsn(App,[SecondMajor]),
     Nok = case Ok of
