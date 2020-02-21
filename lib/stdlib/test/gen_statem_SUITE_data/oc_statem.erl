@@ -37,4 +37,16 @@ callback_mode() ->
     [handle_event_function, state_enter].
 
 handle_event(enter, start, start, _Data) ->
-    keep_state_and_data.
+    keep_state_and_data;
+handle_event(
+  {call,From}, {push_callback_module,NewModule} = Action,
+  start, _Data) ->
+    {keep_state_and_data,
+     [Action,
+      {reply,From,ok}]};
+handle_event(
+  {call,From}, pop_callback_module = Action,
+  start, _Data) ->
+    {keep_state_and_data,
+     [Action,
+      {reply,From,ok}]}.

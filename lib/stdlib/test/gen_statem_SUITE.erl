@@ -69,7 +69,7 @@ tcs(sys) ->
      get_state, replace_state];
 tcs(undef_callbacks) ->
     [undef_code_change, undef_terminate1, undef_terminate2,
-     function_clause_after_change_callback_module].
+     pop_too_many].
 
 init_per_suite(Config) ->
     Config.
@@ -1778,7 +1778,7 @@ verify_down(Statem, MRef, Reason) ->
     end.
 
 
-function_clause_after_change_callback_module(_Config) ->
+pop_too_many(_Config) ->
     _ = process_flag(trap_exit, true),
 
     Machine =
@@ -1790,8 +1790,17 @@ function_clause_after_change_callback_module(_Config) ->
 	      fun ({call, From}, {change_callback_module, _Module} = Action,
                    undefined = _Data) ->
 		      {keep_state_and_data,
-                       [{reply,From,ok},
-                        Action]}
+                       [Action,
+                        {reply,From,ok}]};
+                  ({call, From}, {verify, ?MODULE},
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [{reply,From,ok}]};
+                  ({call, From}, pop_callback_module = Action,
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [Action,
+                        {reply,From,ok}]}
 	      end},
     {ok, STM} =
 	gen_statem:start_link(
@@ -1800,16 +1809,16 @@ function_clause_after_change_callback_module(_Config) ->
           [{debug, [trace]}]),
 
     ok = gen_statem:call(STM, {change_callback_module, oc_statem}),
+    ok = gen_statem:call(STM, {push_callback_module, ?MODULE}),
+    ok = gen_statem:call(STM, {verify, ?MODULE}),
+    ok = gen_statem:call(STM, pop_callback_module),
+    BadAction = {bad_action_from_state_function, pop_callback_module},
+    {{BadAction, _},
+     {gen_statem,call,[STM,pop_callback_module,infinity]}} =
+        ?EXPECT_FAILURE(gen_statem:call(STM, pop_callback_module), Reason),
 
-    Call = unhandled_call,
-    {{function_clause,
-      [{oc_statem, handle_event,
-        [{call, _From}, Call, start, _Data], _Line}
-       | _RestStacktrace]} = Undef,
-     {gen_statem, call, [STM,Call,_Timeout]}} =
-        ?EXPECT_FAILURE(gen_statem:call(STM, Call), Reason),
     receive
-        {'EXIT', STM, Undef} ->
+        {'EXIT', STM, {BadAction, _}} ->
             ok;
         Other ->
             ct:fail({surprise, Other})

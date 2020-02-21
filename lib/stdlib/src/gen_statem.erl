@@ -150,6 +150,8 @@
 	 EventType :: event_type(),
 	 EventContent :: term()} |
         {'change_callback_module', NewModule :: module()} |
+        {'push_callback_module', NewModule :: module()} |
+        'pop_callback_module' |
 	enter_action().
 -type enter_action() ::
 	'hibernate' | % Set the hibernate option
@@ -423,7 +425,7 @@ timeout_event_type(Type) ->
         {callback_mode = undefined :: callback_mode() | undefined,
          state_enter = false :: boolean(),
          parent :: pid(),
-         module :: atom(),
+         modules :: [module()],
          name :: atom() | pid(),
          hibernate_after = infinity :: timeout()
         }).
@@ -691,7 +693,7 @@ enter(
     P =
         #params{
            parent = Parent,
-           module = Module,
+           modules = [Module],
            name = Name,
            hibernate_after = HibernateAfterTimeout},
     S = #state{state_data = {State,Data}},
@@ -728,7 +730,7 @@ init_it(Starter, Parent, ServerRef, Module, Args, Opts) ->
 	    proc_lib:init_ack(Starter, {error,Reason}),
 	    error_info(
 	      Class, Reason, Stacktrace, Debug,
-              #params{parent = Parent, name = Name, module = Module},
+              #params{parent = Parent, name = Name, modules = [Module]},
               #state{}, []),
 	    erlang:raise(Class, Reason, Stacktrace)
     end.
@@ -764,7 +766,7 @@ init_result(
 	    proc_lib:init_ack(Starter, {error,Error}),
 	    error_info(
 	      error, Error, ?STACKTRACE(), Debug,
-              #params{parent = Parent, name = Name, module = Module},
+              #params{parent = Parent, name = Name, modules = [Module]},
               #state{}, []),
 	    exit(Error)
     end.
@@ -785,7 +787,7 @@ system_terminate(Reason, Parent, Debug, {P,S}) ->
       update_parent(P, Parent), Debug, S, []).
 
 system_code_change(
-  {#params{module = Module} = P,
+  {#params{modules = [Module | _]} = P,
    #state{state_data = {State,Data}} = S},
   _Mod, OldVsn, Extra) ->
     case
@@ -816,7 +818,7 @@ system_replace_state(
 format_status(
   Opt,
   [PDict,SysState,Parent,Debug,
-   {#params{name = Name} = P,
+   {#params{name = Name, modules = Modules} = P,
     #state{postponed = Postponed, timers = Timers} = S}]) ->
     Header = gen:format_status_header("Status for state machine", Name),
     Log = sys:get_log(Debug),
@@ -824,6 +826,7 @@ format_status(
      {data,
       [{"Status",SysState},
        {"Parent",Parent},
+       {"Modules",Modules},
        {"Time-outs",list_timeouts(Timers)},
        {"Logged Events",Log},
        {"Postponed",Postponed}]} |
@@ -1079,7 +1082,7 @@ loop_state_callback(P, Debug, S, Q, State_Data, CallbackEvent) ->
       StateCall, CallbackEvent).
 %%
 loop_state_callback(
-  #params{callback_mode = undefined, module = Module} = P,
+  #params{callback_mode = undefined, modules = [Module | _]} = P,
   Debug, S, Q, State_Data,
   NextEventsR, Hibernate, TimeoutsR, Postpone,
   StateCall, CallbackEvent) ->
@@ -1105,7 +1108,7 @@ loop_state_callback(
 	      Class, Reason, Stacktrace, P, Debug, S, Q)
     end;
 loop_state_callback(
-  #params{callback_mode = CallbackMode, module = Module} = P,
+  #params{callback_mode = CallbackMode, modules = [Module | _]} = P,
   Debug, S, Q, {State,Data} = State_Data,
   NextEventsR, Hibernate, TimeoutsR, Postpone,
   StateCall, {Type,Content}) ->
@@ -1446,13 +1449,43 @@ loop_actions_list(
               NextEventsR, Hibernate, TimeoutsR, Postpone,
               CallEnter, StateCall, Actions, Type, Content);
         %%
-        {change_callback_module, NewModule}
-          when is_atom(NewModule) ->
+        {Tag, NewModule}
+          when Tag =:= change_callback_module, is_atom(NewModule);
+               Tag =:= push_callback_module, is_atom(NewModule) ->
             if
                 StateCall ->
+                    NewModules =
+                        case Tag of
+                            change_callback_module ->
+                                [NewModule | tl(P#params.modules)];
+                            push_callback_module ->
+                                [NewModule | P#params.modules]
+                        end,
                     P_1 =
                         P#params{
-                          callback_mode = undefined, module = NewModule},
+                          callback_mode = undefined, modules = NewModules},
+                    loop_actions_list(
+                      P_1, Debug, S, Q, NextState_NewData,
+                      NextEventsR, Hibernate, TimeoutsR, Postpone,
+                      CallEnter, StateCall, Actions);
+                true ->
+                    terminate(
+                      error,
+                      {bad_state_enter_action_from_state_function,Action},
+                      ?STACKTRACE(), P, Debug,
+                      S#state{
+                        state_data = NextState_NewData,
+                        hibernate = Hibernate},
+                      Q)
+            end;
+        pop_callback_module when tl(P#params.modules) =/= [] ->
+            if
+                StateCall ->
+                    NewModules = tl(P#params.modules),
+                    P_1 =
+                        P#params{
+                          callback_mode = undefined,
+                          modules = NewModules},
                     loop_actions_list(
                       P_1, Debug, S, Q, NextState_NewData,
                       NextEventsR, Hibernate, TimeoutsR, Postpone,
@@ -2269,7 +2302,7 @@ do_reply_then_terminate(
 
 terminate(
   Class, Reason, Stacktrace,
-  #params{module = Module} = P, Debug,
+  #params{modules = [Module | _]} = P, Debug,
   #state{state_data = {State,Data}} = S, Q) ->
     case erlang:function_exported(Module, terminate, 3) of
 	true ->
@@ -2310,6 +2343,7 @@ error_info(
   Class, Reason, Stacktrace, Debug,
   #params{
      name = Name,
+     modules = Modules,
      callback_mode = CallbackMode,
      state_enter = StateEnter} = P,
   #state{
@@ -2321,6 +2355,7 @@ error_info(
                  name=>Name,
                  queue=>Q,
                  postponed=>Postponed,
+                 modules=>Modules,
                  callback_mode=>CallbackMode,
                  state_enter=>StateEnter,
                  state=>format_status(terminate, get(), P, S),
@@ -2360,6 +2395,7 @@ format_log(#{label:={gen_statem,terminate},
              name:=Name,
              queue:=Q,
              postponed:=Postponed,
+             modules:=Modules,
              callback_mode:=CallbackMode,
              state_enter:=StateEnter,
              state:=FmtData,
@@ -2406,6 +2442,7 @@ format_log(#{label:={gen_statem,terminate},
          end ++
          "** When server state  = ~tp~n" ++
          "** Reason for termination = ~w:~tp~n" ++
+         "** Callback modules = ~p~n" ++
          "** Callback mode = ~p~n" ++
          case Q of
              [_,_|_] -> "** Queued = ~tp~n";
@@ -2434,6 +2471,7 @@ format_log(#{label:={gen_statem,terminate},
       end] ++
          [error_logger:limit_term(FmtData),
           Class,error_logger:limit_term(FixedReason),
+          error_logger:limit_term(Modules),
           CBMode] ++
          case Q of
              [_|[_|_] = Events] -> [error_logger:limit_term(Events)];
@@ -2471,7 +2509,7 @@ format_client_log({_Pid,{Name,Stacktrace}}) ->
 %% Call Module:format_status/2 or return a default value
 format_status(
   Opt, PDict,
-  #params{module = Module},
+  #params{modules = [Module | _]},
   #state{state_data = {State,Data} = State_Data}) ->
     case erlang:function_exported(Module, format_status, 2) of
 	true ->
