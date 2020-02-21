@@ -575,7 +575,11 @@
       <tag><marker id="async_thread_pool_size"/><c><![CDATA[+A size]]></c></tag>
       <item>
         <p>Sets the number of threads in async thread pool. Valid range
-          is 0-1024. Defaults to 1.</p>
+          is 0-1024. The async thread pool is used by linked-in drivers to
+          handle work that may take a very long time. Since OTP-21 there are
+          very few linked-in drivers in the default Erlang/OTP distribution
+          that uses the async thread pool. Most of them have been migrated to
+          dirty IO schedulers. Defaults to 1.</p>
       </item>
       <tag><c><![CDATA[+B [c | d | i]]]></c></tag>
       <item>
@@ -1015,6 +1019,12 @@
 	  executing on ordinary schedulers. If the amount of dirty CPU
 	  schedulers was allowed to be unlimited, dirty CPU bound jobs would
 	  potentially starve normal jobs.</p>
+        <p>Typical users of the dirty CPU schedulers are large garbage collections,
+          json protocol encode/decoders written as nifs and matrix manipulation
+          libraries.</p>
+        <p>You can use <seealso marker="runtime_tools:msacc">msacc(3)</seealso>
+          in order to see the current load of the dirty CPU schedulers threads
+          and adjust the number used accordingly.</p>
       </item>
       <tag><marker id="+SDPcpu"/><c><![CDATA[+SDPcpu
         DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></tag>
@@ -1044,15 +1054,17 @@
       <item>
         <p>Sets the number of dirty I/O scheduler threads to create.
           Valid range is 0-1024. By
-          default, the number of dirty I/O scheduler threads created is 10,
-          same as the default number of threads in the <seealso
-          marker="#async_thread_pool_size">async thread pool</seealso>.</p>
+          default, the number of dirty I/O scheduler threads created is 10.</p>
 	<p>The amount of dirty IO schedulers is not limited by the amount of
 	  normal schedulers <seealso marker="#+SDcpu">like the amount of
 	  dirty CPU schedulers</seealso>. This since only I/O bound work is
 	  expected to execute on dirty I/O schedulers. If the user should schedule CPU
 	  bound jobs on dirty I/O schedulers, these jobs might starve ordinary
 	  jobs executing on ordinary schedulers.</p>
+        <p>Typical users of the dirty IO schedulers are reading and writing to files.</p>
+        <p>You can use <seealso marker="runtime_tools:msacc">msacc(3)</seealso>
+          in order to see the current load of the dirty IO schedulers threads
+          and adjust the number used accordingly.</p>
       </item>
       <tag><c><![CDATA[+sFlag Value]]></c></tag>
       <item>

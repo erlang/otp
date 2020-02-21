@@ -578,8 +578,8 @@ do_break(void)
     ASSERT(erts_thr_progress_is_blocking());
 
     erts_printf("\n"
-		"BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded\n"
-		"       (v)ersion (k)ill (D)b-tables (d)istribution\n");
+		"BREAK: (a)bort (A)bort with dump (c)ontinue (p)roc info (i)nfo\n"
+		"       (l)oaded (v)ersion (k)ill (D)b-tables (d)istribution\n");
 
     while (1) {
 	if ((i = sys_get_key(0)) <= 0)
