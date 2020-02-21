@@ -86,14 +86,18 @@ add_host_key(Host, Key, Opts) ->
     case file:open(KnownHosts, [write,append]) of
 	{ok, Fd} ->
 	    ok = file:change_mode(KnownHosts, 8#644),
-            SshBin = public_key:ssh_encode([{Key, [{hostnames, [Host1]}]}], known_hosts),
+            KeyType = erlang:atom_to_binary(ssh_transport:public_algo(Key), latin1),
+            EncKey = ssh_message:ssh2_pubkey_encode(Key),
+            SshBin =
+                iolist_to_binary([Host1, " ",
+                                  KeyType," ",base64:encode(iolist_to_binary(EncKey)),
+                                  "\n"]),
             Res = file:write(Fd, SshBin),
 	    file:close(Fd),
 	    Res;
 	Error ->
 	    Error
     end.
-
 
 %%%================================================================
 %%%
@@ -139,6 +143,28 @@ decode_key(Base64EncodedKey) ->
 
 %%%---------------- CLIENT FUNCTIONS ------------------------------
 
+%%%--------------------------------
+%% in: "host" out: "host,1.2.3.4.
+add_ip(IP) when is_tuple(IP) ->
+    ssh_connection:encode_ip(IP);
+add_ip(Host) ->
+    case inet:getaddr(Host, inet) of
+	{ok, Addr} ->
+	    case ssh_connection:encode_ip(Addr) of
+		false -> Host;
+                Host -> Host;
+		IPString -> Host ++ "," ++ IPString
+	    end;
+	_ -> Host
+    end.
+
+replace_localhost("localhost") ->
+    {ok, Hostname} = inet:gethostname(),
+    Hostname;
+replace_localhost(Host) ->
+    Host.
+
+%%%--------------------------------
 lookup_host_keys(Host, KeyType, Key, File) ->
     case file:read_file(File) of
         {ok,Bin} ->
@@ -192,28 +218,6 @@ host_match1(Host, Sz, [Pat|Pats]) ->
     end;
 host_match1(_, _, []) ->
     false.
-
-
-
-%%%--------------------------------
-%% in: "host" out: "host,1.2.3.4.
-add_ip(IP) when is_tuple(IP) ->
-    ssh_connection:encode_ip(IP);
-add_ip(Host) ->
-    case inet:getaddr(Host, inet) of
-	{ok, Addr} ->
-	    case ssh_connection:encode_ip(Addr) of
-		false -> Host;
-		IPString -> Host ++ "," ++ IPString
-	    end;
-	_ -> Host
-    end.
-
-replace_localhost("localhost") ->
-    {ok, Hostname} = inet:gethostname(),
-    Hostname;
-replace_localhost(Host) ->
-    Host.
 
 %%%---------------- COMMON FUNCTIONS ------------------------------
 
