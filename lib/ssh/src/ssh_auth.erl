@@ -143,9 +143,9 @@ get_public_key(SigAlg, #ssh{opts = Opts}) ->
         {ok, PrivKey} ->
             try
                 %% Check the key - the KeyCb may be a buggy plugin
-                true = ssh_transport:valid_key_sha_alg(PrivKey, KeyAlg),
+                true = ssh_transport:valid_key_sha_alg(private, PrivKey, KeyAlg),
                 Key = ssh_transport:extract_public_key(PrivKey),
-                public_key:ssh_encode(Key, ssh2_pubkey)
+                ssh_message:ssh2_pubkey_encode(Key)
             of
                 PubKeyBlob -> {ok,{PrivKey,PubKeyBlob}}
             catch
@@ -495,7 +495,7 @@ get_password_option(Opts, User) ->
 	    
 pre_verify_sig(User, KeyBlob, Opts) ->
     try
-	Key = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
+	Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
         ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts)
     catch
 	_:_ ->
@@ -505,7 +505,7 @@ pre_verify_sig(User, KeyBlob, Opts) ->
 verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts = Opts} = Ssh) ->
     try
         Alg = binary_to_list(AlgBin),
-        Key = public_key:ssh_decode(KeyBlob, ssh2_pubkey), % or exception
+        Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
         true = ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts),
         PlainText = build_sig_data(SessionId, User, Service, KeyBlob, Alg),
         <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,

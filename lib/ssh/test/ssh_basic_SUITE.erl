@@ -900,13 +900,34 @@ known_hosts(Config) when is_list(Config) ->
     {ok, _Channel} = ssh_connection:session_channel(ConnectionRef, infinity),
     ok = ssh:close(ConnectionRef),
     {ok, Binary} = file:read_file(KnownHosts),
+    ct:log("known_hosts:~n~p",[Binary]),
     Lines = string:tokens(binary_to_list(Binary), "\n"),
     [Line] = Lines,
     [HostAndIp, Alg, _KeyData] = string:tokens(Line, " "),
-    [StoredHost, _Ip] = string:tokens(HostAndIp, ","),
+    [StoredHost|_] = string:tokens(HostAndIp, ","),
     true = ssh_test_lib:match_ip(StoredHost, Host),
     "ssh-" ++ _ = Alg,
+    NLines = length(binary:split(Binary, <<"\n">>, [global,trim_all])),
+    ct:log("NLines = ~p~n~p", [NLines,Binary]),
+    if
+        NLines>1 -> ct:fail("wrong num lines", []);
+        NLines<1 -> ct:fail("wrong num lines", []);
+        true -> ok
+    end,
+
+    _ConnectionRef2 =
+	ssh_test_lib:connect(Host, Port, [{user_dir, PrivDir},
+					  {user_interaction, false},
+					  silently_accept_hosts]),
+    {ok, Binary2} = file:read_file(KnownHosts),
+    case Binary of
+        Binary2 -> ok;
+        _ -> ct:log("2nd differ~n~p", [Binary2]),
+             ct:fail("wrong num lines", [])
+    end,
+
     ssh:stop_daemon(Pid).
+
 %%--------------------------------------------------------------------
 
 %%% Test that we can use keyes protected by pass phrases

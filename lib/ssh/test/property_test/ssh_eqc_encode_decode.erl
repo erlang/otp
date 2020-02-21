@@ -186,7 +186,7 @@ gen_pubkey_string(Type) ->
 		 ecdsa -> {#'ECPoint'{point=[1,2,3,4,5]},
 			   {namedCurve,{1,2,840,10045,3,1,7}}} % 'secp256r1' nistp256
 	     end,
-    gen_string(public_key:ssh_encode(PubKey, ssh2_pubkey)).
+    gen_string(ssh_message:ssh2_pubkey_encode(PubKey)).
 
     
 gen_signature_string(Type) ->

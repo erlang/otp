@@ -51,6 +51,7 @@
 -define(STRING(X),   ?UINT32((size(X))), (X)/binary).
 
 -define(DEC_BIN(X,Len),   ?UINT32(Len), X:Len/binary ).
+-define(DEC_INT(I,Len),   ?UINT32(Len), I:Len/big-signed-integer-unit:8 ).
 -define(DEC_MPINT(I,Len), ?UINT32(Len), I:Len/big-signed-integer-unit:8 ).
 
 %% building macros
