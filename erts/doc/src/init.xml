@@ -165,12 +165,24 @@
       <name name="restart" arity="0" since=""/>
       <fsummary>Restart the running Erlang node.</fsummary>
       <desc>
+        <p>The same as
+    <seealso marker="#restart/1"><c>restart([])</c></seealso>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="restart" arity="1" since="OTP 23.0"/>
+      <fsummary>Restart the running Erlang node.</fsummary>
+      <desc>
         <p>The system is restarted <em>inside</em> the running Erlang
           node, which means that the emulator is not restarted. All
           applications are taken down smoothly, all code is unloaded,
           and all ports are closed before the system is booted again in
-          the same way as initially started. The same <c>BootArgs</c>
-          are used again.</p>
+          the same way as initially started.</p>
+        <p>The same <c>BootArgs</c> are used when restarting the
+          system unless the <c>mode</c> option is given, allowing the
+          code loading mode to be set to either <c>embedded</c> or
+          <c>interactive</c>. All other <c>BootArgs</c> remain the same.</p>
         <p>To limit the shutdown time, the time <c>init</c> is allowed
           to spend taking down applications, command-line flag
           <c>-shutdown_time</c> is to be used.</p>
