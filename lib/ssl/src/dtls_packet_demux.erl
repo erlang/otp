@@ -101,9 +101,9 @@ getstat(PacketSocket, Opts) ->
 %%% gen_server callbacks
 %%%===================================================================
 
-init([Port, {TransportModule, _,_,_,_} = TransportInfo, EmOpts, InetOptions, DTLSOptions]) ->
+init([Port0, {TransportModule, _,_,_,_} = TransportInfo, EmOpts, InetOptions, DTLSOptions]) ->
     try 
-	{ok, Socket} = TransportModule:open(Port, InetOptions),
+	{ok, Socket} = TransportModule:open(Port0, InetOptions),
         InternalActiveN =  case application:get_env(ssl, internal_active_n) of
                                {ok, N} when is_integer(N) ->
                                    N;
@@ -111,6 +111,14 @@ init([Port, {TransportModule, _,_,_,_} = TransportInfo, EmOpts, InetOptions, DTL
                                    ?INTERNAL_ACTIVE_N
                            end,
 
+        Port = case Port0 of
+                   0 ->
+                      {ok, P} = inet:port(Socket),
+                       P;
+                   _ ->
+                      Port0
+               end,
+        
 	{ok, #state{active_n = InternalActiveN,
                     port = Port,
 		    first = true,

@@ -100,25 +100,30 @@ end_per_group(GroupName, Config) ->
   end.
 
 init_per_testcase(reuse_session_expired, Config)  ->
+    Versions = ssl_test_lib:protocol_version(Config),
     ssl:stop(),
-    application:load(ssl),
+    application:load(ssl),    
     ssl_test_lib:clean_env(),
+    ssl_test_lib:set_protocol_versions(Versions),
     application:set_env(ssl, session_lifetime, ?EXPIRE),
-    application:set_env(ssl, session_delay_cleanup_time, 500),
     ssl:start(),
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 30}),
     Config;
 init_per_testcase(_, Config)  ->
+    ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 15}),
     Config.
 
-end_per_testcase(_TestCase, Config) ->
+end_per_testcase(reuse_session_expired, Config) ->
+    application:unset_env(ssl, session_lifetime),    
+    Config;
+end_per_testcase(_, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-
 reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
 reuse_session(Config) when is_list(Config) -> 
@@ -179,6 +184,7 @@ reuse_session_expired(Config) when is_list(Config) ->
 				   {from, self()}, {options, ClientOpts}]),   
     receive
 	{Client2, SID} ->
+            end_per_testcase(?FUNCTION_NAME, Config),
 	    ct:fail(session_reused_when_session_expired);
 	{Client2, _} ->
 	    ok

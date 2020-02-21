@@ -488,7 +488,7 @@ certificate_entry(DER) ->
 %%    0101010101010101010101010101010101010101010101010101010101010101
 sign(THash, Context, HashAlgo, #'ECPrivateKey'{} = PrivateKey) ->
     Content = build_content(Context, THash),
-    try public_key:sign(Content, HashAlgo, PrivateKey) of
+    try digitally_signed(Content, HashAlgo, PrivateKey) of
         Signature ->
             {ok, Signature}
     catch
@@ -500,10 +500,10 @@ sign(THash, Context, HashAlgo, PrivateKey) ->
 
     %% The length of the Salt MUST be equal to the length of the output
     %% of the digest algorithm: rsa_pss_saltlen = -1
-    try public_key:sign(Content, HashAlgo, PrivateKey,
-                    [{rsa_padding, rsa_pkcs1_pss_padding},
-                     {rsa_pss_saltlen, -1},
-                     {rsa_mgf1_md, HashAlgo}]) of
+    try digitally_signed(Content, HashAlgo, PrivateKey,
+                         [{rsa_padding, rsa_pkcs1_pss_padding},
+                          {rsa_pss_saltlen, -1},
+                          {rsa_mgf1_md, HashAlgo}]) of
         Signature ->
             {ok, Signature}
     catch
@@ -2320,3 +2320,30 @@ process_user_tickets([H|T], Acc, N) ->
 %% (see Section 4.6.1), modulo 2^32.
 obfuscate_ticket_age(TicketAge, AgeAdd) ->
     (TicketAge + AgeAdd) rem round(math:pow(2,32)).
+
+
+digitally_signed(Msg, HashAlgo, PrivateKey) ->
+    digitally_signed(Msg, HashAlgo, PrivateKey, []).
+
+digitally_signed(Msg, HashAlgo, PrivateKey, Options) ->
+    try do_digitally_signed(Msg, HashAlgo, PrivateKey, Options) of
+	Signature ->
+	    Signature
+    catch 
+        error:_ ->
+            {error, ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey))}
+    end.
+
+do_digitally_signed(Msg, HashAlgo, #{algorithm := Alg} = Engine, Options) ->
+    crypto:sign(Alg, HashAlgo, Msg, maps:remove(algorithm, Engine), Options);
+do_digitally_signed(Msg, HashAlgo, Key, Options) ->
+    public_key:sign(Msg, HashAlgo, Key, Options).
+
+bad_key(#'RSAPrivateKey'{}) ->
+    unacceptable_rsa_key;
+bad_key(#'ECPrivateKey'{}) ->
+    unacceptable_ecdsa_key;
+bad_key(#{algorithm := rsa}) ->
+    unacceptable_rsa_key;
+bad_key(#{algorithm := ecdsa}) ->
+    unacceptable_ecdsa_key.
