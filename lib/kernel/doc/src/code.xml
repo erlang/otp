@@ -780,8 +780,8 @@ rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
           <c>{error,missing}</c>.
         </p>
         <p>For more information about the documentation chunk see
-          <seealso marker="documentation_chapter">Documentation</seealso>
-          in the Kernel User's Guide.</p>
+          <seealso marker="erl_docgen:doc_storage">Documentation Storage</seealso>
+          in Erl_Docgen's User's Guide.</p>
       </desc>
     </func>
     <func>

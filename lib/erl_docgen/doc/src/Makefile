@@ -47,7 +47,8 @@ XML_CHAPTER_FILES = \
 	inline_tags.xml \
 	header_tags.xml \
 	character_entities.xml \
-	block_tags.xml 
+	block_tags.xml \
+	doc_storage.xml
 
 BOOK_FILES = book.xml
 

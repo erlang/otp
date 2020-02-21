@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2016</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+     </legalnotice>
+    <title>Documentation Storage</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>doc_storage.xml</file>
+  </header>
+
+  <section>
+    <title>EEP-48: Documentation storage and format</title>
+    <p><url href="https://www.erlang.org/erlang-enhancement-proposals/eep-0048.html">EEP-48</url>
+      defines a common documentation storage format for module documentation in the Erlang/OTP
+      ecosystem. Erl_Docgen can generate documentation in this format from XML files following
+      the DTD's descibed in the other User's Guides in this application.</p>
+    <p>Some special considerations have to be taken when writing documentation that
+      should also be available through EEP-48 style storage.</p>
+    <list>
+      <item>The <c>#PCDATA</c> within <c>&lt;name&gt;</c> tags must be parseable to figure out the arity of the function.</item>
+      <item>It is not allowed to mix <c>&lt;name&gt;</c> tags with #PCDATA and attributes.</item>
+      <item>All <c>&lt;name&gt;</c> tags within <c>&lt;func&gt;</c> has to have a <c>since</c> attribute.</item>
+      <item>All callback function documentations have to start with a <c>Module</c> prefix.</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Erlang Documentation Format</title>
+    <p>When generating documentation for generic storage</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>
+      <seealso marker="stdlib:shell_docs"><c>shell_docs(3)</c></seealso>,
+      <seealso marker="kernel:code#get_doc-1"><c>code:get_doc(3)</c></seealso>
+    </p>
+  </section>
+
+</chapter>

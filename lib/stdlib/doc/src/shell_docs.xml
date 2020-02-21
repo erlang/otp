@@ -36,7 +36,11 @@
   <modulesummary>Functions used to render documentation for a shell.</modulesummary>
   <description>
     <p>This module can be used to render function and type documentation
-      to be printed in a shell.</p>
+      to be printed in a shell. It can only render documentation of the format
+      <c>application/erlang+html</c>. For more information about this format see
+      <seealso marker="erl_docgen:doc_storage">Documentation Storage</seealso>
+      in Erl_Docgen's User's Guide.
+    </p>
   </description>
 
   <datatypes>
@@ -45,10 +49,19 @@
     </datatype>
     <datatype>
       <name name="chunk_element_type"/>
+      <desc>
+        <p>
+          The HTML tags allowed in <c>application/erlang+html</c>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
       <name name="chunk_element_attr"/>
       <name name="chunk_element_attrs"/>
       <name name="chunk_element"/>
       <name name="chunk_elements"/>
+      <desc>
+      </desc>
     </datatype>
   </datatypes>
 
