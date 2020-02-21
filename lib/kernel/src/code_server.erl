@@ -1437,16 +1437,16 @@ error_msg(Format, Args) ->
     %% This is equal to calling logger:error/3 which we don't want to
     %% do from code_server. We don't want to call logger:timestamp()
     %% either.
-    try
-        logger ! {log,error,Format,Args,
-                  #{pid=>self(),
-                    gl=>group_leader(),
-                    time=>os:system_time(microsecond),
-                    error_logger=>#{tag=>error}}}
-    catch _:_ ->
-            erlang:display({?MODULE,error}),
-            erlang:display({Format,Args})
-    end,
+    _ = try
+            logger ! {log,error,Format,Args,
+                      #{pid=>self(),
+                        gl=>group_leader(),
+                        time=>os:system_time(microsecond),
+                        error_logger=>#{tag=>error}}}
+        catch _:_ ->
+                erlang:display({?MODULE,error}),
+                erlang:display({Format,Args})
+        end,
     ok.
 
 -spec info_msg(io:format(), [term()]) -> 'ok'.
