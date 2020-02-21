@@ -578,11 +578,11 @@ list_dir_convert([RawName | Rest], SkipInvalid, Result) ->
             %% This is equal to calling logger:warning/3 which
             %% we don't want to do from code_server during system boot.
             %% We don't want to call logger:timestamp() either.
-            logger ! {log,warning,"Non-unicode filename ~p ignored\n", [RawName],
-                      #{pid=>self(),
-                        gl=>group_leader(),
-                        time=>os:system_time(microsecond),
-                        error_logger=>#{tag=>warning_msg}}},
+            catch logger ! {log,warning,"Non-unicode filename ~p ignored\n", [RawName],
+                          #{pid=>self(),
+                            gl=>group_leader(),
+                            time=>os:system_time(microsecond),
+                            error_logger=>#{tag=>warning_msg}}},
             list_dir_convert(Rest, SkipInvalid, Result);
         {error, _} ->
             {error, {no_translation, RawName}}
