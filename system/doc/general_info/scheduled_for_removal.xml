@@ -68,6 +68,16 @@
 	and will be removed in OTP 24.
       </p>
     </section>
+    <section>
+      <title>Distributed Disk Logs</title>
+      <p>
+	The distributed
+	<seealso marker="kernel:disk_log"><c>disk_log</c></seealso>
+	feature is as of
+	<seealso marker="deprecations#OTP-23">OTP 23 deprecated</seealso>
+	and will be removed in OTP 24.
+      </p>
+    </section>
   </section>
 
   <section>
