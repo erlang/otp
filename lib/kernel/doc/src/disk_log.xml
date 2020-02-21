@@ -127,6 +127,10 @@
       functions fail. The corresponding terms (not the binaries)
       are returned when <c>chunk/2,3</c> is called.
       </p>
+      <note><p>
+	The distributed disk log feature has been deprecated. This
+	feature has also been scheduled for removal in OTP 24.
+      </p></note>
     <p>A collection of open disk logs with the same name running on
       different nodes is said to be a <em>distributed disk log</em>
       if requests made to any of the logs are automatically made to
@@ -609,6 +613,10 @@
               the current node, <c><anno>Dist</anno></c> has the value <c>local</c>,
               otherwise all nodes where the log is distributed
               are returned as a list.</p>
+	    <warning><p>
+	      The distributed disk log feature has been deprecated. This
+	      feature has also been scheduled for removal in OTP 24.
+	    </p></warning>
           </item>
         </taglist>
         <p>The following pairs are returned for all logs opened in 
@@ -871,7 +879,11 @@
               adding members to a distributed disk log.
               Defaults to <c>[]</c>, which means that
               the log is local on the current node.
-              </p>
+            </p>
+	    <warning><p>
+	      The distributed disk log feature has been deprecated. This
+	      feature has also been scheduled for removal in OTP 24.
+	    </p></warning>
           </item>
 	  <tag><c>{notify, boolean()}</c><marker id="notify"></marker></tag>
           <item>
