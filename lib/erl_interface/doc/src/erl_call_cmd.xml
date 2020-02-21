@@ -82,7 +82,7 @@
           <item>
             <p>(One of <c>-n</c>, <c>-name</c>, <c>-sname</c> or
             <c>-address</c> is required.) <c>Hostname</c> is the
-            hostname of the machine that is running the node that
+            hostname of the machine that is running the peer node that
             <c>erl_call</c> shall communicate with. The default
             hostname is the hostname of the local machine. <c>Port</c>
             is the port number of the node that <c>erl_call</c> shall
@@ -137,7 +137,7 @@
           <item>
             <p>(One of <c>-n</c>, <c>-name</c>, <c>-sname</c> or
             <c>-address</c> is required.)
-              <c>Node</c> is the name of the node to be
+              <c>Node</c> is the name of the peer node to be
               started or communicated with. It is assumed that
               <c>Node</c> is started with
               <c>erl -name</c>, which means that fully
@@ -155,6 +155,13 @@
             <p>(<em>Optional.</em>) Generates a random name of the hidden node
               that <c>erl_call</c> represents.</p>
           </item>
+	  <tag><c>-R</c></tag>
+          <item>
+            <p>(<em>Optional.</em>) Request a dynamic random name, of the hidden node
+              that <c>erl_call</c> represents, from the peer node. Supported
+	    since OTP 23. Prefer <c>-R</c> over <c>-r</c> when doing repeated
+	    requests toward the same peer node.</p>
+          </item>
           <tag><c>-s</c></tag>
           <item>
             <p>(<em>Optional.</em>) Starts a distributed Erlang node if
@@ -169,7 +176,7 @@
           <item>
             <p>(One of <c>-n</c>, <c>-name</c>, <c>-sname</c> or
             <c>-address</c> is required.)
-              <c>Node</c> is the name of the node to be started
+              <c>Node</c> is the name of the peer node to be started
               or communicated with. It is assumed that <c>Node</c>
               is started with <c>erl -sname</c>, which means that
               short node names are used. If option <c>-s</c> is

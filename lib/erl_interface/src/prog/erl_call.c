@@ -71,11 +71,6 @@
 #include "ei_resolve.h"
 #include "erl_start.h"		/* FIXME remove dependency */
 
-/*
- * Some nice global variables
- * (I don't think "nice" is the right word actually... -gordon)
- */
-/* FIXME problem for threaded ? */
 
 struct call_flags {
     int startp;
@@ -83,6 +78,7 @@ struct call_flags {
     int modp;
     int evalp;
     int randomp;
+    int dynamic_name;
     int use_long_name;	/* indicates if -name was used, else -sname or -n */
     int debugp;
     int verbosep;
@@ -202,6 +198,9 @@ int main(int argc, char *argv[])
 	    case 'r':
 		flags.randomp = 1;
 		break;
+            case 'R':
+                flags.dynamic_name = 1;
+                break;
 	    case 'e':
 		flags.evalp = 1;
 		break;
@@ -299,7 +298,7 @@ int main(int argc, char *argv[])
 
     creation = time(NULL) + 1; /* "random" */
 
-    if (flags.hidden == NULL) {
+    if (flags.hidden == NULL && !flags.dynamic_name) {
       /* As default we are c17@gethostname */
       i = flags.randomp ? (time(NULL) % 997) : 17;
       flags.hidden = (char *) ei_chk_malloc(10 + 2 ); /* c17 or cXYZ */
@@ -309,8 +308,9 @@ int main(int argc, char *argv[])
     {
       /* A name for our hidden node was specified */
       char h_hostname[EI_MAXHOSTNAMELEN+1];
-      char h_nodename[MAXNODELEN+1];
-      char *h_alivename=flags.hidden;
+      char h_nodename_buf[MAXNODELEN+1];
+      char *h_nodename = h_nodename_buf;
+      char *h_alivename = flags.hidden;
       struct in_addr h_ipadr;
       char* ct;
 
@@ -330,11 +330,17 @@ int main(int argc, char *argv[])
       strncpy(h_hostname, hp->h_name, EI_MAXHOSTNAMELEN);
       h_hostname[EI_MAXHOSTNAMELEN] = '\0';
       memcpy(&h_ipadr.s_addr, *hp->h_addr_list, sizeof(struct in_addr));
-      if (strlen(h_alivename) + strlen(h_hostname) + 2 > sizeof(h_nodename)) {
-	  fprintf(stderr,"erl_call: hostname too long: %s\n", h_hostname);
-	  exit(1);
+      if (h_alivename) {
+          if (strlen(h_alivename) + strlen(h_hostname) + 2 > sizeof(h_nodename_buf)) {
+              fprintf(stderr,"erl_call: hostname too long: %s\n", h_hostname);
+              exit(1);
+          }
+          sprintf(h_nodename, "%s@%s", h_alivename, h_hostname);
       }
-      sprintf(h_nodename, "%s@%s", h_alivename, h_hostname);
+      else {
+          /* dynamic node name */
+          h_nodename = NULL;
+      }
       
       if (ei_connect_xinit(&ec, h_hostname, h_alivename, h_nodename,
 			   (Erl_IpAddr)&h_ipadr, flags.cookie, 
