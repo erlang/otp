@@ -257,7 +257,8 @@ prologue_passes(Opts) ->
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
           ?PASS(ssa_opt_cse),                   % Helps the first type pass.
-          ?PASS(ssa_opt_live)],                 % ...
+          ?PASS(ssa_opt_live),                  % ...
+          ?PASS(ssa_opt_receive_after)],
     passes_1(Ps, Opts).
 
 module_passes(Opts) ->
@@ -2001,6 +2002,132 @@ opt_sw([{L,#b_blk{}=Blk}|Bs], Count, Acc) ->
     opt_sw(Bs, Count, [{L,Blk}|Acc]);
 opt_sw([], Count, Acc) ->
     {reverse(Acc),Count}.
+
+%%%
+%%% Replace `wait_timeout infinity` with `wait`, but only when safe to
+%%% do so.
+%%%
+%%% Consider this code:
+%%%
+%%%     0:
+%%%       @tag = new_try_tag `'try'`
+%%%       br @tag, ^2, ^99
+%%%
+%%%     2:
+%%%          .
+%%%          .
+%%%          .
+%%%       br ^50
+%%%
+%%%     50:
+%%%        @bool = wait_timeout `infinity`
+%%%        @succ_bool = succeeded @bool
+%%%        br @succ_bool ^75, ^50
+%%%
+%%%     75:
+%%%        timeout
+%%%        kill_try_tag @tag
+%%%        ret `ok`
+%%%
+%%%     99:
+%%%        @ssa_agg = landingpad `'try'`, @tag
+%%%        @ssa_ignored = kill_try_tag @tag
+%%%        ret `error`
+%%%
+%%%
+%%% The liveness range of @tag will be from block 0 to block 99.
+%%% That will ensure that the Y register reserved for @tag can't
+%%% be reused or killed inside the try/block.
+%%%
+%%% It would not be safe (in general) to replace the `wait_timeout`
+%%% instruction with `wait` in this code. That is, the following
+%%% code is potentially UNSAFE (depending on the exact code in
+%%% block 2):
+%%%
+%%%     0:
+%%%       @tag = new_try_tag `'try'`
+%%%       br @tag, ^2, ^99
+%%%
+%%%     2:
+%%%          .
+%%%          .
+%%%          .
+%%%       br ^50
+%%%
+%%%     50:
+%%%        wait
+%%%        br ^50
+%%%
+%%%     99:
+%%%        @ssa_agg = landingpad `'try'`, @tag
+%%%        @ssa_ignored = kill_try_tag @tag
+%%%        ret `error`
+%%%
+%%% The try tag variable @tag will not be live in block 2 and 50
+%%% (because from those blocks, there is no way to reach an
+%%% instruction that uses @tag). Because @tag is not live, the
+%%% register allocator could reuse the register for @tag, or the
+%%% code generator could kill the register that holds @tag.
+%%%
+
+ssa_opt_receive_after({#opt_st{ssa=Linear}=St, FuncDb}) ->
+    {St#opt_st{ssa=recv_after_opt(Linear, Linear)}, FuncDb}.
+
+recv_after_opt([{L,Blk0}|Bs], Blocks0) ->
+    #b_blk{is=Is0,last=Last0} = Blk0,
+    case recv_after_opt_is(Is0, Last0, []) of
+        no ->
+            %% Nothing to do.
+            [{L,Blk0}|recv_after_opt(Bs, Blocks0)];
+        {yes,[_|_]=Is,Last} ->
+            %% A `wait_timeout infinity` instruction was replaced with `wait`.
+            %% Now find out whether this substitution is safe.
+            Blocks = if
+                         is_map(Blocks0) -> Blocks0;
+                         true -> maps:from_list(Blocks0)
+                     end,
+            #b_br{succ=Next} = Last0,
+            case in_try_catch(Next, Blocks) of
+                false ->
+                    %% Not inside try/catch. Safe.
+                    Blk = Blk0#b_blk{is=Is,last=Last},
+                    [{L,Blk}|recv_after_opt(Bs, Blocks)];
+                true ->
+                    %% Inside try/catch. Unsafe. Keep the original block.
+                    [{L,Blk0}|recv_after_opt(Bs, Blocks)]
+            end
+    end;
+recv_after_opt([], _Blocks) -> [].
+
+recv_after_opt_is([#b_set{op=wait_timeout,dst=WaitBool,
+                          args=[#b_literal{val=infinity}]}=WT0,
+                   #b_set{op={succeeded,_},dst=SuccBool,args=[WaitBool]}],
+                  #b_br{bool=SuccBool,fail=Fail}, Acc) ->
+    WT = WT0#b_set{op=wait,args=[]},
+    Last = #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail},
+    {yes,reverse(Acc, [WT]),Last};
+recv_after_opt_is([I|Is], Last, Acc) ->
+    recv_after_opt_is(Is, Last, [I|Acc]);
+recv_after_opt_is([], _Last, _Acc) -> no.
+
+in_try_catch(From, Blocks) ->
+    F = fun(#b_set{op=new_try_tag,dst=Tag}, Map) when is_map(Map) ->
+                Map#{Tag => ok};
+           (#b_set{op=landingpad,args=[_,Tag]}, Map) ->
+                update_in_try_catch(Tag, Map);
+           (#b_set{op=kill_try_tag,args=[Tag]}, Map) ->
+                update_in_try_catch(Tag, Map);
+           (#b_set{op=catch_end,args=[Tag,_]}, Map) ->
+                update_in_try_catch(Tag, Map);
+           (_, S) -> S
+        end,
+    beam_ssa:fold_instrs_rpo(F, [From], #{}, Blocks) =:= unsafe.
+
+update_in_try_catch(Tag, Map) ->
+    case Map of
+        #{Tag := _} ->  Map;
+        _ -> unsafe
+    end.
 
 %%%
 %%% Merge blocks.
