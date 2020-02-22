@@ -215,8 +215,26 @@ encode_change_cipher_spec(Version, Epoch, ConnectionStates) ->
 %% Description: Encodes data to send on the ssl-socket.
 %%--------------------------------------------------------------------
 encode_data(Data, Version, ConnectionStates) ->
-    #{epoch := Epoch} = ssl_record:current_connection_state(ConnectionStates, write),
-    encode_plain_text(?APPLICATION_DATA, Version, Epoch, Data, ConnectionStates).
+    #{epoch := Epoch, max_fragment_length := MaxFragmentLength}
+        = ssl_record:current_connection_state(ConnectionStates, write),
+    MaxLength = if is_integer(MaxFragmentLength) ->
+                        MaxFragmentLength;
+                   true ->
+                        ?MAX_PLAIN_TEXT_LENGTH
+                end,
+    case iolist_size(Data) of
+	N when N > MaxLength ->
+            Frags = tls_record:split_iovec(erlang:iolist_to_iovec(Data), MaxLength),
+            {RevCipherText, ConnectionStates1} =
+                lists:foldl(fun(Frag, {Acc, CS0}) ->
+                                    {CipherText, CS1} = 
+                                        encode_plain_text(?APPLICATION_DATA, Version, Epoch, Frag, CS0),
+                                    {[CipherText|Acc], CS1}
+                            end, {[], ConnectionStates}, Frags),
+            {lists:reverse(RevCipherText), ConnectionStates1};
+        _ ->
+            encode_plain_text(?APPLICATION_DATA, Version, Epoch, Data, ConnectionStates)
+    end.
 
 encode_plain_text(Type, Version, Epoch, Data, ConnectionStates) ->
     Write0 = get_connection_state_by_epoch(Epoch, ConnectionStates, write),
@@ -393,7 +411,8 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       mac_secret  => undefined,
       secure_renegotiation => undefined,
       client_verify_data => undefined,
-      server_verify_data => undefined
+      server_verify_data => undefined,
+      max_fragment_length => undefined
      }.
 
 get_dtls_records_aux({DataTag, StateName, _, Versions} = Vinfo, <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),

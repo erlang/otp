@@ -218,6 +218,8 @@ wait_ee(internal, #change_cipher_spec{}, State, _Module) ->
     tls_connection:next_event(?FUNCTION_NAME, no_record, State);
 wait_ee(internal, #encrypted_extensions{} = EE, State0, _Module) ->
     case tls_handshake_1_3:do_wait_ee(EE, State0) of
+        #alert{} = Alert ->
+            ssl_connection:handle_own_alert(Alert, {3,4}, wait_ee, State0);
         {State1, NextState} ->
             tls_connection:next_event(NextState, no_record, State1)
     end;

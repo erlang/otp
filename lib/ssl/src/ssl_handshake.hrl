@@ -389,8 +389,18 @@
           hostname = undefined
         }).
 
+%% enum{ 2^9(1), 2^10(2), 2^11(3), 2^12(4), (255) } MaxFragmentLength;
+-define(MAX_FRAGMENT_LENGTH_EXT, 1).
+-define(MAX_FRAGMENT_LENGTH_BYTES_1,  512).
+-define(MAX_FRAGMENT_LENGTH_BYTES_2, 1024).
+-define(MAX_FRAGMENT_LENGTH_BYTES_3, 2048).
+-define(MAX_FRAGMENT_LENGTH_BYTES_4, 4096).
+
+-record(max_frag_enum, {
+          enum = undefined  %% contains the enum value 1..4
+        }).
+
 %% Other possible values from RFC 6066, not supported
--define(MAX_FRAGMENT_LENGTH, 1).
 -define(CLIENT_CERTIFICATE_URL, 2).
 -define(TRUSTED_CA_KEYS, 3).
 -define(TRUNCATED_HMAC, 4).

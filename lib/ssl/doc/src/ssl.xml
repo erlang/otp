@@ -879,6 +879,15 @@ fun(srp, Username :: binary(), UserState :: term()) ->
    </datatype>
    
    <datatype>
+      <name name="max_fragment_length"/>
+      <desc>
+	<p>Specifies the maximum fragment length the client
+	is prepared to accept from the server.
+	See <url href="http://www.ietf.org/rfc/rfc6066.txt">RFC 6066</url></p>
+      </desc>
+   </datatype>
+
+   <datatype>
       <name name="client_psk_identity"/>
       <desc>
 	<p>Specifies the identity the client presents to the server.

@@ -448,9 +448,12 @@ init({call, From}, {start, Timeout},
     Hello = dtls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
 					Session#session.session_id, Renegotiation, Cert),
 
+    MaxFragEnum = maps:get(max_frag_enum, Hello#client_hello.extensions, undefined),
+    ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
     Version = Hello#client_hello.client_version,
     HelloVersion = dtls_record:hello_version(Version, Versions),
-    State1 = prepare_flight(State0#state{connection_env = CEnv#connection_env{negotiated_version = Version}}),
+    State1 = prepare_flight(State0#state{connection_env = CEnv#connection_env{negotiated_version = Version},
+                                         connection_states = ConnectionStates1}),
     {State2, Actions} = send_handshake(Hello, State1#state{connection_env = CEnv#connection_env{negotiated_version = HelloVersion}}),  
     State = State2#state{connection_env = CEnv#connection_env{negotiated_version = Version}, %% RequestedVersion
 			  session = Session,
@@ -580,8 +583,9 @@ hello(internal, #server_hello{} = Hello,
          handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
          connection_env = #connection_env{negotiated_version = ReqVersion},
          connection_states = ConnectionStates0,
+         session = #session{session_id = OldId},
          ssl_options = SslOptions} = State) ->
-    case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
+    case dtls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, ReqVersion, ?FUNCTION_NAME, State);
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
@@ -1107,9 +1111,11 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
-    %% TODO remove hardcoded Max size
+    PMTUEstimate = 1400, %% TODO make configurable
+    #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
+    MaxSize = min(MaxFragmentLength, PMTUEstimate),
     {Encoded, ConnectionStates} =
-	encode_handshake_flight(lists:reverse(Flight), Version, 1400, Epoch, ConnectionStates0),
+	encode_handshake_flight(lists:reverse(Flight), Version, MaxSize, Epoch, ConnectionStates0),
     send(Transport, Socket, Encoded),
     ssl_logger:debug(LogLevel, outbound, 'record', Encoded),
    {State0#state{connection_states = ConnectionStates}, []};
@@ -1123,8 +1129,11 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
+    PMTUEstimate = 1400, %% TODO make configurable
+    #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
+    MaxSize = min(MaxFragmentLength, PMTUEstimate),
     {HsBefore, ConnectionStates1} =
-	encode_handshake_flight(lists:reverse(Flight0), Version, 1400, Epoch, ConnectionStates0),
+	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch, ConnectionStates0),
     {EncChangeCipher, ConnectionStates} = encode_change_cipher(ChangeCipher, Version, Epoch, ConnectionStates1),
 
     send(Transport, Socket, [HsBefore, EncChangeCipher]),
@@ -1141,12 +1150,15 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
+    PMTUEstimate = 1400, %% TODO make configurable
+    #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
+    MaxSize = min(MaxFragmentLength, PMTUEstimate),
     {HsBefore, ConnectionStates1} =
-	encode_handshake_flight(lists:reverse(Flight0), Version, 1400, Epoch-1, ConnectionStates0),
+	encode_handshake_flight(lists:reverse(Flight0), Version, MaxSize, Epoch-1, ConnectionStates0),
     {EncChangeCipher, ConnectionStates2} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates1),
     {HsAfter, ConnectionStates} =
-	encode_handshake_flight(lists:reverse(Flight1), Version, 1400, Epoch, ConnectionStates2),
+	encode_handshake_flight(lists:reverse(Flight1), Version, MaxSize, Epoch, ConnectionStates2),
     send(Transport, Socket, [HsBefore, EncChangeCipher, HsAfter]),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsBefore]),
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
@@ -1162,10 +1174,13 @@ send_handshake_flight(#state{static_env = #static_env{socket = Socket,
 			     connection_states = ConnectionStates0,
                              ssl_options = #{log_level := LogLevel}} = State0,
                       Epoch) ->
+    PMTUEstimate = 1400, %% TODO make configurable
+    #{current_write := #{max_fragment_length := MaxFragmentLength}} = ConnectionStates0,
+    MaxSize = min(MaxFragmentLength, PMTUEstimate),
     {EncChangeCipher, ConnectionStates1} = 
 	encode_change_cipher(ChangeCipher, Version, Epoch-1, ConnectionStates0),
     {HsAfter, ConnectionStates} =
-	encode_handshake_flight(lists:reverse(Flight1), Version, 1400, Epoch, ConnectionStates1),
+	encode_handshake_flight(lists:reverse(Flight1), Version, MaxSize, Epoch, ConnectionStates1),
     send(Transport, Socket, [EncChangeCipher, HsAfter]),
     ssl_logger:debug(LogLevel, outbound, 'record', [EncChangeCipher]),
     ssl_logger:debug(LogLevel, outbound, 'record', [HsAfter]),

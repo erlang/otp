@@ -33,12 +33,12 @@
 -include_lib("kernel/include/logger.hrl").
 
 %% Handling of incoming data
--export([get_tls_records/4, init_connection_states/2]).
+-export([get_tls_records/5, init_connection_states/2]).
 
 %% Encoding TLS records
 -export([encode_handshake/3, encode_alert_record/3,
 	 encode_change_cipher_spec/2, encode_data/3]).
--export([encode_plain_text/4, split_iovec/1]).
+-export([encode_plain_text/4, split_iovec/2]).
 
 %% Decoding
 -export([decode_cipher_text/4]).
@@ -56,6 +56,7 @@
 
 -type tls_version()       :: ssl_record:ssl_version().
 -type tls_atom_version()  :: sslv3 | tlsv1 | 'tlsv1.1' | 'tlsv1.2' | 'tlsv1.3'.
+-type tls_max_frag_len()  :: undefined | 512 | 1024 | 2048 | 4096.
 
 -compile(inline).
 
@@ -83,6 +84,7 @@ init_connection_states(Role, BeastMitigation) ->
         binary(),
         [tls_version()] | tls_version(),
         Buffer0 :: binary() | {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}},
+        tls_max_frag_len(),
         ssl_options()) ->
                              {Records :: [#ssl_tls{}],
                               Buffer :: {'undefined' | #ssl_tls{}, {[binary()],non_neg_integer(),[binary()]}}} |
@@ -92,10 +94,10 @@ init_connection_states(Role, BeastMitigation) ->
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% data
 %%--------------------------------------------------------------------
-get_tls_records(Data, Versions, Buffer, SslOpts) when is_binary(Buffer) ->
-    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, SslOpts, undefined);
-get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, SslOpts) ->
-    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, SslOpts, Hdr).
+get_tls_records(Data, Versions, Buffer, MaxFragLen, SslOpts) when is_binary(Buffer) ->
+    parse_tls_records(Versions, {[Data],byte_size(Data),[]}, MaxFragLen, SslOpts, undefined);
+get_tls_records(Data, Versions, {Hdr, {Front,Size,Rear}}, MaxFragLen, SslOpts) ->
+    parse_tls_records(Versions, {Front,Size + byte_size(Data),[Data|Rear]}, MaxFragLen, SslOpts, Hdr).
 
 %%====================================================================
 %% Encoding
@@ -112,12 +114,18 @@ encode_handshake(Frag, {3, 4}, ConnectionStates) ->
 encode_handshake(Frag, Version, 
 		 #{current_write :=
 		       #{beast_mitigation := BeastMitigation,
+                         max_fragment_length := MaxFragmentLength,
 			  security_parameters :=
 			     #security_parameters{bulk_cipher_algorithm = BCA}}} = 
 		     ConnectionStates) ->
+    MaxLength = if is_integer(MaxFragmentLength) ->
+                        MaxFragmentLength;
+                   true ->
+                        ?MAX_PLAIN_TEXT_LENGTH
+                end,
     case iolist_size(Frag) of
-	N  when N > ?MAX_PLAIN_TEXT_LENGTH ->
-	    Data = split_iovec(erlang:iolist_to_iovec(Frag), Version, BCA, BeastMitigation),
+	N when N > MaxLength ->
+            Data = split_iovec(erlang:iolist_to_iovec(Frag), Version, BCA, BeastMitigation, MaxLength),
 	    encode_fragments(?HANDSHAKE, Version, Data, ConnectionStates);
 	_  ->
 	    encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates)
@@ -155,10 +163,16 @@ encode_data(Data, {3, 4}, ConnectionStates) ->
     tls_record_1_3:encode_data(Data, ConnectionStates);
 encode_data(Data, Version,
 	    #{current_write := #{beast_mitigation := BeastMitigation,
+                                 max_fragment_length := MaxFragmentLength,
 				 security_parameters :=
 				     #security_parameters{bulk_cipher_algorithm = BCA}}} =
 		ConnectionStates) ->
-    Fragments = split_iovec(Data, Version, BCA, BeastMitigation),
+    MaxLength = if is_integer(MaxFragmentLength) ->
+                        MaxFragmentLength;
+                   true ->
+                        ?MAX_PLAIN_TEXT_LENGTH
+                end,
+    Fragments = split_iovec(Data, Version, BCA, BeastMitigation, MaxLength),
     encode_fragments(?APPLICATION_DATA, Version, Fragments, ConnectionStates).
 
 %%====================================================================
@@ -442,11 +456,11 @@ hello_version([Highest|_]) when Highest >= {3,3} ->
 hello_version(Versions) ->
     lowest_protocol_version(Versions).
 
-split_iovec([]) ->
+split_iovec([], _) ->
     [];
-split_iovec(Data) ->
-    {Part,Rest} = split_iovec(Data, ?MAX_PLAIN_TEXT_LENGTH, []),
-    [Part|split_iovec(Rest)].
+split_iovec(Data, MaximumFragmentLength) ->
+    {Part,Rest} = split_iovec(Data, MaximumFragmentLength, []),
+    [Part|split_iovec(Rest, MaximumFragmentLength)].
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -461,7 +475,8 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       mac_secret  => undefined,
       secure_renegotiation => undefined,
       client_verify_data => undefined,
-      server_verify_data => undefined
+      server_verify_data => undefined,
+      max_fragment_length => undefined
      }.
 
 %% Used by logging to recreate the received bytes
@@ -470,88 +485,92 @@ build_tls_record(#ssl_tls{type = Type, version = {MajVer, MinVer}, fragment = Fr
     <<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer),?UINT16(Length), Fragment/binary>>.
 
 
-parse_tls_records(Versions, Q, SslOpts, undefined) ->
-    decode_tls_records(Versions, Q, SslOpts, [], undefined, undefined, undefined);
-parse_tls_records(Versions, Q, SslOpts, #ssl_tls{type = Type, version = Version, fragment = Length}) ->
-    decode_tls_records(Versions, Q, SslOpts, [], Type, Version, Length).
+parse_tls_records(Versions, Q, MaxFragLen, SslOpts, undefined) ->
+    decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [], undefined, undefined, undefined);
+parse_tls_records(Versions, Q, MaxFragLen, SslOpts, #ssl_tls{type = Type, version = Version, fragment = Length}) ->
+    decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [], Type, Version, Length).
 
 %% Generic code path
-decode_tls_records(Versions, {_,Size,_} = Q0, SslOpts, Acc, undefined, _Version, _Length) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, undefined, _Version, _Length) ->
     if
         5 =< Size ->
             {<<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer), ?UINT16(Length)>>, Q} = binary_from_front(5, Q0),
-            validate_tls_records_type(Versions, Q, SslOpts, Acc, Type, {MajVer,MinVer}, Length);
+            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, {MajVer,MinVer}, Length);
         3 =< Size ->
             {<<?BYTE(Type),?BYTE(MajVer),?BYTE(MinVer)>>, Q} = binary_from_front(3, Q0),
-            validate_tls_records_type(Versions, Q, SslOpts, Acc, Type, {MajVer,MinVer}, undefined);
+            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, {MajVer,MinVer}, undefined);
         1 =< Size ->
             {<<?BYTE(Type)>>, Q} = binary_from_front(1, Q0),
-            validate_tls_records_type(Versions, Q, SslOpts, Acc, Type, undefined, undefined);
+            validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, undefined, undefined);
         true ->
-            validate_tls_records_type(Versions, Q0, SslOpts, Acc, undefined, undefined, undefined)
+            validate_tls_records_type(Versions, Q0, MaxFragLen, SslOpts, Acc, undefined, undefined, undefined)
     end;
-decode_tls_records(Versions, {_,Size,_} = Q0, SslOpts, Acc, Type, undefined, _Length) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, Type, undefined, _Length) ->
     if
         4 =< Size ->
             {<<?BYTE(MajVer),?BYTE(MinVer), ?UINT16(Length)>>, Q} = binary_from_front(4, Q0),
-            validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, {MajVer,MinVer}, Length);
+            validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, {MajVer,MinVer}, Length);
         2 =< Size ->
             {<<?BYTE(MajVer),?BYTE(MinVer)>>, Q} = binary_from_front(2, Q0),
-            validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, {MajVer,MinVer}, undefined);
+            validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, {MajVer,MinVer}, undefined);
         true ->
-            validate_tls_record_version(Versions, Q0, SslOpts, Acc, Type, undefined, undefined)
+            validate_tls_record_version(Versions, Q0, MaxFragLen, SslOpts, Acc, Type, undefined, undefined)
     end;
-decode_tls_records(Versions, {_,Size,_} = Q0, SslOpts, Acc, Type, Version, undefined) ->
+decode_tls_records(Versions, {_,Size,_} = Q0, MaxFragLen, SslOpts, Acc, Type, Version, undefined) ->
     if
         2 =< Size ->
             {<<?UINT16(Length)>>, Q} = binary_from_front(2, Q0),
-            validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
+            validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
         true ->
-            validate_tls_record_length(Versions, Q0, SslOpts, Acc, Type, Version, undefined)
+            validate_tls_record_length(Versions, Q0, MaxFragLen, SslOpts, Acc, Type, Version, undefined)
     end;
-decode_tls_records(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
-    validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length).
+decode_tls_records(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) ->
+    validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length).
 
-validate_tls_records_type(_Versions, Q, _SslOpts, Acc, undefined, _Version, _Length) ->
+validate_tls_records_type(_Versions, Q, _MaxFragLen, _SslOpts, Acc, undefined, _Version, _Length) ->
     {lists:reverse(Acc),
      {undefined, Q}};
-validate_tls_records_type(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
+validate_tls_records_type(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) ->
     if
         ?KNOWN_RECORD_TYPE(Type) ->
-            validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length);
+            validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
         true ->
             %% Not ?KNOWN_RECORD_TYPE(Type)
             ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, {unsupported_record_type, Type})
     end.
 
-validate_tls_record_version(_Versions, Q, _SslOpts, Acc, Type, undefined, _Length) ->
+validate_tls_record_version(_Versions, Q, _MaxFragLen, _SslOpts, Acc, Type, undefined, _Length) ->
     {lists:reverse(Acc),
      {#ssl_tls{type = Type, version = undefined, fragment = undefined}, Q}};
-validate_tls_record_version(Versions, Q, SslOpts, Acc, Type, Version, Length) ->
+validate_tls_record_version(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length) ->
     case Versions of
         _ when is_list(Versions) ->
             case is_acceptable_version(Version, Versions) of
                 true ->
-                    validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
+                    validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
                 false ->
                     ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
             end;
         {3, 4} when Version =:= {3, 3} ->
-            validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
+            validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
         Version ->
             %% Exact version match
-            validate_tls_record_length(Versions, Q, SslOpts, Acc, Type, Version, Length);
+            validate_tls_record_length(Versions, Q, MaxFragLen, SslOpts, Acc, Type, Version, Length);
         _ ->
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {unsupported_version, Version})
     end.
 
-validate_tls_record_length(_Versions, Q, _SslOpts, Acc, Type, Version, undefined) ->
+validate_tls_record_length(_Versions, Q, _MaxFragLen, _SslOpts, Acc, Type, Version, undefined) ->
     {lists:reverse(Acc),
      {#ssl_tls{type = Type, version = Version, fragment = undefined}, Q}};
-validate_tls_record_length(Versions, {_,Size0,_} = Q0,
+validate_tls_record_length(Versions, {_,Size0,_} = Q0, MaxFragLen,
                            #{log_level := LogLevel} = SslOpts,
                            Acc, Type, Version, Length) ->
-    Max = max_len(Versions),
+    Max = if is_integer(MaxFragLen) ->
+                        MaxFragLen + ?MAX_PADDING_LENGTH + ?MAX_MAC_LENGTH;
+                   true ->
+                        max_len(Versions)
+                end,
     if
         Length =< Max ->
             if
@@ -560,7 +579,7 @@ validate_tls_record_length(Versions, {_,Size0,_} = Q0,
                     {Fragment, Q} = binary_from_front(Length, Q0),
                     Record = #ssl_tls{type = Type, version = Version, fragment = Fragment},
                     ssl_logger:debug(LogLevel, inbound, 'record', Record),
-                    decode_tls_records(Versions, Q, SslOpts, [Record|Acc], undefined, undefined, undefined);
+                    decode_tls_records(Versions, Q, MaxFragLen, SslOpts, [Record|Acc], undefined, undefined, undefined);
                 true ->
                     {lists:reverse(Acc),
                      {#ssl_tls{type = Type, version = Version, fragment = Length}, Q0}}
@@ -669,20 +688,20 @@ encode_fragments(_Type, _Version, _Data, CS, _CompS, _CipherS, _Seq, _CipherFrag
 
 %% 1/n-1 splitting countermeasure Rizzo/Duong-Beast, RC4 chiphers are
 %% not vulnerable to this attack.
-split_iovec(Data, Version, BCA, one_n_minus_one)
+split_iovec(Data, Version, BCA, one_n_minus_one, MaxLength)
   when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
                                {3, 0} == Version) ->
     {Part, RestData} = split_iovec(Data, 1, []),
-    [Part|split_iovec(RestData)];
+    [Part|split_iovec(RestData, MaxLength)];
 %% 0/n splitting countermeasure for clients that are incompatible with 1/n-1
 %% splitting.
-split_iovec(Data, Version, BCA, zero_n)
+split_iovec(Data, Version, BCA, zero_n, MaxLength)
   when (BCA =/= ?RC4) andalso ({3, 1} == Version orelse
                                {3, 0} == Version) ->
     {Part, RestData} = split_iovec(Data, 0, []),
-    [Part|split_iovec(RestData)];
-split_iovec(Data, _Version, _BCA, _BeatMitigation) ->
-    split_iovec(Data).
+    [Part|split_iovec(RestData, MaxLength)];
+split_iovec(Data, _Version, _BCA, _BeatMitigation, MaxLength) ->
+    split_iovec(Data, MaxLength).
 
 split_iovec([Bin|Data] = Bin_Data, SplitSize, Acc) ->
     BinSize = byte_size(Bin),

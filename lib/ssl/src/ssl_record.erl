@@ -40,6 +40,7 @@
 	 set_renegotiation_flag/2,
 	 set_client_verify_data/3,
 	 set_server_verify_data/3,
+         set_max_fragment_length/2,
 	 empty_connection_state/2, initial_connection_state/2, record_protocol_role/1,
          step_encryption_state/1]).
 
@@ -201,6 +202,33 @@ set_renegotiation_flag(Flag, #{current_read := CurrentRead0,
 		      current_write => CurrentWrite,
 		      pending_read => PendingRead,
 		      pending_write => PendingWrite}.
+
+%%--------------------------------------------------------------------
+-spec set_max_fragment_length(term(), connection_states()) -> connection_states().
+%%
+%% Description: Set maximum fragment length in all connection states
+%%--------------------------------------------------------------------
+set_max_fragment_length(#max_frag_enum{enum = MaxFragEnum},
+                        #{current_read := CurrentRead0,
+                          current_write := CurrentWrite0,
+                          pending_read := PendingRead0,
+                          pending_write := PendingWrite0}
+                        = ConnectionStates) ->
+    MaxFragmentLength = if MaxFragEnum == 1 -> ?MAX_FRAGMENT_LENGTH_BYTES_1;
+                           MaxFragEnum == 2 -> ?MAX_FRAGMENT_LENGTH_BYTES_2;
+                           MaxFragEnum == 3 -> ?MAX_FRAGMENT_LENGTH_BYTES_3;
+                           MaxFragEnum == 4 -> ?MAX_FRAGMENT_LENGTH_BYTES_4
+                        end,
+    CurrentRead = CurrentRead0#{max_fragment_length => MaxFragmentLength},
+    CurrentWrite = CurrentWrite0#{max_fragment_length => MaxFragmentLength},
+    PendingRead = PendingRead0#{max_fragment_length => MaxFragmentLength},
+    PendingWrite = PendingWrite0#{max_fragment_length => MaxFragmentLength},
+    ConnectionStates#{current_read => CurrentRead,
+		      current_write => CurrentWrite,
+		      pending_read => PendingRead,
+		      pending_write => PendingWrite};
+set_max_fragment_length(_,ConnectionStates) ->
+    ConnectionStates.
 
 %%--------------------------------------------------------------------
 -spec set_client_verify_data(current_read | current_write | current_both,
@@ -424,7 +452,8 @@ empty_connection_state(ConnectionEnd, BeastMitigation) ->
       mac_secret  => undefined,
       secure_renegotiation => undefined,
       client_verify_data => undefined,
-      server_verify_data => undefined
+      server_verify_data => undefined,
+      max_fragment_length => undefined
      }.
 
 empty_security_params(ConnectionEnd = ?CLIENT) ->
@@ -461,7 +490,8 @@ initial_connection_state(ConnectionEnd, BeastMitigation) ->
       mac_secret  => undefined,
       secure_renegotiation => undefined,
       client_verify_data => undefined,
-      server_verify_data => undefined
+      server_verify_data => undefined,
+      max_fragment_length => undefined
      }.
 
 initial_security_params(ConnectionEnd) ->

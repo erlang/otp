@@ -73,11 +73,11 @@
 
 %% Extensions handling
 -export([client_hello_extensions/7,
-	 handle_client_hello_extensions/9, %% Returns server hello extensions
-	 handle_server_hello_extensions/9, select_curve/2, select_curve/3,
+	 handle_client_hello_extensions/10, %% Returns server hello extensions
+	 handle_server_hello_extensions/10, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
 	 select_hashsign_algs/3, empty_extensions/2, add_server_share/3,
-	 add_alpn/2, add_selected_version/1, decode_alpn/1
+	 add_alpn/2, add_selected_version/1, decode_alpn/1, max_frag_enum/1
 	]).
 
 -export([get_cert_params/1,
@@ -698,6 +698,10 @@ encode_extensions([#sni{hostname = Hostname} | Rest], Acc) ->
                               ?BYTE(?SNI_NAMETYPE_HOST_NAME),
                               ?UINT16(HostLen), HostnameBin/binary,
                               Acc/binary>>);
+encode_extensions([#max_frag_enum{enum = MaxFragEnum} | Rest], Acc) ->
+    ExtLength = 1,
+    encode_extensions(Rest, <<?UINT16(?MAX_FRAGMENT_LENGTH_EXT), ?UINT16(ExtLength), ?BYTE(MaxFragEnum),
+                              Acc/binary>>);
 encode_extensions([#client_hello_versions{versions = Versions0} | Rest], Acc) ->
     Versions = encode_versions(Versions0),
     VerLen = byte_size(Versions),
@@ -1091,7 +1095,8 @@ client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renego
 add_tls12_extensions(_Version,
                      #{alpn_advertised_protocols := AlpnAdvertisedProtocols,
                       next_protocol_selector := NextProtocolSelector,
-                      server_name_indication := ServerNameIndication} = SslOpts,
+                      server_name_indication := ServerNameIndication,
+                      max_fragment_length := MaxFragmentLength} = SslOpts,
                      ConnectionStates,
                      Renegotiation) ->
     SRP = srp_user(SslOpts),
@@ -1102,7 +1107,8 @@ add_tls12_extensions(_Version,
       next_protocol_negotiation =>
           encode_client_protocol_negotiation(NextProtocolSelector,
                                              Renegotiation),
-      sni => sni(ServerNameIndication)
+      sni => sni(ServerNameIndication),
+      max_frag_enum => max_frag_enum(MaxFragmentLength)
      }.
 
 
@@ -1287,18 +1293,27 @@ handle_client_hello_extensions(RecordCB, Random, ClientCipherSuites,
                                  alpn_preferred_protocols := ALPNPreferredProtocols} = Opts,
 			       #session{cipher_suite = NegotiatedCipherSuite,
 					compression_method = Compression} = Session0,
-			       ConnectionStates0, Renegotiation) ->
+			       ConnectionStates0, Renegotiation, IsResumed) ->
     Session = handle_srp_extension(maps:get(srp, Exts, undefined), Session0),
+    MaxFragEnum = handle_mfl_extension(maps:get(max_frag_enum, Exts, undefined)),
+    ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
     ConnectionStates = handle_renegotiation_extension(server, RecordCB, Version, maps:get(renegotiation_info, Exts, undefined),
 						      Random, NegotiatedCipherSuite, 
 						      ClientCipherSuites, Compression,
-						      ConnectionStates0, Renegotiation, SecureRenegotation),
+						      ConnectionStates1, Renegotiation, SecureRenegotation),
 
     Empty = empty_extensions(Version, server_hello),
+    %% RFC 6066 - server doesn't include max_fragment_length for resumed sessions
+    ServerMaxFragEnum = if IsResumed ->
+                                undefined;
+                           true ->
+                                MaxFragEnum
+                        end,
     ServerHelloExtensions = Empty#{renegotiation_info => renegotiation_info(RecordCB, server,
                                                                             ConnectionStates, Renegotiation),
                                    ec_point_formats => server_ecc_extension(Version, 
-                                                                            maps:get(ec_point_formats, Exts, undefined))
+                                                                            maps:get(ec_point_formats, Exts, undefined)),
+                                   max_frag_enum => ServerMaxFragEnum
                                   },
     
     %% If we receive an ALPN extension and have ALPN configured for this connection,
@@ -1321,12 +1336,27 @@ handle_server_hello_extensions(RecordCB, Random, CipherSuite, Compression,
                                Exts, Version,
 			       #{secure_renegotiate := SecureRenegotation,
                                  next_protocol_selector := NextProtoSelector},
-			       ConnectionStates0, Renegotiation) ->
+			       ConnectionStates0, Renegotiation, IsNew) ->
     ConnectionStates = handle_renegotiation_extension(client, RecordCB, Version,  
                                                       maps:get(renegotiation_info, Exts, undefined), Random, 
 						      CipherSuite, undefined,
 						      Compression, ConnectionStates0,
 						      Renegotiation, SecureRenegotation),
+
+    %% RFC 6066: handle received/expected maximum fragment length
+    if IsNew ->
+            ServerMaxFragEnum = maps:get(max_frag_enum, Exts, undefined),
+            #{current_write := #{max_fragment_length := ConnMaxFragLen}} = ConnectionStates,
+            ClientMaxFragEnum = max_frag_enum(ConnMaxFragLen),
+
+            if ServerMaxFragEnum == ClientMaxFragEnum ->
+                    ok;
+               true ->
+                    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
+            end;
+       true ->
+            ok
+    end,
 
     %% If we receive an ALPN extension then this is the protocol selected,
     %% otherwise handle the NPN extension.
@@ -1556,6 +1586,8 @@ extension_value(#hash_sign_algos{hash_sign_algos = Algos}) ->
     Algos;
 extension_value(#alpn{extension_data = Data}) ->
     Data;
+extension_value(#max_frag_enum{enum = Enum}) ->
+    Enum;
 extension_value(#next_protocol_negotiation{extension_data = Data}) ->
     Data;
 extension_value(#srp{username = Name}) ->
@@ -2634,6 +2666,10 @@ decode_extensions(<<?UINT16(?SNI_EXT), ?UINT16(Len),
     decode_extensions(Rest, Version, MessageType,
                       Acc#{sni => dec_sni(NameList)});
 
+decode_extensions(<<?UINT16(?MAX_FRAGMENT_LENGTH_EXT), ?UINT16(1), ?BYTE(MaxFragEnum), Rest/binary>>,
+                  Version, MessageType, Acc) ->
+    %% RFC 6066 Section 4
+    decode_extensions(Rest, Version, MessageType, Acc#{max_frag_enum => #max_frag_enum{enum = MaxFragEnum}});
 decode_extensions(<<?UINT16(?SUPPORTED_VERSIONS_EXT), ?UINT16(Len),
                        ExtData:Len/binary, Rest/binary>>, Version, MessageType, Acc) when Len > 2 ->
     <<?BYTE(_),Versions/binary>> = ExtData,
@@ -2995,6 +3031,13 @@ handle_alpn_extension([ServerProtocol|Tail], ClientProtocols) ->
             false -> handle_alpn_extension(Tail, ClientProtocols)
     end.
 
+handle_mfl_extension(#max_frag_enum{enum = Enum}=MaxFragEnum) when Enum >= 1, Enum =< 4 ->
+    MaxFragEnum;
+handle_mfl_extension(#max_frag_enum{}) ->
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER));
+handle_mfl_extension(_) ->
+    undefined.
+
 handle_next_protocol(undefined,
 		     _NextProtocolSelector, _Renegotiating) ->
     undefined;
@@ -3213,6 +3256,18 @@ sni(disable) ->
 sni(Hostname) ->
     #sni{hostname = Hostname}.
 
+%% convert max_fragment_length (in bytes) to the RFC 6066 ENUM
+max_frag_enum(?MAX_FRAGMENT_LENGTH_BYTES_1) ->
+    #max_frag_enum{enum = 1};
+max_frag_enum(?MAX_FRAGMENT_LENGTH_BYTES_2) ->
+    #max_frag_enum{enum = 2};
+max_frag_enum(?MAX_FRAGMENT_LENGTH_BYTES_3) ->
+    #max_frag_enum{enum = 3};
+max_frag_enum(?MAX_FRAGMENT_LENGTH_BYTES_4) ->
+    #max_frag_enum{enum = 4};
+max_frag_enum(undefined) ->
+    undefined.
+
 renegotiation_info(_, client, _, false) ->
     #renegotiation_info{renegotiated_connection = undefined};
 renegotiation_info(_RecordCB, server, ConnectionStates, false) ->
@@ -3330,7 +3385,7 @@ empty_extensions() ->
 empty_extensions({3,4}, client_hello) ->
     #{
       sni => undefined,
-      %% max_fragment_length => undefined,
+      %% max_frag_enum => undefined,
       %% status_request => undefined,
       elliptic_curves => undefined,
       signature_algs => undefined,

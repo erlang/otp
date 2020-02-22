@@ -117,14 +117,22 @@ server_hello_random(hello_retry_request, _) ->
     ?HELLO_RETRY_REQUEST_RANDOM.
 
 
-encrypted_extensions(#state{handshake_env = #handshake_env{alpn = undefined}}) ->
+encrypted_extensions(#state{handshake_env = HandshakeEnv}) ->
+    E0 = #{},
+    E1 = case HandshakeEnv#handshake_env.alpn of
+             undefined ->
+                 E0;
+             ALPNProtocol ->
+                 ssl_handshake:add_alpn(#{}, ALPNProtocol)
+         end,
+    E2 = case HandshakeEnv#handshake_env.max_frag_enum of
+             undefined ->
+                 E1;
+             MaxFragEnum ->
+                 E1#{max_frag_enum => MaxFragEnum}
+         end,
     #encrypted_extensions{
-       extensions = #{}
-      };
-encrypted_extensions(#state{handshake_env = #handshake_env{alpn = ALPNProtocol}}) ->
-    Extensions = ssl_handshake:add_alpn(#{}, ALPNProtocol),
-    #encrypted_extensions{
-       extensions = Extensions
+       extensions = E2
       }.
 
 
@@ -521,13 +529,14 @@ build_content(Context, THash) ->
 do_start(#client_hello{cipher_suites = ClientCiphers,
                        session_id = SessionId,
                        extensions = Extensions} = _Hello,
-         #state{connection_states = _ConnectionStates0,
+         #state{connection_states = ConnectionStates0,
                 ssl_options = #{ciphers := ServerCiphers,
                                 signature_algs := ServerSignAlgs,
                                 supported_groups := ServerGroups0,
                                 alpn_preferred_protocols := ALPNPreferredProtocols,
                                 honor_cipher_order := HonorCipherOrder},
                 session = #session{own_certificate = Cert}} = State0) ->
+
     ClientGroups0 = maps:get(elliptic_curves, Extensions, undefined),
     ClientGroups = get_supported_groups(ClientGroups0),
     ServerGroups = get_supported_groups(ServerGroups0),
@@ -577,8 +586,18 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         
         %% Generate server_share
         KeyShare = ssl_cipher:generate_server_share(Group),
-        
-        State1 = update_start_state(State0,
+
+        State1 = case maps:get(max_frag_enum, Extensions, undefined) of
+                      MaxFragEnum when is_record(MaxFragEnum, max_frag_enum) ->
+                         ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
+                         HsEnv1 = (State0#state.handshake_env)#handshake_env{max_frag_enum = MaxFragEnum},
+                         State0#state{handshake_env = HsEnv1,
+                                      connection_states = ConnectionStates1};
+                     _ ->
+                         State0
+                 end,
+
+        State2 = update_start_state(State1,
                                     #{cipher => Cipher,
                                       key_share => KeyShare,
                                       session_id => SessionId,
@@ -593,12 +612,12 @@ do_start(#client_hello{cipher_suites = ClientCiphers,
         %% message if it is able to find an acceptable set of parameters but the
         %% ClientHello does not contain sufficient information to proceed with
         %% the handshake.
-        case Maybe(send_hello_retry_request(State1, ClientPubKey, KeyShare, SessionId)) of
+        case Maybe(send_hello_retry_request(State2, ClientPubKey, KeyShare, SessionId)) of
             {_, start} = NextStateTuple ->
                 NextStateTuple;
             {_, negotiated} = NextStateTuple ->
                 %% Exclude any incompatible PSKs.
-                PSK = Maybe(handle_pre_shared_key(State1, OfferedPSKs, Cipher)),
+                PSK = Maybe(handle_pre_shared_key(State2, OfferedPSKs, Cipher)),
                 Maybe(session_resumption(NextStateTuple, PSK))
         end
     catch
@@ -902,6 +921,9 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
     {Ref, Maybe} = maybe(),
 
     try
+        %% RFC 6066: handle received/expected maximum fragment length
+        Maybe(maybe_max_fragment_length(Extensions, State0)),
+
         %% Go to state 'wait_finished' if using PSK.
         Maybe(maybe_resumption(State0)),
 
@@ -912,7 +934,9 @@ do_wait_ee(#encrypted_extensions{extensions = Extensions}, State0) ->
         {State1, wait_cert_cr}
     catch
         {Ref, {State, StateName}} ->
-            {State, StateName}
+            {State, StateName};
+        {Ref, #alert{} = Alert} ->
+            Alert
     end.
 
 
@@ -951,6 +975,16 @@ maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM} = 
     {error, {State0, start, ServerHello}};
 maybe_hello_retry_request(_, _) ->
     ok.
+
+maybe_max_fragment_length(Extensions, State) ->
+    ServerMaxFragEnum = maps:get(max_frag_enum, Extensions, undefined),
+    ClientMaxFragEnum = ssl_handshake:max_frag_enum(
+                          maps:get(max_fragment_length, State#state.ssl_options, undefined)),
+    if ServerMaxFragEnum == ClientMaxFragEnum ->
+            ok;
+       true ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)}
+    end.
 
 
 maybe_resumption(#state{handshake_env = #handshake_env{resumption = true}} = State) ->

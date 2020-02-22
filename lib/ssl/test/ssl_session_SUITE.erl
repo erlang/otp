@@ -552,4 +552,4 @@ connection_states(Random) ->
                    client_random = Random,
                    server_random = undefined,
                    exportable = undefined},
-            sequence_number => 0,server_verify_data => undefined}}.
+            sequence_number => 0,server_verify_data => undefined,max_fragment_length => undefined}}.

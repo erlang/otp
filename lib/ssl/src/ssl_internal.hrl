@@ -154,6 +154,7 @@
           log_level                  => {notice,    [versions]},
           max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
           middlebox_comp_mode        => {true, [versions]},
+          max_fragment_length        => {undefined, [versions]},
           next_protocol_selector     => {undefined, [versions]},
           next_protocols_advertised  => {undefined, [versions]},
           padding_check              => {true,      [versions]},

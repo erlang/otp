@@ -112,7 +112,7 @@ encode_decode(_Config) ->
                      <<92,24,205,75,244,60,136,212,250,32,214,20,37,3,213,87,61,207,
                        147,61,168,145,177,118,160,153,33,53,48,108,191,174>>,
                      undefined},
-                sequence_number => 0,server_verify_data => undefined}},
+                sequence_number => 0,server_verify_data => undefined},max_fragment_length => undefined},
 
     PlainText = [11,
                  <<0,2,175>>,
@@ -168,7 +168,8 @@ encode_decode(_Config) ->
        #{current_write =>
              #{security_parameters =>
                    #security_parameters{cipher_suite = ?TLS_NULL_WITH_NULL_NULL},
-               sequence_number => 0
+               sequence_number => 0,
+               max_fragment_length => undefined
               }
         },
 

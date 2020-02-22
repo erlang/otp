@@ -67,6 +67,7 @@
                         %% Ext handling
                         hello,                %%:: #client_hello{} | #server_hello{}            
                         sni_hostname = undefined,
+                        max_frag_enum :: undefined | {max_frag_enum, integer()},
                         expecting_next_protocol_negotiation = false ::boolean(),
                         next_protocol = undefined                   :: undefined | binary(),
                         alpn = undefined,     %% Used in TLS 1.3

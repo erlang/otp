@@ -604,8 +604,11 @@ init({call, From}, {start, Timeout},
     %% Update pre_shared_key extension with binders (TLS 1.3)
     Hello1 = tls_handshake_1_3:maybe_add_binders(Hello, TicketData, HelloVersion),
 
+    MaxFragEnum = maps:get(max_frag_enum, Hello1#client_hello.extensions, undefined),
+    ConnectionStates1 = ssl_record:set_max_fragment_length(MaxFragEnum, ConnectionStates0),
+
     {BinMsg, ConnectionStates, Handshake} =
-        encode_handshake(Hello1,  HelloVersion, ConnectionStates0, Handshake0),
+        encode_handshake(Hello1,  HelloVersion, ConnectionStates1, Handshake0),
 
     tls_socket:send(Transport, Socket, BinMsg),
     ssl_logger:debug(LogLevel, outbound, 'handshake', Hello1),
@@ -718,8 +721,9 @@ hello(internal, #server_hello{} = Hello,
              connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv,
 	     static_env = #static_env{role = client},
              handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
+             session = #session{session_id = OldId},
 	     ssl_options = SslOptions} = State) ->
-    case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
+    case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
 	#alert{} = Alert -> %%TODO
 	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
                                             State#state{connection_env =
@@ -1164,7 +1168,8 @@ next_tls_record(Data, StateName,
             _ ->
                 State0#state.connection_env#connection_env.negotiated_version
         end,
-    case tls_record:get_tls_records(Data, Versions, Buf0, SslOpts) of
+    #{current_write := #{max_fragment_length := MaxFragLen}} = State0#state.connection_states,
+    case tls_record:get_tls_records(Data, Versions, Buf0, MaxFragLen, SslOpts) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
 	    next_record(StateName, State0#state{protocol_buffers =
