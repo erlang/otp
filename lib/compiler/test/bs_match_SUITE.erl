@@ -1319,15 +1319,20 @@ bad_size(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Binary>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Atom>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:3.14>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:"ZJV">> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:(-1)>> = id(<<>>)),
 
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Tuple/float>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Binary/float>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Atom/float>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:2.5/float>> = id(<<>>)),
 
     %% Matched out value is ignored.
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Binary>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Atom>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:2.5>> = id(<<>>)),
 
     no_match = bad_all_size(<<>>),
     no_match = bad_all_size(<<1,2,3>>),
@@ -1811,6 +1816,7 @@ bad_literals(_Config) ->
     Mod:f(),
 
     {'EXIT',<<42>>} = (catch bad_literals_1()),
+    no_match = bad_literals_2(<<"abc">>),
 
     Sz = id(8),
     {'EXIT',{{badmatch,_},_}} = (catch <<-1:Sz>> = <<-1>>),
@@ -1825,6 +1831,13 @@ bad_literals_1() ->
 	ok -> ok;
 	error -> error
     end.
+
+bad_literals_2(<<atom:16>>) ->
+    fail;
+bad_literals_2(<<2.5:16>>) ->
+    fail;
+bad_literals_2(_) ->
+    no_match.
 
 signed_lit_match(V, Sz) ->
     case <<V:Sz>> of

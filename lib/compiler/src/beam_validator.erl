@@ -774,10 +774,10 @@ vi_safe({test,bs_get_integer2=Op,{f,Fail},Live,
           [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst) ->
     NumBits = Size * Unit,
     Type = case member(unsigned, Flags) of
-               true when NumBits =< 64 ->
+               true when 0 =< NumBits, NumBits =< 64 ->
                    beam_types:make_integer(0, (1 bsl NumBits)-1);
                _ ->
-                   %% Signed integer or way too large, don't bother.
+                   %% Signed integer, way too large, or negative size.
                    #t_integer{}
            end,
     validate_bs_get(Op, Fail, Ctx, Live, NumBits, Type, Dst, Vst);
