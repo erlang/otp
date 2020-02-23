@@ -1252,10 +1252,11 @@ flatmap(F, []) when is_function(F, 1) -> [].
 
 -spec foldl(Fun, Acc0, List) -> Acc1 when
       Fun :: fun((Elem :: T, AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
+      Acc :: term(),
       List :: [T],
       T :: term().
 
@@ -1265,10 +1266,11 @@ foldl(F, Accu, []) when is_function(F, 2) -> Accu.
 
 -spec foldr(Fun, Acc0, List) -> Acc1 when
       Fun :: fun((Elem :: T, AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
+      Acc :: term(),
       List :: [T],
       T :: term().
 
@@ -1341,10 +1343,11 @@ foreach(F, []) when is_function(F, 1) -> ok.
 
 -spec mapfoldl(Fun, Acc0, List1) -> {List2, Acc1} when
       Fun :: fun((A, AccIn) -> {B, AccOut}),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
+      Acc :: term(),
       List1 :: [A],
       List2 :: [B],
       A :: term(),
@@ -1358,10 +1361,11 @@ mapfoldl(F, Accu, []) when is_function(F, 2) -> {[],Accu}.
 
 -spec mapfoldr(Fun, Acc0, List1) -> {List2, Acc1} when
       Fun :: fun((A, AccIn) -> {B, AccOut}),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
+      Acc :: term(),
       List1 :: [A],
       List2 :: [B],
       A :: term(),
