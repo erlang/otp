@@ -615,6 +615,8 @@ cover(Config) ->
     L = length(Config),
     Bin = id(<<L:32,?LONG_STRING>>),
     <<L:32,?LONG_STRING>> = Bin,
+    <<>> = <<"":70>>,
+    <<>> = <<"":$F>>,
     ok.
 
 bad_size(_Config) ->

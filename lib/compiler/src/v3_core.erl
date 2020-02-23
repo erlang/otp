@@ -1027,8 +1027,12 @@ make_bit_type(_Line, {atom,Anno,all}=Size, Type0) ->
             %% a valid size.
             throw(nomatch)
     end;
-make_bit_type(_Line, Size, Type0) ->            %Integer or 'all'
-    {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
+make_bit_type(_Line, Size0, Type0) ->            %Integer or 'all'
+    {ok,Size1,Bt} = erl_bits:set_bit_type(Size0, Type0),
+    Size = case Size1 of
+               {char,Anno,CharVal} -> {integer,Anno,CharVal};
+               _ -> Size1
+           end,
     {Size,erl_bits:as_list(Bt)}.
 
 make_all_size(Line) ->
