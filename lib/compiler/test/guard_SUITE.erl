@@ -2271,6 +2271,7 @@ beam_bool_SUITE(_Config) ->
     megaco(),
     looks_like_a_guard(),
     fail_in_guard(),
+    in_catch(),
     ok.
 
 before_and_inside_if() ->
@@ -2512,6 +2513,17 @@ struct_or_map(Arg, Name) when
 struct_or_map(_Arg, _Name) ->
     false.
 
+in_catch() ->
+    ok = in_catch(true),
+    {'EXIT',{{case_clause,false},[_|_]}} = in_catch(false),
+    {'EXIT',{badarg,[_|_]}} = in_catch(any),
+    ok.
+
+in_catch(V) ->
+    catch
+        case false or V of
+            true -> ok
+        end.
 
 %%%
 %%% End of beam_bool_SUITE tests.

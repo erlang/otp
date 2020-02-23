@@ -808,7 +808,10 @@ build_digraph_is([#b_set{op=phi,args=Args0}=I0|Is], Last, Vtx, Map, G, St) ->
         [#b_set{op=phi}|_] -> not_possible();
         _ -> ok
     end,
-    Args = [{V,map_get(L, Map)} || {V,L} <- Args0],
+    Args = [{V,case Map of
+                   #{L:=Other} -> Other;
+                   #{} -> not_possible()
+               end} || {V,L} <- Args0],
     I = I0#b_set{args=Args},
     build_digraph_is_1(I, Is, Last, Vtx, Map, G, St);
 build_digraph_is([#b_set{}=I|Is], Last, Vtx, Map, G, St) ->
