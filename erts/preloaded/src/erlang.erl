@@ -2060,8 +2060,7 @@ get_module_info(_Module, _Item) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:hd/1
--spec hd(List) -> term() when
-      List :: [term(), ...].
+-spec hd([T, ...]) -> T.
 hd(_List) ->
     erlang:nif_error(undefined).
 
@@ -2616,8 +2615,7 @@ term_to_iovec(_Term, _Options) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:tl/1
--spec tl(List) -> term() when
-      List :: [term(), ...].
+-spec tl([T, ...]) -> [T].
 tl(_List) ->
     erlang:nif_error(undefined).
 
@@ -3846,14 +3844,14 @@ rvrs([X|Xs],Ys) -> rvrs(Xs, [X|Ys]).
 -spec min(Term1, Term2) -> Minimum when
       Term1 :: term(),
       Term2 :: term(),
-      Minimum :: term().
+      Minimum :: Term1 | Term2.
 min(A, B) when A > B -> B;
 min(A, _) -> A.
 
 -spec max(Term1, Term2) -> Maximum when
       Term1 :: term(),
       Term2 :: term(),
-      Maximum :: term().
+      Maximum :: Term1 | Term2.
 max(A, B) when A < B -> B;
 max(A, _) -> A.
 
