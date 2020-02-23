@@ -240,6 +240,12 @@ share_switch_2([[{_,_}|_]=Prep|T], Blocks, Acc0) ->
     share_switch_2(T, Blocks, Acc);
 share_switch_2([], _, Acc) -> Acc.
 
+canonical_block({?EXCEPTION_BLOCK,_VarMap}, _Blocks) ->
+    %% Never ever share the ?EXCEPTION_BLOCK with another block.
+    %% Unless the entire switch or br is optimized away, a
+    %% {f,0} can be emitted where it is not allowed and a later
+    %% pass will crash.
+    {{none,?EXCEPTION_BLOCK},done};
 canonical_block({L,VarMap0}, Blocks) ->
     #b_blk{is=Is,last=Last0} = map_get(L, Blocks),
     case canonical_terminator(L, Last0, Blocks) of
