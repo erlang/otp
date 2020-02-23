@@ -2060,7 +2060,8 @@ get_module_info(_Module, _Item) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:hd/1
--spec hd([T, ...]) -> T.
+-spec hd([T1, ...]) -> T2 when
+      T2 :: T1.
 hd(_List) ->
     erlang:nif_error(undefined).
 
@@ -2615,7 +2616,8 @@ term_to_iovec(_Term, _Options) ->
     erlang:nif_error(undefined).
 
 %% Shadowed by erl_bif_types: erlang:tl/1
--spec tl([T, ...]) -> [T].
+-spec tl([T1, ...]) -> [T2] when
+      T2 :: T1.
 tl(_List) ->
     erlang:nif_error(undefined).
 
