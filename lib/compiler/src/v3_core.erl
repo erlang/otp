@@ -1144,11 +1144,24 @@ make_combined(Line, Val, Size) ->
      {integer,Line,Size},
      [integer,{unit,1},unsigned,big]}.
 
-expr_bin_1(Es, St) ->
-    foldr(fun (E, {Ces,Esp,St0}) ->
-		  {Ce,Ep,St1} = bitstr(E, St0),
-		  {[Ce|Ces],Ep ++ Esp,St1}
-	  end, {[],[],St}, Es).
+expr_bin_1(Es, St0) ->
+    Res = foldr(fun (E, {Ces,Eps0,S0}) ->
+                        try bitstr(E, S0) of
+                            {Ce,Eps,S1} when is_list(Ces) ->
+                                {[Ce|Ces],Eps ++ Eps0,S1};
+                            {_Ce,Eps,S1} ->
+                                {Ces,Eps ++ Eps0,S1}
+                        catch
+                            {bad_binary,Eps,S1} ->
+                                {bad_binary,Eps ++ Eps0,S1}
+                        end
+                end, {[],[],St0}, Es),
+    case Res of
+        {bad_binary,Eps,St} ->
+            throw({bad_binary,Eps,St});
+        {_,_,_}=Res ->
+            Res
+    end.
 
 bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
     {E1,Eps0,St1} = safe(E0, St0),

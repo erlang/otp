@@ -343,6 +343,7 @@ fail(Config) when is_list(Config) ->
                                  end),
     {'EXIT',{badarg,_}} = (catch <<13:(put(?FUNCTION_NAME, 17))>>),
     17 = erase(?FUNCTION_NAME),
+    {'EXIT',{badarg,_}} = (catch fail_1()),
 
     %% Size exceeds length of binary. 'native' is redundant for
     %% binaries, but when it was present sys_core_fold would not
@@ -351,6 +352,11 @@ fail(Config) when is_list(Config) ->
     {'EXIT',{badarg,_}} = (catch << <<$t/little-signed>>:42/bytes >>),
 
     ok.
+
+fail_1() ->
+    case <<(V0 = 1),[]/utf32>> of
+        _ when V0 -> true
+    end.
 
 float_bin(Config) when is_list(Config) ->
     %% Some more coverage.
