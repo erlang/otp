@@ -699,6 +699,11 @@ grab_bag(_Config) ->
     {'EXIT',_} = (catch grab_bag_2()),
     {'EXIT',_} = (catch grab_bag_3()),
     {'EXIT',_} = (catch grab_bag_4()),
+    {'EXIT',{function_clause,[{?MODULE,grab_bag_5,[a,17],_}|_]}} =
+        (catch grab_bag_5(a, 17)),
+    way = grab_bag_6(face),
+    no_match = grab_bag_6("ABC"),
+    no_match = grab_bag_6(any),
     ok.
 
 grab_bag_1() ->
@@ -759,6 +764,16 @@ grab_bag_4() ->
                 ok
             end
     end.
+
+grab_bag_5(A, B) when <<business:(node(power))>> ->
+    true.
+
+grab_bag_6(face) ->
+    way;
+grab_bag_6("ABC") when (node([]))#{size(door) => $k} ->
+    false;
+grab_bag_6(_) ->
+    no_match.
 
 
 %% The identity function.

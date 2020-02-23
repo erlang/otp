@@ -51,10 +51,25 @@ module(#b_module{body=Fs0}=Module, _Opts) ->
       Blocks0 :: beam_ssa:block_map(),
       Blk :: beam_ssa:b_blk().
 
-block(#b_blk{last=Last0}=Blk, Blocks) ->
+block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) ->
     case share_terminator(Last0, Blocks) of
-        none -> Blk;
-        Last -> Blk#b_blk{last=beam_ssa:normalize(Last)}
+        none ->
+            Blk;
+        #b_br{succ=Same,fail=Same}=Last ->
+            %% The terminator was reduced from a two-way branch to a
+            %% one-way branch.
+            case reverse(Is0) of
+                [#b_set{op={succeeded,Kind},args=[Dst]},#b_set{dst=Dst}|Is] ->
+                    %% A succeeded instruction must not be followed by a
+                    %% one-way branch. We must remove both the succeeded
+                    %% instruction and the instruction preceding it.
+                    guard = Kind,               %Assertion.
+                    Blk#b_blk{is=reverse(Is),last=beam_ssa:normalize(Last)};
+                _ ->
+                    Blk#b_blk{last=beam_ssa:normalize(Last)}
+            end;
+        Last ->
+            Blk#b_blk{last=beam_ssa:normalize(Last)}
     end.
 
 %%%
