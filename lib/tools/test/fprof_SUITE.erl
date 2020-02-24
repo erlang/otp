@@ -27,7 +27,7 @@
 %% Test suites
 -export([stack_seq/1, tail_seq/1, create_file_slow/1, spawn_simple/1,
          imm_tail_seq/1, imm_create_file_slow/1, imm_compile/1,
-         cpu_create_file_slow/1, unicode/1]).
+         cpu_create_file_slow/1, unicode/1, parsify_maps/1]).
 
 %% Other exports
 -export([create_file_slow/2]).
@@ -59,7 +59,7 @@ all() ->
         false ->
             [stack_seq, tail_seq, create_file_slow, spawn_simple,
              imm_tail_seq, imm_create_file_slow, imm_compile,
-             cpu_create_file_slow, unicode]
+             cpu_create_file_slow, unicode, parsify_maps]
     end.
 
 
@@ -543,6 +543,35 @@ unicode(Config) when is_list(Config) ->
     fprof:apply(fprof_unicode, t, []),
     ok = fprof:profile(dump, AnalysisFile),
     ok = fprof:analyse(dest, AnalysisFile).
+
+parsify_maps(Config) when is_list(Config) ->
+    Pid = self(),
+    Ref = make_ref(),
+    Port = hd(erlang:ports()),
+    Fun = fun () -> ok end,
+    M = #{pid => Pid, Pid => pid,
+          ref => Ref, Ref => ref,
+          port => Port, Port => port,
+          a_fun => Fun, Fun => a_fun},
+    io:format("M = ~p~n", [M]),
+    L = [{tuple, M}, M, #{my_map => M, M => my_map}],
+    PL = fprof:parsify(L),
+    [{tuple, PM}, PM, PMap] = PL,
+    #{my_map := PM, PM := my_map} = PMap,
+    io:format("PM = ~p~n", [PM]),
+    LPid = pid_to_list(Pid),
+    LRef = ref_to_list(Ref),
+    LPort = port_to_list(Port),
+    LFun = erlang:fun_to_list(Fun),
+    LPid = maps:get(pid, PM),
+    pid = maps:get(LPid, PM),
+    LRef = maps:get(ref, PM),
+    ref = maps:get(LRef, PM),
+    LPort = maps:get(port, PM),
+    port = maps:get(LPort, PM),
+    LFun = maps:get(a_fun, PM),
+    a_fun = maps:get(LFun, PM),
+    ok.
 
 %%%---------------------------------------------------------------------
 %%% Functions to test
