@@ -231,6 +231,7 @@ no_side_effect(#b_set{op=Op}) ->
 is_loop_header(#b_set{op=Op}) ->
     case Op of
         peek_message -> true;
+        wait -> true;
         wait_timeout -> true;
         _ -> false
     end.
