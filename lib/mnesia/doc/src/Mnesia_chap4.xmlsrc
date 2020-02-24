@@ -750,7 +750,7 @@ mnesia:all_keys/1</seealso>.
        that can overload <c>Mnesia</c> on other nodes.</item>
     </list>
     <p>By passing the same "fun" as argument to the function
-       <seealso marker="mnesia#async_dirty/2">mnesia:async_dirty(Fun [, Args])</seealso>,
+       <seealso marker="mnesia#async_dirty/1">mnesia:async_dirty(Fun [, Args])</seealso>,
       it is performed in dirty context. The function calls are mapped to
       the corresponding dirty functions. This still involves logging,
       replication, and subscriptions but no locking,
@@ -761,9 +761,9 @@ mnesia:all_keys/1</seealso>.
       node but not the others. If the table resides locally, no waiting
       occurs.</p>
     <p>By passing the same "fun" as an argument to the function
-       <seealso marker="mnesia#sync_dirty/2">mnesia:sync_dirty(Fun [, Args])</seealso>,
+       <seealso marker="mnesia#sync_dirty/1">mnesia:sync_dirty(Fun [, Args])</seealso>,
       it is performed in almost the same context as the function
-      <seealso marker="mnesia#async_dirty/2">mnesia:async_dirty/1,2</seealso>.
+      <seealso marker="mnesia#async_dirty/1">mnesia:async_dirty/1,2</seealso>.
       The difference is that the operations are performed
       synchronously. The caller waits for the updates to be
       performed on all active replicas. Using <c>mnesia:sync_dirty/1,2</c>
@@ -788,7 +788,7 @@ mnesia:all_keys/1</seealso>.
       recommended if all options have been weighed and the possible
       outcomes are understood. By passing the earlier mentioned "fun"
       to the function
-      <seealso marker="mnesia#ets/2">mnesia:ets(Fun [, Args])</seealso>,
+      <seealso marker="mnesia#ets/1">mnesia:ets(Fun [, Args])</seealso>,
       it is performed but in a raw
       context. The operations are performed directly on the
       local <c>ets</c> tables, assuming that the local storage type is

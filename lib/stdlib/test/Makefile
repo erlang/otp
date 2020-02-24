@@ -34,11 +34,6 @@ MODULES= \
 	escript_SUITE \
 	ets_SUITE \
 	ets_tough_SUITE \
-	expand_test \
-	expand_test1 \
-	unicode_expand \
-	ExpandTestCaps \
-	ExpandTestCaps1 \
 	filelib_SUITE \
 	file_sorter_SUITE \
 	filename_SUITE \
@@ -79,6 +74,7 @@ MODULES= \
 	supervisor_deadlock \
 	naughty_child \
 	shell_SUITE \
+	shell_docs_SUITE \
 	supervisor_SUITE \
 	supervisor_bridge_SUITE \
 	sys_SUITE \

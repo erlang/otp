@@ -249,8 +249,9 @@ DVIPS_FLAGS +=
 # Targets
 # ----------------------------------------------------
 
+DOC_TARGETS?=pdf html man
 
-docs: pdf html $(INFO_FILES)
+docs: $(DOC_TARGETS) $(INFO_FILES)
 
 local_docs: PDFREFDIR=../pdf
 
@@ -258,10 +259,11 @@ $(TOP_PDF_FILE): $(XML_FILES)
 
 pdf: $(TOP_PDF_FILE)
 
-html:   $(INDEX_FILES) \
-	$(MAN_INDEX) $(JAVASCRIPT)
+html: $(INDEX_FILES) $(JAVASCRIPT)
 
-debug opt: 
+man: $(MAN_INDEX)
+
+debug opt:
 
 clean:
 	$(RM) ../html/js/*.js
@@ -280,21 +282,28 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 $(RELSYSDIR)/temporary:
 	$(INSTALL_DIR) $(RELSYSDIR)/temporary
 
-release_docs_spec: docs
-	$(INSTALL_DIR)  "$(RELEASE_PATH)"
-	$(INSTALL_DATA) $(INFO_FILES) "$(RELEASE_PATH)"
-	$(INSTALL_DIR)  $(RELSYSDIR)
+$(RELSYSDIR)/docbuild:
+	$(INSTALL_DIR)  $(RELSYSDIR)/docbuild
+
+release_man_spec: man $(RELSYSDIR)/docbuild
+	$(INSTALL_DATA) $(MAN_INDEX) $(RELSYSDIR)
+	$(INSTALL_DATA) $(MAN_INDEX_SRC) $(MAN_INDEX_SCRIPT) $(RELSYSDIR)/docbuild
+
+release_html_spec: html $(RELSYSDIR)/docbuild
+	$(INSTALL_DIR)  $(RELSYSDIR)/js
+	$(INSTALL_DATA) $(JAVASCRIPT) $(RELSYSDIR)/js
+	$(INSTALL_DATA) $(INDEX_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(INDEX_SCRIPT) $(JAVASCRIPT_BUILD_SCRIPT) \
+		$(INDEX_SRC) $(JAVASCRIPT_BUILD_SCRIPT_SRC) \
+		$(TEMPLATES) $(RELSYSDIR)/docbuild
+
+release_pdf_spec: pdf
 	$(INSTALL_DIR)  $(RELSYSDIR)/pdf
 	$(INSTALL_DATA)  \
 		$(TOP_PDF_FILE) $(RELSYSDIR)/pdf
-	$(INSTALL_DIR)  $(RELSYSDIR)/js
-	$(INSTALL_DATA) $(JAVASCRIPT) $(RELSYSDIR)/js
-	$(INSTALL_DATA) $(INDEX_FILES) $(MAN_INDEX) $(RELSYSDIR)
-	$(INSTALL_DIR)  $(RELSYSDIR)/docbuild
-	$(INSTALL_DATA) $(INDEX_SCRIPT) $(MAN_INDEX_SCRIPT) $(JAVASCRIPT_BUILD_SCRIPT) \
-		$(INDEX_SRC) $(MAN_INDEX_SRC) $(JAVASCRIPT_BUILD_SCRIPT_SRC) \
-		$(TEMPLATES) $(RELSYSDIR)/docbuild
-	$(RM) -r $(RELSYSDIR)/temporary
 
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec) $(INFO_FILES)
+	$(INSTALL_DATA) $(INFO_FILES) "$(RELEASE_PATH)"
+	$(RM) -r $(RELSYSDIR)/temporary
 
 release_spec:

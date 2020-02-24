@@ -93,7 +93,7 @@ init(Ref, Parent, [Root,Mode]) ->
 		   root = Root,
 		   path = Path,
 		   moddb = Db,
-		   namedb = init_namedb(Path),
+		   namedb = create_namedb(Path, Root),
 		   mode = Mode},
 
     Parent ! {Ref,{ok,self()}},
@@ -265,8 +265,8 @@ handle_call({add_paths,Where,Dirs0}, _From,
     {reply,Resp,S#state{path=Path}};
 
 handle_call({set_path,PathList}, _From,
-	    #state{path=Path0,namedb=Namedb}=S) ->
-    {Resp,Path,NewDb} = set_path(PathList, Path0, Namedb),
+	    #state{root=Root,path=Path0,namedb=Namedb}=S) ->
+    {Resp,Path,NewDb} = set_path(PathList, Path0, Namedb, Root),
     {reply,Resp,S#state{path=Path,namedb=NewDb}};
 
 handle_call({del_path,Name}, _From,
@@ -755,12 +755,12 @@ update(Dir, NameDb) ->
 %%
 %% Set a completely new path.
 %%
-set_path(NewPath0, OldPath, NameDb) ->
+set_path(NewPath0, OldPath, NameDb, Root) ->
     NewPath = normalize(NewPath0),
     case check_path(NewPath) of
 	{ok, NewPath2} ->
 	    ets:delete(NameDb),
-	    NewDb = init_namedb(NewPath2),
+	    NewDb = create_namedb(NewPath2, Root),
 	    {true, NewPath2, NewDb};
 	Error ->
 	    {Error, OldPath, NameDb}
@@ -788,11 +788,27 @@ normalize(Other) ->
 %% Handle a table of name-directory pairs.
 %% The priv_dir/1 and lib_dir/1 functions will have
 %% an O(1) lookup.
-init_namedb(Path) ->
-    Db = ets:new(code_names,[private]),
+create_namedb(Path, Root) ->
+    Db = ets:new(code_names,[named_table, public]),
     init_namedb(lists:reverse(Path), Db),
+
+    case lookup_name("erts", Db) of
+        {ok, _, _, _} ->
+            %% erts is part of code path
+            ok;
+        false ->
+            %% No erts in code path, check if this is a source
+            %% repo and if so use that.
+            ErtsDir = filename:join(Root, "erts"),
+            case erl_prim_loader:read_file_info(ErtsDir) of
+                error ->
+                    ok;
+                _ ->
+                    do_insert_name("erts", ErtsDir, Db)
+            end
+    end,
     Db.
-    
+
 init_namedb([P|Path], Db) ->
     insert_dir(P, Db),
     init_namedb(Path, Db);
@@ -996,7 +1012,6 @@ lookup_name(Name, Db) ->
 	[{Name, Dir, Base, SubDirs}] -> {ok, Dir, Base, SubDirs};
 	_ -> false
     end.
-
 
 %%
 %% Fetch a directory.

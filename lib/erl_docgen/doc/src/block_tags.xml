@@ -42,7 +42,6 @@
     <seealso marker="#listTAG">&lt;list&gt;</seealso>,
     <seealso marker="#taglistTAG">&lt;taglist&gt;</seealso>,
     <seealso marker="#codeincludeTAG">&lt;codeinclude&gt;</seealso> and
-    <seealso marker="#erlevalTAG">&lt;erleval&gt;</seealso>.
   </p>
 
   <section>
@@ -128,21 +127,6 @@ start(Pid) ->
     <p>There is also an attribute <c>type = "erl" | "c" | "none"</c>, but
       currently this attribute is ignored. Default value
       is <c>"none"</c></p>
-  </section>
-
-  <section>
-    <marker id="erlevalTAG"></marker>
-    <title>&lt;erleval&gt; - Erlang Evaluation</title>
-
-    <p>Include the result from evaluating an Erlang expression. Example:
-    </p>
-    <code><![CDATA[
-<erleval expr="{A,b,C}={a,b,c}. "/>
-      ]]></code>
-    <p>results in:</p>
-    <erleval expr="{A,b,C}={a,b,c}. "></erleval>
-
-    <p>Note the '.' and space after the expression.</p>
   </section>
 
   <section>

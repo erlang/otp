@@ -171,9 +171,7 @@
       <desc>
         <p><c>lookup_mime</c> returns the MIME type associated with a
           specific file suffix as specified in the file <c>mime.types</c>
-          (located in the 
-          <path unix="$SERVER_ROOT/conf/mime.types" windows="%SERVER_ROOT%\conf\mime.types">
-	config directory</path>).</p>
+          (located in the config directory).</p>
       </desc>
     </func>
 
@@ -191,9 +189,7 @@
       <desc>
         <p><c>lookup_mime_default</c> returns the MIME type associated
           with a specific file suffix as specified in the
-          <c>mime.types</c> file (located in the
-          <path unix="$SERVER_ROOT/conf/mime.types" windows="%SERVER_ROOT%\conf\mime.types">
-	    config  directory</path>). 
+          <c>mime.types</c> file (located in the config  directory).
           If no appropriate association is found, the value of <c>DefaultType</c> is
           returned.</p>
       </desc>

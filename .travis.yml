@@ -36,7 +36,24 @@ matrix:
       script:
         - ./scripts/build-otp
         - ./scripts/run-dialyzer
-
+    # Doc build second as it also takes a long time to run
+    - env: Linux64Docbuild
+      script:
+        - ./scripts/build-otp docs
+      deploy:
+        provider: pages
+        repo: erlang/cd
+        target-branch: master
+        skip-cleanup: true
+        keep-history: false
+        verbose: true
+        github-token: $ERLANG_CD_GITHUB_TOKEN
+        on:
+          # We only deploy on pushes to branches
+          all_branches: true
+          tags: false
+          condition: $TRAVIS_PULL_REQUEST = "false"
+          repo: erlang/otp
     - env: Linux32
       services:
         - docker
@@ -91,23 +108,6 @@ matrix:
             - xsltproc
             - libxml2-utils
 
-    - env: Linux64Docbuild
-      script:
-        - ./scripts/build-otp docs
-      deploy:
-        provider: pages
-        repo: erlang/cd
-        target-branch: master
-        skip-cleanup: true
-        keep-history: false
-        verbose: true
-        github-token: $ERLANG_CD_GITHUB_TOKEN
-        on:
-          # We only deploy on pushes to branches
-          all_branches: true
-          tags: false
-          condition: $TRAVIS_PULL_REQUEST = "false"
-          repo: erlang/otp
     # This stage publishes a otp bundle that contains multiple
     # Erlang/OTP source repositories
     - stage: deploy

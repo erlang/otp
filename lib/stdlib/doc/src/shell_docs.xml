@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2020</year><year>2020</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>shell_docs</title>
+    <prepared>Lukas Larsson</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2020-02-19</date>
+    <rev>A</rev>
+    <file>shell_docs.xml</file>
+  </header>
+  <module since="OTP @OTP-16222@">shell_docs</module>
+  <modulesummary>Functions used to render documentation for a shell.</modulesummary>
+  <description>
+    <p>This module can be used to render function and type documentation
+      to be printed in a shell. It can only render documentation of the format
+      <c>application/erlang+html</c>. For more information about this format see
+      <seealso marker="erl_docgen:doc_storage">Documentation Storage</seealso>
+      in Erl_Docgen's User's Guide.
+    </p>
+  </description>
+
+  <datatypes>
+    <datatype>
+      <name name="docs_v1"/>
+    </datatype>
+    <datatype>
+      <name name="chunk_element_type"/>
+      <desc>
+        <p>
+          The HTML tags allowed in <c>application/erlang+html</c>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="chunk_element_attr"/>
+      <name name="chunk_element_attrs"/>
+      <name name="chunk_element"/>
+      <name name="chunk_elements"/>
+      <desc>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+
+    <func>
+      <name name="render" arity="2" since="OTP @OTP-16222@"/>
+      <fsummary>Render the documentation for a module.</fsummary>
+      <desc>
+        <p>Render the documentation for a module.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="render" arity="3" since="OTP @OTP-16222@"/>
+      <name name="render" arity="4" since="OTP @OTP-16222@"/>
+      <fsummary>Render the documentation for a function.</fsummary>
+      <desc>
+        <p>Render the documentation for a function.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="render_type" arity="2" since="OTP @OTP-16222@"/>
+      <fsummary>Render a list of all available types in a module.</fsummary>
+      <desc>
+        <p>Render a list of all available types in a module.</p>
+      </desc>
+    </func>
+    <func>
+      <name name="render_type" arity="3" since="OTP @OTP-16222@"/>
+      <name name="render_type" arity="4" since="OTP @OTP-16222@"/>
+      <fsummary>Render the documentation of a type in a module.</fsummary>
+      <desc>
+        <p>Render the documentation of a type in a module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="validate" arity="1" since="OTP @OTP-16222@"/>
+      <fsummary>Validate the documentation</fsummary>
+      <desc>
+        <p>This function can be used to do a basic validation of
+          the doc content of <c>application/erlang+html</c> format.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name name="normalize" arity="1" since="OTP @OTP-16222@"/>
+      <fsummary>Normalize the documentation</fsummary>
+      <desc>
+        <p>This function can be used to do whitespace normalization
+          of <c>application/erlang+html</c> documentation.</p>
+      </desc>
+    </func>
+
+  </funcs>
+</erlref>

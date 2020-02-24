@@ -28,11 +28,6 @@ VSN=$(STDLIB_VSN)
 APPLICATION=stdlib
 
 # ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
@@ -89,6 +84,7 @@ XML_REF3_FILES = \
 	sets.xml \
 	shell.xml \
 	shell_default.xml \
+	shell_docs.xml \
 	slave.xml \
 	sofs.xml \
 	string.xml \
@@ -113,74 +109,12 @@ XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF6_FILES) $(XML_APPLICATION_FILES)
 
-# ----------------------------------------------------
-
-HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-INFO_FILE = ../../info
-
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
-
 TOP_SPECS_FILE = specs.xml
-
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
-
-SPECS_FLAGS = -I../../include -I../../../kernel/include
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-docs: man pdf html
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: $(HTML_REF_MAN_FILE)
-
-man: $(MAN3_FILES) $(MAN6_FILES)
-
-debug opt:
-
-clean clean_docs:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN3DIR)/*
-	rm -f $(MAN6DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f $(SPECDIR)/*
-	rm -f errs core *~
 
 $(SPECDIR)/specs_erl_id_trans.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
 		-o$(dir $@) -module erl_id_trans
 
-# ----------------------------------------------------
-# Release Target
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
+NO_CHUNKS = erl_id_trans.xml
 
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"
-	$(INSTALL_DATA) $(MAN6_FILES) "$(RELEASE_PATH)/man/man6"
-
-release_spec:
+include $(ERL_TOP)/make/doc.mk

@@ -11,7 +11,7 @@
       Licensed under the Apache License, Version 2.0 (the "License");
       you may not use this file except in compliance with the License.
       You may obtain a copy of the License at
- 
+
           http://www.apache.org/licenses/LICENSE-2.0
 
       Unless required by applicable law or agreed to in writing, software
@@ -19,7 +19,7 @@
       WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
       See the License for the specific language governing permissions and
       limitations under the License.
-    
+
     </legalnotice>
 
     <title>werl</title>
@@ -62,7 +62,7 @@
     <p>In cases where you want to redirect standard input and/or
       standard output or use Erlang in a pipeline, <c>werl</c> is
       not suitable, and the <c>erl</c> program is to be used instead.</p>
-    
+
     <p>The <c>werl</c> window is in many ways modeled after the <c>xterm</c>
       window present on other platforms, as the <c>xterm</c> model
       fits well with line-oriented command-based interaction. This
@@ -102,7 +102,7 @@
           use <c>Ctrl-P</c>.</p>
       </item>
     </list>
-      
+
     <p>A drop-down box in the toolbar contains the command
       history. Selecting a command in the drop-down box inserts the command
       at the prompt, as if you used the keyboard to retrieve the
@@ -115,4 +115,3 @@
     </list>
   </description>
 </comref>
-

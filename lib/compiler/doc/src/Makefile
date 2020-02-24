@@ -28,94 +28,19 @@ VSN=$(COMPILER_VSN)
 APPLICATION=compiler
 
 # ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
-COMPILER_DIR = $(ERL_TOP)/lib/compiler/src
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
 XML_REF3_FILES = compile.xml
+EDOC_REF3_FILES =  cerl.xml cerl_trees.xml cerl_clauses.xml
 
 XML_PART_FILES = internal.xml
-XML_CHAPTER_FILES = notes.xml
+XML_NOTES_FILES = notes.xml
 
 BOOK_FILES = book.xml
 
-GIF_FILES =
-
 XML_FILES = \
-	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
+	$(BOOK_FILES) $(XML_NOTES_FILES) \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_APPLICATION_FILES)
 
-XML_INTERNAL_FILES = \
-	cerl.xml cerl_trees.xml cerl_clauses.xml
-
-# ----------------------------------------------------
-
-HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-INFO_FILE = ../../info
-
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE =  $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-XML_GEN_FILES = $(XML_INTERNAL_FILES:%=$(XMLDIR)/%)
-
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
-	$(INSTALL_DATA) $< $@
-
-docs: pdf html man
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: gifs $(HTML_REF_MAN_FILE)
-
-man: $(MAN3_FILES)
-
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
-
-$(XML_INTERNAL_FILES:%=$(XMLDIR)/%): $(COMPILER_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/xml_from_edoc.escript -def vsn $(COMPILER_VSN) -dir $(XMLDIR) $(COMPILER_DIR)/$(@:$(XMLDIR)/%.xml=%.erl)
-
-debug opt:
-
-clean clean_docs:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN3DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~
-
-# ----------------------------------------------------
-# Release Target
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
-
-release_spec:
+include $(ERL_TOP)/make/doc.mk

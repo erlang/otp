@@ -100,7 +100,9 @@ $(REDIRECT_HTML_DIR)/%.html: Makefile
 	echo "This <a href=\"../"$(notdir $@)"\">link</a> will" >> $@
 	echo "take you there immediately.</p></body></html>" >> $@
 
-docs: $(XML_GEN_FILES) html
+DOC_TARGETS?=html
+
+docs: $(DOC_TARGETS)
 
 local_docs: PDFDIR=../../pdf
 local_docs: $(XML_GEN_FILES)
@@ -123,13 +125,12 @@ clean clean_docs:
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-
-release_docs_spec: docs
-	$(INSTALL_DIR) $(RELSYSDIR)
+release_html_spec: html
+	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html $(RELSYSDIR)
 	$(INSTALL_DIR) $(REDIRECT_HTML_RELSYSDIR)
 	$(INSTALL_DATA) $(REDIRECT_HTML_FILES) $(REDIRECT_HTML_RELSYSDIR)
 
+release_docs_spec: $(DOC_TARGETS:%=release_%_spec)
+
 release_spec:
-
-

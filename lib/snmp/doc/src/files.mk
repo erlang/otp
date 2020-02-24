@@ -113,7 +113,7 @@ XML_FILES = $(BOOK_FILES)        \
             $(XML_REF6_FILES)    \
             $(XML_APPLICATION_FILES)
 
-GIF_FILES = \
+IMAGE_FILES = \
 	getnext1.gif \
 	getnext2.gif \
 	getnext3.gif \
@@ -125,19 +125,7 @@ GIF_FILES = \
 	snmp-um-1-image-3.gif \
 	MIB_mechanism.gif
 
-PS_FILES = getnext1.ps \
-	getnext2.ps \
-	getnext3.ps \
-	getnext4.ps \
-	snmp_agent_netif.ps \
-	snmp-um-1-image-1.ps \
-	snmp-um-1-image-2.ps \
-	snmp-um-1-image-3.ps \
-	snmp-um-1-image-8.ps \
-	MIB_mechanism.ps
-
-
-MIB_FILES = \
+MIB_REF7_FILES = \
 	$(MIBSDIR)/RFC1213-MIB.mib \
 	$(MIBSDIR)/STANDARD-MIB.mib \
 	$(MIBSDIR)/SNMPv2-TM.mib \

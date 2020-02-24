@@ -122,7 +122,7 @@
 
   <funcs>
     <func>
-      <name name="gethostname" arity="0"/>
+      <name name="gethostname" arity="0" since="OTP 22.0"/>
       <fsummary>Get hostname.</fsummary>
       <desc>
         <p>Returns the name of the current host.</p>

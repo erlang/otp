@@ -57,8 +57,14 @@ init_per_suite(Config) ->
         {error,bad_name} ->
             Erts = filename:join([code:root_dir(),"erts","preloaded","ebin"]),
             {ok,_} = xref:add_directory(Server, Erts, []);
-        _ ->
-            ok
+        LibDir ->
+            case file:read_file_info(filename:join([LibDir,"ebin"])) of
+                {error,enoent} ->
+                    Erts = filename:join([LibDir, "preloaded","ebin"]),
+                    {ok,_} = xref:add_directory(Server, Erts, []);
+                _ ->
+                    ok
+            end
     end,
     [{xref_server,Server}|Config].
 
@@ -91,9 +97,9 @@ undefined_functions(Config) when is_list(Config) ->
         _ ->
             Fd = open_log(Config, "undefined_functions"),
             foreach(fun ({MFA1,MFA2}) ->
-                            io:format("~s calls undefined ~s",
-                                      [format_mfa(Server, MFA1),
-                                       format_mfa(MFA2)]),
+                            ct:pal("~s calls undefined ~s",
+                                   [format_mfa(Server, MFA1),
+                                    format_mfa(MFA2)]),
                             io:format(Fd, "~s ~s\n",
                                       [format_mfa(Server, MFA1),
                                        format_mfa(MFA2)])

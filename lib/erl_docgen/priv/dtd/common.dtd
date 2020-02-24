@@ -22,9 +22,8 @@
 <!ENTITY % common.entities SYSTEM "common.entities.dtd" >
 %common.entities;
 
-<!ENTITY % block              "p|pre|code|list|taglist|codeinclude|
-                               erleval" >
-<!ENTITY % inline             "#PCDATA|c|i|em|strong|term|cite|br|path|seealso|
+<!ENTITY % block              "p|pre|code|list|taglist|codeinclude" >
+<!ENTITY % inline             "#PCDATA|c|i|em|strong|term|br|seealso|
                                url|marker|anno|image" >
 <!-- XXX --> 
 <!ELEMENT p                   (%inline;)* >
@@ -43,25 +42,8 @@
 <!ELEMENT strong              (#PCDATA|c|anno)* >
 <!ELEMENT anno                (#PCDATA) >
 
-<!-- XXX -->
-<!ELEMENT term                (termdef?) >
-<!ATTLIST term                id CDATA #REQUIRED >
-<!ELEMENT termdef             (#PCDATA) >
-<!ELEMENT cite                (citedef?) >
-<!ATTLIST cite                id CDATA #REQUIRED >
-<!ELEMENT citedef             (ctitle,cauthor,chowpublished) >
-<!ELEMENT ctitle              (#PCDATA) >
-<!ELEMENT cauthor             (#PCDATA) >
-<!ELEMENT chowpublished       (#PCDATA) >
-
 <!-- XXX --> 
 <!ELEMENT br                  EMPTY >
-
-<!-- Path -->
-
-<!ELEMENT path                (#PCDATA) >
-<!ATTLIST path                unix CDATA ""
-                              windows CDATA "" >
 
 <!-- List -->
 
@@ -86,8 +68,3 @@
 <!ATTLIST codeinclude          file CDATA #REQUIRED
                                tag  CDATA ""
                                type (erl|c|none) "none" >
-
-<!-- ErlEval -->
-
-<!ELEMENT erleval              EMPTY >
-<!ATTLIST erleval              expr CDATA #REQUIRED >

@@ -1746,7 +1746,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     
     <func>
       <name since="OTP R14B" name="start" arity="0" />
-      <name since="OTP R14B">start(Type) -> ok | {error, Reason}</name>
+      <name since="OTP R14B" name="start" arity="1" />
       <fsummary>Starts the SSL application.</fsummary>
       <desc>
         <p>Starts the SSL application. Default type

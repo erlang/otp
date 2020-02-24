@@ -36,7 +36,7 @@ RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 
-XML_REF1_FILES = erl_call.xml
+XML_REF1_FILES = erl_call_cmd.xml
 XML_REF3_FILES = ei_global.xml \
 	ei.xml \
 	ei_connect.xml \
@@ -51,72 +51,9 @@ XML_CHAPTER_FILES = ei_users_guide.xml notes.xml
 
 XML_FILES = $(XML_REF1_FILES) $(XML_REF3_FILES) $(BOOK_FILES) \
 	 $(XML_APPLICATION_FILES) $(XML_PART_FILES) $(XML_CHAPTER_FILES)
-# ----------------------------------------------------
 
-HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-INFO_FILE = ../../info
-
-GIF_FILES =
-
-MAN1_FILES = $(XML_REF1_FILES:%.xml=$(MAN1DIR)/%.1)
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
+NO_CHUNKS=$(XML_REF3_FILES)
 
 # ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
 
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
-	$(INSTALL_DATA) $< $@
-
-docs: pdf html man
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: gifs $(HTML_REF_MAN_FILE)
-
-man: $(MAN1_FILES) $(MAN3_FILES)
-
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
-
-debug opt lcnt:
-
-clean clean_docs clean_tex:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN1DIR)/*
-	rm -f $(MAN3DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~
-
-
-# ----------------------------------------------------
-# Release Target
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man1"
-	$(INSTALL_DATA) $(MAN1_FILES) "$(RELEASE_PATH)/man/man1"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3_FILES) "$(RELEASE_PATH)/man/man3"
-
-
-release_spec:
+include $(ERL_TOP)/make/doc.mk

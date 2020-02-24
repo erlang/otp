@@ -980,7 +980,7 @@
 
     </fo:block>
 
-    <xsl:apply-templates select="section|quote|warning|note|br|image|marker|table|p|pre|code|list|taglist|codeinclude|erleval">
+    <xsl:apply-templates select="section|quote|warning|note|br|image|marker|table|p|pre|code|list|taglist|codeinclude">
       <xsl:with-param name="partnum" select="$partnum"/>
       <xsl:with-param name="chapnum"><xsl:number/></xsl:with-param>
     </xsl:apply-templates>

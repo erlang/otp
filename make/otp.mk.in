@@ -226,13 +226,16 @@ MAN1DIR = $(DOCDIR)/man1
 MAN2DIR = $(DOCDIR)/man2
 MAN3DIR = $(DOCDIR)/man3
 MAN4DIR = $(DOCDIR)/man4
+MAN5DIR = $(DOCDIR)/man5
 MAN6DIR = $(DOCDIR)/man6
+MAN7DIR = $(DOCDIR)/man7
 MAN9DIR = $(DOCDIR)/man9
 
 TEXDIR = .
 
 SPECDIR = $(DOCDIR)/specs
 XMLDIR = $(DOCDIR)/xml
+CHUNKSDIR = $(DOCDIR)/chunks
 
 ifeq ($(CSS_FILE),)
 CSS_FILE = otp_doc.css
@@ -268,7 +271,7 @@ DEFAULT_HTML_FILES = \
 	$(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.kwc) \
 	$(HTMLDIR)/index.html
 
-DEFAULT_GIF_FILES = $(HTMLDIR)/min_head.gif
+DEFAULT_GIF_FILES =
 
 #
 # Flags & Commands
@@ -287,14 +290,18 @@ SPECS_ESRC = ../../src
 endif
 SPECS_EXTRACTOR=$(DOCGEN)/priv/bin/specs_gen.escript
 # Extract specifications and types from Erlang source files (-spec, -type)
-$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/%.erl $(TOP_SPECS_FILE)
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
-$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl
+$(SPECDIR)/specs_%.xml: $(SPECS_ESRC)/gen/%.erl $(TOP_SPECS_FILE)
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) -o$(dir $@) $<
 
 MANXSLTARGS=--stringparam company "Ericsson AB" --stringparam docgen "$(DOCGEN)" --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" --stringparam appver "$(VSN)" --xinclude -path $(DOCGEN)/priv/dtd  -path $(DOCGEN)/priv/dtd_man_entities -path .
 
-$(MAN1DIR)/%.1 $(MAN2DIR)/%.2 $(MAN4DIR)/%.4 $(MAN4DIR)/%.5 $(MAN9DIR)/%.9: $(XMLDIR)/%.xml
+$(MAN1DIR)/%.1: $(XMLDIR)/%_cmd.xml
+	$(gen_verbose)date=`date +"%B %e, %Y"`; \
+	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
+
+$(MAN2DIR)/%.2 $(MAN4DIR)/%.4 $(MAN4DIR)/%.5 $(MAN9DIR)/%.9: $(XMLDIR)/%.xml
 	$(gen_verbose)date=`date +"%B %e, %Y"`; \
 	xsltproc --output "$@" $(MANXSLTARGS) $(DOCGEN)/priv/xsl/db_man.xsl $<
 
@@ -319,3 +326,12 @@ $(XMLDIR)/%.xml: $(XMLDIR)/%.xmlsrc
 
 $(PDFDIR)/%.pdf: %.fo
 	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@
+
+$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../ebin/%.beam $(DOCGEN)/priv/bin/chunk.escript
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@
+
+$(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../preloaded/ebin/%.beam $(DOCGEN)/priv/bin/chunk.escript
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@
+
+$(CHUNKSDIR)/%.chunk: ../../ebin/%.beam $(DOCGEN)/priv/bin/chunk.escript
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@

@@ -28,11 +28,6 @@ VSN=$(KERNEL_VSN)
 APPLICATION=kernel
 
 # ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
@@ -98,85 +93,7 @@ XML_FILES = \
 	$(XML_PART_FILES) $(XML_REF3_FILES) $(XML_REF4_FILES)\
 	$(XML_REF6_FILES) $(XML_APPLICATION_FILES)
 
-# ----------------------------------------------------
-
-HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-INFO_FILE = ../../info
-
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-MAN4_FILES = $(XML_REF4_FILES:%.xml=$(MAN4DIR)/%.4)
-MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
-
 TOP_SPECS_FILE = specs.xml
-
-
-# ----------------------------------------------------
-# FIGURES
-# ----------------------------------------------------
-# In order to update the figures you have to have both dia
-# and imagemagick installed.
-# The generated .png file must be committed.
-
-update_png:
-	dia --export=logger_arch.eps logger_arch.dia
-	convert logger_arch.eps -resize 65% logger_arch.png
-
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
-
-SPECS_ESRC = ../../src
-
-SPECS_FLAGS = -I../../include
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-$(HTMLDIR)/%: %
-	$(INSTALL_DATA) $< $@
-
-docs: man pdf html
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: images $(HTML_REF_MAN_FILE)
-
-man: $(MAN3_FILES) $(MAN4_FILES) $(MAN6_FILES)
-
-images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
-
-info:
-	@echo "XML_APPLICATION_FILES: $(XML_APPLICATION_FILES)"
-	@echo "XML_REF3_ESOCK_FILES:  $(XML_REF3_ESOCK_FILES)"
-	@echo "XML_REF3_FILES:        $(XML_REF3_FILES)"
-	@echo "XML_REF4_FILES:        $(XML_REF4_FILES)"
-	@echo "XML_REF6_FILES:        $(XML_REF6_FILES)"
-	@echo "XML_PART_FILES:        $(XML_PART_FILES)"
-	@echo "XML_CHAPTER_FILES:     $(XML_CHAPTER_FILES)"
-	@echo "BOOK_FILES:            $(BOOK_FILES)"
-
-debug opt:
-
-clean clean_docs:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f  $(MAN3DIR)/*
-	rm -f  $(MAN4DIR)/*
-	rm -f  $(MAN6DIR)/*
-	rm -f  $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f  $(SPECDIR)/*
-	rm -f  errs core *~ *.eps
 
 $(SPECDIR)/specs_erl_prim_loader_stub.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
@@ -191,24 +108,17 @@ $(SPECDIR)/specs_zlib_stub.xml:
 	$(gen_verbose)escript $(SPECS_EXTRACTOR) $(SPECS_FLAGS) \
                 -o$(dir $@) -module zlib_stub
 
+NO_CHUNKS = erl_prim_loader_stub.xml erlang_stub.xml init_stub.xml zlib_stub.xml
 
 # ----------------------------------------------------
-# Release Target
+# FIGURES
 # ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
+# In order to update the figures you have to have both dia
+# and imagemagick installed.
+# The generated .png file must be committed.
 
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man4"
-	$(INSTALL_DATA) $(MAN4_FILES) "$(RELEASE_PATH)/man/man4"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"
-	$(INSTALL_DATA) $(MAN6_FILES) "$(RELEASE_PATH)/man/man6"
+update_png:
+	dia --export=logger_arch.eps logger_arch.dia
+	convert logger_arch.eps -resize 65% logger_arch.png
 
-release_spec:
+include $(ERL_TOP)/make/doc.mk

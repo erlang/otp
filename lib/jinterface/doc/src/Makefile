@@ -53,14 +53,9 @@ BOOK_FILES = book.xml
 XML_FILES = $(BOOK_FILES) $(XML_APP_FILES) $(XML_REF3_FILES) \
             $(XML_PART_FILES) $(XML_CHAPTER_FILES)
 
-GIF_FILES =
+NO_CHUNKS=$(XML_REF3_FILES)
+
 #------------------------------------------------------
-
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
 
 JAVADOC = javadoc
 JAVADOC_PKGS = com.ericsson.otp.erlang
@@ -86,75 +81,20 @@ JAVA_DOC_FILES = \
 	stylesheet.css \
 	help-doc.html
 
-INFO_FILE = ../../info
-JAVA_EXTRA_FILES = $(JAVA_DOC_FILES:%=$(HTMLDIR)/java/%)
-
 JAVA_GEN_FILES = \
 	$(JAVA_FILES:%=$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/%.html) \
 	$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/package-summary.html \
 	$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/package-tree.html \
 	$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/package-frame.html
 
-
 # ----------------------------------------------------
 
-
-HTML_FILES = \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-TOP_HTML_FILES = $(INDEX_TARGET)
-
-INDEX_FILE = index.html
-INDEX_TARGET = $(DOCDIR)/$(INDEX_FILE)
-
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
-DVIPS_FLAGS +=
-
-# ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-$(HTMLDIR)/%.gif: %.gif
-	$(INSTALL_DATA) $< $@
-
-docs: pdf html jdoc man
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-pdf: $(TOP_PDF_FILE)
-
-html: gifs $(HTML_REF_MAN_FILE)
-
-clean clean_docs:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN3DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f errs core *~
 
 jdoc:$(JAVA_SRC_FILES)
 	(cd ../../java_src;$(JAVADOC) -sourcepath . -d $(JAVADOC_DEST) \
 		-windowtitle $(JAVADOC_TITLE) $(JAVADOC_PKGS))
 	touch jdoc
 
-man:
+docs: jdoc
 
-gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
-
-debug opt:
-
-# ----------------------------------------------------
-# Release Target
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR_DATA) $(HTMLDIR) "$(RELSYSDIR)/doc/html"
-
-
-release_spec:
+include $(ERL_TOP)/make/doc.mk

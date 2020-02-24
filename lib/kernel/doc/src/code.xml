@@ -705,6 +705,21 @@ ok = code:finish_loading(Prepared),
       </desc>
     </func>
     <func>
+      <name name="all_available" arity="0" since="OTP @OTP-16494@"/>
+      <fsummary>Get all available modules.</fsummary>
+      <type name="loaded_filename"/>
+      <type name="loaded_ret_atoms"/>
+      <type_desc name="loaded_filename"><c><anno>Filename</anno></c> is an absolute
+      filename.</type_desc>
+      <desc>
+        <p>Returns a list of tuples <c>{<anno>Module</anno>, <anno>Filename</anno>,
+          <anno>Loaded</anno>}</c> for all available modules. A module is considered
+          to be available if it either is loaded or would be loaded if called.
+          <c><anno>Filename</anno></c> is normally the absolute filename, as described for
+          <seealso marker="#is_loaded/1"><c>is_loaded/1</c></seealso>.</p>
+      </desc>
+    </func>
+    <func>
       <name name="all_loaded" arity="0" since=""/>
       <fsummary>Get all loaded modules.</fsummary>
       <type name="loaded_filename"/>
@@ -721,6 +736,7 @@ ok = code:finish_loading(Prepared),
     <func>
       <name name="which" arity="1" since=""/>
       <fsummary>The object code file of a module.</fsummary>
+      <type name="loaded_filename"/>
       <type name="loaded_ret_atoms"/>
       <desc>
         <p>If the module is not loaded, this function searches the code
@@ -750,6 +766,22 @@ ok = code:finish_loading(Prepared),
 {_Module, Binary, Filename} = code:get_object_code(Module),
 rpc:call(Node, code, load_binary, [Module, Filename, Binary]),
 ...</code>
+      </desc>
+    </func>
+    <func>
+      <name name="get_doc" arity="1" since="OTP @OTP-16406@"/>
+      <fsummary>Gets the documentation for a module.</fsummary>
+      <desc>
+        <p>Searches the code path for a documentation chunk
+          and returns ut if available. If no documentation chunk
+          can be found the function tries to generate documentation
+          from the debug information in the module. If no debug
+          information is available, this function will return
+          <c>{error,missing}</c>.
+        </p>
+        <p>For more information about the documentation chunk see
+          <seealso marker="erl_docgen:doc_storage">Documentation Storage</seealso>
+          in Erl_Docgen's User's Guide.</p>
       </desc>
     </func>
     <func>

@@ -46,7 +46,7 @@
 <em>Module data</em>,
       which are extracted from BEAM files, include local functions,
       exported functions, local calls and external calls. By default,
-      calls to built-in functions (<term id="BIF"></term>) are ignored, but
+      calls to built-in functions (BIF) are ignored, but
       if the option <c>builtins</c>, accepted by some of this
       module's functions, is set to <c>true</c>, calls to BIFs
       are included as well. It is the analyzing OTP version that

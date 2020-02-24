@@ -12,6 +12,7 @@ filter () {
 }
 
 ALL_APPLICATIONS=$(ls -d -1 lib/*/ | sed 's:^lib\|/::g')
+ALL_APPLICATIONS="erts $ALL_APPLICATIONS"
 echo "All applications: $ALL_APPLICATIONS" |tr '\n' ' ' && echo ""
 
 BASE_PLT="compiler crypto erts hipe kernel stdlib syntax_tools"

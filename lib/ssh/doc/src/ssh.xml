@@ -1143,9 +1143,9 @@
     </datatype> 
 
     <datatype>
-      <name>opaque_client_options</name>
-      <name>opaque_daemon_options</name>
-      <name>opaque_common_options</name>
+      <name>opaque_client_options()</name>
+      <name>opaque_daemon_options()</name>
+      <name>opaque_common_options()</name>
       <desc>
 	<marker id="type-opaque_client_options"/>
 	<marker id="type-opaque_daemon_options"/>

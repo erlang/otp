@@ -149,7 +149,8 @@ MODULES = \
 
 HRL_FILES= ../include/file.hrl ../include/inet.hrl ../include/inet_sctp.hrl \
 	../include/dist.hrl ../include/dist_util.hrl \
-	../include/net_address.hrl ../include/logger.hrl
+	../include/net_address.hrl ../include/logger.hrl ../include/eep48.hrl
+
 
 INTERNAL_HRL_FILES= application_master.hrl disk_log.hrl \
         erl_epmd.hrl file_int.hrl hipe_ext_format.hrl \

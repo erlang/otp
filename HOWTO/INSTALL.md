@@ -217,6 +217,12 @@ Build the documentation.
 
     $ make docs
 
+It is possible to limit which types of documentation is build by passing the `DOC_TARGETS`
+environment variable to `make docs`. The currently available types are: `html`, `pdf`, `man` and
+`chunks`. Example:
+
+    $ make docs DOC_TARGETS=chunks
+
 #### Build Issues ####
 
 We have sometimes experienced problems with Oracle's `java` running out of
@@ -247,6 +253,8 @@ or using the `release_docs` target.
 
         $ make release_docs RELEASE_ROOT=<release dir>
 
+It is possible to limit which types of documentation is released using the same `DOC_TARGETS`
+environment variable as when building documentation.
 
 ### Accessing the Documentation ###
 
@@ -261,6 +269,8 @@ After installation you can access the documentation by
 *   Browsing the html pages by loading the page `/usr/local/lib/erlang/doc/erlang/index.html`
     or `<BaseDir>/lib/erlang/doc/erlang/index.html` if the prefix option has been used.
 
+*   Read the embedded documentation by using the built-in shell functions `h/1,2,3` or
+    `ht/1,2,3`.
 
 ### How to Install the Pre-formatted Documentation ###
 

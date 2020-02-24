@@ -33,7 +33,7 @@
   </description>
 
   <xi:include href="common_test_app.xml"/>
-  <xi:include href="ct_run.xml"/>
+  <xi:include href="ct_run_cmd.xml"/>
   <xi:include href="ct.xml"/>
   <xi:include href="ct_master.xml"/>
   <xi:include href="ct_cover.xml"/>

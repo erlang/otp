@@ -56,7 +56,7 @@
        <taglist>
          <tag><c>{continuation_fun, ContinuationFun}</c></tag>
          <item>
-           <seealso marker="#ContinuationFun/1">ContinuationFun</seealso> is a call back function to decide what to do if 
+           <seealso marker="#Module:ContinuationFun/1">ContinuationFun</seealso> is a call back function to decide what to do if
            the parser runs into EOF before the document is complete. 
          </item>
          <tag><c>{continuation_state, term()}</c></tag>
@@ -65,7 +65,7 @@
          </item>
          <tag><c>{event_fun, EventFun}</c></tag>
          <item>
-           <seealso marker="#EventFun/3">EventFun</seealso> is the call back function for parser events. 
+           <seealso marker="#Module:EventFun/3">EventFun</seealso> is the call back function for parser events.
          </item>
          <tag><c>{event_state, term()}</c></tag>
          <item>
@@ -381,7 +381,7 @@
   <funcs>
 
     <func>
-      <name since="">ContinuationFun(State) -> {NewBytes, NewState}</name>
+      <name since="">Module:ContinuationFun(State) -> {NewBytes, NewState}</name>
       <fsummary>Continuation call back function.</fsummary>
       <type>
         <v>State = NewState = term()</v>
@@ -402,7 +402,7 @@
     </func>
 
     <func>
-      <name since="">EventFun(Event, Location, State) -> NewState</name>
+      <name since="">Module:EventFun(Event, Location, State) -> NewState</name>
       <fsummary>Event call back function.</fsummary>
       <type>
         <v>Event = event()</v>

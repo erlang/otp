@@ -30,11 +30,6 @@ VSN=$(SSH_VSN)
 APPLICATION=ssh
 
 # ----------------------------------------------------
-# Release directory specification
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
-
-# ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
 XML_APPLICATION_FILES = ref_man.xml
@@ -67,87 +62,9 @@ XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES)  $(XML_REF6
 
 IMAGE_FILES = SSH_protocols.png
 
-# ----------------------------------------------------
-
-HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
-
-INFO_FILE = ../../info
-EXTRA_FILES = \
-	$(DEFAULT_GIF_FILES) \
-	$(DEFAULT_HTML_FILES) \
-	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
-        $(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
-
-
-MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
-MAN6_FILES = $(XML_REF6_FILES:%_app.xml=$(MAN6DIR)/%.6)
-
-HTML_REF_MAN_FILE = $(HTMLDIR)/index.html
-
-TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
-
-SPECS_FILES = $(XML_REF3_FILES:%.xml=$(SPECDIR)/specs_%.xml)
-
 TOP_SPECS_FILE = specs.xml
 
-# ----------------------------------------------------
-# FLAGS
-# ----------------------------------------------------
-XML_FLAGS +=
-DVIPS_FLAGS +=
-
-#SPECS_FLAGS = -I../../include -I../../../kernel/include
-SPECS_FLAGS = -I../../../public_key/include -I../../../public_key/src -I../../..
+NO_CHUNKS = ssh_client_key_api.xml ssh_server_key_api.xml ssh_server_channel.xml
 
 # ----------------------------------------------------
-# Targets
-# ----------------------------------------------------
-$(HTMLDIR)/%.png: %.png
-	$(INSTALL_DATA) $< $@
-
-docs: pdf html man
-
-$(TOP_PDF_FILE): $(XML_FILES)
-
-images: $(IMAGE_FILES:%=$(HTMLDIR)/%)
-
-pdf: $(TOP_PDF_FILE)
-
-html: images $(HTML_REF_MAN_FILE)
-
-
-clean clean_docs:
-	rm -rf $(HTMLDIR)/*
-	rm -rf $(XMLDIR)
-	rm -f $(MAN3DIR)/*
-	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
-	rm -f $(SPECS_FILES)
-	rm -f errs core *~
-
-man: $(MAN3_FILES) $(MAN6_FILES)
-
-
-debug opt:
-
-
-# ----------------------------------------------------
-# Release Target
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_release_targets.mk
-
-release_docs_spec: docs
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DATA) $(TOP_PDF_FILE) "$(RELSYSDIR)/doc/pdf"
-	$(INSTALL_DIR) "$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		"$(RELSYSDIR)/doc/html"
-	$(INSTALL_DATA) $(INFO_FILE) "$(RELSYSDIR)"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DATA) $(MAN3DIR)/* "$(RELEASE_PATH)/man/man3"
-	$(INSTALL_DIR) "$(RELEASE_PATH)/man/man6"
-	$(INSTALL_DATA) $(MAN6_FILES) "$(RELEASE_PATH)/man/man6"
-
-
-release_spec:
+include $(ERL_TOP)/make/doc.mk

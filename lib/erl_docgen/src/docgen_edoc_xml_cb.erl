@@ -781,7 +781,7 @@ functions(Fs) ->
 function(_Name, E=#xmlElement{content = Es}) ->
     TypeSpec = get_content(typespec, Es),
     [?NL,{func, [ ?NL,
-		  {name, 
+		  {name, [{since,""}],
 			  case funcheader(TypeSpec) of
 			      [] ->
 				  signature(get_content(args, Es),

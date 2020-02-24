@@ -84,6 +84,7 @@
   <xi:include href="sets.xml"/>
   <xi:include href="shell.xml"/>
   <xi:include href="shell_default.xml"/>
+  <xi:include href="shell_docs.xml"/>
   <xi:include href="slave.xml"/>
   <xi:include href="sofs.xml"/>
   <xi:include href="string.xml"/>

@@ -19,6 +19,8 @@
 %%
 -module(c).
 
+-include_lib("kernel/include/eep48.hrl").
+
 %% Utilities to use from shell.
 
 %% Avoid warning for local function error/2 clashing with autoimported BIF.
@@ -28,6 +30,7 @@
 	 lc_batch/0, lc_batch/1,
 	 i/3,pid/3,m/0,m/1,mm/0,lm/0,
 	 bt/1, q/0,
+         h/1,h/2,h/3,ht/1,ht/2,ht/3,
 	 erlangrc/0,erlangrc/1,bi/1, flush/0, regs/0, uptime/0,
 	 nregs/0,pwd/0,ls/0,ls/1,cd/1,memory/1,memory/0, xm/1]).
 
@@ -48,6 +51,9 @@ help() ->
 		   "cd(Dir)    -- change working directory\n"
 		   "flush()    -- flush any messages sent to the shell\n"
 		   "help()     -- help info\n"
+                   "h(M)       -- module documentation\n"
+                   "h(M,F)     -- module function documentation\n"
+                   "h(M,F,A)   -- module function arity documentation\n"
 		   "i()        -- information about the system\n"
 		   "ni()       -- information about the networked system\n"
 		   "i(X,Y,Z)   -- information about pid <X,Y,Z>\n"
@@ -146,6 +152,82 @@ c(SrcFile, NewOpts, Filter, BeamFile, Info) ->
                ++ lists:filter(F, old_options(Info))),
     format("Recompiling ~ts\n", [SrcFile]),
     safe_recompile(SrcFile, Options, BeamFile).
+
+-type h_return() :: ok | {error, missing | {unknown_format, unicode:chardata()}}.
+-type ht_return() :: h_return() | {error, type_missing}.
+-type hf_return() :: h_return() | {error, function_missing}.
+
+-spec h(module()) -> h_return().
+h(Module) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render(Module, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec h(module(),function()) -> hf_return().
+h(Module,Function) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render(Module, Function, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec h(module(),function(),arity()) -> hf_return().
+h(Module,Function,Arity) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render(Module, Function, Arity, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec ht(module()) -> h_return().
+ht(Module) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render_type(Module, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec ht(module(),Type :: atom()) -> ht_return().
+ht(Module,Type) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render_type(Module, Type, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+-spec ht(module(),Type :: atom(),arity()) ->
+          ht_return().
+ht(Module,Type,Arity) ->
+    case code:get_doc(Module) of
+        {ok, #docs_v1{ format = ?NATIVE_FORMAT } = Docs} ->
+            format_docs(shell_docs:render_type(Module, Type, Arity, Docs));
+        {ok, #docs_v1{ format = Enc }} ->
+            {error, {unknown_format, Enc}};
+        Error ->
+            Error
+    end.
+
+format_docs({error,_} = E) ->
+    E;
+format_docs(Docs) ->
+    format("~ts",[Docs]).
 
 old_options(Info) ->
     case lists:keyfind(options, 1, Info) of

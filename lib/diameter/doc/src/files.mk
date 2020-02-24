@@ -22,7 +22,7 @@ XML_APPLICATION_FILES = \
 	ref_man.xml
 
 XML_REF1_FILES = \
-	diameterc.xml
+	diameterc_cmd.xml
 
 XML_REF3_FILES = \
 	diameter.xml \
@@ -52,4 +52,4 @@ XML_CHAPTER_FILES = \
 BOOK_FILES = \
 	book.xml
 
-GIF_FILES =
+IMAGE_FILES =
