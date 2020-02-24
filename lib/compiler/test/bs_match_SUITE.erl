@@ -1307,6 +1307,17 @@ zero_width(Config) when is_list(Config) ->
 	<<256:8>> -> ct:fail(should_not_match);
 	_ -> ok
     end,
+
+    %% Would crash in the segment squeezing functions in v3_kernel.
+    F = fun (<<42>>) -> star;
+            (<<V:0>>) -> V;
+            (_) -> no_match
+        end,
+    star = F(<<42>>),
+    0 = F(<<>>),
+    no_match = F(<<1>>),
+    no_match = F(whatever),
+
     ok.
 
 

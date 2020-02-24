@@ -1665,8 +1665,9 @@ fix_count_without_variadic_segment(N) -> N.
 %% If we have more than 16 clauses, then it is better
 %% to branch multiple times than getting a large integer.
 %% We also abort if we have nothing to squeeze.
-squeeze_clauses(Clauses, Size, Count) when Count >= 16; Size == 1 -> Clauses;
-squeeze_clauses(Clauses, Size, _Count) -> squeeze_clauses(Clauses, Size).
+squeeze_clauses(Clauses, Size, Count) when Count >= 16; Size =< 1 -> Clauses;
+squeeze_clauses(Clauses, Size, _Count) ->
+    squeeze_clauses(Clauses, Size).
 
 squeeze_clauses([#iclause{pats=[#k_bin_seg{seg=#k_literal{}} = BinSeg | Pats]} = Clause | Clauses], Size) ->
     [Clause#iclause{pats=[squeeze_segments(BinSeg, 0, 0, Size) | Pats]} |
@@ -1677,7 +1678,10 @@ squeeze_clauses([], _Size) ->
 squeeze_segments(#k_bin_seg{size=Sz, seg=#k_literal{val=Val}=Lit} = BinSeg, Acc, Size, 1) ->
     BinSeg#k_bin_seg{size=Sz#k_literal{val=Size + 8}, seg=Lit#k_literal{val=(Acc bsl 8) bor Val}};
 squeeze_segments(#k_bin_seg{seg=#k_literal{val=Val},next=Next}, Acc, Size, Count) ->
-    squeeze_segments(Next, (Acc bsl 8) bor Val, Size + 8, Count - 1).
+    squeeze_segments(Next, (Acc bsl 8) bor Val, Size + 8, Count - 1);
+squeeze_segments(#k_bin_end{}, Acc, Size, Count) ->
+    error({Acc,Size,Count}).
+
 
 flat_reverse([Head | Tail], Acc) -> flat_reverse(Tail, flat_reverse_1(Head, Acc));
 flat_reverse([], Acc) -> Acc.
