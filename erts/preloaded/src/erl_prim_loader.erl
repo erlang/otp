@@ -300,18 +300,18 @@ check_file_result(Func, Target, {error,Reason}) ->
             %% This is equal to calling logger:error/2 which
             %% we don't want to do from code_server during system boot.
             %% We don't want to call logger:timestamp() either.
-            try
-                logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
-                          #{pid=>self(),
-                            gl=>group_leader(),
-                            time=>os:system_time(microsecond),
-                            error_logger=>#{tag=>error_report,
-                                            type=>std_error}}}
-            catch _:_ ->
-                    %% If logger has not been started yet we just display it
-                    erlang:display({?MODULE,file_error}),
-                    erlang:display(Report)
-            end,
+            _ = try
+                    logger ! {log,error,#{label=>{?MODULE,file_error},report=>Report},
+                              #{pid=>self(),
+                                gl=>group_leader(),
+                                time=>os:system_time(microsecond),
+                                error_logger=>#{tag=>error_report,
+                                                type=>std_error}}}
+                catch _:_ ->
+                        %% If logger has not been started yet we just display it
+                        erlang:display({?MODULE,file_error}),
+                        erlang:display(Report)
+                end,
             error
     end;
 check_file_result(_, _, Other) ->
