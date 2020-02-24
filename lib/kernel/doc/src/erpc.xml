@@ -53,6 +53,10 @@
       node also needs to support <c>erpc</c>. Typically only ordinary
       Erlang nodes as of OTP 23 have <c>erpc</c> support.
     </p>
+    <p>
+      Note that it is up to the user to ensure that correct code to
+      execute via <c>erpc</c> is available on the involved nodes.
+    </p>
   </description>
 
   <datatypes>
@@ -71,6 +75,27 @@
   <funcs>
 
     <func>
+      <name name="call" arity="2" since="OTP @OTP-13450@"/>
+      <name name="call" arity="3" since="OTP @OTP-13450@"/>
+      <fsummary>Evaluate a function call on a node.</fsummary>
+      <desc>
+	<p>
+	  The same as calling
+	  <seealso marker="#call/5"><c>erpc:call(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seealso>.
+	  May raise all the same exceptions as <c>erpc:call/5</c>
+	  plus an <c>{erpc, badarg}</c> <c>error</c>
+	  exception if <c><anno>Fun</anno></c> is not a fun of
+	  zero arity.
+	</p>
+	<p>
+	  The call <c>erpc:call(<anno>Node</anno>,<anno>Fun</anno>)</c>
+	  is the same as the call
+	  <c>erpc:call(<anno>Node</anno>,<anno>Fun</anno>,infinity)</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="call" arity="4" since="OTP @OTP-13450@"/>
       <name name="call" arity="5" since="OTP @OTP-13450@"/>
       <fsummary>Evaluate a function call on a node.</fsummary>
@@ -80,7 +105,8 @@
           <anno>Args</anno>)</c> on node <c><anno>Node</anno></c> and returns
           the corresponding value <c><anno>Result</anno></c>.
 	  <c><anno>Timeout</anno></c> is an integer representing
-	  the timeout in milliseconds or the atom <c>infinity</c>.
+	  the timeout in milliseconds or the atom <c>infinity</c>
+	  which prevents the operation from ever timing out.
 	</p>
 	<p>The call <c>erpc:call(<anno>Node</anno>, <anno>Module</anno>,
 	<anno>Function</anno>, <anno>Args</anno>)</c> is equivalent
@@ -154,12 +180,12 @@
 	      <item>
 		<p>If any one of these are true:</p>
 		<list>
-		  <item><p><c><anno>Node</anno></c> is not a valid
-		  node name atom.</p></item>
+		  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
 		  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
 		  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
-		  <item><p><c><anno>Args</anno></c> is not a proper list
-		  of terms.</p></item>
+		  <item><p><c><anno>Args</anno></c> is not a list.
+		  Note that the list is not verified to be
+		  a proper list at the client side.</p></item>
 		  <item><p><c><anno>Timeout</anno></c> is not the
 		  atom <c>infinity</c> or an integer in valid
 		  range.</p></item>
@@ -223,6 +249,23 @@
     </func>
 
     <func>
+      <name name="cast" arity="2" since="OTP @OTP-13450@"/>
+      <fsummary>Evaluate a function call on a node.</fsummary>
+      <desc>
+	<p>
+	  The same as calling
+	  <seealso marker="#cast/4"><c>erpc:cast(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seealso>.
+	</p>
+	<p><c>erpc:cast/2</c> fails with an <c>{erpc, badarg}</c>
+	<c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Fun</anno></c> is not a a fun of zero arity.</p></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
       <name name="cast" arity="4" since="OTP @OTP-13450@"/>
       <fsummary>Evaluate a function call on a node ignoring the result.</fsummary>
       <desc>
@@ -237,12 +280,12 @@
 	<p><c>erpc:cast/4</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
 	<list>
-	  <item><p><c><anno>Node</anno></c> is not a valid
-	  node name atom.</p></item>
+	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
-	  <item><p><c><anno>Args</anno></c> is not a proper list
-	  of terms.</p></item>
+	  <item><p><c><anno>Args</anno></c> is not a list. Note that
+	  the list is not verified to be a proper list at the client
+	  side.</p></item>
 	</list>
 	<note>
 	  <p>
@@ -282,7 +325,9 @@
 	  corresponds to the same exceptions as can be raised by
 	  <seealso marker="#call/4"><c>erpc:call/4</c></seealso>.
 	  That is, no <c>{erpc, timeout}</c> <c>error</c> exception
-	  can be raised.
+	  can be raised. <c>erpc:check_response()</c> will fail with
+	  an <c>{erpc, badarg}</c> exception if/when an invalid
+	  <c><anno>RequestId</anno></c> is detected.
 	</p>
 	<p>
 	  If the <c>erpc</c> operation fails, but it is unknown if
@@ -296,6 +341,27 @@
     </func>
 
     <func>
+      <name name="multicall" arity="2" since="OTP @OTP-13450@"/>
+      <name name="multicall" arity="3" since="OTP @OTP-13450@"/>
+      <fsummary>Evaluate a function call on a node.</fsummary>
+      <desc>
+	<p>
+	  The same as calling
+	  <seealso marker="#call/5"><c>erpc:multicall(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seealso>.
+	  May raise all the same exceptions as <c>erpc:multicall/5</c>
+	  plus an <c>{erpc, badarg}</c> <c>error</c>
+	  exception if <c><anno>Fun</anno></c> is not a fun of
+	  zero arity.
+	</p>
+	<p>
+	  The call <c>erpc:multicall(<anno>Nodes</anno>,<anno>Fun</anno>)</c>
+	  is the same as the call
+	  <c>erpc:multicall(<anno>Nodes</anno>,<anno>Fun</anno>, infinity)</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="multicall" arity="4" since="OTP @OTP-13450@"/>
       <name name="multicall" arity="5" since="OTP @OTP-13450@"/>
       <fsummary>Evaluate a function call on a number of nodes.</fsummary>
@@ -304,7 +370,14 @@
       <desc>
 	<p>
 	  Performs multiple <c>call</c> operations in parallel
-	  on multiple nodes. The result is returned as a list where
+	  on multiple nodes. That is, evaluates
+	  <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on the nodes
+	  <c><anno>Nodes</anno></c> in parallel.
+	  <c><anno>Timeout</anno></c> is an integer representing
+	  the timeout in milliseconds or the atom <c>infinity</c>
+	  which prevents the operation from ever timing out.
+	  The result is returned as a list where
 	  the result from each node is placed at the same position
 	  as the node name is placed in <c><anno>Nodes</anno></c>.
 	  Each item in the resulting list is formatted as either:
@@ -325,13 +398,26 @@
 	    can raise.
 	  </p></item>
 	</taglist>
+	<p><c>erpc:multicall/5</c> fails with an <c>{erpc, badarg}</c>
+	<c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Nodes</anno></c> is not a proper list of
+	  atoms. Note that some requests may already have
+	  been sent when the failure occurs. That is, the function
+	  may or may not be applied on some nodes.</p></item>
+	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Args</anno></c> is not a list. Note that the
+	  list is not verified to be a proper list at the client side.</p></item>
+	</list>
 	<p>
 	  The call <c>erpc:multicall(<anno>Nodes</anno>, <anno>Module</anno>,
 	  <anno>Function</anno>, <anno>Args</anno>)</c> is equivalent
 	  to the call <c>erpc:multicall(<anno>Nodes</anno>, <anno>Module</anno>,
 	  <anno>Function</anno>, <anno>Args</anno>, infinity)</c>. These
 	  calls are also equivalent to calling <c>my_multicall(Nodes, Module,
-	  Function, Args)</c> if one disregards performance:
+	  Function, Args)</c> if one disregard performance and failure
+	  behavior:
 	</p>
 	<pre>
 my_multicall(Nodes, Module, Function, Args) ->
@@ -358,15 +444,67 @@ my_multicall(Nodes, Module, Function, Args) ->
 
 	<p>
 	  If an <c>erpc</c> operation fails, but it is unknown if
-	  the function is/will be applied (that is, a timeout or
-	  connection loss), the caller will not receive any
-	  further information about the result if/when the applied
-	  function completes. If the applied function communicates
+	  the function is/will be applied (that is, a timeout,
+	  connection loss, or an improper <c><anno>Nodes</anno></c>
+	  list), the caller will not receive any further information
+	  about the result if/when the applied function completes.
+	  If the applied function communicates
 	  with the calling process, such communication may, of
 	  course, reach the calling process.
 	</p>
       </desc>
       
+    </func>
+
+    <func>
+      <name name="multicast" arity="2" since="OTP @OTP-13450@"/>
+      <fsummary>Evaluate a function call on a set nodes.</fsummary>
+      <desc>
+	<p>
+	  The same as calling
+	  <seealso marker="#cast/4"><c>erpc:multicast(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seealso>.
+	</p>
+	<p><c>erpc:multicast/2</c> fails with an <c>{erpc, badarg}</c>
+	<c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Nodes</anno></c> is not a proper list of atoms.</p></item>
+	  <item><p><c><anno>Fun</anno></c> is not a a fun of zero arity.</p></item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name name="multicast" arity="4" since="OTP @OTP-13450@"/>
+      <fsummary>Evaluate a function call on a set of nodes ignoring the result.</fsummary>
+      <desc>
+        <p>
+	  Evaluates <c>apply(<anno>Module</anno>, <anno>Function</anno>,
+          <anno>Args</anno>)</c> on the nodes
+          <c><anno>Nodes</anno></c>. No response is delivered to the
+	  calling process. <c>erpc:multicast()</c> returns immediately
+	  after the cast requests have been sent. Any failures beside
+	  bad arguments are silently ignored.
+	</p>
+	<p><c>erpc:multicast/4</c> fails with an <c>{erpc, badarg}</c>
+	<c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Nodes</anno></c> is not a proper list of
+	  atoms. Note that some requests may already have
+	  been sent when the failure occurs. That is, the function
+	  may or may not be applied on some nodes.</p></item>
+	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Args</anno></c> is not a list. Note that the
+	  list is not verified to be a proper list at the client side.</p></item>
+	</list>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be a server, or a freshly spawned process.
+	  </p>
+	</note>
+      </desc>
     </func>
     
     <func>
@@ -386,10 +524,11 @@ my_multicall(Nodes, Module, Function, Args) ->
 	  <seealso marker="#check_response/2"><c>erpc:check_response()</c></seealso>,
 	  <c>erpc:receive_response()</c>, or
 	  <seealso marker="#wait_response/2"><c>erpc:wait_response()</c></seealso>.
-	  <c><anno>Timeout</anno></c> equals the timeout time in milliseconds
-	  or the atom <c>infinity</c>. The <c>call</c> operation is completed
-	  once the <c>erpc:receive_response()</c> call returns or raise an
-	  exception.
+	  <c><anno>Timeout</anno></c> is an integer representing
+	  the timeout in milliseconds or the atom <c>infinity</c>
+	  which prevents the operation from ever timing out. The <c>call</c>
+	  operation is completed once the <c>erpc:receive_response()</c> call
+	  returns or raise an exception.
 	</p>
 	<p>
 	  The call <c>erpc:receive_response(<anno>RequestId</anno>)</c> is
@@ -424,11 +563,32 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	<p>
 	  <c>erpc:receive_response()</c> will return or raise exceptions the
 	  same way as <seealso marker="#call/5"><c>erpc:call/5</c></seealso>
-	  does.
+	  does with the exception of <c>{erpc, badarg}</c>. An
+	  <c>{erpc, badarg}</c> exception will be raised if/when an invalid
+	  <c><anno>RequestId</anno></c> is detected or if an invalid
+	  <c><anno>Timeout</anno></c> is passed.
 	</p>
       </desc>
     </func>
 
+    <func>
+      <name name="send_request" arity="2" since="OTP @OTP-13450@"/>
+      <fsummary>Send a request to evaluate a function call on a node.</fsummary>
+      <desc>
+	<p>
+	  The same as calling
+	  <seealso marker="#call/5"><c>erpc:send_request(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seealso>.
+	</p>
+	<p><c>erpc:send_request/2</c> fails with an <c>{erpc, badarg}</c>
+	<c>error</c> exception if:</p>
+	<list>
+	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
+	  <item><p><c><anno>Fun</anno></c> is not a fun of
+	  zero arity.</p></item>
+	</list>
+      </desc>
+    </func>
+    
     <func>
       <name name="send_request" arity="4" since="OTP @OTP-13450@"/>
       <fsummary>Send a request to evaluate a function call on a node.</fsummary>
@@ -447,12 +607,11 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	<p><c>erpc:send_request()</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
 	<list>
-	  <item><p><c><anno>Node</anno></c> is not a valid
-	  node name atom.</p></item>
+	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
-	  <item><p><c><anno>Args</anno></c> is not a proper list
-	  of terms.</p></item>
+	  <item><p><c><anno>Args</anno></c> is not a list. Note that the
+	  list is not verified to be a proper list at the client side.</p></item>
 	</list>
       </desc>
     </func>
@@ -475,6 +634,10 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	  <seealso marker="#receive_response/2"><c>erpc:receive_response()</c></seealso>,
 	  or <c>erpc:wait_response()</c>. <c><anno>WaitTime</anno></c> equals the
 	  time to wait in milliseconds (or the atom <c>infinity</c>) during the wait.
+	  <c><anno>WaitTime</anno></c> is an integer representing time to wait
+	  in milliseconds or the atom <c>infinity</c> which will cause
+	  <c>wait_response/2</c> to wait for a response until it appears
+	  regardless of how long time that is.
 	</p>
 	<p>
 	  The call <c>erpc:wait_response(<anno>RequestId</anno>)</c> is equivalent
@@ -495,6 +658,9 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	  same exceptions as can be raised by
 	  <seealso marker="#call/4"><c>erpc:call/4</c></seealso>.
 	  That is, no <c>{erpc, timeout}</c> <c>error</c> exception can be raised.
+	  <c>erpc:wait_response()</c> will fail with an <c>{erpc, badarg}</c>
+	  exception if/when an invalid <c><anno>RequestId</anno></c> is detected
+	  or if an invalid <c><anno>WaitTime</anno></c> is passed.
 	</p>
 	<p>
 	  If the <c>erpc</c> operation fails, but it is unknown if
