@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -102,13 +102,21 @@ init_packet(
   Parent,
   SnmpMgr, AgentIp, UdpPort, TrapUdp, VsnHdr, Version, Dir, BufSz,
   DbgOptions, IpFamily) ->
+    %% This causes "verbosity printouts" to print (from the
+    %% specified level) in the modules we "borrow" from the
+    %% agent code (burr,,,).
+    %% With "our" name (mgr_misc).
     put(sname, mgr_misc),
     init_debug(DbgOptions),
+    %% Make use of the "test name" print "feature"
+    put(tname, "MGR-MISC"),
+    ?IPRINT("starting"),
     UdpOpts     = [{recbuf,BufSz}, {reuseaddr, true}, IpFamily],
     {ok, UdpId} = gen_udp:open(TrapUdp, UdpOpts),
     put(msg_id, 1),
     init_usm(Version, Dir),
     proc_lib:init_ack(Parent, self()),
+    ?IPRINT("started"),
     packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, []).
 
 init_debug(Dbg) when is_atom(Dbg) ->
@@ -601,43 +609,51 @@ set_pdu(Msg, RePdu) ->
     Msg#message{data = RePdu}.
 
 
+%% Disgustingly, we borrow stuff from the agent, including the
+%% local-db. Also, disgustingly, the local-db may actually not
+%% have died yet. But since we actually *need* a clean local-db,
+%% we must make sure its dead before we try to start the new
+%% instance...
 init_usm('version-3', Dir) ->
-    ?vlog("init_usm -> create (and init) fake \"agent\" table", []),
+    ?IPRINT("init_usm -> create (and init) fake \"agent\" table", []),
     ets:new(snmp_agent_table, [set, public, named_table]),
     ets:insert(snmp_agent_table, {agent_mib_storage, persistent}),
     %% The local-db process may *still* be running (from a previous
     %% test case), on the way down, but not yet dead.
-    %% Either way, before we start it, make sure its dead and *gone*!
+    %% Either way, before we try to start it, make sure its old instance
+    %% dead and *gone*!
     %% How do we do that without getting hung up? Calling the stop
     %% function, will not do since it uses Timeout=infinity.
-    ?vlog("init_usm -> ensure (old) fake local-db is dead", []),
+    ?IPRINT("init_usm -> ensure (old) fake local-db is dead", []),
     ensure_local_db_dead(),
-    ?vlog("init_usm -> try start fake local-db", []),
+    ?IPRINT("init_usm -> try start fake local-db", []),
     case snmpa_local_db:start_link(normal, Dir,
                                    [{sname,     "MGR-LOCAL-DB"},
                                     {verbosity, trace}]) of
         {ok, Pid} ->
-            ?vlog("started: ~p"
-                  "~n      ~p", [Pid, process_info(Pid)]);
+            ?IPRINT("init_usm -> local-db started: ~p"
+                    "~n   ~p", [Pid, process_info(Pid)]);
         {error, {already_started, Pid}} ->
             LDBInfo = process_info(Pid),
-            ?vlog("already started: ~p"
-                  "~n      ~p", [Pid, LDBInfo]),
+            ?EPRINT("init_usm -> local-db already started: ~p"
+                    "~n   ~p", [Pid, LDBInfo]),
             ?FAIL({still_running, snmpa_local_db, LDBInfo});
         {error, Reason} ->
+            ?EPRINT("init_usm -> failed start local-db: "
+                    "~n   ~p", [Reason]),
             ?FAIL({failed_starting, snmpa_local_db, Reason})
     end,
     NameDb = snmpa_agent:db(snmpEngineID),
-    ?vlog("init_usm -> try set manager engine-id", []),
+    ?IPRINT("init_usm -> try set manager engine-id"),
     R = snmp_generic:variable_set(NameDb, "mgrEngine"),
     snmp_verbosity:print(info, info, "init_usm -> engine-id set result: ~p", [R]),
-    ?vlog("init_usm -> try set engine boots (framework-mib)", []),
+    ?IPRINT("init_usm -> try set engine boots (framework-mib)"),
     snmp_framework_mib:set_engine_boots(1),
-    ?vlog("init_usm -> try set engine time (framework-mib)", []),
+    ?IPRINT("init_usm -> try set engine time (framework-mib)"),
     snmp_framework_mib:set_engine_time(1),
-    ?vlog("init_usm -> try usm (mib) reconfigure", []),
+    ?IPRINT("init_usm -> try usm (mib) reconfigure"),
     snmp_user_based_sm_mib:reconfigure(Dir),
-    ?vlog("init_usm -> done", []),
+    ?IPRINT("init_usm -> done"),
     ok;
 init_usm(_Vsn, _Dir) ->
     ok.
@@ -659,27 +675,28 @@ ensure_dead(Pid, Timeout) when is_pid(Pid) ->
             ok
     end;
 ensure_dead(_, _) ->
-    ?vlog("ensure_dead -> already dead", []),
+    ?IPRINT("ensure_dead -> already dead", []),
     ok.
 
 ensure_dead_wait(Pid, MRef, Timeout) ->
     receive
         {'DOWN', MRef, process, Pid, _Info} ->
-            ?vlog("ensure_dead_wait -> died peacefully", []),
+            ?IPRINT("ensure_dead_wait -> died peacefully"),
             throw(ok)
     after Timeout ->
-            ?vlog("ensure_dead_wait -> giving up", []),
+            ?WPRINT("ensure_dead_wait -> giving up"),
             ok
     end.
 
 ensure_dead_stop(Pid, MRef, Timeout) ->
+    %% Spawn a stop'er process
     StopPid = spawn(fun() -> snmpa_local_db:stop() end),
     receive
         {'DOWN', MRef, process, Pid, _Info} ->
-            ?vlog("ensure_dead -> dead (stopped)", []),
+            ?NPRINT("ensure_dead -> dead (stopped)"),
             throw(ok)
     after Timeout ->
-            ?vlog("ensure_dead_stop -> giving up", []),
+            ?WPRINT("ensure_dead_stop -> giving up"),
             exit(StopPid, kill),
             ok
     end.
@@ -688,10 +705,10 @@ ensure_dead_kill(Pid, MRef, Timeout) ->
     exit(Pid, kill),
     receive
         {'DOWN', MRef, process, Pid, _Info} ->
-            ?vlog("ensure_dead -> dead (killed)", []),
+            ?NPRINT("ensure_dead -> dead (killed)"),
             throw(ok)
     after Timeout ->
-            ?vlog("ensure_dead_kill -> giving up", []),
+            ?WPRINT("ensure_dead_kill -> giving up"),
             ok
     end.
 
@@ -891,10 +908,7 @@ d(F)   -> d(F, []).
 d(F,A) -> d(get(debug), F, A).
 
 d(true, F, A) ->
-    print(F, A);
+    ?IPRINT(F, A);
 d(_,_F,_A) -> 
     ok.
-
-print(F, A) ->
-    ?PRINT2("MGR_PS " ++ F, A).
 

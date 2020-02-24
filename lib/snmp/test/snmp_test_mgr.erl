@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -191,40 +191,41 @@ receive_trap(Timeout) ->
 %%  {mibs, List of Filenames}, {trap_udp, UDPPort (default 5000)},
 %%----------------------------------------------------------------------
 init({Options, CallerPid}) ->
+    %% This causes "verbosity printouts" to print (from level debug)
+    %% in the modules we "borrow" from the agent code (burr,,,)
+    %% With "our" name (mgr).
     put(sname,     mgr),
-    put(verbosity, debug), 
+    put(verbosity, debug),
+    %% Make use of the "test name" print "feature"
+    put(tname,     "MGR"),
     ?SNMP_RAND_SEED(),
-    %% rand:seed(exrop,
-    %%           {erlang:phash2([node()]),
-    %%            erlang:monotonic_time(),
-    %%            erlang:unique_integer()}),
     case (catch is_options_ok(Options)) of
 	true ->
 	    put(debug, get_value(debug, Options, false)),
-	    d("init -> (~p) extract options",[self()]),
+	    d("init -> extract options"),
  	    PacksDbg    = get_value(packet_server_debug, Options, false),
-	    print("[~w] ~p -> PacksDbg: ~p~n", [?MODULE, self(), PacksDbg]),
+	    ?IPRINT("init -> PacksDbg: ~p", [PacksDbg]),
 	    RecBufSz    = get_value(recbuf,            Options, 1024),
-	    print("[~w] ~p -> RecBufSz: ~p~n", [?MODULE, self(), RecBufSz]),
+	    ?IPRINT("init -> RecBufSz: ~p", [RecBufSz]),
 	    Mibs        = get_value(mibs,              Options, []),
-	    print("[~w] ~p -> Mibs: ~p~n", [?MODULE, self(), Mibs]),
+	    ?IPRINT("init -> Mibs: ~p", [Mibs]),
 	    Udp         = get_value(agent_udp,         Options, 4000),
-	    print("[~w] ~p -> Udp: ~p~n", [?MODULE, self(), Udp]),
+	    ?IPRINT("init -> Udp: ~p", [Udp]),
 	    User        = get_value(user,              Options, "initial"),
-	    print("[~w] ~p -> User: ~p~n", [?MODULE, self(), User]),
+	    ?IPRINT("init -> User: ~p", [User]),
 	    EngineId    = get_value(engine_id,         Options, "agentEngine"),
-	    print("[~w] ~p -> EngineId: ~p~n", [?MODULE, self(), EngineId]),
+	    ?IPRINT("init -> EngineId: ~p", [EngineId]),
 	    CtxEngineId = get_value(context_engine_id, Options, EngineId),
-	    print("[~w] ~p -> CtxEngineId: ~p~n", [?MODULE, self(), CtxEngineId]),
+	    ?IPRINT("init -> CtxEngineId: ~p", [CtxEngineId]),
 	    TrapUdp     = get_value(trap_udp,          Options, 5000),
-	    print("[~w] ~p -> TrapUdp: ~p~n", [?MODULE, self(), TrapUdp]),
+	    ?IPRINT("init -> TrapUdp: ~p", [TrapUdp]),
 	    Dir         = get_value(dir,               Options, "."),
-	    print("[~w] ~p -> Dir: ~p~n", [?MODULE, self(), Dir]),
+	    ?IPRINT("init -> Dir: ~p", [Dir]),
 	    SecLevel    = get_value(sec_level,         Options, noAuthNoPriv),
-	    print("[~w] ~p -> SecLevel: ~p~n", [?MODULE, self(), SecLevel]),
+	    ?IPRINT("init -> SecLevel: ~p", [SecLevel]),
 	    MiniMIB     = snmp_mini_mib:create(Mibs),
-	    d("[~w] ~p -> MiniMIB: "
-              "~n   ~p", [?MODULE, self(), MiniMIB]),
+	    d("init -> MiniMIB: "
+              "~n   ~p", [MiniMIB]),
 	    Version     = case lists:member(v2, Options) of
 			      true -> 'version-2';
 			      false -> 
@@ -233,41 +234,38 @@ init({Options, CallerPid}) ->
 				      false -> 'version-1'
 				  end
 			  end,
-	    print("[~w] ~p -> Version: ~p~n", [?MODULE, self(), Version]),
+	    ?IPRINT("init -> Version: ~p", [Version]),
 	    Com = case Version of
 		      'version-3' ->
 			  get_value(context, Options, "");
 		      _ ->
 			  get_value(community, Options, "public")
 		  end,
-	    print("[~w] ~p -> Com: ~p~n", [?MODULE, self(), Com]),
+	    ?IPRINT("init -> Com: ~p", [Com]),
 	    VsnHdrD = 
 		{Com, User, EngineId, CtxEngineId, mk_seclevel(SecLevel)},
-	    print("[~w] ~p -> VsnHdrD: ~p~n", [?MODULE, self(), VsnHdrD]),
+	    ?IPRINT("init -> VsnHdrD: ~p", [VsnHdrD]),
 	    IpFamily = get_value(ipfamily, Options, inet),
-	    print("[~w] ~p -> IpFamily: ~p~n", [?MODULE, self(), IpFamily]),
+	    ?IPRINT("init -> IpFamily: ~p", [IpFamily]),
 	    AgIp = case snmp_misc:assq(agent, Options) of
 		       {value, Addr} when is_tuple(Addr) andalso 
                                           (size(Addr) =:= 4) andalso
                                           (IpFamily =:= inet) ->
-                           print("[~w] ~p -> Addr: ~p~n",
-                                 [?MODULE, self(), Addr]),
+                           ?IPRINT("init -> Addr: ~p", [Addr]),
 			   Addr;
 		       {value, Addr} when is_tuple(Addr) andalso 
                                           (size(Addr) =:= 8) andalso
                                           (IpFamily =:= inet6) ->
-                           print("[~w] ~p -> Addr: ~p~n",
-                                 [?MODULE, self(), Addr]),
+                           ?IPRINT("init -> Addr: ~p", [Addr]),
 			   Addr;
 		       {value, Host} when is_list(Host) ->
-                           print("[~w] ~p -> Host: ~p~n",
-                                 [?MODULE, self(), Host]),
+                           ?IPRINT("init -> Host: ~p", [Host]),
 			   {ok, Ip} = snmp_misc:ip(Host, IpFamily),
 			   Ip
 		   end,
-	    print("[~w] ~p -> AgIp: ~p~n", [?MODULE, self(), AgIp]),
+	    ?IPRINT("init -> AgIp: ~p", [AgIp]),
 	    Quiet = lists:member(quiet, Options),
-	    print("[~w] ~p -> Quiet: ~p~n", [?MODULE, self(), Quiet]),
+	    ?IPRINT("init -> Quiet: ~p", [Quiet]),
 	    PackServ =
 		start_packet_server(
 		  Quiet, Options, CallerPid, AgIp, Udp, TrapUdp,
@@ -692,16 +690,16 @@ echo_pdu(PDU, MiniMIB) ->
 %% Test Sequence
 %%----------------------------------------------------------------------
 echo_errors({error, Id, {ExpectedFormat, ExpectedData}, {Format, Data}})->
-    io:format("* Unexpected Behaviour * Id: ~w.~n"
-	      "  Expected: " ++ ExpectedFormat ++ "~n"
-	      "  Got:      " ++ Format ++ "~n", 
-	      [Id] ++ ExpectedData ++ Data),
+    ?IPRINT("*** Unexpected Behaviour *** Id: ~w.~n"
+            "  Expected: " ++ ExpectedFormat ++ "~n"
+            "  Got:      " ++ Format ++ "~n", 
+            [Id] ++ ExpectedData ++ Data),
     {error, Id, {ExpectedFormat, ExpectedData}, {Format, Data}};
 echo_errors(ok) -> ok;
 echo_errors({ok, Val}) -> {ok, Val}.
 
 get_response_impl(Id, ExpVars) ->
-    ?PRINT2("await response ~w with"
+    ?IPRINT("await response ~w with"
             "~n   Expected Varbinds: ~p",
             [Id, ExpVars]),
     PureVars = find_pure_oids2(ExpVars),
@@ -710,7 +708,7 @@ get_response_impl(Id, ExpVars) ->
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = VBs} ->
-            ?PRINT2("received expected response pdu (~w) - match vars"
+            ?IPRINT("received expected response pdu (~w) - match vars"
                     "~n   Expected VBs: ~p"
                     "~n   Received VBs: ~p",
                     [Id, PureVars, VBs]),
@@ -720,10 +718,10 @@ get_response_impl(Id, ExpVars) ->
 	     request_id   = ReqId, 
 	     error_status = Err2, 
 	     error_index  = Index2} ->
-            ?EPRINT2("received unexpected response pdu: ~w, ~w, ~w"
-                     "~n   Received Error: ~p"
-                     "~n   Received Index: ~p",
-                     [Type2, Id, ReqId, Err2, Index2]),
+            ?EPRINT("received unexpected response pdu: ~w, ~w, ~w"
+                    "~n   Received Error: ~p"
+                    "~n   Received Index: ~p",
+                    [Type2, Id, ReqId, Err2, Index2]),
 	    {error, 
 	     Id, 
 	     {"Type: ~w, ErrStat: ~w, Idx: ~w, RequestId: ~w",
@@ -732,8 +730,8 @@ get_response_impl(Id, ExpVars) ->
 	      [Type2, Err2, Index2]}};
 
 	{error, Reason} -> 
-            ?EPRINT2("unexpected receive pdu error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive pdu error: ~w"
+                    "~n   ~p", [Id, Reason]),
 	    format_reason(Id, Reason)
     end.
 
@@ -743,81 +741,81 @@ get_response_impl(Id, ExpVars) ->
 %% Returns: ok | {error, Id, {ExpectedFormat, ExpectedData}, {Format, Data}}
 %%----------------------------------------------------------------------
 expect_impl(Id, any) -> 
-    ?PRINT2("await ~w pdu (any)", [Id]),
+    ?IPRINT("await ~w pdu (any)", [Id]),
     case receive_response() of
 	PDU when is_record(PDU, pdu) -> 
-            ?PRINT2("received expected pdu (~w)", [Id]),
+            ?IPRINT("received expected pdu (~w)", [Id]),
             ok;
 	{error, Reason} ->
-            ?EPRINT1("unexpected receive error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive error: ~w"
+                    "~n   ~p", [Id, Reason]),
             format_reason(Id, Reason)
     end;
 
 expect_impl(Id, return) -> 
-    ?PRINT2("await ~w pdu", [Id]),
+    ?IPRINT("await ~w pdu", [Id]),
     case receive_response() of
 	PDU when is_record(PDU, pdu) ->
-            ?PRINT2("received expected pdu (~w)", [Id]),
+            ?IPRINT("received expected pdu (~w)", [Id]),
             {ok, PDU};
 	{error, Reason} ->
-            ?EPRINT1("unexpected receive error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive error: ~w"
+                    "~n   ~p", [Id, Reason]),
             format_reason(Id, Reason)
     end;
 
 expect_impl(Id, trap) -> 
-    ?PRINT2("await ~w trap", [Id]),
+    ?IPRINT("await ~w trap", [Id]),
     case receive_trap(3500) of
 	PDU when is_record(PDU, trappdu) ->
-            ?PRINT2("received expected trap (~w)", [Id]),
+            ?IPRINT("received expected trap (~w)", [Id]),
             ok;
 	{error, Reason} ->
-            ?EPRINT1("unexpected receive error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive error: ~w"
+                    "~n   ~p", [Id, Reason]),
             format_reason(Id, Reason)
     end;
 
 expect_impl(Id, timeout) -> 
-    ?PRINT2("await ~w nothing", [Id]),
+    ?IPRINT("await ~w nothing", [Id]),
     receive
 	X -> 
-            ?EPRINT1("received unexpected message: ~w"
-                     "~n   ~p",
-                     [Id, X]),
+            ?EPRINT("received unexpected message: ~w"
+                    "~n   ~p",
+                    [Id, X]),
 	    {error, Id, {"Timeout", []}, {"Message ~w",  [X]}}
     after 3500 ->
 	    ok
     end;
 
 expect_impl(Id, Err) when is_atom(Err) ->
-    ?PRINT2("await ~w with"
+    ?IPRINT("await ~w with"
             "~n   Err: ~p",
             [Id, Err]),
     case receive_response() of
 	#pdu{error_status = Err} -> 
-            ?PRINT2("received pdu with expected error status (~w, ~w)",
+            ?IPRINT("received pdu with expected error status (~w, ~w)",
                     [Id, Err]),
 	    ok;
 
 	#pdu{type         = Type2, 
 	     request_id   = ReqId, 
 	     error_status = Err2} ->
-            ?EPRINT1("received pdu with unexpected error status: ~w, ~w, ~w"
-                     "~n   Expected Error: ~p"
-                     "~n   Received Error: ~p",
-                     [Type2, Id, ReqId, Err, Err2]),
+            ?EPRINT("received pdu with unexpected error status: ~w, ~w, ~w"
+                    "~n   Expected Error: ~p"
+                    "~n   Received Error: ~p",
+                    [Type2, Id, ReqId, Err, Err2]),
 	    {error, Id, {"ErrorStatus: ~w, RequestId: ~w", [Err,ReqId]},
 	     {"ErrorStatus: ~w", [Err2]}};
 
 	{error, Reason} -> 
-            ?EPRINT1("unexpected receive error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive error: ~w"
+                    "~n   ~p", [Id, Reason]),
 	    format_reason(Id, Reason)
     end;
 
 expect_impl(Id, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
-    ?PRINT2("await ~w with"
+    ?IPRINT("await ~w with"
             "~n   ExpectedVarbinds: ~p",
             [Id, ExpectedVarbinds]),
     PureVars = find_pure_oids(ExpectedVarbinds),
@@ -826,7 +824,7 @@ expect_impl(Id, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = VBs} ->
-            ?PRINT2("received expected response pdu (~w) - check varbinds"
+            ?IPRINT("received expected response pdu (~w) - check varbinds"
                     "~n   Expected VBs: ~p"
                     "~n   Received VBs: ~p",
                     [Id, PureVars, VBs]),
@@ -836,22 +834,22 @@ expect_impl(Id, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
 	     request_id   = ReqId, 
 	     error_status = Err2, 
 	     error_index  = Index2} ->
-            ?EPRINT1("received unexpected pdu: ~w, ~w, ~w"
-                     "~n   Received Error: ~p"
-                     "~n   Received Index: ~p",
+            ?EPRINT("received unexpected pdu: ~w, ~w, ~w"
+                    "~n   Received Error: ~p"
+                    "~n   Received Index: ~p",
                      [Type2, Id, ReqId, Err2, Index2]),
 	    {error, Id, {"Type: ~w, ErrStat: ~w, Idx: ~w, RequestId: ~w", 
 			 ['get-response', noError, 0, ReqId]},
 	     {"Type: ~w, ErrStat: ~w, Idx: ~w", [Type2, Err2, Index2]}};
 
 	{error, Reason} -> 
-            ?EPRINT1("unexpected receive error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive error: ~w"
+                    "~n   ~p", [Id, Reason]),
 	    format_reason(Id, Reason)
     end.
 
 expect_impl(Id, v2trap, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
-    ?PRINT2("await v2 trap ~w with"
+    ?IPRINT("await v2 trap ~w with"
             "~n   ExpectedVarbinds: ~p",
             [Id, ExpectedVarbinds]),
     PureVars = find_pure_oids(ExpectedVarbinds),
@@ -860,7 +858,7 @@ expect_impl(Id, v2trap, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = VBs} ->
-            ?PRINT2("received expected v2 trap (~w) - check varbinds"
+            ?IPRINT("received expected v2 trap (~w) - check varbinds"
                     "~n   Expected VBs: ~p"
                     "~n   Received VBs: ~p",
                     [Id, PureVars, VBs]),
@@ -870,22 +868,22 @@ expect_impl(Id, v2trap, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
 	     request_id   = ReqId, 
 	     error_status = Err2, 
 	     error_index  = Index2} ->
-            ?EPRINT1("received unexpected pdu: ~w, ~w, ~w"
-                     "~n   Received Error: ~p"
-                     "~n   Received Index: ~p",
-                     [Type2, Id, ReqId, Err2, Index2]),
+            ?EPRINT("received unexpected pdu: ~w, ~w, ~w"
+                    "~n   Received Error: ~p"
+                    "~n   Received Index: ~p",
+                    [Type2, Id, ReqId, Err2, Index2]),
 	    {error, Id, {"Type: ~w, ErrStat: ~w, Idx: ~w, RequestId: ~w", 
 			 ['snmpv2-trap', noError, 0, ReqId]},
 	     {"Type: ~w, ErrStat: ~w, Idx: ~w", [Type2, Err2, Index2]}};
 
 	{error, Reason} -> 
-            ?EPRINT1("unexpected receive error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive error: ~w"
+                    "~n   ~p", [Id, Reason]),
 	    format_reason(Id, Reason)
     end;
 
 expect_impl(Id, report, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
-    ?PRINT2("await report ~w with"
+    ?IPRINT("await report ~w with"
             "~n   ExpectedVarbinds: ~p",
             [Id, ExpectedVarbinds]),
     PureVBs = find_pure_oids(ExpectedVarbinds),
@@ -894,7 +892,7 @@ expect_impl(Id, report, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = VBs} ->
-            ?PRINT2("received expected report (~w) - check varbinds"
+            ?IPRINT("received expected report (~w) - check varbinds"
                     "~n   Expected VBs: ~p"
                     "~n   Received VBs: ~p",
                     [Id, PureVBs, VBs]),
@@ -904,23 +902,23 @@ expect_impl(Id, report, ExpectedVarbinds) when is_list(ExpectedVarbinds) ->
 	     request_id   = ReqId, 
 	     error_status = Err2, 
 	     error_index  = Index2} ->
-            ?EPRINT1("received unexpected pdu: ~w, ~w, ~w"
-                     "~n   Received Error: ~p"
-                     "~n   Received Index: ~p",
-                     [Type2, Id, ReqId, Err2, Index2]),
+            ?EPRINT("received unexpected pdu: ~w, ~w, ~w"
+                    "~n   Received Error: ~p"
+                    "~n   Received Index: ~p",
+                    [Type2, Id, ReqId, Err2, Index2]),
 	    {error, Id, {"Type: ~w, ErrStat: ~w, Idx: ~w, RequestId: ~w", 
 			 [report, noError, 0, ReqId]},
 	     {"Type: ~w, ErrStat: ~w, Idx: ~w", [Type2, Err2, Index2]}};
 
 	{error, Reason} -> 
-            ?EPRINT1("unexpected receive error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive error: ~w"
+                    "~n   ~p", [Id, Reason]),
 	    format_reason(Id, Reason)
     end;
 
 expect_impl(Id, {inform, Reply}, ExpectedVarbinds) 
   when is_list(ExpectedVarbinds) ->
-    ?PRINT2("await inform ~w with"
+    ?IPRINT("await inform ~w with"
             "~n   Reply:            ~p"
             "~n   ExpectedVarbinds: ~p",
             [Id, Reply, ExpectedVarbinds]),
@@ -931,20 +929,20 @@ expect_impl(Id, {inform, Reply}, ExpectedVarbinds)
 	     error_status = noError, 
 	     error_index  = 0,
 	     varbinds     = VBs} ->
-            ?PRINT2("received inform (~w) - check varbinds"
+            ?IPRINT("received inform (~w) - check varbinds"
                     "~n   Expected VBs: ~p"
                     "~n   Received VBs: ~p",
                     [Id, PureVBs, VBs]),
 	    case check_vars(Id, PureVBs, VBs) of
 		ok when (Reply == true) ->
-                    ?PRINT2("varbinds ok (~w) - send ok inform response", [Id]),
+                    ?IPRINT("varbinds ok (~w) - send ok inform response", [Id]),
 		    RespPDU = Resp#pdu{type = 'get-response',
 				       error_status = noError,
 				       error_index = 0},
 		    ?MODULE:rpl(RespPDU),
 		    ok;
 		ok when (element(1, Reply) == error) ->
-                    ?PRINT2("varbinds ok (~w) - send error inform response", [Id]),
+                    ?IPRINT("varbinds ok (~w) - send error inform response", [Id]),
 		    {error, Status, Index} = Reply,
 		    RespPDU = Resp#pdu{type = 'get-response',
 				       error_status = Status,
@@ -952,13 +950,12 @@ expect_impl(Id, {inform, Reply}, ExpectedVarbinds)
 		    ?MODULE:rpl(RespPDU),
 		    ok;
 		ok when (Reply == false) ->
-                    ?PRINT2("varbinds ok (~w) - don't send inform response", [Id]),
+                    ?IPRINT("varbinds ok (~w) - don't send inform response", [Id]),
 		    ok;
 		Else ->
-                    ?EPRINT1("unexpected varbinds (~w)", [Id]),
-		    io:format("expect_impl(~w, inform) -> "
-			      "~n   Else: ~p"
-			      "~n", [Id, Else]),
+                    ?EPRINT("unexpected (inform) varbinds (~w):"
+                            "~n      VBs: ~p"
+                            "~n      ~p", [Id, VBs, Else]),
 		    Else
 	    end;
 
@@ -966,22 +963,22 @@ expect_impl(Id, {inform, Reply}, ExpectedVarbinds)
 	     request_id   = ReqId, 
 	     error_status = Err2, 
 	     error_index  = Index2} ->
-            ?EPRINT1("received unexpected pdu: ~w, ~w, ~w"
-                     "~n   Received Error: ~p"
-                     "~n   Received Index: ~p",
-                     [Type2, Id, ReqId, Err2, Index2]),
+            ?EPRINT("received unexpected pdu: ~w, ~w, ~w"
+                    "~n   Received Error: ~p"
+                    "~n   Received Index: ~p",
+                    [Type2, Id, ReqId, Err2, Index2]),
 	    {error, Id, {"Type: ~w, ErrStat: ~w, Idx: ~w, RequestId: ~w", 
 			 ['inform-request', noError, 0, ReqId]},
 	     {"Type: ~w, ErrStat: ~w, Idx: ~w", [Type2, Err2, Index2]}};
 
 	{error, Reason} -> 
-            ?EPRINT1("unexpected receive error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive error: ~w"
+                    "~n   ~p", [Id, Reason]),
 	    format_reason(Id, Reason)
     end.
 
 expect_impl(Id, Err, Index, any = _ExpectedVarbinds) ->
-    ?PRINT2("await response ~w with"
+    ?IPRINT("await response ~w with"
             "~n   Err:              ~p"
             "~n   Index:            ~p"
             "~n   ExpectedVarbinds: ~p",
@@ -990,13 +987,13 @@ expect_impl(Id, Err, Index, any = _ExpectedVarbinds) ->
 	#pdu{type         = 'get-response', 
 	     error_status = Err, 
 	     error_index  = Index} -> 
-            ?PRINT2("received expected response pdu (~w, ~w, ~w)",
+            ?IPRINT("received expected response pdu (~w, ~w, ~w)",
                     [Id, Err, Index]),
 	    ok;
 
 	#pdu{type         = 'get-response',
              error_status = Err} when (Index == any) -> 
-            ?PRINT2("received expected response pdu (~w, ~w)",
+            ?IPRINT("received expected response pdu (~w, ~w)",
                     [Id, Err]),
 	    ok;
 
@@ -1006,14 +1003,14 @@ expect_impl(Id, Err, Index, any = _ExpectedVarbinds) ->
 	     error_index  = Idx} when is_list(Index) ->
 	    case lists:member(Idx, Index) of
 		true -> 
-                    ?PRINT2("received expected response pdu (~w, ~w, ~w)",
+                    ?IPRINT("received expected response pdu (~w, ~w, ~w)",
                             [Id, Err, Idx]),
 		    ok;
 		false ->
-                    ?EPRINT1("received response pdu with unexpected index (~w, ~w):"
-                             "~n   Expected Index: ~p"
-                             "~n   Received Index: ~p",
-                             [Id, Err, Index, Idx]),
+                    ?EPRINT("received response pdu with unexpected index (~w, ~w):"
+                            "~n   Expected Index: ~p"
+                            "~n   Received Index: ~p",
+                            [Id, Err, Index, Idx]),
 		    {error, Id, {"ErrStat: ~w, Idx: ~w, RequestId: ~w", 
 				 [Err, Index, ReqId]},
 		     {"ErrStat: ~w, Idx: ~w", [Err, Idx]}}
@@ -1023,22 +1020,24 @@ expect_impl(Id, Err, Index, any = _ExpectedVarbinds) ->
 	     request_id   = ReqId, 
 	     error_status = Err2, 
 	     error_index  = Index2} ->
-            ?EPRINT1("received unexpected response pdu: ~w, ~w, ~w"
-                     "~n   Expected Error: ~p"
-                     "~n   Received Error: ~p"
-                     "~n   Expected Index: ~p"
-                     "~n   Received Index: ~p",
-                     [Type2, Id, ReqId, Err, Err2, Index, Index2]),
+            ?EPRINT("received unexpected response pdu: ~w, ~w, ~w"
+                    "~n   Expected Error: ~p"
+                    "~n   Received Error: ~p"
+                    "~n   Expected Index: ~p"
+                    "~n   Received Index: ~p",
+                    [Type2, Id, ReqId, Err, Err2, Index, Index2]),
 	    {error, Id, {"Type: ~w, ErrStat: ~w, Idx: ~w, RequestId: ~w", 
 			 ['get-response', Err, Index, ReqId]},
 	     {"Type: ~w, ErrStat: ~w, Idx: ~w", [Type2, Err2, Index2]}};
 
 	{error, Reason} -> 
+            ?EPRINT("unexpected (receive) response: "
+                    "~n      ~p", [Reason]),
 	    format_reason(Id, Reason)
     end;
 
 expect_impl(Id, Err, Index, ExpectedVarbinds) ->
-    ?PRINT2("await response ~w with"
+    ?IPRINT("await response ~w with"
             "~n   Err:              ~p"
             "~n   Index:            ~p"
             "~n   ExpectedVarbinds: ~p",
@@ -1049,7 +1048,7 @@ expect_impl(Id, Err, Index, ExpectedVarbinds) ->
 	     error_status = Err, 
 	     error_index  = Index,
 	     varbinds     = VBs} ->
-            ?PRINT2("received expected response pdu (~w, ~w, ~w) - check varbinds"
+            ?IPRINT("received expected response pdu (~w, ~w, ~w) - check varbinds"
                     "~n   Expected VBs: ~p"
                     "~n   Received VBs: ~p",
                     [Id, Err, Index, PureVBs, VBs]),
@@ -1058,7 +1057,7 @@ expect_impl(Id, Err, Index, ExpectedVarbinds) ->
 	#pdu{type         = 'get-response', 
 	     error_status = Err, 
 	     varbinds     = VBs} when (Index == any) ->
-            ?PRINT2("received expected response pdu (~w, ~w) - check varbinds"
+            ?IPRINT("received expected response pdu (~w, ~w) - check varbinds"
                     "~n   Expected VBs: ~p"
                     "~n   Received VBs: ~p",
                     [Id, Err, PureVBs, VBs]),
@@ -1071,18 +1070,18 @@ expect_impl(Id, Err, Index, ExpectedVarbinds) ->
 	     varbinds     = VBs} when is_list(Index) ->
 	    case lists:member(Idx, Index) of
 		true ->
-                    ?PRINT2("received expected pdu (~w, ~w, ~w) - check varbinds"
+                    ?IPRINT("received expected pdu (~w, ~w, ~w) - check varbinds"
                             "~n   Expected VBs: ~p"
                             "~n   Received VBs: ~p",
                             [Id, Err, Idx, PureVBs, VBs]),
 		    check_vars(Id, PureVBs, VBs);
 		false ->
-                    ?EPRINT1("received response pdu with unexpected index (~w, ~w):"
-                             "~n   Expected Index: ~p"
-                             "~n   Received Index: ~p"
-                             "~n   Expected VBs:   ~p"
-                             "~n   Received VBs:   ~p",
-                             [Id, Err, Index, Idx, PureVBs, VBs]),
+                    ?EPRINT("received response pdu with unexpected index (~w, ~w):"
+                            "~n   Expected Index: ~p"
+                            "~n   Received Index: ~p"
+                            "~n   Expected VBs:   ~p"
+                            "~n   Received VBs:   ~p",
+                            [Id, Err, Index, Idx, PureVBs, VBs]),
 		    {error,Id,
 		     {"ErrStat: ~w, Idx: ~w, Varbinds: ~w, RequestId: ~w",
 		      [Err,Index,PureVBs,ReqId]},
@@ -1095,15 +1094,15 @@ expect_impl(Id, Err, Index, ExpectedVarbinds) ->
 	     error_status = Err2, 
 	     error_index  = Index2, 
 	     varbinds     = VBs} ->
-            ?EPRINT1("received unexpected response pdu: ~w, ~w, ~w"
-                     "~n   Expected Error: ~p"
-                     "~n   Received Error: ~p"
-                     "~n   Expected Index: ~p"
-                     "~n   Received Index: ~p"
-                     "~n   Expected VBs:   ~p"
-                     "~n   Received VBs:   ~p",
-                     [Type2, Id, ReqId,
-                      Err, Err2, Index, Index2, PureVBs, VBs]),
+            ?EPRINT("received unexpected response pdu: ~w, ~w, ~w"
+                    "~n   Expected Error: ~p"
+                    "~n   Received Error: ~p"
+                    "~n   Expected Index: ~p"
+                    "~n   Received Index: ~p"
+                    "~n   Expected VBs:   ~p"
+                    "~n   Received VBs:   ~p",
+                    [Type2, Id, ReqId,
+                     Err, Err2, Index, Index2, PureVBs, VBs]),
 	    {error,Id,
 	     {"Type: ~w, ErrStat: ~w, Idx: ~w, Varbinds: ~w, RequestId: ~w",
 	      ['get-response',Err,Index,PureVBs,ReqId]},
@@ -1111,13 +1110,13 @@ expect_impl(Id, Err, Index, ExpectedVarbinds) ->
 	      [Type2,Err2,Index2,VBs]}};
 
 	{error, Reason} ->
-            ?EPRINT1("unexpected receive pdu error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive pdu error: ~w"
+                    "~n   ~p", [Id, Reason]),
 	    format_reason(Id, Reason)
     end.
 
 expect_impl(Id, trap, Enterp, Generic, Specific, ExpectedVarbinds) ->
-    ?PRINT2("await trap pdu ~w with"
+    ?IPRINT("await trap pdu ~w with"
             "~n   Enterprise:       ~p"
             "~n   Generic:          ~p"
             "~n   Specific:         ~p"
@@ -1130,7 +1129,7 @@ expect_impl(Id, trap, Enterp, Generic, Specific, ExpectedVarbinds) ->
 		 generic_trap  = Generic,
 		 specific_trap = Specific, 
 		 varbinds      = VBs} ->
-            ?PRINT2("received expected trap pdu - check varbinds"
+            ?IPRINT("received expected trap pdu - check varbinds"
                     "~n   Expected VBs: ~p"
                     "~n   Received VBs: ~p",
                     [PureVBs, VBs]),
@@ -1140,20 +1139,20 @@ expect_impl(Id, trap, Enterp, Generic, Specific, ExpectedVarbinds) ->
 		 generic_trap  = G2,
 		 specific_trap = Spec2, 
 		 varbinds      = VBs} ->
-            ?EPRINT1("received unexpected trap pdu: ~w"
-                     "~n   Expected Enterprise: ~p"
-                     "~n   Received Enterprise: ~p"
-                     "~n   Expected Generic:    ~p"
-                     "~n   Received Generic:    ~p"
-                     "~n   Expected Specific:   ~p"
-                     "~n   Received Specific:   ~p"
-                     "~n   Expected VBs:        ~p"
-                     "~n   Received VBs:        ~p",
-                     [Id,
-                      PureE, Ent2,
-                      Generic, G2,
-                      Specific, Spec2,
-                      PureVBs, VBs]),
+            ?EPRINT("received unexpected trap pdu: ~w"
+                    "~n   Expected Enterprise: ~p"
+                    "~n   Received Enterprise: ~p"
+                    "~n   Expected Generic:    ~p"
+                    "~n   Received Generic:    ~p"
+                    "~n   Expected Specific:   ~p"
+                    "~n   Received Specific:   ~p"
+                    "~n   Expected VBs:        ~p"
+                    "~n   Received VBs:        ~p",
+                    [Id,
+                     PureE, Ent2,
+                     Generic, G2,
+                     Specific, Spec2,
+                     PureVBs, VBs]),
 	    {error, Id,
 	     {"Enterprise: ~w, Generic: ~w, Specific: ~w, Varbinds: ~w",
 	      [PureE, Generic, Specific, ExpectedVarbinds]},
@@ -1161,8 +1160,8 @@ expect_impl(Id, trap, Enterp, Generic, Specific, ExpectedVarbinds) ->
 	      [Ent2, G2, Spec2, VBs]}};
 
 	{error, Reason} -> 
-            ?EPRINT1("unexpected receive trap pdu error: ~w"
-                     "~n   ~p", [Id, Reason]),
+            ?EPRINT("unexpected receive trap pdu error: ~w"
+                    "~n   ~p", [Id, Reason]),
 	    format_reason(Id, Reason)
     end.
 
@@ -1252,15 +1251,11 @@ sizeOf(L) when is_list(L) ->
 sizeOf(B) when is_binary(B) ->
     size(B).
 
+d(F)    -> d(F, []).
 d(F, A) -> d(get(debug), F, A).
 
 d(true, F, A) ->
-    print(F, A);
+    ?IPRINT(F, A);
 d(_,_F,_A) -> 
     ok.
 
-print(F, A) ->
-    ?PRINT2("MGR " ++ F, A).
-
-%% formated_timestamp() ->
-%%     snmp_test_lib:formated_timestamp().
