@@ -99,10 +99,12 @@ will_succeed(Mod, Func, Args) ->
                 false ->
                     %% While we can't infer success for functions outside the
                     %% 'erlang' module (see above comment), it's safe to infer
-                    %% failure when we know the arguments must have certain
-                    %% types.
-                    {_, ArgTypes, _} = types(Mod, Func, Args),
-                    fails_on_conflict(Args, ArgTypes)
+                    %% failure when we know they return none or if the
+                    %% arguments must have certain types.
+                    case types(Mod, Func, Args) of
+                        {none, _, _} -> no;
+                        {_, ArgTypes, _} -> fails_on_conflict(Args, ArgTypes)
+                    end
             end
     end.
 
