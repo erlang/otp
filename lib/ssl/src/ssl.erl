@@ -28,7 +28,6 @@
 
 -include("ssl_internal.hrl").
 -include("ssl_api.hrl").
--include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
 -include("ssl_handshake.hrl").
@@ -400,7 +399,10 @@
                                 {signature_algs, client_signature_algs()} |
                                 {fallback, fallback()} |
                                 {session_tickets, client_session_tickets()} |
-                                {use_ticket, use_ticket()}.
+                                {use_ticket, use_ticket()} |
+                                {ocsp_stapling, ocsp_stapling()} |
+                                {ocsp_responder_certs, ocsp_responder_certs()} |
+                                {ocsp_nonce, ocsp_nonce()}.
 
 -type client_verify_type()       :: verify_type().
 -type client_reuse_session()     :: session_id().
@@ -422,6 +424,9 @@
 -type client_signature_algs()    :: signature_algs().
 -type fallback()                 :: boolean().
 -type ssl_imp()                  :: new | old.
+-type ocsp_stapling()            :: boolean().
+-type ocsp_responder_certs()     :: [public_key:der_encoded()].
+-type ocsp_nonce()               :: boolean().
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -2353,6 +2358,17 @@ validate_option(anti_replay, '100k') ->
     {10, 5, 729845};
 validate_option(anti_replay, Value) when (is_tuple(Value) andalso
                                           tuple_size(Value) =:= 3) ->
+    Value;
+validate_option(ocsp_stapling, Value) when Value =:= true orelse
+                                           Value =:= false ->
+    Value;
+%% The OCSP responders' certificates can be given as a suggestion and
+%% will be used to verify the OCSP response.
+validate_option(ocsp_responder_certs, Value) when is_list(Value) ->
+    [public_key:pkix_decode_cert(CertDer, plain) || CertDer <- Value,
+                                                    is_binary(CertDer)];
+validate_option(ocsp_nonce, Value) when Value =:= true orelse
+                                        Value =:= false ->
     Value;
 validate_option(Opt, undefined = Value) ->
     AllOpts = maps:keys(?RULES),

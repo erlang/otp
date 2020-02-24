@@ -56,7 +56,8 @@
          maybe_add_binders/4,
          maybe_automatic_session_resumption/1]).
 
--export([is_valid_binder/4]).
+-export([is_valid_binder/4,
+         update_ocsp_state/3]).
 
 %% crypto:hash(sha256, "HelloRetryRequest").
 -define(HELLO_RETRY_REQUEST_RANDOM, <<207,33,173,116,229,154,97,17,
@@ -637,7 +638,9 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                                 supported_groups := ClientGroups0,
                                 use_ticket := UseTicket,
                                 session_tickets := SessionTickets,
-                                log_level := LogLevel} = SslOpts,
+                                log_level := LogLevel,
+                                ocsp_stapling := OcspStaplingOpt,
+                                ocsp_nonce := OcspNonceOpt} = SslOpts,
                 session = #session{own_certificate = Cert} = Session0,
                 connection_states = ConnectionStates0
                } = State0) ->
@@ -666,9 +669,10 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% of the triggering HelloRetryRequest.
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
         TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
+        OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
         Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                            SessionId, Renegotiation, Cert, ClientKeyShare,
-                                           TicketData),
+                                           TicketData, OcspNonce),
 
         %% Update state
         State1 = update_start_state(State0,
@@ -695,11 +699,13 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         ssl_logger:debug(LogLevel, outbound, 'handshake', Hello),
         ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
 
-        State = State3#state{
+        State4 = State3#state{
                   connection_states = ConnectionStates,
                   session = Session0#session{session_id = Hello#client_hello.session_id},
                   handshake_env = HsEnv#handshake_env{tls_handshake_history = HHistory},
                   key_share = ClientKeyShare},
+
+        State = update_ocsp_state(OcspStaplingOpt, OcspNonce, State4),
 
         {State, wait_sh}
 
@@ -707,6 +713,19 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         {Ref, #alert{} = Alert} ->
             Alert
     end.
+
+
+%%--------------------------------------------------------------------
+-spec update_ocsp_state(boolean(), binary() | undefined, #state{}) -> #state{}.
+%%
+%% Description: Update OCSP state in #state{}
+%%--------------------------------------------------------------------
+update_ocsp_state(true, OcspNonce, #state{handshake_env = #handshake_env{
+    ocsp_stapling_state = OcspState} = HsEnv} = State) ->
+    State#state{handshake_env = HsEnv#handshake_env{
+        ocsp_stapling_state = OcspState#{ocsp_nonce => OcspNonce}}};
+update_ocsp_state(false, _OcspNonce, State) ->
+    State.
 
 
 do_negotiated({start_handshake, PSK0},

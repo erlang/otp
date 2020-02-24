@@ -1179,6 +1179,35 @@ certify(internal, #client_key_exchange{exchange_keys = Keys},
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, ?FUNCTION_NAME, State)
     end;
+%% The response will be handled only when a certificate status request has
+%% been sent by the client and confirmed by the server.
+certify(internal, #certificate_status{response = OcspRespDer},
+        #state{ssl_options = #{
+            ocsp_stapling        := true,
+            ocsp_responder_certs := ResponderCerts},
+               handshake_env = #handshake_env{
+                   ocsp_stapling_state = #{
+                       ocsp_negotiated := true,
+                       ocsp_nonce := OcspNonce} = OcspState} = HsEnv,
+               connection_env = #connection_env{
+                   negotiated_version = Version}} = State,
+        Connection) ->
+    Result = public_key:ocsp_status(
+        OcspRespDer, ResponderCerts, OcspNonce),
+    NewOcspState = OcspState#{
+        ocsp_stapling_result => Result},
+    NewState = State#state{handshake_env =
+        HsEnv#handshake_env{ocsp_stapling_state = NewOcspState}},
+    case Result of
+        {ok, [#'SingleResponse'{
+                certStatus = {revoked, _RevokedInfo}}
+             ]} ->
+            Alert = ?ALERT_REC(
+                ?FATAL, ?BAD_CERTIFICATE_STATUS_RESPONSE, revoked_certificate),
+            handle_own_alert(Alert, Version, ?FUNCTION_NAME, NewState);
+        _Other ->
+            Connection:next_event(?FUNCTION_NAME, no_record, NewState)
+    end;
 certify(Type, Msg, State, Connection) ->
     handle_common_event(Type, Msg, ?FUNCTION_NAME, State, Connection).
  

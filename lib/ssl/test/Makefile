@@ -91,7 +91,8 @@ MODULES = \
 	ssl_socket_SUITE\
 	make_certs \
         x509_test \
-	inet_crypto_dist
+	inet_crypto_dist \
+	ssl_ocsp_SUITE
 
 
 ERL_FILES = $(MODULES:%=%.erl)

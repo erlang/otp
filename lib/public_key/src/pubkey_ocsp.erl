@@ -22,7 +22,7 @@
 
 -include("public_key.hrl").
 
--export([otp_cert/1, get_ocsp_responder_id/1, get_nonce/1, get_nonce_extn/1,
+-export([otp_cert/1, get_ocsp_responder_id/1, get_nonce/0, get_nonce_extn/1,
          decode_ocsp_response/1, verify_ocsp_response/3,
          get_acceptable_response_types_extn/0]).
 
@@ -252,19 +252,15 @@ get_public_key(#'Certificate'{} = Cert) ->
     get_public_key(otp_cert(Cert));
 get_public_key(#'OTPCertificate'{tbsCertificate = TbsCert}) ->
     PKInfo = TbsCert#'OTPTBSCertificate'.subjectPublicKeyInfo,
-    #'OTPSubjectPublicKeyInfo'{
-		subjectPublicKey = SubPubKey} = PKInfo,
-    SubPubKey.
+    PKInfo#'OTPSubjectPublicKeyInfo'.subjectPublicKey.
 
 %%--------------------------------------------------------------------
--spec get_nonce(boolean()) -> binary() | undefined.
+-spec get_nonce() -> binary().
 %%
 %% Description: Get an OCSP nonce
 %%--------------------------------------------------------------------
-get_nonce(false) ->
-    undefined;
-get_nonce(true) ->
-    crypto:strong_rand_bytes(8).
+get_nonce() ->
+    public_key:der_encode('Nonce', crypto:strong_rand_bytes(8)).
 
 %%--------------------------------------------------------------------
 -spec get_nonce_extn(undefined | binary()) -> undefined | #'Extension'{}.

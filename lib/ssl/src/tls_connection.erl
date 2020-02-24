@@ -580,24 +580,28 @@ init({call, From}, {start, Timeout},
             handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
             connection_env = CEnv,
 	    ssl_options = #{log_level := LogLevel,
-                            %% Use highest version in initial ClientHello.
-                            %% Versions is a descending list of supported versions.
-                            versions := [HelloVersion|_] = Versions,
-                            session_tickets := SessionTickets} = SslOpts,
-	    session = NewSession,
-	    connection_states = ConnectionStates0
-	   } = State0) ->
+                        %% Use highest version in initial ClientHello.
+                        %% Versions is a descending list of supported versions.
+                        versions := [HelloVersion|_] = Versions,
+                        session_tickets := SessionTickets,
+                        ocsp_stapling := OcspStaplingOpt,
+                        ocsp_nonce := OcspNonceOpt} = SslOpts,
+	                    session = NewSession,
+	                    connection_states = ConnectionStates0
+	    } = State0) ->
     KeyShare = maybe_generate_client_shares(SslOpts),
     Session = ssl_session:client_select_session({Host, Port, SslOpts}, Cache, CacheCb, NewSession),
     %% Update UseTicket in case of automatic session resumption
     {UseTicket, State1} = tls_handshake_1_3:maybe_automatic_session_resumption(State0),
     TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
+    OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                        Session#session.session_id,
                                        Renegotiation,
                                        Session#session.own_certificate,
                                        KeyShare,
-                                       TicketData),
+                                       TicketData,
+                                       OcspNonce),
 
     Handshake0 = ssl_handshake:init_handshake_history(),
 
@@ -621,13 +625,17 @@ init({call, From}, {start, Timeout},
     %% negotiated_version is also used by the TLS 1.3 state machine and is set after
     %% ServerHello is processed.
     RequestedVersion = tls_record:hello_version(Versions),
-    State = State1#state{connection_states = ConnectionStates,
-                         connection_env = CEnv#connection_env{
-                                            negotiated_version = RequestedVersion},
-                         session = Session,
-                         handshake_env = HsEnv#handshake_env{tls_handshake_history = Handshake},
-                         start_or_recv_from = From,
-                         key_share = KeyShare},
+    State2 = State1#state{connection_states = ConnectionStates,
+                          connection_env = CEnv#connection_env{
+                                             negotiated_version = RequestedVersion},
+                          session = Session,
+                          handshake_env = HsEnv#handshake_env{
+                              tls_handshake_history = Handshake},
+                          start_or_recv_from = From,
+                          key_share = KeyShare,
+                          ssl_options = SslOpts},
+    State = tls_handshake_1_3:update_ocsp_state(
+        OcspStaplingOpt, OcspNonce, State2),
     next_event(hello, no_record, State, [{{timeout, handshake}, Timeout, close}]);
 
 init(Type, Event, State) ->
@@ -662,11 +670,23 @@ hello(internal, #client_hello{extensions = Extensions} = Hello,
                                          handshake_env = HsEnv#handshake_env{hello = Hello}},
      [{reply, From, {ok, Extensions}}]};
 hello(internal, #server_hello{extensions = Extensions} = Hello,
-      #state{ssl_options = #{handshake := hello},
+      #state{ssl_options = #{
+                 handshake := hello,
+                 ocsp_stapling := OcspStapling},
              handshake_env = HsEnv,
              start_or_recv_from = From} = State) ->
-    {next_state, user_hello, State#state{start_or_recv_from = undefined,
-                                         handshake_env = HsEnv#handshake_env{hello = Hello}},
+    %% RFC6066.8, If a server returns a "CertificateStatus" message,
+    %% then the server MUST have included an extension of type
+    %% "status_request" with empty "extension_data" in the extended
+    %% server hello.
+    OcspState = HsEnv#handshake_env.ocsp_stapling_state,
+    OcspNegotiated = is_ocsp_stapling_negotiated(OcspStapling, Extensions, State),
+    {next_state, user_hello,
+     State#state{start_or_recv_from = undefined,
+                 handshake_env = HsEnv#handshake_env{
+                     hello = Hello,
+                     ocsp_stapling_state = OcspState#{
+                         ocsp_negotiated => OcspNegotiated}}},
      [{reply, From, {ok, Extensions}}]};     
 
 hello(internal, #client_hello{client_version = ClientVersion} = Hello,
@@ -716,28 +736,41 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
             end
 
     end;
-hello(internal, #server_hello{} = Hello,      
+hello(internal, #server_hello{extensions = Extensions} = Hello,
       #state{connection_states = ConnectionStates0,
              connection_env = #connection_env{negotiated_version = ReqVersion} = CEnv,
 	     static_env = #static_env{role = client},
-             handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
+             handshake_env = #handshake_env{
+                 renegotiation = {Renegotiation, _},
+                 ocsp_stapling_state = OcspState} = HsEnv,
              session = #session{session_id = OldId},
 	     ssl_options = SslOptions} = State) ->
+    %% check if server has sent an empty certifucate status message in hello
+    #{ocsp_stapling := OcspStapling} = SslOptions,
+    OcspNegotiated = is_ocsp_stapling_negotiated(OcspStapling, Extensions, State),
+
     case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
 	#alert{} = Alert -> %%TODO
 	    ssl_connection:handle_own_alert(Alert, ReqVersion, hello,
                                             State#state{connection_env =
-                                                            CEnv#connection_env{negotiated_version = ReqVersion}});
+                                                            CEnv#connection_env{negotiated_version = ReqVersion}
+                                                        });
         %% Legacy TLS 1.2 and older
 	{Version, NewId, ConnectionStates, ProtoExt, Protocol} ->
 	    ssl_connection:handle_session(Hello, 
-					  Version, NewId, ConnectionStates, ProtoExt, Protocol, State);
+					  Version, NewId, ConnectionStates, ProtoExt, Protocol,
+                      State#state{handshake_env = HsEnv#handshake_env{
+                          ocsp_stapling_state = OcspState#{
+                              ocsp_negotiated => OcspNegotiated}}});
         %% TLS 1.3
         {next_state, wait_sh, SelectedVersion} ->
             %% Continue in TLS 1.3 'wait_sh' state
             {next_state, wait_sh,
              State#state{
-               connection_env = CEnv#connection_env{negotiated_version = SelectedVersion}},
+               connection_env = CEnv#connection_env{negotiated_version = SelectedVersion},
+               handshake_env = HsEnv#handshake_env{
+                   ocsp_stapling_state = OcspState#{
+                       ocsp_negotiated => OcspNegotiated}}},
              [{next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
@@ -828,7 +861,9 @@ connection(internal, #hello_request{},
                                            port = Port,
                                            session_cache = Cache,
                                            session_cache_cb = CacheCb},
-                  handshake_env = #handshake_env{renegotiation = {Renegotiation, peer}},
+                  handshake_env = #handshake_env{
+                      renegotiation = {Renegotiation, peer},
+                      ocsp_stapling_state = OcspState},
 		  session = #session{own_certificate = Cert} = Session0,
 		  ssl_options = SslOpts, 
                   protocol_specific = #{sender := Pid},
@@ -839,7 +874,7 @@ connection(internal, #hello_request{},
             Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
                                                Session#session.session_id,
                                                Renegotiation, Cert, undefined,
-                                               undefined),
+                                               undefined, maps:get(ocsp_nonce, OcspState, undefined)),
             {State, Actions} = send_handshake(Hello, State0#state{connection_states = ConnectionStates#{current_write => Write},
                                                                   session = Session}),
             next_event(hello, no_record, State, Actions)
@@ -851,13 +886,15 @@ connection(internal, #hello_request{},
 	   #state{static_env = #static_env{role = client,
                                            host = Host,
                                            port = Port},
-                  handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
+                  handshake_env = #handshake_env{
+                      renegotiation = {Renegotiation, _},
+                      ocsp_stapling_state = OcspState},
 		  session = #session{own_certificate = Cert},
 		  ssl_options = SslOpts, 
 		  connection_states = ConnectionStates} = State0) ->
     Hello = tls_handshake:client_hello(Host, Port, ConnectionStates, SslOpts,
                                        <<>>, Renegotiation, Cert, undefined,
-                                       undefined),
+                                       undefined, maps:get(ocsp_nonce, OcspState, undefined)),
 
     {State, Actions} = send_handshake(Hello, State0),
     next_event(hello, no_record, State, Actions);
@@ -1537,3 +1574,32 @@ send_ticket_data(User, NewSessionTicket, HKDF, SNI, PSK) ->
                    timestamp => Timestamp,
                    ticket => NewSessionTicket},
     User ! {ssl, session_ticket, {SNI, erlang:term_to_binary(TicketData)}}.
+
+is_ocsp_stapling_negotiated(true, Extensions,
+                            #state{connection_env =
+                                   #connection_env{
+                                       negotiated_version = Version}
+                            } = State) ->
+    case maps:get(status_request, Extensions, false) of
+        undefined -> %% status_request in server hello is empty
+            true;
+        false -> %% status_request is missing (not negotiated)
+            false;
+        _Else ->
+            ssl_connection:handle_own_alert(
+                ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, status_request_not_empty),
+                Version, hello, State)
+    end;
+is_ocsp_stapling_negotiated(false, Extensions,
+                            #state{connection_env =
+                                   #connection_env{
+                                       negotiated_version = Version}
+                            } = State) ->
+    case maps:get(status_request, Extensions, false) of
+        false -> %% status_request is missing (not negotiated)
+            false;
+        _Else -> %% unsolicited status_request
+            ssl_connection:handle_own_alert(
+                ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, unexpected_status_request),
+                Version, hello, State)
+    end.

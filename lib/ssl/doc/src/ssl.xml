@@ -1015,6 +1015,29 @@ fun(srp, Username :: binary(), UserState :: term()) ->
 	</desc>
       </datatype>
 
+      <datatype>
+	<name name="ocsp_stapling"/>
+	<desc><p>If true, OCSP stapling will be enabled, an extension of type "status_request" will be
+  included in the client hello to indicate the desire to receive certificate status information.
+  If false (the default), OCSP stapling will be disabled.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="ocsp_responder_certs"/>
+	<desc><p>This option is a list of DER encoded certificates of OCSP responders which the client
+  trusts. This option is an empty list by default which means that the responders are implicitly
+  known to the server.</p>
+	</desc>
+      </datatype>
+
+      <datatype>
+	<name name="ocsp_nonce"/>
+	<desc><p>If true (the default), the nonce will be included as one of the request extensions in the
+  request. If false, nonce will not present in the request extensions.</p>
+	</desc>
+      </datatype>
+
       <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - SERVER</datatype_title>
 
       <datatype>

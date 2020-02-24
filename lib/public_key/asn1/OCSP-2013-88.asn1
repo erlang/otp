@@ -129,6 +129,8 @@ PreferredSignatureAlgorithm ::= SEQUENCE {
    sigIdentifier   AlgorithmIdentifier,
    certIdentifier  AlgorithmIdentifier OPTIONAL }
 
+Nonce ::= OCTET STRING
+
 -- Object Identifiers
 
 id-kp-OCSPSigning            OBJECT IDENTIFIER ::= { id-kp 9 }

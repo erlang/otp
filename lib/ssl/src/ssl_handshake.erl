@@ -72,7 +72,7 @@
          premaster_secret/2, premaster_secret/3, premaster_secret/4]).
 
 %% Extensions handling
--export([client_hello_extensions/7,
+-export([client_hello_extensions/8,
 	 handle_client_hello_extensions/10, %% Returns server hello extensions
 	 handle_server_hello_extensions/10, select_curve/2, select_curve/3,
          select_hashsign/4, select_hashsign/5,
@@ -353,10 +353,10 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
           depth := Depth} = Opts, CRLDbHandle, Role, Host, Version) ->
     
     ServerName = server_name(ServerNameIndication, Host, Role),
-    [PeerCert | ChainCerts ] = ASN1Certs,       
+    [PeerCert | ChainCerts ] = ASN1Certs,
     try
 	{TrustedCert, CertPath}  =
-	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,  
+	    ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbHandle, CertDbRef,
                                                   PartialChain),
         ValidationFunAndState = validation_fun_and_state(VerifyFun, #{role => Role,
                                                                       certdb => CertDbHandle,
@@ -373,11 +373,11 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbHandle, CertDbRef,
         Options = [{max_path_length, Depth},
                    {verify_fun, ValidationFunAndState}],
 	case public_key:pkix_path_validation(TrustedCert, CertPath, Options) of
-	    {ok, {PublicKeyInfo,_}} ->
-		{PeerCert, PublicKeyInfo};
+	    {ok, {PublicKeyInfo, _}} ->
+            {PeerCert, PublicKeyInfo};
 	    {error, Reason} ->
-		handle_path_validation_error(Reason, PeerCert, ChainCerts, Opts, Options, 
-                                             CertDbHandle, CertDbRef)
+		    handle_path_validation_error(Reason, PeerCert, ChainCerts, Opts, Options,
+                                         CertDbHandle, CertDbRef)
 	end
     catch
 	error:{_,{error, {asn1, Asn1Reason}}} ->
@@ -749,6 +749,15 @@ encode_extensions([#psk_key_exchange_modes{ke_modes = KEModes0} | Rest], Acc) ->
     ExtLen = KEModesLen + 1,
     encode_extensions(Rest, <<?UINT16(?PSK_KEY_EXCHANGE_MODES_EXT),
                               ?UINT16(ExtLen), ?BYTE(KEModesLen), KEModes/binary, Acc/binary>>);
+encode_extensions([
+    #certificate_status_request{
+        status_type = StatusRequest,
+        request = Request} | Rest], Acc) ->
+    CertStatusReq = encode_cert_status_req(StatusRequest, Request),
+    Len = byte_size(CertStatusReq),
+    encode_extensions(
+        Rest, <<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
+        CertStatusReq/binary, Acc/binary>>);
 encode_extensions([#pre_shared_key_client_hello{
                       offered_psks = #offered_psks{
                                         identities = Identities0,
@@ -766,6 +775,38 @@ encode_extensions([#pre_shared_key_server_hello{selected_identity = Identity} | 
     encode_extensions(Rest, <<?UINT16(?PRE_SHARED_KEY_EXT),
                               ?UINT16(2), ?UINT16(Identity), Acc/binary>>).
 
+encode_cert_status_req(
+    StatusType,
+    #ocsp_status_request{
+        responder_id_list = ResponderIDList,
+        request_extensions = ReqExtns}) ->
+    ResponderIDListBin = encode_responderID_list(ResponderIDList),
+    ReqExtnsBin = encode_request_extensions(ReqExtns),
+    <<?BYTE(StatusType), ResponderIDListBin/binary, ReqExtnsBin/binary>>.
+
+encode_responderID_list([]) ->
+    <<?UINT16(0)>>;
+encode_responderID_list(List) ->
+    do_encode_responderID_list(List, <<>>).
+
+%% ResponderID is DER-encoded ASN.1 type defined in RFC6960.
+do_encode_responderID_list([], Acc) ->
+    Len = byte_size(Acc),
+    <<?UINT16(Len), Acc/binary>>;
+do_encode_responderID_list([Responder | Rest], Acc)
+  when is_binary(Responder) ->
+    Len = byte_size(Responder),
+    do_encode_responderID_list(
+        Rest, <<Acc/binary, ?UINT16(Len), Responder/binary>>).
+
+%% Extensions are DER-encoded ASN.1 type defined in RFC6960 following
+%% extension model employed in X.509 version 3 certificates(RFC5280).
+encode_request_extensions([]) ->
+    <<?UINT16(0)>>;
+encode_request_extensions(Extns) when is_list(Extns) ->
+    ExtnBin = public_key:der_encode('Extensions', Extns),
+    Len = byte_size(ExtnBin),
+    <<?UINT16(Len), ExtnBin/binary>>.
 
 encode_client_protocol_negotiation(undefined, _) ->
     undefined;
@@ -778,7 +819,8 @@ encode_protocols_advertised_on_server(undefined) ->
 	undefined;
 
 encode_protocols_advertised_on_server(Protocols) ->
-	#next_protocol_negotiation{extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
+	#next_protocol_negotiation{
+        extension_data = lists:foldl(fun encode_protocol/2, <<>>, Protocols)}.
 
 %%====================================================================
 %% Decode handshake 
@@ -817,6 +859,14 @@ decode_handshake(Version, ?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32
        extensions = HelloExtensions};
 decode_handshake(_Version, ?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
+%% RFC 6066, servers return a certificate response along with their certificate
+%% by sending a "CertificateStatus" message immediately after the "Certificate"
+%% message and before any "ServerKeyExchange" or "CertificateRequest" messages.
+decode_handshake(_Version, ?CERTIFICATE_STATUS, <<?BYTE(?CERTIFICATE_STATUS_TYPE_OCSP),
+                 ?UINT24(Len), ASN1OcspResponse:Len/binary>>) ->
+    #certificate_status{
+        status_type = ?CERTIFICATE_STATUS_TYPE_OCSP,
+        response = ASN1OcspResponse};
 decode_handshake(_Version, ?SERVER_KEY_EXCHANGE, Keys) ->
     #server_key_exchange{exchange_keys = Keys};
 decode_handshake({Major, Minor}, ?CERTIFICATE_REQUEST,
@@ -1100,10 +1150,11 @@ premaster_secret(EncSecret, #{algorithm := rsa} = Engine) ->
 %% Extensions handling
 %%====================================================================
 client_hello_extensions(Version, CipherSuites, SslOpts, ConnectionStates, Renegotiation, KeyShare,
-                        TicketData) ->
+                        TicketData, OcspNonce) ->
     HelloExtensions0 = add_tls12_extensions(Version, SslOpts, ConnectionStates, Renegotiation),
     HelloExtensions1 = add_common_extensions(Version, HelloExtensions0, CipherSuites, SslOpts),
-    maybe_add_tls13_extensions(Version, HelloExtensions1, SslOpts, KeyShare, TicketData).
+    HelloExtensions2 = maybe_add_certificate_status_request(Version, SslOpts, OcspNonce, HelloExtensions1),
+    maybe_add_tls13_extensions(Version, HelloExtensions2, SslOpts, KeyShare, TicketData).
 
 
 add_tls12_extensions(_Version,
@@ -1174,6 +1225,31 @@ maybe_add_tls13_extensions({3,4},
 maybe_add_tls13_extensions(_, HelloExtensions, _, _, _) ->
     HelloExtensions.
 
+maybe_add_certificate_status_request(
+    _Version, #{ocsp_stapling := false}, _OcspNonce, HelloExtensions) ->
+    HelloExtensions;
+maybe_add_certificate_status_request(
+    _Version, #{ocsp_stapling        := true,
+                ocsp_responder_certs := OcspResponderCerts},
+    OcspNonce, HelloExtensions) ->
+    OcspResponderList = get_ocsp_responder_list(OcspResponderCerts),
+    OcspRequestExtns = public_key:ocsp_extensions(OcspNonce),
+    Req = #ocsp_status_request{responder_id_list  = OcspResponderList,
+                               request_extensions = OcspRequestExtns},
+    CertStatusReqExtn = #certificate_status_request{
+        status_type = ?CERTIFICATE_STATUS_TYPE_OCSP,
+        request = Req
+    },
+    HelloExtensions#{status_request => CertStatusReqExtn}.
+
+get_ocsp_responder_list(ResponderCerts) ->
+    get_ocsp_responder_list(ResponderCerts, []).
+
+get_ocsp_responder_list([], Acc) ->
+    Acc;
+get_ocsp_responder_list([ResponderCert | T], Acc) ->
+    get_ocsp_responder_list(
+        T, [public_key:ocsp_responder_id(ResponderCert) | Acc]).
 
 %% TODO: Add support for PSK key establishment
 
@@ -2751,6 +2827,31 @@ decode_extensions(<<?UINT16(?PRE_SHARED_KEY_EXT), ?UINT16(Len),
                                #pre_shared_key_server_hello{
                                   selected_identity = Identity}});
 
+%% RFC6066, if a server returns a "CertificateStatus" message, then
+%% the server MUST have included an extension of type "status_request"
+%% with empty "extension_data" in the extended server hello.
+decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
+                    _ExtensionData:Len/binary, Rest/binary>>, Version,
+                    MessageType = server_hello, Acc)
+  when Len =:= 0 ->
+    decode_extensions(Rest, Version, MessageType,
+                      Acc#{status_request => undefined});
+%% RFC8446 4.4.2.1, In TLS1.3, the body of the "status_request" extension
+%% from the server MUST be a CertificateStatus structure as defined in
+%% RFC6066.
+decode_extensions(<<?UINT16(?STATUS_REQUEST), ?UINT16(Len),
+                    CertStatus:Len/binary, Rest/binary>>, Version,
+                    MessageType, Acc) ->
+    case CertStatus of
+        <<?BYTE(?CERTIFICATE_STATUS_TYPE_OCSP),
+          ?UINT24(OCSPLen),
+          ASN1OCSPResponse:OCSPLen/binary>> ->
+            decode_extensions(Rest, Version, MessageType,
+                      Acc#{status_request => ASN1OCSPResponse});
+        _Other ->
+            decode_extensions(Rest, Version, MessageType, Acc)
+    end;
+
 %% Ignore data following the ClientHello (i.e.,
 %% extensions) if not understood.
 decode_extensions(<<?UINT16(_), ?UINT16(Len), _Unknown:Len/binary, Rest/binary>>, Version, MessageType, Acc) ->
@@ -2865,6 +2966,7 @@ certs_from_list(ACList) ->
 			CertLen = byte_size(Cert),
                         <<?UINT24(CertLen), Cert/binary>>
 		    end || Cert <- ACList]).
+
 from_3bytes(Bin3) ->
     from_3bytes(Bin3, []).
 

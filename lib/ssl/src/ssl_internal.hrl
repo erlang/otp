@@ -157,6 +157,14 @@
           max_fragment_length        => {undefined, [versions]},
           next_protocol_selector     => {undefined, [versions]},
           next_protocols_advertised  => {undefined, [versions]},
+          %% If enable OCSP stapling
+          ocsp_stapling              => {false, [versions]},
+          %% Optional arg, if give suggestion of OCSP responders
+          ocsp_responder_certs       => {[], [versions,
+                                              ocsp_stapling]},
+          %% Optional arg, if add nonce extension in request
+          ocsp_nonce                 => {true, [versions,
+                                                ocsp_stapling]},
           padding_check              => {true,      [versions]},
           partial_chain              => {fun(_) -> unknown_ca end, [versions]},
           password                   => {"",        [versions]},
@@ -182,15 +190,15 @@
                                                        partial_chain]},
           verify_fun                 =>
               {
-               {fun(_,{bad_cert, _}, UserState) ->
+               {fun(_, {bad_cert, _}, UserState) ->
                         {valid, UserState};
-                   (_,{extension, #'Extension'{critical = true}}, UserState) ->
+                   (_, {extension, #'Extension'{critical = true}}, UserState) ->
                         %% This extension is marked as critical, so
                         %% certificate verification should fail if we don't
                         %% understand the extension.  However, this is
                         %% `verify_none', so let's accept it anyway.
                         {valid, UserState};
-                   (_,{extension, _}, UserState) ->
+                   (_, {extension, _}, UserState) ->
                         {unknown, UserState};
                    (_, valid, UserState) ->
                         {valid, UserState};

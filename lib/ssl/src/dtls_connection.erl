@@ -527,13 +527,14 @@ hello(internal, #hello_verify_request{cookie = Cookie}, #state{static_env = #sta
                                                                                         port = Port},
                                                                handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
                                                                connection_env = CEnv,
-							       ssl_options = SslOpts,
+							       ssl_options = #{ocsp_stapling := OcspStaplingOpt,
+                                                   ocsp_nonce := OcspNonceOpt} = SslOpts,
 							       session = #session{own_certificate = Cert, session_id = Id},
 							       connection_states = ConnectionStates0
 							      } = State0) ->
-  
+    OcspNonce = tls_handshake:ocsp_nonce(OcspNonceOpt, OcspStaplingOpt),
     Hello = dtls_handshake:client_hello(Host, Port, Cookie, ConnectionStates0,
-					SslOpts, Id, Renegotiation, Cert),
+					SslOpts, Id, Renegotiation, Cert, OcspNonce),
     Version = Hello#client_hello.client_version,
     State1 = prepare_flight(State0#state{handshake_env =  
                                              HsEnv#handshake_env{tls_handshake_history 

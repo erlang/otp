@@ -30,16 +30,16 @@
 -include("ssl_alert.hrl").
 
 %% Handshake handling
--export([client_hello/7, client_hello/8, cookie/4, hello/5, hello/4,
+-export([client_hello/7, client_hello/9, cookie/4, hello/5, hello/4,
 	 hello_verify_request/2]).
-        
+
 %% Handshake encoding
 -export([fragment_handshake/2, encode_handshake/3]).
 
 %% Handshake decodeing
 -export([get_dtls_handshake/4]).
 
--type dtls_handshake() :: #client_hello{} | #hello_verify_request{} | 
+-type dtls_handshake() :: #client_hello{} | #hello_verify_request{} |
 			  ssl_handshake:ssl_handshake().
 
 %%====================================================================
@@ -56,11 +56,11 @@ client_hello(Host, Port, ConnectionStates, SslOpts,
 	     Id, Renegotiation, OwnCert) ->
     %% First client hello (two sent in DTLS ) uses empty Cookie
     client_hello(Host, Port, <<>>, ConnectionStates, SslOpts,
-		 Id, Renegotiation, OwnCert).
+		 Id, Renegotiation, OwnCert, undefined).
 
 %%--------------------------------------------------------------------
 -spec client_hello(ssl:host(), inet:port_number(), term(), ssl_record:connection_states(),
-		   ssl_options(), binary(),boolean(), der_cert()) ->
+		   ssl_options(), binary(),boolean(), der_cert(), binary() | undefined) ->
 			  #client_hello{}.
 %%
 %% Description: Creates a client hello message.
@@ -69,7 +69,7 @@ client_hello(_Host, _Port, Cookie, ConnectionStates,
 	     #{versions := Versions,
                ciphers := UserSuites,
                fallback := Fallback} = SslOpts,
-	     Id, Renegotiation, _OwnCert) ->
+	     Id, Renegotiation, _OwnCert, OcspNonce) ->
     Version =  dtls_record:highest_protocol_version(Versions),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = maps:get(security_parameters, Pending),
@@ -79,7 +79,7 @@ client_hello(_Host, _Port, Cookie, ConnectionStates,
     Extensions = ssl_handshake:client_hello_extensions(TLSVersion, CipherSuites,
                                                        SslOpts, ConnectionStates, 
                                                        Renegotiation, undefined,
-                                                       undefined),
+                                                       undefined, OcspNonce),
 
     #client_hello{session_id = Id,
 		  client_version = Version,
