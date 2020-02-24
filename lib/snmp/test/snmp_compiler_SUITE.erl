@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -106,26 +106,48 @@ tickets_cases() ->
 
 init_per_suite(Config0) when is_list(Config0) ->
 
-    ?DBG("init_per_suite -> entry with"
-	 "~n   Config0: ~p", [Config0]),
+    ?IPRINT("init_per_suite -> entry with"
+            "~n      Config: ~p"
+            "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
-    Config1   = snmp_test_lib:init_suite_top_dir(?MODULE, Config0), 
-    Config2   = snmp_test_lib:fix_data_dir(Config1),
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
 
-    %% Mib-dirs
-    %% data_dir is trashed by the test-server / common-test
-    %% so there is no point in fixing it...
-    MibDir    = snmp_test_lib:lookup(data_dir, Config2),
-    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+        Config1 when is_list(Config1) ->
+            Config2   = snmp_test_lib:init_suite_top_dir(?MODULE, Config1), 
+            Config3   = snmp_test_lib:fix_data_dir(Config2),
 
-    [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config2].
+            %% Mib-dirs
+            %% data_dir is trashed by the test-server / common-test
+            %% so there is no point in fixing it...
+            MibDir    = snmp_test_lib:lookup(data_dir, Config3),
+            StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
 
-end_per_suite(Config) when is_list(Config) ->
+            Config4 = [{mib_dir, MibDir}, {std_mib_dir, StdMibDir} | Config3],
+            
+            %% We need a monitor on this node also
+            snmp_test_sys_monitor:start(),
 
-    ?DBG("end_per_suite -> entry with"
-	 "~n   Config: ~p", [Config]),
+            snmp_test_mgr_counter_server:start(), 
 
-    Config.
+            ?IPRINT("init_per_suite -> end when"
+                    "~n      Config: ~p", [Config4]),
+            
+            Config4
+    end.
+
+
+end_per_suite(Config0) when is_list(Config0) ->
+    ?IPRINT("end_per_suite -> entry with"
+            "~n      Config0: ~p", [Config0]),
+
+    snmp_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?IPRINT("end_per_suite -> end"),
+
+    Config1.
 
 
 %%
@@ -165,7 +187,8 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 description(suite) -> [];
 description(Config) when is_list(Config) ->
     put(tname,desc),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir = ?config(case_top_dir, Config),
     Filename   = join(Dir,"test"),
@@ -179,14 +202,14 @@ description(Config) when is_list(Config) ->
 					      {warnings,    false},
 					      {description, false}]),
     MIB1 = read_mib(MibBinName),
-    %% io:format("description -> MIB1: ~n~p~n", [MIB1]),
+    %% ?IPRINT("description -> MIB1: ~n~p~n", [MIB1]),
     check_mib(MIB1#mib.mes, Oid,  undefined),
     ?line {ok,_} = snmpc:compile(MibSrcName, [{outdir,      Dir},
 					      {group_check, false},
 					      {warnings,    false},
 					      {description, true}]),
     MIB2 = read_mib(MibBinName),
-    %% io:format("description -> MIB2: ~n~p~n", [MIB2]),
+    %% ?IPRINT("description -> MIB2: ~n~p~n", [MIB2]),
     check_mib(MIB2#mib.mes, Oid, Desctext),
 
     %% Cleanup
@@ -200,7 +223,8 @@ description(Config) when is_list(Config) ->
 oid_conflicts(suite) -> [];
 oid_conflicts(Config) when is_list(Config) ->
     put(tname,oid_conflicts),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir = ?config(case_top_dir, Config),
     Mib = join(Dir,"TESTv2.mib"),
@@ -232,7 +256,8 @@ agent_capabilities(suite) ->
     [];
 agent_capabilities(Config) when is_list(Config) ->
     put(tname,agent_capabilities),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     SnmpPrivDir    = which_priv_dir(snmp),
     SnmpMibsDir    = join(SnmpPrivDir, "mibs"), 
@@ -253,11 +278,10 @@ agent_capabilities(Config) when is_list(Config) ->
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
     MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
     %% This is a rather pathetic test, but it is somthing...
-    io:format("agent_capabilities -> "
-	      "~n   MEDiff: ~p"
-	      "~n   Mib1:   ~p"
-	      "~n   Mib2:   ~p"
-	      "~n", [MEDiff, Mib1, Mib2]),
+    ?IPRINT("agent_capabilities -> "
+            "~n   MEDiff: ~p"
+            "~n   Mib1:   ~p"
+            "~n   Mib2:   ~p", [MEDiff, Mib1, Mib2]),
     case length(MEDiff) of
 	2 ->
 	    ok;
@@ -272,8 +296,9 @@ agent_capabilities(Config) when is_list(Config) ->
 module_compliance(suite) ->
     [];
 module_compliance(Config) when is_list(Config) ->
-    put(tname,module_compliance),
-    p("starting with Config: ~p~n", [Config]),
+    put(tname, module_compliance),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     SnmpPrivDir = which_priv_dir(snmp),
     SnmpMibsDir = join(SnmpPrivDir, "mibs"), 
@@ -294,11 +319,10 @@ module_compliance(Config) when is_list(Config) ->
     ?line {ok, Mib2} = snmp_misc:read_mib(MibFile2), 
     MEDiff = Mib2#mib.mes -- Mib1#mib.mes,
     %% This is a rather pathetic test, but it is somthing...
-    io:format("module_compliance -> "
-	      "~n   MEDiff: ~p"
-	      "~n   Mib1:   ~p"
-	      "~n   Mib2:   ~p"
-	      "~n", [MEDiff, Mib1, Mib2]),
+    ?IPRINT("module_compliance -> "
+            "~n   MEDiff: ~p"
+            "~n   Mib1:   ~p"
+            "~n   Mib2:   ~p", [MEDiff, Mib1, Mib2]),
     case length(MEDiff) of
 	1 ->
 	    ok;
@@ -314,7 +338,8 @@ warnings_as_errors(suite) ->
     ["OTP-9437"];
 warnings_as_errors(Config) when is_list(Config) ->
     put(tname,warnings_as_errors),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8574-MIB.mib"),
@@ -338,14 +363,16 @@ otp_6150(suite) ->
     [];
 otp_6150(Config) when is_list(Config) ->
     put(tname, otp6150),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "ERICSSON-TOP-MIB.mib"),
     ?line {ok, Mib} = 
 	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
-    io:format("otp_6150 -> Mib: ~n~p~n", [Mib]),
+    ?IPRINT("otp_6150 -> Mib: "
+            "~n   ~p", [Mib]),
     ok.
 
 
@@ -355,29 +382,30 @@ otp_8574(suite) ->
     [];
 otp_8574(Config) when is_list(Config) ->
     put(tname, otp8574),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
     MibFile = join(MibDir, "OTP8574-MIB.mib"),
     
-    p("ensure compile fail without relaxed assign check"),
+    ?IPRINT("ensure compile fail without relaxed assign check"),
     case snmpc:compile(MibFile, [{group_check, false}, {outdir, Dir}]) of
 	{error, compilation_failed} ->
-	    p("with relaxed assign check MIB compiles with warning"),
+	    ?IPRINT("with relaxed assign check MIB compiles with warning"),
 	    case snmpc:compile(MibFile, [{group_check, false}, 
 					 {outdir, Dir}, 
 					 relaxed_row_name_assign_check]) of
 		{ok, _Mib} ->
 		    ok;
 		{error, Reason} ->
-		    p("unexpected compile failure: "
-		      "~n   Reason: ~p", [Reason]),
+		    ?EPRINT("unexpected compile failure: "
+                            "~n   Reason: ~p", [Reason]),
 		    exit({unexpected_compile_failure, Reason})
 	    end;
 
 	{ok, _} ->
-	    p("unexpected compile success"),
+	    ?EPRINT("unexpected compile success"),
 	    exit(unexpected_compile_success)
     end.
 
@@ -388,7 +416,8 @@ otp_8595(suite) ->
     [];
 otp_8595(Config) when is_list(Config) ->
     put(tname, otp8595),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,  Config),
@@ -397,7 +426,7 @@ otp_8595(Config) when is_list(Config) ->
 	snmpc:compile(MibFile, [{outdir,      Dir}, 
 				{verbosity,   trace}, 
 				{group_check, false}]),
-    p("Mib: ~n~p~n", [Mib]),
+    ?IPRINT("Mib: ~n~p~n", [Mib]),
     ok.
 
 
@@ -407,14 +436,16 @@ otp_10799(suite) ->
     [];
 otp_10799(Config) when is_list(Config) ->
     put(tname, otp10799),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,      Config),
     MibFile = join(MibDir, "OTP10799-MIB.mib"),
     ?line {ok, Mib} = 
 	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
-    p("Mib: ~n~p~n", [Mib]),
+    ?IPRINT("Mib: "
+            "~n   ~p", [Mib]),
     ok.
 
 
@@ -424,7 +455,8 @@ otp_10808(suite) ->
     [];
 otp_10808(Config) when is_list(Config) ->
     put(tname, otp10808),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,      Config),
@@ -433,7 +465,8 @@ otp_10808(Config) when is_list(Config) ->
 	snmpc:compile(MibFile, [{outdir,      Dir}, 
 				{verbosity,   trace}, 
 				{group_check, false}]),
-    p("Mib: ~n~p~n", [Mib]),
+    ?IPRINT("Mib: "
+            "~n   ~p", [Mib]),
     ok.
 
 
@@ -443,7 +476,8 @@ otp_14145(suite) ->
     [];
 otp_14145(Config) when is_list(Config) ->
     put(tname, otp14145),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,      Config),
@@ -454,7 +488,8 @@ otp_14145(Config) when is_list(Config) ->
 				{verbosity, trace},
 				{group_check, false},
 				module_compliance]),
-    p("Mib: ~n~p~n", [MibBin]),
+    ?IPRINT("Mib: "
+            "~n   ~p", [MibBin]),
     MIB = read_mib(MibBin),
     Oid = [1,3,6,1,2,1,67,4],
     check_mib(MIB#mib.mes, Oid, undefined),
@@ -467,7 +502,8 @@ otp_13014(suite) ->
     [];
 otp_13014(Config) when is_list(Config) ->
     put(tname, otp13014),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,      Config),
@@ -478,7 +514,8 @@ otp_13014(Config) when is_list(Config) ->
 				{verbosity, log},
 				{group_check, false},
 				module_compliance]),
-    p("Mib: ~n~p~n", [MibBin]),
+    ?IPRINT("Mib: "
+            "~n   ~p", [MibBin]),
     #mib{mes = MEs} = read_mib(MibBin),
     Oid = [1,0,8802,1,1,2,1,1,7],
     #me{
@@ -494,20 +531,23 @@ otp_13014(Config) when is_list(Config) ->
         TableInfo,
     ok.
 
+
 %%======================================================================
 
 otp_14196(suite) ->
     [];
 otp_14196(Config) when is_list(Config) ->
     put(tname, otp14196),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir     = ?config(case_top_dir, Config),
     MibDir  = ?config(mib_dir,      Config),
     MibFile = join(MibDir, "OTP14196-MIB.mib"),
     ?line {ok, Mib} =
 	snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
-    p("Mib: ~n~p~n", [Mib]),
+    ?IPRINT("Mib: "
+            "~n   ~p", [Mib]),
     ok.
 
 
@@ -517,7 +557,8 @@ augments_extra_info(suite) ->
     [];
 augments_extra_info(Config) when is_list(Config) ->
     put(tname, augments_extra_info),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p", [Config]),
 
     Dir       = ?config(case_top_dir, Config),
     MibDir    = ?config(mib_dir,      Config),
@@ -527,28 +568,30 @@ augments_extra_info(Config) when is_list(Config) ->
 	snmpc:compile(Test2File, [{outdir,      Dir}, 
 				  {verbosity,   silence}, 
 				  {group_check, false}]),
-    io:format("Test2BinFile: ~n~p~n", [Test2BinFile]),
+    ?IPRINT("Test2BinFile: "
+            "~n   ~p", [Test2BinFile]),
     ?line {ok, Test3BinFile} = 
 	snmpc:compile(Test3File, [{i,           [MibDir]}, 
 				  {outdir,      Dir}, 
 				  {verbosity,   silence}, 
 				  {group_check, true}]),
-    io:format("Test3BinFile: ~n~p~n", [Test3BinFile]),
+    ?IPRINT("Test3BinFile: "
+            "~n   ~p", [Test3BinFile]),
     {ok, Test3Mib} = snmp_misc:read_mib(Test3BinFile), 
-    io:format("Test3Mib: ~n~p~n", [Test3Mib]),
+    ?IPRINT("Test3Mib: "
+            "~n   ~p", [Test3Mib]),
     %% There is only one table in this mib
     #mib{table_infos = [{TableName, TI}]} = Test3Mib, 
-    io:format("TableName: ~p"
-	      "~n   Table Info: ~p"
-	      "~n", [TableName, TI]), 
+    ?IPRINT("TableName: ~p"
+            "~n   Table Info: ~p", [TableName, TI]), 
     #table_info{nbr_of_cols      = 4, 
 		defvals          = DefVals, 
 		not_accessible   = [2,4], 
 		index_types      = {augments, {tEntry, undefined}},
 		first_accessible = 1} = TI,
-    io:format("Table info:   ~p"
-	      "~n   DefVals: ~p"
-	      "~n", [TableName, DefVals]), 
+    ?IPRINT("Table info:   ~p"
+            "~n   DefVals: ~p"
+            "~n", [TableName, DefVals]), 
     ok.
 
 
@@ -750,21 +793,3 @@ which_priv_dir(App) ->
 join(A,B) ->
     filename:join(A,B).
 
-
-%% ------
-
-%% p(F) ->
-%%     p(F, []).
-
-p(F) ->
-    p(F, []).
-
-p(F, A) ->
-    p(get(tname), F, A).
-
-p(TName, F, A) ->
-    io:format("*** [~w][~s] ***"
-              "~n" ++ F ++ "~n", [TName, formated_timestamp()|A]).
-
-formated_timestamp() ->
-    snmp_test_lib:formated_timestamp().
