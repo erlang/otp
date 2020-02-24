@@ -697,7 +697,7 @@ void erts_usage(void)
     erts_fprintf(stderr, "-SDPcpu p1:p2  specify dirty CPU schedulers (p1) and dirty CPU schedulers\n");
     erts_fprintf(stderr, "               online (p2) as percentages of logical processors configured\n");
     erts_fprintf(stderr, "               and logical processors available, respectively\n");
-    erts_fprintf(stderr, "-SDio n        set number of dirty I/O schedulers, valid range is [0-%d]\n",
+    erts_fprintf(stderr, "-SDio n        set number of dirty I/O schedulers, valid range is [1-%d]\n",
 		 ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS);
     erts_fprintf(stderr, "-t size        set the maximum number of atoms the emulator can handle\n");
     erts_fprintf(stderr, "               valid range is [%d-%d]\n",
@@ -1068,7 +1068,7 @@ early_init(int *argc, char **argv) /*
 			} else if (sys_strncmp(type, "io", 2) == 0) {
 			    arg = get_arg(argv[i]+5, argv[i+1], &i);
 			    dirty_io_scheds = atoi(arg);
-			    if (dirty_io_scheds < 0 ||
+			    if (dirty_io_scheds < 1 ||
 				dirty_io_scheds > ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS) {
 				erts_fprintf(stderr,
 					     "bad number of dirty I/O schedulers %s\n",

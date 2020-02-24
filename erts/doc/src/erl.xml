@@ -1058,7 +1058,7 @@
       <tag><marker id="+SDio"/><c><![CDATA[+SDio DirtyIOSchedulers]]></c></tag>
       <item>
         <p>Sets the number of dirty I/O scheduler threads to create.
-          Valid range is 0-1024. By
+          Valid range is 1-1024. By
           default, the number of dirty I/O scheduler threads created is 10.</p>
 	<p>The amount of dirty IO schedulers is not limited by the amount of
 	  normal schedulers <seealso marker="#+SDcpu">like the amount of
