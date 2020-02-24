@@ -145,11 +145,6 @@ static void cmd_ei_connect(char* buf, int len)
     if (ei_decode_atom(buf, &index, node) < 0)
 	fail("expected atom");
     i=ei_connect(&ec, node);
-#ifdef VXWORKS
-    if(i >= 0) {
-	save_fd(i);
-    }
-#endif
     send_errno_result(i);
 }
 

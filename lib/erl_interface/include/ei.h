@@ -43,7 +43,7 @@ typedef LONG_PTR ssize_t; /* Sigh... */
 #include <stdio.h>		/* Need type FILE */
 #include <errno.h>		/* Need EHOSTUNREACH, ENOMEM, ... */
 
-#if !(defined(__WIN32__) || defined(_WIN32)) && !defined(VXWORKS) || (defined(VXWORKS) && defined(HAVE_SENS))
+#if !(defined(__WIN32__) || defined(_WIN32))
 # include <netdb.h>
 #endif
 
@@ -188,20 +188,20 @@ extern "C" {
  * the 'ei' interface as well.... :-(
  */
 
-#if defined(_REENTRANT) || defined(VXWORKS) || defined(__WIN32__)
+#if defined(_REENTRANT) || defined(__WIN32__)
 
 /* 'erl_errno' as a function return value */
 volatile int* __erl_errno_place(void) __attribute__ ((__const__));
 
 #define erl_errno (*__erl_errno_place ())
 
-#else /* !_REENTRANT && !VXWORKS && !__WIN32__ */
+#else /* !_REENTRANT && !__WIN32__ */
 
 extern volatile int __erl_errno;
 
 #define erl_errno __erl_errno
 
-#endif /* !_REENTRANT && !VXWORKS && !__WIN32__ */
+#endif /* !_REENTRANT && !__WIN32__ */
 
 
 /* -------------------------------------------------------------------- */
@@ -458,41 +458,6 @@ int ei_get_tracelevel(void);
 /* 
  * We have erl_gethost*() so we include ei versions as well.
  */
-
-#if defined(VXWORKS)
-
-extern int h_errno;
-
-/*
- * We need these definitions - if the user has SENS then he gets them
- * from netdb.h, otherwise we define them ourselves.
- *
- * If you are getting "multiple definition" errors here,
- * make sure you have included <netdb.h> BEFORE "erl_interface.h"
- * or define HAVE_SENS in your CFLAGS.
- */
-
-#if !defined(HAVE_SENS) && !defined(HOST_NOT_FOUND) /* just in case */
-
-struct	hostent {
-  char	*h_name;	/* official name of host */
-  char	**h_aliases;	/* alias list */
-  int	h_addrtype;	/* host address type */
-  int	h_length;	/* length of address */
-  char	**h_addr_list;	/* list of addresses from name server */
-#define	h_addr	h_addr_list[0]	/* address, for backward compatiblity */
-  unsigned int unused;  /* SENS defines this as ttl */
-};
-
-#define	HOST_NOT_FOUND	1 /* Authoritative Answer Host not found */
-#define	TRY_AGAIN	2 /* Non-Authoritive Host not found, or SERVERFAIL */
-#define	NO_RECOVERY	3 /* Non recoverable errors, FORMERR, REFUSED, NOTIMP */
-#define	NO_DATA		4 /* Valid name, no data record of requested type */
-#define	NO_ADDRESS	NO_DATA		/* no address, look for MX record */
-
-#endif /* !HAVE_SENS && !HOST_NOT_FOUND */
-#endif /* VXWORKS */
-
 
 struct hostent *ei_gethostbyname(const char *name);
 struct hostent *ei_gethostbyaddr(const char *addr, int len, int type);
@@ -851,14 +816,12 @@ int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj);
 #define EI_ULONGLONG unsigned long long
 #endif
 
-#ifndef VXWORKS
 int ei_decode_longlong(const char *buf, int *index, EI_LONGLONG *p);
 int ei_decode_ulonglong(const char *buf, int *index, EI_ULONGLONG *p);
 int ei_encode_longlong(char *buf, int *index, EI_LONGLONG p);
 int ei_encode_ulonglong(char *buf, int *index, EI_ULONGLONG p);
 int ei_x_encode_longlong(ei_x_buff* x, EI_LONGLONG n);
 int ei_x_encode_ulonglong(ei_x_buff* x, EI_ULONGLONG n);
-#endif
 
 #ifdef USE_EI_UNDOCUMENTED
 

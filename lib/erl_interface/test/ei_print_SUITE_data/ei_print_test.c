@@ -37,13 +37,9 @@ send_printed_buf(ei_x_buff* x)
     FILE* f;
     int n, index = 0, ver;
 
-#ifdef VXWORKS
-    tmp = ".";
-#else
     if (tmp == NULL) {
         tmp = "/tmp";
     }
-#endif
     strcpy(fn, tmp);
     strcat(fn, "/ei_print_test.txt");
     f = fopen(fn, "w+");

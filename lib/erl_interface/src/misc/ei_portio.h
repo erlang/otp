@@ -23,7 +23,7 @@
 #define _EI_PORTIO_H
 
 #undef EI_HAVE_STRUCT_IOVEC__
-#if !defined(__WIN32__) && !defined(VXWORKS) && defined(HAVE_SYS_UIO_H)
+#if !defined(__WIN32__) && defined(HAVE_SYS_UIO_H)
 /* Declaration of struct iovec *iov should be visible in this scope. */
 #  include <sys/uio.h>
 #  define EI_HAVE_STRUCT_IOVEC__

@@ -33,23 +33,6 @@
 #include <windows.h>
 #include <winbase.h>
 
-#elif VXWORKS
-
-#include <stdio.h>
-#include <string.h>
-#include <vxWorks.h>
-#include <hostLib.h>
-#include <selectLib.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <taskLib.h>
-#include <inetLib.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h> 
-#include <time.h>
-
 #else /* unix */
 
 #include <sys/types.h>
@@ -133,13 +116,7 @@ static char* ei_chk_strdup(char *s);
  *
  ***************************************************************************/
 
-/* FIXME isn't VxWorks to handle arguments differently? */
-
-#if !defined(VXWORKS)
 int main(int argc, char *argv[])
-#else
-int erl_call(int argc, char **argv)
-#endif
 {
     int i = 1,fd,creation;
     struct hostent *hp;
@@ -326,13 +303,8 @@ int erl_call(int argc, char **argv)
       /* As default we are c17@gethostname */
       i = flags.randomp ? (time(NULL) % 997) : 17;
       flags.hidden = (char *) ei_chk_malloc(10 + 2 ); /* c17 or cXYZ */
-#if defined(VXWORKS)
-      sprintf(flags.hidden, "c%d",
-	  i < 0 ?  (int) taskIdSelf() : i);
-#else
       sprintf(flags.hidden, "c%d",
 	  i < 0 ?  (int) getpid() : i);
-#endif
     }
     {
       /* A name for our hidden node was specified */

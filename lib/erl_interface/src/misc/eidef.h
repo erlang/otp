@@ -27,11 +27,6 @@
 
 #include "config.h"		/* Central include of config.h */
 
-/* vxWorks.h needs to be before stddef.h */
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #include <stddef.h>		/* We want to get definition of NULL */
 
 #include "ei.h"			/* Want the API function declarations */

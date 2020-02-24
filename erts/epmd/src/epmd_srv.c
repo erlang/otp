@@ -410,12 +410,11 @@ void run(EpmdVars *g)
 	 in accept() waiting for the next request. */
 #if (defined(__WIN32__) || defined(NO_FCNTL))
       opt = 1;
-      /* Gives warning in VxWorks */
       if (ioctl(listensock[i], FIONBIO, &opt) != 0)
 #else
       opt = fcntl(listensock[i], F_GETFL, 0);
       if (fcntl(listensock[i], F_SETFL, opt | O_NONBLOCK) == -1)
-#endif /* __WIN32__ || VXWORKS */
+#endif /* __WIN32__ */
 	dbg_perror(g,"failed to set non-blocking mode of listening socket %d",
 		   listensock[i]);
 
@@ -1054,23 +1053,6 @@ static int conn_open(EpmdVars *g,int fd)
 {
   int i;
   Connection *s;
-
-#ifdef VXWORKS
-  /*
-   * Since file descriptors are global on VxWorks, we might get an fd that
-   * does not fit in the FD_SET.
-   *
-   * Note: This test would be harmless on Unix, but would fail on Windows
-   * because socket are numbered differently and FD_SETs are implemented
-   * differently.
-   */
-  if (fd >= FD_SETSIZE) {
-      dbg_tty_printf(g,0,"file descriptor %d: too high for FD_SETSIZE=%d",
-		     fd,FD_SETSIZE);
-      close(fd);
-      return EPMD_FALSE;
-  }
-#endif
 
   for (i = 0; i < g->max_conn; i++) {
     if (g->conn[i].open == EPMD_FALSE) {

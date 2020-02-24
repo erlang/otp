@@ -38,30 +38,7 @@
 #include <windows.h>
 #include <winbase.h>
 
-#elif VXWORKS
-#include <vxWorks.h>
-#include <hostLib.h>
-#include <selectLib.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <taskLib.h>
-#include <inetLib.h>
-#include <ioLib.h>
-
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/times.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h> 
-#include <timers.h> 
-
-#define getpid() taskIdSelf()
-extern int h_errno;
-
-#else /* some other unix */
+#else /* some unix */
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/times.h>

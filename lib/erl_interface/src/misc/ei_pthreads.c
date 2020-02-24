@@ -38,25 +38,6 @@ static LONG volatile tls_init_mutex = 0;
 #endif
 #endif
 
-#if defined(VXWORKS)
-
-/* 
-   Moved to each of the erl_*threads.c files, as they seem to know how
-   to get thread-safety. 
-*/
-static volatile int __erl_errno;
-volatile int *__erl_errno_place(void)
-{
-    /* This check is somewhat insufficient, double task var entries will occur
-       if __erl_errno is actually -1, which on the other hand is an invalid 
-       error code. */
-    if (taskVarGet(taskIdSelf(), &__erl_errno) == ERROR) {
-	taskVarAdd(taskIdSelf(), &__erl_errno);
-    }
-    return &__erl_errno;
-}
-#endif /* VXWORKS */
-
 #if defined(__WIN32__)
 
 #ifdef USE_DECLSPEC_THREAD
@@ -106,7 +87,7 @@ volatile int *__erl_errno_place(void)
 
 #endif /* __WIN32__ */
 
-#if defined(_REENTRANT) && !defined(VXWORKS) && !defined(__WIN32__)
+#if defined(_REENTRANT) && !defined(__WIN32__)
 
 #if defined(HAVE_PTHREAD_H) || defined(HAVE_MIT_PTHREAD_H)
 
@@ -219,9 +200,9 @@ volatile int *__erl_errno_place(void)
 
 #endif /* HAVE_PTHREAD_H || HAVE_MIT_PTHREAD_H */
 
-#endif /* _REENTRANT && !VXWORKS && !__WIN32__ */
+#endif /* _REENTRANT && !__WIN32__ */
 
-#if !defined(_REENTRANT) && !defined(VXWORKS) && !defined(__WIN32__)
+#if !defined(_REENTRANT) && !defined(__WIN32__)
 
 volatile int __erl_errno;
 

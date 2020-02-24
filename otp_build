@@ -70,9 +70,6 @@ usage ()
     echo "    env_win64 - echo environment settings for win32 with visual C++, use with eval"
     echo "                Note that env_win32 x64 gives the same result, Windows 64bit"
     echo ""
-    echo "Before trying to build for vxworks, consider the following option"
-    echo "    env_vxworks <cpu>  - echo environment settings for vxworks, use with eval"
-    echo ""
     case $version_controller in
 	none)
 	    ;;
@@ -227,19 +224,6 @@ distribute_config_helpers ()
 do_autoconf ()		
 {
 	distribute_config_helpers
-
-	if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
-	    echo "Autoconf disabled on target $TARGET, but is performed on host" >&2
-	    # We still use erts configure for erl_interface and VxWorks
-	    case "$TARGET" in
-		*vxworks*)
-		    AUTOCONF_SUBDIRS=`echo $AUTOCONF_SUBDIRS | \
-					sed -e 's,lib/erl_interface,,' \
-					    -e 's,lib/gs,,' \
-					    -e 's,lib/megaco,,'`
-		    ;;
-	    esac
-	fi
 	
 	hide_vars OVERRIDE_TARGET TARGET
 	TARGET=$BUILDSYS
@@ -448,33 +432,12 @@ do_configure ()
     # Get `erl_build_tool_vars'
     . "$ERL_TOP/erl-build-tool-vars.sh" || exit 1
 
-    if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
-	case $TARGET in
-	    vxworks_*)
-		( cd erts/autoconf && \
-		  "$ERL_TOP/erts/autoconf/configure.vxworks" $TARGET )
-		  echo "Configuring for build system too..." >&2
-		  hide_vars OVERRIDE_TARGET TARGET
-		  TARGET=$BUILDSYS
-		  export TARGET
-		  set_config_flags "$@"
-		  run_configure "$@"
-		  restore_vars OVERRIDE_TARGET TARGET;;
-	    *)
-		echo "Unexpected target when ordinary configure is" \
-			"overridden" >&2
-		echo 'check if $OVERRIDE_CONFIGURE and $OVERRIDE_TAGET' \
-		        'environments are correct.' >&2
-		exit 1;;
-	esac
-    else
-	maybe_copy_static_cache
-	try_cross_configure "$@"
-	if [ $cross_configure = no ]; then
-	    CONFIG_FLAGS=
-	    set_config_flags "$@"
-	    run_configure "$@"
-	fi
+    maybe_copy_static_cache
+    try_cross_configure "$@"
+    if [ $cross_configure = no ]; then
+	CONFIG_FLAGS=
+	set_config_flags "$@"
+	run_configure "$@"
     fi
 }
 
@@ -531,18 +494,6 @@ echo_envinfo ()
 	echo '# $ eval `./otp_build env_<something>`'
 	echo '# If you see this comment, you probably haven'"'"'t done that.'
     fi
-}
-
-echo_env_vxworks ()
-{
-    if [ -z "$1" ]; then 
-	echo "env_vxworks requires CPU architecture as parameter (ppc603, ppc860 etc)." >&2
-	exit 1
-    fi
-    echo_env_erltop
-    echo_setenv OVERRIDE_CONFIGURE true ';'
-    echo_setenv OVERRIDE_TARGET vxworks_$1
-    echo_envinfo
 }
 
 #
@@ -1300,8 +1251,6 @@ case "$1" in
 		echo_env_msys;;
 	env_msys64)
 		echo_env_msys true;;
-	env_vxworks)
-		echo_env_vxworks "$2";;
 	env_cross)
 		echo_env_cross "$2";;
         env_bootstrap)

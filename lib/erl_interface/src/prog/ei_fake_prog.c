@@ -54,11 +54,7 @@
 /* #include <netdb.h> now included by ei.h */
 #include "ei.h"
 
-#ifdef VXWORKS
-int ei_fake_prog_main(void)
-#else
 int main(void)
-#endif
 {
   ErlConnect conp;
   Erl_IpAddr thisipaddr = (Erl_IpAddr)0;
@@ -91,12 +87,10 @@ int main(void)
   unsigned long *ulongp = NULL;
   unsigned long ulongx = 0;
   void *voidp = NULL;
-#ifndef VXWORKS
   EI_LONGLONG *longlongp = (EI_LONGLONG*)NULL;
   EI_LONGLONG longlongx = 0;
   EI_ULONGLONG *ulonglongp = (EI_ULONGLONG*)NULL;
   EI_ULONGLONG ulonglongx = 0;
-#endif
   erlang_char_encoding enc;
   ei_socket_callbacks cbs;
 
@@ -260,16 +254,12 @@ int main(void)
   }
 #endif /* HAVE_GMP_H && HAVE_LIBGMP */
 
-#ifndef VXWORKS
-
   ei_decode_longlong(charp, intp, longlongp);
   ei_decode_ulonglong(charp, intp, ulonglongp);
   ei_encode_longlong(charp, intp, longlongx);
   ei_encode_ulonglong(charp, intp, ulonglongx);
   ei_x_encode_longlong(&eix, longlongx);
   ei_x_encode_ulonglong(&eix, ulonglongx);
-
-#endif
 
 #ifdef USE_EI_UNDOCUMENTED
 

@@ -32,26 +32,7 @@
 #include <windows.h>
 #include <winbase.h>
 
-#elif VXWORKS
-#include <vxWorks.h>
-#include <hostLib.h>
-#include <selectLib.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <taskLib.h>
-#include <inetLib.h>
-
-#include <unistd.h>
-#include <sys/times.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h> 
-#include <timers.h> 
-
-#define getpid() taskIdSelf()
-
-#else /* some other unix */
+#else /* some unix */
 #include <unistd.h>
 #include <sys/times.h>
 
@@ -1708,21 +1689,6 @@ unsigned int gen_challenge(void)
     GetSystemTime(&s.tv);
     s.cpu  = GetTickCount();
     s.pid  = getpid();
-    return md_32((char*) &s, sizeof(s));
-}
-
-#elif  defined(VXWORKS)
-
-static unsigned int gen_challenge(void)
-{
-    struct {
-	struct timespec tv;
-	clock_t cpu;
-	int pid;
-    } s;
-    s.cpu  = clock();
-    clock_gettime(CLOCK_REALTIME, &s.tv);
-    s.pid = getpid();
     return md_32((char*) &s, sizeof(s));
 }
 

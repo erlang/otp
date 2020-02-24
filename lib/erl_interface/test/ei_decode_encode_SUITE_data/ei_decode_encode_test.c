@@ -18,10 +18,6 @@
  * %CopyrightEnd%
  */
 
-#ifdef VXWORKS
-#include "reclaim.h"
-#endif
-
 #include "ei_runner.h"
 
 /*

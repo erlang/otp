@@ -22,10 +22,6 @@
 #include <windows.h>
 #include <winbase.h>
 
-#elif VXWORKS
-#include <sys/types.h>
-#include <unistd.h>
-
 #else /* unix */
 #include <sys/types.h>
 #include <unistd.h>

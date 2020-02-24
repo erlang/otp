@@ -29,9 +29,7 @@
 #include <windows.h>
 #include <process.h>
 #else
-#ifndef VXWORKS
 #include <pthread.h>
-#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -40,14 +38,7 @@
 #include "ei.h"
 #include "my_ussi.h"
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#include <sockLib.h>
-#include <inetLib.h>
-#define MAIN cnode
-#else
 #define MAIN main
-#endif
 
 /*
    A small einode.
@@ -163,12 +154,10 @@ int
 MAIN(int argc, char *argv[])
 {
     int i, n, no_threads;
-#ifndef VXWORKS
 #ifdef __WIN32__
     HANDLE threads[100];
 #else
     pthread_t threads[100];
-#endif
 #endif
 
     if (argc < 4)
@@ -190,15 +179,11 @@ MAIN(int argc, char *argv[])
         no_threads = 0;
     else
         no_threads = argv[4] != NULL && strcmp(argv[4], "nothreads") == 0;
-#ifdef VXWORKS
-    no_threads = 1;
-#endif
 
     ei_init();
 
     for (i = 0; i < n; ++i) {
 	if (!no_threads) {
-#ifndef VXWORKS
 #ifdef __WIN32__
 	    unsigned tid;
 	    threads[i] = (HANDLE)_beginthreadex(NULL, 0, einode_thread,
@@ -206,15 +191,11 @@ MAIN(int argc, char *argv[])
 #else
 	    pthread_create(&threads[i], NULL, einode_thread, (void*)(size_t)i);
 #endif
-#else
-	    ;
-#endif
 	} else
 	    einode_thread((void*)(size_t)i);
     }
 
     if (!no_threads)
-#ifndef VXWORKS
 	for (i = 0; i < n; ++i) {
 #ifdef __WIN32__
 	    if (WaitForSingleObject(threads[i], INFINITE) != WAIT_OBJECT_0)
@@ -223,9 +204,6 @@ MAIN(int argc, char *argv[])
 #endif
 		printf("bad wait thread %d\n", i);
 	}
-#else
-    ;
-#endif
     printf("ok\n");
     return 0;
 }

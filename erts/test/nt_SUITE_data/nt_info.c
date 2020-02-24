@@ -27,12 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if defined(VXWORKS)
-int nt_info(int argc, char **argv){
-    printf("Hello Älvsjö!\n");
-    return 0;
-}
-#elif !defined(__WIN32__)
+#if !defined(__WIN32__)
 int main(int argc, char **argv){
     printf("Hello Älvsjö!\n");
     return 0;

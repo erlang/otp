@@ -29,10 +29,7 @@
 #include "ethread_inline.h"
 #include "erl_misc_utils.h"
 
-#if defined(__WIN32__)
-#elif defined(VXWORKS)
-#  include <selectLib.h>
-#else /* UNIX */
+#if !defined(__WIN32__) /* UNIX */
 #  include <stdio.h>
 #  include <sys/types.h>
 #  include <sys/param.h>

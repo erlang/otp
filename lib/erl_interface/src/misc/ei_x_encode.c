@@ -23,10 +23,6 @@
  * ei_x_encode to encode in a self-expanding buffer
  */
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

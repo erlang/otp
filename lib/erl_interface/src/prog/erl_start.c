@@ -31,40 +31,7 @@
 #include <windows.h>
 #include <winbase.h>
 
-#elif VXWORKS
-#include <stdio.h>
-#include <string.h>
-#include <vxWorks.h>
-#include <hostLib.h>
-#include <selectLib.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <taskLib.h>
-#include <inetLib.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <symLib.h>
-#include <sysSymTbl.h>
-#include <sysLib.h>
-#include <tickLib.h>
-
-#if TIME_WITH_SYS_TIME
-# include <sys/time.h>
-# include <time.h>
-#else
-# if HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# else
-#  include <time.h>
-# endif
-#endif
-
-#include <a_out.h>
-
-/* #include "netdb.h" */
-#else /* other unix */
+#else /* unix */
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -111,7 +78,7 @@ typedef socklen_t SocklenType;
 static struct in_addr *get_addr(const char *hostname, struct in_addr *oaddr);
 
 static int wait_for_erlang(int sockd, int magic, struct timeval *timeout);
-#if defined(VXWORKS) || defined(__WIN32__)
+#if defined(__WIN32__)
 static int unique_id(void);
 static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 				       char *alive,
@@ -148,7 +115,7 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
   int port;
   int sockd = 0;
   int one = 1;
-#if defined(VXWORKS) || defined(__WIN32__)
+#if defined(__WIN32__)
   unsigned long pid = 0;
 #else
   int pid = 0;
@@ -177,7 +144,7 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
 
   listen(sockd,5);
 
-#if defined(VXWORKS) || defined(__WIN32__)
+#if defined(__WIN32__)
   if((pid = spawn_erlang_epmd(ec,alive,adr,flags,erl,args,port,1))
       == 0)
      return ERL_SYS_ERROR;
@@ -185,15 +152,9 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
   timeout.tv_sec = 10; /* ignoring ERL_START_TIME */
   if((r = wait_for_erlang(sockd,unique_id(),&timeout))
      == ERL_TIMEOUT) {
-#if defined(VXWORKS)
-      taskDelete((int) pid);
-      if(taskIdVerify((int) pid) != ERROR)
-	  taskDeleteForce((int) pid);
-#else /* Windows */
       /* Well, this is not a nice way to do it, and it does not 
 	 always kill the emulator, but the alternatives are few.*/
       TerminateProcess((HANDLE) pid,1);
-#endif /* defined(VXWORKS) */
   }
 #else /* Unix */
   switch ((pid = fork())) {
@@ -229,7 +190,7 @@ int erl_start_sys(ei_cnode *ec, char *alive, Erl_IpAddr adr, int flags,
     }
 
   }
-#endif /* defined(VXWORKS) || defined(__WIN32__) */
+#endif /* defined(__WIN32__) */
 
 done:
 #if defined(__WIN32__)
@@ -240,18 +201,10 @@ done:
   return r;
 } /* erl_start_sys() */
 
-#if defined(VXWORKS) || defined(__WIN32__)
-#if defined(VXWORKS)
-#define DEF_ERL_COMMAND ""
-#define DEF_EPMD_COMMAND ""
-#define ERLANG_SYM "start_erl"
-#define EPMD_SYM "start_epmd"
-#define ERL_REPLY_FMT   "-s erl_reply reply %s %d %d"
-#else
+#if defined(__WIN32__)
 #define DEF_ERL_COMMAND "erl"
 #define DEF_EPMD_COMMAND "epmd"
 #define ERL_REPLY_FMT   "-s erl_reply reply \"%s\" \"%d\" \"%d\""
-#endif
 #define ERL_NAME_FMT    "-noinput -name %s"
 #define ERL_SNAME_FMT   "-noinput -sname %s"
 
@@ -259,11 +212,7 @@ done:
 #define FORMATTED_INT_LEN 10
 
 static int unique_id(void){
-#if defined(VXWORKS)
-    return taskIdSelf();
-#else
     return (int) GetCurrentThreadId();
-#endif
 }
 
 static int enquote_args(char **oargs, char ***qargs){
@@ -317,20 +266,7 @@ static void free_args(char **args){
     free(args);
 }
 
-#if defined(VXWORKS)
-static  FUNCPTR lookup_function(char *symname){
-    char *value;
-    SYM_TYPE type;
-    if(symFindByName(sysSymTbl,
-		     symname,
-		     &value,
-		     &type) == ERROR /*|| type != N_TEXT*/)
-	return NULL;
-    return (FUNCPTR) value;
-}
-#endif /* defined(VXWORKS) */
-
-/* In NT and VxWorks, we cannot fork(), Erlang and Epmd gets 
+/* In NT we cannot fork(), Erlang and Epmd gets 
    spawned by this function instead. */
 
 static unsigned long spawn_erlang_epmd(ei_cnode *ec,
@@ -342,13 +278,9 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 				       int port,
 				       int is_erlang)
 {
-#if defined(VXWORKS)
-    FUNCPTR erlfunc;
-#else /* Windows */
     STARTUPINFO sinfo;
     SECURITY_ATTRIBUTES sa;
     PROCESS_INFORMATION pinfo;
-#endif
     char *cmdbuf;
     int cmdlen;
     char *ptr;
@@ -362,14 +294,10 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 
     if(is_erlang){
 	get_addr(ei_thishostname(ec), &myaddr);
-#if defined(VXWORKS)
-        inet_ntoa_b(myaddr, iaddrbuf);
-#else /* Windows */
 	if((ptr = inet_ntoa(myaddr)) == NULL)
 	    return 0;
 	else
 	    strcpy(iaddrbuf,ptr);
-#endif
     }
     if ((flags & ERL_START_REMOTE) ||
 	(is_erlang && (hisaddr->s_addr != myaddr.s_addr))) {
@@ -378,11 +306,7 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 	num_args = enquote_args(args, &args);
 	for(cmdlen = i = 0; args[i] != NULL; ++i)
 	    cmdlen += strlen(args[i]) + 1;
-#if !defined(VXWORKS)
-	/* On VxWorks, we dont actually run a command,
-	   we call start_erl() */
 	if(!erl_or_epmd)
-#endif
 	    erl_or_epmd = (is_erlang) ? DEF_ERL_COMMAND :
 	    DEF_EPMD_COMMAND;
 	if(is_erlang){
@@ -417,23 +341,6 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 	    fprintf(stderr,"erl_call: commands are %s\n",cmdbuf);
 	}
 	/* OK, one single command line... */
-#if defined(VXWORKS)
-	erlfunc = lookup_function((is_erlang) ? ERLANG_SYM :
-				  EPMD_SYM);
-	if(erlfunc == NULL){
-	    if (flags & ERL_START_VERBOSE) {
-		fprintf(stderr,"erl_call: failed to find symbol %s\n",
-			(is_erlang) ? ERLANG_SYM : EPMD_SYM);
-	    }
-	    ret = 0;
-	} else {
-	/* Just call it, it spawns itself... */
-	    ret = (unsigned long) 
-		(*erlfunc)((int) cmdbuf,0,0,0,0,0,0,0,0,0);
-	    if(ret == (unsigned long) ERROR)
-		ret = 0;
-	}
-#else /* Windows */
 	/* Hmmm, hidden or unhidden window??? */
 	memset(&sinfo,0,sizeof(sinfo));
 	sinfo.cb = sizeof(STARTUPINFO); 
@@ -460,7 +367,6 @@ static unsigned long spawn_erlang_epmd(ei_cnode *ec,
 	    ret = 0;
 	else
 	    ret = (unsigned long) pinfo.hProcess;
-#endif
 	free(cmdbuf);
 	return ret;
     }
@@ -488,7 +394,7 @@ static int exec_erlang(ei_cnode *ec,
 		       char *args[],
 		       int port)
 {
-#if !defined(__WIN32__) && !defined(VXWORKS) 
+#if !defined(__WIN32__) 
   int fd,len,l,i;
   char **s;
   char *argv[4];
@@ -587,7 +493,7 @@ static int exec_erlang(ei_cnode *ec,
   return ERL_SYS_ERROR;
 } /* exec_erlang() */
 
-#endif /* defined(VXWORKS) || defined(WINDOWS) */
+#endif /* defined(WINDOWS) */
 
 #if defined(__WIN32__)
 static void gettimeofday(struct timeval *now,void *dummy){
@@ -601,13 +507,6 @@ static void gettimeofday(struct timeval *now,void *dummy){
     now->tv_usec = x % 1000000;
 }
 
-#elif defined(VXWORKS)
-static void gettimeofday(struct timeval *now, void *dummy){
-    int rate = sysClkRateGet(); /* Ticks per second */
-    unsigned long ctick = tickGet();
-    now->tv_sec = ctick / rate; /* secs since reboot */
-    now->tv_usec = ((ctick - (now->tv_sec * rate))*1000000)/rate;
-}
 #endif
 
 

@@ -935,7 +935,6 @@ dnl
 HCC='$(CC)'         AC_SUBST(HCC)
 HCFLAGS=""          AC_SUBST(HCFLAGS)
 HCFLAGS="$HCFLAGS -I${ERL_TOP}/erts/$host"
-vxworks_reclaim=""  AC_SUBST(vxworks_reclaim)
 
 dnl We want to use $(CC) as linker for the emulator regardless of
 dnl what the user say. This might not be the right way to do it, but
@@ -964,7 +963,7 @@ dnl AC_CYGWIN is deprecated
 AC_EXEEXT
 AC_OBJEXT
 
-dnl This is the os flavour, should be unix, ose, vxworks or win32
+dnl This is the os flavour, should be unix or win32
 case $host in
    win32)
       ERLANG_OSTYPE=win32 ;;
@@ -1613,20 +1612,14 @@ AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
 AC_CHECK_MEMBERS([struct ifreq.ifr_hwaddr], [], [],
 	[#ifdef __WIN32__
 	 #else
-	 #ifdef VXWORKS
-	 #else
 	 #include <net/if.h>
-	 #endif
 	 #endif
 	])
 
 AC_CHECK_MEMBERS([struct ifreq.ifr_enaddr], [], [],
 	[#ifdef __WIN32__
 	 #else
-	 #ifdef VXWORKS
-	 #else
 	 #include <net/if.h>
-	 #endif
 	 #endif
 	])
 

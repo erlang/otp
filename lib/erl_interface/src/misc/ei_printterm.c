@@ -24,10 +24,6 @@
  * ei_print_term to print out a binary coded term
  */
 
-#ifdef VXWORKS
-#include <vxWorks.h>
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>

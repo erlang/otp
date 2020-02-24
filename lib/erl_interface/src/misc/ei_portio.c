@@ -42,29 +42,7 @@ static unsigned long param_one = 1;
 #define MEANS_SOCKET_ERROR(Ret) ((Ret == SOCKET_ERROR))
 #define IS_INVALID_SOCKET(Sock) ((Sock) == INVALID_SOCKET)
 
-#elif VXWORKS
-#include <vxWorks.h>
-#include <hostLib.h>
-#include <ifLib.h>
-#include <sockLib.h>
-#include <taskLib.h>
-#include <inetLib.h>
-#include <selectLib.h>
-#include <ioLib.h>
-#include <unistd.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h> 
-#include <timers.h>
-
-static unsigned long param_zero = 0;
-static unsigned long param_one = 1;
-#define SET_BLOCKING(Sock) ioctl((Sock),FIONBIO,(int)&param_zero)
-#define SET_NONBLOCKING(Sock) ioctl((Sock),FIONBIO,(int)&param_one)
-#define MEANS_SOCKET_ERROR(Ret) ((Ret) == ERROR)
-#define IS_INVALID_SOCKET(Sock) ((Sock) < 0)
-
-#else /* other unix */
+#else /* unix */
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
