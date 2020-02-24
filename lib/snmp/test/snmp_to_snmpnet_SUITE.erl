@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2014-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2014-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -130,8 +130,11 @@ snmpd_cases() ->
 %% -----
 %%
 
-init_per_suite(Config) ->
-    case netsnmp_init(Config) of
+init_per_suite(Config0) ->
+    ?IPRINT("init_per_suite -> entry with"
+            "~n   Config: ~p", [Config0]),
+
+    case netsnmp_init(Config0) of
         {skip, _} = SKIP ->
             SKIP;
 
@@ -142,6 +145,10 @@ init_per_suite(Config) ->
 
                 Config2 when is_list(Config2) ->
                     snmp_test_sys_monitor:start(),
+                    
+                    ?IPRINT("init_per_suite -> end when"
+                            "~n      Config: ~p", [Config2]),
+
                     Config2
             end
     end.
@@ -176,9 +183,15 @@ netsnmp_check(RE) ->
 
 
 end_per_suite(Config) ->
-    snmp_test_sys_monitor:stop(),
-    ?LIB:end_per_suite(Config).
+    ?IPRINT("end_per_suite -> entry with"
+            "~n   Config: ~p", [Config]),
 
+    snmp_test_sys_monitor:stop(),
+    ?LIB:end_per_suite(Config),
+
+    ?IPRINT("end_per_suite -> end"),
+
+    Config.
 
 %%
 %% -----
@@ -260,17 +273,27 @@ end_per_group(_GroupName, Config) ->
 %%
 
 init_per_testcase(_Case, Config) ->
+    ?IPRINT("init_per_testcase -> entry with"
+            "~n   Config: ~p", [Config]),
 
     snmp_test_global_sys_monitor:reset_events(),
 
-    Dog = ct:timetrap(20000),
+    Dog = ct:timetrap(?SECS(20)),
     application:stop(snmp),
     application:unload(snmp),
-    [{watchdog, Dog} | Config].
+    Config1 = [{watchdog, Dog} | Config],
+
+    ?IPRINT("init_per_testcase -> done when"
+            "~n   Config: ~p", [Config1]),
+
+    Config1.
 
 end_per_testcase(_, Config) ->
 
-    ?PRINT2("system events during test: "
+    ?IPRINT("end_per_testcase -> entry with"
+            "~n   Config:  ~p", [Config]),
+
+    ?IPRINT("system events during test: "
             "~n   ~p", [snmp_test_global_sys_monitor:events()]),
 
     case application:stop(snmp) of
@@ -285,6 +308,10 @@ end_per_testcase(_, Config) ->
 	E2 ->
 	    ct:pal("application:unload(snmp) -> ~p", [E2])
     end,
+
+    ?IPRINT("end_per_testcase -> done with"
+            "~n   Config: ~p", [Config]),
+
     Config.
 
 find_executable(Exec, Config) ->
