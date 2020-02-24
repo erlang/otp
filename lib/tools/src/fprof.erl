@@ -2782,6 +2782,8 @@ parsify({A, B, C}) ->
     {parsify(A), parsify(B), parsify(C)};
 parsify(Tuple) when is_tuple(Tuple) ->
     list_to_tuple(parsify(tuple_to_list(Tuple)));
+parsify(Map) when is_map(Map) ->
+    maps:from_list(parsify(maps:to_list(Map)));
 parsify(Pid) when is_pid(Pid) ->
     erlang:pid_to_list(Pid);
 parsify(Port) when is_port(Port) ->
