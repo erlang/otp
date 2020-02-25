@@ -109,6 +109,9 @@
 -define(CRYPTO_SUPPORT(),    ?LIB:crypto_support()).
 
 
+-define(ENSURE_NOT_RUNNING(N, S, T), ?LIB:ensure_not_running(N, S, T)).
+
+
 %% - Dir macros -
 
 -define(DEL_DIR(D),         ?LIB:del_dir(D)).

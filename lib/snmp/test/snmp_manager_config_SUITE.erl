@@ -778,7 +778,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason11} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason11]),
     ?line {failed_reading, _, _, 1, {parse_error, _}} = Reason11,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid IP address (2)"),
@@ -787,7 +787,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason12} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason12]),
     ?line {failed_check, _, _, 2, {bad_address, _}} = Reason12,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid IP address (3)"),
@@ -796,7 +796,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason13} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason13]),
     ?line {failed_check, _, _, 2, {bad_address, _}} = Reason13,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid port (2)"),
@@ -805,7 +805,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason21} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason21]),
     ?line {failed_reading, _, _, 2, {parse_error, _}} = Reason21,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid port (1)"),
@@ -815,7 +815,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?IPRINT("start failed (as expected): ~p", [Reason22]),
     io:format("Reason22: ~p~n", [Reason22]),
    ?line {failed_check, _, _, 3, {bad_port, _}} = Reason22,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid port (3)"),
@@ -824,7 +824,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason23} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason23]),
     ?line {failed_check, _, _, 3, {bad_port, _}} = Reason23,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid EngineID (1)"),
@@ -833,7 +833,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason31} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason31]),
     ?line {failed_check, _, _, 5, {invalid_string, _}} = Reason31,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid EngineID (2)"),
@@ -842,7 +842,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason32} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason32]),
     ?line {failed_check, _, _, 5, {invalid_string, _}} = Reason32,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid EngineID (3)"),
@@ -851,7 +851,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason33} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason33]),
     ?line {failed_check, _, _, 5, {invalid_string, _}} = Reason33,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid MMS (1)"),
@@ -860,7 +860,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason41} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason41]),
     ?line {failed_check, _, _, 4, {invalid_integer, _}} = Reason41,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid MMS (2)"),
@@ -869,7 +869,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason42} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason42]),
     ?line {failed_check, _, _, 4, {invalid_integer, _}} = Reason42,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid MMS (3)"),
@@ -878,7 +878,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason43} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason43]),
     ?line {failed_check, _, _, 4, {invalid_integer, _}} = Reason43,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with invalid MMS (4)"),
@@ -887,7 +887,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason44} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason44]),
     ?line {failed_check, _, _, 4, {invalid_integer, _}} = Reason44,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with unknown option"),
@@ -896,7 +896,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason51} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason51]),
     ?line {failed_check, _, _, 1, {unknown_config, _}} = Reason51,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write manager config file with unknown option"),
@@ -905,7 +905,7 @@ start_with_invalid_manager_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason52} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason52]),
     ?line {failed_check, _, _, 1, {unknown_config, _}} = Reason52,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     ?IPRINT("done"),
     ok.
@@ -939,7 +939,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason11} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason11]),
     ?line {failed_check, _, _, _, {bad_module, kalle}} = Reason11,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write users config file with invalid module (1)"),
@@ -947,7 +947,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason12} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason12]),
     ?line {failed_check, _, _, _, {bad_module, _}} = Reason12,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write users config file with invalid module (2)"),
@@ -955,7 +955,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason13} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason13]),
     ?line {failed_check, _, _, _, {bad_module, _}} = Reason13,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write users config file with invalid user tuple (1)"),
@@ -963,7 +963,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason21} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason21]),
     ?line {failed_check, _, _, _, {bad_user_config, _}} = Reason21,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write users config file with invalid user tuple (2)"),
@@ -971,7 +971,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason22} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason22]),
     ?line {failed_check, _, _, _, {bad_user_config, _}} = Reason22,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write users config file with invalid user tuple (3)"),
@@ -979,7 +979,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason23} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason23]),
     ?line {failed_check, _, _, _, {bad_user_config, _}} = Reason23,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write users config file with invalid user tuple (4)"),
@@ -987,7 +987,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason24} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason24]),
     ?line {failed_check, _, _, _, {bad_user_config, _}} = Reason24,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write users config file with invalid user agent default config (1)"),
@@ -995,7 +995,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason31} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason31]),
     ?line {failed_check, _, _, _, {bad_default_agent_config, _}} = Reason31,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("write users config file with invalid user agent default config (2)"),
@@ -1009,7 +1009,7 @@ start_with_invalid_users_conf_file1(Conf) when is_list(Conf) ->
 	{A, B, C, D} ->
 	    exit({bad_error, A, B, C, D})
     end,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     ?IPRINT("done"),
     ok.
@@ -1051,7 +1051,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason11} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason11]),
 	    ?line {failed_reading, _, _, _, {parse_error, _}} = Reason11,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_11 ->
 	    exit({error, {unexpected_success, "11", OK_11}})
     end,
@@ -1064,7 +1064,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason21} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason21]),
 	    ?line {failed_reading, _, _, _, {parse_error, _}} = Reason21,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_21 ->
 	    exit({error, {unexpected_success, "21", OK_21}})
     end,
@@ -1077,7 +1077,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason22} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason22]),
 	    ?line {failed_check, _, _, _, {invalid_string, _}} = Reason22,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_22 ->
 	    exit({error, {unexpected_success, "22", OK_22}})
     end,
@@ -1090,7 +1090,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason23} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason23]),
 	    ?line {failed_check, _, _, _, {invalid_string, _}} = Reason23,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_23 ->
 	    exit({error, {unexpected_success, "23", OK_23}})
     end,
@@ -1103,7 +1103,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason31} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason31]),
 	    ?line {failed_reading, _, _, _, {parse_error, _}} = Reason31,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_31 ->
 	    exit({error, {unexpected_success, "31", OK_31}})
     end,
@@ -1116,7 +1116,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason32} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason32]),
 	    ?line {failed_check, _, _, _, {invalid_string, _}} = Reason32,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_32 ->
 	    exit({error, {unexpected_success, "32", OK_32}})
     end,
@@ -1129,7 +1129,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason33} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason33]),
 	    ?line {failed_check, _, _, _, {invalid_string, _}} = Reason33,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_33 ->
 	    exit({error, {unexpected_success, "33", OK_33}})
     end,
@@ -1142,7 +1142,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason51} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason51]),
 	    ?line {failed_check, _, _, _, {bad_domain, _}} = Reason51,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_51 ->
 	    exit({error, {unexpected_success, "51", OK_51}})
     end,
@@ -1155,7 +1155,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason52} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason52]),
 	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason52,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_52 ->
 	    exit({error, {unexpected_success, "52", OK_52}})
     end,
@@ -1168,7 +1168,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason53} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason53]),
 	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason53,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_53 ->
 	    exit({error, {unexpected_success, "53", OK_53}})
     end,
@@ -1181,7 +1181,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, Reason54} ->
 	    ?IPRINT("start failed (as expected): ~p", [Reason54]),
 	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason54,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_54 ->
 	    exit({error, {unexpected_success, "54", OK_54}})
     end,
@@ -1193,7 +1193,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason55} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason55]),
     ?line {failed_check, _, _, _, {bad_address, _}} = Reason55,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 61] write agents config file with invalid port (1)"),
@@ -1202,7 +1202,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason61} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason61]),
     ?line {failed_check, _, _, _, {bad_address, _}} = Reason61,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 62] write agents config file with invalid port (2)"),
@@ -1211,7 +1211,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason62} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason62]),
     ?line {failed_check, _, _, _, {bad_address, _}} = Reason62,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 63] write agents config file with invalid port (3)"),
@@ -1220,7 +1220,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason63} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason63]),
     ?line {failed_check, _, _, _, {bad_address, _}} = Reason63,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 71] write agents config file with invalid engine-id (1)"),
@@ -1229,7 +1229,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason71} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason71]),
     ?line {failed_check, _, _, _, {invalid_string, _}} = Reason71,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 72] write agents config file with invalid engine-id (2)"),
@@ -1238,7 +1238,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason72} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason72]),
     ?line {failed_check, _, _, _, {invalid_string, _}} = Reason72,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 81] write agents config file with invalid timeout (1)"),
@@ -1247,7 +1247,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason81} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason81]),
     ?line {failed_check, _, _, _, {invalid_timer, _}} = Reason81,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 82] write agents config file with invalid timeout (2)"),
@@ -1256,7 +1256,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason82} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason82]),
     ?line {failed_check, _, _, _, {invalid_timer, _}} = Reason82,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 83] write agents config file with invalid timeout (3)"),
@@ -1265,7 +1265,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason83} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason83]),
     ?line {failed_check, _, _, _, {invalid_timer, _}} = Reason83,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 84] write agents config file with invalid timeout (4)"),
@@ -1274,7 +1274,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason84} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason84]),
     ?line {failed_check, _, _, _, {invalid_timer, _}} = Reason84,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 85] write agents config file with invalid timeout (5)"),
@@ -1283,7 +1283,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason85} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason85]),
     ?line {failed_check, _, _, _, {invalid_timer, _}} = Reason85,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 86] write agents config file with invalid timeout (6)"),
@@ -1292,7 +1292,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason86} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason86]),
     ?line {failed_check, _, _, _, {invalid_timer, _}} = Reason86,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 91] write agents config file with invalid max-message-size (1)"),
@@ -1301,7 +1301,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason91} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason91]),
     ?line {failed_check, _, _, _, {invalid_packet_size, _}} = Reason91,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 92] write agents config file with invalid max-message-size (2)"),
@@ -1310,7 +1310,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason92} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason92]),
     ?line {failed_check, _, _, _, {invalid_packet_size, _}} = Reason92,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test A1] write agents config file with invalid version (1)"),
@@ -1319,7 +1319,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, ReasonA1} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [ReasonA1]),
     ?line {failed_check, _, _, _, {bad_version, _}} = ReasonA1,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test A2] write agents config file with invalid version (2)"),
@@ -1328,7 +1328,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, ReasonA2} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [ReasonA2]),
     ?line {failed_check, _, _, _, {bad_version, _}} = ReasonA2,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test B1] write agents config file with invalid sec-model (1)"),
@@ -1337,7 +1337,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, ReasonB1} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [ReasonB1]),
     ?line {failed_check, _, _, _, {invalid_sec_model, _}} = ReasonB1,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test B2] write agents config file with invalid sec-model (2)"),
@@ -1346,7 +1346,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, ReasonB2} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [ReasonB2]),
     ?line {failed_check, _, _, _, {invalid_sec_model, _}} = ReasonB2,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test C1] write agents config file with invalid sec-name (1)"),
@@ -1356,7 +1356,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, ReasonC1} ->
 	    ?IPRINT("start failed (as expected): ~p", [ReasonC1]),
 	    ?line {failed_check, _, _, _, {bad_sec_name, _}} = ReasonC1,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_C1 ->
 	    exit({error, {unexpected_success, "C1", OK_C1}})
     end,
@@ -1369,7 +1369,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, ReasonC2} ->
 	    ?IPRINT("start failed (as expected): ~p", [ReasonC2]),
 	    ?line {failed_check, _, _, _, {bad_sec_name, _}} = ReasonC2,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_C2 ->
 	    exit({error, {unexpected_success, "C2", OK_C2}})
     end,
@@ -1382,7 +1382,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, ReasonD1} ->
 	    ?IPRINT("start failed (as expected): ~p", [ReasonD1]),
 	    ?line {failed_check, _, _, _, {invalid_sec_level, _}} = ReasonD1,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_D1 ->
 	    exit({error, {unexpected_success, "D1", OK_D1}})
     end,
@@ -1395,7 +1395,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, ReasonD2} ->
 	    ?IPRINT("start failed (as expected): ~p", [ReasonD2]),
 	    ?line {failed_check, _, _, _, {invalid_sec_level, _}} = ReasonD2,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_D2 ->
 	    exit({error, {unexpected_success, "D2", OK_D2}})
     end,
@@ -1407,7 +1407,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	{error, ReasonE1} ->
 	    ?IPRINT("start failed (as expected): ~p", [ReasonE1]),
 	    ?line {failed_check, _, _, _, {bad_agent_config, _}} = ReasonE1,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	OK_E1 ->
 	    exit({error, {unexpected_success, "E1", OK_E1}})
     end,
@@ -1465,7 +1465,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason11} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason11]),
     ?line {failed_reading, _, _, _, {parse_error, _}} = Reason11,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 12] write usm config file with invalid engine-id (2)"),
@@ -1474,7 +1474,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason12} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason12]),
     ?line {failed_check, _, _, _, {bad_usm_engine_id, _}} = Reason12,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 13] write usm config file with invalid engine-id (3)"),
@@ -1483,7 +1483,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason13} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason13]),
     ?line {failed_check, _, _, _, {bad_usm_engine_id, _}} = Reason13,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 21] write usm config file with invalid user-name (1)"),
@@ -1492,7 +1492,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason21} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason21]),
     ?line {failed_check, _, _, _, {bad_usm_user_name, _}} = Reason21,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 22] write usm config file with invalid user-name (1)"),
@@ -1501,7 +1501,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason22} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason22]),
     ?line {failed_check, _, _, _, {bad_usm_user_name, _}} = Reason22,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 31] write usm config file with invalid sec-name (1)"),
@@ -1510,7 +1510,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason31} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason31]),
     ?line {failed_check, _, _, _, {bad_usm_sec_name, _}} = Reason31,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 32] write usm config file with invalid sec-name (2)"),
@@ -1519,7 +1519,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason32} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason32]),
     ?line {failed_check, _, _, _, {bad_usm_sec_name, _}} = Reason32,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 41] write usm config file with invalid auth-protocol (1)"),
@@ -1528,7 +1528,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason41} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason41]),
     ?line {failed_check, _, _, _, {invalid_auth_protocol, _}} = Reason41,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 42] write usm config file with invalid auth-protocol (2)"),
@@ -1537,7 +1537,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason42} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason42]),
     ?line {failed_check, _, _, _, {invalid_auth_protocol, _}} = Reason42,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 43] write usm config file with invalid auth-protocol (3)"),
@@ -1546,7 +1546,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason43} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason43]),
     ?line {failed_check, _, _, _, {invalid_auth_protocol, _}} = Reason43,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 51] write usm config file with invalid auth-key (1)"),
@@ -1555,7 +1555,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason51} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason51]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason51,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 52] write usm config file with invalid auth-key (2)"),
@@ -1564,7 +1564,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason52} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason52]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _, 15}} = Reason52,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 53] write usm config file with invalid auth-key (3)"),
@@ -1573,7 +1573,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason53} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason53]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _, 17}} = Reason53,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 54] write usm config file with invalid auth-key (4)"),
@@ -1584,7 +1584,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line ok = maybe_stop_crypto(),
     ?IPRINT("start failed (as expected): ~p", [Reason54]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason54,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 55] write usm config file with invalid auth-key (5)"),
@@ -1593,7 +1593,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason55} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason55]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason55,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 56] write usm config file with invalid auth-key (6)"),
@@ -1602,7 +1602,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason56} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason56]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason56,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 57] write usm config file with invalid auth-key (7)"),
@@ -1611,7 +1611,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason57} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason57]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _, _}} = Reason57,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 58] write usm config file with invalid auth-key (8)"),
@@ -1620,7 +1620,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason58} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason58]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _, 16}} = Reason58,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 59] write usm config file with invalid auth-key (9)"),
@@ -1631,7 +1631,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line ok = maybe_stop_crypto(),
     ?IPRINT("start failed (as expected): ~p", [Reason59]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason59,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     %% <CRYPTO-MODIFICATIONS>
@@ -1648,7 +1648,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {error, Reason5A} = config_start(Opts),
 	    ?IPRINT("start failed (as expected): ~p", [Reason5A]),
 	    ?line {failed_check, _, _, _, {unsupported_crypto, _}} = Reason5A,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	_ ->
 	    %% This function is only present in version 2.0 or greater.
 	    %% The crypto app no longer needs to be explicitly started
@@ -1663,7 +1663,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason61} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason61]),
     ?line {failed_check, _, _, _, {invalid_priv_protocol, _}} = Reason61,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 62] write usm config file with invalid priv-protocol (2)"),
@@ -1672,7 +1672,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason62} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason62]),
     ?line {failed_check, _, _, _, {invalid_priv_protocol, _}} = Reason62,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 63] write usm config file with invalid priv-protocol (3)"),
@@ -1681,7 +1681,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason63} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason63]),
     ?line {failed_check, _, _, _, {invalid_priv_protocol, _}} = Reason63,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 71] write usm config file with invalid priv-key (1)"),
@@ -1690,7 +1690,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason71} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason71]),
     ?line {failed_check, _, _, _, {invalid_priv_key, _, _}} = Reason71,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 72] write usm config file with invalid priv-key (2)"),
@@ -1699,7 +1699,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason72} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason72]),
     ?line {failed_check, _, _, _, {invalid_priv_key, _, 15}} = Reason72,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 73] write usm config file with invalid priv-key (3)"),
@@ -1708,7 +1708,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason73} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason73]),
     ?line {failed_check, _, _, _, {invalid_priv_key, _, 17}} = Reason73,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 74] write usm config file with invalid priv-key (4)"),
@@ -1719,7 +1719,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line ok = maybe_stop_crypto(),
     ?IPRINT("start failed (as expected): ~p", [Reason74]),
     ?line {failed_check, _, _, _, {invalid_priv_key, _}} = Reason74,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 75] write usm config file with invalid priv-key (5)"),
@@ -1728,7 +1728,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason75} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason75]),
     ?line {failed_check, _, _, _, {invalid_priv_key, _}} = Reason75,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("[test 76] write usm config file with invalid priv-key (6)"),
@@ -1737,7 +1737,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason76} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason76]),
     ?line {failed_check, _, _, _, {invalid_priv_key, _}} = Reason76,
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     %% <CRYPTO-MODIFICATIONS>
@@ -1752,7 +1752,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {error, Reason77} = config_start(Opts),
 	    ?IPRINT("start failed (as expected): ~p", [Reason77]),
 	    ?line {failed_check, _, _, _, {unsupported_crypto, _}} = Reason77,
-	    await_config_not_running();
+	    config_ensure_not_running();
 	_ ->
 	    %% This function is only present in version 2.0 or greater.
 	    %% The crypto app no longer needs to be explicitly started
@@ -1766,7 +1766,7 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     ?line {error, Reason81} = config_start(Opts),
     ?IPRINT("start failed (as expected): ~p", [Reason81]),
     ?line {failed_check, _, _, _, {bad_usm_config, _}} = Reason81,
-    await_config_not_running(),
+    config_ensure_not_running(),
    
     ?IPRINT("done"),
     ok.
@@ -1837,7 +1837,7 @@ simple_system_op(Conf) when is_list(Conf) ->
     ?line {error, not_found} = snmpm_config:system_info(kalle),
     
     ?line ok = config_stop(),
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     ?IPRINT("done"),
     ok.
@@ -2036,7 +2036,7 @@ register_agent_using_file(Conf) when is_list(Conf) ->
     %% --
     ?IPRINT("stop config process"),
     ?line ok = snmpm_config:stop(),
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("done"),
@@ -2158,7 +2158,7 @@ register_usm_user_using_file(Conf) when is_list(Conf) ->
     %% --
     ?IPRINT("stop config process"),
     ?line ok = snmpm_config:stop(),
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("done"),
@@ -2258,7 +2258,7 @@ register_usm_user_using_function(Conf) when is_list(Conf) ->
     %% --
     ?IPRINT("stop config process"),
     ?line ok = snmpm_config:stop(),
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     %% --
     ?IPRINT("done"),
@@ -2366,7 +2366,7 @@ create_and_increment(Conf) when is_list(Conf) ->
     ?line EndVal   = snmpm_config:incr_counter(test_id, IncVal),
 
     ?line ok = snmpm_config:stop(),
-    await_config_not_running(),
+    config_ensure_not_running(),
     ok.
 
 
@@ -2417,7 +2417,7 @@ stats_create_and_increment(Conf) when is_list(Conf) ->
     ?line 10 = loop(10, -1, Stats1Inc),
 
     ?line ok = snmpm_config:stop(),
-    await_config_not_running(),
+    config_ensure_not_running(),
     ok.
 
 
@@ -2461,7 +2461,7 @@ otp_7219(Config) when is_list(Config) ->
 
     ?IPRINT("stop manager config"),
     ?line ok = snmpm_config:stop(),
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     IRB_TO = 15322, 
     Opts2 = [{versions, [v1]}, 
@@ -2476,7 +2476,7 @@ otp_7219(Config) when is_list(Config) ->
 
     ?IPRINT("stop manager config"),
     ?line ok = snmpm_config:stop(),
-    await_config_not_running(),
+    config_ensure_not_running(),
 
     ?IPRINT("done"),
     ok.
@@ -2643,51 +2643,16 @@ otp8395_incr_counter(Counter, Initial, Increment, Max) ->
 %% Internal functions
 %%======================================================================
 
-await_config_not_running() ->
-    await_not_running(snmpm_config, 5).
-
-await_not_running(Name, 0) ->
-    ?IPRINT("await_not_running -> done waiting for ~w to die - try kill it", [Name]),
-    %% Ok, we tried it the nice way, now use brute force
-    await_killed(Name, 5);
-await_not_running(Name, N) when N > 0 ->
-    ?IPRINT("await_not_running -> is process ~w still running (~w)", [Name, N]),
-    case erlang:whereis(Name) of
-	undefined ->
-	    ?IPRINT("await_not_running -> no such (~w) process - sleep some",[Name]),
-	    ?SLEEP(1000),
-	    ?IPRINT("await_not_running -> no such (~w) process - done", [Name]),
-	    ok;
-	Pid when is_pid(Pid) ->
-	    ?IPRINT("~w process still running", [Name]),
-	    ?SLEEP(500),
-	    await_not_running(Name, N-1)
-    end.
-    
-await_killed(Name, 0) ->
-    ?IPRINT("await_killed -> could not kill ~w => giving up", [Name]),
-    exit({error, {failed_terminating, Name}});
-await_killed(Name, N) when N > 0 ->
-    ?IPRINT("await_killed -> is process ~w still running (~w)", [Name, N]),
-    case whereis(Name) of
-	undefined ->
-	    ?IPRINT("await_killed -> no such (~w) process - sleep some", [Name]),
-	    ?SLEEP(1000),
-	    ?IPRINT("await_killed -> no such (~w) process - done", [Name]),
-	    ok;
-	Pid when is_pid(Pid) ->
-	    ?IPRINT("await_killed -> ~w still running - try kill it", [Name]),
-	    exit(Pid, kill),
-	    ?SLEEP(1000),
-	    await_killed(Name, N-1)
-    end.
-    
-
 config_start(Opts) ->
     (catch snmpm_config:start_link(Opts)).
 
 config_stop() ->
     (catch snmpm_config:stop()).
+
+config_ensure_not_running() ->
+    ?ENSURE_NOT_RUNNING(snmpm_config,
+                        fun() -> snmpm_config:stop() end,
+                        1000).
 
 
 %% ------

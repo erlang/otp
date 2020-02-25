@@ -42,7 +42,8 @@
 -export([ping/1, local_nodes/0, nodes_on/1]).
 -export([start_node/2, stop_node/1]).
 -export([is_app_running/1, 
-	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0]).
+	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0,
+         ensure_not_running/3]).
 -export([crypto_start/0, crypto_support/0]).
 -export([watchdog/3, watchdog_start/1, watchdog_start/2, watchdog_stop/1]).
 -export([del_dir/1]).
@@ -1449,8 +1450,74 @@ crypto_support([Func|Funcs], Acc) ->
  
 is_crypto_supported(Func) ->
     snmp_misc:is_crypto_supported(Func). 
- 
- 
+
+
+%% This function ensures that a *named* process on the local node is not running.
+%% It does so by:
+%%   1) Wait for 'Timeout' msec
+%%   2) If 1 did not work, issue 'stop' and then wait 'Timeout' msec
+%%   3) And finally, if 2 did not work, issue exit(kill).
+ensure_not_running(Name, Stopper, Timeout)
+  when is_atom(Name) andalso
+       is_function(Stopper, 0) andalso
+       is_integer(Timeout) ->
+    ensure_not_running(whereis(Name), Name, Stopper, Timeout).
+
+ensure_not_running(Pid, Name, Stopper, Timeout) when is_pid(Pid) ->
+    MRef = erlang:monitor(process, Pid),
+    try
+        begin
+            ensure_not_running_wait(Pid, MRef, Timeout),
+            ensure_not_running_stop(Pid, MRef, Stopper, Timeout),
+            ensure_not_running_kill(Pid, MRef, Timeout),
+            exit({failed_ensure_not_running, Name})
+        end
+    catch
+        throw:ok ->
+            sleep(1000),
+            ok
+    end;
+ensure_not_running(_, _, _, _) ->
+    iprint("ensure_not_running -> not running", []),
+    sleep(1000), % This should not actually be necessary!
+    ok.
+    
+    
+ensure_not_running_wait(Pid, MRef, Timeout) ->
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            iprint("ensure_not_running_wait -> died peacefully", []),
+            throw(ok)
+    after Timeout ->
+            wprint("ensure_not_running_wait -> giving up", []),
+            ok
+    end.
+
+ensure_not_running_stop(Pid, MRef, Stopper, Timeout) ->
+    %% Spawn a stop'er process
+    StopPid = spawn(Stopper),
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            nprint("ensure_not_running_stop -> dead (stopped)", []),
+            throw(ok)
+    after Timeout ->
+            wprint("ensure_not_running_stop -> giving up", []),
+            exit(StopPid, kill),
+            ok
+    end.
+
+ensure_not_running_kill(Pid, MRef, Timeout) ->
+    exit(Pid, kill),
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            nprint("ensure_not_running_kill -> dead (killed)", []),
+            throw(ok)
+    after Timeout ->
+            wprint("ensure_not_running_kill -> giving up", []),
+            ok
+    end.
+
+
 %% ----------------------------------------------------------------
 %% Watchdog functions
 %% 
