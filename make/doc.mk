@@ -143,7 +143,7 @@ clean_html:
 	rm -rf $(HTMLDIR)/*
 
 clean_chunks:
-	rm -f  $(CHUNKDIR)/*
+	rm -f  $(CHUNKSDIR)/*
 
 # ----------------------------------------------------
 # Release Target
