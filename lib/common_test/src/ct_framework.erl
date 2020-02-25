@@ -816,7 +816,7 @@ end_tc(Mod,Func00,TCPid,Result,Args,Return) ->
 			  lists:keydelete(Func,2,Running);
 		     ({_,{suite0_failed,_}}) ->
 			  undefined;
-		     ([{_,CurrTC}]) when CurrTC == Func ->
+		     ([{_,_}]) ->
 			  undefined;
 		     (undefined) ->
 			  undefined;
