@@ -1461,23 +1461,25 @@ usm_priv_aes(Config) when is_list(Config) ->
                                         {dir,       ConfDir},
                                         {db_dir,    DbDir}]}],
 
-                  p("try starting manager"),
+                  io:format("[~s] try starting manager", [?FTS()]),
                   ok = snmpm:start(Opts),
-                  ?SLEEP(1000) % Give it time to settle
+                  ?SLEEP(1000), % Give it time to settle
+                  ok
           end,
-    Case = fun(ok) -> do_usm_priv_aes(Config) end,
-    Post = fun(ok) ->
-                   p("try stop manager"),
-                   ok = snmpm:stop(), % Give it time to settle
-                   ?SLEEP(1000)
+    Case = fun(_) -> do_usm_priv_aes(Config) end,
+    Post = fun(_) ->
+                   io:format("[~s] try stop manager", [?FTS()]),
+                   ok = snmpm:stop(),
+                   ?SLEEP(1000), % Give it time to settle
+                   ok
            end,
     ?TC_TRY(usm_priv_aes, Pre, Case, Post).
 
 do_usm_priv_aes(Config) ->
-    p("starting with Config: "
-      "~n      ~p", [Config]),
+    io:format("[~s] starting with Config: "
+              "~n   ~p", [?FTS(), Config]),
 
-    p("generate AES-encrypted message"),
+    io:format("[~s] generate AES-encrypted message", [?FTS()]),
 
     EngineID = [128,0,0,0,6],
     SecName  = "v3_user",
@@ -1563,7 +1565,8 @@ do_usm_priv_aes(Config) ->
         SecLevel
       ),
 
-    p("got AES-encrypted message, now decrypt: ~n~p", [Msg]),
+    io:format("[~s] got AES-encrypted message, now decrypt: "
+              "~n   ~p", [?FTS(), Msg]),
 
     {message, _Version, Hdr, NextData} =
       snmp_pdus:dec_message_only(Msg),
@@ -1593,7 +1596,7 @@ do_usm_priv_aes(Config) ->
 
     Data = ScopedPDUBytes,
 
-    p("Message decrypted"),
+    io:format("[~s] Message decrypted", [?FTS()]),
     ok.
 
 
