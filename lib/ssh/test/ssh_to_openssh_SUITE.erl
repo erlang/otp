@@ -168,7 +168,8 @@ exec_with_io_in_sshc(Config) when is_list(Config) ->
 
     ExecStr = "\"io:read('% ').\"",
     Cmd =  "echo howdy. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
-                                                          "-x", % Disable X forwarding
+                                                          " -o StrictHostKeyChecking=no"
+                                                          " -x", % Disable X forwarding
                                                           ExecStr),
     ct:pal("Cmd = ~p~n",[Cmd]),
     case os:cmd(Cmd) of
@@ -194,7 +195,8 @@ exec_direct_with_io_in_sshc(Config) when is_list(Config) ->
     ct:sleep(500),
 
     Cmd =  "echo ciao. | " ++ ssh_test_lib:open_sshc_cmd(Host, Port,
-                                                         "-x", % Disable X forwarding
+                                                          " -o StrictHostKeyChecking=no"
+                                                          " -x", % Disable X forwarding
                                                          "'? '"),
     ct:pal("Cmd = ~p~n",[Cmd]),
     case os:cmd(Cmd) of
