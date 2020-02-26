@@ -237,7 +237,7 @@ get_phi_info_instr(#b_set{op=phi,dst=Dst,args=Args}, From, Sub0) ->
             #{Dst:='=:='} ->
                 get_phi_info_single_use(Dst, Sub0);
             #{Dst:={true_or_any,_}} ->
-                {true,Sub0};
+                get_phi_info_single_use(Dst, Sub0);
             #{} ->
                 {false,Sub0}
         end,
