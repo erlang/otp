@@ -2270,6 +2270,7 @@ beam_bool_SUITE(_Config) ->
     wrong_order(),
     megaco(),
     looks_like_a_guard(),
+    fail_in_guard(),
     ok.
 
 before_and_inside_if() ->
@@ -2495,6 +2496,22 @@ looks_like_a_guard(N) ->
         {_, true} -> ok;
         _ -> looks_like_a_guard(N)
     end.
+
+fail_in_guard() ->
+    false = struct_or_map(a, "foo"),
+    false = struct_or_map(a, foo),
+    false = struct_or_map(#{}, "foo"),
+    true = struct_or_map(#{}, foo),
+    ok.
+
+%% ERL-1183. If Name is not an atom, the `fail` atom must cause the
+%% entire guard to fail.
+struct_or_map(Arg, Name) when
+      (is_map(Arg) andalso (is_atom(Name) orelse fail) andalso
+       is_map_key(struct, Arg)) orelse is_map(Arg) -> true;
+struct_or_map(_Arg, _Name) ->
+    false.
+
 
 %%%
 %%% End of beam_bool_SUITE tests.
