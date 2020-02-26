@@ -77,6 +77,9 @@
 %% GCT exports
 -export([gct_init/1, gct/2]).
 
+%% NIS exports
+-export([nis_init/2, nis_loop/1]).
+
 %% CallBack Proxy exports
 -export([cbproxy_loop/1,
 	 do_handle_error/4,
@@ -157,6 +160,24 @@
 	 net_if,
 	 net_if_mod,
 	 net_if_ref,
+
+         %% NetIF supervision
+         %% This (config) option defines if/how the "server"
+         %% shall supervise the net-if process.
+         %% And by "supervise" we don't meant in the way a
+         %% *supervisor" supervisor. This is "active" supervision
+         %% (basically, send ping and expect pong back).
+         %% There are two alternatives:
+         %%      none - No supervision (default)
+         %%      {PingInterval, PongTimeout}
+         %%         PingInterval :: pos_integer()
+         %%            Time between a successful test and the next.
+         %%         PongInterval :: pos_integer()
+         %%            Time the NetIF process has to answer a ping
+         %%      
+	 nis     :: none | {pos_integer(), pos_integer()},
+         nis_pid :: undefined | pid(), % Pid of the process doing the actual sup
+
 	 req,  %%  ???? Last request id in outgoing message
 	 oid,  %%  ???? Last oid in request outgoing message
 	 mini_mib,
@@ -591,6 +612,15 @@ do_init() ->
     {NoteStore, NoteStoreRef}      = do_init_note_store(Prio),
     {NetIf, NetIfModule, NetIfRef} = do_init_net_if(NoteStore),
 
+    %% -- (maybe) Start the NetIF "supervisor" --
+    {NIS, NISPid} =
+        case snmpm_config:system_info(server_nis) of
+            {ok, none = V} ->
+                {V, undefined};
+            {ok, {PingTO, PongTO} = V} ->
+                {V, nis_start(NetIf, PingTO, PongTO)}
+        end,
+
     MiniMIB = snmpm_config:make_mini_mib(),
     State = #state{mini_mib       = MiniMIB,
 		   gct            = GCT,
@@ -599,6 +629,8 @@ do_init() ->
 		   net_if         = NetIf,
 		   net_if_mod     = NetIfModule,
 		   net_if_ref     = NetIfRef,
+                   nis            = NIS,
+                   nis_pid        = NISPid,
                    cbproxy        = CBProxy,
 		   cbproxy_pid    = CBPPid},
     ?vlog("started", []),
@@ -1086,12 +1118,11 @@ handle_info(gc_timeout, #state{gct = GCT} = State) ->
     {noreply, State};
 
 
-handle_info({'DOWN', _MonRef, process, Pid, _Reason}, 
-	    #state{note_store = NoteStore, 
-		   net_if     = Pid} = State) ->
+handle_info({'DOWN', _MonRef, process, Pid, Reason}, 
+	    #state{net_if = Pid} = State) ->
     ?vlog("received 'DOWN' message regarding net_if (~p)", [Pid]),
-    {NetIf, _, Ref} = do_init_net_if(NoteStore),
-    {noreply, State#state{net_if = NetIf, net_if_ref = Ref}};
+    NewState = handle_netif_down(State, Reason),
+    {noreply, NewState};
 
 
 handle_info({'DOWN', _MonRef, process, Pid, _Reason}, 
@@ -1127,8 +1158,17 @@ handle_info({'EXIT', Pid, Reason}, #state{cbproxy_pid = Pid} = State) ->
     {noreply, State#state{cbproxy_pid = NewCBP}};
 
 
+handle_info({'EXIT', Pid, Reason}, #state{net_if  = NetIF,
+                                          nis     = {PingTO, PongTO},
+                                          nis_pid = Pid} = State) ->
+    warning_msg("NetIF (active) supervisor (~w) process crashed: "
+		"~n   ~p", [Pid, Reason]),
+    NewNIS = nis_start(NetIF, PingTO, PongTO),
+    {noreply, State#state{nis_pid = NewNIS}};
+
+
 handle_info(Info, State) ->
-    warning_msg("received unknown info: ~n~p", [Info]),
+    warning_msg("received unknown info: ~n   ~p", [Info]),
     {noreply, State}.
 
 
@@ -1155,8 +1195,9 @@ code_change(_Vsn, #state{gct = Pid} = State0, _Extra) ->
 %% Terminate
 %%----------------------------------------------------------
                                                                               
-terminate(Reason, #state{gct = GCT, cbproxy = CBP}) ->
+terminate(Reason, #state{nis_pid = NIS, gct = GCT, cbproxy = CBP}) ->
     ?vdebug("terminate: ~p",[Reason]),
+    nis_stop(NIS),
     cbproxy_stop(CBP),
     gct_stop(GCT),
     snmpm_misc_sup:stop_note_store(),
@@ -3128,7 +3169,17 @@ handle_invalid_result(Func, Args, InvalidResult) ->
 	      "~n   Invalid result: ~p", 
 	      [Func, Args, InvalidResult]).
 
-	    
+
+handle_netif_down(#state{note_store = NoteStore, 
+                         nis_pid    = NIS} = State,
+                  Reason) ->
+    %% Srart a new NetIF
+    {NetIF, _, Ref} = do_init_net_if(NoteStore),
+    %% Inform the (active) supervisor
+    nis_netif(NIS, NetIF),
+    netif_down_inform_users(Reason),
+    State#state{net_if = NetIF, net_if_ref = Ref}.
+
 handle_down(MonRef) ->
     (catch do_handle_down(MonRef)).
 
@@ -3617,6 +3668,258 @@ new_timeout(T1, T2) ->
 
 
 %%----------------------------------------------------------------------
+%% NetIF Supervisor
+%%
+%% The NIS process "supervises" the NetIF process. That does *not* mean
+%% that it takes on the role of a standard erlang 'supervisor' process.
+%% The NIS is instead a process that "actively" supervises by means
+%% of "ping" messages, which the supervised process must respond to
+%% (with a pong message) *in time*.
+%% If it does not, NIS assumes that it has hung, and kills it.
+%% The server process then restarts the NetIF process and informs NIS.
+%%----------------------------------------------------------------------
+
+nis_start(NetIF, PingTO, PongTO) ->
+    ?vdebug("start nis process (~w, ~w)", [PingTO, PongTO]),
+    State = #{parent     => self(),
+              netif_pid  => NetIF,
+              ping_to    => PingTO,
+              ping_tref  => undefined,
+              ping_start => undefined, % Time when ping sent
+              ping_max   => undefined, % Max roundtrip time
+              pong_to    => PongTO,
+              pong_tref  => undefined,
+              kill_cnt   => 0},
+    proc_lib:start_link(?MODULE, nis_init, [State, get(verbosity)]).
+
+nis_stop(NIS) when is_pid(NIS) ->
+    NIS ! {?MODULE, self(), stop};
+nis_stop(_) ->
+    ok.
+
+
+nis_info(NIS) when is_pid(NIS) ->
+    NIS ! {?MODULE, self(), info},
+    receive
+        {?MODULE, NIS, {info, Info}} ->
+            Info
+    after 1000 ->
+            []
+    end;
+nis_info(_) ->
+    [].
+
+
+nis_netif(NIS, NetIF) when is_pid(NIS) andalso is_pid(NetIF) ->
+    NIS ! {?MODULE, self(), {netif, NetIF}};
+nis_netif(_, _) ->
+    ok.
+
+
+nis_init(#{parent    := Parent,
+           netif_pid := NetIF,
+           ping_to   := PingTO} = State,
+         Verbosity) ->
+    put(verbosity, Verbosity),
+    put(sname, mnis),
+    ?vlog("starting"),
+    MRef = erlang:monitor(process, NetIF),
+    TRef = erlang:start_timer(PingTO, self(), ping_timeout),
+    erlang:register(snmpm_server_nis, self()),
+    proc_lib:init_ack(Parent, self()),
+    ?vlog("started"),
+    nis_loop(State#{netif_mref => MRef,
+                    ping_tref  => TRef}).
+
+%% The NetIF is dead. Its up to the server to restart it and inform us
+nis_loop(#{parent    := Parent,
+           netif_pid := undefined,
+           ping_tref := undefined,
+           pong_tref := undefined} = State) ->
+    receive
+        {?MODULE, Parent, stop} ->
+            ?vlog("[idle] stop received"),
+            nis_handle_stop(State),
+            exit(normal);
+
+        {?MODULE, Pid, info} ->
+            ?vtrace("[idle] info received"),
+	    Info = nis_handle_info(State),
+	    Pid ! {?MODULE, self(), {info, Info}},
+            ?MODULE:nis_loop(State);
+
+        {?MODULE, Parent, {netif, NetIF}} ->
+            ?vlog("[idle] (new) netif started: ~p => start ping timer", [NetIF]),
+            MRef   = erlang:monitor(process, NetIF),
+            PingTO = maps:get(ping_to, State),
+            TRef   = erlang:start_timer(PingTO, self(), ping_timeout),
+            ?MODULE:nis_loop(State#{netif_pid  => NetIF,
+                                    netif_mref => MRef,
+                                    ping_max   => undefined,
+                                    ping_tref  => TRef});
+
+        _Any ->
+            ?MODULE:nis_loop(State)
+
+    after 5000 ->
+            %% This is for code upgrade
+            ?MODULE:nis_loop(State)
+    end;
+
+%% PING timer running (waiting for ping-timeout)
+nis_loop(#{parent     := Parent,
+           netif_pid  := NetIF,
+           netif_mref := MRef,
+           ping_tref  := PingTRef,
+           pong_tref  := undefined} = State) when is_pid(NetIF) andalso
+                                                 (PingTRef =/= undefined) ->
+    receive
+        {'DOWN', MRef, process, NetIF, _} ->
+            ?vlog("[ping] netif died => cancel ping timer"),
+            erlang:cancel_timer(PingTRef),            
+            ?MODULE:nis_loop(State#{netif_pid  => undefined,
+                                    netif_mref => undefined,
+                                    ping_tref  => undefined});
+
+        {?MODULE, Parent, stop} ->
+            ?vlog("[ping] stop received"),
+            nis_handle_stop(State),
+            exit(normal);
+
+        {?MODULE, Pid, info} ->
+            ?vtrace("[ping] info received"),
+	    Info = nis_handle_info(State),
+	    Pid ! {?MODULE, self(), {info, Info}},
+            ?MODULE:nis_loop(State);
+
+        %% Time to ping NetIF
+        {timeout, PingTRef, ping_timeout} ->
+            ?vlog("[ping] (ping-) timer timeout => send ping and start pong timer"),
+            NetIF ! {ping, self()},
+            PongTO = maps:get(pong_to, State),
+            TRef   = erlang:start_timer(PongTO, self(), pong_timeout),
+            ?MODULE:nis_loop(State#{ping_tref  => undefined,
+                                    ping_start => us(),
+                                    pong_tref  => TRef});
+
+        _Any ->
+            ?MODULE:nis_loop(State)
+
+    after 5000 ->
+            %% This is for code upgrade
+            ?MODULE:nis_loop(State)
+    end;
+
+%% PONG timer running (waiting for pong message)
+nis_loop(#{parent     := Parent,
+           netif_pid  := NetIF,
+           netif_mref := MRef,
+           ping_tref  := undefined,
+           pong_tref  := PongTRef} = State) when is_pid(NetIF) andalso
+                                                 (PongTRef =/= undefined) ->
+    receive
+        {'DOWN', MRef, process, NetIF, _} ->
+            ?vlog("[pong] netif died => cancel pong timer"),
+            erlang:cancel_timer(PongTRef),            
+            ?MODULE:nis_loop(State#{netif_pid  => undefined,
+                                    netif_mref => undefined,
+                                    pong_tref  => undefined});
+
+        {?MODULE, Parent, stop} ->
+            ?vlog("[pong] stop received"),
+            nis_handle_stop(State),
+            exit(normal);
+
+        {?MODULE, Pid, info} ->
+            ?vlog("[pong] info received"),
+	    Info = nis_handle_info(State),
+	    Pid ! {?MODULE, self(), {info, Info}},
+            ?MODULE:nis_loop(State);
+
+        {pong, NetIF} ->
+            ?vlog("[pong] received pong => cancel pong timer, start ping timer"),
+            T = us(),
+            erlang:cancel_timer(PongTRef),
+            Start    = maps:get(ping_start, State),
+            Max      = maps:get(ping_max, State),
+            RT       = T - Start,
+            NewMax   =
+                if
+                    (Max =:= undefined) ->
+                        ?vtrace("[pong] Max: ~w", [RT]),
+                        RT;
+                    (RT > Max) ->
+                        ?vtrace("[pong] New Max: ~w", [RT]),
+                        RT;
+                   true ->
+                        Max
+                end,
+            PingTO   = maps:get(ping_to, State),
+            PingTRef = erlang:start_timer(PingTO, self(), ping_timeout),
+            ?MODULE:nis_loop(State#{ping_tref  => PingTRef,
+                                    ping_start => undefined,
+                                    ping_max   => NewMax,
+                                    pong_tref  => undefined});
+
+        %% Time to kill NetIF
+        {timeout, PongTRef, pong_timeout} ->
+            ?vinfo("[pong] (pong-) timer timeout => kill NetIF (~p)", [NetIF]),
+            nis_handle_pong_timeout(NetIF, MRef),
+            KCnt = maps:get(kill_cnt, State),
+            ?MODULE:nis_loop(State#{netif_pid  => undefined,
+                                    netif_mref => undefined,
+                                    pong_tref  => undefined,
+                                    kill_cnt   => KCnt + 1});
+
+        _Any ->
+            ?MODULE:nis_loop(State)
+
+    after 5000 ->
+            %% This is for code upgrade
+            ?MODULE:nis_loop(State)
+    end.
+
+
+nis_handle_info(#{ping_max := undefined, kill_cnt := KCnt}) ->
+    [{kcnt, KCnt}];
+nis_handle_info(#{ping_max := Max, kill_cnt := KCnt}) ->
+    [{max, Max}, {kcnt, KCnt}].
+
+
+nis_handle_stop(#{pong_tref := PongTRef,
+                  ping_tref := PingTRef}) ->
+    cancel_timer(PongTRef),
+    cancel_timer(PingTRef).
+            
+%% Inform all users that the netif process has been killed
+nis_handle_pong_timeout(NetIF, MRef) ->
+    erlang:demonitor(MRef, [flush]),
+    exit(NetIF, kill),
+    netif_down_inform_users({pong, killed}),
+    ok.
+
+
+%%----------------------------------------------------------------------
+
+%% Inform all users that "something" fatal happened to the NetIF process.
+netif_down_inform_users(Reason) ->
+    InformUser = fun(UserId) ->
+                         spawn(fun() ->
+                                       case snmpm_config:user_info(UserId) of
+                                           {ok, UserMod, UserData} ->
+                                               UserMod:handle_error(netif,
+                                                                    Reason,
+                                                                    UserData);
+                                           {error, _} ->
+                                               ok
+                                       end,
+                                       exit(normal)
+                               end)
+                 end,
+    lists:foreach(InformUser, snmpm_config:which_users()).
+    
+
+%%----------------------------------------------------------------------
 
 maybe_delete(false, ReqId) ->
     ets:delete(snmpm_request_table, ReqId);
@@ -3684,15 +3987,16 @@ get_info(#state{gct        = GCT,
 		net_if     = NI,
                 net_if_mod = NIMod, 
 		note_store = NS,
+                nis_pid    = NIS,
 		cbproxy    = CBP}) ->
-    Info = [{server,         server_info(GCT, CBP)},
+    Info = [{server,         server_info(GCT, CBP, NIS)},
 	    {config,         config_info()},
 	    {net_if,         net_if_info(NI, NIMod)},
 	    {note_store,     note_store_info(NS)},
 	    {stats_counters, get_stats_counters()}],
     Info.
 
-server_info(GCT, CBP) ->
+server_info(GCT, CBP, NIS) ->
     {CBPInfo, CBPSz} =
 	if
 	    (CBP =:= permanent) ->
@@ -3701,12 +4005,20 @@ server_info(GCT, CBP) ->
 	    true ->
 		{[], []}
 	end,
+    {NISInfo, NISSz} =
+        case NIS of
+            undefined ->
+                {[], []};
+            _ ->
+                {[{nis, nis_info(NIS)}],
+                 [{nis, proc_mem(NIS)}]}
+        end,
     ProcSize = proc_mem(self()),
     GCTSz    = proc_mem(GCT),
     RTSz     = tab_size(snmpm_request_table),
     MTSz     = tab_size(snmpm_monitor_table),
-    [{process_memory, [{server, ProcSize}, {gct, GCTSz}] ++ CBPSz},
-     {db_memory, [{request, RTSz}, {monitor, MTSz}]}] ++ CBPInfo.
+    [{process_memory, [{server, ProcSize}, {gct, GCTSz}] ++ CBPSz ++ NISSz},
+     {db_memory, [{request, RTSz}, {monitor, MTSz}]}] ++ CBPInfo ++ NISInfo.
 
 proc_mem(P) when is_pid(P) ->
     case (catch erlang:process_info(P, memory)) of
@@ -3756,3 +4068,6 @@ note_store_info(Pid) ->
 
 
 %%----------------------------------------------------------------------
+
+us() ->
+    erlang:monotonic_time(micro_seconds).

@@ -24,39 +24,59 @@
 
 -ifdef(VMODULE).
 
+-define(vinfo(F),   ?vinfo(F, [])).
 -define(vinfo(F,A), snmp_verbosity:print(get(verbosity),info, ?VMODULE,F,A)).
+-define(vlog(F),    ?vlog(F, [])).
 -define(vlog(F,A),  snmp_verbosity:print(get(verbosity),log,  ?VMODULE,F,A)).
+-define(vdebug(F),  ?vdebug(F, [])).
 -define(vdebug(F,A),snmp_verbosity:print(get(verbosity),debug,?VMODULE,F,A)).
+-define(vtrace(F),  ?vtrace(F, [])).
 -define(vtrace(F,A),snmp_verbosity:print(get(verbosity),trace,?VMODULE,F,A)).
 
 -else.
 
+-define(vinfo(F),   ?vinfo(F, [])).
 -define(vinfo(F,A), snmp_verbosity:print(get(verbosity),info, F,A)).
+-define(vlog(F),    ?vlog(F, [])).
 -define(vlog(F,A),  snmp_verbosity:print(get(verbosity),log,  F,A)).
+-define(vdebug(F),  ?vdebug(F, [])).
 -define(vdebug(F,A),snmp_verbosity:print(get(verbosity),debug,F,A)).
+-define(vtrace(F),  ?vtrace(F, [])).
 -define(vtrace(F,A),snmp_verbosity:print(get(verbosity),trace,F,A)).
 
 -endif.
 
 -define(vvalidate(V), snmp_verbosity:validate(V)).
 
+-define(vinfoc(F),   ?vinfoc(F, [])).
 -define(vinfoc(F,A), snmp_verbosity:printc(get(verbosity),info, F,A)).
+-define(vlogc(F),    ?vlogc(F, [])).
 -define(vlogc(F,A),  snmp_verbosity:printc(get(verbosity),log,  F,A)).
+-define(vdebugc(F),  ?vdebug(F, [])).
 -define(vdebugc(F,A),snmp_verbosity:printc(get(verbosity),debug,F,A)).
+-define(vtracec(F),  ?vtracec(F, [])).
 -define(vtracec(F,A),snmp_verbosity:printc(get(verbosity),trace,F,A)).
 
 -else.
 
 -define(vvalidate(V),ok).
 
--define(vinfo(F,A),ok).
--define(vlog(F,A),ok).
--define(vdebug(F,A),ok).
--define(vtrace(F,A),ok).
+-define(vinfo(F),    ok).
+-define(vinfo(F,A),  ok).
+-define(vlog(F),     ok).
+-define(vlog(F,A),   ok).
+-define(vdebug(F),   ok).
+-define(vdebug(F,A), ok).
+-define(vtrace(F),   ok).
+-define(vtrace(F,A), ok).
 
--define(vinfoc(F,A),ok).
--define(vlogc(F,A),ok).
+-define(vinfoc(F),   ok).
+-define(vinfoc(F,A), ok).
+-define(vlogc(F),    ok).
+-define(vlogc(F,A),  ok).
+-define(vdebugc(F),  ok).
 -define(vdebugc(F,A),ok).
+-define(vtracec(F),  ok).
 -define(vtracec(F,A),ok).
 
 -endif.

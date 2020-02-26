@@ -89,7 +89,7 @@
 	 system_start_time/0,
 	 sys_up_time/0,
 
-	 info/0, 
+	 info/0, info/1,
 	 verbosity/2,
          restart/1
 	]).
@@ -297,6 +297,9 @@ oid_to_type(Oid) ->
 
 info() ->
     snmpm_server:info().
+
+info(Key) ->
+    proplists:get_value(Key, info(), {error, not_found}).
 
 
 %% -- Verbosity -- 
