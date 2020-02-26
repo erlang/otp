@@ -932,6 +932,13 @@ do_simple_start_and_monitor_crash1(Config) ->
                     [Obj2, Reason2]),
 	    ok
     after 1000 ->
+            %% The manager is an entire process tree and we can't
+            %% wait for all of them. Instead, we assume that if
+            %% we deal with the top supervisor, all the other procs
+            %% will also follow...
+            ?ENSURE_NOT_RUNNING(snmpm_supervisor,
+                                fun() -> snmpm:stop() end,
+                                1000),
 	    ?FAIL(timeout)
     end,
     ?IPRINT("end"),
@@ -1359,39 +1366,44 @@ ns02_ctrl_loop(Opts, N) ->
 
 info(suite) -> [];
 info(Config) when is_list(Config) ->
-    ?TC_TRY(info,
-            fun() -> do_info(Config) end).
+    Pre = fun() ->
+                  ConfDir = ?config(manager_conf_dir, Config),
+                  DbDir   = ?config(manager_db_dir, Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server, [{verbosity, trace}]},
+                          {net_if, [{verbosity, trace}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config, [{verbosity, trace}, 
+                                    {dir,       ConfDir}, 
+                                    {db_dir,    DbDir}]}],
+                  ?IPRINT("try starting manager"),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000),
+                  ok
+          end,
+    Case = fun(_) -> do_info(Config) end,
+    Post = fun(_) ->
+                   ?IPRINT("info verified, now try to stop"),
+                   snmpm:stop(),
+                   ?SLEEP(1000),
+                   ok
+           end,
+    ?TC_TRY(info, Pre, Case, Post).
+
 
 do_info(Config) ->
     ?IPRINT("starting with Config: "
             "~n      ~p", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
-
-    write_manager_conf(ConfDir),
-
-    Opts = [{server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
-	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
-
-    ?IPRINT("try starting manager"),
-    ok = snmpm:start(Opts),
-
-    ?SLEEP(1000),
-
-    ?IPRINT("manager started, now get info"),
+    ?IPRINT("get info"),
     Info = snmpm:info(), 
-    ?IPRINT("got info, now verify: ~n~p", [Info]),
+    ?IPRINT("got info, now verify: "
+            "~n   ~p", [Info]),
     ok = verify_info( Info ),
 
-    ?IPRINT("info verified, now try to stop"),
-    ok = snmpm:stop(),
-
-    ?SLEEP(1000),
     ?IPRINT("end"),
-
     ok.
 
 verify_info(Info) when is_list(Info) ->
@@ -1441,7 +1453,7 @@ register_user1(Config) when is_list(Config) ->
 
 do_register_user1([ManagerNode], Config) ->
     ?IPRINT("starting with Config: "
-            "~n      ~p"
+            "~n   ~p"
             "~n", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
