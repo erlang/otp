@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1997</year><year>2019</year>
+      <year>1997</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -594,7 +594,7 @@ in the snmp_config file!
       <tag><marker id="manager_server"></marker>
         <c><![CDATA[server() = [server_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>server_opt() = {timeout, server_timeout()} | {verbosity, verbosity()} | {cbproxy, server_cbproxy()}</c></p>
+        <p><c>server_opt() = {timeout, server_timeout()} | {verbosity, verbosity()} | {cbproxy, server_cbproxy()} | {netif_sup, server_nis()}</c></p>
         <p>Specifies the options for the manager server process.</p>
         <p>Default is <c>silence</c>.</p>
       </item>
@@ -639,6 +639,36 @@ in the snmp_config file!
 	  </item>
 	</taglist>
         <p>Default is <c>temporary</c>.</p>
+      </item>
+
+      <tag><marker id="manager_server_nis"></marker>
+        <c><![CDATA[server_nis() = none (default) | {PingTO, PongTO} <optional>]]></c></tag>
+      <item>
+	<p>This option specifies if the server should actively supervise the
+	net-if process.
+	Note that this will only work if the used net-if process actually supports
+	the protocol. See
+	<seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> behaviour for more info. </p>
+	<taglist>
+	  <tag><marker id="manager_server_nis_none"></marker>
+	  <c><![CDATA[none (default)]]></c></tag>
+	  <item>
+	    <p>No active supervision of the net-if process. </p>
+	  </item>
+	  
+	  <tag><marker id="manager_server_nis_active"></marker>
+	  <c><![CDATA[{PingTO :: pos_integer(), PongTO :: pos_integer()}]]></c></tag>
+	  <item>
+	    <p>The <c>PingTO</c> time specifies the between a successful ping
+	    (or start) and the time when a ping message is to be sent to the net-if
+	    process (basically the time between ping). </p>
+	    <p>The <c>PongTO</c> time specifies how long time the net-if process
+	    has to respond to a ping message, with a <em>pong</em> message.
+	    Its starts counting when the ping message has been sent.</p>
+	    <p>Both times are in milli seconds.</p>
+	  </item>
+	</taglist>
+	<p>Default is <c>none</c>.</p>
       </item>
 
       <tag><marker id="manager_config"></marker>
