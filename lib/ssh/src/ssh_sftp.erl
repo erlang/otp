@@ -180,6 +180,8 @@ stop_channel(Pid) ->
 		    receive
 			{'EXIT', Pid, killed} ->
 			    ok
+                    after 5000 ->
+                            ok
 		    end
 	    end,
 	    process_flag(trap_exit, OldValue),
