@@ -506,6 +506,9 @@ start_with_unknown_opts(Conf) when is_list(Conf) ->
 	    {versions,        Vsns}],
     ?line {ok, _Pid} = config_start(Opts),
 
+    ?IPRINT("(config) started - now stop"),
+    ?line ok = config_stop(),
+
     ?IPRINT("done"),
     ok.
 
@@ -1053,6 +1056,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_reading, _, _, _, {parse_error, _}} = Reason11,
 	    config_ensure_not_running();
 	OK_11 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "11", OK_11}})
     end,
 
@@ -1066,6 +1070,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_reading, _, _, _, {parse_error, _}} = Reason21,
 	    config_ensure_not_running();
 	OK_21 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "21", OK_21}})
     end,
 
@@ -1079,6 +1084,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {invalid_string, _}} = Reason22,
 	    config_ensure_not_running();
 	OK_22 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "22", OK_22}})
     end,
 
@@ -1092,6 +1098,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {invalid_string, _}} = Reason23,
 	    config_ensure_not_running();
 	OK_23 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "23", OK_23}})
     end,
 
@@ -1105,6 +1112,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_reading, _, _, _, {parse_error, _}} = Reason31,
 	    config_ensure_not_running();
 	OK_31 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "31", OK_31}})
     end,
 
@@ -1118,6 +1126,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {invalid_string, _}} = Reason32,
 	    config_ensure_not_running();
 	OK_32 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "32", OK_32}})
     end,
 
@@ -1131,6 +1140,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {invalid_string, _}} = Reason33,
 	    config_ensure_not_running();
 	OK_33 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "33", OK_33}})
     end,
 
@@ -1144,6 +1154,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {bad_domain, _}} = Reason51,
 	    config_ensure_not_running();
 	OK_51 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "51", OK_51}})
     end,
 
@@ -1157,6 +1168,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason52,
 	    config_ensure_not_running();
 	OK_52 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "52", OK_52}})
     end,
 
@@ -1170,6 +1182,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason53,
 	    config_ensure_not_running();
 	OK_53 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "53", OK_53}})
     end,
 
@@ -1183,6 +1196,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {bad_address, _}} = Reason54,
 	    config_ensure_not_running();
 	OK_54 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "54", OK_54}})
     end,
 
@@ -1358,6 +1372,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {bad_sec_name, _}} = ReasonC1,
 	    config_ensure_not_running();
 	OK_C1 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "C1", OK_C1}})
     end,
 
@@ -1371,6 +1386,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {bad_sec_name, _}} = ReasonC2,
 	    config_ensure_not_running();
 	OK_C2 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "C2", OK_C2}})
     end,
 
@@ -1384,6 +1400,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {invalid_sec_level, _}} = ReasonD1,
 	    config_ensure_not_running();
 	OK_D1 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "D1", OK_D1}})
     end,
 
@@ -1397,6 +1414,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {invalid_sec_level, _}} = ReasonD2,
 	    config_ensure_not_running();
 	OK_D2 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "D2", OK_D2}})
     end,
 
@@ -1409,6 +1427,7 @@ start_with_invalid_agents_conf_file1(Conf) when is_list(Conf) ->
 	    ?line {failed_check, _, _, _, {bad_agent_config, _}} = ReasonE1,
 	    config_ensure_not_running();
 	OK_E1 ->
+	    config_ensure_not_running(),
 	    exit({error, {unexpected_success, "E1", OK_E1}})
     end,
 
@@ -1907,14 +1926,29 @@ register_user_failed_using_function1(Conf) when is_list(Conf) ->
 %% ---
 %% 
 
+%% This test case tests that we can "register" agents using a config file.
+%% So, starting the config process is part of the actual test, but even
+%% if the test fails, we want to make sure the config process is actually
+%% stop'ed. So, we put config stop in the post.
+
 register_agent_using_file(suite) -> [];
 register_agent_using_file(doc) ->
     "Register agents using the 'agents'conf' file.";
 register_agent_using_file(Conf) when is_list(Conf) -> 
     put(tname, "REG-AG-USING-FILE"),
-    put(tname,raufi),
-    ?IPRINT("start"),
     process_flag(trap_exit, true),
+    Pre  = fun()  -> ok end,
+    Case = fun(_) -> do_register_agent_using_file(Conf) end,
+    Post = fun(_) ->
+                   ?IPRINT("stop config process"),
+                   ?line ok = snmpm_config:stop(),
+                   config_ensure_not_running(),
+                   ok
+           end,
+    ?TC_TRY(register_agent_using_file, Pre, Case, Post).
+
+do_register_agent_using_file(Conf) ->
+    ?IPRINT("start"),
     ConfDir = ?config(manager_conf_dir, Conf),
     DbDir = ?config(manager_db_dir, Conf),
 
@@ -2032,11 +2066,6 @@ register_agent_using_file(Conf) when is_list(Conf) ->
 	snmpm_config:update_agent_info(UserId1, AgentAddr2, AgentPort2,
 				       max_message_size, NewMMS22),
     ?IPRINT("expected failure. Reason02: ~p", [Reason02]), 
-
-    %% --
-    ?IPRINT("stop config process"),
-    ?line ok = snmpm_config:stop(),
-    config_ensure_not_running(),
 
     %% --
     ?IPRINT("done"),
