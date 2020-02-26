@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.4.1</title>
 
     <section><title>Improvements and New Features</title>

@@ -551,8 +551,8 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
 
     <func>
-      <name since="OTP @OTP-16120@">start_monitor(Module, Args, Options) -> Result</name>
-      <name since="OTP @OTP-16120@">start_monitor(ServerName, Module, Args, Options) -> Result</name>
+      <name since="OTP 23.0">start_monitor(Module, Args, Options) -> Result</name>
+      <name since="OTP 23.0">start_monitor(ServerName, Module, Args, Options) -> Result</name>
       <fsummary>Create a standalone <c>gen_server</c> process.</fsummary>
       <type>
         <v>ServerName = {local,Name} | {global,GlobalName}</v>

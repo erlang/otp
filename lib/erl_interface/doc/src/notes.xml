@@ -31,6 +31,74 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Increased size of node incarnation numbers (aka
+	    "creation"), from 2 bits to 32 bits. This will reduce the
+	    risk of pids/ports/refs, from different node incarnation
+	    with the same name, being mixed up.</p>
+          <p>
+	    Own Id: OTP-15603</p>
+        </item>
+        <item>
+          <p>
+	    Fix various build issues when compiling Erlang/OTP to the
+	    IBM AIX platform.</p>
+          <p>
+	    Own Id: OTP-15866 Aux Id: PR-2110 </p>
+        </item>
+        <item>
+          <p>
+	    Improved node connection setup handshake protocol. Made
+	    possible to agree on protocol version without dependence
+	    on <c>epmd</c> or other prior knowledge of peer node
+	    version. Also added exchange of node incarnation
+	    ("creation") values and expanded the distribution
+	    capability flag field from 32 to 64 bits.</p>
+          <p>
+	    Own Id: OTP-16229</p>
+        </item>
+        <item>
+          <p>
+	    New <c>erl_call</c> option <c>-address [Host]:Port</c> to
+	    connect directly to a node without being dependent on
+	    <c>epmd</c> to resolve the node name.</p>
+          <p>
+	    Own Id: OTP-16251</p>
+        </item>
+        <item>
+          <p>
+	    Removed the deprecated parts of <c>erl_interface</c>
+	    (essentially all C functions with prefix <c>erl_</c>).</p>
+          <p>
+	    Own Id: OTP-16328</p>
+        </item>
+        <item>
+          <p>
+	    As announced in OTP 22.0, the previously existing limited
+	    support for VxWorks has now been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16329 Aux Id: OTP-15621 </p>
+        </item>
+        <item>
+          <p>
+	    New function <c>ei_connect_host_port</c> and friends to
+	    allow node connection without being dependent on
+	    <c>epmd</c> for node name resolution.</p>
+          <p>
+	    Own Id: OTP-16496 Aux Id: OTP-16251 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.13.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

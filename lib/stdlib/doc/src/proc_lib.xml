@@ -360,9 +360,9 @@ init(Parent) ->
     </func>
 
     <func>
-      <name name="start_monitor" arity="3" since="OTP @OTP-16120@"/>
-      <name name="start_monitor" arity="4" since="OTP @OTP-16120@"/>
-      <name name="start_monitor" arity="5" since="OTP @OTP-16120@"/>
+      <name name="start_monitor" arity="3" since="OTP 23.0"/>
+      <name name="start_monitor" arity="4" since="OTP 23.0"/>
+      <name name="start_monitor" arity="5" since="OTP 23.0"/>
       <fsummary>Start a new process synchronously.</fsummary>
       <desc>
         <p>

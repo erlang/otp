@@ -43,6 +43,6 @@
 	]
   },
   {runtime_dependencies, ["stdlib-3.4","runtime_tools-1.8.14",
-			  "kernel-5.4","erts-9.1","compiler-5.0", "erts-@OTP-16327@"]}
+			  "kernel-5.4","erts-9.1","compiler-5.0", "erts-11.0"]}
  ]
 }. 

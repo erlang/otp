@@ -30,6 +30,100 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix error in ssh_sftpd typespec.</p>
+          <p>
+	    Own Id: OTP-16363</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The plug-in file ssh_file.erl, that is responsible for
+	    default file handling, is re-factored, optimized and
+	    re-written.</p>
+          <p>
+	    Own Id: OTP-11688 Aux Id: OTP-12699 </p>
+        </item>
+        <item>
+          <p>
+	    OpenSSH 6.5 introduced a new file representation of keys
+	    called <url
+	    href="https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL.key?annotate=1.1">openssh-key-v1</url>.</p>
+          <p>
+	    OTP/SSH had an experimental implementation of this
+	    format. That implementation is now improved and supported
+	    with the exception of handling encrypted keys.</p>
+          <p>
+	    Own Id: OTP-15434</p>
+        </item>
+        <item>
+          <p>
+	    TCP/IP port forwarding, a.k.a tunneling a.k.a as
+	    tcp-forward/direct-tcp is implemented. In the OpenSSH
+	    client, this corresponds to the options -L and -R.</p>
+          <p>
+	    The client or server listens to a specified socket, and
+	    when something connects to it with TCP/IP, that
+	    connection is forwarded in an encrypted tunnel to the
+	    peer. The peer then connects to a predefined IP/port pair
+	    and then acts as a proxy.</p>
+          <p>
+	    See the manual, <seealso
+	    marker="ssh:ssh#tcpip_tunnel_to_server/6"><c>ssh:tcpip_tunnel_to_server/6</c></seealso>
+	    and <seealso
+	    marker="ssh:ssh#tcpip_tunnel_from_server/6"><c>ssh:tcpip_tunnel_from_server/6</c></seealso>.</p>
+          <p>
+	    The functionality is disabled per default but can be
+	    enabled if wanted when starting a daemon.</p>
+          <p>
+	    Own Id: OTP-15998 Aux Id: PR-2376, PR-2368 </p>
+        </item>
+        <item>
+          <p>
+	    The client-side of the supervisor tree (under sshc_sup)
+	    was previously not complete; the channel handling
+	    processes were handled with links but had no supervisors.</p>
+          <p>
+	    This is now corrected with a client-side supervisor tree
+	    under <c>sshc_sup</c>, similar to the server-side
+	    supervisor tree under <c>sshd_sup</c>.</p>
+          <p>
+	    Own Id: OTP-16026 Aux Id: PR-2368, (OTP-15998) </p>
+        </item>
+        <item>
+          <p>
+	    The extension <url
+	    href="https://cvsweb.openbsd.org/src/usr.bin/ssh/PROTOCOL?annotate=HEAD">posix-rename@openssh.com</url>
+	    is added to the <seealso
+	    marker="ssh:ssh_sftp#rename/3">ssh/sftp rename</seealso>
+	    operation.</p>
+          <p>
+	    Own Id: OTP-16289 Aux Id: PR-2448 </p>
+        </item>
+        <item>
+          <p>
+	    Calls of deprecated functions in the <seealso
+	    marker="crypto:new_api#the-old-api">Old Crypto
+	    API</seealso> are replaced by calls of their <seealso
+	    marker="crypto:new_api#the-new-api">substitutions</seealso>.</p>
+          <p>
+	    Own Id: OTP-16346</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

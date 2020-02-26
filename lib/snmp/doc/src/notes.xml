@@ -34,7 +34,38 @@
   </header>
 
 
-  <section><title>SNMP 5.4.5</title>
+  <section><title>SNMP 5.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Remove usage and documentation of old requests of the
+	    I/O-protocol.</p>
+          <p>
+	    Own Id: OTP-15695</p>
+        </item>
+        <item>
+          <p>
+	    Calls of deprecated functions in the <seealso
+	    marker="crypto:new_api#the-old-api">Old Crypto
+	    API</seealso> are replaced by calls of their <seealso
+	    marker="crypto:new_api#the-new-api">substitutions</seealso>.</p>
+          <p>
+	    Own Id: OTP-16346</p>
+        </item>
+        <item>
+	    <p>Refactored the internal handling of deprecated and
+	    removed functions.</p>
+          <p>
+	    Own Id: OTP-16469</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.4.5</title>
 
     <section><title>Improvements and New Features</title>
       <list>
