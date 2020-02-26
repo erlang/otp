@@ -99,20 +99,24 @@ tc_try(Case, TCCond, Pre, TC, Post)
     tc_begin(Case),
     try TCCond() of
         ok ->
+            tc_print("starting: try pre"),
             try Pre() of
                 State ->
+                    tc_print("pre done: try test case"),
                     try
                         begin
                             TC(State),
                             sleep(seconds(1)),
+                            tc_print("test case done: try post"),
                             (catch Post(State)),
                             tc_end("ok")
                         end
                     catch
                         C:{skip, _} = SKIP when (C =:= throw) orelse
                                                 (C =:= exit) ->
+                            tc_print("test case (~w) skip: try post", [C]),
                             (catch Post(State)),
-                             tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                            tc_end( f("skipping(catched,~w,tc)", [C]) ),
                             SKIP;
                         C:E:S ->
                             %% We always check the system events
@@ -121,17 +125,18 @@ tc_try(Case, TCCond, Pre, TC, Post)
                             %% generate sys events itself...
                             case snmp_test_global_sys_monitor:events() of
                                 [] ->
+                                    tc_print("test case failed: try post"),
                                     (catch Post(State)),
                                     tc_end( f("failed(catched,~w,tc)", [C]) ),
                                     erlang:raise(C, E, S);
                                 SysEvs ->
-                                    tc_print("System Events received: "
+                                    tc_print("System Events received during tc: "
                                              "~n   ~p"
                                              "~nwhen tc failed:"
                                              "~n   C: ~p"
                                              "~n   E: ~p"
                                              "~n   S: ~p",
-                                             [SysEvs, C, E, S], "", ""),
+                                             [SysEvs, C, E, S]),
                                     (catch Post(State)),
                                     tc_end( f("skipping(catched-sysevs,~w,tc)",
                                               [C]) ),
@@ -149,16 +154,22 @@ tc_try(Case, TCCond, Pre, TC, Post)
                     %% before we accept a failure
                     case snmp_test_global_sys_monitor:events() of
                         [] ->
-                            tc_end( f("failed(catched,~w,tc-pre)", [C]) ),
-                            erlang:raise(C, E, S);
-                        SysEvs ->
-                            tc_print("System Events received: "
-                                     "~n   ~p"
-                                     "~nwhen tc-pre failed:"
+                            tc_print("tc-pre failed: auto-skip"
                                      "~n   C: ~p"
                                      "~n   E: ~p"
                                      "~n   S: ~p",
-                                     [SysEvs, C, E, S], "", ""),
+                                     [C, E, S]),
+                            tc_end( f("auto-skip(catched,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                            SKIP;
+                        SysEvs ->
+                                   tc_print("System Events received: "
+                                            "~n   ~p"
+                                            "~nwhen tc-pre failed:"
+                                            "~n   C: ~p"
+                                            "~n   E: ~p"
+                                            "~n   S: ~p",
+                                            [SysEvs, C, E, S], "", ""),
                             tc_end( f("skipping(catched-sysevs,~w,tc-pre)", [C]) ),
                             SKIP = {skip, "TC-Pre failure with system events"},
                             SKIP
@@ -212,13 +223,19 @@ tc_end(Result) when is_list(Result) ->
              "", "----------------------------------------------------~n~n"),
     ok.
 
+tc_print(F) ->
+    tc_print(F, [], "", "").
+
+tc_print(F, A) ->
+    tc_print(F, A, "", "").
+
 tc_print(F, Before, After) ->
     tc_print(F, [], Before, After).
 
 tc_print(F, A, Before, After) ->
     Name = tc_which_name(),
     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
-             [formated_timestamp(),Name,self()|A]),
+             [formated_timestamp(), Name, self() | A]),
     io:format(user, Before ++ FStr ++ After, []),
     io:format(standard_io, Before ++ FStr ++ After, []).
 
@@ -802,6 +819,8 @@ analyze_and_print_host_info() ->
             analyze_and_print_freebsd_host_info(Version);           
         {unix, sunos} ->
             analyze_and_print_solaris_host_info(Version);
+        {win32, nt} ->
+            analyze_and_print_win_host_info(Version);
         _ ->
             io:format("OS Family: ~p"
                       "~n   OS Type:        ~p"
@@ -1318,6 +1337,135 @@ analyze_and_print_solaris_host_info(Version) ->
             10
     end + MemFactor.    
 
+
+
+analyze_and_print_win_host_info(Version) ->
+    SysInfo    = which_win_system_info(),
+    OsName     = win_sys_info_lookup(os_name,             SysInfo),
+    OsVersion  = win_sys_info_lookup(os_version,          SysInfo),
+    SysMan     = win_sys_info_lookup(system_manufacturer, SysInfo),
+    SysMod     = win_sys_info_lookup(system_model,        SysInfo),
+    NumProcs   = win_sys_info_lookup(num_processors,      SysInfo),
+    TotPhysMem = win_sys_info_lookup(total_phys_memory,   SysInfo),
+    io:format("Windows: ~s"
+              "~n   OS Version:             ~s (~p)"
+              "~n   System Manufacturer:    ~s"
+              "~n   System Model:           ~s"
+              "~n   Number of Processor(s): ~s"
+              "~n   Total Physical Memory:  ~s"
+              "~n   Num Schedulers:         ~s"
+              "~n~n", [OsName, OsVersion, Version,
+                       SysMan, SysMod, NumProcs, TotPhysMem,
+                       str_num_schedulers()]),
+    io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+    MemFactor =
+        try
+            begin
+                [MStr, MUnit|_] =
+                    string:tokens(lists:delete($,, TotPhysMem), [$\ ]),
+                case string:to_lower(MUnit) of
+                    "gb" ->
+                        try list_to_integer(MStr) of
+                            M when M > 8 ->
+                                0;
+                            M when M > 4 ->
+                                1;
+                            M when M > 2 ->
+                                2;
+                            _ -> 
+                                5
+                        catch
+                            _:_:_ ->
+                                10
+                        end;
+                    "mb" ->
+                        try list_to_integer(MStr) of
+                            M when M > 8192 ->
+                                0;
+                            M when M > 4096 ->
+                                1;
+                            M when M > 2048 ->
+                                2;
+                            _ -> 
+                                5
+                        catch
+                            _:_:_ ->
+                                10
+                        end;
+                    _ ->
+                        10
+                end
+            end
+        catch
+            _:_:_ ->
+                10
+        end,
+    CPUFactor = 
+        case erlang:system_info(schedulers) of
+            1 ->
+                10;
+            2 ->
+                5;
+            _ ->
+                2
+        end,
+    CPUFactor + MemFactor.
+
+win_sys_info_lookup(Key, SysInfo) ->
+    win_sys_info_lookup(Key, SysInfo, "-").
+
+win_sys_info_lookup(Key, SysInfo, Def) ->
+    case lists:keysearch(Key, 1, SysInfo) of
+        {value, {Key, Value}} ->
+            Value;
+        false ->
+            Def
+    end.
+
+%% This function only extracts the prop we actually care about!
+which_win_system_info() ->
+    SysInfo = os:cmd("systeminfo"),
+    try process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
+    catch
+        _:_:_ ->
+            io:format("Failed process System info: "
+                      "~s~n", [SysInfo]),
+            []
+    end.
+
+process_win_system_info([], Acc) ->
+    Acc;
+process_win_system_info([H|T], Acc) ->
+    case string:tokens(H, [$:]) of
+        [Key, Value] ->
+            case string:to_lower(Key) of
+                "os name" ->
+                    process_win_system_info(T,
+                                            [{os_name, string:trim(Value)}|Acc]);
+                "os version" ->
+                    process_win_system_info(T,
+                                            [{os_version, string:trim(Value)}|Acc]);
+                "system manufacturer" ->
+                    process_win_system_info(T,
+                                            [{system_manufacturer, string:trim(Value)}|Acc]);
+                "system model" ->
+                    process_win_system_info(T,
+                                            [{system_model, string:trim(Value)}|Acc]);
+                "processor(s)" ->
+                    [NumProcStr|_] = string:tokens(Value, [$\ ]),
+                    T2 = lists:nthtail(list_to_integer(NumProcStr), T),
+                    process_win_system_info(T2,
+                                            [{num_processors, NumProcStr}|Acc]);
+                "total physical memory" ->
+                    process_win_system_info(T,
+                                            [{total_phys_memory, string:trim(Value)}|Acc]);
+                _ ->
+                    process_win_system_info(T, Acc)
+            end;
+        _ ->
+            process_win_system_info(T, Acc)
+    end.
+                    
 
 
 str_num_schedulers() ->
