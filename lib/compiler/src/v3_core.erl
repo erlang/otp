@@ -340,7 +340,7 @@ gexpr({op,_,'andalso',_,_}=E0, Bools, St0) ->
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
-    E = make_bool_switch_guard(L, E1, V, E2, False),
+    E = make_bool_switch(L, E1, V, E2, False),
     gexpr(E, Bools, St);
 gexpr({op,_,'orelse',_,_}=E0, Bools, St0) ->
     {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse'),
@@ -348,7 +348,7 @@ gexpr({op,_,'orelse',_,_}=E0, Bools, St0) ->
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     True = {atom,L,true},
-    E = make_bool_switch_guard(L, E1, V, True, E2),
+    E = make_bool_switch(L, E1, V, True, E2),
     gexpr(E, Bools, St);
 gexpr({op,Line,Op,L,R}=E, Bools, St) ->
     case erl_internal:bool_op(Op, 2) of
@@ -790,7 +790,7 @@ expr({op,_,'andalso',_,_}=E0, St0) ->
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
-    E = make_bool_switch(L, E1, V, E2, False, St0),
+    E = make_bool_switch(L, E1, V, E2, False),
     expr(E, St);
 expr({op,_,'orelse',_,_}=E0, St0) ->
     {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse'),
@@ -798,7 +798,7 @@ expr({op,_,'orelse',_,_}=E0, St0) ->
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     True = {atom,L,true},
-    E = make_bool_switch(L, E1, V, True, E2, St0),
+    E = make_bool_switch(L, E1, V, True, E2),
     expr(E, St);
 expr({op,L,Op,A0}, St0) ->
     {A1,Aps,St1} = safe(A0, St0),
@@ -841,12 +841,7 @@ sanitize({op,L,_Name,P1,P2}) ->
     {tuple,L,[sanitize(P1),sanitize(P2)]};
 sanitize(P) -> P.
 
-make_bool_switch(L, E, V, T, F, #core{in_guard=true}) ->
-    make_bool_switch_guard(L, E, V, T, F);
-make_bool_switch(L, E, V, T, F, #core{}) ->
-    make_bool_switch_body(L, E, V, T, F).
-
-make_bool_switch_body(L, E, V, T, F) ->
+make_bool_switch(L, E, V, T, F) ->
     NegL = no_compiler_warning(L),
     Error = {tuple,NegL,[{atom,NegL,badarg},V]},
     {'case',NegL,E,
@@ -855,15 +850,6 @@ make_bool_switch_body(L, E, V, T, F) ->
       {clause,NegL,[V],[],
        [{call,NegL,{remote,NegL,{atom,NegL,erlang},{atom,NegL,error}},
 	 [Error]}]}]}.
-
-make_bool_switch_guard(_, E, _, {atom,_,true}, {atom,_,false}) -> E;
-make_bool_switch_guard(L, E, V, T, F) ->
-    NegL = no_compiler_warning(L),
-    {'case',NegL,E,
-     [{clause,NegL,[{atom,NegL,true}],[],[T]},
-      {clause,NegL,[{atom,NegL,false}],[],[F]},
-      {clause,NegL,[V],[],[V]}
-     ]}.
 
 expr_map(M0, Es0, L, St0) ->
     {M1,Eps0,St1} = safe(M0, St0),

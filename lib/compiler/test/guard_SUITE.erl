@@ -2503,6 +2503,13 @@ fail_in_guard() ->
     false = struct_or_map(a, foo),
     false = struct_or_map(#{}, "foo"),
     true = struct_or_map(#{}, foo),
+
+    false = (fun() when whatever =/= (program andalso []) -> true;
+                () -> false
+             end)(),
+    false = if whatever =/= (program orelse []) -> true;
+               true -> false
+            end,
     ok.
 
 %% ERL-1183. If Name is not an atom, the `fail` atom must cause the
