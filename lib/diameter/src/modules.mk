@@ -1,7 +1,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2019. All Rights Reserved.
+# Copyright Ericsson AB 2010-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -98,13 +98,14 @@ BINS = \
 # Released files relative to ../examples.
 EXAMPLES = \
 	code/GNUmakefile \
-	code/node.erl \
 	code/client.erl \
 	code/client_cb.erl \
 	code/server.erl \
 	code/server_cb.erl \
 	code/relay.erl \
 	code/relay_cb.erl \
+	code/redirect.erl \
+	code/redirect_cb.erl \
 	dict/rfc4004_mip.dia \
 	dict/rfc4005_nas.dia \
 	dict/rfc4006_cc.dia \
