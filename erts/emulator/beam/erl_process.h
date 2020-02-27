@@ -1530,6 +1530,7 @@ extern int erts_system_profile_ts_type;
 /* Option flags to erts_send_exit_signal() */
 #define ERTS_XSIG_FLG_IGN_KILL		(((Uint32) 1) << 0)
 #define ERTS_XSIG_FLG_NO_IGN_NORMAL	(((Uint32) 1) << 1)
+#define ERTS_XSIG_FLG_EXIT2     	(((Uint32) 1) << 2)
 
 #define CANCEL_TIMER(P)					\
     do {						\

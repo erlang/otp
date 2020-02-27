@@ -1631,11 +1631,13 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 	  * The pid is internal.  Verify that it refers to an existing process.
 	  */
 	 ErtsProcLocks rp_locks;
+         Uint32 flags = ERTS_XSIG_FLG_EXIT2;
 
 	 if (BIF_ARG_1 == BIF_P->common.id) {
 	     rp_locks = ERTS_PROC_LOCKS_ALL;
 	     rp = BIF_P;
 	     erts_smp_proc_lock(rp, ERTS_PROC_LOCKS_ALL_MINOR);
+             flags |= ERTS_XSIG_FLG_NO_IGN_NORMAL;
 	 }
 	 else {
 	     rp_locks = ERTS_PROC_LOCKS_XSIG_SEND;
@@ -1656,7 +1658,7 @@ BIF_RETTYPE exit_2(BIF_ALIST_2)
 			       BIF_ARG_2,
 			       NIL,
 			       NULL,
-			       BIF_P == rp ? ERTS_XSIG_FLG_NO_IGN_NORMAL : 0);
+			       flags);
 #ifdef ERTS_SMP
 	 if (rp == BIF_P)
 	     rp_locks &= ~ERTS_PROC_LOCK_MAIN;

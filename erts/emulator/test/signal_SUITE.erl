@@ -47,7 +47,8 @@
 	 pending_exit_process_info_1/1,
 	 pending_exit_process_info_2/1,
 	 pending_exit_group_leader/1,
-	 exit_before_pending_exit/1]).
+	 exit_before_pending_exit/1,
+         kill2killed/1]).
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     available_internal_state(true),
@@ -77,7 +78,8 @@ all() ->
      pending_exit_process_display,
      pending_exit_process_info_1,
      pending_exit_process_info_2, pending_exit_group_leader,
-     exit_before_pending_exit].
+     exit_before_pending_exit,
+     kill2killed].
 
 
 %% Test that exit signals and messages are received in correct order
@@ -365,6 +367,68 @@ pending_exit_group_leader(Config) when is_list(Config) ->
     repeated_exit_op_test(TestFun, ?PE_INFO_REPEAT),
     verify_pending_exit_success(S),
     comment().
+
+kill2killed(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    kill2killed_test(node()),
+    {ok, Node} = start_node(Config),
+    kill2killed_test(Node),
+    stop_node(Node),
+    ok.
+
+kill2killed_test(Node) ->
+    if Node == node() ->
+            io:format("Testing against local node", []);
+       true ->
+            io:format("Testing against remote node ~p", [Node])
+    end,
+    check_exit(Node, other_exit2, 1),
+    check_exit(Node, other_exit2, 2),
+    check_exit(Node, other_exit2, 9),
+    check_exit(Node, other_exit2, 10),
+    check_exit(Node, exit2, 1),
+    check_exit(Node, exit2, 2),
+    check_exit(Node, exit2, 9),
+    check_exit(Node, exit2, 10),
+    check_exit(Node, exit1, 1),
+    check_exit(Node, exit1, 2),
+    check_exit(Node, exit1, 9),
+    check_exit(Node, exit1, 10),
+    ok.
+
+check_exit(Node, Type, N) ->
+    io:format("Testing ~p length ~p~n", [Type, N]),
+    P = spawn_link_line(Node, node(), Type, N, self()),
+    if Type == other_exit2 ->
+            receive
+                {end_of_line, EOL} ->
+                    exit(EOL, kill)
+            end;
+       true -> ok
+    end,
+    receive
+        {'EXIT', P, Reason} ->
+            if Type == exit1 ->
+                    kill = Reason;
+               true ->
+                    killed = Reason
+            end
+    end.
+
+spawn_link_line(_NodeA, _NodeB, other_exit2, 0, Tester) ->
+    Tester ! {end_of_line, self()},
+    receive after infinity -> ok end;
+spawn_link_line(_NodeA, _NodeB, exit1, 0, _Tester) ->
+    exit(kill);
+spawn_link_line(_NodeA, _NodeB, exit2, 0, _Tester) ->
+    exit(self(), kill);
+spawn_link_line(NodeA, NodeB, Type, N, Tester) ->
+    spawn_link(NodeA,
+               fun () ->
+                       spawn_link_line(NodeB, NodeA, Type, N-1, Tester),
+                       receive after infinity -> ok end
+               end).
+
 
 %%
 %% -- Internal utils --------------------------------------------------------
