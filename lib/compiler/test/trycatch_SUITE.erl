@@ -1178,7 +1178,21 @@ raise(_Config) ->
 
     badarg = bad_raise(fun() -> abs(id(x)) end),
 
+    error = stk_used_in_bin_size(<<0:42>>),
     ok.
+
+stk_used_in_bin_size(Bin) ->
+    try
+        throw(fail)
+    catch
+        throw:fail:Stk ->
+            %% The compiler would crash because the building of the
+            %% stacktrack was sunk into each case arm.
+            case Bin of
+                <<0:Stk>> -> ok;
+                _ -> error
+            end
+    end.
 
 bad_raise(Expr) ->
     try

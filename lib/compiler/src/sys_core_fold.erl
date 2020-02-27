@@ -2382,13 +2382,16 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
                 true ->
                     Let
             end;
-        #c_case{arg=Arg,clauses=Cs0} ->
-            case core_lib:is_var_used(Cooked, Arg) orelse
-                is_used_in_any_guard(Cooked, Cs0) of
+        #c_case{clauses=Cs0} ->
+            NilBody = #c_literal{val=[]},
+            Cs1 = [C#c_clause{body=NilBody} || C <- Cs0],
+            Case = Body#c_case{clauses=Cs1},
+            case core_lib:is_var_used(Cooked, Case) of
                 false ->
-                    %% The built stacktrace is not used in the argument,
-                    %% so we can sink the building of the stacktrace into
-                    %% each arm of the case.
+                    %% The built stacktrace is not used in the case
+                    %% argument or in the head of any clause. Thus
+                    %% it is safe sink the building of the stacktrace
+                    %% into each arm of the case.
                     Cs = [begin
                               B = opt_build_stacktrace(Let#c_let{body=B0}),
                               C#c_clause{body=B}
@@ -2402,11 +2405,6 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
     end;
 opt_build_stacktrace(Expr) ->
     Expr.
-
-is_used_in_any_guard(V, Cs) ->
-    any(fun(#c_clause{guard=G}) ->
-                core_lib:is_var_used(V, G)
-        end, Cs).
 
 %% opt_case_in_let(Let) -> Let'
 %%  Try to avoid building tuples that are immediately matched.
