@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,7 +62,15 @@
   {"2.1.4.1", [{restart_application, diameter}]},  %% 20.3.8.19
   {"2.1.5",   [{restart_application, diameter}]},  %% 21.0
   {"2.1.6",   [{restart_application, diameter}]},  %% 21.1
-  {"2.2",     [{update, diameter_dist, {advanced, "2.2"}}]} %% 21.3
+  {"2.2",     [{restart_application, diameter}]},  %% 21.3
+  {"2.2.1",   [{load_module, diameter},            %% 21.3.5
+               {load_module, diameter_codec},
+               {update, diameter_config},
+               {update, diameter_dist},
+               {update, diameter_peer_fsm},
+               {update, diameter_service},
+               {load_module, diameter_traffic},
+               {update, diameter_tcp}]}
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -106,6 +114,14 @@
   {"2.1.4.1", [{restart_application, diameter}]},
   {"2.1.5",   [{restart_application, diameter}]},
   {"2.1.6",   [{restart_application, diameter}]},
-  {"2.2",     [{restart_application, diameter}]}
+  {"2.2",     [{restart_application, diameter}]},
+  {"2.2.1",   [{load_module, diameter},
+               {load_module, diameter_codec},
+               {update, diameter_config},
+               {update, diameter_dist},
+               {update, diameter_peer_fsm},
+               {update, diameter_service},
+               {load_module, diameter_traffic},
+               {update, diameter_tcp}]}
  ]
 }.
