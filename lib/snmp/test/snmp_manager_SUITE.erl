@@ -609,12 +609,12 @@ init_per_testcase3(Case, Config) ->
                         (Case =:= inform_swarm_cbp_temp) orelse
                         (Case =:= inform_swarm_cbp_perm) ->
 			    Verb = [{manager_config_verbosity,     silence},
-				    {manager_note_store_verbosity, silence},
-				    {manager_server_verbosity,     info},
-				    {manager_net_if_verbosity,     info},
-				    {agent_verbosity,              info}, 
-				    {agent_net_if_verbosity,       info}],
-			    Verb ++ Config;
+                                    {manager_note_store_verbosity, silence},
+                                    {manager_server_verbosity,     info},
+                                    {manager_net_if_verbosity,     info},
+                                    {agent_verbosity,              info}, 
+                                    {agent_net_if_verbosity,       info}],
+                            Verb ++ Config;
 			Case =:= otp8395_1 ->
 			    [{manager_atl_seqno, true} | Config];
 			true ->
@@ -5484,12 +5484,13 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 
     ConfigVerbosity    = get_opt(manager_config_verbosity,     Conf0, trace),
     NoteStoreVerbosity = get_opt(manager_note_store_verbosity, Conf0, log),
-    ServerVerbosity    = get_opt(manager_server_verbosity,     Conf0, trace),
     NetIfVerbosity     = get_opt(manager_net_if_verbosity,     Conf0, trace),
 
     AtlSeqNo           = get_opt(manager_atl_seqno,            Conf0, false),
 
+    ServerVerbosity    = get_opt(manager_server_verbosity,     Conf0, trace),
     CBP                = get_opt(manager_server_cbproxy,       Conf0, temporary),
+    NIS                = get_opt(manager_server_nis,           Conf0, none),
 
     NetIfConf = 
 	case get_opt(manager_net_if_module, Conf0, no_module) of
@@ -5512,7 +5513,8 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 			      {verbosity, ConfigVerbosity}]},
 	   {note_store,      [{verbosity, NoteStoreVerbosity}]},
 	   {server,          [{verbosity, ServerVerbosity},
-                              {cbproxy,   CBP}]},
+                              {cbproxy,   CBP},
+                              {netif_sup, NIS}]},
 	   {net_if,          NetIfConf}],
     ?line ok = set_mgr_env(Node, Env),
 
