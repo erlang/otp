@@ -82,7 +82,12 @@
 -type literal_value() :: atom() | integer() | float() | list() |
                          nil() | tuple() | map() | binary() | fun().
 
--type op()   :: {'bif',atom()} | {'float',float_op()} | prim_op() | cg_prim_op().
+-type op()   :: {'bif',atom()} |
+                {'float',float_op()} |
+                {'succeeded', 'guard' | 'body'} |
+                prim_op() |
+                cg_prim_op().
+
 -type anno() :: #{atom() := any()}.
 
 -type block_map() :: #{label():=b_blk()}.
@@ -102,7 +107,7 @@
                    'bs_match' | 'bs_put' | 'bs_start_match' | 'bs_test_tail' |
                    'bs_utf16_size' | 'bs_utf8_size' | 'build_stacktrace' |
                    'call' | 'catch_end' |
-                   'extract' | 'exception_trampoline' |
+                   'extract' |
                    'get_hd' | 'get_map_element' | 'get_tl' | 'get_tuple_element' |
                    'has_map_field' |
                    'is_nonempty_list' | 'is_tagged_tuple' |
@@ -111,7 +116,6 @@
                    'make_fun' | 'new_try_tag' |
                    'peek_message' | 'phi' | 'put_list' | 'put_map' | 'put_tuple' |
                    'raw_raise' | 'recv_next' | 'remove_message' | 'resume' |
-                   'succeeded' |
                    'timeout' |
                    'wait' | 'wait_timeout'.
 
@@ -123,7 +127,7 @@
                       'bs_restore' | 'bs_save' | 'bs_set_position' | 'bs_skip' |
                       'copy' | 'match_fail' | 'put_tuple_arity' |
                       'put_tuple_element' | 'put_tuple_elements' |
-                      'set_tuple_element'.
+                      'set_tuple_element' | 'succeeded'.
 
 -import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
@@ -215,7 +219,7 @@ no_side_effect(#b_set{op=Op}) ->
         put_map -> true;
         put_list -> true;
         put_tuple -> true;
-        succeeded -> true;
+        {succeeded,guard} -> true;
         _ -> false
     end.
 

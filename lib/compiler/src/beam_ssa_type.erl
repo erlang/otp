@@ -644,20 +644,31 @@ simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
             Ds = Ds0#{Dst=>I},
             {I, Ts, Ds}
     end;
-simplify(#b_set{op=succeeded,dst=Dst}=I0, Ts0, Ds0, _Ls, Sub) ->
-    case will_succeed(I0, Ts0, Ds0, Sub) of
-        yes ->
+simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I0,
+         Ts0, Ds0, _Ls, Sub) ->
+    Type = case will_succeed(I0, Ts0, Ds0, Sub) of
+               yes -> beam_types:make_atom(true);
+               no -> beam_types:make_atom(false);
+               maybe -> beam_types:make_boolean()
+           end,
+    case Type of
+        #t_atom{elements=[true]} ->
+            %% The checked operation always succeeds, so it's safe to remove
+            %% this instruction regardless of whether we're in a guard or not.
             Lit = #b_literal{val=true},
             Sub#{ Dst => Lit };
-        no ->
+        #t_atom{elements=[false]} when Kind =:= guard ->
+            %% Failing operations are only safe to remove in guards.
             Lit = #b_literal{val=false},
             Sub#{ Dst => Lit };
-        maybe ->
+        _ ->
+            true = is_map_key(Arg, Ds0),        %Assertion.
+
             %% Note that we never simplify args; this instruction is specific
             %% to the operation being checked, and simplifying could break that
             %% connection.
             I = beam_ssa:normalize(I0),
-            Ts = Ts0#{ Dst => beam_types:make_boolean() },
+            Ts = Ts0#{ Dst => Type },
             Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
@@ -1804,7 +1815,7 @@ infer_types_switch(V, Lit, Ts0, IsTempVar, Ds) ->
 ts_remove_var(_V, none) -> none;
 ts_remove_var(V, Ts) -> maps:remove(V, Ts).
 
-infer_type(succeeded, [#b_var{}=Src], Ts, Ds) ->
+infer_type({succeeded,_}, [#b_var{}=Src], Ts, Ds) ->
     #b_set{op=Op,args=Args} = maps:get(Src, Ds),
     infer_success_type(Op, Args, Ts, Ds);
 

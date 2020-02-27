@@ -743,7 +743,7 @@ collect_element_calls([{L,#b_blk{is=Is0,last=Last}}|Bs]) ->
     case {Is0,Last} of
         {[#b_set{op={bif,element},dst=Element,
                  args=[#b_literal{val=N},#b_var{}=Tuple]},
-          #b_set{op=succeeded,dst=Bool,args=[Element]}],
+          #b_set{op={succeeded,guard},dst=Bool,args=[Element]}],
          #b_br{bool=Bool,succ=Succ,fail=Fail}} ->
             Info = {L,Succ,{Tuple,Fail},N},
             [Info|collect_element_calls(Bs)];
@@ -906,7 +906,7 @@ cse([{L,#b_blk{is=Is0,last=Last0}=Blk}|Bs], Sub0, M0) ->
     [{L,Blk#b_blk{is=Is,last=Last}}|cse(Bs, Sub, M)];
 cse([], _, _) -> [].
 
-cse_successors([#b_set{op=succeeded,args=[Src]},Bif|_], Blk, EsSucc, M0) ->
+cse_successors([#b_set{op={succeeded,_},args=[Src]},Bif|_], Blk, EsSucc, M0) ->
     case cse_suitable(Bif) of
         true ->
             %% The previous instruction only has a valid value at the success branch.
@@ -944,7 +944,7 @@ cse_successors_1([L|Ls], Es0, M) ->
     end;
 cse_successors_1([], _, M) -> M.
 
-cse_is([#b_set{op=succeeded,dst=Bool,args=[Src]}=I0|Is], Es, Sub0, Acc) ->
+cse_is([#b_set{op={succeeded,_},dst=Bool,args=[Src]}=I0|Is], Es, Sub0, Acc) ->
     I = sub(I0, Sub0),
     case I of
         #b_set{args=[Src]} ->
@@ -1056,21 +1056,6 @@ float_can_optimize_blk(#b_blk{last=#b_br{bool=#b_var{},fail=F}},
 float_can_optimize_blk(#b_blk{}, #fs{}) ->
     false.
 
-float_opt([{L,#b_blk{is=[#b_set{op=exception_trampoline,args=[Var]}]}=Blk0} |
-           Bs0], Count0, Fs) ->
-    %% If we've replaced a BIF with float operations, we'll have a lot of extra
-    %% blocks that jump to the same failure block, which may have a trampoline
-    %% that refers to the original operation.
-    %%
-    %% Since the point of the trampoline is to keep the BIF from being removed
-    %% by liveness optimization, we can discard it as the liveness pass leaves
-    %% floats alone.
-    Blk = case cerl_sets:is_element(Var, Fs#fs.vars) of
-              true -> Blk0#b_blk{is=[]};
-              false -> Blk0
-          end,
-    {Bs, Count} = float_opt(Bs0, Count0, Fs),
-    {[{L,Blk}|Bs],Count};
 float_opt([{L,Blk}|Bs0], Count0, Fs) ->
     case float_can_optimize_blk(Blk, Fs) of
         true ->
@@ -1131,7 +1116,7 @@ float_conv([{L,#b_blk{is=Is0}=Blk0}|Bs0], Fail, Count0) ->
         [#b_set{op={float,convert}}=Conv] ->
             {Bool0,Count1} = new_reg('@ssa_bool', Count0),
             Bool = #b_var{name=Bool0},
-            Succeeded = #b_set{op=succeeded,dst=Bool,
+            Succeeded = #b_set{op={succeeded,body},dst=Bool,
                                args=[Conv#b_set.dst]},
             Is = [Conv,Succeeded],
             [{NextL,_}|_] = Bs0,
@@ -1193,7 +1178,7 @@ float_maybe_flush(Blk0, #fs{s=cleared,fail=Fail,bs=Blocks}=Fs0, Count0) ->
 float_maybe_flush(Blk, Fs, Count) ->
     {[],Blk,Fs,Count}.
 
-float_opt_is([#b_set{op=succeeded,args=[Src]}=I0],
+float_opt_is([#b_set{op={succeeded,_},args=[Src]}=I0],
              #fs{regs=Rs}=Fs, Count, Acc) ->
     case Rs of
         #{Src:=Fr} ->
@@ -1361,7 +1346,7 @@ live_opt_is([#b_set{op=phi,dst=Dst}=I|Is], Live, Acc) ->
         false ->
             live_opt_is(Is, Live, Acc)
     end;
-live_opt_is([#b_set{op=succeeded,dst=SuccDst,args=[MapDst]}=SuccI,
+live_opt_is([#b_set{op={succeeded,_},dst=SuccDst,args=[MapDst]}=SuccI,
              #b_set{op=get_map_element,dst=MapDst}=MapI | Is],
             Live0, Acc) ->
     case {gb_sets:is_member(SuccDst, Live0),
@@ -1485,13 +1470,12 @@ is_safe_without_try([#b_set{op=kill_try_tag}|Is], Acc) ->
 is_safe_without_try([#b_set{op=extract}|_], _Acc) ->
     %% The error reason is accessed.
     unsafe;
-is_safe_without_try([#b_set{op=exception_trampoline}|Is], Acc) ->
-    is_safe_without_try(Is, Acc);
 is_safe_without_try([#b_set{op=landingpad}|Is], Acc) ->
     is_safe_without_try(Is, Acc);
 is_safe_without_try([#b_set{op=Op}=I|Is], Acc) ->
     IsSafe = case Op of
                  phi -> true;
+                 {succeeded,_} -> true;
                  _ -> beam_ssa:no_side_effect(I)
              end,
     case IsSafe of
@@ -1573,7 +1557,7 @@ coalesce_skips_is([#b_set{op=bs_match,
                                 Ctx0,Type,Flags,
                                 #b_literal{val=Size0},
                                 #b_literal{val=Unit0}]}=Skip0,
-                   #b_set{op=succeeded}],
+                   #b_set{op={succeeded,guard}}],
                   #b_br{succ=L2,fail=Fail}=Br0,
                   Bs0) when is_integer(Size0) ->
     case Bs0 of
@@ -1582,7 +1566,7 @@ coalesce_skips_is([#b_set{op=bs_match,
                                args=[#b_literal{val=skip},_,_,_,
                                      #b_literal{val=Size1},
                                      #b_literal{val=Unit1}]},
-                        #b_set{op=succeeded}=Succeeded],
+                        #b_set{op={succeeded,guard}}=Succeeded],
                     last=#b_br{fail=Fail}=Br}}|Bs] when is_integer(Size1) ->
             SkipBits = Size0 * Unit0 + Size1 * Unit1,
             Skip = Skip0#b_set{dst=SkipDst,
@@ -1662,7 +1646,7 @@ bsm_update_bits(_, Bits) -> Bits.
 bsm_shortcut([{L,#b_blk{is=Is,last=Last0}=Blk}|Bs], PosMap) ->
     case {Is,Last0} of
         {[#b_set{op=bs_match,dst=New,args=[_,Old|_]},
-          #b_set{op=succeeded,dst=Bool,args=[New]}],
+          #b_set{op={succeeded,guard},dst=Bool,args=[New]}],
          #b_br{bool=Bool,fail=Fail}} ->
             case PosMap of
                 #{Old:=Bits,Fail:={TailBits,NextFail}} when Bits > TailBits ->
@@ -1860,7 +1844,7 @@ opt_bs_put_split_int_1(Int, L, R) ->
 %%%   .
 %%%   .
 %%%   Size = bif:tuple_size Var
-%%%   BoolVar1 = succeeded Size
+%%%   BoolVar1 = succeeded:guard Size
 %%%   br BoolVar1, label 4, label 3
 %%%
 %%% 4:
@@ -1972,7 +1956,7 @@ opt_tup_size_2(PreIs, TupleSizeIs, PreL, EqL, Tuple, Fail, Count0, Acc) ->
       {PreL,PreBlk}|Acc],Count}.
 
 opt_tup_size_is([#b_set{op={bif,tuple_size},dst=Size,args=[Tuple]}=I,
-                 #b_set{op=succeeded,dst=Bool,args=[Size]}],
+                 #b_set{op={succeeded,_},dst=Bool,args=[Size]}],
                 Bool, Size, Acc) ->
     {reverse(Acc),[I],Tuple};
 opt_tup_size_is([I|Is], Bool, Size, Acc) ->
@@ -2067,9 +2051,11 @@ verify_merge_is([#b_set{op=Op}|_]) ->
 verify_merge_is(_) ->
     ok.
 
-is_merge_allowed(_, #b_blk{}, #b_blk{is=[#b_set{op=exception_trampoline}|_]}) ->
+is_merge_allowed(?EXCEPTION_BLOCK, #b_blk{}, #b_blk{}) ->
     false;
-is_merge_allowed(_, #b_blk{is=[#b_set{op=exception_trampoline}|_]}, #b_blk{}) ->
+is_merge_allowed(_L, #b_blk{is=[#b_set{op=landingpad} | _]}, #b_blk{}) ->
+    false;
+is_merge_allowed(_L, #b_blk{}, #b_blk{is=[#b_set{op=landingpad} | _]}) ->
     false;
 is_merge_allowed(L, #b_blk{}=Blk1, #b_blk{is=[#b_set{}=I|_]}=Blk2) ->
     not beam_ssa:is_loop_header(I) andalso
@@ -2188,7 +2174,6 @@ unsuitable_1([{L,#b_blk{is=[#b_set{op=Op}=I|_]}}|Bs]) ->
     Unsuitable = case Op of
                      bs_extract -> true;
                      bs_put -> true;
-                     exception_trampoline -> true;
                      {float,_} -> true;
                      landingpad -> true;
                      _ -> beam_ssa:is_loop_header(I)
@@ -2327,7 +2312,7 @@ insert_def_is([#b_set{op=Op}=I|Is]=Is0, V, Def) ->
                   _ -> here
               end,
     Action = case Is of
-                 [#b_set{op=succeeded}|_] -> here;
+                 [#b_set{op={succeeded,_}}|_] -> here;
                  _ -> Action0
              end,
     case Action of
@@ -2621,8 +2606,6 @@ non_guards(Linear) ->
 
 non_guards_1([{L,#b_blk{is=Is}}|Bs]) ->
     case Is of
-        [#b_set{op=exception_trampoline}|_] ->
-            [L | non_guards_1(Bs)];
         [#b_set{op=landingpad}|_] ->
             [L | non_guards_1(Bs)];
         _ ->

@@ -236,16 +236,17 @@ vvars_block(Id, State0) ->
 vvars_block_1([], State) ->
     State;
 vvars_block_1([#b_set{dst=OpVar,args=OpArgs}=I,
-               #b_set{op=succeeded,args=[OpVar],dst=SuccVar}], State) ->
+               #b_set{op={succeeded,Kind},args=[OpVar],dst=SuccVar}], State) ->
+    true = Kind =:= guard orelse Kind =:= body, %Assertion.
     ok = vvars_assert_args(OpArgs, I, State),
     vvars_save_var(SuccVar, vvars_save_var(OpVar, State));
-vvars_block_1([#b_set{op=succeeded,args=Args}=I | [_|_]], State) ->
+vvars_block_1([#b_set{op={succeeded,guard},args=Args}=I | [_|_]], State) ->
     ok = vvars_assert_args(Args, I, State),
     %% 'succeeded' must be the last instruction in its block.
     throw({succeeded_not_last, I});
-vvars_block_1([#b_set{op=succeeded,args=Args}=I], State)->
+vvars_block_1([#b_set{op={succeeded,_},args=Args}=I], State)->
     ok = vvars_assert_args(Args, I, State),
-    %% 'succeeded' must be be directly preceded by the operation it checks.
+    %% 'succeeded' must be directly preceded by the operation it checks.
     throw({succeeded_not_preceded, I});
 vvars_block_1([#b_set{ dst = Dst, op = phi } | Is], State) ->
     %% We don't check phi node arguments at this point since we may not have
