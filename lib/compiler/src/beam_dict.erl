@@ -186,7 +186,7 @@ line([], #asm{num_lines=N}=Dict) ->
     %% No location available. Return the special pre-defined
     %% index 0.
     {0,Dict#asm{num_lines=N+1}};
-line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
+line([{location,Name,Line}|_], #asm{lines=Lines,num_lines=N}=Dict0) ->
     {FnameIndex,Dict1} = fname(Name, Dict0),
     Key = {FnameIndex,Line},
     case Lines of
@@ -194,7 +194,9 @@ line([{location,Name,Line}], #asm{lines=Lines,num_lines=N}=Dict0) ->
         _ ->
 	    Index = maps:size(Lines) + 1,
             {Index, Dict1#asm{lines=Lines#{Key=>Index},num_lines=N+1}}
-    end.
+    end;
+line([_|T], #asm{}=Dict) ->
+    line(T, Dict).
 
 -spec fname(nonempty_string(), bdict()) ->
                    {non_neg_integer(), bdict()}.
