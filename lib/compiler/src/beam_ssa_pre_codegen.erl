@@ -2609,13 +2609,9 @@ reserve_xregs_is([], Res, Xs, _Used) ->
     {Res,Xs}.
 
 %% Pick up register hints from the successors of this blocks.
-reserve_terminator(_L, _Is, #b_br{bool=#b_var{},succ=Succ,fail=?EXCEPTION_BLOCK},
-                   _Blocks, XsMap, _Res) ->
-    %% We know that no variables are used at ?EXCEPTION_BLOCK, so
-    %% any register hints from the success blocks are safe to use.
-    map_get(Succ, XsMap);
 reserve_terminator(L, Is, #b_br{bool=#b_var{},succ=Succ,fail=Fail},
-                   Blocks, XsMap, Res) when Succ =/= Fail ->
+                   Blocks, XsMap, Res) when Succ =/= Fail,
+                                            Fail =/= ?EXCEPTION_BLOCK ->
     #{Succ:=SuccBlk,Fail:=FailBlk} = Blocks,
     case {SuccBlk,FailBlk} of
         {#b_blk{is=[],last=#b_br{succ=PhiL,fail=PhiL}},
@@ -2648,15 +2644,35 @@ reserve_terminator(L, Is, #b_br{bool=#b_var{},succ=Succ,fail=Fail},
             %% be safe at the failure block, and vice versa.
             #{}
     end;
-reserve_terminator(L, Is, #b_br{bool=#b_literal{val=true},succ=Succ},
+reserve_terminator(L, Is, #b_br{bool=Bool,succ=Succ,fail=Fail},
                    Blocks, XsMap, Res) ->
-    case map_get(Succ, Blocks) of
-        #b_blk{is=[],last=Last} ->
-            reserve_terminator(Succ, Is, Last, Blocks, XsMap, Res);
-        #b_blk{is=[_|_]=PhiIs} ->
-            res_xregs_from_phi(PhiIs, L, Res, #{})
+    case {Bool, Fail} of
+        {_, ?EXCEPTION_BLOCK} ->
+            %% We know that no variables are used from ?EXCEPTION_BLOCK, so any
+            %% register hints from the successor block are safe to use.
+            reserve_terminator_1(L, Succ, Is, Blocks, XsMap, Res);
+        {#b_literal{val=true}, _} ->
+            %% We only have one successor, so its hints are safe to use.
+            reserve_terminator_1(L, Succ, Is, Blocks, XsMap, Res);
+        {_, _} ->
+            %% Register hints from the success block may not
+            %% be safe at the failure block, and vice versa.
+            #{}
     end;
-reserve_terminator(_, _, _, _, _, _) -> #{}.
+reserve_terminator(_, _, _, _, _, _) ->
+    #{}.
+
+reserve_terminator_1(L, Succ, Is, Blocks, XsMap, Res) ->
+    case {Blocks, XsMap} of
+        {#{ Succ := #b_blk{is=[#b_set{op=phi}|_]=PhiIs}}, #{}} ->
+            res_xregs_from_phi(PhiIs, L, Res, #{});
+        {#{ Succ := #b_blk{is=[],last=Last}}, #{}} ->
+            reserve_terminator(Succ, Is, Last, Blocks, XsMap, Res);
+        {#{}, #{ Succ := Xs }}->
+            Xs;
+        {#{}, #{}} ->
+            #{}
+    end.
 
 %% Pick up a reservation from a phi node.
 res_xregs_from_phi([#b_set{op=phi,dst=Dst,args=Args}|Is],
