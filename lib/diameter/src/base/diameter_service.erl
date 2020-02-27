@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -735,29 +735,31 @@ init_peers() ->
                                %%  Alias,
                                %%  TPid}
 
+%% Valid service options are all 2-tuples.
 service_opts(Opts) ->
-    remove([{strict_arities, true},
-            {avp_dictionaries, []}],
-           maps:merge(maps:from_list([{monitor, false} | def_opts()]),
-                      maps:from_list(Opts))).
+    remove([{strict_arities, true}, {avp_dictionaries, []}],
+           merge(lists:append([[{monitor, false}] | def_opts()]), Opts)).
+
+merge(List1, List2) ->
+    maps:merge(maps:from_list(List1), maps:from_list(List2)).
 
 remove(List, Map) ->
     maps:filter(fun(K,V) -> not lists:member({K,V}, List) end,
                 Map).
 
-def_opts() ->  %% defaults on the service map
-    [{share_peers, false},
-     {use_shared_peers, false},
-     {sequence, {0,32}},
-     {restrict_connections, nodes},
-     {incoming_maxlen, 16#FFFFFF},
-     {strict_arities, true},
-     {strict_mbit, true},
-     {decode_format, record},
-     {avp_dictionaries, []},
-     {traffic_counters, true},
-     {string_decode, true},
-     {spawn_opt, []}].
+def_opts() ->  %% defaults on the options map
+    [[{decode_format, record},        %% service options
+      {restrict_connections, nodes},
+      {sequence, {0,32}},
+      {share_peers, false},
+      {strict_arities, true},
+      {string_decode, true},
+      {traffic_counters, true},
+      {use_shared_peers, false}],
+     [{avp_dictionaries, []},         %% common options
+      {incoming_maxlen, 16#FFFFFF},
+      {spawn_opt, []},
+      {strict_mbit, true}]].
 
 mref(false = No) ->
     No;
@@ -875,27 +877,46 @@ start(Ref, Type, Opts, N, #state{watchdogT = WatchdogT,
         = Svc1
         = merge_service(Opts, Svc0),
     Svc = binary_caps(Svc1, SD),
-    {SOpts, TOpts} = merge_opts(SvcOpts, Opts),
-    RecvData = diameter_traffic:make_recvdata([SvcName, PeerT, Apps, SOpts]),
-    T = {TOpts, SOpts, RecvData, Svc},
+    {Map, Rest} = merge_opts(SvcOpts, Opts),
+    RecvData = diameter_traffic:make_recvdata([SvcName, PeerT, Apps, Map]),
+    T = {Rest, Map, RecvData, Svc},
     Rec = #watchdog{type = Type,
                     ref = Ref,
-                    options = TOpts},
-
+                    options = Opts},  %% original options, returned
+                                      %% by service_info/2
     diameter_lib:fold_n(fun(_,A) ->
                                 [wd(Type, Ref, T, WatchdogT, Rec) | A]
                         end,
                         [],
                         N).
 
-merge_opts(SvcOpts, Opts) ->
-    Keys = [K || {K,_} <- def_opts()],
-    SO = [T || {K,_} = T <- Opts, lists:member(K, Keys)],
-    TO = Opts -- SO,
-    {maps:merge(maps:with(Keys, SvcOpts), maps:from_list(SO)),
-     TO ++ [T || {K,_} = T <- maps:to_list(SvcOpts),
-                 not lists:member(K, Keys),
-                 not lists:keymember(K, 1, Opts)]}.
+%% This is awkward. We have service options that have been passed to
+%% diameter:start_service/2 (minus application and capabilities
+%% options, removed in diameter_config) and transport options passed
+%% to diameter:add_transport/2. The former can include defaults for
+%% the latter, but the latter can also contain arbitrary options that
+%% are just returned by diameter:service_info/2. There's nothing
+%% stopping these arbitrary options from being valid service options,
+%% but these aren't interpreted as such.
+%%
+%% The options are merged (transport defaults have already been merged
+%% into the service options in service_opts/1) and split into a map
+%% for the service options and a few transport options, and a list for
+%% the rest. This is historical convolution. Some options are are
+%% pulled out of the list on the way to starting the transport process
+%% in diameter_peer_fsm, but more work could probably be done here to
+%% simplify things.
+%%
+%% Transport options are not necessarily 2-tuples: the transport_config
+%% 3-tuple means they can't just be turned into a map.
+merge_opts(SOpts, TOpts) ->
+    [SD,TD] = Def = def_opts(),
+    Keys = [K || L <- Def, {K,_} <- L],
+    Opts = [T || {K,_} = T <- TOpts, lists:keymember(K, 1, TD)],
+    {maps:merge(maps:with(Keys, SOpts), maps:from_list(Opts)),%% merge TOpts
+     TOpts ++ [T || {K,_} = T <- maps:to_list(SOpts),         %% append SOpts
+                    not lists:keymember(K, 1, SD),
+                    [] == [A || {A,_} <- TOpts, A == K]]}.
 
 binary_caps(Svc, true) ->
     Svc;

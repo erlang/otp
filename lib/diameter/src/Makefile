@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2010-2018. All Rights Reserved.
+# Copyright Ericsson AB 2010-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -216,12 +216,16 @@ realclean: clean
 
 PLT = ./otp.plt
 
-plt:
+plt: $(PLT)
+
+$(PLT):
 	dialyzer --build_plt \
 	         --apps erts stdlib kernel \
 	                xmerl ssl public_key crypto \
 	                compiler syntax_tools runtime_tools \
-	         --output_plt $(PLT) \
+	         --output_plt $@ \
+	         --get_warnings \
+	         --statistics \
 	         --verbose
 
 dialyze: opt $(PLT)
@@ -230,9 +234,12 @@ dialyze: opt $(PLT)
 	         -Wno_improper_lists \
 	         $(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR) \
 	         $(patsubst %, $(EBIN)/%.$(EMULATOR), \
-	                $(notdir $(RT_MODULES) $(CT_MODULES) $(INFO_MODULES)))
+	                $(notdir $(DICT_YRL) \
+	                         $(RT_MODULES) \
+	                         $(CT_MODULES) \
+	                         $(INFO_MODULES)))
 # Omit all but the common dictionary module since these
-# (diameter_gen_relay in particular) generate warning depending on how
+# (diameter_gen_relay in particular) generate warnings depending on how
 # much of the included diameter_gen.hrl they use.
 
 # ----------------------------------------------------

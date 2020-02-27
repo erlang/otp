@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -146,8 +146,9 @@ services() ->
 %% service_info/2
 %% ---------------------------------------------------------------------------
 
--spec service_info(service_name(), atom() | [atom()])
-   -> any().
+-spec service_info(service_name(), Item | [Item])
+   -> any()
+ when Item :: atom() | peer_ref().
 
 service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
@@ -351,45 +352,45 @@ call(SvcName, App, Message) ->
 %% Options common to both start_service/2 and add_transport/2.
 
 -type common_opt()
-   :: {pool_size, pos_integer()}
+   :: {avp_dictionaries, [module()]}
     | {capabilities_cb, eval()}
     | {capx_timeout, 'Unsigned32'()}
-    | {strict_capx, boolean()}
-    | {strict_mbit, boolean()}
-    | {avp_dictionaries, [module()]}
+    | {connect_timer, 'Unsigned32'()}
     | {disconnect_cb, eval()}
-    | {dpr_timeout, 'Unsigned32'()}
     | {dpa_timeout, 'Unsigned32'()}
+    | {dpr_timeout, 'Unsigned32'()}
     | {incoming_maxlen, message_length()}
     | {length_errors, exit | handle | discard}
-    | {connect_timer, 'Unsigned32'()}
-    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}
+    | {pool_size, pos_integer()}
+    | {spawn_opt, list() | mfa()}
+    | {strict_capx, boolean()}
+    | {strict_mbit, boolean()}
     | {watchdog_config, [{okay|suspect, non_neg_integer()}]}
-    | {spawn_opt, list() | mfa()}.
+    | {watchdog_timer, 'Unsigned32'() | {module(), atom(), list()}}.
 
 %% Options passed to start_service/2
 
 -type service_opt()
    :: capability()
     | {application, [application_opt()]}
+    | {decode_format, decode_format()}
     | {restrict_connections, restriction()}
     | {sequence, sequence() | eval()}
     | {share_peers, remotes()}
-    | {decode_format, decode_format()}
-    | {traffic_counters, boolean()}
-    | {string_decode, boolean()}
     | {strict_arities, true | strict_arities()}
+    | {string_decode, boolean()}
+    | {traffic_counters, boolean()}
     | {use_shared_peers, remotes()}
     | common_opt().
 
 -type application_opt()
    :: {alias, app_alias()}
+    | {answer_errors, callback|report|discard}
+    | {call_mutates_state, boolean()}
     | {dictionary, module()}
     | {module, app_module()}
-    | {state, any()}
-    | {call_mutates_state, boolean()}
-    | {answer_errors, callback|report|discard}
-    | {request_errors, answer_3xxx|answer|callback}.
+    | {request_errors, answer_3xxx|answer|callback}
+    | {state, any()}.
 
 -type app_alias()
    :: any().
@@ -407,11 +408,11 @@ call(SvcName, App, Message) ->
 %% Options passed to add_transport/2
 
 -type transport_opt()
-   :: {transport_module, atom()}
+   :: {applications, [app_alias()]}
+    | {capabilities, [capability()]}
     | {transport_config, any()}
     | {transport_config, any(), 'Unsigned32'() | infinity}
-    | {applications, [app_alias()]}
-    | {capabilities, [capability()]}
+    | {transport_module, atom()}
     | common_opt()
     | {private, any()}.
 
@@ -430,8 +431,8 @@ call(SvcName, App, Message) ->
 %% Options passed to call/4
 
 -type call_opt()
-   :: {extra, list()}
+   :: detach
+    | {extra, list()}
     | {filter, peer_filter()}
-    | {timeout, 'Unsigned32'()}
     | {peer, peer_ref()}
-    | detach.
+    | {timeout, 'Unsigned32'()}.

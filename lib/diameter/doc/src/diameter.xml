@@ -23,7 +23,7 @@
 
 <copyright>
 <year>2011</year>
-<year>2019</year>
+<year>2020</year>
 <holder>Ericsson AB. All Rights Reserved.</holder>
 </copyright>
 <legalnotice>
@@ -1046,8 +1046,9 @@ each node from which requests are sent.</p>
 <tag><c>&transport_opt;</c></tag>
 <item>
 <p>
-Any transport option except <c>applications</c> or
-<c>capabilities</c>.
+Any transport option except <c>applications</c>,
+<c>capabilities</c>, <c>transport_config</c>, and
+<c>transport_module</c>.
 Used as defaults for transport configuration, values passed to
 &add_transport; overriding values configured on the service.</p>
 </item>
@@ -1398,10 +1399,11 @@ Options <c>monitor</c> and <c>link</c> are ignored in the list-valued
 case.
 An MFA is applied with an additional term prepended to its argument
 list, and should return either the pid of the handler process that
-invokes <c>diameter_traffic:request/1</c> on the term in order to
+invokes <c>diameter_traffic:request/1</c> on the argument in order to
 process the request, or the atom <c>discard</c>.
-The handler process need not be local, but diameter must be started on
-the remote node.</p>
+The handler process need not be local, and diameter need not be
+started on the remote node, but diameter and relevant application
+callbacks must be on the code path.</p>
 
 <p>
 Defaults to the empty list.</p>

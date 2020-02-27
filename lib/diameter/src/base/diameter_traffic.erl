@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2013-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2013-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,6 +86,7 @@
                            string_decode := boolean(),
                            strict_arities => diameter:strict_arities(),
                            strict_mbit := boolean(),
+                           ordered_encode => boolean(),
                            incoming_maxlen := diameter:message_length()}}).
 %% Note that incoming_maxlen is currently handled in diameter_peer_fsm,
 %% so that any message exceeding the maximum is discarded. Retain the
@@ -284,12 +285,18 @@ recv(false, false, TPid, Pkt, _, _) ->
 spawn_request(false, _, _, _, _, _, _) ->  %% no transport
     discard;
 
-%% An MFA should return the pid() of a process in which the argument
-%% fun in applied, or the atom 'discard' if the fun is not applied.
-%% The latter results in an acknowledgment back to the transport
-%% process when appropriate, to ensure that send/recv callbacks can
-%% count outstanding requests. Acknowledgement is implicit if the
-%% handler process dies (in a handle_request callback for example).
+%% An MFA should return the pid() of a process that invokes
+%% diameter_traffic:request(ReqT), or the atom 'discard' if the
+%% function is not called. The latter results in an acknowledgment
+%% back to the transport process when appropriate, to ensure that
+%% send/recv callbacks can count outstanding requests. Acknowledgement
+%% is implicit if the handler process dies (in a handle_request
+%% callback for example).
+%%
+%% There is no requirement that diameter be started on nodes on which
+%% handler processes are spawned, just that diameter and application
+%% callbacks are on the code path. (Although the MFA itself may have
+%% requirements, as in the case of diameter_dist.)
 spawn_request(AppT, {M,F,A}, Ack, TPid, Pkt, Dict0, RecvData) ->
     %% Term to pass to request/1 in an appropriate process. Module
     %% diameter_dist implements callbacks.
@@ -520,7 +527,7 @@ request_cb(noreply, _App, EvalPktFs, EvalFs) ->
 
 %% Relay a request to another peer. This is equivalent to doing an
 %% explicit call/4 with the message in question except that (1) a loop
-%% will be detected by examining Route-Record AVP's, (3) a
+%% will be detected by examining Route-Record AVP's, (2) a
 %% Route-Record AVP will be added to the outgoing request and (3) the
 %% End-to-End Identifier will default to that in the
 %% #diameter_header{} without the need for an end_to_end_identifier
@@ -556,14 +563,7 @@ request_cb(T, App, _, _) ->
 send_A({reply, Ans}, TPid, App, Dict0, RecvData, Pkt, _Caps, Fs) ->
     AppDict = App#diameter_app.dictionary,
     MsgDict = msg_dict(AppDict, Dict0, Ans),
-    send_answer(Ans,
-                TPid,
-                MsgDict,
-                AppDict,
-                Dict0,
-                RecvData,
-                Pkt,
-                Fs);
+    send_answer(Ans, TPid, MsgDict, AppDict, Dict0, RecvData, Pkt, Fs);
 
 send_A({call, Opts}, TPid, App, Dict0, RecvData, Pkt, Caps, Fs) ->
     AppDict = App#diameter_app.dictionary,
@@ -667,7 +667,7 @@ is_answer_message(#diameter_packet{msg = Msg}, Dict0) ->
 is_answer_message([#diameter_header{is_request = R, is_error = E} | _], _) ->
     E andalso not R;
 
-%% Message sent as a map or tagged avp/value list.
+%% Message sent as a map or avp list.
 is_answer_message([Name | _], _) ->
     Name == 'answer-message';
 
@@ -1239,7 +1239,12 @@ is_result(RC, true, _) ->
 %% incr/2
 
 incr(TPid, Counter) ->
-    diameter_stats:incr(Counter, TPid, 1).
+    Node = node(TPid),
+    if Node == node() ->
+            diameter_stats:incr(Counter, TPid, 1);
+       true ->
+            spawn(Node, diameter_stats, incr, [Counter, TPid, 1])
+    end.
 
 %% rcc/1
 
@@ -1866,23 +1871,26 @@ z(#diameter_packet{header = H, bin = Bin, transport_data = T}) ->
                      transport_data = T}.
 
 %% send/1
+%%
+%% Send from a remote node using a peer connection on this one. Pkt is
+%% already stripped.
 
 send({TPid, Pkt, #request{handler = Pid} = Req0, SvcName, Timeout, TRef}) ->
     Req = Req0#request{handler = self()},
-    recv(TPid, Pid, TRef, zend_requezt(TPid, Pkt, Req, SvcName, Timeout)).
+    Pid ! recv(TPid, TRef, send_request(TPid, Pkt, Req, SvcName, Timeout)).
 
-%% recv/4
+%% recv/3
 %%
 %% Relay an answer from a remote node.
 
-recv(TPid, Pid, TRef, {LocalTRef, MRef}) ->
+recv(TPid, TRef, {LocalTRef, MRef}) ->
     receive
         {answer, _, _, _, _} = A ->
-            Pid ! A;
+            A;
         {'DOWN', MRef, process, _, _} ->
-            Pid ! {failover, TRef};
+            {failover, TRef};
         {failover = T, LocalTRef} ->
-            Pid ! {T, TRef};
+            {T, TRef};
         T ->
             exit({timeout, LocalTRef, TPid} = T)
     end.
