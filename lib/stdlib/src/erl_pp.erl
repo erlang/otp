@@ -652,8 +652,10 @@ lexpr({named_fun,_,Name,Cs,Extra}, _Prec, Opts) ->
             {reserved,'end'}]}};
 lexpr({call,_,{remote,_,{atom,_,M},{atom,_,F}=N}=Name,Args}, Prec, Opts) ->
     case erl_internal:bif(M, F, length(Args)) of
-        true ->
+        true when F =/= float ->
             call(N, Args, Prec, Opts);
+        true ->
+            call(Name, Args, Prec, Opts);
         false ->
             call(Name, Args, Prec, Opts)
     end;

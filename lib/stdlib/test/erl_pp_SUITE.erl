@@ -1305,7 +1305,7 @@ otp_16435(_Config) ->
     CheckF("f() ->\n    << \n      (catch <<1:4>>) ||\n"
            "          A <- []\n    >>.\n"),
     CheckF("f() ->\n    [ \n     (catch foo) ||\n         A <- []\n    ].\n"),
-
+    CheckF("f() when erlang:float(3.0) ->\n    true.\n"),
 
     Check = fun(S) -> S = flat_parse_and_pp_expr(S, 0, []) end,
     Check("5 #r4.f1"),
