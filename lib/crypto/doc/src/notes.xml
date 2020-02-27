@@ -31,66 +31,6 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
-<section><title>Crypto 4.7</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Support for ed25519 and ed448 added to
-	    <c>crypto:generate_key</c>.</p>
-          <p>
-	    Own Id: OTP-15967 Aux Id: PR-2329 </p>
-        </item>
-        <item>
-          <p>
-	    The <seealso marker="crypto:new_api#the-new-api">new
-	    crypto functions api</seealso> (crypto_init,
-	    crypto_update and crypto_one_time) has been updated.</p>
-          <p>
-	    There is now a function <seealso
-	    marker="crypto:crypto#crypto_final/1"><c>crypto_final/1</c></seealso>
-	    and a possibility to set options in <seealso
-	    marker="crypto:crypto#crypto_init/3"><c>crypto_init/3</c></seealso>
-	    and <seealso
-	    marker="crypto:crypto#crypto_init/4"><c>crypto_init/4</c></seealso>.
-	    See the manual for details.</p>
-          <p>
-	    Own Id: OTP-16160</p>
-        </item>
-        <item>
-          <p>
-	    As <seealso
-	    marker="crypto:notes#crypto-4.5">announced</seealso> in
-	    OTP 22.0, a New API was introduced in CRYPTO. See the
-	    <seealso marker="crypto:new_api"><i>New and Old
-	    API</i></seealso> chapter in the CRYPTO User's Guide for
-	    more information and suggested replacement functions.</p>
-          <p>
-	    <seealso marker="crypto:new_api#the-old-api">The Old
-	    API</seealso> is now deprecated in OTP-23.0 and will be
-	    removed in OTP-24.0.</p>
-          <p>
-	    Own Id: OTP-16232</p>
-        </item>
-        <item>
-          <p>
-	    Fix C-compilation without deprecated OpenSSL cryptolib
-	    APIs</p>
-          <p>
-	    Own Id: OTP-16369 Aux Id: PR-2474 </p>
-        </item>
-        <item>
-	    <p>Refactored the internal handling of deprecated and
-	    removed functions.</p>
-          <p>
-	    Own Id: OTP-16469</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Crypto 4.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

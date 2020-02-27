@@ -32,23 +32,7 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.13</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Removed the deprecated parts of <c>erl_interface</c>
-	    (essentially all C functions with prefix <c>erl_</c>).</p>
-          <p>
-	    Own Id: OTP-16328</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
-<section><title>ODBC 2.12.4</title>
+  <section><title>ODBC 2.12.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

@@ -35,24 +35,6 @@
     <file>notes.xml</file>
   </header>
 
-<section><title>Public_Key 1.7.2</title>
-
-    <section><title>Improvements and New Features</title>
-      <list>
-        <item>
-          <p>
-	    Calls of deprecated functions in the <seealso
-	    marker="crypto:new_api#the-old-api">Old Crypto
-	    API</seealso> are replaced by calls of their <seealso
-	    marker="crypto:new_api#the-new-api">substitutions</seealso>.</p>
-          <p>
-	    Own Id: OTP-16346</p>
-        </item>
-      </list>
-    </section>
-
-</section>
-
 <section><title>Public_Key 1.7.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
