@@ -67,6 +67,8 @@ init_per_suite(Config) ->
 				     FileInfo#file_info{mode = 8#400}),
 	   ssh_test_lib:setup_rsa(DataDir, PrivDir),
 	   ssh_test_lib:setup_dsa(DataDir, PrivDir),
+           ssh_test_lib:setup_ecdsa("256", DataDir, PrivDir),
+           ssh_test_lib:setup_eddsa(ed25519, DataDir, PrivDir),
 	   Config
        end).
 
