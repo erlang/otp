@@ -569,7 +569,11 @@ m({'DOWN', M, process, P, _} = T, #monitor{parent = MRef,
 
 %% l/2
 %%
-%% Transition listener state.
+%% Transition listener state. Or not anymore since any message causes
+%% the process to exit.
+
+-spec l(tuple(), #listener{})
+   -> no_return().
 
 %% Service process has died.
 l({'DOWN', _, process, Pid, _} = T, #listener{service = Pid,
