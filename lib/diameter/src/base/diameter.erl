@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2010-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -146,8 +146,9 @@ services() ->
 %% service_info/2
 %% ---------------------------------------------------------------------------
 
--spec service_info(service_name(), atom() | [atom()])
-   -> any().
+-spec service_info(service_name(), Item | [Item])
+   -> any()
+ when Item :: atom() | peer_ref().
 
 service_info(SvcName, Option) ->
     diameter_service:info(SvcName, Option).
