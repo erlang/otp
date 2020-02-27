@@ -1046,8 +1046,9 @@ each node from which requests are sent.</p>
 <tag><c>&transport_opt;</c></tag>
 <item>
 <p>
-Any transport option except <c>applications</c> or
-<c>capabilities</c>.
+Any transport option except <c>applications</c>,
+<c>capabilities</c>, <c>transport_config</c>, and
+<c>transport_module</c>.
 Used as defaults for transport configuration, values passed to
 &add_transport; overriding values configured on the service.</p>
 </item>

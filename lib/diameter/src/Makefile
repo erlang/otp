@@ -228,9 +228,12 @@ dialyze: opt $(PLT)
 	         -Wno_improper_lists \
 	         $(EBIN)/diameter_gen_base_rfc3588.$(EMULATOR) \
 	         $(patsubst %, $(EBIN)/%.$(EMULATOR), \
-	                $(notdir $(RT_MODULES) $(CT_MODULES) $(INFO_MODULES)))
+	                $(notdir $(DICT_YRL) \
+	                         $(RT_MODULES) \
+	                         $(CT_MODULES) \
+	                         $(INFO_MODULES)))
 # Omit all but the common dictionary module since these
-# (diameter_gen_relay in particular) generate warning depending on how
+# (diameter_gen_relay in particular) generate warnings depending on how
 # much of the included diameter_gen.hrl they use.
 
 # ----------------------------------------------------
