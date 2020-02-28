@@ -450,32 +450,38 @@ vi_safe({set_tuple_element,Src,Tuple,N}, Vst) ->
     #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
     Es = beam_types:set_tuple_element(I, get_term_type(Src, Vst), Es0),
     override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
-%% Instructions for optimization of selective receives.
+
+%%
+%% Receive instructions
+%%
+vi_safe({loop_rec,{f,Fail},Dst}, Vst) ->
+    %% This term may not be part of the root set until remove_message/0 is
+    %% executed. If control transfers to the loop_rec_end/1 instruction, no
+    %% part of this term must be stored in a Y register.
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
+                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
+           end);
+vi_safe({loop_rec_end,_}, Vst) ->
+    verify_y_init(Vst),
+    kill_state(Vst);
 vi_safe({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
     set_receive_marker(initialized, Vst);
 vi_safe({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
     set_receive_marker(committed, Vst);
-%% Misc.
 vi_safe(remove_message, Vst0) ->
     Vst = set_receive_marker(none, Vst0),
 
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
-vi_safe({'%', {var_info, Reg, Info}}, Vst) ->
-    validate_var_info(Info, Reg, Vst);
-vi_safe({'%', {remove_fragility, Reg}}, Vst) ->
-    %% This is a hack to make prim_eval:'receive'/2 work.
-    %%
-    %% Normally it's illegal to pass fragile terms as a function argument as we
-    %% have no way of knowing what the callee will do with it, but we know that
-    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
-    %% disabled while matching messages.
-    remove_fragility(Reg, Vst);
-vi_safe({'%',_}, Vst) ->
-    Vst;
-vi_safe({line,_}, Vst) ->
-    Vst;
+vi_safe(timeout, Vst0) ->
+    Vst = set_receive_marker(none, Vst0),
+    prune_x_regs(0, Vst);
+vi_safe({wait,_}, Vst) ->
+    verify_y_init(Vst),
+    kill_state(Vst);
 
 %%
 %% Calls; these may be okay when the try/catch state or stack is undecided,
@@ -810,6 +816,24 @@ vi_safe({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst0) ->
 
     validate_bif(gc_bif, Op, Fail, Ss, Dst, Vst0, Vst);
 
+%%
+%% Misc annotations
+%%
+vi_safe({'%', {var_info, Reg, Info}}, Vst) ->
+    validate_var_info(Info, Reg, Vst);
+vi_safe({'%', {remove_fragility, Reg}}, Vst) ->
+    %% This is a hack to make prim_eval:'receive'/2 work.
+    %%
+    %% Normally it's illegal to pass fragile terms as a function argument as we
+    %% have no way of knowing what the callee will do with it, but we know that
+    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
+    %% disabled while matching messages.
+    remove_fragility(Reg, Vst);
+vi_safe({'%',_}, Vst) ->
+    Vst;
+vi_safe({line,_}, Vst) ->
+    Vst;
+
 vi_safe(I, Vst0) ->
     Vst = branch_exception(Vst0),
     vi_float(I, Vst).
@@ -882,48 +906,29 @@ assert_float_checked(Vst) ->
     end.
 
 init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
+    %% All potentially-throwing instructions after this one will implicitly
+    %% branch to the current try/catch handler; see the base case of vi_safe/2
     Tag = {Kind, [Fail]},
     Vst = create_tag(Tag, 'try_catch', [], Dst, Vst0),
 
-    branch(Fail, Vst,
-           fun(CatchVst0) ->
-                   %% We add the tag here because branch/4 rejects jumps to
-                   %% labels referenced by try tags.
-                   #vst{current=#st{ct=Tags,ys=Ys}=St0} = CatchVst0,
-                   St = St0#st{ct=[Tag|Tags]},
-                   CatchVst1 = CatchVst0#vst{current=St},
+    #vst{current=St0} = Vst,
+    #st{ct=Tags}=St0,
+    St = St0#st{ct=[Tag|Tags]},
+ 
+    Vst#vst{current=St}.
 
-                   %% The receive marker is cleared on exceptions.
-                   CatchVst = set_receive_marker(none, CatchVst1),
-
-                   maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
-           end,
-           fun(SuccVst0) ->
-                   #vst{current=#st{ct=Tags}=St0} = SuccVst0,
-                   St = St0#st{ct=[Tag|Tags]},
-                   SuccVst = SuccVst0#vst{current=St},
-
-                   %% All potentially-throwing instructions after this one will
-                   %% implicitly branch to the current try/catch handler; see
-                   %% the base case of vi_safe/2
-                   SuccVst
-           end).
-
-%% Set the initial state at the try/catch label. Assume that Y registers
-%% contain terms or try/catch tags.
-init_catch_handler_1(Reg, initialized, Vst) ->
-    create_term(any, 'catch_handler', [], Reg, Vst);
-init_catch_handler_1(Reg, uninitialized, Vst) ->
-    create_term(any, 'catch_handler', [], Reg, Vst);
-init_catch_handler_1(_, _, Vst) ->
-    Vst.
-
-branch_exception(#vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst)
+branch_exception(#vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst0)
    when is_integer(Fail) ->
     %% We have an active try/catch tag and we can jump there from this
     %% instruction, so we need to update the branched state of the try/catch
     %% handler.
-    fork_state(Fail, Vst);
+    #vst{current=St} = Vst0,
+
+    %% The receive marker is cleared on exceptions.
+    Vst1 = set_receive_marker(none, Vst0),
+    Vst = fork_state(Fail, Vst1),
+
+    Vst#vst{current=St};
 branch_exception(#vst{current=#st{ct=[]}}=Vst) ->
     Vst;
 branch_exception(_) ->
@@ -995,30 +1000,12 @@ vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
     create_term(#t_fun{arity=Arity}, make_fun, [], {x,0}, Vst);
 vi_throwing(raw_raise=I, Vst) ->
     call(I, 3, Vst);
-vi_throwing({loop_rec,{f,Fail},Dst}, Vst) ->
-    %% This term may not be part of the root set until remove_message/0 is
-    %% executed. If control transfers to the loop_rec_end/1 instruction, no
-    %% part of this term must be stored in a Y register.
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
-                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
-           end);
-vi_throwing({wait,_}, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
 vi_throwing({wait_timeout,_,Src}, Vst) ->
     %% Note that the receive marker is not cleared since we may re-enter the
     %% loop while waiting. If we time out we'll be transferred to a timeout
     %% instruction that clears the marker.
     assert_term(Src, Vst),
     verify_y_init(Vst),
-    prune_x_regs(0, Vst);
-vi_throwing({loop_rec_end,_}, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
-vi_throwing(timeout, Vst0) ->
-    Vst = set_receive_marker(none, Vst0),
     prune_x_regs(0, Vst);
 vi_throwing(send, Vst) ->
     call(send, 2, Vst);

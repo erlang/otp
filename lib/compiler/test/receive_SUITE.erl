@@ -373,7 +373,10 @@ recv_in_try(_Config) ->
     timeout = recv_in_try_1(1, plain),
 
     smoke_receive(fun recv_in_try_2/0),
+    smoke_receive(fun recv_in_try_3/0),
+    smoke_receive(fun recv_in_try_4/0),
     smoke_receive(fun recv_in_catch_1/0),
+
     ok.
 
 recv_in_try_1(Timeout, Format) ->
@@ -424,6 +427,23 @@ recv_in_try_2() ->
     after
         []
     end.
+
+recv_in_try_3() ->
+    #{make_ref() =>
+          not (catch
+                   (catch 9 = kid)#{key =>
+                                        receive after infinity ->
+                                                        ok
+                                                end})}.
+
+recv_in_try_4() ->
+    #{make_ref() =>
+          not (catch
+                   (catch 9 = kid)#{key =>
+                                        receive
+                                        [] when false ->
+                                                ok
+                                        end})}.
 
 recv_in_catch_1() ->
     catch
