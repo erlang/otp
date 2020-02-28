@@ -43,6 +43,57 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The possibility of choosing a handler process for an
+	    incoming Diameter request with a configured MFA was
+	    documented in OTP 20.0, but counters (with
+	    {traffic_counters, true}) were not incremented when this
+	    process was on a remote node. Counters are now
+	    incremented on the node that configures the transport in
+	    question.</p>
+          <p>
+	    Introduced in OTP 21.3.</p>
+          <p>
+	    Own Id: OTP-16457</p>
+        </item>
+        <item>
+          <p>
+	    Transport options differing from those passed to
+	    diameter:add_transport/2 were used in several situations:
+	    when starting a transport process after connect_timer
+	    expiry after an initial connection attempt has failed,
+	    when starting a transport process after a connection has
+	    been accepted, when sending events, when returning
+	    options in diameter:service_info/2, and possibly more. In
+	    particular, the following configuration options to
+	    diameter:add_transport/2 were dropped: avp_dictionaries,
+	    incoming_maxlen, spawn_opt, strict_mbit.</p>
+          <p>
+	    Moreover, any service options mistakenly passed to
+	    diameter:add_transport/2 were interpreted as such,
+	    instead of being ignored as the documentation states,
+	    with the consequence that outgoing and incoming requests
+	    saw different values of some options, some were always
+	    taken from transport options, and others from service
+	    options.</p>
+          <p>
+	    diameter:add_transport/2 must be called in new code for
+	    the fix to have effect.</p>
+          <p>
+	    Introduced in OTP 20.1.</p>
+          <p>
+	    Own Id: OTP-16459</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.2.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
