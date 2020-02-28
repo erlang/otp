@@ -1193,14 +1193,25 @@ t_insert_list_do(Opts) ->
 % Insert a long list twice in a bag
 t_insert_list_bag(Config) when is_list(Config) ->
     EtsMem = etsmem(),
-    T = ets:new(t, [bag]),
+    repeat_for_opts(fun t_insert_list_bag_do/1,
+                    [write_concurrency, compressed]),
+    verify_etsmem(EtsMem).
+
+t_insert_list_bag_do(Opts) ->
+    T = ets:new(t, [bag | Opts]),
     ListSize = 25000,
     List = [ {N} || N <- lists:seq(1, ListSize)],
     ets:insert(T, List),
     ets:insert(T, List),
     ListSize = ets:info(T, size),
+
+    %% Insert different sized objects to better test (compressed) object comparison
+    List2 = [begin Bits=(N rem 71), {N div 7, <<N:Bits>>} end || {N} <- List],
+    ets:insert(T, List2),
+    List2Sz = ListSize * 2,
+    List2Sz = ets:info(T, size),
     ets:delete(T),
-    verify_etsmem(EtsMem).
+    ok.
 
 % Insert a long list twice in a duplicate_bag
 t_insert_list_duplicate_bag(Config) when is_list(Config) ->

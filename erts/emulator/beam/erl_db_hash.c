@@ -913,7 +913,7 @@ static int db_eq_terms_comp(DbTableCommon* tb, DbTerm* a, DbTerm* b)
     int is_eq;
 
     ASSERT(tb->compress);
-    hp_a = allocp_a = erts_alloc(ERTS_ALC_T_TMP, b->size*sizeof(Eterm));
+    hp_a = allocp_a = erts_alloc(ERTS_ALC_T_TMP, a->size*sizeof(Eterm));
     tmp_offheap_a.first = NULL;
     tmp_a = db_copy_from_comp(tb, a, &hp_a, &tmp_offheap_a);
 
