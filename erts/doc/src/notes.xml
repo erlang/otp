@@ -3874,6 +3874,69 @@
 
 </section>
 
+<section><title>Erts 9.3.3.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A process could end up in a state where it got endlessly
+	    rescheduled without making any progress. This occurred
+	    when a system task, such as check of process code (part
+	    of a code purge), was scheduled on a high priority
+	    process trying to execute on a dirty scheduler.</p>
+          <p>
+	    Own Id: OTP-16436 Aux Id: ERL-1152 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>erlang:list_to_ref/1</c> when called with
+	    a reference created by a remote note. Function
+	    <c>list_to_ref/1</c> is intended for debugging and not to
+	    be used in application programs. Bug exist since OTP
+	    20.0.</p>
+          <p>
+	    Own Id: OTP-16438</p>
+        </item>
+        <item>
+          <p>
+	    A process could get into an inconsistent state where it
+	    was runnable, but never scheduled for execution. This
+	    could occur when a mix of <c>normal</c> and <c>low</c>
+	    priority processes where scheduled on the same type of
+	    dirty scheduler simultaneously.</p>
+          <p>
+	    Own Id: OTP-16446 Aux Id: ERL-1157 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed erroneous mapping of exit reason from <c>kill</c>
+	    to <c>killed</c> on reception of some exit signals due to
+	    a broken link. This bug has existed since ERTS version
+	    5.5.2 (OTP R11).</p>
+          <p>
+	    This bug was also unknowingly fixed in ERTS version 10.0
+	    (OTP 21.0) due to a new ERTS internal implementation of
+	    signaling between processes.</p>
+          <p>
+	    Own Id: OTP-16465 Aux Id: ERL-1165, OTP-6160, OTP-14589 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected the valid range of the <c>erl</c> command line
+	    argument <seealso marker="erts:erl#+SDio"><c>+SDio
+	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seealso> from
+	    <c>0..1024</c> to <c>1..1024</c>. <c>+SDio 0</c> was
+	    erroneously allowed which just caused the VM to crash on
+	    the first dirty I/O job scheduled.</p>
+          <p>
+	    Own Id: OTP-16481</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 9.3.3.14</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

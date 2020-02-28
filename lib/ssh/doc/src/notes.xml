@@ -668,6 +668,21 @@
     </section>
 </section>
 
+<section><title>Ssh 4.6.9.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed possible hanging in <c>ssh_sftp:stop_channel/1</c>.</p>
+          <p>
+	    Own Id: OTP-16507 Aux Id: ERIERL-470 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.6.9.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
