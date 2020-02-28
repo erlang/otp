@@ -237,7 +237,7 @@ vvars_block_1([], State) ->
     State;
 vvars_block_1([#b_set{dst=OpVar,args=OpArgs}=I,
                #b_set{op={succeeded,Kind},args=[OpVar],dst=SuccVar}], State) ->
-    true = (Kind =:= guard) or (Kind =:= body), %Assertion.
+    true = Kind =:= guard orelse Kind =:= body, %Assertion.
     ok = vvars_assert_args(OpArgs, I, State),
     vvars_save_var(SuccVar, vvars_save_var(OpVar, State));
 vvars_block_1([#b_set{op={succeeded,guard},args=Args}=I | [_|_]], State) ->

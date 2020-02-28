@@ -776,7 +776,7 @@ sanitize_is([#b_set{op={succeeded,Kind},dst=Dst,args=[Arg0]}=I0],
             #b_br{bool=Dst}=Last, Count, Values, _Changed, Acc) ->
     %% We no longer need to distinguish between guard and body checks, so we'll
     %% rewrite this as a plain 'succeeded'.
-    true = (Kind =:= guard) or (Kind =:= body), %Assertion.
+    true = Kind =:= guard orelse Kind =:= body, %Assertion.
     case sanitize_arg(Arg0, Values) of
         #b_var{}=Arg ->
             I = I0#b_set{op=succeeded,args=[Arg]},
@@ -799,7 +799,7 @@ sanitize_is([#b_set{op={succeeded,Kind},args=[Arg0]} | Is],
         Same =/= ?EXCEPTION_BLOCK ->
             %% We either always succeed, or always fail to somewhere other than
             %% the exception block.
-            true = (Kind =:= guard) or (Kind =:= body), %Assertion.
+            true = Kind =:= guard orelse Kind =:= body, %Assertion.
             sanitize_is(Is, Last, Count, Values, true, Acc)
     end;
 sanitize_is([#b_set{op=Op,dst=Dst,args=Args0}=I0|Is0],
