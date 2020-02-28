@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -370,7 +370,7 @@ rfc3339_to_system_time(DateTimeString, Options) ->
     IsFractionChar = fun(C) -> C >= $0 andalso C =< $9 orelse C =:= $. end,
     {FractionStr, UtcOffset} = lists:splitwith(IsFractionChar, TimeStr),
     Time = datetime_to_system_time(DateTime),
-    Secs = Time - offset_adjustment(Time, second, UtcOffset),
+    Secs = Time - offset_string_adjustment(Time, second, UtcOffset),
     check(DateTimeString, Options, Secs),
     ScaledEpoch = erlang:convert_time_unit(Secs, second, Unit),
     ScaledEpoch + copy_sign(fraction(Unit, FractionStr), ScaledEpoch).
@@ -690,13 +690,13 @@ offset(OffsetOption, Secs0) when OffsetOption =:= "";
 offset(OffsetOption, _Secs) ->
     OffsetOption.
 
+offset_adjustment(Time, Unit, "") ->
+    local_offset(Time, Unit);
 offset_adjustment(Time, Unit, OffsetString) when is_list(OffsetString) ->
     offset_string_adjustment(Time, Unit, OffsetString);
 offset_adjustment(_Time, Unit, Offset) when is_integer(Offset) ->
     erlang:convert_time_unit(Offset, Unit, second).
 
-offset_string_adjustment(Time, Unit, "") ->
-    local_offset(Time, Unit);
 offset_string_adjustment(_Time, _Unit, "Z") ->
     0;
 offset_string_adjustment(_Time, _Unit, "z") ->
