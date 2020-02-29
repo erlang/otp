@@ -860,32 +860,41 @@ make_bool_switch(L, E, V, T, F) ->
 	 [Error]}]}]}.
 
 expr_map(M0, Es0, L, St0) ->
-    {M1,Eps0,St1} = safe(M0, St0),
+    {M1,Eps0,St1} = safe_map(M0, St0),
     Badmap = badmap_term(M1, St1),
     A = lineno_anno(L, St1),
     Fc = fail_clause([], [{eval_failure,badmap}|A], Badmap),
-    case is_valid_map_src(M1) of
-	true ->
-	    {M2,Eps1,St2} = map_build_pairs(M1, Es0, full_anno(L, St1), St1),
-	    M3 = case Es0 of
-		     [] -> M1;
-		     [_|_] -> M2
-		 end,
-	    Cs = [#iclause{
-		     anno=#a{anno=[compiler_generated|A]},
-		     pats=[],
-		     guard=[#icall{anno=#a{anno=A},
-				   module=#c_literal{anno=A,val=erlang},
-			           name=#c_literal{anno=A,val=is_map},
-				   args=[M1]}],
-		     body=[M3]}],
-	    Eps = Eps0 ++ Eps1,
-	    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St2};
-	false ->
-	    %% Not a map source. The update will always fail.
-	    St2 = add_warning(L, badmap, St1),
-	    #iclause{body=[Fail]} = Fc,
-	    {Fail,Eps0,St2}
+    {M2,Eps1,St2} = map_build_pairs(M1, Es0, full_anno(L, St1), St1),
+    M3 = case Es0 of
+             [] -> M1;
+             [_|_] -> M2
+         end,
+    Cs = [#iclause{
+             anno=#a{anno=[compiler_generated|A]},
+             pats=[],
+             guard=[#icall{anno=#a{anno=A},
+                           module=#c_literal{anno=A,val=erlang},
+                           name=#c_literal{anno=A,val=is_map},
+                           args=[M1]}],
+             body=[M3]}],
+    Eps = Eps0 ++ Eps1,
+    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St2}.
+
+safe_map(M0, St0) ->
+    case safe(M0, St0) of
+        {#c_var{},_,_}=Res ->
+            Res;
+        {#c_literal{val=Map},_,_}=Res when is_map(Map) ->
+            Res;
+        {NotMap,Eps0,St1} ->
+            %% Not a map. There will be a syntax error if we try to
+            %% pretty-print the Core Erlang code and then try to parse
+            %% it. To avoid the syntax error, force the term into a
+            %% variable.
+	    {V,St2} = new_var(St1),
+            Anno = cerl:get_ann(NotMap),
+            Eps1 = [#iset{anno=#a{anno=Anno},var=V,arg=NotMap}],
+	    {V,Eps0++Eps1,St2}
     end.
 
 badmap_term(_Map, #core{in_guard=true}) ->
@@ -927,10 +936,6 @@ maybe_warn_repeated_keys(Ck,Line,Used,St) ->
 
 map_op(map_field_assoc) -> #c_literal{val=assoc};
 map_op(map_field_exact) -> #c_literal{val=exact}.
-
-is_valid_map_src(#c_literal{val = M}) when is_map(M) -> true;
-is_valid_map_src(#c_var{}=Var)  -> not cerl:is_c_fname(Var);
-is_valid_map_src(_)         -> false.
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
 
@@ -3471,8 +3476,6 @@ format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
     "binary construction will fail because of a type mismatch";
-format_error(badmap) ->
-    "map construction will fail because of a type mismatch";
 format_error({map_key_repeated,Key}) when is_atom(Key) ->
     io_lib:format("key '~w' will be overridden in expression", [Key]);
 format_error({map_key_repeated,Key}) ->
