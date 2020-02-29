@@ -704,6 +704,7 @@ grab_bag(_Config) ->
     way = grab_bag_6(face),
     no_match = grab_bag_6("ABC"),
     no_match = grab_bag_6(any),
+    ok = grab_bag_7(),
     ok.
 
 grab_bag_1() ->
@@ -775,6 +776,23 @@ grab_bag_6("ABC") when (node([]))#{size(door) => $k} ->
 grab_bag_6(_) ->
     no_match.
 
+grab_bag_7() ->
+    catch
+        case
+            case 1.6 of
+                %% The hd([] call will be translated to erlang:error(badarg).
+                %% This case exports two variables in Core Erlang (the
+                %% return value of the case and V). beam_kernel_to_ssa was not
+                %% prepared to handle a call to error/1 which is supposed to
+                %% export two variables.
+                <<0.5:(hd([])),V:false>> ->
+                    ok
+            end
+        of
+            _ ->
+                V
+        end,
+        ok.
 
 %% The identity function.
 id(I) -> I.
