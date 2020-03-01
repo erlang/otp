@@ -91,6 +91,7 @@ mixed(Config) when is_list(Config) ->
     {error,blurf} = mixit(5),
     {error,87987987} = mixit(6),
     {error,{a,b,c}} = mixit(7),
+    no_match = mixed_1(),
     ok.
 
 mixit(X) ->
@@ -108,6 +109,17 @@ mixit(X) ->
 	42 -> fnurra;
 	77 -> usch;
 	Other -> {error,Other}
+    end.
+
+mixed_1() ->
+    case 0 of
+        0.0 ->
+            %% This clause must not match.
+            zero;
+        0.5 ->
+            half;
+        _ ->
+            no_match
     end.
 
 aliases(Config) when is_list(Config) ->

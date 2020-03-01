@@ -129,7 +129,7 @@
                       'put_tuple_element' | 'put_tuple_elements' |
                       'set_tuple_element' | 'succeeded'.
 
--import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1,sort/1]).
+-import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -315,12 +315,7 @@ normalize(#b_br{}=Br) ->
 normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
     case Arg of
         #b_literal{} ->
-            case keyfind(Arg, 1, List) of
-                false ->
-                    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
-                {Arg,L} ->
-                    #b_br{bool=#b_literal{val=true},succ=L,fail=L}
-            end;
+            normalize_switch(Arg, List, Fail);
         #b_var{} when List =:= [] ->
             #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
         #b_var{} ->
@@ -328,6 +323,13 @@ normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
     end;
 normalize(#b_ret{}=Ret) ->
     Ret.
+
+normalize_switch(Val, [{Val,L}|_], _Fail) ->
+    #b_br{bool=#b_literal{val=true},succ=L,fail=L};
+normalize_switch(Val, [_|T], Fail) ->
+    normalize_switch(Val, T, Fail);
+normalize_switch(_Val, [], Fail) ->
+    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail}.
 
 -spec successors(label(), block_map()) -> [label()].
 
