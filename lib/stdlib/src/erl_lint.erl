@@ -2752,9 +2752,12 @@ check_field({record_field,Lf,{atom,La,F},Val}, Name, Fields,
                  error -> {[],add_error(La, {undefined_field,Name,F}, St)}
              end}
     end;
-check_field({record_field,_Lf,{var,_La,'_'},Val}, _Name, _Fields,
+check_field({record_field,_Lf,{var,La,'_'=F},Val}, _Name, _Fields,
             Vt, St, Sfs, CheckFun) ->
-    {Sfs,CheckFun(Val, Vt, St)};
+    case member(F, Sfs) of
+        true -> {Sfs,{[],add_error(La, bad_multi_field_init, St)}};
+        false -> {[F|Sfs],CheckFun(Val, Vt, St)}
+    end;
 check_field({record_field,_Lf,{var,La,V},_Val}, Name, _Fields,
             Vt, St, Sfs, _CheckFun) ->
     {Sfs,{Vt,add_error(La, {field_name_is_variable,Name,V}, St)}}.

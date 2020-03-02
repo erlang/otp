@@ -4340,6 +4340,10 @@ removed(Config) when is_list(Config) ->
     ok.
 
 otp_16516(Config) when is_list(Config) ->
+    one_multi_init(Config),
+    several_multi_inits(Config).
+
+one_multi_init(Config) ->
     "'_' initializes no omitted fields" =
         format_error(bad_multi_field_init),
     Ts = [{otp_16516_1,
@@ -4378,6 +4382,54 @@ otp_16516(Config) when is_list(Config) ->
              ">>,
            [],
            []}],
+    [] = run(Config, Ts).
+
+several_multi_inits(Config) ->
+    Ts = [{otp_16516_4,
+           <<"-record(r, {f, g}).
+              t(#r{f = 17, _ = V1,
+                           _ = V2}) ->
+                  {V1, V2}.
+              u(#r{_ = V1, f = 17,
+                   _ = V2}) ->
+                  {V1, V2}.
+              v(#r{_ = V1, f = 17}) ->
+                  V1.
+             ">>,
+           [],
+           {errors,[{3,erl_lint,bad_multi_field_init},
+                    {4,erl_lint,{unbound_var,'V1'}},
+                    {4,erl_lint,{unbound_var,'V2'}},
+                    {6,erl_lint,bad_multi_field_init},
+                    {7,erl_lint,{unbound_var,'V1'}},
+                    {7,erl_lint,{unbound_var,'V2'}}],[]}},
+          {otp_16516_5,
+           <<"-record(r, {f, g}).
+              t(V1, V2) ->
+                  #r{_ = V1, f = 3,
+                     _ = V2}.
+              u(V1, V2) ->
+                  #r{_ = V1,
+                     _ = V2, f = 3}.
+             ">>,
+           [],
+           {error,[{4,erl_lint,bad_multi_field_init},
+                   {7,erl_lint,bad_multi_field_init}],
+            [{2,erl_lint,{unused_var,'V2'}},{5,erl_lint,{unused_var,'V2'}}]}},
+          {otp_16516_6,
+           <<"-record(r, {f, g}).
+              t(V1, V2) when #r{_ = V1, f = 3,
+                                _ = V2} =:= #r{} ->
+                  a.
+              u(V1, V2) when #r{_ = V1, f = 3,
+                                _ = V2} =:= #r{} ->
+                  a.
+             ">>,
+           [],
+           {error,[{3,erl_lint,bad_multi_field_init},
+                   {6,erl_lint,bad_multi_field_init}],
+            [{2,erl_lint,{unused_var,'V2'}},
+             {5,erl_lint,{unused_var,'V2'}}]}}],
     [] = run(Config, Ts).
 
 format_error(E) ->
