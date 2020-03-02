@@ -41,35 +41,6 @@
     see the <seealso marker="SSH_app"> ssh(6)</seealso> application manual.</p>
   </description>
 
-  <!-- section>
-    <title>DATA TYPES</title>
-
-    <p>Type definitions that are used more than once in this module,
-    or abstractions to indicate the intended use of the data
-    type, or both. For more details on public key data types,
-    refer to Section 2 Public Key Records in the
-    <seealso marker="public_key:public_key_records"> public_key user's guide:</seealso>
-    </p>
-    <taglist>
-      <tag><c>boolean() =</c></tag>
-      <item><p><c>true | false</c></p></item>
-      <tag><c>string() =</c></tag>
-      <item><p><c>[byte()]</c></p></item>
-      <tag><c>public_key() =</c></tag>
-      <item><p><c>#'RSAPublicKey'{} 
-      | {integer(),#'Dss-Parms'{}} 
-      | {#'ECPoint'{},{namedCurve,Curve::string()}}</c></p></item>
-      <tag><c>private_key() =</c></tag>
-      <item><p><c>#'RSAPrivateKey'{} 
-      | #'DSAPrivateKey'{} 
-      | #'ECPrivateKey'{}</c></p></item>      
-      <tag><c>public_key_algorithm() =</c></tag>
-      <item><p><c>'ssh-rsa' | 'ssh-dss' 
-      | 'rsa-sha2-256' | 'rsa-sha2-384' | 'rsa-sha2-512' 
-      | 'ecdsa-sha2-nistp256' | 'ecdsa-sha2-nistp384' | 'ecdsa-sha2-nistp521' </c></p></item>
-    </taglist>
-  </section -->
-
   <datatypes>
     <datatype>
       <name name="client_key_cb_options"/>
@@ -91,6 +62,30 @@
       <type>
 	<v>HostNames = string()</v>
 	<d>Description of the host that owns the <c>PublicHostKey</c>.</d>
+
+	<v>PublicHostKey = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
+	<d>Of ECDSA keys, only the Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
+
+	<v>ConnectOptions =  <seealso marker="#type-client_key_cb_options">client_key_cb_options()</seealso></v>
+      </type>
+      <desc>
+	<p>This function is retired in favour for <c>Module:add_host_key/4</c> which is the prefered API function.</p>
+	 <p>Adds a host key to the set of trusted host keys.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP R16B">Module:add_host_key(Host, Port, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
+      <fsummary>Adds a host key to the set of trusted host keys.</fsummary>
+      <type>
+	<v>Host = <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>
+	| <seealso marker="kernel:inet#type-hostname">inet:hostname()</seealso>
+        | [ <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>
+	  | <seealso marker="kernel:inet#type-hostname">inet:hostname()</seealso> ]</v>
+	<d>The host that owns the <c>PublicHostKey</c>. One or more IP addresses or hostnames.</d>
+
+	<v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+	<d>The Port number of the Host.</d>
 
 	<v>PublicHostKey = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
 	<d>Of ECDSA keys, only the Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
@@ -120,7 +115,42 @@
 	<v>Result = boolean()</v>
       </type>
       <desc>
+	<p>This function is retired in favour for <c>Module:is_host_key/5</c> which is the prefered API function.</p>
 	<p>Checks if a host key is trusted.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 23.0">Module:is_host_key(Key, Host, Port, Algorithm, ConnectOptions) -> Result</name>
+      <fsummary>Checks if a host key is trusted.</fsummary>
+      <type>
+	<v>Key = <seealso marker="public_key:public_key#type-public_key">public_key:public_key()</seealso></v>
+	<d>Normally an RSA, DSA or ECDSA public key, but handling of other public keys can be added.</d>
+
+	<v>Host = <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>
+	| <seealso marker="kernel:inet#type-hostname">inet:hostname()</seealso>
+        | [ <seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>
+	  | <seealso marker="kernel:inet#type-hostname">inet:hostname()</seealso> ]</v>
+	<d>Description of the host with one or more IP addresses or hostnames.</d>
+
+	<v>Port = <seealso marker="kernel:inet#type-port_number">inet:port_number()</seealso></v>
+	<d>The Port number of the host.</d>
+
+	<v>Algorithm = <seealso marker="ssh#type-pubkey_alg">ssh:pubkey_alg()</seealso></v>
+	<d>Host key algorithm.</d>
+
+	<v>ConnectOptions =  <seealso marker="#type-client_key_cb_options">client_key_cb_options()</seealso></v>
+
+	<v>Result = boolean() | {error, Error::term()}</v>
+	<d>The exact error message depends on the actual callback module. The Error message makes
+	the connection to fail, and is returned from e.g ssh:connect/3.</d>
+      </type>
+      <desc>
+	<p>Checks if a host key is trusted.</p>
+	<p>This function is prefered to the old <c>Module:is_host_key/4</c> since it also uses
+	the peer host port number and may return an error message.</p>
+	<p>The OTP/SSH application first calls this function in the callback module, and then
+	the old <c>Module:is_host_key/4</c> for compatibilty.</p>
       </desc>
     </func>
 
