@@ -521,19 +521,28 @@ cm_register_prior(Src, DstCtx, Lbl, State) ->
     State#cm{ prior_matches = PriorMatches }.
 
 cm_combine_tail(Src, DstCtx, Bool, Acc, State0) ->
-    SrcCtx = match_context_of(Src, State0#cm.definitions),
+    SrcCtx0 = match_context_of(Src, State0#cm.definitions),
+
+    {SrcCtx, Renames} = cm_combine_tail_1(Bool, DstCtx, SrcCtx0,
+                                          State0#cm.renames),
 
     %% We replace the source with a context alias as it normally won't be used
     %% on the happy path after being matched, and the added cost of conversion
     %% is negligible if it is.
     Aliases = maps:put(Src, {0, SrcCtx}, State0#cm.match_aliases),
-
-    Renames0 = State0#cm.renames,
-    Renames = Renames0#{ Bool => #b_literal{val=true}, DstCtx => SrcCtx },
-
     State = State0#cm{ match_aliases = Aliases, renames = Renames },
 
     {Acc, State}.
+
+cm_combine_tail_1(Bool, DstCtx, SrcCtx, Renames0) ->
+    case Renames0 of
+        #{ SrcCtx := New } ->
+            cm_combine_tail_1(Bool, DstCtx, New, Renames0);
+        #{} ->
+            Renames = Renames0#{ Bool => #b_literal{val=true},
+                                 DstCtx => SrcCtx },
+            {SrcCtx, Renames}
+    end.
 
 %% Lets functions accept match contexts as arguments. The parameter must be
 %% unused before the bs_start_match instruction, and it must be matched in the

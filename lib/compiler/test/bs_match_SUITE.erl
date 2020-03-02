@@ -46,7 +46,8 @@
          restore_after_catch/1,matches_on_parameter/1,big_positions/1,
          matching_meets_apply/1,bs_start_match2_defs/1,
          exceptions_after_match_failure/1,
-         bad_phi_paths/1,many_clauses/1]).
+         bad_phi_paths/1,many_clauses/1,
+         combine_empty_segments/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -84,7 +85,7 @@ groups() ->
        matches_on_parameter,big_positions,
        matching_meets_apply,bs_start_match2_defs,
        exceptions_after_match_failure,bad_phi_paths,
-       many_clauses]}].
+       many_clauses,combine_empty_segments]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2316,6 +2317,16 @@ bad_phi_paths_1(Arg) ->
             #{} -> id(Arg)
         end,
     id(B).
+
+combine_empty_segments(_Config) ->
+    <<0,1,2,3>> = combine_empty_segments_1(<<0,1,2,3>>),
+    ok.
+
+combine_empty_segments_1(A) ->
+    <<B/bits>> = A,
+    <<C/bits>> = B,
+    <<D/bits>> = C,
+    D.
 
 id(I) -> I.
 
