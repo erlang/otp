@@ -1542,13 +1542,12 @@ setopts_getopts(Config) ->
         ssh:set_sock_opts(ConnectionRef, [{active,once},{deliver,term},{mode,binary},{packet,0}]),
     
     %% Test to set some other opt
-    {ok,[{delay_send,DS0},{reuseaddr,RA0}]} =
-        ssh:get_sock_opts(ConnectionRef, [delay_send, reuseaddr]),
+    {ok,[{delay_send,DS0}]} =
+        ssh:get_sock_opts(ConnectionRef, [delay_send]),
     DS1 = not DS0,
-    RA1 = not RA0,
-    ok = ssh:set_sock_opts(ConnectionRef, [{delay_send,DS1},{reuseaddr,RA1}]),
-    {ok,[{reuseaddr,RA1},{delay_send,DS1}]} =
-        ssh:get_sock_opts(ConnectionRef, [reuseaddr,delay_send]),
+    ok = ssh:set_sock_opts(ConnectionRef, [{delay_send,DS1}]),
+    {ok,[{delay_send,DS1}]} =
+        ssh:get_sock_opts(ConnectionRef, [delay_send]),
     
      ssh:stop_daemon(Pid).
 
