@@ -705,6 +705,8 @@ grab_bag(_Config) ->
     no_match = grab_bag_6("ABC"),
     no_match = grab_bag_6(any),
     ok = grab_bag_7(),
+    [] = grab_bag_8(),
+    ok = grab_bag_9(),
     ok.
 
 grab_bag_1() ->
@@ -793,6 +795,31 @@ grab_bag_7() ->
                 V
         end,
         ok.
+
+%% ssa_opt_sink would crash if sys_core_fold had not been run.
+grab_bag_8() ->
+    try
+        []
+    catch
+        _:_ ->
+            try
+                []
+            catch
+                _:any:_ ->
+                    a
+            end;
+        _:right ->
+            b
+    end.
+
+%% The ssa_opt_try optimization would leave a succeeded:body
+%% instruction followed by a #b_ret{} terminator, which would crash
+%% beam_ssa_pre_codegen.
+grab_bag_9() ->
+    catch
+        <<1 || 99, [] <- hour>> bsr false,
+        ok.
+
 
 %% The identity function.
 id(I) -> I.

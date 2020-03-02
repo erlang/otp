@@ -287,11 +287,11 @@ epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
           ?PASS(ssa_opt_sw),
-
-          %% Run live one more time to clean up after the float and sw
-          %% passes.
-          ?PASS(ssa_opt_live),
           ?PASS(ssa_opt_try),
+
+          %% Run live one more time to clean up after the previous
+          %% epilogue passes.
+          ?PASS(ssa_opt_live),
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_sink),
@@ -1406,7 +1406,10 @@ live_opt_is([], Live, Acc) ->
 %%% `landingpad`, and `kill_try_tag` instructions.
 
 ssa_opt_try({#opt_st{ssa=Linear0}=St, FuncDb}) ->
-    Linear = opt_try(Linear0),
+    Linear1 = opt_try(Linear0),
+    %% Unreachable blocks with tuple extractions will cause problems
+    %% for ssa_opt_sink.
+    Linear = beam_ssa:trim_unreachable(Linear1),
     {St#opt_st{ssa=Linear}, FuncDb}.
 
 opt_try([{L,#b_blk{is=[#b_set{op=new_try_tag}],
@@ -1441,13 +1444,13 @@ do_opt_try([{L,Blk}|Bs]=Bs0, Ws0) ->
             Ws1 = cerl_sets:del_element(L, Ws0),
             #b_blk{is=Is0} = Blk,
             case is_safe_without_try(Is0, []) of
-                safe ->
+                {safe,Is} ->
                     %% This block does not execute any instructions
                     %% that would require a try. Analyze successors.
                     Successors = beam_ssa:successors(Blk),
                     Ws = cerl_sets:union(cerl_sets:from_list(Successors),
                                          Ws1),
-                    [{L,Blk}|do_opt_try(Bs, Ws)];
+                    [{L,Blk#b_blk{is=Is}}|do_opt_try(Bs, Ws)];
                 unsafe ->
                     %% There is something unsafe in the block, for
                     %% example a `call` instruction or an `extract`
@@ -1474,17 +1477,23 @@ is_safe_without_try([#b_set{op=extract}|_], _Acc) ->
     unsafe;
 is_safe_without_try([#b_set{op=landingpad}|Is], Acc) ->
     is_safe_without_try(Is, Acc);
+is_safe_without_try([#b_set{op={succeeded,body}}=I0|Is], Acc) ->
+    %% If we reached this point, it means that the previous instruction
+    %% has no side effects. We must now convert the flavor of the
+    %% succeeded to the `guard`, since the try/catch will be removed.
+    I = I0#b_set{op={succeeded,guard}},
+    is_safe_without_try(Is, [I|Acc]);
 is_safe_without_try([#b_set{op=Op}=I|Is], Acc) ->
     IsSafe = case Op of
                  phi -> true;
-                 {succeeded,_} -> true;
                  _ -> beam_ssa:no_side_effect(I)
              end,
     case IsSafe of
         true -> is_safe_without_try(Is, [I|Acc]);
         false -> unsafe
     end;
-is_safe_without_try([], _Acc) -> safe.
+is_safe_without_try([], Acc) ->
+    {safe,reverse(Acc)}.
 
 %%%
 %%% Optimize binary matching.
