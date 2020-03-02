@@ -106,3 +106,14 @@
    ]).
 
 
+%%%****************************************************************
+%%% Sign the SigData with the *private* key corresponding to PubKeyBlob
+%%%
+
+-callback sign(PubKeyBlob :: binary(),
+               SigData :: binary(),
+               Options :: client_key_cb_options(any())) ->
+    Blob :: binary().
+
+-optional_callbacks([sign/3]).
+
