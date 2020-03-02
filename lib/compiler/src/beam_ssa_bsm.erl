@@ -471,7 +471,7 @@ combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
 cm_1([#b_set{ op=bs_start_match,
               dst=Ctx,
               args=[_,Src] },
-      #b_set{ op=succeeded,
+      #b_set{ op={succeeded,guard},
               dst=Bool,
               args=[Ctx] }]=MatchSeq, Acc0, Lbl, State0) ->
     Acc = reverse(Acc0),

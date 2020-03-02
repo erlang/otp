@@ -440,7 +440,7 @@ eval_is([#b_set{op=phi,dst=Dst,args=Args}|Is], From, Bs0, St) ->
     Val = get_phi_arg(Args, From),
     Bs = bind_var(Dst, Val, Bs0),
     eval_is(Is, From, Bs, St);
-eval_is([#b_set{op=succeeded,dst=Dst,args=[Var]}], _From, Bs, _St) ->
+eval_is([#b_set{op={succeeded,guard},dst=Dst,args=[Var]}], _From, Bs, _St) ->
     case Bs of
         #{Var:=failed} ->
             bind_var(Dst, #b_literal{val=false}, Bs);

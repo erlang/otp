@@ -68,7 +68,7 @@
 %%   _2 = bif:is_integer _0
 %%   _3 = bif:is_atom _1
 %%   _7 = bif:'and' _2, _3
-%%   @ssa_bool = succeeded _7
+%%   @ssa_bool = succeeded:guard _7
 %%   br @ssa_bool, label 4, label 3
 %%
 %% 4:
@@ -330,7 +330,8 @@ pre_opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
                     pre_opt_is(Is, Reached, Sub0, [I|Acc])
             end
     end;
-pre_opt_is([#b_set{op=succeeded,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
+pre_opt_is([#b_set{op={succeeded,_},dst=Dst,args=Args0}=I0|Is],
+           Reached, Sub0, Acc) ->
     [Arg] = Args = sub_args(Args0, Sub0),
     I = I0#b_set{args=Args},
     case pre_is_safe_bool(Arg, Sub0) of
@@ -354,7 +355,7 @@ pre_opt_is([#b_set{dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
                 #b_var{}=Var ->
                     %% We must remove the 'succeeded' instruction that
                     %% follows since the variable it checks is gone.
-                    [#b_set{op=succeeded,dst=SuccDst,args=[Dst]}] = Is,
+                    [#b_set{op={succeeded,_},dst=SuccDst,args=[Dst]}] = Is,
                     Sub = Sub0#{Dst=>Var,SuccDst=>#b_literal{val=true}},
                     pre_opt_is([], Reached, Sub, Acc);
                 #b_literal{}=Lit ->
@@ -707,7 +708,7 @@ split_dom_block(L, Blocks0) ->
     Blocks = Blocks0#{L:=Blk},
     {PreIs,Blocks}.
 
-split_dom_block_is([#b_set{},#b_set{op=succeeded}]=Is, PreAcc) ->
+split_dom_block_is([#b_set{},#b_set{op={succeeded,_}}]=Is, PreAcc) ->
     {reverse(PreAcc),Is};
 split_dom_block_is([#b_set{}=I|Is]=Is0, PreAcc) ->
     case is_bool_expr(I) of
@@ -808,7 +809,10 @@ build_digraph_is([#b_set{op=phi,args=Args0}=I0|Is], Last, Vtx, Map, G, St) ->
         [#b_set{op=phi}|_] -> not_possible();
         _ -> ok
     end,
-    Args = [{V,map_get(L, Map)} || {V,L} <- Args0],
+    Args = [{V,case Map of
+                   #{L:=Other} -> Other;
+                   #{} -> not_possible()
+               end} || {V,L} <- Args0],
     I = I0#b_set{args=Args},
     build_digraph_is_1(I, Is, Last, Vtx, Map, G, St);
 build_digraph_is([#b_set{}=I|Is], Last, Vtx, Map, G, St) ->
@@ -970,7 +974,7 @@ convert_to_br_node(I, Target, G0, St) ->
 ensure_no_failing_instructions(First, Second, G, St) ->
     Vs0 = covered(get_vertex(First, St), get_vertex(Second, St), G),
     Vs = [{V,beam_digraph:vertex(G, V)} || V <- Vs0],
-    Failing = [P || {V,#b_set{op=succeeded}}=P <- Vs,
+    Failing = [P || {V,#b_set{op={succeeded,_}}}=P <- Vs,
                     not eaten_by_phi(V, G)],
     case Failing of
         [] -> ok;
