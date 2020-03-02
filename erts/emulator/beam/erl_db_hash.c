@@ -900,42 +900,44 @@ static int db_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     return DB_ERROR_NONE;
 }    
 
-static int db_eq_terms_comp(DbTableCommon* tb, DbTerm* a, DbTerm* b)
+struct tmp_uncomp_term {
+    Eterm term;
+    ErlOffHeap oh;
+    Eterm heap[1];
+};
+
+#define sizeof_tmp_uncomp_term(SZ) \
+        (offsetof(struct tmp_uncomp_term, heap) + (SZ)*sizeof(Eterm))
+
+static ERTS_INLINE void free_tmp_uncomp_term(DbTableCommon* tb,
+                                             struct tmp_uncomp_term* tmp)
 {
-    ErlOffHeap tmp_offheap_a;
-    Eterm* allocp_a;
-    Eterm* hp_a;
-    Eterm tmp_a;
-    ErlOffHeap tmp_offheap_b;
-    Eterm* allocp_b;
-    Eterm* hp_b;
-    Eterm tmp_b;
-    int is_eq;
-
-    ASSERT(tb->compress);
-    hp_a = allocp_a = erts_alloc(ERTS_ALC_T_TMP, b->size*sizeof(Eterm));
-    tmp_offheap_a.first = NULL;
-    tmp_a = db_copy_from_comp(tb, a, &hp_a, &tmp_offheap_a);
-
-    hp_b = allocp_b = erts_alloc(ERTS_ALC_T_TMP, b->size*sizeof(Eterm));
-    tmp_offheap_b.first = NULL;
-    tmp_b = db_copy_from_comp(tb, b, &hp_b, &tmp_offheap_b);
-
-    is_eq = eq(tmp_a,tmp_b);
-    erts_cleanup_offheap(&tmp_offheap_a);
-    erts_free(ERTS_ALC_T_TMP, allocp_a);
-    erts_cleanup_offheap(&tmp_offheap_b);
-    erts_free(ERTS_ALC_T_TMP, allocp_b);
-    return is_eq;
+    if (tmp) {
+        ASSERT(tb->compress);
+        erts_cleanup_offheap(&tmp->oh);
+        erts_free(ERTS_ALC_T_TMP, tmp);
+    }
 }
 
-static ERTS_INLINE int db_terms_eq(DbTableCommon* tb, DbTerm* a, DbTerm* b)
+static ERTS_INLINE int db_terms_eq(DbTableCommon* tb, DbTerm* a, DbTerm* b,
+                                   struct tmp_uncomp_term** a_tmp_p)
 {
     if (!tb->compress) {
 	return EQ(make_tuple(a->tpl), make_tuple(b->tpl));
     }
     else {
-	return db_eq_terms_comp(tb, a, b);
+        struct tmp_uncomp_term* a_tmp = *a_tmp_p;
+        if (!a_tmp) {
+            Eterm* hp;
+            a_tmp = erts_alloc(ERTS_ALC_T_TMP, sizeof_tmp_uncomp_term(a->size));
+
+            a_tmp->oh.first = NULL;
+            hp = a_tmp->heap;
+            a_tmp->term = db_copy_from_comp(tb, a, &hp, &a_tmp->oh);
+            *a_tmp_p = a_tmp;
+        }
+
+	return db_eq_comp(tb, a_tmp->term, b);
     }
 }
 
@@ -1006,12 +1008,14 @@ static int db_put_dbterm_hash(DbTable* tbl,
 	}while (q != NULL && has_key(tb,q,key,hval));
     }
     else if (tb->common.status & DB_BAG) {
+        struct tmp_uncomp_term* tmp = NULL;
 	HashDbTerm** qp = bp;
 	q = b;
 	do {
 	    if (db_terms_eq(&tb->common,
                             &value_to_insert->dbterm,
-                            &q->dbterm)) {
+                            &q->dbterm,
+                            &tmp)) {
 		if (is_pseudo_deleted(q)) {
                     INC_NITEMS(tb, lck_ctr, hval);
                     q->pseudo_deleted = 0;
@@ -1023,12 +1027,14 @@ static int db_put_dbterm_hash(DbTable* tbl,
 		    }
 		}
                 free_term(tb, value_to_insert);
+                free_tmp_uncomp_term(&tb->common, tmp);
 		goto Ldone;
 	    }
 	    qp = &q->next;
 	    q = *qp;
             (*consumed_reds_p)++;
 	}while (q != NULL && has_key(tb,q,key,hval));
+        free_tmp_uncomp_term(&tb->common, tmp);
     }
     /*else DB_DUPLICATE_BAG */
 
