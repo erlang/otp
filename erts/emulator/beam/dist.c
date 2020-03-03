@@ -5296,7 +5296,7 @@ BIF_RETTYPE erts_internal_dist_spawn_request_4(BIF_ALIST_4)
     ok_result = THE_NON_VALUE;
     success_message = error_message = !0;
     
-    if (!is_node_name_atom(node))
+    if (!is_atom(node))
         goto badarg;
     dep = erts_find_or_insert_dist_entry(node);
     if (dep == erts_this_dist_entry)

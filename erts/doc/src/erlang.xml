@@ -6611,8 +6611,7 @@ true</pre>
 	</p>
 	<p>This function will fail with a <c>badarg</c> exception if:</p>
 	<list>
-	  <item><p><c><anno>Node</anno></c> is not a valid
-	  node name atom.</p></item>
+	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Fun</anno></c> is not a fun of arity zero.</p></item>
 	  <item><p><c><anno>Options</anno></c> is not a proper list
 	  of terms.</p></item>
@@ -6869,8 +6868,7 @@ true</pre>
 	<p>This function will fail with a <c>badarg</c> exception if:
 	</p>
 	<list>
-	  <item><p><c><anno>Node</anno></c> is not a valid
-	  node name atom.</p></item>
+	  <item><p><c><anno>Node</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Module</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Function</anno></c> is not an atom.</p></item>
 	  <item><p><c><anno>Args</anno></c> is not a proper list
