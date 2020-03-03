@@ -31,7 +31,7 @@
 %% Interface for compiler.
 -export([module/2, format_error/1]).
 
--import(lists, [dropwhile/2,foldl/3,member/2,reverse/1,sort/1,zip/2]).
+-import(lists, [dropwhile/2,foldl/3,member/2,reverse/1,zip/2]).
 
 %% To be called by the compiler.
 
@@ -94,7 +94,7 @@ format_error(Error) ->
 %%  format as used in the compiler and in .S files.
 
 validate(Module, Fs) ->
-    Ft = build_function_table(Fs, []),
+    Ft = build_function_table(Fs, #{}),
     validate_0(Module, Fs, Ft).
 
 validate_0(_Module, [], _) -> [];
@@ -194,40 +194,40 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
         }).
 
 -type label()        :: integer().
--type label_set()    :: gb_sets:set(label()).
--type branched_tab() :: gb_trees:tree(label(), #st{}).
--type ft_tab()       :: gb_trees:tree().
+-type state()        :: #st{} | 'none'.
 
 %% Validator state
 -record(vst,
         {%% Current state
-         current=none              :: #st{} | 'none',
+         current=none              :: state(),
          %% States at labels
-         branched=gb_trees:empty() :: branched_tab(),
+         branched=#{}              :: #{ label() => state() },
          %% All defined labels
-         labels=gb_sets:empty()    :: label_set(),
+         labels=cerl_sets:new()    :: cerl_sets:set(),
          %% Information of other functions in the module
-         ft=gb_trees:empty()       :: ft_tab(),
+         ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
          ref_ctr=0                 :: index()
         }).
 
-build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc0) ->
-    Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
-			(_) -> true
-		     end, Code0),
+build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc) ->
+    Code = dropwhile(fun({label,L}) when L =:= Entry ->
+                             false;
+                        (_) ->
+                             true
+                     end, Code0),
     case Code of
-	[{label,Entry}|Is] ->
-	    Info = #{ arity => Arity,
-                  parameter_info => find_parameter_info(Is, #{}) },
-	    build_function_table(Fs, [{Entry, Info} | Acc0]);
-	_ ->
-	    %% Something is seriously wrong. Ignore it for now.
-	    %% It will be detected and diagnosed later.
-	    build_function_table(Fs, Acc0)
+        [{label,Entry} | Is] ->
+            Info = #{ arity => Arity,
+                      parameter_info => find_parameter_info(Is, #{}) },
+            build_function_table(Fs, Acc#{ Entry => Info });
+        _ ->
+            %% Something is seriously wrong. Ignore it for now.
+            %% It will be detected and diagnosed later.
+            build_function_table(Fs, Acc)
     end;
 build_function_table([], Acc) ->
-    gb_trees:from_orddict(sort(Acc)).
+    Acc.
 
 find_parameter_info([{'%', {var_info, Reg, Info}} | Is], Acc) ->
     find_parameter_info(Is, Acc#{ Reg => Info });
@@ -259,7 +259,7 @@ validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Ft) ->
     end.
 
 validate_fun_info_branches([L|Ls], MFA, #vst{branched=Branches}=Vst0) ->
-    Vst = Vst0#vst{current=gb_trees:get(L, Branches)},
+    Vst = Vst0#vst{current=map_get(L, Branches)},
     validate_fun_info_branches_1(0, MFA, Vst),
     validate_fun_info_branches(Ls, MFA, Vst);
 validate_fun_info_branches([], _, _) -> ok.
@@ -296,8 +296,8 @@ labels_1(Is, R) ->
 
 init_vst(Arity, Ls1, Ls2, Ft) ->
     Vst0 = init_function_args(Arity - 1, #vst{current=#st{}}),
-    Branches = gb_trees_from_list([{L,Vst0#vst.current} || L <- Ls1]),
-    Labels = gb_sets:from_list(Ls1++Ls2),
+    Branches = maps:from_list([{L,Vst0#vst.current} || L <- Ls1]),
+    Labels = cerl_sets:from_list(Ls1++Ls2),
     Vst0#vst{branched=Branches,
              labels=Labels,
              ft=Ft}.
@@ -311,8 +311,8 @@ kill_heap_allocation(St) ->
     St#st{h=0,hf=0}.
 
 validate_instrs([], MFA, _Offset, #vst{branched=Targets0,labels=Labels0}=Vst) ->
-    Targets = gb_trees:keys(Targets0),
-    Labels = gb_sets:to_list(Labels0),
+    Targets = maps:keys(Targets0),
+    Labels = cerl_sets:to_list(Labels0),
     case Targets -- Labels of
 	[] -> Vst;
 	Undef ->
@@ -334,13 +334,17 @@ validate_instrs([I|Is], MFA, Offset, Vst0) ->
 %%%
 vi_safe({label,Lbl}, #vst{current=St0,
                           ref_ctr=Counter0,
-                          branched=B,
-                          labels=Lbls}=Vst) ->
-    {St, Counter} = merge_states(Lbl, St0, B, Counter0),
+                          branched=Branched0,
+                          labels=Labels0}=Vst) ->
+    {St, Counter} = merge_states(Lbl, St0, Branched0, Counter0),
+
+    Branched = Branched0#{ Lbl => St },
+    Labels = cerl_sets:add_element(Lbl, Labels0),
+
     Vst#vst{current=St,
             ref_ctr=Counter,
-            branched=gb_trees:enter(Lbl, St, B),
-            labels=gb_sets:add(Lbl, Lbls)};
+            branched=Branched,
+            labels=Labels};
 vi_safe(_I, #vst{current=none}=Vst) ->
     %% Ignore all unreachable code.
     Vst;
@@ -991,7 +995,7 @@ vi_throwing({call_fun,Live}, Vst) ->
                    validate_body_call('fun', Live+1, SuccVst)
            end);
 vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
-    #{ arity := Arity0 } = gb_trees:get(Lbl, Ft),
+    #{ arity := Arity0 } = map_get(Lbl, Ft),
     Arity = Arity0 - NumFree,
 
     true = Arity >= 0,                          %Assertion.
@@ -1506,12 +1510,12 @@ tail_call(Name, Live, Vst0) ->
 verify_call_args(_, 0, #vst{}) ->
     ok;
 verify_call_args({f,Lbl}, Live, #vst{ft=Ft}=Vst) when is_integer(Live) ->
-    case gb_trees:lookup(Lbl, Ft) of
-        {value, FuncInfo} ->
+    case Ft of
+        #{ Lbl := FuncInfo } ->
             #{ arity := Live,
                parameter_info := ParamInfo } = FuncInfo,
             verify_local_args(Live - 1, ParamInfo, #{}, Vst);
-        none ->
+        #{} ->
             error(local_call_to_unknown_function)
     end;
 verify_call_args(_, Live, Vst) when is_integer(Live)->
@@ -2375,24 +2379,19 @@ fork_state(0, #vst{}=Vst) ->
     %% tag. Therefore the Y registers must be initialized at this point.
     verify_y_init(Vst),
     Vst;
-fork_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
-    case gb_trees:is_defined(L, B) of
-        true ->
-            {MergedSt, Counter} = merge_states(L, St, B, Counter0),
-            Branched = gb_trees:update(L, MergedSt, B),
-            Vst#vst{branched=Branched,ref_ctr=Counter};
-        false ->
-            Vst#vst{branched=gb_trees:insert(L, St, B)}
-    end.
+fork_state(L, #vst{current=St0,branched=Branched0,ref_ctr=Counter0}=Vst) ->
+    {St, Counter} = merge_states(L, St0, Branched0, Counter0),
+    Branched = Branched0#{ L => St },
+    Vst#vst{branched=Branched,ref_ctr=Counter}.
 
 %% merge_states/3 is used when there's more than one way to arrive at a
 %% certain point, requiring the states to be merged down to the least
 %% common subset for the subsequent code.
 
 merge_states(L, St, Branched, Counter) when L =/= 0 ->
-    case gb_trees:lookup(L, Branched) of
-        {value, OtherSt} -> merge_states_1(St, OtherSt, Counter);
-        none -> {St, Counter}
+    case Branched of
+        #{ L := OtherSt } -> merge_states_1(St, OtherSt, Counter);
+        #{} -> {St, Counter}
     end.
 
 merge_states_1(St, none, Counter) ->
@@ -2799,7 +2798,5 @@ gcd(A, B) ->
         0 -> B;
         X -> gcd(B, X)
     end.
-
-gb_trees_from_list(L) -> gb_trees:from_orddict(sort(L)).
 
 error(Error) -> throw(Error).
