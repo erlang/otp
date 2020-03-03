@@ -57,7 +57,7 @@
     {func_info,{atom,t},{atom,undecided},2}.
   {label,8}.
     {test,is_atom,{f,7},[{x,0}]}.
-    {select_val,{x,0},{f,1},{list,[{atom,gurka},{f,9},{atom,delete},{f,10}]}}.
+    {select_val,{x,0},{f,7},{list,[{atom,gurka},{f,9},{atom,delete},{f,10}]}}.
   {label,9}.
     {allocate_heap,2,6,2}.
     {test,is_eq_exact,{f,11},[{x,0},{atom,ok}]}.
