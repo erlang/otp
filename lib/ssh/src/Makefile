@@ -58,6 +58,7 @@ MODULES= \
 	ssh \
 	ssh_acceptor \
 	ssh_acceptor_sup \
+	ssh_agent \
 	ssh_app \
 	ssh_auth\
 	ssh_bits \
@@ -111,7 +112,7 @@ APP_TARGET= $(EBIN)/$(APP_FILE)
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 
-INTERNAL_HRL_FILES = ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_xfer.hrl
+INTERNAL_HRL_FILES = ssh_agent.hrl ssh_auth.hrl ssh_connect.hrl ssh_transport.hrl ssh.hrl ssh_xfer.hrl
 
 # ----------------------------------------------------
 # FLAGS
@@ -187,6 +188,7 @@ $(EBIN)/ssh_subsystem_sup.$(EMULATOR): ssh_subsystem_sup.erl
 $(EBIN)/ssh_channel_sup.$(EMULATOR): ssh_channel_sup.erl ssh.hrl
 $(EBIN)/ssh_acceptor_sup.$(EMULATOR): ssh_acceptor_sup.erl ssh.hrl
 $(EBIN)/ssh_acceptor.$(EMULATOR): ssh_acceptor.erl ssh.hrl
+$(EBIN)/ssh_agent.$(EMULATOR): ssh_agent.erl ssh.hrl ssh_agent.hrl
 $(EBIN)/ssh_app.$(EMULATOR): ssh_app.erl
 $(EBIN)/ssh_auth.$(EMULATOR): ssh_auth.erl \
   ../../public_key/include/public_key.hrl \

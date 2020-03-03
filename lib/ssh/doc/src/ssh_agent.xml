@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2018</year><year>2018</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>ssh_agent</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module since="OTP 23.0">ssh_agent</module>
+  <modulesummary>Callback module for using an SSH agent instead of the default ssh_file callback.</modulesummary>
+  <description>
+    <p>
+      This module defines a callback handler for the communication with an
+      <url href="https://tools.ietf.org/html/draft-miller-ssh-agent-02">SSH Agent</url>
+      and can be used to replace the <seealso marker="ssh:ssh_file">default callback</seealso>.
+      This allows to issue signing requests to an agent that stores SSH private keys to perform
+      authentication.
+    </p>
+    <p>
+      Ssh_agent implements the <seealso marker="ssh:ssh_client_key_api">ssh_client_key_api</seealso>, to
+      allow it to be used by setting the option
+      <seealso marker="ssh:ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
+      when starting a client (with for example
+      <seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
+      <seealso marker="ssh:ssh#shell-1">ssh:shell</seealso>
+      ).
+    </p>
+    <code type="erl">
+      {key_cb, {ssh_agent, []}}
+    </code>
+    <p>
+      The agent communication is established through a UNIX domain socket. By default, the socket path
+      will be fetched from the <c>SSH_AUTH_SOCK</c> enviroment variable, which is the default socket path in the agent
+      implementation of
+      <url href="http://www.openssh.com">OpenSSH</url>.
+    </p>
+    <p>
+      <marker id="SOCKET_PATH"/>
+      In order to set a different socket path the <c>socket_path</c> option can be set.
+    </p>
+    <code type="erl">
+      {key_cb, {ssh_agent, [{socket_path, SocketPath}]}}
+    </code>
+
+    <note>
+      <p>The functions are <i>Callbacks</i> for the SSH app. They are not intended to be called from the user's code!
+      </p>
+    </note>
+  </description>
+
+  <datatypes>
+    <datatype_title>Options for the ssh_agent callback module</datatype_title>
+    <datatype>
+      <name name="socket_path_option"/>
+      <desc>
+        <p>Sets the <seealso marker="#SOCKET_PATH">socket path</seealso> for the communication with the agent.</p>
+      </desc>
+    </datatype>
+
+    <datatype>
+      <name name="timeout_option"/>
+      <desc>
+        <p>
+          Sets the time-out in milliseconds when communicating with the agent via the socket.
+          The default value is <c>1000</c>.
+        </p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name name="call_ssh_file_option"/>
+      <desc>
+        <p>
+          The module which the <c>add_host_key</c> and <c>is_host_key</c> callbacks are delegated to. Defaults to the
+          <seealso marker="ssh:ssh_file">ssh_file</seealso> module.
+        </p>
+      </desc>
+    </datatype>
+  </datatypes>
+
+  <funcs>
+    <func>
+      <name since="OTP 23.0">add_host_key(HostNames, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
+      <fsummary></fsummary>
+      <desc>
+        <p>
+          This callback is delegated to the <seealso marker="ssh:ssh_file#add_host_key-3">ssh_file</seealso> module.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 23.0">is_host_key(Key, Host, Algorithm, ConnectOptions) -> Result</name>
+      <fsummary></fsummary>
+      <desc>
+        <p>
+          This callback is delegated to the <seealso marker="ssh:ssh_file#is_host_key-4">ssh_file</seealso> module.
+        </p>
+      </desc>
+    </func>
+
+    <func>
+      <name since="OTP 23.0">user_key(Algorithm, ConnectOptions) -> {ok, {ssh2_pubkey, PublicKey}} | {error, Reason}</name>
+      <fsummary></fsummary>
+      <desc>
+        <p><strong>Types and description</strong></p>
+        <p>See the api description in
+          <seealso marker="ssh:ssh_client_key_api#Module:user_key-2">ssh_client_key_api, Module:user_key/2</seealso>.
+        </p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
