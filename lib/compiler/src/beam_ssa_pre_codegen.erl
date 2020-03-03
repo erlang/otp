@@ -1327,14 +1327,23 @@ need_frame(#b_blk{is=Is,last=#b_ret{arg=Ret}}) ->
 need_frame(#b_blk{is=Is}) ->
     need_frame_1(Is, body).
 
-need_frame_1([#b_set{op=make_fun,dst=Fun}|Is], {return,_}=Context) ->
-    %% Since make_fun clobbers X registers, a stack frame is needed if
-    %% any of the following instructions use any other variable than
-    %% the one holding the reference to the created fun.
-    need_frame_1(Is, Context) orelse
-        case beam_ssa:used(#b_blk{is=Is,last=#b_ret{arg=Fun}}) of
-            [Fun] -> false;
-            [_|_] -> true
+need_frame_1([#b_set{op=make_fun,dst=Fun}|Is], {return,Ret}=Context) ->
+    case need_frame_1(Is, Context) of
+        true ->
+            true;
+        false ->
+            %% Since make_fun clobbers X registers, a stack frame is
+            %% needed if any of the following instructions use any
+            %% other variable than the one holding the reference to
+            %% the created fun.
+            Defs = ordsets:from_list([Dst || #b_set{dst=Dst} <- Is]),
+            Blk = #b_blk{is=Is,last=#b_ret{arg=Ret}},
+            Used = ordsets:subtract(beam_ssa:used(Blk), Defs),
+            case Used of
+                [] -> false;
+                [Fun] -> false;
+                [_|_] -> true
+            end
         end;
 need_frame_1([#b_set{op=new_try_tag}|_], _) ->
     true;

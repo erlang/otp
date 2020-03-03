@@ -711,6 +711,7 @@ grab_bag(_Config) ->
     ok = grab_bag_7(),
     [] = grab_bag_8(),
     ok = grab_bag_9(),
+    whatever = grab_bag_10(ignore, whatever),
     ok.
 
 grab_bag_1() ->
@@ -823,6 +824,11 @@ grab_bag_9() ->
     catch
         <<1 || 99, [] <- hour>> bsr false,
         ok.
+
+grab_bag_10(_, V) ->
+    %% This function needs a stack frame in order to preserve V.
+    fun() -> ok end,
+    V.
 
 coverage(_Config) ->
 
