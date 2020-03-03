@@ -549,16 +549,16 @@ rename_vars(Rename, From, Blocks) when is_map(Rename)->
     Preds = cerl_sets:from_list(Top),
     F = fun(#b_set{op=phi,args=Args0}=Set) ->
                 Args = rename_phi_vars(Args0, Preds, Rename),
-                Set#b_set{args=Args};
+                normalize(Set#b_set{args=Args});
            (#b_set{args=Args0}=Set) ->
                 Args = [rename_var(A, Rename) || A <- Args0],
-                Set#b_set{args=Args};
+                normalize(Set#b_set{args=Args});
            (#b_switch{arg=Bool}=Sw) ->
-                Sw#b_switch{arg=rename_var(Bool, Rename)};
+                normalize(Sw#b_switch{arg=rename_var(Bool, Rename)});
            (#b_br{bool=Bool}=Br) ->
-                Br#b_br{bool=rename_var(Bool, Rename)};
+                normalize(Br#b_br{bool=rename_var(Bool, Rename)});
            (#b_ret{arg=Arg}=Ret) ->
-                Ret#b_ret{arg=rename_var(Arg, Rename)}
+                normalize(Ret#b_ret{arg=rename_var(Arg, Rename)})
         end,
     map_instrs_1(Top, F, Blocks).
 

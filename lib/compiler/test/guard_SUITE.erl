@@ -2510,6 +2510,17 @@ fail_in_guard() ->
     false = if whatever =/= (program orelse []) -> true;
                true -> false
             end,
+
+    %% Would crash the compiler if optimizing passes
+    %% were disabled.
+    error = if
+                0.1 orelse "VZ", 42 -> ok;
+                true -> error
+            end,
+    error = (fun() when 3.14; <<[]:(ceil($D))>> -> ok;
+               () -> error
+            end)(),
+
     ok.
 
 %% ERL-1183. If Name is not an atom, the `fail` atom must cause the

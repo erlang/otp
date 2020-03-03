@@ -288,7 +288,7 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                     Bool = #b_var{name={'@ssa_bool',Count0}},
                     Count = Count0 + 1,
                     Test = Test0#b_set{dst=Bool},
-                    Br = Br0#b_br{bool=Bool},
+                    Br = beam_ssa:normalize(Br0#b_br{bool=Bool}),
                     Blk = Blk0#b_blk{is=Is++[Test],last=Br},
                     Successors = beam_ssa:successors(Blk),
                     Reached = cerl_sets:union(Reached0,
@@ -388,21 +388,24 @@ pre_opt_terminator(#b_br{bool=Bool}=Br0, Sub, Blocks) ->
             end
     end;
 pre_opt_terminator(#b_ret{arg=Arg}=Ret, Sub, _Blocks) ->
-    Ret#b_ret{arg=sub_arg(Arg, Sub)};
-pre_opt_terminator(#b_switch{arg=Arg0,list=List}=Sw0, Sub, Blocks) ->
-    Arg = sub_arg(Arg0, Sub),
-    Sw = Sw0#b_switch{arg=Arg},
-    case sort(List) of
-        [{#b_literal{val=false},Fail},
-         {#b_literal{val=true},Succ}] ->
-            case pre_is_arg_bool(Arg, Sub) of
-                false ->
-                    pre_opt_sw(Sw, Fail, Succ, Sub, Blocks);
-                true ->
-                    beam_ssa:normalize(#b_br{bool=Arg,succ=Succ,fail=Fail})
+    beam_ssa:normalize(Ret#b_ret{arg=sub_arg(Arg, Sub)});
+pre_opt_terminator(#b_switch{arg=Arg0}=Sw0, Sub, Blocks) ->
+    case beam_ssa:normalize(Sw0#b_switch{arg=sub_arg(Arg0, Sub)}) of
+        #b_switch{arg=Arg,list=List}=Sw ->
+            case sort(List) of
+                [{#b_literal{val=false},Fail},
+                 {#b_literal{val=true},Succ}] ->
+                    case pre_is_arg_bool(Arg, Sub) of
+                        false ->
+                            pre_opt_sw(Sw, Fail, Succ, Sub, Blocks);
+                        true ->
+                            beam_ssa:normalize(#b_br{bool=Arg,succ=Succ,fail=Fail})
+                    end;
+                _ ->
+                    Sw
             end;
-        _ ->
-            Sw
+        Other ->
+            pre_opt_terminator(Other, Sub, Blocks)
     end.
 
 pre_opt_sw(#b_switch{arg=Arg,fail=Fail}=Sw, False, True, Sub, Blocks) ->
@@ -420,9 +423,11 @@ pre_opt_sw(#b_switch{arg=Arg,fail=Fail}=Sw, False, True, Sub, Blocks) ->
                             %% the actual value of the variable does not
                             %% matter if it is not equal to `true`.
                             DummyDst = #b_var{name=0},
+                            Br0 = #b_br{bool=DummyDst,succ=True,fail=False},
+                            Br = beam_ssa:normalize(Br0),
                             {#b_set{op={bif,'=:='},dst=DummyDst,
                                     args=[Arg,#b_literal{val=true}]},
-                             #b_br{bool=DummyDst,succ=True,fail=False}};
+                             Br};
                         {_,_} ->
                             Sw
                     end;
@@ -1421,32 +1426,47 @@ digraph_to_ssa([L|Ls], G, Blocks0, Seen0) ->
 digraph_to_ssa([], _G, Blocks, Seen) ->
     {Blocks,Seen}.
 
-digraph_to_ssa_blk(From, G, Blocks, Acc) ->
+digraph_to_ssa_blk(From, G, Blocks, Acc0) ->
     case beam_digraph:vertex(G, From) of
         #b_set{dst=Dst}=I ->
             case get_targets(From, G) of
                 {br,Succ,Fail} ->
                     %% This is a two-way branch that ends the current block.
-                    Br = #b_br{bool=Dst,succ=Succ,fail=Fail},
-                    Is = reverse(Acc, [I]),
-                    Blk = #b_blk{is=Is,last=Br},
-                    {Blk,beam_ssa:successors(Blk)};
+                    Br = beam_ssa:normalize(#b_br{bool=Dst,succ=Succ,fail=Fail}),
+                    case Br of
+                        #b_br{succ=Same,fail=Same} ->
+                            case {I,Acc0} of
+                                {#b_set{op={succeeded,guard},args=[OpDst]},
+                                 [#b_set{dst=OpDst}|Acc]} ->
+                                    Is = reverse(Acc),
+                                    Blk = #b_blk{is=Is,last=Br},
+                                    {Blk,beam_ssa:successors(Blk)};
+                                {_,_} ->
+                                    Is = reverse(Acc0, [I]),
+                                    Blk = #b_blk{is=Is,last=Br},
+                                    {Blk,beam_ssa:successors(Blk)}
+                            end;
+                        _ ->
+                            Is = reverse(Acc0, [I]),
+                            Blk = #b_blk{is=Is,last=Br},
+                            {Blk,beam_ssa:successors(Blk)}
+                    end;
                 {br,Next} ->
                     case beam_digraph:in_degree(G, Next) of
                         1 ->
-                            digraph_to_ssa_blk(Next, G, Blocks, [I|Acc]);
+                            digraph_to_ssa_blk(Next, G, Blocks, [I|Acc0]);
                         _ ->
                             %% The Next node has multiple incident edge. That
                             %% means that it can't be part of the current block,
                             %% but must start a new block.
                             Br = oneway_br(Next),
-                            Is = reverse(Acc, [I]),
+                            Is = reverse(Acc0, [I]),
                             Blk = #b_blk{is=Is,last=Br},
                             {Blk,beam_ssa:successors(Blk)}
                     end
             end;
         br ->
-            case Acc of
+            case Acc0 of
                 [] ->
                     %% Create an empty block.
                     {br,Next} = get_targets(From, G),
@@ -1456,7 +1476,7 @@ digraph_to_ssa_blk(From, G, Blocks, Acc) ->
                     %% Finish up the block, and let the block
                     %% transfer control to the `br` node at From.
                     Br = oneway_br(From),
-                    Is = reverse(Acc),
+                    Is = reverse(Acc0),
                     Blk = #b_blk{is=Is,last=Br},
                     {Blk,beam_ssa:successors(Blk)}
             end;
@@ -1465,9 +1485,9 @@ digraph_to_ssa_blk(From, G, Blocks, Acc) ->
             %% reason for its existence in the graph is that the root
             %% node only contained a phi instruction (which was taken
             %% out of the block before building the graph).
-            [] = Acc,                           %Assertion.
+            [] = Acc0,                          %Assertion.
             {br,Succ,Fail} = get_targets(From, G),
-            Br = #b_br{bool=Bool,succ=Succ,fail=Fail},
+            Br = beam_ssa:normalize(#b_br{bool=Bool,succ=Succ,fail=Fail}),
             Blk = #b_blk{is=[],last=Br},
             {Blk,beam_ssa:successors(Blk)};
         {external,Sub} ->

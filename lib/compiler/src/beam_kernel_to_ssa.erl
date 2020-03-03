@@ -1386,7 +1386,8 @@ build_graph_1([I|Is], Lbls, BlockAcc) ->
 build_graph_1([], Lbls, BlockAcc) ->
     make_blocks(Lbls, BlockAcc).
 
-make_blocks(Lbls, [Last|Is0]) ->
+make_blocks(Lbls, [Last0|Is0]) ->
     Is = reverse(Is0),
+    Last = beam_ssa:normalize(Last0),
     Block = #b_blk{is=Is,last=Last},
     [{L,Block} || L <- Lbls].

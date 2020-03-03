@@ -315,7 +315,8 @@ amb_1(Lbl, #b_blk{is=Is0,last=Last0}=Block, State0) ->
     {Is, State1} = mapfoldl(fun(I, State) ->
                                     amb_assign_set(I, Lbl, State)
                             end, State0, Is0),
-    {Last, State} = amb_assign_last(Last0, Lbl, State1),
+    {Last1, State} = amb_assign_last(Last0, Lbl, State1),
+    Last = beam_ssa:normalize(Last1),
     {Block#b_blk{is=Is,last=Last}, State}.
 
 amb_assign_set(#b_set{op=phi,args=Args0}=I, _Lbl, State0) ->
@@ -588,10 +589,11 @@ aca_enable_reuse([#b_set{op=bs_start_match,args=[_,Src]}=I0 | Rest],
                  EntryBlock, Blocks0, Acc, State0) ->
     case aca_is_reuse_safe(Src, State0) of
         true ->
-            {I, Last, Blocks1, State} =
+            {I, Last0, Blocks1, State} =
                 aca_reuse_context(I0, EntryBlock, Blocks0, State0),
 
             Is = reverse([I | Acc], Rest),
+            Last = beam_ssa:normalize(Last0),
             Blocks = maps:put(0, EntryBlock#b_blk{is=Is,last=Last}, Blocks1),
 
             %% Copying (and thus renaming) the successors of a block may cause
@@ -671,12 +673,14 @@ aca_handle_convergence(Src, State0, Last0, Blocks0) ->
                     {Succ, Blocks, Counter} =
                         aca_copy_successors(Succ0, Blocks0, State0#aca.counter),
                     State = State0#aca{ counter = Counter },
-                    {State, Last0#b_br{succ=Succ}, Blocks};
+                    Last = beam_ssa:normalize(Last0#b_br{succ=Succ}),
+                    {State, Last, Blocks};
                 right ->
                     {Fail, Blocks, Counter} =
                         aca_copy_successors(Fail0, Blocks0, State0#aca.counter),
                     State = State0#aca{ counter = Counter },
-                    {State, Last0#b_br{fail=Fail}, Blocks}
+                    Last = beam_ssa:normalize(Last0#b_br{fail=Fail}),
+                    {State, Last, Blocks}
             end;
         false ->
             {State0, Last0, Blocks0}
@@ -718,7 +722,8 @@ aca_cs_1([], Blocks, Counter, _VRs, _BRs, Acc) ->
 
 aca_cs_block(#b_blk{is=Is0,last=Last0}=Block0, Counter0, VRs0, BRs) ->
     {VRs, Is, Counter} = aca_cs_is(Is0, Counter0, VRs0, BRs, []),
-    Last = aca_cs_last(Last0, VRs, BRs),
+    Last1 = aca_cs_last(Last0, VRs, BRs),
+    Last = beam_ssa:normalize(Last1),
     Block = Block0#b_blk{is=Is,last=Last},
     {VRs, Block, Counter}.
 
