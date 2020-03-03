@@ -63,7 +63,7 @@
 -include_lib("stdlib/include/assert.hrl").
 
 suite() ->
-    [{timetrap, {seconds, 10}}].
+    [{timetrap, {seconds, 60}}].
 
 init_per_suite(Config) ->
     case erlang:is_alive() of
