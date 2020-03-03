@@ -6954,9 +6954,9 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	struct sctp_paddrparams	    pap;
 	struct sctp_sndrcvinfo	    sri;
 	struct sctp_event_subscribe es;
-#	ifdef SCTP_DELAYED_ACK_TIME
+#if defined(HAVE_DECL_SCTP_DELAYED_ACK_TIME) && defined(SCTP_ASSOC_VALUE_ASSOC_ID)
 	struct sctp_assoc_value     av; /* Not in SOLARIS10 */
-#	endif
+#endif
 #	ifdef SO_BINDTODEVICE
 	char ifname[IFNAMSIZ];
 #	endif
@@ -7475,8 +7475,9 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_sz  = sizeof  ( arg.es);
 	    break;
 	}
-	/* The following is not available on Solaris 10: */
-#	ifdef SCTP_DELAYED_ACK_TIME
+	/* The following is not available on
+         * Solaris 10 or NetBSD or ... */
+#if defined(HAVE_DECL_SCTP_DELAYED_ACK_TIME) && defined(SCTP_ASSOC_VALUE_ASSOC_ID)
 	case SCTP_OPT_DELAYED_ACK_TIME:
 	{
 	    CHKLEN(curr, ASSOC_ID_LEN + 4);
@@ -7489,7 +7490,7 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	    arg_sz  = sizeof  ( arg.av);
 	    break;
 	}
-#	endif
+#endif
 	default:
 	    /* XXX: No more supported SCTP options. In particular, authentica-
 	       tion options (SCTP_AUTH_CHUNK, SCTP_AUTH_KEY, SCTP_PEER_AUTH_
@@ -8790,8 +8791,9 @@ static ErlDrvSSizeT sctp_fill_opts(inet_descriptor* desc,
 	    i = LOAD_TUPLE	(spec, i, 2);
 	    break;
 	}
-	/* The following option is not available in Solaris 10: */
-#	if HAVE_DECL_SCTP_DELAYED_ACK_TIME
+	/* The following option is not available on:
+         * Solaris 10 or NetBSD or ... */
+#if defined(HAVE_DECL_SCTP_DELAYED_ACK_TIME) && defined(SCTP_ASSOC_VALUE_ASSOC_ID)
 	case SCTP_OPT_DELAYED_ACK_TIME:
 	{
 	    struct       sctp_assoc_value av;
