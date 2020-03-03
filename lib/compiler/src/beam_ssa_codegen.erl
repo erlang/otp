@@ -1717,9 +1717,9 @@ cg_test(bs_utf8_size=Op, Fail, [Src], Dst, _I) ->
     [{Op,Fail,Src,Dst}];
 cg_test(bs_utf16_size=Op, Fail, [Src], Dst, _I) ->
     [{Op,Fail,Src,Dst}];
-cg_test({float,convert}, Fail, [Src], Dst, _I) ->
+cg_test({float,convert}, Fail, [Src], Dst, #cg_set{anno=Anno}) ->
     {f,0} = Fail,                               %Assertion.
-    [{fconv,Src,Dst}];
+    [line(Anno),{fconv,Src,Dst}];
 cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
     Op = case Op0 of
              '+' -> fadd;

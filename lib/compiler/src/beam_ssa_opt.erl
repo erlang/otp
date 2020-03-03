@@ -1201,9 +1201,9 @@ float_opt_is([], Fs, _Count, _Acc) ->
     #fs{s=undefined} = Fs,                      %Assertion.
     none.
 
-float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0}=I0,
+float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0,anno=Anno}=I0,
               Ts, #fs{s=S,regs=Rs0,vars=Vs0}=Fs, Count0) ->
-    {As1,Rs1,Count1} = float_load(As0, Ts, Rs0, Count0, []),
+    {As1,Rs1,Count1} = float_load(As0, Ts, Anno, Rs0, Count0, []),
     {As,Is0} = unzip(As1),
     {Fr,Count2} = new_reg('@fr', Count1),
     FrDst = #b_var{name=Fr},
@@ -1220,20 +1220,21 @@ float_make_op(#b_set{op={bif,Op},dst=Dst,args=As0}=I0,
             {Is,Fs#fs{regs=Rs,vars=Vs},Count2}
     end.
 
-float_load([A|As], [T|Ts], Rs0, Count0, Acc) ->
-    {Load,Rs,Count} = float_reg_arg(A, T, Rs0, Count0),
-    float_load(As, Ts, Rs, Count, [Load|Acc]);
-float_load([], [], Rs, Count, Acc) ->
+float_load([A|As], [T|Ts], Anno, Rs0, Count0, Acc) ->
+    {Load,Rs,Count} = float_reg_arg(A, T, Anno, Rs0, Count0),
+    float_load(As, Ts, Anno, Rs, Count, [Load|Acc]);
+float_load([], [], _Anno, Rs, Count, Acc) ->
     {reverse(Acc),Rs,Count}.
 
-float_reg_arg(A, T, Rs, Count0) ->
+float_reg_arg(A, T, Anno, Rs, Count0) ->
     case Rs of
         #{A:=Fr} ->
             {{Fr,[]},Rs,Count0};
         #{} ->
             {Fr,Count} = new_float_copy_reg(Count0),
             Dst = #b_var{name=Fr},
-            I = float_load_reg(T, A, Dst),
+            I0 = float_load_reg(T, A, Dst),
+            I = I0#b_set{anno=Anno},
             {{Dst,[I]},Rs#{A=>Dst},Count}
     end.
 
