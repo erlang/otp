@@ -185,7 +185,7 @@ pre_opt(Blocks, Count) ->
     Sub = maps:remove(uses, Sub1),
 
     %% Now do the actual optimizations.
-    Reached = gb_sets:singleton(hd(Top)),
+    Reached = cerl_sets:from_list([hd(Top)]),
     pre_opt(Top, Sub, Reached, Count, Blocks).
 
 -spec get_phi_info(Ls, Blocks, Sub0) -> Sub when
@@ -265,7 +265,7 @@ get_phi_info_single_use(Var, Sub) ->
 
 -spec pre_opt(Ls, Sub, Reached, Count0, Blocks0) -> {Blocks,Count} when
       Ls :: [beam_ssa:label()],
-      Reached :: gb_sets:set(beam_ssa:label()),
+      Reached :: cerl_sets:set(beam_ssa:label()),
       Count0 :: beam_ssa:label(),
       Blocks0 :: beam_ssa:block_map(),
       Sub :: pre_sub_map(),
@@ -273,7 +273,7 @@ get_phi_info_single_use(Var, Sub) ->
       Blocks :: beam_ssa:block_map().
 
 pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
-    case gb_sets:is_member(L, Reached0) of
+    case cerl_sets:is_element(L, Reached0) of
         false ->
             %% This block will never be reached.
             pre_opt(Ls, Sub0, Reached0, Count0, maps:remove(L, Blocks));
@@ -290,14 +290,14 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                     Br = Br0#b_br{bool=Bool},
                     Blk = Blk0#b_blk{is=Is++[Test],last=Br},
                     Successors = beam_ssa:successors(Blk),
-                    Reached = gb_sets:union(Reached0,
-                                            gb_sets:from_list(Successors)),
+                    Reached = cerl_sets:union(Reached0,
+                                              cerl_sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count, Blocks#{L:=Blk});
                 Last ->
                     Blk = Blk0#b_blk{is=Is,last=Last},
                     Successors = beam_ssa:successors(Blk),
-                    Reached = gb_sets:union(Reached0,
-                                            gb_sets:from_list(Successors)),
+                    Reached = cerl_sets:union(Reached0,
+                                              cerl_sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count0, Blocks#{L:=Blk})
             end
     end;
@@ -306,7 +306,7 @@ pre_opt([], _, _, Count, Blocks) ->
 
 pre_opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
     Args1 = [{Val,From} || {Val,From} <- Args0,
-                           gb_sets:is_member(From, Reached)],
+                           cerl_sets:is_element(From, Reached)],
     Args = sub_args(Args1, Sub0),
     case all_same(Args) of
         true ->
@@ -1542,16 +1542,16 @@ del_out_edges(V, G) ->
     beam_digraph:del_edges(G, beam_digraph:out_edges(G, V)).
 
 covered(From, To, G) ->
-    Seen0 = gb_sets:empty(),
+    Seen0 = cerl_sets:new(),
     {yes,Seen} = covered_1(From, To, G, Seen0),
-    gb_sets:to_list(Seen).
+    cerl_sets:to_list(Seen).
 
 covered_1(To, To, _G, Seen) ->
     {yes,Seen};
 covered_1(From, To, G, Seen0) ->
     Vs0 = beam_digraph:out_neighbours(G, From),
-    Vs = [V || V <- Vs0, not gb_sets:is_member(V, Seen0)],
-    Seen = gb_sets:union(gb_sets:from_list(Vs), Seen0),
+    Vs = [V || V <- Vs0, not cerl_sets:is_element(V, Seen0)],
+    Seen = cerl_sets:union(cerl_sets:from_list(Vs), Seen0),
     case Vs of
         [] ->
             no;
