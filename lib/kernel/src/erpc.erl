@@ -24,17 +24,25 @@
 
 %% Exported API
 
--export([call/4,
+-export([call/2,
+         call/3,
+         call/4,
          call/5,
+         cast/2,
 	 cast/4,
+         send_request/2,
          send_request/4,
          receive_response/1,
          receive_response/2,
          wait_response/1,
          wait_response/2,
          check_response/2,
+         multicall/2,
+         multicall/3,
          multicall/4,
-	 multicall/5]).
+	 multicall/5,
+         multicast/2,
+	 multicast/4]).
 
 -export_type([request_id/0]).
 
@@ -42,6 +50,7 @@
 
 -export([execute_call/4,
          execute_call/3,
+         execute_cast/3,
          is_arg_error/4,
          trim_stack/4,
          call_result/4]).
@@ -60,6 +69,25 @@
 %%------------------------------------------------------------------------
 %% Exported API
 %%------------------------------------------------------------------------
+
+-spec call(Node, Fun) -> Result when
+      Node :: node(),
+      Fun :: function(),
+      Result :: term().
+
+call(N, Fun) ->
+    call(N, Fun, infinity).
+
+-spec call(Node, Fun, Timeout) -> Result when
+      Node :: node(),
+      Fun :: function(),
+      Timeout :: ?TIMEOUT_TYPE,
+      Result :: term().
+
+call(N, Fun, Timeout) when is_function(Fun, 0) ->
+    call(N, erlang, apply, [Fun, []], Timeout);
+call(_N, _Fun, _Timeout) ->
+    error({?MODULE, badarg}).
 
 -spec call(Node, Module, Function, Args) -> Result when
       Node :: node(),
@@ -100,26 +128,21 @@ call(N, M, F, A, infinity) when node() =:= N,  %% Optimize local call
                     error({exception, Reason, ErpcStack})
             end
     end;
-call(N, _M, _F, _A, infinity) when node() =:= N ->
-    error({?MODULE, badarg});
-call(N, M, F, A, T) when ?IS_VALID_TMO(T) ->
-    try
-        Res = make_ref(),
-        ReqId = erlang:spawn_request(N, ?MODULE, execute_call,
-                                     [Res, M, F, A],
-                                     [{reply, error_only},
-                                      monitor]),
-        receive
-            {spawn_reply, ReqId, error, Reason} ->
-                result(spawn_reply, ReqId, Res, Reason);
-            {'DOWN', ReqId, process, _Pid, Reason} ->
-                result(down, ReqId, Res, Reason)
-        after T ->
-                result(timeout, ReqId, Res, undefined)
-        end
-    catch
-        error:badarg ->
-            error({?MODULE, badarg})
+call(N, M, F, A, T) when is_atom(N),
+                         is_atom(M),
+                         is_atom(F),
+                         is_list(A),
+                         ?IS_VALID_TMO(T) ->
+    Res = make_ref(),
+    ReqId = spawn_request(N, ?MODULE, execute_call, [Res, M, F, A],
+                          [{reply, error_only}, monitor]),
+    receive
+        {spawn_reply, ReqId, error, Reason} ->
+            result(spawn_reply, ReqId, Res, Reason);
+        {'DOWN', ReqId, process, _Pid, Reason} ->
+            result(down, ReqId, Res, Reason)
+    after T ->
+            result(timeout, ReqId, Res, undefined)
     end;
 call(_N, _M, _F, _A, _T) ->
     error({?MODULE, badarg}).
@@ -128,25 +151,33 @@ call(_N, _M, _F, _A, _T) ->
 
 -opaque request_id() :: {reference(), reference()}.
 
+-spec send_request(Node, Fun) -> RequestId when
+      Node :: node(),
+      Fun :: function(),
+      RequestId :: request_id().
+
+send_request(N, F) when is_function(F, 0) ->
+    send_request(N, erlang, apply, [F, []]);
+send_request(_N, _F) ->
+    error({?MODULE, badarg}).
+
 -spec send_request(Node, Module, Function, Args) -> RequestId when
       Node :: node(),
-      Module :: module(),
+      Module :: atom(),
       Function :: atom(),
       Args :: [term()],
       RequestId :: request_id().
 
-send_request(N, M, F, A) ->
-    try
-        Res = make_ref(),
-        ReqId = erlang:spawn_request(N, ?MODULE, execute_call,
-                                     [Res, M, F, A],
-                                     [{reply, error_only},
-                                      monitor]),
-        {Res, ReqId}
-    catch
-        error:badarg ->
-            error({?MODULE, badarg})
-    end.
+send_request(N, M, F, A) when is_atom(N),
+                              is_atom(M),
+                              is_atom(F),
+                              is_list(A) ->
+    Res = make_ref(),
+    ReqId = spawn_request(N, ?MODULE, execute_call, [Res, M, F, A],
+                          [{reply, error_only}, monitor]),
+    {Res, ReqId};
+send_request(_N, _M, _F, _A) ->
+    error({?MODULE, badarg}).
 
 -spec receive_response(RequestId) -> Result when
       RequestId :: request_id(),
@@ -246,6 +277,25 @@ check_response(_, _) ->
       | {error, {?MODULE, Reason :: term()}}.
 
 
+-spec multicall(Nodes, Fun) -> Result when
+      Nodes :: [atom()],
+      Fun :: function(),
+      Result :: term().
+
+multicall(Ns, Fun) ->
+    multicall(Ns, Fun, infinity).
+
+-spec multicall(Nodes, Fun, Timeout) -> Result when
+      Nodes :: [atom()],
+      Fun :: function(),
+      Timeout :: ?TIMEOUT_TYPE,
+      Result :: term().
+
+multicall(Ns, Fun, Timeout) when is_function(Fun, 0) ->
+    multicall(Ns, erlang, apply, [Fun, []], Timeout);
+multicall(_Ns, _Fun, _Timeout) ->
+    error({?MODULE, badarg}).
+
 -spec multicall(Nodes, Module, Function, Args) -> Result when
       Nodes :: [atom()],
       Module :: atom(),
@@ -264,48 +314,83 @@ multicall(Ns, M, F, A) ->
       Timeout :: ?TIMEOUT_TYPE,
       Result :: [{ok, ReturnValue :: term()} | caught_call_exception()].
 
-multicall(Ns, M, F, A, T) when ?IS_VALID_TMO(T) ->
-    EndTime = if T == infinity ->
-                      infinity;
-                 T == 0 ->
-                      erlang:monotonic_time(millisecond);
-                 T == ?MAX_INT_TIMEOUT ->
-                      erlang:monotonic_time(millisecond)
-                          + ?MAX_INT_TIMEOUT;
-                 true ->
-                      Start = erlang:monotonic_time(),
-                      NTmo = erlang:convert_time_unit(T,
-                                                      millisecond,
-                                                      native),
-                      erlang:convert_time_unit(Start + NTmo - 1,
-                                               native,
-                                               millisecond) + 1
-              end,
+multicall(Ns, M, F, A, T) ->
     try
+        true = is_atom(M),
+        true = is_atom(F),
+        true = is_list(A),
+        Deadline = deadline(T),
         ReqIds = mcall_send_requests(Ns, M, F, A, []),
-        mcall_wait_replies(ReqIds, [], EndTime)
+        mcall_receive_replies(ReqIds, [], Deadline)
     catch
-        error:{?MODULE, badarg} = Reason ->
-            error(Reason)
-    end;
-multicall(_Ns, _M, _F, _A, _T) ->
-    error({?MODULE, badarg}).
+        error:NotIErr when NotIErr /= internal_error ->
+            error({?MODULE, badarg})
+    end.
 
--spec cast(Node, Module, Function, Args) -> ok when
-      Node :: node(),
-      Module :: module(),
+-spec multicast(Nodes, Fun) -> 'ok' when
+      Nodes :: [node()],
+      Fun :: function().
+
+multicast(N, Fun) ->
+    multicast(N, erlang, apply, [Fun, []]).
+
+-spec multicast(Nodes, Module, Function, Args) -> 'ok' when
+      Nodes :: [node()],
+      Module :: atom(),
       Function :: atom(),
       Args :: [term()].
 
-cast(Node, Mod, Fun, Args) ->
-    %% Fire and forget...
+multicast([], Mod, Fun, Args) ->
     try
-        _ = erlang:spawn_request(Node, Mod, Fun, Args, [{reply, no}]),
+        true = is_atom(Mod),
+        true = is_atom(Fun),
+        true = is_list(Args),
         ok
     catch
-        error:badarg ->
+        _:_ ->
+            error({?MODULE, badarg})
+    end;
+multicast(Nodes, Mod, Fun, Args) ->
+    try
+        true = is_atom(Mod),
+        true = is_atom(Fun),
+        true = is_list(Args),
+        multicast_send_requests(Nodes, Mod, Fun, Args),
+        ok
+    catch
+        error:_ ->
             error({?MODULE, badarg})
     end.
+
+multicast_send_requests([], _Mod, _Fun, _Args) ->
+    ok;
+multicast_send_requests([Node|Nodes], Mod, Fun, Args) ->
+    _ = spawn_request(Node, erpc, execute_cast, [Mod, Fun, Args],
+                      [{reply, no}]),
+    multicast_send_requests(Nodes, Mod, Fun, Args).
+
+-spec cast(Node, Fun) -> 'ok' when
+      Node :: node(),
+      Fun :: function().
+
+cast(N, Fun) ->
+    cast(N, erlang, apply, [Fun, []]).
+
+-spec cast(Node, Module, Function, Args) -> 'ok' when
+      Node :: node(),
+      Module :: atom(),
+      Function :: atom(),
+      Args :: [term()].
+
+cast(Node, Mod, Fun, Args) when is_atom(Node),
+                                is_atom(Mod),
+                                is_atom(Fun),
+                                is_list(Args) ->
+    _ = spawn_request(Node, erpc, execute_cast, [Mod, Fun, Args],
+                      [{reply, no}]),
+    ok;
+cast(_Node, _Mod, _Fun, _Args) ->
+    error({?MODULE, badarg}).
 
 %%------------------------------------------------------------------------
 %% Exported internals
@@ -335,19 +420,25 @@ execute_call(Ref, M, F, A) ->
 execute_call(M,F,A) ->
     {return, apply(M, F, A)}.
 
+execute_cast(M, F, A) ->
+    try
+        apply(M, F, A)
+    catch
+        error:Reason:Stack ->
+            %% Produce error reports with error
+            %% exceptions produced for calls...
+            case is_arg_error(Reason, M, F, A) of
+                true ->
+                    error({?MODULE, Reason});
+                false ->
+                    ErpcStack = trim_stack(Stack, M, F, A),
+                    error({exception, {Reason, ErpcStack}})
+            end
+    end.
+
 call_result(Type, ReqId, Res, Reason) ->
     result(Type, ReqId, Res, Reason).
 
-is_arg_error(badarg, M, F, A) ->
-    try
-        true = is_atom(M),
-        true = is_atom(F),
-        true = is_integer(length(A)),
-        false
-    catch
-        error:badarg ->
-            true
-    end;
 is_arg_error(system_limit, _M, _F, A) ->
     try
         apply(?MODULE, nonexisting, A),
@@ -359,9 +450,14 @@ is_arg_error(system_limit, _M, _F, A) ->
 is_arg_error(_R, _M, _F, _A) ->
     false.
 
-trim_stack([{?MODULE, execute_call, _, _} | _], M, F, A) ->
+-define(IS_CUT_FRAME(F),
+        ((element(1, (F)) == ?MODULE)
+         andalso ((element(2, (F)) == execute_call)
+                  orelse ((element(2, (F)) == execute_cast))))).
+
+trim_stack([CF | _], M, F, A) when ?IS_CUT_FRAME(CF) ->
     [{M, F, A, []}];
-trim_stack([{M, F, A, _} = SF, {?MODULE, execute_call, _, _} | _], M, F, A) ->
+trim_stack([{M, F, A, _} = SF, CF | _], M, F, A) when ?IS_CUT_FRAME(CF) ->
     [SF];
 trim_stack(S, M, F, A) ->
     try
@@ -376,16 +472,21 @@ trim_stack(S, M, F, A) ->
 
 trim_stack_aux([], _M, _F, _A) ->
     throw(use_all);
-trim_stack_aux([{M, F, AL, _} = SF, {?MODULE, execute_call, _, _} | _],
-               M, F, A) when AL == length(A) ->
+trim_stack_aux([{M, F, AL, _} = SF, CF | _], M, F, A) when ?IS_CUT_FRAME(CF),
+                                                            AL == length(A) ->
     [SF];
-trim_stack_aux([{?MODULE, execute_call, _, _} | _], M, F, A) ->
-    [{M, F, length(A), []}];
+trim_stack_aux([CF | _], M, F, A) when ?IS_CUT_FRAME(CF) ->
+    try
+        [{M, F, length(A), []}]
+    catch
+        _:_ ->
+            []
+    end;
 trim_stack_aux([SF|SFs], M, F, A) ->
     [SF|trim_stack_aux(SFs, M, F, A)].
 
 call_abandon(ReqId) ->
-    case erlang:spawn_request_abandon(ReqId) of
+    case spawn_request_abandon(ReqId) of
         true -> true;
         false -> erlang:demonitor(ReqId, [info])
     end.
@@ -441,33 +542,65 @@ result(timeout, ReqId, Res, _Reason) ->
             end
     end.
 
+deadline(infinity) ->
+    infinity;
+deadline(?MAX_INT_TIMEOUT) ->
+    erlang:convert_time_unit(erlang:monotonic_time(millisecond)
+                             + ?MAX_INT_TIMEOUT,
+                             millisecond,
+                             native);
+deadline(T) when ?IS_VALID_TMO_INT(T) ->
+    Now = erlang:monotonic_time(),
+    NativeTmo = erlang:convert_time_unit(T, millisecond, native),
+    Now + NativeTmo.
+
+time_left(infinity) ->
+    infinity;
+time_left(Deadline) ->
+    case Deadline - erlang:monotonic_time() of
+        TimeLeft when TimeLeft =< 0 ->
+            0;
+        TimeLeft ->
+            erlang:convert_time_unit(TimeLeft-1, native, millisecond) + 1
+    end.
+
 mcall_send_requests([], _M, _F, _A, RIDs) ->
     RIDs;
 mcall_send_requests([N|Ns], M, F, A, RIDs) ->
-    RID = send_request(N, M, F, A),
-    mcall_send_requests(Ns, M, F, A, [RID|RIDs]);
-mcall_send_requests(_, _M, _F, _A, _RIDs) ->
-    error({?MODULE, badarg}).
-
-mcall_wait_replies([], Replies, _Tmo) ->
-    Replies;
-mcall_wait_replies([RID|RIDs], Replies, infinity) ->
-    Reply = mcall_wait_reply(RID, infinity),
-    mcall_wait_replies(RIDs, [Reply|Replies], infinity);
-mcall_wait_replies([RID|RIDs], Replies, EndTime) ->
-    Now = erlang:monotonic_time(millisecond),
-    Tmo = case EndTime - Now of
-              T when T =< 0 -> 0;
-              T -> T
+    RID = try
+              send_request(N, M, F, A)
+          catch
+              _:_ ->
+                  %% Bad arguments... Abandon
+                  %% requests we've already sent
+                  %% and then fail...
+                  mcall_failure_abandon(RIDs)
           end,
-    Reply = mcall_wait_reply(RID, Tmo),
-    mcall_wait_replies(RIDs, [Reply|Replies], EndTime).
+    mcall_send_requests(Ns, M, F, A, [RID|RIDs]);
+mcall_send_requests(_, _, _, _, RIDs) ->
+    %% Bad nodes list... Abandon requests we've
+    %% already sent and then fail...
+    mcall_failure_abandon(RIDs).
 
-mcall_wait_reply(RID, Tmo) ->
+mcall_failure_abandon([]) ->
+    error(badarg);
+mcall_failure_abandon([RID|RIDs]) ->
     try
-        {ok, receive_response(RID, Tmo)}
+        _ = receive_response(RID, 0),
+        ok
     catch
-        Class:Reason ->
-            {Class, Reason}
-    end.
-    
+        _:_ ->
+            ok
+    end,
+    mcall_failure_abandon(RIDs).
+
+mcall_receive_replies([], Replies, _Deadline) ->
+    Replies;
+mcall_receive_replies([RID|RIDs], Replies, Deadline) ->
+    Reply = try
+                {ok, receive_response(RID, time_left(Deadline))}
+            catch
+                Class:Reason ->
+                    {Class, Reason}
+            end,
+    mcall_receive_replies(RIDs, [Reply|Replies], Deadline).
