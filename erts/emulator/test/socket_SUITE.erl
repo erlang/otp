@@ -2274,6 +2274,25 @@ analyze_and_print_freebsd_host_info(Version) ->
 
 
 
+init_per_group(GroupName, Config)
+  when (GroupName =:= sc_remote_close) orelse
+       (GroupName =:= sc_remote_shutdown) orelse
+       (GroupName =:= traffic) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [GroupName, Config]),
+    %% Maybe we should skip the entire suite for this platform,
+    %% but for now we just skip these groups, which seem to 
+    %% have problems (slave node start).
+    %% As stated elsewhere, its not really Fedora 16, but 
+    %% the *really* slow VM that is the issue.
+    try is_old_fedora16() of
+        ok ->
+            Config
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end;
 init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
