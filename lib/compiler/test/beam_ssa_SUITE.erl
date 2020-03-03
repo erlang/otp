@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
          calls/1,tuple_matching/1,recv/1,maps/1,
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
-         beam_ssa_dead_crash/1,stack_init/1,grab_bag/1]).
+         beam_ssa_dead_crash/1,stack_init/1,grab_bag/1,
+         coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -41,7 +42,8 @@ groups() ->
        share_opt,
        beam_ssa_dead_crash,
        stack_init,
-       grab_bag
+       grab_bag,
+       coverage
       ]}].
 
 init_per_suite(Config) ->
@@ -485,6 +487,8 @@ cover_ssa_dead(_Config) ->
     40.0 = percentage(4.0, 10.0),
     60.0 = percentage(6, 10),
 
+    {'EXIT',{{badmatch,42},_}} = (catch #{key => abs(("a" = id(42)) /= teacher)}),
+
     ok.
 
 format_str(Str, FormatData, IoList, EscChars) ->
@@ -819,6 +823,25 @@ grab_bag_9() ->
     catch
         <<1 || 99, [] <- hour>> bsr false,
         ok.
+
+coverage(_Config) ->
+
+    %% Cover beam_ssa_codegen:force_reg/2
+    no_match = case true of
+                   <<_:42>> -> true;
+                   _ -> no_match
+              end,
+
+    no_match = case [] of
+                   <<$f:1.7>> -> ok;
+                   _ -> no_match
+               end,
+    {'EXIT',{{badmatch,$T},_}} = (catch coverage_1()),
+
+    ok.
+
+coverage_1() ->
+    <<area/signed-bitstring>> = $T.
 
 
 %% The identity function.
