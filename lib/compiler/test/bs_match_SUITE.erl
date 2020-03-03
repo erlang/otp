@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -2475,9 +2475,9 @@ binary_match_to_asm(Matches) ->
     ],
 
     Module = [
-	{attribute,1,module,match_to_asm},
-	{attribute,2,export,[{example,1}]},
-	{function,3,example,1,Clauses}
+	{attribute,erl_anno:new(1),module,match_to_asm},
+	{attribute,erl_anno:new(2),export,[{example,1}]},
+	{function,erl_anno:new(3),example,1,Clauses}
     ],
 
     {ok,match_to_asm,{match_to_asm,_Exports,_Attrs,Funs,_},_} =

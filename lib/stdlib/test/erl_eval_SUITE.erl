@@ -1675,7 +1675,8 @@ otp_16439(Config) when is_list(Config) ->
          "case 7 of - - 7 -> seven end.", seven),
 
     {ok,Ts,_} = erl_scan:string("- #{}. "),
-    {ok,[{op,1,'-',{map,1,[]}}]} = erl_parse:parse_exprs(Ts),
+    A = erl_anno:new(1),
+    {ok,[{op,A,'-',{map,A,[]}}]} = erl_parse:parse_exprs(Ts),
 
     ok.
 
