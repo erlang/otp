@@ -1063,7 +1063,7 @@ permanent_p1h(TestNode) ->
 
 reg_proc(Name) ->
     catch unregister(Name),
-    Pid = spawn_link(?MODULE, registered_loop, [Name]),
+    Pid = spawn(?MODULE, registered_loop, [Name]),
     global:register_name(Name, Pid),
     ok.
 
