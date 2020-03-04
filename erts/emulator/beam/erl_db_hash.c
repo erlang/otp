@@ -3129,16 +3129,19 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
         }
 
         WUNLOCK_HASH(lck);
-        erts_atomic_dec_nob(&tb->common.nitems);
+        if (!(handle->flags & DB_INC_TRY_GROW))
+            erts_atomic_dec_nob(&tb->common.nitems);
         try_shrink(tb);
     } else {
         if (handle->flags & DB_MUST_RESIZE) {
+            ASSERT(cret == DB_ERROR_NONE);
             db_finalize_resize(handle, offsetof(HashDbTerm,dbterm));
             free_me = b;
         }
         if (handle->flags & DB_INC_TRY_GROW) {
             int nactive;
             int nitems = erts_atomic_inc_read_nob(&tb->common.nitems);
+            ASSERT(cret == DB_ERROR_NONE);
             WUNLOCK_HASH(lck);
             nactive = NACTIVE(tb);
 
