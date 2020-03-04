@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2018</year><year>2018</year>
+      <year>2018</year><year>2019</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>How to Implement an Alternative Service Discovery for Erlang Distribution
+    <title>How to Implement an Alternative Node Discovery for Erlang Distribution
     </title>
     <prepared>Timmo Verlaan</prepared>
     <responsible></responsible>
@@ -34,20 +34,20 @@
     <file>alt_disco.xml</file>
   </header>
   <p>
-    This section describes how to implement an alternative discovery mechanism
-    for Erlang distribution. Discovery is normally done using DNS and the
-    Erlang Port Mapper Daemon (EPMD) for port discovery.
+    This section describes how to implement an alternative node discovery
+    mechanism for Erlang distribution. Node discovery is normally done using DNS
+    and the Erlang Port Mapper Daemon (EPMD) for port registration and lookup.
   </p>
 
   <note><p>
-    Support for alternative service discovery mechanisms was added in Erlang/OTP
+    Support for alternative node discovery mechanisms was added in Erlang/OTP
     21.
   </p></note>
 
 
   <section>
     <title>Introduction</title>
-    <p>To implement your own service discovery module you have to write your own
+    <p>To implement your own node discovery module you have to write your own
     EPMD module. The <seealso marker="kernel:erl_epmd">EPMD module</seealso> is
     responsible for providing the location of another node. The distribution
     modules (<c>inet_tcp_dist</c>/<c>inet_tls_dist</c>) call the EPMD module to
