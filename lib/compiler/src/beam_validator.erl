@@ -2111,7 +2111,9 @@ set_reg_vref(Ref, {y,_}=Dst, #vst{current=#st{ys=Ys0}=St0} = Vst) ->
             %% Storing into a non-existent Y register means that we haven't set
             %% up a (sufficiently large) stack.
             error({invalid_store, Dst})
-    end.
+    end;
+set_reg_vref(_Ref, Dst, _Vst) ->
+    error({invalid_register, Dst}).
 
 get_reg_vref({x,_}=Src, #vst{current=#st{xs=Xs}}) ->
     check_limit(Src),
@@ -2132,7 +2134,9 @@ get_reg_vref({y,_}=Src, #vst{current=#st{ys=Ys}}) ->
             error(Tag);
         #{} ->
             error({uninitialized_reg, Src})
-    end.
+    end;
+get_reg_vref(Src, _Vst) ->
+    error({invalid_register, Src}).
 
 set_type(Type, #value_ref{}=Ref, #vst{current=#st{vs=Vs0}=St}=Vst) ->
     #{ Ref := #value{}=Entry } = Vs0,
