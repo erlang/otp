@@ -62,20 +62,19 @@
 %%%
 
 %%%---------------- SERVER API ------------------------------------
--spec host_key(ssh:pubkey_alg(),
-               ssh_server_key_api:daemon_key_cb_options(none())
-              ) ->
-    {ok, PrivateKey :: public_key:private_key()} | {error, term()}.
+-spec host_key(Algorithm, Options) -> Result when
+      Algorithm :: ssh:pubkey_alg(),
+      Result :: {ok, public_key:private_key()} | {error, term()},
+      Options :: ssh_server_key_api:daemon_key_cb_options(none()).
 
 host_key(Algorithm, Opts) ->
     read_ssh_key_file(system, private, Algorithm, Opts).
 
 %%%................................................................
--spec is_auth_key(Key :: public_key:public_key(),
-                  string(),
-                  ssh_server_key_api:daemon_key_cb_options(optimize_key_lookup())
-                 ) ->
-    boolean().
+-spec is_auth_key(Key, User, Options) -> boolean() when
+      Key :: public_key:public_key(),
+      User :: string(),
+      Options :: ssh_server_key_api:daemon_key_cb_options(optimize_key_lookup()).
 
 is_auth_key(Key0, User, Opts) ->
     Dir = ssh_dir({remoteuser,User}, Opts),
@@ -88,26 +87,24 @@ is_auth_key(Key0, User, Opts) ->
     lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys2"), Opts).
 
 %%%---------------- CLIENT API ------------------------------------
--spec user_key(ssh:pubkey_alg(),
-               ssh_client_key_api:client_key_cb_options(none())
-              ) ->
-    {ok, PrivateKey :: public_key:private_key()} |
-    {ok, {ssh2_pubkey, PubKeyBlob :: binary()}} |
-    {error, string()}.
+-spec user_key(Algorithm, Options) -> Result when
+      Algorithm :: ssh:pubkey_alg(),
+      Result :: {ok, public_key:private_key()} |
+                {error, string()},
+      Options :: ssh_client_key_api:client_key_cb_options(none()).
 
 user_key(Algorithm, Opts) ->
     read_ssh_key_file(user, private, Algorithm, Opts).
 
 %%%................................................................
 %%% New style (with port number)
--spec is_host_key(Key :: public_key:public_key(),
-                  Host :: inet:ip_address() | inet:hostname()
-                        | [inet:ip_address() | inet:hostname()],
-                  inet:port_number(),
-                  ssh:pubkey_alg(),
-                  ssh_client_key_api:client_key_cb_options(optimize_key_lookup())
-                 ) ->
-    boolean() | {error, Error::term()} .
+-spec is_host_key(Key, Host, Port, Algorithm, Options) -> Result when
+      Key :: public_key:public_key(),
+      Host :: inet:ip_address() | inet:hostname() | [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number(),
+      Algorithm :: ssh:pubkey_alg(),
+      Options :: ssh_client_key_api:client_key_cb_options(optimize_key_lookup()),
+      Result :: boolean() | {error, term()} .
 
 is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
     Dir = ssh_dir(user, Opts),
@@ -119,13 +116,13 @@ is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
     lookup_host_keys(Hosts, KeyType, Key, File, Opts).
 
 %%%----------------------------------------------------------------
--spec add_host_key(Host :: inet:ip_address() | inet:hostname()
-                         | [inet:ip_address() | inet:hostname()],
-                   inet:port_number(),
-                   public_key:public_key(),
-                   ssh_client_key_api:client_key_cb_options(none())
-                  ) ->
-    ok | {error, Error::term()}.
+-spec add_host_key(Host, Port, Key, Options) -> Result when 
+      Host :: inet:ip_address() | inet:hostname()
+            | [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number(),
+      Key :: public_key:public_key(),
+      Options :: ssh_client_key_api:client_key_cb_options(none()),
+      Result :: ok | {error, term()}.
 
 add_host_key(Hosts0, Port, Key, Opts) ->
     File = file_name(user, "known_hosts", Opts),

@@ -69,7 +69,9 @@
 	<v>ConnectOptions =  <seealso marker="#type-client_key_cb_options">client_key_cb_options()</seealso></v>
       </type>
       <desc>
-	<p>This function is retired in favour for <c>Module:add_host_key/4</c> which is the prefered API function.</p>
+	<p>This function is retired in favour for <c>Module:add_host_key/4</c> which is the prefered API function.
+	The calling SSH application will still try the <c>add_host_key/3</c> if the call to <c>add_host_key/4</c> failed.
+	</p>
 	 <p>Adds a host key to the set of trusted host keys.</p>
       </desc>
     </func>
@@ -94,6 +96,10 @@
       </type>
       <desc>
 	 <p>Adds a host key to the set of trusted host keys.</p>
+	 <p>This function is prefered to the old <c>Module:add_host_key/3</c> since it also uses
+	the peer host port number and may return an error message.</p>
+	<p>The OTP/SSH application first calls this function in the callback module, and then
+	the old <c>Module:add_host_key/3</c> for compatibilty.</p>
       </desc>
     </func>
 
@@ -115,7 +121,9 @@
 	<v>Result = boolean()</v>
       </type>
       <desc>
-	<p>This function is retired in favour for <c>Module:is_host_key/5</c> which is the prefered API function.</p>
+	<p>This function is retired in favour for <c>Module:is_host_key/5</c> which is the prefered API function.
+	The calling SSH application will still try the <c>is_host_key/4</c> if the call to <c>is_host_key/5</c> failed.
+	</p>
 	<p>Checks if a host key is trusted.</p>
       </desc>
     </func>
@@ -155,8 +163,7 @@
     </func>
 
     <func>
-      <name since="OTP R16B">Module:user_key(Algorithm, ConnectOptions) ->
-      {ok, PrivateKey}  | {error, Reason}</name>
+      <name since="OTP R16B">Module:user_key(Algorithm, ConnectOptions) -> Result</name>
       <fsummary>Fetches the users <em>public key</em> matching the <c>Algorithm</c>.</fsummary>
       <type>
 	<v>Algorithm = <seealso marker="ssh#type-pubkey_alg">ssh:pubkey_alg()</seealso></v>
@@ -164,14 +171,15 @@
 
 	<v>ConnectOptions =  <seealso marker="#type-client_key_cb_options">client_key_cb_options()</seealso></v>
 
-	<v>PrivateKey = <seealso marker="public_key:public_key#type-private_key">public_key:private_key()</seealso></v>
-	<d>Private key of the user matching the <c>Algorithm</c>.</d>
 
-	<v>Reason = term()</v>
+	<v>Result = {ok, <seealso marker="public_key:public_key#type-private_key">public_key:private_key()</seealso>} |
+                    {ok, {ssh2_pubkey, PubKeyBlob :: binary()}} |
+                    {error, term()}</v>
       </type>
 
       <desc>
-	<p>Fetches the users <em>public key</em> matching the <c>Algorithm</c>.</p>
+	<p>Fetches the users <em>public key</em> matching the <c>Algorithm</c>. Some key callback modules
+	may return <c>{ssh2_pubkey, PubKeyBlob :: binary()}</c>.</p>
 	<note><p>The private key contains the public key.</p></note>
 
       </desc>

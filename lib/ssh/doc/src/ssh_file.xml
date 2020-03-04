@@ -173,8 +173,8 @@
 	</p>
 	<p>To set it, set the
 	option <c>{key_cb, {ssh_file, [{optimize,TimeOrSpace}]}</c> in the call of
-	<seealso marker="ssh:connect/3">"ssh:connect/3</seealso>,
-	<seealso marker="ssh:daemon/2">ssh:daemon/2</seealso>
+	<seealso marker="ssh#connect-3">"ssh:connect/3</seealso>,
+	<seealso marker="ssh#daemon-2">ssh:daemon/2</seealso>
 	or similar function call that initiates an ssh connection.
 	</p>
       </desc>
@@ -238,7 +238,12 @@
       <desc>
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
-	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-3">ssh_client_key_api, Module:add_host_key/3</seealso>.
+	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-4">ssh_client_key_api, Module:add_host_key/4</seealso>.
+	</p>
+	<marker id="add_host_key-3"/>
+	<p>Note that the alternative, the old
+	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-3">Module:add_host_key/3</seealso>
+	is no longer supported by <c>ssh_file</c>.
 	</p>
 	<p><strong>Option</strong></p>
 	<list>
@@ -258,6 +263,11 @@
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
 	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key-5">ssh_client_key_api, Module:is_host_key/5</seealso>.
+	</p>
+	<marker id="is_host_key-4"/>
+	<p>Note that the alternative, the old
+	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key-4">Module:is_host_key/4</seealso>
+	is no longer supported by <c>ssh_file</c>.
 	</p>
 	<p><strong>Option</strong></p>
 	<list>

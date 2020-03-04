@@ -102,20 +102,22 @@
   <funcs>
     <func>
       <name since="" name="add_host_key" arity="3"/>
+      <name since="" name="add_host_key" arity="4"/>
       <fsummary></fsummary>
       <desc>
         <p>
-          This callback is delegated to the <seealso marker="ssh:ssh_file#add_host_key-3">ssh_file</seealso> module.
+          This callback is delegated to the <seealso marker="ssh:ssh_file#add_host_key-4">ssh_file</seealso> module.
         </p>
       </desc>
     </func>
 
     <func>
       <name since="" name="is_host_key" arity="4"/>
+      <name since="" name="is_host_key" arity="5"/>
       <fsummary></fsummary>
       <desc>
         <p>
-          This callback is delegated to the <seealso marker="ssh:ssh_file#is_host_key-4">ssh_file</seealso> module.
+          This callback is delegated to the <seealso marker="ssh:ssh_file#is_host_key-5">ssh_file</seealso> module.
         </p>
       </desc>
     </func>

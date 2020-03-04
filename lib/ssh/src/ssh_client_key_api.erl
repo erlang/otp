@@ -49,7 +49,7 @@
 		      Algorithm :: ssh:pubkey_alg(),
                       Options :: client_key_cb_options(any())
                      ) ->
-    boolean() | {error, Error::term()} .
+    boolean() | {error, term()} .
 
 %%% is_host_key/4 is an old variant which is kept for compatibility.
 %%% Use is_host_key/5 in new programs.
@@ -72,7 +72,7 @@
 -callback user_key(Algorithm :: ssh:pubkey_alg(),
                    Options :: client_key_cb_options(any())
                   ) ->
-    {ok, PrivateKey :: public_key:private_key()} |
+    {ok, public_key:private_key()} |
     {ok, {ssh2_pubkey, PubKeyBlob :: binary()}} |
     {error, string()}.
 
@@ -90,7 +90,7 @@
                        PublicKey :: public_key:public_key(),
                        Options :: client_key_cb_options(any())
                       ) ->
-    ok | {error, Error::term()}.
+    ok | {error, term()}.
 
 %%% is_host_key/3 is an old variant which is kept for compatibility.
 %%% Use is_host_key/4 in new constructions.
@@ -99,7 +99,7 @@
                        PublicKey :: public_key:public_key(),
                        Options :: client_key_cb_options(any())
                       ) ->
-    ok | {error, Error :: term()}.
+    ok | {error, term()}.
 
 -optional_callbacks(
    [add_host_key/3, add_host_key/4       % One in the pair be defined
