@@ -724,6 +724,9 @@ init_per_group_ipv6(GroupName, Config, Init) ->
     %% are actually causing the failures...
     OSSkipable = [{unix, 
                    [
+		    %% We only have the one NetBSD machine,
+		    %% and UDP on IPv6 is very glitchy, so ...
+		    {netbsd, fun(_) -> true end},
                     {darwin, fun(V) when (V > {9, 8, 0}) ->
 				     %% This version is OK: No Skip
 				     false;

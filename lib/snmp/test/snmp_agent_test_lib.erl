@@ -328,7 +328,7 @@ await_tc_runner_started(Runner, OldFlag) ->
         {'EXIT', Runner, Reason} ->
             ?EPRINT("TC runner start failed: "
                     "~n   ~p~n", [Reason]),
-            exit({tx_runner_start_failed, Reason});
+            exit({tc_runner_start_failed, Reason});
         {tc_runner_started, Runner} ->
             ?IPRINT("TC runner start acknowledged~n"),
             ok
@@ -345,7 +345,13 @@ await_tc_runner_started(Runner, OldFlag) ->
 
 await_tc_runner_done(Runner, OldFlag) ->
     receive
-        {'EXIT', Runner, Reason} ->
+        {'EXIT', Runner, {udp_error, _} = Reason} ->
+	    ?EPRINT("TC runner failed with an udp error: "
+		    "~n   Reason: ~p"
+		    "~n", [Reason]),
+	    skip([{reason, Reason}]);
+	    
+	{'EXIT', Runner, Reason} ->
             %% This is not a normal (tc) failure (that is the clause below).
             %% Instead the tc runner process crashed, for some reason. So
             %% check if have got any system events, and if so, skip.
@@ -353,8 +359,9 @@ await_tc_runner_done(Runner, OldFlag) ->
             if
                 (SysEvs =:= []) ->
                     ?EPRINT("TC runner failed: "
-                            "~n   ~p~n", [Reason]),
-                    exit({tx_runner_failed, Reason});
+                            "~n   ~p"
+			    "~n", [Reason]),
+                    exit({tc_runner_failed, Reason});
                 true ->
                     ?WPRINT("TC runner failed when we got system events: "
                             "~n   Reason:     ~p"
@@ -467,7 +474,7 @@ tc_run(Mod, Func, Args, Opts) ->
             "~n   Community:   ~p"
             "~n   StdM:        ~p"
             "~n", [M,Vsn,Dir,User,SecLevel,EngineID,CtxEngineID,Community,StdM]),
-    case snmp_test_mgr:start([%% {agent, snmp_test_lib:hostname()},
+    case snmp_test_mgr:start_link([%% {agent, snmp_test_lib:hostname()},
 			      {packet_server_debug, true},
 			      {debug,               false},
 			      {agent,               get(master_host)}, 

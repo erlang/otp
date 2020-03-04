@@ -492,15 +492,23 @@ handle_info({snmp_msg, Msg, Ip, Udp}, State) ->
     end,
     {noreply, State#state{last_received_pdu = PDU}};
 
+handle_info({'EXIT', Pid, Reason}, #state{packet_server = Pid} = State) ->
+    error_logger:error_msg("Received unexpected exit signal from Packet Server ~p: "
+			   "~n   ~p", [Pid, Reason]),
+    {stop, State#state{packet_server = undefined}};
+
 handle_info(Info, State) ->
     d("handle_info -> unknown info: "
       "~n   ~p", [Info]),
     {noreply, State}.
 
 
-terminate(Reason, State) ->
+terminate(Reason, #state{packet_server = Pid} = _State) when is_pid(Pid) ->
+    d("terminate -> with Reason: ~n\t~p", [Reason]),
+    ?PACK_SERV:stop(Pid);
+terminate(Reason, _State) ->
     d("terminate -> with Reason: ~n\t~p",[Reason]),
-    ?PACK_SERV:stop(State#state.packet_server).
+    ok.
 
 
 %%----------------------------------------------------------------------
