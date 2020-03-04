@@ -1061,14 +1061,16 @@ internal_error(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
     SystemDir = filename:join(PrivDir, system),
-    
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {user_dir, UserDir},
                                              {failfun, fun ssh_test_lib:failfun/2}]),
 
     %% Now provoke an error in the following connect:
+    file:delete(filename:join(PrivDir, "system/ssh_host_rsa_key")), 
     file:delete(filename:join(PrivDir, "system/ssh_host_dsa_key")), 
     file:delete(filename:join(PrivDir, "system/ssh_host_ecdsa_key")),
+    file:delete(filename:join(PrivDir, "system/ssh_host_ed25519_key")), 
+    file:delete(filename:join(PrivDir, "system/ssh_host_ed448_key")), 
 
     {error, Error} =
         ssh:connect(Host, Port, [{silently_accept_hosts, true},
