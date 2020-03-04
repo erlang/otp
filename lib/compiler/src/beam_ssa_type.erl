@@ -1946,6 +1946,8 @@ infer_eq_lit(#b_set{op=get_tuple_element,
 infer_eq_lit(_, _) ->
     [].
 
+join_types(Ts, Ts) ->
+    Ts;
 join_types(Ts0, Ts1) ->
     if
         map_size(Ts0) < map_size(Ts1) ->
