@@ -120,7 +120,7 @@ connect_with_ssh_agent() ->
 
 connect_with_ssh_agent(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    {ok, SocketPath} = ssh_agent_mock_server:start_link(DataDir),
+    {ok, SocketPath} = ssh_agent_mock_server:start_link('rsa-sha2-256', DataDir),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, DataDir},
                                              {user_dir, DataDir}]),
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{user_dir, DataDir},
