@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,8 +143,8 @@ tickets_cases() ->
 
 init_per_suite(Config0) when is_list(Config0) ->
 
-    p("init_per_suite -> entry with"
-      "~n   Config0: ~p", [Config0]),
+    ?IPRINT("init_per_suite -> entry with"
+            "~n   Config0: ~p", [Config0]),
 
     case ?LIB:init_per_suite(Config0) of
         {skip, _} = SKIP ->
@@ -153,19 +153,23 @@ init_per_suite(Config0) when is_list(Config0) ->
             snmp_test_sys_monitor:start(),
             Config2 = snmp_test_lib:init_suite_top_dir(?MODULE, Config1), 
 
-            p("init_per_suite -> done when"
-              "~n   Config: ~p", [Config2]),
+            ?IPRINT("init_per_suite -> done when"
+                    "~n   Config: ~p", [Config2]),
 
             Config2
     end.
 
 end_per_suite(Config) when is_list(Config) ->
 
-    p("end_per_suite -> entry with"
-      "~n   Config: ~p", [Config]),
+    ?IPRINT("end_per_suite -> entry with"
+            "~n   Config: ~p", [Config]),
 
     snmp_test_sys_monitor:stop(),
-    ?LIB:end_per_suite(Config).
+    Config1 = ?LIB:end_per_suite(Config),
+
+    ?IPRINT("end_per_suite -> end"),
+
+    Config1.
 
 
 
@@ -186,14 +190,15 @@ end_per_group(_GroupName, Config) ->
 %%
 
 init_per_testcase(Case, Config) when is_list(Config) ->
-    p("init_per_testcase -> Case: ~p", [Case]),
+    ?IPRINT("init_per_testcase -> entry with"
+            "~n   Config: ~p", [Config]),
 
     snmp_test_global_sys_monitor:reset_events(),
     
     SuiteTopDir = ?config(snmp_suite_top_dir, Config),
     CaseTopDir  = filename:join(SuiteTopDir, atom_to_list(Case)),
     ?line ok    = file:make_dir(CaseTopDir),
-    p("init_per_testcase -> CaseTopDir: ~p", [CaseTopDir]),
+    ?IPRINT("init_per_testcase -> CaseTopDir: ~p", [CaseTopDir]),
     MgrTopDir   = filename:join(CaseTopDir, "manager/"),
     ?line ok    = file:make_dir(MgrTopDir),
     MgrConfDir  = filename:join(MgrTopDir, "conf/"),
@@ -202,18 +207,27 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     ?line ok    = file:make_dir(MgrDbDir),
     MgrLogDir   = filename:join(MgrTopDir,   "log/"),
     ?line ok    = file:make_dir(MgrLogDir),
-    [{case_top_dir,     CaseTopDir},
-     {manager_dir,      MgrTopDir},
-     {manager_conf_dir, MgrConfDir},
-     {manager_db_dir,   MgrDbDir},
-     {manager_log_dir,  MgrLogDir} | Config].
+
+    Config1 = [{case_top_dir,     CaseTopDir},
+               {manager_dir,      MgrTopDir},
+               {manager_conf_dir, MgrConfDir},
+               {manager_db_dir,   MgrDbDir},
+               {manager_log_dir,  MgrLogDir} | Config],
+
+    ?IPRINT("init_per_testcase -> done when"
+            "~n   Config: ~p", [Config1]),
+
+    Config1.
 
 
-end_per_testcase(Case, Config) when is_list(Config) ->
-    p("end_per_testcase -> Case: ~p", [Case]),
+end_per_testcase(_Case, Config) when is_list(Config) ->
 
-    p("system events during test: "
-      "~n   ~p~n", [snmp_test_global_sys_monitor:events()]),
+    ?IPRINT("end_per_testcase -> entry with"
+            "~n   Config: ~p",
+            [Config]),
+
+    ?IPRINT("system events during test: ~p",
+            [snmp_test_global_sys_monitor:events()]),
 
     Config.
 
@@ -228,7 +242,7 @@ simple_register_and_unregister1(doc) ->
     "Start a user, register and unregister the user.";
 simple_register_and_unregister1(Conf) when is_list(Conf) ->
     put(tname,srar1),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -241,7 +255,7 @@ simple_register_and_unregister1(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -251,23 +265,23 @@ simple_register_and_unregister1(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user(Pid, Id),
 
     ?line [Id] = Users2 = which_users(),
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
     
     ?line ok = unregister_user(Pid),
 
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
     ?line stop_user(Pid),
 
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -279,7 +293,7 @@ simple_register_and_unregister2(doc) ->
 	"register 2 users (per that process) and unregister the 2 users.";
 simple_register_and_unregister2(Conf) when is_list(Conf) ->
     put(tname,srar2),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -292,7 +306,7 @@ simple_register_and_unregister2(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -303,7 +317,7 @@ simple_register_and_unregister2(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user(Pid, Id1),
     ?line ok = register_user(Pid, Id2),
@@ -316,20 +330,20 @@ simple_register_and_unregister2(Conf) when is_list(Conf) ->
 		       Else ->
 			   ?FAIL({invalid_users, Else})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
     
     ?line ok = unregister_user(Pid, Id1),
     ?line ok = unregister_user(Pid, Id2),
 
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
     ?line stop_user(Pid),
 
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -341,7 +355,7 @@ simple_register_and_unregister3(doc) ->
 	"register one users per process and unregister the 2 users.";
 simple_register_and_unregister3(Conf) when is_list(Conf) ->
     put(tname,srar2),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -354,7 +368,7 @@ simple_register_and_unregister3(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -366,7 +380,7 @@ simple_register_and_unregister3(Conf) when is_list(Conf) ->
     ?line Pid2 = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user(Pid1, Id1),
     ?line ok = register_user(Pid2, Id2),
@@ -379,21 +393,21 @@ simple_register_and_unregister3(Conf) when is_list(Conf) ->
 		       Else ->
 			   ?FAIL({invalid_users, Else})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
     
     ?line ok = unregister_user(Pid1, Id1),
     ?line ok = unregister_user(Pid2, Id2),
 
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
     ?line stop_user(Pid1),
     ?line stop_user(Pid2),
 
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -404,7 +418,7 @@ register_and_crash1(doc) ->
     "Start a user, register and crash user.";
 register_and_crash1(Conf) when is_list(Conf) ->
     put(tname,racau1),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -417,7 +431,7 @@ register_and_crash1(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ?line ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -427,22 +441,22 @@ register_and_crash1(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user(Pid, Id),
 
     ?line [Id] = Users2 = which_users(),
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
     ?line ok = simulate_crash(Pid),
 
     ?line [Id] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -454,7 +468,7 @@ register_and_crash2(doc) ->
 	"register 2 users (per that process) and crash the process.";
 register_and_crash2(Conf) when is_list(Conf) ->
     put(tname,racau2),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -467,7 +481,7 @@ register_and_crash2(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ?line ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -478,7 +492,7 @@ register_and_crash2(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user(Pid, Id1),
     ?line ok = register_user(Pid, Id2),
@@ -491,7 +505,7 @@ register_and_crash2(Conf) when is_list(Conf) ->
 		       Else1 ->
 			   ?FAIL({invalid_users, Else1})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
     ?line ok = simulate_crash(Pid),
 
@@ -503,12 +517,12 @@ register_and_crash2(Conf) when is_list(Conf) ->
 		       Else2 ->
 			   ?FAIL({invalid_users, Else2})
 		   end,
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -521,7 +535,7 @@ register_and_crash3(doc) ->
 	"crash the first user process.";
 register_and_crash3(Conf) when is_list(Conf) ->
     %%     put(tname,rac3),
-    %%     p("start"),
+    %%     ?IPRINT("start"),
     %%     process_flag(trap_exit, true),
     ?SKIP(not_yet_implemented).
 
@@ -534,7 +548,7 @@ register_request_and_crash1(doc) ->
 	"register user, send request and crash user.";
 register_request_and_crash1(Conf) when is_list(Conf) ->
     %%     put(tname,rrac1),
-    %%     p("start"),
+    %%     ?IPRINT("start"),
     %%     process_flag(trap_exit, true),
     ?SKIP(not_yet_implemented).
 
@@ -548,7 +562,7 @@ register_request_and_crash2(doc) ->
 	"send a request for each user and crash the single user process.";
 register_request_and_crash2(Conf) when is_list(Conf) ->
     %%     put(tname,rrac2),
-    %%     p("start"),
+    %%     ?IPRINT("start"),
     %%     process_flag(trap_exit, true),
     ?SKIP(not_yet_implemented).
 
@@ -562,7 +576,7 @@ register_request_and_crash3(doc) ->
 	"send a request for each user and crash the first user process.";
 register_request_and_crash3(Conf) when is_list(Conf) ->
     %%     put(tname,rrac3),
-    %%     p("start"),
+    %%     ?IPRINT("start"),
     %%     process_flag(trap_exit, true),
     ?SKIP(not_yet_implemented).
 
@@ -574,7 +588,7 @@ simple_register_monitor_and_unregister1(doc) ->
     "Start a user, register-link and unregister the user.";
 simple_register_monitor_and_unregister1(Conf) when is_list(Conf) ->
     put(tname,srlau1),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -587,41 +601,41 @@ simple_register_monitor_and_unregister1(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
 
     Id = make_ref(), 
 
-    p("start user"),
+    ?IPRINT("start user"),
     ?line Pid = start_user(),
 
-    p("get users (=0)"),
+    ?IPRINT("get users (=0)"),
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
-    p("register monitored user"),
+    ?IPRINT("register monitored user"),
     ?line ok = register_user_monitor(Pid, Id),
 
-    p("get users (=1)"),
+    ?IPRINT("get users (=1)"),
     ?line [Id] = Users2 = which_users(),
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
     
-    p("unregister monitored user"),
+    ?IPRINT("unregister monitored user"),
     ?line unregister_user(Pid),
 
-    p("get users (=0)"),
+    ?IPRINT("get users (=0)"),
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
-    p("start user"),
+    ?IPRINT("start user"),
     ?line stop_user(Pid),
 
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -634,7 +648,7 @@ simple_register_monitor_and_unregister2(doc) ->
 	"unregister the 2 users.";
 simple_register_monitor_and_unregister2(Conf) when is_list(Conf) ->
     put(tname,srlau2),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -647,7 +661,7 @@ simple_register_monitor_and_unregister2(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -658,7 +672,7 @@ simple_register_monitor_and_unregister2(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user_monitor(Pid, Id1),
     ?line ok = register_user_monitor(Pid, Id2),
@@ -671,19 +685,19 @@ simple_register_monitor_and_unregister2(Conf) when is_list(Conf) ->
 		       Else ->
 			   ?FAIL({invalid_users, Else})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
     
     ?line ok = unregister_user(Pid, Id1),
     ?line ok = unregister_user(Pid, Id2),
 
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
     ?line stop_user(Pid),
 
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -697,7 +711,7 @@ simple_register_monitor_and_unregister3(doc) ->
 	"unregister the 2 users.";
 simple_register_monitor_and_unregister3(Conf) when is_list(Conf) ->
     put(tname,srlau3),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -710,7 +724,7 @@ simple_register_monitor_and_unregister3(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -721,7 +735,7 @@ simple_register_monitor_and_unregister3(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user(Pid, Id1),
     ?line ok = register_user_monitor(Pid, Id2),
@@ -734,18 +748,18 @@ simple_register_monitor_and_unregister3(Conf) when is_list(Conf) ->
 		       Else ->
 			   ?FAIL({invalid_users, Else})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
     
     ?line unregister_user(Pid),
 
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
     ?line stop_user(Pid),
 
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -756,7 +770,7 @@ register_monitor_and_crash1(doc) ->
     "Start a user, register-monitor and crash the user.";
 register_monitor_and_crash1(Conf) when is_list(Conf) ->
     put(tname,rlac1),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -769,7 +783,7 @@ register_monitor_and_crash1(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ?line ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -779,24 +793,24 @@ register_monitor_and_crash1(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user_monitor(Pid, Id),
 
     ?line [Id] = Users2 = which_users(),
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
     ?line ok = simulate_crash(Pid),
 
     ?SLEEP(1000),
 
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -809,7 +823,7 @@ register_monitor_and_crash2(doc) ->
 	"and crash the single user process.";
 register_monitor_and_crash2(Conf) when is_list(Conf) ->
     put(tname,rlac2),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -822,7 +836,7 @@ register_monitor_and_crash2(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ?line ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -833,7 +847,7 @@ register_monitor_and_crash2(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user_monitor(Pid, Id1),
     ?line ok = register_user_monitor(Pid, Id2),
@@ -846,19 +860,19 @@ register_monitor_and_crash2(Conf) when is_list(Conf) ->
 		       Else ->
 			   ?FAIL({invalid_users, Else})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
     ?line ok = simulate_crash(Pid),
 
     ?SLEEP(1000),
 
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -901,7 +915,7 @@ register_monitor_and_crash3(Conf) when is_list(Conf) ->
     ?NON_PC_TC_MAYBE_SKIP(Conf, Condition),
     %% </CONDITIONAL-SKIP>
 
-    p("start"),
+    ?IPRINT("start"),
 
     ConfDir = ?config(manager_conf_dir, Conf),
     DbDir = ?config(manager_db_dir, Conf),
@@ -913,7 +927,7 @@ register_monitor_and_crash3(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ?line ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -924,7 +938,7 @@ register_monitor_and_crash3(Conf) when is_list(Conf) ->
     ?line Pid = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user(Pid, Id1),
     ?line ok = register_user_monitor(Pid, Id2),
@@ -937,19 +951,19 @@ register_monitor_and_crash3(Conf) when is_list(Conf) ->
 		       Else ->
 			   ?FAIL({invalid_users, Else})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
     ?line ok = simulate_crash(Pid),
 
     ?SLEEP(1000),
 
     ?line [Id1] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -962,7 +976,7 @@ register_monitor_and_crash4(doc) ->
 	"and crash the first user process.";
 register_monitor_and_crash4(Conf) when is_list(Conf) ->
     put(tname,rlac4),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -975,7 +989,7 @@ register_monitor_and_crash4(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("start manager"),
+    ?IPRINT("start manager"),
     ?line ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -983,12 +997,12 @@ register_monitor_and_crash4(Conf) when is_list(Conf) ->
     Id1 = make_ref(), 
     Id2 = make_ref(), 
 
-    p("start user processes"),
+    ?IPRINT("start user processes"),
     ?line Pid1 = start_user(),
     ?line Pid2 = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user_monitor(Pid1, Id1),
     ?line ok = register_user_monitor(Pid2, Id2),
@@ -1001,21 +1015,21 @@ register_monitor_and_crash4(Conf) when is_list(Conf) ->
 		       Else ->
 			   ?FAIL({invalid_users, Else})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
     ?line ok = simulate_crash(Pid1),
 
     ?SLEEP(1000),
 
     ?line [Id2] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
     ?line stop_user(Pid2),
 
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -1030,7 +1044,7 @@ register_monitor_and_crash5(doc) ->
 	"and crash the first user process.";
 register_monitor_and_crash5(Conf) when is_list(Conf) ->
     put(tname,rlac4),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -1043,7 +1057,7 @@ register_monitor_and_crash5(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("start manager"),
+    ?IPRINT("start manager"),
     ?line ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
@@ -1051,12 +1065,12 @@ register_monitor_and_crash5(Conf) when is_list(Conf) ->
     Id1 = gurka, %% make_ref(), 
     Id2 = tomat, %% make_ref(), 
 
-    p("start user processes"),
+    ?IPRINT("start user processes"),
     ?line Pid1 = start_user(),
     ?line Pid2 = start_user(),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = register_user_monitor(Pid1, Id1),
     ?line ok = register_user_monitor(Pid2, Id2),
@@ -1090,9 +1104,9 @@ register_monitor_and_crash5(Conf) when is_list(Conf) ->
 		       U3 ->
 			   ?FAIL({invalid_users, U3})
 		   end,
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
 
-    p("verify all agent(s): expect 2"),
+    ?IPRINT("verify all agent(s): expect 2"),
     ?line Agents1 = case which_agents() of
 			[TargetName1, TargetName2] = A1 ->
 			    A1;
@@ -1101,25 +1115,25 @@ register_monitor_and_crash5(Conf) when is_list(Conf) ->
 		       A3 ->
 			   ?FAIL({invalid_agents, A3})
 		   end,
-    p("Agents1: ~p", [Agents1]),
+    ?IPRINT("Agents1: ~p", [Agents1]),
 
     ?line ok = simulate_crash(Pid1),
 
-    p("wait some time"),
+    ?IPRINT("wait some time"),
     ?SLEEP(1000),
 
     ?line [Id2] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
     ?line [TargetName2] = Agents2 = which_agents(),
-    p("Agents2: ~p", [Agents2]),
+    ?IPRINT("Agents2: ~p", [Agents2]),
     
     ?line stop_user(Pid2),
 
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -1132,7 +1146,7 @@ register_monitor_request_and_crash1(doc) ->
 	"send request and crash the user.";
 register_monitor_request_and_crash1(Conf) when is_list(Conf) ->
     %% put(tname,rlrac1),
-    %% p("start"),
+    %% ?IPRINT("start"),
     %% process_flag(trap_exit, true),
     ?SKIP(not_yet_implemented).
 
@@ -1146,7 +1160,7 @@ register_monitor_request_and_crash2(doc) ->
 	"send a request for each user and crash the single user process.";
 register_monitor_request_and_crash2(Conf) when is_list(Conf) ->
     %% put(tname,rlrac2),
-    %% p("start"),
+    %% ?IPRINT("start"),
     %% process_flag(trap_exit, true),
     ?SKIP(not_yet_implemented).
 
@@ -1160,7 +1174,7 @@ register_monitor_request_and_crash3(doc) ->
 	"send a request for each user and crash the single user process.";
 register_monitor_request_and_crash3(Conf) when is_list(Conf) ->
     %% put(tname,rlrac3),
-    %% p("start"),
+    %% ?IPRINT("start"),
     %% process_flag(trap_exit, true),
     ?SKIP(not_yet_implemented).
 
@@ -1176,7 +1190,7 @@ register_monitor_request_and_crash4(doc) ->
 	"crash the first user process.";
 register_monitor_request_and_crash4(Conf) when is_list(Conf) ->
     %% put(tname,rlrac4),
-    %% p("start"),
+    %% ?IPRINT("start"),
     %% process_flag(trap_exit, true),
     ?SKIP(not_yet_implemented).
 
@@ -1189,7 +1203,7 @@ otp7902(doc) ->
     "OTP-7902 - Start old user and make sure it wors.";
 otp7902(Conf) when is_list(Conf) ->
     put(tname, otp7902),
-    p("start"),
+    ?IPRINT("start"),
     process_flag(trap_exit, true),
 
     ConfDir = ?config(manager_conf_dir, Conf),
@@ -1202,27 +1216,27 @@ otp7902(Conf) when is_list(Conf) ->
             {note_store, [{verbosity, trace}]},
             {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
  
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
  
     ?SLEEP(1000),
 
     ?line [] = Users1 = which_users(),
-    p("Users1: ~p", [Users1]),
+    ?IPRINT("Users1: ~p", [Users1]),
     
     ?line ok = snmp_manager_user_old:start(),
 
     ?line [_] = Users2 = which_users(),
-    p("Users2: ~p", [Users2]),
+    ?IPRINT("Users2: ~p", [Users2]),
     
     ?line ok = snmp_manager_user_old:stop(),
 
     ?line [] = Users3 = which_users(),
-    p("Users3: ~p", [Users3]),
+    ?IPRINT("Users3: ~p", [Users3]),
     
     ?line ok = snmpm:stop(),
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -1305,16 +1319,4 @@ write_conf_file(Dir, File, Str) ->
     ?line {ok, Fd} = file:open(filename:join(Dir, File), write),
     ?line ok = io:format(Fd, "~s", [Str]),
     file:close(Fd).
-
-
-%% ------
-
-p(F) ->
-    p(F, []).
- 
-p(F, A) ->
-    p(get(tname), F, A).
- 
-p(TName, F, A) ->
-    io:format("~w -> " ++ F ++ "~n", [TName|A]).
 

@@ -122,8 +122,8 @@
 
 init_all(Config) when is_list(Config) ->
 
-    ?LOG("init_all -> entry with"
-	 "~n   Config: ~p",[Config]),
+    ?IPRINT("init_all -> entry with"
+            "~n   Config: ~p",[Config]),
 
     %% -- 
     %% Start nodes
@@ -300,7 +300,7 @@ try_test(TcRunMod, TcRunFunc, TcRunArgs, TcRunOpts) ->
 %% process as well.
 
 tc_try(N, M, F, A) ->
-    ?PRINT2("tc_try -> entry with"
+    ?IPRINT("tc_try -> entry with"
             "~n      N:     ~p"
             "~n      M:     ~p"
             "~n      F:     ~p"
@@ -312,32 +312,32 @@ tc_try(N, M, F, A) ->
                    get()]),
     case net_adm:ping(N) of
         pong ->
-            ?PRINT2("tc_try -> ~p still running - start runner~n", [N]),
+            ?IPRINT("tc_try -> ~p still running - start runner~n", [N]),
             OldFlag = trap_exit(true), % Make sure we catch it
             Runner  = spawn_link(N, ?MODULE, tc_wait, [self(), get(), M, F, A]),
             await_tc_runner_started(Runner, OldFlag),
             await_tc_runner_done(Runner, OldFlag);
         pang ->
-            ?EPRINT2("tc_try -> ~p *not* running~n", [N]),
+            ?WPRINT("tc_try -> ~p *not* running~n", [N]),
             skip({node_not_running, N})
     end.
 
 await_tc_runner_started(Runner, OldFlag) ->
-    ?PRINT2("await tc-runner (~p) start ack~n", [Runner]),
+    ?IPRINT("await tc-runner (~p) start ack~n", [Runner]),
     receive
         {'EXIT', Runner, Reason} ->
-            ?EPRINT2("TC runner start failed: "
-                     "~n   ~p~n", [Reason]),
+            ?EPRINT("TC runner start failed: "
+                    "~n   ~p~n", [Reason]),
             exit({tx_runner_start_failed, Reason});
         {tc_runner_started, Runner} ->
-            ?PRINT2("TC runner start acknowledged~n"),
+            ?IPRINT("TC runner start acknowledged~n"),
             ok
     after 10000 -> %% We should *really* not have to wait this long, but...
             trap_exit(OldFlag),
             unlink_and_flush_exit(Runner),
             RunnerInfo = ?PINFO(Runner),
-            ?EPRINT2("TC runner start timeout: "
-                     "~n   ~p", [RunnerInfo]),
+            ?EPRINT("TC runner start timeout: "
+                    "~n   ~p", [RunnerInfo]),
             %% If we don't get a start ack within 10 seconds, we are f*ed
             exit(Runner, kill),
             exit({tc_runner_start, timeout, RunnerInfo})
@@ -352,18 +352,18 @@ await_tc_runner_done(Runner, OldFlag) ->
             SysEvs = snmp_test_global_sys_monitor:events(),
             if
                 (SysEvs =:= []) ->
-                    ?EPRINT2("TC runner failed: "
-                             "~n   ~p~n", [Reason]),
+                    ?EPRINT("TC runner failed: "
+                            "~n   ~p~n", [Reason]),
                     exit({tx_runner_failed, Reason});
                 true ->
-                    ?EPRINT2("TC runner failed when we got system events: "
-                             "~n   Reason:     ~p"
-                             "~n   Sys Events: ~p"
-                             "~n", [Reason, SysEvs]),
+                    ?WPRINT("TC runner failed when we got system events: "
+                            "~n   Reason:     ~p"
+                            "~n   Sys Events: ~p"
+                            "~n", [Reason, SysEvs]),
                     skip([{reason, Reason}, {system_events, SysEvs}])
             end;
 	{tc_runner_done, Runner, {'EXIT', {skip, Reason}}, Loc} ->
-	    ?PRINT2("call -> done with skip: "
+	    ?WPRINT("call -> done with skip: "
                     "~n   Reason: ~p"
                     "~n   Loc:    ~p"
                     "~n", [Reason, Loc]),
@@ -372,7 +372,7 @@ await_tc_runner_done(Runner, OldFlag) ->
 	    put(test_server_loc, Loc),
 	    skip(Reason);
 	{tc_runner_done, Runner, {'EXIT', Rn}, Loc} ->
-	    ?PRINT2("call -> done with exit: "
+	    ?EPRINT("call -> done with exit: "
                     "~n   Rn:  ~p"
                     "~n   Loc: ~p"
                     "~n", [Rn, Loc]),
@@ -409,7 +409,7 @@ unlink_and_flush_exit(Pid) ->
     end.
 
 tc_wait(From, Env, M, F, A) ->
-    ?PRINT2("tc_wait -> entry with"
+    ?IPRINT("tc_wait -> entry with"
             "~n   From: ~p"
             "~n   Env:  ~p"
             "~n   M:    ~p"
@@ -417,9 +417,9 @@ tc_wait(From, Env, M, F, A) ->
             "~n   A:    ~p", [From, Env, M, F, A]),
     From ! {tc_runner_started, self()},
     lists:foreach(fun({K,V}) -> put(K,V) end, Env),
-    ?PRINT2("tc_wait -> env set - now run tc~n"),
+    ?IPRINT("tc_wait -> env set - now run tc~n"),
     Res = (catch apply(M, F, A)),
-    ?PRINT2("tc_wait -> tc run done: "
+    ?IPRINT("tc_wait -> tc run done: "
             "~n   ~p"
             "~n", [Res]),
     From ! {tc_runner_done, self(), Res, get(test_server_loc)},
@@ -437,7 +437,7 @@ tc_wait(From, Env, M, F, A) ->
     end.
 
 tc_run(Mod, Func, Args, Opts) ->
-    ?PRINT2("tc_run -> entry with"
+    ?IPRINT("tc_run -> entry with"
             "~n   Mod:  ~p"
             "~n   Func: ~p"
             "~n   Args: ~p"
@@ -456,7 +456,7 @@ tc_run(Mod, Func, Args, Opts) ->
     ?DBG("tc_run -> Crypto: ~p", [_CryptoRes]),
     StdM        = join(code:priv_dir(snmp), "mibs") ++ "/",
     Vsn         = get(vsn), 
-    ?PRINT2("tc_run -> config:"
+    ?IPRINT("tc_run -> config:"
             "~n   M:           ~p"
             "~n   Vsn:         ~p"
             "~n   Dir:         ~p"
@@ -469,7 +469,7 @@ tc_run(Mod, Func, Args, Opts) ->
             "~n", [M,Vsn,Dir,User,SecLevel,EngineID,CtxEngineID,Community,StdM]),
     case snmp_test_mgr:start([%% {agent, snmp_test_lib:hostname()},
 			      {packet_server_debug, true},
-			      {debug,               true},
+			      {debug,               false},
 			      {agent,               get(master_host)}, 
 			      {ipfamily,            get(ipfamily)},
 			      {agent_udp,           4000},
@@ -487,7 +487,7 @@ tc_run(Mod, Func, Args, Opts) ->
 	{ok, _Pid} ->
 	    case (catch apply(Mod, Func, Args)) of
 		{'EXIT', {skip, Reason}} ->
-                    ?EPRINT2("apply skip detected: "
+                    ?WPRINT("apply skip detected: "
                              "~n   ~p", [Reason]),
 		    (catch snmp_test_mgr:stop()),
 		    ?SKIP(Reason);
@@ -500,11 +500,11 @@ tc_run(Mod, Func, Args, Opts) ->
 		    (catch snmp_test_mgr:stop()),
                     if
                         (SysEvs =:= []) ->
-                            ?EPRINT2("TC runner failed: "
-                                     "~n   ~p~n", [Reason]),
+                            ?EPRINT("TC runner failed: "
+                                    "~n   ~p~n", [Reason]),
                             ?FAIL({apply_failed, {Mod, Func, Args}, Reason});
                         true ->
-                            ?EPRINT2("apply exit catched when we got system events: "
+                            ?WPRINT("apply exit catched when we got system events: "
                                      "~n   Reason:     ~p"
                                      "~n   Sys Events: ~p"
                                      "~n", [Reason, SysEvs]),
@@ -516,14 +516,14 @@ tc_run(Mod, Func, Args, Opts) ->
 	    end;
 
 	{error, Reason} ->
-	    ?EPRINT2("Failed starting (test) manager: "
-                     "~n   ~p", [Reason]),
+	    ?EPRINT("Failed starting (test) manager: "
+                    "~n   ~p", [Reason]),
 	    (catch snmp_test_mgr:stop()),
 	    ?line ?FAIL({mgr_start_error, Reason});
 
 	Err ->
-	    ?EPRINT2("Failed starting (test) manager: "
-                     "~n   ~p", [Err]),
+	    ?EPRINT("Failed starting (test) manager: "
+                    "~n   ~p", [Err]),
 	    (catch snmp_test_mgr:stop()),
 	    ?line ?FAIL({mgr_start_failure, Err})
     end.
@@ -570,10 +570,10 @@ start_agent(Config, Vsns) ->
     start_agent(Config, Vsns, []).
 start_agent(Config, Vsns, Opts) -> 
 
-    ?LOG("start_agent -> entry (~p) with"
-	"~n   Config: ~p"
-	"~n   Vsns:   ~p"
-	"~n   Opts:   ~p", [node(), Config, Vsns, Opts]),
+    ?IPRINT("start_agent -> entry (~p) with"
+            "~n   Config: ~p"
+            "~n   Vsns:   ~p"
+            "~n   Opts:   ~p", [node(), Config, Vsns, Opts]),
     
     ?line AgentLogDir  = ?config(agent_log_dir,  Config),
     ?line AgentConfDir = ?config(agent_conf_dir, Config),
@@ -603,17 +603,17 @@ start_agent(Config, Vsns, Opts) ->
 
     process_flag(trap_exit,true),
 
-    ?PRINT2("start_agent -> try start snmp app supervisor", []),
+    ?IPRINT("start_agent -> try start snmp app supervisor", []),
     {ok, AppSup} = snmp_app_sup:start_link(),
     unlink(AppSup),
     ?DBG("start_agent -> snmp app supervisor: ~p", [AppSup]),
 
-    ?PRINT2("start_agent -> try start master agent",[]),
+    ?IPRINT("start_agent -> try start master agent",[]),
     ?line Sup = start_sup(Env), 
     ?line unlink(Sup),
     ?DBG("start_agent -> snmp supervisor: ~p", [Sup]),
 
-    ?PRINT2("start_agent -> try (rpc) start sub agent on ~p", [SaNode]),
+    ?IPRINT("start_agent -> try (rpc) start sub agent on ~p", [SaNode]),
     ?line SaDir = ?config(sa_dir, Config),
     ?line {ok, Sub} = start_sub_sup(SaNode, SaDir),
     ?DBG("start_agent -> done", []),
@@ -813,13 +813,13 @@ merge_agent_options([{Key, _Value} = Opt|Opts], Options) ->
 
 
 stop_agent(Config) when is_list(Config) ->
-    ?PRINT2("stop_agent -> entry with"
+    ?IPRINT("stop_agent -> entry with"
             "~n   Config: ~p",[Config]),
 
 
     %% Stop the sub-agent (the agent supervisor)
     {SubSup, SubPar} = ?config(snmp_sub, Config),
-    ?PRINT2("stop_agent -> attempt to stop sub agent (~p)"
+    ?IPRINT("stop_agent -> attempt to stop sub agent (~p)"
             "~n   Sub Sup info: "
             "~n      ~p"
             "~n   Sub Par info: "
@@ -831,7 +831,7 @@ stop_agent(Config) when is_list(Config) ->
 
     %% Stop the master-agent (the top agent supervisor)
     {MasterSup, MasterPar} = ?config(snmp_sup, Config),
-    ?PRINT2("stop_agent -> attempt to stop master agent (~p)"
+    ?IPRINT("stop_agent -> attempt to stop master agent (~p)"
             "~n   Master Sup: "
             "~n      ~p"
             "~n   Master Par: "
@@ -847,24 +847,24 @@ stop_agent(Config) when is_list(Config) ->
 
     %% Stop the top supervisor (of the snmp app)
     AppSup = ?config(snmp_app_sup, Config),
-    ?PRINT2("stop_agent -> attempt to app sup ~p"
+    ?IPRINT("stop_agent -> attempt to app sup ~p"
             "~n   App Sup: ~p",
             [AppSup, ?PINFO(AppSup)]),
     Config4 = lists:keydelete(snmp_app_sup, 1, Config3),
 
 
-    ?PRINT2("stop_agent -> done", []),
+    ?IPRINT("stop_agent -> done", []),
     Config4.
 
 
 start_sup(Env) ->
     case (catch snmp_app_sup:start_agent(normal, Env)) of
 	{ok, S} ->
-	    ?DBG("start_agent -> started, Sup: ~p",[S]),
+	    ?DBG("start_agent -> started, Sup: ~p", [S]),
 	    S;
 	
 	Else ->
-	    ?DBG("start_agent -> unknown result: ~n~p",[Else]),
+	    ?EPRINT("start_agent -> unknown result: ~n~p", [Else]),
 	    %% Get info about the apps we depend on
 	    ?FAIL({start_failed, Else, ?IS_MNESIA_RUNNING()})
     end.
@@ -872,18 +872,18 @@ start_sup(Env) ->
 stop_sup(Pid, _) when (node(Pid) =:= node()) ->
     case (catch process_info(Pid)) of
 	PI when is_list(PI) ->
-	    ?LOG("stop_sup -> attempt to stop ~p", [Pid]),
+	    ?IPRINT("stop_sup -> attempt to stop ~p", [Pid]),
 	    Ref = erlang:monitor(process, Pid),
 	    exit(Pid, kill),
 	    await_stopped(Pid, Ref);
 	{'EXIT', _Reason} ->
-	    ?LOG("stop_sup -> ~p not running", [Pid]),
+	    ?IPRINT("stop_sup -> ~p not running", [Pid]),
 	    ok
     end;
 stop_sup(Pid, _) ->
-    ?LOG("stop_sup -> attempt to stop ~p", [Pid]),
+    ?IPRINT("stop_sup -> attempt to stop ~p", [Pid]),
     Ref = erlang:monitor(process, Pid),
-    ?LOG("stop_sup -> Ref: ~p", [Ref]),
+    ?IPRINT("stop_sup -> Ref: ~p", [Ref]),
     exit(Pid, kill), 
     await_stopped(Pid, Ref).
 
@@ -893,7 +893,7 @@ await_stopped(Pid, Ref) ->
             ?DBG("received down message for ~p", [Pid]),
             ok
     after 10000 ->
-	    ?INF("await_stopped -> timeout for ~p",[Pid]),
+	    ?EPRINT("await_stopped -> timeout for ~p",[Pid]),
 	    erlang:demonitor(Ref),
 	    ?FAIL({failed_stop,Pid})
     end.
@@ -1072,7 +1072,7 @@ io_format_expect(F) ->
     io_format_expect(F, []).
 
 io_format_expect(F, A) ->
-    ?PRINT2("EXPECT " ++ F, A).
+    ?IPRINT("EXPECT " ++ F, A).
     
 
 do_expect(Expect) when is_atom(Expect) ->
@@ -1525,11 +1525,11 @@ get_next_req(Vars) ->
 %% --- start and stop nodes ---
 
 start_node(Name) ->
-    ?LOG("start_node -> entry with"
-	 "~n   Name: ~p"
-	 "~n when"
-	 "~n   hostname of this node: ~p",
-	 [Name, list_to_atom(?HOSTNAME(node()))]),
+    ?IPRINT("start_node -> entry with"
+            "~n   Name: ~p"
+            "~n when"
+            "~n   hostname of this node: ~p",
+            [Name, list_to_atom(?HOSTNAME(node()))]),
 
     Pa = filename:dirname(code:which(?MODULE)),
     ?DBG("start_node -> Pa: ~p", [Pa]),
@@ -1543,18 +1543,18 @@ start_node(Name) ->
             global:sync(),
 	    {ok, Node};
 	{error, Reason}  -> 
-	    ?ERR("start_node -> failed starting node ~p:"
-                 "~n      Reason: ~p", [Name, Reason]),
+	    ?WPRINT("start_node -> failed starting node ~p:"
+                    "~n      Reason: ~p", [Name, Reason]),
 	    ?line ?SKIP({failed_start_node, Reason});
 	Else  -> 
-	    ?ERR("start_node -> failed starting node ~p:"
-                 "~n      ~p", [Name, Else]),
+	    ?EPRINT("start_node -> failed starting node ~p:"
+                    "~n      ~p", [Name, Else]),
 	    ?line ?FAIL(Else)
     end.
 
 
 stop_node(Node) ->
-    ?LOG("stop_node -> Node: ~p", [Node]),
+    ?IPRINT("stop_node -> Node: ~p", [Node]),
     ?STOP_NODE(Node).
 
 
@@ -1566,14 +1566,14 @@ config(Vsns, MgrDir, AgentConfDir, MIp, AIp) ->
     config(Vsns, MgrDir, AgentConfDir, MIp, AIp, inet).
 
 config(Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily) ->
-    ?LOG("config -> entry with"
-	 "~n   Vsns:         ~p"
-	 "~n   MgrDir:       ~p"
-	 "~n   AgentConfDir: ~p"
-	 "~n   MIp:          ~p"
-	 "~n   AIp:          ~p"
-	 "~n   IpFamily:     ~p",
-	 [Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily]),
+    ?IPRINT("config -> entry with"
+            "~n   Vsns:         ~p"
+            "~n   MgrDir:       ~p"
+            "~n   AgentConfDir: ~p"
+            "~n   MIp:          ~p"
+            "~n   AIp:          ~p"
+            "~n   IpFamily:     ~p",
+            [Vsns, MgrDir, AgentConfDir, MIp, AIp, IpFamily]),
     ?line {Domain, ManagerAddr} =
 	case IpFamily of
 	    inet6 ->
@@ -1744,8 +1744,8 @@ rewrite_target_addr_conf(Dir, NewPort) ->
 	{ok, _} -> 
 	    ok;
 	{error, _R} -> 
-	    ?ERR("failure reading file info of "
-		 "target address config file: ~p", [_R]),
+	    ?WPRINT("failure reading file info of "
+                    "target address config file: ~p", [_R]),
 	    ok  
     end,
 
@@ -1769,10 +1769,10 @@ rewrite_target_addr_conf_check(O) ->
 rewrite_target_addr_conf2(NewPort,
 			  {Name, Ip, _Port, Timeout, Retry,
 			   "std_trap", EngineId}) -> 
-    ?LOG("rewrite_target_addr_conf2 -> entry with std_trap",[]),
+    ?IPRINT("rewrite_target_addr_conf2 -> entry with std_trap",[]),
     {Name,Ip,NewPort,Timeout,Retry,"std_trap",EngineId};
 rewrite_target_addr_conf2(_NewPort,O) -> 
-    ?LOG("rewrite_target_addr_conf2 -> entry with "
+    ?IPRINT("rewrite_target_addr_conf2 -> entry with "
 	 "~n   O: ~p",[O]),
     O.
 
@@ -1826,12 +1826,12 @@ display_memory_usage() ->
     MibDbSize  = key1search([db_memory,mib],  Info),
     NodeDbSize = key1search([db_memory,node], Info),
     TreeDbSize = key1search([db_memory,tree], Info),
-    ?INF("Memory usage: "
-	"~n   Tree size:           ~p"
-	"~n   Process memory size: ~p"
-	"~n   Mib db size:         ~p"
-	"~n   Node db size:        ~p"
-	"~n   Tree db size:        ~p", 
+    ?IPRINT("Memory usage: "
+            "~n   Tree size:           ~p"
+            "~n   Process memory size: ~p"
+            "~n   Mib db size:         ~p"
+            "~n   Node db size:        ~p"
+            "~n   Tree db size:        ~p", 
     [TreeSize, ProcMem, MibDbSize, NodeDbSize, TreeDbSize]).
     
 key1search([], Res) ->
@@ -1867,51 +1867,3 @@ join(Dir, File) ->
 skip(R) ->
     exit({skip, R}).
 
-%% await_pdu(To) ->
-%%     await_response(To, pdu).
-%% 
-%% await_trap(To) ->
-%%     await_response(To, trap).
-%% 
-%% await_any(To) ->
-%%     await_response(To, any).
-%% 
-%% 
-%% await_response(To, What) ->
-%%     await_response(To, What, []).
-%% 
-%% await_response(To, What, Stuff) when is_integer(To) andalso (To >= 0) ->
-%%     T = t(),
-%%     receive
-%% 	{snmp_pdu, PDU} when is_record(Trap, pdu) andalso (What =:= pdu) ->
-%% 	    {ok, PDU};
-%% 	{snmp_pdu, Trap} is_when record(Trap, trappdu) andalso (What =:= trap) ->
-%% 	    {ok, Trap};
-%% 	Any when What =:= any ->
-%% 	    {ok, Any};
-%% 	Any ->
-%% 	    %% Recalc time
-%% 	    NewTo = To - (t() - T)
-%% 	    await_reponse(NewTo, What, [{NewTo, Any}|Stuff])
-%%     after To ->
-%% 	    {error, {timeout, Stuff}}
-%%     end;
-%% await_response(_, Stuff) ->
-%%     {error, {timeout, Stuff}}.
-%% 
-%% 
-%% t() ->
-%%     {A,B,C} = os:timestamp(),
-%%     A*1000000000+B*1000+(C div 1000).
-%% 
-%% 
-%% timeout() ->
-%%     timeout(os:type()).
-%% 
-%% timeout(_)       -> 3500.
-    
-
-%% Time in milli seconds
-%% t() ->
-%%     {A,B,C} = os:timestamp(),
-%%     A*1000000000+B*1000+(C div 1000).

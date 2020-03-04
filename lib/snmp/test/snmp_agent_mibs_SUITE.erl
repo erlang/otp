@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -199,7 +199,7 @@ init_per_testcase2(_Case, Config) when is_list(Config) ->
 
 
 end_per_testcase(Case, Config) when is_list(Config) ->
-    ?PRINT2("system events during test: "
+    ?IPRINT("system events during test: "
             "~n   ~p", [snmp_test_global_sys_monitor:events()]),
     end_per_testcase1(Case, Config).
 
@@ -410,7 +410,7 @@ unique(PreName) ->
     list_to_atom(?F("~w_~w", [PreName, erlang:system_time(millisecond)])).
 
 do_size_check(Config) ->
-    ?PRINT2("do_size_check -> start with"
+    ?IPRINT("do_size_check -> start with"
             "~n   Config: ~p", [Config]),
     Prio      = normal,
     Verbosity = trace,
@@ -457,7 +457,7 @@ do_size_check(Config) ->
     ?DBG("do_size_check -> stop symbolic store", []),
     ?line sym_stop(),
 
-    ?PRINT2("do_size_check -> done", []),
+    ?IPRINT("do_size_check -> done", []),
     ok.
 
 
@@ -688,7 +688,7 @@ mnesia_start(Opts, Nodes) ->
     %% We can accept mnesia beeing loaded but *not* started.
     %% If its started it *may* contain data that will invalidate
     %% this test case.
-    ?PRINT2("mnesia_start -> try load mnesia when:"
+    ?IPRINT("mnesia_start -> try load mnesia when:"
             "~n   Loaded:  ~p"
             "~n   Running: ~p", [apps_loaded(), apps_running()]),
     ?line ok = case application:load(mnesia) of
@@ -700,12 +700,12 @@ mnesia_start(Opts, Nodes) ->
                        ERROR
                end,
     F = fun({Key, Val}) ->
-		?PRINT2("mnesia_start -> try set mnesia env: "
+		?IPRINT("mnesia_start -> try set mnesia env: "
                         "~n   ~p -> ~p", [Key, Val]),
 		?line application_controller:set_env(mnesia, Key, Val)
 	end,
     lists:foreach(F, Opts),
-    ?PRINT2("mnesia_start -> create mnesia schema on ~p", [Nodes]),
+    ?IPRINT("mnesia_start -> create mnesia schema on ~p", [Nodes]),
     ?line case mnesia:create_schema(Nodes) of
               ok ->
                   ok;
@@ -715,7 +715,7 @@ mnesia_start(Opts, Nodes) ->
                   throw({skip,
                          ?F("Failed create mnesia schema: ~p", [SchemaReason])})
           end,
-    ?PRINT2("mnesia_start -> start mnesia", []),
+    ?IPRINT("mnesia_start -> start mnesia", []),
     ?line case application:start(mnesia) of
               ok ->
                   ok;
@@ -725,19 +725,19 @@ mnesia_start(Opts, Nodes) ->
                   throw({skip,
                          ?F("Failed starting mnesia: ~p", [StartReason])})
           end,
-    ?PRINT2("mnesia_start -> mnesia started", []),
+    ?IPRINT("mnesia_start -> mnesia started", []),
     ok.
 
 mnesia_stop() ->
-    ?PRINT2("mnesia_stop -> try stop mnesia when:"
+    ?IPRINT("mnesia_stop -> try stop mnesia when:"
             "~n   Loaded:  ~p"
             "~n   Running: ~p", [apps_loaded(), apps_running()]),
     application:stop(mnesia),
-    ?PRINT2("mnesia_stop -> try unload mnesia when"
+    ?IPRINT("mnesia_stop -> try unload mnesia when"
             "~n   Loaded:  ~p"
             "~n   Running: ~p", [apps_loaded(), apps_running()]),
     application:unload(mnesia),
-    ?PRINT2("mnesia_stop -> done when:"
+    ?IPRINT("mnesia_stop -> done when:"
             "~n   Loaded:  ~p"
             "~n   Running: ~p", [apps_loaded(), apps_running()]),
     ok.
@@ -909,19 +909,19 @@ display_memory_usage(MibsPid) ->
     MibDbSize   = key1search([db_memory,mib],  MibsInfo),
     NodeDbSize  = key1search([db_memory,node], MibsInfo),
     TreeDbSize  = key1search([db_memory,tree], MibsInfo),
-    ?INF("Symbolic store memory usage: "
-	"~n   Process memory size: ~p"
-	"~n   Db size:             ~p"
-	"~n"
-	"~nMib server memory usage: "
-	"~n   Tree size:           ~p"
-	"~n   Process memory size: ~p"
-	"~n   Mib db size:         ~p"
-	"~n   Node db size:        ~p"
-	"~n   Tree db size:        ~p"
-	"~n", 
-	[SymProcSize, DbSize,
-	TreeSize, MibsProcMem, MibDbSize, NodeDbSize, TreeDbSize]).
+    ?IPRINT("Symbolic store memory usage: "
+            "~n   Process memory size: ~p"
+            "~n   Db size:             ~p"
+            "~n"
+            "~nMib server memory usage: "
+            "~n   Tree size:           ~p"
+            "~n   Process memory size: ~p"
+            "~n   Mib db size:         ~p"
+            "~n   Node db size:        ~p"
+            "~n   Tree db size:        ~p"
+            "~n", 
+            [SymProcSize, DbSize,
+             TreeSize, MibsProcMem, MibDbSize, NodeDbSize, TreeDbSize]).
     
 key1search([], Res) ->
     Res;

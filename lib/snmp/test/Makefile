@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 1997-2016. All Rights Reserved.
+# Copyright Ericsson AB 1997-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -89,14 +89,8 @@ ifeq ($(SNMP_DEBUG),)
   # SNMP_DEBUG = d
 endif
 
-ifeq ($(SNMP_DEBUG),e)
-  SNMP_FLAGS += -Dsnmp_error
-endif
-ifeq ($(SNMP_DEBUG),l)
-  SNMP_FLAGS += -Dsnmp_error -Dsnmp_log
-endif
 ifeq ($(SNMP_DEBUG),d)
-  SNMP_FLAGS += -Dsnmp_error -Dsnmp_log -Dsnmp_debug
+  SNMP_FLAGS += -Dsnmp_debug
 endif
 
 ifeq ($(DONT_USE_TS),true)
@@ -175,7 +169,7 @@ emakebuild: $(EMAKEFILE)
 targets: mib $(EMAKEFILE) 
 	erl -make
 
-old_targets: mib $(TARGET_FILES) $(TEST_SERVER_TARGETS)
+old_targets: mib $(TARGET_FILES)
 
 $(EMAKEFILE):  Makefile
 	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' > $(EMAKEFILE)
