@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -289,6 +289,8 @@ format_error({redefine_record,T}) ->
     io_lib:format("record ~tw already defined", [T]);
 format_error({redefine_field,T,F}) ->
     io_lib:format("field ~tw already defined in record ~tw", [F,T]);
+format_error(bad_multi_field_init) ->
+    io_lib:format("'_' initializes no omitted fields", []);
 format_error({undefined_field,T,F}) ->
     io_lib:format("field ~tw undefined in record ~tw", [F,T]);
 format_error(illegal_record_info) ->
@@ -1648,7 +1650,8 @@ pattern({record,Line,Name,Pfs}, Vt, Old, Bvt, St) ->
     case maps:find(Name, St#lint.records) of
         {ok,{_Line,Fields}} ->
             St1 = used_record(Name, St),
-            pattern_fields(Pfs, Name, Fields, Vt, Old, Bvt, St1);
+            St2 = check_multi_field_init(Pfs, Line, Fields, St1),
+            pattern_fields(Pfs, Name, Fields, Vt, Old, Bvt, St2);
         error -> {[],[],add_error(Line, {undefined_record,Name}, St)}
     end;
 pattern({bin,_,Fs}, Vt, Old, Bvt, St) ->
@@ -1679,7 +1682,14 @@ pattern_list(Ps, Vt, Old, Bvt0, St) ->
                   {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt,Bvt1),St1}
           end, {[],[],St}, Ps).
 
-
+%% Check for '_' initializing no fields.
+check_multi_field_init(Fs, Line, Fields, St) ->
+    case
+        has_wildcard_field(Fs) andalso init_fields(Fs, Line, Fields) =:= []
+    of
+        true -> add_error(Line, bad_multi_field_init, St);
+        false -> St
+    end.
 
 %% reject_invalid_alias(Pat, Expr, Vt, St) -> St'
 %%  Reject aliases for binary patterns at the top level.
@@ -2742,9 +2752,12 @@ check_field({record_field,Lf,{atom,La,F},Val}, Name, Fields,
                  error -> {[],add_error(La, {undefined_field,Name,F}, St)}
              end}
     end;
-check_field({record_field,_Lf,{var,_La,'_'},Val}, _Name, _Fields,
+check_field({record_field,_Lf,{var,La,'_'=F},Val}, _Name, _Fields,
             Vt, St, Sfs, CheckFun) ->
-    {Sfs,CheckFun(Val, Vt, St)};
+    case member(F, Sfs) of
+        true -> {Sfs,{[],add_error(La, bad_multi_field_init, St)}};
+        false -> {[F|Sfs],CheckFun(Val, Vt, St)}
+    end;
 check_field({record_field,_Lf,{var,La,V},_Val}, Name, _Fields,
             Vt, St, Sfs, _CheckFun) ->
     {Sfs,{Vt,add_error(La, {field_name_is_variable,Name,V}, St)}}.

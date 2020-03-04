@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1999-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -69,7 +69,7 @@
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
-         unused_type/1,removed/1]).
+         unused_type/1,removed/1, otp_16516/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -91,7 +91,7 @@ all() ->
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
-     otp_15456, otp_15563, unused_type, removed].
+     otp_15456, otp_15563, unused_type, removed, otp_16516].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4338,6 +4338,99 @@ removed(Config) when is_list(Config) ->
          ],
     [] = run(Config, Ts),
     ok.
+
+otp_16516(Config) when is_list(Config) ->
+    one_multi_init(Config),
+    several_multi_inits(Config).
+
+one_multi_init(Config) ->
+    "'_' initializes no omitted fields" =
+        format_error(bad_multi_field_init),
+    Ts = [{otp_16516_1,
+           <<"-record(r, {f}).
+              t(#r{f = 17, _ = V}) ->
+                  V.
+              u(#r{_ = V, f = 17}) ->
+                  V.
+              -record(r1, {f, g = 17}).
+              g(#r1{f = 3, _ = 42}) ->
+                g.
+             ">>,
+           [],
+           {errors,[{2,erl_lint,bad_multi_field_init},
+                    {4,erl_lint,bad_multi_field_init}],[]}},
+          {otp_16516_2,
+           %% No error since "_ = '_'" is actually used as a catch-all
+           %% initialization. V is unused (as compilation with the 'E'
+           %% option shows), but no warning about V being unused is
+           %% output.
+           <<"-record(r, {f}).
+              t(V) ->
+                  #r{f = 3, _ = V}.
+              u(V) ->
+                  #r{_ = V, f = 3}.
+             ">>,
+           [],
+           []},
+          {otp_16516_3,
+           %% No error in this case either. And no unused variable warning.
+           <<"-record(r, {f}).
+              t(V) when #r{f = 3, _ = V} =:= #r{f = 3} ->
+                  a.
+              u(V) when #r{_ = V, f = 3} =:= #r{f = 3} ->
+                  a.
+             ">>,
+           [],
+           []}],
+    [] = run(Config, Ts).
+
+several_multi_inits(Config) ->
+    Ts = [{otp_16516_4,
+           <<"-record(r, {f, g}).
+              t(#r{f = 17, _ = V1,
+                           _ = V2}) ->
+                  {V1, V2}.
+              u(#r{_ = V1, f = 17,
+                   _ = V2}) ->
+                  {V1, V2}.
+              v(#r{_ = V1, f = 17}) ->
+                  V1.
+             ">>,
+           [],
+           {errors,[{3,erl_lint,bad_multi_field_init},
+                    {4,erl_lint,{unbound_var,'V1'}},
+                    {4,erl_lint,{unbound_var,'V2'}},
+                    {6,erl_lint,bad_multi_field_init},
+                    {7,erl_lint,{unbound_var,'V1'}},
+                    {7,erl_lint,{unbound_var,'V2'}}],[]}},
+          {otp_16516_5,
+           <<"-record(r, {f, g}).
+              t(V1, V2) ->
+                  #r{_ = V1, f = 3,
+                     _ = V2}.
+              u(V1, V2) ->
+                  #r{_ = V1,
+                     _ = V2, f = 3}.
+             ">>,
+           [],
+           {error,[{4,erl_lint,bad_multi_field_init},
+                   {7,erl_lint,bad_multi_field_init}],
+            [{2,erl_lint,{unused_var,'V2'}},{5,erl_lint,{unused_var,'V2'}}]}},
+          {otp_16516_6,
+           <<"-record(r, {f, g}).
+              t(V1, V2) when #r{_ = V1, f = 3,
+                                _ = V2} =:= #r{} ->
+                  a.
+              u(V1, V2) when #r{_ = V1, f = 3,
+                                _ = V2} =:= #r{} ->
+                  a.
+             ">>,
+           [],
+           {error,[{3,erl_lint,bad_multi_field_init},
+                   {6,erl_lint,bad_multi_field_init}],
+            [{2,erl_lint,{unused_var,'V2'}},
+             {5,erl_lint,{unused_var,'V2'}}]}}],
+    [] = run(Config, Ts).
 
 format_error(E) ->
     lists:flatten(erl_lint:format_error(E)).
