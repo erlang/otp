@@ -109,6 +109,9 @@
 -define(CRYPTO_SUPPORT(),    ?LIB:crypto_support()).
 
 
+-define(ENSURE_NOT_RUNNING(N, S, T), ?LIB:ensure_not_running(N, S, T)).
+
+
 %% - Dir macros -
 
 -define(DEL_DIR(D),         ?LIB:del_dir(D)).
@@ -116,56 +119,33 @@
 
 %% - Print macros
 
+%% Used for indicating the start of a test case
 -define(P(C),               ?LIB:p(?MODULE, C)).
--define(P1(F),              ?LIB:p(F, [])).
--define(P2(F, A),           ?LIB:p(F, A)).
+
+%% Takes a format call (such as io:format) and produces a printable string
 -define(F(F, A),            ?LIB:f(F, A)).
 
 -ifdef(snmp_debug).
--ifndef(snmp_log).
--define(snmp_log,true).
--endif.
--ifndef(snmp_error).
--define(snmp_error,true).
--endif.
--else.
--ifdef(snmp_log).
--ifndef(snmp_error).
--define(snmp_error,true).
--endif.
--endif.
--endif.
-
--ifdef(snmp_debug).
--define(DBG(F,A), ?PRINT("DEBUG", F, A)).
+-define(DBG(F,A),      ?IPRINT(F, A)).
 -else.
 -define(DBG(F,A), ok).
 -endif.
 
--ifdef(snmp_log).
--define(LOG(F,A), ?PRINT("LOG", F, A)).
--else.
--define(LOG(F,A), ok).
--endif.
+%% ERROR print
+-define(EPRINT(F),     ?LIB:eprint(F, [])).
+-define(EPRINT(F, A),  ?LIB:eprint(F, A)).
 
--ifdef(snmp_error).
--define(ERR(F,A), ?PRINT("ERROR", F, A)).
--else.
--define(ERR(F,A), ok).
--endif.
+%% WARNING print
+-define(WPRINT(F),     ?LIB:wprint(F, [])).
+-define(WPRINT(F, A),  ?LIB:wprint(F, A)).
 
--define(INF(F),        ?INF(F, [])).
--define(INF(F,A),      ?PRINT("INFO", F, A)).
+%% NOTICE print
+-define(NPRINT(F),     ?LIB:nprint(F, [])).
+-define(NPRINT(F, A),  ?LIB:nprint(F, A)).
 
--define(PRINT(P,F,A),  ?LIB:print(P, ?MODULE, ?LINE, F, A)).
-
--define(PRINT1(F, A),  ?LIB:print1(F, A)).
--define(PRINT1(F),     ?PRINT1(F, [])).
--define(EPRINT1(F, A), ?PRINT1("<ERROR> " ++ F, A)).
-
--define(PRINT2(F, A),  ?LIB:print2(F, A)).
--define(PRINT2(F),     ?PRINT2(F, [])).
--define(EPRINT2(F, A), ?PRINT2("<ERROR> " ++ F, A)).
+%% INFO print
+-define(IPRINT(F),     ?LIB:iprint(F, [])).
+-define(IPRINT(F, A),  ?LIB:iprint(F, A)).
 
 -define(FTS(),         snmp_misc:formated_timestamp()).
 -define(FTS(TS),       snmp_misc:format_timestamp(TS)).

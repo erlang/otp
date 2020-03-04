@@ -42,12 +42,14 @@
 -export([ping/1, local_nodes/0, nodes_on/1]).
 -export([start_node/2, stop_node/1]).
 -export([is_app_running/1, 
-	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0]).
+	 is_crypto_running/0, is_mnesia_running/0, is_snmp_running/0,
+         ensure_not_running/3]).
 -export([crypto_start/0, crypto_support/0]).
 -export([watchdog/3, watchdog_start/1, watchdog_start/2, watchdog_stop/1]).
 -export([del_dir/1]).
--export([cover/1]).
--export([f/2, p/2, print1/2, print2/2, print/5, formated_timestamp/0]).
+-export([f/2, formated_timestamp/0]).
+-export([p/2, print1/2, print2/2, print/5]).
+-export([eprint/2, wprint/2, nprint/2, iprint/2]).
 
 
 -define(SKIP(R), skip(R, ?MODULE, ?LINE)).
@@ -97,20 +99,24 @@ tc_try(Case, TCCond, Pre, TC, Post)
     tc_begin(Case),
     try TCCond() of
         ok ->
+            tc_print("starting: try pre"),
             try Pre() of
                 State ->
+                    tc_print("pre done: try test case"),
                     try
                         begin
                             TC(State),
                             sleep(seconds(1)),
+                            tc_print("test case done: try post"),
                             (catch Post(State)),
                             tc_end("ok")
                         end
                     catch
                         C:{skip, _} = SKIP when (C =:= throw) orelse
                                                 (C =:= exit) ->
+                            tc_print("test case (~w) skip: try post", [C]),
                             (catch Post(State)),
-                             tc_end( f("skipping(catched,~w,tc)", [C]) ),
+                            tc_end( f("skipping(catched,~w,tc)", [C]) ),
                             SKIP;
                         C:E:S ->
                             %% We always check the system events
@@ -119,17 +125,18 @@ tc_try(Case, TCCond, Pre, TC, Post)
                             %% generate sys events itself...
                             case snmp_test_global_sys_monitor:events() of
                                 [] ->
+                                    tc_print("test case failed: try post"),
                                     (catch Post(State)),
                                     tc_end( f("failed(catched,~w,tc)", [C]) ),
                                     erlang:raise(C, E, S);
                                 SysEvs ->
-                                    tc_print("System Events received: "
+                                    tc_print("System Events received during tc: "
                                              "~n   ~p"
                                              "~nwhen tc failed:"
                                              "~n   C: ~p"
                                              "~n   E: ~p"
                                              "~n   S: ~p",
-                                             [SysEvs, C, E, S], "", ""),
+                                             [SysEvs, C, E, S]),
                                     (catch Post(State)),
                                     tc_end( f("skipping(catched-sysevs,~w,tc)",
                                               [C]) ),
@@ -147,16 +154,22 @@ tc_try(Case, TCCond, Pre, TC, Post)
                     %% before we accept a failure
                     case snmp_test_global_sys_monitor:events() of
                         [] ->
-                            tc_end( f("failed(catched,~w,tc-pre)", [C]) ),
-                            erlang:raise(C, E, S);
-                        SysEvs ->
-                            tc_print("System Events received: "
-                                     "~n   ~p"
-                                     "~nwhen tc-pre failed:"
+                            tc_print("tc-pre failed: auto-skip"
                                      "~n   C: ~p"
                                      "~n   E: ~p"
                                      "~n   S: ~p",
-                                     [SysEvs, C, E, S], "", ""),
+                                     [C, E, S]),
+                            tc_end( f("auto-skip(catched,~w,tc-pre)", [C]) ),
+                            SKIP = {skip, f("TC-Pre failure (~w)", [C])},
+                            SKIP;
+                        SysEvs ->
+                                   tc_print("System Events received: "
+                                            "~n   ~p"
+                                            "~nwhen tc-pre failed:"
+                                            "~n   C: ~p"
+                                            "~n   E: ~p"
+                                            "~n   S: ~p",
+                                            [SysEvs, C, E, S], "", ""),
                             tc_end( f("skipping(catched-sysevs,~w,tc-pre)", [C]) ),
                             SKIP = {skip, "TC-Pre failure with system events"},
                             SKIP
@@ -210,13 +223,19 @@ tc_end(Result) when is_list(Result) ->
              "", "----------------------------------------------------~n~n"),
     ok.
 
+tc_print(F) ->
+    tc_print(F, [], "", "").
+
+tc_print(F, A) ->
+    tc_print(F, A, "", "").
+
 tc_print(F, Before, After) ->
     tc_print(F, [], Before, After).
 
 tc_print(F, A, Before, After) ->
     Name = tc_which_name(),
     FStr = f("*** [~s][~s][~p] " ++ F ++ "~n", 
-             [formated_timestamp(),Name,self()|A]),
+             [formated_timestamp(), Name, self() | A]),
     io:format(user, Before ++ FStr ++ After, []),
     io:format(standard_io, Before ++ FStr ++ After, []).
 
@@ -800,6 +819,8 @@ analyze_and_print_host_info() ->
             analyze_and_print_freebsd_host_info(Version);           
         {unix, sunos} ->
             analyze_and_print_solaris_host_info(Version);
+        {win32, nt} ->
+            analyze_and_print_win_host_info(Version);
         _ ->
             io:format("OS Family: ~p"
                       "~n   OS Type:        ~p"
@@ -1318,6 +1339,135 @@ analyze_and_print_solaris_host_info(Version) ->
 
 
 
+analyze_and_print_win_host_info(Version) ->
+    SysInfo    = which_win_system_info(),
+    OsName     = win_sys_info_lookup(os_name,             SysInfo),
+    OsVersion  = win_sys_info_lookup(os_version,          SysInfo),
+    SysMan     = win_sys_info_lookup(system_manufacturer, SysInfo),
+    SysMod     = win_sys_info_lookup(system_model,        SysInfo),
+    NumProcs   = win_sys_info_lookup(num_processors,      SysInfo),
+    TotPhysMem = win_sys_info_lookup(total_phys_memory,   SysInfo),
+    io:format("Windows: ~s"
+              "~n   OS Version:             ~s (~p)"
+              "~n   System Manufacturer:    ~s"
+              "~n   System Model:           ~s"
+              "~n   Number of Processor(s): ~s"
+              "~n   Total Physical Memory:  ~s"
+              "~n   Num Schedulers:         ~s"
+              "~n~n", [OsName, OsVersion, Version,
+                       SysMan, SysMod, NumProcs, TotPhysMem,
+                       str_num_schedulers()]),
+    io:format("TS Scale Factor: ~w~n", [timetrap_scale_factor()]),
+    MemFactor =
+        try
+            begin
+                [MStr, MUnit|_] =
+                    string:tokens(lists:delete($,, TotPhysMem), [$\ ]),
+                case string:to_lower(MUnit) of
+                    "gb" ->
+                        try list_to_integer(MStr) of
+                            M when M > 8 ->
+                                0;
+                            M when M > 4 ->
+                                1;
+                            M when M > 2 ->
+                                2;
+                            _ -> 
+                                5
+                        catch
+                            _:_:_ ->
+                                10
+                        end;
+                    "mb" ->
+                        try list_to_integer(MStr) of
+                            M when M > 8192 ->
+                                0;
+                            M when M > 4096 ->
+                                1;
+                            M when M > 2048 ->
+                                2;
+                            _ -> 
+                                5
+                        catch
+                            _:_:_ ->
+                                10
+                        end;
+                    _ ->
+                        10
+                end
+            end
+        catch
+            _:_:_ ->
+                10
+        end,
+    CPUFactor = 
+        case erlang:system_info(schedulers) of
+            1 ->
+                10;
+            2 ->
+                5;
+            _ ->
+                2
+        end,
+    CPUFactor + MemFactor.
+
+win_sys_info_lookup(Key, SysInfo) ->
+    win_sys_info_lookup(Key, SysInfo, "-").
+
+win_sys_info_lookup(Key, SysInfo, Def) ->
+    case lists:keysearch(Key, 1, SysInfo) of
+        {value, {Key, Value}} ->
+            Value;
+        false ->
+            Def
+    end.
+
+%% This function only extracts the prop we actually care about!
+which_win_system_info() ->
+    SysInfo = os:cmd("systeminfo"),
+    try process_win_system_info(string:tokens(SysInfo, [$\r, $\n]), [])
+    catch
+        _:_:_ ->
+            io:format("Failed process System info: "
+                      "~s~n", [SysInfo]),
+            []
+    end.
+
+process_win_system_info([], Acc) ->
+    Acc;
+process_win_system_info([H|T], Acc) ->
+    case string:tokens(H, [$:]) of
+        [Key, Value] ->
+            case string:to_lower(Key) of
+                "os name" ->
+                    process_win_system_info(T,
+                                            [{os_name, string:trim(Value)}|Acc]);
+                "os version" ->
+                    process_win_system_info(T,
+                                            [{os_version, string:trim(Value)}|Acc]);
+                "system manufacturer" ->
+                    process_win_system_info(T,
+                                            [{system_manufacturer, string:trim(Value)}|Acc]);
+                "system model" ->
+                    process_win_system_info(T,
+                                            [{system_model, string:trim(Value)}|Acc]);
+                "processor(s)" ->
+                    [NumProcStr|_] = string:tokens(Value, [$\ ]),
+                    T2 = lists:nthtail(list_to_integer(NumProcStr), T),
+                    process_win_system_info(T2,
+                                            [{num_processors, NumProcStr}|Acc]);
+                "total physical memory" ->
+                    process_win_system_info(T,
+                                            [{total_phys_memory, string:trim(Value)}|Acc]);
+                _ ->
+                    process_win_system_info(T, Acc)
+            end;
+        _ ->
+            process_win_system_info(T, Acc)
+    end.
+                    
+
+
 str_num_schedulers() ->
     try erlang:system_info(schedulers) of
         N -> f("~w", [N])
@@ -1448,8 +1598,74 @@ crypto_support([Func|Funcs], Acc) ->
  
 is_crypto_supported(Func) ->
     snmp_misc:is_crypto_supported(Func). 
- 
- 
+
+
+%% This function ensures that a *named* process on the local node is not running.
+%% It does so by:
+%%   1) Wait for 'Timeout' msec
+%%   2) If 1 did not work, issue 'stop' and then wait 'Timeout' msec
+%%   3) And finally, if 2 did not work, issue exit(kill).
+ensure_not_running(Name, Stopper, Timeout)
+  when is_atom(Name) andalso
+       is_function(Stopper, 0) andalso
+       is_integer(Timeout) ->
+    ensure_not_running(whereis(Name), Name, Stopper, Timeout).
+
+ensure_not_running(Pid, Name, Stopper, Timeout) when is_pid(Pid) ->
+    MRef = erlang:monitor(process, Pid),
+    try
+        begin
+            ensure_not_running_wait(Pid, MRef, Timeout),
+            ensure_not_running_stop(Pid, MRef, Stopper, Timeout),
+            ensure_not_running_kill(Pid, MRef, Timeout),
+            exit({failed_ensure_not_running, Name})
+        end
+    catch
+        throw:ok ->
+            sleep(1000),
+            ok
+    end;
+ensure_not_running(_, _, _, _) ->
+    iprint("ensure_not_running -> not running", []),
+    sleep(1000), % This should not actually be necessary!
+    ok.
+    
+    
+ensure_not_running_wait(Pid, MRef, Timeout) ->
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            iprint("ensure_not_running_wait -> died peacefully", []),
+            throw(ok)
+    after Timeout ->
+            wprint("ensure_not_running_wait -> giving up", []),
+            ok
+    end.
+
+ensure_not_running_stop(Pid, MRef, Stopper, Timeout) ->
+    %% Spawn a stop'er process
+    StopPid = spawn(Stopper),
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            nprint("ensure_not_running_stop -> dead (stopped)", []),
+            throw(ok)
+    after Timeout ->
+            wprint("ensure_not_running_stop -> giving up", []),
+            exit(StopPid, kill),
+            ok
+    end.
+
+ensure_not_running_kill(Pid, MRef, Timeout) ->
+    exit(Pid, kill),
+    receive
+        {'DOWN', MRef, process, Pid, _Info} ->
+            nprint("ensure_not_running_kill -> dead (killed)", []),
+            throw(ok)
+    after Timeout ->
+            wprint("ensure_not_running_kill -> giving up", []),
+            ok
+    end.
+
+
 %% ----------------------------------------------------------------
 %% Watchdog functions
 %% 
@@ -1578,19 +1794,6 @@ del_file_or_dir(FileOrDir) ->
 	    
 
 %% ----------------------------------------------------------------------
-%% cover functions
-%%
-
-cover([Suite, Case] = Args) when is_atom(Suite) andalso is_atom(Case) ->
-    Mods0 = cover:compile_directory("../src"),
-    Mods1 = [Mod || {ok, Mod} <- Mods0],
-    snmp_test_server:t(Args),
-    Files0 = [cover:analyse_to_file(Mod) || Mod <- Mods1],
-    [io:format("Cover output: ~s~n", [File]) || {ok, File} <- Files0],
-    ok.
-
-
-%% ----------------------------------------------------------------------
 %% (debug) Print functions
 %%
 
@@ -1635,4 +1838,50 @@ print(Prefix, Module, Line, Format, Args) ->
 
 formated_timestamp() ->
     snmp_misc:formated_timestamp().
+
+
+%% ----------------------------------------------------------------------
+%%
+%% General purpose print functions
+%% ERROR, WARNING and NOTICE are written both to 'user' and 'standard_io'.
+%% INFO only to 'standard_io'.
+%%
+%% Should we also allow for (optional) a "short name" (sname)?
+%%
+
+%% ERROR print (both to user and standard_io)
+eprint(F, A) ->
+    Str = format_print("ERROR", F, A),
+    io:format(user,        "~s~n", [Str]),
+    io:format(standard_io, "~s~n", [Str]).
+
+%% WARNING print (both to user and standard_io)
+wprint(F, A) ->
+    Str = format_print("WARNING", F, A),
+    io:format(user,        "~s~n", [Str]),
+    io:format(standard_io, "~s~n", [Str]).
+
+%% NOTICE print (both to user and standard_io)
+nprint(F, A) ->
+    Str = format_print("NOTICE", F, A),
+    io:format(user,        "~s~n", [Str]),
+    io:format(standard_io, "~s~n", [Str]).
+
+%% INFO print (only to user)
+iprint(F, A) -> 
+    Str = format_print("INFO", F, A),
+    io:format(standard_io, "~s~n", [Str]).
+
+format_print(Prefix, F, A) ->
+    format_print(get(tname), Prefix, F, A).
+
+format_print(undefined, Prefix, F, A) ->
+    f("*** [~s] ~s ~p ~p *** ~n" ++ F ++ "~n",
+      [formated_timestamp(), Prefix, node(), self() | A]);
+format_print(TName, Prefix, F, A) when is_atom(TName) ->
+    format_print(atom_to_list(TName), Prefix, F, A);
+format_print(TName, Prefix, F, A) when is_list(TName) ->
+    f("*** [~s] ~s ~s ~p ~p *** ~n" ++ F ++ "~n",
+      [formated_timestamp(), Prefix, TName, node(), self() | A]).
+
 

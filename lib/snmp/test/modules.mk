@@ -2,7 +2,7 @@
 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2004-2019. All Rights Reserved.
+# Copyright Ericsson AB 2004-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -35,14 +35,14 @@ SUITE_MODULES = \
         snmp_to_snmpnet_SUITE
 
 TEST_UTIL_MODULES = \
-	snmp_agent_test_get \
+	snmp_test_lib \
 	snmp_agent_test_lib \
+	snmp_agent_test_get \
 	snmp_manager_user \
 	snmp_manager_user_old \
 	snmp_manager_user_test_lib \
 	snmp_test_global_sys_monitor \
 	snmp_test_sys_monitor \
-	snmp_test_lib \
 	snmp_test_manager \
 	snmp_test_mgr \
 	snmp_test_mgr_misc \
@@ -51,10 +51,6 @@ TEST_UTIL_MODULES = \
 	klas3 \
 	test1 \
 	test2
-
-TEST_SERVER_MODULES = \
-	snmp_test_server \
-	snmp_test_suite
 
 MODULES = \
 	$(TEST_UTIL_MODULES) \

@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -175,7 +175,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
 
 end_per_testcase(_Case, Config) when is_list(Config) ->
 
-    ?PRINT2("system events during test: "
+    ?IPRINT("system events during test: "
             "~n   ~p", [snmp_test_global_sys_monitor:events()]),
 
     %% Leave the dirs created above (enable debugging of the test case(s))
@@ -191,7 +191,7 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 
 open_and_close(suite) -> [];
 open_and_close(Config) when is_list(Config) ->
-    p(open_and_close),
+    ?P(open_and_close),
     put(sname,open_and_close),
     put(verbosity,trace),
     Dir    = ?config(log_dir, Config),
@@ -213,7 +213,7 @@ open_write_and_close1(suite) ->
 open_write_and_close1(doc) -> 
     "Open a plain (no sequence-numbering) log file";
 open_write_and_close1(Config) when is_list(Config) ->
-    p(open_write_and_close1),
+    ?P(open_write_and_close1),
     put(sname,open_write_and_close1),
     put(verbosity,trace),
     ?DBG("open_write_and_close1 -> start", []),
@@ -232,7 +232,7 @@ open_write_and_close2(suite) ->
 open_write_and_close2(doc) -> 
     "Open a log file with sequence-numbering explicitly disabled";
 open_write_and_close2(Config) when is_list(Config) ->
-    p(open_write_and_close2),
+    ?P(open_write_and_close2),
     put(sname,open_write_and_close2),
     put(verbosity,trace),
     ?DBG("open_write_and_close2 -> start", []),
@@ -251,7 +251,7 @@ open_write_and_close3(suite) ->
 open_write_and_close3(doc) -> 
     "Open a log file with sequence-numbering using MFA";
 open_write_and_close3(Config) when is_list(Config) ->
-    p(open_write_and_close3),
+    ?P(open_write_and_close3),
     put(sname,open_write_and_close3),
     put(verbosity,trace),
     ?DBG("open_write_and_close2 -> start", []),
@@ -272,7 +272,7 @@ open_write_and_close4(suite) ->
 open_write_and_close4(doc) -> 
     "Open a log file with sequence-numbering using fun";
 open_write_and_close4(Config) when is_list(Config) ->
-    p(open_write_and_close4),
+    ?P(open_write_and_close4),
     put(sname,open_write_and_close4),
     put(verbosity,trace),
     ?DBG("open_write_and_close2 -> start", []),
@@ -371,7 +371,7 @@ log_to_io1(suite) -> [];
 log_to_io1(doc) -> "Log to io from the same process that opened "
 		       "and wrote the log";
 log_to_io1(Config) when is_list(Config) ->
-    p(log_to_io1),
+    ?P(log_to_io1),
     put(sname,l2i1),
     put(verbosity,debug),
     ?DBG("log_to_io1 -> start", []),
@@ -426,7 +426,7 @@ log_to_io2(doc) -> "Log to io from a different process than which "
 		       "opened and wrote the log";
 log_to_io2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    p(log_to_io2),
+    ?P(log_to_io2),
     put(sname, l2i2),
     put(verbosity,debug),
     ?DBG("log_to_io2 -> start", []),
@@ -487,7 +487,7 @@ log_to_io2(Config) when is_list(Config) ->
 
 log_to_txt1(suite) -> [];
 log_to_txt1(Config) when is_list(Config) ->
-    p(log_to_txt1),
+    ?P(log_to_txt1),
     put(sname,l2t1),
     put(verbosity,debug),
     ?DBG("log_to_txt1 -> start", []),
@@ -505,7 +505,7 @@ log_to_txt1(Config) when is_list(Config) ->
 
 log_to_txt2(suite) -> [];
 log_to_txt2(Config) when is_list(Config) ->
-    p(log_to_txt2),
+    ?P(log_to_txt2),
     put(sname,l2t2),
     put(verbosity,debug),
     ?DBG("log_to_txt2 -> start", []),
@@ -642,7 +642,7 @@ log_to_txt3(doc) ->
 	"opened and wrote the log";
 log_to_txt3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    p(log_to_txt3),
+    ?P(log_to_txt3),
     put(sname,l2t3),
     put(verbosity,debug),
     ?DBG("log_to_txt3 -> start", []),
@@ -683,9 +683,7 @@ log_to_txt3(Config) when is_list(Config) ->
 				  R = snmp_log:log_to_txt(Log, LogFile, Dir, 
 							  Mibs, TxtFile),
 				  T2 = snmp_misc:now(ms),
-				  io:format(user,
-					    "Time converting file: ~w ms~n",
-					    [T2 - T1]),
+				  ?IPRINT("Time converting file: ~w ms", [T2 - T1]),
 				  {R, I}
 			  end),
 
@@ -697,9 +695,9 @@ log_to_txt3(Config) when is_list(Config) ->
 	    ?DBG("log_to_txt3 -> text file size: ~p", [FileSize]),
 	    validate_size(FileSize);
 	{Error, Info} ->
-	    ?DBG("log_to_txt3 -> log to txt failed: "
-		 "~n   Error: ~p"
-		 "~n   Info:  ~p", [Error, Info]),
+	    ?EPRINT("log to txt failed: "
+                    "~n   Error: ~p"
+                    "~n   Info:  ~p", [Error, Info]),
 	    ?line ?FAIL({log_lo_txt_failed, Error, Info})
     end,
 
@@ -709,7 +707,7 @@ log_to_txt3(Config) when is_list(Config) ->
     ?DBG("log_to_txt3 -> instruct the log reader to stop", []),
     ?line log_reader_stop(Reader),
 
-    ?DBG("log_to_txt3 -> done", []),
+    ?IPRINT("log_to_txt3 -> done", []),
     ok.
 
 
@@ -754,8 +752,7 @@ log_writer_stop(Pid) ->
     receive
 	{'EXIT', Pid, normal} ->
 	    _T2 = snmp_misc:now(ms),
-	    io:format("[~s] it took ~w ms to stop the writer~n",
-                      [?FTS(), _T2 - _T1]),
+	    ?IPRINT("it took ~w ms to stop the writer", [_T2 - _T1]),
 	    ok
     after 60000 ->
 	    Msg  = receive Any -> Any after 0 -> nothing end,
@@ -772,8 +769,7 @@ log_writer_sleep(Pid, Time) ->
     receive 
 	{sleeping, Pid} ->
 	    _T2 = snmp_misc:now(ms),
-	    io:format("[~s] it took ~w ms to put the writer to sleep~n",
-                      [?FTS(), _T2 - _T1]),
+	    ?IPRINT("it took ~w ms to put the writer to sleep", [_T2 - _T1]),
 	    ok;
 	{'EXIT', Pid, Reason} ->
 	    {error, Reason}
@@ -785,8 +781,7 @@ log_writer_sleep(Pid, Time) ->
 
 log_writer_main(Name, File, Size, Repair, P, Factor) ->
     process_flag(trap_exit, true),
-    %% put(sname,log_writer),
-    %% put(verbosity,trace),
+    put(tname, "LOG-WRITER"),
     {ok, Log} = snmp_log:create(Name, File, Size, Repair),
     P ! {log, Log, self()},
     Msgs   = lists:flatten(lists:duplicate(if 
@@ -807,39 +802,34 @@ log_writer_main(Name, File, Size, Repair, P, Factor) ->
     log_writer(Log, BatchLogger, P).
 
 log_writer(Log, Fun, P) ->
-    lp("entry"),
+    ?IPRINT("entry"),
     receive 
 	{stop, P} ->
-	    lp("received stop request"),
+	    ?IPRINT("received stop request"),
 	    ok = snmp_log:close(Log),
 	    exit(normal);
 	{info, P} ->
-	    lp("received info request"),
+	    ?IPRINT("received info request"),
 	    {ok, Info} = snmp_log:info(Log),
 	    display_info(Info),
 	    log_writer(Log, Fun, P);
 	{sleep, Time, P} ->
-	    lp("received sleep (~w) request", [Time]),
+	    ?IPRINT("received sleep (~w) request", [Time]),
 	    P ! {sleeping, self()},
 	    ?SLEEP(Time),
-	    lp("done sleeping"),
+	    ?IPRINT("done sleeping"),
 	    log_writer(Log, Fun, P);
 	ELSE ->
-	    error_logger:error_msg("ERROR:logger - received unknown message: "
-                                   "~n   ~p~n", [ELSE]),
+	    ?EPRINT("Received unknown message: "
+                    "~n   ~p", [ELSE]),
 	    log_writer(Log, Fun, P)
     after 1000 ->
-	    lp("log some messages"),
+	    ?IPRINT("log some messages"),
 	    To = lists:duplicate(100, 100),
 	    lists:foreach(Fun, To),
 	    log_writer(Log, Fun, P)
     end.
 
-lp(F) ->
-    lp(F, []).
-
-lp(F, A) ->
-    io:format("[~s] writer [~w] " ++ F ++ "~n", [?FTS(),self()|A]).
 
 %% --
 
@@ -849,8 +839,7 @@ log_reader_start() ->
     receive 
 	{started, Pid} ->
 	    _T2 = snmp_misc:now(ms),
-	    io:format("[~s] it took ~w ms to start the reader~n",
-                      [?FTS(), _T2 - _T1]),
+	    ?IPRINT("it took ~w ms to start the reader", [_T2 - _T1]),
 	    {ok, Pid};
 	{'EXIT', Pid, Reason} ->
 	    {error, Reason}
@@ -864,8 +853,7 @@ log_reader_stop(Pid) ->
     receive
 	{'EXIT', Pid, normal} ->
 	    _T2 = snmp_misc:now(ms),
-	    io:format("[~s] it took ~w ms to stop the reader~n", 
-                      [?FTS(), _T2 - _T1]),
+	    ?IPRINT("it took ~w ms to stop the reader", [_T2 - _T1]),
 	    ok
     after 1000 ->
 	    Msg = receive Any -> Any after 0 -> nothing end,
@@ -880,35 +868,28 @@ log_reader_log_to(Pid, LogToFun) when is_function(LogToFun) ->
     end.
 
 log_reader_main(P) ->
-    put(sname,log_reader),
-    put(verbosity,trace),
+    put(tname, "LOG-READER"),
     P ! {started, self()},
     log_reader(P).
 
 log_reader(P) ->
-    rp("entry"),
+    ?IPRINT("entry"),
     receive 
 	{stop, P} ->
-	    rp("received stop request"),
+	    ?IPRINT("received stop request"),
 	    exit(normal);
 	{log_to, F, P} ->
-	    rp("received log_to request"),
+	    ?IPRINT("received log_to request"),
 	    Res = F(),
-	    rp("done with log_to - sending reply"),
+	    ?IPRINT("done with log_to - sending reply"),
 	    P ! {log_to_reply, Res, self()}, 
 	    log_reader(P);
 	ELSE ->
-	    error_logger:error_msg("reader - received unknown message: "
-                                   "~n   ~p~n", [ELSE]),
+	    ?EPRINT("Received unknown message: "
+                    "~n   ~p", [ELSE]),
 	    log_reader(P)
     end.
     
-rp(F) ->
-    rp(F, []).
-
-rp(F, A) ->
-    io:format("[~s] reader [~w] " ++ F ++ "~n", [?FTS(),self()|A]).
-
 
 %%======================================================================
 
@@ -1127,23 +1108,6 @@ varbinds([{Oid, Type, Value, Idx}|T], Acc) ->
 		       org_index    = Idx},
     varbinds(T, [Varbind|Acc]).
 
-% enc_message('version-3' = Vsn, Community, Pdu) ->
-%     ScopedPDU = #scopedPdu{contextEngineID = ContextEngineID,
-% 			   contextName     = ContextName,
-% 			   data            = Pdu},
-%     NUsmSecParams = 
-%         UsmSecParams#usmSecurityParameters{msgAuthenticationParameters =
-%                                            AuthParams},
-%     SecBytes = snmp_pdus:enc_usm_security_parameters(NUsmSecParams),
-%     V3Hdr = #v3_hdr{msgID = MsgID,
-% 		    msgMaxSize = AgentMS,
-% 		    msgFlags = snmp_misc:mk_msg_flags(Type, SecLevel),
-% 		    msgSecurityParameters = SecBytes
-% 		    msgSecurityModel = MsgSecurityModel},
-%     Msg = #message{version = Vsn, vsn_hdr = V3Hdr, 
-% 		   data = ScopedPDUBytes},
-%     snmp_pdus:enc_message_only(Message2);
-
 enc_message(Vsn, Community, Pdu) ->
     PduBytes = snmp_pdus:enc_pdu(Pdu),
     Msg      = #message{version = Vsn,
@@ -1156,14 +1120,13 @@ display_info(Info) ->
     CurrentFile = get_info(current_file, Info, -1),
     NoItems = get_info(no_current_items, Info, -1),
     NoBytes = get_info(no_current_bytes, Info, -1),
-    io:format(user, "Disk log info: "
-	      "~n   Number of filled since opened:    ~p"
-	      "~n   Number of filled since last info: ~p"
-	      "~n   Current file:                     ~p"
-	      "~n   Number of items in file:          ~p"
-	      "~n   Number of bytes in file:          ~p" 
-	      "~n", 
-	      [SinceOpened, SinceLastInfo, CurrentFile, NoItems, NoBytes]).
+    ?NPRINT("Disk log info: "
+            "~n   Number of filled since opened:    ~p"
+            "~n   Number of filled since last info: ~p"
+            "~n   Current file:                     ~p"
+            "~n   Number of items in file:          ~p"
+            "~n   Number of bytes in file:          ~p", 
+            [SinceOpened, SinceLastInfo, CurrentFile, NoItems, NoBytes]).
 
 get_info(Key, Info, Def) ->
     case lists:keysearch(Key, 1, Info) of
@@ -1176,5 +1139,3 @@ get_info(Key, Info, Def) ->
 join(D, F) ->
     filename:join(D, F).
 
-p(Case) ->
-    io:format(user, "test case: ~w~n", [Case]).
