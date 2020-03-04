@@ -1373,8 +1373,9 @@ fix_sets([], Acc, St) ->
 %%  store them in a map.
 
 build_map(Is) ->
-    Blocks = build_graph_1(Is, [], []),
-    maps:from_list(Blocks).
+    Linear0 = build_graph_1(Is, [], []),
+    Linear = beam_ssa:trim_unreachable(Linear0),
+    maps:from_list(Linear).
 
 build_graph_1([{label,L}|Is], Lbls, []) ->
     build_graph_1(Is, [L|Lbls], []);
