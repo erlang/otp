@@ -39,39 +39,8 @@ module(#b_module{body=Fs,name=Name}=Mod0, _Options) ->
     end.
 
 -spec format_error(term()) -> iolist().
-format_error({{_M,F,A},{redefined_variable, Name, Old, I}}) ->
-    io_lib:format("~p/~p: Variable ~ts (~ts) redefined by ~ts",
-                  [F, A, format_var(Name), format_instr(Old), format_instr(I)]);
-format_error({{_M,F,A},{missing_phi_paths, Paths, I}}) ->
-    io_lib:format("~p/~p: Phi node ~ts doesn't define a value for these "
-                  "branches: ~w",
-                  [F, A, format_instr(I), Paths]);
-format_error({{_M,F,A},{garbage_phi_paths, Paths, I}}) ->
-    io_lib:format("~p/~p: Phi node ~ts defines a value for these unreachable "
-                  "or non-existent branches: ~w",
-                  [F, A, format_instr(I), Paths]);
-format_error({{_M,F,A},{unknown_phi_variable, Name, {From, _To}, I}}) ->
-    io_lib:format("~p/~p: Variable ~ts used in phi node ~ts is undefined on "
-                  "branch ~w",
-                  [F, A, format_var(Name), format_instr(I), From]);
-format_error({{_M,F,A},{unknown_block, Label, I}}) ->
-    io_lib:format("~p/~p: Unknown block ~p referenced in ~ts",
-                  [F, A, Label, I]);
-format_error({{_M,F,A},{unknown_variable, Name, I}}) ->
-    io_lib:format("~p/~p: Unbound variable ~ts used in ~ts",
-                  [F, A, format_var(Name), format_instr(I)]);
-format_error({{_M,F,A},{phi_inside_block, Name, Id}}) ->
-    io_lib:format("~p/~p: Phi node defining ~ts is not at start of block ~p",
-                  [F, A, format_var(Name), Id]);
-format_error({{_M,F,A},{undefined_label_in_phi, Label, I}}) ->
-    io_lib:format("~p/~p: Unknown block label ~p in phi node ~ts",
-                  [F, A, Label, format_instr(I)]);
-format_error({{_M,F,A},{succeeded_not_preceded, I}}) ->
-    io_lib:format("~p/~p: ~ts does not reference the preceding instruction",
-                  [F, A, format_instr(I)]);
-format_error({{_M,F,A},{succeeded_not_last, I}}) ->
-    io_lib:format("~p/~p: ~ts is not the last instruction in its block",
-                  [F, A, format_instr(I)]).
+format_error({{_M,F,A},Error}) ->
+    [io_lib:format("~p/~p: ", [F,A]),format_error_1(Error)].
 
 format_instr(I) ->
     [$',beam_ssa_pp:format_instr(I),$'].
@@ -368,3 +337,38 @@ vvars_save_var(Var, State0) ->
     %% vvars_assert_unique guarantees that variables are never set twice.
     DefVars = gb_sets:insert(Var, State0#vvars.defined_vars),
     State0#vvars{ defined_vars = DefVars }.
+
+
+format_error_1({redefined_variable, Name, Old, I}) ->
+    io_lib:format("Variable ~ts (~ts) redefined by ~ts",
+                  [format_var(Name), format_instr(Old), format_instr(I)]);
+format_error_1({missing_phi_paths, Paths, I}) ->
+    io_lib:format("Phi node ~ts doesn't define a value for these "
+                  "branches: ~w",
+                  [format_instr(I), Paths]);
+format_error_1({garbage_phi_paths, Paths, I}) ->
+    io_lib:format("Phi node ~ts defines a value for these unreachable "
+                  "or non-existent branches: ~w",
+                  [format_instr(I), Paths]);
+format_error_1({unknown_phi_variable, Name, {From, _To}, I}) ->
+    io_lib:format("Variable ~ts used in phi node ~ts is undefined on "
+                  "branch ~w",
+                  [format_var(Name), format_instr(I), From]);
+format_error_1({unknown_block, Label, I}) ->
+    io_lib:format("Unknown block ~p referenced in ~ts",
+                  [Label, I]);
+format_error_1({unknown_variable, Name, I}) ->
+    io_lib:format("Unbound variable ~ts used in ~ts",
+                  [format_var(Name), format_instr(I)]);
+format_error_1({phi_inside_block, Name, Id}) ->
+    io_lib:format("Phi node defining ~ts is not at start of block ~p",
+                  [format_var(Name), Id]);
+format_error_1({undefined_label_in_phi, Label, I}) ->
+    io_lib:format("Unknown block label ~p in phi node ~ts",
+                  [Label, format_instr(I)]);
+format_error_1({succeeded_not_preceded, I}) ->
+    io_lib:format("~ts does not reference the preceding instruction",
+                  [format_instr(I)]);
+format_error_1({succeeded_not_last, I}) ->
+    io_lib:format("~ts is not the last instruction in its block",
+                  [format_instr(I)]).
