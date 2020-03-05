@@ -264,30 +264,48 @@ handle_cast(_, _State) ->
 
 %% remote pid or several pids joining the group
 handle_info({join, Peer, Group, PidOrPids}, #state{scope = Scope, nodes = Nodes} = State) ->
-    join_remote(Scope, Group, PidOrPids),
-    % store remote group => pids map for fast sync operation
-    {MRef, RemoteGroups} = maps:get(Peer, Nodes),
-    NewRemoteGroups = join_remote_map(Group, PidOrPids, RemoteGroups),
-    {noreply, State#state{nodes = Nodes#{Peer => {MRef, NewRemoteGroups}}}};
+    case maps:get(Peer, Nodes, []) of
+        {MRef, RemoteGroups} ->
+            join_remote(Scope, Group, PidOrPids),
+            %% store remote group => pids map for fast sync operation
+            NewRemoteGroups = join_remote_map(Group, PidOrPids, RemoteGroups),
+            {noreply, State#state{nodes = Nodes#{Peer => {MRef, NewRemoteGroups}}}};
+        [] ->
+            %% handle possible race condition, when remote node is flickering up/down,
+            %%  and remote join can happen after the node left overlay network
+            %% It also handles the case when node outside of overlay network sends
+            %%  unexpected join request.
+            {noreply, State}
+    end;
 
 %% remote pid leaving (multiple groups at once)
 handle_info({leave, Peer, PidOrPids, Groups}, #state{scope = Scope, nodes = Nodes} = State) ->
-    _ = leave_remote(Scope, PidOrPids, Groups),
-    {MRef, RemoteMap} = maps:get(Peer, Nodes),
-    NewRemoteMap = lists:foldl(
-        fun (Group, Acc) ->
-            case maps:get(Group, Acc) of
-                PidOrPids ->
-                    Acc;
-                [PidOrPids] ->
-                    Acc;
-                Existing when is_pid(PidOrPids) ->
-                    Acc#{Group => lists:delete(PidOrPids, Existing)};
-                Existing ->
-                    Acc#{Group => Existing-- PidOrPids}
-            end
-        end, RemoteMap, Groups),
-    {noreply, State#state{nodes = Nodes#{Peer => {MRef, NewRemoteMap}}}};
+    case maps:get(Peer, Nodes, []) of
+        {MRef, RemoteMap} ->
+            _ = leave_remote(Scope, PidOrPids, Groups),
+            NewRemoteMap = lists:foldl(
+                fun (Group, Acc) ->
+                    case maps:get(Group, Acc) of
+                        PidOrPids ->
+                            Acc;
+                        [PidOrPids] ->
+                            Acc;
+                        Existing when is_pid(PidOrPids) ->
+                            Acc#{Group => lists:delete(PidOrPids, Existing)};
+                        Existing ->
+                            Acc#{Group => Existing-- PidOrPids}
+                    end
+                end, RemoteMap, Groups),
+            {noreply, State#state{nodes = Nodes#{Peer => {MRef, NewRemoteMap}}}};
+        [] ->
+            %% Handle race condition: remote node disconnected, but scope process
+            %%  of the remote node was just about to send 'leave' message. In this
+            %%  case, local node handles 'DOWN' first, but then connection is
+            %%  restored, and 'leave' message gets delivered when it's not expected.
+            %% It also handles the case when node outside of overlay network sends
+            %%  unexpected leave request.
+            {noreply, State}
+    end;
 
 %% we're being discovered, let's exchange!
 handle_info({discover, Peer}, #state{scope = Scope, nodes = Nodes} = State) ->

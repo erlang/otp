@@ -37,6 +37,7 @@
     pg/0, pg/1,
     errors/0, errors/1,
     leave_exit_race/0, leave_exit_race/1,
+    overlay_missing/0, overlay_missing/1,
     single/0, single/1,
     two/1,
     thundering_herd/0, thundering_herd/1,
@@ -94,7 +95,7 @@ all() ->
 
 groups() ->
     [
-        {basic, [parallel], [errors, pg, leave_exit_race, single]},
+        {basic, [parallel], [errors, pg, leave_exit_race, single, overlay_missing]},
         {performance, [sequential], [thundering_herd]},
         {cluster, [parallel], [two, initial, netsplit, trisplit, foursplit,
             exchange, nolocal, double, scope_restart, missing_scope_join,
@@ -169,6 +170,39 @@ single(Config) when is_list(Config) ->
     ?assertEqual([self()], pg:get_local_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     ?assertEqual(ok, pg:leave(?FUNCTION_NAME, ?FUNCTION_NAME, self())),
     ok.
+
+overlay_missing() ->
+    [{doc, "Tests that scope process that is not a part of overlay network does not change state"}].
+
+overlay_missing(_Config) ->
+    {TwoPeer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
+    %% join self (sanity check)
+    ?assertEqual(ok, pg:join(?FUNCTION_NAME, group, self())),
+    %% remember pid from remote
+    PgPid = rpc:call(TwoPeer, erlang, whereis, [?FUNCTION_NAME]),
+    RemotePid = erlang:spawn(TwoPeer, forever()),
+    %% stop remote scope
+    gen_server:stop(PgPid),
+    %% craft white-box request: ensure it's rejected
+    ?FUNCTION_NAME ! {join, PgPid, group, RemotePid},
+    %% rejected!
+    ?assertEqual([self()], pg:get_members(?FUNCTION_NAME, group)),
+    %% ... reject leave too
+    ?FUNCTION_NAME ! {leave, PgPid, RemotePid, [group]},
+    ?assertEqual([self()], pg:get_members(?FUNCTION_NAME, group)),
+    %% join many times on remote
+    %RemotePids = [erlang:spawn(TwoPeer, forever()) || _ <- lists:seq(1, 1024)],
+    %?assertEqual(ok, rpc:call(TwoPeer, pg, join, [?FUNCTION_NAME, ?FUNCTION_NAME, Pid2])),
+    %% check they can't be joined locally
+    %?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, RemotePid)),
+    %?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [RemotePid, RemotePid])),
+    %?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [LocalPid, RemotePid])),
+    %% check that non-pid also triggers error
+    %?assertException(error, function_clause, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, undefined)),
+    %?assertException(error, {nolocal, _}, pg:join(?FUNCTION_NAME, ?FUNCTION_NAME, [undefined])),
+    %% stop the peer
+    stop_node(TwoPeer, Socket).
+
 
 two(Config) when is_list(Config) ->
     {TwoPeer, Socket} = spawn_node(?FUNCTION_NAME, ?FUNCTION_NAME),
