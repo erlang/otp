@@ -474,6 +474,10 @@ init_per_testcase(Case, Config) when is_list(Config) ->
                     C:{skip, _} = E:_ when ((C =:= throw) orelse
                                             (C =:= exit)) ->
                         E;
+                    exit:{suite_failed, {{Reason, _CS},_MFA}, Mod, Line}:_ ->
+                        {skip, {Reason, Mod, Line}};
+                    exit:{suite_failed, Reason, Mod, Line}:_ ->
+                        {skip, {Reason, Mod, Line}};
                     C:E:_ when ((C =:= throw) orelse
                                 (C =:= exit)) ->
                         {skip, {catched, C, E}}
@@ -482,7 +486,7 @@ init_per_testcase(Case, Config) when is_list(Config) ->
     ?IPRINT("init_per_testcase end when"
             "~n      Nodes:  ~p"
             "~n      Result: ~p"
-            "~n~n", [Result, erlang:nodes()]),
+            "~n~n", [erlang:nodes(), Result]),
     Result.
 
 init_per_testcase2(Case, Config) ->
@@ -950,8 +954,18 @@ do_simple_start_and_monitor_crash1(Config) ->
 
 simple_start_and_monitor_crash2(suite) -> [];
 simple_start_and_monitor_crash2(Config) when is_list(Config) ->
+    Cond = fun() -> case os:type() of
+			{unix, netbsd} ->
+			    {skip, "Unstable on NetBSD"};
+			_ ->
+			    ok
+		    end
+	   end,
+    Pre  = fun()  -> undefined end,
+    Case = fun(_) -> do_simple_start_and_monitor_crash2(Config) end,
+    Post = fun(_) -> ok end,
     ?TC_TRY(simple_start_and_monitor_crash2,
-            fun() -> do_simple_start_and_monitor_crash2(Config) end).
+	    Cond, Pre, Case, Post).
 
 do_simple_start_and_monitor_crash2(Config) ->
     ?IPRINT("starting with Config: "
@@ -4987,6 +5001,13 @@ init_manager(AutoInform, Config) ->
 	    start_manager(Node, Vsns, Conf)
 	end
     catch
+	C:{suite_failed, Reason, _M, _L} = E:S when (C =:= exit) ->
+	    ?EPRINT("Failure during manager start (suite-failed):"
+                    "~n      Reason:      ~p"
+                    "~n      StackTrace:  ~p", [Reason, S]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)),
+	    erlang:raise(C, E, S);
 	C:E:S ->
 	    ?EPRINT("Failure during manager start: "
                     "~n      Error Class: ~p"
@@ -5068,11 +5089,18 @@ init_agent(Config) ->
 	    start_agent(Node, Vsns, Conf)
 	end
     catch
+	C:{suite_failed, Reason, _M, _L} = E:S when (C =:= exit) ->
+	    ?EPRINT("Failure during agent start (suite-failed):"
+                    "~n   Reason:     ~p"
+                    "~n   StackTrace: ~p", [Reason, S]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)),
+	    erlang:raise(C, E, S);
 	C:E:S ->
 	    ?EPRINT("Failure during agent start: "
-                    "~n      Error Class: ~p"
-                    "~n      Error:       ~p"
-                    "~n      StackTrace:  ~p", [C, E, S]), 
+                    "~n   Error Class: ~p"
+                    "~n   Error:       ~p"
+                    "~n   StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
 	    (catch stop_node(Node)), 
 	    ?FAIL({failed_starting_agent, C, E, S})
@@ -5086,10 +5114,10 @@ fin_agent(Config) ->
     StopMnesiaRes = fin_mnesia(Node),
     StopNode      = stop_node(Node),
     ?IPRINT("fin_agent -> stop apps and (agent node ~p) node results: "
-            "~n      SNMP Agent: ~p"
-            "~n      Crypto:     ~p"
-            "~n      Mnesia:     ~p"
-            "~n      Node:       ~p", 
+            "~n   SNMP Agent: ~p"
+            "~n   Crypto:     ~p"
+            "~n   Mnesia:     ~p"
+            "~n   Node:       ~p", 
             [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
     Config.
 
@@ -5178,7 +5206,7 @@ start_app(Node, App) ->
 			    ok;
 		       ({error, Reason}) ->
 			    ?EPRINT("failed starting app ~w on ~p: "
-                                    "~n      ~p", [App, Node, Reason]),
+                                    "~n   Reason: ~p", [App, Node, Reason]),
 			    ?FAIL({failed_start, Node, App, Reason})
 		    end,
     start_app(Node, App, VerifySuccess).
@@ -5651,8 +5679,17 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 	   {net_if,          NetIfConf}],
     ?line ok = set_mgr_env(Node, Env),
 
-    ?line ok = start_snmp(Node),
-    
+    ?line ok = try start_snmp(Node) of
+		   ok ->
+		       ok;
+		   {error, Reason} ->
+		       ?FAIL({failed_start_manager, Reason})
+	       catch
+		   exit:{suite_failed, {failed_start, _, _, Reason}, _M, _L}:_ ->
+		       ?FAIL({failed_start_manager, Reason});
+                   C:E:S ->
+                       erlang:raise(C, E, S)
+	       end,
     Conf0.
 
 stop_manager(Node) ->
@@ -5708,7 +5745,17 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
 	   {multi_threaded,  true}],
     ?line ok = set_agent_env(Node, Env),
 
-    ?line ok = start_snmp(Node),
+    ?line try start_snmp(Node) of
+	      ok ->
+		  ok;
+	      {error, Reason} ->
+		  ?FAIL({failed_start_agent, Reason})
+	  catch
+	      exit:{suite_failed, {failed_start, _, _, Reason}, _M, _L}:_ ->
+		  ?FAIL({failed_start_agent, Reason});
+              C:E:S ->
+		  erlang:raise(C, E, S)
+	  end,
     Conf0.
 
 stop_agent(Node) ->
