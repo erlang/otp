@@ -97,7 +97,6 @@
 -import(error_logger,[error_msg/2]).
 
 -record(state, {
-	  name,         %% The node name
 	  node,         %% The node name including hostname
 	  type,         %% long or short names
 	  tick,         %% tick information
@@ -360,8 +359,7 @@ init({Name, LongOrShortNames, TickT, CleanHalt}) ->
 	    process_flag(priority, max),
 	    Ticktime = to_integer(TickT),
 	    Ticker = spawn_link(net_kernel, ticker, [self(), Ticktime]),
-	    {ok, #state{name = Name,
-			node = Node,
+	    {ok, #state{node = Node,
 			type = LongOrShortNames,
 			tick = #tick{ticker = Ticker, time = Ticktime},
 			connecttime = connecttime(),
@@ -1237,7 +1235,12 @@ disconnect_ctrlr(Ctrlr, State) ->
 
 %% Return a list of all nodes that are 'up' and not hidden.
 get_nodes_up_normal() ->
-    ets:select(sys_dist, [{#connection{node = '$1', state = up, type = normal, _ = '_'}, [], ['$1']}]).
+    ets:select(sys_dist, [{#connection{node = '$1',
+                                       state = up,
+                                       type = normal,
+                                       _ = '_'},
+                           [],
+                           ['$1']}]).
 
 ticker(Kernel, Tick) when is_integer(Tick) ->
     process_flag(priority, max),
@@ -1712,9 +1715,9 @@ get_node_info(Node) ->
             end;
         [#connection{owner = Owner, state = State, address = Addr, type = Type}] ->
             {ok, [{owner, Owner}, {state, State}, {address, Addr},
-                {type, Type}, {in, 0}, {out, 0}]};
-		_ ->
-		    {error, bad_node}
+                  {type, Type}, {in, 0}, {out, 0}]};
+        _ ->
+            {error, bad_node}
     end.
 
 get_node_info(Node, Key) ->
