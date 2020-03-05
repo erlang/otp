@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -899,9 +899,8 @@ get_doc_chunk_from_ast(Filename) ->
 
 get_function_docs_from_ast(AST) ->
     lists:flatmap(fun(E) -> get_function_docs_from_ast(E, AST) end, AST).
-get_function_docs_from_ast({function,Ln,Name,Arity,_Code}, AST) ->
+get_function_docs_from_ast({function,Anno,Name,Arity,_Code}, AST) ->
     Signature = io_lib:format("~p/~p",[Name,Arity]),
-    Anno = erl_anno:new(Ln),
     Specs =  lists:filter(fun({attribute,_Ln,spec,{FA,_}}) ->
                                   case FA of
                                       {F,A} ->

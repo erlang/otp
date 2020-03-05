@@ -671,7 +671,8 @@ docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->
     AnnoWLine =
         case Metadata of
             #{ signature := [Sig|_] } ->
-                erl_anno:set_line(element(2, Sig), Anno);
+                SigAnno = element(2, Sig),
+                erl_anno:set_line(erl_anno:line(SigAnno), Anno);
             _NoSignature ->
                 Anno
         end,
