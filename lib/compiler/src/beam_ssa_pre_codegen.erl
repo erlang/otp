@@ -482,14 +482,6 @@ bs_restores_is([#b_set{op=call,dst=Dst,args=Args}|Is],
     FPos = SPos,
 
     bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
-bs_restores_is([#b_set{op=landingpad}|Is], CtxChain, SPos0, _FPos, Rs) ->
-    %% We can land here from any point, so all positions are invalid.
-    Invalidate = fun(_Start,_Pos) -> unknown end,
-
-    SPos = maps:map(Invalidate, SPos0),
-    FPos = SPos,
-
-    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
 bs_restores_is([#b_set{op=Op,dst=Dst,args=Args}|Is],
                CtxChain, SPos0, _FPos, Rs0)
   when Op =:= bs_test_tail;
