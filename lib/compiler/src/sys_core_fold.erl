@@ -1513,16 +1513,15 @@ will_match_1({true,_}) -> yes.
 %%
 %%  In bodies, do various optimizations to case statements that have
 %%  boolean case expressions. We don't do the optimizations in guards,
-%%  because they would thwart the optimization in v3_kernel.
+%%  because they would thwart the optimization in beam_ssa_bool.
 %%
-%%  We start with some simple optimizations and normalization
+%%  We start with some simple optimizations and normalizations
 %%  to facilitate later optimizations.
 %%
-%%  If the case expression can only return a boolean
-%%  (or fail), we can remove any clause that cannot
-%%  possibly match 'true' or 'false'. Also, any clause
-%%  following both 'true' and 'false' clause can
-%%  be removed. If successful, we will end up like this:
+%%  If the case expression can only return a boolean we can remove any
+%%  clause that cannot possibly match 'true' or 'false'. Also, any
+%%  clause following both 'true' and 'false' clause can be removed. If
+%%  successful, we will end up like this:
 %%
 %%  case BoolExpr of           	    case BoolExpr of
 %%     true ->			       false ->
@@ -2145,17 +2144,16 @@ is_simple_case_arg(#c_apply{}) -> true;
 is_simple_case_arg(_) -> false.
 
 %% is_bool_expr(Core) -> true|false
-%%  Check whether the Core expression is guaranteed to return
-%%  a boolean IF IT RETURNS AT ALL.
+%%  Check whether the Core expression is guaranteed to
+%%  return a boolean.
 %%
 
 is_bool_expr(#c_call{module=#c_literal{val=erlang},
-		     name=#c_literal{val=Name},args=Args}=Call) ->
+		     name=#c_literal{val=Name},args=Args}) ->
     NumArgs = length(Args),
     erl_internal:comp_op(Name, NumArgs) orelse
 	erl_internal:new_type_test(Name, NumArgs) orelse
-        erl_internal:bool_op(Name, NumArgs) orelse
-	will_fail(Call);
+        erl_internal:bool_op(Name, NumArgs);
 is_bool_expr(#c_try{arg=E,vars=[#c_var{name=X}],body=#c_var{name=X},
 		   handler=#c_literal{val=false}}) ->
     is_bool_expr(E);
@@ -2384,13 +2382,16 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
                 true ->
                     Let
             end;
-        #c_case{arg=Arg,clauses=Cs0} ->
-            case core_lib:is_var_used(Cooked, Arg) orelse
-                is_used_in_any_guard(Cooked, Cs0) of
+        #c_case{clauses=Cs0} ->
+            NilBody = #c_literal{val=[]},
+            Cs1 = [C#c_clause{body=NilBody} || C <- Cs0],
+            Case = Body#c_case{clauses=Cs1},
+            case core_lib:is_var_used(Cooked, Case) of
                 false ->
-                    %% The built stacktrace is not used in the argument,
-                    %% so we can sink the building of the stacktrace into
-                    %% each arm of the case.
+                    %% The built stacktrace is not used in the case
+                    %% argument or in the head of any clause. Thus
+                    %% it is safe sink the building of the stacktrace
+                    %% into each arm of the case.
                     Cs = [begin
                               B = opt_build_stacktrace(Let#c_let{body=B0}),
                               C#c_clause{body=B}
@@ -2404,11 +2405,6 @@ opt_build_stacktrace(#c_let{vars=[#c_var{name=Cooked}],
     end;
 opt_build_stacktrace(Expr) ->
     Expr.
-
-is_used_in_any_guard(V, Cs) ->
-    any(fun(#c_clause{guard=G}) ->
-                core_lib:is_var_used(V, G)
-        end, Cs).
 
 %% opt_case_in_let(Let) -> Let'
 %%  Try to avoid building tuples that are immediately matched.

@@ -39,9 +39,9 @@
 
 -include("beam_ssa_opt.hrl").
 
--import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,keyfind/3,
-                member/2,reverse/1,reverse/2,splitwith/2,sort/1,
-                takewhile/2,unzip/1]).
+-import(lists, [all/2,append/1,duplicate/2,flatten/1,foldl/3,
+                keyfind/3,last/1,member/2,reverse/1,reverse/2,
+                splitwith/2,sort/1,takewhile/2,unzip/1]).
 
 -define(MAX_REPETITIONS, 16).
 
@@ -257,7 +257,8 @@ prologue_passes(Opts) ->
           ?PASS(ssa_opt_tuple_size),
           ?PASS(ssa_opt_record),
           ?PASS(ssa_opt_cse),                   % Helps the first type pass.
-          ?PASS(ssa_opt_live)],                 % ...
+          ?PASS(ssa_opt_live),                  % ...
+          ?PASS(ssa_opt_receive_after)],
     passes_1(Ps, Opts).
 
 module_passes(Opts) ->
@@ -271,6 +272,7 @@ module_passes(Opts) ->
 %% are repeated as required.
 repeated_passes(Opts) ->
     Ps = [?PASS(ssa_opt_live),
+          ?PASS(ssa_opt_ne),
           ?PASS(ssa_opt_bs_puts),
           ?PASS(ssa_opt_dead),
           ?PASS(ssa_opt_cse),
@@ -286,11 +288,11 @@ epilogue_passes(Opts) ->
     Ps = [?PASS(ssa_opt_type_finish),
           ?PASS(ssa_opt_float),
           ?PASS(ssa_opt_sw),
-
-          %% Run live one more time to clean up after the float and sw
-          %% passes.
-          ?PASS(ssa_opt_live),
           ?PASS(ssa_opt_try),
+
+          %% Run live one more time to clean up after the previous
+          %% epilogue passes.
+          ?PASS(ssa_opt_live),
           ?PASS(ssa_opt_bsm),
           ?PASS(ssa_opt_bsm_shortcut),
           ?PASS(ssa_opt_sink),
@@ -1405,7 +1407,10 @@ live_opt_is([], Live, Acc) ->
 %%% `landingpad`, and `kill_try_tag` instructions.
 
 ssa_opt_try({#opt_st{ssa=Linear0}=St, FuncDb}) ->
-    Linear = opt_try(Linear0),
+    Linear1 = opt_try(Linear0),
+    %% Unreachable blocks with tuple extractions will cause problems
+    %% for ssa_opt_sink.
+    Linear = beam_ssa:trim_unreachable(Linear1),
     {St#opt_st{ssa=Linear}, FuncDb}.
 
 opt_try([{L,#b_blk{is=[#b_set{op=new_try_tag}],
@@ -1440,13 +1445,13 @@ do_opt_try([{L,Blk}|Bs]=Bs0, Ws0) ->
             Ws1 = cerl_sets:del_element(L, Ws0),
             #b_blk{is=Is0} = Blk,
             case is_safe_without_try(Is0, []) of
-                safe ->
+                {safe,Is} ->
                     %% This block does not execute any instructions
                     %% that would require a try. Analyze successors.
                     Successors = beam_ssa:successors(Blk),
                     Ws = cerl_sets:union(cerl_sets:from_list(Successors),
                                          Ws1),
-                    [{L,Blk}|do_opt_try(Bs, Ws)];
+                    [{L,Blk#b_blk{is=Is}}|do_opt_try(Bs, Ws)];
                 unsafe ->
                     %% There is something unsafe in the block, for
                     %% example a `call` instruction or an `extract`
@@ -1473,17 +1478,23 @@ is_safe_without_try([#b_set{op=extract}|_], _Acc) ->
     unsafe;
 is_safe_without_try([#b_set{op=landingpad}|Is], Acc) ->
     is_safe_without_try(Is, Acc);
+is_safe_without_try([#b_set{op={succeeded,body}}=I0|Is], Acc) ->
+    %% If we reached this point, it means that the previous instruction
+    %% has no side effects. We must now convert the flavor of the
+    %% succeeded to the `guard`, since the try/catch will be removed.
+    I = I0#b_set{op={succeeded,guard}},
+    is_safe_without_try(Is, [I|Acc]);
 is_safe_without_try([#b_set{op=Op}=I|Is], Acc) ->
     IsSafe = case Op of
                  phi -> true;
-                 {succeeded,_} -> true;
                  _ -> beam_ssa:no_side_effect(I)
              end,
     case IsSafe of
         true -> is_safe_without_try(Is, [I|Acc]);
         false -> unsafe
     end;
-is_safe_without_try([], _Acc) -> safe.
+is_safe_without_try([], Acc) ->
+    {safe,reverse(Acc)}.
 
 %%%
 %%% Optimize binary matching.
@@ -2001,6 +2012,197 @@ opt_sw([{L,#b_blk{}=Blk}|Bs], Count, Acc) ->
     opt_sw(Bs, Count, [{L,Blk}|Acc]);
 opt_sw([], Count, Acc) ->
     {reverse(Acc),Count}.
+
+%%%
+%%% Replace `wait_timeout infinity` with `wait`, but only when safe to
+%%% do so.
+%%%
+%%% Consider this code:
+%%%
+%%%     0:
+%%%       @tag = new_try_tag `'try'`
+%%%       br @tag, ^2, ^99
+%%%
+%%%     2:
+%%%          .
+%%%          .
+%%%          .
+%%%       br ^50
+%%%
+%%%     50:
+%%%        @bool = wait_timeout `infinity`
+%%%        @succ_bool = succeeded @bool
+%%%        br @succ_bool ^75, ^50
+%%%
+%%%     75:
+%%%        timeout
+%%%        kill_try_tag @tag
+%%%        ret `ok`
+%%%
+%%%     99:
+%%%        @ssa_agg = landingpad `'try'`, @tag
+%%%        @ssa_ignored = kill_try_tag @tag
+%%%        ret `error`
+%%%
+%%%
+%%% The liveness range of @tag will be from block 0 to block 99.
+%%% That will ensure that the Y register reserved for @tag can't
+%%% be reused or killed inside the try/block.
+%%%
+%%% It would not be safe (in general) to replace the `wait_timeout`
+%%% instruction with `wait` in this code. That is, the following
+%%% code is potentially UNSAFE (depending on the exact code in
+%%% block 2):
+%%%
+%%%     0:
+%%%       @tag = new_try_tag `'try'`
+%%%       br @tag, ^2, ^99
+%%%
+%%%     2:
+%%%          .
+%%%          .
+%%%          .
+%%%       br ^50
+%%%
+%%%     50:
+%%%        wait
+%%%        br ^50
+%%%
+%%%     99:
+%%%        @ssa_agg = landingpad `'try'`, @tag
+%%%        @ssa_ignored = kill_try_tag @tag
+%%%        ret `error`
+%%%
+%%% The try tag variable @tag will not be live in block 2 and 50
+%%% (because from those blocks, there is no way to reach an
+%%% instruction that uses @tag). Because @tag is not live, the
+%%% register allocator could reuse the register for @tag, or the
+%%% code generator could kill the register that holds @tag.
+%%%
+
+ssa_opt_receive_after({#opt_st{ssa=Linear}=St, FuncDb}) ->
+    {St#opt_st{ssa=recv_after_opt(Linear, Linear)}, FuncDb}.
+
+recv_after_opt([{L,Blk0}|Bs], Blocks0) ->
+    #b_blk{is=Is0,last=Last0} = Blk0,
+    case recv_after_opt_is(Is0, Last0, []) of
+        no ->
+            %% Nothing to do.
+            [{L,Blk0}|recv_after_opt(Bs, Blocks0)];
+        {yes,[_|_]=Is,Last} ->
+            %% A `wait_timeout infinity` instruction was replaced with `wait`.
+            %% Now find out whether this substitution is safe.
+            Blocks = if
+                         is_map(Blocks0) -> Blocks0;
+                         true -> maps:from_list(Blocks0)
+                     end,
+            #b_br{succ=Next} = Last0,
+            case in_try_catch(Next, Blocks) of
+                false ->
+                    %% Not inside try/catch. Safe.
+                    Blk = Blk0#b_blk{is=Is,last=Last},
+                    [{L,Blk}|recv_after_opt(Bs, Blocks)];
+                true ->
+                    %% Inside try/catch. Unsafe. Keep the original block.
+                    [{L,Blk0}|recv_after_opt(Bs, Blocks)]
+            end
+    end;
+recv_after_opt([], _Blocks) -> [].
+
+recv_after_opt_is([#b_set{op=wait_timeout,dst=WaitBool,
+                          args=[#b_literal{val=infinity}]}=WT0,
+                   #b_set{op={succeeded,_},dst=SuccBool,args=[WaitBool]}],
+                  #b_br{bool=SuccBool,fail=Fail}, Acc) ->
+    WT = WT0#b_set{op=wait,args=[]},
+    Last = #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail},
+    {yes,reverse(Acc, [WT]),Last};
+recv_after_opt_is([I|Is], Last, Acc) ->
+    recv_after_opt_is(Is, Last, [I|Acc]);
+recv_after_opt_is([], _Last, _Acc) -> no.
+
+in_try_catch(From, Blocks) ->
+    F = fun(#b_set{op=new_try_tag,dst=Tag}, Map) when is_map(Map) ->
+                Map#{Tag => ok};
+           (#b_set{op=landingpad,args=[_,Tag]}, Map) ->
+                update_in_try_catch(Tag, Map);
+           (#b_set{op=kill_try_tag,args=[Tag]}, Map) ->
+                update_in_try_catch(Tag, Map);
+           (#b_set{op=catch_end,args=[Tag,_]}, Map) ->
+                update_in_try_catch(Tag, Map);
+           (_, S) -> S
+        end,
+    beam_ssa:fold_instrs_rpo(F, [From], #{}, Blocks) =:= unsafe.
+
+update_in_try_catch(Tag, Map) ->
+    case Map of
+        #{Tag := _} ->  Map;
+        _ -> unsafe
+    end.
+
+%%% Try to replace `=/=` with `=:=` and `/=` with `==`. For example,
+%%% this code:
+%%%
+%%%    Bool = bif:'=/=' Anything, AnyValue
+%%%    br Bool, ^Succ, ^Fail
+%%%
+%%% can be rewritten like this:
+%%%
+%%%    Bool = bif:'=:=' Anything, AnyValue
+%%%    br Bool, ^Fail, ^Succ
+%%%
+%%% The transformation is only safe if the only used of Bool is in the
+%%% terminator. We therefore need to verify that there is only one
+%%% use.
+%%%
+%%% This transformation is not an optimization in itself, but it opens
+%%% up for other optimizations in beam_ssa_type and beam_ssa_dead.
+%%%
+
+ssa_opt_ne({#opt_st{ssa=Linear0}=St, FuncDb}) ->
+    Linear = opt_ne(Linear0, {uses,Linear0}),
+    {St#opt_st{ssa=Linear}, FuncDb}.
+
+opt_ne([{L,#b_blk{is=[_|_]=Is0,last=#b_br{bool=#b_var{}=Bool}}=Blk0}|Bs], Uses0) ->
+    case last(Is0) of
+        #b_set{op={bif,'=/='},dst=Bool}=I0 ->
+            I = I0#b_set{op={bif,'=:='}},
+            {Blk,Uses} = opt_ne_replace(I, Blk0, Uses0),
+            [{L,Blk}|opt_ne(Bs, Uses)];
+        #b_set{op={bif,'/='},dst=Bool}=I0 ->
+            I = I0#b_set{op={bif,'=='}},
+            {Blk,Uses} = opt_ne_replace(I, Blk0, Uses0),
+            [{L,Blk}|opt_ne(Bs, Uses)];
+        _ ->
+            [{L,Blk0}|opt_ne(Bs, Uses0)]
+    end;
+opt_ne([{L,Blk}|Bs], Uses) ->
+    [{L,Blk}|opt_ne(Bs, Uses)];
+opt_ne([], _Uses) -> [].
+
+opt_ne_replace(#b_set{dst=Bool}=I,
+               #b_blk{is=Is0,last=#b_br{succ=Succ,fail=Fail}=Br0}=Blk,
+               Uses0) ->
+    case opt_ne_single_use(Bool, Uses0) of
+        {true,Uses} ->
+            Is = replace_last(Is0, I),
+            Br = Br0#b_br{succ=Fail,fail=Succ},
+            {Blk#b_blk{is=Is,last=Br},Uses};
+        {false,Uses} ->
+            %% The variable is used more than once. Not safe.
+            {Blk,Uses}
+    end.
+
+replace_last([_], Repl) -> [Repl];
+replace_last([I|Is], Repl) -> [I|replace_last(Is, Repl)].
+
+opt_ne_single_use(Var, {uses,Linear}) ->
+    Uses = beam_ssa:uses(maps:from_list(Linear)),
+    opt_ne_single_use(Var, Uses);
+opt_ne_single_use(Var, Uses) when is_map(Uses) ->
+    {case Uses of
+         #{Var:=[_]} -> true;
+         #{Var:=[_|_]} -> false
+     end,Uses}.
 
 %%%
 %%% Merge blocks.

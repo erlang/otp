@@ -87,6 +87,8 @@ integers(_Config) ->
 
     {'EXIT',{badarith,_}} = (catch do_integers_6()),
 
+    house = do_integers_7(),
+
     ok.
 
 do_integers_1(B0) ->
@@ -135,6 +137,22 @@ do_integers_5(X0, Y0) ->
 
 do_integers_6() ->
     try b after 1 end band 0.
+
+do_integers_7() ->
+    try
+        0
+        band
+        try
+            0:any(),
+            ok
+        catch
+            bad_class:_:_ ->
+                {tag, "nt"}
+        end
+    catch
+        _:_:_ ->
+            house
+    end.
 
 numbers(_Config) ->
     Int = id(42),

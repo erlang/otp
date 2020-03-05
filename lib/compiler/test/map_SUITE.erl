@@ -979,6 +979,24 @@ t_update_assoc(Config) when is_list(Config) ->
     BadMap = id(badmap),
     {'EXIT',{{badmap,BadMap},_}} = (catch BadMap#{nonexisting=>val}),
     {'EXIT',{{badmap,<<>>},_}} = (catch <<>>#{nonexisting=>val}),
+    F1 = fun() ->
+                 0 #{part => V = false},
+                 V
+         end,
+    {'EXIT',{{badmap,0},_}} = (catch F1()),
+    F2 = fun() ->
+                 case 42 of
+                     V ->
+                         [];
+                     power ->
+                         []#{key =>
+                                 receive
+                                     V -> false
+                                 end}
+                 end,
+                 V
+         end,
+    42 = F2(),
 
     %% Evaluation order.
     {'EXIT',{blurf,_}} =

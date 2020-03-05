@@ -277,11 +277,17 @@ gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=is_record}},
 gexpr(#c_call{module=#c_literal{val=erlang},name=#c_literal{val=Name},args=As},
       Def, Rt, St0) when is_atom(Name) ->
     St1 = return_match(Rt, 1, St0),
-    case is_guard_bif(Name, length(As)) of
+    Arity = length(As),
+    case is_guard_bif(Name, Arity) of
         true ->
             gexpr_list(As, Def, St1);
         false ->
-            add_error({illegal_guard,St1#lint.func}, St1)
+            case {Name,Arity} of
+                {error,1} ->
+                    gexpr_list(As, Def, St1);
+                _ ->
+                    add_error({illegal_guard,St1#lint.func}, St1)
+            end
     end;
 gexpr(#c_primop{name=#c_literal{val=A},args=As}, Def, _Rt, St0) when is_atom(A) ->
     gexpr_list(As, Def, St0);

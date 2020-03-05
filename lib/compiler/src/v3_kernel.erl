@@ -751,7 +751,7 @@ pattern_bin_1([], _Isub, Osub, St) ->
 %%  later into the largest integer possible.
 %%
 build_bin_seg(A, #k_literal{val=Bits} = Sz, U, integer=Type,
-              [unsigned,big]=Flags, #k_literal{val=Int}=Seg, Next) ->
+              [unsigned,big]=Flags, #k_literal{val=Int}=Seg, Next) when is_integer(Bits) ->
     Size = Bits * U,
     case integer_fits_and_is_expandable(Int, Size) of
 	true -> build_bin_seg_integer_recur(A, Size, Int, Next);
@@ -779,7 +779,8 @@ build_bin_seg_integer(A, Bits, Val, Next) ->
     Seg = #k_literal{anno=A,val=Val},
     #k_bin_seg{anno=A,size=Sz,unit=1,type=integer,flags=[unsigned,big],seg=Seg,next=Next}.
 
-integer_fits_and_is_expandable(Int, Size) when 0 < Size, Size =< ?EXPAND_MAX_SIZE_SEGMENT ->
+integer_fits_and_is_expandable(Int, Size) when is_integer(Int), is_integer(Size),
+                                               0 < Size, Size =< ?EXPAND_MAX_SIZE_SEGMENT ->
     case <<Int:Size>> of
 	<<Int:Size>> -> true;
 	_ -> false
@@ -1370,7 +1371,8 @@ select_bin_int_1([#iclause{pats=[#k_bin_seg{anno=A,type=integer,
 select_bin_int_1([], _, _, _) -> [];
 select_bin_int_1(_, _, _, _) -> throw(not_possible).
 
-select_assert_match_possible(Sz, Val, Fs) ->
+select_assert_match_possible(Sz, Val, Fs)
+  when is_integer(Sz), Sz >= 0, is_integer(Val) ->
     EmptyBindings = erl_eval:new_bindings(),
     MatchFun = match_fun(Val),
     EvalFun = fun({integer,_,S}, B) -> {value,S,B} end,
@@ -1385,7 +1387,9 @@ select_assert_match_possible(Sz, Val, Fs) ->
     catch
 	throw:nomatch ->
 	    throw(not_possible)
-    end.
+    end;
+select_assert_match_possible(_, _, _) ->
+    throw(not_possible).
 
 match_fun(Val) ->
     fun(match, {{integer,_,_},NewV,Bs}) when NewV =:= Val ->
@@ -1661,8 +1665,9 @@ fix_count_without_variadic_segment(N) -> N.
 %% If we have more than 16 clauses, then it is better
 %% to branch multiple times than getting a large integer.
 %% We also abort if we have nothing to squeeze.
-squeeze_clauses(Clauses, Size, Count) when Count >= 16; Size == 1 -> Clauses;
-squeeze_clauses(Clauses, Size, _Count) -> squeeze_clauses(Clauses, Size).
+squeeze_clauses(Clauses, Size, Count) when Count >= 16; Size =< 1 -> Clauses;
+squeeze_clauses(Clauses, Size, _Count) ->
+    squeeze_clauses(Clauses, Size).
 
 squeeze_clauses([#iclause{pats=[#k_bin_seg{seg=#k_literal{}} = BinSeg | Pats]} = Clause | Clauses], Size) ->
     [Clause#iclause{pats=[squeeze_segments(BinSeg, 0, 0, Size) | Pats]} |
@@ -1673,7 +1678,10 @@ squeeze_clauses([], _Size) ->
 squeeze_segments(#k_bin_seg{size=Sz, seg=#k_literal{val=Val}=Lit} = BinSeg, Acc, Size, 1) ->
     BinSeg#k_bin_seg{size=Sz#k_literal{val=Size + 8}, seg=Lit#k_literal{val=(Acc bsl 8) bor Val}};
 squeeze_segments(#k_bin_seg{seg=#k_literal{val=Val},next=Next}, Acc, Size, Count) ->
-    squeeze_segments(Next, (Acc bsl 8) bor Val, Size + 8, Count - 1).
+    squeeze_segments(Next, (Acc bsl 8) bor Val, Size + 8, Count - 1);
+squeeze_segments(#k_bin_end{}, Acc, Size, Count) ->
+    error({Acc,Size,Count}).
+
 
 flat_reverse([Head | Tail], Acc) -> flat_reverse(Tail, flat_reverse_1(Head, Acc));
 flat_reverse([], Acc) -> Acc.

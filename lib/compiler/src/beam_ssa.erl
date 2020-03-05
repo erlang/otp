@@ -129,7 +129,7 @@
                       'put_tuple_element' | 'put_tuple_elements' |
                       'set_tuple_element' | 'succeeded'.
 
--import(lists, [foldl/3,keyfind/3,mapfoldl/3,member/2,reverse/1,sort/1]).
+-import(lists, [foldl/3,mapfoldl/3,member/2,reverse/1,sort/1]).
 
 -spec add_anno(Key, Value, Construct) -> Construct when
       Key :: atom(),
@@ -231,6 +231,7 @@ no_side_effect(#b_set{op=Op}) ->
 is_loop_header(#b_set{op=Op}) ->
     case Op of
         peek_message -> true;
+        wait -> true;
         wait_timeout -> true;
         _ -> false
     end.
@@ -314,12 +315,7 @@ normalize(#b_br{}=Br) ->
 normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
     case Arg of
         #b_literal{} ->
-            case keyfind(Arg, 1, List) of
-                false ->
-                    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
-                {Arg,L} ->
-                    #b_br{bool=#b_literal{val=true},succ=L,fail=L}
-            end;
+            normalize_switch(Arg, List, Fail);
         #b_var{} when List =:= [] ->
             #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
         #b_var{} ->
@@ -327,6 +323,13 @@ normalize(#b_switch{arg=Arg,fail=Fail,list=List}=Sw) ->
     end;
 normalize(#b_ret{}=Ret) ->
     Ret.
+
+normalize_switch(Val, [{Val,L}|_], _Fail) ->
+    #b_br{bool=#b_literal{val=true},succ=L,fail=L};
+normalize_switch(Val, [_|T], Fail) ->
+    normalize_switch(Val, T, Fail);
+normalize_switch(_Val, [], Fail) ->
+    #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail}.
 
 -spec successors(label(), block_map()) -> [label()].
 
@@ -576,18 +579,20 @@ split_blocks(P, Blocks, Count) ->
     Ls = beam_ssa:rpo(Blocks),
     split_blocks_1(Ls, P, Blocks, Count).
 
--spec trim_unreachable(Blocks0) -> Blocks when
-      Blocks0 :: block_map(),
-      Blocks :: block_map().
+-spec trim_unreachable(SSA0) -> SSA when
+      SSA0 :: block_map() | [{label(),b_blk()}],
+      SSA :: block_map() | [{label(),b_blk()}].
 
 %% trim_unreachable(Blocks0) -> Blocks.
 %%  Remove all unreachable blocks. Adjust all phi nodes so
 %%  they don't refer to blocks that has been removed or no
 %%  no longer branch to the phi node in question.
 
-trim_unreachable(Blocks) ->
+trim_unreachable(Blocks) when is_map(Blocks) ->
     %% Could perhaps be optimized if there is any need.
-    maps:from_list(linearize(Blocks)).
+    maps:from_list(linearize(Blocks));
+trim_unreachable([_|_]=Blocks) ->
+    trim_unreachable_1(Blocks, cerl_sets:from_list([0])).
 
 %% update_phi_labels([BlockLabel], Old, New, Blocks0) -> Blocks.
 %%  In the given blocks, replace label Old in with New in all
@@ -814,6 +819,32 @@ is_successor(L, Pred, S) ->
             %% This block has been removed.
             false
     end.
+
+trim_unreachable_1([{L,Blk0}|Bs], Seen0) ->
+    Blk = trim_phis(Blk0, Seen0),
+    case cerl_sets:is_element(L, Seen0) of
+        false ->
+            trim_unreachable_1(Bs, Seen0);
+        true ->
+            case successors(Blk) of
+                [] ->
+                    [{L,Blk}|trim_unreachable_1(Bs, Seen0)];
+                [_|_]=Successors ->
+                    Seen = cerl_sets:union(Seen0, cerl_sets:from_list(Successors)),
+                    [{L,Blk}|trim_unreachable_1(Bs, Seen)]
+            end
+    end;
+trim_unreachable_1([], _) -> [].
+
+trim_phis(#b_blk{is=[#b_set{op=phi}|_]=Is0}=Blk, Seen) ->
+    Is = trim_phis_1(Is0, Seen),
+    Blk#b_blk{is=Is};
+trim_phis(Blk, _Seen) -> Blk.
+
+trim_phis_1([#b_set{op=phi,args=Args0}=I|Is], Seen) ->
+    Args = [P || {_,L}=P <- Args0, cerl_sets:is_element(L, Seen)],
+    [I#b_set{args=Args}|trim_phis_1(Is, Seen)];
+trim_phis_1(Is, _Seen) -> Is.
 
 rpo_1([L|Ls], Blocks, Seen0, Acc0) ->
     case cerl_sets:is_element(L, Seen0) of

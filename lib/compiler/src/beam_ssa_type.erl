@@ -912,8 +912,6 @@ simplify(#b_set{op=put_tuple,args=Args}=I, _Ts) ->
     end;
 simplify(#b_set{op=wait_timeout,args=[#b_literal{val=0}]}, _Ts) ->
     #b_literal{val=true};
-simplify(#b_set{op=wait_timeout,args=[#b_literal{val=infinity}]}=I, _Ts) ->
-    I#b_set{op=wait,args=[]};
 simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, _Ts) ->
     case Rem of
         #b_remote{mod=#b_literal{val=Mod},

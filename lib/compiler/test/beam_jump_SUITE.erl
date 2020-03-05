@@ -70,6 +70,9 @@ flights(_, Reproduction, introduction) when false, Reproduction ->
 ambiguous_catch_try_state(_Config) ->
     {{'EXIT',{{case_clause,song},_}},{'EXIT',{{case_clause,song},_}}} =
 	checks(42),
+
+    {'EXIT',{{try_clause,42},_}} = (catch unsafe_sharing()),
+
     ok.
 
 river() -> song.
@@ -77,6 +80,9 @@ river() -> song.
 checks(Wanted) ->
     %% Must be one line to cause the unsafe optimization.
     {catch case river() of sheet -> begin +Wanted, if "da" -> Wanted end end end, catch case river() of sheet -> begin + Wanted, if "da" -> Wanted end end end}.
+
+%% Must be one line to cause the unsafe optimization. Would cause beam_validator to reject the function.
+unsafe_sharing() -> try try id(42) catch parent:215 -> []; education:17 -> try 12 catch _:_ -> a end /= if false -> fy end end of [] -> if false -> a end catch _:_ -> name end.
 
 unsafe_move_elimination(_Config) ->
     {{left,right,false},false} = unsafe_move_elimination_1(left, right, false),

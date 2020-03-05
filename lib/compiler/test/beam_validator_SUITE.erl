@@ -38,7 +38,7 @@
          infer_on_eq/1,infer_dead_value/1,infer_on_ne/1,
          branch_to_try_handler/1,call_without_stack/1,
          receive_marker/1,safe_instructions/1,
-         missing_return_type/1]).
+         missing_return_type/1,will_bif_succeed/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -71,7 +71,7 @@ groups() ->
        infer_on_eq,infer_dead_value,infer_on_ne,
        branch_to_try_handler,call_without_stack,
        receive_marker,safe_instructions,
-       missing_return_type]}].
+       missing_return_type,will_bif_succeed]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -338,7 +338,7 @@ state_after_fault_in_catch(Config) when is_list(Config) ->
 no_exception_in_catch(Config) when is_list(Config) ->
     Errors = do_val(no_exception_in_catch, Config),
     [{{no_exception_in_catch,nested_of_1,4},
-      {{move,{x,3},{x,0}},87,{uninitialized_reg,{x,3}}}}] = Errors,
+      {{try_case_end,{x,0}},180,ambiguous_catch_try_state}}] = Errors,
     ok.
 
 undef_label(Config) when is_list(Config) ->
@@ -867,6 +867,23 @@ night(Turned) ->
     ok.
 
 participating(_, _, _, _) -> ok.
+
+%% map_get was known as returning 'none', but 'will_succeed' still returned
+%% 'maybe' causing validation to continue, eventually exploding when the 'none'
+%% value was used.
+will_bif_succeed(_Config) ->
+    ok = f1(body).
+
+%% +no_ssa_opt
+f1(body) when map_get(girl, #{friend => node()}); [], community ->
+    case $q and $K of
+        _V0 ->
+            0.1825965401179273;
+        0 ->
+            state#{[] => 0.10577334580729858, $J => 0}
+    end;
+f1(body) ->
+    ok.
 
 id(I) ->
     I.

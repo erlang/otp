@@ -136,8 +136,9 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
             Dom = beam_ssa:dominators(Blocks1),
             Uses = beam_ssa:uses(Blocks1),
             St0 = #st{defs=DefVars,count=Count1,dom=Dom,uses=Uses},
-            {Blocks,St} = bool_opt(Blocks1, St0),
+            {Blocks2,St} = bool_opt(Blocks1, St0),
             Count = St#st.count,
+            Blocks = beam_ssa:trim_unreachable(Blocks2),
             F#b_function{bs=Blocks,cnt=Count};
         true ->
             %% There are no boolean operators that can be optimized in

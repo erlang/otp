@@ -37,7 +37,7 @@
 	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1,
 	 bad_constants/1,bad_guards/1,
          guard_in_catch/1,beam_bool_SUITE/1,
-         repeated_type_tests/1]).
+         repeated_type_tests/1,use_after_branch/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -56,7 +56,7 @@ groups() ->
        basic_andalso_orelse,traverse_dcd,
        check_qlc_hrl,andalso_semi,t_tuple_size,binary_part,
        bad_constants,bad_guards,guard_in_catch,beam_bool_SUITE,
-       repeated_type_tests]},
+       repeated_type_tests,use_after_branch]},
      {slow,[],[literal_type_tests,generated_combinations]}].
 
 init_per_suite(Config) ->
@@ -2503,6 +2503,13 @@ fail_in_guard() ->
     false = struct_or_map(a, foo),
     false = struct_or_map(#{}, "foo"),
     true = struct_or_map(#{}, foo),
+
+    false = (fun() when whatever =/= (program andalso []) -> true;
+                () -> false
+             end)(),
+    false = if whatever =/= (program orelse []) -> true;
+               true -> false
+            end,
     ok.
 
 %% ERL-1183. If Name is not an atom, the `fail` atom must cause the
@@ -2547,6 +2554,23 @@ repeated_type_test(T) ->
             other
     end.
 
+%% ERL-1179: The result of '=/=' would be flipped if it was used after being
+%% branched on.
+use_after_branch(_Config) ->
+    {false, gaffel} = use_after_branch_1(foo),
+    {true, gurka} = use_after_branch_1(bar),
+    ok.
+
+use_after_branch_1(A) ->
+    Boolean = A =/= foo,
+    case Boolean of
+        true -> id(something);
+        false -> id(other)
+    end,
+    case Boolean of
+        true -> {id(Boolean), gurka};
+        false -> {id(Boolean), gaffel}
+    end.
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.

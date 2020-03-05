@@ -99,10 +99,12 @@ will_succeed(Mod, Func, Args) ->
                 false ->
                     %% While we can't infer success for functions outside the
                     %% 'erlang' module (see above comment), it's safe to infer
-                    %% failure when we know the arguments must have certain
-                    %% types.
-                    {_, ArgTypes, _} = types(Mod, Func, Args),
-                    fails_on_conflict(Args, ArgTypes)
+                    %% failure when we know they return none or if the
+                    %% arguments must have certain types.
+                    case types(Mod, Func, Args) of
+                        {none, _, _} -> no;
+                        {_, ArgTypes, _} -> fails_on_conflict(Args, ArgTypes)
+                    end
             end
     end.
 
@@ -728,9 +730,13 @@ erlang_band_type_1(LHS, Int) ->
             Max = min(Max0, Union band Int),
 
             #t_integer{elements={Min,Max}};
-        _ when Int >= 0 ->
+        #t_integer{} when Int >= 0 ->
             %% The range is either unknown or too wide, conservatively assume
             %% that the new range is 0 .. Int.
+            %%
+            %% NOTE: We must not produce a singleton type unless we are sure
+            %% that the operation can't fail. Therefore, we only do this
+            %% inference if LHS is known to be an integer.
             beam_types:meet(LHS, #t_integer{elements={0,Int}});
         _ ->
             %% We can't infer boundaries when LHS is not an integer or

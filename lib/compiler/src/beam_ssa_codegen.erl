@@ -1129,20 +1129,21 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
     Line = line(Anno),
     Alloc = map_get(alloc, Anno),
     [#b_literal{val=Kind}|Args1] = Args0,
+    Live = get_live(I),
     case Kind of
         new ->
             [Dst,Size,{integer,Unit}] = beam_args([Dst0|Args1], St),
-            Live = get_live(I),
             {[Line|cg_bs_init(Dst, Size, Alloc, Unit, Live, Fail)],St};
         private_append ->
             [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Flags = {field_flags,[]},
-            Is = [Line,{bs_private_append,Fail,Bits,Unit,Src,Flags,Dst}],
+            TestHeap = {test_heap,Alloc,Live},
+            BsPrivateAppend = {bs_private_append,Fail,Bits,Unit,Src,Flags,Dst},
+            Is = [TestHeap,Line,BsPrivateAppend],
             {Is,St};
         append ->
             [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Flags = {field_flags,[]},
-            Live = get_live(I),
             Is = [Line,{bs_append,Fail,Bits,Alloc,Live,Unit,Src,Flags,Dst}],
             {Is,St}
     end;

@@ -395,35 +395,6 @@ vi_safe({init,Reg}, Vst) ->
     create_tag(initialized, init, [], Reg, Vst);
 vi_safe({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
-vi_safe({bif,Op,{f,0},Ss,Dst}=I, Vst0) ->
-    case will_bif_succeed(Op, Ss, Vst0) of
-        yes ->
-            %% This BIF cannot fail, handle it here without updating catch
-            %% state.
-            validate_bif(Op, cannot_fail, Ss, Dst, Vst0);
-        no ->
-            %% The stack will be scanned, so Y registers must be initialized.
-            Vst = branch_exception(Vst0),
-            verify_y_init(Vst),
-            kill_state(Vst);
-        maybe ->
-            %% The BIF can fail, make sure that any catch state is updated.
-            Vst = branch_exception(Vst0),
-            vi_float(I, Vst)
-    end;
-vi_safe({gc_bif,Op,{f,0},Live,Ss,Dst}=I, Vst0) ->
-    case will_bif_succeed(Op, Ss, Vst0) of
-        yes ->
-            validate_gc_bif(Op, cannot_fail, Ss, Dst, Live, Vst0);
-        no ->
-            Vst = branch_exception(Vst0),
-            verify_y_init(Vst),
-            kill_state(Vst);
-        maybe ->
-            Vst = branch_exception(Vst0),
-            assert_float_checked(Vst),
-            vi_float(I, Vst)
-    end;
 %% Put instructions.
 vi_safe({put_list,A,B,Dst}, Vst0) ->
     Vst = eat_heap(2, Vst0),
@@ -483,32 +454,38 @@ vi_safe({set_tuple_element,Src,Tuple,N}, Vst) ->
     #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
     Es = beam_types:set_tuple_element(I, get_term_type(Src, Vst), Es0),
     override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
-%% Instructions for optimization of selective receives.
+
+%%
+%% Receive instructions
+%%
+vi_safe({loop_rec,{f,Fail},Dst}, Vst) ->
+    %% This term may not be part of the root set until remove_message/0 is
+    %% executed. If control transfers to the loop_rec_end/1 instruction, no
+    %% part of this term must be stored in a Y register.
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
+                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
+           end);
+vi_safe({loop_rec_end,_}, Vst) ->
+    verify_y_init(Vst),
+    kill_state(Vst);
 vi_safe({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
     set_receive_marker(initialized, Vst);
 vi_safe({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
     set_receive_marker(committed, Vst);
-%% Misc.
 vi_safe(remove_message, Vst0) ->
     Vst = set_receive_marker(none, Vst0),
 
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
-vi_safe({'%', {var_info, Reg, Info}}, Vst) ->
-    validate_var_info(Info, Reg, Vst);
-vi_safe({'%', {remove_fragility, Reg}}, Vst) ->
-    %% This is a hack to make prim_eval:'receive'/2 work.
-    %%
-    %% Normally it's illegal to pass fragile terms as a function argument as we
-    %% have no way of knowing what the callee will do with it, but we know that
-    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
-    %% disabled while matching messages.
-    remove_fragility(Reg, Vst);
-vi_safe({'%',_}, Vst) ->
-    Vst;
-vi_safe({line,_}, Vst) ->
-    Vst;
+vi_safe(timeout, Vst0) ->
+    Vst = set_receive_marker(none, Vst0),
+    prune_x_regs(0, Vst);
+vi_safe({wait,_}, Vst) ->
+    verify_y_init(Vst),
+    kill_state(Vst);
 
 %%
 %% Calls; these may be okay when the try/catch state or stack is undecided,
@@ -778,10 +755,10 @@ vi_safe({test,bs_get_integer2=Op,{f,Fail},Live,
           [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst) ->
     NumBits = Size * Unit,
     Type = case member(unsigned, Flags) of
-               true when NumBits =< 64 ->
+               true when 0 =< NumBits, NumBits =< 64 ->
                    beam_types:make_integer(0, (1 bsl NumBits)-1);
                _ ->
-                   %% Signed integer or way too large, don't bother.
+                   %% Signed integer, way too large, or negative size.
                    #t_integer{}
            end,
     validate_bs_get(Op, Fail, Ctx, Live, NumBits, Type, Dst, Vst);
@@ -811,6 +788,56 @@ vi_safe({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 vi_safe({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
     verify_get_map(Fail, Src, List, Vst);
+
+%%
+%% BIF calls
+%%
+%% These are technically not safe instructions since they may throw an
+%% exception when Fail =:= 0, but validate_bif/7 handles float error checking
+%% and exception branching when needed.
+%%
+vi_safe({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
+    case is_float_arith_bif(Op, Ss) of
+        true ->
+            %% Float arithmetic BIFs neither fail nor throw an exception;
+            %% errors are postponed until the next fcheckerror instruction.
+            0 = Fail,                           %Assertion.
+            validate_float_arith_bif(Ss, Dst, Vst0);
+        false ->
+            validate_src(Ss, Vst0),
+            validate_bif(bif, Op, Fail, Ss, Dst, Vst0, Vst0)
+    end;
+vi_safe({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst0) ->
+    validate_src(Ss, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    %% Heap allocations and X registers are killed regardless of whether we
+    %% fail or not, as we may fail after GC.
+    #vst{current=St0} = Vst0,
+    St = kill_heap_allocation(St0),
+    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
+
+    validate_bif(gc_bif, Op, Fail, Ss, Dst, Vst0, Vst);
+
+%%
+%% Misc annotations
+%%
+vi_safe({'%', {var_info, Reg, Info}}, Vst) ->
+    validate_var_info(Info, Reg, Vst);
+vi_safe({'%', {remove_fragility, Reg}}, Vst) ->
+    %% This is a hack to make prim_eval:'receive'/2 work.
+    %%
+    %% Normally it's illegal to pass fragile terms as a function argument as we
+    %% have no way of knowing what the callee will do with it, but we know that
+    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
+    %% disabled while matching messages.
+    remove_fragility(Reg, Vst);
+vi_safe({'%',_}, Vst) ->
+    Vst;
+vi_safe({line,_}, Vst) ->
+    Vst;
+
 vi_safe(I, Vst0) ->
     Vst = branch_exception(Vst0),
     vi_float(I, Vst).
@@ -883,55 +910,35 @@ assert_float_checked(Vst) ->
     end.
 
 init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
+    %% All potentially-throwing instructions after this one will implicitly
+    %% branch to the current try/catch handler; see the base case of vi_safe/2
     Tag = {Kind, [Fail]},
     Vst = create_tag(Tag, 'try_catch', [], Dst, Vst0),
 
-    branch(Fail, Vst,
-           fun(CatchVst0) ->
-                   %% We add the tag here because branch/4 rejects jumps to
-                   %% labels referenced by try tags.
-                   #vst{current=#st{ct=Tags,ys=Ys}=St0} = CatchVst0,
-                   St = St0#st{ct=[Tag|Tags]},
-                   CatchVst1 = CatchVst0#vst{current=St},
+    #vst{current=St0} = Vst,
+    #st{ct=Tags}=St0,
+    St = St0#st{ct=[Tag|Tags]},
+ 
+    Vst#vst{current=St}.
 
-                   %% The receive marker is cleared on exceptions.
-                   CatchVst = set_receive_marker(none, CatchVst1),
-
-                   maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
-           end,
-           fun(SuccVst0) ->
-                   #vst{current=#st{ct=Tags}=St0} = SuccVst0,
-                   St = St0#st{ct=[Tag|Tags]},
-                   SuccVst = SuccVst0#vst{current=St},
-
-                   %% All potentially-throwing instructions after this one will
-                   %% implicitly branch to the current try/catch handler; see
-                   %% the base case of vi_safe/2
-                   SuccVst
-           end).
-
-%% Set the initial state at the try/catch label. Assume that Y registers
-%% contain terms or try/catch tags.
-init_catch_handler_1(Reg, initialized, Vst) ->
-    create_term(any, 'catch_handler', [], Reg, Vst);
-init_catch_handler_1(Reg, uninitialized, Vst) ->
-    create_term(any, 'catch_handler', [], Reg, Vst);
-init_catch_handler_1(_, _, Vst) ->
-    Vst.
-
-branch_exception(#vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst)
+branch_exception(#vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst0)
    when is_integer(Fail) ->
     %% We have an active try/catch tag and we can jump there from this
     %% instruction, so we need to update the branched state of the try/catch
     %% handler.
-    fork_state(Fail, Vst);
+    #vst{current=St} = Vst0,
+
+    %% The receive marker is cleared on exceptions.
+    Vst1 = set_receive_marker(none, Vst0),
+    Vst = fork_state(Fail, Vst1),
+
+    Vst#vst{current=St};
 branch_exception(#vst{current=#st{ct=[]}}=Vst) ->
     Vst;
 branch_exception(_) ->
     error(ambiguous_catch_try_state).
 
 %% Handle the remaining floating point instructions here.
-%% Floating point.
 vi_float({fconv,Src,{fr,_}=Dst}, Vst) ->
     assert_term(Src, Vst),
 
@@ -941,16 +948,6 @@ vi_float({fconv,Src,{fr,_}=Dst}, Vst) ->
                SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
                set_freg(Dst, SuccVst)
            end);
-vi_float({bif,fadd,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-vi_float({bif,fdiv,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-vi_float({bif,fmul,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-vi_float({bif,fnegate,_,[_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-vi_float({bif,fsub,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
 vi_float(fclearerror, Vst) ->
     case get_fls(Vst) of
         undefined -> ok;
@@ -1005,40 +1002,14 @@ vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
     verify_y_init(Vst),
 
     create_term(#t_fun{arity=Arity}, make_fun, [], {x,0}, Vst);
-%% Other BIFs
-vi_throwing({bif,raise,{f,0},Src,_Dst}, Vst) ->
-    validate_src(Src, Vst),
-    kill_state(Vst);
 vi_throwing(raw_raise=I, Vst) ->
     call(I, 3, Vst);
-vi_throwing({bif,Op,{f,Fail},Ss,Dst}, Vst) ->
-    validate_bif(Op, Fail, Ss, Dst, Vst);
-vi_throwing({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst) ->
-    validate_gc_bif(Op, Fail, Ss, Dst, Live, Vst);
-vi_throwing({loop_rec,{f,Fail},Dst}, Vst) ->
-    %% This term may not be part of the root set until remove_message/0 is
-    %% executed. If control transfers to the loop_rec_end/1 instruction, no
-    %% part of this term must be stored in a Y register.
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
-                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
-           end);
-vi_throwing({wait,_}, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
 vi_throwing({wait_timeout,_,Src}, Vst) ->
     %% Note that the receive marker is not cleared since we may re-enter the
     %% loop while waiting. If we time out we'll be transferred to a timeout
     %% instruction that clears the marker.
     assert_term(Src, Vst),
     verify_y_init(Vst),
-    prune_x_regs(0, Vst);
-vi_throwing({loop_rec_end,_}, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
-vi_throwing(timeout, Vst0) ->
-    Vst = set_receive_marker(none, Vst0),
     prune_x_regs(0, Vst);
 vi_throwing(send, Vst) ->
     call(send, 2, Vst);
@@ -1297,22 +1268,30 @@ verify_return(Vst) ->
 %% have clobbered the sources.
 %%
 
-validate_bif(Op, Fail, Ss, Dst, Vst) ->
-    validate_src(Ss, Vst),
-    validate_bif_1(bif, Op, Fail, Ss, Dst, Vst, Vst).
-
-validate_gc_bif(Op, Fail, Ss, Dst, Live, #vst{current=St0}=Vst0) ->
-    validate_src(Ss, Vst0),
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-
-    %% Heap allocations and X registers are killed regardless of whether we
-    %% fail or not, as we may fail after GC.
-    St = kill_heap_allocation(St0),
-    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
-    validate_src(Ss, Vst),
-
-    validate_bif_1(gc_bif, Op, Fail, Ss, Dst, Vst, Vst).
+validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst0) ->
+    assert_float_checked(Vst0),
+    case {will_bif_succeed(Op, Ss, Vst0), Fail} of
+        {yes, _} ->
+            %% This BIF cannot fail (neither throw nor branch), handle it here
+            %% without updating catch state.
+            validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst0);
+        {no, 0} ->
+            %% The stack will be scanned, so Y registers must be initialized.
+            Vst = branch_exception(Vst0),
+            verify_y_init(Vst),
+            kill_state(Vst);
+        {no, _} ->
+            %% The next instruction is never executed, this is essentially a
+            %% direct jump.
+            branch(Fail, Vst0, fun(SuccVst) -> kill_state(SuccVst) end);
+        {maybe, 0} ->
+            %% The BIF might throw an exception, make sure that any catch state
+            %% is updated.
+            Vst = branch_exception(Vst0),
+            validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst);
+        {maybe, _} ->
+            validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst0)
+    end.
 
 validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst0) ->
     %% This BIF explicitly cannot fail; it will not jump to a guard nor throw
@@ -1686,7 +1665,14 @@ assert_arities(_) -> error(bad_tuple_arity_list).
 %%%   fmove Src {fr,_}		%% Move INTO floating point register.
 %%%
 
-float_op(Ss, Dst, Vst0) ->
+is_float_arith_bif(fadd, [_, _]) -> true;
+is_float_arith_bif(fdiv, [_, _]) -> true;
+is_float_arith_bif(fmul, [_, _]) -> true;
+is_float_arith_bif(fnegate, [_]) -> true;
+is_float_arith_bif(fsub, [_, _]) -> true;
+is_float_arith_bif(_, _) -> false.
+
+validate_float_arith_bif(Ss, Dst, Vst0) ->
     _ = [assert_freg_set(S, Vst0) || S <- Ss],
     assert_fls(cleared, Vst0),
     Vst = set_fls(cleared, Vst0),
@@ -2143,6 +2129,8 @@ set_type(Type, #value_ref{}=Ref, #vst{current=#st{vs=Vs0}=St}=Vst) ->
     Vs = Vs0#{ Ref => Entry#value{type=Type} },
     Vst#vst{current=St#st{vs=Vs}}.
 
+new_value(none, _, _, _) ->
+    error(creating_none_value);
 new_value(Type, Op, Ss, #vst{current=#st{vs=Vs0}=St,ref_ctr=Counter}=Vst) ->
     Ref = #value_ref{id=Counter},
     Vs = Vs0#{ Ref => #value{op=Op,args=Ss,type=Type} },
@@ -2746,19 +2734,20 @@ call_types({extfunc,M,F,A}, A, Vst) ->
 call_types(_, A, Vst) ->
     {any, get_call_args(A, Vst), false}.
 
-will_bif_succeed(fadd, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fdiv, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fmul, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fnegate, [_], _Vst) ->
-    maybe;
-will_bif_succeed(fsub, [_,_], _Vst) ->
-    maybe;
+will_bif_succeed(raise, [_,_], _Vst) ->
+    %% Compiler-generated raise, the user-facing variant that can return
+    %% 'badarg' is erlang:raise/3.
+    no;
 will_bif_succeed(Op, Ss, Vst) ->
-    Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
-    beam_call_types:will_succeed(erlang, Op, Args).
+    case is_float_arith_bif(Op, Ss) of
+        true ->
+            %% Float arithmetic BIFs can't fail; their error checking is
+            %% deferred until fcheckerror.
+            yes;
+        false ->
+            Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
+            beam_call_types:will_succeed(erlang, Op, Args)
+    end.
 
 will_call_succeed({extfunc,M,F,A}, Vst) ->
     beam_call_types:will_succeed(M, F, get_call_args(A, Vst));

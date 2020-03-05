@@ -23,7 +23,8 @@
 	 init_per_group/2,end_per_group/2,
          calls/1,tuple_matching/1,recv/1,maps/1,
          cover_ssa_dead/1,combine_sw/1,share_opt/1,
-         beam_ssa_dead_crash/1,stack_init/1,grab_bag/1]).
+         beam_ssa_dead_crash/1,stack_init/1,grab_bag/1,
+         coverage/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -41,7 +42,8 @@ groups() ->
        share_opt,
        beam_ssa_dead_crash,
        stack_init,
-       grab_bag
+       grab_bag,
+       coverage
       ]}].
 
 init_per_suite(Config) ->
@@ -485,6 +487,8 @@ cover_ssa_dead(_Config) ->
     40.0 = percentage(4.0, 10.0),
     60.0 = percentage(6, 10),
 
+    {'EXIT',{{badmatch,42},_}} = (catch #{key => abs(("a" = id(42)) /= teacher)}),
+
     ok.
 
 format_str(Str, FormatData, IoList, EscChars) ->
@@ -699,6 +703,15 @@ grab_bag(_Config) ->
     {'EXIT',_} = (catch grab_bag_2()),
     {'EXIT',_} = (catch grab_bag_3()),
     {'EXIT',_} = (catch grab_bag_4()),
+    {'EXIT',{function_clause,[{?MODULE,grab_bag_5,[a,17],_}|_]}} =
+        (catch grab_bag_5(a, 17)),
+    way = grab_bag_6(face),
+    no_match = grab_bag_6("ABC"),
+    no_match = grab_bag_6(any),
+    ok = grab_bag_7(),
+    [] = grab_bag_8(),
+    ok = grab_bag_9(),
+    whatever = grab_bag_10(ignore, whatever),
     ok.
 
 grab_bag_1() ->
@@ -759,6 +772,82 @@ grab_bag_4() ->
                 ok
             end
     end.
+
+grab_bag_5(A, B) when <<business:(node(power))>> ->
+    true.
+
+grab_bag_6(face) ->
+    way;
+grab_bag_6("ABC") when (node([]))#{size(door) => $k} ->
+    false;
+grab_bag_6(_) ->
+    no_match.
+
+grab_bag_7() ->
+    catch
+        case
+            case 1.6 of
+                %% The hd([] call will be translated to erlang:error(badarg).
+                %% This case exports two variables in Core Erlang (the
+                %% return value of the case and V). beam_kernel_to_ssa was not
+                %% prepared to handle a call to error/1 which is supposed to
+                %% export two variables.
+                <<0.5:(hd([])),V:false>> ->
+                    ok
+            end
+        of
+            _ ->
+                V
+        end,
+        ok.
+
+%% ssa_opt_sink would crash if sys_core_fold had not been run.
+grab_bag_8() ->
+    try
+        []
+    catch
+        _:_ ->
+            try
+                []
+            catch
+                _:any:_ ->
+                    a
+            end;
+        _:right ->
+            b
+    end.
+
+%% The ssa_opt_try optimization would leave a succeeded:body
+%% instruction followed by a #b_ret{} terminator, which would crash
+%% beam_ssa_pre_codegen.
+grab_bag_9() ->
+    catch
+        <<1 || 99, [] <- hour>> bsr false,
+        ok.
+
+grab_bag_10(_, V) ->
+    %% This function needs a stack frame in order to preserve V.
+    fun() -> ok end,
+    V.
+
+coverage(_Config) ->
+
+    %% Cover beam_ssa_codegen:force_reg/2
+    no_match = case true of
+                   <<_:42>> -> true;
+                   _ -> no_match
+              end,
+
+    no_match = case [] of
+                   <<$f:1.7>> -> ok;
+                   _ -> no_match
+               end,
+    {'EXIT',{{badmatch,$T},_}} = (catch coverage_1()),
+
+    ok.
+
+coverage_1() ->
+    <<area/signed-bitstring>> = $T.
 
 
 %% The identity function.

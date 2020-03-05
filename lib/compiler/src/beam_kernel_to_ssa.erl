@@ -664,8 +664,7 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             %% failure branch.
             #k_remote{mod=#k_literal{val=erlang},
                       name=#k_literal{val=error}} = Func, %Assertion.
-            [#k_var{name=DestVar}] = Rs,
-            St = set_ssa_var(DestVar, #b_literal{val=unused}, St0),
+            St = set_unused_ssa_vars(Rs, St0),
             {[make_uncond_branch(Fail),#cg_unreachable{}],St};
         FailCtx ->
             %% Ordinary function call in a function body.
@@ -675,9 +674,7 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
 
             %% If this is a call to erlang:error(), MoreRs could be a
             %% nonempty list of variables that each need a value.
-            St2 = foldl(fun(#k_var{name=Dummy}, S) ->
-                                set_ssa_var(Dummy, #b_literal{val=unused}, S)
-                        end, St1, MoreRs),
+            St2 = set_unused_ssa_vars(MoreRs, St1),
 
             {TestIs,St} = make_succeeded(Ret, FailCtx, St2),
             {[Call|TestIs],St}
@@ -1219,6 +1216,11 @@ new_ssa_var(VarBase, #cg{lcount=Uniq,vars=Vars}=St0)
             {Var,St}
     end.
 
+set_unused_ssa_vars(Vars, St) ->
+    foldl(fun(#k_var{name=V}, S) ->
+                  set_ssa_var(V, #b_literal{val=unused}, S)
+          end, St, Vars).
+
 set_ssa_var(VarBase, Val, #cg{vars=Vars}=St)
   when is_atom(VarBase); is_integer(VarBase) ->
     St#cg{vars=Vars#{VarBase=>Val}}.
@@ -1371,8 +1373,9 @@ fix_sets([], Acc, St) ->
 %%  store them in a map.
 
 build_map(Is) ->
-    Blocks = build_graph_1(Is, [], []),
-    maps:from_list(Blocks).
+    Linear0 = build_graph_1(Is, [], []),
+    Linear = beam_ssa:trim_unreachable(Linear0),
+    maps:from_list(Linear).
 
 build_graph_1([{label,L}|Is], Lbls, []) ->
     build_graph_1(Is, [L|Lbls], []);
