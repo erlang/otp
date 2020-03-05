@@ -402,6 +402,12 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 %%--------------------------------------------------------------------
 verify_signature(_Version, _Hash, {_HashAlgo, anon}, _Signature, _) ->
     true;
+verify_signature({3, Minor}, Hash, {HashAlgo, rsa_pss_rsae}, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
+  when Minor >= 3 ->
+    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey,
+                      [{rsa_padding, rsa_pkcs1_pss_padding},
+                       {rsa_pss_saltlen, -1},
+                       {rsa_mgf1_md, HashAlgo}]);
 verify_signature({3, Minor}, Hash, {HashAlgo, rsa}, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
   when Minor >= 3 ->
     public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey);
@@ -2343,6 +2349,20 @@ dec_server_key_params(Len, Keys, Version) ->
     <<Params:Len/bytes, Signature/binary>> = Keys,
     dec_server_key_signature(Params, Signature, Version).
 
+dec_server_key_signature(Params, <<?BYTE(8), ?BYTE(SignAlgo),
+                                   ?UINT16(0)>>, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    <<?UINT16(Scheme0)>> = <<?BYTE(8), ?BYTE(SignAlgo)>>,
+    Scheme = ssl_cipher:signature_scheme(Scheme0),
+    {Hash, Sign, _} = ssl_cipher:scheme_to_components(Scheme),
+    {Params, {Hash, Sign}, <<>>};
+dec_server_key_signature(Params, <<?BYTE(8), ?BYTE(SignAlgo),
+                                   ?UINT16(Len), Signature:Len/binary>>, {Major, Minor})
+  when Major == 3, Minor >= 3 ->
+    <<?UINT16(Scheme0)>> = <<?BYTE(8), ?BYTE(SignAlgo)>>,
+    Scheme = ssl_cipher:signature_scheme(Scheme0),
+    {Hash, Sign, _} = ssl_cipher:scheme_to_components(Scheme),
+    {Params, {Hash, Sign}, Signature};
 dec_server_key_signature(Params, <<?BYTE(HashAlgo), ?BYTE(SignAlgo),
 			    ?UINT16(0)>>, {Major, Minor})
   when Major == 3, Minor >= 3 ->

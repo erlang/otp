@@ -884,7 +884,9 @@ oid_to_enum(?secp384r1) -> 24;
 oid_to_enum(?secp521r1) -> 25;
 oid_to_enum(?brainpoolP256r1) -> 26;
 oid_to_enum(?brainpoolP384r1) -> 27;
-oid_to_enum(?brainpoolP512r1) -> 28.
+oid_to_enum(?brainpoolP512r1) -> 28;
+oid_to_enum(?'id-X25519') -> 29;
+oid_to_enum(?'id-X448') -> 30.
 
 enum_to_oid(1) -> ?sect163k1;
 enum_to_oid(2) -> ?sect163r1;
@@ -914,5 +916,7 @@ enum_to_oid(25) -> ?secp521r1;
 enum_to_oid(26) -> ?brainpoolP256r1;
 enum_to_oid(27) -> ?brainpoolP384r1;
 enum_to_oid(28) -> ?brainpoolP512r1;
+enum_to_oid(29) -> ?'id-X25519';
+enum_to_oid(30) -> ?'id-X448';
 enum_to_oid(_) ->
     undefined.
