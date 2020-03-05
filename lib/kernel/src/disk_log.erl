@@ -133,7 +133,7 @@ log(Log, Term) ->
 blog(Log, Bytes) ->
     req(Log, {log, external, [ensure_binary(Bytes)]}).
 
--spec log_terms(Log, TermList) -> ok | {error, Resaon :: log_error_rsn()} when
+-spec log_terms(Log, TermList) -> ok | {error, Reason :: log_error_rsn()} when
       Log :: log(),
       TermList :: [term()].
 log_terms(Log, Terms) ->
