@@ -1546,6 +1546,45 @@
 
 </section>
 
+<section><title>Erts 10.3.5.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in <c>ets:update_counter/4</c>, when called
+	    with an invalid <c>UpdateOp</c> and a <c>Key</c> that
+	    does not exist, causing <c>ets:info(T,size)</c> to return
+	    incorrect values. Bug exists since OTP-19.0.2.</p>
+          <p>
+	    Own Id: OTP-16404 Aux Id: ERL-1127 </p>
+        </item>
+        <item>
+          <p>
+	    A process could get into an inconsistent state where it
+	    was runnable, but never scheduled for execution. This
+	    could occur when a mix of <c>normal</c> and <c>low</c>
+	    priority processes where scheduled on the same type of
+	    dirty scheduler simultaneously.</p>
+          <p>
+	    Own Id: OTP-16446 Aux Id: ERL-1157 </p>
+        </item>
+        <item>
+          <p>
+	    Corrected the valid range of the <c>erl</c> command line
+	    argument <seealso marker="erts:erl#+SDio"><c>+SDio
+	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seealso> from
+	    <c>0..1024</c> to <c>1..1024</c>. <c>+SDio 0</c> was
+	    erroneously allowed which just caused the VM to crash on
+	    the first dirty I/O job scheduled.</p>
+          <p>
+	    Own Id: OTP-16481</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.3.5.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
