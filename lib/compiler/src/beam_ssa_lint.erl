@@ -196,35 +196,63 @@ vvars_assert_phi_vars(Phis, I, Id, #vvars{blocks=Blocks,
 vvars_block(Id, State0) ->
     #{ Id := #b_blk{ is = Is, last = Terminator} } = State0#vvars.blocks,
     #{ Id := DefVars } = State0#vvars.branch_def_vars,
+    validate_normalized(Terminator),
     State = State0#vvars{ defined_vars = DefVars },
-    vvars_terminator(Terminator, Id, vvars_block_1(Is, State)).
+    vvars_terminator(Terminator, Id, vvars_block_1(Is, Terminator, State)).
 
--spec vvars_block_1(Is, State) -> #vvars{} when
+validate_normalized(I) ->
+    case beam_ssa:normalize(I) of
+        I ->
+            ok;
+        _ ->
+            %% Some denormalized forms of #b_br{} can confuse
+            %% beam_ssa_pre_codegen and/or beam_ssa_codegen and cause
+            %% the compiler to crash. Here is an example of a denormalized
+            %% br that may cause the compiler to crash:
+            %%
+            %%     br bool, ^99, ^99
+            throw({not_normalized, I})
+    end.
+
+-spec vvars_block_1(Is, Terminator, State) -> #vvars{} when
       Is :: list(#b_set{}),
+      Terminator :: beam_ssa:terminator(),
       State :: #vvars{}.
-vvars_block_1([], State) ->
-    State;
 vvars_block_1([#b_set{dst=OpVar,args=OpArgs}=I,
-               #b_set{op={succeeded,Kind},args=[OpVar],dst=SuccVar}], State) ->
+               #b_set{op={succeeded,Kind},args=[OpVar],dst=SuccVar}],
+              Terminator, State) ->
     true = Kind =:= guard orelse Kind =:= body, %Assertion.
-    ok = vvars_assert_args(OpArgs, I, State),
-    vvars_save_var(SuccVar, vvars_save_var(OpVar, State));
-vvars_block_1([#b_set{op={succeeded,guard},args=Args}=I | [_|_]], State) ->
+    case Terminator of
+        #b_br{bool=#b_var{}} ->
+            ok = vvars_assert_args(OpArgs, I, State),
+            vvars_save_var(SuccVar, vvars_save_var(OpVar, State));
+        _ when Kind =:= body ->
+            ok = vvars_assert_args(OpArgs, I, State),
+            vvars_save_var(SuccVar, vvars_save_var(OpVar, State));
+        _ ->
+            %% A succeeded:guard instruction must be followed by a
+            %% two-way branch; otherwise beam_ssa_codegen will crash.
+            throw({succeeded_not_followed_by_two_way_br, I})
+    end;
+vvars_block_1([#b_set{op={succeeded,guard},args=Args}=I | [_|_]],
+              _Terminator, State) ->
     ok = vvars_assert_args(Args, I, State),
     %% 'succeeded' must be the last instruction in its block.
     throw({succeeded_not_last, I});
-vvars_block_1([#b_set{op={succeeded,_},args=Args}=I], State)->
+vvars_block_1([#b_set{op={succeeded,_},args=Args}=I], _Terminator, State) ->
     ok = vvars_assert_args(Args, I, State),
     %% 'succeeded' must be directly preceded by the operation it checks.
     throw({succeeded_not_preceded, I});
-vvars_block_1([#b_set{ dst = Dst, op = phi } | Is], State) ->
+vvars_block_1([#b_set{ dst = Dst, op = phi } | Is], Terminator, State) ->
     %% We don't check phi node arguments at this point since we may not have
     %% visited their definition yet. They'll be handled later on in
     %% vvars_phi_nodes/1 after all blocks are processed.
-    vvars_block_1(Is, vvars_save_var(Dst, State));
-vvars_block_1([#b_set{ dst = Dst, args = Args }=I | Is], State) ->
+    vvars_block_1(Is, Terminator, vvars_save_var(Dst, State));
+vvars_block_1([#b_set{ dst = Dst, args = Args }=I | Is], Terminator, State) ->
     ok = vvars_assert_args(Args, I, State),
-    vvars_block_1(Is, vvars_save_var(Dst, State)).
+    vvars_block_1(Is, Terminator, vvars_save_var(Dst, State));
+vvars_block_1([], _Terminator, State) ->
+    State.
 
 -spec vvars_terminator(Terminator, From, State) -> #vvars{} when
       Terminator :: beam_ssa:terminator(),
@@ -371,4 +399,10 @@ format_error_1({succeeded_not_preceded, I}) ->
                   [format_instr(I)]);
 format_error_1({succeeded_not_last, I}) ->
     io_lib:format("~ts is not the last instruction in its block",
+                  [format_instr(I)]);
+format_error_1({not_normalized, I}) ->
+    io_lib:format("~ts is not normalized by beam_ssa:normalize/1",
+                  [format_instr(I)]);
+format_error_1({succeeded_not_followed_by_two_way_br, I}) ->
+    io_lib:format("~ts not followed by a two-way branch",
                   [format_instr(I)]).
