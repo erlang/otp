@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2016</year>
+      <year>2003</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -59,7 +59,7 @@
       <p><em>Step 2</em>) The release is transferred to and installed at
         target environment. For information of how to install the first
 	target system, see
-        <seealso marker="system_principles:create_target">System Principles</seealso>.</p>
+        <seealso marker="doc/system_principles:create_target">System Principles</seealso>.</p>
       <p><em>Step 3</em>) Modifications, for example, error corrections,
         are made to the code in the development environment.</p>
       <p><em>Step 4</em>) At some point, it is time to make a new version
