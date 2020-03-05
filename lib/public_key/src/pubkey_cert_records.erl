@@ -113,7 +113,8 @@ supportedPublicKeyAlgorithms(?'id-keyExchangeAlgorithm') -> 'KEA-PublicKey';
 supportedPublicKeyAlgorithms(?'id-ecPublicKey') -> 'ECPoint'.
 
 supportedCurvesTypes(?'characteristic-two-field') -> characteristic_two_field;
-supportedCurvesTypes(?'prime-field') -> prime_field.
+supportedCurvesTypes(?'prime-field') -> prime_field;
+supportedCurvesTypes(?'id-edwards-curve-algs') -> edwards_curve.
 
 namedCurves(?'sect571r1') -> sect571r1;
 namedCurves(?'sect571k1') -> sect571k1;
@@ -148,6 +149,8 @@ namedCurves(?'sect163r1') -> sect163r1;
 namedCurves(?'sect163k1') -> sect163k1;
 namedCurves(?'secp256r1') -> secp256r1;
 namedCurves(?'secp192r1') -> secp192r1;
+namedCurves(?'id-X25519') -> x25519;
+namedCurves(?'id-X448') -> x448;
 namedCurves(?'brainpoolP160r1') -> brainpoolP160r1;
 namedCurves(?'brainpoolP160t1') -> brainpoolP160t1;
 namedCurves(?'brainpoolP192r1') -> brainpoolP192r1;
@@ -162,7 +165,6 @@ namedCurves(?'brainpoolP384r1') -> brainpoolP384r1;
 namedCurves(?'brainpoolP384t1') -> brainpoolP384t1;
 namedCurves(?'brainpoolP512r1') -> brainpoolP512r1;
 namedCurves(?'brainpoolP512t1') -> brainpoolP512t1;
-
 namedCurves(sect571r1) -> ?'sect571r1';
 namedCurves(sect571k1) -> ?'sect571k1';
 namedCurves(sect409r1) -> ?'sect409r1';
@@ -196,6 +198,8 @@ namedCurves(sect163r1) -> ?'sect163r1';
 namedCurves(sect163k1) -> ?'sect163k1';
 namedCurves(secp256r1) -> ?'secp256r1';
 namedCurves(secp192r1) -> ?'secp192r1';
+namedCurves(x25519)    -> ?'id-X25519';
+namedCurves(x448)      -> ?'id-X448';
 namedCurves(brainpoolP160r1) -> ?'brainpoolP160r1';
 namedCurves(brainpoolP160t1) -> ?'brainpoolP160t1';
 namedCurves(brainpoolP192r1) -> ?'brainpoolP192r1';
