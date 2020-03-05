@@ -474,8 +474,10 @@ opt_is([#b_set{op=call,
 
     [Fun | _] = Args,
     I = case normalized_type(Fun, Ts0) of
-            #t_fun{type=Type} -> beam_ssa:add_anno(result_type, Type, I1);
-            _ -> I1
+            #t_fun{type=Type} when Type =/= any ->
+                beam_ssa:add_anno(result_type, Type, I1);
+            _ ->
+                I1
         end,
 
     Ts = update_types(I, Ts0, Ds0),
