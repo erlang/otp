@@ -2,6 +2,10 @@
 %% -*- erlang -*-
 -mode(compile).
 
+%% We print out a warning for files that take longer than
+%% ?LONG_COMPILE_THRESHOLD milliseconds to compile.
+-define(LONG_COMPILE_THRESHOLD, 10000).
+
 main(Args0) ->
     DefOpts = #{format=>asm,no_compile=>false,legacy=>false},
     {Args,Opts} = opts(Args0, DefOpts),
@@ -103,11 +107,11 @@ do_compile(OutDir, Opts0) ->
 	    "dialyzer",
 	    "ssl",
             "wx"],
-    {Files,Opts} = get_files(Apps, Opts1),
+    {Specs,Opts} = get_specs(Apps, Opts1),
     CF = choose_format(Opts),
-    p_run(fun(File) ->
-                  compile_file(CF, File)
-          end, Files).
+    p_run(fun(Spec) ->
+                  compile_spec(CF, Spec)
+          end, Specs).
 
 choose_format(#{format:=Format}=Opts) ->
     case Format of
@@ -117,43 +121,50 @@ choose_format(#{format:=Format}=Opts) ->
             compile_to_dis_fun(Opts)
     end.
 
-compile_file(CF, File) ->
+compile_spec(CF, Spec) ->
     try
-        CF(File)
+        case timer:tc(CF, [Spec]) of
+            {Time0, ok} ->
+                Time = erlang:convert_time_unit(Time0, microsecond, millisecond),
+                {Spec, Time};
+            _ ->
+                error
+        end
     catch
-	Class:Error:Stk ->
+        Class:Error:Stk ->
             if
-                is_list(File) ->
+                is_list(Spec) ->
                     io:format("~s: ~p ~p\n~p\n\n",
-                              [File,Class,Error,Stk]);
+                              [Spec,Class,Error,Stk]);
                 true ->
                     io:format("~p: ~p ~p\n~p\n\n",
-                              [File,Class,Error,Stk])
+                              [Spec,Class,Error,Stk])
             end,
-	    error
+            error
     end.
 
 elixir_root() ->
     filename:join(filename:dirname(code:root_dir()), "elixir").
 
 %%%
-%%% Get names of files (either .erl files or BEAM files).
+%%% Get names of files (either .erl files or BEAM files) together with their
+%%% compile options.
 %%%
 
-get_files(Apps, #{format:=dis,no_compile:=true}=Opts) ->
+get_specs(Apps, #{format:=dis,no_compile:=true}=Opts) ->
     Files = get_elixir_beams() ++ get_beams(Apps),
     {Files,Opts};
-get_files(Apps, #{}=Opts) ->
+get_specs(Apps, #{}=Opts) ->
     Inc = make_includes(),
     CompilerOpts = [{d,epmd_dist_high,42},
                     {d,epmd_dist_low,37},
                     {d,'VSN',1},
                     {d,'COMPILER_VSN',1},
                     {d,erlang_daemon_port,1337}|Inc],
-    Files0 = get_src(Apps),
-    Files1 = add_opts(Files0, CompilerOpts),
-    Files = [{Beam,elixir} || Beam <- get_elixir_beams()] ++ Files1,
-    {Files,Opts}.
+    Files = get_src(Apps),
+    Specs1 = add_opts(Files, CompilerOpts),
+    Specs = [{Beam,elixir} || Beam <- get_elixir_beams()] ++ Specs1,
+    {Specs,Opts}.
 
 get_elixir_beams() ->
     ElixirEbin = filename:join(elixir_root(), "lib/elixir/ebin"),
@@ -247,9 +258,9 @@ get_beams([]) -> [].
 %%%
 
 compile_to_asm_fun(#{outdir:=OutDir}=Opts) ->
-    fun(File) ->
+    fun(Spec) ->
             Legacy = map_get(legacy, Opts),
-            compile_to_asm(File, OutDir, Legacy)
+            compile_to_asm(Spec, OutDir, Legacy)
     end.
 
 compile_to_asm({Beam,elixir}, OutDir, _Legacy) ->
@@ -294,12 +305,12 @@ get_abstract_from_beam(Beam) ->
 %%%
 
 compile_to_dis_fun(#{outdir:=OutDir,no_compile:=false}) ->
-    fun(File) ->
-            compile_to_dis(File, OutDir)
+    fun(Spec) ->
+            compile_to_dis(Spec, OutDir)
     end;
 compile_to_dis_fun(#{outdir:=OutDir,no_compile:=true}) ->
-    fun(File) ->
-            dis_only(File, OutDir)
+    fun(Spec) ->
+            dis_only(Spec, OutDir)
     end.
 
 compile_to_dis({File,elixir}, OutDir) ->
@@ -593,14 +604,26 @@ p_run_loop(_, [], _, [], Errors) ->
 p_run_loop(Test, [H|T], N, Refs, Errors) when length(Refs) < N ->
     {_,Ref} = erlang:spawn_monitor(fun() -> exit(Test(H)) end),
     p_run_loop(Test, T, N, [Ref|Refs], Errors);
-p_run_loop(Test, List, N, Refs0, Errors0) ->
-    io:format("\r~p ", [length(List)+length(Refs0)]),
+p_run_loop(Test, List, N, Refs0, Errors) ->
     receive
-	{'DOWN',Ref,process,_,Res} ->
-	    Errors = case Res of
-                         ok -> Errors0;
-                         error -> Errors0 + 1
-                     end,
-	    Refs = Refs0 -- [Ref],
-	    p_run_loop(Test, List, N, Refs, Errors)
+        {'DOWN',Ref,process,_,error} ->
+            Refs = Refs0 -- [Ref],
+            p_run_loop(Test, List, N, Refs, Errors + 1);
+        {'DOWN',Ref,process,_,{Spec,Time}} ->
+            if
+                Time >= ?LONG_COMPILE_THRESHOLD ->
+                    Name = format_spec(Spec),
+                    io:format("~s took ~pms to compile~n", [Name, Time]);
+                Time < ?LONG_COMPILE_THRESHOLD ->
+                    io:format("\r~p ", [length(List) + length(Refs0)])
+            end,
+            Refs = Refs0 -- [Ref],
+            p_run_loop(Test, List, N, Refs, Errors)
     end.
+
+format_spec(File) when is_list(File) ->
+    File;
+format_spec({File, _Options}) when is_list(File) ->
+    File;
+format_spec(Spec) ->
+    io_lib:format("~p", [Spec]).

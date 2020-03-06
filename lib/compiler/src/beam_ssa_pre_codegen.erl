@@ -380,15 +380,25 @@ join_positions([{L,MapPos0}|T], D) ->
     end;
 join_positions([], D) -> D.
 
-join_positions_1(MapPos0, MapPos1) ->
-    MapPos2 = maps:map(fun(Start, Pos) ->
-                               case MapPos0 of
-                                   #{Start:=Pos} -> Pos;
-                                   #{Start:=_} -> unknown;
-                                   #{} -> Pos
-                               end
-                       end, MapPos1),
-    maps:merge(MapPos0, MapPos2).
+join_positions_1(LHS, RHS) ->
+    if
+        map_size(LHS) < map_size(RHS) ->
+            join_positions_2(maps:keys(LHS), RHS, LHS);
+        true ->
+            join_positions_2(maps:keys(RHS), LHS, RHS)
+    end.
+
+join_positions_2([V | Vs], Bigger, Smaller) ->
+    case {Bigger, Smaller} of
+        {#{ V := Same }, #{ V := Same }} ->
+            join_positions_2(Vs, Bigger, Smaller);
+        {#{ V := _ }, #{ V := _ }} ->
+            join_positions_2(Vs, Bigger, Smaller#{ V := unknown });
+        {#{}, #{ V := _ }} ->
+            join_positions_2(Vs, Bigger, maps:remove(V, Smaller))
+    end;
+join_positions_2([], _Bigger, Smaller) ->
+    Smaller.
 
 %%
 %% Updates the restore and position maps according to the given instructions.
@@ -469,14 +479,6 @@ bs_restores_is([#b_set{op=call,dst=Dst,args=Args}|Is],
     {SPos1, Rs} = bs_restore_args(Args, SPos0, CtxChain, Dst, Rs0),
 
     SPos = bs_invalidate_pos(Args, SPos1, CtxChain),
-    FPos = SPos,
-
-    bs_restores_is(Is, CtxChain, SPos, FPos, Rs);
-bs_restores_is([#b_set{op=landingpad}|Is], CtxChain, SPos0, _FPos, Rs) ->
-    %% We can land here from any point, so all positions are invalid.
-    Invalidate = fun(_Start,_Pos) -> unknown end,
-
-    SPos = maps:map(Invalidate, SPos0),
     FPos = SPos,
 
     bs_restores_is(Is, CtxChain, SPos, FPos, Rs);

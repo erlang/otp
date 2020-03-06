@@ -32,7 +32,7 @@
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
 
--import(lists, [all/2,any/2,duplicate/2,foldl/3,member/2,
+-import(lists, [any/2,duplicate/2,foldl/3,member/2,
                 keyfind/3,reverse/1,split/2,zip/2]).
 
 %% The maximum number of #b_ret{} terminators a function can have before
@@ -189,8 +189,8 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
                             #b_var{}=Var <- Args]),
 
-    Ls = #{ ?EXCEPTION_BLOCK => Ts,
-            0 => Ts },
+    Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
+            0 => {incoming, Ts} },
 
     Meta = init_metadata(Id, Linear, Args),
 
@@ -210,20 +210,30 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
     end.
 
 sig_bs([{L, #b_blk{is=Is,last=Last0}} | Bs],
-       Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0) when is_map_key(L, Ls0) ->
+       Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0) ->
+    case Ls0 of
+        #{ L := Incoming } ->
+            {incoming, Ts0} = Incoming,         %Assertion.
 
-    #{ L := Ts0 } = Ls0,
+            {Ts, Ds, Sub, State} =
+                sig_is(Is, Ts0, Ds0, Ls0, Fdb, Sub0, State0),
 
-    {Ts, Ds, Sub, State} = sig_is(Is, Ts0, Ds0, Ls0, Fdb, Sub0, State0),
+            Last = simplify_terminator(Last0, Ts, Ds, Sub),
+            SuccTypes = update_success_types(Last, Ts, Ds, Meta, SuccTypes0),
 
-    Last = simplify_terminator(Last0, Ts, Ds, Sub),
-    SuccTypes = update_success_types(Last, Ts, Ds, Meta, SuccTypes0),
-    {_, Ls} = update_successors(Last, Ts, Ds, Ls0, Meta#metadata.used_once),
+            UsedOnce = Meta#metadata.used_once,
+            {_, Ls1} = update_successors(Last, Ts, Ds, Ls0, UsedOnce),
 
-    sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
-sig_bs([_Blk | Bs], Ds, Ls, Fdb, Sub, SuccTypes, Meta, State) ->
-    %% This block is never reached. Ignore it.
-    sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
+            %% In the future there may be a point to storing outgoing types on
+            %% a per-edge basis as it would give us more precision in phi
+            %% nodes, but there's nothing to gain from that at the moment so
+            %% we'll store the current Ts to save memory.
+            Ls = Ls1#{ L := {outgoing, Ts} },
+            sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
+        #{} ->
+            %% This block is never reached. Ignore it.
+            sig_bs(Bs, Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0)
+    end;
 sig_bs([], _Ds, _Ls, _Fdb, _Sub, SuccTypes, _Meta, State) ->
     {State, SuccTypes}.
 
@@ -412,8 +422,8 @@ opt_function(Linear0, Args, Id, Ts, FuncDb0) ->
     Ds = maps:from_list([{Var, FakeCall#b_set{dst=Var}} ||
                             #b_var{}=Var <- Args]),
 
-    Ls = #{ ?EXCEPTION_BLOCK => Ts,
-            0 => Ts },
+    Ls = #{ ?EXCEPTION_BLOCK => {incoming, Ts},
+            0 => {incoming, Ts} },
 
     Meta = init_metadata(Id, Linear0, Args),
 
@@ -434,21 +444,28 @@ get_func_id(Anno) ->
     #b_local{name=#b_literal{val=Name}, arity=Arity}.
 
 opt_bs([{L, #b_blk{is=Is0,last=Last0}=Blk0} | Bs],
-       Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc) when is_map_key(L, Ls0) ->
+       Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc) ->
+    case Ls0 of
+        #{ L := Incoming } ->
+            {incoming, Ts0} = Incoming,         %Assertion.
 
-    #{ L := Ts0 } = Ls0,
-    {Is, Ts, Ds, Fdb, Sub} = opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
+            {Is, Ts, Ds, Fdb, Sub} =
+            opt_is(Is0, Ts0, Ds0, Ls0, Fdb0, Sub0, Meta, []),
 
-    Last1 = simplify_terminator(Last0, Ts, Ds, Sub),
+            Last1 = simplify_terminator(Last0, Ts, Ds, Sub),
+            SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
 
-    SuccTypes = update_success_types(Last1, Ts, Ds, Meta, SuccTypes0),
-    {Last, Ls} = update_successors(Last1, Ts, Ds, Ls0, Meta#metadata.used_once),
+            UsedOnce = Meta#metadata.used_once,
+            {Last, Ls1} = update_successors(Last1, Ts, Ds, Ls0, UsedOnce),
 
-    Blk = Blk0#b_blk{is=Is,last=Last},
-    opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, [{L,Blk} | Acc]);
-opt_bs([_Blk | Bs], Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc) ->
-    %% This block is never reached. Discard it.
-    opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, Acc);
+            Ls = Ls1#{ L := {outgoing, Ts} },           %Assertion.
+
+            Blk = Blk0#b_blk{is=Is,last=Last},
+            opt_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, [{L,Blk} | Acc]);
+        #{} ->
+            %% This block is never reached. Discard it.
+            opt_bs(Bs, Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, Acc)
+    end;
 opt_bs([], _Ds, _Ls, Fdb, _Sub, SuccTypes, _Meta, Acc) ->
     {reverse(Acc), Fdb, SuccTypes}.
 
@@ -474,8 +491,10 @@ opt_is([#b_set{op=call,
 
     [Fun | _] = Args,
     I = case normalized_type(Fun, Ts0) of
-            #t_fun{type=Type} -> beam_ssa:add_anno(result_type, Type, I1);
-            _ -> I1
+            #t_fun{type=Type} when Type =/= any ->
+                beam_ssa:add_anno(result_type, Type, I1);
+            _ ->
+                I1
         end,
 
     Ts = update_types(I, Ts0, Ds0),
@@ -630,18 +649,18 @@ simplify_terminator(#b_ret{arg=Arg}=Ret, Ts, Ds, Sub) ->
 simplify(#b_set{op=phi,dst=Dst,args=Args0}=I0, Ts0, Ds0, Ls, Sub) ->
     %% Simplify the phi node by removing all predecessor blocks that no
     %% longer exists or no longer branches to this block.
-    Args = [{simplify_arg(Arg, Ts0, Sub), From} ||
-               {Arg,From} <- Args0, maps:is_key(From, Ls)],
-    case all_same(Args) of
+    {Type, Args} = simplify_phi_args(Args0, Ls, Sub, none, []),
+    case phi_all_same(Args) of
         true ->
             %% Eliminate the phi node if there is just one source
             %% value or if the values are identical.
-            [{Val,_}|_] = Args,
+            [{Val, _} | _] = Args,
             Sub#{ Dst => Val };
         false ->
             I = I0#b_set{args=Args},
-            Ts = update_types(I, Ts0, Ds0),
-            Ds = Ds0#{Dst=>I},
+
+            Ts = Ts0#{ Dst => Type },
+            Ds = Ds0#{ Dst => I },
             {I, Ts, Ds}
     end;
 simplify(#b_set{op={succeeded,Kind},args=[Arg],dst=Dst}=I0,
@@ -1097,6 +1116,34 @@ simplify_not(#b_br{bool=#b_var{}=V,succ=Succ,fail=Fail}=Br0, Ts, Ds, Sub) ->
 simplify_not(#b_br{bool=#b_literal{}}=Br, _Sub, _Ts, _Ds) ->
     Br.
 
+simplify_phi_args([{Arg0, From} | Rest], Ls, Sub, Type0, Args) ->
+    case Ls of
+        #{ From := Outgoing } ->
+            {outgoing, Ts} = Outgoing,          %Assertion.
+
+            Arg = simplify_arg(Arg0, Ts, Sub),
+            Type = beam_types:join(raw_type(Arg, Ts), Type0),
+            Phi = {Arg, From},
+
+            simplify_phi_args(Rest, Ls, Sub, Type, [Phi | Args]);
+        #{} ->
+            simplify_phi_args(Rest, Ls, Sub, Type0, Args)
+    end;
+simplify_phi_args([], _Ls, _Sub, Type, Args) ->
+    %% We return the arguments in their incoming order so that they won't
+    %% change back and forth and ruin fixpoint iteration in beam_ssa_opt.
+    {Type, reverse(Args)}.
+
+phi_all_same([{Arg, _From} | Phis]) ->
+    phi_all_same_1(Phis, Arg).
+
+phi_all_same_1([{Arg, _From} | Phis], Arg) ->
+    phi_all_same_1(Phis, Arg);
+phi_all_same_1([], _Arg) ->
+    true;
+phi_all_same_1(_Phis, _Arg) ->
+    false.
+
 %% Simplify a remote call to a pure BIF.
 simplify_remote_call(erlang, '++', [#b_literal{val=[]},Tl], _I) ->
     Tl;
@@ -1195,9 +1242,6 @@ is_safe_bool_op([LHS, RHS], Ts) ->
     RType = raw_type(RHS, Ts),
     beam_types:is_boolean_type(LType) andalso
         beam_types:is_boolean_type(RType).
-
-all_same([{H,_}|T]) ->
-    all(fun({E,_}) -> E =:= H end, T).
 
 eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts) ->
     Arity = length(Args),
@@ -1530,20 +1574,21 @@ update_successor(?EXCEPTION_BLOCK, _Ts, Ls) ->
     Ls;
 update_successor(S, Ts0, Ls) ->
     case Ls of
-        #{ S := Ts1 } ->
-            Ts = join_types(Ts0, Ts1),
-            Ls#{ S := Ts };
+        #{ S := {outgoing, _} } ->
+            %% We're in a receive loop or similar; the target block will not be
+            %% revisited.
+            Ls;
+        #{ S := {incoming, InTs} } ->
+            Ts = join_types(Ts0, InTs),
+            Ls#{ S := {incoming, Ts} };
         #{} ->
-            Ls#{ S => Ts0 }
+            Ls#{ S => {incoming, Ts0} }
     end.
 
 update_types(#b_set{op=Op,dst=Dst,anno=Anno,args=Args}, Ts, Ds) ->
     T = type(Op, Args, Anno, Ts, Ds),
     Ts#{Dst=>T}.
 
-type(phi, Args, _Anno, Ts, _Ds) ->
-    Types = [raw_type(A, Ts) || {A,_} <- Args],
-    beam_types:join(Types);
 type({bif,Bif}, Args, _Anno, Ts, _Ds) ->
     ArgTypes = normalized_types(Args, Ts),
     {RetType, _, _} = beam_call_types:types(erlang, Bif, ArgTypes),
@@ -1944,30 +1989,29 @@ infer_eq_lit(#b_set{op=get_tuple_element,
 infer_eq_lit(_, _) ->
     [].
 
-join_types(Ts0, Ts1) ->
+join_types(Ts, Ts) ->
+    Ts;
+join_types(LHS, RHS) ->
     if
-        map_size(Ts0) < map_size(Ts1) ->
-            join_types_1(maps:keys(Ts0), Ts1, Ts0);
+        map_size(LHS) < map_size(RHS) ->
+            join_types_1(maps:keys(LHS), RHS, LHS);
         true ->
-            join_types_1(maps:keys(Ts1), Ts0, Ts1)
+            join_types_1(maps:keys(RHS), LHS, RHS)
     end.
 
-join_types_1([V|Vs], Ts0, Ts1) ->
-    case {Ts0,Ts1} of
-        {#{V:=Same},#{V:=Same}} ->
-            join_types_1(Vs, Ts0, Ts1);
-        {#{V:=T0},#{V:=T1}} ->
-            case beam_types:join(T0, T1) of
-                T1 ->
-                    join_types_1(Vs, Ts0, Ts1);
-                T ->
-                    join_types_1(Vs, Ts0, Ts1#{V:=T})
-            end;
-        {#{},#{V:=_}} ->
-            join_types_1(Vs, Ts0, Ts1)
+%% Joins two type maps, keeping the variables that are common to both maps.
+join_types_1([V | Vs], Bigger, Smaller) ->
+    case {Bigger, Smaller} of
+        {#{ V := Same }, #{ V := Same }} ->
+            join_types_1(Vs, Bigger, Smaller);
+        {#{ V := LHS }, #{ V := RHS }} ->
+            T = beam_types:join(LHS, RHS),
+            join_types_1(Vs, Bigger, Smaller#{ V := T });
+        {#{}, #{ V := _ }} ->
+            join_types_1(Vs, Bigger, maps:remove(V, Smaller))
     end;
-join_types_1([], Ts0, Ts1) ->
-    maps:merge(Ts0, Ts1).
+join_types_1([], _Bigger, Smaller) ->
+    Smaller.
 
 meet_types([{V,T0}|Vs], Ts) ->
     #{V:=T1} = Ts,
