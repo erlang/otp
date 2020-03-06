@@ -712,6 +712,7 @@ grab_bag(_Config) ->
     [] = grab_bag_8(),
     ok = grab_bag_9(),
     whatever = grab_bag_10(ignore, whatever),
+    other = grab_bag_11(),
     ok.
 
 grab_bag_1() ->
@@ -829,6 +830,17 @@ grab_bag_10(_, V) ->
     %% This function needs a stack frame in order to preserve V.
     fun() -> ok end,
     V.
+
+grab_bag_11() ->
+    try 0 of
+        false -> error;
+        true -> ok;
+        _ -> other
+    catch
+        _:_ ->
+            catched
+    end.
+
 
 coverage(_Config) ->
 

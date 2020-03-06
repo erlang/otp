@@ -804,19 +804,17 @@ sanitize_is([#b_set{op={succeeded,Kind},args=[Arg0]} | Is],
             true = Kind =:= guard orelse Kind =:= body, %Assertion.
             sanitize_is(Is, Last, Count, Values, true, Acc)
     end;
-sanitize_is([#b_set{op=Op,dst=Dst,args=Args0}=I0|Is0],
-            Last, Count, Values, Changed0, Acc) ->
-    Args = sanitize_args(Args0, Values),
-    case sanitize_instr(Op, Args, I0) of
-        {value,Value0} ->
-            Value = #b_literal{val=Value0},
-            sanitize_is(Is0, Last, Count, Values#{Dst=>Value}, true, Acc);
-        {ok,I} ->
-            sanitize_is(Is0, Last, Count, Values, true, [I|Acc]);
-        ok ->
-            I = I0#b_set{args=Args},
-            Changed = Changed0 orelse Args =/= Args0,
-            sanitize_is(Is0, Last, Count, Values, Changed, [I|Acc])
+sanitize_is([#b_set{op=Op}=I|Is], Last, Count, Values, Changed, Acc) ->
+    case Last of
+        #b_br{succ=Same,fail=Same} ->
+            case is_test_op(Op) of
+                true ->
+                    sanitize_is(Is, Last, Count, Values, true, Acc);
+                false ->
+                    do_sanitize_is(I, Is,  Last, Count, Values, Changed, Acc)
+            end;
+        _ ->
+            do_sanitize_is(I, Is,  Last, Count, Values, Changed, Acc)
     end;
 sanitize_is([], Last, Count, Values, Changed, Acc) ->
     case Changed of
@@ -824,6 +822,25 @@ sanitize_is([], Last, Count, Values, Changed, Acc) ->
             {reverse(Acc), Last, Count, Values};
         false ->
             no_change
+    end.
+
+is_test_op(bs_put) -> true;
+is_test_op(bs_test_tail) -> true;
+is_test_op(_) -> false.
+    
+do_sanitize_is(#b_set{op=Op,dst=Dst,args=Args0}=I0,
+               Is, Last, Count, Values, Changed0, Acc) ->
+    Args = sanitize_args(Args0, Values),
+    case sanitize_instr(Op, Args, I0) of
+        {value,Value0} ->
+            Value = #b_literal{val=Value0},
+            sanitize_is(Is, Last, Count, Values#{Dst=>Value}, true, Acc);
+        {ok,I} ->
+            sanitize_is(Is, Last, Count, Values, true, [I|Acc]);
+        ok ->
+            I = I0#b_set{args=Args},
+            Changed = Changed0 orelse Args =/= Args0,
+            sanitize_is(Is, Last, Count, Values, Changed, [I|Acc])
     end.
 
 sanitize_args(Args, Values) ->
