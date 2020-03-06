@@ -95,6 +95,10 @@ start() ->
 start(Type) ->
     case application:ensure_all_started(ssh, Type) of
         {ok, _} ->
+            %% Clear cached default_algorithms (if exists) ...
+            ssh_transport:clear_default_algorithms_env(),
+            %% ... and rebuld them taking configure options in account
+            ssh_transport:default_algorithms(),
             ok;
         Other ->
             Other
