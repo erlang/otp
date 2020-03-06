@@ -184,15 +184,17 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     </p>
     <p>
       The <em>callback module</em> can be changed for a running server
-      using the
-      <seealso marker="#Transition Actions">transition action</seealso>
-      <seealso marker="stdlib:gen_statem#type-action"><c>{change_callback_module, NewModule}</c></seealso>.
+      using any of the
+      <seealso marker="#Transition Actions">transition actions</seealso>
+      <seealso marker="stdlib:gen_statem#type-action"><c>{change_callback_module, NewModule}</c></seealso>,
+      <seealso marker="stdlib:gen_statem#type-action"><c>{push_callback_module, NewModule}</c></seealso> or
+      <seealso marker="stdlib:gen_statem#type-action"><c>pop_callback_module</c></seealso>.
       Note that this is a pretty esotheric thing to do...
       The origin for this feature is a protocol that after
       version negotiation branches off into quite different
       state machines depending on the protocol version.
       There <i>might</i> be other use cases.
-      <i>Beware</i> that the <c>NewModule</c>
+      <i>Beware</i> that the new callback module
       completely replaces the previous behaviour module,
       so all relevant callback functions has to handle
       the state and data from the previous callback module.
@@ -660,6 +662,41 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
 	whether it is a <em>state change</em> or not,
 	but it can <i>not</i> be done from a
 	<seealso marker="#State Enter Calls"><em>state enter call</em></seealso>.
+      </item>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-action">
+	  <c>{push_callback_module, NewModule}</c>
+	</seealso>
+      </tag>
+      <item>
+	Push the current <em>callback module</em>
+	to the top of an internal stack of callback modules
+	and set the new
+	<seealso marker="#Callback Module">
+	  <em>callback module</em>
+	</seealso>
+	for the running server.
+	Otherwise like
+	<c>{change_callback_module, NewModule}</c>
+	above.
+      </item>
+      <tag>
+	<seealso marker="stdlib:gen_statem#type-action">
+	  <c>pop_callback_module</c>
+	</seealso>
+      </tag>
+      <item>
+	Pop the top module from
+	the internal stack of callback modules
+	and set it to be the new
+	<seealso marker="#Callback Module">
+	  <em>callback module</em>
+	</seealso>
+	for the running server.
+	If the stack is empty the server fails.
+	Otherwise like
+	<c>{change_callback_module, NewModule}</c>
+	above.
       </item>
     </taglist>
     <p>

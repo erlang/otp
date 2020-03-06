@@ -70,7 +70,7 @@ tcs(sys) ->
      get_state, replace_state];
 tcs(undef_callbacks) ->
     [undef_code_change, undef_terminate1, undef_terminate2,
-     function_clause_after_change_callback_module];
+     pop_too_many];
 tcs(format_log) ->
     [format_log_1, format_log_2].
 
@@ -1833,7 +1833,7 @@ verify_down(Statem, MRef, Reason) ->
     end.
 
 
-function_clause_after_change_callback_module(_Config) ->
+pop_too_many(_Config) ->
     _ = process_flag(trap_exit, true),
 
     Machine =
@@ -1845,8 +1845,17 @@ function_clause_after_change_callback_module(_Config) ->
 	      fun ({call, From}, {change_callback_module, _Module} = Action,
                    undefined = _Data) ->
 		      {keep_state_and_data,
-                       [{reply,From,ok},
-                        Action]}
+                       [Action,
+                        {reply,From,ok}]};
+                  ({call, From}, {verify, ?MODULE},
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [{reply,From,ok}]};
+                  ({call, From}, pop_callback_module = Action,
+                   undefined = _Data) ->
+		      {keep_state_and_data,
+                       [Action,
+                        {reply,From,ok}]}
 	      end},
     {ok, STM} =
 	gen_statem:start_link(
@@ -1855,16 +1864,16 @@ function_clause_after_change_callback_module(_Config) ->
           [{debug, [trace]}]),
 
     ok = gen_statem:call(STM, {change_callback_module, oc_statem}),
+    ok = gen_statem:call(STM, {push_callback_module, ?MODULE}),
+    ok = gen_statem:call(STM, {verify, ?MODULE}),
+    ok = gen_statem:call(STM, pop_callback_module),
+    BadAction = {bad_action_from_state_function, pop_callback_module},
+    {{BadAction, _},
+     {gen_statem,call,[STM,pop_callback_module,infinity]}} =
+        ?EXPECT_FAILURE(gen_statem:call(STM, pop_callback_module), Reason),
 
-    Call = unhandled_call,
-    {{function_clause,
-      [{oc_statem, handle_event,
-        [{call, _From}, Call, start, _Data], _Line}
-       | _RestStacktrace]} = Undef,
-     {gen_statem, call, [STM,Call,_Timeout]}} =
-        ?EXPECT_FAILURE(gen_statem:call(STM, Call), Reason),
     receive
-        {'EXIT', STM, Undef} ->
+        {'EXIT', STM, {BadAction, _}} ->
             ok;
         Other ->
             ct:fail({surprise, Other})
@@ -1897,9 +1906,10 @@ format_log_1(_Config) ->
     FExpected1 = "** State machine ~tp terminating~n"
         "** When server state  = ~tp~n"
         "** Reason for termination = ~tp:~tp~n"
+        "** Callback modules = ~tp~n"
         "** Callback mode = ~tp~n",
     FExpected1 = F1,
-    [Name,Term,error,Reason,state_functions] = A1,
+    [Name,Term,error,Reason,[?MODULE],state_functions] = A1,
 
     {F3,A3} = gen_statem:format_log(Report2),
     ct:log("F3: ~ts~nA3: ~tp",[F3,A3]),
@@ -1907,6 +1917,7 @@ format_log_1(_Config) ->
         "** Last event = ~tp~n"
         "** When server state  = ~tp~n"
         "** Reason for termination = ~tp:~tp~n"
+        "** Callback modules = ~tp~n"
         "** Callback mode = ~tp~n"
         "** Queued = ~tp~n"
         "** Postponed = ~tp~n"
@@ -1917,7 +1928,7 @@ format_log_1(_Config) ->
         "** ~tp~n",
     FExpected3 = F3,
     Stacktrace = stacktrace(),
-    [Name,Term,Term,error,Reason,[state_functions,state_enter],[Term],
+    [Name,Term,Term,error,Reason,[?MODULE],[state_functions,state_enter],[Term],
      [{internal,Term}],Stacktrace,{1,[{timeout,message}]},[Term],Name,[]] = A3,
 
     Depth = 10,
@@ -1928,10 +1939,11 @@ format_log_1(_Config) ->
     FExpected2 = "** State machine ~tP terminating~n"
         "** When server state  = ~tP~n"
         "** Reason for termination = ~tP:~tP~n"
+        "** Callback modules = ~tP~n"
         "** Callback mode = ~tP~n",
     FExpected2 = F2,
-    [Name,Depth,Limited,Depth,error,Depth,Reason,
-     Depth,state_functions,Depth] = A2,
+    [Name,Depth,Limited,Depth,error,Depth,Reason,Depth,
+     [?MODULE],Depth,state_functions,Depth] = A2,
 
     {F4,A4} = gen_statem:format_log(Report2),
     ct:log("F4: ~ts~nA4: ~tp",[F4,A4]),
@@ -1939,6 +1951,7 @@ format_log_1(_Config) ->
         "** Last event = ~tP~n"
         "** When server state  = ~tP~n"
         "** Reason for termination = ~tP:~tP~n"
+        "** Callback modules = ~tP~n"
         "** Callback mode = ~tP~n"
         "** Queued = ~tP~n"
         "** Postponed = ~tP~n"
@@ -1952,7 +1965,7 @@ format_log_1(_Config) ->
     LimitedStacktrace = io_lib:limit_term(Stacktrace, Depth),
     LimitedQueue = io_lib:limit_term([Term], Depth),
     [Name,Depth,Limited,Depth,Limited,Depth,error,Depth,Reason,Depth,
-     [state_functions,state_enter],Depth,LimitedQueue,Depth,
+     [?MODULE],Depth,[state_functions,state_enter],Depth,LimitedQueue,Depth,
      LimitedPostponed,Depth,LimitedStacktrace,Depth,{1,[{timeout,message}]},
      Depth,[Limited],Depth,Name,Depth,[],Depth] = A4,
 
@@ -1987,6 +2000,7 @@ format_log_2_simple() ->
         "** When server state  = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15]\n"
         "** Reason for termination = "
            "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
         "** Callback mode = state_functions\n",
     ct:log("Str1: ~ts", [Str1]),
     ct:log("length(Str1): ~p", [L1]),
@@ -2000,6 +2014,7 @@ format_log_2_simple() ->
         "** When server state  = [1,2,3,4,5,6,7,8,9|...]\n"
         "** Reason for termination = "
            "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
         "** Callback mode = state_functions\n",
     ct:log("Str2: ~ts", [Str2]),
     ct:log("length(Str2): ~p", [L2]),
@@ -2080,6 +2095,7 @@ format_log_2_elaborate() ->
         "** When server state  = [1,2,3,4,5,6,7,8,9|...]\n"
         "** Reason for termination = "
            "error:{bad_reply_action_from_state_function,[]}\n"
+        "** Callback modules = ["?MODULE_STRING"]\n"
         "** Callback mode = [state_functions,state_enter]\n"
         "** Queued = [[1,2,3,4,5,6,7,8|...]]\n"
         "** Postponed = [{internal,[1,2,3,4,5,6|...]}]\n"
@@ -2155,6 +2171,7 @@ simple_report(Name, Term, Reason) ->
       name=>Name,
       queue=>[],
       postponed=>[],
+      modules=>[?MODULE],
       callback_mode=>state_functions,
       state_enter=>false,
       state=>Term,
@@ -2168,6 +2185,7 @@ elaborate_report(Name, Term, Reason) ->
       name=>Name,
       queue=>[Term,Term],
       postponed=>[{internal,Term}],
+      modules=>[?MODULE],
       callback_mode=>state_functions,
       state_enter=>true,
       state=>Term,
