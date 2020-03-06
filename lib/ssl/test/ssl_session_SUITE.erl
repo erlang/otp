@@ -25,6 +25,7 @@
 -compile(export_all).
 
 -include("tls_handshake.hrl").
+-include("ssl_record.hrl").
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
@@ -47,10 +48,10 @@ all() ->
 groups() ->
     [{'dtlsv1.2', [], session_tests()},
      {'dtlsv1', [], session_tests()},
-     {'tlsv1.3', [], session_tests()},
-     {'tlsv1.2', [], session_tests()},
-     {'tlsv1.1', [], session_tests()},
-     {'tlsv1', [], session_tests()}
+     {'tlsv1.3', [], session_tests() ++ tls_session_tests()},
+     {'tlsv1.2', [], session_tests() ++ tls_session_tests()},
+     {'tlsv1.1', [], session_tests() ++ tls_session_tests()},
+     {'tlsv1', [], session_tests() ++ tls_session_tests()}
     ].
 
 session_tests() ->
@@ -60,6 +61,8 @@ session_tests() ->
      no_reuses_session_server_restart_new_cert,
      no_reuses_session_server_restart_new_cert_file].
 
+tls_session_tests() ->
+       [session_table_stable_size_on_tcp_close].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -376,6 +379,177 @@ no_reuses_session_server_restart_new_cert_file(Config) when is_list(Config) ->
     ssl_test_lib:close(Server1),
     ssl_test_lib:close(Client1).
 
+session_table_stable_size_on_tcp_close() ->
+      [{doc, "Check that new sessions are cleanup when connection is closed abruptly during first handshake"}].
+
+session_table_stable_size_on_tcp_close(Config) when is_list(Config)->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    {status, _, _, StatusInfo} = sys:get_status(whereis(ssl_manager)),
+    [_, _,_, _, Prop] = StatusInfo,
+    State = ssl_test_lib:state(Prop),
+    ServerCache = element(3, State),
+
+    N = ets:info(ServerCache, size),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
+                                              {from, self()},
+                                              {options,  [{reuseaddr, true} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    faulty_client(Hostname, Port),
+    check_table_did_not_grow(ServerCache, N).
+
+
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+check_table_did_not_grow(ServerCache, N) ->
+    ct:sleep(500),
+    check_table_did_not_grow(ServerCache, N, 10).
+
+check_table_did_not_grow(_, _, 0) ->
+    ct:fail(table_grew);
+check_table_did_not_grow(ServerCache, N, Tries) ->
+    case ets:info(ServerCache, size) of
+        N ->
+            ok;
+        _ ->
+            ct:sleep(500),
+            check_table_did_not_grow(ServerCache, N, Tries -1)
+    end.
+
+faulty_client(Host, Port) ->
+    {ok, Sock} = gen_tcp:connect(Host, Port, [], 10000),
+    Random = crypto:strong_rand_bytes(32),
+    CH = client_hello(Random),
+    CHBin = encode_client_hello(CH, Random),
+    gen_tcp:send(Sock, CHBin),
+    ct:sleep(100),
+    gen_tcp:close(Sock).
+
+
+server(LOpts, Port) ->
+    {ok, LSock} = ssl:listen(Port, LOpts),
+    Pid = spawn_link(?MODULE, accept_loop, [LSock]),
+    ssl:controlling_process(LSock, Pid),
+    Pid.
+
+accept_loop(Sock) ->
+    {ok, CSock} = ssl:transport_accept(Sock),
+    _ = ssl:handshake(CSock),
+    accept_loop(Sock).
+
+
+encode_client_hello(CH, Random) ->
+    HSBin = tls_handshake:encode_handshake(CH, {3,3}),
+    CS = connection_states(Random),
+    {Encoded, _} = tls_record:encode_handshake(HSBin, {3,3}, CS),
+    Encoded.
+
+client_hello(Random) ->
+    CipherSuites = [<<0,255>>, <<"À,">>, <<"À0">>, <<"À$">>, <<"À(">>,
+		    <<"À.">>, <<"À2">>, <<"À&">>, <<"À*">>, <<0,159>>,
+		    <<0,163>>, <<0,107>>, <<0,106>>, <<"À+">>, <<"À/">>,
+		    <<"À#">>, <<"À'">>, <<"À-">>, <<"À1">>, <<"À%">>,
+		    <<"À)">>, <<0,158>>, <<0,162>>, <<0,103>>, <<0,64>>,
+		    <<"À\n">>, <<192,20>>, <<0,57>>, <<0,56>>, <<192,5>>,
+		    <<192,15>>, <<"À\t">>, <<192,19>>, <<0,51>>, <<0,50>>,
+		    <<192,4>>, <<192,14>>],
+    Extensions = #{alpn => undefined,
+		   ec_point_formats =>
+		       {ec_point_formats,
+			[0]},
+		   elliptic_curves =>
+		       {elliptic_curves,
+			[{1,3,132,0,39},
+			 {1,3,132,0,38},
+			 {1,3,132,0,35},
+			 {1,3,36,3,3,2,
+			  8,1,1,13},
+			 {1,3,132,0,36},
+			 {1,3,132,0,37},
+			 {1,3,36,3,3,2,
+			  8,1,1,11},
+			 {1,3,132,0,34},
+			 {1,3,132,0,16},
+			 {1,3,132,0,17},
+			 {1,3,36,3,3,2,
+			  8,1,1,7},
+			 {1,3,132,0,10},
+			 {1,2,840,
+			  10045,3,1,7},
+			 {1,3,132,0,3},
+			 {1,3,132,0,26},
+			 {1,3,132,0,27},
+			 {1,3,132,0,32},
+			 {1,3,132,0,33},
+			 {1,3,132,0,24},
+			 {1,3,132,0,25},
+			 {1,3,132,0,31},
+			 {1,2,840,
+			  10045,3,1,1},
+			 {1,3,132,0,1},
+			 {1,3,132,0,2},
+			 {1,3,132,0,15},
+			 {1,3,132,0,9},
+			 {1,3,132,0,8},
+			 {1,3,132,0,
+			  30}]},
+		   next_protocol_negotiation =>
+		       undefined,
+		   renegotiation_info =>
+		       {renegotiation_info,
+			undefined},
+		   signature_algs =>
+		       {hash_sign_algos,
+			[{sha512,ecdsa},
+			 {sha512,rsa},
+			 {sha384,ecdsa},
+			 {sha384,rsa},
+			 {sha256,ecdsa},
+			 {sha256,rsa},
+			 {sha224,ecdsa},
+			 {sha224,rsa},
+			 {sha,ecdsa},
+			 {sha,rsa},
+			 {sha,dsa}]},
+		   sni =>
+		       {sni,
+			"localhost"},
+		   srp =>
+		       undefined},
+
+    #client_hello{client_version = {3,3},
+		  random = Random,
+		  session_id = crypto:strong_rand_bytes(32),
+		  cipher_suites = CipherSuites,
+		  compression_methods = [0],
+		  extensions = Extensions
+		 }.
+
+connection_states(Random) ->
+    #{current_write =>
+          #{beast_mitigation => one_n_minus_one,cipher_state => undefined,
+		 client_verify_data => undefined,compression_state => undefined,
+		 mac_secret => undefined,secure_renegotiation => undefined,
+            security_parameters =>
+                #security_parameters{
+                  cipher_suite = <<0,0>>,
+                   connection_end = 1,
+                   bulk_cipher_algorithm = 0,
+                   cipher_type = 0,
+                   iv_size = 0,
+                   key_size = 0,
+                   key_material_length = 0,
+                   expanded_key_material_length = 0,
+                   mac_algorithm = 0,
+                   prf_algorithm = 0,
+                   hash_size = 0,
+                   compression_algorithm = 0,
+                   master_secret = undefined,
+                   resumption_master_secret = undefined,
+                   client_random = Random,
+                   server_random = undefined,
+                   exportable = undefined},
+            sequence_number => 0,server_verify_data => undefined}}.

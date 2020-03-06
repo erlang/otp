@@ -734,7 +734,7 @@ hello(internal, #server_hello{} = Hello,
              [{next_event, internal, Hello}]}
     end;
 hello(info, Event, State) ->
-    gen_info(Event, ?FUNCTION_NAME, State);
+    handle_info(Event, ?FUNCTION_NAME, State);
 hello(Type, Event, State) ->
     gen_handshake(?FUNCTION_NAME, Type, Event, State).
 
@@ -1200,9 +1200,22 @@ handle_info({PassiveTag, Socket},  StateName,
 handle_info({CloseTag, Socket}, StateName,
             #state{static_env = #static_env{
                                    role = Role,
+                                   host = Host,
+                                   port = Port,
                                    socket = Socket, 
                                    close_tag = CloseTag},
+                   handshake_env = #handshake_env{renegotiation = Type},
                    connection_env = #connection_env{negotiated_version = Version},
+                   session = Session} = State) when  StateName =/= connection ->
+    ssl_connection:maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
+    Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
+    ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
+    {stop, {shutdown, transport_closed}, State};
+handle_info({CloseTag, Socket}, StateName,
+            #state{static_env = #static_env{
+                                   role = Role,
+                                   socket = Socket,
+                                   close_tag = CloseTag},
                    socket_options = #socket_options{active = Active},
                    protocol_buffers = #protocol_buffers{tls_cipher_texts = CTs},
                    user_data_buffer = {_,BufferSize,_},
@@ -1215,16 +1228,16 @@ handle_info({CloseTag, Socket}, StateName,
 
     case (Active == false) andalso ((CTs =/= []) or (BufferSize =/= 0)) of
         false ->
-            case Version of
-                {1, N} when N >= 1 ->
-                    ok;
-                _ ->
-                    %% As invalidate_sessions here causes performance issues,
-                    %% we will conform to the widespread implementation
-                    %% practice and go aginst the spec
-                    %%invalidate_session(Role, Host, Port, Session)
-                    ok
-            end,
+            %% As invalidate_sessions here causes performance issues,
+            %% we will conform to the widespread implementation
+            %% practice and go aginst the spec
+            %% case Version of
+            %%     {3, N} when N >= 1 ->
+            %%         ok;
+            %%     _ ->
+            %%         invalidate_session(Role, Host, Port, Session)
+            %%         ok
+            %% end,
             Alert = ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY, transport_closed),
             ssl_connection:handle_normal_shutdown(Alert#alert{role = Role}, StateName, State),
             {stop, {shutdown, transport_closed}, State};
