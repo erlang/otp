@@ -138,6 +138,7 @@ image_of_sname(mns)       -> "M-NOTE-STORE";
 image_of_sname(mnif)      -> "M-NET-IF";
 image_of_sname(mnifl)     -> "M-NET-IF-LOGGER";
 image_of_sname(mnifw)     -> io_lib:format("M-NET-IF-worker(~p)", [self()]);
+image_of_sname(mnis)      -> "M-NIS";
 image_of_sname(mconf)     -> "M-CONF";
 
 image_of_sname(lc)        -> io_lib:format("LOG-CONVERTER(~p)", [self()]);
