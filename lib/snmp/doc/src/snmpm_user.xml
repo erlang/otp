@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2016</year>
+      <year>2004</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -96,7 +96,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
       <name since="">handle_error(ReqId, Reason, UserData) -> void()</name>
       <fsummary>Handle error</fsummary>
       <type>
-        <v>ReqId = integer()</v>
+        <v>ReqId = netif | integer()</v>
         <v>Reason = {unexpected_pdu, SnmpInfo} | {invalid_sec_info, SecInfo, SnmpInfo} | {empty_message, Addr, Port} | term()</v>
         <v>SnmpInfo = snmp_gen_info()</v>
         <v>SecInfo = term()</v>
@@ -115,7 +115,11 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
 	<p>If <c>ReqId</c> is less then 0, it means that this
 	information was not available to the manager (that info was
 	never retrieved before the message was discarded). </p>
-        <p>For <c>SnmpInfo</c> see handle_agent below.</p>
+	<p>For <c>SnmpInfo</c> see handle_agent below.</p>
+	<p>Note that there is a special case when the value of <c>ReqId</c>
+	has the value of the atom <c>netif</c>. This means that the NetIF
+	process has suffered a "fatal" error and been restarted.
+	With possible loss of traffic! </p>
 
         <marker id="handle_agent"></marker>
       </desc>

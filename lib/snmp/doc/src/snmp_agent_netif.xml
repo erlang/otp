@@ -36,7 +36,7 @@
   <image file="snmp_agent_netif_1.gif">
     <icaption>The Purpose of Agent Net if</icaption>
   </image>
-  <p>The Network Interface (Net if) process delivers SNMP PDUs to a
+  <p>The Network Interface (Net If) process delivers SNMP PDUs to a
     master agent, and receives SNMP PDUs from the master agent. The most
     common behaviour of a Net if process is that is receives bytes from
     a network, decodes them into an SNMP PDU, which it sends to a master
@@ -70,7 +70,7 @@
     <marker id="messages"></marker>
     <title>Messages</title>
     <p>The section <em>Messages</em> describes mandatory messages, which
-      Net if must send and be able to receive.     
+      Net If must send and be able to receive.     
       </p>
     <p>In this section an <c>Address</c> field is a
     <c>{Domain, Addr}</c> tuple where <c>Domain</c> is
