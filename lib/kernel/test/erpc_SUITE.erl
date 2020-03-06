@@ -817,7 +817,7 @@ multicall(Config) ->
     end,
 
     try
-        erpc:multicall(Nodes, fun (X) -> erlang:node() end),
+        erpc:multicall(Nodes, fun (X) -> X end),
         ct:fail(unexpected)
     catch
         error:{erpc, badarg} ->
@@ -831,6 +831,87 @@ multicall(Config) ->
      {ok, Node4},
      {ok, Node5}]
         = erpc:multicall(Nodes, erlang, node, []),
+
+    [{ok, ThisNode},
+     {ok, Node1},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {ok, Node4},
+     {ok, Node5}]
+        = erpc:multicall(Nodes, erlang, node, [], 60000),
+
+    [{throw, ThisNode},
+     {throw, Node1},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {throw, Node4},
+     {throw, Node5}]
+        = erpc:multicall(Nodes, fun () -> throw(erlang:node()) end),
+
+    [{throw, ThisNode},
+     {throw, Node1},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {throw, Node4},
+     {throw, Node5}]
+        = erpc:multicall(Nodes,  fun () -> throw(erlang:node()) end, 60000),
+
+    S0 = erlang:monotonic_time(millisecond),
+    [{error, {erpc, timeout}},
+     {error, {erpc, timeout}},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {error, {erpc, timeout}},
+     {error, {erpc, timeout}},
+     {error, {erpc, timeout}},
+     {error, {erpc, timeout}},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {error, {erpc, timeout}},
+     {error, {erpc, timeout}}]
+        = erpc:multicall(Nodes++Nodes, timer, sleep, [2000], 500),
+    E0 = erlang:monotonic_time(millisecond),
+    T0 = E0 - S0,
+    io:format("T0=~p~n", [T0]),
+    true = T0 < 1000,
+
+    S1 = erlang:monotonic_time(millisecond),
+    [{ok, ok},
+     {ok, ok},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {ok, ok},
+     {ok, ok},
+     {ok, ok},
+     {ok, ok},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {ok, ok},
+     {ok, ok}]
+        = erpc:multicall(Nodes++Nodes, timer, sleep, [2000]),
+    E1 = erlang:monotonic_time(millisecond),
+    T1 = E1 - S1,
+    io:format("T1=~p~n", [T1]),
+    true = T1 < 3000,
+
+    S2 = erlang:monotonic_time(millisecond),
+    [{ok, ok},
+     {ok, ok},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {ok, ok},
+     {ok, ok},
+     {ok, ok},
+     {ok, ok},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {ok, ok},
+     {ok, ok}]
+        = erpc:multicall(Nodes++Nodes, timer, sleep, [2000], 3000),
+    E2 = erlang:monotonic_time(millisecond),
+    T2 = E2 - S2,
+    io:format("T2=~p~n", [T2]),
+    true = T2 < 3000,
 
     [{ok, ThisNode},
      {ok, Node1},
@@ -851,6 +932,20 @@ multicall(Config) ->
      {error, {erpc, noconnection}},
      Node3Res,
      {ok, Node4},
+     {ok, Node5},
+     {ok, ThisNode},
+     {ok, Node1},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {ok, Node4},
+     {ok, Node5}]
+        = erpc:multicall(Nodes++Nodes, erlang, node, [], 60000),
+
+    [{ok, ThisNode},
+     {ok, Node1},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {ok, Node4},
      {ok, Node5}]
         = erpc:multicall(Nodes, fun () -> erlang:node() end),
     
@@ -861,6 +956,14 @@ multicall(Config) ->
      BlingError,
      BlingError]
         = erpc:multicall(Nodes, ?MODULE, call_func2, [bling]),
+
+    [BlingError,
+     BlingError,
+     {error, {erpc, noconnection}},
+     Node3Res,
+     BlingError,
+     BlingError]
+        = erpc:multicall(Nodes, ?MODULE, call_func2, [bling], 60000),
 
     {error, {exception,
              bling,
@@ -875,6 +978,14 @@ multicall(Config) ->
      {error, {exception, blong, [{erlang, error, [blong], _}]}},
      {error, {exception, blong, [{erlang, error, [blong], _}]}}]
         = erpc:multicall(Nodes, erlang, error, [blong]),
+
+    [{error, {exception, blong, [{erlang, error, [blong], _}]}},
+     {error, {exception, blong, [{erlang, error, [blong], _}]}},
+     {error, {erpc, noconnection}},
+     Node3Res,
+     {error, {exception, blong, [{erlang, error, [blong], _}]}},
+     {error, {exception, blong, [{erlang, error, [blong], _}]}}]
+        = erpc:multicall(Nodes, erlang, error, [blong], 60000),
 
     SlowNode4 = fun () ->
                         case node() of
