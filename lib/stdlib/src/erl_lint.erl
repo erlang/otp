@@ -31,7 +31,10 @@
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
--import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
+-import(lists, [all/2,any/2,
+                foldl/3,foldr/3,
+                map/2,mapfoldl/3,member/2,
+                reverse/1]).
 
 %% Removed functions
 
@@ -215,6 +218,9 @@ format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~tw/~w has wrong arity (must be 0)", [F,A]);
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
+format_error(nif_inline) ->
+    "inlining is enabled - local calls to NIFs may call their Erlang "
+    "implementation instead";
 
 format_error(export_all) ->
     "export_all flag enabled - all functions will be exported";
@@ -611,6 +617,9 @@ start(File, Opts) ->
 		      false, Opts)},
          {removed,
           bool_option(warn_removed, nowarn_removed,
+                      true, Opts)},
+         {nif_inline,
+          bool_option(warn_nif_inline, nowarn_nif_inline,
                       true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
@@ -3858,7 +3867,29 @@ has_wildcard_field([]) -> false.
 check_remote_function(Line, M, F, As, St0) ->
     St1 = deprecated_function(Line, M, F, As, St0),
     St2 = check_qlc_hrl(Line, M, F, As, St1),
-    format_function(Line, M, F, As, St2).
+    St3 = check_load_nif(Line, M, F, As, St2),
+    format_function(Line, M, F, As, St3).
+
+%% check_load_nif(Line, ModName, FuncName, [Arg], State) -> State
+%%  Add warning if erlang:load_nif/2 is called when any kind of inlining has
+%%  been enabled.
+check_load_nif(Line, erlang, load_nif, [_, _], St) ->
+    case is_warn_enabled(nif_inline, St) of
+        true -> check_nif_inline(Line, St);
+        false -> St
+    end;
+check_load_nif(_Line, _ModName, _FuncName, _Args, St) ->
+    St.
+
+check_nif_inline(Line, St) ->
+    case any(fun is_inline_opt/1, St#lint.compile) of
+        true -> add_warning(Line, nif_inline, St);
+        false -> St
+    end.
+
+is_inline_opt({inline, [_|_]=_FAs}) -> true;
+is_inline_opt(inline) -> true;
+is_inline_opt(_) -> false.
 
 %% check_qlc_hrl(Line, ModName, FuncName, [Arg], State) -> State
 %%  Add warning if qlc:q/1,2 has been called but qlc.hrl has not
