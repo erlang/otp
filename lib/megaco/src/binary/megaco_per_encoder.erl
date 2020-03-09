@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2000-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2000-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -64,9 +64,7 @@
 %% Return {ok, Version} | {error, Reason}
 %%----------------------------------------------------------------------
 
-version_of([{version3,v3}|EC], Binary) ->
-    Decoders = [?V1_ASN1_MOD, ?V2_ASN1_MOD, ?V3_ASN1_MOD],
-    ?BIN_LIB:version_of(EC, Binary, 1, Decoders);
+%% <DEPRECATED>
 version_of([{version3,prev3c}|EC], Binary) ->
     Decoders = [?V1_ASN1_MOD, ?V2_ASN1_MOD, ?PREV3C_ASN1_MOD],
     ?BIN_LIB:version_of(EC, Binary, 1, Decoders);
@@ -76,6 +74,14 @@ version_of([{version3,prev3b}|EC], Binary) ->
 version_of([{version3,prev3a}|EC], Binary) ->
     Decoders = [?V1_ASN1_MOD, ?V2_ASN1_MOD, ?PREV3A_ASN1_MOD],
     ?BIN_LIB:version_of(EC, Binary, 1, Decoders);
+%% </DEPRECATED>
+
+%% <BACKWARD-COMPAT-CLAUSE>
+version_of([{version3,v3}|EC], Binary) ->
+    Decoders = [?V1_ASN1_MOD, ?V2_ASN1_MOD, ?V3_ASN1_MOD],
+    ?BIN_LIB:version_of(EC, Binary, 1, Decoders);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 version_of(EC, Binary) ->
     Decoders = [?V1_ASN1_MOD, ?V2_ASN1_MOD, ?V3_ASN1_MOD],
     ?BIN_LIB:version_of(EC, Binary, 1, Decoders).
@@ -93,10 +99,13 @@ encode_message(EC,
 
 %% -- Version 1 --
 
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_message([{version3,_}|EC], 1, MegaMsg) ->
     AsnMod   = ?V1_ASN1_MOD, 
     TransMod = ?V1_TRANS_MOD,
     ?BIN_LIB:encode_message(EC, MegaMsg, AsnMod, TransMod, io_list);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_message(EC, 1, MegaMsg) ->
     AsnMod   = ?V1_ASN1_MOD,
     TransMod = ?V1_TRANS_MOD,
@@ -105,10 +114,13 @@ encode_message(EC, 1, MegaMsg) ->
 
 %% -- Version 2 --
 
+%% <BACKWARD-COMPAT-CLAUSE>
 encode_message([{version3,_}|EC], 2, MegaMsg) ->
     AsnMod   = ?V2_ASN1_MOD, 
     TransMod = ?V2_TRANS_MOD,
     ?BIN_LIB:encode_message(EC, MegaMsg, AsnMod, TransMod, io_list);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_message(EC, 2, MegaMsg) ->
     AsnMod   = ?V2_ASN1_MOD,
     TransMod = ?V2_TRANS_MOD,
@@ -117,10 +129,7 @@ encode_message(EC, 2, MegaMsg) ->
 
 %% -- Version 3 --
 
-encode_message([{version3,v3}|EC], 3, MegaMsg) ->
-    AsnMod   = ?V3_ASN1_MOD, 
-    TransMod = ?V3_TRANS_MOD,
-    ?BIN_LIB:encode_message(EC, MegaMsg, AsnMod, TransMod, io_list);
+%% <DEPRECATED>
 encode_message([{version3,prev3c}|EC], 3, MegaMsg) ->
     AsnMod   = ?PREV3C_ASN1_MOD, 
     TransMod = ?PREV3C_TRANS_MOD,
@@ -133,6 +142,15 @@ encode_message([{version3,prev3a}|EC], 3, MegaMsg) ->
     AsnMod   = ?PREV3A_ASN1_MOD, 
     TransMod = ?PREV3A_TRANS_MOD,
     ?BIN_LIB:encode_message(EC, MegaMsg, AsnMod, TransMod, io_list);
+%% </DEPRECATED>
+
+%% <BACKWARD-COMPAT-CLAUSE>
+encode_message([{version3,v3}|EC], 3, MegaMsg) ->
+    AsnMod   = ?V3_ASN1_MOD, 
+    TransMod = ?V3_TRANS_MOD,
+    ?BIN_LIB:encode_message(EC, MegaMsg, AsnMod, TransMod, io_list);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 encode_message(EC, 3, MegaMsg) ->
     AsnMod   = ?V3_ASN1_MOD,
     TransMod = ?V3_TRANS_MOD,
@@ -245,10 +263,13 @@ decode_message(EC, dynamic, Binary) ->
 
 %% -- Version 1 --
 
+%% <BACKWARD-COMPAT-CLAUSE>
 decode_message([{version3,_}|EC], 1, Binary) ->
     AsnMod   = ?V1_ASN1_MOD, 
     TransMod = ?V1_TRANS_MOD, 
     ?BIN_LIB:decode_message(EC, Binary, AsnMod, TransMod, io_list);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 decode_message(EC, 1, Binary) ->
     AsnMod   = ?V1_ASN1_MOD, 
     TransMod = ?V1_TRANS_MOD, 
@@ -256,10 +277,13 @@ decode_message(EC, 1, Binary) ->
 
 %% -- Version 2 --
 
+%% <BACKWARD-COMPAT-CLAUSE>
 decode_message([{version3,_}|EC], 2, Binary) ->
     AsnMod   = ?V2_ASN1_MOD, 
     TransMod = ?V2_TRANS_MOD, 
     ?BIN_LIB:decode_message(EC, Binary, AsnMod, TransMod, io_list);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 decode_message(EC, 2, Binary) ->
     AsnMod   = ?V2_ASN1_MOD, 
     TransMod = ?V2_TRANS_MOD, 
@@ -267,10 +291,7 @@ decode_message(EC, 2, Binary) ->
 
 %% -- Version 3 --
 
-decode_message([{version3,v3}|EC], 3, Binary) ->
-    AsnMod   = ?V3_ASN1_MOD, 
-    TransMod = ?V3_TRANS_MOD, 
-    ?BIN_LIB:decode_message(EC, Binary, AsnMod, TransMod, io_list);
+%% <DEPRECATED>
 decode_message([{version3,prev3c}|EC], 3, Binary) ->
     AsnMod   = ?PREV3C_ASN1_MOD, 
     TransMod = ?PREV3C_TRANS_MOD, 
@@ -283,6 +304,15 @@ decode_message([{version3,prev3a}|EC], 3, Binary) ->
     AsnMod   = ?PREV3A_ASN1_MOD, 
     TransMod = ?PREV3A_TRANS_MOD, 
     ?BIN_LIB:decode_message(EC, Binary, AsnMod, TransMod, io_list);
+%% </DEPRECATED>
+
+%% <BACKWARD-COMPAT-CLAUSE>
+decode_message([{version3,v3}|EC], 3, Binary) ->
+    AsnMod   = ?V3_ASN1_MOD, 
+    TransMod = ?V3_TRANS_MOD, 
+    ?BIN_LIB:decode_message(EC, Binary, AsnMod, TransMod, io_list);
+%% </BACKWARD-COMPAT-CLAUSE>
+
 decode_message(EC, 3, Binary) ->
     AsnMod   = ?V3_ASN1_MOD,
     TransMod = ?V3_TRANS_MOD,

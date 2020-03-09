@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2005-2016. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,11 @@
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Transform internal form of Megaco/H.248 messages
+%%
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%
 %%----------------------------------------------------------------------
 
 -module(megaco_binary_transformer_prev3c).
@@ -31,6 +36,7 @@
 -include_lib("megaco/src/app/megaco_internal.hrl").
 
 -export([tr_message/3, tr_transaction/3]).
+
 
 -define(DEFAULT_NAME_RESOLVER, megaco_binary_name_resolver_prev3c).
 
