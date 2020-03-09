@@ -41,7 +41,7 @@
 -include("core_parse.hrl").
 
 -import(lists, [member/2,reverse/1,reverse/2,keyfind/3,last/1,
-		map/2,flatmap/2,foreach/2,foldr/3,any/2]).
+		map/2,flatmap/2,flatten/1,foreach/2,foldr/3,any/2]).
 
 -define(SUB_PASS_TIMES, compile__sub_pass_times).
 
@@ -786,11 +786,15 @@ standard_passes() ->
 
      {iff,'dpp',{listing,"pp"}},
      ?pass(lint_module),
+
+     %% Add all -compile() directives to #compile.options
+     ?pass(compile_directives),
+
      {iff,'P',{src_listing,"P"}},
      {iff,'to_pp',{done,"P"}},
 
      {iff,'dabstr',{listing,"abstr"}},
-     {iff,debug_info,?pass(save_abstract_code)},
+     {delay,[{iff,debug_info,?pass(save_abstract_code)}]},
 
      ?pass(expand_records),
      {iff,'dexp',{listing,"expand"}},
@@ -1435,9 +1439,11 @@ expand_records(Code0, #compile{options=Opts}=St) ->
     Code = erl_expand_records:module(Code0, Opts),
     {ok,Code,St}.
 
-core(Forms, #compile{options=Opts0}=St) ->
-    Opts1 = lists:flatten([C || {attribute,_,compile,C} <- Forms] ++ Opts0),
-    Opts = expand_opts(Opts1),
+compile_directives(Forms, #compile{options=Opts0}=St) ->
+    Opts = expand_opts(flatten([C || {attribute,_,compile,C} <- Forms])),
+    {ok, Forms, St#compile{options=Opts ++ Opts0}}.
+
+core(Forms, #compile{options=Opts}=St) ->
     {ok,Core,Ws} = v3_core:module(Forms, Opts),
     Mod = cerl:concrete(cerl:module_name(Core)),
     {ok,Core,St#compile{module=Mod,options=Opts,
@@ -1492,17 +1498,8 @@ core_inline_module(Code0, #compile{options=Opts}=St) ->
 save_abstract_code(Code, St) ->
     {ok,Code,St#compile{abstract_code=erl_parse:anno_to_term(Code)}}.
 
-debug_info(#compile{module=Module,mod_options=Opts0,ofile=OFile,abstract_code=Abst}) ->
-    AbstOpts = cleanup_compile_options(Opts0),
-    Opts1 = proplists:delete(debug_info, Opts0),
-    {Backend,Metadata,Opts2} =
-	case proplists:get_value(debug_info, Opts0, false) of
-	    {OptBackend,OptMetadata} when is_atom(OptBackend) -> {OptBackend,OptMetadata,Opts1};
-	    false -> {erl_abstract_code,{none,AbstOpts},Opts1};
-	    true -> {erl_abstract_code,{Abst,AbstOpts},[debug_info | Opts1]}
-	end,
-    DebugInfo = erlang:term_to_binary({debug_info_v1,Backend,Metadata}, [compressed]),
-
+debug_info(#compile{module=Module,ofile=OFile}=St) ->
+    {DebugInfo,Opts2} = debug_info_chunk(St),
     case member(encrypt_debug_info, Opts2) of
 	true ->
 	    case lists:keytake(debug_info_key, 1, Opts2) of
@@ -1520,6 +1517,25 @@ debug_info(#compile{module=Module,mod_options=Opts0,ofile=OFile,abstract_code=Ab
 	false ->
 	    {ok,DebugInfo,Opts2}
     end.
+
+debug_info_chunk(#compile{mod_options=ModOpts0,
+                          options=CompOpts,
+                          abstract_code=Abst}) ->
+    AbstOpts = cleanup_compile_options(ModOpts0),
+    {Backend,Metadata,ModOpts} =
+        case proplists:get_value(debug_info, CompOpts, false) of
+            {OptBackend,OptMetadata} when is_atom(OptBackend) ->
+                ModOpts1 = proplists:delete(debug_info, ModOpts0),
+                {OptBackend,OptMetadata,ModOpts1};
+            true ->
+                ModOpts1 = proplists:delete(debug_info, ModOpts0),
+                {erl_abstract_code,{Abst,AbstOpts},[debug_info | ModOpts1]};
+            false ->
+                {erl_abstract_code,{none,AbstOpts},ModOpts0}
+        end,
+    DebugInfo = erlang:term_to_binary({debug_info_v1,Backend,Metadata},
+                                      [compressed]),
+    {DebugInfo, ModOpts}.
 
 encrypt_debug_info(DebugInfo, Key, Opts) ->
     try
