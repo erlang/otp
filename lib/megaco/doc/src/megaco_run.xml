@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -324,15 +324,16 @@
   <section>
     <marker id="segment_reply"></marker>
     <title>Segmentation of transaction replies</title>
-    <p>In version 3 of the megaco standard the Segmentation package was
-      introduced. Simply, this package defines a procedure to segment 
-      megaco messages (transaction replies) when using a transport that 
-      does not automatically do this (e.g. UDP). See also
-      <seealso marker="megaco_encode#handling_versions">version3</seealso>.</p>
+    <p>In version 3 of the megaco standard, the concept of
+    <c>segmentation package</c> was introduced.
+    Simply, this package defines a procedure to segment 
+    megaco messages (transaction replies) when using a transport that 
+    does not automatically do this (e.g. UDP). See also
+    <seealso marker="megaco_encode#handling_versions">version3</seealso>.</p>
     <p>Although it would be both pointless and counterproductive to use
-      segmentation on a transport that already does this (e.g. TCP), the 
-      megaco application does not check this. Instead, it is up to the 
-      user to configure this properly. </p>
+    segmentation on a transport that already does this (e.g. TCP), the 
+    megaco application does not check this. Instead, it is up to the 
+    user to configure this properly. </p>
     <list type="bulleted">
       <item>
         <p>Receiving segmented messages: </p>
