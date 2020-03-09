@@ -452,6 +452,15 @@ my_multicall(Nodes, Module, Function, Args) ->
 	  with the calling process, such communication may, of
 	  course, reach the calling process.
 	</p>
+
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be the calling process itself, a server, or a freshly
+	    spawned process.
+	  </p>
+	</note>
       </desc>
       
     </func>
@@ -586,6 +595,13 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	  <item><p><c><anno>Fun</anno></c> is not a fun of
 	  zero arity.</p></item>
 	</list>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be a server, or a freshly spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
     

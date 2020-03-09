@@ -120,6 +120,14 @@
             must be called by the same process from which this function
             was made otherwise they will never yield correctly.</p>
         </note>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be an <c>rpc</c> server, another server, or a freshly
+	    spawned process.
+	  </p>
+	</note>
       </desc>
     </func>
 
@@ -366,6 +374,14 @@
 	    you may want to consider using the
 	    <seealso marker="erpc#multicall/4"><c>erpc:multicall()</c></seealso>
 	    function from the <c>erpc</c> module instead.
+	  </p>
+	</note>
+	<note>
+	  <p>
+	    You cannot make <em>any</em> assumptions about the
+	    process that will perform the <c>apply()</c>. It may
+	    be the calling process itself, an <c>rpc</c> server,
+	    another server, or a freshly spawned process.
 	  </p>
 	</note>
       </desc>
