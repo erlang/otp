@@ -128,6 +128,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     struct trace_pattern_flags flags = erts_trace_pattern_flags_off;
     int is_global;
     ErtsTracer meta_tracer = erts_tracer_nil;
+    Uint freason = BADARG;
 
     if (!erts_try_seize_code_write_permission(p)) {
 	ERTS_BIF_YIELD3(&bif_trap_export[BIF_erts_internal_trace_pattern_3], p, MFA, Pattern, flaglist);
@@ -152,7 +153,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	match_prog_set = NULL;
 	on = ERTS_BREAK_PAUSE;
     } else {
-	match_prog_set = erts_match_set_compile(p, Pattern, MFA);
+	match_prog_set = erts_match_set_compile(p, Pattern, MFA, &freason);
 	if (match_prog_set) {
 	    MatchSetRef(match_prog_set);
 	    on = 1;
@@ -355,7 +356,7 @@ trace_pattern(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	return make_small(matches);
     }
     else {
-	BIF_ERROR(p, BADARG);    
+	BIF_ERROR(p, freason);    
     }
 }
 
