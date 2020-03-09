@@ -39,7 +39,9 @@ all() ->
     ].
 
 all_protocol_groups() ->
-    [{group, 'tlsv1.2'},
+    [
+     {group, 'tlsv1.3'},
+     {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
      {group, 'dtlsv1.2'},
@@ -52,6 +54,7 @@ groups() ->
     [
      {openssl_server, all_protocol_groups()},
      {openssl_client, all_protocol_groups()},
+     {'tlsv1.3', [], tls_1_3_kex()},
      {'tlsv1.2', [], kex()},
      {'tlsv1.1', [], kex()},
      {'tlsv1', [], kex()},
@@ -69,6 +72,7 @@ groups() ->
                       ecdhe_rsa_aes_256_gcm,
                       ecdhe_rsa_chacha20_poly1305
                     ]},
+     {ecdhe_1_3_rsa_cert, [], tls_1_3_cipher_suites()},
      {ecdhe_ecdsa, [],[ecdhe_ecdsa_rc4_128, 
                        ecdhe_ecdsa_3des_ede_cbc, 
                        ecdhe_ecdsa_aes_128_cbc,
@@ -134,6 +138,15 @@ groups() ->
      %%                 ecdhe_psk_aes_128_ccm_8,
      %%                 ecdhe_psk_aes_256_cbc
      %%           ]}
+    ].
+tls_1_3_kex() ->
+    [{group, ecdhe_1_3_rsa_cert}].
+
+tls_1_3_cipher_suites() ->
+    [aes_256_gcm_sha384,
+     aes_128_gcm_sha256,
+     chacha20_poly1305_sha256,
+     aes_128_ccm_sha256
     ].
 
 kex() ->
@@ -229,7 +242,8 @@ do_init_per_group(openssl_server, Config0) ->
     [{client_type, erlang}, {server_type, openssl} | Config];    
 do_init_per_group(GroupName, Config) when GroupName == ecdh_anon;
                                        GroupName == ecdhe_rsa;
-                                       GroupName == ecdhe_psk ->
+                                       GroupName == ecdhe_psk;
+                                       GroupName ==  ecdhe_1_3_rsa_cert->
     case proplists:get_bool(ecdh, proplists:get_value(public_keys, crypto:supports())) of
         true ->
             init_certs(GroupName, Config);
@@ -358,6 +372,52 @@ init_per_testcase(TestCase, Config) when TestCase == psk_aes_256_ccm_8;
         _ ->
             {skip, "Missing AES_256_CCM crypto support"}
     end;
+init_per_testcase(aes_256_gcm_sha384, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(aes_256_gcm, SupCiphers)) andalso
+        (lists:member(sha384, SupHashs)) of
+        true ->
+            ct:timetrap(?DEFAULT_TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_256_GCM crypto support"}
+    end;
+init_per_testcase(aes_128_gcm_sha256, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case lists:member(aes_128_gcm, SupCiphers) andalso
+        (lists:member(sha256, SupHashs)) of
+        true ->
+            ct:timetrap(?DEFAULT_TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_128_GCM crypto support"}
+    end;
+
+init_per_testcase(chacha20_poly1305_sha256, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(chacha20_poly1305, SupCiphers)) andalso
+        (lists:member(sha256, SupHashs)) of
+        true ->
+            ct:timetrap(?DEFAULT_TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing CHACHA20_POLY1305 crypto support"}
+    end;
+init_per_testcase(aes_128_ccm_sha256, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(aes_128_ccm, SupCiphers)) andalso
+        (lists:member(sha256, SupHashs)) of
+        true ->
+            ct:timetrap(?DEFAULT_TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_128_CCM crypto support"}
+    end;
+
 init_per_testcase(TestCase, Config) ->
     Cipher = ssl_test_lib:test_cipher(TestCase, Config),
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
@@ -430,6 +490,15 @@ init_certs(GroupName, Config) when GroupName == dhe_rsa;
     [{tls_config, #{server_config => ServerOpts,
                     client_config => ClientOpts}} |
      proplists:delete(tls_config, Config)];
+init_certs(ecdhe_1_3_rsa_cert, Config) ->
+    {ClientOpts, ServerOpts} = ssl_test_lib:make_rsa_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
+                                                                  {client_chain, ssl_test_lib:default_cert_chain_conf()}],
+                                                                 Config, ""),
+    [{tls_config, #{server_config => ServerOpts,
+                    client_config => ClientOpts}} |
+     proplists:delete(tls_config, Config)];
+
+
 init_certs(GroupName, Config) when GroupName == dhe_ecdsa;
                                    GroupName == ecdhe_ecdsa ->
     {ClientOpts, ServerOpts} = ssl_test_lib:make_ecc_cert_chains([{server_chain, ssl_test_lib:default_cert_chain_conf()},
@@ -458,6 +527,17 @@ init_certs(_GroupName, Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
+aes_256_gcm_sha384(Config) when is_list(Config)->
+    run_ciphers_test(ecdhe_rsa, 'aes_256_gcm', Config).
+
+aes_128_gcm_sha256(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_rsa, 'aes_128_gcm', Config).
+
+chacha20_poly1305_sha256(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_rsa, 'chacha20_poly1305', Config).
+
+aes_128_ccm_sha256(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_rsa, 'aes_128_ccm', Config).
 
 %%--------------------------------------------------------------------
 %% SRP --------------------------------------------------------
@@ -779,14 +859,15 @@ cipher_suite_test(CipherSuite, _Version, Config) ->
 
 test_ciphers(Kex, Cipher, Version) ->
     Ciphers = ssl:filter_cipher_suites(ssl:cipher_suites(default, Version) ++ ssl:cipher_suites(anonymous, Version), 
-                             [{key_exchange, 
-                               fun(Kex0) when Kex0 == Kex -> true; 
-                                  (_) -> false 
-                               end}, 
-                              {cipher,  
-                               fun(Cipher0) when Cipher0 == Cipher -> true; 
-                                  (_) -> false 
-                               end}]),
+                                       [{key_exchange,
+                                         fun(Kex0) when (Kex0 == Kex) andalso (Version =/= 'tlsv1.3') -> true;
+                                            (Kex0) when (Kex0 == any) andalso (Version == 'tlsv1.3') -> true;
+                                            (_) -> false
+                                         end},
+                                        {cipher,
+                                         fun(Cipher0) when Cipher0 == Cipher -> true;
+                                            (_) -> false
+                                         end}]),
     ct:log("Version ~p Testing  ~p~n", [Version, Ciphers]),
     OpenSSLCiphers = openssl_ciphers(),
     ct:log("OpenSSLCiphers ~p~n", [OpenSSLCiphers]),
