@@ -585,7 +585,7 @@
       <name name="engine_key_ref"/>
       <name name="engine_ref"/>
       <desc>
-	<p>The result of a call to <seealso marker="#engine_load-3">engine_load/3</seealso>.
+	<p>The result of a call to <seealso marker="#engine_load/3">engine_load/3</seealso>.
 	</p>
       </desc>
     </datatype>
@@ -614,7 +614,7 @@
     <datatype>
       <name name="engine_cmnd"/>
       <desc>
-	<p>Pre and Post commands for <seealso marker="#engine_load-3">engine_load/3 and /4</seealso>.
+	<p>Pre and Post commands for <seealso marker="#engine_load/3">engine_load/3 and /4</seealso>.
 	</p>
       </desc>
     </datatype>
@@ -644,7 +644,7 @@
 	<p>The exception <c>error:notsup</c> signifies that the algorithm is known but is not supported
 	by current underlying libcrypto or explicitly disabled when building that.
 	</p>
-	<p>For a list of supported algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	<p>For a list of supported algorithms, see <seealso marker="#supports/0">supports/0</seealso>.
 	</p>
       </desc>
     </datatype>
@@ -917,7 +917,7 @@
       <desc>
         <p> Can be used to determine which crypto algorithms that are supported
 	by the underlying libcrypto library</p>
-	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
+	<p>See <seealso marker="#hash_info/1">hash_info/1</seealso> and <seealso marker="#cipher_info/1">cipher_info/1</seealso>
 	for information about the hash and cipher algorithms.
 	</p>
       </desc>
@@ -927,7 +927,7 @@
       <name name="mac" arity="3" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
-        <p>Short for <seealso marker="#mac-4">mac(Type, undefined, Key, Data)</seealso>.
+        <p>Short for <seealso marker="#mac/4">mac(Type, undefined, Key, Data)</seealso>.
 	</p>
       </desc>
     </func>
@@ -949,7 +949,7 @@
 	  <seealso marker="algorithm_details#cmac">Algorithm Details</seealso> in the User's Guide.
 	  </item>
 	  <item>For <c>poly1305</c> it should be set to <c>undefined</c> or the
-	  <seealso marker="#mac_init-2">mac/2</seealso> function could be used instead, see
+	  <seealso marker="#mac_init/2">mac/2</seealso> function could be used instead, see
 	  <seealso marker="algorithm_details#poly1305">Algorithm Details</seealso> in the User's Guide.
 	  </item>
 	</list>
@@ -957,15 +957,15 @@
 	<p><c>Key</c> is the authentication key with a length according to the
 	<c>Type</c> and <c>SubType</c>.
 	The key length could be found with the
-	<seealso marker="#hash_info-1">hash_info/1</seealso> (<c>hmac</c>) for and
-	<seealso marker="#cipher_info-1">cipher_info/1</seealso> (<c>cmac</c>)
+	<seealso marker="#hash_info/1">hash_info/1</seealso> (<c>hmac</c>) for and
+	<seealso marker="#cipher_info/1">cipher_info/1</seealso> (<c>cmac</c>)
 	functions. For <c>poly1305</c> the key length is 32 bytes. Note that
 	the cryptographic quality of the key is not checked.
 	</p>
 
 	<p>The <c>Mac</c> result will have a default length depending on the <c>Type</c> and <c>SubType</c>.
-	To set a shorter length, use <seealso marker="#macN-4">macN/4</seealso> or
-	<seealso marker="#macN-5">macN/5</seealso> instead.
+	To set a shorter length, use <seealso marker="#macN/4">macN/4</seealso> or
+	<seealso marker="#macN/5">macN/5</seealso> instead.
 	The default length is documented in
 	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
 	in the User's Guide.
@@ -977,7 +977,7 @@
       <name name="macN" arity="4" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
-        <p>Short for <seealso marker="#macN-5">macN(Type, undefined, Key, Data, MacLength)</seealso>.
+        <p>Short for <seealso marker="#macN/5">macN(Type, undefined, Key, Data, MacLength)</seealso>.
 	</p>
       </desc>
     </func>
@@ -987,7 +987,7 @@
       <fsummary></fsummary>
       <desc>
         <p>Computes a MAC (Message Authentication Code)
-	as <seealso marker="#mac-3">mac/3</seealso> and <seealso marker="#mac-4">mac/4</seealso> but
+	as <seealso marker="#mac/3">mac/3</seealso> and <seealso marker="#mac/4">mac/4</seealso> but
 	<c>MacLength</c> will limit the size of the resultant <c>Mac</c> to
 	at most <c>MacLength</c> bytes.
 	Note that if <c>MacLength</c> is greater than the actual number of
@@ -1005,7 +1005,7 @@
       <name name="mac_init" arity="2" since="OTP 22.1"/>
       <fsummary></fsummary>
       <desc>
-        <p>Short for <seealso marker="#mac_init-3">mac_init(Type, undefined, Key)</seealso>.
+        <p>Short for <seealso marker="#mac_init/3">mac_init(Type, undefined, Key)</seealso>.
 	</p>
       </desc>
     </func>
@@ -1029,7 +1029,7 @@
 	  <seealso marker="algorithm_details#cmac">Algorithm Details</seealso> in the User's Guide.
 	  </item>
 	  <item>For <c>poly1305</c> it should be set to <c>undefined</c> or the
-	  <seealso marker="#mac_init-2">mac/2</seealso> function could be used instead, see
+	  <seealso marker="#mac_init/2">mac/2</seealso> function could be used instead, see
 	  <seealso marker="algorithm_details#poly1305">Algorithm Details</seealso> in the User's Guide.
 	  </item>
 	</list>
@@ -1037,17 +1037,17 @@
 	<p><c>Key</c> is the authentication key with a length according to the
 	<c>Type</c> and <c>SubType</c>.
 	The key length could be found with the
-	<seealso marker="#hash_info-1">hash_info/1</seealso> (<c>hmac</c>) for and
-	<seealso marker="#cipher_info-1">cipher_info/1</seealso> (<c>cmac</c>)
+	<seealso marker="#hash_info/1">hash_info/1</seealso> (<c>hmac</c>) for and
+	<seealso marker="#cipher_info/1">cipher_info/1</seealso> (<c>cmac</c>)
 	functions. For <c>poly1305</c> the key length is 32 bytes.  Note that
 	the cryptographic quality of the key is not checked.
 	</p>
 
 	<p>The returned <c>State</c> should be used in one or more subsequent calls to
-	<seealso marker="#mac_update-2">mac_update/2</seealso>.
+	<seealso marker="#mac_update/2">mac_update/2</seealso>.
 	The MAC value is finally returned by calling
-	<seealso marker="#mac_final-1">mac_final/1</seealso> or
-	<seealso marker="#mac_finalN-2">mac_finalN/2</seealso>.
+	<seealso marker="#mac_final/1">mac_final/1</seealso> or
+	<seealso marker="#mac_finalN/2">mac_finalN/2</seealso>.
 	</p>
 
 	<p>See <seealso marker="crypto:new_api#example-of-mac_init-mac_update-and-mac_final">
@@ -1064,8 +1064,8 @@
 	could be of any length.
 	</p>
 	<p>The <c>State0</c> is the State value originally from a MAC init function, that is
-	<seealso marker="#mac_init-2">mac_init/2</seealso>,
-	<seealso marker="#mac_init-3">mac_init/3</seealso> or
+	<seealso marker="#mac_init/2">mac_init/2</seealso>,
+	<seealso marker="#mac_init/3">mac_init/3</seealso> or
 	a previous call of <c>mac_update/2</c>.
 	The value <c>State0</c> is returned unchanged by the function as <c>State</c>.
         </p>
@@ -1078,8 +1078,8 @@
       <desc>
         <p>Finalizes the MAC operation referenced by <c>State</c>. The <c>Mac</c> result will have
 	a default length depending on the <c>Type</c> and <c>SubType</c> in the
-	<seealso marker="#mac_init-3">mac_init/2,3</seealso> call.
-	To set a shorter length, use <seealso marker="#mac_finalN-2">mac_finalN/2</seealso> instead.
+	<seealso marker="#mac_init/3">mac_init/2,3</seealso> call.
+	To set a shorter length, use <seealso marker="#mac_finalN/2">mac_finalN/2</seealso> instead.
 	The default length is documented in
 	<seealso marker="algorithm_details#message-authentication-codes--macs-">Algorithm Details</seealso>
 	in the User's Guide.
@@ -1125,7 +1125,7 @@
       <fsummary>Computes the shared secret</fsummary>
       <desc>
 	<p>Computes the shared secret from the private key and the other party's public key.
-	 See also <seealso marker="public_key:public_key#compute_key-2">public_key:compute_key/2</seealso>
+	 See also <seealso marker="public_key:public_key#compute_key/2">public_key:compute_key/2</seealso>
 	</p>
       </desc>
     </func>
@@ -1145,7 +1145,7 @@
       <fsummary>Generates a public key of type <c>Type</c></fsummary>
       <desc>
 	<p>Generates a public key of type <c>Type</c>.
-	See also <seealso marker="public_key:public_key#generate_key-1">public_key:generate_key/1</seealso>.
+	See also <seealso marker="public_key:public_key#generate_key/1">public_key:generate_key/1</seealso>.
 	May raise exception:
         </p>
         <list type="bulleted">
@@ -1177,7 +1177,7 @@
       <desc>
         <p>Initializes the context for streaming hash operations. <c>Type</c> determines
         which digest to use. The returned context should be used as argument
-	to <seealso marker="#hash_update-2">hash_update</seealso>.</p>
+	to <seealso marker="#hash_update/2">hash_update</seealso>.</p>
 	<p>May raise exception <c>error:notsup</c> in case the chosen <c>Type</c>
 	is not supported by the underlying libcrypto implementation.</p>
       </desc>
@@ -1188,10 +1188,10 @@
       <fsummary></fsummary>
       <desc>
         <p>Updates the digest represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
-        must have been generated using <seealso marker="#hash_init-1">hash_init</seealso>
+        must have been generated using <seealso marker="#hash_init/1">hash_init</seealso>
 	or a previous call to this function. <c>Data</c> can be any length. <c>NewContext</c>
         must be passed into the next call to <c>hash_update</c>
-	or <seealso marker="#hash_final-1">hash_final</seealso>.</p>
+	or <seealso marker="#hash_final/1">hash_final</seealso>.</p>
       </desc>
     </func>
 
@@ -1200,7 +1200,7 @@
       <fsummary></fsummary>
       <desc>
         <p>Finalizes the hash operation referenced by <c>Context</c> returned
-	from a previous call to <seealso marker="#hash_update-2">hash_update</seealso>.
+	from a previous call to <seealso marker="#hash_update/2">hash_update</seealso>.
 	The size of <c>Digest</c> is determined by the type of hash
 	function used to generate it.</p>
       </desc>
@@ -1216,13 +1216,13 @@
         running in FIPS mode) or <c>not_enabled</c>. For other builds
         this value is always <c>not_supported</c>.
 	</p>
-	<p>See <seealso marker="#enable_fips_mode-1">enable_fips_mode/1</seealso> about how to enable
+	<p>See <seealso marker="#enable_fips_mode/1">enable_fips_mode/1</seealso> about how to enable
 	FIPS mode.
 	</p>
         <warning>
           <p>In FIPS mode all non-FIPS compliant algorithms are
           disabled and raise exception <c>error:notsup</c>. Check
-          <seealso marker="#supports-0">supports</seealso> that in
+          <seealso marker="#supports/0">supports</seealso> that in
           FIPS mode returns the restricted list of available
           algorithms.</p>
         </warning>
@@ -1239,7 +1239,7 @@
 	<p>Note that to enable FIPS mode succesfully, OTP must be built with the configure option <c>--enable-fips</c>,
 	and the underlying libcrypto must also support FIPS.
 	</p>
-	<p>See also <seealso marker="#info_fips-0">info_fips/0</seealso>.
+	<p>See also <seealso marker="#info_fips/0">info_fips/0</seealso>.
 	</p>
       </desc>
     </func>
@@ -1272,7 +1272,7 @@
 	<p>Provides a map with information about block_size, size and possibly other properties of the
 	hash algorithm in question.
 	</p>
-	<p>For a list of supported hash algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	<p>For a list of supported hash algorithms, see <seealso marker="#supports/0">supports/0</seealso>.
 	</p>
       </desc>
     </func>
@@ -1293,7 +1293,7 @@
 	  <p>Always use a <c>Type</c> with an explicit key length,
 	  </p>
 	</note>
-	<p>For a list of supported cipher algorithms, see <seealso marker="#supports-0">supports/0</seealso>.
+	<p>For a list of supported cipher algorithms, see <seealso marker="#supports/0">supports/0</seealso>.
 	</p>
       </desc>
     </func>
@@ -1324,11 +1324,11 @@
       <fsummary>Decrypts CipherText using the private Key.</fsummary>
       <desc>
 	<p>Decrypts the <c>CipherText</c>, encrypted with
-	<seealso marker="#public_encrypt-4">public_encrypt/4</seealso> (or equivalent function)
+	<seealso marker="#public_encrypt/4">public_encrypt/4</seealso> (or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature  verification operation
 	used for instance by older versions of the SSL protocol.
-	  See also <seealso marker="public_key:public_key#decrypt_private-2">public_key:decrypt_private/[2,3]</seealso>
+	  See also <seealso marker="public_key:public_key#decrypt_private/2">public_key:decrypt_private/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -1341,7 +1341,7 @@
 	and returns the ciphertext. This is a low level signature operation
 	used for instance by older versions of the SSL protocol. See
 	also <seealso
-	marker="public_key:public_key#encrypt_private-2">public_key:encrypt_private/[2,3]</seealso>
+	marker="public_key:public_key#encrypt_private/2">public_key:encrypt_private/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -1351,11 +1351,11 @@
       <fsummary>Decrypts CipherText using the public Key.</fsummary>
       <desc>
 	<p>Decrypts the <c>CipherText</c>, encrypted with
-	<seealso marker="#private_encrypt-4">private_encrypt/4</seealso>(or equivalent function)
+	<seealso marker="#private_encrypt/4">private_encrypt/4</seealso>(or equivalent function)
 	  using the <c>PrivateKey</c>, and returns the
 	  plaintext (message digest). This is a low level signature verification operation
 	  used for instance by older versions of the SSL protocol.
-	  See also <seealso marker="public_key:public_key#decrypt_public-2">public_key:decrypt_public/[2,3]</seealso>
+	  See also <seealso marker="public_key:public_key#decrypt_public/2">public_key:decrypt_public/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -1367,7 +1367,7 @@
 	<p>Encrypts the <c>PlainText</c> (message digest) using the <c>PublicKey</c>
 	and returns the <c>CipherText</c>. This is a low level signature operation
 	used for instance by older versions of the SSL protocol. See also <seealso
-	marker="public_key:public_key#encrypt_public-2">public_key:encrypt_public/[2,3]</seealso>
+	marker="public_key:public_key#encrypt_public/2">public_key:encrypt_public/[2,3]</seealso>
 	</p>
       </desc>
     </func>
@@ -1438,8 +1438,8 @@
           (based on OpenSSL's <c>BN_rand_range</c>),
           and saves it in the process dictionary before returning it as well.
           See also
-	  <seealso marker="stdlib:rand#seed-1">rand:seed/1</seealso> and
-	  <seealso marker="#rand_seed_s-0">rand_seed_s/0</seealso>.
+	  <seealso marker="stdlib:rand#seed/1">rand:seed/1</seealso> and
+	  <seealso marker="#rand_seed_s/0">rand_seed_s/0</seealso>.
 	</p>
 	<p>
 	  When using the state object from this function the
@@ -1465,7 +1465,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
           in order to generate cryptographically strongly random numbers
           (based on OpenSSL's <c>BN_rand_range</c>).
           See also
-	  <seealso marker="stdlib:rand#seed_s-1">rand:seed_s/1</seealso>.
+	  <seealso marker="stdlib:rand#seed_s/1">rand:seed_s/1</seealso>.
 	</p>
 	<p>
 	  When using the state object from this function the
@@ -1504,8 +1504,8 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
           in order to generate cryptographically strong random numbers,
           and saves it in the process dictionary before returning it as well.
           See also
-	  <seealso marker="stdlib:rand#seed-1">rand:seed/1</seealso> and
-	  <seealso marker="#rand_seed_alg_s-1">rand_seed_alg_s/1</seealso>.
+	  <seealso marker="stdlib:rand#seed/1">rand:seed/1</seealso> and
+	  <seealso marker="#rand_seed_alg_s/1">rand_seed_alg_s/1</seealso>.
 	</p>
 	<p>
 	  When using the state object from this function the
@@ -1535,7 +1535,7 @@ _FloatValue = rand:uniform().     % [0.0; 1.0[</pre>
           in order to generate cryptographically unpredictable random numbers,
           and saves it in the process dictionary before returning it as well.
           See also
-	  <seealso marker="#rand_seed_alg_s-2">rand_seed_alg_s/2</seealso>.
+	  <seealso marker="#rand_seed_alg_s/2">rand_seed_alg_s/2</seealso>.
 	</p>
         <p><em>Example</em></p>
         <pre>
@@ -1562,11 +1562,11 @@ FloatValue = rand:uniform().     % again
 	  <seealso marker="stdlib:rand">random number generation</seealso>,
           in order to generate cryptographically strongly random numbers.
           See also
-	  <seealso marker="stdlib:rand#seed_s-1">rand:seed_s/1</seealso>.
+	  <seealso marker="stdlib:rand#seed_s/1">rand:seed_s/1</seealso>.
 	</p>
 	<p>
 	  If <c>Alg</c> is <c>crypto</c> this function behaves exactly like
-	  <seealso marker="#rand_seed_s-0">rand_seed_s/0</seealso>.
+	  <seealso marker="#rand_seed_s/0">rand_seed_s/0</seealso>.
 	</p>
 	<p>
 	  If <c>Alg</c> is <c>crypto_cache</c> this function
@@ -1626,7 +1626,7 @@ FloatValue = rand:uniform().     % again
 	  <seealso marker="stdlib:rand">random number generation</seealso>,
           in order to generate cryptographically unpredictable random numbers.
           See also
-	  <seealso marker="#rand_seed_alg-1">rand_seed_alg/1</seealso>.
+	  <seealso marker="#rand_seed_alg/1">rand_seed_alg/1</seealso>.
 	</p>
 	<p>
 	  To get a long period the Xoroshiro928 generator from the
@@ -1646,7 +1646,7 @@ FloatValue = rand:uniform().     % again
 	  <item>
 	    <p>
 	      If you need cryptographically strong random numbers use
-	      <seealso marker="#rand_seed_alg_s-1">rand_seed_alg_s/1</seealso>
+	      <seealso marker="#rand_seed_alg_s/1">rand_seed_alg_s/1</seealso>
 	      with <c>Alg =:= crypto</c> or <c>Alg =:= crypto_cache</c>.
 	    </p>
 	  </item>
@@ -1666,7 +1666,7 @@ FloatValue = rand:uniform().     % again
 	</list>
 	<p>
 	  Thanks to the used generator the state object supports the
-	  <seealso marker="stdlib:rand#jump-0"><c>rand:jump/0,1</c></seealso>
+	  <seealso marker="stdlib:rand#jump/0"><c>rand:jump/0,1</c></seealso>
 	  function with distance 2^512.
 	</p>
 	<p>
@@ -1706,7 +1706,7 @@ FloatValue = rand:uniform().     % again
 	digest (plaintext).</p>
 	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
-	<p>See also <seealso marker="public_key:public_key#sign-3">public_key:sign/3</seealso>.</p>
+	<p>See also <seealso marker="public_key:public_key#sign/3">public_key:sign/3</seealso>.</p>
       </desc>
     </func>
 
@@ -1722,7 +1722,7 @@ FloatValue = rand:uniform().     % again
 	<p>Algorithm <c>dss</c> can only be used together with digest type
 	<c>sha</c>.</p>
 
-	<p>See also <seealso marker="public_key:public_key#verify-4">public_key:verify/4</seealso>.</p>
+	<p>See also <seealso marker="public_key:public_key#verify/4">public_key:verify/4</seealso>.</p>
       </desc>
     </func>
 
@@ -2141,8 +2141,8 @@ FloatValue = rand:uniform().     % again
       <desc>
 	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
         <p>Initializes the state for use in RC4 stream encryption
-        <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
-        <seealso marker="#stream_decrypt-2">stream_decrypt</seealso></p>
+        <seealso marker="#stream_encrypt/2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt/2">stream_decrypt</seealso></p>
 	<p>For keylengths see the
 	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
 	</p>
@@ -2157,8 +2157,8 @@ FloatValue = rand:uniform().     % again
         <p>Initializes the state for use in streaming AES encryption using Counter mode (CTR).
         <c>Key</c> is the AES key and must be either 128, 192, or 256 bits long. <c>IVec</c> is
         an arbitrary initializing vector of 128 bits (16 bytes). This state is for use with
-        <seealso marker="#stream_encrypt-2">stream_encrypt</seealso> and
-        <seealso marker="#stream_decrypt-2">stream_decrypt</seealso>.</p>
+        <seealso marker="#stream_encrypt/2">stream_encrypt</seealso> and
+        <seealso marker="#stream_decrypt/2">stream_decrypt</seealso>.</p>
 	<p>For keylengths and iv-sizes see the
 	<seealso marker="crypto:algorithm_details#ciphers">User's Guide</seealso>.
 	</p>
@@ -2172,7 +2172,7 @@ FloatValue = rand:uniform().     % again
 	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
 	<p>Encrypts <c>PlainText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
 	<c>Text</c> can be any number of bytes. The initial <c>State</c> is created using
-        <seealso marker="#stream_init-2">stream_init</seealso>.
+        <seealso marker="#stream_init/2">stream_init</seealso>.
 	<c>NewState</c> must be passed into the next call to <c>stream_encrypt</c>.</p>
       </desc>
     </func>
@@ -2184,7 +2184,7 @@ FloatValue = rand:uniform().     % again
 	<dont><p>Don't use this function for new programs! Use <seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
 	<p>Decrypts <c>CipherText</c> according to the stream cipher <c>Type</c> specified in stream_init/3.
 	<c>PlainText</c> can be any number of bytes. The initial <c>State</c> is created using
-        <seealso marker="#stream_init-2">stream_init</seealso>.
+        <seealso marker="#stream_init/2">stream_init</seealso>.
 	<c>NewState</c> must be passed into the next call to <c>stream_decrypt</c>.</p>
       </desc>
     </func>
@@ -2194,11 +2194,11 @@ FloatValue = rand:uniform().     % again
       <fsummary>Provide a list of available crypto algorithms.</fsummary>
       <desc>
 	<dont><p>Don't use this function for new programs! Use
-	<seealso marker="crypto#supports-1">supports/1</seealso> in
+	<seealso marker="crypto#supports/1">supports/1</seealso> in
 	<seealso marker="crypto:new_api">the new api</seealso>.</p></dont>
         <p> Can be used to determine which crypto algorithms that are supported
 	by the underlying libcrypto library</p>
-	<p>See <seealso marker="#hash_info-1">hash_info/1</seealso> and <seealso marker="#cipher_info-1">cipher_info/1</seealso>
+	<p>See <seealso marker="#hash_info/1">hash_info/1</seealso> and <seealso marker="#cipher_info/1">cipher_info/1</seealso>
 	for information about the hash and cipher algorithms.
 	</p>
       </desc>
@@ -2210,8 +2210,8 @@ FloatValue = rand:uniform().     % again
       <fsummary></fsummary>
       <desc>
 	<dont><p>Don't use this function for new programs! Use
-	      <seealso marker="crypto#mac-4">mac/4</seealso> or
-	      <seealso marker="crypto#macN-5">macN/5</seealso> in
+	      <seealso marker="crypto#mac/4">mac/4</seealso> or
+	      <seealso marker="crypto#macN/5">macN/5</seealso> in
 	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
 	</dont>
         <p>Computes a HMAC of type <c>Type</c> from <c>Data</c> using
@@ -2225,7 +2225,7 @@ FloatValue = rand:uniform().     % again
       <fsummary></fsummary>
       <desc>
 	<dont><p>Don't use this function for new programs! Use
-	      <seealso marker="crypto#mac_init-3">mac_init/3</seealso> in
+	      <seealso marker="crypto#mac_init/3">mac_init/3</seealso> in
 	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
 	</dont>
         <p>Initializes the context for streaming HMAC operations. <c>Type</c> determines
@@ -2239,15 +2239,15 @@ FloatValue = rand:uniform().     % again
       <fsummary></fsummary>
       <desc>
 	<dont><p>Don't use this function for new programs! Use
-	      <seealso marker="crypto#mac_update-2">mac_update/2</seealso> in
+	      <seealso marker="crypto#mac_update/2">mac_update/2</seealso> in
 	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
 	</dont>
         <p>Updates the HMAC represented by <c>Context</c> using the given <c>Data</c>. <c>Context</c>
         must have been generated using an HMAC init function (such as
-        <seealso marker="#hmac_init-2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
+        <seealso marker="#hmac_init/2">hmac_init</seealso>). <c>Data</c> can be any length. <c>NewContext</c>
         must be passed into the next call to <c>hmac_update</c>
-	or to one of the functions <seealso marker="#hmac_final-1">hmac_final</seealso> and
-	<seealso marker="#hmac_final_n-2">hmac_final_n</seealso>
+	or to one of the functions <seealso marker="#hmac_final/1">hmac_final</seealso> and
+	<seealso marker="#hmac_final_n/2">hmac_final_n</seealso>
 	</p>
 	<warning><p>Do not use a <c>Context</c> as argument in more than one
 	call to	hmac_update or hmac_final. The semantics of reusing old contexts
@@ -2262,7 +2262,7 @@ FloatValue = rand:uniform().     % again
       <fsummary></fsummary>
       <desc>
 	<dont><p>Don't use this function for new programs! Use
-	      <seealso marker="crypto#mac_final-1">mac_final/1</seealso> in
+	      <seealso marker="crypto#mac_final/1">mac_final/1</seealso> in
 	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
 	</dont>
         <p>Finalizes the HMAC operation referenced by <c>Context</c>. The size of the resultant MAC is
@@ -2275,7 +2275,7 @@ FloatValue = rand:uniform().     % again
       <fsummary></fsummary>
       <desc>
 	<dont><p>Don't use this function for new programs! Use
-	      <seealso marker="crypto#mac_finalN-2">mac_finalN/2</seealso> in
+	      <seealso marker="crypto#mac_finalN/2">mac_finalN/2</seealso> in
 	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
 	</dont>
         <p>Finalizes the HMAC operation referenced by <c>Context</c>. <c>HashLen</c> must be greater than
@@ -2289,8 +2289,8 @@ FloatValue = rand:uniform().     % again
       <fsummary>Calculates the Cipher-based Message Authentication Code.</fsummary>
       <desc>
 	<dont><p>Don't use this function for new programs! Use
-	      <seealso marker="crypto#mac-4">mac/4</seealso> or
-	      <seealso marker="crypto#macN-5">macN/5</seealso> in
+	      <seealso marker="crypto#mac/4">mac/4</seealso> or
+	      <seealso marker="crypto#macN/5">macN/5</seealso> in
 	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
 	</dont>
         <p>Computes a CMAC of type <c>Type</c> from <c>Data</c> using
@@ -2304,8 +2304,8 @@ FloatValue = rand:uniform().     % again
       <fsummary></fsummary>
       <desc>
 	<dont><p>Don't use this function for new programs! Use
-	      <seealso marker="crypto#mac-3">mac/3</seealso> or
-	      <seealso marker="crypto#macN-4">macN/4</seealso> in
+	      <seealso marker="crypto#mac/3">mac/3</seealso> or
+	      <seealso marker="crypto#macN/4">macN/4</seealso> in
 	      <seealso marker="crypto:new_api">the new api</seealso>.</p>
 	</dont>
         <p>Computes a POLY1305 message authentication code (<c>Mac</c>) from <c>Data</c> using

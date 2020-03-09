@@ -116,7 +116,7 @@
 	  Number of milliseconds between PEM cache validations. Defaults to 2 minutes.
 	</p>
 	<seealso
-	    marker="ssl#clear_pem_cache-0">ssl:clear_pem_cache/0</seealso>
+	    marker="ssl#clear_pem_cache/0">ssl:clear_pem_cache/0</seealso>
 	
       </item>
 

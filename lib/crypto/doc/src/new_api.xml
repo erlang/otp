@@ -51,32 +51,32 @@
     <title>The old API</title>
     <p>The old functions - not recommended for new programs - are for chipers:</p>
     <list>
-      <item><seealso marker="crypto#block_encrypt-3">block_encrypt/3</seealso></item>
-      <item><seealso marker="crypto#block_encrypt-4">block_encrypt/4</seealso></item>
-      <item><seealso marker="crypto#block_decrypt-3">block_decrypt/3</seealso></item>
-      <item><seealso marker="crypto#block_decrypt-4">block_decrypt/4</seealso></item>
-      <item><seealso marker="crypto#stream_init-2">stream_init/2</seealso></item>
-      <item><seealso marker="crypto#stream_init-2">stream_init/3</seealso></item>
-      <item><seealso marker="crypto#stream_encrypt-2">stream_encrypt/2</seealso></item>
-      <item><seealso marker="crypto#stream_decrypt-2">stream_decrypt/2</seealso></item>
-      <item><seealso marker="crypto#next_iv-2">next_iv/2</seealso></item>
-      <item><seealso marker="crypto#next_iv-3">next_iv/3</seealso></item>
+      <item><seealso marker="crypto#block_encrypt/3">block_encrypt/3</seealso></item>
+      <item><seealso marker="crypto#block_encrypt/4">block_encrypt/4</seealso></item>
+      <item><seealso marker="crypto#block_decrypt/3">block_decrypt/3</seealso></item>
+      <item><seealso marker="crypto#block_decrypt/4">block_decrypt/4</seealso></item>
+      <item><seealso marker="crypto#stream_init/2">stream_init/2</seealso></item>
+      <item><seealso marker="crypto#stream_init/2">stream_init/3</seealso></item>
+      <item><seealso marker="crypto#stream_encrypt/2">stream_encrypt/2</seealso></item>
+      <item><seealso marker="crypto#stream_decrypt/2">stream_decrypt/2</seealso></item>
+      <item><seealso marker="crypto#next_iv/2">next_iv/2</seealso></item>
+      <item><seealso marker="crypto#next_iv/3">next_iv/3</seealso></item>
     </list>
     <p>for lists of supported algorithms:</p>
     <list>
-      <item><seealso marker="crypto#supports-0">supports/0</seealso></item>
+      <item><seealso marker="crypto#supports/0">supports/0</seealso></item>
     </list>
     <p>and for MACs (Message Authentication Codes):</p>
     <list>
-      <item><seealso marker="crypto#cmac-3">cmac/3</seealso></item>
-      <item><seealso marker="crypto#cmac-4">cmac/4</seealso></item>
-      <item><seealso marker="crypto#hmac-3">hmac/3</seealso></item>
-      <item><seealso marker="crypto#hmac-4">hmac/4</seealso></item>
-      <item><seealso marker="crypto#hmac_init-2">hmac_init/2</seealso></item>
-      <item><seealso marker="crypto#hmac_update-2">hmac_update/2</seealso></item>
-      <item><seealso marker="crypto#hmac_final-1">hmac_final/1</seealso></item>
-      <item><seealso marker="crypto#hmac_final_n-2">hmac_final_n/2</seealso></item>
-      <item><seealso marker="crypto#poly1305-2">poly1305/2</seealso></item>
+      <item><seealso marker="crypto#cmac/3">cmac/3</seealso></item>
+      <item><seealso marker="crypto#cmac/4">cmac/4</seealso></item>
+      <item><seealso marker="crypto#hmac/3">hmac/3</seealso></item>
+      <item><seealso marker="crypto#hmac/4">hmac/4</seealso></item>
+      <item><seealso marker="crypto#hmac_init/2">hmac_init/2</seealso></item>
+      <item><seealso marker="crypto#hmac_update/2">hmac_update/2</seealso></item>
+      <item><seealso marker="crypto#hmac_final/1">hmac_final/1</seealso></item>
+      <item><seealso marker="crypto#hmac_final_n/2">hmac_final_n/2</seealso></item>
+      <item><seealso marker="crypto#poly1305/2">poly1305/2</seealso></item>
     </list>
     <p>They are deprecated from 23.0 and for removal in 24.0.
     </p>
@@ -132,13 +132,13 @@
       <p>For information about available algorithms, use:
       </p>
       <list>
-	<item><seealso marker="crypto#supports-1">supports/1</seealso></item>
-	<item><seealso marker="crypto#hash_info-1">hash_info/1</seealso></item>
-	<item><seealso marker="crypto#cipher_info-1">cipher_info/1</seealso></item>
+	<item><seealso marker="crypto#supports/1">supports/1</seealso></item>
+	<item><seealso marker="crypto#hash_info/1">hash_info/1</seealso></item>
+	<item><seealso marker="crypto#cipher_info/1">cipher_info/1</seealso></item>
       </list>
 
-      <p>The <seealso marker="crypto#next_iv-2">next_iv/2</seealso> and
-      <seealso marker="crypto#next_iv-3">next_iv/3</seealso> is not needed since the
+      <p>The <seealso marker="crypto#next_iv/2">next_iv/2</seealso> and
+      <seealso marker="crypto#next_iv/3">next_iv/3</seealso> is not needed since the
       <c>crypto_init</c> and <c>crypto_update</c> includes this functionality.
       </p>
 
@@ -148,18 +148,18 @@
       <title>MACs (Message Authentication Codes)</title>
       <p>The new functions for calculating a MAC of a single piece of text are:</p>
       <list>
-        <item><seealso marker="crypto#mac-3">mac/3</seealso></item>
-        <item><seealso marker="crypto#mac-4">mac/4</seealso></item>
-        <item><seealso marker="crypto#macN-4">macN/4</seealso></item>
-        <item><seealso marker="crypto#macN-5">macN/5</seealso></item>
+        <item><seealso marker="crypto#mac/3">mac/3</seealso></item>
+        <item><seealso marker="crypto#mac/4">mac/4</seealso></item>
+        <item><seealso marker="crypto#macN/4">macN/4</seealso></item>
+        <item><seealso marker="crypto#macN/5">macN/5</seealso></item>
       </list>
       <p>For calculating a MAC of a text divided in parts use:</p>
       <list>
-        <item><seealso marker="crypto#mac_init-2">mac_init/2</seealso></item>
-        <item><seealso marker="crypto#mac_init-3">mac_init/3</seealso></item>
-        <item><seealso marker="crypto#mac_update-2">mac_update/2</seealso></item>
-        <item><seealso marker="crypto#mac_final-1">mac_final/1</seealso></item>
-        <item><seealso marker="crypto#mac_finalN-2">mac_finalN/2</seealso></item>
+        <item><seealso marker="crypto#mac_init/2">mac_init/2</seealso></item>
+        <item><seealso marker="crypto#mac_init/3">mac_init/3</seealso></item>
+        <item><seealso marker="crypto#mac_update/2">mac_update/2</seealso></item>
+        <item><seealso marker="crypto#mac_final/1">mac_final/1</seealso></item>
+        <item><seealso marker="crypto#mac_finalN/2">mac_finalN/2</seealso></item>
       </list>
     </section>
   </section>
@@ -226,7 +226,7 @@
     <section>
       <title>Example of crypto_one_time/5</title>
       <p>The same example as in the
-      <seealso marker="#examples-of-crypto_init-4-and-crypto_update-2">previous section</seealso>,
+      <seealso marker="#examples-of-crypto_init-4-and-crypto_update/2">previous section</seealso>,
       but now with one call to <seealso marker="crypto#crypto_one_time/5">crypto_one_time/5</seealso>:
       </p>
       <code>
@@ -249,7 +249,7 @@
     <section>
       <title>Example of crypto_one_time_aead/6</title>
       <p>The same example as in the
-      <seealso marker="#example-of-crypto_one_time-5">previous section</seealso>,
+      <seealso marker="#example-of-crypto_one_time/5">previous section</seealso>,
       but now with one call to <seealso marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seealso>:
       </p>
       <code>

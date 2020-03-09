@@ -125,7 +125,7 @@
 	<p>These functions are kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_ERROR</c></seealso> macro or
-	  <seealso marker="logger#error-1"><c>logger:error/1,2,3</c></seealso>
+	  <seealso marker="logger#error/1"><c>logger:error/1,2,3</c></seealso>
 	  instead.</p>
 	<p><em>Example:</em></p>
         <pre>
@@ -152,7 +152,7 @@ ok</pre>
 	<p>This functions is kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_ERROR</c></seealso> macro or
-	  <seealso marker="logger#error-1"><c>logger:error/1,2,3</c></seealso>
+	  <seealso marker="logger#error/1"><c>logger:error/1,2,3</c></seealso>
 	  instead.</p>
 	<p><em>Example:</em></p>
         <pre>
@@ -186,7 +186,7 @@ ok</pre>
 	<p>This functions is kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_ERROR</c></seealso> macro or
-	  <seealso marker="logger#error-1"><c>logger:error/1,2,3</c></seealso>
+	  <seealso marker="logger#error/1"><c>logger:error/1,2,3</c></seealso>
 	  instead.</p>
       </desc>
     </func>
@@ -227,7 +227,7 @@ ok</pre>
 	<p>These functions are kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_INFO</c></seealso> macro or
-	  <seealso marker="logger#info-1"><c>logger:info/1,2,3</c></seealso>
+	  <seealso marker="logger#info/1"><c>logger:info/1,2,3</c></seealso>
 	  instead.</p>
 	<p><em>Example:</em></p>
         <pre>
@@ -254,7 +254,7 @@ ok</pre>
 	<p>This functions is kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_INFO</c></seealso> macro or
-	  <seealso marker="logger#info-1"><c>logger:info/1,2,3</c></seealso>
+	  <seealso marker="logger#info/1"><c>logger:info/1,2,3</c></seealso>
 	  instead.</p>
 	<p><em>Example:</em></p>
         <pre>
@@ -289,7 +289,7 @@ ok</pre>
 	<p>This functions is kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_INFO</c></seealso> macro or
-	  <seealso marker="logger#info-1"><c>logger:info/1,2,3</c></seealso>
+	  <seealso marker="logger#info/1"><c>logger:info/1,2,3</c></seealso>
 	  instead.</p>
       </desc>
     </func>
@@ -418,7 +418,7 @@ ok</pre>
 	<p>These functions are kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_WARNING</c></seealso> macro or
-	  <seealso marker="logger#warning-1"><c>logger:warning/1,2,3</c></seealso>
+	  <seealso marker="logger#warning/1"><c>logger:warning/1,2,3</c></seealso>
 	  instead.</p>
         <warning>
           <p>If the Unicode translation modifier (<c>t</c>) is used in
@@ -441,7 +441,7 @@ ok</pre>
 	<p>This functions is kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_WARNING</c></seealso> macro or
-	  <seealso marker="logger#warning-1"><c>logger:warning/1,2,3</c></seealso>
+	  <seealso marker="logger#warning/1"><c>logger:warning/1,2,3</c></seealso>
 	  instead.</p>
       </desc>
     </func>
@@ -465,7 +465,7 @@ ok</pre>
 	<p>This functions is kept for backwards compatibility and
 	  must not be used by new code. Use the <seealso marker="logger#macros">
 	    <c>?LOG_WARNING</c></seealso> macro or
-	  <seealso marker="logger#warning-1"><c>logger:warning/1,2,3</c></seealso>
+	  <seealso marker="logger#warning/1"><c>logger:warning/1,2,3</c></seealso>
 	  instead.</p>
       </desc>
     </func>

@@ -45,7 +45,7 @@
     <datatype>
       <name name="client_key_cb_options"/>
       <desc>
-	<p>Options provided to <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>.
+	<p>Options provided to <seealso marker="ssh#connect/3">ssh:connect/[3,4]</seealso>.
 	</p>
 	<p>The option list given in the
 	<seealso marker="ssh#type-key_cb_common_option"><c>key_cb</c></seealso>

@@ -49,7 +49,7 @@
     <p>
     If the <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior is used to
     implement the channel process, these messages are handled by
-    <seealso marker="ssh_client_channel#Module:handle_ssh_msg-2">handle_ssh_msg/2</seealso>.</p>
+    <seealso marker="ssh_client_channel#Module:handle_ssh_msg/2">handle_ssh_msg/2</seealso>.</p>
   </description>
 
   <datatypes>
@@ -57,7 +57,7 @@
       <name name="ssh_data_type_code"/>
       <desc>
 	<p>The valid values are <c>0</c> ("normal") and <c>1</c> ("stderr"), see
-	<url href="https://tools.ietf.org/html/rfc4254#page-8">RFC 4254, Section 5.2</url>.</p>
+	<url href="https://tools.ietf.org/html/rfc4254#page/8">RFC 4254, Section 5.2</url>.</p>
       </desc>
     </datatype>
 
@@ -109,7 +109,7 @@
       <name name="want_reply"/>
       <desc>
       <p>Messages that include a <c>WantReply</c> expect the channel handling
-       process to call <seealso marker="ssh_connection#reply_request-4">
+       process to call <seealso marker="ssh_connection#reply_request/4">
        ssh_connection:reply_request/4</seealso>
       with the boolean value of <c>WantReply</c> as the second argument.</p>
       </desc>
@@ -121,7 +121,7 @@
       <name name="data_ch_msg"/>
       <desc>
 	<p>Data has arrived on the channel. This event is sent as a result of calling
-	<seealso marker="ssh_connection#send-3"> ssh_connection:send/[3,4,5]</seealso>.
+	<seealso marker="ssh_connection#send/3"> ssh_connection:send/[3,4,5]</seealso>.
 	</p>
       </desc>
     </datatype>
@@ -132,7 +132,7 @@
       <name name="eof_ch_msg"/>
       <desc>
 	<p>Indicates that the other side sends no more data. This event is sent as a result of calling
-	<seealso marker="ssh_connection#send_eof-2"> ssh_connection:send_eof/2</seealso>.
+	<seealso marker="ssh_connection#send_eof/2"> ssh_connection:send_eof/2</seealso>.
       </p>
       </desc>
     </datatype>
@@ -140,7 +140,7 @@
       <name name="closed_ch_msg"/>
       <desc>
 	<p>This event is sent as a result of calling
-	<seealso marker="ssh_connection#close-2">ssh_connection:close/2</seealso>.
+	<seealso marker="ssh_connection#close/2">ssh_connection:close/2</seealso>.
 	Both the handling of this event and sending it are taken care of by the
 	<seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior.</p>
       </desc>
@@ -160,7 +160,7 @@
 	 drawable area of the window. <c>Opcode</c> in the
 	 <c>TerminalModes</c> list is the mnemonic name, represented
 	 as a lowercase Erlang atom, defined in
-	 <url href="https://tools.ietf.org/html/rfc4254#section-8">RFC 4254</url>, Section 8.
+	 <url href="https://tools.ietf.org/html/rfc4254#section/8">RFC 4254</url>, Section 8.
 	 It can also be an <c>Opcode</c> if the mnemonic name is not listed in the
 	 RFC. Example: <c>OP code: 53, mnemonic name ECHO erlang atom:
 	 echo</c>. This event is sent as a result of calling <seealso
@@ -175,7 +175,7 @@
       <desc>
 	<p>Environment variables can be passed to the shell/command
 	 to be started later. This event is sent as a result of calling <seealso
-	 marker="ssh_connection#setenv-5"> ssh_connection:setenv/5</seealso>.
+	 marker="ssh_connection#setenv/5"> ssh_connection:setenv/5</seealso>.
 	</p>
       </desc>
     </datatype>
@@ -187,7 +187,7 @@
       <desc>
 	<p>This message requests that the user default shell
 	 is started at the other end. This event is sent as a result of calling
-	 <seealso marker="ssh_connection#shell-2"> ssh_connection:shell/2</seealso>.
+	 <seealso marker="ssh_connection#shell/2"> ssh_connection:shell/2</seealso>.
 	</p>
       </desc>
     </datatype>
@@ -196,7 +196,7 @@
       <desc>
 	<p>This message requests that the server starts
 	 execution of the given command. This event is sent as a result of calling <seealso
-	 marker="ssh_connection#exec-4">ssh_connection:exec/4 </seealso>.
+	 marker="ssh_connection#exec/4">ssh_connection:exec/4 </seealso>.
 	</p>
       </desc>
     </datatype>
@@ -234,7 +234,7 @@
 	following message can be sent to return the exit status of the
 	command. A zero <c>exit_status</c> usually means that the command
 	terminated successfully. This event is sent as a result of calling
-	<seealso marker="ssh_connection#exit_status-3">
+	<seealso marker="ssh_connection#exit_status/3">
 	ssh_connection:exit_status/3</seealso>.</p>
       </desc>
     </datatype>
@@ -263,7 +263,7 @@
 	<note><p>Channels implemented with the <seealso marker="ssh_client_channel"> ssh_client_channel</seealso>
 	behavior do not normally need to call this function as flow control
 	is handled by the behavior. The behavior adjusts the window every time
-	the callback <seealso marker="ssh_client_channel#Module:handle_ssh_msg-2">
+	the callback <seealso marker="ssh_client_channel#Module:handle_ssh_msg/2">
 	handle_ssh_msg/2</seealso> returns after processing channel data.</p></note>
       </desc>
    </func>

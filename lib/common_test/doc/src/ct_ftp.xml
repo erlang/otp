@@ -111,13 +111,13 @@
         <p><c>RemoteFile</c> and <c>LocalFile</c> must be absolute paths.</p>
 
         <p>The configuration file must be as for
-          <seealso marker="#put-3"><c>ct_ftp:put/3</c></seealso>.</p>
+          <seealso marker="#put/3"><c>ct_ftp:put/3</c></seealso>.</p>
 
         <p>For <c>target_name</c>, see module
           <seealso marker="ct"><c>ct</c></seealso>.</p>
 
         <p>See also
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -156,7 +156,7 @@
           with the handle value.</p>
 
         <p>For information on how to create a new <c>Name</c>, see
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>.</p>
 
         <p>For <c>target_name</c>, see module
           <seealso marker="ct"><c>ct</c></seealso>.</p>
@@ -198,7 +198,7 @@
         {password,Password}]}.</pre>
 
         <p>See also
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -210,7 +210,7 @@
 
         <p>The file gets the same name on the local host.</p>
 
-        <p>See also <seealso marker="#recv-3"><c>ct_ftp:recv/3</c></seealso>.</p>
+        <p>See also <seealso marker="#recv/3"><c>ct_ftp:recv/3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -238,7 +238,7 @@
         <p>The file gets the same name on the remote host.</p>
 
         <p>See also
-          <seealso marker="#send-3"><c>ct_ftp:send/3</c></seealso>.</p>
+          <seealso marker="#send/3"><c>ct_ftp:send/3</c></seealso>.</p>
       </desc>
     </func>
 

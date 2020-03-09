@@ -67,7 +67,7 @@
     </p>
 
     <p>Each test suite module must export function 
-    <seealso marker="common_test#Module:all-0"><c>all/0</c></seealso>,
+    <seealso marker="common_test#Module:all/0"><c>all/0</c></seealso>,
       which returns the list of all test case groups and test cases 
       to be executed in that module. 
     </p>
@@ -83,8 +83,8 @@
     <title>Init and End per Suite</title>
 
     <p>Each test suite module can contain the optional configuration functions
-    <seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>
-    and <seealso marker="common_test#Module:end_per_suite-1"><c>end_per_suite/1</c></seealso>. 
+    <seealso marker="common_test#Module:init_per_suite/1"><c>init_per_suite/1</c></seealso>
+    and <seealso marker="common_test#Module:end_per_suite/1"><c>end_per_suite/1</c></seealso>. 
     If the init function is defined, so must the end function be.
     </p>    
 
@@ -138,8 +138,8 @@
     <title>Init and End per Test Case</title>
 
     <p>Each test suite module can contain the optional configuration functions
-    <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso>
-    and <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase/2</c></seealso>. 
+    <seealso marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seealso>
+    and <seealso marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seealso>. 
     If the init function is defined, so must the end function be.</p>
 
     <p>If <c>init_per_testcase</c> exists, it is called before each
@@ -187,7 +187,7 @@
 
     <p>Function <c>end_per_testcase/2</c> is even called if a
       test case terminates because of a call to 
-      <seealso marker="ct#abort_current_testcase-1"><c>ct:abort_current_testcase/1</c></seealso>,
+      <seealso marker="ct#abort_current_testcase/1"><c>ct:abort_current_testcase/1</c></seealso>,
       or after a timetrap time-out. However, <c>end_per_testcase</c>
       then executes on a different process than the test case
       function. In this situation, <c>end_per_testcase</c> cannot
@@ -260,7 +260,7 @@
 
     <note><p>The test case function argument <c>Config</c> is not to be 
 	confused with the information that can be retrieved from the
-	configuration files (using <seealso marker="ct#get_config-1"><c>
+	configuration files (using <seealso marker="ct#get_config/1"><c>
 	ct:get_config/1/2</c></seealso>). The test case argument <c>Config</c>
 	is to be used for runtime configuration of the test suite and the 
 	test cases, while configuration files are to contain data 
@@ -271,7 +271,7 @@
     a data type called a property list, it can be handled by the
     <seealso marker="stdlib:proplists"><c>proplists</c></seealso> module.
     A value can, for example, be searched for and returned with function 
-    <seealso marker="stdlib:proplists#get_value-2"><c>proplists:get_value/2</c></seealso>.
+    <seealso marker="stdlib:proplists#get_value/2"><c>proplists:get_value/2</c></seealso>.
     Also, or alternatively, the general <seealso marker="stdlib:lists"><c>lists</c></seealso>
     module contains useful functions. Normally, the only operations 
     performed on <c>Config</c> is insert (adding a tuple to the head of the list) 
@@ -289,7 +289,7 @@
     <p>If the test case returns the tuple <c>{comment,Comment}</c>, the case
     is considered successful and <c>Comment</c> is printed in the overview 
     log file. This is equal to calling 
-    <seealso marker="ct#comment-1"><c>ct:comment(Comment)</c></seealso>.
+    <seealso marker="ct#comment/1"><c>ct:comment(Comment)</c></seealso>.
     </p>
 
   </section>
@@ -322,7 +322,7 @@
 	  <p>
 	    Specifies any data related to the test case. This
 	    data can be retrieved at any time using the 
-	    <seealso marker="ct#userdata-3"><c>ct:userdata/3</c></seealso>
+	    <seealso marker="ct#userdata/3"><c>ct:userdata/3</c></seealso>
 	    utility function.
 	  </p>
 	</item>
@@ -370,7 +370,7 @@
 	<seealso marker="config_file_chapter#require_config_data">
 	Requiring and Reading Configuration Data</seealso>
 	in section External Configuration Data and function 
-	<seealso marker="ct#require-1"><c>ct:require/1/2</c></seealso>.</p>
+	<seealso marker="ct#require/1"><c>ct:require/1/2</c></seealso>.</p>
 
       <note><p>Specifying a default value for a required variable can result
 	  in a test case always getting executed. This might not be a desired behavior.</p>
@@ -378,7 +378,7 @@
     
       <p>If <c>timetrap</c> or <c>require</c>, or both, is not set specifically for
 	a particular test case, default values specified by function
-	<seealso marker="common_test#Module:suite-0"><c>suite/0</c></seealso> 
+	<seealso marker="common_test#Module:suite/0"><c>suite/0</c></seealso> 
 	are used.
       </p>
 
@@ -404,7 +404,7 @@
     <marker id="suite"></marker>
     <title>Test Suite Information Function</title>
 
-      <p>Function <seealso marker="common_test#Module:suite-0"><c>suite/0</c></seealso> 
+      <p>Function <seealso marker="common_test#Module:suite/0"><c>suite/0</c></seealso> 
         can, for example, be used in a test suite module to set a default 
 	<c>timetrap</c> value and to <c>require</c> external configuration data. 
 	If a test case, or a group information function also specifies any of the information tags, it
@@ -445,7 +445,7 @@
     <p>A test case group is a set of test cases sharing configuration 
     functions and execution properties. Test case groups are defined by
     function 
-    <seealso marker="common_test#Module:groups-0"><c>groups/0</c></seealso>
+    <seealso marker="common_test#Module:groups/0"><c>groups/0</c></seealso>
     according to the following syntax:</p>
     <pre>
  groups() -> GroupDefs
@@ -561,12 +561,12 @@
       execution is immediately stopped and the remaining cases are skipped.</p>
 
     <p>Before execution of a group begins, the configuration function
-    <seealso marker="common_test#Module:init_per_group-2"><c>init_per_group(GroupName, Config)</c></seealso> 
+    <seealso marker="common_test#Module:init_per_group/2"><c>init_per_group(GroupName, Config)</c></seealso> 
     is called. The list of tuples returned from this function is passed to the 
     test cases in the usual manner by argument <c>Config</c>. 
     <c>init_per_group/2</c> is meant to be used for initializations common 
     for the test cases in the group. After execution of the group is finished, function
-    <seealso marker="common_test#Module:end_per_group-2"><c>end_per_group(GroupName, Config)</c></seealso> 
+    <seealso marker="common_test#Module:end_per_group/2"><c>end_per_group(GroupName, Config)</c></seealso> 
     is called. This function is meant to be used for cleaning up after 
     <c>init_per_group/2</c>. If the init function is defined, so must the end function be.</p>
 
@@ -834,7 +834,7 @@
       test case and execution instead. This is accomplished with
       the flag/option <c>create_priv_dir</c> (to be used with the
       <seealso marker="ct_run"><c>ct_run</c></seealso> program, the 
-      <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso> function, or
+      <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso> function, or
       as test specification term). There are three possible values
       for this option as follows:
      </p>
@@ -853,7 +853,7 @@
       Therefore, if the manual version is used instead, the test case must tell 
       <c>Common Test</c> to create <c>priv_dir</c> when it needs it.
       It does this by calling the function 
-      <seealso marker="ct#make_priv_dir-0"><c>ct:make_priv_dir/0</c></seealso>.
+      <seealso marker="ct#make_priv_dir/0"><c>ct:make_priv_dir/0</c></seealso>.
       </p>
 
       <note><p>Do not depend on the current working directory for
@@ -902,7 +902,7 @@
     <p>A timetrap can also be set or reset dynamically during the
     execution of a test case, or configuration function. 
     This is done by calling
-    <seealso marker="ct#timetrap-1"><c>ct:timetrap/1</c></seealso>. 
+    <seealso marker="ct#timetrap/1"><c>ct:timetrap/1</c></seealso>. 
     This function cancels the current timetrap and starts a new one 
     (that stays active until time-out, or end of the current function).</p>
     
@@ -916,13 +916,13 @@
     <p>If a test case needs to suspend itself for a time that also gets
     multipled by <c>multiply_timetraps</c> (and possibly also scaled up if
     <c>scale_timetraps</c> is enabled), the function 
-    <seealso marker="ct#sleep-1"><c>ct:sleep/1</c></seealso>
+    <seealso marker="ct#sleep/1"><c>ct:sleep/1</c></seealso>
     can be used (instead of, for example, <c>timer:sleep/1</c>).</p>
     
     <p>A function (<c>fun/0</c> or <c>{Mod,Func,Args}</c> (MFA) tuple) can be 
     specified as timetrap value in the suite-, group- and test case information 
     function, and as argument to function 
-    <seealso marker="ct#timetrap-1"><c>ct:timetrap/1</c></seealso>.</p>
+    <seealso marker="ct#timetrap/1"><c>ct:timetrap/1</c></seealso>.</p>
     <p><em>Examples:</em></p>
 
     <p><c>{timetrap,{my_test_utils,timetrap,[?MODULE,system_start]}}</c></p>
@@ -959,11 +959,11 @@
       <item><c>ct:print(Category, Importance, Format, FormatArgs)</c></item>
       <item><c>ct:pal(Category, Importance, Format, FormatArgs)</c></item>
     </list>
-    <p>The <seealso marker="ct#log-1"><c>log/1,2,3,4,5</c></seealso> function 
+    <p>The <seealso marker="ct#log/1"><c>log/1,2,3,4,5</c></seealso> function 
     prints a string to the test case log file. 
-    The <seealso marker="ct#print-1"><c>print/1,2,3,4</c></seealso> function 
+    The <seealso marker="ct#print/1"><c>print/1,2,3,4</c></seealso> function 
     prints the string to screen.
-    The <seealso marker="ct#pal-1"><c>pal/1,2,3,4</c></seealso> function 
+    The <seealso marker="ct#pal/1"><c>pal/1,2,3,4</c></seealso> function 
     prints the same string both to file and screen. The functions are described 
     in module <seealso marker="ct">ct</seealso>.
     </p>
@@ -1047,8 +1047,8 @@ ct:pal(?LOW_IMPORTANCE, "Info report: ~p", [Info])</pre>
 ct:log(?INFO, "Info report: ~p", [Info])
 ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
  
-    <p>The functions <seealso marker="ct#set_verbosity-2"><c>ct:set_verbosity/2</c></seealso>
-    and <seealso marker="ct#get_verbosity-1"><c>ct:get_verbosity/1</c></seealso> may be used
+    <p>The functions <seealso marker="ct#set_verbosity/2"><c>ct:set_verbosity/2</c></seealso>
+    and <seealso marker="ct#get_verbosity/1"><c>ct:get_verbosity/1</c></seealso> may be used
     to modify and read verbosity levels during test execution.</p>
     
     <p>The arguments <c>Format</c> and <c>FormatArgs</c> in <c>ct:log/print/pal</c> are
@@ -1069,7 +1069,7 @@ ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
     to the log file made with <c>ct:pal/4</c> and <c>io:format/2</c>. In order to print
     strings with HTML tags to the log, use the <c>ct:log/3,4,5</c> function. The character
     escaping feature is per default disabled for <c>ct:log/3,4,5</c> but can be enabled with
-    the <c>esc_chars</c> option in the <c>Opts</c> list, see <seealso marker="ct#log-5">
+    the <c>esc_chars</c> option in the <c>Opts</c> list, see <seealso marker="ct#log/5">
     <c>ct:log/3,4,5</c></seealso>.</p>
 
     <p>If the character escaping feature needs to be disabled (typically for backwards
@@ -1163,7 +1163,7 @@ ct:pal(?ERROR, "Error report: ~p", [Error])</pre>
 	      environment as possible, so that subsequent test cases
 	      do not crash because of their execution order. 
 	      The function 
-	      <seealso marker="common_test#Module:end_per_testcase-2"><c>end_per_testcase</c></seealso> 
+	      <seealso marker="common_test#Module:end_per_testcase/2"><c>end_per_testcase</c></seealso> 
 	      is suitable for this.
 	    </p>
 	</item>

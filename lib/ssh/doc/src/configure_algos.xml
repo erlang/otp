@@ -116,7 +116,7 @@
       </list>
       <p>Due to this, it impossible to list in documentation what algorithms that are available in a certain installation.</p>
       <p>There is an important command to list the actual algorithms and their ordering:
-      <seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>.</p>
+      <seealso marker="ssh#default_algorithms/0">ssh:default_algorithms/0</seealso>.</p>
       <marker id="example_default_algorithms"/>
       <code type="erl">
 0> ssh:default_algorithms().
@@ -145,9 +145,9 @@
 
       </code>
       <p>To change the algorithm list, there are two options which can be used in 
-      <seealso marker="ssh#connect-3">ssh:connect/2,3,4</seealso>
+      <seealso marker="ssh#connect/3">ssh:connect/2,3,4</seealso>
       and
-      <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso>. The options could of course
+      <seealso marker="ssh#daemon/2">ssh:daemon/2,3</seealso>. The options could of course
       be used in all other functions that initiates connections.</p>
       
       <p>The options are <c>preferred_algorithms</c> and <c>modify_algorithms</c>. The first one

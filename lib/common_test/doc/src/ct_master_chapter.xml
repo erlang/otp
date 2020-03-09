@@ -62,8 +62,8 @@
       able to start test sessions on them.</p>
       
     <p>Tests are started by calling 
-     <seealso marker="ct_master#run-1"><c>ct_master:run(TestSpecs)</c></seealso> or 
-     <seealso marker="ct_master#run-3"><c>ct_master:run(TestSpecs, InclNodes, ExclNodes)</c></seealso></p>
+     <seealso marker="ct_master#run/1"><c>ct_master:run(TestSpecs)</c></seealso> or 
+     <seealso marker="ct_master#run/3"><c>ct_master:run(TestSpecs, InclNodes, ExclNodes)</c></seealso></p>
     
     <p><c>TestSpecs</c> is either the name of a test specification file (string) or a list 
       of test specifications. If it is a list, the specifications are handled (and
@@ -101,11 +101,11 @@
       does not attempt to re-establish contact with the failing node.</p>
 
       <p>At any time, to get the current status of the test nodes, call function 
-      <seealso marker="ct_master#progress-0"><c>ct_master:progress()</c></seealso>.</p>
+      <seealso marker="ct_master#progress/0"><c>ct_master:progress()</c></seealso>.</p>
 
       <p>To stop one or more tests, use function
-      <seealso marker="ct_master#abort-0"><c>ct_master:abort()</c></seealso> (to stop all) or
-      <seealso marker="ct_master#abort-1"><c>ct_master:abort(Nodes)</c></seealso>.</p>
+      <seealso marker="ct_master#abort/0"><c>ct_master:abort()</c></seealso> (to stop all) or
+      <seealso marker="ct_master#abort/1"><c>ct_master:abort(Nodes)</c></seealso>.</p>
 
       <p>For details about the <c>Common Test</c> Master API, see module
       <seealso marker="ct_master"><c>ct_master</c></seealso>.</p>

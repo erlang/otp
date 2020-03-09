@@ -85,7 +85,7 @@
       a test case to generate a runtime error to indicate failure (for example,
       by causing a bad match error or by calling <c>exit/1</c>, preferably
       through the help function 
-      <seealso marker="ct#fail-1"><c>ct:fail/1,2</c></seealso>). A successful 
+      <seealso marker="ct#fail/1"><c>ct:fail/1,2</c></seealso>). A successful 
       execution is indicated by a normal return from the test case function.
     </p>
     </section>

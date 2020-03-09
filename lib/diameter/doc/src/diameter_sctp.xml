@@ -4,7 +4,7 @@
   '<seealso marker="diameter_tcp#sender">diameter_tcp(3)</seealso>'>
   <!ENTITY gen_sctp '<seealso marker="kernel:gen_sctp">gen_sctp(3)</seealso>'>
   <!ENTITY gen_sctp_open1
-  '<seealso marker="kernel:gen_sctp#open-1">gen_sctp:open/1</seealso>'>
+  '<seealso marker="kernel:gen_sctp#open/1">gen_sctp:open/1</seealso>'>
   <!ENTITY ip_address
   '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
   <!ENTITY inet '<seealso marker="kernel:inet">inet(3)</seealso>'>

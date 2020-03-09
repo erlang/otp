@@ -94,7 +94,7 @@
 
         <p>Call this function to stop cover test on nodes previously
           added with
-          <seealso marker="#add_nodes-1"><c>ct_cover:add_nodes/1</c></seealso>.
+          <seealso marker="#add_nodes/1"><c>ct_cover:add_nodes/1</c></seealso>.
           Results on the remote node are transferred to the <c>Common Test</c>
           node.</p>
       </desc>

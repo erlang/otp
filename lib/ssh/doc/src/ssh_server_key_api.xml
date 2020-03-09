@@ -75,7 +75,7 @@
     <datatype>
       <name name="daemon_key_cb_options"/>
       <desc>
-	<p>Options provided to <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso>.
+	<p>Options provided to <seealso marker="ssh#daemon/2">ssh:daemon/2,3</seealso>.
 	</p>
 	<p>The option list given in the
 	<seealso marker="ssh#type-key_cb_common_option"><c>key_cb</c></seealso>

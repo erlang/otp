@@ -64,7 +64,7 @@
       control <c>stdin</c>), the test run proceeds automatically without the missing
       suites. This behavior can however be modified with the
       <c><![CDATA[ct_run]]></c> flag <c><![CDATA[-abort_if_missing_suites]]></c>, 
-      or the <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso> option
+      or the <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso> option
       <c><![CDATA[{abort_if_missing_suites,TrueOrFalse}]]></c>. If 
       <c><![CDATA[abort_if_missing_suites]]></c> is set to <c>true</c>, the test run
       stops immediately if some suites fail to compile.</p>
@@ -314,14 +314,14 @@
     
     <p><c>Common Test</c> provides an Erlang API for running tests. The main 
       (and most flexible) function for specifying and executing tests is
-      <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>.
+      <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>.
       It takes the same start parameters as
       <seealso marker="run_test_chapter#ct_run"><c>ct_run</c></seealso>,
       but the flags are instead specified as options in a list of key-value tuples. 
       For example, a test specified with <c>ct_run</c> as follows:</p>
 
       <p><c>$ ct_run -suite ./my_SUITE -logdir ./results</c></p> 
-      <p>is with <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso> specified as:</p>
+      <p>is with <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso> specified as:</p>
       <p><c>1> ct:run_test([{suite,"./my_SUITE"},{logdir,"./results"}]).</c></p>
 
       <p>The function returns the test result, represented by the tuple
@@ -337,7 +337,7 @@
 	<section>
 	  <title>Releasing the Erlang Shell</title>
 	  <p>During execution of tests started with
-	  <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>,
+	  <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>,
 	  the Erlang shell process, controlling <c>stdin</c>, remains the top-level
 	  process of the <c>Common Test</c> system of processes. Consequently,
 	  the Erlang shell is not available for interaction during
@@ -352,13 +352,13 @@
 	  <c>ct:run_test/1</c> returns the pid of this process rather than the
 	  test result, which instead is printed to tty at the end of the test run.</p>
 	  <note><p>To use the functions
-	  <seealso marker="ct#break-1"><c>ct:break/1,2</c></seealso> and
-	  <seealso marker="ct#continue-0"><c>ct:continue/0,1</c></seealso>,
+	  <seealso marker="ct#break/1"><c>ct:break/1,2</c></seealso> and
+	  <seealso marker="ct#continue/0"><c>ct:continue/0,1</c></seealso>,
 	  <c>release_shell</c> <em>must</em> be set to <c>true</c>.</p></note>
 	</section>
         
       <p>For details, see
-        <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso> manual page.</p>    
+        <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso> manual page.</p>    
   </section>
   
    <section>
@@ -542,9 +542,9 @@
       trying out various operations during test suite development.</p>
 
     <p>To start the interactive shell mode, start an Erlang shell 
-      manually and call <seealso marker="ct#install-1"><c>ct:install/1</c></seealso> 
+      manually and call <seealso marker="ct#install/1"><c>ct:install/1</c></seealso> 
       to install any configuration data you might need (use <c>[]</c> as argument otherwise). 
-      Then call <seealso marker="ct#start_interactive-0"><c>ct:start_interactive/0</c></seealso> 
+      Then call <seealso marker="ct#start_interactive/0"><c>ct:start_interactive/0</c></seealso> 
       to start <c>Common Test</c>.</p>
       
       <p>If you use the <c>ct_run</c> program, you can start 
@@ -564,7 +564,7 @@
     
     <p>If any functions using "required configuration data" (for example, functions 
       <c>ct_telnet</c> or <c>ct_ftp</c>) are to be called from the Erlang shell, first require 
-      configuration data with <seealso marker="ct#require-1"><c>
+      configuration data with <seealso marker="ct#require/1"><c>
       ct:require/1,2</c></seealso>. This is equivalent to a <c>require</c> statement 
       in the <seealso marker="write_test_chapter#suite">Test Suite Information Function</seealso> 
       or in the <seealso marker="write_test_chapter#info_function">Test Case Information Function</seealso>.</p>
@@ -587,13 +587,13 @@
       is not supported.</p>
     
     <p>If you wish to exit the interactive mode (for example, to start an automated 
-      test run with <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>), 
+      test run with <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>), 
       call function
-      <seealso marker="ct#stop_interactive-0"><c>ct:stop_interactive/0</c></seealso>. 
+      <seealso marker="ct#stop_interactive/0"><c>ct:stop_interactive/0</c></seealso>. 
       This shuts down the running <c>ct</c> application. Associations between
       configuration names and data created with <c>require</c> are 
       consequently deleted. Function
-      <seealso marker="ct#start_interactive-0"><c>ct:start_interactive/0</c></seealso> 
+      <seealso marker="ct#start_interactive/0"><c>ct:start_interactive/0</c></seealso> 
       takes you back into interactive mode, but the previous state is not restored.</p>
   </section>
 
@@ -601,7 +601,7 @@
     <title>Step-by-Step Execution of Test Cases with the Erlang Debugger</title>
    
     <p>Using <c>ct_run -step [opts]</c>, or by passing option <c>{step,Opts}</c> 
-       to <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, 
+       to <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>, 
        the following is possible:</p>
        <list type="bulleted">
        <item>Get the Erlang Debugger started automatically.</item>
@@ -635,9 +635,9 @@
 	<p>The most flexible way to specify what to test, is to use a
 	test specification, which is a sequence of
 	Erlang terms. The terms are normally declared in one or more text files
-	(see <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>), but
+	(see <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>), but
 	can also be passed to <c>Common Test</c> on the form of a list (see
-	<seealso marker="ct#run_testspec-1"><c>ct:run_testspec/1</c></seealso>).
+	<seealso marker="ct#run_testspec/1"><c>ct:run_testspec/1</c></seealso>).
 	There are two general types of terms: configuration terms and test
 	specification terms.</p>
 
@@ -1107,7 +1107,7 @@
 	  when starting tests with <c>ct_run</c>. This forces <c>Common Test</c> to ignore 
 	  unrecognizable terms. In this mode, <c>Common Test</c> is not able to check the 
 	  specification for errors as efficiently as if the scanner runs in default mode. 
-	  If <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso> is used
+	  If <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso> is used
 	  for starting the tests, the relaxed scanner mode is enabled by tuple
 	  <c>{allow_user_terms,true}</c>.</p>
 	</section>
@@ -1116,7 +1116,7 @@
 	  <p>Terms in the current test specification
 	  (that is, the specification that has been used to configure and run the current test)
 	  can be looked up.
-	  The function <seealso marker="ct#get_testspec_terms-0"><c>get_testspec_terms()</c></seealso> 
+	  The function <seealso marker="ct#get_testspec_terms/0"><c>get_testspec_terms()</c></seealso> 
 	  returns a list of all test specification terms (both configuration terms and test terms), 
 	  and <c>get_testspec_terms(Tags)</c> returns the term (or a list of terms) matching the 
 	  tag (or tags) in <c>Tags</c>.</p>
@@ -1280,8 +1280,8 @@
 	  <title>The Unexpected I/O Log</title>
 	  <p>The test suites overview page includes a link to the Unexpected I/O Log.
 	  In this log, <c>Common Test</c> saves printouts made with
-	  <seealso marker="ct#log-2"><c>ct:log/1,2,3,4,5</c></seealso> and 
-	  <seealso marker="ct#pal-2"><c>ct:pal/1,2,3,4,5</c></seealso>, as well as captured system 
+	  <seealso marker="ct#log/2"><c>ct:log/1,2,3,4,5</c></seealso> and 
+	  <seealso marker="ct#pal/2"><c>ct:pal/1,2,3,4,5</c></seealso>, as well as captured system 
 	  error- and progress reports, which cannot be associated with particular test cases and
 	  therefore cannot be written to individual test case log files. This occurs,
 	  for example, if a log printout is made from an external process (not a test 

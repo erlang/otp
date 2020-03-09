@@ -63,7 +63,7 @@
 	  <item>
 	    <p>A positive integer representing the value of the option
 	      with the same name to be used when calling
-	      <seealso marker="stdlib:io_lib#format-3">
+	      <seealso marker="stdlib:io_lib#format/3">
 		<c>io_lib:format/3</c></seealso>.
 	      This value limits the total number of characters printed
 	      for each log event. Notice that this is a soft limit. For a
@@ -78,7 +78,7 @@
 	      format controls ~p and ~w are replaced with ~P and ~W,
 	      respectively, and the value is used as the depth
 	      parameter. For details, see
-	      <seealso marker="stdlib:io#format-2"><c>io:format/2,3</c></seealso>
+	      <seealso marker="stdlib:io#format/2"><c>io:format/2,3</c></seealso>
 	      in STDLIB.</p>
 	    <p>Defaults to <c>unlimited</c>.</p>
 	  </item>
@@ -113,7 +113,7 @@
 	      arguments. The report callback can be specified in the
 	      metadata for the log event. If no report callback exists
 	      in metadata, <c>logger_formatter</c> will
-	      use <seealso marker="logger#format_report-1">
+	      use <seealso marker="logger#format_report/1">
 		<c>logger:format_report/1</c></seealso> as default
 	      callback.</p>
 	    <p>If this configuration parameter is set, it replaces
@@ -127,7 +127,7 @@
 	      single line. To achieve this, <c>logger_formatter</c>
 	      sets the field width to <c>0</c> for all <c>~p</c>
 	      and <c>~P</c> control sequences in the format a string
-	      (see <seealso marker="stdlib:io#format-2">
+	      (see <seealso marker="stdlib:io#format/2">
 		<c>io:format/2</c></seealso>), and replaces all
 	      newlines in the message with <c>", "</c>. White spaces
 	      following directly after newlines are removed. Notice
@@ -153,7 +153,7 @@
 	    <p>Defaults to <c>$T</c>.</p>
 	    <p>The value of this parameter is used as
 	      the <c>time_designator</c> option
-	      to <seealso marker="stdlib:calendar#system_time_to_rfc3339-2">
+	      to <seealso marker="stdlib:calendar#system_time_to_rfc3339/2">
 		<c>calendar:system_time_to_rcf3339/2</c></seealso>.</p>
 	  </item>
 	  <tag><c>time_offset = integer() | [byte()]</c></tag>
@@ -178,7 +178,7 @@
 	      in UTC.</p>
 	    <p>The value of this parameter is used as
 	      the <c>offset</c> option
-	      to <seealso marker="stdlib:calendar#system_time_to_rfc3339-2">
+	      to <seealso marker="stdlib:calendar#system_time_to_rfc3339/2">
 		<c>calendar:system_time_to_rcf3339/2</c></seealso>.</p>
 	  </item>
 	</taglist>
@@ -298,13 +298,13 @@ exit_reason: "It crashed"</code>
 	  and <c>{error,term()}</c> if it is faulty.</p>
 	<p>The following Logger API functions can trigger this callback:</p>
 	<list>
-	  <item><seealso marker="logger#add_handler-3">
+	  <item><seealso marker="logger#add_handler/3">
 	      <c>logger:add_handler/3</c></seealso></item>
-	  <item><seealso marker="logger#set_handler_config-2">
+	  <item><seealso marker="logger#set_handler_config/2">
 	      <c>logger:set_handler_config/2,3</c></seealso></item>
-	  <item><seealso marker="logger#update_handler_config-2">
+	  <item><seealso marker="logger#update_handler_config/2">
 	      <c>logger:update_handler_config/2</c></seealso></item>
-	  <item><seealso marker="logger#update_formatter_config-2">
+	  <item><seealso marker="logger#update_formatter_config/2">
 	      <c>logger:update_formatter_config/2</c></seealso></item>
 	</list>
       </desc>

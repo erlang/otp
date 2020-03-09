@@ -10649,7 +10649,7 @@ timestamp() ->
               <seealso marker="time_correction#Erlang_Monotonic_Time">Erlang
               monotonic time</seealso> time stamp in all trace messages. The
               time stamp (Ts) has the same format and value as produced by
-              <seealso marker="#monotonic_time-1">
+              <seealso marker="#monotonic_time/1">
               <c>erlang:monotonic_time(nanosecond)</c></seealso>.
               This flag overrides flag <c>cpu_timestamp</c>.</p>
           </item>
@@ -10660,9 +10660,9 @@ timestamp() ->
               monotonic time</seealso> and a monotonically increasing
               integer in all trace messages. The time stamp (Ts) has the
               same format and value as produced by <c>{</c>
-              <seealso marker="#monotonic_time-1">
+              <seealso marker="#monotonic_time/1">
               <c>erlang:monotonic_time(nanosecond)</c></seealso><c>,</c>
-              <seealso marker="#unique_integer-1">
+              <seealso marker="#unique_integer/1">
               <c>erlang:unique_integer([monotonic])</c></seealso><c>}</c>.
               This flag overrides flag <c>cpu_timestamp</c>.</p>
           </item>

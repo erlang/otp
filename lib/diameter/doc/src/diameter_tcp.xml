@@ -1,20 +1,20 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
-  <!ENTITY start '<seealso marker="#start-3">start/3</seealso>'>
+  <!ENTITY start '<seealso marker="#start/3">start/3</seealso>'>
   <!ENTITY gen_tcp_connect3
-  '<seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect/3</seealso>'>
+  '<seealso marker="kernel:gen_tcp#connect/3">gen_tcp:connect/3</seealso>'>
   <!ENTITY gen_tcp_listen2
-  '<seealso marker="kernel:gen_tcp#listen-2">gen_tcp:listen/2</seealso>'>
+  '<seealso marker="kernel:gen_tcp#listen/2">gen_tcp:listen/2</seealso>'>
   <!ENTITY ip_address
   '<seealso marker="kernel:inet#type-ip_address">inet:ip_address()</seealso>'>
   <!ENTITY ssl_connect2
-  '<seealso marker="ssl:ssl#connect-2">ssl:connect/2</seealso>'>
+  '<seealso marker="ssl:ssl#connect/2">ssl:connect/2</seealso>'>
   <!ENTITY ssl_connect3
-  '<seealso marker="ssl:ssl#connect-3">ssl:connect/3</seealso>'>
+  '<seealso marker="ssl:ssl#connect/3">ssl:connect/3</seealso>'>
   <!ENTITY ssl_accept2
-  '<seealso marker="ssl:ssl#ssl_accept-2">ssl:ssl_accept/2</seealso>'>
+  '<seealso marker="ssl:ssl#ssl_accept/2">ssl:ssl_accept/2</seealso>'>
   <!ENTITY ssl_listen2
-  '<seealso marker="ssl:ssl#listen-2">ssl:listen/2</seealso>'>
+  '<seealso marker="ssl:ssl#listen/2">ssl:listen/2</seealso>'>
   <!ENTITY gen_tcp '<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>'>
   <!ENTITY inet '<seealso marker="kernel:inet">inet(3)</seealso>'>
   <!ENTITY ssl '<seealso marker="ssl:ssl">ssl(3)</seealso>'>

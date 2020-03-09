@@ -48,9 +48,9 @@
     <p>Such another callback module could be used by setting the option
     <seealso marker="ssh:ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
     when starting a client or a server (with for example
-    <seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
-    <seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso> of
-    <seealso marker="ssh:ssh#shell-1">ssh:shell</seealso>
+    <seealso marker="ssh:ssh#connect/3">ssh:connect</seealso>,
+    <seealso marker="ssh:ssh#daemon/2">ssh:daemon</seealso> of
+    <seealso marker="ssh:ssh#shell/1">ssh:shell</seealso>
     ).
     </p>
 
@@ -189,7 +189,7 @@
       <desc>
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
-	<seealso marker="ssh:ssh_server_key_api#Module:host_key-2">ssh_server_key_api, Module:host_key/2</seealso>.
+	<seealso marker="ssh:ssh_server_key_api#Module:host_key/2">ssh_server_key_api, Module:host_key/2</seealso>.
 	</p>
 	<p><strong>Options</strong></p>
 	<list>
@@ -215,7 +215,7 @@
       <desc>
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
-	<seealso marker="ssh:ssh_server_key_api#Module:is_auth_key-3">ssh_server_key_api: Module:is_auth_key/3</seealso>.
+	<seealso marker="ssh:ssh_server_key_api#Module:is_auth_key/3">ssh_server_key_api: Module:is_auth_key/3</seealso>.
 	</p>
 	<p><strong>Options</strong></p>
 	<list>
@@ -238,11 +238,11 @@
       <desc>
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
-	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-4">ssh_client_key_api, Module:add_host_key/4</seealso>.
+	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key/4">ssh_client_key_api, Module:add_host_key/4</seealso>.
 	</p>
 	<marker id="add_host_key-3"/>
 	<p>Note that the alternative, the old
-	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-3">Module:add_host_key/3</seealso>
+	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key/3">Module:add_host_key/3</seealso>
 	is no longer supported by <c>ssh_file</c>.
 	</p>
 	<p><strong>Option</strong></p>
@@ -262,11 +262,11 @@
       <desc>
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
-	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key-5">ssh_client_key_api, Module:is_host_key/5</seealso>.
+	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key/5">ssh_client_key_api, Module:is_host_key/5</seealso>.
 	</p>
 	<marker id="is_host_key-4"/>
 	<p>Note that the alternative, the old
-	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key-4">Module:is_host_key/4</seealso>
+	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key/4">Module:is_host_key/4</seealso>
 	is no longer supported by <c>ssh_file</c>.
 	</p>
 	<p><strong>Option</strong></p>
@@ -301,7 +301,7 @@ key :: % encoded key from eg ssh_host_*.pub
       <desc>
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
-	<seealso marker="ssh:ssh_client_key_api#Module:user_key-2">ssh_client_key_api, Module:user_key/2</seealso>.
+	<seealso marker="ssh:ssh_client_key_api#Module:user_key/2">ssh_client_key_api, Module:user_key/2</seealso>.
 	</p>
 	<p><strong>Options</strong></p>
 	<list>

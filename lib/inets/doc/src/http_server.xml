@@ -436,7 +436,7 @@ start() ->
 	  more information. As the implementation of the <c>mod_auth_mnesia</c> 
 	  saves one row for each user, the type must be <c>bag</c>.
 	  When the schema and the tables are created, function
-	  <seealso marker="mnesia:mnesia#start-0">mnesia:start/0</seealso>
+	  <seealso marker="mnesia:mnesia#start/0">mnesia:start/0</seealso>
 	  is used to start Mnesia  and
 	  waits for the tables to be loaded. Mnesia uses the
 	  directory specified as <c>mnesia_dir</c> at startup if specified,

@@ -57,9 +57,9 @@
       <item><p><c>data_dir</c> - Data file directory</p></item>
       <item><p><c>priv_dir</c> - Scratch file directory</p></item>
       <item><p>Whatever added by
-      <seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>
+      <seealso marker="common_test#Module:init_per_suite/1"><c>init_per_suite/1</c></seealso>
       or
-      <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso>
+      <seealso marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seealso>
       in the test suite.</p></item>
     </list>
 
@@ -92,7 +92,7 @@
       <item>
         <p>A name and association to configuration data introduced
           through a require statement, or a call to
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>,
+          <seealso marker="#require/2"><c>ct:require/2</c></seealso>,
           for example,
           <c>ct:require(mynodename,{node,[telnet]})</c>.</p>
       </item>
@@ -170,7 +170,7 @@
           configuration string. The callback module is to be either loaded or
           present in the code part. Loaded configuration variables can later
           be removed using function
-          <seealso marker="#remove_config-2"><c>ct:remove_config/2</c></seealso>.
+          <seealso marker="#remove_config/2"><c>ct:remove_config/2</c></seealso>.
         </p>
       </desc>
     </func>
@@ -190,11 +190,11 @@
           The user can then interact with the Erlang node running the tests,
           for example, for debugging purposes or for manually executing a
           part of the test case. If a parallel group is executing,
-          <seealso marker="#break-2"><c>ct:break/2</c></seealso> is to be
+          <seealso marker="#break/2"><c>ct:break/2</c></seealso> is to be
           called instead.</p>
        <p>A cancelled timetrap is not automatically reactivated after the
          break, but must be started exlicitly with
-         <seealso marker="#timetrap-1"><c>ct:timetrap/1</c></seealso>.</p>
+         <seealso marker="#timetrap/1"><c>ct:timetrap/1</c></seealso>.</p>
        <p>In order for the break/continue functionality to work, <c>Common
          Test</c> must release the shell process controlling <c>stdin</c>.
          This is done by setting start option <c>release_shell</c>
@@ -216,10 +216,10 @@
       </type>
       <desc><marker id="break-2"/>
         <p>Works the same way as
-          <seealso marker="#break-1"><c>ct:break/1</c></seealso>, only
+          <seealso marker="#break/1"><c>ct:break/1</c></seealso>, only
           argument <c>TestCase</c> makes it possible to pause a test case
           executing in a parallel group. Function
-          <seealso marker="#continue-1"><c>ct:continue/1</c></seealso> is to
+          <seealso marker="#continue/1"><c>ct:continue/1</c></seealso> is to
           be used to resume execution of <c>TestCase</c>.</p>
 
         <p>For details, see
@@ -235,7 +235,7 @@
       </type>
       <desc><marker id="capture_get-0"/>
         <p>Equivalent to
-          <seealso marker="#capture_get-1">ct:capture_get([default])</seealso>.</p>
+          <seealso marker="#capture_get/1">ct:capture_get([default])</seealso>.</p>
       </desc>
     </func>
 
@@ -255,9 +255,9 @@
           If <c>ExclCategories = []</c>, no filtering takes place.</p>
 
         <p>See also
-          <seealso marker="#capture_start-0"><c>ct:capture_start/0</c></seealso>,
-          <seealso marker="#capture_stop-0"><c>ct:capture_stop/0</c></seealso>,
-          <seealso marker="#log-3"><c>ct:log/3</c></seealso>.</p>
+          <seealso marker="#capture_start/0"><c>ct:capture_start/0</c></seealso>,
+          <seealso marker="#capture_stop/0"><c>ct:capture_stop/0</c></seealso>,
+          <seealso marker="#log/3"><c>ct:log/3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -270,8 +270,8 @@
           during execution of the test case.</p>
 
         <p>See also
-          <seealso marker="#capture_get-1"><c>ct:capture_get/1</c></seealso>,
-          <seealso marker="#capture_stop-0"><c>ct:capture_stop/0</c></seealso>.</p>
+          <seealso marker="#capture_get/1"><c>ct:capture_get/1</c></seealso>,
+          <seealso marker="#capture_stop/0"><c>ct:capture_stop/0</c></seealso>.</p>
       </desc>
     </func>
 
@@ -284,8 +284,8 @@
           <c>capture_start/0</c>).</p>
 
         <p>See also
-          <seealso marker="#capture_get-1"><c>ct:capture_get/1</c></seealso>,
-          <seealso marker="#capture_start-0"><c>ct:capture_start/0</c></seealso>.</p>
+          <seealso marker="#capture_get/1"><c>ct:capture_get/1</c></seealso>,
+          <seealso marker="#capture_start/0"><c>ct:capture_start/0</c></seealso>.</p>
        </desc>
     </func>
 
@@ -321,7 +321,7 @@
         <p>Arguments <c>Format</c> and <c>Args</c> are used in a call to
           <c>io_lib:format/2</c> to create the comment string. The behavior
           of <c>comment/2</c> is otherwise the same as function
-          <seealso marker="#comment-1"><c>ct:comment/1</c></seealso>.</p>
+          <seealso marker="#comment/1"><c>ct:comment/1</c></seealso>.</p>
       </desc>
     </func>
 
@@ -332,7 +332,7 @@
       <desc><marker id="continue-0"/>
         <p>This function must be called to continue after a test case
           (not executing in a parallel group) has called function
-          <seealso marker="#break-1"><c>ct:break/1</c></seealso>.</p>
+          <seealso marker="#break/1"><c>ct:break/1</c></seealso>.</p>
       </desc>
     </func>
 
@@ -345,7 +345,7 @@
       </type>
       <desc><marker id="continue-1"/>
         <p>This function must be called to continue after a test case has
-          called <seealso marker="#break-2"><c>ct:break/2</c></seealso>.
+          called <seealso marker="#break/2"><c>ct:break/2</c></seealso>.
           If the paused test case, <c>TestCase</c>, executes in a parallel
           group, this function, rather than <c>continue/0</c>, must be used
           to let the test case proceed.</p>
@@ -363,7 +363,7 @@
       </type>
       <desc><marker id="decrypt_config_file-2"/>
         <p>Decrypts <c>EncryptFileName</c>, previously generated with
-          <seealso marker="#encrypt_config_file-2"><c>ct:encrypt_config_file/2,3</c></seealso>.
+          <seealso marker="#encrypt_config_file/2"><c>ct:encrypt_config_file/2,3</c></seealso>.
           The original file contents is saved in the target file. The
           encryption key, a string, must be available in a text file named
           <c>.ct_config.crypt</c>, either in the current directory, or the
@@ -383,7 +383,7 @@
       </type>
       <desc><marker id="decrypt_config_file-3"/>
         <p>Decrypts <c>EncryptFileName</c>, previously generated with
-          <seealso marker="#encrypt_config_file-2"><c>ct:encrypt_config_file/2,3</c></seealso>.
+          <seealso marker="#encrypt_config_file/2"><c>ct:encrypt_config_file/2,3</c></seealso>.
           The original file contents is saved in the target file. The key
           must have the same value as that used for encryption.</p>
       </desc>
@@ -473,7 +473,7 @@
       <name since="">get_config(Required) -&gt; Value</name>
       <fsummary>Equivalent to get_config(Required, undefined, []).</fsummary>
       <desc><marker id="get_config-1"/>
-        <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
+        <p>Equivalent to <seealso marker="#get_config/3"><c>ct:get_config(Required,
           undefined, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -482,7 +482,7 @@
       <name since="">get_config(Required, Default) -&gt; Value</name>
       <fsummary>Equivalent to get_config(Required, Default, []).</fsummary>
       <desc><marker id="get_config-2"/>
-        <p>Equivalent to <seealso marker="#get_config-3"><c>ct:get_config(Required,
+        <p>Equivalent to <seealso marker="#get_config/3"><c>ct:get_config(Required,
           Default, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -505,7 +505,7 @@
         <p>Returns the matching values or configuration elements, given a
           configuration variable key or its associated name (if one has been
           specified with
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>
+          <seealso marker="#require/2"><c>ct:require/2</c></seealso>
           or a <c>require</c> statement).</p>
 
         <p><em>Example:</em></p>
@@ -528,7 +528,7 @@
  ct:get_config(unknownkey,Default) -&gt; Default</pre>
 
         <p>If a configuration variable key has been associated with a name (by
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>
+          <seealso marker="#require/2"><c>ct:require/2</c></seealso>
           or a <c>require</c> statement), the name can be used instead
           of the key to read the value:</p>
 
@@ -546,10 +546,10 @@
           returned elements are then on the form <c>{Required,Value}</c>.</p>
 
         <p>See also
-          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
-          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
-          <seealso marker="#require-1"><c>ct:require/1</c></seealso>,
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seealso marker="#get_config/1"><c>ct:get_config/1</c></seealso>,
+          <seealso marker="#get_config/2"><c>ct:get_config/2</c></seealso>,
+          <seealso marker="#require/1"><c>ct:require/1</c></seealso>,
+          <seealso marker="#require/2"><c>ct:require/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -744,7 +744,7 @@
       <fsummary>Equivalent to log(default, 50, Format, [], []).</fsummary>
       <desc><marker id="log-1"/>
         <p>Equivalent to
-          <seealso marker="#log-5"><c>ct:log(default, 50, Format, [], [])</c></seealso>.</p>
+          <seealso marker="#log/5"><c>ct:log(default, 50, Format, [], [])</c></seealso>.</p>
       </desc>
     </func>
 
@@ -757,7 +757,7 @@
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="log-2"/>
-        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+        <p>Equivalent to <seealso marker="#log/5"><c>ct:log(Category,
           Importance, Format, FormatArgs, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -772,7 +772,7 @@
         <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="log-3"/>
-        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+        <p>Equivalent to <seealso marker="#log/5"><c>ct:log(Category,
           Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
@@ -788,7 +788,7 @@
 	<v>X4 = FormatArgs | Opts</v>
       </type>
       <desc><marker id="log-4"/>
-        <p>Equivalent to <seealso marker="#log-5"><c>ct:log(Category,
+        <p>Equivalent to <seealso marker="#log/5"><c>ct:log(Category,
           Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
@@ -863,7 +863,7 @@
       <fsummary>Equivalent to pal(default, 50, Format, [], []).</fsummary>
       <desc><marker id="pal-1"/>
         <p>Equivalent to
-          <seealso marker="#pal-5"><c>ct:pal(default, 50, Format,
+          <seealso marker="#pal/5"><c>ct:pal(default, 50, Format,
             [], [])</c></seealso>.</p>
       </desc>
     </func>
@@ -877,7 +877,7 @@
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="pal-2"/>
-        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+        <p>Equivalent to <seealso marker="#pal/5"><c>ct:pal(Category,
           Importance, Format, FormatArgs, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -892,7 +892,7 @@
         <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="pal-3"/>
-        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+        <p>Equivalent to <seealso marker="#pal/5"><c>ct:pal(Category,
           Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
@@ -908,7 +908,7 @@
 	<v>X4 = FormatArgs | Opts</v>
       </type>
       <desc><marker id="pal-4"/>
-        <p>Equivalent to <seealso marker="#pal-5"><c>ct:pal(Category,
+        <p>Equivalent to <seealso marker="#pal/5"><c>ct:pal(Category,
           Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
@@ -970,7 +970,7 @@
       <name since="">print(Format) -&gt; ok</name>
       <fsummary>Equivalent to print(default, 50, Format, [], []).</fsummary>
       <desc><marker id="print-1"/>
-        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(default,
+        <p>Equivalent to <seealso marker="#print/5"><c>ct:print(default,
         50, Format, [], [])</c></seealso>.</p>
       </desc>
     </func>
@@ -984,7 +984,7 @@
         <v>X2 = Format | FormatArgs</v>
       </type>
       <desc><marker id="print-2"/>
-        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+        <p>Equivalent to <seealso marker="#print/5"><c>ct:print(Category,
           Importance, Format, FormatArgs, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -999,7 +999,7 @@
         <v>X3 = Format | FormatArgs | Opts</v>
       </type>
       <desc><marker id="print-3"/>
-        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+        <p>Equivalent to <seealso marker="#print/5"><c>ct:print(Category,
           Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
@@ -1015,7 +1015,7 @@
 	<v>X4 = FormatArgs | Opts</v>
       </type>
       <desc><marker id="print-4"/>
-        <p>Equivalent to <seealso marker="#print-5"><c>ct:print(Category,
+        <p>Equivalent to <seealso marker="#print/5"><c>ct:print(Category,
           Importance, Format, FormatArgs, Opts)</c></seealso>.</p>
       </desc>
     </func>
@@ -1170,10 +1170,10 @@
  {myvar,[{sub1,[{sub2,Value}]}]}.</pre>
 
         <p>See also
-          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
-          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
-          <seealso marker="#get_config-3"><c>ct:get_config/3</c></seealso>,
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seealso marker="#get_config/1"><c>ct:get_config/1</c></seealso>,
+          <seealso marker="#get_config/2"><c>ct:get_config/2</c></seealso>,
+          <seealso marker="#get_config/3"><c>ct:get_config/3</c></seealso>,
+          <seealso marker="#require/2"><c>ct:require/2</c></seealso>.</p>
         </desc>
     </func>
 
@@ -1190,12 +1190,12 @@
       <desc><marker id="require-2"/>
         <p>Checks if the required configuration is available and gives it a
           name. The semantics for <c>Required</c> is the same as in
-          <seealso marker="#require-1"><c>ct:require/1</c></seealso> except
+          <seealso marker="#require/1"><c>ct:require/1</c></seealso> except
           that a list of <c>SubKey</c>s cannot be specified.</p>
 
        <p>If the requested data is available, the subentry is associated
          with <c>Name</c> so that the value of the element can be read with
-         <seealso marker="#get_config-1"><c>ct:get_config/1,2</c></seealso>
+         <seealso marker="#get_config/1"><c>ct:get_config/1,2</c></seealso>
          provided <c>Name</c> is used instead of the whole <c>Required</c>
          term.</p>
 
@@ -1229,10 +1229,10 @@
         </note>
 
         <p>See also
-          <seealso marker="#get_config-1"><c>ct:get_config/1</c></seealso>,
-          <seealso marker="#get_config-2"><c>ct:get_config/2</c></seealso>,
-          <seealso marker="#get_config-3"><c>ct:get_config/3</c></seealso>,
-          <seealso marker="#require-1"><c>ct:require/1</c></seealso>.</p>
+          <seealso marker="#get_config/1"><c>ct:get_config/1</c></seealso>,
+          <seealso marker="#get_config/2"><c>ct:get_config/2</c></seealso>,
+          <seealso marker="#get_config/3"><c>ct:get_config/3</c></seealso>,
+          <seealso marker="#require/1"><c>ct:require/1</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1246,7 +1246,7 @@
       <desc><marker id="run-1"/>
         <p>Runs all test cases in all suites in the specified directories.</p>
 
-        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+        <p>See also <seealso marker="#run/3"><c>ct:run/3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1256,7 +1256,7 @@
       <desc><marker id="run-2"/>
         <p>Runs all test cases in the specified suite.</p>
 
-        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+        <p>See also <seealso marker="#run/3"><c>ct:run/3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1273,7 +1273,7 @@
         <p>Runs the specified test cases.</p>
 
         <p>Requires that
-          <seealso marker="#install-1"><c>ct:install/1</c></seealso> has been
+          <seealso marker="#install/1"><c>ct:install/1</c></seealso> has been
             run first.</p>
 
         <p>Suites (<c>*_SUITE.erl</c>) files must be stored in <c>TestDir</c>
@@ -1348,7 +1348,7 @@
 
         <p><c>TestRunnerPid</c> is returned if <c>release_shell == true</c>.
           For details, see
-          <seealso marker="#break-1"><c>ct:break/1</c></seealso>.</p>
+          <seealso marker="#break/1"><c>ct:break/1</c></seealso>.</p>
 
         <p><c>Reason</c> indicates the type of error encountered.</p>
       </desc>
@@ -1425,7 +1425,7 @@
         <p>If any functions (for example, Telnet or FTP) using
           "required configuration data" are to be called from the Erlang shell,
           configuration data must first be required with
-          <seealso marker="#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seealso marker="#require/2"><c>ct:require/2</c></seealso>.</p>
 
         <p><em>Example:</em></p>
 
@@ -1448,7 +1448,7 @@
       <desc><marker id="step-3"/>
         <p>Steps through a test case with the debugger.</p>
 
-        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+        <p>See also <seealso marker="#run/3"><c>ct:run/3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1465,7 +1465,7 @@
           <c>config</c> has been specifed, breakpoints are also set on
           the configuration functions in <c>Suite</c>.</p>
 
-        <p>See also <seealso marker="#run-3"><c>ct:run/3</c></seealso>.</p>
+        <p>See also <seealso marker="#run/3"><c>ct:run/3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -1476,7 +1476,7 @@
         <p>Exits the interactive mode.</p>
 
         <p>See also
-          <seealso marker="#start_interactive-0"><c>ct:start_interactive/0</c></seealso>.
+          <seealso marker="#start_interactive/0"><c>ct:start_interactive/0</c></seealso>.
         </p>
       </desc>
     </func>
@@ -1551,7 +1551,7 @@
       <desc><marker id="userdata-2"/>
         <p>Returns any data specified with tag <c>userdata</c> in the list
           of tuples returned from
-          <seealso marker="common_test#Module:suite-0"><c>suite/0</c></seealso>.</p>
+          <seealso marker="common_test#Module:suite/0"><c>suite/0</c></seealso>.</p>
       </desc>
     </func>
 

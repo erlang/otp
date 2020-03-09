@@ -52,7 +52,7 @@
     <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
     </seealso>.</p>
     <p>To add a new instance of the disk_log handler, use
-    <seealso marker="logger#add_handler-3"><c>logger:add_handler/3</c>
+    <seealso marker="logger#add_handler/3"><c>logger:add_handler/3</c>
     </seealso>. The handler configuration argument is a map which can contain
     general configuration parameters, as documented in the
     <seealso marker="logger_chapter#handler_configuration"><c>User's Guide</c>
@@ -64,7 +64,7 @@
       <item>
 	<p>This is the full name of the disk log file. The option
 	corresponds to the <c>name</c> property in the
-	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
+	<seealso marker="disk_log#open/1"><c>dlog_option()</c></seealso>
 	datatype.</p>
 	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
@@ -75,7 +75,7 @@
       <item>
 	<p>This is the disk log type, <c>wrap</c> or <c>halt</c>. The option
 	corresponds to the <c>type</c> property in the
-	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
+	<seealso marker="disk_log#open/1"><c>dlog_option()</c></seealso>
 	datatype.</p>
 	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
@@ -86,7 +86,7 @@
 	<p>This is the maximum number of files that disk_log uses
 	for its circular logging. The option
 	corresponds to the <c>MaxNoFiles</c> element in the <c>size</c> property in the
-	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
+	<seealso marker="disk_log#open/1"><c>dlog_option()</c></seealso>
 	datatype.</p>
 	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
@@ -99,7 +99,7 @@
 	a log file before disk_log proceeds with the next file in order, or
 	generates an error in case of a full halt log. The option
 	corresponds to the <c>MaxNoBytes</c> element in the <c>size</c> property in the
-	<seealso marker="disk_log#open-1"><c>dlog_option()</c></seealso>
+	<seealso marker="disk_log#open/1"><c>dlog_option()</c></seealso>
 	datatype.</p>
 	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
@@ -115,7 +115,7 @@
 	<p>Defaults to <c>5000</c> milliseconds.</p>
 	<p>If <c>no_repeat</c> is set as value, the repeated sync operation
 	is disabled. The user can also call the
-	<seealso marker="logger_disk_log_h#filesync-1"><c>filesync/1</c>
+	<seealso marker="logger_disk_log_h#filesync/1"><c>filesync/1</c>
 	</seealso> function to perform a disk_log sync.</p>
       </item>
     </taglist>

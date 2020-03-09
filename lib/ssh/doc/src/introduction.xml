@@ -106,8 +106,8 @@
       </list>
       <p>Several configuration options for
       authentication handling are available in
-      <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>
-      and <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>.</p>
+      <seealso marker="ssh#connect/3">ssh:connect/[3,4]</seealso>
+      and <seealso marker="ssh#daemon/2">ssh:daemon/[2,3]</seealso>.</p>
       <p>
       The public key handling can be customized by implementing
       the following behaviours from <c>ssh</c>:</p>
@@ -168,7 +168,7 @@
 	but that is much more work.
 	</item>
 	<item><em>Exec</em> - One-time remote execution of commands. See function
-	<seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>
+	<seealso marker="ssh_connection#exec/4">ssh_connection:exec/4</seealso>
 	for more information.</item>
       </list>
     </section>
