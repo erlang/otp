@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1997-2017. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,8 +109,8 @@ lists_member(H, [H|_]) -> true;
 lists_member(H, [_|T]) -> lists_member(H, T).
 
 
-
--define(DECODE_ERROR, fmt). % must match a clause in inet_res:query_nss_e?dns
+%% must match a clause in inet_res:query_nss_e?dns
+-define(DECODE_ERROR, formerr).
 
 %%
 %% Decode a dns buffer.
