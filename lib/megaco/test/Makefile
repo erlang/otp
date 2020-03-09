@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 1999-2019. All Rights Reserved.
+# Copyright Ericsson AB 1999-2020. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -358,31 +358,6 @@ display_v2: make
 generate_v2: make
 	$(MERL) $(ARGS) -sname megaco_generate_text_msgs_v2 $(ERL_PATH) \
             -s megaco_codec_v2_SUITE generate_text_messages \
-            $(ESTOP)
-
-display_prev3a: make
-	$(MERL) $(ARGS) -sname megaco_display_text_msgs_prev3a $(ERL_PATH) \
-            -s megaco_codec_prev3a_SUITE display_text_messages \
-            $(ESTOP)
-
-display_prev3b: make
-	$(MERL) $(ARGS) -sname megaco_display_text_msgs_prev3b $(ERL_PATH) \
-            -s megaco_codec_prev3b_SUITE display_text_messages \
-            $(ESTOP)
-
-generate_prev3b: make
-	$(MERL) $(ARGS) -sname megaco_generate_text_msgs_prev3b $(ERL_PATH) \
-            -s megaco_codec_prev3b_SUITE generate_text_messages \
-            $(ESTOP)
-
-display_prev3c: make
-	$(MERL) $(ARGS) -sname megaco_display_text_msgs_prev3c $(ERL_PATH) \
-            -s megaco_codec_prev3c_SUITE display_text_messages \
-            $(ESTOP)
-
-generate_prev3c: make
-	$(MERL) $(ARGS) -sname megaco_generate_text_msgs_prev3c $(ERL_PATH) \
-            -s megaco_codec_prev3c_SUITE generate_text_messages \
             $(ESTOP)
 
 display_v3: make
