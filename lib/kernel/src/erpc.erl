@@ -320,8 +320,32 @@ multicall(Ns, M, F, A, T) ->
         true = is_atom(F),
         true = is_list(A),
         Deadline = deadline(T),
-        ReqIds = mcall_send_requests(Ns, M, F, A, []),
-        mcall_receive_replies(ReqIds, [], Deadline)
+        {ReqIds, LC} = mcall_send_requests(Ns, M, F, A, [], T, false),
+        LRes = case LC of
+                   false ->
+                       undefined;
+                   true ->
+                       %% Timeout infinity and call on local node wanted;
+                       %% excecute local call in this process...
+                       try
+                           {return, Return} = execute_call(M, F, A),
+                           {ok, Return}
+                       catch
+                           throw:Thrown ->
+                               {throw, Thrown};
+                           exit:Reason ->
+                               {exit, {exception, Reason}};
+                           error:Reason:Stack ->
+                               case is_arg_error(Reason, M, F, A) of
+                                   true ->
+                                       {error, {?MODULE, Reason}};
+                                   false ->
+                                       ErpcStack = trim_stack(Stack, M, F, A),
+                                       {error, {exception, Reason, ErpcStack}}
+                               end
+                       end
+               end,
+        mcall_receive_replies(ReqIds, [], LRes, Deadline)
     catch
         error:NotIErr when NotIErr /= internal_error ->
             error({?MODULE, badarg})
@@ -340,23 +364,12 @@ multicast(N, Fun) ->
       Function :: atom(),
       Args :: [term()].
 
-multicast([], Mod, Fun, Args) ->
-    try
-        true = is_atom(Mod),
-        true = is_atom(Fun),
-        true = is_list(Args),
-        ok
-    catch
-        _:_ ->
-            error({?MODULE, badarg})
-    end;
 multicast(Nodes, Mod, Fun, Args) ->
     try
         true = is_atom(Mod),
         true = is_atom(Fun),
         true = is_list(Args),
-        multicast_send_requests(Nodes, Mod, Fun, Args),
-        ok
+        multicast_send_requests(Nodes, Mod, Fun, Args)
     catch
         error:_ ->
             error({?MODULE, badarg})
@@ -365,7 +378,7 @@ multicast(Nodes, Mod, Fun, Args) ->
 multicast_send_requests([], _Mod, _Fun, _Args) ->
     ok;
 multicast_send_requests([Node|Nodes], Mod, Fun, Args) ->
-    _ = spawn_request(Node, erpc, execute_cast, [Mod, Fun, Args],
+    _ = spawn_request(Node, ?MODULE, execute_cast, [Mod, Fun, Args],
                       [{reply, no}]),
     multicast_send_requests(Nodes, Mod, Fun, Args).
 
@@ -386,7 +399,7 @@ cast(Node, Mod, Fun, Args) when is_atom(Node),
                                 is_atom(Mod),
                                 is_atom(Fun),
                                 is_list(Args) ->
-    _ = spawn_request(Node, erpc, execute_cast, [Mod, Fun, Args],
+    _ = spawn_request(Node, ?MODULE, execute_cast, [Mod, Fun, Args],
                       [{reply, no}]),
     ok;
 cast(_Node, _Mod, _Fun, _Args) ->
@@ -564,9 +577,12 @@ time_left(Deadline) ->
             erlang:convert_time_unit(TimeLeft-1, native, millisecond) + 1
     end.
 
-mcall_send_requests([], _M, _F, _A, RIDs) ->
-    RIDs;
-mcall_send_requests([N|Ns], M, F, A, RIDs) ->
+mcall_send_requests([], _M, _F, _A, RIDs, _T, LC) ->
+    {RIDs, LC};
+mcall_send_requests([N|Ns], M, F, A, RIDs,
+                    infinity, false) when N == node() ->
+    mcall_send_requests(Ns, M, F, A, [local_call|RIDs], infinity, true);
+mcall_send_requests([N|Ns], M, F, A, RIDs, T, LC) ->
     RID = try
               send_request(N, M, F, A)
           catch
@@ -576,14 +592,16 @@ mcall_send_requests([N|Ns], M, F, A, RIDs) ->
                   %% and then fail...
                   mcall_failure_abandon(RIDs)
           end,
-    mcall_send_requests(Ns, M, F, A, [RID|RIDs]);
-mcall_send_requests(_, _, _, _, RIDs) ->
+    mcall_send_requests(Ns, M, F, A, [RID|RIDs], T, LC);
+mcall_send_requests(_, _, _, _, RIDs, _T, _LC) ->
     %% Bad nodes list... Abandon requests we've
     %% already sent and then fail...
     mcall_failure_abandon(RIDs).
 
 mcall_failure_abandon([]) ->
     error(badarg);
+mcall_failure_abandon([local_call|RIDs]) ->
+    mcall_failure_abandon(RIDs);
 mcall_failure_abandon([RID|RIDs]) ->
     try
         _ = receive_response(RID, 0),
@@ -594,13 +612,15 @@ mcall_failure_abandon([RID|RIDs]) ->
     end,
     mcall_failure_abandon(RIDs).
 
-mcall_receive_replies([], Replies, _Deadline) ->
+mcall_receive_replies([], Replies, undefined, _Deadline) ->
     Replies;
-mcall_receive_replies([RID|RIDs], Replies, Deadline) ->
+mcall_receive_replies([local_call|RIDs], Replies, LRes, Deadline) ->
+    mcall_receive_replies(RIDs, [LRes|Replies], undefined, Deadline);    
+mcall_receive_replies([RID|RIDs], Replies, LRes, Deadline) ->
     Reply = try
                 {ok, receive_response(RID, time_left(Deadline))}
             catch
                 Class:Reason ->
                     {Class, Reason}
             end,
-    mcall_receive_replies(RIDs, [Reply|Replies], Deadline).
+    mcall_receive_replies(RIDs, [Reply|Replies], LRes, Deadline).
