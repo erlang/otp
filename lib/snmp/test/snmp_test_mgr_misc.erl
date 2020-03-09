@@ -191,6 +191,10 @@ packet_loop(SnmpMgr, UdpId, AgentIp, UdpPort, VsnHdr, Version, MsgData) ->
 					 SnmpMgr, AgentIp),
 	    packet_loop(SnmpMgr,UdpId,AgentIp,UdpPort,VsnHdr,Version,
 			MsgData3);
+        {udp_error, UdpId, Reason} ->
+	    gen_udp:close(UdpId),
+	    exit({udp_error, Reason});
+
 	{send_bytes, B} ->
 	    d("packet_loop -> received send_bytes with"
 	      "~n   sz(B): ~p", [sz(B)]),	    

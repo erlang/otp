@@ -817,6 +817,8 @@ analyze_and_print_host_info() ->
             analyze_and_print_openbsd_host_info(Version);
         {unix, freebsd} ->
             analyze_and_print_freebsd_host_info(Version);           
+        {unix, netbsd} ->
+            analyze_and_print_netbsd_host_info(Version);           
         {unix, sunos} ->
             analyze_and_print_solaris_host_info(Version);
         {win32, nt} ->
@@ -1196,6 +1198,142 @@ analyze_freebsd_item(Extract, Key, Process, Default) ->
         _:_:_ ->
             Default
     end.
+
+
+analyze_and_print_netbsd_host_info(Version) ->
+    io:format("NetBSD:"
+              "~n   Version: ~p"
+              "~n", [Version]),
+    %% This test require that the program 'sysctl' is in the path.
+    %% First test with 'which sysctl', if that does not work
+    %% try with 'which /sbin/sysctl'. If that does not work either,
+    %% we skip the test...
+    try
+        begin
+            SysCtl =
+                case string:trim(os:cmd("which sysctl")) of
+                    [] ->
+                        case string:trim(os:cmd("which /sbin/sysctl")) of
+                            [] ->
+                                throw(sysctl);
+                            SC2 ->
+                                SC2
+                        end;
+                    SC1 ->
+                        SC1
+                end,
+            Extract =
+                fun(Key) ->
+                        [string:trim(S) ||
+                            S <-
+                                string:tokens(string:trim(os:cmd(SysCtl ++ " " ++ Key)),
+                                              [$=])]
+                end,
+            CPU      = analyze_netbsd_cpu(Extract),
+            Machine  = analyze_netbsd_machine(Extract),
+            Arch     = analyze_netbsd_machine_arch(Extract),
+            CPUSpeed = analyze_netbsd_cpu_speed(Extract),
+            NCPU     = analyze_netbsd_ncpu(Extract),
+            Memory   = analyze_netbsd_memory(Extract),
+            io:format("CPU:"
+                      "~n   Model:          ~s (~s, ~s)"
+                      "~n   Speed:          ~w MHz"
+                      "~n   N:              ~w"
+                      "~n   Num Schedulers: ~w"
+                      "~nMemory:"
+                      "~n   ~w KB"
+                      "~n",
+                      [CPU, Machine, Arch, CPUSpeed, NCPU,
+                       erlang:system_info(schedulers), Memory]),
+            CPUFactor =
+                if
+                    (CPUSpeed =:= -1) ->
+                        1;
+                    (CPUSpeed >= 2000) ->
+                        if
+                            (NCPU >= 4) ->
+                                1;
+                            (NCPU >= 2) ->
+                                2;
+                            true ->
+                                3
+                        end;
+                    true ->
+                        if
+                            (NCPU =:= -1) ->
+                                1;
+                            (NCPU >= 4) ->
+                                2;
+                            (NCPU >= 2) ->
+                                3;
+                            true ->
+                                4
+                        end
+                end,
+            MemAddFactor =
+                if
+                    (Memory =:= -1) ->
+                        0;
+                    (Memory >= 8388608) ->
+                        0;
+                    (Memory >= 4194304) ->
+                        1;
+                    (Memory >= 2097152) ->
+                        2;
+                    true ->
+                        3
+                end,
+            CPUFactor + MemAddFactor
+        end
+    catch
+        _:_:_ ->
+            io:format("CPU:"
+                      "~n   Num Schedulers: ~w"
+                      "~n", [erlang:system_info(schedulers)]),
+            case erlang:system_info(schedulers) of
+                1 ->
+                    10;
+                2 ->
+                    5;
+                _ ->
+                    2
+            end
+    end.
+
+analyze_netbsd_cpu(Extract) ->
+    analyze_netbsd_item(Extract, "hw.model", fun(X) -> X end, "-").
+
+analyze_netbsd_machine(Extract) ->
+    analyze_netbsd_item(Extract, "hw.machine", fun(X) -> X end, "-").
+
+analyze_netbsd_machine_arch(Extract) ->
+    analyze_netbsd_item(Extract, "hw.machine_arch", fun(X) -> X end, "-").
+
+analyze_netbsd_cpu_speed(Extract) ->
+    analyze_netbsd_item(Extract, "machdep.dmi.processor-frequency", 
+                        fun(X) -> case string:tokens(X, [$\ ]) of
+                                      [MHz, "MHz"] ->
+                                          list_to_integer(MHz);
+                                      _ ->
+                                          -1
+                                  end
+                        end, "-").
+
+analyze_netbsd_ncpu(Extract) ->
+    analyze_netbsd_item(Extract,
+                        "hw.ncpu",
+                        fun(X) -> list_to_integer(X) end,
+                        -1).
+
+analyze_netbsd_memory(Extract) ->
+    analyze_netbsd_item(Extract,
+                        "hw.physmem64",
+                        fun(X) -> list_to_integer(X) div 1024 end,
+                        -1).
+
+analyze_netbsd_item(Extract, Key, Process, Default) ->
+    analyze_freebsd_item(Extract, Key, Process, Default).
+
 
 
 analyze_and_print_solaris_host_info(Version) ->

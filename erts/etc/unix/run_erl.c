@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  * 
- * Copyright Ericsson AB 1996-2017. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2020. All Rights Reserved.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +46,7 @@
      /* On OS X, BSD and Solaris, we must leave _XOPEN_SOURCE undefined in order
       * for the prototype of vsyslog() to be included.
       */
-#    if !(defined(__APPLE__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun))
+#    if !(defined(__APPLE__) || defined(__NetBSD__) || defined(__FreeBSD__) || defined(__DragonFly__) || defined(__sun))
 #      define _XOPEN_SOURCE 600
 #    endif
 #  endif
