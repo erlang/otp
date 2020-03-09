@@ -955,6 +955,7 @@ known_hosts(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
+ssh_file_is_host_key() -> [{timetrap,{seconds,120}}]. % Some machines are S L O W !
 ssh_file_is_host_key(Config) ->
     Dir = ssh_test_lib:create_random_dir(Config),
     ct:log("Dir = ~p", [Dir]),
