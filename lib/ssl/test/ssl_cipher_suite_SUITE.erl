@@ -333,7 +333,7 @@ init_per_testcase(aes_256_gcm_sha384, Config) ->
 init_per_testcase(aes_128_gcm_sha256, Config) ->
       SupCiphers = proplists:get_value(ciphers, crypto:supports()),
       SupHashs = proplists:get_value(hashs, crypto:supports()),
-      case (lists:member(aes_256_gcm, SupCiphers)) andalso
+      case (lists:member(aes_128_gcm, SupCiphers)) andalso
           (lists:member(sha256, SupHashs))
       of
         true ->
