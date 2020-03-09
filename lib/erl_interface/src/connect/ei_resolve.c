@@ -49,7 +49,7 @@
  * is thread-safe in a manner that makes the normal gethostbyname OK
  * for re-entrant use.
  */
-#ifdef _AIX
+#if defined(_AIX) || defined(__NetBSD__)
 #undef HAVE_GETHOSTBYNAME_R
 #endif
 
@@ -73,7 +73,7 @@ int ei_init_resolve(void)
 static ei_mutex_t *ei_gethost_sem = NULL;
 #endif /* _REENTRANT */
 static int ei_resolve_initialized = 0;
-#if !defined(__WIN32__) && !defined(_AIX)
+#if !defined(__WIN32__) && !defined(_AIX) && !defined(__NetBSD__)
 int h_errno;
 #endif
 
@@ -121,7 +121,7 @@ int ei_init_resolve(void)
 #else
 #define EI_ALIGNBYTES (sizeof(void*) - 1)
 #endif
-#define align_buf(buf,len) for (;(((unsigned)buf) & EI_ALIGNBYTES); (buf)++, len--)
+#define align_buf(buf,len) for (;(((size_t)buf) & EI_ALIGNBYTES); (buf)++, len--)
 #define advance_buf(buf,len,n) ((buf)+=(n),(len)-=(n))
 
 /* "and now the tricky part..." */
