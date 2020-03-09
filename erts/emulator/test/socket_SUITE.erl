@@ -2760,7 +2760,7 @@ api_b_open_and_close(InitState) ->
            cmd  => fun({S, {ok, Sock}}) -> 
                            NewS = S#{socket => Sock},
                            {ok, NewS};
-                      ({_, {error,  eprotonosupport = Reason}}) ->
+                      ({_, {error, eprotonosupport = Reason}}) ->
                            {skip, Reason};
                       ({_, {error, _} = ERROR}) ->
                            ERROR
@@ -17811,16 +17811,25 @@ api_opt_sock_timestamp_tcp(InitState) ->
                                                "expected timestamp: "
                                                "~n   ~p", [TS]),
                                    ok;
+                               {ok, {[#{level := socket,
+                                        type  := timestamp,
+                                        data  := UTS}], BadData}} ->
+                                   ?SEV_EPRINT("received reply *with* "
+                                               "unexpected timestamp:"
+                                               "~n   ~p"
+                                               "Current timestamp value:"
+                                               "~n   ~p",
+                                               [UTS, Get(Sock)]),
+                                   {error, {unexpected_reply_data, BadData}};
                                {ok, {BadCMsgHdrs, ?BASIC_REP}} ->
-                                   ?SEV_EPRINT("Current timestamp value:"
-                                               "   ~p", [Get(Sock)]),
+                                   ?SEV_EPRINT("received reply *with* "
+                                               "unexpected cmsg headers:"
+                                               "~n   ~p"
+                                               "Current timestamp value: "
+                                               "~n   ~p",
+                                               [BadCMsgHdrs, Get(Sock)]),
                                    {error, {unexpected_reply_cmsghdrs,
                                             BadCMsgHdrs}};
-                               {ok, {[#{level := socket,
-                                        type   := timestamp,
-                                        data   := _TS}], BadData}} ->
-                                   {error, {unexpected_reply_data,
-                                            BadData}};
                                {ok, BadReply} ->
                                    {error, {unexpected_reply, BadReply}};
                                {error, _} = ERROR ->
@@ -20934,14 +20943,16 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
                                    true ->
 				       %% It seems that sending any of the
 				       %% TOS or TTL values will fail on: 
-				       %%    FreeBSD
+				       %%    FreeBSD and NetBSD
 				       %%    Linux when
 				       %%      version =< 3.12.60 (at least)
 				       %% so don't!
                                        %% See recvtos above for more info.
                                        [{ip, recvttl, ttl,
                                          case os:type() of
-                                             {unix, freebsd} ->
+                                             {unix, BSD} 
+                                               when (BSD =:= freebsd) orelse
+                                                    (BSD =:= netbsd) ->
                                                  default;
                                              {unix, netbsd} ->
                                                  default;
