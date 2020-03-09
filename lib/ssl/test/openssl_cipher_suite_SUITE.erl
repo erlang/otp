@@ -146,7 +146,8 @@ tls_1_3_cipher_suites() ->
     [aes_256_gcm_sha384,
      aes_128_gcm_sha256,
      chacha20_poly1305_sha256,
-     aes_128_ccm_sha256
+     aes_128_ccm_sha256,
+     aes_128_ccm_8_sha256
     ].
 
 kex() ->
@@ -418,6 +419,18 @@ init_per_testcase(aes_128_ccm_sha256, Config) ->
             {skip, "Missing AES_128_CCM crypto support"}
     end;
 
+init_per_testcase(aes_128_ccm_8_sha256, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(aes_128_ccm, SupCiphers)) andalso
+        (lists:member(sha256, SupHashs)) of
+        true ->
+            ct:timetrap(?DEFAULT_TIMEOUT),
+            Config;
+        _ ->
+            {skip, "Missing AES_128_CCM_8 crypto support"}
+    end;
+
 init_per_testcase(TestCase, Config) ->
     Cipher = ssl_test_lib:test_cipher(TestCase, Config),
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
@@ -538,6 +551,9 @@ chacha20_poly1305_sha256(Config) when is_list(Config) ->
 
 aes_128_ccm_sha256(Config) when is_list(Config) ->
     run_ciphers_test(ecdhe_rsa, 'aes_128_ccm', Config).
+
+aes_128_ccm_8_sha256(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_rsa, 'aes_128_ccm_8', Config).
 
 %%--------------------------------------------------------------------
 %% SRP --------------------------------------------------------
