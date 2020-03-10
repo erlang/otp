@@ -36,7 +36,8 @@
 	 core_roundtrip/1, asm/1,
 	 sys_pre_attributes/1, dialyzer/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
-         bc_options/1, deterministic_include/1, deterministic_paths/1
+         bc_options/1, deterministic_include/1, deterministic_paths/1,
+         compile_attribute/1
 	]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -53,7 +54,8 @@ all() ->
      cover, env, core_pp, core_roundtrip, asm,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
-     custom_compile_info, deterministic_include, deterministic_paths].
+     custom_compile_info, deterministic_include, deterministic_paths,
+     compile_attribute].
 
 groups() -> 
     [].
@@ -1485,6 +1487,30 @@ deterministic_paths_1(DataDir, Name, Opts) ->
     after
         file:set_cwd(Cwd)
     end.
+
+%% ERL-1058: -compile(debug_info) had no effect
+compile_attribute(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+
+    %% The test module has a -compile([debug_info]). attribute, which means
+    %% debug information should always be included.
+    debug_info_attribute(DataDir, "debug_info", [debug_info]),
+    debug_info_attribute(DataDir, "debug_info", []),
+
+    ok.
+
+debug_info_attribute(DataDir, Name, Opts) ->
+    File = filename:join(DataDir, Name),
+    {ok,_,Bin} = compile:file(File, [binary | Opts]),
+    {ok, {_, Attrs}} = beam_lib:chunks(Bin, [debug_info]),
+
+    [{debug_info,{debug_info_v1,erl_abstract_code,
+                  {[{attribute,1,file,{_,1}},
+                    {attribute,1,module,debug_info},
+                    {attribute,2,compile,[debug_info]},
+                    {eof,2}], _}}}] = Attrs,
+
+    ok.
 
 %%%
 %%% Utilities.
