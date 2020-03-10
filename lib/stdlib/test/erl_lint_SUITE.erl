@@ -69,7 +69,8 @@
          stacktrace_syntax/1,
          otp_14285/1, otp_14378/1,
          external_funs/1,otp_15456/1,otp_15563/1,
-         unused_type/1,removed/1, otp_16516/1]).
+         unused_type/1,removed/1, otp_16516/1,
+         inline_nifs/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -91,7 +92,8 @@ all() ->
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont, non_latin1_module, otp_14323,
      stacktrace_syntax, otp_14285, otp_14378, external_funs,
-     otp_15456, otp_15563, unused_type, removed, otp_16516].
+     otp_15456, otp_15563, unused_type, removed, otp_16516,
+     inline_nifs].
 
 groups() -> 
     [{unused_vars_warn, [],
@@ -4430,6 +4432,23 @@ several_multi_inits(Config) ->
                    {6,erl_lint,bad_multi_field_init}],
             [{2,erl_lint,{unused_var,'V2'}},
              {5,erl_lint,{unused_var,'V2'}}]}}],
+    [] = run(Config, Ts).
+
+inline_nifs(Config) ->
+    Ts = [{implicit_inline,
+           <<"-compile(inline).
+              t() -> erlang:load_nif([], []).
+              gurka() -> ok.
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,nif_inline}]}},
+          {explicit_inline,
+           <<"-compile({inline, [gurka/0]}).
+              t() -> erlang:load_nif([], []).
+              gurka() -> ok.
+             ">>,
+           [],
+           {warnings,[{2,erl_lint,nif_inline}]}}],
     [] = run(Config, Ts).
 
 format_error(E) ->
