@@ -22,7 +22,7 @@
 
     </legalnotice>
 
-    <title>gen_statem Behavior</title>
+    <title>gen_statem Behaviour</title>
     <prepared></prepared>
     <docno></docno>
     <date></date>
@@ -83,12 +83,12 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
       (see, for example, the Wikipedia article "Mealy machine").
     </p>
     <p>
-      Like most <c>gen_</c> behaviors, <c>gen_statem</c> keeps
+      Like most <c>gen_</c> behaviours, <c>gen_statem</c> keeps
       a server <c>Data</c> besides the state. Because of this, and as
       there is no restriction on the number of states
       (assuming that there is enough virtual machine memory)
       or on the number of distinct input events,
-      a state machine implemented with this behavior
+      a state machine implemented with this behaviour
       is in fact Turing complete.
       But it feels mostly like an Event-Driven Mealy machine.
     </p>
@@ -207,7 +207,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <marker id="Callback Modes" />
     <title>Callback Modes</title>
     <p>
-      The <c>gen_statem</c> behavior supports two <em>callback modes</em>:
+      The <c>gen_statem</c> behaviour supports two <em>callback modes</em>:
     </p>
     <taglist>
       <tag>
@@ -855,7 +855,7 @@ State(S) x Event(E) -> Actions(A), State(S')</pre>
     <marker id="State Enter Calls" />
     <title>State Enter Calls</title>
     <p>
-      The <c>gen_statem</c> behavior can if this is enabled,
+      The <c>gen_statem</c> behaviour can if this is enabled,
       regardless of <em>callback mode</em>,
       automatically
       <seealso marker="stdlib:gen_statem#type-state_enter">
@@ -959,7 +959,7 @@ StateName(EventType, EventContent, Data) ->
 	<seealso marker="#Postponing Events">postponed </seealso>
 	and
 	<seealso marker="#Inserted Events">inserted</seealso>
-	events cancel this timeout just as external events.
+	events cancel this time-out just as external events.
       </item>
     </taglist>
     <p>
@@ -1035,7 +1035,7 @@ StateName(EventType, EventContent, Data) ->
 	<seealso marker="#Postponing Events">postponing</seealso>
 	an event in a <em>state change</em> with starting an
 	<seealso marker="#Event Time-Outs">event time-out</seealso>
-	with time <c>0</c> there will be no timeout event inserted
+	with time <c>0</c> there will be no time-out event inserted
 	since the event time-out is cancelled by the postponed
 	event that is delivered due to the state change.
       </p>
@@ -1762,12 +1762,12 @@ open(cast, {button,_}, Data) ->
     <p>
       If you need to cancel a timer because of some other event, you can use
       <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>.
-      Note that a time-out message cannot arrive after this,
-      unless you have postponed it before (see the next section),
+      Note that no time-out message will arrive after this (because the timer has been explicitly canceled),
+      unless you have already postponed one earlier (see the next section),
       so ensure that you do not accidentally postpone such messages.
-      Also note that a time-out message may have arrived
-      just before you cancelling it, so you may have to read out
-      such a message from the process mailbox depending on
+      Also note that a time-out message may arrive during a **state callback** 
+      that is cancelling the timer, so you may have to read out
+      such a message from the process mailbox, depending on
       the return value from 
       <seealso marker="erts:erlang#cancel_timer/2"><c>erlang:cancel_timer(Tref)</c></seealso>.
     </p>
@@ -1908,16 +1908,16 @@ do_unlock() ->
     io:format("Open~n", []).
     ]]></code>
     <p>
-      The selective receive in this case causes implicitly <c>open</c>
-      to postpone any events to the <c>locked</c> state.
+      The selective receive in this case causes <c>open</c>
+      to implicitly postpone any events to the <c>locked</c> state.
     </p>
     <p>
       A selective receive cannot be used from a <c>gen_statem</c>
-      behavior as for any <c>gen_*</c> behavior,
+      behaviour (or from any <c>gen_*</c> behaviour),
       as the receive statement is within the <c>gen_*</c> engine itself.
       It must be there because all
       <seealso marker="stdlib:sys"><c>sys</c></seealso>
-      compatible behaviors must respond to system messages and therefore
+      compatible behaviours must respond to system messages and therefore
       do that in their engine receive loop,
       passing non-system messages to the <em>callback module</em>.
     </p>
