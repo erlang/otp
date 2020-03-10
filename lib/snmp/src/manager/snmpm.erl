@@ -119,6 +119,49 @@
 	     ]).
 
 
+-deprecated(
+   [
+    {sync_get, 3, "use snmpm:sync_get2/3 instead."},
+    {sync_get, 4, "use snmpm:sync_get2/4 instead."},
+    {sync_get, 5, "use snmpm:sync_get2/4 instead."},
+    {sync_get, 6, "use snmpm:sync_get2/4 instead."},
+
+    {async_get, 3, "use snmpm:async_get2/3 instead."},
+    {async_get, 4, "use snmpm:async_get2/4 instead."},
+    {async_get, 5, "use snmpm:async_get2/4 instead."},
+    {async_get, 6, "use snmpm:async_get2/4 instead."},
+
+    {sync_get_next, 3, "use snmpm:sync_get_next2/3 instead."},
+    {sync_get_next, 4, "use snmpm:sync_get_next2/4 instead."},
+    {sync_get_next, 5, "use snmpm:sync_get_next2/4 instead."},
+    {sync_get_next, 6, "use snmpm:sync_get_next2/4 instead."},
+
+    {async_get_next, 3, "use snmpm:async_get_next2/3 instead."},
+    {async_get_next, 4, "use snmpm:async_get_next2/4 instead."},
+    {async_get_next, 5, "use snmpm:async_get_next2/4 instead."},
+    {async_get_next, 6, "use snmpm:async_get_next2/4 instead."},
+
+    {sync_set, 3, "use snmpm:sync_set2/3 instead."},
+    {sync_set, 4, "use snmpm:sync_set2/4 instead."},
+    {sync_set, 5, "use snmpm:sync_set2/4 instead."},
+    {sync_set, 6, "use snmpm:sync_set2/4 instead."},
+
+    {async_set, 3, "use snmpm:async_set2/3 instead."},
+    {async_set, 4, "use snmpm:async_set2/4 instead."},
+    {async_set, 5, "use snmpm:async_set2/4 instead."},
+    {async_set, 6, "use snmpm:async_set2/4 instead."},
+
+    {sync_get_bulk, 5, "use snmpm:sync_get_bulk2/5 instead."},
+    {sync_get_bulk, 6, "use snmpm:sync_get_bulk2/6 instead."},
+    {sync_get_bulk, 7, "use snmpm:sync_get_bulk2/6 instead."},
+    {sync_get_bulk, 8, "use snmpm:sync_get_bulk2/6 instead."},
+
+    {async_get_bulk, 5, "use snmpm:async_get_bulk2/5 instead."},
+    {async_get_bulk, 6, "use snmpm:async_get_bulk2/6 instead."},
+    {async_get_bulk, 7, "use snmpm:async_get_bulk2/6 instead."},
+    {async_get_bulk, 8, "use snmpm:async_get_bulk2/6 instead."}
+   ]).
+
 -include_lib("snmp/src/misc/snmp_debug.hrl").
 -include_lib("snmp/include/snmp_types.hrl").
 -include("snmpm_atl.hrl").
