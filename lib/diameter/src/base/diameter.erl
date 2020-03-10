@@ -305,6 +305,7 @@ call(SvcName, App, Message) ->
     | {realm, any|'DiameterIdentity'()}
     | {eval, eval()}
     | {neg, peer_filter()}
+    | {first, [peer_filter()]}
     | {all, [peer_filter()]}
     | {any, [peer_filter()]}.
 
