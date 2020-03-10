@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 1999-2018. All Rights Reserved.
+%% Copyright Ericsson AB 1999-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,8 +81,15 @@ eval_field({bin_element, Line, {string, _, S}, Size0, Options0}, Bs0, Fun) ->
         make_bit_type(Line, Size0, Options0),
     {value,Size,Bs1} = Fun(Size1, Bs0),
     Res = << <<(eval_exp_field1(C, Size, Unit,
-				Type, Endian, Sign))/binary>> ||
+				Type, Endian, Sign))/bitstring>> ||
 	      C <- S >>,
+    case S of
+        "" -> % find errors also when the string is empty
+            _ = eval_exp_field1(0, Size, Unit, Type, Endian, Sign),
+            ok;
+        _ ->
+            ok
+    end,
     {Res,Bs1};
 eval_field({bin_element,Line,E,Size0,Options0}, Bs0, Fun) ->
     {value,V,Bs1} = Fun(E, Bs0),
@@ -119,10 +126,14 @@ eval_exp_field(Val, _Size, _Unit, utf16, big, _) ->
     <<Val/big-utf16>>;
 eval_exp_field(Val, _Size, _Unit, utf16, little, _) ->
     <<Val/little-utf16>>;
+eval_exp_field(Val, _Size, _Unit, utf16, native, _) ->
+    <<Val/native-utf16>>;
 eval_exp_field(Val, _Size, _Unit, utf32, big, _) ->
     <<Val/big-utf32>>;
 eval_exp_field(Val, _Size, _Unit, utf32, little, _) ->
     <<Val/little-utf32>>;
+eval_exp_field(Val, _Size, _Unit, utf32, native, _) ->
+    <<Val/native-utf32>>;
 eval_exp_field(Val, Size, Unit, float, little, _) ->
     <<Val:(Size*Unit)/float-little>>;
 eval_exp_field(Val, Size, Unit, float, native, _) ->

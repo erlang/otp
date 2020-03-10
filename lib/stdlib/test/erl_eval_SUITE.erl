@@ -50,7 +50,8 @@
          eep43/1,
          otp_15035/1,
          otp_16439/1,
-         otp_14708/1]).
+         otp_14708/1,
+         otp_16545/1]).
 
 %%
 %% Define to run outside of test server
@@ -90,7 +91,7 @@ all() ->
      otp_6539, otp_6543, otp_6787, otp_6977, otp_7550,
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, try_catch, eval_expr_5, zero_width,
-     eep37, eep43, otp_15035, otp_16439, otp_14708].
+     eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545].
 
 groups() -> 
     [].
@@ -1725,6 +1726,23 @@ otp_14708(Config) when is_list(Config) ->
           <<1,2,3,4,5,6,7>>),
     error_check("<<X:(process_info(self()))>> = <<>>.", illegal_bitsize),
 
+    ok.
+
+otp_16545(Config) when is_list(Config) ->
+    check(fun() -> <<$W/utf16-native>> end,
+          "<<$W/utf16-native>>.",
+          <<0,$W>>),
+    check(fun() -> <<$W/utf32-native>> end,
+          "<<$W/utf32-native>>.",
+          <<$W,0,0,0>>),
+    check(fun() -> <<10/unsigned,"fgbz":86>> end,
+          "<<10/unsigned,\"fgbz\":86>>.",
+          <<10,0,0,0,0,0,0,0,0,0,1,152,0,0,0,0,0,0,0,0,0,6,112,0,0,
+            0,0,0,0,0,0,0,24,128,0,0,0,0,0,0,0,0,0,122>>),
+    check(fun() -> <<"":16/signed>> end,
+          "<<\"\":16/signed>>.",
+          <<>>),
+    error_check("<<\"\":problem/signed>>.", badarg),
     ok.
 
 %% Check the string in different contexts: as is; in fun; from compiled code.
