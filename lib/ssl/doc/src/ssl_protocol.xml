@@ -33,12 +33,12 @@
     <file>ssl_protocol.xml</file>
   </header>
   
-  <p>The Erlang SSL application implements the SSL/TLS/DTLS protocol
+  <p>The Erlang SSL application implements the TLS/DTLS protocol
   for the currently supported versions,  see the
   <seealso marker="ssl">ssl(3)</seealso> manual page.
   </p>
 
-  <p>By default SSL/TLS is run over the TCP/IP protocol even
+  <p>By default TLS is run over the TCP/IP protocol even
   though you can plug in any other reliable transport protocol
   with the same Application Programming Interface (API) as the
   <c>gen_tcp</c> module in Kernel. DTLS is by default run over UDP/IP,
@@ -46,7 +46,7 @@
   transports, such as SCTP, may be supported in future releases.</p>
   
   <p>If a client and a server wants to use an upgrade mechanism, such as
-  defined by RFC 2817, to upgrade a regular TCP/IP connection to an TLS
+  defined by RFC 2817, to upgrade a regular TCP/IP connection to a TLS
   connection, this is supported by the Erlang SSL application API. This can be 
   useful for, for example, supporting HTTP and HTTPS on the same port and
   implementing virtual hosting. Note this is a TLS feature only.

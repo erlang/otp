@@ -1832,7 +1832,7 @@ honor_server_cipher_order_tls13(Config) when is_list(Config) ->
                                                                      prf => sha256}).
 %%--------------------------------------------------------------------
 getstat() ->
-    [{doc, "Test that you use ssl:getstat on an TLS socket"}].
+    [{doc, "Test that you use ssl:getstat on a TLS socket"}].
 
 getstat(Config) when is_list(Config) ->    
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),

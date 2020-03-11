@@ -25,10 +25,10 @@
   </header>
   
   <module since="OTP 18.0">ssl_crl_cache_api</module>
-  <modulesummary>API for a SSL/TLS CRL (Certificate Revocation List) cache.</modulesummary>
+  <modulesummary>API for a TLS CRL (Certificate Revocation List) cache.</modulesummary>
   <description>
     <p>
-      When SSL/TLS performs certificate path validation according to
+      When TLS performs certificate path validation according to
       <url href="http://www.ietf.org/rfc/rfc5280.txt">RFC 5280 </url>
       it should also perform CRL validation checks. To enable the CRL
       checks the application needs access to CRLs. A database of CRLs

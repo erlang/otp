@@ -49,7 +49,7 @@
     <title>Prerequisites</title>
     <p>It is assumed that the reader is familiar with the Erlang
     programming language, the concepts of OTP, and has a basic
-    understanding of SSL/TLS/DTLS.</p>
+    understanding of TLS/DTLS.</p>
   </section>
 
 </chapter>
