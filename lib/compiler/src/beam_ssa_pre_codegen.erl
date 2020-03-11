@@ -2690,12 +2690,10 @@ reserve_terminator(L, Is, #b_br{bool=Bool,succ=Succ,fail=Fail},
 reserve_terminator(_, _, _, _, _, _) ->
     #{}.
 
-reserve_terminator_1(L, Succ, Is, Blocks, XsMap, Res) ->
+reserve_terminator_1(L, Succ, _Is, Blocks, XsMap, Res) ->
     case {Blocks, XsMap} of
         {#{ Succ := #b_blk{is=[#b_set{op=phi}|_]=PhiIs}}, #{}} ->
             res_xregs_from_phi(PhiIs, L, Res, #{});
-        {#{ Succ := #b_blk{is=[],last=Last}}, #{}} ->
-            reserve_terminator(Succ, Is, Last, Blocks, XsMap, Res);
         {#{}, #{ Succ := Xs }}->
             Xs;
         {#{}, #{}} ->

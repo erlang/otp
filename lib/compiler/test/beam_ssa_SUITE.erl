@@ -713,6 +713,7 @@ grab_bag(_Config) ->
     ok = grab_bag_9(),
     whatever = grab_bag_10(ignore, whatever),
     other = grab_bag_11(),
+    {'EXIT',_} = (catch grab_bag_12()),
     ok.
 
 grab_bag_1() ->
@@ -841,6 +842,11 @@ grab_bag_11() ->
             catched
     end.
 
+grab_bag_12() ->
+    %% beam_ssa_pre_codegen would try to place the created map in x1.
+    %% That would not be safe because x0 is not initialized.
+    check_process_code(1, (#{})#{key := teacher}),
+    ok.
 
 coverage(_Config) ->
 
