@@ -11339,6 +11339,22 @@ timestamp() ->
           <p>A match specification for <c>send</c> trace can use
             all guard and body functions except <c>caller</c>.</p>
         </note>
+	<p>Fails by raising an error exception with an error reason of:</p>
+	<taglist>
+	  <tag><c>badarg</c></tag>
+	  <item><p>
+	    If an argument is invalid.
+	  </p></item>
+	  <tag><c>system_limit</c></tag>
+	  <item><p>
+	    If a match specification passed as argument has excessive
+	    nesting which causes scheduler stack exhaustion for the
+	    scheduler that the calling process is executing on.
+	    <seealso marker="erts:erl#sched_thread_stack_size">Scheduler
+	    stack size</seealso> can be configured when starting the
+	    runtime system.
+	  </p></item>
+	</taglist>
       </desc>
     </func>
 
@@ -11411,6 +11427,22 @@ timestamp() ->
             <c>enable_trace</c>, <c>disable_trace</c>, <c>trace</c>,
             <c>silent</c>, and <c>process_dump</c>.</p>
         </note>
+	<p>Fails by raising an error exception with an error reason of:</p>
+	<taglist>
+	  <tag><c>badarg</c></tag>
+	  <item><p>
+	    If an argument is invalid.
+	  </p></item>
+	  <tag><c>system_limit</c></tag>
+	  <item><p>
+	    If a match specification passed as argument has excessive
+	    nesting which causes scheduler stack exhaustion for the
+	    scheduler that the calling process is executing on.
+	    <seealso marker="erts:erl#sched_thread_stack_size">Scheduler
+	    stack size</seealso> can be configured when starting the
+	    runtime system.
+	  </p></item>
+	</taglist>
       </desc>
     </func>
 
@@ -11602,6 +11634,22 @@ timestamp() ->
           to retrieve the existing match specification.</p>
         <p>Returns the number of functions matching
           argument <c><anno>MFA</anno></c>. This is zero if none matched.</p>
+	<p>Fails by raising an error exception with an error reason of:</p>
+	<taglist>
+	  <tag><c>badarg</c></tag>
+	  <item><p>
+	    If an argument is invalid.
+	  </p></item>
+	  <tag><c>system_limit</c></tag>
+	  <item><p>
+	    If a match specification passed as argument has excessive
+	    nesting which causes scheduler stack exhaustion for the
+	    scheduler that the calling process is executing on.
+	    <seealso marker="erts:erl#sched_thread_stack_size">Scheduler
+	    stack size</seealso> can be configured when starting the
+	    runtime system.
+	  </p></item>
+	</taglist>
       </desc>
     </func>
 

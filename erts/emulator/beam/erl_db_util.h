@@ -456,9 +456,8 @@ void db_do_update_element(DbUpdateHandle* handle,
 			  Eterm newval);
 void db_finalize_resize(DbUpdateHandle* handle, Uint offset);
 Eterm db_add_counter(Eterm** hpp, Wterm counter, Eterm incr);
-Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags);
 Binary *db_match_set_compile(Process *p, Eterm matchexpr, 
-			     Uint flags);
+			     Uint flags, Uint *freasonp);
 int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body);
 int erts_db_match_prog_destructor(Binary *);
 
@@ -540,7 +539,8 @@ typedef struct dmc_err_info {
 Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 Eterm *body, int num_matches, 
 			 Uint flags, 
-			 DMCErrInfo *err_info);
+			 DMCErrInfo *err_info,
+                         Uint *freasonp);
 /* Returns newly allocated MatchProg binary with refc == 0*/
 
 Eterm db_match_dbterm(DbTableCommon* tb, Process* c_p, Binary* bprog,

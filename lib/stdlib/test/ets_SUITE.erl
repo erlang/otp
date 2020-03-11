@@ -97,6 +97,7 @@
 -export([massive_ets_all/1]).
 -export([take/1]).
 -export([whereis_table/1]).
+-export([ms_excessive_nesting/1]).
 
 -export([init_per_testcase/2, end_per_testcase/2]).
 %% Convenience for manual testing
@@ -172,7 +173,8 @@ all() ->
      test_table_size_concurrency,
      test_table_memory_concurrency,
      test_delete_table_while_size_snapshot,
-     test_decentralized_counters_setting].
+     test_decentralized_counters_setting,
+     ms_excessive_nesting].
 
 
 groups() ->
@@ -7350,6 +7352,50 @@ whereis_table(Config) when is_list(Config) ->
 
     ok.
 
+ms_excessive_nesting(Config) when is_list(Config) ->
+    MkMSCond = fun (_Fun, N) when N < 0 -> true;
+                   (Fun, N) -> {'orelse', {'==', N, '$1'}, Fun(Fun, N-1)}
+               end,
+    %% Ensure it compiles with substantial but reasonable
+    %% (hmm...) nesting
+    MS = [{{'$1', '$2'}, [MkMSCond(MkMSCond, 100)], [{{'$1', blipp}}]}],
+    io:format("~p~n", [erlang:match_spec_test({1, blupp}, MS, table)]),
+    _ = ets:match_spec_compile(MS),
+    %% Now test match_spec_compile() and select_replace()
+    %% with tree and hash using excessive nesting. These
+    %% used to seg-fault the emulator due to recursion
+    %% beyond the end of the C-stack.
+    %%
+    %% We expect to get a system_limit error, but don't
+    %% fail if it compiles (someone must have rewritten
+    %% compilation of match specs to use an explicit
+    %% stack instead of using recursion).
+    ENMS = [{{'$1', '$2'}, [MkMSCond(MkMSCond, 1000000)], [{{'$1', blipp}}]}],
+    io:format("~p~n", [erlang:match_spec_test({1, blupp}, ENMS, table)]),
+    ENMSC = try
+                ets:match_spec_compile(ENMS),
+                "compiled"
+            catch
+                error:system_limit ->
+                    "got system_limit"
+            end,
+    Tree = ets:new(tree, [ordered_set]),
+    SRT = try
+              ets:select_replace(Tree, ENMS),
+              "compiled"
+          catch
+              error:system_limit ->
+                  "got system_limit"
+          end,
+    Hash = ets:new(hash, [set]),
+    SRH = try
+              ets:select_replace(Hash, ENMS),
+              "compiled"
+          catch
+              error:system_limit ->
+                  "got system_limit"
+          end,
+    {comment, "match_spec_compile() "++ENMSC++"; select_replace(_,[ordered_set]) "++SRT++"; select_replace(_,[set]) "++SRH}.
 
 %% The following help functions are used by
 %% throughput_benchmark. They are declared on the top level beacuse

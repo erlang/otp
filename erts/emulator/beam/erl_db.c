@@ -4013,10 +4013,11 @@ BIF_RETTYPE ets_is_compiled_ms_1(BIF_ALIST_1)
 
 BIF_RETTYPE ets_match_spec_compile_1(BIF_ALIST_1)
 {
-    Binary *mp = db_match_set_compile(BIF_P, BIF_ARG_1, DCOMP_TABLE);
+    Uint freason;
+    Binary *mp = db_match_set_compile(BIF_P, BIF_ARG_1, DCOMP_TABLE, &freason);
     Eterm *hp;
     if (mp == NULL) {
-	BIF_ERROR(BIF_P, BADARG);
+	BIF_ERROR(BIF_P, freason);
     }
 
     hp = HAlloc(BIF_P, ERTS_MAGIC_REF_THING_SIZE);

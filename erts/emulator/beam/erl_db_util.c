@@ -148,7 +148,26 @@ do {									\
 #define add_dmc_err(EINFO, STR, VAR, TERM, SEV) \
        vadd_dmc_err(EINFO, SEV, VAR, STR, TERM)
 
+#define ERTS_DB_STACK_MARGIN (sizeof(void *)*1024)
 
+static int
+stack_guard_downwards(char *limit)
+{
+    char c;
+    ASSERT(limit);
+    return erts_check_below_limit(&c, limit + ERTS_DB_STACK_MARGIN);
+}
+
+static int
+stack_guard_upwards(char *limit)
+{
+    char c;
+    ASSERT(limit);
+    return erts_check_above_limit(&c, limit - ERTS_DB_STACK_MARGIN);
+}
+
+static int (*stack_guard)(char *) = NULL;
+    
 static ERTS_INLINE Process *
 get_proc(Process *cp, Uint32 cp_locks, Eterm id, Uint32 id_locks)
 {
@@ -347,6 +366,8 @@ typedef struct dmc_context {
     int is_guard; /* 1 if in guard, 0 if in body */
     int special; /* 1 if the head in the match was a single expression */ 
     DMCErrInfo *err_info;
+    char *stack_limit;
+    Uint freason;
 } DMCContext;
 
 /*
@@ -1040,7 +1061,7 @@ Eterm erts_match_set_get_source(Binary *mpsp)
 }
 
 /* This one is for the tracing */
-Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA) {
+Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA, Uint *freasonp) {
     Binary *bin;
     Uint sz;
     Eterm *hp;
@@ -1053,7 +1074,7 @@ Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA) {
         flags = DCOMP_TRACE | DCOMP_CALL_TRACE | DCOMP_ALLOW_TRACE_OPS;
     }
     
-    bin = db_match_set_compile(p, matchexpr, flags);
+    bin = db_match_set_compile(p, matchexpr, flags, freasonp);
     if (bin != NULL) {
 	MatchProg *prog = Binary2MatchProg(bin);
 	sz = size_object(matchexpr);
@@ -1067,7 +1088,7 @@ Binary *erts_match_set_compile(Process *p, Eterm matchexpr, Eterm MFA) {
 }
 
 Binary *db_match_set_compile(Process *p, Eterm matchexpr, 
-			     Uint flags) 
+			     Uint flags, Uint *freasonp) 
 {
     Eterm l;
     Eterm t;
@@ -1082,6 +1103,8 @@ Binary *db_match_set_compile(Process *p, Eterm matchexpr,
     Eterm *matches,*guards, *bodies;
     Eterm *buff;
     Eterm sbuff[15];
+
+    *freasonp = BADARG;
 
     if (!is_list(matchexpr))
 	return NULL;
@@ -1141,7 +1164,8 @@ Binary *db_match_set_compile(Process *p, Eterm matchexpr,
     if ((mps = db_match_compile(matches, guards, bodies,
 				num_heads,
 				flags,
-				NULL)) == NULL) {
+				NULL,
+                                freasonp)) == NULL) {
 	goto error;
     }
     compiled = 1;
@@ -1342,7 +1366,7 @@ int db_match_keeps_key(int keypos, Eterm match, Eterm guard, Eterm body)
     return 0;
 }
 
-Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags) 
+static Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags) 
 {
     Eterm l;
     Eterm t;
@@ -1358,6 +1382,7 @@ Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags)
     Eterm sbuff[15];
     Eterm *buff = sbuff;
     int i;
+    Uint freason = BADARG;
 
     if (!is_list(matchexpr)) {
 	add_dmc_err(err_info, "Match programs are not in a list.",
@@ -1424,7 +1449,7 @@ Eterm db_match_set_lint(Process *p, Eterm matchexpr, Uint flags)
 	++i;
     }
     mp = db_match_compile(matches, guards, bodies, num_heads,
-			  flags, err_info); 
+			  flags, err_info, &freason); 
     if (mp != NULL) {
 	erts_bin_free(mp);
     }
@@ -1502,12 +1527,17 @@ static Eterm erts_match_set_run_ets(Process *p, Binary *mpsp,
 */
 
 void db_initialize_util(void){
+    char c;
     qsort(guard_tab, 
 	  sizeof(guard_tab) / sizeof(DMCGuardBif), 
 	  sizeof(DMCGuardBif), 
 	  (int (*)(const void *, const void *)) &cmp_guard_bif);
     match_pseudo_process_init();
     erts_atomic32_init_nob(&trace_control_word, 0);
+    if (erts_check_if_stack_grows_downwards(&c))
+        stack_guard = stack_guard_downwards;
+    else
+        stack_guard = stack_guard_upwards;
 }
 
 
@@ -1534,7 +1564,8 @@ Binary *db_match_compile(Eterm *matchexpr,
 			 Eterm *body,
 			 int num_progs,
 			 Uint flags, 
-			 DMCErrInfo *err_info)
+			 DMCErrInfo *err_info,
+                         Uint *freasonp)
 {
     DMCHeap heap;
     DMC_STACK_TYPE(Eterm) stack;
@@ -1549,6 +1580,9 @@ Binary *db_match_compile(Eterm *matchexpr,
     int current_try_label;
     Binary *bp = NULL;
     unsigned clause_start;
+
+    context.stack_limit = (char *) ethr_get_stacklimit();
+    context.freason = BADARG;
 
     DMC_INIT_STACK(stack);
     DMC_INIT_STACK(text);
@@ -1909,6 +1943,7 @@ error: /* Here is were we land when compilation failed. */
 	free_message_buffer(context.copy);
     if (heap.vars != heap.vars_def)
 	erts_free(ERTS_ALC_T_DB_MS_CMPL_HEAP, (void *) heap.vars);
+    *freasonp = context.freason;
     return bp;
 }
 
@@ -4876,6 +4911,11 @@ static DMCRet dmc_expr(DMCContext *context,
     Eterm tmp;
     Eterm *p;
 
+    if (stack_guard(context->stack_limit)) {
+        context->freason = SYSTEM_LIMIT;
+        RETURN_TERM_ERROR("Excessive nesting; system limit reached near: %T",
+                          t, context, *constant);
+    }
 
     switch (t & _TAG_PRIMARY_MASK) {
     case TAG_PRIMARY_LIST:
@@ -5250,6 +5290,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
     Uint32 ret_flags;
     Uint sz;
     Eterm save_cp;
+    Uint freason;
 
     if (trace && !(is_list(against) || against == NIL)) {
 	return THE_NON_VALUE;
@@ -5258,11 +5299,11 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
         const Uint cflags = (DCOMP_TRACE | DCOMP_FAKE_DESTRUCTIVE |
                              DCOMP_CALL_TRACE | DCOMP_ALLOW_TRACE_OPS);
 	lint_res = db_match_set_lint(p, spec, cflags);
-	mps = db_match_set_compile(p, spec, cflags);
+	mps = db_match_set_compile(p, spec, cflags, &freason);
     } else {
         const Uint cflags = (DCOMP_TABLE | DCOMP_FAKE_DESTRUCTIVE);
 	lint_res = db_match_set_lint(p, spec, cflags);
-	mps = db_match_set_compile(p, spec, cflags);
+	mps = db_match_set_compile(p, spec, cflags, &freason);
     }
 
     if (mps == NULL) {
