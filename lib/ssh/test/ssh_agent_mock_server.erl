@@ -29,21 +29,19 @@
 -include_lib("ssh/src/ssh_agent.hrl").
 
 -export([respond/1, check_mktemp/1]).
--export([start_link/1, stop/1]).
+-export([start_link/2, stop/1]).
 -export([init/1, handle_info/2, handle_cast/2, handle_call/3, terminate/2]).
 
--record(state, {socket, priv_key, pub_key, socket_path}).
+-record(state, {socket, priv_key, pub_key, socket_path, sig_alg}).
 
--define(SIG_ALG, 'ssh-rsa').
-
-start_link(PrivKeyDir) ->
-    {ok, PrivKey} =ssh_file:user_key(?SIG_ALG, [{user_dir, PrivKeyDir}]),
+start_link(SigAlg, PrivKeyDir) ->
+    {ok, PrivKey} =ssh_file:user_key(SigAlg, [{user_dir, PrivKeyDir}]),
 
     %% We cannot use priv_dir because unix socket paths are limited to 108 bytes.
     SocketPath = string:chomp(os:cmd("mktemp -u")),
     PubKey = extract_pubkey(PrivKey),
 
-    InitialState = #state{socket_path=SocketPath, priv_key=PrivKey, pub_key=PubKey},
+    InitialState = #state{socket_path=SocketPath, priv_key=PrivKey, pub_key=PubKey, sig_alg=SigAlg},
     {ok, _} = gen_server:start_link(?MODULE, InitialState, []),
     {ok, SocketPath}.
 
@@ -92,20 +90,24 @@ handle_request(<<11>>, #state{pub_key=PubKey}) ->
       ?STRING(<<"lorem">>)       % key 1 comment  (4 + 5 bytes)
     >>;
 
-handle_request(<<13, Rest/binary>>, #state{priv_key=PrivKey, pub_key=PubKey}) ->
+handle_request(<<13, Rest/binary>>, #state{priv_key=PrivKey, pub_key=PubKey, sig_alg=SigAlg}) ->
     Flags = ?SSH_AGENT_RSA_SHA2_256 bor ?SSH_AGENT_RSA_SHA2_512,
     <<?DEC_BIN(PubKey, _KeyBlobLen), ?DEC_BIN(Data, _DataLen), ?Euint32(Flags)>> = Rest,
 
-    Hash = ssh_transport:sha(?SIG_ALG),
+    Hash = ssh_transport:sha(SigAlg),
     Sig = ssh_transport:sign(Data, Hash, PrivKey),
-    SigLen = byte_size(Sig),
-    <<?UINT32(20 + SigLen),         % message length
-      ?BYTE(14),                   % message type   (1 byte)
-      ?STRING(                     % nested string (4 bytes)
-         <<?STRING(<<"ssh-rsa">>), % signature format (4 + 7 bytes)
-           ?STRING(Sig)            % signature blob (4 + SigLen bytes)
-         >>
-      )
+    SigFormat = sig_format(SigAlg),
+    Msg =
+        <<?BYTE(14),                   % message type   (1 byte)
+          ?STRING(                     % nested string (4 bytes)
+             <<?STRING(SigFormat),     % signature format (4 + ? bytes)
+               ?STRING(Sig)            % signature blob (4 + SigLen bytes)
+             >>
+            )
+        >>,
+    MsgLen = size(Msg),
+    <<?UINT32(MsgLen),         % message length
+      Msg/binary
     >>.
 
 terminate(_Reason, #state{socket_path=SocketPath, socket=Socket}) ->
@@ -149,3 +151,8 @@ check_mktemp(Config) ->
 extract_pubkey(PrivKey) ->
     PubKey = ssh_transport:extract_public_key(PrivKey),
     ssh_message:ssh2_pubkey_encode(PubKey).
+
+sig_format('ssh-rsa') -> <<"ssh-rsa">>;
+sig_format('rsa-sha2-256') -> <<"ssh-rsa">>;
+sig_format('rsa-sha2-384') -> <<"ssh-rsa">>;
+sig_format('rsa-sha2-512') -> <<"ssh-rsa">>.

@@ -196,17 +196,19 @@ login_otp_is_client(Config) ->
                                             [' ']
                                     end
         ],
-                                        
+
     chk_all_algos(?FUNCTION_NAME, CommonAuths, Config,
                   fun(AuthMethod,Alg) ->
                           {Opts,Dir} =
                               case AuthMethod of
                                   publickey ->
-                                      {[], setup_remote_auth_keys_and_local_priv(Alg, Config)};
+                                      {[{pref_public_key_algs, [Alg]}],
+                                       setup_remote_auth_keys_and_local_priv(Alg, Config)};
                                   _ ->
                                       {[{password,?PASSWD}], new_dir(Config)}
                               end,
                           ssh:connect(IP, Port, [{auth_methods, atom_to_list(AuthMethod)},
+                                                 {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                  {user,?USER},
                                                  {user_dir, Dir},
                                                  {silently_accept_hosts,true},
@@ -234,7 +236,9 @@ login_otp_is_server(Config) ->
                           {Opts,UsrDir} =
                               case AuthMethod of
                                   publickey ->
-                                      {[{user_passwords, [{?USER,?BAD_PASSWD}]}],
+                                      {[{user_passwords, [{?USER,?BAD_PASSWD}]},
+                                        {pref_public_key_algs, [Alg]}
+                                       ],
                                        setup_remote_priv_and_local_auth_keys(Alg, Config)
                                       };
                                   _ ->
@@ -264,13 +268,16 @@ all_algorithms_sftp_exec_reneg_otp_is_client(Config) ->
     {IP,Port} = ip_port(Config),
     chk_all_algos(?FUNCTION_NAME, CommonAlgs, Config,
                   fun(Tag, Alg) ->
+                          PrefAlgs =
+                              [{T,L} || {T,L} <- ssh_transport:supported_algorithms(),
+                                        T =/= Tag],
                           ConnRes =
                               ssh:connect(IP, Port, 
                                           [{user,?USER},
                                            {password,?PASSWD},
                                            {auth_methods, "password"},
                                            {user_dir, new_dir(Config)},
-                                           {preferred_algorithms, [{Tag,[Alg]}]},
+                                           {preferred_algorithms, [{Tag,[Alg]} | PrefAlgs]},
                                            {silently_accept_hosts,true},
                                            {user_interaction,false}
                                           ])  ,
@@ -293,11 +300,14 @@ all_algorithms_sftp_exec_reneg_otp_is_server(Config) ->
                                            public_key -> Alg;
                                            _ -> 'ssh-rsa'
                                        end,
+                          PrefAlgs =
+                              [{T,L} || {T,L} <- ssh_transport:supported_algorithms(),
+                                        T =/= Tag],
                           SftpRootDir = new_dir(Config),
                           %% ct:log("Rootdir = ~p",[SftpRootDir]),
                           {Server, Host, HostPort} =
                               ssh_test_lib:daemon(0,
-                                                  [{preferred_algorithms, [{Tag,[Alg]}]},
+                                                  [{preferred_algorithms, [{Tag,[Alg]} | PrefAlgs]},
                                                    {system_dir, setup_local_hostdir(HostKeyAlg, Config)},
                                                    {user_dir, UserDir},
                                                    {user_passwords, [{?USER,?PASSWD}]},
@@ -330,6 +340,7 @@ send_recv_big_with_renegotiate_otp_is_client(Config) ->
                                     {password,?PASSWD},
                                     {user_dir, setup_remote_auth_keys_and_local_priv('ssh-rsa', Config)},
                                     {silently_accept_hosts,true},
+                                    {preferred_algorithms, ssh_transport:supported_algorithms()},
                                     {user_interaction,false}
                                    ]),
 
@@ -438,6 +449,7 @@ exec_from_docker(Config, HostIP, HostPort, Command, Expects, ExtraSshArg) when i
                          [{user,?USER},
                           {password,?PASSWD},
                           {user_dir, new_dir(Config)},
+                          {preferred_algorithms, ssh_transport:supported_algorithms()},
                           {silently_accept_hosts,true},
                           {user_interaction,false}
                          ]),
@@ -612,6 +624,7 @@ setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, UserDir, Config) ->
                                                    {password, ?PASSWD   },
                                                    {auth_methods, "password"},
                                                    {silently_accept_hosts,true},
+                                                   {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {user_interaction,false}
                                                   ]),
     _ = ssh_sftp:make_dir(Ch, ".ssh"),
@@ -643,6 +656,7 @@ setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config) ->
     {ok,Ch,Cc} = ssh_sftp:start_channel(IP, Port, [{user,     ?USER  },
                                                    {password, ?PASSWD   },
                                                    {auth_methods, "password"},
+                                                   {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {silently_accept_hosts,true},
                                                    {user_interaction,false}
                                                   ]),
@@ -920,13 +934,28 @@ find_common_algs(Remote, Local) ->
 use_algorithms(RemoteHelloBin) ->
     MyAlgos = ssh:chk_algos_opts(
                 [{modify_algorithms,
-                  [{append,
-                    [{kex,['diffie-hellman-group1-sha1']}
-                    ]}
+                  [{append, alg_diff()}
                   ]}
                 ]),
     ssh_transport:adjust_algs_for_peer_version(binary_to_list(RemoteHelloBin)++"\r\n",
                                                MyAlgos).
+
+
+alg_class_diff(Tag) ->
+    alg_diff(proplists:get_value(Tag, ssh:default_algorithms()),
+             proplists:get_value(Tag, ssh_transport:supported_algorithms())).
+
+alg_diff() ->
+    alg_diff(ssh:default_algorithms(), ssh_transport:supported_algorithms()).
+
+alg_diff(L1, L2) when is_atom(hd(L1)) ; is_atom(hd(L2))  ->
+    (L2--L1)--['AEAD_AES_256_GCM','AEAD_AES_128_GCM'];
+alg_diff(L1, L2) ->
+    [{T, Diff} || {{T,EL1},{T,EL2}} <- lists:zip(L1,L2),
+                  Diff <- [alg_diff(EL1,EL2)],
+                  Diff =/= []
+    ].
+
 
 kexint_msg2default_algorithms(#ssh_msg_kexinit{kex_algorithms = Kex,
                                                server_host_key_algorithms = PubKey,
@@ -1181,6 +1210,7 @@ call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir) ->
                          [{user,?USER},
                           {password,?PASSWD},
                           {user_dir, UserDir},
+                          {preferred_algorithms, ssh_transport:supported_algorithms()},
                           {silently_accept_hosts,true},
                           {user_interaction,false}
                          ]),

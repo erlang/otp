@@ -126,8 +126,9 @@ init_per_group(Group, Config) ->
 
 
 init_per_group(public_key=Tag, Alg, Config) ->
-    ct:log("Init tests for public_key ~p",[Alg]),
-    PrefAlgs = {preferred_algorithms,[{Tag,[Alg]}]},
+    OtherAlgs = [{T,L} || {T,L} <- ssh_transport:supported_algorithms(), T=/=Tag],
+    ct:log("Init tests for public_key ~p~nOtherAlgs=~p",[Alg,OtherAlgs]),
+    PrefAlgs = {preferred_algorithms,[{Tag,[Alg]}|OtherAlgs]},
     %% Daemon started later in init_per_testcase
     try
         setup_pubkey(Alg,
@@ -147,8 +148,9 @@ init_per_group(Tag, Alg, Config) ->
                 [{client2server,[A1]},
                  {server2client,[A2]}]
         end,
-    ct:log("Init tests for tag=~p alg=~p",[Tag,PA]),
-    PrefAlgs = {preferred_algorithms,[{Tag,PA}]},
+    OtherAlgs = [{T,L} || {T,L} <- ssh_transport:supported_algorithms(), T=/=Tag],
+    ct:log("Init tests for tag=~p alg=~p~nOtherAlgs=~p",[Tag,PA,OtherAlgs]),
+    PrefAlgs = {preferred_algorithms,[{Tag,PA}|OtherAlgs]},
     start_std_daemon([PrefAlgs],
                      [{pref_algs,PrefAlgs},
                       {tag_alg,{Tag,Alg}}
@@ -246,10 +248,14 @@ simple_connect(Config) ->
     {preferred_algorithms,AlgEntries} = proplists:get_value(pref_algs, Config),
     Opts =
         case proplists:get_value(tag_alg, Config) of
-            {public_key,Alg} -> [{pref_public_key_algs,[Alg]}];
+            {public_key,Alg} -> [{pref_public_key_algs,[Alg]},
+                                 {preferred_algorithms,AlgEntries}];
             _ -> [{modify_algorithms,[{append,AlgEntries}]}]
         end,
-    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, Opts),
+    ConnectionRef = ssh_test_lib:std_connect(Config, Host, Port, 
+                                             [{silently_accept_hosts, true},
+					      {user_interaction, false} |
+                                              Opts]),
     ct:log("~p:~p connected! ~p",[?MODULE,?LINE,ConnectionRef]),
     ssh:close(ConnectionRef).
 
@@ -492,5 +498,6 @@ simple_exec_group(I, Config) when is_integer(I) ->
 simple_exec_group({Min,I,Max}, Config) ->
     {Host,Port} = proplists:get_value(srvr_addr, Config),
     ssh_test_lib:std_simple_exec(Host, Port, Config,
-				 [{dh_gex_limits,{Min,I,Max}}]).
+				 [proplists:get_value(pref_algs,Config),
+                                  {dh_gex_limits,{Min,I,Max}}]).
 

@@ -123,6 +123,38 @@ end_per_group(_, Config) ->
     Config.
 
 %%%----------------------------------------------------------------
+init_per_testcase(connect_rsa_to_rsa, Config0) ->
+    setup_user_system_dir(rsa, rsa, Config0);
+init_per_testcase(connect_rsa_to_dsa, Config0) ->
+    setup_user_system_dir(rsa, dsa, Config0);
+init_per_testcase(connect_rsa_to_ecdsa, Config0) ->
+    setup_user_system_dir(rsa, ecdsa, Config0);
+init_per_testcase(connect_rsa_to_ed25519, Config0) ->
+    setup_user_system_dir(rsa, ed25519, Config0);
+init_per_testcase(connect_dsa_to_rsa, Config0) ->
+    setup_user_system_dir(dsa, rsa, Config0);
+init_per_testcase(connect_dsa_to_dsa, Config0) ->
+    setup_user_system_dir(dsa, dsa, Config0);
+init_per_testcase(connect_dsa_to_ecdsa, Config0) ->
+    setup_user_system_dir(dsa, ecdsa, Config0);
+init_per_testcase(connect_dsa_to_ed25519, Config0) ->
+    setup_user_system_dir(dsa, ed25519, Config0);
+init_per_testcase(connect_ecdsa_to_rsa, Config0) ->
+    setup_user_system_dir(ecdsa, rsa, Config0);
+init_per_testcase(connect_ecdsa_to_dsa, Config0) ->
+    setup_user_system_dir(ecdsa, dsa, Config0);
+init_per_testcase(connect_ecdsa_to_ecdsa, Config0) ->
+    setup_user_system_dir(ecdsa, ecdsa, Config0);
+init_per_testcase(connect_ecdsa_to_ed25519, Config0) ->
+    setup_user_system_dir(ecdsa, ed25519, Config0);
+init_per_testcase(connect_ed25519_to_rsa, Config0) ->
+    setup_user_system_dir(ed25519, rsa, Config0);
+init_per_testcase(connect_ed25519_to_dsa, Config0) ->
+    setup_user_system_dir(ed25519, dsa, Config0);
+init_per_testcase(connect_ed25519_to_ecdsa, Config0) ->
+    setup_user_system_dir(ed25519, ecdsa, Config0);
+init_per_testcase(connect_ed25519_to_ed25519, Config0) ->
+    setup_user_system_dir(ed25519, ed25519, Config0);
 init_per_testcase(_, Config) ->
     Config.
 
@@ -132,68 +164,52 @@ end_per_testcase(_, Config) ->
 %%%----------------------------------------------------------------
 %%% Test Cases ----------------------------------------------------
 %%%----------------------------------------------------------------
-connect_rsa_to_rsa(Config0) ->
-    Config = setup_user_system_dir(rsa, rsa, Config0),
+connect_rsa_to_rsa(Config) ->
     try_connect(Config).
 
-connect_rsa_to_dsa(Config0) ->
-    Config = setup_user_system_dir(rsa, dsa, Config0),
+connect_rsa_to_dsa(Config) ->
     try_connect(Config).
 
-connect_rsa_to_ecdsa(Config0) ->
-    Config = setup_user_system_dir(rsa, ecdsa, Config0),
+connect_rsa_to_ecdsa(Config) ->
     try_connect(Config). 
 
-connect_rsa_to_ed25519(Config0) ->
-    Config = setup_user_system_dir(rsa, ed25519, Config0),
+connect_rsa_to_ed25519(Config) ->
     try_connect(Config).
 
-connect_dsa_to_rsa(Config0) ->
-    Config = setup_user_system_dir(dsa, rsa, Config0),
+connect_dsa_to_rsa(Config) ->
     try_connect(Config).
 
-connect_dsa_to_dsa(Config0) ->
-    Config = setup_user_system_dir(dsa, dsa, Config0),
+connect_dsa_to_dsa(Config) ->
     try_connect(Config).
 
-connect_dsa_to_ecdsa(Config0) ->
-    Config = setup_user_system_dir(dsa, ecdsa, Config0),
+connect_dsa_to_ecdsa(Config) ->
     try_connect(Config). 
 
-connect_dsa_to_ed25519(Config0) ->
-    Config = setup_user_system_dir(dsa, ed25519, Config0),
+connect_dsa_to_ed25519(Config) ->
     try_connect(Config).
 
-connect_ecdsa_to_rsa(Config0) ->
-    Config = setup_user_system_dir(ecdsa, rsa, Config0),
+connect_ecdsa_to_rsa(Config) ->
     try_connect(Config). 
 
-connect_ecdsa_to_dsa(Config0) ->
-    Config = setup_user_system_dir(ecdsa, dsa, Config0),
+connect_ecdsa_to_dsa(Config) ->
     try_connect(Config). 
 
-connect_ecdsa_to_ecdsa(Config0) ->
-    Config = setup_user_system_dir(ecdsa, ecdsa, Config0),
+connect_ecdsa_to_ecdsa(Config) ->
     try_connect(Config).
 
-connect_ecdsa_to_ed25519(Config0) ->
-    Config = setup_user_system_dir(ecdsa, ed25519, Config0),
+connect_ecdsa_to_ed25519(Config) ->
     try_connect(Config).
 
-connect_ed25519_to_rsa(Config0) ->
-    Config = setup_user_system_dir(ed25519, rsa, Config0),
+connect_ed25519_to_rsa(Config) ->
     try_connect(Config).
 
-connect_ed25519_to_dsa(Config0) ->
-    Config = setup_user_system_dir(ed25519, dsa, Config0),
+connect_ed25519_to_dsa(Config) ->
     try_connect(Config).
 
-connect_ed25519_to_ecdsa(Config0) ->
-    Config = setup_user_system_dir(ed25519, ecdsa, Config0),
+connect_ed25519_to_ecdsa(Config) ->
     try_connect(Config).
 
-connect_ed25519_to_ed25519(Config0) ->
-    Config = setup_user_system_dir(ed25519, ed25519, Config0),
+connect_ed25519_to_ed25519(Config) ->
     try_connect(Config).
 
 
@@ -262,8 +278,19 @@ file(user, ed25519) -> "id_ed25519";
 file(user, rsa)     -> "id_rsa".
 
 
-supported(public_keys, dsa) -> supported(public_keys, dss);
-supported(public_keys, ed448) -> supported(public_keys, eddsa);
-supported(public_keys, ed25519) -> supported(public_keys, eddsa);
-supported(Type, Alg) -> lists:member(Alg, crypto:supports(Type)).
-
+supported(public_keys, rsa) ->     supported(public_key, 'ssh-rsa') orelse
+                                       supported(public_key, 'rsa-sha2-256') orelse
+                                       supported(public_key, 'rsa-sha2-521');
+supported(public_keys, dsa) ->     supported(public_key, 'ssh-dss');
+supported(public_keys, ecdsa) ->   supported(public_key, 'ecdsa-sha2-nistp256') orelse
+                                       supported(public_key, 'ecdsa-sha2-nistp384') orelse
+                                       supported(public_key, 'ecdsa-sha2-nistp521');
+supported(public_keys, ed448) ->   supported(public_key, 'ssh-ed448');
+supported(public_keys, ed25519) -> supported(public_key, 'ssh-ed25519');
+supported(Type, Alg) ->
+    case proplists:get_value(Type,ssh:default_algorithms()) of
+        undefined ->
+            lists:member(Alg, crypto:supports(Type));
+        L ->
+            lists:member(Alg, L)
+    end.

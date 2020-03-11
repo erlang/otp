@@ -233,7 +233,7 @@ send_wait_acc(C, Ch, Data) ->
 %%%----------------------------------------------------------------
 preferred_algorithms(KexAlg) ->
      [{kex,         [KexAlg]},
-      {public_key,  ['ssh-rsa']},
+      {public_key,  ['rsa-sha2-256']},
       {cipher,      ['aes128-ctr']},
       {mac,         ['hmac-sha1']},
       {compression, [none]}

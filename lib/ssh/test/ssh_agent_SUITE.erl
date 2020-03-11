@@ -41,7 +41,7 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        begin
            ok = ssh:start(),
-           ssh_agent_mock_server:check_mktemp(Config)
+           chk_unix_domain_socket(Config)
        end
       ).
 
@@ -120,7 +120,7 @@ connect_with_ssh_agent() ->
 
 connect_with_ssh_agent(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    {ok, SocketPath} = ssh_agent_mock_server:start_link(DataDir),
+    {ok, SocketPath} = ssh_agent_mock_server:start_link('rsa-sha2-256', DataDir),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, DataDir},
                                              {user_dir, DataDir}]),
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{user_dir, DataDir},
@@ -132,3 +132,23 @@ connect_with_ssh_agent(Config) ->
     ssh:close(ConnectionRef),
     ssh:stop_daemon(Pid),
     ssh_agent_mock_server:stop(SocketPath).
+
+
+%%%================================================================
+chk_unix_domain_socket(Config0) ->
+    case ssh_agent_mock_server:check_mktemp(Config0) of
+        {skip, Msg} ->
+            {skip, Msg};
+
+        Config ->
+            SocketPath = string:chomp(os:cmd("mktemp -u")),
+            case gen_tcp:listen(0, [local,  {ip, {local,SocketPath}}]) of
+                {error,eafnosupport} ->
+                    file:delete(SocketPath),
+                    {skip, "Unix Domain Sockets are not supported"};
+                {ok, Socket} ->
+                    gen_tcp:close(Socket),
+                    file:delete(SocketPath),
+                    Config
+            end
+    end.
