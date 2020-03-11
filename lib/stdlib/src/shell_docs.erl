@@ -19,7 +19,7 @@
 %%
 -module(shell_docs).
 
--include("eep48.hrl").
+-include_lib("kernel/include/eep48.hrl").
 
 -export([render/2, render/3, render/4]).
 -export([render_type/2, render_type/3, render_type/4]).
@@ -139,6 +139,8 @@ normalize_space([{Pre,Attr,Content}|T]) when ?IS_PRE(Pre) ->
     [{Pre,Attr,trim_first_and_last(Content,$\n)} | normalize_space(T)];
 normalize_space([{Block,Attr,Content}|T]) when ?IS_BLOCK(Block) ->
     [{Block,Attr,trim_first_and_last(trim_inline(Content),$ )} | normalize_space(T)];
+normalize_space([B]) when is_binary(B) ->
+    trim_first_and_last([B],$ );
 normalize_space([E|T]) ->
     [E|normalize_space(T)];
 normalize_space([]) ->
@@ -365,7 +367,7 @@ render_since(_) ->
 render_docs(Headers, DocContents, MD, D = #config{}) ->
     init_ansi(D),
     try
-        {Doc,_} = render_docs(DocContents,[],0,2,D),
+        {Doc,_} = trimnl(render_docs(DocContents,[],0,2,D)),
         [sansi(bold),
          [io_lib:format("~n~ts",[Header]) || Header <- Headers],
          ransi(bold),
@@ -442,7 +444,7 @@ render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
 render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
     trimnlnl(render_element({code,[],Content}, State, Pos, 2, D));
 
-render_element({p,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind ->
+render_element({Elem,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind, ?IS_BLOCK(Elem) ->
     {Docs,NewPos} = render_element(E,State,0,Ind,D),
     {["\n",Docs],NewPos};
 render_element({p,[{class,What}],Content},State,Pos,Ind,D) ->
