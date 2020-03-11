@@ -286,22 +286,42 @@ ENET_NIF_FUNCS
 /* And here comes the functions that does the actual work (for the most part) */
 static ERL_NIF_TERM enet_command(ErlNifEnv*   env,
                                  ERL_NIF_TERM cmd);
+#if defined(HAVE_GETHOSTNAME)
 static ERL_NIF_TERM enet_gethostname(ErlNifEnv* env);
+#endif
+
+#if defined(HAVE_GETNAMEINFO)
 static ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
                                      const ESockAddress* saP,
                                      SOCKLEN_T           saLen,
                                      int                 flags);
+#endif
+
+#if defined(HAVE_GETADDRINFO)
 static ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
                                      char*      host,
                                      char*      serv);
+#endif
+
+#if defined(HAVE_GETIFADDRS) || defined(__PASE__)
 static ERL_NIF_TERM enet_getifaddrs(ErlNifEnv* env,
                                     char*      netns);
+#endif
+
+#if defined(HAVE_IF_NAMETOINDEX)
 static ERL_NIF_TERM enet_if_name2index(ErlNifEnv* env,
                                        char*      ifn);
+#endif
+
+#if defined(HAVE_IF_INDEXTONAME)
 static ERL_NIF_TERM enet_if_index2name(ErlNifEnv*   env,
                                        unsigned int id);
+#endif
+
+#if defined(HAVE_IF_NAMEINDEX) && defined(HAVE_IF_FREENAMEINDEX)
 static ERL_NIF_TERM enet_if_names(ErlNifEnv* env);
 static unsigned int enet_if_names_length(struct if_nameindex* p);
+#endif
 
 /*
 static void net_dtor(ErlNifEnv* env, void* obj);
@@ -617,7 +637,7 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_GETHOSTNAME)
     ERL_NIF_TERM result;
     
     NDBG( ("NET", "nif_gethostname -> entry (%d)\r\n", argc) );
@@ -630,11 +650,13 @@ ERL_NIF_TERM nif_gethostname(ErlNifEnv*         env,
     NDBG( ("NET", "nif_gethostname -> done when result: %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_GETHOSTNAME)
 static
 ERL_NIF_TERM enet_gethostname(ErlNifEnv* env)
 {
@@ -693,7 +715,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_GETNAMEINFO)
     ERL_NIF_TERM result;
     ERL_NIF_TERM eSockAddr, eFlags;
     int          flags = 0; // Just in case...
@@ -731,6 +753,8 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
            "\r\n   %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
@@ -739,7 +763,7 @@ ERL_NIF_TERM nif_getnameinfo(ErlNifEnv*         env,
 /* Given the provided sock(et) address (and flags), retreive the host and
  * service info.
  */
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_GETNAMEINFO)
 static
 ERL_NIF_TERM enet_getnameinfo(ErlNifEnv*          env,
                               const ESockAddress* saP,
@@ -855,7 +879,7 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_GETADDRINFO)
     ERL_NIF_TERM     result, eHostName, eServName; //, eHints;
     char*            hostName;
     char*            servName;
@@ -909,11 +933,13 @@ ERL_NIF_TERM nif_getaddrinfo(ErlNifEnv*         env,
            "\r\n   %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_GETADDRINFO)
 static
 ERL_NIF_TERM enet_getaddrinfo(ErlNifEnv* env,
                               char*      host,
@@ -1562,7 +1588,7 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_IF_NAMETOINDEX)
     ERL_NIF_TERM eifn, result;
     char         ifn[IF_NAMESIZE+1];
 
@@ -1586,12 +1612,14 @@ ERL_NIF_TERM nif_if_name2index(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_name2index -> done when result: %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_IF_NAMETOINDEX)
 static
 ERL_NIF_TERM enet_if_name2index(ErlNifEnv* env,
                             char*      ifn)
@@ -1634,7 +1662,7 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
 {
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_IF_INDEXTONAME)
     ERL_NIF_TERM result;
     unsigned int idx;
 
@@ -1654,12 +1682,14 @@ ERL_NIF_TERM nif_if_index2name(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_index2name -> done when result: %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
 
 
-#if !defined(__WIN32__)
+#if !defined(__WIN32__) && defined(HAVE_IF_INDEXTONAME)
 static
 ERL_NIF_TERM enet_if_index2name(ErlNifEnv*   env,
                             unsigned int idx)
@@ -1699,7 +1729,7 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 {
 #if defined(__WIN32__) || (defined(__ANDROID__) && (__ANDROID_API__ < 24))
     return enif_raise_exception(env, MKA(env, "notsup"));
-#else
+#elif defined(HAVE_IF_NAMEINDEX) && defined(HAVE_IF_FREENAMEINDEX)
     ERL_NIF_TERM result;
 
     NDBG( ("NET", "nif_if_names -> entry (%d)\r\n", argc) );
@@ -1713,6 +1743,8 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
     NDBG( ("NET", "nif_if_names -> done when result: %T\r\n", result) );
 
     return result;
+#else
+    return esock_make_error(env, esock_atom_enotsup);
 #endif
 }
 
@@ -1721,7 +1753,9 @@ ERL_NIF_TERM nif_if_names(ErlNifEnv*         env,
 /* if_nameindex and if_freenameindex were added in Android 7.0 Nougat. With
 the Android NDK Unified Headers, check that the build is targeting at least
 the corresponding API level 24. */
+/* Can we replace the ANDROID tests with the HAVE_... ? */
 #if !defined(__WIN32__) && !(defined(__ANDROID__) && (__ANDROID_API__ < 24))
+#if defined(HAVE_IF_NAMEINDEX) && defined(HAVE_IF_FREENAMEINDEX)
 static
 ERL_NIF_TERM enet_if_names(ErlNifEnv* env)
 {
@@ -1794,7 +1828,8 @@ unsigned int enet_if_names_length(struct if_nameindex* p)
 
     return len;
 }
-#endif // if !defined(__WIN32__)
+#endif // if defined(HAVE_IF_NAMEINDEX) && defined(HAVE_IF_FREENAMEINDEX)
+#endif // if !defined(__WIN32__) && ...
 
 
 
