@@ -224,8 +224,8 @@ start(Pid) ->
     <title>&lt;pre&gt; - Pre-formatted Text</title>
 
     <p>Used for documentation of system interaction. Can contain text,
-      <seeguide marker="inline_tags#seealsoTAG">seealso</seeguide>,  
-      <seeguide marker="inline_tags#urlTAG">url</seeguide> and
+      <seeguide marker="inline_tags#seeTAG">&lt;see*&gt; tags</seeguide>,  
+      <seeguide marker="inline_tags#urlTAG">&lt;url&gt;</seeguide> and
       <c><![CDATA[<input>]]></c> tags.</p>
 
     <p>The <c><![CDATA[<input>]]></c> tag is used to highlight user
@@ -290,7 +290,7 @@ Eshell V5.5.3  (abort with ^G)
     <p><c><![CDATA[<tag>]]></c> can contain plain text,
       <seeguide marker="inline_tags#cTAG">&lt;c&gt;</seeguide>,
       <seeguide marker="inline_tags#emTAG">&lt;em&gt;</seeguide>,
-      <seeguide marker="inline_tags#seealsoTAG">&lt;seealso&gt;</seeguide>
+      <seeguide marker="inline_tags#seeTAG">&lt;see*&gt; tags</seeguide>
       and <seeguide marker="inline_tags#urlTAG">&lt;url&gt;</seeguide>
       tags.</p>
 
