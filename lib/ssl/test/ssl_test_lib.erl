@@ -3355,6 +3355,10 @@ openssl_sane_dtls_alpn() ->
             false;
         "OpenSSL 1.1.1a" ++ _ ->
             false;
+        "OpenSSL 1.1.1d FIPS" ++ _ ->
+            false;
+        "OpenSSL 1.1.1d-freebsd" ++ _ ->
+            false;
         _->
             openssl_sane_dtls()
     end.
