@@ -53,7 +53,9 @@ all() ->
 groups() ->
     [{all_tests, [?PARALLEL], [{group, ssh_renegotiate_SUITE},
                                {group, ssh_basic_SUITE},
-                               ssh_file_is_host_key4
+                               ssh_file_is_host_key,
+                               ssh_file_is_host_key_misc,
+                               ssh_file_is_auth_key
                              ]},
      {ssh_basic_SUITE, [], [app_test,
                             appup_test,
@@ -906,8 +908,15 @@ known_hosts(Config) when is_list(Config) ->
     Lines = string:tokens(binary_to_list(Binary), "\n"),
     [Line] = Lines,
     [HostAndIp, Alg, _KeyData] = string:tokens(Line, " "),
-    [StoredHost|_] = string:tokens(HostAndIp, ","),
-    true = ssh_test_lib:match_ip(StoredHost, Host),
+
+    {StoredHost,StoredPort} =
+        case HostAndIp of
+            "["++X -> [Hpart,":"++Pstr] = string:tokens(X, "]"),
+                      {Hpart,list_to_integer(Pstr)};
+            _ -> {HostAndIp,Port}
+        end,
+    
+    true = ssh_test_lib:match_ip(StoredHost, Host) andalso (Port==StoredPort),
     "ssh-" ++ _ = Alg,
     NLines = length(binary:split(Binary, <<"\n">>, [global,trim_all])),
     ct:log("NLines = ~p~n~p", [NLines,Binary]),
@@ -946,9 +955,59 @@ known_hosts(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-ssh_file_is_host_key4(Config) ->
-    PrivDir = proplists:get_value(priv_dir, Config),
-    KnownHosts = filename:join(PrivDir, "known_hosts"),
+ssh_file_is_host_key() -> [{timetrap,{seconds,120}}]. % Some machines are S L O W !
+ssh_file_is_host_key(Config) ->
+    Dir = ssh_test_lib:create_random_dir(Config),
+    ct:log("Dir = ~p", [Dir]),
+    KnownHosts = filename:join(Dir, "known_hosts"),
+
+    Key1 = {ed_pub,ed25519,<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
+                             214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
+    Key2 = {ed_pub,ed448,<<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
+                           161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
+                           36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
+                           190,175,232,37,97,128>>},
+    Key3 = {'RSAPublicKey',26565213557098441060571713941539431805641814292761836797158846333985276408616038302348064841541244792430014595960643885863857366044141899534486816837416587694213836843799730043696945690516841209754307951050689906601353687467659852190777927968674989320642319504162787468947018505175948989102544757855693228490011564030927714896252701919941617689227585365348356580525802093985552564228730275431222515673065363441446158870936027338182083252824862151536327733046243804704721201548991176621134884093279416695997338124856506800535228380202243308550318880784741179703553922258881924287662178348044420509921666661119986374777,
+            65537},
+
+    FileContents = <<"h11,h12,[h13]:*,h14 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIElI66JgZZo72XJ7wGBp+h3WTDw/pxXddvaomAIHrIl9\n",
+                     "h21,[h22]:2345,h23 ssh-ed448 AAAACXNzaC1lZDQ0OAAAADlf10SbWbRh/Sznh+xhatRqHaE0JIWnDh"
+                                                             "+KDqddgOlneO3xJHabRscGG9Z4PfHlD2zR+hq+r+glYYA=\n",
+                     "  \n",
+                     "\n",
+                     "h31 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQDSb+D77XKvkMDWGu05CD6gWlEXJ+exSvxmegU1pvicPds090qTK3HwSzV7Hg1YVEV6bUiO74Om9Da4EMQponiSeLfVlIkBY5Ko4am4HMNOPTi5Ac4zR1B36nPvyTJluHKOZiCE0ZkSjKYvLEua0Y4Gqd+4RS93Q6r31OO8ukEVM+gG7z0tvhVLkAo8G5QnGRPW0z11tkfEeyjJzhk8H+4lmNjJRK4m6z71P0ACAEBJCpYKpKY3+AjksWuEZnWLgfuk9aPI4q8tI/TO3lF1BmyTPj7/QTFMiWgL7lNM94oaRHTjZ1CdB0UAW1+TMABu155z5KxVUIzrMoVKGBmJPhh5"
+                   >>,
+    ok = file:write_file(KnownHosts, FileContents),
+
+    true = ssh_file:is_host_key(Key1, "h11",   22, 'ssh-ed25519', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key1, "h12",   22, 'ssh-ed25519', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key1, "h13", 1234, 'ssh-ed25519', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key1, "h13",   22, 'ssh-ed25519', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key1, "h14",   22, 'ssh-ed25519', [{user_dir,Dir}]),
+    
+    true = ssh_file:is_host_key(Key1, ["h11","noh1"],        22, 'ssh-ed25519', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key1, ["noh1","h11"],        22, 'ssh-ed25519', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key1, ["noh1","h12","noh2"], 22, 'ssh-ed25519', [{user_dir,Dir}]),
+
+    true = ssh_file:is_host_key(Key2, "h21",   22, 'ssh-ed448', [{user_dir,Dir}]),
+    false= ssh_file:is_host_key(Key2, "h22",   22, 'ssh-ed448', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key2, "h22", 2345, 'ssh-ed448', [{user_dir,Dir}]),
+    false= ssh_file:is_host_key(Key2, "h22", 1234, 'ssh-ed448', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key2, "h23",   22, 'ssh-ed448', [{user_dir,Dir}]),
+    
+    false =  ssh_file:is_host_key(Key2, "h11", 22, 'ssh-ed448', [{user_dir,Dir}]),
+    false =  ssh_file:is_host_key(Key1, "h21", 22, 'ssh-ed25519', [{user_dir,Dir}]),
+
+    true = ssh_file:is_host_key(Key3, "h31",   22, 'ssh-rsa',     [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key3, "h31",   22, 'rsa-sha2-256',[{user_dir,Dir}]),
+
+    ok.
+
+%%--------------------------------------------------------------------
+ssh_file_is_host_key_misc(Config) ->
+    Dir = ssh_test_lib:create_random_dir(Config),
+    ct:log("Dir = ~p", [Dir]),
+    KnownHosts = filename:join(Dir, "known_hosts"),
 
     Key1 = {ed_pub,ed25519,<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
                              214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
@@ -957,29 +1016,59 @@ ssh_file_is_host_key4(Config) ->
                            36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
                            190,175,232,37,97,128>>},
 
-    FileContents = <<"h11,h12,h13,h14 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIElI66JgZZo72XJ7wGBp+h3WTDw/pxXddvaomAIHrIl9\n",
-                     "h21,[h22]:2345,h23 ssh-ed448 AAAACXNzaC1lZDQ0OAAAADlf10SbWbRh/Sznh+xhatRqHaE0JIWnDh"
+    FileContents = <<"h11,h12,!h12 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIElI66JgZZo72XJ7wGBp+h3WTDw/pxXddvaomAIHrIl9\n",
+                     %% Key revoked later in file:
+                     "h22 ssh-ed448 AAAACXNzaC1lZDQ0OAAAADlf10SbWbRh/Sznh+xhatRqHaE0JIWnDh"
+                                                             "+KDqddgOlneO3xJHabRscGG9Z4PfHlD2zR+hq+r+glYYA=\n",
+                     "@revoked h22 ssh-ed448 AAAACXNzaC1lZDQ0OAAAADlf10SbWbRh/Sznh+xhatRqHaE0JIWnDh"
+                                                             "+KDqddgOlneO3xJHabRscGG9Z4PfHlD2zR+hq+r+glYYA=\n",
+                     "h21 ssh-ed448 AAAACXNzaC1lZDQ0OAAAADlf10SbWbRh/Sznh+xhatRqHaE0JIWnDh"
                                                              "+KDqddgOlneO3xJHabRscGG9Z4PfHlD2zR+hq+r+glYYA=\n"
                    >>,
     ok = file:write_file(KnownHosts, FileContents),
 
-    true = ssh_file:is_host_key(Key1, "h11", 'ssh-ed25519', [{user_dir,PrivDir}]),
-    true = ssh_file:is_host_key(Key1, "h12", 'ssh-ed25519', [{user_dir,PrivDir}]),
-    true = ssh_file:is_host_key(Key1, "h13", 'ssh-ed25519', [{user_dir,PrivDir}]),
-    true = ssh_file:is_host_key(Key1, "h14", 'ssh-ed25519', [{user_dir,PrivDir}]),
-    
-    true = ssh_file:is_host_key(Key1, "h11,noh1",      'ssh-ed25519', [{user_dir,PrivDir}]),
-    true = ssh_file:is_host_key(Key1, "noh1,h11",      'ssh-ed25519', [{user_dir,PrivDir}]),
-    true = ssh_file:is_host_key(Key1, "noh1,h12,noh2", 'ssh-ed25519', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key1, "h11",   22, 'ssh-ed25519', [{user_dir,Dir}]),
+    true = ssh_file:is_host_key(Key2, "h21",   22, 'ssh-ed448',   [{user_dir,Dir}]),
 
-    true = ssh_file:is_host_key(Key2,  "h21",  'ssh-ed448', [{user_dir,PrivDir}]),
-    false = ssh_file:is_host_key(Key2, "h22",  'ssh-ed448', [{user_dir,PrivDir}]),
-    false = ssh_file:is_host_key(Key2, "[h22]",'ssh-ed448', [{user_dir,PrivDir}]),
-    true = ssh_file:is_host_key(Key2 , "[h22]:2345",'ssh-ed448', [{user_dir,PrivDir}]),
-    true = ssh_file:is_host_key(Key2,  "h23",  'ssh-ed448', [{user_dir,PrivDir}]),
-    
-    false =  ssh_file:is_host_key(Key2, "h11", 'ssh-ed448', [{user_dir,PrivDir}]),
-    false =  ssh_file:is_host_key(Key1, "h21", 'ssh-ed25519', [{user_dir,PrivDir}]),
+    true = ssh_file:is_host_key(Key2, "h21",   22, 'ssh-ed448',   [{user_dir,Dir},
+                                                                   {key_cb_private,[{optimize,space}]}]),
+    %% Check revoked key:
+    {error,revoked_key} =
+        ssh_file:is_host_key(Key2, "h22",   22, 'ssh-ed448',   [{user_dir,Dir}]),
+    {error,revoked_key} =
+        ssh_file:is_host_key(Key2, "h22",   22, 'ssh-ed448',   [{user_dir,Dir},
+                                                                {key_cb_private,[{optimize,space}]}]),
+    %% Check key with "!" in pattern:
+    false= ssh_file:is_host_key(Key1, "h12",   22, 'ssh-ed25519', [{user_dir,Dir}]),
+
+    ok.
+
+%%--------------------------------------------------------------------
+ssh_file_is_auth_key(Config) ->
+    Dir = ssh_test_lib:create_random_dir(Config),
+    ct:log("Dir = ~p", [Dir]),
+    AuthKeys = filename:join(Dir, "authorized_keys"),
+
+    Key1 = {ed_pub,ed25519,<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,
+                             214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
+    Key2 = {ed_pub,ed448,<<95,215,68,155,89,180,97,253,44,231,135,236,97,106,212,106,29,
+                           161,52,36,133,167,14,31,138,14,167,93,128,233,103,120,237,241,
+                           36,118,155,70,199,6,27,214,120,61,241,229,15,108,209,250,26,
+                           190,175,232,37,97,128>>},
+
+    FileContents = <<" \n",
+                     "# A test file\n",
+                     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIElI66JgZZo72XJ7wGBp+h3WTDw/pxXddvaomAIHrIl9 foo@example.com\n",
+                     "no-X11-forwarding,pty ssh-ed448 AAAACXNzaC1lZDQ0OAAAADlf10SbWbRh/Sznh+xhatRqHaE0JIWnDh"
+                                                             "+KDqddgOlneO3xJHabRscGG9Z4PfHlD2zR+hq+r+glYYA= bar@example.com\n"
+                   >>,
+    ok = file:write_file(AuthKeys, FileContents),
+
+    true = ssh_file:is_auth_key(Key1, "donald_duck", [{user_dir,Dir}]),
+    true = ssh_file:is_auth_key(Key2, "mickey_mouse", [{user_dir,Dir}]),
+
+    true = ssh_file:is_auth_key(Key1, "donald_duck", [{user_dir,Dir},{key_cb_private,[{optimize,space}]}]),
+    true = ssh_file:is_auth_key(Key2, "mickey_mouse", [{user_dir,Dir},{key_cb_private,[{optimize,space}]}]),
 
     ok.
 

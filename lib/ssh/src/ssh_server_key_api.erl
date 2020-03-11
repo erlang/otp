@@ -23,18 +23,31 @@
 -include_lib("public_key/include/public_key.hrl").
 -include("ssh.hrl").
 
--export_type([daemon_key_cb_options/0]).
+-export_type([daemon_key_cb_options/1]).
 
--type daemon_key_cb_options() :: [{key_cb_private,term()} | ssh:daemon_option()].
+%%%****************************************************************
+%%% The option key_cb_private is to pass options needed by other
+%%% callback modules than the default ssh_file.erl
+%%%
+%%% If ssh:deamon(n, [ {key_cb_private, {hi,{there}}} ]
+%%% is called, the term() will be {hi,{there}}
 
+-type daemon_key_cb_options(T) :: [{key_cb_private,[T]} | ssh:daemon_option()].
+
+
+%%%****************************************************************
+%%% Fetch the host's private key that is of type Algorithm.
 
 -callback host_key(Algorithm :: ssh:pubkey_alg(),
-		   DaemonOptions :: daemon_key_cb_options()
+		   DaemonOptions :: daemon_key_cb_options(any())
                   ) ->
     {ok, PrivateKey :: public_key:private_key()} | {error, term()}.
 
+%%%****************************************************************
+%%% Check that PublicKey is known to be a public key for the User
+
 -callback is_auth_key(PublicKey :: public_key:public_key(),
 		      User :: string(),
-		      DaemonOptions :: daemon_key_cb_options()
+		      DaemonOptions :: daemon_key_cb_options(any())
                      ) ->
     boolean().

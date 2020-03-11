@@ -548,7 +548,7 @@ init_ssh_record(Role, Socket, PeerAddr, Opts) ->
                 end,
     case Role of
 	client ->
-	    PeerName = case ?GET_INTERNAL_OPT(host, Opts) of
+	    PeerName = case ?GET_INTERNAL_OPT(host, Opts, element(1,PeerAddr)) of
                            PeerIP when is_tuple(PeerIP) ->
                                inet_parse:ntoa(PeerIP);
                            PeerName0 when is_atom(PeerName0) ->

@@ -164,7 +164,9 @@ connect(Host0, Port, UserOptions, NegotiationTimeout) when is_integer(Port),
             Host = mangle_connect_address(Host0, SocketOpts),
 	    try Transport:connect(Host, Port, SocketOpts, ConnectionTimeout) of
 		{ok, Socket} ->
-                    connect_socket(Socket, Options, NegotiationTimeout);
+                    connect_socket(Socket,
+                                   ?PUT_INTERNAL_OPT({host,Host}, Options),
+                                   NegotiationTimeout);
 		{error, Reason} ->
 		    {error, Reason}
 	    catch
@@ -183,7 +185,6 @@ connect_socket(Socket, Options0, NegotiationTimeout) ->
     {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, client, Host, Port, Profile, Options0),
     ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
     Opts = ?PUT_INTERNAL_OPT([{user_pid,self()},
-                              {host,Host},
                               {supervisors, [{system_sup, SystemSup},
                                              {subsystem_sup, SubSysSup},
                                              {connection_sup, ConnectionSup}]}

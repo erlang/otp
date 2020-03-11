@@ -165,11 +165,26 @@
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="optimize_key_lookup"/>
+      <desc>
+        <p>Make the handling of large files fast by setting <c>time</c>, but this will use more memory.
+	The <c>space</c> variant shrinks the memory requirements, but with a higher time consumption.
+	</p>
+	<p>To set it, set the
+	option <c>{key_cb, {ssh_file, [{optimize,TimeOrSpace}]}</c> in the call of
+	<seealso marker="ssh#connect-3">"ssh:connect/3</seealso>,
+	<seealso marker="ssh#daemon-2">ssh:daemon/2</seealso>
+	or similar function call that initiates an ssh connection.
+	</p>
+      </desc>
+    </datatype>
+
   </datatypes>
 
   <funcs>
     <func>
-      <name since="OTP 21.2">host_key(Algorithm, DaemonOptions) -> {ok, Key} | {error, Reason}</name>
+      <name since="OTP 21.2" name="host_key" arity="2"/>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>
@@ -195,7 +210,7 @@
     </func>
 
     <func>
-      <name since="OTP 21.2">is_auth_key(PublicUserKey, User, DaemonOptions) -> Result</name>
+      <name since="OTP 21.2" name="is_auth_key" arity="3"/>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>
@@ -212,16 +227,23 @@
 	  <item><seealso marker="#USERDIR-authorized_keys"><c>USERDIR/authorized_keys</c></seealso></item>
 	  <item><seealso marker="#USERDIR-authorized_keys2"><c>USERDIR/authorized_keys2</c></seealso></item>
 	</list>
+	<p>This functions discards all options in the begining of the lines of thoose files when reading them.
+	</p>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 21.2">add_host_key(HostNames, PublicHostKey, ConnectOptions) -> ok | {error, Reason}</name>
+      <name since="OTP 23.0" name="add_host_key" arity="4"/>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
-	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-3">ssh_client_key_api, Module:add_host_key/3</seealso>.
+	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-4">ssh_client_key_api, Module:add_host_key/4</seealso>.
+	</p>
+	<marker id="add_host_key-3"/>
+	<p>Note that the alternative, the old
+	<seealso marker="ssh:ssh_client_key_api#Module:add_host_key-3">Module:add_host_key/3</seealso>
+	is no longer supported by <c>ssh_file</c>.
 	</p>
 	<p><strong>Option</strong></p>
 	<list>
@@ -235,12 +257,17 @@
     </func>
 
     <func>
-      <name since="OTP 21.2">is_host_key(Key, Host, Algorithm, ConnectOptions) -> Result</name>
+      <name since="OTP 23.0" name="is_host_key" arity="5"/>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>
 	<p>See the api description in
-	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key-4">ssh_client_key_api, Module:is_host_key/4</seealso>.
+	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key-5">ssh_client_key_api, Module:is_host_key/5</seealso>.
+	</p>
+	<marker id="is_host_key-4"/>
+	<p>Note that the alternative, the old
+	<seealso marker="ssh:ssh_client_key_api#Module:is_host_key-4">Module:is_host_key/4</seealso>
+	is no longer supported by <c>ssh_file</c>.
 	</p>
 	<p><strong>Option</strong></p>
 	<list>
@@ -248,13 +275,28 @@
 	</list>
 	<p><strong>File</strong></p>
 	<list>
-	  <item><seealso marker="#USERDIR-known_hosts"><c>USERDIR/known_hosts</c></seealso></item>
+	  <item><seealso marker="#USERDIR-known_hosts"><c>USERDIR/known_hosts</c></seealso>
+	  <p>The known_hosts file is composed of lines as for
+	  <url href="https://man.openbsd.org/sshd#SSH_KNOWN_HOSTS_FILE_FORMAT">OpenSSH</url>:</p>
+	  <pre>(option)? pattern(,pattern)* keytype key (comment)?</pre>
+	  <p>where</p>
+	  <code>
+option :: '@revoked'
+pattern :: host | '[' host ']:' port
+host :: ip-address | hostname | '*'
+port :: portnumber | '*'
+keytype :: 'ssh-dsa' | 'ssh-rsa'
+         | 'ssh-ecdsa-nistp256' | 'ssh-ecdsa-nistp384' | 'ssh-ecdsa-nistp521'
+         | 'ssh-ed25519' | 'ssh-ed448'
+key :: % encoded key from eg ssh_host_*.pub
+</code>
+	  </item>
 	</list>
       </desc>
     </func>
 
     <func>
-      <name since="OTP 21.2">user_key(Algorithm, ConnectOptions) -> {ok, PrivateKey} | {error, Reason}</name>
+      <name since="OTP 21.2" name="user_key" arity="2"/>
       <fsummary></fsummary>
       <desc>
 	<p><strong>Types and description</strong></p>

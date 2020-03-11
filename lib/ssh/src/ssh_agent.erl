@@ -28,9 +28,7 @@
 -include("ssh_agent.hrl").
 
 -export([send/2]).
--export([add_host_key/3, is_host_key/4, user_key/2, sign/3]).
-
--export_type([socket_path_option/0, timeout_option/0, call_ssh_file_option/0]).
+-export([add_host_key/3, add_host_key/4, is_host_key/4, is_host_key/5, user_key/2, sign/3]).
 
 -type socket_path_option() :: {socket_path,  string()}.
 -type timeout_option() :: {timeout, integer()}.
@@ -38,15 +36,72 @@
 
 %% ssh_client_key_api implementation
 
-add_host_key(Host, Key, Opts) ->
-    KeyCbOpts = proplists:get_value(key_cb_private, Opts, []),
+%% Old (compatibility) version
+-spec add_host_key(string(),
+                   public_key:public_key(),
+                   Options
+                  ) ->
+    ok | {error, Error :: term()} when
+      Options :: ssh_client_key_api:client_key_cb_options(call_ssh_file_option()).
+
+add_host_key(Host, PublicKey, Options) ->
+    KeyCbOpts = proplists:get_value(key_cb_private, Options, []),
     SshFileCb = proplists:get_value(call_ssh_file, KeyCbOpts, ssh_file),
-    SshFileCb:add_host_key(Host, Key, Opts).
+    SshFileCb:add_host_key(Host, PublicKey, Options).
+
+
+-spec is_host_key(Key :: public_key:public_key(),
+                  Host :: string(),
+                  Algorithm :: ssh:pubkey_alg(),
+                  Options
+                 ) ->
+    boolean() when
+      Options :: ssh_client_key_api:client_key_cb_options(call_ssh_file_option()) .
 
 is_host_key(Key, PeerName, Algorithm, Opts) ->
     KeyCbOpts = proplists:get_value(key_cb_private, Opts, []),
     SshFileCb = proplists:get_value(call_ssh_file, KeyCbOpts, ssh_file),
     SshFileCb:is_host_key(Key, PeerName, Algorithm, Opts).
+
+%% New version
+-spec add_host_key(Host,
+                   inet:port_number(),
+                   public_key:public_key(),
+                   Options
+                  ) -> Result when
+      Host :: inet:ip_address() | inet:hostname() | [inet:ip_address() | inet:hostname()],
+      Options :: ssh_client_key_api:client_key_cb_options(call_ssh_file_option()),
+      Result :: ok | {error, Error :: term()}.
+
+add_host_key(Host, Port, PublicKey, Options) ->
+    KeyCbOpts = proplists:get_value(key_cb_private, Options, []),
+    SshFileCb = proplists:get_value(call_ssh_file, KeyCbOpts, ssh_file),
+    SshFileCb:add_host_key(Host, Port, PublicKey, Options).
+
+
+-spec is_host_key(public_key:public_key(),
+                  Host,
+                  inet:port_number(),
+                  ssh:pubkey_alg(),
+                  Options
+                 ) ->
+    boolean() when
+      Host :: inet:ip_address() | inet:hostname() | [inet:ip_address() | inet:hostname()],
+      Options :: ssh_client_key_api:client_key_cb_options(call_ssh_file_option()).
+
+is_host_key(Key, PeerName, Port, Algorithm, Opts) ->
+    KeyCbOpts = proplists:get_value(key_cb_private, Opts, []),
+    SshFileCb = proplists:get_value(call_ssh_file, KeyCbOpts, ssh_file),
+    SshFileCb:is_host_key(Key, PeerName, Port, Algorithm, Opts).
+
+
+-spec user_key(Algorithm :: ssh:pubkey_alg(),
+               Options) -> Result when 
+      Result :: {ok, public_key:private_key()} |
+                {ok, {ssh2_pubkey, PubKeyBlob :: binary()}} |
+                {error, string()},
+      Options :: ssh_client_key_api:client_key_cb_options(socket_path_option()
+                                                          | timeout_option()).
 
 user_key(Algorithm, Opts) ->
     KeyCbOpts = proplists:get_value(key_cb_private, Opts, []),
@@ -69,6 +124,14 @@ user_key(Algorithm, Opts) ->
         _ ->
             {error, enoent}
     end.
+
+-spec sign(binary(),
+           binary(),
+           Options
+          ) ->
+    Blob :: binary() when
+      Options :: ssh_client_key_api:client_key_cb_options(socket_path_option()
+                                                          | timeout_option()).
 
 sign(PubKeyBlob, SigData, Opts) ->
     KeyCbOpts = proplists:get_value(key_cb_private, Opts, []),
