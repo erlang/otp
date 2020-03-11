@@ -125,7 +125,7 @@ appup(Config) when is_list(Config) ->
 version_option() ->
     [{doc, "Use version option and do no specify ciphers list. Bug specified incorrect ciphers"}].
 version_option(Config) when is_list(Config) ->
-    Versions = proplists:get_value(supported, ssl:versions()),
+    Versions = proplists:get_value(default_supported, ssl:versions()),
     [version_option_test(Config, Version) || Version <- Versions].
    
 %%--------------------------------------------------------------------
@@ -174,13 +174,13 @@ connect_twice(Config) when is_list(Config) ->
 defaults(Config) when is_list(Config)->
     Versions = ssl:versions(),
     false = lists:member(sslv3, proplists:get_value(available, Versions)),
-    false = lists:member(sslv3,  proplists:get_value(supported, Versions)),
+    false = lists:member(sslv3,  proplists:get_value(default_supported, Versions)),
     true = lists:member('tlsv1', proplists:get_value(available, Versions)),
-    false = lists:member('tlsv1',  proplists:get_value(supported, Versions)),
+    false = lists:member('tlsv1',  proplists:get_value(default_supported, Versions)),
     true = lists:member('tlsv1.1', proplists:get_value(available, Versions)),
-    false = lists:member('tlsv1.1',  proplists:get_value(supported, Versions)),
+    false = lists:member('tlsv1.1',  proplists:get_value(default_supported, Versions)),
     true = lists:member('tlsv1.2', proplists:get_value(available, Versions)),
-    true = lists:member('tlsv1.2',  proplists:get_value(supported, Versions)),    
+    true = lists:member('tlsv1.2',  proplists:get_value(default_supported, Versions)),    
     false = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites()),
     true = lists:member({rsa,rc4_128,sha}, ssl:cipher_suites(all)),
     false = lists:member({rsa,des_cbc,sha}, ssl:cipher_suites()),
@@ -189,8 +189,8 @@ defaults(Config) when is_list(Config)->
     true = lists:member({dhe_rsa,des_cbc,sha}, ssl:cipher_suites(all)),
     true = lists:member('dtlsv1.2', proplists:get_value(available_dtls, Versions)),
     true = lists:member('dtlsv1', proplists:get_value(available_dtls, Versions)),
-    true = lists:member('dtlsv1.2', proplists:get_value(supported_dtls, Versions)),
-    false = lists:member('dtlsv1', proplists:get_value(supported_dtls, Versions)).
+    true = lists:member('dtlsv1.2', proplists:get_value(default_supported_dtls, Versions)),
+    false = lists:member('dtlsv1', proplists:get_value(default_supported_dtls, Versions)).
 
 
 fallback() ->
@@ -421,7 +421,7 @@ tls_versions_option(Config) when is_list(Config) ->
     ClientOpts = ssl_test_lib:ssl_options(client_opts, Config),
     ServerOpts = ssl_test_lib:ssl_options(server_opts, Config),
 
-    Supported = proplists:get_value(supported, ssl:versions()),
+    Supported = proplists:get_value(default_supported, ssl:versions()),
     Available = proplists:get_value(available, ssl:versions()),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 

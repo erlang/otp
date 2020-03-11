@@ -49,7 +49,7 @@
 %% Protocol version handling
 -export([protocol_version/1,  lowest_protocol_version/1, lowest_protocol_version/2,
 	 highest_protocol_version/1, highest_protocol_version/2,
-	 is_higher/2, supported_protocol_versions/0,
+	 is_higher/2, supported_protocol_versions/0, sufficient_crypto_support/1,
 	 is_acceptable_version/1, is_acceptable_version/2, hello_version/1]).
 
 -export_type([tls_version/0, tls_atom_version/0]).
@@ -359,7 +359,46 @@ supported_protocol_versions([]) ->
 
 supported_protocol_versions([_|_] = Vsns) ->
     sufficient_support(Vsns).
-        
+
+sufficient_crypto_support(Version) ->
+    sufficient_crypto_support(crypto:supports(), Version).
+
+sufficient_crypto_support(CryptoSupport, {_,_} = Version) ->
+    sufficient_crypto_support(CryptoSupport, protocol_version(Version));
+sufficient_crypto_support(CryptoSupport, Version) when Version == 'tlsv1';
+                                                       Version == 'tlsv1.1' ->
+    Hashes =  proplists:get_value(hashs, CryptoSupport),
+    PKeys =  proplists:get_value(public_keys, CryptoSupport),
+    proplists:get_bool(sha, Hashes) 
+        andalso
+        proplists:get_bool(md5, Hashes) 
+        andalso 
+        proplists:get_bool(aes_cbc, proplists:get_value(ciphers, CryptoSupport)) 
+        andalso
+          (proplists:get_bool(ecdsa, PKeys) orelse proplists:get_bool(rsa, PKeys) orelse proplists:get_bool(dss, PKeys)) 
+        andalso
+          (proplists:get_bool(ecdh, PKeys) orelse proplists:get_bool(dh, PKeys));
+
+sufficient_crypto_support(CryptoSupport, 'tlsv1.2') ->
+    PKeys =  proplists:get_value(public_keys, CryptoSupport),
+    (proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)))
+        andalso 
+          (proplists:get_bool(aes_cbc, proplists:get_value(ciphers, CryptoSupport)))
+        andalso
+          (proplists:get_bool(ecdsa, PKeys) orelse proplists:get_bool(rsa, PKeys) orelse proplists:get_bool(dss, PKeys)) 
+        andalso
+          (proplists:get_bool(ecdh, PKeys) orelse proplists:get_bool(dh, PKeys));            
+sufficient_crypto_support(CryptoSupport, 'tlsv1.3') ->
+    Hashes =  proplists:get_value(hashs, CryptoSupport),
+    PKeys =  proplists:get_value(public_keys, CryptoSupport),
+    proplists:get_bool(sha256, Hashes) 
+        andalso
+        proplists:get_bool(aes_gcm, proplists:get_value(ciphers, CryptoSupport)) 
+        andalso
+          (proplists:get_bool(ecdsa, PKeys) orelse proplists:get_bool(rsa, PKeys)) %% TODO: orelse proplists:get_bool(eddsa, PKeys)) 
+        andalso
+          (proplists:get_bool(ecdh, PKeys) orelse proplists:get_bool(dh, PKeys)).
+
 -spec is_acceptable_version(tls_version()) -> boolean().
 is_acceptable_version({N,_}) 
   when N >= ?LOWEST_MAJOR_SUPPORTED_VERSION ->
@@ -660,16 +699,5 @@ max_len(_) ->
 
 sufficient_support(Versions) ->
     CryptoSupport = crypto:supports(),
-    case proplists:get_bool(sha256, proplists:get_value(hashs, CryptoSupport)) of
-        false ->
-            Versions -- ['tlsv1.3', 'tlsv1.2'];
-        true ->
-            case proplists:get_bool(aes_gcm, proplists:get_value(ciphers, CryptoSupport)) of
-               false ->
-                    Versions -- ['tlsv1.3'];
-                true  ->
-                    Versions
-            end
-    end.
-
+    [Ver ||  Ver <- Versions, sufficient_crypto_support(CryptoSupport, Ver)].
 

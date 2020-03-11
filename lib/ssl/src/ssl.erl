@@ -1326,11 +1326,20 @@ versions() ->
     SupportedDTLSVsns = [dtls_record:protocol_version(Vsn) || Vsn <- DTLSVsns],
     AvailableTLSVsns = ?ALL_AVAILABLE_VERSIONS,
     AvailableDTLSVsns = ?ALL_AVAILABLE_DATAGRAM_VERSIONS,
-    [{ssl_app, "9.2"}, {supported, SupportedTLSVsns}, 
-     {supported_dtls, SupportedDTLSVsns}, 
+    CryptoSupVersionsTLS = [Vsn || Vsn <- AvailableTLSVsns, 
+                                   tls_record:sufficient_crypto_support(Vsn)],
+    CryptoSupVersionsDTLS = [Vsn || Vsn <- AvailableDTLSVsns,                                     
+                                     tls_record:sufficient_crypto_support(tls_record:protocol_version(
+                                                                            dtls_v1:corresponding_tls_version(
+                                                                              dtls_record:protocol_version(Vsn))))],
+    
+    [{ssl_app, "9.2"}, {default_supported, SupportedTLSVsns}, 
+     {default_supported_dtls, SupportedDTLSVsns}, 
      {available, AvailableTLSVsns}, 
-     {available_dtls, AvailableDTLSVsns}].
-
+     {available_dtls, AvailableDTLSVsns},
+     {crypto_support, CryptoSupVersionsTLS},
+     {crypto_support_dtls, CryptoSupVersionsDTLS}
+    ].
 
 %%---------------------------------------------------------------
 -spec renegotiate(SslSocket) -> ok | {error, reason()} when
@@ -2282,12 +2291,23 @@ validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
                                                    Version == 'tlsv1.2';
                                                    Version == 'tlsv1.1';
                                                    Version == tlsv1 ->
-    tls_validate_versions(Rest, Versions);                                      
+    case tls_record:sufficient_crypto_support(Version) of
+        true ->
+            tls_validate_versions(Rest, Versions);
+        false ->
+            throw({error, {options, {insufficient_crypto_support, {Version, {versions, Versions}}}}})
+    end; 
 validate_versions([Version | Rest], Versions) when Version == 'dtlsv1';
                                                    Version == 'dtlsv1.2'->
-    dtls_validate_versions(Rest, Versions);
-validate_versions([Ver| _], Versions) ->
-    throw({error, {options, {Ver, {versions, Versions}}}}).
+    DTLSVer = dtls_record:protocol_version(Version),
+    case tls_record:sufficient_crypto_support(dtls_v1:corresponding_tls_version(DTLSVer)) of
+        true ->
+            dtls_validate_versions(Rest, Versions);
+        false ->
+            throw({error, {options, {insufficient_crypto_support, {Version, {versions, Versions}}}}})
+    end;        
+validate_versions([Version| _], Versions) ->
+    throw({error, {options, {Version, {versions, Versions}}}}).
 
 tls_validate_versions([], Versions) ->
     tls_validate_version_gap(Versions);
@@ -2296,8 +2316,8 @@ tls_validate_versions([Version | Rest], Versions) when Version == 'tlsv1.3';
                                                        Version == 'tlsv1.1';
                                                        Version == tlsv1 ->
     tls_validate_versions(Rest, Versions);                  
-tls_validate_versions([Ver| _], Versions) ->
-    throw({error, {options, {Ver, {versions, Versions}}}}).
+tls_validate_versions([Version| _], Versions) ->
+    throw({error, {options, {Version, {versions, Versions}}}}).
 
 %% Do not allow configuration of TLS 1.3 with a gap where TLS 1.2 is not supported
 %% as that configuration can trigger the built in version downgrade protection
@@ -2314,7 +2334,6 @@ tls_validate_version_gap(Versions) ->
         _ ->
             Versions
     end.
-
 dtls_validate_versions([], Versions) ->
     Versions;
 dtls_validate_versions([Version | Rest], Versions) when  Version == 'dtlsv1';
