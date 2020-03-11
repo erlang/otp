@@ -37,14 +37,14 @@
   </modulesummary>
   <description>
     <p>This module contains utilities on a higher level than the
-      <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+      <seeerl marker="kernel:file"><c>file</c></seeerl> module.</p>
 
     <p>This module does not support "raw" filenames (that is, files whose
       names do not comply with the expected encoding). Such files are ignored
       by the functions in this module.</p>
 
     <p>For more information about raw filenames, see the
-      <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+      <seeerl marker="kernel:file"><c>file</c></seeerl> module.</p>
 
     <note>
       <p>
@@ -123,7 +123,7 @@
           <c><anno>F</anno></c> in directory <c><anno>Dir</anno></c> that match
           the regular expression <c><anno>RegExp</anno></c> (for a description
           of the allowed regular expressions,
-          see the <seealso marker="re"><c>re</c></seealso> module).
+          see the <seeerl marker="re"><c>re</c></seeerl> module).
           If <c><anno>Recursive</anno></c> is <c>true</c>, all subdirectories
           to <c>Dir</c>
           are processed. The regular expression matching is only done on
@@ -137,7 +137,7 @@
           not conform to the expected character encoding (that is, are not
           encoded in valid UTF-8).</p>
         <p>For more information about raw filenames, see the
-          <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+          <seeerl marker="kernel:file"><c>file</c></seeerl> module.</p>
       </desc>
     </func>
 
@@ -256,7 +256,7 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
       <fsummary>Match filenames using Unix-style wildcards starting at a
         specified directory.</fsummary>
       <desc>
-        <p>Same as <seealso marker="#wildcard/1"><c>wildcard/1</c></seealso>,
+        <p>Same as <seemfa marker="#wildcard/1"><c>wildcard/1</c></seemfa>,
           except that <c><anno>Cwd</anno></c> is used instead of the working
           directory.</p>
       </desc>
@@ -273,8 +273,8 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
         corresponding path ending in <c>"src"</c> should be searched.</p>
         <p>If <c><anno>Rules</anno></c> is left out or is an empty list, the
         default system rules are used. See also the Kernel application
-        parameter <seealso
-        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
+        parameter <seeapp
+        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seeapp>.</p>
       </desc>
     </func>
     <func>
@@ -297,14 +297,14 @@ filelib:wildcard("lib/**/*.{erl,hrl}")</code>
         look for a file with a corresponding extension <c>.erl</c> by
         replacing the suffix <c>"ebin"</c> of the object directory path with
         <c>"src"</c> or <c>"src/*"</c>.
-        The file search is done through <seealso
-        marker="#find_file/3"><c>find_file/3</c></seealso>. The directory of
+        The file search is done through <seemfa
+        marker="#find_file/3"><c>find_file/3</c></seemfa>. The directory of
         the object file is always tried before any other directory specified
         by the rules.</p>
         <p>If <c><anno>Rules</anno></c> is left out or is an empty list, the
         default system rules are used. See also the Kernel application
-        parameter <seealso
-        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seealso>.</p>
+        parameter <seeapp
+        marker="kernel:kernel_app#source_search_rules"><c>source_search_rules</c></seeapp>.</p>
       </desc>
     </func>
     <func>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
-  <!ENTITY message '<seealso marker="#message">message()</seealso>'>
+  <!ENTITY message '<seeerl marker="#message">message()</seeerl>'>
   <!ENTITY dict
-  '<seealso marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>'>
+  '<seefile marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seefile>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;

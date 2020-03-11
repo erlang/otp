@@ -42,7 +42,7 @@
       crashdumps.</p>
 
     <p>For details about how to get started with the Crashdump Viewer, see the
-    <seealso marker="crashdump_ug"><c>User's Guide</c></seealso>.</p>
+    <seeguide marker="crashdump_ug"><c>User's Guide</c></seeguide>.</p>
   </description>
   <funcs>
     <func>

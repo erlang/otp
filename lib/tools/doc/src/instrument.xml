@@ -94,7 +94,7 @@
       <fsummary>Return a summary of all allocations in the system.</fsummary>
       <desc>
         <p>Shorthand for
-          <seealso marker="#allocations/1"><c>allocations(#{})</c>.</seealso></p>
+          <seemfa marker="#allocations/1"><c>allocations(#{})</c>.</seemfa></p>
       </desc>
     </func>
 
@@ -107,8 +107,8 @@
           optionally filtered by allocator type and scheduler id.</p>
         <p>Only binaries and allocations made by NIFs and drivers are tagged by
           default, but this can be configured an a per-allocator basis with the
-          <seealso marker="erts:erts_alloc#M_atags"><c>+M&lt;S&gt;atags</c>
-          </seealso> emulator option.</p>
+          <seecref marker="erts:erts_alloc#M_atags"><c>+M&lt;S&gt;atags</c>
+          </seecref> emulator option.</p>
         <p>If the specified allocator types are not enabled, the call will fail
           with <c>{error, not_enabled}</c>.</p>
         <p>The following options can be used:</p>
@@ -175,7 +175,7 @@
       <fsummary>Return a list of all carriers in the system.</fsummary>
       <desc>
         <p>Shorthand for
-          <seealso marker="#carriers/1"><c>carriers(#{})</c>.</seealso></p>
+          <seemfa marker="#carriers/1"><c>carriers(#{})</c>.</seemfa></p>
       </desc>
     </func>
 
@@ -230,8 +230,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erts:erts_alloc">erts_alloc(3)</seealso>,
-      <seealso marker="erts:erl">erl(1)</seealso></p>
+    <p><seecref marker="erts:erts_alloc">erts_alloc(3)</seecref>,
+      <seecom marker="erts:erl">erl(1)</seecom></p>
   </section>
 </erlref>
 

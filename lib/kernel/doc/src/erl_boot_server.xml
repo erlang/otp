@@ -41,9 +41,9 @@
     <p>This server can be started with the Kernel configuration
       parameter <c>start_boot_server</c>.</p>
     <p>The <c>erl_boot_server</c> can read regular files and
-      files in archives. See <seealso marker="code"><c>code(3)</c></seealso>
+      files in archives. See <seeerl marker="code"><c>code(3)</c></seeerl>
       and
-    <seealso marker="erts:erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>
+    <seeerl marker="erts:erl_prim_loader"><c>erl_prim_loader(3)</c></seeerl>
     in ERTS.</p>
     <warning><p>The support for loading code from archive files is
      experimental. It is released before it is ready
@@ -94,8 +94,8 @@
   </funcs>
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="erts:init"><c>erts:init(3)</c></seealso>,
-      <seealso marker="erts:erl_prim_loader"><c>erts:erl_prim_loader(3)</c></seealso></p>
+    <p><seeerl marker="erts:init"><c>erts:init(3)</c></seeerl>,
+      <seeerl marker="erts:erl_prim_loader"><c>erts:erl_prim_loader(3)</c></seeerl></p>
   </section>
 </erlref>
 

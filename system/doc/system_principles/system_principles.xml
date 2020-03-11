@@ -41,19 +41,19 @@ Erlang/OTP 17 [erts-6.0] [hipe] [smp:8:8]
 Eshell V6.0  (abort with ^G)
 1> </pre>
     <p><c>erl</c> understands a number of command-line arguments, see
-      the <seealso marker="erts:erl">erl(1)</seealso>  manual page in
+      the <seecom marker="erts:erl">erl(1)</seecom>  manual page in
       ERTS. Some of them are also described in this chapter.</p>
     <p>Application programs can access the values of the command-line
       arguments by calling the function <c>init:get_argument(Key)</c>
       or <c>init:get_arguments()</c>. See the
-      <seealso marker="erts:init">init(3)</seealso> manual page in
+      <seeerl marker="erts:init">init(3)</seeerl> manual page in
       ERTS.</p>
   </section>
 
   <section>
     <title>Restarting and Stopping the System</title>
     <p>The runtime system is halted by calling <c>halt/0,1</c>. For
-      details, see the <seealso marker="erts:erlang">erlang(3)</seealso>
+      details, see the <seeerl marker="erts:erlang">erlang(3)</seeerl>
       manual page in ERTS.</p>
     <p>The module <c>init</c> contains functions for restarting,
       rebooting, and stopping the runtime system:</p>
@@ -61,7 +61,7 @@ Eshell V6.0  (abort with ^G)
 init:restart()
 init:reboot()
 init:stop()</pre>
-    <p>For details, see the <seealso marker="erts:init">init(3)</seealso>
+    <p>For details, see the <seeerl marker="erts:init">init(3)</seeerl>
       manual page in ERTS.</p>
     <p>The runtime system terminates if the Erlang shell is
       terminated.</p>
@@ -82,8 +82,8 @@ init:stop()</pre>
     <pre>
 % <input>erl -boot start_all</input></pre>
     <p>If no boot script is specified, it defaults to
-      <c>ROOT/bin/start</c>, see <seealso marker="#default_boot_scripts">
-      Default Boot Scripts</seealso>.</p>
+      <c>ROOT/bin/start</c>, see <seeguide marker="#default_boot_scripts">
+      Default Boot Scripts</seeguide>.</p>
     <p>The command-line flag <c>-init_debug</c> makes the <c>init</c>
       process write some debug information while interpreting the boot
       script:</p>
@@ -128,8 +128,8 @@ init:stop()</pre>
       <title>User-Defined Boot Scripts</title>
       <p>It is sometimes useful or necessary to create a user-defined
         boot script. This is true especially when running Erlang in
-        embedded mode, see <seealso marker="#code_loading">
-        Code Loading Strategy</seealso>.</p>
+        embedded mode, see <seeguide marker="#code_loading">
+        Code Loading Strategy</seeguide>.</p>
       <p>A boot script can be written manually. However, it is
         recommended to create a boot script by generating it from a
         release resource file <c>Name.rel</c>, using the function
@@ -138,9 +138,9 @@ init:stop()</pre>
         principles. (The program does not have to be started in terms of
         OTP applications, but can be plain Erlang).</p>
       <p>For more information about <c>.rel</c> files, see
-        <seealso marker="doc/design_principles:release_handling">
-        OTP Design Principles</seealso> and the
-        <seealso marker="sasl:rel">rel(4)</seealso> manual page in
+        <seeguide marker="system/design_principles:release_handling">
+        OTP Design Principles</seeguide> and the
+        <seefile marker="sasl:rel">rel(4)</seefile> manual page in
 	SASL.</p>
       <p>The binary boot script file <c>Name.boot</c> is generated from
         the boot script file <c>Name.script</c>, using the function
@@ -201,35 +201,35 @@ init:stop()</pre>
         <cell align="left" valign="middle">Module</cell>
         <cell align="left" valign="middle"><c>.erl</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="doc/reference_manual:modules">
-          Erlang Reference Manual</seealso></cell>
+          <seeguide marker="system/reference_manual:modules">
+          Erlang Reference Manual</seeguide></cell>
       </row>
       <row>
         <cell align="left" valign="middle">Include file</cell>
         <cell align="left" valign="middle"><c>.hrl</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="doc/reference_manual:modules">
-          Erlang Reference Manual</seealso></cell>
+          <seeguide marker="system/reference_manual:modules">
+          Erlang Reference Manual</seeguide></cell>
       </row>
       <row>
         <cell align="left" valign="middle">Release resource file</cell>
         <cell align="left" valign="middle"><c>.rel</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="sasl:rel">rel(4)</seealso>
+          <seefile marker="sasl:rel">rel(4)</seefile>
           manual page in SASL</cell>
       </row>
       <row>
         <cell align="left" valign="middle">Application resource file</cell>
         <cell align="left" valign="middle"><c>.app</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="kernel:app">app(4)</seealso>
+          <seefile marker="kernel:app">app(4)</seefile>
           manual page in Kernel</cell>
       </row>
       <row>
         <cell align="left" valign="middle">Boot script</cell>
         <cell align="left" valign="middle"><c>.script</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="sasl:script">script(4)</seealso>
+          <seefile marker="sasl:script">script(4)</seefile>
           manual page in SASL</cell>
       </row>
       <row>
@@ -241,21 +241,21 @@ init:stop()</pre>
         <cell align="left" valign="middle">Configuration file</cell>
         <cell align="left" valign="middle"><c>.config</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="kernel:config">config(4)</seealso>
+          <seefile marker="kernel:config">config(4)</seefile>
           manual page in Kernel</cell>
       </row>
       <row>
         <cell align="left" valign="middle">Application upgrade file</cell>
         <cell align="left" valign="middle"><c>.appup</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="sasl:appup">appup(4)</seealso>
+          <seefile marker="sasl:appup">appup(4)</seefile>
           manual page in SASL</cell>
       </row>
       <row>
         <cell align="left" valign="middle">Release upgrade file</cell>
         <cell align="left" valign="middle"><c>relup</c></cell>
         <cell align="left" valign="middle">
-          <seealso marker="sasl:relup">relup(4)</seealso>
+          <seefile marker="sasl:relup">relup(4)</seefile>
           manual page in SASL</cell>
       </row>
       <tcaption>File Types</tcaption>

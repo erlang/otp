@@ -443,7 +443,7 @@ true = public_key:verify(Digest, none, Signature, PublicKey),</code>
      as well as protocol dependent variations defined in
      <url href="https://tools.ietf.org/html/rfc6125#appendix-B">RFC 6125 appendix B</url>.
      The default procedure is implemented in
-     <seealso marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2,3</seealso>.
+     <seemfa marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2,3</seemfa>.
      It is possible for a client to hook in modified rules using the options list.
      </p>
      <p>Some terminology is needed: the certificate presents hostname(s) on which it is valid.

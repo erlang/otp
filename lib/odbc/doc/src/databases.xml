@@ -103,9 +103,9 @@
 odbc:sql_query(Ref, "INSERT INTO EMPLOYEE VALUES(1, 'Jane', 'Doe', 'F')").
       </code>
     </note>
-    <p>You may also input data using <seealso marker="odbc#param_query">param_query/[3,4]</seealso> and then
+    <p>You may also input data using <seeerl marker="odbc#param_query">param_query/[3,4]</seeerl> and then
       the input data will have the Erlang type corresponding to the
-      ODBC type of the column.<seealso marker="#type">See ODBC to Erlang mapping</seealso></p>
+      ODBC type of the column.<seeguide marker="#type">See ODBC to Erlang mapping</seeguide></p>
     <p>      <marker id="type"></marker>
  When selecting data from a table, all data
       types are returned from the database to the ODBC driver as an
@@ -233,7 +233,7 @@ when p >= 16 </cell>
     </table>
     <note>
       <p>To find out which data types will be returned for the
-        columns in a table use the function <seealso marker="odbc#describe_table">describe_table/[2,3]</seealso></p>
+        columns in a table use the function <seeerl marker="odbc#describe_table">describe_table/[2,3]</seeerl></p>
     </note>
   </section>
 
@@ -280,7 +280,7 @@ when p >= 16 </cell>
         with question marks and then provide lists of values for each
         parameter. For instance you can use this to insert multiple
         rows into the <c>EMPLOYEE</c> table while executing only a
-        single SQL statement, for example code see <seealso marker="getting_started#param_query">"Using the Erlang API"</seealso> section in the "Getting Started" chapter.</p>
+        single SQL statement, for example code see <seeguide marker="getting_started#param_query">"Using the Erlang API"</seeguide> section in the "Getting Started" chapter.</p>
     </section>
   </section>
 </chapter>

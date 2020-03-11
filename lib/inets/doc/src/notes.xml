@@ -2029,9 +2029,9 @@
           <p>Better handling of errorI(s) during update of the session 
 	  database. </p>
 	  <p>Also added and updated some debugging functions 
-	  <seealso marker="httpc#which_sessions/0">which_sessions/[0,1]</seealso>
+	  <seemfa marker="httpc#which_sessions/0">which_sessions/[0,1]</seemfa>
 	  and 
-	  <seealso marker="httpc#info/0">info/0</seealso>. </p>
+	  <seemfa marker="httpc#info/0">info/0</seemfa>. </p>
 	  <p>Own Id: OTP-10093</p>
           <p>Aux Id: Seq 12062</p>
         </item>
@@ -2103,11 +2103,11 @@
 	<item>
           <p>[httpd] Make the server header configurable with new config
 	  option 
-	  <seealso marker="httpd#prop_server_tokens">server_tokens</seealso>.
+	  <seeerl marker="httpd#prop_server_tokens">server_tokens</seeerl>.
 	  The value of the server header, which was previously hard-coded 
 	  (at compile time), is now possible to manipulate through the means 
 	  of the 
-	  <seealso marker="httpd#prop_server_tokens">server_tokens</seealso> 
+	  <seeerl marker="httpd#prop_server_tokens">server_tokens</seeerl> 
 	  config option. </p>
 	  <p>Own Id: OTP-9805</p>
         </item>
@@ -2125,16 +2125,16 @@
 
         <item>
           <p>[httpc] Add function for retrieving current options, 
-	  <seealso marker="httpc#get_options/1">get_options/[1,2]</seealso>. </p>
+	  <seemfa marker="httpc#get_options/1">get_options/[1,2]</seemfa>. </p>
 	  <p>Own Id: OTP-9979</p>
         </item>
 
         <item>
           <p>Utility module 
-	  <seealso marker="http_uri">http_uri</seealso>
+	  <seeerl marker="http_uri">http_uri</seeerl>
 	  now officially supported. </p>
 	  <p>Also, the 
-	  <seealso marker="http_uri#parse">parse</seealso> 
+	  <seeerl marker="http_uri#parse">parse</seeerl> 
 	  function has been extended with more
 	  scheme support and a way to provide your own scheme info. </p>
 	  <p>Own Id: OTP-9983</p>
@@ -2243,7 +2243,7 @@
       <list>
         <item>
           <p>[ftpc] Add a config option to specify a 
-	  <seealso marker="ftp:ftp#dtimeout">data connect timeout</seealso>.
+	  <seeerl marker="ftp:ftp#dtimeout">data connect timeout</seeerl>.
 	  That is how long the ftp client will wait for the server to connect
 	  to the data socket. If this timeout occurs, an error will be 
 	  returned to the caller and the ftp client process will be 
@@ -2259,7 +2259,7 @@
 	  A workaround for this is to use headers_as_is and provide the host
 	  header with the requst call. 
 	  To solve this a new option has been added, 
-	  <seealso marker="httpc#ipv6_host_with_brackets">ipv6_host_with_brackets</seealso>. 
+	  <seeerl marker="httpc#ipv6_host_with_brackets">ipv6_host_with_brackets</seeerl>. 
 	  This option specifies if the host value of the host header shall 
 	  include the brackets or not. By default, it does not (as before). 
 	  </p>
@@ -2306,7 +2306,7 @@
         <item>
           <p>[httpc] Deprecated interface module <c>http</c> has been removed. 
 	  It has (long) been replaced by http client interface module 
-	  <seealso marker="httpc">httpc</seealso>. </p>
+	  <seeerl marker="httpc">httpc</seeerl>. </p>
 	  <p>Own Id: OTP-9359</p>
         </item>
 
@@ -2371,7 +2371,7 @@
         <item>
           <p>[httpc] Deprecated interface module <c>http</c> has been removed. 
 	  It has (long) been replaced by http client interface module 
-	  <seealso marker="httpc#">httpc</seealso>. </p>
+	  <seeerl marker="httpc#">httpc</seeerl>. </p>
 	  <p>Own Id: OTP-9359</p>
         </item>
 
@@ -2500,7 +2500,7 @@
           <p>[httpc] Add support for upload body streaming (PUT and POST).</p>
 	  <p>For more info, 
 	  see the definition of the <c>Body</c> argument of the 
-	  <seealso marker="httpc#request/4">request/[4,5]</seealso> 
+	  <seemfa marker="httpc#request/4">request/[4,5]</seemfa> 
 	  function. </p>
 	  <p>Filipe David Manana</p>
 	  <p>Own Id: OTP-9094</p>
@@ -2513,7 +2513,7 @@
 
         <item>
           <p>[httpd] 
-	  <seealso marker="mod_esi#deliver/2">mod_esi:deliver/2</seealso> 
+	  <seemfa marker="mod_esi#deliver/2">mod_esi:deliver/2</seemfa> 
 	  made to accept binary data. </p>
           <p>Bernard Duggan</p>
           <p>Own Id: OTP-9123</p>
@@ -2541,7 +2541,7 @@
 	  for using file descriptors has been improved. 
 	  It is now possible to add the file descriptor to the config 
 	  (option fd) when calling the 
-	  <seealso marker="inets#start/2">inets:start(httpd, ...)</seealso> 
+	  <seemfa marker="inets#start/2">inets:start(httpd, ...)</seemfa> 
 	  function. </p>
 	  <p>Attila Rajmund Nohl</p>
           <p>Own Id: OTP-9202</p>
@@ -2553,9 +2553,9 @@
 	  <p><c>ossl</c> will work for as long as the ssl application 
 	  supports it. </p>
 	  <p>See the httpd 
-	  <seealso marker="httpd#props_comm">socket_type</seealso> 
+	  <seeerl marker="httpd#props_comm">socket_type</seeerl> 
 	  communication property or the httpc 
-	  <seealso marker="httpc#request/4">request/[4,5]</seealso> function
+	  <seemfa marker="httpc#request/4">request/[4,5]</seemfa> function
 	  for more info. </p>
 	  <p>Own Id: OTP-9230</p>
 	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
@@ -2572,7 +2572,7 @@
       <list>
         <item>
           <p>[httpd] Wrong 
-	  <seealso marker="httpd#props_sec">security property</seealso> 
+	  <seeerl marker="httpd#props_sec">security property</seeerl> 
 	  names used in documentation. </p>
 	  <p><c>security_data_file</c> used instead of <c>data_file</c>. </p>
 	  <p><c>security_max_retries</c> used instead of <c>max_retries</c>. </p>
@@ -2755,8 +2755,8 @@
 	  <p>[httpc|httpd] - Now allow the use of the "new" ssl, by using
             the <c>essl</c> tag instead. </p> 
           <p>See the <c>http_option</c> option in the 
-            <seealso marker="httpc#request/4">request/[4,5]</seealso> or 
-            the <seealso marker="httpd#props_comm">socket-type</seealso>
+            <seemfa marker="httpc#request/4">request/[4,5]</seemfa> or 
+            the <seeerl marker="httpd#props_comm">socket-type</seeerl>
             section of the Communication properties chapter for more info, </p>
 	  <p>Own Id: OTP-7907</p>
         </item>
@@ -2773,9 +2773,9 @@
 	  <p>[httpd] - Improved mod_alias. 
             Now able to do better URL rewrites. </p> 
           <p>See 
-            <seealso marker="httpd#props_alias">URL aliasing properties</seealso> 
+            <seeerl marker="httpd#props_alias">URL aliasing properties</seeerl> 
             and the 
-            <seealso marker="httpd#props_cgi">CGI properties</seealso>
+            <seeerl marker="httpd#props_cgi">CGI properties</seeerl>
             section(s) for more info, </p>
 	  <p>Own Id: OTP-8573</p>
         </item>
@@ -2815,8 +2815,8 @@
 	  <p>[httpc] - Allow users to pass socket options to the transport 
             module when making requests. </p> 
           <p>See the <c>socket_opts</c> option in the 
-            <seealso marker="httpc#request2">request/4</seealso> or 
-            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            <seeerl marker="httpc#request2">request/4</seeerl> or 
+            <seeerl marker="httpc#set_options">set_options/1,2</seeerl>
             for more info, </p>
 	  <p>Own Id: OTP-8352</p>
         </item>
@@ -2848,7 +2848,7 @@
         <item>
 	  <p>[httpd] - Added support (again) for the documented debugging 
             features. See the User's Guide 
-            <seealso marker="http_server#config">Configuration</seealso> 
+            <seeguide marker="http_server#config">Configuration</seeguide> 
             chapter for more info. </p>
 	  <p>Own Id: OTP-8624</p>
         </item>
@@ -2870,8 +2870,8 @@
 	  <p>[httpc] - Allow users to pass socket options to the transport 
             module when making requests. </p> 
           <p>See the <c>socket_opts</c> option in the 
-            <seealso marker="httpc#request2">request/4</seealso> or 
-            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            <seeerl marker="httpc#request2">request/4</seeerl> or 
+            <seeerl marker="httpc#set_options">set_options/1,2</seeerl>
             for more info, </p>
 	  <p>Own Id: OTP-8352</p>
         </item>
@@ -2922,8 +2922,8 @@
 	  <p>[httpc] - Allow users to pass socket options to the transport 
             module when making requests. </p> 
           <p>See the <c>socket_opts</c> option in the 
-            <seealso marker="httpc#request2">request/4</seealso> or 
-            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            <seeerl marker="httpc#request2">request/4</seeerl> or 
+            <seeerl marker="httpc#set_options">set_options/1,2</seeerl>
             for more info, </p>
 	  <p>Own Id: OTP-8352</p>
         </item>
@@ -2985,8 +2985,8 @@
 	  <p>[httpc] - Allow users to pass socket options to the transport 
             module when making requests. </p> 
           <p>See the <c>socket_opts</c> option in the 
-            <seealso marker="httpc#request/4">request/4</seealso> or 
-            <seealso marker="httpc#set_options/1">set_options/[1,2]</seealso>
+            <seemfa marker="httpc#request/4">request/4</seemfa> or 
+            <seemfa marker="httpc#set_options/1">set_options/[1,2]</seemfa>
             for more info, </p>
 	  <p>Own Id: OTP-8352</p>
         </item>
@@ -3027,7 +3027,7 @@
             deliver an async reply to more receivers then the calling 
             process. </p> 
           <p>See the 
-            <seealso marker="httpc#request/2">receiver</seealso>
+            <seemfa marker="httpc#request/2">receiver</seemfa>
             option for more info, </p>
 	  <p>Own Id: OTP-8106</p>
         </item>
@@ -3066,7 +3066,7 @@
 	  </list>
           <p>As a side-effect of these changes, some modules was also 
             renamed, and a new api module, 
-            <seealso marker="httpc">httpc</seealso>, has been introduced
+            <seeerl marker="httpc">httpc</seeerl>, has been introduced
             (the old module <c>http</c> is <em>not</em> removed, but is 
             now just wrapper for <c>httpc</c>). </p>
           <p>Own Id: OTP-8016</p>
@@ -3126,10 +3126,10 @@
 		<item>
 		  <p>It is now also possible to start a standalone FTP client 
 		    process using the re-introduced  
-                    <seealso marker="ftp:ftp#open">ftp:open</seealso> 
+                    <seeerl marker="ftp:ftp#open">ftp:open</seeerl> 
                     function. </p>
                   <p>This is an alternative to starting the client using the 
-		    <seealso marker="ftp:ftp#service_start">inets service framework</seealso>. </p>
+		    <seeerl marker="ftp:ftp#service_start">inets service framework</seeerl>. </p>
 		  <p>The old <c>ftp:open/1</c>, undocumented, function, 
                     caused the client to be hooken into the inets service
                     supervision framework. This is <em>no</em> longer the
@@ -3142,10 +3142,10 @@
                     flag), and only used IPv4 if this did not work. 
                     This has now been <em>changed</em>. </p>
                   <p>A new option, 
-                    <seealso marker="ftp:ftp#ipfamily">ipfamily</seealso>, 
+                    <seeerl marker="ftp:ftp#ipfamily">ipfamily</seeerl>, 
                     has been introduced, with the default value 
                     <c>inet</c> (IPv4). </p>
-                  <p>See <seealso marker="ftp:ftp#open">ftp:open</seealso> 
+                  <p>See <seeerl marker="ftp:ftp#open">ftp:open</seeerl> 
                     for more info.</p>
                   <p>*** POTENTIAL INCOMPATIBILITY ***</p>
 		</item>
@@ -3179,9 +3179,9 @@
 
         <item>
 	  <p>[ftpc] - The 
-            <seealso marker="ftp:ftp#ls2">ls/2</seealso> function (LIST command) 
+            <seeerl marker="ftp:ftp#ls2">ls/2</seeerl> function (LIST command) 
             and the 
-            <seealso marker="ftp:ftp#nlist2">nlist/2</seealso> function 
+            <seeerl marker="ftp:ftp#nlist2">nlist/2</seeerl> function 
             (NLST command) 
             with wildcards did 
             not work properly. </p>
@@ -3294,7 +3294,7 @@
               request, when the client connects to the server. Default 
               value is that of the <c>timeout</c> option. </p>
             <p>See the 
-	      <seealso marker="httpc#request/4">request/[4,5]</seealso> 
+	      <seemfa marker="httpc#request/4">request/[4,5]</seemfa> 
               function for more info. </p>
 	    <p>Own Id: OTP-7298</p>
 	    <!-- <p>Aux Id: seq11086</p> -->
@@ -3357,7 +3357,7 @@
             <p>Default is <c>inet6fb4</c> which emulates the 
               behaviour of the previous version. </p>
             <p>See the 
-	      <seealso marker="httpd#props_comm">Communication properties</seealso> 
+	      <seeerl marker="httpd#props_comm">Communication properties</seeerl> 
               section for more info. </p>
 	    <p>Own Id: OTP-8069</p>
 	    <p>Aux Id: seq11086</p>
@@ -3401,7 +3401,7 @@
               the client connects to the server. </p>
 	    <p>As a side-effect of this, the option <c>ipv6</c> has been 
               removed and replaced by the <c>ipfamily</c> option. </p>
-	    <p>See <seealso marker="httpc#set_options/1">http:set_options/[1,2]</seealso> 
+	    <p>See <seemfa marker="httpc#set_options/1">http:set_options/[1,2]</seemfa> 
               for more info. </p>
             <p>*** POTENTIAL INCOMPATIBILITY ***</p>
 	    <p>Own Id: OTP-8004</p>

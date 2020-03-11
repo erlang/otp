@@ -38,7 +38,7 @@
       the User's Guide or Release Notes. First are some paragraphs
       introducing the main contents. After that follows chapters,
       written in separate files with
-      the <seealso marker="#chapterDTD">chapter</seealso> DTD.</p>
+      the <seeguide marker="#chapterDTD">chapter</seeguide> DTD.</p>
 
     <p>Example:</p>
     <pre>
@@ -70,11 +70,11 @@
     <p>The top level tag of a <c>part</c> DTD.</p>
 
     <p>Contains a
-      <seealso marker="header_tags">&lt;header&gt;</seealso>,
+      <seeguide marker="header_tags">&lt;header&gt;</seeguide>,
       an optional
-      <seealso marker="#descriptionTAG">&lt;description&gt;</seealso>,
+      <seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
       followed by one or more
-      <seealso marker="#includeTAG">&lt;include&gt;</seealso>.</p>
+      <seeguide marker="#includeTAG">&lt;include&gt;</seeguide>.</p>
   </section>
 
   <section>
@@ -85,7 +85,7 @@
       included chapters/manual pages.</p>
 
     <p>Contains any combination and any number
-      of <seealso marker="block_tags">block tags</seealso> except
+      of <seeguide marker="block_tags">block tags</seeguide> except
       <c><![CDATA[<image>]]></c> and <c><![CDATA[<table>]]></c>.</p>
   </section>
 
@@ -151,11 +151,11 @@
     <p>The top level tag of a <c>chapter</c> DTD.</p>
 
     <p>Contains a
-      <seealso marker="header_tags">&lt;header&gt;</seealso>,
+      <seeguide marker="header_tags">&lt;header&gt;</seeguide>,
       an optional introduction consisting of any combination of
-      <seealso marker="block_tags">block tags</seealso>,
+      <seeguide marker="block_tags">block tags</seeguide>,
       followed by one or more
-      <seealso marker="#sectionTAG">&lt;section&gt;</seealso>.</p>
+      <seeguide marker="#sectionTAG">&lt;section&gt;</seeguide>.</p>
   </section>
 
   <section>
@@ -165,10 +165,10 @@
     <p>Subdivision of a chapter.</p>
 
     <p>Contains an optional
-      <seealso marker="inline_tags#markerTAG">&lt;marker&gt;</seealso>,
-      a <seealso marker="#titleTAG">&lt;title&gt;</seealso>,
+      <seeguide marker="inline_tags#markerTAG">&lt;marker&gt;</seeguide>,
+      a <seeguide marker="#titleTAG">&lt;title&gt;</seeguide>,
       followed by any combination and any number of
-      <seealso marker="block_tags">block tags</seealso> and
+      <seeguide marker="block_tags">block tags</seeguide> and
       <c><![CDATA[<section>]]></c>.</p>
   </section>
 

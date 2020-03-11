@@ -55,8 +55,8 @@
 	source code, with enhancements to many of the applications to
 	support both Unicode encoded filenames and support for UTF-8
 	encoded files in many circumstances. Most notable is the
-	support for UTF-8 in files read by <seealso
-	marker="kernel:file#consult/1"><c>file:consult/1</c></seealso>,
+	support for UTF-8 in files read by <seemfa
+	marker="kernel:file#consult/1"><c>file:consult/1</c></seemfa>,
 	release handler support for UTF-8, and more support for
 	Unicode character sets in the I/O system.</p></item>
 
@@ -221,7 +221,7 @@
         issues occur, which is why UTF-16 exists in both a big-endian
         and a little-endian variant.</p>
         <p>In Erlang, the full UTF-16 range is supported when applicable, like
-          in the <seealso marker="stdlib:unicode"><c>unicode</c></seealso>
+          in the <seeerl marker="stdlib:unicode"><c>unicode</c></seeerl>
           module and in the bit syntax.</p>
       </item>
       <tag>UTF-32</tag>
@@ -278,13 +278,13 @@
         <p>The Unicode characters need to be processed by the Erlang
         program, which is why library functions must be able to handle
         them. In some cases functionality has been added to already
-        existing interfaces (as the <seealso
-        marker="stdlib:string"><c>string</c></seealso> module now can
+        existing interfaces (as the <seeerl
+        marker="stdlib:string"><c>string</c></seeerl> module now can
         handle strings with any code points). In some cases new
-        functionality or options have been added (as in the <seealso
-        marker="stdlib:io"><c>io</c></seealso> module, the file
-        handling, the <seealso
-        marker="stdlib:unicode"><c>unicode</c></seealso> module, and
+        functionality or options have been added (as in the <seeerl
+        marker="stdlib:io"><c>io</c></seeerl> module, the file
+        handling, the <seeerl
+        marker="stdlib:unicode"><c>unicode</c></seeerl> module, and
         the bit syntax). Today most modules in Kernel and
         STDLIB, as well as the VM are Unicode-aware.</p>
       </item>
@@ -343,7 +343,7 @@
 %% -*- coding: utf-8 -*-</code>
         <p>This of course requires your editor to support UTF-8 as well. The
           same comment is also interpreted by functions like
-          <seealso marker="kernel:file#consult/1"><c>file:consult/1</c></seealso>,
+          <seemfa marker="kernel:file#consult/1"><c>file:consult/1</c></seemfa>,
           the release handler, and so on, so that you can have all text files
           in your source directories in UTF-8 encoding.</p>
       </item>
@@ -382,11 +382,11 @@
 
     <p>Only if a string contains code points &lt; 256, can it be directly
       converted to a binary by using, for example,
-      <seealso marker="erts:erlang#iolist_to_binary/1"><c>erlang:iolist_to_binary/1</c></seealso>
+      <seemfa marker="erts:erlang#iolist_to_binary/1"><c>erlang:iolist_to_binary/1</c></seemfa>
       or can be sent directly to a port. If the string contains Unicode
       characters &gt; 255, an encoding must be decided upon and the string is to
       be converted to a binary in the preferred encoding using
-      <seealso marker="stdlib:unicode#characters_to_binary/1"><c>unicode:characters_to_binary/1,2,3</c></seealso>.
+      <seemfa marker="stdlib:unicode#characters_to_binary/1"><c>unicode:characters_to_binary/1,2,3</c></seemfa>.
       Strings are not generally lists of bytes, as they were before
       Erlang/OTP R13, they are lists of characters. Characters are not
       generally bytes, they are Unicode code points.</p>
@@ -395,7 +395,7 @@
       store textual data in binaries instead of lists, mainly because they are
       more compact (one byte per character instead of two words per character,
       as is the case with lists). Using
-      <seealso marker="erts:erlang#list_to_binary/1"><c>erlang:list_to_binary/1</c></seealso>,
+      <seemfa marker="erts:erlang#list_to_binary/1"><c>erlang:list_to_binary/1</c></seemfa>,
       an ISO Latin-1 Erlang string can be converted into a binary, effectively
       using bytewise encoding: one byte per character. This was convenient for
       those limited Erlang strings, but cannot be done for arbitrary Unicode
@@ -428,7 +428,7 @@ chardata() = charlist() | unicode_binary()
 charlist() = maybe_improper_list(char() | unicode_binary() | charlist(),
   unicode_binary() | nil())</code>
 
-    <p>The module <seealso marker="stdlib:unicode"><c>unicode</c></seealso>
+    <p>The module <seeerl marker="stdlib:unicode"><c>unicode</c></seeerl>
       even supports similar mixes with binaries containing other encodings than
       UTF-8, but that is a special case to allow for conversions to and from
       external data:</p>
@@ -448,8 +448,8 @@ external_charlist() = maybe_improper_list(char() | external_unicode_binary() |
     <p><marker id="unicode_in_erlang"/>As from Erlang/OTP R16, Erlang
     source files can be written in UTF-8 or bytewise (<c>latin1</c>)
     encoding. For information about how to state the encoding of an
-    Erlang source file, see the <seealso
-    marker="stdlib:epp#encoding"><c>epp(3)</c></seealso> module.  As
+    Erlang source file, see the <seeerl
+    marker="stdlib:epp#encoding"><c>epp(3)</c></seeerl> module.  As
     from Erlang/OTP R16, strings and comments can be written using
     Unicode.  As from Erlang/OTP 20, also atoms and functions can be
     written using Unicode. Modules, applications, and nodes must still be
@@ -578,8 +578,8 @@ Eshell V5.10.1  (abort with ^G)
         bytewise encoded) as string data.</p>
 
       <p>These heuristics are also used by
-        <seealso marker="stdlib:io#format/2"><c>io:format/2</c></seealso>,
-        <seealso marker="stdlib:io_lib#format/2"><c>io_lib:format/2</c></seealso>,
+        <seemfa marker="stdlib:io#format/2"><c>io:format/2</c></seemfa>,
+        <seemfa marker="stdlib:io_lib#format/2"><c>io_lib:format/2</c></seemfa>,
         and friends when modifier <c>t</c> is used with <c>~p</c> or
         <c>~P</c>:</p>
 
@@ -644,7 +644,7 @@ en_US.UTF-8</pre>
       language and character type settings.</p>
 
     <p>To investigate what Erlang thinks about the terminal, the call
-      <seealso marker="stdlib:io#getopts/1"><c>io:getopts()</c></seealso>
+      <seemfa marker="stdlib:io#getopts/1"><c>io:getopts()</c></seemfa>
       can be used when the shell is started:</p>
 
     <pre>
@@ -740,7 +740,7 @@ Eshell V5.10.1  (abort with ^G)
           translated to the proper name encoding for the underlying operating
           system and file system.</p>
         <p>Doing, for example, a
-          <seealso marker="kernel:file#list_dir/1"><c>file:list_dir/1</c></seealso>
+          <seemfa marker="kernel:file#list_dir/1"><c>file:list_dir/1</c></seemfa>
           on one of these systems can return Unicode lists with code points
           &gt; 255, depending on the content of the file system.</p>
       </item>
@@ -759,7 +759,7 @@ Eshell V5.10.1  (abort with ^G)
         <p>In <c>latin1</c> mode, filenames are bytewise encoded. This allows
           for list representation of all filenames in the system. However, a
           a file named "Östersund.txt", appears in
-          <seealso marker="kernel:file#list_dir/1"><c>file:list_dir/1</c></seealso>
+          <seemfa marker="kernel:file#list_dir/1"><c>file:list_dir/1</c></seemfa>
           either as "Östersund.txt" (if the filename was encoded in bytewise
           ISO Latin-1 by the program creating the file) or more probably as
           <c>[195,150,115,116,101,114,115,117,110,100]</c>, which is a list
@@ -767,7 +767,7 @@ Eshell V5.10.1  (abort with ^G)
           filename translation on such a system, non-UTF-8 filenames are
           ignored by functions like <c>file:list_dir/1</c>. They can be
           retrieved with function
-          <seealso marker="kernel:file#list_dir_all/1"><c>file:list_dir_all/1</c></seealso>,
+          <seemfa marker="kernel:file#list_dir_all/1"><c>file:list_dir_all/1</c></seemfa>,
           but wrongly encoded filenames appear as &quot;raw filenames&quot;.
         </p>
       </item>
@@ -804,12 +804,12 @@ Eshell V5.10.1  (abort with ^G)
       mode defaults to <c>latin1</c> as the native filename encoding. On
       Windows and MacOS X, the default behavior is that of Unicode filename
       translation. Therefore
-      <seealso marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seealso>
+      <seemfa marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seemfa>
       by default returns <c>utf8</c> on those systems (Windows does not use
       UTF-8 on the file system level, but this can safely be ignored by the
       Erlang programmer). The default behavior can, as stated earlier, be
       changed using option <c>+fnu</c> or <c>+fnl</c> to the VM, see the
-      <seealso marker="erts:erl"><c>erl</c></seealso> program. If the VM is
+      <seecom marker="erts:erl"><c>erl</c></seecom> program. If the VM is
       started in Unicode filename translation mode,
       <c>file:native_name_encoding/0</c> returns atom <c>utf8</c>. Switch
       <c>+fnu</c> can be followed by <c>w</c>, <c>i</c>, or <c>e</c> to control
@@ -832,7 +832,7 @@ Eshell V5.10.1  (abort with ^G)
     </list>
 
     <p>Notice that
-      <seealso marker="kernel:file#read_link/1"><c>file:read_link/1</c></seealso>
+      <seemfa marker="kernel:file#read_link/1"><c>file:read_link/1</c></seemfa>
       always returns an error if the link points to an invalid filename.</p>
 
     <p>In Unicode filename mode, filenames given to BIF <c>open_port/2</c> with
@@ -840,7 +840,7 @@ Eshell V5.10.1  (abort with ^G)
       is the parameter list specified in option <c>args</c> available when
       using <c>spawn_executable</c>. The UTF-8 translation of arguments can be
       avoided using binaries, see section
-      <seealso marker="#notes-about-raw-filenames">Notes About Raw Filenames</seealso>.
+      <seeguide marker="#notes-about-raw-filenames">Notes About Raw Filenames</seeguide>.
     </p>
 
     <p>Notice that the file encoding options specified when opening a file has
@@ -876,7 +876,7 @@ Eshell V5.10.1  (abort with ^G)
         therefore expects UTF-8 file naming). The ISO Latin-1 name is not valid
         UTF-8 and one can be tempted to think that automatic conversion in, for
         example,
-        <seealso marker="kernel:file#list_dir/1"><c>file:list_dir/1</c></seealso>
+        <seemfa marker="kernel:file#list_dir/1"><c>file:list_dir/1</c></seemfa>
         is a good idea. But what would happen if we later tried to open the file
         and have the name as a Unicode list (magically converted from the ISO
         Latin-1 filename)? The VM converts the filename to UTF-8, as this is
@@ -892,7 +892,7 @@ Eshell V5.10.1  (abort with ^G)
         are invalid under the encoding. By the common function
         <c>file:list_dir/1</c>, the wrongly encoded filenames are ignored in
         Unicode filename translation mode, but by function
-        <seealso marker="kernel:file#list_dir_all/1"><c>file:list_dir_all/1</c></seealso>
+        <seemfa marker="kernel:file#list_dir_all/1"><c>file:list_dir_all/1</c></seemfa>
         the filenames with invalid encoding are returned as &quot;raw&quot;
         filenames, that is, as binaries.</p> 
 
@@ -964,9 +964,9 @@ Eshell V5.10.1  (abort with ^G)
       Unicode.</p>
 
     <p>If Unicode filenames are enabled, the calls to
-      <seealso marker="kernel:os#getenv/0"><c>os:getenv/0,1</c></seealso>,
-      <seealso marker="kernel:os#putenv/2"><c>os:putenv/2</c></seealso>, and
-      <seealso marker="kernel:os#unsetenv/1"><c>os:unsetenv/1</c></seealso>
+      <seemfa marker="kernel:os#getenv/0"><c>os:getenv/0,1</c></seemfa>,
+      <seemfa marker="kernel:os#putenv/2"><c>os:putenv/2</c></seemfa>, and
+      <seemfa marker="kernel:os#unsetenv/1"><c>os:unsetenv/1</c></seemfa>
       handle Unicode strings. On Unix-like platforms, the built-in functions
       translate environment variables in UTF-8 to/from Unicode strings, possibly
       with code points &gt; 255. On Windows, the Unicode versions of the
@@ -982,8 +982,8 @@ Eshell V5.10.1  (abort with ^G)
       non-textual or byte-oriented data (such as <c>gen_tcp</c>).</p>
 
     <p>Modules handling textual data (such as
-      <seealso marker="stdlib:io_lib"><c>io_lib</c></seealso> and
-      <seealso marker="stdlib:string"><c>string</c></seealso> are sometimes
+      <seeerl marker="stdlib:io_lib"><c>io_lib</c></seeerl> and
+      <seeerl marker="stdlib:string"><c>string</c></seeerl> are sometimes
       subject to conversion or extension to be able to handle Unicode
       characters.</p>
 
@@ -997,7 +997,7 @@ Eshell V5.10.1  (abort with ^G)
     <taglist>
       <tag><c>unicode</c></tag>
       <item>
-        <p>The <seealso marker="stdlib:unicode"><c>unicode</c></seealso>
+        <p>The <seeerl marker="stdlib:unicode"><c>unicode</c></seeerl>
           module is clearly Unicode-aware. It contains functions for conversion
           between different Unicode formats and some utilities for identifying
           byte order marks. Few programs handling Unicode data survive without
@@ -1005,7 +1005,7 @@ Eshell V5.10.1  (abort with ^G)
       </item>
       <tag><c>io</c></tag>
       <item>
-        <p>The <seealso marker="stdlib:io"><c>io</c></seealso> module has been
+        <p>The <seeerl marker="stdlib:io"><c>io</c></seeerl> module has been
           extended along with the actual I/O protocol to handle Unicode data.
           This means that many functions require binaries to be in UTF-8, and
           there are modifiers to format control sequences to allow for output
@@ -1016,36 +1016,36 @@ Eshell V5.10.1  (abort with ^G)
         <p>I/O-servers throughout the system can handle Unicode data and have
           options for converting data upon output or input to/from the device.
           As shown earlier, the
-          <seealso marker="stdlib:shell"><c>shell</c></seealso> module has
+          <seeerl marker="stdlib:shell"><c>shell</c></seeerl> module has
           support for Unicode terminals and the
-          <seealso marker="kernel:file"><c>file</c></seealso> module
+          <seeerl marker="kernel:file"><c>file</c></seeerl> module
            allows for translation to and from various Unicode formats on
            disk.</p>
          <p>Reading and writing of files with Unicode data is, however, not best
            done with the <c>file</c> module, as its interface is
            byte-oriented. A file opened with a Unicode encoding (like UTF-8) is
            best read or written using the
-           <seealso marker="stdlib:io"><c>io</c></seealso> module.</p>
+           <seeerl marker="stdlib:io"><c>io</c></seeerl> module.</p>
       </item>
       <tag><c>re</c></tag>
       <item>
-        <p>The <seealso marker="stdlib:re"><c>re</c></seealso> module allows
+        <p>The <seeerl marker="stdlib:re"><c>re</c></seeerl> module allows
           for matching Unicode strings as a special option. As the library is
           centered on matching in binaries, the Unicode support is
           UTF-8-centered.</p>
       </item>
       <tag><c>wx</c></tag>
       <item>
-        <p>The graphical library <seealso marker="wx:wx"><c>wx</c></seealso>
+        <p>The graphical library <seeerl marker="wx:wx"><c>wx</c></seeerl>
           has extensive support for Unicode text.</p></item>
     </taglist>
 
-    <p>The <seealso marker="stdlib:string"><c>string</c></seealso>
+    <p>The <seeerl marker="stdlib:string"><c>string</c></seeerl>
     module works perfectly for Unicode strings and ISO Latin-1
-    strings, except the language-dependent functions <seealso
-    marker="stdlib:string#uppercase/1"><c>string:uppercase/1</c></seealso>
-    and <seealso
-    marker="stdlib:string#lowercase/1"><c>string:lowercase/1</c></seealso>.
+    strings, except the language-dependent functions <seemfa
+    marker="stdlib:string#uppercase/1"><c>string:uppercase/1</c></seemfa>
+    and <seemfa
+    marker="stdlib:string#lowercase/1"><c>string:lowercase/1</c></seemfa>.
     These two functions can never function correctly for Unicode
     characters in their current form, as there are language and locale
     issues to consider when converting text between cases.  Converting
@@ -1074,9 +1074,9 @@ Eshell V5.10.1  (abort with ^G)
       terminal or pipe.</p>
 
     <p>A file can have an encoding option that makes it generally usable by the
-      <seealso marker="stdlib:io"><c>io</c></seealso> module (for example
+      <seeerl marker="stdlib:io"><c>io</c></seeerl> module (for example
       <c>{encoding,utf8}</c>), but is by default opened as a byte-oriented file.
-      The <seealso marker="kernel:file"><c>file</c></seealso> module is
+      The <seeerl marker="kernel:file"><c>file</c></seeerl> module is
       byte-oriented, so only ISO Latin-1 characters can be written using that
       module. Use the <c>io</c> module if Unicode data is to be output to a
       file with other <c>encoding</c> than <c>latin1</c> (bytewise encoding).
@@ -1088,7 +1088,7 @@ Eshell V5.10.1  (abort with ^G)
       as that is the way to access files other than text files, byte by byte.
       As with ports, you can write encoded data into a file by "manually"
       converting the data to the encoding of choice (using the
-      <seealso marker="stdlib:unicode"><c>unicode</c></seealso> module or the
+      <seeerl marker="stdlib:unicode"><c>unicode</c></seeerl> module or the
       bit syntax) and then output it on a bytewise (<c>latin1</c>) encoded
       file.</p>
 
@@ -1096,10 +1096,10 @@ Eshell V5.10.1  (abort with ^G)
 
     <list type="bulleted">
       <item><p>Use the
-        <seealso marker="kernel:file"><c>file</c></seealso> module for
+        <seeerl marker="kernel:file"><c>file</c></seeerl> module for
         files opened for bytewise access (<c>{encoding,latin1}</c>).</p>
       </item>
-      <item><p>Use the <seealso marker="stdlib:io"><c>io</c></seealso> module
+      <item><p>Use the <seeerl marker="stdlib:io"><c>io</c></seeerl> module
         when accessing files with any other encoding (for example
         <c>{encoding,uf8}</c>).</p>
       </item>
@@ -1147,31 +1147,31 @@ ok
           is started with flag <c>+fna</c> (which is default from
           Erlang/OTP 17.0).</p>
         <p>You can check the setting of this by calling
-          <seealso marker="stdlib:io#getopts/1"><c>io:getopts()</c></seealso>,
+          <seemfa marker="stdlib:io#getopts/1"><c>io:getopts()</c></seemfa>,
           which gives you an option list containing <c>{encoding,unicode}</c>
           or <c>{encoding,latin1}</c>.</p>
       </item>
       <tag>The <c>+pc</c> {<c>unicode</c>|<c>latin1</c>} flag to
-        <seealso marker="erts:erl"><c>erl(1)</c></seealso></tag>
+        <seecom marker="erts:erl"><c>erl(1)</c></seecom></tag>
       <item>
         <p>This flag affects what is interpreted as string data when doing
           heuristic string detection in the shell and in
-          <seealso marker="stdlib:io"><c>io</c></seealso>/
-          <seealso marker="stdlib:io_lib#format/2"><c>io_lib:format</c></seealso>
+          <seeerl marker="stdlib:io"><c>io</c></seeerl>/
+          <seemfa marker="stdlib:io_lib#format/2"><c>io_lib:format</c></seemfa>
           with the <c>"~tp"</c> and <c>~tP</c> formatting instructions, as
           described earlier.</p>
         <p>You can check this option by calling
-          <seealso marker="stdlib:io#printable_range/0"><c>io:printable_range/0</c></seealso>,
+          <seemfa marker="stdlib:io#printable_range/0"><c>io:printable_range/0</c></seemfa>,
           which returns <c>unicode</c> or <c>latin1</c>. To be compatible with
           future (expected) extensions to the settings, rather use
-          <seealso marker="stdlib:io_lib#printable_list/1"><c>io_lib:printable_list/1</c></seealso>
+          <seemfa marker="stdlib:io_lib#printable_list/1"><c>io_lib:printable_list/1</c></seemfa>
           to check if a list is printable according to the setting. That
           function takes into account new possible settings returned from
           <c>io:printable_range/0</c>.</p>
       </item>
       <tag>The <c>+fn</c>{<c>l</c>|<c>u</c>|<c>a</c>}
         [{<c>w</c>|<c>i</c>|<c>e</c>}] flag to 
-        <seealso marker="erts:erl"><c>erl(1)</c></seealso></tag>
+        <seecom marker="erts:erl"><c>erl(1)</c></seecom></tag>
       <item>
         <p>This flag affects how the filenames are to be interpreted. On
           operating systems with transparent file naming, this must be
@@ -1199,10 +1199,10 @@ ok
           </item>
         </list>
         <p>The filename translation mode can be read with function
-          <seealso marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seealso>,
+          <seemfa marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seemfa>,
           which returns <c>latin1</c> (bytewise encoding) or <c>utf8</c>.</p>
       </item>
-      <tag><seealso marker="stdlib:epp#default_encoding/0"><c>epp:default_encoding/0</c></seealso></tag>
+      <tag><seemfa marker="stdlib:epp#default_encoding/0"><c>epp:default_encoding/0</c></seemfa></tag>
       <item>
         <p>This function returns the default encoding for Erlang source files
           (if no encoding comment is present) in the currently running release.
@@ -1210,10 +1210,10 @@ ok
           As from Erlang/OTP 17.0, <c>utf8</c> is returned.</p>
         <p>The encoding of each file can be specified using comments as
           described in the
-          <seealso marker="stdlib:epp#encoding"><c>epp(3)</c></seealso> module.
+          <seeerl marker="stdlib:epp#encoding"><c>epp(3)</c></seeerl> module.
         </p>
       </item>
-      <tag><seealso marker="stdlib:io#setopts/1"><c>io:setopts/1,2</c></seealso>
+      <tag><seemfa marker="stdlib:io#setopts/1"><c>io:setopts/1,2</c></seemfa>
         and flags <c>-oldshell</c>/<c>-noshell</c></tag>
       <item>
         <p>When Erlang is started with <c>-oldshell</c> or <c>-noshell</c>, the
@@ -1221,7 +1221,7 @@ ok
           encoding, while an interactive shell defaults to what the
           environment variables says.</p>
         <p>You can set the encoding of a file or other I/O server with function
-          <seealso marker="stdlib:io#setopts/1"><c>io:setopts/2</c></seealso>.
+          <seemfa marker="stdlib:io#setopts/1"><c>io:setopts/2</c></seemfa>.
           This can also be set when opening a file. Setting the terminal (or
           other <c>standard_io</c> server) unconditionally to option
           <c>{encoding,utf8}</c> implies that UTF-8 encoded characters are
@@ -1231,7 +1231,7 @@ ok
           writing or reading text files in a known encoding.</p>
         <p>You can retrieve the <c>encoding</c> setting for an I/O server with
           function
-          <seealso marker="stdlib:io#getopts/1"><c>io:getopts()</c></seealso>.
+          <seemfa marker="stdlib:io#getopts/1"><c>io:getopts()</c></seemfa>.
         </p>
       </item>
     </taglist>
@@ -1251,7 +1251,7 @@ ok
         text. This code outlines how to open a file that is believed to
         have a BOM, and sets the files encoding and position for further
         sequential reading (preferably using the
-        <seealso marker="stdlib:io"><c>io</c></seealso> module).</p>
+        <seeerl marker="stdlib:io"><c>io</c></seeerl> module).</p>
 
       <p>Notice that error handling is omitted from the code:</p>
 
@@ -1265,12 +1265,12 @@ open_bom_file_for_reading(File) -&gt;
     {ok,F}.</code>
 
       <p>Function
-        <seealso marker="stdlib:unicode#bom_to_encoding/1"><c>unicode:bom_to_encoding/1</c></seealso>
+        <seemfa marker="stdlib:unicode#bom_to_encoding/1"><c>unicode:bom_to_encoding/1</c></seemfa>
         identifies the encoding from a binary of at least four bytes. It
         returns, along with a term suitable for setting the encoding of the
         file, the byte length of the BOM, so that the file position can be set
         accordingly. Notice that function
-        <seealso marker="kernel:file#position/2"><c>file:position/2</c></seealso>
+        <seemfa marker="kernel:file#position/2"><c>file:position/2</c></seemfa>
         always works on byte-offsets, so that the byte length of the BOM is
         needed.</p>
 
@@ -1284,7 +1284,7 @@ open_bom_file_for_writing(File,Encoding) -&gt;
     {ok,F}.</code>
 
       <p>The file is in both these cases then best processed using the
-        <seealso marker="stdlib:io"><c>io</c></seealso> module, as the functions
+        <seeerl marker="stdlib:io"><c>io</c></seeerl> module, as the functions
         in that module can handle code points beyond the ISO Latin-1 range.</p>
     </section>
 
@@ -1293,8 +1293,8 @@ open_bom_file_for_writing(File,Encoding) -&gt;
       <p>When reading and writing to Unicode-aware entities, like a
         file opened for Unicode translation, you probably want to format text
         strings using the functions in the
-        <seealso marker="stdlib:io"><c>io</c></seealso> module or the
-        <seealso marker="stdlib:io_lib"><c>io_lib</c></seealso> module. For
+        <seeerl marker="stdlib:io"><c>io</c></seeerl> module or the
+        <seeerl marker="stdlib:io_lib"><c>io_lib</c></seeerl> module. For
         backward compatibility reasons, these functions do not accept any list
         as a string, but require a special <em>translation modifier</em> when
         working with Unicode texts. The modifier is <c>t</c>. When applied to
@@ -1324,11 +1324,11 @@ ok</pre>
         bytewise-encoded characters and not UTF-8.</p>
 
       <p>Function
-        <seealso marker="stdlib:io_lib#format/2"><c>io_lib:format/2</c></seealso>
+        <seemfa marker="stdlib:io_lib#format/2"><c>io_lib:format/2</c></seemfa>
         behaves similarly. It is defined to return a deep list of characters
         and the output can easily be converted to binary data for outputting on
         any device by a simple
-        <seealso marker="erts:erlang#list_to_binary/1"><c>erlang:list_to_binary/1</c></seealso>.
+        <seemfa marker="erts:erlang#list_to_binary/1"><c>erlang:list_to_binary/1</c></seemfa>.
         When the translation modifier is used, the list can, however, contain
         characters that cannot be stored in one byte. The call to
         <c>erlang:list_to_binary/1</c> then fails. However, if the I/O server
@@ -1350,7 +1350,7 @@ ok</pre>
         as such, as the Erlang shell uses the Unicode encoding (and is started
         with all Unicode characters considered printable). The Unicode list is
         valid input to function
-        <seealso marker="stdlib:io#put_chars/2"><c>io:put_chars/2</c></seealso>,
+        <seemfa marker="stdlib:io#put_chars/2"><c>io:put_chars/2</c></seemfa>,
         so data can be output on any Unicode-capable device. If the device is a
         terminal, characters are output in format <c>\x{</c>H...<c>}</c> if
         encoding is <c>latin1</c>. Otherwise in UTF-8 (for the non-interactive
@@ -1373,7 +1373,7 @@ ok</pre>
         the 7-bit ASCII range are seldom considered valid when decoded as UTF-8.
         Therefore one can usually use heuristics to determine if a file is in
         UTF-8 or if it is encoded in ISO Latin-1 (one byte per character).
-        The <seealso marker="stdlib:unicode"><c>unicode</c></seealso>
+        The <seeerl marker="stdlib:unicode"><c>unicode</c></seeerl>
         module can be used to determine if data can be interpreted as UTF-8:</p>
 
       <code>
@@ -1388,7 +1388,7 @@ heuristic_encoding_bin(Bin) when is_binary(Bin) -&gt;
       <p>If you do not have a complete binary of the file content, you can
         instead chunk through the file and check part by part. The return-tuple
         <c>{incomplete,Decoded,Rest}</c> from function
-        <seealso marker="stdlib:unicode#characters_to_binary/1"><c>unicode:characters_to_binary/1,2,3</c></seealso>
+        <seemfa marker="stdlib:unicode#characters_to_binary/1"><c>unicode:characters_to_binary/1,2,3</c></seemfa>
         comes in handy. The incomplete rest from one chunk of data read from the
         file is prepended to the next chunk and we therefore avoid the problem
         of character boundaries when reading chunks of bytes in UTF-8
@@ -1415,7 +1415,7 @@ loop_through_file(F,Acc,{ok,Bin}) when is_binary(Bin) -&gt;
 
       <p>Another option is to try to read the whole file in UTF-8 encoding and
         see if it fails. Here we need to read the file using function
-        <seealso marker="stdlib:io#get_chars/3"><c>io:get_chars/3</c></seealso>,
+        <seemfa marker="stdlib:io#get_chars/3"><c>io:get_chars/3</c></seemfa>,
         as we have to read characters with a code point &gt; 255:</p>
 
       <code>
@@ -1454,7 +1454,7 @@ utf8_list_to_string(StrangeList) ->
         second time is encoded as UTF-8. A common situation is where you read a
         file, byte by byte, but the content is already UTF-8. If you then
         convert the bytes to UTF-8, using, for example, the
-        <seealso marker="stdlib:unicode"><c>unicode</c></seealso> module, or by
+        <seeerl marker="stdlib:unicode"><c>unicode</c></seeerl> module, or by
         writing to a file opened with option <c>{encoding,utf8}</c>, you have
         each <em>byte</em> in the input file encoded as UTF-8, not each
         character of the original text (one character can have been encoded in

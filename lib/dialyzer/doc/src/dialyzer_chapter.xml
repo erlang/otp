@@ -121,13 +121,13 @@ dialyzer --plt_info</code>
   <section>
     <title>Using Dialyzer from the Command Line</title>
     <p>Dialyzer has a command-line version for automated use.
-      See <seealso marker="dialyzer"><c>dialyzer(3)</c></seealso>.</p>
+      See <seeerl marker="dialyzer"><c>dialyzer(3)</c></seeerl>.</p>
   </section>
 
   <section>
     <title>Using Dialyzer from Erlang</title>
     <p>Dialyzer can also be used directly from Erlang.
-      See <seealso marker="dialyzer"><c>dialyzer(3)</c></seealso>.</p>
+      See <seeerl marker="dialyzer"><c>dialyzer(3)</c></seeerl>.</p>
   </section>
 
   <section>
@@ -189,7 +189,7 @@ dialyzer --plt_info</code>
       <title>Include Directories and Macro Definitions</title>
       <p>When analyzing from source, you might have to supply Dialyzer
         with a list of include directories and macro definitions (as you can do
-        with the <seealso marker="erts:erlc"><c>erlc</c></seealso> flags
+        with the <seecom marker="erts:erlc"><c>erlc</c></seecom> flags
         <c>-I</c> and <c>-D</c>). This can be done
         either by starting Dialyzer with these flags from the command
         line as in:</p>
@@ -215,12 +215,12 @@ dialyzer -I my_includes -DDEBUG -Dvsn=42 -I one_more_dir</code>
       <title>Inspecting the Inferred Types of the Analyzed Functions</title>
       <p>Dialyzer stores the information of the analyzed functions in a
         Persistent Lookup Table (PLT), see section
-        <seealso marker="#plt">The Persistent Lookup Table</seealso>.</p>
+        <seeguide marker="#plt">The Persistent Lookup Table</seeguide>.</p>
 
       <p>After an analysis, you can inspect this information.
         In the <em>PLT</em> menu you can choose to either search the PLT
         or inspect the contents of the whole PLT. The information is presented
-        in <seealso marker="edoc:edoc"><c>EDoc</c></seealso> format.</p>
+        in <seeerl marker="edoc:edoc"><c>EDoc</c></seeerl> format.</p>
     </section>
   </section>
 

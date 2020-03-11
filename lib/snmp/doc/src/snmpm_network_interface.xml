@@ -40,31 +40,31 @@
       must export the following functions: </p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#start_link">start_link/2</seealso></p>
+        <p><seeerl marker="#start_link">start_link/2</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#stop">stop/1</seealso></p>
+        <p><seeerl marker="#stop">stop/1</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#send_pdu">send_pdu/7</seealso></p>
+        <p><seeerl marker="#send_pdu">send_pdu/7</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#inform_response">inform_response/4</seealso></p>
+        <p><seeerl marker="#inform_response">inform_response/4</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#note_store">note_store/2</seealso></p>
+        <p><seeerl marker="#note_store">note_store/2</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#info">info/1</seealso></p>
+        <p><seeerl marker="#info">info/1</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#get_log_type">get_log_type/1</seealso></p>
+        <p><seeerl marker="#get_log_type">get_log_type/1</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#set_log_type">set_log_type/2</seealso></p>
+        <p><seeerl marker="#set_log_type">set_log_type/2</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#verbosity">verbosity/2</seealso></p>
+        <p><seeerl marker="#verbosity">verbosity/2</seeerl></p>
       </item>
     </list>
     <p>The semantics of them and their exact signatures are explained
@@ -116,7 +116,7 @@
         <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
         <v>MsgData = term()</v>
         <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
-	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
+	<v>Addr = {<seetype marker="kernel:inet#ip_address">inet:ip_address(), inet:port_number()</seetype>} </v>
         <v>ExtraInfo = term()</v>
       </type>
       <desc>
@@ -125,13 +125,13 @@
         <p><c>ExtraInfo</c> is some opaque data that is passed to the
           net-if process. It originates from the <c>ExtraInfo</c>
           parameter in the calls to the 
-          <seealso marker="snmpm#sync_get2">synchronous get-request</seealso>, 
-          <seealso marker="snmpm#async_get2">asynchronous get-request</seealso>,
-          <seealso marker="snmpm#sync_get_next2">synchronous get-next-request</seealso>, 
-          <seealso marker="snmpm#async_get_next2">asynchronous get-next-request</seealso>,
-          <seealso marker="snmpm#sync_set2">synchronous set-request</seealso>
+          <seeerl marker="snmpm#sync_get2">synchronous get-request</seeerl>, 
+          <seeerl marker="snmpm#async_get2">asynchronous get-request</seeerl>,
+          <seeerl marker="snmpm#sync_get_next2">synchronous get-next-request</seeerl>, 
+          <seeerl marker="snmpm#async_get_next2">asynchronous get-next-request</seeerl>,
+          <seeerl marker="snmpm#sync_set2">synchronous set-request</seeerl>
           and 
-          <seealso marker="snmpm#async_set2">asynchronous set-request</seealso>
+          <seeerl marker="snmpm#async_set2">asynchronous set-request</seeerl>
           functions. 
           Whether the net-if process chooses
           to use this is implementation dependent. The net-if process
@@ -190,7 +190,7 @@
           memory allocation and various socket information.</p>
         <p>The info returned by this function is returned together with other
           info collected by the manager when the
-          <seealso marker="snmpm#info">info</seealso> function is called 
+          <seeerl marker="snmpm#info">info</seeerl> function is called 
           (tagged with the key <c>net_if</c>).</p>
 
         <marker id="verbosity"></marker>
@@ -224,7 +224,7 @@
           So, it is this process that has to return the actual log-type. </p>
 <!--
         <p>See
-          <seealso marker="snmpm#get_log_type">get_log_type</seealso>
+          <seeerl marker="snmpm#get_log_type">get_log_type</seeerl>
           for more info. </p>
 -->
 
@@ -245,7 +245,7 @@
           So, it is this process that has to do the actual changing of the
           type. </p>
         <p>See
-          <seealso marker="snmpm#set_log_type">set_log_type</seealso>
+          <seeerl marker="snmpm#set_log_type">set_log_type</seeerl>
           for more info. </p>
       </desc>
     </func>

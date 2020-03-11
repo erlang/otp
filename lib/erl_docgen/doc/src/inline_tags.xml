@@ -39,7 +39,7 @@
 
     <p>Forces a newline. The <c><![CDATA[<br>]]></c> tag is both a
       block- and an inline tag and is described in
-      the <seealso marker="block_tags#brTAG">Block Tags</seealso>
+      the <seeguide marker="block_tags#brTAG">Block Tags</seeguide>
       section.</p>
   </section>
 
@@ -49,9 +49,9 @@
 
     <p>Highlights things like variables and file names in a text flow.
       Can contain plain text only. Newlines and tabs are ignored as
-      opposed to the <seealso marker="block_tags#codeTAG">code</seealso>
-      tag. All <seealso marker="character_entities">character
-	entities</seealso> are expanded. Example:</p>
+      opposed to the <seeguide marker="block_tags#codeTAG">code</seeguide>
+      tag. All <seeguide marker="character_entities">character
+	entities</seeguide> are expanded. Example:</p>
     <pre>
 &lt;p>Returns &lt;c>true&lt;/c> if &lt;c>Term&lt;/c> is an integer.&lt;/p>
     </pre>
@@ -72,7 +72,7 @@
     <p>The application <em>must</em> be up and running.</p>
 
     <p>Contains plain text or a
-      <seealso marker="#cTAG">&lt;c&gt;</seealso> tag.</p>
+      <seeguide marker="#cTAG">&lt;c&gt;</seeguide> tag.</p>
   </section>
 
   <section>
@@ -86,7 +86,7 @@
 &lt;marker id="marker_example"/&gt;
     </pre>
   
-    <p>The <seealso marker="#seealsoTAG">&lt;seealso&gt;</seealso> tag
+    <p>The <seeguide marker="#seealsoTAG">&lt;seealso&gt;</seeguide> tag
       is used to refer to the marker.</p>
 
     <p>The <c><![CDATA[<marker>]]></c> tag is both a block- and an

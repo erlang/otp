@@ -33,10 +33,10 @@
     <file>using_ssl.xml</file>
   </header>
   <p>To see relevant version information for ssl, call
-  <seealso marker="ssl:ssl#versions/0"><c>ssl:versions/0</c></seealso>
+  <seemfa marker="ssl:ssl#versions/0"><c>ssl:versions/0</c></seemfa>
   .</p>
     
-  <p>To see all supported cipher suites, call  <seealso marker="ssl:ssl#cipher_suites/1"><c>ssl:cipher_suites(all)</c> </seealso>. 
+  <p>To see all supported cipher suites, call  <seemfa marker="ssl:ssl#cipher_suites/1"><c>ssl:cipher_suites(all)</c> </seemfa>. 
   The available cipher suites for a connection depend on your certificate. 
   Specific cipher suites that you want your connection to use can also be 
   specified. Default is to use the strongest available.</p>
@@ -229,7 +229,7 @@ ssl:connect("localhost", 9999,
              {key, PrivKey}], infinity).
     </code>
 
-    <p>See also <seealso marker="crypto:engine_load#engine_load"> crypto documentation</seealso> </p>
+    <p>See also <seeguide marker="crypto:engine_load#engine_load"> crypto documentation</seeguide> </p>
     
   </section>
 
@@ -249,12 +249,12 @@ ssl:connect("localhost", 9999,
     are opaque for the clients. Generally, stateful tickets are smaller and the server can guarantee
     that tickets are only used once. Stateless tickets contain additional data, require less storage
     on the server side, but they offer different guarantees against anti-replay. See also
-    <seealso marker="ssl:using_ssl#anti-replay-protection-in-tls-1.3">
-    Anti-Replay Protection in TLS 1.3</seealso>
+    <seeguide marker="ssl:using_ssl#anti-replay-protection-in-tls-1.3">
+    Anti-Replay Protection in TLS 1.3</seeguide>
     </p>
     <p>Session tickets are sent by servers on newly estalished TLS connections.
     The number of tickets sent and their lifetime are configurable by application variables. See also
-    <seealso marker="ssl:ssl_app#configuration"> SSL's configuration</seealso>.</p>
+    <seeerl marker="ssl:ssl_app#configuration"> SSL's configuration</seeerl>.</p>
     <p>Session tickets are protected by application traffic keys, and in stateless
     tickets, the opaque data structure itself is self-encrypted.</p>
 
@@ -414,7 +414,7 @@ ssl:connect("localhost", 9999,
     Bloom filters are fast, memory-efficient, probabilistic data structures that can tell
     if an element may be in a set or if it is definitely not in the set.</p>
 
-    <p>If the option <seealso marker="ssl:ssl#type-anti_replay">anti_replay</seealso>
+    <p>If the option <seetype marker="ssl:ssl#anti_replay">anti_replay</seetype>
     is defined in the server, a pair of Bloom filters (<em>current</em> and
     <em>old</em>) are used to record incoming ClientHello messages (it is the unique
     binder value that is actually stored).

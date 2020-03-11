@@ -88,7 +88,7 @@
     </p>
   <p>The following sections show some examples of profiling with
     <c>cprof</c>. See also 
-    <seealso marker="cprof">cprof(3)</seealso>.
+    <seeerl marker="cprof">cprof(3)</seeerl>.
     </p>
 
   <section>

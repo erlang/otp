@@ -1,15 +1,15 @@
     <section>
       <title>Old Crypto API</title>
-      <p>The <seealso marker="crypto:new_api#the-old-api">Old API</seealso> will be
+      <p>The <seeguide marker="crypto:new_api#the-old-api">Old API</seeguide> will be
       removed as of OTP 24. The support was formally deprecated as of OTP 23.</p>
       <p>For replacement functions see the
-      <seealso marker="crypto:new_api#the-new-api">New API</seealso>.</p>
+      <seeguide marker="crypto:new_api#the-new-api">New API</seeguide>.</p>
     </section>
     <section>
       <title>pg2</title>
       <p>
-	<seealso marker="kernel:pg2">pg2</seealso> is as of
-	<seealso marker="deprecations#otp-23">OTP 23 deprecated</seealso>
+	<seeerl marker="kernel:pg2">pg2</seeerl> is as of
+	<seeguide marker="deprecations#otp-23">OTP 23 deprecated</seeguide>
 	and will be removed in OTP 24.
       </p>
     </section>
@@ -17,9 +17,9 @@
       <title>Distributed Disk Logs</title>
       <p>
 	The distributed
-	<seealso marker="kernel:disk_log"><c>disk_log</c></seealso>
+	<seeerl marker="kernel:disk_log"><c>disk_log</c></seeerl>
 	feature is as of
-	<seealso marker="deprecations#otp-23">OTP 23 deprecated</seealso>
+	<seeguide marker="deprecations#otp-23">OTP 23 deprecated</seeguide>
 	and will be removed in OTP 24.
       </p>
     </section>

@@ -40,53 +40,53 @@
       functions: </p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#connect">handle_connect/2,3</seealso></p>
+        <p><seeerl marker="#connect">handle_connect/2,3</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#disconnect">handle_disconnect/3</seealso></p>
+        <p><seeerl marker="#disconnect">handle_disconnect/3</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#syntax_error">handle_syntax_error/3,4</seealso></p>
+        <p><seeerl marker="#syntax_error">handle_syntax_error/3,4</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#message_error">handle_message_error/3,4</seealso></p>
+        <p><seeerl marker="#message_error">handle_message_error/3,4</seeerl></p>
       </item>
 
 <!--
       <item>
-        <p><seealso marker="#segment_error">handle_segment_error/4,5</seealso></p>
+        <p><seeerl marker="#segment_error">handle_segment_error/4,5</seeerl></p>
       </item>
 -->
 
       <item>
-        <p><seealso marker="#trans_request">handle_trans_request/3,4</seealso></p>
+        <p><seeerl marker="#trans_request">handle_trans_request/3,4</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#trans_long_request">handle_trans_long_request/3,4</seealso></p>
+        <p><seeerl marker="#trans_long_request">handle_trans_long_request/3,4</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#trans_reply">handle_trans_reply/4,5</seealso></p>
+        <p><seeerl marker="#trans_reply">handle_trans_reply/4,5</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#trans_ack">handle_trans_ack/4,5</seealso></p>
+        <p><seeerl marker="#trans_ack">handle_trans_ack/4,5</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#unexpected_trans">handle_unexpected_trans/3,4</seealso></p>
+        <p><seeerl marker="#unexpected_trans">handle_unexpected_trans/3,4</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#request_abort">handle_trans_request_abort/4,5</seealso></p>
+        <p><seeerl marker="#request_abort">handle_trans_request_abort/4,5</seeerl></p>
       </item>
 
       <item>
-        <p><seealso marker="#segment_reply">handle_segment_reply/5,6</seealso></p>
+        <p><seeerl marker="#segment_reply">handle_segment_reply/5,6</seeerl></p>
       </item>
     </list>
 
@@ -109,11 +109,11 @@
     <marker id="extra_argument"></marker>
     <note>
       <p>Must of the functions  below has an optional <c>Extra</c> argument (e.g. 
-        <seealso marker="#unexpected_trans">handle_unexpected_trans/4</seealso>). 
+        <seeerl marker="#unexpected_trans">handle_unexpected_trans/4</seeerl>). 
         The functions which takes this argument will be called if and only if one 
         of the functions 
-        <seealso marker="megaco#receive_message">receive_message/5</seealso> or 
-        <seealso marker="megaco#process_received_message">process_received_message/5</seealso> 
+        <seeerl marker="megaco#receive_message">receive_message/5</seeerl> or 
+        <seeerl marker="megaco#process_received_message">process_received_message/5</seeerl> 
         was called with the <c>Extra</c> argument different than 
         <c>ignore_extra</c>. </p>
     </note>
@@ -187,13 +187,13 @@ protocol_version() = integer()    ]]></code>
           reason "Connection refused by user" (this is also the case for all 
           unknown results, such as exit signals or throw).</p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_message_error/4</c>. </p>
 
 	<p><c><![CDATA[handle_connect/3]]></c> (with <c><![CDATA[Extra]]></c>) 
           can also be called as a result of a call to the 
-          <seealso marker="megaco#connect">megaco:connect/5</seealso> function
+          <seeerl marker="megaco#connect">megaco:connect/5</seeerl> function
           (if that function is called with the 
           <c>Extra</c> argument different than <c>ignore_extra</c>. </p>
 
@@ -249,7 +249,7 @@ protocol_version() = integer()    ]]></code>
         <p>Any other return values (including exit signals or throw) and the
           <c><![CDATA[DefaultED]]></c> will be used. </p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_syntax_error/4</c>. </p>
 
@@ -280,7 +280,7 @@ protocol_version() = integer()    ]]></code>
           that not will get any response (request -&gt; reply; reply -&gt;
           ack).</p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_message_error/4</c>. </p>
 
@@ -306,7 +306,7 @@ protocol_version() = integer()    ]]></code>
         <p><c><![CDATA[missing_segments]]></c> means that one or more 
           segments of a segmented message was not received in time.</p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_segment_error/5</c>. </p>
 
@@ -366,7 +366,7 @@ protocol_version() = integer()    ]]></code>
             <p>If for some reason megaco is unable to deliver the reply,
               the reason for this will be passed to the user via a call
               to the callback function 
-              <seealso marker="#trans_ack">handle_trans_ack</seealso>,
+              <seeerl marker="#trans_ack">handle_trans_ack</seeerl>,
               unless <c><![CDATA[ack_action() = discard_ack]]></c>. </p>
             <p>The ack_action() is  either:</p>
             <taglist>
@@ -411,7 +411,7 @@ protocol_version() = integer()    ]]></code>
           result in an error descriptor with code 500 (internal gateway error) 
           and the module name (of the callback module) as reason. </p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_trans_request/4</c>. </p>
 
@@ -451,7 +451,7 @@ protocol_version() = integer()    ]]></code>
           result in an error descriptor with code 500 (internal gateway error)
           and the module name (of the callback module) as reason. </p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_trans_long_request/4</c>. </p>
 
@@ -540,12 +540,12 @@ protocol_version() = integer()    ]]></code>
             <p>A <c><![CDATA[user_cancel_reason()]]></c>, indicates that the request 
               has been canceled by the user. <c><![CDATA[reason_for_user_cancel()]]></c> 
               is the reason given in the call to the 
-              <seealso marker="megaco#cancel">cancel</seealso>
+              <seeerl marker="megaco#cancel">cancel</seeerl>
               function.</p>
           </item>
           <item>
             <p>A <c><![CDATA[send_reason()]]></c>, indicates that the transport module
-              <seealso marker="megaco_transport#send_message">send_message</seealso>
+              <seeerl marker="megaco_transport#send_message">send_message</seeerl>
               function did not send the message. The reason for this can be: </p>
             <list type="bulleted">
               <item>
@@ -553,7 +553,7 @@ protocol_version() = integer()    ]]></code>
                   deliberately cancelled. <c><![CDATA[reason_for_send_cancel()]]></c> 
                   is the reason given in the <c><![CDATA[cancel]]></c> return
                   from the 
-                  <seealso marker="megaco_transport#send_message">send_message</seealso> 
+                  <seeerl marker="megaco_transport#send_message">send_message</seeerl> 
                   function. </p>
               </item>
               <item>
@@ -584,7 +584,7 @@ protocol_version() = integer()    ]]></code>
           </item>
         </list>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_trans_reply/5</c>. </p>
 
@@ -638,7 +638,7 @@ protocol_version() = integer()    ]]></code>
           <tag>reply send failure</tag>
           <item>
             <p>When megaco fails to send the reply (see
-              <seealso marker="#trans_reply">handle_trans_reply</seealso>), 
+              <seeerl marker="#trans_reply">handle_trans_reply</seeerl>), 
               for whatever reason. </p>
           </item>
           <tag>cancel</tag>
@@ -648,7 +648,7 @@ protocol_version() = integer()    ]]></code>
           </item>
         </taglist>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_trans_ack/5</c>. </p>
 
@@ -676,7 +676,7 @@ protocol_version() = integer()    ]]></code>
           The message is delivered to the "user" by calling this
           function on the local node (the node which has the link).</p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_unexpected_trans/4</c>. </p>
 
@@ -701,7 +701,7 @@ protocol_version() = integer()    ]]></code>
           has been exceeded. This usually means that a request has taken 
           abnormally long time to complete.</p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_trans_request_abort/5</c>. </p>
 
@@ -724,11 +724,11 @@ protocol_version() = integer()    ]]></code>
       <desc>
         <p>This function is called when a segment reply has been received
           if the 
-          <seealso marker="megaco#conn_info">segment_reply_ind</seealso> 
+          <seeerl marker="megaco#conn_info">segment_reply_ind</seeerl> 
           config option has been set to true.</p>
         <p>This is in effect a progress report.</p>
 
-	<p>See <seealso marker="#extra_argument">note</seealso> 
+	<p>See <seeerl marker="#extra_argument">note</seeerl> 
           above about the <c>Extra</c> argument in 
           <c>handle_segment_reply/6</c>. </p>
 

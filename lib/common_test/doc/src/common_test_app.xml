@@ -55,7 +55,7 @@
     <p>The following section describes the mandatory and optional test suite
       functions that <c>Common Test</c> calls during test execution.
       For more details, see section
-      <seealso marker="write_test_chapter">Writing Test Suites</seealso>
+      <seeguide marker="write_test_chapter">Writing Test Suites</seeguide>
       in the User's Guide.</p>
 
   </description>
@@ -96,12 +96,12 @@
 	  indicating that the test case shall be repeated. A test case group is
 	  represented by a <c>group</c> tuple, where <c>GroupName</c>,
 	  an atom, is the name of the group (defined in
-	  <seealso marker="#Module:groups/0"><c>groups/0</c></seealso>).
+	  <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
 	  Execution properties for groups can also be specified, both
 	  for a top-level group and for any of its subgroups.
 	  Group execution properties specified here override
 	  properties in the group definition (see
-	  <seealso marker="#Module:groups/0"><c>groups/0</c></seealso>).
+	  <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
 	  (With value <c>default</c>, the group definition properties
 	  are used).</p>
 
@@ -110,8 +110,8 @@
           is printed on the HTML result page.</p>
 
 	<p>For details on groups, see section
-	  <seealso marker="write_test_chapter#test_case_groups">Test Case
-	  Groups</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#test_case_groups">Test Case
+	  Groups</seeguide> in the User's Guide.</p>
 
     </desc>
     </func>
@@ -137,8 +137,8 @@
 	<p>OPTIONAL</p>
 
 	<p>Defines test case groups. For details, see section
-	  <seealso marker="write_test_chapter#test_case_groups">Test Case 
-	  Groups</seealso> in the User's Guide.</p>      
+	  <seeguide marker="write_test_chapter#test_case_groups">Test Case 
+	  Groups</seeguide> in the User's Guide.</p>      
       </desc>
     </func>
 
@@ -180,15 +180,15 @@
 
 	<p>Tag <c>timetrap</c> sets the maximum time that each
 	  test case is allowed to execute (including
-	  <seealso marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seealso>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
 	  and
-	  <seealso marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seealso>).
+	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>).
 	  If the timetrap time is exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It can also be
 	  used to trigger a timetrap time-out by, at some point, returning a
 	  value other than a <c>TimeVal</c>. For details, see section
-	  <seealso marker="write_test_chapter#timetraps">Timetrap Time-Outs</seealso>
+	  <seeguide marker="write_test_chapter#timetraps">Timetrap Time-Outs</seeguide>
 	  in the User's Guide.</p>
 
 	<p>Tag <c>require</c> specifies configuration variables
@@ -196,22 +196,22 @@
 	  in the suite. If the required configuration variables are not found
 	  in any of the configuration files, all test cases are skipped.
 	  For details about the <c>require</c> functionality, see funtion
-	  <seealso marker="ct#require/1"><c>ct:require/1,2</c></seealso>.</p>
+	  <seemfa marker="ct#require/1"><c>ct:require/1,2</c></seemfa>.</p>
 
 	<p>With <c>userdata</c>, the user can
 	  specify any test suite-related information, which can be
 	  read by calling
-	  <seealso marker="ct#userdata/2"><c>ct:userdata/2</c></seealso>.</p>
+	  <seemfa marker="ct#userdata/2"><c>ct:userdata/2</c></seemfa>.</p>
 
 	<p>Tag <c>ct_hooks</c> specifies the
-	  <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso>
+	  <seeguide marker="ct_hooks_chapter">Common Test Hooks</seeguide>
 	  to be run with this suite.</p>
 
 	<p>Other tuples than the ones defined are ignored.</p>
 
 	<p>For details about the test suite information function, see section
-	  <seealso marker="write_test_chapter#suite">Test
-	  Suite Information Function</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#suite">Test
+	  Suite Information Function</seeguide> in the User's Guide.</p>
     </desc>      
     </func>
 
@@ -227,8 +227,8 @@
 	</type>
 	<desc>	
 
-	  <p>OPTIONAL; if this function is defined, then <seealso
-	  marker="#Module:end_per_suite/1"><c>end_per_suite/1</c></seealso>
+	  <p>OPTIONAL; if this function is defined, then <seemfa
+	  marker="#Module:end_per_suite/1"><c>end_per_suite/1</c></seemfa>
 	  must also be defined.</p>
 
 	  <p>This configuration function is called as the first function in the
@@ -245,8 +245,8 @@
 
 	  <p>For information on <c>save_config</c> and <c>skip_and_save</c>,
 	  see section
-	  <seealso marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seealso> in the User's Guide.</p>
+	  <seeguide marker="dependencies_chapter#save_config">Saving
+	  Configuration Data</seeguide> in the User's Guide.</p>
     </desc>
     </func>
 
@@ -261,16 +261,16 @@
       </type>
 
       <desc>	
-	<p>OPTIONAL; if this function is defined, then <seealso
-	  marker="#Module:init_per_suite/1"><c>init_per_suite/1</c></seealso>
+	<p>OPTIONAL; if this function is defined, then <seemfa
+	  marker="#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>
 	  must also be defined.</p>
 	
 	<p>This function is called as the last test case in the
 	  suite. It is meant to be used for cleaning up after
-	  <seealso marker="#Module:init_per_suite/1"><c>init_per_suite/1</c></seealso>.</p>
+	  <seemfa marker="#Module:init_per_suite/1"><c>init_per_suite/1</c></seemfa>.</p>
 	<p>For information on <c>save_config</c>, see section
-	  <seealso marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seealso> in the User's Guide.</p>
+	  <seeguide marker="dependencies_chapter#save_config">Saving
+	  Configuration Data</seeguide> in the User's Guide.</p>
       </desc>
     </func>
 
@@ -311,23 +311,23 @@
 	  return a list of tagged tuples that specify various properties
 	  related to the execution of a test case group (that is, its test
 	  cases and subgroups). Properties set by
-	  <seealso marker="#Module:group/1"><c>group/1</c></seealso> override
+	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa> override
 	  properties with the same key that have been set previously by
-	  <seealso marker="#Module:suite/0"><c>suite/0</c></seealso>.</p>
+	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa>.</p>
 	  
 	<p>Tag <c>timetrap</c> sets the maximum time that each
 	  test case is allowed to execute (including
-	  <seealso marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seealso>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
 	  and
-	  <seealso marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seealso>).
+	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>).
 	  If the timetrap time is
 	  exceeded, the test case fails with reason
 	  <c>timetrap_timeout</c>. A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It can also be
 	  used to trigger a timetrap time-out by, at some point, returning a
 	  value other than a <c>TimeVal</c>. For details, see section
-	  <seealso marker="write_test_chapter#timetraps">Timetrap
-	  Time-Outs</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#timetraps">Timetrap
+	  Time-Outs</seeguide> in the User's Guide.</p>
 	
 	<p>Tag <c>require</c> specifies configuration variables
 	  required by test cases (or configuration functions)
@@ -335,22 +335,22 @@
 	  in any of the configuration files, all test cases in this group are
 	  skipped. For details about the <c>require</c> functionality, see
 	  function
-	  <seealso marker="ct#require/1"><c>ct:require/1,2</c></seealso>.</p>
+	  <seemfa marker="ct#require/1"><c>ct:require/1,2</c></seemfa>.</p>
 
 	<p>With <c>userdata</c>, the user can
 	  specify any test case group related information that can be 
 	  read by calling
-	  <seealso marker="ct#userdata/2"><c>ct:userdata/2</c></seealso>.</p>
+	  <seemfa marker="ct#userdata/2"><c>ct:userdata/2</c></seemfa>.</p>
 
 	<p>Tag <c>ct_hooks</c> specifies the
-	  <seealso marker="ct_hooks_chapter">Common Test Hooks</seealso>
+	  <seeguide marker="ct_hooks_chapter">Common Test Hooks</seeguide>
 	  to be run with this suite.</p>
 
 	<p>Other tuples than the ones defined are ignored.</p>
 
 	<p>For details about the test case group information function,
-	  see section <seealso marker="write_test_chapter#group_info">Group
-	  Information Function</seealso> in the User's Guide.</p>
+	  see section <seeguide marker="write_test_chapter#group_info">Group
+	  Information Function</seeguide> in the User's Guide.</p>
     </desc>      
     </func>
 
@@ -367,8 +367,8 @@
 	</type>
 	<desc>	
 
-	  <p>OPTIONAL; if this function is defined, then <seealso
-	    marker="#Module:end_per_group/2"><c>end_per_group/2</c></seealso>
+	  <p>OPTIONAL; if this function is defined, then <seemfa
+	    marker="#Module:end_per_group/2"><c>end_per_group/2</c></seemfa>
 	    must also be defined.</p>
 
 	  <p>This configuration function is called before execution of a
@@ -376,7 +376,7 @@
 	    common for all test cases and subgroups in the group, and that
 	    must only be performed once. <c>GroupName</c> is the name of the
 	    group, as specified in the group definition (see
-	    <seealso marker="#Module:groups/0"><c>groups/0</c></seealso>).
+	    <seemfa marker="#Module:groups/0"><c>groups/0</c></seemfa>).
 	    Parameter <c>Config</c> is the configuration data that can be
 	    modified.
 	    The return value of this function is given as <c>Config</c>
@@ -387,8 +387,8 @@
 	    <c>Reason</c> is printed in the overview log for the group.</p>
 
 	  <p>For information about test case groups, see section 
-	    <seealso marker="write_test_chapter#test_case_groups">Test Case 
-	    Groups</seealso> in the User's Guide.</p> 
+	    <seeguide marker="write_test_chapter#test_case_groups">Test Case 
+	    Groups</seeguide> in the User's Guide.</p> 
     </desc>      
     </func>
 
@@ -405,24 +405,24 @@
 	</type>
 
 	<desc>	
-	  <p>OPTIONAL; if this function is defined, then <seealso
-	    marker="#Module:init_per_group/2"><c>init_per_group/2</c></seealso>
+	  <p>OPTIONAL; if this function is defined, then <seemfa
+	    marker="#Module:init_per_group/2"><c>init_per_group/2</c></seemfa>
 	    must also be defined.</p>
 
 	  <p>This function is called after the execution of a test case group
 	    is finished. It is meant to be used for cleaning up after
-	    <seealso marker="#Module:init_per_group/2"><c>init_per_group/2</c></seealso>.
+	    <seemfa marker="#Module:init_per_group/2"><c>init_per_group/2</c></seemfa>.
 	    A status value for a nested subgroup can be returned with
 	    <c>{return_group_result,Status}</c>. The status can be retrieved in
-	    <seealso marker="#Module:end_per_group/2"><c>end_per_group/2</c></seealso>
+	    <seemfa marker="#Module:end_per_group/2"><c>end_per_group/2</c></seemfa>
 	    for the group on the level above. The status is also used by
 	    <c>Common Test</c> for deciding if execution of a group is to
 	    proceed if property <c>sequence</c> or <c>repeat_until_*</c>
 	    is set.</p>
 
 	  <p>For details about test case groups, see section 
-	    <seealso marker="write_test_chapter#test_case_groups">Test Case
-	    Groups</seealso> in the User's Guide.</p> 
+	    <seeguide marker="write_test_chapter#test_case_groups">Test Case
+	    Groups</seeguide> in the User's Guide.</p> 
        </desc>
     </func>
 
@@ -439,8 +439,8 @@
 	<desc>
 
 	  <p>OPTIONAL; if this function is defined,
-	    then <seealso marker="#Module:end_per_testcase/2">
-	      <c>end_per_testcase/2</c></seealso> must also be
+	    then <seemfa marker="#Module:end_per_testcase/2">
+	      <c>end_per_testcase/2</c></seemfa> must also be
 	    defined.</p>
 
 	  <p>This function is called before each test case. Argument
@@ -469,13 +469,13 @@
 	<desc>	
 
 	  <p>OPTIONAL; if this function is defined,
-	    then <seealso marker="#Module:init_per_testcase/2">
-	      <c>init_per_testcase/2</c></seealso> must also be
+	    then <seemfa marker="#Module:init_per_testcase/2">
+	      <c>init_per_testcase/2</c></seemfa> must also be
 	    defined.</p>
 
 	  <p>This function is called after each test case, and can be used
 	    to clean up after
-	    <seealso marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seealso>
+	    <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
 	    and the test case. Any return value (besides <c>{fail,Reason}</c>
 	    and <c>{save_config,SaveConfig}</c>) is ignored. By returning
 	    <c>{fail,Reason}</c>, <c>TestCase</c> is marked as faulty (even
@@ -483,8 +483,8 @@
 	    a value instead of terminating).</p>
 
 	<p>For information on <c>save_config</c>, see section
-	  <seealso marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seealso> in the User's Guide.</p>
+	  <seeguide marker="dependencies_chapter#save_config">Saving
+	  Configuration Data</seeguide> in the User's Guide.</p>
 	</desc>
       </func>
 
@@ -518,24 +518,24 @@
 	  return a list of tagged tuples that specify various properties
 	  related to the execution of this particular test case.
 	  Properties set by
-	  <seealso marker="#Module:Testcase/0"><c>Testcase/0</c></seealso>
+	  <seemfa marker="#Module:Testcase/0"><c>Testcase/0</c></seemfa>
 	  override properties set previously for the test case by
-	  <seealso marker="#Module:group/1"><c>group/1</c></seealso> or
-	  <seealso marker="#Module:suite/0"><c>suite/0</c></seealso>.</p>
+	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa> or
+	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa>.</p>
 
 	<p>Tag <c>timetrap</c> sets the maximum time that the
 	  test case is allowed to execute. If the timetrap time is
 	  exceeded, the test case fails with reason <c>timetrap_timeout</c>.
-	  <seealso marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seealso>
+	  <seemfa marker="#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seemfa>
 	  and
-	  <seealso marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seealso>
+	  <seemfa marker="#Module:end_per_testcase/2"><c>end_per_testcase/2</c></seemfa>
 	  are included in the timetrap time.
 	  A <c>TimeFunc</c> function can be used to
 	  set a new timetrap by returning a <c>TimeVal</c>. It can also be
 	  used to trigger a timetrap time-out by, at some point, returning a
 	  value other than a <c>TimeVal</c>. For details, see section
-	  <seealso marker="write_test_chapter#timetraps">Timetrap
-	  Time-Outs</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#timetraps">Timetrap
+	  Time-Outs</seeguide> in the User's Guide.</p>
 	
 	<p>Tag <c>require</c> specifies configuration variables
 	  that are required by the test case (or <c>init_per_testcase/2</c>
@@ -543,22 +543,22 @@
 	  If the required configuration variables are not found in any of the
 	  configuration files, the test case is skipped. For details about
 	  the <c>require</c> functionality, see function
-	  <seealso marker="ct#require/1"><c>ct:require/1,2</c></seealso>.</p>
+	  <seemfa marker="ct#require/1"><c>ct:require/1,2</c></seemfa>.</p>
 
 	<p>If <c>timetrap</c> or <c>require</c> is not set, the
 	  default values specified by
-	  <seealso marker="#Module:suite/0"><c>suite/0</c></seealso> (or
-	  <seealso marker="#Module:group/1"><c>group/1</c></seealso>) are used.</p>
+	  <seemfa marker="#Module:suite/0"><c>suite/0</c></seemfa> (or
+	  <seemfa marker="#Module:group/1"><c>group/1</c></seemfa>) are used.</p>
 
 	<p>With <c>userdata</c>, the user can specify any test case-related
 	  information that can be read by calling
-	  <seealso marker="ct#userdata/3"><c>ct:userdata/3</c></seealso>.</p>
+	  <seemfa marker="ct#userdata/3"><c>ct:userdata/3</c></seemfa>.</p>
 
 	<p>Other tuples than the ones defined are ignored.</p>
 
 	<p>For details about the test case information function, see section
-	  <seealso marker="write_test_chapter#info_function">Test
-	  Case Information Function</seealso> in the User's Guide.</p>
+	  <seeguide marker="write_test_chapter#info_function">Test
+	  Case Information Function</seeguide> in the User's Guide.</p>
       </desc>
     </func>
 
@@ -579,7 +579,7 @@
 	<p>The implementation of a test case. Call the functions to test and
 	  check the result. If something fails, ensure the
 	  function causes a runtime error or call
-	  <seealso marker="ct#fail/1"><c>ct:fail/1,2</c></seealso>
+	  <seemfa marker="ct#fail/1"><c>ct:fail/1,2</c></seemfa>
 	  (which also causes the test case process to terminate).</p>
 
 	<p>Elements from the <c>Config</c> list can, for example, be read
@@ -598,13 +598,13 @@
 	  in the test case log file.</p>
 
 	<p>For details about test case implementation, see section
-	  <seealso marker="write_test_chapter#test_cases">Test Cases</seealso>
+	  <seeguide marker="write_test_chapter#test_cases">Test Cases</seeguide>
 	  in the User's Guide.</p>
 
 	<p>For information on <c>save_config</c> and <c>skip_and_save</c>,
 	  see section
-	  <seealso marker="dependencies_chapter#save_config">Saving
-	  Configuration Data</seealso> in the User's Guide.</p>
+	  <seeguide marker="dependencies_chapter#save_config">Saving
+	  Configuration Data</seeguide> in the User's Guide.</p>
       </desc>
     </func>
 

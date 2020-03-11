@@ -49,7 +49,7 @@
       <p>As from ERTS 5.9 (Erlang/OTP R15B) the runtime system does by
         default <em>not</em> bind schedulers to logical processors.
 	For more information, see system flag
-	<seealso marker="#+sbt"><c>+sbt</c></seealso>.</p>
+	<seecom marker="#+sbt"><c>+sbt</c></seecom>.</p>
     </note>
   </description>
 
@@ -65,17 +65,17 @@
 	  <item>
 	    <p>Any argument starting with character <c><![CDATA[+]]></c> is
 	      interpreted as an
-	      <seealso marker="#emu_flags">emulator flag</seealso>.</p>
+	      <seecom marker="#emu_flags">emulator flag</seecom>.</p>
 	    <p>As indicated by the name, emulator flags control
 	      the behavior of the emulator.</p>
 	  </item>
 	  <item>
 	    <p>Any argument starting with character <c><![CDATA[-]]></c>
 	      (hyphen) is interpreted as a
-	      <seealso marker="#init_flags">flag</seealso>, which is to
+	      <seecom marker="#init_flags">flag</seecom>, which is to
 	      be passed to the Erlang part of the runtime system, more
 	      specifically to the <c><![CDATA[init]]></c> system process, see
-	      <seealso marker="init"><c>init(3)</c></seealso>.</p>
+	      <seeerl marker="init"><c>init(3)</c></seeerl>.</p>
 	    <p>The <c><![CDATA[init]]></c> process itself interprets some of
 	      these flags, the <em>init flags</em>. It also stores any
 	      remaining flags, the <em>user flags</em>. The latter can be
@@ -143,9 +143,9 @@
         <p>Sets the application configuration parameter <c><![CDATA[Par]]></c>
           to the value <c><![CDATA[Val]]></c> for the application
           <c><![CDATA[Application]]></c>; see
-          <seealso marker="kernel:app"><c>app(4)</c></seealso> and
-          <seealso marker="kernel:application">
-          <c>application(3)</c></seealso>.</p>
+          <seefile marker="kernel:app"><c>app(4)</c></seefile> and
+          <seeerl marker="kernel:application">
+          <c>application(3)</c></seeerl>.</p>
       </item>
       <tag><marker id="args_file"/><c><![CDATA[-args_file FileName]]></c></tag>
       <item>
@@ -179,7 +179,7 @@
       <item>
         <p>Specifies the name of the boot file, <c><![CDATA[File.boot]]></c>,
           which is used to start the system; see
-          <seealso marker="init"><c>init(3)</c></seealso>. Unless
+          <seeerl marker="init"><c>init(3)</c></seeerl>. Unless
           <c><![CDATA[File]]></c> contains an absolute path, the system searches
           for <c><![CDATA[File.boot]]></c> in the current and
           <c><![CDATA[$ROOT/bin]]></c> directories.</p>
@@ -191,20 +191,20 @@
           other than <c><![CDATA[$ROOT]]></c>, this variable is expanded to
           <c><![CDATA[Dir]]></c>. Used when applications are installed in
           another directory than <c><![CDATA[$ROOT/lib]]></c>; see
-          <seealso marker="sasl:systools#make_script/1">
-          <c>systools:make_script/1,2</c></seealso> in SASL.</p>
+          <seemfa marker="sasl:systools#make_script/1">
+          <c>systools:make_script/1,2</c></seemfa> in SASL.</p>
       </item>
       <tag><c><![CDATA[-code_path_cache]]></c></tag>
       <item>
         <p>Enables the code path cache of the code server; see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-compile Mod1 Mod2 ...]]></c></tag>
       <item>
         <p>Compiles the specified modules and then terminates (with
           non-zero exit code if the compilation of some file did not
           succeed). Implies <c><![CDATA[-noinput]]></c>.</p>
-        <p>Not recommended; use <seealso marker="erlc"><c>erlc</c></seealso>
+        <p>Not recommended; use <seecom marker="erlc"><c>erlc</c></seecom>
           instead.</p>
       </item>
       <tag><c><![CDATA[-config Config [Config]]]></c></tag>
@@ -212,16 +212,16 @@
         <p>Specifies the name of one or more configuration files,
           <c><![CDATA[Config.config]]></c>, which is used to configure
           applications; see
-          <seealso marker="kernel:app"><c>app(4)</c></seealso> and
-          <seealso marker="kernel:application">
-          <c>application(3)</c></seealso>.</p>
+          <seefile marker="kernel:app"><c>app(4)</c></seefile> and
+          <seeerl marker="kernel:application">
+          <c>application(3)</c></seeerl>.</p>
       </item>
       <tag><marker id="connect_all"/><c><![CDATA[-connect_all false]]></c></tag>
       <item>
         <p>If this flag is present, <c><![CDATA[global]]></c> does not maintain
           a fully connected network of distributed Erlang nodes, and then
           global name registration cannot be used; see
-          <seealso marker="kernel:global"><c>global(3)</c></seealso>.</p>
+          <seeerl marker="kernel:global"><c>global(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-cookie Cookie]]></c></tag>
       <item>
@@ -260,19 +260,19 @@
       <tag><c><![CDATA[-epmd_module Module]]></c> (init flag)</tag>
       <item>
         <p>Configures the module responsible to communicate to
-          <seealso marker="epmd">epmd</seealso>. Defaults to <c>erl_epmd</c>.</p>
+          <seecom marker="epmd">epmd</seecom>. Defaults to <c>erl_epmd</c>.</p>
       </item>
       <tag><c><![CDATA[-erl_epmd_port Port]]></c> (init flag)</tag>
       <item>
         <p>Configures the port used by erl_epmd to listen for connection and connect to
-        other nodes. See <seealso marker="kernel:erl_epmd">erl_epmd</seealso> for more details.
+        other nodes. See <seeerl marker="kernel:erl_epmd">erl_epmd</seeerl> for more details.
         Defaults to <c>0</c>.</p>
       </item>
       <tag><c><![CDATA[-eval Expr]]></c> (init flag)</tag>
       <item>
         <p>Makes <c><![CDATA[init]]></c> evaluate the expression
           <c><![CDATA[Expr]]></c>; see
-          <seealso marker="init"><c>init(3)</c></seealso>.</p>
+          <seeerl marker="init"><c>init(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-extra]]></c> (init flag)</tag>
       <item>
@@ -283,8 +283,8 @@
       <tag><c><![CDATA[-heart]]></c></tag>
       <item>
         <p>Starts heartbeat monitoring of the Erlang runtime system;
-          see <seealso marker="kernel:heart">
-          <c>heart(3)</c></seealso>.</p>
+          see <seeerl marker="kernel:heart">
+          <c>heart(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-hidden]]></c></tag>
       <item>
@@ -295,14 +295,14 @@
           any of the connected nodes, that is, none of the connected
           nodes are part of the result from <c><![CDATA[nodes/0]]></c> on the
           other node. See also hidden global groups;
-          <seealso marker="kernel:global_group">
-          <c>global_group(3)</c></seealso>.</p>
+          <seeerl marker="kernel:global_group">
+          <c>global_group(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-hosts Hosts]]></c></tag>
       <item>
         <p>Specifies the IP addresses for the hosts on which Erlang boot servers
-          are running, see <seealso marker="kernel:erl_boot_server">
-          <c>erl_boot_server(3)</c></seealso>. This flag
+          are running, see <seeerl marker="kernel:erl_boot_server">
+          <c>erl_boot_server(3)</c></seeerl>. This flag
           is mandatory if flag <c><![CDATA[-loader inet]]></c> is present.</p>
         <p>The IP addresses must be specified in the standard form (four
           decimal numbers separated by periods, for example,
@@ -335,7 +335,7 @@
       <item>
         <p>Specifies the method used by <c><![CDATA[erl_prim_loader]]></c> to
           load Erlang modules into the system; see
-          <seealso marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>.
+          <seeerl marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seeerl>.
           Two <c><![CDATA[Loader]]></c> methods are supported:</p>
         <list type="bulleted">
           <item>
@@ -356,7 +356,7 @@
       <item>
         <p>Makes the Erlang runtime system invoke <c><![CDATA[make:all()]]></c>
           in the current working directory and then terminate; see
-          <seealso marker="tools:make"><c>make(3)</c></seealso>. Implies
+          <seeerl marker="tools:make"><c>make(3)</c></seeerl>. Implies
           <c><![CDATA[-noinput]]></c>.</p>
       </item>
       <tag><c><![CDATA[-man Module]]></c></tag>
@@ -371,17 +371,17 @@
           the default. In <c><![CDATA[embedded]]></c> mode modules are not auto
           loaded. The latter is recommended when the boot script preloads all
           modules, as conventionally happens in OTP releases. See
-          <seealso marker="kernel:code"><c>code(3)</c></seealso></p>.
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl></p>.
       </item>
       <tag><c><![CDATA[-name Name]]></c></tag>
       <item>
         <p>Makes the Erlang runtime system into a distributed node.
           This flag invokes all network servers necessary for a node to
-          become distributed; see <seealso marker="kernel:net_kernel">
-          <c>net_kernel(3)</c></seealso>. It is also ensured that
+          become distributed; see <seeerl marker="kernel:net_kernel">
+          <c>net_kernel(3)</c></seeerl>. It is also ensured that
           <c><![CDATA[epmd]]></c> runs on the current host before Erlang is
-          started; see <seealso marker="epmd"><c>epmd(1)</c></seealso>.and the
-          <seealso marker="#start_epmd"><c>-start_epmd</c></seealso> option.</p>
+          started; see <seecom marker="epmd"><c>epmd(1)</c></seecom>.and the
+          <seecom marker="#start_epmd"><c>-start_epmd</c></seecom> option.</p>
         <p>The node name will be <c><![CDATA[Name@Host]]></c>, where
           <c><![CDATA[Host]]></c> is the fully qualified host name of the
           current host. For short names, use flag <c><![CDATA[-sname]]></c>
@@ -389,7 +389,7 @@
         <warning>
           <p>
             Starting a distributed node without also specifying
-            <seealso marker="#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+            <seecom marker="#proto_dist"><c>-proto_dist inet_tls</c></seecom>
             will expose the node to attacks that may give the attacker
             complete access to the node and in extension the cluster.
             When using un-secure distributed nodes, make sure that the
@@ -412,7 +412,7 @@
       <item>
         <p>Disables the sticky directory facility of the Erlang code
           server; see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-oldshell]]></c></tag>
       <item>
@@ -422,26 +422,26 @@
       <tag><c><![CDATA[-pa Dir1 Dir2 ...]]></c></tag>
       <item>
         <p>Adds the specified directories to the beginning of the code
-          path, similar to <seealso marker="kernel:code#add_pathsa/1">
-	  <c><![CDATA[code:add_pathsa/1]]></c></seealso>. Note that the
+          path, similar to <seemfa marker="kernel:code#add_pathsa/1">
+	  <c><![CDATA[code:add_pathsa/1]]></c></seemfa>. Note that the
 	  order of the given directories will be reversed in the
 	  resulting path.</p>
 	<p>As an alternative to <c>-pa</c>, if several directories are
 	  to be prepended to the code path and the directories have a
 	  common parent directory, that parent directory can be
 	  specified in environment variable <c>ERL_LIBS</c>; see
-	  <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+	  <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-pz Dir1 Dir2 ...]]></c></tag>
       <item>
         <p>Adds the specified directories to the end of the code path,
           similar to <c><![CDATA[code:add_pathsz/1]]></c>; see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-path Dir1 Dir2 ...]]></c></tag>
       <item>
         <p>Replaces the path specified in the boot script; see
-          <seealso marker="sasl:script"><c>script(4)</c></seealso>.</p>
+          <seefile marker="sasl:script"><c>script(4)</c></seefile>.</p>
       </item>
       <tag><c><![CDATA[-proto_dist Proto]]></c></tag>
       <item>
@@ -452,8 +452,8 @@
           <item>TCP over IPv4 (the default)</item>
           <tag><c>inet_tls</c></tag>
           <item>Distribution over TLS/SSL, See the
-            <seealso marker="ssl:ssl_distribution">
-              Using SSL for Erlang Distribution</seealso> User's Guide
+            <seeguide marker="ssl:ssl_distribution">
+              Using SSL for Erlang Distribution</seeguide> User's Guide
               for details on how to setup a secure distributed node.
           </item>
           <tag><c>inet6_tcp</c></tag>
@@ -475,7 +475,7 @@
       <item>
         <p>Specifies an alternative to <c><![CDATA[ssh]]></c> for starting a
           slave node on a remote host; see
-          <seealso marker="stdlib:slave"><c>slave(3)</c></seealso>.</p>
+          <seeerl marker="stdlib:slave"><c>slave(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-run Mod [Func [Arg1, Arg2, ...]]]]></c> (init
         flag)</tag>
@@ -485,8 +485,8 @@
           If no arguments are provided, the function is assumed to be of
           arity 0. Otherwise it is assumed to be of arity 1, taking the list
           <c><![CDATA[[Arg1,Arg2,...]]]></c> as argument. All arguments are
-          passed as strings. See <seealso marker="init">
-          <c>init(3)</c></seealso>.</p>
+          passed as strings. See <seeerl marker="init">
+          <c>init(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-s Mod [Func [Arg1, Arg2, ...]]]]></c> (init flag)</tag>
       <item>
@@ -495,14 +495,14 @@
           If no arguments are provided, the function is assumed to be of
           arity 0. Otherwise it is assumed to be of arity 1, taking the list
           <c><![CDATA[[Arg1,Arg2,...]]]></c> as argument. All arguments are
-          passed as atoms. See <seealso marker="init">
-          <c>init(3)</c></seealso>.</p>
+          passed as atoms. See <seeerl marker="init">
+          <c>init(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[-setcookie Cookie]]></c></tag>
       <item>
         <p>Sets the magic cookie of the node to <c><![CDATA[Cookie]]></c>; see
-          <seealso marker="erlang#set_cookie/2">
-          <c>erlang:set_cookie/2</c></seealso>.</p>
+          <seemfa marker="erlang#set_cookie/2">
+          <c>erlang:set_cookie/2</c></seemfa>.</p>
       </item>
       <tag><c><![CDATA[-shutdown_time Time]]></c></tag>
       <item>
@@ -525,7 +525,7 @@
         <warning>
           <p>
             Starting a distributed node without also specifying
-            <seealso marker="#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+            <seecom marker="#proto_dist"><c>-proto_dist inet_tls</c></seecom>
             will expose the node to attacks that may give the attacker
             complete access to the node and in extension the cluster.
             When using un-secure distributed nodes, make sure that the
@@ -537,7 +537,7 @@
       <item>
 
         <p>Specifies whether Erlang should start
-          <seealso marker="epmd">epmd</seealso> on startup. By default
+          <seecom marker="epmd">epmd</seecom> on startup. By default
           this is <c>true</c>, but if you prefer to start epmd
           manually, set this to <c>false</c>.</p>
 
@@ -573,8 +573,8 @@
           be large. The default size is enough for drivers
           delivered with Erlang/OTP, but might not be large
           enough for other dynamically linked-in drivers that use the
-          <seealso marker="erl_driver#driver_async">
-          <c>driver_async()</c></seealso> functionality.
+          <seecref marker="erl_driver#driver_async">
+          <c>driver_async()</c></seecref> functionality.
           Notice that the value passed is only a suggestion,
           and it can even be ignored on some platforms.</p>
       </item>
@@ -607,8 +607,8 @@
       <tag><marker id="+c"/><c><![CDATA[+c true | false]]></c></tag>
       <item>
         <p>Enables or disables
-          <seealso marker="time_correction#Time_Correction">time
-          correction</seealso>:</p>
+          <seeguide marker="time_correction#Time_Correction">time
+          correction</seeguide>:</p>
 	<taglist>
 	  <tag><c>true</c></tag>
           <item>Enables time correction. This is the default if
@@ -622,18 +622,18 @@
       <tag><marker id="+C_"/><c><![CDATA[+C no_time_warp | single_time_warp |
         multi_time_warp]]></c></tag>
       <item>
-        <p>Sets <seealso marker="time_correction#Time_Warp_Modes">time warp
-          mode</seealso>:</p>
+        <p>Sets <seeguide marker="time_correction#Time_Warp_Modes">time warp
+          mode</seeguide>:</p>
         <taglist>
         <tag><c>no_time_warp</c></tag>
-          <item><seealso marker="time_correction#No_Time_Warp_Mode">
-            No time warp mode</seealso> (the default)</item>
+          <item><seeguide marker="time_correction#No_Time_Warp_Mode">
+            No time warp mode</seeguide> (the default)</item>
           <tag><c>single_time_warp</c></tag>
-          <item><seealso marker="time_correction#Single_Time_Warp_Mode">
-            Single time warp mode</seealso></item>
+          <item><seeguide marker="time_correction#Single_Time_Warp_Mode">
+            Single time warp mode</seeguide></item>
           <tag><c>multi_time_warp</c></tag>
-          <item><seealso marker="time_correction#Multi_Time_Warp_Mode">
-            Multi-time warp mode</seealso></item>
+          <item><seeguide marker="time_correction#Multi_Time_Warp_Mode">
+            Multi-time warp mode</seeguide></item>
       </taglist>
       </item>
       <tag><c><![CDATA[+d]]></c></tag>
@@ -644,8 +644,8 @@
           of process heaps is destroyed by the crash dump generation.</p>
         <p>Option <c>+d</c> instructs the emulator to produce only a
           core dump and no crash dump if an internal error is detected.</p>
-        <p>Calling <seealso marker="erlang#halt/1">
-          <c>erlang:halt/1</c></seealso> with a string argument still
+        <p>Calling <seemfa marker="erlang#halt/1">
+          <c>erlang:halt/1</c></seemfa> with a string argument still
           produces a crash dump. On Unix systems, sending an emulator process
           a <c>SIGUSR1</c> signal also forces a crash dump.</p>
       </item>
@@ -664,8 +664,8 @@
            read operations. Each group consumes 64 bytes in each
            counter.</p>
         <p>Notice that a runtime system using decentralized
-           counter groups benefits from <seealso marker="#+sbt">binding
-           schedulers to logical processors</seealso>, as the groups are
+           counter groups benefits from <seecom marker="#+sbt">binding
+           schedulers to logical processors</seecom>, as the groups are
            distributed better between schedulers with this option.</p>
         <p>This option only affects decentralized counters used for
            the counters that are keeping track of the memory consumption
@@ -675,7 +675,7 @@
       <tag><marker id="+e"/><c><![CDATA[+e Number]]></c></tag>
       <item>
         <p>Sets the maximum number of ETS tables. This limit is
-	<seealso marker="stdlib:ets#max_ets_tables">partially obsolete</seealso>.
+	<seeerl marker="stdlib:ets#max_ets_tables">partially obsolete</seeerl>.
 	</p>
       </item>
       <tag><c><![CDATA[+ec]]></c></tag>
@@ -690,12 +690,12 @@
           using the ISO Latin-1 encoding, disallowing Unicode characters with
           code points &gt; 255.</p>
         <p>For more information about Unicode filenames, see section
-          <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seealso> in the STDLIB User's Guide. Notice that
+          <seeguide marker="stdlib:unicode_usage#unicode_file_names">Unicode
+          Filenames</seeguide> in the STDLIB User's Guide. Notice that
           this value also applies to command-line parameters and environment
-          variables (see section <seealso
+          variables (see section <seeguide
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Environment and Parameters</seealso> in the STDLIB
+          Unicode in Environment and Parameters</seeguide> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+fnu[{w|i|e}]]]></c></tag>
@@ -722,16 +722,16 @@
               wrongly encoded filename (or directory name) is encountered.</p>
           </item>
         </list>
-        <p>Notice that <seealso marker="kernel:file#read_link/1">
-          <c>file:read_link/1</c></seealso> always returns an error if the link
+        <p>Notice that <seemfa marker="kernel:file#read_link/1">
+          <c>file:read_link/1</c></seemfa> always returns an error if the link
           points to an invalid filename.</p>
         <p>For more information about Unicode filenames, see section
-          <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seealso> in the STDLIB User's Guide. Notice that
+          <seeguide marker="stdlib:unicode_usage#unicode_file_names">Unicode
+          Filenames</seeguide> in the STDLIB User's Guide. Notice that
           this value also applies to command-line parameters and environment
-          variables (see section <seealso
+          variables (see section <seeguide
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Environment and Parameters</seealso> in the STDLIB
+          Unicode in Environment and Parameters</seeguide> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+fna[{w|i|e}]]]></c></tag>
@@ -747,12 +747,12 @@
           above. If the locale settings cause the behavior of <c>+fnl</c> to be
           selected, then <c>w</c>, <c>i</c>, or <c>e</c> have no effect.</p>
         <p>For more information about Unicode filenames, see section
-          <seealso marker="stdlib:unicode_usage#unicode_file_names">Unicode
-          Filenames</seealso> in the STDLIB User's Guide. Notice that
+          <seeguide marker="stdlib:unicode_usage#unicode_file_names">Unicode
+          Filenames</seeguide> in the STDLIB User's Guide. Notice that
           this value also applies to command-line parameters and environment
-          variables (see section <seealso
+          variables (see section <seeguide
           marker="stdlib:unicode_usage#unicode_in_environment_and_parameters">
-          Unicode in Environment and Parameters</seealso> in the STDLIB
+          Unicode in Environment and Parameters</seeguide> in the STDLIB
           User's Guide).</p>
       </item>
       <tag><c><![CDATA[+hms Size]]></c></tag>
@@ -770,23 +770,23 @@
         <p>Sets the default maximum heap size of processes to the size
           <c><![CDATA[Size]]></c>. Defaults to <c>0</c>, which means that no
           maximum heap size is used. For more information, see
-          <seealso marker="erlang#process_flag_max_heap_size">
-          <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
+          <seeerl marker="erlang#process_flag_max_heap_size">
+          <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
       </item>
       <tag><marker id="+hmaxel"/><c><![CDATA[+hmaxel true|false]]></c></tag>
       <item>
         <p>Sets whether to send an error logger message or not for processes
           reaching the maximum heap size. Defaults to <c>true</c>.
           For more information, see
-          <seealso marker="erlang#process_flag_max_heap_size">
-          <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
+          <seeerl marker="erlang#process_flag_max_heap_size">
+          <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
       </item>
       <tag><marker id="+hmaxk"/><c><![CDATA[+hmaxk true|false]]></c></tag>
       <item>
         <p>Sets whether to kill processes reaching the maximum heap size or not.
           Default to <c>true</c>. For more information, see
-          <seealso marker="erlang#process_flag_max_heap_size">
-          <c>process_flag(max_heap_size, MaxHeapSize)</c></seealso>.</p>
+          <seeerl marker="erlang#process_flag_max_heap_size">
+          <c>process_flag(max_heap_size, MaxHeapSize)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[+hpds Size]]></c></tag>
       <item>
@@ -798,8 +798,8 @@
         <p>Sets the default value for process flag <c>message_queue_data</c>.
           Defaults to <c>on_heap</c>. If <c>+hmqd</c> is not
 	  passed, <c>on_heap</c> will be the default. For more information, see
-          <seealso marker="erlang#process_flag_message_queue_data">
-          <c>process_flag(message_queue_data, MQD)</c></seealso>.</p>
+          <seeerl marker="erlang#process_flag_message_queue_data">
+          <c>process_flag(message_queue_data, MQD)</c></seeerl>.</p>
       </item>
       <tag><marker id="+IOp"/><c>+IOp PollSets</c></tag>
       <item>
@@ -816,13 +816,13 @@
           The maximum number of poll threads allowed is 1024. The default is 1.
         </p>
         <p>A good way to check if more IO poll threads are needed is to use
-          <seealso marker="runtime_tools:msacc">microstate accounting</seealso>
+          <seeerl marker="runtime_tools:msacc">microstate accounting</seeerl>
           and see what the load of the IO poll thread is. If it is high it could
           be a good idea to add more threads.</p>
       </item>
       <tag><marker id="+IOPp"/><c>+IOPp PollSetsPercentage</c></tag>
       <item>
-        <p>Similar to <seealso marker="#+IOp"><c>+IOp</c></seealso> but uses
+        <p>Similar to <seecom marker="#+IOp"><c>+IOp</c></seecom> but uses
           percentages to set the number of IO pollsets to create, based on the
           number of poll threads configured. If both <c>+IOPp</c> and <c>+IOp</c>
           are used, <c>+IOPp</c> is ignored.
@@ -830,7 +830,7 @@
       </item>
       <tag><marker id="+IOPt"/><c>+IOPt PollThreadsPercentage</c></tag>
       <item>
-        <p>Similar to <seealso marker="#+IOt"><c>+IOt</c></seealso> but uses
+        <p>Similar to <seecom marker="#+IOt"><c>+IOt</c></seecom> but uses
           percentages to set the number of IO poll threads to create, based on
           the number of schedulers configured. If both <c>+IOPt</c> and
           <c>+IOt</c> are used, <c>+IOPt</c> is ignored.
@@ -850,7 +850,7 @@
       <tag><marker id="erts_alloc"/><c><![CDATA[+MFlag Value]]></c></tag>
       <item>
         <p>Memory allocator-specific flags. For more information, see
-          <seealso marker="erts_alloc"><c>erts_alloc(3)</c></seealso>.</p>
+          <seecref marker="erts_alloc"><c>erts_alloc(3)</c></seecref>.</p>
       </item>
       <tag><marker id="+pc"/><marker id="printable_character_range"/>
         <c><![CDATA[+pc Range]]></c></tag>
@@ -873,8 +873,8 @@
             string syntax. This can give unexpected results if, for
             example, your font does not cover all Unicode characters.</item>
         </taglist>
-        <p>See also <seealso marker="stdlib:io#printable_range/0">
-          <c>io:printable_range/0</c></seealso> in STDLIB.</p>
+        <p>See also <seemfa marker="stdlib:io#printable_range/0">
+          <c>io:printable_range/0</c></seemfa> in STDLIB.</p>
       </item>
       <tag><marker id="+P"/><marker id="max_processes"/><c><![CDATA[+P Number]]></c></tag>
       <item>
@@ -886,7 +886,7 @@
 	but not always, chooses a value that is a power of 2. This might,
 	however, be changed in the future. The actual value chosen can be
 	checked by calling
-	<seealso marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seealso>.</p>
+	<seeerl marker="erlang#system_info_process_limit">erlang:system_info(process_limit)</seeerl>.</p>
 	<p>The default value is <c>262144</c></p>
       </item>
       <tag><marker id="+Q"/><marker id="max_ports"/><c><![CDATA[+Q Number]]></c></tag>
@@ -899,7 +899,7 @@
 	but not always, chooses a value that is a power of 2. This might,
 	however, be changed in the future. The actual value chosen can be
 	checked by calling
-	<seealso marker="erlang#system_info_port_limit">erlang:system_info(port_limit)</seealso>.</p>
+	<seeerl marker="erlang#system_info_port_limit">erlang:system_info(port_limit)</seeerl>.</p>
 	<p>The default value used is normally <c>65536</c>. However, if
 	the runtime system is able to determine maximum amount of file
 	descriptors that it is allowed to open and this value is larger
@@ -946,8 +946,8 @@
           for write operations. Each reader group consumes 64 byte
           in each read/write lock.</p>
         <p>Notice that a runtime system using shared reader groups benefits from
-          <seealso marker="#+sbt">binding schedulers to logical
-          processors</seealso>, as the reader groups are distributed better
+          <seecom marker="#+sbt">binding schedulers to logical
+          processors</seecom>, as the reader groups are distributed better
           between schedulers.</p>
       </item>
       <tag><marker id="+S"/>
@@ -960,16 +960,16 @@
           defaults to logical processors configured, and
           <c>SchedulersOnline</c> defaults to logical processors available;
           otherwise the default values are 1. If the emulator detects that it
-          is subject to a <seealso marker="erlang#system_info_cpu_quota">CPU
-          quota</seealso>, the default value for <c>SchedulersOnline</c> will
+          is subject to a <seeerl marker="erlang#system_info_cpu_quota">CPU
+          quota</seeerl>, the default value for <c>SchedulersOnline</c> will
           be limited accordingly.</p>
         <p>
           <c>Schedulers</c> can be omitted if <c>:SchedulerOnline</c> is not
           and conversely. The number of schedulers online can be changed at
           runtime through
-          <seealso marker="erlang#system_flag_schedulers_online">
+          <seeerl marker="erlang#system_flag_schedulers_online">
           <c>erlang:system_flag(schedulers_online,
-          SchedulersOnline)</c></seealso>.</p>
+          SchedulersOnline)</c></seeerl>.</p>
         <p>If <c>Schedulers</c> or <c>SchedulersOnline</c> is specified as a
           negative number, the value is subtracted from the default number of
           logical processors configured or logical processors available,
@@ -981,7 +981,7 @@
       <tag><marker id="+SP"/><c><![CDATA[+SP
         SchedulersPercentage:SchedulersOnlinePercentage]]></c></tag>
       <item>
-        <p>Similar to <seealso marker="#+S"><c>+S</c></seealso> but uses
+        <p>Similar to <seecom marker="#+S"><c>+S</c></seecom> but uses
           percentages to set the number of scheduler threads to create, based
           on logical processors configured, and scheduler threads to set online,
           based on logical processors available.
@@ -992,10 +992,10 @@
           <c>SchedulersPercentage</c> can be omitted if
           <c>:SchedulersOnlinePercentage</c> is not and conversely. The number
           of schedulers online can be changed at runtime through
-          <seealso marker="erlang#system_flag_schedulers_online">
+          <seeerl marker="erlang#system_flag_schedulers_online">
           <c>erlang:system_flag(schedulers_online,
-          SchedulersOnline)</c></seealso>.</p>
-        <p>This option interacts with <seealso marker="#+S"><c>+S</c></seealso>
+          SchedulersOnline)</c></seeerl>.</p>
+        <p>This option interacts with <seecom marker="#+S"><c>+S</c></seecom>
           settings. For example, on a system with 8 logical cores configured
           and 8 logical cores available, the combination of the options
           <c>+S 4:4 +SP 50:25</c> (in either order) results in 2 scheduler
@@ -1014,17 +1014,17 @@
           <item>The number of dirty CPU scheduler threads online cannot exceed
             the number of normal scheduler threads online.</item>
         </list>
-        <p>For details, see the <seealso marker="#+S"><c>+S</c></seealso> and
-          <seealso marker="#+SP"><c>+SP</c></seealso>. By default, the number
+        <p>For details, see the <seecom marker="#+S"><c>+S</c></seecom> and
+          <seecom marker="#+SP"><c>+SP</c></seecom>. By default, the number
           of dirty CPU scheduler threads created equals the number of normal
           scheduler threads created, and the number of dirty CPU scheduler
           threads online equals the number of normal scheduler threads online.
           <c>DirtyCPUSchedulers</c> can be omitted if
           <c>:DirtyCPUSchedulersOnline</c> is not and conversely. The number of
           dirty CPU schedulers online can be changed at runtime through
-          <seealso marker="erlang#system_flag_dirty_cpu_schedulers_online">
+          <seeerl marker="erlang#system_flag_dirty_cpu_schedulers_online">
           <c>erlang:system_flag(dirty_cpu_schedulers_online,
-          DirtyCPUSchedulersOnline)</c></seealso>.</p>
+          DirtyCPUSchedulersOnline)</c></seeerl>.</p>
 	<p>The amount of dirty CPU schedulers is limited by the amount of
 	  normal schedulers in order to limit the effect on processes
 	  executing on ordinary schedulers. If the amount of dirty CPU
@@ -1033,14 +1033,14 @@
         <p>Typical users of the dirty CPU schedulers are large garbage collections,
           json protocol encode/decoders written as nifs and matrix manipulation
           libraries.</p>
-        <p>You can use <seealso marker="runtime_tools:msacc">msacc(3)</seealso>
+        <p>You can use <seeerl marker="runtime_tools:msacc">msacc(3)</seeerl>
           in order to see the current load of the dirty CPU schedulers threads
           and adjust the number used accordingly.</p>
       </item>
       <tag><marker id="+SDPcpu"/><c><![CDATA[+SDPcpu
         DirtyCPUSchedulersPercentage:DirtyCPUSchedulersOnlinePercentage]]></c></tag>
       <item>
-        <p>Similar to <seealso marker="#+SDcpu"><c>+SDcpu</c></seealso> but
+        <p>Similar to <seecom marker="#+SDcpu"><c>+SDcpu</c></seecom> but
           uses percentages to set the number of dirty CPU scheduler threads to
           create and the number of dirty CPU scheduler threads to set online.
           Specified values must be
@@ -1051,11 +1051,11 @@
           be omitted if <c>:DirtyCPUSchedulersOnlinePercentage</c> is not and
           conversely. The number of dirty CPU schedulers online can be changed
           at runtime through
-          <seealso marker="erlang#system_flag_dirty_cpu_schedulers_online">
+          <seeerl marker="erlang#system_flag_dirty_cpu_schedulers_online">
           <c>erlang:system_flag(dirty_cpu_schedulers_online,
-          DirtyCPUSchedulersOnline)</c></seealso>.</p>
-        <p>This option interacts with <seealso
-          marker="#+SDcpu"><c>+SDcpu</c></seealso> settings. For example, on a
+          DirtyCPUSchedulersOnline)</c></seeerl>.</p>
+        <p>This option interacts with <seecom
+          marker="#+SDcpu"><c>+SDcpu</c></seecom> settings. For example, on a
           system with 8 logical cores configured and 8 logical cores available,
           the combination of the options <c>+SDcpu 4:4 +SDPcpu 50:25</c> (in
           either order) results in 2 dirty CPU scheduler threads (50% of 4) and
@@ -1067,13 +1067,13 @@
           Valid range is 1-1024. By
           default, the number of dirty I/O scheduler threads created is 10.</p>
 	<p>The amount of dirty IO schedulers is not limited by the amount of
-	  normal schedulers <seealso marker="#+SDcpu">like the amount of
-	  dirty CPU schedulers</seealso>. This since only I/O bound work is
+	  normal schedulers <seecom marker="#+SDcpu">like the amount of
+	  dirty CPU schedulers</seecom>. This since only I/O bound work is
 	  expected to execute on dirty I/O schedulers. If the user should schedule CPU
 	  bound jobs on dirty I/O schedulers, these jobs might starve ordinary
 	  jobs executing on ordinary schedulers.</p>
         <p>Typical users of the dirty IO schedulers are reading and writing to files.</p>
-        <p>You can use <seealso marker="runtime_tools:msacc">msacc(3)</seealso>
+        <p>You can use <seeerl marker="runtime_tools:msacc">msacc(3)</seeerl>
           in order to see the current load of the dirty IO schedulers threads
           and adjust the number used accordingly.</p>
       </item>
@@ -1085,7 +1085,7 @@
           <item>
             <p>Sets scheduler bind type.</p>
             <p>Schedulers can also be bound using flag
-              <seealso marker="#+stbt"><c>+stbt</c></seealso>. The only
+              <seecom marker="#+stbt"><c>+stbt</c></seecom>. The only
               difference between these two flags is how the following errors
               are handled:</p>
             <list type="bulleted">
@@ -1093,7 +1093,7 @@
                 platform.</item>
               <item>No available CPU topology. That is, the runtime system was
                 not able to detect the CPU topology automatically, and no
-                <seealso marker="#+sct">user-defined CPU topology</seealso>
+                <seecom marker="#+sct">user-defined CPU topology</seecom>
                 was set.</item>
             </list>
             <p>If any of these errors occur when <c>+sbt</c> has been passed,
@@ -1160,7 +1160,7 @@
               is processed and <c>BindType</c> is any other type than
               <c>u</c>, the runtime system fails to start. CPU
               topology can be defined using flag
-              <seealso marker="#+sct"><c>+sct</c></seealso>. Notice
+              <seecom marker="#+sct"><c>+sct</c></seecom>. Notice
               that flag <c>+sct</c> can have to be passed before flag
               <c>+sbt</c> on the command line (if no CPU topology
               has been automatically detected).</p>
@@ -1191,8 +1191,8 @@
                 an error is reported, it is reported to the
                 <c>error_logger</c>. If you want to verify that the
                 schedulers have bound as requested, call
-                <seealso marker="erlang#system_info_scheduler_bindings">
-                <c>erlang:system_info(scheduler_bindings)</c></seealso>.</p>
+                <seeerl marker="erlang#system_info_scheduler_bindings">
+                <c>erlang:system_info(scheduler_bindings)</c></seeerl>.</p>
             </note>
           </item>
           <tag><marker id="+sbwt"/>
@@ -1209,7 +1209,7 @@
           <tag><marker id="+sbwtdcpu"/>
             <c>+sbwtdcpu none|very_short|short|medium|long|very_long</c></tag>
           <item>
-            <p>As <seealso marker="#+sbwt"><c>+sbwt</c></seealso> but affects
+            <p>As <seecom marker="#+sbwt"><c>+sbwt</c></seecom> but affects
               dirty CPU schedulers. Defaults to <c>short</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
@@ -1219,7 +1219,7 @@
           <tag><marker id="+sbwtdio"/>
             <c>+sbwtdio none|very_short|short|medium|long|very_long</c></tag>
           <item>
-            <p>As <seealso marker="#+sbwt"><c>+sbwt</c></seealso> but affects
+            <p>As <seecom marker="#+sbwt"><c>+sbwt</c></seecom> but affects
               dirty IO schedulers. Defaults to <c>short</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
@@ -1238,7 +1238,7 @@
               the frequency with which schedulers run out of work is
               not taken into account by the load balancing logic.</p>
             <p><c>+scl false</c> is similar to
-              <seealso marker="#+sub"><c>+sub true</c></seealso>, but
+              <seecom marker="#+sub"><c>+sub true</c></seecom>, but
               <c>+sub true</c> also balances scheduler utilization
               between schedulers.</p>
           </item>
@@ -1268,8 +1268,8 @@
             <p>Sets a user-defined CPU topology. The user-defined
               CPU topology overrides any automatically detected
               CPU topology. The CPU topology is used when
-              <seealso marker="#+sbt">binding schedulers to logical
-              processors</seealso>.</p>
+              <seecom marker="#+sbt">binding schedulers to logical
+              processors</seecom>.</p>
             <p>Uppercase letters signify real identifiers and lowercase
 	      letters signify fake identifiers only used for description
               of the topology. Identifiers passed as real identifiers can
@@ -1369,8 +1369,8 @@
               how the real CPU topology looks like is likely to
               decrease the performance of the runtime system.</p>
             <p>For more information, see
-              <seealso marker="erlang#system_info_cpu_topology">
-              <c>erlang:system_info(cpu_topology)</c></seealso>.</p>
+              <seeerl marker="erlang#system_info_cpu_topology">
+              <c>erlang:system_info(cpu_topology)</c></seeerl>.</p>
           </item>
           <tag><marker id="+sfwi"/><c>+sfwi Interval</c></tag>
           <item>
@@ -1394,13 +1394,13 @@
               virtual machine tries to perform port tasks immediately,
               improving latency at the expense of parallelism. Default to
               <c>false</c>. The default used can be inspected in runtime by
-              calling <seealso marker="erlang#system_info_port_parallelism">
-              <c>erlang:system_info(port_parallelism)</c></seealso>.
+              calling <seeerl marker="erlang#system_info_port_parallelism">
+              <c>erlang:system_info(port_parallelism)</c></seeerl>.
               The default can be overridden on port creation by passing option
-              <seealso marker="erlang#open_port_parallelism">
-              <c>parallelism</c></seealso> to
-              <seealso marker="erlang#open_port/2">
-              <c>erlang:open_port/2</c></seealso></p>.
+              <seeerl marker="erlang#open_port_parallelism">
+              <c>parallelism</c></seeerl> to
+              <seemfa marker="erlang#open_port/2">
+              <c>erlang:open_port/2</c></seemfa></p>.
           </item>
           <tag><marker id="sched_thread_stack_size"/>
             <c><![CDATA[+sss size]]></c></tag>
@@ -1426,15 +1426,15 @@
           <tag><marker id="+stbt"/><c>+stbt BindType</c></tag>
           <item>
             <p>Tries to set the scheduler bind type. The same as flag
-              <seealso marker="#+sbt"><c>+sbt</c></seealso> except
+              <seecom marker="#+sbt"><c>+sbt</c></seecom> except
               how some errors are handled. For more information, see
-              <seealso marker="#+sbt"><c>+sbt</c></seealso>.</p>
+              <seecom marker="#+sbt"><c>+sbt</c></seecom>.</p>
           </item>
           <tag><marker id="+sub"/><c>+sub true|false</c></tag>
           <item>
             <p>Enables or disables
-              <seealso marker="erts:erlang#statistics_scheduler_wall_time">
-              scheduler utilization</seealso> balancing of load. By default
+              <seeerl marker="erts:erlang#statistics_scheduler_wall_time">
+              scheduler utilization</seeerl> balancing of load. By default
               scheduler utilization balancing is disabled and instead scheduler
               compaction of load is enabled, which strives for a load
               distribution that causes as many scheduler threads as possible
@@ -1445,8 +1445,8 @@
             <p><c>+sub true</c> is only supported on systems where the runtime
               system detects and uses a monotonically increasing high-resolution
               clock. On other systems, the runtime system fails to start.</p>
-            <p><c>+sub true</c> implies <seealso marker="#+scl">
-              <c>+scl false</c></seealso>. The difference between
+            <p><c>+sub true</c> implies <seecom marker="#+scl">
+              <c>+scl false</c></seecom>. The difference between
               <c>+sub true</c> and <c>+scl false</c> is that <c>+scl false</c>
               does not try to balance the scheduler utilization.</p>
           </item>
@@ -1494,7 +1494,7 @@
           <tag><marker id="+swtdcpu"/>
             <c>+swtdcpu very_low|low|medium|high|very_high</c></tag>
           <item>
-            <p>As <seealso marker="#+swt"><c>+swt</c></seealso> but
+            <p>As <seecom marker="#+swt"><c>+swt</c></seecom> but
               affects dirty CPU schedulers. Defaults to <c>medium</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
@@ -1504,7 +1504,7 @@
           <tag><marker id="+swtdio"/>
             <c>+swtdio very_low|low|medium|high|very_high</c></tag>
           <item>
-            <p>As <seealso marker="#+swt"><c>+swt</c></seealso> but affects
+            <p>As <seecom marker="#+swt"><c>+swt</c></seecom> but affects
               dirty IO schedulers. Defaults to <c>medium</c>.</p>
             <note>
               <p>This flag can be removed or changed at any time
@@ -1568,8 +1568,8 @@
           information reports (<c><![CDATA[+W i]]></c>). Defaults to warnings.
           The current mapping can be retrieved using
           <c><![CDATA[error_logger:warning_map/0]]></c>. For more information,
-          see <seealso marker="kernel:error_logger#warning_map/0">
-          <c>error_logger:warning_map/0</c></seealso> in Kernel.</p>
+          see <seemfa marker="kernel:error_logger#warning_map/0">
+          <c>error_logger:warning_map/0</c></seemfa> in Kernel.</p>
       </item>
       <tag><c><![CDATA[+zFlag Value]]></c></tag>
       <item>
@@ -1578,8 +1578,8 @@
           <tag><marker id="+zdbbl"/><c>+zdbbl size</c></tag>
           <item>
             <p>Sets the distribution buffer busy limit
-              (<seealso marker="erlang#system_info_dist_buf_busy_limit">
-              <c>dist_buf_busy_limit</c></seealso>)
+              (<seeerl marker="erlang#system_info_dist_buf_busy_limit">
+              <c>dist_buf_busy_limit</c></seeerl>)
               in kilobytes. Valid range is 1-2097151. Defaults to 1024.</p>
             <p>A larger buffer limit allows processes to buffer
               more outgoing messages over the distribution. When the
@@ -1592,8 +1592,8 @@
           <tag><marker id="+zdntgc"/><c>+zdntgc time</c></tag>
           <item>
             <p>Sets the delayed node table garbage collection time
-              (<seealso marker="erlang#system_info_delayed_node_table_gc">
-              <c>delayed_node_table_gc</c></seealso>)
+              (<seeerl marker="erlang#system_info_delayed_node_table_gc">
+              <c>delayed_node_table_gc</c></seeerl>)
               in seconds. Valid values are either <c>infinity</c> or
               an integer in the range 0-100000000. Defaults to 60.</p>
             <p>Node table entries that are not referred linger
@@ -1649,7 +1649,7 @@
 	    passed to <c>erl</c> and <c>ERL_CRASH_DUMP_SECONDS</c> is not set.
           </item>
         </taglist>
-        <p>See also <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
+        <p>See also <seeerl marker="kernel:heart"><c>heart(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[ERL_CRASH_DUMP_BYTES]]></c></tag>
       <item>
@@ -1685,19 +1685,19 @@
       <item>
         <p>Contains a list of additional library directories that the code
           server searches for applications and adds to the code path; see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </item>
       <tag><c><![CDATA[ERL_EPMD_ADDRESS]]></c></tag>
       <item>
         <p>Can be set to a comma-separated list of IP addresses, in which case
-          the <seealso marker="epmd"><c>epmd</c></seealso> daemon listens only
+          the <seecom marker="epmd"><c>epmd</c></seecom> daemon listens only
           on the specified address(es) and on the loopback address (which is
           implicitly added to the list if it has not been specified).</p>
       </item>
       <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>
       <item>
         <p>Can contain the port number to use when communicating with
-          <seealso marker="epmd"><c>epmd</c></seealso>. The default port works
+          <seecom marker="epmd"><c>epmd</c></seecom>. The default port works
           fine in most cases. A different port can be specified
           to allow nodes of independent clusters to co-exist on the same host.
           All nodes in a cluster must use the same <c>epmd</c> port number.</p>
@@ -1763,25 +1763,25 @@ code:load_abs("..../user_default").    ]]></code>
           of <c>user_default</c> is defined, the Erlang/OTP environment can be
           customized. More powerful changes can be made by supplying
           command-line arguments in the startup script <c>erl</c>. For more
-          information, see <seealso marker="init"><c>init(3)</c></seealso>.</p>
+          information, see <seeerl marker="init"><c>init(3)</c></seeerl>.</p>
       </item>
     </taglist>
   </section>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="epmd"><c>epmd(1)</c></seealso>,
-      <seealso marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>,
-      <seealso marker="erts_alloc"><c>erts_alloc(3)</c></seealso>,
-      <seealso marker="init"><c>init(3)</c></seealso>,
-      <seealso marker="kernel:application">
-        <c>application(3)</c></seealso>,
-      <seealso marker="kernel:auth"><c>auth(3)</c></seealso>,
-      <seealso marker="kernel:code"><c>code(3)</c></seealso>,
-      <seealso marker="kernel:erl_boot_server">
-        <c>erl_boot_server(3)</c></seealso>,
-      <seealso marker="kernel:heart"><c>heart(3)</c></seealso>,
-      <seealso marker="kernel:net_kernel"><c>net_kernel(3)</c></seealso>,
-      <seealso marker="tools:make"><c>make(3)</c></seealso></p>
+    <p><seecom marker="epmd"><c>epmd(1)</c></seecom>,
+      <seeerl marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seeerl>,
+      <seecref marker="erts_alloc"><c>erts_alloc(3)</c></seecref>,
+      <seeerl marker="init"><c>init(3)</c></seeerl>,
+      <seeerl marker="kernel:application">
+        <c>application(3)</c></seeerl>,
+      <seeerl marker="kernel:auth"><c>auth(3)</c></seeerl>,
+      <seeerl marker="kernel:code"><c>code(3)</c></seeerl>,
+      <seeerl marker="kernel:erl_boot_server">
+        <c>erl_boot_server(3)</c></seeerl>,
+      <seeerl marker="kernel:heart"><c>heart(3)</c></seeerl>,
+      <seeerl marker="kernel:net_kernel"><c>net_kernel(3)</c></seeerl>,
+      <seeerl marker="tools:make"><c>make(3)</c></seeerl></p>
   </section>
 </comref>

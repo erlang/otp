@@ -210,7 +210,7 @@ Grand Danois\
     <p>If you instead receives the XML doc as a string you can
       parse it by <c>xmerl_scan:string/1</c>. Both file/2 and string/2
       exists where the second argument is a list of options to the
-      parser, see the <seealso marker="xmerl_scan">reference manual</seealso>.</p>
+      parser, see the <seeerl marker="xmerl_scan">reference manual</seeerl>.</p>
   </section>
 
   <section>
@@ -280,7 +280,7 @@ Grand Danois\
       <item>Value = IOString | atom() | integer()</item>
     </list>
     <p>See also reference manual for 
-      <seealso marker="xmerl#export_simple-3">xmerl</seealso></p>
+      <seeerl marker="xmerl#export_simple-3">xmerl</seeerl></p>
     <p>If you want to add the information about a black Harley
       Davidsson 1200 cc Sportster motorcycle from 2003 that is in
       shape as new in the motorcycles.xml document you can put the
@@ -363,7 +363,7 @@ Data =
 
   <section>
     <title>Example: Transforming XML To HTML</title>
-    <p>Assume that you want to transform the <seealso marker="#motorcyclesxml">motorcycles.xml</seealso> document to
+    <p>Assume that you want to transform the <seeguide marker="#motorcyclesxml">motorcycles.xml</seeguide> document to
       HTML. If you want the same structure and tags of the resulting
       HTML document as of the XML document then you can use the
       <c>xmerl:export/2</c> function. The following:</p>
@@ -408,7 +408,7 @@ Data =
       formats.</p>
     <p><c>xmerl_xs</c> does not implement the entire XSLT
       specification but the basic functionality. For all details see
-      the <seealso marker="xmerl_xs">reference manual</seealso></p>
+      the <seeerl marker="xmerl_xs">reference manual</seeerl></p>
     <p>First, some words about the xmerl_xs functionality:</p>
     <p>You need to write template functions to be able to control
       what kind of output you want. Thus if you want to encapsulate a

@@ -289,8 +289,8 @@
 
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="httpd">httpd(3)</seealso>,
-      <seealso marker="mod_alias">mod_alias(3)</seealso></p>
+    <p><seeerl marker="httpd">httpd(3)</seeerl>,
+      <seeerl marker="mod_alias">mod_alias(3)</seeerl></p>
   </section>
   
 </erlref>

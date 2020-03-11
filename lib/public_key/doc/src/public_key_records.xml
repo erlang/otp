@@ -51,8 +51,8 @@
 
     <p>Common non-standard Erlang
     data types used to describe the record fields in the
-    following sections and which are not defined in the Public Key <seealso
-    marker="public_key">Reference Manual</seealso>
+    following sections and which are not defined in the Public Key <seeerl
+    marker="public_key">Reference Manual</seeerl>
     follows here:</p>
     
     <taglist>
@@ -424,10 +424,10 @@ are as follows:</p>
 	 }.</code>
 
 <p><c>id_extensions()</c>  
-  <seealso marker="#StdCertExt">Standard Certificate Extensions</seealso>, 
-  <seealso marker="#PrivIntExt">Private Internet Extensions</seealso>,  
-  <seealso marker="#CRLCertExt">CRL Extensions</seealso> and 
-  <seealso marker="#CRLEntryExt">CRL Entry Extensions</seealso>.
+  <seeguide marker="#StdCertExt">Standard Certificate Extensions</seeguide>, 
+  <seeguide marker="#PrivIntExt">Private Internet Extensions</seeguide>,  
+  <seeguide marker="#CRLCertExt">CRL Extensions</seeguide> and 
+  <seeguide marker="#CRLEntryExt">CRL Entry Extensions</seeguide>.
 </p>
     
 </section>

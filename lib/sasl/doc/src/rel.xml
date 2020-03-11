@@ -36,7 +36,7 @@
     <p>The <em>release resource file</em> specifies which applications
       are included in a release (system) based on Erlang/OTP.</p>
     <p>This file is used by the functions in 
-    <seealso marker="systools"><c>systools</c></seealso> 
+    <seeerl marker="systools"><c>systools</c></seeerl> 
     when generating start scripts (<c>.script</c>, <c>.boot</c>) and 
     release upgrade files (<c>relup</c>).</p>
   </description>
@@ -68,7 +68,7 @@
         <item><p>Start type of an application included in the release.</p>
           <p>If <c>Type = permanent | transient | temporary</c>, the
           application is loaded and started in the corresponding way, see
-          <seealso marker="kernel:application"><c>application(3)</c></seealso>.</p>
+          <seeerl marker="kernel:application"><c>application(3)</c></seeerl>.</p>
           <p>If <c>Type = load</c>, the application is only loaded.</p>
           <p>If <c>Type = none</c>, the application is not loaded and not
           started, although the code for its modules is loaded.</p>
@@ -89,9 +89,9 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel:application"><c>application(3)</c></seealso>,
-      <seealso marker="relup"><c>relup(4)</c></seealso>,
-      <seealso marker="systools"><c>systools(3)</c></seealso></p>
+    <p><seeerl marker="kernel:application"><c>application(3)</c></seeerl>,
+      <seefile marker="relup"><c>relup(4)</c></seefile>,
+      <seeerl marker="systools"><c>systools(3)</c></seeerl></p>
   </section>
 </fileref>
 

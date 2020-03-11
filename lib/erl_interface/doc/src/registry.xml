@@ -37,7 +37,7 @@
   <description>
     <p>This module provides support for storing key-value
       pairs in a table known as a registry, backing up registries to
-      <seealso marker="mnesia:mnesia">Mnesia</seealso>
+      <seeerl marker="mnesia:mnesia">Mnesia</seeerl>
       in an atomic manner, and later restoring the contents of a
       registry from <c>Mnesia</c>.</p>
   </description>
@@ -107,7 +107,7 @@
             where the backed up data is to be placed. If the table does not
             exist, it is created automatically using configurable defaults.
             For information about configuring this behavior, see
-            <seealso marker="mnesia:mnesia"><c>Mnesia</c></seealso>.</item>
+            <seeerl marker="mnesia:mnesia"><c>Mnesia</c></seeerl>.</item>
         </list>
         <p>If <c>flags</c> is <c>0</c>, the backup includes only
           those objects that have been created, modified, or deleted since the

@@ -31,9 +31,9 @@
   </header>
 
   <p>This section outlines an example of how to solve the example
-    problem in <seealso marker="example">Problem Example</seealso> by
+    problem in <seeguide marker="example">Problem Example</seeguide> by
     using a port and Erl_Interface. It is necessary to read the port
-    example in <seealso marker="c_port">Ports</seealso> before reading
+    example in <seeguide marker="c_port">Ports</seeguide> before reading
     this section.</p>
 
   <section>
@@ -42,8 +42,8 @@
       with a C program over a plain port with home made encoding:</p>
       <codeinclude file="complex1.erl" type="erl"/>
     <p>There are two differences when using Erl_Interface on the C
-      side compared to the example in <seealso marker="c_port">
-      Ports</seealso>, using only the plain port:</p>
+      side compared to the example in <seeguide marker="c_port">
+      Ports</seeguide>, using only the plain port:</p>
     <list type="bulleted">
        <item>As Erl_Interface operates on the Erlang external term format,
        the port must be set to use binaries.</item>
@@ -87,7 +87,7 @@ end</pre>
     <codeinclude file="ei.c" type="c"/>
      <p>The following functions, <c>read_cmd()</c> and
       <c>write_cmd()</c>, from the <c>erl_comm.c</c> example in
-      <seealso marker="c_port">Ports</seealso> can still be
+      <seeguide marker="c_port">Ports</seeguide> can still be
       used for reading from and writing to the port:
     </p>
     <codeinclude file="erl_comm.c" type="c"/>

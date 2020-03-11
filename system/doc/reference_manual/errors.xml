@@ -77,12 +77,12 @@
     <title>Exceptions</title>
     <p>Exceptions are run-time errors or generated errors and 
       are of three different classes, with different origins. The
-      <seealso marker="expressions#try">try</seealso> expression 
+      <seeguide marker="expressions#try">try</seeguide> expression 
       can distinguish between the different classes, whereas the
-      <seealso marker="expressions#catch">catch</seealso>
+      <seeguide marker="expressions#catch">catch</seeguide>
       expression cannot. They are described in
-      <seealso marker="expressions">Expressions
-      </seealso>.</p>
+      <seeguide marker="expressions">Expressions
+      </seeguide>.</p>
     <table>
       <row>
         <cell align="left" valign="middle"><em>Class</em></cell>
@@ -105,7 +105,7 @@
       <tcaption>Exception Classes.</tcaption>
     </table>
     <p>An exception consists of its class, an exit reason
-      (see <seealso marker="#exit_reasons">Exit Reason</seealso>),
+      (see <seeguide marker="#exit_reasons">Exit Reason</seeguide>),
       and a stack trace (which aids in finding the code location of
       the exception).</p>
     <p>The stack trace can be be bound to a variable from within
@@ -166,17 +166,17 @@
       <p>It is possible to prevent run-time errors and other
         exceptions from causing
         the process to terminate by using <c>catch</c> or
-        <c>try</c>, see <seealso marker="expressions">
-        Expressions</seealso> about
-        <seealso marker="expressions#catch">catch</seealso>
-        and <seealso marker="expressions#try">try</seealso>.</p>
+        <c>try</c>, see <seeguide marker="expressions">
+        Expressions</seeguide> about
+        <seeguide marker="expressions#catch">catch</seeguide>
+        and <seeguide marker="expressions#try">try</seeguide>.</p>
     </section>
 
     <section>
       <title>Error Handling Between Processes</title>
       <p>Processes can monitor other processes and detect process
         terminations, see
-        <seealso marker="processes#errors">Processes</seealso>.</p>
+        <seeguide marker="processes#errors">Processes</seeguide>.</p>
     </section>
   </section>
 
@@ -251,8 +251,8 @@
       <row>
         <cell align="left" valign="middle"><c>system_limit</c></cell>
         <cell align="left" valign="middle">A system limit has been reached.
-        See <seealso marker="doc/efficiency_guide:advanced">
-        Efficiency Guide</seealso> for information about system limits.
+        See <seeguide marker="system/efficiency_guide:advanced">
+        Efficiency Guide</seeguide> for information about system limits.
         </cell>
       </row>
       <tcaption>Exit Reasons</tcaption>

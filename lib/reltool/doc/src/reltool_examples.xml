@@ -42,11 +42,11 @@
     is or be used via the GUI frontend process. When the GUI is
     started, a server process will automatically be started. The GUI
     process is started with
-    <seealso marker="reltool#start/0"><c>reltool:start/0</c></seealso>,
-    <seealso marker="reltool#start/1"><c>reltool:start/1</c></seealso> or
-    <seealso marker="reltool#start_link/1"><c>reltool:start_link/1</c></seealso>.
+    <seemfa marker="reltool#start/0"><c>reltool:start/0</c></seemfa>,
+    <seemfa marker="reltool#start/1"><c>reltool:start/1</c></seemfa> or
+    <seemfa marker="reltool#start_link/1"><c>reltool:start_link/1</c></seemfa>.
     The pid of its server can be obtained with
-    <seealso marker="reltool#start_link/1"><c>reltool:get_server/1</c></seealso>
+    <seemfa marker="reltool#start_link/1"><c>reltool:get_server/1</c></seemfa>
     </p>
     
     <pre>

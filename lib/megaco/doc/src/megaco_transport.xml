@@ -39,13 +39,13 @@
       <c><![CDATA[megaco_transport]]></c> callback module:</p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#send_message">send_message/2</seealso> [<c><![CDATA[mandatory]]></c>]</p>
+        <p><seeerl marker="#send_message">send_message/2</seeerl> [<c><![CDATA[mandatory]]></c>]</p>
       </item>
       <item>
-        <p><seealso marker="#send_message">send_message/3</seealso> [<c>optional</c>]</p> 
+        <p><seeerl marker="#send_message">send_message/3</seeerl> [<c>optional</c>]</p> 
       </item>
       <item>
-        <p><seealso marker="#resend_message">resend_message/2</seealso> [<c><![CDATA[optional]]></c>]</p>
+        <p><seeerl marker="#resend_message">resend_message/2</seeerl> [<c><![CDATA[optional]]></c>]</p>
       </item>
       <item>
       </item>
@@ -78,18 +78,18 @@
           (after a successfull send). The information will be propagated
           back to the user differently depending on how the request(s) where
           issued: For requests issued using 
-          <seealso marker="megaco#call">megaco:call</seealso>, the info
+          <seeerl marker="megaco#call">megaco:call</seeerl>, the info
           will be delivered in the return value. For requests issued 
           using <c><![CDATA[megaco:cast]]></c> the info will be delivered 
           via a call to the callback function 
-          <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso>. </p>
+          <seeerl marker="megaco_user#trans_reply">handle_trans_reply</seeerl>. </p>
         <p>In the case of reply, megaco will cancel the reply and information
           of this will be returned to the user via a call to the 
           callback function 
-          <seealso marker="megaco_user#trans_ack">handle_trans_ack</seealso>. </p>
+          <seeerl marker="megaco_user#trans_ack">handle_trans_ack</seeerl>. </p>
 
         <p>The function <c>send_message/3</c> will only be called if the 
-          <seealso marker="megaco#ui_resend_indication">resend_indication</seealso>
+          <seeerl marker="megaco#ui_resend_indication">resend_indication</seeerl>
           config option has been set to the value <c>flag</c>. The third 
           argument, <c>Resend</c> then indicates if the message send is 
           a resend or not. </p>
@@ -110,7 +110,7 @@
       <desc>
         <p>Re-send a megaco message. </p>
         <p>Note that this function will only be called if the user has set the 
-          <seealso marker="megaco#ui_resend_indication">resend_indication</seealso> 
+          <seeerl marker="megaco#ui_resend_indication">resend_indication</seeerl> 
           config option to <c><![CDATA[true]]></c><em>and</em> it is in fact a message 
           resend. If not <em>both</em> of these condition's are meet, 
           <c><![CDATA[send_message]]></c> will be called. </p>
@@ -125,15 +125,15 @@
           (after a successfull send). The information will be propagated
           back to the user differently depending on how the request(s) where
           issued: For requests issued using 
-          <seealso marker="megaco#call">megaco:call</seealso>, the info
+          <seeerl marker="megaco#call">megaco:call</seeerl>, the info
           will be delivered in the return value. For requests issued 
           using <c><![CDATA[megaco:cast]]></c> the info will be delivered via a call
           to the callback function 
-          <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso>. </p>
+          <seeerl marker="megaco_user#trans_reply">handle_trans_reply</seeerl>. </p>
         <p>In the case of reply, megaco will cancel the reply and information
           of this will be returned to the user via a call to the 
           callback function 
-          <seealso marker="megaco_user#trans_ack">handle_trans_ack</seealso>. </p>
+          <seeerl marker="megaco_user#trans_ack">handle_trans_ack</seeerl>. </p>
       </desc>
     </func>
   </funcs>

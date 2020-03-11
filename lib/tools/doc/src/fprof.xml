@@ -558,7 +558,7 @@
           <item>Specifies if the analysis should be sorted according
            to the ACC column, which is the default, or the OWN
            column. See 
-          <seealso marker="#analysis">Analysis Format</seealso> below.</item>
+          <seeerl marker="#analysis">Analysis Format</seeerl> below.</item>
           <tag><c>totals</c>| <c>{totals, true}</c></tag>
           <item>Includes a section containing call statistics
            for all calls regardless of process, in the analysis.</item>
@@ -580,7 +580,7 @@
     <marker id="analysis"></marker>
     <title>Analysis format</title>
     <p>This section describes the output format of the analyse
-      command. See <seealso marker="#analyse">analyse/0</seealso>.
+      command. See <seeerl marker="#analyse">analyse/0</seeerl>.
       </p>
     <p>The format is parsable with the standard Erlang parsing tools
       <c>erl_scan</c> and <c>erl_parse</c>, <c>file:consult/1</c> or
@@ -910,9 +910,9 @@ create_file_slow(FD, M, N) ->
 
   <section>
     <title>See Also</title>
-    <p>dbg(3), <seealso marker="eprof">eprof</seealso>(3), erlang(3), 
+    <p>dbg(3), <seeerl marker="eprof">eprof</seeerl>(3), erlang(3), 
       io(3), 
-      <seealso marker="fprof_chapter">Tools User's Guide</seealso></p>
+      <seeguide marker="fprof_chapter">Tools User's Guide</seeguide></p>
   </section>
 </erlref>
 

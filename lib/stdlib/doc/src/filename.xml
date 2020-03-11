@@ -44,21 +44,21 @@
     <p>In Windows, all functions return filenames with forward slashes
       only, even if the arguments contain backslashes. To normalize a
       filename by removing redundant directory separators, use
-      <seealso marker="#join/1"><c>join/1</c></seealso>.</p>
+      <seemfa marker="#join/1"><c>join/1</c></seemfa>.</p>
 
     <p>
       The module supports
-      <seealso marker="unicode_usage#notes-about-raw-filenames">raw
-      filenames</seealso> in the way that if a binary is
+      <seeguide marker="unicode_usage#notes-about-raw-filenames">raw
+      filenames</seeguide> in the way that if a binary is
       present, or the filename cannot be interpreted according to the return
-      value of <seealso marker="kernel:file#native_name_encoding/0">
-      <c>file:native_name_encoding/0</c></seealso>, a raw filename is also
+      value of <seemfa marker="kernel:file#native_name_encoding/0">
+      <c>file:native_name_encoding/0</c></seemfa>, a raw filename is also
       returned. For example, <c>join/1</c> provided with a path component
       that is a binary (and cannot be interpreted under the current
       native filename encoding) results in a raw filename that is returned
       (the join operation is performed of course). For more information
       about raw filenames, see the
-      <seealso marker="kernel:file"><c>file</c></seealso> module.</p>
+      <seeerl marker="kernel:file"><c>file</c></seeerl> module.</p>
 
     <note>
       <p>
@@ -123,7 +123,7 @@
       <fsummary>Convert a filename to an absolute name, relative a specified
         directory.</fsummary>
       <desc>
-        <p>Same as <seealso marker="#absname/1"><c>absname/1</c></seealso>,
+        <p>Same as <seemfa marker="#absname/1"><c>absname/1</c></seemfa>,
           except that the directory to which the filename is to be made
           relative is specified in argument <c><anno>Dir</anno></c>.</p>
       </desc>
@@ -134,7 +134,7 @@
       <fsummary>Join an absolute directory with a relative filename.</fsummary>
       <desc>
         <p>Joins an absolute directory with a relative filename. Similar to
-          <seealso marker="#join/2"><c>join/2</c></seealso>, but on platforms
+          <seemfa marker="#join/2"><c>join/2</c></seemfa>, but on platforms
           with tight restrictions on raw filename length and no support for
           symbolic links (read: VxWorks), leading parent directory components
           in <c><anno>Filename</anno></c> are matched against trailing
@@ -157,10 +157,10 @@
       <type variable="Application"/>
       <desc>
           <p>
-              Equivalent to <seealso marker="#basedir_3_1">
-              basedir(<anno>PathType</anno>, <anno>Application</anno>, #{})</seealso>
-	      or <seealso marker="#basedir_3_2">
-basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seealso>.
+              Equivalent to <seeerl marker="#basedir_3_1">
+              basedir(<anno>PathType</anno>, <anno>Application</anno>, #{})</seeerl>
+	      or <seeerl marker="#basedir_3_2">
+basedir(<anno>PathsType</anno>, <anno>Application</anno>, #{})</seeerl>.
           </p>
       </desc>
     </func>
@@ -395,12 +395,12 @@ true
       <fsummary>Find the filename and compiler options for a module.</fsummary>
       <desc>
         <p>Finds the source filename and compiler options for a module.
-          The result can be fed to <seealso marker="compiler:compile#file/2">
-          <c>compile:file/2</c></seealso> to compile the file again.</p>
+          The result can be fed to <seemfa marker="compiler:compile#file/2">
+          <c>compile:file/2</c></seemfa> to compile the file again.</p>
         <warning>
-          <p>This function is deprecated. Use <seealso marker="filelib#find_source/1">
-            <c>filelib:find_source/1</c></seealso> instead for finding source files.</p>
-          <p>If possible, use the <seealso marker="beam_lib"><c>beam_lib(3)</c></seealso>
+          <p>This function is deprecated. Use <seemfa marker="filelib#find_source/1">
+            <c>filelib:find_source/1</c></seemfa> instead for finding source files.</p>
+          <p>If possible, use the <seeerl marker="beam_lib"><c>beam_lib(3)</c></seeerl>
           module to extract the compiler options and the abstract code
           format from the Beam file and compile that instead.</p></warning>
         <p>Argument <c><anno>Beam</anno></c>, which can be a string or an atom,
@@ -415,8 +415,8 @@ true
           object is located matches <c><anno>BinSuffix</anno></c>, then the
 	  name created by replacing <c><anno>BinSuffix</anno></c> with
           <c><anno>SourceSuffix</anno></c> is expanded by calling
-	  <seealso marker="filelib#wildcard/1">
-	  <c>filelib:wildcard/1</c></seealso>.
+	  <seemfa marker="filelib#wildcard/1">
+	  <c>filelib:wildcard/1</c></seemfa>.
 	  If a regular file is found among the matches, the function
 	  returns that location together with <c><anno>Options</anno></c>.
           Otherwise the next rule is tried, and so on.</p>
@@ -494,7 +494,7 @@ true
           shell and native applications on the current platform. On Windows,
           forward slashes are converted to backward slashes. On all
           platforms, the name is normalized as done by
-          <seealso marker="#join/1"><c>join/1</c></seealso>.</p>
+          <seemfa marker="#join/1"><c>join/1</c></seemfa>.</p>
         <p><em>Examples:</em></p>
         <pre>
 19> <input>filename:nativename("/usr/local/bin/").</input> % Unix
@@ -571,8 +571,8 @@ true
           the relative path.</p></item>
         </list>
         <warning>
-          <p>This function is deprecated. Use <seealso marker="filelib#safe_relative_path/2">
-          <c>filelib:safe_relative_path/2</c></seealso> instead for sanitizing paths.</p>
+          <p>This function is deprecated. Use <seemfa marker="filelib#safe_relative_path/2">
+          <c>filelib:safe_relative_path/2</c></seemfa> instead for sanitizing paths.</p>
         </warning>
         <p><em>Examples:</em></p>
         <pre>

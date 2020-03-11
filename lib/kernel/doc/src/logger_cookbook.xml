@@ -53,13 +53,13 @@ Primary configuration:
     Filters:
         (none)</code>
       <p>It is also possible to fetch the configuration using
-        <seealso marker="logger#get_primary_config/0"><c>logger:get_primary_config()</c></seealso>.
+        <seemfa marker="logger#get_primary_config/0"><c>logger:get_primary_config()</c></seemfa>.
       </p>
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger#i/0">logger:i()</seealso></item>
-          <item><seealso marker="logger_chapter#configuration">Configuration</seealso> in the Logging User&apos;s Guide</item>
+          <item><seemfa marker="logger#i/0">logger:i()</seemfa></item>
+          <item><seeguide marker="logger_chapter#configuration">Configuration</seeguide> in the Logging User&apos;s Guide</item>
         </list>
       </section>
     </section>
@@ -101,16 +101,16 @@ Handler configuration:
             type: standard_io
       </code>
       <p>You can also print the configuration of a specific handler using
-        <seealso marker="logger#i/1"><c>logger:i(HandlerName)</c></seealso>,
+        <seemfa marker="logger#i/1"><c>logger:i(HandlerName)</c></seemfa>,
         or fetch the configuration using
-        <seealso marker="logger#get_handler_config/0"><c>logger:get_handler_config()</c></seealso>,
-        or <seealso marker="logger#get_handler_config/1"><c>logger:get_handler_config(HandlerName)</c></seealso>
+        <seemfa marker="logger#get_handler_config/0"><c>logger:get_handler_config()</c></seemfa>,
+        or <seemfa marker="logger#get_handler_config/1"><c>logger:get_handler_config(HandlerName)</c></seemfa>
         for a specific handler.</p>
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger#i/0"><c>logger:i()</c></seealso></item>
-          <item><seealso marker="logger_chapter#configuration">Configuration</seealso> in the Logging User&apos;s Guide</item>
+          <item><seemfa marker="logger#i/0"><c>logger:i()</c></seemfa></item>
+          <item><seeguide marker="logger_chapter#configuration">Configuration</seeguide> in the Logging User&apos;s Guide</item>
         </list>
       </section>
     </section>
@@ -167,9 +167,9 @@ ok
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger_formatter#type-config">logger_formatter&apos;s Configuration</seealso></item>
-          <item><seealso marker="logger_chapter#formatters">Formatters</seealso> in the Logging User&apos;s Guide</item>
-          <item><seealso marker="logger#set_handler_config/3"><c>logger:set_handler_config/3</c></seealso></item>
+          <item><seetype marker="logger_formatter#config">logger_formatter&apos;s Configuration</seetype></item>
+          <item><seeguide marker="logger_chapter#formatters">Formatters</seeguide> in the Logging User&apos;s Guide</item>
+          <item><seemfa marker="logger#set_handler_config/3"><c>logger:set_handler_config/3</c></seemfa></item>
         </list>
       </section>
     </section>
@@ -187,17 +187,17 @@ Eshell V10.5.1  (abort with ^G)
 1> logger:error("Oh noes, more errors",#{ file => "shell.erl", line => 1 }).
 1962-10-05T07:37:44.104241+02:00 shell.erl:1 error: Oh noes, more errors</code>
       <p>Note that file and line have to be added in the metadata by the caller of
-        <seealso marker="logger#log/3"><c>logger:log/3</c></seealso> as otherwise
+        <seemfa marker="logger#log/3"><c>logger:log/3</c></seemfa> as otherwise
         Logger will not know from where it was called. The file and line number
         are automatically added if you use the <c>?LOG_ERROR</c> macros in
         <c>kernel/include/logger.hrl</c>.</p>
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger_formatter#type-config">logger_formatter&apos;s Configuration</seealso></item>
-          <item><seealso marker="logger_formatter#type-template">logger_formatter&apos;s Template</seealso></item>
-          <item><seealso marker="logger#macros">Logger Macros</seealso></item>
-          <item><seealso marker="logger_chapter#metadata">Metadata</seealso> in the Logging User&apos;s Guide</item>
+          <item><seetype marker="logger_formatter#config">logger_formatter&apos;s Configuration</seetype></item>
+          <item><seetype marker="logger_formatter#template">logger_formatter&apos;s Template</seetype></item>
+          <item><seeerl marker="logger#macros">Logger Macros</seeerl></item>
+          <item><seeguide marker="logger_chapter#metadata">Metadata</seeguide> in the Logging User&apos;s Guide</item>
         </list>
       </section>
     </section>
@@ -226,8 +226,8 @@ $ cat log/erlang.log
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger_std_h#description">logger_std_h&apos;s Description</seealso></item>
-          <item><seealso marker="logger_chapter#handlers">Handlers</seealso> in the Logging User&apos;s Guide</item>
+          <item><seeerl marker="logger_std_h#description">logger_std_h&apos;s Description</seeerl></item>
+          <item><seeguide marker="logger_chapter#handlers">Handlers</seeguide> in the Logging User&apos;s Guide</item>
         </list>
       </section>
     </section>
@@ -280,8 +280,8 @@ ok
     <section>
       <title>See also</title>
         <list>
-          <item><seealso marker="logger_std_h#description">logger_std_h&apos;s Description</seealso></item>
-          <item><seealso marker="logger_chapter#filters">Filters</seealso> in the Logging User&apos;s Guide</item>
+          <item><seeerl marker="logger_std_h#description">logger_std_h&apos;s Description</seeerl></item>
+          <item><seeguide marker="logger_chapter#filters">Filters</seeguide> in the Logging User&apos;s Guide</item>
         </list>
       </section>
     </section>
@@ -314,7 +314,7 @@ ok
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger_chapter#log_message">Log Message</seealso> in the Logging User&apos;s Guide</item>
+          <item><seeguide marker="logger_chapter#log_message">Log Message</seeguide> in the Logging User&apos;s Guide</item>
         </list>
       </section>
     </section>
@@ -346,8 +346,8 @@ Dst: 192.121.151.106 (erlang.org)
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger_chapter#log_message">Log Message</seealso> in the Logging User&apos;s Guide</item>
-          <item><seealso marker="logger#type-report_cb">Logger Report Callbacks</seealso></item>
+          <item><seeguide marker="logger_chapter#log_message">Log Message</seeguide> in the Logging User&apos;s Guide</item>
+          <item><seetype marker="logger#report_cb">Logger Report Callbacks</seetype></item>
         </list>
       </section>
     </section>
@@ -391,9 +391,9 @@ logger:debug("Debug should be logged").
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger_chapter#filters">Filters</seealso> in the Logging User&apos;s Guide</item>
-          <item><seealso marker="logger_filters#level/2"><c>logger_filters:level/2</c></seealso></item>
-          <item><seealso marker="logger#set_primary_config/2"><c>logger:set_primary_config/2</c></seealso></item>
+          <item><seeguide marker="logger_chapter#filters">Filters</seeguide> in the Logging User&apos;s Guide</item>
+          <item><seemfa marker="logger_filters#level/2"><c>logger_filters:level/2</c></seemfa></item>
+          <item><seemfa marker="logger#set_primary_config/2"><c>logger:set_primary_config/2</c></seemfa></item>
         </list>
       </section>
     </section>
@@ -413,9 +413,9 @@ logger:debug("Debug should be logged").
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger_chapter#filters">Filters</seealso> in the Logging User&apos;s Guide</item>
-          <item><seealso marker="logger_filters#domain/2"><c>logger_filters:domain/2</c></seealso></item>
-          <item><seealso marker="logger#set_primary_config/2"><c>logger:set_primary_config/2</c></seealso></item>
+          <item><seeguide marker="logger_chapter#filters">Filters</seeguide> in the Logging User&apos;s Guide</item>
+          <item><seemfa marker="logger_filters#domain/2"><c>logger_filters:domain/2</c></seemfa></item>
+          <item><seemfa marker="logger#set_primary_config/2"><c>logger:set_primary_config/2</c></seemfa></item>
         </list>
       </section>
     </section>

@@ -67,8 +67,8 @@
       module <c>target_system.erl</c>, which contains functions for
       creating and installing a target system. This module is used in
       the following examples. The source code of the module is listed
-      in <seealso marker="#listing of target system">
-      Listing of target_system.erl</seealso></p>
+      in <seeguide marker="#listing of target system">
+      Listing of target_system.erl</seeguide></p>
 
   <section>
     <marker id="create"/>
@@ -76,7 +76,7 @@
     <p>It is assumed that you have a working Erlang/OTP system structured
       according to the OTP design principles.</p>
     <p><em>Step 1.</em> Create a <c>.rel</c> file (see the
-      <seealso marker="sasl:rel">rel(4)</seealso> manual page in
+      <seefile marker="sasl:rel">rel(4)</seefile> manual page in
       SASL), which specifies the ERTS version and lists
       all applications that are to be included in the new basic target
       system. An example is the following <c>mysystem.rel</c> file:</p>
@@ -298,7 +298,7 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
   {sasl, "2.4"},
   {pea, "2.0"}]}.</code>
     <p><em>Step 2.</em> Create the application upgrade file (see the
-      <seealso marker="sasl:appup">appup(4)</seealso> manual page in
+      <seefile marker="sasl:appup">appup(4)</seefile> manual page in
       SASL) for Pea, for example:</p>
     <code type="none">
 %% pea.appup
@@ -311,7 +311,7 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
     <pre>
 os> <input>erl -pa /home/user/target_system/myapps/pea-2.0/ebin</input></pre>
     <p><em>Step 4.</em> Create the release upgrade file (see the
-      <seealso marker="sasl:relup">relup(4)</seealso> manual page in
+      <seefile marker="sasl:relup">relup(4)</seefile> manual page in
       SASL):</p>
     <pre>
 1> <input>systools:make_relup("mysystem2",["mysystem"],["mysystem"],
@@ -337,8 +337,8 @@ os> <input>erl -pa /home/user/target_system/myapps/pea-2.0/ebin</input></pre>
     <p>This part is done on the target node, and for this example we
       want the node to be running as an embedded system with the
       <c>-heart</c> option, allowing automatic restart of the node.
-      For more information, see  <seealso marker="#start">
-      Starting a Target System</seealso>.</p>
+      For more information, see  <seeguide marker="#start">
+      Starting a Target System</seeguide>.</p>
     <p>We add <c>-heart</c> to <c>bin/start</c>:</p>
     <code type="none">
 #!/bin/sh
@@ -393,8 +393,8 @@ heart: Tue Apr  1 12:15:11 2014: Executed "/usr/local/erl-target/bin/start /usr/
       <c>heart</c>. This is always done when the upgrade involves
       a change of the applications ERTS, Kernel,
       STDLIB, or SASL. For more information, see
-      <seealso marker="upgrade">
-      Upgrade when Erlang/OTP has Changed</seealso>.
+      <seeguide marker="upgrade">
+      Upgrade when Erlang/OTP has Changed</seeguide>.
     </p>
     <p>
       The node is accessible through a new pipe:

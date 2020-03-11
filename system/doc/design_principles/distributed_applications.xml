@@ -123,7 +123,7 @@
       <c>application:start(Application)</c> at <em>all of these
       nodes.</em></p>
     <p>A boot script (see
-      <seealso marker="release_structure">Releases</seealso>)
+      <seeguide marker="release_structure">Releases</seeguide>)
       can be used that automatically starts the application.</p>
     <p>The application is started at the first operational node that
       is listed in the list of nodes in the <c>distributed</c>
@@ -164,7 +164,7 @@ Module:start(normal, StartArgs)</code>
 Module:start(normal, StartArgs)</code>
     <p>An exception is if the application has the <c>start_phases</c>
       key defined
-      (see <seealso marker="included_applications">Included Applications</seealso>).
+      (see <seeguide marker="included_applications">Included Applications</seeguide>).
       The application is then instead started by calling:</p>
     <code type="none">
 Module:start({failover, Node}, StartArgs)</code>

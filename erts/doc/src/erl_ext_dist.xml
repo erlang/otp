@@ -46,12 +46,12 @@
       of the different terms is application-specific.
     </p>
     <p>
-      In Erlang the BIF <seealso marker="erts:erlang#term_to_binary/1">
-      <c>erlang:term_to_binary/1,2</c></seealso> is used to convert a
+      In Erlang the BIF <seemfa marker="erts:erlang#term_to_binary/1">
+      <c>erlang:term_to_binary/1,2</c></seemfa> is used to convert a
       term into the external format.
       To convert binary data encoding to a term, the BIF
-      <seealso marker="erts:erlang#binary_to_term/1">
-      <c>erlang:binary_to_term/1</c></seealso> is used.
+      <seemfa marker="erts:erlang#binary_to_term/1">
+      <c>erlang:binary_to_term/1</c></seemfa> is used.
     </p>
     <p>
       The distribution does this implicitly when sending messages across
@@ -76,10 +76,10 @@
     <note>
       <p>
         When messages are
-        <seealso marker="erl_dist_protocol#connected_nodes">passed between
-        connected nodes</seealso> and a
-        <seealso marker="#distribution_header">distribution
-        header</seealso> is used, the first byte containing the version
+        <seeguide marker="erl_dist_protocol#connected_nodes">passed between
+        connected nodes</seeguide> and a
+        <seeguide marker="#distribution_header">distribution
+        header</seeguide> is used, the first byte containing the version
         number (131) is omitted from the terms that follow the distribution
         header. This is because the version number is implied by the version
         number in the distribution header.
@@ -121,10 +121,10 @@
     <note>
       <p>As from ERTS 9.0 (OTP 20), atoms may contain any Unicode
         characters and are always encoded using the UTF-8 external formats
-	<seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>
-        or <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>.
-	The old Latin-1 formats <seealso marker="#ATOM_EXT"><c>ATOM_EXT</c></seealso>
-        and <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seealso>
+	<seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>
+        or <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>.
+	The old Latin-1 formats <seeguide marker="#ATOM_EXT"><c>ATOM_EXT</c></seeguide>
+        and <seeguide marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_EXT</c></seeguide>
 	are deprecated and are only kept for backward
 	compatibility when decoding terms encoded by older nodes.</p>
       <p>Support for UTF-8 encoded atoms in the external format has been
@@ -142,19 +142,19 @@
     <p>
       The distribution header is sent by the erlang distribution to
       carry metadata about the coming
-      <seealso marker="erl_dist_protocol#control_message">control message</seealso>
+      <seeguide marker="erl_dist_protocol#control_message">control message</seeguide>
       and potential payload. It is primarily used to handle the atom cache
       in the Erlang distribution. Since OTP-22 it is also used to fragment
       large distribution messages into multiple smaller fragments.
       For more information about how the distribution uses the distribution header,
       see the documentation of the
-      <seealso marker="erl_dist_protocol#connected_nodes">protocol between
-      connected nodes</seealso> in the
-      <seealso marker="erl_dist_protocol">distribution protocol</seealso>
+      <seeguide marker="erl_dist_protocol#connected_nodes">protocol between
+      connected nodes</seeguide> in the
+      <seeguide marker="erl_dist_protocol">distribution protocol</seeguide>
       documentation.
     </p>
     <p>
-      Any <seealso marker="#ATOM_CACHE_REF">ATOM_CACHE_REF</seealso>
+      Any <seeguide marker="#ATOM_CACHE_REF">ATOM_CACHE_REF</seeguide>
       entries with corresponding <c>AtomCacheReferenceIndex</c> in terms
       encoded on the external format following a distribution header refer
       to the atom cache references made in the distribution header. The range
@@ -264,11 +264,11 @@
         consists of. Length is a 2 byte big-endian integer
         if flag <c>LongAtoms</c> has been set, otherwise a 1 byte
         integer. When distribution flag
-        <seealso marker="erl_dist_protocol#DFLAG_UTF8_ATOMS">
-        <c>DFLAG_UTF8_ATOMS</c></seealso>
+        <seeguide marker="erl_dist_protocol#DFLAG_UTF8_ATOMS">
+        <c>DFLAG_UTF8_ATOMS</c></seeguide>
         has been exchanged between both nodes in the
-        <seealso marker="erl_dist_protocol#distribution_handshake">
-          distribution handshake</seealso>,
+        <seeguide marker="erl_dist_protocol#distribution_handshake">
+          distribution handshake</seeguide>,
           characters in <c>AtomText</c> are encoded in UTF-8, otherwise
           in Latin-1. The following <c>CachedAtomRef</c>s with the same
           <c>SegmentIndex</c> and <c>InternalSegmentIndex</c> as this
@@ -278,7 +278,7 @@
       </p>
       <p>
         For more information on encoding of atoms, see the
-        <seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+        <seeguide marker="#utf8_atoms">note on UTF-8 encoded atoms</seeguide>
         in the beginning of this section.
       </p>
       <p>
@@ -309,14 +309,14 @@
       quite large. Since OTP-22 it is possible to split large messages
       into smaller fragments in order to allow smaller messages to be interleaved
       between larges messages. It is only the <c>message</c> part of each
-      <seealso marker="erl_dist_protocol#connected_nodes">distributed message</seealso>
+      <seeguide marker="erl_dist_protocol#connected_nodes">distributed message</seeguide>
       that may be split using fragmentation. Therefore it is recommended to use the
-      <seealso marker="erl_dist_protocol#new-ctrlmessages-for-erlang-otp-22">
-        PAYLOAD control messages</seealso> introduced in OTP-22.
+      <seeguide marker="erl_dist_protocol#new-ctrlmessages-for-erlang-otp-22">
+        PAYLOAD control messages</seeguide> introduced in OTP-22.
       </p>
       <p>Fragmented distribution messages are only used if the receiving node
       signals that it supports them via the
-      <seealso marker="erl_dist_protocol#DFLAG_FRAGMENTS">DFLAG_FRAGMENTS</seealso>
+      <seeguide marker="erl_dist_protocol#DFLAG_FRAGMENTS">DFLAG_FRAGMENTS</seeguide>
       distribution flag.</p>
       <p>A process must complete the sending of a fragmented message before it
       can start sending any other message on the same distribution channel.</p>
@@ -517,7 +517,7 @@
       <tcaption>ATOM_CACHE_REF</tcaption></table>
       <p>
         Refers to the atom with <c>AtomCacheReferenceIndex</c> in the
-        <seealso marker="#distribution_header">distribution header</seealso>.
+        <seeguide marker="#distribution_header">distribution header</seeguide>.
      </p>
   </section>
 
@@ -580,7 +580,7 @@
     <p>
       This term is used in minor version 0 of the external format;
       it has been superseded by
-      <seealso marker="#NEW_FLOAT_EXT"><c>NEW_FLOAT_EXT</c></seealso>.
+      <seeguide marker="#NEW_FLOAT_EXT"><c>NEW_FLOAT_EXT</c></seeguide>.
     </p>
   </section>
 
@@ -602,7 +602,7 @@
 	  </row>
 	<tcaption>PORT_EXT</tcaption></table>
 	<p>
-	  Same as <seealso marker="#NEW_PORT_EXT"><c>NEW_PORT_EXT</c></seealso>
+	  Same as <seeguide marker="#NEW_PORT_EXT"><c>NEW_PORT_EXT</c></seeguide>
 	  except the <c>Creation</c> field is only one byte and only two
 	  bits are significant, the rest are to be 0.
 	</p>
@@ -627,24 +627,24 @@
 	<tcaption>NEW_PORT_EXT</tcaption></table>
 	<p>
 	  Encodes a port identifier (obtained from
-          <seealso marker="erlang#open_port/2"><c>erlang:open_port/2</c></seealso>).
+          <seemfa marker="erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>).
 	  <c>Node</c> is an encoded atom, that is,
-	  <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
-	  <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
-	  or <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.
+	  <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
+	  <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
+	  or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.
 	  <c>ID</c> is a 32-bit big endian unsigned integer. Only 28 bits are
 	  significant; the rest are to be 0. The <c>Creation</c> works just like in
-	  <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>.
+	  <seeguide marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>.
 	  Port operations are not allowed across node boundaries.
 	</p>
 	<p><c>NEW_PORT_EXT</c> was introduced in OTP 19, but only to be decoded
 	  and echoed back. Not encoded for local ports.
 	</p>
 	<p>In OTP 23 distribution flag
-	  <seealso marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seealso>
+	  <seeguide marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seeguide>
 	  became mandatory. All ports are now
-	  encoded using <c>NEW_PORT_EXT</c>, even external ports received as <seealso
-	  marker="#PORT_EXT"><c>PORT_EXT</c></seealso> from older nodes.
+	  encoded using <c>NEW_PORT_EXT</c>, even external ports received as <seeguide
+	  marker="#PORT_EXT"><c>PORT_EXT</c></seeguide> from older nodes.
 	</p>
     </section>
 
@@ -668,7 +668,7 @@
 	  </row>
 	<tcaption>PID_EXT</tcaption></table>
 	<p>
-	  Same as <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>
+	  Same as <seeguide marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>
 	  except the <c>Creation</c> field is only one byte and only two
 	  bits are significant, the rest are to be 0.
 	</p>
@@ -699,10 +699,10 @@
 	<taglist>
 	  <tag><c>Node</c></tag>
 	  <item><p>The name of the originating node, encoded using
-	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
-	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
-	    or <seealso
-	    marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.</p>
+	    <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
+	    <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
+	    or <seeguide
+	    marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.</p>
 	  </item>
 	  <tag><c>ID</c></tag>
 	  <item><p>A 32-bit big endian unsigned integer. Only 15 bits are
@@ -718,18 +718,18 @@
 	    values. This makes it possible to separate identifiers from old
 	    (crashed) nodes from a new one. The value zero should be avoided for
 	    normal operations as it is used as a wild card for debug purpose
-	    (like a pid returned by <seealso marker="erts:erlang#list_to_pid/1">
-	    erlang:list_to_pid/1</seealso>).</p>
+	    (like a pid returned by <seemfa marker="erts:erlang#list_to_pid/1">
+	    erlang:list_to_pid/1</seemfa>).</p>
 	  </item>
 	</taglist>
 	<p><c>NEW_PID_EXT</c> was introduced in OTP 19, but only to be decoded
 	  and echoed back. Not encoded for local processes.
 	</p>
 	<p>In OTP 23 distribution flag
-	  <seealso marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seealso>
+	  <seeguide marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seeguide>
 	  became mandatory. All pids are now encoded using <c>NEW_PID_EXT</c>,
 	  even external pids received as
-	  <seealso marker="#PID_EXT"><c>PID_EXT</c></seealso> from older nodes.
+	  <seeguide marker="#PID_EXT"><c>PID_EXT</c></seeguide> from older nodes.
 	</p>
     </section>
 
@@ -772,7 +772,7 @@
 	<tcaption>LARGE_TUPLE_EXT</tcaption></table>
 	<p>
 	  Same as
-	  <seealso marker="#SMALL_TUPLE_EXT"><c>SMALL_TUPLE_EXT</c></seealso>
+	  <seeguide marker="#SMALL_TUPLE_EXT"><c>SMALL_TUPLE_EXT</c></seeguide>
 	  except that <c>Arity</c> is an
           unsigned 4 byte integer in big-endian format.
 	</p>
@@ -843,7 +843,7 @@
 	  As field <c>Length</c> is an unsigned 2 byte integer
 	  (big-endian), implementations must ensure that lists longer than
 	  65535 elements are encoded as
-	  <seealso marker="#LIST_EXT"><c>LIST_EXT</c></seealso>.
+	  <seeguide marker="#LIST_EXT"><c>LIST_EXT</c></seeguide>.
 	</p>
     </section>
 
@@ -867,7 +867,7 @@
 	<p>
 	  <c>Length</c> is the number of elements that follows in section
 	  <c>Elements</c>. <c>Tail</c> is the final tail of the list; it is
-	  <seealso marker="#NIL_EXT"><c>NIL_EXT</c></seealso>
+	  <seeguide marker="#NIL_EXT"><c>NIL_EXT</c></seeguide>
 	  for a proper list, but can be any type if the list is
 	  improper (for example, <c>[a|b]</c>).
 	</p>
@@ -890,10 +890,10 @@
 	<tcaption>BINARY_EXT</tcaption></table>
 	<p>
 	  Binaries are generated with bit syntax expression or with
-	  <seealso marker="erts:erlang#list_to_binary/1">
-	  <c>erlang:list_to_binary/1</c></seealso>,
-	  <seealso marker="erts:erlang#term_to_binary/1">
-	  <c>erlang:term_to_binary/1</c></seealso>,
+	  <seemfa marker="erts:erlang#list_to_binary/1">
+	  <c>erlang:list_to_binary/1</c></seemfa>,
+	  <seemfa marker="erts:erlang#term_to_binary/1">
+	  <c>erlang:term_to_binary/1</c></seemfa>,
 	  or as input from binary ports.
 	  The <c>Len</c> length field is an unsigned 4 byte integer
 	  (big-endian).
@@ -946,8 +946,8 @@
 	  </row>
 	<tcaption>LARGE_BIG_EXT</tcaption></table>
 	<p>
-	  Same as <seealso marker="#SMALL_BIG_EXT">
-	  <c>SMALL_BIG_EXT</c></seealso> 
+	  Same as <seeguide marker="#SMALL_BIG_EXT">
+	  <c>SMALL_BIG_EXT</c></seeguide> 
 	  except that the length field is an unsigned 4 byte integer.
 	</p>
     </section>
@@ -970,8 +970,8 @@
         </row>
       <tcaption>REFERENCE_EXT</tcaption></table>
       <p>
-	The same as <seealso marker="#NEW_REFERENCE_EXT">
-	<c>NEW_REFERENCE_EXT</c></seealso> except <c>ID</c> is only one word
+	The same as <seeguide marker="#NEW_REFERENCE_EXT">
+	<c>NEW_REFERENCE_EXT</c></seeguide> except <c>ID</c> is only one word
 	(<c>Len</c> = 1).
       </p>
     </section>
@@ -996,8 +996,8 @@
 	  </row>
 	<tcaption>NEW_REFERENCE_EXT</tcaption></table>
 	<p>
-	  The same as <seealso marker="#NEWER_REFERENCE_EXT">
-	  <c>NEWER_REFERENCE_EXT</c></seealso> <em>except</em>:
+	  The same as <seeguide marker="#NEWER_REFERENCE_EXT">
+	  <c>NEWER_REFERENCE_EXT</c></seeguide> <em>except</em>:
 	</p>
 	<taglist>
 	  <tag><c>ID</c></tag>
@@ -1031,14 +1031,14 @@
 	<tcaption>NEWER_REFERENCE_EXT</tcaption></table>
 	<p>
 	  Encodes a reference term generated with
-	  <seealso marker="erts:erlang#make_ref/0">erlang:make_ref/0</seealso>.
+	  <seemfa marker="erts:erlang#make_ref/0">erlang:make_ref/0</seemfa>.
 	</p>
 	<taglist>
 	  <tag><c>Node</c></tag>
 	  <item><p>The name of the originating node, encoded using
-	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
-	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>
-	    or <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>.</p>
+	    <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
+	    <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>
+	    or <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>.</p>
 	  </item>
 	  <tag><c>Len</c></tag>
 	  <item><p>A 16-bit big endian unsigned integer not larger than 3.</p>
@@ -1050,17 +1050,17 @@
 	  </item>
 	  <tag><c>Creation</c></tag>
 	  <item><p>Works just like in
-	  <seealso marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>.</p>
+	  <seeguide marker="#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>.</p>
 	  </item>
 	</taglist>
 	<p><c>NEWER_REFERENCE_EXT</c> was introduced in OTP 19, but only to be decoded
 	  and echoed back. Not encoded for local references.
 	</p>
 	<p>In OTP 23 distribution flag
-	  <seealso marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seealso>
+	  <seeguide marker="erl_dist_protocol#DFLAG_BIG_CREATION"><c>DFLAG_BIG_CREATION</c></seeguide>
 	  became mandatory. All references are now encoded using
 	  <c>NEWER_REFERENCE_EXT</c>, even external references received as
-	  <seealso marker="#NEW_REFERENCE_EXT"><c>NEW_REFERENCE_EXT</c></seealso>
+	  <seeguide marker="#NEW_REFERENCE_EXT"><c>NEW_REFERENCE_EXT</c></seeguide>
 	  from older nodes.
 	</p>
     </section>
@@ -1092,35 +1092,35 @@
 	  <tag><c>Pid</c></tag>
 	  <item>
 	    <p>A process identifier as in
-	      <seealso marker="#PID_EXT"><c>PID_EXT</c></seealso>.
+	      <seeguide marker="#PID_EXT"><c>PID_EXT</c></seeguide>.
 	      Represents the process in which the fun was created.
 	    </p>
 	  </item>
 	<tag><c>Module</c></tag>
 	<item>
 	  <p>Encoded as an atom, using
-	    <seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>,
-	    <seealso marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>,
-	    or <seealso marker="#ATOM_CACHE_REF">
-	    <c>ATOM_CACHE_REF</c></seealso>.
+	    <seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>,
+	    <seeguide marker="#SMALL_ATOM_UTF8_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>,
+	    or <seeguide marker="#ATOM_CACHE_REF">
+	    <c>ATOM_CACHE_REF</c></seeguide>.
 	    This is the module that the fun is implemented in.
 	  </p>
 	</item>
 	<tag><c>Index</c></tag>
 	<item>
 	  <p>An integer encoded using
-	    <seealso marker="#SMALL_INTEGER_EXT">
-	    <c>SMALL_INTEGER_EXT</c></seealso> 
-	    or <seealso marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seealso>.
+	    <seeguide marker="#SMALL_INTEGER_EXT">
+	    <c>SMALL_INTEGER_EXT</c></seeguide> 
+	    or <seeguide marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seeguide>.
 	    It is typically a small index into the module's fun table.
 	  </p>
 	</item>
 	<tag><c>Uniq</c></tag>
 	<item>
 	  <p>An integer encoded using
-	    <seealso marker="#SMALL_INTEGER_EXT">
-	    <c>SMALL_INTEGER_EXT</c></seealso> or 
-	    <seealso marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seealso>.
+	    <seeguide marker="#SMALL_INTEGER_EXT">
+	    <c>SMALL_INTEGER_EXT</c></seeguide> or 
+	    <seeguide marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seeguide>.
 	    <c>Uniq</c> is the hash value of the parse for the fun.
 	  </p>
 	</item>
@@ -1194,35 +1194,35 @@
 	  <tag><c>Module</c></tag>
 	  <item>
 	    <p>Encoded as an atom, using
-	      <seealso marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
-	      <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>,
-	      or <seealso marker="#ATOM_CACHE_REF">
-	      <c>ATOM_CACHE_REF</c></seealso>. 
+	      <seeguide marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seeguide>, 
+	      <seeguide marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>,
+	      or <seeguide marker="#ATOM_CACHE_REF">
+	      <c>ATOM_CACHE_REF</c></seeguide>. 
 	      Is the module that the fun is implemented in.
 	    </p>
 	  </item>
 	  <tag><c>OldIndex</c></tag>
 	  <item>
 	    <p>An integer encoded using
-	      <seealso marker="#SMALL_INTEGER_EXT">
-	      <c>SMALL_INTEGER_EXT</c></seealso> or
-	      <seealso marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seealso>.
+	      <seeguide marker="#SMALL_INTEGER_EXT">
+	      <c>SMALL_INTEGER_EXT</c></seeguide> or
+	      <seeguide marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seeguide>.
 	      Is typically a small index into the module's fun table.
 	    </p>
 	  </item>
 	  <tag><c>OldUniq</c></tag>
 	  <item>
 	    <p>An integer encoded using
-	      <seealso marker="#SMALL_INTEGER_EXT">
-	      <c>SMALL_INTEGER_EXT</c></seealso> or 
-	      <seealso marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seealso>.
+	      <seeguide marker="#SMALL_INTEGER_EXT">
+	      <c>SMALL_INTEGER_EXT</c></seeguide> or 
+	      <seeguide marker="#INTEGER_EXT"><c>INTEGER_EXT</c></seeguide>.
 	      <c>Uniq</c> is the hash value of the parse tree for the fun.
 	    </p>
 	  </item>
 	  <tag><c>Pid</c></tag>
 	  <item>
 	    <p>A process identifier as in
-	      <seealso marker="#PID_EXT"><c>PID_EXT</c></seealso>.
+	      <seeguide marker="#PID_EXT"><c>PID_EXT</c></seeguide>.
 	      Represents the process in which the fun was created.
 	    </p>
 	  </item>
@@ -1257,14 +1257,14 @@
 	</p>
 	<p>
 	  <c>Module</c> and <c>Function</c> are atoms
-	  (encoded using <seealso marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seealso>, 
-	  <seealso marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seealso>, or
-	  <seealso marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seealso>).
+	  (encoded using <seeguide marker="#ATOM_EXT"><c>ATOM_UTF8_EXT</c></seeguide>, 
+	  <seeguide marker="#SMALL_ATOM_EXT"><c>SMALL_ATOM_UTF8_EXT</c></seeguide>, or
+	  <seeguide marker="#ATOM_CACHE_REF"><c>ATOM_CACHE_REF</c></seeguide>).
 	</p>
 	<p>
 	  <c>Arity</c> is an integer encoded using
-	  <seealso marker="#SMALL_INTEGER_EXT">
-	  <c>SMALL_INTEGER_EXT</c></seealso>.
+	  <seeguide marker="#SMALL_INTEGER_EXT">
+	  <c>SMALL_INTEGER_EXT</c></seeguide>.
 	</p>
     </section>
 
@@ -1339,7 +1339,7 @@
       </p>
       <p>
 	For more information on encoding of atoms, see the
-	<seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+	<seeguide marker="#utf8_atoms">note on UTF-8 encoded atoms</seeguide>
 	in the beginning of this section.
       </p>
     </section>
@@ -1363,11 +1363,11 @@
 	An atom is stored with a 1 byte unsigned length,
 	followed by <c>Len</c> bytes containing the <c>AtomName</c> encoded
 	in UTF-8. Longer atoms encoded in UTF-8 can be represented using
-	<seealso marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seealso>.
+	<seeguide marker="#ATOM_UTF8_EXT"><c>ATOM_UTF8_EXT</c></seeguide>.
       </p>
       <p>
 	For more information on encoding of atoms, see the
-	<seealso marker="#utf8_atoms">note on UTF-8 encoded atoms</seealso>
+	<seeguide marker="#utf8_atoms">note on UTF-8 encoded atoms</seeguide>
 	in the beginning of this section.
       </p>
     </section>
@@ -1418,10 +1418,10 @@
 	<p>
 	  <c>SMALL_ATOM_EXT</c> was introduced in ERTS 5.7.2 and
 	  require an exchange of distribution flag
-	  <seealso marker="erl_dist_protocol#DFLAG_SMALL_ATOM_TAGS">
-	  <c>DFLAG_SMALL_ATOM_TAGS</c></seealso> in the
-	  <seealso marker="erl_dist_protocol#distribution_handshake">
-	  distribution handshake</seealso>.
+	  <seeguide marker="erl_dist_protocol#DFLAG_SMALL_ATOM_TAGS">
+	  <c>DFLAG_SMALL_ATOM_TAGS</c></seeguide> in the
+	  <seeguide marker="erl_dist_protocol#distribution_handshake">
+	  distribution handshake</seeguide>.
 	</p>
       </note>
     </section>

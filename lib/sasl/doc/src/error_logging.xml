@@ -35,32 +35,32 @@
   <note>
     <p>The SASL error logging concept described in this section is
       deprecated since Erlang/OTP 21.0, when the
-      new <seealso marker="kernel:logger_chapter">logging
-      API</seealso> was introduced.</p>
+      new <seeguide marker="kernel:logger_chapter">logging
+      API</seeguide> was introduced.</p>
     <p>The new default behaviour is that the SASL application no
       longer affects which log events that are logged.
-      <seealso marker="#supervisor_report">Supervisor
-      reports</seealso> and <seealso marker="#crash_report">crash
-      reports</seealso> are logged via the default logger handler
+      <seeguide marker="#supervisor_report">Supervisor
+      reports</seeguide> and <seeguide marker="#crash_report">crash
+      reports</seeguide> are logged via the default logger handler
       which is setup by
-      Kernel. <seealso marker="#progress_report">Progress
-      reports</seealso> are by default not logged, but can be enabled
+      Kernel. <seeguide marker="#progress_report">Progress
+      reports</seeguide> are by default not logged, but can be enabled
       by setting the primary log level to <c>info</c>, for example by
       using the Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_level">
-	<c>logger_level</c></seealso>.</p>
+      parameter <seeapp marker="kernel:kernel_app#logger_level">
+	<c>logger_level</c></seeapp>.</p>
     <p>The old SASL error logging behaviour can be re-enabled by setting the
       Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">
-	<c>logger_sasl_compatible</c></seealso> to <c>true</c>.</p>
+      parameter <seeapp marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seeapp> to <c>true</c>.</p>
     <p>The mechanism
-      for <seealso marker="#multi_file_logging">multi-file error report
-      logging</seealso> as described in this section is also kept for
+      for <seeguide marker="#multi_file_logging">multi-file error report
+      logging</seeguide> as described in this section is also kept for
       backwards compatibility. However, the new logging API also
-      introduces <seealso marker="kernel:logger_disk_log_h">
-	<c>logger_disk_log_h(3)</c></seealso>, which is a logger
+      introduces <seeerl marker="kernel:logger_disk_log_h">
+	<c>logger_disk_log_h(3)</c></seeerl>, which is a logger
       handler that can print to multiple files
-      using <seealso marker="kernel:disk_log"><c>disk_log(3)</c></seealso>.</p>
+      using <seeerl marker="kernel:disk_log"><c>disk_log(3)</c></seeerl>.</p>
   </note>
 
   <section>
@@ -73,8 +73,8 @@
   </list>
   <p>When the SASL application is started, it adds a Logger handler
     that formats and writes these reports, as specified in
-    the <seealso marker="sasl_app#deprecated_error_logger_config">configuration
-    parameters for SASL</seealso>.</p>
+    the <seeapp marker="sasl_app#deprecated_error_logger_config">configuration
+    parameters for SASL</seeapp>.</p>
 
   <section>
     <marker id="supervisor_report"/>
@@ -116,15 +116,15 @@
     <marker id="crash_report"/>
     <title>Crash Report</title>
     <p>Processes started with functions 
-      <seealso marker="stdlib:proc_lib#spawn/1"><c>proc_lib:spawn</c></seealso> or
-      <seealso marker="stdlib:proc_lib#spawn_link/1"><c>proc_lib:spawn_link</c></seealso> 
+      <seemfa marker="stdlib:proc_lib#spawn/1"><c>proc_lib:spawn</c></seemfa> or
+      <seemfa marker="stdlib:proc_lib#spawn_link/1"><c>proc_lib:spawn_link</c></seemfa> 
       are wrapped within a <c>catch</c>. A crash report is issued when such 
       a process terminates with an unexpected reason, which is any reason 
       other than <c>normal</c>, <c>shutdown</c>, or <c>{shutdown,Term}</c>.
       Processes using behaviors
-      <seealso marker="stdlib:gen_server"><c>gen_server</c></seealso>,
-      <seealso marker="stdlib:gen_fsm"><c>gen_fsm</c></seealso> or
-      <seealso marker="stdlib:gen_statem"><c>gen_statem</c></seealso>
+      <seeerl marker="stdlib:gen_server"><c>gen_server</c></seeerl>,
+      <seeerl marker="stdlib:gen_fsm"><c>gen_fsm</c></seeerl> or
+      <seeerl marker="stdlib:gen_statem"><c>gen_statem</c></seeerl>
       are examples of such processes. A crash report contains the following items:</p>
     <taglist>
       <tag><c>Crasher</c></tag>
@@ -147,7 +147,7 @@
         supervisor. A division by zero is executed and the error is
         first reported by the faulty process. A crash report is
         generated, as the process was started using function
-        <seealso marker="stdlib:proc_lib#spawn/3"><c>proc_lib:spawn/3</c></seealso>. 
+        <seemfa marker="stdlib:proc_lib#spawn/3"><c>proc_lib:spawn/3</c></seemfa>. 
 	The supervisor generates a
         supervisor report showing the crashed process. A
         progress report is generated when the process is finally
@@ -205,8 +205,8 @@
       of files exist at the same time. The logging is very fast, as
       each error message is written as a binary term.</p>
     <p>For more details, see the
-      <seealso marker="sasl_app#deprecated_error_logger_config">
-	<c>sasl(6)</c></seealso>
+      <seeapp marker="sasl_app#deprecated_error_logger_config">
+	<c>sasl(6)</c></seeapp>
       application in the Reference Manual.</p>
   </section>
 
@@ -214,7 +214,7 @@
     <title>Report Browser</title>
     <p>The report browser is used to browse and format error reports
       written by the error logger handler 
-      <seealso marker="stdlib:log_mf_h"><c>log_mf_h</c></seealso> 
+      <seeerl marker="stdlib:log_mf_h"><c>log_mf_h</c></seeerl> 
       defined in STDLIB.</p>
     <p>The <c>log_mf_h</c> handler writes all reports to a
       report logging directory, which is specified when
@@ -228,7 +228,7 @@
     <section>
       <title>Starting Report Browser</title>
       <p>Start the <c>rb_server</c> with function
-        <seealso marker="rb#start/1"><c>rb:start([Options])</c></seealso> 
+        <seemfa marker="rb#start/1"><c>rb:start([Options])</c></seemfa> 
 	as shown in the following example:</p>
       <pre>
         5> <input>rb:start([{max, 20}]).</input>
@@ -242,14 +242,14 @@
     <section>
       <title>Online Help</title>
       <p>Enter command 
-      <seealso marker="rb#help/0"><c>rb:help()</c></seealso> 
+      <seemfa marker="rb#help/0"><c>rb:help()</c></seemfa> 
       to access the report browser online help system.</p>
     </section>
 
     <section>
       <title>List Reports in Server</title>
       <p>Use function 
-      <seealso marker="rb#list/0"><c>rb:list()</c></seealso> 
+      <seemfa marker="rb#list/0"><c>rb:list()</c></seemfa> 
       to list all loaded reports:</p>
       <pre>
         4> <input>rb:list().</input>
@@ -281,7 +281,7 @@
     <section>
       <title>Show Reports</title>
       <p>Use function 
-      <seealso marker="rb#show/1"><c>rb:show(Number)</c></seealso> 
+      <seemfa marker="rb#show/1"><c>rb:show(Number)</c></seemfa> 
       to show details of a specific report:</p>
       <pre>
 7> <input>rb:show(4).</input>
@@ -411,7 +411,7 @@ ok</pre>
     <section>
       <title>Stop Server</title>
       <p>Use function 
-      <seealso marker="rb#stop/0"><c>rb:stop()</c></seealso> 
+      <seemfa marker="rb#stop/0"><c>rb:stop()</c></seemfa> 
       to stop the <c>rb_server</c>:</p>
       <pre>
 13> <input>rb:stop().</input>

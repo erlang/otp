@@ -30,7 +30,7 @@
     <file>sup_princ.xml</file>
   </header>
   <p>This section should be read with the
-    <seealso marker="stdlib:supervisor">supervisor(3)</seealso> manual page
+    <seeerl marker="stdlib:supervisor">supervisor(3)</seeerl> manual page
     in STDLIB, where all details about the supervisor
     behaviour is given.</p>
 
@@ -41,7 +41,7 @@
       that it is to keep its child processes alive by restarting them
       when necessary.</p>
     <p>Which child processes to start and monitor is specified by a
-      list of <seealso marker="#spec">child specifications</seealso>.
+      list of <seeguide marker="#spec">child specifications</seeguide>.
       The child processes are started in the order specified by this
       list, and terminated in the reversed order.</p>
   </section>
@@ -49,7 +49,7 @@
   <section>
     <title>Example</title>
     <p>The callback module for a supervisor starting the server from
-    <seealso marker="gen_server_concepts#ex">gen_server Behaviour</seealso>
+    <seeguide marker="gen_server_concepts#ex">gen_server Behaviour</seeguide>
     can look as follows:</p>
     <marker id="ex"></marker>
     <code type="none">
@@ -73,10 +73,10 @@ init(_Args) ->
     {ok, {SupFlags, ChildSpecs}}.</code>
     <p>The <c>SupFlags</c> variable in the return value
       from <c>init/1</c> represents
-      the <seealso marker="#flags">supervisor flags</seealso>.</p>
+      the <seeguide marker="#flags">supervisor flags</seeguide>.</p>
     <p>The <c>ChildSpecs</c> variable in the return value
-      from <c>init/1</c> is a list of <seealso marker="#spec">child
-      specifications</seealso>.</p>
+      from <c>init/1</c> is a list of <seeguide marker="#spec">child
+      specifications</seeguide>.</p>
     </section>
 
   <section>
@@ -94,13 +94,13 @@ sup_flags() = #{strategy => strategy(),         % optional
     <list type="bulleted">
       <item>
 	<p><c>strategy</c> specifies
-	  the <seealso marker="#strategy">restart
-	  strategy</seealso>.</p>
+	  the <seeguide marker="#strategy">restart
+	  strategy</seeguide>.</p>
       </item>
       <item>
 	<p><c>intensity</c> and <c>period</c> specify
-	  the <seealso marker="#max_intensity">maximum restart
-	  intensity</seealso>.</p>
+	  the <seeguide marker="#max_intensity">maximum restart
+	  intensity</seeguide>.</p>
       </item>
     </list>
   </section>
@@ -146,8 +146,8 @@ SupFlags = #{strategy => Strategy, ...}</code>
 
      <section>
       <title>simple_one_for_one</title>
-      <p>See <seealso marker="#simple">simple-one-for-one
-	  supervisors</seealso>.</p>
+      <p>See <seeguide marker="#simple">simple-one-for-one
+	  supervisors</seeguide>.</p>
     </section>
   </section>
 
@@ -350,7 +350,7 @@ child_spec() = #{id => child_id(),       % mandatory
           the value shall be <c>dynamic</c>.</p>
         <p>This information is used by the release handler during
           upgrades and downgrades, see
-          <seealso marker="release_handling">Release Handling</seealso>.</p>
+          <seeguide marker="release_handling">Release Handling</seeguide>.</p>
 	<p>The <c>modules</c> key is optional. If it is not given, it
 	  defaults to <c>[M]</c>, where <c>M</c> comes from the
 	  child's start <c>{M,F,A}</c>.</p>
@@ -372,7 +372,7 @@ child_spec() = #{id => child_id(),       % mandatory
   shutdown => brutal_kill}</code>
     <p>Example: A child specification to start the event manager from
       the chapter about
-      <seealso marker="events#mgr">gen_event</seealso>:</p>
+      <seeguide marker="events#mgr">gen_event</seeguide>:</p>
     <code type="none">
 #{id => error_man,
   start => {gen_event, start_link, [{local, error_man}]},
@@ -444,7 +444,7 @@ init(_Args) ->
 supervisor:start_child(Sup, ChildSpec)</code>
     <p><c>Sup</c> is the pid, or name, of the supervisor.
     <c>ChildSpec</c> is a
-    <seealso marker="#spec">child specification</seealso>.</p>
+    <seeguide marker="#spec">child specification</seeguide>.</p>
     <p>Child processes added using <c>start_child/2</c> behave in
       the same way as the other child processes, with the an important
       exception: if a supervisor dies and is recreated, then
@@ -464,7 +464,7 @@ supervisor:terminate_child(Sup, Id)</code>
 supervisor:delete_child(Sup, Id)</code>
     <p><c>Sup</c> is the pid, or name, of the supervisor.
       <c>Id</c> is the value associated with the <c>id</c> key in
-      the <seealso marker="#spec">child specification</seealso>.</p>
+      the <seeguide marker="#spec">child specification</seeguide>.</p>
     <p>As with dynamically added child processes, the effects of
       deleting a static child process is lost if the supervisor itself
       restarts.</p>

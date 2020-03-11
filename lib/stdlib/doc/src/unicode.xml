@@ -56,23 +56,23 @@
   canonical-equivalent Unicode characters as equal. All characters
   should thus be normalized to one form once on the system borders.
   One of the following functions can convert characters to their
-  normalized forms <seealso marker="#characters_to_nfc_list/1">
-  <c>characters_to_nfc_list/1</c></seealso>,
-  <seealso marker="#characters_to_nfc_binary/1">
-    <c>characters_to_nfc_binary/1</c></seealso>,
-    <seealso marker="#characters_to_nfd_list/1">
-    <c>characters_to_nfd_list/1</c></seealso> or
-    <seealso marker="#characters_to_nfd_binary/1">
-      <c>characters_to_nfd_binary/1</c></seealso>.
+  normalized forms <seemfa marker="#characters_to_nfc_list/1">
+  <c>characters_to_nfc_list/1</c></seemfa>,
+  <seemfa marker="#characters_to_nfc_binary/1">
+    <c>characters_to_nfc_binary/1</c></seemfa>,
+    <seemfa marker="#characters_to_nfd_list/1">
+    <c>characters_to_nfd_list/1</c></seemfa> or
+    <seemfa marker="#characters_to_nfd_binary/1">
+      <c>characters_to_nfd_binary/1</c></seemfa>.
   For general text
-  <seealso marker="#characters_to_nfc_list/1">
-    <c>characters_to_nfc_list/1</c></seealso> or
-    <seealso marker="#characters_to_nfc_binary/1">
-      <c>characters_to_nfc_binary/1</c></seealso> is preferred, and
+  <seemfa marker="#characters_to_nfc_list/1">
+    <c>characters_to_nfc_list/1</c></seemfa> or
+    <seemfa marker="#characters_to_nfc_binary/1">
+      <c>characters_to_nfc_binary/1</c></seemfa> is preferred, and
       for identifiers one of the compatibility normalization
       functions, such as
-      <seealso marker="#characters_to_nfkc_list/1">
-      <c>characters_to_nfkc_list/1</c></seealso>,
+      <seemfa marker="#characters_to_nfkc_list/1">
+      <c>characters_to_nfkc_list/1</c></seemfa>,
       is preferred for security reasons.
       The normalization functions where introduced in OTP 20.
       Additional information on normalization can be found in the
@@ -177,8 +177,8 @@
       <name name="characters_to_binary" arity="3" since=""/>
       <fsummary>Convert a collection of characters to a UTF-8 binary.</fsummary>
       <desc>
-        <p>Behaves as <seealso marker="#characters_to_list/2">
-          <c>characters_to_list/2</c></seealso>, but produces a binary
+        <p>Behaves as <seemfa marker="#characters_to_list/2">
+          <c>characters_to_list/2</c></seemfa>, but produces a binary
           instead of a Unicode list.</p>
         <p><c><anno>InEncoding</anno></c> defines how input is to be interpreted
           if binaries are present in <c>Data</c></p>
@@ -203,8 +203,8 @@
         <p>The atoms <c>big</c> and <c>little</c> denote big- or little-endian
           encoding.</p>
         <p>Errors and exceptions occur as in
-          <seealso marker="#characters_to_list/2">
-          <c>characters_to_list/2</c></seealso>, but the second element
+          <seemfa marker="#characters_to_list/2">
+          <c>characters_to_list/2</c></seemfa>, but the second element
           in tuple <c>error</c> or <c>incomplete</c> is a <c>binary()</c>
           and not a <c>list()</c>.</p>
       </desc>
@@ -256,8 +256,8 @@
           combinations of Unicode characters into a pure Unicode
           string in list representation for further processing. For
           writing the data to an external entity, the reverse function
-          <seealso marker="#characters_to_binary/3">
-          <c>characters_to_binary/3</c></seealso>
+          <seemfa marker="#characters_to_binary/3">
+          <c>characters_to_binary/3</c></seemfa>
           comes in handy.</p>
         <p>Option <c>unicode</c> is an alias for <c>utf8</c>, as this is the
           preferred encoding for Unicode characters in

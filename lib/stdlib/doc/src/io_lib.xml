@@ -33,11 +33,11 @@
   <description>
     <p>This module contains functions for converting to and from
       strings (lists of characters). They are used for implementing the
-      functions in the <seealso marker="io"><c>io</c></seealso> module.
+      functions in the <seeerl marker="io"><c>io</c></seeerl> module.
       There is no guarantee that the
       character lists returned from some of the functions are flat,
       they can be deep lists. Function
-      <seealso marker="lists#flatten/1"><c>lists:flatten/1</c></seealso>
+      <seemfa marker="lists#flatten/1"><c>lists:flatten/1</c></seemfa>
       can be used for flattening deep lists.</p>
   </description>
 
@@ -48,7 +48,7 @@
     <datatype>
       <name name="continuation"/>
       <desc><p>A continuation as returned by
-        <seealso marker="#fread/3"><c>fread/3</c></seealso>.</p>
+        <seemfa marker="#fread/3"><c>fread/3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -103,7 +103,7 @@
       <fsummary>Build the output text for a preparsed format list.</fsummary>
       <desc>
         <p>For details, see
-          <seealso marker="#scan_format/2"><c>scan_format/2</c></seealso>.</p>
+          <seemfa marker="#scan_format/2"><c>scan_format/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -143,7 +143,7 @@
         <p>Returns a character list that represents <c><anno>Data</anno></c>
           formatted in accordance with <c><anno>Format</anno></c>.
           For a detailed description of the available formatting options, see
-          <seealso marker="io#fwrite/1"><c>io:fwrite/1,2,3</c></seealso>.
+          <seemfa marker="io#fwrite/1"><c>io:fwrite/1,2,3</c></seemfa>.
           If the format string or argument list contains an error, a fault is
           generated.</p>
         <p>If and only if the Unicode translation modifier is used in the
@@ -163,8 +163,8 @@
         <p>Returns a character list that represents <c><anno>Data</anno></c>
           formatted in accordance with <c><anno>Format</anno></c> in
           the same way as
-          <seealso marker="#fwrite/2"><c>fwrite/2</c></seealso> and
-          <seealso marker="#format/2"><c>format/2</c></seealso>,
+          <seemfa marker="#fwrite/2"><c>fwrite/2</c></seemfa> and
+          <seemfa marker="#format/2"><c>format/2</c></seemfa>,
           but takes an extra argument, a list of options.</p>
           <p>Valid option:</p>
           <taglist>
@@ -187,7 +187,7 @@
         <p>Tries to read <c><anno>String</anno></c> in accordance with the
           control sequences in <c><anno>Format</anno></c>.
           For a detailed description of the available formatting options, see
-          <seealso marker="io#fread/3"><c>io:fread/3</c></seealso>. It is
+          <seemfa marker="io#fread/3"><c>io:fread/3</c></seemfa>. It is
           assumed that <c><anno>String</anno></c> contains whole lines.</p>
         <p>The function returns:</p>
         <taglist>
@@ -331,9 +331,9 @@
           printable characters, otherwise <c>false</c>.</p>
         <p>What is a printable character in this case is determined by
           startup flag <c>+pc</c> to the Erlang VM; see
-          <seealso marker="io#printable_range/0">
-          <c>io:printable_range/0</c></seealso> and 
-          <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
+          <seemfa marker="io#printable_range/0">
+          <c>io:printable_range/0</c></seemfa> and 
+          <seecom marker="erts:erl"><c>erl(1)</c></seecom>.</p>
       </desc>
     </func>
 
@@ -355,12 +355,12 @@
           corresponding tuples. This list can be passed to:</p>
         <list type="bulleted">
           <item>
-            <p><seealso marker="#build_text/1"><c>build_text/1</c></seealso>
+            <p><seemfa marker="#build_text/1"><c>build_text/1</c></seemfa>
               to have the same effect as <c>format(Format, Args)</c></p>
           </item>
           <item>
-            <p><seealso marker="#unscan_format/1">
-              <c>unscan_format/1</c></seealso> to get the corresponding pair
+            <p><seemfa marker="#unscan_format/1">
+              <c>unscan_format/1</c></seemfa> to get the corresponding pair
               of <c>Format</c> and <c>Args</c> (with every <c>*</c> and
               corresponding argument expanded to numeric values)</p>
           </item>
@@ -378,7 +378,7 @@
         and a list of arguments.</fsummary>
       <desc>
         <p>For details, see
-          <seealso marker="#scan_format/2"><c>scan_format/2</c></seealso>.</p>
+          <seemfa marker="#scan_format/2"><c>scan_format/2</c></seemfa>.</p>
       </desc>
     </func>
 

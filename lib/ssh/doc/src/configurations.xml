@@ -47,13 +47,13 @@
     <list>
       <item>Like before, in the <c>Options</c> parameter in the Erlang code
       in a call to for example
-      <seealso marker="ssh#daemon-3">ssh:daemon/3</seealso> or
-      <seealso marker="ssh#connect-3">ssh:connect/3</seealso> or
+      <seemfa marker="ssh#daemon/3">ssh:daemon/3</seemfa> or
+      <seemfa marker="ssh#connect/3">ssh:connect/3</seemfa> or
       any of their variants. Example:
       <code>ssh:connect(22, [{user,"foo"}])</code>
       </item>
 
-      <item>In <seealso marker="kernel:config">OTP Configuration Parameters</seealso>:
+      <item>In <seefile marker="kernel:config">OTP Configuration Parameters</seefile>:
       <p/>
       <list>
       <item>In the erl command line:
@@ -102,25 +102,25 @@
     </p>
     <list>
       <item>Level 0: Hard-coded default values in the source code</item>
-      <item>Level 1: <seealso marker="kernel:config">OTP Configuration Parameters</seealso></item>
-      <item>Level 2: Options in the <seealso marker="kernel:config">OTP Configuration Parameters</seealso>
+      <item>Level 1: <seefile marker="kernel:config">OTP Configuration Parameters</seefile></item>
+      <item>Level 2: Options in the <seefile marker="kernel:config">OTP Configuration Parameters</seefile>
       <c>server_options</c> or <c>client_options</c></item>
       <item>Level 3: Options in argument list to a function</item>
     </list>    
     <p>If the same option is set at two different levels, the one at the highest level is used.
     </p>
     <p>The only exception is the
-    <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
     common option. They are all applied in ascending level order on the set of algorithms. So a
     <c>modify_algorithms</c> on level zero is applied before one of level one and so on.
     </p>
     <p>If there is an
-    <seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+    <seetype marker="ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
     option on some level the whole set is replaced by that in that option and <em>all modify_algorithms
     are applied</em> in level ordering.
     </p>
     <p>The reason for applying all
-    <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
     in level order, is to enable the user to add an algorithm that has been removed from the
     default set without code changes, only by adding an option in a config file.
     This can be used to interoperate with legacy systems that still uses algorithms no longer
@@ -129,19 +129,19 @@
     
     <section>
       <title>Algorithm configuration</title>
-      <p>There is a <seealso marker="configure_algos#introduction">separate chapter</seealso> about how
-      <seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso> and
-      <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+      <p>There is a <seeguide marker="configure_algos#introduction">separate chapter</seeguide> about how
+      <seetype marker="ssh#preferred_algorithms_common_option">preferred_algorithms</seetype> and
+      <seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
       co-operate. How the different configuration levels affect them, is described here in this section.
       </p>
       <section>
 	<title>The ssh:start/0 function</title>
-	<p>If the application SSH is <em>not</em> <seealso marker="ssh#start-0">started</seealso>, the command
-	<seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>
+	<p>If the application SSH is <em>not</em> <seemfa marker="ssh#start/0">started</seemfa>, the command
+	<seemfa marker="ssh#default_algorithms/0">ssh:default_algorithms/0</seemfa>
 	delivers the list of default (hardcoded) algorithms with respect to the support in the current cryptolib.
 	</p>
-	<p>If the application SSH <em>is</em> <seealso marker="ssh#start-0">started</seealso>, the command
-	<seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>
+	<p>If the application SSH <em>is</em> <seemfa marker="ssh#start/0">started</seemfa>, the command
+	<seemfa marker="ssh#default_algorithms/0">ssh:default_algorithms/0</seemfa>
 	delvers the list of algorithms after application of level 0 and level 1 configurations.
 	</p>
 	<p>Here is an example. The config-file has the following contents:</p>
@@ -221,10 +221,10 @@ ok
 	Similarly for a daemon the <c>server_options</c> variable is handled.
 	</p>
 	<p>If any
-	<seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso> is
+	<seetype marker="ssh#preferred_algorithms_common_option">preferred_algorithms</seetype> is
 	present, the one with the highest level is used, that is, the <c>Option</c> list parameter has the highest
 	priority. Then the
-	<seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	<seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
 	on all levels in order starting with level 0 are applied.
 	
 	</p>
@@ -267,9 +267,9 @@ ok
       <section>
 	<title>Example of modify_algorithms handling</title>
 	<p>We will now check if the
-	<seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	<seetype marker="ssh#modify_algorithms_common_option">modify_algorithms</seetype>
 	on a lower level is applied to a
-	<seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	<seetype marker="ssh#preferred_algorithms_common_option">preferred_algorithms</seetype>
 	on a higher level. We will do that by enabling the <c>ssh-dss</c>
 	algorithm that is supported, but not in the default set.
 	</p>

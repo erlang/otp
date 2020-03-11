@@ -38,7 +38,7 @@
     <p><em>Step 1.</em> Start Debugger by calling
       <c>debugger:start()</c>.</p>
 
-    <p>The <seealso marker="#monitor">Monitor window</seealso> is
+    <p>The <seeguide marker="#monitor">Monitor window</seeguide> is
       displayed with information about all debugged processes,
       interpreted modules, and selected options. Initially there are
       normally no debugged processes. First, it must be specified which
@@ -48,7 +48,7 @@
     <p><em>Step 2.</em> Select <em>Module > Interpret...</em> in the
       Monitor window.</p>
 
-    <p>The <seealso marker="#interpret">Interpret Modules window</seealso>
+    <p>The <seeguide marker="#interpret">Interpret Modules window</seeguide>
       is displayed.</p>
 
     <p><em>Step 3.</em> Select the appropriate modules from the Interpret
@@ -64,10 +64,10 @@
       <em>Module > the module to be interpreted > View</em>.</p>
 
     <p>The contents of the source file is displayed in the
-      <seealso marker="#view">View Module window</seealso>.</p>
+      <seeguide marker="#view">View Module window</seeguide>.</p>
 
     <p><em>Step 5.</em> Set the
-      <seealso marker="#breakpoints">breakpoints</seealso>, if any.</p>
+      <seeguide marker="#breakpoints">breakpoints</seeguide>, if any.</p>
 
     <p><em>Step 6.</em> Start the program to be debugged. This is done
       the normal way from the Erlang shell.</p>
@@ -78,7 +78,7 @@
     <p><em>Step 7.</em> To <em>attach</em> to one of these processes,
       double-click it, or select the process and then choose
       <em>Process > Attach</em>. Attaching to a process opens an
-      <seealso marker="#attach">Attach Process window</seealso> for this
+      <seeguide marker="#attach">Attach Process window</seeguide> for this
       process.</p>
 
     <p><em>Step 8.</em> From the Attach Process window, you can control
@@ -182,7 +182,7 @@
 
       <p><c>Bindings</c> is a list of variable bindings. To retrieve the
         value of <c>Variable</c> (given as an atom), use function
-        <seealso marker="int#get_binding/2"><c>int:get_binding(Variable,Bindings)</c></seealso>.
+        <seemfa marker="int#get_binding/2"><c>int:get_binding(Variable,Bindings)</c></seemfa>.
         The function returns <c>unbound</c> or <c>{value,Value}</c>.</p>
 	
       <image file="cond_break_dialog.jpg">
@@ -255,7 +255,7 @@ c_break(Bindings) ->
                    {shell,eval_loop,3,[{file,"shell.erl"},{line,614}]}]}}</pre>
 
     <p>For details about the stack trace, see section
-      <seealso marker="doc/reference_manual:errors">Errors and Error Handling</seealso>
+      <seeguide marker="system/reference_manual:errors">Errors and Error Handling</seeguide>
       in the Erlang Reference Manual.</p>
 
     <p>Debugger emulates the stack trace by keeping track of recently
@@ -265,7 +265,7 @@ c_break(Bindings) ->
 
     <p>This information can be used to traverse the chain of function
       calls, using the <em>Up</em> and <em>Down</em> buttons in the
-      <seealso marker="#attach">Attach Process window</seealso>.</p>
+      <seeguide marker="#attach">Attach Process window</seeguide>.</p>
 
     <p>By default, Debugger only saves information about recursive
       function calls, that is, function calls that have not yet returned
@@ -286,7 +286,7 @@ c_break(Bindings) ->
     </note>
 
     <p>For information about how to change the stack trace option, see
-      section <seealso marker="#monitor">Monitor Window</seealso>.</p>
+      section <seeguide marker="#monitor">Monitor Window</seeguide>.</p>
   </section>
 
   <section>
@@ -314,7 +314,7 @@ c_break(Bindings) ->
     <p>The <em>Auto Attach</em> boxes, <em>Stack Trace</em> label,
       <em>Back Trace Size</em> label, and <em>Strings</em> box display
       some options set. For details about these options, see section
-      <seealso marker="#options">Options Menu</seealso>.</p>
+      <seeguide marker="#options">Options Menu</seeguide>.</p>
 
     <section>
       <title>Process Grid</title>
@@ -410,7 +410,7 @@ c_break(Bindings) ->
       <taglist>
 	<tag><em>Interpret...</em></tag>
 	<item><p>Opens the
-	  <seealso marker="#interpret">Interpret Modules window</seealso>,
+	  <seeguide marker="#interpret">Interpret Modules window</seeguide>,
 	  where new modules to be interpreted can be specified.</p></item>
 
 	<tag><em>Delete All</em></tag>
@@ -427,7 +427,7 @@ c_break(Bindings) ->
 
 	<tag><em>View</em></tag>
 	<item><p>Opens a
-	  <seealso marker="#view">View Module window</seealso>, displaying the
+	  <seeguide marker="#view">View Module window</seeguide>, displaying the
 	  contents of the selected module.</p></item>
       </taglist>
     </section>
@@ -437,7 +437,7 @@ c_break(Bindings) ->
       <p>The following menu items apply to the currently selected
         process, provided it is stopped at a breakpoint (for details, see
 	section 
-	<seealso marker="#attach">Attach Process window</seealso>):</p>
+	<seeguide marker="#attach">Attach Process window</seeguide>):</p>
       <taglist>
 	<tag><em>Step</em></tag><item></item>
 	<tag><em>Next</em></tag><item></item>
@@ -450,7 +450,7 @@ c_break(Bindings) ->
       <taglist>
 	<tag><em>Attach</em></tag>
 	<item><p>Attaches to the process and open an
-	  <seealso marker="#attach">Attach Process window</seealso>.</p></item>
+	  <seeguide marker="#attach">Attach Process window</seeguide>.</p></item>
 
 	<tag><em>Kill</em></tag>
 	<item><p>Terminates the process using <c>exit(Pid,kill)</c>.</p></item>
@@ -461,7 +461,7 @@ c_break(Bindings) ->
       <title>Break Menu</title>
       <p>The items in this menu are used to create and delete breakpoints.
         For details, see section
-	<seealso marker="#breakpoints">Breakpoints</seealso>.</p>
+	<seeguide marker="#breakpoints">Breakpoints</seeguide>.</p>
 
       <taglist>
 	<tag><em>Line Break...</em></tag>
@@ -495,7 +495,7 @@ c_break(Bindings) ->
       <taglist>
 	<tag><em>Trace Window</em></tag>
 	<item><p>Sets the areas to be visible in an
-	  <seealso marker="#attach">Attach Process window</seealso>.
+	  <seeguide marker="#attach">Attach Process window</seeguide>.
 	  Does not affect existing Attach Process windows.</p>
 	</item>
 
@@ -513,7 +513,7 @@ c_break(Bindings) ->
 
 	<tag><em>Stack Trace</em></tag>
 	<item><p>Sets the stack trace option, see section
-	  <seealso marker="#stack_trace">Stack Trace</seealso>. Does not
+	  <seeguide marker="#stack_trace">Stack Trace</seeguide>. Does not
 	    affect existing debugged processes.</p>
 	  <list type="bulleted">
 	    <item><p><em>Stack On, Tail</em> - Saves information about all
@@ -532,7 +532,7 @@ c_break(Bindings) ->
 	  <list type="bulleted">
 	    <item><p><em>Use range of +pc flag</em> - Uses the printable
 	      character range set by the <c>erl(1)</c> flag
-	      <seealso marker="erts:erl#printable_character_range"><c>+pc</c></seealso>.</p>
+	      <seecom marker="erts:erl#printable_character_range"><c>+pc</c></seecom>.</p>
 	    </item>
 	  </list>
 	</item>
@@ -609,7 +609,7 @@ c_break(Bindings) ->
 
     <note>
       <p>When Debugger is started in global mode (which is the default, see
-        <seealso marker="debugger#start/0">debugger:start/0</seealso>),
+        <seemfa marker="debugger#start/0">debugger:start/0</seemfa>),
         modules added (or deleted) for interpretation are added (or
         deleted) on all known Erlang nodes.</p>
     </note>
@@ -785,13 +785,13 @@ c_break(Bindings) ->
 	    other Attach Process windows.</p></item>
 
 	<tag><em>Stack Trace</em></tag>
-	<item><p>Same as in the <seealso marker="#monitor">Monitor
-	    window</seealso>, but only affects the debugged
+	<item><p>Same as in the <seeguide marker="#monitor">Monitor
+	    window</seeguide>, but only affects the debugged
 	    process the window is attached to.</p></item>
 
 	<tag><em>Strings</em></tag>
-	<item><p>Same as in the <seealso marker="#monitor">Monitor
-	    window</seealso>, but only affects the debugged
+	<item><p>Same as in the <seeguide marker="#monitor">Monitor
+	    window</seeguide>, but only affects the debugged
 	    process the window is attached to.</p></item>
 
 	<tag><em>Back Trace Size...</em></tag>
@@ -806,7 +806,7 @@ c_break(Bindings) ->
 
       <p>The <em>Break</em>, <em>Windows</em>, and <em>Help</em> menus
         are the same as in the
-        <seealso marker="#monitor">Monitor Window</seealso>, except
+        <seeguide marker="#monitor">Monitor Window</seeguide>, except
         that the <em>Breaks</em> menu applies only to local
         breakpoints.</p>
     </section>
@@ -837,7 +837,7 @@ c_break(Bindings) ->
     <section>
       <title>File and Edit Menus</title>
       <p>The <em>File</em> and <em>Edit</em> menus are the same as in the
-      <seealso marker="#attach">Attach Process Window</seealso>.</p>
+      <seeguide marker="#attach">Attach Process Window</seeguide>.</p>
     </section>
 
     <section>
@@ -845,7 +845,7 @@ c_break(Bindings) ->
 
       <p>The <em>Break</em>, <em>Windows</em>, and <em>Help</em> menus
         are the same as in the
-        <seealso marker="#monitor">Monitor Window</seealso>, except
+        <seeguide marker="#monitor">Monitor Window</seeguide>, except
 	that the <em>Break</em> menu applies only to local breakpoints.</p>
     </section>
   </section>
@@ -881,7 +881,7 @@ c_break(Bindings) ->
     <title>Debugging Remote Nodes</title>
 
     <p>By using
-      <seealso marker="debugger#start/1">debugger:start/1</seealso>,
+      <seemfa marker="debugger#start/1">debugger:start/1</seemfa>,
       you can specify if Debugger is to be started in local or global
       mode:</p>
     <pre>

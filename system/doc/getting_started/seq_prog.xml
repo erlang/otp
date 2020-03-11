@@ -37,7 +37,7 @@
       and Linux have many, Windows has the command prompt. Erlang has
       its own shell where bits of Erlang code can be written directly,
       and be evaluated to see what happens
-      (see the <seealso marker="stdlib:shell">shell(3)</seealso>
+      (see the <seeerl marker="stdlib:shell">shell(3)</seeerl>
       manual page in STDLIB).
     </p>
     <p>Start
@@ -62,7 +62,7 @@ Eshell V5.9.1  (abort with ^G)
       that 2 + 5 is 7. If you make writing mistakes in the shell,
       you can delete with the backspace key, as in most shells.
       There are many more editing commands in the shell
-      (see <seealso marker="erts:tty">tty - A command line interface</seealso> in ERTS User's Guide).</p>
+      (see <seeguide marker="erts:tty">tty - A command line interface</seeguide> in ERTS User's Guide).</p>
     <p>(Notice that many line numbers given by the shell in the
       following examples are out of sequence. This is because this
       tutorial was written and code-tested in separate sessions).</p>
@@ -72,7 +72,7 @@ Eshell V5.9.1  (abort with ^G)
 2618.0</pre>
     <p>Notice the use of brackets, the multiplication operator "*",
       and the division operator "/", as in normal arithmetic (see
-      <seealso marker="doc/reference_manual:expressions">Expressions</seealso>).</p>
+      <seeguide marker="system/reference_manual:expressions">Expressions</seeguide>).</p>
     <p>Press Control-C to shut down the Erlang system and the Erlang
       shell.</p>
     <p>The following output is shown:</p>
@@ -98,9 +98,9 @@ BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded
       that it is in the same directory as the one where you started
       <c>erl</c>). If you are lucky your editor has an Erlang mode
       that makes it easier for you to enter and format your code
-      nicely (see <seealso
+      nicely (see <seeguide
       marker="tools:erlang_mode_chapter">The Erlang mode for
-      Emacs</seealso> in Tools User's Guide), but you can manage
+      Emacs</seeguide> in Tools User's Guide), but you can manage
       perfectly well without. Here is the code to enter:</p>
     <code type="none">
 -module(tut).
@@ -130,7 +130,7 @@ double(X) ->
       written in files. Each file contains an Erlang
       <em>module</em>. The first line of code in the module is
       the module name (see
-      <seealso marker="doc/reference_manual:modules">Modules</seealso>):</p>
+      <seeguide marker="system/reference_manual:modules">Modules</seeguide>):</p>
     <code type="none">
 -module(tut).</code>
     <p>Thus, the module is called <em>tut</em>. Notice
@@ -217,7 +217,7 @@ mult(X, Y) ->
       in the functions in the code <c>N</c>, <c>X</c>, and <c>Y</c> are
       called variables. Variables must start with a capital letter
       (see
-      <seealso marker="doc/reference_manual:expressions">Variables</seealso>).
+      <seeguide marker="system/reference_manual:expressions">Variables</seeguide>).
       Examples of variables are
       <c>Number</c>, <c>ShoeSize</c>, and <c>Age</c>.</p>
   </section>
@@ -226,7 +226,7 @@ mult(X, Y) ->
     <title>Atoms</title>
     <p>Atom is another data type in Erlang. Atoms start with a small
       letter (see
-      <seealso marker="doc/reference_manual:data_types">Atom</seealso>),
+      <seeguide marker="system/reference_manual:data_types">Atom</seeguide>),
       for example, <c>charles</c>,
       <c>centimeter</c>, and <c>inch</c>. Atoms are simply names, nothing
       else. They are not like variables, which can have a value.</p>
@@ -504,8 +504,8 @@ blue(#{blue := SV, alpha := SA}, #{blue := DV, alpha := DA}) ->
     <p>First a macro <c>is_channel</c> is defined to help with the
       guard tests. This is only here for convenience and to reduce
       syntax cluttering. For more information about macros, see
-      <seealso marker="doc/reference_manual:macros">
-      The Preprocessor</seealso>.
+      <seeguide marker="system/reference_manual:macros">
+      The Preprocessor</seeguide>.
     </p>
     <code type="none">
 new(R,G,B,A) when ?is_channel(R), ?is_channel(G),
@@ -683,7 +683,7 @@ ok</pre>
     <p><c>print_temp</c> simply calls <c>io:format</c> in a similar way
       to what has been described above. Notice that ~-15w says to print
       the "term" with a field length (width) of 15 and left justify it.
-      (see the <seealso marker="stdlib:io#fwrite/1">io(3)</seealso>) manual page in STDLIB.</p>
+      (see the <seemfa marker="stdlib:io#fwrite/1">io(3)</seemfa>) manual page in STDLIB.</p>
     <p>Now <c>format_temps(Rest)</c> is called with the rest of the list
       as an argument. This way of doing things is similar to the loop
       constructs in other languages. (Yes, this is recursion, but do not
@@ -756,7 +756,7 @@ list_max([Head|Rest], Result_so_far)  ->
     <item>&gt;= greater or equal</item>
     <item>=&lt; less or equal</item>
     <item>/= not equal</item></list>
-    <p>(see <seealso marker="doc/reference_manual:expressions">Guard Sequences</seealso>).</p>
+    <p>(see <seeguide marker="system/reference_manual:expressions">Guard Sequences</seeguide>).</p>
     <p>To change the above program to one that works out the minimum
       value of the element in a list, you only need to
       write &lt; instead of &gt;. (But it would be wise to change
@@ -863,7 +863,7 @@ reverse([], [3,2,1]) =>
       manipulating lists, for example, for reversing them. So before
       writing a list-manipulating function it is a good idea to check
       if one not already is written for you
-      (see the <seealso marker="stdlib:lists">lists(3)</seealso>
+      (see the <seeerl marker="stdlib:lists">lists(3)</seeerl>
       manual page in STDLIB).</p>
     <p>Now let us get back to the cities and temperatures, but take a more
       structured approach this time. First let us convert the whole list
@@ -1093,7 +1093,7 @@ a_equals_1_or_b_equals_7
     <p>Notice that <c>tut9:test_if(33,33)</c> does not cause any
       condition to succeed. This leads to the run time error
       <c>if_clause</c>, here nicely formatted by the shell. See
-      <seealso marker="doc/reference_manual:expressions">Guard Sequences</seealso>
+      <seeguide marker="system/reference_manual:expressions">Guard Sequences</seeguide>
       for details of the many guard tests available.</p>
     <p><c>case</c> is another construct in Erlang. Recall that the
       <c>convert_length</c> function was written as:</p>
@@ -1222,7 +1222,7 @@ Year rem 400 == 0 ->
       <c>trunc</c>. Only a few BIFs can be used in guards,
       and you cannot use functions you have defined yourself in guards.
       (see
-      <seealso marker="doc/reference_manual:expressions">Guard Sequences</seealso>)
+      <seeguide marker="system/reference_manual:expressions">Guard Sequences</seeguide>)
       (For advanced readers: This is to ensure that guards do not have side
       effects.) Let us play with a few of these functions in the shell:</p>
     <pre>

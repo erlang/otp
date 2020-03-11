@@ -45,21 +45,21 @@
     <marker id="Connecting"/>
     <p><em>Connecting to a NETCONF server</em></p>
 
-    <p>Call <seealso marker="#connect/1"><c>connect/1,2</c></seealso>
+    <p>Call <seemfa marker="#connect/1"><c>connect/1,2</c></seemfa>
     to establish a connection to a server, then pass the returned
-    handle to <seealso marker="#session/1"><c>session/1-3</c></seealso> to
+    handle to <seemfa marker="#session/1"><c>session/1-3</c></seemfa> to
     establish a NETCONF session on a new SSH channel.
     Each call to
-    <seealso marker="#session/1"><c>session/1-3</c></seealso> establishes a
+    <seemfa marker="#session/1"><c>session/1-3</c></seemfa> establishes a
     new session on the same connection, and results in a hello message
     to the server.</p>
 
     <p>Alternately,
-    <seealso marker="#open/1"><c>open/1,2</c></seealso> can be used to
+    <seemfa marker="#open/1"><c>open/1,2</c></seemfa> can be used to
     establish a single session on a dedicated connection.
     (Or, equivalently,
-    <seealso marker="#only_open/1"><c>only_open/1,2</c></seealso>
-    followed by <seealso marker="#hello/1"><c>hello/1-3</c></seealso>.)</p>
+    <seemfa marker="#only_open/1"><c>only_open/1,2</c></seemfa>
+    followed by <seemfa marker="#hello/1"><c>hello/1-3</c></seemfa>.)</p>
 
     <p>Connect/session options can be specified in a configuration
     file with entries like the following.</p>
@@ -67,9 +67,9 @@
     <pre>
  {server_id(), [option()]}.</pre>
 
-    <p>The <seealso marker="#type-server_id"><c>server_id()</c></seealso>
+    <p>The <seetype marker="#server_id"><c>server_id()</c></seetype>
     or an associated
-    <seealso marker="ct#type-target_name"><c>ct:target_name()</c></seealso>
+    <seetype marker="ct#target_name"><c>ct:target_name()</c></seetype>
     can then be passed to the aforementioned functions to use the
     referenced configuration.</p>
 
@@ -80,12 +80,12 @@
     procedure calls (RPCs) from client to server and a corresponding
     reply from server to client.
     RPCs are sent using like-named functions (eg.
-    <seealso marker="#edit_config/3"><c>edit_config/3-5</c></seealso>
+    <seemfa marker="#edit_config/3"><c>edit_config/3-5</c></seemfa>
     to send an edit-config RPC), with the server reply
     as return value.
     There are functions for each RPC defined in RFC 6241 and
     the create-subscription RPC from RFC 5277, all of which are
-    wrappers on <seealso marker="#send_rpc/2"><c>send_rpc/2,3</c></seealso>,
+    wrappers on <seemfa marker="#send_rpc/2"><c>send_rpc/2,3</c></seemfa>,
     that can be used to send an arbitrary RPC
     not defined in RFC 6241 or RFC 5277.</p>
 
@@ -106,7 +106,7 @@
 
     <pre>
  suite() -&gt;
-    [{ct_hooks, [{cth_conn_log, [{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>, <seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}]}].</pre>
+    [{ct_hooks, [{cth_conn_log, [{<seetype marker="ct#conn_log_mod"><c>ct:conn_log_mod()</c></seetype>, <seetype marker="ct#conn_log_options"><c>ct:conn_log_options()</c></seetype>}]}]}].</pre>
 
     <p><c>conn_log_mod()</c> is the name of the <c>Common Test</c> module
       implementing the connection protocol, for example, <c>ct_netconfc</c>.</p>
@@ -137,7 +137,7 @@
       To do this, use hook option <c>hosts</c> and list the names of the
       servers/connections to be used in the suite. The connections
       must be named for this to work, that is, they must be opened with
-      <seealso marker="#open/2"><c>open/2</c></seealso>.</p>
+      <seemfa marker="#open/2"><c>open/2</c></seemfa>.</p>
 
     <p>Option <c>hosts</c> has no effect if <c>log_type</c> is set to
       <c>html</c> or <c>silent</c>.</p>
@@ -146,13 +146,13 @@
       configuration variable <c>ct_conn_log</c>:</p>
 
     <pre>
- {ct_conn_log,[{<seealso marker="ct#type-conn_log_mod"><c>ct:conn_log_mod()</c></seealso>, <seealso marker="ct#type-conn_log_options"><c>ct:conn_log_options()</c></seealso>}]}.</pre>
+ {ct_conn_log,[{<seetype marker="ct#conn_log_mod"><c>ct:conn_log_mod()</c></seetype>, <seetype marker="ct#conn_log_options"><c>ct:conn_log_options()</c></seetype>}]}.</pre>
 
     <p>For example:</p>
 
     <pre>
  {ct_conn_log,[{ct_netconfc,[{log_type,pretty},
-                             {hosts,[<seealso marker="ct#type-key_or_name"><c>ct:key_or_name()</c></seealso>]}]}]}</pre>
+                             {hosts,[<seetype marker="ct#key_or_name"><c>ct:key_or_name()</c></seetype>]}]}]}</pre>
 
     <note>
       <p>Hook options specified in a configuration file overwrite the
@@ -215,11 +215,11 @@
       <desc>
         <p>Handle to a connection to a NETCONF server as
         returned by
-        <seealso marker="#connect/1"><c>connect/1,2</c></seealso>,
+        <seemfa marker="#connect/1"><c>connect/1,2</c></seemfa>,
         or to a session as returned by
-        <seealso marker="#session/1"><c>session/1-3</c></seealso>,
-        <seealso marker="#open/1"><c>open/1,2</c></seealso>,
-        or <seealso marker="#only_open/1"><c>only_open/1,2</c></seealso>.</p>
+        <seemfa marker="#session/1"><c>session/1-3</c></seemfa>,
+        <seemfa marker="#open/1"><c>open/1,2</c></seemfa>,
+        or <seemfa marker="#only_open/1"><c>only_open/1,2</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -244,7 +244,7 @@
       <name name="notification"/>
       <desc>
         <p>Event notification messages sent as a result of calls to
-        <seealso marker="#create_subscription/2"><c>create_subscription/2,3</c></seealso>.</p>
+        <seemfa marker="#create_subscription/2"><c>create_subscription/2,3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -252,8 +252,8 @@
       <desc>
         <p>Options <c>host</c> and <c>port</c> specify the
         server endpoint to which to connect, and are passed directly
-        to <seealso
-        marker="ssh:ssh#connect/3"><c>ssh:connect/4</c></seealso>,
+        to <seemfa
+        marker="ssh:ssh#connect/3"><c>ssh:connect/4</c></seemfa>,
         as are arbitrary ssh options. Common options are <c>user</c>,
         <c>password</c> and <c>user_dir</c>.</p>
 
@@ -299,7 +299,7 @@
       <name name="streams"/>
       <desc>
         <p>Stream information as returned by
-        <seealso marker="#get_event_streams/1"><c>get_event_streams/1-3</c></seealso>.
+        <seemfa marker="#get_event_streams/1"><c>get_event_streams/1-3</c></seemfa>.
         See RFC 5277, "XML Schema for Event Notifications", for detail
         on the format of the string values.</p>
       </desc>
@@ -323,7 +323,7 @@
       <name name="simple_xml"/>
       <desc>
 	<p>Representation of XML, as described in application
-        <seealso marker="xmerl:index"><c>xmerl</c></seealso>.</p>
+        <seeapp marker="xmerl:index"><c>xmerl</c></seeapp>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -377,14 +377,14 @@
         <p>Opens an SSH connection to a NETCONF server.</p>
 
         <p>If the server options are specified in a configuration file, use
-          <seealso marker="#connect/2"><c>connect/2</c></seealso>
+          <seemfa marker="#connect/2"><c>connect/2</c></seemfa>
           instead.</p>
 
-        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+        <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	  reference returned from this
           function is required as connection identifier when opening
           sessions over this connection, see
-          <seealso marker="#session/1"><c>session/1-3</c></seealso>.</p>
+          <seemfa marker="#session/1"><c>session/1-3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -404,20 +404,20 @@
           the configuration file takes precedence.</p>
 
         <p>If the server is not specified in a configuration file, use
-          <seealso marker="#connect/1"><c>connect/1</c></seealso>
+          <seemfa marker="#connect/1"><c>connect/1</c></seemfa>
           instead.</p>
 
-        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+        <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	  reference returned from this
           function can be used as connection identifier when opening
           sessions over this connection, see
-          <seealso marker="#session/1"><c>session/1-3</c></seealso>.
+          <seemfa marker="#session/1"><c>session/1-3</c></seemfa>.
           However, if <c><anno>KeyOrName</anno></c> is a
           <c>target_name()</c>, that is, if the server is named through a
-          call to <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>
+          call to <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>
           or a <c>require</c> statement in the test suite, then this name can
           be used instead of
-	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+	  <seetype marker="#handle"><c>handle()</c></seetype>.</p>
       </desc>
     </func>
 
@@ -442,7 +442,7 @@
         <p>Creates a subscription for event notifications by sending
            an RFC 5277 create-subscription RPC to the server.
            The calling process receives events as messages of
-           type <seealso marker="#type-notification"><c>notification()</c></seealso>.</p>
+           type <seetype marker="#notification"><c>notification()</c></seetype>.</p>
 
 	<p>From RFC 5722, 2.1 Subscribing to Receive Event Notifications:</p>
 
@@ -513,7 +513,7 @@
 
 	<p>If there are open NETCONF sessions on the connection, these
 	  will be brutally aborted. To avoid this, close each session
-	  with <seealso marker="#close_session/1"><c>close_session/1,2</c></seealso></p>
+	  with <seemfa marker="#close_session/1"><c>close_session/1,2</c></seemfa></p>
       </desc>
     </func>
 
@@ -618,7 +618,7 @@
  &lt;/netconf&gt;</pre>
 
         <p>If more complex filtering is needed, use
-          <seealso marker="#get/2"><c>ct_netconfc:get/2,3</c></seealso> and
+          <seemfa marker="#get/2"><c>ct_netconfc:get/2,3</c></seemfa> and
           specify the exact filter according to "XML Schema for Event
           Notifications" in RFC 5277.</p>
       </desc>
@@ -645,7 +645,7 @@
         specified timeout.</p>
 
         <p>Note that capabilities for an outgoing hello can be passed
-        directly to <seealso marker="#open/2"><c>open/2</c></seealso>.</p>
+        directly to <seemfa marker="#open/2"><c>open/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -685,7 +685,7 @@
           Locks are intended to be short-lived.</p>
 
          <p>Operation
-           <seealso marker="#kill_session/2"><c>kill_session/2,3</c></seealso>
+           <seemfa marker="#kill_session/2"><c>kill_session/2,3</c></seemfa>
            can be used to force the release of a lock owned by another NETCONF
            session. How this is achieved by the server side is
            implementation-specific.</p>
@@ -698,7 +698,7 @@
       <desc>
         <p>Opens a NETCONF session, but does not send <c>hello</c>.</p>
 
-        <p>As <seealso marker="#open/1"><c>open/1</c></seealso>, but
+        <p>As <seemfa marker="#open/1"><c>open/1</c></seemfa>, but
           does not send a <c>hello</c> message.</p>
       </desc>
     </func>
@@ -709,7 +709,7 @@
       <desc>
         <p>Opens a named NETCONF session, but does not send <c>hello</c>.</p>
 
-        <p>As <seealso marker="#open/2"><c>open/2</c></seealso>, but
+        <p>As <seemfa marker="#open/2"><c>open/2</c></seemfa>, but
           does not send a <c>hello</c> message.</p>
       </desc>
     </func>
@@ -722,11 +722,11 @@
 
         <p>If the server options are specified in a configuration file,
           or if a named client is needed for logging purposes (see section
-          <seealso marker="#Logging">Logging</seealso> in this module), use
-          <seealso marker="#open/2"><c>open/2</c></seealso>
+          <seeerl marker="#Logging">Logging</seeerl> in this module), use
+          <seemfa marker="#open/2"><c>open/2</c></seemfa>
           instead.</p>
 
-        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+        <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	  reference returned from this
           function is required as client identifier when calling any other
           function in this module.</p>
@@ -751,21 +751,21 @@
           the configuration file take precedence.</p>
 
          <p>If the server is not specified in a configuration file, use
-           <seealso marker="#open/1"><c>open/1</c></seealso>
+           <seemfa marker="#open/1"><c>open/1</c></seemfa>
            instead.</p>
 
-         <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+         <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	   reference returned from this
            function can be used as client identifier when calling any other
            function in this module. However, if <c><anno>KeyOrName</anno></c> is a
            <c>target_name()</c>, that is, if the server is named through a
-           call to <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>
+           call to <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>
            or a <c>require</c> statement in the test suite, then this name can
            be used instead of
-	   <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+	   <seetype marker="#handle"><c>handle()</c></seetype>.</p>
 
          <p>See also
-           <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>.</p>
+           <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -811,16 +811,16 @@
 	<p>Opens a NETCONF session as a channel on the given SSH
           connection, and exchanges hello messages with the server.</p>
 
-        <p>The opaque <seealso marker="#type-handle"><c>handle()</c></seealso>
+        <p>The opaque <seetype marker="#handle"><c>handle()</c></seetype>
 	  reference returned from this
           function can be used as client identifier when calling any
           other function in this module. However, if <c><anno>KeyOrName</anno></c>
           is used and it is a <c>target_name()</c>, that is, if the
           server is named through a call
-          to <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>
+          to <seemfa marker="ct#require/2"><c>ct:require/2</c></seemfa>
           or a <c>require</c> statement in the test suite, then this
           name can be used instead of
-	  <seealso marker="#type-handle"><c>handle()</c></seealso>.</p>
+	  <seetype marker="#handle"><c>handle()</c></seetype>.</p>
 
       </desc>
     </func>
@@ -833,7 +833,7 @@
         <p>Unlocks the configuration target.</p>
 
         <p>If the client earlier has acquired a lock through
-          <seealso marker="#lock/2"><c>lock/2,3</c></seealso>, this
+          <seemfa marker="#lock/2"><c>lock/2,3</c></seemfa>, this
           operation releases the associated lock. To access another target
           than <c>running</c>, the server must support <c>:candidate</c>
           and/or <c>:startup</c>.</p>

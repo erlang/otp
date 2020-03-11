@@ -70,14 +70,14 @@
       sent from module <c>net_kernel</c>. Relevant Kernel
       application variables in this context are <c>net_setuptime</c>,
       <c>net_ticktime</c>, and <c>dist_auto_connect</c>. See also
-      <seealso marker="kernel_app#net_setuptime"><c>kernel(6)</c></seealso>.</p>
+      <seeapp marker="kernel_app#net_setuptime"><c>kernel(6)</c></seeapp>.</p>
     <p>The name server also maintains a fully connected network. For
       example, if node <c>N1</c> connects to node <c>N2</c> (which is
       already connected to <c>N3</c>), the global name servers on the
       nodes <c>N1</c> and <c>N3</c> ensure that also <c>N1</c>
       and <c>N3</c> are connected. If this is not desired,
       command-line flag <c>-connect_all false</c> can be used (see also
-      <seealso marker="erts:erl#connect_all"><c>erl(1)</c></seealso>).
+      <seecom marker="erts:erl#connect_all"><c>erl(1)</c></seecom>).
       In this case, the name registration service cannot be used, but the
       lock mechanism still works.</p>
     <p>If the global name server fails to connect nodes (<c>N1</c> and
@@ -113,9 +113,9 @@
       <fsummary>Name resolving function that notifies both pids.</fsummary>
       <desc>
         <p>Can be used as a name resolving function for
-          <seealso marker="#register_name/3"><c>register_name/3</c></seealso>
+          <seemfa marker="#register_name/3"><c>register_name/3</c></seemfa>
           and
-          <seealso marker="#re_register_name/3"><c>re_register_name/3</c></seealso>.</p>
+          <seemfa marker="#re_register_name/3"><c>re_register_name/3</c></seemfa>.</p>
         <p>The function unregisters both pids and sends the message
           <c>{global_name_conflict, <anno>Name</anno>, OtherPid}</c> to both
           processes.</p>
@@ -127,9 +127,9 @@
       <fsummary>Name resolving function that kills one pid.</fsummary>
       <desc>
         <p>Can be used as a name resolving function for
-          <seealso marker="#register_name/3"><c>register_name/3</c></seealso>
+          <seemfa marker="#register_name/3"><c>register_name/3</c></seemfa>
           and
-          <seealso marker="#re_register_name/3"><c>re_register_name/3</c></seealso>.</p>
+          <seemfa marker="#re_register_name/3"><c>re_register_name/3</c></seemfa>.</p>
         <p>The function randomly selects one of the pids for registration and
           kills the other one.</p>
       </desc>
@@ -140,9 +140,9 @@
       <fsummary>Name resolving function that notifies one pid.</fsummary>
       <desc>
         <p>Can be used as a name resolving function for
-          <seealso marker="#register_name/3"><c>register_name/3</c></seealso>
+          <seemfa marker="#register_name/3"><c>register_name/3</c></seemfa>
           and
-          <seealso marker="#re_register_name/3"><c>re_register_name/3</c></seealso>.</p>
+          <seemfa marker="#re_register_name/3"><c>re_register_name/3</c></seemfa>.</p>
         <p>The function randomly selects one of the pids for registration, and
           sends the message <c>{global_name_conflict, <anno>Name</anno>}</c> to
           the other pid.</p>
@@ -161,7 +161,7 @@
         <p>Atomically changes the registered name <c><anno>Name</anno></c> on
           all nodes to refer to <c><anno>Pid</anno></c>.</p>
         <p>Function <c><anno>Resolve</anno></c> has the same behavior as in
-          <seealso marker="#register_name/2"><c>register_name/2,3</c></seealso>.
+          <seemfa marker="#register_name/2"><c>register_name/2,3</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -310,7 +310,7 @@
       <type name="trans_fun"/>
       <desc>
         <p>Sets a lock on <c><anno>Id</anno></c> (using
-          <seealso marker="#set_lock/3"><c>set_lock/3</c></seealso>).
+          <seemfa marker="#set_lock/3"><c>set_lock/3</c></seemfa>).
           If this succeeds, <c><anno>Fun</anno>()</c> is evaluated and the
           result <c><anno>Res</anno></c>
           is returned. Returns <c>aborted</c> if the lock attempt fails.
@@ -343,8 +343,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="global_group"><c>global_group(3)</c></seealso>,
-      <seealso marker="net_kernel"><c>net_kernel(3)</c></seealso></p>
+    <p><seeerl marker="global_group"><c>global_group(3)</c></seeerl>,
+      <seeerl marker="net_kernel"><c>net_kernel(3)</c></seeerl></p>
   </section>
 </erlref>
 

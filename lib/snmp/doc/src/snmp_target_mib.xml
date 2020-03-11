@@ -49,8 +49,8 @@
 
   <section>
     <title>DATA TYPES</title>
-    <p>See the <seealso marker="snmpa_conf#types">
-    data types in <c>snmpa_conf</c></seealso>.</p>
+    <p>See the <seeerl marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seeerl>.</p>
 
     <marker id="configure"></marker>
   </section>

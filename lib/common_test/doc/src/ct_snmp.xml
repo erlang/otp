@@ -148,7 +148,7 @@
 
     <p>SNMP traps, inform, and report messages are handled by the user
       callback module. For details, see the
-      <seealso marker="snmp:index"><c>SNMP</c></seealso> application.</p>
+      <seeapp marker="snmp:index"><c>SNMP</c></seeapp> application.</p>
 
     <p>It is recommended to use the <c>.hrl</c> files created by the
       Erlang/OTP MIB compiler to define the Object Identifiers (OIDs).
@@ -160,7 +160,7 @@
 
     <p>Furthermore, values can be set for <c>SNMP</c> application configuration
       parameters, <c>config</c>, <c>server</c>, <c>net_if</c>, and so on (for
-      a list of valid parameters and types, see the  <seealso marker="snmp:users_guide"><c>User's Guide for the SNMP application</c></seealso>). This is
+      a list of valid parameters and types, see the  <seeguide marker="snmp:index"><c>User's Guide for the SNMP application</c></seeguide>). This is
       done by defining a configuration data variable on the following form:</p>
 
     <pre>
@@ -170,7 +170,7 @@
     <p>A name for the data must be allocated in the suite using
       <c>require</c> (see the example above). Pass this name as argument
       <c>SnmpAppConfName</c> to
-      <seealso marker="#start/3"><c>ct_snmp:start/3</c></seealso>.
+      <seemfa marker="#start/3"><c>ct_snmp:start/3</c></seemfa>.
       <c>ct_snmp</c> specifies default values for some <c>SNMP</c> application
       configuration parameters (such as <c>{verbosity,trace}</c> for parameter
       <c>config</c>). This set of defaults is merged with the parameters
@@ -235,7 +235,7 @@
       <item><marker id="type-varsandvals"/> </item>
     </taglist>
     <p>These data types are described in the documentation for
-      the <seealso marker="snmp:index"><c>SNMP</c></seealso> application.</p>
+      the <seeapp marker="snmp:index"><c>SNMP</c></seeapp> application.</p>
   </section>
 
   <funcs>
@@ -377,8 +377,8 @@
         undefined).</fsummary>
       <desc><marker id="start-2"/>
         <p>Equivalent to
-          <seealso marker="#start/3"><c>ct_snmp:start(Config, MgrAgentConfName,
-          undefined)</c></seealso>.</p>
+          <seemfa marker="#start/3"><c>ct_snmp:start(Config, MgrAgentConfName,
+          undefined)</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -398,13 +398,13 @@
           <c>MgrAgentConfName</c>, are performed. When using SNMPv3, called
           USM users are also registered. Users, <c>usm_users</c>, and
           managed agents can also be registered later using
-          <seealso marker="#register_users/2"><c>ct_snmp:register_users/2</c></seealso>,
-          <seealso marker="#register_agents/2"><c>ct_snmp:register_agents/2</c></seealso>,
+          <seemfa marker="#register_users/2"><c>ct_snmp:register_users/2</c></seemfa>,
+          <seemfa marker="#register_agents/2"><c>ct_snmp:register_agents/2</c></seemfa>,
           and
-          <seealso marker="#register_usm_users/2"><c>ct_snmp:register_usm_users/2</c></seealso>.</p>
+          <seemfa marker="#register_usm_users/2"><c>ct_snmp:register_usm_users/2</c></seemfa>.</p>
 
         <p>The agent started is called <c>snmp_master_agent</c>. Use
-          <seealso marker="#load_mibs/1"><c>ct_snmp:load_mibs/1</c></seealso>
+          <seemfa marker="#load_mibs/1"><c>ct_snmp:load_mibs/1</c></seemfa>
           to load MIBs into the agent.</p>
 
         <p>With <c>SnmpAppConfName</c> SNMP applications can be configured

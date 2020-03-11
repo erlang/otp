@@ -35,8 +35,8 @@
   <description><p>
 
   The module erl_prim_loader is moved to the runtime system
-  application.  Please see <seealso
-  marker="erts:erl_prim_loader">erl_prim_loader(3)</seealso> in the
+  application.  Please see <seeerl
+  marker="erts:erl_prim_loader">erl_prim_loader(3)</seeerl> in the
   ERTS reference manual instead.
 
   </p></description>

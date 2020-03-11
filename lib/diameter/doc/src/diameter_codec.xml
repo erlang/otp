@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY records
-  '<seealso marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seealso>'>
+  '<seefile marker="diameter_dict#MESSAGE_RECORDS">diameter_dict(4)</seefile>'>
   <!ENTITY types
-  '<seealso marker="diameter_dict#DATA_TYPES">diameter_dict(4)</seealso>'>
+  '<seefile marker="diameter_dict#DATA_TYPES">diameter_dict(4)</seefile>'>
   <!ENTITY decode_format
-  '<seealso marker="diameter#decode_format">decode format</seealso>'>
+  '<seeerl marker="diameter#decode_format">decode format</seeerl>'>
 
 <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >

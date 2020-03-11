@@ -72,8 +72,8 @@
       </item>
 
       <tag>Stack traces</tag>
-      <item><p>Stack traces returned from <seealso marker="erts:erlang#get_stacktrace/0">
-      <c>erlang:get_stacktrace/0</c></seealso> or as part of <c>'EXIT'</c> terms
+      <item><p>Stack traces returned from <seemfa marker="erts:erlang#get_stacktrace/0">
+      <c>erlang:get_stacktrace/0</c></seemfa> or as part of <c>'EXIT'</c> terms
       can look incomplete if HiPE compiled functions are involved. Typically a stack trace
       will contain only BEAM compiled functions or only HiPE compiled functions, depending
       on where the exception was raised.</p>
@@ -82,18 +82,18 @@
 
       <tag>Tracing</tag>
       <item><p>Erlang call trace is not supported by HiPE. Calling
-      <seealso marker="erts:erlang#trace_pattern/3"><c>erlang:trace_pattern({M,F,A}, ...)</c></seealso>
+      <seemfa marker="erts:erlang#trace_pattern/3"><c>erlang:trace_pattern({M,F,A}, ...)</c></seemfa>
       does not have any effect on HiPE compiled modules.</p>
       </item>
 
       <tag>NIFs</tag>
-      <item><p>Modules compiled with HiPE cannot call <seealso marker="erts:erlang#load_nif/2">
-      <c>erlang:load_nif/2</c></seealso> to load NIFs.</p>
+      <item><p>Modules compiled with HiPE cannot call <seemfa marker="erts:erlang#load_nif/2">
+      <c>erlang:load_nif/2</c></seemfa> to load NIFs.</p>
       </item>
 
       <tag>-on_load</tag>
       <item><p>Modules compiled with HiPE cannot use
-      <seealso marker="doc/reference_manual:code_loading#on_load"><c>-on_load()</c></seealso>
+      <seeguide marker="system/reference_manual:code_loading#on_load"><c>-on_load()</c></seeguide>
       directives.</p>
       </item>
     </taglist>
@@ -190,8 +190,8 @@
   <section>
     <title>SEE ALSO</title>
     <p>
-      <seealso marker="stdlib:c">c(3)</seealso>, 
-      <seealso marker="compiler:compile">compile(3)</seealso>
+      <seeerl marker="stdlib:c">c(3)</seeerl>, 
+      <seeerl marker="compiler:compile">compile(3)</seeerl>
     </p>
   </section>
 

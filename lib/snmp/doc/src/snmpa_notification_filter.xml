@@ -64,7 +64,7 @@
           the notification, return <c>{send, NewNotif}</c> or
           suppress the notification, return <c>dont_send</c>.</p>
         <p><c>Data</c> is supplied at filter registration time,
-          see <seealso marker="snmpa#register_notification_filter">register_notification_filter</seealso>.
+          see <seeerl marker="snmpa#register_notification_filter">register_notification_filter</seeerl>.
           </p>
       </desc>
     </func>

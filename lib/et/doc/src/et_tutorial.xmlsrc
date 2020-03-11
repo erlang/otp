@@ -113,8 +113,8 @@
       et:trace_me(85,from,to,message,extra_stuff).]]></code>
 
     <p>The parameters to <c>et:trace_me/5</c> are the same as to
-    <seealso
-    marker="#report_event"><c>et_collector:report_event/6</c></seealso>
+    <seeguide
+    marker="#report_event"><c>et_collector:report_event/6</c></seeguide>
     in the previous chapter. The big difference between the two is in
     the semantics of the two functions. The second actually reports an
     <c>Event</c> to the <c>Collector</c> while the first does nothing,

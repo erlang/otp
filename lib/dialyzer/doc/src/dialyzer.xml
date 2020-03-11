@@ -57,8 +57,8 @@
 dialyzer --help</code>
 
     <p>For more details about the operation of Dialyzer, see section
-      <seealso marker="dialyzer_chapter#dialyzer_gui">
-      Using Dialyzer from the GUI</seealso> in the User's Guide.</p>
+      <seeguide marker="dialyzer_chapter#dialyzer_gui">
+      Using Dialyzer from the GUI</seeguide> in the User's Guide.</p>
 
     <p><em>Exit status of the command-line version:</em></p>
 
@@ -300,9 +300,9 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
           (For help on the names of warnings, use
           <c>dialyzer -Whelp</c>.)
           Notice that the options can also be specified in the file with a
-          <c>-dialyzer()</c> attribute. For details, see section <seealso
+          <c>-dialyzer()</c> attribute. For details, see section <seeerl
           marker="#suppression">Requesting or Suppressing Warnings in
-          Source Files</seealso>.</p>
+          Source Files</seeerl>.</p>
       </item>
     </taglist>
 
@@ -310,7 +310,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       <p>** options <c>-D</c> and <c>-I</c> work both
         from the command line and in the Dialyzer GUI; the syntax of
         defines and includes is the same as that used by
-        <seealso marker="erts:erlc">erlc(1)</seealso>.</p>
+        <seecom marker="erts:erlc">erlc(1)</seecom>.</p>
     </note>
 
     <p><em>Warning options:</em></p>
@@ -422,8 +422,8 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
     <p>Dialyzer can be used directly from Erlang. Both the GUI and the
       command-line versions are also available. The options are similar to the
       ones given from the command line, see section
-      <seealso marker="#command_line">
-      Using Dialyzer from the Command Line</seealso>.</p>
+      <seeerl marker="#command_line">
+      Using Dialyzer from the Command Line</seeerl>.</p>
   </section>
 
   <section>
@@ -458,8 +458,8 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
 -dialyzer({[no_return, no_match], [g/0, h/0]}).</code>
 
     <p>For help on the warning options, use <c>dialyzer -Whelp</c>. The
-      options are also enumerated, see function <seealso marker="#gui/1">
-      <c>gui/1</c></seealso> below (<c>WarnOpts</c>).</p>
+      options are also enumerated, see function <seemfa marker="#gui/1">
+      <c>gui/1</c></seemfa> below (<c>WarnOpts</c>).</p>
 
     <note>
       <p>Warning option <c>-Wrace_conditions</c> has no effect when
@@ -485,7 +485,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       </type>
       <desc>
         <p>Get a string from warnings as returned by
-          <seealso marker="#run/1"><c>run/1</c></seealso>.</p>
+          <seemfa marker="#run/1"><c>run/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -499,7 +499,7 @@ dialyzer --plts plt_1 ... plt_n -- files_to_analyze</code>
       </type>
       <desc>
         <p>Get a string from warnings as returned by
-          <seealso marker="#run/1"><c>run/1</c></seealso>.</p>
+          <seemfa marker="#run/1"><c>run/1</c></seemfa>.</p>
 	<p>If <c>indent_opt</c> is set to <c>true</c> (default),
           line breaks are inserted in types, contracts, and Erlang
 	  code to improve readability.</p>

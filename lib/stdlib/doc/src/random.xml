@@ -53,13 +53,13 @@
       <p>This random number generator is not cryptographically
         strong. If a strong cryptographic random number generator is
         needed, use one of functions in the
-        <seealso marker="crypto:crypto"><c>crypto</c></seealso>
-        module, for example, <seealso marker="crypto:crypto">
-        <c>crypto:strong_rand_bytes/1</c></seealso>.</p>
+        <seeerl marker="crypto:crypto"><c>crypto</c></seeerl>
+        module, for example, <seeerl marker="crypto:crypto">
+        <c>crypto:strong_rand_bytes/1</c></seeerl>.</p>
     </note>
 
     <note>
-      <p>The improved <seealso marker="rand"><c>rand</c></seealso>
+      <p>The improved <seeerl marker="rand"><c>rand</c></seeerl>
         module is to be used instead of this module.</p>
     </note>
   </description>
@@ -104,14 +104,14 @@ random:seed(erlang:phash2([node()]),
             erlang:monotonic_time(),
             erlang:unique_integer())</code>
         <p>For details, see
-          <seealso marker="erts:erlang#phash2/1">
-          <c>erlang:phash2/1</c></seealso>,
-          <seealso marker="erts:erlang#node/0">
-          <c>erlang:node/0</c></seealso>,
-          <seealso marker="erts:erlang#monotonic_time/0">
-          <c>erlang:monotonic_time/0</c></seealso>, and
-          <seealso marker="erts:erlang#unique_integer/0">
-          <c>erlang:unique_integer/0</c></seealso>.</p>
+          <seemfa marker="erts:erlang#phash2/1">
+          <c>erlang:phash2/1</c></seemfa>,
+          <seemfa marker="erts:erlang#node/0">
+          <c>erlang:node/0</c></seemfa>,
+          <seemfa marker="erts:erlang#monotonic_time/0">
+          <c>erlang:monotonic_time/0</c></seemfa>, and
+          <seemfa marker="erts:erlang#unique_integer/0">
+          <c>erlang:unique_integer/0</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -169,10 +169,10 @@ random:seed(erlang:phash2([node()]),
       <c>random_seed</c> to remember the current seed.</p>
 
     <p>If a process calls
-      <seealso marker="#uniform/0"><c>uniform/0</c></seealso> or
-      <seealso marker="#uniform/1"><c>uniform/1</c></seealso>
+      <seemfa marker="#uniform/0"><c>uniform/0</c></seemfa> or
+      <seemfa marker="#uniform/1"><c>uniform/1</c></seemfa>
       without setting a seed first,
-      <seealso marker="#seed/0"><c>seed/0</c></seealso>
+      <seemfa marker="#seed/0"><c>seed/0</c></seemfa>
       is called automatically.</p>
 
     <p>The implementation changed in Erlang/OTP R15. Upgrading to R15 breaks

@@ -63,8 +63,8 @@
           source file, then the code path is searched to locate the object
           file for the module and extract its original compiler options and
           source path. If the source file is not found in the original
-          location, <seealso
-          marker="filelib#find_source/1"><c>filelib:find_source/1</c></seealso>
+          location, <seemfa
+          marker="filelib#find_source/1"><c>filelib:find_source/1</c></seemfa>
           is used to search for it relative to the directory of the object
           file.</p>
         <p>The source file is compiled with the the original
@@ -223,7 +223,7 @@
           <c>compile:file(File, [report_errors, report_warnings])</c> for each
           <c>File</c> in <c>Files</c>.</p>
         <p>For information about <c>File</c>, see
-          <seealso marker="file#type-filename"><c>file:filename()</c></seealso>.
+          <seetype marker="file#filename"><c>file:filename()</c></seetype>.
         </p>
       </desc>
     </func>
@@ -276,7 +276,7 @@
       <fsummary>Lists all modified modules.</fsummary>
       <desc>
         <p>Lists all modified modules. Shorthand for
-        <seealso marker="kernel:code#modified_modules/0"><c>code:modified_modules/0</c></seealso>.</p>
+        <seemfa marker="kernel:code#modified_modules/0"><c>code:modified_modules/0</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -285,7 +285,7 @@
       <fsummary>Memory allocation information.</fsummary>
       <desc>
         <p>Memory allocation information. Equivalent to
-          <seealso marker="erts:erlang#memory/0"><c>erlang:memory/0</c></seealso>.</p>
+          <seemfa marker="erts:erlang#memory/0"><c>erlang:memory/0</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -295,7 +295,7 @@
       <fsummary>Memory allocation information.</fsummary>
       <desc>
         <p>Memory allocation information. Equivalent to
-          <seealso marker="erts:erlang#memory/1"><c>erlang:memory/1</c></seealso>.</p>
+          <seemfa marker="erts:erlang#memory/1"><c>erlang:memory/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -394,9 +394,9 @@ compile:file(<anno>File</anno>, <anno>Options</anno> ++ [report_errors, report_w
         <code type="none">
 yecc:file(File)</code>
         <p>For information about <c>File = name()</c>, see
-          <seealso marker="filename"><c>filename(3)</c></seealso>.
+          <seeerl marker="filename"><c>filename(3)</c></seeerl>.
           For information about <c>YeccRet</c>, see
-          <seealso marker="parsetools:yecc#file/1"><c>yecc:file/2</c></seealso>.
+          <seemfa marker="parsetools:yecc#file/1"><c>yecc:file/2</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -413,9 +413,9 @@ yecc:file(File)</code>
         <code type="none">
 yecc:file(File, Options)</code>
         <p>For information about <c>File = name()</c>, see
-          <seealso marker="filename"><c>filename(3)</c></seealso>.
+          <seeerl marker="filename"><c>filename(3)</c></seeerl>.
           For information about <c>Options</c> and <c>YeccRet</c>, see
-          <seealso marker="parsetools:yecc#file/1"><c>yecc:file/2</c></seealso>.
+          <seemfa marker="parsetools:yecc#file/1"><c>yecc:file/2</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -423,11 +423,11 @@ yecc:file(File, Options)</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="filename"><c>filename(3)</c></seealso>,
-      <seealso marker="compiler:compile"><c>compile(3)</c></seealso>,
-      <seealso marker="erts:erlang"><c>erlang(3)</c></seealso>,
-      <seealso marker="parsetools:yecc"><c>yecc(3)</c></seealso>,
-      <seealso marker="tools:xref"><c>xref(3)</c></seealso></p>
+    <p><seeerl marker="filename"><c>filename(3)</c></seeerl>,
+      <seeerl marker="compiler:compile"><c>compile(3)</c></seeerl>,
+      <seeerl marker="erts:erlang"><c>erlang(3)</c></seeerl>,
+      <seeerl marker="parsetools:yecc"><c>yecc(3)</c></seeerl>,
+      <seeerl marker="tools:xref"><c>xref(3)</c></seeerl></p>
   </section>
 </erlref>
 

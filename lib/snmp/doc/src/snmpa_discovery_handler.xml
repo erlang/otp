@@ -40,7 +40,7 @@
       must export the following functions: </p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#stage1_finish">stage1_finish/2</seealso></p>
+        <p><seeerl marker="#stage1_finish">stage1_finish/2</seeerl></p>
       </item>
     </list>
     <p>The semantics of them and their exact signatures are explained
@@ -64,9 +64,9 @@
         <p>This function is called at the end of stage 1 of the 
           discovery process. It should return either the atom 
           <c>ignore</c> or <c>{ok, usm_entry() | [usm_entry()]}</c>. See 
-          <seealso marker="snmp_agent_config_files#usm">usm_entry()</seealso>
+          <seeguide marker="snmp_agent_config_files#usm">usm_entry()</seeguide>
           and 
-          <seealso marker="snmpa_conf#usm_entry">usm_entry/13</seealso>
+          <seeerl marker="snmpa_conf#usm_entry">usm_entry/13</seeerl>
           for more info. </p>
 
         <p>If the function returns <c>ignore</c>, then it is assumed that 
@@ -80,12 +80,12 @@
 
         <p>In either case, the agent will do nothing, but return
           the retrieved ManagerEngineID (see 
-          <seealso marker="snmpa#discovery">discovery</seealso>
+          <seeerl marker="snmpa#discovery">discovery</seeerl>
           for more info) and possible continue with stage 2 of 
           the discovery process. </p>
 
         <p>The <c>ExtraInfo</c> argument is passed on from the 
-          <seealso marker="snmpa#discovery">discovery</seealso>
+          <seeerl marker="snmpa#discovery">discovery</seeerl>
           function. </p>
 
         <p>This function may return an updated <c>NewExtraInfo</c> 

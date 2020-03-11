@@ -387,11 +387,11 @@
       </type>
       <desc>
 	<p>This function works exactly the same way as 
-	<seealso marker="#analyse_to_file/1">analyse_to_file</seealso> except
+	<seemfa marker="#analyse_to_file/1">analyse_to_file</seemfa> except
 	that it is asynchronous instead of synchronous. The spawned process
 	will link with the caller when created. If an <c>Error</c> occurs
 	while doing the cover analysis the process will crash with the same
-	error reason as <seealso marker="#analyse_to_file/1">analyse_to_file</seealso> 
+	error reason as <seemfa marker="#analyse_to_file/1">analyse_to_file</seemfa> 
 	would return.</p>
       </desc>
     </func>

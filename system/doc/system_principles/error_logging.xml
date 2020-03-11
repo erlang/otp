@@ -43,13 +43,13 @@ Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,e
       the Kernel application.</p>
     <p>The exit reasons (such as <c>badarg</c>) used by
       the runtime system are described in
-      <seealso marker="doc/reference_manual:errors#exit_reasons">
-      Errors and Error Handling</seealso>.</p>
+      <seeguide marker="system/reference_manual:errors#exit_reasons">
+      Errors and Error Handling</seeguide>.</p>
     <p>For information about Logger and its user
       interface, see the
-      <seealso marker="kernel:logger">logger(3)</seealso>
+      <seeerl marker="kernel:logger">logger(3)</seeerl>
       manual page and
-      the <seealso marker="kernel:logger_chapter">Logging</seealso>
+      the <seeguide marker="kernel:logger_chapter">Logging</seeguide>
       section in the Kernel User's Guide. The system can be configured so that
       log events are
       written to file or to tty, or both. In addition, user-defined
@@ -72,10 +72,10 @@ Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,e
       reports were only logged when the SASL application was
       running. This behaviour can, for backwards compatibility, be
       enabled by setting the Kernel configuration
-      parameter <seealso marker="kernel:kernel_app#logger_sasl_compatible">
-	<c>logger_sasl_compatible</c></seealso>
+      parameter <seeapp marker="kernel:kernel_app#logger_sasl_compatible">
+	<c>logger_sasl_compatible</c></seeapp>
       to <c>true</c>. For more information, see
-      <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
+      <seeguide marker="sasl:error_logging">SASL Error Logging</seeguide>
       in the SASL User's Guide.</p>
     <pre>
 % <input>erl -kernel logger_level info</input>

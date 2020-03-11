@@ -118,10 +118,10 @@
       <list>
         <item>
 	    <p>A new logging API is added to Erlang/OTP, see the
-	    <seealso
-	    marker="kernel:logger"><c>logger(3)</c></seealso> manual
-	    page, and section <seealso
-	    marker="kernel:logger_chapter">Logging</seealso> in the
+	    <seeerl
+	    marker="kernel:logger"><c>logger(3)</c></seeerl> manual
+	    page, and section <seeguide
+	    marker="kernel:logger_chapter">Logging</seeguide> in the
 	    Kernel User's Guide.</p>
 	    <p>Calls to <c>error_logger</c> are automatically
 	    redirected to the new API, and legacy error logger event
@@ -352,8 +352,8 @@
 	    new purge strategy will as of ERTS version 8.1 be
 	    enabled. This new strategy is not fully backwards
 	    compatible with the strategy used by default. For more
-	    information see the documentation of <seealso
-	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+	    information see the documentation of <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-13808 Aux Id: OTP-13833 </p>
         </item>
@@ -381,8 +381,8 @@
 	    the runtime system is built with support for dirty
 	    schedulers.</p>
           <p>
-	    For more information see the documentation of <seealso
-	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+	    For more information see the documentation of <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-13833</p>
         </item>

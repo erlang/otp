@@ -52,28 +52,28 @@ $ <input>erl -sname foobar</input></pre>
       If started with flag <c>-name</c>, the node name is <c>foobar@Host</c>,
       where <c>Host</c> is the fully qualified domain name.
       For more information, see
-      <seealso marker="erts:erl"><c>erl</c></seealso>.</p>
+      <seecom marker="erts:erl"><c>erl</c></seecom>.</p>
     <p>Normally, connections are established automatically when
       another node is referenced. This functionality can be disabled
       by setting Kernel configuration parameter
       <c>dist_auto_connect</c> to <c>never</c>, see
-      <seealso marker="kernel_app"><c>kernel(6)</c></seealso>. In this case,
+      <seeapp marker="kernel_app"><c>kernel(6)</c></seeapp>. In this case,
       connections must be established explicitly by calling
-      <seealso marker="#connect_node/1"><c>connect_node/1</c></seealso>.</p>
+      <seemfa marker="#connect_node/1"><c>connect_node/1</c></seemfa>.</p>
     <p>Which nodes that are allowed to communicate with each other is handled
       by the magic cookie system, see section
-      <seealso marker="doc/reference_manual:distributed">Distributed Erlang</seealso>
+      <seeguide marker="system/reference_manual:distributed">Distributed Erlang</seeguide>
       in the Erlang Reference Manual.</p>
     <warning>
       <p>
         Starting a distributed node without also specifying
-        <seealso marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seealso>
+        <seecom marker="erts:erl#proto_dist"><c>-proto_dist inet_tls</c></seecom>
         will expose the node to attacks that may give the attacker
         complete access to the node and in extension the cluster.
         When using un-secure distributed nodes, make sure that the
         network is configured to keep potential attackers out.
-        See the <seealso marker="ssl:ssl_distribution">
-        Using SSL for Erlang Distribution</seealso> User's Guide
+        See the <seeguide marker="ssl:ssl_distribution">
+        Using SSL for Erlang Distribution</seeguide> User's Guide
         for details on how to setup a secure distributed node.
       </p>
     </warning>
@@ -114,7 +114,7 @@ $ <input>erl -sname foobar</input></pre>
       <fsummary>Get <c>net_ticktime</c>.</fsummary>
       <desc>
         <p>Gets <c>net_ticktime</c> (see
-          <seealso marker="kernel_app"><c>kernel(6)</c></seealso>).</p>
+          <seeapp marker="kernel_app"><c>kernel(6)</c></seeapp>).</p>
         <p>Defined return values (<c><anno>Res</anno></c>):</p>
         <taglist>
           <tag><c><anno>NetTicktime</anno></c></tag>
@@ -138,7 +138,7 @@ $ <input>erl -sname foobar</input></pre>
 	connected to <c><anno>Node</anno></c>.</p>
         <p>If <c><anno>Node</anno></c> is a connected node
 	the return value is the same as from
-	<seealso marker="inet#getopts/2"><c>inet:getopts(Sock, Options)</c></seealso>
+	<seemfa marker="inet#getopts/2"><c>inet:getopts(Sock, Options)</c></seemfa>
 	where <c>Sock</c> is the distribution socket for <c><anno>Node</anno></c>.</p>
 	<p>Returns <c>ignored</c> if the local node is not alive or
 	<c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not connected.</p>
@@ -205,7 +205,7 @@ $ <input>erl -sname foobar</input></pre>
           <c><anno>Options</anno></c>, see below.</p>
         <p>Also, when <c>OptionList == []</c>, only visible nodes, that
           is, nodes that appear in the result of
-          <seealso marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seealso>,
+          <seemfa marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seemfa>,
           are monitored.</p>
         <p><c><anno>Option</anno></c> can be any of the following:</p>
         <taglist>
@@ -272,7 +272,7 @@ $ <input>erl -sname foobar</input></pre>
       <fsummary>Set <c>net_ticktime</c>.</fsummary>
       <desc>
         <p>Sets <c>net_ticktime</c> (see
-          <seealso marker="kernel_app"><c>kernel(6)</c></seealso>) to
+          <seeapp marker="kernel_app"><c>kernel(6)</c></seeapp>) to
           <c><anno>NetTicktime</anno></c> seconds.
           <c><anno>TransitionPeriod</anno></c> defaults to <c>60</c>.</p>
         <p>Some definitions:</p>
@@ -332,14 +332,14 @@ $ <input>erl -sname foobar</input></pre>
 	or the atom <c>new</c> to affect the distribution sockets of all
 	future connected nodes.</p>
         <p>The return value is the same as from
-	<seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+	<seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>
 	or <c>{error, noconnection}</c> if <c><anno>Node</anno></c> is not
 	a connected node or <c>new</c>.</p>
 	<p>If <c><anno>Node</anno></c> is <c>new</c> the <c><anno>Options</anno></c>
 	will then also be added to kernel configration parameters
-	<seealso marker="kernel:kernel_app#inet_dist_listen_options">inet_dist_listen_options</seealso>
+	<seeapp marker="kernel:kernel_app#inet_dist_listen_options">inet_dist_listen_options</seeapp>
 	and
-	<seealso marker="kernel:kernel_app#inet_dist_connect_options">inet_dist_connect_options</seealso>.</p>
+	<seeapp marker="kernel:kernel_app#inet_dist_connect_options">inet_dist_connect_options</seeapp>.</p>
 	<p>Returns <c>ignored</c> if the local node is not alive.</p>
       </desc>
     </func>
@@ -370,7 +370,7 @@ $ <input>erl -sname foobar</input></pre>
         <p>Turns a distributed node into a non-distributed node. For
           other nodes in the network, this is the same as the node
           going down. Only possible when the net kernel was started using
-          <seealso marker="#start/1"><c>start/1</c></seealso>,
+          <seemfa marker="#start/1"><c>start/1</c></seemfa>,
           otherwise <c>{error, not_allowed}</c> is returned. Returns
           <c>{error, not_found}</c> if the local node is not alive.</p>
       </desc>

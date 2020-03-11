@@ -85,7 +85,7 @@
           that describes the error or warning. This function is usually
           called implicitly when processing an <c>ErrorInfo</c> structure
           (see section
-          <seealso marker="#errorinfo">Error Information</seealso>).</p>
+          <seeerl marker="#errorinfo">Error Information</seeerl>).</p>
       </desc>
     </func>
 
@@ -95,8 +95,8 @@
       <desc>
         <p>Tests if <c><anno>Expr</anno></c> is a legal guard test.
           <c><anno>Expr</anno></c> is an Erlang term representing the abstract
-          form for the expression. <seealso marker="erl_parse#parse_exprs/1">
-          <c>erl_parse:parse_exprs(Tokens)</c></seealso>
+          form for the expression. <seemfa marker="erl_parse#parse_exprs/1">
+          <c>erl_parse:parse_exprs(Tokens)</c></seemfa>
           can be used to generate a list of <c><anno>Expr</anno></c>.</p>
       </desc>
     </func>
@@ -122,14 +122,14 @@
           compiler, and to avoid the same description in two places, the
           elements of <c>Options</c> that control the warnings are
           only described in the
-          <seealso marker="compiler:compile#erl_lint_options">
-          <c>compile(3)</c></seealso> module.</p>
+          <seeerl marker="compiler:compile#erl_lint_options">
+          <c>compile(3)</c></seeerl> module.</p>
         <p><c><anno>AbsForms</anno></c> of a module, which comes from a file
           that is read through <c>epp</c>, the Erlang preprocessor, can come
           from many files. This means that any references to errors must
-          include the filename, see the <seealso marker="epp">
-          <c>epp(3)</c></seealso> module or parser (see the
-          <seealso marker="erl_parse"><c>erl_parse(3)</c></seealso> module).
+          include the filename, see the <seeerl marker="epp">
+          <c>epp(3)</c></seeerl> module or parser (see the
+          <seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl> module).
           The returned errors and warnings have the following format:</p>
         <code type="none">
 [{<anno>FileName2</anno>,[<anno>ErrorInfo</anno>]}]</code>
@@ -154,8 +154,8 @@ Module:format_error(ErrorDescriptor)</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="epp"><c>epp(3)</c></seealso>,
-      <seealso marker="erl_parse"><c>erl_parse(3)</c></seealso></p>
+    <p><seeerl marker="epp"><c>epp(3)</c></seeerl>,
+      <seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl></p>
   </section>
 </erlref>
 

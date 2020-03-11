@@ -35,6 +35,7 @@
       defines a common documentation storage format for module documentation in the Erlang/OTP
       ecosystem. Erl_Docgen can generate documentation in this format from XML files following
       the DTD's descibed in the other User's Guides in this application.</p>
+    <p></p>
     <p>Some special considerations have to be taken when writing documentation that
       should also be available through EEP-48 style storage.</p>
     <list>
@@ -53,8 +54,8 @@
   <section>
     <title>See Also</title>
     <p>
-      <seealso marker="stdlib:shell_docs"><c>shell_docs(3)</c></seealso>,
-      <seealso marker="kernel:code#get_doc/1"><c>code:get_doc(3)</c></seealso>
+      <seeerl marker="stdlib:shell_docs"><c>shell_docs(3)</c></seeerl>,
+      <seemfa marker="kernel:code#get_doc/1"><c>code:get_doc(3)</c></seemfa>
     </p>
   </section>
 

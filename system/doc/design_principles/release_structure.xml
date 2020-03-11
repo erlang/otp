@@ -40,11 +40,11 @@
       subset of the Erlang/OTP applications. This is called a
       <em>release</em>.</p>
     <p>To do this, create a
-    <seealso marker="#res_file">release resource file</seealso> that
+    <seeguide marker="#res_file">release resource file</seeguide> that
       defines which applications are included in the release.</p>
     <p>The release resource file is used to generate
-      <seealso marker="#boot">boot scripts</seealso> and
-      <seealso marker="#pack">release packages</seealso>. A system
+      <seeguide marker="#boot">boot scripts</seeguide> and
+      <seeguide marker="#pack">release packages</seeguide>. A system
       that is transferred to and installed at another site is called a
       <em>target system</em>. How to use a release package to create a
       target system is described in System Principles.</p>
@@ -75,7 +75,7 @@
       the SASL application.</p>
     <marker id="ch_rel"></marker>
     <p><em>Example: </em> A release of <c>ch_app</c> from
-      <seealso marker="applications#ch_app">Applications</seealso>
+      <seeguide marker="applications#ch_app">Applications</seeguide>
       has the following <c>.app</c> file:</p>
     <code type="none">
 {application, ch_app,
@@ -169,8 +169,8 @@ ok</pre>
      <item>The <c>.rel</c> file</item>
      <item>The object code for all applications, structured according
      to the
-     <seealso marker="applications#app_dir">application directory
-     structure</seealso></item>
+     <seeguide marker="applications#app_dir">application directory
+     structure</seeguide></item>
      <item>The binary boot script renamed to <c>start.boot</c></item>
    </list>
     <pre>
@@ -210,13 +210,13 @@ releases/ch_rel-1.rel</pre>
     <p>If a <c>relup</c> file and/or a system configuration file called
       <c>sys.config</c>, or a <c>sys.config.src</c>, is found, these files
       are also included in the release package. See
-      <seealso marker="release_handling#req">Release Handling</seealso>.</p>
+      <seeguide marker="release_handling#req">Release Handling</seeguide>.</p>
     <p>Options can be set to make the release package include source
       code and the ERTS binary as well.</p>
     <p>For information on how to install the first target system, using
       a release package, see System Principles. For information
       on how to install a new release package in an existing system, see
-      <seealso marker="release_handling">Release Handling</seealso>.</p>
+      <seeguide marker="release_handling">Release Handling</seeguide>.</p>
   </section>
 
   <section>

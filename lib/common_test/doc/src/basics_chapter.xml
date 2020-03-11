@@ -143,9 +143,9 @@
     </p>
     <p>
       The test suite module must conform to a
-      <seealso marker="common_test">callback interface</seealso>
+      <seeerl marker="common_test">callback interface</seeerl>
       specified by the <c>Common Test</c> test server. For details, see section
-      <seealso marker="write_test_chapter#intro">Writing Test Suites</seealso>.
+      <seeguide marker="write_test_chapter#intro">Writing Test Suites</seeguide>.
     </p>
 
     <p>

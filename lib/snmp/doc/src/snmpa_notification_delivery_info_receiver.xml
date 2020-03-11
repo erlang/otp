@@ -46,10 +46,10 @@
       must export the following functions: </p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#delivery_targets/3">delivery_targets/3</seealso></p>
+        <p><seemfa marker="#delivery_targets/3">delivery_targets/3</seemfa></p>
       </item>
       <item>
-        <p><seealso marker="#delivery_info/4">delivery_info/4</seealso></p>
+        <p><seemfa marker="#delivery_info/4">delivery_info/4</seemfa></p>
       </item>
     </list>
     <p>The semantics of them and their exact signatures are explained
@@ -67,8 +67,8 @@
 
   <section>
     <title>DATA TYPES</title>
-    <p>See the <seealso marker="snmpa_conf#types">
-    data types in <c>snmpa_conf</c></seealso>.</p>
+    <p>See the <seeerl marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seeerl>.</p>
     <marker id="accept_recv"></marker>
 
      <marker id="delivery_targets"></marker>

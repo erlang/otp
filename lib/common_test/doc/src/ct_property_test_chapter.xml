@@ -52,7 +52,7 @@
   <section>
     <marker id="supported"></marker>
     <title>What Is Supported?</title>
-    <p>The <seealso marker="ct_property_test#">ct_property_test</seealso> module
+    <p>The <seeerl marker="ct_property_test#">ct_property_test</seeerl> module
     does the following:
     </p>
     <list type="bulleted">
@@ -173,7 +173,7 @@ prop_parallel(Config) ->
                      end)).
     </code>
     <p>The
-    <seealso marker="ct_property_test#present_result/4">ct_property_test:present_result/4</seealso>
+    <seemfa marker="ct_property_test#present_result/4">ct_property_test:present_result/4</seemfa>
     is a help function for printing some statistics in the CommonTest log file.</p>
     <p>Our example test could for example be a simple test of an ftp server, where we perform get, put
     and delete requests, some of them in parallel. Per default, the result has three sections:
@@ -243,7 +243,7 @@ Range  : Number in range
     <marker id="spec_present_result"></marker>
     <title>The spec for present_result/5</title>
     <p>To be written...
-    <seealso marker="ct_property_test#present_result/5">present_result/5</seealso>
+    <seemfa marker="ct_property_test#present_result/5">present_result/5</seemfa>
     </p>
   </section-->
 </chapter>

@@ -34,17 +34,17 @@
     <p>
       This module defines a callback handler for the communication with an
       <url href="https://tools.ietf.org/html/draft-miller-ssh-agent-02">SSH Agent</url>
-      and can be used to replace the <seealso marker="ssh:ssh_file">default callback</seealso>.
+      and can be used to replace the <seeerl marker="ssh:ssh_file">default callback</seeerl>.
       This allows to issue signing requests to an agent that stores SSH private keys to perform
       authentication.
     </p>
     <p>
-      Ssh_agent implements the <seealso marker="ssh:ssh_client_key_api">ssh_client_key_api</seealso>, to
+      Ssh_agent implements the <seeerl marker="ssh:ssh_client_key_api">ssh_client_key_api</seeerl>, to
       allow it to be used by setting the option
-      <seealso marker="ssh:ssh#type-key_cb_common_option"><c>key_cb</c></seealso>
+      <seetype marker="ssh:ssh#key_cb_common_option"><c>key_cb</c></seetype>
       when starting a client (with for example
-      <seealso marker="ssh:ssh#connect/3">ssh:connect</seealso>,
-      <seealso marker="ssh:ssh#shell/1">ssh:shell</seealso>
+      <seemfa marker="ssh:ssh#connect/3">ssh:connect</seemfa>,
+      <seemfa marker="ssh:ssh#shell/1">ssh:shell</seemfa>
       ).
     </p>
     <code type="erl">
@@ -75,7 +75,7 @@
     <datatype>
       <name name="socket_path_option"/>
       <desc>
-        <p>Sets the <seealso marker="#SOCKET_PATH">socket path</seealso> for the communication with the agent.</p>
+        <p>Sets the <seeerl marker="#SOCKET_PATH">socket path</seeerl> for the communication with the agent.</p>
       </desc>
     </datatype>
 
@@ -93,7 +93,7 @@
       <desc>
         <p>
           The module which the <c>add_host_key</c> and <c>is_host_key</c> callbacks are delegated to. Defaults to the
-          <seealso marker="ssh:ssh_file">ssh_file</seealso> module.
+          <seeerl marker="ssh:ssh_file">ssh_file</seeerl> module.
         </p>
       </desc>
     </datatype>
@@ -106,7 +106,7 @@
       <fsummary></fsummary>
       <desc>
         <p>
-          This callback is delegated to the <seealso marker="ssh:ssh_file#add_host_key/4">ssh_file</seealso> module.
+          This callback is delegated to the <seemfa marker="ssh:ssh_file#add_host_key/4">ssh_file</seemfa> module.
         </p>
       </desc>
     </func>
@@ -117,7 +117,7 @@
       <fsummary></fsummary>
       <desc>
         <p>
-          This callback is delegated to the <seealso marker="ssh:ssh_file#is_host_key/5">ssh_file</seealso> module.
+          This callback is delegated to the <seemfa marker="ssh:ssh_file#is_host_key/5">ssh_file</seemfa> module.
         </p>
       </desc>
     </func>
@@ -128,7 +128,7 @@
       <desc>
         <p><strong>Types and description</strong></p>
         <p>See the api description in
-          <seealso marker="ssh:ssh_client_key_api#Module:user_key/2">ssh_client_key_api, Module:user_key/2</seealso>.
+          <seemfa marker="ssh:ssh_client_key_api#Module:user_key/2">ssh_client_key_api, Module:user_key/2</seemfa>.
         </p>
       </desc>
     </func>

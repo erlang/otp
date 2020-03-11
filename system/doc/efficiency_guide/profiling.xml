@@ -41,11 +41,11 @@
     <p>Erlang/OTP contains several tools to help finding bottlenecks:</p>
 
     <list type="bulleted">
-      <item><p><seealso marker="tools:fprof"><c>fprof</c></seealso> provides
+      <item><p><seeerl marker="tools:fprof"><c>fprof</c></seeerl> provides
           the most detailed information about where the program time is spent,
           but it significantly slows down the program it profiles.</p></item>
 
-      <item><p><seealso marker="tools:eprof"><c>eprof</c></seealso> provides
+      <item><p><seeerl marker="tools:eprof"><c>eprof</c></seeerl> provides
           time information of each function used in the program. No call graph is
           produced, but <c>eprof</c> has considerable less impact on the program it
           profiles.</p>
@@ -53,16 +53,16 @@
           <c>eprof</c>, <c>cprof</c> can be used to locate code parts that
           are to be more thoroughly profiled using <c>fprof</c> or <c>eprof</c>.</p></item>
 
-      <item><p><seealso marker="tools:cprof"><c>cprof</c></seealso> is the
+      <item><p><seeerl marker="tools:cprof"><c>cprof</c></seeerl> is the
           most lightweight tool, but it only provides execution counts on a
           function basis (for all processes, not per process).</p></item>
 
-      <item><p><seealso marker="runtime_tools:dbg"><c>dbg</c></seealso> is the
+      <item><p><seeerl marker="runtime_tools:dbg"><c>dbg</c></seeerl> is the
           generic erlang tracing frontend. By using the <c>timestamp</c> or
           <c>cpu_timestamp</c> options it can be used to time how long function
           calls in a live system take.</p></item>
 
-      <item><p><seealso marker="tools:lcnt"><c>lcnt</c></seealso> is used
+      <item><p><seeerl marker="tools:lcnt"><c>lcnt</c></seeerl> is used
           to find contention points in the Erlang Run-Time System's internal
           locking mechanisms. It is useful when looking for bottlenecks in
           interaction between process, port, ets tables and other entities
@@ -71,7 +71,7 @@
     </list>
 
     <p>The tools are further described in
-    <seealso marker="#profiling_tools">Tools</seealso>.</p>
+    <seeguide marker="#profiling_tools">Tools</seeguide>.</p>
 
     <p>There are also several open source tools outside of Erlang/OTP
     that can be used to help profiling. Some of them are:</p>
@@ -95,29 +95,29 @@
       For unknown reasons the Erlang Run-Time System failed to allocate memory to
       use. When this happens a crash dump is generated that contains information
       about the state of the system as it ran out of memory. Use the
-      <seealso marker="observer:cdv"><c>crashdump_viewer</c></seealso> to get a
+      <seecom marker="observer:cdv"><c>crashdump_viewer</c></seecom> to get a
       view of the memory is being used. Look for processes with large heaps or
       many messages, large ets tables, etc.</p>
     <p>When looking at memory usage in a running system the most basic function
-      to get information from is <seealso marker="erts:erlang#memory/0"><c>
-      erlang:memory()</c></seealso>. It returns the current memory usage
-      of the system. <seealso marker="tools:instrument"><c>instrument(3)</c></seealso>
+      to get information from is <seemfa marker="erts:erlang#memory/0"><c>
+      erlang:memory()</c></seemfa>. It returns the current memory usage
+      of the system. <seeerl marker="tools:instrument"><c>instrument(3)</c></seeerl>
       can be used to get a more detailed breakdown of where memory is used.</p>
     <p>Processes, ports and ets tables can then be inspecting using their
       respective info functions, i.e.
-      <seealso marker="erts:erlang#process_info_memory"><c>erlang:process_info/2
-      </c></seealso>,
-      <seealso marker="erts:erlang#port_info_memory"><c>erlang:port_info/2
-      </c></seealso> and
-      <seealso marker="stdlib:ets#info/1"><c>ets:info/1</c></seealso>.
+      <seeerl marker="erts:erlang#process_info_memory"><c>erlang:process_info/2
+      </c></seeerl>,
+      <seeerl marker="erts:erlang#port_info_memory"><c>erlang:port_info/2
+      </c></seeerl> and
+      <seemfa marker="stdlib:ets#info/1"><c>ets:info/1</c></seemfa>.
     </p>
     <p>Sometimes the system can enter a state where the reported memory
       from <c>erlang:memory(total)</c> is very different from the
       memory reported by the OS. This can be because of internal
       fragmentation within the Erlang Run-Time System. Data about
       how memory is allocated can be retrieved using
-      <seealso marker="erts:erlang#system_info_allocator">
-        <c>erlang:system_info(allocator)</c></seealso>.
+      <seeerl marker="erts:erlang#system_info_allocator">
+        <c>erlang:system_info(allocator)</c></seeerl>.
       The data you get from that function is very raw and not very plesant to read.
       <url href="http://ferd.github.io/recon/recon_alloc.html">recon_alloc</url>
       can be used to extract useful information from system_info
@@ -141,13 +141,13 @@
     <p>There are also some tools that can be used to get a view of the
       whole system with more or less overhead.</p>
     <list type="bulleted">
-      <item><seealso marker="observer:observer"><c>observer</c></seealso>
+      <item><seeerl marker="observer:observer"><c>observer</c></seeerl>
       is a GUI tool that can connect to remote nodes and display a
       variety of information about the running system.</item>
-      <item><seealso marker="observer:etop"><c>etop</c></seealso>
+      <item><seeerl marker="observer:etop"><c>etop</c></seeerl>
       is a command line tool that can connect to remote nodes and
       display information similar to what the UNIX tool top shows.</item>
-      <item><seealso marker="runtime_tools:msacc"><c>msacc</c></seealso>
+      <item><seeerl marker="runtime_tools:msacc"><c>msacc</c></seeerl>
       allows the user to get a view of what the Erlang Run-Time system
       is spending its time doing. Has a very low overhead, which makes it
       useful to run in heavily loaded systems to get some idea of where
@@ -183,7 +183,7 @@
     <p>These questions are not always trivial to answer. Some
     benchmarks might be needed to back up your theory and to avoid
       making things slower if your theory is wrong. For details, see
-    <seealso marker="#benchmark">Benchmarking</seealso>.</p>
+    <seeguide marker="#benchmark">Benchmarking</seeguide>.</p>
   </section>
 
   <section>
@@ -200,7 +200,7 @@
       <p><c>fprof</c> is based on trace to file to minimize runtime
       performance impact. Using <c>fprof</c> is just a matter of
       calling a few library functions, see the
-      <seealso marker="tools:fprof">fprof</seealso> manual page in
+      <seeerl marker="tools:fprof">fprof</seeerl> manual page in
       Tools.</p>
     </section>
 
@@ -210,7 +210,7 @@
       <c>eprof</c> shows how much time has been used by each process,
       and in which function calls this time has been spent. Time is
       shown as percentage of total time and absolute time. For more
-      information, see the <seealso marker="tools:eprof">eprof</seealso>
+      information, see the <seeerl marker="tools:eprof">eprof</seeerl>
       manual page in Tools.</p>
     </section>
 
@@ -223,7 +223,7 @@
       (compared with <c>fprof</c>) and does not need to recompile
       any modules to profile (compared with <c>cover</c>).
       For more information, see the
-      <seealso marker="tools:cprof">cprof</seealso> manual page in
+      <seeerl marker="tools:cprof">cprof</seeerl> manual page in
       Tools.</p>
     </section>
 
@@ -284,7 +284,7 @@
       system as it is possible to limit the scope of what is profiled
       to be very small.
       For more information, see the
-      <seealso marker="runtime_tools:dbg">dbg</seealso> manual page in
+      <seeerl marker="runtime_tools:dbg">dbg</seeerl> manual page in
       Runtime Tools.</p>
     </section>
 
@@ -301,7 +301,7 @@
         show more contention points (and thus be more useful) on systems
         using many schedulers on many cores.</p>
       <p>For more information, see the
-        <seealso marker="tools:lcnt">lcnt</seealso> manual page in Tools.</p>
+        <seeerl marker="tools:lcnt">lcnt</seeerl> manual page in Tools.</p>
     </section>
 
   </section>
@@ -322,7 +322,7 @@
     <p>Benchmarks can measure wall-clock time or CPU time.</p>
 
     <list type="bulleted">
-    <item><seealso marker="stdlib:timer#tc/3">timer:tc/3</seealso> measures
+    <item><seemfa marker="stdlib:timer#tc/3">timer:tc/3</seemfa> measures
     wall-clock time. The advantage with wall-clock time is that I/O,
     swapping, and other activities in the operating system kernel are
     included in the measurements. The disadvantage is that the
@@ -331,7 +331,7 @@
     be the minimum time that is possible to achieve under the best of
     circumstances.</item>
 
-    <item><seealso marker="erts:erlang#statistics/1">statistics/1</seealso>
+    <item><seemfa marker="erts:erlang#statistics/1">statistics/1</seemfa>
     with argument <c>runtime</c> measures CPU time spent in the Erlang
     virtual machine. The advantage with CPU time is that the results are more
     consistent from run to run. The disadvantage is that the time

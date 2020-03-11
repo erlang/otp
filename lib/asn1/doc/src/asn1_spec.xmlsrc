@@ -83,8 +83,8 @@
          file with the same name as the ASN.1 specification but with
          extension <c>.asn1config</c>. This configuration file is not
 	 the same as used for compilation of a set of files. See Section
-	 <seealso marker="#UndecodedPart">Writing an Exclusive Decode
-	 Instruction.</seealso></item>
+	 <seeguide marker="#UndecodedPart">Writing an Exclusive Decode
+	 Instruction.</seeguide></item>
       </list>
     </section>
 
@@ -401,15 +401,15 @@ List_Selector = [integer()]</pre>
       <p>In the example, component <c>number</c> of the first of the encoded
         elements in the <c>SEQUENCE OF</c> <c>buttonList</c> is selected.
         This applies on the ASN.1 specification in Section
-        <seealso marker="#Asn1spec">Writing an Exclusive Decode
-        Instruction</seealso>.
+        <seeguide marker="#Asn1spec">Writing an Exclusive Decode
+        Instruction</seeguide>.
         </p>
     </section>
 
     <section>
       <title>Another Example</title>
       <p>In this example, the same ASN.1 specification as in Section
-        <seealso marker="#Asn1spec">Writing an Exclusive Decode Instruction</seealso>
+        <seeguide marker="#Asn1spec">Writing an Exclusive Decode Instruction</seeguide>
          is used. The following is a valid selective decode instruction:</p>
       <pre>
 {selective_decode,
@@ -517,7 +517,7 @@ ValAction = {'Action',17,{'Button',4711,false}}.
 
     <section>
       <title>ASN.1 Specifications, Messages, and Configuration</title>
-      <p>The specifications <seealso marker="#Asn1spec">GUI</seealso> and
+      <p>The specifications <seeguide marker="#Asn1spec">GUI</seeguide> and
         <url href="http://www.itu.int/ITU-T/asn1/database/itu-t/h/h248/2002/MEDIA-GATEWAY-CONTROL.html">MEDIA-GATEWAY-CONTROL</url>
         were used in the test.
         </p>

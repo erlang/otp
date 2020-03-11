@@ -33,7 +33,7 @@
   <description>
     <p><c>disksup</c> is a process which supervises the available disk
       space in the system. It is part of the OS_Mon application, see
-      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for Unix
+      <seeapp marker="os_mon_app">os_mon(6)</seeapp>. Available for Unix
       and Windows.</p>
     <p>Periodically checks the disks. For each disk or partition which
       uses more than a certain amount of the available space, the alarm
@@ -50,7 +50,7 @@
       </item>
     </taglist>
     <p>Alarms are reported to the SASL alarm handler, see
-      <seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>.
+      <seeerl marker="sasl:alarm_handler">alarm_handler(3)</seeerl>.
       To set an alarm, <c>alarm_handler:set_alarm(Alarm)</c> is called
       where <c>Alarm</c> is the alarm specified above.</p>
     <p>The alarms are cleared automatically when the alarm cause is no
@@ -86,7 +86,7 @@
           posix compatible (Windows and SunOS).</p>
       </item>
     </taglist>
-    <p>See <seealso marker="kernel:config">config(4)</seealso> for
+    <p>See <seefile marker="kernel:config">config(4)</seefile> for
       information about how to change the value of configuration
       parameters.</p>
   </section>
@@ -134,7 +134,7 @@
         <p>The change will take effect after the next disk space check
           and is non-persist. That is, in case of a process restart,
           this value is forgotten and the default value will be used.
-          See <seealso marker="#config">Configuration</seealso> above.</p>
+          See <seeerl marker="#config">Configuration</seeerl> above.</p>
       </desc>
     </func>
     <func>
@@ -159,15 +159,15 @@
         <p>The change will take effect during the next disk space check
           and is non-persist. That is, in case of a process restart,
           this value is forgotten and the default value will be used.
-          See <seealso marker="#config">Configuration</seealso> above.</p>
+          See <seeerl marker="#config">Configuration</seeerl> above.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>,
-      <seealso marker="os_mon_app">os_mon(3)</seealso></p>
+    <p><seeerl marker="sasl:alarm_handler">alarm_handler(3)</seeerl>,
+      <seeapp marker="os_mon_app">os_mon(3)</seeapp></p>
   </section>
 </erlref>
 

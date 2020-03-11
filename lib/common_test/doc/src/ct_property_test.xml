@@ -80,7 +80,7 @@
       ).</code>
       <p>and the the property test module (in this example <c>ftp_simple_client_server.erl</c>)
       as almost a usual property testing module
-      (More examples are in <seealso marker="ct_property_test_chapter">the User's Guide</seealso>):</p>
+      (More examples are in <seeguide marker="ct_property_test_chapter">the User's Guide</seeguide>):</p>
       <code>
 -module(ftp_simple_client_server).	
 -export([prop_ftp/0...]).
@@ -165,7 +165,7 @@ prop_ftp() -&gt;
       <name since="">present_result(Module, Cmds, Triple, Config) -> Result</name>
       <fsummary>Presents the result of statem property testing</fsummary>
       <desc>
-      <p>Same as <seealso marker="#present_result/5"><c>present_result(Module, Cmds, Triple, Config, [])</c></seealso>
+      <p>Same as <seemfa marker="#present_result/5"><c>present_result(Module, Cmds, Triple, Config, [])</c></seemfa>
       </p>
       </desc>
     </func>
@@ -186,15 +186,15 @@ prop_ftp() -&gt;
 	<d>the output from for example proper:run_commands/2 or proper:run_parallel_commands/2</d>
 
 	<v>Config =</v>
-	<d>the Common Test <seealso marker="common_test#Module:Testcase/1">Config</seealso> in test cases.</d>
+	<d>the Common Test <seemfa marker="common_test#Module:Testcase/1">Config</seemfa> in test cases.</d>
 
 	<v>Options = [present_option()]</v>
 	<v>present_option() = {print_fun, fun(Format,Args)}</v>
 	<v>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;| {spec, StatisticsSpec}</v>
 	<d>The <c>print_fun</c> defines which function to do the actual printout. The default is
-	<seealso marker="ct#log/2">ct:log/2</seealso>.
+	<seemfa marker="ct#log/2">ct:log/2</seemfa>.
 	The <c>spec</c> defines what statistics are to be printed<!--, see the
-	<seealso marker="ct_property_test_chapter#spec_present_result">User's Guide</seealso>-->
+	<seeguide marker="ct_property_test_chapter#spec_present_result">User's Guide</seeguide>-->
 	</d>
 
 	<v>Result = boolean()</v>
@@ -205,14 +205,14 @@ prop_ftp() -&gt;
       PropEr, QuickCheck or other similar property testing tool.
       </p>
       <p>It is assumed to be called inside the property called by
-      <seealso marker="#quickcheck/2">quickcheck/2</seealso>:</p>
+      <seemfa marker="#quickcheck/2">quickcheck/2</seemfa>:</p>
       <code>
 ...
 RunResult = run_parallel_commands(?MODULE, Cmds),
 ct_property_test:present_result(?MODULE, Cmds, RunResult, Config)	
 ...
       </code>
-      <p>See the <seealso marker="ct_property_test_chapter#stateful1">User's Guide</seealso> for
+      <p>See the <seeguide marker="ct_property_test_chapter#stateful1">User's Guide</seeguide> for
       an example of the usage and of the default printout.
       </p>
       <p>The <c>StatisticsSpec</c> is a list of the tuples:</p>

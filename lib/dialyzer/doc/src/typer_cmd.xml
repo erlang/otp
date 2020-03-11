@@ -149,7 +149,7 @@ typer [--help] [--version] [--plt PLT] [--edoc]
       <p>** options <c>-D</c> and <c>-I</c> work both
         from the command line and in the TypEr GUI; the syntax of
         defines and includes is the same as that used by
-        <seealso marker="erts:erlc">erlc(1)</seealso>.</p>
+        <seecom marker="erts:erlc">erlc(1)</seecom>.</p>
     </note>
 
   </section>

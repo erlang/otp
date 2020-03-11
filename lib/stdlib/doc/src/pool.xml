@@ -47,7 +47,7 @@
       processes in the Erlang runtime system.</p>
 
     <p>The slave nodes are started with the
-      <seealso marker="slave"><c>slave(3)</c></seealso> module. This
+      <seeerl marker="slave"><c>slave(3)</c></seeerl> module. This
       effects terminal I/O, file I/O, and code loading.</p>
     <p>If the master node fails, the entire pool exits.</p>
   </description>
@@ -106,10 +106,10 @@
       <desc>
         <p>Starts a new pool. The file <c>.hosts.erlang</c> is read to
           find host names where the pool nodes can be started; see
-          section <seealso marker="#files">Files</seealso>. The
+          section <seeerl marker="#files">Files</seeerl>. The
           startup procedure fails if the file is not found.</p>
         <p>The slave nodes are started with
-          <seealso marker="slave#start/2"><c>slave:start/2,3</c></seealso>,
+          <seemfa marker="slave#start/2"><c>slave:start/2,3</c></seemfa>,
           passing along <c><anno>Name</anno></c> and, if provided,
           <c><anno>Args</anno></c>. <c><anno>Name</anno></c> is used as the
           first part of the node names, <c><anno>Args</anno></c> is used to
@@ -135,8 +135,8 @@
     <title>Files</title>
     <p><c>.hosts.erlang</c> is used to pick hosts where nodes can
       be started. For information about format and location of this file, see
-      <seealso marker="kernel:net_adm#host_file/0">
-      <c>net_adm:host_file/0</c></seealso>.</p>
+      <seemfa marker="kernel:net_adm#host_file/0">
+      <c>net_adm:host_file/0</c></seemfa>.</p>
     <p><c>$HOME/.erlang.slave.out.HOST</c> is used for all extra I/O
       that can come from the slave nodes on standard I/O. If the startup
       procedure does not work, this file can indicate the reason.</p>

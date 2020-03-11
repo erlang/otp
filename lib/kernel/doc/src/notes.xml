@@ -103,9 +103,9 @@
         <item>
           <p>
 	    Fixed a bug causing actual nodedown reason reported by
-	    <seealso
+	    <seemfa
 	    marker="kernel:net_kernel#monitor_nodes/2"><c>net_kernel:monitor_nodes(true,
-	    [nodedown_reason])</c></seealso> to be lost and replaced
+	    [nodedown_reason])</c></seemfa> to be lost and replaced
 	    by the reason <c>killed</c>.</p>
           <p>
 	    Own Id: OTP-16216</p>
@@ -881,18 +881,18 @@
 	    Own Id: OTP-14501</p>
         </item>
         <item>
-	    <p> File operations used to accept <seealso
-	    marker="kernel:file#type-name_all">filenames</seealso>
+	    <p> File operations used to accept <seetype
+	    marker="kernel:file#name_all">filenames</seetype>
 	    containing null characters (integer value zero). This
 	    caused the name to be truncated and in some cases
 	    arguments to primitive operations to be mixed up.
 	    Filenames containing null characters inside the filename
 	    are now <em>rejected</em> and will cause primitive file
 	    operations to fail. </p> <p> Also environment variable
-	    operations used to accept <seealso
-	    marker="kernel:os#type-env_var_name">names</seealso> and
-	    <seealso
-	    marker="kernel:os#type-env_var_value">values</seealso> of
+	    operations used to accept <seetype
+	    marker="kernel:os#env_var_name">names</seetype> and
+	    <seetype
+	    marker="kernel:os#env_var_value">values</seetype> of
 	    environment variables containing null characters (integer
 	    value zero). This caused operations to silently produce
 	    erroneous results. Environment variable names and values
@@ -903,12 +903,12 @@
 	    character in environment variable names causing various
 	    problems. <c>$=</c> characters in environment variable
 	    names are now also <em>rejected</em>. </p> <p>Also
-	    <seealso
-	    marker="kernel:os#cmd/1"><c>os:cmd/1</c></seealso> now
-	    reject null characters inside its <seealso
-	    marker="kernel:os#type-os_command">command</seealso>.
-	    </p> <p><seealso
-	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seealso>
+	    <seemfa
+	    marker="kernel:os#cmd/1"><c>os:cmd/1</c></seemfa> now
+	    reject null characters inside its <seetype
+	    marker="kernel:os#os_command">command</seetype>.
+	    </p> <p><seemfa
+	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>
 	    will also reject null characters inside the port name
 	    from now on.</p>
           <p>
@@ -989,10 +989,10 @@
       <list>
         <item>
 	    <p>A new logging API is added to Erlang/OTP, see the
-	    <seealso
-	    marker="kernel:logger"><c>logger(3)</c></seealso> manual
-	    page, and section <seealso
-	    marker="kernel:logger_chapter">Logging</seealso> in the
+	    <seeerl
+	    marker="kernel:logger"><c>logger(3)</c></seeerl> manual
+	    page, and section <seeguide
+	    marker="kernel:logger_chapter">Logging</seeguide> in the
 	    Kernel User's Guide.</p>
 	    <p>Calls to <c>error_logger</c> are automatically
 	    redirected to the new API, and legacy error logger event
@@ -1059,10 +1059,10 @@
 	    This mainly consists of support for usage of distribution
 	    controller processes (previously only ports could be used
 	    as distribution controllers). For more information see
-	    <seealso marker="erts:alt_dist#distribution_module">ERTS
+	    <seeguide marker="erts:alt_dist#distribution_module">ERTS
 	    User's Guide ➜ How to implement an Alternative Carrier
 	    for the Erlang Distribution ➜ Distribution
-	    Module</seealso>.</p>
+	    Module</seeguide>.</p>
           <p>
 	    Own Id: OTP-14459</p>
         </item>
@@ -1094,11 +1094,11 @@
 	    <p>The callback module passed as <c>-epmd_module</c> to
 	    erl has been expanded to be able to do name and port
 	    resolving.</p> <p>Documentation has also been added in
-	    the <seealso
-	    marker="kernel:erl_epmd"><c>erl_epmd</c></seealso>
-	    reference manual and ERTS User's Guide <seealso
+	    the <seeerl
+	    marker="kernel:erl_epmd"><c>erl_epmd</c></seeerl>
+	    reference manual and ERTS User's Guide <seeguide
 	    marker="erts:alt_disco">How to Implement an Alternative
-	    Node Discovery for Erlang Distribution</seealso>.</p>
+	    Node Discovery for Erlang Distribution</seeguide>.</p>
           <p>
 	    Own Id: OTP-15086 Aux Id: PR-1694 </p>
         </item>
@@ -1330,9 +1330,9 @@
 	    Own Id: OTP-13805</p>
         </item>
         <item>
-	    <p>Replaced usage of deprecated symbolic <seealso
-	    marker="erts:erlang#type-time_unit"><c>time
-	    unit</c></seealso> representations.</p>
+	    <p>Replaced usage of deprecated symbolic <seetype
+	    marker="erts:erlang#time_unit"><c>time
+	    unit</c></seetype> representations.</p>
           <p>
 	    Own Id: OTP-13831 Aux Id: OTP-13735 </p>
         </item>
@@ -1715,8 +1715,8 @@
         </item>
         <item>
           <p>
-	    Added <seealso
-	    marker="kernel:os#perf_counter/1">os:perf_counter/1</seealso>.</p>
+	    Added <seemfa
+	    marker="kernel:os#perf_counter/1">os:perf_counter/1</seemfa>.</p>
           <p>
 	    The perf_counter is a very very cheap and high resolution
 	    timer that can be used to timestamp system events. It
@@ -1827,13 +1827,13 @@
         </item>
         <item>
           <p>
-	    <seealso
-	    marker="kernel:gen_tcp#accept/2"><c>gen_tcp:accept/2</c></seealso>
-	    was not <seealso
+	    <seemfa
+	    marker="kernel:gen_tcp#accept/2"><c>gen_tcp:accept/2</c></seemfa>
+	    was not <seeguide
 	    marker="erts:time_correction#Time_Warp_Safe_Code">time
-	    warp safe</seealso>. This since it used the same time as
-	    returned by <seealso
-	    marker="erts:erlang#now/0"><c>erlang:now/0</c></seealso>
+	    warp safe</seeguide>. This since it used the same time as
+	    returned by <seemfa
+	    marker="erts:erlang#now/0"><c>erlang:now/0</c></seemfa>
 	    when calculating timeout. This has now been fixed.</p>
           <p>
 	    Own Id: OTP-13254 Aux Id: OTP-11997, OTP-13222 </p>
@@ -2471,10 +2471,10 @@
 	    and yield without having to set up the heap in a state
 	    that can be garbage collected.</p>
           <p>
-	    The <seealso
-	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seealso>,
-	    and <seealso
-	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seealso>
+	    The <seemfa
+	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seemfa>,
+	    and <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seemfa>
 	    BIFs have been introduced. Both taking an option list as
 	    last argument. Using these, one can issue asynchronous
 	    requests.</p>
@@ -2565,14 +2565,14 @@
         </item>
         <item>
           <p>
-	    Under rare circumstances a process calling <seealso
-	    marker="kernel:inet#close/1"><c>inet:close/1</c></seealso>,
-	    <seealso
-	    marker="kernel:gen_tcp#close/1"><c>gen_tcp:close/1</c></seealso>,
-	    <seealso
-	    marker="kernel:gen_udp#close/1"><c>gen_udp:close/1</c></seealso>,
-	    or <seealso
-	    marker="kernel:gen_sctp#close/1"><c>gen_sctp:close/1</c></seealso>
+	    Under rare circumstances a process calling <seemfa
+	    marker="kernel:inet#close/1"><c>inet:close/1</c></seemfa>,
+	    <seemfa
+	    marker="kernel:gen_tcp#close/1"><c>gen_tcp:close/1</c></seemfa>,
+	    <seemfa
+	    marker="kernel:gen_udp#close/1"><c>gen_udp:close/1</c></seemfa>,
+	    or <seemfa
+	    marker="kernel:gen_sctp#close/1"><c>gen_sctp:close/1</c></seemfa>
 	    could hang in the call indefinitely.</p>
           <p>
 	    Own Id: OTP-11491</p>

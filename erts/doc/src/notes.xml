@@ -108,8 +108,8 @@
         <item>
           <p>
 	    Corrected the valid range of the <c>erl</c> command line
-	    argument <seealso marker="erts:erl#+SDio"><c>+SDio
-	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seealso> from
+	    argument <seecom marker="erts:erl#+SDio"><c>+SDio
+	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seecom> from
 	    <c>0..1024</c> to <c>1..1024</c>. <c>+SDio 0</c> was
 	    erroneously allowed which just caused the VM to crash on
 	    the first dirty I/O job scheduled.</p>
@@ -131,7 +131,7 @@
       <list>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, not all
+	    For <seeerl marker="socket#">socket</seeerl>, not all
 	    send and receive flags are supported on all platforms. In
 	    order to (at least) simplify testing, the
 	    socket:supports/0,1,2,3 functions has been extended with
@@ -151,8 +151,8 @@
           <p>
 	    The options <c>busy_limits_port</c> and
 	    <c>busy_limits_msgq</c> have been added to the BIF
-	    <seealso
-	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seealso>.
+	    <seemfa
+	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>.
 	    The <c>busy_limits_port</c> option can be used for
 	    controlling the busy state of a port executing the
 	    <c>spawn_driver</c> or the <c>fd_driver</c>. The
@@ -276,9 +276,9 @@
         </item>
         <item>
           <p>
-	    A process calling <seealso
+	    A process calling <seeerl
 	    marker="erts:erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
-	    block)</c></seealso> could end up blocked waiting for the
+	    block)</c></seeerl> could end up blocked waiting for the
 	    operation to complete indefinitely.</p>
           <p>
 	    Own Id: OTP-16379</p>
@@ -332,10 +332,10 @@
       <list>
         <item>
           <p>
-	    The functions <seealso
-	    marker="stdlib:unicode#characters_to_list/2"><c>unicode:characters_to_list()</c></seealso>
-	    and <seealso
-	    marker="stdlib:unicode#characters_to_binary/3"><c>unicode:characters_to_binary()</c></seealso>
+	    The functions <seemfa
+	    marker="stdlib:unicode#characters_to_list/2"><c>unicode:characters_to_list()</c></seemfa>
+	    and <seemfa
+	    marker="stdlib:unicode#characters_to_binary/3"><c>unicode:characters_to_binary()</c></seemfa>
 	    raised a <c>badarg</c> exception instead of returning an
 	    error tuple when passed very large invalid code points as
 	    input.</p>
@@ -350,7 +350,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, invalid
+	    For <seeerl marker="socket#">socket</seeerl>, invalid
 	    encoding of send and receive flags caused badarg and send
 	    failure.</p>
           <p>
@@ -365,7 +365,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, unable to
+	    For <seeerl marker="socket#">socket</seeerl>, unable to
 	    properly decode the timestamp control message header on
 	    FreeBSD. We incorrectly used the SO_TIMESTAMP flag for
 	    the timestamp control message header type. It should have
@@ -376,7 +376,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, when
+	    For <seeerl marker="socket#">socket</seeerl>, when
 	    setting the ip option 'recvtos' to true, thereby
 	    indicating that we want to receive the TOS control
 	    message header, we don't actually get TOS but RECVTOS on
@@ -393,7 +393,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, wrong
+	    For <seeerl marker="socket#">socket</seeerl>, wrong
 	    type for protocol caused segmentation fault if protocol
 	    was provided as {raw, integer()}.</p>
           <p>
@@ -401,7 +401,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, when
+	    For <seeerl marker="socket#">socket</seeerl>, when
 	    setting the ip option 'recvttl' to true, thereby
 	    indicating that we want to receive the TTL control
 	    message header, we don't actually get TTL but RECVTTL on
@@ -412,7 +412,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, IPv6
+	    For <seeerl marker="socket#">socket</seeerl>, IPv6
 	    control message headers was incorrectly decoded with
 	    level ip instead of ipv6.</p>
           <p>
@@ -458,7 +458,7 @@
         </item>
         <item>
           <p>
-	    The <seealso marker="socket#">socket</seealso> socket
+	    The <seeerl marker="socket#">socket</seeerl> socket
 	    option 'peek_off' has been disabled. If peek_off was set
 	    and then socket:recv/3 was called with the peek flag, the
 	    call could hang.</p>
@@ -474,7 +474,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="kernel:net#">net</seealso>, a couple
+	    For <seeerl marker="kernel:net#">net</seeerl>, a couple
 	    of NI macros was deprecated in new versions of glibc, so
 	    these are no longer used (IDN_ALLOW_UNASSIGNED and
 	    IDN_USE_STD3_ASCII_RULES).</p>
@@ -499,16 +499,16 @@
         <item>
           <p>
 	    Fixed a bug causing actual nodedown reason reported by
-	    <seealso
+	    <seemfa
 	    marker="kernel:net_kernel#monitor_nodes/2"><c>net_kernel:monitor_nodes(true,
-	    [nodedown_reason])</c></seealso> to be lost and replaced
+	    [nodedown_reason])</c></seemfa> to be lost and replaced
 	    by the reason <c>killed</c>.</p>
           <p>
 	    Own Id: OTP-16216</p>
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, the
+	    For <seeerl marker="socket#">socket</seeerl>, the
 	    timestamp creation used when printing warning messages
 	    and debug printouts did not work. The used buffer was too
 	    small.</p>
@@ -554,7 +554,7 @@
       <list>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, not all
+	    For <seeerl marker="socket#">socket</seeerl>, not all
 	    send and receive flags are supported on all platforms. In
 	    order to (at least) simplify testing, the
 	    socket:supports/0,1,2,3 functions has been extended with
@@ -565,7 +565,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, add
+	    For <seeerl marker="socket#">socket</seeerl>, add
 	    support for IPv6 socket options tclass and recvtclass.
 	    Both has been added, but the use of them are platform
 	    dependent. Call socket:supports(options, ipv6, Opt) to be
@@ -576,7 +576,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, the TCP
+	    For <seeerl marker="socket#">socket</seeerl>, the TCP
 	    socket option cork was not supported even though the
 	    supports function reported it as such.</p>
           <p>
@@ -609,7 +609,7 @@
         </item>
         <item>
           <p>
-	    For <seealso marker="socket#">socket</seealso>, added
+	    For <seeerl marker="socket#">socket</seeerl>, added
 	    support for the socket option extended_err. Andreas
 	    Schultz.</p>
           <p>
@@ -876,8 +876,8 @@
 	    to version 8.43. See <url
 	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
 	    for information about changes made to PCRE. This library
-	    implements major parts of the <seealso
-	    marker="stdlib:re"><c>re</c></seealso> regular
+	    implements major parts of the <seeerl
+	    marker="stdlib:re"><c>re</c></seeerl> regular
 	    expressions module.</p>
           <p>
 	    Own Id: OTP-15889</p>
@@ -1375,12 +1375,12 @@
 	    Own Id: OTP-14831</p>
         </item>
         <item>
-	    <p>Added NIF functions <seealso
-	    marker="erl_nif#enif_set_pid_undefined"><c>enif_set_pid_undefined</c></seealso>,
-	    <seealso
-	    marker="erl_nif#enif_is_pid_undefined"><c>enif_is_pid_undefined</c></seealso>
-	    and <seealso
-	    marker="erl_nif#enif_compare_pids"><c>enif_compare_pids</c></seealso>.</p>
+	    <p>Added NIF functions <seecref
+	    marker="erl_nif#enif_set_pid_undefined"><c>enif_set_pid_undefined</c></seecref>,
+	    <seecref
+	    marker="erl_nif#enif_is_pid_undefined"><c>enif_is_pid_undefined</c></seecref>
+	    and <seecref
+	    marker="erl_nif#enif_compare_pids"><c>enif_compare_pids</c></seecref>.</p>
           <p>
 	    Own Id: OTP-15011 Aux Id: PR-2147 </p>
         </item>
@@ -1608,13 +1608,13 @@
         </item>
         <item>
           <p>
-	    A new <seealso
+	    A new <seemfa
 	    marker="erlang#dist_ctrl_set_opt/3"><c>erlang:dist_ctrl_set_opt(DHandle,
-	    get_size, Value)</c></seealso> option has been added.
+	    get_size, Value)</c></seemfa> option has been added.
 	    This option makes it possible to configure the
 	    distribution channel identified by <c>DHandle</c> so that
-	    <seealso
-	    marker="erlang#dist_ctrl_get_data/1"><c>erlang:dist_ctrl_get_data(DHandle)</c></seealso>
+	    <seemfa
+	    marker="erlang#dist_ctrl_get_data/1"><c>erlang:dist_ctrl_get_data(DHandle)</c></seemfa>
 	    also returns the size of the data to pass over the
 	    channel.</p>
           <p>
@@ -1741,8 +1741,8 @@
         <item>
           <p>
 	    Corrected the valid range of the <c>erl</c> command line
-	    argument <seealso marker="erts:erl#+SDio"><c>+SDio
-	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seealso> from
+	    argument <seecom marker="erts:erl#+SDio"><c>+SDio
+	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seecom> from
 	    <c>0..1024</c> to <c>1..1024</c>. <c>+SDio 0</c> was
 	    erroneously allowed which just caused the VM to crash on
 	    the first dirty I/O job scheduled.</p>
@@ -1798,9 +1798,9 @@
         </item>
         <item>
           <p>
-	    A process calling <seealso
+	    A process calling <seeerl
 	    marker="erts:erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
-	    block)</c></seealso> could end up blocked waiting for the
+	    block)</c></seeerl> could end up blocked waiting for the
 	    operation to complete indefinitely.</p>
           <p>
 	    Own Id: OTP-16379</p>
@@ -2162,11 +2162,11 @@
 	    while it was executing dirty, the receiving process could
 	    later end up in a suspended state indefinitely. This bug
 	    was introduced in ERTS version 10.0 (OTP 21.0).</p>
-	    <p>Suspend/resume signals are sent from <seealso
-	    marker="erts:erlang#suspend_process/1"><c>erlang:suspend_process()</c></seealso>/<seealso
-	    marker="erts:erlang#resume_process/1"><c>erlang:resume_process()</c></seealso>.
-	    The <seealso
-	    marker="runtime_tools:dbg"><c>dbg</c></seealso> trace
+	    <p>Suspend/resume signals are sent from <seemfa
+	    marker="erts:erlang#suspend_process/1"><c>erlang:suspend_process()</c></seemfa>/<seemfa
+	    marker="erts:erlang#resume_process/1"><c>erlang:resume_process()</c></seemfa>.
+	    The <seeerl
+	    marker="runtime_tools:dbg"><c>dbg</c></seeerl> trace
 	    tool utilize this functionality and could thus trigger
 	    this bug.</p>
           <p>
@@ -2864,8 +2864,8 @@
 	    to version 8.42. See <url
 	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
 	    for information about changes made to PCRE. This library
-	    implements major parts of the <seealso
-	    marker="stdlib:re"><c>re</c></seealso> regular
+	    implements major parts of the <seeerl
+	    marker="stdlib:re"><c>re</c></seeerl> regular
 	    expressions module.</p>
           <p>
 	    Own Id: OTP-15217</p>
@@ -3168,18 +3168,18 @@
 	    Own Id: OTP-14537 Aux Id: PR1529 </p>
         </item>
         <item>
-	    <p> File operations used to accept <seealso
-	    marker="kernel:file#type-name_all">filenames</seealso>
+	    <p> File operations used to accept <seetype
+	    marker="kernel:file#name_all">filenames</seetype>
 	    containing null characters (integer value zero). This
 	    caused the name to be truncated and in some cases
 	    arguments to primitive operations to be mixed up.
 	    Filenames containing null characters inside the filename
 	    are now <em>rejected</em> and will cause primitive file
 	    operations to fail. </p> <p> Also environment variable
-	    operations used to accept <seealso
-	    marker="kernel:os#type-env_var_name">names</seealso> and
-	    <seealso
-	    marker="kernel:os#type-env_var_value">values</seealso> of
+	    operations used to accept <seetype
+	    marker="kernel:os#env_var_name">names</seetype> and
+	    <seetype
+	    marker="kernel:os#env_var_value">values</seetype> of
 	    environment variables containing null characters (integer
 	    value zero). This caused operations to silently produce
 	    erroneous results. Environment variable names and values
@@ -3190,12 +3190,12 @@
 	    character in environment variable names causing various
 	    problems. <c>$=</c> characters in environment variable
 	    names are now also <em>rejected</em>. </p> <p>Also
-	    <seealso
-	    marker="kernel:os#cmd/1"><c>os:cmd/1</c></seealso> now
-	    reject null characters inside its <seealso
-	    marker="kernel:os#type-os_command">command</seealso>.
-	    </p> <p><seealso
-	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seealso>
+	    <seemfa
+	    marker="kernel:os#cmd/1"><c>os:cmd/1</c></seemfa> now
+	    reject null characters inside its <seetype
+	    marker="kernel:os#os_command">command</seetype>.
+	    </p> <p><seemfa
+	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>
 	    will also reject null characters inside the port name
 	    from now on.</p>
           <p>
@@ -3377,8 +3377,8 @@
         <item>
           <p>
 	    On OSs with per thread CPU time support, change
-	    <c>cpu_timestamp</c> in <seealso
-	    marker="erlang#trace/3">erlang:trace/3</seealso> to use
+	    <c>cpu_timestamp</c> in <seemfa
+	    marker="erlang#trace/3">erlang:trace/3</seemfa> to use
 	    it instead of per process CPU time. This makes this
 	    option useable on such OSs when running multiple
 	    schedulers.</p>
@@ -3459,10 +3459,10 @@
         </item>
         <item>
 	    <p>A new logging API is added to Erlang/OTP, see the
-	    <seealso
-	    marker="kernel:logger"><c>logger(3)</c></seealso> manual
-	    page, and section <seealso
-	    marker="kernel:logger_chapter">Logging</seealso> in the
+	    <seeerl
+	    marker="kernel:logger"><c>logger(3)</c></seeerl> manual
+	    page, and section <seeguide
+	    marker="kernel:logger_chapter">Logging</seeguide> in the
 	    Kernel User's Guide.</p>
 	    <p>Calls to <c>error_logger</c> are automatically
 	    redirected to the new API, and legacy error logger event
@@ -3550,8 +3550,8 @@
 	    still possible to disable kernel-poll, but it has to be
 	    done at compile time through the configure option
 	    <c>--disable-kernel-poll</c>.</p> <p>The new <c>erl</c>
-	    options <seealso marker="erl#+IOt"><c>+IOt</c></seealso>
-	    and <seealso marker="erl#+IOp"><c>+IOp</c></seealso> can
+	    options <seecom marker="erl#+IOt"><c>+IOt</c></seecom>
+	    and <seecom marker="erl#+IOp"><c>+IOp</c></seecom> can
 	    be used to change how many IO poll threads and poll sets
 	    that erts should use. See their respective documentation
 	    for more details.</p>
@@ -3603,10 +3603,10 @@
 	    This mainly consists of support for usage of distribution
 	    controller processes (previously only ports could be used
 	    as distribution controllers). For more information see
-	    <seealso marker="erts:alt_dist#distribution_module">ERTS
+	    <seeguide marker="erts:alt_dist#distribution_module">ERTS
 	    User's Guide ➜ How to implement an Alternative Carrier
 	    for the Erlang Distribution ➜ Distribution
-	    Module</seealso>.</p>
+	    Module</seeguide>.</p>
           <p>
 	    Own Id: OTP-14459</p>
         </item>
@@ -3905,11 +3905,11 @@
 	    thresholds for dirty schedulers, and changing these
 	    settings for normal schedulers will no longer affect
 	    dirty schedulers. </p> <p>Refer to the documentation for
-	    details. The new switches are <seealso
-	    marker="erl#+sbwtdcpu">+sbwtdcpu</seealso>, <seealso
-	    marker="erl#+sbwtdio">+sbwtdio</seealso>, <seealso
-	    marker="erl#+swtdcpu">+swtdcpu</seealso>, and <seealso
-	    marker="erl#+swtdio">+swtdio</seealso>.</p> <p>The
+	    details. The new switches are <seecom
+	    marker="erl#+sbwtdcpu">+sbwtdcpu</seecom>, <seecom
+	    marker="erl#+sbwtdio">+sbwtdio</seecom>, <seecom
+	    marker="erl#+swtdcpu">+swtdcpu</seecom>, and <seecom
+	    marker="erl#+swtdio">+swtdio</seecom>.</p> <p>The
 	    default busy wait threshold for dirty scheduler threads
 	    has also been lowered to <c>short</c>.</p>
           <p>
@@ -3939,8 +3939,8 @@
 	    Own Id: OTP-14961</p>
         </item>
         <item>
-	    <p>The process suspend functionality used by the <seealso
-	    marker="erlang#suspend_process/2">erlang:suspend_process/2</seealso>
+	    <p>The process suspend functionality used by the <seemfa
+	    marker="erlang#suspend_process/2">erlang:suspend_process/2</seemfa>
 	    BIF has been reimplemented using the newly introduced
 	    true asynchronous signaling between processes. This
 	    mainly to reduce memory usage in the process control
@@ -4069,11 +4069,11 @@
 	    <p>The callback module passed as <c>-epmd_module</c> to
 	    erl has been expanded to be able to do name and port
 	    resolving.</p> <p>Documentation has also been added in
-	    the <seealso
-	    marker="kernel:erl_epmd"><c>erl_epmd</c></seealso>
-	    reference manual and ERTS User's Guide <seealso
+	    the <seeerl
+	    marker="kernel:erl_epmd"><c>erl_epmd</c></seeerl>
+	    reference manual and ERTS User's Guide <seeguide
 	    marker="erts:alt_disco">How to Implement an Alternative
-	    Node Discovery for Erlang Distribution</seealso>.</p>
+	    Node Discovery for Erlang Distribution</seeguide>.</p>
           <p>
 	    Own Id: OTP-15086 Aux Id: PR-1694 </p>
         </item>
@@ -4132,8 +4132,8 @@
         <item>
           <p>
 	    Corrected the valid range of the <c>erl</c> command line
-	    argument <seealso marker="erts:erl#+SDio"><c>+SDio
-	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seealso> from
+	    argument <seecom marker="erts:erl#+SDio"><c>+SDio
+	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seecom> from
 	    <c>0..1024</c> to <c>1..1024</c>. <c>+SDio 0</c> was
 	    erroneously allowed which just caused the VM to crash on
 	    the first dirty I/O job scheduled.</p>
@@ -4151,9 +4151,9 @@
       <list>
         <item>
           <p>
-	    A process calling <seealso
+	    A process calling <seeerl
 	    marker="erts:erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
-	    block)</c></seealso> could end up blocked waiting for the
+	    block)</c></seeerl> could end up blocked waiting for the
 	    operation to complete indefinitely.</p>
           <p>
 	    Own Id: OTP-16379</p>
@@ -5046,8 +5046,8 @@
 	    to version 8.41. See <url
 	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
 	    for information about changes made to PCRE. This library
-	    implements major parts of the <seealso
-	    marker="stdlib:re"><c>re</c></seealso> regular
+	    implements major parts of the <seeerl
+	    marker="stdlib:re"><c>re</c></seeerl> regular
 	    expressions module.</p>
           <p>
 	    Own Id: OTP-14574</p>
@@ -5151,22 +5151,22 @@
         <item>
 	    <p>Add new nif API functions for managing an I/O Queue.
 	    The added functions are:</p> <list type="bulleted">
-	    <item><seealso marker="erl_nif#enif_ioq_create">
-	    <c>enif_ioq_create()</c></seealso></item> <item><seealso
+	    <item><seecref marker="erl_nif#enif_ioq_create">
+	    <c>enif_ioq_create()</c></seecref></item> <item><seecref
 	    marker="erl_nif#enif_ioq_destroy">
-	    <c>enif_ioq_destroy()</c></seealso></item> <item><seealso
+	    <c>enif_ioq_destroy()</c></seecref></item> <item><seecref
 	    marker="erl_nif#enif_ioq_enq_binary">
-	    <c>enif_ioq_enq_binary()</c></seealso></item>
-	    <item><seealso marker="erl_nif#enif_ioq_enqv">
-	    <c>enif_ioq_enqv()</c></seealso></item> <item><seealso
+	    <c>enif_ioq_enq_binary()</c></seecref></item>
+	    <item><seecref marker="erl_nif#enif_ioq_enqv">
+	    <c>enif_ioq_enqv()</c></seecref></item> <item><seecref
 	    marker="erl_nif#enif_ioq_deq">
-	    <c>enif_ioq_deq()</c></seealso></item> <item><seealso
+	    <c>enif_ioq_deq()</c></seecref></item> <item><seecref
 	    marker="erl_nif#enif_ioq_peek">
-	    <c>enif_ioq_peek()</c></seealso></item> <item><seealso
+	    <c>enif_ioq_peek()</c></seecref></item> <item><seecref
 	    marker="erl_nif#enif_inspect_iovec">
-	    <c>enif_inspect_iovec()</c></seealso></item>
-	    <item><seealso marker="erl_nif#enif_free_iovec">
-	    <c>enif_free_iovec()</c></seealso></item> </list>
+	    <c>enif_inspect_iovec()</c></seecref></item>
+	    <item><seecref marker="erl_nif#enif_free_iovec">
+	    <c>enif_free_iovec()</c></seecref></item> </list>
           <p>
 	    Own Id: OTP-14598</p>
         </item>
@@ -5541,9 +5541,9 @@
 	    Own Id: OTP-13827</p>
         </item>
         <item>
-	    <p>Replaced usage of deprecated symbolic <seealso
-	    marker="erts:erlang#type-time_unit"><c>time
-	    unit</c></seealso> representations.</p>
+	    <p>Replaced usage of deprecated symbolic <seetype
+	    marker="erts:erlang#time_unit"><c>time
+	    unit</c></seetype> representations.</p>
           <p>
 	    Own Id: OTP-13831 Aux Id: OTP-13735 </p>
         </item>
@@ -5571,8 +5571,8 @@
 	    case when a <c>fun</c> is received by a process after the
 	    purge.</p>
           <p>
-	    For more information see the documentation of <seealso
-	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+	    For more information see the documentation of <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
@@ -5662,18 +5662,18 @@
 	    time to complete are now performed on dirty schedulers if
 	    enabled.</p>
           <p>
-	    <seealso
-	    marker="erts:erlang#statistics/1"><c>erlang:statistics/1</c></seealso>
+	    <seemfa
+	    marker="erts:erlang#statistics/1"><c>erlang:statistics/1</c></seemfa>
 	    with arguments inspecting scheduler and run queue states
 	    have been changed due to the dirty scheduler support.
 	    Code using this functionality may have to be rewritten
 	    taking these incompatibilities into consideration.
-	    Examples of such uses are calls to <seealso
-	    marker="erts:erlang#statistics_scheduler_wall_time"><c>erlang:statistics(scheduler_wall_time)</c></seealso>,
-	    <seealso
-	    marker="erts:erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso>,
-	    <seealso
-	    marker="erts:erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso>,
+	    Examples of such uses are calls to <seeerl
+	    marker="erts:erlang#statistics_scheduler_wall_time"><c>erlang:statistics(scheduler_wall_time)</c></seeerl>,
+	    <seeerl
+	    marker="erts:erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seeerl>,
+	    <seeerl
+	    marker="erts:erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seeerl>,
 	    etc.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
@@ -5754,7 +5754,7 @@
           <p>
 	    Upgraded the OTP internal PCRE library from version 8.33
 	    to version 8.40. This library is used for implementation
-	    of the <seealso marker="stdlib:re"><c>re</c></seealso>
+	    of the <seeerl marker="stdlib:re"><c>re</c></seeerl>
 	    regular expressions module.</p>
           <p>
 	    Besides various bug fixes, the new version allows for
@@ -5762,10 +5762,10 @@
 	    feature, the stack size of normal scheduler threads is
 	    now by default set to 128 kilo words on all platforms.
 	    The stack size of normal scheduler threads can be set
-	    upon system start by passing the <seealso
-	    marker="erts:erl#sched_thread_stack_size"><c>+sss</c></seealso>
-	    command line argument to the <seealso
-	    marker="erts:erl"><c>erl</c></seealso> command.</p>
+	    upon system start by passing the <seecom
+	    marker="erts:erl#sched_thread_stack_size"><c>+sss</c></seecom>
+	    command line argument to the <seecom
+	    marker="erts:erl"><c>erl</c></seecom> command.</p>
           <p>
 	    See <url
 	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
@@ -5788,8 +5788,8 @@
 	    by <c>term_to_binary()</c> using latin1 encoding. Note
 	    that all atoms will by default be encoded using utf8 in a
 	    future Erlang/OTP release. For more information see the
-	    documentation of <seealso
-	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seealso>.</p>
+	    documentation of <seemfa
+	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-14337</p>
         </item>
@@ -5830,14 +5830,14 @@
 	    Own Id: OTP-14357 Aux Id: PR-1326 </p>
         </item>
         <item>
-	    <p>Added the following <seealso
-	    marker="erl"><c>erl</c></seealso> command line arguments
+	    <p>Added the following <seecom
+	    marker="erl"><c>erl</c></seecom> command line arguments
 	    with which you can set suggested stack for dirty
-	    schedulers:</p> <taglist> <tag><seealso
-	    marker="erl#dcpu_sched_thread_stack_size"><c>+sssdcpu</c></seealso></tag>
+	    schedulers:</p> <taglist> <tag><seecom
+	    marker="erl#dcpu_sched_thread_stack_size"><c>+sssdcpu</c></seecom></tag>
 	    <item><p>for dirty CPU schedulers</p></item>
-	    <tag><seealso
-	    marker="erl#dio_sched_thread_stack_size"><c>+sssdio</c></seealso></tag>
+	    <tag><seecom
+	    marker="erl#dio_sched_thread_stack_size"><c>+sssdio</c></seecom></tag>
 	    <item><p>for dirty IO schedulers</p></item> </taglist>
 	    <p>The default suggested stack size for dirty schedulers
 	    is 40 kilo words.</p>
@@ -5913,10 +5913,10 @@
         </item>
         <item>
           <p>
-	    Introduced the new functions <seealso
-	    marker="erl_nif#enif_whereis_pid"><c>enif_whereis_pid()</c></seealso>
-	    and <seealso
-	    marker="erl_nif#enif_whereis_port"><c>enif_whereis_port()</c></seealso>.</p>
+	    Introduced the new functions <seecref
+	    marker="erl_nif#enif_whereis_pid"><c>enif_whereis_pid()</c></seecref>
+	    and <seecref
+	    marker="erl_nif#enif_whereis_port"><c>enif_whereis_port()</c></seecref>.</p>
           <p>
 	    Own Id: OTP-14453 Aux Id: PR-1400 </p>
         </item>
@@ -6306,9 +6306,9 @@
         </item>
         <item>
           <p>
-	    A process calling <seealso
+	    A process calling <seeerl
 	    marker="erlang#system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling,
-	    block)</c></seealso> could end up hanging forever in the
+	    block)</c></seeerl> could end up hanging forever in the
 	    call.</p>
           <p>
 	    Own Id: OTP-14121</p>
@@ -6950,8 +6950,8 @@
         </item>
         <item>
 	    <p>Added the following symbolic time unit representations
-	    to the <seealso
-	    marker="erlang#type-time_unit"><c>erlang:time_unit()</c></seealso>
+	    to the <seetype
+	    marker="erlang#time_unit"><c>erlang:time_unit()</c></seetype>
 	    type:</p> <list> <item><c>second</c></item>
 	    <item><c>millisecond</c></item>
 	    <item><c>microsecond</c></item>
@@ -6982,8 +6982,8 @@
 	    new purge strategy will as of ERTS version 8.1 be
 	    enabled. This new strategy is not fully backwards
 	    compatible with the strategy used by default. For more
-	    information see the documentation of <seealso
-	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+	    information see the documentation of <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-13808 Aux Id: OTP-13833 </p>
         </item>
@@ -7011,8 +7011,8 @@
 	    the runtime system is built with support for dirty
 	    schedulers.</p>
           <p>
-	    For more information see the documentation of <seealso
-	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seealso>.</p>
+	    For more information see the documentation of <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>erlang:check_process_code/3</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-13833</p>
         </item>
@@ -7295,10 +7295,10 @@
       <list>
         <item>
           <p>
-	    The tracing support has been extended to allow a <seealso
-	    marker="erl_tracer">tracer module</seealso> to be the
+	    The tracing support has been extended to allow a <seeerl
+	    marker="erl_tracer">tracer module</seeerl> to be the
 	    trace event handler instead of a process or port. The
-	    <seealso marker="erl_tracer">tracer module</seealso>
+	    <seeerl marker="erl_tracer">tracer module</seeerl>
 	    makes it possible for trace tools to filter or manipulate
 	    trace event data without the trace event first having to
 	    be copied from the traced process or port.</p>
@@ -7322,17 +7322,17 @@
           <p>
 	    This feature introduces tracepoints for schedulers,
 	    drivers, memory carriers, memory and async thread pool.</p>
-	    <p> For a list of all tracepoints, see <seealso
+	    <p> For a list of all tracepoints, see <seeguide
 	    marker="runtime_tools:LTTng">Runtime Tools User's
-	    Guide</seealso> .</p>
+	    Guide</seeguide> .</p>
           <p>
 	    Own Id: OTP-10282</p>
         </item>
         <item>
           <p>
 	    Make it possible to monitor/demonitor ports using the
-	    <seealso
-	    marker="erlang#monitor/2">erlang:monitor/2</seealso> API.
+	    <seemfa
+	    marker="erlang#monitor/2">erlang:monitor/2</seemfa> API.
 	    The process and port information functions have also been
 	    updated to include information about monitors from
 	    processes to ports.</p>
@@ -7358,10 +7358,10 @@
 	    added to runtime_tools that can assist in gathering and
 	    interpreting the data from Microstate accounting.</p>
           <p>
-	    For more information see <seealso
+	    For more information see <seeerl
 	    marker="erts:erlang#statistics_microstate_accounting">erlang:statistics(microstate_accounting,
-	    _)</seealso> and the <seealso
-	    marker="runtime_tools:msacc">msacc</seealso> module in
+	    _)</seeerl> and the <seeerl
+	    marker="runtime_tools:msacc">msacc</seeerl> module in
 	    runtime_tools.</p>
           <p>
 	    Own Id: OTP-12345</p>
@@ -7397,8 +7397,8 @@
         </item>
         <item>
           <p>
-	    Added <seealso
-	    marker="kernel:os#perf_counter/1">os:perf_counter/1</seealso>.</p>
+	    Added <seemfa
+	    marker="kernel:os#perf_counter/1">os:perf_counter/1</seemfa>.</p>
           <p>
 	    The perf_counter is a very very cheap and high resolution
 	    timer that can be used to timestamp system events. It
@@ -7515,9 +7515,9 @@
         </item>
         <item>
 	    <p>Improved dirty scheduler implementation. For more
-	    information see the <seealso
+	    information see the <seecref
 	    marker="erl_nif#dirty_nifs">NIF
-	    documentation</seealso>.</p> <note><list> <item><p>The
+	    documentation</seecref>.</p> <note><list> <item><p>The
 	    dirty scheduler support is still
 	    <em>experimental</em>.</p></item> <item><p>The support
 	    for determining whether dirty NIF support exist or not at
@@ -7525,8 +7525,8 @@
 	    <c>ERL_NIF_DIRTY_SCHEDULER_SUPPORT</c> has been
 	    removed.</p></item> <item><p>The
 	    <c>enif_is_on_dirty_scheduler()</c> function has been
-	    removed. Use <seealso
-	    marker="erl_nif#enif_thread_type"><c>enif_thread_type()</c></seealso>
+	    removed. Use <seecref
+	    marker="erl_nif#enif_thread_type"><c>enif_thread_type()</c></seecref>
 	    instead.</p></item> </list></note>
           <p>
 	    Own Id: OTP-13123</p>
@@ -7541,8 +7541,8 @@
           <p>
 	    Added max_heap_size process flag. max_heap_size allows
 	    the user to limit the maximum heap used by a process. See
-	    <seealso
-	    marker="erlang#process_flag/2">erlang:process_flag</seealso>
+	    <seemfa
+	    marker="erlang#process_flag/2">erlang:process_flag</seemfa>
 	    for more details.</p>
           <p>
 	    Own Id: OTP-13174</p>
@@ -7594,9 +7594,9 @@
 	    outside of the heap, and by this prevent this data from
 	    being part of garbage collections.</p>
           <p>
-	    For more information see the documentation of <seealso
+	    For more information see the documentation of <seeerl
 	    marker="erlang#process_flag_message_queue_data"><c>process_flag(message_queue_data,
-	    MQD)</c></seealso>.</p>
+	    MQD)</c></seeerl>.</p>
           <p>
 	    Own Id: OTP-13366 Aux Id: OTP-13047 </p>
         </item>
@@ -7620,22 +7620,22 @@
         </item>
         <item>
           <p>Add the following NIF API functions:</p>
-	    <list> <item><seealso
-	    marker="erl_nif#enif_cpu_time"><c>enif_cpu_time</c></seealso></item>
-	    <item><seealso
-	    marker="erl_nif#enif_now_time"><c>enif_now_time</c></seealso></item>
-	    <item><seealso
-	    marker="erl_nif#enif_make_unique_integer"><c>enif_make_unique_integer</c></seealso></item>
-	    <item><seealso
-	    marker="erl_nif#enif_is_process_alive"><c>enif_is_process_alive</c></seealso></item>
-	    <item><seealso
-	    marker="erl_nif#enif_is_port_alive"><c>enif_is_port_alive</c></seealso></item>
-	    <item><seealso
-	    marker="erl_nif#enif_term_to_binary"><c>enif_term_to_binary</c></seealso></item>
-	    <item><seealso
-	    marker="erl_nif#enif_binary_to_term"><c>enif_binary_to_term</c></seealso></item>
-	    <item><seealso
-	    marker="erl_nif#enif_port_command"><c>enif_port_command</c></seealso></item>
+	    <list> <item><seecref
+	    marker="erl_nif#enif_cpu_time"><c>enif_cpu_time</c></seecref></item>
+	    <item><seecref
+	    marker="erl_nif#enif_now_time"><c>enif_now_time</c></seecref></item>
+	    <item><seecref
+	    marker="erl_nif#enif_make_unique_integer"><c>enif_make_unique_integer</c></seecref></item>
+	    <item><seecref
+	    marker="erl_nif#enif_is_process_alive"><c>enif_is_process_alive</c></seecref></item>
+	    <item><seecref
+	    marker="erl_nif#enif_is_port_alive"><c>enif_is_port_alive</c></seecref></item>
+	    <item><seecref
+	    marker="erl_nif#enif_term_to_binary"><c>enif_term_to_binary</c></seecref></item>
+	    <item><seecref
+	    marker="erl_nif#enif_binary_to_term"><c>enif_binary_to_term</c></seecref></item>
+	    <item><seecref
+	    marker="erl_nif#enif_port_command"><c>enif_port_command</c></seecref></item>
 	    </list>
           <p>
 	    For details of what each function does, see the erl_nif
@@ -7685,8 +7685,8 @@
 	    ports. Ports can be traced on using the 'ports', 'send'
 	    and 'receive' trace flags.</p>
           <p>
-	    The first argument of <seealso
-	    marker="erts:erlang#trace/3">erlang:trace/3</seealso> has
+	    The first argument of <seemfa
+	    marker="erts:erlang#trace/3">erlang:trace/3</seemfa> has
 	    been extended so that <c>'all'</c>, <c>'existing'</c> and
 	    <c>'new'</c> now include both processes and ports. New
 	    <c>Tracee</c> variants, <c>'all_processes'</c>,
@@ -7718,8 +7718,8 @@
         </item>
         <item>
           <p>
-	    Add the <seealso
-	    marker="erts:erlang#match_spec_test/3">erlang:match_spec_test/3</seealso>
+	    Add the <seemfa
+	    marker="erts:erlang#match_spec_test/3">erlang:match_spec_test/3</seemfa>
 	    function. The functions allows the testing of match
 	    specifications for both tracing and ets tables. It can be
 	    used to test that a match specification does the expected
@@ -7775,9 +7775,9 @@
 	    configure option <c>--with-dynamic-trace=lttng</c>.</p>
 	    <p>The dynamic trace module <c>dyntrace</c> is now
 	    capable to be used as a LTTng sink for Erlang tracing.
-	    For a list of all tracepoints, see <seealso
+	    For a list of all tracepoints, see <seeguide
 	    marker="runtime_tools:LTTng">Runtime Tools User's
-	    Guide</seealso> .</p>
+	    Guide</seeguide> .</p>
 	    <p>This feature also introduces an incompatible change in
 	    trace tags. The trace tags <c>gc_start</c> and
 	    <c>gc_end</c> has been split into <c>gc_minor_start</c>,
@@ -8157,13 +8157,13 @@
         </item>
         <item>
           <p>
-	    <seealso
-	    marker="kernel:gen_tcp#accept/2"><c>gen_tcp:accept/2</c></seealso>
-	    was not <seealso
+	    <seemfa
+	    marker="kernel:gen_tcp#accept/2"><c>gen_tcp:accept/2</c></seemfa>
+	    was not <seeguide
 	    marker="erts:time_correction#Time_Warp_Safe_Code">time
-	    warp safe</seealso>. This since it used the same time as
-	    returned by <seealso
-	    marker="erts:erlang#now/0"><c>erlang:now/0</c></seealso>
+	    warp safe</seeguide>. This since it used the same time as
+	    returned by <seemfa
+	    marker="erts:erlang#now/0"><c>erlang:now/0</c></seemfa>
 	    when calculating timeout. This has now been fixed.</p>
           <p>
 	    Own Id: OTP-13254 Aux Id: OTP-11997, OTP-13222 </p>
@@ -8227,14 +8227,14 @@
 	    <p>Introduced new statistics functionality in order to
 	    more efficiently retrieve information about run able and
 	    active processes and ports. For more information see:</p>
-	    <list> <item><seealso
-	    marker="erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso></item>
+	    <list> <item><seeerl
+	    marker="erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seeerl></item>
+	    <item><seeerl
+	    marker="erlang#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seeerl></item>
+	    <item><seeerl
+	    marker="erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seeerl></item>
+	    <item><seeerl
+	    marker="erlang#statistics_active_tasks"><c>statistics(active_tasks)</c></seeerl></item>
 	    </list>
           <p>
 	    Own Id: OTP-13201</p>
@@ -8294,14 +8294,14 @@
 	    <p>Introduced new statistics functionality in order to
 	    more efficiently retrieve information about run able and
 	    active processes and ports. For more information see:</p>
-	    <list> <item><seealso
-	    marker="erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#statistics_active_tasks"><c>statistics(active_tasks)</c></seealso></item>
+	    <list> <item><seeerl
+	    marker="erlang#statistics_total_run_queue_lengths"><c>statistics(total_run_queue_lengths)</c></seeerl></item>
+	    <item><seeerl
+	    marker="erlang#statistics_run_queue_lengths"><c>statistics(run_queue_lengths)</c></seeerl></item>
+	    <item><seeerl
+	    marker="erlang#statistics_total_active_tasks"><c>statistics(total_active_tasks)</c></seeerl></item>
+	    <item><seeerl
+	    marker="erlang#statistics_active_tasks"><c>statistics(active_tasks)</c></seeerl></item>
 	    </list>
           <p>
 	    Own Id: OTP-13201</p>
@@ -8539,16 +8539,16 @@
 	    MacOS X to <c>gettimeofday()</c> in order to improve
 	    performance. The system can be configured during build to
 	    use the previously used higher resolution clock source by
-	    passing the switch <seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--with-clock-resolution=high</c></seealso>
+	    passing the switch <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--with-clock-resolution=high</c></seeguide>
 	    when configuring the build.</p>
           <p>
 	    Own Id: OTP-12945 Aux Id: OTP-12892 </p>
         </item>
         <item>
           <p>
-	    Added the <c>configure</c> option <seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--disable-saved-compile-time</c></seealso>
+	    Added the <c>configure</c> option <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring"><c>--disable-saved-compile-time</c></seeguide>
 	    which disables saving of compile date and time in the
 	    emulator binary.</p>
           <p>
@@ -8867,8 +8867,8 @@
         </item>
         <item>
           <p>
-	    The documentation of the driver callback <seealso
-	    marker="driver_entry#start"><c>start()</c></seealso>
+	    The documentation of the driver callback <seecref
+	    marker="driver_entry#start"><c>start()</c></seecref>
 	    erroneously stated that a return value of
 	    <c>ERL_DRV_ERROR_ERRNO</c> caused the error value to be
 	    passed via <c>erl_errno</c> when it should have been
@@ -8901,20 +8901,20 @@
         </item>
         <item>
 	    <p>The time functionality of Erlang has been extended.
-	    This both includes a <seealso
+	    This both includes a <seeguide
 	    marker="time_correction#The_New_Time_API">new
-	    API</seealso> for time, as well as <seealso
+	    API</seeguide> for time, as well as <seeguide
 	    marker="time_correction#Time_Warp_Modes">time warp
-	    modes</seealso> which alters the behavior of the system
+	    modes</seeguide> which alters the behavior of the system
 	    when system time changes. <em>You are strongly encouraged
 	    to use the new API</em> instead of the old API based on
-	    <seealso
-	    marker="erlang#now/0"><c>erlang:now/0</c></seealso>.
+	    <seemfa
+	    marker="erlang#now/0"><c>erlang:now/0</c></seemfa>.
 	    <c>erlang:now/0</c> has been deprecated since it is and
 	    forever will be a scalability bottleneck. For more
-	    information see the <seealso
+	    information see the <seeguide
 	    marker="time_correction">Time and Time
-	    Correction</seealso> chapter of the ERTS User's
+	    Correction</seeguide> chapter of the ERTS User's
 	    Guide.</p>
 	    <p>Besides the API changes and time warp modes a lot of
 	    scalability and performance improvements regarding time
@@ -9047,9 +9047,9 @@
 	    are available (using a <c>gcc</c> of at least version
 	    4.1) an improvement can be seen.</p>
           <p>
-	    For more information see the "<seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Atomic-Memory-Operations-and-the-VM">Atomic
-	    Memory Operations and the VM</seealso>" section of
+	    For more information see the "<seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Atomic-Memory-Operations-and-the-VM">Atomic
+	    Memory Operations and the VM</seeguide>" section of
 	    <c>$ERL_TOP/HOWTO/INSTALL.md</c>.</p>
           <p>
 	    Own Id: OTP-12383</p>
@@ -9140,8 +9140,8 @@
         </item>
         <item>
           <p>
-	    Scalability improvement for <seealso
-	    marker="erlang#make_ref/0">erlang:make_ref/0</seealso>,
+	    Scalability improvement for <seemfa
+	    marker="erlang#make_ref/0">erlang:make_ref/0</seemfa>,
 	    and other functionality that create references. Each
 	    scheduler now manage its own set of references. By this
 	    no communication at all is needed when creating
@@ -9160,10 +9160,10 @@
 	    monotonicity as a property.</p>
           <p>
 	    If you need to create data with a strict monotonicity
-	    property use <seealso
-	    marker="erlang#unique_integer/1">erlang:unique_integer([monotonic])</seealso>.
-	    Do <em>not</em> use the deprecated <seealso
-	    marker="erlang#now/0">erlang:now()</seealso>.</p>
+	    property use <seemfa
+	    marker="erlang#unique_integer/1">erlang:unique_integer([monotonic])</seemfa>.
+	    Do <em>not</em> use the deprecated <seemfa
+	    marker="erlang#now/0">erlang:now()</seemfa>.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
@@ -9208,14 +9208,14 @@
 	    The API of BIF timers has also been extended. Timeout
 	    values are for example no longer limited to 32-bit
 	    integers. For more information see the documentation of
-	    <seealso
-	    marker="erlang#start_timer/4"><c>erlang:start_timer/4</c></seealso>,
-	    <seealso
-	    marker="erlang#send_after/4"><c>erlang:send_after/4</c></seealso>,
-	    <seealso
-	    marker="erlang#cancel_timer/2"><c>erlang:cancel_timer/2</c></seealso>,
-	    and <seealso
-	    marker="erlang#read_timer/2"><c>erlang:read_timer/2</c></seealso>.</p>
+	    <seemfa
+	    marker="erlang#start_timer/4"><c>erlang:start_timer/4</c></seemfa>,
+	    <seemfa
+	    marker="erlang#send_after/4"><c>erlang:send_after/4</c></seemfa>,
+	    <seemfa
+	    marker="erlang#cancel_timer/2"><c>erlang:cancel_timer/2</c></seemfa>,
+	    and <seemfa
+	    marker="erlang#read_timer/2"><c>erlang:read_timer/2</c></seemfa>.</p>
           <p>
 	    Characteristics impact: Calls to the synchronous versions
 	    of <c>erlang:cancel_timer()</c>, and
@@ -9336,7 +9336,7 @@
 	    oscillation of entries in and out of the tables. The
 	    oscillation caused unnecessary lock contention on the
 	    table locks. The delay length can be set by passing the
-	    <seealso marker="erl#+zdntgc"><c>+zdntgc</c></seealso>
+	    <seecom marker="erl#+zdntgc"><c>+zdntgc</c></seecom>
 	    command line argument.</p>
           <p>
 	    Characteristics impact: The tables can grow to very large
@@ -9348,8 +9348,8 @@
 	    Own Id: OTP-12802</p>
         </item>
         <item>
-	    <p>Improved implementation of <seealso
-	    marker="erlang#statistics/1"><c>erlang:statistics</c></seealso><c>(io)</c>
+	    <p>Improved implementation of <seemfa
+	    marker="erlang#statistics/1"><c>erlang:statistics</c></seemfa><c>(io)</c>
 	    in order to reduce contention between schedulers.</p>
 	    <p>Characteristics impact: The actual call to
 	    <c>erlang:statistics(io)</c> takes longer time to
@@ -9910,8 +9910,8 @@
 	    double word atomics when implemented by
 	    <c>libatomic_ops</c> (for example, implemented for ARM).</p>
           <p>
-	    The <seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Atomic-Memory-Operations-and-the-VM"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seealso>
+	    The <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP_Configuring_Atomic-Memory-Operations-and-the-VM"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seeguide>
 	    document now also more clearly describes when you want to
 	    build together with a <c>libatomic_ops</c> installation.</p>
           <p>
@@ -9982,18 +9982,18 @@
 	    <p>In order for this bug to be triggered on a port, one
 	    had to at least once utilize the <c>nosuspend</c>
 	    functionality when passing a signal to the port. This by
-	    either calling</p> <list> <item> <seealso
+	    either calling</p> <list> <item> <seemfa
 	    marker="erlang#port_command/3"><c>port_command(Port,
-	    Data, [nosuspend | Options])</c></seealso>, </item>
-	    <item> <seealso
+	    Data, [nosuspend | Options])</c></seemfa>, </item>
+	    <item> <seemfa
 	    marker="erlang#send/3"><c>erlang:send(Port, {PortOwner,
-	    {command, Data}}, [nosuspend | Options])</c></seealso>,
-	    </item> <item> <seealso
+	    {command, Data}}, [nosuspend | Options])</c></seemfa>,
+	    </item> <item> <seemfa
 	    marker="erlang#send_nosuspend/2"><c>erlang:send_nosuspend(Port,
-	    {PortOwner, {command, Data}})</c></seealso>, or </item>
-	    <item> <seealso
+	    {PortOwner, {command, Data}})</c></seemfa>, or </item>
+	    <item> <seemfa
 	    marker="erlang#send_nosuspend/3"><c>erlang:send_nosuspend(Port,
-	    {PortOwner, {command, Data}}, Options)</c></seealso>.
+	    {PortOwner, {command, Data}}, Options)</c></seemfa>.
 	    </item> </list>
 	    <p>Thanks Vasily Demidenok for reporting the issue, and
 	    Sergey Kudryashov for providing a testcase.</p>
@@ -10021,8 +10021,8 @@
         </item>
         <item>
           <p>
-	    The documentation erroneously listed the <seealso
-	    marker="erl#+swct"><c>+swct</c></seealso> command line
+	    The documentation erroneously listed the <seecom
+	    marker="erl#+swct"><c>+swct</c></seecom> command line
 	    argument under <c>+sws</c>.</p>
           <p>
 	    Own Id: OTP-12102 Aux Id: OTP-10994 </p>
@@ -10031,8 +10031,8 @@
           <p>
 	    Profiling messages could be delivered out of order when
 	    profiling on <c>runnable_procs</c> and/or
-	    <c>runnable_ports</c> using <seealso
-	    marker="erlang#system_profile/2"><c>erlang:system_profile/2</c></seealso>.
+	    <c>runnable_ports</c> using <seemfa
+	    marker="erlang#system_profile/2"><c>erlang:system_profile/2</c></seemfa>.
 	    This bug was introduced in ERTS version 5.10.</p>
           <p>
 	    Own Id: OTP-12105 Aux Id: OTP-10336 </p>
@@ -10097,8 +10097,8 @@
         </item>
         <item>
           <p>
-	    Introduced <seealso
-	    marker="erl_nif#enif_schedule_nif"><c>enif_schedule_nif()</c></seealso>
+	    Introduced <seecref
+	    marker="erl_nif#enif_schedule_nif"><c>enif_schedule_nif()</c></seecref>
 	    to the NIF API.</p>
           <p>
 	    The <c>enif_schedule_nif()</c> function allows a
@@ -10117,8 +10117,8 @@
 	    dirty NIF API. Note that the only incompatible changes
 	    made are in the experimental dirty NIF API.</p>
           <p>
-	    See the <seealso marker="erl_nif">NIF
-	    documentation</seealso> for more information.</p>
+	    See the <seecref marker="erl_nif">NIF
+	    documentation</seecref> for more information.</p>
           <p>
 	    Thanks to Steve Vinoski.</p>
           <p>
@@ -10533,8 +10533,8 @@
 	    since there still exist unresolved issues with floating
 	    point exceptions on Linux.</p>
           <p>
-	    For more information see <seealso
-	    marker="doc/installation_guide:INSTALL"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seealso>.</p>
+	    For more information see <seeguide
+	    marker="system/installation_guide:INSTALL"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seeguide>.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
@@ -10729,7 +10729,7 @@
           <p>
 	    A new optional scheduler utilization balancing mechanism
 	    has been introduced. For more information see the
-	    <seealso marker="erl#+sub"><c>+sub</c></seealso> command
+	    <seecom marker="erl#+sub"><c>+sub</c></seecom> command
 	    line argument.</p>
           <p>
 	    Characteristics impact: None, when not enabled. When
@@ -10761,10 +10761,10 @@
 	    and yield without having to set up the heap in a state
 	    that can be garbage collected.</p>
           <p>
-	    The <seealso
-	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seealso>,
-	    and <seealso
-	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seealso>
+	    The <seemfa
+	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seemfa>,
+	    and <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seemfa>
 	    BIFs have been introduced. Both taking an option list as
 	    last argument. Using these, one can issue asynchronous
 	    requests.</p>
@@ -10833,11 +10833,11 @@
           <p>
 	    Migration of memory carriers has been enabled by default
 	    on all ERTS internal memory allocators based on the
-	    <seealso
-	    marker="erts_alloc#alloc_util"><c>alloc_util</c></seealso>
-	    framework except for <c>temp_alloc</c>. That is, <seealso
+	    <seecref
+	    marker="erts_alloc#alloc_util"><c>alloc_util</c></seecref>
+	    framework except for <c>temp_alloc</c>. That is, <seecref
 	    marker="erts_alloc#M_acul"><c>+M&lt;S&gt;acul
-	    de</c></seealso> is default for these allocators. Note
+	    de</c></seecref> is default for these allocators. Note
 	    that this also implies changed allocation strategies for
 	    all of these allocators. They will all now use the
 	    "address order first fit carrier best fit" strategy.</p>
@@ -10883,8 +10883,8 @@
           </taglist>
           <p>
 	    For information on how to use Maps please see Map Expressions in the
-		<seealso marker="doc/reference_manual:expressions#map_expressions">
-			Reference Manual</seealso>.</p>
+		<seeguide marker="system/reference_manual:expressions#map_expressions">
+			Reference Manual</seeguide>.</p>
           <p>
 	    The current implementation is without the following
 	    features:</p>
@@ -10920,10 +10920,10 @@
           <p>
 	    Dirty schedulers can currently only be used by NIFs on a
 	    system with SMP support. More information can be found in
-	    the <seealso
-	    marker="erl_nif#dirty_nifs"><c>erl_nif(3)</c></seealso>
-	    documentation, the <seealso
-	    marker="erl"><c>erl(1)</c></seealso> documentation, and
+	    the <seecref
+	    marker="erl_nif#dirty_nifs"><c>erl_nif(3)</c></seecref>
+	    documentation, the <seecom
+	    marker="erl"><c>erl(1)</c></seecom> documentation, and
 	    in the git commit comment of commit
 	    'c1c03ae4ee50e58b7669ea88ec4d29c6b2b67c7b'.</p>
           <p>
@@ -10974,8 +10974,8 @@
           <p>
 	    Introduced the <c>configure</c> option
 	    <c>--with-assumed-cache-line-size=SIZE</c>. For more
-	    information see <seealso
-	    marker="doc/installation_guide:INSTALL"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seealso>.</p>
+	    information see <seeguide
+	    marker="system/installation_guide:INSTALL"><c>$ERL_TOP/HOWTO/INSTALL.md</c></seeguide>.</p>
           <p>
 	    Own Id: OTP-11742</p>
         </item>
@@ -11008,13 +11008,13 @@
           <p>
 	    Introduced functionality for allowing old drivers and NIF
 	    libraries to be loaded during a transition period. For
-	    more information see <seealso
+	    more information see <seecref
 	    marker="erts:erl_driver#version_management">the version
 	    management section in the <c>erl_driver(3)</c>
-	    documentation</seealso> and <seealso
+	    documentation</seecref> and <seecref
 	    marker="erts:erl_nif#version_management">the version
 	    management section in the <c>erl_nif(3)</c>
-	    documentation</seealso>.</p>
+	    documentation</seecref>.</p>
           <p>
 	    Own Id: OTP-11799</p>
         </item>
@@ -11165,10 +11165,10 @@
           <p>
 	    Threads other than schedulers threads could make thread
 	    unsafe accesses when support for migration of memory
-	    carriers had been enabled, i.e., when the <seealso
-	    marker="erts_alloc#M_acul"><c>+M&lt;S&gt;acul</c></seealso>
-	    command line flag had been passed to <seealso
-	    marker="erl"><c>erl</c></seealso>. This could cause
+	    carriers had been enabled, i.e., when the <seecref
+	    marker="erts_alloc#M_acul"><c>+M&lt;S&gt;acul</c></seecref>
+	    command line flag had been passed to <seecom
+	    marker="erl"><c>erl</c></seecom>. This could cause
 	    corruption of the VMs internal state.</p>
           <p>
 	    This bug was introduced in erts-5.10.2 when the support
@@ -11185,14 +11185,14 @@
         </item>
         <item>
           <p>
-	    Under rare circumstances a process calling <seealso
-	    marker="kernel:inet#close/1"><c>inet:close/1</c></seealso>,
-	    <seealso
-	    marker="kernel:gen_tcp#close/1"><c>gen_tcp:close/1</c></seealso>,
-	    <seealso
-	    marker="kernel:gen_udp#close/1"><c>gen_udp:close/1</c></seealso>,
-	    or <seealso
-	    marker="kernel:gen_sctp#close/1"><c>gen_sctp:close/1</c></seealso>
+	    Under rare circumstances a process calling <seemfa
+	    marker="kernel:inet#close/1"><c>inet:close/1</c></seemfa>,
+	    <seemfa
+	    marker="kernel:gen_tcp#close/1"><c>gen_tcp:close/1</c></seemfa>,
+	    <seemfa
+	    marker="kernel:gen_udp#close/1"><c>gen_udp:close/1</c></seemfa>,
+	    or <seemfa
+	    marker="kernel:gen_sctp#close/1"><c>gen_sctp:close/1</c></seemfa>
 	    could hang in the call indefinitely.</p>
           <p>
 	    Own Id: OTP-11491</p>
@@ -11242,23 +11242,23 @@
 	    should be able to use.</p>
           <p>
 	    By default the super carrier is disabled. It is enabled
-	    by passing the <seealso
+	    by passing the <seecref
 	    marker="erts:erts_alloc#MMscs"><c>+MMscs &lt;size in
-	    MB&gt;</c></seealso> command line argument. For more
-	    information see the documentation of the <seealso
-	    marker="erts:erts_alloc#MMsco"><c>+MMsco</c></seealso>,
-	    <seealso
-	    marker="erts:erts_alloc#MMscrfsd"><c>+MMscrfsd</c></seealso>,
-	    <seealso
-	    marker="erts:erts_alloc#MMscrpm"><c>+MMscrpm</c></seealso>,
-	    <seealso
-	    marker="erts:erts_alloc#MMscs"><c>+MMscs</c></seealso>,
-	    <seealso
-	    marker="erts:erts_alloc#Musac"><c>+MMusac</c></seealso>,
-	    and, <seealso
-	    marker="erts:erts_alloc#Mlpm"><c>+Mlpm</c></seealso>
-	    command line arguments in the <seealso
-	    marker="erts:erts_alloc"><c>erts_alloc(3)</c></seealso>
+	    MB&gt;</c></seecref> command line argument. For more
+	    information see the documentation of the <seecref
+	    marker="erts:erts_alloc#MMsco"><c>+MMsco</c></seecref>,
+	    <seecref
+	    marker="erts:erts_alloc#MMscrfsd"><c>+MMscrfsd</c></seecref>,
+	    <seecref
+	    marker="erts:erts_alloc#MMscrpm"><c>+MMscrpm</c></seecref>,
+	    <seecref
+	    marker="erts:erts_alloc#MMscs"><c>+MMscs</c></seecref>,
+	    <seecref
+	    marker="erts:erts_alloc#Musac"><c>+MMusac</c></seecref>,
+	    and, <seecref
+	    marker="erts:erts_alloc#Mlpm"><c>+Mlpm</c></seecref>
+	    command line arguments in the <seecref
+	    marker="erts:erts_alloc"><c>erts_alloc(3)</c></seecref>
 	    documentation.</p>
           <p>
 	    Since it is disabled by default there should be no impact
@@ -11266,9 +11266,9 @@
           <p>
 	    This change has been marked as a potential
 	    incompatibility since the returned list when calling
-	    <seealso
+	    <seeerl
 	    marker="erts:erlang#system_info_allocator_tuple"><c>erlang:system_info({allocator,
-	    mseg_alloc})</c></seealso> now also include an
+	    mseg_alloc})</c></seeerl> now also include an
 	    <c>{erts_mmap, _}</c> tuple as one element in the list.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
@@ -11299,22 +11299,22 @@
 	    signal issued due to this link will be received by the
 	    processes before the BIF returns, or fail with an
 	    exception due to the port not being open. </p><p> The
-	    synchronous port BIFs are: </p> <list> <item><seealso
-	    marker="erlang#port_close/1"><c>port_close/1</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#port_command/2"><c>port_command/2</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#port_command/3"><c>port_command/3</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#port_connect/2"><c>port_connect/2</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#port_control/3"><c>port_control/3</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#port_call/3"><c>erlang:port_call/3</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#port_info/1"><c>erlang:port_info/1</c></seealso></item>
-	    <item><seealso
-	    marker="erlang#port_info/2"><c>erlang:port_info/2</c></seealso></item>
+	    synchronous port BIFs are: </p> <list> <item><seemfa
+	    marker="erlang#port_close/1"><c>port_close/1</c></seemfa></item>
+	    <item><seemfa
+	    marker="erlang#port_command/2"><c>port_command/2</c></seemfa></item>
+	    <item><seemfa
+	    marker="erlang#port_command/3"><c>port_command/3</c></seemfa></item>
+	    <item><seemfa
+	    marker="erlang#port_connect/2"><c>port_connect/2</c></seemfa></item>
+	    <item><seemfa
+	    marker="erlang#port_control/3"><c>port_control/3</c></seemfa></item>
+	    <item><seemfa
+	    marker="erlang#port_call/3"><c>erlang:port_call/3</c></seemfa></item>
+	    <item><seemfa
+	    marker="erlang#port_info/1"><c>erlang:port_info/1</c></seemfa></item>
+	    <item><seemfa
+	    marker="erlang#port_info/2"><c>erlang:port_info/2</c></seemfa></item>
 	    </list> <p> Note that some ports under certain
 	    circumstances unlink themselves from the calling process
 	    before exiting, i.e. even though the process linked
@@ -11780,18 +11780,18 @@
 	    performance loss.</item> <item>When enabled on the
 	    <c>fix_alloc</c> allocator, a different strategy for
 	    management of fix blocks will be used.</item> <item>The
-	    information returned from <seealso
+	    information returned from <seeerl
 	    marker="erlang#system_info_allocator_tuple"><c>erlang:system_info({allocator,
-	    A})</c></seealso>, and <seealso
+	    A})</c></seeerl>, and <seeerl
 	    marker="erlang#system_info_allocator_sizes"><c>erlang:system_info({allocator_sizes,
-	    A})</c></seealso> will be slightly different when this
+	    A})</c></seeerl> will be slightly different when this
 	    feature has been enabled. An <c>mbcs_pool</c> tuple will
 	    be present giving information about abandoned carriers,
 	    and in the <c>fix_alloc</c> case no <c>fix_types</c>
 	    tuple will be present. </item></list>
 	    <p>For more information, see the documentation of the
-	    <seealso
-	    marker="erts_alloc#M_acul"><c>+M&lt;S&gt;acul</c></seealso>
+	    <seecref
+	    marker="erts_alloc#M_acul"><c>+M&lt;S&gt;acul</c></seecref>
 	    command line argument.</p>
           <p>
 	    Own Id: OTP-10279</p>
@@ -11858,10 +11858,10 @@
 	    incompatibility.</item> </list>
 	    <p>Due to the above mensioned potential incompatibility,
 	    it will still be possible to enable the old algorithm for
-	    some time. The command line argument <seealso
-	    marker="erl#+P"><c>+P legacy</c></seealso> will enable
-	    the old algorithm on the process table, and <seealso
-	    marker="erl#+Q"><c>+Q legacy</c></seealso> will do the
+	    some time. The command line argument <seecom
+	    marker="erl#+P"><c>+P legacy</c></seecom> will enable
+	    the old algorithm on the process table, and <seecom
+	    marker="erl#+Q"><c>+Q legacy</c></seecom> will do the
 	    same for the port table. These command line arguments are
 	    however deprecated as of their introduction and have been
 	    scheduled for removal in OTP-R18.</p>
@@ -11920,8 +11920,8 @@
 	    issues like this for some time.</p>
 	    <p>In order to alleviate problems with scheduling which
 	    might occur when executing misbehaving native code, the
-	    command line argument <seealso
-	    marker="erl#+sfwi">+sfwi</seealso> has been
+	    command line argument <seecom
+	    marker="erl#+sfwi">+sfwi</seecom> has been
 	    introduced.</p>
 	    <p>By default this feature is disabled and you are
 	    advised not to enable it if you do not encounter problems
@@ -11974,8 +11974,8 @@
       <list>
         <item>
           <p>
-	    The BIF <seealso
-	    marker="erlang#is_process_alive/1"><c>is_process_alive/1</c></seealso>
+	    The BIF <seemfa
+	    marker="erlang#is_process_alive/1"><c>is_process_alive/1</c></seemfa>
 	    could prematurely return <c>false</c> while the process
 	    being inspected was terminating. This bug was introduced
 	    in ERTS-5.10.</p>
@@ -11991,10 +11991,10 @@
         </item>
         <item>
           <p>
-	    The <seealso
-	    marker="erl#+sws"><c>+sws&lt;value&gt;</c></seealso> and
-	    <seealso
-	    marker="erl#+swt"><c>+swt&lt;value&gt;</c></seealso>
+	    The <seecom
+	    marker="erl#+sws"><c>+sws&lt;value&gt;</c></seecom> and
+	    <seecom
+	    marker="erl#+swt"><c>+swt&lt;value&gt;</c></seecom>
 	    system flags failed if no white space were passed between
 	    the parameter and value parts of the flags. Upon failure,
 	    the runtime system refused to start.</p>
@@ -12011,10 +12011,10 @@
           <p>
 	    Scheduler threads will now by default be less eager
 	    requesting wakeup due to certain cleanup operations. This
-	    can also be controlled using the <seealso
-	    marker="erl#+swct"><c>+swct</c></seealso> command line
-	    argument of <seealso
-	    marker="erl"><c>erl(1)</c></seealso>.</p>
+	    can also be controlled using the <seecom
+	    marker="erl#+swct"><c>+swct</c></seecom> command line
+	    argument of <seecom
+	    marker="erl"><c>erl(1)</c></seecom>.</p>
           <p>
 	    Own Id: OTP-10994</p>
         </item>
@@ -12231,10 +12231,10 @@
 	    Own Id: OTP-10348 Aux Id: kunagi-316 [227] </p>
         </item>
         <item>
-	    <p>The driver API function <seealso
-	    marker="erl_driver#erl_drv_consume_timeslice"><c>erl_drv_consume_timeslice()</c></seealso>,
-	    and the NIF API function <seealso
-	    marker="erl_nif#enif_consume_timeslice"><c>enif_consume_timeslice()</c></seealso>
+	    <p>The driver API function <seecref
+	    marker="erl_driver#erl_drv_consume_timeslice"><c>erl_drv_consume_timeslice()</c></seecref>,
+	    and the NIF API function <seecref
+	    marker="erl_nif#enif_consume_timeslice"><c>enif_consume_timeslice()</c></seecref>
 	    have been introduced.</p>
 	    <p>These functions are provided in order to better
 	    support co-operative scheduling, improve system
@@ -12550,8 +12550,8 @@
 	    for a much larger maximum amount of ports allowed as a
 	    default. The previous default of 1024 has been raised to
 	    65536. Maximum amount of ports can be set using the
-	    <seealso marker="erts:erl#+Q">+Q</seealso> command line
-	    flag of <seealso marker="erts:erl">erl(1)</seealso>. The
+	    <seecom marker="erts:erl#+Q">+Q</seecom> command line
+	    flag of <seecom marker="erts:erl">erl(1)</seecom>. The
 	    previously used environment variable <c>ERL_MAX_PORTS</c>
 	    has been deprecated and scheduled for removal in
 	    OTP-R17.</item> <item>Major rewrite of scheduling of port
@@ -12570,8 +12570,8 @@
 	    port lock as well as truly asynchronous communication
 	    with ports.</item> <item>Optimized lookup of port handles
 	    from drivers.</item> <item>Optimized driver lookup when
-	    creating ports.</item> <item>Preemptable <seealso
-	    marker="erts:erlang#ports-0">erlang:ports/0</seealso>
+	    creating ports.</item> <item>Preemptable <seemfa
+	    marker="erts:erlang#ports/0">erlang:ports/0</seemfa>
 	    BIF.</item> <item>Improving responsiveness by bumping
 	    reductions for a process calling a driver callback
 	    directly.</item> </list>
@@ -12590,10 +12590,10 @@
 	    <em>false assumptions</em> about signal delivery order to
 	    fail even though they previously succeeded. For more
 	    information about signal ordering guarantees, see the
-	    chapter on <seealso
-	    marker="erts:communication">communication</seealso> in
+	    chapter on <seeguide
+	    marker="erts:communication">communication</seeguide> in
 	    the ERTS user's guide. The <c>+n</c> command line flag of
-	    <seealso marker="erts:erl">erl(1)</seealso> can be
+	    <seecom marker="erts:erl">erl(1)</seecom> can be
 	    helpful when trying to find signaling order bugs in
 	    Erlang code that have been exposed by these
 	    changes.</item> <tag>Latency of signals sent from
@@ -12612,17 +12612,17 @@
 	    but improves the overall performance of the system since
 	    it reduce lock contention between schedulers. The default
 	    behavior of only scheduling delivery of these signals on
-	    conflict can be changed by passing the <seealso
-	    marker="erts:erl#+spp">+spp</seealso> command line flag
-	    to <seealso marker="erts:erl">erl(1)</seealso>. The
+	    conflict can be changed by passing the <seecom
+	    marker="erts:erl#+spp">+spp</seecom> command line flag
+	    to <seecom marker="erts:erl">erl(1)</seecom>. The
 	    behavior can also be changed on port basis using the
-	    <seealso
-	    marker="erts:erlang#open_port_parallelism">parallelism</seealso>
-	    option of the <seealso
-	    marker="erts:erlang#open_port-2">open_port/2</seealso>
+	    <seeerl
+	    marker="erts:erlang#open_port_parallelism">parallelism</seeerl>
+	    option of the <seemfa
+	    marker="erts:erlang#open_port/2">open_port/2</seemfa>
 	    BIF.</item> <tag>Execution time of the
-	    <c>erlang:ports/0</c> BIF</tag> <item>Since <seealso
-	    marker="erts:erlang#ports-0">erlang:ports/0</seealso> now
+	    <c>erlang:ports/0</c> BIF</tag> <item>Since <seemfa
+	    marker="erts:erlang#ports/0">erlang:ports/0</seemfa> now
 	    can be preempted, the responsiveness of the system as a
 	    whole has been improved. A call to <c>erlang:ports/0</c>
 	    may, however, take a much longer time to complete than
@@ -12637,19 +12637,19 @@
 	    <p><em>Potential incompatibilities</em>:</p> <list>
 	    <item><c>driver_send_term()</c> has been deprecated and
 	    has been scheduled for removal in OTP-R17. Replace usage
-	    of <c>driver_send_term()</c> with usage of <seealso
-	    marker="erts:erl_driver#erl_drv_send_term">erl_drv_send_term()</seealso>.</item>
+	    of <c>driver_send_term()</c> with usage of <seecref
+	    marker="erts:erl_driver#erl_drv_send_term">erl_drv_send_term()</seecref>.</item>
 	    <item><c>driver_output_term()</c> has been deprecated and
 	    has been scheduled for removal in OTP-R17. Replace usage
-	    of <c>driver_output_term()</c> with usage of <seealso
-	    marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seealso>.</item>
-	    <item>The new function <seealso
-	    marker="erts:erl_driver#erl_drv_busy_msgq_limits">erl_drv_busy_msgq_limits()</seealso>
+	    of <c>driver_output_term()</c> with usage of <seecref
+	    marker="erts:erl_driver#erl_drv_output_term">erl_drv_output_term()</seecref>.</item>
+	    <item>The new function <seecref
+	    marker="erts:erl_driver#erl_drv_busy_msgq_limits">erl_drv_busy_msgq_limits()</seecref>
 	    has been added in order to able to control management of
 	    port queues.</item> </list>
-	    <p>The <seealso
+	    <p>The <seecref
 	    marker="erts:erl_driver#version_management">driver API
-	    version</seealso> has been bumped to 2.1 from 2.0 due to
+	    version</seecref> has been bumped to 2.1 from 2.0 due to
 	    the above changes in the driver API.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
@@ -12693,9 +12693,9 @@
           <p>
 	    The previous default of a maximum of 32768 simultaneous
 	    processes has been raised to 262144. This value can be
-	    changed using the the <seealso
-	    marker="erl#+P">+P</seealso> command line flag of
-	    <seealso marker="erl">erl(1)</seealso>. Note that the
+	    changed using the the <seecom
+	    marker="erl#+P">+P</seecom> command line flag of
+	    <seecom marker="erl">erl(1)</seecom>. Note that the
 	    value passed now is considered as a hint, and that actual
 	    value chosen in most cases will be a power of two.</p>
           <p>
@@ -12717,14 +12717,14 @@
 	    Timing in the system will due to this also change.</p>
           <p>
 	    The previous strategy can still be enabled by passing the
-	    <seealso marker="erl#+sws">+sws legacy</seealso> command
+	    <seecom marker="erl#+sws">+sws legacy</seecom> command
 	    line flag to <c>erl</c>.</p>
           <p>
 	    Own Id: OTP-10661 Aux Id: OTP-10033 </p>
         </item>
         <item>
           <p>
-	    The <seealso marker="erl#+stbt">+stbt</seealso> command line
+	    The <seecom marker="erl#+stbt">+stbt</seecom> command line
 	    argument of <c>erl</c> was added. This argument can be
 	    used for trying to set scheduler bind type. Upon failure
 	    unbound schedulers will be used.</p>
@@ -12793,8 +12793,8 @@
 	    pool by user implemented drivers.</p>
           <p>
 	    The amount of async threads can be controlled by using
-	    the <seealso
-	    marker="erl#async_thread_pool_size"><c>+A</c></seealso>
+	    the <seecom
+	    marker="erl#async_thread_pool_size"><c>+A</c></seecom>
 	    command line argument of <c>erl(1)</c>. When running some
 	    offline tools you <em>might</em> want to disable async
 	    threads, but you are advised <em>not</em> to in the
@@ -13031,9 +13031,9 @@
         </item>
         <item>
           <p>
-	    Clearer warnings about the dangers of misuse of <seealso
-	    marker="erl_nif#WARNING">native functions</seealso> and
-	    <seealso marker="erl_driver#WARNING">drivers</seealso>
+	    Clearer warnings about the dangers of misuse of <seecref
+	    marker="erl_nif#WARNING">native functions</seecref> and
+	    <seecref marker="erl_driver#WARNING">drivers</seecref>
 	    have been added to the documentation.</p>
           <p>
 	    Own Id: OTP-10557</p>
@@ -13426,8 +13426,8 @@
 	    disabled at compile time (<c>--disable-threads</c> had
 	    been passed to <c>configure</c>), and the <c>+A</c>
 	    command line argument of <c>erl</c> was passed when
-	    starting the runtime system, <seealso
-	    marker="erl_driver#driver_system_info">driver_system_info()</seealso>
+	    starting the runtime system, <seecref
+	    marker="erl_driver#driver_system_info">driver_system_info()</seecref>
 	    erroneously claimed that the runtime system had async
 	    threads even though it had not.</p>
           <p>
@@ -13448,7 +13448,7 @@
           <p>
 	    A proposal for a new scheduler wakeup strategy has been
 	    implemented. For more information see the documentation
-	    of the <seealso marker="erl#+sws">+sws</seealso> command
+	    of the <seecom marker="erl#+sws">+sws</seecom> command
 	    line argument of <c>erl</c>.</p>
           <p>
 	    Own Id: OTP-10033 Aux Id: Seq12025 </p>
@@ -13457,8 +13457,8 @@
           <p>
 	    A switch for configuration of busy wait length for
 	    scheduler threads has been added. For more information
-	    see the documentation of the <seealso
-	    marker="erl#+sbwt">+sbwt</seealso> command line argument
+	    see the documentation of the <seecom
+	    marker="erl#+sbwt">+sbwt</seecom> command line argument
 	    of <c>erl</c>.</p>
           <p>
 	    Own Id: OTP-10044 Aux Id: Seq11976 </p>
@@ -14147,13 +14147,13 @@
 	    aware drivers. Most importantly the return types for
 	    ErlDrvEntry callbacks 'call' and 'control' has ben
 	    enlarged which require drivers to be changed or they will
-	    cause emulator crashes. See <seealso
+	    cause emulator crashes. See <seecref
 	    marker="erl_driver#rewrites_for_64_bits"> Rewrites for
-	    64-bit driver interface </seealso> in the driver manual.
+	    64-bit driver interface </seecref> in the driver manual.
 	    </p>
-	    <p>Due to this driver <seealso
+	    <p>Due to this driver <seecref
 	    marker="erl_driver#version_management">version
-	    management</seealso> is now mandatory. A driver that is
+	    management</seecref> is now mandatory. A driver that is
 	    not written with version management or a driver that was
 	    compiled with the wrong major version will be not be
 	    loaded by the emulator.</p>
@@ -15163,8 +15163,8 @@
         </item>
         <item>
           <p>
-	    The <c>configure</c> command line argument <seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--enable-ethread-pre-pentium4-compatibility</seealso>
+	    The <c>configure</c> command line argument <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--enable-ethread-pre-pentium4-compatibility</seeguide>
 	    had no effect. This option is now also automatically
 	    enabled if required on the build machine.</p>
           <p>
@@ -15191,10 +15191,10 @@
         </item>
         <item>
           <p>
-	    A bug in <seealso
-	    marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get()</seealso>
-	    and <seealso
-	    marker="erl_nif#enif_tsd_get">enif_tsd_get()</seealso>
+	    A bug in <seecref
+	    marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get()</seecref>
+	    and <seecref
+	    marker="erl_nif#enif_tsd_get">enif_tsd_get()</seecref>
 	    could cause an emulator crash. These functions are
 	    currently not used in OTP. That is, the crash only occur
 	    on systems with user implemented NIF libraries, or
@@ -15350,8 +15350,8 @@
           <p>
 	    The distribution buffer busy limit can now be configured
 	    at system startup. For more information see the
-	    documentation of the <c>erl</c> <seealso
-	    marker="erl#+zdbbl">+zdbbl</seealso> command line flag.
+	    documentation of the <c>erl</c> <seecom
+	    marker="erl#+zdbbl">+zdbbl</seecom> command line flag.
 	    (Thanks to Scott Lystig Fritchie)</p>
           <p>
 	    Own Id: OTP-8912</p>
@@ -15692,15 +15692,15 @@
 	    lines. The reader optimized rwlock implementation is used
 	    by miscellaneous rwlocks in the runtime system that are
 	    known to be read-locked frequently, and can be enabled on
-	    ETS tables by passing the <seealso
+	    ETS tables by passing the <seeerl
 	    marker="stdlib:ets#new_2_read_concurrency">{read_concurrency,
-	    true}</seealso> option upon table creation. See the
-	    documentation of <seealso
-	    marker="stdlib:ets#new/2">ets:new/2</seealso> for more
+	    true}</seeerl> option upon table creation. See the
+	    documentation of <seemfa
+	    marker="stdlib:ets#new/2">ets:new/2</seemfa> for more
 	    information. The reader optimized rwlock implementation
 	    can be fine tuned when starting the runtime system. For
-	    more information, see the documentation of the <seealso
-	    marker="erts:erl#+rg">+rg</seealso> command line argument
+	    more information, see the documentation of the <seecom
+	    marker="erts:erl#+rg">+rg</seecom> command line argument
 	    of <c>erl</c>.</p>
           <p>
 	    There is also a new implementation of rwlocks that is not
@@ -15742,8 +15742,8 @@
 	    utilize optimized native atomic operations on more
 	    platforms than before. If <c>configure</c> warns about no
 	    atomic implementation available, try using the
-	    <c>libatomic_ops</c> library. Use the <seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--with-libatomic_ops=PATH</seealso>
+	    <c>libatomic_ops</c> library. Use the <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--with-libatomic_ops=PATH</seeguide>
 	    <c>configure</c> command line argument when specifying
 	    where the <c>libatomic_ops</c> installation is located.
 	    The <c>libatomic_ops</c> library can be downloaded from:
@@ -15760,8 +15760,8 @@
 	    library will now use instructions that first appeared on
 	    the pentium 4 processor. If you want the runtime system
 	    to be compatible with older processors (back to 486) you
-	    need to pass the <seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--enable-ethread-pre-pentium4-compatibility</seealso>
+	    need to pass the <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--enable-ethread-pre-pentium4-compatibility</seeguide>
 	    <c>configure</c> command line argument when configuring
 	    the system.</p>
           <p>
@@ -15853,8 +15853,8 @@
 	    Calling <c>erlang:system_info/1</c> with the new argument
 	    <c>update_cpu_info</c> will make the runtime system
 	    reread and update the internally stored CPU information.
-	    For more information see the documentation of <seealso
-	    marker="erlang#system_info_update_cpu_info">erlang:system_info(update_cpu_info)</seealso>.</p>
+	    For more information see the documentation of <seeerl
+	    marker="erlang#system_info_update_cpu_info">erlang:system_info(update_cpu_info)</seeerl>.</p>
           <p>
 	    The CPU topology is now automatically detected on Windows
 	    systems with less than 33 logical processors. The runtime
@@ -15889,8 +15889,8 @@
         <item>
           <p>
 	    The scheduler wakeup threshold is now possible to adjust
-	    at system boot. For more information see the <seealso
-	    marker="erl#+swt">+swt</seealso> command line argument of
+	    at system boot. For more information see the <seecom
+	    marker="erl#+swt">+swt</seecom> command line argument of
 	    <c>erl</c>.</p>
           <p>
 	    Own Id: OTP-8811</p>
@@ -15946,8 +15946,8 @@
       <list>
         <item>
           <p>
-	    Driver threads, such as async threads, using <seealso
-	    marker="erl_driver#ErlDrvPDL">port data locks</seealso>
+	    Driver threads, such as async threads, using <seecref
+	    marker="erl_driver#ErlDrvPDL">port data locks</seecref>
 	    peeked at the port status field without proper locking
 	    when looking up the driver queue.</p>
           <p>
@@ -16099,9 +16099,9 @@
         </item>
         <item>
           <p>
-	    A user defined CPU topology set via a call to <seealso
+	    A user defined CPU topology set via a call to <seeerl
 	    marker="erlang#system_flag_cpu_topology">erlang:system_flag(cpu_topology,
-	    CPUTopology)</seealso> was not properly verified, and
+	    CPUTopology)</seeerl> was not properly verified, and
 	    could in worst case cause an emulator crash. The emulator
 	    crash could only occur when a user defined CPU topology
 	    already existed and was redefined.</p>
@@ -16189,8 +16189,8 @@
 	    with user defined memory management
 	    (<c>enif_make_resource_binary</c>) </item></list> <p>And
 	    some incompatible changes made to the API. For more
-	    information see the warning text in <seealso
-	    marker="erl_nif">erl_nif(3)</seealso>.</p>
+	    information see the warning text in <seecref
+	    marker="erl_nif">erl_nif(3)</seecref>.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
@@ -16338,11 +16338,11 @@
 	    for example another Erlang runtime system) also bind
 	    threads to logical processors, there might be a
 	    performance penalty instead. If this is the case you, are
-	    are advised to unbind the schedulers using the <seealso
-	    marker="erl#+sbt">+sbtu</seealso> command line argument,
-	    or by invoking <seealso
+	    are advised to unbind the schedulers using the <seecom
+	    marker="erl#+sbt">+sbtu</seecom> command line argument,
+	    or by invoking <seeerl
 	    marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type,
-	    unbound)</seealso>.</p>
+	    unbound)</seeerl>.</p>
           <p>
 	    Own Id: OTP-8666</p>
         </item>
@@ -16454,8 +16454,8 @@
       <list>
         <item>
           <p>
-            Driver threads, such as async threads, using <seealso
-            marker="erl_driver#ErlDrvPDL">port data locks</seealso>
+            Driver threads, such as async threads, using <seecref
+            marker="erl_driver#ErlDrvPDL">port data locks</seecref>
             peeked at the port status field without proper locking
             when looking up the driver queue.</p>
           <p>
@@ -17054,8 +17054,8 @@
 	    types <c>ErlDrvSInt64</c> and <c>ErlDrvUInt64</c> have
 	    been introduced.</p>
           <p>
-	    For more information see the <seealso
-	    marker="erl_driver">erl_driver(3)</seealso>
+	    For more information see the <seecref
+	    marker="erl_driver">erl_driver(3)</seecref>
 	    documentation.</p>
           <p>
 	    Own Id: OTP-8205</p>
@@ -17111,12 +17111,12 @@
         </item>
         <item>
           <p>
-	    The <seealso
-	    marker="erlang#port_command/3">erlang:port_command/3</seealso>
+	    The <seemfa
+	    marker="erlang#port_command/3">erlang:port_command/3</seemfa>
 	    BIF has been added. <c>erlang:port_command/3</c> is
 	    currently not auto imported, but it is planned to be auto
 	    imported in OTP R14. For more information see the
-	    <seealso marker="erlang">erlang(3)</seealso>
+	    <seeerl marker="erlang">erlang(3)</seeerl>
 	    documentation.</p>
           <p>
 	    Own Id: OTP-8225</p>

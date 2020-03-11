@@ -39,7 +39,7 @@
   <description>
 
     <p>Callback module for
-      <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>,
+      <seeerl marker="ct_telnet"><c>ct_telnet</c></seeerl>,
       for connecting to a Telnet server on a UNIX host.</p>
 
     <p>It requires the following entry in the configuration file:</p>
@@ -53,7 +53,7 @@
 
     <p>To communicate through Telnet to the host specified by
       <c>HostNameOrIpAddress</c>, use the interface functions in
-      <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>, for example,
+      <seeerl marker="ct_telnet"><c>ct_telnet</c></seeerl>, for example,
       <c>open(Name)</c> and <c>cmd(Name,Cmd)</c>.</p>
 
     <p><c>Name</c> is the name you allocated to the Unix host in your
@@ -71,7 +71,7 @@
       to the server every 10 seconds if the connection is idle) can be
       enabled or disabled for one particular connection as described here.
       It can be disabled for all connections using <c>telnet_settings</c>
-      (see <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>).</p>
+      (see <seeerl marker="ct_telnet"><c>ct_telnet</c></seeerl>).</p>
 
     <p>The <c>{port,PortNum}</c> tuple is optional and if omitted, default 
       Telnet port 23 is used. Also the <c>keep_alive</c> tuple is optional,
@@ -101,8 +101,8 @@
         <p>Setup Telnet connection to a Unix host.</p>
 
         <p>For <c>target_name()</c>, see
-          <seealso marker="ct"><c>ct</c></seealso>. For <c>handle()</c>, see
-          <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>.</p>
+          <seeerl marker="ct"><c>ct</c></seeerl>. For <c>handle()</c>, see
+          <seeerl marker="ct_telnet"><c>ct_telnet</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -119,15 +119,15 @@
           for users on Unix hosts.</p>
 
         <p>For <c>prompt_regexp()</c>, see
-          <seealso marker="ct_telnet"><c>ct_telnet</c></seealso>.</p>
+          <seeerl marker="ct_telnet"><c>ct_telnet</c></seeerl>.</p>
       </desc>
     </func>
    </funcs>
 
   <section>
     <title>See Also</title>
-      <p><seealso marker="ct"><c>ct</c></seealso>,
-        <seealso marker="ct_telnet"><c>ct_telnet</c></seealso></p>
+      <p><seeerl marker="ct"><c>ct</c></seeerl>,
+        <seeerl marker="ct_telnet"><c>ct_telnet</c></seeerl></p>
   </section>
 
 </erlref>

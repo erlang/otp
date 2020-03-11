@@ -34,7 +34,7 @@
     <p>The <c>i</c> module provides short forms for some of
       the functions used by the graphical Debugger and some of
       the functions in module
-      <seealso marker="int"><c>int</c></seealso>, the Erlang interpreter.</p>
+      <seeerl marker="int"><c>int</c></seeerl>, the Erlang interpreter.</p>
 
     <p>This module also provides facilities for displaying status
       information about interpreted processes and break points.</p>
@@ -45,7 +45,7 @@
       attached manually or automatically.</p>
 
     <p>By preference, these functions can be included in module
-      <seealso marker="stdlib:shell_default"><c>shell_default</c></seealso>.
+      <seeerl marker="stdlib:shell_default"><c>shell_default</c></seeerl>.
       By default, they are included in that module.</p>
   </description>
 
@@ -77,9 +77,9 @@
       <desc>
 	<p>Interprets the specified module(s). <c>ii/1</c> interprets
 	  the module(s) only at the current node, see
-	  <seealso marker="int#i/1">int:i/1</seealso>. <c>ini/1</c>
+	  <seemfa marker="int#i/1">int:i/1</seemfa>. <c>ini/1</c>
 	  interprets the module(s) at all known nodes, see
-	  <seealso marker="int#ni/1">int:ni/1</seealso>.</p>
+	  <seemfa marker="int#ni/1">int:ni/1</seemfa>.</p>
       </desc>
     </func>
 
@@ -141,7 +141,7 @@
       <desc>
 	<p>Sets when and how to attach to a debugged process
           automatically, see
-	  <seealso marker="int#auto_attach/0">int:auto_attach/2</seealso>.
+	  <seemfa marker="int#auto_attach/0">int:auto_attach/2</seemfa>.
 	  <c>Function</c> defaults to the standard function used by
 	  Debugger.</p>
       </desc>
@@ -155,7 +155,7 @@
       </type>
       <desc>
 	<p>Sets how to save call frames in the stack, see
-	  <seealso marker="int#stack_trace/0">int:stack_trace/1</seealso>.</p>
+	  <seemfa marker="int#stack_trace/0">int:stack_trace/1</seemfa>.</p>
       </desc>
     </func>
 
@@ -343,7 +343,7 @@
 	  the current variable bindings. The function must return
 	  <c>true</c> (break) or <c>false</c> (do not break).
 	  To retrieve the value of a variable <c>Var</c>, use
-	  <seealso marker="int#get_binding/2">int:get_binding(Var, Bindings)</seealso>.</p>
+	  <seemfa marker="int#get_binding/2">int:get_binding(Var, Bindings)</seemfa>.</p>
       </desc>
     </func>
 
@@ -387,7 +387,7 @@
 
   <section>
   <title>See Also</title>
-    <p><seealso marker="int"><c>int(3)</c></seealso></p>
+    <p><seeerl marker="int"><c>int(3)</c></seeerl></p>
   </section>
 </erlref>
 

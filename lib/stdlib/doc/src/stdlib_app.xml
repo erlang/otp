@@ -40,7 +40,7 @@
     <title>Configuration</title>
     <p>The following configuration parameters are defined for the STDLIB
       application. For more information about configuration parameters, see the
-      <seealso marker="kernel:app"><c>app(4)</c></seealso> module in Kernel.</p>
+      <seefile marker="kernel:app"><c>app(4)</c></seefile> module in Kernel.</p>
 
     <taglist>
       <tag><c>shell_esc = icl | abort</c></tag>
@@ -86,9 +86,9 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel:app"><c>app(4)</c></seealso>,
-      <seealso marker="kernel:application"><c>application(3)</c></seealso>,
-      <seealso marker="shell">shell(3)</seealso></p>
+    <p><seefile marker="kernel:app"><c>app(4)</c></seefile>,
+      <seeerl marker="kernel:application"><c>application(3)</c></seeerl>,
+      <seeerl marker="shell">shell(3)</seeerl></p>
   </section>
 </appref>
 

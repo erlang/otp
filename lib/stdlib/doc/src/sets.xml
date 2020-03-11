@@ -39,7 +39,7 @@
       The representation of a set is undefined.</p>
 
     <p>This module provides the same interface as the
-      <seealso marker="ordsets"><c>ordsets(3)</c></seealso> module
+      <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl> module
       but with an undefined representation. One difference is
       that while this module considers two elements as different if they
       do not match (<c>=:=</c>), <c>ordsets</c> considers two elements as
@@ -50,7 +50,7 @@
     <datatype>
       <name name="set" n_vars="1"/>
       <desc><p>As returned by
-        <seealso marker="#new/0"><c>new/0</c></seealso>.</p></desc>
+        <seemfa marker="#new/0"><c>new/0</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name name="set" n_vars="0"/>
@@ -220,8 +220,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="gb_sets"><c>gb_sets(3)</c></seealso>,
-      <seealso marker="ordsets"><c>ordsets(3)</c></seealso></p>
+    <p><seeerl marker="gb_sets"><c>gb_sets(3)</c></seeerl>,
+      <seeerl marker="ordsets"><c>ordsets(3)</c></seeerl></p>
   </section>
 </erlref>
 

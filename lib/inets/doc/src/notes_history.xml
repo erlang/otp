@@ -529,7 +529,7 @@
     <list type="bulleted">
       <item>
 	<p>[tftp] Added documentation (manual page) for 
-	  <seealso marker="tftp">TFTP</seealso>.</p>
+	  <seeerl marker="tftp">TFTP</seeerl>.</p>
 	<p>Own Id: OTP-6082</p>
       </item>
     </list>

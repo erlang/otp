@@ -42,14 +42,14 @@
     SSH connection. The API functions in this module send SSH Connection Protocol events,
     which are received as messages by the remote channel handling the remote channel.
     The Erlang format of thoose messages is
-    (see also <seealso marker="#type-event">below</seealso>):
+    (see also <seetype marker="#event">below</seetype>):
     </p>
-    <p><c>{ssh_cm, </c><seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso><c>, </c><seealso marker="#type-channel_msg"><c>channel_msg()</c></seealso><c>}</c>
+    <p><c>{ssh_cm, </c><seetype marker="ssh:ssh#connection_ref">ssh:connection_ref()</seetype><c>, </c><seetype marker="#channel_msg"><c>channel_msg()</c></seetype><c>}</c>
     </p>
     <p>
-    If the <seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior is used to
+    If the <seeerl marker="ssh_client_channel">ssh_client_channel</seeerl> behavior is used to
     implement the channel process, these messages are handled by
-    <seealso marker="ssh_client_channel#Module:handle_ssh_msg/2">handle_ssh_msg/2</seealso>.</p>
+    <seemfa marker="ssh_client_channel#Module:handle_ssh_msg/2">handle_ssh_msg/2</seemfa>.</p>
   </description>
 
   <datatypes>
@@ -67,9 +67,9 @@
       <desc>
 	<p>The result of a call.</p>
 	<p>If the request reached the peer, was handled and the response
-	reached the requesting node the	<seealso marker="#type-req_status">req_status()</seealso>
+	reached the requesting node the	<seetype marker="#req_status">req_status()</seetype>
 	is the status reported from the peer.</p>
-	<p>If not, the <seealso marker="#type-reason">reason()</seealso> indicates what went wrong:</p>
+	<p>If not, the <seetype marker="#reason">reason()</seetype> indicates what went wrong:</p>
 	<taglist>
 	  <tag><c>closed</c></tag>
 	  <item>indicates that the channel or connection was closed when trying to send the request
@@ -99,7 +99,7 @@
 	<p>As mentioned in the introduction, the
 	<url href="https://tools.ietf.org/html/rfc4254">SSH Connection Protocol</url>
 	events are handled as messages. When writing a channel handling process without using
-	the support by the <seealso marker="ssh_client_channel">ssh_client_channel</seealso>
+	the support by the <seeerl marker="ssh_client_channel">ssh_client_channel</seeerl>
 	behavior the process must handle thoose messages.
 	</p>
       </desc>
@@ -109,8 +109,8 @@
       <name name="want_reply"/>
       <desc>
       <p>Messages that include a <c>WantReply</c> expect the channel handling
-       process to call <seealso marker="ssh_connection#reply_request/4">
-       ssh_connection:reply_request/4</seealso>
+       process to call <seemfa marker="ssh_connection#reply_request/4">
+       ssh_connection:reply_request/4</seemfa>
       with the boolean value of <c>WantReply</c> as the second argument.</p>
       </desc>
     </datatype>
@@ -121,7 +121,7 @@
       <name name="data_ch_msg"/>
       <desc>
 	<p>Data has arrived on the channel. This event is sent as a result of calling
-	<seealso marker="ssh_connection#send/3"> ssh_connection:send/[3,4,5]</seealso>.
+	<seemfa marker="ssh_connection#send/3"> ssh_connection:send/[3,4,5]</seemfa>.
 	</p>
       </desc>
     </datatype>
@@ -132,7 +132,7 @@
       <name name="eof_ch_msg"/>
       <desc>
 	<p>Indicates that the other side sends no more data. This event is sent as a result of calling
-	<seealso marker="ssh_connection#send_eof/2"> ssh_connection:send_eof/2</seealso>.
+	<seemfa marker="ssh_connection#send_eof/2"> ssh_connection:send_eof/2</seemfa>.
       </p>
       </desc>
     </datatype>
@@ -140,9 +140,9 @@
       <name name="closed_ch_msg"/>
       <desc>
 	<p>This event is sent as a result of calling
-	<seealso marker="ssh_connection#close/2">ssh_connection:close/2</seealso>.
+	<seemfa marker="ssh_connection#close/2">ssh_connection:close/2</seemfa>.
 	Both the handling of this event and sending it are taken care of by the
-	<seealso marker="ssh_client_channel">ssh_client_channel</seealso> behavior.</p>
+	<seeerl marker="ssh_client_channel">ssh_client_channel</seeerl> behavior.</p>
       </desc>
     </datatype>
 
@@ -163,8 +163,8 @@
 	 <url href="https://tools.ietf.org/html/rfc4254#section/8">RFC 4254</url>, Section 8.
 	 It can also be an <c>Opcode</c> if the mnemonic name is not listed in the
 	 RFC. Example: <c>OP code: 53, mnemonic name ECHO erlang atom:
-	 echo</c>. This event is sent as a result of calling <seealso
-	 marker="ssh_connection#ptty_alloc/4">ssh_connection:ptty_alloc/4</seealso>.</p>
+	 echo</c>. This event is sent as a result of calling <seemfa
+	 marker="ssh_connection#ptty_alloc/4">ssh_connection:ptty_alloc/4</seemfa>.</p>
       </desc>
     </datatype>
 
@@ -174,8 +174,8 @@
       <name name="env_ch_msg"/>
       <desc>
 	<p>Environment variables can be passed to the shell/command
-	 to be started later. This event is sent as a result of calling <seealso
-	 marker="ssh_connection#setenv/5"> ssh_connection:setenv/5</seealso>.
+	 to be started later. This event is sent as a result of calling <seemfa
+	 marker="ssh_connection#setenv/5"> ssh_connection:setenv/5</seemfa>.
 	</p>
       </desc>
     </datatype>
@@ -187,7 +187,7 @@
       <desc>
 	<p>This message requests that the user default shell
 	 is started at the other end. This event is sent as a result of calling
-	 <seealso marker="ssh_connection#shell/2"> ssh_connection:shell/2</seealso>.
+	 <seemfa marker="ssh_connection#shell/2"> ssh_connection:shell/2</seemfa>.
 	</p>
       </desc>
     </datatype>
@@ -195,8 +195,8 @@
       <name name="exec_ch_msg"/>
       <desc>
 	<p>This message requests that the server starts
-	 execution of the given command. This event is sent as a result of calling <seealso
-	 marker="ssh_connection#exec/4">ssh_connection:exec/4 </seealso>.
+	 execution of the given command. This event is sent as a result of calling <seemfa
+	 marker="ssh_connection#exec/4">ssh_connection:exec/4 </seemfa>.
 	</p>
       </desc>
     </datatype>
@@ -234,8 +234,8 @@
 	following message can be sent to return the exit status of the
 	command. A zero <c>exit_status</c> usually means that the command
 	terminated successfully. This event is sent as a result of calling
-	<seealso marker="ssh_connection#exit_status/3">
-	ssh_connection:exit_status/3</seealso>.</p>
+	<seemfa marker="ssh_connection#exit_status/3">
+	ssh_connection:exit_status/3</seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -260,11 +260,11 @@
 	<p>Adjusts the SSH flow control window. This is to be done by both the
 	client- and server-side channel processes.</p>
 	
-	<note><p>Channels implemented with the <seealso marker="ssh_client_channel"> ssh_client_channel</seealso>
+	<note><p>Channels implemented with the <seeerl marker="ssh_client_channel"> ssh_client_channel</seeerl>
 	behavior do not normally need to call this function as flow control
 	is handled by the behavior. The behavior adjusts the window every time
-	the callback <seealso marker="ssh_client_channel#Module:handle_ssh_msg/2">
-	handle_ssh_msg/2</seealso> returns after processing channel data.</p></note>
+	the callback <seemfa marker="ssh_client_channel#Module:handle_ssh_msg/2">
+	handle_ssh_msg/2</seemfa> returns after processing channel data.</p></note>
       </desc>
    </func>
    
@@ -276,8 +276,8 @@
        sending a close event.
        </p>
        <note><p>This function is called by the <c>ssh_client_channel</c>
-       behavior when the channel is terminated, see <seealso
-       marker="ssh_client_channel"> ssh_client_channel(3)</seealso>. Thus, channels implemented
+       behavior when the channel is terminated, see <seeerl
+       marker="ssh_client_channel"> ssh_client_channel(3)</seeerl>. Thus, channels implemented
        with the behavior are not to call this function explicitly.</p></note>
      </desc>
    </func>
@@ -292,27 +292,27 @@
        request is a one-time execution that closes the channel when it is done.</p>
 
        <taglist>
-	 <tag>N x <seealso marker="#type-data_ch_msg">data message(s)</seealso></tag>
+	 <tag>N x <seetype marker="#data_ch_msg">data message(s)</seetype></tag>
 	 <item><p>The result of executing the command can be only one line
 	 or thousands of lines depending on the command.</p></item>
 
-	 <tag>0 or 1 x <seealso marker="#type-eof_ch_msg">eof message</seealso></tag>
+	 <tag>0 or 1 x <seetype marker="#eof_ch_msg">eof message</seetype></tag>
 	 <item><p>Indicates that no more data is to be sent.</p></item>
 
-	 <tag>0 or 1 x <seealso marker="#type-exit_signal_ch_msg">exit signal message</seealso></tag>
+	 <tag>0 or 1 x <seetype marker="#exit_signal_ch_msg">exit signal message</seetype></tag>
 	 <item><p>Not all systems send signals. For details on valid string
 	 values, see RFC 4254, Section 6.10</p></item>
 
-	 <tag>0 or 1 x <seealso marker="#type-exit_status_ch_msg">exit status message</seealso></tag>
+	 <tag>0 or 1 x <seetype marker="#exit_status_ch_msg">exit status message</seetype></tag>
 	 <item><p>It is recommended by the SSH Connection Protocol to send this
 	 message, but that is not always the case.</p></item>
 
-	 <tag>1 x <seealso marker="#type-closed_ch_msg">closed status message</seealso></tag>
+	 <tag>1 x <seetype marker="#closed_ch_msg">closed status message</seetype></tag>
 	 <item><p>Indicates that the <c>ssh_client_channel</c> started for the
 	 execution of the command has now been shut down.</p></item>
        </taglist>
        <p>See the User's Guide section on
-       <seealso marker="using_ssh#one-time-execution">One-Time Execution</seealso> for examples.
+       <seeguide marker="using_ssh#one-time-execution">One-Time Execution</seeguide> for examples.
        </p>
      </desc>
    </func>
@@ -381,17 +381,17 @@
        ok | Error</name>
        <fsummary>Sends channel data.</fsummary>
        <type>
-	<v>ConnectionRef = <seealso marker="ssh:ssh#type-connection_ref">ssh:connection_ref()</seealso></v>
-	<v>ChannelId = <seealso marker="ssh:ssh#type-channel_id">ssh:channel_id()</seealso></v>
+	<v>ConnectionRef = <seetype marker="ssh:ssh#connection_ref">ssh:connection_ref()</seetype></v>
+	<v>ChannelId = <seetype marker="ssh:ssh#channel_id">ssh:channel_id()</seetype></v>
 	<v>Data = iodata()</v>
-	<v>Type = <seealso marker="#type-ssh_data_type_code">ssh_data_type_code()</seealso></v>
+	<v>Type = <seetype marker="#ssh_data_type_code">ssh_data_type_code()</seetype></v>
 	<v>Timeout = timeout()</v>
-	<v>Error = {error, <seealso marker="#type-reason">reason()</seealso>}</v>
+	<v>Error = {error, <seetype marker="#reason">reason()</seetype>}</v>
        </type>
        <desc>
 	 <p>Is to be called by client- and server-channel processes to send data to each other.
 	 </p>
-	 <p>The function <seealso marker="ssh:ssh_connection#subsystem/4">subsystem/4</seealso> and subsequent
+	 <p>The function <seemfa marker="ssh:ssh_connection#subsystem/4">subsystem/4</seemfa> and subsequent
 	 calls of <c>send/3,4,5</c> must be executed in the same process.
 	 </p>
        </desc>
@@ -448,7 +448,7 @@
 	 subsystem on the server.
 	 </p>
 	 <p>The function <c>subsystem/4</c> and subsequent calls of 
-	 <seealso marker="ssh:ssh_connection#send/3">send/3,4,5</seealso> must be executed in the same process.
+	 <seemfa marker="ssh:ssh_connection#send/3">send/3,4,5</seemfa> must be executed in the same process.
 	 </p>
        </desc>
     </func>

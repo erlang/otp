@@ -113,7 +113,7 @@
       <desc>
         <p>Starts the <c>Inets</c> application. Default type
 	is <c>temporary</c>. See also
-	<seealso marker="kernel:application">application(3)</seealso>.</p>
+	<seeerl marker="kernel:application">application(3)</seeerl>.</p>
 
 	<marker id="stop"></marker>
       </desc>
@@ -160,7 +160,7 @@
       <fsummary>Stops the <c>Inets</c> application.</fsummary>
       <desc>
         <p>Stops the <c>Inets</c> application. See also
-	<seealso marker="kernel:application">application(3)</seealso>.</p>
+	<seeerl marker="kernel:application">application(3)</seeerl>.</p>
 	
 	<marker id="start2"></marker>
       </desc>
@@ -188,8 +188,8 @@
 
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="httpc">httpc(3)</seealso>,
-    <seealso marker="httpd">httpd(3)</seealso>
+    <p><seeerl marker="httpc">httpc(3)</seeerl>,
+    <seeerl marker="httpd">httpd(3)</seeerl>
     </p>
   </section>
   

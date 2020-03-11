@@ -153,9 +153,9 @@
         <cell>The maximum number of simultaneously alive Erlang processes
 	is by default 262,144. This limit can be configured at startup.
 	For more information, see the
-	<seealso marker="erts:erl#max_processes"><c>+P</c></seealso>
+	<seecom marker="erts:erl#max_processes"><c>+P</c></seecom>
 	command-line flag in the
-	<seealso marker="erts:erl"><c>erl(1)</c></seealso>
+	<seecom marker="erts:erl"><c>erl(1)</c></seecom>
 	manual page in ERTS.</cell>
       </row>
       <row>
@@ -164,7 +164,7 @@
 	any pids, ports, references, or funs (Erlang data types) from Y
 	on X, or if X and Y are connected. The maximum number of remote
 	nodes simultaneously/ever known to a node is limited by the
-	<seealso marker="#atoms">maximum number of atoms</seealso>
+	<seeguide marker="#atoms">maximum number of atoms</seeguide>
 	available for node names. All data concerning remote nodes,
 	except for the node name atom, are garbage-collected.</cell>
       </row>
@@ -173,9 +173,9 @@
 	<cell>The maximum number of simultaneously connected nodes is
 	limited by either the maximum number of simultaneously known
 	remote nodes,
-	<seealso marker="#ports">the maximum number of (Erlang) ports</seealso>
+	<seeguide marker="#ports">the maximum number of (Erlang) ports</seeguide>
 	available, or
-	<seealso marker="#files_sockets">the maximum number of sockets</seealso>
+	<seeguide marker="#files_sockets">the maximum number of sockets</seeguide>
 	available.</cell>
       </row>
       <row>
@@ -226,9 +226,9 @@
 	<cell>The maximum number of simultaneously open Erlang ports is
 	often by default 16,384. This limit can be configured at startup.
 	For more information, see the
-	<seealso marker="erts:erl#max_ports"><c>+Q</c></seealso>
+	<seecom marker="erts:erl#max_ports"><c>+Q</c></seecom>
 	command-line flag in the
-	<seealso marker="erts:erl"><c>erl(1)</c></seealso> manual page
+	<seecom marker="erts:erl"><c>erl(1)</c></seecom> manual page
 	in ERTS.</cell>
       </row>
       <row>
@@ -236,7 +236,7 @@
 	sockets</cell>
 	<cell>The maximum number of simultaneously open files and
 	sockets depends on
-	<seealso marker="#ports">the maximum number of Erlang ports</seealso>
+	<seeguide marker="#ports">the maximum number of Erlang ports</seeguide>
 	available, as well as on operating system-specific settings
 	and limits.</cell>
       </row>
@@ -260,7 +260,7 @@
         <cell><marker id="unique_integers"/>Unique Integers on a Runtime System Instance</cell>
         <cell>
 	    There are two types of unique integers both created using the
-            <seealso marker="erts:erlang#unique_integer/1">erlang:unique_integer()</seealso>
+            <seemfa marker="erts:erlang#unique_integer/1">erlang:unique_integer()</seemfa>
             BIF:
 	    <br/><br/>
 	    <em>1.</em> Unique integers created <em>with</em> the

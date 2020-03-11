@@ -55,23 +55,23 @@
     <section>
       <title>Release Handling Workflow</title>
       <p><em>Step 1</em>) A release is created as described in
-        <seealso marker="release_structure">Releases</seealso>.</p>
+        <seeguide marker="release_structure">Releases</seeguide>.</p>
       <p><em>Step 2</em>) The release is transferred to and installed at
         target environment. For information of how to install the first
 	target system, see
-        <seealso marker="doc/system_principles:create_target">System Principles</seealso>.</p>
+        <seeguide marker="system/system_principles:create_target">System Principles</seeguide>.</p>
       <p><em>Step 3</em>) Modifications, for example, error corrections,
         are made to the code in the development environment.</p>
       <p><em>Step 4</em>) At some point, it is time to make a new version
         of release. The relevant <c>.app</c> files are updated and a new
         <c>.rel</c> file is written.</p>
       <p><em>Step 5</em>) For each modified application, an
-        <seealso marker="#appup">application upgrade file</seealso>,
+        <seeguide marker="#appup">application upgrade file</seeguide>,
         <c>.appup</c>, is created. In this file, it is described how to
 	upgrade and/or downgrade between the old and new version of the
         application.</p>
       <p><em>Step 6</em>) Based on the <c>.appup</c> files, a
-        <seealso marker="#relup">release upgrade file</seealso> called
+        <seeguide marker="#relup">release upgrade file</seeguide> called
         <c>relup</c>, is created. This file describes how to upgrade and/or
         downgrade between the old and new version of the entire release.</p>
       <p><em>Step 7</em>) A new release package is made and transferred to
@@ -95,7 +95,7 @@
 
     <section>
       <title>Release Handling Aspects</title>
-      <p><seealso marker="appup_cookbook">Appup Cookbook</seealso>,
+      <p><seeguide marker="appup_cookbook">Appup Cookbook</seeguide>,
         contains examples of <c>.appup</c> files
 	for typical cases of upgrades/downgrades that are normally easy to
 	handle in runtime. However, many aspects can make release handling
@@ -235,10 +235,10 @@
         function <c>code_change</c>, passing the term <c>Extra</c> and
         some other information as arguments. See the manual pages for
         the respective behaviours and
-	<seealso marker="appup_cookbook#int_state">Appup Cookbook</seealso>.</p>
+	<seeguide marker="appup_cookbook#int_state">Appup Cookbook</seeguide>.</p>
       <p><c>update</c> with argument <c>supervisor</c> is used when
         changing the start specification of a supervisor. See
-	<seealso marker="appup_cookbook#sup">Appup Cookbook</seealso>.</p>
+	<seeguide marker="appup_cookbook#sup">Appup Cookbook</seeguide>.</p>
       <p>When a module is to be updated, the release handler finds
         which processes that are <em>using</em> the module by
         traversing the supervision tree of each running application
@@ -418,11 +418,11 @@
   </list>
     <p>For information about the syntax and contents of the <c>.appup</c>
       file, see the <c>appup(4)</c> manual page in SASL.</p>
-    <p><seealso marker="appup_cookbook">Appup Cookbook</seealso>
+    <p><seeguide marker="appup_cookbook">Appup Cookbook</seeguide>
       includes examples of <c>.appup</c> files for typical upgrade/downgrade
       cases.</p>
     <p><em>Example:</em> Consider the release <c>ch_rel-1</c> from
-      <seealso marker="release_structure#ch_rel">Releases</seealso>.
+      <seeguide marker="release_structure#ch_rel">Releases</seeguide>.
       Assume you want to add a function <c>available/0</c> to server
       <c>ch3</c>, which returns the number of available channels (when
       trying out the example, change in a copy of the original
@@ -601,7 +601,7 @@ release_handler:remove_release(Vsn) => ok</code>
     <p><em>Step 1)</em> Create a target system as described in
       System Principles of the first version <c>"A"</c>
       of <c>ch_rel</c> from
-      <seealso marker="release_structure#ch_rel">Releases</seealso>.
+      <seeguide marker="release_structure#ch_rel">Releases</seeguide>.
       This time <c>sys.config</c> must be included in the release package.
       If no configuration is needed, the file is to contain the empty
       list:</p>
@@ -619,7 +619,7 @@ release_handler:remove_release(Vsn) => ok</code>
     <p><em>Step 3)</em> In another Erlang shell, generate start scripts and
       create a release package for the new version <c>"B"</c>. Remember to
       include (a possible updated) <c>sys.config</c> and the <c>relup</c> file,
-      see <seealso marker="#relup">Release Upgrade File</seealso>.</p>
+      see <seeguide marker="#relup">Release Upgrade File</seeguide>.</p>
       <pre>
 1> <input>systools:make_script("ch_rel-2").</input>
 ok

@@ -126,7 +126,7 @@
   <section>
     <title>ERROR HANDLING </title>
     <p>The error handling strategy and possible errors sources are
-      described in the Erlang ODBC <seealso marker="error_handling">User's Guide.</seealso></p>
+      described in the Erlang ODBC <seeguide marker="error_handling">User's Guide.</seeguide></p>
   </section>
   <funcs>
     <func>
@@ -339,7 +339,7 @@
       </type>
       <desc>
         <p>Executes a parameterized SQL query. For an
-          example see the <seealso marker="getting_started#param_query">"Using the Erlang API"</seealso> in the Erlang ODBC 
+          example see the <seeguide marker="getting_started#param_query">"Using the Erlang API"</seeguide> in the Erlang ODBC 
           User's Guide.</p>
         <note>
           <p>Use the function describe_table/[2,3] to find out which
@@ -348,7 +348,7 @@
             capital letters, alas it is not currently supported by the
             param_query function. Too know which Erlang data type
             corresponds to an ODBC data type see the Erlang to ODBC
-            data type <seealso marker="databases#type">mapping</seealso> in the User's Guide.</p>
+            data type <seeguide marker="databases#type">mapping</seeguide> in the User's Guide.</p>
         </note>
       </desc>
     </func>
@@ -383,7 +383,7 @@
       <desc>
 	<p> Starts the odbc application. Default type
 	  is temporary.
-	  <seealso marker="kernel:application">See application(3)</seealso>
+	  <seeerl marker="kernel:application">See application(3)</seeerl>
 	</p>
       </desc>
     </func>
@@ -394,7 +394,7 @@
       
       <desc>
 	<p> Stops the odbc application.
-	  <seealso marker="kernel:application">See application(3)</seealso>
+	  <seeerl marker="kernel:application">See application(3)</seeerl>
 	</p>
       </desc>
     </func>

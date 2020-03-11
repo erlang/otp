@@ -33,7 +33,7 @@
   <description>
     <p>This module is deprecated. For a description of the Magic
       Cookie system, refer to
-      <seealso marker="doc/reference_manual:distributed">Distributed Erlang</seealso> in the Erlang Reference Manual.</p>
+      <seeguide marker="system/reference_manual:distributed">Distributed Erlang</seeguide> in the Erlang Reference Manual.</p>
   </description>
   <datatypes>
     <datatype>
@@ -46,7 +46,7 @@
       <fsummary>Magic cookie for local node (deprecated).</fsummary>
       <desc>
         <p>Use
-          <seealso marker="erts:erlang#get_cookie/0"><c>erlang:get_cookie()</c></seealso>
+          <seemfa marker="erts:erlang#get_cookie/0"><c>erlang:get_cookie()</c></seemfa>
           in ERTS instead.</p>
       </desc>
     </func>
@@ -58,8 +58,8 @@
       </type_desc>
       <desc>
         <p>Use
-          <seealso marker="erts:erlang#set_cookie/2"><c>erlang:set_cookie(node(), <anno>Cookie</anno>)</c>
-	  in ERTS</seealso> instead.</p>
+          <seemfa marker="erts:erlang#set_cookie/2"><c>erlang:set_cookie(node(), <anno>Cookie</anno>)</c>
+	  in ERTS</seemfa> instead.</p>
       </desc>
     </func>
     <func>
@@ -71,7 +71,7 @@
           is established in this case. Returns <c>no</c> if <c><anno>Node</anno></c>
           does not exist or communication is not authorized (it has
           another cookie than <c>auth</c> thinks it has).</p>
-        <p>Use <seealso marker="net_adm#ping/1"><c>net_adm:ping(<anno>Node</anno>)</c></seealso>
+        <p>Use <seemfa marker="net_adm#ping/1"><c>net_adm:ping(<anno>Node</anno>)</c></seemfa>
           instead.</p>
       </desc>
     </func>
@@ -80,11 +80,11 @@
       <fsummary>Set the magic cookie for a node and verify authorization (deprecated).</fsummary>
       <type>
         <v>Node = node()</v>
-        <v>Cookie = <seealso marker="#type-cookie"><c>cookie()</c></seealso></v>
+        <v>Cookie = <seetype marker="#cookie"><c>cookie()</c></seetype></v>
       </type>
       <desc>
         <p>Equivalent to
-          <seealso marker="#node_cookie/2"><c>node_cookie(Node, Cookie)</c></seealso>.</p>
+          <seemfa marker="#node_cookie/2"><c>node_cookie(Node, Cookie)</c></seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -94,8 +94,8 @@
         <p>Sets the magic cookie of <c><anno>Node</anno></c> to
 	<c><anno>Cookie</anno></c> and verifies the status of the authorization.
           Equivalent to calling
-          <seealso marker="erts:erlang#set_cookie/2"><c>erlang:set_cookie(<anno>Node</anno>, <anno>Cookie</anno>)</c></seealso>, followed by
-          <seealso marker="#is_auth/1"><c>auth:is_auth(<anno>Node</anno>)</c></seealso>.</p>
+          <seemfa marker="erts:erlang#set_cookie/2"><c>erlang:set_cookie(<anno>Node</anno>, <anno>Cookie</anno>)</c></seemfa>, followed by
+          <seemfa marker="#is_auth/1"><c>auth:is_auth(<anno>Node</anno>)</c></seemfa>.</p>
       </desc>
     </func>
   </funcs>

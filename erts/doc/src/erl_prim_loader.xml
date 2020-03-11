@@ -60,7 +60,7 @@
           for example,
           <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia.beam</c>.
           For information about archive files, see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -69,7 +69,7 @@
       <fsummary>Get the path set in the loader.</fsummary>
       <desc>
         <p>Gets the path set in the loader. The path is
-          set by the <seealso marker="init"><c>init(3)</c></seealso>
+          set by the <seeerl marker="init"><c>init(3)</c></seeerl>
           process according to information found in the start script.</p>
       </desc>
     </func>
@@ -87,7 +87,7 @@
           for example,
           <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin</c>.
           For information about archive files, see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -104,12 +104,12 @@
         <code type="none">
 -include_lib("kernel/include/file.hrl").</code>
         <p>For more information about the record <c>file_info</c>, see
-          <seealso marker="kernel:file"><c>file(3)</c></seealso>.</p>
+          <seeerl marker="kernel:file"><c>file(3)</c></seeerl>.</p>
         <p><c><anno>Filename</anno></c> can also be a file in an archive,
           for example,
           <c>$OTPROOT/lib/</c><c>mnesia-4.4.7.ez/mnesia-4.4.7/ebin/</c><c>mnesia</c>.
           For information about archive files, see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -118,7 +118,7 @@
       <fsummary>Get information about a link or file.</fsummary>
       <desc>
         <p>Works like
-          <seealso marker="#read_file_info/1"><c>read_file_info/1</c></seealso>
+          <seemfa marker="#read_file_info/1"><c>read_file_info/1</c></seemfa>
           except that if <c><anno>Filename</anno></c> is a symbolic link,
           information about the link is returned in the <c>file_info</c>
           record and the <c>type</c> field of the record is set to
@@ -135,7 +135,7 @@
       <fsummary>Set the path of the loader.</fsummary>
       <desc>
         <p>Sets the path of the loader if
-          <seealso marker="init"><c>init(3)</c></seealso>
+          <seeerl marker="init"><c>init(3)</c></seeerl>
           interprets a <c>path</c> command in the start script.</p>
       </desc>
     </func>
@@ -166,8 +166,8 @@
         <p>Specifies which other Erlang nodes the <c>inet</c> loader
           can use. This flag is mandatory if flag <c>-loader inet</c>
           is present. On each host, there must be on Erlang node
-          with the <seealso marker="kernel:erl_boot_server">
-          <c>erl_boot_server(3)</c></seealso>,
+          with the <seeerl marker="kernel:erl_boot_server">
+          <c>erl_boot_server(3)</c></seeerl>,
           which handles the load requests.
           <c>Hosts</c> is a list of IP addresses (hostnames
           are not acceptable).</p>
@@ -182,9 +182,9 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="init"><c>init(3)</c></seealso>,
-      <seealso marker="kernel:erl_boot_server">
-      <c>erl_boot_server(3)</c></seealso></p>
+    <p><seeerl marker="init"><c>init(3)</c></seeerl>,
+      <seeerl marker="kernel:erl_boot_server">
+      <c>erl_boot_server(3)</c></seeerl></p>
   </section>
 </erlref>
 

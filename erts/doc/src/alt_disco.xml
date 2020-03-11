@@ -48,7 +48,7 @@
   <section>
     <title>Introduction</title>
     <p>To implement your own node discovery module you have to write your own
-    EPMD module. The <seealso marker="kernel:erl_epmd">EPMD module</seealso> is
+    EPMD module. The <seeerl marker="kernel:erl_epmd">EPMD module</seeerl> is
     responsible for providing the location of another node. The distribution
     modules (<c>inet_tcp_dist</c>/<c>inet_tls_dist</c>) call the EPMD module to
     get the IP address and port of the other node. The EPMD module that is part
@@ -60,38 +60,38 @@
   <section>
     <title>Discovery module</title>
     <p>The discovery module needs to implement the same API as the regular
-    <seealso marker="kernel:erl_epmd">EPMD module</seealso>. However, instead of
+    <seeerl marker="kernel:erl_epmd">EPMD module</seeerl>. However, instead of
     communicating with EPMD you can connect to any service to find out
     connection details of other nodes. A discovery module is enabled
-    by setting <seealso marker="erts:erl">-epmd_module</seealso>
+    by setting <seecom marker="erts:erl">-epmd_module</seecom>
     when starting erlang. The discovery module must implement the following
     callbacks:</p>
 
     <taglist>
-      <tag><seealso marker="kernel:erl_epmd#start_link/0">start_link/0</seealso></tag>
+      <tag><seemfa marker="kernel:erl_epmd#start_link/0">start_link/0</seemfa></tag>
       <item>Start any processes needed by the discovery module.</item>
-      <tag><seealso marker="kernel:erl_epmd#names/1">names/1</seealso></tag>
+      <tag><seemfa marker="kernel:erl_epmd#names/1">names/1</seemfa></tag>
       <item>Return node names held by the registrar for the given host.</item>
-      <tag><seealso marker="kernel:erl_epmd#register_node/2">register_node/2</seealso></tag>
+      <tag><seemfa marker="kernel:erl_epmd#register_node/2">register_node/2</seemfa></tag>
       <item>Register the given node name with the registrar.</item>
-      <tag><seealso marker="kernel:erl_epmd#port_please/3">port_please/3</seealso></tag>
+      <tag><seemfa marker="kernel:erl_epmd#port_please/3">port_please/3</seemfa></tag>
       <item>Return the distribution port used by the given node.</item>
     </taglist>
 
     <p>The discovery module may implement the following callback:</p>
 
     <taglist>
-      <tag><seealso marker="kernel:erl_epmd#address_please/3">address_please/3</seealso></tag>
+      <tag><seemfa marker="kernel:erl_epmd#address_please/3">address_please/3</seemfa></tag>
       <item><p>Return the address of the given node.
-        If not implemented, <seealso marker="kernel:erl_epmd#address_please/3">
-        <c>erl_epmd:address_please/3</c></seealso> will be used instead.</p>
+        If not implemented, <seemfa marker="kernel:erl_epmd#address_please/3">
+        <c>erl_epmd:address_please/3</c></seemfa> will be used instead.</p>
         <p>This callback may also return the port of the given node. In that case
-        <seealso marker="kernel:erl_epmd#port_please/3">port_please/3</seealso>
+        <seemfa marker="kernel:erl_epmd#port_please/3">port_please/3</seemfa>
         may be omitted.</p></item>
-      <tag><seealso marker="kernel:erl_epmd#listen_port_please/2">listen_port_please/2</seealso></tag>
+      <tag><seemfa marker="kernel:erl_epmd#listen_port_please/2">listen_port_please/2</seemfa></tag>
       <item><p>Return the port the local node should listen to.
-        If not implemented, <seealso marker="kernel:erl_epmd#listen_port_please/2">
-        <c>erl_epmd:listen_port_please/2</c></seealso> will be used instead.</p>
+        If not implemented, <seemfa marker="kernel:erl_epmd#listen_port_please/2">
+        <c>erl_epmd:listen_port_please/2</c></seemfa> will be used instead.</p>
       </item>
     </taglist>
   </section>

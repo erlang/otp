@@ -46,7 +46,7 @@
     <title>Supported Releases</title>
     <p>
       In general, bugs are only fixed on the latest
-      <seealso marker="versions#releases_and_patches">release</seealso>,
+      <seeguide marker="versions#releases_and_patches">release</seeguide>,
       and new features are introduced in the upcoming release that is
       under development. However, when we, due to internal reasons, fix
       bugs on older releases, these will be available and announced as well.
@@ -56,7 +56,7 @@
       <c>maint</c> and the <c>master</c> branches in our
       <url href="https://github.com/erlang/otp">git repository</url>.
       The <c>maint</c> branch contains changes planned for the next
-      <seealso marker="versions#releases_and_patches">maintenance patch package</seealso>
+      <seeguide marker="versions#releases_and_patches">maintenance patch package</seeguide>
       on the latest OTP release and the <c>master</c> branch contain
       changes planned for the upcoming OTP release.
     </p>
@@ -101,7 +101,7 @@
 	  checksums in order to determine if it can load the code
 	  or not. Note that HiPE has some limitations. For more
 	  information see the documentation of the
-	  <seealso marker="hipe:HiPE_app">HiPE</seealso> application.
+	  <seeapp marker="hipe:HiPE_app">HiPE</seeapp> application.
 	</p>
       </item>
       <tag>APIs</tag>

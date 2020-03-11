@@ -55,7 +55,7 @@
       belong to the STDLIB application and upgrading/downgrading
       normally requires an emulator restart.</p>
     <p>OTP thus provides no support for changing residence modules except
-      in the case of <seealso marker="#spec">special processes</seealso>.</p>
+      in the case of <seeguide marker="#spec">special processes</seeguide>.</p>
   </section>
 
   <section>
@@ -64,7 +64,7 @@
       extensions simple code replacement is sufficient.</p>
       <p><em>Example:</em> When adding a function to <c>ch3</c>,
       as described in the example in
-      <seealso marker="release_handling#appup">Release Handling</seealso>,
+      <seeguide marker="release_handling#appup">Release Handling</seeguide>,
     <c>ch_app.appup</c> looks as follows:</p>
     <code type="none">
 {"2",
@@ -72,7 +72,7 @@
  [{"1", [{load_module, ch3}]}]
 }.</code>
     <p>OTP also supports changing the internal state of behaviour
-      processes, see <seealso marker="#int_state">Changing Internal State</seealso>.</p>
+      processes, see <seeguide marker="#int_state">Changing Internal State</seeguide>.</p>
   </section>
 
   <section>
@@ -84,7 +84,7 @@
       of the callback module. Thus, synchronized code replacement is
       used.</p>
     <p><em>Example:</em> Consider <c>gen_server</c> <c>ch3</c> from
-      <seealso marker="gen_server_concepts#ex">gen_server Behaviour</seealso>.
+      <seeguide marker="gen_server_concepts#ex">gen_server Behaviour</seeguide>.
       The internal state is a term <c>Chs</c>
       representing the available channels. Assume you want to add a counter
       <c>N</c>, which keeps track of the number of <c>alloc</c> requests
@@ -130,7 +130,7 @@ code_change(_Vsn, Chs, _Extra) ->
     <title>Module Dependencies</title>
     <p>Assume that a module is extended by adding an interface function,
       as in the example in
-      <seealso marker="release_handling#appup">Release Handling</seealso>,
+      <seeguide marker="release_handling#appup">Release Handling</seeguide>,
       where a function <c>available/0</c> is added to <c>ch3</c>.</p>
     <p>If a call is added to this function, say in module
       <c>m1</c>, a runtime error could can occur during release upgrade if
@@ -197,7 +197,7 @@ ch_app.appup:
         find the process.</p>
     </note>
     <p><em>Example:</em> Consider the example <c>ch4</c> in
-      <seealso marker="spec_proc#ex">sys and proc_lib</seealso>.
+      <seeguide marker="spec_proc#ex">sys and proc_lib</seeguide>.
       When started by a supervisor, the child specification can look
       as follows:</p>
     <code type="none">
@@ -236,13 +236,13 @@ system_code_change(Chs, _Module, _OldVsn, _Extra) ->
       (<c>ch4</c>).</item>
       <item>The third argument is <c>Vsn</c> or <c>{down,Vsn}</c>, as
       described for <c>gen_server:code_change/3</c> in
-      <seealso marker="#code_change">Changing Internal State</seealso>.</item>
+      <seeguide marker="#code_change">Changing Internal State</seeguide>.</item>
     </list>
     <p>In this case, all arguments but the first are ignored and
       the function simply returns the internal state again. This is
       enough if the code only has been extended. If instead the
       internal state is changed (similar to the example in
-      <seealso marker="#int_state">Changing Internal State</seealso>),
+      <seeguide marker="#int_state">Changing Internal State</seeguide>),
       this is done in this function and <c>{ok,Chs2}</c> returned.</p>
   </section>
 
@@ -271,7 +271,7 @@ system_code_change(Chs, _Module, _OldVsn, _Extra) ->
 {update, Module, supervisor}</code>
       <p><em>Example:</em> To change the restart strategy of
         <c>ch_sup</c> (from
-	<seealso marker="sup_princ#ex">Supervisor Behaviour</seealso>)
+	<seeguide marker="sup_princ#ex">Supervisor Behaviour</seeguide>)
 	from <c>one_for_one</c> to <c>one_for_all</c>, change the callback
 	function <c>init/1</c> in <c>ch_sup.erl</c>:</p>
       <code type="none">
@@ -380,7 +380,7 @@ init(_Args) ->
     <title>Starting or Terminating a Process</title>
     <p>In a system structured according to the OTP design principles,
       any process would be a child process belonging to a supervisor, see
-      <seealso marker="#sup_add">Adding and Deleting Child Processes</seealso>
+      <seeguide marker="#sup_add">Adding and Deleting Child Processes</seeguide>
       in Changing a Supervisor.</p>
   </section>
 
@@ -398,7 +398,7 @@ init(_Args) ->
       complicated to be made without restarting the processes, for
       example, if the supervisor hierarchy has been restructured.</p>
     <p><em>Example:</em> When adding a child <c>m1</c> to <c>ch_sup</c>, as in
-      <seealso marker="#sup_add">Adding and Deleting Child Processes</seealso>
+      <seeguide marker="#sup_add">Adding and Deleting Child Processes</seeguide>
       in Changing a Supervisor, an alternative to updating
       the supervisor is to restart the entire application:</p>
     <code type="none">
@@ -631,14 +631,14 @@ code_change(_OldVsn, State, port) ->
       It is executed before all other upgrade instructions.
       For more information about this instruction, see
       restart_new_emulator (Low-Level) in
-      <seealso marker="release_handling#restart_new_emulator_instr">Release Handling Instructions</seealso>.
+      <seeguide marker="release_handling#restart_new_emulator_instr">Release Handling Instructions</seeguide>.
       </p></item>
       <item><p><c>restart_emulator</c></p>
       <p>Used when a restart of the emulator is required after all
       other upgrade instructions are executed.
       For more information about this instruction, see
       restart_emulator (Low-Level) in
-      <seealso marker="release_handling#restart_emulator_instr">Release Handling Instructions</seealso>.
+      <seeguide marker="release_handling#restart_emulator_instr">Release Handling Instructions</seeguide>.
       </p></item>
     </list>
     <p>If an emulator restart is necessary and no upgrade instructions

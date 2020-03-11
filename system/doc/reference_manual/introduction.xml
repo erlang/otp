@@ -44,21 +44,21 @@
     <p>Information about implementation of Erlang can, for example, be found,
       in the following:</p>
     <list type="bulleted">
-      <item><p><seealso marker="doc/system_principles:system_principles">
-      System Principles</seealso></p>
+      <item><p><seeguide marker="system/system_principles:system_principles">
+      System Principles</seeguide></p>
       <p>Starting and stopping, boot scripts, code loading,
-      <seealso marker="doc/system_principles:error_logging">
-      logging</seealso>,
-      <seealso marker="doc/system_principles:create_target">
-      creating target systems</seealso></p>
+      <seeguide marker="system/system_principles:error_logging">
+      logging</seeguide>,
+      <seeguide marker="system/system_principles:create_target">
+      creating target systems</seeguide></p>
       </item>
-      <item><p><seealso marker="doc/efficiency_guide:advanced">
-      Efficiency Guide</seealso></p>
+      <item><p><seeguide marker="system/efficiency_guide:advanced">
+      Efficiency Guide</seeguide></p>
       <p>Memory consumption, system limits</p>
       </item>
       <item><p>ERTS User's Guide</p>
-      <p><seealso marker="erts:crash_dump">Crash dumps</seealso>,
-      <seealso marker="erts:driver">drivers</seealso></p>
+      <p><seeguide marker="erts:crash_dump">Crash dumps</seeguide>,
+      <seeguide marker="erts:driver">drivers</seeguide></p>
       </item>
     </list>
   </section>
@@ -87,7 +87,7 @@
   <section>
     <title>Complete List of BIFs</title>
     <p>For a complete list of BIFs, their arguments and return values,
-      see <seealso marker="erts:erlang">erlang(3)</seealso>
+      see <seeerl marker="erts:erlang">erlang(3)</seeerl>
       manual page in ERTS.</p>
   </section>
 

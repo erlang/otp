@@ -43,7 +43,7 @@
     terminal.</p>
   <p>You can also configure the system so that the default handler
     prints log events to a single file, or to a set of wrap logs
-    via <seealso marker="disk_log"><c>disk_log</c></seealso>.</p>
+    via <seeerl marker="disk_log"><c>disk_log</c></seeerl>.</p>
   <p>By configuration, you can also modify or disable the default
     handler, replace it by a custom handler, and install additional
     handlers.</p>
@@ -80,8 +80,8 @@
       log level check if the integer value of its log level is less
       than or equal to the currently configured log level. That is,
       the check passes if the event is equally or more severe than the
-      configured level. See section <seealso marker="#log_level">Log
-      Level</seealso> for a listing and description of all log
+      configured level. See section <seeguide marker="#log_level">Log
+      Level</seeguide> for a listing and description of all log
       levels.</p>
     <p>The primary log level can be overridden by a log level
       configured per module. This is to, for instance, allow more
@@ -90,13 +90,13 @@
       than the log level check provides. A filter function can stop or
       pass a log event, based on any of the event's contents. It can
       also modify all parts of the log event. See section
-      <seealso marker="#filters">Filters</seealso> for more
+      <seeguide marker="#filters">Filters</seeguide> for more
       details.</p>
     <p>If a log event passes through all primary filters and all
       handler filters for a specific handler, Logger forwards the
       event to the <em>handler callback</em>. The handler formats and
       prints the event to its destination. See
-      section <seealso marker="#handlers">Handlers</seealso> for more
+      section <seeguide marker="#handlers">Handlers</seeguide> for more
       details.</p>
     <p>Everything up to and including the call to the handler
       callbacks is executed on the client process, that is, the
@@ -109,11 +109,11 @@
     <marker id="logger_api"/>
     <title>Logger API</title>
     <p>The API for logging consists of a set
-      of <seealso marker="logger#macros">macros</seealso>, and a set
+      of <seeerl marker="logger#macros">macros</seeerl>, and a set
       of functions on the form <c>logger:Level/1,2,3</c>, which are
       all shortcuts
-      for <seealso marker="logger#log/2">
-    <c>logger:log(Level,Arg1[,Arg2[,Arg3]])</c></seealso>.</p>
+      for <seemfa marker="logger#log/2">
+    <c>logger:log(Level,Arg1[,Arg2[,Arg3]])</c></seemfa>.</p>
     <p>The macros are defined in <c>logger.hrl</c>, which is included
       in a module with the directive</p>
     <code>-include_lib("kernel/include/logger.hrl").</code>
@@ -183,8 +183,8 @@
       <p>Notice that the integer value is only used internally in
 	Logger. In the API, you must always use the atom. To compare
 	the severity of two log levels,
-	use <seealso marker="logger#compare_levels/2">
-	  <c>logger:compare_levels/2</c></seealso>.</p>
+	use <seemfa marker="logger#compare_levels/2">
+	  <c>logger:compare_levels/2</c></seemfa>.</p>
     </section>
     <section>
       <marker id="log_message"/>
@@ -194,9 +194,9 @@
 	two separate parameters in the Logger API), a string or a
 	report. The latter, which is either a map or a key-value list,
 	can be accompanied by a <em>report callback</em> specified in
-	the log event's <seealso marker="#metadata">metadata</seealso>.
+	the log event's <seeguide marker="#metadata">metadata</seeguide>.
 	The report callback is a convenience function that
-	the <seealso marker="#formatters">formatter</seealso> can use
+	the <seeguide marker="#formatters">formatter</seeguide> can use
 	to convert the report to a format string and arguments, or
 	directly to a string. The
 	formatter can also use its own conversion function, if no
@@ -205,11 +205,11 @@
       <p>The report callback must be a fun with one or two
 	arguments. If it takes one argument, this is the report
 	itself, and the fun returns a format string and arguments:</p>
-      <pre>fun((<seealso marker="logger#type-report"><c>logger:report()</c></seealso>) -> {<seealso marker="stdlib:io#type-format"><c>io:format()</c></seealso>,[term()]})</pre>
+      <pre>fun((<seetype marker="logger#report"><c>logger:report()</c></seetype>) -> {<seetype marker="stdlib:io#format"><c>io:format()</c></seetype>,[term()]})</pre>
       <p>If it takes two arguments, the first is the report, and the
 	second is a map containing extra data that allows direct
 	coversion to a string:</p>
-      <pre>fun((<seealso marker="logger#type-report"><c>logger:report()</c></seealso>,<seealso marker="logger#type-report_cb_config"><c>logger:report_cb_config()</c></seealso>) -> <seealso marker="stdlib:unicode#type-chardata"><c>unicode:chardata()</c></seealso>)
+      <pre>fun((<seetype marker="logger#report"><c>logger:report()</c></seetype>,<seetype marker="logger#report_cb_config"><c>logger:report_cb_config()</c></seetype>) -> <seetype marker="stdlib:unicode#chardata"><c>unicode:chardata()</c></seetype>)
       </pre>
       <p>The fun must obey the <c>depth</c> and <c>chars_limit</c>
 	parameters provided in the second argument, as the formatter
@@ -242,10 +242,10 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	<tag>Set process metadata</tag>
 	<item>
 	  <p>Process metadata is set and updated
-	    with <seealso marker="logger#set_process_metadata/1">
-	      <c>logger:set_process_metadata/1</c></seealso>
-	    and <seealso marker="logger#update_process_metadata/1">
-	      <c>logger:update_process_metadata/1</c></seealso>,
+	    with <seemfa marker="logger#set_process_metadata/1">
+	      <c>logger:set_process_metadata/1</c></seemfa>
+	    and <seemfa marker="logger#update_process_metadata/1">
+	      <c>logger:update_process_metadata/1</c></seemfa>,
 	    respectively. This metadata applies to the process on
 	    which these calls are made, and Logger adds the metadata
 	    to all log events issued on that process.</p>
@@ -259,8 +259,8 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	</item>
       </taglist>
       <p>See the description of
-	the <seealso marker="logger#type-metadata">
-	  <c>logger:metadata()</c></seealso> type for information
+	the <seetype marker="logger#metadata">
+	  <c>logger:metadata()</c></seetype> type for information
 	about which default keys Logger inserts, and how the different
 	metadata maps are merged.</p>
     </section>
@@ -279,8 +279,8 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       and <c>Extra</c> is any term. When applying the filter, Logger
       calls the function with the log event as the first argument,
       and the value of <c>Extra</c> as the second
-      argument. See <seealso marker="logger#type-filter">
-	<c>logger:filter()</c></seealso> for type definitions.</p>
+      argument. See <seetype marker="logger#filter">
+	<c>logger:filter()</c></seetype> for type definitions.</p>
     <p>The filter function can return <c>stop</c>, <c>ignore</c> or
       the (possibly modified) log event.</p>
     <p>If <c>stop</c> is returned, the log event is immediately
@@ -306,58 +306,58 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       callback. If <c>filter_default</c> is set to <c>stop</c>, Logger
       discards such events.</p>
     <p>Primary filters are added
-      with <seealso marker="logger#add_primary_filter/2">
-	<c>logger:add_primary_filter/2</c></seealso>
+      with <seemfa marker="logger#add_primary_filter/2">
+	<c>logger:add_primary_filter/2</c></seemfa>
       and removed
-      with <seealso marker="logger#remove_primary_filter/1">
-	<c>logger:remove_primary_filter/1</c></seealso>. They can also
+      with <seemfa marker="logger#remove_primary_filter/1">
+	<c>logger:remove_primary_filter/1</c></seemfa>. They can also
       be added at system start via the Kernel configuration
-      parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.</p>
+      parameter <seeguide marker="#logger_parameter"><c>logger</c></seeguide>.</p>
     <p>Handler filters are added
-      with <seealso marker="logger#add_handler_filter/3">
-	<c>logger:add_handler_filter/3</c></seealso>
+      with <seemfa marker="logger#add_handler_filter/3">
+	<c>logger:add_handler_filter/3</c></seemfa>
       and removed
-      with <seealso marker="logger#remove_handler_filter/2">
-	<c>logger:remove_handler_filter/2</c></seealso>. They can also
+      with <seemfa marker="logger#remove_handler_filter/2">
+	<c>logger:remove_handler_filter/2</c></seemfa>. They can also
       be specified directly in the configuration when adding a handler
-      with <seealso marker="logger#add_handler/3">
-	<c>logger:add_handler/3</c></seealso>
+      with <seemfa marker="logger#add_handler/3">
+	<c>logger:add_handler/3</c></seemfa>
       or via the Kernel configuration
-      parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.</p>
+      parameter <seeguide marker="#logger_parameter"><c>logger</c></seeguide>.</p>
 
     <p>To see which filters are currently installed in the system,
-      use <seealso marker="logger#get_config/0">
-	<c>logger:get_config/0</c></seealso>,
-      or <seealso marker="logger#get_primary_config/0">
-	<c>logger:get_primary_config/0</c></seealso>
-      and <seealso marker="logger#get_handler_config/1">
-	<c>logger:get_handler_config/1</c></seealso>. Filters are
+      use <seemfa marker="logger#get_config/0">
+	<c>logger:get_config/0</c></seemfa>,
+      or <seemfa marker="logger#get_primary_config/0">
+	<c>logger:get_primary_config/0</c></seemfa>
+      and <seemfa marker="logger#get_handler_config/1">
+	<c>logger:get_handler_config/1</c></seemfa>. Filters are
 	listed in the order they are applied, that is, the first
 	filter in the list is applied first, and so on.</p>
 
     <p>For convenience, the following built-in filters exist:</p>
 
     <taglist>
-	<tag><seealso marker="logger_filters#domain/2">
-	    <c>logger_filters:domain/2</c></seealso></tag>
+	<tag><seemfa marker="logger_filters#domain/2">
+	    <c>logger_filters:domain/2</c></seemfa></tag>
 	<item>
 	  <p>Provides a way of filtering log events based on a
 	  <c>domain</c> field in <c>Metadata</c>.</p>
 	</item>
-	<tag><seealso marker="logger_filters#level/2">
-	  <c>logger_filters:level/2</c></seealso></tag>
+	<tag><seemfa marker="logger_filters#level/2">
+	  <c>logger_filters:level/2</c></seemfa></tag>
 	<item>
 	  <p>Provides a way of filtering log events based on the log
 	    level.</p>
 	</item>
-	<tag><seealso marker="logger_filters#progress/2">
-	    <c>logger_filters:progress/2</c></seealso></tag>
+	<tag><seemfa marker="logger_filters#progress/2">
+	    <c>logger_filters:progress/2</c></seemfa></tag>
 	<item>
 	  <p>Stops or allows progress reports from <c>supervisor</c>
 	    and <c>application_controller</c>.</p>
 	</item>
-	<tag><seealso marker="logger_filters#remote_gl/2">
-	    <c>logger_filters:remote_gl/2</c></seealso></tag>
+	<tag><seemfa marker="logger_filters#remote_gl/2">
+	    <c>logger_filters:remote_gl/2</c></seemfa></tag>
 	<item>
 	  <p>Stops or allows log events originating from a process
 	    that has its group leader on a remote node.</p>
@@ -371,7 +371,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
     <p>A handler is defined as a module exporting at least the
       following callback function:</p>
 
-    <pre><seealso marker="logger#HModule:log/2">log(LogEvent, Config) -> void()</seealso></pre>
+    <pre><seemfa marker="logger#HModule:log/2">log(LogEvent, Config) -> void()</seemfa></pre>
 
     <p>This function is called when a log event has passed through all
       primary filters, and all handler filters attached to the handler
@@ -389,8 +389,8 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       handler module can export the optional callback
       functions <c>adding_handler/1</c>, <c>changing_config/3</c>,
       <c>filter_config/1</c>, and <c>removing_handler/1</c>. See
-      section <seealso marker="logger#handler_callback_functions">Handler
-      Callback Functions</seealso> in the logger(3) manual page for
+      section <seeerl marker="logger#handler_callback_functions">Handler
+      Callback Functions</seeerl> in the logger(3) manual page for
       more information about these function.</p>
 
     <p>The following built-in handlers exist:</p>
@@ -406,7 +406,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       <tag><c>logger_disk_log_h</c></tag>
       <item>
 	<p>This handler behaves much like <c>logger_std_h</c>, except it uses
-	  <seealso marker="disk_log"><c>disk_log</c></seealso> as its
+	  <seeerl marker="disk_log"><c>disk_log</c></seeerl> as its
 	  destination.</p>
       </item>
 
@@ -416,8 +416,8 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  only. It is not started by default, but will be
 	  automatically started the first time an <c>error_logger</c>
 	  event handler is added
-	  with <seealso marker="error_logger#add_report_handler/1">
-	    <c>error_logger:add_report_handler/1,2</c></seealso>.</p>
+	  with <seemfa marker="error_logger#add_report_handler/1">
+	    <c>error_logger:add_report_handler/1,2</c></seemfa>.</p>
 
 	<p>The old <c>error_logger</c> event handlers in STDLIB and
 	  SASL still exist, but they are not added by Erlang/OTP 21.0
@@ -434,31 +434,31 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       handler's destination. The handler callback receives the
       formatter information as part of the handler configuration,
       which is passed as the second argument
-      to <seealso marker="logger#HModule:log/2">
-	<c>HModule:log/2</c></seealso>.</p>
+      to <seemfa marker="logger#HModule:log/2">
+	<c>HModule:log/2</c></seemfa>.</p>
     <p>The formatter information consist of a formatter
       module, <c>FModule</c> and its
       configuration, <c>FConfig</c>. <c>FModule</c> must export the
       following function, which can be called by the handler:</p>
-    <pre><seealso marker="logger#FModule:format/2">format(LogEvent,FConfig)
-	-> FormattedLogEntry</seealso></pre>
+    <pre><seemfa marker="logger#FModule:format/2">format(LogEvent,FConfig)
+	-> FormattedLogEntry</seemfa></pre>
     <p>The formatter information for a handler is set as a part of its
       configuration when the handler is added. It can also be changed
       during runtime
-      with <seealso marker="logger#set_handler_config/3">
+      with <seemfa marker="logger#set_handler_config/3">
 	<c>logger:set_handler_config(HandlerId,formatter,{FModule,FConfig})</c>
-      </seealso>, which overwrites the current formatter information,
-      or with <seealso marker="logger#update_formatter_config/2">
-	<c>logger:update_formatter_config/2,3</c></seealso>, which
+      </seemfa>, which overwrites the current formatter information,
+      or with <seemfa marker="logger#update_formatter_config/2">
+	<c>logger:update_formatter_config/2,3</c></seemfa>, which
 	only modifies the formatter configuration.</p>
     <p>If the formatter module exports the optional callback
-      function <seealso marker="logger#FModule:check_config/1">
-	<c>check_config(FConfig)</c></seealso>, Logger calls this
+      function <seemfa marker="logger#FModule:check_config/1">
+	<c>check_config(FConfig)</c></seemfa>, Logger calls this
       function when the formatter information is set or modified, to
       verify the validity of the formatter configuration.</p>
     <p>If no formatter information is specified for a handler, Logger
       uses <c>logger_formatter</c> as default. See
-      the <seealso marker="logger_formatter"><c>logger_formatter(3)</c></seealso>
+      the <seeerl marker="logger_formatter"><c>logger_formatter(3)</c></seeerl>
       manual page for more information about this module.</p>
   </section>
 
@@ -468,71 +468,71 @@ logger:debug(#{got => connection_request, id => Id, state => State},
     <p>At system start, Logger is configured through Kernel
       configuration parameters. The parameters that apply to Logger
       are described in
-      section <seealso marker="#kernel_config_params">Kernel
-      Configuration Parameters</seealso>. Examples are found in
-      section <seealso marker="#config_examples">Configuration
-      Examples</seealso>.</p>
+      section <seeguide marker="#kernel_config_params">Kernel
+      Configuration Parameters</seeguide>. Examples are found in
+      section <seeguide marker="#config_examples">Configuration
+      Examples</seeguide>.</p>
     <p>During runtime, Logger configuration is changed via API
       functions. See
-      section <seealso marker="logger#configuration_API">Configuration
-      API Functions</seealso> in the <c>logger(3)</c> manual page.</p>
+      section <seeerl marker="logger#configuration_API">Configuration
+      API Functions</seeerl> in the <c>logger(3)</c> manual page.</p>
 
     <section>
       <title>Primary Logger Configuration</title>
       <p>Logger API functions that apply to the primary Logger
 	configuration are:</p>
       <list>
-	<item><seealso marker="logger#get_primary_config/0">
-	    <c>get_primary_config/0</c></seealso></item>
-	<item><seealso marker="logger#set_primary_config/1">
-	    <c>set_primary_config/1,2</c></seealso></item>
-	<item><seealso marker="logger#update_primary_config/1">
-	    <c>update_primary_config/1</c></seealso></item>
-	<item><seealso marker="logger#add_primary_filter/2">
-	    <c>add_primary_filter/2</c></seealso></item>
-	<item><seealso marker="logger#remove_primary_filter/1">
-	    <c>remove_primary_filter/1</c></seealso></item>
+	<item><seemfa marker="logger#get_primary_config/0">
+	    <c>get_primary_config/0</c></seemfa></item>
+	<item><seemfa marker="logger#set_primary_config/1">
+	    <c>set_primary_config/1,2</c></seemfa></item>
+	<item><seemfa marker="logger#update_primary_config/1">
+	    <c>update_primary_config/1</c></seemfa></item>
+	<item><seemfa marker="logger#add_primary_filter/2">
+	    <c>add_primary_filter/2</c></seemfa></item>
+	<item><seemfa marker="logger#remove_primary_filter/1">
+	    <c>remove_primary_filter/1</c></seemfa></item>
       </list>
       <p>The primary Logger configuration is a map with the following
 	keys:</p>
       <taglist>
 	<tag><marker id="primary_level"/>
-	  <c>level = </c><seealso marker="logger#type-level">
-	    <c>logger:level()</c></seealso><c> | all | none</c></tag>
+	  <c>level = </c><seetype marker="logger#level">
+	    <c>logger:level()</c></seetype><c> | all | none</c></tag>
 	<item>
 	  <p>Specifies the primary log level, that is, log event that
 	    are equally or more severe than this level, are forwarded
 	    to the primary filters. Less severe log events are
 	    immediately discarded.</p>
-	  <p>See section <seealso marker="#log_level">Log
-	      Level</seealso> for a listing and description of
+	  <p>See section <seeguide marker="#log_level">Log
+	      Level</seeguide> for a listing and description of
 	      possible log levels.</p>
 	  <p>The initial value of this option is set by the Kernel
-	    configuration parameter <seealso marker="#logger_level">
-	      <c>logger_level</c></seealso>. It is changed during
-	    runtime with <seealso marker="logger#set_primary_config/2">
-	      <c>logger:set_primary_config(level,Level)</c></seealso>.</p>
+	    configuration parameter <seeguide marker="#logger_level">
+	      <c>logger_level</c></seeguide>. It is changed during
+	    runtime with <seemfa marker="logger#set_primary_config/2">
+	      <c>logger:set_primary_config(level,Level)</c></seemfa>.</p>
 	  <p>Defaults to <c>notice</c>.</p>
 	</item>
 	<tag><c>filters = [{FilterId,Filter}]</c></tag>
 	<item>
 	  <p>Specifies the primary filters.</p>
 	  <list>
-	    <item><c>FilterId = </c><seealso marker="logger#type-filter_id">
-		<c>logger:filter_id()</c></seealso></item>
-	    <item><c>Filter = </c><seealso marker="logger#type-filter">
-		<c>logger:filter()</c></seealso></item>
+	    <item><c>FilterId = </c><seetype marker="logger#filter_id">
+		<c>logger:filter_id()</c></seetype></item>
+	    <item><c>Filter = </c><seetype marker="logger#filter">
+		<c>logger:filter()</c></seetype></item>
 	  </list>
 	  <p>The initial value of this option is set by the Kernel
 	    configuration
-	    parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.
+	    parameter <seeguide marker="#logger_parameter"><c>logger</c></seeguide>.
 	    During runtime, primary filters are added and removed with
-	    <seealso marker="logger#add_primary_filter/2">
-	      <c>logger:add_primary_filter/2</c></seealso> and
-	    <seealso marker="logger#remove_primary_filter/1">
-	      <c>logger:remove_primary_filter/1</c></seealso>,
+	    <seemfa marker="logger#add_primary_filter/2">
+	      <c>logger:add_primary_filter/2</c></seemfa> and
+	    <seemfa marker="logger#remove_primary_filter/1">
+	      <c>logger:remove_primary_filter/1</c></seemfa>,
 	    respectively.</p>
-	  <p>See section <seealso marker="#filters">Filters</seealso>
+	  <p>See section <seeguide marker="#filters">Filters</seeguide>
 	    for more detailed information.</p>
 	  <p>Defaults to <c>[]</c>.</p>
 	</item>
@@ -540,7 +540,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	<item>
 	  <p>Specifies what happens to a log event if all filters
 	    return <c>ignore</c>, or if no filters exist.</p>
-	  <p>See section <seealso marker="#filters">Filters</seealso>
+	  <p>See section <seeguide marker="#filters">Filters</seeguide>
 	    for more information about how this option is used.</p>
 	  <p>Defaults to <c>log</c>.</p>
 	</item>
@@ -553,23 +553,23 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       <p>Logger API functions that apply to handler configuration
 	are:</p>
       <list>
-	<item><seealso marker="logger#get_handler_config/0">
-	    <c>get_handler_config/0,1</c></seealso></item>
-	<item><seealso marker="logger#set_handler_config/2">
-	    <c>set_handler_config/2,3</c></seealso></item>
-	<item><seealso marker="logger#update_handler_config/2">
-	    <c>update_handler_config/2,3</c></seealso></item>
-	<item><seealso marker="logger#add_handler_filter/3">
-	    <c>add_handler_filter/3</c></seealso></item>
-	<item><seealso marker="logger#remove_handler_filter/2">
-	    <c>remove_handler_filter/2</c></seealso></item>
-	<item><seealso marker="logger#update_formatter_config/2">
-	    <c>update_formatter_config/2,3</c></seealso></item>
+	<item><seemfa marker="logger#get_handler_config/0">
+	    <c>get_handler_config/0,1</c></seemfa></item>
+	<item><seemfa marker="logger#set_handler_config/2">
+	    <c>set_handler_config/2,3</c></seemfa></item>
+	<item><seemfa marker="logger#update_handler_config/2">
+	    <c>update_handler_config/2,3</c></seemfa></item>
+	<item><seemfa marker="logger#add_handler_filter/3">
+	    <c>add_handler_filter/3</c></seemfa></item>
+	<item><seemfa marker="logger#remove_handler_filter/2">
+	    <c>remove_handler_filter/2</c></seemfa></item>
+	<item><seemfa marker="logger#update_formatter_config/2">
+	    <c>update_formatter_config/2,3</c></seemfa></item>
       </list>
       <p>The configuration for a handler is a map with the following keys:</p>
       <taglist>
-	<tag><c>id = </c><seealso marker="logger#type-handler_id">
-	    <c>logger:handler_id()</c></seealso></tag>
+	<tag><c>id = </c><seetype marker="logger#handler_id">
+	    <c>logger:handler_id()</c></seetype></tag>
 	<item>
 	  <p>Automatically inserted by Logger. The value is the same
 	    as the <c>HandlerId</c> specified when adding the handler,
@@ -581,20 +581,20 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	    as the <c>Module</c> specified when adding the handler,
 	    and it cannot be changed.</p>
 	</item>
-	<tag><c>level = </c><seealso marker="logger#type-level">
-	    <c>logger:level()</c></seealso><c> | all | none</c></tag>
+	<tag><c>level = </c><seetype marker="logger#level">
+	    <c>logger:level()</c></seetype><c> | all | none</c></tag>
 	<item>
 	  <p>Specifies the log level for the handler, that is, log
 	    events that are equally or more severe than this level,
 	    are forwarded to the handler filters for this
 	    handler.</p>
-	  <p>See section <seealso marker="#log_level">Log
-	      Level</seealso> for a listing and description of
+	  <p>See section <seeguide marker="#log_level">Log
+	      Level</seeguide> for a listing and description of
 	      possible log levels.</p>
 	  <p>The log level is specified when adding the handler, or
 	    changed during runtime with, for
-	    instance, <seealso marker="logger#set_handler_config/3">
-	      <c>logger:set_handler_config(HandlerId,level,Level)</c></seealso>.
+	    instance, <seemfa marker="logger#set_handler_config/3">
+	      <c>logger:set_handler_config(HandlerId,level,Level)</c></seemfa>.
 	  </p>
 	  <p>Defaults to <c>all</c>.</p>
 	</item>
@@ -602,19 +602,19 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	<item>
 	  <p>Specifies the handler filters.</p>
 	  <list>
-	    <item><c>FilterId = </c><seealso marker="logger#type-filter_id">
-		<c>logger:filter_id()</c></seealso></item>
-	    <item><c>Filter = </c><seealso marker="logger#type-filter">
-		<c>logger:filter()</c></seealso></item>
+	    <item><c>FilterId = </c><seetype marker="logger#filter_id">
+		<c>logger:filter_id()</c></seetype></item>
+	    <item><c>Filter = </c><seetype marker="logger#filter">
+		<c>logger:filter()</c></seetype></item>
 	  </list>
 	  <p>Handler filters are specified when adding the handler,
 	    or added or removed during runtime with
-	    <seealso marker="logger#add_handler_filter/3">
-	      <c>logger:add_handler_filter/3</c></seealso> and
-	    <seealso marker="logger#remove_handler_filter/2">
-	      <c>logger:remove_handler_filter/2</c></seealso>,
+	    <seemfa marker="logger#add_handler_filter/3">
+	      <c>logger:add_handler_filter/3</c></seemfa> and
+	    <seemfa marker="logger#remove_handler_filter/2">
+	      <c>logger:remove_handler_filter/2</c></seemfa>,
 	    respectively.</p>
-	  <p>See <seealso marker="#filters">Filters</seealso> for more
+	  <p>See <seeguide marker="#filters">Filters</seeguide> for more
 	    detailed information.</p>
 	  <p>Defaults to <c>[]</c>.</p>
 	</item>
@@ -622,7 +622,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	<item>
 	  <p>Specifies what happens to a log event if all filters
 	    return <c>ignore</c>, or if no filters exist.</p>
-	  <p>See section <seealso marker="#filters">Filters</seealso>
+	  <p>See section <seeguide marker="#filters">Filters</seeguide>
 	    for more information about how this option is used.</p>
 	  <p>Defaults to <c>log</c>.</p>
 	</item>
@@ -633,25 +633,25 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  <list>
 	    <item><c>FormatterModule = module()</c></item>
 	    <item><c>FormatterConfig = </c>
-		<seealso marker="logger#type-formatter_config">
-		  <c>logger:formatter_config()</c></seealso></item>
+		<seetype marker="logger#formatter_config">
+		  <c>logger:formatter_config()</c></seetype></item>
 	    </list>
 	  <p>The formatter information is specified when adding the
 	    handler. The formatter configuration can be changed during
 	    runtime
-	    with <seealso marker="logger#update_formatter_config/2">
-	      <c>logger:update_formatter_config/2,3</c></seealso>,
+	    with <seemfa marker="logger#update_formatter_config/2">
+	      <c>logger:update_formatter_config/2,3</c></seemfa>,
 	    or the complete formatter information can be overwritten
 	    with, for
-	    instance, <seealso marker="logger#set_handler_config/3">
-	      <c>logger:set_handler_config/3</c></seealso>.</p>
+	    instance, <seemfa marker="logger#set_handler_config/3">
+	      <c>logger:set_handler_config/3</c></seemfa>.</p>
 	  <p>See
-	    section <seealso marker="#formatters">Formatters</seealso>
+	    section <seeguide marker="#formatters">Formatters</seeguide>
 	    for more detailed information.</p>
 	  <p>Defaults
 	    to <c>{logger_formatter,DefaultFormatterConfig}</c>. See
-	    the <seealso marker="logger_formatter">
-	      <c>logger_formatter(3)</c></seealso> manual page for
+	    the <seeerl marker="logger_formatter">
+	      <c>logger_formatter(3)</c></seeerl> manual page for
 	    information about this formatter and its default
 	    configuration.</p>
 	</item>
@@ -661,10 +661,10 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	    data related to a specific handler implementation.</p>
 	  <p>The configuration for the built-in handlers is described
             in
-            the <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>
+            the <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>
             and
-            <seealso marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c>
-	    </seealso> manual pages.</p>
+            <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c>
+	    </seeerl> manual pages.</p>
 	</item>
       </taglist>
 
@@ -684,18 +684,18 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       <tag><marker id="logger_parameter"/><c>logger = [Config]</c></tag>
       <item>
         <p>Specifies the configuration
-	  for <seealso marker="logger">Logger</seealso>, except the
+	  for <seeerl marker="logger">Logger</seeerl>, except the
 	  primary log level, which is specified
-	  with <seealso marker="#logger_level"><c>logger_level</c></seealso>,
+	  with <seeguide marker="#logger_level"><c>logger_level</c></seeguide>,
 	  and the compatibility
-	  with <seealso marker="sasl:error_logging">SASL Error
-	  Logging</seealso>, which is specified
-	  with <seealso marker="#logger_sasl_compatible">
-	    <c>logger_sasl_compatible</c></seealso>.</p>
+	  with <seeguide marker="sasl:error_logging">SASL Error
+	  Logging</seeguide>, which is specified
+	  with <seeguide marker="#logger_sasl_compatible">
+	    <c>logger_sasl_compatible</c></seeguide>.</p>
 	<p>With this parameter, you can modify or disable the default
 	  handler, add custom handlers and primary logger filters, set
 	  log levels per module, and modify
-	  the <seealso marker="#proxy">proxy</seealso>
+	  the <seeguide marker="#proxy">proxy</seeguide>
 	  configuration.</p>
 	<p><c>Config</c> is any (zero or more) of the following:</p>
 	<taglist>
@@ -709,18 +709,18 @@ logger:debug(#{got => connection_request, id => Id, state => State},
           <item>
 	    <p>If <c>HandlerId</c> is <c>default</c>, then this entry
 	      modifies the default handler, equivalent to calling</p>
-	    <pre><seealso marker="logger#remove_handler/1">
+	    <pre><seemfa marker="logger#remove_handler/1">
 		logger:remove_handler(default)
-	    </seealso></pre>
+	    </seemfa></pre>
 	    <p>followed by</p>
-	    <pre><seealso marker="logger#add_handler/3">
+	    <pre><seemfa marker="logger#add_handler/3">
 		logger:add_handler(default, Module, HandlerConfig)
-	    </seealso></pre>
+	    </seemfa></pre>
 	    <p>For all other values of <c>HandlerId</c>, this entry
 	      adds a new handler, equivalent to calling</p>
-	    <pre><seealso marker="logger#add_handler/3">
+	    <pre><seemfa marker="logger#add_handler/3">
 		logger:add_handler(HandlerId, Module, HandlerConfig)
-	    </seealso></pre>
+	    </seemfa></pre>
 	    <p>Multiple entries of this type are allowed.</p></item>
           <tag><c>{filters, FilterDefault, [Filter]}</c></tag>
           <item>
@@ -730,53 +730,53 @@ logger:debug(#{got => connection_request, id => Id, state => State},
               <item><c>Filter = {FilterId, {FilterFun, FilterConfig}}</c></item>
 	    </list>
 	    <p>Equivalent to calling</p>
-	    <pre><seealso marker="logger#add_primary_filter/2">
+	    <pre><seemfa marker="logger#add_primary_filter/2">
 		logger:add_primary_filter(FilterId, {FilterFun, FilterConfig})
-	    </seealso></pre>
+	    </seemfa></pre>
 	    <p>for each <c>Filter</c>.</p>
 	    <p><c>FilterDefault</c> specifies the behaviour if all
 	      primary filters return <c>ignore</c>, see
-	      section <seealso marker="#filters">Filters</seealso>.</p>
+	      section <seeguide marker="#filters">Filters</seeguide>.</p>
 	    <p>Only one entry of this type is allowed.</p>
 	  </item>
           <tag><c>{module_level, Level, [Module]}</c></tag>
           <item>
 	    <p>Sets module log level for the given modules. Equivalent
 	      to calling</p>
-	    <pre><seealso marker="logger#set_module_level/2">
-		logger:set_module_level(Module, Level)</seealso></pre>
+	    <pre><seemfa marker="logger#set_module_level/2">
+		logger:set_module_level(Module, Level)</seemfa></pre>
 	    <p>for each <c>Module</c>.</p>
 	    <p>Multiple entries of this type are allowed.</p>
 	  </item>
 	  <tag><c>{proxy, ProxyConfig}</c></tag>
 	  <item>
 	    <p>Sets the proxy configuration, equivalent to calling</p>
-	    <pre><seealso marker="logger#set_proxy_config/1">
+	    <pre><seemfa marker="logger#set_proxy_config/1">
 		logger:set_proxy_config(ProxyConfig)
-	    </seealso></pre>
+	    </seemfa></pre>
 	    <p>Only one entry of this type is allowed.</p>
 	  </item>
 	</taglist>
 	<p>See
-	  section <seealso marker="#config_examples">Configuration
-	  Examples</seealso> for examples using the <c>logger</c>
+	  section <seeguide marker="#config_examples">Configuration
+	  Examples</seeguide> for examples using the <c>logger</c>
 	  parameter for system configuration.</p>
       </item>
       <tag><marker id="logger_level"/>
 	<c>logger_level = Level</c></tag>
       <item>
 	<p>Specifies the primary log level. See
-	  the <seealso marker="kernel_app#logger_level"><c>kernel(6)</c></seealso>
+	  the <seeapp marker="kernel_app#logger_level"><c>kernel(6)</c></seeapp>
 	  manual page for more information about this parameter.</p>
       </item>
       <tag><marker id="logger_sasl_compatible"/>
 	<c>logger_sasl_compatible = true | false</c></tag>
       <item>
 	<p>Specifies Logger's compatibility
-	  with <seealso marker="sasl:error_logging">SASL Error
-	    Logging</seealso>. See
-	  the <seealso marker="kernel_app#logger_sasl_compatible">
-	    <c>kernel(6)</c></seealso> manual page for more
+	  with <seeguide marker="sasl:error_logging">SASL Error
+	    Logging</seeguide>. See
+	  the <seeapp marker="kernel_app#logger_sasl_compatible">
+	    <c>kernel(6)</c></seeapp> manual page for more
 	  information about this parameter.</p>
       </item>
     </taglist>
@@ -790,7 +790,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	command line when starting an erlang node, but as the term
 	grows, a better approach is to use the system configuration
 	file. See
-	the <seealso marker="config"><c>config(4)</c></seealso> manual
+	the <seefile marker="config"><c>config(4)</c></seefile> manual
 	page for more information about this file.</p>
       <p>Each of the following examples shows a simple system
 	configuration file that configures Logger according to the
@@ -854,22 +854,22 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  be used by legacy code. It will be removed in a later
 	  release.</p>
 	<p>Calls
-	  to <seealso marker="error_logger#error_report/1">
-	    <c>error_logger:error_report/1,2</c></seealso>,
-	  <seealso marker="error_logger#error_msg/1">
-	    <c>error_logger:error_msg/1,2</c></seealso>, and
+	  to <seemfa marker="error_logger#error_report/1">
+	    <c>error_logger:error_report/1,2</c></seemfa>,
+	  <seemfa marker="error_logger#error_msg/1">
+	    <c>error_logger:error_msg/1,2</c></seemfa>, and
 	  corresponding functions for warning and info messages, are
 	  all forwarded to Logger as calls
-	  to <seealso marker="logger#log/3">
-	    <c>logger:log(Level,Report,Metadata)</c></seealso>.</p>
+	  to <seemfa marker="logger#log/3">
+	    <c>logger:log(Level,Report,Metadata)</c></seemfa>.</p>
 	<p><c>Level = error | warning | info</c> and is taken
 	  from the function name. <c>Report</c> contains the actual
 	  log message, and <c>Metadata</c> contains additional
 	  information which can be used for creating backwards
 	  compatible events for legacy <c>error_logger</c> event
 	  handlers, see
-	  section <seealso marker="#legacy_event_handlers">Legacy
-	  Event Handlers</seealso>.</p>
+	  section <seeguide marker="#legacy_event_handlers">Legacy
+	  Event Handlers</seeguide>.</p>
       </item>
       <tag>Output Format</tag>
       <item>
@@ -895,8 +895,8 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  trough SASL's own event handlers <c>sasl_report_tty_h</c>
 	  and <c>sasl_report_file_h</c>.</p>
 	<p>The destination of these log events was configured by
-	  <seealso marker="sasl:sasl_app#deprecated_error_logger_config">SASL
-	  configuration parameters</seealso>.</p>
+	  <seeapp marker="sasl:sasl_app#deprecated_error_logger_config">SASL
+	  configuration parameters</seeapp>.</p>
 	<p>Due to the specific event handlers, the output format
 	  slightly differed from other log events.</p>
 	<p>As of Erlang/OTP 21.0, the concept of SASL reports is
@@ -912,25 +912,25 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	    events, and since the default primary log level
 	    is <c>notice</c>, these are not logged by default. To
 	    enable printing of progress reports, set
-	    the <seealso marker="#primary_level">primary log
-	    level</seealso> to <c>info</c>.</item>
+	    the <seeguide marker="#primary_level">primary log
+	    level</seeguide> to <c>info</c>.</item>
 	  <item>The output format is the same for all log
 	    events.</item>
 	</list>
 	<p>If the old behaviour is preferred, the Kernel configuration
-	  parameter <seealso marker="kernel_app#logger_sasl_compatible">
-	    <c>logger_sasl_compatible</c></seealso> can be set
+	  parameter <seeapp marker="kernel_app#logger_sasl_compatible">
+	    <c>logger_sasl_compatible</c></seeapp> can be set
 	  to <c>true</c>. The
-	  <seealso marker="sasl:sasl_app#deprecated_error_logger_config">SASL
-	  configuration parameters</seealso> can then be used as
+	  <seeapp marker="sasl:sasl_app#deprecated_error_logger_config">SASL
+	  configuration parameters</seeapp> can then be used as
 	  before, and the SASL reports will only be printed if the
 	  SASL application is running, through a second log handler
 	  named <c>sasl</c>.</p>
 	<p>All SASL reports have a metadata field <c>domain</c> which
 	  is set to <c>[otp,sasl]</c>. This field can be
 	  used by filters to stop or allow the log events.</p>
-	<p>See section <seealso marker="sasl:error_logging">SASL User's
-	  Guide</seealso> for more information about the old SASL
+	<p>See section <seeguide marker="sasl:error_logging">SASL User's
+	  Guide</seeguide> for more information about the old SASL
 	  error logging functionality.</p>
       </item>
       <tag><marker id="legacy_event_handlers"/>Legacy Event Handlers</tag>
@@ -974,8 +974,8 @@ error_logger:add_report_handler/1,2.
       filter or handler in question from the configuration, and print
       a short error message to the terminal. A debug event containing
       the crash reason and other details is also issued.</p>
-    <p>See section <seealso marker="#log_message">Log
-      Message</seealso> for more information about report callbacks
+    <p>See section <seeguide marker="#log_message">Log
+      Message</seeguide> for more information about report callbacks
       and valid forms of log messages.</p>
   </section>
 
@@ -1003,7 +1003,7 @@ ok</pre>
 ok</pre>
     <p>Then, add a new handler which prints to file. You can use the
       handler
-      module <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>,
+      module <seeerl marker="logger_std_h"><c>logger_std_h</c></seeerl>,
       and configure it to log to file:</p>
     <pre>
 4> <input>Config = #{config => #{file => "./info.log"}, level => info}.</input>
@@ -1014,14 +1014,14 @@ ok</pre>
       handler now receives all log events. If you want info events
       only in the file, you must add a filter to stop all non-info
       events. The built-in
-      filter <seealso marker="logger_filters#level/2">
-	<c>logger_filters:level/2</c></seealso>
+      filter <seemfa marker="logger_filters#level/2">
+	<c>logger_filters:level/2</c></seemfa>
       can do this:</p>
     <pre>
 6> <input>logger:add_handler_filter(myhandler, stop_non_info,
                              {fun logger_filters:level/2, {stop, neq, info}}).</input>
 ok</pre>
-    <p>See section <seealso marker="#filters">Filters</seealso> for
+    <p>See section <seeguide marker="#filters">Filters</seeguide> for
       more information about the filters and the <c>filter_default</c>
       configuration parameter.</p>
 
@@ -1029,8 +1029,8 @@ ok</pre>
 
   <section>
     <title>Example: Implement a handler</title>
-    <p>Section <seealso marker="logger#handler_callback_functions">Handler
-	Callback Functions</seealso> in the logger(3) manual page
+    <p>Section <seeerl marker="logger#handler_callback_functions">Handler
+	Callback Functions</seeerl> in the logger(3) manual page
 	describes the callback functions that can be implemented for a
 	Logger handler.</p>
     <p>A handler callback module must export:</p>
@@ -1045,8 +1045,8 @@ ok</pre>
       <item><c>filter_config(Config)</c></item>
     </list>
     <p>When a handler is added, by for example a call
-      to <seealso marker="logger#add_handler/3">
-	<c>logger:add_handler(Id, HModule, Config)</c></seealso>,
+      to <seemfa marker="logger#add_handler/3">
+	<c>logger:add_handler(Id, HModule, Config)</c></seemfa>,
       Logger first calls <c>HModule:adding_handler(Config)</c>. If
       this function returns <c>{ok,Config1}</c>, Logger
       writes <c>Config1</c> to the configuration database, and
@@ -1054,22 +1054,22 @@ ok</pre>
       handler is installed and must be ready to receive log events as
       calls to <c>HModule:log/2</c>.</p>
     <p>A handler can be removed by calling
-      <seealso marker="logger#remove_handler/1">
-	<c>logger:remove_handler(Id)</c></seealso>. Logger calls
+      <seemfa marker="logger#remove_handler/1">
+	<c>logger:remove_handler(Id)</c></seemfa>. Logger calls
       <c>HModule:removing_handler(Config)</c>, and removes the
       handler's configuration from the configuration database.</p>
-    <p>When <seealso marker="logger#set_handler_config/2">
-	<c>logger:set_handler_config/2,3</c></seealso>
-      or <seealso marker="logger#update_handler_config/2">
-	<c>logger:update_handler_config/2,3</c></seealso> is called,
+    <p>When <seemfa marker="logger#set_handler_config/2">
+	<c>logger:set_handler_config/2,3</c></seemfa>
+      or <seemfa marker="logger#update_handler_config/2">
+	<c>logger:update_handler_config/2,3</c></seemfa> is called,
       Logger
       calls <c>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig)</c>. If
       this function returns <c>{ok,NewConfig1}</c>, Logger
       writes <c>NewConfig1</c> to the configuration database.</p>
-    <p>When <seealso marker="logger#get_config/0">
-	<c>logger:get_config/0</c></seealso> or
-      <seealso marker="logger#get_handler_config/0">
-	<c>logger:get_handler_config/0,1</c></seealso> is called,
+    <p>When <seemfa marker="logger#get_config/0">
+	<c>logger:get_config/0</c></seemfa> or
+      <seemfa marker="logger#get_handler_config/0">
+	<c>logger:get_handler_config/0,1</c></seemfa> is called,
       Logger calls <c>HModule:filter_config(Config)</c>. This function
       must return the handler configuration where internal data is
       removed.</p>
@@ -1089,11 +1089,11 @@ log(LogEvent, #{formatter := {FModule, FConfig}}) ->
       client process.</p>
     <p>For information and examples of overload protection, please
       refer to
-      section <seealso marker="#overload_protection">Protecting the
-	Handler from Overload</seealso>, and the implementation
-      of <seealso marker="logger_std_h"><c>logger_std_h</c></seealso>
-      and <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c>
-      </seealso>.</p>
+      section <seeguide marker="#overload_protection">Protecting the
+	Handler from Overload</seeguide>, and the implementation
+      of <seeerl marker="logger_std_h"><c>logger_std_h</c></seeerl>
+      and <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h</c>
+      </seeerl>.</p>
     <p>The following is a simpler example of a handler which logs to a
       file through one single process:</p>
     <code>
@@ -1136,9 +1136,9 @@ do_log(Fd, LogEvent, #{formatter := {FModule, FConfig}}) ->
   <section>
     <marker id="overload_protection"/>
     <title>Protecting the Handler from Overload</title>
-    <p>The default handlers, <seealso marker="logger_std_h">
-    <c>logger_std_h</c></seealso> and <seealso marker="logger_disk_log_h">
-    <c>logger_disk_log_h</c></seealso>, feature an overload protection
+    <p>The default handlers, <seeerl marker="logger_std_h">
+    <c>logger_std_h</c></seeerl> and <seeerl marker="logger_disk_log_h">
+    <c>logger_disk_log_h</c></seeerl>, feature an overload protection
     mechanism, which makes it possible for the handlers to survive,
     and stay responsive, during periods of high load (when huge
     numbers of incoming log requests must be handled).
@@ -1161,7 +1161,7 @@ do_log(Fd, LogEvent, #{formatter := {FModule, FConfig}}) ->
 	  <p>As long as the length of the message queue is lower than this
 	  value, all log events are handled asynchronously. This means that
 	  the client process sending the log event, by calling a log function
-	  in the <seealso marker="logger_chapter#logger_api">Logger API</seealso>,
+	  in the <seeguide marker="logger_chapter#logger_api">Logger API</seeguide>,
 	  does not wait for a response from the handler but continues
 	  executing immediately after the event is sent. It is not affected
 	  by the time it takes the handler to print the event to the log
@@ -1337,7 +1337,7 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
       <note>
 	<p>The sizes of the log events affect the memory needs of the handler.
 	For information about how to limit the size of log events, see the
-	<seealso marker="logger_formatter"><c>logger_formatter(3)</c></seealso>
+	<seeerl marker="logger_formatter"><c>logger_formatter(3)</c></seeerl>
 	manual page.</p>
       </note>
     </section>
@@ -1361,8 +1361,8 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
       remote node, the proxy calls the Logger API to log the event.</p>
     <p>The proxy process is overload protected in the same way as
       described in
-      section <seealso marker="#overload_protection">Protecting the
-      Handler from Overload</seealso>, but with the following default
+      section <seeguide marker="#overload_protection">Protecting the
+      Handler from Overload</seeguide>, but with the following default
       values:</p>
     <code>
     #{sync_mode_qlen => 500,
@@ -1376,8 +1376,8 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
       the <c>system_logger</c> to <c>undefined</c>, forcing the
       emulator to drop events until it is set back to the proxy pid
       again.</p>
-    <p>The proxy uses <seealso marker="erts:erlang#send_nosuspend/2">
-	<c>erlang:send_nosuspend/2</c></seealso> when sending log
+    <p>The proxy uses <seemfa marker="erts:erlang#send_nosuspend/2">
+	<c>erlang:send_nosuspend/2</c></seemfa> when sending log
       events to a remote node. If the message could not be sent
       without suspending the sender, it is dropped. This is to avoid
       blocking the proxy process.</p>
@@ -1386,14 +1386,14 @@ logger:add_handler(my_disk_log_h, logger_disk_log_h,
   <section>
     <title>See Also</title>
     <p>
-      <seealso marker="disk_log"><c>disk_log(3)</c></seealso>,
-      <seealso marker="erts:erlang"><c>erlang(3)</c></seealso>,
-      <seealso marker="error_logger"><c>error_logger(3)</c></seealso>,
-      <seealso marker="logger"><c>logger(3)</c></seealso>,
-      <seealso marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seealso>,
-      <seealso marker="logger_filters"><c>logger_filters(3)</c></seealso>,
-      <seealso marker="logger_formatter"><c>logger_formatter(3)</c></seealso>,
-      <seealso marker="logger_std_h"><c>logger_std_h(3)</c></seealso>,
-        <seealso marker="sasl:sasl_app"><c>sasl(6)</c></seealso></p>
+      <seeerl marker="disk_log"><c>disk_log(3)</c></seeerl>,
+      <seeerl marker="erts:erlang"><c>erlang(3)</c></seeerl>,
+      <seeerl marker="error_logger"><c>error_logger(3)</c></seeerl>,
+      <seeerl marker="logger"><c>logger(3)</c></seeerl>,
+      <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h(3)</c></seeerl>,
+      <seeerl marker="logger_filters"><c>logger_filters(3)</c></seeerl>,
+      <seeerl marker="logger_formatter"><c>logger_formatter(3)</c></seeerl>,
+      <seeerl marker="logger_std_h"><c>logger_std_h(3)</c></seeerl>,
+        <seeapp marker="sasl:sasl_app"><c>sasl(6)</c></seeapp></p>
   </section>
 </chapter>

@@ -202,11 +202,11 @@
       <desc>
         <p>Returns an iterator that can be used for traversing the
           entries of <c><anno>Tree</anno></c>; see
-          <seealso marker="#next/1"><c>next/1</c></seealso>. The implementation
+          <seemfa marker="#next/1"><c>next/1</c></seemfa>. The implementation
           of this is very efficient; traversing the whole tree using
           <c>next/1</c> is only slightly slower than getting the list
           of all elements using
-          <seealso marker="#to_list/1"><c>to_list/1</c></seealso>
+          <seemfa marker="#to_list/1"><c>to_list/1</c></seemfa>
           and traversing that.
           The main advantage of the iterator approach is that it does
           not require the complete list of all elements to be built in
@@ -221,9 +221,9 @@
       <desc>
         <p>Returns an iterator that can be used for traversing the
           entries of <c><anno>Tree</anno></c>; see
-          <seealso marker="#next/1"><c>next/1</c></seealso>.
+          <seemfa marker="#next/1"><c>next/1</c></seemfa>.
           The difference as compared to the iterator returned by
-          <seealso marker="#iterator/1"><c>iterator/1</c></seealso>
+          <seemfa marker="#iterator/1"><c>iterator/1</c></seemfa>
           is that the first key greater than
           or equal to <c><anno>Key</anno></c> is returned.</p>
       </desc>
@@ -360,8 +360,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="dict"><c>dict(3)</c></seealso>,
-      <seealso marker="gb_sets"><c>gb_sets(3)</c></seealso></p>
+    <p><seeerl marker="dict"><c>dict(3)</c></seeerl>,
+      <seeerl marker="gb_sets"><c>gb_sets(3)</c></seeerl></p>
   </section>
 </erlref>
 

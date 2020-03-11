@@ -51,15 +51,15 @@
         storage</item>
       <item>Communication between C nodes and Erlang processes</item>
       <item>Backup and restore of C node state to and from
-        <seealso marker="mnesia:mnesia">Mnesia</seealso></item>
+        <seeerl marker="mnesia:mnesia">Mnesia</seeerl></item>
     </list>
     <note>
       <p>By default, the <c>Erl_Interface</c> library is only guaranteed
         to be compatible with other Erlang/OTP components from the same
         release as the libraries themselves. For information about how to
         communicate with Erlang/OTP components from earlier releases, see
-        function <seealso marker="ei#ei_set_compat_rel">
-        <c>ei_set_compat_rel</c></seealso>.</p>
+        function <seecref marker="ei#ei_set_compat_rel">
+        <c>ei_set_compat_rel</c></seecref>.</p>
     </note>
 
     <section>
@@ -192,14 +192,14 @@ ei_x_encode_atom(&buf, "tobbe");
 ei_x_encode_long(&buf, 3928);    ]]></code>
 
     <p>For a complete description, see the
-    <seealso marker="ei"><c>ei</c></seealso> module.</p>
+    <seecref marker="ei"><c>ei</c></seecref> module.</p>
   </section>
 
   <section>
     <marker id="building_terms_and_patterns"/>
     <title>Building Terms</title>
     <p>The previous example can be simplified by using the
-      <seealso marker="ei#ei_x_format_wo_ver"><c>ei_x_format_wo_ver</c></seealso> function
+      <seecref marker="ei#ei_x_format_wo_ver"><c>ei_x_format_wo_ver</c></seecref> function
       to create an Erlang term:</p>
 
     <code type="none"><![CDATA[
@@ -208,7 +208,7 @@ ei_x_new(&buf);
 ei_x_format_wo_ver(&buf, "{~a,~i}", "tobbe", 3928);    ]]></code>
 
     <p>For a complete description of the different format directives, see the
-      the <seealso marker="ei#ei_x_format_wo_ver"><c>ei_x_format_wo_ver</c></seealso> function.</p>
+      the <seecref marker="ei#ei_x_format_wo_ver"><c>ei_x_format_wo_ver</c></seecref> function.</p>
 
     <p>The following example is more complex:</p>
 
@@ -235,8 +235,8 @@ ei_x_free(&buf);      ]]></code>
     <title>Connecting to a Distributed Erlang Node</title>
     <p>To connect to a distributed Erlang node, you must first
       initialize the connection routine with one of the
-      <seealso marker="ei_connect#ei_connect_init">
-      <c>ei_connect_init_*</c></seealso> functions,
+      <seecref marker="ei_connect#ei_connect_init">
+      <c>ei_connect_init_*</c></seecref> functions,
       which stores information, such as the hostname, and node name
       for later use:</p>
 
@@ -254,7 +254,7 @@ ei_connect_init(ec,
                 creation);    ]]></code>
 
     <p>For more information, see the
-      <seealso marker="ei_connect"><c>ei_connect</c></seealso> module.</p>
+      <seecref marker="ei_connect"><c>ei_connect</c></seecref> module.</p>
 
     <p>After initialization, you set up the connection to the Erlang node.
       To specify the Erlang node you want to connect to, use the
@@ -271,7 +271,7 @@ if ((sockfd = ei_connect(ec, nodename)) < 0)
 
   <section>
     <title>Using EPMD</title>
-    <p><seealso marker="erts:epmd"><c>erts:epmd</c></seealso>
+    <p><seecom marker="erts:epmd"><c>erts:epmd</c></seecom>
       is the Erlang Port Mapper Daemon. Distributed
       Erlang nodes register with <c>epmd</c> on the local host to
       indicate to other nodes that they exist and can accept connections.
@@ -281,7 +281,7 @@ if ((sockfd = ei_connect(ec, nodename)) < 0)
       correct port number to connect to.</p>
 
     <p>When you use
-      <seealso marker="ei_connect"><c>ei_connect</c></seealso>
+      <seecref marker="ei_connect"><c>ei_connect</c></seecref>
       to connect to an Erlang node, a connection is first made to
       <c>epmd</c> and, if the node is known, a
       connection is then made to the Erlang node.</p>
@@ -321,10 +321,10 @@ pub = ei_publish(ec, port);    ]]></code>
     <p>Use one of the following two functions to send messages:</p>
 
     <list type="bulleted">
-      <item><seealso marker="ei_connect#ei_send">
-        <c>ei_send</c></seealso></item>
-      <item><seealso marker="ei_connect#ei_reg_send">
-        <c>ei_reg_send</c></seealso></item>
+      <item><seecref marker="ei_connect#ei_send">
+        <c>ei_send</c></seecref></item>
+      <item><seecref marker="ei_connect#ei_reg_send">
+        <c>ei_reg_send</c></seecref></item>
     </list>
 
     <p>As in Erlang, messages can be sent to a
@@ -335,10 +335,10 @@ pub = ei_publish(ec, port);    ]]></code>
     <p>Use one of the following two functions to receive messages:</p>
 
     <list type="bulleted">
-      <item><seealso marker="ei_connect#ei_receive">
-        <c>ei_receive</c></seealso></item>
-      <item><seealso marker="ei_connect#ei_receive_msg">
-        <c>ei_receive_msg</c></seealso></item>
+      <item><seecref marker="ei_connect#ei_receive">
+        <c>ei_receive</c></seecref></item>
+      <item><seecref marker="ei_connect#ei_receive_msg">
+        <c>ei_receive_msg</c></seecref></item>
     </list>
 
     <section>
@@ -359,7 +359,7 @@ ei_reg_send(ec,fd,"my_server",buf,buf.index);]]></code>
       <p>The first element of the tuple that is sent is your own
         pid. This enables <c>my_server</c> to reply.
         For more information about the primitives, see the
-        <seealso marker="ei_connect"><c>ei_connect</c></seealso> module.</p>
+        <seecref marker="ei_connect"><c>ei_connect</c></seecref> module.</p>
     </section>
 
     <section>
@@ -406,8 +406,8 @@ ei_decode_pid(buf.buff, &index, &pid);     ]]></code>
         to free the received message.</p>
 
       <p>For more information, see the
-        <seealso marker="ei_connect"><c>ei_connect</c></seealso> and
-        <seealso marker="ei"><c>ei</c></seealso> modules.</p>
+        <seecref marker="ei_connect"><c>ei_connect</c></seecref> and
+        <seecref marker="ei"><c>ei</c></seecref> modules.</p>
     </section>
   </section>
 
@@ -441,13 +441,13 @@ if (ei_decode_version(result.buff, &index) < 0
     <p>For more information about <c>ei_rpc()</c> and its
       companions <c>ei_rpc_to()</c> and
       <c>ei_rpc_from()</c>, see the
-      <seealso marker="ei_connect"><c>ei_connect</c></seealso> module.</p>
+      <seecref marker="ei_connect"><c>ei_connect</c></seecref> module.</p>
   </section>
 
   <section>
     <title>Using Global Names</title>
     <p>A C node has access to names registered through the
-      <seealso marker="kernel:global"><c>global</c></seealso>
+      <seeerl marker="kernel:global"><c>global</c></seeerl>
       module in Kernel. Names can be looked up, allowing the C node to send messages
       to named Erlang services. C nodes can also register global names,
       allowing them to provide named services to Erlang processes or other C
@@ -473,8 +473,8 @@ if (names)
 
 free(names);    ]]></code>
 
-    <p><seealso marker="ei_global#ei_global_names">
-      <c>ei_global_names</c></seealso>
+    <p><seecref marker="ei_global#ei_global_names">
+      <c>ei_global_names</c></seecref>
       allocates and returns a buffer containing
       all the names known to the <c>global</c> module in <c>Kernel</c>.
       <c>count</c> is initialized to
@@ -503,7 +503,7 @@ if (ei_global_whereis(ec,fd,"schedule",&the_pid,node) < 0)
       Also, <c>node</c> is initialized to contain the name of
       the node where the service is registered, so that you can make a
       connection to it by simply passing the variable to
-      <seealso marker="ei_connect"><c>ei_connect</c></seealso>.</p>
+      <seecref marker="ei_connect"><c>ei_connect</c></seecref>.</p>
 
     <p>Before registering a name, you should already have registered your
       port number with <c>epmd</c>. This is not strictly necessary,
@@ -518,14 +518,14 @@ if (ei_global_whereis(ec,fd,"schedule",&the_pid,node) < 0)
 ei_global_register(fd,servicename,ei_self(ec));    ]]></code>
 
     <p>After registering the name, use
-        <seealso marker="ei_connect#ei_accept">
-        <c>ei_accept</c></seealso>
+        <seecref marker="ei_connect#ei_accept">
+        <c>ei_accept</c></seecref>
         to wait for incoming connections.</p>
 
     <note>
       <p>Remember to free <c>pid</c> later with
-        <seealso marker="ei#ei_x_free">
-        <c>ei_x_free</c></seealso>.</p>
+        <seecref marker="ei#ei_x_free">
+        <c>ei_x_free</c></seecref>.</p>
     </note>
 
     <p>To unregister a name:</p>
@@ -540,7 +540,7 @@ ei_global_unregister(ec,fd,servicename);    ]]></code>
       for storing key-value pairs in a C-node, as well as backing them up or
       restoring them from an <c>Mnesia</c> table on an Erlang node. For more
       detailed information about the individual API functions, see the
-      <seealso marker="registry"><c>registry</c></seealso> module.</p>
+      <seecref marker="registry"><c>registry</c></seecref> module.</p>
 
    <p>Keys are strings, that is, <c>NULL</c>-terminated arrays of characters, and
       values are arbitrary objects. Although integers and floating point numbers
@@ -627,9 +627,9 @@ ei_reg_close(reg);    ]]></code>
     <section>
       <title>Backing Up the Registry to Mnesia</title>
       <p>The contents of a registry can be backed up to
-        <seealso marker="mnesia:mnesia"><c>Mnesia</c></seealso> on a "nearby" Erlang
+        <seeerl marker="mnesia:mnesia"><c>Mnesia</c></seeerl> on a "nearby" Erlang
         node. You must provide an open connection to the Erlang node
-        (see <seealso marker="ei_connect"><c>ei_connect</c></seealso>).
+        (see <seecref marker="ei_connect"><c>ei_connect</c></seecref>).
         Also, <c>Mnesia</c> 3.0 or later must be running
         on the Erlang node before the backup is initiated:</p>
 
@@ -691,10 +691,10 @@ ei_reg_restore(fd, reg, "mtab");      ]]></code>
         possibly causing it to be missed the next time you make an
         <c>Mnesia</c> backup of the registry contents. This can be avoided if
         you mark the object as dirty after any such changes with
-        <seealso marker="registry#ei_reg_markdirty">
-        <c>ei_reg_markdirty</c></seealso>, or pass appropriate flags to
-        <seealso marker="registry#ei_reg_dump">
-        <c>ei_reg_dump</c></seealso>.</p>
+        <seecref marker="registry#ei_reg_markdirty">
+        <c>ei_reg_markdirty</c></seecref>, or pass appropriate flags to
+        <seecref marker="registry#ei_reg_dump">
+        <c>ei_reg_dump</c></seecref>.</p>
     </section>
   </section>
 </chapter>

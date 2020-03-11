@@ -37,7 +37,7 @@
   <description>
     <p>The Report Browser (RB) tool is used to browse and
       format error reports written by the error logger handler
-      <seealso marker="stdlib:log_mf_h"><c>log_mf_h</c></seealso>
+      <seeerl marker="stdlib:log_mf_h"><c>log_mf_h</c></seeerl>
       in STDLIB.</p>
   </description>
 
@@ -61,7 +61,7 @@
         <p>When a filter includes the <c>no</c> atom, it excludes the
           reports that match that filter.</p>
         <p>The reports are matched using the
-          <seealso marker="stdlib:proplists"><c>proplists</c></seealso>
+          <seeerl marker="stdlib:proplists"><c>proplists</c></seeerl>
           module in STDLIB. The report must be a proplist
           to be matched against any of the filters.</p>
         <p>If the filter has the form <c>{Key, RegExp, re}</c>, the
@@ -79,9 +79,9 @@
 	   parameter.</p>
         <p>For details about parameter <c>RegExp</c>, see <c>rb:grep/1</c>.</p>
 	<p>For details about data type <c>mp()</c>, see 
-	<seealso marker="stdlib:re#type-mp"><c>re:mp()</c></seealso>.</p>
+	<seetype marker="stdlib:re#mp"><c>re:mp()</c></seetype>.</p>
 	<p>For details about data type <c>datetime()</c>, see 
-	<seealso marker="stdlib:calendar#type-datetime"><c>calendar:datetime()</c></seealso>.</p>
+	<seetype marker="stdlib:calendar#datetime"><c>calendar:datetime()</c></seetype>.</p>
       </desc>
     </func>
 
@@ -101,10 +101,10 @@
           <item>A compiled regular expression and the options for running it</item>
         </list>
         <p>For a definition of valid regular expressions and options, see
-          the <seealso marker="stdlib:re"><c>re</c></seealso> module in
+          the <seeerl marker="stdlib:re"><c>re</c></seeerl> module in
           STDLIB and in particular function <c>re:run/3</c>.</p>
 	  <p>For details about data type <c>mp()</c>, see 
-	<seealso marker="stdlib:re#type-mp"><c>re:mp()</c></seealso>.</p>
+	<seetype marker="stdlib:re#mp"><c>re:mp()</c></seetype>.</p>
       </desc>
     </func>
 
@@ -131,7 +131,7 @@
         <p>Lists all reports loaded in
           <c>rb_server</c>. Each report is given a unique number that
           can be used as a reference to the report in function
-          <seealso marker="#show/1"><c>show/1</c></seealso>.</p>
+          <seemfa marker="#show/1"><c>show/1</c></seemfa>.</p>
         <p>If no <c>Type</c> is specified, all reports are listed.</p>
       </desc>
     </func>
@@ -148,8 +148,8 @@
       </type>
       <desc>
         <p>Same as functions 
-	<seealso marker="#list/0"><c>list/0</c></seealso> or 
-	<seealso marker="#list/1"><c>list/1</c></seealso>,
+	<seemfa marker="#list/0"><c>list/0</c></seemfa> or 
+	<seemfa marker="#list/1"><c>list/1</c></seemfa>,
 	  but the result is printed to a log file, if set; otherwise
           to <c>standard_io</c>.</p>
         <p>If no <c>Type</c> is specified, all reports are listed.</p>
@@ -166,7 +166,7 @@
       <desc>
         <p>Rescans the report directory. <c>Options</c> is the same as
           for function 
-	<seealso marker="#start/1"><c>start/1</c></seealso>.</p>
+	<seemfa marker="#start/1"><c>start/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -227,7 +227,7 @@
           the error log files are located. Default is
           the directory specified by application environment
           variable <c>error_logger_mf_dir</c>,
-          see <seealso marker="sasl_app">sasl(6)</seealso>.</p></item>
+          see <seeapp marker="sasl_app">sasl(6)</seeapp>.</p></item>
         <tag><c>{type, ReportType}</c></tag>
           <item><p>Controls what kind of reports
           <c>rb_server</c> is to read at startup. <c>ReportType</c>

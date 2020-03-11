@@ -42,8 +42,8 @@
 
     <note>
       <p>Not all functions are provided on all platforms. In particular,
-        the <seealso marker="#erf/1"><c>erf/1</c></seealso> and
-        <seealso marker="#erfc/1"><c>erfc/1</c></seealso> functions
+        the <seemfa marker="#erf/1"><c>erf/1</c></seemfa> and
+        <seemfa marker="#erfc/1"><c>erfc/1</c></seemfa> functions
         are not provided on Windows.</p>
     </note>
   </description>

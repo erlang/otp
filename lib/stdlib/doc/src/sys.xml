@@ -41,7 +41,7 @@
       understand system messages, such as debug messages and code change. These
       functions must be used to implement the use of system messages for a
       process; either directly, or through standard behaviors, such as
-      <seealso marker="gen_server"><c>gen_server</c></seealso>.</p>
+      <seeerl marker="gen_server"><c>gen_server</c></seeerl>.</p>
     <p>The default time-out is 5000 ms, unless otherwise specified.
       <c>timeout</c> defines the time to wait for the process to
       respond to a request. If the process does not respond, the
@@ -50,8 +50,8 @@
     <marker id="dbg_opt"/>
     <p>The functions make references to a debug structure.
       The debug structure is a list of <c>dbg_opt()</c>, which is an internal
-      data type used by function <seealso marker="#handle_system_msg/6">
-      <c>handle_system_msg/6</c></seealso>. No debugging is performed if it is 
+      data type used by function <seemfa marker="#handle_system_msg/6">
+      <c>handle_system_msg/6</c></seemfa>. No debugging is performed if it is 
       an empty list.</p>
   </description>
 
@@ -66,8 +66,8 @@
           <c>{system, From, Msg}</c>. The content and meaning of
           this message are not interpreted by the
           receiving process module. When a system message is received, function 
-	  <seealso marker="#handle_system_msg/6">
-          <c>handle_system_msg/6</c></seealso>
+	  <seemfa marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seemfa>
           is called to handle the request.</p>
       </item>
       <item>
@@ -82,7 +82,7 @@
       <item>
         <p>If the modules used to implement the process change dynamically
           during runtime, the process must understand one more message. An
-          example is the <seealso marker="gen_event"><c>gen_event</c></seealso>
+          example is the <seeerl marker="gen_event"><c>gen_event</c></seeerl>
           processes. The message is <c>{_Label, {From, Ref}, get_modules}</c>.
           The reply to this message is <c>From ! {Ref, Modules}</c>, where
           <c>Modules</c> is a list of the currently active modules in the
@@ -332,8 +332,8 @@
             provided for convenience, allowing developers to avoid having to
             create their own state extraction functions and also avoid having
             to interactively extract the state from the return values of
-            <seealso marker="#get_status/1"><c>get_status/1</c></seealso> or
-            <seealso marker="#get_status/2"><c>get_status/2</c></seealso>
+            <seemfa marker="#get_status/1"><c>get_status/1</c></seemfa> or
+            <seemfa marker="#get_status/2"><c>get_status/2</c></seemfa>
             while debugging.</p>
         </note>
         <p>The value of <c><anno>State</anno></c> varies for different types of
@@ -341,19 +341,19 @@
         <list type="bulleted">
           <item>
             <p>For a
-              <seealso marker="gen_server"><c>gen_server</c></seealso>
+              <seeerl marker="gen_server"><c>gen_server</c></seeerl>
               process, the returned <c><anno>State</anno></c>
               is the state of the callback module.</p>
           </item>
           <item>
             <p>For a
-              <seealso marker="gen_statem"><c>gen_statem</c></seealso>
+              <seeerl marker="gen_statem"><c>gen_statem</c></seeerl>
               process, <c><anno>State</anno></c> is the tuple
               <c>{CurrentState,CurrentData}</c>.</p>
           </item>
           <item>
             <p>For a
-              <seealso marker="gen_event"><c>gen_event</c></seealso>
+              <seeerl marker="gen_event"><c>gen_event</c></seeerl>
               process, <c><anno>State</anno></c> is a list of tuples,
               where each tuple corresponds to an event handler registered
               in the process and contains <c>{Module, Id, HandlerState}</c>,
@@ -378,9 +378,9 @@
         <p>If the callback module exports a function <c>system_get_state/1</c>,
           it is called in the target process to get its state. Its argument is
           the same as the <c>Misc</c> value returned by
-          <seealso marker="#get_status/1"><c>get_status/1,2</c></seealso>, and
-          function <seealso marker="#Module:system_get_state/1">
-          <c>Module:system_get_state/1</c></seealso> is expected to extract the
+          <seemfa marker="#get_status/1"><c>get_status/1,2</c></seemfa>, and
+          function <seemfa marker="#Module:system_get_state/1">
+          <c>Module:system_get_state/1</c></seemfa> is expected to extract the
           state of the callback module from it. Function
           <c>system_get_state/1</c> must return <c>{ok, State}</c>, where
           <c>State</c> is the state of the callback module.</p>
@@ -394,14 +394,14 @@
           <c>Class</c> and <c>Reason</c> indicate details of the exception.</p>
         <p>Function <c>system_get_state/1</c> is primarily useful for
           user-defined behaviors and modules that implement OTP
-          <seealso marker="#special_process">special processes</seealso>. 
+          <seeerl marker="#special_process">special processes</seeerl>. 
           The <c>gen_server</c>,
 	  <c>gen_statem</c>, and <c>gen_event</c> OTP
           behavior modules export this function, so callback modules for those
           behaviors need not to supply their own.</p>
         <p>For more information about a process, including its state, see
-          <seealso marker="#get_status/1"><c>get_status/1</c></seealso> and
-          <seealso marker="#get_status/2"><c>get_status/2</c></seealso>.</p>
+          <seemfa marker="#get_status/1"><c>get_status/1</c></seemfa> and
+          <seemfa marker="#get_status/2"><c>get_status/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -415,16 +415,16 @@
           processes, for example:</p>
         <list type="bulleted">
           <item>
-            <p>A <seealso marker="gen_server"><c>gen_server</c></seealso>
+            <p>A <seeerl marker="gen_server"><c>gen_server</c></seeerl>
               process returns the state of the callback module.</p>
           </item>
           <item>
-            <p>A <seealso marker="gen_statem"><c>gen_statem</c></seealso>
+            <p>A <seeerl marker="gen_statem"><c>gen_statem</c></seeerl>
               process returns information, such as its current
               state name and state data.</p>
           </item>
           <item>
-            <p>A <seealso marker="gen_event"><c>gen_event</c></seealso>
+            <p>A <seeerl marker="gen_event"><c>gen_event</c></seeerl>
               process returns information about each of its
               registered handlers.</p>
           </item>
@@ -434,12 +434,12 @@
 	  can also change the value of <c><anno>Misc</anno></c>
           by exporting a function <c>format_status/2</c>, which contributes
           module-specific information. For details, see
-          <seealso marker="gen_server#Module:format_status/2">
-          <c>gen_server:format_status/2</c></seealso>,
-          <seealso marker="gen_statem#Module:format_status/2">
-          <c>gen_statem:format_status/2</c></seealso>, and
-          <seealso marker="gen_event#Module:format_status/2">
-          <c>gen_event:format_status/2</c></seealso>.</p>
+          <seemfa marker="gen_server#Module:format_status/2">
+          <c>gen_server:format_status/2</c></seemfa>,
+          <seemfa marker="gen_statem#Module:format_status/2">
+          <c>gen_statem:format_status/2</c></seemfa>, and
+          <seemfa marker="gen_event#Module:format_status/2">
+          <c>gen_event:format_status/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -475,8 +475,8 @@
           are printed to <c>standard_io</c>.</p>
         <p>The events are formatted with a function that is defined by the
           process that generated the event (with a call to
-          <seealso marker="#handle_debug/4">
-          <c>handle_debug/4</c>)</seealso>.</p>
+          <seemfa marker="#handle_debug/4">
+          <c>handle_debug/4</c>)</seemfa>.</p>
       </desc>
     </func>
 
@@ -488,7 +488,7 @@
         <p>Enables or disables the logging of all system events in text
           format to the file. The events are formatted with a function that is 
           defined by the process that generated the event (with a call to
-          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>).
+          <seemfa marker="#handle_debug/4"><c>handle_debug/4</c></seemfa>).
 	  The file is opened with encoding UTF-8.</p>
       </desc>
     </func>
@@ -500,7 +500,7 @@
       <desc>
         <p>Turns off all debugging for the process. This includes
           functions that are installed explicitly with function
-          <seealso marker="#install/2"><c>install/2,3</c></seealso>,
+          <seemfa marker="#install/2"><c>install/2,3</c></seemfa>,
           for example, triggers.</p>
       </desc>
     </func>
@@ -535,13 +535,13 @@
           processes as follows:</p>
         <list type="bulleted">
           <item>
-            <p>For a <seealso marker="gen_server"><c>gen_server</c></seealso>
+            <p>For a <seeerl marker="gen_server"><c>gen_server</c></seeerl>
               process, <c><anno>State</anno></c> is the state of the callback
               module and <c><anno>NewState</anno></c> 
               is a new instance of that state.</p>
           </item>
           <item>
-            <p>For a <seealso marker="gen_statem"><c>gen_statem</c></seealso>
+            <p>For a <seeerl marker="gen_statem"><c>gen_statem</c></seeerl>
 	      process, <c><anno>State</anno></c> is the
 	      tuple <c>{CurrentState,CurrentData}</c>,
 	      and <c><anno>NewState</anno></c> is a
@@ -549,7 +549,7 @@
               a new current state, new state data, or both.</p>
           </item>
           <item>
-            <p>For a <seealso marker="gen_event"><c>gen_event</c></seealso>
+            <p>For a <seeerl marker="gen_event"><c>gen_event</c></seeerl>
               process, <c><anno>State</anno></c> is the
               tuple <c>{Module, Id, HandlerState}</c> as follows:</p>
             <taglist>
@@ -591,12 +591,12 @@
           succeed in changing the states of other event
           handlers registered in the same <c>gen_event</c> process.</p>
         <p>If the callback module exports a 
-          <seealso marker="#Module:system_replace_state/2">
-          <c>system_replace_state/2</c></seealso> function, it is called in the
+          <seemfa marker="#Module:system_replace_state/2">
+          <c>system_replace_state/2</c></seemfa> function, it is called in the
           target process to replace its state using <c>StateFun</c>. Its two
           arguments are <c>StateFun</c> and <c>Misc</c>, where 
           <c>Misc</c> is the same as the <c>Misc</c> value returned by
-          <seealso marker="#get_status/1"><c>get_status/1,2</c></seealso>.
+          <seemfa marker="#get_status/1"><c>get_status/1,2</c></seemfa>.
           A <c>system_replace_state/2</c> function is expected to return 
           <c>{ok, NewState, NewMisc}</c>, where <c>NewState</c> is the new state
           of the callback module, obtained by calling <c>StateFun</c>, and
@@ -606,7 +606,7 @@
           module within it).</p>
         <p>If the callback module does not export a
           <c>system_replace_state/2</c> function,
-          <seealso marker="#replace_state/2"><c>replace_state/2,3</c></seealso>
+          <seemfa marker="#replace_state/2"><c>replace_state/2,3</c></seemfa>
           assumes that <c>Misc</c> is the state of the callback module,
 	  passes it to <c>StateFun</c> and uses the return value as
 	  both the new state and as the new value of <c>Misc</c>.</p>
@@ -621,7 +621,7 @@
           <c>{callback_failed, StateFun, {Class, Reason}}</c>.</p>
         <p>Function <c>system_replace_state/2</c> is primarily useful for
           user-defined behaviors and modules that implement OTP
-          <seealso marker="#special_process">special processes</seealso>. The
+          <seeerl marker="#special_process">special processes</seeerl>. The
           OTP behavior modules <c>gen_server</c>,
 	  <c>gen_statem</c>, and <c>gen_event</c>
 	  export this function, so callback modules for those
@@ -680,7 +680,7 @@
         <p>Prints all system events on <c>standard_io</c>. The events are
           formatted with a function that is defined by the process that
           generated the event (with a call to
-          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>).
+          <seemfa marker="#handle_debug/4"><c>handle_debug/4</c></seemfa>).
         </p>
       </desc>
     </func>
@@ -785,7 +785,7 @@
         <p>Prints the logged system events in the debug structure,
           using <c>FormFunc</c> as defined when the event was
           generated by a call to
-          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>.</p>
+          <seemfa marker="#handle_debug/4"><c>handle_debug/4</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -796,7 +796,7 @@
         <p>
 	  Returns the logged system events in the debug structure,
 	  that is the last argument to
-          <seealso marker="#handle_debug/4"><c>handle_debug/4</c></seealso>.
+          <seemfa marker="#handle_debug/4"><c>handle_debug/4</c></seemfa>.
 	</p>
       </desc>
     </func>
@@ -813,8 +813,8 @@
         <v>NMisc = term()</v>
       </type>
       <desc>
-        <p>Called from <seealso marker="#handle_system_msg/6">
-          <c>handle_system_msg/6</c></seealso> when the process is to perform a
+        <p>Called from <seemfa marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seemfa> when the process is to perform a
           code change. The code change is used when the
           internal data structure has changed. This function
           converts argument <c>Misc</c> to the new data
@@ -829,12 +829,12 @@
       <fsummary>Called when the process is to continue its execution.</fsummary>
       <type>
         <v>Parent = pid()</v>
-        <v>Debug = [<seealso marker="#type-dbg_opt">dbg_opt()</seealso>]</v>
+        <v>Debug = [<seetype marker="#dbg_opt">dbg_opt()</seetype>]</v>
         <v>Misc = term()</v>
       </type>
       <desc>
-        <p>Called from <seealso marker="#handle_system_msg/6">
-          <c>handle_system_msg/6</c></seealso> when the process is to continue
+        <p>Called from <seemfa marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seemfa> when the process is to continue
           its execution (for example, after it has been
           suspended). This function never returns.</p>
       </desc>
@@ -849,11 +849,11 @@
         <v>State = term()</v>
       </type>
       <desc>
-        <p>Called from <seealso marker="#handle_system_msg/6">
-          <c>handle_system_msg/6</c></seealso>
+        <p>Called from <seemfa marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seemfa>
           when the process is to return a term that reflects its current state. 
           <c>State</c> is the value returned by 
-          <seealso marker="#get_state/2"><c>get_state/2</c></seealso>.</p>
+          <seemfa marker="#get_state/2"><c>get_state/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -869,10 +869,10 @@
         <v>NMisc = term()</v>
       </type>
       <desc>
-        <p>Called from <seealso marker="#handle_system_msg/6">
-          <c>handle_system_msg/6</c></seealso> when the process is to replace
+        <p>Called from <seemfa marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seemfa> when the process is to replace
           its current state. <c>NState</c> is the value returned by
-          <seealso marker="#replace_state/3"><c>replace_state/3</c></seealso>.
+          <seemfa marker="#replace_state/3"><c>replace_state/3</c></seemfa>.
           </p>
       </desc>
     </func>
@@ -883,12 +883,12 @@
       <type>
         <v>Reason = term()</v>
         <v>Parent = pid()</v>
-        <v>Debug = [<seealso marker="#type-dbg_opt">dbg_opt()</seealso>]</v>
+        <v>Debug = [<seetype marker="#dbg_opt">dbg_opt()</seetype>]</v>
         <v>Misc = term()</v>
       </type>
       <desc>
-        <p>Called from <seealso marker="#handle_system_msg/6">
-          <c>handle_system_msg/6</c></seealso> when the process is to terminate.
+        <p>Called from <seemfa marker="#handle_system_msg/6">
+          <c>handle_system_msg/6</c></seemfa> when the process is to terminate.
           For example, this function is called when
           the process is suspended and its parent orders shutdown.
           It gives the process a chance to do a cleanup. This function never

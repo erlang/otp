@@ -139,7 +139,7 @@ typedef enum {
                   name of the atom is placed in buffer at <c>p</c> of length <c>plen</c>
                   bytes.</p>
               <p>The wanted string encoding is specified by
-                  <seealso marker="#erlang_char_encoding"><c>want</c></seealso>.
+                  <seecref marker="#erlang_char_encoding"><c>want</c></seecref>.
                   The original encoding used in the binary format (Latin-1 or UTF-8) can
                   be obtained from <c>*was</c>. The encoding of the resulting string
                   (7-bit ASCII, Latin-1, or UTF-8) can be obtained from <c>*result</c>.
@@ -444,7 +444,7 @@ typedef enum {
       <desc>
         <p>Encodes an atom in the binary format. Parameter <c>p</c> is the name of the atom with
           character encoding
-          <seealso marker="#erlang_char_encoding"><c>from_enc</c></seealso>
+          <seecref marker="#erlang_char_encoding"><c>from_enc</c></seecref>
           (ASCII, Latin-1, or UTF-8). The name must either be <c>NULL</c>-terminated or
           a function variant with a <c>len</c> parameter must be used.</p>
 	<p>The encoding fails if <c>p</c> is not a valid string in encoding
@@ -838,8 +838,8 @@ ei_encode_tuple_header(buf, &amp;i, 0);</pre>
 	</taglist>
 	<p>If <c>ei_set_compat_rel(21)</c> is <em>not</em> called then a connected
 	  emulator will send bit strings and export funs correctly encoded. The
-	  functions <seealso marker="#ei_decode_bitstring"><c>ei_decode_bitstring</c></seealso>
-	  and <seealso marker="#ei_decode_fun"><c>ei_decode_fun</c></seealso>
+	  functions <seecref marker="#ei_decode_bitstring"><c>ei_decode_bitstring</c></seecref>
+	  and <seecref marker="#ei_decode_fun"><c>ei_decode_fun</c></seecref>
 	  has to be used to decode such terms. Calling
 	  <c>ei_set_compat_rel(21)</c> should only be done as a workaround to
 	  keep an old implementation alive, which expects to receive the

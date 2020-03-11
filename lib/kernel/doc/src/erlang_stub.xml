@@ -35,8 +35,8 @@
   <description><p>
 
   The module erlang is moved to the runtime system
-  application.  Please see <seealso
-  marker="erts:erlang">erlang(3)</seealso> in the
+  application.  Please see <seeerl
+  marker="erts:erlang">erlang(3)</seeerl> in the
   ERTS reference manual instead.
 
   </p></description>

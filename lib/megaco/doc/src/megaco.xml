@@ -339,17 +339,17 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>Specifies the timeout time for the request-keep-alive timer. </p>
             <p>This timer is started when the <em>first</em> reply to an asynchronous
               request (issued using the 
-              <seealso marker="megaco#cast">megaco:cast/3</seealso> function)
+              <seeerl marker="megaco#cast">megaco:cast/3</seeerl> function)
               arrives. As long as this timer is running, replies will 
               be delivered via the 
-              <seealso marker="megaco_user#trans_reply">handle_trans_reply/4,5</seealso> 
+              <seeerl marker="megaco_user#trans_reply">handle_trans_reply/4,5</seeerl> 
               callback function, with their "arrival number" 
               (see <c><![CDATA[UserReply]]></c> of the 
-              <seealso marker="megaco_user#trans_reply">handle_trans_reply/4,5</seealso> 
+              <seeerl marker="megaco_user#trans_reply">handle_trans_reply/4,5</seeerl> 
               callback function). </p>
             <p>Replies arriving after the timer has expired, will be 
               delivered using the 
-              <seealso marker="megaco_user#unexpected_trans">handle_unexpected_trans/3,4</seealso> 
+              <seeerl marker="megaco_user#unexpected_trans">handle_unexpected_trans/3,4</seeerl> 
               callback function. </p>
             <p>The timeout time can have the values: 
               <c><![CDATA[plain | integer() >= 0]]></c>. </p>
@@ -362,13 +362,13 @@ megaco_incr_timer() = #megaco_incr_timer{}
           <item>
             <p>Timeout time for the call proxy. </p>
             <p>When a request is sent using the 
-              <seealso marker="megaco#call">call/3</seealso> function, 
+              <seeerl marker="megaco#call">call/3</seeerl> function, 
               a proxy process is started to handle
               all replies. When the reply has been received and delivered 
               to the user, the proxy process continue to exist for as long
               as this option specifies. Any received messages, is passed on 
               to the user via the 
-              <seealso marker="megaco_user#handle_unexpected_trans">handle_unexpected_trans</seealso> 
+              <seeerl marker="megaco_user#handle_unexpected_trans">handle_unexpected_trans</seeerl> 
               callback function. </p>
             <p>The timeout time is in milliseconds. A value of 0 (zero) means
               that the proxy process will exit directly after the reply has 
@@ -400,7 +400,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
               (see <c><![CDATA[trans_ack_maxcount]]></c>, <c><![CDATA[trans_req_maxcount]]></c>, 
               <c><![CDATA[trans_req_maxsize]]></c>, <c><![CDATA[trans_ack_maxcount]]></c> and 
               <c><![CDATA[trans_timer]]></c>). </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info.</p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info.</p>
             <p>An <c><![CDATA[boolean]]></c>, defaults to <c><![CDATA[false]]></c>.</p>
 
             <marker id="ui_trans_ack_maxcount"></marker>
@@ -411,7 +411,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>Maximum number of accumulated ack's. At most this many ack's
               will be accumulated by the transaction sender (if started and 
               configured to accumulate ack's).</p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info. </p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info. </p>
             <p>An <c><![CDATA[integer]]></c>, defaults to 10.</p>
 
             <marker id="ui_trans_req"></marker>
@@ -428,7 +428,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
               (see <c><![CDATA[trans_ack_maxcount]]></c>, <c><![CDATA[trans_req_maxcount]]></c>, 
               <c><![CDATA[trans_req_maxsize]]></c>, <c><![CDATA[trans_ack_maxcount]]></c> and 
               <c><![CDATA[trans_timer]]></c>). </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info. </p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info. </p>
             <p>An <c><![CDATA[boolean]]></c>, defaults to <c><![CDATA[false]]></c>.</p>
 
             <marker id="ui_trans_req_maxcount"></marker>
@@ -439,7 +439,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>Maximum number of accumulated requests. At most this many 
               requests will be accumulated by the transaction sender 
               (if started and configured to accumulate requests). </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info.</p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info.</p>
             <p>An <c><![CDATA[integer]]></c>, defaults to 10.</p>
             <marker id="ui_trans_req_maxsize"></marker>
           </item>
@@ -448,7 +448,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>Maximum size of the accumulated requests. At most this much
               requests will be accumulated by the transaction sender 
               (if started and configured to accumulate requests).</p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info.</p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info.</p>
             <p>An <c><![CDATA[integer]]></c>, defaults to 2048.</p>
 
             <marker id="ui_trans_timer"></marker>
@@ -466,7 +466,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
               (which is depending on the values of <c><![CDATA[auto_ack]]></c>, 
               <c><![CDATA[trans_ack]]></c> and <c><![CDATA[trans_req]]></c>) will be accumulated,
               for later sending. </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info. </p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info. </p>
             <p>An <c><![CDATA[integer]]></c>, defaults to 0.</p>
 
             <marker id="ui_pending_timer"></marker>
@@ -489,7 +489,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
               This parameter specifies how many pending messages that can
               be sent (for a given received transaction request).
               When the limit is exceeded, the transaction is aborted
-              (see <seealso marker="megaco_user#request_abort">handle_trans_request_abort</seealso>) and an error message 
+              (see <seeerl marker="megaco_user#request_abort">handle_trans_request_abort</seeerl>) and an error message 
               is sent to the other side. </p>
             <p>Note that this has no effect on the actual sending of
               pending transactions. This is either implicit (e.g. when 
@@ -610,16 +610,16 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>This option indicates weather the transport module
               should be told if a message send is a resend or not. </p>
             <p>If <em>false</em>, megaco messages are sent using the
-              <seealso marker="megaco_transport#send_message">send_message</seealso> 
+              <seeerl marker="megaco_transport#send_message">send_message</seeerl> 
               function. </p>
             <p>If <em>true</em>, megaco message <em>re-sends</em> are made using the
-              <seealso marker="megaco_transport#resend_message">resend_message</seealso> 
+              <seeerl marker="megaco_transport#resend_message">resend_message</seeerl> 
               function. The initial message send is still done using the
-              <seealso marker="megaco_transport#send_message">send_message</seealso> 
+              <seeerl marker="megaco_transport#send_message">send_message</seeerl> 
               function. </p>
             <p>The special value <em>flag</em> instead indicates that the 
               function 
-              <seealso marker="megaco_transport#send_message">send_message/3</seealso> 
+              <seeerl marker="megaco_transport#send_message">send_message/3</seeerl> 
               shall be used. </p>
             <p>A <c>resend_indication()</c>, 
               defaults to <c><![CDATA[false]]></c>.</p>
@@ -632,7 +632,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>This option specifies if the user shall be notified of received
               segment replies or not. </p>
             <p>See 
-              <seealso marker="megaco_user#segment_reply">handle_segment_reply</seealso> 
+              <seeerl marker="megaco_user#segment_reply">handle_segment_reply</seeerl> 
               callback function for more information. </p>
             <p>A <c><![CDATA[boolean]]></c>, 
               defaults to <c><![CDATA[false]]></c>. </p>
@@ -648,9 +648,9 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>When the timer finally expires, a "megaco segments not
               received" (459) error message is sent to the other side
               and the user is notified with a <c><![CDATA[segment timeout]]></c> <c><![CDATA[UserReply]]></c> in either the
-              <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso> callback function or 
+              <seeerl marker="megaco_user#trans_reply">handle_trans_reply</seeerl> callback function or 
               the return value of the 
-              <seealso marker="megaco#call">call</seealso> function. </p>
+              <seeerl marker="megaco#call">call</seeerl> function. </p>
             <p>A Megaco Timer (see explanation above),
               defaults to <c><![CDATA[10000]]></c>. </p>
 
@@ -840,17 +840,17 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>Specifies the timeout time for the request-keep-alive timer. </p>
             <p>This timer is started when the <em>first</em> reply to an asynchronous
               request (issued using the 
-              <seealso marker="megaco#cast">megaco:cast/3</seealso> function)
+              <seeerl marker="megaco#cast">megaco:cast/3</seeerl> function)
               arrives. As long as this timer is running, replies will 
               be delivered via the 
-              <seealso marker="megaco_user#trans_reply">handle_trans_reply/4,5</seealso> 
+              <seeerl marker="megaco_user#trans_reply">handle_trans_reply/4,5</seeerl> 
               callback function, with their "arrival number" 
               (see <c><![CDATA[UserReply]]></c> of the 
-              <seealso marker="megaco_user#trans_reply">handle_trans_reply/4,5</seealso> 
+              <seeerl marker="megaco_user#trans_reply">handle_trans_reply/4,5</seeerl> 
               callback function). </p>
             <p>Replies arriving after the timer has expired, will be 
               delivered using the 
-              <seealso marker="megaco_user#unexpected_trans">handle_unexpected_trans/3,4</seealso> 
+              <seeerl marker="megaco_user#unexpected_trans">handle_unexpected_trans/3,4</seeerl> 
               callback function. </p>
             <p>The timeout time can have the values: 
               <c><![CDATA[plain | integer() >= 0]]></c>. </p>
@@ -902,13 +902,13 @@ megaco_incr_timer() = #megaco_incr_timer{}
           <item>
             <p>Timeout time for the call proxy. </p>
             <p>When a request is sent using the 
-              <seealso marker="megaco#call">call/3</seealso> function, 
+              <seeerl marker="megaco#call">call/3</seeerl> function, 
               a proxy process is started to handle
               all replies. When the reply has been received and delivered 
               to the user, the proxy process continue to exist for as long
               as this option specifies. Any received messages, is passed on 
               to the user via the 
-              <seealso marker="megaco_user#handle_unexpected_trans">handle_unexpected_trans</seealso> 
+              <seeerl marker="megaco_user#handle_unexpected_trans">handle_unexpected_trans</seeerl> 
               callback function. </p>
             <p>The timeout time is in milliseconds. A value of 0 (zero) means
               that the proxy process will exit directly after the reply has 
@@ -939,7 +939,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
               (see <c><![CDATA[trans_ack_maxcount]]></c>, <c><![CDATA[trans_req_maxcount]]></c>, 
               <c><![CDATA[trans_req_maxsize]]></c>, <c><![CDATA[trans_ack_maxcount]]></c> and 
               <c><![CDATA[trans_timer]]></c>). </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info. </p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info. </p>
             <p>An <c><![CDATA[boolean]]></c>, defaults to <c><![CDATA[false]]></c>.</p>
 
             <marker id="ci_trans_ack_maxcount"></marker>
@@ -950,7 +950,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>Maximum number of accumulated ack's. At most this many ack's
               will be accumulated by the transaction sender (if started and 
               configured to accumulate ack's).</p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info.</p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info.</p>
             <p>An integer, defaults to 10.</p>
 
             <marker id="ci_trans_req"></marker>
@@ -967,7 +967,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
               (see <c><![CDATA[trans_ack_maxcount]]></c>, <c><![CDATA[trans_req_maxcount]]></c>, 
               <c><![CDATA[trans_req_maxsize]]></c>, <c><![CDATA[trans_ack_maxcount]]></c> and 
               <c><![CDATA[trans_timer]]></c>). </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info. </p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info. </p>
             <p>An <c><![CDATA[boolean]]></c>, defaults to <c><![CDATA[false]]></c>.</p>
 
             <marker id="ci_trans_req_maxcount"></marker>
@@ -978,7 +978,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>Maximum number of accumulated requests. At most this many 
               requests will be accumulated by the transaction sender 
               (if started and configured to accumulate requests). </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info. </p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info. </p>
             <p>An <c><![CDATA[integer]]></c>, defaults to 10.</p>
 
             <marker id="ci_trans_req_maxsize"></marker>
@@ -989,7 +989,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>Maximum size of the accumulated requests. At most this much
               requests will be accumulated by the transaction sender 
               (if started and configured to accumulate requests). </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info. </p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info. </p>
             <p>An <c><![CDATA[integer]]></c>, defaults to 2048.</p>
 
             <marker id="ci_trans_timer"></marker>
@@ -1006,7 +1006,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
               (which is depending on the values of <c><![CDATA[auto_ack]]></c>, 
               <c><![CDATA[trans_ack]]></c> and <c><![CDATA[trans_req]]></c>) will be accumulated,
               for later sending. </p>
-            <p>See also <seealso marker="megaco_run#transaction_sender">transaction sender</seealso> for more info. </p>
+            <p>See also <seeguide marker="megaco_run#transaction_sender">transaction sender</seeguide> for more info. </p>
             <p>An <c><![CDATA[integer]]></c>, defaults to 0.</p>
 
             <marker id="ci_pending_timer"></marker>
@@ -1029,7 +1029,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
               This parameter specifies how many pending messages that can
               be sent (for a given received transaction request).
               When the limit is exceeded, the transaction is aborted
-              (see <seealso marker="megaco_user#request_abort">handle_trans_request_abort</seealso>) and an error message 
+              (see <seeerl marker="megaco_user#request_abort">handle_trans_request_abort</seeerl>) and an error message 
               is sent to the other side. </p>
             <p>Note that this has no effect on the actual sending of
               pending transactions. This is either implicit (e.g. when 
@@ -1128,16 +1128,16 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>This option indicates weather the transport module
               should be told if a message send is a resend or not. </p>
             <p>If <em>false</em>, megaco messages are sent using the
-              <seealso marker="megaco_transport#send_message">send_message/2</seealso> 
+              <seeerl marker="megaco_transport#send_message">send_message/2</seeerl> 
               function. </p>
             <p>If <em>true</em>, megaco message <em>re-sends</em> are made using the
-              <seealso marker="megaco_transport#resend_message">resend_message</seealso> 
+              <seeerl marker="megaco_transport#resend_message">resend_message</seeerl> 
               function. The initial message send is still done using the
-              <seealso marker="megaco_transport#send_message">send_message</seealso> 
+              <seeerl marker="megaco_transport#send_message">send_message</seeerl> 
               function. </p>
             <p>The special value <em>flag</em> instead indicates that the 
               function 
-              <seealso marker="megaco_transport#send_message">send_message/3</seealso> 
+              <seeerl marker="megaco_transport#send_message">send_message/3</seeerl> 
               shall be used. </p>
             <p>A <c>resend_indication()</c>, 
               defaults to <c><![CDATA[false]]></c>.</p>
@@ -1149,7 +1149,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <p>This option specifies if the user shall be notified of received
               segment replies or not. </p>
             <p>See 
-              <seealso marker="megaco_user#segment_reply">handle_segment_reply</seealso> 
+              <seeerl marker="megaco_user#segment_reply">handle_segment_reply</seeerl> 
               callback function for more information. </p>
             <p>A <c><![CDATA[boolean]]></c>, 
               defaults to <c><![CDATA[false]]></c>. </p>
@@ -1167,10 +1167,10 @@ megaco_incr_timer() = #megaco_incr_timer{}
               received" (459) error message is sent to the other side
               and the user is notified with a 
               <c><![CDATA[segment timeout]]></c> <c><![CDATA[UserReply]]></c> in either the
-              <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso> 
+              <seeerl marker="megaco_user#trans_reply">handle_trans_reply</seeerl> 
               callback function or 
               the return value of the 
-              <seealso marker="megaco#call">call</seealso> function. </p>
+              <seeerl marker="megaco#call">call</seeerl> function. </p>
             <p>A Megaco Timer (see explanation above),
               defaults to <c><![CDATA[10000]]></c>. </p>
 
@@ -1300,10 +1300,10 @@ megaco_incr_timer() = #megaco_incr_timer{}
           and their config, statistics and so on.</p>
 
         <p>This information can be produced by the functions 
-          <seealso marker="#user_info">user_info</seealso>, 
-          <seealso marker="#conn_info">conn_info</seealso>, 
-          <seealso marker="#system_info">system_info</seealso> and 
-          <seealso marker="#get_stats">get_stats</seealso> 
+          <seeerl marker="#user_info">user_info</seeerl>, 
+          <seeerl marker="#conn_info">conn_info</seeerl>, 
+          <seeerl marker="#system_info">system_info</seeerl> and 
+          <seeerl marker="#get_stats">get_stats</seeerl> 
           but this is a simple way to get it all at once.</p>
 
         <marker id="connect"></marker> <!-- Belongs to NEXT function(s) -->
@@ -1404,7 +1404,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
 
 	<p>The connect is done in two steps: first an internal 
           <c>connection setup</c> and then by calling the user 
-          <seealso marker="megaco_user#connect">handle_connect</seealso> 
+          <seeerl marker="megaco_user#connect">handle_connect</seeerl> 
           callback function. The first step could result in 
           an error with <c>Reason = connect_reason()</c> and the second 
           an error with <c>Reason = handle_connect_reason()</c>: </p>
@@ -1419,7 +1419,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
 	  <tag><c>handle_connect_reason()</c></tag>
 	  <item>
 	    <p>An error with this reason is caused by the user 
-              <seealso marker="megaco_user#connect">handle_connect</seealso> 
+              <seeerl marker="megaco_user#connect">handle_connect</seeerl> 
               callback function either returning an error 
               or an invalid value.</p>
 	  </item>
@@ -1429,7 +1429,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
         <p><c><![CDATA[Extra]]></c> can be any <c><![CDATA[term()]]></c> 
           except the atom <c><![CDATA[ignore_extra]]></c>. 
           It is passed (back) to the user via the callback function 
-          <seealso marker="megaco_user#connect">handle_connect/3</seealso>. </p>
+          <seeerl marker="megaco_user#connect">handle_connect/3</seeerl>. </p>
 
         <marker id="disconnect"></marker> <!-- Belongs to NEXT function(s) -->
       </desc>
@@ -1519,7 +1519,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
           replied with an explicit transactionError.</p>
         <p>A <c><![CDATA[user_cancel_error()]]></c>, indicates that the request has been
           canceled by the user. <c><![CDATA[reason_for_user_cancel()]]></c> is the reason
-          given in the call to the <seealso marker="#cancel">cancel</seealso>
+          given in the call to the <seeerl marker="#cancel">cancel</seeerl>
           function. </p>
         <p>A <c><![CDATA[send_error()]]></c>, indicates that the send function of the 
           megaco transport callback module failed to send the request. 
@@ -1528,14 +1528,14 @@ megaco_incr_timer() = #megaco_incr_timer{}
           The first is the result of the send function returning 
           <c><![CDATA[{cancel, Reason}]]></c> and the second is some other kind of 
           erroneous return value. See the 
-          <seealso marker="megaco_transport#send_message">send_message</seealso>
+          <seeerl marker="megaco_transport#send_message">send_message</seeerl>
           function for more info. </p>
         <p>An <c><![CDATA[other_error()]]></c>, indicates some other error such as 
           timeout.</p>
 
         <p>For more info about the <c>extra()</c> part of the 
           result, see the 
-          <seealso marker="megaco_user#extra_argument">note</seealso>
+          <seeerl marker="megaco_user#extra_argument">note</seeerl>
           in the user callback module documentation. </p>
 
 
@@ -1682,12 +1682,12 @@ megaco_incr_timer() = #megaco_incr_timer{}
 
         <p>The argument <c>Extra</c> is just an opaque data structure passed to the user 
           via the callback functions in the 
-          <seealso marker="megaco_user">user callback module</seealso>. 
+          <seeerl marker="megaco_user">user callback module</seeerl>. 
           Note however that if <c>Extra</c> has the value 
           <c>extra_undefined</c> the argument will be ignored (same as if 
           <c>process_received_message/4</c> had been called). 
           See the documentation for the behaviour of the callback module,
-          <seealso marker="megaco_user">megaco_user</seealso>, for more info. </p> 
+          <seeerl marker="megaco_user">megaco_user</seeerl>, for more info. </p> 
         <p>Note that all processing is done in the context of the calling 
           process. A transport module could call this function via one of the
           <c><![CDATA[spawn]]></c> functions (e.g. <c><![CDATA[spawn_opt]]></c>). See also 
@@ -1775,7 +1775,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
           <c><![CDATA[process_received_message/4]]></c> function via a <c><![CDATA[spawn]]></c> to
           perform the actual processing.</p>
         <p>For further information see the 
-          <seealso marker="#process_received_message">process_received_message/4</seealso> 
+          <seeerl marker="#process_received_message">process_received_message/4</seeerl> 
           function.</p>
 
         <marker id="parse_digit_map"></marker>
@@ -2122,7 +2122,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
       <desc>
         <p>Tests if the Actions argument is correctly composed.</p>
         <p>This function is only intended for testing purposes. It's
-          supposed to have a same kind of interface as the <seealso marker="#call">call</seealso> or <seealso marker="#cast">cast</seealso> functions (with the additions
+          supposed to have a same kind of interface as the <seeerl marker="#call">call</seeerl> or <seeerl marker="#cast">cast</seeerl> functions (with the additions
           of the <c><![CDATA[EncodingMod]]></c> and <c><![CDATA[EncodingConfig]]></c>
           arguments). It composes a complete megaco message end
           attempts to encode it. The return value, will be a tuple of
@@ -2151,9 +2151,9 @@ megaco_incr_timer() = #megaco_incr_timer{}
         <p>This function is only intended for testing purposes. It's
           supposed to test the <c><![CDATA[actual_reply()]]></c> return value of
           the callback functions 
-          <seealso marker="megaco_user#trans_request">handle_trans_request</seealso>
+          <seeerl marker="megaco_user#trans_request">handle_trans_request</seeerl>
           and 
-          <seealso marker="megaco_user#trans_long_request">handle_trans_long_request</seealso>
+          <seeerl marker="megaco_user#trans_long_request">handle_trans_long_request</seeerl>
           functions (with the additions of the <c><![CDATA[EncodingMod]]></c> and
           <c><![CDATA[EncodingConfig]]></c> arguments). It composes a complete
           megaco message end attempts to encode it. The return value,

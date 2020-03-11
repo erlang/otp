@@ -41,7 +41,7 @@
       <desc>
         <p>Returns the official name of <c><anno>Host</anno></c>, or
           <c>{error, <anno>Host</anno>}</c> if no such name is found. See also
-          <seealso marker="inet"><c>inet(3)</c></seealso>.</p>
+          <seeerl marker="inet"><c>inet(3)</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -50,7 +50,7 @@
       <fsummary>Read file <c>.hosts.erlang</c>.</fsummary>
       <desc>
         <p>Reads file <c>.hosts.erlang</c>, see section
-          <seealso marker="#files">Files</seealso>. Returns the hosts in this
+          <seeerl marker="#files">Files</seeerl>. Returns the hosts in this
           file as a list. Returns <c>{error, <anno>Reason</anno>}</c> if the
           file cannot be read or the Erlang terms on the file cannot be
           interpreted.</p>
@@ -73,7 +73,7 @@
       <fsummary>Names of Erlang nodes at a host.</fsummary>
       <desc>
         <p>Similar to <c>epmd -names</c>, see
-          <seealso marker="erts:epmd"><c>erts:epmd(1)</c></seealso>.
+          <seecom marker="erts:epmd"><c>erts:epmd(1)</c></seecom>.
           <c><anno>Host</anno></c> defaults to the local host. Returns the
           names and associated port numbers of the Erlang nodes that
           <c>epmd</c> registered at the specified host. Returns
@@ -122,7 +122,7 @@
       <fsummary>Lookup and connect to all nodes at specified hosts.</fsummary>
       <type name="verbosity"/>
       <desc>
-        <p>Same as <seealso marker="#world/1"><c>world/0,1</c></seealso>,
+        <p>Same as <seemfa marker="#world/1"><c>world/0,1</c></seemfa>,
           but the hosts are specified as argument
           instead of being read from <c>.hosts.erlang</c>.</p>
       </desc>

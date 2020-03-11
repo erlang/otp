@@ -65,8 +65,8 @@
 	to do you perhaps do not need to implement a driver at all
 	and can then skip the driver related sections below.
 	The <c>gen_tcp_dist</c> example described in the
-	<seealso marker="#distribution_module">Distribution
-	Module</seealso> section utilize distribution controller
+	<seeguide marker="#distribution_module">Distribution
+	Module</seeguide> section utilize distribution controller
 	processes and can be worth having a look at if you want to
 	use distribution controller processes.
       </p></note>
@@ -216,7 +216,7 @@
 	  </p>
 	  <p>
 	    The return value consists of a <c>Listen</c> handle (which is
-	    later passed to the <seealso marker="#accept"><c>accept/1</c></seealso>
+	    later passed to the <seeguide marker="#accept"><c>accept/1</c></seeguide>
 	    callback), <c>Address</c> which is a <c>#net_address{}</c> record
 	    with information about the address for the node (the
 	    <c>#net_address{}</c> record is defined in
@@ -224,7 +224,7 @@
 	    (currently) is an integer <c>1</c>, <c>2</c>, or <c>3</c>.
 	  </p>
 	  <p>
-	    If <seealso marker="erts:epmd"><c>epmd</c></seealso> is to be used 
+	    If <seecom marker="erts:epmd"><c>epmd</c></seecom> is to be used 
 	    for node discovery, you typically want to use the
             <c>erl_epmd</c> module (part of the <c>kernel</c>
 	    application) in order to register the listen port with <c>epmd</c>
@@ -235,7 +235,7 @@
         <tag><marker id="address"/><c>address() -></c><br/>&nbsp;&nbsp;<c>Address</c></tag>
 	<item>
 	  <p><c>address/0</c> is called in order to get the <c>Address</c> part of the
-          <seealso marker="#listen"><c>listen/2</c></seealso> function without creating
+          <seeguide marker="#listen"><c>listen/2</c></seeguide> function without creating
           a listen socket. All fields except <c>address</c> have to be set in the returned
           record</p>
           <p>Example:</p>
@@ -255,7 +255,7 @@
 	  <p>
 	    The <c>Listen</c> argument will be the same as the <c>Listen</c> handle
 	    part of the return value of the
-	    <seealso marker="#listen"><c>listen/1</c></seealso> callback above.
+	    <seeguide marker="#listen"><c>listen/1</c></seeguide> callback above.
 	    <c>accept/1</c> is called only once when the distribution protocol is
 	    started.
 	  </p>
@@ -283,7 +283,7 @@
 		The request was accepted and <c>SupervisorPid</c> is the
 		process identifier of the connection supervisor process
 		(which is created in the
-		<seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>
+		<seeguide marker="#accept_connection"><c>accept_connection/5</c></seeguide>
 		callback).
 	      </p>
 	    </item>
@@ -316,7 +316,7 @@
 	    <item>
 	      <p>
 		Process identifier of the process created by the
-		<seealso marker="#accept"><c>accept/1</c></seealso>
+		<seeguide marker="#accept"><c>accept/1</c></seeguide>
 		callback.
 	      </p>
 	    </item>
@@ -354,7 +354,7 @@
 	  <p>
 	    The created process should provide callbacks and other
 	    information needed for the handshake in a
-	    <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	    <seeguide marker="#hs_data_record"><c>#hs_data{}</c></seeguide>
 	    record and call <c>dist_util:handshake_other_started(HsData)</c>
 	    with this record.
 	  </p>
@@ -431,7 +431,7 @@
 	  <p>
 	    The created process should provide callbacks and other
 	    information needed for the handshake in a
-	    <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	    <seeguide marker="#hs_data_record"><c>#hs_data{}</c></seeguide>
 	    record and call <c>dist_util:handshake_we_started(HsData)</c>
 	    with this record.
 	  </p>
@@ -448,7 +448,7 @@
 	<item><p>
 	  Called in order to close the <c>Listen</c> handle
 	  that originally was passed from the
-	  <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	  <seeguide marker="#listen"><c>listen/1</c></seeguide> callback.
 	</p></item>
 	
 	<tag><marker id="select"/><c>select(NodeName) -></c><br/>&nbsp;&nbsp;<c>boolean()</c></tag>
@@ -471,7 +471,7 @@
 	  <p>
 	    The argument <c>Listen</c> is the handle originally passed
 	    from the
-	    <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	    <seeguide marker="#listen"><c>listen/1</c></seeguide> callback.
 	    The argument <c>Opts</c> is a list of options to set on future
 	    connections.
 	  </p>
@@ -482,7 +482,7 @@
 	  <p>
 	    The argument <c>Listen</c> is the handle originally passed
 	    from the
-	    <seealso marker="#listen"><c>listen/1</c></seealso> callback.
+	    <seeguide marker="#listen"><c>listen/1</c></seeguide> callback.
 	    The argument <c>Opts</c> is a list of options to read for future
 	    connections.
 	  </p>
@@ -512,8 +512,8 @@
 	  <p>
 	    Process identifier of the <c>Kernel</c> process. That is,
 	    the process that called either
-	    <seealso marker="#setup"><c>setup/5</c></seealso> or
-	    <seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>.
+	    <seeguide marker="#setup"><c>setup/5</c></seeguide> or
+	    <seeguide marker="#accept_connection"><c>accept_connection/5</c></seeguide>.
 	  </p>
 	</item>
 
@@ -522,7 +522,7 @@
 	  <p>Name of the other node. This field is only
 	  mandatory when this node initiates the connection.
 	  That is, when connection is set up via
-	  <seealso marker="#setup"><c>setup/5</c></seealso>.
+	  <seeguide marker="#setup"><c>setup/5</c></seeguide>.
 	  </p>
 	</item>
 
@@ -554,7 +554,7 @@
 	  mandatory when the remote node initiated the
 	  connection. That is, when the connection is set
 	  up via
-	  <seealso marker="#accept_connection"><c>accept_connection/5</c></seealso>.
+	  <seeguide marker="#accept_connection"><c>accept_connection/5</c></seeguide>.
 	  </p>
 	</item>
       
@@ -714,7 +714,7 @@
 	<item>
 	  <p>
 	    The request <c>Type</c> as passed to
-	    <seealso marker="#setup"><c>setup/5</c></seealso>.
+	    <seeguide marker="#setup"><c>setup/5</c></seeguide>.
 	    This is only mandatory when the connection has
 	    been initiated by this node. That is, the connection
 	    is set up via <c>setup/5</c>.
@@ -764,10 +764,10 @@
 	    calling the following BIFs:
 	  </p>
 	  <list>
-	    <item><p><seealso marker="erts:erlang#dist_ctrl_get_data/1"><c>erlang:dist_ctrl_get_data/1</c></seealso></p></item>
-	    <item><p><seealso marker="erts:erlang#dist_ctrl_get_data_notification/1"><c>erlang:dist_ctrl_get_data_notification/1</c></seealso></p></item>
-	    <item><p><seealso marker="erts:erlang#dist_ctrl_input_handler/2"><c>erlang:dist_ctrl_input_handler/2</c></seealso></p></item>
-	    <item><p><seealso marker="erts:erlang#dist_ctrl_put_data/2"><c>erlang:dist_ctrl_put_data/2</c></seealso></p></item>
+	    <item><p><seemfa marker="erts:erlang#dist_ctrl_get_data/1"><c>erlang:dist_ctrl_get_data/1</c></seemfa></p></item>
+	    <item><p><seemfa marker="erts:erlang#dist_ctrl_get_data_notification/1"><c>erlang:dist_ctrl_get_data_notification/1</c></seemfa></p></item>
+	    <item><p><seemfa marker="erts:erlang#dist_ctrl_input_handler/2"><c>erlang:dist_ctrl_input_handler/2</c></seemfa></p></item>
+	    <item><p><seemfa marker="erts:erlang#dist_ctrl_put_data/2"><c>erlang:dist_ctrl_put_data/2</c></seemfa></p></item>
 	  </list>
 	  <p>
 	    This function is called when the handshake has
@@ -781,7 +781,7 @@
 	<tag><marker id="hs_data_add_flags"/><c>add_flags</c></tag>
 	<item>
 	  <p>
-	    <seealso marker="erl_dist_protocol#dflags">Distribution flags</seealso>
+	    <seeguide marker="erl_dist_protocol#dflags">Distribution flags</seeguide>
 	    to add to the connection. Currently all (non obsolete) flags will
 	    automatically be enabled.
 	  </p>
@@ -793,7 +793,7 @@
 	<tag><marker id="hs_data_reject_flags"/><c>reject_flags</c></tag>
 	<item>
 	  <p>
-	    <seealso marker="erl_dist_protocol#dflags">Distribution flags</seealso>
+	    <seeguide marker="erl_dist_protocol#dflags">Distribution flags</seeguide>
 	    to reject. Currently the following distribution flags can be rejected:
 	  </p>
 	  <taglist>
@@ -805,15 +805,15 @@
 	  <p>
 	    This flag field is optional.
 	  </p>
-          <p>See also <seealso marker="#distribution_data_delivery">
-            Distribution Data Delivery</seealso></p>
+          <p>See also <seeguide marker="#distribution_data_delivery">
+            Distribution Data Delivery</seeguide></p>
 	</item>
 
 	<tag><marker id="hs_data_require_flags"/><c>require_flags</c></tag>
 	<item>
 	  <p>
-	    Require these <seealso marker="erl_dist_protocol#dflags">distribution
-	    flags</seealso> to be used. The connection will be aborted during the
+	    Require these <seeguide marker="erl_dist_protocol#dflags">distribution
+	    flags</seeguide> to be used. The connection will be aborted during the
 	    handshake if the other end does not use them.
 	  </p>
 	  <p>
@@ -838,10 +838,10 @@
 	The data delivery order can be relaxed by disabling
 	features that require strict ordering. This is done by
 	passing the
-	<seealso marker="erl_dist_protocol#dflags">distribution	flags</seealso>
+	<seeguide marker="erl_dist_protocol#dflags">distribution	flags</seeguide>
 	returned by <c>dist_util:strict_order_flags/0</c> in the
-	<seealso marker="alt_dist#hs_data_reject_flags"><c>reject_flags</c></seealso>
-	field of the <seealso marker="#hs_data_record"><c>#hs_data{}</c></seealso>
+	<seeguide marker="alt_dist#hs_data_reject_flags"><c>reject_flags</c></seeguide>
+	field of the <seeguide marker="#hs_data_record"><c>#hs_data{}</c></seeguide>
 	record used when setting up the connection. When relaxed
 	ordering is used, only the order of signals with the same
 	sender/receiver pair has to be preserved.
@@ -878,8 +878,8 @@
       been made to the documentation of the driver presented here,
       but more can be done and is planned for the future.
       The reader is encouraged to read the
-      <seealso marker="erl_driver"><c>erl_driver</c></seealso> and
-      <seealso marker="driver_entry"><c>driver_entry</c></seealso>
+      <seecref marker="erl_driver"><c>erl_driver</c></seecref> and
+      <seecref marker="driver_entry"><c>driver_entry</c></seecref>
       documentation also.</p>
     </note>
 
@@ -901,7 +901,7 @@
       <p>The driver data types and the functions available to the driver
         writer are defined in header file <c><![CDATA[erl_driver.h]]></c>
         seated in Erlang's include directory. See the
-        <seealso marker="erts:erl_driver">erl_driver</seealso> documentation
+        <seecref marker="erts:erl_driver">erl_driver</seecref> documentation
         for details of which functions are available.</p>
 
       <p>When writing a driver to make a communications protocol available
@@ -987,8 +987,8 @@
         </item>
         <item>
           <p>When an Erlang process calls
-            <seealso marker="erlang#port_control/3">
-            <c>erlang:port_control/3</c></seealso>,
+            <seemfa marker="erlang#port_control/3">
+            <c>erlang:port_control/3</c></seemfa>,
             which is a synchronous interface to drivers. The control interface
             is used to set driver options, change states of ports, and so on.
             This interface is used a lot in the example.</p>
@@ -1118,15 +1118,15 @@
       <p>As from ERTS 5.5.3 the driver interface was extended with
         version control and the possibility to pass capability information.
         Capability flags are present on line 48. As from ERTS 5.7.4 flag
-        <seealso marker="driver_entry#driver_flags">
-        <c>ERL_DRV_FLAG_SOFT_BUSY</c></seealso> is required for drivers that
+        <seecref marker="driver_entry#driver_flags">
+        <c>ERL_DRV_FLAG_SOFT_BUSY</c></seecref> is required for drivers that
         are to be used by the distribution. The soft busy flag implies that the
         driver can handle calls to the <c>output</c> and <c>outputv</c>
         callbacks although it has marked itself as busy. This has always been a
         requirement on drivers used by the distribution, but no capability
         information has been available about this previously. For more
-        information. see <seealso marker="erl_driver#set_busy_port">
-        <c>erl_driver:set_busy_port()</c></seealso>).</p>
+        information. see <seecref marker="erl_driver#set_busy_port">
+        <c>erl_driver:set_busy_port()</c></seecref>).</p>
 
       <p>This driver was written before the runtime system had SMP support.
         The driver will still function in the runtime system with SMP support,
@@ -1135,8 +1135,8 @@
         rewriting the code so that each instance of the driver safely can
         execute in parallel. When instances safely can execute in parallel, it
         is safe to enable instance-specific locking on the driver. This is done
-        by passing <seealso marker="driver_entry#driver_flags">
-        <c>ERL_DRV_FLAG_USE_PORT_LOCKING</c></seealso> as a driver flag. This
+        by passing <seecref marker="driver_entry#driver_flags">
+        <c>ERL_DRV_FLAG_USE_PORT_LOCKING</c></seecref> as a driver flag. This
         is left as an exercise for the reader.</p>
 
       <p>Thus, the defined callbacks are as follows:</p>
@@ -1174,8 +1174,8 @@
         </item>
         <tag><c>uds_control</c></tag>
         <item>
-          <p>The <seealso marker="erlang#port_control/3">
-            <c>erlang:port_control/3</c></seealso> callback, which is
+          <p>The <seemfa marker="erlang#port_control/3">
+            <c>erlang:port_control/3</c></seemfa> callback, which is
             used a lot in this implementation.</p>
         </item>
       </taglist>
@@ -1370,8 +1370,8 @@
             if this value has changed. (The Erlang
             <c>net_kernel</c> <c>ticker</c> uses this value by calling the
             driver to fetch it, which is done through the
-            <seealso marker="erlang#port_control/3">
-            <c>erlang:port_control/3</c></seealso> routine.)</p>
+            <seemfa marker="erlang#port_control/3">
+            <c>erlang:port_control/3</c></seemfa> routine.)</p>
         </item>
         <tag><c>received</c></tag>
         <item>
@@ -1838,8 +1838,8 @@
 
       <p>The driver implements a control interface, which is a
         synchronous interface called when Erlang calls
-        <seealso marker="erlang#port_control/3">
-        <c>erlang:port_control/3</c></seealso>. Only this interface
+        <seemfa marker="erlang#port_control/3">
+        <c>erlang:port_control/3</c></seemfa>. Only this interface
         can control the driver when it is in <c>data</c> mode. It can
         be called with the following opcodes:</p>
 
@@ -1880,11 +1880,11 @@
             ticker to send dummy data when no other traffic is present.</p>
           <p><em>Note:</em> It is important that the interface for
             sending ticks is not blocking. This implementation uses
-            <seealso marker="erlang#port_control/3">
-            <c>erlang:port_control/3</c></seealso>, which does not block the
+            <seemfa marker="erlang#port_control/3">
+            <c>erlang:port_control/3</c></seemfa>, which does not block the
             caller. If <c>erlang:port_command</c> is used, use
-            <seealso marker="erlang#port_command/3">
-            <c>erlang:port_command/3</c></seealso> and pass <c>[force]</c> as
+            <seemfa marker="erlang#port_command/3">
+            <c>erlang:port_command/3</c></seemfa> and pass <c>[force]</c> as
             option list; otherwise the caller can be blocked indefinitely
             on a busy port and prevent the system from taking down a
             connection that is not functioning.</p>

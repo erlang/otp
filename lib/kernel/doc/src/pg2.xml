@@ -39,7 +39,7 @@
       <p>
 	The <c>pg2</c> module is deprecated as of OTP 23 and scheduled
 	for removal in OTP 24. You are advised to replace the usage of
-	<c>pg2</c> with <seealso marker="kernel:pg">pg</seealso>.
+	<c>pg2</c> with <seeerl marker="kernel:pg">pg</seeerl>.
 	<c>pg</c> has a similar API, but with an implementation that
 	is more scalable. See the documentation of <c>pg</c> for more
 	information about differences.
@@ -53,14 +53,14 @@
       are all members of the group <c>foobar</c>. There are no special
       functions for sending a message to the group. Instead, client
       functions are to be written with the functions
-      <seealso marker="#get_members/1"><c>get_members/1</c></seealso> and
-      <seealso marker="#get_local_members/1"><c>get_local_members/1</c></seealso>
+      <seemfa marker="#get_members/1"><c>get_members/1</c></seemfa> and
+      <seemfa marker="#get_local_members/1"><c>get_local_members/1</c></seemfa>
       to determine which processes are members of the group.
       Then the message can be sent to one or more group members.</p>
     <p>If a member terminates, it is automatically removed from the group.</p>
     <warning>
       <p>This module is used by module
-        <seealso marker="disk_log"><c>disk_log</c></seealso> for
+        <seeerl marker="disk_log"><c>disk_log</c></seeerl> for
         managing distributed disk logs. The disk log names are used as
         group names, which means that some action can be needed
         to avoid name clashes.</p>
@@ -153,7 +153,7 @@
           is needed. This is useful during development, but in a
           target system the server is to be started explicitly. Use the
           configuration parameters for
-          <seealso marker="kernel_app#start_pg2"><c>kernel(6)</c></seealso>
+          <seeapp marker="kernel_app#start_pg2"><c>kernel(6)</c></seeapp>
 	  for this.</p>
       </desc>
     </func>
@@ -169,7 +169,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel_app"><c>kernel(6)</c></seealso></p>
+    <p><seeapp marker="kernel_app"><c>kernel(6)</c></seeapp></p>
   </section>
 </erlref>
 

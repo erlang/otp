@@ -51,8 +51,8 @@
       are all members of the group <c>foobar</c>. There are no special
       functions for sending a message to the group. Instead, client
       functions are to be written with the functions
-      <seealso marker="#get_members/1"><c>get_members/1</c></seealso> and
-      <seealso marker="#get_local_members/1"><c>get_local_members/1</c></seealso>
+      <seemfa marker="#get_members/1"><c>get_members/1</c></seemfa> and
+      <seemfa marker="#get_local_members/1"><c>get_local_members/1</c></seemfa>
       to determine which processes are members of the group.
       Then the message can be sent to one or more group members.</p>
     <p>If a member terminates, it is automatically removed from the group.</p>
@@ -62,7 +62,7 @@
     </p>
 
     <p>Process Groups implement strong eventual consistency.
-      Unlike <seealso marker="pg2"><c>pg2</c></seealso>, that provides
+      Unlike <seeerl marker="pg2"><c>pg2</c></seeerl>, that provides
       strong ordering guarantees, Process Groups membership view may temporarily
       diverge. For example, when processes on <c>node1</c> and <c>node2</c>
       join concurrently, <c>node3</c> and <c>node4</c> may receive updates in
@@ -82,7 +82,7 @@
       decouple single mesh into a set of overlay networks, reducing
       amount of traffic required to propagate group membership
       information. Default scope <c>pg</c> is started automatically
-      when <seealso marker="kernel_app#start_pg"><c>kernel(6)</c></seealso>
+      when <seeapp marker="kernel_app#start_pg"><c>kernel(6)</c></seeapp>
       is configured to do so.
     </p>
 
@@ -92,7 +92,7 @@
       exists, scope fails to start.</p>
       <p>Local membership is not preserved if scope process exits and
         restarts. This behaviour is different from
-        <seealso marker="pg2"><c>pg2</c></seealso>, that recovers
+        <seeerl marker="pg2"><c>pg2</c></seeerl>, that recovers
         local membership from remote nodes.
     </p></note>
 
@@ -113,7 +113,7 @@
       <desc>
         <p>Starts the default <c>pg</c> scope within supervision tree.
           Kernel may be configured to do it automatically, see
-          <seealso marker="kernel_app#start_pg"><c>kernel(6)</c></seealso>
+          <seeapp marker="kernel_app#start_pg"><c>kernel(6)</c></seeapp>
           configuration manual.</p>
       </desc>
     </func>
@@ -189,7 +189,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel_app"><c>kernel(6)</c></seealso></p>
+    <p><seeapp marker="kernel_app"><c>kernel(6)</c></seeapp></p>
   </section>
 </erlref>
 

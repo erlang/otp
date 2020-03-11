@@ -149,7 +149,7 @@
 	    </type>
 	    <desc>
 		<p>Prints a list of internal locks and its statistics.</p>
-		<p>For option description, see <seealso marker="#inspect/2">lcnt:inspect/2</seealso>.</p>
+		<p>For option description, see <seemfa marker="#inspect/2">lcnt:inspect/2</seemfa>.</p>
 	    </desc>
 	</func>
 
@@ -172,7 +172,7 @@
 	    </type>
 	    <desc>
 		<p>Prints a list of internal lock counters by source code locations.</p>
-		<p>For option description, see <seealso marker="#inspect/2">lcnt:inspect/2</seealso>.</p>
+		<p>For option description, see <seemfa marker="#inspect/2">lcnt:inspect/2</seemfa>.</p>
 	    </desc>
 	</func>
 
@@ -196,7 +196,7 @@
 	    </type>
 	    <desc>
 		<p>Prints a list of internal lock counters for a specific lock.</p>
-		<p>Lock <c>Name</c> and <c>Id</c> for ports and processes are interchangeable with the use of <c>lcnt:swap_pid_keys/0</c> and is the reason why <c>pid()</c> and <c>port()</c> options can be used in both <c>Name</c> and <c>Id</c> space. Both pids and ports are special identifiers with stripped creation and can be recreated with <seealso marker="#pid/3">lcnt:pid/2,3</seealso> and <seealso marker="#port/2">lcnt:port/1,2</seealso>.  </p>
+		<p>Lock <c>Name</c> and <c>Id</c> for ports and processes are interchangeable with the use of <c>lcnt:swap_pid_keys/0</c> and is the reason why <c>pid()</c> and <c>port()</c> options can be used in both <c>Name</c> and <c>Id</c> space. Both pids and ports are special identifiers with stripped creation and can be recreated with <seemfa marker="#pid/3">lcnt:pid/2,3</seemfa> and <seemfa marker="#port/2">lcnt:port/1,2</seemfa>.  </p>
 		<p>Option description:</p>
 		<taglist>
 		    <tag><c>{combine, bool()}</c></tag>
@@ -529,6 +529,6 @@
 
     <section>
 	<title>See Also</title>
-	<p> <seealso marker="lcnt_chapter">LCNT User's Guide</seealso></p>
+	<p> <seeguide marker="lcnt_chapter">LCNT User's Guide</seeguide></p>
     </section>
 </erlref>

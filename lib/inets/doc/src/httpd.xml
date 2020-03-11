@@ -61,7 +61,7 @@
     application, or dynamically in runtime by calling the
     <c>Inets</c> application API <c>inets:start(httpd, ServiceConfig)</c> or
     <c>inets:start(httpd, ServiceConfig, How)</c>,
-    see <seealso marker="inets">inets(3)</seealso>.
+    see <seeerl marker="inets">inets(3)</seeerl>.
     The configuration options, also called
     properties, are as follows:</p>
 
@@ -130,24 +130,24 @@
 
       <tag><marker id="profile"></marker>{profile, atom()}</tag>
       <item>
-        <p>Used together with <seealso marker="#prop_bind_address"><c>bind_address</c></seealso>
-	and <seealso marker="#prop_port"><c>port</c></seealso> to uniquely identify
+        <p>Used together with <seeerl marker="#prop_bind_address"><c>bind_address</c></seeerl>
+	and <seeerl marker="#prop_port"><c>port</c></seeerl> to uniquely identify
 	a HTTP server. This can be useful in a virtualized environment,
 	where there can
 	be more that one server that has the same bind_address and port.
 	If this property is not explicitly set, it is assumed that the
-	<seealso marker="#prop_bind_address"><c>bind_address</c></seealso> and
-	<seealso marker="#prop_port"><c>port</c></seealso>uniquely identifies the HTTP server.
+	<seeerl marker="#prop_bind_address"><c>bind_address</c></seeerl> and
+	<seeerl marker="#prop_port"><c>port</c></seeerl>uniquely identifies the HTTP server.
 	</p>
       </item>
 
       <tag><marker id="prop_socket_type"></marker>{socket_type, ip_comm | {ip_comm,  Config::proplist()} | {essl, Config::proplist()}}</tag>
       <item>
 	<p>For <c>ip_comm</c> configuration options, see 
-	<seealso marker="kernel:gen_tcp#listen/2">gen_tcp:listen/2</seealso>, some options
+	<seemfa marker="kernel:gen_tcp#listen/2">gen_tcp:listen/2</seemfa>, some options
 	that are used internally by httpd cannot be set.</p>
 	<p>For <c>SSL</c> configuration options, see 
-	<seealso marker="ssl:ssl#listen/2">ssl:listen/2</seealso>.</p>
+	<seemfa marker="ssl:ssl#listen/2">ssl:listen/2</seemfa>.</p>
 	<p>Default is <c>ip_comm</c>.</p> 
       </item>
 
@@ -176,7 +176,7 @@
 	mod_disk_log]</c>. 
 	Notice that some <c>mod</c>-modules are dependent on
 	others, so the order cannot be entirely arbitrary. See the
-	<seealso marker="http_server">Inets Web Server Modules</seealso> in the
+	<seeguide marker="http_server">Inets Web Server Modules</seeguide> in the
 	User's Guide for details.</p>
       </item>
     </taglist>
@@ -188,7 +188,7 @@
       <tag><marker id="prop_customize"></marker>{customize, atom()}</tag>
       <item> 
 	<p>A callback module to customize the inets HTTP servers behaviour
-	see <seealso marker="httpd_custom_api"> httpd_custom_api</seealso> </p>
+	see <seeerl marker="httpd_custom_api"> httpd_custom_api</seeerl> </p>
       </item>
       
       <tag><marker id="prop_disable_chunked_encoding"></marker>{disable_chunked_transfer_encoding_send, boolean()}</tag>
@@ -259,7 +259,7 @@
 	<p>Enforces chunking of a HTTP PUT or POST body data to be deliverd
 	to the mod_esi callback. Note this is not supported for mod_cgi. 
 	Default is no limit e.i the whole body is deliverd as one entity, which could
-	be very memory consuming. <seealso marker="mod_esi">mod_esi(3)</seealso>.
+	be very memory consuming. <seeerl marker="mod_esi">mod_esi(3)</seeerl>.
 	</p>
       </item>
       
@@ -334,9 +334,9 @@ text/plain	asc txt</pre>
 	<taglist>
 	  <tag><c>{error, ServerID::atom()}</c></tag>
 	  <item>	    <p>Produces  
-	    <seealso marker="kernel:logger#type-log_event">logger events</seealso>
-	    on logger <seealso marker="kernel:logger#type-level">level error</seealso>
-	    under the hierarchical logger <seealso marker="kernel:logger#type-log_event">domain:</seealso> <c>[otp, inets, httpd, ServerID, error]</c>
+	    <seetype marker="kernel:logger#log_event">logger events</seetype>
+	    on logger <seetype marker="kernel:logger#level">level error</seetype>
+	    under the hierarchical logger <seetype marker="kernel:logger#log_event">domain:</seetype> <c>[otp, inets, httpd, ServerID, error]</c>
 	    The built in logger formatting 
 	    function produces log entries from the
 	    error reports:</p>
@@ -906,7 +906,7 @@ Transport: TLS
 	<note><p>Pid is the pid returned from <c>inets:start/[2,3]</c>. 
 	    Can also be retrieved form <c>inets:services/0</c> and
 	    <c>inets:services_info/0</c>,
-	    see <seealso marker="inets">inets(3)</seealso>.
+	    see <seeerl marker="inets">inets(3)</seeerl>.
 	  </p></note>
       </desc>
     </func>
@@ -1170,7 +1170,7 @@ Transport: TLS
       </type>
       <desc>
         <p><c>parse_query/1</c> parses incoming data to <c>erl</c> and
-          <c>eval</c> scripts (see <seealso marker="mod_esi">mod_esi(3)</seealso>) 
+          <c>eval</c> scripts (see <seeerl marker="mod_esi">mod_esi(3)</seeerl>) 
 	  as defined in the standard
           URL format, that is, '+' becomes 'space' and decoding of
           hexadecimal characters (<c>%xx</c>).</p>
@@ -1181,8 +1181,8 @@ Transport: TLS
   <section>
     <title>SEE ALSO</title>
     <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
-    <seealso marker="inets">inets(3)</seealso>,
-    <seealso marker="ssl:ssl">ssl(3)</seealso>
+    <seeerl marker="inets">inets(3)</seeerl>,
+    <seeerl marker="ssl:ssl">ssl(3)</seeerl>
     </p>
   </section>
 

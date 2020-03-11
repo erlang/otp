@@ -70,7 +70,7 @@
       <fsummary></fsummary>
       <desc>
         <p>Similar to
-          <seealso marker="#get_all_values/2"><c>get_all_values/2</c></seealso>,
+          <seemfa marker="#get_all_values/2"><c>get_all_values/2</c></seemfa>,
           but each value is wrapped in a list unless it is already itself a
           list. The resulting list of lists is concatenated. This is often
           useful for "incremental" options.</p>
@@ -90,8 +90,8 @@ append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</code>
         <p>Minimizes the representation of all entries in the list. This is
           equivalent to <c><![CDATA[[property(P) || P <- ListIn]]]></c>.</p>
         <p>See also
-          <seealso marker="#property/1"><c>property/1</c></seealso>,
-          <seealso marker="#unfold/1"><c>unfold/1</c></seealso>.</p>
+          <seemfa marker="#property/1"><c>property/1</c></seemfa>,
+          <seemfa marker="#unfold/1"><c>unfold/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -133,7 +133,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c><anno>Expansions</anno></c> contains more than one property with
           the same key, only the first occurrence is used.</p>
         <p>See also
-          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>.</p>
+          <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -142,7 +142,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
       <fsummary></fsummary>
       <desc>
         <p>Similar to 
-          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
+          <seemfa marker="#get_value/2"><c>get_value/2</c></seemfa>,
           but returns the list of values for <em>all</em> entries
           <c>{Key, Value}</c> in <c><anno>List</anno></c>. If no such entry
           exists, the result is the empty list.</p>
@@ -158,8 +158,8 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c>{<anno>Key</anno>, true}</c>, this function returns <c>true</c>,
           otherwise <c>false</c>.</p>
         <p>See also
-          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+          <seemfa marker="#get_value/2"><c>get_value/2</c></seemfa>,
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -191,10 +191,10 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           this function returns the corresponding <c>Value</c>, otherwise
           <c><anno>Default</anno></c>.</p>
         <p>See also
-          <seealso marker="#get_all_values/2"><c>get_all_values/2</c></seealso>,
-          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
-          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+          <seemfa marker="#get_all_values/2"><c>get_all_values/2</c></seemfa>,
+          <seemfa marker="#get_bool/2"><c>get_bool/2</c></seemfa>,
+          <seemfa marker="#get_value/2"><c>get_value/2</c></seemfa>,
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -217,9 +217,9 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c>none</c>. For an atom <c>A</c> in the list, the tuple
           <c>{A, true}</c> is the entry associated with <c>A</c>.</p>
         <p>See also
-          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
-          <seealso marker="#get_value/2"><c>get_value/2</c></seealso>,
-          <seealso marker="#lookup_all/2"><c>lookup_all/2</c></seealso>.</p>
+          <seemfa marker="#get_bool/2"><c>get_bool/2</c></seemfa>,
+          <seemfa marker="#get_value/2"><c>get_value/2</c></seemfa>,
+          <seemfa marker="#lookup_all/2"><c>lookup_all/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -231,7 +231,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c><anno>Key</anno></c> in <c><anno>List</anno></c>. If no such entry
           exists, the result is the empty list.</p>
         <p>See also
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso>.</p>
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -241,8 +241,8 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
       <desc>
         <p>Passes <c><anno>ListIn</anno></c> through a sequence of
           substitution/expansion stages. For an <c>aliases</c> operation,
-          function <seealso marker="#substitute_aliases/2">
-          <c>substitute_aliases/2</c></seealso> is applied using the
+          function <seemfa marker="#substitute_aliases/2">
+          <c>substitute_aliases/2</c></seemfa> is applied using the
           specified list of aliases:</p>
         <list type="bulleted">
           <item>
@@ -251,19 +251,19 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           </item>
           <item>
             <p>For an <c>expand</c> operation, function
-              <seealso marker="#expand/2"><c>expand/2</c></seealso>
+              <seemfa marker="#expand/2"><c>expand/2</c></seemfa>
               is applied using the specified list of expansions.</p>
           </item>
         </list>
         <p>The final result is automatically compacted (compare
-          <seealso marker="#compact/1"><c>compact/1</c></seealso>).</p>
+          <seemfa marker="#compact/1"><c>compact/1</c></seemfa>).</p>
         <p>Typically you want to substitute negations first, then aliases,
           then perform one or more expansions (sometimes you want to pre-expand
           particular entries before doing the main expansion). You might want
           to substitute negations and/or aliases repeatedly, to allow such
           forms in the right-hand side of aliases and expansion lists.</p>
-        <p>See also <seealso marker="#substitute_negations/2">
-          <c>substitute_negations/2</c></seealso>.</p>
+        <p>See also <seemfa marker="#substitute_negations/2">
+          <c>substitute_negations/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -276,7 +276,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           <c>Key</c> is an atom, <c>Key</c> is returned, otherwise
           the whole term <c><anno>PropertyIn</anno></c> is returned.</p>
         <p>See also
-          <seealso marker="#property/2"><c>property/2</c></seealso>.</p>
+          <seemfa marker="#property/2"><c>property/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -289,7 +289,7 @@ expand([{{foo, true}, [bar, baz]}], [{foo, false}, fie, foo, fum])</code>
           is <c>true</c> and <c><anno>Key</anno></c> is an atom, otherwise a
           tuple <c>{<anno>Key</anno>, <anno>Value</anno>}</c> is returned.</p>
         <p>See also
-          <seealso marker="#property/1"><c>property/1</c></seealso>.</p>
+          <seemfa marker="#property/1"><c>property/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -330,9 +330,9 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           with <c>{colour, ...}</c>, and all atoms <c>color</c>
           with <c>colour</c>.</p>
         <p>See also
-          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>,
-          <seealso marker="#substitute_negations/2">
-          <c>substitute_negations/2</c></seealso>.</p>
+          <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>,
+          <seemfa marker="#substitute_negations/2">
+          <c>substitute_negations/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -348,8 +348,8 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           <c>{K1, true}</c>, it is replaced with <c>{K2, false}</c>, otherwise
           with <c>K2</c>, thus changing the name of the option and
           simultaneously negating the value specified by
-          <seealso marker="#get_bool/2">
-          <c>get_bool(Key, <anno>ListIn</anno>)</c></seealso>.
+          <seemfa marker="#get_bool/2">
+          <c>get_bool(Key, <anno>ListIn</anno>)</c></seemfa>.
           If the same <c>K1</c> occurs more than once in
           <c><anno>Negations</anno></c>, only the first occurrence is used.</p>
         <p>For example, <c>substitute_negations([{no_foo, foo}], L)</c>
@@ -357,10 +357,10 @@ split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</code>
           <c>{no_foo, true}</c> in <c>L</c> with <c>{foo, false}</c>,
           and any other tuple <c>{no_foo, ...}</c> with <c>foo</c>.</p>
         <p>See also
-          <seealso marker="#get_bool/2"><c>get_bool/2</c></seealso>,
-          <seealso marker="#normalize/2"><c>normalize/2</c></seealso>,
-          <seealso marker="#substitute_aliases/2">
-          <c>substitute_aliases/2</c></seealso>.</p>
+          <seemfa marker="#get_bool/2"><c>get_bool/2</c></seemfa>,
+          <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>,
+          <seemfa marker="#substitute_aliases/2">
+          <c>substitute_aliases/2</c></seemfa>.</p>
       </desc>
     </func>
 

@@ -65,24 +65,24 @@
     <p>The functions implemented by this module cover the following use cases:</p>
     <list type="bulleted">
       <item>Parsing URIs into its components and returing a map<br></br>
-      <seealso marker="#parse/1"><c>parse/1</c></seealso>
+      <seemfa marker="#parse/1"><c>parse/1</c></seemfa>
       </item>
       <item>Recomposing a map of URI components into a URI string<br></br>
-      <seealso marker="#recompose/1"><c>recompose/1</c></seealso>
+      <seemfa marker="#recompose/1"><c>recompose/1</c></seemfa>
       </item>
       <item>Changing inbound binary and percent-encoding of URIs<br></br>
-      <seealso marker="#transcode/2"><c>transcode/2</c></seealso>
+      <seemfa marker="#transcode/2"><c>transcode/2</c></seemfa>
       </item>
       <item>Transforming URIs into a normalized form<br></br>
-      <seealso marker="#normalize/1"><c>normalize/1</c></seealso><br></br>
-      <seealso marker="#normalize/2"><c>normalize/2</c></seealso>
+      <seemfa marker="#normalize/1"><c>normalize/1</c></seemfa><br></br>
+      <seemfa marker="#normalize/2"><c>normalize/2</c></seemfa>
       </item>
       <item>Composing form-urlencoded query strings from a list of key-value pairs<br></br>
-      <seealso marker="#compose_query/1"><c>compose_query/1</c></seealso><br></br>
-      <seealso marker="#compose_query/2"><c>compose_query/2</c></seealso>
+      <seemfa marker="#compose_query/1"><c>compose_query/1</c></seemfa><br></br>
+      <seemfa marker="#compose_query/2"><c>compose_query/2</c></seemfa>
       </item>
       <item>Dissecting form-urlencoded query strings into a list of key-value pairs<br></br>
-      <seealso marker="#dissect_query/1"><c>dissect_query/1</c></seealso>
+      <seemfa marker="#dissect_query/1"><c>dissect_query/1</c></seemfa>
       </item>
     </list>
     <p>There are four different encodings present during the handling of URIs:</p>
@@ -161,8 +161,8 @@
 	<url href="https://www.w3.org/TR/html50/">HTML 5.0</url> specification for
 	non-UTF-8 encodings.
 	</p>
-	<p>See also the opposite operation <seealso marker="#dissect_query/1">
-	<c>dissect_query/1</c></seealso>.
+	<p>See also the opposite operation <seemfa marker="#dissect_query/1">
+	<c>dissect_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
         <pre>
@@ -194,8 +194,8 @@
 	0x61 to 0x7A, are percent-encoded (U+0025 PERCENT SIGN character (%) followed by
 	uppercase ASCII hex digits representing the hexadecimal value of the byte).
 	</p>
-	<p>See also the opposite operation <seealso marker="#dissect_query/1">
-	<c>dissect_query/1</c></seealso>.
+	<p>See also the opposite operation <seemfa marker="#dissect_query/1">
+	<c>dissect_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
         <pre>
@@ -221,8 +221,8 @@
 	<url href="https://www.w3.org/TR/html50/">HTML 5.0</url> specification for
 	non-UTF-8 encodings.
 	</p>
-	<p>See also the opposite operation <seealso marker="#compose_query/1">
-	<c>compose_query/1</c></seealso>.
+	<p>See also the opposite operation <seemfa marker="#compose_query/1">
+	<c>compose_query/1</c></seemfa>.
 	</p>
         <p><em>Example:</em></p>
         <pre>
@@ -292,8 +292,8 @@
 	compliant <c>uri_string()</c> into a <c>uri_map()</c>, that holds the parsed
 	components of the <c>URI</c>.
 	If parsing fails, an error tuple is returned.</p>
-	<p>See also the opposite operation <seealso marker="#recompose/1">
-	<c>recompose/1</c></seealso>.</p>
+	<p>See also the opposite operation <seemfa marker="#recompose/1">
+	<c>recompose/1</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>uri_string:parse("foo://user@example.com:8042/over/there?name=ferret#nose").</input>
@@ -316,8 +316,8 @@
 	<c><anno>URIString</anno></c> (percent-encoded), based on the components of
 	<c><anno>URIMap</anno></c>.
 	If the <c><anno>URIMap</anno></c> is invalid, an error tuple is returned.</p>
-	<p>See also the opposite operation <seealso marker="#parse/1">
-	<c>parse/1</c></seealso>.</p>
+	<p>See also the opposite operation <seemfa marker="#parse/1">
+	<c>parse/1</c></seemfa>.</p>
         <p><em>Example:</em></p>
         <pre>
 1> <input>URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",</input>

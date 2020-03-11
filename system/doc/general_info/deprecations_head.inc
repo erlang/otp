@@ -33,7 +33,7 @@
     <title>Introduction</title>
     <p>This document lists all deprecated functionality in
     Erlang/OTP. For more information regarding the strategy regarding
-    deprecations see the documentation of <seealso
-    marker="../system_principles/misc#deprecation">Support,
-    Compatibility, Deprecations, and Removal</seealso>.</p>
+    deprecations see the documentation of <seeguide
+    marker="system/system_principles:misc#deprecation">Support,
+    Compatibility, Deprecations, and Removal</seeguide>.</p>
   </section>

@@ -44,7 +44,7 @@
       That is, Erlang processes that know the name of the
       C-node can communicate with it in a normal manner, but
       the node name is not shown in the listing provided by
-      <seealso marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seealso>
+      <seemfa marker="erts:erlang#nodes/0"><c>erlang:nodes/0</c></seemfa>
       in <c>ERTS</c>.</p>
 
     <p>The environment variable <c>ERL_EPMD_PORT</c> can be used
@@ -96,11 +96,11 @@
     his/her own IPv4 socket implementation. This, for example, in order
     to communicate over TLS. A user supplied socket implementation
     is plugged in by passing a
-    <seealso marker="#ei_socket_callbacks">callback structure</seealso>
+    <seecref marker="#ei_socket_callbacks">callback structure</seecref>
     to either
-    <seealso marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seealso>
+    <seecref marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seecref>
     or
-    <seealso marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seealso>.</p>
+    <seecref marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seecref>.</p>
     
     <p>All callbacks in the <c>ei_socket_callbacks</c> structure
     <em>should</em> return zero on success; and a posix error
@@ -186,9 +186,9 @@ typedef struct {
 	the created socket. This context will be passed to all other
 	socket callbacks. This function will be passed the same
 	<c>setup_context</c> as passed to the preceeding
-	<seealso marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seealso>
+	<seecref marker="#ei_connect_init"><c>ei_connect_init_ussi()</c></seecref>
 	or
-	<seealso marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seealso>
+	<seecref marker="#ei_connect_init"><c>ei_connect_xinit_ussi()</c></seecref>
 	call.</p>
 	
 	<note><p>During the lifetime of a socket, the pointer <c>*ctx</c>
@@ -531,7 +531,7 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
           </item>
 	  <item>
 	    <p><c>cbs</c> is a pointer to a
-	    <seealso marker="#ei_socket_callbacks">callback structure</seealso>
+	    <seecref marker="#ei_socket_callbacks">callback structure</seecref>
 	    implementing and alternative socket interface.</p>
 	  </item>
 	  <item>
@@ -603,8 +603,8 @@ if (ei_connect_init(&ec, "madonna", "cookie...", n++) < 0) {
       <desc>
         <p>Used to set tracing on the distribution. The levels are different
           verbosity levels. A higher level means more information. See also
-          section <seealso marker="#debug_information">
-          Debug Information</seealso>.</p>
+          section <seecref marker="#debug_information">
+          Debug Information</seecref>.</p>
 	<p>These functions are not thread safe.</p>
       </desc>
     </func>
@@ -838,7 +838,7 @@ typedef struct {
           </item>
         </taglist>
         <p>The return value is the same as for
-          <seealso marker="#ei_receive"><c>ei_receive</c></seealso>.</p>
+          <seecref marker="#ei_receive"><c>ei_receive</c></seecref>.</p>
       </desc>
     </func>
 
@@ -917,8 +917,8 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
           and <c>ei_rpc_from()</c> receives the results of such a
           call. <c>ei_rpc()</c> combines the functionality of these
           two functions by sending an RPC request and waiting for the results.
-          See also <seealso marker="kernel:rpc#call/4">
-          <c>rpc:call/4</c></seealso> in Kernel.</p>
+          See also <seemfa marker="kernel:rpc#call/4">
+          <c>rpc:call/4</c></seemfa> in Kernel.</p>
         <list type="bulleted">
           <item>
             <p><c>ec</c> is the C-node structure previously
@@ -957,8 +957,8 @@ if (ei_reg_send(&ec, fd, x.buff, x.index) < 0)
               <c>erlang_msg</c> and contains information on the
               message
               received. For a description of the <c>erlang_msg</c>
-              format, see <seealso marker="#ei_receive_msg">
-              <c>ei_receive_msg</c></seealso>.</p>
+              format, see <seecref marker="#ei_receive_msg">
+              <c>ei_receive_msg</c></seecref>.</p>
           </item>
           <item>
             <p><c>x</c> points to the dynamic buffer that receives

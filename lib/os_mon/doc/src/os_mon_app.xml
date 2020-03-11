@@ -34,13 +34,13 @@
     <p>The operating system monitor, OS_Mon, provides the following
       services:</p>
     <list type="bulleted">
-      <item><seealso marker="cpu_sup">cpu_sup</seealso>
+      <item><seeerl marker="cpu_sup">cpu_sup</seeerl>
        CPU load and utilization supervision (Unix)</item>
-      <item><seealso marker="disksup">disksup</seealso>
+      <item><seeerl marker="disksup">disksup</seeerl>
        Disk supervision(Unix, Windows)</item>
-      <item><seealso marker="memsup">memsup</seealso>
+      <item><seeerl marker="memsup">memsup</seeerl>
        Memory supervision (Unix, Windows, VxWorks)</item>
-      <item><seealso marker="os_sup">os_sup</seealso>
+      <item><seeerl marker="os_sup">os_sup</seeerl>
        Interface to OS system messages (Solaris, Windows)</item>
     </list>
     <p>To simplify usage of OS_Mon on distributed Erlang systems, it is
@@ -82,19 +82,19 @@
     </taglist>
     <p>Configuration parameters effecting the different OS_Mon services
       are described in the respective man pages.</p>
-    <p>See <seealso marker="kernel:config">config(4)</seealso> for
+    <p>See <seefile marker="kernel:config">config(4)</seefile> for
       information about how to change the value of configuration
       parameters.</p>
   </section>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="cpu_sup">cpu_sup(3)</seealso>,
-      <seealso marker="disksup">disksup(3)</seealso>,
-      <seealso marker="memsup">memsup(3)</seealso>,
-      <seealso marker="os_sup">os_sup(3)</seealso>,
-      <seealso marker="nteventlog">nteventlog(3)</seealso>,
-      <seealso marker="snmp:snmp">snmp(3)</seealso>.</p>
+    <p><seeerl marker="cpu_sup">cpu_sup(3)</seeerl>,
+      <seeerl marker="disksup">disksup(3)</seeerl>,
+      <seeerl marker="memsup">memsup(3)</seeerl>,
+      <seeerl marker="os_sup">os_sup(3)</seeerl>,
+      <seeerl marker="nteventlog">nteventlog(3)</seeerl>,
+      <seeerl marker="snmp:snmp">snmp(3)</seeerl>.</p>
   </section>
 </appref>
 

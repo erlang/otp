@@ -38,7 +38,7 @@
     <p>The module <c>snmpm_mpd</c> implements the version independent
       Message Processing and Dispatch functionality in SNMP for the manager. 
       It is supposed to be used from a Network Interface process 
-      (<seealso marker="snmp_manager_netif">Definition of Manager Net if</seealso>).
+      (<seeguide marker="snmp_manager_netif">Definition of Manager Net if</seeguide>).
       </p>
 
     <p>Legacy API function <c>process_msg/7</c> that has got separate
@@ -69,7 +69,7 @@
       <type>
         <v>Msg = binary()</v>
         <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
-	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
+	<v>Addr = {<seetype marker="kernel:inet#ip_address">inet:ip_address(), inet:port_number()</seetype>} </v>
         <v>State = mpd_state()</v>
         <v>NoteStore = pid()</v>
         <v>Logger = function()</v>
@@ -133,7 +133,7 @@
           </p>
         <p><c>MsgData</c> is the message specific data used in the SNMP 
           message. This value is received from the 
-          <seealso marker="snmpm_mpd#process_msg">process_msg</seealso> 
+          <seeerl marker="snmpm_mpd#process_msg">process_msg</seeerl> 
           function.
           </p>
       </desc>

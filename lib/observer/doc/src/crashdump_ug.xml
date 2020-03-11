@@ -50,10 +50,10 @@
     <p>Under Windows, the batch file <c>cdv.bat</c> can be used.</p>
 
     <p>Crashdump Viewer can also be started from
-    an Erlang node by calling <seealso
-    marker="crashdump_viewer#start/0">crashdump_viewer:start/0</seealso>
-    or <seealso
-    marker="crashdump_viewer#start/1">crashdump_viewer:start/1</seealso>.</p>
+    an Erlang node by calling <seemfa
+    marker="crashdump_viewer#start/0">crashdump_viewer:start/0</seemfa>
+    or <seemfa
+    marker="crashdump_viewer#start/1">crashdump_viewer:start/1</seemfa>.</p>
   </section>
 
   <section>
@@ -133,7 +133,7 @@
     in the raw crashdump, or in some way differ from the fields in
     the raw crashdump. For details about other fields, see
     the 
-    <seealso marker="erts:users_guide">ERTS User's Guide</seealso>, section
+    <seeguide marker="erts:index">ERTS User's Guide</seeguide>, section
     "How to interpret the Erlang crash dumps". That section can also
     be opened from the <em>Help</em> menu in the main window.
     There are also links from the following sections to related information 
@@ -180,7 +180,7 @@
     </taglist>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#general_info">General Information</seealso>
+      <seeguide marker="erts:crash_dump#general_info">General Information</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -204,7 +204,7 @@
     <em>Properties for &lt;pid&gt;</em>.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#processes">Process Information</seealso>
+      <seeguide marker="erts:crash_dump#processes">Process Information</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -223,7 +223,7 @@
     port.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#ports">Port Information</seealso>
+      <seeguide marker="erts:crash_dump#ports">Port Information</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -247,7 +247,7 @@
     &lt;pid&gt;</em>.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#ets_tables">ETS Tables</seealso>
+      <seeguide marker="erts:crash_dump#ets_tables">ETS Tables</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -266,7 +266,7 @@
     <p>Double-clicking a row in the <em>Timers</em> tab has no effect.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#timers">Timers</seealso>
+      <seeguide marker="erts:crash_dump#timers">Timers</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -283,7 +283,7 @@
     'Identifier'</em>.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#scheduler">Scheduler Information</seealso>
+      <seeguide marker="erts:crash_dump#scheduler">Scheduler Information</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -302,7 +302,7 @@
     <p>Double-clicking a row in the <em>Funs</em> tab has no effect.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#funs">Fun Information</seealso>
+      <seeguide marker="erts:crash_dump#funs">Fun Information</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -319,7 +319,7 @@
     in the <em>Atoms</em> tab.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#atoms">Atoms</seealso>
+      <seeguide marker="erts:crash_dump#atoms">Atoms</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -360,7 +360,7 @@
     emulator is debug-compiled) or error information.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#distribution_info">Distribution Information</seealso>
+      <seeguide marker="erts:crash_dump#distribution_info">Distribution Information</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -378,7 +378,7 @@
     &lt;mod&gt;</em>.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#loaded_modules">Loaded Module Information</seealso>
+      <seeguide marker="erts:crash_dump#loaded_modules">Loaded Module Information</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>
@@ -393,7 +393,7 @@
       <taglist>
 	<tag><em>Memory</em></tag>
 	<item><p>See
-	<seealso marker="erts:crash_dump#memory">Memory Information</seealso>
+	<seeguide marker="erts:crash_dump#memory">Memory Information</seeguide>
 	in section "How to Interpret the Erlang Crash Dumps" in ERTS.</p></item>
 
 	<tag><em>Allocator Summary</em></tag>
@@ -401,12 +401,12 @@
 
 	<tag><em>&lt;Allocator&gt;</em></tag>
 	<item><p>One entry per allocator. See
-	<seealso marker="erts:crash_dump#allocator">Allocator</seealso>
+	<seeguide marker="erts:crash_dump#allocator">Allocator</seeguide>
 	in section "How to Interpret the Erlang Crash Dumps" in ERTS.</p></item>
 
 	<tag><em>Allocated Areas</em></tag>
 	<item><p>See
-	<seealso marker="erts:crash_dump#allocated_areas">Allocated Areas</seealso>
+	<seeguide marker="erts:crash_dump#allocated_areas">Allocated Areas</seeguide>
 	in section "How to Interpret the Erlang Crash Dumps" in ERTS.</p></item>
 
       </taglist>
@@ -421,7 +421,7 @@
     or <em>Internal ETS Tables</em>.</p>
 
     <p>For details, see
-      <seealso marker="erts:crash_dump#internal_tables">Internal Table Information</seealso>
+      <seeguide marker="erts:crash_dump#internal_tables">Internal Table Information</seeguide>
       in section "How to Interpret the Erlang Crash Dumps" in ERTS.
     </p>
   </section>

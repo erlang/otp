@@ -37,9 +37,9 @@
   </modulesummary>
   <description>
     <p>This module provides a query interface to
-      <seealso marker="mnesia:mnesia">Mnesia</seealso>,
-      <seealso marker="ets">ETS</seealso>,
-      <seealso marker="dets">Dets</seealso>,
+      <seeerl marker="mnesia:mnesia">Mnesia</seeerl>,
+      <seeerl marker="ets">ETS</seeerl>,
+      <seeerl marker="dets">Dets</seeerl>,
       and other data structures that provide an iterator style
       traversal of objects.</p>
   </description>
@@ -49,41 +49,41 @@
     <p>This module provides a query interface to <em>QLC
       tables</em>. Typical QLC tables are Mnesia, ETS, and
       Dets tables. Support is also provided for user-defined tables, see section
-      <seealso marker="#implementing_a_qlc_table">
-      Implementing a QLC Table</seealso>.
+      <seeerl marker="#implementing_a_qlc_table">
+      Implementing a QLC Table</seeerl>.
       <marker id="query_list_comprehension"></marker>
       A <em>query</em> is expressed using
       <em>Query List Comprehensions</em> (QLCs). The answers to a
       query are determined by data in QLC tables that fulfill the
       constraints expressed by the QLCs of the query. QLCs are similar
       to ordinary list comprehensions as described in
-      <seealso marker="doc/reference_manual:expressions#lcs">
-      Erlang Reference Manual</seealso> and
-      <seealso marker="doc/programming_examples:list_comprehensions">
-      Programming Examples</seealso>, except that variables
+      <seeguide marker="system/reference_manual:expressions#lcs">
+      Erlang Reference Manual</seeguide> and
+      <seeguide marker="system/programming_examples:list_comprehensions">
+      Programming Examples</seeguide>, except that variables
       introduced in patterns cannot be used in list expressions.
       In the absence of optimizations and options such as
       <c>cache</c> and <c>unique</c> (see section
-      <seealso marker="#common_options">Common Options</seealso>, every
+      <seeerl marker="#common_options">Common Options</seeerl>, every
       QLC free of QLC tables evaluates to the same list of answers as the
       identical ordinary list comprehension.</p>
 
     <p>While ordinary list comprehensions evaluate to lists, calling
-      <seealso marker="#q/1"><c>q/1,2</c></seealso> returns a
+      <seemfa marker="#q/1"><c>q/1,2</c></seemfa> returns a
       <marker id="query_handle"></marker><em>query handle</em>.
-      To obtain all the answers to a query, <seealso marker="#eval/1">
-      <c>eval/1,2</c></seealso> is to be called with the
+      To obtain all the answers to a query, <seemfa marker="#eval/1">
+      <c>eval/1,2</c></seemfa> is to be called with the
       query handle as first argument. Query handles are essentially
       functional objects (funs) created in the module calling <c>q/1,2</c>.
       As the funs refer to the module code, be careful not to keep query
       handles too long if the module code is to be replaced.
       Code replacement is described in section
-      <seealso marker="doc/reference_manual:code_loading">
-      Compilation and Code Loading</seealso> in the Erlang Reference Manual.
+      <seeguide marker="system/reference_manual:code_loading">
+      Compilation and Code Loading</seeguide> in the Erlang Reference Manual.
       The list of answers can also be traversed in chunks by use of a
       <marker id="query_cursor"></marker><em>query cursor</em>.
       Query cursors are created by calling
-      <seealso marker="#cursor/1"><c>cursor/1,2</c></seealso> with a query
+      <seemfa marker="#cursor/1"><c>cursor/1,2</c></seemfa> with a query
       handle as first argument. Query cursors are essentially Erlang processes.
       One answer at a time is sent from the query cursor process to
       the process that created the cursor.</p>
@@ -104,13 +104,13 @@
       <c><![CDATA[Pattern <- ListExpression]]></c>, where
       <c>ListExpression</c> is an expression evaluating to a query
       handle or a list. Query handles are returned from
-      <seealso marker="#append/1"><c>append/1,2</c></seealso>,
-      <seealso marker="#keysort/2"><c>keysort/2,3</c></seealso>,
-      <seealso marker="#q/1"><c>q/1,2</c></seealso>,
-      <seealso marker="#sort/1"><c>sort/1,2</c></seealso>,
-      <seealso marker="#string_to_handle/1">
-      <c>string_to_handle/1,2,3</c></seealso>, and
-      <seealso marker="#table/2"><c>table/2</c></seealso>.</p>
+      <seemfa marker="#append/1"><c>append/1,2</c></seemfa>,
+      <seemfa marker="#keysort/2"><c>keysort/2,3</c></seemfa>,
+      <seemfa marker="#q/1"><c>q/1,2</c></seemfa>,
+      <seemfa marker="#sort/1"><c>sort/1,2</c></seemfa>,
+      <seemfa marker="#string_to_handle/1">
+      <c>string_to_handle/1,2,3</c></seemfa>, and
+      <seemfa marker="#table/2"><c>table/2</c></seemfa>.</p>
   </section>
 
   <section>
@@ -200,10 +200,10 @@
     <marker id="common_options"></marker>
     <title>Common Options</title>
     <p>The following options are accepted by
-    <seealso marker="#cursor/2"><c>cursor/2</c></seealso>,
-    <seealso marker="#eval/2"><c>eval/2</c></seealso>,
-    <seealso marker="#fold/4"><c>fold/4</c></seealso>, and
-    <seealso marker="#info/2"><c>info/2</c></seealso>:</p>
+    <seemfa marker="#cursor/2"><c>cursor/2</c></seemfa>,
+    <seemfa marker="#eval/2"><c>eval/2</c></seemfa>,
+    <seemfa marker="#fold/4"><c>fold/4</c></seemfa>, and
+    <seemfa marker="#info/2"><c>info/2</c></seemfa>:</p>
 
     <list type="bulleted">
       <item><p><c>{cache_all, Cache}</c>, where <c>Cache</c> is
@@ -230,15 +230,15 @@
         The values <c>info_msg</c>, <c>warning_msg</c>, and
         <c>error_msg</c> mean that the function with the corresponding
         name in module
-        <seealso marker="kernel:error_logger"><c>error_logger</c></seealso>
+        <seeerl marker="kernel:error_logger"><c>error_logger</c></seeerl>
         is called for printing some information (currently the stacktrace).</p>
       </item>
       <item><p><c>{tmpdir, TempDirectory}</c> sets the directory used by
         merge join for temporary files and by option
         <c>{cache,&nbsp;list}</c>. The option also overrides
         option <c>tmpdir</c> of
-        <seealso marker="#keysort/3"><c>keysort/3</c></seealso> and
-        <seealso marker="#sort/2"><c>sort/2</c></seealso>.
+        <seemfa marker="#keysort/3"><c>keysort/3</c></seemfa> and
+        <seemfa marker="#sort/2"><c>sort/2</c></seemfa>.
         Defaults to <c>""</c>, which means that
         the directory returned by <c>file:get_cwd()</c> is used.</p>
       </item>
@@ -257,11 +257,11 @@
     <p>As mentioned earlier,
       queries are expressed in the list comprehension syntax as described
       in section
-      <seealso marker="doc/reference_manual:expressions">Expressions</seealso>
+      <seeguide marker="system/reference_manual:expressions">Expressions</seeguide>
       in Erlang Reference Manual. In the following, some familiarity
       with list comprehensions is assumed. The examples in section
-      <seealso marker="doc/programming_examples:list_comprehensions">
-      List Comprehensions</seealso> in Programming Examples can get you
+      <seeguide marker="system/programming_examples:list_comprehensions">
+      List Comprehensions</seeguide> in Programming Examples can get you
       started. Notice that list comprehensions do not add any computational
       power to the language; anything that can be done with list
       comprehensions can also be done without them. But they add
@@ -277,7 +277,7 @@
       <c>Y</c> is introduced in the first generator and used in the second.
       The ordinary list comprehension is normally to be preferred when
       there is a choice as to which to use. One difference is that
-      <seealso marker="#eval/1"><c>eval/1,2</c></seealso>
+      <seemfa marker="#eval/1"><c>eval/1,2</c></seemfa>
       collects answers in a list that is finally
       reversed, while list comprehensions collect answers on the stack
       that is finally unwound.</p>
@@ -285,26 +285,26 @@
     <p>What the <c>qlc</c> module primarily adds to list
       comprehensions is that data can be read from QLC tables in small
       chunks. A QLC table is created by calling
-      <seealso marker="#table/2"><c>qlc:table/2</c></seealso>.
+      <seemfa marker="#table/2"><c>qlc:table/2</c></seemfa>.
       Usually <c>qlc:table/2</c> is not called directly from the query
       but through an interface function of some data structure.
       Erlang/OTP includes a few examples of such functions:
-      <seealso marker="mnesia:mnesia#table/1"><c>mnesia:table/1,2</c></seealso>,
-      <seealso marker="ets#table/1"><c>ets:table/1,2</c></seealso>, and
-      <seealso marker="dets#table/1"><c>dets:table/1,2</c></seealso>.
+      <seemfa marker="mnesia:mnesia#table/1"><c>mnesia:table/1,2</c></seemfa>,
+      <seemfa marker="ets#table/1"><c>ets:table/1,2</c></seemfa>, and
+      <seemfa marker="dets#table/1"><c>dets:table/1,2</c></seemfa>.
       For a given data structure, many functions can create QLC tables, but
       common for these functions is that they return a query handle created by
-      <seealso marker="#table/2"><c>qlc:table/2</c></seealso>.
+      <seemfa marker="#table/2"><c>qlc:table/2</c></seemfa>.
       Using the QLC tables provided by Erlang/OTP is usually
       probably sufficient, but for the more advanced user section
-      <seealso marker="#implementing_a_qlc_table">Implementing a QLC
-      Table</seealso> describes the implementation of a function
+      <seeerl marker="#implementing_a_qlc_table">Implementing a QLC
+      Table</seeerl> describes the implementation of a function
       calling <c>qlc:table/2</c>.</p>
 
     <p>Besides <c>qlc:table/2</c>, other functions
       return query handles. They are used more seldom than tables,
       but are sometimes useful.
-      <seealso marker="#append/1"><c>qlc:append/1,2</c></seealso> traverses
+      <seemfa marker="#append/1"><c>qlc:append/1,2</c></seemfa> traverses
       objects from many tables or lists after each other. If, for
       example, you want to traverse all answers to a query <c>QH</c> and
       then finish off by a term <c>{finished}</c>, you can do that by
@@ -389,9 +389,9 @@ R.]]></code>
       the filter is run M*N times.</p>
 
     <p>If <c>QH2</c> is a call to the function for
-      <seealso marker="gb_trees"><c>gb_trees</c></seealso>, as defined
-      in section <seealso marker="#implementing_a_qlc_table">Implementing
-      a QLC Table</seealso>, then <c>gb_table:table/1</c>, the
+      <seeerl marker="gb_trees"><c>gb_trees</c></seeerl>, as defined
+      in section <seeerl marker="#implementing_a_qlc_table">Implementing
+      a QLC Table</seeerl>, then <c>gb_table:table/1</c>, the
       iterator for the gb-tree is initiated for each answer to
       <c>QH1</c>. The objects of the gb-tree are then returned one
       by one. This is probably the most efficient way of traversing
@@ -432,8 +432,8 @@ R.]]></code>
       lists is that if the list size exceeds a limit, a
       temporary file is used. Reading the answers from a file is
       much slower than copying them from an ETS table. But if the
-      available RAM memory is scarce, setting the <seealso
-      marker="#max_list_size">limit</seealso> to some low value is an
+      available RAM memory is scarce, setting the <seeerl
+      marker="#max_list_size">limit</seeerl> to some low value is an
       alternative.</p>
 
     <p>Option <c>cache_all</c> can be set to
@@ -449,9 +449,9 @@ R.]]></code>
     <marker id="implementing_a_qlc_table"></marker>
     <title>Implementing a QLC Table</title>
     <p>As an example of
-      how to use function <seealso marker="#table/2"><c>table/2</c></seealso>,
-      the implementation of a QLC table for the <seealso
-      marker="gb_trees"><c>gb_trees</c></seealso> module is given:</p>
+      how to use function <seemfa marker="#table/2"><c>table/2</c></seemfa>,
+      the implementation of a QLC table for the <seeerl
+      marker="gb_trees"><c>gb_trees</c></seeerl> module is given:</p>
 
     <code type="none">
 <![CDATA[-module(gb_table).
@@ -529,7 +529,7 @@ gb_iter(I0, N, EFun) ->
       <c>{Key,&nbsp;Value}</c> pairs, as the traversal function does.</p>
 
     <p>The format function is also optional. It is called by
-      <seealso marker="#info/1"><c>info/1,2</c></seealso>
+      <seemfa marker="#info/1"><c>info/1,2</c></seemfa>
       to give feedback at runtime of how the query
       is to be evaluated. Try to give as good feedback as
       possible without showing too much details. In the example, at
@@ -593,8 +593,8 @@ ets:match_spec_run(
       exactly as <c>=:=/2</c> would have been handled. However,
       if it cannot be determined at compile time that some
       constant is free of integers, and the table uses <c>=:=/2</c>
-      when comparing keys for equality (see option <seealso
-      marker="#key_equality">key_equality</seealso>), then the
+      when comparing keys for equality (see option <seeerl
+      marker="#key_equality">key_equality</seeerl>), then the
       <c>qlc</c> module does not try to look up the constant. The
       reason is that there is in the general case no upper limit on
       the number of key values that can compare equal to such a
@@ -648,8 +648,8 @@ ets:match_spec_run(ets:lookup(#Ref&lt;0.3098908599.2283929601.256211>,
   <datatypes>
     <datatype>
       <name name="abstract_expr"></name>
-      <desc><p>Parse trees for Erlang expression, see section <seealso
-        marker="erts:absform">The Abstract Format</seealso>
+      <desc><p>Parse trees for Erlang expression, see section <seeguide
+        marker="erts:absform">The Abstract Format</seeguide>
         in the ERTS User's Guide.</p></desc>
     </datatype>
     <datatype>
@@ -663,10 +663,10 @@ ets:match_spec_run(ets:lookup(#Ref&lt;0.3098908599.2283929601.256211>,
     </datatype>
     <datatype>
       <name name="match_expression"></name>
-      <desc><p>Match&nbsp;specification, see section <seealso
-          marker="erts:match_spec">Match Specifications in Erlang</seealso>
-          in the ERTS User's Guide and <seealso
-          marker="ms_transform"><c>ms_transform(3)</c></seealso>.</p></desc>
+      <desc><p>Match&nbsp;specification, see section <seeguide
+          marker="erts:match_spec">Match Specifications in Erlang</seeguide>
+          in the ERTS User's Guide and <seeerl
+          marker="ms_transform"><c>ms_transform(3)</c></seeerl>.</p></desc>
     </datatype>
     <datatype>
       <name name="no_files"></name>
@@ -686,12 +686,12 @@ ets:match_spec_run(ets:lookup(#Ref&lt;0.3098908599.2283929601.256211>,
     </datatype>
     <datatype>
       <name name="query_cursor"></name>
-      <desc><p>A <seealso marker="#query_cursor">query cursor</seealso>.</p>
+      <desc><p>A <seeerl marker="#query_cursor">query cursor</seeerl>.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="query_handle"></name>
-      <desc><p>A <seealso marker="#query_handle">query handle</seealso>.</p>
+      <desc><p>A <seeerl marker="#query_handle">query handle</seeerl>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -700,8 +700,8 @@ ets:match_spec_run(ets:lookup(#Ref&lt;0.3098908599.2283929601.256211>,
     <datatype>
       <name name="query_list_comprehension"></name>
       <desc><p>A literal
-        <seealso marker="#query_list_comprehension">query
-        list comprehension</seealso>.</p></desc>
+        <seeerl marker="#query_list_comprehension">query
+        list comprehension</seeerl>.</p></desc>
     </datatype>
     <datatype>
       <name name="spawn_options"></name>
@@ -711,8 +711,8 @@ ets:match_spec_run(ets:lookup(#Ref&lt;0.3098908599.2283929601.256211>,
     </datatype>
     <datatype>
       <name name="sort_option"></name>
-      <desc><p>See <seealso
-        marker="file_sorter"><c>file_sorter(3)</c></seealso>.</p></desc>
+      <desc><p>See <seeerl
+        marker="file_sorter"><c>file_sorter(3)</c></seeerl>.</p></desc>
     </datatype>
     <datatype>
       <name name="tmp_directory"></name>
@@ -755,11 +755,11 @@ ets:match_spec_run(ets:lookup(#Ref&lt;0.3098908599.2283929601.256211>,
         <p>Creates a query cursor and
           makes the calling process the owner of the cursor. The
           cursor is to be used as argument to
-          <seealso marker="#next_answers/1">
-          <c>next_answers/1,2</c></seealso> and (eventually)
-          <seealso marker="#delete_cursor/1"><c>delete_cursor/1</c></seealso>.
-          Calls <seealso marker="erts:erlang#spawn_opt/2">
-	  <c>erlang:spawn_opt/2</c></seealso> to spawn and link to
+          <seemfa marker="#next_answers/1">
+          <c>next_answers/1,2</c></seemfa> and (eventually)
+          <seemfa marker="#delete_cursor/1"><c>delete_cursor/1</c></seemfa>.
+          Calls <seemfa marker="erts:erlang#spawn_opt/2">
+	  <c>erlang:spawn_opt/2</c></seemfa> to spawn and link to
 	  a process that evaluates the query handle. The value of option
           <c>spawn_options</c> is used as last argument when calling
           <c>spawn_opt/2</c>. Defaults to <c>[link]</c>.</p>
@@ -958,8 +958,8 @@ end</pre>
       <desc>
         <p>Returns a query handle. When evaluating query handle
           <c><anno>QH2</anno></c>, the answers to query handle
-          <c><anno>QH1</anno></c> are sorted by <seealso
-          marker="file_sorter#keysort/4"><c>file_sorter:keysort/4</c></seealso>
+          <c><anno>QH1</anno></c> are sorted by <seemfa
+          marker="file_sorter#keysort/4"><c>file_sorter:keysort/4</c></seemfa>
           according to the options.</p>
         <p>The sorter uses temporary files only if
           <c><anno>QH1</anno></c> does not evaluate to a list and the
@@ -1004,7 +1004,7 @@ end</pre>
         <p>When calling <c>qlc:q/1,2</c> from the Erlang shell, the
           parse transform is automatically called. When this occurs, the fun
           substituted for the QLC is not compiled but is evaluated by
-          <seealso marker="erl_eval"><c>erl_eval(3)</c></seealso>. This
+          <seeerl marker="erl_eval"><c>erl_eval(3)</c></seeerl>. This
           is also true when expressions are evaluated by
           <c>file:eval/1,2</c> or in the debugger.</p>
         <p>To be explicit, this does not work:</p>
@@ -1062,7 +1062,7 @@ QH = qlc:q(A),
               table only. If option <c>unique</c> is combined with option
               <c>{cache,&nbsp;list}</c>, the answers are sorted
               twice using
-              <seealso marker="#keysort/3"><c>keysort/3</c></seealso>;
+              <seemfa marker="#keysort/3"><c>keysort/3</c></seemfa>;
               once to remove duplicates and once to restore the order.</p>
           </item>
         </list>
@@ -1110,14 +1110,14 @@ begin
                X =:= Y
           ])
 end</pre>
-        <p><seealso marker="#sort/1"><c>sort/1,2</c></seealso> and
-          <seealso marker="#keysort/2"><c>keysort/2,3</c></seealso>
+        <p><seemfa marker="#sort/1"><c>sort/1,2</c></seemfa> and
+          <seemfa marker="#keysort/2"><c>keysort/2,3</c></seemfa>
           can also be used for
           caching answers and for removing duplicates. When sorting
           answers are cached in a list, possibly stored on a temporary
           file, and no ETS tables are used.</p>
-        <p>Sometimes (see <seealso
-          marker="#table/2"><c>table/2</c></seealso>) traversal
+        <p>Sometimes (see <seemfa
+          marker="#table/2"><c>table/2</c></seemfa>) traversal
           of tables can be done by looking up key values, which is
           assumed to be fast. Under certain (rare) circumstances
           there can be too many key values to look up.
@@ -1130,8 +1130,8 @@ end</pre>
           number of keys to look up.</p>
         <p><em>Example:</em></p>
         <p>In the following example, using the <c>gb_table</c> module from
-          section <seealso marker="#implementing_a_qlc_table">Implementing a
-          QLC Table</seealso>, there are six keys to look up:
+          section <seeerl marker="#implementing_a_qlc_table">Implementing a
+          QLC Table</seeerl>, there are six keys to look up:
           <c>{1,a}</c>, <c>{1,b}</c>, <c>{1,c}</c>, <c>{2,a}</c>,
           <c>{2,b}</c>, and <c>{2,c}</c>. The reason is that the two
           elements of key <c>{X,&nbsp;Y}</c> are compared separately.</p>
@@ -1207,8 +1207,8 @@ ets:match_spec_run(
       <desc>
         <p>Returns a query handle. When evaluating query handle
           <c><anno>QH2</anno></c>, the answers to query handle
-          <c><anno>QH1</anno></c> are sorted by <seealso
-          marker="file_sorter#sort/3"><c>file_sorter:sort/3</c></seealso>
+          <c><anno>QH1</anno></c> are sorted by <seemfa
+          marker="file_sorter#sort/3"><c>file_sorter:sort/3</c></seemfa>
           according to the options.</p>
         <p>The sorter uses temporary files only if
           <c><anno>QH1</anno></c> does not evaluate to a list and the
@@ -1226,10 +1226,10 @@ ets:match_spec_run(
       <name name="string_to_handle" arity="3" since=""/>
       <fsummary>Return a handle for a query list comprehension.</fsummary>
       <desc>
-        <p>A string version of <seealso marker="#q/1"><c>q/1,2</c></seealso>.
+        <p>A string version of <seemfa marker="#q/1"><c>q/1,2</c></seemfa>.
           When the query handle is evaluated, the fun created by the parse
           transform is interpreted by
-          <seealso marker="erl_eval"><c>erl_eval(3)</c></seealso>.
+          <seeerl marker="erl_eval"><c>erl_eval(3)</c></seeerl>.
           The query string is to be one single QLC terminated by a period.</p>
         <p><em>Example:</em></p>
         <pre>
@@ -1283,15 +1283,15 @@ ets:match_spec_run(
                 <p>Modules that can use match specifications for optimized
                   traversal of tables are to call <c>qlc:table/2</c> with an unary
                   <c><anno>TraverseFun</anno></c>. An example is
-                  <seealso marker="ets#table/2">
-                  <c>ets:table/2</c></seealso>.</p>
+                  <seemfa marker="ets#table/2">
+                  <c>ets:table/2</c></seemfa>.</p>
               </item>
               <item>
                 <p>Other modules can provide a nullary
                   <c><anno>TraverseFun</anno></c>. An example is
                   <c>gb_table:table/1</c> in section
-                  <seealso marker="#implementing_a_qlc_table">Implementing a
-                  QLC Table</seealso>.</p>
+                  <seeerl marker="#implementing_a_qlc_table">Implementing a
+                  QLC Table</seeerl>.</p>
               </item>
             </list>
           </item>
@@ -1310,9 +1310,9 @@ ets:match_spec_run(
                   <c><anno>ParentFun</anno></c> is called once just before the
                   call of <c><anno>PreFun</anno></c> in the context of the
                   process calling
-		  <seealso marker="#eval/1"><c>eval/1,2</c></seealso>,
-		  <seealso marker="#fold/3"><c>fold/3,4</c></seealso>, or
-		  <seealso marker="#cursor/1"><c>cursor/1,2</c></seealso>.
+		  <seemfa marker="#eval/1"><c>eval/1,2</c></seemfa>,
+		  <seemfa marker="#fold/3"><c>fold/3,4</c></seemfa>, or
+		  <seemfa marker="#cursor/1"><c>cursor/1,2</c></seemfa>.
                 </p>
               </item>
               <item>
@@ -1361,7 +1361,7 @@ ets:match_spec_run(
               chosen. If there is a tie between two indexed positions, the
               one occurring first in the list returned by
               <c><anno>InfoFun</anno></c> is chosen. Positions requiring
-              more than <seealso marker="#max_lookup">max_lookup</seealso>
+              more than <seeerl marker="#max_lookup">max_lookup</seeerl>
               lookups are ignored.</p>
           </item>
           <item>
@@ -1391,7 +1391,7 @@ ets:match_spec_run(
           </item>
           <item>
             <p>Unary callback function <c><anno>FormatFun</anno></c>
-              is used by <seealso marker="#info/1"><c>info/1,2</c></seealso>
+              is used by <seemfa marker="#info/1"><c>info/1,2</c></seemfa>
               for displaying the call that created the query handle of the
               table. Defaults to <c>undefined</c>, which means that
               <c>info/1,2</c> displays a call to <c>'$MOD':'$FUN'/0</c>.
@@ -1448,9 +1448,9 @@ ets:match_spec_run(
         </list>
         <p>For the various options recognized by <c>table/1,2</c>
 	  in respective module, see
-          <seealso marker="ets#table/1"><c>ets(3)</c></seealso>,
-          <seealso marker="dets#table/1"><c>dets(3)</c></seealso>, and
-          <seealso marker="mnesia:mnesia#table/1"><c>mnesia(3)</c></seealso>.
+          <seemfa marker="ets#table/1"><c>ets(3)</c></seemfa>,
+          <seemfa marker="dets#table/1"><c>dets(3)</c></seemfa>, and
+          <seemfa marker="mnesia:mnesia#table/1"><c>mnesia(3)</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -1458,18 +1458,18 @@ ets:match_spec_run(
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="dets"><c>dets(3)</c></seealso>,
-      <seealso marker="erl_eval"><c>erl_eval(3)</c></seealso>,
-      <seealso marker="erts:erlang"><c>erlang(3)</c></seealso>,
-      <seealso marker="kernel:error_logger"><c>error_logger(3)</c></seealso>,
-      <seealso marker="ets"><c>ets(3)</c></seealso>,
-      <seealso marker="kernel:file"><c>file(3)</c></seealso>,
-      <seealso marker="file_sorter"><c>file_sorter(3)</c></seealso>,
-      <seealso marker="mnesia:mnesia"><c>mnesia(3)</c></seealso>,
-      <seealso marker="shell"><c>shell(3)</c></seealso>,
-      <seealso marker="doc/reference_manual:users_guide">
-        Erlang Reference Manual</seealso>,
-      <seealso marker="doc/programming_examples:users_guide">
-        Programming Examples</seealso></p>
+    <p><seeerl marker="dets"><c>dets(3)</c></seeerl>,
+      <seeerl marker="erl_eval"><c>erl_eval(3)</c></seeerl>,
+      <seeerl marker="erts:erlang"><c>erlang(3)</c></seeerl>,
+      <seeerl marker="kernel:error_logger"><c>error_logger(3)</c></seeerl>,
+      <seeerl marker="ets"><c>ets(3)</c></seeerl>,
+      <seeerl marker="kernel:file"><c>file(3)</c></seeerl>,
+      <seeerl marker="file_sorter"><c>file_sorter(3)</c></seeerl>,
+      <seeerl marker="mnesia:mnesia"><c>mnesia(3)</c></seeerl>,
+      <seeerl marker="shell"><c>shell(3)</c></seeerl>,
+      <seeguide marker="system/reference_manual:index">
+        Erlang Reference Manual</seeguide>,
+      <seeguide marker="system/programming_examples:index">
+        Programming Examples</seeguide></p>
   </section>
 </erlref>

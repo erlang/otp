@@ -37,8 +37,8 @@
       <p>This is a large reference document. For casual use of this
         module, and for most real world applications, the
         descriptions of functions
-	<seealso marker="#load/2"><c>load/2</c></seealso> and
-	<seealso marker="#unload/1"><c>unload/1</c></seealso>
+	<seemfa marker="#load/2"><c>load/2</c></seemfa> and
+	<seemfa marker="#unload/1"><c>unload/1</c></seemfa>
 	are enough to getting started.</p>
     </note>
     <p>The driver is to be provided as a dynamically linked library
@@ -48,7 +48,7 @@
       specific interfaces to the emulator, so this module is not
       designed for loading arbitrary dynamic libraries. For more
       information about Erlang drivers, see
-      <seealso marker="erts:erl_driver"><c>erts:erl_driver</c></seealso>
+      <seecref marker="erts:erl_driver"><c>erts:erl_driver</c></seecref>
       .</p>
     <marker id="users"></marker>
     <p>When describing a set of functions (that is, a module, a part of a
@@ -75,15 +75,15 @@
       <tag><em>Load and Unload on a "When Needed Basis"</em></tag>
       <item>
         <p>This (most common) scenario simply supports that each
-          <seealso marker="#users">user</seealso> of the driver loads
+          <seeerl marker="#users">user</seeerl> of the driver loads
           it when needed and unloads it when no longer needed.
           The driver is always reference counted and as long as a
           process keeping the driver loaded is still alive, the driver
           is present in the system.</p>
-        <p>Each <seealso marker="#users">user</seealso> of the driver
+        <p>Each <seeerl marker="#users">user</seeerl> of the driver
           use <em>literally</em> the same pathname for the driver when
           demanding load, but the
-	  <seealso marker="#users">users</seealso> are not concerned
+	  <seeerl marker="#users">users</seeerl> are not concerned
           with if the driver is already loaded from the file system or
           if the object code must be loaded from file system.</p>
         <p>The following two pairs of functions support this scenario:</p>
@@ -94,7 +94,7 @@
               driver is not unloaded until the
               <em>last port</em> using the driver is closed. Function
               <c>unload/1</c> can return immediately, as the
-	      <seealso marker="#users">users</seealso>
+	      <seeerl marker="#users">users</seeerl>
 	      have no interrest in when the unloading occurs. The
               driver is unloaded when no one needs it any longer.</p>
             <p>If a process having the driver loaded dies, it has
@@ -109,9 +109,9 @@
           <item>
             <p>These interfaces are intended to be used when it is considered an
               error that ports are open to a driver that no
-	      <seealso marker="#users">user</seealso>
+	      <seeerl marker="#users">user</seeerl>
               has loaded. The ports that are still open when the
-              last <seealso marker="#users">user</seealso> calls
+              last <seeerl marker="#users">user</seeerl> calls
               <c>unload_driver/1</c> or when the last process having the
               driver loaded dies, are killed with reason
               <c>driver_unloaded</c>.</p>
@@ -128,7 +128,7 @@
           emulator. Implementing driver code replacement is a little
           more tedious than Beam code replacement, as one driver
           cannot be loaded as both "old" and "new" code. All
-	  <seealso marker="#users">users</seealso> of a driver must have it
+	  <seeerl marker="#users">users</seeerl> of a driver must have it
           closed (no open ports) before the old code can be unloaded
           and the new code can be loaded.</p>
         <p>The unloading/loading is done as one atomic
@@ -139,18 +139,18 @@
           the process starts, the driver is loaded. When replacement
           is required, the driver is reloaded. Unload is probably never
           done, or done when the process exits. If more than one
-	  <seealso marker="#users">user</seealso> has a driver
+	  <seeerl marker="#users">user</seeerl> has a driver
 	  loaded when code replacement is demanded, the replacement cannot
 	  occur until the last "other"
-	  <seealso marker="#users">user</seealso> has
+	  <seeerl marker="#users">user</seeerl> has
           unloaded the driver.</p>
         <p>Demanding reload when a reload is already in progress is
           always an error. Using the high-level functions, it is also
           an error to demand reloading when more than one
-	  <seealso marker="#users">user</seealso> has the driver loaded.</p>
+	  <seeerl marker="#users">user</seeerl> has the driver loaded.</p>
 	 <p>To simplify driver replacement, avoid designing your system so
           that more than one
-	  <seealso marker="#users">user</seealso> has the driver loaded.</p>
+	  <seeerl marker="#users">user</seeerl> has the driver loaded.</p>
         <p>The two functions for reloading drivers are to be used
           together with corresponding load functions to support the two
           different behaviors concerning open ports:</p>
@@ -166,7 +166,7 @@
               infinite waiting for reload. Time-outs must be provided
               outside of the process demanding the reload or by using
               the low-level interface
-	      <seealso marker="#try_load/3"><c>try_load/3</c></seealso>
+	      <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa>
 	      in combination with driver monitors.</p>
           </item>
           <tag><em>load_driver/2 and reload_driver/2</em></tag>
@@ -179,7 +179,7 @@
               calling <c>reload_driver</c> returns error code
               <c>pending_process</c>. As stated earlier,
               the recommended design is to not allow other
-	      <seealso marker="#users">users</seealso> than the "driver
+	      <seeerl marker="#users">users</seeerl> than the "driver
               reloader" to demand loading of the driver in question.</p>
           </item>
         </taglist>
@@ -200,13 +200,13 @@
       <fsummary>Remove a monitor for a driver.</fsummary>
       <desc>
         <p>Removes a driver monitor in much the same way as 
-          <seealso marker="erts:erlang#demonitor/1"><c>erlang:demonitor/1</c></seealso>
+          <seemfa marker="erts:erlang#demonitor/1"><c>erlang:demonitor/1</c></seemfa>
 	  in ERTS
 	  does with process monitors. For details about how to create
 	  driver monitors, see
-	  <seealso marker="#monitor/2"><c>monitor/2</c></seealso>,
-	  <seealso marker="#try_load/3"><c>try_load/3</c></seealso>, and
-	  <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>.</p>
+	  <seemfa marker="#monitor/2"><c>monitor/2</c></seemfa>,
+	  <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa>, and
+	  <seemfa marker="#try_unload/2"><c>try_unload/2</c></seemfa>.</p>
         <p>The function throws a <c>badarg</c> exception if the
           parameter is not a <c>reference()</c>.</p>
       </desc>
@@ -234,7 +234,7 @@
       <desc>
         <p>Returns a list of tuples <c>{<anno>DriverName</anno>, <anno>InfoList</anno>}</c>,
 	   where <c><anno>InfoList</anno></c> is the result of calling
-	   <seealso marker="#info/1"><c>info/1</c></seealso> for that
+	   <seemfa marker="#info/1"><c>info/1</c></seemfa> for that
           <c><anno>DriverName</anno></c>. Only dynamically linked-in drivers are
           included in the list.</p>
       </desc>
@@ -246,7 +246,7 @@
         <p>Returns a list of tuples <c>{<anno>Tag</anno>, <anno>Value</anno>}</c>,
 	  where <c><anno>Tag</anno></c> is the information item and
 	  <c><anno>Value</anno></c> is the result of calling
-	  <seealso marker="#info/2"><c>info/2</c></seealso> with this driver
+	  <seemfa marker="#info/2"><c>info/2</c></seemfa> with this driver
 	  name and this tag. The result is a tuple list containing all information
 	  available about a driver.</p>
         <p>The following tags appears in the list:</p>
@@ -260,7 +260,7 @@
           <item><c>awaiting_unload</c></item>
         </list>
         <p>For a detailed description of each value, see
-          <seealso marker="#info/2"><c>info/2</c></seealso>.</p>
+          <seemfa marker="#info/2"><c>info/2</c></seemfa>.</p>
         <p>The function throws a <c>badarg</c> exception if the driver
           is not present in the system.</p>
       </desc>
@@ -277,7 +277,7 @@
           <tag><c>processes</c></tag>
           <item>
             <p>Returns all processes containing
-	    <seealso marker="#users">users</seealso> of the specific drivers
+	    <seeerl marker="#users">users</seeerl> of the specific drivers
               as a list of tuples <c>{pid(),integer() >= 0}</c>, where
               <c>integer()</c> denotes the number of users in process
               <c>pid()</c>.</p>
@@ -350,11 +350,11 @@
           <c>load/2</c> stops the unloading and keeps the driver
           (as long as <c><anno>Path</anno></c> is the same), and <c>ok</c> is
           returned. If you really want the object code to be
-          reloaded, use <seealso marker="#reload/2"><c>reload/2</c></seealso>
+          reloaded, use <seemfa marker="#reload/2"><c>reload/2</c></seemfa>
 	  or the low-level interface
-	  <seealso marker="#try_load/3"><c>try_load/3</c></seealso> instead.
+	  <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa> instead.
 	  See also the description of
-	  <seealso marker="#scenarios"><c>different scenarios</c></seealso> for
+	  <seeerl marker="#scenarios"><c>different scenarios</c></seeerl> for
           loading/unloading in the introduction.</p>
         <p>If more than one process tries to load an already loaded
           driver with the same <c><anno>Path</anno></c>, or if the same process
@@ -381,9 +381,9 @@
           failure, the return value is <c>{error,<anno>ErrorDesc</anno>}</c>,
           where <c><anno>ErrorDesc</anno></c> is an opaque term to be
           translated into human readable form by function
-	  <seealso marker="#format_error/1"><c>format_error/1</c></seealso>.</p>
+	  <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>.</p>
         <p>For more control over the error handling, use the
-          <seealso marker="#try_load/3"><c>try_load/3</c></seealso>
+          <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa>
           interface instead.</p>
         <p>The function throws a <c>badarg</c> exception if the
           parameters are not specified as described here.</p>
@@ -398,14 +398,14 @@
           driver are killed with reason <c>driver_unloaded</c>
 	  when the driver is to be unloaded.</p>
         <p>The number of loads and unloads by different
-	  <seealso marker="#users">users</seealso> influences the loading
+	  <seeerl marker="#users">users</seeerl> influences the loading
           and unloading of a driver file. The port killing
           therefore only occurs when the <em>last</em>
-	  <seealso marker="#users">user</seealso> unloads the driver,
+	  <seeerl marker="#users">user</seeerl> unloads the driver,
 	  or when the last process having loaded the driver exits.</p>
         <p>This interface (or at least the name of the functions) is
           kept for backward compatibility.
-	  Using <seealso marker="#try_load/3"><c>try_load/3</c></seealso> with
+	  Using <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa> with
           <c>{driver_options,[kill_ports]}</c> in the option list
           gives the same effect regarding the port killing.</p>
         <p>The function throws a <c>badarg</c> exception if the
@@ -421,7 +421,7 @@
         <p>The driver names are returned as a list of strings rather
           than a list of atoms for historical reasons.</p>
         <p>For more information about drivers, see
-          <seealso marker="#info/0"><c>info</c></seealso>.</p>
+          <seemfa marker="#info/0"><c>info</c></seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -430,7 +430,7 @@
       <desc>
         <p>Creates a driver monitor and works in many
           ways as
-	  <seealso marker="erts:erlang#monitor/2"><c>erlang:monitor/2</c></seealso>
+	  <seemfa marker="erts:erlang#monitor/2"><c>erlang:monitor/2</c></seemfa>
 	  in ERTS,
           does for processes. When a driver changes state, the monitor
           results in a monitor message that is sent to the calling
@@ -440,9 +440,9 @@
           generates <em>one single message</em>. The monitor is
           "destroyed" after the message is sent, so it is then not
           needed to call
-	<seealso marker="#demonitor/1"><c>demonitor/1</c></seealso>.</p>
+	<seemfa marker="#demonitor/1"><c>demonitor/1</c></seemfa>.</p>
         <p><c><anno>MonitorRef</anno></c> can also be used in subsequent calls
-          to <seealso marker="#demonitor/1"><c>demonitor/1</c></seealso> to
+          to <seemfa marker="#demonitor/1"><c>demonitor/1</c></seemfa> to
           remove a monitor.</p>
         <p>The function accepts the following parameters:</p>
         <taglist>
@@ -471,7 +471,7 @@
                   <c>DOWN</c> message sent immediately.
                   Monitoring for loading is therefore most useful when
                   triggered by function
-		  <seealso marker="#try_load/3"><c>try_load/3</c></seealso>,
+		  <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa>,
                   where the monitor is created <em>because</em> the
                   driver is in such a pending state.</p>
                 <p>Setting a driver monitor for <c>loading</c>
@@ -484,7 +484,7 @@
                       driver is already loaded and no reloading is
                       pending, or when reloading is executed if
                       reloading is pending. </p>
-                    <p>The <seealso marker="#users">user</seealso> is
+                    <p>The <seeerl marker="#users">user</seeerl> is
                       expected to know if reloading is demanded before
                       creating a monitor for loading.</p>
                   </item>
@@ -500,9 +500,9 @@
                   <item>
                     <p>This message arrives if reloading was
                       underway, but the requesting
-		      <seealso marker="#users">user</seealso>
+		      <seeerl marker="#users">user</seeerl>
                       cancelled it by dying or calling
-                      <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>
+                      <seemfa marker="#try_unload/2"><c>try_unload/2</c></seemfa>
                       (or <c>unload/1</c>/<c>unload_driver/1</c>)
                       again before it was reloaded.</p>
                   </item>
@@ -512,9 +512,9 @@
                       underway but the loading for some reason
                       failed. The <c>Failure</c> term is one of the
                       errors that can be returned from
-		      <seealso marker="#try_load/3"><c>try_load/3</c></seealso>.
+		      <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa>.
 		      The error term can be passed to
-		      <seealso marker="#format_error/1"><c>format_error/1</c></seealso>
+		      <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>
                       for translation into human readable form. Notice
                       that the translation must be done in the same
                       running Erlang virtual machine as the error
@@ -545,15 +545,15 @@
                     <p>This message is sent if unloading was
                       expected, but while the driver was waiting for
                       all ports to get closed, a new
-		      <seealso marker="#users">user</seealso> of the driver
+		      <seeerl marker="#users">user</seeerl> of the driver
                       appeared, and the unloading was cancelled.</p>
                     <p>This message appears if <c>{ok, pending_driver}</c>
 		      was returned from
-		      <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>
-                      for the last <seealso marker="#users">user</seealso>
+		      <seemfa marker="#try_unload/2"><c>try_unload/2</c></seemfa>
+                      for the last <seeerl marker="#users">user</seeerl>
 		      of the driver, and then <c>{ok, already_loaded}</c> is returned
                       from a call to
-		    <seealso marker="#try_load/3"><c>try_load/3</c></seealso>.</p>
+		    <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa>.</p>
                     <p>If one <em>really</em> wants to monitor when the
                       driver gets unloaded, this message distorts
                       the picture, because no unloading was done.
@@ -594,32 +594,32 @@
         <p>Reloads the driver named <c><anno>Name</anno></c> from a possibly
           different <c><anno>Path</anno></c> than previously used. This
           function is used in the code change
-	  <seealso marker="#scenarios"><c>scenario</c></seealso> described in the
+	  <seeerl marker="#scenarios"><c>scenario</c></seeerl> described in the
           introduction.</p>
-        <p>If there are other <seealso marker="#users">users</seealso>
+        <p>If there are other <seeerl marker="#users">users</seeerl>
           of this driver, the function returns <c>{error, pending_process}</c>,
 	  but if there are no other users, the function call hangs until all
 	  open ports are closed.</p>
         <note>
           <p>Avoid mixing multiple
-	  <seealso marker="#users">users</seealso>
+	  <seeerl marker="#users">users</seeerl>
           with driver reload requests.</p>
         </note>
         <p>To avoid hanging on open ports, use function
-          <seealso marker="#try_load/3"><c>try_load/3</c></seealso>
+          <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa>
           instead.</p>
         <p>The <c><anno>Name</anno></c> and <c><anno>Path</anno></c> parameters
 	  have exactly the same meaning as when calling the plain function
-	<seealso marker="#load/2"><c>load/2</c></seealso>.</p>
+	<seemfa marker="#load/2"><c>load/2</c></seemfa>.</p>
 
         <p>On success, the function returns <c>ok</c>. On
           failure, the function returns an opaque error,
           except the <c>pending_process</c> error described
           earlier. The opaque errors are to be translated into human
           readable form by function
-	<seealso marker="#format_error/1"><c>format_error/1</c></seealso>.</p>
+	<seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>.</p>
         <p>For more control over the error handling,  use the
-          <seealso marker="#try_load/3"><c>try_load/3</c></seealso>
+          <seemfa marker="#try_load/3"><c>try_load/3</c></seemfa>
           interface instead.</p>
         <p>The function throws a <c>badarg</c> exception if the
           parameters are not specified as described here.</p>
@@ -629,16 +629,16 @@
       <name name="reload_driver" arity="2" since=""/>
       <fsummary>Replace a driver.</fsummary>
       <desc>
-        <p>Works exactly as <seealso marker="#reload/2"><c>reload/2</c></seealso>,
+        <p>Works exactly as <seemfa marker="#reload/2"><c>reload/2</c></seemfa>,
 	  but for drivers loaded with the
-	<seealso marker="#load_driver/2"><c>load_driver/2</c></seealso> interface.</p>
+	<seemfa marker="#load_driver/2"><c>load_driver/2</c></seemfa> interface.</p>
         <p>As this interface implies that ports are killed when
           the last user disappears, the function does not hang waiting for
           ports to get closed.</p>
         <p>For more details, see
-	  <seealso marker="#scenarios"><c>scenarios</c></seealso> in this module
+	  <seeerl marker="#scenarios"><c>scenarios</c></seeerl> in this module
           description and the function description for
-	  <seealso marker="#reload/2"><c>reload/2</c></seealso>.</p>
+	  <seemfa marker="#reload/2"><c>reload/2</c></seemfa>.</p>
         <p>The function throws a <c>badarg</c> exception if the
           parameters are not specified as described here.</p>
       </desc>
@@ -676,7 +676,7 @@
               <c>{reload,pending_driver}</c> or
               <c>{reload,pending}</c> are used, but
               <em>can</em> occur when another
-	      <seealso marker="#users">user</seealso> is unloading a
+	      <seeerl marker="#users">user</seeerl> is unloading a
 	      driver in parallel and driver option <c>kill_ports</c> is set.
 	      In other words, this return value always needs
               to be handled.</p>
@@ -686,7 +686,7 @@
             <p>The load request is registered, but the loading is
               delayed because an earlier instance of the
               driver is still waiting to get unloaded by another
-              <seealso marker="#users">user</seealso> (not only by a
+              <seeerl marker="#users">user</seeerl> (not only by a
               port, in which case <c>{ok,pending_driver}</c> would
               have been returned). Still, unload is expected when you
               are done with the driver. This return value
@@ -705,7 +705,7 @@
 	  and the process then gets a monitor message later, when the
 	  driver gets loaded. The monitor message to expect is described in
           the function description of
-	  <seealso marker="#monitor/2"><c>monitor/2</c></seealso>.</p>
+	  <seemfa marker="#monitor/2"><c>monitor/2</c></seemfa>.</p>
         <note>
           <p>In case of loading, monitoring can <em>not</em> only get
 	    triggered by using option <c>{reload, <anno>ReloadOption</anno>}</c>,
@@ -728,12 +728,12 @@
               into a sequence of characters.</p>
             <p>The (possibly flattened) <c><anno>Path</anno></c> parameter must be
               consistent throughout the system. A driver is to, by
-              all <seealso marker="#users">users</seealso>, be loaded
+              all <seeerl marker="#users">users</seeerl>, be loaded
               using the same <em>literal</em> <c><anno>Path</anno></c>.
 	      The exception is when <em>reloading</em> is requested,
 	      in which case <c><anno>Path</anno></c> can be specified
               differently. Notice that all
-	      <seealso marker="#users">users</seealso> trying to load the
+	      <seeerl marker="#users">users</seeerl> trying to load the
               driver later need to use the
 	      <em>new</em> <c><anno>Path</anno></c> if <c><anno>Path</anno></c>
 	      is changed using a <c>reload</c> option. This is yet another reason
@@ -744,7 +744,7 @@
           <item>
             <p>This parameter is the name of the driver
 	      to be used in subsequent calls to function
-	      <seealso marker="erts:erlang#open_port/2"><c>erlang:open_port</c></seealso>
+	      <seemfa marker="erts:erlang#open_port/2"><c>erlang:open_port</c></seemfa>
 	      in ERTS.
 	      The name can be specified as an <c>iolist()</c> or
               an <c>atom()</c>. The name specified when loading is used
@@ -774,8 +774,8 @@
                   to the driver are killed with exit reason
                   <c>driver_unloaded</c> when no process any longer
                   has the driver loaded. This situation arises either
-                  when the last <seealso marker="#users">user</seealso> calls
-		  <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>, or
+                  when the last <seeerl marker="#users">user</seeerl> calls
+		  <seemfa marker="#try_unload/2"><c>try_unload/2</c></seemfa>, or
                   when the last process having loaded the driver exits.</p>
               </item>
               <tag><c>{monitor, <anno>MonitorOption</anno>}</c></tag>
@@ -810,7 +810,7 @@
                   useful to specify option <c>monitor</c>, as
                   forced unloads (driver option <c>kill_ports</c> or
                   option <c>kill_ports</c> to
-		  <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>)
+		  <seemfa marker="#try_unload/2"><c>try_unload/2</c></seemfa>)
 		  trigger a transient state where driver loading
                   cannot be performed until all closing ports are
                   closed. Thus, as <c>try_unload</c> can, in
@@ -828,7 +828,7 @@
                   the driver.</p>
                 <p>To reload a driver, the process must have loaded the driver
 		  before, that is, there must be an active
-		  <seealso marker="#users">user</seealso> of the driver
+		  <seeerl marker="#users">user</seeerl> of the driver
 		  in the process.</p>
                 <p>The <c>reload</c> option can be either of the following:</p>
 		 <taglist>
@@ -839,22 +839,22 @@
                        ports opened to the driver are closed. The driver
                        replacement in this case takes
                        place regardless if there are still
-                       pending <seealso marker="#users">users</seealso>
+                       pending <seeerl marker="#users">users</seeerl>
                        having the driver loaded.</p>
                      <p>The option also triggers port-killing (if driver
                        option <c>kill_ports</c> is used) although
                        there are pending users, making it usable for forced
                        driver replacement, but laying much
                        responsibility on the driver
-		       <seealso marker="#users">users</seealso>.
+		       <seeerl marker="#users">users</seeerl>.
 		       The pending option is seldom used as one does not want other
-		       <seealso marker="#users">users</seealso> to have loaded
+		       <seeerl marker="#users">users</seeerl> to have loaded
 		       the driver when code change is underway.</p></item>
 		   <tag><c>pending_driver</c></tag>
 		   <item>
 		     <p>This option is more useful. Here, reloading is queued
 		        if the driver is <em>not</em> loaded by any other
-		        <seealso marker="#users">users</seealso>, but the
+		        <seeerl marker="#users">users</seeerl>, but the
 			driver has opened ports, in which case
 			<c>{ok, pending_driver}</c> is returned
 			(a <c>monitor</c> option is recommended).</p></item>
@@ -871,7 +871,7 @@
           can only be returned given a certain combination of options.</p>
         <p>Some errors are opaque and can only be interpreted by
           passing them to function
-	  <seealso marker="#format_error/1"><c>format_error/1</c></seealso>,
+	  <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>,
           but some can be interpreted directly:</p>
         <taglist>
           <tag><c>{error,linked_in_driver}</c></tag>
@@ -897,20 +897,20 @@
           <tag><c>{error, pending_process}</c></tag>
           <item>
             <p>The driver is loaded by other
-	    <seealso marker="#users">users</seealso> when
+	    <seeerl marker="#users">users</seeerl> when
 	    option <c>{reload, pending_driver}</c> was specified.</p>
           </item>
           <tag><c>{error, pending_reload}</c></tag>
           <item>
             <p>Driver reload is already requested by another
-	    <seealso marker="#users">user</seealso> when option
+	    <seeerl marker="#users">user</seeerl> when option
 	    <c>{reload, <anno>ReloadOption</anno>}</c> was specified.</p>
           </item>
           <tag><c>{error, not_loaded_by_this_process}</c></tag>
           <item>
             <p>Appears when option <c>reload</c> is specified. The
               driver <c><anno>Name</anno></c> is present in the system, but there
-	      is no <seealso marker="#users">user</seealso> of it in this
+	      is no <seeerl marker="#users">user</seeerl> of it in this
               process.</p>
           </item>
           <tag><c>{error, not_loaded}</c></tag>
@@ -921,7 +921,7 @@
           </item>
         </taglist>
         <p>All other error codes are to be translated by function
-	<seealso marker="#format_error/1"><c>format_error/1</c></seealso>.
+	<seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>.
 	  Notice that calls to <c>format_error</c> are to be
           performed from the same running instance of the Erlang
           virtual machine as the error is detected in, because of
@@ -939,12 +939,12 @@
           killing, in much the same way as the driver option
           <c>kill_ports</c> implicitly does. Also, it can trigger a
           monitor either because other
-	  <seealso marker="#users">users</seealso> still have the driver
+	  <seeerl marker="#users">users</seeerl> still have the driver
           loaded or because open ports use the driver.</p>
         <p>Unloading can be described as the process of telling the
           emulator that this particular part of the code in this
           particular process (that is, this
-	  <seealso marker="#users">user</seealso>) no longer needs
+	  <seeerl marker="#users">user</seeerl>) no longer needs
 	  the driver. That can, if there are no other users, trigger
           unloading of the driver, in which case the driver name
           disappears from the system and (if possible) the memory
@@ -953,17 +953,17 @@
           <c>kill_ports</c> is specified as an option to this
           function, all pending ports using this driver are
           killed when unloading is done by the last
-	  <seealso marker="#users">user</seealso>. If no port-killing
+	  <seeerl marker="#users">user</seeerl>. If no port-killing
 	  is involved and there are open ports, the unloading
           is delayed until no more open ports use the
           driver. If, in this case, another
-	  <seealso marker="#users">user</seealso> (or even this user)
+	  <seeerl marker="#users">user</seeerl> (or even this user)
 	  loads the driver again before the driver is unloaded, the
           unloading never takes place.</p>
-        <p>To allow the <seealso marker="#users">user</seealso> to
+        <p>To allow the <seeerl marker="#users">user</seeerl> to
           <em>request unloading</em> to wait for <em>actual unloading</em>,
           <c>monitor</c> triggers can be specified in much the same way as
-	  when loading. However, as <seealso marker="#users">users</seealso>
+	  when loading. However, as <seeerl marker="#users">users</seeerl>
 	  of this function seldom are interested in more than decrementing the
           reference counts, monitoring is seldom needed.</p>
 	<note><p> If option <c>kill_ports</c> is used, monitor trigging is crucial,
@@ -972,7 +972,7 @@
 	  case.</p></note>
         <p>The possible monitor messages to expect are the
           same as when using option <c>unloaded</c> to function
-          <seealso marker="#monitor/2"><c>monitor/2</c></seealso>.</p>
+          <seemfa marker="#monitor/2"><c>monitor/2</c></seemfa>.</p>
         <p>The function returns one of the following statuses upon
           success:</p>
         <taglist>
@@ -984,17 +984,17 @@
               driver object code is now reclaimed.</p>
             <p>The driver can only be unloaded when there are no open
               ports using it and no more
-	      <seealso marker="#users">users</seealso> require it to be
+	      <seeerl marker="#users">users</seeerl> require it to be
               loaded.</p>
           </item>
           <tag><c>{ok, pending_driver}</c>or
 	       <c>{ok, pending_driver, reference()}</c></tag>
           <item>
             <p>Indicates that this call removed the last
-	      <seealso marker="#users">user</seealso> from the
+	      <seeerl marker="#users">user</seeerl> from the
               driver, but there are still open ports using it.
               When all ports are closed and no new
-	      <seealso marker="#users">users</seealso> have arrived,
+	      <seeerl marker="#users">users</seeerl> have arrived,
 	      the driver is reloaded and the name and memory
               reclaimed.</p>
             <p>This return value is valid even if option <c>kill_ports</c>
@@ -1007,16 +1007,16 @@
 	       <c>{ok, pending_process, reference()}</c></tag>
           <item>
             <p>The unload request is registered, but
-              other <seealso marker="#users">users</seealso> still hold
+              other <seeerl marker="#users">users</seeerl> still hold
               the driver. Notice that the term <c>pending_process</c>
               can refer to the running process; there can be more
-              than one <seealso marker="#users">user</seealso> in the
+              than one <seeerl marker="#users">user</seeerl> in the
               same process.</p>
             <p>This is a normal, healthy, return value if the call was
               just placed to inform the emulator that you have no
               further use of the driver. It is the most
               common return value in the most common
-	      <seealso marker="#scenarios"><c>scenario</c></seealso>
+	      <seeerl marker="#scenarios"><c>scenario</c></seeerl>
               described in the introduction.</p>
           </item>
         </taglist>
@@ -1038,12 +1038,12 @@
               <item>
                 <p>Forces killing of all ports opened using this driver,
                   with exit reason <c>driver_unloaded</c>, if you are
-                  the <em>last</em> <seealso marker="#users">user</seealso>
+                  the <em>last</em> <seeerl marker="#users">user</seeerl>
 		  of the driver.</p>
-                <p>If other <seealso marker="#users">users</seealso>
+                <p>If other <seeerl marker="#users">users</seeerl>
 		  have the driver loaded, this option has no effect.</p>
                 <p>To get the consistent behavior of killing ports
-                  when the last <seealso marker="#users">user</seealso>
+                  when the last <seeerl marker="#users">user</seeerl>
                   unloads, use driver option
                   <c>kill_ports</c> when loading the driver instead.</p>
               </item>
@@ -1096,7 +1096,7 @@
           <tag><c>{error, not_loaded_by_this_process}</c></tag>
           <item>
             <p>The driver <c><anno>Name</anno></c> is present in the system, but
-              there is no <seealso marker="#users">user</seealso> of
+              there is no <seeerl marker="#users">user</seeerl> of
               it in this process. </p>
             <p>As a special case, drivers can be unloaded from
               processes that have done no corresponding call to
@@ -1121,22 +1121,22 @@
       <desc>
         <p>Unloads, or at least dereferences the driver named
           <c><anno>Name</anno></c>. If the caller is the last
-	  <seealso marker="#users">user</seealso> of the driver,
+	  <seeerl marker="#users">user</seeerl> of the driver,
 	  and no more open ports use the driver, the driver
           gets unloaded. Otherwise, unloading
           is delayed until all ports are closed and no
-          <seealso marker="#users">users</seealso> remain.</p>
-        <p>If there are other <seealso marker="#users">users</seealso>
+          <seeerl marker="#users">users</seeerl> remain.</p>
+        <p>If there are other <seeerl marker="#users">users</seeerl>
 	  of the driver, the reference counts of the driver is merely decreased,
 	  so that the caller is no longer considered a
-	  <seealso marker="#users">user</seealso> of the driver. For use
-          scenarios, see the <seealso marker="#scenarios"><c>description</c></seealso>
+	  <seeerl marker="#users">user</seeerl> of the driver. For use
+          scenarios, see the <seeerl marker="#scenarios"><c>description</c></seeerl>
 	  in the beginning of this module.</p>
         <p>The <c><anno>ErrorDesc</anno></c> returned is an opaque value to be
           passed further on to function
-	  <seealso marker="#format_error/1"><c>format_error/1</c></seealso>.
+	  <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>.
           For more control over the operation, use the
-          <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>
+          <seemfa marker="#try_unload/2"><c>try_unload/2</c></seemfa>
           interface.</p>
         <p>The function throws a <c>badarg</c> exception if the
           parameters are not specified as described here.</p>
@@ -1148,22 +1148,22 @@
       <desc>
         <p>Unloads, or at least dereferences the driver named
           <c><anno>Name</anno></c>. If the caller is the last
-	  <seealso marker="#users">user</seealso> of the driver, all
+	  <seeerl marker="#users">user</seeerl> of the driver, all
           remaining open ports using the driver are killed with
           reason <c>driver_unloaded</c> and the driver
           eventually gets unloaded.</p>
-        <p>If there are other <seealso marker="#users">users</seealso>
+        <p>If there are other <seeerl marker="#users">users</seeerl>
           of the driver, the reference counts of the driver is merely
           decreased, so that the caller is no longer considered a
-          <seealso marker="#users">user</seealso>. For
+          <seeerl marker="#users">user</seeerl>. For
           use scenarios, see the
-	  <seealso marker="#scenarios"><c>description</c></seealso> in the
+	  <seeerl marker="#scenarios"><c>description</c></seeerl> in the
 	  beginning of this module.</p>
         <p>The <c><anno>ErrorDesc</anno></c> returned is an opaque value to be
           passed further on to function
-	  <seealso marker="#format_error/1"><c>format_error/1</c></seealso>.
+	  <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>.
           For more control over the operation, use the
-          <seealso marker="#try_unload/2"><c>try_unload/2</c></seealso>
+          <seemfa marker="#try_unload/2"><c>try_unload/2</c></seemfa>
           interface.</p>
         <p>The function throws a <c>badarg</c> exception if the
           parameters are not specified as described here.</p>
@@ -1172,7 +1172,7 @@
   </funcs>
   <section>
     <title>See Also</title>
-    <p><seealso marker="erts:erl_driver"><c>erts:erl_driver(4)</c></seealso>,
-       <seealso marker="erts:driver_entry"><c>erts:driver_entry(4)</c></seealso></p>
+    <p><seecref marker="erts:erl_driver"><c>erts:erl_driver(4)</c></seecref>,
+       <seecref marker="erts:driver_entry"><c>erts:driver_entry(4)</c></seecref></p>
   </section>
 </erlref>

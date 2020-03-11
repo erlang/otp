@@ -99,7 +99,7 @@ phone_number
     <title>Bit Strings and Binaries</title>
     <p>A bit string is used to store an area of untyped memory.</p>
     <p>Bit strings are expressed using the
-      <seealso marker="expressions#bit_syntax">bit syntax</seealso>.</p>
+      <seeguide marker="expressions#bit_syntax">bit syntax</seeguide>.</p>
     <p>Bit strings that consist of a number of bits that are evenly
       divisible by eight, are called <em>binaries</em></p>
     <p><em>Examples:</em></p>
@@ -111,8 +111,8 @@ phone_number
 1> <input>&lt;&lt;1:1,0:1&gt;&gt;.</input>
 &lt;&lt;2:2>></pre>
     <p>For more examples,
-      see <seealso marker="doc/programming_examples:bit_syntax">
-      Programming Examples</seealso>.</p>
+      see <seeguide marker="system/programming_examples:bit_syntax">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -132,10 +132,10 @@ phone_number
 #Fun&lt;erl_eval.6.39074546&gt;
 2> <input>Fun1(2).</input>
 3</pre>
-    <p>Read more about funs in <seealso marker="expressions#funs">
-      Fun Expressions</seealso>. For more examples, see
-      <seealso marker="doc/programming_examples:funs">
-      Programming Examples</seealso>.</p>
+    <p>Read more about funs in <seeguide marker="expressions#funs">
+      Fun Expressions</seeguide>. For more examples, see
+      <seeguide marker="system/programming_examples:funs">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -143,7 +143,7 @@ phone_number
     <p>A port identifier identifies an Erlang port.</p>
     <p><c>open_port/2</c>, which is used to create ports, returns
       a value of this data type.</p>
-    <p>Read more about ports in <seealso marker="ports">Ports and Port Drivers</seealso>.</p>
+    <p>Read more about ports in <seeguide marker="ports">Ports and Port Drivers</seeguide>.</p>
   </section>
 
   <section>
@@ -179,7 +179,7 @@ loop() ->
 I am &lt;0.58.0>
 who_are_you</pre>
     <p>Read more about processes in
-      <seealso marker="processes">Processes</seealso>.</p>
+      <seeguide marker="processes">Processes</seeguide>.</p>
   </section>
 
   <section>
@@ -233,10 +233,10 @@ adam
 6> <input>map_size(#{}).</input>
 0</pre>
     <p>A collection of maps processing functions can be found in
-      <seealso marker="stdlib:maps"><c>maps</c></seealso> manual page
+      <seeerl marker="stdlib:maps"><c>maps</c></seeerl> manual page
       in STDLIB.</p>
-    <p>Read more about maps in <seealso marker="expressions#map_expressions">
-      Map Expressions</seealso>.</p>
+    <p>Read more about maps in <seeguide marker="expressions#map_expressions">
+      Map Expressions</seeguide>.</p>
   <note>
     <p>Maps are considered to be experimental during Erlang/OTP R17.</p>
   </note>
@@ -283,7 +283,7 @@ a
 7> <input>length([]).</input>
 0</pre>
     <p>A collection of list processing functions can be found in
-      the <seealso marker="stdlib:lists">lists</seealso> manual
+      the <seeerl marker="stdlib:lists">lists</seeerl> manual
       page in STDLIB.</p>
   </section>
 
@@ -311,7 +311,7 @@ a
       expressions are translated to tuple expressions during
       compilation. Therefore, record expressions are not understood by
       the shell unless special actions are taken. For details, see the
-      <seealso marker="stdlib:shell">shell(3)</seealso> manual
+      <seeerl marker="stdlib:shell">shell(3)</seeerl> manual
       page in STDLIB).</p>
     <p><em>Examples:</em></p>
     <pre>
@@ -326,9 +326,9 @@ new(Name, Age) ->
 1> <input>person:new(ernie, 44).</input>
 {person,ernie,44}</pre>
     <p>Read more about records in
-      <seealso marker="records">Records</seealso>. More examples can be
-      found in <seealso marker="doc/programming_examples:records">
-      Programming Examples</seealso>.</p>
+      <seeguide marker="records">Records</seeguide>. More examples can be
+      found in <seeguide marker="system/programming_examples:records">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>

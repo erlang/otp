@@ -82,8 +82,8 @@ word() = 0..65535
     ]]></code>
     <p>For <c>inet:ip4_address()</c>, <c>inet:ip6_address()</c>
     and <c>inet:port_number()</c>, see also
-    <seealso marker="kernel:inet#type-ip_address">
-    <c>inet:ip_address()</c></seealso></p>
+    <seetype marker="kernel:inet#ip_address">
+    <c>inet:ip_address()</c></seetype></p>
 
     <marker id="agent_entry"></marker>
   </section>
@@ -103,7 +103,7 @@ word() = 0..65535
         <p>Create an entry for the agent config file, <c>agent.conf</c>. </p>
         <p>The type of <c>Val</c> depends on the value of <c>Tag</c>, 
           see 
-          <seealso marker="snmp_agent_config_files#agent_information">Agent Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
           for more info. </p>
 
         <marker id="write_agent_config"></marker>
@@ -126,7 +126,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#agent_information">Agent Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
           for more info. </p>
 
         <marker id="append_agent_config"></marker>
@@ -145,7 +145,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#agent_information">Agent Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
           for more info. </p>
 
         <marker id="read_agent_config"></marker>
@@ -164,7 +164,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#agent_information">Agent Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#agent_information">Agent Information</seeguide> 
           for more info. </p>
 
         <marker id="standard_entry"></marker>
@@ -184,7 +184,7 @@ word() = 0..65535
           <c>standard.conf</c>. </p>
         <p>The type of <c>Val</c> depends on the value of <c>Tag</c>, 
           see 
-          <seealso marker="snmp_agent_config_files#system_information">System Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
           for more info. </p>
 
         <marker id="write_standard_config"></marker>
@@ -208,7 +208,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#system_information">System Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
           for more info. </p>
 
         <marker id="append_standard_config"></marker>
@@ -228,7 +228,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#system_information">System Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
           for more info. </p>
 
         <marker id="read_standard_config"></marker>
@@ -247,7 +247,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#system_information">System Information</seealso> 
+          <seeguide marker="snmp_agent_config_files#system_information">System Information</seeguide> 
           for more info. </p>
 
         <marker id="context_entry"></marker>
@@ -265,7 +265,7 @@ word() = 0..65535
         <p>Create an entry for the agent context config file, 
           <c>context.conf</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#context">Contexts</seealso> 
+          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
           for more info. </p>
 
         <marker id="write_context_config"></marker>
@@ -289,7 +289,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#context">Contexts</seealso> 
+          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
           for more info. </p>
 
         <marker id="append_context_config"></marker>
@@ -309,7 +309,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#context">Contexts</seealso> 
+          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
           for more info. </p>
 
         <marker id="read_context_config"></marker>
@@ -328,7 +328,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#context">Contexts</seealso> 
+          <seeguide marker="snmp_agent_config_files#context">Contexts</seeguide> 
           for more info. </p>
 
         <marker id="community_entry"></marker>
@@ -356,7 +356,7 @@ word() = 0..65535
         <p><c>community_entry("all-rights")</c> translates to the following 
           call: <c>community_entry(CommunityIndex, CommunityIndex, CommunityIndex, "", "")</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#community">Community</seealso> 
+          <seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
           for more info. </p>
 
         <marker id="write_community_config"></marker>
@@ -380,7 +380,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#community">Community</seealso> 
+          <seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
           for more info. </p>
 
         <marker id="append_community_config"></marker>
@@ -400,7 +400,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#community">Community</seealso> 
+          <seeguide marker="snmp_agent_config_files#community">Community</seeguide> 
           for more info. </p>
 
         <marker id="read_community_config"></marker>
@@ -419,7 +419,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#community">Communities</seealso> 
+          <seeguide marker="snmp_agent_config_files#community">Communities</seeguide> 
           for more info. </p>
 
         <marker id="target_addr_entry"></marker>
@@ -456,7 +456,7 @@ word() = 0..65535
         <p><c>target_addr_entry/8</c> translates to the following call:
           <c>target_addr_entry(Name, Domain, Addr, 1500, 3, TagList, ParamsName, EngineId, TMask, MaxMessageSize)</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
           for more info. </p>
 
         <marker id="write_target_addr_config"></marker>
@@ -480,7 +480,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
           for more info. </p>
 
         <marker id="append_target_addr_config"></marker>
@@ -500,7 +500,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
           for more info. </p>
 
         <marker id="read_target_addr_config"></marker>
@@ -519,7 +519,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> 
           for more info. </p>
 
         <marker id="target_params_entry"></marker>
@@ -556,7 +556,7 @@ word() = 0..65535
           call: <c>target_params_entry(Name, MPModel, SecModel, SecName, SecLevel)</c> where <c>MPModel</c> and
           <c>SecModel</c> is mapped from <c>Vsn</c>, see above. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
           for more info. </p>
 
         <marker id="write_target_params_config"></marker>
@@ -580,7 +580,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
           for more info. </p>
 
         <marker id="append_target_params_config"></marker>
@@ -600,7 +600,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
           for more info. </p>
 
         <marker id="read_target_params_config"></marker>
@@ -619,7 +619,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#target_params">Target Parameters Definitions</seeguide> 
           for more info. </p>
 
         <marker id="vacm_entry"></marker>
@@ -657,7 +657,7 @@ word() = 0..65535
         <p><c>vacm_vtf_entry/2</c> translates to the following call:
           <c>vacm_vtf_entry(ViewIndex, ViewSubtree, included, null)</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#vacm">MIB Views for VACM</seealso> 
+          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
           for more info. </p>
 
         <marker id="write_vacm_config"></marker>
@@ -682,7 +682,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#vacm">MIB Views for VACM</seealso> 
+          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
           for more info. </p>
 
         <marker id="append_vacm_config"></marker>
@@ -702,7 +702,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#vacm">MIB Views for VACM</seealso> 
+          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
           for more info. </p>
 
         <marker id="read_vacm_config"></marker>
@@ -721,7 +721,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#vacm">MIB Views for VACM</seealso> 
+          <seeguide marker="snmp_agent_config_files#vacm">MIB Views for VACM</seeguide> 
           for more info. </p>
 
         <marker id="usm_entry"></marker>
@@ -754,7 +754,7 @@ word() = 0..65535
         <p><c>usm_entry/1</c> translates to the following call:
           <c>usm_entry("initial", "initial", zeroDotZero, usmNoAuthProtocol, "", "", usmNoPrivProtocol, "", "", "", "", "")</c>. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#usm">Security data for USM</seealso> 
+          <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
 
         <marker id="write_usm_config"></marker>
@@ -778,7 +778,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#usm">Security data for USM</seealso> 
+          <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
 
         <marker id="append_usm_config"></marker>
@@ -798,7 +798,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#usm">Security data for USM</seealso> 
+          <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
         <marker id="read_usm_config"></marker>
       </desc>
@@ -816,7 +816,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#usm">Security data for USM</seealso> 
+          <seeguide marker="snmp_agent_config_files#usm">Security data for USM</seeguide> 
           for more info. </p>
 
         <marker id="notify_entry"></marker>
@@ -837,7 +837,7 @@ word() = 0..65535
           <c>notify.conf</c>. </p>
         <p><c>Name</c> must be a <em>non-empty</em> string. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#notify">Notify Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
           for more info. </p>
 
         <marker id="write_notify_config"></marker>
@@ -861,7 +861,7 @@ word() = 0..65535
         <p><c>Hdr</c> is an optional file header (note that this text is
           written to the file as is). </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#notify">Notify Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
           for more info. </p>
 
         <marker id="append_notify_config"></marker>
@@ -881,7 +881,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#notify">Notify Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
           for more info. </p>
 
         <marker id="read_notify_config"></marker>
@@ -900,7 +900,7 @@ word() = 0..65535
         <p><c>Dir</c> is the path to the directory where to store the 
           config file. </p>
         <p>See 
-          <seealso marker="snmp_agent_config_files#notify">Notify Definitions</seealso> 
+          <seeguide marker="snmp_agent_config_files#notify">Notify Definitions</seeguide> 
           for more info. </p>
         <marker id="end"></marker>
       </desc>

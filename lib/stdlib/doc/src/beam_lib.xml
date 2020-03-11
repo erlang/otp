@@ -59,9 +59,9 @@
     <marker id="debug_info"></marker>
     <title>Debug Information/Abstract Code</title>
     <p>Option <c>debug_info</c> can be specified to the Compiler (see
-      <seealso marker="compiler:compile#debug_info"><c>compile(3)</c></seealso>)
-      to have debug information, such as <seealso marker="erts:absform">Erlang
-      Abstract Format</seealso>, stored in the <c>debug_info</c> chunk.
+      <seeerl marker="compiler:compile#debug_info"><c>compile(3)</c></seeerl>)
+      to have debug information, such as <seeguide marker="erts:absform">Erlang
+      Abstract Format</seeguide>, stored in the <c>debug_info</c> chunk.
       Tools such as Debugger and Xref require the debug information to
       be included.</p>
 
@@ -71,9 +71,9 @@
     </warning>
 
     <p>The debug information can also be removed from BEAM files
-      using <seealso marker="#strip/1"><c>strip/1</c></seealso>,
-      <seealso marker="#strip_files/1"><c>strip_files/1</c></seealso>, and/or
-      <seealso marker="#strip_release/1"><c>strip_release/1</c></seealso>.</p>
+      using <seemfa marker="#strip/1"><c>strip/1</c></seemfa>,
+      <seemfa marker="#strip_files/1"><c>strip_files/1</c></seemfa>, and/or
+      <seemfa marker="#strip_release/1"><c>strip_release/1</c></seemfa>.</p>
   </section>
 
   <section>
@@ -101,7 +101,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     <p>The default type (and currently the only type) of crypto
       algorithm is <c>des3_cbc</c>, three rounds of DES. The key string
       is scrambled using
-      <seealso marker="erts:erlang#md5/1"><c>erlang:md5/1</c></seealso>
+      <seemfa marker="erts:erlang#md5/1"><c>erlang:md5/1</c></seemfa>
       to generate the keys used for <c>des3_cbc</c>.</p>
 
     <note>
@@ -117,9 +117,9 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
     <list type="ordered">
       <item>
         <p>Use Compiler option <c>{debug_info_key,Key}</c>, see
-          <seealso marker="compiler:compile#debug_info_key"><c>compile(3)</c></seealso>
+          <seeerl marker="compiler:compile#debug_info_key"><c>compile(3)</c></seeerl>
           and function
-          <seealso marker="#crypto_key_fun/1"><c>crypto_key_fun/1</c></seealso>
+          <seemfa marker="#crypto_key_fun/1"><c>crypto_key_fun/1</c></seemfa>
           to register a fun that returns the key whenever
           <c>beam_lib</c> must decrypt the debug information.</p>
         <p>If no such fun is registered, <c>beam_lib</c> instead
@@ -129,7 +129,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
         <p>Store the key in a text file named <c>.erlang.crypt</c>.</p>
         <p>In this case, Compiler option <c>encrypt_debug_info</c>
           can be used, see
-          <seealso marker="compiler:compile#encrypt_debug_info"><c>compile(3)</c></seealso>.
+          <seeerl marker="compiler:compile#encrypt_debug_info"><c>compile(3)</c></seeerl>.
         </p>
       </item>
     </list>
@@ -317,7 +317,7 @@ io:fwrite("~s~n", [erl_prettypr:format(erl_syntax:form_list(AC))]).</code>
       <desc>
         <p>Unregisters the crypto key fun and terminates the process
           holding it, started by
-          <seealso marker="#crypto_key_fun/1"><c>crypto_key_fun/1</c></seealso>.
+          <seemfa marker="#crypto_key_fun/1"><c>crypto_key_fun/1</c></seemfa>.
         </p>
         <p>Returns either <c>{ok, undefined}</c> if no crypto key fun is
           registered, or <c>{ok, Term}</c>, where <c>Term</c> is
@@ -402,7 +402,7 @@ CryptoKeyFun(clear) -> term()</code>
       <fsummary>Compare the BEAM files in two directories.</fsummary>
       <desc>
         <p>Compares the BEAM files in two directories as
-          <seealso marker="#cmp_dirs/2"><c>cmp_dirs/2</c></seealso>, but the
+          <seemfa marker="#cmp_dirs/2"><c>cmp_dirs/2</c></seemfa>, but the
           names of files that exist in only one directory or are different are
           presented on standard output.</p>
       </desc>
@@ -416,7 +416,7 @@ CryptoKeyFun(clear) -> term()</code>
         <p>For a specified error returned by any function in this module,
           this function returns a descriptive string
           of the error in English. For file errors, function
-          <seealso marker="kernel:file#format_error/1"><c>file:format_error(Posix)</c></seealso>
+          <seemfa marker="kernel:file#format_error/1"><c>file:format_error(Posix)</c></seemfa>
           is to be called.</p>
       </desc>
     </func>

@@ -112,9 +112,9 @@ foreach(fun(Pid) -> Pid ! M end, L)</code>
 
   <section>
     <title>Syntax of Funs</title>
-    <p>Funs are written with the following syntax (see <seealso
-      marker="doc/reference_manual:expressions#funs">Fun Expressions
-      </seealso> for full description):</p>
+    <p>Funs are written with the following syntax (see <seeguide
+      marker="system/reference_manual:expressions#funs">Fun Expressions
+      </seeguide> for full description):</p>
     <code type="none">
 F = fun (Arg1, Arg2, ... ArgN) ->
         ...

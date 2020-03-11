@@ -37,7 +37,7 @@
       independent of the ordinary tracing in Erlang, which
       is controlled by the <c>erlang:trace/3</c> BIF. For more information
       about what sequential tracing is and how it can be used, see section
-      <seealso marker="#whatis">Sequential Tracing</seealso>.</p>
+      <seeerl marker="#whatis">Sequential Tracing</seeerl>.</p>
     <p><c>seq_trace</c> provides functions that control all aspects of
       sequential tracing. There are functions for activation,
       deactivation, inspection, and for collection of the trace output.</p>
@@ -132,8 +132,8 @@ seq_trace:set_token(OldToken), % activate the trace token again
             enables/disables a strict monotonic timestamp to be generated
 	    for each traced event. Default is <c>false</c>. Timestamps will
 	    consist of
-	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
-	    monotonic time</seealso> and a monotonically increasing
+	    <seeguide marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seeguide> and a monotonically increasing
 	    integer. The time-stamp has the same format and value
 	    as produced by <c>{erlang:monotonic_time(nanosecond),
 	    erlang:unique_integer([monotonic])}</c>.</p>
@@ -144,8 +144,8 @@ seq_trace:set_token(OldToken), % activate the trace token again
             enables/disables a strict monotonic timestamp to be generated
 	    for each traced event. Default is <c>false</c>. Timestamps
 	    will use
-	    <seealso marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
-	    monotonic time</seealso>. The time-stamp has the same
+	    <seeguide marker="erts:time_correction#Erlang_Monotonic_Time">Erlang
+	    monotonic time</seeguide>. The time-stamp has the same
 	    format and value as produced by
 	    <c>erlang:monotonic_time(nanosecond)</c>.</p>
           </item>
@@ -178,7 +178,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       <desc>
         <p>Returns the value of the trace token component
           <c>Component</c>. See
-          <seealso marker="#set_token/2">set_token/2</seealso> for
+          <seemfa marker="#set_token/2">set_token/2</seemfa> for
           possible values of <c>Component</c> and <c>Val</c>.</p>
       </desc>
     </func>
@@ -219,7 +219,7 @@ seq_trace:set_token(OldToken), % activate the trace token again
       <type name="tracer"/>
       <desc>
         <p>Sets the system tracer. The system tracer can be either a
-          process, port or <seealso marker="erts:erl_tracer">tracer module</seealso>
+          process, port or <seeerl marker="erts:erl_tracer">tracer module</seeerl>
           denoted by <c><anno>Tracer</anno></c>.
           Returns the previous value (which can be <c>false</c> if no system
           tracer is active).</p>

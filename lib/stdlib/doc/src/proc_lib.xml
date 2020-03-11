@@ -33,15 +33,15 @@
     adhering to the OTP design principles.</modulesummary>
   <description>
     <p>This module is used to start processes adhering to
-      the <seealso marker="doc/design_principles:des_princ">
-      OTP Design Principles</seealso>. Specifically, the functions in this
+      the <seeguide marker="system/design_principles:des_princ">
+      OTP Design Principles</seeguide>. Specifically, the functions in this
       module are used by the OTP standard behaviors (for example,
       <c>gen_server</c> and <c>gen_statem</c>)
       when starting new processes. The functions
       can also be used to start <em>special processes</em>, user-defined
       processes that comply to the OTP design principles. For an example,
-      see section <seealso marker="doc/design_principles:spec_proc">
-      sys and proc_lib</seealso> in OTP Design Principles.</p>
+      see section <seeguide marker="system/design_principles:spec_proc">
+      sys and proc_lib</seeguide> in OTP Design Principles.</p>
 
 
     <p>Some useful information is initialized when a process starts.
@@ -62,7 +62,7 @@
       is generated, which is written to terminal by the default logger
       handler setup by Kernel. For more information about how crash reports
       were logged prior to Erlang/OTP 21.0, see
-      <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
+      <seeguide marker="sasl:error_logging">SASL Error Logging</seeguide>
       in the SASL User's Guide.</p>
 
     <p>Unlike in "plain Erlang", <c>proc_lib</c> processes will not generate
@@ -81,15 +81,15 @@
     <datatype>
       <name name="spawn_option"/>
       <desc>
-        <p>See <seealso marker="erts:erlang#spawn_opt/4">
-          <c>erlang:spawn_opt/2,3,4,5</c></seealso>.</p>
+        <p>See <seemfa marker="erts:erlang#spawn_opt/4">
+          <c>erlang:spawn_opt/2,3,4,5</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="start_spawn_option"/>
       <desc>
-        <p>A restricted set of <seealso marker="#type-spawn_option">spawn
-	options</seealso>. Most notably <c>monitor</c> is <em>not</em> part
+        <p>A restricted set of <seetype marker="#spawn_option">spawn
+	options</seetype>. Most notably <c>monitor</c> is <em>not</em> part
 	of these options.</p>
       </desc>
     </datatype>
@@ -103,8 +103,8 @@
       <name name="format" arity="1" since=""/>
       <fsummary>Format a crash report.</fsummary>
       <desc>
-        <p>Equivalent to <seealso marker="#format/2">
-          <c>format(<anno>CrashReport</anno>, latin1)</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#format/2">
+          <c>format(<anno>CrashReport</anno>, latin1)</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -116,8 +116,8 @@
 	  <p>This function is deprecated in the sense that
 	    the <c>error_logger</c> is no longer the preferred
 	    interface for logging in Erlang/OTP. A
-	    new <seealso marker="kernel:logger_chapter">logging
-	    API</seealso> was added in Erlang/OTP 21.0, but
+	    new <seeguide marker="kernel:logger_chapter">logging
+	    API</seeguide> was added in Erlang/OTP 21.0, but
 	    legacy <c>error_logger</c> handlers can still be used. New
 	    Logger handlers do not need to use this function, since
 	    the formatting callback (<c>report_cb</c>) is included as
@@ -126,8 +126,8 @@
         <p>This function can be used by a user-defined legacy
 	  <c>error_logger</c> event handler to
           format a crash report. The crash report is sent using
-          <seealso marker="kernel:logger">
-          <c>logger(3)</c></seealso>, and the event to be handled is of the format
+          <seeerl marker="kernel:logger">
+          <c>logger(3)</c></seeerl>, and the event to be handled is of the format
           <c>{error_report, GL, {Pid, crash_report,
           <anno>CrashReport</anno>}}</c>,
           where <c>GL</c> is the group leader pid of process
@@ -143,8 +143,8 @@
 	  <p>This function is deprecated in the sense that
 	    the <c>error_logger</c> is no longer the preferred
 	    interface for logging in Erlang/OTP. A
-	    new <seealso marker="kernel:logger_chapter">logging
-	    API</seealso> was added in Erlang/OTP 21.0, but
+	    new <seeguide marker="kernel:logger_chapter">logging
+	    API</seeguide> was added in Erlang/OTP 21.0, but
 	    legacy <c>error_logger</c> handlers can still be used. New
 	    Logger handlers do not need to used this function, since
 	    the formatting callback (<c>report_cb</c>) is included as
@@ -164,8 +164,8 @@
       <fsummary>Hibernate a process until a message is sent to it.</fsummary>
       <desc>
         <p>This function does the same as (and does call) the
-          <seealso marker="erts:erlang#hibernate/3">
-          <c>hibernate/3</c></seealso> BIF,
+          <seemfa marker="erts:erlang#hibernate/3">
+          <c>hibernate/3</c></seemfa> BIF,
           but ensures that exception handling and logging continues to
           work as expected when the process wakes up.</p>
         <p>Always use this function instead of the BIF for processes started
@@ -179,7 +179,7 @@
       <fsummary>Used by a process when it has started.</fsummary>
       <desc>
         <p>This function must be used by a process that has been started by
-          a <seealso marker="#start/3"><c>start[_link]/3,4,5</c></seealso>
+          a <seemfa marker="#start/3"><c>start[_link]/3,4,5</c></seemfa>
           function. It tells <c><anno>Parent</anno></c> that the process has
           initialized itself, has started, or has failed to initialize
           itself.</p>
@@ -255,7 +255,7 @@ init(Parent) ->
       <desc>
         <p>Spawns a new process and initializes it as described in the
           beginning of this manual page. The process is spawned using the
-          <seealso marker="erts:erlang#spawn/1"><c>spawn</c></seealso> BIFs.</p>
+          <seemfa marker="erts:erlang#spawn/1"><c>spawn</c></seemfa> BIFs.</p>
       </desc>
     </func>
 
@@ -273,7 +273,7 @@ init(Parent) ->
       <desc>
         <p>Spawns a new process and initializes it as described in the
           beginning of this manual page. The process is spawned using the
-          <seealso marker="erts:erlang#spawn_link/1"><c>spawn_link</c></seealso>
+          <seemfa marker="erts:erlang#spawn_link/1"><c>spawn_link</c></seemfa>
           BIFs.</p>
       </desc>
     </func>
@@ -293,7 +293,7 @@ init(Parent) ->
       <desc>
         <p>Spawns a new process and initializes it as described in the
           beginning of this manual page. The process is spawned using the
-          <seealso marker="erts:erlang#spawn_opt/2"><c>erlang:spawn_opt</c></seealso>
+          <seemfa marker="erts:erlang#spawn_opt/2"><c>erlang:spawn_opt</c></seemfa>
           BIFs.</p>
       </desc>
     </func>
@@ -307,8 +307,8 @@ init(Parent) ->
         <p>Starts a new process synchronously. Spawns the process and
           waits for it to start. When the process has started, it
           <em>must</em> call
-          <seealso marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seealso>
-          or <seealso marker="#init_ack/1"><c>init_ack(Ret)</c></seealso>,
+          <seemfa marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seemfa>
+          or <seemfa marker="#init_ack/1"><c>init_ack(Ret)</c></seemfa>,
           where <c>Parent</c> is the process that evaluates this
           function. At this time, <c>Ret</c> is returned.</p>
         <p>If <c><anno>Time</anno></c> is specified as an integer, this
@@ -316,8 +316,8 @@ init(Parent) ->
           new process to call <c>init_ack</c>, or <c>Ret = {error, timeout}</c>
 	  will be returned, and the process is killed.</p>
         <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
-          as the last argument to the <seealso marker="erts:erlang#spawn_opt/2">
-          <c>spawn_opt/2,3,4,5</c></seealso> BIF.</p>
+          as the last argument to the <seemfa marker="erts:erlang#spawn_opt/2">
+          <c>spawn_opt/2,3,4,5</c></seemfa> BIF.</p>
         <note>
           <p>Using spawn option <c>monitor</c> is not
             allowed. It causes the function to fail with reason
@@ -337,8 +337,8 @@ init(Parent) ->
           waits for it to start. A link is atomically set on the
 	  newly spawned process. When the process has started, it
           <em>must</em> call
-          <seealso marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seealso>
-          or <seealso marker="#init_ack/1"><c>init_ack(Ret)</c></seealso>,
+          <seemfa marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seemfa>
+          or <seemfa marker="#init_ack/1"><c>init_ack(Ret)</c></seemfa>,
           where <c>Parent</c> is the process that evaluates this
           function. At this time, <c>Ret</c> is returned.</p>
         <p>If <c><anno>Time</anno></c> is specified as an integer, this
@@ -349,8 +349,8 @@ init(Parent) ->
           <c>Ret = {error, <anno>Reason</anno>}</c> will be returned if
 	  the calling process traps exits.</p>
         <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
-          as the last argument to the <seealso marker="erts:erlang#spawn_opt/2">
-          <c>spawn_opt/2,3,4,5</c></seealso> BIF.</p>
+          as the last argument to the <seemfa marker="erts:erlang#spawn_opt/2">
+          <c>spawn_opt/2,3,4,5</c></seemfa> BIF.</p>
         <note>
           <p>Using spawn option <c>monitor</c> is not
             allowed. It causes the function to fail with reason
@@ -370,8 +370,8 @@ init(Parent) ->
           waits for it to start. A monitor is atomically set on the
 	  newly spawned process. When the process has started, it
           <em>must</em> call
-          <seealso marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seealso>
-          or <seealso marker="#init_ack/1"><c>init_ack(Ret)</c></seealso>,
+          <seemfa marker="#init_ack/2"><c>init_ack(Parent, Ret)</c></seemfa>
+          or <seemfa marker="#init_ack/1"><c>init_ack(Ret)</c></seemfa>,
           where <c>Parent</c> is the process that evaluates this
           function. At this time, <c>Ret</c> is returned.</p>
         <p>If <c><anno>Time</anno></c> is specified as an integer, this
@@ -390,8 +390,8 @@ init(Parent) ->
 	  true also in the case when the operation times out.
 	</p>
         <p>Argument <c><anno>SpawnOpts</anno></c>, if specified, is passed
-          as the last argument to the <seealso marker="erts:erlang#spawn_opt/2">
-          <c>spawn_opt/2,3,4,5</c></seealso> BIF.</p>
+          as the last argument to the <seemfa marker="erts:erlang#spawn_opt/2">
+          <c>spawn_opt/2,3,4,5</c></seemfa> BIF.</p>
         <note>
           <p>Using spawn option <c>monitor</c> is not
             allowed. It causes the function to fail with reason
@@ -405,8 +405,8 @@ init(Parent) ->
       <fsummary>Terminate a process synchronously.</fsummary>
       <type variable="Process"/>
       <desc>
-        <p>Equivalent to <seealso marker="#stop/3">
-          <c>stop(Process, normal, infinity)</c></seealso>.</p>
+        <p>Equivalent to <seemfa marker="#stop/3">
+          <c>stop(Process, normal, infinity)</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -428,9 +428,9 @@ init(Parent) ->
           <c>terminate</c> system message, and requires that the
           process handles system messages correctly.
           For information about system messages, see
-          <seealso marker="sys"><c>sys(3)</c></seealso> and section
-          <seealso marker="doc/design_principles:spec_proc">
-          sys and proc_lib</seealso> in OTP Design Principles.</p>
+          <seeerl marker="sys"><c>sys(3)</c></seeerl> and section
+          <seeguide marker="system/design_principles:spec_proc">
+          sys and proc_lib</seeguide> in OTP Design Principles.</p>
       </desc>
     </func>
 
@@ -440,8 +440,8 @@ init(Parent) ->
         <c>proc_lib</c>spawned process.</fsummary>
       <desc>
         <p>This function is used by functions
-          <seealso marker="c#i/0"><c>c:i/0</c></seealso> and
-          <seealso marker="c#regs/0"><c>c:regs/0</c></seealso>
+          <seemfa marker="c#i/0"><c>c:i/0</c></seemfa> and
+          <seemfa marker="c#regs/0"><c>c:regs/0</c></seemfa>
           to present process information.</p>
         <p>This function extracts the initial call of a process that was
           started using one of the spawn or start functions in this module,
@@ -474,10 +474,10 @@ init(Parent) ->
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel:error_logger">
-      <c>error_logger(3)</c></seealso></p>
-    <p><seealso marker="kernel:logger">
-      <c>logger(3)</c></seealso></p>
+    <p><seeerl marker="kernel:error_logger">
+      <c>error_logger(3)</c></seeerl></p>
+    <p><seeerl marker="kernel:logger">
+      <c>logger(3)</c></seeerl></p>
   </section>
 </erlref>
 

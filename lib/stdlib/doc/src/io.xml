@@ -39,29 +39,29 @@
       parameter <c>IoDevice</c>. If included, it must be the pid of a
       process that handles the I/O protocols. Normally, it is the
       <c>IoDevice</c> returned by
-      <seealso marker="kernel:file#open/2"><c>file:open/2</c></seealso>.</p>
+      <seemfa marker="kernel:file#open/2"><c>file:open/2</c></seemfa>.</p>
 
     <p>For a description of the I/O protocols, see section
-      <seealso marker="io_protocol">The Erlang I/O Protocol</seealso>
+      <seeguide marker="io_protocol">The Erlang I/O Protocol</seeguide>
       in the User's Guide.</p>
 
     <warning>
     <p>As from Erlang/OTP R13A, data supplied to function
-      <seealso marker="#put_chars/2"><c>put_chars/2</c></seealso>
-      is to be in the <seealso marker="unicode#type-chardata">
-      <c>unicode:chardata()</c></seealso> format. This means that programs
+      <seemfa marker="#put_chars/2"><c>put_chars/2</c></seemfa>
+      is to be in the <seetype marker="unicode#chardata">
+      <c>unicode:chardata()</c></seetype> format. This means that programs
       supplying binaries to this function must convert them to UTF-8
       before trying to output the data on an I/O device.</p>
     <p>If an I/O device is set in binary mode, functions
-      <seealso marker="#get_chars/2"><c>get_chars/2,3</c></seealso> and
-      <seealso marker="#get_line/1"><c>get_line/1,2</c></seealso>
+      <seemfa marker="#get_chars/2"><c>get_chars/2,3</c></seemfa> and
+      <seemfa marker="#get_line/1"><c>get_line/1,2</c></seemfa>
       can return binaries instead of lists.
       The binaries are, as from Erlang/OTP R13A,
       encoded in UTF-8.</p>
     <p>To work with binaries in ISO Latin-1 encoding, use the
-      <seealso marker="kernel:file"><c>file</c></seealso> module instead.</p>
+      <seeerl marker="kernel:file"><c>file</c></seeerl> module instead.</p>
     <p>For conversion functions between character encodings, see the
-      <seealso marker="stdlib:unicode"><c>unicode</c></seealso> module.</p>
+      <seeerl marker="stdlib:unicode"><c>unicode</c></seeerl> module.</p>
     </warning>
   </description>
 
@@ -71,7 +71,7 @@
       <desc>
         <p>An I/O device, either <c>standard_io</c>, <c>standard_error</c>, a
           registered name, or a pid handling I/O protocols (returned from
-          <seealso marker="kernel:file#open/2"><c>file:open/2</c></seealso>).
+          <seemfa marker="kernel:file#open/2"><c>file:open/2</c></seemfa>).
         </p>
       </desc>
     </datatype>
@@ -317,8 +317,8 @@ ok</pre>
               It defaults to 80. The precision specifies the initial
               indentation of the term. It defaults to the number of
               characters printed on this line in the <em>same</em> call to
-              <seealso marker="#write/1"><c>write/1</c></seealso> or
-              <seealso marker="#format/1"><c>format/1,2,3</c></seealso>.
+              <seemfa marker="#write/1"><c>write/1</c></seemfa> or
+              <seemfa marker="#format/1"><c>format/1,2,3</c></seemfa>.
               For example, using <c>T</c> above:</p>
             <pre>
 4> <input>io:fwrite("Here T = ~62p~n", [T]).</input>
@@ -368,9 +368,9 @@ ok
 ok</pre>
             <p>By default, Erlang only detects lists of characters
               in the Latin-1 range as strings, but the <c>+pc unicode</c>
-              flag can be used to change this (see <seealso
+              flag can be used to change this (see <seemfa
               marker="#printable_range/0">
-              <c>printable_range/0</c></seealso> for details). For example:</p>
+              <c>printable_range/0</c></seemfa> for details). For example:</p>
             <pre>
 10> <input>io:fwrite("~p~n",[[214]]).</input>
 "Ö"
@@ -804,8 +804,8 @@ enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</in
           <c><anno>Prompt</anno></c>. Starts reading at location
           <c><anno>StartLocation</anno></c> (<c>1</c>). Argument
           <c><anno>Options</anno></c> is passed on as argument
-          <c>Options</c> of function <seealso marker="erl_scan#tokens/4">
-          <c>erl_scan:tokens/4</c></seealso>. The data is tokenized and parsed
+          <c>Options</c> of function <seemfa marker="erl_scan#tokens/4">
+          <c>erl_scan:tokens/4</c></seemfa>. The data is tokenized and parsed
           as if it was a sequence of Erlang expressions until a final dot
           (<c>.</c>) is reached.</p>
         <p>The function returns:</p>
@@ -856,8 +856,8 @@ enter><input>abc("hey".</input>
           prompting it with <c><anno>Prompt</anno></c>. Starts reading at
           location <c><anno>StartLocation</anno></c> (<c>1</c>). Argument
           <c><anno>Options</anno></c> is passed on as argument
-          <c>Options</c> of function <seealso marker="erl_scan#tokens/4">
-          <c>erl_scan:tokens/4</c></seealso>. The data is tokenized and parsed
+          <c>Options</c> of function <seemfa marker="erl_scan#tokens/4">
+          <c>erl_scan:tokens/4</c></seemfa>. The data is tokenized and parsed
           as if it was an Erlang form (one of the valid Erlang expressions
           in an Erlang source file) until a final dot (<c>.</c>) is reached.</p>
         <p>The function returns:</p>
@@ -905,15 +905,15 @@ enter><input>abc("hey".</input>
         <p>By default, Erlang is started so that only the <c>latin1</c> range
           of characters indicate that a list of integers is a string.</p>
         <p>The simplest way to use the setting is to call
-          <seealso marker="io_lib#printable_list/1">
-          <c>io_lib:printable_list/1</c></seealso>, which uses the return
+          <seemfa marker="io_lib#printable_list/1">
+          <c>io_lib:printable_list/1</c></seemfa>, which uses the return
           value of this function to decide if a list is a string of printable
           characters.</p>
         <note>
           <p>In a future release, this function may return more values and
             ranges. To avoid compatibility problems, it is recommended to use
-            function <seealso marker="io_lib#printable_list/1">
-            <c>io_lib:printable_list/1</c></seealso>.</p></note>
+            function <seemfa marker="io_lib#printable_list/1">
+            <c>io_lib:printable_list/1</c></seemfa>.</p></note>
       </desc>
     </func>
 
@@ -970,8 +970,8 @@ enter><input>abc("hey".</input>
           with <c><anno>Prompt</anno></c>. Reading starts at location
           <c><anno>StartLocation</anno></c>. Argument
           <c><anno>Options</anno></c> is passed on as argument <c>Options</c>
-          of function <seealso marker="erl_scan#tokens/4">
-          <c>erl_scan:tokens/4</c></seealso>.</p>
+          of function <seemfa marker="erl_scan#tokens/4">
+          <c>erl_scan:tokens/4</c></seemfa>.</p>
         <p>The function returns:</p>
         <taglist>
           <tag><c>{ok, Term, <anno>EndLocation</anno>}</c></tag>
@@ -1020,8 +1020,8 @@ enter><input>abc("hey".</input>
           prompting it with <c>Prompt</c>. Reading starts at location
           <c>StartLocation</c> (<c>1</c>). Argument <c><anno>Options</anno></c>
           is passed on as argument <c>Options</c> of function
-          <seealso marker="erl_scan#tokens/4">
-          <c>erl_scan:tokens/4</c></seealso>. The data is tokenized as if it
+          <seemfa marker="erl_scan#tokens/4">
+          <c>erl_scan:tokens/4</c></seemfa>. The data is tokenized as if it
           were a sequence of Erlang expressions until a final dot (<c>.</c>) is
           reached. This token is also returned.</p>
         <p>The function returns:</p>
@@ -1071,14 +1071,14 @@ enter><input>1.0er.</input>
           prompting it with <c><anno>Prompt</anno></c>. Starts reading
           at location <c><anno>StartLocation</anno></c> (<c>1</c>).
           Argument <c><anno>Options</anno></c> is passed on as argument
-          <c>Options</c> of function <seealso marker="erl_scan#tokens/4">
-          <c>erl_scan:tokens/4</c></seealso>. The data is tokenized as if it
+          <c>Options</c> of function <seemfa marker="erl_scan#tokens/4">
+          <c>erl_scan:tokens/4</c></seemfa>. The data is tokenized as if it
           was an Erlang form (one of the valid Erlang expressions in an
           Erlang source file) until a final dot (<c>.</c>) is reached.
           This last token is also returned.</p>
         <p>The return values are the same as for
-          <seealso marker="#scan_erl_exprs/1">
-          <c>scan_erl_exprs/1,2,3,4</c></seealso>.</p>
+          <seemfa marker="#scan_erl_exprs/1">
+          <c>scan_erl_exprs/1,2,3,4</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1092,7 +1092,7 @@ enter><input>1.0er.</input>
         <p>Possible options and values vary depending on the
           I/O device. For a list of supported options and their current values
           on a specific I/O device, use function
-          <seealso marker="#getopts/1"><c>getopts/1</c></seealso>.</p>
+          <seemfa marker="#getopts/1"><c>getopts/1</c></seemfa>.</p>
         <p>The options and values supported by the OTP I/O devices
           are as follows:</p>
         <taglist>
@@ -1102,10 +1102,10 @@ enter><input>1.0er.</input>
               the I/O server sends binary data (encoded in UTF-8) as answers
               to the <c>get_line</c>, <c>get_chars</c>, and, if possible,
               <c>get_until</c> requests (for details, see section
-              <seealso marker="io_protocol">The Erlang I/O Protocol</seealso>)
+              <seeguide marker="io_protocol">The Erlang I/O Protocol</seeguide>)
               in the User's Guide). The immediate effect is that
-              <seealso marker="#get_chars/2"><c>get_chars/2,3</c></seealso> and
-              <seealso marker="#get_line/1"><c>get_line/1,2</c></seealso>
+              <seemfa marker="#get_chars/2"><c>get_chars/2,3</c></seemfa> and
+              <seemfa marker="#get_line/1"><c>get_line/1,2</c></seemfa>
               return UTF-8 binaries instead of lists of characters
               for the affected I/O device.</p>
             <p>By default, all I/O devices in OTP are set in <c>list</c> mode.
@@ -1127,7 +1127,7 @@ enter><input>1.0er.</input>
               like the Erlang shell. This function is called
               when the user presses the <em>Tab</em> key. The expansion is
               active when calling line-reading functions, such as
-              <seealso marker="#get_line/1"><c>get_line/1,2</c></seealso>.</p>
+              <seemfa marker="#get_line/1"><c>get_line/1,2</c></seemfa>.</p>
             <p>The function is called with the current line, up to
               the cursor, as a reversed string. It is to return a
               three-tuple: <c>{yes|no, string(), [string(), ...]}</c>. The
@@ -1190,8 +1190,8 @@ fun("") -> {yes, "quit", []};
               <c>{encoding, unicode}</c> on files.</p>
             <p>The extended encodings are only supported on disk files
               (opened by function
-              <seealso marker="kernel:file#open/2">
-              <c>file:open/2</c></seealso>).</p>
+              <seemfa marker="kernel:file#open/2">
+              <c>file:open/2</c></seemfa>).</p>
           </item>
         </taglist>
       </desc>

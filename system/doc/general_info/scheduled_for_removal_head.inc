@@ -34,6 +34,6 @@
     <p>This document list all functionality in Erlang/OTP that currently are
     scheduled for removal. For more information regarding the strategy regarding
     removal of functionality see the documentation of
-    <seealso marker="../system_principles/misc#removal">Support, Compatibility,
-    Deprecations, and Removal</seealso>.</p>
+    <seeguide marker="system/system_principles:misc#removal">Support, Compatibility,
+    Deprecations, and Removal</seeguide>.</p>
   </section>
