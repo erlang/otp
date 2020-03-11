@@ -31,6 +31,6 @@
   </header>
   <description>
   </description>
-  <xi:include href="hipe_app.xml"/>
+  <xi:include href="HiPE_app.xml"/>
 </application>
 
