@@ -1,5 +1,16 @@
 # This file is included by GNUmakefile
 
+ifndef TARGET
+YCF_OBJ_DIR=$(YCF_SOURCE_DIR)
+YCF_BIN_DIR=$(YCF_SOURCE_DIR)/bin
+YCF_EXECUTABLE=$(YCF_BIN_DIR)/yielding_c_fun.bin$(EXE_SUFFIX)
+else
+YCF_OBJ_DIR=$(YCF_SOURCE_DIR)/$(TARGET)
+YCF_BIN_DIR=$(YCF_SOURCE_DIR)/bin/$(TARGET)
+YCF_EXECUTABLE=$(YCF_BIN_DIR)/yielding_c_fun$(EXE_SUFFIX)
+_create_dirs := $(shell mkdir -p $(YCF_OBJ_DIR) $(YCF_BIN_DIR))
+endif
+
 YCF_INCLUDE_DIRS = \
 	-I$(YCF_SOURCE_DIR) \
 	-I$(YCF_SOURCE_DIR)/lib/tiny_regex_c \
@@ -13,14 +24,18 @@ YCF_EXTRA_SOURCES = \
 
 YCF_SOURCES = $(sort $(wildcard $(YCF_SOURCE_DIR)/*.c) $(YCF_EXTRA_SOURCES))
 
-YCF_OBJECTS = $(patsubst $(YCF_SOURCE_DIR)/%.c, $(YCF_SOURCE_DIR)/%.o, $(YCF_SOURCES))
+YCF_OBJECTS = $(addprefix $(YCF_OBJ_DIR)/,$(notdir $(YCF_SOURCES:.c=.o)))
 
 YCF_CFLAGS = $(filter-out -Wstrict-prototypes -Wdeclaration-after-statement -Wmissing-prototypes,$(CFLAGS))
-
-YCF_EXECUTABLE = $(YCF_SOURCE_DIR)/bin/yielding_c_fun.bin$(EXE_SUFFIX)
 
 $(YCF_EXECUTABLE): $(YCF_OBJECTS)
 	$(V_LD) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_OBJECTS) -o $@
 
-$(YCF_SOURCE_DIR)/%.o: $(YCF_SOURCE_DIR)/%.c $(YCF_HEADERS)
+$(YCF_OBJ_DIR)/%.o: $(YCF_SOURCE_DIR)/lib/tiny_regex_c/%.c $(YCF_HEADERS)
+	$(V_CC) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@
+
+$(YCF_OBJ_DIR)/%.o: $(YCF_SOURCE_DIR)/lib/simple_c_gc/%.c $(YCF_HEADERS)
+	$(V_CC) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@
+
+$(YCF_OBJ_DIR)/%.o: $(YCF_SOURCE_DIR)/%.c $(YCF_HEADERS)
 	$(V_CC) $(YCF_CFLAGS) $(LDFLAGS) $(YCF_INCLUDE_DIRS) -c $< -o $@
