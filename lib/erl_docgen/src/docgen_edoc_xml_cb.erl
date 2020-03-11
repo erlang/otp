@@ -951,7 +951,7 @@ seealso_function(Es) ->
 see(#xmlElement{content=Es0} = E) ->
     Href0 = get_attrval(href, E),
     {Href, Es} = otp_xmlify_a_href(Href0, Es0),
-    [{seealso, [{marker, Href}], Es}].
+    [makesee(Href, Es)].
     
 equiv(Es) ->
     case get_content(equiv, Es) of
@@ -970,11 +970,26 @@ equiv(Es) ->
  					    {c,Expr1};
  					Ref0 ->
                                             {Ref, _Es2} = otp_xmlify_a_href(Ref0, [E]),
- 					    {seealso, [{marker, Ref}], Expr1}
+                                            makesee(Ref, Expr1)
  				    end
 			    end,
 		    [{p, ["Equivalent to ", Expr2, "."]}, ?NL]
 	    end
+    end.
+
+makesee(Ref, Es) ->
+    case split(Ref,"#") of
+        [Mod,"type-"++Anchor] ->
+            {seetype,[{marker,Mod ++ "#" ++ Anchor}], Es};
+        ["type-"++Anchor] ->
+            {seetype,[{marker,"#" ++ Anchor}], Es};
+        _Else ->
+            case split(Ref,"/") of
+                [_] ->
+                    {seeerl, [{marker,Ref}], Es};
+                [_,_] ->
+                    {seemfa, [{marker,Ref}], Es}
+            end
     end.
 
 authors(Es) ->
@@ -1123,7 +1138,7 @@ see_type(E, Es0) ->
                 %% Fails for parametrized types:
                 Text = #xmlText{value = lists:append(Es0)},
                 {Href, Es} = otp_xmlify_a_href(Href0, [Text]),
-                [{seealso, [{marker, Href}], Es}]
+                [makesee(Href, Es)]
             catch
                 _:_ ->
                     Es0

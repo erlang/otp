@@ -65,7 +65,7 @@ convert_tag(a, [Attr]) ->
 		true ->
 		    {url, [Attr]};
 		false ->
-		    {seealso, [Attr#xmlAttribute{name=marker}]}
+		    makesee(Val)
 	    end;
 	name ->
 	    {marker, [Attr#xmlAttribute{name=id}]}
@@ -93,4 +93,17 @@ is_url(FileRef) ->
     case filename:extension(FileRef) of
 	"" -> false; % no extension = xml file
 	_Ext -> true % extension
+    end.
+
+makesee(Ref) ->
+    case string:split(Ref,"#") of
+        [Mod,"type-"++Anchor] ->
+            {seetype,[#xmlAttribute{name = marker, value = Mod ++ "#" ++ Anchor}]};
+        _Else ->
+            case string:split(Ref,"/") of
+                [_] ->
+                    {seeerl, [#xmlAttribute{name = marker, value = Ref}]};
+                [_,_] ->
+                    {seemfa, [#xmlAttribute{name = marker, value = Ref}]}
+            end
     end.

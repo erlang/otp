@@ -473,8 +473,8 @@ link_or_image(Str, Type) ->
  		{seealso, SeeAlso, _Title, Cont2} ->
                     case internal_seealso(SeeAlso) of
                         no ->
-                            {["<seealso marker=\"", text(SeeAlso), "\">",
-                              text(Text), "</seealso>"],
+                            {["<seeguide marker=\"", text(SeeAlso), "\">",
+                              text(Text), "</seeguide>"],
                              Cont2};
                         {yes, SeeAlsoKey} ->
                             {delayed, link, SeeAlsoKey, text(Text), Cont2}
@@ -575,7 +575,7 @@ mk_image(Title, Url) ->
 mk_link(Text, Url) ->
     case chk_proto(Url) of
 	true -> ["<url href=\"", text(Url), "\">", text(Text), "</url>"];
-	false -> ["<seealso marker=\"", text(Url), "\">", text(Text), "</seealso>"]
+	false -> ["<seeguide marker=\"", text(Url), "\">", text(Text), "</seeguide>"]
     end.
 
 chk_proto("://" ++ _) ->
@@ -653,8 +653,8 @@ put_title(#state{mlist = MList0,
 		S0#state{toc = [TOC,
 				lists:duplicate(H,"  "),
 				"  ",
-				"<seealso marker=\"#",Marker,"\">",
-				TitleStr,"</seealso>",nl()],
+				"<seeguide marker=\"#",Marker,"\">",
+				TitleStr,"</seeguide>",nl()],
 			 h = H,
 			 mlist = MList1
                         }),
