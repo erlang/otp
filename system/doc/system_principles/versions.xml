@@ -65,7 +65,7 @@
       <p>If the version read from the <c>OTP_VERSION</c> file in a
       development system has a <c>**</c> suffix, the system has been
       patched using the
-      <seealso marker="../installation_guide/OTP-PATCH-APPLY"><c>otp_patch_apply</c></seealso>
+      <seealso marker="doc/installation_guide:OTP-PATCH-APPLY"><c>otp_patch_apply</c></seealso>
       tool. In this case, the system consists of application
       versions from multiple OTP versions. The version preceding the <c>**</c>
       suffix corresponds to the OTP version of the base system that

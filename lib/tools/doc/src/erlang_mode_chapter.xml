@@ -34,7 +34,7 @@
     <title>Purpose</title>
     <p>The purpose of this user guide is to introduce you to the
       Erlang mode for Emacs and gives some relevant background
-      information of the functions and features. See also <seealso marker="erlang.el">Erlang mode reference manual</seealso> The
+      information of the functions and features. See also <seeerl marker="erlang.el">Erlang mode reference manual</seeerl> The
       purpose of the Erlang mode itself is to facilitate the developing
       process for the Erlang programmer.</p>
   </section>

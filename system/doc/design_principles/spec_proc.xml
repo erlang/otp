@@ -445,7 +445,7 @@ loop(...) ->
 -callback NameM(ArgM_1, ArgM_2, ..., ArgM_NM) -> ResM.</code>
     <p><c>NameX</c> are the names of the expected callbacks.
       <c>ArgX_Y</c> and <c>ResX</c> are types as they are described in
-      <seealso marker="../reference_manual/typespec">Types and
+      <seealso marker="doc/reference_manual:typespec">Types and
       Function Specifications</seealso>. The whole syntax of the <c>-spec</c>
       attribute is supported by the <c>-callback</c> attribute.</p>
     <p>Callback functions that are optional for the user of the

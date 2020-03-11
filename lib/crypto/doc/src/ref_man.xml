@@ -42,7 +42,7 @@
     <p>This product includes software written by Tim Hudson
       (tjh@cryptsoft.com).
       </p>
-    <p>For full OpenSSL and SSLeay license texts, see <seealso marker="licenses#licenses">Licenses</seealso>.</p>
+    <p>For full OpenSSL and SSLeay license texts, see <seeguide marker="licenses#licenses">Licenses</seeguide>.</p>
   </description>
   <xi:include href="crypto_app.xml"/>
   <xi:include href="crypto.xml"/>

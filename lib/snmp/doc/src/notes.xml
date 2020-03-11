@@ -1722,7 +1722,7 @@
       <list type="bulleted">
         <item>
           <p>[compiler] Improved version info printout from the
-	  <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
+	  <seecom marker="snmpc(command)#">MIB compiler frontend escript</seecom>. </p>
           <p>Own Id: OTP-9618</p>
         </item>
 
@@ -1752,7 +1752,7 @@
 
         <item>
           <p>[compiler] Fix the <c>--warnings/--W</c> option parsing in the
-          <seealso marker="snmpc(command)#option_warnings">snmpc</seealso>
+          <seecom marker="snmpc(command)#option_warnings">snmpc</seecom>
           wrapper (e)script.
           The short warning option was incorrectly <c>--w</c>, instead
           of as documented <c>--W</c>. This has now been corrected. </p>
@@ -1850,7 +1850,7 @@
 	  warnings-as-errors variable), which caused the
 	  compiler to crash when using the snmpc (e)script. </p>
 	  <p>Also added the option
-	  <seealso marker="snmpc(command)#option_werror">--Werror</seealso>
+	  <seecom marker="snmpc(command)#option_werror">--Werror</seecom>
 	  for the SNMP MIB compiler (escript) frontend (to mimic
 	  <seealso marker="erts:erlc">erlc</seealso>),
 	  which specifies whether warnings should be treated as errors. </p>
@@ -1921,7 +1921,7 @@
           <p>[compiler] Added the option
 	  <seealso marker="snmpc#compile">warnings_as_errors</seealso>
 	  (for the SNMP MIB compiler (escript) frontend, the option
-	  <seealso marker="snmpc(command)#option_wae">--wae</seealso> is used)
+	  <seecom marker="snmpc(command)#option_wae">--wae</seecom> is used)
 	  which specifies whether warnings should be treated as errors. </p>
           <p>Tuncer Ayaz</p>
           <p>Own Id: OTP-9437</p>
