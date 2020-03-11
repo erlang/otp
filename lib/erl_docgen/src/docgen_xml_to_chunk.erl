@@ -229,7 +229,9 @@ build_dom({ignorableWhitespace, String},
     case lists:member(Name,
                       [p,pre,input,code,quote,warning,
                        note,dont,do,c,i,em,strong,
-                       seealso,tag,item]) of
+                       seemfa,seeerl,seetype,seeapp,
+                       seecom,seecref,seefile,seeguide,
+                       tag,item]) of
         true ->
 %            io:format("Keep ign white: ~p ~p~n",[String, _E]),
             build_dom({characters, String}, State);
@@ -397,8 +399,10 @@ transform([{v,[],Content}|T],Acc) ->
 transform([{d,[],Content}|T],Acc) ->
     transform(T, [{li,[{class,<<"description">>}],transform(Content,[])}|Acc]);
 
-transform([Tag = {seealso,_Attr,_Content}|T],Acc) ->
-    transform([transform_seealso(Tag)|T],Acc);
+transform([Elem = {See,_Attr,_Content}|T],Acc)
+  when See =:= seemfa; See =:= seeerl; See =:= seetype; See =:= seeapp;
+       See =:= seecom; See =:= seecref; See =:= seefile; See =:= seeguide ->
+    transform([transform_see(Elem)|T],Acc);
 
 transform([{term,Attr,[]}|T],Acc) ->
     transform([list_to_binary(proplists:get_value(id,Attr))|T],Acc);
@@ -601,8 +605,8 @@ transform_datatype(Dom,_Acc) ->
                          {signature,Signature}],ContentsNoName}
       end || N = {name,_,_} <- Dom].
 
-transform_seealso({seealso,Attr,_Content}) ->
-    {a, a2b(Attr), _Content}.
+transform_see({See,[{marker,Marker}],Content}) ->
+    {a, [{href,Marker},{rel,"https://erlang.org/doc/link/"++atom_to_list(See)}], Content}.
 
 to_chunk(Dom, Source, Module, AST) ->
     [{module,MAttr,Mcontent}] = Dom,
