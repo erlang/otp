@@ -328,10 +328,10 @@ $(PDFDIR)/%.pdf: %.fo
 	$(FOP) -c $(FOP_CONFIG) -cache $(ERL_TOP)/make/$(TARGET)/fop-fonts.cache -fo $< -pdf $@
 
 $(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
 
 $(CHUNKSDIR)/%.chunk: $(XMLDIR)/%.xml ../../preloaded/ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
 
 $(CHUNKSDIR)/%.chunk: ../../ebin/%.beam $(DOCGEN)/ebin/docgen_xml_to_chunk.beam
-	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $^ $@
+	$(gen_verbose)escript $(DOCGEN)/priv/bin/chunk.escript $(APPLICATION) $^ $@
