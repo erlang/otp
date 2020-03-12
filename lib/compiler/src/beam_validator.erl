@@ -22,6 +22,7 @@
 -include("beam_types.hrl").
 
 -define(UNICODE_MAX, (16#10FFFF)).
+-define(EXCEPTION_LABEL, 0).
 
 -compile({no_auto_import,[min/2]}).
 
@@ -942,8 +943,7 @@ branch_exception(_) ->
 vi_float({fconv,Src,{fr,_}=Dst}, Vst) ->
     assert_term(Src, Vst),
 
-    %% An exception is raised on error, hence branching to 0.
-    branch(0, Vst,
+    branch(?EXCEPTION_LABEL, Vst,
            fun(SuccVst0) ->
                SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
                set_freg(Dst, SuccVst)
@@ -984,8 +984,7 @@ vi_throwing({call_fun,Live}, Vst) ->
     Fun = {x,Live},
     assert_term(Fun, Vst),
 
-    %% An exception is raised on error, hence branching to 0.
-    branch(0, Vst,
+    branch(?EXCEPTION_LABEL, Vst,
            fun(SuccVst0) ->
                    SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
                                          Fun, SuccVst0),
@@ -2367,7 +2366,7 @@ branch(Fail, Vst, SuccFun) ->
 
 %% Directly branches off the state. This is an "internal" operation that should
 %% be used sparingly.
-fork_state(0, #vst{}=Vst) ->
+fork_state(?EXCEPTION_LABEL, #vst{}=Vst) ->
     %% If the instruction fails, the stack may be scanned looking for a catch
     %% tag. Therefore the Y registers must be initialized at this point.
     verify_y_init(Vst),
