@@ -72,13 +72,14 @@ validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
     true = lists:all(fun(Elem) -> ?IS_BLOCK(Elem) end, ?BLOCK),
 
     _ = maps:map(fun(_Key,MDoc) -> validate(MDoc) end, MDocs),
-    lists:map(fun({_,_Anno, Sig, Docs, _Meta}) ->
+    lists:foreach(fun({_,_Anno, Sig, Docs, _Meta}) ->
                       case lists:all(fun erlang:is_binary/1, Sig) of
                           false -> throw({invalid_signature,Sig});
                           true -> ok
                       end,
                       maps:map(fun(_Key,Doc) -> validate(Doc) end, Docs)
-              end, AllDocs);
+              end, AllDocs),
+    ok;
 validate([H|T]) when is_tuple(H) ->
     _ = validate(H),
     validate(T);
@@ -89,7 +90,10 @@ validate({Tag,Attr,Content}) ->
         true ->
             ok
     end,
-    true = is_list(Attr),
+    case lists:all(fun({Key,Val}) -> is_atom(Key) andalso is_binary(Val) end,Attr) of
+        true -> ok;
+        false -> throw({invalid_attribute,{Tag,Attr}})
+    end,
     validate(Content);
 validate([Chars | T]) when is_binary(Chars) ->
     validate(T);
@@ -483,21 +487,21 @@ render_element({pre,_,Content},State,Pos,Ind,D) ->
     %% For pre we make sure to respect the newlines in pre
     trimnlnl(render_docs(Content, [pre|State], Pos, Ind+2, D));
 
-render_element({ul,[{class,"types"}],Content},State,_Pos,Ind,D) ->
+render_element({ul,[{class,<<"types">>}],Content},State,_Pos,Ind,D) ->
     {Docs, _} = render_docs(Content, [types|State], 0, Ind+2, D),
     trimnlnl(["Types:\n", Docs]);
 render_element({li,Attr,Content},[types|_] = State,Pos,Ind,C) ->
     Doc =
         case {proplists:get_value(name, Attr),proplists:get_value(class, Attr)} of
-            {undefined,Class} when Class =:= undefined; Class =:= "type" ->
+            {undefined,Class} when Class =:= undefined; Class =:= <<"type">> ->
                 %% Inline html for types
                 render_docs(Content,[type|State],Pos,Ind,C);
-            {_,"description"} ->
+            {_,<<"description">>} ->
                 %% Inline html for type descriptions
                 render_docs(Content,[type|State],Pos,Ind+2,C);
             {Name,_} ->
                 %% Try to render from type metadata
-                case render_type_signature(list_to_atom(Name),C) of
+                case render_type_signature(binary_to_atom(Name),C) of
                     undefined when Content =:= [] ->
                         %% Failed and no content, emit place-holder
                         {["-type ",Name,"() :: term()."],0};
