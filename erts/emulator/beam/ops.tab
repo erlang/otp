@@ -262,8 +262,17 @@ raise Trace Value => move Trace x | move Value x=1 | move x x=2 | i_raise
 i_raise
 
 # Internal now, but could be useful to make known to the compiler.
-badarg j
-system_limit j
+badarg/1
+badarg p => badarg_body
+badarg Fail=f => jump Fail
+
+badarg_body
+
+system_limit/1
+system_limit p => system_limit_body
+system_limit Fail=f => jump Fail
+
+system_limit_body
 
 %hot
 
