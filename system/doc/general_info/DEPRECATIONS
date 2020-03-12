@@ -1,0 +1,174 @@
+#
+# This file contains additional information about each
+# deprecated function, namely in what release it was
+# deprecated and whether it is scheduled for removal.
+#
+# Examples:
+#
+#     foo:bar/1 since=23
+#
+# The function foo:bar/1 was deprecated in OTP 23.
+# Nothing has been decided yet about its eventual
+# removal.
+#
+#     foo:bar/3 since=23 remove=25
+#
+# The function foo:bar/3 was deprecated in OTP 23 and
+# is scheduled to be removed in OTP 25.
+#
+
+
+#
+# Added in OTP 23.
+#
+
+http_uri:parse/1 since=23 remove=25
+http_uri:parse/2 since=23 remove=25
+http_uri:encode/1 since=23 remove=25
+http_uri:decode/1 since=23 remove=25
+http_uri:scheme_defaults/0 since=23 remove=25
+httpd:parse_query/1 since=23
+pg2:_/_ since=23 remove=24
+filename:safe_relative_path/1 since=23 remove=25
+
+#
+# Added in OTP 22.
+#
+
+crypto:block_decrypt/3 since=22 remove=24
+crypto:block_decrypt/4 since=22 remove=24
+crypto:block_encrypt/3 since=22 remove=24
+crypto:block_encrypt/4 since=22 remove=24
+crypto:cmac/3 since=22 remove=24
+crypto:cmac/4 since=22 remove=24
+crypto:hmac/3 since=22 remove=24
+crypto:hmac/4 since=22 remove=24
+crypto:hmac_final/1 since=22 remove=24
+crypto:hmac_final_n/2 since=22 remove=24
+crypto:hmac_init/2 since=22 remove=24
+crypto:hmac_update/2 since=22 remove=24
+crypto:next_iv/_ since=22 remove=24
+crypto:poly1305/2 since=22 remove=24
+crypto:stream_decrypt/2 since=22 remove=24
+crypto:stream_encrypt/2 since=22 remove=24
+crypto:stream_init/_ since=22 remove=24
+
+net:call/4 since=22
+net:cast/4 since=22
+net:broadcast/3 since=22
+net:ping/1 since=22
+net:sleep/1 since=22
+net:relay/1 since=22
+
+sys:get_debug/3 since=22
+
+#
+# Added in OTP 21.
+#
+
+ssl:ssl_accept/_ since=21
+
+#
+# Added in OTP 20.
+#
+
+crypto:rand_uniform/2 since=20
+erlang:get_stacktrace/0 since=20 remove=24
+filename:find_src/_ since=20 remove=24
+gen_fsm:_/_ since=20
+
+#
+# Added in OTP 19.
+#
+
+code:rehash/0 since=19
+crypto:rand_bytes/1 since=19
+queue:lait/1 since=19
+random:_/_ since=19
+
+#
+# Added in OTP 18.
+#
+
+erlang:now/0 since=18
+
+#
+# Added in OTP 16.
+#
+
+snmpa:old_info_format/1 since=16
+megaco:format_versions/1 since=16
+
+wxCalendarCtrl:enableYearChange/1 since=16
+wxCalendarCtrl:enableYearChange/2 since=16
+wxDC:computeScaleAndOrigin/1 since=16
+wxClientDC:new/0 since=16
+wxPaintDC:new/0 since=16
+wxWindowDC:new/0 since=16
+wxGraphicsRenderer:createLinearGradientBrush/7 since=16
+wxGraphicsRenderer:createRadialGradientBrush/8 since=16
+wxGridCellEditor:endEdit/4 since=16
+wxGridCellEditor:paintBackground/3 since=16
+wxIdleEvent:canSend/1 since=16
+wxMDIClientWindow:new/1 since=16
+wxMDIClientWindow:new/2 since=16
+wxPostScriptDC:getResolution/0 since=16
+wxPostScriptDC:setResolution/1 since=16
+wxCursor:new/3 since=16
+wxCursor:new/4 since=16
+
+#
+# Added in OTP 12.
+#
+
+auth:is_auth/1 since=12
+auth:cookie/0 since=12
+auth:cookie/1 since=12
+auth:node_cookie/_ since=12
+
+calendar:local_time_to_universal_time/1 since=12
+
+#
+# Added in OTP 10.
+#
+
+snmp:c/1 since=10 remove=24
+snmp:c/2 since=10 remove=24
+snmp:compile/3 since=10 remove=24
+snmp:is_consistent/1 since=10 remove=24
+snmp:mib_to_hrl/1 since=10 remove=24
+snmp:change_log_size/1 since=10 remove=24
+snmp:log_to_txt/2 since=10 remove=24
+snmp:log_to_txt/3 since=10 remove=24
+snmp:log_to_txt/4 since=10 remove=24
+snmp:current_request_id/0 since=10 remove=24
+snmp:current_community/0 since=10 remove=24
+snmp:current_address/0 since=10 remove=24
+snmp:current_context/0 since=10 remove=24
+snmp:current_net_if_data/0 since=10 remove=24
+snmp:get_symbolic_store_db/0 since=10 remove=24
+snmp:name_to_oid/1 since=10 remove=24
+snmp:name_to_oid/2 since=10 remove=24
+snmp:oid_to_name/1 since=10 remove=24
+snmp:oid_to_name/2 since=10 remove=24
+snmp:int_to_enum/2 since=10 remove=24
+snmp:int_to_enum/3 since=10 remove=24
+snmp:enum_to_int/2 since=10 remove=24
+snmp:enum_to_int/3 since=10 remove=24
+snmp:get/2 since=10 remove=24
+snmp:info/1 since=10 remove=24
+snmp:load_mibs/2 since=10 remove=24
+snmp:unload_mibs/2 since=10 remove=24
+snmp:dump_mibs/0 since=10 remove=24
+snmp:dump_mibs/1 since=10 remove=24
+snmp:register_subagent/3 since=10 remove=24
+snmp:unregister_subagent/2 since=10 remove=24
+snmp:send_notification/3 since=10 remove=24
+snmp:send_notification/4 since=10 remove=24
+snmp:send_notification/5 since=10 remove=24
+snmp:send_notification/6 since=10 remove=24
+snmp:send_trap/3 since=10 remove=24
+snmp:send_trap/4 since=10 remove=24
+snmp:add_agent_caps/2 since=10 remove=24
+snmp:del_agent_caps/1 since=10 remove=24
+snmp:get_agent_caps/0 since=10 remove=24

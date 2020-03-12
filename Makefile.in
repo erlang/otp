@@ -522,10 +522,7 @@ $(APPS):
 ## Generate `otp_internal` from the -deprecated() attributes in source.
 ##
 deprecations: all
-	$(ERL_TOP)/lib/stdlib/scripts/update_deprecations \
-	    $(ERL_TOP)/lib/*/ebin $(ERL_TOP)/erts/preloaded/ebin \
-	    > $(ERL_TOP)/lib/stdlib/src/otp_internal.erl \
-	    && $(MAKE) stdlib
+	$(ERL_TOP)/lib/stdlib/scripts/update_deprecations update $(ERL_TOP)
 
 preloaded:
 	$(make_verbose)cd erts/preloaded/src && \
