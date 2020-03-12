@@ -29,7 +29,7 @@
 init_per_testcase(_Case, Config) ->
     Config.
 
-end_per_testcase(_Case, Config) ->
+end_per_testcase(_Case, _Config) ->
     ok.
 
 suite() ->
@@ -99,24 +99,28 @@ links(_Config) ->
       end).
 
 check_links(Mod, [{a,Attr,C}|T]) ->
-    TargetMod = binary_to_atom(proplists:get_value(module, Attr, atom_to_binary(Mod))),
-    case code:get_doc(TargetMod) of
-        {ok, _ModDoc} ->
-            case {proplists:get_value(function, Attr), proplists:get_value(arity, Attr) } of
-                {undefined, undefined} ->
-                    ok;
-                {Func, Arity} ->
-                    case shell_docs:get_doc(TargetMod,
-                                            binary_to_atom(Func),
-                                            binary_to_integer(Arity)) of
-                        [_]  -> ok;
-                        _Else -> throw({could_not_find,TargetMod,
-                                        binary_to_atom(Func),
-                                        binary_to_integer(Arity)})
-                    end
+    case proplists:get_value(rel,Attr) of
+        <<"https://erlang.org/doc/link/seemfa">> ->
+            case string:lexemes(proplists:get_value(href, Attr),":#/") of
+                [_App,TargetMod,Func,Arity] ->
+                    case code:get_doc(b2a(TargetMod)) of
+                        {ok, _ModDoc} ->
+                            case shell_docs:get_doc(b2a(TargetMod),
+                                                    b2a(Func),
+                                                    binary_to_integer(Arity)) of
+                                [] -> throw({could_not_find,b2a(TargetMod),
+                                                b2a(Func),
+                                                binary_to_integer(Arity)});
+                                _Else  -> ok
+                            end;
+                        _Else ->
+                            throw({could_not_find, TargetMod, Attr})
+                    end;
+                _Callback ->
+                    ok
             end;
-        _Else ->
-            throw({could_not_find, TargetMod})
+        _OtherlinkType ->
+            ok
     end,
     check_links(Mod, C),
     check_links(Mod, T);
@@ -127,6 +131,13 @@ check_links(Mod, [C|T]) when is_binary(C) ->
     check_links(Mod, T);
 check_links(_, []) ->
     ok.
+
+%% Special binary_to_atom that deals with <<"'and'">>
+b2a(Bin) ->
+    case erl_scan:string(binary_to_list(Bin)) of
+        {ok,[{atom,_,A}],_} -> A;
+        {ok,[{A,_}],_} -> A
+    end.
 
 docsmap(Fun) ->
     lists:map(fun F({Mod,_,_}) ->
