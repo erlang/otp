@@ -84,7 +84,7 @@ obsolete(http_uri, scheme_defaults, 0) ->
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
 obsolete(megaco, format_versions, 1) ->
-    {deprecated, "use megaco:print_version_info/0,1 instead"};
+    {deprecated, "use megaco:print_version_info/0,1 instead."};
 obsolete(net, broadcast, 3) ->
     {deprecated, "use rpc:eval_everywhere/3 instead"};
 obsolete(net, call, 4) ->
@@ -183,6 +183,10 @@ obsolete(snmpa, old_info_format, 1) ->
     {deprecated, "use \"new\" format instead"};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
+obsolete(wxCalendarCtrl, enableYearChange, 1) ->
+    {deprecated, "not available in wxWidgets-2.9 and later"};
+obsolete(wxCalendarCtrl, enableYearChange, 2) ->
+    {deprecated, "not available in wxWidgets-2.9 and later"};
 obsolete(wxClientDC, new, 0) ->
     {deprecated, "not available in wxWidgets-2.9 and later"};
 obsolete(wxCursor, new, 3) ->
@@ -399,8 +403,6 @@ obsolete(filename, find_src, _) ->
     {deprecated, "use filelib:find_source/1,3 instead"};
 obsolete(ssl, ssl_accept, _) ->
     {deprecated, "use ssl_handshake/1,2,3 instead"};
-obsolete(wxCalendarCtrl, enableYearChange, _) ->
-    {deprecated, "not available in wxWidgets-2.9 and later"};
 obsolete(asn1ct, decode, _) ->
     {removed, "use Mod:decode/2 instead"};
 obsolete(asn1ct, encode, _) ->
