@@ -714,6 +714,7 @@ grab_bag(_Config) ->
     whatever = grab_bag_10(ignore, whatever),
     other = grab_bag_11(),
     {'EXIT',_} = (catch grab_bag_12()),
+    {'EXIT',{{badmatch,[]},_}} = (catch grab_bag_13()),
     ok.
 
 grab_bag_1() ->
@@ -847,6 +848,21 @@ grab_bag_12() ->
     %% That would not be safe because x0 is not initialized.
     check_process_code(1, (#{})#{key := teacher}),
     ok.
+
+grab_bag_13() ->
+    %% If sys_core_fold was skipped, beam_ssa_beam would leave
+    %% unreachable code with invalid phi nodes.
+    case <<810:true>> = [] of
+        <<709:false>> ->
+            ok;
+        whatever ->
+            case 42 of
+                175 ->
+                    {ok,case "b" of
+                            $X -> time
+                        end}
+            end
+    end.
 
 coverage(_Config) ->
 
