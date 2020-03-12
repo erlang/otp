@@ -543,6 +543,8 @@ key_update_at(Version, #{security_parameters :=
         ?CHACHA20_POLY1305 ->
             seq_num_wrap;
         ?AES_CCM ->
+            KeyUpdateAt;
+        ?AES_CCM_8 ->
             KeyUpdateAt
     end;
 key_update_at(_, _, KeyUpdateAt) ->

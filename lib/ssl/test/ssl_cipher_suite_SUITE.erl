@@ -136,7 +136,8 @@ tls_1_3_cipher_suites() ->
     [aes_256_gcm_sha384,
      aes_128_gcm_sha256,
      chacha20_poly1305_sha256,
-     aes_128_ccm_sha256
+     aes_128_ccm_sha256,
+     aes_128_ccm_8_sha256
     ].
 
 kex() ->
@@ -365,6 +366,17 @@ init_per_testcase(aes_128_ccm_sha256, Config) ->
         _ ->
             {skip, "Missing AES_128_CCM_SHA256 crypto support"}
     end;
+init_per_testcase(aes_128_ccm_8_sha256, Config) ->
+    SupCiphers = proplists:get_value(ciphers, crypto:supports()),
+    SupHashs = proplists:get_value(hashs, crypto:supports()),
+    case (lists:member(aes_128_ccm, SupCiphers)) andalso
+        (lists:member(sha256, SupHashs)) of
+        true ->
+            ct:timetrap({seconds, 5}),
+            Config;
+        _ ->
+            {skip, "Missing AES_128_CCM_8_SHA256 crypto support"}
+    end;
 init_per_testcase(TestCase, Config) ->
     Cipher = ssl_test_lib:test_cipher(TestCase, Config),
     SupCiphers = proplists:get_value(ciphers, crypto:supports()),
@@ -495,7 +507,11 @@ chacha20_poly1305_sha256(Config) when is_list(Config) ->
 
 aes_128_ccm_sha256(Config) when is_list(Config) ->
     Version = ssl_test_lib:protocol_version(Config),
-    cipher_suite_test(ssl:str_to_suite("TLS_AES_128_CCM_SHA256"), Version, Config). 
+    cipher_suite_test(ssl:str_to_suite("TLS_AES_128_CCM_SHA256"), Version, Config).
+
+aes_128_ccm_8_sha256(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    cipher_suite_test(ssl:str_to_suite("TLS_AES_128_CCM_8_SHA256"), Version, Config).
 
 %%--------------------------------------------------------------------
 %% SRP --------------------------------------------------------
