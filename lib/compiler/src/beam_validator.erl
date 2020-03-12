@@ -1257,6 +1257,7 @@ verify_return(#vst{current=#st{recv_marker=Mark}}) when Mark =/= none ->
     %% the message.
     error({return_with_receive_marker,Mark});
 verify_return(Vst) ->
+    assert_float_checked(Vst),
     verify_no_ct(Vst),
     kill_state(Vst).
 
