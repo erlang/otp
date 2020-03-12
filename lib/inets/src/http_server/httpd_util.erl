@@ -33,6 +33,8 @@
 	 dir_validate/2, file_validate/2, mime_type_validate/1, 
 	 mime_types_validate/1, custom_date/0, error_log/2]).
 
+-compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
+-compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).
 -export([encode_hex/1, decode_hex/1]).
 -include_lib("kernel/include/file.hrl").
 -include_lib("inets/include/httpd.hrl").
