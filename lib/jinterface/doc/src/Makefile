@@ -70,31 +70,13 @@ include $(JAVA_SRC_PATH)/java_files
 
 JAVA_SRC_FILES = $(JAVA_FILES:%=$(JAVA_SRC_PATH)/%.java)
 
-JAVA_DOC_FILES = \
-	overview-tree.html \
-	index-all.html \
-	deprecated-list.html \
-	allclasses-frame.html \
-	index.html \
-	serialized-form.html \
-	package-list \
-	stylesheet.css \
-	help-doc.html
-
-JAVA_GEN_FILES = \
-	$(JAVA_FILES:%=$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/%.html) \
-	$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/package-summary.html \
-	$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/package-tree.html \
-	$(JAVADOC_DEST)/$(JAVA_PKG_PATH)/package-frame.html
-
 # ----------------------------------------------------
 
 
-jdoc:$(JAVA_SRC_FILES)
+../html/java/index.html: $(JAVA_SRC_FILES)
 	(cd ../../java_src;$(JAVADOC) -sourcepath . -d $(JAVADOC_DEST) \
 		-windowtitle $(JAVADOC_TITLE) $(JAVADOC_PKGS))
-	touch jdoc
 
-docs: jdoc
+html: ../html/java/index.html
 
 include $(ERL_TOP)/make/doc.mk
