@@ -35,18 +35,18 @@
                   io_columns = element(2,io:columns())
                 }).
 
--define(ALL_ELEMENTS,[a,p,h1,h2,h3,i,br,em,pre,code,ul,ol,li,dl,dt,dd]).
+-define(ALL_ELEMENTS,[a,p,'div',h1,h2,h3,i,br,em,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
 -define(INLINE,[i,br,em,code,a]).
 -define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= code)
                          orelse ((ELEM) =:= i) orelse ((ELEM) =:= br)
                          orelse ((ELEM) =:= em))).
 %% non-inline elements are:
--define(BLOCK,[p,pre,ul,ol,li,dl,dt,dd,h1,h2,h3]).
+-define(BLOCK,[p,'div',pre,ul,ol,li,dl,dt,dd,h1,h2,h3]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
--type chunk_element_type() :: a | p | i | br | em | pre | code | ul |
+-type chunk_element_type() :: a | p | 'div' | i | br | em | pre | code | ul |
                               ol | li | dl | dt | dd.
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
 -type chunk_element_attrs() :: [chunk_element_attr()].
@@ -71,19 +71,25 @@ validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
     true = lists:all(fun(Elem) -> ?IS_INLINE(Elem) end, ?INLINE),
     true = lists:all(fun(Elem) -> ?IS_BLOCK(Elem) end, ?BLOCK),
 
-    _ = maps:map(fun(_Key,MDoc) -> validate(MDoc) end, MDocs),
+    _ = maps:map(fun(_Key,MDoc) -> validate(MDoc,[]) end, MDocs),
     lists:foreach(fun({_,_Anno, Sig, Docs, _Meta}) ->
                       case lists:all(fun erlang:is_binary/1, Sig) of
                           false -> throw({invalid_signature,Sig});
                           true -> ok
                       end,
-                      maps:map(fun(_Key,Doc) -> validate(Doc) end, Docs)
+                      maps:map(fun(_Key,Doc) -> validate(Doc,[]) end, Docs)
               end, AllDocs),
-    ok;
-validate([H|T]) when is_tuple(H) ->
-    _ = validate(H),
-    validate(T);
-validate({Tag,Attr,Content}) ->
+    ok.
+validate([H|T],Path) when is_tuple(H) ->
+    _ = validate(H,Path),
+    validate(T,Path);
+validate({Tag,Attr,Content},Path) ->
+    case Tag =:= p andalso lists:member(p, Path) of
+        true ->
+            throw({nested,p,not_allowed});
+        false ->
+            ok
+    end,
     case lists:member(Tag,?ALL_ELEMENTS) of
         false ->
             throw({invalid_tag,Tag});
@@ -94,10 +100,10 @@ validate({Tag,Attr,Content}) ->
         true -> ok;
         false -> throw({invalid_attribute,{Tag,Attr}})
     end,
-    validate(Content);
-validate([Chars | T]) when is_binary(Chars) ->
-    validate(T);
-validate([]) ->
+    validate(Content,[Tag | Path]);
+validate([Chars | T], Path) when is_binary(Chars) ->
+    validate(T, Path);
+validate([],_) ->
     ok.
 
 %% Follows algorithm described here:
@@ -451,11 +457,11 @@ render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
 render_element({Elem,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind, ?IS_BLOCK(Elem) ->
     {Docs,NewPos} = render_element(E,State,0,Ind,D),
     {["\n",Docs],NewPos};
-render_element({p,[{class,What}],Content},State,Pos,Ind,D) ->
-    {Docs,_} = render_docs(Content, [p|State], 0, Ind+2, D),
+render_element({'div',[{class,What}],Content},State,Pos,Ind,D) ->
+    {Docs,_} = render_docs(Content, ['div'|State], 0, Ind+2, D),
     trimnlnl([pad(Ind - Pos),string:titlecase(What),":\n",Docs]);
-render_element({p,_,Content},State,Pos,Ind,D) ->
-    trimnlnl(render_docs(Content, [p|State], Pos, Ind,D));
+render_element({Tag,_,Content},State,Pos,Ind,D) when Tag =:= p; Tag =:= 'div' ->
+    trimnlnl(render_docs(Content, [Tag|State], Pos, Ind,D));
 
 render_element(Elem,State,Pos,Ind,D) when Pos < Ind ->
 %    io:format("Pad: ~p~n",[Ind - Pos]),

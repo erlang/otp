@@ -181,7 +181,7 @@ build_dom({endElement, _Uri, LocalName, _QName},
                     title ->
                         lists:nth(SectionDepth+1,[h1,h2,h3]);
                     section when SectionDepth > 0 ->
-                        p;
+                        'div';
                     CName -> CName
                 end,
 
@@ -361,7 +361,7 @@ transform([{url,Attrs,Content}|T],Acc) ->
 %% transform note/warning/do/don't to <p class="thing">
 transform([{What,[],Content}|T],Acc)
   when What =:= note; What =:= warning; What =:= do; What =:= dont ->
-    WhatP = {p,[{class,atom_to_binary(What)}], transform(Content,[])},
+    WhatP = {'div',[{class,atom_to_binary(What)}], transform(Content,[])},
     transform(T,[WhatP|Acc]);
 
 transform([{type,_,[]}|_] = Dom,Acc) ->
@@ -414,6 +414,8 @@ transform([{input,_,Content}|T],Acc) ->
 
 transform([{p,Attr,Content}|T],Acc) ->
     transform(T,[{p,a2b(Attr),transform(Content,[])}|Acc]);
+transform([{'div',Attr,Content}|T],Acc) ->
+    transform(T,[{'div',a2b(Attr),transform(Content,[])}|Acc]);
 
 %% Tag and Attr is used as is but Content is transformed
 transform([{Tag,Attr,Content}|T],Acc) ->
