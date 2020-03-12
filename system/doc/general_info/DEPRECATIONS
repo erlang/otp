@@ -31,6 +31,39 @@ httpd:parse_query/1 since=23
 pg2:_/_ since=23 remove=24
 filename:safe_relative_path/1 since=23 remove=25
 
+snmpm:sync_get/3 since=23 remove=25
+snmpm:sync_get/4 since=23 remove=25
+snmpm:sync_get/5 since=23 remove=25
+snmpm:sync_get/6 since=23 remove=25
+snmpm:async_get/3 since=23 remove=25
+snmpm:async_get/4 since=23 remove=25
+snmpm:async_get/5 since=23 remove=25
+snmpm:async_get/6 since=23 remove=25
+snmpm:sync_get_next/3 since=23 remove=25
+snmpm:sync_get_next/4 since=23 remove=25
+snmpm:sync_get_next/5 since=23 remove=25
+snmpm:sync_get_next/6 since=23 remove=25
+snmpm:async_get_next/3 since=23 remove=25
+snmpm:async_get_next/4 since=23 remove=25
+snmpm:async_get_next/5 since=23 remove=25
+snmpm:async_get_next/6 since=23 remove=25
+snmpm:sync_set/3 since=23 remove=25
+snmpm:sync_set/4 since=23 remove=25
+snmpm:sync_set/5 since=23 remove=25
+snmpm:sync_set/6 since=23 remove=25
+snmpm:async_set/3 since=23 remove=25
+snmpm:async_set/4 since=23 remove=25
+snmpm:async_set/5 since=23 remove=25
+snmpm:async_set/6 since=23 remove=25
+snmpm:sync_get_bulk/5 since=23 remove=25
+snmpm:sync_get_bulk/6 since=23 remove=25
+snmpm:sync_get_bulk/7 since=23 remove=25
+snmpm:sync_get_bulk/8 since=23 remove=25
+snmpm:async_get_bulk/5 since=23 remove=25
+snmpm:async_get_bulk/6 since=23 remove=25
+snmpm:async_get_bulk/7 since=23 remove=25
+snmpm:async_get_bulk/8 since=23 remove=25
+
 #
 # Added in OTP 22.
 #
@@ -96,7 +129,7 @@ erlang:now/0 since=18
 # Added in OTP 16.
 #
 
-snmpa:old_info_format/1 since=16
+snmpa:old_info_format/1 since=16 remove=24
 megaco:format_versions/1 since=16 remove=24
 
 wxCalendarCtrl:enableYearChange/1 since=16
