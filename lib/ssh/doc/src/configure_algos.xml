@@ -41,6 +41,11 @@
     <p>The first subsection will give a short background of the SSH protocol while later sections describes
     the implementation and provides some examples</p>
 
+    <p>How the different levels of configuration "interfer" with this, see the section
+    <seealso marker="configurations#algorithm-configuration">Algorithm Configuration</seealso> in the chapter
+    <seealso marker="configurations">Configuration in SSH</seealso>.
+    </p>
+
     <section>
       <title>Basics of the ssh protocol's algorithms handling</title>
 
@@ -150,8 +155,10 @@
       <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso>. The options could of course
       be used in all other functions that initiates connections.</p>
       
-      <p>The options are <c>preferred_algorithms</c> and <c>modify_algorithms</c>. The first one
-      replaces the default set, while the latter modifies the default set.</p>
+      <p>The options are
+      <seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso> and
+      <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+      The first one replaces the default set, while the latter modifies the default set.</p>
     </section>
   </section>
       
