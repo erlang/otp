@@ -97,7 +97,7 @@ erlang:now/0 since=18
 #
 
 snmpa:old_info_format/1 since=16
-megaco:format_versions/1 since=16
+megaco:format_versions/1 since=16 remove=24
 
 wxCalendarCtrl:enableYearChange/1 since=16
 wxCalendarCtrl:enableYearChange/2 since=16
