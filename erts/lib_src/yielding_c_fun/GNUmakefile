@@ -32,7 +32,7 @@
 # file to build Yielding C Fun (YCF). The file "main_target.mk"
 # contains the necessary rules to build YCF and is included both by
 # this file and the Erlang/OTP file
-# $(ERL_TOP)/erts/emulator/Makefile.in. This file is intended for
+# $(ERL_TOP)/erts/lib_src/Makefile.in. This file is intended for
 # building YCF independently of Erlang/OTP. This file also contains
 # several special make targets (e.g., to invoke tests).
 #
@@ -103,7 +103,7 @@ Makefile: $(YCF_SOURCES)
 	echo '# file to build Yielding C Fun (YCF). The file "main_target.mk"' >> Makefile
 	echo '# contains the necessary rules to build YCF and is included both by' >> Makefile
 	echo '# this file and the Erlang/OTP file' >> Makefile
-	echo '# $$(ERL_TOP)/erts/emulator/Makefile.in. This file is intended for' >> Makefile
+	echo '# $$(ERL_TOP)/erts/lib_src/Makefile.in. This file is intended for' >> Makefile
 	echo '# building YCF independently of Erlang/OTP.' >> Makefile
 	echo '#' >> Makefile
 	echo  >> Makefile

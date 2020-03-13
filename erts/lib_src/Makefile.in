@@ -22,8 +22,13 @@ include $(ERL_TOP)/make/output.mk
 include $(ERL_TOP)/make/target.mk
 include ../include/internal/$(TARGET)/ethread.mk
 
-OMIT_OMIT_FP=no
+ifeq ($(TARGET),win32)
+EXE_SUFFIX=.exe
+else
+EXE_SUFFIX=
+endif
 
+OMIT_OMIT_FP=no
 
 CC=@CC@
 LD=@LD@
@@ -342,7 +347,11 @@ endif
 .PHONY: all
 all: $(OBJ_DIR)/MADE
 
-$(OBJ_DIR)/MADE: $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
+YCF_SOURCE_DIR=$(ERL_TOP)/erts/lib_src/yielding_c_fun
+
+include $(YCF_SOURCE_DIR)/main_target.mk
+
+$(OBJ_DIR)/MADE: $(YCF_EXECUTABLE) $(ETHREAD_LIB) $(ERTS_LIBS) $(ERTS_INTERNAL_LIBS)
 	$(gen_verbose)
 ifeq ($(OMIT_OMIT_FP),yes)
 	@echo '* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * *'
@@ -495,6 +504,7 @@ INTERNAL_RELEASE_LIBS= \
 
 .PHONY: release_spec
 release_spec: all
+	$(INSTALL_PROGRAM) $(YCF_EXECUTABLE) "$(RELSYSDIR)/bin"
 ifneq ($(strip $(RELEASE_INCLUDES)),)
 	$(INSTALL_DIR) "$(RELSYSDIR)/include"
 	$(INSTALL_DIR) "$(RELEASE_PATH)/usr/include"
@@ -537,6 +547,8 @@ clean:
 	$(RM) -r ../lib/internal/$(TARGET)/*
 	$(RM) -r ../lib/$(TARGET)/*
 	$(RM) -r obj/$(TARGET)/*
+	$(RM) yielding_c_fun/bin/$(TARGET)/*
+	$(RM) yielding_c_fun/$(TARGET)/*
 
 #
 # Make dependencies

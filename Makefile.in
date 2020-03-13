@@ -393,6 +393,7 @@ build_erl_interface:
 	$(make_verbose)cd lib/erl_interface && \
 	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)"$${PATH}" \
 		$(MAKE) $(TYPE)
+
 #
 # Use these targets when you want to use the erl and erlc
 # binaries in your PATH instead of those created from the
@@ -483,7 +484,8 @@ ifeq ($(USE_PGO), true)
 PROFILE=use
 PROFILE_EMU_DEPS=emulator_profile_generate bootstrap_setup
 emulator_profile_generate:
-	$(make_verbose)cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR) PROFILE=generate
+	$(make_verbose)cd erts && PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
+		$(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR) PROFILE=generate
 else
 PROFILE=
 PROFILE_EMU_DEPS=
@@ -531,9 +533,9 @@ preloaded:
 
 dep depend:
 	$(make_verbose)
-	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) generate)
-	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
-	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/lib_src && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
+	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) $(MAKE) generate)
+	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) $(MAKE) depend)
+	$(V_at)test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/lib_src && PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) $(MAKE) depend)
 
 # Creates "erl" and "erlc" in bootstrap/bin which uses the precompiled 
 # libraries in the bootstrap directory
@@ -553,7 +555,8 @@ bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/escript.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erl.ini \
-		$(BOOTSTRAP_ROOT)/bootstrap/bin/beam.dll
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/beam.dll \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun.exe
 	make_bootstrap_ini.sh $(BOOTSTRAP_ROOT)/bootstrap \
 		$(ERL_TOP)/bin/$(TARGET)
 	@cp $(ERL_TOP)/bin/$(TARGET)/erlc.exe \
@@ -562,8 +565,10 @@ bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/erl.exe
 	@cp $(ERL_TOP)/bin/$(TARGET)/escript.exe \
 		$(BOOTSTRAP_ROOT)/bootstrap/bin/escript.exe
+	@cp $(ERL_TOP)/erts/lib_src/yielding_c_fun/bin/$(TARGET)/yielding_c_fun.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun.exe
 else
-bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/escript
+bootstrap_setup: check_recreate_primary_bootstrap bootstrap_setup_target $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/escript $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
 
 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl: $(ERL_TOP)/erts/etc/unix/erl.src.src $(BOOTSTRAP_ROOT)/bootstrap/target
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl 
@@ -583,6 +588,11 @@ $(BOOTSTRAP_ROOT)/bootstrap/bin/escript: $(ERL_TOP)/bin/$(TARGET)/escript $(BOOT
 	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/escript
 	@cp $(ERL_TOP)/bin/$(TARGET)/escript $(BOOTSTRAP_ROOT)/bootstrap/bin/escript
 	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/escript
+
+$(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun: $(ERL_TOP)/bin/$(TARGET)/escript $(BOOTSTRAP_ROOT)/bootstrap/target
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
+	@cp $(ERL_TOP)/erts/lib_src/yielding_c_fun/bin/$(TARGET)/yielding_c_fun $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
+	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/yielding_c_fun
 endif
 
 bootstrap_setup_target:

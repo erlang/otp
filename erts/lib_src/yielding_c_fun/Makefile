@@ -12,7 +12,7 @@
 # file to build Yielding C Fun (YCF). The file "main_target.mk"
 # contains the necessary rules to build YCF and is included both by
 # this file and the Erlang/OTP file
-# $(ERL_TOP)/erts/emulator/Makefile.in. This file is intended for
+# $(ERL_TOP)/erts/lib_src/Makefile.in. This file is intended for
 # building YCF independently of Erlang/OTP.
 #
 
