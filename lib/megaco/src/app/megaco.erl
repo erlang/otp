@@ -101,7 +101,7 @@
          formated_long_timestamp/0
         ]).
 
--deprecated([{format_versions,1,"use megaco:print_version_info/0,1 instead"}]).
+-deprecated([{format_versions, 1, "use megaco:print_version_info/0,1 instead."}]).
 
 -export_type([
               void/0
