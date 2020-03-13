@@ -944,6 +944,16 @@ simplify(#b_set{op=call,args=[#b_remote{}=Rem|Args]}=I, _Ts) ->
         #b_remote{} ->
             I
     end;
+simplify(#b_set{op=call,args=[#b_literal{val=Fun}|Args]}=I, _Ts)
+  when is_function(Fun, length(Args)) ->
+    FI = erlang:fun_info(Fun),
+    {module,M} = keyfind(module, 1, FI),
+    {name,F} = keyfind(name, 1, FI),
+    {arity,A} = keyfind(arity, 1, FI),
+    Rem = #b_remote{mod=#b_literal{val=M},
+                    name=#b_literal{val=F},
+                    arity=A},
+    I#b_set{args=[Rem|Args]};
 simplify(I, _Ts) -> I.
 
 will_succeed(#b_set{args=[Src]}, Ts, Ds, Sub) ->
@@ -1647,8 +1657,16 @@ type(call, [#b_var{} | _Args], Anno, _Ts, _Ds) ->
         #{ result_type := Type } -> Type;
         #{} -> any
     end;
-type(call, [#b_literal{} | _Args], _Anno, _Ts, _Ds) ->
-    none;
+type(call, [#b_literal{val=Fun} | Args], _Anno, _Ts, _Ds) ->
+    case is_function(Fun, length(Args)) of
+        true ->
+            %% This is an external fun literal (fun M:F/A).
+            any;
+        false ->
+            %% This is either not a fun literal or the number of
+            %% arguments is wrong.
+            none
+    end;
 type(get_hd, [Src], _Anno, Ts, _Ds) ->
     SrcType = #t_cons{} = normalized_type(Src, Ts), %Assertion.
     {RetType, _, _} = beam_call_types:types(erlang, hd, [SrcType]),

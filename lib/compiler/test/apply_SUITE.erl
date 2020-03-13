@@ -19,8 +19,9 @@
 %%
 -module(apply_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
-	 init_per_group/2,end_per_group/2,mfa/1,fun_apply/1]).
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
+	 init_per_group/2,end_per_group/2,
+         mfa/1,fun_apply/1,involved/1]).
 
 -export([foo/0,bar/1,baz/2]).
 
@@ -28,11 +29,15 @@
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
-all() -> 
-    [mfa, fun_apply].
+all() ->
+    [{group,p}].
 
-groups() -> 
-    [].
+groups() ->
+    [{p,test_lib:parallel(),
+      [mfa,
+       fun_apply,
+       involved
+      ]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -131,5 +136,41 @@ fun_apply(Config) when is_list(Config) ->
     {42,{a}} = ?FUNAPPLY2((id(fun ?MODULE:baz/2)), 42, {a}),
 
     ok.
+
+involved(_Config) ->
+    self() ! message,
+    ok = involved_1(),
+
+    self() ! message,
+    error = involved_2(),
+    ok.
+
+involved_1() ->
+    try
+        receive
+            _ ->
+                fun erlang:atom_to_list/1('')
+        end
+    of
+        [] ->
+            ok
+    catch
+        _:_ ->
+            error
+    end.
+
+involved_2() ->
+    try
+        receive
+            _ ->
+                fun erlang:atom_to_list/1()
+        end
+    of
+        [] ->
+            ok
+    catch
+        _:_ ->
+            error
+    end.
 
 id(I) -> I.
