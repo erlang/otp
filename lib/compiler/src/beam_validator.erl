@@ -22,6 +22,13 @@
 -include("beam_types.hrl").
 
 -define(UNICODE_MAX, (16#10FFFF)).
+
+%% When an instruction throws an exception it does so by branching (branch/4)
+%% to this label, following the {f,0} convention used in BIFs.
+%%
+%% Instructions that have fail labels but cannot throw exceptions should guard
+%% themselves with assert_no_exception/1, and instructions that are statically
+%% guaranteed not to fail should simply skip branching.
 -define(EXCEPTION_LABEL, 0).
 
 -compile({no_auto_import,[min/2]}).
@@ -360,9 +367,9 @@ vi_safe({bs_get_tail,Ctx,Dst,Live}, Vst0) ->
     extract_term(#t_bitstring{size_unit=Unit}, bs_get_tail, [Ctx], Dst,
                  Vst, Vst0);
 vi_safe(bs_init_writable=I, Vst) ->
-    call(I, 1, Vst);
+    validate_body_call(I, 1, Vst);
 vi_safe(build_stacktrace=I, Vst) ->
-    call(I, 1, Vst);
+    validate_body_call(I, 1, Vst);
 vi_safe({move,Src,Dst}, Vst) ->
     assign(Src, Dst, Vst);
 vi_safe({swap,RegA,RegB}, Vst0) ->
@@ -463,17 +470,21 @@ vi_safe({loop_rec,{f,Fail},Dst}, Vst) ->
     %% This term may not be part of the root set until remove_message/0 is
     %% executed. If control transfers to the loop_rec_end/1 instruction, no
     %% part of this term must be stored in a Y register.
+    assert_no_exception(Fail),
     branch(Fail, Vst,
            fun(SuccVst0) ->
                    {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
                    mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
            end);
-vi_safe({loop_rec_end,_}, Vst) ->
+vi_safe({loop_rec_end,Lbl}, Vst) ->
+    assert_no_exception(Lbl),
     verify_y_init(Vst),
     kill_state(Vst);
 vi_safe({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
+    assert_no_exception(Fail),
     set_receive_marker(initialized, Vst);
 vi_safe({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
+    assert_no_exception(Fail),
     set_receive_marker(committed, Vst);
 vi_safe(remove_message, Vst0) ->
     Vst = set_receive_marker(none, Vst0),
@@ -484,7 +495,8 @@ vi_safe(remove_message, Vst0) ->
 vi_safe(timeout, Vst0) ->
     Vst = set_receive_marker(none, Vst0),
     prune_x_regs(0, Vst);
-vi_safe({wait,_}, Vst) ->
+vi_safe({wait,Lbl}, Vst) ->
+    assert_no_exception(Lbl),
     verify_y_init(Vst),
     kill_state(Vst);
 
@@ -537,7 +549,7 @@ vi_safe({trim,N,Remaining}, #vst{current=St0}=Vst) ->
 %% Catch & try.
 vi_safe({'catch',Dst,{f,Fail}}, Vst) when Fail =/= none ->
     init_try_catch_branch(catchtag, Dst, Fail, Vst);
-vi_safe({'try',Dst,{f,Fail}}, Vst)  when Fail =/= none ->
+vi_safe({'try',Dst,{f,Fail}}, Vst) when Fail =/= none ->
     init_try_catch_branch(trytag, Dst, Fail, Vst);
 vi_safe({catch_end,Reg}, #vst{current=#st{ct=[Tag|_]}}=Vst0) ->
     case get_tag_type(Reg, Vst0) of
@@ -613,11 +625,10 @@ vi_safe({get_tuple_element,Src,N,Dst}, Vst) ->
     Type = beam_types:get_tuple_element(Index, Es),
     extract_term(Type, {bif,element}, [{integer,Index}, Src], Dst, Vst);
 vi_safe({jump,{f,Lbl}}, Vst) ->
-    branch(Lbl, Vst,
-           fun(SuccVst) ->
-                   %% The next instruction is never executed.
-                   kill_state(SuccVst)
-           end);
+    assert_no_exception(Lbl),
+
+    %% The next instruction is never executed.
+    branch(Lbl, Vst, fun kill_state/1);
 
 vi_safe(return, Vst) ->
     assert_durable_term({x,0}, Vst),
@@ -680,6 +691,7 @@ vi_safe({test,is_tagged_tuple,{f,Lbl},[Src,Sz,Atom]}, Vst) ->
     Type = #t_tuple{exact=true,size=Sz,elements=Es},
     type_test(Lbl, Type, Src, Vst);
 vi_safe({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    assert_no_exception(Lbl),
     validate_src(Ss, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
@@ -689,6 +701,7 @@ vi_safe({test,is_eq_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
                    update_eq_types(Src, Val, SuccVst)
            end);
 vi_safe({test,is_ne_exact,{f,Lbl},[Src,Val]=Ss}, Vst) ->
+    assert_no_exception(Lbl),
     validate_src(Ss, Vst),
     branch(Lbl, Vst,
            fun(FailVst) ->
@@ -741,8 +754,9 @@ vi_safe({test,bs_skip_bits2,{f,Fail},[Ctx,Size,Unit,_Flags]}, Vst) ->
 
     validate_bs_skip(Fail, Ctx, Stride, Vst);
 vi_safe({test,bs_test_tail2,{f,Fail},[Ctx,_Size]}, Vst) ->
+    assert_no_exception(Fail),
     assert_type(#t_bs_context{}, Ctx, Vst),
-    branch(Fail, Vst, fun(V) -> V end);
+    branch(Fail, Vst);
 vi_safe({test,bs_test_unit,{f,Fail},[Ctx,Unit]}, Vst) ->
     assert_type(#t_bs_context{}, Ctx, Vst),
     type_test(Fail, #t_bs_context{tail_unit=Unit}, Ctx, Vst);
@@ -784,7 +798,7 @@ vi_safe({test,bs_get_utf32=Op,{f,Fail},Live,[Ctx,_],Dst}, Vst) ->
 vi_safe({test,_Op,{f,Lbl},Src}, Vst) ->
     %% is_pid, is_reference, et cetera.
     validate_src(Src, Vst),
-    branch(Lbl, Vst, fun(V) -> V end);
+    branch(Lbl, Vst);
 vi_safe({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 vi_safe({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
@@ -802,7 +816,7 @@ vi_safe({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
         true ->
             %% Float arithmetic BIFs neither fail nor throw an exception;
             %% errors are postponed until the next fcheckerror instruction.
-            0 = Fail,                           %Assertion.
+            ?EXCEPTION_LABEL = Fail,            %Assertion.
             validate_float_arith_bif(Ss, Dst, Vst0);
         false ->
             validate_src(Ss, Vst0),
@@ -839,8 +853,7 @@ vi_safe({'%',_}, Vst) ->
 vi_safe({line,_}, Vst) ->
     Vst;
 
-vi_safe(I, Vst0) ->
-    Vst = branch_exception(Vst0),
+vi_safe(I, Vst) ->
     vi_float(I, Vst).
 
 validate_var_info([{fun_type, Type} | Info], Reg, Vst0) ->
@@ -862,43 +875,61 @@ validate_var_info([_ | Info], Reg, Vst) ->
 validate_var_info([], _Reg, Vst) ->
     Vst.
 
+%% Tail call.
+%%  The stackframe must have a known size and be initialized.
+%%  Does not return to the instruction following the call.
 validate_tail_call(Deallocate, Func, Live, #vst{current=#st{numy=NumY}}=Vst0) ->
     assert_float_checked(Vst0),
+
+    verify_y_init(Vst0),
+    verify_live(Live, Vst0),
+    verify_call_args(Func, Live, Vst0),
+
     case will_call_succeed(Func, Vst0) of
         yes when Deallocate =:= NumY ->
-            %% This call cannot fail, handle it without updating catch state.
-            tail_call(Func, Live, Vst0);
+            %% The call cannot fail; we don't need to handle exceptions
+            Vst = deallocate(Vst0),
+            verify_return(Vst);
         maybe when Deallocate =:= NumY ->
-            %% The call can fail, make sure that any catch state is updated.
-            Vst = branch_exception(Vst0),
-            tail_call(Func, Live, Vst);
+            %% The call may fail; make sure we update exception state
+            Vst = deallocate(Vst0),
+            branch(?EXCEPTION_LABEL, Vst, fun verify_return/1);
         no ->
-            %% The stack will be scanned, so Y registers must be initialized.
-            %%
             %% Note that the compiler is allowed to emit garbage values for
             %% "Deallocate" as we know that it will not be used in this case.
-            Vst = branch_exception(Vst0),
-            verify_live(Live, Vst),
-            verify_y_init(Vst),
-            kill_state(Vst);
+            branch(?EXCEPTION_LABEL, Vst0, fun kill_state/1);
         _ when Deallocate =/= NumY ->
             error({allocated, NumY})
     end.
 
+%% A "plain" call.
+%%  The stackframe must be initialized.
+%%  The instruction will return to the instruction following the call.
 validate_body_call(Func, Live,
-                   #vst{current=#st{numy=NumY}}=Vst0) when is_integer(NumY)->
-    assert_float_checked(Vst0),
-    case will_call_succeed(Func, Vst0) of
+                   #vst{current=#st{numy=NumY}}=Vst) when is_integer(NumY)->
+    assert_float_checked(Vst),
+
+    verify_y_init(Vst),
+    verify_live(Live, Vst),
+    verify_call_args(Func, Live, Vst),
+
+    SuccFun = fun(#vst{current=St0}=SuccVst0) -> 
+                      {RetType, _, _} = call_types(Func, Live, SuccVst0),
+                      true = RetType =/= none,  %Assertion.
+
+                      St = St0#st{f=init_fregs()},
+                      SuccVst = prune_x_regs(0, SuccVst0#vst{current=St}),
+
+                      create_term(RetType, call, [], {x,0}, SuccVst)
+              end,
+
+    case will_call_succeed(Func, Vst) of
         yes ->
-            call(Func, Live, Vst0);
+            SuccFun(Vst);
         maybe ->
-            Vst = branch_exception(Vst0),
-            call(Func, Live, Vst);
+            branch(?EXCEPTION_LABEL, Vst, SuccFun);
         no ->
-            Vst = branch_exception(Vst0),
-            verify_live(Live, Vst),
-            verify_y_init(Vst),
-            kill_state(Vst)
+            branch(?EXCEPTION_LABEL, Vst, fun kill_state/1)
     end;
 validate_body_call(_, _, #vst{current=#st{numy=NumY}}) ->
     error({allocated, NumY}).
@@ -911,8 +942,8 @@ assert_float_checked(Vst) ->
     end.
 
 init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
-    %% All potentially-throwing instructions after this one will implicitly
-    %% branch to the current try/catch handler; see the base case of vi_safe/2
+    assert_no_exception(Fail),
+
     Tag = {Kind, [Fail]},
     Vst = create_tag(Tag, 'try_catch', [], Dst, Vst0),
 
@@ -922,31 +953,20 @@ init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
  
     Vst#vst{current=St}.
 
-branch_exception(#vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst0)
-   when is_integer(Fail) ->
-    %% We have an active try/catch tag and we can jump there from this
-    %% instruction, so we need to update the branched state of the try/catch
-    %% handler.
-    #vst{current=St} = Vst0,
-
-    %% The receive marker is cleared on exceptions.
-    Vst1 = set_receive_marker(none, Vst0),
-    Vst = fork_state(Fail, Vst1),
-
-    Vst#vst{current=St};
-branch_exception(#vst{current=#st{ct=[]}}=Vst) ->
-    Vst;
-branch_exception(_) ->
-    error(ambiguous_catch_try_state).
-
 %% Handle the remaining floating point instructions here.
 vi_float({fconv,Src,{fr,_}=Dst}, Vst) ->
     assert_term(Src, Vst),
 
     branch(?EXCEPTION_LABEL, Vst,
+           fun(FailVst) ->
+                   %% This is a hack to supress assert_float_checked/1 in
+                   %% fork_state/2, since this instruction is legal even when
+                   %% the state is unchecked.
+                   set_fls(checked, FailVst)
+           end,
            fun(SuccVst0) ->
-               SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
-               set_freg(Dst, SuccVst)
+                   SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
+                   set_freg(Dst, SuccVst)
            end);
 vi_float(fclearerror, Vst) ->
     case get_fls(Vst) of
@@ -955,11 +975,12 @@ vi_float(fclearerror, Vst) ->
         Fls -> error({bad_floating_point_state,Fls})
     end,
     set_fls(cleared, Vst);
-vi_float({fcheckerror,_}, Vst) ->
-    assert_fls(cleared, Vst),
-    set_fls(checked, Vst);
+vi_float({fcheckerror,_}, Vst0) ->
+    assert_fls(cleared, Vst0),
+    Vst = set_fls(checked, Vst0),
+
+    branch(?EXCEPTION_LABEL, Vst);
 vi_float(I, Vst) ->
-    assert_float_checked(Vst),
     vi_throwing(I, Vst).
 
 %%%
@@ -967,19 +988,15 @@ vi_float(I, Vst) ->
 %%%
 vi_throwing({badmatch,Src}, Vst) ->
     assert_durable_term(Src, Vst),
-    verify_y_init(Vst),
-    kill_state(Vst);
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
 vi_throwing({case_end,Src}, Vst) ->
     assert_durable_term(Src, Vst),
-    verify_y_init(Vst),
-    kill_state(Vst);
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
 vi_throwing(if_end, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
 vi_throwing({try_case_end,Src}, Vst) ->
-    verify_y_init(Vst),
     assert_durable_term(Src, Vst),
-    kill_state(Vst);
+    branch(?EXCEPTION_LABEL, Vst, fun kill_state/1);
 vi_throwing({call_fun,Live}, Vst) ->
     Fun = {x,Live},
     assert_term(Fun, Vst),
@@ -1000,18 +1017,24 @@ vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
     verify_call_args(make_fun, NumFree, Vst),
     verify_y_init(Vst),
 
-    create_term(#t_fun{arity=Arity}, make_fun, [], {x,0}, Vst);
+    branch(?EXCEPTION_LABEL, Vst,
+           fun(SuccVst) ->
+                   Type = #t_fun{arity=Arity},
+                   create_term(Type, make_fun, [], {x,0}, SuccVst)
+           end);
 vi_throwing(raw_raise=I, Vst) ->
-    call(I, 3, Vst);
+    validate_body_call(I, 3, Vst);
 vi_throwing({wait_timeout,_,Src}, Vst) ->
     %% Note that the receive marker is not cleared since we may re-enter the
     %% loop while waiting. If we time out we'll be transferred to a timeout
     %% instruction that clears the marker.
     assert_term(Src, Vst),
     verify_y_init(Vst),
-    prune_x_regs(0, Vst);
+    prune_x_regs(0, Vst),
+
+    branch(?EXCEPTION_LABEL, Vst);
 vi_throwing(send, Vst) ->
-    call(send, 2, Vst);
+    validate_body_call(send, 2, Vst);
 vi_throwing({bs_add,{f,Fail},[A,B,_],Dst}, Vst) ->
     assert_term(A, Vst),
     assert_term(B, Vst),
@@ -1035,10 +1058,8 @@ vi_throwing({bs_init2,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     if
-	is_integer(Sz) ->
-	    ok;
-	true ->
-	    assert_term(Sz, Vst0)
+        is_integer(Sz) -> ok;
+        true -> assert_term(Sz, Vst0)
     end,
     Vst = heap_alloc(Heap, Vst0),
     branch(Fail, Vst,
@@ -1051,10 +1072,8 @@ vi_throwing({bs_init_bits,{f,Fail},Sz,Heap,Live,_,Dst}, Vst0) ->
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
     if
-	is_integer(Sz) ->
-	    ok;
-	true ->
-	    assert_term(Sz, Vst0)
+        is_integer(Sz) -> ok;
+        true -> assert_term(Sz, Vst0)
     end,
     Vst = heap_alloc(Heap, Vst0),
     branch(Fail, Vst,
@@ -1141,9 +1160,10 @@ verify_map_fields([Key | Keys], Map, Lbl, Vst) ->
         {_, _, _} -> verify_map_fields(Keys, Map, Lbl, Vst)
     end;
 verify_map_fields([], _Map, Lbl, Vst) ->
-    branch(Lbl, Vst, fun(V) -> V end).
+    branch(Lbl, Vst).
 
 verify_get_map(Fail, Src, List, Vst0) ->
+    assert_no_exception(Fail),
     assert_not_literal(Src),                    %OTP 22.
     assert_type(#t_map{}, Src, Vst0),
 
@@ -1208,18 +1228,27 @@ verify_put_map(Op, Fail, Src, Dst, Live, List, Vst0) ->
     assert_type(#t_map{}, Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
+
     _ = [assert_term(Term, Vst0) || Term <- List],
     Vst = heap_alloc(0, Vst0),
 
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   SuccVst = prune_x_regs(Live, SuccVst0),
-                   Keys = extract_map_keys(List),
-                   assert_unique_map_keys(Keys),
+    SuccFun = fun(SuccVst0) ->
+                      SuccVst = prune_x_regs(Live, SuccVst0),
+                      Keys = extract_map_keys(List),
+                      assert_unique_map_keys(Keys),
 
-                   Type = put_map_type(Src, List, Vst),
-                   create_term(Type, Op, [Src], Dst, SuccVst, SuccVst0)
-           end).
+                      Type = put_map_type(Src, List, Vst),
+                      create_term(Type, Op, [Src], Dst, SuccVst, SuccVst0)
+              end,
+
+    case Op of
+        put_map_exact ->
+            branch(Fail, Vst, SuccFun);
+        put_map_assoc ->
+            %% This instruction cannot fail.
+            ?EXCEPTION_LABEL = Fail,            %Assertion.
+            SuccFun(Vst)
+    end.
 
 put_map_type(Map0, List, Vst) ->
     Map = normalize(get_term_type(Map0, Vst)),
@@ -1268,29 +1297,19 @@ verify_return(Vst) ->
 %% have clobbered the sources.
 %%
 
-validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst0) ->
-    assert_float_checked(Vst0),
-    case {will_bif_succeed(Op, Ss, Vst0), Fail} of
+validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst) ->
+    assert_float_checked(Vst),
+    case {will_bif_succeed(Op, Ss, Vst), Fail} of
         {yes, _} ->
-            %% This BIF cannot fail (neither throw nor branch), handle it here
-            %% without updating catch state.
-            validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst0);
-        {no, 0} ->
-            %% The stack will be scanned, so Y registers must be initialized.
-            Vst = branch_exception(Vst0),
-            verify_y_init(Vst),
-            kill_state(Vst);
+            %% This BIF cannot fail (neither throw nor branch), make sure it's
+            %% handled without updating exception state.
+            validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst);
         {no, _} ->
-            %% The next instruction is never executed, this is essentially a
-            %% direct jump.
-            branch(Fail, Vst0, fun(SuccVst) -> kill_state(SuccVst) end);
-        {maybe, 0} ->
-            %% The BIF might throw an exception, make sure that any catch state
-            %% is updated.
-            Vst = branch_exception(Vst0),
-            validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst);
+            %% This BIF always fails; jump directly to the fail block or
+            %% exception handler.
+            branch(Fail, Vst, fun kill_state/1);
         {maybe, _} ->
-            validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst0)
+            validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst)
     end.
 
 validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst0) ->
@@ -1357,6 +1376,8 @@ validate_bs_start_match({atom,no_fail}, Live, Slots, Src, Dst, Vst0) ->
     Vst = prune_x_regs(Live, Vst1),
     extract_term(CtxType, bs_start_match, [Src], Dst, Vst, Vst0);
 validate_bs_start_match({f,Fail}, Live, Slots, Src, Dst, Vst) ->
+    assert_no_exception(Fail),
+
     branch(Fail, Vst,
            fun(FailVst) ->
                    update_type(fun subtract/2, #t_bs_matchable{}, Src, FailVst)
@@ -1370,6 +1391,8 @@ validate_bs_start_match({f,Fail}, Live, Slots, Src, Dst, Vst) ->
 %% Common code for validating bs_get* instructions.
 %%
 validate_bs_get(Op, Fail, Ctx, Live, Stride, Type, Dst, Vst) ->
+    assert_no_exception(Fail),
+
     assert_type(#t_bs_context{}, Ctx, Vst),
     verify_live(Live, Vst),
     verify_y_init(Vst),
@@ -1391,6 +1414,8 @@ validate_bs_skip(Fail, Ctx, Stride, Vst) ->
     validate_bs_skip(Fail, Ctx, Stride, no_live, Vst).
 
 validate_bs_skip(Fail, Ctx, Stride, Live, Vst) ->
+    assert_no_exception(Fail),
+
     assert_type(#t_bs_context{}, Ctx, Vst),
 
     #t_bs_context{tail_unit=TailUnit} = get_raw_type(Ctx, Vst),
@@ -1422,6 +1447,7 @@ type_test(Fail, Type, Reg, Vst) ->
     type_test_1(Fail, Type, Reg, Vst).
 
 type_test_1(Fail, Type, Reg, Vst) ->
+    assert_no_exception(Fail),
     branch(Fail, Vst,
            fun(FailVst) ->
                    update_type(fun subtract/2, Type, Reg, FailVst)
@@ -1461,30 +1487,6 @@ vm_1(_, Vst) -> Vst.
 
 kill_state(Vst) ->
     Vst#vst{current=none}.
-
-%% A "plain" call.
-%%  The stackframe must be initialized.
-%%  The instruction will return to the instruction following the call.
-call(Name, Live, #vst{current=St0}=Vst0) ->
-    verify_call_args(Name, Live, Vst0),
-    verify_y_init(Vst0),
-    case call_types(Name, Live, Vst0) of
-        {none, _, _} ->
-            kill_state(Vst0);
-        {RetType, _, _} ->
-            St = St0#st{f=init_fregs()},
-            Vst = prune_x_regs(0, Vst0#vst{current=St}),
-            create_term(RetType, call, [], {x,0}, Vst)
-    end.
-
-%% Tail call.
-%%  The stackframe must have a known size and be initialized.
-%%  Does not return to the instruction following the call.
-tail_call(Name, Live, Vst0) ->
-    verify_y_init(Vst0),
-    Vst = deallocate(Vst0),
-    verify_call_args(Name, Live, Vst),
-    verify_return(Vst).
 
 verify_call_args(_, 0, #vst{}) ->
     ok;
@@ -2157,6 +2159,11 @@ check_try_catch_tags(Type, {y,N}=Reg, Vst) ->
             ok
     end.
 
+assert_no_exception(?EXCEPTION_LABEL) ->
+    error(throws_exception);
+assert_no_exception(_) ->
+    ok.
+
 assert_term(Src, Vst) ->
     _ = get_term_type(Src, Vst),
     ok.
@@ -2356,7 +2363,7 @@ validate_branch_1(Lbl, [{trytag, FailLbls} | Tags]) ->
     end;
 validate_branch_1(Lbl, [_ | Tags]) ->
     validate_branch_1(Lbl, Tags);
-validate_branch_1(_Lbl, []) ->
+validate_branch_1(_Lbl, _Tags) ->
     ok.
 
 %% A shorthand version of branch/4 for when the state is only altered on
@@ -2364,13 +2371,36 @@ validate_branch_1(_Lbl, []) ->
 branch(Fail, Vst, SuccFun) ->
     branch(Fail, Vst, fun(V) -> V end, SuccFun).
 
+%% Shorthand of branch/4 for when the state is neither altered on failure nor
+%% success.
+branch(Fail, Vst) ->
+    branch(Fail, Vst, fun(V) -> V end).
+
 %% Directly branches off the state. This is an "internal" operation that should
 %% be used sparingly.
-fork_state(?EXCEPTION_LABEL, #vst{}=Vst) ->
-    %% If the instruction fails, the stack may be scanned looking for a catch
-    %% tag. Therefore the Y registers must be initialized at this point.
-    verify_y_init(Vst),
-    Vst;
+fork_state(?EXCEPTION_LABEL, Vst0) ->
+    #vst{current=#st{ct=CatchTags}} = Vst0,
+
+    %% Floating-point exceptions must be checked before any other kind of
+    %% exception can be raised.
+    assert_float_checked(Vst0),
+
+    %% The stack will be scanned looking for a catch tag, so all Y registers
+    %% must be initialized.
+    verify_y_init(Vst0),
+
+    case CatchTags of
+        [{_, [Fail]} | _] when is_integer(Fail) ->
+            true = Fail =/= ?EXCEPTION_LABEL,   %Assertion.
+            %% Clear the receive marker and fork to our exception handler.
+            Vst = set_receive_marker(none, Vst0),
+            fork_state(Fail, Vst);
+        [] ->
+            %% No catch handler; the exception leaves the function.
+            Vst0;
+        _ ->
+            error(ambiguous_catch_try_state)
+    end;
 fork_state(L, #vst{current=St0,branched=Branched0,ref_ctr=Counter0}=Vst) ->
     {St, Counter} = merge_states(L, St0, Branched0, Counter0),
     Branched = Branched0#{ L => St },
