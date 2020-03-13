@@ -715,6 +715,7 @@ grab_bag(_Config) ->
     other = grab_bag_11(),
     {'EXIT',_} = (catch grab_bag_12()),
     {'EXIT',{{badmatch,[]},_}} = (catch grab_bag_13()),
+    timeout = grab_bag_14(),
     ok.
 
 grab_bag_1() ->
@@ -862,6 +863,17 @@ grab_bag_13() ->
                             $X -> time
                         end}
             end
+    end.
+
+grab_bag_14() ->
+    %% If optimizations were turned off, beam_ssa_pre_codegen would
+    %% sanitize the binary construction instruction, replacing it with
+    %% a call to erlang:error/1, which is not allowed in a receive.
+    receive
+        #{<<42:(-1)>> := _} ->
+            ok
+    after 0 ->
+            timeout
     end.
 
 coverage(_Config) ->
