@@ -495,10 +495,10 @@ vi_safe(remove_message, Vst0) ->
 vi_safe(timeout, Vst0) ->
     Vst = set_receive_marker(none, Vst0),
     prune_x_regs(0, Vst);
-vi_safe({wait,Lbl}, Vst) ->
+vi_safe({wait,{f,Lbl}}, Vst) ->
     assert_no_exception(Lbl),
     verify_y_init(Vst),
-    kill_state(Vst);
+    branch(Lbl, Vst, fun kill_state/1);
 
 %%
 %% Calls; these may be okay when the try/catch state or stack is undecided,
@@ -1024,14 +1024,16 @@ vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
            end);
 vi_throwing(raw_raise=I, Vst) ->
     validate_body_call(I, 3, Vst);
-vi_throwing({wait_timeout,_,Src}, Vst) ->
+vi_throwing({wait_timeout,{f,Lbl},Src}, Vst0) ->
+    assert_no_exception(Lbl),
+
     %% Note that the receive marker is not cleared since we may re-enter the
     %% loop while waiting. If we time out we'll be transferred to a timeout
     %% instruction that clears the marker.
-    assert_term(Src, Vst),
-    verify_y_init(Vst),
-    prune_x_regs(0, Vst),
+    assert_term(Src, Vst0),
+    verify_y_init(Vst0),
 
+    Vst = branch(Lbl, prune_x_regs(0, Vst0)),
     branch(?EXCEPTION_LABEL, Vst);
 vi_throwing(send, Vst) ->
     validate_body_call(send, 2, Vst);
