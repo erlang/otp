@@ -1472,7 +1472,7 @@ is_safe_without_try([#b_set{op=kill_try_tag}|Is], Acc) ->
     %% Remove this kill_try_tag instruction. If there was a landingpad
     %% instruction in this block, it has already been removed. Preserve
     %% all other instructions in the block.
-    {done,reverse(Is, Acc)};
+    {done,reverse(Acc, Is)};
 is_safe_without_try([#b_set{op=extract}|_], _Acc) ->
     %% The error reason is accessed.
     unsafe;
