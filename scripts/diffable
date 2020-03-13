@@ -7,7 +7,7 @@
 -define(LONG_COMPILE_THRESHOLD, 10000).
 
 main(Args0) ->
-    DefOpts = #{format=>asm,no_compile=>false,legacy=>false},
+    DefOpts = #{format=>asm,no_compile=>false,legacy=>false,deterministic=>[]},
     {Args,Opts} = opts(Args0, DefOpts),
     case Args of
 	[OutDir] ->
@@ -19,10 +19,12 @@ main(Args0) ->
 usage() ->
     S = ["usage: otp-diffable-asm [OPTION] DIRECTORY\n\n"
          "Options:\n"
-         "  --asm          Output to .S files (default)\n"
-         "  --legacy-asm   Output to legacy .S files\n"
-         "  --dis          Output to .dis files\n"
-         "  --no-compile   Disassemble from BEAM files (use with --dis)\n"
+         "  --asm           Output to .S files (default)\n"
+         "  --legacy-asm    Output to legacy .S files\n"
+         "  --dis           Output to .dis files\n"
+         "  --no-compile    Disassemble from BEAM files (use with --dis)\n"
+         "  --deterministic Compile with +deterministic (useful when comparing"
+         "                  output from different build trees using --asm)"
          "\n"
          "DESCRIPTION\n"
          "\n"
@@ -82,6 +84,8 @@ opt("legacy-asm", Opts) ->
     Opts#{format:=asm,legacy:=true};
 opt("no-compile", Opts) ->
     Opts#{format:=dis,no_compile:=true};
+opt("deterministic", Opts) ->
+    Opts#{deterministic:=[deterministic]};
 opt(Opt, _Opts) ->
     io:format("Uknown option: --~ts\n\n", [Opt]),
     usage().
@@ -260,10 +264,11 @@ get_beams([]) -> [].
 compile_to_asm_fun(#{outdir:=OutDir}=Opts) ->
     fun(Spec) ->
             Legacy = map_get(legacy, Opts),
-            compile_to_asm(Spec, OutDir, Legacy)
+            Deterministic = map_get(deterministic, Opts),
+            compile_to_asm(Spec, OutDir, Legacy, Deterministic)
     end.
 
-compile_to_asm({Beam,elixir}, OutDir, _Legacy) ->
+compile_to_asm({Beam,elixir}, OutDir, _Legacy, _Deterministic) ->
     Abst = get_abstract_from_beam(Beam),
     Source = filename:rootname(Beam, ".beam"),
     Opts = [diffable,{outdir,OutDir},report_errors,{source,Source}],
@@ -273,8 +278,9 @@ compile_to_asm({Beam,elixir}, OutDir, _Legacy) ->
         error ->
             error
     end;
-compile_to_asm({File,Opts}, OutDir, Legacy) ->
-    case compile:file(File, [diffable,{outdir,OutDir},report_errors|Opts]) of
+compile_to_asm({File,Opts0}, OutDir, Legacy, Deterministic) ->
+    Opts = Deterministic ++ [diffable,{outdir,OutDir},report_errors|Opts0],
+    case compile:file(File, Opts) of
         {ok,_Mod} ->
             case Legacy of
                 true ->
