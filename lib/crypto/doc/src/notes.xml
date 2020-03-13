@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 4.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed potential memory leaks involving calls to the
+	    crypto ng_api.</p>
+          <p>
+	    Own Id: OTP-16428 Aux Id: PR-2511 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 4.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

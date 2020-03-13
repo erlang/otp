@@ -34,7 +34,31 @@
   </header>
 
 
-  <section><title>SNMP 5.4.5</title>
+  <section><title>SNMP 5.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A simple supervision of the snmp manager net-if process
+	    has been added. Also, a way to forcibly restart the
+	    net-if process has been added. This could be useful if
+	    the net-if process hangs for some reason.</p>
+          <p>
+	    Own Id: OTP-16447 Aux Id: ERIERL-455, OTP-16382 </p>
+        </item>
+        <item>
+          <p>
+	    Misc documentation corrections</p>
+          <p>
+	    Own Id: OTP-16450</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>SNMP 5.4.5</title>
 
     <section><title>Improvements and New Features</title>
       <list>

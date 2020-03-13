@@ -31,6 +31,24 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.13.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix link error "multiple definition of
+	    `ei_default_socket_callbacks'" for gcc version 10 or when
+	    built with gcc option -fno-common. Error exists since
+	    OTP-21.3.</p>
+          <p>
+	    Own Id: OTP-16412 Aux Id: PR-2503 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.13.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

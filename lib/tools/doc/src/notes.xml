@@ -31,6 +31,42 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An Emacs warning due to lacking type in defcustom
+	    declaration has been fixed.</p>
+          <p>
+	    Own Id: OTP-16356</p>
+        </item>
+        <item>
+          <p>
+	    Improve emacs indentation.</p>
+          <p>
+	    Own Id: OTP-16472 Aux Id: ERL-1140 </p>
+        </item>
+        <item>
+	    <p>The cover tool could generate instrumented code for a
+	    module that would cause warnings to be issued.</p>
+          <p>
+	    Own Id: OTP-16476 Aux Id: ERL-1147 </p>
+        </item>
+        <item>
+          <p>
+	    Fixed generated <seealso
+	    marker="tools:fprof#analysis">fprof analysis
+	    format</seealso> to also handle data in maps.</p>
+          <p>
+	    Own Id: OTP-16498 Aux Id: ERL-814 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

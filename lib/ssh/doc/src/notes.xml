@@ -30,6 +30,45 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Ssh 4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Unicode problems for ssh_sftp:write fixed.</p>
+          <p>
+	    Own Id: OTP-16377</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Changes to the internal api of the experimental ssh_dbg
+	    tool.</p>
+          <p>
+	    Own Id: OTP-16353</p>
+        </item>
+        <item>
+          <p>
+	    The new functions <seealso
+	    marker="ssh:ssh#set_sock_opts-2">ssh:set_sock_opts/2</seealso>
+	    and <seealso
+	    marker="ssh:ssh#get_sock_opts-2">ssh:get_sock_opts/2</seealso>
+	    sets and reads option values for the underlying TCP
+	    stream.</p>
+          <p>
+	    Own Id: OTP-16485</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Ssh 4.8.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

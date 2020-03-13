@@ -37,7 +37,38 @@
   section is the version number of Megaco.</p>
 
 
-  <section><title>Megaco 3.18.7</title>
+  <section><title>Megaco 3.18.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The documented function
+	    megaco:get_sdp_record_from_PropertGroup/2 was a wrapper
+	    for megaco_sdp:get_sdp_record_from_PropertGroup/2 but did
+	    not actually exist. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-16449</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Test suite completely reworked. Add (timestamp) utility
+	    functions for debugging and testing.</p>
+          <p>
+	    Own Id: OTP-16158</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Megaco 3.18.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

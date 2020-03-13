@@ -33,6 +33,34 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.18.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Document incl_apps cover option</p>
+          <p>
+	    Own Id: OTP-16039 Aux Id: ERL-795 </p>
+        </item>
+        <item>
+          <p>
+	    The <c>ct_property_test</c> has now a report function for
+	    results of stateful testing.</p>
+          <p>
+	    Own Id: OTP-16340</p>
+        </item>
+        <item>
+          <p>
+	    Don't hide error reasons from user</p>
+          <p>
+	    Own Id: OTP-16364 Aux Id: PR-2480 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.18.1</title>
 
     <section><title>Improvements and New Features</title>

@@ -31,6 +31,72 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 3.12</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix type specification for uri_string:normalize/2 that
+	    may also return error().</p>
+          <p>
+	    Own Id: OTP-16322</p>
+        </item>
+        <item>
+          <p>
+	    Improve error handling in uri_string:normalize/2. This
+	    change fixes a crash when the input URI has faulty
+	    percent-encoding.</p>
+          <p>
+	    Own Id: OTP-16351</p>
+        </item>
+        <item>
+	    <p> Fix minor bugs in the Erlang pretty printer
+	    (<c>erl_pp</c>). </p>
+          <p>
+	    Own Id: OTP-16435</p>
+        </item>
+        <item>
+	    <p> Fix the Erlang parser regarding consecutive unary
+	    operators. </p>
+          <p>
+	    Own Id: OTP-16439</p>
+        </item>
+        <item>
+	    <p> Let <c>calendar:rfc3339_to_system_time()</c> crash
+	    when the time offset is missing. </p>
+          <p>
+	    Own Id: OTP-16514 Aux Id: ERL-1182 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implement uri_string:resolve/{2,3} that can be used to
+	    resolve a URI reference against a base URI.</p>
+          <p>
+	    Own Id: OTP-16321</p>
+        </item>
+        <item>
+          <p>
+	    In <c>gen_statem</c> it is now possible to change the
+	    callback module for a running server. See
+	    <c>gen_statem</c>'s documentation for
+	    <c>change_callback_module</c>,
+	    <c>push_callback_module</c>, and
+	    <c>pop_callback_module</c>.</p>
+          <p>
+	    Own Id: OTP-16477 Aux Id: PR-2531 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 3.11.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -31,6 +31,27 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.19.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>HiPE can again handle modules with <c>catch</c> and
+	    <c>try</c> constructs.</p>
+          <p>
+	    Own Id: OTP-16418</p>
+        </item>
+        <item>
+	    <p>When the return value for try/catch was ignored, the
+	    native code compiler could crash.</p>
+          <p>
+	    Own Id: OTP-16475 Aux Id: ERL-1175 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.19.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

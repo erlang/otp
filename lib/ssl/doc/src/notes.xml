@@ -27,6 +27,94 @@
   </header>
   <p>This document describes the changes made to the SSL application.</p>
 
+<section><title>SSL 9.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Correct handling of TLS record limit in TLS-1.3. The max
+	    value differs from previous versions. Also the payload
+	    data max record check was broken, that is record overflow
+	    problems could occur if user sent large amounts of data.</p>
+          <p>
+	    Own Id: OTP-16258</p>
+        </item>
+        <item>
+          <p>
+	    Correct close handling for DTLS</p>
+          <p>
+	    Own Id: OTP-16348 Aux Id: ERL-1110 </p>
+        </item>
+        <item>
+          <p>
+	    Fix ssl:getstat/1-2 to also work for DTLS sockets</p>
+          <p>
+	    Own Id: OTP-16352 Aux Id: ERL-1099 </p>
+        </item>
+        <item>
+          <p>
+	    Correct internal handling och socket active mode to avoid
+	    reviving TCP data aimed for a downgraded TLS socket.</p>
+          <p>
+	    Own Id: OTP-16425</p>
+        </item>
+        <item>
+          <p>
+	    When using the host name as fallback for SNI (server name
+	    indication) strip a possible trailing dot that is allowed
+	    in a host name but not in the SNI. Also if the server
+	    receives a SNI with a trailing dot send an
+	    UNRECOGNIZED_NAME alert.</p>
+          <p>
+	    Own Id: OTP-16437 Aux Id: ERL-1135 </p>
+        </item>
+        <item>
+          <p>
+	    Immediately remove session entries if handshake is
+	    abruptly closed at transport level.</p>
+          <p>
+	    Own Id: OTP-16479</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Implementation of the key and initialization vector
+	    update feature, and general hardening of TLS 1.3.</p>
+          <p>
+	    There are cryptographic limits on the amount of plaintext
+	    which can be safely encrypted under a given set of keys.</p>
+          <p>
+	    This change enforces those limits by triggering automatic
+	    key updates on TLS 1.3 connections.</p>
+          <p>
+	    Own Id: OTP-15856</p>
+        </item>
+        <item>
+          <p>
+	    Add support for TLS 1.3 Session Tickets (stateful and
+	    stateless). This allows session resumption using keying
+	    material from a previous successful handshake.</p>
+          <p>
+	    Own Id: OTP-16253</p>
+        </item>
+        <item>
+          <p>
+	    Add support for key exchange with Edward curves and
+	    PSS-RSA padding in signature verification.</p>
+          <p>
+	    Own Id: OTP-16528</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SSL 9.5.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

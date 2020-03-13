@@ -43,6 +43,23 @@ first.</p>
 
 <!-- ===================================================================== -->
 
+<section><title>diameter 2.2.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Add the 'first' tuple to type diameter:peer_filter/0. The
+	    filter was added in OTP-17.5.6.8 and OTP-18.3, but
+	    neither release updated the type specification.</p>
+          <p>
+	    Own Id: OTP-16548 Aux Id: ERL-1191 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>diameter 2.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

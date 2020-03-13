@@ -31,6 +31,22 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 3.4.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    A socket "registry" has been added making it possible to
+	    list current open sockets.</p>
+          <p>
+	    Own Id: OTP-16309</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 3.4.1</title>
 
     <section><title>Improvements and New Features</title>
