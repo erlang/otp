@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2018. All Rights Reserved.
+%% Copyright Ericsson AB 2005-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,7 +46,8 @@
          restore_after_catch/1,matches_on_parameter/1,big_positions/1,
          matching_meets_apply/1,bs_start_match2_defs/1,
          exceptions_after_match_failure/1,
-         bad_phi_paths/1,many_clauses/1]).
+         bad_phi_paths/1,many_clauses/1,
+         combine_empty_segments/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -84,7 +85,7 @@ groups() ->
        matches_on_parameter,big_positions,
        matching_meets_apply,bs_start_match2_defs,
        exceptions_after_match_failure,bad_phi_paths,
-       many_clauses]}].
+       many_clauses,combine_empty_segments]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1306,6 +1307,17 @@ zero_width(Config) when is_list(Config) ->
 	<<256:8>> -> ct:fail(should_not_match);
 	_ -> ok
     end,
+
+    %% Would crash in the segment squeezing functions in v3_kernel.
+    F = fun (<<42>>) -> star;
+            (<<V:0>>) -> V;
+            (_) -> no_match
+        end,
+    star = F(<<42>>),
+    0 = F(<<>>),
+    no_match = F(<<1>>),
+    no_match = F(whatever),
+
     ok.
 
 
@@ -1318,15 +1330,20 @@ bad_size(Config) when is_list(Config) ->
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Binary>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:Atom>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:3.14>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:"ZJV">> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<32:(-1)>> = id(<<>>)),
 
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Tuple/float>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Binary/float>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:Atom/float>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<42.0:2.5/float>> = id(<<>>)),
 
     %% Matched out value is ignored.
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Binary>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Tuple>> = id(<<>>)),
     {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:Atom>> = id(<<>>)),
+    {'EXIT',{{badmatch,<<>>},_}} = (catch <<_:2.5>> = id(<<>>)),
 
     no_match = bad_all_size(<<>>),
     no_match = bad_all_size(<<1,2,3>>),
@@ -1810,6 +1827,7 @@ bad_literals(_Config) ->
     Mod:f(),
 
     {'EXIT',<<42>>} = (catch bad_literals_1()),
+    no_match = bad_literals_2(<<"abc">>),
 
     Sz = id(8),
     {'EXIT',{{badmatch,_},_}} = (catch <<-1:Sz>> = <<-1>>),
@@ -1824,6 +1842,13 @@ bad_literals_1() ->
 	ok -> ok;
 	error -> error
     end.
+
+bad_literals_2(<<atom:16>>) ->
+    fail;
+bad_literals_2(<<2.5:16>>) ->
+    fail;
+bad_literals_2(_) ->
+    no_match.
 
 signed_lit_match(V, Sz) ->
     case <<V:Sz>> of
@@ -2317,6 +2342,16 @@ bad_phi_paths_1(Arg) ->
         end,
     id(B).
 
+combine_empty_segments(_Config) ->
+    <<0,1,2,3>> = combine_empty_segments_1(<<0,1,2,3>>),
+    ok.
+
+combine_empty_segments_1(A) ->
+    <<B/bits>> = A,
+    <<C/bits>> = B,
+    <<D/bits>> = C,
+    D.
+
 id(I) -> I.
 
 expand_and_squeeze(Config) when is_list(Config) ->
@@ -2464,9 +2499,9 @@ binary_match_to_asm(Matches) ->
     ],
 
     Module = [
-	{attribute,1,module,match_to_asm},
-	{attribute,2,export,[{example,1}]},
-	{function,3,example,1,Clauses}
+	{attribute,erl_anno:new(1),module,match_to_asm},
+	{attribute,erl_anno:new(2),export,[{example,1}]},
+	{function,erl_anno:new(3),example,1,Clauses}
     ],
 
     {ok,match_to_asm,{match_to_asm,_Exports,_Attrs,Funs,_},_} =

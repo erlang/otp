@@ -22,6 +22,7 @@
 -include("beam_types.hrl").
 
 -define(UNICODE_MAX, (16#10FFFF)).
+-define(EXCEPTION_LABEL, 0).
 
 -compile({no_auto_import,[min/2]}).
 
@@ -31,7 +32,7 @@
 %% Interface for compiler.
 -export([module/2, format_error/1]).
 
--import(lists, [dropwhile/2,foldl/3,member/2,reverse/1,sort/1,zip/2]).
+-import(lists, [dropwhile/2,foldl/3,member/2,reverse/1,zip/2]).
 
 %% To be called by the compiler.
 
@@ -94,7 +95,7 @@ format_error(Error) ->
 %%  format as used in the compiler and in .S files.
 
 validate(Module, Fs) ->
-    Ft = build_function_table(Fs, []),
+    Ft = build_function_table(Fs, #{}),
     validate_0(Module, Fs, Ft).
 
 validate_0(_Module, [], _) -> [];
@@ -194,40 +195,40 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
         }).
 
 -type label()        :: integer().
--type label_set()    :: gb_sets:set(label()).
--type branched_tab() :: gb_trees:tree(label(), #st{}).
--type ft_tab()       :: gb_trees:tree().
+-type state()        :: #st{} | 'none'.
 
 %% Validator state
 -record(vst,
         {%% Current state
-         current=none              :: #st{} | 'none',
+         current=none              :: state(),
          %% States at labels
-         branched=gb_trees:empty() :: branched_tab(),
+         branched=#{}              :: #{ label() => state() },
          %% All defined labels
-         labels=gb_sets:empty()    :: label_set(),
+         labels=cerl_sets:new()    :: cerl_sets:set(),
          %% Information of other functions in the module
-         ft=gb_trees:empty()       :: ft_tab(),
+         ft=#{}                    :: #{ label() => map() },
          %% Counter for #value_ref{} creation
          ref_ctr=0                 :: index()
         }).
 
-build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc0) ->
-    Code = dropwhile(fun({label,L}) when L =:= Entry -> false;
-			(_) -> true
-		     end, Code0),
+build_function_table([{function,_,Arity,Entry,Code0}|Fs], Acc) ->
+    Code = dropwhile(fun({label,L}) when L =:= Entry ->
+                             false;
+                        (_) ->
+                             true
+                     end, Code0),
     case Code of
-	[{label,Entry}|Is] ->
-	    Info = #{ arity => Arity,
-                  parameter_info => find_parameter_info(Is, #{}) },
-	    build_function_table(Fs, [{Entry, Info} | Acc0]);
-	_ ->
-	    %% Something is seriously wrong. Ignore it for now.
-	    %% It will be detected and diagnosed later.
-	    build_function_table(Fs, Acc0)
+        [{label,Entry} | Is] ->
+            Info = #{ arity => Arity,
+                      parameter_info => find_parameter_info(Is, #{}) },
+            build_function_table(Fs, Acc#{ Entry => Info });
+        _ ->
+            %% Something is seriously wrong. Ignore it for now.
+            %% It will be detected and diagnosed later.
+            build_function_table(Fs, Acc)
     end;
 build_function_table([], Acc) ->
-    gb_trees:from_orddict(sort(Acc)).
+    Acc.
 
 find_parameter_info([{'%', {var_info, Reg, Info}} | Is], Acc) ->
     find_parameter_info(Is, Acc#{ Reg => Info });
@@ -259,7 +260,7 @@ validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Ft) ->
     end.
 
 validate_fun_info_branches([L|Ls], MFA, #vst{branched=Branches}=Vst0) ->
-    Vst = Vst0#vst{current=gb_trees:get(L, Branches)},
+    Vst = Vst0#vst{current=map_get(L, Branches)},
     validate_fun_info_branches_1(0, MFA, Vst),
     validate_fun_info_branches(Ls, MFA, Vst);
 validate_fun_info_branches([], _, _) -> ok.
@@ -296,8 +297,8 @@ labels_1(Is, R) ->
 
 init_vst(Arity, Ls1, Ls2, Ft) ->
     Vst0 = init_function_args(Arity - 1, #vst{current=#st{}}),
-    Branches = gb_trees_from_list([{L,Vst0#vst.current} || L <- Ls1]),
-    Labels = gb_sets:from_list(Ls1++Ls2),
+    Branches = maps:from_list([{L,Vst0#vst.current} || L <- Ls1]),
+    Labels = cerl_sets:from_list(Ls1++Ls2),
     Vst0#vst{branched=Branches,
              labels=Labels,
              ft=Ft}.
@@ -311,8 +312,8 @@ kill_heap_allocation(St) ->
     St#st{h=0,hf=0}.
 
 validate_instrs([], MFA, _Offset, #vst{branched=Targets0,labels=Labels0}=Vst) ->
-    Targets = gb_trees:keys(Targets0),
-    Labels = gb_sets:to_list(Labels0),
+    Targets = maps:keys(Targets0),
+    Labels = cerl_sets:to_list(Labels0),
     case Targets -- Labels of
 	[] -> Vst;
 	Undef ->
@@ -334,13 +335,17 @@ validate_instrs([I|Is], MFA, Offset, Vst0) ->
 %%%
 vi_safe({label,Lbl}, #vst{current=St0,
                           ref_ctr=Counter0,
-                          branched=B,
-                          labels=Lbls}=Vst) ->
-    {St, Counter} = merge_states(Lbl, St0, B, Counter0),
+                          branched=Branched0,
+                          labels=Labels0}=Vst) ->
+    {St, Counter} = merge_states(Lbl, St0, Branched0, Counter0),
+
+    Branched = Branched0#{ Lbl => St },
+    Labels = cerl_sets:add_element(Lbl, Labels0),
+
     Vst#vst{current=St,
             ref_ctr=Counter,
-            branched=gb_trees:enter(Lbl, St, B),
-            labels=gb_sets:add(Lbl, Lbls)};
+            branched=Branched,
+            labels=Labels};
 vi_safe(_I, #vst{current=none}=Vst) ->
     %% Ignore all unreachable code.
     Vst;
@@ -391,35 +396,6 @@ vi_safe({init,Reg}, Vst) ->
     create_tag(initialized, init, [], Reg, Vst);
 vi_safe({test_heap,Heap,Live}, Vst) ->
     test_heap(Heap, Live, Vst);
-vi_safe({bif,Op,{f,0},Ss,Dst}=I, Vst0) ->
-    case will_bif_succeed(Op, Ss, Vst0) of
-        yes ->
-            %% This BIF cannot fail, handle it here without updating catch
-            %% state.
-            validate_bif(Op, cannot_fail, Ss, Dst, Vst0);
-        no ->
-            %% The stack will be scanned, so Y registers must be initialized.
-            Vst = branch_exception(Vst0),
-            verify_y_init(Vst),
-            kill_state(Vst);
-        maybe ->
-            %% The BIF can fail, make sure that any catch state is updated.
-            Vst = branch_exception(Vst0),
-            vi_float(I, Vst)
-    end;
-vi_safe({gc_bif,Op,{f,0},Live,Ss,Dst}=I, Vst0) ->
-    case will_bif_succeed(Op, Ss, Vst0) of
-        yes ->
-            validate_gc_bif(Op, cannot_fail, Ss, Dst, Live, Vst0);
-        no ->
-            Vst = branch_exception(Vst0),
-            verify_y_init(Vst),
-            kill_state(Vst);
-        maybe ->
-            Vst = branch_exception(Vst0),
-            assert_float_checked(Vst),
-            vi_float(I, Vst)
-    end;
 %% Put instructions.
 vi_safe({put_list,A,B,Dst}, Vst0) ->
     Vst = eat_heap(2, Vst0),
@@ -479,32 +455,38 @@ vi_safe({set_tuple_element,Src,Tuple,N}, Vst) ->
     #t_tuple{elements=Es0}=Type = normalize(get_term_type(Tuple, Vst)),
     Es = beam_types:set_tuple_element(I, get_term_type(Src, Vst), Es0),
     override_type(Type#t_tuple{elements=Es}, Tuple, Vst);
-%% Instructions for optimization of selective receives.
+
+%%
+%% Receive instructions
+%%
+vi_safe({loop_rec,{f,Fail},Dst}, Vst) ->
+    %% This term may not be part of the root set until remove_message/0 is
+    %% executed. If control transfers to the loop_rec_end/1 instruction, no
+    %% part of this term must be stored in a Y register.
+    branch(Fail, Vst,
+           fun(SuccVst0) ->
+                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
+                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
+           end);
+vi_safe({loop_rec_end,_}, Vst) ->
+    verify_y_init(Vst),
+    kill_state(Vst);
 vi_safe({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
     set_receive_marker(initialized, Vst);
 vi_safe({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
     set_receive_marker(committed, Vst);
-%% Misc.
 vi_safe(remove_message, Vst0) ->
     Vst = set_receive_marker(none, Vst0),
 
     %% The message term is no longer fragile. It can be used
     %% without restrictions.
     remove_fragility(Vst);
-vi_safe({'%', {var_info, Reg, Info}}, Vst) ->
-    validate_var_info(Info, Reg, Vst);
-vi_safe({'%', {remove_fragility, Reg}}, Vst) ->
-    %% This is a hack to make prim_eval:'receive'/2 work.
-    %%
-    %% Normally it's illegal to pass fragile terms as a function argument as we
-    %% have no way of knowing what the callee will do with it, but we know that
-    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
-    %% disabled while matching messages.
-    remove_fragility(Reg, Vst);
-vi_safe({'%',_}, Vst) ->
-    Vst;
-vi_safe({line,_}, Vst) ->
-    Vst;
+vi_safe(timeout, Vst0) ->
+    Vst = set_receive_marker(none, Vst0),
+    prune_x_regs(0, Vst);
+vi_safe({wait,_}, Vst) ->
+    verify_y_init(Vst),
+    kill_state(Vst);
 
 %%
 %% Calls; these may be okay when the try/catch state or stack is undecided,
@@ -774,10 +756,10 @@ vi_safe({test,bs_get_integer2=Op,{f,Fail},Live,
           [Ctx,{integer,Size},Unit,{field_flags,Flags}],Dst},Vst) ->
     NumBits = Size * Unit,
     Type = case member(unsigned, Flags) of
-               true when NumBits =< 64 ->
+               true when 0 =< NumBits, NumBits =< 64 ->
                    beam_types:make_integer(0, (1 bsl NumBits)-1);
                _ ->
-                   %% Signed integer or way too large, don't bother.
+                   %% Signed integer, way too large, or negative size.
                    #t_integer{}
            end,
     validate_bs_get(Op, Fail, Ctx, Live, NumBits, Type, Dst, Vst);
@@ -807,6 +789,56 @@ vi_safe({put_map_assoc=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_map(Op, Fail, Src, Dst, Live, List, Vst);
 vi_safe({get_map_elements,{f,Fail},Src,{list,List}}, Vst) ->
     verify_get_map(Fail, Src, List, Vst);
+
+%%
+%% BIF calls
+%%
+%% These are technically not safe instructions since they may throw an
+%% exception when Fail =:= 0, but validate_bif/7 handles float error checking
+%% and exception branching when needed.
+%%
+vi_safe({bif,Op,{f,Fail},Ss,Dst}, Vst0) ->
+    case is_float_arith_bif(Op, Ss) of
+        true ->
+            %% Float arithmetic BIFs neither fail nor throw an exception;
+            %% errors are postponed until the next fcheckerror instruction.
+            0 = Fail,                           %Assertion.
+            validate_float_arith_bif(Ss, Dst, Vst0);
+        false ->
+            validate_src(Ss, Vst0),
+            validate_bif(bif, Op, Fail, Ss, Dst, Vst0, Vst0)
+    end;
+vi_safe({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst0) ->
+    validate_src(Ss, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    %% Heap allocations and X registers are killed regardless of whether we
+    %% fail or not, as we may fail after GC.
+    #vst{current=St0} = Vst0,
+    St = kill_heap_allocation(St0),
+    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
+
+    validate_bif(gc_bif, Op, Fail, Ss, Dst, Vst0, Vst);
+
+%%
+%% Misc annotations
+%%
+vi_safe({'%', {var_info, Reg, Info}}, Vst) ->
+    validate_var_info(Info, Reg, Vst);
+vi_safe({'%', {remove_fragility, Reg}}, Vst) ->
+    %% This is a hack to make prim_eval:'receive'/2 work.
+    %%
+    %% Normally it's illegal to pass fragile terms as a function argument as we
+    %% have no way of knowing what the callee will do with it, but we know that
+    %% prim_eval:'receive'/2 won't leak the term, nor cause a GC since it's
+    %% disabled while matching messages.
+    remove_fragility(Reg, Vst);
+vi_safe({'%',_}, Vst) ->
+    Vst;
+vi_safe({line,_}, Vst) ->
+    Vst;
+
 vi_safe(I, Vst0) ->
     Vst = branch_exception(Vst0),
     vi_float(I, Vst).
@@ -879,74 +911,43 @@ assert_float_checked(Vst) ->
     end.
 
 init_try_catch_branch(Kind, Dst, Fail, Vst0) ->
+    %% All potentially-throwing instructions after this one will implicitly
+    %% branch to the current try/catch handler; see the base case of vi_safe/2
     Tag = {Kind, [Fail]},
     Vst = create_tag(Tag, 'try_catch', [], Dst, Vst0),
 
-    branch(Fail, Vst,
-           fun(CatchVst0) ->
-                   %% We add the tag here because branch/4 rejects jumps to
-                   %% labels referenced by try tags.
-                   #vst{current=#st{ct=Tags,ys=Ys}=St0} = CatchVst0,
-                   St = St0#st{ct=[Tag|Tags]},
-                   CatchVst1 = CatchVst0#vst{current=St},
+    #vst{current=St0} = Vst,
+    #st{ct=Tags}=St0,
+    St = St0#st{ct=[Tag|Tags]},
+ 
+    Vst#vst{current=St}.
 
-                   %% The receive marker is cleared on exceptions.
-                   CatchVst = set_receive_marker(none, CatchVst1),
-
-                   maps:fold(fun init_catch_handler_1/3, CatchVst, Ys)
-           end,
-           fun(SuccVst0) ->
-                   #vst{current=#st{ct=Tags}=St0} = SuccVst0,
-                   St = St0#st{ct=[Tag|Tags]},
-                   SuccVst = SuccVst0#vst{current=St},
-
-                   %% All potentially-throwing instructions after this one will
-                   %% implicitly branch to the current try/catch handler; see
-                   %% the base case of vi_safe/2
-                   SuccVst
-           end).
-
-%% Set the initial state at the try/catch label. Assume that Y registers
-%% contain terms or try/catch tags.
-init_catch_handler_1(Reg, initialized, Vst) ->
-    create_term(any, 'catch_handler', [], Reg, Vst);
-init_catch_handler_1(Reg, uninitialized, Vst) ->
-    create_term(any, 'catch_handler', [], Reg, Vst);
-init_catch_handler_1(_, _, Vst) ->
-    Vst.
-
-branch_exception(#vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst)
+branch_exception(#vst{current=#st{ct=[{_,[Fail]}|_]}}=Vst0)
    when is_integer(Fail) ->
     %% We have an active try/catch tag and we can jump there from this
     %% instruction, so we need to update the branched state of the try/catch
     %% handler.
-    fork_state(Fail, Vst);
+    #vst{current=St} = Vst0,
+
+    %% The receive marker is cleared on exceptions.
+    Vst1 = set_receive_marker(none, Vst0),
+    Vst = fork_state(Fail, Vst1),
+
+    Vst#vst{current=St};
 branch_exception(#vst{current=#st{ct=[]}}=Vst) ->
     Vst;
 branch_exception(_) ->
     error(ambiguous_catch_try_state).
 
 %% Handle the remaining floating point instructions here.
-%% Floating point.
 vi_float({fconv,Src,{fr,_}=Dst}, Vst) ->
     assert_term(Src, Vst),
 
-    %% An exception is raised on error, hence branching to 0.
-    branch(0, Vst,
+    branch(?EXCEPTION_LABEL, Vst,
            fun(SuccVst0) ->
                SuccVst = update_type(fun meet/2, number, Src, SuccVst0),
                set_freg(Dst, SuccVst)
            end);
-vi_float({bif,fadd,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-vi_float({bif,fdiv,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-vi_float({bif,fmul,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-vi_float({bif,fnegate,_,[_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
-vi_float({bif,fsub,_,[_,_]=Ss,Dst}, Vst) ->
-    float_op(Ss, Dst, Vst);
 vi_float(fclearerror, Vst) ->
     case get_fls(Vst) of
         undefined -> ok;
@@ -983,15 +984,14 @@ vi_throwing({call_fun,Live}, Vst) ->
     Fun = {x,Live},
     assert_term(Fun, Vst),
 
-    %% An exception is raised on error, hence branching to 0.
-    branch(0, Vst,
+    branch(?EXCEPTION_LABEL, Vst,
            fun(SuccVst0) ->
                    SuccVst = update_type(fun meet/2, #t_fun{arity=Live},
                                          Fun, SuccVst0),
                    validate_body_call('fun', Live+1, SuccVst)
            end);
 vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
-    #{ arity := Arity0 } = gb_trees:get(Lbl, Ft),
+    #{ arity := Arity0 } = map_get(Lbl, Ft),
     Arity = Arity0 - NumFree,
 
     true = Arity >= 0,                          %Assertion.
@@ -1001,40 +1001,14 @@ vi_throwing({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
     verify_y_init(Vst),
 
     create_term(#t_fun{arity=Arity}, make_fun, [], {x,0}, Vst);
-%% Other BIFs
-vi_throwing({bif,raise,{f,0},Src,_Dst}, Vst) ->
-    validate_src(Src, Vst),
-    kill_state(Vst);
 vi_throwing(raw_raise=I, Vst) ->
     call(I, 3, Vst);
-vi_throwing({bif,Op,{f,Fail},Ss,Dst}, Vst) ->
-    validate_bif(Op, Fail, Ss, Dst, Vst);
-vi_throwing({gc_bif,Op,{f,Fail},Live,Ss,Dst}, Vst) ->
-    validate_gc_bif(Op, Fail, Ss, Dst, Live, Vst);
-vi_throwing({loop_rec,{f,Fail},Dst}, Vst) ->
-    %% This term may not be part of the root set until remove_message/0 is
-    %% executed. If control transfers to the loop_rec_end/1 instruction, no
-    %% part of this term must be stored in a Y register.
-    branch(Fail, Vst,
-           fun(SuccVst0) ->
-                   {Ref, SuccVst} = new_value(any, loop_rec, [], SuccVst0),
-                   mark_fragile(Dst, set_reg_vref(Ref, Dst, SuccVst))
-           end);
-vi_throwing({wait,_}, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
 vi_throwing({wait_timeout,_,Src}, Vst) ->
     %% Note that the receive marker is not cleared since we may re-enter the
     %% loop while waiting. If we time out we'll be transferred to a timeout
     %% instruction that clears the marker.
     assert_term(Src, Vst),
     verify_y_init(Vst),
-    prune_x_regs(0, Vst);
-vi_throwing({loop_rec_end,_}, Vst) ->
-    verify_y_init(Vst),
-    kill_state(Vst);
-vi_throwing(timeout, Vst0) ->
-    Vst = set_receive_marker(none, Vst0),
     prune_x_regs(0, Vst);
 vi_throwing(send, Vst) ->
     call(send, 2, Vst);
@@ -1282,6 +1256,7 @@ verify_return(#vst{current=#st{recv_marker=Mark}}) when Mark =/= none ->
     %% the message.
     error({return_with_receive_marker,Mark});
 verify_return(Vst) ->
+    assert_float_checked(Vst),
     verify_no_ct(Vst),
     kill_state(Vst).
 
@@ -1293,22 +1268,30 @@ verify_return(Vst) ->
 %% have clobbered the sources.
 %%
 
-validate_bif(Op, Fail, Ss, Dst, Vst) ->
-    validate_src(Ss, Vst),
-    validate_bif_1(bif, Op, Fail, Ss, Dst, Vst, Vst).
-
-validate_gc_bif(Op, Fail, Ss, Dst, Live, #vst{current=St0}=Vst0) ->
-    validate_src(Ss, Vst0),
-    verify_live(Live, Vst0),
-    verify_y_init(Vst0),
-
-    %% Heap allocations and X registers are killed regardless of whether we
-    %% fail or not, as we may fail after GC.
-    St = kill_heap_allocation(St0),
-    Vst = prune_x_regs(Live, Vst0#vst{current=St}),
-    validate_src(Ss, Vst),
-
-    validate_bif_1(gc_bif, Op, Fail, Ss, Dst, Vst, Vst).
+validate_bif(Kind, Op, Fail, Ss, Dst, OrigVst, Vst0) ->
+    assert_float_checked(Vst0),
+    case {will_bif_succeed(Op, Ss, Vst0), Fail} of
+        {yes, _} ->
+            %% This BIF cannot fail (neither throw nor branch), handle it here
+            %% without updating catch state.
+            validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst0);
+        {no, 0} ->
+            %% The stack will be scanned, so Y registers must be initialized.
+            Vst = branch_exception(Vst0),
+            verify_y_init(Vst),
+            kill_state(Vst);
+        {no, _} ->
+            %% The next instruction is never executed, this is essentially a
+            %% direct jump.
+            branch(Fail, Vst0, fun(SuccVst) -> kill_state(SuccVst) end);
+        {maybe, 0} ->
+            %% The BIF might throw an exception, make sure that any catch state
+            %% is updated.
+            Vst = branch_exception(Vst0),
+            validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst);
+        {maybe, _} ->
+            validate_bif_1(Kind, Op, Fail, Ss, Dst, OrigVst, Vst0)
+    end.
 
 validate_bif_1(Kind, Op, cannot_fail, Ss, Dst, OrigVst, Vst0) ->
     %% This BIF explicitly cannot fail; it will not jump to a guard nor throw
@@ -1506,12 +1489,12 @@ tail_call(Name, Live, Vst0) ->
 verify_call_args(_, 0, #vst{}) ->
     ok;
 verify_call_args({f,Lbl}, Live, #vst{ft=Ft}=Vst) when is_integer(Live) ->
-    case gb_trees:lookup(Lbl, Ft) of
-        {value, FuncInfo} ->
+    case Ft of
+        #{ Lbl := FuncInfo } ->
             #{ arity := Live,
                parameter_info := ParamInfo } = FuncInfo,
             verify_local_args(Live - 1, ParamInfo, #{}, Vst);
-        none ->
+        #{} ->
             error(local_call_to_unknown_function)
     end;
 verify_call_args(_, Live, Vst) when is_integer(Live)->
@@ -1682,7 +1665,14 @@ assert_arities(_) -> error(bad_tuple_arity_list).
 %%%   fmove Src {fr,_}		%% Move INTO floating point register.
 %%%
 
-float_op(Ss, Dst, Vst0) ->
+is_float_arith_bif(fadd, [_, _]) -> true;
+is_float_arith_bif(fdiv, [_, _]) -> true;
+is_float_arith_bif(fmul, [_, _]) -> true;
+is_float_arith_bif(fnegate, [_]) -> true;
+is_float_arith_bif(fsub, [_, _]) -> true;
+is_float_arith_bif(_, _) -> false.
+
+validate_float_arith_bif(Ss, Dst, Vst0) ->
     _ = [assert_freg_set(S, Vst0) || S <- Ss],
     assert_fls(cleared, Vst0),
     Vst = set_fls(cleared, Vst0),
@@ -2107,7 +2097,9 @@ set_reg_vref(Ref, {y,_}=Dst, #vst{current=#st{ys=Ys0}=St0} = Vst) ->
             %% Storing into a non-existent Y register means that we haven't set
             %% up a (sufficiently large) stack.
             error({invalid_store, Dst})
-    end.
+    end;
+set_reg_vref(_Ref, Dst, _Vst) ->
+    error({invalid_register, Dst}).
 
 get_reg_vref({x,_}=Src, #vst{current=#st{xs=Xs}}) ->
     check_limit(Src),
@@ -2128,13 +2120,17 @@ get_reg_vref({y,_}=Src, #vst{current=#st{ys=Ys}}) ->
             error(Tag);
         #{} ->
             error({uninitialized_reg, Src})
-    end.
+    end;
+get_reg_vref(Src, _Vst) ->
+    error({invalid_register, Src}).
 
 set_type(Type, #value_ref{}=Ref, #vst{current=#st{vs=Vs0}=St}=Vst) ->
     #{ Ref := #value{}=Entry } = Vs0,
     Vs = Vs0#{ Ref => Entry#value{type=Type} },
     Vst#vst{current=St#st{vs=Vs}}.
 
+new_value(none, _, _, _) ->
+    error(creating_none_value);
 new_value(Type, Op, Ss, #vst{current=#st{vs=Vs0}=St,ref_ctr=Counter}=Vst) ->
     Ref = #value_ref{id=Counter},
     Vs = Vs0#{ Ref => #value{op=Op,args=Ss,type=Type} },
@@ -2370,29 +2366,24 @@ branch(Fail, Vst, SuccFun) ->
 
 %% Directly branches off the state. This is an "internal" operation that should
 %% be used sparingly.
-fork_state(0, #vst{}=Vst) ->
+fork_state(?EXCEPTION_LABEL, #vst{}=Vst) ->
     %% If the instruction fails, the stack may be scanned looking for a catch
     %% tag. Therefore the Y registers must be initialized at this point.
     verify_y_init(Vst),
     Vst;
-fork_state(L, #vst{current=St,branched=B,ref_ctr=Counter0}=Vst) ->
-    case gb_trees:is_defined(L, B) of
-        true ->
-            {MergedSt, Counter} = merge_states(L, St, B, Counter0),
-            Branched = gb_trees:update(L, MergedSt, B),
-            Vst#vst{branched=Branched,ref_ctr=Counter};
-        false ->
-            Vst#vst{branched=gb_trees:insert(L, St, B)}
-    end.
+fork_state(L, #vst{current=St0,branched=Branched0,ref_ctr=Counter0}=Vst) ->
+    {St, Counter} = merge_states(L, St0, Branched0, Counter0),
+    Branched = Branched0#{ L => St },
+    Vst#vst{branched=Branched,ref_ctr=Counter}.
 
 %% merge_states/3 is used when there's more than one way to arrive at a
 %% certain point, requiring the states to be merged down to the least
 %% common subset for the subsequent code.
 
 merge_states(L, St, Branched, Counter) when L =/= 0 ->
-    case gb_trees:lookup(L, Branched) of
-        {value, OtherSt} -> merge_states_1(St, OtherSt, Counter);
-        none -> {St, Counter}
+    case Branched of
+        #{ L := OtherSt } -> merge_states_1(St, OtherSt, Counter);
+        #{} -> {St, Counter}
     end.
 
 merge_states_1(St, none, Counter) ->
@@ -2743,19 +2734,20 @@ call_types({extfunc,M,F,A}, A, Vst) ->
 call_types(_, A, Vst) ->
     {any, get_call_args(A, Vst), false}.
 
-will_bif_succeed(fadd, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fdiv, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fmul, [_,_], _Vst) ->
-    maybe;
-will_bif_succeed(fnegate, [_], _Vst) ->
-    maybe;
-will_bif_succeed(fsub, [_,_], _Vst) ->
-    maybe;
+will_bif_succeed(raise, [_,_], _Vst) ->
+    %% Compiler-generated raise, the user-facing variant that can return
+    %% 'badarg' is erlang:raise/3.
+    no;
 will_bif_succeed(Op, Ss, Vst) ->
-    Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
-    beam_call_types:will_succeed(erlang, Op, Args).
+    case is_float_arith_bif(Op, Ss) of
+        true ->
+            %% Float arithmetic BIFs can't fail; their error checking is
+            %% deferred until fcheckerror.
+            yes;
+        false ->
+            Args = [normalize(get_term_type(Arg, Vst)) || Arg <- Ss],
+            beam_call_types:will_succeed(erlang, Op, Args)
+    end.
 
 will_call_succeed({extfunc,M,F,A}, Vst) ->
     beam_call_types:will_succeed(M, F, get_call_args(A, Vst));
@@ -2799,7 +2791,5 @@ gcd(A, B) ->
         0 -> B;
         X -> gcd(B, X)
     end.
-
-gb_trees_from_list(L) -> gb_trees:from_orddict(sort(L)).
 
 error(Error) -> throw(Error).

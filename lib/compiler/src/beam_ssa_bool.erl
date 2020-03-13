@@ -68,7 +68,7 @@
 %%   _2 = bif:is_integer _0
 %%   _3 = bif:is_atom _1
 %%   _7 = bif:'and' _2, _3
-%%   @ssa_bool = succeeded _7
+%%   @ssa_bool = succeeded:guard _7
 %%   br @ssa_bool, label 4, label 3
 %%
 %% 4:
@@ -136,8 +136,9 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
             Dom = beam_ssa:dominators(Blocks1),
             Uses = beam_ssa:uses(Blocks1),
             St0 = #st{defs=DefVars,count=Count1,dom=Dom,uses=Uses},
-            {Blocks,St} = bool_opt(Blocks1, St0),
+            {Blocks2,St} = bool_opt(Blocks1, St0),
             Count = St#st.count,
+            Blocks = beam_ssa:trim_unreachable(Blocks2),
             F#b_function{bs=Blocks,cnt=Count};
         true ->
             %% There are no boolean operators that can be optimized in
@@ -185,7 +186,7 @@ pre_opt(Blocks, Count) ->
     Sub = maps:remove(uses, Sub1),
 
     %% Now do the actual optimizations.
-    Reached = gb_sets:singleton(hd(Top)),
+    Reached = cerl_sets:from_list([hd(Top)]),
     pre_opt(Top, Sub, Reached, Count, Blocks).
 
 -spec get_phi_info(Ls, Blocks, Sub0) -> Sub when
@@ -265,7 +266,7 @@ get_phi_info_single_use(Var, Sub) ->
 
 -spec pre_opt(Ls, Sub, Reached, Count0, Blocks0) -> {Blocks,Count} when
       Ls :: [beam_ssa:label()],
-      Reached :: gb_sets:set(beam_ssa:label()),
+      Reached :: cerl_sets:set(beam_ssa:label()),
       Count0 :: beam_ssa:label(),
       Blocks0 :: beam_ssa:block_map(),
       Sub :: pre_sub_map(),
@@ -273,7 +274,7 @@ get_phi_info_single_use(Var, Sub) ->
       Blocks :: beam_ssa:block_map().
 
 pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
-    case gb_sets:is_member(L, Reached0) of
+    case cerl_sets:is_element(L, Reached0) of
         false ->
             %% This block will never be reached.
             pre_opt(Ls, Sub0, Reached0, Count0, maps:remove(L, Blocks));
@@ -287,17 +288,17 @@ pre_opt([L|Ls], Sub0, Reached0, Count0, Blocks) ->
                     Bool = #b_var{name={'@ssa_bool',Count0}},
                     Count = Count0 + 1,
                     Test = Test0#b_set{dst=Bool},
-                    Br = Br0#b_br{bool=Bool},
+                    Br = beam_ssa:normalize(Br0#b_br{bool=Bool}),
                     Blk = Blk0#b_blk{is=Is++[Test],last=Br},
                     Successors = beam_ssa:successors(Blk),
-                    Reached = gb_sets:union(Reached0,
-                                            gb_sets:from_list(Successors)),
+                    Reached = cerl_sets:union(Reached0,
+                                              cerl_sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count, Blocks#{L:=Blk});
                 Last ->
                     Blk = Blk0#b_blk{is=Is,last=Last},
                     Successors = beam_ssa:successors(Blk),
-                    Reached = gb_sets:union(Reached0,
-                                            gb_sets:from_list(Successors)),
+                    Reached = cerl_sets:union(Reached0,
+                                              cerl_sets:from_list(Successors)),
                     pre_opt(Ls, Sub, Reached, Count0, Blocks#{L:=Blk})
             end
     end;
@@ -306,7 +307,7 @@ pre_opt([], _, _, Count, Blocks) ->
 
 pre_opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
     Args1 = [{Val,From} || {Val,From} <- Args0,
-                           gb_sets:is_member(From, Reached)],
+                           cerl_sets:is_element(From, Reached)],
     Args = sub_args(Args1, Sub0),
     case all_same(Args) of
         true ->
@@ -330,7 +331,8 @@ pre_opt_is([#b_set{op=phi,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
                     pre_opt_is(Is, Reached, Sub0, [I|Acc])
             end
     end;
-pre_opt_is([#b_set{op=succeeded,dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
+pre_opt_is([#b_set{op={succeeded,_},dst=Dst,args=Args0}=I0|Is],
+           Reached, Sub0, Acc) ->
     [Arg] = Args = sub_args(Args0, Sub0),
     I = I0#b_set{args=Args},
     case pre_is_safe_bool(Arg, Sub0) of
@@ -354,7 +356,7 @@ pre_opt_is([#b_set{dst=Dst,args=Args0}=I0|Is], Reached, Sub0, Acc) ->
                 #b_var{}=Var ->
                     %% We must remove the 'succeeded' instruction that
                     %% follows since the variable it checks is gone.
-                    [#b_set{op=succeeded,dst=SuccDst,args=[Dst]}] = Is,
+                    [#b_set{op={succeeded,_},dst=SuccDst,args=[Dst]}] = Is,
                     Sub = Sub0#{Dst=>Var,SuccDst=>#b_literal{val=true}},
                     pre_opt_is([], Reached, Sub, Acc);
                 #b_literal{}=Lit ->
@@ -386,21 +388,24 @@ pre_opt_terminator(#b_br{bool=Bool}=Br0, Sub, Blocks) ->
             end
     end;
 pre_opt_terminator(#b_ret{arg=Arg}=Ret, Sub, _Blocks) ->
-    Ret#b_ret{arg=sub_arg(Arg, Sub)};
-pre_opt_terminator(#b_switch{arg=Arg0,list=List}=Sw0, Sub, Blocks) ->
-    Arg = sub_arg(Arg0, Sub),
-    Sw = Sw0#b_switch{arg=Arg},
-    case sort(List) of
-        [{#b_literal{val=false},Fail},
-         {#b_literal{val=true},Succ}] ->
-            case pre_is_arg_bool(Arg, Sub) of
-                false ->
-                    pre_opt_sw(Sw, Fail, Succ, Sub, Blocks);
-                true ->
-                    beam_ssa:normalize(#b_br{bool=Arg,succ=Succ,fail=Fail})
+    beam_ssa:normalize(Ret#b_ret{arg=sub_arg(Arg, Sub)});
+pre_opt_terminator(#b_switch{arg=Arg0}=Sw0, Sub, Blocks) ->
+    case beam_ssa:normalize(Sw0#b_switch{arg=sub_arg(Arg0, Sub)}) of
+        #b_switch{arg=Arg,list=List}=Sw ->
+            case sort(List) of
+                [{#b_literal{val=false},Fail},
+                 {#b_literal{val=true},Succ}] ->
+                    case pre_is_arg_bool(Arg, Sub) of
+                        false ->
+                            pre_opt_sw(Sw, Fail, Succ, Sub, Blocks);
+                        true ->
+                            beam_ssa:normalize(#b_br{bool=Arg,succ=Succ,fail=Fail})
+                    end;
+                _ ->
+                    Sw
             end;
-        _ ->
-            Sw
+        Other ->
+            pre_opt_terminator(Other, Sub, Blocks)
     end.
 
 pre_opt_sw(#b_switch{arg=Arg,fail=Fail}=Sw, False, True, Sub, Blocks) ->
@@ -418,9 +423,11 @@ pre_opt_sw(#b_switch{arg=Arg,fail=Fail}=Sw, False, True, Sub, Blocks) ->
                             %% the actual value of the variable does not
                             %% matter if it is not equal to `true`.
                             DummyDst = #b_var{name=0},
+                            Br0 = #b_br{bool=DummyDst,succ=True,fail=False},
+                            Br = beam_ssa:normalize(Br0),
                             {#b_set{op={bif,'=:='},dst=DummyDst,
                                     args=[Arg,#b_literal{val=true}]},
-                             #b_br{bool=DummyDst,succ=True,fail=False}};
+                             Br};
                         {_,_} ->
                             Sw
                     end;
@@ -707,7 +714,7 @@ split_dom_block(L, Blocks0) ->
     Blocks = Blocks0#{L:=Blk},
     {PreIs,Blocks}.
 
-split_dom_block_is([#b_set{},#b_set{op=succeeded}]=Is, PreAcc) ->
+split_dom_block_is([#b_set{},#b_set{op={succeeded,_}}]=Is, PreAcc) ->
     {reverse(PreAcc),Is};
 split_dom_block_is([#b_set{}=I|Is]=Is0, PreAcc) ->
     case is_bool_expr(I) of
@@ -808,7 +815,10 @@ build_digraph_is([#b_set{op=phi,args=Args0}=I0|Is], Last, Vtx, Map, G, St) ->
         [#b_set{op=phi}|_] -> not_possible();
         _ -> ok
     end,
-    Args = [{V,map_get(L, Map)} || {V,L} <- Args0],
+    Args = [{V,case Map of
+                   #{L:=Other} -> Other;
+                   #{} -> not_possible()
+               end} || {V,L} <- Args0],
     I = I0#b_set{args=Args},
     build_digraph_is_1(I, Is, Last, Vtx, Map, G, St);
 build_digraph_is([#b_set{}=I|Is], Last, Vtx, Map, G, St) ->
@@ -970,7 +980,7 @@ convert_to_br_node(I, Target, G0, St) ->
 ensure_no_failing_instructions(First, Second, G, St) ->
     Vs0 = covered(get_vertex(First, St), get_vertex(Second, St), G),
     Vs = [{V,beam_digraph:vertex(G, V)} || V <- Vs0],
-    Failing = [P || {V,#b_set{op=succeeded}}=P <- Vs,
+    Failing = [P || {V,#b_set{op={succeeded,_}}}=P <- Vs,
                     not eaten_by_phi(V, G)],
     case Failing of
         [] -> ok;
@@ -1416,32 +1426,47 @@ digraph_to_ssa([L|Ls], G, Blocks0, Seen0) ->
 digraph_to_ssa([], _G, Blocks, Seen) ->
     {Blocks,Seen}.
 
-digraph_to_ssa_blk(From, G, Blocks, Acc) ->
+digraph_to_ssa_blk(From, G, Blocks, Acc0) ->
     case beam_digraph:vertex(G, From) of
         #b_set{dst=Dst}=I ->
             case get_targets(From, G) of
                 {br,Succ,Fail} ->
                     %% This is a two-way branch that ends the current block.
-                    Br = #b_br{bool=Dst,succ=Succ,fail=Fail},
-                    Is = reverse(Acc, [I]),
-                    Blk = #b_blk{is=Is,last=Br},
-                    {Blk,beam_ssa:successors(Blk)};
+                    Br = beam_ssa:normalize(#b_br{bool=Dst,succ=Succ,fail=Fail}),
+                    case Br of
+                        #b_br{succ=Same,fail=Same} ->
+                            case {I,Acc0} of
+                                {#b_set{op={succeeded,guard},args=[OpDst]},
+                                 [#b_set{dst=OpDst}|Acc]} ->
+                                    Is = reverse(Acc),
+                                    Blk = #b_blk{is=Is,last=Br},
+                                    {Blk,beam_ssa:successors(Blk)};
+                                {_,_} ->
+                                    Is = reverse(Acc0, [I]),
+                                    Blk = #b_blk{is=Is,last=Br},
+                                    {Blk,beam_ssa:successors(Blk)}
+                            end;
+                        _ ->
+                            Is = reverse(Acc0, [I]),
+                            Blk = #b_blk{is=Is,last=Br},
+                            {Blk,beam_ssa:successors(Blk)}
+                    end;
                 {br,Next} ->
                     case beam_digraph:in_degree(G, Next) of
                         1 ->
-                            digraph_to_ssa_blk(Next, G, Blocks, [I|Acc]);
+                            digraph_to_ssa_blk(Next, G, Blocks, [I|Acc0]);
                         _ ->
                             %% The Next node has multiple incident edge. That
                             %% means that it can't be part of the current block,
                             %% but must start a new block.
                             Br = oneway_br(Next),
-                            Is = reverse(Acc, [I]),
+                            Is = reverse(Acc0, [I]),
                             Blk = #b_blk{is=Is,last=Br},
                             {Blk,beam_ssa:successors(Blk)}
                     end
             end;
         br ->
-            case Acc of
+            case Acc0 of
                 [] ->
                     %% Create an empty block.
                     {br,Next} = get_targets(From, G),
@@ -1451,7 +1476,7 @@ digraph_to_ssa_blk(From, G, Blocks, Acc) ->
                     %% Finish up the block, and let the block
                     %% transfer control to the `br` node at From.
                     Br = oneway_br(From),
-                    Is = reverse(Acc),
+                    Is = reverse(Acc0),
                     Blk = #b_blk{is=Is,last=Br},
                     {Blk,beam_ssa:successors(Blk)}
             end;
@@ -1460,9 +1485,9 @@ digraph_to_ssa_blk(From, G, Blocks, Acc) ->
             %% reason for its existence in the graph is that the root
             %% node only contained a phi instruction (which was taken
             %% out of the block before building the graph).
-            [] = Acc,                           %Assertion.
+            [] = Acc0,                          %Assertion.
             {br,Succ,Fail} = get_targets(From, G),
-            Br = #b_br{bool=Bool,succ=Succ,fail=Fail},
+            Br = beam_ssa:normalize(#b_br{bool=Bool,succ=Succ,fail=Fail}),
             Blk = #b_blk{is=[],last=Br},
             {Blk,beam_ssa:successors(Blk)};
         {external,Sub} ->
@@ -1538,16 +1563,16 @@ del_out_edges(V, G) ->
     beam_digraph:del_edges(G, beam_digraph:out_edges(G, V)).
 
 covered(From, To, G) ->
-    Seen0 = gb_sets:empty(),
+    Seen0 = cerl_sets:new(),
     {yes,Seen} = covered_1(From, To, G, Seen0),
-    gb_sets:to_list(Seen).
+    cerl_sets:to_list(Seen).
 
 covered_1(To, To, _G, Seen) ->
     {yes,Seen};
 covered_1(From, To, G, Seen0) ->
     Vs0 = beam_digraph:out_neighbours(G, From),
-    Vs = [V || V <- Vs0, not gb_sets:is_member(V, Seen0)],
-    Seen = gb_sets:union(gb_sets:from_list(Vs), Seen0),
+    Vs = [V || V <- Vs0, not cerl_sets:is_element(V, Seen0)],
+    Seen = cerl_sets:union(cerl_sets:from_list(Vs), Seen0),
     case Vs of
         [] ->
             no;

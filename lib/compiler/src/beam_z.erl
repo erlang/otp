@@ -90,7 +90,8 @@ undo_renames([{bs_put,_,{bs_put_binary,1,_},
                [{atom,all},{literal,<<>>}]}|Is]) ->
     undo_renames(Is);
 undo_renames([{bs_put,Fail,{bs_put_binary,1,_Flags},
-               [{atom,all},{literal,BinString}]}|Is0]) ->
+               [{atom,all},{literal,BinString}]}|Is0])
+  when is_bitstring(BinString)->
     Bits = bit_size(BinString),
     Bytes = Bits div 8,
     case Bits rem 8 of

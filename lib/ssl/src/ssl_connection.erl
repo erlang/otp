@@ -53,7 +53,8 @@
 %% Alert and close handling
 -export([handle_own_alert/4, handle_alert/3, 
 	 handle_normal_shutdown/3, 
-         handle_trusted_certs_db/1]).
+         handle_trusted_certs_db/1,
+         maybe_invalidate_session/6]).
 
 %% Data handling
 -export([read_application_data/2, internal_renegotiation/2]).
@@ -325,6 +326,7 @@ dist_handshake_complete(ConnectionPid, DHandle) ->
 prf(ConnectionPid, Secret, Label, Seed, WantedLength) ->
     call(ConnectionPid, {prf, Secret, Label, Seed, WantedLength}).
 
+
 %%====================================================================
 %% Alert and close handling
 %%====================================================================
@@ -441,6 +443,13 @@ handle_alert(#alert{level = ?WARNING} = Alert, StateName,
               Connection:protocol_name(), StateName,
               Alert#alert{role = opposite_role(Role)}),
     Connection:next_event(StateName, no_record, State).
+
+maybe_invalidate_session(undefined,_, _, _, _, _) ->
+    ok;
+maybe_invalidate_session({3, 4},_, _, _, _, _) ->
+    ok;
+maybe_invalidate_session({3, N}, Type, Role, Host, Port, Session) when N < 4 ->
+    maybe_invalidate_session(Type, Role, Host, Port, Session).
 
 %%====================================================================
 %% Data handling
@@ -1496,16 +1505,23 @@ handle_call(_,_,_,_,_) ->
 
 handle_info({ErrorTag, Socket, econnaborted}, StateName,  
 	    #state{static_env = #static_env{role = Role,
+                                            host = Host,
+                                            port = Port,
                                             socket = Socket,
                                             transport_cb = Transport,
                                             error_tag = ErrorTag,
                                             trackers = Trackers,
                                             protocol_cb = Connection},
-		   start_or_recv_from = StartFrom
-		  } = State)  when StateName =/= connection ->
+                   handshake_env = #handshake_env{renegotiation = Type},
+                   connection_env = #connection_env{negotiated_version = Version},
+                   session = Session,
+                   start_or_recv_from = StartFrom
+                  } = State)  when StateName =/= connection ->
+
+    maybe_invalidate_session(Version, Type, Role, Host, Port, Session),
     Pids = Connection:pids(State),
     alert_user(Pids, Transport, Trackers,Socket, 
-	       StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
+               StartFrom, ?ALERT_REC(?FATAL, ?CLOSE_NOTIFY), Role, StateName, Connection),
     {stop, {shutdown, normal}, State};
 
 handle_info({ErrorTag, Socket, Reason}, StateName, #state{static_env = #static_env{
@@ -3012,6 +3028,11 @@ log_alert(Level, Role, ProtocolName, StateName,  Alert) ->
                                     statename => StateName,
                                     alert => Alert,
                                     alerter => peer}, Alert#alert.where).
+
+maybe_invalidate_session({false, first}, server = Role, Host, Port, Session) ->
+    invalidate_session(Role, Host, Port, Session);
+maybe_invalidate_session(_, _, _, _, _) ->
+    ok.
 
 invalidate_session(client, Host, Port, Session) ->
     ssl_manager:invalidate_session(Host, Port, Session);

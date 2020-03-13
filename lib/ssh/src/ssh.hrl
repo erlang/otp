@@ -288,7 +288,9 @@
 
 -type fp_digest_alg() :: 'md5' | crypto:sha1() | crypto:sha2() .
 
--type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) .
+-type accept_callback() :: fun((PeerName::string(), fingerprint() ) -> boolean()) % Old style
+                         | fun((PeerName::string(), Port::inet:port_number(), fingerprint() ) -> boolean()) % New style
+                           .
 -type fingerprint() :: string() | [string()].
 
 -type authentication_client_options() ::

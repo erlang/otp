@@ -116,13 +116,41 @@
     </list>
   </description>
 
-  <section>
-    <title>Failure</title>
-    <p>The functions in this module exits with reason
-      <c>badarg</c> if any argument has the wrong format, if the
-      table identifier is invalid, or if the operation is denied because of
-      table access rights (<seealso marker="#protected">protected</seealso>
-      or <seealso marker="#private">private</seealso>).</p>
+  <section><marker id="ets_failures"></marker>
+    <title>Failures</title>
+    <p>Functions in this module fail by raising an error exception
+    with error reason:</p>
+    <taglist>
+      <tag><c>badarg</c></tag>
+      <item><p>
+	If any argument has the wrong format.
+      </p></item>
+      <tag><c>badarg</c></tag>
+      <item><p>
+	If the table identifier is invalid.
+      </p></item>
+      <tag><c>badarg</c></tag>
+      <item><p>
+	If the operation is denied because of
+	table access rights (<seealso marker="#protected">protected</seealso>
+	or <seealso marker="#private">private</seealso>).
+      </p></item>
+      <tag><c>system_limit</c></tag>
+      <item><p>
+	Modification of a value causes it to not be representable
+	internally in the VM. For example, incrementation of a
+	counter past the largest integer representable.
+      </p></item>
+      <tag><c>system_limit</c></tag>
+      <item><p>
+	If a match specification passed as argument has excessive
+	nesting which causes scheduler stack exhaustion for the
+	scheduler that the calling process is executing on.
+	<seealso marker="erts:erl#sched_thread_stack_size">Scheduler
+	stack size</seealso> can be configured when starting the
+	runtime system.
+      </p></item>
+    </taglist>
   </section>
 
   <section><marker id="concurrency"></marker>
@@ -238,6 +266,9 @@ true
       <seealso marker="#select/2"><c>select/2</c></seealso>. For a detailed
       description, see section <seealso marker="erts:match_spec">
       Match Specifications in Erlang</seealso> in ERTS User's Guide.</p>
+    <p>A match specifications with excessive nesting will cause a
+      <seealso marker="#ets_failures"><c>system_limit</c></seealso> error
+      exception to be raised.</p>
   </section>
 
   <datatypes>
@@ -1061,9 +1092,8 @@ Error: fun containing local Erlang function calls
           To check the validity of a compiled match specification, use
           <seealso marker="#is_compiled_ms/1"><c>is_compiled_ms/1</c></seealso>.
         </p>
-        <p>If term <c><anno>MatchSpec</anno></c> cannot be compiled (does not
-          represent a valid match specification), a <c>badarg</c> exception is
-          raised.</p>
+        <p>If term <c><anno>MatchSpec</anno></c> does not represent a valid
+	match specification, a <c>badarg</c> exception is raised.</p>
         <note>
           <p>This function has limited use in normal code. It is used by the
             <seealso marker="dets"><c>dets</c></seealso> module

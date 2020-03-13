@@ -7251,7 +7251,7 @@ ERL_NIF_TERM nif_send(ErlNifEnv*         env,
     if ((argc != 4) ||
         !GET_BIN(env, argv[2], &sndData) ||
         !GET_UINT(env, argv[3], &eflags)) {
-        SSDBG( descP, ("SOCKET", "nif_send -> argv decode failed\r\n") );
+        SGDBG( ("SOCKET", "nif_send -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     sockRef = argv[0]; // We need this in case we send in case we send abort
@@ -7390,7 +7390,7 @@ ERL_NIF_TERM nif_sendto(ErlNifEnv*         env,
     if ((argc != 5) ||
         !GET_BIN(env, argv[2], &sndData) ||
         !GET_UINT(env, argv[4], &eflags)) {
-        SSDBG( descP, ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
+        SGDBG( ("SOCKET", "nif_sendto -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     sockRef   = argv[0]; // We need this in case we send abort (to the caller)
@@ -7528,7 +7528,7 @@ ERL_NIF_TERM nif_sendmsg(ErlNifEnv*         env,
     if ((argc != 4) ||
         !IS_MAP(env, argv[2]) ||
         !GET_UINT(env, argv[3], &eflags)) {
-        SSDBG( descP, ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
+        SGDBG( ("SOCKET", "nif_sendmsg -> argv decode failed\r\n") );
         return enif_make_badarg(env);
     }
     sockRef = argv[0]; // We need this in case we send abort (to the caller)

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -44,27 +44,11 @@
     </item>
     <item>
       <p>version 2 - draft-ietf-megaco-h248v2-04 &amp; H.248.1 
-        v2 Corrigendum 1 (03/2004)</p>
+      v2 Corrigendum 1 (03/2004)</p>
     </item>
     <item>
-      <p>version 3: </p>
-      <list type="bulleted">
-        <item>
-          <p>prev3a - as defined by TD-33 (except segments)</p>
-        </item>
-        <item>
-          <p>prev3b - TD-33 updated to be backward compatible with v2 
-            (except segments)</p>
-        </item>
-        <item>
-          <p>prev3c - As defined by ITU H.248.1 (09/2005) 
-            (except segments)</p>
-        </item>
-        <item>
-          <p>v3 - Full version 3 as defined by ITU H.248.1 (09/2005) 
-            (including segments)</p>
-        </item>
-      </list>
+      <p>version 3 - Full version 3 as defined by ITU H.248.1 (09/2005) 
+      (including segments)</p>
     </item>
   </list>
   <p>The semantics of the protocol has jointly been defined by two

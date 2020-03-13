@@ -36,6 +36,7 @@
 	     erl_distribution,
 	     erl_reply,
              erl_signal_handler,
+	     erpc,
 	     error_handler,
 	     error_logger,
 	     file,
@@ -148,7 +149,8 @@
                 pg2]},
   {applications, []},
   {env, [{logger_level, notice},
-         {logger_sasl_compatible, false}
+         {logger_sasl_compatible, false},
+         {shell_docs_ansi,auto}
         ]},
   {mod, {kernel, []}},
   {runtime_dependencies, ["erts-@OTP-15251@", "stdlib-@OTP-15251@", "sasl-3.0"]}

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -1617,7 +1617,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
         <v>encoder_module() = megaco_pretty_text_encoder | megaco_compact_text_encoder | atom()</v>
         <v>Version = int_version() | atom_version()</v>
         <v>int_version() = 1 | 2 | 3</v>
-        <v>atom_version() = v1 | v2 | v3 | prev3c | prev3b</v>
+        <v>atom_version() = v1 | v2 | v3</v>
         <v>Result = string() | {error, Reason}</v>
         <v>Reason = term()</v>
       </type>

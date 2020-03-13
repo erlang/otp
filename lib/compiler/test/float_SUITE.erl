@@ -21,7 +21,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1,
-         subtract_number_type/1,float_followed_by_guard/1]).
+         subtract_number_type/1,float_followed_by_guard/1,
+         fconv_line_numbers/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -30,7 +31,7 @@ suite() -> [{ct_hooks,[ts_install_cth]}].
 all() ->
     [pending, bif_calls, math_functions,
      mixed_float_and_int, subtract_number_type,
-     float_followed_by_guard].
+     float_followed_by_guard,fconv_line_numbers].
 
 groups() -> 
     [].
@@ -203,6 +204,21 @@ ffbg_1(A, B0) ->
         A - B > 0.0 -> true;
         A - B =< 0.0 -> false
     end.
+
+%% ERL-1178: fconv instructions didn't inherit line numbers from their
+%% respective BIF calls.
+fconv_line_numbers(Config) when is_list(Config) ->
+    fconv_line_numbers_1(id(gurka)),
+    ok.
+
+fconv_line_numbers_1(A) ->
+    %% The ?LINE macro must be on the same line as the division.
+    {'EXIT',{badarith, Stacktrace}} = (catch 10 / A), Line = ?LINE,
+    true = lists:any(fun({?MODULE,?FUNCTION_NAME,1,[{file,_},{line,L}]}) ->
+                             L =:= Line;
+                        (_) ->
+                             false
+                     end, Stacktrace).
 
 id(I) -> I.
 

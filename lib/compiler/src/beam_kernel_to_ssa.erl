@@ -218,7 +218,7 @@ select_val_cg(k_atom, {succeeded,Dst}, Vls, _Tf, _Vf, Sis, St0) ->
             %% following the `peek_message` and `wait_timeout`
             %% instructions.
             {Bool,St} = new_ssa_var('@ssa_bool', St0),
-            Succeeded = #b_set{op=succeeded,dst=Bool,args=[Dst]},
+            Succeeded = #b_set{op={succeeded,guard},dst=Bool,args=[Dst]},
             Br = #b_br{bool=Bool,succ=Succ,fail=Fail},
             {[Succeeded,Br|Sis],St};
         #b_literal{val=true}=Bool ->
@@ -333,33 +333,37 @@ make_uncond_branch(Fail) ->
     #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail}.
 
 %%
-%% The 'succeeded' instruction needs special treatment in catch blocks to
-%% prevent the checked operation from being optimized away if a later pass
-%% determines that it always fails.
+%% Success checks need to be treated differently in bodies and guards; a check
+%% in a guard can be safely removed when we know it fails because we know
+%% there's never any side-effects, but in bodies the checked instruction may
+%% throw an exception and we need to ensure it isn't optimized away.
+%%
+%% Checks are expressed as {succeeded,guard} and {succeeded,body} respectively,
+%% where the latter has a side-effect (see beam_ssa:no_side_effect/1) and the
+%% former does not. This ensures that passes like ssa_opt_dead and ssa_opt_live
+%% won't optimize away pure operations that may throw an exception, since their
+%% result is used in {succeeded,body}.
+%%
+%% Other than the above details, the two variants are equivalent and most
+%% passes that care about them can simply match {succeeded,_}.
 %%
 
-make_succeeded(Var, {in_catch, CatchLbl}, St0) ->
-    {Bool, St1} = new_ssa_var('@ssa_bool', St0),
-    {Succ, St2} = new_label(St1),
-    {Fail, St} = new_label(St2),
+make_succeeded(Var, {guard, Fail}, St) ->
+    make_succeeded_1(Var, guard, Fail, St);
+make_succeeded(Var, {in_catch, CatchLbl}, St) ->
+    make_succeeded_1(Var, body, CatchLbl, St);
+make_succeeded(Var, {no_catch, Fail}, St) ->
+    #cg{ultimate_failure=Fail} = St,            %Assertion
+    make_succeeded_1(Var, body, Fail, St).
 
-    Check = [#b_set{op=succeeded,dst=Bool,args=[Var]},
+make_succeeded_1(Var, Kind, Fail, St0) ->
+    {Bool,St1} = new_ssa_var('@ssa_bool', St0),
+    {Succ,St} = new_label(St1),
+
+    Check = [#b_set{op={succeeded,Kind},dst=Bool,args=[Var]},
              #b_br{bool=Bool,succ=Succ,fail=Fail}],
 
-    %% Add a dummy block that references the checked variable, ensuring it
-    %% stays alive and that it won't be merged with the landing pad.
-    Trampoline = [{label,Fail},
-                  #b_set{op=exception_trampoline,args=[Var]},
-                  make_uncond_branch(CatchLbl)],
-
-    {Check ++ Trampoline ++ [{label,Succ}], St};
-make_succeeded(Var, {no_catch, Fail}, St) ->
-    %% Ultimate failure raises an exception, so we must treat it as if it were
-    %% in a catch to keep it from being optimized out.
-    #cg{ultimate_failure=Fail} = St,            %Assertion
-    make_succeeded(Var, {in_catch, Fail}, St);
-make_succeeded(Var, {guard, Fail}, St) ->
-    make_cond_branch(succeeded, [Var], Fail, St).
+    {Check ++ [{label,Succ}], St}.
 
 %% Instructions for selection of binary segments.
 
@@ -391,11 +395,11 @@ select_bin_seg(#k_val_clause{val=#k_bin_int{size=Sz,unit=U,flags=Fs,
     {Bis,St} = match_cg(B, Fail, St1),
     Is = case Mis ++ Bis of
              [#b_set{op=bs_match,args=[#b_literal{val=string},OtherCtx1,Bin1]},
-              #b_set{op=succeeded,dst=Bool1},
+              #b_set{op={succeeded,guard},dst=Bool1},
               #b_br{bool=Bool1,succ=Succ,fail=Fail},
               {label,Succ},
               #b_set{op=bs_match,dst=Dst,args=[#b_literal{val=string},_OtherCtx2,Bin2]}|
-              [#b_set{op=succeeded,dst=Bool2},
+              [#b_set{op={succeeded,guard},dst=Bool2},
                #b_br{bool=Bool2,fail=Fail}|_]=Is0] ->
                  %% We used to do this optimization later, but it
                  %% turns out that in huge functions with many
@@ -660,8 +664,7 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
             %% failure branch.
             #k_remote{mod=#k_literal{val=erlang},
                       name=#k_literal{val=error}} = Func, %Assertion.
-            [#k_var{name=DestVar}] = Rs,
-            St = set_ssa_var(DestVar, #b_literal{val=unused}, St0),
+            St = set_unused_ssa_vars(Rs, St0),
             {[make_uncond_branch(Fail),#cg_unreachable{}],St};
         FailCtx ->
             %% Ordinary function call in a function body.
@@ -671,21 +674,13 @@ call_cg(Func, As, [#k_var{name=R}|MoreRs]=Rs, Le, St0) ->
 
             %% If this is a call to erlang:error(), MoreRs could be a
             %% nonempty list of variables that each need a value.
-            St2 = foldl(fun(#k_var{name=Dummy}, S) ->
-                                set_ssa_var(Dummy, #b_literal{val=unused}, S)
-                        end, St1, MoreRs),
+            St2 = set_unused_ssa_vars(MoreRs, St1),
 
             {TestIs,St} = make_succeeded(Ret, FailCtx, St2),
             {[Call|TestIs],St}
     end.
 
 enter_cg(Func, As0, Le, St0) ->
-    %% Adding a trampoline here would give us greater freedom in rewriting
-    %% calls, but doing so makes it difficult to tell tail calls apart from
-    %% body calls during code generation.
-    %%
-    %% We therefore skip the trampoline, reasoning that we've already left the
-    %% current function by the time an exception is thrown.
     As = ssa_args([Func|As0], St0),
     {Ret,St} = new_ssa_var('@ssa_ret', St0),
     Call = #b_set{anno=line_anno(Le),op=call,dst=Ret,args=As},
@@ -1221,6 +1216,11 @@ new_ssa_var(VarBase, #cg{lcount=Uniq,vars=Vars}=St0)
             {Var,St}
     end.
 
+set_unused_ssa_vars(Vars, St) ->
+    foldl(fun(#k_var{name=V}, S) ->
+                  set_ssa_var(V, #b_literal{val=unused}, S)
+          end, St, Vars).
+
 set_ssa_var(VarBase, Val, #cg{vars=Vars}=St)
   when is_atom(VarBase); is_integer(VarBase) ->
     St#cg{vars=Vars#{VarBase=>Val}}.
@@ -1373,8 +1373,9 @@ fix_sets([], Acc, St) ->
 %%  store them in a map.
 
 build_map(Is) ->
-    Blocks = build_graph_1(Is, [], []),
-    maps:from_list(Blocks).
+    Linear0 = build_graph_1(Is, [], []),
+    Linear = beam_ssa:trim_unreachable(Linear0),
+    maps:from_list(Linear).
 
 build_graph_1([{label,L}|Is], Lbls, []) ->
     build_graph_1(Is, [L|Lbls], []);
@@ -1385,7 +1386,8 @@ build_graph_1([I|Is], Lbls, BlockAcc) ->
 build_graph_1([], Lbls, BlockAcc) ->
     make_blocks(Lbls, BlockAcc).
 
-make_blocks(Lbls, [Last|Is0]) ->
+make_blocks(Lbls, [Last0|Is0]) ->
     Is = reverse(Is0),
+    Last = beam_ssa:normalize(Last0),
     Block = #b_blk{is=Is,last=Last},
     [{L,Block} || L <- Lbls].

@@ -1,7 +1,7 @@
 # 
 # %CopyrightBegin%
 # 
-# Copyright Ericsson AB 2000-2016. All Rights Reserved.
+# Copyright Ericsson AB 2000-2020. All Rights Reserved.
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -47,7 +47,8 @@ include modules.mk
 
 ASN1_SPECS = $(ASN1_V1_SPEC) \
              $(ASN1_V2_SPEC) \
-             $(ASN1_PREV3A_SPEC) 
+             $(ASN1_V3_SPEC) \
+             $(ASN1_PREV3A_SPEC) $(ASN1_PREV3B_SPEC) $(ASN1_PREV3C_SPEC) 
 ASN1_FILES = $(ASN1_SPECS:%=%.asn)
 
 V1_SPECS = $(BER_ASN1_V1_SPEC)         \

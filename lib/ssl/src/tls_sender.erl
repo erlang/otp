@@ -541,7 +541,11 @@ key_update_at(Version, #{security_parameters :=
         ?AES_GCM ->
             KeyUpdateAt;
         ?CHACHA20_POLY1305 ->
-            seq_num_wrap
+            seq_num_wrap;
+        ?AES_CCM ->
+            KeyUpdateAt;
+        ?AES_CCM_8 ->
+            KeyUpdateAt
     end;
 key_update_at(_, _, KeyUpdateAt) ->
     KeyUpdateAt.

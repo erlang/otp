@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2016</year>
+      <year>2000</year><year>2020</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -379,28 +379,33 @@
   <section>
     <marker id="handling_versions"></marker>
     <title>Handling megaco versions</title>
-    <p>Since the version 3 implemented, in this version of the Megaco 
-      application, is preliminary, it is necessary to have a way
-      to handle different version 3 implementations. For this reason
-      the encoding config option <c><![CDATA[{version3, version3()}]]></c> has been 
-      introduced. This option, if present, has to be <em>first</em> in the 
-      encoding config list. Version 1 and 2 codec's ignore this option, if 
-      found. </p>
+    <note>
+      <p>This version (still) include three <c>pre version 3</c> variants of
+      the version 3 codec, beside the proper version 3.
+      These versions, <c>prev3a | prev3b | prev3c</c>,
+      are <em>deprecated</em>, and will be removed in OTP 24. </p>
+    </note>
+    <p>To be able to specify the different variants of version 3,
+    the encoding config option <c><![CDATA[{version3, version3()}]]></c>
+    <em>still</em> exists. This option, if present, has to be <em>first</em>
+    in the encoding config list. Version 1 and 2 codec's ignore this option,
+    if found. </p>
     <code type="none"><![CDATA[
 version3() -> prev3a | prev3b | prev3c | v3    ]]></code>
     <list type="bulleted">
       <item>
-        <p><em>prev3a</em></p>
+        <p><em>DEPRECATED: prev3a</em></p>
         <p>Preliminary version 3, based on TD-33</p>
       </item>
       <item>
-        <p><em>prev3b</em></p>
+        <p><em>DEPRECATED: prev3b</em></p>
         <p>Preliminary version 3, based on TD-33, but text encoding 
           updated with the final solution for priority in 
-          <c><![CDATA[contextProperty]]></c> (which is backward compatible with v2).</p>
+          <c><![CDATA[contextProperty]]></c> (which is backward compatible with 
+v2).</p>
       </item>
       <item>
-        <p><em>prev3c</em></p>
+        <p><em>DEPRECATED: prev3c</em></p>
         <p>Preliminary version 3, based on the final version of the 
           v3-standard, but <em>excluding</em> segments!</p>
       </item>
@@ -412,6 +417,8 @@ version3() -> prev3a | prev3b | prev3c | v3    ]]></code>
           then v3 is assumed).</p>
       </item>
     </list>
+
+
     <p>There are two ways to handle the different megaco encoding versions.
       Either using <em>dynamic version detection</em> (only valid for
       for incoming messages) or by <em>explicit version</em> setting in 

@@ -1536,6 +1536,10 @@ ec_curve_spec({ecParameters, ECParams}) ->
 	ec_curve_spec(ECParams);
 ec_curve_spec({namedCurve, OID}) when is_tuple(OID), is_integer(element(1,OID)) ->
     ec_curve_spec({namedCurve,  pubkey_cert_records:namedCurves(OID)});
+ec_curve_spec({namedCurve, x25519 = Name}) ->
+    Name;
+ec_curve_spec({namedCurve, x448 = Name}) ->
+    Name;
 ec_curve_spec({namedCurve, Name}) when is_atom(Name) ->
     crypto:ec_curve(Name).
 

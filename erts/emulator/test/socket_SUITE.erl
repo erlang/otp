@@ -2274,6 +2274,25 @@ analyze_and_print_freebsd_host_info(Version) ->
 
 
 
+init_per_group(GroupName, Config)
+  when (GroupName =:= sc_remote_close) orelse
+       (GroupName =:= sc_remote_shutdown) orelse
+       (GroupName =:= traffic) ->
+    io:format("init_per_group(~w) -> entry with"
+              "~n   Config: ~p"
+              "~n", [GroupName, Config]),
+    %% Maybe we should skip the entire suite for this platform,
+    %% but for now we just skip these groups, which seem to 
+    %% have problems (slave node start).
+    %% As stated elsewhere, its not really Fedora 16, but 
+    %% the *really* slow VM that is the issue.
+    try is_old_fedora16() of
+        ok ->
+            Config
+    catch
+        throw:{skip, _} = SKIP ->
+            SKIP
+    end;
 init_per_group(ttest = _GroupName, Config) ->
     io:format("init_per_group(~w) -> entry with"
               "~n   Config: ~p"
@@ -2741,6 +2760,8 @@ api_b_open_and_close(InitState) ->
            cmd  => fun({S, {ok, Sock}}) -> 
                            NewS = S#{socket => Sock},
                            {ok, NewS};
+                      ({_, {error,  eprotonosupport = Reason}}) ->
+                           {skip, Reason};
                       ({_, {error, _} = ERROR}) ->
                            ERROR
                    end},
@@ -17344,6 +17365,7 @@ api_opt_sock_timestamp_tcp4(_Config) when is_list(_Config) ->
                    is_good_enough_linux({4,4,120}),
                    is_not_freebsd(),
                    is_not_openbsd(),
+                   is_not_netbsd(),
                    is_not_darwin()
            end,
            fun() ->
@@ -20920,6 +20942,8 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
                                        [{ip, recvttl, ttl,
                                          case os:type() of
                                              {unix, freebsd} ->
+                                                 default;
+                                             {unix, netbsd} ->
                                                  default;
 					     {unix, linux} ->
 						 case os:version() of
@@ -43195,6 +43219,9 @@ is_not_freebsd() ->
 
 is_not_openbsd() ->
     is_not_platform(openbsd, "OpenBSD").
+
+is_not_netbsd() ->
+    is_not_platform(netbsd, "NetBSD").
 
 is_not_darwin() ->
     is_not_platform(darwin, "Darwin").

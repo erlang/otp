@@ -834,12 +834,15 @@ verify_host_key(#ssh{algorithms=Alg}=SSH, PublicKey, Digest, {AlgStr,Signature})
 
 
 %%% -> boolean() | {error,_}
-accepted_host(Ssh, PeerName, Public, Opts) ->
+accepted_host(Ssh, PeerName, Port, Public, Opts) ->
+    PortStr = case Port of
+                  22 -> "";
+                  _ -> lists:concat([":",Port])
+              end,
     case ?GET_OPT(silently_accept_hosts, Opts) of
-
         %% Original option values; User question and no host key fingerprints known.
         %% Keep the original question unchanged:
-	false -> yes == yes_no(Ssh, "New host " ++ PeerName ++ " accept");
+	false -> yes == yes_no(Ssh, "New host " ++ PeerName ++ PortStr ++ " accept");
 	true -> true;
 
         %% Variant: User question but with host key fingerprint in the question:
@@ -847,10 +850,10 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
             HostKeyAlg = (Ssh#ssh.algorithms)#alg.hkey,
             Prompt = io_lib:format("The authenticity of the host can't be established.~n"
                                    "~s host key fingerprint is ~s.~n"
-                                   "New host ~p accept",
+                                   "New host ~p~p accept",
                                    [fmt_hostkey(HostKeyAlg),
                                     public_key:ssh_hostkey_fingerprint(Alg,Public),
-                                    PeerName]),
+                                    PeerName, PortStr]),
             yes == yes_no(Ssh, Prompt);
 
         %% Call-back alternatives: A user provided fun is called for the decision:
@@ -860,8 +863,20 @@ accepted_host(Ssh, PeerName, Public, Opts) ->
                 _ -> {error, fingerprint_check_failed}
             end;
 
+        F when is_function(F,3) ->
+            case catch F(PeerName, Port, public_key:ssh_hostkey_fingerprint(Public)) of
+                true -> true;
+                _ -> {error, fingerprint_check_failed}
+            end;
+
 	{DigestAlg,F} when is_function(F,2) ->
             case catch F(PeerName, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
+                true -> true;
+                _ -> {error, {fingerprint_check_failed,DigestAlg}}
+            end;
+
+	{DigestAlg,F} when is_function(F,3) ->
+            case catch F(PeerName, Port, public_key:ssh_hostkey_fingerprint(DigestAlg,Public)) of
                 true -> true;
                 _ -> {error, {fingerprint_check_failed,DigestAlg}}
             end
@@ -882,25 +897,46 @@ fmt_hostkey("ecdsa"++_) -> "ECDSA";
 fmt_hostkey(X) -> X.
 
 
-known_host_key(#ssh{opts = Opts, peer = {PeerName,_}} = Ssh, 
+known_host_key(#ssh{opts = Opts, peer = {PeerName,{IP,Port}}} = Ssh, 
 	       Public, Alg) ->
-    case call_KeyCb(is_host_key, [Public, PeerName, Alg], Opts) of
+    IsHostKey =
+        try
+            %% New style (with Port)
+            call_KeyCb(is_host_key, [Public, [PeerName,IP], Port, Alg], Opts)
+        catch
+            error:undef ->
+                %% old style (without Port)
+                call_KeyCb(is_host_key, [Public, PeerName, Alg], Opts)
+        end,
+
+    case IsHostKey of
 	true ->
 	    ok;
 	false ->
+            %% Not in "known_hosts" and, if is_host_key/4, not revoked
             DoAdd = ?GET_OPT(save_accepted_host, Opts),
-	    case accepted_host(Ssh, PeerName, Public, Opts) of
+	    case accepted_host(Ssh, PeerName, Port, Public, Opts) of
 		true when DoAdd == true ->
-		    call_KeyCb(add_host_key, [PeerName, Public], Opts);
+		    try
+                        %% New style (with Port)
+                        call_KeyCb(add_host_key, [[PeerName,IP], Port, Public], Opts)
+                    catch
+                        error:undef ->
+                            %% old style (without Port)
+                            call_KeyCb(add_host_key, [PeerName, Public], Opts)
+                    end;
 		true when DoAdd == false ->
                     ok;
 		false ->
 		    {error, rejected_by_user};
                 {error,E} ->
                     {error,E}
-	    end
+	    end;
+        {error, Error} ->
+            %% Only returned by is_host_key/4
+            {error, Error}
     end.
-	    
+
 %%   Each of the algorithm strings MUST be a comma-separated list of
 %%   algorithm names (see ''Algorithm Naming'' in [SSH-ARCH]).  Each
 %%   supported (allowed) algorithm MUST be listed in order of preference.

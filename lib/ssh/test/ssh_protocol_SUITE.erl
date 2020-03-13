@@ -419,7 +419,7 @@ do_gex_client_init(Config, {Min,N,Max}, {G,P}) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},
@@ -454,7 +454,7 @@ do_gex_client_init_old(Config, N, {G,P}) ->
 	    [{silently_accept_hosts, true},
 	     {user_dir, user_dir(Config)},
 	     {user_interaction, false},
-	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha1']},
+	     {preferred_algorithms,[{kex,['diffie-hellman-group-exchange-sha256']},
                                     {cipher,?DEFAULT_CIPHERS}
                                    ]}
 	    ]},

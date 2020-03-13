@@ -1,7 +1,7 @@
 %% 
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2003-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2003-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,11 +97,34 @@ groups() ->
 %% -----
 %%
 
-init_per_suite(Config) when is_list(Config) ->
-    Config.
+init_per_suite(Config0) when is_list(Config0) ->
+    ?IPRINT("init_per_suite -> entry with"
+            "~n      Config0: ~p", [Config0]),
 
-end_per_suite(Config) when is_list(Config) ->
-    Config.
+    case ?LIB:init_per_suite(Config0) of
+        {skip, _} = SKIP ->
+            SKIP;
+
+        Config1 when is_list(Config1) ->
+            %% We need a monitor on this node also
+            snmp_test_sys_monitor:start(),
+
+            ?IPRINT("init_per_suite -> end when"
+                    "~n      Config: ~p", [Config1]),
+            
+            Config1
+    end.
+
+end_per_suite(Config0) when is_list(Config0) ->
+    ?IPRINT("end_per_suite -> entry with"
+            "~n      Config0: ~p", [Config0]),
+
+    snmp_test_sys_monitor:stop(),
+    Config1 = ?LIB:end_per_suite(Config0),
+
+    ?IPRINT("end_per_suite -> end"),
+
+    Config1.
 
 
 
@@ -136,7 +159,7 @@ end_per_testcase(_Case, Config) when is_list(Config) ->
 check_mandatory(suite) -> [];
 check_mandatory(Config) when is_list(Config) ->
     ?P(check_mandatory),
-    %% d("check_mandatory -> entry"),
+    %% ?IPRINT("check_mandatory -> entry"),
     A1 = [{a, hej}, {b, hopp}, {c, 10}, {d, 10101}, {f, 10.88}],
     B1 = [{a, {value, hejsan}}, 
 	  {b, mandatory}, 
@@ -696,8 +719,3 @@ read_files(Config) when is_list(Config) ->
 %% Internal functions
 %%======================================================================
 
-% d(F) ->
-%     d(F, []).
-
-% d(F, A) ->
-%     io:format("~w:" ++ F ++ "~n", [?MODULE|A]).

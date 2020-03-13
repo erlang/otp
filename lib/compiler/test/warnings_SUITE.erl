@@ -621,8 +621,8 @@ maps(Config) when is_list(Config) ->
 		 ok.
            ">>,
            [],
-	   {warnings,[{3,v3_core,badmap}]}},
-	   {ok_map_literal_key,
+	   {warnings,[{3,sys_core_fold,{eval_failure,badmap}}]}},
+           {ok_map_literal_key,
            <<"
              t() ->
 		 V = id(1),

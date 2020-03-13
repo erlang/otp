@@ -315,7 +315,8 @@ amb_1(Lbl, #b_blk{is=Is0,last=Last0}=Block, State0) ->
     {Is, State1} = mapfoldl(fun(I, State) ->
                                     amb_assign_set(I, Lbl, State)
                             end, State0, Is0),
-    {Last, State} = amb_assign_last(Last0, Lbl, State1),
+    {Last1, State} = amb_assign_last(Last0, Lbl, State1),
+    Last = beam_ssa:normalize(Last1),
     {Block#b_blk{is=Is,last=Last}, State}.
 
 amb_assign_set(#b_set{op=phi,args=Args0}=I, _Lbl, State0) ->
@@ -471,7 +472,7 @@ combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
 cm_1([#b_set{ op=bs_start_match,
               dst=Ctx,
               args=[_,Src] },
-      #b_set{ op=succeeded,
+      #b_set{ op={succeeded,guard},
               dst=Bool,
               args=[Ctx] }]=MatchSeq, Acc0, Lbl, State0) ->
     Acc = reverse(Acc0),
@@ -521,19 +522,28 @@ cm_register_prior(Src, DstCtx, Lbl, State) ->
     State#cm{ prior_matches = PriorMatches }.
 
 cm_combine_tail(Src, DstCtx, Bool, Acc, State0) ->
-    SrcCtx = match_context_of(Src, State0#cm.definitions),
+    SrcCtx0 = match_context_of(Src, State0#cm.definitions),
+
+    {SrcCtx, Renames} = cm_combine_tail_1(Bool, DstCtx, SrcCtx0,
+                                          State0#cm.renames),
 
     %% We replace the source with a context alias as it normally won't be used
     %% on the happy path after being matched, and the added cost of conversion
     %% is negligible if it is.
     Aliases = maps:put(Src, {0, SrcCtx}, State0#cm.match_aliases),
-
-    Renames0 = State0#cm.renames,
-    Renames = Renames0#{ Bool => #b_literal{val=true}, DstCtx => SrcCtx },
-
     State = State0#cm{ match_aliases = Aliases, renames = Renames },
 
     {Acc, State}.
+
+cm_combine_tail_1(Bool, DstCtx, SrcCtx, Renames0) ->
+    case Renames0 of
+        #{ SrcCtx := New } ->
+            cm_combine_tail_1(Bool, DstCtx, New, Renames0);
+        #{} ->
+            Renames = Renames0#{ Bool => #b_literal{val=true},
+                                 DstCtx => SrcCtx },
+            {SrcCtx, Renames}
+    end.
 
 %% Lets functions accept match contexts as arguments. The parameter must be
 %% unused before the bs_start_match instruction, and it must be matched in the
@@ -579,10 +589,11 @@ aca_enable_reuse([#b_set{op=bs_start_match,args=[_,Src]}=I0 | Rest],
                  EntryBlock, Blocks0, Acc, State0) ->
     case aca_is_reuse_safe(Src, State0) of
         true ->
-            {I, Last, Blocks1, State} =
+            {I, Last0, Blocks1, State} =
                 aca_reuse_context(I0, EntryBlock, Blocks0, State0),
 
             Is = reverse([I | Acc], Rest),
+            Last = beam_ssa:normalize(Last0),
             Blocks = maps:put(0, EntryBlock#b_blk{is=Is,last=Last}, Blocks1),
 
             %% Copying (and thus renaming) the successors of a block may cause
@@ -662,12 +673,14 @@ aca_handle_convergence(Src, State0, Last0, Blocks0) ->
                     {Succ, Blocks, Counter} =
                         aca_copy_successors(Succ0, Blocks0, State0#aca.counter),
                     State = State0#aca{ counter = Counter },
-                    {State, Last0#b_br{succ=Succ}, Blocks};
+                    Last = beam_ssa:normalize(Last0#b_br{succ=Succ}),
+                    {State, Last, Blocks};
                 right ->
                     {Fail, Blocks, Counter} =
                         aca_copy_successors(Fail0, Blocks0, State0#aca.counter),
                     State = State0#aca{ counter = Counter },
-                    {State, Last0#b_br{fail=Fail}, Blocks}
+                    Last = beam_ssa:normalize(Last0#b_br{fail=Fail}),
+                    {State, Last, Blocks}
             end;
         false ->
             {State0, Last0, Blocks0}
@@ -709,7 +722,8 @@ aca_cs_1([], Blocks, Counter, _VRs, _BRs, Acc) ->
 
 aca_cs_block(#b_blk{is=Is0,last=Last0}=Block0, Counter0, VRs0, BRs) ->
     {VRs, Is, Counter} = aca_cs_is(Is0, Counter0, VRs0, BRs, []),
-    Last = aca_cs_last(Last0, VRs, BRs),
+    Last1 = aca_cs_last(Last0, VRs, BRs),
+    Last = beam_ssa:normalize(Last1),
     Block = Block0#b_blk{is=Is,last=Last},
     {VRs, Block, Counter}.
 

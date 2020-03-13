@@ -339,8 +339,8 @@ ipv6_tests() ->
 
 init_per_suite(Config0) when is_list(Config0) ->
 
-    p("init_per_suite -> entry with"
-      "~n      Config0: ~p", [Config0]),
+    ?IPRINT("init_per_suite -> entry with"
+            "~n      Config0: ~p", [Config0]),
 
     case ?LIB:init_per_suite(Config0) of
         {skip, _} = SKIP ->
@@ -348,8 +348,8 @@ init_per_suite(Config0) when is_list(Config0) ->
 
         Config1 ->
 
-            p("init_per_suite -> common init done"
-              "~n      Config1: ~p", [Config1]),
+            ?IPRINT("init_per_suite -> common init done"
+                    "~n      Config1: ~p", [Config1]),
 
             %% Preferably this test SUITE should be divided into groups
             %% so that if crypto does not work only v3 tests that
@@ -377,15 +377,15 @@ init_per_suite(Config0) when is_list(Config0) ->
 
 end_per_suite(Config0) when is_list(Config0) ->
 
-    p("end_per_suite -> entry with"
-      "~n      Config0: ~p"
-      "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
+    ?IPRINT("end_per_suite -> entry with"
+            "~n      Config0: ~p"
+            "~n      Nodes:  ~p", [Config0, erlang:nodes()]),
 
     snmp_test_sys_monitor:stop(),
     Config1 = ?LIB:end_per_suite(Config0),
 
-    p("end_per_suite -> end when"
-      "~n      Nodes:  ~p", [erlang:nodes()]),
+    ?IPRINT("end_per_suite -> end when"
+            "~n      Nodes:  ~p", [erlang:nodes()]),
     Config1.
 
 
@@ -455,8 +455,10 @@ end_per_group(_GroupName, Config) ->
 %%
 
 init_per_testcase(Case, Config) when is_list(Config) ->
-    p(Case, "init_per_testcase begin when"
-      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
+
+    ?IPRINT("init_per_testcase -> entry with"
+            "~n   Config: ~p"
+            "~n   Nodes:  ~p", [Config, erlang:nodes()]),
 
     snmp_test_global_sys_monitor:reset_events(),
     
@@ -474,15 +476,19 @@ init_per_testcase(Case, Config) when is_list(Config) ->
                     C:{skip, _} = E:_ when ((C =:= throw) orelse
                                             (C =:= exit)) ->
                         E;
+                    exit:{suite_failed, {{Reason, _CS},_MFA}, Mod, Line}:_ ->
+                        {skip, {Reason, Mod, Line}};
+                    exit:{suite_failed, Reason, Mod, Line}:_ ->
+                        {skip, {Reason, Mod, Line}};
                     C:E:_ when ((C =:= throw) orelse
                                 (C =:= exit)) ->
                         {skip, {catched, C, E}}
                 end
 	end,
-    p(Case, "init_per_testcase end when"
-      "~n      Nodes:  ~p"
-      "~n      Result: ~p"
-      "~n~n", [Result, erlang:nodes()]),
+    ?IPRINT("init_per_testcase end when"
+            "~n      Nodes:  ~p"
+            "~n      Result: ~p"
+            "~n~n", [erlang:nodes(), Result]),
     Result.
 
 init_per_testcase2(Case, Config) ->
@@ -529,10 +535,14 @@ init_per_testcase2(Case, Config) ->
              InformSwarm when (InformSwarm =:= inform_swarm_cbp_def) orelse
                               (InformSwarm =:= inform_swarm_cbp_temp) orelse
                               (InformSwarm =:= inform_swarm_cbp_perm) ->
-                 ?MINS(60);
+                 case ?config(snmp_factor, Config) of
+                     N when is_integer(N) -> ?MINS(2*N);
+                     _                    -> ?MINS(2)
+                 end;
              _ ->
                  ?MINS(1)
          end,
+    ?IPRINT("Set test case timetrap: ~p", [TO]),
     ct:timetrap(TO),
 
     Conf = [{ipfamily,                  Family},
@@ -611,12 +621,12 @@ init_per_testcase3(Case, Config) ->
                         (Case =:= inform_swarm_cbp_temp) orelse
                         (Case =:= inform_swarm_cbp_perm) ->
 			    Verb = [{manager_config_verbosity,     silence},
-				    {manager_note_store_verbosity, silence},
-				    {manager_server_verbosity,     info},
-				    {manager_net_if_verbosity,     info},
-				    {agent_verbosity,              info}, 
-				    {agent_net_if_verbosity,       info}],
-			    Verb ++ Config;
+                                    {manager_note_store_verbosity, silence},
+                                    {manager_server_verbosity,     info},
+                                    {manager_net_if_verbosity,     info},
+                                    {agent_verbosity,              info}, 
+                                    {agent_net_if_verbosity,       info}],
+                            Verb ++ Config;
 			Case =:= otp8395_1 ->
 			    [{manager_atl_seqno, true} | Config];
 			true ->
@@ -672,20 +682,21 @@ init_per_testcase_fail_agent_cleanup(Conf) ->
     (catch fin_agent(Conf)).
 
 end_per_testcase(Case, Config) when is_list(Config) ->
-    p(Case, "end_per_testcase begin when"
-      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
+    ?IPRINT("end_per_testcase -> entry with"
+            "~n   Config:        ~p"
+            "~n   Nodes:         ~p",
+            [Config, erlang:nodes()]),
 
-    ?PRINT2("system events during test: "
+    ?IPRINT("system events during test: "
             "~n   ~p", [snmp_test_global_sys_monitor:events()]),
 
-    %% Dog    = ?config(watchdog, Config),
-    %% ?WD_STOP(Dog),
-    %% Conf1  = lists:keydelete(watchdog, 1, Config),
     Conf1  = Config,
     Conf2  = end_per_testcase2(Case, Conf1),
 
-    p(Case, "end_per_testcase end when"
-      "~n      Nodes: ~p~n~n", [erlang:nodes()]),
+    ?IPRINT("end_per_testcase -> done with"
+            "~n   Condif: ~p"
+            "~n   Nodes:  ~p", [Conf2, erlang:nodes()]),
+
     Conf2.
 
 end_per_testcase2(Case, Config) ->
@@ -765,7 +776,8 @@ simple_start_and_stop1(Config) when is_list(Config) ->
             fun() -> do_simple_start_and_stop1(Config) end).
 
 do_simple_start_and_stop1(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
 
@@ -776,12 +788,12 @@ do_simple_start_and_stop1(Config) ->
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start_link(Opts),
 
     ?SLEEP(1000),
 
-    p("manager started, now try to stop"),
+    ?IPRINT("manager started, now try to stop"),
     ok = snmpm:stop(),
 
     ?SLEEP(1000),
@@ -802,7 +814,9 @@ simple_start_and_stop2(Config) when is_list(Config) ->
     ?TC_TRY(simple_start_and_stop2, Pre, Case, Post).
 
 do_simple_start_and_stop2([ManagerNode], Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p"
+            "~n", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -815,23 +829,24 @@ do_simple_start_and_stop2([ManagerNode], Config) ->
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
 
-    p("try load snmp application"),
+    ?IPRINT("try load snmp application"),
     ?line ok = load_snmp(ManagerNode),
 
-    p("try set manager env for the snmp application"),
+    ?IPRINT("try set manager env for the snmp application"),
     ?line ok = set_mgr_env(ManagerNode, Opts),
 
-    p("try starting snmp application (with only manager)"),
+    ?IPRINT("try starting snmp application (with only manager)"),
     ?line ok = start_snmp(ManagerNode),
 
-    p("started"),
+    ?IPRINT("started"),
 
     ?SLEEP(1000),
 
-    p("try stopping snmp application (with only manager)"),
+    ?IPRINT("try stopping snmp application (with only manager)"),
     ?line ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
+    ?IPRINT("end"),
 
     ok.
 
@@ -844,7 +859,9 @@ simple_start_and_stop3(Config) when is_list(Config) ->
             fun() -> do_simple_start_and_stop3(Config) end).
 
 do_simple_start_and_stop3(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
+
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
 
@@ -855,17 +872,19 @@ do_simple_start_and_stop3(Config) ->
 	    {note_store, [{verbosity, trace}]},
 	    {config,     [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     try snmpm:start_link(Opts) of
         ok ->
+            (catch snmpm:stop()),
             ?FAIL('unexpected-success')
     catch
         _:_:_ ->
-            p("expected start failure"),
+            ?IPRINT("expected start failure"),
             ok
     end,
 
     ?SLEEP(1000),
+    ?IPRINT("end"),
 
     ok.
 
@@ -878,7 +897,8 @@ simple_start_and_monitor_crash1(Config) when is_list(Config) ->
             fun() -> do_simple_start_and_monitor_crash1(Config) end).
 
 do_simple_start_and_monitor_crash1(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -890,15 +910,15 @@ do_simple_start_and_monitor_crash1(Config) ->
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start(Opts),
 
     ?SLEEP(1000),
 
-    p("create the monitor"),
+    ?IPRINT("create the monitor"),
     Ref = snmpm:monitor(),
 
-    p("make sure it has not already crashed..."),
+    ?IPRINT("make sure it has not already crashed..."),
     receive
 	{'DOWN', Ref, process, Obj1, Reason1} ->
 	    ?FAIL({unexpected_down, Obj1, Reason1})
@@ -906,20 +926,28 @@ do_simple_start_and_monitor_crash1(Config) ->
 	    ok
     end,
 
-    p("stop the manager"),
+    ?IPRINT("stop the manager"),
     ok = snmpm:stop(),
 
-    p("await the down-message"),
+    ?IPRINT("await the down-message"),
     receive
 	{'DOWN', Ref, process, Obj2, Reason2} ->
-	    p("received expected down-message: "
-	      "~n   Obj2:    ~p"
-	      "~n   Reason2: ~p", 
-	      [Obj2, Reason2]),
+	    ?IPRINT("received expected down-message: "
+                    "~n   Obj2:    ~p"
+                    "~n   Reason2: ~p", 
+                    [Obj2, Reason2]),
 	    ok
     after 1000 ->
+            %% The manager is an entire process tree and we can't
+            %% wait for all of them. Instead, we assume that if
+            %% we deal with the top supervisor, all the other procs
+            %% will also follow...
+            ?ENSURE_NOT_RUNNING(snmpm_supervisor,
+                                fun() -> snmpm:stop() end,
+                                1000),
 	    ?FAIL(timeout)
     end,
+    ?IPRINT("end"),
 
     ok.
 
@@ -928,11 +956,22 @@ do_simple_start_and_monitor_crash1(Config) ->
 
 simple_start_and_monitor_crash2(suite) -> [];
 simple_start_and_monitor_crash2(Config) when is_list(Config) ->
+    Cond = fun() -> case os:type() of
+			{unix, netbsd} ->
+			    {skip, "Unstable on NetBSD"};
+			_ ->
+			    ok
+		    end
+	   end,
+    Pre  = fun()  -> undefined end,
+    Case = fun(_) -> do_simple_start_and_monitor_crash2(Config) end,
+    Post = fun(_) -> ok end,
     ?TC_TRY(simple_start_and_monitor_crash2,
-            fun() -> do_simple_start_and_monitor_crash2(Config) end).
+	    Cond, Pre, Case, Post).
 
 do_simple_start_and_monitor_crash2(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -945,15 +984,15 @@ do_simple_start_and_monitor_crash2(Config) ->
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
-    p("try starting manager"),
+    ?IPRINT("try starting manager"),
     ok = snmpm:start(Opts),
 
     ?SLEEP(1000),
 
-    p("create the monitor"),
+    ?IPRINT("create the monitor"),
     Ref = snmpm:monitor(),
 
-    p("make sure it has not already crashed..."),
+    ?IPRINT("make sure it has not already crashed..."),
     receive
 	{'DOWN', Ref, process, Obj1, Reason1} ->
 	    ?FAIL({unexpected_down, Obj1, Reason1})
@@ -961,16 +1000,16 @@ do_simple_start_and_monitor_crash2(Config) ->
 	    ok
     end,
 
-    p("crash the manager"),
+    ?IPRINT("crash the manager"),
     simulate_crash(),
 
-    p("await the down-message"),
+    ?IPRINT("await the down-message"),
     receive
 	{'DOWN', Ref, process, Obj2, Reason2} ->
-	    p("received expected down-message: "
-	      "~n   Obj2:    ~p"
-	      "~n   Reason2: ~p", 
-	      [Obj2, Reason2]),
+	    ?IPRINT("received expected down-message: "
+                    "~n   Obj2:    ~p"
+                    "~n   Reason2: ~p", 
+                    [Obj2, Reason2]),
 	    ok
     after 1000 ->
 	    ?FAIL(timeout)
@@ -997,16 +1036,17 @@ simulate_crash(?MAX_KILLS, _) ->
 	    ok
     end;
 simulate_crash(NumKills, Pid) when (NumKills < ?MAX_KILLS) and is_pid(Pid) ->
-    p("similate_crash -> ~w, ~p", [NumKills, Pid]),
+    ?IPRINT("similate_crash -> ~w, ~p", [NumKills, Pid]),
     Ref = erlang:monitor(process, Pid),
     exit(Pid, kill),
     receive 
 	{'DOWN', Ref, process, _Object, _Info} ->
-	    p("received expected 'DOWN' message"),
+	    ?IPRINT("received expected 'DOWN' message"),
 	    simulate_crash(NumKills + 1, server_pid())
     after 1000 ->
 	    case server_pid() of
 		P when is_pid(P) ->
+                    ?EPRINT("received expected 'DOWN' message"),
 		    exit({error, {no_down_from_server, P}});
 		_ ->
 		    ok
@@ -1025,7 +1065,8 @@ notify_started01(Config) when is_list(Config) ->
             fun() -> do_notify_started01(Config) end).
 
 do_notify_started01(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1037,11 +1078,11 @@ do_notify_started01(Config) ->
 	    {note_store, [{verbosity, silence}]},
 	    {config, [{verbosity, log}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
-    p("request start notification (1)"),
+    ?IPRINT("request start notification (1)"),
     Pid1 = snmpm:notify_started(10000),
     receive
 	{snmpm_start_timeout, Pid1} ->
-	    p("received expected start timeout"),
+	    ?IPRINT("received expected start timeout"),
 	    ok;
 	Any1 ->
 	    ?FAIL({unexpected_message, Any1})
@@ -1049,17 +1090,17 @@ do_notify_started01(Config) ->
 	    ?FAIL({unexpected_timeout, Pid1})
     end,
 
-    p("request start notification (2)"),
+    ?IPRINT("request start notification (2)"),
     Pid2 = snmpm:notify_started(10000),
 
-    p("start the snmpm starter"),
+    ?IPRINT("start the snmpm starter"),
     Pid = snmpm_starter(Opts, 5000),
 
-    p("await the start notification"),
+    ?IPRINT("await the start notification"),
     Ref = 
 	receive
 	    {snmpm_started, Pid2} ->
-		p("received started message -> create the monitor"),
+		?IPRINT("received started message -> create the monitor"),
 		snmpm:monitor();
 	    Any2 ->
 		?FAIL({unexpected_message, Any2})
@@ -1067,7 +1108,7 @@ do_notify_started01(Config) ->
 		?FAIL({unexpected_timeout, Pid2})
 	end,
 
-    p("[~p] make sure it has not already crashed...", [Ref]),
+    ?IPRINT("[~p] make sure it has not already crashed...", [Ref]),
     receive
 	{'DOWN', Ref, process, Obj1, Reason1} ->
 	    ?FAIL({unexpected_down, Obj1, Reason1})
@@ -1075,22 +1116,22 @@ do_notify_started01(Config) ->
 	    ok
     end,
 
-    p("stop the manager"),
+    ?IPRINT("stop the manager"),
     Pid ! {stop, self()}, %ok = snmpm:stop(),
 
-    p("await the down-message"),
+    ?IPRINT("await the down-message"),
     receive
 	{'DOWN', Ref, process, Obj2, Reason2} ->
-	    p("received expected down-message: "
-	      "~n   Obj2:    ~p"
-	      "~n   Reason2: ~p", 
-	      [Obj2, Reason2]),
+	    ?IPRINT("received expected down-message: "
+                    "~n   Obj2:    ~p"
+                    "~n   Reason2: ~p", 
+                    [Obj2, Reason2]),
 	    ok
     after 5000 ->
 	    ?FAIL(down_timeout)
     end,
 
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -1139,7 +1180,8 @@ notify_started02_cond(Config) ->
     ?NON_PC_TC_MAYBE_SKIP(Config, Condition).
     
 do_notify_started02(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1151,11 +1193,11 @@ do_notify_started02(Config) ->
 	    {note_store, [{verbosity, silence}]},
 	    {config,     [{verbosity, debug}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
-    p("start snmpm client process"),
+    ?IPRINT("start snmpm client process"),
     NumIterations = 5,
     Pid1 = ns02_client_start(NumIterations),
 
-    p("start snmpm ctrl (starter) process"),
+    ?IPRINT("start snmpm ctrl (starter) process"),
     Pid2 = ns02_ctrl_start(Opts, NumIterations),
 
     %% On a reasonably fast machine, one iteration takes approx 4 seconds.
@@ -1177,7 +1219,8 @@ do_notify_started02(Config) ->
                 ?SKIP(Reason)
         end,
 
-    p("await snmpm client process exit (max ~p+10000 msec)", [ApproxStartTime]),
+    ?IPRINT("await snmpm client process exit (max ~p+10000 msec)", 
+            [ApproxStartTime]),
     receive 
         %% We take this opportunity to check if we got a skip from
         %% the ctrl process.
@@ -1195,7 +1238,7 @@ do_notify_started02(Config) ->
 	    ?FAIL(timeout)
     end,
 	
-    p("await snmpm starter process exit"),
+    ?IPRINT("await snmpm starter process exit"),
     receive 
 	{'EXIT', Pid2, normal} ->
 	    ok;
@@ -1209,7 +1252,7 @@ do_notify_started02(Config) ->
 	    ?FAIL(timeout)
     end,
 	
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -1222,8 +1265,8 @@ ns02_client_await_approx_runtime(Pid) ->
         {?MODULE, client_time, Time} ->
             {ok, Time};
         {'EXIT', Pid, Reason} ->
-            p("client (~p) failed: "
-              "~n      ~p", [Pid, Reason]),
+            ?EPRINT("client (~p) failed: "
+                    "~n      ~p", [Pid, Reason]),
             {error, Reason}
                 
     after 30000 ->
@@ -1235,48 +1278,48 @@ ns02_client_await_approx_runtime(Pid) ->
 		       
 ns02_client(Parent, N) when is_pid(Parent) ->
     put(tname, ns02_client),
-    p("starting"),
+    ?IPRINT("starting"),
     ns02_client_loop(Parent, 
                      dummy, snmpm:notify_started(?NS_TIMEOUT),
                      snmp_misc:now(ms), undefined,
                      N).
 
 ns02_client_loop(_Parent, _Ref, _Pid, _Begin, _End, 0) ->
-    %% p("loop -> done"),
+    %% ?IPRINT("loop -> done"),
     exit(normal);
 ns02_client_loop(Parent, Ref, Pid, Begin, End, N) 
   when is_pid(Parent) andalso is_integer(Begin) andalso is_integer(End) ->
-    %% p("loop -> [~w] inform parent: ~w, ~w => ~w", [N, Begin, End, End-Begin]),
+    %% ?IPRINT("loop -> [~w] inform parent: ~w, ~w => ~w", [N, Begin, End, End-Begin]),
     Parent ! {?MODULE, client_time, N*(End-Begin)},
     ns02_client_loop(undefined, Ref, Pid, snmp_misc:now(ms), undefined, N);    
 ns02_client_loop(Parent, Ref, Pid, Begin, End, N) 
   when is_integer(Begin) andalso is_integer(End) ->
-    %% p("loop -> [~w] entry when"
+    %% ?IPRINT("loop -> [~w] entry when"
     %%   "~n      Ref:   ~p"
     %%   "~n      Pid:   ~p"
     %%   "~n      Begin: ~p"
     %%   "~n      End:   ~p", [N, Ref, Pid, Begin, End]),
     ns02_client_loop(Parent, Ref, Pid, snmp_misc:now(ms), undefined, N);    
 ns02_client_loop(Parent, Ref, Pid, Begin, End, N) ->
-    %% p("loop(await message) -> [~w] entry when"
+    %% ?IPRINT("loop(await message) -> [~w] entry when"
     %%   "~n      Ref:   ~p"
     %%   "~n      Pid:   ~p"
     %%   "~n      Begin: ~p"
     %%   "~n      End:   ~p", [N, Ref, Pid, Begin, End]),
     receive
 	{snmpm_started, Pid} ->
-	    p("received expected started message (~w)", [N]),
+	    ?IPRINT("received expected started message (~w)", [N]),
 	    ns02_client_loop(Parent,
                              snmpm:monitor(), dummy,
                              Begin, End,
                              N);
 	{snmpm_start_timeout, Pid} ->
-	    p("unexpected timout"),
+	    ?EPRINT("unexpected timeout"),
 	    ?FAIL({unexpected_start_timeout, Pid});
 	{'DOWN', Ref, process, Obj, Reason} ->
-	    p("received expected DOWN message (~w) with"
-	      "~n   Obj:    ~p"
-	      "~n   Reason: ~p", [N, Obj, Reason]),
+	    ?IPRINT("received expected DOWN message (~w) with"
+                    "~n   Obj:    ~p"
+                    "~n   Reason: ~p", [N, Obj, Reason]),
 	    ns02_client_loop(Parent,
                              dummy, snmpm:notify_started(?NS_TIMEOUT),
                              Begin, snmp_misc:now(ms),
@@ -1288,7 +1331,7 @@ ns02_ctrl_start(Opts, N) ->
 		       
 ns02_ctrl(Opts, N) ->
     put(tname, ns02_ctrl),
-    p("starting"),
+    ?IPRINT("starting"),
     ns02_ctrl_loop(Opts, N).
 
 
@@ -1298,36 +1341,36 @@ ns02_ctrl(Opts, N) ->
 %% So, we try to monitor each start attempt. We allow 5 sec (just 
 %% to give slow boxes a chance).
 ns02_ctrl_loop(_Opts, 0) ->
-    p("done"),
+    ?IPRINT("done"),
     exit(normal);
 ns02_ctrl_loop(Opts, N) ->
-    p("entry when N: ~p", [N]),
+    ?IPRINT("entry when N: ~p", [N]),
     ?SLEEP(2000),
-    p("start manager"),
+    ?IPRINT("start manager"),
     TS1 = erlang:system_time(millisecond),
     {StarterPid, StarterMRef} =
         erlang:spawn_monitor(fun() -> exit(snmpm:start(Opts)) end),
     receive
         {'DOWN', StarterMRef, process, StarterPid, ok} ->
             TS2 = erlang:system_time(millisecond),
-            p("manager started: ~w ms", [TS2-TS1]),
+            ?IPRINT("manager started: ~w ms", [TS2-TS1]),
             ok
     after 5000 ->
-            p("manager (~p) start timeout - kill", [StarterPid]),
+            ?EPRINT("manager (~p) start timeout - kill", [StarterPid]),
             exit(StarterPid, kill),
             exit({skip, start_timeout})
     end,
     ?SLEEP(2000),
-    p("stop manager"),
+    ?IPRINT("stop manager"),
     ?SLEEP(100), % Give the verbosity to take effect...
     TS3 = erlang:system_time(millisecond),
     case snmpm:stop(5000) of
         ok ->
             TS4 = erlang:system_time(millisecond),
-            p("manager stopped: ~p ms", [TS4-TS3]),
+            ?IPRINT("manager stopped: ~p ms", [TS4-TS3]),
             ok;
         {error, timeout} ->
-            p("manager stop timeout - kill (cleanup) and skip"),
+            ?EPRINT("manager stop timeout - kill (cleanup) and skip"),
             exit(whereis(snmpm_supervisor), kill),
             exit({skip, stop_timeout})
     end,
@@ -1339,37 +1382,44 @@ ns02_ctrl_loop(Opts, N) ->
 
 info(suite) -> [];
 info(Config) when is_list(Config) ->
-    ?TC_TRY(info,
-            fun() -> do_info(Config) end).
+    Pre = fun() ->
+                  ConfDir = ?config(manager_conf_dir, Config),
+                  DbDir   = ?config(manager_db_dir, Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server, [{verbosity, trace}]},
+                          {net_if, [{verbosity, trace}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config, [{verbosity, trace}, 
+                                    {dir,       ConfDir}, 
+                                    {db_dir,    DbDir}]}],
+                  ?IPRINT("try starting manager"),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000),
+                  ok
+          end,
+    Case = fun(_) -> do_info(Config) end,
+    Post = fun(_) ->
+                   ?IPRINT("info verified, now try to stop"),
+                   snmpm:stop(),
+                   ?SLEEP(1000),
+                   ok
+           end,
+    ?TC_TRY(info, Pre, Case, Post).
+
 
 do_info(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
-
-    write_manager_conf(ConfDir),
-
-    Opts = [{server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
-	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
-
-    p("try starting manager"),
-    ok = snmpm:start(Opts),
-
-    ?SLEEP(1000),
-
-    p("manager started, now get info"),
+    ?IPRINT("get info"),
     Info = snmpm:info(), 
-    p("got info, now verify: ~n~p", [Info]),
+    ?IPRINT("got info, now verify: "
+            "~n   ~p", [Info]),
     ok = verify_info( Info ),
 
-    p("info verified, now try to stop"),
-    ok = snmpm:stop(),
-
-    ?SLEEP(1000),
-
+    ?IPRINT("end"),
     ok.
 
 verify_info(Info) when is_list(Info) ->
@@ -1407,33 +1457,43 @@ verify_info([{Key, SubKeys}|Keys], Info) ->
 
 %%======================================================================
 
-% USM privacy fails with AES in OTP 22.2.3. Test to prevent
-% regression in future releases.
-%
+%% USM privacy fails with AES in OTP 22.2.3. Test to prevent
+%% regression in future releases.
+%%
 usm_priv_aes(suite) -> [];
 usm_priv_aes(Config) when is_list(Config) ->
-    ?TC_TRY(info,
-            fun() -> do_usm_priv_aes(Config) end).
+    Pre = fun() ->
+                  ConfDir = ?config(manager_conf_dir, Config),
+                  DbDir   = ?config(manager_db_dir, Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config,     [{verbosity, trace},
+                                        {dir,       ConfDir},
+                                        {db_dir,    DbDir}]}],
+
+                  io:format("[~s] try starting manager", [?FTS()]),
+                  ok = snmpm:start(Opts),
+                  ?SLEEP(1000), % Give it time to settle
+                  ok
+          end,
+    Case = fun(_) -> do_usm_priv_aes(Config) end,
+    Post = fun(_) ->
+                   io:format("[~s] try stop manager", [?FTS()]),
+                   ok = snmpm:stop(),
+                   ?SLEEP(1000), % Give it time to settle
+                   ok
+           end,
+    ?TC_TRY(usm_priv_aes, Pre, Case, Post).
 
 do_usm_priv_aes(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    io:format("[~s] starting with Config: "
+              "~n   ~p", [?FTS(), Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
-
-    write_manager_conf(ConfDir),
-
-    Opts = [{server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
-	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
-
-    p("try starting manager"),
-    ok = snmpm:start(Opts),
-
-    ?SLEEP(1000),
-
-    p("manager started, now generate AES-encrypted message"),
+    io:format("[~s] generate AES-encrypted message", [?FTS()]),
 
     EngineID = [128,0,0,0,6],
     SecName  = "v3_user",
@@ -1519,7 +1579,8 @@ do_usm_priv_aes(Config) ->
         SecLevel
       ),
 
-    p("got AES-encrypted message, now decrypt: ~n~p", [Msg]),
+    io:format("[~s] got AES-encrypted message, now decrypt: "
+              "~n   ~p", [?FTS(), Msg]),
 
     {message, _Version, Hdr, NextData} =
       snmp_pdus:dec_message_only(Msg),
@@ -1549,11 +1610,7 @@ do_usm_priv_aes(Config) ->
 
     Data = ScopedPDUBytes,
 
-    p("Message decrypted, now try to stop"),
-    ok = snmpm:stop(),
-
-    ?SLEEP(1000),
-
+    io:format("[~s] Message decrypted", [?FTS()]),
     ok.
 
 %%======================================================================
@@ -1569,7 +1626,9 @@ register_user1(Config) when is_list(Config) ->
     ?TC_TRY(register_user1, Pre, Case, Post).
 
 do_register_user1([ManagerNode], Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n   ~p"
+            "~n", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1582,56 +1641,56 @@ do_register_user1([ManagerNode], Config) ->
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
 
-    p("load snmp application"),
+    ?IPRINT("load snmp application"),
     ?line ok = load_snmp(ManagerNode),
 
-    p("set manager env for the snmp application"),
+    ?IPRINT("set manager env for the snmp application"),
     ?line ok = set_mgr_env(ManagerNode, Opts),
 
-    p("starting snmp application (with only manager)"),
+    ?IPRINT("starting snmp application (with only manager)"),
     ?line ok = start_snmp(ManagerNode),
 
-    p("started"),
+    ?IPRINT("started"),
 
     ?SLEEP(1000),
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("try register user(s)"),
+    ?IPRINT("try register user(s)"),
     ?line ok = mgr_register_user(ManagerNode, calvin, snmpm_user_default, 
 				 [self(), "various misc info"]),
 
     Users1 = mgr_which_users(ManagerNode),
-    p("users: ~p~n", [Users1]),
+    ?IPRINT("users: ~p~n", [Users1]),
     ?line ok = verify_users(Users1, [calvin]),
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?line ok = mgr_register_user(ManagerNode, hobbe, snmpm_user_default, 
 				 {"misc info", self()}),
 
     Users2 = mgr_which_users(ManagerNode),
-    p("users: ~p~n", [Users2]),
+    ?IPRINT("users: ~p~n", [Users2]),
     ?line ok = verify_users(Users2, [calvin, hobbe]),
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("try unregister user(s)"),
+    ?IPRINT("try unregister user(s)"),
     ?line ok = mgr_unregister_user(ManagerNode, calvin),
 
     Users3 = mgr_which_users(ManagerNode),
-    p("users: ~p~n", [Users3]),
+    ?IPRINT("users: ~p~n", [Users3]),
     ?line ok = verify_users(Users3, [hobbe]),
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?line ok = mgr_unregister_user(ManagerNode, hobbe),
 
     Users4 = mgr_which_users(ManagerNode),
-    p("users: ~p~n", [Users4]),
+    ?IPRINT("users: ~p~n", [Users4]),
     ?line ok = verify_users(Users4, []),
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?SLEEP(1000),
 
-    p("stop snmp application (with only manager)"),
+    ?IPRINT("stop snmp application (with only manager)"),
     ?line ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
@@ -1667,7 +1726,9 @@ register_agent_old(Config) when is_list(Config) ->
     ?TC_TRY(register_agent_old, Pre, Case, Post).
 
 do_register_agent_old([ManagerNode], Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p"
+            "~n", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),
     DbDir   = ?config(manager_db_dir, Config),
@@ -1680,100 +1741,105 @@ do_register_agent_old([ManagerNode], Config) ->
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
 
-    p("load snmp application"),
+    ?IPRINT("load snmp application"),
     ?line ok = load_snmp(ManagerNode),
 
-    p("set manager env for the snmp application"),
+    ?IPRINT("set manager env for the snmp application"),
     ?line ok = set_mgr_env(ManagerNode, Opts),
 
-    p("starting snmp application (with only manager)"),
+    ?IPRINT("starting snmp application (with only manager)"),
     ?line ok = start_snmp(ManagerNode),
 
-    p("started"),
+    ?IPRINT("started"),
 
     ?SLEEP(1000),
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("register user(s) user_alfa & user_beta"),
+    ?IPRINT("register user(s) user_alfa & user_beta"),
     ?line ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
     ?line ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("register agent(s)"),
+    ?IPRINT("register agent(s)"),
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, 5000, []),
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, 5001, []),
     ?line ok = mgr_register_agent(ManagerNode, user_beta, 5002, []),
     ?line ok = mgr_register_agent(ManagerNode, user_beta, 5003, []),
 
-    p("verify all agent(s): expect 4"),
+    ?IPRINT("verify all agent(s): expect 4"),
     case mgr_which_agents(ManagerNode) of
 	Agents1 when length(Agents1) =:= 4 ->
-	    p("all agents: ~p~n", [Agents1]),
+	    ?IPRINT("all agents: ~p~n", [Agents1]),
 	    ok;
 	Agents1 ->
 	    ?FAIL({agent_registration_failure, Agents1})
     end,
 
-    p("verify user_alfa agent(s)"),
+    ?IPRINT("verify user_alfa agent(s)"),
     case mgr_which_agents(ManagerNode, user_alfa) of
 	Agents2 when length(Agents2) =:= 2 ->
-	    p("calvin agents: ~p~n", [Agents2]),
+	    ?IPRINT("calvin agents: ~p", [Agents2]),
 	    ok;
 	Agents2 ->
 	    ?FAIL({agent_registration_failure, Agents2})
     end,
 
-    p("verify user_beta agent(s)"),
+    ?IPRINT("verify user_beta agent(s)"),
     case mgr_which_agents(ManagerNode, user_beta) of
 	Agents3 when length(Agents3) =:= 2 ->
-	    p("hobbe agents: ~p~n", [Agents3]),
+	    ?IPRINT("hobbe agents: ~p", [Agents3]),
 	    ok;
 	Agents3 ->
 	    ?FAIL({agent_registration_failure, Agents3})
     end,
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: "
+            "~n      ~p", [mgr_info(ManagerNode)]),
     
-    p("unregister user user_alfa"),
+    ?IPRINT("unregister user user_alfa"),
     ?line ok = mgr_unregister_user(ManagerNode, user_alfa),
 
-    p("verify all agent(s): expect 2"),
+    ?IPRINT("verify all agent(s): expect 2"),
     case mgr_which_agents(ManagerNode) of
 	Agents4 when length(Agents4) =:= 2 ->
-	    p("all agents: ~p~n", [Agents4]),
+	    ?IPRINT("all agents: ~p", [Agents4]),
 	    ok;
 	Agents4 ->
 	    ?FAIL({agent_unregistration_failure, Agents4})
     end,
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: "
+            "~n      ~p~n", [mgr_info(ManagerNode)]),
 
-    p("unregister user_beta agents"),
+    ?IPRINT("unregister user_beta agents"),
     ?line ok = mgr_unregister_agent(ManagerNode, user_beta, 5002),
     ?line ok = mgr_unregister_agent(ManagerNode, user_beta, 5003),
 
-    p("verify all agent(s): expect 0"),
+    ?IPRINT("verify all agent(s): expect 0"),
     case mgr_which_agents(ManagerNode) of
 	[] ->
 	    ok;
 	Agents5 ->
-	    p("all agents: ~p~n", [Agents5]),
+	    ?IPRINT("all agents: ~p~n", [Agents5]),
 	    ?FAIL({agent_unregistration_failure, Agents5})
     end,
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: "
+            "~n      ~p", [mgr_info(ManagerNode)]),
 
-    p("unregister user hobbe"),
+    ?IPRINT("unregister user hobbe"),
     ?line ok = mgr_unregister_user(ManagerNode, user_beta),
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: "
+            "~n      ~p", [mgr_info(ManagerNode)]),
 
     ?SLEEP(1000),
 
-    p("stop snmp application (with only manager)"),
+    ?IPRINT("stop snmp application (with only manager)"),
     ?line ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
+    ?IPRINT("end"),
 
     ok.
 
@@ -1794,7 +1860,8 @@ register_agent2(Config) when is_list(Config) ->
     ?TC_TRY(register_agent2, Pre, Case, Post).
 
 do_register_agent2([ManagerNode], Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     ConfDir   = ?config(manager_conf_dir, Config),
     DbDir     = ?config(manager_db_dir, Config),
@@ -1807,27 +1874,27 @@ do_register_agent2([ManagerNode], Config) ->
 	    {note_store, [{verbosity, trace}]},
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
-    p("load snmp application"),
+    ?IPRINT("load snmp application"),
     ?line ok = load_snmp(ManagerNode),
 
-    p("set manager env for the snmp application"),
+    ?IPRINT("set manager env for the snmp application"),
     ?line ok = set_mgr_env(ManagerNode, Opts),
 
-    p("starting snmp application (with only manager)"),
+    ?IPRINT("starting snmp application (with only manager)"),
     ?line ok = start_snmp(ManagerNode),
 
-    p("started"),
+    ?IPRINT("started"),
 
     ?SLEEP(1000),
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("register user(s) user_alfa & user_beta"),
+    ?IPRINT("register user(s) user_alfa & user_beta"),
     ?line ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
     ?line ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("register agent(s)"),
+    ?IPRINT("register agent(s)"),
     TargetName1 = "agent1", 
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1, 
 				  [{address,   LocalHost},
@@ -1849,71 +1916,71 @@ do_register_agent2([ManagerNode], Config) ->
 				   {port,      5004},
 				   {engine_id, "agentEngineId-4"}]),
 
-    p("verify all agent(s): expect 4"),
+    ?IPRINT("verify all agent(s): expect 4"),
     case mgr_which_agents(ManagerNode) of
 	Agents1 when length(Agents1) =:= 4 ->
-	    p("all agents: ~p~n", [Agents1]),
+	    ?IPRINT("all agents: ~p~n", [Agents1]),
 	    ok;
 	Agents1 ->
 	    ?FAIL({agent_registration_failure, Agents1})
     end,
 
-    p("verify user_alfa agent(s)"),
+    ?IPRINT("verify user_alfa agent(s)"),
     case mgr_which_agents(ManagerNode, user_alfa) of
 	Agents2 when length(Agents2) =:= 2 ->
-	    p("calvin agents: ~p~n", [Agents2]),
+	    ?IPRINT("calvin agents: ~p~n", [Agents2]),
 	    ok;
 	Agents2 ->
 	    ?FAIL({agent_registration_failure, Agents2})
     end,
 
-    p("verify user_beta agent(s)"),
+    ?IPRINT("verify user_beta agent(s)"),
     case mgr_which_agents(ManagerNode, user_beta) of
 	Agents3 when length(Agents3) =:= 2 ->
-	    p("hobbe agents: ~p~n", [Agents3]),
+	    ?IPRINT("hobbe agents: ~p~n", [Agents3]),
 	    ok;
 	Agents3 ->
 	    ?FAIL({agent_registration_failure, Agents3})
     end,
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("unregister user user_alfa"),
+    ?IPRINT("unregister user user_alfa"),
     ?line ok = mgr_unregister_user(ManagerNode, user_alfa),
 
-    p("verify all agent(s): expect 2"),
+    ?IPRINT("verify all agent(s): expect 2"),
     case mgr_which_agents(ManagerNode) of
 	Agents4 when length(Agents4) =:= 2 ->
-	    p("all agents: ~p~n", [Agents4]),
+	    ?IPRINT("all agents: ~p~n", [Agents4]),
 	    ok;
 	Agents4 ->
 	    ?FAIL({agent_unregistration_failure, Agents4})
     end,
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("unregister user_beta agents"),
+    ?IPRINT("unregister user_beta agents"),
     ?line ok = mgr_unregister_agent(ManagerNode, user_beta, TargetName3),
     ?line ok = mgr_unregister_agent(ManagerNode, user_beta, TargetName4),
 
-    p("verify all agent(s): expect 0"),
+    ?IPRINT("verify all agent(s): expect 0"),
     case mgr_which_agents(ManagerNode) of
 	[] ->
 	    ok;
 	Agents5 ->
-	    p("all agents: ~p~n", [Agents5]),
+	    ?IPRINT("all agents: ~p~n", [Agents5]),
 	    ?FAIL({agent_unregistration_failure, Agents5})
     end,
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("unregister user user_beta"),
+    ?IPRINT("unregister user user_beta"),
     ?line ok = mgr_unregister_user(ManagerNode, user_beta),
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?SLEEP(1000),
 
-    p("stop snmp application (with only manager)"),
+    ?IPRINT("stop snmp application (with only manager)"),
     ?line ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
@@ -1938,10 +2005,11 @@ register_agent3(Config) when is_list(Config) ->
     ?TC_TRY(register_agent3, Pre, Case, Post).
 
 do_register_agent3([ManagerNode], Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
+    ConfDir   = ?config(manager_conf_dir, Config),
+    DbDir     = ?config(manager_db_dir, Config),
     LocalHost = snmp_test_lib:localhost(), 
 
 
@@ -1953,27 +2021,27 @@ do_register_agent3([ManagerNode], Config) ->
 	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
 
 
-    p("load snmp application"),
+    ?IPRINT("load snmp application"),
     ?line ok = load_snmp(ManagerNode),
 
-    p("set manager env for the snmp application"),
+    ?IPRINT("set manager env for the snmp application"),
     ?line ok = set_mgr_env(ManagerNode, Opts),
 
-    p("starting snmp application (with only manager)"),
+    ?IPRINT("starting snmp application (with only manager)"),
     ?line ok = start_snmp(ManagerNode),
 
-    p("started"),
+    ?IPRINT("started"),
 
     ?SLEEP(1000),
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("register user(s) user_alfa & user_beta"),
+    ?IPRINT("register user(s) user_alfa & user_beta"),
     ?line ok = mgr_register_user(ManagerNode, user_alfa, snmpm_user_default, []),
     ?line ok = mgr_register_user(ManagerNode, user_beta, snmpm_user_default, []),
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("register agent(s)"),
+    ?IPRINT("register agent(s)"),
     TargetName1 = "agent2", 
     ?line ok = mgr_register_agent(ManagerNode, user_alfa, TargetName1, 
 				  [{tdomain,   transportDomainUdpIpv4},
@@ -1993,7 +2061,7 @@ do_register_agent3([ManagerNode], Config) ->
 			    {address,   LocalHost},
 			    {port,      5003},
 			    {engine_id, "agentEngineId-3"}]),
-    p("Expected registration failure: ~p", [Reason4]),
+    ?IPRINT("Expected registration failure: ~p", [Reason4]),
     TargetName4 = "agent5", 
     ?line {error, {unknown_domain, _} = Reason5} = 
 	mgr_register_agent(ManagerNode, user_beta, TargetName4,
@@ -2001,69 +2069,69 @@ do_register_agent3([ManagerNode], Config) ->
 			    {address,   LocalHost},
 			    {port,      5004},
 			    {engine_id, "agentEngineId-4"}]),
-    p("Expected registration failure: ~p", [Reason5]),
+    ?IPRINT("Expected registration failure: ~p", [Reason5]),
 
-    p("verify all agent(s): expect 2"),
+    ?IPRINT("verify all agent(s): expect 2"),
     case mgr_which_agents(ManagerNode) of
 	Agents1 when length(Agents1) =:= 2 ->
-	    p("all agents: ~p~n", [Agents1]),
+	    ?IPRINT("all agents: ~p~n", [Agents1]),
 	    ok;
 	Agents1 ->
 	    ?FAIL({agent_registration_failure, Agents1})
     end,
 
-    p("verify user_alfa agent(s)"),
+    ?IPRINT("verify user_alfa agent(s)"),
     case mgr_which_agents(ManagerNode, user_alfa) of
 	Agents2 when length(Agents2) =:= 2 ->
-	    p("calvin agents: ~p~n", [Agents2]),
+	    ?IPRINT("calvin agents: ~p~n", [Agents2]),
 	    ok;
 	Agents2 ->
 	    ?FAIL({agent_registration_failure, Agents2})
     end,
 
-    p("verify user_beta agent(s)"),
+    ?IPRINT("verify user_beta agent(s)"),
     case mgr_which_agents(ManagerNode, user_beta) of
 	Agents3 when length(Agents3) =:= 0 ->
-	    p("hobbe agents: ~p~n", [Agents3]),
+	    ?IPRINT("hobbe agents: ~p~n", [Agents3]),
 	    ok;
 	Agents3 ->
 	    ?FAIL({agent_registration_failure, Agents3})
     end,
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("unregister user user_alfa"),
+    ?IPRINT("unregister user user_alfa"),
     ?line ok = mgr_unregister_user(ManagerNode, user_alfa),
 
-    p("verify all agent(s): expect 0"),
+    ?IPRINT("verify all agent(s): expect 0"),
     case mgr_which_agents(ManagerNode) of
 	Agents4 when length(Agents4) =:= 0 ->
-	    p("all agents: ~p~n", [Agents4]),
+	    ?IPRINT("all agents: ~p~n", [Agents4]),
 	    ok;
 	Agents4 ->
 	    ?FAIL({agent_unregistration_failure, Agents4})
     end,
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("verify all agent(s): expect 0"),
+    ?IPRINT("verify all agent(s): expect 0"),
     case mgr_which_agents(ManagerNode) of
 	[] ->
 	    ok;
 	Agents5 ->
-	    p("all agents: ~p~n", [Agents5]),
+	    ?EPRINT("all agents: ~p~n", [Agents5]),
 	    ?FAIL({agent_unregistration_failure, Agents5})
     end,
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
-    p("unregister user user_beta"),
+    ?IPRINT("unregister user user_beta"),
     ?line ok = mgr_unregister_user(ManagerNode, user_beta),
 
-    p("manager info: ~p~n", [mgr_info(ManagerNode)]),
+    ?IPRINT("manager info: ~p~n", [mgr_info(ManagerNode)]),
 
     ?SLEEP(1000),
 
-    p("stop snmp application (with only manager)"),
+    ?IPRINT("stop snmp application (with only manager)"),
     ?line ok = stop_snmp(ManagerNode),
 
     ?SLEEP(1000),
@@ -2081,7 +2149,8 @@ simple_sync_get2(Config) when is_list(Config) ->
             fun() -> do_simple_sync_get2(Config) end).
 
 do_simple_sync_get2(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
     Get = fun(Node, TargetName, Oids) -> 
 		  mgr_user_sync_get(Node, TargetName, Oids) 
 	  end, 
@@ -2091,16 +2160,17 @@ do_simple_sync_get2(Config) ->
     Res.
 
 do_simple_sync_get2(Config, Get, PostVerify) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     Node       = ?config(manager_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
-    p("issue get-request without loading the mib"),
+    ?IPRINT("issue get-request without loading the mib"),
     Oids1 = [?sysObjectID_instance, ?sysDescr_instance, ?sysUpTime_instance],
     ?line ok = do_simple_sync_get2(Node, TargetName, Oids1, Get, PostVerify),
 
-    p("issue get-request after first loading the mibs"),
+    ?IPRINT("issue get-request after first loading the mibs"),
     ?line ok = mgr_user_load_mib(Node, std_mib()),
     Oids2 = [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
     ?line ok = do_simple_sync_get2(Node, TargetName, Oids2, Get, PostVerify),
@@ -2122,17 +2192,19 @@ do_simple_sync_get2(Node, TargetName, Oids, Get, PostVerify)
 					  value = SysDescr},
 				 #varbind{oid   = ?sysUpTime_instance,
 					  value = SysUpTime}]} ->
-		       p("expected result from get: "
-			 "~n   SysObjectID: ~p"
-			 "~n   SysDescr:    ~s"
-			 "~n   SysUpTime:   ~w", 
-			 [SysObjectID, SysDescr, SysUpTime]),
+		       ?IPRINT("expected result from get: "
+                               "~n   SysObjectID: ~p"
+                               "~n   SysDescr:    ~s"
+                               "~n   SysUpTime:   ~w", 
+                               [SysObjectID, SysDescr, SysUpTime]),
 		       PostVerify();
 		   {noError, 0, Vbs} ->
-		       p("unexpected varbinds: ~n~p", [Vbs]),
+		       ?EPRINT("unexpected varbinds: "
+                               "~n      ~p", [Vbs]),
 		       {error, {unexpected_vbs, Vbs}};
 		   Else ->
-		       p("unexpected reply: ~n~p", [Else]),
+		       ?EPRINT("unexpected reply: "
+                               "~n      ~p", [Else]),
 		       {error, {unexpected_response, Else}}
 	       end,
     ok.
@@ -2148,7 +2220,8 @@ simple_sync_get3(Config) when is_list(Config) ->
             fun() -> do_simple_sync_get3(Config) end).
 
 do_simple_sync_get3(Config) ->
-    p("starting with Config: ~n~p", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
     Self  = self(), 
     Msg   = simple_sync_get3, 
     Fun   = fun() -> Self ! Msg end,
@@ -2177,7 +2250,7 @@ do_simple_sync_get3(Config) ->
 %%======================================================================
 
 sag_verify({noError, 0, _Vbs}, any) ->
-    p("verified [any]"),
+    ?IPRINT("verified [any]"),
     ok;
 sag_verify({noError, 0, Vbs}, Exp) ->
     ?DBG("verified first stage ok: "
@@ -2195,13 +2268,13 @@ sag_verify_vbs(Vbs, []) ->
 sag_verify_vbs([], Exp) ->
     {error, {expected_vbs, Exp}};
 sag_verify_vbs([#varbind{oid = Oid}|Vbs], [any|Exp]) ->
-    p("verified [any] oid ~w", [Oid]),
+    ?IPRINT("verified [any] oid ~w", [Oid]),
     sag_verify_vbs(Vbs, Exp);
 sag_verify_vbs([#varbind{oid = Oid, value = Value}|Vbs], [Oid|Exp]) ->
-    p("verified oid ~w [~p]", [Oid, Value]),
+    ?IPRINT("verified oid ~w [~p]", [Oid, Value]),
     sag_verify_vbs(Vbs, Exp);
 sag_verify_vbs([#varbind{oid = Oid, value = Value}|Vbs], [{Oid,Value}|Exp]) ->
-    p("verified oid ~w and ~p", [Oid, Value]),
+    ?IPRINT("verified oid ~w and ~p", [Oid, Value]),
     sag_verify_vbs(Vbs, Exp);
 sag_verify_vbs([Vb|_], [E|_]) ->
     {error, {unexpected_vb, Vb, E}}.
@@ -2217,7 +2290,8 @@ simple_async_get2(Config) when is_list(Config) ->
             fun() -> do_simple_async_get2(Config) end).
 
 do_simple_async_get2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
@@ -2276,13 +2350,17 @@ do_simple_async_sync_get2(MgrInfo, AgentInfo, Get, PostVerify)
 	   end}
 	],
     
-    p("manager info when starting test: ~n~p", [MgrInfo()]),
-    p("agent info when starting test: ~n~p",   [AgentInfo()]),
+    ?IPRINT("manager info when starting test: "
+            "~n      ~p", [MgrInfo()]),
+    ?IPRINT("agent info when starting test: "
+            "~n      ~p",   [AgentInfo()]),
 
     ?line ok = async_exec(Requests, []),
 
-    p("manager info when ending test: ~n~p", [MgrInfo()]),
-    p("agent info when ending test: ~n~p",   [AgentInfo()]),
+    ?IPRINT("manager info when ending test: "
+            "~n      ~p", [MgrInfo()]),
+    ?IPRINT("agent info when ending test: "
+            "~n      ~p",   [AgentInfo()]),
 
     ok.
 
@@ -2300,7 +2378,8 @@ simple_async_get3(Config) when is_list(Config) ->
             fun() -> do_simple_async_get3(Config) end).
 
 do_simple_async_get3(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
@@ -2368,7 +2447,8 @@ simple_sync_get_next2(Config) when is_list(Config) ->
             fun() -> do_simple_sync_get_next2(Config) end).
 
 do_simple_sync_get_next2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     GetNext = fun(Node, TargetName, Oids) -> 
 		      mgr_user_sync_get_next(Node, TargetName, Oids) 
@@ -2471,7 +2551,7 @@ do_simple_sync_get_next2(Config, GetNext, PostVerify)
 
 
 do_simple_get_next(N, Node, TargetName, Oids, Verify, GetNext, PostVerify) ->
-    p("issue get-next command ~w", [N]),
+    ?IPRINT("issue get-next command ~w", [N]),
     case GetNext(Node, TargetName, Oids) of
 	{ok, Reply, _Rem} ->
 	    ?DBG("get-next ok:"
@@ -2493,7 +2573,8 @@ simple_sync_get_next3(suite) -> [];
 simple_sync_get_next3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ssgn3),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
     Self  = self(), 
     Msg   = simple_sync_get_next3, 
     Fun   = fun() -> Self ! Msg end,
@@ -2523,7 +2604,8 @@ simple_async_get_next2(Config) when is_list(Config) ->
             fun() -> do_simple_async_get_next2(Config) end).
 
 do_simple_async_get_next2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -2610,13 +2692,17 @@ do_simple_async_get_next2(MgrNode, AgentNode, GetNext, PostVerify)
 	  end}
 	],
 
-    p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),
+    ?IPRINT("manager info when starting test: "
+            "~n      ~p", [mgr_info(MgrNode)]),
+    ?IPRINT("agent info when starting test: "
+            "~n      ~p", [agent_info(AgentNode)]),
 
     ?line ok = async_exec(Requests, []),
 
-    p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
+    ?IPRINT("manager info when ending test: "
+            "~n      ~p", [mgr_info(MgrNode)]),
+    ?IPRINT("agent info when ending test: "
+            "~n      ~p", [agent_info(AgentNode)]),
 
     ok.
 
@@ -2654,7 +2740,8 @@ simple_async_get_next3(Case, Config) when is_list(Config) ->
 
 do_simple_async_get_next3(Config) ->
     %% process_flag(trap_exit, true),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -2712,7 +2799,8 @@ simple_sync_set2(Config) when is_list(Config) ->
             fun() -> do_simple_sync_set2(Config) end).
 
 do_simple_sync_set2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     Set = fun(Node, TargetName, VAVs) -> 
 		  mgr_user_sync_set(Node, TargetName, VAVs) 
@@ -2729,7 +2817,7 @@ do_simple_sync_set2(Config, Set, PostVerify)
     Node       = ?config(manager_node, Config),
     TargetName = ?config(manager_agent_target_name, Config),
 
-    p("issue set-request without loading the mib"),
+    ?IPRINT("issue set-request without loading the mib"),
     Val11 = "Arne Anka",
     Val12 = "Stockholm",
     VAVs1 = [
@@ -2738,7 +2826,7 @@ do_simple_sync_set2(Config, Set, PostVerify)
 	    ],
     ?line ok = do_simple_set2(Node, TargetName, VAVs1, Set, PostVerify),
 
-    p("issue set-request after first loading the mibs"),
+    ?IPRINT("issue set-request after first loading the mibs"),
     ?line ok = mgr_user_load_mib(Node, std_mib()),
     Val21 = "Sune Anka",
     Val22 = "Gothenburg",
@@ -2768,7 +2856,8 @@ do_simple_set2(Node, TargetName, VAVs, Set, PostVerify) ->
 		   {noError, 0, Vbs} ->
 		       {error, {unexpected_vbs, Vbs}};
 		   Else ->
-		       p("unexpected reply: ~n~p", [Else]),
+		       ?EPRINT("unexpected reply: "
+                               "~n      ~p", [Else]),
 		       {error, {unexpected_response, Else}}
 	       end,
     ok.
@@ -2784,7 +2873,8 @@ simple_sync_set3(Config) when is_list(Config) ->
             fun() -> do_simple_sync_set3(Config) end).
 
 do_simple_sync_set3(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p", [Config]),
 
     Self  = self(), 
     Msg   = simple_sync_set3, 
@@ -2808,7 +2898,7 @@ do_simple_sync_set3(Config) ->
 %%======================================================================
 
 sas_verify({noError, 0, _Vbs}, any) ->
-    p("verified [any]"),
+    ?IPRINT("verified [any]"),
     ok;
 sas_verify({noError, 0, Vbs}, Expected) ->
     ?DBG("verified stage 1: "
@@ -2825,13 +2915,13 @@ sas_verify_vbs(Vbs, []) ->
 sas_verify_vbs([], Exp) ->
     {error, {expected_vbs, Exp}};
 sas_verify_vbs([#varbind{oid = Oid}|Vbs], [any|Exp]) ->
-    p("verified [any] oid ~w", [Oid]),
+    ?IPRINT("verified [any] oid ~w", [Oid]),
     sas_verify_vbs(Vbs, Exp);
 sas_verify_vbs([#varbind{oid = Oid, value = Value}|Vbs], [Oid|Exp]) ->
-    p("verified oid ~w [~p]", [Oid, Value]),
+    ?IPRINT("verified oid ~w [~p]", [Oid, Value]),
     sas_verify_vbs(Vbs, Exp);
 sas_verify_vbs([#varbind{oid = Oid, value = Value}|Vbs], [{Oid,Value}|Exp]) ->
-    p("verified oid ~w and ~p", [Oid, Value]),
+    ?IPRINT("verified oid ~w and ~p", [Oid, Value]),
     sas_verify_vbs(Vbs, Exp);
 sas_verify_vbs([Vb|_], [E|_]) ->
     {error, {unexpected_vb, Vb, E}}.
@@ -2847,7 +2937,9 @@ simple_async_set2(Config) when is_list(Config) ->
             fun() -> do_simple_async_set2(Config) end).
 
 do_simple_async_set2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p"
+            "~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -2897,13 +2989,17 @@ do_simple_async_set2(MgrNode, AgentNode, Set, PostVerify) ->
 	  end}
 	],
 
-    p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),
+    ?IPRINT("manager info when starting test: "
+            "~n      ~p", [mgr_info(MgrNode)]),
+    ?IPRINT("agent info when starting test: "
+            "~n      ~p", [agent_info(AgentNode)]),
 
     ?line ok = async_exec(Requests, []),
 
-    p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
+    ?IPRINT("manager info when ending test: "
+            "~n      ~p", [mgr_info(MgrNode)]),
+    ?IPRINT("agent info when ending test: "
+            "~n      ~p", [agent_info(AgentNode)]),
 
     ok.
 
@@ -2937,7 +3033,8 @@ simple_async_set3(Case, Config) ->
             fun() -> do_simple_async_set3(Config) end).
 
 do_simple_async_set3(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -3020,7 +3117,8 @@ simple_sync_get_bulk2(Config) when is_list(Config) ->
             fun() -> do_simple_sync_get_bulk2(Config) end).
 
 do_simple_sync_get_bulk2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -3135,7 +3233,7 @@ do_simple_sync_get_bulk2(Config, MgrNode, AgentNode, GetBulk, PostVerify) ->
 
     %% -- 11 --
     ?line {ok, [TCnt2|_]} = mgr_user_name_to_oid(MgrNode, tCnt2),
-    p("TCnt2: ~p", [TCnt2]),
+    ?IPRINT("TCnt2: ~p", [TCnt2]),
     VF11 = fun(X) -> 
 		   verify_ssgb_reply2(X, 
 				      [{fl([TCnt2,2]), 100}, 
@@ -3154,7 +3252,7 @@ do_simple_get_bulk2(N,
   when is_function(Verify, 1) andalso 
        is_function(GetBulk, 3) andalso 
        is_function(PostVerify) ->
-    p("issue get-bulk command ~w", [N]),
+    ?IPRINT("issue get-bulk command ~w", [N]),
     case GetBulk(NonRep, MaxRep, Oids) of
 	{ok, Reply, _Rem} ->
 	    ?DBG("get-bulk ok:"
@@ -3178,7 +3276,8 @@ simple_sync_get_bulk3(Config) when is_list(Config) ->
             fun() -> do_simple_sync_get_bulk3(Config) end).
 
 do_simple_sync_get_bulk3(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -3217,7 +3316,8 @@ simple_async_get_bulk2(Config) when is_list(Config) ->
             fun() -> do_simple_async_get_bulk2(Config) end).
 
 do_simple_async_get_bulk2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~p      ~n", [Config]),
     
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -3349,13 +3449,17 @@ do_simple_async_get_bulk2(MgrNode, AgentNode, GetBulk, PostVerify) ->
 		 VF10}
 	       ],
 
-    p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),
+    ?IPRINT("manager info when starting test: "
+            "~n      ~p", [mgr_info(MgrNode)]),
+    ?IPRINT("agent info when starting test: "
+            "~n      ~p", [agent_info(AgentNode)]),
 
     ?line ok = async_exec(Requests, []),
 
-    p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
+    ?IPRINT("manager info when ending test: "
+            "~n      ~p", [mgr_info(MgrNode)]),
+    ?IPRINT("agent info when ending test: "
+            "~n      ~p", [agent_info(AgentNode)]),
 
     ok.
 
@@ -3379,7 +3483,8 @@ simple_async_get_bulk3(Case, Config) ->
 
 do_simple_async_get_bulk3(Config) ->
     process_flag(trap_exit, true),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p~n", [Config]),
 
     MgrNode    = ?config(manager_node, Config),
     AgentNode  = ?config(agent_node, Config),
@@ -3445,7 +3550,9 @@ misc_async2(Config) when is_list(Config) ->
             fun() -> do_misc_async2(Config) end).
 
 do_misc_async2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p"
+            "~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
@@ -3614,13 +3721,17 @@ do_misc_async2(Config) ->
 	  end}
 	],
     
-    p("manager info when starting test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when starting test: ~n~p", [agent_info(AgentNode)]),
+    ?IPRINT("manager info when starting test: "
+            "~n      ~p", [mgr_info(MgrNode)]),
+    ?IPRINT("agent info when starting test: "
+            "~n      ~p", [agent_info(AgentNode)]),
 
     ?line ok = async_exec(Requests, []),
 
-    p("manager info when ending test: ~n~p", [mgr_info(MgrNode)]),
-    p("agent info when ending test: ~n~p", [agent_info(AgentNode)]),
+    ?IPRINT("manager info when ending test: "
+            "~n      ~p", [mgr_info(MgrNode)]),
+    ?IPRINT("agent info when ending test: "
+            "~n      ~p", [agent_info(AgentNode)]),
 
     display_log(Config),
     ok.
@@ -3646,45 +3757,47 @@ collect_traps(0, TrapInfo) ->
 collect_traps(N, Acc) ->
     receive
 	{async_event, _From, {trap, TrapInfo}} ->
-	    p("collect_traps -> received trap: ~n   ~p", [TrapInfo]),
+	    ?IPRINT("collect_traps -> received trap: "
+                    "~n      ~p", [TrapInfo]),
 	    collect_traps(N-1, [TrapInfo|Acc])
     after 10000 ->
-	    p("collect_traps -> still awaiting ~w trap(s) - giving up", [N]),
+	    ?WPRINT("collect_traps -> still awaiting ~w trap(s) - giving up", [N]),
 	    Acc
     end.
 
 verify_traps([], []) ->
-    p("verify_traps -> done"),
+    ?IPRINT("verify_traps -> done"),
     ok;
 verify_traps([], Verifiers) ->
-    p("verify_traps -> done when ~w verifiers remain", [length(Verifiers)]),
+    ?IPRINT("verify_traps -> done when ~w verifiers remain", [length(Verifiers)]),
     {error, {failed_verify, [Id || {Id, _} <- Verifiers]}};
 verify_traps([Trap|Traps], Verifiers0) ->
-    p("verify_traps -> entry"),
+    ?IPRINT("verify_traps -> entry"),
     case verify_trap(Trap, Verifiers0) of
 	{ok, Id} ->
-	    p("verify_traps -> trap verified: ~p", [Id]),
+	    ?IPRINT("verify_traps -> trap verified: ~p", [Id]),
 	    Verifiers = lists:keydelete(Id, 1, Verifiers0),
 	    verify_traps(Traps, Verifiers);
 	error ->
-	    p("verify_traps -> failed verifying trap: ~n   ~p", [Trap]),
+	    ?EPRINT("verify_traps -> failed verifying trap: "
+                    "~n      ~p", [Trap]),
 	    {error, {failed_verifying_trap, Trap}}
     end.
 
 verify_trap(Trap, []) ->
-    p("verify_trap -> could not verify trap:"
-      "~n   Trap: ~p", [Trap]),
+    ?EPRINT("verify_trap -> could not verify trap:"
+            "~n   Trap: ~p", [Trap]),
     error;
 verify_trap(Trap, [{Id, Verifier}|Verifiers]) ->
-    p("verify_trap -> entry with"
-      "~n   Id:   ~p"
-      "~n   Trap: ~p", [Id, Trap]),
+    ?IPRINT("verify_trap -> entry with"
+            "~n   Id:   ~p"
+            "~n   Trap: ~p", [Id, Trap]),
     case Verifier(Trap) of
 	ok ->
-	    p("verify_trap -> verified"),
+	    ?IPRINT("verify_trap -> verified"),
 	    {ok, Id};
 	{error, _} ->
-	    p("verify_trap -> not verified"),
+	    ?NPRINT("verify_trap -> not verified"),
 	    verify_trap(Trap, Verifiers)
     end.
 
@@ -3697,7 +3810,9 @@ trap1(Config) when is_list(Config) ->
             fun() -> do_trap1(Config) end).
 
 do_trap1(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p"
+            "~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
@@ -3718,32 +3833,33 @@ do_trap1(Config) ->
 	fun(Ent, Gen, Spec, ExpVBs, Trap) ->
 		case Trap of
 		    {Ent, Gen, Spec, _Timestamp, VBs} ->
-			p("trap info as expected"), 
+			?IPRINT("trap info as expected"), 
 			case (catch validate_vbs(MgrNode, 
 						 ExpVBs, VBs)) of
 			    ok ->
-				p("valid trap"),
+				?IPRINT("valid trap"),
 				ok;
 			    Error ->
-				p("invalid trap: ~n   Error: ~p", [Error]),
+				?EPRINT("invalid trap: "
+                                        "~n      ~p", [Error]),
 				Error
 			end;
 		    {Enteprise, Generic, Spec, Timestamp, VBs} ->
-			p("unepxected v1 trap info:"
-			  "~n   Enteprise: ~p"
-			  "~n   Generic:   ~p"
-			  "~n   Spec:      ~p"
-			  "~n   Timestamp: ~p"
-			  "~n   VBs:       ~p", 
-			  [Enteprise, Generic, Spec, Timestamp, VBs]),
+		       ?EPRINT("unepxected v1 trap info:"
+                               "~n   Enteprise: ~p"
+                               "~n   Generic:   ~p"
+                               "~n   Spec:      ~p"
+                               "~n   Timestamp: ~p"
+                               "~n   VBs:       ~p", 
+                               [Enteprise, Generic, Spec, Timestamp, VBs]),
 			ExpTrap = {Ent, Gen, Spec, ignore, ExpVBs}, 
 			Reason = {unexpected_trap, {ExpTrap, Trap}},
 			{error, Reason};
 		    {Err, Idx, VBs} ->
-			p("unexpected trap info: "
-			  "~n   Err: ~p"
-			  "~n   Idx: ~p"
-			  "~n   VBs: ~p", [Err, Idx, VBs]),
+			?EPRINT("unexpected trap info: "
+                                "~n   Err: ~p"
+                                "~n   Idx: ~p"
+                                "~n   VBs: ~p", [Err, Idx, VBs]),
 			Reason = {unexpected_status, {Err, Idx, VBs}},
 			{error, Reason}
 		end
@@ -3754,24 +3870,25 @@ do_trap1(Config) ->
 	fun(ExpVBs, Trap) ->
 		case Trap of
 		    {noError, 0, VBs0} ->
-			p("trap info as expected: ~n~p", [VBs0]), 
+			?IPRINT("trap info as expected: "
+                                "~n      ~p", [VBs0]), 
 			%% The first two are a timestamp and oid
 			[_,_|VBs] = VBs0,
 			case (catch validate_vbs(MgrNode, 
 						 ExpVBs, VBs)) of
 			    ok ->
-				p("valid trap"),
+				?IPRINT("valid trap"),
 				ok;
 			    Error ->
-				p("invalid trap: ~n   Error: ~p", 
-				  [Error]),
+				?EPRINT("invalid trap: "
+                                        "~n      ~p", [Error]),
 				Error
 			end;
 		    {Err, Idx, VBs} ->
-			p("unexpected error status: "
-			  "~n   Err: ~p"
-			  "~n   Idx: ~p"
-			  "~n   VBs: ~p", [Err, Idx, VBs]),
+			?EPRINT("unexpected error status: "
+                                "~n   Err: ~p"
+                                "~n   Idx: ~p"
+                                "~n   VBs: ~p", [Err, Idx, VBs]),
 			Reason = {unexpected_status, {Err, Idx, VBs}},
 			{error, Reason}
 		end
@@ -3782,8 +3899,10 @@ do_trap1(Config) ->
     %% Collect various info about the manager and the agent
     Cmd1 = 
 	fun() ->
-		p("manager info: ~n~p", [mgr_info(MgrNode)]),
-		p("agent info: ~n~p", [agent_info(AgentNode)]),
+		?IPRINT("manager info: "
+                        "~n      ~p", [mgr_info(MgrNode)]),
+		?IPRINT("agent info: "
+                        "~n      ~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
@@ -3852,7 +3971,9 @@ trap2(Config) when is_list(Config) ->
             fun() -> do_trap2(Config) end).
 
 do_trap2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p"
+            "~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
@@ -3873,32 +3994,32 @@ do_trap2(Config) ->
 	fun(Ent, Gen, Spec, ExpVBs, Trap) ->
 		case Trap of
 		    {Ent, Gen, Spec, _Timestamp, VBs} ->
-			p("trap info as expected"), 
+			?IPRINT("trap info as expected"), 
 			case (catch validate_vbs(MgrNode, 
 						 ExpVBs, VBs)) of
 			    ok ->
-				p("valid trap"),
+				?IPRINT("valid trap"),
 				ok;
 			    Error ->
-				p("invalid trap: ~n   Error: ~p", [Error]),
+				?EPRINT("invalid trap: ~n   Error: ~p", [Error]),
 				Error
 			end;
 		    {Enteprise, Generic, Spec, Timestamp, VBs} ->
-			p("unepxected v1 trap info:"
-			  "~n   Enteprise: ~p"
-			  "~n   Generic:   ~p"
-			  "~n   Spec:      ~p"
-			  "~n   Timestamp: ~p"
-			  "~n   VBs:       ~p", 
-			  [Enteprise, Generic, Spec, Timestamp, VBs]),
+			?EPRINT("unepxected v1 trap info:"
+                                "~n   Enteprise: ~p"
+                                "~n   Generic:   ~p"
+                                "~n   Spec:      ~p"
+                                "~n   Timestamp: ~p"
+                                "~n   VBs:       ~p", 
+                                [Enteprise, Generic, Spec, Timestamp, VBs]),
 			ExpTrap = {Ent, Gen, Spec, ignore, ExpVBs}, 
 			Reason = {unexpected_trap, {ExpTrap, Trap}},
 			{error, Reason};
 		    {Err, Idx, VBs} ->
-			p("unexpected trap info: "
-			  "~n   Err: ~p"
-			  "~n   Idx: ~p"
-			  "~n   VBs: ~p", [Err, Idx, VBs]),
+			?EPRINT("unexpected trap info: "
+                                "~n   Err: ~p"
+                                "~n   Idx: ~p"
+                                "~n   VBs: ~p", [Err, Idx, VBs]),
 			Reason = {unexpected_status, {Err, Idx, VBs}},
 			{error, Reason}
 		end
@@ -3909,24 +4030,24 @@ do_trap2(Config) ->
 	fun(ExpVBs, Trap) ->
 		case Trap of
 		    {noError, 0, VBs0} ->
-			p("trap info as expected: ~n~p", [VBs0]), 
+			?IPRINT("trap info as expected: ~n~p", [VBs0]), 
 			%% The first two are a timestamp and oid
 			[_,_|VBs] = VBs0,
 			case (catch validate_vbs(MgrNode, 
 						 ExpVBs, VBs)) of
 			    ok ->
-				p("valid trap"),
+				?IPRINT("valid trap"),
 				ok;
 			    Error ->
-				p("invalid trap: ~n   Error: ~p", 
-				  [Error]),
+				?EPRINT("invalid trap: "
+                                        "~n      ~p", [Error]),
 				Error
 			end;
 		    {Err, Idx, VBs} ->
-			p("unexpected error status: "
-			  "~n   Err: ~p"
-			  "~n   Idx: ~p"
-			  "~n   VBs: ~p", [Err, Idx, VBs]),
+			?EPRINT("unexpected error status: "
+                                "~n   Err: ~p"
+                                "~n   Idx: ~p"
+                                "~n   VBs: ~p", [Err, Idx, VBs]),
 			Reason = {unexpected_status, {Err, Idx, VBs}},
 			{error, Reason}
 		end
@@ -3936,8 +4057,10 @@ do_trap2(Config) ->
     %% Collect various info about the manager and the agent
     Cmd1 = 
 	fun() ->
-		p("manager info: ~n~p", [mgr_info(MgrNode)]),
-		p("agent info: ~n~p",   [agent_info(AgentNode)]),
+		?IPRINT("manager info: "
+                        "~n      ~p", [mgr_info(MgrNode)]),
+		?IPRINT("agent info: "
+                        "~n      ~p",   [agent_info(AgentNode)]),
 		ok
 	end,
 
@@ -4047,7 +4170,9 @@ inform1(Config) when is_list(Config) ->
             fun() -> do_inform1(Config) end).
 
 do_inform1(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p"
+            "~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
@@ -4066,9 +4191,12 @@ do_inform1(Config) ->
     
     Cmd1 = 
 	fun() ->
-		p("manager info: ~n~p", [mgr_info(MgrNode)]),
-		p("manager system info: ~n~p", [mgr_sys_info(MgrNode)]),
-		p("agent info: ~n~p", [agent_info(AgentNode)]),
+		?IPRINT("manager info: "
+                        "~n      ~p", [mgr_info(MgrNode)]),
+		?IPRINT("manager system info: "
+                        "~n      ~p", [mgr_sys_info(MgrNode)]),
+		?IPRINT("agent info: "
+                        "~n      ~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
@@ -4082,26 +4210,26 @@ do_inform1(Config) ->
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
-			p("received inform"),
+			?IPRINT("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
 				case (catch validate_testTrapv22_vbs(MgrNode, 
 								     VBs)) of
 				    ok ->
-					p("valid inform"),
+					?IPRINT("valid inform"),
 					Pid ! {handle_inform_no_response, 
 					       From}, 
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
-					  [Error]),
+					?EPRINT("invalid inform: "
+                                                "~n      ~p", [Error]),
 					Error
 				end;
 			    {Err, Idx, VBs} ->
-				p("unexpected error status: "
-				  "~n   Err: ~p"
-				  "~n   Idx: ~p"
-				  "~n   VBs: ~p", [Err, Idx, VBs]),
+				?EPRINT("unexpected error status: "
+                                        "~n   Err: ~p"
+                                        "~n   Idx: ~p"
+                                        "~n   VBs: ~p", [Err, Idx, VBs]),
 				Reason = {unexpected_status, {Err, Idx, VBs}},
 				{error, Reason}
 			end
@@ -4119,25 +4247,25 @@ do_inform1(Config) ->
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
-			p("received inform"),
+			?IPRINT("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
 				case (catch validate_testTrapv22_vbs(MgrNode, 
 								     VBs)) of
 				    ok ->
-					p("valid inform"),
+                                        ?IPRINT("valid inform"),
 					Pid ! {handle_inform_response, From}, 
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
-					  [Error]),
+					?EPRINT("invalid inform: "
+                                                "~n      ~p", [Error]),
 					Error
 				end;
 			    {Err, Idx, VBs} ->
-				p("unexpected error status: "
-				  "~n   Err: ~p"
-				  "~n   Idx: ~p"
-				  "~n   VBs: ~p", [Err, Idx, VBs]),
+				?EPRINT("unexpected error status: "
+                                        "~n   Err: ~p"
+                                        "~n   Idx: ~p"
+                                        "~n   VBs: ~p", [Err, Idx, VBs]),
 				Reason = {unexpected_status, {Err, Idx, VBs}},
 				{error, Reason}
 			end
@@ -4176,7 +4304,9 @@ inform2(Config) when is_list(Config) ->
             fun() -> do_inform2(Config) end).
 
 do_inform2(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p"
+            "~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
@@ -4196,8 +4326,10 @@ do_inform2(Config) ->
 
     Cmd1 = 
 	fun() ->
-		p("manager info: ~n~p", [mgr_info(MgrNode)]),
-		p("agent info: ~n~p", [agent_info(AgentNode)]),
+		?IPRINT("manager info: "
+                        "~n    ~p", [mgr_info(MgrNode)]),
+		?IPRINT("agent info: "
+                        "~n    ~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
@@ -4215,7 +4347,7 @@ do_inform2(Config) ->
 	fun() ->
 		receive
 		    {snmp_targets, inform2_tag1, Addrs} ->
-			p("sent inform to ~p", [Addrs]),
+			?IPRINT("sent inform to ~p", [Addrs]),
 			ok
 		after 10000 ->
 			receive 
@@ -4231,26 +4363,26 @@ do_inform2(Config) ->
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
-			p("received inform"),
+			?IPRINT("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
 				case (catch validate_testTrapv22_vbs(MgrNode, 
 								     VBs)) of
 				    ok ->
-					p("valid inform"),
+					?IPRINT("valid inform"),
 					Pid ! {handle_inform_no_response, 
 					       From}, 
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
-					  [Error]),
+					?IPRINT("invalid inform: "
+                                                "~n      ~p", [Error]),
 					Error
 				end;
 			    {Err, Idx, VBs} ->
-				p("unexpected error status: "
-				  "~n   Err: ~p"
-				  "~n   Idx: ~p"
-				  "~n   VBs: ~p", [Err, Idx, VBs]),
+				?EPRINT("unexpected error status: "
+                                        "~n   Err: ~p"
+                                        "~n   Idx: ~p"
+                                        "~n   VBs: ~p", [Err, Idx, VBs]),
 				Reason = {unexpected_status, {Err, Idx, VBs}},
 				{error, Reason}
 			end
@@ -4268,25 +4400,25 @@ do_inform2(Config) ->
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
-			p("received inform"),
+			?IPRINT("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
 				case (catch validate_testTrapv22_vbs(MgrNode, 
 								     VBs)) of
 				    ok ->
-					p("valid inform"),
+					?IPRINT("valid inform"),
 					Pid ! {handle_inform_response, From}, 
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
-					  [Error]),
+					?EPRINT("invalid inform: "
+                                                "~n      ~p", [Error]),
 					Error
 				end;
 			    {Err, Idx, VBs} ->
-				p("unexpected error status: "
-				  "~n   Err: ~p"
-				  "~n   Idx: ~p"
-				  "~n   VBs: ~p", [Err, Idx, VBs]),
+				?EPRINT("unexpected error status: "
+                                        "~n   Err: ~p"
+                                        "~n   Idx: ~p"
+                                        "~n   VBs: ~p", [Err, Idx, VBs]),
 				Reason = {unexpected_status, {Err, Idx, VBs}},
 				{error, Reason}
 			end
@@ -4304,14 +4436,14 @@ do_inform2(Config) ->
 	fun() ->
 		receive
 		    {snmp_notification, inform2_tag1, {got_response, Addr}} ->
-			p("received expected \"got response\" notification "
-			  "from: "
-			  "~n   ~p", [Addr]),
+			?IPRINT("received expected \"got response\" notification "
+                                "from: "
+                                "~n      ~p", [Addr]),
 			ok;
 		    {snmp_notification, inform2_tag1, {no_response, Addr}} ->
-			e("Received unexpected \"no response\" "
-			  "notification from: "
-			  "~n   ~p", [Addr]),
+			?EPRINT("Received unexpected \"no response\" "
+                                "notification from: "
+                                "~n      ~p", [Addr]),
 			{error, no_response}
 		after 10000 ->
 			receive 
@@ -4350,7 +4482,8 @@ inform3(Config) when is_list(Config) ->
             fun() -> do_inform3(Config) end).
 
 do_inform3(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
@@ -4368,8 +4501,10 @@ do_inform3(Config) ->
 
     Cmd1 = 
 	fun() ->
-		p("manager info: ~n~p", [mgr_info(MgrNode)]),
-		p("agent info: ~n~p", [agent_info(AgentNode)]),
+		?IPRINT("manager info: "
+                        "~n      ~p", [mgr_info(MgrNode)]),
+		?IPRINT("agent info: "
+                        "~n      ~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
@@ -4387,7 +4522,7 @@ do_inform3(Config) ->
 	fun() ->
 		receive
 		    {snmp_targets, inform3_tag1, [_Addr]} ->
-			p("received inform-sent acknowledgement", []),
+			?IPRINT("received inform-sent ack"),
 			ok
 		after 10000 ->
 			receive 
@@ -4403,26 +4538,25 @@ do_inform3(Config) ->
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
-			p("received inform"),
+			?IPRINT("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
 				case (catch validate_testTrapv22_vbs(MgrNode, 
 								     VBs)) of
 				    ok ->
-					p("valid inform"),
-					Pid ! {handle_inform_no_response, 
-					       From}, 
+					?IPRINT("valid inform"),
+					Pid ! {handle_inform_no_response, From}, 
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
-					  [Error]),
+					?EPRINT("invalid inform: "
+                                                "~n      ~p", [Error]),
 					Error
 				end;
 			    {Err, Idx, VBs} ->
-				p("unexpected error status: "
-				  "~n   Err: ~p"
-				  "~n   Idx: ~p"
-				  "~n   VBs: ~p", [Err, Idx, VBs]),
+				?EPRINT("unexpected error status: "
+                                        "~n   Err: ~p"
+                                        "~n   Idx: ~p"
+                                        "~n   VBs: ~p", [Err, Idx, VBs]),
 				Reason = {unexpected_status, {Err, Idx, VBs}},
 				{error, Reason}
 			end
@@ -4440,15 +4574,15 @@ do_inform3(Config) ->
 	fun() ->
 		receive
 		    {snmp_notification, inform3_tag1, {no_response, Addr}} ->
-			p("received expected \"no response\" notification "
-			  "from: "
-			  "~n   ~p", [Addr]),
+			?IPRINT("received expected \"no response\" notification "
+                                "from: "
+                                "~n   ~p", [Addr]),
 			ok;
 		    {snmp_notification, inform3_tag1, {got_response, Addr}} ->
-			e("Received unexpected \"got response\" "
-			  "notification from: "
-			  "~n   ~p", 
-			  [Addr]),
+			?EPRINT("Received unexpected \"got response\" "
+                                "notification from: "
+                                "~n   ~p", 
+                                [Addr]),
 			{error, {got_response, Addr}}
 		after 120000 ->
 			receive 
@@ -4488,7 +4622,8 @@ inform4(Config) when is_list(Config) ->
             fun() -> do_inform4(Config) end).
 
 do_inform4(Config) ->
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~n      ~p~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
@@ -4506,8 +4641,10 @@ do_inform4(Config) ->
 
     Cmd1 = 
 	fun() ->
-		p("manager info: ~n~p", [mgr_info(MgrNode)]),
-		p("agent info: ~n~p", [agent_info(AgentNode)]),
+		?IPRINT("manager info: "
+                        "~n      ~p", [mgr_info(MgrNode)]),
+		?IPRINT("agent info: "
+                        "~n      ~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
@@ -4521,13 +4658,13 @@ do_inform4(Config) ->
 	fun() ->
 		receive
 		    {async_event, From, {inform, Pid, Inform}} ->
-			p("received inform"),
+			?IPRINT("received inform"),
 			case Inform of
 			    {noError, 0, VBs} when is_list(VBs) ->
 				case (catch validate_testTrapv22_vbs(MgrNode, 
 								     VBs)) of
 				    ok ->
-					p("valid inform"),
+					?IPRINT("valid inform"),
 					%% Actually, as we have
 					%% configured the manager in
 					%% this test case (irb = auto)
@@ -4535,15 +4672,15 @@ do_inform4(Config) ->
 					Pid ! {handle_inform_response, From}, 
 					ok;
 				    Error ->
-					p("invalid inform: ~n   Error: ~p", 
-					  [Error]),
+					?EPRINT("invalid inform: "
+                                                "~n      ~p", [Error]),
 					Error
 				end;
 			    {Err, Idx, VBs} ->
-				p("unexpected error status: "
-				  "~n   Err: ~p"
-				  "~n   Idx: ~p"
-				  "~n   VBs: ~p", [Err, Idx, VBs]),
+				?EPRINT("unexpected error status: "
+                                        "~n   Err: ~p"
+                                        "~n   Idx: ~p"
+                                        "~n   VBs: ~p", [Err, Idx, VBs]),
 				Reason = {unexpected_status, {Err, Idx, VBs}},
 				{error, Reason}
 			end
@@ -4562,11 +4699,11 @@ do_inform4(Config) ->
 %% 	fun() ->
 %% 		receive 
 %% 		    {async_event, _ReqId, {error, Reason}} ->
-%% 			p("received error"),
+%% 			?IPRINT("received error"),
 %% 			case Reason of
 %% 			    {failed_processing_message,
 %% 			     {securityError, usmStatsUnknownEngineIDs}} ->
-%% 				p("expected error"), 
+%% 				?IPRINT("expected error"), 
 %% 				ok;
 %% 			    _ ->
 %% 				p("unexpected error: "
@@ -4622,7 +4759,8 @@ inform_swarm(Case, Config) ->
 
 do_inform_swarm(Config) ->
     %% process_flag(trap_exit, true),
-    p("starting with Config: ~p~n", [Config]),
+    ?IPRINT("starting with Config: "
+            "~p      ~n", [Config]),
 
     MgrNode   = ?config(manager_node, Config),
     AgentNode = ?config(agent_node, Config),
@@ -4651,7 +4789,7 @@ do_inform_swarm(Config) ->
 		  Seqs = lists:seq(1, NumInforms),
 		  lists:foreach(
 		    fun(N) ->
-			    p("send notification ~w", [N]),
+			    ?IPRINT("send notification ~w", [N]),
 			    agent_send_notif(AgentNode, 
 					     testTrapv22, 
 					     {{inform2_tag1, N}, Collector},
@@ -4662,11 +4800,11 @@ do_inform_swarm(Config) ->
 			    if
                                 N rem 100 == 0 ->
                                     Sleep = 1000,
-				    p("sleep ~w [~w]", [Sleep, N]),
+				    ?IPRINT("sleep ~w [~w]", [Sleep, N]),
                                     ?SLEEP(Sleep);
 				N rem 10 == 0 ->
                                     Sleep = 100,
-				    p("sleep ~w [~w]", [Sleep, N]),
+				    ?IPRINT("sleep ~w [~w]", [Sleep, N]),
 				    ?SLEEP(Sleep);
 				true ->
 				    ok
@@ -4678,8 +4816,10 @@ do_inform_swarm(Config) ->
 
     Cmd1 = 
 	fun() ->
-		p("manager info: ~n~p", [mgr_info(MgrNode)]),
-		p("agent info: ~n~p", [agent_info(AgentNode)]),
+		?IPRINT("manager info: "
+                        "~n      ~p", [mgr_info(MgrNode)]),
+		?IPRINT("agent info: "
+                        "~n      ~p", [agent_info(AgentNode)]),
 		ok
 	end,
 
@@ -4708,7 +4848,7 @@ do_inform_swarm(Config) ->
 
 
 inform_swarm_collector(N) ->
-    inform_swarm_collector(N, 0, 0, 0, 10000).
+    inform_swarm_collector(N, 0, 0, 0, ?SECS(60)).
 
 %% Note that we need to deal with re-transmissions!
 %% That is, the agent did not receive the ack in time,
@@ -4724,60 +4864,65 @@ inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, _)
   when ((N == SentAckCnt) and 
 	(N == RespCnt)    and
 	(N =< RecvCnt)) ->
-    p("inform_swarm_collector -> done when"
-      "~n      N:          ~w"
-      "~n      SentAckCnt: ~w"
-      "~n      RecvCnt:    ~w"
-      "~n      RespCnt:    ~w", [N, SentAckCnt, RecvCnt, RespCnt]),
+    ?IPRINT("inform_swarm_collector -> done when"
+            "~n      N:          ~w"
+            "~n      SentAckCnt: ~w"
+            "~n      RecvCnt:    ~w"
+            "~n      RespCnt:    ~w", [N, SentAckCnt, RecvCnt, RespCnt]),
     ok;
 inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt, Timeout) ->
-    p("inform_swarm_collector -> entry with"
-      "~n      N:          ~w"
-      "~n      SentAckCnt: ~w"
-      "~n      RecvCnt:    ~w"
-      "~n      RespCnt:    ~w", [N, SentAckCnt, RecvCnt, RespCnt]),
+    %% ?IPRINT("inform_swarm_collector -> entry with"
+    %%         "~n      N:          ~w"
+    %%         "~n      SentAckCnt: ~w"
+    %%         "~n      RecvCnt:    ~w"
+    %%         "~n      RespCnt:    ~w", [N, SentAckCnt, RecvCnt, RespCnt]),
     receive
 	{snmp_targets, {inform2_tag1, Id}, [_Addr]} ->
-	    p("received inform-sent acknowledgement for ~w", [Id]),
+	    ?IPRINT("received inform-sent acknowledgement for ~w", [Id]),
 	    inform_swarm_collector(N, SentAckCnt+1, RecvCnt, RespCnt, 
 				   Timeout);
 
 	%% The manager has received the actual inform
 	{async_event, From, {inform, Pid, Inform}} ->
-	    p("received inform"),
+	    ?IPRINT("received inform"),
 	    case Inform of
 		{noError, 0, VBs} when is_list(VBs) ->
 		    Pid ! {handle_inform_response, From}, 
 		    inform_swarm_collector(N, SentAckCnt, RecvCnt+1, RespCnt, 
 					   Timeout);
 		{Err, Idx, VBs} ->
-		    e("Unexpected error status: "
-		      "~n   Err: ~p"
-		      "~n   Idx: ~p"
-		      "~n   VBs: ~p", [Err, Idx, VBs]),
+		    ?EPRINT("Unexpected error status: "
+                            "~n   Err: ~p"
+                            "~n   Idx: ~p"
+                            "~n   VBs: ~p", [Err, Idx, VBs]),
 		    Reason = {unexpected_status, {Err, Idx, VBs}},
 		    {error, Reason}
 	    end;
 
 	%% The agent has received ack from the manager 
 	{snmp_notification, {inform2_tag1, Id}, {got_response, Addr}} ->
-	    p("received expected \"got response\" for ~w "
-	      "notification from: "
-	      "~n      ~p", 
-	      [Id, Addr]),
+	    ?IPRINT("received expected \"got response\" for ~w "
+                    "notification from: "
+                    "~n      ~p", [Id, Addr]),
 	    inform_swarm_collector(N, SentAckCnt, RecvCnt, RespCnt+1, 
 				   Timeout);
 
 	%% The agent did not received ack from the manager in time 
 	{snmp_notification, inform2_tag1, {no_response, Addr}} ->
-	    e("Received expected \"no response\" notification "
-	      "from: "
-	      "~n      ~p", [Addr]),
+	    ?EPRINT("Received expected \"no response\" notification "
+                    "from: "
+                    "~n      ~p", [Addr]),
 	    Reason = {no_response, Addr, {N, SentAckCnt, RecvCnt, RespCnt}},
 	    {error, Reason}
 
     after Timeout ->
 	    %% Give up when we have been dead in the water for Timeout ms
+            ?EPRINT("timeout when"
+                    "~n   N:          ~p"
+                    "~n   SentAckCnt: ~p"
+                    "~n   RecvCnt:    ~p"
+                    "~n   RespCnt:    ~p",
+                    [N, SentAckCnt, RecvCnt, RespCnt]),
 	    {error, {timeout, N, SentAckCnt, RecvCnt, RespCnt}}
     end.
 		    
@@ -4795,48 +4940,54 @@ report(Config) when is_list(Config) ->
 otp8015_1(doc) -> ["OTP-8015:1 - testing the new api-function."];
 otp8015_1(suite) -> [];
 otp8015_1(Config) when is_list(Config) ->
-    ?TC_TRY(otp8015_1,
-            fun() -> do_otp8015_1(Config) end).
+    Pre = fun() ->
+                  ConfDir = ?config(manager_conf_dir, Config),
+                  DbDir   = ?config(manager_db_dir, Config),
+
+                  write_manager_conf(ConfDir),
+
+                  Opts = [{server,     [{verbosity, trace}]},
+                          {net_if,     [{verbosity, trace}]},
+                          {note_store, [{verbosity, trace}]},
+                          {config,     [{verbosity, trace},
+                                        {dir,       ConfDir},
+                                        {db_dir,    DbDir}]}],
+
+                  ?IPRINT("starting manager"),
+                  ok = snmpm:start_link(Opts),
+
+                  ?SLEEP(1000),
+                  ok
+          end,
+    Case = fun(_) -> do_otp8015_1(Config) end,
+    Post = fun(_) ->
+                   ?IPRINT("stop manager"),
+                   ok = snmpm:stop(),
+                   ?SLEEP(1000),
+                   ok
+           end,
+    ?TC_TRY(otp8015_1, Pre, Case, Post).
 
 do_otp8015_1(Config) ->
-    p("starting with Config: ~p~n", [Config]),
-
-    ConfDir = ?config(manager_conf_dir, Config),
-    DbDir   = ?config(manager_db_dir, Config),
-
-    write_manager_conf(ConfDir),
-
-    Opts = [{server, [{verbosity, trace}]},
-	    {net_if, [{verbosity, trace}]},
-	    {note_store, [{verbosity, trace}]},
-	    {config, [{verbosity, trace}, {dir, ConfDir}, {db_dir, DbDir}]}],
-
-    p("starting manager"),
-    ok = snmpm:start_link(Opts),
-
-    ?SLEEP(1000),
+    ?IPRINT("starting with Config: "
+           "~n      ~p"
+           "~n", [Config]),
 
     snmpm:load_mib(std_mib()), 
     snmpm:load_mib(test_trap_mib(Config)),
 
-    p("manager started, now sleep some"),
+    ?IPRINT("manager started, now sleep some"),
 
     ?SLEEP(1000),
 
-    p("loaded mibs: ~p", [snmpm:which_mibs()]),
+    ?IPRINT("loaded mibs: ~p", [snmpm:which_mibs()]),
 
-    p("get some type(s) from the mibs"),    
+    ?IPRINT("get some type(s) from the mibs"),    
     {ok, 'Counter32'} = snmpm:oid_to_type(?snmpOutTraps), 
-    {ok, [IfIndex]} = snmpm:name_to_oid(ifIndex),
-    {ok, 'INTEGER'} = snmpm:oid_to_type(IfIndex),
+    {ok, [IfIndex]}   = snmpm:name_to_oid(ifIndex),
+    {ok, 'INTEGER'}   = snmpm:oid_to_type(IfIndex),
     
-
-    p("stop manager"),
-    ok = snmpm:stop(),
-
-    ?SLEEP(1000),
-
-    p("end"),
+    ?IPRINT("end"),
     ok.
 
 
@@ -4857,27 +5008,30 @@ do_otp8395_1(Config) ->
 %%======================================================================
 
 async_exec([], Acc) ->
-    p("all async request's sent => now await reponses"),
+    ?IPRINT("all async request's sent => now await responses"),
     async_verify(async_collector(Acc, []));
 async_exec([{Id, Data, Exec, Ver}|Reqs], Acc) ->
-    p("issue async request ~w", [Id]),
+    ?IPRINT("issue async request ~w", [Id]),
     ?line {ok, ReqId} = Exec(Data),
     async_exec(Reqs, [{ReqId, Id, Ver}|Acc]).
 
 async_collector([], Acc) ->
-    p("received replies for all requests - now sort"),
+    ?IPRINT("received replies for all requests - now sort"),
     lists:keysort(1, Acc);
 async_collector(Expected, Acc) ->
     receive
 	{async_event, ReqId, Reply} ->
-	    p("received async event with request-id ~w", [ReqId]),
+	    ?IPRINT("received async event with request-id ~w", [ReqId]),
 	    case lists:keysearch(ReqId, 1, Expected) of
 		{value, {_, Id, Ver}} ->
-		    p("event was for request ~w", [Id]),
+		    ?IPRINT("event was for request ~w", [Id]),
 		    Expected2 = lists:keydelete(ReqId, 1, Expected),
 		    async_collector(Expected2, [{Id, Ver, Reply}|Acc]);
 		false ->
 		    % Duplicate reply?
+                    ?EPRINT("unexpected async event: "
+                            "~n      ReqId: ~p"
+                            "~n      Reply: ~p", [ReqId, Reply]),
 		    ?FAIL({unexpected_async_event, ReqId, Reply})
 	    end
     after 10000 ->
@@ -4887,7 +5041,7 @@ async_collector(Expected, Acc) ->
 async_verify([]) ->
     ok;
 async_verify([{Id, Verify, Reply}|Replies]) ->
-    p("verify reply ~w", [Id]),
+    ?IPRINT("verify reply ~w", [Id]),
     Verify(Reply),
     async_verify(Replies).
 
@@ -4944,17 +5098,19 @@ purify_oid(Node, Oid) ->
 command_handler([]) ->
     ok;
 command_handler([{No, Desc, Cmd}|Cmds]) ->
-    p("command_handler -> command ~w: "
-      "~n   ~s", [No, Desc]),
+    ?IPRINT("command_handler -> command ~w: "
+            "~n   ~s", [No, Desc]),
     case (catch Cmd()) of
 	ok ->
-            p("command_handler -> ~w: ok",[No]),
+            ?IPRINT("command_handler -> ~w: ok", [No]),
             command_handler(Cmds);
         {error, Reason} ->
-            e("Command_handler -> ~w error: ~n~p",[No, Reason]),
+            ?EPRINT("Command_handler -> ~w error: "
+                    "~n      ~p", [No, Reason]),
             ?line ?FAIL({command_failed, No, Reason});
         Error ->
-            e("Command_handler -> ~w unexpected: ~n~p",[No, Error]),
+            ?EPRINT("Command_handler -> ~w unexpected: "
+                    "~n      ~p", [No, Error]),
             ?line ?FAIL({unexpected_command_result, No, Error})
     end.
 
@@ -4963,9 +5119,9 @@ command_handler([{No, Desc, Cmd}|Cmds]) ->
 
 init_manager(AutoInform, Config) ->
 
-    ?LOG("init_manager -> entry with"
-	 "~n   AutoInform: ~p"
-	 "~n   Config:     ~p", [AutoInform, Config]),
+    ?IPRINT("init_manager -> entry with"
+            "~n   AutoInform: ~p"
+            "~n   Config:     ~p", [AutoInform, Config]),
 
     %% -- 
     %% Start node
@@ -5005,11 +5161,18 @@ init_manager(AutoInform, Config) ->
 	    start_manager(Node, Vsns, Conf)
 	end
     catch
+	C:{suite_failed, Reason, _M, _L} = E:S when (C =:= exit) ->
+	    ?EPRINT("Failure during manager start (suite-failed):"
+                    "~n      Reason:      ~p"
+                    "~n      StackTrace:  ~p", [Reason, S]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)),
+	    erlang:raise(C, E, S);
 	C:E:S ->
-	    p("Failure during manager start: "
-	      "~n      Error Class: ~p"
-	      "~n      Error:       ~p"
-	      "~n      StackTrace:  ~p", [C, E, S]), 
+	    ?EPRINT("Failure during manager start: "
+                    "~n      Error Class: ~p"
+                    "~n      Error:       ~p"
+                    "~n      StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
 	    (catch stop_node(Node)), 
 	    ?FAIL({failed_starting_manager, C, E, S})
@@ -5020,19 +5183,19 @@ fin_manager(Config) ->
     StopMgrRes    = stop_manager(Node),
     StopCryptoRes = fin_crypto(Node),
     StopNode      = stop_node(Node),
-    p("fin_manager -> stop apps and (mgr node ~p) node results: "
-      "~n      SNMP Mgr: ~p"
-      "~n      Crypto:   ~p"
-      "~n      Node:     ~p", 
-      [Node, StopMgrRes, StopCryptoRes, StopNode]),
+    ?IPRINT("fin_manager -> stop apps and (mgr node ~p) node results: "
+            "~n      SNMP Mgr: ~p"
+            "~n      Crypto:   ~p"
+            "~n      Node:     ~p", 
+            [Node, StopMgrRes, StopCryptoRes, StopNode]),
     Config.
     
 
 %% -- Misc agent functions --
 
 init_agent(Config) ->
-    ?LOG("init_agent -> entry with"
-	 "~n   Config: ~p", [Config]),
+    ?IPRINT("init_agent -> entry with"
+            "~n   Config: ~p", [Config]),
 
     %% -- 
     %% Retrieve some dir's
@@ -5086,11 +5249,18 @@ init_agent(Config) ->
 	    start_agent(Node, Vsns, Conf)
 	end
     catch
+	C:{suite_failed, Reason, _M, _L} = E:S when (C =:= exit) ->
+	    ?EPRINT("Failure during agent start (suite-failed):"
+                    "~n   Reason:     ~p"
+                    "~n   StackTrace: ~p", [Reason, S]), 
+	    %% And now, *try* to cleanup
+	    (catch stop_node(Node)),
+	    erlang:raise(C, E, S);
 	C:E:S ->
-	    p("Failure during agent start: "
-	      "~n      Error Class: ~p"
-	      "~n      Error:       ~p"
-	      "~n      StackTrace:  ~p", [C, E, S]), 
+	    ?EPRINT("Failure during agent start: "
+                    "~n   Error Class: ~p"
+                    "~n   Error:       ~p"
+                    "~n   StackTrace:  ~p", [C, E, S]), 
 	    %% And now, *try* to cleanup
 	    (catch stop_node(Node)), 
 	    ?FAIL({failed_starting_agent, C, E, S})
@@ -5098,17 +5268,17 @@ init_agent(Config) ->
 	      
 
 fin_agent(Config) ->
-    Node = ?config(agent_node, Config),
+    Node          = ?config(agent_node, Config),
     StopAgentRes  = stop_agent(Node),
     StopCryptoRes = fin_crypto(Node),
     StopMnesiaRes = fin_mnesia(Node),
     StopNode      = stop_node(Node),
-    p("fin_agent -> stop apps and (agent node ~p) node results: "
-      "~n      SNMP Agent: ~p"
-      "~n      Crypto:     ~p"
-      "~n      Mnesia:     ~p"
-      "~n      Node:       ~p", 
-      [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
+    ?IPRINT("fin_agent -> stop apps and (agent node ~p) node results: "
+            "~n   SNMP Agent: ~p"
+            "~n   Crypto:     ~p"
+            "~n   Mnesia:     ~p"
+            "~n   Node:       ~p", 
+            [Node, StopAgentRes, StopCryptoRes, StopMnesiaRes, StopNode]),
     Config.
 
 init_mnesia(Node, Dir, MnesiaDebug) 
@@ -5174,8 +5344,8 @@ load_app(Node, App) ->
 		       ({error, {already_loaded, LoadedApp}}) when (LoadedApp =:= App) ->
 			    ok;
 		       ({error, Reason}) ->
-			    p("failed loading app ~w on ~p: "
-			      "~n      ~p", [App, Node, Reason]),
+			    ?EPRINT("failed loading app ~w on ~p: "
+                                    "~n      ~p", [App, Node, Reason]),
 			    ?FAIL({failed_load, Node, App, Reason})
 		    end,
     do_load_app(Node, App, VerifySuccess).
@@ -5195,8 +5365,8 @@ start_app(Node, App) ->
 		       ({error, {already_started, LoadedApp}}) when (LoadedApp =:= App) ->
 			    ok;
 		       ({error, Reason}) ->
-			    p("failed starting app ~w on ~p: "
-			      "~n      ~p", [App, Node, Reason]),
+			    ?EPRINT("failed starting app ~w on ~p: "
+                                    "~n   Reason: ~p", [App, Node, Reason]),
 			    ?FAIL({failed_start, Node, App, Reason})
 		    end,
     start_app(Node, App, VerifySuccess).
@@ -5214,8 +5384,8 @@ stop_app(Node, App) ->
 		       ({error, {not_started, LoadedApp}}) when (LoadedApp =:= App) ->
 			    ok;
 		       ({error, Reason}) ->
-			    p("failed stopping app ~w on ~p: "
-			      "~n      ~p", [App, Node, Reason]),
+			    ?EPRINT("failed stopping app ~w on ~p: "
+                                    "~n      ~p", [App, Node, Reason]),
 			    ?FAIL({failed_stop, Node, App, Reason})
 		    end,
     stop_app(Node, App, VerifySuccess).
@@ -5231,11 +5401,11 @@ set_app_env(Node, App, Key, Val) ->
     VerifySuccess = fun(ok) ->
 			    ok;
 		       ({error, Reason}) ->
-			    p("failed setting app ~w env on ~p"
-			      "~n      Key:    ~p"
-			      "~n      Val:    ~p"
-			      "~n      Reason: ~p"
-			      "~n      ~p", [App, Node, Key, Val, Reason]),
+			    ?EPRINT("failed setting app ~w env on ~p"
+                                    "~n      Key:    ~p"
+                                    "~n      Val:    ~p"
+                                    "~n      Reason: ~p",
+                                    [App, Node, Key, Val, Reason]),
 			    ?FAIL({failed_set_app_env, 
 				   Node, App, Key, Val, Reason})
 		    end,
@@ -5637,12 +5807,13 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 
     ConfigVerbosity    = get_opt(manager_config_verbosity,     Conf0, trace),
     NoteStoreVerbosity = get_opt(manager_note_store_verbosity, Conf0, log),
-    ServerVerbosity    = get_opt(manager_server_verbosity,     Conf0, trace),
     NetIfVerbosity     = get_opt(manager_net_if_verbosity,     Conf0, trace),
 
     AtlSeqNo           = get_opt(manager_atl_seqno,            Conf0, false),
 
+    ServerVerbosity    = get_opt(manager_server_verbosity,     Conf0, trace),
     CBP                = get_opt(manager_server_cbproxy,       Conf0, temporary),
+    NIS                = get_opt(manager_server_nis,           Conf0, none),
 
     NetIfConf = 
 	case get_opt(manager_net_if_module, Conf0, no_module) of
@@ -5665,12 +5836,22 @@ start_manager(Node, Vsns, Conf0, _Opts) ->
 			      {verbosity, ConfigVerbosity}]},
 	   {note_store,      [{verbosity, NoteStoreVerbosity}]},
 	   {server,          [{verbosity, ServerVerbosity},
-                              {cbproxy,   CBP}]},
+                              {cbproxy,   CBP},
+                              {netif_sup, NIS}]},
 	   {net_if,          NetIfConf}],
     ?line ok = set_mgr_env(Node, Env),
 
-    ?line ok = start_snmp(Node),
-    
+    ?line ok = try start_snmp(Node) of
+		   ok ->
+		       ok;
+		   {error, Reason} ->
+		       ?FAIL({failed_start_manager, Reason})
+	       catch
+		   exit:{suite_failed, {failed_start, _, _, Reason}, _M, _L}:_ ->
+		       ?FAIL({failed_start_manager, Reason});
+                   C:E:S ->
+                       erlang:raise(C, E, S)
+	       end,
     Conf0.
 
 stop_manager(Node) ->
@@ -5726,7 +5907,17 @@ start_agent(Node, Vsns, Conf0, _Opts) ->
 	   {multi_threaded,  true}],
     ?line ok = set_agent_env(Node, Env),
 
-    ?line ok = start_snmp(Node),
+    ?line try start_snmp(Node) of
+	      ok ->
+		  ok;
+	      {error, Reason} ->
+		  ?FAIL({failed_start_agent, Reason})
+	  catch
+	      exit:{suite_failed, {failed_start, _, _, Reason}, _M, _L}:_ ->
+		  ?FAIL({failed_start_agent, Reason});
+              C:E:S ->
+		  erlang:raise(C, E, S)
+	  end,
     Conf0.
 
 stop_agent(Node) ->
@@ -5790,7 +5981,7 @@ start_node(Name, Retry) ->
             global:sync(),
 	    Node;
 	{error, timeout} ->
-            e("Failed starting node ~p: timeout", [Name]),
+            ?EPRINT("Failed starting node ~p: timeout", [Name]),
 	    ?line ?FAIL({error_starting_node, Name, timeout});
 	{error, {already_running, Node}} when (Retry =:= true) ->
             %% Ouch
@@ -5799,24 +5990,24 @@ start_node(Name, Retry) ->
             %% timeout) but actually succeeded. Regardless, we don't know
             %% the state of this node, so (try) stop it and then (re-) try
             %% start again.
-            e("Failed starting node ~p: Already Running - try stop", [Node]),
+            ?WPRINT("Failed starting node ~p: Already Running - try stop", [Node]),
             case ?STOP_NODE(Node) of
                 true ->
-                    p("Successfully stopped old node ~p", [Node]),
+                    ?IPRINT("Successfully stopped old node ~p", [Node]),
                     start_node(Name, false);
                 false ->
-                    e("Failed stop old node ~p", [Node]),
+                    ?EPRINT("Failed stop old node ~p", [Node]),
                     ?line ?FAIL({error_starting_node, Node, Retry, already_running})
             end;
 	{error, {already_running, Node}} ->
-            e("Failed starting node ~p: Already Running", [Node]),
+            ?EPRINT("Failed starting node ~p: Already Running", [Node]),
             ?line ?FAIL({error_starting_node, Node, Retry, already_running});
 	{error, Reason} ->
-            e("Failed starting node ~p: ~p", [Name, Reason]),
+            ?EPRINT("Failed starting node ~p: ~p", [Name, Reason]),
 	    ?line ?FAIL({error_starting_node, Name, Reason})
     catch
         exit:{suite_failed, Reason} ->
-            e("(suite) Failed starting node ~p: ~p", [Name, Reason]),
+            ?EPRINT("(suite) Failed starting node ~p: ~p", [Name, Reason]),
             ?line ?FAIL({failed_starting_node, Name, Reason})
     end.
 
@@ -5995,24 +6186,24 @@ display_log(Config) ->
 		    LogDir  = Dir, 
 		    Mibs    = [], 
 		    OutFile = j(LogDir, "snmpm_log.txt"), 
-		    p("~n"
-		      "========================="
-		      "  < Audit Trail Log >  "
-		      "========================="
-		      "~n"),
+		    ?IPRINT("~n"
+                            "========================="
+                            "  < Audit Trail Log >  "
+                            "========================="
+                            "~n"),
 		    rcall(Node, snmpm, log_to_txt, [LogDir, Mibs, OutFile]),
 		    rcall(Node, snmpm, log_to_io, [LogDir, Mibs]),
-		    p("~n"
-		      "========================="
-		      " < / Audit Trail Log > "
-		      "========================="
-		      "~n");
+		    ?IPRINT("~n"
+                            "========================="
+                            " < / Audit Trail Log > "
+                            "========================="
+                            "~n");
 		false ->
-		    p("display_log -> no manager node found"),
+		    ?IPRINT("display_log -> no manager node found"),
 		    ok
 	    end;
 	false ->
-	    p("display_log -> no manager log dir found"),
+	    ?IPRINT("display_log -> no manager log dir found"),
 	    ok
     end.
 
@@ -6062,36 +6253,6 @@ rcall(Node, Mod, Func, Args) ->
 
 
 %% ------
-
-%% Time in milli sec
-%% t() ->
-%%     {A,B,C} = os:timestamp(),
-%%     A*1000000000+B*1000+(C div 1000).
-
-
-%% ------
-
-e(F, A) ->
-    p("<ERROR> " ++ F, A).
-
-p(F) ->
-    p(F, []).
- 
-p(F, A) ->
-    p(get(tname), F, A).
-
-p(undefined, F, A) ->
-    io:format("*** [~s] ***"
-              "~n   " ++ F ++ "~n", [formated_timestamp()|A]);
-p(TName, F, A) ->
-    io:format("*** [~s][~w] ***"
-              "~n   " ++ F ++ "~n", [formated_timestamp(),TName|A]).
-
-formated_timestamp() ->
-    snmp_test_lib:formated_timestamp().
-
-%% p(TName, F, A) ->
-%%     io:format("~w -> " ++ F ++ "~n", [TName|A]).
 
 ipv6_init(Config) when is_list(Config) ->
     [{ipfamily, inet6} | Config].

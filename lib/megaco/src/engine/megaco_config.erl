@@ -1539,7 +1539,16 @@ verify_val(Item, Val) ->
         send_mod         when is_atom(Val) -> true;
         send_handle                        -> true;
         encoding_mod     when is_atom(Val) -> true;
-        encoding_config  when is_list(Val) -> true;
+        encoding_config  when is_list(Val) ->
+            case Val of
+                [{version3, V3}|_] when (V3 =/= v3) ->
+                    warning_msg("Encoding Config version3 ~p is deprecated!~n"
+                                "It will be removed in OTP 24. Use 'v3' instead!"),
+                    ok;
+                _ ->
+                    ok
+            end,
+            true;
         protocol_version                   -> 
 	    megaco_config_misc:verify_strict_uint(Val);
         auth_data                          -> true;
@@ -2165,6 +2174,8 @@ snmp_counters() ->
 
 %%-----------------------------------------------------------------
 
+warning_msg(F) ->
+    warning_msg(F, []).
 warning_msg(F, A) ->
     ?megaco_warning("Config server: " ++ F, A).
 

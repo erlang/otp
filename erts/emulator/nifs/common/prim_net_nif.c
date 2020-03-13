@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2018-2019. All Rights Reserved.
+ * Copyright Ericsson AB 2018-2020. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -356,8 +356,8 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
                                  const ERL_NIF_TERM eString,
                                  char**             stringP);
 static ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
-                                ERL_NIF_TERM eBool,
-                                BOOLEAN_T*   bool);
+                                ERL_NIF_TERM ebool,
+                                BOOLEAN_T*   ibool);
 static ERL_NIF_TERM encode_address_infos(ErlNifEnv*       env,
                                          struct addrinfo* addrInfo);
 static ERL_NIF_TERM encode_address_info(ErlNifEnv*       env,
@@ -1039,7 +1039,9 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #elif defined(HAVE_GETIFADDRS) || defined(__PASE__)
+#ifdef HAVE_SETNS
     ERL_NIF_TERM extra;
+#endif
     char*        netns;
     ERL_NIF_TERM result;
 
@@ -1049,7 +1051,10 @@ ERL_NIF_TERM nif_getifaddrs(ErlNifEnv*         env,
         !IS_MAP(env,  argv[0])) {
         return enif_make_badarg(env);
     }
+#ifdef HAVE_SETNS
     extra = argv[0];
+#endif
+
 
 #ifdef HAVE_SETNS
     /* We *currently* only support one extra option: netns */
@@ -1950,14 +1955,14 @@ BOOLEAN_T decode_addrinfo_string(ErlNifEnv*         env,
 
 static
 ERL_NIF_TERM decode_bool(ErlNifEnv*   env,
-                         ERL_NIF_TERM eBool,
-                         BOOLEAN_T*   bool)
+                         ERL_NIF_TERM ebool,
+                         BOOLEAN_T*   ibool)
 {
-    if (COMPARE(eBool, esock_atom_true) == 0) {
-        *bool = TRUE;
+    if (COMPARE(ebool, esock_atom_true) == 0) {
+        *ibool = TRUE;
         return esock_atom_ok;
-    } else if (COMPARE(eBool, esock_atom_false) == 0) {
-        *bool = FALSE;
+    } else if (COMPARE(ebool, esock_atom_false) == 0) {
+        *ibool = FALSE;
         return esock_atom_ok;
     } else {
         return esock_make_error(env, esock_atom_einval);

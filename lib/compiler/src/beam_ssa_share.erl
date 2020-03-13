@@ -51,10 +51,25 @@ module(#b_module{body=Fs0}=Module, _Opts) ->
       Blocks0 :: beam_ssa:block_map(),
       Blk :: beam_ssa:b_blk().
 
-block(#b_blk{last=Last0}=Blk, Blocks) ->
+block(#b_blk{is=Is0,last=Last0}=Blk, Blocks) ->
     case share_terminator(Last0, Blocks) of
-        none -> Blk;
-        Last -> Blk#b_blk{last=beam_ssa:normalize(Last)}
+        none ->
+            Blk;
+        #b_br{succ=Same,fail=Same}=Last ->
+            %% The terminator was reduced from a two-way branch to a
+            %% one-way branch.
+            case reverse(Is0) of
+                [#b_set{op={succeeded,Kind},args=[Dst]},#b_set{dst=Dst}|Is] ->
+                    %% A succeeded instruction must not be followed by a
+                    %% one-way branch. We must remove both the succeeded
+                    %% instruction and the instruction preceding it.
+                    guard = Kind,               %Assertion.
+                    Blk#b_blk{is=reverse(Is),last=beam_ssa:normalize(Last)};
+                _ ->
+                    Blk#b_blk{last=beam_ssa:normalize(Last)}
+            end;
+        Last ->
+            Blk#b_blk{last=beam_ssa:normalize(Last)}
     end.
 
 %%%
@@ -240,6 +255,12 @@ share_switch_2([[{_,_}|_]=Prep|T], Blocks, Acc0) ->
     share_switch_2(T, Blocks, Acc);
 share_switch_2([], _, Acc) -> Acc.
 
+canonical_block({?EXCEPTION_BLOCK,_VarMap}, _Blocks) ->
+    %% Never ever share the ?EXCEPTION_BLOCK with another block.
+    %% Unless the entire switch or br is optimized away, a
+    %% {f,0} can be emitted where it is not allowed and a later
+    %% pass will crash.
+    {{none,?EXCEPTION_BLOCK},done};
 canonical_block({L,VarMap0}, Blocks) ->
     #b_blk{is=Is,last=Last0} = map_get(L, Blocks),
     case canonical_terminator(L, Last0, Blocks) of

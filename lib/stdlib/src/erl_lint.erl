@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 1996-2019. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,7 +31,10 @@
 -export([is_guard_expr/1]).
 -export([bool_option/4,value_option/3,value_option/7]).
 
--import(lists, [member/2,map/2,foldl/3,foldr/3,mapfoldl/3,all/2,reverse/1]).
+-import(lists, [all/2,any/2,
+                foldl/3,foldr/3,
+                map/2,mapfoldl/3,member/2,
+                reverse/1]).
 
 %% Removed functions
 
@@ -215,6 +218,9 @@ format_error({bad_on_load_arity,{F,A}}) ->
     io_lib:format("function ~tw/~w has wrong arity (must be 0)", [F,A]);
 format_error({undefined_on_load,{F,A}}) ->
     io_lib:format("function ~tw/~w undefined", [F,A]);
+format_error(nif_inline) ->
+    "inlining is enabled - local calls to NIFs may call their Erlang "
+    "implementation instead";
 
 format_error(export_all) ->
     "export_all flag enabled - all functions will be exported";
@@ -289,6 +295,8 @@ format_error({redefine_record,T}) ->
     io_lib:format("record ~tw already defined", [T]);
 format_error({redefine_field,T,F}) ->
     io_lib:format("field ~tw already defined in record ~tw", [F,T]);
+format_error(bad_multi_field_init) ->
+    io_lib:format("'_' initializes no omitted fields", []);
 format_error({undefined_field,T,F}) ->
     io_lib:format("field ~tw undefined in record ~tw", [F,T]);
 format_error(illegal_record_info) ->
@@ -609,6 +617,9 @@ start(File, Opts) ->
 		      false, Opts)},
          {removed,
           bool_option(warn_removed, nowarn_removed,
+                      true, Opts)},
+         {nif_inline,
+          bool_option(warn_nif_inline, nowarn_nif_inline,
                       true, Opts)}
 	],
     Enabled1 = [Category || {Category,true} <- Enabled0],
@@ -1648,7 +1659,8 @@ pattern({record,Line,Name,Pfs}, Vt, Old, Bvt, St) ->
     case maps:find(Name, St#lint.records) of
         {ok,{_Line,Fields}} ->
             St1 = used_record(Name, St),
-            pattern_fields(Pfs, Name, Fields, Vt, Old, Bvt, St1);
+            St2 = check_multi_field_init(Pfs, Line, Fields, St1),
+            pattern_fields(Pfs, Name, Fields, Vt, Old, Bvt, St2);
         error -> {[],[],add_error(Line, {undefined_record,Name}, St)}
     end;
 pattern({bin,_,Fs}, Vt, Old, Bvt, St) ->
@@ -1679,7 +1691,14 @@ pattern_list(Ps, Vt, Old, Bvt0, St) ->
                   {vtmerge_pat(Pvt, Psvt),vtmerge_pat(Bvt,Bvt1),St1}
           end, {[],[],St}, Ps).
 
-
+%% Check for '_' initializing no fields.
+check_multi_field_init(Fs, Line, Fields, St) ->
+    case
+        has_wildcard_field(Fs) andalso init_fields(Fs, Line, Fields) =:= []
+    of
+        true -> add_error(Line, bad_multi_field_init, St);
+        false -> St
+    end.
 
 %% reject_invalid_alias(Pat, Expr, Vt, St) -> St'
 %%  Reject aliases for binary patterns at the top level.
@@ -2742,9 +2761,12 @@ check_field({record_field,Lf,{atom,La,F},Val}, Name, Fields,
                  error -> {[],add_error(La, {undefined_field,Name,F}, St)}
              end}
     end;
-check_field({record_field,_Lf,{var,_La,'_'},Val}, _Name, _Fields,
+check_field({record_field,_Lf,{var,La,'_'=F},Val}, _Name, _Fields,
             Vt, St, Sfs, CheckFun) ->
-    {Sfs,CheckFun(Val, Vt, St)};
+    case member(F, Sfs) of
+        true -> {Sfs,{[],add_error(La, bad_multi_field_init, St)}};
+        false -> {[F|Sfs],CheckFun(Val, Vt, St)}
+    end;
 check_field({record_field,_Lf,{var,La,V},_Val}, Name, _Fields,
             Vt, St, Sfs, _CheckFun) ->
     {Sfs,{Vt,add_error(La, {field_name_is_variable,Name,V}, St)}}.
@@ -3845,7 +3867,29 @@ has_wildcard_field([]) -> false.
 check_remote_function(Line, M, F, As, St0) ->
     St1 = deprecated_function(Line, M, F, As, St0),
     St2 = check_qlc_hrl(Line, M, F, As, St1),
-    format_function(Line, M, F, As, St2).
+    St3 = check_load_nif(Line, M, F, As, St2),
+    format_function(Line, M, F, As, St3).
+
+%% check_load_nif(Line, ModName, FuncName, [Arg], State) -> State
+%%  Add warning if erlang:load_nif/2 is called when any kind of inlining has
+%%  been enabled.
+check_load_nif(Line, erlang, load_nif, [_, _], St) ->
+    case is_warn_enabled(nif_inline, St) of
+        true -> check_nif_inline(Line, St);
+        false -> St
+    end;
+check_load_nif(_Line, _ModName, _FuncName, _Args, St) ->
+    St.
+
+check_nif_inline(Line, St) ->
+    case any(fun is_inline_opt/1, St#lint.compile) of
+        true -> add_warning(Line, nif_inline, St);
+        false -> St
+    end.
+
+is_inline_opt({inline, [_|_]=_FAs}) -> true;
+is_inline_opt(inline) -> true;
+is_inline_opt(_) -> false.
 
 %% check_qlc_hrl(Line, ModName, FuncName, [Arg], State) -> State
 %%  Add warning if qlc:q/1,2 has been called but qlc.hrl has not

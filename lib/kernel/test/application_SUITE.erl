@@ -33,7 +33,7 @@
 	 start_phases/1, get_key/1, get_env/1,
 	 set_env/1, set_env_persistent/1, set_env_errors/1,
 	 permit_false_start_local/1, permit_false_start_dist/1, script_start/1, 
-	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1]).
+	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1, otp_16504/1]).
 
 -export([config_change/1, persistent_env/1,
 	 distr_changed_tc1/1, distr_changed_tc2/1,
@@ -66,7 +66,7 @@ groups() ->
     [{reported_bugs, [],
       [otp_1586, otp_2078, otp_2012, otp_2718, otp_2973,
        otp_3002, otp_3184, otp_4066, otp_4227, otp_5363,
-       otp_5606]},
+       otp_5606, otp_16504]},
      {distr_changed, [],
       [distr_changed_tc1, distr_changed_tc2]}].
 
@@ -1569,7 +1569,24 @@ loop5606(Pid) ->
 	    Res = application:start(app1),
 	    Pid ! {self(), Res}
     end.
-	    
+
+otp_16504(Config) when is_list(Config) ->
+    {ok, Fd} = file:open("app1.app", [write]),
+    w_app1(Fd),
+    file:close(Fd),
+    register(test_application_stop_called, self()),
+
+    ok = application:ensure_started(app1),
+    Master = application_controller:get_master(app1),
+    exit(Master, kill),
+    receive
+        {stop_called, _} ->
+            ok
+    after 3000 ->
+            ct:fail(stop_not_called)
+    end,
+    ok.
+
 %% Tests get_env/* functions.
 get_env(Conf) when is_list(Conf) ->
     ok = application:set_env(kernel, new_var, new_val),

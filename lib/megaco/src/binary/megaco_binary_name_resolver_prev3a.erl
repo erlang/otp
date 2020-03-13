@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %% 
-%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2020. All Rights Reserved.
 %% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -21,6 +21,11 @@
 %%
 %%----------------------------------------------------------------------
 %% Purpose: Handle meta data about packages
+%%
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%                      DEPRECATED
+%%
 %%----------------------------------------------------------------------
 
 -module(megaco_binary_name_resolver_prev3a).

@@ -26,6 +26,7 @@
 
 -include("ssh.hrl").
 -include("ssh_auth.hrl").
+-include("ssh_agent.hrl").
 -include("ssh_transport.hrl").
 
 -export([get_public_key/2,
@@ -140,6 +141,9 @@ keyboard_interactive_msg([#ssh{user = User,
 get_public_key(SigAlg, #ssh{opts = Opts}) ->
     KeyAlg = key_alg(SigAlg),
     case ssh_transport:call_KeyCb(user_key, [KeyAlg], Opts) of
+        {ok, {ssh2_pubkey, PubKeyBlob}} ->
+            {ok, {ssh2_pubkey, PubKeyBlob}};
+
         {ok, PrivKey} ->
             try
                 %% Check the key - the KeyCb may be a buggy plugin
@@ -147,40 +151,50 @@ get_public_key(SigAlg, #ssh{opts = Opts}) ->
                 Key = ssh_transport:extract_public_key(PrivKey),
                 ssh_message:ssh2_pubkey_encode(Key)
             of
-                PubKeyBlob -> {ok,{PrivKey,PubKeyBlob}}
+                PubKeyBlob -> {ok, {PrivKey, PubKeyBlob}}
             catch
                 _:_ -> 
                     not_ok
             end;
 
-	_Error ->
-	    not_ok
+        _Error ->
+            not_ok
     end.
 
 
 publickey_msg([SigAlg, #ssh{user = User,
-		       session_id = SessionId,
-		       service = Service} = Ssh]) ->
+                            session_id = SessionId,
+                            service = Service,
+                            opts = Opts} = Ssh]) ->
     case get_public_key(SigAlg, Ssh) of
-	{ok, {PrivKey,PubKeyBlob}} ->
+        {ok, {_, PubKeyBlob} = Key} ->
             SigAlgStr = atom_to_list(SigAlg),
-            SigData = build_sig_data(SessionId, User, Service,
-                                     PubKeyBlob, SigAlgStr),
-            Hash = ssh_transport:sha(SigAlg),
-            Sig = ssh_transport:sign(SigData, Hash, PrivKey),
+            SigData = build_sig_data(SessionId, User, Service, PubKeyBlob, SigAlgStr),
+
+            Sig = case Key of
+                {ssh2_pubkey, PubKeyBlob} ->
+                  ssh_transport:call_KeyCb(sign, [PubKeyBlob, SigData], Opts);
+
+                {PrivKey, PubKeyBlob} ->
+                  Hash = ssh_transport:sha(SigAlg),
+                  ssh_transport:sign(SigData, Hash, PrivKey)
+              end,
+
             SigBlob = list_to_binary([?string(SigAlgStr),
                                       ?binary(Sig)]),
+
             ssh_transport:ssh_packet(
-              #ssh_msg_userauth_request{user = User,
-                                        service = Service,
-                                        method = "publickey",
-                                        data = [?TRUE,
-                                                ?string(SigAlgStr),
-                                                ?binary(PubKeyBlob),
-                                                ?binary(SigBlob)]},
-              Ssh);
-     	_ ->
-	    {not_ok, Ssh}
+                #ssh_msg_userauth_request{user = User,
+                                          service = Service,
+                                          method = "publickey",
+                                          data = [?TRUE,
+                                                  ?string(SigAlgStr),
+                                                  ?binary(PubKeyBlob),
+                                                  ?binary(SigBlob)]},
+                Ssh);
+
+        _ ->
+            {not_ok, Ssh}
     end.
 
 %%%----------------------------------------------------------------

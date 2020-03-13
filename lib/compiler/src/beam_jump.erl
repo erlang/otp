@@ -132,7 +132,7 @@
 %%% on the program state.
 %%% 
 
--import(lists, [foldl/3,mapfoldl/3,reverse/1,reverse/2]).
+-import(lists, [foldl/3,keymember/3,mapfoldl/3,reverse/1,reverse/2]).
 
 -type instruction() :: beam_utils:instruction().
 
@@ -335,25 +335,20 @@ share_1(Is) ->
     share_1(Is, Safe, #{}, #{}, [], []).
 
 %% Note that we examine the instructions in reverse execution order.
-share_1([{label,L}=Lbl|Is], Safe, Dict0, Lbls0, [_|_]=Seq, Acc) ->
+share_1([{label,L}=Lbl|Is], Safe, Dict0, Lbls0, [_|_]=Seq0, Acc) ->
+    Seq = maybe_add_scope(Seq0, L, Safe),
+
+    %% If there are try/catch or catch instructions in this function,
+    %% any line instructions in the sequence now include a scope.
     case Dict0 of
         #{Seq := Label} ->
-            %% This sequence of instructions has been seen previously. Find out
-            %% whether it would be safe to jump the label for previous occurrence.
-            case is_safely_shareable(L, Label, Seq, Safe) of
-                true ->
-                    %% Safe, because either the sequence never raises an exception
-                    %% or the jump to the label will not pass a try/catch or catch
-                    %% boundary.
-                    Lbls = Lbls0#{L => Label},
-                    share_1(Is, Safe, Dict0, Lbls, [],
-                            [[Lbl,{jump,{f,Label}}]|Acc]);
-                false ->
-                    %% Not safe, because the sequence can raise an exception
-                    %% and the jump would pass the boundary going in
-                    %% or out of a try/catch or catch block.
-                    share_1(Is, Safe, Dict0, Lbls0, [], [[Lbl|Seq]|Acc])
-            end;
+            %% This sequence of instructions has been seen previously.
+            %% The scope identifiers added to line instructions ensure
+            %% that two sequence will not be equal unless sharing is
+            %% also safe.
+            Lbls = Lbls0#{L => Label},
+            share_1(Is, Safe, Dict0, Lbls, [],
+                    [[Lbl,{jump,{f,Label}}]|Acc]);
         #{} ->
             %% This is first time we have seen this sequence of instructions.
             case is_shareable(Seq) of
@@ -397,6 +392,25 @@ share_1([I|Is], Safe, Dict, Lbls, Seq, Acc) ->
 	    share_1(Is, Safe, Dict, Lbls, [I], Acc)
     end.
 
+%% If the label has a scope set, assign it to any line instruction
+%% in the sequence.
+maybe_add_scope(Seq, L, Safe) ->
+    case Safe of
+        #{L := Scope} -> add_scope(Seq, Scope);
+        #{} -> Seq
+    end.
+
+add_scope([{line,Loc}=I|Is], Scope) ->
+    case keymember(scope, 1, Loc) of
+        false ->
+            [{line,[{scope,Scope}|Loc]}|add_scope(Is, Scope)];
+        true ->
+            [I|add_scope(Is, Scope)]
+    end;
+add_scope([I|Is], Scope) ->
+    [I|add_scope(Is, Scope)];
+add_scope([], _Scope) -> [].
+
 is_shareable([{'catch',_,_}|_]) -> false;
 is_shareable([{catch_end,_}|_]) -> false;
 is_shareable([{'try',_,_}|_]) -> false;
@@ -404,47 +418,22 @@ is_shareable([{try_case,_}|_]) -> false;
 is_shareable([{try_end,_}|_]) -> false;
 is_shareable(_) -> true.
 
-%% There are identical code sequences Seq at labels Lbl1 and Lbl2. Is it
-%% safe to replace the sequence at label Lbl1 with a jump to Lbl2?
-
-is_safely_shareable(Lbl1, Lbl2, Seq, Safe) ->
-    case no_exception(Seq) of
-        true ->
-            %% Safe, because the sequence Seq can't raise an exception.
-            true;
-        false ->
-            %% Safe if both labels are either ouside try/catch or inside
-            %% the same part of the same try/catch or catch block.
-            case Safe of
-                #{Lbl1 := Scope, Lbl2 := Scope} -> true;
-                #{} -> false
-            end
-    end.
-
-no_exception([{line,_}|_]) ->
-    %% This sequence may raise an exception and may potentially
-    %% match a sequence on the other side of the 'catch'/'try' block
-    %% boundary.
-    false;
-no_exception([_|Is]) ->
-    no_exception(Is);
-no_exception([]) -> true.
-
 %%
 %% Classify labels according to where the instructions that branch to
-%% the labels are located. Each label is assigned a scope identifer.
-%% If two labels have different scope identfiers, sharing a sequence
-%% that raises an exception between the labels may not be safe, because
-%% one label is inside a try/catch, and the other label is outside.
+%% the labels are located. Each label is assigned a set of scope
+%% identifers (but usually just one). If two labels have different
+%% scope identfiers, sharing a sequence that raises an exception
+%% between the labels may not be safe, because one label is inside a
+%% try/catch, and the other label is outside. Note that we don't care
+%% where the labels themselves are located, only from where the
+%% branches to them are located.
 %%
-%% Note that we don't care where the labels themselves are located,
-%% only from where the branches to them are located. This is essential
-%% to ensure that beam_jump is idempotent, ensuring that beam_jump
+%% If there is more than one scope in the function (that is, if there
+%% try/catch or catch in the function), the scope identifiers will be
+%% added to the line instructions. Recording the scope in the line
+%% instructions makes beam_jump idempotent, ensuring that beam_jump
 %% will not do any unsafe optimizations when when compiling from a .S
-%% file. The move/1 optimization pass below (2) will move instruction
-%% sequences that end in an exception raising instruction to the end
-%% of the function. Thus instruction sequences initially being in
-%% different scopes could be placed next to each other.
+%% file.
 %%
 
 classify_labels(Is) ->
@@ -460,17 +449,27 @@ classify_labels([{'try_end',_}|Is], Scope, Safe) ->
     classify_labels(Is, Scope+1, Safe);
 classify_labels([{'try_case',_}|Is], Scope, Safe) ->
     classify_labels(Is, Scope+1, Safe);
+classify_labels([{'try_case_end',_}|Is], Scope, Safe) ->
+    classify_labels(Is, Scope+1, Safe);
 classify_labels([I|Is], Scope, Safe0) ->
     Labels = instr_labels(I),
     Safe = foldl(fun(L, A) ->
                          case A of
-                             #{L := Scope} -> A;
-                             #{L := _} -> maps:remove(L, A);
-                             #{} -> A#{L => Scope}
+                             #{L := [Scope]} -> A;
+                             #{L := Other} -> A#{L => ordsets:add_element(Scope, Other)};
+                             #{} -> A#{L => [Scope]}
                          end
                  end, Safe0, Labels),
     classify_labels(Is, Scope, Safe);
-classify_labels([], _Scope, Safe) -> Safe.
+classify_labels([], Scope, Safe) ->
+    case Scope of
+        0 ->
+            %% No try/catch or catch in this function. We don't
+            %% need the collected information.
+            #{};
+        _ ->
+            Safe
+    end.
 
 %% Eliminate all fallthroughs. Return the result reversed.
 

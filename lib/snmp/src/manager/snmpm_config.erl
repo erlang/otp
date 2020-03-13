@@ -151,6 +151,7 @@
 -define(SERVER_OPT_GCT_DEFAULT,  30000).
 -define(SERVER_OPT_MT_DEFAULT,   true).
 -define(SERVER_OPT_CBP_DEFAULT,  temporary). % permanent
+-define(SERVER_OPT_NIS_DEFAULT,  none).
 
 %% -define(DEF_ADDR_TAG,       default_addr_tag).
 -define(DEFAULT_TARGETNAME, default_agent).
@@ -1115,15 +1116,17 @@ do_init(Opts) ->
     end,
 
     %% -- Server (optional) --
-    ServerOpts = get_opt(server,         Opts,      []),
+    ServerOpts = get_opt(server,         Opts,       []),
     ServerVerb = get_opt(verbosity,      ServerOpts, ?SERVER_OPT_VERB_DEFAULT),
     ServerGct  = get_opt(timeout,        ServerOpts, ?SERVER_OPT_GCT_DEFAULT),
     ServerMt   = get_opt(multi_threaded, ServerOpts, ?SERVER_OPT_MT_DEFAULT),
     ServerCBP  = get_opt(cbproxy,        ServerOpts, ?SERVER_OPT_CBP_DEFAULT),
+    ServerNIS  = get_opt(netif_sup,      ServerOpts, ?SERVER_OPT_NIS_DEFAULT),
     ets:insert(snmpm_config_table, {server_verbosity,      ServerVerb}),
     ets:insert(snmpm_config_table, {server_timeout,        ServerGct}),
     ets:insert(snmpm_config_table, {server_multi_threaded, ServerMt}),
     ets:insert(snmpm_config_table, {server_cbproxy,        ServerCBP}),
+    ets:insert(snmpm_config_table, {server_nis,            ServerNIS}),
    
     %% -- Mibs (optional) --
     ?vdebug("initiate mini mib", []),
@@ -1132,7 +1135,7 @@ do_init(Opts) ->
     init_mini_mib(Mibs),
 
     %% -- Net-if (optional) --
-    ?vdebug("net_if options", []),
+    ?vdebug("net-if options", []),
     NetIfIrb     = 
 	case get_opt(inform_request_behaviour, Opts, ?IRB_DEFAULT) of
 	    user ->
@@ -1421,6 +1424,9 @@ verify_server_opts([{multi_threaded, MT}|Opts]) when is_boolean(MT) ->
 verify_server_opts([{cbproxy, CBP}|Opts]) ->
     verify_server_cbproxy(CBP),
     verify_server_opts(Opts);
+verify_server_opts([{netif_sup, NIS}|Opts]) ->
+    verify_server_nis(NIS),
+    verify_server_opts(Opts);
 verify_server_opts([Opt|_]) ->
     error({invalid_server_option, Opt}).
 
@@ -1435,6 +1441,17 @@ verify_server_cbproxy(permanent) ->
     ok;
 verify_server_cbproxy(CBP) ->
     error({invalid_server_cbproxy, CBP}).
+
+verify_server_nis(none) ->
+    ok;
+verify_server_nis({PingTo, PongTo} = V) when is_integer(PingTo) andalso
+                                             (PingTo > 0) andalso
+                                             is_integer(PongTo) andalso
+                                             (PongTo > 0) ->
+    ok;
+verify_server_nis(NIS) ->
+    error({invalid_server_netif_sup, NIS}).
+
 
 verify_net_if_opts([]) ->
     ok;

@@ -1129,20 +1129,21 @@ cg_block([#cg_set{op=bs_init,dst=Dst0,args=Args0,anno=Anno}=I,
     Line = line(Anno),
     Alloc = map_get(alloc, Anno),
     [#b_literal{val=Kind}|Args1] = Args0,
+    Live = get_live(I),
     case Kind of
         new ->
             [Dst,Size,{integer,Unit}] = beam_args([Dst0|Args1], St),
-            Live = get_live(I),
             {[Line|cg_bs_init(Dst, Size, Alloc, Unit, Live, Fail)],St};
         private_append ->
             [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Flags = {field_flags,[]},
-            Is = [Line,{bs_private_append,Fail,Bits,Unit,Src,Flags,Dst}],
+            TestHeap = {test_heap,Alloc,Live},
+            BsPrivateAppend = {bs_private_append,Fail,Bits,Unit,Src,Flags,Dst},
+            Is = [TestHeap,Line,BsPrivateAppend],
             {Is,St};
         append ->
             [Dst,Src,Bits,{integer,Unit}] = beam_args([Dst0|Args1], St),
             Flags = {field_flags,[]},
-            Live = get_live(I),
             Is = [Line,{bs_append,Fail,Bits,Alloc,Live,Unit,Src,Flags,Dst}],
             {Is,St}
     end;
@@ -1717,9 +1718,9 @@ cg_test(bs_utf8_size=Op, Fail, [Src], Dst, _I) ->
     [{Op,Fail,Src,Dst}];
 cg_test(bs_utf16_size=Op, Fail, [Src], Dst, _I) ->
     [{Op,Fail,Src,Dst}];
-cg_test({float,convert}, Fail, [Src], Dst, _I) ->
+cg_test({float,convert}, Fail, [Src], Dst, #cg_set{anno=Anno}) ->
     {f,0} = Fail,                               %Assertion.
-    [{fconv,Src,Dst}];
+    [line(Anno),{fconv,Src,Dst}];
 cg_test({float,Op0}, Fail, Args, Dst, #cg_set{anno=Anno}) ->
     Op = case Op0 of
              '+' -> fadd;

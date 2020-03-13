@@ -168,10 +168,9 @@ format_i_number(#{n:=N}) ->
     io_lib:format("[~p] ", [N]);
 format_i_number(#{}) -> [].
 
-format_terminator(#b_br{anno=A,bool=#b_literal{val=true},succ=Lbl}, _) ->
-    io_lib:format("  ~sbr ~ts\n", [format_i_number(A),format_label(Lbl)]);
-format_terminator(#b_br{anno=A,bool=#b_literal{val=false},fail=Lbl}, _) ->
-    io_lib:format("  ~sbr ~ts\n", [format_i_number(A),format_label(Lbl)]);
+format_terminator(#b_br{anno=A,bool=#b_literal{val=true},
+                        succ=Same,fail=Same}, _) ->
+    io_lib:format("  ~sbr ~ts\n", [format_i_number(A),format_label(Same)]);
 format_terminator(#b_br{anno=A,bool=Bool,succ=Succ,fail=Fail}, FuncAnno) ->
     io_lib:format("  ~sbr ~ts, ~ts, ~ts\n",
                   [format_i_number(A),

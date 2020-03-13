@@ -101,10 +101,10 @@
 	</item>
 	<item>
 	  In OTP 22.3 the possibility to change the callback module
-	  with action
-	  <seealso marker="#type-action">
-	    <c>change_callback_module</c>
-	  </seealso>
+	  with actions
+	  <seealso marker="#type-action"><c>change_callback_module</c></seealso>,
+	  <seealso marker="#type-action"><c>push_callback_module</c></seealso> and
+	  <seealso marker="#type-action"><c>pop_callback_module</c></seealso>,
 	  was added.
 	</item>
       </list>
@@ -764,8 +764,10 @@ handle_event(_, _, State, Data) ->
 	  <seealso marker="#Module:callback_mode/0"><c>Module:callback_mode/0</c></seealso>
 	  is called when starting the <c>gen_statem</c>,
 	  after code change
-	  and after changing the callback module with action
-	  <seealso marker="#type-action"><c>change_callback_module</c></seealso>.
+	  and after changing the callback module with any of the actions
+	  <seealso marker="#type-action"><c>change_callback_module</c></seealso>,
+	  <seealso marker="#type-action"><c>push_callback_module</c></seealso> or
+	  <seealso marker="#type-action"><c>pop_callback_module</c></seealso>.
 	  The result is cached for subsequent calls to
 	  <seealso marker="#state callback">state callbacks</seealso>.
 	</p>
@@ -1205,7 +1207,9 @@ handle_event(_, _, State, Data) ->
 	      an event inserted this way from any external event.
 	    </p>
 	  </item>
-	  <tag><c>change_callback_module</c></tag>
+	  <tag>
+	    <c>change_callback_module</c>
+	  </tag>
 	  <item>
 	    <p>
 	      Changes the callback module to
@@ -1244,6 +1248,32 @@ handle_event(_, _, State, Data) ->
 	      must be able to handle the state and data
 	      from the old module.
 	    </p>
+	  </item>
+	  <tag>
+	    <c>push_callback_module</c><br />
+	  </tag>
+	  <item>
+	    <p>
+	      Pushes the current callback module
+	      to the top of an internal stack of callback modules
+	      and changes the callback module to
+	      <c><anno>NewModule</anno></c>.
+	      Otherwise like
+	      <c>{change_callback_module, NewModule}</c>
+	      above.
+	    </p>
+	  </item>
+	  <tag>
+	    <c>pop_callback_module</c>
+	  </tag>
+	  <item>
+	    Pops the top module from the internal stack of
+	    callback modules and changes the callback module
+	    to be the popped module.
+	    If the stack is empty the server fails.
+	    Otherwise like
+	    <c>{change_callback_module, NewModule}</c>
+	    above.
 	  </item>
 	</taglist>
       </desc>
@@ -2182,8 +2212,10 @@ handle_event(_, _, State, Data) ->
 	  returns.
 	  A change of the callback module happens when a
 	  <seealso marker="#state callback"><em>state callback</em></seealso>
-	  returns the action
-	  <seealso marker="#type-action"><c>change_callback_module</c></seealso>.
+	  returns any of the actions
+	  <seealso marker="#type-action"><c>change_callback_module</c></seealso>,
+	  <seealso marker="#type-action"><c>push_callback_module</c></seealso> or
+	  <seealso marker="#type-action"><c>pop_callback_module</c></seealso>.
 	</p>
 	<p>
 	  The <c>CallbackMode</c> is either just
@@ -2289,6 +2321,37 @@ handle_event(_, _, State, Data) ->
 	  or else the <em>callback mode</em> after the code change
 	  will not be honoured,
 	  most probably causing a server crash.
+	</p>
+	<p>
+	  If the server changes callback module using any of the actions
+	  <seealso marker="#type-action"><c>change_callback_module</c></seealso>,
+	  <seealso marker="#type-action"><c>push_callback_module</c></seealso> or
+	  <seealso marker="#type-action"><c>pop_callback_module</c></seealso>,
+	  be aware that it is always the current callback module that
+	  will get this callback call.  That the current callback module
+	  handles the current state and data update should be no surprise,
+	  but it must be able to handle even parts of
+	  the state and data that it is not familiar with,
+	  somehow.
+	</p>
+	<p>
+	  In the supervisor
+	  <seealso marker="doc/design_principles:sup_princ#child-specification">child specification</seealso>
+	  there is a list of modules which is recommended to contain
+	  only the callback module.
+	  For a <c>gen_statem</c> with multiple callback modules
+	  there is no real need to list all of them,
+	  it may not even be possible since the list could change
+	  after code upgrade.
+	  If this list would contain only the start callback module,
+	  as recommended, what is important is to upgrade <em>that</em> module
+	  whenever a <em>synchronized code replacement</em> is done.
+	  Then the release handler concludes that an upgrade
+	  that upgrades <em>that</em> module needs to suspend,
+	  code change, and resume any server whose child specification
+	  declares that it is using <em>that</em> module.
+	  And again; the <em>current</em> callback module will get the
+	  <c>Module:code_change/4</c> call.
 	</p>
       </desc>
     </func>

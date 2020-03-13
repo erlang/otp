@@ -38,7 +38,8 @@
 	 terminate/2]).
 
 -record(state, {verbose = false,
-		indent = 0
+                indent = 0,
+                print_depth = 20
 	       }).
 
 start() ->
@@ -48,7 +49,9 @@ start(Options) ->
     eunit_listener:start(?MODULE, Options).
 
 init(Options) ->
-    St = #state{verbose = proplists:get_bool(verbose, Options)},
+    PrintDepth = proplists:get_value(print_depth, Options, 20),
+    St = #state{verbose = proplists:get_bool(verbose, Options),
+                print_depth = PrintDepth},
     put(no_tty, proplists:get_bool(no_tty, Options)),
     receive
 	{start, _Reference} ->
@@ -89,8 +92,8 @@ terminate({ok, Data}, St) ->
 	    end,
 	    sync_end(error)
     end;
-terminate({error, Reason}, _St) ->
-    fwrite("Internal error: ~tP.\n", [Reason, 25]),
+terminate({error, Reason}, #state{print_depth = Depth}) ->
+    fwrite("Internal error: ~tP.\n", [Reason, Depth]),
     sync_end(error).
 
 sync_end(Result) ->
@@ -147,7 +150,7 @@ handle_end(test, Data, St) ->
 	    if St#state.verbose -> ok;
 	       true -> print_test_begin(St#state.indent, Data)
 	    end,
-	    print_test_error(Status, Data),
+	    print_test_error(Status, Data, St),
 	    St
     end.
 
@@ -161,10 +164,10 @@ handle_cancel(group, Data, St) ->
 	Reason ->
 	    Desc = proplists:get_value(desc, Data),
 	    if Desc =/= "", Desc =/= undefined, St#state.verbose ->
-		    print_group_cancel(I, Reason);
+		    print_group_cancel(I, Reason, St);
 	       true ->
 		    print_group_start(I, Desc),
-		    print_group_cancel(I, Reason)
+		    print_group_cancel(I, Reason, St)
 	    end,
 	    St#state{indent = I - 1}
     end;
@@ -173,7 +176,7 @@ handle_cancel(test, Data, St) ->
     if St#state.verbose -> ok;
        true -> print_test_begin(St#state.indent, Data)
     end,
-    print_test_cancel(proplists:get_value(reason, Data)),
+    print_test_cancel(proplists:get_value(reason, Data), St),
     St.
 
 
@@ -218,9 +221,9 @@ print_test_end(Data) ->
 	end,
     fwrite("~tsok\n", [T]).
 
-print_test_error({error, Exception}, Data) ->
+print_test_error({error, Exception}, Data, #state{print_depth = Depth}) ->
     Output = proplists:get_value(output, Data),
-    fwrite("*failed*\n~ts", [eunit_lib:format_exception(Exception)]),
+    fwrite("*failed*\n~ts", [eunit_lib:format_exception(Exception, Depth)]),
     case Output of
 	<<>> ->
 	    fwrite("\n\n");
@@ -229,7 +232,7 @@ print_test_error({error, Exception}, Data) ->
 	_ ->
 	    fwrite("  output:<<\"~ts\">>\n\n", [Output])
     end;
-print_test_error({skipped, Reason}, _) ->
+print_test_error({skipped, Reason}, _, St) ->
     fwrite("*did not run*\n::~ts\n", [format_skipped(Reason)]).
 
 format_skipped({module_not_found, M}) ->
@@ -237,29 +240,29 @@ format_skipped({module_not_found, M}) ->
 format_skipped({no_such_function, {M,F,A}}) ->
     io_lib:fwrite("no such function: ~w:~tw/~w", [M,F,A]).
 
-print_test_cancel(Reason) ->
-    fwrite(format_cancel(Reason)).
+print_test_cancel(Reason, #state{print_depth = Depth}) ->
+    fwrite(format_cancel(Reason, Depth)).
 
-print_group_cancel(_I, {blame, _}) ->
+print_group_cancel(_I, {blame, _}, _) ->
     ok;
-print_group_cancel(I, Reason) ->
+print_group_cancel(I, Reason, #state{print_depth = Depth}) ->
     indent(I),
-    fwrite(format_cancel(Reason)).
+    fwrite(format_cancel(Reason, Depth)).
 
-format_cancel(undefined) ->
+format_cancel(undefined, _) ->
     "*skipped*\n";
-format_cancel(timeout) ->
+format_cancel(timeout, _) ->
     "*timed out*\n";
-format_cancel({startup, Reason}) ->
+format_cancel({startup, Reason}, Depth) ->
     io_lib:fwrite("*could not start test process*\n::~tP\n\n",
-		  [Reason, 15]);
-format_cancel({blame, _SubId}) ->
+		  [Reason, Depth]);
+format_cancel({blame, _SubId}, _) ->
     "*cancelled because of subtask*\n";
-format_cancel({exit, Reason}) ->
+format_cancel({exit, Reason}, Depth) ->
     io_lib:fwrite("*unexpected termination of test process*\n::~tP\n\n",
-		  [Reason, 15]);
-format_cancel({abort, Reason}) ->
-    eunit_lib:format_error(Reason).
+		  [Reason, Depth]);
+format_cancel({abort, Reason}, Depth) ->
+    eunit_lib:format_error(Reason, Depth).
 
 fwrite(String) ->
     fwrite(String, []).

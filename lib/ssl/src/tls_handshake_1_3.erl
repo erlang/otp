@@ -1582,8 +1582,9 @@ update_connection_state(ConnectionState = #{security_parameters := SecurityParam
                            master_secret = HandshakeSecret,
                            resumption_master_secret = ResumptionMasterSecret,
                            application_traffic_secret = ApplicationTrafficSecret},
+    BulkCipherAlgo = SecurityParameters#security_parameters.bulk_cipher_algorithm,
     ConnectionState#{security_parameters => SecurityParameters,
-                     cipher_state => cipher_init(Key, IV, FinishedKey)}.
+                     cipher_state => cipher_init(BulkCipherAlgo, Key, IV, FinishedKey)}.
 
 
 update_start_state(State, Map) ->
@@ -1639,7 +1640,12 @@ update_resumption_master_secret(#state{connection_states = ConnectionStates0} = 
     State#state{connection_states = ConnectionStates}.
 
 
-cipher_init(Key, IV, FinishedKey) ->
+cipher_init(?AES_CCM_8, Key, IV, FinishedKey) ->
+    #cipher_state{key = Key,
+                  iv = IV,
+                  finished_key = FinishedKey,
+                  tag_len = 8};
+cipher_init(_BulkCipherAlgo, Key, IV, FinishedKey) ->
     #cipher_state{key = Key,
                   iv = IV,
                   finished_key = FinishedKey,

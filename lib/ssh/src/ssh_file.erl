@@ -37,7 +37,7 @@
 
 %%%--------------------- client exports ---------------------------
 -behaviour(ssh_client_key_api).
--export([is_host_key/4, user_key/2, add_host_key/3]).
+-export([is_host_key/5, user_key/2, add_host_key/4]).
 -export_type([pubkey_passphrase_client_options/0]).
 -type pubkey_passphrase_client_options() ::   {dsa_pass_phrase,      string()}
                                             | {rsa_pass_phrase,      string()}
@@ -54,50 +54,94 @@
 -type user_dir_fun_common_option() :: {user_dir_fun, user2dir()}.
 -type user2dir() :: fun((RemoteUserName::string()) -> UserDir :: string()) .
 
+-type optimize_key_lookup() :: {optimize, time|space} .
+
 %%%================================================================
 %%%
 %%% API
 %%%
 
 %%%---------------- SERVER API ------------------------------------
+-spec host_key(Algorithm, Options) -> Result when
+      Algorithm :: ssh:pubkey_alg(),
+      Result :: {ok, public_key:private_key()} | {error, term()},
+      Options :: ssh_server_key_api:daemon_key_cb_options(none()).
+
 host_key(Algorithm, Opts) ->
     read_ssh_key_file(system, private, Algorithm, Opts).
 
-is_auth_key(Key, User ,Opts) ->
-    KeyType =  erlang:atom_to_binary(ssh_transport:public_algo(Key), latin1),
+%%%................................................................
+-spec is_auth_key(Key, User, Options) -> boolean() when
+      Key :: public_key:public_key(),
+      User :: string(),
+      Options :: ssh_server_key_api:daemon_key_cb_options(optimize_key_lookup()).
+
+is_auth_key(Key0, User, Opts) ->
     Dir = ssh_dir({remoteuser,User}, Opts),
-    lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys"))
+    ok = assure_file_mode(Dir, user_read),
+    KeyType = normalize_alg(
+                erlang:atom_to_binary(ssh_transport:public_algo(Key0), latin1)),
+    Key = encode_key(Key0),
+    lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys"), Opts)
         orelse
-    lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys2")).
+    lookup_auth_keys(KeyType, Key, filename:join(Dir,"authorized_keys2"), Opts).
 
 %%%---------------- CLIENT API ------------------------------------
+-spec user_key(Algorithm, Options) -> Result when
+      Algorithm :: ssh:pubkey_alg(),
+      Result :: {ok, public_key:private_key()} |
+                {error, string()},
+      Options :: ssh_client_key_api:client_key_cb_options(none()).
+
 user_key(Algorithm, Opts) ->
     read_ssh_key_file(user, private, Algorithm, Opts).
 
-is_host_key(Key, PeerName, Algorithm, Opts) ->
-    KeyType = erlang:atom_to_binary(Algorithm, latin1),
-    Hosts = binary:split(list_to_binary(replace_localhost(PeerName)),
-                         <<",">>, [global]), % make a list of hosts
-    Dir = ssh_dir(user, Opts),
-    lookup_host_keys(Hosts, KeyType, Key, filename:join(Dir,"known_hosts")).
+%%%................................................................
+%%% New style (with port number)
+-spec is_host_key(Key, Host, Port, Algorithm, Options) -> Result when
+      Key :: public_key:public_key(),
+      Host :: inet:ip_address() | inet:hostname() | [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number(),
+      Algorithm :: ssh:pubkey_alg(),
+      Options :: ssh_client_key_api:client_key_cb_options(optimize_key_lookup()),
+      Result :: boolean() | {error, term()} .
 
-add_host_key(Host, Key, Opts) ->
-    Host1 = add_ip(replace_localhost(Host)),
-    KnownHosts = file_name(user, "known_hosts", Opts),
-    case file:open(KnownHosts, [write,append]) of
+is_host_key(Key0, Hosts0, Port, Algorithm, Opts) ->
+    Dir = ssh_dir(user, Opts),
+    File = filename:join(Dir, "known_hosts"),
+    Hosts = [list_to_binary(H) || H <- normalize_hosts_list(Hosts0, Port)],
+    KeyType = normalize_alg(erlang:atom_to_binary(Algorithm, latin1)),
+    Key = encode_key(Key0),
+    ok = assure_file_mode(File, user_read),
+    lookup_host_keys(Hosts, KeyType, Key, File, Opts).
+
+%%%----------------------------------------------------------------
+-spec add_host_key(Host, Port, Key, Options) -> Result when 
+      Host :: inet:ip_address() | inet:hostname()
+            | [inet:ip_address() | inet:hostname()],
+      Port :: inet:port_number(),
+      Key :: public_key:public_key(),
+      Options :: ssh_client_key_api:client_key_cb_options(none()),
+      Result :: ok | {error, term()}.
+
+add_host_key(Hosts0, Port, Key, Opts) ->
+    File = file_name(user, "known_hosts", Opts),
+    assure_file_mode(File, user_write),
+    case file:open(File, [write,append]) of
 	{ok, Fd} ->
-	    ok = file:change_mode(KnownHosts, 8#644),
             KeyType = erlang:atom_to_binary(ssh_transport:public_algo(Key), latin1),
             EncKey = ssh_message:ssh2_pubkey_encode(Key),
+            Hosts1 = normalize_hosts_list(Hosts0, Port),
             SshBin =
-                iolist_to_binary([Host1, " ",
+                iolist_to_binary(["\n", % Just in case the last line is not terminated by \n
+                                  lists:join(",", Hosts1), " ",
                                   KeyType," ",base64:encode(iolist_to_binary(EncKey)),
                                   "\n"]),
             Res = file:write(Fd, SshBin),
 	    file:close(Fd),
 	    Res;
-	Error ->
-	    Error
+	{error,Error} ->
+	    {error,{add_host_key,Error}}
     end.
 
 %%%================================================================
@@ -107,115 +151,363 @@ add_host_key(Host, Key, Opts) ->
 
 %%%---------------- SERVER FUNCTIONS ------------------------------
 
-lookup_auth_keys(KeyType, Key, File) ->
-    case file:read_file(File) of
-        {ok,Bin} ->
-            Lines = binary:split(Bin, <<"\n">>, [global,trim_all]),
-            find_key(KeyType, Key, Lines);
-        _ ->
-            false
+lookup_auth_keys(KeyType, Key, File, Opts) ->
+    case get_kb_option(optimize, Opts, time) of
+        time ->
+            case file:read_file(File) of
+                {ok,Bin} ->
+                    Lines = binary:split(Bin, <<"\n">>, [global,trim_all]),
+                    find_key(KeyType, Key, Lines);
+                _ ->
+                    false
+            end;
+        space ->
+            case file:open(File, [read, binary]) of
+                {ok, Fd} ->
+                    Result =
+                        read_test_loop(Fd,
+                                       fun(Line) ->
+                                               find_key(KeyType, Key, [Line])
+                                       end),
+                    file:close(Fd),
+                    Result;
+                {error,_Error} ->
+                    false
+            end;
+        Other ->
+            {error,{is_auth_key,{opt,Other}}}
     end.
 
-find_key(KeyType, Key, [Line|Lines]) ->
-    case find_key_in_line(KeyType, Key, binary:split(Line, <<" ">>, [global,trim_all])) of
-        true ->
+
+find_key(KeyType, Key, [<<"#",_/binary>> | Lines]) ->
+    find_key(KeyType, Key, Lines);
+find_key(KeyType, Key, [Line | Lines]) ->
+    try
+        [E1,E2|Es] = binary:split(Line, <<" ">>, [global,trim_all]),
+        [normalize_alg(E1), normalize_alg(E2) | Es] % KeyType is in first or second element
+    of
+        [_Options, KeyType, Key | _Comment] ->
             true;
-        false ->
+        [KeyType, Key | _Comment] ->
+            true;
+        _ ->
+            find_key(KeyType, Key, Lines)
+    catch
+        _:_ ->
             find_key(KeyType, Key, Lines)
     end;
 find_key(_, _, _) ->
     false.
 
-        
-find_key_in_line(_KeyType, _Key, [<<"#",_/binary>> |_]) ->
-    false;
-find_key_in_line(KeyType, Key, [KeyType, Base64EncodedKey, _Comment]) ->
-    %% Right KeyType. Try to decode to see if it matches
-    Key == decode_key(Base64EncodedKey);
-find_key_in_line(KeyType, Key, [_Option | [_,_,_|_]=Rest]) ->
-    %% Dont care for options
-    find_key_in_line(KeyType, Key, Rest);
-find_key_in_line(_, _, _) ->
-    false.
-
-decode_key(Base64EncodedKey) ->
-    ssh_message:ssh2_pubkey_decode(
-      base64:mime_decode(Base64EncodedKey)).
 
 %%%---------------- CLIENT FUNCTIONS ------------------------------
 
+normalize_alg(<<"rsa-sha2-",_/binary>>) -> <<"ssh-rsa">>;
+normalize_alg(X) -> X.
+
 %%%--------------------------------
-%% in: "host" out: "host,1.2.3.4.
+normalize_hosts_list(Hosts, Port) when is_list(hd(Hosts)) ->
+    lists:reverse(
+      lists:foldl(fun(H0, Acc) ->
+                          H1s = add_ip(replace_localhost(H0)),
+                          Hs = case Port of
+                                   22 -> H1s;
+                                   _ -> [lists:concat(["[",Hx,"]:",Port]) || Hx <- H1s]
+                              end,
+                          lists:foldl(
+                            fun(Hy, Acc2) ->
+                                    case lists:member(Hy, Acc2) of
+                                        true ->
+                                            Acc2;
+                                        false ->
+                                            [Hy|Acc2]
+                                    end
+                            end, Acc, Hs)
+                  end, [], Hosts));
+normalize_hosts_list(Hosts, Port) ->
+    normalize_hosts_list([Hosts], Port).
+
+replace_localhost(any) ->
+    replace_localhost("localhost");
+replace_localhost(loopback) ->
+    replace_localhost("localhost");
+replace_localhost("localhost") ->
+    {ok, Hostname} = inet:gethostname(),
+    Hostname;
+replace_localhost(H) when is_atom(H) ->
+    replace_localhost(atom_to_list(H));
+replace_localhost(Host) ->
+    Host.
+
 add_ip(IP) when is_tuple(IP) ->
-    ssh_connection:encode_ip(IP);
+    [ssh_connection:encode_ip(IP)];
 add_ip(Host) ->
     case inet:getaddr(Host, inet) of
 	{ok, Addr} ->
 	    case ssh_connection:encode_ip(Addr) of
-		false -> Host;
-                Host -> Host;
-		IPString -> Host ++ "," ++ IPString
+		false -> [Host];
+                Host -> [Host];
+		IPString -> [Host,IPString]
 	    end;
-	_ -> Host
+	_ -> [Host]
     end.
 
-replace_localhost("localhost") ->
-    {ok, Hostname} = inet:gethostname(),
-    Hostname;
-replace_localhost(Host) ->
-    Host.
+%%%--------------------------------
+encode_key(Key) ->
+    base64:encode(
+      iolist_to_binary(
+        ssh_message:ssh2_pubkey_encode(Key))).
 
 %%%--------------------------------
-lookup_host_keys(Hosts, KeyType, Key, File) ->
-    case file:read_file(File) of
-        {ok,Bin} ->
-            Lines = binary:split(Bin, <<"\n">>, [global,trim_all]),
-            find_key(Hosts, KeyType, Key, Lines);
+read_test_loop(Fd, Test) ->
+    case io:get_line(Fd, '') of
+	eof ->
+            file:close(Fd),
+	    false;
+	{error,Error} ->
+	    %% Rare... For example NFS errors
+	    {error,Error};
+	Line0 ->
+            case binary:split(Line0, <<"\n">>, [global,trim_all]) of % remove trailing \n
+                [Line] ->
+                    case Test(Line) of
+                        false ->
+                            read_test_loop(Fd, Test);
+                        Other ->
+                            Other
+                    end;
+                _ ->
+                    read_test_loop(Fd, Test)
+            end
+    end.
+                    
+%%%--------------------------------
+
+lookup_host_keys(Hosts, KeyType, Key, File, Opts) ->
+    case get_kb_option(optimize, Opts, time) of
+        time ->
+            case file:read_file(File) of
+                {ok,Bin} ->
+                    Lines = binary:split(Bin, <<"\n">>, [global,trim_all]),
+                    case find_host_key(Hosts, KeyType, Key, Lines) of
+                        {true,RestLines} ->
+                            case revoked_key(Hosts, KeyType, Key, RestLines) of
+                                true ->
+                                    {error,revoked_key};
+                                false ->
+                                    true
+                            end;
+                        false ->
+                            false
+                    end;
+                {error,enoent} ->
+                    false;
+                {error,Error} ->
+                    {error,{is_host_key,Error}}
+            end;
+        space ->
+            case file:open(File, [read, binary]) of
+                {ok, Fd} ->
+                    Result =
+                        case read_test_loop(Fd,
+                                            fun(Line) ->
+                                                    find_host_key(Hosts, KeyType, Key, [Line])
+                                            end)
+                        of
+                            {true,_} ->
+                                %% The key is found, now check the rest of the file to see if it is
+                                %% revoked
+                                case read_test_loop(Fd,
+                                                    fun(Line) ->
+                                                            revoked_key(Hosts, KeyType, Key, [Line])
+                                                    end)
+                                of
+                                    true ->
+                                        {error,revoked_key};
+                                    false ->
+                                        true
+                                end;
+                            {error,Error} ->
+                                {error,{is_host_key,Error}};
+                            Other ->
+                                Other
+                        end,
+                    file:close(Fd),
+                    Result;
+                {error,Error} ->
+                    {error,Error}
+            end;
+        Other ->
+            {error,{is_host_key,{opt,Other}}}
+    end.
+
+
+find_host_key(Hosts, KeyType, EncKey, [<<"#",_/binary>>|PatternLines]) ->
+    %% skip comments
+    find_host_key(Hosts, KeyType, EncKey, PatternLines);
+find_host_key(Hosts, KeyType, EncKey, [Line|PatternLines]) ->
+    %% split the line into the separate parts:
+    %%    option? pattern(,pattern)* keytype key comment?
+    SplitLine = binary:split(Line, <<" ">>, [global,trim_all]),
+    case known_key_in_line(Hosts, KeyType, EncKey, SplitLine) of
+        true ->
+            {true, PatternLines};
+        false ->
+            find_host_key(Hosts, KeyType, EncKey, PatternLines)
+    end;
+find_host_key(_, _, _, []) ->
+    false.
+
+
+revoked_key(Hosts, KeyType, EncKey, [<<"@revoked ",RestLine/binary>> | Lines]) ->
+    case binary:split(RestLine, <<" ">>, [global,trim_all]) of
+        [Patterns, KeyType, EncKey|_Comment] ->
+            %% Very likeley to be a revoked key,
+            %% but does any of the hosts match the pattern?
+            case host_match(Hosts, Patterns) of
+                true ->
+                    true;
+                false ->
+                    revoked_key(Hosts, KeyType, EncKey, Lines)
+            end;
+        _ ->
+            revoked_key(Hosts, KeyType, EncKey, Lines)
+    end;
+revoked_key(Hosts, KeyType, EncKey, [_ | Lines]) ->
+    %% Not a revokation line, check the rest
+    revoked_key(Hosts, KeyType, EncKey, Lines);
+revoked_key(_, _, _, _) ->
+    false.
+
+
+known_key_in_line(Hosts, KeyType, EncKey, FullLine=[Option | Rest]) ->
+    case line_match(Hosts, KeyType, EncKey, Rest) of
+        true ->
+            case Option of
+                <<"@revoked">> ->
+                    {error, revoked_key};
+                _ ->
+                    %% No other options than @revoked handled (but the key matched)
+                    false
+            end;
+        false ->
+            line_match(Hosts, KeyType, EncKey, FullLine)
+    end;
+known_key_in_line(_, _, _, _) ->
+    false.
+
+
+line_match(Hosts, KeyType, EncKey, [Patterns, KeyType0, EncKey0|_Comment]) ->
+    KeyType==normalize_alg(KeyType0)
+        andalso EncKey==EncKey0
+        andalso host_match(Hosts, Patterns);
+line_match(_, _, _, _) ->
+    false.
+
+
+
+host_match(Hosts, Patterns) ->
+    PatternList = binary:split(Patterns, <<",">>, [global]),
+    host_matchL(Hosts, PatternList).
+    
+host_matchL([H|Hosts], Patterns) ->
+    case one_host_match(H, Patterns) of
+        true ->
+            true;
+        false ->
+            host_matchL(Hosts, Patterns)
+    end;
+host_matchL(_, _) ->
+    false.
+
+
+one_host_match(H, [Pat|Patterns]) ->
+    case pos_match(H, Pat) of
+        true ->
+            %% Not true if there is any "!" pattern that matches
+            not lists:any(fun(P) -> neg_match(H,P) end,
+                          Patterns);
+        false ->
+            one_host_match(H, Patterns)
+    end;
+one_host_match(_, _) ->
+    false.
+
+
+neg_match(H, <<"!",P/binary>>) ->
+    pos_match(H, P);
+neg_match(_, _) ->
+    false.
+
+
+pos_match(_, <<"*">>    ) -> true;
+pos_match(_, <<"*:*">>  ) -> true;
+pos_match(_, <<"[*]:*">>) -> true;
+pos_match(H, <<"!",P/binary>>) -> not pos_match(H, P);
+pos_match(H, H) -> true;
+pos_match(H, P) ->
+    case
+        {binary:split(H,<<":">>),
+         binary:split(P, <<":">>)}
+    of
+        {[Hh,_], [Ph,<<"*">>]} ->
+            %% [host]:port [host]:*
+            Ph == Hh;
+
+        {[Hh], [Ph,<<"*">>]} ->
+            %% host [host]:*
+            Sz = size(Hh),
+            Ph == <<"[", Hh:Sz/binary, "]">>;
+
+        {[Hh], [Ph,<<"22">>]} ->
+            %% host [host]:22
+            Sz = size(Hh),
+            Ph == <<"[", Hh:Sz/binary, "]">>;
+
         _ ->
             false
     end.
 
-find_key(Hosts, KeyType, Key, [Line|Lines]) ->
-    case find_key_in_line(Hosts, KeyType, Key, binary:split(Line, <<" ">>, [global,trim_all])) of
-        true ->
-            true;
-        false ->
-            find_key(Hosts, KeyType, Key, Lines)
-    end;
-find_key(_, _, _, _) ->
-    false.
-
-
-find_key_in_line(_Hosts, _KeyType, _Key, [<<"#",_/binary>> |_]) ->
-    false;
-find_key_in_line(Hosts, KeyType, Key, [Patterns, KeyType, Base64EncodedKey, _Comment]) ->
-    host_match(Hosts, Patterns) andalso
-        Key == decode_key(Base64EncodedKey);
-find_key_in_line(Hosts, KeyType, Key, [Patterns, KeyType, Base64EncodedKey]) ->
-    host_match(Hosts, Patterns) andalso
-        Key == decode_key(Base64EncodedKey);
-find_key_in_line(Hosts, KeyType, Key, [_Option | [_,_,_|_]=Rest]) ->
-    %% Dont care for options
-    find_key_in_line(Hosts, KeyType, Key, Rest);
-find_key_in_line(_, _, _, _) ->
-    false.
-
-
-host_match(Hosts, PatternsBin) ->
-    Patterns = binary:split(PatternsBin, <<",">>, [global]),
-    lists:any(fun(Pat) ->
-                      lists:any(fun(Hst) ->
-                                        Pat == Hst
-                                end, Hosts)
-              end, Patterns).
-
 %%%---------------- COMMON FUNCTIONS ------------------------------
+
+assure_file_mode(File, user_write) -> assure_file_mode(File, 8#200);
+assure_file_mode(File, user_read) -> assure_file_mode(File, 8#400);
+assure_file_mode(File, Mode) ->
+    case file:read_file_info(File) of
+        {ok,#file_info{mode=FileMode}} ->
+            case (FileMode band Mode) of % is the wanted Mode set?
+                Mode -> 
+                    %% yes
+                    ok;
+                _ ->
+                    %% no
+                    file:change_mode(File, FileMode bor Mode) % set missing bit(s)
+            end;
+        {error,enoent} ->
+            %% Not yet created
+            ok;
+        {error,Error} ->
+            {error,Error}
+    end.
+
+
+get_kb_option(Key, Opts, Default) ->
+    try
+        proplists:get_value(Key, 
+                            proplists:get_value(key_cb_private, Opts, []),
+                            Default)
+    catch
+        _:_ ->
+            Default
+    end.
+
 
 read_ssh_key_file(Role, PrivPub, Algorithm, Opts) ->
     File = file_name(Role, file_base_name(Role,Algorithm), Opts),
     Password = %% Pwd for Host Keys is an undocumented option and should not be used
         proplists:get_value(identity_pass_phrase(Algorithm), Opts, ignore),
 
+    ok = assure_file_mode(File, user_read),
     case file:read_file(File) of
         {ok, Pem} ->
             try
@@ -375,14 +667,6 @@ default_user_dir({ok,[[Home|_]]}) ->
 default_user_dir(Home) when is_list(Home) ->
     UserDir = filename:join(Home, ".ssh"),
     ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
-    {ok,Info} = file:read_file_info(UserDir),
-    #file_info{mode=Mode} = Info,
-    case (Mode band 8#777) of
-	8#700 ->
-	    ok;
-	_Other ->
-	    ok = file:change_mode(UserDir, 8#700)
-    end,
     UserDir.
 
 %%%################################################################

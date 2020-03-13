@@ -70,7 +70,8 @@
                {update, diameter_peer_fsm},
                {update, diameter_service},
                {load_module, diameter_traffic},
-               {update, diameter_tcp}]}
+               {update, diameter_tcp}]},
+ {"2.2.2",    [{load_module, diameter}]}           %% 22.2.8
  ],
  [
   {"0.9",     [{restart_application, diameter}]},
@@ -122,6 +123,7 @@
                {update, diameter_peer_fsm},
                {update, diameter_service},
                {load_module, diameter_traffic},
-               {update, diameter_tcp}]}
+               {update, diameter_tcp}]},
+  {"2.2.2",   [{load_module, diameter}]}
  ]
 }.

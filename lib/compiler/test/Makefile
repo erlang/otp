@@ -60,6 +60,7 @@ NO_OPT= \
 	beam_utils \
 	bif \
 	bs_construct \
+	bs_bincomp \
         bs_match \
         bs_size_expr \
 	bs_utf \

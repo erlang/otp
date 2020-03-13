@@ -39,7 +39,7 @@
 	 system_monitor_large_heap_1/1, system_monitor_large_heap_2/1,
 	 system_monitor_long_schedule/1,
 	 bad_flag/1, trace_delivered/1, trap_exit_self_receive/1,
-         trace_info_badarg/1, erl_704/1]).
+         trace_info_badarg/1, erl_704/1, ms_excessive_nesting/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -63,7 +63,8 @@ all() ->
      system_monitor_long_gc_2, system_monitor_large_heap_1,
      system_monitor_long_schedule,
      system_monitor_large_heap_2, bad_flag, trace_delivered,
-     trap_exit_self_receive, trace_info_badarg, erl_704].
+     trap_exit_self_receive, trace_info_badarg, erl_704,
+     ms_excessive_nesting].
 
 init_per_testcase(_Case, Config) ->
     [{receiver,spawn(fun receiver/0)}|Config].
@@ -1752,6 +1753,33 @@ erl_704_test(N) ->
     exit(P, kill),
     (catch erlang:resume_process(P)),
     erl_704_test(N-1).
+
+ms_excessive_nesting(Config) when is_list(Config) ->
+    MkMSCond = fun (_Fun, N) when N < 0 -> true;
+                   (Fun, N) -> {'or', {'=:=', N, '$1'}, Fun(Fun, N-1)}
+               end,
+    %% Ensure it compiles with substantial but reasonable
+    %% (hmm...) nesting
+    MS = [{['$1'], [MkMSCond(MkMSCond, 100)], []}],
+    io:format("~p~n", [erlang:match_spec_test([1], MS, trace)]),
+    _ = erlang:trace_pattern({?MODULE, '_', '_'}, MS, []),
+    %% Now test a match spec using excessive nesting. This
+    %% used to seg-fault the emulator due to recursion
+    %% beyond the end of the C-stack.
+    %%
+    %% We expect to get a system_limit error, but don't
+    %% fail if it compiles (someone must have rewritten
+    %% compilation of match specs to use an explicit
+    %% stack instead of using recursion).
+    ENMS = [{['$1'], [MkMSCond(MkMSCond, 1000000)], []}],
+    io:format("~p~n", [erlang:match_spec_test([1], ENMS, trace)]),
+    try
+        _ = erlang:trace_pattern({?MODULE, '_', '_'}, ENMS, []),
+        {comment, "compiled"}
+    catch
+        error:system_limit ->
+            {comment, "got system_limit"}
+    end.
 
 drop_trace_until_down(Proc, Mon) ->
     drop_trace_until_down(Proc, Mon, false, 0, 0).

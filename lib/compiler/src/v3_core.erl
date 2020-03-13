@@ -258,19 +258,14 @@ body(Cs0, Name, Arity, St0) ->
     Fc = function_clause(Ps, Anno),
     {#ifun{anno=#a{anno=FunAnno},id=[],vars=Args,clauses=Cs1,fc=Fc},St3}.
 
-%% clause(Clause, State) -> {Cclause,State} | noclause.
+%% clause(Clause, State) -> {Cclause,State}.
 %% clauses([Clause], State) -> {[Cclause],State}.
-%%  Convert clauses.  Trap bad pattern aliases and remove clause from
-%%  clause list.
+%%  Convert clauses. Trap bad pattern aliases.
 
 clauses([C0|Cs0], St0) ->
-    case clause(C0, St0) of
-        {noclause,St} ->
-            clauses(Cs0, St);
-        {C,St1} ->
-            {Cs,St2} = clauses(Cs0, St1),
-            {[C|Cs],St2}
-    end;
+    {C,St1} = clause(C0, St0),
+    {Cs,St2} = clauses(Cs0, St1),
+    {[C|Cs],St2};
 clauses([], St) -> {[],St}.
 
 clause({clause,Lc,H0,G0,B0}, St0) ->
@@ -282,8 +277,18 @@ clause({clause,Lc,H0,G0,B0}, St0) ->
             {#iclause{anno=#a{anno=Anno},pats=H1,guard=G1,body=B1},St3}
     catch
 	throw:nomatch ->
-	    St = add_warning(Lc, nomatch, St0),
-            {noclause,St}			%Bad pattern
+            %% This pattern can't possibly match. If we simply remove
+            %% the clause, varibles that are used later might not be
+            %% bound. Therefore, we must keep the clause, but rewrite
+            %% the pattern to a pattern that will bind the same
+            %% variables and ensure that the clause can't be executed
+            %% by letting the guard return false.
+            St1 = add_warning(Lc, nomatch, St0),
+            H1 = [sanitize(P) || P <- H0],
+            false = H0 =:= H1,                  %Assertion.
+            G1 = [[{atom,Lc,false}]],
+            LcNoWarn = no_compiler_warning(Lc),
+            clause({clause,LcNoWarn,H1,G1,B0}, St1)
     end.
 
 clause_arity({clause,_,H0,_,_}) -> length(H0).
@@ -340,7 +345,7 @@ gexpr({op,_,'andalso',_,_}=E0, Bools, St0) ->
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
-    E = make_bool_switch_guard(L, E1, V, E2, False),
+    E = make_bool_switch(L, E1, V, E2, False),
     gexpr(E, Bools, St);
 gexpr({op,_,'orelse',_,_}=E0, Bools, St0) ->
     {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse'),
@@ -348,7 +353,7 @@ gexpr({op,_,'orelse',_,_}=E0, Bools, St0) ->
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     True = {atom,L,true},
-    E = make_bool_switch_guard(L, E1, V, True, E2),
+    E = make_bool_switch(L, E1, V, True, E2),
     gexpr(E, Bools, St);
 gexpr({op,Line,Op,L,R}=E, Bools, St) ->
     case erl_internal:bool_op(Op, 2) of
@@ -790,7 +795,7 @@ expr({op,_,'andalso',_,_}=E0, St0) ->
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     False = {atom,L,false},
-    E = make_bool_switch(L, E1, V, E2, False, St0),
+    E = make_bool_switch(L, E1, V, E2, False),
     expr(E, St);
 expr({op,_,'orelse',_,_}=E0, St0) ->
     {op,L,'orelse',E1,E2} = right_assoc(E0, 'orelse'),
@@ -798,7 +803,7 @@ expr({op,_,'orelse',_,_}=E0, St0) ->
     {#c_var{name=V0},St} = new_var(Anno, St0),
     V = {var,L,V0},
     True = {atom,L,true},
-    E = make_bool_switch(L, E1, V, True, E2, St0),
+    E = make_bool_switch(L, E1, V, True, E2),
     expr(E, St);
 expr({op,L,Op,A0}, St0) ->
     {A1,Aps,St1} = safe(A0, St0),
@@ -834,6 +839,9 @@ sanitize({cons,L,H,T}) ->
 sanitize({tuple,L,Ps0}) ->
     Ps = [sanitize(P) || P <- Ps0],
     {tuple,L,Ps};
+sanitize({bin,L,Segs0}) ->
+    Segs = [Var || {bin_element,_,{var,_,_}=Var,_,_} <- Segs0],
+    {tuple,L,Segs};
 sanitize({map,L,Ps0}) ->
     Ps = [sanitize(V) || {map_field_exact,_,_,V} <- Ps0],
     {tuple,L,Ps};
@@ -841,12 +849,7 @@ sanitize({op,L,_Name,P1,P2}) ->
     {tuple,L,[sanitize(P1),sanitize(P2)]};
 sanitize(P) -> P.
 
-make_bool_switch(L, E, V, T, F, #core{in_guard=true}) ->
-    make_bool_switch_guard(L, E, V, T, F);
-make_bool_switch(L, E, V, T, F, #core{}) ->
-    make_bool_switch_body(L, E, V, T, F).
-
-make_bool_switch_body(L, E, V, T, F) ->
+make_bool_switch(L, E, V, T, F) ->
     NegL = no_compiler_warning(L),
     Error = {tuple,NegL,[{atom,NegL,badarg},V]},
     {'case',NegL,E,
@@ -856,42 +859,42 @@ make_bool_switch_body(L, E, V, T, F) ->
        [{call,NegL,{remote,NegL,{atom,NegL,erlang},{atom,NegL,error}},
 	 [Error]}]}]}.
 
-make_bool_switch_guard(_, E, _, {atom,_,true}, {atom,_,false}) -> E;
-make_bool_switch_guard(L, E, V, T, F) ->
-    NegL = no_compiler_warning(L),
-    {'case',NegL,E,
-     [{clause,NegL,[{atom,NegL,true}],[],[T]},
-      {clause,NegL,[{atom,NegL,false}],[],[F]},
-      {clause,NegL,[V],[],[V]}
-     ]}.
-
 expr_map(M0, Es0, L, St0) ->
-    {M1,Eps0,St1} = safe(M0, St0),
+    {M1,Eps0,St1} = safe_map(M0, St0),
     Badmap = badmap_term(M1, St1),
     A = lineno_anno(L, St1),
     Fc = fail_clause([], [{eval_failure,badmap}|A], Badmap),
-    case is_valid_map_src(M1) of
-	true ->
-	    {M2,Eps1,St2} = map_build_pairs(M1, Es0, full_anno(L, St1), St1),
-	    M3 = case Es0 of
-		     [] -> M1;
-		     [_|_] -> M2
-		 end,
-	    Cs = [#iclause{
-		     anno=#a{anno=[compiler_generated|A]},
-		     pats=[],
-		     guard=[#icall{anno=#a{anno=A},
-				   module=#c_literal{anno=A,val=erlang},
-			           name=#c_literal{anno=A,val=is_map},
-				   args=[M1]}],
-		     body=[M3]}],
-	    Eps = Eps0 ++ Eps1,
-	    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St2};
-	false ->
-	    %% Not a map source. The update will always fail.
-	    St2 = add_warning(L, badmap, St1),
-	    #iclause{body=[Fail]} = Fc,
-	    {Fail,Eps0,St2}
+    {M2,Eps1,St2} = map_build_pairs(M1, Es0, full_anno(L, St1), St1),
+    M3 = case Es0 of
+             [] -> M1;
+             [_|_] -> M2
+         end,
+    Cs = [#iclause{
+             anno=#a{anno=[compiler_generated|A]},
+             pats=[],
+             guard=[#icall{anno=#a{anno=A},
+                           module=#c_literal{anno=A,val=erlang},
+                           name=#c_literal{anno=A,val=is_map},
+                           args=[M1]}],
+             body=[M3]}],
+    Eps = Eps0 ++ Eps1,
+    {#icase{anno=#a{anno=A},args=[],clauses=Cs,fc=Fc},Eps,St2}.
+
+safe_map(M0, St0) ->
+    case safe(M0, St0) of
+        {#c_var{},_,_}=Res ->
+            Res;
+        {#c_literal{val=Map},_,_}=Res when is_map(Map) ->
+            Res;
+        {NotMap,Eps0,St1} ->
+            %% Not a map. There will be a syntax error if we try to
+            %% pretty-print the Core Erlang code and then try to parse
+            %% it. To avoid the syntax error, force the term into a
+            %% variable.
+	    {V,St2} = new_var(St1),
+            Anno = cerl:get_ann(NotMap),
+            Eps1 = [#iset{anno=#a{anno=Anno},var=V,arg=NotMap}],
+	    {V,Eps0++Eps1,St2}
     end.
 
 badmap_term(_Map, #core{in_guard=true}) ->
@@ -933,10 +936,6 @@ maybe_warn_repeated_keys(Ck,Line,Used,St) ->
 
 map_op(map_field_assoc) -> #c_literal{val=assoc};
 map_op(map_field_exact) -> #c_literal{val=exact}.
-
-is_valid_map_src(#c_literal{val = M}) when is_map(M) -> true;
-is_valid_map_src(#c_var{}=Var)  -> not cerl:is_c_fname(Var);
-is_valid_map_src(_)         -> false.
 
 %% try_exception([ExcpClause], St) -> {[ExcpVar],Handler,St}.
 
@@ -994,16 +993,114 @@ try_build_stacktrace([], _) -> [].
 %%  Flatten the arguments of a bin. Do this straight left to right!
 %%  Note that ibinary needs to have its annotation wrapped in a #a{}
 %%  record whereas c_literal should not have a wrapped annotation
- 
+
 expr_bin(Es0, Anno, St0) ->
     Es1 = [bin_element(E) || E <- Es0],
     case constant_bin(Es1) of
 	error ->
-	    {Es,Eps,St} = expr_bin_1(bin_expand_strings(Es1), St0),
-	    {#ibinary{anno=#a{anno=Anno},segments=Es},Eps,St};
+            case expr_bin_1(Es1, St0) of
+                {[],Eps,St} ->
+                    EmptyBin = <<>>,
+                    {#c_literal{anno=Anno,val=EmptyBin},Eps,St};
+                {Es,Eps,St} ->
+                    {#ibinary{anno=#a{anno=Anno},segments=Es},Eps,St}
+            end;
 	Bin ->
 	    {#c_literal{anno=Anno,val=Bin},[],St0}
     end.
+
+expr_bin_1(Es, St0) ->
+    Res = foldr(fun (E, {Ces,Eps0,S0}) ->
+                        try bitstr(E, S0) of
+                            {Ce,Eps,S1} when is_list(Ces) ->
+                                {Ce++Ces,Eps ++ Eps0,S1};
+                            {_Ce,Eps,S1} ->
+                                {Ces,Eps ++ Eps0,S1}
+                        catch
+                            {bad_binary,Eps,S1} ->
+                                {bad_binary,Eps ++ Eps0,S1}
+                        end
+                end, {[],[],St0}, Es),
+    case Res of
+        {bad_binary,Eps,St} ->
+            throw({bad_binary,Eps,St});
+        {_,_,_}=Res ->
+            Res
+    end.
+
+bitstrs([E0|Es0], St0) ->
+    {E,Eps0,St1} = bitstr(E0, St0),
+    {Es,Eps1,St2} = bitstrs(Es0, St1),
+    {E++Es,Eps0++Eps1,St2};
+bitstrs([], St) ->
+    {[],[],St}.
+
+bitstr({bin_element,Line,{string,_,S},{integer,_,8},_}, St) ->
+    bitstrs(bin_expand_string(S, Line, 0, 0), St);
+bitstr({bin_element,Line,{string,_,[]},Sz0,Ts}, St0) ->
+    %% Empty string. We must make sure that the type is correct.
+    {[#c_bitstr{size=Sz}],Eps0,St1} =
+        bitstr({bin_element,Line,{char,Line,0},Sz0,Ts}, St0),
+
+    %% At this point, the type is either a correct literal or
+    %% an expression.
+    case Sz of
+        #c_literal{val=undefined} ->
+            %% One of the utf* types. The size is not used.
+            {[],[],St1};
+        #c_literal{val=Int} when is_integer(Int), Int >= 0 ->
+            {[],[],St1};
+        #c_var{} ->
+            %% Must add a test to verify that the size expression is
+            %% an integer >= 0.
+            Erlang = {atom,Line,erlang},
+            Test0 = {call,Line,{remote,Line,Erlang,{atom,Line,is_integer}},
+                     [Sz0]},
+            Test1 = {call,Line,{remote,Line,Erlang,{atom,Line,'>='}},
+                     [Sz0,{integer,Line,0}]},
+            Test2 = {op,Line,'andalso',Test0,Test1},
+            Fail = {call,Line,{remote,Line,Erlang,{atom,Line,error}},
+                    [{atom,Line,badarg}]},
+            Test = {op,Line,'orelse',Test2,Fail},
+            Match = {match,Line,{var,Line,'_'},Test},
+            {_,Eps1,St2} = expr(Match, St1),
+            Eps = Eps0 ++ Eps1,
+            {[],Eps,St2}
+    end;
+bitstr({bin_element,Line,{string,_,S},Sz0,Ts}, St0) ->
+    {[Bitstr],Eps,St1} = bitstr({bin_element,Line,{char,Line,0},Sz0,Ts}, St0),
+    Es = [Bitstr#c_bitstr{val=#c_literal{anno=full_anno(Line, St1),val=C}} ||
+             C <- S],
+    {Es,Eps,St1};
+bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
+    {E1,Eps0,St1} = safe(E0, St0),
+    {Size1,Eps1,St2} = safe(Size0, St1),
+    Eps = Eps0 ++ Eps1,
+    case {Type,E1} of
+	{_,#c_var{}} -> ok;
+	{integer,#c_literal{val=I}} when is_integer(I) -> ok;
+	{utf8,#c_literal{val=I}} when is_integer(I) -> ok;
+	{utf16,#c_literal{val=I}} when is_integer(I) -> ok;
+	{utf32,#c_literal{val=I}} when is_integer(I) -> ok;
+	{float,#c_literal{val=V}} when is_number(V) -> ok;
+	{binary,#c_literal{val=V}} when is_bitstring(V) -> ok;
+	{_,_} ->
+            %% Note that the pre expressions may bind variables that
+            %% are used later or have side effects.
+	    throw({bad_binary,Eps,St2})
+    end,
+    case Size1 of
+	#c_var{} -> ok;
+	#c_literal{val=Sz} when is_integer(Sz), Sz >= 0 -> ok;
+	#c_literal{val=undefined} -> ok;
+	#c_literal{val=all} -> ok;
+	_ -> throw({bad_binary,Eps,St2})
+    end,
+    {[#c_bitstr{val=E1,size=Size1,
+                unit=#c_literal{val=Unit},
+                type=#c_literal{val=Type},
+                flags=#c_literal{val=Flags}}],
+     Eps,St2}.
 
 bin_element({bin_element,Line,Expr,Size0,Type0}) ->
     {Size,Type} = make_bit_type(Line, Size0, Type0),
@@ -1027,8 +1124,12 @@ make_bit_type(_Line, {atom,Anno,all}=Size, Type0) ->
             %% a valid size.
             throw(nomatch)
     end;
-make_bit_type(_Line, Size, Type0) ->            %Integer or 'all'
-    {ok,Size,Bt} = erl_bits:set_bit_type(Size, Type0),
+make_bit_type(_Line, Size0, Type0) ->            %Integer or 'all'
+    {ok,Size1,Bt} = erl_bits:set_bit_type(Size0, Type0),
+    Size = case Size1 of
+               {char,Anno,CharVal} -> {integer,Anno,CharVal};
+               _ -> Size1
+           end,
     {Size,erl_bits:as_list(Bt)}.
 
 make_all_size(Line) ->
@@ -1115,18 +1216,6 @@ count_bits(Int) ->
 count_bits_1(0, Bits) -> Bits;
 count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
 
-bin_expand_strings(Es0) ->
-    foldr(fun ({bin_element,Line,{string,_,S},{integer,_,8},_}, Es) ->
-                  bin_expand_string(S, Line, 0, 0) ++ Es;
-              ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
-                  foldr(
-                    fun (C, Es) ->
-                            [{bin_element,Line,{char,Line,C},Sz,Ts}|Es]
-                    end, Es1, S);
-              (E, Es) ->
-                  [E|Es]
-	  end, [], Es0).
-
 bin_expand_string(S, Line, Val, Size) when Size >= 2048 ->
     Combined = make_combined(Line, Val, Size),
     [Combined|bin_expand_string(S, Line, 0, 0)];
@@ -1139,42 +1228,6 @@ make_combined(Line, Val, Size) ->
     {bin_element,Line,{integer,Line,Val},
      {integer,Line,Size},
      [integer,{unit,1},unsigned,big]}.
-
-expr_bin_1(Es, St) ->
-    foldr(fun (E, {Ces,Esp,St0}) ->
-		  {Ce,Ep,St1} = bitstr(E, St0),
-		  {[Ce|Ces],Ep ++ Esp,St1}
-	  end, {[],[],St}, Es).
-
-bitstr({bin_element,_,E0,Size0,[Type,{unit,Unit}|Flags]}, St0) ->
-    {E1,Eps0,St1} = safe(E0, St0),
-    {Size1,Eps1,St2} = safe(Size0, St1),
-    Eps = Eps0 ++ Eps1,
-    case {Type,E1} of
-	{_,#c_var{}} -> ok;
-	{integer,#c_literal{val=I}} when is_integer(I) -> ok;
-	{utf8,#c_literal{val=I}} when is_integer(I) -> ok;
-	{utf16,#c_literal{val=I}} when is_integer(I) -> ok;
-	{utf32,#c_literal{val=I}} when is_integer(I) -> ok;
-	{float,#c_literal{val=V}} when is_number(V) -> ok;
-	{binary,#c_literal{val=V}} when is_bitstring(V) -> ok;
-	{_,_} ->
-            %% Note that the pre expressions may bind variables that
-            %% are used later or have side effects.
-	    throw({bad_binary,Eps,St2})
-    end,
-    case Size1 of
-	#c_var{} -> ok;
-	#c_literal{val=Sz} when is_integer(Sz), Sz >= 0 -> ok;
-	#c_literal{val=undefined} -> ok;
-	#c_literal{val=all} -> ok;
-	_ -> throw({bad_binary,Eps,St2})
-    end,
-    {#c_bitstr{val=E1,size=Size1,
-	       unit=#c_literal{val=Unit},
-	       type=#c_literal{val=Type},
-	       flags=#c_literal{val=Flags}},
-     Eps,St2}.
 
 %% fun_tq(Id, [Clauses], Line, State, NameInfo) -> {Fun,[PreExp],State}.
 
@@ -1943,8 +1996,18 @@ map_sort_key(Key, KeyMap) ->
 %% pat_bin([BinElement], State) -> [BinSeg].
 
 pat_bin(Ps0, St) ->
-    Ps = bin_expand_strings(Ps0),
+    Ps = pat_bin_expand_strings(Ps0),
     pat_segments(Ps, St).
+
+pat_bin_expand_strings(Es0) ->
+    foldr(fun ({bin_element,Line,{string,_,S},Sz,Ts}, Es1) ->
+                  foldr(
+                    fun (C, Es) ->
+                            [{bin_element,Line,{char,Line,C},Sz,Ts}|Es]
+                    end, Es1, S);
+              (E, Es) ->
+                  [E|Es]
+	  end, [], Es0).
 
 pat_segments([P0|Ps0], St0) ->
     {P,St1} = pat_segment(P0, St0),
@@ -2194,20 +2257,6 @@ uexprs([#imatch{anno=A,pat=P0,arg=Arg,fc=Fc}|Les], Ks, St0) ->
 	    uexprs([#icase{anno=A,args=[Arg],
 			   clauses=[Mc],fc=Fc}], Ks, St0)
     end;
-uexprs([#ireceive1{clauses=[]}=Le0|_], Ks, St0) ->
-    %% All clauses have been optimized away because they had impossible patterns.
-    %% For example:
-    %%
-    %%     receive
-    %%         a = b ->
-    %%             V = whatever
-    %%     end,
-    %%     V
-    %%
-    %% Discard the unreachable code following the receive to ensure
-    %% that there are no references to unbound variables.
-    {Le1,St1} = uexpr(Le0, Ks, St0),
-    {[Le1],St1};
 uexprs([Le0|Les0], Ks, St0) ->
     {Le1,St1} = uexpr(Le0, Ks, St0),
     {Les1,St2} = uexprs(Les0, union((get_anno(Le1))#a.ns, Ks), St1),
@@ -3427,8 +3476,6 @@ format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
     "binary construction will fail because of a type mismatch";
-format_error(badmap) ->
-    "map construction will fail because of a type mismatch";
 format_error({map_key_repeated,Key}) when is_atom(Key) ->
     io_lib:format("key '~w' will be overridden in expression", [Key]);
 format_error({map_key_repeated,Key}) ->

@@ -32,6 +32,7 @@ USE_VM_PROBES=@USE_VM_PROBES@
 FPE=@FPE@
 LIBS = @LIBS@
 Z_LIB=@Z_LIB@
+CROSS_COMPILING = @CROSS_COMPILING@
 NO_INLINE_FUNCTIONS=false
 OPCODE_TABLES = $(ERL_TOP)/lib/compiler/src/genop.tab \
 beam/ops.tab \
@@ -459,8 +460,6 @@ endif
 
 include zlib/zlib.mk
 include pcre/pcre.mk
-YCF_SOURCE_DIR = $(ERL_TOP)/erts/lib_src/yielding_c_fun
-include $(ERL_TOP)/erts/lib_src/yielding_c_fun/main_target.mk
 
 $(ERTS_LIB):
 	$(V_at)cd $(ERTS_LIB_DIR) && $(MAKE) $(TYPE)
@@ -474,10 +473,6 @@ clean:
 	$(RM) -r pcre/obj/$(TARGET) $(PCRE_GENINC)
 	$(RM) -r zlib/obj/$(TARGET)
 	$(RM) -r bin/$(TARGET)
-	$(RM) $(YCF_EXECUTABLE)
-	$(RM) $(YCF_SOURCE_DIR)/*.o
-	$(RM) $(YCF_SOURCE_DIR)/lib/tiny_regex_c/*.o
-	$(RM) $(YCF_SOURCE_DIR)/lib/simple_c_gc/*.o
 	cd $(ERTS_LIB_DIR) && $(MAKE) clean
 
 .PHONY: docs
@@ -629,12 +624,9 @@ $(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
 	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(NIF_OBJS) $(STATIC_NIF_LIBS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
 GENERATE += $(TTF_DIR)/driver_tab.c
 
-beam/erl_db_insert_list.ycf.h: $(YCF_EXECUTABLE) beam/erl_db.c
-	$(gen_verbose)$(YCF_EXECUTABLE) \
-		-yield \
+DB_INSERT_LIST_YCF_FLAGS=-yield \
 		-static_aux_funs \
 		-only_yielding_funs \
-		-output_file_name beam/erl_db_insert_list.ycf.h \
 		-f ets_insert_2_list_check \
 		-f ets_insert_new_2_list_has_member \
 		-f ets_insert_2_list_from_p_heap \
@@ -643,10 +635,24 @@ beam/erl_db_insert_list.ycf.h: $(YCF_EXECUTABLE) beam/erl_db.c
 		-f ets_insert_new_2_dbterm_list_has_member \
 		-f ets_insert_2_list_insert_db_term_list \
 		-f ets_insert_2_list \
-		-fnoauto ets_insert_2_list_lock_tbl \
-		beam/erl_db.c
+		-fnoauto ets_insert_2_list_lock_tbl
 
-GENERATE += beam/erl_db_insert_list.ycf.h
+ifeq ($(CROSS_COMPILING),no)
+$(TARGET)/erl_db_insert_list.ycf.h: beam/erl_db.c $(ERTS_LIB)
+	$(gen_verbose)$(ERL_TOP)/erts/lib_src/yielding_c_fun/bin/$(TARGET)/yielding_c_fun$(EXE_SUFFIX) \
+		$(DB_INSERT_LIST_YCF_FLAGS) \
+		-output_file_name $@ $<
+else
+## We cannot build a 'yielding_c_fun' that can be executed since we are
+## cross compiling. A working bootstrap system of valid version *should*
+## be in the path. Find 'yielding_c_fun' in the bootstrap system...
+$(TARGET)/erl_db_insert_list.ycf.h: beam/erl_db.c
+	$(gen_verbose)CROSS_YCF=`utils/find_cross_ycf` && \
+		"$$CROSS_YCF" $(DB_INSERT_LIST_YCF_FLAGS) \
+		-output_file_name $@ $<
+endif
+
+GENERATE += $(TARGET)/erl_db_insert_list.ycf.h
 
 # Preloaded code.
 # 

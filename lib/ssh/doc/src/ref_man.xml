@@ -41,7 +41,7 @@
   <xi:include href="ssh_client_key_api.xml"/>
   <xi:include href="ssh_server_key_api.xml"/>
   <xi:include href="ssh_file.xml"/>
+  <xi:include href="ssh_agent.xml"/>
   <xi:include href="ssh_sftp.xml"/>
   <xi:include href="ssh_sftpd.xml"/>
 </application>
-

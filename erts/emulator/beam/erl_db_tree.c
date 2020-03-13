@@ -2682,6 +2682,7 @@ static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
     Eterm least = THE_NON_VALUE;
     Eterm most = THE_NON_VALUE;
     enum ms_key_boundness boundness;
+    Uint freason;
 
     mpi->key_boundness = MS_KEY_IMPOSSIBLE;
     mpi->mp = NULL;
@@ -2770,12 +2771,17 @@ static int analyze_pattern(DbTableCommon *tb, Eterm pattern,
      * match specs that happen to specify non existent keys etc.
      */
     if ((mpi->mp = db_match_compile(matches, guards, bodies,
-				    num_heads, DCOMP_TABLE, NULL)) 
+				    num_heads, DCOMP_TABLE, NULL,
+                                    &freason)) 
 	== NULL) {
 	if (buff != sbuff) { 
 	    erts_free(ERTS_ALC_T_DB_TMP, buff);
 	}
-	return DB_ERROR_BADPARAM;
+        switch (freason) {
+        case BADARG: return DB_ERROR_BADPARAM;
+        case SYSTEM_LIMIT: return DB_ERROR_SYSRES;
+        default: ASSERT(0); return DB_ERROR_UNSPEC;
+        }
     }
     if (buff != sbuff) { 
 	erts_free(ERTS_ALC_T_DB_TMP, buff);

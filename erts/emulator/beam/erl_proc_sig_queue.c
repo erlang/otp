@@ -2475,39 +2475,35 @@ convert_to_down_message(Process *c_p,
         ASSERT(is_ref(mdp->ref));
         hsz += NC_HEAP_SIZE(mdp->ref);
 
-        mp = erts_alloc_message_heap(c_p, &locks, hsz, &hp, &ohp);
-
-        if (locks != ERTS_PROC_LOCK_MAIN)
-            erts_proc_unlock(c_p, locks & ~ERTS_PROC_LOCK_MAIN);
-        
-        ref = STORE_NC(&hp, ohp, mdp->ref);
-        
         /*
          * The tag to patch into the resulting message
          * is stored in mdep->u.name via a little trick
          * (see pending_flag in erts_monitor_create()).
          */
-        if (is_immed(mdep->u.name))
+        if (is_immed(mdep->u.name)) {
+            mp = erts_alloc_message_heap(c_p, &locks, hsz, &hp, &ohp);
+            if (locks != ERTS_PROC_LOCK_MAIN)
+                erts_proc_unlock(c_p, locks & ~ERTS_PROC_LOCK_MAIN);
             tag = mdep->u.name;
+        }
         else {
             ErlHeapFragment *tag_hfrag;
+            mp = erts_alloc_message(hsz, &hp);
+            ohp = &mp->hfrag.off_heap;
             tag_hfrag = (ErlHeapFragment *) cp_val(mdep->u.name);
             tag = tag_hfrag->mem[0];
             /* Save heap fragment of tag in message... */
-            if (mp->data.attached == ERTS_MSG_COMBINED_HFRAG) {
-                tag_hfrag->next = mp->hfrag.next;
-                mp->hfrag.next = tag_hfrag;
-            }
-            else {
-                tag_hfrag->next = mp->data.heap_frag;
-                mp->data.heap_frag = tag_hfrag;
-            }
+            ASSERT(mp->data.attached == ERTS_MSG_COMBINED_HFRAG);
+            tag_hfrag->next = mp->hfrag.next;
+            mp->hfrag.next = tag_hfrag;
         }
         
         /* Restore to normal monitor */
         mdep->u.name = NIL;
         mdp->origin.flags &= ~ERTS_ML_FLGS_SPAWN;
 
+        ref = STORE_NC(&hp, ohp, mdp->ref);
+        
         ERL_MESSAGE_FROM(mp) = am_undefined;
         ERL_MESSAGE_TERM(mp) = TUPLE4(hp, tag, ref, am_error, reason);
 
@@ -3551,6 +3547,7 @@ handle_dist_spawn_reply(Process *c_p, ErtsSigRecvTracing *tracing,
         convert_prepared_sig_to_msg(c_p, sig, msg, next_nm_sig);
         if (tag_hfrag) {
             /* Save heap fragment of tag in message... */
+            ASSERT(sig->data.attached == ERTS_MSG_COMBINED_HFRAG);
             tag_hfrag->next = sig->hfrag.next;
             sig->hfrag.next = tag_hfrag;
         }
@@ -5041,7 +5038,7 @@ move_msg_to_heap(Process *c_p, ErtsMessage *mp)
         && mp->data.attached
         && mp->data.attached != ERTS_MSG_COMBINED_HFRAG) {
         ErlHeapFragment *bp;
-
+        
         bp = erts_message_to_heap_frag(mp);
 
         if (bp->next)
