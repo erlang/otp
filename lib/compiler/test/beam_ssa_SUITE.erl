@@ -716,6 +716,8 @@ grab_bag(_Config) ->
     {'EXIT',_} = (catch grab_bag_12()),
     {'EXIT',{{badmatch,[]},_}} = (catch grab_bag_13()),
     timeout = grab_bag_14(),
+    ?MODULE = grab_bag_15(?MODULE),
+
     ok.
 
 grab_bag_1() ->
@@ -875,6 +877,21 @@ grab_bag_14() ->
     after 0 ->
             timeout
     end.
+
+grab_bag_15(V) ->
+    %% Instead of:
+    %%
+    %%    move x0, y0
+    %%    move y0, x0
+    %%
+    %% a swap instruction would be emitted by beam_ssa_codegen:
+    %%
+    %%    swap x0, y0
+    %%
+    case [] of
+        [] -> V
+    end:all(),
+    V.
 
 coverage(_Config) ->
 

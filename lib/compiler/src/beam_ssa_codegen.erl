@@ -57,7 +57,7 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
 
 -record(cg_set, {anno=#{} :: anno(),
                  dst :: b_var(),
-                 op :: beam_ssa:op(),
+                 op :: beam_ssa:op() | 'nop',
                  args :: [beam_ssa:argument() | xreg()]}).
 
 -record(cg_alloc, {anno=#{} :: anno(),
@@ -388,6 +388,7 @@ classify_heap_need(kill_try_tag) -> gc;
 classify_heap_need(landingpad) -> gc;
 classify_heap_need(make_fun) -> gc;
 classify_heap_need(match_fail) -> gc;
+classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
@@ -1702,6 +1703,8 @@ cg_instr(has_map_field, [Map,Key], Dst) ->
     [{bif,is_map_key,{f,0},[Key,Map],Dst}];
 cg_instr(put_list=Op, [Hd,Tl], Dst) ->
     [{Op,Hd,Tl,Dst}];
+cg_instr(nop, [], _Dst) ->
+    [];
 cg_instr(put_tuple, Elements, Dst) ->
     [{put_tuple2,Dst,{list,Elements}}];
 cg_instr(put_tuple_arity, [{integer,Arity}], Dst) ->
@@ -1942,7 +1945,28 @@ translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
     Phis = takewhile(fun(#b_set{op=phi}) -> true;
                         (#b_set{}) -> false
                      end, Is),
-    phi_copies(Phis, L);
+    case Phis of
+        [] ->
+            [];
+        [#b_set{op=phi,dst=NopDst}|_]=Phis ->
+            %% In rare cases (so far only seen in unoptimized code),
+            %% copy instructions can be combined like this:
+            %%
+            %%     y0/yreg_0 = copy x0/xreg_0
+            %%     x0/xreg_1 = copy y0/yreg_0
+            %%
+            %% This will result in a swap instruction instead of
+            %% two move instructions. To avoid that, insert a
+            %% dummy instruction before the copy instructions
+            %% resulting from the phi node:
+            %%
+            %%     y0/yreg_0 = copy x0/xreg_0
+            %%     _ = nop
+            %%     x0/xreg_1 = copy y0/yreg_0
+            %%
+            Nop = #cg_set{op=nop,dst=NopDst,args=[]},
+            [Nop|phi_copies(Phis, L)]
+    end;
 translate_phis(_, _, _) -> [].
 
 phi_copies([#b_set{dst=Dst,args=PhiArgs}|Sets], L) ->
