@@ -30,8 +30,8 @@
     <file>usersguide.sgml</file>
   </header>
   <description>
-    <p>The Secure Socket Layer (SSL) application provides secure communication over
-      sockets.
+    <p>The SSL application implements Transport Layer Security (TLS), formerly known as the Secure Socket Layer (SSL), that is
+    it provides secure communication over sockets.
       </p>
   </description>
   <xi:include href="ssl_introduction.xml"/>

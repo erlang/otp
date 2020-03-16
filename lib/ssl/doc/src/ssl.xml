@@ -32,7 +32,7 @@
   <modulesummary>Interface Functions for Secure Socket Layer</modulesummary>
   <description>
     <p>
-      This module contains interface functions for the SSL/TLS/DTLS protocol.
+      This module contains interface functions for the TLS/DTLS protocol.
       For detailed information about the supported standards see 
       <seealso marker="ssl_app">ssl(6)</seealso>.
     </p>
@@ -45,7 +45,7 @@
   -->
 
   <datatypes>
-    <datatype_title>Types used in SSL/TLS/DTLS</datatype_title>
+    <datatype_title>Types used in TLS/DTLS</datatype_title>
 
     
     <datatype>
@@ -82,7 +82,7 @@
 	<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> and
 	<seealso marker="kernel:gen_tcp">gen_udp(3)</seealso> 
 	manual pages in Kernel. Note that stream oriented options such as packet
-	are only relevant for SSL/TLS and not DTLS</p>
+	are only relevant for TLS and not DTLS</p>
       </desc>
     </datatype>
 
@@ -1335,9 +1335,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name name="connect" arity="2" since="OTP R14B"/>
       <name name="connect" arity="3" clause_i="1" since=""/>
       <fsummary>Upgrades a <c>gen_tcp</c>, or
-	equivalent, connected socket to an TLS socket.</fsummary>
+	equivalent, connected socket to a TLS socket.</fsummary>
       <desc><p>Upgrades a <c>gen_tcp</c>, or equivalent,
-	  connected socket to an TLS socket, that is, performs the
+	  connected socket to a TLS socket, that is, performs the
 	  client-side TLS handshake.</p>
 	  
 	  <note><p>If the option <c>verify</c> is set to
@@ -1369,8 +1369,8 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name since="" name="connect" arity="3" clause_i="2"/>
       <name since="" name="connect" arity="4"/>
-      <fsummary>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
-      <desc><p>Opens an TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</p>
+      <fsummary>Opens a TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</fsummary>
+      <desc><p>Opens a TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</p>
       
       <p> When the option <c>verify</c> is set to <c>verify_peer</c> the check 
       <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> 
@@ -1407,15 +1407,15 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
     <func>
       <name since="" name="close" arity="1" />
-      <fsummary>Closes an TLS/DTLS connection.</fsummary>
-      <desc><p>Closes an TLS/DTLS connection.</p>
+      <fsummary>Closes a TLS/DTLS connection.</fsummary>
+      <desc><p>Closes a TLS/DTLS connection.</p>
       </desc>
     </func>
 
     <func>
       <name since="OTP 18.1" name="close" arity="2"/>
-      <fsummary>Closes an TLS connection.</fsummary>
-      <desc><p>Closes or downgrades an TLS connection. In the latter case the transport
+      <fsummary>Closes a TLS connection.</fsummary>
+      <desc><p>Closes or downgrades a TLS connection. In the latter case the transport
       connection will be handed over to the <c>NewController</c> process after receiving
       the TLS close alert from the peer. The returned transport socket will have
       the following options set: <c>[{active, false}, {packet, 0}, {mode, binary}]</c></p>
@@ -1508,9 +1508,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name since="OTP 21.0" name="handshake" arity="1" />
       <name since="OTP 21.0" name="handshake" arity="2" clause_i="1" />
-      <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
+      <fsummary>Performs server-side TLS handshake.</fsummary>
       <desc>
-        <p>Performs the SSL/TLS/DTLS server-side handshake.</p>
+        <p>Performs the TLS/DTLS server-side handshake.</p>
 	<p>Returns a new TLS/DTLS socket if the handshake is successful.</p>
 
 	<p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
@@ -1523,11 +1523,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name since="OTP 21.0" name="handshake" arity="2" clause_i="2" />
       <name since="OTP 21.0" name="handshake" arity="3" />
-      <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
+      <fsummary>Performs server-side TLS/DTLS handshake.</fsummary>
       <desc>
         <p>If <c>Socket</c> is a ordinary <c>socket()</c>: upgrades a <c>gen_tcp</c>,
 	or equivalent, socket to an SSL socket, that is, performs
-        the SSL/TLS server-side handshake and returns a TLS socket.</p>
+        the TLS server-side handshake and returns a TLS socket.</p>
 
 	<warning><p>The <c>Socket</c> shall be in passive mode ({active,
 	false}) before calling this function or else the behavior of this function
@@ -1535,10 +1535,10 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	</p></warning>
 	
 	<p>If <c>Socket</c> is an 
-	<seealso marker="#type-sslsocket"> sslsocket() </seealso>: provides extra SSL/TLS/DTLS
+	<seealso marker="#type-sslsocket"> sslsocket() </seealso>: provides extra TLS/DTLS
 	options to those specified in
 	<seealso marker="#listen-2">listen/2 </seealso> and then performs
-	the SSL/TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake is successful.</p>
+	the TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake is successful.</p>
 		
 	<p>
 	  If option <c>{handshake, hello}</c> is specified the handshake is
@@ -1569,9 +1569,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name since="OTP 21.0" name="handshake_continue" arity="2" />
       <name since="OTP 21.0" name="handshake_continue" arity="3" />
-      <fsummary>Continue the SSL/TLS handshake.</fsummary>
+      <fsummary>Continue the TLS handshake.</fsummary>
       <desc>
-        <p>Continue the SSL/TLS handshake possiby with new, additional or changed options.</p>
+        <p>Continue the TLS handshake possiby with new, additional or changed options.</p>
       </desc>
     </func>
     
@@ -1719,7 +1719,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name since="" name="ssl_accept" arity="1" />
       <name since="" name="ssl_accept" arity="2" />
-      <fsummary>Performs server-side SSL/TLS handshake.</fsummary>
+      <fsummary>Performs server-side TLS handshake.</fsummary>
       <desc>
 	<p>Deprecated in OTP 21, use <seealso marker="#handshake-1">handshake/[1,2]</seealso> instead.</p>
 	<note><p>handshake/[1,2] always returns a new socket.</p></note>
@@ -1728,7 +1728,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 
     <func>
       <name since="OTP R14B" name="ssl_accept" arity="3" />
-      <fsummary>Performs server-side SSL/TLS/DTLS handshake.</fsummary>
+      <fsummary>Performs server-side TLS/DTLS handshake.</fsummary>
       <desc>
 	<p>Deprecated in OTP 21, use  <seealso marker="#handshake-3">handshake/[2,3]</seealso> instead.</p>
 	<note><p>handshake/[2,3] always returns a new socket.</p></note>
@@ -1806,7 +1806,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	The socket returned is to be passed to
 	<seealso marker="#handshake-2"> handshake/[2,3]</seealso>
 	to complete handshaking, that is,
-	establishing the SSL/TLS/DTLS connection.</p>
+	establishing the TLS/DTLS connection.</p>
         <warning>
           <p>Most API functions require that the TLS/DTLS 
           connection is established to work as expected.
@@ -1834,18 +1834,20 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <tag><c>app_vsn</c></tag>
 	  <item>The application version of the SSL application.</item>
 
-	  <tag><c>supported</c></tag>
-	  <item>SSL/TLS versions supported by default.
+	  <tag><c>default_supported</c></tag>
+	  <item>TLS versions supported by default if crypto lib
+	  support is sufficent·
 	  Overridden by a version option on
 	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
 	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
 	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
-	  For the negotiated SSL/TLS version, see <seealso
+	  For the negotiated TLS version, see <seealso
 	  marker="#connection_information-1">connection_information/1
 	  </seealso>.</item>
 	  
-	  <tag><c>supported_dtls</c></tag>
-	  <item>DTLS versions supported by default.
+	  <tag><c>default_supported_dtls</c></tag>
+	  <item>DTLS versions supported by default if crypto lib
+	  support is sufficent·
 	  Overridden by a version option on
 	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
 	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
@@ -1855,14 +1857,19 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  </seealso>.</item>
 
 	  <tag><c>available</c></tag>
-	  <item>All SSL/TLS versions supported by the SSL application.
-	  TLS 1.2 and TLS 1.3 requires sufficient support from the Crypto
-	  application.</item>
+	  <item>All TLS versions than can be supported by the SSL application.
+	 </item>
 
 	  <tag><c>available_dtls</c></tag>
-	  <item>All DTLS versions supported by the SSL application.
-	  DTLS 1.2 requires sufficient support from the Crypto
-	  application.</item>
+	  <item>All DTLS versions than can be supported by the SSL application.</item>
+	  
+	  <tag><c>crypto_support</c></tag>
+	  <item>TLS versions than has sufficient crypto lib
+	  support through the Crypto applications currently linked crypto lib.</item>
+
+	  <tag><c>crypto_support_dtls</c></tag>
+	  <item>All DTLS versions than has sufficient crypto lib
+	  support through the Crypto applications currently linked crypto lib.</item>
 	  
 	</taglist>
       </desc>

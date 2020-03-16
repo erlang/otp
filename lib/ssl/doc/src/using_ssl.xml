@@ -51,7 +51,7 @@
     <section>
       <title>Minimal Example</title>
       
-      <note><p> The minimal setup is not the most secure setup of SSL/TLS/DTLS.</p>    
+      <note><p> The minimal setup is not the most secure setup of TLS/DTLS.</p>    
       </note>
 
       <p>To set up client/server connections:</p>
@@ -60,7 +60,7 @@
       <code type="erl">1 server> ssl:start().
 ok</code>
       
-      <p><em>Step 2:</em> Create an TLS listen socket: (To run DTLS add the option {protocol, dtls})</p>
+      <p><em>Step 2:</em> Create a TLS listen socket: (To run DTLS add the option {protocol, dtls})</p>
       <code type="erl">2 server> {ok, ListenSocket} =
 ssl:listen(9999, [{certfile, "cert.pem"}, {keyfile, "key.pem"},{reuseaddr, true}]).
 {ok,{sslsocket, [...]}}</code>
@@ -94,12 +94,12 @@ ok</code>
     <section>
       <title>Upgrade Example - TLS only </title>
       
-      <note><p>To upgrade a TCP/IP connection to an SSL connection, the
+      <note><p>To upgrade a TCP/IP connection to a TLS connection, the
       client and server must agree to do so. The agreement
       can be accomplished by using a protocol, for example, the one used by HTTP
       specified in RFC 2817.</p></note>
 
-      <p>To upgrade to an SSL connection:</p>
+      <p>To upgrade to a TLS connection:</p>
       
       <p><em>Step 1:</em> Start the server side:</p>
       <code type="erl">1 server> ssl:start().
@@ -120,8 +120,8 @@ ok</code>
       <code type="erl">2 client> {ok, Socket} = gen_tcp:connect("localhost", 9999,  [], infinity).</code>
       
       <p><em>Step 5:</em> Ensure <c>active</c> is set to <c>false</c> before trying
-      to upgrade a connection to an SSL connection, otherwise
-      SSL handshake messages can be delivered to the wrong process:</p>
+      to upgrade a connection to a TLS connection, otherwise
+      TLS handshake messages can be delivered to the wrong process:</p>
       <code type="erl">4 server> inet:setopts(Socket, [{active, false}]).
 ok</code>
       
@@ -130,7 +130,7 @@ ok</code>
 {certfile, "cert.pem"}, {keyfile, "key.pem"}]).
 {ok,{sslsocket,[...]}}</code>
       
-      <p><em>Step 7:</em> Upgrade to an TLS connection. The client and server
+      <p><em>Step 7:</em> Upgrade to a TLS connection. The client and server
       must agree upon the upgrade. The server must call
       <c>ssl:handshake/2</c> before the client calls <c>ssl:connect/3.</c></p>
       <code type="erl">3 client>{ok, TLSSocket} = ssl:connect(Socket, [{cacertfile, "cacerts.pem"},
@@ -156,7 +156,7 @@ ok</code>
   <section>
     <title>Customizing cipher suits</title>
 
-    <p>Fetch default cipher suite list for an TLS/DTLS version. Change default
+    <p>Fetch default cipher suite list for a TLS/DTLS version. Change default
     to all to get all possible cipher suites.</p>
     <code type="erl">1>  Default = ssl:cipher_suites(default, 'tlsv1.2').
     [#{cipher => aes_256_gcm,key_exchange => ecdhe_ecdsa,

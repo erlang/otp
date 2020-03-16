@@ -527,7 +527,8 @@ handshake_continue_tls13_client(Config) when is_list(Config) ->
                                                                             {versions, ['tlsv1.3',
                                                                                         'tlsv1.2',
                                                                                         'tlsv1.1',
-                                                                                        'tlsv1']},
+                                                                                        'tlsv1'
+                                                                                       ]},
                                                                             {verify, verify_peer} | ClientOpts
                                                                            ],
                                                                            Config)},
@@ -1756,7 +1757,7 @@ client_options_negative_version_gap() ->
     [{doc,"Test client options with faulty version gap."}].
 client_options_negative_version_gap(Config) when is_list(Config) ->
     start_client_negative(Config, [{versions, ['tlsv1', 'tlsv1.3']}],
-                          {options, missing_version,
+                          {options, missing_version, 
                            {'tlsv1.2', {versions,[tlsv1, 'tlsv1.3']}}}).
 
 %%--------------------------------------------------------------------
@@ -1831,7 +1832,7 @@ honor_server_cipher_order_tls13(Config) when is_list(Config) ->
                                                                      prf => sha256}).
 %%--------------------------------------------------------------------
 getstat() ->
-    [{doc, "Test that you use ssl:getstat on an TLS socket"}].
+    [{doc, "Test that you use ssl:getstat on a TLS socket"}].
 
 getstat(Config) when is_list(Config) ->    
     ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
