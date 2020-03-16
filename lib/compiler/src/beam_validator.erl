@@ -37,23 +37,28 @@
 -compile({no_auto_import,[error/1]}).
 
 %% Interface for compiler.
--export([module/2, format_error/1]).
+-export([validate/2, format_error/1]).
 
 -import(lists, [dropwhile/2,foldl/3,member/2,reverse/1,zip/2]).
 
 %% To be called by the compiler.
 
--spec module(beam_utils:module_code(), [compile:option()]) ->
-                    {'ok',beam_utils:module_code()}.
+-spec validate(Code, Level) -> Result when
+      Code :: beam_utils:module_code(),
+      Level :: strong | weak,
+      Result :: ok | {error, [{atom(), list()}]}.
 
-module({Mod,Exp,Attr,Fs,Lc}=Code, _Opts)
-  when is_atom(Mod), is_list(Exp), is_list(Attr), is_integer(Lc) ->
-    case validate(Mod, Fs) of
-	[] ->
-	    {ok,Code};
-	Es0 ->
-	    Es = [{?MODULE,E} || E <- Es0],
-	    {error,[{atom_to_list(Mod),Es}]}
+validate({Mod,Exp,Attr,Fs,Lc}, Level) when is_atom(Mod),
+                                           is_list(Exp),
+                                           is_list(Attr),
+                                           is_integer(Lc) ->
+    Ft = build_function_table(Fs, #{}),
+    case validate_0(Fs, Mod, Level, Ft) of
+        [] ->
+            ok;
+        Es0 ->
+            Es = [{?MODULE,E} || E <- Es0],
+            {error,[{atom_to_list(Mod),Es}]}
     end.
 
 -spec format_error(term()) -> iolist().
@@ -97,26 +102,25 @@ format_error(Error) ->
 %%% - Heap allocation for binaries.
 %%%
 
-%% validate(Module, [Function]) -> [] | [Error]
+%% validate(Module, Level, [Function], Ft) -> [] | [Error]
 %%  A list of functions with their code. The code is in the same
 %%  format as used in the compiler and in .S files.
 
-validate(Module, Fs) ->
-    Ft = build_function_table(Fs, #{}),
-    validate_0(Module, Fs, Ft).
 
-validate_0(_Module, [], _) -> [];
-validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
-    try validate_1(Code, Name, Ar, Entry, Ft) of
-	_ -> validate_0(Module, Fs, Ft)
+validate_0([], _Module, _Level, _Ft) ->
+    [];
+validate_0([{function, Name, Ar, Entry, Code} | Fs], Module, Level, Ft) ->
+    try validate_1(Code, Name, Ar, Entry, Level, Ft) of
+        _ ->
+            validate_0(Fs, Module, Level, Ft)
     catch
-	 throw:Error ->
-	     %% Controlled error.
-	     [Error|validate_0(Module, Fs, Ft)];
+        throw:Error ->
+            %% Controlled error.
+            [Error | validate_0(Fs, Module, Level, Ft)];
         Class:Error:Stack ->
-	    %% Crash.
-	    io:fwrite("Function: ~w/~w\n", [Name,Ar]),
-	    erlang:raise(Class, Error, Stack)
+            %% Crash.
+            io:fwrite("Function: ~w/~w\n", [Name,Ar]),
+            erlang:raise(Class, Error, Stack)
     end.
 
 -record(t_abstract, {kind}).
@@ -208,6 +212,8 @@ validate_0(Module, [{function,Name,Ar,Entry,Code}|Fs], Ft) ->
 -record(vst,
         {%% Current state
          current=none              :: state(),
+         %% Validation level
+         level                     :: strong | weak,
          %% States at labels
          branched=#{}              :: #{ label() => state() },
          %% All defined labels
@@ -244,26 +250,26 @@ find_parameter_info([{'%', _} | Is], Acc) ->
 find_parameter_info(_, Acc) ->
     Acc.
 
-validate_1(Is, Name, Arity, Entry, Ft) ->
-    validate_2(labels(Is), Name, Arity, Entry, Ft).
+validate_1(Is, Name, Arity, Entry, Level, Ft) ->
+    validate_2(labels(Is), Name, Arity, Entry, Level, Ft).
 
 validate_2({Ls1,[{func_info,{atom,Mod},{atom,Name},Arity}=_F|Is]},
-	   Name, Arity, Entry, Ft) ->
-    validate_3(labels(Is), Name, Arity, Entry, Mod, Ls1, Ft);
-validate_2({Ls1,Is}, Name, Arity, _Entry, _Ft) ->
+           Name, Arity, Entry, Level, Ft) ->
+    validate_3(labels(Is), Name, Arity, Entry, Mod, Ls1, Level, Ft);
+validate_2({Ls1,Is}, Name, Arity, _Entry, _Level, _Ft) ->
     error({{'_',Name,Arity},{first(Is),length(Ls1),illegal_instruction}}).
 
-validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Ft) ->
+validate_3({Ls2,Is}, Name, Arity, Entry, Mod, Ls1, Level, Ft) ->
     Offset = 1 + length(Ls1) + 1 + length(Ls2),
     EntryOK = member(Entry, Ls2),
     if
-	EntryOK ->
-            Vst0 = init_vst(Arity, Ls1, Ls2, Ft),
-	    MFA = {Mod,Name,Arity},
-	    Vst = validate_instrs(Is, MFA, Offset, Vst0),
-	    validate_fun_info_branches(Ls1, MFA, Vst);
-	true ->
-	    error({{Mod,Name,Arity},{first(Is),Offset,no_entry_label}})
+        EntryOK ->
+            Vst0 = init_vst(Arity, Ls1, Ls2, Level, Ft),
+            MFA = {Mod,Name,Arity},
+            Vst = validate_instrs(Is, MFA, Offset, Vst0),
+            validate_fun_info_branches(Ls1, MFA, Vst);
+        true ->
+            error({{Mod,Name,Arity},{first(Is),Offset,no_entry_label}})
     end.
 
 validate_fun_info_branches([L|Ls], MFA, #vst{branched=Branches}=Vst0) ->
@@ -302,11 +308,12 @@ labels_1([{line,_}|Is], R) ->
 labels_1(Is, R) ->
     {reverse(R),Is}.
 
-init_vst(Arity, Ls1, Ls2, Ft) ->
-    Vst0 = init_function_args(Arity - 1, #vst{current=#st{}}),
-    Branches = maps:from_list([{L,Vst0#vst.current} || L <- Ls1]),
+init_vst(Arity, Ls1, Ls2, Level, Ft) ->
+    Vst0 = #vst{current=#st{},level=Level},
+    Vst1 = init_function_args(Arity - 1, Vst0),
+    Branches = maps:from_list([{L,Vst1#vst.current} || L <- Ls1]),
     Labels = cerl_sets:from_list(Ls1++Ls2),
-    Vst0#vst{branched=Branches,
+    Vst1#vst{branched=Branches,
              labels=Labels,
              ft=Ft}.
 
@@ -1541,37 +1548,68 @@ verify_local_args(X, ParamInfo, CtxRefs, Vst) ->
                 #{ VRef := Other } ->
                     error({multiple_match_contexts, [Reg, Other]});
                 #{} ->
-                    verify_arg_type(Reg, Type, ParamInfo),
+                    verify_arg_type(Reg, Type, ParamInfo, Vst),
                     verify_local_args(X - 1, ParamInfo,
                                       CtxRefs#{ VRef => Reg }, Vst)
             end;
         Type ->
-            verify_arg_type(Reg, Type, ParamInfo),
+            verify_arg_type(Reg, Type, ParamInfo, Vst),
             verify_local_args(X - 1, ParamInfo, CtxRefs, Vst)
     end.
 
-verify_arg_type(Reg, GivenType, ParamTypes) ->
-    case {ParamTypes, GivenType} of
+verify_arg_type(Reg, GivenType, ParamInfo, Vst) ->
+    case {ParamInfo, GivenType} of
         {#{ Reg := Info }, #t_bs_context{}} ->
             %% Match contexts require explicit support, and may not be passed
             %% to a function that accepts arbitrary terms.
             case member(accepts_match_context, Info) of
-                true -> verify_arg_type_1(Reg, GivenType, Info);
+                true -> verify_arg_type_1(Reg, GivenType, Info, Vst);
                 false -> error(no_bs_start_match2)
             end;
         {_, #t_bs_context{}} ->
             error(no_bs_start_match2);
         {#{ Reg := Info }, _} ->
-            verify_arg_type_1(Reg, GivenType, Info);
+            verify_arg_type_1(Reg, GivenType, Info, Vst);
         {#{}, _} ->
             ok
     end.
 
-verify_arg_type_1(Reg, GivenType, Info) ->
+verify_arg_type_1(Reg, GivenType, Info, Vst) ->
     RequiredType = proplists:get_value(type, Info, any),
     case meet(GivenType, RequiredType) of
-        GivenType -> ok;
-        _ -> error({bad_arg_type, Reg, GivenType, RequiredType})
+        Type when Type =/= none, Vst#vst.level =:= weak ->
+            %% Strictly speaking this should always match GivenType, but
+            %% beam_jump:share/1 sometimes joins blocks in a manner that makes
+            %% it very difficult to accurately reconstruct type information,
+            %% for example:
+            %%
+            %%        bug({Tag, _, _} = Key) when Tag == a; Tag == b ->
+            %%            foo(Key);
+            %%        bug({Tag, _} = Key) when Tag == a; Tag == b ->
+            %%            foo(Key).
+            %%
+            %%        foo(I) -> I.
+            %%
+            %% At the first call to foo/1, we know that we have either `{a,_}`
+            %% or `{b,_}`, and at the second call `{a,_,_}` or `{b,_,_}`.
+            %%
+            %% When both calls to foo/1 are joined into the same block, all we
+            %% know is that we have tuple with an arity of at least 2, whose
+            %% first element is `a` or `b`.
+            %%
+            %% Fixing this properly is a big undertaking, so for now we've
+            %% decided on a compromise that splits validation into two steps.
+            %%
+            %% We run a 'strong' pass directly after code generation in which
+            %% arguments must be at least as narrow as expected, and a 'weak'
+            %% pass after all optimizations have been applied in which we
+            %% tolerate arguments that aren't in direct conflict.
+            ok;
+        GivenType ->
+            true = GivenType =/= none,          %Assertion.
+            ok;
+        _ ->
+            error({bad_arg_type, Reg, GivenType, RequiredType})
     end.
 
 allocate(Tag, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->

@@ -842,7 +842,7 @@ do_val(Mod, Config) ->
 
 beam_val(M) ->
     Name = atom_to_list(element(1, M)),
-    {error,[{Name,Errors0}]} = beam_validator:module(M, []),
+    {error,[{Name,Errors0}]} = beam_validator:validate(M, strong),
     Errors = [E || {beam_validator,E} <- Errors0],
     _ = [io:put_chars(beam_validator:format_error(E)) ||
 	    E <- Errors],

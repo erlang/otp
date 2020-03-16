@@ -23,7 +23,7 @@
 	 init_per_group/2,end_per_group/2,
 	 undefined_label/1,ambiguous_catch_try_state/1,
          unsafe_move_elimination/1,build_tuple/1,
-         coverage/1]).
+         coverage/1,call_sharing/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -37,7 +37,8 @@ groups() ->
        ambiguous_catch_try_state,
        unsafe_move_elimination,
        build_tuple,
-       coverage
+       coverage,
+       call_sharing
       ]}].
 
 init_per_suite(Config) ->
@@ -210,6 +211,37 @@ coverage_2(Pre1, Pre2) ->
                     le
             end
     end.
+
+%% ERIERL-478: The validator failed to validate argument types when calls were
+%% shared and the types at the common block turned out wider than the join of
+%% each individual call site.
+call_sharing(Config) ->
+    A_2 = {a, 1},
+    A_3 = {a, 1, 2},
+
+    A_2 = cs_1(id(A_2)),
+    A_3 = cs_1(id(A_3)),
+
+    B_2 = {b, 1},
+    B_3 = {b, 1, 2},
+    B_2 = cs_1(id(B_2)),
+    B_3 = cs_1(id(B_3)),
+
+    C_2 = {c, 1},
+    C_3 = {c, 1, 2},
+    {'EXIT',_} = (catch (cs_1(id(C_2)))),
+    {'EXIT',_} = (catch (cs_1(id(C_3)))),
+
+    ok.
+
+cs_1(Key) ->
+    A = case Key of
+            %% Must be a single line to trigger the bug.
+            {Tag, _, _} when Tag == a; Tag == b -> cs_2(Key); {Tag, _} when Tag == a; Tag == b -> cs_2(Key)
+        end,
+    id(A).
+
+cs_2(I) -> I.
 
 
 id(I) ->
