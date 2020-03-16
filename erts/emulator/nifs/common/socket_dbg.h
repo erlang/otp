@@ -27,10 +27,7 @@
 #ifndef SOCKET_DBG_H__
 #define SOCKET_DBG_H__
 
-/* Used when calling the init function */
-#define ESOCK_DBGOUT_DEFAULT "stdout"
-#define ESOCK_DBGOUT_UNIQUE  "unique"
-
+#include "socket_int.h"
 
 /* Used in debug printouts */
 #ifdef __WIN32__
@@ -43,13 +40,14 @@ typedef unsigned long long llu_t;
 extern FILE* esock_dbgout; // Initiated by the 'init' function
 
 #define ESOCK_DBG_PRINTF( ___COND___ , proto ) \
-    if ( ___COND___ ) {                        \
-        esock_dbg_printf proto;                \
-        fflush(esock_dbgout);                  \
-    }
+    do                                         \
+        if ( ___COND___ ) {                    \
+            esock_dbg_printf proto;            \
+        }                                      \
+    while (0)
 
 
-extern void esock_dbg_init(char* filename);
+extern BOOLEAN_T esock_dbg_init(char* filename);
 extern void esock_dbg_printf( const char* prefix, const char* format, ... );
 
 #endif // SOCKET_DBG_H__

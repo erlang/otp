@@ -393,6 +393,7 @@ GLOBAL_ERROR_REASON_ATOM_DEFS
 #define DEMONP(S,E,D,M)     esock_demonitor((S), (E), (D), (M))
 #define MON_INIT(M)         esock_monitor_init((M))
 #define MON2T(E, M)         enif_make_monitor_term((E), (M))
+#define MON_EQ(M1, M2)      esock_monitor_eq((M1), (M2))
 
 #define COMPARE(A, B)        enif_compare((A), (B))
 #define COMPARE_PIDS(P1, P2) enif_compare_pids((P1), (P2))
