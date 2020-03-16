@@ -71,7 +71,8 @@
 	 hostkey_fingerprint_check_sha384/1,
 	 hostkey_fingerprint_check_sha512/1,
 	 hostkey_fingerprint_check_list/1,
-         save_accepted_host_option/1
+         save_accepted_host_option/1,
+         config_file/1
 	]).
 
 %%% Common test callbacks
@@ -80,7 +81,7 @@
 	 init_per_group/2, end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2
 	]).
-
+-compile(export_all).
 
 -define(NEWLINE, <<"\r\n">>).
 
@@ -126,7 +127,8 @@ all() ->
      id_string_own_string_server_trail_space,
      id_string_random_server,
      save_accepted_host_option,
-     {group, hardening_tests}
+     {group, hardening_tests},
+     config_file
     ].
 
 groups() ->
@@ -1312,6 +1314,102 @@ save_accepted_host_option(Config) ->
                                         {user_dir, UserDir}]),
     {ok,_} = file:read_file(KnownHosts),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+config_file(Config) ->
+    %% First find common algs:
+    ServerAlgs = ssh_test_lib:default_algorithms(sshd),
+    OurAlgs = ssh_transport:supported_algorithms(), % Incl disabled but supported
+    CommonAlgs = ssh_test_lib:intersection(ServerAlgs, OurAlgs),
+    ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),
+
+    case {ServerAlgs,CommonAlgs} of
+        {[],_} ->
+            {skip, "No server algorithms found"};
+        {_,[]} ->
+            {fail, "No common algorithms"};
+        _ ->
+            %% Then find three common kex and one common cipher:
+            [K1a,K1b,K2a|_] = proplists:get_value(kex, CommonAlgs),
+            [{_,[Ch1|_]}|_] = proplists:get_value(cipher, CommonAlgs),
+
+            %% Make config file:
+            Contents = 
+                [{ssh, [{preferred_algorithms,
+                         [{cipher, [Ch1]},
+                          {kex,    [K1a]}
+                         ]},
+                        {client_options,
+                         [{modify_algorithms,
+                           [{rm,     [{kex, [K1a]}]},
+                            {append, [{kex, [K1b]}]}
+                           ]}
+                         ]}
+                       ]}
+                ],          
+            %% write the file:
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ConfFile = filename:join(PrivDir,"c2.config"),
+            {ok,D} = file:open(ConfFile, [write]),
+            io:format(D, "~p.~n", [Contents]),
+            file:close(D),
+            {ok,Cnfs} = file:read_file(ConfFile),
+            ct:log("c2.config:~n~s", [Cnfs]),
+
+            %% Start the slave node with the configuration just made:
+            {ok,Node} = start_node(random_node_name(?MODULE), ConfFile),
+
+            R0 = rpc:call(Node, ssh, default_algorithms, []),
+            ct:log("R0 = ~p",[R0]),
+            R0 = ssh:default_algorithms(),
+
+            %% Start ssh on the slave. This should apply the ConfFile:
+            rpc:call(Node, ssh, start, []),
+
+            R1 = rpc:call(Node, ssh, default_algorithms, []),
+            ct:log("R1 = ~p",[R1]),
+            [{kex,[K1a]},
+             {public_key,_},
+             {cipher,[{_,[Ch1]},
+                      {_,[Ch1]}]} | _] = R1,
+
+            %% First connection. The client_options should be applied:
+            {ok,C1} = rpc:call(Node, ssh, connect, [loopback, 22, []]),
+            {algorithms,As1} = rpc:call(Node, ssh, connection_info, [C1, algorithms]),
+            K1b = proplists:get_value(kex, As1),
+            Ch1 = proplists:get_value(encrypt, As1),
+            Ch1 = proplists:get_value(decrypt, As1),
+            {options,Os1} = rpc:call(Node, ssh, connection_info, [C1, options]),
+            ct:log("C1 algorithms:~n~p~n~noptions:~n~p", [As1,Os1]),
+
+            %% Second connection, the Options take precedence:
+            C2_Opts = [{modify_algorithms,[{rm,[{kex,[K1b]}]}, % N.B.
+                                           {append, [{kex,[K2a]}]}]}],
+            {ok,C2} = rpc:call(Node, ssh, connect, [loopback, 22, C2_Opts]),
+            {algorithms,As2} = rpc:call(Node, ssh, connection_info, [C2, algorithms]),
+            K2a = proplists:get_value(kex, As2),
+            Ch1 = proplists:get_value(encrypt, As2),
+            Ch1 = proplists:get_value(decrypt, As2),
+            {options,Os2} = rpc:call(Node, ssh, connection_info, [C2, options]),
+            ct:log("C2 opts:~n~p~n~nalgorithms:~n~p~n~noptions:~n~p", [C2_Opts,As2,Os2]),
+
+            stop_node_nice(Node)
+    end.
+    
+    
+%%%----
+start_node(Name, ConfigFile) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    test_server:start_node(Name, slave, [{args, 
+                                          " -pa " ++ Pa ++ 
+                                          " -config " ++ ConfigFile}]).
+
+stop_node_nice(Node) when is_atom(Node) ->
+    test_server:stop_node(Node).
+
+random_node_name(BaseName) ->
+    L = integer_to_list(erlang:unique_integer([positive])),
+    lists:concat([BaseName,"___",L]).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
