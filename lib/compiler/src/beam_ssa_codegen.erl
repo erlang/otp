@@ -414,44 +414,13 @@ classify_heap_need(wait_timeout) -> gc.
 %%% since the BEAM interpreter have more optimized instructions
 %%% operating on X registers than on Y registers.
 %%%
-%%% 'call' and 'make_fun' are handled somewhat specially. If a value
-%%% already is in the correct X register, the X register will always
-%%% be used instead of the Y register. However, if there are one or more
-%%% values in the wrong X registers, the X registers variables will be
-%%% used only if that does not cause more 'move' instructions to be
-%%% be emitted than if the Y register variables were used.
+%%% In call and 'call' and 'make_fun' instructions there is also the
+%%% possibility that a 'move' instruction can be eliminated because
+%%% a value is already in the correct X register.
 %%%
-%%% Here are some examples. The first example shows how a 'move' from
-%%% an Y register is eliminated:
-%%%
-%%%     move x0 y1
-%%%     move y1 x0   %%Will be eliminated.
-%%%
-%%%     call f/1
-%%%
-%%% Here is an example when x0 and x1 must be swapped to load the argument
-%%% registers. Here the 'call' instruction will use the Y registers to
-%%% avoid introducing an extra 'move' insruction:
-%%%
-%%%     move x0 y0
-%%%     move x1 y1
-%%%
-%%%     move y0 x1
-%%%     move y1 x0
-%%%
-%%%     call f/2
-%%%
-%%% Using the X register to load the argument registers would need
-%%% an extra 'move' instruction like this:
-%%%
-%%%     move x0 y0
-%%%     move x1 y1
-%%%
-%%%     move x1 x2
-%%%     move x0 x1
-%%%     move x2 x0
-%%%
-%%%     call f/2
+%%% Because of the new 'swap' instruction introduced in OTP 23, it
+%%% is always beneficial to prefer X register over Y registers. That
+%%% was not the case in OTP 22, which lacks the 'swap' instruction.
 %%%
 
 prefer_xregs(Linear, St) ->
@@ -535,60 +504,22 @@ prefer_xregs_prune(#cg_set{dst=Dst}, Copies, St) ->
     maps:filter(F, Copies).
 
 %% prefer_xregs_call(Instruction, Copies, St) -> Instruction.
-%%  Given a 'call' or 'make_fun' instruction, minimize the number
-%%  of 'move' instructions to set up the argument registers.
-%%  Prefer using X registers over Y registers, unless that will
-%%  result in more 'move' instructions.
+%%  Given a 'call' or 'make_fun' instruction rewrite the arguments
+%%  to use an X register instead of a Y register if a value is
+%%  is available in both.
 
-prefer_xregs_call(#cg_set{args=[_]}=I, _Copies, _St) ->
-    I;
-prefer_xregs_call(#cg_set{args=[F|Args0]}=I, Copies, St) ->
-    case Args0 of
-        [A0] ->
-            %% Only one argument. Always prefer the X register
-            %% if available.
-            A = do_prefer_xreg(A0, Copies, St),
-            I#cg_set{args=[F,A]};
-        [_|_] ->
-            %% Two or more arguments. Try rewriting arguments in
-            %% two ways and see which way produces the least
-            %% number of 'move' instructions.
-            Args1 = prefer_xregs_call_1(Args0, Copies, 0, St),
-            Args2 = [do_prefer_xreg(A, Copies, St) || A <- Args0],
-            case {count_moves(Args1, St),count_moves(Args2, St)} of
-                {N1,N2} when N1 < N2 ->
-                    %% There will be fewer 'move' instructions if
-                    %% we keep using Y registers.
-                    I#cg_set{args=[F|Args1]};
-                {_,_} ->
-                    %% Always use the values in X registers.
-                    I#cg_set{args=[F|Args2]}
-            end
-    end.
-
-count_moves(Args, St) ->
-    length(setup_args(beam_args(Args, St))).
-
-prefer_xregs_call_1([#b_var{}=A|As], Copies, X, St) ->
-    case {beam_arg(A, St),Copies} of
-        {{y,_},#{A:=Other}} ->
-            case beam_arg(Other, St) of
-                {x,X} ->
-                    %% This value is already in the correct X register.
-                    %% It is always benefical to use the X register variable.
-                    [Other|prefer_xregs_call_1(As, Copies, X+1, St)];
-                _ ->
-                    %% This value is another X register. Keep using
-                    %% the Y register variable.
-                    [A|prefer_xregs_call_1(As, Copies, X+1, St)]
-            end;
-        {_,_} ->
-            %% The value is not available in an X register.
-            [A|prefer_xregs_call_1(As, Copies, X+1, St)]
-    end;
-prefer_xregs_call_1([A|As], Copies, X, St) ->
-    [A|prefer_xregs_call_1(As, Copies, X+1, St)];
-prefer_xregs_call_1([], _, _, _) -> [].
+prefer_xregs_call(#cg_set{args=[F0|Args0]}=I, Copies, St) ->
+    F = case F0 of
+            #b_var{} ->
+                do_prefer_xreg(F0, Copies, St);
+            #b_remote{mod=Mod,name=Name} ->
+                F0#b_remote{mod=do_prefer_xreg(Mod, Copies, St),
+                            name=do_prefer_xreg(Name, Copies, St)};
+            _ ->
+                F0
+        end,
+    Args = [do_prefer_xreg(A, Copies, St) || A <- Args0],
+    I#cg_set{args=[F|Args]}.
 
 do_prefer_xreg(#b_var{}=A, Copies, St) ->
     case {beam_arg(A, St),Copies} of

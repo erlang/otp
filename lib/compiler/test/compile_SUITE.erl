@@ -1405,9 +1405,6 @@ bc_options(Config) ->
 
     L = [{101, small_float, [no_shared_fun_wrappers,
                              no_get_hd_tl,no_line_info]},
-         {103, big, [no_shared_fun_wrappers,
-                     no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
-                     no_line_info,no_stack_trimming]},
          {125, small_float, [no_shared_fun_wrappers,no_get_hd_tl,
                              no_line_info,
                              no_ssa_opt_float]},
@@ -1416,14 +1413,9 @@ bc_options(Config) ->
                        no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
                        no_ssa_opt_float,no_line_info,no_bsm3]},
 
-         {136, big, [no_shared_fun_wrappers,no_put_tuple2,no_get_hd_tl,
-                     no_ssa_opt_record,no_line_info]},
-
          {153, small, [r20]},
          {153, small, [r21]},
 
-         {153, big, [no_shared_fun_wrappers,
-                     no_put_tuple2,no_get_hd_tl, no_ssa_opt_record]},
          {153, big, [r18]},
          {153, big, [r19]},
          {153, small_float, [no_shared_fun_wrappers]},
@@ -1436,9 +1428,18 @@ bc_options(Config) ->
          {164, small_maps, [r22]},
          {164, big, [r22]},
          {164, small_maps, [no_shared_fun_wrappers]},
-         {164, big, [no_shared_fun_wrappers]},
 
          {168, small, [r22]},
+
+         {169, big, [no_shared_fun_wrappers,
+                     no_put_tuple2,no_get_hd_tl,no_ssa_opt_record,
+                     no_line_info,no_stack_trimming]},
+         {169, big, [no_shared_fun_wrappers,no_put_tuple2,no_get_hd_tl,
+                     no_ssa_opt_record,no_line_info]},
+         {169, big, [no_shared_fun_wrappers,
+                     no_put_tuple2,no_get_hd_tl, no_ssa_opt_record]},
+         {169, big, [no_shared_fun_wrappers]},
+
          {170, small, [no_shared_fun_wrappers]},
 
          {169, small_maps, []},
