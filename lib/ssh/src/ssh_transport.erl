@@ -101,7 +101,10 @@ algo_two_spec_class(_) -> false.
 default_algorithms(kex) ->
     supported_algorithms(kex, [
                                %%  Gone in OpenSSH 7.3.p1:
-                               'diffie-hellman-group1-sha1'
+                               'diffie-hellman-group1-sha1',
+                               %%  Gone in OpenSSH 8.2
+                               'diffie-hellman-group14-sha1',
+                               'diffie-hellman-group-exchange-sha1'
                               ]);
 
 default_algorithms(cipher) ->

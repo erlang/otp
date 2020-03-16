@@ -159,14 +159,18 @@
 	  <item>curve25519-sha256</item>
 	  <item>curve25519-sha256@libssh.org</item>
 	  <item>curve448-sha512</item>
-	  <item>diffie-hellman-group14-sha1</item>
-	  <item>diffie-hellman-group-exchange-sha1</item>
-	  <item>(diffie-hellman-group1-sha1, retired: It can be enabled with the 
-    <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
-    or
-    <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
-    options.  Use for example the Option value <c>{modify_algorithms, [{append, [{kex,['diffie-hellman-group1-sha1']}]}]}</c>)</item>
 	</list>
+	<p>The following unsecure <c>sha1</c> algorithms are now disabled by default:</p>
+	<list>
+	  <item>(diffie-hellman-group14-sha1)</item>
+	  <item>(diffie-hellman-group-exchange-sha1)</item>
+	  <item>(diffie-hellman-group1-sha1)</item>
+	</list>
+	<p>They can be enabled with the 
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	options.  Use for example the Option value <c>{modify_algorithms, [{append, [{kex,['diffie-hellman-group1-sha1']}]}]}</c>)</p>
       </item>
 
       <tag>Public key algorithms</tag>
@@ -190,12 +194,16 @@
 	  <item>hmac-sha2-256</item>
 	  <item>hmac-sha2-512</item>
 	  <item>hmac-sha1</item>
-	  <item>(hmac-sha1-96  It can be enabled with the 
-	  <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
-	  or
-	  <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
-	  options. Use for example the Option value <c>{modify_algorithms, [{append, [{mac,['hmac-sha1-96']}]}]}</c>)</item>
 	</list>
+	<p>The following unsecure <c>sha1</c> algorithm is now disabled by default:</p>
+	<list>
+	  <item>(hmac-sha1-96)</item>
+	</list>
+	<p>It can be enabled with the 
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	options.  Use for example the Option value <c>{modify_algorithms, [{append, [{mac,['hmac-sha1-96']}]}]}</c>)</p>
       </item>
 
       <tag>Encryption algorithms (ciphers)</tag>
