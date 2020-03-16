@@ -332,7 +332,7 @@
     </func>
 
     <func>
-      <name name="resolve" arity="2" since="OTP @OTP-16321@"/>
+      <name name="resolve" arity="2" since="OTP 22.3"/>
       <fsummary>Relative resolution.</fsummary>
       <desc>
         <p>Convert a <c><anno>RefURI</anno></c> reference that might be relative
@@ -353,7 +353,7 @@
     </func>
 
     <func>
-      <name name="resolve" arity="3" since="OTP @OTP-16321@"/>
+      <name name="resolve" arity="3" since="OTP 22.3"/>
       <fsummary>Relative resolution.</fsummary>
       <desc>
 	<p>Same as <c>resolve/2</c> but with an additional

@@ -39,7 +39,22 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
 
-  <section><title>Mnesia 4.16.2</title>
+  <section><title>Mnesia 4.16.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed a timing issue in uninstall fallback functionality.</p>
+          <p>
+	    Own Id: OTP-16468 Aux Id: ERL-1151 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Mnesia 4.16.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
       <list>

@@ -73,5 +73,5 @@
     {applications, [crypto, public_key, kernel, stdlib]},
     {env, []},
     {mod, {ssl_app, []}},
-    {runtime_dependencies, ["stdlib-3.5","public_key-@OTP-16528@","kernel-6.0",
+    {runtime_dependencies, ["stdlib-3.5","public_key-1.7.2","kernel-6.0",
 			    "erts-10.0","crypto-4.2", "inets-5.10.7"]}]}.

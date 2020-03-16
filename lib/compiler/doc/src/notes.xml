@@ -32,6 +32,35 @@
   <p>This document describes the changes made to the Compiler
     application.</p>
 
+<section><title>Compiler 7.5.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A '<c>receive</c>' with an '<c>after 0</c>' clause
+	    would prevent the optimization that can avoid scanning
+	    the entire receive queue when matching on a newly created
+	    reference.</p>
+          <p>
+	    Own Id: OTP-16350</p>
+        </item>
+        <item>
+	    <p>HiPE can again handle modules with <c>catch</c> and
+	    <c>try</c> constructs.</p>
+          <p>
+	    Own Id: OTP-16418</p>
+        </item>
+        <item>
+	    <p>Fixed a bug in bit-syntax optimization that could
+	    crash the compiler.</p>
+          <p>
+	    Own Id: OTP-16515</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Compiler 7.5.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

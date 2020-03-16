@@ -31,6 +31,56 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 6.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The DNS resolver `inet_res` has been fixed to return the
+	    last intermediate error when subsequent requests times
+	    out.</p>
+          <p>
+	    Own Id: OTP-16414 Aux Id: ERIERL-452 </p>
+        </item>
+        <item>
+          <p>
+	    The prim_net nif (net/kernel) made use of an undefined
+	    atom, notsup. This has now been corrected.</p>
+          <p>
+	    Own Id: OTP-16440</p>
+        </item>
+        <item>
+          <p>
+	    Fix a crash when attempting to log faults when loading
+	    files during early boot.</p>
+          <p>
+	    Own Id: OTP-16491</p>
+        </item>
+        <item>
+          <p>
+	    Fix crash in logger when logging to a remote node during
+	    boot.</p>
+          <p>
+	    Own Id: OTP-16493 Aux Id: ERIERL-459 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved <c>net_kernel</c> debug functionality.</p>
+          <p>
+	    Own Id: OTP-16458 Aux Id: PR-2525 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 6.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

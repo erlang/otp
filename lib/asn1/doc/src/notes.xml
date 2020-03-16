@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 5.0.10</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Fix 'DEFAULT' with 'OCTET STRING' and 'SEQUENCE OF
+	    CHOICE' with extensions.</p>
+          <p>
+	    Own Id: OTP-16542 Aux Id: PR-2159 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 5.0.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

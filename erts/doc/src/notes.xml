@@ -31,6 +31,175 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 10.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>gen_udp:recv(S, N, 0)</c> corrupted the internal
+	    state for the socket so after receive with <c>{active,
+	    once}</c> it always returned <c>{error, timeout}</c>, and
+	    wasted the received UDP packets. This bug has now been
+	    fixed.</p> <p>Reported and pinpointed by Alexander
+	    Petrovsky.</p>
+          <p>
+	    Own Id: OTP-16059</p>
+        </item>
+        <item>
+          <p>
+	    The atom esock_atom_user and esock_atom_kernel was never
+	    actually created. This has now been corrected.</p>
+          <p>
+	    Own Id: OTP-16381</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>socket</c> module that could potentially
+	    lead to scheduler deadlocks.</p>
+          <p>
+	    Own Id: OTP-16384</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing VM crash if <c>down</c> or <c>stop</c>
+	    callback of a NIF resource is called after the NIF module
+	    has been purged. The fix will postpone unloading until
+	    all such resource objects have been garbage collected.</p>
+          <p>
+	    Own Id: OTP-16399</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>ets:update_counter/4</c>, when called
+	    with an invalid <c>UpdateOp</c> and a <c>Key</c> that
+	    does not exist, causing <c>ets:info(T,size)</c> to return
+	    incorrect values. Bug exists since OTP-19.0.2.</p>
+          <p>
+	    Own Id: OTP-16404 Aux Id: ERL-1127 </p>
+        </item>
+        <item>
+          <p>
+	    Fix potential heap corrupting bugs when a process calls a
+	    BIF that blocks other normal schedulers and then writes
+	    to its own heap without the main process lock. A NIF
+	    running on a dirty scheduler trying to interact with such
+	    a process could corrupt its heap. The fixed BIFs were
+	    related to code loading and tracing.</p>
+          <p>
+	    Own Id: OTP-16417</p>
+        </item>
+        <item>
+          <p>
+	    Fixed bug in <c>erlang:list_to_ref/1</c> when called with
+	    a reference created by a remote note. Function
+	    <c>list_to_ref/1</c> is intended for debugging and not to
+	    be used in application programs. Bug exist since OTP
+	    20.0.</p>
+          <p>
+	    Own Id: OTP-16438</p>
+        </item>
+        <item>
+          <p>
+	    The prim_net nif (net/kernel) made use of an undefined
+	    atom, notsup. This has now been corrected.</p>
+          <p>
+	    Own Id: OTP-16440</p>
+        </item>
+        <item>
+          <p>
+	    Corrected the valid range of the <c>erl</c> command line
+	    argument <seealso marker="erts:erl#+SDio"><c>+SDio
+	    &lt;NumberOfDirtyIoSchedulers&gt;</c></seealso> from
+	    <c>0..1024</c> to <c>1..1024</c>. <c>+SDio 0</c> was
+	    erroneously allowed which just caused the VM to crash on
+	    the first dirty I/O job scheduled.</p>
+          <p>
+	    Own Id: OTP-16481</p>
+        </item>
+        <item>
+          <p>
+	    Fix a crash when attempting to log faults when loading
+	    files during early boot.</p>
+          <p>
+	    Own Id: OTP-16491</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    For <seealso marker="socket#">socket</seealso>, not all
+	    send and receive flags are supported on all platforms. In
+	    order to (at least) simplify testing, the
+	    socket:supports/0,1,2,3 functions has been extended with
+	    send_flags and recv_flags items, which indicates what the
+	    current platform can manage.</p>
+          <p>
+	    Own Id: OTP-16153</p>
+        </item>
+        <item>
+          <p>
+	    Add a "full featured" version of getifaddrs in the net
+	    module.</p>
+          <p>
+	    Own Id: OTP-16212 Aux Id: ERL-1070 </p>
+        </item>
+        <item>
+          <p>
+	    The options <c>busy_limits_port</c> and
+	    <c>busy_limits_msgq</c> have been added to the BIF
+	    <seealso
+	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seealso>.
+	    The <c>busy_limits_port</c> option can be used for
+	    controlling the busy state of a port executing the
+	    <c>spawn_driver</c> or the <c>fd_driver</c>. The
+	    <c>busy_limits_msgq</c> option can be used for
+	    controlling the busy state of the port message queue.</p>
+          <p>
+	    Own Id: OTP-16306 Aux Id: ERIERL-439 </p>
+        </item>
+        <item>
+          <p>
+	    A socket "registry" has been added making it possible to
+	    list current open sockets.</p>
+          <p>
+	    Own Id: OTP-16309</p>
+        </item>
+        <item>
+          <p>
+	    The counters managed by the socket nif has been extended.
+	    Their "size" has been increased from 32 bit to 64. Two
+	    max package size (for read and write) has been added. And
+	    four accept counters has been added.</p>
+          <p>
+	    Own Id: OTP-16387</p>
+        </item>
+        <item>
+          <p>
+	    Add gcc option <c>-fno-common</c> to detect accidental
+	    name clashes of global variables.</p>
+          <p>
+	    Own Id: OTP-16420 Aux Id: PR-2513 </p>
+        </item>
+        <item>
+          <p>
+	    New dynamic lock checker that verifies locking orders and
+	    detects potential deadlock bugs in drivers and NIFs.
+	    Enabled together with the old static lock checker (for
+	    ERTS internal locks) in emulator started with
+	    <c>-emu_type debug</c> or built with configuration option
+	    <c>--enable-lock-checking</c>.</p>
+          <p>
+	    Own Id: OTP-16427</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 10.6.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

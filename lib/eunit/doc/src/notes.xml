@@ -33,6 +33,22 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.4.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Backport of PR-2316: Strip control codes from
+	    eunit_surefire output to avoid generation of invalid xml</p>
+          <p>
+	    Own Id: OTP-16380 Aux Id: ERL-991, PR-2316, PR-2487 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.4</title>
 
     <section><title>Improvements and New Features</title>
