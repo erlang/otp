@@ -317,14 +317,15 @@ example_lookup(Name, Class, Type) ->
      end.</code>
   </section>
 
-  <section>
-    <title>Legacy Functions</title>
-    <p>These are deprecated because the annoying double
-      meaning of the name servers/time-out argument, and
-      because they have no decent place for a resolver options list.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Legacy Functions</title>
+      <p>These are deprecated because the annoying double
+        meaning of the name servers/time-out argument, and
+        because they have no decent place for a resolver options list.</p>
+    </fsdescription>
     <func>
       <name name="nslookup" arity="3" since=""/>
       <name name="nslookup" arity="4" clause_i="1" since=""/>

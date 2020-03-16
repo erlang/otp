@@ -686,16 +686,17 @@
     </func>
   </funcs>
 
-  <section>
-    <title>Process Implementation Functions</title>
-    <marker id="special_process"/>
-    <p>The following functions are used when implementing a
-      special process. This is an ordinary process, which does not use a
-      standard behavior, but a process that understands the standard system
-     messages.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Process Implementation Functions</title>
+      <marker id="special_process"/>
+      <p>The following functions are used when implementing a
+        special process. This is an ordinary process, which does not use a
+        standard behavior, but a process that understands the standard system
+       messages.</p>
+    </fsdescription>
     <func>
       <name name="debug_options" arity="1" since=""/>
       <fsummary>Convert a list of options to a debug structure.</fsummary>

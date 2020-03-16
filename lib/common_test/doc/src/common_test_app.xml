@@ -60,13 +60,14 @@
 
   </description>
 
-  <section>
-    <title>Test Case Callback Functions</title>
-    <p>The following functions define the callback interface
-      for a test suite.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Test Case Callback Functions</title>
+      <p>The following functions define the callback interface
+        for a test suite.</p>
+    </fsdescription>
     <func>
       <name since="">Module:all() -> Tests | {skip,Reason} </name>
       <fsummary>Returns the list of all test case groups and test cases

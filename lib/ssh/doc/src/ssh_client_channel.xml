@@ -224,24 +224,23 @@
     </func>
     
   </funcs>
-  
-  <section>
-    <title>Callback Functions</title>
-    <p>
-      The following functions are to be exported from a
-      <c>ssh_client_channel</c> callback module.
-    </p>
-    <marker id="cb_timeouts"></marker>
-    <section>
-      <title>Callback timeouts</title>
-      <p>The timeout values that can be returned by the callback functions
-      have the same semantics as in a <seeerl marker="stdlib:gen_server">gen_server</seeerl>.
-      If the time-out occurs, <seemfa marker="#Module:handle_msg/2">handle_msg/2</seemfa>
-      is called as <c>handle_msg(timeout, State)</c>.</p>
-    </section>
-  </section>
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>
+        The following functions are to be exported from a
+        <c>ssh_client_channel</c> callback module.
+      </p>
+      <marker id="cb_timeouts"></marker>
+      <section>
+        <title>Callback timeouts</title>
+        <p>The timeout values that can be returned by the callback functions
+        have the same semantics as in a <seeerl marker="stdlib:gen_server">gen_server</seeerl>.
+        If the time-out occurs, <seemfa marker="#Module:handle_msg/2">handle_msg/2</seemfa>
+        is called as <c>handle_msg(timeout, State)</c>.</p>
+      </section>
+    </fsdescription>
     <func>
       <name since="OTP 21.0">Module:code_change(OldVsn, State, Extra) -> {ok,
       NewState}</name>

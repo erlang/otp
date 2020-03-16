@@ -125,13 +125,14 @@
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following functions must be exported from a
-      <c>supervisor_bridge</c> callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>The following functions must be exported from a
+        <c>supervisor_bridge</c> callback module.</p>
+    </fsdescription>
     <func>
       <name since="">Module:init(Args) -> Result</name>
       <fsummary>Initialize process and start subsystem.</fsummary>

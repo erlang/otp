@@ -1059,10 +1059,11 @@ Transport: TLS
     </taglist>
   </section>
 
-  <section>
-    <title>ERLANG WEB SERVER API CALLBACK FUNCTIONS</title>
-  </section>
+ 
   <funcs>
+    <fsdescription>
+      <title>ERLANG WEB SERVER API CALLBACK FUNCTIONS</title>
+    </fsdescription>
     <func>
       <name since="">Module:do(ModData)-> {proceed, OldData} | {proceed, NewData} | {break, NewData} | done</name>
       <fsummary>Called for each request to the web server.</fsummary>
@@ -1156,10 +1157,11 @@ Transport: TLS
     </func>
   </funcs>
 
-  <section>
-    <title>ERLANG WEB SERVER API HELP FUNCTIONS</title>
-  </section>
+ 
   <funcs>
+    <fsdescription>
+      <title>ERLANG WEB SERVER API HELP FUNCTIONS</title>
+    </fsdescription>
     <func>
       <name since="">parse_query(QueryString) -> [{Key,Value}]</name>
       <fsummary>Parses incoming data to <c>erl</c> and <c>eval</c> scripts.</fsummary>

@@ -509,33 +509,34 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
   </funcs>
 
-  <section>
-    <title>Application Upgrade/Downgrade</title>
-    <p>The following functions can be used to test upgrade and downgrade
-      of single applications (instead of upgrading/downgrading an entire
-      release). A script corresponding to the instructions in the
-      <c>relup</c> file is created
-      on-the-fly, based on the <c>.appup</c> file for the application,
-      and evaluated exactly in the same way as <c>release_handler</c>
-      does.</p>
-    <warning>
-      <p>These functions are primarily intended for simplified testing
-        of <c>.appup</c> files. They are not run within the context of
-        the <c>release_handler</c> process. They must therefore
-        <em>not</em> be used together with calls to
-        <seemfa marker="#install_release/1"><c>install_release/1,2</c></seemfa>, 
-	as this causes the
-        <c>release_handler</c> to end up in an inconsistent state.</p>
-      <p>No persistent information is updated, so these functions can
-        be used on any Erlang node, embedded or not. Also, using these
-        functions does not affect which code is loaded if there is
-        a reboot.</p>
-      <p>If the upgrade or downgrade fails, the application can end up
-        in an inconsistent state.</p>
-    </warning>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Application Upgrade/Downgrade</title>
+      <p>The following functions can be used to test upgrade and downgrade
+        of single applications (instead of upgrading/downgrading an entire
+        release). A script corresponding to the instructions in the
+        <c>relup</c> file is created
+        on-the-fly, based on the <c>.appup</c> file for the application,
+        and evaluated exactly in the same way as <c>release_handler</c>
+        does.</p>
+      <warning>
+        <p>These functions are primarily intended for simplified testing
+          of <c>.appup</c> files. They are not run within the context of
+          the <c>release_handler</c> process. They must therefore
+          <em>not</em> be used together with calls to
+          <seemfa marker="#install_release/1"><c>install_release/1,2</c></seemfa>, 
+  	as this causes the
+          <c>release_handler</c> to end up in an inconsistent state.</p>
+        <p>No persistent information is updated, so these functions can
+          be used on any Erlang node, embedded or not. Also, using these
+          functions does not affect which code is loaded if there is
+          a reboot.</p>
+        <p>If the upgrade or downgrade fails, the application can end up
+          in an inconsistent state.</p>
+      </warning>
+    </fsdescription>
     <func>
       <name since="">upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
       <fsummary>Upgrades to a new application version.</fsummary>

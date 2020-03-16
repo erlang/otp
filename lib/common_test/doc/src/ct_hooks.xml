@@ -68,12 +68,13 @@
 
   </description>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following functions define the callback interface for a CTH.</p>
-  </section>
+ 
   
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>The following functions define the callback interface for a CTH.</p>
+    </fsdescription>
     <func>
       <name since="OTP R14B02">Module:init(Id, Opts) -&gt; {ok, State} | {ok, State, Priority}</name>
       <fsummary>Initiates the Common Test Hook.</fsummary>

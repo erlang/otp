@@ -665,13 +665,14 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following functions
-      are to be exported from a <c>gen_server</c> callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>The following functions
+        are to be exported from a <c>gen_server</c> callback module.</p>
+    </fsdescription>
     <func>
       <name since="">Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>

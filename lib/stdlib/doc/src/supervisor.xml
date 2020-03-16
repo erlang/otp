@@ -670,13 +670,14 @@ child_spec() = #{id => child_id(),       % mandatory
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following function must be exported from a
-      <c>supervisor</c> callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>The following function must be exported from a
+        <c>supervisor</c> callback module.</p>
+    </fsdescription>
     <func>
       <name since="">Module:init(Args) -> Result</name>
       <fsummary>Return a supervisor specification.</fsummary>

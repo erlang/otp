@@ -60,15 +60,16 @@
 
   </description>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>
-      The following functions are to be exported from a
-      <c>ssh_server_channel</c> callback module.
-    </p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>
+        The following functions are to be exported from a
+        <c>ssh_server_channel</c> callback module.
+      </p>
+    </fsdescription>
     <func>
       <name since="OTP 21.0">Module:init(Args) -> {ok, State} | {ok, State, timeout()} |
       {stop, Reason}</name>

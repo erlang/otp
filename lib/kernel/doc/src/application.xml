@@ -512,12 +512,13 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Module</title>
-    <p>The following functions are to be exported from an
-      <c>application</c> callback module.</p>
-  </section>
+ 
   <funcs>
+    <fsdescription>
+      <title>Callback Module</title>
+      <p>The following functions are to be exported from an
+        <c>application</c> callback module.</p>
+    </fsdescription>
     <func>
       <name since="">Module:start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}</name>
       <fsummary>Start an application.</fsummary>

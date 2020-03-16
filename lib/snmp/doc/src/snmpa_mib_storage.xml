@@ -86,15 +86,16 @@
 
   </description>
 
-  <section>
-    <title>CALLBACK FUNCTIONS</title>
-    <p>The following functions must be exported from a 
-    <c>mib-server</c> data callback module: </p>
-
-    <marker id="open"></marker>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>CALLBACK FUNCTIONS</title>
+      <p>The following functions must be exported from a 
+      <c>mib-server</c> data callback module: </p>
+  
+      <marker id="open"></marker>
+    </fsdescription>
     <func>
       <name since="OTP R16B01">Module:open(Name, RecordName, Fields, Type, Options) -> {ok, TabId} | {error, Reason}</name>
       <fsummary>Create new (mib-server) data instance</fsummary>

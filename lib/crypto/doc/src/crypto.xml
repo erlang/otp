@@ -701,11 +701,12 @@
   </datatypes>
 
   <!--================ FUNCTIONS ================-->
-  <section>
-    <title>New API</title>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>New API</title>
+    </fsdescription>
     <func>
       <name name="crypto_init" arity="3" since="OTP 22.0"/>
       <fsummary>Initializes a series of encryptions or decryptions</fsummary>
@@ -1106,11 +1107,12 @@
     </func>
   </funcs>
 
-  <section>
-    <title>API kept from previous versions</title>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>API kept from previous versions</title>
+    </fsdescription>
     <func>
       <name name="bytes_to_integer" arity="1" since="OTP R16B01"/>
       <fsummary>Convert binary representation, of an integer, to an Erlang integer.</fsummary>
@@ -1727,11 +1729,12 @@ FloatValue = rand:uniform().     % again
     </func>
 
   </funcs>
-    <section>
-      <title>Engine API</title>
-    </section>
+   
 
   <funcs>
+    <fsdescription>
+        <title>Engine API</title>
+      </fsdescription>
     <!-- Engine functions -->
     <func>
       <name name="privkey_to_pubkey" arity="2" since="OTP 20.2"/>
@@ -2044,11 +2047,11 @@ FloatValue = rand:uniform().     % again
 
  </funcs>
 
-<section>
-  <title>Old API</title>
-</section>
 
  <funcs>
+   <fsdescription>
+     <title>Old API</title>
+   </fsdescription>
     <func>
       <name name="block_encrypt" arity="3" since="OTP 18.0"/>
       <fsummary>Encrypt <c>PlainText</c> according to <c>Type</c> block cipher</fsummary>

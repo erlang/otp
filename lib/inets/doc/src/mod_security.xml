@@ -117,17 +117,18 @@
     </func>
   </funcs>
 
-  <section>
-    <marker id="callback_module"></marker>
-    <title>SecurityCallbackModule</title>
-    <p>The <c>SecurityCallbackModule</c> is a user-written module that can receive 
-      events from the <c>mod_security</c> Erlang web server API module. 
-      This module only exports the functions event/[4,5]
-      which are described here.
-      </p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <marker id="callback_module"></marker>
+      <title>SecurityCallbackModule</title>
+      <p>The <c>SecurityCallbackModule</c> is a user-written module that can receive 
+        events from the <c>mod_security</c> Erlang web server API module. 
+        This module only exports the functions event/[4,5]
+        which are described here.
+        </p>
+    </fsdescription>
     <func>
       <name since="OTP 18.1">Module:event(What, Port, Dir, Data) -> ignored</name>
       <name since="OTP 18.1">Module:event(What, Address, Port, Dir, Data) -> ignored</name>

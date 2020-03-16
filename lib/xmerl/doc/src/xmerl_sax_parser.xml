@@ -370,15 +370,16 @@
 
    </funcs>
 
-  <section>
-    <title>CALLBACK FUNCTIONS</title>
-    <p>
-      The callback interface is based on that the user sends a fun with the 
-      correct signature to the parser.
-   </p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>CALLBACK FUNCTIONS</title>
+      <p>
+        The callback interface is based on that the user sends a fun with the 
+        correct signature to the parser.
+     </p>
+    </fsdescription>
 
     <func>
       <name since="">Module:ContinuationFun(State) -> {NewBytes, NewState}</name>

@@ -993,7 +993,7 @@
  <xsl:template match="header"/>
 
  <!-- Section/Title -->
- <xsl:template match="section/title"/>
+ <xsl:template match="section/title|fsdescription/title"/>
 
  <xsl:template match="pagetext"/>
 
@@ -1052,7 +1052,7 @@
   </xsl:template>
 
   <!-- *ref/Section -->
-  <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section">
+  <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section|funcs/fsdescription">
     <xsl:param name="chapnum"/>
     <h3>
       <xsl:for-each select="marker">
@@ -2158,14 +2158,18 @@
   <xsl:template match="funcs">
     <xsl:param name="partnum"/>
 
+    <xsl:apply-templates select="fsdescription">
+      <xsl:with-param name="partnum" select="$partnum"/>
+    </xsl:apply-templates>
+
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Exports</xsl:with-param>
     </xsl:call-template>
 
     <div class="exports-body">
-        <xsl:apply-templates>
-            <xsl:with-param name="partnum" select="$partnum"/>
-        </xsl:apply-templates>
+      <xsl:apply-templates select="func">
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
     </div>
 
   </xsl:template>

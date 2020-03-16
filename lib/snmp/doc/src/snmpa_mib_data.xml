@@ -98,15 +98,16 @@
 
   </description>
 
-  <section>
-    <title>CALLBACK FUNCTIONS</title>
-    <p>The following functions must be exported from a 
-    <c>mib-server</c> data callback module: </p>
-
-    <marker id="new"></marker>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>CALLBACK FUNCTIONS</title>
+      <p>The following functions must be exported from a 
+      <c>mib-server</c> data callback module: </p>
+  
+      <marker id="new"></marker>
+    </fsdescription>
     <func>
       <name since="OTP R16B01">Module:new(Storage) -> State</name>
       <fsummary>Create new (mib-server) data instance</fsummary>

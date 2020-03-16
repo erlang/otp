@@ -334,11 +334,12 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       level.</p>
   </section>
 
-  <section>
-    <marker id="logging_API"/>
-    <title>Logging API functions</title>
-  </section>
+ 
   <funcs>
+    <fsdescription>
+      <marker id="logging_API"/>
+      <title>Logging API functions</title>
+    </fsdescription>
     <func>
       <name since="OTP 21.0">emergency(StringOrReport[,Metadata])</name>
       <name since="OTP 21.0">emergency(Format,Args[,Metadata])</name>
@@ -448,11 +449,12 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
     </func>
   </funcs>
 
-  <section>
-    <marker id="configuration_API"/>
-    <title>Configuration API functions</title>
-  </section>
+ 
   <funcs>
+    <fsdescription>
+      <marker id="configuration_API"/>
+      <title>Configuration API functions</title>
+    </fsdescription>
     <func>
       <name name="add_handler" arity="3" since="OTP 21.0"/>
       <fsummary>Add a handler with the given configuration.</fsummary>
@@ -1081,11 +1083,12 @@ logger:set_proxy_config(maps:merge(Old, Config)).
     </func>
   </funcs>
 
-  <section>
-    <marker id="misc_API"/>
-    <title>Miscellaneous API functions</title>
-  </section>
+ 
   <funcs>
+    <fsdescription>
+      <marker id="misc_API"/>
+      <title>Miscellaneous API functions</title>
+    </fsdescription>
     <func>
       <name name="compare_levels" arity="2" since="OTP 21.0"/>
       <fsummary>Compare the severity of two log levels.</fsummary>
@@ -1137,14 +1140,15 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 
   </funcs>
 
-  <section>
-    <marker id="handler_callback_functions"/>
-    <title>Handler Callback Functions</title>
-    <p>The following functions are to be exported from a handler
-      callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <marker id="handler_callback_functions"/>
+      <title>Handler Callback Functions</title>
+      <p>The following functions are to be exported from a handler
+        callback module.</p>
+    </fsdescription>
     <func>
       <name since="OTP 21.0">HModule:adding_handler(Config1) -> {ok, Config2} | {error,
 	Reason}</name>
@@ -1272,14 +1276,15 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 
   </funcs>
 
-  <section>
-    <marker id="formatter_callback_functions"/>
-    <title>Formatter Callback Functions</title>
-    <p>The following functions are to be exported from a formatter
-      callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <marker id="formatter_callback_functions"/>
+      <title>Formatter Callback Functions</title>
+      <p>The following functions are to be exported from a formatter
+        callback module.</p>
+    </fsdescription>
     <func>
       <name since="OTP 21.0">FModule:check_config(FConfig) -> ok | {error, Reason}</name>
       <fsummary>Validate the given formatter configuration.</fsummary>

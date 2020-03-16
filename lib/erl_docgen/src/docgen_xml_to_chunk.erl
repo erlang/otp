@@ -474,6 +474,8 @@ transform_funcs([Func|T],Acc) ->
 transform_funcs([],Acc) ->
     lists:reverse(Acc).
 
+func2func({fsdescription,_Attr,_Contents}) ->
+    [];
 func2func({func,Attr,Contents}) ->
 
     ContentsNoName = [NC||NC <- Contents, element(1,NC) /= name],

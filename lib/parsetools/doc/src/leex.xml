@@ -139,12 +139,13 @@ Token = tuple()</code>
   </funcs>
   
 
-  <section>
-    <title>GENERATED SCANNER EXPORTS</title>
-    <p>The following functions are exported by the generated scanner.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>GENERATED SCANNER EXPORTS</title>
+      <p>The following functions are exported by the generated scanner.</p>
+    </fsdescription>
     <func>
       <name since="">Module:string(String) -> StringRet</name>
       <name since="">Module:string(String, StartLine) -> StringRet</name>

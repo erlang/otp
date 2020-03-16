@@ -115,11 +115,12 @@
    </func>
  </funcs>
   
- <section>
-   <title>ESI Callback Functions</title>
- </section>
+
 
  <funcs>
+    <fsdescription>
+     <title>ESI Callback Functions</title>
+   </fsdescription>
    <func>
      <name since="">Module:Function(SessionID, Env, Input)-> {continue, State} | _ </name>
      <fsummary>Creates a dynamic web page and returns it chunk by chunk 

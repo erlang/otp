@@ -632,22 +632,23 @@ ÖÄÅ</pre>
 
   </funcs>
 
-  <section>
-    <marker id="oldapi"/>
-    <title>Obsolete API functions</title>
-    <p>Here follows the function of the old API.
-    These functions only work on a list of Latin-1 characters.
-    </p>
-    <note><p>
-      The functions are kept for backward compatibility, but are
-      not recommended.
-      They will be deprecated in a future release.
-    </p>
-    <p>Any undocumented functions in <c>string</c> are not to be used.</p>
-    </note>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <marker id="oldapi"/>
+      <title>Obsolete API functions</title>
+      <p>Here follows the function of the old API.
+      These functions only work on a list of Latin-1 characters.
+      </p>
+      <note><p>
+        The functions are kept for backward compatibility, but are
+        not recommended.
+        They will be deprecated in a future release.
+      </p>
+      <p>Any undocumented functions in <c>string</c> are not to be used.</p>
+      </note>
+    </fsdescription>
     <func>
       <name name="centre" arity="2" since=""/>
       <name name="centre" arity="3" since=""/>
