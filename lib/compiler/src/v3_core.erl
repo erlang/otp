@@ -1257,8 +1257,8 @@ lc_tq(Line, E, [#igen{anno=#a{anno=GA}=GAnno,
     LAnno = #a{anno=LA},
     F = #c_var{anno=LA,name={Name,1}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail]},
-    {Var,St2} = new_var(St1),
-    Fc = function_clause([Var], GA),
+    {[FcVar,Var],St2} = new_vars(2, St1),
+    Fc = function_clause([FcVar], GA),
     TailClause = #iclause{anno=LAnno,pats=[TailPat],guard=[],body=[Mc]},
     Cs0 = case {AccPat,AccGuard} of
               {SkipPat,[]} ->
@@ -1316,10 +1316,11 @@ bc_tq1(Line, E, [#igen{anno=GAnno,
     {Name,St1} = new_fun_name("lbc", St0),
     LA = lineno_anno(Line, St1),
     LAnno = #a{anno=LA},
-    {Vars=[_,AccVar],St2} = new_vars(LA, 2, St1),
+    {[_,AccVar]=Vars,St2} = new_vars(LA, 2, St1),
+    {[_,_]=FcVars,St3} = new_vars(LA, 2, St2),
     F = #c_var{anno=LA,name={Name,2}},
     Nc = #iapply{anno=GAnno,op=F,args=[Tail,AccVar]},
-    Fc = function_clause(Vars, LA),
+    Fc = function_clause(FcVars, LA),
     TailClause = #iclause{anno=LAnno,pats=[TailPat,AccVar],guard=[],
                           body=[AccVar]},
     Cs0 = case {AccPat,AccGuard} of
@@ -1332,23 +1333,23 @@ bc_tq1(Line, E, [#igen{anno=GAnno,
                             pats=[SkipPat,AccVar],guard=[],body=[Nc]},
                    TailClause]
           end,
-    {Cs,St4} = case AccPat of
-                   nomatch ->
-                       %% The accumulator pattern never matches, no need
-                       %% for an accumulator clause.
-                       {Cs0,St2};
-                   _ ->
-                       {Bc,Bps,St3} = bc_tq1(Line, E, Qs, AccVar, St2),
-                       Body = Bps ++ [#iset{var=AccVar,arg=Bc},Nc],
-                       {[#iclause{anno=LAnno,
-                                  pats=[AccPat,AccVar],guard=AccGuard,
-                                  body=Body}|Cs0],
-                        St3}
-               end,
+    {Cs,St} = case AccPat of
+                  nomatch ->
+                      %% The accumulator pattern never matches, no need
+                      %% for an accumulator clause.
+                      {Cs0,St3};
+                  _ ->
+                      {Bc,Bps,St4} = bc_tq1(Line, E, Qs, AccVar, St3),
+                      Body = Bps ++ [#iset{var=AccVar,arg=Bc},Nc],
+                      {[#iclause{anno=LAnno,
+                                 pats=[AccPat,AccVar],guard=AccGuard,
+                                 body=Body}|Cs0],
+                       St4}
+              end,
     Fun = #ifun{anno=LAnno,id=[],vars=Vars,clauses=Cs,fc=Fc},
     {#iletrec{anno=LAnno#a{anno=[list_comprehension|LA]},defs=[{{Name,2},Fun}],
               body=Pre ++ [#iapply{anno=LAnno,op=F,args=[Arg,Mc]}]},
-     [],St4};
+     [],St};
 bc_tq1(Line, E, [#ifilter{}=Filter|Qs], Mc, St) ->
     filter_tq(Line, E, Filter, Mc, St, Qs, fun bc_tq1/5);
 bc_tq1(_, {bin,Bl,Elements}, [], AccVar, St0) ->
@@ -2187,6 +2188,35 @@ annotate_cons(A, H, T, #core{dialyzer=Dialyzer}) ->
 
 ubody(B, St) -> uexpr(B, [], St).
 
+%% ufun_clauses([Lclause], [KnownVar], State) -> {[Lclause],State}.
+
+ufun_clauses(Lcs, Ks, St0) ->
+    mapfoldl(fun (Lc, St) -> ufun_clause(Lc, Ks, St) end, St0, Lcs).
+
+%% ufun_clause(Lclause, [KnownVar], State) -> {Lclause,State}.
+
+ufun_clause(Cl0, Ks, St0) ->
+    %% Since variables in fun heads shadow previous variables
+    %% with the same name, we used to send an empty list as the
+    %% known variables when doing liveness analysis of the patterns
+    %% (in the upattern functions).
+    %%
+    %% With the introduction of expressions in size for binary
+    %% segments and in map keys, all known variables must be
+    %% available when analysing those expressions, or some variables
+    %% might not be seen as used if, for example, the expression includes
+    %% a case construct.
+    %%
+    %% Therefore, we will send in the complete list of known variables
+    %% when doing liveness analysis of patterns. This is
+    %% safe because any shadowing variables in a fun head has
+    %% been renamed.
+
+    {Cl1,Pvs,Used,_,St1} = do_uclause(Cl0, Ks, St0),
+    A0 = get_anno(Cl1),
+    A = A0#a{us=subtract(Used, Pvs),ns=[]},
+    {Cl1#iclause{anno=A},St1}.
+
 %% uclauses([Lclause], [KnownVar], State) -> {[Lclause],State}.
 
 uclauses(Lcs, Ks, St0) ->
@@ -2195,13 +2225,13 @@ uclauses(Lcs, Ks, St0) ->
 %% uclause(Lclause, [KnownVar], State) -> {Lclause,State}.
 
 uclause(Cl0, Ks, St0) ->
-    {Cl1,_Pvs,Used,New,St1} = uclause(Cl0, Ks, Ks, St0),
+    {Cl1,_Pvs,Used,New,St1} = do_uclause(Cl0, Ks, St0),
     A0 = get_anno(Cl1),
     A = A0#a{us=Used,ns=New},
     {Cl1#iclause{anno=A},St1}.
 
-uclause(#iclause{anno=Anno,pats=Ps0,guard=G0,body=B0}, Pks, Ks0, St0) ->
-    {Ps1,Pg,Pvs,Pus,St1} = upattern_list(Ps0, Pks, St0),
+do_uclause(#iclause{anno=Anno,pats=Ps0,guard=G0,body=B0}, Ks0, St0) ->
+    {Ps1,Pg,Pvs,Pus,St1} = upattern_list(Ps0, Ks0, St0),
     Pu = union(Pus, intersection(Pvs, Ks0)),
     Pn = subtract(Pvs, Pu),
     Ks1 = union(Pn, Ks0),
@@ -2385,19 +2415,6 @@ uexpr(Simple, _, St) ->
 
 uexpr_list(Les0, Ks, St0) ->
     mapfoldl(fun (Le, St) -> uexpr(Le, Ks, St) end, St0, Les0).
-
-%% ufun_clauses([Lclause], [KnownVar], State) -> {[Lclause],State}.
-
-ufun_clauses(Lcs, Ks, St0) ->
-    mapfoldl(fun (Lc, St) -> ufun_clause(Lc, Ks, St) end, St0, Lcs).
-
-%% ufun_clause(Lclause, [KnownVar], State) -> {Lclause,State}.
-
-ufun_clause(Cl0, Ks, St0) ->
-    {Cl1,Pvs,Used,_,St1} = uclause(Cl0, [], Ks, St0),
-    A0 = get_anno(Cl1),
-    A = A0#a{us=subtract(intersection(Used, Ks), Pvs),ns=[]},
-    {Cl1#iclause{anno=A},St1}.
 
 %% upattern(Pat, [KnownVar], State) ->
 %%              {Pat,[GuardTest],[NewVar],[UsedVar],State}.
