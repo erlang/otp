@@ -631,9 +631,9 @@ in so far as it will be converted to the new format if found.
           The information will have a <em>best before</em> time,
           defined by the <c>Expire</c> time given when calling the
           request function (see 
-          <seealso marker="snmpm#async_get">async_get</seealso>,
-          <seealso marker="snmpm#async_get_next">async_get_next</seealso> and 
-          <seealso marker="snmpm#async_set">async_set</seealso>).</p>
+          <seealso marker="snmpm#async_get2">async_get</seealso>,
+          <seealso marker="snmpm#async_get_next2">async_get_next</seealso> and 
+          <seealso marker="snmpm#async_set2">async_set</seealso>).</p>
         <p>Time in milli-seconds.</p>
         <p>Default is <c>30000</c>.</p>
       </item>

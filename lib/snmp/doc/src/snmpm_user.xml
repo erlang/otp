@@ -195,9 +195,9 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
       </type>
       <desc>
         <p>Handle the reply to an asynchronous request, such as 
-          <seealso marker="snmpm#async_get">async_get</seealso>, 
-          <seealso marker="snmpm#async_get_next">async_get_next</seealso> or 
-          <seealso marker="snmpm#async_set">async_set</seealso>.</p>
+          <seealso marker="snmpm#async_get2">async_get</seealso>, 
+          <seealso marker="snmpm#async_get_next2">async_get_next</seealso> or 
+          <seealso marker="snmpm#async_set2">async_set</seealso>.</p>
         <p>It could also be a late reply to a synchronous request.</p>
         <p><c>ReqId</c> is returned by the asynchronous request function.</p>
 
