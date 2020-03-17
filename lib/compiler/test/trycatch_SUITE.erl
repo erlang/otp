@@ -1051,7 +1051,33 @@ grab_bag(_Config) ->
     %% Unnecessary catch.
     22 = (catch 22),
 
+    fun() ->
+            F = grab_bag_1(any),
+            true = is_function(F, 1)
+    end(),
+
     ok.
+
+grab_bag_1(V) ->
+    %% V will be stored in y0.
+    try
+        receive
+        after 0 ->
+                %% y0 will be re-used for the catch tag.
+                %% This is safe, because there are no instructions
+                %% that can raise an exception.
+                catch 22
+        end,
+        %% beam_validator incorrectly assumed that the make_fun2
+        %% instruction could raise an exception and end up at
+        %% the catch part of the try.
+        fun id/1
+    catch
+        %% Never reached, because nothing in the try body raises any
+        %% exception.
+        _:V ->
+            ok
+    end.
 
 stacktrace(_Config) ->
     V = [make_ref()|self()],

@@ -644,12 +644,8 @@ vi({make_fun2,{f,Lbl},_,_,NumFree}, #vst{ft=Ft}=Vst0) ->
     Vst = prune_x_regs(NumFree, Vst0),
     verify_call_args(make_fun, NumFree, Vst),
     verify_y_init(Vst),
-
-    branch(?EXCEPTION_LABEL, Vst,
-           fun(SuccVst) ->
-                   Type = #t_fun{arity=Arity},
-                   create_term(Type, make_fun, [], {x,0}, SuccVst)
-           end);
+    Type = #t_fun{arity=Arity},
+    create_term(Type, make_fun, [], {x,0}, Vst);
 vi(return, Vst) ->
     assert_durable_term({x,0}, Vst),
     verify_return(Vst);
