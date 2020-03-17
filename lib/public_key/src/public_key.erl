@@ -293,6 +293,12 @@ der_priv_key_decode({'PrivateKeyInfo', v1,
 	{'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', _}, PrivKey, _}) ->
 	der_decode('RSAPrivateKey', PrivKey);
 der_priv_key_decode({'PrivateKeyInfo', v1,
+                     {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS', 
+                      {asn1_OPENTYPE, Parameters}}, PrivKey, _}) ->
+    Key = der_decode('RSAPrivateKey', PrivKey),
+    Params = der_decode('RSASSA-PSS-params', Parameters),
+    {Key, Params};
+der_priv_key_decode({'PrivateKeyInfo', v1,
 	{'PrivateKeyInfo_privateKeyAlgorithm', ?'id-dsa', {asn1_OPENTYPE, Parameters}}, PrivKey, _}) ->
 	{params, #'Dss-Parms'{p=P, q=Q, g=G}} = der_decode('DSAParams', Parameters),
 	X = der_decode('Prime-p', PrivKey),
@@ -307,34 +313,40 @@ der_priv_key_decode(PKCS8Key) ->
 %%
 %% Description: Encodes a public key entity with asn1 DER encoding.
 %%--------------------------------------------------------------------
-
 der_encode('PrivateKeyInfo', #'DSAPrivateKey'{p=P, q=Q, g=G, x=X}) ->
     der_encode('PrivateKeyInfo',
-	{'PrivateKeyInfo', v1,
-	    {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-dsa',
-		{asn1_OPENTYPE, der_encode('Dss-Parms', #'Dss-Parms'{p=P, q=Q, g=G})}},
+               {'PrivateKeyInfo', v1,
+                {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-dsa',
+                 {asn1_OPENTYPE, der_encode('Dss-Parms', #'Dss-Parms'{p=P, q=Q, g=G})}},
 		der_encode('Prime-p', X), asn1_NOVALUE});
 der_encode('PrivateKeyInfo', #'RSAPrivateKey'{} = PrivKey) ->
     der_encode('PrivateKeyInfo',
-	{'PrivateKeyInfo', v1,
-	    {'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', {asn1_OPENTYPE, ?DER_NULL}},
-		der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
+               {'PrivateKeyInfo', v1,
+                {'PrivateKeyInfo_privateKeyAlgorithm', ?'rsaEncryption', 
+                 {asn1_OPENTYPE, ?DER_NULL}},
+                der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
+der_encode('PrivateKeyInfo', {#'RSAPrivateKey'{} = PrivKey, Parameters}) ->
+    der_encode('PrivateKeyInfo',
+               {'PrivateKeyInfo', v1,
+                {'PrivateKeyInfo_privateKeyAlgorithm', ?'id-RSASSA-PSS', 
+                 {asn1_OPENTYPE, der_encode('RSASSA-PSS-params', Parameters)}},
+                der_encode('RSAPrivateKey', PrivKey), asn1_NOVALUE});
 der_encode('PrivateKeyInfo', #'ECPrivateKey'{parameters = Parameters} = PrivKey) ->
     der_encode('PrivateKeyInfo',
-	    {'PrivateKeyInfo', v1,
+               {'PrivateKeyInfo', v1,
 		{'PrivateKeyInfo_privateKeyAlgorithm', ?'id-ecPublicKey',
-		{asn1_OPENTYPE, der_encode('EcpkParameters', Parameters)}},
-	der_encode('ECPrivateKey', PrivKey#'ECPrivateKey'{parameters = asn1_NOVALUE}), asn1_NOVALUE});
+                 {asn1_OPENTYPE, der_encode('EcpkParameters', Parameters)}},
+                der_encode('ECPrivateKey', PrivKey#'ECPrivateKey'{parameters = asn1_NOVALUE}), 
+                asn1_NOVALUE});
 der_encode(Asn1Type, Entity) when (Asn1Type == 'PrivateKeyInfo') or
 				  (Asn1Type == 'EncryptedPrivateKeyInfo') ->
      try
-	{ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
-	Encoded
-    catch
+         {ok, Encoded} = 'PKCS-FRAME':encode(Asn1Type, Entity),
+         Encoded
+     catch
 	error:{badmatch, {error, _}} = Error ->
-	    erlang:error(Error)
-    end;
-
+             erlang:error(Error)
+     end;
 der_encode(Asn1Type, Entity) when is_atom(Asn1Type) ->
     try 
 	{ok, Encoded} = 'OTP-PUB-KEY':encode(Asn1Type, Entity),

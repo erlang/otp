@@ -56,7 +56,7 @@ all() ->
     ].
 
 groups() -> 
-    [{pem_decode_encode, [], [dsa_pem, rsa_pem, ec_pem, encrypted_pem,
+    [{pem_decode_encode, [], [dsa_pem, rsa_pem, rsa_pss_pss_pem, ec_pem, encrypted_pem,
 			      dh_pem, cert_pem, pkcs7_pem, pkcs10_pem, ec_pem2,
 			      rsa_priv_pkcs8, dsa_priv_pkcs8, ec_priv_pkcs8,
                               ec_pem_encode_generated,
@@ -203,6 +203,19 @@ rsa_pem(Config) when is_list(Config) ->
     RSAPubKey = public_key:pem_entry_decode(PubEntry1),
     RSARawPemNoEndNewLines = strip_superfluous_newlines(RSARawPem),
     RSARawPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PubEntry1])).
+
+rsa_pss_pss_pem() ->
+    [{doc, "RSA PKCS8 RSASSA-PSS private key decode/encode"}].
+rsa_pss_pss_pem(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+    {ok, RsaPem} = file:read_file(filename:join(Datadir, "rsa_pss_pss_key.pem")),
+    [{'PrivateKeyInfo', DerRSAKey, not_encrypted} = Entry0 ] = public_key:pem_decode(RsaPem),
+    {RSAKey, Parms} = public_key:der_decode('PrivateKeyInfo', DerRSAKey),
+    {RSAKey, Parms} = public_key:pem_entry_decode(Entry0),
+    true = check_entry_type(RSAKey, 'RSAPrivateKey'),
+    PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', {RSAKey, Parms}),
+    RSAPemNoEndNewLines = strip_superfluous_newlines(RsaPem),
+    RSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
 
 rsa_priv_pkcs8() ->
     [{doc, "RSA PKCS8 private key decode/encode"}].
