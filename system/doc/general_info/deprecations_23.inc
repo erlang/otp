@@ -17,6 +17,14 @@
     </section>
 
     <section>
+	<title>ssh</title>
+	<p>The public key algorithm <c>'ssh-rsa</c> is regarded as insecure due
+	to its usage of SHA1, and is therfore deprecated.
+	It will not be available by default from OTP-24.
+	</p>
+    </section>
+
+    <section>
       <title>pg2</title>
       <p>
 	As of OTP 23, a new process group implementation
