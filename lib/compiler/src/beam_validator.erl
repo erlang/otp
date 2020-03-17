@@ -828,9 +828,8 @@ vi({test,bs_start_match3,{f,_}=Fail,Live,[Src],Dst}, Vst) ->
     validate_bs_start_match(Fail, Live, 0, Src, Dst, Vst);
 vi({test,bs_start_match2,{f,_}=Fail,Live,[Src,Slots],Dst}, Vst) ->
     validate_bs_start_match(Fail, Live, Slots, Src, Dst, Vst);
-vi({test,bs_match_string,{f,Fail},[Ctx,Rem,{string,String}]}, Vst) ->
+vi({test,bs_match_string,{f,Fail},[Ctx,Stride,{string,String}]}, Vst) ->
     true = is_bitstring(String),                %Assertion.
-    Stride = bit_size(String) + Rem,
     validate_bs_skip(Fail, Ctx, Stride, Vst);
 vi({test,bs_skip_bits2,{f,Fail},[Ctx,Size,Unit,_Flags]}, Vst) ->
     assert_term(Size, Vst),

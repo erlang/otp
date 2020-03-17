@@ -1167,10 +1167,17 @@ cg_block([#cg_set{anno=Anno,
 cg_block([#cg_set{op=bs_get}=Set,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     {cg_bs_get(Fail, Set, St),St};
-cg_block([#cg_set{op=bs_match_string,args=[CtxVar,#b_literal{val=String}]},
+cg_block([#cg_set{op=bs_match_string,args=[CtxVar,#b_literal{val=String0}]},
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     CtxReg = beam_arg(CtxVar, St),
-    Is = [{test,bs_match_string,Fail,[CtxReg,String]}],
+
+    Bits = bit_size(String0),
+    String = case Bits rem 8 of
+                 0 -> String0;
+                 Rem -> <<String0/bitstring,0:(8-Rem)>>
+             end,
+
+    Is = [{test,bs_match_string,Fail,[CtxReg,Bits,{string,String}]}],
     {Is,St};
 cg_block([#cg_set{dst=Dst0,op=landingpad,args=Args0}|T], Context, St0) ->
     [Dst,{atom,Kind},Tag] = beam_args([Dst0|Args0], St0),
