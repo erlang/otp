@@ -117,6 +117,12 @@ default_algorithms(mac) ->
                                     'hmac-sha1-96'
                                    ]));
 
+default_algorithms(public_key) ->
+    supported_algorithms(public_key, [
+                                      %% Gone in OpenSSH 7.3.p1:
+                                      'ssh-dss'
+                                     ]);
+
 default_algorithms(Alg) ->
     supported_algorithms(Alg, []).
 
@@ -152,8 +158,8 @@ supported_algorithms(public_key) ->
        {'ssh-ed448',            [{public_keys,eddsa}, {curves,ed448}                      ]},
        {'rsa-sha2-256',         [{public_keys,rsa},   {hashs,sha256}                      ]},
        {'rsa-sha2-512',         [{public_keys,rsa},   {hashs,sha512}                      ]},
-       {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]}, % Gone in OpenSSH 7.3.p1
-       {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]}
+       {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
+       {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]} % Gone in OpenSSH 7.3.p1
       ]);
  
 supported_algorithms(cipher) ->

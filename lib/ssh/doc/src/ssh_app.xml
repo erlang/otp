@@ -184,8 +184,16 @@
 	  <item>rsa-sha2-256</item>
 	  <item>rsa-sha2-512</item>
 	  <item>ssh-rsa</item>
-	  <item>ssh-dss</item>
 	</list>
+	<p>The following unsecure <c>sha1</c> algorithm is now disabled by default:</p>
+	<list>
+	  <item>(ssh-dss)</item>
+	</list>
+	<p>It can be enabled with the 
+	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	or
+	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	options.  Use for example the Option value <c>{modify_algorithms, [{append, [{public_key,['ssh-dss']}]}]}</c>)</p>
       </item>
 
       <tag>MAC algorithms</tag>

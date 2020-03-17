@@ -22,6 +22,11 @@
 	to its usage of SHA1, and is therfore deprecated.
 	It will not be available by default from OTP-24.
 	</p>
+
+	<p>The public key algorithm <c>'ssh-dss</c> is regarded as insecure due
+	to its usage of SHA1 and its short key length, and is therfore deprecated.
+	It is not available by default from OTP-23.
+	</p>
     </section>
 
     <section>
