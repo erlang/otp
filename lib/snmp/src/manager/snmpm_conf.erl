@@ -337,7 +337,7 @@ do_write_usm_conf(
   {EngineID, UserName, SecName,
    AuthP, AuthKey, PrivP, PrivKey}) ->
     io:format(
-      Fd, "{\"~s\", \"~s\", \"~s\", í~w, ~w, ~w, ~w}.~n",
+      Fd, "{\"~s\", \"~s\", \"~s\", ~w, ~w, ~w, ~w}.~n",
       [EngineID, UserName, SecName, AuthP, AuthKey, PrivP, PrivKey]);
 do_write_usm_conf(_Fd, Crap) ->
     error({bad_usm_conf, Crap}).
