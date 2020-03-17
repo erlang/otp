@@ -31,6 +31,7 @@
 -include("ssl_connection.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
+-include("tls_record_1_3.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Encode
@@ -644,7 +645,7 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
                                          port = Port,
                                          transport_cb = Transport,
                                          socket = Socket},
-                handshake_env = #handshake_env{renegotiation = {Renegotiation, _}} = HsEnv,
+                handshake_env = #handshake_env{renegotiation = {Renegotiation, _}},
                 connection_env = #connection_env{negotiated_version = NegotiatedVersion},
                 ssl_options = #{ciphers := ClientCiphers,
                                 supported_groups := ClientGroups0,
@@ -697,13 +698,18 @@ do_start(#server_hello{cipher_suite = SelectedCipherSuite,
         %% Update pre_shared_key extension with binders (TLS 1.3)
         Hello = tls_handshake_1_3:maybe_add_binders(Hello0, HHistory0, TicketData, NegotiatedVersion),
 
-        {BinMsg, ConnectionStates, HHistory} =
+        {BinMsg0, ConnectionStates, HHistory} =
             tls_connection:encode_handshake(Hello,  NegotiatedVersion, ConnectionStates0, HHistory0),
+
+        %% D.4.  Middlebox Compatibility Mode
+        {#state{handshake_env = HsEnv} = State3, BinMsg} =
+            maybe_prepend_change_cipher_spec(State2, BinMsg0),
+
         tls_socket:send(Transport, Socket, BinMsg),
         ssl_logger:debug(LogLevel, outbound, 'handshake', Hello),
         ssl_logger:debug(LogLevel, outbound, 'record', BinMsg),
 
-        State = State2#state{
+        State = State3#state{
                   connection_states = ConnectionStates,
                   session = Session0#session{session_id = Hello#client_hello.session_id},
                   handshake_env = HsEnv#handshake_env{tls_handshake_history = HHistory},
@@ -831,23 +837,26 @@ do_wait_finished(#finished{verify_data = VerifyData},
     try
         Maybe(validate_finished(State0, VerifyData)),
 
-        %% Maybe send Certificate + CertificateVerify
-        State1 = Maybe(maybe_queue_cert_cert_cv(State0)),
+        %% D.4.  Middlebox Compatibility Mode
+        State1 = maybe_queue_change_cipher_spec(State0),
 
-        Finished = finished(State1),
+        %% Maybe send Certificate + CertificateVerify
+        State2 = Maybe(maybe_queue_cert_cert_cv(State1)),
+
+        Finished = finished(State2),
 
         %% Encode Finished
-        State2 = tls_connection:queue_handshake(Finished, State1),
+        State3 = tls_connection:queue_handshake(Finished, State2),
 
         %% Send first flight
-        {State3, _} = tls_connection:send_handshake_flight(State2),
+        {State4, _} = tls_connection:send_handshake_flight(State3),
 
-        State4 = calculate_traffic_secrets(State3),
-        State5 = maybe_calculate_resumption_master_secret(State4),
-        State6 = forget_master_secret(State5),
+        State5 = calculate_traffic_secrets(State4),
+        State6 = maybe_calculate_resumption_master_secret(State5),
+        State7 = forget_master_secret(State6),
 
         %% Configure traffic keys
-        ssl_record:step_encryption_state(State6)
+        ssl_record:step_encryption_state(State7)
 
     catch
         {Ref, #alert{} = Alert} ->
@@ -985,6 +994,37 @@ handle_resumption(#state{handshake_env = HSEnv0} = State, _) ->
     HSEnv = HSEnv0#handshake_env{resumption = true},
     State#state{handshake_env = HSEnv}.
 
+%% @doc Enqueues a change_cipher_spec record as the first message of
+%%      the current flight buffer
+%% @end
+maybe_queue_change_cipher_spec(#state{flight_buffer = FlightBuffer0} = State0) ->
+    %%CCSBin = create_change_cipher_spec(State0),
+    {State, FlightBuffer} = maybe_prepend_change_cipher_spec(State0, FlightBuffer0),
+    State#state{flight_buffer = FlightBuffer}.
+
+%% @doc Prepends a change_cipher_spec record to the input binary
+%%
+%%      It can only prepend the change_cipher_spec record only once in
+%%      order to accurately emulate a legacy TLS 1.2 connection.
+%%
+%%      D.4.  Middlebox Compatibility Mode
+%%      If not offering early data, the client sends a dummy
+%%      change_cipher_spec record (see the third paragraph of Section 5)
+%%      immediately before its second flight.  This may either be before
+%%      its second ClientHello or before its encrypted handshake flight.
+%%      If offering early data, the record is placed immediately after the
+%%      first ClientHello.
+%% @end
+maybe_prepend_change_cipher_spec(#state{
+                                    handshake_env =
+                                        #handshake_env{
+                                           change_cipher_spec_sent = false} = HSEnv} = State, Bin) ->
+    CCSBin = create_change_cipher_spec(State),
+    {State#state{handshake_env =
+                     HSEnv#handshake_env{change_cipher_spec_sent = true}},
+     [CCSBin|Bin]};
+maybe_prepend_change_cipher_spec(State, Bin) ->
+    {State, Bin}.
 
 maybe_queue_cert_cert_cv(#state{client_certificate_requested = false} = State) ->
     {ok, State};
@@ -1152,6 +1192,25 @@ maybe_send_session_ticket(#state{connection_states = ConnectionStates,
     Ticket = tls_server_session_ticket:new(Tracker, HKDF, RMS),
     {State, _} = tls_connection:send_handshake(Ticket, State0),
     maybe_send_session_ticket(State, N - 1).
+
+create_change_cipher_spec(#state{ssl_options = #{log_level := LogLevel}}) ->
+    %% Dummy connection_states with NULL cipher
+    ConnectionStates =
+        #{current_write =>
+              #{compression_state => undefined,
+                cipher_state => undefined,
+                sequence_number => 1,
+                security_parameters =>
+                    #security_parameters{
+                       bulk_cipher_algorithm = 0,
+                       compression_algorithm = ?NULL,
+                       mac_algorithm = ?NULL
+                      },
+                mac_secret => undefined}},
+    {BinChangeCipher, _} =
+        tls_record:encode_change_cipher_spec(?LEGACY_VERSION, ConnectionStates),
+    ssl_logger:debug(LogLevel, outbound, 'record', BinChangeCipher),
+    [BinChangeCipher].
 
 process_certificate_request(#certificate_request_1_3{},
                             #state{session = #session{own_certificate = undefined}} = State) ->
