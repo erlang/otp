@@ -26,7 +26,7 @@
 %% The origin of this file is the edoc module otpsgml_layout.erl
 %% written by Richard Carlsson and Kenneth Lundin.
 
--export([module/2, overview/2]).
+-export([module/2, overview/2, makesee/1]).
 
 -include("xmerl.hrl").
 
@@ -50,6 +50,7 @@ overview(Element, Opts) ->
 %%--Internal functions--------------------------------------------------
 
 layout_module(#xmlElement{name = module, content = Es}=E, SortP) ->
+    put(type, module),
     Name = get_attrval(name, E),
     Desc = get_content(description, Es),
     ShortDesc = text_only(get_content(briefDescription, Desc)),
@@ -120,6 +121,7 @@ reformat_encoding(List) when is_list(List) ->
 reformat_encoding(Other) -> Other.
 
 layout_chapter(#xmlElement{name=overview, content=Es}) ->
+    put(type, chapter),
     Title = get_text(title, Es),
     Header = {header, [
 		       ?NL,{title,[Title]},
@@ -978,17 +980,39 @@ equiv(Es) ->
     end.
 
 makesee(Ref, Es) ->
-    case split(Ref,"#") of
+    {Tag, Marker} = makesee(Ref),
+    {Tag, [{marker,Marker}], Es}.
+makesee(Ref) ->
+    case string:split(Ref,"#") of
+        ["chapter"] ->
+            {seeguide,"chapter"};
+        ["chapter",Anchor] ->
+            {seeguide,"chapter#" ++ Anchor};
         [Mod,"type-"++Anchor] ->
-            {seetype,[{marker,Mod ++ "#" ++ Anchor}], Es};
-        ["type-"++Anchor] ->
-            {seetype,[{marker,"#" ++ Anchor}], Es};
+            {seetype,Mod ++ "#" ++ Anchor};
+        ["",Anchor] ->
+            case get(type) of
+                chapter ->
+                    {seeguide, Ref};
+                module ->
+                    case split(Ref,"/") of
+                        [_,_] ->
+                            {seemfa, Ref};
+                        _ ->
+                            {seeerl, Ref}
+                    end
+            end;
         _Else ->
-            case split(Ref,"/") of
-                [_] ->
-                    {seeerl, [{marker,Ref}], Es};
-                [_,_] ->
-                    {seemfa, [{marker,Ref}], Es}
+            case split(Ref,":") of
+                [_,"index"] ->
+                    {seeapp, Ref};
+                _ ->
+                    case split(Ref,"/") of
+                        [_,_] ->
+                            {seemfa, Ref};
+                        _ ->
+                            {seeerl, Ref}
+                    end
             end
     end.
 

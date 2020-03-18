@@ -96,14 +96,5 @@ is_url(FileRef) ->
     end.
 
 makesee(Ref) ->
-    case string:split(Ref,"#") of
-        [Mod,"type-"++Anchor] ->
-            {seetype,[#xmlAttribute{name = marker, value = Mod ++ "#" ++ Anchor}]};
-        _Else ->
-            case string:split(Ref,"/") of
-                [_] ->
-                    {seeerl, [#xmlAttribute{name = marker, value = Ref}]};
-                [_,_] ->
-                    {seemfa, [#xmlAttribute{name = marker, value = Ref}]}
-            end
-    end.
+    {Tag, Marker} = docgen_edoc_xml_cb:makesee(Ref),
+    {Tag,[#xmlAttribute{name = marker, value = Marker}]}.
