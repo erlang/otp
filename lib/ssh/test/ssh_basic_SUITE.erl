@@ -352,6 +352,7 @@ init_per_group(key_cb, Config) ->
 init_per_group(internal_error, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     PrivDir = proplists:get_value(priv_dir, Config),
+    ssh_test_lib:setup_rsa(DataDir, PrivDir),
     ssh_test_lib:setup_dsa(DataDir, PrivDir),
     ssh_test_lib:setup_ecdsa("256", DataDir, PrivDir),
     %% In the test case the key will be deleted after the daemon start:
@@ -425,6 +426,7 @@ end_per_group(key_cb, Config) ->
     Config;
 end_per_group(internal_error, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
+    ssh_test_lib:clean_rsa(PrivDir),
     ssh_test_lib:clean_dsa(PrivDir),
     Config;
 
