@@ -226,7 +226,7 @@
     <section>
       <title>Example of crypto_one_time/5</title>
       <p>The same example as in the
-      <seemfa marker="#examples-of-crypto_init-4-and-crypto_update/2">previous section</seemfa>,
+      <seeguide marker="#examples-of-crypto_init-4-and-crypto_update-2">previous section</seeguide>,
       but now with one call to <seemfa marker="crypto#crypto_one_time/5">crypto_one_time/5</seemfa>:
       </p>
       <code>
@@ -249,7 +249,7 @@
     <section>
       <title>Example of crypto_one_time_aead/6</title>
       <p>The same example as in the
-      <seemfa marker="#example-of-crypto_one_time/5">previous section</seemfa>,
+      <seeguide marker="#example-of-crypto_one_time-5">previous section</seeguide>,
       but now with one call to <seemfa marker="crypto#crypto_one_time_aead/6">crypto_one_time_aead/6</seemfa>:
       </p>
       <code>

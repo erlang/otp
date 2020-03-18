@@ -120,7 +120,7 @@
 	Currently this is the only predefined property,
 	there can also be user-defined properties. See also
 	application environment variable
-	<seeerl marker="ssl_app">session_cb_init_args</seeerl>.
+	<seeapp marker="ssl_app">session_cb_init_args</seeapp>.
 	</p>
 	<p>Performs possible initializations of the cache and returns
 	a reference to it that is used as parameter to the other

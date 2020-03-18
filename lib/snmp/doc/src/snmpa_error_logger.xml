@@ -49,7 +49,7 @@
     <p>This module is the default error report module, but can be 
       explicitly configured, see
       <seeerl marker="snmpa_error#desc">snmpa_error</seeerl> and
-      <seeerl marker="snmp_config#configuration_params">configuration parameters</seeerl>.
+      <seeguide marker="snmp_config#configuration_params">configuration parameters</seeguide>.
       </p>
   </description>
   <funcs>

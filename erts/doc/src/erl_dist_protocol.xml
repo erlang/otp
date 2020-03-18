@@ -301,7 +301,7 @@
     <section>
       <title>Get All Registered Names from EPMD</title>
       <p>This request is used through the Erlang function
-        <seemfa marker="kernel:net_adm#names/1,2">
+        <seemfa marker="kernel:net_adm#names/1">
         <c>net_adm:names/1,2</c></seemfa>. A TCP connection is opened
         to the  EPMD and this request is sent.</p>
 

@@ -55,11 +55,11 @@
       groups a set of manual pages into one unit. The structure is
       similar to the part DTD: first an introduction and then the manual
       pages, written in separate files with the
-      <seecref marker="#apprefDTD">appref</seecref>,
-      <seecref marker="#comrefDTD">comref</seecref>,
-      <seecref marker="#crefDTD">cref</seecref>,
-      <seecref marker="#erlrefDTD">erlref</seecref>, or
-      <seecref marker="#filerefDTD">fileref</seecref> DTD.</p>
+      <seeguide marker="#apprefDTD">appref</seeguide>,
+      <seeguide marker="#comrefDTD">comref</seeguide>,
+      <seeguide marker="#crefDTD">cref</seeguide>,
+      <seeguide marker="#erlrefDTD">erlref</seeguide>, or
+      <seeguide marker="#filerefDTD">fileref</seeguide> DTD.</p>
 
     <p>Example:</p>
     <pre>
@@ -149,14 +149,14 @@
 
       <p>Contains
 	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
-	<seecref marker="#appTAG">&lt;app&gt;</seecref>,
-	<seecref marker="#appsummaryTAG">&lt;appsummary&gt;</seecref>,
-	<seecref marker="#descriptionTAG">&lt;description&gt;</seecref>,
+	<seeguide marker="#appTAG">&lt;app&gt;</seeguide>,
+	<seeguide marker="#appsummaryTAG">&lt;appsummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seecref marker="#sectionTAG">&lt;section&gt;</seecref> and
-	<seecref marker="#funcsTAG">&lt;funcs&gt;</seecref>, 
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, 
 	followed by zero or more 
-	<seecref marker="#authorsTAG">&lt;authors&gt;</seecref>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -233,14 +233,14 @@
 
       <p>Contains
 	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
-	<seecref marker="#comTAG">&lt;com&gt;</seecref>,
-	<seecref marker="#comsummaryTAG">&lt;comsummary&gt;</seecref>,
-	<seecref marker="#descriptionTAG">&lt;description&gt;</seecref>,
+	<seeguide marker="#comTAG">&lt;com&gt;</seeguide>,
+	<seeguide marker="#comsummaryTAG">&lt;comsummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seecref marker="#sectionTAG">&lt;section&gt;</seecref> and
-	<seecref marker="#funcsTAG">&lt;funcs&gt;</seecref>, 
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, 
 	followed by zero or more
-	<seecref marker="#authorsTAG">&lt;authors&gt;</seecref>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -321,14 +321,14 @@
 
       <p>Contains
 	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
-	<seecref marker="#libTAG">&lt;lib&gt;</seecref>,
-	<seecref marker="#libsummaryTAG">&lt;libsummary&gt;</seecref>,
-	<seecref marker="#descriptionTAG">&lt;description&gt;</seecref>,
+	<seeguide marker="#libTAG">&lt;lib&gt;</seeguide>,
+	<seeguide marker="#libsummaryTAG">&lt;libsummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seecref marker="#sectionTAG">&lt;section&gt;</seecref> and
-	<seecref marker="#funcsTAG">&lt;funcs&gt;</seecref>, followed by
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, followed by
 	zero or more
-	<seecref marker="#authorsTAG">&lt;authors&gt;</seecref>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -413,14 +413,14 @@
 
       <p>Contains
 	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
-	<seecref marker="#moduleTAG">&lt;module&gt;</seecref>,
-	<seecref marker="#modulesummaryTAG">&lt;modulesummary&gt;</seecref>,
-	<seecref marker="#descriptionTAG">&lt;description&gt;</seecref>,
+	<seeguide marker="#moduleTAG">&lt;module&gt;</seeguide>,
+	<seeguide marker="#modulesummaryTAG">&lt;modulesummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seecref marker="#sectionTAG">&lt;section&gt;</seecref> and
-	<seecref marker="#funcsTAG">&lt;funcs&gt;</seecref>, 
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, 
 	followed by zero or more
-	<seecref marker="#authorsTAG">&lt;authors&gt;</seecref>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -491,14 +491,14 @@
 
       <p>Contains
 	<seeguide marker="header_tags#headerTAG">&lt;header&gt;</seeguide>,
-	<seecref marker="#fileTAG">&lt;file&gt;</seecref>,
-	<seecref marker="#filesummaryTAG">&lt;filesummary&gt;</seecref>,
-	<seecref marker="#descriptionTAG">&lt;description&gt;</seecref>,
+	<seeguide marker="#fileTAG">&lt;file&gt;</seeguide>,
+	<seeguide marker="#filesummaryTAG">&lt;filesummary&gt;</seeguide>,
+	<seeguide marker="#descriptionTAG">&lt;description&gt;</seeguide>,
 	zero or more
-	<seecref marker="#sectionTAG">&lt;section&gt;</seecref> and
-	<seecref marker="#funcsTAG">&lt;funcs&gt;</seecref>, 
+	<seeguide marker="#sectionTAG">&lt;section&gt;</seeguide> and
+	<seeguide marker="#funcsTAG">&lt;funcs&gt;</seeguide>, 
 	followed by zero or more
-	<seecref marker="#authorsTAG">&lt;authors&gt;</seecref>.</p>
+	<seeguide marker="#authorsTAG">&lt;authors&gt;</seeguide>.</p>
     </section>
 
     <section>
@@ -548,7 +548,7 @@
     <p>A group of "formal" function definitions.</p>
     
     <p>Contains one or more
-      <seecref marker="#funcTAG">&lt;func&gt;</seecref>.</p>
+      <seeguide marker="#funcTAG">&lt;func&gt;</seeguide>.</p>
   </section>
 
   <section>
@@ -558,10 +558,10 @@
     <p>A "formal" function definition.</p>
 
     <p>Contains one or more
-      <seecref marker="#nameTAG">&lt;name&gt;</seecref>, followed by
-      <seecref marker="#fsummaryTAG">&lt;fsummary&gt;</seecref>,
-      <seecref marker="#typeTAG">&lt;type&gt;</seecref> (optional) and
-      <seecref marker="#descTAG">&lt;desc&gt;</seecref> (optional).</p>
+      <seeguide marker="#nameTAG">&lt;name&gt;</seeguide>, followed by
+      <seeguide marker="#fsummaryTAG">&lt;fsummary&gt;</seeguide>,
+      <seeguide marker="#typeTAG">&lt;type&gt;</seeguide> (optional) and
+      <seeguide marker="#descTAG">&lt;desc&gt;</seeguide> (optional).</p>
   </section>
 
   <section>
@@ -610,8 +610,8 @@
     <p>Type declarations for the function/command.</p>
 
     <p>Contains one or more pairs of
-      <seecref marker="#vTAG">&lt;v&gt;</seecref> and
-      <seecref marker="#dTAG">&lt;d&gt;</seecref> (optional).</p>
+      <seeguide marker="#vTAG">&lt;v&gt;</seeguide> and
+      <seeguide marker="#dTAG">&lt;d&gt;</seeguide> (optional).</p>
   </section>
 
   <section>
@@ -647,8 +647,8 @@
     <p>Authors of the manual page. The <c>authors</c> element is  optional.</p>
 
     <p>Contains one or more pairs of
-      <seecref marker="#anameTAG">&lt;aname&gt;</seecref> and
-      <seecref marker="#emailTAG">&lt;email&gt;</seecref>.</p>
+      <seeguide marker="#anameTAG">&lt;aname&gt;</seeguide> and
+      <seeguide marker="#emailTAG">&lt;email&gt;</seeguide>.</p>
   </section>
 
   <section>

@@ -161,7 +161,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seeerl marker="erlsrv"><c>erlsrv(1)</c></seeerl>,
+    <p><seecom marker="erlsrv"><c>erlsrv(1)</c></seecom>,
       <seeerl marker="sasl:release_handler">
       <c>release_handler(3)</c></seeerl></p>
   </section>

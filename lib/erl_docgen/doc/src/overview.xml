@@ -48,17 +48,17 @@
       <tag><em>Reference Manual</em></tag>
       <item>
 	<p>(DTD:
-	  <seecref marker="refman_dtds#applicationDTD">application</seecref>
+	  <seeguide marker="refman_dtds#applicationDTD">application</seeguide>
 	  A collection of manual pages for modules
-	  (<seecref marker="refman_dtds#erlrefDTD">erlref</seecref>),
+	  (<seeguide marker="refman_dtds#erlrefDTD">erlref</seeguide>),
 	  applications
-	  (<seecref marker="refman_dtds#apprefDTD">appref</seecref>),
+	  (<seeguide marker="refman_dtds#apprefDTD">appref</seeguide>),
 	  commands
-	  (<seecref marker="refman_dtds#comrefDTD">comref</seecref>),
+	  (<seeguide marker="refman_dtds#comrefDTD">comref</seeguide>),
 	  C libraries
-	  (<seecref marker="refman_dtds#crefDTD">cref</seecref>) and
+	  (<seeguide marker="refman_dtds#crefDTD">cref</seeguide>) and
 	  files
-	  (<seecref marker="refman_dtds#filerefDTD">fileref</seecref>).
+	  (<seeguide marker="refman_dtds#filerefDTD">fileref</seeguide>).
 	</p>
       </item>
 

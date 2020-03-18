@@ -1339,8 +1339,8 @@
       <desc><marker id="run_test-1"/>
         <p>Runs tests as specified by the combination of options in
           <c>Opts</c>. The options are the same as those used with program
-          <c>ct_run</c>, see <seeerl marker="ct_run#ct_run">Run Tests from
-          Command Line</seeerl> in the <c>ct_run</c> manual page.</p>
+          <c>ct_run</c>, see <seecom marker="ct_run#ct_run">Run Tests from
+          Command Line</seecom> in the <c>ct_run</c> manual page.</p>
         <p>Here a <c>TestDir</c> can be used to point out the path to a
           <c>Suite</c>. Option <c>testcase</c> corresponds to option
           <c>-case</c> in program <c>ct_run</c>. Configuration files

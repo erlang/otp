@@ -56,7 +56,7 @@
       <c>snmpm_user_default</c> module, which simply sends an info message
       to the error_logger. It is however highly recommended that this
       module be replaced by another that does something useful
-      (see <seeerl marker="snmp_config#configuration_params">configuration params</seeerl> for more info).</p>
+      (see <seeguide marker="snmp_config#configuration_params">configuration params</seeguide> for more info).</p>
     <p>When using version 3, then (at least one) <em>usm user</em> has to 
       be registered.</p>
     <p>Requests can be issued in two different ways. Synchronous (see

@@ -197,7 +197,7 @@ zip:create("mnesia-4.4.7.ez",
      level in the archive. At startup, the top directory in the
      embedded archive and all (second level) <c>ebin</c>
      directories in the embedded archive are added to the code path.
-     See <seeerl marker="erts:escript"><c>erts:escript(1)</c></seeerl>.</p>
+     See <seecom marker="erts:escript"><c>erts:escript(1)</c></seecom>.</p>
 
     <p>When the choice of directories in the code path is
      <c>strict</c>, the directory that ends up in the code path is

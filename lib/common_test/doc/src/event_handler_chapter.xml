@@ -81,7 +81,7 @@
     <marker id="usage"></marker>
     <title>Use</title>
     <p>Event handlers can be installed by an <c>event_handler</c> start flag 
-    (<seeerl marker="ct_run"><c>ct_run</c></seeerl>) or option 
+    (<seecom marker="ct_run"><c>ct_run</c></seecom>) or option 
     <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa>, where the
     argument specifies the names of one or more event handler modules.</p>
 

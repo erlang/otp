@@ -247,7 +247,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
 	<c>{register, UserId, TargetName2, AgentConfig}</c> is the 
 	<em>default user</em>.</p>
 	<p>If the 
-	<seeerl marker="snmp_config#manager_irb">inform request behaviour</seeerl> 
+	<seeguide marker="snmp_config#manager_irb">inform request behaviour</seeguide> 
 	configuration option is set to <c>user</c> or 
 	<c>{user, integer()}</c>, the response (acknowledgment) to this 
 	inform-request will be sent when this function returns.</p>

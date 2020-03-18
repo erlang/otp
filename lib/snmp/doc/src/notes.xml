@@ -813,11 +813,11 @@
         <item>
           <p>[agent] Enable SNMP to create missing database directories. </p>
 	  <p>Add
-	  <seeerl marker="snmp_config#db_init_error">
-	  {db_init_error, create_db_and_dir}</seeerl> option to SNMP
-	  <seeerl marker="snmp_config#manager_opts_and_types">manager</seeerl>
+	  <seeguide marker="snmp_config#db_init_error">
+	  {db_init_error, create_db_and_dir}</seeguide> option to SNMP
+	  <seeguide marker="snmp_config#manager_opts_and_types">manager</seeguide>
 	  and
-	  <seeerl marker="snmp_config#agent_opts_and_types">agent</seeerl>.
+	  <seeguide marker="snmp_config#agent_opts_and_types">agent</seeguide>.
 	  This allows them to create any missing parent directories for
 	  <c>db_dir</c>, rather than treating any missing directories
 	  as a fatal error.
@@ -1087,9 +1087,9 @@
 	  At present only the default module (<c>snmpa_mib_data_tttn</c>) is
 	  provided. </p>
 	  <p>A config option for the (agent)
-	  <seeerl marker="snmp_config#agent_mib_server">mib-servers</seeerl>
+	  <seeguide marker="snmp_config#agent_mib_server">mib-servers</seeguide>
 	  mib-data backend module has been added to the agent config options,
-	  <seeerl marker="snmp_config#agent_ms_data_module">data_module</seeerl>. </p>
+	  <seeguide marker="snmp_config#agent_ms_data_module">data_module</seeguide>. </p>
 	  <p>Own Id: OTP-11101</p>
         </item>
 
@@ -1101,7 +1101,7 @@
 	  <c>snmpa_mib_storage_mnesia</c>) implementing this behaviour,
 	  provided with the app. </p>
 	  <p>A config option for the (agent)
-	  <seeerl marker="snmp_config#agent_mib_storage">mib storage</seeerl>
+	  <seeguide marker="snmp_config#agent_mib_storage">mib storage</seeguide>
 	  has been added to the agent config options. </p>
 	  <p>Own Id: OTP-11107</p>
         </item>
@@ -1549,7 +1549,7 @@
           limit the number of varbinds that can be included in
           a Get-BULK response message. This is specified by the
           new config option,
-          <seeerl marker="snmp_config#agent_gb_max_vbs">gb_max_vbs</seeerl>.
+          <seeguide marker="snmp_config#agent_gb_max_vbs">gb_max_vbs</seeguide>.
           </p>
           <p>Own Id: OTP-9700</p>
         </item>

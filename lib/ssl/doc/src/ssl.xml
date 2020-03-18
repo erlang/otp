@@ -34,7 +34,7 @@
     <p>
       This module contains interface functions for the TLS/DTLS protocol.
       For detailed information about the supported standards see 
-      <seeerl marker="ssl_app">ssl(6)</seeerl>.
+      <seeapp marker="ssl_app">ssl(6)</seeapp>.
     </p>
   </description>
 
@@ -648,7 +648,7 @@ fun(Chain::[public_key:der_encoded()]) ->
       This option overrides the application environment option
       <c>protocol_version</c> and  <c>dtls_protocol_version</c>. If the environment option is not set, it defaults
       to all versions, supported by the SSL application.
-      See also <seeerl marker="ssl:ssl_app">ssl(6).</seeerl></p>
+      See also <seeapp marker="ssl:ssl_app">ssl(6).</seeapp></p>
       </desc>
     </datatype>
 
@@ -700,7 +700,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc><p>Specifies the log level for a TLS/DTLS
       connection. Alerts are logged on <c>notice</c> level, which is
       the default level. The level <c>debug</c> triggers verbose
-      logging of TLS/DTLS protocol messages.  See also <seeerl marker="ssl_app">ssl(6)</seeerl>
+      logging of TLS/DTLS protocol messages.  See also <seeapp marker="ssl_app">ssl(6)</seeapp>
     </p>
       </desc> 
     </datatype> 
@@ -1254,7 +1254,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <note><p>This option is supported by TLS 1.3 and above and only with stateless session tickets.
 	  Ticket lifetime, the number of tickets sent by the server and the maximum number of tickets
 	  stored by the server in stateful mode are configured by
-	  <seeerl marker="ssl:ssl_app#configuration">application variables</seeerl>. See also
+	  <seeapp marker="ssl:ssl_app#configuration">application variables</seeapp>. See also
 	  <seeguide marker="ssl:using_ssl#anti-replay-protection-in-tls-1.3">
 	  SSL's Users Guide, Anti-Replay Protection in TLS 1.3</seeguide>
 	  </p></note>

@@ -85,7 +85,7 @@
     <p>To activate the code coverage support, specify the name of the cover 
       specification file as you start <c>Common Test</c>.
       Do this by using flag <c>-cover</c> with 
-      <seeerl marker="ct_run"><c>ct_run</c></seeerl>, 
+      <seecom marker="ct_run"><c>ct_run</c></seecom>, 
       for example:</p>
       <pre>
  $ ct_run -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec</pre>

@@ -833,7 +833,7 @@
       configured to create one dedicated private directory per
       test case and execution instead. This is accomplished with
       the flag/option <c>create_priv_dir</c> (to be used with the
-      <seeerl marker="ct_run"><c>ct_run</c></seeerl> program, the 
+      <seecom marker="ct_run"><c>ct_run</c></seecom> program, the 
       <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa> function, or
       as test specification term). There are three possible values
       for this option as follows:

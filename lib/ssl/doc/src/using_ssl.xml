@@ -254,7 +254,7 @@ ssl:connect("localhost", 9999,
     </p>
     <p>Session tickets are sent by servers on newly estalished TLS connections.
     The number of tickets sent and their lifetime are configurable by application variables. See also
-    <seeerl marker="ssl:ssl_app#configuration"> SSL's configuration</seeerl>.</p>
+    <seeapp marker="ssl:ssl_app#configuration"> SSL's configuration</seeapp>.</p>
     <p>Session tickets are protected by application traffic keys, and in stateless
     tickets, the opaque data structure itself is self-encrypted.</p>
 

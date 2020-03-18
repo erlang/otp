@@ -50,7 +50,7 @@
       </p>
     <p>The error report module is configured using the directive 
       <c>error_report_mod</c>, see
-      <seeerl marker="snmp_config#configuration_params">configuration parameters</seeerl>.
+      <seeguide marker="snmp_config#configuration_params">configuration parameters</seeguide>.
       </p>
 
       <marker id="config_err"></marker>

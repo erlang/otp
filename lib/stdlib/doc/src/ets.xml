@@ -146,8 +146,8 @@
 	If a match specification passed as argument has excessive
 	nesting which causes scheduler stack exhaustion for the
 	scheduler that the calling process is executing on.
-	<seeerl marker="erts:erl#sched_thread_stack_size">Scheduler
-	stack size</seeerl> can be configured when starting the
+	<seecom marker="erts:erl#sched_thread_stack_size">Scheduler
+	stack size</seecom> can be configured when starting the
 	runtime system.
       </p></item>
     </taglist>
@@ -264,8 +264,8 @@ true
     <p>Some of the functions use a <em>match specification</em>,
       <c>match_spec</c>. For a brief explanation, see
       <seemfa marker="#select/2"><c>select/2</c></seemfa>. For a detailed
-      description, see section <seeerl marker="erts:match_spec">
-      Match Specifications in Erlang</seeerl> in ERTS User's Guide.</p>
+      description, see section <seeguide marker="erts:match_spec">
+      Match Specifications in Erlang</seeguide> in ERTS User's Guide.</p>
     <p>A match specifications with excessive nesting will cause a
       <seeerl marker="#ets_failures"><c>system_limit</c></seeerl> error
       exception to be raised.</p>
