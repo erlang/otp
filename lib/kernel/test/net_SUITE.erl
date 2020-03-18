@@ -221,6 +221,7 @@ api_b_getifaddrs() ->
               "~n   ~p", [IfAddrs]),
             ok;
         {error, enotsup = Reason} ->
+            i("getifaddrs not supported - skipping"),
             skip(Reason);
         {error, Reason} ->
             ?FAIL(Reason)
@@ -256,6 +257,7 @@ api_b_name_and_addr_info() ->
             {ok, BadNameInfo} ->
                 ?FAIL({getnameinfo, SA, BadNameInfo});
             {error, enotsup = ReasonNI} ->
+                i("getnameinfo not supported - skipping"),
                 ?SKIP({getnameinfo, ReasonNI});
             {error, Reason1} ->
                 ?FAIL({getnameinfo, SA, Reason1})
@@ -268,6 +270,7 @@ api_b_name_and_addr_info() ->
         {ok, BadAddrInfo} ->
             ?FAIL({getaddrinfo, Hostname, BadAddrInfo});
         {error, enotsup = ReasonAI} ->
+            i("getaddrinfo not supported - skipping"),
             ?SKIP({getaddrinfo, ReasonAI});
         {error, Reason2} ->
             ?FAIL({getaddrinfo, Hostname, Reason2})
@@ -322,6 +325,7 @@ api_b_name_and_index() ->
             {ok, N} when is_list(N) andalso (N =/= []) ->
                 N;
             {error, enotsup = Reason} ->
+                i("if_names not supported - skipping"),
                 ?SKIP({if_names, Reason});
             {error, Reason} ->
                 ?FAIL({if_names, Reason})
@@ -337,6 +341,7 @@ verify_if_names([{Index, Name}|T]) ->
         {ok, BadIndex} ->
             ?FAIL({if_name2index, Name, Index, BadIndex});
         {error, enotsup = Reason_N2I1} ->
+            i("if_name2index not supported - skipping"),
             ?SKIP({if_name2index, Reason_N2I1});
         {error, Reason_N2I2} ->
             ?FAIL({if_name2index, Name, Reason_N2I2})
@@ -347,6 +352,7 @@ verify_if_names([{Index, Name}|T]) ->
         {ok, BadName} ->
             ?FAIL({if_index2name, Index, Name, BadName});
         {error, enotsup = Reason_I2N1} ->
+            i("if_index2name not supported - skipping"),
             ?SKIP({if_index2name, Reason_I2N1});
         {error, Reason_I2N2} ->
             ?FAIL({if_index2name, Index, Reason_I2N2})
@@ -507,8 +513,8 @@ f(F, A) ->
     lists:flatten(io_lib:format(F, A)).
 
 
-%% i(F) ->
-%%     i(F, []).
+i(F) ->
+    i(F, []).
 
 i(F, A) ->
     FStr = f("[~s] " ++ F, [formated_timestamp()|A]),
