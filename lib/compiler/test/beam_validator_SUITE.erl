@@ -360,7 +360,7 @@ undef_label(Config) when is_list(Config) ->
 	 5},
     Errors = beam_val(M),
     [{{undef_label,t,1},{undef_labels,[42]}},
-     {{undef_label,x,1},{return,4,no_entry_label}}] = Errors,
+     {{undef_label,x,1},no_entry_label}] = Errors,
     ok.
 
 illegal_instruction(Config) when is_list(Config) ->
@@ -384,8 +384,8 @@ illegal_instruction(Config) when is_list(Config) ->
     Errors = beam_val(M),
     [{{illegal_instruction,t,1},
       {{my_illegal_instruction,{x,0}},4,unknown_instruction}},
-     {{'_',x,1},{bad_func_info,1,illegal_instruction}},
-     {{'_',y,0},{[],0,illegal_instruction}}] = Errors,
+     {{illegal_instruction,x,1},invalid_function_header},
+     {{illegal_instruction,y,0},invalid_function_header}] = Errors,
     ok.
 
 %% The beam_validator used to assume that a GC guard BIF could
@@ -422,13 +422,12 @@ process_request_bar(Pid, [Response]) when is_pid(Pid) ->
 map_field_lists(Config) ->
     Errors = do_val(map_field_lists, Config),
     [{{map_field_lists,x,1},
-      {{test,has_map_fields,{f,1},{x,0},
-	{list,[{atom,a},{atom,a}]}},
-       5,
+      {{test,has_map_fields,{f,1},{x,0},{list,[{atom,a},{atom,a}]}},
+       6,
        keys_not_unique}},
      {{map_field_lists,y,1},
       {{test,has_map_fields,{f,3},{x,0},{list,[]}},
-       5,
+       6,
        empty_field_list}}
     ] = Errors.
 
@@ -537,13 +536,13 @@ destroy_reg({Tag,N}) ->
 bad_tuples(Config) ->
     Errors = do_val(bad_tuples, Config),
     [{{bad_tuples,heap_overflow,1},
-      {{put,{x,0}},8,{heap_overflow,{left,0},{wanted,1}}}},
+      {{put,{x,0}},9,{heap_overflow,{left,0},{wanted,1}}}},
      {{bad_tuples,long,2},
-      {{put,{atom,too_long}},8,not_building_a_tuple}},
+      {{put,{atom,too_long}},9,not_building_a_tuple}},
      {{bad_tuples,self_referential,1},
-      {{put,{x,1}},7,{unfinished_tuple,{x,1}}}},
+      {{put,{x,1}},8,{unfinished_tuple,{x,1}}}},
      {{bad_tuples,short,1},
-      {{move,{x,1},{x,0}},7,{unfinished_tuple,{x,1}}}}] = Errors,
+      {{move,{x,1},{x,0}},8,{unfinished_tuple,{x,1}}}}] = Errors,
 
     ok.
 
@@ -551,7 +550,7 @@ bad_try_catch_nesting(Config) ->
     Errors = do_val(bad_try_catch_nesting, Config),
     [{{bad_try_catch_nesting,main,2},
       {{'try',{y,2},{f,3}},
-       7,
+       8,
        {bad_try_catch_nesting,{y,2},[{{y,1},{trytag,[5]}}]}}}] = Errors,
     ok.
 
@@ -560,37 +559,37 @@ receive_stacked(Config) ->
     Errors = do_val(Mod, Config),
     [{{receive_stacked,f1,0},
       {{loop_rec_end,{f,3}},
-       17,
+       18,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f2,0},
-      {{test_heap,3,0},10,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f3,0},
-      {{test_heap,3,0},10,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f4,0},
-      {{test_heap,3,0},10,{fragile_message_reference,{y,_}}}},
+      {{test_heap,3,0},11,{fragile_message_reference,{y,_}}}},
      {{receive_stacked,f5,0},
       {{loop_rec_end,{f,23}},
-       23,
+       24,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f6,0},
       {{gc_bif,byte_size,{f,29},0,[{y,_}],{x,0}},
-       12,
+       13,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f7,0},
       {{loop_rec_end,{f,33}},
-       20,
+       21,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,f8,0},
       {{loop_rec_end,{f,38}},
-       20,
+       21,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m1,0},
       {{loop_rec_end,{f,43}},
-       19,
+       20,
        {fragile_message_reference,{y,_}}}},
      {{receive_stacked,m2,0},
       {{loop_rec_end,{f,48}},
-       33,
+       34,
        {fragile_message_reference,{y,_}}}}] = Errors,
 
     %% Compile the original source code as a smoke test.
@@ -769,7 +768,7 @@ branch_to_try_handler(Config) ->
     Errors = do_val(branch_to_try_handler, Config),
     [{{branch_to_try_handler,main,1},
       {{bif,tuple_size,{f,3},[{y,0}],{x,0}},
-       12,
+       13,
        {illegal_branch,try_handler,3}}}] = Errors,
     ok.
 
@@ -842,7 +841,7 @@ do_val(Mod, Config) ->
 
 beam_val(M) ->
     Name = atom_to_list(element(1, M)),
-    {error,[{Name,Errors0}]} = beam_validator:module(M, []),
+    {error,[{Name,Errors0}]} = beam_validator:validate(M, strong),
     Errors = [E || {beam_validator,E} <- Errors0],
     _ = [io:put_chars(beam_validator:format_error(E)) ||
 	    E <- Errors],

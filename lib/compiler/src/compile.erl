@@ -872,7 +872,8 @@ kernel_passes() ->
      {iff,ssalint,{pass,beam_ssa_lint}},
      {pass,beam_ssa_codegen},
      {iff,dcg,{listing,"codegen"}},
-     {iff,doldcg,{listing,"codegen"}}
+     {iff,doldcg,{listing,"codegen"}},
+     ?pass(beam_validator_strong)
      | asm_passes()].
 
 asm_passes() ->
@@ -904,7 +905,7 @@ asm_passes() ->
        {iff,dopt,{listing,"optimize"}},
        {iff,'S',{listing,"S"}},
        {iff,'to_asm',{done,"S"}}]},
-     {pass,beam_validator},
+     ?pass(beam_validator_weak),
      ?pass(beam_asm)
      | binary_passes()].
 
@@ -1600,6 +1601,20 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
 
 save_core_code(Code, St) ->
     {ok,Code,St#compile{core_code=cerl:from_records(Code)}}.
+
+beam_validator_strong(Code, St) ->
+    beam_validator_1(Code, St, strong).
+
+beam_validator_weak(Code, St) ->
+    beam_validator_1(Code, St, weak).
+
+beam_validator_1(Code, #compile{errors=Errors0}=St, Level) ->
+    case beam_validator:validate(Code, Level) of
+        ok ->
+            {ok, Code, St};
+        {error, Es} ->
+            {error, St#compile{errors=Errors0 ++ Es}}
+    end.
 
 beam_asm(Code0, #compile{ifile=File,extra_chunks=ExtraChunks,options=CompilerOpts}=St) ->
     case debug_info(St) of

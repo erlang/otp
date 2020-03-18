@@ -278,7 +278,7 @@ silly_coverage(Config) when is_list(Config) ->
 		      [{label,1},
 		       {func_info,{atom,?MODULE},{atom,foo},0},
 		       {label,2}|non_proper_list]}],99},
-    expect_error(fun() -> beam_validator:module(BeamValInput, []) end),
+    expect_error(fun() -> beam_validator:validate(BeamValInput, strong) end),
 
     ok.
 

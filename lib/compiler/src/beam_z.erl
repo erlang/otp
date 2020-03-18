@@ -134,13 +134,6 @@ undo_rename({bs_init,F,{I,Extra,U,Flags},Live,[Sz,Src],Dst}) ->
     {I,F,Sz,Extra,Live,U,Src,Flags,Dst};
 undo_rename({bs_init,_,bs_init_writable=I,_,_,_}) ->
     I;
-undo_rename({test,bs_match_string=Op,F,[Ctx,Bin0]}) ->
-    Bits = bit_size(Bin0),
-    Bin = case Bits rem 8 of
-	      0 -> Bin0;
-	      Rem -> <<Bin0/bitstring,0:(8-Rem)>>
-	  end,
-    {test,Op,F,[Ctx,Bits,{string,Bin}]};
 undo_rename({put_map,Fail,assoc,S,D,R,L}) ->
     {put_map_assoc,Fail,S,D,R,L};
 undo_rename({put_map,Fail,exact,S,D,R,L}) ->
