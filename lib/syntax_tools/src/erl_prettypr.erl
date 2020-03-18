@@ -353,8 +353,12 @@ layout(Node) ->
 -spec layout(erl_syntax:syntaxTree(), [term()]) -> prettypr:document().
 
 layout(Node, Options) ->
+    Break = proplists:get_value(break_indent, Options, 4),
+    Sub = proplists:get_value(sub_indent, Options, Break div 2),
     lay(Node,
 	#ctxt{hook = proplists:get_value(hook, Options, ?NOHOOK),
+              sub_indent = Sub,
+              break_indent = Break,
 	      paper = proplists:get_value(paper, Options, ?PAPER),
 	      ribbon = proplists:get_value(ribbon, Options, ?RIBBON),
 	      user = proplists:get_value(user, Options),
