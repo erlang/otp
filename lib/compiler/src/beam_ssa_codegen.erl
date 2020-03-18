@@ -1864,8 +1864,6 @@ translate_terminator(#b_ret{anno=Anno,arg=Arg}) ->
     #cg_ret{arg=Arg,dealloc=Dealloc};
 translate_terminator(#b_br{bool=#b_literal{val=true},succ=Succ}) ->
     #cg_br{bool=#b_literal{val=true},succ=Succ,fail=Succ};
-translate_terminator(#b_br{bool=#b_literal{val=false},fail=Fail}) ->
-    #cg_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
 translate_terminator(#b_br{bool=Bool,succ=Succ,fail=Fail}) ->
     #cg_br{bool=Bool,succ=Succ,fail=Fail};
 translate_terminator(#b_switch{arg=Bool,fail=Fail,list=List}) ->
