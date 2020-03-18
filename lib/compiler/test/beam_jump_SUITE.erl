@@ -68,11 +68,14 @@ flights(_, Reproduction, introduction) when false, Reproduction ->
 %% [ERL-209] beam_jump would share 'catch' blocks, causing an
 %% ambiguous_catch_try_state error in beam_validator.
 
-ambiguous_catch_try_state(_Config) ->
+ambiguous_catch_try_state(Config) ->
     {{'EXIT',{{case_clause,song},_}},{'EXIT',{{case_clause,song},_}}} =
 	checks(42),
 
     {'EXIT',{{try_clause,42},_}} = (catch unsafe_sharing()),
+
+    {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(<<>>)),
+    {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(Config)),
 
     ok.
 
@@ -160,6 +163,36 @@ expects_g(6, Atom) ->
 expects_h(7, Atom) ->
     Atom = id(h),
     ok.
+
+%% When compiled with +no_copt, beam_validator would complain about
+%% ambigous try/catch state.
+ambiguous_catch_try_state_1(<<42:false>>) ->
+    %% The beam_ssa_bsm pass will duplicate the entire second clause.
+    %% beam_jump will share the blocks with the build_stacktrace
+    %% instructions.
+    [];
+ambiguous_catch_try_state_1(V0) ->
+    try
+        try
+            receive after bad -> timeout end
+        catch
+            _:V0 ->
+                error
+        after
+            ok
+        end
+    of
+        true ->
+            ok
+    catch
+        month:power:V2 ->
+            %% A build_stacktrace instruction would be shared, causing
+            %% an ambiguous try/catch state.
+            V2
+    after
+        a = b
+    end.
+
 
 -record(message2, {id, p1}).
 -record(message3, {id, p1, p2}).
