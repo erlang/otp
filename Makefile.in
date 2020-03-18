@@ -451,6 +451,8 @@ ifneq  ($(OTP_SMALL_BUILD),true)
 endif
 
 xmllint: docs
+	$(DOCGEN)/priv/bin/validate_links.escript $(ERL_TOP) make/$(TARGET)/mod2app.xml \
+		lib/*/doc/xml/*.xml erts/doc/xml/*.xml system/doc/xml/*/*.xml
 	PATH=$(BOOT_PREFIX)"$${PATH}" ERL_TOP=$(ERL_TOP) \
 	$(MAKE) -C erts/ $@
 ifeq ($(OTP_SMALL_BUILD),true)
