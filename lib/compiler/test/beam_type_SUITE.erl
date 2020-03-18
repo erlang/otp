@@ -245,6 +245,8 @@ coverage(Config) ->
     %% Cover beam_type:verified_type(none).
     {'EXIT',{badarith,_}} = (catch (id(2) / id(1)) band 16#ff),
 
+    false = fun lot:life/147 == #{},
+
     ok.
 
 booleans(_Config) ->

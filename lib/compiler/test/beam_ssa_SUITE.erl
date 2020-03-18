@@ -922,10 +922,14 @@ coverage(_Config) ->
                end,
     {'EXIT',{{badmatch,$T},_}} = (catch coverage_1()),
 
+    error = coverage_2(),
     ok.
 
 coverage_1() ->
     <<area/signed-bitstring>> = $T.
+
+coverage_2() when << []:<<0/native>> >> -> ok;
+coverage_2() -> error.
 
 
 %% The identity function.

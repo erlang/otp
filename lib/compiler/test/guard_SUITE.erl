@@ -1364,7 +1364,9 @@ rel_op_combinations(Config) when is_list(Config) ->
     Red0 = [{I,2*I} || I <- lists:seq(0, 50)] ++
 	[{I,5*I} || I <- lists:seq(51, 80)],
     Red = gb_trees:from_orddict(Red0),
-    rel_op_combinations_3(100, Red).
+    rel_op_combinations_3(100, Red),
+
+    rel_op_combinations_4().
 
 rel_op_combinations_1(0, _) ->
     ok;
@@ -1542,7 +1544,7 @@ rel_op_combinations_3(N, Red) ->
     Val = redundant_9(N),
     Val = redundant_10(N),
     Val = redundant_11(N),
-    Val = redundant_11(N),
+    Val = redundant_12(N),
     rel_op_combinations_3(N-1, Red).
 
 redundant_1(X) when X >= 51, X =< 80 -> 5*X;
@@ -1597,9 +1599,25 @@ redundant_11(X) when X =:= 10 -> 2*X;
 redundant_11(X) when X >= 51, X =< 80 -> 5*X;
 redundant_11(_) -> none.
 
-redundant_12(X) when X >= 50, X =< 80 -> 2*X;
-redundant_12(X) when X < 51 -> 5*X;
+redundant_12(50) -> 100;
+redundant_12(X) when X >= 50, X =< 80 -> 5*X;
+redundant_12(X) when X < 51 -> 2*X;
 redundant_12(_) -> none.
+
+rel_op_combinations_4() ->
+    ne = rel_op_vars_1(id(a), id(b)),
+    le = rel_op_vars_1(id(x), id(x)),
+
+    ne = rel_op_vars_2(id(a), id(b)),
+    ge = rel_op_vars_2(id(x), id(x)),
+
+    ok.
+
+rel_op_vars_1(X, N) when X =/= N -> ne;
+rel_op_vars_1(X, N) when X =< N -> le.
+
+rel_op_vars_2(X, N) when X =/= N -> ne;
+rel_op_vars_2(X, N) when X >= N -> ge.
 
 %% Exhaustively test all combinations of relational operators
 %% to ensure the correctness of the optimizations in beam_ssa_dead.
@@ -2272,6 +2290,8 @@ beam_bool_SUITE(_Config) ->
     looks_like_a_guard(),
     fail_in_guard(),
     in_catch(),
+    recv_semi(),
+    andalso_repeated_var(),
     ok.
 
 before_and_inside_if() ->
@@ -2542,6 +2562,23 @@ in_catch(V) ->
         case false or V of
             true -> ok
         end.
+
+recv_semi() ->
+    timeout = id(receive
+                     ok when home; <<(m#{}):false>> ->
+                         ok
+                 after 0 ->
+                         timeout
+                 end).
+
+andalso_repeated_var() ->
+    ok = andalso_repeated_var(true),
+    error = andalso_repeated_var(false),
+    error = andalso_repeated_var([not_boolean]),
+    ok.
+
+andalso_repeated_var(B) when B andalso B -> ok;
+andalso_repeated_var(_) -> error.
 
 %%%
 %%% End of beam_bool_SUITE tests.
