@@ -2825,6 +2825,8 @@ will_bif_succeed(Op, Ss, Vst) ->
 
 will_call_succeed({extfunc,M,F,A}, Vst) ->
     beam_call_types:will_succeed(M, F, get_call_args(A, Vst));
+will_call_succeed(bs_init_writable, _Vst) ->
+    yes;
 will_call_succeed(_Call, _Vst) ->
     maybe.
 

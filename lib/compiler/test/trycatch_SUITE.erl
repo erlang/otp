@@ -1056,6 +1056,8 @@ grab_bag(_Config) ->
             true = is_function(F, 1)
     end(),
 
+    <<>> = grab_bag_2(whatever),
+
     ok.
 
 grab_bag_1(V) ->
@@ -1077,6 +1079,24 @@ grab_bag_1(V) ->
         %% exception.
         _:V ->
             ok
+    end.
+
+grab_bag_2(V) ->
+    try
+        %% y0 will be re-used for the catch tag.
+        %% This is safe, because there are no instructions
+        %% that can raise an exception.
+        catch 22,
+
+        %% beam_validator incorrectly assumed that the bs_init_writable
+        %% instruction could raise an exception and end up at
+        %% the catch part of the try.
+        <<0 || [], #{} <- []>>
+    catch
+        %% Never reached, because nothing in the try body raises any
+        %% exception.
+        error:_ ->
+            V
     end.
 
 stacktrace(_Config) ->
