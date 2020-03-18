@@ -40,7 +40,8 @@
 	 sign/3, sign/4, verify/4, verify/5,
 	 generate_key/1,
 	 compute_key/2, compute_key/3,
-	 pkix_sign/2, pkix_verify/2,	 
+	 pkix_sign/2, pkix_verify/2,
+	 pkix_hash_type/1,
 	 pkix_sign_types/1,
 	 pkix_is_self_signed/1, 
 	 pkix_is_fixed_dh_cert/1,
@@ -635,6 +636,22 @@ pkix_sign_types(?'ecdsa-with-SHA384') ->
     {sha384, ecdsa};
 pkix_sign_types(?'ecdsa-with-SHA512') ->
     {sha512, ecdsa}.
+
+%%--------------------------------------------------------------------
+-spec pkix_hash_type(HashOid::oid()) -> DigestType:: md5 | crypto:sha1() | crypto:sha2().
+          
+pkix_hash_type(?'id-sha1') ->
+    sha;
+pkix_hash_type(?'id-sha512') ->
+    sha512;
+pkix_hash_type(?'id-sha384') ->
+    sha384;
+pkix_hash_type(?'id-sha256') ->
+    sha256;
+pkix_hash_type('id-sha224') ->
+    sha224;
+pkix_hash_type('id-md5') ->
+    md5.
 
 %%--------------------------------------------------------------------
 %% Description: Create digital signature.

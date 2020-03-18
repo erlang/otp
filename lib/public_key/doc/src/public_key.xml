@@ -578,7 +578,15 @@ fun(#'DistributionPoint'{}, #'CertificateList'{},
        <p> Extracts distribution points from the certificates extensions.</p>
      </desc> 
  </func>
-   
+
+ <func>
+    <name name="pkix_hash_type" arity="1" since="@master@"/>
+    <fsummary>Translates digest OID to Erlang digest type</fsummary>
+    <desc> 
+      <p>Translates digest OID to Erlang digest type</p> 
+    </desc> 
+  </func> 
+
   <func>
     <name name="pkix_match_dist_point" arity="2" since="OTP 19.0"/>
     <fsummary>Checks whether the given distribution point matches the

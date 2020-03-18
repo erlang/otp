@@ -45,7 +45,9 @@ all() ->
      pkix, pkix_countryname, pkix_emailaddress, pkix_path_validation,
      pkix_iso_rsa_oid, pkix_iso_dsa_oid, 
      pkix_dsa_sha2_oid,
-     pkix_crl, general_name,
+     pkix_crl, 
+     pkix_hash_type,
+     general_name,
      pkix_verify_hostname_cn,
      pkix_verify_hostname_subjAltName,
      pkix_verify_hostname_subjAltName_IP,
@@ -848,6 +850,21 @@ general_name(Config) when is_list(Config) ->
 					[{rfc822Name, DummyRfc822Name}],
 				    authorityCertSerialNumber = 
 					1}).
+
+%%--------------------------------------------------------------------
+
+pkix_hash_type() ->
+     [{doc, "Test API function pkix_hash_type/1"}].
+
+pkix_hash_type(Config) when is_list(Config) ->
+    sha = public_key:pkix_hash_type(?'id-sha1'), 
+    sha512 = public_key:pkix_hash_type(?'id-sha512'),
+    sha384 = public_key:pkix_hash_type(?'id-sha384'),
+    sha256 = public_key:pkix_hash_type(?'id-sha256'), 
+    sha224 = public_key:pkix_hash_type('id-sha224'),
+    md5 = public_key:pkix_hash_type('id-md5').
+
+
 %%--------------------------------------------------------------------
 
 pkix_test_data_all_default() ->
