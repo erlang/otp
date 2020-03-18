@@ -29,7 +29,7 @@
 	 re_backwards_accented/1,opt_dupnames/1,opt_all_names/1,inspect/1,
 	 opt_no_start_optimize/1,opt_never_utf/1,opt_ucp/1,
 	 match_limit/1,sub_binaries/1,copt/1,global_unicode_validation/1,
-         yield_on_subject_validation/1]).
+         yield_on_subject_validation/1, bad_utf8_subject/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -47,7 +47,7 @@ all() ->
      re_backwards_accented, opt_dupnames, opt_all_names, 
      inspect, opt_no_start_optimize,opt_never_utf,opt_ucp,
      match_limit, sub_binaries, re_version, global_unicode_validation,
-     yield_on_subject_validation].
+     yield_on_subject_validation, bad_utf8_subject].
 
 groups() -> 
     [].
@@ -957,3 +957,54 @@ sub_binaries(Config) when is_list(Config) ->
     {match,[D]}=re:run(Bin,"a(.+)$",[{capture,[1],binary}]),
     4096 = binary:referenced_byte_size(D),
     ok.
+
+bad_utf8_subject(Config) when is_list(Config) ->
+    %% OTP-16553: re:run() did not badarg
+    %% if both pattern and subject was binaries
+    %% even though subject contained illegal
+    %% utf8...
+
+    nomatch = re:run(<<255,255,255>>, <<"a">>, []),
+    nomatch = re:run(<<255,255,255>>, "a", []),
+    nomatch = re:run(<<"aaa">>, <<255>>, []),
+    nomatch = re:run(<<"aaa">>, [255], []),
+    {match,[{0,1}]} = re:run(<<255,255,255>>, <<255>>, []),
+    {match,[{0,1}]} = re:run(<<255,255,255>>, [255], []),
+    %% Badarg on illegal utf8 in subject as of OTP 23...
+    try
+        re:run(<<255,255,255>>, <<"a">>, [unicode]),
+        error(unexpected)
+    catch
+        error:badarg ->
+            ok
+    end,
+    try
+        re:run(<<255,255,255>>, "a", [unicode]),
+        error(unexpected)
+    catch
+        error:badarg ->
+            ok
+    end,
+    try
+        re:run(<<"aaa">>, <<255>>, [unicode]),
+        error(unexpected)
+    catch
+        error:badarg ->
+            ok
+    end,
+    nomatch = re:run(<<"aaa">>, [255], [unicode]),
+    try
+        re:run(<<255,255,255>>, <<255>>, [unicode]),
+        error(unexpected)
+    catch
+        error:badarg ->
+            ok
+    end,
+    try
+        re:run(<<255,255,255>>, [255], [unicode]),
+        error(unexpected)
+    catch
+        error:badarg ->
+            ok
+    end.
+

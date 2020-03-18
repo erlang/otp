@@ -1334,31 +1334,69 @@ handle_iolist:
     rc = erts_pcre_exec(restart.code, &(restart.extra), restart.subject, 
 			slength, startoffset, 
 			options, restart.ovector, ovsize);
+    if (rc < 0) {
+        switch (rc) {
+            /* No match... */
+        case PCRE_ERROR_NOMATCH:
+        case PCRE_ERROR_MATCHLIMIT:
+        case PCRE_ERROR_RECURSIONLIMIT:
+            break;
 
-    if (rc == PCRE_ERROR_BADENDIANNESS || rc == PCRE_ERROR_BADMAGIC) {
-	cleanup_restart_context(&restart);
-	BIF_ERROR(p,BADARG);
+            /* Yield... */
+        case PCRE_ERROR_LOOP_LIMIT: {
+            /* Trap */
+            Binary *mbp = erts_create_magic_binary(sizeof(RestartContext),
+                                                   cleanup_restart_context_bin);
+            RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
+            Eterm magic_ref;
+            Eterm *hp;
+            ASSERT(loop_count != 0xFFFFFFFF);
+            BUMP_REDS(p, loop_count / LOOP_FACTOR);
+            sys_memcpy(restartp,&restart,sizeof(RestartContext));
+            ERTS_VBUMP_ALL_REDS(p);
+            hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
+            magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
+            BIF_TRAP3(&re_exec_trap_export, 
+                      p,
+                      arg1,
+                      arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
+                      magic_ref);
+        }
+
+            /* Recursive loop detected in pattern... */
+        case PCRE_ERROR_RECURSELOOP:
+#if 1
+            loop_count = CONTEXT_REDS*LOOP_FACTOR; /* Unknown amount of work done... */
+            break; /* nomatch for backwards compatibility reasons for now... */
+#else
+            BUMP_ALL_REDS(p); /* Unknown amount of work done... */
+            cleanup_restart_context(&restart);
+            BIF_ERROR(p, BADARG);
+#endif
+            
+            /* Bad utf8 in subject... */
+        case PCRE_ERROR_SHORTUTF8:
+        case PCRE_ERROR_BADUTF8:
+        case PCRE_ERROR_BADUTF8_OFFSET:
+            BUMP_ALL_REDS(p); /* Unknown amount of work done... */
+            /* Fall through for badarg... */
+            
+            /* Bad pre-compiled regexp... */
+        case PCRE_ERROR_BADMAGIC:
+        case PCRE_ERROR_BADENDIANNESS:
+            cleanup_restart_context(&restart);
+            BIF_ERROR(p, BADARG);
+            
+        default:
+            /* Something unexpected happened... */
+            ASSERT(! "Unexpected erts_pcre_exec() result");
+            cleanup_restart_context(&restart);
+            BIF_ERROR(p, EXC_INTERNAL_ERROR);
+        }
     }
     
     ASSERT(loop_count != 0xFFFFFFFF);
     BUMP_REDS(p, loop_count / LOOP_FACTOR);
-    if (rc == PCRE_ERROR_LOOP_LIMIT) {
-	/* Trap */
-	Binary *mbp = erts_create_magic_binary(sizeof(RestartContext),
-					       cleanup_restart_context_bin);
-	RestartContext *restartp = ERTS_MAGIC_BIN_DATA(mbp);
-	Eterm magic_ref;
-	Eterm *hp;
-	sys_memcpy(restartp,&restart,sizeof(RestartContext));
-	BUMP_ALL_REDS(p);
-	hp = HAlloc(p, ERTS_MAGIC_REF_THING_SIZE);
-	magic_ref = erts_mk_magic_ref(&hp, &MSO(p), mbp);
-	BIF_TRAP3(&re_exec_trap_export, 
-		  p,
-		  arg1,
-		  arg2 /* To avoid GC of precompiled code, XXX: not utilized yet */,
-		  magic_ref);
-    }
 
     res = build_exec_return(p, rc, &restart, arg1);
  
