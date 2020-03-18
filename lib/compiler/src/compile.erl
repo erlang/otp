@@ -812,7 +812,7 @@ core_passes(CoreStatus) ->
     case CoreStatus of
         non_verified_core ->
             [?pass(core_lint_module),
-             {pass,sys_core_prepare},
+             {unless,no_core_prepare,{pass,sys_core_prepare}},
              {iff,dprep,{listing,"prepare"}}];
         verified_core ->
             [{iff,clint0,?pass(core_lint_module)}]

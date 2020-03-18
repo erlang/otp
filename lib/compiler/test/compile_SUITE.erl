@@ -34,7 +34,7 @@
 	 strict_record/1, utf8_atoms/1, utf8_functions/1, extra_chunks/1,
 	 cover/1, env/1, core_pp/1, tuple_calls/1,
 	 core_roundtrip/1, asm/1,
-	 sys_pre_attributes/1, dialyzer/1,
+	 sys_pre_attributes/1, dialyzer/1, no_core_prepare/1,
 	 warnings/1, pre_load_check/1, env_compiler_options/1,
          bc_options/1, deterministic_include/1, deterministic_paths/1,
          compile_attribute/1
@@ -51,7 +51,7 @@ all() ->
      binary, makedep, cond_and_ifdef, listings, listings_big,
      other_output, kernel_listing, encrypted_abstr, tuple_calls,
      strict_record, utf8_atoms, utf8_functions, extra_chunks,
-     cover, env, core_pp, core_roundtrip, asm,
+     cover, env, core_pp, core_roundtrip, asm, no_core_prepare,
      sys_pre_attributes, dialyzer, warnings, pre_load_check,
      env_compiler_options, custom_debug_info, bc_options,
      custom_compile_info, deterministic_include, deterministic_paths,
@@ -332,6 +332,23 @@ makedep_modify_target(Mf, Target) ->
     list_to_binary(Mf1).
 
 %% Tests that conditional compilation, defining values, including files work.
+
+no_core_prepare(_Config) ->
+    Mod = {c_module,[],
+              {c_literal,[],sample_receive},
+              [{c_var,[],{discard,0}}],
+              [],
+              [{{c_var,[],{discard,0}},
+                {c_fun,[],[],
+                    {c_case,[],
+                        {c_values,[],[]},
+                        [{c_clause,[],[],
+                             {c_literal,[],true},
+                             {c_receive,[],[],{c_literal,[],0},{c_literal,[],ok}}}]}}}]},
+
+    {ok,sample_receive,_,_} = compile:forms(Mod, [from_core,binary,return]),
+    {error,_,_} = compile:forms(Mod, [from_core,binary,return,no_core_prepare]),
+    ok.
 
 cond_and_ifdef(Config) when is_list(Config) ->
     {Simple, Target} = get_files(Config, simple, "cond_and_ifdef"),
