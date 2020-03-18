@@ -1388,7 +1388,7 @@ append_guard(none, D, _) ->
     D;
 append_guard(G, D, Ctxt) ->
     par([D, follow(text("when"), G, Ctxt#ctxt.sub_indent)],
-	Ctxt#ctxt.break_indent).
+	Ctxt#ctxt.sub_indent).
 
 lay_bit_types([T], Ctxt) ->
     lay(T, Ctxt);
