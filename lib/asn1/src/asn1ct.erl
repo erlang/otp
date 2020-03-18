@@ -1693,6 +1693,9 @@ create_pdec_command(ModName,{'CHOICE',[Comp=#'ComponentType'{name=C1}|_]},TNL=[C
     create_pdec_command(ModName,[Comp],TNL,Acc);
 create_pdec_command(ModName,{'CHOICE',[#'ComponentType'{}|Comps]},TNL,Acc) ->
     create_pdec_command(ModName,{'CHOICE',Comps},TNL,Acc);
+create_pdec_command(ModName,{'CHOICE',{Cs1,Cs2}},TNL,Acc)
+  when is_list(Cs1),is_list(Cs2) ->
+    create_pdec_command(ModName,{'CHOICE',Cs1 ++ Cs2},TNL,Acc);
 create_pdec_command(ModName,#'Externaltypereference'{module=M,type=C1},
 		    TypeNameList,Acc) ->
      #type{def=Def} = get_referenced_type(M,C1),

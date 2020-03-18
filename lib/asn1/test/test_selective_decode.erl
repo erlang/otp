@@ -51,6 +51,10 @@ test() ->
     Bytes4 = roundtrip('P-Record', 'PersonnelRecord', PRecMsg, PRecMsgDec),
     {ok,_} = 'P-Record':sel_dec(Bytes4),
 
+    ChoExtMsg = msg('ChoExt'),
+    Bytes5 = roundtrip('PartialDecChoExtension', 'ChoExt', ChoExtMsg),
+    {ok, 42} = 'PartialDecChoExtension':selected_decode_ChoExt(Bytes5),
+
     ok.
     
 msg('F') ->
@@ -60,8 +64,10 @@ msg('E') ->
     {'E',10,[{'D',11,true},{'D',12,false}],false,{dc,{'E_d_dc',13,true,{'E_d_dc_dcc',14,15}}}};
 
 msg('M-G-C') ->
-    {'MegacoMessage',asn1_NOVALUE,{'Message',1,{ip4Address,{'IP4Address',[125,125,125,111],55555}},{transactions,[{transactionReply,{'TransactionReply',50007,asn1_NOVALUE,{actionReplies,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,[{auditValueReply,{auditResult,{'AuditResult',{'TerminationID',[],[255,255,255]},[{mediaDescriptor,{'MediaDescriptor',asn1_NOVALUE,{multiStream,[{'StreamDescriptor',1,{'StreamParms',{'LocalControlDescriptor',sendRecv,asn1_NOVALUE,asn1_NOVALUE,[{'PropertyParm',[0,11,0,7],[[52,48]],asn1_NOVALUE}]},{'LocalRemoteDescriptor',[[{'PropertyParm',[0,0,176,1],[[48]],asn1_NOVALUE},{'PropertyParm',[0,0,176,8],[[73,78,32,73,80,52,32,49,50,53,46,49,50,53,46,49,50,53,46,49,49,49]],asn1_NOVALUE},{'PropertyParm',[0,0,176,15],[[97,117,100,105,111,32,49,49,49,49,32,82,84,80,47,65,86,80,32,32,52]],asn1_NOVALUE},{'PropertyParm',[0,0,176,12],[[112,116,105,109,101,58,51,48]],asn1_NOVALUE}]]},{'LocalRemoteDescriptor',[[{'PropertyParm',[0,0,176,1],[[48]],asn1_NOVALUE},{'PropertyParm',[0,0,176,8],[[73,78,32,73,80,52,32,49,50,52,46,49,50,52,46,49,50,52,46,50,50,50]],asn1_NOVALUE},{'PropertyParm',[0,0,176,15],[[97,117,100,105,111,32,50,50,50,50,32,82,84,80,47,65,86,80,32,32,52]],asn1_NOVALUE},{'PropertyParm',[0,0,176,12],[[112,116,105,109,101,58,51,48]],asn1_NOVALUE}]]}}}]}}},{packagesDescriptor,[{'PackagesItem',[0,11],1},{'PackagesItem',[0,11],1}]},{statisticsDescriptor,[{'StatisticsParameter',[0,12,0,4],[[49,50,48,48]]},{'StatisticsParameter',[0,11,0,2],[[54,50,51,48,48]]},{'StatisticsParameter',[0,12,0,5],[[55,48,48]]},{'StatisticsParameter',[0,11,0,3],[[52,53,49,48,48]]},{'StatisticsParameter',[0,12,0,6],[[48,46,50]]},{'StatisticsParameter',[0,12,0,7],[[50,48]]},{'StatisticsParameter',[0,12,0,8],[[52,48]]}]}]}}}]}]}}}]}}}.
+    {'MegacoMessage',asn1_NOVALUE,{'Message',1,{ip4Address,{'IP4Address',[125,125,125,111],55555}},{transactions,[{transactionReply,{'TransactionReply',50007,asn1_NOVALUE,{actionReplies,[{'ActionReply',0,asn1_NOVALUE,asn1_NOVALUE,[{auditValueReply,{auditResult,{'AuditResult',{'TerminationID',[],[255,255,255]},[{mediaDescriptor,{'MediaDescriptor',asn1_NOVALUE,{multiStream,[{'StreamDescriptor',1,{'StreamParms',{'LocalControlDescriptor',sendRecv,asn1_NOVALUE,asn1_NOVALUE,[{'PropertyParm',[0,11,0,7],[[52,48]],asn1_NOVALUE}]},{'LocalRemoteDescriptor',[[{'PropertyParm',[0,0,176,1],[[48]],asn1_NOVALUE},{'PropertyParm',[0,0,176,8],[[73,78,32,73,80,52,32,49,50,53,46,49,50,53,46,49,50,53,46,49,49,49]],asn1_NOVALUE},{'PropertyParm',[0,0,176,15],[[97,117,100,105,111,32,49,49,49,49,32,82,84,80,47,65,86,80,32,32,52]],asn1_NOVALUE},{'PropertyParm',[0,0,176,12],[[112,116,105,109,101,58,51,48]],asn1_NOVALUE}]]},{'LocalRemoteDescriptor',[[{'PropertyParm',[0,0,176,1],[[48]],asn1_NOVALUE},{'PropertyParm',[0,0,176,8],[[73,78,32,73,80,52,32,49,50,52,46,49,50,52,46,49,50,52,46,50,50,50]],asn1_NOVALUE},{'PropertyParm',[0,0,176,15],[[97,117,100,105,111,32,50,50,50,50,32,82,84,80,47,65,86,80,32,32,52]],asn1_NOVALUE},{'PropertyParm',[0,0,176,12],[[112,116,105,109,101,58,51,48]],asn1_NOVALUE}]]}}}]}}},{packagesDescriptor,[{'PackagesItem',[0,11],1},{'PackagesItem',[0,11],1}]},{statisticsDescriptor,[{'StatisticsParameter',[0,12,0,4],[[49,50,48,48]]},{'StatisticsParameter',[0,11,0,2],[[54,50,51,48,48]]},{'StatisticsParameter',[0,12,0,5],[[55,48,48]]},{'StatisticsParameter',[0,11,0,3],[[52,53,49,48,48]]},{'StatisticsParameter',[0,12,0,6],[[48,46,50]]},{'StatisticsParameter',[0,12,0,7],[[50,48]]},{'StatisticsParameter',[0,12,0,8],[[52,48]]}]}]}}}]}]}}}]}}};
 
+msg('ChoExt') ->
+    {j, 42}.
 
 roundtrip(M, T, V) ->
     asn1_test_lib:roundtrip_enc(M, T, V).

@@ -1,0 +1,2 @@
+{selective_decode, {'PartialDecChoExtension',
+                    [{selected_decode_ChoExt, ['ChoExt', j]}]}}.
