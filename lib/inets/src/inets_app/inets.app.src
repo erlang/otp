@@ -43,14 +43,14 @@
             httpc_sup,
             httpc_cookie,                
 
-	    http_uri, %% Proably will by used by server also in the future
-
             %% HTTP used by both client and server 
             http_chunk,
             http_request,
             http_response,      
             http_transport,
             http_util,  
+
+            http_uri, %% Deprecated
             
             %% HTTP server:
             httpd,

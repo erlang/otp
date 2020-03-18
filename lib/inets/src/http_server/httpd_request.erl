@@ -340,31 +340,13 @@ whole_body(Body, Length) ->
 %% Prevent people from trying to access directories/files
 %% relative to the ServerRoot.
 validate_uri(RequestURI) ->
-    UriNoQueryNoHex = 
-	case string:str(RequestURI, "?") of
-	    0 ->
-		(catch http_uri:decode(RequestURI));
-	    Ndx ->
-		(catch http_uri:decode(string:left(RequestURI, Ndx)))
-	end,
-    case UriNoQueryNoHex of
-	{'EXIT', _Reason} ->
-	    {error, {bad_request, {malformed_syntax, RequestURI}}};
-	_ ->
-	    Path  = format_request_uri(UriNoQueryNoHex),
-	    Path2 = [X||X<-string:tokens(Path, "/"),X=/="."], %% OTP-5938
-	    validate_path(Path2, 0, RequestURI)
+    case uri_string:normalize(RequestURI) of
+        {error, _, _} ->
+            {error, {bad_request, {malformed_syntax, RequestURI}}};
+        URI ->
+            {ok, URI}
     end.
-
-validate_path([], _, _) ->
-    ok;
-validate_path([".." | _], 0, RequestURI) ->
-    {error, {bad_request, {forbidden, RequestURI}}};
-validate_path([".." | Rest], N, RequestURI) ->
-    validate_path(Rest, N - 1, RequestURI);
-validate_path([_ | Rest], N, RequestURI) ->
-    validate_path(Rest, N + 1, RequestURI).
-
+   
 validate_version("HTTP/1.1") ->
     true;
 validate_version("HTTP/1.0") ->

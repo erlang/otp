@@ -472,10 +472,10 @@ handle_call(which_cookies, _, #state{cookie_db = CookieDb} = State) ->
 handle_call({which_cookies, Url, Options}, _, 
 	    #state{cookie_db = CookieDb} = State) ->
     ?hcrv("which cookies", [{url, Url}, {options, Options}]),
-    case uri_parse(Url, Options) of
-	{ok, {Scheme, _, Host, Port, Path, _}} ->
+    case uri_parse(Url) of
+	{ok, {Scheme, Host, Port, Path}} ->
 	    CookieHeaders = 
-		httpc_cookie:header(CookieDb, Scheme, {Host, Port}, Path),
+		httpc_cookie:header(CookieDb, erlang:list_to_existing_atom(Scheme), {Host, Port}, Path),
 	    {reply, CookieHeaders, State};
 	{error, _} = ERROR ->
 	    {reply, ERROR, State}
@@ -948,14 +948,31 @@ make_db_name(ProfileName, Post) ->
 %%--------------------------------------------------------------------------
 %% These functions is just simple wrappers to parse specifically HTTP URIs
 %%--------------------------------------------------------------------------
+uri_parse(URI) ->
+    case uri_string:parse(uri_string:normalize(URI)) of
+        #{scheme := Scheme,
+          host := Host,
+          port := Port,
+          path := Path} ->
+            {ok, {Scheme, Host, Port, Path}};    
+        #{scheme := Scheme,
+          host := Host,
+          path := Path} ->
+            {ok, {Scheme, Host, scheme_default_port(Scheme), Path}};
+        Other ->
+            {error, maybe_error(Other)}
+    end.
 
-scheme_defaults() ->
-    [{http, 80}, {https, 443}].
+maybe_error({error, Atom, Term}) ->
+    {Atom, Term};
+maybe_error(Other) ->
+    {unexpected, Other}.
 
-uri_parse(URI, Opts) ->
-    http_uri:parse(URI, [{scheme_defaults, scheme_defaults()} | Opts]).
-
-
+scheme_default_port("http") ->
+    80;
+scheme_default_port("https") ->
+    443.
+                                
 %%--------------------------------------------------------------------------
 
 

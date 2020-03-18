@@ -116,16 +116,16 @@ groups() ->
      {https_not_sup, [], [{group, not_sup}]},
      {https_alert, [], [tls_alert]},
      {http_mime_types, [], [alias_1_1, alias_1_0, alias_0_9]},
-     {limit, [],  [max_clients_1_1, max_clients_1_0, max_clients_0_9]},  
+     {limit, [],  [content_length, max_clients_1_1]},  
      {custom, [],  [customize, add_default]},  
      {reload, [], [non_disturbing_reconfiger_dies,
 		   disturbing_reconfiger_dies,
 		   non_disturbing_1_1, 
 		   non_disturbing_1_0, 
 		   non_disturbing_0_9,
-		   disturbing_1_1,
-		   disturbing_1_0, 
-		   disturbing_0_9,
+                   disturbing_1_1,
+                   disturbing_1_0, 
+                   disturbing_0_9,
 		   reload_config_file
 		  ]},
      {post, [], [chunked_post, chunked_chunked_encoded_post, post_204]},
@@ -163,7 +163,6 @@ http_get() ->
      get, 
      %%actions, Add configuration so that this test mod_action
      esi, 
-     content_length, 
      bad_hex, 
      missing_CR,
      max_header,
@@ -231,7 +230,7 @@ init_per_group(Group, Config0) when Group == https_basic;
     catch crypto:stop(),
     try crypto:start() of
         ok ->
-            init_ssl(Group, Config0)
+            init_ssl(Group,  [{http_version, "HTTP/1.0"} | Config0])
     catch
         _:_ ->
             {skip, "Crypto did not start"}
@@ -250,7 +249,7 @@ init_per_group(Group, Config0)  when  Group == http_basic;
                                       Group == http_mime_types
 				      ->
     ok = start_apps(Group),
-    init_httpd(Group, [{type, ip_comm} | Config0]);
+    init_httpd(Group, [{http_version, "HTTP/1.0"}, {type, ip_comm} | Config0]);
 init_per_group(http_1_1, Config) ->
     [{http_version, "HTTP/1.1"} | Config];
 init_per_group(http_1_0, Config) ->
@@ -960,19 +959,6 @@ max_clients_1_1() ->
 max_clients_1_1(Config) when is_list(Config) -> 
     do_max_clients([{http_version, "HTTP/1.1"} | Config]).
 
-max_clients_1_0() ->
-    [{doc, "Test max clients limit"}].
-
-max_clients_1_0(Config) when is_list(Config) -> 
-    do_max_clients([{http_version, "HTTP/1.0"} | Config]).
-
-max_clients_0_9() ->
-    [{doc, "Test max clients limit"}].
-
-max_clients_0_9(Config) when is_list(Config) -> 
-    do_max_clients([{http_version, "HTTP/0.9"} | Config]).
-
-
 %%-------------------------------------------------------------------------
 put_not_sup() ->
     [{doc, "Test unhandled request"}].
@@ -1003,12 +989,6 @@ esi() ->
     [{doc, "Test mod_esi"}].
 
 esi(Config) when is_list(Config) -> 
-    ok = http_status("GET /eval?httpd_example:print(\"Hi!\") ",
-		     Config, [{statuscode, 200}]),
-    ok = http_status("GET /eval?not_allowed:print(\"Hi!\") ",
-		     Config, [{statuscode, 403}]),
-    ok = http_status("GET /eval?httpd_example:undef(\"Hi!\") ",
-		      Config, [{statuscode, 500}]),
     ok = http_status("GET /cgi-bin/erl/httpd_example ", 
 		     Config, [{statuscode, 400}]),
     ok = http_status("GET /cgi-bin/erl/httpd_example:get ",
@@ -1590,20 +1570,20 @@ do_reconfiger_dies(Config, DisturbingType) ->
     Type = proplists:get_value(type, Config),
 
     HttpdConfig = httpd:info(Server), 
-    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    BlockRequest = http_request("GET /cgi-bin/erl/httpd_example:delay ", Version, Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
     ct:sleep(100), %% Avoid possible timing issues
     Pid = spawn(fun() -> httpd:reload_config([{server_name, "httpd_kill_" ++ Version}, 
-					      {port, Port}|
-					      proplists:delete(server_name, HttpdConfig)], DisturbingType) 
-	  end),
+                                              {port, Port}|
+                                              proplists:delete(server_name, HttpdConfig)], DisturbingType) 
+                end),
     
     monitor(process, Pid),
     exit(Pid, kill),
     receive 
-	{'DOWN', _, _, _, _} ->
-	    ok
+        {'DOWN', _, _, _, _} ->
+            ok
     end,
     inets_test_lib:close(Type, Socket),
     [{server_name, "httpd_test"}] =  httpd:info(Server, [server_name]).
@@ -1624,7 +1604,8 @@ disturbing(Config) when is_list(Config)->
     Port = proplists:get_value(port, Config),
     Type = proplists:get_value(type, Config),
     HttpdConfig = httpd:info(Server), 
-    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version,  Host),
+
+    BlockRequest = http_request("GET /cgi-bin/erl/httpd_example:delay ", Version,  Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
     ct:sleep(100), %% Avoid possible timing issues
@@ -1657,7 +1638,7 @@ non_disturbing(Config) when is_list(Config)->
     Type = proplists:get_value(type, Config),
 
     HttpdConfig = httpd:info(Server), 
-    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    BlockRequest = http_request("GET /cgi-bin/erl/httpd_example:delay ", Version, Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
     ct:sleep(100), %% Avoid possible timing issues
@@ -1999,10 +1980,9 @@ do_max_clients(Config) ->
     Type    = proplists:get_value(type, Config),
     
     Request = http_request("GET /index.html ", Version, Host),
-    BlockRequest = http_request("GET /eval?httpd_example:delay(2000) ", Version, Host),
+    BlockRequest = http_request("GET /cgi_bin/erl/httpd_example:delay ", Version, Host),
     {ok, Socket} = inets_test_lib:connect_bin(Type, Host, Port, transport_opts(Type, Config)),
     inets_test_lib:send(Type, Socket, BlockRequest),
-    ct:sleep(100), %% Avoid possible timing issues
     ok = httpd_test_lib:verify_request(Type, Host, 
 				       Port,
 				       transport_opts(Type, Config),
@@ -2151,6 +2131,7 @@ server_config(https_reload, Config) ->
     [{keep_alive_timeout, 2}]  ++ server_config(https, Config);
 server_config(http_limit, Config) ->
     Conf = [{max_clients, 1},
+            {disable_chunked_transfer_encoding_send, true},
 	    %% Make sure option checking code is run
 	    {max_content_length, 100000002}]  ++ server_config(http, Config),
     ct:pal("Received message ~p~n", [Conf]),
@@ -2160,7 +2141,9 @@ server_config(http_custom, Config) ->
 server_config(https_custom, Config) ->
     [{customize, ?MODULE}]  ++ server_config(https, Config);
 server_config(https_limit, Config) ->
-    [{max_clients, 1}]  ++ server_config(https, Config);
+    [{max_clients, 1},
+     {disable_chunked_transfer_encoding_send, true}
+    ]  ++ server_config(https, Config);
 server_config(http_basic_auth, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
     auth_conf(ServerRoot)  ++  server_config(http, Config);
@@ -2222,8 +2205,7 @@ server_config(http, Config) ->
      {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
      {script_alias, {"/cgi-bin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}},
      {script_alias, {"/htbin/", filename:join(ServerRoot, "cgi-bin") ++ "/"}},
-     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}},
-     {eval_script_alias, {"/eval", [httpd_example, io]}}
+     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}}
     ];
 server_config(http_rel_path_script_alias, Config) ->
     ServerRoot = proplists:get_value(server_root, Config),
@@ -2243,8 +2225,7 @@ server_config(http_rel_path_script_alias, Config) ->
      {alias, {"/pics/",  filename:join(ServerRoot,"icons") ++ "/"}},
      {script_alias, {"/cgi-bin/", "./cgi-bin/"}},
      {script_alias, {"/htbin/", "./cgi-bin/"}},
-     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}},
-     {eval_script_alias, {"/eval", [httpd_example, io]}}
+     {erl_script_alias, {"/cgi-bin/erl", [httpd_example, io]}}
     ];
 server_config(https, Config) ->
     SSLConf = proplists:get_value(ssl_conf, Config),
