@@ -43,15 +43,19 @@ all() ->
 groups() ->
     [
      {'tlsv1.3', [], tls_1_3_protocol_groups()}, 
-     {'tlsv1.2', [], tls_1_2_protocol_groups()},
+     {'tlsv1.2', [], tls_1_2_protocol_groups() -- [{group,rsa_pss_pss}]},
      {'tlsv1.1', [], ssl_protocol_groups()},
      {'tlsv1', [], ssl_protocol_groups()},
-     {'dtlsv1.2', [], tls_1_2_protocol_groups()},
+     {'dtlsv1.2', [], tls_1_2_protocol_groups() -- [{group,rsa_pss_rsae}, {group,rsa_pss_pss}]},
      {'dtlsv1', [], ssl_protocol_groups()},
      {rsa, [], all_version_tests() ++ rsa_tests() ++ pre_tls_1_3_rsa_tests()},
      {ecdsa, [], all_version_tests()},
      {dsa, [], all_version_tests()},
      {rsa_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
+     {rsa_pss_rsae, [], all_version_tests() ++ rsa_tests()},
+     {rsa_pss_rsae_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
+     {rsa_pss_pss, [], all_version_tests() ++ rsa_tests()},
+     {rsa_pss_pss_1_3, [], all_version_tests() ++ rsa_tests() ++ tls_1_3_tests() ++ tls_1_3_rsa_tests()},
      {ecdsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
     ].
 
@@ -62,11 +66,17 @@ ssl_protocol_groups() ->
 tls_1_2_protocol_groups() ->
     [{group, rsa},
      {group, ecdsa},
-     {group, dsa}].
+     {group, dsa},
+     {group, rsa_pss_rsae},
+     {group, rsa_pss_pss}
+    ].
 
 tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},
-     {group, ecdsa_1_3}].
+     {group, ecdsa_1_3},
+     {group, rsa_pss_rsae_1_3},
+     {group, rsa_pss_pss_1_3}
+    ].
 
 tls_1_3_tests() ->
     [
@@ -149,6 +159,30 @@ init_per_group(Group, Config0) when Group == rsa;
                    {server_cert_opts, SOpts} | 
                    lists:delete(server_cert_opts, 
                                 lists:delete(client_cert_opts, Config))])];
+
+init_per_group(Alg, Config) when Alg == rsa_pss_rsae;
+                                 Alg == rsa_pss_pss;
+                                 Alg == rsa_pss_rsae_1_3;
+                                 Alg == rsa_pss_pss_1_3 ->
+
+    Supports = crypto:supports(),
+    RSAOpts = proplists:get_value(rsa_opts, Supports),
+    
+    case lists:member(rsa_pkcs1_pss_padding, RSAOpts) 
+        andalso lists:member(rsa_pss_saltlen, RSAOpts) 
+        andalso lists:member(rsa_mgf1_md, RSAOpts) of
+        true ->
+            #{client_config := COpts,
+              server_config := SOpts} = ssl_test_lib:make_rsa_pss_pem(rsa_alg(Alg), [], Config, ""),
+            [{cert_key_alg, rsa_alg(Alg)} |
+             lists:delete(cert_key_alg,
+                          [{client_cert_opts, COpts},
+                           {server_cert_opts, SOpts} |
+                           lists:delete(server_cert_opts,
+                                        lists:delete(client_cert_opts, Config))])];
+        false ->
+            {skip, "Missing EC crypto support"}
+    end;
 init_per_group(Group, Config0) when Group == ecdsa;
                                     Group == ecdsa_1_3 ->
 
@@ -815,7 +849,7 @@ unsupported_sign_algo_cert_client_auth(Config) ->
     ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
     ServerOpts = [{versions, ['tlsv1.2','tlsv1.3']},
                   {verify, verify_peer},
-                  {signature_algs, [rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pss_rsae_sha256]},
+                  {signature_algs, [rsa_pkcs1_sha256, rsa_pkcs1_sha384, rsa_pss_rsae_sha256, rsa_pss_pss_sha256]},
                   %% Skip rsa_pkcs1_sha256!
                   {signature_algs_cert, [rsa_pkcs1_sha384, rsa_pkcs1_sha512]},
                   {fail_if_no_peer_cert, true}|ServerOpts0],
@@ -918,3 +952,10 @@ n_version(Version) when Version == 'tlsv1.2';
 n_version(Version) when Version == 'dtlsv1.2';
                         Version == 'dtlsv1' ->
     dtls_record:protocol_version(Version).
+
+rsa_alg(rsa_pss_rsae_1_3) ->
+    rsa_pss_rsae;
+rsa_alg(rsa_pss_pss_1_3) ->
+    rsa_pss_pss;
+rsa_alg(Atom) ->
+    Atom.

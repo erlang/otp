@@ -1211,6 +1211,18 @@ default_cert_chain_conf() ->
     %% Use only default options
     [[],[],[]].
 
+make_rsa_pss_pem(Alg, _UserConf, Config, Suffix) ->
+    DefClientConf = chain_spec(client, Alg, []),
+    DefServerConf = chain_spec(server, Alg, []),
+    CertChainConf = new_format([{client_chain, DefClientConf}, {server_chain, DefServerConf}]),
+    ClientFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(Alg) ++ Suffix]),
+    ServerFileBase = filename:join([proplists:get_value(priv_dir, Config), atom_to_list(Alg) ++ Suffix]),
+    GenCertData = public_key:pkix_test_data(CertChainConf),
+    Conf = x509_test:gen_pem_config_files(GenCertData, ClientFileBase, ServerFileBase),               
+    CConf = proplists:get_value(client_config, Conf),
+    SConf = proplists:get_value(server_config, Conf),
+    #{server_config => SConf,
+      client_config => CConf}.
 
 gen_conf(ClientChainType, ServerChainType, UserClient, UserServer) ->
     gen_conf(ClientChainType, ServerChainType, UserClient, UserServer, ?DEFAULT_CURVE).
@@ -1289,6 +1301,26 @@ chain_spec(_Role, rsa, _) ->
     [[Digest, {key, hardcode_rsa_key(1)}],
                                       [Digest, {key, hardcode_rsa_key(2)}],
                                       [Digest, {key, hardcode_rsa_key(3)}]];
+chain_spec(client, rsa_pss_rsae, _) ->
+    Digest = {digest, sha256},
+    [[Digest,  {rsa_padding, rsa_pss_rsae}, {key, hardcode_rsa_key(1)}],
+     [Digest,  {rsa_padding, rsa_pss_rsae}, {key, hardcode_rsa_key(2)}],
+     [Digest,  {rsa_padding, rsa_pss_rsae}, {key, hardcode_rsa_key(3)}]];
+chain_spec(server, rsa_pss_rsae, _) ->
+    Digest = {digest, sha256},
+    [[Digest,  {rsa_padding, rsa_pss_rsae}, {key, hardcode_rsa_key(4)}],
+     [Digest,  {rsa_padding, rsa_pss_rsae}, {key, hardcode_rsa_key(5)}],
+     [Digest,  {rsa_padding, rsa_pss_rsae}, {key, hardcode_rsa_key(6)}]];
+chain_spec(client, rsa_pss_pss, _) ->
+    Digest = {digest, sha256},
+    [[Digest, {rsa_padding, rsa_pss_pss}, {key, {hardcode_rsa_key(1), pss_params(sha256)}}],
+     [Digest, {rsa_padding, rsa_pss_pss}, {key, {hardcode_rsa_key(2), pss_params(sha256)}}],
+     [Digest, {rsa_padding, rsa_pss_pss}, {key, {hardcode_rsa_key(3), pss_params(sha256)}}]];
+chain_spec(server, rsa_pss_pss, _) ->
+    Digest = {digest, sha256},
+    [[Digest, {rsa_padding, rsa_pss_pss}, {key, {hardcode_rsa_key(4), pss_params(sha256)}}],
+     [Digest, {rsa_padding, rsa_pss_pss}, {key, {hardcode_rsa_key(5),  pss_params(sha256)}}],
+     [Digest, {rsa_padding, rsa_pss_pss}, {key, {hardcode_rsa_key(6),  pss_params(sha256)}}]];
 chain_spec(_Role, dsa, _) ->
     Digest = {digest, appropriate_sha(crypto:supports())},
     [[Digest, {key, hardcode_dsa_key(1)}],
@@ -1696,51 +1728,31 @@ ecc_test_error(COpts, SOpts, CECCOpts, SECCOpts, Config) ->
     Client = start_client_ecc_error(erlang, Port, COpts, CECCOpts, Config),
     check_server_alert(Server, Client, insufficient_security).
 
-start_basic_client(openssl, Version, Port, ClientOpts) ->
-    Cert = proplists:get_value(certfile, ClientOpts),
-    Key = proplists:get_value(keyfile, ClientOpts),
-    CA = proplists:get_value(cacertfile, ClientOpts),
-    Groups0 = proplists:get_value(groups, ClientOpts),
-    Exe = "openssl",
-    Args0 = ["s_client", "-verify", "2", "-port", integer_to_list(Port),
-	    ssl_test_lib:version_flag(Version),
-	    "-CAfile", CA, "-host", "localhost", "-msg", "-debug"],
-    Args1 =
-       case Groups0 of
-           undefined ->
-               Args0;
-           G ->
-               Args0 ++ ["-groups", G]
-       end,
-    Args =
-       case {Cert, Key} of
-           {C, K} when C =:= undefined orelse
-                       K =:= undefined ->
-               Args1;
-           {C, K} ->
-               Args1 ++ ["-cert", C, "-key", K]
-       end,
-
-    OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args),
-    true = port_command(OpenSslPort, "Hello world"),
-    OpenSslPort.
-
 start_client(openssl, Port, ClientOpts, Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     Exe = "openssl",
     Ciphers = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
     Groups0 = proplists:get_value(groups, ClientOpts),
     CertArgs = openssl_cert_options(ClientOpts, client),
+
     Exe = "openssl",
     Args0 =  case Groups0 of
                 undefined ->
-                    ["s_client", "-verify", "2", "-port", integer_to_list(Port), cipher_flag(Version),
+                    ["s_client", 
+                     "-verify", "2", 
+                     "-port", integer_to_list(Port), cipher_flag(Version),
                      ciphers(Ciphers, Version),
-                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"];
+                     ssl_test_lib:version_flag(Version)] 
+                         ++ CertArgs 
+                         ++ ["-msg", "-debug"];
                 Group ->
-                    ["s_client", "-verify", "2", "-port", integer_to_list(Port), cipher_flag(Version),
+                    ["s_client", 
+                     "-verify", "2", 
+                     "-port", integer_to_list(Port), cipher_flag(Version),
                      ciphers(Ciphers, Version), "-groups", Group, 
-                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
+                     ssl_test_lib:version_flag(Version)] 
+                         ++CertArgs 
+                         ++ ["-msg", "-debug"]
             end,
     Args = maybe_force_ipv4(Args0),
     OpenSslPort = ssl_test_lib:portable_open_port(Exe, Args), 
@@ -1796,15 +1808,16 @@ start_server(openssl, ClientOpts, ServerOpts, Config) ->
     CertArgs = openssl_cert_options(ServerOpts, server),
     Ciphers = proplists:get_value(ciphers, ClientOpts, ssl:cipher_suites(default,Version)),
     Groups0 = proplists:get_value(groups, ServerOpts),
+    SigAlgs = proplists:get_value(openssl_sigalgs, Config, undefined),
     Args =  case Groups0 of
                 undefined ->
                     ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                      ciphers(Ciphers, Version),
-                     ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"];
+                     ssl_test_lib:version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ ["-msg", "-debug"];
                 Group ->
                        ["s_server", "-accept", integer_to_list(Port), cipher_flag(Version),
                         ciphers(Ciphers, Version), "-groups", Group, 
-                        ssl_test_lib:version_flag(Version)] ++ CertArgs ++ ["-msg", "-debug"]
+                        ssl_test_lib:version_flag(Version)] ++ sig_algs(SigAlgs) ++ CertArgs ++ ["-msg", "-debug"]
             end,
     OpenSslPort = portable_open_port(Exe, Args),
     true = port_command(OpenSslPort, "Hello world"),
@@ -1821,6 +1834,11 @@ start_server(erlang, _, ServerOpts, Config) ->
                            {options, [{verify, verify_peer}, {versions, Versions} | ServerOpts]}]),
     {Server, inet_port(Server)}.
  
+sig_algs(undefined) ->
+    [];
+sig_algs(SigAlgs) ->
+    ["-sigalgs " ++ SigAlgs]. 
+
 cipher_flag('tlsv1.3') ->
      "-ciphersuites";
 cipher_flag(_) ->
@@ -2559,6 +2577,21 @@ is_sane_oppenssl_client() ->
 	    false;
 	_ ->
 	    true
+    end.
+
+is_sane_oppenssl_pss(rsa_pss_pss) ->
+    case portable_cmd("openssl",["version"]) of        
+        "OpenSSL 1.1.1" ++ Rest ->
+            hd(Rest) >= $c;
+        _ ->
+            false
+    end;
+is_sane_oppenssl_pss(rsa_pss_rsae) ->
+    case portable_cmd("openssl",["version"]) of        
+        "OpenSSL 1.1.1" ++ _ ->
+            true;
+        _ ->
+            false
     end.
 
 is_fips(openssl) ->
@@ -3432,3 +3465,19 @@ set_protocol_versions(_, undefined) ->
     ok;
 set_protocol_versions(AppVar, Value) ->
     application:set_env(ssl, AppVar, Value).
+
+openssl_sigalgs(rsa_pss_pss, Config) ->
+    [{openssl_sigalgs,  "rsa_pss_rsae_sha256:rsa_pss_pss_sha256"} | 
+     proplists:delete(openssl_sigalgs, Config)];
+openssl_sigalgs(_, Config) ->
+    proplists:delete(openssl_sigalgs, Config).
+
+pss_params(sha256) ->
+    #'RSASSA-PSS-params'{
+       hashAlgorithm = #'HashAlgorithm'{algorithm = ?'id-sha256'},
+       maskGenAlgorithm = #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                              parameters = #'HashAlgorithm'{algorithm = ?'id-sha256'}
+                                             },
+       saltLength = 32,
+       trailerField = 1}.
+       

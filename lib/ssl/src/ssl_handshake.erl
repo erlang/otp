@@ -48,7 +48,7 @@
 %% Create handshake messages
 -export([hello_request/0, server_hello/4, server_hello_done/0,
 	 certificate/4,  client_certificate_verify/6,  certificate_request/5, key_exchange/3,
-	 finished/5,  next_protocol/1]).
+	 finished/5,  next_protocol/1, digitally_signed/5]).
 
 %% Handle handshake messages
 -export([certify/7, certificate_verify/6, verify_signature/5,
@@ -171,7 +171,7 @@ client_certificate_verify(OwnCert, MasterSecret, Version,
 	false ->
 	    Hashes =
 		calc_certificate_verify(Version, HashAlgo, MasterSecret, Handshake),
-	    Signed = digitally_signed(Version, Hashes, HashAlgo, PrivateKey),
+	    Signed = digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo),
 	    #certificate_verify{signature = Signed, hashsign_algorithm = {HashAlgo, SignAlgo}}
     end.
 
@@ -400,27 +400,30 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 %%
 %% Description: Checks that a public_key signature is valid.
 %%--------------------------------------------------------------------
-verify_signature(_Version, _Hash, {_HashAlgo, anon}, _Signature, _) ->
-    true;
-verify_signature({3, Minor}, Hash, {HashAlgo, rsa_pss_rsae}, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
+verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, 
+                 {_, PubKey, PubKeyParams}) when  Minor >= 3,
+                                                  SignAlgo == rsa_pss_rsae;
+                                                  SignAlgo == rsa_pss_pss ->
+    Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
+    public_key:verify(Hash, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, Minor}, Hash, {HashAlgo, SignAlgo}, Signature, {?rsaEncryption, PubKey, PubKeyParams})
   when Minor >= 3 ->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey,
-                      [{rsa_padding, rsa_pkcs1_pss_padding},
-                       {rsa_pss_saltlen, -1},
-                       {rsa_mgf1_md, HashAlgo}]);
-verify_signature({3, Minor}, Hash, {HashAlgo, rsa}, Signature, {?rsaEncryption, PubKey, _PubKeyParams})
-  when Minor >= 3 ->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey);
-verify_signature(_Version, Hash, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) ->
+    Options = verify_options(SignAlgo, HashAlgo, PubKeyParams),
+    public_key:verify({digest, Hash}, HashAlgo, Signature, PubKey, Options);
+verify_signature({3, Minor}, Hash, _HashAlgo, Signature, {?rsaEncryption, PubKey, _PubKeyParams}) when Minor =< 2 ->
     case public_key:decrypt_public(Signature, PubKey,
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
 	Hash -> true;
-	_    -> false
+	_   -> false
     end;
-verify_signature(_Version, Hash, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams}) ->
-    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams});
+verify_signature({3, 4}, Hash, {HashAlgo, _SignAlgo}, Signature, {?'id-ecPublicKey', PubKey, PubKeyParams}) ->
+    public_key:verify(Hash, HashAlgo, Signature, {PubKey, PubKeyParams});
 verify_signature(_, Hash, {HashAlgo, _SignAlg}, Signature,
 		 {?'id-ecPublicKey', PublicKey, PublicKeyParams}) ->
+    public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams});
+verify_signature({3, Minor}, _Hash, {_HashAlgo, anon}, _Signature, _) when Minor =< 3 ->
+    true;
+verify_signature({3, Minor}, Hash, {HashAlgo, dsa}, Signature, {?'id-dsa', PublicKey, PublicKeyParams})  when Minor =< 3->
     public_key:verify({digest, Hash}, HashAlgo, Signature, {PublicKey, PublicKeyParams}).
 
 %%--------------------------------------------------------------------
@@ -1780,30 +1783,76 @@ path_validation_alert({bad_cert, unknown_ca}) ->
 path_validation_alert(Reason) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, Reason).
 
-digitally_signed(Version, Hashes, HashAlgo, PrivateKey) ->
-    try do_digitally_signed(Version, Hashes, HashAlgo, PrivateKey) of
+digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) ->
+    try do_digitally_signed(Version, Hashes, HashAlgo, PrivateKey, SignAlgo) of
 	Signature ->
 	    Signature
     catch
 	error:badkey->
 	    throw(?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, bad_key(PrivateKey)))
     end.
-do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine) 
-  when Minor >= 3 ->
-    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine));
-do_digitally_signed({3, Minor}, Hash, HashAlgo, Key) when Minor >= 3 ->
-    public_key:sign({digest, Hash}, HashAlgo, Key);
-do_digitally_signed(_Version, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key) ->
-    public_key:encrypt_private(Hash, Key,
-			       [{rsa_pad, rsa_pkcs1_padding}]);
-do_digitally_signed({3, _}, Hash, _, 
-                    #{algorithm := rsa} = Engine) ->
+
+do_digitally_signed({3, Minor}, Hash, _, 
+                    #{algorithm := rsa} = Engine, rsa) when Minor =< 2->
     crypto:private_encrypt(rsa, Hash, maps:remove(algorithm, Engine),
                            rsa_pkcs1_padding);
-do_digitally_signed({3, _}, Hash, HashAlgo, #{algorithm := Alg} = Engine) ->
-    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine));
-do_digitally_signed(_Version, Hash, HashAlgo, Key) ->
+do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo)
+  when Minor > 3 ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    crypto:sign(Alg, HashAlgo, Hash, maps:remove(algorithm, Engine), Options);
+do_digitally_signed({3, Minor}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo)
+  when Minor > 3 ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    crypto:sign(Alg, HashAlgo, Hash, maps:remove(algorithm, Engine), Options);
+do_digitally_signed({3, 3}, Hash, HashAlgo, #{algorithm := Alg} = Engine, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    crypto:sign(Alg, HashAlgo, {digest, Hash}, maps:remove(algorithm, Engine), Options);
+do_digitally_signed({3, 4}, Hash, HashAlgo, {#'RSAPrivateKey'{} = Key, #'RSASSA-PSS-params'{} = Params}, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo, Params),
+    public_key:sign(Hash, HashAlgo, Key, Options);
+do_digitally_signed({3, 4}, Hash, HashAlgo, Key, SignAlgo) ->
+    Options = signature_options(SignAlgo, HashAlgo),
+    public_key:sign(Hash, HashAlgo, Key, Options);
+do_digitally_signed({3, Minor}, Hash, HashAlgo, Key, SignAlgo) when Minor >= 3 ->
+    Options = signature_options(HashAlgo, SignAlgo),
+    public_key:sign({digest,Hash}, HashAlgo, Key, Options);
+do_digitally_signed({3, Minor}, Hash, _HashAlgo, #'RSAPrivateKey'{} = Key, rsa) when  Minor =< 2 ->
+    public_key:encrypt_private(Hash, Key,
+			       [{rsa_pad, rsa_pkcs1_padding}]);
+do_digitally_signed(_Version, Hash, HashAlgo, Key, _SignAlgo) ->
     public_key:sign({digest, Hash}, HashAlgo, Key).
+    
+signature_options(SignAlgo, HashAlgo) ->
+    signature_options(SignAlgo, HashAlgo, undefined).
+signature_options(rsa_pss_pss, HashAlgo, #'RSASSA-PSS-params'{} = Params) ->
+    pss_pss_options(HashAlgo, Params);
+signature_options(rsa_pss_rsae, HashAlgo, _) ->
+    pss_rsae_options(HashAlgo);
+signature_options(_, _, _) ->
+    [].
+
+verify_options(rsa_pss_rsae, HashAlgo, _KeyParams) -> 
+    pss_rsae_options(HashAlgo);
+verify_options(rsa_pss_pss, HashAlgo, #'RSASSA-PSS-params'{} = Params) ->
+    pss_pss_options(HashAlgo, Params);
+verify_options(_, _, _) ->
+    [].
+
+pss_rsae_options(HashAlgo) ->
+    %% of the digest algorithm: rsa_pss_saltlen = -1
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, -1},
+     {rsa_mgf1_md, HashAlgo}].
+
+pss_pss_options(HashAlgo, #'RSASSA-PSS-params'{saltLength = SaltLen,
+                                               maskGenAlgorithm = 
+                                                   #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                       parameters = #'HashAlgorithm'{algorithm = HashOid}}}) ->
+
+    HashAlgo = public_key:pkix_hash_type(HashOid),
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, SaltLen},
+     {rsa_mgf1_md, HashAlgo}].
 
 bad_key(#'DSAPrivateKey'{}) ->
     unacceptable_dsa_key;
@@ -2160,7 +2209,7 @@ enc_server_key_exchange(Version, Params, {HashAlgo, SignAlgo},
 		server_key_exchange_hash(HashAlgo, <<ClientRandom/binary,
 						     ServerRandom/binary,
 						     EncParams/binary>>),
-	    Signature = digitally_signed(Version, Hash, HashAlgo, PrivateKey),
+	    Signature = digitally_signed(Version, Hash, HashAlgo, PrivateKey, SignAlgo),
 	    #server_key_params{params = Params,
 			       params_bin = EncParams,
 			       hashsign = {HashAlgo, SignAlgo},

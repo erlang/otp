@@ -321,6 +321,10 @@ public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorith
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'rsaEncryption'}, 
 				      subjectPublicKey = Key}) ->
     Key;
+public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                                                        parameters = Params}, 
+				      subjectPublicKey = Key}) ->
+    {Key, Params};
 public_key(#'OTPSubjectPublicKeyInfo'{algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-dsa',
 									parameters = {params, Params}},
 				      subjectPublicKey = Key}) ->

@@ -982,8 +982,20 @@ scheme_to_components(ecdsa_sha1) -> {sha1, ecdsa, undefined};
 %% Handling legacy signature algorithms
 scheme_to_components({Hash,Sign}) -> {Hash, Sign, undefined}.
 
-
-%% TODO: Add support for ed25519, ed448, rsa_pss*
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS',
+                                                    parameters =  #'RSASSA-PSS-params'{
+                                                                     maskGenAlgorithm = 
+                                                                         #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                                                             parameters = HashAlgo}}}) ->
+    #'HashAlgorithm'{algorithm = HashOid} = HashAlgo,
+    case public_key:pkix_hash_type(HashOid) of
+        sha256 ->
+            rsa_pss_pss_sha256;
+        sha384 ->
+            rsa_pss_pss_sha384;
+        sha512 ->
+            rsa_pss_pss_sha512
+    end;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha256WithRSAEncryption}) ->
     rsa_pkcs1_sha256;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha384WithRSAEncryption}) ->
@@ -1001,8 +1013,18 @@ signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'sha-1WithRSAEn
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?sha1WithRSAEncryption}) ->
     rsa_pkcs1_sha1;
 signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'ecdsa-with-SHA1'}) ->
-    ecdsa_sha1.
-
+    ecdsa_sha1;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-Ed25519'}) ->
+    eddsa_ed25519;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-Ed448'}) ->
+    eddsa_ed448;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'rsaEncryption',
+                                                    parameters = ?NULL}) ->
+    rsa_pkcs1_sha1;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'rsaEncryption'}) ->
+    rsa_pss_rsae;
+signature_algorithm_to_scheme(#'SignatureAlgorithm'{algorithm = ?'id-RSASSA-PSS'}) ->
+    rsa_pss_pss.
 
 %% RFC 5246: 6.2.3.2.  CBC Block Cipher
 %%
