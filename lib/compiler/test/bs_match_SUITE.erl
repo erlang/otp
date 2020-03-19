@@ -47,7 +47,7 @@
          matching_meets_apply/1,bs_start_match2_defs/1,
          exceptions_after_match_failure/1,
          bad_phi_paths/1,many_clauses/1,
-         combine_empty_segments/1]).
+         combine_empty_segments/1,hangs_forever/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -85,7 +85,7 @@ groups() ->
        matches_on_parameter,big_positions,
        matching_meets_apply,bs_start_match2_defs,
        exceptions_after_match_failure,bad_phi_paths,
-       many_clauses,combine_empty_segments]}].
+       many_clauses,combine_empty_segments,hangs_forever]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -2351,6 +2351,16 @@ combine_empty_segments_1(A) ->
     <<C/bits>> = B,
     <<D/bits>> = C,
     D.
+
+%% This never finishes compiling under +no_copt.
+hangs_forever(Config) ->
+    true = is_function(id(fun() -> hangs_forever_1(Config) end)),
+    ok.
+
+hangs_forever_1(V0) ->
+    case hangs_forever_1(V0) of
+        <<A:1>> -> A
+    end.
 
 id(I) -> I.
 

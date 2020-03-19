@@ -170,12 +170,14 @@ ccc_1([#b_local{}=Call | Args], Ctx, Aliases, ModInfo) ->
             Parameters = funcinfo_get(Callee, parameters, ModInfo),
             Parameter = nth(1 + arg_index(Ctx, Args), Parameters),
 
-            case maps:find(Parameter, ParamInfo) of
-                {ok, suitable_for_reuse} ->
+            case ParamInfo of
+                #{ Parameter := suitable_for_reuse } ->
                     suitable_for_reuse;
-                {ok, Other} ->
-                    {unsuitable_call, {Call, Other}};
-                error ->
+                #{ Parameter := {unsuitable_call, {Call, _}}=Info } ->
+                    Info;
+                #{ Parameter := Info } ->
+                    {unsuitable_call, {Call, Info}};
+                #{} ->
                     {no_match_on_entry, Call}
             end;
         UseCount > 1 ->
