@@ -181,9 +181,9 @@
 	  <item>ecdsa-sha2-nistp256</item>
 	  <item>ssh-ed25519</item>
 	  <item>ssh-ed448</item>
-	  <item>ssh-rsa</item>
 	  <item>rsa-sha2-256</item>
 	  <item>rsa-sha2-512</item>
+	  <item>ssh-rsa</item>
 	  <item>ssh-dss</item>
 	</list>
       </item>
