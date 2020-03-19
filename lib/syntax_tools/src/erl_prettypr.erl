@@ -50,6 +50,7 @@
 -define(RIBBON, 56).
 -define(NOUSER, undefined).
 -define(NOHOOK, none).
+-define(INLINE, user).
 
 -type hook() :: 'none'
               | fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
@@ -59,13 +60,15 @@
                   | 'spec'.
 
 -record(ctxt, {prec = 0           :: integer(),
+	       clause = undefined :: clause_t() | 'undefined',
+               %% User options
 	       sub_indent = 2     :: non_neg_integer(),
 	       break_indent = 4   :: non_neg_integer(),
-	       clause = undefined :: clause_t() | 'undefined',
 	       hook = ?NOHOOK     :: hook(),
 	       paper = ?PAPER     :: integer(),
 	       ribbon = ?RIBBON   :: integer(),
 	       user = ?NOUSER     :: term(),
+               inline_clauses = ?INLINE :: true | false | user,
                encoding = epp:default_encoding() :: epp:source_encoding(),
 	       empty_lines = sets:new() :: sets:set(integer())}).
 
@@ -361,6 +364,7 @@ layout(Node, Options) ->
               break_indent = Break,
 	      paper = proplists:get_value(paper, Options, ?PAPER),
 	      ribbon = proplists:get_value(ribbon, Options, ?RIBBON),
+              inline_clauses = proplists:get_value(inline_clauses, Options, ?INLINE),
 	      user = proplists:get_value(user, Options),
               encoding = proplists:get_value(encoding, Options,
                                              epp:default_encoding()),
@@ -580,9 +584,10 @@ lay_2(Node, Ctxt) ->
 		     none ->
 			 none;
 		     G ->
-			 lay(G, Ctxt1)
+			 do_inline(Node, G, lay(G, Ctxt1), Ctxt)
 		 end,
-	    D3 = lay_clause_expressions(erl_syntax:clause_body(Node), Ctxt1),
+            Body = erl_syntax:clause_body(Node),
+	    D3 = do_inline(Node, Body, lay_clause_expressions(Body, Ctxt1), Ctxt),
 	    case Ctxt#ctxt.clause of
 		fun_expr ->
 		    make_fun_clause(D1, D2, D3, Ctxt);
@@ -1373,6 +1378,8 @@ make_fun_clause_head(N, P, Ctxt) ->
 make_case_clause(P, G, B, Ctxt) ->
     append_clause_body(B, append_guard(G, P, Ctxt), Ctxt).
 
+make_if_clause(P, {inline, G}, B, Ctxt) ->
+    make_if_clause(P, G, B, Ctxt);
 make_if_clause(_P, G, B, Ctxt) ->
     %% We ignore the patterns; they should be empty anyway.
     G1 = if G =:= none ->
@@ -1385,14 +1392,19 @@ make_if_clause(_P, G, B, Ctxt) ->
 append_clause_body(B, D, Ctxt) ->
     append_clause_body(B, D, floating(text(" ->")), Ctxt).
 
+append_clause_body({inline, B}, D, S, Ctxt) ->
+    sep([beside(D, S), nest(Ctxt#ctxt.break_indent, B)]);
 append_clause_body(B, D, S, Ctxt) ->
-    sep([beside(D, S), nest(Ctxt#ctxt.break_indent, B)]).
+    vertical([beside(D, S), nest(Ctxt#ctxt.break_indent, B)]).
 
 append_guard(none, D, _) ->
     D;
-append_guard(G, D, Ctxt) ->
+append_guard({inline, G}, D, Ctxt) ->
     par([D, follow(text("when"), G, Ctxt#ctxt.sub_indent)],
-	Ctxt#ctxt.sub_indent).
+        Ctxt#ctxt.sub_indent);
+append_guard(G, D, Ctxt) ->
+    vertical([D, nest(Ctxt#ctxt.sub_indent, follow(text("when"), G))]).
+
 
 lay_bit_types([T], Ctxt) ->
     lay(T, Ctxt);
@@ -1435,6 +1447,33 @@ lay_type_application(Name, Arguments, Ctxt) ->
                                  floating(text(")"))))),
     maybe_parentheses(D, Prec, Ctxt).
 
+do_inline(_, _, none, _) ->
+    none;
+do_inline(StartNode, NextNode, Body, #ctxt{inline_clauses = user}) ->
+    case get_pos(StartNode) =:= get_pos(NextNode) of
+        true -> {inline, Body};
+        false -> Body
+    end;
+do_inline(_, _, Body, #ctxt{inline_clauses = Bool}) ->
+    case Bool of
+        true -> {inline, Body};
+        false -> Body
+    end.
+
+get_pos([Node|_]) ->
+    get_pos(Node);
+get_pos(Node) ->
+    case erl_anno:line(erl_syntax:get_pos(Node)) of
+        0 ->
+            case erl_syntax:type(Node) of
+                conjunction -> get_pos(erl_syntax:conjunction_body(Node));
+                disjunction -> get_pos(erl_syntax:disjunction_body(Node));
+                _Type -> 0
+            end;
+        Line ->
+            Line
+    end.
+
 seq([H | T], Separator, Ctxt, Fun) ->
     case T of
 	[] ->
@@ -1466,7 +1505,7 @@ vertical_sep(_Sep, []) ->
     [].
 
 spaces(N) when N > 0 ->
-    [$\040 | spaces(N - 1)];
+    [$\s | spaces(N - 1)];
 spaces(_) ->
     [].
 
