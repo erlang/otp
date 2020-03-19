@@ -379,6 +379,7 @@
                              rcvbuf | % sndbuf |
                              rcvctrlbuf |
                              sndctrlbuf |
+                             meta |
                              fd.
 %% Shall we have special treatment of linger??
 %% read-only options:
