@@ -348,8 +348,25 @@ constant_pools(Config) when is_list(Config) ->
     receive
         {'EXIT',NoOldHeap,{A,B,C,D}} ->
             ok;
-        Other ->
-            ct:fail({unexpected,Other})
+        Other_NoOldHeap ->
+            ct:fail({unexpected,Other_NoOldHeap})
+    end,
+    {module,literals} = erlang:load_module(literals, Code),
+
+    %% Have a process with an inconsistent heap (legal while GC is disabled)
+    %% that references the literals in the 'literals' module.
+    InconsistentHeap = spawn_link(fun() -> inconsistent_heap(Self) end),
+    receive go -> ok end,
+    true = erlang:delete_module(literals),
+    false = erlang:check_process_code(InconsistentHeap, literals),
+    erlang:check_process_code(self(), literals),
+    true = erlang:purge_module(literals),
+    InconsistentHeap ! done,
+    receive
+        {'EXIT',InconsistentHeap,{A,B,C}} ->
+            ok;
+        Other_InconsistentHeap ->
+            ct:fail({unexpected,Other_InconsistentHeap})
     end,
     {module,literals} = erlang:load_module(literals, Code),
 
@@ -419,6 +436,27 @@ old_heap(Parent) ->
     Res = {A,B,C,D,lists:seq(1, 16)},
     create_old_heap(),
     Parent ! go,
+    receive
+        done ->
+            exit(Res)
+    end.
+
+inconsistent_heap(Parent) ->
+    A = literals:a(),
+    B = literals:b(),
+    C = literals:huge_bignum(),
+    Res = {A,B,C},
+    Parent ! go,
+
+    %% Disable the GC and return a tuple whose arity and contents are broken
+    BrokenTerm = erts_debug:set_internal_state(inconsistent_heap, start),
+    receive
+    after 5000 ->
+        %% Fix the tuple and enable the GC again
+        ok = erts_debug:set_internal_state(inconsistent_heap, BrokenTerm),
+        erlang:garbage_collect()
+    end,
+
     receive
         done ->
             exit(Res)

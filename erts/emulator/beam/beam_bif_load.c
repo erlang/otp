@@ -960,6 +960,14 @@ erts_proc_copy_literal_area(Process *c_p, int *redsp, int fcalls, int gc_allowed
     if (!la)
         goto return_ok;
 
+    /* The heap may be in an inconsistent state when the GC is disabled, for
+     * example when we're in the middle of building a record in
+     * binary_to_term/1, so we have to delay scanning until the GC is enabled
+     * again. */
+    if (c_p->flags & F_DISABLE_GC) {
+        return THE_NON_VALUE;
+    }
+
     oh = la->off_heap;
     literals = (char *) &la->start[0];
     lit_bsize = (char *) la->end - literals;
@@ -1079,9 +1087,6 @@ literal_gc:
 
     if (!gc_allowed)
         return am_need_gc;
-
-    if (c_p->flags & F_DISABLE_GC)
-        return THE_NON_VALUE;
 
     *redsp += erts_garbage_collect_literals(c_p, (Eterm *) literals, lit_bsize,
 					    oh, fcalls);

@@ -4576,6 +4576,40 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
 	    erts_set_gc_state(BIF_P, enable);
 	    BIF_RET(res);
 	}
+        else if (ERTS_IS_ATOM_STR("inconsistent_heap", BIF_ARG_1)) {
+            /* Used by code_SUITE (emulator) */
+            if (am_start == BIF_ARG_2) {
+                Eterm broken_term;
+                Eterm *hp;
+
+                ERTS_ASSERT(!(BIF_P->flags & F_DISABLE_GC));
+                erts_set_gc_state(BIF_P, 0);
+
+                hp = HAlloc(BIF_P, 2);
+                hp[0] = make_arityval(1234);
+                hp[1] = THE_NON_VALUE;
+
+                broken_term = make_tuple(hp);
+
+                BIF_RET(broken_term);
+            } else {
+                Eterm broken_term;
+                Eterm *hp;
+
+                broken_term = BIF_ARG_2;
+
+                hp = tuple_val(broken_term);
+                ERTS_ASSERT(hp[0] == make_arityval(1234));
+                ERTS_ASSERT(hp[1] == THE_NON_VALUE);
+                hp[0] = make_arityval(1);
+                hp[1] = am_ok;
+
+                ERTS_ASSERT(BIF_P->flags & F_DISABLE_GC);
+                erts_set_gc_state(BIF_P, 1);
+
+                BIF_RET(am_ok);
+            }
+        }
         else if (ERTS_IS_ATOM_STR("colliding_names", BIF_ARG_1)) {
 	    /* Used by ets_SUITE (stdlib) */
 	    if (is_tuple(BIF_ARG_2)) {
