@@ -717,6 +717,8 @@ grab_bag(_Config) ->
     {'EXIT',{{badmatch,[]},_}} = (catch grab_bag_13()),
     timeout = grab_bag_14(),
     ?MODULE = grab_bag_15(?MODULE),
+    error = grab_bag_16(timeout_value),
+    {'EXIT',{timeout_value,_}} = (catch grab_bag_16(whatever)),
 
     ok.
 
@@ -892,6 +894,19 @@ grab_bag_15(V) ->
         [] -> V
     end:all(),
     V.
+
+grab_bag_16(V) ->
+    try
+        catch 22,
+    receive
+    after bad ->
+            not_reached
+    end
+    catch
+        _:V ->
+            error
+    end.
+
 
 coverage(_Config) ->
 

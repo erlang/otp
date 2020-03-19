@@ -1228,6 +1228,13 @@ cg_block([#cg_set{op=match_fail,args=Args0,anno=Anno}|T], Context, St0) ->
     Is0 = cg_match_fail(Args, line(Anno), FcLabel),
     {Is1,St} = cg_block(T, Context, St0),
     {Is0++Is1,St};
+cg_block([#cg_set{op=wait_timeout,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
+    case beam_args(Args0, St) of
+        [{atom,infinity}] ->
+            {[{wait,Fail}],St};
+        [Timeout] ->
+            {[{wait_timeout,Fail,Timeout}],St}
+    end;
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=Set], none, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     Is = cg_instr(Op, Args, Dst, Set),
@@ -1675,14 +1682,7 @@ cg_test(peek_message, Fail, [], Dst, _I) ->
     [{loop_rec,Fail,{x,0}}|copy({x,0}, Dst)];
 cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
-    [{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}];
-cg_test(wait_timeout, Fail, [Timeout], _Dst, _) ->
-    case Timeout of
-        {atom,infinity} ->
-            [{wait,Fail}];
-        _ ->
-            [{wait_timeout,Fail,Timeout}]
-    end.
+    [{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}].
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=[#b_literal{val=Type}|Ss0]}=Set, St) ->
     Op = case Type of
@@ -1819,7 +1819,8 @@ successors(#cg_ret{}) -> [].
 %%  used only in this module.
 
 linearize(Blocks) ->
-    Linear = beam_ssa:linearize(Blocks),
+    Linear0 = beam_ssa:linearize(Blocks),
+    Linear = fix_wait_timeout(Linear0),
     linearize_1(Linear, Blocks).
 
 linearize_1([{?EXCEPTION_BLOCK,_}|Ls], Blocks) ->
@@ -1828,6 +1829,44 @@ linearize_1([{L,Block0}|Ls], Blocks) ->
     Block = translate_block(L, Block0, Blocks),
     [{L,Block}|linearize_1(Ls, Blocks)];
 linearize_1([], _Blocks) -> [].
+
+%% fix_wait_timeout([Block]) -> [Block].
+%%  In SSA code, the `wait_timeout` instruction is a three-way branch
+%%  (because there will be an exception for a bad timeout value). In
+%%  BEAM code, the potential rasing of an exception for a bad timeout
+%%  duration is not explicitly represented. Thus we will need to
+%%  rewrite the following code:
+%%
+%%       WaitBool = wait_timeout TimeoutValue
+%%       Succeeded = succeeded:body WaitBool
+%%       br Succeeded, ^good_timeout_value, ^bad_timeout_value
+%%
+%%   good_timeout_value:
+%%       br WaitBool, ^timeout_expired, ^new_message_received
+%%
+%%  To this code:
+%%
+%%       WaitBool = wait_timeout TimeoutValue
+%%       br WaitBool, ^timeout_expired, ^new_message_received
+%%
+fix_wait_timeout([{L1,#b_blk{is=Is0,last=#b_br{bool=#b_var{},succ=L2}}=Blk1},
+                  {L2,#b_blk{is=[],last=#b_br{bool=#b_var{}}=Br}=Blk2}|Bs]) ->
+    case fix_wait_timeout_is(Is0, []) of
+        no ->
+            [{L1,Blk1},{L2,Blk2}|fix_wait_timeout(Bs)];
+        {yes,Is} ->
+            [{L1,Blk1#b_blk{is=Is,last=Br}}|fix_wait_timeout(Bs)]
+    end;
+fix_wait_timeout([B|Bs]) ->
+    [B|fix_wait_timeout(Bs)];
+fix_wait_timeout([]) -> [].
+
+fix_wait_timeout_is([#b_set{op=wait_timeout,dst=WaitBool}=WT,
+                     #b_set{op=succeeded,args=[WaitBool]}], Acc) ->
+    {yes,reverse(Acc, [WT])};
+fix_wait_timeout_is([I|Is], Acc) ->
+    fix_wait_timeout_is(Is, [I|Acc]);
+fix_wait_timeout_is([], _Acc) -> no.
 
 %% translate_block(BlockLabel, #b_blk{}, Blocks) -> #cg_blk{}.
 %%  Translate a block to the internal records used in this module.

@@ -2030,9 +2030,12 @@ opt_sw([], Count, Acc) ->
 %%%       br ^50
 %%%
 %%%     50:
-%%%        @bool = wait_timeout `infinity`
+%%%        @wait_bool = wait_timeout `infinity`
 %%%        @succ_bool = succeeded @bool
-%%%        br @succ_bool ^75, ^50
+%%%        br @succ_bool ^51, ^99
+%%%
+%%%     51:
+%%%        br @wait_bool ^75, ^50
 %%%
 %%%     75:
 %%%        timeout
@@ -2081,63 +2084,35 @@ opt_sw([], Count, Acc) ->
 %%%
 
 ssa_opt_receive_after({#opt_st{ssa=Linear}=St, FuncDb}) ->
-    {St#opt_st{ssa=recv_after_opt(Linear, Linear)}, FuncDb}.
+    {St#opt_st{ssa=recv_after_opt(Linear)}, FuncDb}.
 
-recv_after_opt([{L,Blk0}|Bs], Blocks0) ->
-    #b_blk{is=Is0,last=Last0} = Blk0,
-    case recv_after_opt_is(Is0, Last0, []) of
+recv_after_opt([{L1,#b_blk{is=Is0,last=#b_br{bool=#b_var{},
+                                             succ=L2,
+                                             fail=?EXCEPTION_BLOCK}}=Blk1},
+                {L2,#b_blk{is=[],last=#b_br{bool=#b_var{}=WaitBool,
+                                            fail=Fail}=Br0}=Blk2}|Bs]) ->
+    case recv_after_opt_is(Is0, WaitBool, []) of
+        {yes,Is} ->
+            Br = Br0#b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail},
+            [{L1,Blk1#b_blk{is=Is,last=Br}}|recv_after_opt(Bs)];
         no ->
-            %% Nothing to do.
-            [{L,Blk0}|recv_after_opt(Bs, Blocks0)];
-        {yes,[_|_]=Is,Last} ->
-            %% A `wait_timeout infinity` instruction was replaced with `wait`.
-            %% Now find out whether this substitution is safe.
-            Blocks = if
-                         is_map(Blocks0) -> Blocks0;
-                         true -> maps:from_list(Blocks0)
-                     end,
-            #b_br{succ=Next} = Last0,
-            case in_try_catch(Next, Blocks) of
-                false ->
-                    %% Not inside try/catch. Safe.
-                    Blk = Blk0#b_blk{is=Is,last=Last},
-                    [{L,Blk}|recv_after_opt(Bs, Blocks)];
-                true ->
-                    %% Inside try/catch. Unsafe. Keep the original block.
-                    [{L,Blk0}|recv_after_opt(Bs, Blocks)]
-            end
+            [{L1,Blk1},{L2,Blk2}|recv_after_opt(Bs)]
     end;
-recv_after_opt([], _Blocks) -> [].
+recv_after_opt([B|Bs]) ->
+    [B|recv_after_opt(Bs)];
+recv_after_opt([]) -> [].
 
-recv_after_opt_is([#b_set{op=wait_timeout,dst=WaitBool,
-                          args=[#b_literal{val=infinity}]}=WT0,
-                   #b_set{op={succeeded,_},dst=SuccBool,args=[WaitBool]}],
-                  #b_br{bool=SuccBool,fail=Fail}, Acc) ->
-    WT = WT0#b_set{op=wait,args=[]},
-    Last = #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail},
-    {yes,reverse(Acc, [WT]),Last};
-recv_after_opt_is([I|Is], Last, Acc) ->
-    recv_after_opt_is(Is, Last, [I|Acc]);
-recv_after_opt_is([], _Last, _Acc) -> no.
-
-in_try_catch(From, Blocks) ->
-    F = fun(#b_set{op=new_try_tag,dst=Tag}, Map) when is_map(Map) ->
-                Map#{Tag => ok};
-           (#b_set{op=landingpad,args=[_,Tag]}, Map) ->
-                update_in_try_catch(Tag, Map);
-           (#b_set{op=kill_try_tag,args=[Tag]}, Map) ->
-                update_in_try_catch(Tag, Map);
-           (#b_set{op=catch_end,args=[Tag,_]}, Map) ->
-                update_in_try_catch(Tag, Map);
-           (_, S) -> S
-        end,
-    beam_ssa:fold_instrs_rpo(F, [From], #{}, Blocks) =:= unsafe.
-
-update_in_try_catch(Tag, Map) ->
-    case Map of
-        #{Tag := _} ->  Map;
-        _ -> unsafe
-    end.
+recv_after_opt_is([#b_set{op=wait_timeout,
+                          args=[#b_literal{val=infinity}],
+                          dst=WaitBool}=I0,
+                   #b_set{op={succeeded,body},
+                          args=[WaitBool]}],
+                  WaitBool, Acc) ->
+    I = I0#b_set{op=wait,args=[]},
+    {yes,reverse(Acc, [I])};
+recv_after_opt_is([I|Is], WaitBool, Acc) ->
+    recv_after_opt_is(Is, WaitBool, [I|Acc]);
+recv_after_opt_is([], _WaitBool, _Acc) -> no.
 
 %%% Try to replace `=/=` with `=:=` and `/=` with `==`. For example,
 %%% this code:
