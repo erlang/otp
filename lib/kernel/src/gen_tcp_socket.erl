@@ -54,8 +54,14 @@
 -define(badarg_exit(Error),
         case begin Error end of
             {error, badarg} -> exit(badarg);
+            OTHER__ -> OTHER__
+        end).
+
+-define(badarg_einval_exit(Error),
+        case begin Error end of
+            {error, badarg} -> exit(badarg);
             {error, einval} -> exit(badarg);
-            Error__ -> Error__
+            OTHER__ -> OTHER__
         end).
 
 -define(socket_abort(Socket, SelectRef, Reason),
@@ -87,12 +93,11 @@ connect_lookup(Address, Port, Opts, Timer) ->
     {Mod, Opts_2} = inet:tcp_module(Opts_1, Address),
     Domain = domain(Mod),
     {StartOpts, Opts_3} = setopts_split(start, Opts_2),
-    ErrorRef = make_ref(),
-    Ok = ok_fun(ErrorRef),
+    ErrRef = make_ref(),
     try
-        {ok, IPs} = Ok(Mod:getaddrs(Address, Timer)),
-        {ok, TP} = Ok(Mod:getserv(Port)),
-        {ok, CO} = Ok(inet:connect_options(Opts_3, Mod)),
+        IPs = val(ErrRef, Mod:getaddrs(Address, Timer)),
+        TP = val(ErrRef, Mod:getserv(Port)),
+        CO = val(ErrRef, inet:connect_options(Opts_3, Mod)),
         {sockaddrs(IPs, TP, Domain), CO}
     of
         {Addrs,
@@ -109,8 +114,8 @@ connect_lookup(Address, Port, Opts, Timer) ->
             connect_open(
               Addrs, Domain, ConnectOpts, StartOpts, Fd, Timer, BindAddr)
     catch
-        throw : {ErrorRef, Error} ->
-            ?badarg_exit(Error)
+        throw : {ErrRef, Reason} ->
+            ?badarg_exit({error, Reason})
     end.
 
 connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
@@ -135,19 +140,19 @@ connect_open(Addrs, Domain, ConnectOpts, Opts, Fd, Timer, BindAddr) ->
                 setopts_split(
                   #{socket => [], server_read => [], server_write => []},
                   ConnectOpts),
-            ErrorRef = make_ref(),
-            Ok = ok_fun(ErrorRef),
+            ErrRef = make_ref(),
             try
-                Ok(call(Server, {setopts, SocketOpts ++ Setopts})),
-                Ok(call(Server, {bind, BindAddr})),
+                ok(ErrRef, call(Server, {setopts, SocketOpts ++ Setopts})),
+                ok(ErrRef, call(Server, {bind, BindAddr})),
                 DefaultError = {error, einval},
-                {ok, Socket} =
-                    Ok(connect_loop(Addrs, Server, DefaultError, Timer)),
+                Socket =  
+                    val(ErrRef,
+                        connect_loop(Addrs, Server, DefaultError, Timer)),
                 {ok, ?module_socket(Server, Socket)}
             catch
-                throw : {ErrorRef, Error} ->
+                throw : {ErrRef, Reason} ->
                     close_server(Server),
-                    ?badarg_exit(Error)
+                    ?badarg_exit({error, Reason})
             end;
         {error, _} = Error ->
             ?badarg_exit(Error)
@@ -175,8 +180,8 @@ listen(Port, Opts) ->
     case Mod:getserv(Port) of
         {ok, TP} ->
             case inet:listen_options([{port, TP} | Opts_3], Mod) of
-                {error, _} = Error ->
-                    ?badarg_exit(Error);
+                {error, badarg} ->
+                    exit(badarg);
                 {ok,
                  #listen_opts{
                     fd = Fd,
@@ -216,20 +221,20 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
                 setopts_split(
                   #{socket => [], server_read => [], server_write => []},
                   ListenOpts),
-            ErrorRef = make_ref(),
-            Ok = ok_fun(ErrorRef),
+            ErrRef = make_ref(),
             try
-                Ok(call(
+                ok(ErrRef,
+                   call(
                      Server,
                      {setopts,
                       [{start_opts, StartOpts}] ++ SocketOpts ++ Setopts})),
-                Ok(call(Server, {bind, BindAddr})),
-                {ok, Socket} = Ok(call(Server, {listen, Backlog})),
+                ok(ErrRef, call(Server, {bind, BindAddr})),
+                Socket = val(ErrRef, call(Server, {listen, Backlog})),
                 {ok, ?module_socket(Server, Socket)}
             catch
-                throw : {ErrorRef, Error} ->
+                throw : {ErrRef, Reason} ->
                     close_server(Server),
-                    ?badarg_exit(Error)
+                    ?badarg_exit({error, Reason})
             end;
         {error, {shutdown, Reason}} ->
             ?badarg_exit({error, Reason});
@@ -242,24 +247,25 @@ listen_open(Domain, ListenOpts, Opts, Fd, Backlog, BindAddr) ->
 accept(?module_socket(ListenServer, ListenSocket), Timeout) ->
     %%
     Timer = inet:start_timer(Timeout),
-    ErrorRef = make_ref(),
-    Ok = ok_fun(ErrorRef),
+    ErrRef = make_ref(),
     try
-        {ok, #{start_opts := StartOpts} = ServerData} =
-            Ok(call(ListenServer, get_server_opts)),
-        {ok, Server} =
-            Ok(start_server(
+        #{start_opts := StartOpts} = ServerData =
+            val(ErrRef, call(ListenServer, get_server_opts)),
+        Server =
+            val(ErrRef,
+                start_server(
                  ServerData,
                  [{timeout, inet:timeout(Timer)} | start_opts(StartOpts)])),
-        case call(Server, {accept, ListenSocket, inet:timeout(Timer)}) of
-            {ok, Socket} ->
-                {ok, ?module_socket(Server, Socket)};
-            {error, _} = Error_1 ->
-                stop_server(Server),
-                throw({ErrorRef, Error_1})
-        end
-    catch throw : {ErrorRef, Error_2} ->
-            ?badarg_exit(Error_2)
+        Socket =
+            val({ErrRef, Server},
+                call(Server, {accept, ListenSocket, inet:timeout(Timer)})),
+        {ok, ?module_socket(Server, Socket)}
+    catch
+        throw : {{ErrRef, Srv}, Reason} ->
+            stop_server(Srv),
+            ?badarg_exit({error, Reason});
+        throw : {ErrRef, Reason} ->
+            ?badarg_exit({error, Reason})
     after
         _ = inet:stop_timer(Timer)
     end.
@@ -297,31 +303,53 @@ send_result(Server, Meta, Result) ->
             %% To handle RestData we would have to pass
             %% all writes through a single process that buffers
             %% the write data, which would be a bottleneck
-            send_error(Server, Meta, {error, Reason});
-        {error, _} = Error ->
-            send_error(Server, Meta, Error);
-        ok -> ok
-    end.
-
-send_error(Server, Meta, Error) ->
-    %% Since send data may have been lost, and there is no room
-    %% in this API to inform the caller, we at least close
-    %% the socket in the write direction
+            %%
+            %% Since send data may have been lost, and there is no room
+            %% in this API to inform the caller, we at least close
+            %% the socket in the write direction
 %%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
-%%%                    Error}),
-    case Error of
-        {error, econnreset} ->
-            case maps:get(show_econnreset, Meta) of
-                true -> ?badarg_exit(Error);
-                false -> {error, closed}
+%%%                   Result}),
+            case Reason of
+                econnreset ->
+                    case maps:get(show_econnreset, Meta) of
+                        true -> {error, econnreset};
+                        false -> {error, closed}
+                    end;
+                timeout ->
+                    _ = maps:get(send_timeout_close, Meta)
+                        andalso close_server(Server),
+                    {error, Reason};
+                _ ->
+                    ?badarg_exit({error, Reason})
             end;
-        {error, timeout} ->
-            _ = maps:get(send_timeout_close, Meta)
-                andalso close_server(Server),
-            ?badarg_exit(Error);
-        _ ->
-            ?badarg_exit(Error)
+        ok ->
+            ok
     end.
+%%%            send_error(Server, Meta, {error, Reason});
+%%%        {error, _} = Error ->
+%%%            send_error(Server, Meta, Error);
+%%%        ok -> ok
+%%%    end.
+
+%%%send_error(Server, Meta, Error) ->
+%%%    %% Since send data may have been lost, and there is no room
+%%%    %% in this API to inform the caller, we at least close
+%%%    %% the socket in the write direction
+%%%%%%    erlang:display({{self(), ?MODULE, ?LINE, ?FUNCTION_NAME},
+%%%%%%                    Error}),
+%%%    case Error of
+%%%        {error, econnreset} ->
+%%%            case maps:get(show_econnreset, Meta) of
+%%%                true -> ?badarg_exit(Error);
+%%%                false -> {error, closed}
+%%%            end;
+%%%        {error, timeout} ->
+%%%            _ = maps:get(send_timeout_close, Meta)
+%%%                andalso close_server(Server),
+%%%            ?badarg_exit(Error);
+%%%        _ ->
+%%%            ?badarg_exit(Error)
+%%%    end.
 
 %% -------------------------------------------------------------------------
 
@@ -466,11 +494,14 @@ socket_cancel(Socket, SelectInfo) ->
 %%% API Helpers
 %%%
 
-ok_fun(ErrorRef) ->
-    fun (ok) -> ok;
-        ({ok, _} = Ret) -> Ret;
-        ({error, _} = Error) -> throw({ErrorRef, Error})
-    end.
+%% Deep return helpers
+
+ok(_ErrRef, ok) -> ok;
+ok(ErrRef, {error, Reason}) -> throw({ErrRef, Reason}).
+
+val(_ErrRef, {ok, Val}) -> Val;
+val(ErrRef, {error, Reason}) -> throw({ErrRef, Reason}).
+
 
 address(SockAddr) ->
     case SockAddr of
@@ -551,7 +582,7 @@ conv_setopt(list) -> {mode, list};
 conv_setopt(inet) -> {tcp_module, inet_tcp};
 conv_setopt(inet6) -> {tcp_module, inet6_tcp};
 conv_setopt(local) -> {tcp_module, local_tcp};
-conv_setopt({_, _} = Other) -> Other.
+conv_setopt(Other) -> Other.
 
 %% Socket options
 
@@ -767,9 +798,11 @@ call(Server, Call) ->
     end.
 
 stop_server(Server) ->
-    try gen_statem:stop(Server)
-    catch _:_ -> ok
-    end, ok.
+    try gen_statem:stop(Server) of
+        _ -> ok
+    catch
+        _:_ -> ok
+    end.
 
 %% reply(From, Reply) ->
 %%     gen_statem:reply(From, Reply).
@@ -810,8 +843,7 @@ callback_mode() -> handle_event_function.
 
 
 -record(params,
-        {key :: reference(),
-         socket :: undefined | socket:socket(),
+        {socket :: undefined | socket:socket(),
          owner :: pid(),
          owner_mon :: reference()}).
 
@@ -860,13 +892,15 @@ terminate(State, {#params{socket = Socket} = P, D}) ->
     case State of
         'closed' -> ok;
         'closed_read' ->
-            _ = socket_close(Socket), ok;
+            _ = socket_close(Socket),
+            ok;
         _ ->
             case State of
                 'accept' -> ok;
                 #accept{} -> ok;
                 _ ->
-                    _ = socket_close(Socket), ok
+                    _ = socket_close(Socket),
+                    ok
             end,
             {_D_1, ActionsR} =
                 case State of
@@ -1594,16 +1628,21 @@ cleanup_recv_reply(
 %%%                            {ModuleSocket, Reason}}),
             case Reason of
                 timeout ->
-                    Owner ! {tcp_error, ModuleSocket, Reason};
+                    Owner ! {tcp_error, ModuleSocket, Reason},
+                    ok;
                 closed ->
-                    Owner ! {tcp_closed, ModuleSocket};
+                    Owner ! {tcp_closed, ModuleSocket},
+                    ok;
                 emsgsize ->
-                    Owner ! {tcp_error, ModuleSocket, Reason};
+                    Owner ! {tcp_error, ModuleSocket, Reason},
+                    ok;
                 econnreset when ShowEconnreset =:= false ->
-                    Owner ! {tcp_closed, ModuleSocket};
+                    Owner ! {tcp_closed, ModuleSocket},
+                    ok;
                 _ ->
                     Owner ! {tcp_error, ModuleSocket, Reason},
-                    Owner ! {tcp_closed, ModuleSocket}
+                    Owner ! {tcp_closed, ModuleSocket},
+                    ok
             end
     end,
     {recv_stop(D#{active := false}),
@@ -1838,7 +1877,8 @@ state_setopts_active(P, D, State, Opts, Active) ->
         Active =:= false ->
             case D of
                 #{active := OldActive} when is_integer(OldActive) ->
-                    P#params.owner ! {tcp_passive, module_socket(P)};
+                    P#params.owner ! {tcp_passive, module_socket(P)},
+                    ok;
                 #{active := _OldActive} -> ok
             end,
             state_setopts(P, D#{active := Active}, State, Opts);
@@ -1896,8 +1936,6 @@ state_getopts(P, D, State, [Tag | Tags], Acc) ->
         #{server_read := _} ->
             Value = maps:get(Tag, D),
             state_getopts(P, D, State, Tags, [{Tag, Value} | Acc]);
-        #{einval := _} ->
-            state_getopts(P, D, State, Tags, Acc);
         #{} -> % extra | einval
             {error, einval}
     end.

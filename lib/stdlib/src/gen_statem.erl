@@ -59,6 +59,7 @@
 %% Type exports for templates and callback modules
 -export_type(
    [event_type/0,
+    from/0,
     callback_mode_result/0,
     init_result/1,
     state_enter_result/1,
