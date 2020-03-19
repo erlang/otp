@@ -73,13 +73,24 @@
     </func>
 
     <func>
+      <name name="listen_port_please" arity="2" since="OTP @OTP-16250@"/>
+      <fsummary>Returns the port number for the local node.</fsummary>
+      <desc>
+        <p>Called by the distribution module to get which port the
+        local node should listen to when accepting new distribution
+        requests.</p>
+      </desc>
+    </func>
+
+    <func>
       <name name="address_please" arity="3" since="OTP 21.0"/>
       <fsummary>Returns address and port.</fsummary>
       <desc>
-        <p>Called by the distribution module. Resolves the <c>Host</c> to an IP
-        address.</p>
-        <p>Another epmd module may return port and distribution protocol version
-        as well.</p>
+        <p>Called by the distribution module to resolves the <c>Host</c> to an IP
+        address of a remote node.</p>
+        <p>As an optimization this function may also return the port and version
+        of the remote node. If port and version are returned <seealso marker="#port_please-3">
+        <c>port_please/3</c></seealso> will not be called.</p>
       </desc>
     </func>
 

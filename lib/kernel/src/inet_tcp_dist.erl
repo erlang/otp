@@ -21,15 +21,15 @@
 
 %% Handles the connection setup phase with other Erlang nodes.
 
--export([listen/1, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1]).
+-export([listen/1, listen/2, accept/1, accept_connection/5,
+	 setup/5, close/1, select/1, address/0, is_node_name/1]).
 
 %% Optional
 -export([setopts/2, getopts/2]).
 
 %% Generalized dist API
--export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
-	 gen_setup/6, gen_select/2]).
+-export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
+	 gen_setup/6, gen_select/2, gen_address/1]).
 
 %% internal exports
 
@@ -64,19 +64,32 @@ gen_select(Driver, Node) ->
     end.
 
 %% ------------------------------------------------------------
+%% Get the address family that this distribution uses
+%% ------------------------------------------------------------
+address() ->
+    gen_address(inet_tcp).
+gen_address(Driver) ->
+    get_tcp_address(Driver).
+
+%% ------------------------------------------------------------
 %% Create the listen socket, i.e. the port that this erlang
 %% node is accessible through.
 %% ------------------------------------------------------------
 
-listen(Name) ->
-    gen_listen(inet_tcp, Name).
+listen(Name, Host) ->
+    gen_listen(inet_tcp, Name, Host).
 
-gen_listen(Driver, Name) ->
-    case do_listen(Driver, [{active, false}, {packet,2}, {reuseaddr, true}]) of
+%% Keep this clause for third-party dist controllers reusing this API
+listen(Name) ->
+    {ok, Host} = inet:gethostname(),
+    listen(Name, Host).
+
+gen_listen(Driver, Name, Host) ->
+    ErlEpmd = net_kernel:epmd_module(),
+    case gen_listen(ErlEpmd, Name, Host, Driver, [{active, false}, {packet,2}, {reuseaddr, true}]) of
 	{ok, Socket} ->
 	    TcpAddress = get_tcp_address(Driver, Socket),
 	    {_,Port} = TcpAddress#net_address.address,
-	    ErlEpmd = net_kernel:epmd_module(),
 	    case ErlEpmd:register_node(Name, Port, Driver) of
 		{ok, Creation} ->
 		    {ok, {Socket, TcpAddress, Creation}};
@@ -87,20 +100,28 @@ gen_listen(Driver, Name) ->
 	    Error
     end.
 
-do_listen(Driver, Options) ->
-    {First,Last} = case application:get_env(kernel,inet_dist_listen_min) of
-		       {ok,N} when is_integer(N) ->
-			   case application:get_env(kernel,
-						    inet_dist_listen_max) of
-			       {ok,M} when is_integer(M) ->
-				   {N,M};
-			       _ ->
-				   {N,N}
-			   end;
-		       _ ->
-			   {0,0}
-		   end,
-    do_listen(Driver, First, Last, listen_options([{backlog,128}|Options])).
+gen_listen(ErlEpmd, Name, Host, Driver, Options) ->
+    ListenOptions = listen_options([{backlog,128}|Options]),
+    case call_epmd_function(ErlEpmd, listen_port_please, [Name, Host]) of
+        {ok, 0} ->
+            {First,Last} = get_port_range(),
+            do_listen(Driver, First, Last, ListenOptions);
+        {ok, Prt} ->
+            do_listen(Driver, Prt, Prt, ListenOptions)
+    end.
+
+get_port_range() ->
+    case application:get_env(kernel,inet_dist_listen_min) of
+        {ok,N} when is_integer(N) ->
+            case application:get_env(kernel,inet_dist_listen_max) of
+                {ok,M} when is_integer(M) ->
+                    {N,M};
+                _ ->
+                    {N,N}
+            end;
+        _ ->
+            {0,0}
+    end.
 
 do_listen(_Driver, First,Last,_) when First > Last ->
     {error,eaddrinuse};
@@ -285,9 +306,8 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
     [Name, Address] = splitnode(Driver, Node, LongOrShortNames),
     AddressFamily = Driver:family(),
     ErlEpmd = net_kernel:epmd_module(),
-    {ARMod, ARFun} = get_address_resolver(ErlEpmd),
     Timer = dist_util:start_timer(SetupTime),
-    case ARMod:ARFun(Name, Address, AddressFamily) of
+    case call_epmd_function(ErlEpmd,address_please,[Name, Address, AddressFamily]) of
 	{ok, Ip, TcpPort, Version} ->
 		?trace("address_please(~p) -> version ~p~n",
 			[Node,Version]),
@@ -301,8 +321,7 @@ do_setup(Driver, Kernel, Node, Type, MyNode, LongOrShortNames, SetupTime) ->
 			do_setup_connect(Driver, Kernel, Node, Address, AddressFamily,
 			                 Ip, TcpPort, Version, Type, MyNode, Timer);
 		_ ->
-		    ?trace("port_please (~p) "
-			   "failed.~n", [Node]),
+		    ?trace("port_please (~p) failed.~n", [Node]),
 		    ?shutdown(Node)
 	    end;
 	_Other ->
@@ -436,22 +455,24 @@ split_node([], _, Ack)        -> [lists:reverse(Ack)].
 %% ------------------------------------------------------------
 get_tcp_address(Driver, Socket) ->
     {ok, Address} = inet:sockname(Socket),
+    NetAddr = get_tcp_address(Driver),
+    NetAddr#net_address{ address = Address }.
+get_tcp_address(Driver) ->
     {ok, Host} = inet:gethostname(),
     #net_address {
-		  address = Address,
 		  host = Host,
 		  protocol = tcp,
 		  family = Driver:family()
 		 }.
 
 %% ------------------------------------------------------------
-%% Determine if EPMD module supports address resolving. Default
-%% is to use inet:getaddr/2.
+%% Determine if EPMD module supports the called functions.
+%% If not call the builtin erl_epmd
 %% ------------------------------------------------------------
-get_address_resolver(EpmdModule) ->
-    case erlang:function_exported(EpmdModule, address_please, 3) of
-        true -> {EpmdModule, address_please};
-        _    -> {erl_epmd, address_please}
+call_epmd_function(Mod, Fun, Args) ->
+    case erlang:function_exported(Mod, Fun, length(Args)) of
+        true -> apply(Mod,Fun,Args);
+        _    -> apply(erl_epmd, Fun, Args)
     end.
 
 %% ------------------------------------------------------------

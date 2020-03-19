@@ -204,14 +204,15 @@
 	The following functions are mandatory:
       </p>
       <taglist>
-	<tag><marker id="listen"/><c>listen(Name) -></c><br/>&nbsp;&nbsp;<c>{ok, {Listen, Address, Creation}} | {error, Error} </c></tag>
+	<tag><marker id="listen"/><c>listen(Name) -></c><br/>&nbsp;&nbsp;<c>{ok, {Listen, Address, Creation}} | {error, Error} </c><br/><c>listen(Name,Host) -></c><br/>&nbsp;&nbsp;<c>{ok, {Listen, Address, Creation}} | {error, Error} </c></tag>
 	<item>
 	  <p>
-	    <c>listen/1</c> is called once in order to listen for incoming
+	    <c>listen/2</c> is called once in order to listen for incoming
 	    connection requests. The call is made when the distribution is brought
 	    up. The argument <c>Name</c> is the part of the node name before
 	    the <c>@</c> sign in the full node name. It can be either an atom or a
-	    string.
+	    string. The argument <c>Host</c> is the part of the node name after
+	    the <c>@</c> sign in the full node name. It is always a string.
 	  </p>
 	  <p>
 	    The return value consists of a <c>Listen</c> handle (which is
@@ -224,12 +225,25 @@
 	  </p>
 	  <p>
 	    If <seealso marker="erts:epmd"><c>epmd</c></seealso> is to be used 
-	    for node discovery, you typically want to use the (unfortunately
-	    undocumented) <c>erl_epmd</c> module (part of the <c>kernel</c>
+	    for node discovery, you typically want to use the
+            <c>erl_epmd</c> module (part of the <c>kernel</c>
 	    application) in order to register the listen port with <c>epmd</c>
 	    and retrieve <c>Creation</c> to use.
 	  </p>
 	</item>
+
+        <tag><marker id="address"/><c>address() -></c><br/>&nbsp;&nbsp;<c>Address</c></tag>
+	<item>
+	  <p><c>address/0</c> is called in order to get the <c>Address</c> part of the
+          <seealso marker="#listen"><c>listen/2</c></seealso> function without creating
+          a listen socket. All fields except <c>address</c> have to be set in the returned
+          record</p>
+          <p>Example:</p>
+          <code type="erl">address() ->
+    {ok, Host} = inet:gethostname(),
+    #net_address{ host = Host, protocol = tcp, family = inet6 }.
+          </code>
+        </item>
 
 	<tag><marker id="accept"/><c>accept(Listen) -></c><br/>&nbsp;&nbsp;<c>AcceptorPid</c></tag>
 	<item>

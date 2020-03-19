@@ -499,8 +499,8 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
               for connecting and receiving data.</p>
           </item>
           <item>
-            <p><c>this_node_name</c> is the registered name of the
-              process (the name before '@').</p>
+            <p><c>this_node_name</c> is the name of the C-node
+              (the name before '@' in the full node name).</p>
           </item>
           <item>
             <p><c>cookie</c> is the cookie for the node.</p>
@@ -517,12 +517,14 @@ fd = ei_xconnect(&ec, &addr, ALIVE);
               instead of <c>durin</c>).</p>
           </item>
           <item>
-            <p><c>thisalivename</c> is the registered name of the
-              process.</p>
+            <p><c>thisalivename</c> is the name of the local C-node (the name
+	    before '@' in the full node name). Can be <c>NULL</c> (from OTP 23)
+	    to get a dynamically assigned name from the peer node.</p>
           </item>
           <item>
-            <p><c>thisnodename</c> is the full name of the node,
-              that is, <c>einode@durin</c>.</p>
+            <p><c>thisnodename</c> is the full name of the local C-node,
+              that is, <c>mynode@myhost</c>. Can be <c>NULL</c> if
+	      <c>thisalivename</c> is <c>NULL</c>.</p>
           </item>
           <item>
             <p><c>thispaddr</c> if the IP address of the host.</p>

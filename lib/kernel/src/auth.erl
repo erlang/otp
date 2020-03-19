@@ -108,7 +108,7 @@ get_cookie() ->
 
 -spec get_cookie(Node :: node()) -> 'nocookie' | cookie().
 
-get_cookie(_Node) when node() =:= nonode@nohost ->
+get_cookie(Node) when Node =:= nonode@nohost ->
     nocookie;
 get_cookie(Node) ->
     gen_server:call(auth, {get_cookie, Node}, infinity).

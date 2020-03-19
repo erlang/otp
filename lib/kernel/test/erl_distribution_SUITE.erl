@@ -29,6 +29,7 @@
          connect_node/1,
          nodenames/1, hostnames/1,
          illegal_nodenames/1, hidden_node/1,
+         dyn_node_name/1,
 	 setopts/1,
 	 table_waste/1, net_setuptime/1,
 	 inet_dist_options_options/1,
@@ -51,6 +52,7 @@
 	 tick_cli_test/1, tick_cli_test1/1,
 	 tick_serv_test/2, tick_serv_test1/1,
 	 run_remote_test/1,
+         dyn_node_name_do/2,
 	 setopts_do/2,
 	 keep_conn/1, time_ping/1]).
 
@@ -78,6 +80,7 @@ all() ->
      dist_ctrl_proc_reject,
      tick, tick_change, nodenames, hostnames, illegal_nodenames,
      connect_node,
+     dyn_node_name,
      hidden_node, setopts,
      table_waste, net_setuptime, inet_dist_options_options,
      {group, monitor_nodes}].
@@ -421,6 +424,59 @@ tick_cli_test1(Node) ->
 		    end
 	    end
     end.
+
+dyn_node_name(Config) when is_list(Config) ->
+    %%run_dist_configs(fun dyn_node_name/2, Config).
+    dyn_node_name("", Config).
+
+dyn_node_name(DCfg, _Config) ->
+    {_N1F,Port1} = start_node_unconnected(DCfg ++ " -dist_listen false",
+                                          undefined, ?MODULE, run_remote_test,
+                                          ["dyn_node_name_do", atom_to_list(node())]),
+    0 = wait_for_port_exit(Port1),
+    ok.
+
+dyn_node_name_do(TestNode, _Args) ->
+    nonode@nohost = node(),
+    [] = nodes(),
+    [] = nodes(hidden),
+    net_kernel:monitor_nodes(true, [{node_type,all}]),
+    net_kernel:connect_node(TestNode),
+    [] = nodes(),
+    [TestNode] = nodes(hidden),
+    MyName = node(),
+    check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
+
+    {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
+    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(0),
+
+    true = net_kernel:disconnect(TestNode),
+
+    {nodedown, TestNode, [{node_type, hidden}]} = receive_any(0),
+    [] = nodes(hidden),
+    {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
+
+    nonode@nohost = node(),
+
+    net_kernel:connect_node(TestNode),
+    [] = nodes(),
+    [TestNode] = nodes(hidden),
+    MyName = node(),
+    check([MyName], rpc:call(TestNode, erlang, nodes, [hidden])),
+
+    {nodeup, MyName, [{node_type, visible}]} = receive_any(0),
+    {nodeup, TestNode, [{node_type, hidden}]} = receive_any(0),
+
+    true = rpc:cast(TestNode, net_kernel, disconnect, [MyName]),
+
+    {nodedown, TestNode, [{node_type, hidden}]} = receive_any(1000),
+    [] = nodes(hidden),
+    {nodedown, MyName, [{node_type, visible}]} = receive_any(1000),
+    nonode@nohost = node(),
+
+    ok.
+
+check(X, X) -> ok.
 
 setopts(Config) when is_list(Config) ->
     run_dist_configs(fun setopts/2, Config).

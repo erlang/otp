@@ -23,7 +23,7 @@
 
 -include_lib("kernel/include/logger.hrl").
 
--export([start_link/0,start_link/2,init/1,start/1,stop/0]).
+-export([start_link/0,start_link/3,init/1,start/1,stop/0]).
 
 -define(DBG,erlang:display([?MODULE,?LINE])).
 
@@ -36,8 +36,12 @@ start_link() ->
 %% system has already started.
 
 start(Args) ->
-    C = {net_sup_dynamic, {?MODULE,start_link,[Args,false]}, permanent,
-	 1000, supervisor, [erl_distribution]},
+    C = #{id => net_sup_dynamic,
+          start => {?MODULE,start_link,[Args,false,net_sup_dynamic]},
+          restart => permanent,
+          shutdown => 1000,
+          type => supervisor,
+          modules => [erl_distribution]},
     supervisor:start_child(kernel_sup, C).
 
 %% Stop distribution.
@@ -62,8 +66,8 @@ stop() ->
 
 %% Helper start function.
 
-start_link(Args, CleanHalt) ->
-    supervisor:start_link({local,net_sup}, ?MODULE, [Args,CleanHalt]).
+start_link(Args, CleanHalt, NetSup) ->
+    supervisor:start_link({local,net_sup}, ?MODULE, [Args,CleanHalt,NetSup]).
 
 init(NetArgs) ->
     Epmd = 
@@ -72,23 +76,39 @@ init(NetArgs) ->
 		[];
 	    _ ->
 		EpmdMod = net_kernel:epmd_module(),
-		[{EpmdMod,{EpmdMod,start_link,[]},
-		  permanent,2000,worker,[EpmdMod]}]
+		[#{id => EpmdMod,
+                   start => {EpmdMod,start_link,[]},
+                   restart => permanent,
+                   shutdown => 2000,
+                   type => worker,
+                   modules => [EpmdMod]}]
 	end,
-    Auth = {auth,{auth,start_link,[]},permanent,2000,worker,[auth]},
-    Kernel = {net_kernel,{net_kernel,start_link,NetArgs},
-	      permanent,2000,worker,[net_kernel]},
+    Auth = #{id => auth,
+             start => {auth,start_link,[]},
+             restart => permanent,
+             shutdown => 2000,
+             type => worker,
+             modules => [auth]},
+    Kernel = #{id => net_kernel,
+               start => {net_kernel,start_link,NetArgs},
+               restart => permanent,
+               shutdown => 2000,
+               type => worker,
+               modules => [net_kernel]},
     EarlySpecs = net_kernel:protocol_childspecs(),
-    {ok,{{one_for_all,0,1}, EarlySpecs ++ Epmd ++ [Auth,Kernel]}}.
+    SupFlags = #{strategy => one_for_all,
+                 intensity => 0,
+                 period => 1},
+    {ok, {SupFlags, EarlySpecs ++ Epmd ++ [Auth,Kernel]}}.
 
 do_start_link([{Arg,Flag}|T]) ->
     case init:get_argument(Arg) of
 	{ok,[[Name]]} ->
-	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+	    start_link([list_to_atom(Name),Flag|ticktime()], true, net_sup);
         {ok,[[Name]|_Rest]} ->
             ?LOG_WARNING("Multiple -~p given to erl, using the first, ~p",
                          [Arg, Name]),
-	    start_link([list_to_atom(Name),Flag|ticktime()], true);
+	    start_link([list_to_atom(Name),Flag|ticktime()], true, net_sup);
 	_ ->
 	    do_start_link(T)
     end;

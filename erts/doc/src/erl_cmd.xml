@@ -262,6 +262,12 @@
         <p>Configures the module responsible to communicate to
           <seealso marker="epmd">epmd</seealso>. Defaults to <c>erl_epmd</c>.</p>
       </item>
+      <tag><c><![CDATA[-erl_epmd_port Port]]></c> (init flag)</tag>
+      <item>
+        <p>Configures the port used by erl_epmd to listen for connection and connect to
+        other nodes. See <seealso marker="kernel:erl_epmd">erl_epmd</seealso> for more details.
+        Defaults to <c>0</c>.</p>
+      </item>
       <tag><c><![CDATA[-eval Expr]]></c> (init flag)</tag>
       <item>
         <p>Makes <c><![CDATA[init]]></c> evaluate the expression

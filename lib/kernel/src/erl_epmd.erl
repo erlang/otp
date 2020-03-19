@@ -42,8 +42,9 @@
 -endif.
 
 %% External exports
--export([start/0, start_link/0, stop/0, port_please/2, 
-	 port_please/3, names/0, names/1,
+-export([start/0, start_link/0, stop/0,
+         port_please/2, port_please/3, listen_port_please/2,
+         names/0, names/1,
 	 register_node/2, register_node/3, address_please/3, open/0, open/1, open/2]).
 
 %% gen_server callbacks
@@ -57,7 +58,7 @@
 
 -include("inet_int.hrl").
 -include("erl_epmd.hrl").
-
+-include_lib("kernel/include/inet.hrl").
 
 %%%----------------------------------------------------------------------
 %%% API
@@ -87,23 +88,21 @@ stop() ->
 port_please(Node, Host) ->
   port_please(Node, Host, infinity).
 
--spec port_please(Name, Host, Timeout) -> {ok, Port, Version} | noport when
+-spec port_please(Name, Host, Timeout) -> {port, Port, Version} | noport when
 	  Name :: atom() | string(),
 	  Host :: atom() | string() | inet:ip_address(),
 	  Timeout :: non_neg_integer() | infinity,
 	  Port :: non_neg_integer(),
 	  Version :: non_neg_integer().
 
-port_please(Node,HostName, Timeout) when is_atom(HostName) ->
-  port_please1(Node,atom_to_list(HostName), Timeout);
-port_please(Node,HostName, Timeout) when is_list(HostName) ->
-  port_please1(Node,HostName, Timeout);
+port_please(Node, HostName, Timeout) when is_atom(HostName) ->
+  port_please1(Node, atom_to_list(HostName), Timeout);
+port_please(Node, HostName, Timeout) when is_list(HostName) ->
+  port_please1(Node, HostName, Timeout);
 port_please(Node, EpmdAddr, Timeout) ->
   get_port(Node, EpmdAddr, Timeout).
 
-
-
-port_please1(Node,HostName, Timeout) ->
+port_please1(Node, HostName, Timeout) ->
   Family = case inet_db:res_option(inet6) of
              true ->
                inet6;
@@ -111,12 +110,37 @@ port_please1(Node,HostName, Timeout) ->
                inet
            end,
   case inet:gethostbyname(HostName, Family, Timeout) of
-    {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
-      get_port(Node, EpmdAddr, Timeout);
-    _Else ->
-      ?port_please_failure2(_Else),
-      noport
+      {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
+          case get_port(Node, EpmdAddr, Timeout) of
+              noport ->
+                  case listen_port_please(Node, HostName) of
+                      {ok, 0} ->
+                          noport;
+                      {ok, Prt} ->
+                          {port, Prt, 5}
+                  end;
+               Reply ->
+                  Reply
+          end;
+      _Else ->
+          ?port_please_failure2(_Else),
+          noport
   end.
+
+-spec listen_port_please(Name, Host) -> {ok, Port} when
+      Name :: atom(),
+      Host :: string() | inet:ip_address(),
+      Port :: non_neg_integer().
+listen_port_please(_Name, _Host) ->
+    try
+        %% Should come up with a new name for this as ERL_EPMD_PORT describes what
+        %% port epmd runs on which could easily be confused with this.
+        {ok, [[StringPort]]} = init:get_argument(erl_epmd_port),
+        Port = list_to_integer(StringPort),
+        {ok, Port}
+    catch error:_ ->
+            {ok, 0}
+    end.
 
 -spec names() -> {ok, [{Name, Port}]} | {error, Reason} when
 	  Name :: string(),
@@ -135,7 +159,7 @@ names() ->
 
 names(HostName) when is_atom(HostName); is_list(HostName) ->
   case inet:gethostbyname(HostName) of
-    {ok,{hostent, _Name, _ , _Af, _Size, [EpmdAddr | _]}} ->
+    {ok,#hostent{ h_addr_list = [EpmdAddr | _]}} ->
       get_names(EpmdAddr);
     Else ->
       Else
@@ -156,7 +180,7 @@ register_node(Name, PortNo) ->
 	  Name :: string(),
 	  Port :: non_neg_integer(),
 	  Driver :: inet_tcp | inet6_tcp | inet | inet6,
-	  Creation :: non_neg_integer(),
+	  Creation :: non_neg_integer() | -1,
 	  Result :: {ok, Creation} | {error, already_registered} | term().
 
 register_node(Name, PortNo, inet_tcp) ->

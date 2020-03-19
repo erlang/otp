@@ -22,11 +22,11 @@
 -module(inet_tls_dist).
 
 -export([childspecs/0]).
--export([listen/1, accept/1, accept_connection/5,
+-export([listen/2, accept/1, accept_connection/5,
 	 setup/5, close/1, select/1, is_node_name/1]).
 
 %% Generalized dist API
--export([gen_listen/2, gen_accept/2, gen_accept_connection/6,
+-export([gen_listen/3, gen_accept/2, gen_accept_connection/6,
 	 gen_setup/6, gen_close/2, gen_select/2]).
 
 -export([nodelay/0]).
@@ -193,11 +193,11 @@ split_stat([], R, W, P) ->
 
 %% -------------------------------------------------------------------------
 
-listen(Name) ->
-    gen_listen(inet_tcp, Name).
+listen(Name, Host) ->
+    gen_listen(inet_tcp, Name, Host).
 
-gen_listen(Driver, Name) ->
-    case inet_tcp_dist:gen_listen(Driver, Name) of
+gen_listen(Driver, Name, Host) ->
+    case inet_tcp_dist:gen_listen(Driver, Name, Host) of
         {ok, {Socket, Address, Creation}} ->
             inet:setopts(Socket, [{packet, 4}, {nodelay, true}]),
             {ok, {Socket, Address#net_address{protocol=tls}, Creation}};

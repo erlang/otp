@@ -23,10 +23,13 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, smoke/1, test_connect_to_host_port/1]).
+-export([all/0, smoke/1,
+         random_cnode_name/1,
+         test_connect_to_host_port/1]).
 
 all() ->
     [smoke,
+     random_cnode_name,
      test_connect_to_host_port].
 
 smoke(Config) when is_list(Config) ->
@@ -44,10 +47,55 @@ smoke(Config) when is_list(Config) ->
     ok.
 
 
+random_cnode_name(Config) when is_list(Config) ->
+    Name = atom_to_list(?MODULE)
+        ++ "-"
+        ++ integer_to_list(erlang:system_time(microsecond)),
+
+    try
+        CNodeName = start_node_and_get_c_node_name(Name, []),
+        [_, Hostname] = string:lexemes(atom_to_list(node()), "@"),
+        DefaultName = list_to_atom("c17@" ++ Hostname),
+        check_eq(CNodeName, DefaultName),
+
+        CNodeName_r = start_node_and_get_c_node_name(Name, ["-r"]),
+        [CNode_r, Hostname] = string:lexemes(atom_to_list(CNodeName_r), "@"),
+        check_regex(CNode_r, "^c[0-9]+$"),
+
+        CNodeName_R = start_node_and_get_c_node_name(Name, ["-R"]),
+        [CNode_R, Hostname] = string:lexemes(atom_to_list(CNodeName_R), "@"),
+        check_regex(CNode_R, "^[0-9A-Z]+$"),
+
+        %% we should get the same recycled node name again
+        CNodeName_R2 = start_node_and_get_c_node_name(Name, ["-R"]),
+        check_eq(CNodeName_R, CNodeName_R2)
+
+    after
+        halt_node(Name)
+    end,
+    ok.
+
+check_eq(X,Y) ->
+    {Y,X} = {X,Y}.
+
+check_regex(String, Regex) ->
+    {ok, RE} = re:compile(Regex),
+    {{match,[{0,_}]}, _} = {re:run(String, RE), String},
+    true.
+
 test_connect_to_host_port(Config) when is_list(Config) ->
     Name = atom_to_list(?MODULE)
         ++ "-"
         ++ integer_to_list(erlang:system_time(microsecond)),
+    try
+        test_connect_to_host_port_do(Name)
+    after
+        halt_node(Name)
+    end,
+    ok.
+
+
+test_connect_to_host_port_do(Name) ->
     Port = start_node_and_get_port(Name),
     AddressCaller =
         fun(Address) ->
@@ -65,7 +113,6 @@ test_connect_to_host_port(Config) when is_list(Config) ->
         nomatch -> ct:fail("Incorrect error message");
         _ -> ok
     end,
-    halt_node(Name),
     ok.
 
 %
@@ -81,19 +128,29 @@ halt_node(Name) ->
     pong = net_adm:ping(NodeName),
     rpc:cast(NodeName, erlang, halt, []).
 
+
 start_node_and_get_node_name(Name) ->
+    string:trim(start_node_and_apply(Name, "erlang node", []),
+                both,
+                "'").
+
+start_node_and_get_c_node_name(Name, Opts) ->
+    Str = start_node_and_apply(Name, "erlang nodes [hidden]", Opts),
+    {ok, [{'[',_}, {atom, _, CNode}, {']',_}], _} = erl_scan:string(Str),
+    CNode.
+
+start_node_and_apply(Name, MfaStr, Opts) ->
     NameSwitch = case net_kernel:longnames() of
                      true ->
                          "-name";
                      false ->
                          "-sname"
                  end,
-    string:trim(get_erl_call_result(["-s",
-                                     NameSwitch,
-                                     Name, "-a",
-                                     "erlang node"]),
-                both,
-                "'").
+    get_erl_call_result(Opts ++
+                            ["-s",
+                             NameSwitch,
+                             Name, "-a",
+                             MfaStr]).
 
 start_node_and_get_port(Name) ->
     start_node_and_get_node_name(Name),

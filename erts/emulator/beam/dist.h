@@ -52,11 +52,12 @@
 #define DFLAG_HANDSHAKE_23       ((Uint64)0x1000000)
 #define DFLAG_RESERVED                   0xfe000000
 /*
- * As the old handshake only support 32 flag bits, we reserve the remainding
+ * As the old handshake only support 32 flag bits, we reserve the remaining
  * bits in the lower 32 for changes in the handshake protocol or potentially
  * new capabilities that we also want to backport to OTP-22 or older.
  */
-#define DFLAG_SPAWN            ((Uint64)0x100000000)
+#define DFLAG_SPAWN            (((Uint64)0x1) << 32)
+#define DFLAG_NAME_ME          (((Uint64)0x2) << 32)
 
 
 /* Mandatory flags for distribution */

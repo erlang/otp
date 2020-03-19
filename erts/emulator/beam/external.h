@@ -125,7 +125,7 @@ typedef struct {
 #define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x2)
 #define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x4)
 
-#define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff) /* also in net_kernel.erl */
+#define ERTS_DIST_CON_ID_MASK ((Uint32) 0x00ffffff)
 
 struct binary;
 typedef struct erl_dist_external_data ErtsDistExternalData;
