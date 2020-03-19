@@ -1016,6 +1016,8 @@ maybe_queue_change_cipher_spec(#state{flight_buffer = FlightBuffer0} = State0) -
 %%      first ClientHello.
 %% @end
 maybe_prepend_change_cipher_spec(#state{
+                                    ssl_options =
+                                        #{middlebox_comp_mode := true},
                                     handshake_env =
                                         #handshake_env{
                                            change_cipher_spec_sent = false} = HSEnv} = State, Bin) ->

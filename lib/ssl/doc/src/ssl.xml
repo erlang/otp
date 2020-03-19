@@ -777,6 +777,17 @@ fun(srp, Username :: string(), UserState :: term()) ->
       </desc>
     </datatype>
 
+    <datatype>
+      <name name="middlebox_comp_mode"/>
+      <desc><p>Configures the middlebox compatibility mode on a TLS 1.3 connection.</p>
+      <p>A significant number of middleboxes misbehave when a TLS 1.3 connection is
+      negotiated. Implementations can increase the chance of making connections
+      through those middleboxes by making the TLS 1.3 handshake more like a
+      TLS 1.2 handshake.</p>
+      <p>The middlebox compatibility mode is enabled (<c>true</c>) by default.</p>
+      </desc>
+    </datatype>
+
     <datatype_title>TLS/DTLS OPTION DESCRIPTIONS - CLIENT</datatype_title>
     
     <datatype>
