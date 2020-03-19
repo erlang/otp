@@ -208,7 +208,8 @@ init({Options, CallerPid}) ->
 	    RecBufSz    = get_value(recbuf,            Options, 1024),
 	    ?IPRINT("init -> RecBufSz: ~p", [RecBufSz]),
 	    Mibs        = get_value(mibs,              Options, []),
-	    ?IPRINT("init -> Mibs: ~p", [Mibs]),
+	    ?IPRINT("init -> Mibs: "
+                    "~n   ~tp", [Mibs]),
 	    Udp         = get_value(agent_udp,         Options, 4000),
 	    ?IPRINT("init -> Udp: ~p", [Udp]),
 	    User        = get_value(user,              Options, "initial"),

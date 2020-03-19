@@ -387,10 +387,10 @@ await_tc_runner_done(Runner, OldFlag) ->
             unlink_and_flush_exit(Runner),
 	    put(test_server_loc, Loc),
 	    exit(Rn);
-	{tc_runner_done, Runner, Ret, _Zed} -> 
-	    ?DBG("call -> done:"
-		 "~n   Ret: ~p"
-		 "~n   Zed: ~p", [Ret, _Zed]),
+	{tc_runner_done, Runner, Ret, _Loc} -> 
+	    ?IPRINT("call -> done:"
+                    "~n   Ret: ~p"
+                    "~n   Loc: ~p", [Ret, _Loc]),
             trap_exit(OldFlag),
             unlink_and_flush_exit(Runner),
 	    case Ret of

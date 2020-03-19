@@ -5051,25 +5051,32 @@ snmp_standard_mib(Config) when is_list(Config) ->
     ?DBG("snmp_standard_mib -> std_mib_a", []),
     InBadVsns = try_test(std_mib_a),
     put(vsn, v2),
+
     ?DBG("snmp_standard_mib -> std_mib_read", []),
     try_test(std_mib_read),
     put(vsn, v1),
 
     ?DBG("snmp_standard_mib -> std_mib_b (~w)", [InBadVsns]),
     Bad = try_test(std_mib_b, [InBadVsns]),
+
     ?DBG("snmp_standard_mib -> std_mib_read (community: 'bad community')", []),
     try_test(std_mib_read, [], [{community, "bad community"}]),
+
     ?DBG("snmp_standard_mib -> std_mib_write (community: 'public')", []),
     try_test(std_mib_write, [], [{community, "public"}]),
+
     ?DBG("snmp_standard_mib -> std_mib_asn_err", []),
     try_test(std_mib_asn_err),
+
     ?DBG("snmp_standard_mib -> std_mib_c (~w)", [Bad]),
     try_test(std_mib_c, [Bad]),
+
     ?DBG("snmp_standard_mib -> std_mib_a", []),
     try_test(standard_mib_a),
     
     ?DBG("snmp_standard_mib -> std_mib_finish", []),
     try_test(std_mib_finish),
+
     ?DBG("snmp_standard_mib -> std_mib_test_finish", []),
     try_test(standard_mib_test_finish, [], [{community, "bad community"}]).
 
@@ -5161,7 +5168,7 @@ snmpv2_mib_2(Config) when is_list(Config) ->
     ?DBG("snmpv2_mib_2 -> write with public community",[]),
     try_test(std_mib_write, [], [{community, "public"}]),
 
-    ?DBG("snmpv2_mib_2 -> asn err",[]),
+    ?DBG("snmpv2_mib_2 -> asn err", []),
     try_test(std_mib_asn_err),
 
     ?DBG("snmpv2_mib_2 -> check counters",[]),
@@ -5174,7 +5181,7 @@ snmpv2_mib_2(Config) when is_list(Config) ->
     try_test(std_mib_finish),
 
     ?DBG("snmpv2_mib_2 -> force auth failure, and await trap, "
-	  "then disable auth traps",[]),
+         "then disable auth traps", []),
     try_test(snmpv2_mib_test_finish, [], [{community, "bad community"}]),
     
     ?IPRINT("snmpv2_mib_2 -> done"),
@@ -7588,7 +7595,7 @@ try_test(Func, A, Opts) ->
     ?ALIB:try_test(?MODULE, Func, A, Opts).
 
 
-%% Test manager wrapperfunctions:
+%% Test manager wrapper functions:
 g(Oids)          -> snmp_test_mgr:g(Oids).
 %%gn()             -> snmp_test_mgr:gn().
 gn(OidsOrN)      -> snmp_test_mgr:gn(OidsOrN).
