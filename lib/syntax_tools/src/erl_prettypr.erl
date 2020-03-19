@@ -622,8 +622,7 @@ lay_2(Node, Ctxt) ->
 	    D2 = lay_clauses(erl_syntax:case_expr_clauses(Node),
 			     case_expr, Ctxt1),
 	    sep([par([follow(text("case"), D1, Ctxt1#ctxt.break_indent),
-		      text("of")],
-		     Ctxt1#ctxt.break_indent),
+                      text("of")]),
 		 nest(Ctxt1#ctxt.break_indent, D2),
 		 text("end")]);
 	
