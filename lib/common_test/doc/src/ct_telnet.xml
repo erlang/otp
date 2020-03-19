@@ -177,31 +177,37 @@
      [{ct_hooks, [{cth_conn_log, []}]}].</pre>
   </section>
 
-  <section>
-    <title>Data Types</title>
-    <marker id="types"/>
-    <taglist>
-      <tag><c>connection() = handle() | {target_name(), connection_type()} | target_name()</c></tag>
-      <item><marker id="type-connection"/>
+  <datatypes>
+    <datatype>
+      <name>connection() = handle() | {target_name(), connection_type()} | target_name()</name>
+      <desc>
         <p>For <c>target_name()</c>, see module
-          <seeerl marker="ct"><c>ct</c></seeerl>.</p></item>
+        <seeerl marker="ct"><c>ct</c></seeerl>.</p>
+      </desc>
+    </datatype>
 
-      <tag><c>connection_type() = telnet | ts1 | ts2</c></tag>
-      <item><marker id="type-connection_type"/> </item>
+    <datatype>
+      <name>connection_type() = telnet | ts1 | ts2</name>
+    </datatype>
 
-      <tag><c>handle() = handle()</c></tag>
-      <item><marker id="type-handle"/>
+    <datatype>
+      <name>handle() = handle()</name>
+      <desc>
         <p>Handle for a specific Telnet connection, see module
-          <seeerl marker="ct"><c>ct</c></seeerl>.</p></item>
+        <seeerl marker="ct"><c>ct</c></seeerl>.</p>
+      </desc>
+    </datatype>
 
-      <tag><c>prompt_regexp() = string()</c></tag>
-      <item><marker id="type-prompt_regexp"/>
+    <datatype>
+      <name>prompt_regexp() = string()</name>
+      <desc>
         <p>Regular expression matching all possible prompts for a specific
-          target type. <c>regexp</c> must not have any groups, that is, when
-          matching, <c>re:run/3</c> (in STDLIB) must return a list with
-          one single element.</p></item>
-    </taglist>
-  </section>
+        target type. <c>regexp</c> must not have any groups, that is, when
+        matching, <c>re:run/3</c> (in STDLIB) must return a list with
+        one single element.</p>
+      </desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>

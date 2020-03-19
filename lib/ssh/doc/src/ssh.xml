@@ -1147,9 +1147,6 @@
       <name>opaque_daemon_options()</name>
       <name>opaque_common_options()</name>
       <desc>
-	<marker id="type-opaque_client_options"/>
-	<marker id="type-opaque_daemon_options"/>
-	<marker id="type-opaque_common_options"/>
 	<p>Opaque types that define experimental options that are not to be used in products.</p>
       </desc>
     </datatype>

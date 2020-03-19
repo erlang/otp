@@ -71,27 +71,32 @@
 
   </description>
 
-  <section>
-    <title>Data Types</title>
-    <marker id="types"/>
-    <taglist>
-      <tag><c>connection() = handle() | target_name()</c></tag>
-      <item><marker id="type-connection"/>
+  <datatypes>
+    <datatype>
+      <name>connection() = handle() | target_name()</name>
+      <desc>
         <p>For <c>target_name</c>, see module
-          <seeerl marker="ct"><c>ct</c></seeerl>.</p></item>
+        <seeerl marker="ct"><c>ct</c></seeerl>.</p>
+      </desc>
+    </datatype>
 
-      <tag><c>handle() = handle()</c></tag>
-      <item><marker id="type-handle"/>
+    <datatype>
+      <name>handle() = handle()</name>
+      <desc>
         <p>Handle for a specific SSH/SFTP connection, see module
-          <seeerl marker="ct"><c>ct</c></seeerl>.</p></item>
+        <seeerl marker="ct"><c>ct</c></seeerl>.</p>
+      </desc>
+    </datatype>
 
-      <tag><c>ssh_sftp_return() = term()</c></tag>
-      <item><marker id="type-ssh_sftp_return"/>
+    <datatype>
+      <name>ssh_sftp_return() = term()</name>
+      <desc>
         <p>Return value from an
-          <seeerl marker="ssh:ssh_sftp"><c>ssh_sftp</c></seeerl>
-            function.</p></item>
-    </taglist>
-  </section>
+        <seeerl marker="ssh:ssh_sftp"><c>ssh_sftp</c></seeerl>
+        function.</p>
+      </desc>
+    </datatype>
+  </datatypes>
 
   <funcs>
     <func>

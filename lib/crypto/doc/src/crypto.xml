@@ -483,19 +483,15 @@
     <datatype>
       <name name="srp_gen_params"/>
       <name name="srp_comp_params"/>
+      <name>srp_user_gen_params() = [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom()]</name>
+      <name>srp_host_gen_params() = [Verifier::binary(), Prime::binary(), Version::atom() ]</name>
+      <name>srp_user_comp_params() = [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | ScramblerArg::list()]</name>
+      <name>srp_host_comp_params() = [Verifier::binary(), Prime::binary(), Version::atom() | ScramblerArg::list()]</name>
       <desc>
-	<marker id="type-srp_user_gen_params"/>
-	<code>srp_user_gen_params() = [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom()]</code>
-	<marker id="type-srp_host_gen_params"/>
-	<code>srp_host_gen_params() = [Verifier::binary(), Prime::binary(), Version::atom() ]</code>
-	<marker id="type-srp_user_comp_params"/>
-	<code>srp_user_comp_params() = [DerivedKey::binary(), Prime::binary(), Generator::binary(), Version::atom() | ScramblerArg::list()]</code>
-	<marker id="type-srp_host_comp_params"/>
-	<code>srp_host_comp_params() = [Verifier::binary(), Prime::binary(), Version::atom() | ScramblerArg::list()]</code>
-	<p>Where Verifier is <c>v</c>, Generator is <c>g</c> and Prime is<c> N</c>, DerivedKey is <c>X</c>, and Scrambler is
-	<c>u</c> (optional will be generated if not provided) from <url href="http://srp.stanford.edu/design.html">SRP design</url>
-	Version = '3' |  '6' |  '6a'
-	</p>
+        <p>Where Verifier is <c>v</c>, Generator is <c>g</c> and Prime is<c> N</c>, DerivedKey is <c>X</c>, and Scrambler is
+        <c>u</c> (optional will be generated if not provided) from <url href="http://srp.stanford.edu/design.html">SRP design</url>
+      Version = '3' |  '6' |  '6a'
+        </p>
       </desc>
     </datatype>
 

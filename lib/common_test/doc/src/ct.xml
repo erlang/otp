@@ -65,77 +65,50 @@
 
   </description>
 
-  <section>
-    <title>Data Types</title>
-    <marker id="types"/>
-    <taglist>
-
-      <tag>
-	<marker id="type-handle"/>
-	<c>handle() = pid()</c>
-      </tag>
-      <item>
+  <datatypes>
+    <datatype>
+      <name>handle() = pid()</name>
+      <desc>
         <p>The identity (handle) of a connection.</p>
-      </item>
+      </desc>
+    </datatype>
 
-      <tag>
-	<marker id="type-config_key"/>
-	<c>config_key() = atom()</c>
-      </tag>
-      <item>
+    <datatype>
+      <name>config_key() = atom()</name>
+      <desc>
 	<p>A configuration key which exists in a configuration file</p>
-      </item>
-
-      <tag>
-	<marker id="type-target_name"/><c>target_name() = atom()</c>
-      </tag>
-      <item>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>target_name() = atom()</name>
+      <desc>
         <p>A name and association to configuration data introduced
-          through a require statement, or a call to
-          <seemfa marker="#require/2"><c>ct:require/2</c></seemfa>,
-          for example,
-          <c>ct:require(mynodename,{node,[telnet]})</c>.</p>
-      </item>
-
-      <tag>
-	<marker id="type-key_or_name"/>
-	<c>key_or_name() = config_key() | target_name()</c>
-      </tag>
-      <item/>
-
-      <tag>
-	<marker id="type-conn_log_options"/>
-	<c>conn_log_options() = [conn_log_option()]</c>
-      </tag>
-      <item>
+        through a require statement, or a call to
+        <seemfa marker="#require/2"><c>ct:require/2</c></seemfa>,
+        for example,
+        <c>ct:require(mynodename,{node,[telnet]})</c>.</p>
+      </desc>
+    </datatype>
+    <datatype>
+      <name>key_or_name() = config_key() | target_name()</name>
+      <name>conn_log_options() = [conn_log_option()]</name>
+      <desc>
 	<p>Options that can be given to the <c>cth_conn_log</c> hook,
-	  which is used for logging of NETCONF and Telnet
-	  connections. See
-	  <seeerl marker="ct_netconfc#Logging">ct_netconfc</seeerl>
-	  or <seeerl marker="ct_telnet#Logging">ct_telnet</seeerl>
-	  for description and examples of how to use this hook.</p>
-      </item>
+	which is used for logging of NETCONF and Telnet
+	connections. See
+	<seeerl marker="ct_netconfc#Logging">ct_netconfc</seeerl>
+	or <seeerl marker="ct_telnet#Logging">ct_telnet</seeerl>
+	for description and examples of how to use this hook.</p>
+      </desc>
+    </datatype>
 
-      <tag>
-	<marker id="type-conn_log_option"/>
-	<c>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</c>
-      </tag>
-      <item/>
+    <datatype>
+      <name>conn_log_option() = {log_type,conn_log_type()} | {hosts,[key_or_name()]}</name>
+      <name>conn_log_type() = raw | pretty | html | silent</name>
+      <name>conn_log_mod() = ct_netconfc | ct_telnet</name>
+    </datatype>
 
-      <tag>
-	<marker id="type-conn_log_type"/>
-	<c>conn_log_type() = raw | pretty | html | silent</c>
-      </tag>
-      <item/>
-
-      <tag>
-	<marker id="type-conn_log_mod"/>
-	<c>conn_log_mod() = ct_netconfc | ct_telnet</c>
-      </tag>
-      <item/>
-
-    </taglist>
-  </section>
+  </datatypes>
 
   <funcs>
     <func>
