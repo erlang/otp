@@ -889,6 +889,19 @@ get_pos(Node) ->
 
 -spec set_pos(syntaxTree(), term()) -> syntaxTree().
 
+set_pos(Node, Pos0) when is_integer(Pos0) ->
+    case Node of
+	#tree{attr = Attr} ->
+            Pos = set_line(Pos0, Attr#attr.pos),
+	    Node#tree{attr = Attr#attr{pos = Pos}};
+	#wrapper{attr = Attr} ->
+            Pos = set_line(Pos0, Attr#attr.pos),
+	    Node#wrapper{attr = Attr#attr{pos = Pos}};
+	_ ->
+	    %% We then assume we have an `erl_parse' node, and create a
+	    %% wrapper around it to make things more uniform.
+	    set_pos(wrap(Node), Pos0)
+    end;
 set_pos(Node, Pos) ->
     case Node of
 	#tree{attr = Attr} ->
@@ -2974,7 +2987,8 @@ binary_field_types(Node) ->
 	    if Types =:= default ->
 		    [];
 	       true ->
-		    unfold_binary_field_types(Types, Pos)
+                    Loc = location(Pos),
+		    unfold_binary_field_types(Types, Loc)
 	    end;
 	Node1 ->
 	    (data(Node1))#binary_field.types
@@ -3481,44 +3495,45 @@ attribute_name(Node) ->
 attribute_arguments(Node) ->
     case unwrap(Node) of
 	{attribute, Pos, Name, Data} ->
+            Loc = location(Pos),
 	    case Name of
 		module ->
 		    {M1, Vs} =
 			case Data of
 			    {M0, Vs0} ->
-				{M0, unfold_variable_names(Vs0, Pos)};
+				{M0, unfold_variable_names(Vs0, Loc)};
 			    M0 ->
 				{M0, none}
 			end,
 		    M2 = atom(M1),
-		    M = set_pos(M2, Pos),
+		    M = set_pos(M2, Loc),
 		    if Vs == none -> [M];
-		       true -> [M, set_pos(list(Vs), Pos)]
+		       true -> [M, set_pos(list(Vs), Loc)]
 		    end;
 		export ->
 		    [set_pos(
-		       list(unfold_function_names(Data, Pos)),
-		       Pos)];
+		       list(unfold_function_names(Data, Loc)),
+		       Loc)];
 		import ->
 		    {Module, Imports} = Data,
-		    [set_pos(atom(Module), Pos),
+		    [set_pos(atom(Module), Loc),
 		     set_pos(
-		       list(unfold_function_names(Imports, Pos)),
-		       Pos)];
+		       list(unfold_function_names(Imports, Loc)),
+		       Loc)];
 		file ->
 		    {File, Line} = Data,
-		    [set_pos(string(File), Pos),
-		     set_pos(integer(Line), Pos)];
+		    [set_pos(string(File), Loc),
+		     set_pos(integer(Line), Loc)];
 		record ->
 		    %% Note that we create a tuple as container
 		    %% for the second argument!
 		    {Type, Entries} = Data,
-		    [set_pos(atom(Type), Pos),
+		    [set_pos(atom(Type), Loc),
 		     set_pos(tuple(unfold_record_fields(Entries)),
-			     Pos)];
+			     Loc)];
 		_ ->
 		    %% Standard single-term generic attribute.
-		    [set_pos(abstract(Data), Pos)]
+		    [set_pos(abstract(Data), Loc)]
 	    end;
 	Node1 ->
 	    (data(Node1))#attribute.args
@@ -4460,7 +4475,7 @@ revert_record_index_expr(Node) ->
 record_index_expr_type(Node) ->
     case unwrap(Node) of
 	{record_index, Pos, Type, _} ->
-	    set_pos(atom(Type), Pos);
+	    set_pos(atom(Type), location(Pos));
 	Node1 ->
 	    (data(Node1))#record_index_expr.type
     end.
@@ -4555,7 +4570,7 @@ record_access_argument(Node) ->
 record_access_type(Node) ->
     case unwrap(Node) of
 	{record_field, Pos, _, Type, _} ->
-	    set_pos(atom(Type), Pos);
+	    set_pos(atom(Type), location(Pos));
 	Node1 ->
 	    (data(Node1))#record_access.type
     end.
@@ -4687,9 +4702,9 @@ record_expr_argument(Node) ->
 record_expr_type(Node) ->
     case unwrap(Node) of
 	{record, Pos, Type, _} ->
-	    set_pos(atom(Type), Pos);
+	    set_pos(atom(Type), location(Pos));
 	{record, Pos, _, Type, _} ->
-	    set_pos(atom(Type), Pos);
+	    set_pos(atom(Type), location(Pos));
 	Node1 ->
 	    (data(Node1))#record_expr.type
     end.
@@ -6870,18 +6885,19 @@ revert_implicit_fun(Node) ->
 implicit_fun_name(Node) ->
     case unwrap(Node) of
 	{'fun', Pos, {function, Atom, Arity}} ->
-	    arity_qualifier(set_pos(atom(Atom), Pos),
-			    set_pos(integer(Arity), Pos));
+            Loc = location(Pos),
+	    arity_qualifier(set_pos(atom(Atom), Loc),
+			    set_pos(integer(Arity), Loc));
 	{'fun', Pos, {function, Module, Atom, Arity}}
 	  when is_atom(Module), is_atom(Atom), is_integer(Arity) ->
 	    %% Backward compatibility with pre-R15 abstract format.
-	    module_qualifier(set_pos(atom(Module), Pos),
+            Loc = location(Pos),
+	    module_qualifier(set_pos(atom(Module), Loc),
 			     arity_qualifier(
-			       set_pos(atom(Atom), Pos),
-			       set_pos(integer(Arity), Pos)));
+			       set_pos(atom(Atom), Loc),
+			       set_pos(integer(Arity), Loc)));
 	{'fun', _Pos, {function, Module, Atom, Arity}} ->
 	    %% New in R15: fun M:F/A.
-	    %% XXX: Perhaps set position for this as well?
 	    module_qualifier(Module, arity_qualifier(Atom, Arity));
 	Node1 ->
 	    data(Node1)
@@ -8335,6 +8351,19 @@ fold_variable_names(Vs) ->
 unfold_variable_names(Vs, Pos) ->
     [set_pos(variable(V), Pos) || V <- Vs].
 
+%% Use erl_anno if possible, Pos can be any user term
+%% but by default is line() can be erl_anno if scanner_opts was used
+location(Pos) ->
+    case erl_anno:is_anno(Pos) of
+        true -> erl_anno:location(Pos);
+        false -> Pos
+    end.
+
+set_line(Pos, Anno) ->
+    case erl_anno:is_anno(Anno) of
+        true -> erl_anno:set_line(Pos, Anno);
+        false -> Pos
+    end.
 
 %% Support functions for transforming lists of record field definitions.
 %%

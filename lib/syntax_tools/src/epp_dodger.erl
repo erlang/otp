@@ -432,7 +432,8 @@ quick_parse_form(Dev, L0, Options) ->
 parse_form(Dev, L0, Parser, Options) ->
     NoFail = proplists:get_bool(no_fail, Options),
     Opt = #opt{clever = proplists:get_bool(clever, Options)},
-    case io:scan_erl_form(Dev, "", L0) of
+    ScanOpts = proplists:get_value(scan_opts, Options, []),
+    case io:scan_erl_form(Dev, "", L0, ScanOpts) of
         {ok, Ts, L1} ->
             case catch {ok, Parser(Ts, Opt)} of
                 {'EXIT', Term} ->
@@ -459,7 +460,7 @@ io_error(L, Desc) ->
     {L, ?MODULE, Desc}.
 
 start_pos([T | _Ts], _L) ->
-    erl_anno:line(element(2, T));
+    erl_anno:location(element(2, T));
 start_pos([], L) ->
     L.
 
@@ -690,7 +691,7 @@ scan_macros([{'?', _}=M, {Type, _, _}=N | Ts], [{string, L, _}=S | As],
  	    #opt{clever = true}=Opt)
   when Type =:= atom; Type =:= var ->
     %% macro after a string literal: be clever and insert ++
-    scan_macros([M, N | Ts], [{'++', L}, S | As], Opt);
+    scan_macros([M, N | Ts], [{'++', erl_anno:location(L)}, S | As], Opt);
 scan_macros([{'?', L}, {Type, _, _}=N | [{'(',_}|_]=Ts],
 	    [{':',_}|_]=As, Opt)
   when Type =:= atom; Type =:= var ->
@@ -725,14 +726,20 @@ scan_macros([], As, _Opt) ->
 %% Rewriting to a call which will be recognized by the post-parse pass
 %% (we insert parentheses to preserve the precedences when parsing).
 
-macro(L, {Type, _, A}, Rest, As, Opt) ->
+macro(L1, {Type, L2, A}, Rest, As, Opt) ->
+    L = case erl_anno:location(L2) of
+            0 -> erl_anno:location(L1);
+            _ -> L2
+        end,
     scan_macros_1([], Rest, [{atom,L,macro_atom(Type,A)} | As], Opt).
 
 macro_call([{'(',_}, {')',_}], L, {_, Ln, _}=N, Rest, As, Opt) ->
     {Open, Close} = parentheses(As),
     scan_macros_1([], Rest,
-		  lists:reverse(Open ++ [{atom,L,?macro_call},
-					 {'(',L}, N, {')',Ln}] ++ Close,
+		  lists:reverse(Open ++
+                                    [{atom,L,?macro_call},
+                                     {'(',erl_anno:location(L)}, N,
+                                     {')',erl_anno:location(Ln)}] ++ Close,
 				As), Opt);
 macro_call([{'(',_} | Args], L, {_, Ln, _}=N, Rest, As, Opt) ->
     {Open, Close} = parentheses(As),
@@ -740,7 +747,8 @@ macro_call([{'(',_} | Args], L, {_, Ln, _}=N, Rest, As, Opt) ->
     scan_macros_1(Args ++ Close,
 		  Rest,
 		  lists:reverse(Open ++ [{atom,L,?macro_call},
-					 {'(',L}, N, {',',Ln}],
+					 {'(',erl_anno:location(L)}, N,
+                                         {',',erl_anno:location(Ln)}],
 				As), Opt).
 
 macro_atom(atom, A) ->
