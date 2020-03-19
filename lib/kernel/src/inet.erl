@@ -83,7 +83,7 @@
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
 
--define(DEFAULT_KERNEL_INET, inet). % inet | socket
+-define(DEFAULT_KERNEL_INET_BACKEND, inet). % inet | socket
 
 %% Record Signature
 -define(RS(Record),
@@ -930,11 +930,13 @@ tcp_module_1(Opts, Address) ->
       Opts, tcp_module, Address,
       #{inet => inet_tcp, inet6 => inet6_tcp, local => local_tcp}).
 
-gen_tcp_module([{inet, Flag}|Opts]) ->
+gen_tcp_module([{inet_backend, Flag}|Opts]) ->
     gen_tcp_module(Opts, Flag);
 gen_tcp_module(Opts) ->
     gen_tcp_module(
-      Opts, persistent_term:get({kernel, inet}, ?DEFAULT_KERNEL_INET)).
+      Opts,
+      persistent_term:get(
+        {kernel, inet_backend}, ?DEFAULT_KERNEL_INET_BACKEND)).
 %%
 gen_tcp_module(Opts, inet) ->
     {gen_tcp, Opts};

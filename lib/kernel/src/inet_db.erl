@@ -821,11 +821,11 @@ lookup_socket(Socket) when is_port(Socket) ->
 
 init([]) ->
     process_flag(trap_exit, true),
-    case application:get_env(kernel, inet) of
+    case application:get_env(kernel, inet_backend) of
         {ok, Flag}
           when Flag =:= inet;
                Flag =:= socket ->
-            persistent_term:put({kernel, inet}, Flag);
+            persistent_term:put({kernel, inet_backend}, Flag);
         _ -> ok
     end,
     Db = ets:new(inet_db, [public, named_table]),
