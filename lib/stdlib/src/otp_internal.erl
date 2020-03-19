@@ -100,87 +100,151 @@ obsolete(net, sleep, 1) ->
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
 obsolete(snmp, add_agent_caps, 2) ->
-    {deprecated, "use snmpa:add_agent_caps/2 instead"};
+    {deprecated, "use snmpa:add_agent_caps/2 instead."};
 obsolete(snmp, c, 1) ->
-    {deprecated, "use snmpa:c/1 instead"};
+    {deprecated, "use snmpa:c/1 instead."};
 obsolete(snmp, c, 2) ->
-    {deprecated, "use snmpa:c/2 instead"};
+    {deprecated, "use snmpa:c/2 instead."};
 obsolete(snmp, change_log_size, 1) ->
-    {deprecated, "use snmpa:change_log_size/1 instead"};
+    {deprecated, "use snmpa:change_log_size/1 instead."};
 obsolete(snmp, compile, 3) ->
-    {deprecated, "use snmpa:compile/3 instead"};
+    {deprecated, "use snmpa:compile/3 instead."};
 obsolete(snmp, current_address, 0) ->
-    {deprecated, "use snmpa:current_address/0 instead"};
+    {deprecated, "use snmpa:current_address/0 instead."};
 obsolete(snmp, current_community, 0) ->
-    {deprecated, "use snmpa:current_community/0 instead"};
+    {deprecated, "use snmpa:current_community/0 instead."};
 obsolete(snmp, current_context, 0) ->
-    {deprecated, "use snmpa:current_context/0 instead"};
+    {deprecated, "use snmpa:current_context/0 instead."};
 obsolete(snmp, current_net_if_data, 0) ->
-    {deprecated, "use snmpa:current_net_if_data/0 instead"};
+    {deprecated, "use snmpa:current_net_if_data/0 instead."};
 obsolete(snmp, current_request_id, 0) ->
-    {deprecated, "use snmpa:current_request_id/0 instead"};
+    {deprecated, "use snmpa:current_request_id/0 instead."};
 obsolete(snmp, del_agent_caps, 1) ->
-    {deprecated, "use snmpa:del_agent_caps/1 instead"};
+    {deprecated, "use snmpa:del_agent_caps/1 instead."};
 obsolete(snmp, dump_mibs, 0) ->
-    {deprecated, "use snmpa:dump_mibs/0 instead"};
+    {deprecated, "use snmpa:dump_mibs/0 instead."};
 obsolete(snmp, dump_mibs, 1) ->
-    {deprecated, "use snmpa:dump_mibs/1 instead"};
+    {deprecated, "use snmpa:dump_mibs/1 instead."};
 obsolete(snmp, enum_to_int, 2) ->
-    {deprecated, "use snmpa:enum_to_int/2 instead"};
+    {deprecated, "use snmpa:enum_to_int/2 instead."};
 obsolete(snmp, enum_to_int, 3) ->
-    {deprecated, "use snmpa:enum_to_int/3 instead"};
+    {deprecated, "use snmpa:enum_to_int/3 instead."};
 obsolete(snmp, get, 2) ->
-    {deprecated, "use snmpa:get/2 instead"};
+    {deprecated, "use snmpa:get/2 instead."};
 obsolete(snmp, get_agent_caps, 0) ->
-    {deprecated, "use snmpa:get_agent_caps/0 instead"};
+    {deprecated, "use snmpa:get_agent_caps/0 instead."};
 obsolete(snmp, get_symbolic_store_db, 0) ->
-    {deprecated, "use snmpa:get_symbolic_store_db/0 instead"};
+    {deprecated, "use snmpa:get_symbolic_store_db/0 instead."};
 obsolete(snmp, info, 1) ->
-    {deprecated, "use snmpa:info/1 instead"};
+    {deprecated, "use snmpa:info/1 instead."};
 obsolete(snmp, int_to_enum, 2) ->
-    {deprecated, "use snmpa:int_to_enum/2 instead"};
+    {deprecated, "use snmpa:int_to_enum/2 instead."};
 obsolete(snmp, int_to_enum, 3) ->
-    {deprecated, "use snmpa:int_to_enum/3 instead"};
+    {deprecated, "use snmpa:int_to_enum/3 instead."};
 obsolete(snmp, is_consistent, 1) ->
-    {deprecated, "use snmpa:is_consistent/1 instead"};
+    {deprecated, "use snmpa:is_consistent/1 instead."};
 obsolete(snmp, load_mibs, 2) ->
-    {deprecated, "use snmpa:load_mibs/2 instead"};
+    {deprecated, "use snmpa:load_mibs/2 instead."};
 obsolete(snmp, log_to_txt, 2) ->
-    {deprecated, "use snmpa:log_to_txt/2 instead"};
+    {deprecated, "use snmpa:log_to_txt/2 instead."};
 obsolete(snmp, log_to_txt, 3) ->
-    {deprecated, "use snmpa:log_to_txt/3 instead"};
+    {deprecated, "use snmpa:log_to_txt/3 instead."};
 obsolete(snmp, log_to_txt, 4) ->
-    {deprecated, "use snmpa:log_to_txt/4 instead"};
+    {deprecated, "use snmpa:log_to_txt/4 instead."};
 obsolete(snmp, mib_to_hrl, 1) ->
-    {deprecated, "use snmpa:mib_to_hrl/1 instead"};
+    {deprecated, "use snmpa:mib_to_hrl/1 instead."};
 obsolete(snmp, name_to_oid, 1) ->
-    {deprecated, "use snmpa:name_to_oid/1 instead"};
+    {deprecated, "use snmpa:name_to_oid/1 instead."};
 obsolete(snmp, name_to_oid, 2) ->
-    {deprecated, "use snmpa:name_to_oid/2 instead"};
+    {deprecated, "use snmpa:name_to_oid/2 instead."};
 obsolete(snmp, oid_to_name, 1) ->
-    {deprecated, "use snmpa:oid_to_name/1 instead"};
+    {deprecated, "use snmpa:oid_to_name/1 instead."};
 obsolete(snmp, oid_to_name, 2) ->
-    {deprecated, "use snmpa:oid_to_name/2 instead"};
+    {deprecated, "use snmpa:oid_to_name/2 instead."};
 obsolete(snmp, register_subagent, 3) ->
-    {deprecated, "use snmpa:register_subagent/3 instead"};
+    {deprecated, "use snmpa:register_subagent/3 instead."};
 obsolete(snmp, send_notification, 3) ->
-    {deprecated, "use snmpa:send_notification/3 instead"};
+    {deprecated, "use snmpa:send_notification/3 instead."};
 obsolete(snmp, send_notification, 4) ->
-    {deprecated, "use snmpa:send_notification/4 instead"};
+    {deprecated, "use snmpa:send_notification/4 instead."};
 obsolete(snmp, send_notification, 5) ->
-    {deprecated, "use snmpa:send_notification/5 instead"};
+    {deprecated, "use snmpa:send_notification/5 instead."};
 obsolete(snmp, send_notification, 6) ->
-    {deprecated, "use snmpa:send_notification/6 instead"};
+    {deprecated, "use snmpa:send_notification/6 instead."};
 obsolete(snmp, send_trap, 3) ->
-    {deprecated, "use snmpa:send_trap/3 instead"};
+    {deprecated, "use snmpa:send_trap/3 instead."};
 obsolete(snmp, send_trap, 4) ->
-    {deprecated, "use snmpa:send_trap/4 instead"};
+    {deprecated, "use snmpa:send_trap/4 instead."};
 obsolete(snmp, unload_mibs, 2) ->
-    {deprecated, "use snmpa:unload_mibs/2 instead"};
+    {deprecated, "use snmpa:unload_mibs/2 instead."};
 obsolete(snmp, unregister_subagent, 2) ->
-    {deprecated, "use snmpa:unregister_subagent/2 instead"};
+    {deprecated, "use snmpa:unregister_subagent/2 instead."};
 obsolete(snmpa, old_info_format, 1) ->
     {deprecated, "use \"new\" format instead"};
+obsolete(snmpm, async_get, 3) ->
+    {deprecated, "use snmpm:async_get2/3 instead."};
+obsolete(snmpm, async_get, 4) ->
+    {deprecated, "use snmpm:async_get2/4 instead."};
+obsolete(snmpm, async_get, 5) ->
+    {deprecated, "use snmpm:async_get2/4 instead."};
+obsolete(snmpm, async_get, 6) ->
+    {deprecated, "use snmpm:async_get2/4 instead."};
+obsolete(snmpm, async_get_bulk, 5) ->
+    {deprecated, "use snmpm:async_get_bulk2/5 instead."};
+obsolete(snmpm, async_get_bulk, 6) ->
+    {deprecated, "use snmpm:async_get_bulk2/6 instead."};
+obsolete(snmpm, async_get_bulk, 7) ->
+    {deprecated, "use snmpm:async_get_bulk2/6 instead."};
+obsolete(snmpm, async_get_bulk, 8) ->
+    {deprecated, "use snmpm:async_get_bulk2/6 instead."};
+obsolete(snmpm, async_get_next, 3) ->
+    {deprecated, "use snmpm:async_get_next2/3 instead."};
+obsolete(snmpm, async_get_next, 4) ->
+    {deprecated, "use snmpm:async_get_next2/4 instead."};
+obsolete(snmpm, async_get_next, 5) ->
+    {deprecated, "use snmpm:async_get_next2/4 instead."};
+obsolete(snmpm, async_get_next, 6) ->
+    {deprecated, "use snmpm:async_get_next2/4 instead."};
+obsolete(snmpm, async_set, 3) ->
+    {deprecated, "use snmpm:async_set2/3 instead."};
+obsolete(snmpm, async_set, 4) ->
+    {deprecated, "use snmpm:async_set2/4 instead."};
+obsolete(snmpm, async_set, 5) ->
+    {deprecated, "use snmpm:async_set2/4 instead."};
+obsolete(snmpm, async_set, 6) ->
+    {deprecated, "use snmpm:async_set2/4 instead."};
+obsolete(snmpm, sync_get, 3) ->
+    {deprecated, "use snmpm:sync_get2/3 instead."};
+obsolete(snmpm, sync_get, 4) ->
+    {deprecated, "use snmpm:sync_get2/4 instead."};
+obsolete(snmpm, sync_get, 5) ->
+    {deprecated, "use snmpm:sync_get2/4 instead."};
+obsolete(snmpm, sync_get, 6) ->
+    {deprecated, "use snmpm:sync_get2/4 instead."};
+obsolete(snmpm, sync_get_bulk, 5) ->
+    {deprecated, "use snmpm:sync_get_bulk2/5 instead."};
+obsolete(snmpm, sync_get_bulk, 6) ->
+    {deprecated, "use snmpm:sync_get_bulk2/6 instead."};
+obsolete(snmpm, sync_get_bulk, 7) ->
+    {deprecated, "use snmpm:sync_get_bulk2/6 instead."};
+obsolete(snmpm, sync_get_bulk, 8) ->
+    {deprecated, "use snmpm:sync_get_bulk2/6 instead."};
+obsolete(snmpm, sync_get_next, 3) ->
+    {deprecated, "use snmpm:sync_get_next2/3 instead."};
+obsolete(snmpm, sync_get_next, 4) ->
+    {deprecated, "use snmpm:sync_get_next2/4 instead."};
+obsolete(snmpm, sync_get_next, 5) ->
+    {deprecated, "use snmpm:sync_get_next2/4 instead."};
+obsolete(snmpm, sync_get_next, 6) ->
+    {deprecated, "use snmpm:sync_get_next2/4 instead."};
+obsolete(snmpm, sync_set, 3) ->
+    {deprecated, "use snmpm:sync_set2/3 instead."};
+obsolete(snmpm, sync_set, 4) ->
+    {deprecated, "use snmpm:sync_set2/4 instead."};
+obsolete(snmpm, sync_set, 5) ->
+    {deprecated, "use snmpm:sync_set2/4 instead."};
+obsolete(snmpm, sync_set, 6) ->
+    {deprecated, "use snmpm:sync_set2/4 instead."};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
 obsolete(wxCalendarCtrl, enableYearChange, 1) ->

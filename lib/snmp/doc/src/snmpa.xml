@@ -226,26 +226,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <p>Returns a list (a dictionary) containing information about
 	the agent. Information includes loaded MIBs, registered
 	sub-agents, some information about the memory allocation. </p>
-	<p>As of version 4.4 the format of the info has been changed. 
-	To convert the info to the old format, call the 
-	<seealso marker="#old_info_format">old_info_format</seealso> 
-	function. </p>
 	
-        <marker id="old_info_format"></marker>
-      </desc>
-    </func>
-
-    <func>
-      <name since="">old_info_format(NewInfo) -> OldInfo</name>
-      <fsummary>Return information about the agent</fsummary>
-      <type>
-        <v>OldInfo = NewInfo = [{Key, Value}]</v>
-      </type>
-      <desc>
-        <p>As of version 4.4 the format of the info has been changed. 
-          This function is used to convert to the old (pre-4.4) info 
-          format. </p>
-
         <marker id="load_mib"></marker>
       </desc>
     </func>

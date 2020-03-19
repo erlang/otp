@@ -554,10 +554,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>For <c>SnmpInfo</c>, see the user callback function 
 	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
-	<marker id="sync_get"></marker>
+	<!-- <marker id="sync_get"></marker> -->
+        <marker id="async_get2"></marker>
       </desc>
     </func>
 
+    <!-- DEPRECATED
    <func>
       <name since="">sync_get(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name since="">sync_get(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
@@ -603,6 +605,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <marker id="async_get2"></marker>
       </desc>
     </func>
+    -->
 
     <func>
       <name since="OTP R14B03">async_get2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
@@ -642,10 +645,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	for <em>this</em> request, they override any configuration done 
 	when the agent was registered. </p>
 
-        <marker id="async_get"></marker>
+	<!-- <marker id="async_get"></marker> -->
+        <marker id="sync_get_next2"></marker>
       </desc>
     </func>
 
+    <!-- DEPRECATED
     <func>
       <name since="">async_get(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
       <name since="">async_get(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
@@ -681,6 +686,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <marker id="sync_get_next2"></marker>
       </desc>
     </func>
+    -->
 
     <func>
       <name since="OTP R14B03">sync_get_next2(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
@@ -732,10 +738,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>For <c>SnmpInfo</c>, see the user callback function 
 	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
-	<marker id="sync_get_next"></marker>
+	<!-- <marker id="sync_get_next"></marker> -->
+        <marker id="async_get_next2"></marker>
       </desc>
     </func>
 
+    <!-- DEPRECATED
     <func>
       <name since="">sync_get_next(UserId, TargetName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name since="">sync_get_next(UserId, TargetName, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
@@ -773,6 +781,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <marker id="async_get_next2"></marker>
       </desc>
     </func>
+    -->
 
     <func>
       <name since="OTP R14B03">async_get_next2(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
@@ -809,10 +818,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	for <em>this</em> request, they override any configuration done 
 	when the agent was registered. </p>
 
-	<marker id="async_get_next"></marker>
+	<!-- <marker id="async_get_next"></marker> -->
+        <marker id="sync_set2"></marker>
       </desc>
     </func>
 
+    <!-- DEPRECATED
     <func>
       <name since="">async_get_next(UserId, TargetName, Oids) -> {ok, ReqId} | {error, Reason}</name>
       <name since="">async_get_next(UserId, TargetName, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
@@ -847,6 +858,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <marker id="sync_set2"></marker>
       </desc>
     </func>
+    -->
 
     <func>
       <name since="OTP R14B03">sync_set2(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
@@ -901,10 +913,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>For <c>SnmpInfo</c>, see the user callback function 
 	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
-	<marker id="sync_set"></marker>
+	<!-- <marker id="sync_set"></marker> -->
+        <marker id="async_set2"></marker>
       </desc>
     </func>
 
+    <!-- DEPRECATED
     <func>
       <name since="">sync_set(UserId, TargetName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name since="">sync_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
@@ -944,6 +958,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <marker id="async_set2"></marker>
       </desc>
     </func>
+    -->
 
     <func>
       <name since="OTP R14B03">async_set2(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
@@ -985,10 +1000,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	for <em>this</em> request, they override any configuration done 
 	when the agent was registered. </p>
 
-	<marker id="async_set"></marker>
+	<!-- <marker id="async_set"></marker> -->
+        <marker id="sync_get_bulk2"></marker>
       </desc>
     </func>
 
+    <!-- DEPRECATED
     <func>
       <name since="">async_set(UserId, TargetName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
       <name since="">async_set(UserId, TargetName, ContextName, VarsAndVals) -> {ok, ReqId} | {error, Reason}</name>
@@ -1024,6 +1041,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <marker id="sync_get_bulk2"></marker>
       </desc>
     </func>
+    -->
 
     <func>
       <name since="OTP R14B03">sync_get_bulk2(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
@@ -1077,10 +1095,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<p>For <c>SnmpInfo</c>, see the user callback function 
 	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
 
-	<marker id="sync_get_bulk"></marker>
+	<!-- <marker id="sync_get_bulk"></marker> -->
+	<marker id="async_get_bulk2"></marker>
       </desc>
     </func>
 
+    <!-- DEPRECATED
     <func>
       <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
       <name since="">sync_get_bulk(UserId, TragetName, NonRep, MaxRep, ContextName, Oids) -> {ok, SnmpReply, Remaining} | {error, Reason}</name>
@@ -1119,6 +1139,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <marker id="async_get_bulk2"></marker>
       </desc>
     </func>
+    -->
 
     <func>
       <name since="OTP R14B03">async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
@@ -1157,10 +1178,12 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	for <em>this</em> request, they override any configuration done 
 	when the agent was registered. </p>
 
-	<marker id="async_get_bulk"></marker>
+	<!-- <marker id="async_get_bulk"></marker> -->
+        <marker id="cancel_async_request"></marker>
       </desc>
     </func>
 
+    <!-- DEPRECATED
     <func>
       <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids) -> {ok, ReqId} | {error, Reason}</name>
       <name since="">async_get_bulk(UserId, TargetName, NonRep, MaxRep, ContextName, Oids) -> {ok, ReqId} | {error, Reason}</name>
@@ -1197,6 +1220,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <marker id="cancel_async_request"></marker>
       </desc>
     </func>
+    -->
 
     <func>
       <name since="">cancel_async_request(UserId, ReqId) -> ok | {error, Reason}</name>

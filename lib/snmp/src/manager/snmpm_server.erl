@@ -33,14 +33,14 @@
 
 	 register_user/4, register_user_monitor/4, unregister_user/1, 
 
-	 sync_get2/4, 
-	 async_get2/4, 
-	 sync_get_next2/4, 
-	 async_get_next2/4, 
-	 sync_get_bulk2/6, 
-	 async_get_bulk2/6, 
-	 sync_set2/4, 
-	 async_set2/4, 
+	 sync_get/4, 
+	 async_get/4, 
+	 sync_get_next/4, 
+	 async_get_next/4, 
+	 sync_get_bulk/6, 
+	 async_get_bulk/6, 
+	 sync_set/4, 
+	 async_set/4, 
 	 cancel_async_request/2,
 
 	 %% discovery/2, discovery/3, discovery/4, discovery/5, discovery/6, 
@@ -54,20 +54,6 @@
          restart/1
 
 	]).
-
-
-%% <BACKWARD-COMPAT>
--export([sync_get/4,       sync_get/5,       sync_get/6, 
-	 async_get/4,      async_get/5,      async_get/6, 
-	 sync_get_next/4,  sync_get_next/5,  sync_get_next/6, 
-	 async_get_next/4, async_get_next/5, async_get_next/6, 
-	 sync_get_bulk/6,  sync_get_bulk/7,  sync_get_bulk/8, 
-	 async_get_bulk/6, async_get_bulk/7, async_get_bulk/8, 
-	 sync_set/4,       sync_set/5,       sync_set/6, 
-	 async_set/4,      async_set/5,      async_set/6
-	]).
-%% </BACKWARD-COMPAT>
-
 
 
 %% Internal exports
@@ -281,232 +267,61 @@ unregister_user(UserId) ->
 %% The reason why we have a sync_get2 is to simplify backward 
 %% compatibillity. 
 
-%% sync_get2(UserId, TargetName, Oids) ->
-%%     sync_get2(UserId, TargetName, Oids, []).
-sync_get2(UserId, TargetName, Oids, Opts) ->
+sync_get(UserId, TargetName, Oids, Opts) ->
     call({sync_get, self(), UserId, TargetName, Oids, Opts}).
-
-
-%% <BACKWARD-COMPAT>
-sync_get(UserId, TargetName, CtxName, Oids) ->
-    sync_get(UserId, TargetName, CtxName, Oids, 
-	     ?DEFAULT_SYNC_GET_TIMEOUT).
-
-sync_get(UserId, TargetName, CtxName, Oids, Timeout) ->
-    sync_get(UserId, TargetName, CtxName, Oids, Timeout, ?DEFAULT_EXTRA_INFO).
-
-sync_get(UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo) 
-  when is_list(TargetName) andalso 
-       is_list(CtxName) andalso 
-       is_list(Oids) andalso 
-       is_integer(Timeout) ->
-    Opts = [{context, CtxName}, {timeout, Timeout}, {extra, ExtraInfo}],
-    sync_get2(UserId, TargetName, Oids, Opts).
-%% </BACKWARD-COMPAT>
 
 
 
 %% -- [async] get --
 
-%% async_get2(UserId, TargetName, Oids) ->
-%%     async_get2(UserId, TargetName, Oids, []).
-async_get2(UserId, TargetName, Oids, SendOpts) ->
+async_get(UserId, TargetName, Oids, SendOpts) ->
     call({async_get, self(), UserId, TargetName, Oids, SendOpts}).
-
-
-%% <BACKWARD-COMPAT>
-async_get(UserId, TargetName, CtxName, Oids) ->
-    async_get(UserId, TargetName, CtxName, Oids, 
-	      ?DEFAULT_ASYNC_GET_TIMEOUT, ?DEFAULT_EXTRA_INFO).
-
-async_get(UserId, TargetName, CtxName, Oids, Expire) ->
-    async_get(UserId, TargetName, CtxName, Oids, Expire, ?DEFAULT_EXTRA_INFO).
-
-async_get(UserId, TargetName, CtxName, Oids, Expire, ExtraInfo) 
-  when (is_list(TargetName) andalso 
-	is_list(CtxName) andalso 
-	is_list(Oids) andalso 
-	is_integer(Expire) andalso (Expire >= 0)) ->
-    SendOpts = [{context, CtxName}, {expire, Expire}, {extra, ExtraInfo}],
-    async_get2(UserId, TargetName, Oids, SendOpts).
-%% </BACKWARD-COMPAT>
 
 
 
 %% -- [sync] get-next --
 
-%% sync_get_next2(UserId, TargetName, Oids) ->
-%%     sync_get_next2(UserId, TargetName, Oids, []).
-sync_get_next2(UserId, TargetName, Oids, SendOpts) ->
+sync_get_next(UserId, TargetName, Oids, SendOpts) ->
     call({sync_get_next, self(), UserId, TargetName, Oids, SendOpts}).
-
-
-%% <BACKWARD-COMPAT>
-sync_get_next(UserId, TargetName, CtxName, Oids) ->
-    sync_get_next(UserId, TargetName, CtxName, Oids, 
-		  ?DEFAULT_SYNC_GET_TIMEOUT, ?DEFAULT_EXTRA_INFO).
-
-sync_get_next(UserId, TargetName, CtxName, Oids, Timeout) ->
-    sync_get_next(UserId, TargetName, CtxName, Oids, Timeout, 
-		  ?DEFAULT_EXTRA_INFO).
-
-sync_get_next(UserId, TargetName, CtxName, Oids, Timeout, ExtraInfo) 
-  when is_list(TargetName) andalso 
-       is_list(CtxName) andalso 
-       is_list(Oids) andalso 
-       is_integer(Timeout) ->
-    SendOpts = [{context, CtxName}, {timeout, Timeout}, {extra, ExtraInfo}],
-    sync_get_next2(UserId, TargetName, Oids, SendOpts).
-%% <BACKWARD-COMPAT>
 
 
 
 %% -- [async] get-next --
 
-%% async_get_next2(UserId, TargetName, Oids) ->
-%%     async_get_next2(UserId, TargetName, Oids, []).
-async_get_next2(UserId, TargetName, Oids, SendOpts) ->
+async_get_next(UserId, TargetName, Oids, SendOpts) ->
     call({async_get_next, self(), UserId, TargetName, Oids, SendOpts}).
-
-
-async_get_next(UserId, TargetName, CtxName, Oids) ->
-    async_get_next(UserId, TargetName, CtxName, Oids, 
-		   ?DEFAULT_ASYNC_GET_NEXT_TIMEOUT, ?DEFAULT_EXTRA_INFO).
-
-async_get_next(UserId, TargetName, CtxName, Oids, Expire) ->
-    async_get_next(UserId, TargetName, CtxName, Oids, Expire, 
-		   ?DEFAULT_EXTRA_INFO).
-
-async_get_next(UserId, TargetName, CtxName, Oids, Expire, ExtraInfo) 
-  when (is_list(TargetName) andalso 
-	is_list(CtxName) andalso 
-	is_list(Oids) andalso 
-	is_integer(Expire) andalso (Expire >= 0)) ->
-    SendOpts = [{context, CtxName}, {expire, Expire}, {extra, ExtraInfo}],
-    async_get_next2(UserId, TargetName, Oids, SendOpts).
 
 
 
 %% -- [sync] get-bulk --
 
-%% sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
-%%     sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
-sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
-    %% p("sync_get_bulk2 -> entry with"
-    %%   "~n   UserId:     ~p"
-    %%   "~n   TargetName: ~p"
-    %%   "~n   NonRep:     ~p"
-    %%   "~n   MaxRep:     ~p"
-    %%   "~n   Oids:       ~p"
-    %%   "~n   SendOpts:   ~p", 
-    %%   [UserId, TargetName, NonRep, MaxRep, Oids, SendOpts]),
+sync_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
     call({sync_get_bulk, self(), UserId, TargetName, 
 	  NonRep, MaxRep, Oids, SendOpts}).
 
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids) ->
-    sync_get_bulk(UserId, TargetName, 
-		  NonRep, MaxRep, CtxName, Oids, 
-		  ?DEFAULT_SYNC_GET_TIMEOUT, ?DEFAULT_EXTRA_INFO).
-
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids, Timeout) ->
-    sync_get_bulk(UserId, TargetName, 
-		  NonRep, MaxRep, CtxName, Oids, 
-		  Timeout, ?DEFAULT_EXTRA_INFO).
-
-sync_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids, Timeout, 
-	      ExtraInfo) 
-  when is_list(TargetName) andalso 
-       is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(CtxName) andalso 
-       is_list(Oids) andalso 
-       is_integer(Timeout) ->
-    SendOpts = [{context, CtxName}, {timeout, Timeout}, {extra, ExtraInfo}],
-    sync_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
 
 
 %% -- [async] get-bulk --
 
-%% async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids) ->
-%%     async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, []).
-async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
+async_get_bulk(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts) ->
     call({async_get_bulk, self(), UserId, TargetName, NonRep, MaxRep, 
 	  Oids, SendOpts}).
-
-
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids) ->
-    async_get_bulk(UserId, TargetName, 
-		   NonRep, MaxRep, CtxName, Oids, 
-		   ?DEFAULT_ASYNC_GET_BULK_TIMEOUT, ?DEFAULT_EXTRA_INFO).
-
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids, Expire) ->
-    async_get_bulk(UserId, TargetName, 
-		   NonRep, MaxRep, CtxName, Oids, 
-		   Expire, ?DEFAULT_EXTRA_INFO).
-
-async_get_bulk(UserId, TargetName, NonRep, MaxRep, CtxName, Oids, Expire, 
-	       ExtraInfo) 
-  when is_list(TargetName) andalso 
-       is_integer(NonRep) andalso 
-       is_integer(MaxRep) andalso 
-       is_list(CtxName) andalso 
-       is_list(Oids) andalso 
-       is_integer(Expire) ->
-    SendOpts = [{context, CtxName}, {expire, Expire}, {extra, ExtraInfo}],
-    async_get_bulk2(UserId, TargetName, NonRep, MaxRep, Oids, SendOpts).
 
 
 
 %% -- [sync] set --
 
 %% VarsAndValues is: {PlainOid, o|s|i, Value} (unknown mibs) | {Oid, Value} 
-%% sync_set2(UserId, TargetName, VarsAndVals) ->
-%%     sync_set2(UserId, TargetName, VarsAndVals, []).
-sync_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
+sync_set(UserId, TargetName, VarsAndVals, SendOpts) ->
     call({sync_set, self(), UserId, TargetName, VarsAndVals, SendOpts}).
-
-
-sync_set(UserId, TargetName, CtxName, VarsAndVals) ->
-    sync_set(UserId, TargetName, CtxName, VarsAndVals, 
-	     ?DEFAULT_SYNC_SET_TIMEOUT, ?DEFAULT_EXTRA_INFO).
-
-sync_set(UserId, TargetName, CtxName, VarsAndVals, Timeout) ->
-    sync_set(UserId, TargetName, CtxName, VarsAndVals, 
-	     Timeout, ?DEFAULT_EXTRA_INFO).
-
-sync_set(UserId, TargetName, CtxName, VarsAndVals, Timeout, ExtraInfo) 
-  when is_list(TargetName) andalso 
-       is_list(CtxName) andalso 
-       is_list(VarsAndVals) andalso 
-       is_integer(Timeout) ->
-    SendOpts = [{context, CtxName}, {timeout, Timeout}, {extra, ExtraInfo}],
-    sync_set2(UserId, TargetName, VarsAndVals, SendOpts).
 
 
 
 %% -- [async] set --
 
-%% async_set2(UserId, TargetName, VarsAndVals) ->
-%%     async_set2(UserId, TargetName, VarsAndVals, []).
-async_set2(UserId, TargetName, VarsAndVals, SendOpts) ->
+async_set(UserId, TargetName, VarsAndVals, SendOpts) ->
     call({async_set, self(), UserId, TargetName, VarsAndVals, SendOpts}).
 
-
-async_set(UserId, TargetName, CtxName, VarsAndVals) ->
-    async_set(UserId, TargetName, CtxName, VarsAndVals, 
-	      ?DEFAULT_ASYNC_SET_TIMEOUT, ?DEFAULT_EXTRA_INFO).
-
-async_set(UserId, TargetName, CtxName, VarsAndVals, Expire) ->
-    async_set(UserId, TargetName, CtxName, VarsAndVals, 
-	      Expire, ?DEFAULT_EXTRA_INFO).
-
-async_set(UserId, TargetName, CtxName, VarsAndVals, Expire, ExtraInfo) 
-  when (is_list(TargetName) andalso 
-	is_list(CtxName) andalso 
-	is_list(VarsAndVals) andalso 
-	is_integer(Expire) andalso (Expire >= 0)) ->
-    SendOpts = [{context, CtxName}, {expire, Expire}, {extra, ExtraInfo}],
-    async_set2(UserId, TargetName, VarsAndVals, SendOpts).
 
 
 cancel_async_request(UserId, ReqId) ->

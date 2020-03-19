@@ -1444,10 +1444,10 @@ verify_server_cbproxy(CBP) ->
 
 verify_server_nis(none) ->
     ok;
-verify_server_nis({PingTo, PongTo} = V) when is_integer(PingTo) andalso
-                                             (PingTo > 0) andalso
-                                             is_integer(PongTo) andalso
-                                             (PongTo > 0) ->
+verify_server_nis({PingTo, PongTo} = _V) when is_integer(PingTo) andalso
+                                              (PingTo > 0) andalso
+                                              is_integer(PongTo) andalso
+                                              (PongTo > 0) ->
     ok;
 verify_server_nis(NIS) ->
     error({invalid_server_netif_sup, NIS}).

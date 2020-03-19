@@ -60,15 +60,15 @@
     <p>When using version 3, then (at least one) <em>usm user</em> has to 
       be registered.</p>
     <p>Requests can be issued in two different ways. Synchronous (see
-      <seealso marker="snmpm#sync_set">sync_set</seealso>,
-      <seealso marker="snmpm#sync_get">sync_get</seealso>, 
-      <seealso marker="snmpm#sync_get_next">sync_get_next</seealso> and 
-      <seealso marker="snmpm#sync_get_bulk">sync_get_bulk</seealso>)
+      <seealso marker="snmpm#sync_set2">sync_set</seealso>,
+      <seealso marker="snmpm#sync_get2">sync_get</seealso>, 
+      <seealso marker="snmpm#sync_get_next2">sync_get_next</seealso> and 
+      <seealso marker="snmpm#sync_get_bulk2">sync_get_bulk</seealso>)
       and asynchronous (see 
-      <seealso marker="snmpm#async_set">async_set</seealso>,
-      <seealso marker="snmpm#async_get">async_get</seealso>, 
-      <seealso marker="snmpm#async_get_next">async_get_next</seealso> and  
-      <seealso marker="snmpm#async_get_bulk">async_get_bulk</seealso>). 
+      <seealso marker="snmpm#async_set2">async_set</seealso>,
+      <seealso marker="snmpm#async_get2">async_get</seealso>, 
+      <seealso marker="snmpm#async_get_next2">async_get_next</seealso> and  
+      <seealso marker="snmpm#async_get_bulk2">async_get_bulk</seealso>). 
       With synchronous 
       the snmp reply is returned by the function. With asynchronous,
       the reply will instead be delivered through a call to one of the

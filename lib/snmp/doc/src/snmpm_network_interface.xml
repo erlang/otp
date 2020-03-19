@@ -125,13 +125,13 @@
         <p><c>ExtraInfo</c> is some opaque data that is passed to the
           net-if process. It originates from the <c>ExtraInfo</c>
           parameter in the calls to the 
-          <seealso marker="snmpm#sync_get">synchronous get-request</seealso>, 
-          <seealso marker="snmpm#async_get">asynchronous get-request</seealso>,
-          <seealso marker="snmpm#sync_get_next">synchronous get-next-request</seealso>, 
-          <seealso marker="snmpm#async_get_next">asynchronous get-next-request</seealso>,
-          <seealso marker="snmpm#sync_set">synchronous set-request</seealso>
+          <seealso marker="snmpm#sync_get2">synchronous get-request</seealso>, 
+          <seealso marker="snmpm#async_get2">asynchronous get-request</seealso>,
+          <seealso marker="snmpm#sync_get_next2">synchronous get-next-request</seealso>, 
+          <seealso marker="snmpm#async_get_next2">asynchronous get-next-request</seealso>,
+          <seealso marker="snmpm#sync_set2">synchronous set-request</seealso>
           and 
-          <seealso marker="snmpm#async_set">asynchronous set-request</seealso>
+          <seealso marker="snmpm#async_set2">asynchronous set-request</seealso>
           functions. 
           Whether the net-if process chooses
           to use this is implementation dependent. The net-if process
