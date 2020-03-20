@@ -1437,6 +1437,28 @@ dnl ESOCK_COUNTER_SIZE=$with_esock_counter_size
 dnl We don't actually (currently) use this in erlang
 dnl AC_SUBST(ESOCK_COUNTER_SIZE)
 
+dnl Checks for the net nif
+AC_CHECK_FUNC([if_nametoindex],
+              [AC_DEFINE(HAVE_IF_NAMETOINDEX, [1],
+	                 [Define as 1 if function exists])]
+	      [])
+AC_CHECK_FUNC([if_indextoname],
+              [AC_DEFINE(HAVE_IF_INDEXTONAME, [1],
+	                 [Define as 1 if function exists])],
+	      [])
+AC_CHECK_FUNC([if_nameindex],
+              [AC_DEFINE(HAVE_IF_NAMEINDEX, [1],
+	                 [Define as 1 if function exists])],
+	      [])
+AC_CHECK_FUNC([if_freenameindex],
+              [AC_DEFINE(HAVE_IF_FREENAMEINDEX, [1],
+	                 [Define as 1 if function exists])]
+	      [])
+AC_CHECK_FUNC([gethostname],
+              [AC_DEFINE(HAVE_GETHOSTNAME, [1],
+	                 [Define as 1 if function exists])]
+	      [])
+
 
 dnl
 dnl This test kindly borrowed from Tcl
