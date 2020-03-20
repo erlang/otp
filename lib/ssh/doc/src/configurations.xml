@@ -1,0 +1,316 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2020</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      Licensed under the Apache License, Version 2.0 (the "License");
+      you may not use this file except in compliance with the License.
+      You may obtain a copy of the License at
+ 
+          http://www.apache.org/licenses/LICENSE-2.0
+
+      Unless required by applicable law or agreed to in writing, software
+      distributed under the License is distributed on an "AS IS" BASIS,
+      WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+      See the License for the specific language governing permissions and
+      limitations under the License.
+
+    </legalnotice>
+
+    <title>Configuration in SSH</title>
+    <prepared></prepared>
+    <docno></docno>
+    <approved></approved>
+    <date></date>
+    <rev></rev>
+    <file>configurations.xml</file>
+  </header>
+
+  <section>
+    <marker id="introduction"/>
+    <title>Introduction</title>
+    <p>The OTP SSH app can be configurated by a large amount of <i>Options</i>. This chapter will not go into
+    details of what each of the options does. It will however describe and define different ways by which they
+    could be entered.
+    </p>
+  </section>
+
+  <section>
+    <title>Options configuration</title>
+    <p>The most familiar way is probably by writting options in a call to for example
+    <seealso marker="ssh#daemon-3">ssh:daemon/3</seealso> or
+    <seealso marker="ssh#connect-3">ssh:connect/3</seealso> or
+    any of their variants
+    </p>
+    <p>There are from OPT-23.0 three main ways to set an option:
+    </p>
+    <list>
+      <item>In the <c>Options</c> parameter in the Erlang code
+      by writting options in a call to for example
+      <seealso marker="ssh#daemon-3">ssh:daemon/3</seealso> or
+      <seealso marker="ssh#connect-3">ssh:connect/3</seealso> or
+      any of their variants. Example:
+      <code>ssh:connect(22, [{user,"foo"}])</code>
+      </item>
+      <item>On the erl command line. Example:
+      <pre>erl -ssh user \"foo\"</pre>
+      </item>
+      <item>In a .config file. Example:
+      <pre>erl -config ex1</pre>
+      where <c>ex1.config</c> contains:
+      <code>[
+{ssh, [{user, "foo"}]}
+].
+</code>
+    <p>If the option is intended only for a server or for a client, it may be set in this way:
+    </p>
+    <code>[
+{ssh, [{server_options,[{user, "foo"}]},
+       {client_options,[{user, "bar"}]}
+].
+    </code>
+    <p>A server (daemon) will use the user name <c>foo</c>, and a client will use the name <c>bar</c>.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Precedens</title>
+    <p>So if an option is set in more than one way, what happens?</p>
+    <p>There is an ordering, which is:
+    </p>
+    <list>
+      <item>Level 0: Hard-coded default value</item>
+      <item>Level 1: Separate env-options</item>
+      <item>Level 2: Env-options in <c>server_options</c> or <c>client_options</c></item>
+      <item>Level 3: Option in argument list to a function</item>
+    </list>    
+    <p>If the same option is set at two different levels, the one at the highest level is used.
+    </p>
+    <p>The only exception is the
+    <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    common option. They are all applied in ascending levle order on the set of algorithms. So a
+    <c>modify_algorithms</c> on level zero is applied before one of level one and so on.
+    </p>
+    <p>If there is an
+    <seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+    option on some level the whole set is replaced by that in that option and <i>all modify_algorithms
+    are applied</i> in level ordering. The reason for this, is to enable the user to add an
+    algorithm that has been removed from the default set without code changes, only by adding an
+    option in a config file.
+    Such happens when algorithms are no longer considered safe and removed from the SSH default set.
+    </p>
+    
+    <section>
+      <title>Algorithm configuration</title>
+      <p>There is a <seealso marker="configure_algos#introduction">separate chapter</seealso> about how
+      <seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso> and
+      <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+      co-operate. How the different configuration levels affect them, is described here in this section.
+      </p>
+      <section>
+	<title>The ssh:start/0 function</title>
+	<p>If the application SSH is <em>not</em> <seealso marker="ssh#start-0">started</seealso>, the command
+	<seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>
+	delivers the list of default (hardcoded) algorithms with respect to the support in the current cryptolib.
+	</p>
+	<p>If the application SSH <em>is</em> <seealso marker="ssh#start-0">started</seealso>, the command
+	<seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>
+	delvers the list of algorithms after application of level 0 and level 1 configurations.
+	</p>
+	<p>Here is an example. The config-file has the following contents:</p>
+	<code>
+$ cat ex2.config
+[
+ {ssh, [{preferred_algorithms, [{cipher, ['aes192-ctr']},
+       			        {public_key, ['ssh-rsa']},
+                                {kex, ['ecdh-sha2-nistp384']},
+                                {mac, ['hmac-sha1']}]}]}
+].
+	</code>
+	<p>Erlang is started with <c>ex2.config</c> as configuration and we check the default set of
+	algorithms before starting ssh:</p>
+	<code>
+$ erl -config ex2
+Erlang/OTP 23 [RELEASE CANDIDATE 1] [erts-10.6.4] [source-96a0823109] [64-bit] [smp:4:4] [ds:4:4:10] [async-threads:1] [hipe]
+
+Eshell V10.6.4  (abort with ^G)
+1> ssh:default_algorithms().
+[{kex,['ecdh-sha2-nistp384','ecdh-sha2-nistp521',
+       'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
+       'diffie-hellman-group16-sha512',
+       'diffie-hellman-group18-sha512',
+       'diffie-hellman-group14-sha256','curve25519-sha256',
+       'curve25519-sha256@libssh.org','curve448-sha512',
+       'diffie-hellman-group14-sha1',
+       'diffie-hellman-group-exchange-sha1']},
+ {public_key,['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+              'ecdsa-sha2-nistp256','ssh-ed25519','ssh-ed448','ssh-rsa',
+              'rsa-sha2-256','rsa-sha2-512','ssh-dss']},
+ {cipher,[{client2server,['chacha20-poly1305@openssh.com',
+                          'aes256-gcm@openssh.com','aes256-ctr','aes192-ctr',
+                          'aes128-gcm@openssh.com','aes128-ctr','aes256-cbc',
+                          'aes192-cbc','aes128-cbc','3des-cbc']},
+          {server2client,['chacha20-poly1305@openssh.com',
+                          'aes256-gcm@openssh.com','aes256-ctr','aes192-ctr',
+                          'aes128-gcm@openssh.com','aes128-ctr','aes256-cbc',
+                          'aes192-cbc','aes128-cbc','3des-cbc']}]},
+ {mac,[{client2server,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']},
+       {server2client,['hmac-sha2-256','hmac-sha2-512',
+                       'hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+	</code>
+	<p>Note that the algorithms in the file <c>ex2.config</c> is not yet applied. They will be
+	when we start ssh:
+	</p>
+	<code>
+2> ssh:start().
+ok
+3> ssh:default_algorithms().
+[{kex,['ecdh-sha2-nistp384']},
+ {public_key,['ssh-rsa']},
+ {cipher,[{client2server,['aes192-ctr']},
+          {server2client,['aes192-ctr']}]},
+ {mac,[{client2server,['hmac-sha1']},
+       {server2client,['hmac-sha1']}]},
+ {compression,[{client2server,[none,'zlib@openssh.com',zlib]},
+               {server2client,[none,'zlib@openssh.com',zlib]}]}]
+4> 
+
+	</code>
+	<p>We see that the algorithm set is changed to the one in the  <c>ex2.config</c>. Since
+	<c>compression</c> is not specified in the file, the hard-coded default is still used
+	for that entry.
+	</p>
+      </section>
+
+      <section>
+	<title>Establishing a connection (ssh:connect et al) or starting a daemon (ssh:daemon)</title>
+	<p>Both when the client establish a connection with ssh:connect or other functions, or a
+	daemon is started with ssh:daemon, the option lists in the function calls are also used.
+	</p>
+	<p>If a client is started (ssh:connect et al), the environment variable <c>client_options</c> is used.
+	Similarly for a daemon the <c>server_options</c> variable is handled.
+	</p>
+	<p>If any
+	<seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso> is
+	present, the one with the highest level is used, that is, the <c>Option</c> list parameter has the highest
+	priority. Then the
+	<seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	on all levels in order starting with level 0 are applied.
+	
+	</p>
+	<p>We continue the example above by connecting to a server and modifying the <c>kex</c>
+	algorithm set. We remove the only one (<c>'ecdh-sha2-nistp384'</c>) and add
+	<c>'curve25519-sha256@libssh.org'</c>
+	by appending it to the now empty list:</p>
+	<code>
+4> {ok,C} = ssh:connect(loopback, 22,
+                        [{modify_algorithms,
+                                 [{rm,
+                                     [ {kex,['ecdh-sha2-nistp384']} ]
+				  },
+                                  {append,
+			             [ {kex,['curve25519-sha256@libssh.org']} ]
+				  }
+				 ]
+	                 }
+                        ]).
+{ok,&gt;0.118.0>}
+	</code>
+	<p>We check which algoritms are negotiated by the client and the server, and note that
+	the (only) <c>kex</c> algorithm <c>'curve25519-sha256@libssh.org'</c> was selected:
+	</p>
+	<code>
+5> ssh:connection_info(C, algorithms).
+{algorithms,[{kex,'curve25519-sha256@libssh.org'},
+             {hkey,'ssh-rsa'},
+             {send_mac,'hmac-sha1'},
+             {recv_mac,'hmac-sha1'},
+             {encrypt,'aes192-ctr'},
+             {decrypt,'aes192-ctr'},
+             {compress,none},
+             {decompress,none},
+             {send_ext_info,false},
+             {recv_ext_info,true}]}
+	</code>
+      </section>
+
+      <section>
+	<title>Example of modify_algorithms handling</title>
+	<p>We will no check if the
+	<seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+	on a lower level is applied to a
+	<seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+	on a higher level. We will do that by enabling the <c>ssh-dss</c>
+	algorithm that is supported, but not in the default set.
+	</p>
+	<p>The config file <c>ex3.config</c> has the contents:
+	</p>
+	<code>
+[
+ {ssh, [{modify_algorithms,
+         [ {prepend, [{public_key, ['ssh-dss']}]} ]
+        }]}
+].
+	</code>
+	<p>A newly started erlang shell shows that no <c>'ssh-dss'</c> is present in the
+	<c>public_key</c> entry:</p>
+	<code>
+1> proplists:get_value(public_key, ssh:default_algorithms()).
+['ecdsa-sha2-nistp384','ecdsa-sha2-nistp521',
+ 'ecdsa-sha2-nistp256','ssh-ed25519','ssh-ed448',
+ 'rsa-sha2-256','rsa-sha2-512','ssh-rsa']
+2> 
+	</code>
+	<p>A call to <c>ssh:connect/3</c> removes all algorithms but one of each type:
+	</p>
+	<code>
+2> ssh:start().
+ok
+3> {ok,C} = ssh:connect(loopback, 22,
+                        [{preferred_algorithms,
+                         [{public_key, ['ecdsa-sha2-nistp256']},
+			  {kex, ['ecdh-sha2-nistp256']},
+		          {cipher, ['chacha20-poly1305@openssh.com']},
+			  {mac, ['hmac-sha2-256']},
+			  {compression, [none]}
+			  ]}
+			 ]).
+{ok,&lt;0.101.0>}
+4> ssh:connection_info(C,algorithms).
+{algorithms,[{kex,'ecdh-sha2-nistp256'},
+             {hkey,'ssh-dss'},
+             {send_mac,'chacha20-poly1305@openssh.com'},
+             {recv_mac,'chacha20-poly1305@openssh.com'},
+             {encrypt,'chacha20-poly1305@openssh.com'},
+             {decrypt,'chacha20-poly1305@openssh.com'},
+             {compress,none},
+             {decompress,none},
+             {send_ext_info,false},
+             {recv_ext_info,true}]}
+5>
+	</code>
+	<p>But <c>'ssh-dss'</c> is selected although the call inserted <em>only</em>
+	<c>'ecdsa-sha2-nistp256'</c> as acceptable.
+	</p>
+	<p>This example showed that we could augment the set of algorithms with a
+	config-file without the need to change the actual call.
+	</p>
+	<p>For demonstration purposes we used <c>prepend</c> instead of <c>append</c>.
+	This forces the negotiation to select <c>ssh-dss</c> since the the full list
+	of public key algorithms was
+	<c>['ssh-dss','ecdsa-sha2-nistp256']</c>.
+	Normally it is safer to append a non-default algorithm.
+	</p>
+      </section>
+    </section>
+  </section>
+</chapter>

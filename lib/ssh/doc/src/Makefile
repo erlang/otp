@@ -54,6 +54,7 @@ XML_CHAPTER_FILES = \
 	introduction.xml \
 	using_ssh.xml \
 	terminology.xml \
+	configurations.xml \
 	configure_algos.xml
 
 BOOK_FILES = book.xml

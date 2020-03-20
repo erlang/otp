@@ -34,6 +34,7 @@
 -export([next_seqnum/1, 
 	 supported_algorithms/0, supported_algorithms/1,
 	 default_algorithms/0, default_algorithms/1,
+         clear_default_algorithms_env/0,
          algo_classes/0, algo_class/1,
          algo_two_spec_classes/0, algo_two_spec_class/1,
 	 handle_packet_part/5,
@@ -77,7 +78,46 @@
 %%% and test them without letting the default users know about them.
 %%%
 
-default_algorithms() -> [{K,default_algorithms(K)} || K <- algo_classes()].
+-define(DEFAULT_ALGS, '$def-algs$').
+
+clear_default_algorithms_env() ->
+    application:unset_env(ssh, ?DEFAULT_ALGS).
+
+-spec default_algorithms() -> algs_list()
+                                  | no_return() %  error(Reason)
+                                  .
+default_algorithms() ->
+    case application:get_env(ssh, ?DEFAULT_ALGS) of
+        undefined ->
+            %% Not cached, have to build the default, connection independent
+            %% set of algorithms:
+            Opts = get_alg_conf(),
+            Algs1 =
+                case proplists:get_value(preferred_algorithms, Opts) of
+                    undefined ->
+                        [{K,default_algorithms1(K)} || K <- algo_classes()];
+                    Algs0 ->
+                        {true,Algs01} = ssh_options:check_preferred_algorithms(Algs0),
+                        Algs01
+                end,
+            Algs =
+                case proplists:get_value(modify_algorithms, Opts) of
+                    undefined ->
+                        Algs1;
+                    Modifications ->
+                        ssh_options:initial_default_algorithms(Algs1, Modifications)
+                end,
+            application:set_env(ssh, ?DEFAULT_ALGS, Algs),
+            Algs;
+
+        {ok,Algs} ->
+            Algs
+    end.
+
+get_alg_conf() ->
+    [{T,L} || T <- [preferred_algorithms, modify_algorithms],
+              L <- [application:get_env(ssh, T, [])],
+              L =/= []].
 
 algo_classes() -> [kex, public_key, cipher, mac, compression].
 
@@ -96,9 +136,17 @@ algo_two_spec_class(mac) -> true;
 algo_two_spec_class(compression) -> true;
 algo_two_spec_class(_) -> false.
 
+
+default_algorithms(Tag) ->
+    case application:get_env(ssh, ?DEFAULT_ALGS) of
+        undefined ->
+            default_algorithms1(Tag);
+        {ok,Algs} ->
+            proplists:get_value(Tag, Algs, [])
+    end.
     
 
-default_algorithms(kex) ->
+default_algorithms1(kex) ->
     supported_algorithms(kex, [
                                %%  Gone in OpenSSH 7.3.p1:
                                'diffie-hellman-group1-sha1',
@@ -107,23 +155,23 @@ default_algorithms(kex) ->
                                'diffie-hellman-group-exchange-sha1'
                               ]);
 
-default_algorithms(cipher) ->
+default_algorithms1(cipher) ->
     supported_algorithms(cipher, same(['AEAD_AES_128_GCM',
 				       'AEAD_AES_256_GCM'
                                       ]));
-default_algorithms(mac) ->
+default_algorithms1(mac) ->
     supported_algorithms(mac, same(['AEAD_AES_128_GCM',
 				    'AEAD_AES_256_GCM',
                                     'hmac-sha1-96'
                                    ]));
 
-default_algorithms(public_key) ->
+default_algorithms1(public_key) ->
     supported_algorithms(public_key, [
                                       %% Gone in OpenSSH 7.3.p1:
                                       'ssh-dss'
                                      ]);
 
-default_algorithms(Alg) ->
+default_algorithms1(Alg) ->
     supported_algorithms(Alg, []).
 
 
