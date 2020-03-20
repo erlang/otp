@@ -430,7 +430,10 @@ queue_handshake(Handshake, #state{handshake_env = #handshake_env{tls_handshake_h
                  handshake_env = HsEnv#handshake_env{tls_handshake_history = Hist},
 		 flight_buffer = Flight0 ++ [BinHandshake]}.
 
-
+-spec send_handshake_flight(StateIn) -> {StateOut, FlightBuffer} when
+      StateIn :: #state{},
+      StateOut :: #state{},
+      FlightBuffer :: list().
 send_handshake_flight(#state{static_env = #static_env{socket = Socket,
                                                       transport_cb = Transport},
 			     flight_buffer = Flight} = State0) ->
