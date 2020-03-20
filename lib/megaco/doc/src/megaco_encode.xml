@@ -379,46 +379,6 @@
   <section>
     <marker id="handling_versions"></marker>
     <title>Handling megaco versions</title>
-    <note>
-      <p>This version (still) include three <c>pre version 3</c> variants of
-      the version 3 codec, beside the proper version 3.
-      These versions, <c>prev3a | prev3b | prev3c</c>,
-      are <em>deprecated</em>, and will be removed in OTP 24. </p>
-    </note>
-    <p>To be able to specify the different variants of version 3,
-    the encoding config option <c><![CDATA[{version3, version3()}]]></c>
-    <em>still</em> exists. This option, if present, has to be <em>first</em>
-    in the encoding config list. Version 1 and 2 codec's ignore this option,
-    if found. </p>
-    <code type="none"><![CDATA[
-version3() -> prev3a | prev3b | prev3c | v3    ]]></code>
-    <list type="bulleted">
-      <item>
-        <p><em>DEPRECATED: prev3a</em></p>
-        <p>Preliminary version 3, based on TD-33</p>
-      </item>
-      <item>
-        <p><em>DEPRECATED: prev3b</em></p>
-        <p>Preliminary version 3, based on TD-33, but text encoding 
-          updated with the final solution for priority in 
-          <c><![CDATA[contextProperty]]></c> (which is backward compatible with 
-v2).</p>
-      </item>
-      <item>
-        <p><em>DEPRECATED: prev3c</em></p>
-        <p>Preliminary version 3, based on the final version of the 
-          v3-standard, but <em>excluding</em> segments!</p>
-      </item>
-      <item>
-        <p><em>v3</em></p>
-        <p>Full version 3. Including segmentation. This is the default
-          version 3 variant (i.e. if a version 3 messages is to be 
-          encoded/decoded and no version3 encoding config is found, 
-          then v3 is assumed).</p>
-      </item>
-    </list>
-
-
     <p>There are two ways to handle the different megaco encoding versions.
       Either using <em>dynamic version detection</em> (only valid for
       for incoming messages) or by <em>explicit version</em> setting in 
@@ -439,10 +399,10 @@ v2).</p>
         <p>Explicit version</p>
         <p>Explicitly set the actual protocol version in the 
           megaco_receive_handle.
-          <br></br>Start with version 1. When the initial service change has been 
-          performed and version 2 has been negotiated, upgrade the 
-          megaco_receive_handle of the transport process (control_pid) to 
-          version 2.
+          <br></br>Start with version 1.
+	  When the initial service change has been performed and version 2
+	  has been negotiated, upgrade the megaco_receive_handle of the
+	  transport process (control_pid) to version 2.
           See 
           <seeerl marker="megaco_tcp#upgrade_receive_handle">megaco_tcp</seeerl>
           and 
@@ -450,10 +410,11 @@ v2).</p>
           <br></br>Note that if <c><![CDATA[udp]]></c> is used, the same transport process 
           could be used for several connections. This could make upgrading 
           impossible.
-          <br></br>For codecs that does not support partial decode of the version, 
-          currently <c><![CDATA[megaco_ber_encoder]]></c>, <c><![CDATA[megaco_per_encoder]]></c>
-          and <c><![CDATA[megaco_per_bin_encoder]]></c>, <c><![CDATA[dynamic]]></c> will revert to 
-          version 1.</p>
+          <br></br>For codecs that does not support partial decode of
+	  the version, 
+          currently <c><![CDATA[megaco_ber_encoder]]></c> and
+	  <c><![CDATA[megaco_per_encoder]]></c>, 
+          <c><![CDATA[dynamic]]></c> will revert to version 1.</p>
       </item>
     </list>
     <p>For outgoing messages:</p>
