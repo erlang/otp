@@ -362,7 +362,7 @@ new_trusteded_chain(DerCert, [DerCert | Chain]) ->
 new_trusteded_chain(DerCert, [_ | Rest]) ->
     new_trusteded_chain(DerCert, Rest);
 new_trusteded_chain(_, []) ->
-    unknown_ca.
+    {unknown_ca, []}.
 
 verify_hostname({fallback, Hostname}, Customize, Cert, UserState) when is_list(Hostname) ->
     case public_key:pkix_verify_hostname(Cert, [{dns_id, Hostname}], Customize) of
