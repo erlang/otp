@@ -1769,8 +1769,10 @@ BOOLEAN_T esock_extract_bool_from_map(ErlNifEnv*   env,
 
     if (COMPARE(val, esock_atom_true) == 0)
         return TRUE;
-    else
+    else if (COMPARE(val, esock_atom_false) == 0)
         return FALSE;
+    else
+        return def;
 }
 
 
@@ -2080,12 +2082,11 @@ BOOLEAN_T esock_timestamp_str(char *buf, unsigned int len)
 extern
 BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int len)
 {
-    int       ret;
+    unsigned  ret;
 #if defined(ESOCK_USE_PRETTY_TIMESTAMP)
 
     time_t    sec     = timestamp / 1000000; // (if _MSEC) sec  = time / 1000;
     time_t    usec    = timestamp % 1000000; // (if _MSEC) msec = time % 1000;
-    int       buflen;
     struct tm t;
 
     if (localtime_r(&sec, &t) == NULL)
@@ -2094,10 +2095,10 @@ BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int l
     ret = strftime(buf, len, "%d-%b-%Y::%T", &t);
     if (ret == 0)
         return FALSE;
-    len -= ret - 1;
-    buflen = strlen(buf);
+    len -= ret;
+    buf += ret;
 
-    ret = enif_snprintf(&buf[buflen], len, ".%06b64d", usec);
+    ret = enif_snprintf(buf, len, ".%06lu", (unsigned long) usec);
     if (ret >= len)
         return FALSE;
 
@@ -2105,11 +2106,11 @@ BOOLEAN_T esock_format_timestamp(ErlNifTime timestamp, char *buf, unsigned int l
 
 #else
 
-    ret = enif_snprintf(buf, len, "%b64d", timestamp);
-    if (ret == 0)
+    ret = enif_snprintf(buf, len, "%lu", (unsigned long) timestamp);
+    if (ret >= len)
         return FALSE;
-    else
-        return TRUE;
+
+    return TRUE;
 
 #endif
 }

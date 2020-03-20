@@ -20,6 +20,7 @@
 
 -module(socket).
 
+-compile(nowarn_nif_inline). %% Nobody please enable module inlining!
 -compile(no_native).
 -compile({no_auto_import,[error/1]}).
 
@@ -32,8 +33,7 @@
 
          ensure_sockaddr/1,
 
-         debug/1,
-         %% command/1,
+         debug/1, socket_debug/1,
 	 info/0, info/1,
          supports/0, supports/1, supports/2, supports/3
         ]).
@@ -73,8 +73,6 @@
               socket_counters/0,
               socket_counter/0,
               socket_info/0,
-
-              %% command/0,
 
               domain/0,
               type/0,
@@ -153,18 +151,6 @@
 
 -define(REGISTRY, socket_registry).
 
-
-%% The command type has the general form: 
-%% #{
-%%   command := atom(),
-%%   data    := term()
-%%  }
-%% But only certain values are actually valid, so the type gets the form:
--type debug_command() :: #{
-                           command := debug,
-                           data    := boolean()
-                          }.
-%% -type command() :: debug_command().
 
 -type socket_counters() :: [{socket_counter(), non_neg_integer()}].
 -type socket_counter()  :: read_byte | read_fails | read_pkg | read_pkg_max |
@@ -393,6 +379,7 @@
                              rcvbuf | % sndbuf |
                              rcvctrlbuf |
                              sndctrlbuf |
+                             meta |
                              fd.
 %% Shall we have special treatment of linger??
 %% read-only options:
@@ -973,8 +960,27 @@ on_load(Extra) ->
     %% This is spawned as a system process to prevent init:restart/0 from
     %% killing it.
     Pid = erts_internal:spawn_system_process(?REGISTRY, start, []),
-    ok  = erlang:load_nif(atom_to_list(?MODULE), Extra#{registry => Pid}).
-
+    DebugFilename =
+        case os:get_env_var("ESOCK_DEBUG_FILENAME") of
+            "*" ->
+                "/tmp/esock-dbg-??????";
+            F ->
+                F
+        end,
+    ok  =
+        erlang:load_nif(
+          atom_to_list(?MODULE),
+          case DebugFilename of
+              false ->
+                  Extra#{registry => Pid};
+              _ ->
+                  Extra
+                      #{registry => Pid,
+                        debug => true,
+                        socket_debug => true,
+                        debug_filename =>
+                            enc_path(DebugFilename)}
+          end).
 
 %% *** number_of ***
 %%
@@ -1033,21 +1039,15 @@ info() ->
     nif_info().
 
 
--spec debug(D) -> ok when
-      D :: boolean().
-
+-spec debug(D :: boolean()) -> ok.
 debug(D) when is_boolean(D) ->
-    command(#{command => debug,
-              data    => D}).
+    nif_command(#{command => ?FUNCTION_NAME,
+                  data    => D}).
 
-
--spec command(Command) -> ok when
-      Command :: debug_command().
-
-command(#{command := debug,
-          data    := Dbg} = Command) when is_boolean(Dbg) ->
-    nif_command(Command).
-
+-spec socket_debug(D :: boolean()) -> ok.
+socket_debug(D) when is_boolean(D) ->
+    nif_command(#{command => ?FUNCTION_NAME,
+                  data    => D}).
 
 
 %% ===========================================================================
@@ -1273,7 +1273,14 @@ open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
             EDomain   = enc_domain(Domain),
             EType     = enc_type(Type),
             EProtocol = enc_protocol(Protocol),
-            nif_open(EDomain, EType, EProtocol, Opts)
+            Opts_1 =
+                case Opts of
+                    #{netns := Path} when is_list(Path) ->
+                        Opts#{netns := enc_path(Path)};
+                    _ ->
+                        Opts
+                end,
+            nif_open(EDomain, EType, EProtocol, Opts_1)
         end
     of
         {ok, SockRef} ->
@@ -1456,8 +1463,12 @@ do_connect(SockRef, SockAddr, Deadline) ->
             %% Connecting...
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, Ref} ->
-                    nif_finalize_connection(SockRef)
+                {?ESOCK_TAG, _Socket, select, Ref} ->
+                    nif_finalize_connection(SockRef);
+
+                {?ESOCK_TAG, _Socket, abort, {Ref, Reason}} ->
+                    {error, Reason}
+
             after Timeout ->
                     cancel(SockRef, connect, Ref),
                     {error, timeout}
@@ -1641,7 +1652,6 @@ send(#socket{ref = SockRef}, Data, Flags, Timeout)
     end.
 
 send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
-
     SendRef = make_ref(),
 
     case
@@ -1666,13 +1676,13 @@ send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
 	    %% We are partially done, wait for continuation
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef}
+                {?ESOCK_TAG, _Socket, select, SendRef}
                   when (Written > 0) -> 
                     <<_:Written/binary, Rest/binary>> = Data,
                     send_common(
                       SockRef, Rest, To, EFlags, Deadline, SendName);
 
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                {?ESOCK_TAG, _Socket, select, SendRef} ->
                     send_common(
                       SockRef, Data, To, EFlags, Deadline, SendName);
 
@@ -1700,7 +1710,7 @@ send_common(SockRef, Data, To, EFlags, Deadline, SendName) ->
         {error, eagain} ->
             Timeout = timeout(Deadline),
             receive
-                {?ESOCK_TAG, #socket{ref = SockRef}, select, SendRef} ->
+                {?ESOCK_TAG, _Socket, select, SendRef} ->
                     send_common(
                       SockRef, Data, To, EFlags, Deadline, SendName);
 
@@ -2824,6 +2834,13 @@ cancel(#socket{ref = SockRef}, ?SELECT_INFO(Tag, Ref)) ->
 %%
 %% ===========================================================================
 
+%% File names has to be encoded according to
+%% the native file encoding
+%%
+enc_path(Path) ->
+    %% These are all BIFs - will not cause code loading
+    unicode:characters_to_binary(Path, file:native_name_encoding()).
+
 %% -spec enc_domain(Domain) -> non_neg_integer() when
 %%       Domain :: domain().
 
@@ -3907,7 +3924,7 @@ ensure_sockaddr(#{family := local, path := Path} = SockAddr)
   when is_list(Path) andalso 
        (length(Path) > 0) andalso 
        (length(Path) =< 255) ->
-    BinPath = unicode:characters_to_binary(Path, file:native_name_encoding()),
+    BinPath = enc_path(Path),
     ensure_sockaddr(SockAddr#{path => BinPath});
 ensure_sockaddr(#{family := local, path := Path} = SockAddr) 
   when is_binary(Path) andalso 
@@ -3917,26 +3934,24 @@ ensure_sockaddr(#{family := local, path := Path} = SockAddr)
 ensure_sockaddr(SockAddr) ->
     invalid_address(SockAddr).
 
-
 ensure_open2_opts(M) when is_map(M) ->
-    ensure_open2_opts(maps:to_list(M), ?OPEN2_OPTS_DEFAULTS).
-
-ensure_open2_opts([], Acc) ->
-    Acc;
-ensure_open2_opts([{domain,   D}|Opts], Acc) ->
-    ensure_open2_opts(Opts, Acc#{domain => enc_domain(D)});
-ensure_open2_opts([{type,     T}|Opts], Acc) ->
-    ensure_open2_opts(Opts, Acc#{type => enc_type(T)});
-ensure_open2_opts([{protocol, P}|Opts], Acc) ->
-    ensure_open2_opts(Opts, Acc#{protocol => enc_protocol(P)});
-ensure_open2_opts([{dup,      D}|Opts], Acc) when is_boolean(D) ->
-    ensure_open2_opts(Opts, Acc#{dup => D});
-ensure_open2_opts([{debug,    D}|Opts], Acc) when is_boolean(D) ->
-    ensure_open2_opts(Opts, Acc#{debug => D});
-ensure_open2_opts([_|Opts], Acc) ->
-    ensure_open2_opts(Opts, Acc).
-
-
+    maps:fold(
+      fun (Key, Val, Acc) ->
+              case Key of
+                  domain ->
+                      Acc#{domain => enc_domain(Val)};
+                  type ->
+                      Acc#{type => enc_type(Val)};
+                  protocol ->
+                      Acc#{protocol => enc_protocol(Val)};
+                  dup when is_boolean(Val) ->
+                      Acc#{dup => Val};
+                  debug when is_boolean(Val) ->
+                      Acc#{debug => Val};
+                  _ ->
+                      Acc
+              end
+      end, ?OPEN2_OPTS_DEFAULTS, M).
 
 cancel(SockRef, Op, OpRef) ->
     case nif_cancel(SockRef, Op, OpRef) of

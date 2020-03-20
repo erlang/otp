@@ -40,21 +40,56 @@
 FILE* esock_dbgout = NULL;
 
 extern
-void esock_dbg_init(char* filename)
+BOOLEAN_T esock_dbg_init(char* filename)
 {
-  if (filename != NULL) {
-    if (strcmp(filename, ESOCK_DBGOUT_DEFAULT) == 0) {
+    size_t n;
+    FILE *fp;
+    const char mode[] = "w+";
+
+    if (filename == NULL) {
         esock_dbgout = stdout;
-    } else if (strcmp(filename, ESOCK_DBGOUT_UNIQUE) == 0) {
-        char template[] = "/tmp/esock-dbg-XXXXXX";
-        esock_dbgout = fdopen(mkstemp(template), "w+");
-    } else {
-        esock_dbgout = fopen(filename, "w+");
+        return TRUE; // Valid default stdout
     }
-  } else {
-    char template[] = "/tmp/esock-dbg-XXXXXX";
-    esock_dbgout = fdopen(mkstemp(template), "w+");
-  }
+
+    if ((n = strlen(filename)) == 0) {
+        esock_dbgout = stdout;
+        return TRUE; // Valid selection of stdout
+    }
+
+    fp = NULL;
+
+    /* If there is trailing ?????? replace it with XXXXXX
+     * and use mkstemp() to create an unique file name
+     */
+    if (n >= 6) {
+        size_t k;
+
+        for (k = n - 6;  k < n;  k++)
+            if (filename[k] != '?') break;
+
+        if (k == n) {
+            int fd;
+            /* ?:s up to the end */
+
+            for (k = n - 6;  k < n;  k++)
+                filename[k] = 'X';
+
+            if ((fd = mkstemp(filename)) >= 0)
+                fp = fdopen(fd, mode);
+        } else {
+            fp = fopen(filename, mode);
+        }
+    } else {
+        fp = fopen(filename, mode);
+    }
+
+    if (fp != NULL) {
+        esock_dbgout = fp;
+        return TRUE; // Succesful file open
+    }
+
+    esock_dbgout = stdout;
+    return FALSE; // Selected file did not work
 }
 
 
@@ -67,8 +102,8 @@ extern
 void esock_dbg_printf( const char* prefix, const char* format, ... )
 {
   va_list         args;
-  char            f[512 + strlen(format)]; // This has to suffice...
-  char            stamp[50];
+  char            f[512]; // This has to suffice...
+  char            stamp[64];
   int             res;
 
   /*
@@ -85,13 +120,12 @@ void esock_dbg_printf( const char* prefix, const char* format, ... )
                           prefix, TSNAME(), format);
   }
   
-  if (res > 0) {
+  if (res < sizeof(f)) {
       va_start (args, format);
-      enif_vfprintf (esock_dbgout, f, args);
+      enif_vfprintf(esock_dbgout, f, args);
       va_end (args);
+
       fflush(esock_dbgout);
   }
-
-  return;
 }
 
