@@ -47,27 +47,35 @@ start() ->
 
 call(Node, M, F, Args) ->
     case ?catch_val({protocol, Node}) of
-        {Ver, _} when Ver < {8,5} ->
-            rpc:call(Node, M, F, Args);
-        _ ->
+        {Ver, _} when Ver > {8,4} ->
             try gen_server:call({?MODULE, Node}, {apply, M, F, Args}, infinity)
             catch
                 _:Reason -> {badrpc, {'EXIT', Reason}}
-            end
+            end;
+        _ ->
+            rpc:call(Node, M, F, Args)
     end.
 
 init([_Parent]) ->
     {ok, #{}}.
 
-handle_call({apply, Mod, Fun, Args}, _From, State) ->
-    %% rpc is just for ets:lookups so no need to spawn requests
-    Result = try apply(Mod, Fun, Args)
-             catch throw:Res -> Res;
-                   _:Reason -> {badrpc, {'EXIT', Reason}}
-             end,
-    {reply, Result, State};
+handle_call({apply, mnesia_lib, db_get=Func, Args}, From, State) ->
+    apply_lib(Func, Args, From, State);
+handle_call({apply, mnesia_lib, db_last=Func, Args}, From, State) ->
+    apply_lib(Func, Args, From, State);
+handle_call({apply, mnesia_lib, db_first=Func, Args}, From, State) ->
+    apply_lib(Func, Args, From, State);
+handle_call({apply, mnesia_lib, db_next_key=Func, Args}, From, State) ->
+    apply_lib(Func, Args, From, State);
+handle_call({apply, mnesia_lib, db_prev_key=Func, Args}, From, State) ->
+    apply_lib(Func, Args, From, State);
+handle_call({apply, Mod, Func, Args}, From, State) ->
+    Fun = apply_fun(Mod, Func, Args, From),
+    _Pid = spawn_link(Fun),
+    {noreply, State};
+
 handle_call(Msg, _From, State) ->
-    error("~p got unexpected call: ~tp~n", [?MODULE, Msg]),
+    mnesia_lib:error("~p got unexpected call: ~tp~n", [?MODULE, Msg]),
     {reply, badop, State}.
 
 handle_cast(Msg, State) ->
@@ -84,3 +92,28 @@ code_change(_OldVsn, State, _Extra) ->
 
 terminate(_Reason, _State) ->
     ok.
+
+%%%%
+
+apply_lib(Func, [Tab|_] = Args, From, State) ->
+    try
+        Ram = ?catch_val({Tab, storage_type}),
+        if Ram =:= ram_copies; Ram =:= disc_copies ->
+                {reply, apply(mnesia_lib, Func, [Ram|Args]), State};
+           true ->
+                Fun = apply_fun(mnesia_lib, Func, Args, From),
+                _Pid = spawn_link(Fun),
+                {noreply, State}
+        end
+    catch throw:Res -> {reply, Res, State};
+          _:Reason -> {reply, {badrpc, {'EXIT', Reason}}, State}
+    end.
+
+apply_fun(Mod, Func, Args, From) ->
+    fun() ->
+            Result = try apply(Mod, Func, Args)
+                     catch throw:Res -> Res;
+                           _:Reason -> {badrpc, {'EXIT', Reason}}
+                     end,
+            gen_server:reply(From, Result)
+    end.
