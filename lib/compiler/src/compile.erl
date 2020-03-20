@@ -20,7 +20,6 @@
 %% Purpose: Run the Erlang compiler.
 
 -module(compile).
--compile([{nowarn_deprecated_function,{crypto,block_encrypt,4}}]).
 
 %% High-level interface.
 -export([file/1,file/2,noenv_file/2,format_error/1,iofile/1]).
@@ -1595,7 +1594,7 @@ encrypt({des3_cbc=Type,Key,IVec,BlockSize}, Bin0) ->
 	       0 -> Bin0;
 	       N -> list_to_binary([Bin0,crypto:strong_rand_bytes(BlockSize-N)])
 	   end,
-    Bin = crypto:block_encrypt(Type, Key, IVec, Bin1),
+    Bin = crypto:crypto_one_time(des_ede3_cbc, Key, IVec, Bin1, true),
     TypeString = atom_to_list(Type),
     list_to_binary([0,length(TypeString),TypeString,Bin]).
 
