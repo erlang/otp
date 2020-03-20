@@ -56,9 +56,9 @@ Var STARTMENU_FOLDER
 
 ;Folder selection page
 !if ${WINTYPE} == "win64"
-  	InstallDir "$PROGRAMFILES64\erl${ERTS_VERSION}"
+  	InstallDir "$PROGRAMFILES64\erl-${OTP_RELEASE_VERSION}"
 !else
-  	InstallDir "$PROGRAMFILES\erl${ERTS_VERSION}"
+  	InstallDir "$PROGRAMFILES\erl-${OTP_RELEASE_VERSION}"
 !endif  
 ;Remember install folder
   	InstallDirRegKey HKLM "SOFTWARE\Ericsson\Erlang\${ERTS_VERSION}" ""
