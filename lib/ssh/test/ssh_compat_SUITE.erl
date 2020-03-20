@@ -249,6 +249,7 @@ login_otp_is_server(Config) ->
                           {Server, Host, HostPort} =
                               ssh_test_lib:daemon(0,
                                                   [{auth_methods, atom_to_list(AuthMethod)},
+                                                   {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {system_dir, SysDir},
                                                    {user_dir, UsrDir},
                                                    {failfun, fun ssh_test_lib:failfun/2}
