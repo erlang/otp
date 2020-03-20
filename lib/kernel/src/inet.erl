@@ -39,6 +39,7 @@
 
 -export([connect_options/2, listen_options/2, udp_options/2, sctp_options/2]).
 -export([udp_module/1, tcp_module/1, tcp_module/2, sctp_module/1]).
+-export([gen_tcp_module/1]).
 
 -export([i/0, i/1, i/2]).
 
@@ -81,6 +82,8 @@
 	      posix/0, socket/0, stat_option/0]).
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
+
+-define(DEFAULT_KERNEL_INET_BACKEND, inet). % inet | socket
 
 %% Record Signature
 -define(RS(Record),
@@ -208,6 +211,8 @@ close(Socket) ->
 		       returned_non_ip_address()} |
 		      {error, posix()}.
 
+peername({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket);
 peername(Socket) -> 
     prim_inet:peername(Socket).
 
@@ -250,6 +255,8 @@ peernames(Socket, Assoc) ->
 		       returned_non_ip_address()} |
 		      {error, posix()}.
 
+sockname({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket);
 sockname(Socket) -> 
     prim_inet:sockname(Socket).
 
@@ -290,6 +297,11 @@ socknames(Socket, Assoc) ->
       Socket :: socket(),
       Port :: port_number().
 
+port({'$inet', GenSocketMod, _} = Socket) when is_atom(GenSocketMod) ->
+    case GenSocketMod:sockname(Socket) of
+        {ok, {_, Port}} -> {ok, Port};
+        {error, _} = Error -> Error
+    end;
 port(Socket) ->
     case prim_inet:sockname(Socket) of
 	{ok, {_,Port}} -> {ok, Port};
@@ -306,6 +318,8 @@ send(Socket, Packet) ->
       Socket :: socket(),
       Options :: [socket_setopt()].
 
+setopts({'$inet', GenSocketMod, _} = Socket, Opts) when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket, Opts);
 setopts(Socket, Opts) -> 
     SocketOpts =
 	[case Opt of
@@ -322,6 +336,9 @@ setopts(Socket, Opts) ->
       Options :: [socket_getopt()],
       OptionValues :: [socket_setopt() | gen_tcp:pktoptions_value()].
 
+getopts({'$inet', GenSocketMod, _} = Socket, Opts)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket, Opts);
 getopts(Socket, Opts) ->
     case prim_inet:getopts(Socket, Opts) of
 	{ok,OptionValues} ->
@@ -479,6 +496,8 @@ popf(_Socket) ->
 -spec gethostname() -> {'ok', Hostname} when
       Hostname :: string().
 
+%%% XXX gethostname() -> net:gethostname().
+
 gethostname() ->
     case inet_udp:open(0,[]) of
 	{ok,U} ->
@@ -502,7 +521,7 @@ gethostname(Socket) ->
       OptionValues :: [{stat_option(), integer()}].
 
 getstat(Socket) ->
-    prim_inet:getstat(Socket, stats()).
+    getstat(Socket, stats()).
 
 -spec getstat(Socket, Options) ->
 	{ok, OptionValues} | {error, posix()} when
@@ -510,7 +529,10 @@ getstat(Socket) ->
       Options :: [stat_option()],
       OptionValues :: [{stat_option(), integer()}].
 
-getstat(Socket,What) ->
+getstat({'$inet', GenSocketMod, _} = Socket, What)
+  when is_atom(GenSocketMod) ->
+    GenSocketMod:?FUNCTION_NAME(Socket, What);
+getstat(Socket, What) ->
     prim_inet:getstat(Socket, What).
 
 -spec gethostbyname(Hostname) -> {ok, Hostent} | {error, posix()} when
@@ -908,6 +930,19 @@ tcp_module_1(Opts, Address) ->
       Opts, tcp_module, Address,
       #{inet => inet_tcp, inet6 => inet6_tcp, local => local_tcp}).
 
+gen_tcp_module([{inet_backend, Flag}|Opts]) ->
+    gen_tcp_module(Opts, Flag);
+gen_tcp_module(Opts) ->
+    gen_tcp_module(
+      Opts,
+      persistent_term:get(
+        {kernel, inet_backend}, ?DEFAULT_KERNEL_INET_BACKEND)).
+%%
+gen_tcp_module(Opts, inet) ->
+    {gen_tcp, Opts};
+gen_tcp_module(Opts, socket) ->
+    {gen_tcp_socket, Opts}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Available options for udp:open
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1176,7 +1211,6 @@ mod(Opts, Tag, Address, Map, undefined, Acc, M) ->
     mod(Opts, Tag, Address, Map, M, Acc);
 mod(Opts, Tag, Address, Map, Mod, Acc, _M) ->
     mod(Opts, Tag, Address, Map, Mod, Acc).
-
 
 getaddrs_tm({A,B,C,D} = IP, Fam, _)  ->
     %% Only "syntactic" validation and check of family.

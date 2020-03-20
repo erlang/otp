@@ -343,7 +343,12 @@ controlling_process_self(Config) when is_list(Config) ->
 		{socket,Sock} ->
 		    process_flag(trap_exit,false),
 		    %% Make sure the port is invalid after process crash
-		    {error,einval} = inet:port(Sock)
+                    receive after 500 -> ok end,
+                    case inet:port(Sock) of
+                        {error,einval} -> ok;
+                        {error,closed} -> ok % XXX gen_tcp_socket
+                    end
+
 	    end;
 	Msg when element(1,Msg) /= socket ->
 	    process_flag(trap_exit,false),
@@ -924,7 +929,8 @@ shutdown_passive(Config) when is_list(Config) ->
 
 shutdown_common(Active) ->
     P = sort_server(Active),
-    io:format("Sort server port: ~p\n", [P]),
+    io:format("[~w]Sort server port: ~p\n", [self(), P]),
+
 
     do_sort(P, []),
     do_sort(P, ["glurf"]),
@@ -945,13 +951,16 @@ shutdown_common(Active) ->
     end.
 
 do_sort(P, List0) ->
+    io:format("[~w]Sort: ~p\n", [self(), List0]),
     List = [El++"\n" || El <- List0],
     {ok,S} = gen_tcp:connect(localhost, P, [{packet,line}]),
     send_lines(S, List),
-    gen_tcp:shutdown(S, write),
+    ok = gen_tcp:shutdown(S, write),
     Lines = collect_lines(S, true),
-    io:format("~p\n", [Lines]),
-    Lines = lists:sort(List),
+    io:format("[~w]Collected: ~p\n", [self(), Lines]),
+    SortedLines = lists:sort(List),
+    io:format("[~w]Sorted: ~p\n", [self(), SortedLines]),
+    Lines = SortedLines,
     ok = gen_tcp:close(S).
 
 sort_server(Active) ->
@@ -987,8 +996,12 @@ collect_lines(S, false) ->
 
 collect_lines_1(S, Acc) ->
     receive
-	{tcp,S,Line} -> collect_lines_1(S, [Line|Acc]);
-	{tcp_closed,S} -> lists:reverse(Acc)
+	{tcp,S,Line} ->
+            io:format("[~w]collect_lines_1(~w): ~p\n", [self(), S, Line]),
+            collect_lines_1(S, [Line|Acc]);
+	{tcp_closed,S} ->
+            io:format("[~w]collect_lines_1(~w): tcp_closed\n", [self(), S]),
+            lists:reverse(Acc)
     end.
 
 passive_collect_lines_1(S, Acc) ->
@@ -1000,7 +1013,9 @@ passive_collect_lines_1(S, Acc) ->
 
 send_lines(S, Lines) ->    
     lists:foreach(fun(Line) ->
-			  gen_tcp:send(S, Line)
+                          io:format(
+                            "[~w]send_line(~w): ~p\n", [self(), S, Line]),
+			  ok = gen_tcp:send(S, Line)
 		  end, Lines).
 
 %%%
@@ -1568,7 +1583,7 @@ busy_disconnect_active_send(S, Data) ->
 	{error,closed} ->
 	    receive
 		{tcp_closed,S} -> ok;
-		_Other -> ct:fail(failed)
+		Other -> ct:fail({unexpected, Other, S, flush([])})
 	    end
     end.
 
@@ -1676,7 +1691,7 @@ fill_sendq_srv(L, Master) ->
 	    Msg = "the quick brown fox jumps over a lazy dog~n",
 	    fill_sendq_write(S, Master, [Msg,Msg,Msg,Msg,Msg,Msg,Msg,Msg]);
 	Error ->
-	    io:format("~p error: ~p.~n", [self(),Error]),
+	    io:format("~p accept error: ~p.~n", [self(),Error]),
 	    Master ! {self(),flush([Error])}
     end.
 
@@ -1691,7 +1706,7 @@ fill_sendq_write(S, Master, Msg) ->
 	    fill_sendq_write(S, Master, Msg);
 	E ->
 	    Error = flush([E]),
-	    io:format("~p error: ~p.~n", [self(),Error]),
+	    io:format("~p send error: ~p.~n", [self(),Error]),
 	    Master ! {self(),Error}
     end.
 
@@ -1701,11 +1716,11 @@ fill_sendq_read(S, Master) ->
     io:format("~p read infinity...~n", [self()]),
     case gen_tcp:recv(S, 0, infinity) of
 	{ok,Data} ->
-	    io:format("~p got: ~p.~n", [self(),Data]),
+	    io:format("~p recv: ~p.~n", [self(),Data]),
 	    fill_sendq_read(S, Master);
 	E ->
 	    Error = flush([E]),
-	    io:format("~p error: ~p.~n", [self(),Error]),
+	    io:format("~p recv error: ~p.~n", [self(),Error]),
 	    Master ! {self(),Error}
     end.
 
@@ -2713,8 +2728,8 @@ send_timeout_basic(AutoClose, RNode) ->
     {error,timeout} = timeout_sink_loop(Send),
 
     %% Check that the socket is not busy/closed...
-    Error = after_send_timeout(AutoClose),
     {error,Error} = gen_tcp:send(A, <<"Hej">>),
+    after_send_timeout(AutoClose, Error),
     ok.
 
 send_timeout_para(AutoClose, RNode) ->
@@ -2736,14 +2751,15 @@ send_timeout_para(AutoClose, RNode) ->
 	    exit(timeout)
     end,
 
-    NextErr = after_send_timeout(AutoClose),
     receive
-	{error,NextErr} -> ok
+	{error,Error_1} ->
+            after_send_timeout(AutoClose, Error_1)
     after 10000 ->
 	    exit(timeout)
     end,
 
-    {error,NextErr} = gen_tcp:send(A, <<"Hej">>),
+    {error,Error_2} = gen_tcp:send(A, <<"Hej">>),
+    after_send_timeout(AutoClose, Error_2),
     ok.
 
 mad_sender(S) ->
@@ -2796,10 +2812,13 @@ do_send_timeout_active(AutoClose, RNode) ->
     flush(),
     ok.
 
-after_send_timeout(AutoClose) ->
-    case AutoClose of
-	true -> enotconn;
-	false -> timeout
+after_send_timeout(AutoClose, Reason) ->
+    case Reason of
+        timeout when AutoClose =:= false -> ok;
+        enotconn when AutoClose =:= true -> ok
+%%%        timeout -> ok;
+%%%        enotconn when AutoClose -> ok;
+%%%        closed when AutoClose -> ok
     end.
 
 get_max_diff() ->

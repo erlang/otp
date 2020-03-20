@@ -158,15 +158,20 @@ connect(Address, Port, Opts) ->
       Socket :: socket(),
       Reason :: timeout | inet:posix().
 
-connect(Address, Port, Opts, Time) ->
-    Timer = inet:start_timer(Time),
-    Res = (catch connect1(Address,Port,Opts,Timer)),
-    _ = inet:stop_timer(Timer),
-    case Res of
-	{ok,S} -> {ok,S};
-	{error, einval} -> exit(badarg);
-	{'EXIT',Reason} -> exit(Reason);
-	Error -> Error
+connect(Address, Port, Opts0, Time) ->
+    case inet:gen_tcp_module(Opts0) of
+        {?MODULE, Opts} ->
+            Timer = inet:start_timer(Time),
+            Res = (catch connect1(Address,Port,Opts,Timer)),
+            _ = inet:stop_timer(Timer),
+            case Res of
+                {ok,S} -> {ok,S};
+                {error, einval} -> exit(badarg);
+                {'EXIT',Reason} -> exit(Reason);
+                Error -> Error
+            end;
+        {GenTcpMod, Opts} ->
+            GenTcpMod:connect(Address, Port, Opts, Time)
     end.
 
 connect1(Address, Port, Opts0, Timer) ->
@@ -204,13 +209,18 @@ try_connect([], _Port, _Opts, _Timer, _Mod, Err) ->
       Reason :: system_limit | inet:posix().
 
 listen(Port, Opts0) ->
-    {Mod, Opts} = inet:tcp_module(Opts0),
-    case Mod:getserv(Port) of
-	{ok,TP} ->
-	    Mod:listen(TP, Opts);
-	{error,einval} ->
-	    exit(badarg);
-	Other -> Other
+    case inet:gen_tcp_module(Opts0) of
+        {?MODULE, Opts1} ->
+            {Mod, Opts} = inet:tcp_module(Opts1),
+            case Mod:getserv(Port) of
+                {ok,TP} ->
+                    Mod:listen(TP, Opts);
+                {error,einval} ->
+                    exit(badarg);
+                Other -> Other
+            end;
+        {GenTcpMod, Opts} ->
+            GenTcpMod:listen(Port, Opts)
     end.
 
 %%
@@ -222,7 +232,9 @@ listen(Port, Opts0) ->
       Socket :: socket(),
       Reason :: closed | system_limit | inet:posix().
 
-accept(S) ->
+accept({'$inet', GenTcpMod, _} = S) when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S, infinity);
+accept(S) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
 	    Mod:accept(S);
@@ -236,6 +248,8 @@ accept(S) ->
       Socket :: socket(),
       Reason :: closed | timeout | system_limit | inet:posix().
 
+accept({'$inet', GenTcpMod, _} = S, Time) when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S, Time);
 accept(S, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -253,6 +267,8 @@ accept(S, Time) when is_port(S) ->
       How :: read | write | read_write,
       Reason :: inet:posix().
 
+shutdown({'$inet', GenTcpMod, _} = S, How) when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S, How);
 shutdown(S, How) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -268,6 +284,8 @@ shutdown(S, How) when is_port(S) ->
 -spec close(Socket) -> ok when
       Socket :: socket().
 
+close({'$inet', GenTcpMod, _} = S) when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S);
 close(S) ->
     inet:tcp_close(S).
 
@@ -280,6 +298,8 @@ close(S) ->
       Packet :: iodata(),
       Reason :: closed | inet:posix().
 
+send({'$inet', GenTcpMod, _} = S, Packet) when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S, Packet);
 send(S, Packet) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -299,6 +319,8 @@ send(S, Packet) when is_port(S) ->
       Reason :: closed | inet:posix(),
       HttpPacket :: term().
 
+recv({'$inet', GenTcpMod, _} = S, Length) when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S, Length, infinity);
 recv(S, Length) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -315,6 +337,8 @@ recv(S, Length) when is_port(S) ->
       Reason :: closed | timeout | inet:posix(),
       HttpPacket :: term().
 
+recv({'$inet', GenTcpMod, _} = S, Length, Time) when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S, Length, Time);
 recv(S, Length, Time) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -323,6 +347,8 @@ recv(S, Length, Time) when is_port(S) ->
 	    Error
     end.
 
+unrecv({'$inet', GenTcpMod, _} = S, Data) when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S, Data);
 unrecv(S, Data) when is_port(S) ->
     case inet_db:lookup_socket(S) of
 	{ok, Mod} ->
@@ -340,6 +366,9 @@ unrecv(S, Data) when is_port(S) ->
       Pid :: pid(),
       Reason :: closed | not_owner | badarg | inet:posix().
 
+controlling_process({'$inet', GenTcpMod, _} = S, NewOwner)
+  when is_atom(GenTcpMod) ->
+    GenTcpMod:?FUNCTION_NAME(S, NewOwner);
 controlling_process(S, NewOwner) ->
     case inet_db:lookup_socket(S) of
 	{ok, _Mod} -> % Just check that this is an open socket
@@ -354,5 +383,10 @@ controlling_process(S, NewOwner) ->
 %% Create a port/socket from a file descriptor 
 %%
 fdopen(Fd, Opts0) ->
-    {Mod, Opts} = inet:tcp_module(Opts0),
-    Mod:fdopen(Fd, Opts).
+    case inet:gen_tcp_module(Opts0) of
+        {?MODULE, Opts1} ->
+            {Mod, Opts} = inet:tcp_module(Opts1),
+            Mod:fdopen(Fd, Opts);
+        {GenTcpMod, Opts} ->
+            GenTcpMod:fdopen(Fd, Opts)
+    end.
