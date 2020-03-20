@@ -57,7 +57,7 @@ all() ->
 
 groups() -> 
     [{script, [],
-      [script_options, normal_script, unicode_script, no_mod_vsn_script,
+      [script_options, normal_script, start_script, unicode_script, no_mod_vsn_script,
        wildcard_script, variable_script, abnormal_script,
        no_sasl_script, no_dot_erlang_script,
        src_tests_script, crazy_script,
@@ -66,10 +66,10 @@ groups() ->
        duplicate_modules_script,
        otp_3065_circular_dependenies, included_and_used_sort_script]},
      {tar, [],
-      [tar_options, normal_tar, no_mod_vsn_tar, system_files_tar,
+      [tar_options, relname_tar, normal_tar, no_mod_vsn_tar, system_files_tar,
        system_src_file_tar, invalid_system_files_tar, variable_tar,
        src_tests_tar, var_tar, exref_tar, link_tar, no_sasl_tar,
-       otp_9507_path_ebin]},
+       otp_9507_path_ebin, additional_files_tar]},
      {relup, [],
       [normal_relup, restart_relup, abnormal_relup, no_sasl_relup,
        no_appup_relup, bad_appup_relup, app_start_type_relup, regexp_relup
@@ -235,6 +235,29 @@ normal_script(Config) when is_list(Config) ->
     code:set_path(PSAVE),			% Restore path
     ok.
 
+%% make_script: Check that script can be named start.script
+start_script(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+    PSAVE = code:get_path(),		% Save path
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P1 = fname([LibDir, 'db-2.1', ebin]),
+    P2 = fname([LibDir, 'fe-3.1', ebin]),
+
+    true = code:add_patha(P1),
+    true = code:add_patha(P2),
+
+    ok = file:set_cwd(LatestDir),
+
+    ok = systools:make_script(filename:basename(LatestName), [{script_name, "start"}]),
+    {ok, _} = read_script_file("start"),	% Check readabillity
+
+    ok = file:set_cwd(OldDir),
+    code:set_path(PSAVE),			% Restore path
+    ok.
 
 %% make_script: Test make_script with unicode .app file
 unicode_script(Config) when is_list(Config) ->
@@ -869,7 +892,7 @@ tar_options(Config) when is_list(Config) ->
     ok.
 
 
-%% make_tar: Check normal case
+%% make_tar: Check case of start.boot
 normal_tar(Config) when is_list(Config) ->
     {ok, OldDir} = file:get_cwd(),
 
@@ -882,7 +905,29 @@ normal_tar(Config) when is_list(Config) ->
 
     ok = file:set_cwd(LatestDir),
 
-    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, "start"}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
+    {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
+    ok = check_tar(fname([lib,'fe-3.1',ebin,'fe.app']), LatestName),
+
+    ok = file:set_cwd(OldDir),
+    ok.
+
+%% make_tar: Check case of relname.boot
+relname_tar(Config) when is_list(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}, {script_name, LatestName}]),
     ok = systools:make_tar(LatestName, [{path, P}]),
     ok = check_tar(fname([lib,'db-2.1',ebin,'db.app']), LatestName),
     {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
@@ -940,6 +985,57 @@ system_files_tar(Config) ->
     {ok, _, []} = systools:make_tar(LatestName, [{path, P}, silent]),
     ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
     ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
+
+    ok = file:set_cwd(OldDir),
+
+    ok.
+
+%% make_tar: Check that extra_files are included in the tarball
+additional_files_tar(Config) ->
+    {ok, OldDir} = file:get_cwd(),
+
+    {LatestDir, LatestName} = create_script(latest,Config),
+
+    DataDir = filename:absname(?copydir),
+    LibDir = fname([DataDir, d_normal, lib]),
+    P = [fname([LibDir, 'db-2.1', ebin]),
+	 fname([LibDir, 'fe-3.1', ebin])],
+
+    ok = file:set_cwd(LatestDir),
+
+    %% Add dummy relup and sys.config
+    ok = file:write_file("sys.config","[].\n"),
+    ok = file:write_file("relup","{\"LATEST\",[],[]}.\n"),
+
+    %% unrelated files that must be included explicitly
+    RandomFile = "somefile",
+    ok = file:write_file(RandomFile,"hello\n"),
+
+    TopLevelDir = "some_dir",
+    TopLevelFile = filename:join(TopLevelDir, "top_level_file"),
+
+    filelib:ensure_dir(TopLevelFile),
+    ok = file:write_file(TopLevelFile, "hello there\n"),
+
+    {ok, _, []} = systools:make_script(LatestName, [silent, {path, P}]),
+    ok = systools:make_tar(LatestName, [{path, P}]),
+    ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
+    ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
+    %% random file should not be in this tarball
+    {error, _} = check_tar(fname(["releases","LATEST",RandomFile]), LatestName),
+
+    RandomFilePathInTar = filename:join(["releases", "LATEST", RandomFile]),
+
+    {ok, _, []} = systools:make_tar(LatestName,
+                                    [{path, P}, silent,
+                                     {extra_files, [{RandomFile, RandomFilePathInTar},
+                                                    {TopLevelDir, TopLevelDir}]}]),
+    ok = check_tar(fname(["releases","LATEST","sys.config"]), LatestName),
+    ok = check_tar(fname(["releases","LATEST","relup"]), LatestName),
+
+    %% random file and dir should be in this tarball
+    ok = check_tar(fname(["releases","LATEST",RandomFile]), LatestName),
+    ok = check_tar(fname([TopLevelFile]), LatestName),
 
     ok = file:set_cwd(OldDir),
 
