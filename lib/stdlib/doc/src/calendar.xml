@@ -41,7 +41,7 @@
       Greenwich Mean Time (GMT).</p>
     <p>The time functions <c>local_time/0</c> and
       <c>universal_time/0</c> in this module both return date
-      and time. The is because separate functions for date
+      and time. This is because separate functions for date
       and time can result in a date/time combination that is displaced
       by 24 hours. This occurs if one of the functions is called
       before midnight, and the other after midnight. This problem also
