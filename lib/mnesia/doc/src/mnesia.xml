@@ -2160,7 +2160,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name since="">sync_transaction(Fun, [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name since="">sync_transaction(Fun [, Args [, Retries]]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
       <fsummary>Synchronously executes a transaction.</fsummary>
       <desc>
       <marker id="sync_transaction"></marker>
@@ -2571,7 +2571,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name since="">transaction(Fun [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name since="">transaction(Fun [, Args [, Retries]]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
       <fsummary>Executes a transaction.</fsummary>
       <desc>
       <marker id="transaction"></marker>

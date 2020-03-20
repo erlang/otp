@@ -418,7 +418,7 @@
     </func>
 
     <func>
-      <name name="trace" since="OTP 19.0">Module:trace(seq_trace, TracerState, Label,
+      <name since="OTP 19.0">Module:trace(seq_trace, TracerState, Label,
         SeqTraceInfo, Opts) -> Result</name>
       <fsummary>Check if a sequence trace event is to be generated.</fsummary>
       <type>

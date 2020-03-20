@@ -1546,7 +1546,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	</p></warning>
 
 	<p>If <c>Socket</c> is an 
-	<seetype marker="#type-sslsocket"> sslsocket() </seetype>: provides extra TLS/DTLS
+	<seetype marker="#sslsocket"> sslsocket() </seetype>: provides extra TLS/DTLS
 	options to those specified in
 	<seemfa marker="#listen/2">listen/2</seemfa> and then performs
 	the TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake is successful.</p>

@@ -340,7 +340,7 @@ eof
     <p>Notice that the <c>get_until</c> request allows for a function with the
       data specified as always being a list. Also, the return value data from
       such a function can be of any type (as is indeed the case when an
-      <seemfa marker="stdlib:io#fread/1"><c>io:fread/2,3</c></seemfa>
+      <seemfa marker="stdlib:io#fread/2"><c>io:fread/2,3</c></seemfa>
       request is sent to an I/O server).
       The client must be prepared for data received as
       answers to those requests to be in various forms. However, the I/O
