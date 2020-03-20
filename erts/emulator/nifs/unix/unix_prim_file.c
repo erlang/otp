@@ -725,7 +725,7 @@ posix_errno_t efile_read_info(const efile_path_t *path, int follow_links, efile_
 static int check_access(struct stat *st) {
     int ret = EFILE_ACCESS_NONE;
 
-    if(st->st_uid == getuid()) {
+    if(st->st_uid == geteuid()) {
         if(st->st_mode & S_IRUSR) {
             ret |= EFILE_ACCESS_READ;
         }
@@ -735,7 +735,7 @@ static int check_access(struct stat *st) {
         return ret;
     }
 
-    if(st->st_gid == getgid()) {
+    if(st->st_gid == getegid()) {
         if(st->st_mode & S_IRGRP) {
             ret |= EFILE_ACCESS_READ;
         }
