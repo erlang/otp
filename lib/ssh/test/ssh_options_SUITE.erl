@@ -72,7 +72,8 @@
 	 hostkey_fingerprint_check_sha512/1,
 	 hostkey_fingerprint_check_list/1,
          save_accepted_host_option/1,
-         config_file/1
+         config_file/1,
+         config_file_modify_algorithms_order/1
 	]).
 
 %%% Common test callbacks
@@ -128,7 +129,8 @@ all() ->
      id_string_random_server,
      save_accepted_host_option,
      {group, hardening_tests},
-     config_file
+     config_file,
+     config_file_modify_algorithms_order
     ].
 
 groups() ->
@@ -1322,12 +1324,15 @@ config_file(Config) ->
     OurAlgs = ssh_transport:supported_algorithms(), % Incl disabled but supported
     CommonAlgs = ssh_test_lib:intersection(ServerAlgs, OurAlgs),
     ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),
+    Nkex = length(proplists:get_value(kex, CommonAlgs, [])),
 
-    case {ServerAlgs,CommonAlgs} of
+    case {ServerAlgs, ssh_test_lib:some_empty(CommonAlgs)} of
         {[],_} ->
             {skip, "No server algorithms found"};
-        {_,[]} ->
-            {fail, "No common algorithms"};
+        {_,true} ->
+            {fail, "Missing common algorithms"};
+        _ when Nkex<3 ->
+            {skip, "Not enough number of common kex"};
         _ ->
             %% Then find three common kex and one common cipher:
             [K1a,K1b,K2a|_] = proplists:get_value(kex, CommonAlgs),
@@ -1396,8 +1401,104 @@ config_file(Config) ->
             stop_node_nice(Node)
     end.
     
+%%%----------------------------------------------------------------
+config_file_modify_algorithms_order(Config) ->
+    %% First find common algs:
+    ServerAlgs = ssh_test_lib:default_algorithms(sshd),
+    OurAlgs = ssh_transport:supported_algorithms(), % Incl disabled but supported
+    CommonAlgs = ssh_test_lib:intersection(ServerAlgs, OurAlgs),
+    ct:log("ServerAlgs =~n~p~n~nOurAlgs =~n~p~n~nCommonAlgs =~n~p",[ServerAlgs,OurAlgs,CommonAlgs]),
+    Nkex = length(proplists:get_value(kex, CommonAlgs, [])),
+    case {ServerAlgs, ssh_test_lib:some_empty(CommonAlgs)} of
+        {[],_} ->
+            {skip, "No server algorithms found"};
+        {_,true} ->
+            {fail, "Missing common algorithms"};
+        _ when Nkex<3 ->
+            {skip, "Not enough number of common kex"};
+        _ ->
+            %% Then find three common kex and one common cipher:
+            [K1,K2,K3|_] = proplists:get_value(kex, CommonAlgs),
+            [{_,[Ch1|_]}|_] = proplists:get_value(cipher, CommonAlgs),
+
+            %% Make config file:
+            Contents = 
+                [{ssh, [{preferred_algorithms,
+                         [{cipher, [Ch1]},
+                          {kex,    [K1]}
+                         ]},
+                        {server_options,
+                         [{modify_algorithms,
+                           [{rm,     [{kex, [K1]}]},
+                            {append, [{kex, [K2]}]}
+                           ]}
+                         ]},
+                        {client_options,
+                         [{modify_algorithms,
+                           [{rm,     [{kex, [K1]}]},
+                            {append, [{kex, [K3]}]}
+                           ]}
+                         ]}
+                       ]}
+                ],          
+            %% write the file:
+            PrivDir = proplists:get_value(priv_dir, Config),
+            ConfFile = filename:join(PrivDir,"c3.config"),
+            {ok,D} = file:open(ConfFile, [write]),
+            io:format(D, "~p.~n", [Contents]),
+            file:close(D),
+            {ok,Cnfs} = file:read_file(ConfFile),
+            ct:log("c3.config:~n~s", [Cnfs]),
+
+            %% Start the slave node with the configuration just made:
+            {ok,Node} = start_node(random_node_name(?MODULE), ConfFile),
     
-%%%----
+            R0 = rpc:call(Node, ssh, default_algorithms, []),
+            ct:log("R0 = ~p",[R0]),
+            R0 = ssh:default_algorithms(),
+
+            %% Start ssh on the slave. This should apply the ConfFile:
+            ok = rpc:call(Node, ssh, start, []),
+            R1 = rpc:call(Node, ssh, default_algorithms, []),
+            ct:log("R1 = ~p",[R1]),
+            [{kex,[K1]} | _] = R1,
+
+            %% Start a daemon
+            {Server, Host, Port} = rpc:call(Node, ssh_test_lib, std_daemon, [Config, []]),
+            {ok,ServerInfo} = rpc:call(Node, ssh, daemon_info, [Server]),
+            ct:log("ServerInfo =~n~p", [ServerInfo]),
+
+            %% Test that the server_options env key works:
+            [K2] = proplists:get_value(kex,
+                   proplists:get_value(preferred_algorithms,
+                   proplists:get_value(options, ServerInfo))),
+            
+            {badrpc, {'EXIT', {{badmatch,ExpectedError}, _}}} =
+                %% No common kex algorithms expected. 
+                rpc:call(Node, ssh_test_lib, std_connect, [Config, Host, Port, []]), 
+            {error,"Key exchange failed"} = ExpectedError,
+
+            C = rpc:call(Node, ssh_test_lib, std_connect,
+                         [Config, Host, Port, 
+                          [{modify_algorithms,[{append,[{kex,[K2]}]}]}]]),
+            ConnInfo = rpc:call(Node, ssh, connection_info, [C]),
+            ct:log("ConnInfo =~n~p", [ConnInfo]),
+            Algs = proplists:get_value(algorithms, ConnInfo),
+            ct:log("Algs =~n~p", [Algs]),
+            ConnOptions = proplists:get_value(options, ConnInfo),
+            ConnPrefAlgs = proplists:get_value(preferred_algorithms, ConnOptions),
+
+            %% And now, are all levels appied in right order:
+            [K3,K2] = proplists:get_value(kex, ConnPrefAlgs),
+
+            stop_node_nice(Node)
+    end.
+
+    
+%%--------------------------------------------------------------------
+%% Internal functions ------------------------------------------------
+%%--------------------------------------------------------------------
+
 start_node(Name, ConfigFile) ->
     Pa = filename:dirname(code:which(?MODULE)),
     test_server:start_node(Name, slave, [{args, 
@@ -1411,9 +1512,7 @@ random_node_name(BaseName) ->
     L = integer_to_list(erlang:unique_integer([positive])),
     lists:concat([BaseName,"___",L]).
 
-%%--------------------------------------------------------------------
-%% Internal functions ------------------------------------------------
-%%--------------------------------------------------------------------
+%%%----
   
 expected_ssh_vsn(Str) ->
     try
