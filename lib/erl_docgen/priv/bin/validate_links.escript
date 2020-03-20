@@ -33,19 +33,45 @@ main([ErlTop,Mod2App|Args]) ->
     M2A = parse_mod2app(Mod2App),
     put(top, ErlTop),
     put(exit_code, 0),
-    lists:foldl(fun validate_links/2,maps:from_list([{m2a,M2A}|Files]),Files),
+    CachedFiles = maps:from_list([{m2a,M2A}|Files]),
+    [validate_links(File,CachedFiles) || File <- Files],
     erlang:halt(get(exit_code)).
 
 parse_file(Filename) ->
 %    io:format("Parse: ~p~n",[Filename]),
     case xmerl_sax_parser:file(Filename, [skip_external_dtd,
-                                          {event_fun,fun event/3},
-                                          {event_state,#{}}]) of
+                                          {event_fun,fun handle_event/3},
+                                          {event_state,#{ funcs => [],
+                                                          datatypes => []}}]) of
         {ok, Res, _} ->
+%            [io:format("~p~n",[Res]) || maps:get(filename,Res) == {"erts","erl_tracer"}],
             {maps:get(filename,Res), maps:remove(filename,Res)}
     end.
 
-event({startElement, _, Tag, _, _Attr}, _Line, #{ type := Type } = State) when
+handle_event(startDocument, _Line, State) ->
+    {State,[]};
+handle_event({startElement, _, Tag, _, Attr}, Line, {State, Stack}) ->
+    NewState = event({startElement, Tag, [{A,V} || {_,_,A,V} <- Attr]}, Line, State, Stack),
+    {NewState,[Tag | Stack]};
+handle_event({endElement, _, Tag, _}, Line, {State, [Tag|NewStack]}) ->
+    {event({endElement,Tag}, Line, State, NewStack), NewStack};
+handle_event({characters, Chars}, Line, {State, Stack}) ->
+    {event({characters,Chars}, Line, State, Stack), Stack};
+handle_event(endDocument, _Line, {State,[]}) ->
+    State;
+handle_event(Ignore, _, S) when
+      (not is_tuple(Ignore)) orelse (element(1,Ignore) =/= startElement),
+      (not is_tuple(Ignore)) orelse (element(1,Ignore) =/= endElement),
+      (not is_tuple(Ignore)) orelse (element(1,Ignore) =/= characters),
+      Ignore =/= startDocument,
+      Ignore =/= endDocument ->
+    S;
+handle_event(E,L,S) ->
+    io:format("handle_event(~p,~p,~p) did not match~n",[E,L,S]),
+    halt(1).
+
+%% Get the filename of document
+event({startElement, Tag, _Attr}, _Line, #{ type := Type } = State, _) when
       (Tag =:= "module") and (Type =:= "erlref");
       (Tag =:= "lib") and (Type =:= "cref");
       (Tag =:= "com") and (Type =:= "comref");
@@ -54,16 +80,66 @@ event({startElement, _, Tag, _, _Attr}, _Line, #{ type := Type } = State) when
       (Tag =:= "file") and (Type =:= "chapter") ->
     maps:put(filename,undefined,State);
 event({characters,ModuleName},{Path,_,_},
-      #{ type := "chapter", filename := undefined } = State) ->
+      #{ type := "chapter", filename := undefined } = State, _) ->
     maps:put(filename,{path2app(Path),filename:rootname(ModuleName)}, State);
 event({characters,ModuleName},{Path,_,_},
-      #{ type := "appref", filename := undefined } = State) ->
+      #{ type := "appref", filename := undefined } = State, _) ->
     maps:put(filename,{path2app(Path),ModuleName ++ "_app"}, State);
-event({characters,ModuleName},{Path,_,_},#{ filename := undefined } = State) ->
+event({characters,ModuleName},{Path,_,_},#{ filename := undefined } = State, _) ->
     maps:put(filename,{path2app(Path),ModuleName}, State);
-event({startElement, _, "see" ++ _ = What, _, Attr}, Line, State) ->
+
+%% Get the see* attributes
+event({startElement, "see" ++ _ = What, Attr}, Line, State, _) ->
     maps:put(What, [{Line,Attr}|maps:get(What, State, [])], State);
-event({startElement, _, What, _, _Attr}, _, State) when
+
+%% Get all the marker attributes
+event({startElement, "marker", [{"id",Id}]}, Line, State, _) ->
+    maps:put(marker, [{Line,Id}|maps:get(marker, State, [])], State);
+
+%% Get all func->name markers in erlref
+event({startElement, "name", Attr}, _Line, #{ type := "erlref" } = State, ["func" | _]) ->
+    case {proplists:get_value("name",Attr),proplists:get_value("arity",Attr)} of
+        {undefined,undefined} ->
+            %% We parse the function name from the content,
+            %% so have to capture characters
+            error = maps:find(characters,State),
+            maps:put(characters,[],State);
+        {Func,Arity} when Func =/= undefined, Arity =/= undefined ->
+            maps:put(funcs, [{Func,Arity}|maps:get(funcs,State,[])], State)
+    end;
+event({endElement,"name"}, _Line, #{ characters := Chars} = State, ["func"|_]) ->
+    FAs = docgen_xml_to_chunk:func_to_tuple(Chars),
+    NewFuncs =
+        lists:foldl(
+          fun({F,A},Acc) ->
+                  [{F,integer_to_list(A)} | Acc]
+          end, maps:get(funcs,State,[]), FAs),
+    maps:remove(characters, maps:put(funcs, NewFuncs, State));
+
+%% Get all datatype->name markers in erlref
+event({startElement, "name", Attr}, _Line, #{ type := "erlref" } = State, ["datatype" | _]) ->
+    case {proplists:get_value("name",Attr),proplists:get_value("arity",Attr)} of
+        {undefined,undefined} ->
+            %% We parse the datatype name from the content,
+            %% so have to capture characters
+            error = maps:find(characters,State),
+            maps:put(characters,[],State);
+        {Name,Arity} when Name =/= undefined, Arity =:= undefined ->
+            maps:put(datatypes, [Name|maps:get(datatypes,State,[])], State)
+    end;
+event({endElement,"name"}, _Line, #{ characters := Chars} = State, ["datatype"|_]) ->
+    FAs = docgen_xml_to_chunk:func_to_tuple(Chars),
+    NewFuncs =
+        lists:foldl(
+          fun({F,_A},Acc) -> [F | Acc] end, maps:get(datatypes,State,[]), FAs),
+    maps:remove(characters, maps:put(datatypes, NewFuncs, State));
+
+%% Capture all characters
+event({characters,Chars},_Line, #{ characters := Acc } = State, _) ->
+    maps:put(characters,[Acc,Chars],State);
+
+%% Get the type of document
+event({startElement, What, _Attr}, _, State, _) when
       What =:= "erlref";
       What =:= "appref";
       What =:= "comref";
@@ -71,13 +147,13 @@ event({startElement, _, What, _, _Attr}, _, State) when
       What =:= "fileref";
       What =:= "chapter" ->
     maps:put(type,What,State);
-event({startElement, _, What, _, _Attr}, {Path,Filename,_}, State) when
+event({startElement, What, _Attr}, {Path,Filename,_}, State, _) when
       What =:= "book";
       What =:= "application";
       What =:= "internal";
       What =:= "part" ->
     State#{ filename => {path2app(Path),filename:rootname(Filename)}, type => What };
-event(_Event, _Line, State) ->
+event(_Event, _Line, State, _) ->
     State.
 
 parse_mod2app(Filename) ->
@@ -99,28 +175,36 @@ parse_mod2app(Filename) ->
 
 validate_links({Filename, Links}, CachedFiles) ->
     %% io:format("~s ~p~n",[Links]),
-    lists:foldl(
-      fun({LinkType, TypeLinks}, Cache) ->
-              lists:foldl(
-                fun({Line,Link}, LinkCache) ->
-                        validate_link(Filename, LinkType, Line, Link, LinkCache)
-                end, Cache, TypeLinks)
-      end, CachedFiles, maps:to_list(maps:remove(type,Links))).
-validate_link(Filename, LinkType, Line, [{_,_,"marker",Marker}], CachedFiles) ->
+    lists:foreach(
+      fun({LinkType, TypeLinks}) ->
+              lists:foreach(
+                fun({Line,Link}) ->
+                        validate_link(Filename, LinkType, Line, Link, CachedFiles)
+                end, TypeLinks)
+      end, maps:to_list(maps:filter(fun(Key,_) -> not is_atom(Key) end,Links))).
+validate_link(Filename, LinkType, Line, [{"marker",Marker}], CachedFiles) ->
     validate_link(Filename, LinkType, Line, Marker, CachedFiles);
 validate_link(Filename, "seemfa", Line, Link, CachedFiles) ->
-    case lists:reverse(string:lexemes(Link,"#")) of
-        [Link] ->
+    case string:find(Link,"#") of
+        nomatch ->
             fail(Line, "Invalid link in seemfa. "
                  "Must contains a '#'.");
-        [Anchor|AppMod] ->
+        _ ->
+            {App,Mod,Anchor} = ParsedLink = parse_link(Filename, maps:new(), Link),
             case string:lexemes(Anchor,"/") of
                 [Func, Arity] ->
                     try list_to_integer(Arity) of
                         _ ->
-                            validate_link(Filename, "seeerl", Line,
-                                          AppMod ++ "#" ++ Func ++ "-" ++ Arity,
-                                          CachedFiles)
+                            MF = App ++ ":" ++ Mod ++ "#" ++ Func,
+                            Funcs = maps:get(funcs,maps:get({App,Mod},CachedFiles)),
+                            case lists:member({Func,Arity},Funcs) of
+                                true ->
+                                    validate_type(Line, "seemfa",
+                                                  read_link(Line, ParsedLink, CachedFiles));
+                                false ->
+                                    fail(Line, "Could not find documentation for ~s when "
+                                         "resolving link",[MF  ++ "/" ++ Arity])
+                            end
                     catch _:_ ->
                             fail(Line, "Invalid arity for seemfa. "
                                  "Must end in a number")
@@ -131,13 +215,21 @@ validate_link(Filename, "seemfa", Line, Link, CachedFiles) ->
             end
     end;
 validate_link(Filename, LinkType = "seetype", Line, Link, CachedFiles) ->
+    {App,Mod,Type} = ParsedLink = parse_link(Filename, maps:get(m2a,CachedFiles), Link),
+    Types = maps:get(datatypes,maps:get({App,Mod},CachedFiles)),
+    case lists:member(Type, Types) of
+        false ->
+            fail(Line, "Could not find documentation for ~s when "
+                 "resolving link",[App ++ ":" ++ Mod ++ "#" ++ Type]);
+        _ ->
+            validate_type(Line,LinkType,read_link(Line, ParsedLink, CachedFiles))
+    end;
+validate_link(Filename, "seeerl" = LinkType, Line, Link, CachedFiles) ->
     Type = read_link(Line, parse_link(Filename, maps:get(m2a,CachedFiles), Link), CachedFiles),
-    validate_type(Line,LinkType,Type),
-    CachedFiles;
+    validate_type(Line,LinkType,Type);
 validate_link(Filename, LinkType, Line, Link, CachedFiles) ->
     Type = read_link(Line, parse_link(Filename, maps:new(), Link), CachedFiles),
-    validate_type(Line,LinkType,Type),
-    CachedFiles.
+    validate_type(Line,LinkType,Type).
 
 parse_link({SelfApp,Filename},Mod2App,Link) ->
     {AppMod, Marker} =
@@ -172,6 +264,8 @@ read_link(Line, {App,Mod,_}, Cache) ->
     end.
 
 validate_type(_Line, "seeerl","erlref") ->
+    ok;
+validate_type(_Line, "seemfa","erlref") ->
     ok;
 validate_type(_Line, "seetype","erlref") ->
     ok;
