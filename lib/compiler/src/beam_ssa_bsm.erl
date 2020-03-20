@@ -59,7 +59,7 @@
 -include("beam_ssa.hrl").
 -include("beam_types.hrl").
 
--import(lists, [member/2, reverse/1, reverse/2, splitwith/2, map/2, foldl/3,
+-import(lists, [member/2, reverse/1, reverse/2, splitwith/2, foldl/3,
                 mapfoldl/3, nth/2, max/1, unzip/1]).
 
 -spec format_error(term()) -> nonempty_string().
@@ -170,12 +170,14 @@ ccc_1([#b_local{}=Call | Args], Ctx, Aliases, ModInfo) ->
             Parameters = funcinfo_get(Callee, parameters, ModInfo),
             Parameter = nth(1 + arg_index(Ctx, Args), Parameters),
 
-            case maps:find(Parameter, ParamInfo) of
-                {ok, suitable_for_reuse} ->
+            case ParamInfo of
+                #{ Parameter := suitable_for_reuse } ->
                     suitable_for_reuse;
-                {ok, Other} ->
-                    {unsuitable_call, {Call, Other}};
-                error ->
+                #{ Parameter := {unsuitable_call, {Call, _}}=Info } ->
+                    Info;
+                #{ Parameter := Info } ->
+                    {unsuitable_call, {Call, Info}};
+                #{} ->
                     {no_match_on_entry, Call}
             end;
         UseCount > 1 ->
@@ -441,7 +443,7 @@ is_var_in_args(_Var, []) -> false.
               renames = #{} :: beam_ssa:rename_map() }).
 
 combine_matches({Fs0, ModInfo}) ->
-    Fs = map(fun(F) -> combine_matches(F, ModInfo) end, Fs0),
+    Fs = [combine_matches(F, ModInfo) || F <- Fs0],
     {Fs, ModInfo}.
 
 combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
@@ -789,9 +791,8 @@ aca_cs_arg(Arg, VRs) ->
 %% contexts to us.
 
 allow_context_passthrough({Fs, ModInfo0}) ->
-    ModInfo =
-        acp_forward_params([{F, beam_ssa:uses(F#b_function.bs)} || F <- Fs],
-                           ModInfo0),
+    FsUses = [{F, beam_ssa:uses(F#b_function.bs)} || F <- Fs],
+    ModInfo = acp_forward_params(FsUses, ModInfo0),
     {Fs, ModInfo}.
 
 acp_forward_params(FsUses, ModInfo0) ->
@@ -840,7 +841,7 @@ acp_1(_Param, _Uses, _ModInfo, ParamInfo) ->
                 match_aliases = #{} :: match_alias_map() }).
 
 skip_outgoing_tail_extraction({Fs0, ModInfo}) ->
-    Fs = map(fun(F) -> skip_outgoing_tail_extraction(F, ModInfo) end, Fs0),
+    Fs = [skip_outgoing_tail_extraction(F, ModInfo) || F <- Fs0],
     {Fs, ModInfo}.
 
 skip_outgoing_tail_extraction(#b_function{bs=Blocks0}=F, ModInfo) ->
