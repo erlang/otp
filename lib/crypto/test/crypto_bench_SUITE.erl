@@ -23,6 +23,11 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
+-compile([{nowarn_deprecated_function,
+           [{crypto,block_encrypt,4},
+            {crypto,stream_encrypt,2},
+            {crypto,stream_init,3}]}]).
+
 
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
