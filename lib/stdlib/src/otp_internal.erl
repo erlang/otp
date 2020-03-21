@@ -34,57 +34,57 @@ obsolete(calendar, local_time_to_universal_time, 1) ->
 obsolete(code, rehash, 0) ->
     {deprecated, "the code path cache feature has been removed"};
 obsolete(crypto, block_decrypt, 3) ->
-    {deprecated, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead"};
+    {deprecated, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead", "OTP 24"};
 obsolete(crypto, block_decrypt, 4) ->
-    {deprecated, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"};
+    {deprecated, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead", "OTP 24"};
 obsolete(crypto, block_encrypt, 3) ->
-    {deprecated, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead"};
+    {deprecated, "use crypto:crypto_one_time/4 or crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 instead", "OTP 24"};
 obsolete(crypto, block_encrypt, 4) ->
-    {deprecated, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead"};
+    {deprecated, "use crypto:crypto_one_time/5, crypto:crypto_one_time_aead/6,7 or crypto:crypto_(dyn_iv)?_init + crypto:crypto_(dyn_iv)?_update + crypto:crypto_final instead", "OTP 24"};
 obsolete(crypto, cmac, 3) ->
-    {deprecated, "use crypto:mac/4 instead"};
+    {deprecated, "use crypto:mac/4 instead", "OTP 24"};
 obsolete(crypto, cmac, 4) ->
-    {deprecated, "use crypto:macN/5 instead"};
+    {deprecated, "use crypto:macN/5 instead", "OTP 24"};
 obsolete(crypto, hmac, 3) ->
-    {deprecated, "use crypto:mac/4 instead"};
+    {deprecated, "use crypto:mac/4 instead", "OTP 24"};
 obsolete(crypto, hmac, 4) ->
-    {deprecated, "use crypto:macN/5 instead"};
+    {deprecated, "use crypto:macN/5 instead", "OTP 24"};
 obsolete(crypto, hmac_final, 1) ->
-    {deprecated, "use crypto:mac_final/1 instead"};
+    {deprecated, "use crypto:mac_final/1 instead", "OTP 24"};
 obsolete(crypto, hmac_final_n, 2) ->
-    {deprecated, "use crypto:mac_finalN/2 instead"};
+    {deprecated, "use crypto:mac_finalN/2 instead", "OTP 24"};
 obsolete(crypto, hmac_init, 2) ->
-    {deprecated, "use crypto:mac_init/3 instead"};
+    {deprecated, "use crypto:mac_init/3 instead", "OTP 24"};
 obsolete(crypto, hmac_update, 2) ->
-    {deprecated, "use crypto:mac_update/2 instead"};
+    {deprecated, "use crypto:mac_update/2 instead", "OTP 24"};
 obsolete(crypto, poly1305, 2) ->
-    {deprecated, "use crypto:mac/3 instead"};
+    {deprecated, "use crypto:mac/3 instead", "OTP 24"};
 obsolete(crypto, rand_uniform, 2) ->
     {deprecated, "use rand:rand_uniform/1 instead"};
 obsolete(crypto, stream_decrypt, 2) ->
-    {deprecated, "use crypto:crypto_update/2 instead"};
+    {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
 obsolete(crypto, stream_encrypt, 2) ->
-    {deprecated, "use crypto:crypto_update/2 instead"};
+    {deprecated, "use crypto:crypto_update/2 instead", "OTP 24"};
 obsolete(erlang, get_stacktrace, 0) ->
-    {deprecated, "use the new try/catch syntax for retrieving the stack backtrace"};
+    {deprecated, "use the new try/catch syntax for retrieving the stack backtrace", "OTP 24"};
 obsolete(erlang, now, 0) ->
     {deprecated, "see the \"Time and Time Correction in Erlang\" chapter of the ERTS User's Guide for more information"};
 obsolete(filename, safe_relative_path, 1) ->
-    {deprecated, "use filelib:safe_relative_path/2 instead"};
+    {deprecated, "use filelib:safe_relative_path/2 instead", "OTP 25"};
 obsolete(http_uri, decode, 1) ->
-    {deprecated, "use uri_string functions instead"};
+    {deprecated, "use uri_string functions instead", "OTP 25"};
 obsolete(http_uri, encode, 1) ->
-    {deprecated, "use uri_string functions instead"};
+    {deprecated, "use uri_string functions instead", "OTP 25"};
 obsolete(http_uri, parse, 1) ->
-    {deprecated, "use uri_string functions instead"};
+    {deprecated, "use uri_string functions instead", "OTP 25"};
 obsolete(http_uri, parse, 2) ->
-    {deprecated, "use uri_string functions instead"};
+    {deprecated, "use uri_string functions instead", "OTP 25"};
 obsolete(http_uri, scheme_defaults, 0) ->
-    {deprecated, "use uri_string functions instead"};
+    {deprecated, "use uri_string functions instead", "OTP 25"};
 obsolete(httpd, parse_query, 1) ->
     {deprecated, "use uri_string:dissect_query/1 instead"};
 obsolete(megaco, format_versions, 1) ->
-    {deprecated, "use megaco:print_version_info/0,1 instead."};
+    {deprecated, "use megaco:print_version_info/0,1 instead.", "OTP 24"};
 obsolete(net, broadcast, 3) ->
     {deprecated, "use rpc:eval_everywhere/3 instead"};
 obsolete(net, call, 4) ->
@@ -100,151 +100,151 @@ obsolete(net, sleep, 1) ->
 obsolete(queue, lait, 1) ->
     {deprecated, "use queue:liat/1 instead"};
 obsolete(snmp, add_agent_caps, 2) ->
-    {deprecated, "use snmpa:add_agent_caps/2 instead."};
+    {deprecated, "use snmpa:add_agent_caps/2 instead.", "OTP 24"};
 obsolete(snmp, c, 1) ->
-    {deprecated, "use snmpa:c/1 instead."};
+    {deprecated, "use snmpa:c/1 instead.", "OTP 24"};
 obsolete(snmp, c, 2) ->
-    {deprecated, "use snmpa:c/2 instead."};
+    {deprecated, "use snmpa:c/2 instead.", "OTP 24"};
 obsolete(snmp, change_log_size, 1) ->
-    {deprecated, "use snmpa:change_log_size/1 instead."};
+    {deprecated, "use snmpa:change_log_size/1 instead.", "OTP 24"};
 obsolete(snmp, compile, 3) ->
-    {deprecated, "use snmpa:compile/3 instead."};
+    {deprecated, "use snmpa:compile/3 instead.", "OTP 24"};
 obsolete(snmp, current_address, 0) ->
-    {deprecated, "use snmpa:current_address/0 instead."};
+    {deprecated, "use snmpa:current_address/0 instead.", "OTP 24"};
 obsolete(snmp, current_community, 0) ->
-    {deprecated, "use snmpa:current_community/0 instead."};
+    {deprecated, "use snmpa:current_community/0 instead.", "OTP 24"};
 obsolete(snmp, current_context, 0) ->
-    {deprecated, "use snmpa:current_context/0 instead."};
+    {deprecated, "use snmpa:current_context/0 instead.", "OTP 24"};
 obsolete(snmp, current_net_if_data, 0) ->
-    {deprecated, "use snmpa:current_net_if_data/0 instead."};
+    {deprecated, "use snmpa:current_net_if_data/0 instead.", "OTP 24"};
 obsolete(snmp, current_request_id, 0) ->
-    {deprecated, "use snmpa:current_request_id/0 instead."};
+    {deprecated, "use snmpa:current_request_id/0 instead.", "OTP 24"};
 obsolete(snmp, del_agent_caps, 1) ->
-    {deprecated, "use snmpa:del_agent_caps/1 instead."};
+    {deprecated, "use snmpa:del_agent_caps/1 instead.", "OTP 24"};
 obsolete(snmp, dump_mibs, 0) ->
-    {deprecated, "use snmpa:dump_mibs/0 instead."};
+    {deprecated, "use snmpa:dump_mibs/0 instead.", "OTP 24"};
 obsolete(snmp, dump_mibs, 1) ->
-    {deprecated, "use snmpa:dump_mibs/1 instead."};
+    {deprecated, "use snmpa:dump_mibs/1 instead.", "OTP 24"};
 obsolete(snmp, enum_to_int, 2) ->
-    {deprecated, "use snmpa:enum_to_int/2 instead."};
+    {deprecated, "use snmpa:enum_to_int/2 instead.", "OTP 24"};
 obsolete(snmp, enum_to_int, 3) ->
-    {deprecated, "use snmpa:enum_to_int/3 instead."};
+    {deprecated, "use snmpa:enum_to_int/3 instead.", "OTP 24"};
 obsolete(snmp, get, 2) ->
-    {deprecated, "use snmpa:get/2 instead."};
+    {deprecated, "use snmpa:get/2 instead.", "OTP 24"};
 obsolete(snmp, get_agent_caps, 0) ->
-    {deprecated, "use snmpa:get_agent_caps/0 instead."};
+    {deprecated, "use snmpa:get_agent_caps/0 instead.", "OTP 24"};
 obsolete(snmp, get_symbolic_store_db, 0) ->
-    {deprecated, "use snmpa:get_symbolic_store_db/0 instead."};
+    {deprecated, "use snmpa:get_symbolic_store_db/0 instead.", "OTP 24"};
 obsolete(snmp, info, 1) ->
-    {deprecated, "use snmpa:info/1 instead."};
+    {deprecated, "use snmpa:info/1 instead.", "OTP 24"};
 obsolete(snmp, int_to_enum, 2) ->
-    {deprecated, "use snmpa:int_to_enum/2 instead."};
+    {deprecated, "use snmpa:int_to_enum/2 instead.", "OTP 24"};
 obsolete(snmp, int_to_enum, 3) ->
-    {deprecated, "use snmpa:int_to_enum/3 instead."};
+    {deprecated, "use snmpa:int_to_enum/3 instead.", "OTP 24"};
 obsolete(snmp, is_consistent, 1) ->
-    {deprecated, "use snmpa:is_consistent/1 instead."};
+    {deprecated, "use snmpa:is_consistent/1 instead.", "OTP 24"};
 obsolete(snmp, load_mibs, 2) ->
-    {deprecated, "use snmpa:load_mibs/2 instead."};
+    {deprecated, "use snmpa:load_mibs/2 instead.", "OTP 24"};
 obsolete(snmp, log_to_txt, 2) ->
-    {deprecated, "use snmpa:log_to_txt/2 instead."};
+    {deprecated, "use snmpa:log_to_txt/2 instead.", "OTP 24"};
 obsolete(snmp, log_to_txt, 3) ->
-    {deprecated, "use snmpa:log_to_txt/3 instead."};
+    {deprecated, "use snmpa:log_to_txt/3 instead.", "OTP 24"};
 obsolete(snmp, log_to_txt, 4) ->
-    {deprecated, "use snmpa:log_to_txt/4 instead."};
+    {deprecated, "use snmpa:log_to_txt/4 instead.", "OTP 24"};
 obsolete(snmp, mib_to_hrl, 1) ->
-    {deprecated, "use snmpa:mib_to_hrl/1 instead."};
+    {deprecated, "use snmpa:mib_to_hrl/1 instead.", "OTP 24"};
 obsolete(snmp, name_to_oid, 1) ->
-    {deprecated, "use snmpa:name_to_oid/1 instead."};
+    {deprecated, "use snmpa:name_to_oid/1 instead.", "OTP 24"};
 obsolete(snmp, name_to_oid, 2) ->
-    {deprecated, "use snmpa:name_to_oid/2 instead."};
+    {deprecated, "use snmpa:name_to_oid/2 instead.", "OTP 24"};
 obsolete(snmp, oid_to_name, 1) ->
-    {deprecated, "use snmpa:oid_to_name/1 instead."};
+    {deprecated, "use snmpa:oid_to_name/1 instead.", "OTP 24"};
 obsolete(snmp, oid_to_name, 2) ->
-    {deprecated, "use snmpa:oid_to_name/2 instead."};
+    {deprecated, "use snmpa:oid_to_name/2 instead.", "OTP 24"};
 obsolete(snmp, register_subagent, 3) ->
-    {deprecated, "use snmpa:register_subagent/3 instead."};
+    {deprecated, "use snmpa:register_subagent/3 instead.", "OTP 24"};
 obsolete(snmp, send_notification, 3) ->
-    {deprecated, "use snmpa:send_notification/3 instead."};
+    {deprecated, "use snmpa:send_notification/3 instead.", "OTP 24"};
 obsolete(snmp, send_notification, 4) ->
-    {deprecated, "use snmpa:send_notification/4 instead."};
+    {deprecated, "use snmpa:send_notification/4 instead.", "OTP 24"};
 obsolete(snmp, send_notification, 5) ->
-    {deprecated, "use snmpa:send_notification/5 instead."};
+    {deprecated, "use snmpa:send_notification/5 instead.", "OTP 24"};
 obsolete(snmp, send_notification, 6) ->
-    {deprecated, "use snmpa:send_notification/6 instead."};
+    {deprecated, "use snmpa:send_notification/6 instead.", "OTP 24"};
 obsolete(snmp, send_trap, 3) ->
-    {deprecated, "use snmpa:send_trap/3 instead."};
+    {deprecated, "use snmpa:send_trap/3 instead.", "OTP 24"};
 obsolete(snmp, send_trap, 4) ->
-    {deprecated, "use snmpa:send_trap/4 instead."};
+    {deprecated, "use snmpa:send_trap/4 instead.", "OTP 24"};
 obsolete(snmp, unload_mibs, 2) ->
-    {deprecated, "use snmpa:unload_mibs/2 instead."};
+    {deprecated, "use snmpa:unload_mibs/2 instead.", "OTP 24"};
 obsolete(snmp, unregister_subagent, 2) ->
-    {deprecated, "use snmpa:unregister_subagent/2 instead."};
+    {deprecated, "use snmpa:unregister_subagent/2 instead.", "OTP 24"};
 obsolete(snmpa, old_info_format, 1) ->
-    {deprecated, "use \"new\" format instead"};
+    {deprecated, "use \"new\" format instead", "OTP 24"};
 obsolete(snmpm, async_get, 3) ->
-    {deprecated, "use snmpm:async_get2/3 instead."};
+    {deprecated, "use snmpm:async_get2/3 instead.", "OTP 25"};
 obsolete(snmpm, async_get, 4) ->
-    {deprecated, "use snmpm:async_get2/4 instead."};
+    {deprecated, "use snmpm:async_get2/4 instead.", "OTP 25"};
 obsolete(snmpm, async_get, 5) ->
-    {deprecated, "use snmpm:async_get2/4 instead."};
+    {deprecated, "use snmpm:async_get2/4 instead.", "OTP 25"};
 obsolete(snmpm, async_get, 6) ->
-    {deprecated, "use snmpm:async_get2/4 instead."};
+    {deprecated, "use snmpm:async_get2/4 instead.", "OTP 25"};
 obsolete(snmpm, async_get_bulk, 5) ->
-    {deprecated, "use snmpm:async_get_bulk2/5 instead."};
+    {deprecated, "use snmpm:async_get_bulk2/5 instead.", "OTP 25"};
 obsolete(snmpm, async_get_bulk, 6) ->
-    {deprecated, "use snmpm:async_get_bulk2/6 instead."};
+    {deprecated, "use snmpm:async_get_bulk2/6 instead.", "OTP 25"};
 obsolete(snmpm, async_get_bulk, 7) ->
-    {deprecated, "use snmpm:async_get_bulk2/6 instead."};
+    {deprecated, "use snmpm:async_get_bulk2/6 instead.", "OTP 25"};
 obsolete(snmpm, async_get_bulk, 8) ->
-    {deprecated, "use snmpm:async_get_bulk2/6 instead."};
+    {deprecated, "use snmpm:async_get_bulk2/6 instead.", "OTP 25"};
 obsolete(snmpm, async_get_next, 3) ->
-    {deprecated, "use snmpm:async_get_next2/3 instead."};
+    {deprecated, "use snmpm:async_get_next2/3 instead.", "OTP 25"};
 obsolete(snmpm, async_get_next, 4) ->
-    {deprecated, "use snmpm:async_get_next2/4 instead."};
+    {deprecated, "use snmpm:async_get_next2/4 instead.", "OTP 25"};
 obsolete(snmpm, async_get_next, 5) ->
-    {deprecated, "use snmpm:async_get_next2/4 instead."};
+    {deprecated, "use snmpm:async_get_next2/4 instead.", "OTP 25"};
 obsolete(snmpm, async_get_next, 6) ->
-    {deprecated, "use snmpm:async_get_next2/4 instead."};
+    {deprecated, "use snmpm:async_get_next2/4 instead.", "OTP 25"};
 obsolete(snmpm, async_set, 3) ->
-    {deprecated, "use snmpm:async_set2/3 instead."};
+    {deprecated, "use snmpm:async_set2/3 instead.", "OTP 25"};
 obsolete(snmpm, async_set, 4) ->
-    {deprecated, "use snmpm:async_set2/4 instead."};
+    {deprecated, "use snmpm:async_set2/4 instead.", "OTP 25"};
 obsolete(snmpm, async_set, 5) ->
-    {deprecated, "use snmpm:async_set2/4 instead."};
+    {deprecated, "use snmpm:async_set2/4 instead.", "OTP 25"};
 obsolete(snmpm, async_set, 6) ->
-    {deprecated, "use snmpm:async_set2/4 instead."};
+    {deprecated, "use snmpm:async_set2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_get, 3) ->
-    {deprecated, "use snmpm:sync_get2/3 instead."};
+    {deprecated, "use snmpm:sync_get2/3 instead.", "OTP 25"};
 obsolete(snmpm, sync_get, 4) ->
-    {deprecated, "use snmpm:sync_get2/4 instead."};
+    {deprecated, "use snmpm:sync_get2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_get, 5) ->
-    {deprecated, "use snmpm:sync_get2/4 instead."};
+    {deprecated, "use snmpm:sync_get2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_get, 6) ->
-    {deprecated, "use snmpm:sync_get2/4 instead."};
+    {deprecated, "use snmpm:sync_get2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_get_bulk, 5) ->
-    {deprecated, "use snmpm:sync_get_bulk2/5 instead."};
+    {deprecated, "use snmpm:sync_get_bulk2/5 instead.", "OTP 25"};
 obsolete(snmpm, sync_get_bulk, 6) ->
-    {deprecated, "use snmpm:sync_get_bulk2/6 instead."};
+    {deprecated, "use snmpm:sync_get_bulk2/6 instead.", "OTP 25"};
 obsolete(snmpm, sync_get_bulk, 7) ->
-    {deprecated, "use snmpm:sync_get_bulk2/6 instead."};
+    {deprecated, "use snmpm:sync_get_bulk2/6 instead.", "OTP 25"};
 obsolete(snmpm, sync_get_bulk, 8) ->
-    {deprecated, "use snmpm:sync_get_bulk2/6 instead."};
+    {deprecated, "use snmpm:sync_get_bulk2/6 instead.", "OTP 25"};
 obsolete(snmpm, sync_get_next, 3) ->
-    {deprecated, "use snmpm:sync_get_next2/3 instead."};
+    {deprecated, "use snmpm:sync_get_next2/3 instead.", "OTP 25"};
 obsolete(snmpm, sync_get_next, 4) ->
-    {deprecated, "use snmpm:sync_get_next2/4 instead."};
+    {deprecated, "use snmpm:sync_get_next2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_get_next, 5) ->
-    {deprecated, "use snmpm:sync_get_next2/4 instead."};
+    {deprecated, "use snmpm:sync_get_next2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_get_next, 6) ->
-    {deprecated, "use snmpm:sync_get_next2/4 instead."};
+    {deprecated, "use snmpm:sync_get_next2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_set, 3) ->
-    {deprecated, "use snmpm:sync_set2/3 instead."};
+    {deprecated, "use snmpm:sync_set2/3 instead.", "OTP 25"};
 obsolete(snmpm, sync_set, 4) ->
-    {deprecated, "use snmpm:sync_set2/4 instead."};
+    {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_set, 5) ->
-    {deprecated, "use snmpm:sync_set2/4 instead."};
+    {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
 obsolete(snmpm, sync_set, 6) ->
-    {deprecated, "use snmpm:sync_set2/4 instead."};
+    {deprecated, "use snmpm:sync_set2/4 instead.", "OTP 25"};
 obsolete(sys, get_debug, 3) ->
     {deprecated, "incorrectly documented and only for internal use. Can often be replaced with sys:get_log/1"};
 obsolete(wxCalendarCtrl, enableYearChange, 1) ->
@@ -460,11 +460,11 @@ obsolete(ssl, negotiated_next_protocol, 1) ->
 obsolete(auth, node_cookie, _) ->
     {deprecated, "use erlang:set_cookie/2 and net_adm:ping/1 instead"};
 obsolete(crypto, next_iv, _) ->
-    {deprecated, "see the 'New and Old API' chapter of the CRYPTO User's guide"};
+    {deprecated, "see the 'New and Old API' chapter of the CRYPTO User's guide", "OTP 24"};
 obsolete(crypto, stream_init, _) ->
-    {deprecated, "use crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 or crypto:crypto_one_time/4 instead"};
+    {deprecated, "use crypto:crypto_init/3 + crypto:crypto_update/2 + crypto:crypto_final/1 or crypto:crypto_one_time/4 instead", "OTP 24"};
 obsolete(filename, find_src, _) ->
-    {deprecated, "use filelib:find_source/1,3 instead"};
+    {deprecated, "use filelib:find_source/1,3 instead", "OTP 24"};
 obsolete(ssl, ssl_accept, _) ->
     {deprecated, "use ssl_handshake/1,2,3 instead"};
 obsolete(asn1ct, decode, _) ->
@@ -486,7 +486,7 @@ obsolete(erl_scan, token_info, _) ->
 obsolete(gen_fsm, _, _) ->
     {deprecated, "use the 'gen_statem' module instead"};
 obsolete(pg2, _, _) ->
-    {deprecated, "the 'pg2' module is deprecated and scheduled for removal in OTP 24; use 'pg' instead."};
+    {deprecated, "use 'pg' instead", "OTP 24"};
 obsolete(random, _, _) ->
     {deprecated, "use the 'rand' module instead"};
 obsolete(os_mon_mib, _, _) ->
