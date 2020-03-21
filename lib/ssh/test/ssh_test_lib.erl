@@ -779,6 +779,15 @@ intersect_bi_dir([H={_,[A|_]}|T]) when is_atom(A) ->
 intersect_bi_dir([]) ->
     [].
     
+some_empty([]) ->
+    false;
+some_empty([{_,[]}|_]) ->
+    true;
+some_empty([{_,L}|T]) when is_atom(hd(L)) ->
+    some_empty(T);
+some_empty([{_,L}|T]) when is_tuple(hd(L)) ->
+    some_empty(L) orelse some_empty(T).
+
 
 sort_spec(L = [{_,_}|_] ) ->  [{Tag,sort_spec(Es)} || {Tag,Es} <- L];
 sort_spec(L) -> lists:usort(L).
