@@ -87,6 +87,7 @@
           require_flags,     %% dflags that are required
 
           %% New in kernel-@master@ (OTP-23.0)
+          this_creation,
           other_creation
 }).
 	  
