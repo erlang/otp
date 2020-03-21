@@ -132,7 +132,7 @@
 %%% on the program state.
 %%% 
 
--import(lists, [foldl/3,keymember/3,mapfoldl/3,reverse/1,reverse/2]).
+-import(lists, [foldl/3,keymember/3,mapfoldl/3,member/2,reverse/1,reverse/2]).
 
 -type instruction() :: beam_utils:instruction().
 
@@ -416,7 +416,7 @@ is_shareable([{catch_end,_}|_]) -> false;
 is_shareable([{'try',_,_}|_]) -> false;
 is_shareable([{try_case,_}|_]) -> false;
 is_shareable([{try_end,_}|_]) -> false;
-is_shareable(_) -> true.
+is_shareable(Is) -> not member(build_stacktrace, Is).
 
 %%
 %% Classify labels according to where the instructions that branch to

@@ -713,6 +713,13 @@ grab_bag(_Config) ->
     ok = grab_bag_9(),
     whatever = grab_bag_10(ignore, whatever),
     other = grab_bag_11(),
+    {'EXIT',_} = (catch grab_bag_12()),
+    {'EXIT',{{badmatch,[]},_}} = (catch grab_bag_13()),
+    timeout = grab_bag_14(),
+    ?MODULE = grab_bag_15(?MODULE),
+    error = grab_bag_16(timeout_value),
+    {'EXIT',{timeout_value,_}} = (catch grab_bag_16(whatever)),
+
     ok.
 
 grab_bag_1() ->
@@ -841,6 +848,65 @@ grab_bag_11() ->
             catched
     end.
 
+grab_bag_12() ->
+    %% beam_ssa_pre_codegen would try to place the created map in x1.
+    %% That would not be safe because x0 is not initialized.
+    check_process_code(1, (#{})#{key := teacher}),
+    ok.
+
+grab_bag_13() ->
+    %% If sys_core_fold was skipped, beam_ssa_beam would leave
+    %% unreachable code with invalid phi nodes.
+    case <<810:true>> = [] of
+        <<709:false>> ->
+            ok;
+        whatever ->
+            case 42 of
+                175 ->
+                    {ok,case "b" of
+                            $X -> time
+                        end}
+            end
+    end.
+
+grab_bag_14() ->
+    %% If optimizations were turned off, beam_ssa_pre_codegen would
+    %% sanitize the binary construction instruction, replacing it with
+    %% a call to erlang:error/1, which is not allowed in a receive.
+    receive
+        #{<<42:(-1)>> := _} ->
+            ok
+    after 0 ->
+            timeout
+    end.
+
+grab_bag_15(V) ->
+    %% Instead of:
+    %%
+    %%    move x0, y0
+    %%    move y0, x0
+    %%
+    %% a swap instruction would be emitted by beam_ssa_codegen:
+    %%
+    %%    swap x0, y0
+    %%
+    case [] of
+        [] -> V
+    end:all(),
+    V.
+
+grab_bag_16(V) ->
+    try
+        catch 22,
+    receive
+    after bad ->
+            not_reached
+    end
+    catch
+        _:V ->
+            error
+    end.
+
 
 coverage(_Config) ->
 
@@ -856,10 +922,14 @@ coverage(_Config) ->
                end,
     {'EXIT',{{badmatch,$T},_}} = (catch coverage_1()),
 
+    error = coverage_2(),
     ok.
 
 coverage_1() ->
     <<area/signed-bitstring>> = $T.
+
+coverage_2() when << []:<<0/native>> >> -> ok;
+coverage_2() -> error.
 
 
 %% The identity function.

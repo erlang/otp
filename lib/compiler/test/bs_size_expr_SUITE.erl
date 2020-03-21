@@ -233,6 +233,16 @@ complex(Config) ->
              {<<1,2,3,4>>,<<>>} = F(#r{a=4})
      end)(),
 
+    [] = fun() ->
+                 case day of
+                     V0 -> ok
+                 end,
+                 %% A bug in v3_core prevented V0 as being seen as used,
+                 %% and because of that, V0 would not be exported from the
+                 %% case above.
+                 [0 || <<42:(V0#{key => value})>> <- []]
+         end(),
+
     ok.
 
 recv(_Config) ->

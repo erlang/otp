@@ -207,6 +207,7 @@ no_side_effect(#b_set{op=Op}) ->
         bs_put -> true;
         bs_utf16_size -> true;
         bs_utf8_size -> true;
+        build_stacktrace -> true;
         extract -> true;
         get_hd -> true;
         get_tl -> true;

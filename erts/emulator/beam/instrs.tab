@@ -1034,8 +1034,9 @@ is_ge_literal(Fail, X, Y) {
     CMP_GE_LITERAL_ACTION($X, $Y, $FAIL($Fail));
 }
 
-badarg(Fail) {
-    $BADARG($Fail);
+badarg_body() {
+    c_p->freason = BADARG;
+    $FAIL_BODY();
     //| -no_next;
 }
 
@@ -1059,8 +1060,9 @@ if_end() {
     //| -no_next;
 }
 
-system_limit(Fail) {
-    $SYSTEM_LIMIT($Fail);
+system_limit_body() {
+    c_p->freason = SYSTEM_LIMIT;
+    $FAIL_BODY();
     //| -no_next;
 }
 

@@ -210,22 +210,28 @@ select_cg(#k_type_clause{type=Type,values=Scs}, Var, Tf, Vf, St0) ->
     {Is,St} = select_val_cg(Type, Arg, Vls, Tf, Vf, Sis, St2),
     {Is,St}.
 
-select_val_cg(k_atom, {succeeded,Dst}, Vls, _Tf, _Vf, Sis, St0) ->
+select_val_cg(k_atom, {bool,Dst}, Vls, _Tf, _Vf, Sis, St) ->
+    %% Generate a br instruction for a known boolean value from
+    %% the `wait_timeout` instruction.
     [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
     case Dst of
         #b_var{} ->
-            %% Generate a `succeeded` instruction and two-way branch
-            %% following the `peek_message` and `wait_timeout`
-            %% instructions.
-            {Bool,St} = new_ssa_var('@ssa_bool', St0),
-            Succeeded = #b_set{op={succeeded,guard},dst=Bool,args=[Dst]},
-            Br = #b_br{bool=Bool,succ=Succ,fail=Fail},
-            {[Succeeded,Br|Sis],St};
+            Br = #b_br{bool=Dst,succ=Succ,fail=Fail},
+            {[Br|Sis],St};
         #b_literal{val=true}=Bool ->
-            %% A 'wait_timeout 0' instruction was optimized away.
+            %% A `wait_timeout 0` instruction was optimized away.
             Br = #b_br{bool=Bool,succ=Succ,fail=Succ},
-            {[Br|Sis],St0}
+            {[Br|Sis],St}
     end;
+select_val_cg(k_atom, {succeeded,Dst}, Vls, _Tf, _Vf, Sis, St0) ->
+    [{#b_literal{val=false},Fail},{#b_literal{val=true},Succ}] = sort(Vls),
+    #b_var{} = Dst,                             %Assertion.
+    %% Generate a `succeeded` instruction and two-way branch
+    %% following the `peek_message` instruction.
+    {Bool,St} = new_ssa_var('@ssa_bool', St0),
+    Succeeded = #b_set{op={succeeded,guard},dst=Bool,args=[Dst]},
+    Br = #b_br{bool=Bool,succ=Succ,fail=Fail},
+    {[Succeeded,Br|Sis],St};
 select_val_cg(k_tuple, Tuple, Vls, Tf, Vf, Sis, St0) ->
     {Is0,St1} = make_cond_branch({bif,is_tuple}, [Tuple], Tf, St0),
     {Arity,St2} = new_ssa_var('@ssa_arity', St1),
@@ -725,13 +731,36 @@ internal_cg(recv_wait_timeout, As, [#k_var{name=Succeeded0}], St0) ->
             %% `wait_timeout` instruction with a literal 0 timeout,
             %% because the BEAM instruction will not handle it
             %% correctly.
-            St = new_succeeded_value(Succeeded0, #b_literal{val=true}, St0),
+            St = new_bool_value(Succeeded0, #b_literal{val=true}, St0),
             {[],St};
         Args ->
+            %% Note that the `wait_timeout` instruction can
+            %% potentially branch in three different directions:
+            %%
+            %% * A new message is available in the message queue.
+            %%   wait_timeout branches to the given label.
+            %%
+            %% * The timeout expired. wait_timeout transfers control
+            %%   to the next instruction.
+            %%
+            %% * The value for timeout duration is invalid (either not
+            %%   an integer or negative or too large). A timeout_value
+            %%   exception will be raised.
+            %%
+            %% wait_timeout will be represented like this in SSA code:
+            %%
+            %%       WaitBool = wait_timeout TimeoutValue
+            %%       Succeeded = succeeded:body WaitBool
+            %%       br Succeeded, ^good_timeout_value, ^bad_timeout_value
+            %%
+            %%   good_timeout_value:
+            %%       br WaitBool, ^timeout_expired, ^new_message_received
+            %%
             {Wait,St1} = new_ssa_var('@ssa_wait', St0),
-            St = new_succeeded_value(Succeeded0, Wait, St1),
+            {Succ,St2} = make_succeeded(Wait, fail_context(St1), St1),
+            St = new_bool_value(Succeeded0, Wait, St2),
             Set = #b_set{op=wait_timeout,dst=Wait,args=Args},
-            {[Set],St}
+            {[Set|Succ],St}
     end;
 internal_cg(Op, As, [#k_var{name=Dst0}], St0) when is_atom(Op) ->
     %% This behaves like a function call.
@@ -1196,6 +1225,10 @@ ssa_arg(#k_local{name=Name,arity=Arity}, _) when is_atom(Name) ->
 
 new_succeeded_value(VarBase, Var, #cg{vars=Vars0}=St) ->
     Vars = Vars0#{VarBase=>{succeeded,Var}},
+    St#cg{vars=Vars}.
+
+new_bool_value(VarBase, Var, #cg{vars=Vars0}=St) ->
+    Vars = Vars0#{VarBase=>{bool,Var}},
     St#cg{vars=Vars}.
 
 new_ssa_vars(Vs, St) ->

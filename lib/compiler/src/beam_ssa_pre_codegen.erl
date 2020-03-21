@@ -774,11 +774,39 @@ sanitize_is([#b_set{op=get_map_element,args=Args0}=I0|Is],
             I = I0#b_set{args=Args},
             sanitize_is(Is, Last, Count0, Values, true, [I|Acc])
     end;
-sanitize_is([#b_set{op={succeeded,Kind},dst=Dst,args=[Arg0]}=I0],
+sanitize_is([#b_set{op={succeeded,guard},dst=Dst,args=[Arg0]}=I0],
+            #b_br{bool=Dst}=Last, Count, Values, _Changed, Acc0) ->
+    %% We no longer need to distinguish between guard and body checks, so we'll
+    %% rewrite this as a plain 'succeeded'.
+    case sanitize_arg(Arg0, Values) of
+        #b_var{}=Arg ->
+            case Acc0 of
+                [#b_set{op=call,
+                        args=[#b_remote{mod=#b_literal{val=erlang},
+                                        name=#b_literal{val=error},
+                                        arity=1},_],
+                        dst=Arg0}|Acc] ->
+                    %% This erlang:error/1 is the result from a
+                    %% sanitized bs_add or bs_init instruction. Calls
+                    %% to erlang:error/1 in receive is not allowed, so
+                    %% we will have to rewrite this instruction
+                    %% sequence to an unconditional branch to the
+                    %% failure label.
+                    Fail = Last#b_br.fail,
+                    Br = #b_br{bool=#b_literal{val=true},succ=Fail,fail=Fail},
+                    {reverse(Acc), Br, Count, Values};
+                _ ->
+                    I = I0#b_set{op=succeeded,args=[Arg]},
+                    {reverse(Acc0, [I]), Last, Count, Values}
+            end;
+        #b_literal{} ->
+            Value = #b_literal{val=true},
+            {reverse(Acc0), Last, Count, Values#{ Dst => Value }}
+    end;
+sanitize_is([#b_set{op={succeeded,body},dst=Dst,args=[Arg0]}=I0],
             #b_br{bool=Dst}=Last, Count, Values, _Changed, Acc) ->
     %% We no longer need to distinguish between guard and body checks, so we'll
     %% rewrite this as a plain 'succeeded'.
-    true = Kind =:= guard orelse Kind =:= body, %Assertion.
     case sanitize_arg(Arg0, Values) of
         #b_var{}=Arg ->
             I = I0#b_set{op=succeeded,args=[Arg]},
@@ -2690,12 +2718,10 @@ reserve_terminator(L, Is, #b_br{bool=Bool,succ=Succ,fail=Fail},
 reserve_terminator(_, _, _, _, _, _) ->
     #{}.
 
-reserve_terminator_1(L, Succ, Is, Blocks, XsMap, Res) ->
+reserve_terminator_1(L, Succ, _Is, Blocks, XsMap, Res) ->
     case {Blocks, XsMap} of
         {#{ Succ := #b_blk{is=[#b_set{op=phi}|_]=PhiIs}}, #{}} ->
             res_xregs_from_phi(PhiIs, L, Res, #{});
-        {#{ Succ := #b_blk{is=[],last=Last}}, #{}} ->
-            reserve_terminator(Succ, Is, Last, Blocks, XsMap, Res);
         {#{}, #{ Succ := Xs }}->
             Xs;
         {#{}, #{}} ->

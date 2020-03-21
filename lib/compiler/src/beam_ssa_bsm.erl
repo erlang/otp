@@ -466,7 +466,8 @@ combine_matches(#b_function{bs=Blocks0,cnt=Counter0}=F, ModInfo) ->
             {Blocks, Counter} = alias_matched_binaries(Blocks2, Counter0,
                                                        State#cm.match_aliases),
 
-            F#b_function{ bs=Blocks, cnt=Counter };
+            F#b_function{ bs=beam_ssa:trim_unreachable(Blocks),
+                          cnt=Counter };
         false ->
             F
     end.

@@ -57,7 +57,7 @@ module(#b_module{name=Mod,exports=Es,attributes=Attrs,body=Fs}, _Opts) ->
 
 -record(cg_set, {anno=#{} :: anno(),
                  dst :: b_var(),
-                 op :: beam_ssa:op(),
+                 op :: beam_ssa:op() | 'nop',
                  args :: [beam_ssa:argument() | xreg()]}).
 
 -record(cg_alloc, {anno=#{} :: anno(),
@@ -388,6 +388,7 @@ classify_heap_need(kill_try_tag) -> gc;
 classify_heap_need(landingpad) -> gc;
 classify_heap_need(make_fun) -> gc;
 classify_heap_need(match_fail) -> gc;
+classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> gc;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
@@ -413,44 +414,13 @@ classify_heap_need(wait_timeout) -> gc.
 %%% since the BEAM interpreter have more optimized instructions
 %%% operating on X registers than on Y registers.
 %%%
-%%% 'call' and 'make_fun' are handled somewhat specially. If a value
-%%% already is in the correct X register, the X register will always
-%%% be used instead of the Y register. However, if there are one or more
-%%% values in the wrong X registers, the X registers variables will be
-%%% used only if that does not cause more 'move' instructions to be
-%%% be emitted than if the Y register variables were used.
+%%% In call and 'call' and 'make_fun' instructions there is also the
+%%% possibility that a 'move' instruction can be eliminated because
+%%% a value is already in the correct X register.
 %%%
-%%% Here are some examples. The first example shows how a 'move' from
-%%% an Y register is eliminated:
-%%%
-%%%     move x0 y1
-%%%     move y1 x0   %%Will be eliminated.
-%%%
-%%%     call f/1
-%%%
-%%% Here is an example when x0 and x1 must be swapped to load the argument
-%%% registers. Here the 'call' instruction will use the Y registers to
-%%% avoid introducing an extra 'move' insruction:
-%%%
-%%%     move x0 y0
-%%%     move x1 y1
-%%%
-%%%     move y0 x1
-%%%     move y1 x0
-%%%
-%%%     call f/2
-%%%
-%%% Using the X register to load the argument registers would need
-%%% an extra 'move' instruction like this:
-%%%
-%%%     move x0 y0
-%%%     move x1 y1
-%%%
-%%%     move x1 x2
-%%%     move x0 x1
-%%%     move x2 x0
-%%%
-%%%     call f/2
+%%% Because of the new 'swap' instruction introduced in OTP 23, it
+%%% is always beneficial to prefer X register over Y registers. That
+%%% was not the case in OTP 22, which lacks the 'swap' instruction.
 %%%
 
 prefer_xregs(Linear, St) ->
@@ -534,60 +504,22 @@ prefer_xregs_prune(#cg_set{dst=Dst}, Copies, St) ->
     maps:filter(F, Copies).
 
 %% prefer_xregs_call(Instruction, Copies, St) -> Instruction.
-%%  Given a 'call' or 'make_fun' instruction, minimize the number
-%%  of 'move' instructions to set up the argument registers.
-%%  Prefer using X registers over Y registers, unless that will
-%%  result in more 'move' instructions.
+%%  Given a 'call' or 'make_fun' instruction rewrite the arguments
+%%  to use an X register instead of a Y register if a value is
+%%  is available in both.
 
-prefer_xregs_call(#cg_set{args=[_]}=I, _Copies, _St) ->
-    I;
-prefer_xregs_call(#cg_set{args=[F|Args0]}=I, Copies, St) ->
-    case Args0 of
-        [A0] ->
-            %% Only one argument. Always prefer the X register
-            %% if available.
-            A = do_prefer_xreg(A0, Copies, St),
-            I#cg_set{args=[F,A]};
-        [_|_] ->
-            %% Two or more arguments. Try rewriting arguments in
-            %% two ways and see which way produces the least
-            %% number of 'move' instructions.
-            Args1 = prefer_xregs_call_1(Args0, Copies, 0, St),
-            Args2 = [do_prefer_xreg(A, Copies, St) || A <- Args0],
-            case {count_moves(Args1, St),count_moves(Args2, St)} of
-                {N1,N2} when N1 < N2 ->
-                    %% There will be fewer 'move' instructions if
-                    %% we keep using Y registers.
-                    I#cg_set{args=[F|Args1]};
-                {_,_} ->
-                    %% Always use the values in X registers.
-                    I#cg_set{args=[F|Args2]}
-            end
-    end.
-
-count_moves(Args, St) ->
-    length(setup_args(beam_args(Args, St))).
-
-prefer_xregs_call_1([#b_var{}=A|As], Copies, X, St) ->
-    case {beam_arg(A, St),Copies} of
-        {{y,_},#{A:=Other}} ->
-            case beam_arg(Other, St) of
-                {x,X} ->
-                    %% This value is already in the correct X register.
-                    %% It is always benefical to use the X register variable.
-                    [Other|prefer_xregs_call_1(As, Copies, X+1, St)];
-                _ ->
-                    %% This value is another X register. Keep using
-                    %% the Y register variable.
-                    [A|prefer_xregs_call_1(As, Copies, X+1, St)]
-            end;
-        {_,_} ->
-            %% The value is not available in an X register.
-            [A|prefer_xregs_call_1(As, Copies, X+1, St)]
-    end;
-prefer_xregs_call_1([A|As], Copies, X, St) ->
-    [A|prefer_xregs_call_1(As, Copies, X+1, St)];
-prefer_xregs_call_1([], _, _, _) -> [].
+prefer_xregs_call(#cg_set{args=[F0|Args0]}=I, Copies, St) ->
+    F = case F0 of
+            #b_var{} ->
+                do_prefer_xreg(F0, Copies, St);
+            #b_remote{mod=Mod,name=Name} ->
+                F0#b_remote{mod=do_prefer_xreg(Mod, Copies, St),
+                            name=do_prefer_xreg(Name, Copies, St)};
+            _ ->
+                F0
+        end,
+    Args = [do_prefer_xreg(A, Copies, St) || A <- Args0],
+    I#cg_set{args=[F|Args]}.
 
 do_prefer_xreg(#b_var{}=A, Copies, St) ->
     case {beam_arg(A, St),Copies} of
@@ -1296,6 +1228,13 @@ cg_block([#cg_set{op=match_fail,args=Args0,anno=Anno}|T], Context, St0) ->
     Is0 = cg_match_fail(Args, line(Anno), FcLabel),
     {Is1,St} = cg_block(T, Context, St0),
     {Is0++Is1,St};
+cg_block([#cg_set{op=wait_timeout,dst=Bool,args=Args0}], {Bool,Fail}, St) ->
+    case beam_args(Args0, St) of
+        [{atom,infinity}] ->
+            {[{wait,Fail}],St};
+        [Timeout] ->
+            {[{wait_timeout,Fail,Timeout}],St}
+    end;
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=Set], none, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
     Is = cg_instr(Op, Args, Dst, Set),
@@ -1702,6 +1641,8 @@ cg_instr(has_map_field, [Map,Key], Dst) ->
     [{bif,is_map_key,{f,0},[Key,Map],Dst}];
 cg_instr(put_list=Op, [Hd,Tl], Dst) ->
     [{Op,Hd,Tl,Dst}];
+cg_instr(nop, [], _Dst) ->
+    [];
 cg_instr(put_tuple, Elements, Dst) ->
     [{put_tuple2,Dst,{list,Elements}}];
 cg_instr(put_tuple_arity, [{integer,Arity}], Dst) ->
@@ -1741,14 +1682,7 @@ cg_test(peek_message, Fail, [], Dst, _I) ->
     [{loop_rec,Fail,{x,0}}|copy({x,0}, Dst)];
 cg_test(put_map, Fail, [{atom,exact},SrcMap|Ss], Dst, Set) ->
     Live = get_live(Set),
-    [{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}];
-cg_test(wait_timeout, Fail, [Timeout], _Dst, _) ->
-    case Timeout of
-        {atom,infinity} ->
-            [{wait,Fail}];
-        _ ->
-            [{wait_timeout,Fail,Timeout}]
-    end.
+    [{put_map_exact,Fail,SrcMap,Dst,Live,{list,Ss}}].
 
 cg_bs_get(Fail, #cg_set{dst=Dst0,args=[#b_literal{val=Type}|Ss0]}=Set, St) ->
     Op = case Type of
@@ -1885,7 +1819,8 @@ successors(#cg_ret{}) -> [].
 %%  used only in this module.
 
 linearize(Blocks) ->
-    Linear = beam_ssa:linearize(Blocks),
+    Linear0 = beam_ssa:linearize(Blocks),
+    Linear = fix_wait_timeout(Linear0),
     linearize_1(Linear, Blocks).
 
 linearize_1([{?EXCEPTION_BLOCK,_}|Ls], Blocks) ->
@@ -1894,6 +1829,44 @@ linearize_1([{L,Block0}|Ls], Blocks) ->
     Block = translate_block(L, Block0, Blocks),
     [{L,Block}|linearize_1(Ls, Blocks)];
 linearize_1([], _Blocks) -> [].
+
+%% fix_wait_timeout([Block]) -> [Block].
+%%  In SSA code, the `wait_timeout` instruction is a three-way branch
+%%  (because there will be an exception for a bad timeout value). In
+%%  BEAM code, the potential rasing of an exception for a bad timeout
+%%  duration is not explicitly represented. Thus we will need to
+%%  rewrite the following code:
+%%
+%%       WaitBool = wait_timeout TimeoutValue
+%%       Succeeded = succeeded:body WaitBool
+%%       br Succeeded, ^good_timeout_value, ^bad_timeout_value
+%%
+%%   good_timeout_value:
+%%       br WaitBool, ^timeout_expired, ^new_message_received
+%%
+%%  To this code:
+%%
+%%       WaitBool = wait_timeout TimeoutValue
+%%       br WaitBool, ^timeout_expired, ^new_message_received
+%%
+fix_wait_timeout([{L1,#b_blk{is=Is0,last=#b_br{bool=#b_var{},succ=L2}}=Blk1},
+                  {L2,#b_blk{is=[],last=#b_br{bool=#b_var{}}=Br}=Blk2}|Bs]) ->
+    case fix_wait_timeout_is(Is0, []) of
+        no ->
+            [{L1,Blk1},{L2,Blk2}|fix_wait_timeout(Bs)];
+        {yes,Is} ->
+            [{L1,Blk1#b_blk{is=Is,last=Br}}|fix_wait_timeout(Bs)]
+    end;
+fix_wait_timeout([B|Bs]) ->
+    [B|fix_wait_timeout(Bs)];
+fix_wait_timeout([]) -> [].
+
+fix_wait_timeout_is([#b_set{op=wait_timeout,dst=WaitBool}=WT,
+                     #b_set{op=succeeded,args=[WaitBool]}], Acc) ->
+    {yes,reverse(Acc, [WT])};
+fix_wait_timeout_is([I|Is], Acc) ->
+    fix_wait_timeout_is(Is, [I|Acc]);
+fix_wait_timeout_is([], _Acc) -> no.
 
 %% translate_block(BlockLabel, #b_blk{}, Blocks) -> #cg_blk{}.
 %%  Translate a block to the internal records used in this module.
@@ -1930,8 +1903,6 @@ translate_terminator(#b_ret{anno=Anno,arg=Arg}) ->
     #cg_ret{arg=Arg,dealloc=Dealloc};
 translate_terminator(#b_br{bool=#b_literal{val=true},succ=Succ}) ->
     #cg_br{bool=#b_literal{val=true},succ=Succ,fail=Succ};
-translate_terminator(#b_br{bool=#b_literal{val=false},fail=Fail}) ->
-    #cg_br{bool=#b_literal{val=true},succ=Fail,fail=Fail};
 translate_terminator(#b_br{bool=Bool,succ=Succ,fail=Fail}) ->
     #cg_br{bool=Bool,succ=Succ,fail=Fail};
 translate_terminator(#b_switch{arg=Bool,fail=Fail,list=List}) ->
@@ -1942,7 +1913,28 @@ translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
     Phis = takewhile(fun(#b_set{op=phi}) -> true;
                         (#b_set{}) -> false
                      end, Is),
-    phi_copies(Phis, L);
+    case Phis of
+        [] ->
+            [];
+        [#b_set{op=phi,dst=NopDst}|_]=Phis ->
+            %% In rare cases (so far only seen in unoptimized code),
+            %% copy instructions can be combined like this:
+            %%
+            %%     y0/yreg_0 = copy x0/xreg_0
+            %%     x0/xreg_1 = copy y0/yreg_0
+            %%
+            %% This will result in a swap instruction instead of
+            %% two move instructions. To avoid that, insert a
+            %% dummy instruction before the copy instructions
+            %% resulting from the phi node:
+            %%
+            %%     y0/yreg_0 = copy x0/xreg_0
+            %%     _ = nop
+            %%     x0/xreg_1 = copy y0/yreg_0
+            %%
+            Nop = #cg_set{op=nop,dst=NopDst,args=[]},
+            [Nop|phi_copies(Phis, L)]
+    end;
 translate_phis(_, _, _) -> [].
 
 phi_copies([#b_set{dst=Dst,args=PhiArgs}|Sets], L) ->
