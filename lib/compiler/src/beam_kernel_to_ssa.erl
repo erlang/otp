@@ -708,11 +708,18 @@ internal_cg(raise, As, [#k_var{name=Dst0}], St0) ->
     Args = ssa_args(As, St0),
     {Dst,St} = new_ssa_var(Dst0, St0),
     Resume = #b_set{op=resume,dst=Dst,args=Args},
-    case St of
-        #cg{catch_label=none} ->
-            {[Resume],St};
-        #cg{catch_label=Catch} when is_integer(Catch) ->
-            Is = [Resume,make_uncond_branch(Catch),#cg_unreachable{}],
+    case fail_context(St) of
+        {no_catch,_Fail} ->
+            %% No current catch in this function. Follow the resume
+            %% instruction by a return (instead of a branch to
+            %% ?EXCEPTION_MARKER) to ensure that the trim optimization
+            %% can be applied. (Allowing control to pass through to
+            %% the next instruction would mean that the type for the
+            %% try/catch construct would be `any`.)
+            Is = [Resume,#b_ret{arg=Dst},#cg_unreachable{}],
+            {Is,St};
+        {in_catch,Fail} ->
+            Is = [Resume,make_uncond_branch(Fail),#cg_unreachable{}],
             {Is,St}
     end;
 internal_cg(recv_peek_message, [], [#k_var{name=Succeeded0},
