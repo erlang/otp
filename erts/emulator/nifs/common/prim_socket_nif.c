@@ -3166,8 +3166,8 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
 
 /* *** Local atoms *** */
 #define LOCAL_ATOMS                    \
-    LOCAL_ATOM_DECL(acc_success);      \
     LOCAL_ATOM_DECL(acc_fails);        \
+    LOCAL_ATOM_DECL(acc_success);      \
     LOCAL_ATOM_DECL(acc_tries);        \
     LOCAL_ATOM_DECL(acc_waits);        \
     LOCAL_ATOM_DECL(adaptation_layer); \
@@ -3175,8 +3175,8 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(addr_unreach);     \
     LOCAL_ATOM_DECL(address);          \
     LOCAL_ATOM_DECL(adm_prohibited);   \
-    LOCAL_ATOM_DECL(association);      \
     LOCAL_ATOM_DECL(assoc_id);         \
+    LOCAL_ATOM_DECL(association);      \
     LOCAL_ATOM_DECL(authentication);   \
     LOCAL_ATOM_DECL(bool);             \
     LOCAL_ATOM_DECL(close);            \
@@ -3197,6 +3197,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
     LOCAL_ATOM_DECL(frag_needed);      \
+    LOCAL_ATOM_DECL(gid);              \
     LOCAL_ATOM_DECL(host_unknown);     \
     LOCAL_ATOM_DECL(host_unreach);     \
     LOCAL_ATOM_DECL(in4_sockaddr);     \
@@ -3246,6 +3247,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(partial_delivery); \
     LOCAL_ATOM_DECL(peer_error);       \
     LOCAL_ATOM_DECL(peer_rwnd);        \
+    LOCAL_ATOM_DECL(pid);              \
     LOCAL_ATOM_DECL(pkt_toobig);       \
     LOCAL_ATOM_DECL(policy_fail);      \
     LOCAL_ATOM_DECL(port_unreach);     \
@@ -3261,9 +3263,8 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(reject_route);     \
     LOCAL_ATOM_DECL(remote);           \
     LOCAL_ATOM_DECL(select);           \
-    LOCAL_ATOM_DECL(sender_dry);       \
     LOCAL_ATOM_DECL(send_failure);     \
-    LOCAL_ATOM_DECL(send_flags);       \
+    LOCAL_ATOM_DECL(sender_dry);       \
     LOCAL_ATOM_DECL(shutdown);         \
     LOCAL_ATOM_DECL(slist);            \
     LOCAL_ATOM_DECL(socket_debug);     \
@@ -3273,6 +3274,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(true);             \
     LOCAL_ATOM_DECL(txstatus);         \
     LOCAL_ATOM_DECL(txtime);           \
+    LOCAL_ATOM_DECL(uid);              \
     LOCAL_ATOM_DECL(want);             \
     LOCAL_ATOM_DECL(write_byte);       \
     LOCAL_ATOM_DECL(write_fails);      \
@@ -18123,17 +18125,57 @@ char* decode_cmsghdr_data(ErlNifEnv*       env,
 	  break;
 #endif // if defined(HAVE_IPV6)
 
+    case SOL_SOCKET:
+      switch (type) {
+/* #if defined(SCM_RIGHTS) */
+/*           case SCM_RIGHTS: */
+/*               ERL_NIF_TERM elem, tail; */
+/* #endif // if defined(SCM_RIGHTS) */
+
+#if defined(SCM_CREDENTIALS) || defined(SCM_CREDS)
+#if defined(SCM_CREDENTIALS)
+          case SCM_CREDENTIALS:
+#elif defined(SCM_CREDS)
+          case SCM_CREDS:
+#endif
+              ERL_NIF_TERM val;
+              struct ucred data;
+
+              if ((GET_MAP_VAL(env, eData, atom_pid, &val) && GET_INT(env, eData, &data.pid))
+               && (GET_MAP_VAL(env, eData, atom_uid, &val) && GET_INT(env, eData, &data.uid))
+               && (GET_MAP_VAL(env, eData, atom_gid, &val) && GET_INT(env, eData, &data.gid))) {
+                  SSDBG( descP, ("SOCKET", "decode_cmsghdr_data {%d} -> "
+                              "do final decode with credentials (=#{pid=>%d,uid=>%d,gid=>%d})"
+                              "\r\n", descP->sock, data.pid, data.uid, data.gid) );
+                  return decode_cmsghdr_final(descP, bufP, rem, level, type,
+                                              (char*) &data,
+                                              sizeof(data),
+                                              used);
+              } else {
+                  *used = 0;
+                  xres  = ESOCK_STR_EINVAL;
+              }
+              break;
+#endif // if defined(SCM_CREDENTIALS)
+
+          default:
+              *used = 0;
+              xres  = ESOCK_STR_EINVAL;
+              break;
+      };
+      break;
+
         default:
             *used = 0;
             xres  = ESOCK_STR_EINVAL;
             break;
-        }        
+        }
 
     }
 
     return xres;
 }
-                              
+
 
 /* *** decode_cmsghdr_final ***
  *
@@ -18751,6 +18793,30 @@ char* encode_cmsghdr_data_socket(ErlNifEnv*     env,
                 *eCMsgHdrData = MKSBIN(env, ctrlBuf, dataPos, dataLen);
         }
         break;
+#endif
+
+#if defined(SCM_CREDENTIALS) || defined(SCM_CREDS)
+#if defined(SCM_CREDENTIALS)
+    case SCM_CREDENTIALS:
+#elif defined(SCM_CREDS)
+    case SCM_CREDS:
+#endif
+        struct ucred* credP = (struct ucred*) dataP;
+
+        ERL_NIF_TERM keys[] = {atom_pid, atom_uid, atom_gid};
+        ERL_NIF_TERM vals[] = {
+            enif_make_int(env, credP->pid),
+            enif_make_int(env, credP->uid),
+            enif_make_int(env, credP->gid)
+        };
+        unsigned int numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM);
+        unsigned int numVals = sizeof(vals) / sizeof(ERL_NIF_TERM);
+
+        ESOCK_ASSERT( (numKeys == numVals) );
+
+        if (MKMA(env, keys, vals, numKeys, eCMsgHdrData)) {
+            break;
+        }
 #endif
 
     default:
