@@ -1848,11 +1848,17 @@ openssl_suite_start(Kex) ->
 
 openssl_kex_name("RSA") ->
     "";
+openssl_kex_name("DHE_RSA") ->
+    "EDH-RSA";
 openssl_kex_name(Kex) ->
     lists:append(string:replace(Kex, "_", "-", all)).
-
 kex_name_from_openssl(Kex) ->
-    lists:append(string:replace(Kex, "-", "_", all)).
+    case lists:append(string:replace(Kex, "-", "_", all)) of
+        "EDH_RSA" ->
+            "DHE_RSA"; 
+        Str  ->
+            Str
+    end.
 
 cipher_name_from_openssl("AES128") ->
     "AES_128_CBC";
