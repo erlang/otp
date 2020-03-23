@@ -264,6 +264,9 @@ validate_link(Filename, "seeerl" = LinkType, Line, Link, CachedFiles) ->
     TargetInfo = read_link(Line, ParsedLink, CachedFiles),
     validate_type(Line,LinkType,TargetInfo),
     validate_marker(Line,ParsedLink,TargetInfo);
+validate_link({"jinterface","jinterface_users_guide"},"seefile",_, _, _) ->
+    %% Skip links to java documentation
+    ok;
 validate_link(Filename, LinkType, Line, Link, CachedFiles) ->
     ParsedLink = parse_link(Filename, maps:new(), Link),
     TargetInfo = read_link(Line, ParsedLink, CachedFiles),
@@ -298,7 +301,7 @@ read_link(Line, {App,Mod,_}, Cache) ->
         error ->
             %% fail(Line, "Could not find: ~p~p~n~p~n",
             %%   [App,Mod,lists:sort(maps:keys(Cache))]),
-            fail(Line, "Could not find: ~p~p~n",[App,Mod]),
+            fail(Line, "Could not find: ~s:~s~n",[App,Mod]),
             halt(1)
     end.
 
