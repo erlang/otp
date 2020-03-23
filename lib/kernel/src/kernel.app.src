@@ -96,6 +96,7 @@
              gen_tcp,
              gen_udp,
 	     gen_sctp,
+	     gen_tcp_socket,
              inet,
              inet_db,
              inet_dns,
