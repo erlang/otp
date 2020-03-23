@@ -1729,12 +1729,12 @@ otp_14708(Config) when is_list(Config) ->
     ok.
 
 otp_16545(Config) when is_list(Config) ->
-    check(fun() -> <<$W/utf16-native>> end,
-          "<<$W/utf16-native>>.",
-          <<0,$W>>),
-    check(fun() -> <<$W/utf32-native>> end,
-          "<<$W/utf32-native>>.",
-          <<$W,0,0,0>>),
+    case eval_string("<<$W/utf16-native>> = <<$W/utf16-native>>.") of
+        <<$W/utf16-native>> -> ok
+    end,
+    case eval_string("<<$W/utf32-native>> = <<$W/utf32-native>>.") of
+        <<$W/utf32-native>> -> ok
+    end,
     check(fun() -> <<10/unsigned,"fgbz":86>> end,
           "<<10/unsigned,\"fgbz\":86>>.",
           <<10,0,0,0,0,0,0,0,0,0,1,152,0,0,0,0,0,0,0,0,0,6,112,0,0,

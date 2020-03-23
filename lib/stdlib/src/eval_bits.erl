@@ -338,11 +338,17 @@ get_value(Bin, utf16, undefined, _Unit, _Sign, big) ->
 get_value(Bin, utf16, undefined, _Unit, _Sign, little) ->
     <<I/little-utf16,Rest/bits>> = Bin,
     {I,Rest};
+get_value(Bin, utf16, undefined, _Unit, _Sign, native) ->
+    <<I/native-utf16,Rest/bits>> = Bin,
+    {I,Rest};
 get_value(Bin, utf32, undefined, _Unit, _Sign, big) ->
     <<Val/big-utf32,Rest/bits>> = Bin,
     {Val,Rest};
 get_value(Bin, utf32, undefined, _Unit, _Sign, little) ->
     <<Val/little-utf32,Rest/bits>> = Bin,
+    {Val,Rest};
+get_value(Bin, utf32, undefined, _Unit, _Sign, native) ->
+    <<Val/native-utf32,Rest/bits>> = Bin,
     {Val,Rest};
 get_value(Bin, binary, all, Unit, _Sign, _Endian) ->
     0 = (bit_size(Bin) rem Unit),
