@@ -39,7 +39,7 @@
     calculation of scheduler utilization, otherwise obtained from calling the
     more primitive <seealso marker="erts:erlang#statistics_scheduler_wall_time">
     <c>statistics(scheduler_wall_time)</c></seealso>.</p>
-    <p>The simplest usage is to call <seealso marker="#utilization-1">
+    <p>The simplest usage is to call <seealso marker="#utilization/1">
     <c>scheduler:utilization(Seconds)</c></seealso>.</p>
   </description>
 
@@ -70,7 +70,7 @@
 	  <tag><c>{io, SchedulerId, Util, Percent}</c></tag>
 	  <item>Scheduler utilization of a dirty-io scheduler with number
 	    <c>SchedulerId</c>. This tuple will only exist if both samples were
-	    taken with <seealso marker="#sample_all-0"><c>sample_all/0</c></seealso>.</item>
+	    taken with <seealso marker="#sample_all/0"><c>sample_all/0</c></seealso>.</item>
 	  <tag><c>{total, Util, Percent}</c></tag>
 	  <item>Total utilization of all normal and dirty-cpu schedulers.</item>
 	  <tag><c>{weighted, Util, Percent}</c></tag>
@@ -126,8 +126,8 @@
       <desc>
 	<p>Calculates scheduler utilizations for the time interval between
 	the two samples obtained from calling
-	<seealso marker="#sample-0"><c>sample/0</c></seealso> or
-	<seealso marker="#sample_all-0"><c>sample_all/0</c></seealso>.</p>
+	<seealso marker="#sample/0"><c>sample/0</c></seealso> or
+	<seealso marker="#sample_all/0"><c>sample_all/0</c></seealso>.</p>
       </desc>
     </func>
 

@@ -214,7 +214,7 @@
               <list type="bulleted">
 	        <item><c>PeerName</c> - a string with the name or address of the remote host.</item>
                 <item><c>FingerPrint</c> - the fingerprint of the Host Key as 
-                <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-1">public_key:ssh_hostkey_fingerprint/1</seealso>
+                <seealso marker="public_key:public_key#ssh_hostkey_fingerprint/1">public_key:ssh_hostkey_fingerprint/1</seealso>
                 calculates it.
                 </item>
               </list>
@@ -224,7 +224,7 @@
               shall be used to calculate the fingerprint used in the call of the <c>accept_callback()</c>.
 	      The <c>HashALgoSpec</c>
               is either an atom or a list of atoms as the first argument in
-              <seealso marker="public_key:public_key#ssh_hostkey_fingerprint-2">public_key:ssh_hostkey_fingerprint/2</seealso>.
+              <seealso marker="public_key:public_key#ssh_hostkey_fingerprint/2">public_key:ssh_hostkey_fingerprint/2</seealso>.
               If it is a list of hash algorithm names, the <c>FingerPrint</c> argument in the
 	      <c>accept_callback()</c> will be 
               a list of fingerprints in the same order as the corresponding name in the <c>HashAlgoSpec</c> list.
@@ -750,7 +750,7 @@
       <name name="tcpip_tunnel_in_daemon_option"/>
       <desc>
 	<p>Enables (<c>true</c>) or disables (<c>false</c>) the possibility to tunnel a TCP/IP connection in to a
-	<seealso marker="ssh:ssh#daemon-2">server</seealso>.
+	<seealso marker="ssh:ssh#daemon/2">server</seealso>.
 	Disabled per default.
 	</p>
       </desc>
@@ -760,7 +760,7 @@
       <name name="tcpip_tunnel_out_daemon_option"/>
       <desc>
 	<p>Enables (<c>true</c>) or disables (<c>false</c>) the possibility to tunnel a TCP/IP connection out of a
-	<seealso marker="ssh:ssh#daemon-2">server</seealso>.
+	<seealso marker="ssh:ssh#daemon/2">server</seealso>.
 	Disabled per default.
 	</p>
       </desc>
@@ -847,9 +847,9 @@
 	<seealso marker="ssh_client_key_api">ssh_client_key_api</seealso> and/or
 	<seealso marker="ssh_server_key_api">ssh_server_key_api</seealso>.
 	The <c>UserOptions</c> are the options given to 
-	<seealso marker="ssh:ssh#connect-3">ssh:connect</seealso>,
-	<seealso marker="ssh:ssh#shell-1">ssh:shell</seealso> or
-	<seealso marker="ssh:ssh#daemon-2">ssh:daemon</seealso>.
+	<seealso marker="ssh:ssh#connect/3">ssh:connect</seealso>,
+	<seealso marker="ssh:ssh#shell/1">ssh:shell</seealso> or
+	<seealso marker="ssh:ssh#daemon/2">ssh:daemon</seealso>.
 	</p>
 
       </desc>
@@ -974,7 +974,7 @@
 	  <item>
 	    <p>Input is the <c>modify_algs_list()</c> and a set of algorithms <c>A</c>
 	    obtained from the <c>preferred_algorithms</c> option if existing, or else from the
-	    <seealso marker="ssh#default_algorithms-0">ssh:default_algorithms/0</seealso>.
+	    <seealso marker="ssh#default_algorithms/0">ssh:default_algorithms/0</seealso>.
 	    </p>
 	  </item>
 	  <item>
@@ -1077,8 +1077,8 @@
     <datatype>
       <name name="open_socket"/>
       <desc>
-	<p>The socket is supposed to be result of a <seealso marker="kernel:gen_tcp#connect-3">gen_tcp:connect</seealso>
-	or a <seealso marker="kernel:gen_tcp#accept-1">gen_tcp:accept</seealso>. The socket must be in passive
+	<p>The socket is supposed to be result of a <seealso marker="kernel:gen_tcp#connect/3">gen_tcp:connect</seealso>
+	or a <seealso marker="kernel:gen_tcp#accept/1">gen_tcp:accept</seealso>. The socket must be in passive
 	mode (that is, opened with the option <c>{active,false})</c>.
 	</p>
       </desc>
@@ -1088,7 +1088,7 @@
       <name name="daemon_ref"/>
       <desc>
 	<p>Opaque data type representing a daemon.</p>
-	<p>Returned by the functions <seealso marker="ssh#daemon-1"><c>daemon/1,2,3</c></seealso>.</p>
+	<p>Returned by the functions <seealso marker="ssh#daemon/1"><c>daemon/1,2,3</c></seealso>.</p>
       </desc>
     </datatype>
 
@@ -1097,8 +1097,8 @@
       <desc>
 	<p>Opaque data type representing a connection between a client and a server (daemon).</p>
 	<p>Returned by the functions
-	<seealso marker="ssh#connect-3"><c>connect/2,3,4</c></seealso> and
-	<seealso marker="ssh_sftp#start_channel-2"><c>ssh_sftp:start_channel/2,3</c></seealso>.
+	<seealso marker="ssh#connect/3"><c>connect/2,3,4</c></seealso> and
+	<seealso marker="ssh_sftp#start_channel/2"><c>ssh_sftp:start_channel/2,3</c></seealso>.
 	</p>
       </desc>
     </datatype>

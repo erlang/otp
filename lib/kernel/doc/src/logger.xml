@@ -145,7 +145,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	<p>In addition to these, the following fields are
 	  automatically inserted by Logger, values taken from the
 	  two first parameters
-	  to <seealso marker="#add_handler-3"><c>add_handler/3</c></seealso>:</p>
+	  to <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>:</p>
 	<list>
 	  <item><c>id => HandlerId</c></item>
 	  <item><c>module => Module</c></item>
@@ -202,9 +202,9 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	<p>You can add custom metadata, either by specifying a map as
 	  the last parameter to any of the log macros or the API
 	  functions, or by setting process metadata
-	  with <seealso marker="#set_process_metadata-1">
+	  with <seealso marker="#set_process_metadata/1">
 	    <c>set_process_metadata/1</c></seealso>
-	  or <seealso marker="#update_process_metadata-1">
+	  or <seealso marker="#update_process_metadata/1">
 	    <c>update_process_metadata/1</c></seealso>.</p>
 	<p>Logger merges all the metadata maps before forwarding the
 	  log event to the handlers. If the same keys occur, values
@@ -217,7 +217,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
 	    <p>The value associated with this key is used by filters
 	      for grouping log events originating from, for example,
 	      specific functional
-	      areas. See <seealso marker="logger_filters#domain-2">
+	      areas. See <seealso marker="logger_filters#domain/2">
 		<c>logger_filters:domain/2</c></seealso>
 	      for a description of how this field can be used.</p>
 	  </item>
@@ -288,7 +288,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <name name="timestamp"/>
       <desc>
 	<p>A timestamp produced
-	  with <seealso marker="#timestamp-0">
+	  with <seealso marker="#timestamp/0">
 	    <c>logger:timestamp()</c></seealso>.</p>
       </desc>
     </datatype>
@@ -346,7 +346,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <fsummary>Logs the given message as level <c>emergency</c>.</fsummary>
       <desc>
         <p>Equivalent to
-	<seealso marker="#log-2"><c>log(emergency,...)</c></seealso>.</p>
+	<seealso marker="#log/2"><c>log(emergency,...)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -357,7 +357,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <fsummary>Logs the given message as level <c>alert</c>.</fsummary>
       <desc>
         <p>Equivalent to
-	<seealso marker="#log-2"><c>log(alert,...)</c></seealso>.</p>
+	<seealso marker="#log/2"><c>log(alert,...)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -368,7 +368,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <fsummary>Logs the given message as level <c>critical</c>.</fsummary>
       <desc>
         <p>Equivalent to
-	<seealso marker="#log-2"><c>log(critical,...)</c></seealso>.</p>
+	<seealso marker="#log/2"><c>log(critical,...)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -379,7 +379,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <fsummary>Logs the given message as level <c>error</c>.</fsummary>
       <desc>
         <p>Equivalent to
-	<seealso marker="#log-2"><c>log(error,...)</c></seealso>.</p>
+	<seealso marker="#log/2"><c>log(error,...)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -390,7 +390,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <fsummary>Logs the given message as level <c>warning</c>.</fsummary>
       <desc>
         <p>Equivalent to
-	<seealso marker="#log-2"><c>log(warning,...)</c></seealso>.</p>
+	<seealso marker="#log/2"><c>log(warning,...)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -401,7 +401,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <fsummary>Logs the given message as level <c>notice</c>.</fsummary>
       <desc>
         <p>Equivalent to
-	<seealso marker="#log-2"><c>log(notice,...)</c></seealso>.</p>
+	<seealso marker="#log/2"><c>log(notice,...)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -412,7 +412,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <fsummary>Logs the given message as level <c>info</c>.</fsummary>
       <desc>
         <p>Equivalent to
-	<seealso marker="#log-2"><c>log(info,...)</c></seealso>.</p>
+	<seealso marker="#log/2"><c>log(info,...)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -423,7 +423,7 @@ logger:error("error happened because: ~p", [Reason]). % Without macro
       <fsummary>Logs the given message as level <c>debug</c>.</fsummary>
       <desc>
         <p>Equivalent to
-	<seealso marker="#log-2"><c>log(debug,...)</c></seealso>.</p>
+	<seealso marker="#log/2"><c>log(debug,...)</c></seealso>.</p>
       </desc>
     </func>
 
@@ -659,7 +659,7 @@ start(_, []) ->
         <p>Look up all current module levels. Returns a list
           containing one <c>{Module,Level}</c> element for each module
           for which the module level was previously set
-          with <seealso marker="#set_module_level-2">
+          with <seealso marker="#set_module_level/2">
 	    <c>set_module_level/2</c></seealso>.</p>
       </desc>
     </func>
@@ -671,7 +671,7 @@ start(_, []) ->
         <p>Look up the current level for the given modules. Returns a
           list containing one <c>{Module,Level}</c> element for each
           of the given modules for which the module level was
-          previously set with <seealso marker="#set_module_level-2">
+          previously set with <seealso marker="#set_module_level/2">
 	    <c>set_module_level/2</c></seealso>.</p>
       </desc>
     </func>
@@ -681,9 +681,9 @@ start(_, []) ->
       <fsummary>Retrieve data set with set_process_metadata/1.</fsummary>
       <desc>
         <p>Retrieve data set
-          with <seealso marker="#set_process_metadata-1">
+          with <seealso marker="#set_process_metadata/1">
 	    <c>set_process_metadata/1</c></seealso> or
-	  <seealso marker="#update_process_metadata-1">
+	  <seealso marker="#update_process_metadata/1">
 	    <c>update_process_metadata/1</c></seealso>.</p>
       </desc>
     </func>
@@ -742,10 +742,10 @@ start(_, []) ->
         <p>Set configuration data for the specified handler. This
           overwrites the current handler configuration.</p>
 	<p>To modify the existing configuration,
-	  use <seealso marker="#update_handler_config-2">
+	  use <seealso marker="#update_handler_config/2">
 	    <c>update_handler_config/2</c></seealso>, or, if a more
 	  complex merge is needed, read the current configuration
-	  with <seealso marker="#get_handler_config-1"><c>get_handler_config/1</c>
+	  with <seealso marker="#get_handler_config/1"><c>get_handler_config/1</c>
 	  </seealso>, then do the merge before writing the new
 	  configuration back with this function.</p>
 	<p>If a key is removed compared to the current configuration,
@@ -783,7 +783,7 @@ start(_, []) ->
 	  handlers in the Kernel application, unspecified data for
 	  the <c>config</c> key is set to default values. To update
 	  only specified data, and keep the existing configuration for
-	  the rest, use <seealso marker="#update_handler_config-3">
+	  the rest, use <seealso marker="#update_handler_config/3">
 	    <c>update_handler_config/3</c></seealso>.</p>
 	<p>See the definition of
 	  the <seealso marker="#type-handler_config">
@@ -799,10 +799,10 @@ start(_, []) ->
         <p>Set primary configuration data for Logger. This
           overwrites the current configuration.</p>
 	<p>To modify the existing configuration,
-	  use <seealso marker="#update_primary_config-1">
+	  use <seealso marker="#update_primary_config/1">
 	    <c>update_primary_config/1</c></seealso>, or, if a more
 	  complex merge is needed, read the current configuration
-	  with <seealso marker="#get_primary_config-0"><c>get_primary_config/0</c>
+	  with <seealso marker="#get_primary_config/0"><c>get_primary_config/0</c>
 	  </seealso>, then do the merge before writing the new
 	  configuration back with this function.</p>
 	<p>If a key is removed compared to the current configuration,
@@ -835,10 +835,10 @@ start(_, []) ->
           specified in the <c><anno>Config</anno></c> map gets default
           values.</p>
 	<p>To modify the existing configuration,
-	  use <seealso marker="#update_proxy_config-1">
+	  use <seealso marker="#update_proxy_config/1">
 	    <c>update_proxy_config/1</c></seealso>, or, if a more
 	  complex merge is needed, read the current configuration
-	  with <seealso marker="#get_proxy_config-0"><c>get_proxy_config/0</c>
+	  with <seealso marker="#get_proxy_config/0"><c>get_proxy_config/0</c>
 	  </seealso>, then do the merge before writing the new
 	  configuration back with this function.</p>
 	<p>For more information about the proxy, see
@@ -901,7 +901,7 @@ start(_, []) ->
 	  overwrite values from the location data.</p>
 	<p>Subsequent calls to this function overwrites previous data
           set. To update existing data instead of overwriting it,
-          see <seealso marker="#update_process_metadata-1">
+          see <seealso marker="#update_process_metadata/1">
 	    <c>update_process_metadata/1</c></seealso>.</p>
       </desc>
     </func>
@@ -941,9 +941,9 @@ start(_, []) ->
       <fsummary>Delete data set with set_process_metadata/1.</fsummary>
       <desc>
         <p>Delete data set
-          with <seealso marker="#set_process_metadata-1">
+          with <seealso marker="#set_process_metadata/1">
 	    <c>set_process_metadata/1</c></seealso> or
-	  <seealso marker="#update_process_metadata-1">
+	  <seealso marker="#update_process_metadata/1">
 	    <c>update_process_metadata/1</c></seealso>.</p>
       </desc>
     </func>
@@ -958,7 +958,7 @@ start(_, []) ->
 	<p>To overwrite the existing configuration without any merge,
 	  use</p>
 	<pre>
-<seealso marker="#set_handler_config-3">set_handler_config(HandlerId, formatter,
+<seealso marker="#set_handler_config/3">set_handler_config(HandlerId, formatter,
 	      {FormatterModule, FormatterConfig})</seealso>.</pre>
       </desc>
     </func>
@@ -970,7 +970,7 @@ start(_, []) ->
         <p>Update the formatter configuration for the specified handler.</p>
 	<p>This is equivalent to</p>
 	<pre>
-<seealso marker="#update_formatter_config-2">update_formatter_config(<anno>HandlerId</anno>, #{<anno>Key</anno> => <anno>Value</anno>})</seealso></pre>
+<seealso marker="#update_formatter_config/2">update_formatter_config(<anno>HandlerId</anno>, #{<anno>Key</anno> => <anno>Value</anno>})</seealso></pre>
       </desc>
     </func>
 
@@ -985,7 +985,7 @@ start(_, []) ->
 logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
 	</code>
 	<p>To overwrite the existing configuration without any merge,
-	  use <seealso marker="#set_handler_config-2"><c>set_handler_config/2</c>
+	  use <seealso marker="#set_handler_config/2"><c>set_handler_config/2</c>
 	  </seealso>.</p>
       </desc>
     </func>
@@ -1017,7 +1017,7 @@ logger:set_handler_config(HandlerId, maps:merge(Old, Config)).
 	  handlers in the Kernel application, unspecified data for
 	  the <c>config</c> key is not changed. To reset unspecified
 	  data to default values,
-	  use <seealso marker="#set_handler_config-3">
+	  use <seealso marker="#set_handler_config/3">
 	    <c>set_handler_config/3</c></seealso>.</p>
 	<p>See the definition of
 	  the <seealso marker="#type-handler_config">
@@ -1037,7 +1037,7 @@ Old = logger:get_primary_config(),
 logger:set_primary_config(maps:merge(Old, Config)).
 	</code>
 	<p>To overwrite the existing configuration without any merge,
-	  use <seealso marker="#set_primary_config-1"><c>set_primary_config/1</c>
+	  use <seealso marker="#set_primary_config/1"><c>set_primary_config/1</c>
 	  </seealso>.</p>
       </desc>
     </func>
@@ -1055,7 +1055,7 @@ logger:set_primary_config(maps:merge(Old, Config)).
 logger:set_process_metadata(maps:merge(logger:get_process_metadata(), Meta)).
 	</code>
 	<p>If no process metadata exists, the function behaves as
-	  <seealso marker="#set_process_metadata-1">
+	  <seealso marker="#set_process_metadata/1">
 	    <c>set_process_metadata/1</c>
 	  </seealso>.</p>
       </desc>
@@ -1072,7 +1072,7 @@ Old = logger:get_proxy_config(),
 logger:set_proxy_config(maps:merge(Old, Config)).
 	</code>
 	<p>To overwrite the existing configuration without any merge,
-	  use <seealso marker="#set_proxy_config-1"><c>set_proxy_config/1</c>
+	  use <seealso marker="#set_proxy_config/1"><c>set_proxy_config/1</c>
 	  </seealso>.</p>
 	<p>For more information about the proxy, see
 	  section <seealso marker="logger_chapter#proxy">Logger
@@ -1125,7 +1125,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
       <desc>
         <p>Return a timestamp that can be inserted as the <c>time</c>
           field in the meta data for a log event. It is produced with
-	  <seealso marker="kernel:os#system_time-1">
+	  <seealso marker="kernel:os#system_time/1">
             <c>os:system_time(microsecond)</c></seealso>.</p>
 	<p>Notice that Logger automatically inserts a timestamp in the
 	  meta data unless it already exists. This function is
@@ -1191,9 +1191,9 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 	  in <c>OldConfig</c>.</p>
 	<p><c>SetOrUpdate</c> has the value <c>set</c> if the
 	  configuration change originates from a call to
-	  <seealso marker="#set_handler_config-2">
+	  <seealso marker="#set_handler_config/2">
 	    <c>set_handler_config/2,3</c></seealso>, and <c>update</c>
-	  if it originates from <seealso marker="#update_handler_config-2">
+	  if it originates from <seealso marker="#update_handler_config/2">
 	    <c>update_handler_config/2,3</c></seealso>. The handler can
 	  use this parameteter to decide how to update the value of
 	  the <c>config</c> field, that is, the handler specific
@@ -1221,7 +1221,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 	<p>The function is called when one of the Logger API functions
 	  for fetching the handler configuration is called, for
 	  example
-	  <seealso marker="#get_handler_config-1">
+	  <seealso marker="#get_handler_config/1">
 	    <c>logger:get_handler_config/1</c></seealso>.</p>
 	<p>It allows the handler to remove internal data fields from
 	  its configuration data before it is returned to the
@@ -1296,13 +1296,13 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 	  is correct, and <c>{error,Reason}</c> if it is faulty.</p>
 	<p>The following Logger API functions can trigger this callback:</p>
 	<list>
-	  <item><seealso marker="logger#add_handler-3">
+	  <item><seealso marker="logger#add_handler/3">
 	      <c>logger:add_handler/3</c></seealso></item>
-	  <item><seealso marker="logger#set_handler_config-2">
+	  <item><seealso marker="logger#set_handler_config/2">
 	      <c>logger:set_handler_config/2,3</c></seealso></item>
-	  <item><seealso marker="logger#update_handler_config-2">
+	  <item><seealso marker="logger#update_handler_config/2">
 	      <c>logger:update_handler_config/2,3</c></seealso></item>
-	  <item><seealso marker="logger#update_formatter_config-2">
+	  <item><seealso marker="logger#update_formatter_config/2">
 	      <c>logger:update_formatter_config/2</c></seealso></item>
 	</list>
 	<p>See <seealso marker="logger_formatter">
@@ -1327,7 +1327,7 @@ logger:set_proxy_config(maps:merge(Old, Config)).
 	<p>The function can be called by a log handler to convert a
 	  log event term to a printable string. The returned value
 	  can, for example, be printed as a log entry to the console
-	  or a file using <seealso marker="stdlib:io#put_chars-1">
+	  or a file using <seealso marker="stdlib:io#put_chars/1">
 	    <c>io:put_chars/1,2</c></seealso>.</p>
 	<p>See <seealso marker="logger_formatter">
 	    <c>logger_formatter(3)</c></seealso>

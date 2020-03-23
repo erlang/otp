@@ -64,10 +64,10 @@ Stats per type:
 ok
 </pre>
     <p>This first command enables microstate accounting for 1000 milliseconds.
-    See <seealso marker="#start-0"><c>start/0</c></seealso>,
-    <seealso marker="#stop-0"><c>stop/0</c></seealso>,
-    <seealso marker="#reset-0"><c>reset/0</c></seealso> and
-    <seealso marker="#start-1"><c>start/1</c></seealso> for more details.
+    See <seealso marker="#start/0"><c>start/0</c></seealso>,
+    <seealso marker="#stop/0"><c>stop/0</c></seealso>,
+    <seealso marker="#reset/0"><c>reset/0</c></seealso> and
+    <seealso marker="#start/1"><c>start/1</c></seealso> for more details.
     The second command prints the statistics gathered during that time.
     First three general statistics are printed.</p>
     <taglist>
@@ -113,7 +113,7 @@ ok
       <desc><p>A map containing information about a specific thread. The
       percentages in the map can be either run-time or real-time depending
       on if <c>runtime</c> or <c>realtime</c> was requested from
-      <seealso marker="#stats-2">stats/2</seealso>. <c>system</c> is the
+      <seealso marker="#stats/2">stats/2</seealso>. <c>system</c> is the
       percentage of total system time for this specific thread.</p></desc>
     </datatype>
     <datatype>
@@ -140,7 +140,7 @@ ok
     <datatype>
       <name name="msacc_print_options"/>
       <desc><p>The different options that can be given to
-      <seealso marker="#print-2"><c>print/2</c></seealso>.
+      <seealso marker="#print/2"><c>print/2</c></seealso>.
       </p></desc>
     </datatype>
   </datatypes>
@@ -192,7 +192,7 @@ ok
         <p>
           Prints the current microstate accounting to standard out.
           Same as
-          <seealso marker="#print-1">
+          <seealso marker="#print/1">
             <c>msacc:print(msacc:stats(),#{}).</c>
           </seealso>
         </p>
@@ -204,7 +204,7 @@ ok
       <desc>
         <p>Print the given microstate statistics values to stdout.
         Same as
-        <seealso marker="#print-1">
+        <seealso marker="#print/1">
           <c>msacc:print(DataOrStats,#{}).</c>
         </seealso>
         </p>
@@ -219,7 +219,7 @@ ok
         reference manual for a brief description of what the fields mean.</p>
         <p>It is possible to print more specific types of statistics by
         first manipulating the <c>DataOrStats</c> using
-        <seealso marker="#stats-2"><c>stats/2</c></seealso>.
+        <seealso marker="#stats/2"><c>stats/2</c></seealso>.
         For instance if you want to print the percentage of run-time for each
         thread you can do:</p>
         <pre><input>msacc:print(msacc:stats(runtime,msacc:stats())).</input></pre>
@@ -239,7 +239,7 @@ ok
       <desc>
         <p>Print the given microstate statistics values to the given file
         or device. The other arguments behave the same way as for
-        <seealso marker="#print-2"><c>print/2</c></seealso>.</p>
+        <seealso marker="#print/2"><c>print/2</c></seealso>.</p>
       </desc>
     </func>
     <func>

@@ -91,7 +91,7 @@
  $ ct_run -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec</pre>
     
     <p>You can also pass the cover specification file name in a
-      call to <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, 
+      call to <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>, 
       by adding a <c>{cover,CoverSpec}</c> tuple to argument <c>Opts</c>.</p>
       <p>You can also enable code coverage in your test specifications (see section 
       <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
@@ -116,7 +116,7 @@
     <p>The option can be set by using flag <c>-cover_stop</c> with
       <c>ct_run</c>, by adding <c>{cover_stop,true|false}</c> to argument
       <c>Opts</c> to 
-      <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>, 
+      <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>, 
       or by adding a <c>cover_stop</c> term in the test specification (see section
       <seealso marker="run_test_chapter#test_specifications">Test Specifications</seealso>
       in section Running Tests and Analyzing Results).</p>
@@ -257,7 +257,7 @@
 
     <p>Then <c>m1</c> is cover compiled in test run <c>s2</c>,
     but not shown in the coverage log. Instead, if
-    <seealso marker="ct_cover#cross_cover_analyse-2"><c>ct_cover:cross_cover_analyse/2</c></seealso> 
+    <seealso marker="ct_cover#cross_cover_analyse/2"><c>ct_cover:cross_cover_analyse/2</c></seealso> 
     is called after both <c>s1</c> and <c>s2</c> test runs are completed, 
     the accumulated result for <c>m1</c> is available in the cross cover 
     log for test run <c>s1</c>.</p>

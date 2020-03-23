@@ -226,7 +226,7 @@
       <tag>Name</tag>
       <item><p>The registered name of the port, if any.</p></item>
       <tag>Controls</tag>
-      <item><p>The name of the command set by <seealso marker="erts:erlang#open_port-2"><c>erlang:open_port/2</c></seealso>.</p></item>
+      <item><p>The name of the command set by <seealso marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seealso>.</p></item>
       <tag>Slot</tag>
       <item><p>The internal index of the port.</p></item>
     </taglist>
@@ -245,7 +245,7 @@
       that name are then traced on all traced nodes.</p>
 
     <p>Option <em>Close</em>
-      executes <seealso marker="erts:erlang#port_close-1"><c>erlang:port_close/1</c></seealso>
+      executes <seealso marker="erts:erlang#port_close/1"><c>erlang:port_close/1</c></seealso>
       on the port under the mouse pointer.</p>
 
   </section>

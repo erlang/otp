@@ -19,7 +19,7 @@
 %%
 -module(shell_docs).
 
--include("eep48.hrl").
+-include_lib("kernel/include/eep48.hrl").
 
 -export([render/2, render/3, render/4]).
 -export([render_type/2, render_type/3, render_type/4]).
@@ -35,18 +35,18 @@
                   io_columns = element(2,io:columns())
                 }).
 
--define(ALL_ELEMENTS,[a,p,h1,h2,h3,i,br,em,pre,code,ul,ol,li,dl,dt,dd]).
+-define(ALL_ELEMENTS,[a,p,'div',h1,h2,h3,i,br,em,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
 -define(INLINE,[i,br,em,code,a]).
 -define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= code)
                          orelse ((ELEM) =:= i) orelse ((ELEM) =:= br)
                          orelse ((ELEM) =:= em))).
 %% non-inline elements are:
--define(BLOCK,[p,pre,ul,ol,li,dl,dt,dd,h1,h2,h3]).
+-define(BLOCK,[p,'div',pre,ul,ol,li,dl,dt,dd,h1,h2,h3]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
--type chunk_element_type() :: a | p | i | br | em | pre | code | ul |
+-type chunk_element_type() :: a | p | 'div' | i | br | em | pre | code | ul |
                               ol | li | dl | dt | dd.
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
 -type chunk_element_attrs() :: [chunk_element_attr()].
@@ -71,29 +71,39 @@ validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
     true = lists:all(fun(Elem) -> ?IS_INLINE(Elem) end, ?INLINE),
     true = lists:all(fun(Elem) -> ?IS_BLOCK(Elem) end, ?BLOCK),
 
-    _ = maps:map(fun(_Key,MDoc) -> validate(MDoc) end, MDocs),
-    lists:map(fun({_,_Anno, Sig, Docs, _Meta}) ->
+    _ = maps:map(fun(_Key,MDoc) -> validate(MDoc,[]) end, MDocs),
+    lists:foreach(fun({_,_Anno, Sig, Docs, _Meta}) ->
                       case lists:all(fun erlang:is_binary/1, Sig) of
                           false -> throw({invalid_signature,Sig});
                           true -> ok
                       end,
-                      maps:map(fun(_Key,Doc) -> validate(Doc) end, Docs)
-              end, AllDocs);
-validate([H|T]) when is_tuple(H) ->
-    _ = validate(H),
-    validate(T);
-validate({Tag,Attr,Content}) ->
+                      maps:map(fun(_Key,Doc) -> validate(Doc,[]) end, Docs)
+              end, AllDocs),
+    ok.
+validate([H|T],Path) when is_tuple(H) ->
+    _ = validate(H,Path),
+    validate(T,Path);
+validate({Tag,Attr,Content},Path) ->
+    case Tag =:= p andalso lists:member(p, Path) of
+        true ->
+            throw({nested,p,not_allowed});
+        false ->
+            ok
+    end,
     case lists:member(Tag,?ALL_ELEMENTS) of
         false ->
             throw({invalid_tag,Tag});
         true ->
             ok
     end,
-    true = is_list(Attr),
-    validate(Content);
-validate([Chars | T]) when is_binary(Chars) ->
-    validate(T);
-validate([]) ->
+    case lists:all(fun({Key,Val}) -> is_atom(Key) andalso is_binary(Val) end,Attr) of
+        true -> ok;
+        false -> throw({invalid_attribute,{Tag,Attr}})
+    end,
+    validate(Content,[Tag | Path]);
+validate([Chars | T], Path) when is_binary(Chars) ->
+    validate(T, Path);
+validate([],_) ->
     ok.
 
 %% Follows algorithm described here:
@@ -139,6 +149,8 @@ normalize_space([{Pre,Attr,Content}|T]) when ?IS_PRE(Pre) ->
     [{Pre,Attr,trim_first_and_last(Content,$\n)} | normalize_space(T)];
 normalize_space([{Block,Attr,Content}|T]) when ?IS_BLOCK(Block) ->
     [{Block,Attr,trim_first_and_last(trim_inline(Content),$ )} | normalize_space(T)];
+normalize_space([B]) when is_binary(B) ->
+    trim_first_and_last([B],$ );
 normalize_space([E|T]) ->
     [E|normalize_space(T)];
 normalize_space([]) ->
@@ -365,7 +377,7 @@ render_since(_) ->
 render_docs(Headers, DocContents, MD, D = #config{}) ->
     init_ansi(D),
     try
-        {Doc,_} = render_docs(DocContents,[],0,2,D),
+        {Doc,_} = trimnl(render_docs(DocContents,[],0,2,D)),
         [sansi(bold),
          [io_lib:format("~n~ts",[Header]) || Header <- Headers],
          ransi(bold),
@@ -442,14 +454,14 @@ render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
 render_element({h3,_,Content},State,Pos,_Ind,D) when Pos =< 2 ->
     trimnlnl(render_element({code,[],Content}, State, Pos, 2, D));
 
-render_element({p,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind ->
+render_element({Elem,_Attr,_Content} = E,State,Pos,Ind,D) when Pos > Ind, ?IS_BLOCK(Elem) ->
     {Docs,NewPos} = render_element(E,State,0,Ind,D),
     {["\n",Docs],NewPos};
-render_element({p,[{class,What}],Content},State,Pos,Ind,D) ->
-    {Docs,_} = render_docs(Content, [p|State], 0, Ind+2, D),
+render_element({'div',[{class,What}],Content},State,Pos,Ind,D) ->
+    {Docs,_} = render_docs(Content, ['div'|State], 0, Ind+2, D),
     trimnlnl([pad(Ind - Pos),string:titlecase(What),":\n",Docs]);
-render_element({p,_,Content},State,Pos,Ind,D) ->
-    trimnlnl(render_docs(Content, [p|State], Pos, Ind,D));
+render_element({Tag,_,Content},State,Pos,Ind,D) when Tag =:= p; Tag =:= 'div' ->
+    trimnlnl(render_docs(Content, [Tag|State], Pos, Ind,D));
 
 render_element(Elem,State,Pos,Ind,D) when Pos < Ind ->
 %    io:format("Pad: ~p~n",[Ind - Pos]),
@@ -481,21 +493,21 @@ render_element({pre,_,Content},State,Pos,Ind,D) ->
     %% For pre we make sure to respect the newlines in pre
     trimnlnl(render_docs(Content, [pre|State], Pos, Ind+2, D));
 
-render_element({ul,[{class,"types"}],Content},State,_Pos,Ind,D) ->
+render_element({ul,[{class,<<"types">>}],Content},State,_Pos,Ind,D) ->
     {Docs, _} = render_docs(Content, [types|State], 0, Ind+2, D),
     trimnlnl(["Types:\n", Docs]);
 render_element({li,Attr,Content},[types|_] = State,Pos,Ind,C) ->
     Doc =
         case {proplists:get_value(name, Attr),proplists:get_value(class, Attr)} of
-            {undefined,Class} when Class =:= undefined; Class =:= "type" ->
+            {undefined,Class} when Class =:= undefined; Class =:= <<"type">> ->
                 %% Inline html for types
                 render_docs(Content,[type|State],Pos,Ind,C);
-            {_,"description"} ->
+            {_,<<"description">>} ->
                 %% Inline html for type descriptions
                 render_docs(Content,[type|State],Pos,Ind+2,C);
             {Name,_} ->
                 %% Try to render from type metadata
-                case render_type_signature(list_to_atom(Name),C) of
+                case render_type_signature(binary_to_atom(Name),C) of
                     undefined when Content =:= [] ->
                         %% Failed and no content, emit place-holder
                         {["-type ",Name,"() :: term()."],0};

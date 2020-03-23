@@ -381,8 +381,8 @@ connect(Socket, Ip, Port>,
           can be either a
           <seealso marker="#record-sctp_assoc_change"><c>#sctp_assoc_change{}</c></seealso>
           record as returned from, for example,
-          <seealso marker="#recv-2"><c>recv/*</c></seealso>,
-          <seealso marker="#connect-5"><c>connect/*</c></seealso>, or
+          <seealso marker="#recv/2"><c>recv/*</c></seealso>,
+          <seealso marker="#connect/5"><c>connect/*</c></seealso>, or
 	  from a listening socket in active mode. It can also be just
 	  the field <c>assoc_id</c> integer from such a record.</p>
       </desc>

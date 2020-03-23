@@ -60,8 +60,8 @@
       </item>
 
       <item>Returning <c>{skip,Reason}</c> from function
-      <seealso marker="common_test#Module:init_per_testcase-2"><c>init_per_testcase/2</c></seealso> or 
-      <seealso marker="common_test#Module:init_per_suite-1"><c>init_per_suite/1</c></seealso>.</item>
+      <seealso marker="common_test#Module:init_per_testcase/2"><c>init_per_testcase/2</c></seealso> or 
+      <seealso marker="common_test#Module:init_per_suite/1"><c>init_per_suite/1</c></seealso>.</item>
 
       <item>Returning <c>{skip,Reason}</c> from the execution clause
       of the test case. The execution clause is called, so the author 

@@ -72,10 +72,10 @@
       <item>
         <p>
 	  Sets the cache size in bytes to use by
-	  <seealso marker="crypto#rand_seed_alg-1">
+	  <seealso marker="crypto#rand_seed_alg/1">
 	    <c>crypto:rand_seed_alg(crypto_cache)</c>
 	  </seealso> and
-	  <seealso marker="crypto#rand_seed_alg_s-1">
+	  <seealso marker="crypto#rand_seed_alg_s/1">
 	    <c>crypto:rand_seed_alg_s(crypto_cache)</c>
 	  </seealso>.
 	  This parameter is read when a seed function is called,

@@ -2,7 +2,7 @@
 <!DOCTYPE chapter SYSTEM "chapter.dtd" [
   <!ENTITY gen_sctp '<seealso marker="kernel:gen_sctp">gen_sctp(3)</seealso>'>
   <!ENTITY gen_tcp '<seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>'>
-  <!ENTITY service '<seealso marker="diameter#start_service-2">service</seealso>'>
+  <!ENTITY service '<seealso marker="diameter#start_service/2">service</seealso>'>
   <!ENTITY capabilities '<seealso marker="diameter#capability">capabilities</seealso>'>
   <!ENTITY events '<seealso marker="diameter#service_event">events</seealso>'>
   <!ENTITY NA '&#8212;'>

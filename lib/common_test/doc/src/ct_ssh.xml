@@ -239,7 +239,7 @@
       <fsummary>Equivalent to connect(KeyOrName, host, []).</fsummary>
       <desc><marker id="connect-1"/>
         <p>Equivalent to
-          <seealso marker="#connect-3"><c>ct_ssh:connect(KeyOrName, host,
+          <seealso marker="#connect/3"><c>ct_ssh:connect(KeyOrName, host,
           [])</c></seealso>.</p>
       </desc>
     </func>
@@ -249,7 +249,7 @@
       <fsummary>Equivalent to connect(KeyOrName, ConnType, []).</fsummary>
       <desc><marker id="connect-2"/>
         <p>Equivalent to
-          <seealso marker="#connect-3"><c>ct_ssh:connect(KeyOrName, ConnType,
+          <seealso marker="#connect/3"><c>ct_ssh:connect(KeyOrName, ConnType,
           [])</c></seealso>.</p>
       </desc>
     </func>
@@ -279,7 +279,7 @@
           be opened using the configuration data specified by <c>Key</c>).</p>
 
         <p>For information on how to create a new <c>Name</c>, see
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>.</p>
 
         <p>For <c>target_name</c>, see module
           <seealso marker="ct"><c>ct</c></seealso>.</p>
@@ -373,7 +373,7 @@
       <fsummary>Equivalent to exec(SSH, Command, DefaultTimeout).</fsummary>
       <desc><marker id="exec-2"/>
         <p>Equivalent to
-          <seealso marker="#exec-3"><c>ct_ssh:exec(SSH, Command,
+          <seealso marker="#exec/3"><c>ct_ssh:exec(SSH, Command,
           DefaultTimeout)</c></seealso>.</p>
       </desc>
     </func>
@@ -811,7 +811,7 @@
         close).</fsummary>
       <desc><marker id="receive_response-2"/>
         <p>Equivalent to
-          <seealso marker="#receive_response-3"><c>ct_ssh:receive_response(SSH,
+          <seealso marker="#receive_response/3"><c>ct_ssh:receive_response(SSH,
 ChannelId, close)</c></seealso>.</p>
       </desc>
     </func>
@@ -822,7 +822,7 @@ ChannelId, close)</c></seealso>.</p>
         DefaultTimeout).</fsummary>
       <desc><marker id="receive_response-3"/>
         <p>Equivalent to
-          <seealso marker="#receive_response-4"><c>ct_ssh:receive_response(SSH,
+          <seealso marker="#receive_response/4"><c>ct_ssh:receive_response(SSH,
 ChannelId, End, DefaultTimeout)</c></seealso>.</p>
       </desc>
     </func>
@@ -895,7 +895,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
       <fsummary>Equivalent to send(SSH, ChannelId, 0, Data,
         DefaultTimeout).</fsummary>
       <desc><marker id="send-3"/>
-        <p>Equivalent to <seealso marker="#send-5"><c>ct_ssh:send(SSH,
+        <p>Equivalent to <seealso marker="#send/5"><c>ct_ssh:send(SSH,
           ChannelId, 0, Data, DefaultTimeout)</c></seealso>.</p>
       </desc>
     </func>
@@ -904,7 +904,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
       <name since="">send(SSH, ChannelId, Data, Timeout) -&gt; ok | {error, Reason}</name>
       <fsummary>Equivalent to send(SSH, ChannelId, 0, Data, Timeout).</fsummary>
       <desc><marker id="send-4"/>
-        <p>Equivalent to <seealso marker="#send-5"><c>ct_ssh:send(SSH,
+        <p>Equivalent to <seealso marker="#send/5"><c>ct_ssh:send(SSH,
           ChannelId, 0, Data, Timeout)</c></seealso>.</p>
       </desc>
     </func>
@@ -931,7 +931,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
         close).</fsummary>
       <desc><marker id="send_and_receive-3"/>
         <p>Equivalent to
-          <seealso marker="#send_and_receive-4"><c>ct_ssh:send_and_receive(SSH,
+          <seealso marker="#send_and_receive/4"><c>ct_ssh:send_and_receive(SSH,
             ChannelId, Data, close)</c></seealso>.</p>
       </desc>
     </func>
@@ -942,7 +942,7 @@ ChannelId, End, DefaultTimeout)</c></seealso>.</p>
         DefaultTimeout).</fsummary>
       <desc><marker id="send_and_receive-4"/>
         <p>Equivalent to
-          <seealso marker="#send_and_receive-6"><c>ct_ssh;send_and_receive(SSH,
+          <seealso marker="#send_and_receive/6"><c>ct_ssh;send_and_receive(SSH,
 ChannelId, 0, Data, End, DefaultTimeout)</c></seealso>.</p>
       </desc>
     </func>
@@ -953,7 +953,7 @@ ChannelId, 0, Data, End, DefaultTimeout)</c></seealso>.</p>
         Timeout).</fsummary>
       <desc><marker id="send_and_receive-5"/>
         <p>Equivalent to
-          <seealso marker="#send_and_receive-6"><c>ct_ssh:send_and_receive(SSH,
+          <seealso marker="#send_and_receive/6"><c>ct_ssh:send_and_receive(SSH,
 ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       </desc>
     </func>
@@ -976,7 +976,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
           receive the server response.</p>
 
         <p>For details on argument <c>End</c>, see
-          <seealso marker="#receive_response-4"><c>ct_ssh:receive_response/4</c></seealso>.</p>
+          <seealso marker="#receive_response/4"><c>ct_ssh:receive_response/4</c></seealso>.</p>
       </desc>
     </func>
 
@@ -998,7 +998,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       <fsummary>Equivalent to session_open(SSH, DefaultTimeout).</fsummary>
       <desc><marker id="session_open-1"/>
         <p>Equivalent to
-          <seealso marker="#session_open-2"><c>ct_ssh:session_open(SSH,
+          <seealso marker="#session_open/2"><c>ct_ssh:session_open(SSH,
           DefaultTimeout)</c></seealso>.</p>
       </desc>
     </func>
@@ -1038,7 +1038,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
       <fsummary>Equivalent to shell(SSH, ChannelId, DefaultTimeout).</fsummary>
       <desc><marker id="shell-2"/>
         <p>Equivalent to
-          <seealso marker="#shell-3"><c>ct_ssh:shell(SSH, ChannelId,
+          <seealso marker="#shell/3"><c>ct_ssh:shell(SSH, ChannelId,
             DefaultTimeout)</c></seealso>.</p>
       </desc>
     </func>
@@ -1066,7 +1066,7 @@ ChannelId, 0, Data, End, Timeout)</c></seealso>.</p>
         DefaultTimeout).</fsummary>
       <desc><marker id="subsystem-3"/>
         <p>Equivalent to
-          <seealso marker="#subsystem-4"><c>ct_ssh:subsystem(SSH, ChannelId,
+          <seealso marker="#subsystem/4"><c>ct_ssh:subsystem(SSH, ChannelId,
             Subsystem, DefaultTimeout)</c></seealso>.</p>
       </desc>
     </func>

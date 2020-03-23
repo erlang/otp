@@ -112,7 +112,7 @@
       of <seealso marker="logger#macros">macros</seealso>, and a set
       of functions on the form <c>logger:Level/1,2,3</c>, which are
       all shortcuts
-      for <seealso marker="logger#log-2">
+      for <seealso marker="logger#log/2">
     <c>logger:log(Level,Arg1[,Arg2[,Arg3]])</c></seealso>.</p>
     <p>The macros are defined in <c>logger.hrl</c>, which is included
       in a module with the directive</p>
@@ -183,7 +183,7 @@
       <p>Notice that the integer value is only used internally in
 	Logger. In the API, you must always use the atom. To compare
 	the severity of two log levels,
-	use <seealso marker="logger#compare_levels-2">
+	use <seealso marker="logger#compare_levels/2">
 	  <c>logger:compare_levels/2</c></seealso>.</p>
     </section>
     <section>
@@ -242,9 +242,9 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	<tag>Set process metadata</tag>
 	<item>
 	  <p>Process metadata is set and updated
-	    with <seealso marker="logger#set_process_metadata-1">
+	    with <seealso marker="logger#set_process_metadata/1">
 	      <c>logger:set_process_metadata/1</c></seealso>
-	    and <seealso marker="logger#update_process_metadata-1">
+	    and <seealso marker="logger#update_process_metadata/1">
 	      <c>logger:update_process_metadata/1</c></seealso>,
 	    respectively. This metadata applies to the process on
 	    which these calls are made, and Logger adds the metadata
@@ -306,18 +306,18 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       callback. If <c>filter_default</c> is set to <c>stop</c>, Logger
       discards such events.</p>
     <p>Primary filters are added
-      with <seealso marker="logger#add_primary_filter-2">
+      with <seealso marker="logger#add_primary_filter/2">
 	<c>logger:add_primary_filter/2</c></seealso>
       and removed
-      with <seealso marker="logger#remove_primary_filter-1">
+      with <seealso marker="logger#remove_primary_filter/1">
 	<c>logger:remove_primary_filter/1</c></seealso>. They can also
       be added at system start via the Kernel configuration
       parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.</p>
     <p>Handler filters are added
-      with <seealso marker="logger#add_handler_filter-3">
+      with <seealso marker="logger#add_handler_filter/3">
 	<c>logger:add_handler_filter/3</c></seealso>
       and removed
-      with <seealso marker="logger#remove_handler_filter-2">
+      with <seealso marker="logger#remove_handler_filter/2">
 	<c>logger:remove_handler_filter/2</c></seealso>. They can also
       be specified directly in the configuration when adding a handler
       with <seealso marker="logger#add_handler/3">
@@ -326,11 +326,11 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.</p>
 
     <p>To see which filters are currently installed in the system,
-      use <seealso marker="logger#get_config-0">
+      use <seealso marker="logger#get_config/0">
 	<c>logger:get_config/0</c></seealso>,
-      or <seealso marker="logger#get_primary_config-0">
+      or <seealso marker="logger#get_primary_config/0">
 	<c>logger:get_primary_config/0</c></seealso>
-      and <seealso marker="logger#get_handler_config-1">
+      and <seealso marker="logger#get_handler_config/1">
 	<c>logger:get_handler_config/1</c></seealso>. Filters are
 	listed in the order they are applied, that is, the first
 	filter in the list is applied first, and so on.</p>
@@ -338,25 +338,25 @@ logger:debug(#{got => connection_request, id => Id, state => State},
     <p>For convenience, the following built-in filters exist:</p>
 
     <taglist>
-	<tag><seealso marker="logger_filters#domain-2">
+	<tag><seealso marker="logger_filters#domain/2">
 	    <c>logger_filters:domain/2</c></seealso></tag>
 	<item>
 	  <p>Provides a way of filtering log events based on a
 	  <c>domain</c> field in <c>Metadata</c>.</p>
 	</item>
-	<tag><seealso marker="logger_filters#level-2">
+	<tag><seealso marker="logger_filters#level/2">
 	  <c>logger_filters:level/2</c></seealso></tag>
 	<item>
 	  <p>Provides a way of filtering log events based on the log
 	    level.</p>
 	</item>
-	<tag><seealso marker="logger_filters#progress-2">
+	<tag><seealso marker="logger_filters#progress/2">
 	    <c>logger_filters:progress/2</c></seealso></tag>
 	<item>
 	  <p>Stops or allows progress reports from <c>supervisor</c>
 	    and <c>application_controller</c>.</p>
 	</item>
-	<tag><seealso marker="logger_filters#remote_gl-2">
+	<tag><seealso marker="logger_filters#remote_gl/2">
 	    <c>logger_filters:remote_gl/2</c></seealso></tag>
 	<item>
 	  <p>Stops or allows log events originating from a process
@@ -371,7 +371,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
     <p>A handler is defined as a module exporting at least the
       following callback function:</p>
 
-    <pre><seealso marker="logger#HModule:log-2">log(LogEvent, Config) -> void()</seealso></pre>
+    <pre><seealso marker="logger#HModule:log/2">log(LogEvent, Config) -> void()</seealso></pre>
 
     <p>This function is called when a log event has passed through all
       primary filters, and all handler filters attached to the handler
@@ -416,7 +416,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  only. It is not started by default, but will be
 	  automatically started the first time an <c>error_logger</c>
 	  event handler is added
-	  with <seealso marker="error_logger#add_report_handler-1">
+	  with <seealso marker="error_logger#add_report_handler/1">
 	    <c>error_logger:add_report_handler/1,2</c></seealso>.</p>
 
 	<p>The old <c>error_logger</c> event handlers in STDLIB and
@@ -434,25 +434,25 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       handler's destination. The handler callback receives the
       formatter information as part of the handler configuration,
       which is passed as the second argument
-      to <seealso marker="logger#HModule:log-2">
+      to <seealso marker="logger#HModule:log/2">
 	<c>HModule:log/2</c></seealso>.</p>
     <p>The formatter information consist of a formatter
       module, <c>FModule</c> and its
       configuration, <c>FConfig</c>. <c>FModule</c> must export the
       following function, which can be called by the handler:</p>
-    <pre><seealso marker="logger#FModule:format-2">format(LogEvent,FConfig)
+    <pre><seealso marker="logger#FModule:format/2">format(LogEvent,FConfig)
 	-> FormattedLogEntry</seealso></pre>
     <p>The formatter information for a handler is set as a part of its
       configuration when the handler is added. It can also be changed
       during runtime
-      with <seealso marker="logger#set_handler_config-3">
+      with <seealso marker="logger#set_handler_config/3">
 	<c>logger:set_handler_config(HandlerId,formatter,{FModule,FConfig})</c>
       </seealso>, which overwrites the current formatter information,
-      or with <seealso marker="logger#update_formatter_config-2">
+      or with <seealso marker="logger#update_formatter_config/2">
 	<c>logger:update_formatter_config/2,3</c></seealso>, which
 	only modifies the formatter configuration.</p>
     <p>If the formatter module exports the optional callback
-      function <seealso marker="logger#FModule:check_config-1">
+      function <seealso marker="logger#FModule:check_config/1">
 	<c>check_config(FConfig)</c></seealso>, Logger calls this
       function when the formatter information is set or modified, to
       verify the validity of the formatter configuration.</p>
@@ -482,15 +482,15 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       <p>Logger API functions that apply to the primary Logger
 	configuration are:</p>
       <list>
-	<item><seealso marker="logger#get_primary_config-0">
+	<item><seealso marker="logger#get_primary_config/0">
 	    <c>get_primary_config/0</c></seealso></item>
-	<item><seealso marker="logger#set_primary_config-1">
+	<item><seealso marker="logger#set_primary_config/1">
 	    <c>set_primary_config/1,2</c></seealso></item>
-	<item><seealso marker="logger#update_primary_config-1">
+	<item><seealso marker="logger#update_primary_config/1">
 	    <c>update_primary_config/1</c></seealso></item>
-	<item><seealso marker="logger#add_primary_filter-2">
+	<item><seealso marker="logger#add_primary_filter/2">
 	    <c>add_primary_filter/2</c></seealso></item>
-	<item><seealso marker="logger#remove_primary_filter-1">
+	<item><seealso marker="logger#remove_primary_filter/1">
 	    <c>remove_primary_filter/1</c></seealso></item>
       </list>
       <p>The primary Logger configuration is a map with the following
@@ -510,7 +510,7 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  <p>The initial value of this option is set by the Kernel
 	    configuration parameter <seealso marker="#logger_level">
 	      <c>logger_level</c></seealso>. It is changed during
-	    runtime with <seealso marker="logger#set_primary_config-2">
+	    runtime with <seealso marker="logger#set_primary_config/2">
 	      <c>logger:set_primary_config(level,Level)</c></seealso>.</p>
 	  <p>Defaults to <c>notice</c>.</p>
 	</item>
@@ -527,9 +527,9 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	    configuration
 	    parameter <seealso marker="#logger_parameter"><c>logger</c></seealso>.
 	    During runtime, primary filters are added and removed with
-	    <seealso marker="logger#add_primary_filter-2">
+	    <seealso marker="logger#add_primary_filter/2">
 	      <c>logger:add_primary_filter/2</c></seealso> and
-	    <seealso marker="logger#remove_primary_filter-1">
+	    <seealso marker="logger#remove_primary_filter/1">
 	      <c>logger:remove_primary_filter/1</c></seealso>,
 	    respectively.</p>
 	  <p>See section <seealso marker="#filters">Filters</seealso>
@@ -553,17 +553,17 @@ logger:debug(#{got => connection_request, id => Id, state => State},
       <p>Logger API functions that apply to handler configuration
 	are:</p>
       <list>
-	<item><seealso marker="logger#get_handler_config-0">
+	<item><seealso marker="logger#get_handler_config/0">
 	    <c>get_handler_config/0,1</c></seealso></item>
-	<item><seealso marker="logger#set_handler_config-2">
+	<item><seealso marker="logger#set_handler_config/2">
 	    <c>set_handler_config/2,3</c></seealso></item>
-	<item><seealso marker="logger#update_handler_config-2">
+	<item><seealso marker="logger#update_handler_config/2">
 	    <c>update_handler_config/2,3</c></seealso></item>
-	<item><seealso marker="logger#add_handler_filter-3">
+	<item><seealso marker="logger#add_handler_filter/3">
 	    <c>add_handler_filter/3</c></seealso></item>
-	<item><seealso marker="logger#remove_handler_filter-2">
+	<item><seealso marker="logger#remove_handler_filter/2">
 	    <c>remove_handler_filter/2</c></seealso></item>
-	<item><seealso marker="logger#update_formatter_config-2">
+	<item><seealso marker="logger#update_formatter_config/2">
 	    <c>update_formatter_config/2,3</c></seealso></item>
       </list>
       <p>The configuration for a handler is a map with the following keys:</p>
@@ -609,9 +609,9 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  </list>
 	  <p>Handler filters are specified when adding the handler,
 	    or added or removed during runtime with
-	    <seealso marker="logger#add_handler_filter-3">
+	    <seealso marker="logger#add_handler_filter/3">
 	      <c>logger:add_handler_filter/3</c></seealso> and
-	    <seealso marker="logger#remove_handler_filter-2">
+	    <seealso marker="logger#remove_handler_filter/2">
 	      <c>logger:remove_handler_filter/2</c></seealso>,
 	    respectively.</p>
 	  <p>See <seealso marker="#filters">Filters</seealso> for more
@@ -639,11 +639,11 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  <p>The formatter information is specified when adding the
 	    handler. The formatter configuration can be changed during
 	    runtime
-	    with <seealso marker="logger#update_formatter_config-2">
+	    with <seealso marker="logger#update_formatter_config/2">
 	      <c>logger:update_formatter_config/2,3</c></seealso>,
 	    or the complete formatter information can be overwritten
 	    with, for
-	    instance, <seealso marker="logger#set_handler_config-3">
+	    instance, <seealso marker="logger#set_handler_config/3">
 	      <c>logger:set_handler_config/3</c></seealso>.</p>
 	  <p>See
 	    section <seealso marker="#formatters">Formatters</seealso>
@@ -709,11 +709,11 @@ logger:debug(#{got => connection_request, id => Id, state => State},
           <item>
 	    <p>If <c>HandlerId</c> is <c>default</c>, then this entry
 	      modifies the default handler, equivalent to calling</p>
-	    <pre><seealso marker="logger#remove_handler-1">
+	    <pre><seealso marker="logger#remove_handler/1">
 		logger:remove_handler(default)
 	    </seealso></pre>
 	    <p>followed by</p>
-	    <pre><seealso marker="logger#add_handler-3">
+	    <pre><seealso marker="logger#add_handler/3">
 		logger:add_handler(default, Module, HandlerConfig)
 	    </seealso></pre>
 	    <p>For all other values of <c>HandlerId</c>, this entry
@@ -854,13 +854,13 @@ logger:debug(#{got => connection_request, id => Id, state => State},
 	  be used by legacy code. It will be removed in a later
 	  release.</p>
 	<p>Calls
-	  to <seealso marker="error_logger#error_report-1">
+	  to <seealso marker="error_logger#error_report/1">
 	    <c>error_logger:error_report/1,2</c></seealso>,
-	  <seealso marker="error_logger#error_msg-1">
+	  <seealso marker="error_logger#error_msg/1">
 	    <c>error_logger:error_msg/1,2</c></seealso>, and
 	  corresponding functions for warning and info messages, are
 	  all forwarded to Logger as calls
-	  to <seealso marker="logger#log-3">
+	  to <seealso marker="logger#log/3">
 	    <c>logger:log(Level,Report,Metadata)</c></seealso>.</p>
 	<p><c>Level = error | warning | info</c> and is taken
 	  from the function name. <c>Report</c> contains the actual
@@ -1014,7 +1014,7 @@ ok</pre>
       handler now receives all log events. If you want info events
       only in the file, you must add a filter to stop all non-info
       events. The built-in
-      filter <seealso marker="logger_filters#level-2">
+      filter <seealso marker="logger_filters#level/2">
 	<c>logger_filters:level/2</c></seealso>
       can do this:</p>
     <pre>
@@ -1045,7 +1045,7 @@ ok</pre>
       <item><c>filter_config(Config)</c></item>
     </list>
     <p>When a handler is added, by for example a call
-      to <seealso marker="logger#add_handler-3">
+      to <seealso marker="logger#add_handler/3">
 	<c>logger:add_handler(Id, HModule, Config)</c></seealso>,
       Logger first calls <c>HModule:adding_handler(Config)</c>. If
       this function returns <c>{ok,Config1}</c>, Logger
@@ -1054,11 +1054,11 @@ ok</pre>
       handler is installed and must be ready to receive log events as
       calls to <c>HModule:log/2</c>.</p>
     <p>A handler can be removed by calling
-      <seealso marker="logger#remove_handler-1">
+      <seealso marker="logger#remove_handler/1">
 	<c>logger:remove_handler(Id)</c></seealso>. Logger calls
       <c>HModule:removing_handler(Config)</c>, and removes the
       handler's configuration from the configuration database.</p>
-    <p>When <seealso marker="logger#set_handler_config-2">
+    <p>When <seealso marker="logger#set_handler_config/2">
 	<c>logger:set_handler_config/2,3</c></seealso>
       or <seealso marker="logger#update_handler_config/2">
 	<c>logger:update_handler_config/2,3</c></seealso> is called,
@@ -1066,9 +1066,9 @@ ok</pre>
       calls <c>HModule:changing_config(SetOrUpdate, OldConfig, NewConfig)</c>. If
       this function returns <c>{ok,NewConfig1}</c>, Logger
       writes <c>NewConfig1</c> to the configuration database.</p>
-    <p>When <seealso marker="logger#get_config-0">
+    <p>When <seealso marker="logger#get_config/0">
 	<c>logger:get_config/0</c></seealso> or
-      <seealso marker="logger#get_handler_config-0">
+      <seealso marker="logger#get_handler_config/0">
 	<c>logger:get_handler_config/0,1</c></seealso> is called,
       Logger calls <c>HModule:filter_config(Config)</c>. This function
       must return the handler configuration where internal data is

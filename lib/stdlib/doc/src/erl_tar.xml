@@ -411,7 +411,7 @@
           <tag><c>(position,{UserData,Position})</c></tag>
           <item>
             <p>Sets the position of <c>UserData</c> as defined for files in
-              <seealso marker="kernel:file#position-2">
+              <seealso marker="kernel:file#position/2">
               <c>file:position/2</c></seealso></p>
           </item>
         </taglist>

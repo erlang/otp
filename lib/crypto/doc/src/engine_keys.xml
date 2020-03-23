@@ -56,7 +56,7 @@
     </p>
     <list>
       <item>an Engine is loaded, see the chapter on <seealso marker="crypto:engine_load#engine_load">Engine Load</seealso>
-      or the <seealso marker="crypto:crypto#engine_load-3">Reference Manual</seealso>
+      or the <seealso marker="crypto:crypto#engine_load/3">Reference Manual</seealso>
       </item>
       <item>a reference to a key in the Engine is available. This should be an Erlang string or binary and depends
       on the Engine loaded

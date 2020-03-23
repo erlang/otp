@@ -106,7 +106,7 @@
 	<c>FakeName</c> is replaced with <c>RealName</c> in the
 	match. The resulting path is split into two parts,
 	<c>ShortPath</c> and <c>AfterPath</c>, as defined in 
-	<seealso marker="httpd_util#split_path-1">httpd_util:split_path/1</seealso>. 
+	<seealso marker="httpd_util#split_path/1">httpd_util:split_path/1</seealso>. 
 	<c>Path</c> is generated from <c>ShortPath</c>, that is,
 	the result from 
 	<seealso marker="#default_index">default_index/2</seealso> with
@@ -140,7 +140,7 @@
 	<c>not_a_script</c> is returned. If it is a script, the
 	resulting script path is in two parts,
 	<c>ShortPath</c> and <c>AfterPath</c>, as defined in 
-	<seealso marker="httpd_util#split_script_path-1">httpd_util:split_script_path/1</seealso>.
+	<seealso marker="httpd_util#split_script_path/1">httpd_util:split_script_path/1</seealso>.
 	<c>config_db()</c> is the server config file in ETS table
 	format as described in 
 	<seealso marker="http_server">Inets User's Guide</seealso>.</p>

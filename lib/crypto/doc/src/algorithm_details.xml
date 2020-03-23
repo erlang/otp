@@ -51,7 +51,7 @@
     <seealso marker="crypto:new_api#retired-cipher-names">Retired cipher names</seealso>.
     </p>
     <p>To dynamically check availability, check that the name in the <i>Cipher and Mode</i> column is present in the
-    list returned by <seealso marker="crypto#supports-1">crypto:supports(ciphers)</seealso>.
+    list returned by <seealso marker="crypto#supports/1">crypto:supports(ciphers)</seealso>.
     </p>
     
     <section>
@@ -162,7 +162,7 @@
   
   <section>
     <title>Message Authentication Codes (MACs)</title>
-    <p>To be used in <seealso marker="crypto#mac-4">mac/4</seealso> and
+    <p>To be used in <seealso marker="crypto#mac/4">mac/4</seealso> and
     <seealso marker="crypto:new_api#macs--message-authentication-codes-">related functions</seealso>.
     </p>
 
@@ -172,9 +172,9 @@
       </p>
 
       <p>To dynamically check availability, check that the name <c>cmac</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(macs)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(macs)</seealso>.
       Also check that the name in the <i>Cipher and Mode</i> column is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(ciphers)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(ciphers)</seealso>.
       </p>
       <table>
 	<row>
@@ -203,9 +203,9 @@
       <p>Available in all OpenSSL compatible with Erlang CRYPTO if not disabled by configuration.
       </p>
       <p>To dynamically check availability, check that the name <c>hmac</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(macs)</seealso> and
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(macs)</seealso> and
       that the hash name is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(hashs)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(hashs)</seealso>.
       </p>
 
       <table>
@@ -238,7 +238,7 @@
       <p>POLY1305 is available with OpenSSL 1.1.1 or later if not disabled by configuration.
       </p>
       <p>To dynamically check availability, check that the name <c>poly1305</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(macs)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(macs)</seealso>.
       </p>
       <p>The poly1305 mac wants an 32 bytes key and produces a 16 byte MAC by default.
       </p>
@@ -250,7 +250,7 @@
     <title>Hash</title>
 
     <p>To dynamically check availability, check that the wanted name in the <i>Names</i> column is present in the
-    list returned by <seealso marker="crypto#supports-1">crypto:supports(hashs)</seealso>.
+    list returned by <seealso marker="crypto#supports/1">crypto:supports(hashs)</seealso>.
     </p>
 
     <table>
@@ -275,7 +275,7 @@
       <title>RSA</title>
       <p>RSA is available with all OpenSSL versions compatible with Erlang CRYPTO if not disabled by configuration.
       To dynamically check availability, check that the atom <c>rsa</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(public_keys)</seealso>.
       </p>
       <warning>
 	<!-- In RefMan rsa_opt(), rsa_sign_verify_opt() and User's man RSA -->
@@ -347,7 +347,7 @@
       <title>DSS</title>
       <p>DSS is available with OpenSSL versions compatible with Erlang CRYPTO if not disabled by configuration.
       To dynamically check availability, check that the atom <c>dss</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(public_keys)</seealso>.
       </p>
     </section>
 
@@ -355,11 +355,11 @@
       <title>ECDSA</title>
       <p>ECDSA is available with OpenSSL 0.9.8o or later if not disabled by configuration.
       To dynamically check availability, check that the atom <c>ecdsa</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(public_keys)</seealso>.
       If the atom <c>ec_gf2m</c> also is present, the characteristic two field curves are available.
       </p>
       <p>The actual supported named curves could be checked by examining the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(curves)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(curves)</seealso>.
       </p>
     </section>
 
@@ -367,11 +367,11 @@
       <title>EdDSA</title>
       <p>EdDSA is available with OpenSSL 1.1.1 or later if not disabled by configuration.
       To dynamically check availability, check that the atom <c>eddsa</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(public_keys)</seealso>.
       </p>
       <p>Support for the curves ed25519 and ed448 is implemented.
       The actual supported named curves could be checked by examining the list with the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(curves)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(curves)</seealso>.
       </p>
     </section>
 
@@ -380,7 +380,7 @@
       <p>Diffie-Hellman computations are available with OpenSSL versions compatible with Erlang CRYPTO
       if not disabled by configuration.
       To dynamically check availability, check that the atom <c>dh</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(public_keys)</seealso>.
       </p>
     </section>
 
@@ -388,7 +388,7 @@
       <title>Elliptic Curve Diffie-Hellman</title>
       <p>Elliptic Curve Diffie-Hellman is available with OpenSSL 0.9.8o or later if not disabled by configuration.
       To dynamically check availability, check that the atom <c>ecdh</c> is present in the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(public_keys)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(public_keys)</seealso>.
       </p>
 
       <p>The Edward curves <c>x25519</c> and <c>x448</c> are supported with OpenSSL 1.1.1 or later
@@ -396,7 +396,7 @@
       </p>
 
       <p>The actual supported named curves could be checked by examining the
-      list returned by <seealso marker="crypto#supports-1">crypto:supports(curves)</seealso>.
+      list returned by <seealso marker="crypto#supports/1">crypto:supports(curves)</seealso>.
       </p>
     </section>
 

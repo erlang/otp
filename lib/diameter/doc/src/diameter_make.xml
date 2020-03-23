@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY compile_forms2
-  '<seealso marker="compiler:compile#forms-2">compile:forms/2</seealso>'>
+  '<seealso marker="compiler:compile#forms/2">compile:forms/2</seealso>'>
   <!ENTITY filename
   '<seealso marker="kernel:file#type-name">file:name()</seealso>'>
   <!ENTITY dictionary

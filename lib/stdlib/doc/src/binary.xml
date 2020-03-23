@@ -131,10 +131,10 @@
       <desc>
       <p>Builds an internal structure representing a compilation of a
       search pattern, later to be used in functions
-      <seealso marker="#match-3"><c>match/3</c></seealso>,
-      <seealso marker="#matches-3"><c>matches/3</c></seealso>,
-      <seealso marker="#split-3"><c>split/3</c></seealso>, or
-      <seealso marker="#replace-4"><c>replace/4</c></seealso>.
+      <seealso marker="#match/3"><c>match/3</c></seealso>,
+      <seealso marker="#matches/3"><c>matches/3</c></seealso>,
+      <seealso marker="#split/3"><c>split/3</c></seealso>, or
+      <seealso marker="#replace/4"><c>replace/4</c></seealso>.
       The <c>cp()</c> returned is guaranteed to be a
       <c>tuple()</c> to allow programs to distinguish it from
       non-precompiled search patterns.</p>
@@ -361,7 +361,7 @@
       atom <c>nomatch</c> is returned.</p>
 
       <p>For a description of <c><anno>Pattern</anno></c>, see function
-      <seealso marker="#compile_pattern-1"><c>compile_pattern/1</c></seealso>.
+      <seealso marker="#compile_pattern/1"><c>compile_pattern/1</c></seealso>.
       </p>
 
       <p>If <c>{scope, {Start,Length}}</c> is specified in the options such
@@ -385,7 +385,7 @@
       <fsummary>Search for all matches of a pattern in a binary.</fsummary>
       <type name="part"/>
       <desc>
-      <p>As <seealso marker="#match-2"><c>match/2</c></seealso>,
+      <p>As <seealso marker="#match/2"><c>match/2</c></seealso>,
       but <c><anno>Subject</anno></c> is searched until
       exhausted and a list of all non-overlapping parts matching
       <c><anno>Pattern</anno></c> is returned (in order).</p>
@@ -411,9 +411,9 @@
        returned.</p>
 
        <p>For a description of <c><anno>Pattern</anno></c>, see
-       <seealso marker="#compile_pattern-1"><c>compile_pattern/1</c></seealso>.
+       <seealso marker="#compile_pattern/1"><c>compile_pattern/1</c></seealso>.
        For a description of available options, see
-       <seealso marker="#match-3"><c>match/3</c></seealso>.</p>
+       <seealso marker="#match/3"><c>match/3</c></seealso>.</p>
 
        <p>If <c>{scope, {<anno>Start</anno>,<anno>Length</anno>}}</c> is
        specified in the options such that <c><anno>Start</anno></c> &gt; size
@@ -440,8 +440,8 @@
 &lt;&lt;6,7,8,9,10&gt;&gt;</code>
 
       <note>
-      <p><seealso marker="#part-2">part/2</seealso> and
-      <seealso marker="#part-3">part/3</seealso> are also available in the
+      <p><seealso marker="#part/2">part/2</seealso> and
+      <seealso marker="#part/3">part/3</seealso> are also available in the
       <seealso marker="erts:erlang"><c>erlang</c></seealso>
       module under the names <c>binary_part/2</c> and
       <c>binary_part/3</c>. Those BIFs are allowed in guard tests.</p>
@@ -566,11 +566,11 @@ store(Binary, GBSet) ->
         of the replacement binary, a <c>badarg</c> exception is raised.</p>
 
         <p>Options <c>global</c> and <c>{scope, part()}</c> work as for
-        <seealso marker="#split-3"><c>split/3</c></seealso>.
+        <seealso marker="#split/3"><c>split/3</c></seealso>.
         The return type is always a <c>binary()</c>.</p>
 
         <p>For a description of <c><anno>Pattern</anno></c>, see
-        <seealso marker="#compile_pattern-1"><c>compile_pattern/1</c></seealso>.
+        <seealso marker="#compile_pattern/1"><c>compile_pattern/1</c></seealso>.
         </p>
       </desc>
     </func>
@@ -608,8 +608,8 @@ store(Binary, GBSet) ->
 
       <taglist>
       <tag>{scope, part()}</tag>
-      <item><p>Works as in <seealso marker="#match-3"><c>match/3</c></seealso>
-      and <seealso marker="#matches-3"><c>matches/3</c></seealso>. Notice that
+      <item><p>Works as in <seealso marker="#match/3"><c>match/3</c></seealso>
+      and <seealso marker="#matches/3"><c>matches/3</c></seealso>. Notice that
       this only defines the scope of the search for matching strings,
       it does not cut the binary before splitting. The bytes before and after
       the scope are kept in the result. See the example below.</p></item>
@@ -622,9 +622,9 @@ store(Binary, GBSet) ->
       <item><p>Repeats the split until <c><anno>Subject</anno></c> is
       exhausted. Conceptually option <c>global</c> makes split work
       on the positions returned by
-      <seealso marker="#matches-3"><c>matches/3</c></seealso>, while it
+      <seealso marker="#matches/3"><c>matches/3</c></seealso>, while it
       normally works on the position returned by
-      <seealso marker="#match-3"><c>match/3</c></seealso>.</p></item>
+      <seealso marker="#match/3"><c>match/3</c></seealso>.</p></item>
       </taglist>
 
      <p>Example of the difference between a scope and taking the
@@ -643,7 +643,7 @@ store(Binary, GBSet) ->
       of the split are no longer referenced.</p>
 
       <p>For a description of <c><anno>Pattern</anno></c>, see
-      <seealso marker="#compile_pattern-1"><c>compile_pattern/1</c></seealso>.
+      <seealso marker="#compile_pattern/1"><c>compile_pattern/1</c></seealso>.
       </p>
       </desc>
     </func>

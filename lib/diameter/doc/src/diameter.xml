@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY spawn_opt2
-  '<seealso marker="erts:erlang#spawn_opt-2">erlang:spawn_opt/2</seealso>'>
+  '<seealso marker="erts:erlang#spawn_opt/2">erlang:spawn_opt/2</seealso>'>
   <!ENTITY spawn_opt5
-  '<seealso marker="erts:erlang#spawn_opt-5">erlang:spawn_opt/5</seealso>'>
+  '<seealso marker="erts:erlang#spawn_opt/5">erlang:spawn_opt/5</seealso>'>
   <!ENTITY nodes
-  '<seealso marker="erts:erlang#nodes-0">erlang:nodes/0</seealso>'>
+  '<seealso marker="erts:erlang#nodes/0">erlang:nodes/0</seealso>'>
   <!ENTITY make_ref
-  '<seealso marker="erts:erlang#make_ref-0">erlang:make_ref/0</seealso>'>
+  '<seealso marker="erts:erlang#make_ref/0">erlang:make_ref/0</seealso>'>
   <!ENTITY transport_module
   '<seealso marker="diameter_transport">transport module</seealso>'>
   <!ENTITY dictionary

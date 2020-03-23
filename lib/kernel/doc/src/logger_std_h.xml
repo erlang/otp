@@ -47,7 +47,7 @@
       <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
       </seealso>.</p>
     <p>To add a new instance of the standard handler, use
-      <seealso marker="logger#add_handler-3"><c>logger:add_handler/3</c>
+      <seealso marker="logger#add_handler/3"><c>logger:add_handler/3</c>
       </seealso>. The handler configuration argument is a map which can contain
       general configuration parameters, as documented in the
        <seealso marker="logger_chapter#handler_configuration"><c>User's Guide</c>
@@ -77,7 +77,7 @@
       <item>
 	<p>This specifies the file modes to use when opening the log
 	  file,
-	  see <seealso marker="file#open-2"><c>file:open/2</c></seealso>.
+	  see <seealso marker="file#open/2"><c>file:open/2</c></seealso>.
 	  If <c>modes</c> are not specified, the default list used
 	  is <c>[raw,append,delayed_write]</c>. If <c>modes</c> are
 	  specified, the list replaces the default modes list with the
@@ -162,7 +162,7 @@
 	<p>If <c>no_repeat</c> is set as value, the repeated file sync operation
 	is disabled, and it is the operating system settings that determine
 	how quickly or slowly data is written to disk. The user can also call
-	the <seealso marker="logger_std_h#filesync-1"><c>filesync/1</c></seealso>
+	the <seealso marker="logger_std_h#filesync/1"><c>filesync/1</c></seealso>
         function to perform a file sync.</p>
 	<p>Defaults to <c>5000</c> milliseconds.</p>
       </item>

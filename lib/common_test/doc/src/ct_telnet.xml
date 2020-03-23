@@ -127,7 +127,7 @@
       option <c>hosts</c> and list the names of the servers/connections
       to be used in the suite. The connections must be named for this to
       work (see
-      <seealso marker="#open-1"><c>ct_telnet:open/1,2,3,4</c></seealso>).</p>
+      <seealso marker="#open/1"><c>ct_telnet:open/1,2,3,4</c></seealso>).</p>
 
     <p>Hook option <c>log_type</c> can be used to change the
       <c>cth_conn_log</c> behavior. The default value of this option is
@@ -218,7 +218,7 @@
         <p>A connection can be associated with a target name and/or a handle.
           If <c>Connection</c> has no associated target name, it can only
           be closed with the handle value (see
-          <seealso marker="#open-4"><c>ct_telnet:open/4</c></seealso>).</p>
+          <seealso marker="#open/4"><c>ct_telnet:open/4</c></seealso>).</p>
       </desc>
     </func>
 
@@ -227,7 +227,7 @@
       <fsummary>Equivalent to cmd(Connection, Cmd, []).</fsummary>
       <desc><marker id="cmd-2"/>
         <p>Equivalent to
-          <seealso marker="#cmd-3"><c>ct_telnet:cmd(Connection, Cmd,
+          <seealso marker="#cmd/3"><c>ct_telnet:cmd(Connection, Cmd,
           [])</c></seealso>.</p>
       </desc>
     </func>
@@ -269,7 +269,7 @@
       <fsummary>Equivalent to cmdf(Connection, CmdFormat, Args, []).</fsummary>
       <desc><marker id="cmdf-3"/>
         <p>Equivalent to
-          <seealso marker="#cmdf-4"><c>ct_telnet:cmdf(Connection, CmdFormat,
+          <seealso marker="#cmdf/4"><c>ct_telnet:cmdf(Connection, CmdFormat,
           Args, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -292,7 +292,7 @@
           and a list of arguments to build the command).</p>
 
         <p>For details, see
-          <seealso marker="#cmd-3"><c>ct_telnet:cmd/3</c></seealso>.</p>
+          <seealso marker="#cmd/3"><c>ct_telnet:cmd/3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -301,7 +301,7 @@
       <fsummary>Equivalent to expect(Connections, Patterns, []).</fsummary>
       <desc><marker id="expect-2"/>
         <p>Equivalent to
-          <seealso marker="#expect-3"><c>ct_telnet:expect(Connections,
+          <seealso marker="#expect/3"><c>ct_telnet:expect(Connections,
           Patterns, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -453,7 +453,7 @@
       <fsummary>Equivalent to open(Name, telnet).</fsummary>
       <desc><marker id="open-1"/>
         <p>Equivalent to
-          <seealso marker="#open-2"><c>ct_telnet:open(Name,
+          <seealso marker="#open/2"><c>ct_telnet:open(Name,
           telnet)</c></seealso>.</p>
       </desc>
     </func>
@@ -478,7 +478,7 @@
       <fsummary>Equivalent to open(KeyOrName, ConnType, TargetMod, []).</fsummary>
       <desc><marker id="open-3"/>
         <p>Equivalent to
-          <seealso marker="#open-4"><c>ct_telnet:ct_telnet:open(KeyOrName,
+          <seealso marker="#open/4"><c>ct_telnet:ct_telnet:open(KeyOrName,
           ConnType, TargetMod, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -506,7 +506,7 @@
           alternatives:</p>
 
         <list type="bulleted">
-          <item><p><seealso marker="ct#require-2"><c>ct:require/2</c></seealso>
+          <item><p><seealso marker="ct#require/2"><c>ct:require/2</c></seealso>
              in a test case</p></item>
           <item><p>A <c>require</c> statement in the suite information
             function (<c>suite/0</c>)</p></item>
@@ -529,7 +529,7 @@
           <seealso marker="ct"><c>ct</c></seealso>.</p>
 
         <p>See also
-          <seealso marker="ct#require-2"><c>ct:require/2</c></seealso>.</p>
+          <seealso marker="ct#require/2"><c>ct:require/2</c></seealso>.</p>
       </desc>
     </func>
 
@@ -538,7 +538,7 @@
       <fsummary>Equivalent to send(Connection, Cmd, []).</fsummary>
       <desc><marker id="send-2"/>
         <p>Equivalent to
-          <seealso marker="#send-3"><c>ct_telnet:send(Connection, Cmd,
+          <seealso marker="#send/3"><c>ct_telnet:send(Connection, Cmd,
           [])</c></seealso>.</p>
       </desc>
     </func>
@@ -566,8 +566,8 @@
           carriage return and newline characters.</p>
 
         <p>The resulting output from the command can be read with
-          <seealso marker="#get_data-1"><c>ct_telnet:get_data/2</c></seealso> or
-          <seealso marker="#expect-2"><c>ct_telnet:expect/2,3</c></seealso>.</p>
+          <seealso marker="#get_data/1"><c>ct_telnet:get_data/2</c></seealso> or
+          <seealso marker="#expect/2"><c>ct_telnet:expect/2,3</c></seealso>.</p>
       </desc>
     </func>
 
@@ -576,7 +576,7 @@
       <fsummary>Equivalent to sendf(Connection, CmdFormat, Args, []).</fsummary>
       <desc><marker id="sendf-3"/>
         <p>Equivalent to
-          <seealso marker="#sendf-4"><c>ct_telnet:sendf(Connection, CmdFormat,
+          <seealso marker="#sendf/4"><c>ct_telnet:sendf(Connection, CmdFormat,
           Args, [])</c></seealso>.</p>
       </desc>
     </func>
@@ -598,7 +598,7 @@
           string and a list of arguments to build the command).</p>
 
         <p>For details, see
-          <seealso marker="#send-3"><c>ct_telnet:send/3</c></seealso>.</p>
+          <seealso marker="#send/3"><c>ct_telnet:send/3</c></seealso>.</p>
       </desc>
     </func>
   </funcs>

@@ -188,7 +188,7 @@
 	<p>Option <c>ipv6_host_with_bracket</c> deals with how to 
 	parse IPv6 addresses. For details,
 	see argument <c>Options</c> of
-	<seealso marker="#request-4">request/[4,5]</seealso>.</p>
+	<seealso marker="#request/4">request/[4,5]</seealso>.</p>
       </desc>
     </func>
 
@@ -443,7 +443,7 @@
           <item>
             <p>Socket options to be used for this request.</p>
 	    <p>Overrides any value set by function
-	    <seealso marker="#set_options-1">set_options</seealso>.</p>
+	    <seealso marker="#set_options/1">set_options</seealso>.</p>
             <p>The validity of the options is <em>not</em> checked by
             the HTTP client they are assumed to be correct and passed
             on to ssl application and inet driver, which may reject
@@ -459,7 +459,7 @@
 	    </note>
 	    
             <p>By default the socket options set by function
-	    <seealso marker="#set_options-1">set_options/[1,2]</seealso> 
+	    <seealso marker="#set_options/1">set_options/[1,2]</seealso> 
 	     are used when establishing a connection.</p>
 	  </item>
 

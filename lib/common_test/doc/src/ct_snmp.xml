@@ -170,7 +170,7 @@
     <p>A name for the data must be allocated in the suite using
       <c>require</c> (see the example above). Pass this name as argument
       <c>SnmpAppConfName</c> to
-      <seealso marker="#start-3"><c>ct_snmp:start/3</c></seealso>.
+      <seealso marker="#start/3"><c>ct_snmp:start/3</c></seealso>.
       <c>ct_snmp</c> specifies default values for some <c>SNMP</c> application
       configuration parameters (such as <c>{verbosity,trace}</c> for parameter
       <c>config</c>). This set of defaults is merged with the parameters
@@ -377,7 +377,7 @@
         undefined).</fsummary>
       <desc><marker id="start-2"/>
         <p>Equivalent to
-          <seealso marker="#start-3"><c>ct_snmp:start(Config, MgrAgentConfName,
+          <seealso marker="#start/3"><c>ct_snmp:start(Config, MgrAgentConfName,
           undefined)</c></seealso>.</p>
       </desc>
     </func>
@@ -398,13 +398,13 @@
           <c>MgrAgentConfName</c>, are performed. When using SNMPv3, called
           USM users are also registered. Users, <c>usm_users</c>, and
           managed agents can also be registered later using
-          <seealso marker="#register_users-2"><c>ct_snmp:register_users/2</c></seealso>,
-          <seealso marker="#register_agents-2"><c>ct_snmp:register_agents/2</c></seealso>,
+          <seealso marker="#register_users/2"><c>ct_snmp:register_users/2</c></seealso>,
+          <seealso marker="#register_agents/2"><c>ct_snmp:register_agents/2</c></seealso>,
           and
-          <seealso marker="#register_usm_users-2"><c>ct_snmp:register_usm_users/2</c></seealso>.</p>
+          <seealso marker="#register_usm_users/2"><c>ct_snmp:register_usm_users/2</c></seealso>.</p>
 
         <p>The agent started is called <c>snmp_master_agent</c>. Use
-          <seealso marker="#load_mibs-1"><c>ct_snmp:load_mibs/1</c></seealso>
+          <seealso marker="#load_mibs/1"><c>ct_snmp:load_mibs/1</c></seealso>
           to load MIBs into the agent.</p>
 
         <p>With <c>SnmpAppConfName</c> SNMP applications can be configured

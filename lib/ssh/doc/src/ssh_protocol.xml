@@ -57,8 +57,8 @@
       this case the the plain text password will be encrypted before sent
       over the network. There are several configuration options for
       authentication handling available in
-      <seealso marker="ssh#connect-3">ssh:connect/[3,4]</seealso>
-      and <seealso marker="ssh#daemon-2">ssh:daemon/[2,3]</seealso>
+      <seealso marker="ssh#connect/3">ssh:connect/[3,4]</seealso>
+      and <seealso marker="ssh#daemon/2">ssh:daemon/[2,3]</seealso>
       It is also possible to customize the public key handling
       by implementing the behaviours <seealso
       marker="ssh_client_key_api">ssh_client_key_api</seealso> and
@@ -113,7 +113,7 @@
 	to provide your own CLI (Command Line Interface) implementation.
 	</item>
 	<item><em>Exec</em> - one-time remote execution of commands. See <seealso
-	marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso></item>
+	marker="ssh_connection#exec/4">ssh_connection:exec/4</seealso></item>
       </list>
     </section>
 

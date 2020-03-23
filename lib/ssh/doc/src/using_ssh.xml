@@ -35,7 +35,7 @@
   <section>
     <title>General Information</title>
     <p>The following examples use the utility function
-    <seealso marker="ssh#start-0"> ssh:start/0</seealso> to start
+    <seealso marker="ssh#start/0"> ssh:start/0</seealso> to start
     all needed applications (<c>crypto</c>, <c>public_key</c>, and <c>ssh</c>).
     All examples are run in an Erlang shell, or in a bash shell, using <em>openssh</em>
     to illustrate how the <c>ssh</c> application can be used. The
@@ -173,7 +173,7 @@ ok
 7></pre>
 
     <p>See <seealso marker="ssh_connection#description">ssh_connection</seealso> and
-    <seealso marker="ssh_connection#exec-4">ssh_connection:exec/4</seealso>
+    <seealso marker="ssh_connection#exec/4">ssh_connection:exec/4</seealso>
     for finding documentation of the channel messages.</p>
 
     <p>To collect the channel messages in a program, use <c>receive...end</c> instead of <c>flush/1</c>:</p>
@@ -198,7 +198,7 @@ ok
 {ok,1}
 8></pre>
 
-    <p>To close the connection, call the function <seealso marker="ssh#close-1"><c>ssh:close(ConnectionRef)</c></seealso>.
+    <p>To close the connection, call the function <seealso marker="ssh#close/1"><c>ssh:close(ConnectionRef)</c></seealso>.
     As an alternative, set the option
     <seealso marker="ssh#type-max_idle_time_common_option"><c>{idle_time, 1}</c></seealso>
     when opening the connection. This will cause the connection to be closed automaticaly when there are
@@ -260,7 +260,7 @@ ok
 $bash></pre>
 
       <p>And similar for reading from stdin. As an example we use
-      <seealso marker="stdlib:io#read-1">io:read/1</seealso> which 
+      <seealso marker="stdlib:io#read/1">io:read/1</seealso> which 
       displays the argument as a prompt on stdout, reads a term from stdin and returns it
       in an ok-tuple:</p>
       <pre>
@@ -314,7 +314,7 @@ ok
 
       <p>There is often a need to configure some other exec evaluator to tailor the input language or
       restrict the possible functions to call. There are two ways of doing this which will be shown with examples
-      below. See <seealso marker="ssh#daemon-2">ssh:daemon/2,3</seealso> and
+      below. See <seealso marker="ssh#daemon/2">ssh:daemon/2,3</seealso> and
       <seealso marker="ssh#type-exec_daemon_option">exec_daemon_option()</seealso>) for details.</p>
       <p>Examples of the two ways to configure the exec evaluator:</p>
       <list type="ordered">

@@ -53,12 +53,12 @@ Primary configuration:
     Filters:
         (none)</code>
       <p>It is also possible to fetch the configuration using
-        <seealso marker="logger#get_primary_config-0"><c>logger:get_primary_config()</c></seealso>.
+        <seealso marker="logger#get_primary_config/0"><c>logger:get_primary_config()</c></seealso>.
       </p>
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger#i-0">logger:i()</seealso></item>
+          <item><seealso marker="logger#i/0">logger:i()</seealso></item>
           <item><seealso marker="logger_chapter#configuration">Configuration</seealso> in the Logging User&apos;s Guide</item>
         </list>
       </section>
@@ -101,15 +101,15 @@ Handler configuration:
             type: standard_io
       </code>
       <p>You can also print the configuration of a specific handler using
-        <seealso marker="logger#i-1"><c>logger:i(HandlerName)</c></seealso>,
+        <seealso marker="logger#i/1"><c>logger:i(HandlerName)</c></seealso>,
         or fetch the configuration using
-        <seealso marker="logger#get_handler_config-0"><c>logger:get_handler_config()</c></seealso>,
-        or <seealso marker="logger#get_handler_config-1"><c>logger:get_handler_config(HandlerName)</c></seealso>
+        <seealso marker="logger#get_handler_config/0"><c>logger:get_handler_config()</c></seealso>,
+        or <seealso marker="logger#get_handler_config/1"><c>logger:get_handler_config(HandlerName)</c></seealso>
         for a specific handler.</p>
       <section>
         <title>See also</title>
         <list>
-          <item><seealso marker="logger#i-0"><c>logger:i()</c></seealso></item>
+          <item><seealso marker="logger#i/0"><c>logger:i()</c></seealso></item>
           <item><seealso marker="logger_chapter#configuration">Configuration</seealso> in the Logging User&apos;s Guide</item>
         </list>
       </section>
@@ -169,7 +169,7 @@ ok
         <list>
           <item><seealso marker="logger_formatter#type-config">logger_formatter&apos;s Configuration</seealso></item>
           <item><seealso marker="logger_chapter#formatters">Formatters</seealso> in the Logging User&apos;s Guide</item>
-          <item><seealso marker="logger#set_handler_config-3"><c>logger:set_handler_config/3</c></seealso></item>
+          <item><seealso marker="logger#set_handler_config/3"><c>logger:set_handler_config/3</c></seealso></item>
         </list>
       </section>
     </section>
@@ -187,7 +187,7 @@ Eshell V10.5.1  (abort with ^G)
 1> logger:error("Oh noes, more errors",#{ file => "shell.erl", line => 1 }).
 1962-10-05T07:37:44.104241+02:00 shell.erl:1 error: Oh noes, more errors</code>
       <p>Note that file and line have to be added in the metadata by the caller of
-        <seealso marker="logger#log-3"><c>logger:log/3</c></seealso> as otherwise
+        <seealso marker="logger#log/3"><c>logger:log/3</c></seealso> as otherwise
         Logger will not know from where it was called. The file and line number
         are automatically added if you use the <c>?LOG_ERROR</c> macros in
         <c>kernel/include/logger.hrl</c>.</p>
@@ -392,8 +392,8 @@ logger:debug("Debug should be logged").
         <title>See also</title>
         <list>
           <item><seealso marker="logger_chapter#filters">Filters</seealso> in the Logging User&apos;s Guide</item>
-          <item><seealso marker="logger_filters#level-2"><c>logger_filters:level/2</c></seealso></item>
-          <item><seealso marker="logger#set_primary_config-2"><c>logger:set_primary_config/2</c></seealso></item>
+          <item><seealso marker="logger_filters#level/2"><c>logger_filters:level/2</c></seealso></item>
+          <item><seealso marker="logger#set_primary_config/2"><c>logger:set_primary_config/2</c></seealso></item>
         </list>
       </section>
     </section>
@@ -414,8 +414,8 @@ logger:debug("Debug should be logged").
         <title>See also</title>
         <list>
           <item><seealso marker="logger_chapter#filters">Filters</seealso> in the Logging User&apos;s Guide</item>
-          <item><seealso marker="logger_filters#domain-2"><c>logger_filters:domain/2</c></seealso></item>
-          <item><seealso marker="logger#set_primary_config-2"><c>logger:set_primary_config/2</c></seealso></item>
+          <item><seealso marker="logger_filters#domain/2"><c>logger_filters:domain/2</c></seealso></item>
+          <item><seealso marker="logger#set_primary_config/2"><c>logger:set_primary_config/2</c></seealso></item>
         </list>
       </section>
     </section>

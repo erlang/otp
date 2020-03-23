@@ -86,7 +86,7 @@
 	</p>
 	<p>The time-out values that can be returned
 	have the same semantics as in a <seealso marker="stdlib:gen_server">gen_server</seealso>.
-	If the time-out occurs, <seealso marker="#Module:handle_msg-2">handle_msg/2</seealso>
+	If the time-out occurs, <seealso marker="#Module:handle_msg/2">handle_msg/2</seealso>
 	is called as <c>handle_msg(timeout, State)</c>.
 	</p>
       </desc>
@@ -162,7 +162,7 @@
       <desc>
 	<p>This function is called by a channel process when it is
 	about to terminate. Before this function is called, <seealso
-	marker="ssh_connection#close-2"> ssh_connection:close/2
+	marker="ssh_connection#close/2"> ssh_connection:close/2
 	</seealso> is called, if it has not been called earlier.
 	This function does any necessary cleaning
 	up. When it returns, the channel process terminates with

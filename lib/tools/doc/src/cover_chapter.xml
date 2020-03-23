@@ -405,10 +405,10 @@ ok
         Cover compiled module, performance decreases proportionally to
         the size and number of the Cover compiled modules.</p>
       <p>To improve performance when analysing cover results it is possible
-	to do multiple calls to <seealso marker="cover#analyse-1">analyse</seealso>
-	and <seealso marker="cover#analyse_to_file-1">analyse_to_file</seealso>
+	to do multiple calls to <seealso marker="cover#analyse/1">analyse</seealso>
+	and <seealso marker="cover#analyse_to_file/1">analyse_to_file</seealso>
 	at once. You can also use the 
-	<seealso marker="cover#async_analyse_to_file-1">async_analyse_to_file</seealso> 
+	<seealso marker="cover#async_analyse_to_file/1">async_analyse_to_file</seealso> 
 	convenience function.
       </p>
     </section>

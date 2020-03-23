@@ -46,7 +46,7 @@
     running <c>Common Test</c> in a particular mode.</p>
 
   <p>The interface function
-    <seealso marker="ct#run_test-1"><c>ct:run_test/1</c></seealso>,
+    <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>,
     corresponding to the <c>ct_run</c> program, is used for starting
     <c>Common Test</c> from the Erlang shell (or an Erlang program).
     For details, see the <seealso marker="ct"><c>ct</c></seealso>

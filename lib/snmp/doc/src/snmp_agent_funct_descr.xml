@@ -205,12 +205,12 @@
       <icaption>MIB Compiler Principles</icaption>
     </image>
     <p>The compiler parses the SMI file and associates each table or
-      variable with an instrumentation function (see the figure <seealso marker="#image-1">MIB Compiler Principles</seealso>). The actual
+      variable with an instrumentation function (see the figure <seealso marker="#image/1">MIB Compiler Principles</seealso>). The actual
       instrumentation functions are not needed at MIB compile time, only
       their names.
       </p>
     <p>The binary output file produced by the compiler is read by the
-      agent at MIB load time (see the figure <seealso marker="#image-2">Starting the Agent</seealso>). The instrumentation is ordinary Erlang code which
+      agent at MIB load time (see the figure <seealso marker="#image/2">Starting the Agent</seealso>). The instrumentation is ordinary Erlang code which
       is loaded explicitly or automatically the first time it is called.</p>
     <marker id="image-2"></marker>
     <image file="snmp-um-1-image-2.gif">

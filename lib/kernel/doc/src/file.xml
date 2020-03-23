@@ -1834,7 +1834,7 @@ f.txt:  {person, "kalle", 25}.
 	<c>0</c> all data after the specified <c>Offset</c> is sent.</p>
 	<p>The file used must be opened using the <c>raw</c> flag, and the process
 	calling <c>sendfile</c> must be the controlling process of the socket.
-	See <seealso marker="gen_tcp#controlling_process-2"><c>gen_tcp:controlling_process/2</c></seealso>.</p>
+	See <seealso marker="gen_tcp#controlling_process/2"><c>gen_tcp:controlling_process/2</c></seealso>.</p>
 	<p>If the OS used does not support non-blocking <c>sendfile</c>, an
 	Erlang fallback using <seealso marker="#read/2"><c>read/2</c></seealso>
 	and <seealso marker="gen_tcp#send/2"><c>gen_tcp:send/2</c></seealso> is

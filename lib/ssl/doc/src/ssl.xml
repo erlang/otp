@@ -296,8 +296,8 @@
 	<p>Defaults to <c>full</c>. If hello is specified the handshake will
 	pause after the hello message and give the user a possibility make decisions
 	based on hello extensions before continuing or aborting the handshake by calling
-	<seealso marker="#handshake_continue-3"> handshake_continue/3</seealso> or
-	<seealso marker="#handshake_cancel-1"> handshake_cancel/1</seealso></p>
+	<seealso marker="#handshake_continue/3"> handshake_continue/3</seealso> or
+	<seealso marker="#handshake_cancel/1"> handshake_cancel/1</seealso></p>
       </desc>
     </datatype>
     
@@ -321,7 +321,7 @@
       <desc>
 	<p>The DER-encoded user's private key or a map refering to a crypto
 	engine and its key reference that optionally can be password protected,
-	seealso <seealso marker="crypto:crypto#engine_load-4"> crypto:engine_load/4
+	seealso <seealso marker="crypto:crypto#engine_load/4"> crypto:engine_load/4
 	</seealso> and  <seealso marker="crypto:engine_load"> Crypto's Users Guide</seealso>. If this option 
 	is supplied, it overrides option <c>keyfile</c>.</p>
       </desc>
@@ -351,18 +351,18 @@
 	<p>A list of cipher suites that should be supported</p>
 
 	<p>The function <seealso
-	marker="#cipher_suites-2"> ssl:cipher_suites/2 </seealso>
+	marker="#cipher_suites/2"> ssl:cipher_suites/2 </seealso>
 	can be used to find all cipher suites that
 	are supported by default and all cipher suites that may be configured.</p>
 
 	<p>If you compose your own <c>cipher_suites()</c> make
 	sure they are filtered for cryptolib support
 	<seealso
-	    marker="#filter_cipher_suites-2"> ssl:filter_cipher_suites/2 </seealso>
+	    marker="#filter_cipher_suites/2"> ssl:filter_cipher_suites/2 </seealso>
 	Additionaly the functions <seealso
-	marker="#append_cipher_suites-2"> ssl:append_cipher_suites/2 </seealso>
+	marker="#append_cipher_suites/2"> ssl:append_cipher_suites/2 </seealso>
 	, <seealso
-	marker="#prepend_cipher_suites-2"> ssl:prepend_cipher_suites/2</seealso>,
+	marker="#prepend_cipher_suites/2"> ssl:prepend_cipher_suites/2</seealso>,
 	<seealso marker="#suite_to_str/1">ssl:suite_to_str/1</seealso>,
 	<seealso marker="#str_to_suite/1">ssl:str_to_suite/1</seealso>,
 	and <seealso marker="#suite_to_openssl_str/1">ssl:suite_to_openssl_str/1</seealso>
@@ -533,7 +533,7 @@ fun(OtpCert :: #'OTPCertificate'{}, Event :: {bad_cert, Reason :: atom() |
 
 	<tag><c>PKIX X-509-path validation error</c></tag>
 	<item><p>For possible reasons, see <seealso
-marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
+marker="public_key:public_key#pkix_path_validation/3">public_key:pkix_path_validation/3</seealso>
 	</p></item>
       </taglist>
       </desc>
@@ -543,10 +543,10 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
       <name name="crl_check"/>
       <desc>
 	<p>Perform CRL (Certificate Revocation List) verification
-	<seealso marker="public_key:public_key#pkix_crls_validate-3">
+	<seealso marker="public_key:public_key#pkix_crls_validate/3">
 	(public_key:pkix_crls_validate/3)</seealso> on all the
 	certificates during the path validation <seealso
-	marker="public_key:public_key#pkix_path_validation-3">(public_key:pkix_path_validation/3)
+	marker="public_key:public_key#pkix_path_validation/3">(public_key:pkix_path_validation/3)
 	</seealso>
 	of the certificate chain. Defaults to <c>false</c>.</p>
 	
@@ -582,7 +582,7 @@ marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_valid
     	  <item>
     	    <p>This module maintains a cache of CRLs.  CRLs can be
     	    added to the cache using the function <seealso
-    	    marker="ssl:ssl_crl_cache#insert-1">ssl_crl_cache:insert/1</seealso>,
+    	    marker="ssl:ssl_crl_cache#insert/1">ssl_crl_cache:insert/1</seealso>,
     	    and optionally automatically fetched through HTTP if the
     	    following argument is specified:</p>
 	    
@@ -636,7 +636,7 @@ fun(Chain::[public_key:der_encoded()]) ->
 	</code>
 	<p>Claim an intermediate CA in the chain as trusted. TLS then
 	performs <seealso
-	marker="public_key:public_key#pkix_path_validation-3">public_key:pkix_path_validation/3</seealso>
+	marker="public_key:public_key#pkix_path_validation/3">public_key:pkix_path_validation/3</seealso>
 	with the selected CA as trusted anchor and the rest of the chain.</p>
       </desc>
     </datatype>
@@ -674,7 +674,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<p>For Secure Remote Password (SRP), the fun is only used by the server to
 	obtain parameters that it uses to generate its session keys.
 	<c>DerivedKey</c> is to be derived according to
-	<url href="http://tools.ietf.org/html/rfc2945#section-3"> RFC 2945</url> and
+	<url href="http://tools.ietf.org/html/rfc2945#section/3"> RFC 2945</url> and
 	<url href="http://tools.ietf.org/html/rfc5054#section-2.4"> RFC 5054</url>:
 	<c>crypto:sha([Salt, crypto:sha([Username, &lt;&lt;$:&gt;&gt;, Password])])</c>
 	</p>
@@ -804,7 +804,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc>
 	<p>When <c>save</c> is specified a new connection will be negotiated
       and saved for later reuse. The session ID can be fetched with 
-      <seealso marker="#connection_information-2">connection_information/2</seealso>
+      <seealso marker="#connection_information/2">connection_information/2</seealso>
       and used with the client option <seealso marker="#type-client_reuse_session">reuse_session</seealso>
       The boolean value true specifies that if possible, automatized session reuse will
       be performed. If a new session is created, and is unique in regard 
@@ -887,15 +887,15 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name name="sni"/>
       <desc>
 	<p>Specify the hostname to be used in TLS Server Name Indication extension.
-	If not specified it will default to the <c>Host</c> argument of <seealso marker="#connect-3">connect/[3,4]</seealso>
+	If not specified it will default to the <c>Host</c> argument of <seealso marker="#connect/3">connect/[3,4]</seealso>
 	unless it is of type inet:ipaddress().</p>
 	<p>
 	  The <c>HostName</c> will also be used in the hostname verification of the peer certificate using
-	  <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>.
+	  <seealso marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2</seealso>.
 	</p>
 	<p> The special value <c>disable</c> prevents the Server Name Indication extension from being sent and
 	disables the hostname verification check
-	<seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> </p>
+	<seealso marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2</seealso> </p>
       </desc>
       </datatype>
          
@@ -904,7 +904,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<desc>
 	  <p> Customizes the hostname verification of the peer certificate, as different protocols that use
 	  TLS such as HTTP or LDAP may want to do it differently, for possible options see
-	  <seealso marker="public_key:public_key#pkix_verify_hostname-3">public_key:pkix_verify_hostname/3</seealso> </p>
+	  <seealso marker="public_key:public_key#pkix_verify_hostname/3">public_key:pkix_verify_hostname/3</seealso> </p>
 	</desc>
       </datatype>
       
@@ -1276,7 +1276,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name name="cipher_suites" arity="1" since="OTP R14B"/>
       <fsummary>Returns a list of supported cipher suites.</fsummary>
       <desc>
-	<p>Deprecated in OTP 21, use <seealso marker="#cipher_suites-2">cipher_suites/2</seealso> instead.</p>
+	<p>Deprecated in OTP 21, use <seealso marker="#cipher_suites/2">cipher_suites/2</seealso> instead.</p>
       </desc>
     </func>
     
@@ -1292,7 +1292,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       cipher suites that the OTP ssl application can support provided
       that they are supported by the cryptolib linked with the OTP
       crypto application. Use <seealso
-      marker="#filter_cipher_suites-2"> ssl:filter_cipher_suites(Suites,
+      marker="#filter_cipher_suites/2"> ssl:filter_cipher_suites(Suites,
       []).</seealso> to filter the list for the current
       cryptolib. Note that cipher suites may be filtered out because
       they are too old or too new depending on the
@@ -1304,7 +1304,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
     <func>
       <name name="cipher_suites" arity="3" since="OTP 22.0"/>
       <fsummary>Returns a list of RFC or OpenSSL names</fsummary>
-      <desc><p>Same as <seealso marker="#cipher_suites-2">cipher_suites/2</seealso>
+      <desc><p>Same as <seealso marker="#cipher_suites/2">cipher_suites/2</seealso>
       but lists RFC or OpenSSL string names instead of <seealso marker="#type-erl_cipher_suite">erl_cipher_suite()</seealso>
     </p>
     </desc>
@@ -1344,7 +1344,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <c>verify_peer</c> the option <c>server_name_indication</c>
 	  shall also be specified, if it is not no Server Name
 	  Indication extension will be sent, and <seealso
-	  marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>
+	  marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2</seealso>
 	  will be called with the IP-address of the connection as
 	  <c>ReferenceID</c>, which is proably not what you want.</p>
 	  </note>
@@ -1354,9 +1354,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  and the success response is <c>{ok, SslSocket, Ext}</c>
 	  instead of <c>{ok, SslSocket}</c>. Thereafter the handshake
 	  is continued or canceled by calling <seealso
-	  marker="#handshake_continue-3">
+	  marker="#handshake_continue/3">
 	  <c>handshake_continue/3</c></seealso> or <seealso
-	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
+	  marker="#handshake_cancel/1"><c>handshake_cancel/1</c></seealso>.
 	  </p>
 	  
 	  <p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
@@ -1373,16 +1373,16 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc><p>Opens a TLS/DTLS connection to <c>Host</c>, <c>Port</c>.</p>
       
       <p> When the option <c>verify</c> is set to <c>verify_peer</c> the check 
-      <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> 
+      <seealso marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2</seealso> 
       will be performed in addition to the usual x509-path validation checks. If the check fails the error {bad_cert, hostname_check_failed} will
       be propagated to the path validation fun <seealso marker="#type-custom_verify">verify_fun</seealso>, where it is possible to do customized
-      checks by using the full possibilities of the <seealso marker="public_key:public_key#pkix_verify_hostname-3">public_key:pkix_verify_hostname/3</seealso> API.
+      checks by using the full possibilities of the <seealso marker="public_key:public_key#pkix_verify_hostname/3">public_key:pkix_verify_hostname/3</seealso> API.
       
       When the option <c>server_name_indication</c> is provided, its value (the DNS name) will be used as <c>ReferenceID</c>
-      to <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso>.
+      to <seealso marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2</seealso>.
       When no <c>server_name_indication</c> option is given, the <c>Host</c> argument will be used as
       Server Name Indication extension. The <c>Host</c> argument will also be used for the
-      <seealso marker="public_key:public_key#pkix_verify_hostname-2">public_key:pkix_verify_hostname/2</seealso> check and if the <c>Host</c>
+      <seealso marker="public_key:public_key#pkix_verify_hostname/2">public_key:pkix_verify_hostname/2</seealso> check and if the <c>Host</c>
       argument is an <c>inet:ip_address()</c> the <c>ReferenceID</c> used for the check will be <c>{ip, Host}</c> otherwise
       <c>dns_id</c> will be assumed with a fallback to <c>ip</c> if that fails. </p>
       <note><p>According to good practices certificates should not use IP-addresses as "server names". It would
@@ -1393,9 +1393,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  handshake is paused after receiving the server hello message
 	  and the success response is <c>{ok, SslSocket, Ext}</c>
 	  instead of <c>{ok, SslSocket}</c>. Thereafter the handshake is continued or
-	  canceled by calling <seealso marker="#handshake_continue-3">
+	  canceled by calling <seealso marker="#handshake_continue/3">
 	  <c>handshake_continue/3</c></seealso> or <seealso
-	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
+	  marker="#handshake_cancel/1"><c>handshake_cancel/1</c></seealso>.
 	  </p>
 
 	  <p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
@@ -1537,7 +1537,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	<p>If <c>Socket</c> is an 
 	<seealso marker="#type-sslsocket"> sslsocket() </seealso>: provides extra TLS/DTLS
 	options to those specified in
-	<seealso marker="#listen-2">listen/2 </seealso> and then performs
+	<seealso marker="#listen/2">listen/2</seealso> and then performs
 	the TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake is successful.</p>
 		
 	<p>
@@ -1545,9 +1545,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  paused after receiving the client hello message and the
 	  success response is <c>{ok, SslSocket, Ext}</c>  instead of <c>{ok,
 	  SslSocket}</c>. Thereafter the handshake is continued or
-	  canceled by calling <seealso marker="#handshake_continue-3">
+	  canceled by calling <seealso marker="#handshake_continue/3">
 	  <c>handshake_continue/3</c></seealso> or <seealso
-	  marker="#handshake_cancel-1"><c>handshake_cancel/1</c></seealso>.
+	  marker="#handshake_cancel/1"><c>handshake_cancel/1</c></seealso>.
 	</p>
 	
 	<p> If the option <c>active</c> is set to <c>once</c>, <c>true</c> or an integer value,
@@ -1599,7 +1599,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc>
         <p>The peer certificate is returned as a DER-encoded binary.
 	  The certificate can be decoded with
-	  <seealso marker="public_key:public_key#pkix_decode_cert-2">public_key:pkix_decode_cert/2</seealso>
+	  <seealso marker="public_key:public_key#pkix_decode_cert/2">public_key:pkix_decode_cert/2</seealso>
 	</p>
       </desc>
     </func>
@@ -1721,7 +1721,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name since="" name="ssl_accept" arity="2" />
       <fsummary>Performs server-side TLS handshake.</fsummary>
       <desc>
-	<p>Deprecated in OTP 21, use <seealso marker="#handshake-1">handshake/[1,2]</seealso> instead.</p>
+	<p>Deprecated in OTP 21, use <seealso marker="#handshake/1">handshake/[1,2]</seealso> instead.</p>
 	<note><p>handshake/[1,2] always returns a new socket.</p></note>
       </desc>
     </func>
@@ -1730,7 +1730,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <name since="OTP R14B" name="ssl_accept" arity="3" />
       <fsummary>Performs server-side TLS/DTLS handshake.</fsummary>
       <desc>
-	<p>Deprecated in OTP 21, use  <seealso marker="#handshake-3">handshake/[2,3]</seealso> instead.</p>
+	<p>Deprecated in OTP 21, use  <seealso marker="#handshake/3">handshake/[2,3]</seealso> instead.</p>
 	<note><p>handshake/[2,3] always returns a new socket.</p></note>
       </desc>
     </func>
@@ -1802,9 +1802,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
       <desc>
         <p>Accepts an incoming connection request on a listen socket.
 	<c>ListenSocket</c> must be a socket returned from
-	<seealso marker="#listen-2"> listen/2</seealso>.
+	<seealso marker="#listen/2"> listen/2</seealso>.
 	The socket returned is to be passed to
-	<seealso marker="#handshake-2"> handshake/[2,3]</seealso>
+	<seealso marker="#handshake/2"> handshake/[2,3]</seealso>
 	to complete handshaking, that is,
 	establishing the TLS/DTLS connection.</p>
         <warning>
@@ -1814,7 +1814,7 @@ fun(srp, Username :: string(), UserState :: term()) ->
         </warning>
         <p>The accepted socket inherits the options set for
 	<c>ListenSocket</c> in
-	<seealso marker="#listen-2"> listen/2</seealso>.</p>
+	<seealso marker="#listen/2"> listen/2</seealso>.</p>
 	<p>The default
 	value for <c>Timeout</c> is <c>infinity</c>. If
 	<c>Timeout</c> is specified and no connection is accepted
@@ -1838,9 +1838,9 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <item>TLS versions supported by default if crypto lib
 	  support is sufficent·
 	  Overridden by a version option on
-	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
-	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
-	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
+	  <seealso marker="#connect/2"> connect/[2,3,4]</seealso>,
+	  <seealso marker="#listen/2"> listen/2</seealso>, and <seealso
+	  marker="#ssl_accept/2">ssl_accept/[1,2,3]</seealso>.
 	  For the negotiated TLS version, see <seealso
 	  marker="#connection_information-1">connection_information/1
 	  </seealso>.</item>
@@ -1849,11 +1849,11 @@ fun(srp, Username :: string(), UserState :: term()) ->
 	  <item>DTLS versions supported by default if crypto lib
 	  support is sufficent·
 	  Overridden by a version option on
-	  <seealso marker="#connect-2"> connect/[2,3,4]</seealso>,
-	  <seealso marker="#listen-2"> listen/2</seealso>, and <seealso
-	  marker="#ssl_accept-2">ssl_accept/[1,2,3]</seealso>.
+	  <seealso marker="#connect/2"> connect/[2,3,4]</seealso>,
+	  <seealso marker="#listen/2"> listen/2</seealso>, and <seealso
+	  marker="#ssl_accept/2">ssl_accept/[1,2,3]</seealso>.
 	  For the negotiated DTLS version, see <seealso
-	  marker="#connection_information-1">connection_information/1
+	  marker="#connection_information/1">connection_information/1
 	  </seealso>.</item>
 
 	  <tag><c>available</c></tag>

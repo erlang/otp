@@ -197,7 +197,7 @@
 
       <row>
         <cell align="left" valign="middle">
-	  <url href="https://tools.ietf.org/html/rfc8446#section-2">
+	  <url href="https://tools.ietf.org/html/rfc8446#section/2">
 	    2. Protocol Overview
 	  </url>
 	</cell>
@@ -1908,7 +1908,7 @@
 
       <row>
         <cell align="left" valign="middle">
-	  <url href="https://tools.ietf.org/html/rfc8446#section-8">
+	  <url href="https://tools.ietf.org/html/rfc8446#section/8">
 	    8. 0-RTT and Anti-Replay
 	  </url>
 	</cell>

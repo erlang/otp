@@ -37,16 +37,16 @@ significant.
 
 <!-- diameter -->
 
-<!ENTITY mod_add_transport '<seealso marker="diameter#add_transport-2">diameter:add_transport/2</seealso>'>
-<!ENTITY mod_call '<seealso marker="diameter#call-4">diameter:call/4</seealso>'>
-<!ENTITY mod_origin_state_id '<seealso marker="diameter#origin_state_id-0">diameter:origin_state_id/0</seealso>'>
-<!ENTITY mod_remove_transport '<seealso marker="diameter#remove_transport-2">diameter:remove_transport/2</seealso>'>
-<!ENTITY mod_service_info '<seealso marker="diameter#service_info-2">diameter:service_info/2</seealso>'>
-<!ENTITY mod_services '<seealso marker="diameter#services-0">diameter:services/0</seealso>'>
-<!ENTITY mod_session_id '<seealso marker="diameter#session_id-1">diameter:session_id/1</seealso>'>
-<!ENTITY mod_start_service '<seealso marker="diameter#start_service-2">diameter:start_service/2</seealso>'>
-<!ENTITY mod_stop_service '<seealso marker="diameter#stop_service-1">diameter:stop_service/1</seealso>'>
-<!ENTITY mod_subscribe '<seealso marker="diameter#subscribe-1">diameter:subscribe/1</seealso>'>
+<!ENTITY mod_add_transport '<seealso marker="diameter#add_transport/2">diameter:add_transport/2</seealso>'>
+<!ENTITY mod_call '<seealso marker="diameter#call/4">diameter:call/4</seealso>'>
+<!ENTITY mod_origin_state_id '<seealso marker="diameter#origin_state_id/0">diameter:origin_state_id/0</seealso>'>
+<!ENTITY mod_remove_transport '<seealso marker="diameter#remove_transport/2">diameter:remove_transport/2</seealso>'>
+<!ENTITY mod_service_info '<seealso marker="diameter#service_info/2">diameter:service_info/2</seealso>'>
+<!ENTITY mod_services '<seealso marker="diameter#services/0">diameter:services/0</seealso>'>
+<!ENTITY mod_session_id '<seealso marker="diameter#session_id/1">diameter:session_id/1</seealso>'>
+<!ENTITY mod_start_service '<seealso marker="diameter#start_service/2">diameter:start_service/2</seealso>'>
+<!ENTITY mod_stop_service '<seealso marker="diameter#stop_service/1">diameter:stop_service/1</seealso>'>
+<!ENTITY mod_subscribe '<seealso marker="diameter#subscribe/1">diameter:subscribe/1</seealso>'>
 
 <!ENTITY mod_application_alias '<seealso marker="diameter#application_alias">diameter:application_alias()</seealso>'>
 <!ENTITY mod_application_module '<seealso marker="diameter#application_module">diameter:application_module()</seealso>'>
@@ -76,14 +76,14 @@ significant.
 
 <!-- diameter_app -->
 
-<!ENTITY app_handle_answer '<seealso marker="diameter_app#Mod:handle_answer-4">handle_answer/4</seealso>'>
-<!ENTITY app_handle_request '<seealso marker="diameter_app#Mod:handle_request-3">handle_request/3</seealso>'>
-<!ENTITY app_handle_error '<seealso marker="diameter_app#Mod:handle_error-4">handle_error/4</seealso>'>
-<!ENTITY app_peer_down '<seealso marker="diameter_app#Mod:peer_down-3">peer_down/3</seealso>'>
-<!ENTITY app_peer_up '<seealso marker="diameter_app#Mod:peer_up-3">peer_up/3</seealso>'>
-<!ENTITY app_pick_peer '<seealso marker="diameter_app#Mod:pick_peer-4">pick_peer/4</seealso>'>
-<!ENTITY app_prepare_retransmit '<seealso marker="diameter_app#Mod:prepare_retransmit-3">prepare_retransmit/3</seealso>'>
-<!ENTITY app_prepare_request '<seealso marker="diameter_app#Mod:prepare_request-3">prepare_request/3</seealso>'>
+<!ENTITY app_handle_answer '<seealso marker="diameter_app#Mod:handle_answer/4">handle_answer/4</seealso>'>
+<!ENTITY app_handle_request '<seealso marker="diameter_app#Mod:handle_request/3">handle_request/3</seealso>'>
+<!ENTITY app_handle_error '<seealso marker="diameter_app#Mod:handle_error/4">handle_error/4</seealso>'>
+<!ENTITY app_peer_down '<seealso marker="diameter_app#Mod:peer_down/3">peer_down/3</seealso>'>
+<!ENTITY app_peer_up '<seealso marker="diameter_app#Mod:peer_up/3">peer_up/3</seealso>'>
+<!ENTITY app_pick_peer '<seealso marker="diameter_app#Mod:pick_peer/4">pick_peer/4</seealso>'>
+<!ENTITY app_prepare_retransmit '<seealso marker="diameter_app#Mod:prepare_retransmit/3">prepare_retransmit/3</seealso>'>
+<!ENTITY app_prepare_request '<seealso marker="diameter_app#Mod:prepare_request/3">prepare_request/3</seealso>'>
 
 <!ENTITY app_capabilities '<seealso marker="diameter_app#capabilities">diameter_app:capabilities()</seealso>'>
 <!ENTITY app_peer '<seealso marker="diameter_app#peer">diameter_app:peer()</seealso>'>
@@ -92,8 +92,8 @@ significant.
 
 <!-- diameter_codec -->
 
-<!ENTITY codec_encode '<seealso marker="diameter_codec#encode-2">diameter_codec:encode/2</seealso>'>
-<!ENTITY codec_decode '<seealso marker="diameter_codec#decode-2">diameter_codec:decode/2</seealso>'>
+<!ENTITY codec_encode '<seealso marker="diameter_codec#encode/2">diameter_codec:encode/2</seealso>'>
+<!ENTITY codec_decode '<seealso marker="diameter_codec#decode/2">diameter_codec:decode/2</seealso>'>
 
 <!ENTITY codec_avp '<seealso marker="diameter_codec#avp">diameter_codec:avp()</seealso>'>
 <!ENTITY codec_header '<seealso marker="diameter_codec#header">diameter_codec:header()</seealso>'>
@@ -122,15 +122,15 @@ significant.
 
 <!-- diameter_make -->
 
-<!ENTITY make_codec '<seealso marker="diameter_make#codec-2">diameter_make:codec/2</seealso>'>
-<!ENTITY make_format '<seealso marker="diameter_make#format-1">diameter_make:format/1</seealso>'>
-<!ENTITY make_flatten '<seealso marker="diameter_make#flatten-1">diameter_make:flatten/1</seealso>'>
-<!ENTITY make_format_error '<seealso marker="diameter_make#format_error-1">diameter_make:format_error/1</seealso>'>
+<!ENTITY make_codec '<seealso marker="diameter_make#codec/2">diameter_make:codec/2</seealso>'>
+<!ENTITY make_format '<seealso marker="diameter_make#format/1">diameter_make:format/1</seealso>'>
+<!ENTITY make_flatten '<seealso marker="diameter_make#flatten/1">diameter_make:flatten/1</seealso>'>
+<!ENTITY make_format_error '<seealso marker="diameter_make#format_error/1">diameter_make:format_error/1</seealso>'>
 
 <!-- diameter_transport -->
 
 <!ENTITY transport_start
- '<seealso marker="diameter_transport#Mod:start-3">start/3</seealso>'>
+ '<seealso marker="diameter_transport#Mod:start/3">start/3</seealso>'>
 
 <!-- reference pages -->
 
