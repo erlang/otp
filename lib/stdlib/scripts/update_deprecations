@@ -245,6 +245,7 @@ make_xml_gen(Collected, Type, Prefix, Dir) ->
 
 make_xml_gen_list([{Rel,MFAs}|T], Type, Prefix, Dir) ->
     RelStr = lists:concat(["OTP ",Rel]),
+    RelMarker = lists:concat(["otp-",Rel]),
     Head = ["<section>\n",
             "<marker id=\"",RelStr,"\"/>\n",
             "<title>",RelStr,"</title>\n"],

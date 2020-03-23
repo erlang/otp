@@ -9,7 +9,7 @@
       <title>pg2</title>
       <p>
 	<seealso marker="kernel:pg2">pg2</seealso> is as of
-	<seealso marker="deprecations#OTP-23">OTP 23 deprecated</seealso>
+	<seealso marker="deprecations#otp-23">OTP 23 deprecated</seealso>
 	and will be removed in OTP 24.
       </p>
     </section>
@@ -19,7 +19,7 @@
 	The distributed
 	<seealso marker="kernel:disk_log"><c>disk_log</c></seealso>
 	feature is as of
-	<seealso marker="deprecations#OTP-23">OTP 23 deprecated</seealso>
+	<seealso marker="deprecations#otp-23">OTP 23 deprecated</seealso>
 	and will be removed in OTP 24.
       </p>
     </section>

@@ -2,8 +2,7 @@
       <title>VxWorks Support</title>
       <p>Some parts of OTP has had limited VxWorks support, such as for
       example <seealso marker="erl_interface:index"><c>erl_interface</c></seealso>.
-      This support is now deprecated and has also been
-      <seealso marker="scheduled_for_removal#OTP-23">scheduled for removal</seealso>.</p>
+      This support is now deprecated and has also been scheduled for removal in OTP 23.</p>
     </section>
     <section>
       <title>Legacy parts of erl_interface</title>
@@ -14,8 +13,7 @@
       the <c>erl_interface</c> library with the use of the <c>ei</c> library
       which also is part of the <c>erl_interface</c> application. The old legacy
       <seealso marker="erl_interface:index"><c>erl_interface</c></seealso>
-      library has also been <seealso marker="scheduled_for_removal#OTP-23">scheduled
-      for removal</seealso>.</p>
+      library has also been scheduled for removal in OTP 23.</p>
     </section>
     <section>
       <title>System Events</title>
