@@ -65,6 +65,9 @@ will_succeed(erlang, byte_size, [Arg]) ->
     succeeds_if_type(Arg, #t_bitstring{});
 will_succeed(erlang, hd, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
+will_succeed(erlang, is_function, [_,#t_integer{elements={Min,_}}])
+  when Min >= 0 ->
+    yes;
 will_succeed(erlang, is_map_key, [_Key, Map]) ->
     succeeds_if_type(Map, #t_map{});
 will_succeed(erlang, length, [Arg]) ->
