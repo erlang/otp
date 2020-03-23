@@ -62,6 +62,7 @@
                         expecting_finished =                  false ::boolean(),
                         renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
                         resumption = false   :: boolean(),  %% TLS 1.3
+                        change_cipher_spec_sent = false :: boolean(),  %% TLS 1.3
                         allow_renegotiate = true                    ::boolean(),
                         %% Ext handling
                         hello,                %%:: #client_hello{} | #server_hello{}            

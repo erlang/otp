@@ -318,7 +318,8 @@
                                 {beast_mitigation, beast_mitigation()} |
                                 {ssl_imp, ssl_imp()} |
                                 {session_tickets, session_tickets()} |
-                                {key_update_at, key_update_at()}.
+                                {key_update_at, key_update_at()} |
+                                {middlebox_comp_mode, middlebox_comp_mode()}.
 
 -type protocol()                  :: tls | dtls.
 -type handshake_completion()      :: hello | full.
@@ -370,6 +371,7 @@
                                      bloom_filter_hash_functions(), %% k - number of hash functions
                                      bloom_filter_bits()}.          %% m - number of bits in bit vector
 -type use_ticket()               :: [binary()].
+-type middlebox_comp_mode()      :: boolean().
 
 %% -------------------------------------------------------------------------------------------------------
 
@@ -2108,6 +2110,8 @@ validate_option(log_level, Value) when
        Value =:= notice orelse
        Value =:= info orelse
        Value =:= debug) ->
+    Value;
+validate_option(middlebox_comp_mode, Value) when is_boolean(Value) ->
     Value;
 validate_option(next_protocols_advertised, Value) when is_list(Value) ->
     validate_binary_list(next_protocols_advertised, Value),

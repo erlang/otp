@@ -124,6 +124,7 @@
         #{
           alpn_advertised_protocols  => {undefined, [versions]},
           alpn_preferred_protocols   => {undefined, [versions]},
+          anti_replay                => {undefined, [versions, session_tickets]},
           beast_mitigation           => {one_n_minus_one, [versions]},
           cacertfile                 => {undefined, [versions,
                                                      verify_fun,
@@ -153,6 +154,7 @@
           key_update_at              => {?KEY_USAGE_LIMIT_AES_GCM, [versions]},
           log_level                  => {notice,    [versions]},
           max_handshake_size         => {?DEFAULT_MAX_HANDSHAKE_SIZE, [versions]},
+          middlebox_comp_mode        => {true, [versions]},
           next_protocol_selector     => {undefined, [versions]},
           next_protocols_advertised  => {undefined, [versions]},
           padding_check              => {true,      [versions]},
@@ -163,7 +165,6 @@
           renegotiate_at             => {?DEFAULT_RENEGOTIATE_AT, [versions]},
           reuse_session              => {undefined, [versions]},
           reuse_sessions             => {true,      [versions]},
-          anti_replay                => {undefined, [versions, session_tickets]},
           secure_renegotiate         => {true,      [versions]},
           server_name_indication     => {undefined, [versions]},
           session_tickets            => {disabled,     [versions]},
