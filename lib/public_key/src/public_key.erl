@@ -69,11 +69,12 @@
 	      pki_asn1_type/0, asn1_type/0, ssh_file/0, der_encoded/0,
               key_params/0, digest_type/0, issuer_name/0, oid/0]).
 
--type public_key()           ::  rsa_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
--type private_key()          ::  rsa_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
-
+-type public_key()           ::  rsa_public_key() | rsa_pss_public_key() | dsa_public_key() | ec_public_key() | ed_public_key() .
+-type private_key()          ::  rsa_private_key() | rsa_pss_private_key() | dsa_private_key() | ec_private_key() | ed_private_key() .
 -type rsa_public_key()       ::  #'RSAPublicKey'{}.
--type rsa_private_key()      ::  #'RSAPrivateKey'{}.
+-type rsa_private_key()      ::  #'RSAPrivateKey'{}. 
+-type rsa_pss_public_key()   ::  {#'RSAPublicKey'{}, #'RSASSA-PSS-params'{}}.
+-type rsa_pss_private_key()  ::  { #'RSAPrivateKey'{}, #'RSASSA-PSS-params'{}}.
 -type dsa_private_key()      ::  #'DSAPrivateKey'{}.
 -type dsa_public_key()       :: {integer(), #'Dss-Parms'{}}.
 -type ecpk_parameters() :: {ecParameters, #'ECParameters'{}} | {namedCurve, Oid::tuple()}.
@@ -797,12 +798,11 @@ pkix_match_dist_point(#'CertificateList'{
 %% der encoded 'Certificate'{}
 %%--------------------------------------------------------------------
 pkix_sign(#'OTPTBSCertificate'{signature = 
-				   #'SignatureAlgorithm'{algorithm = Alg} 
+				   #'SignatureAlgorithm'{} 
 			       = SigAlg} = TBSCert, Key) ->
-
     Msg = pkix_encode('OTPTBSCertificate', TBSCert, otp),
-    {DigestType, _} = pkix_sign_types(Alg),
-    Signature = sign(Msg, DigestType, Key),
+    {DigestType, _, Opts} = pubkey_cert:x509_pkix_sign_types(SigAlg),
+    Signature = sign(Msg, DigestType, format_pkix_sign_key(Key), Opts),
     Cert = #'OTPCertificate'{tbsCertificate= TBSCert,
 			     signatureAlgorithm = SigAlg,
 			     signature = Signature
@@ -824,6 +824,11 @@ pkix_verify(DerCert,  #'RSAPublicKey'{} = RSAKey)
   when is_binary(DerCert) ->
     {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
     verify(PlainText, DigestType, Signature, RSAKey);
+
+pkix_verify(DerCert,  {#'RSAPublicKey'{} = RSAKey, #'RSASSA-PSS-params'{} = Params}) 
+  when is_binary(DerCert) ->
+    {DigestType, PlainText, Signature} = pubkey_cert:verify_data(DerCert),
+    verify(PlainText, DigestType, Signature, RSAKey, rsa_opts(Params));
 
 pkix_verify(DerCert, Key = {#'ECPoint'{}, _})
   when is_binary(DerCert) ->
@@ -1286,7 +1291,11 @@ set_padding(Pad, Opts) ->
                                    T =/= rsa_pad]
     ].
 
-
+format_pkix_sign_key({#'RSAPrivateKey'{} = Key, _}) ->
+    %% Params are handled in option arg
+    Key;
+format_pkix_sign_key(Key) ->
+    Key.
 format_sign_key(Key = #'RSAPrivateKey'{}) ->
     {rsa, format_rsa_private_key(Key)};
 format_sign_key(#'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
@@ -1317,6 +1326,15 @@ format_verify_key(#'DSAPrivateKey'{y=Y, p=P, q=Q, g=G}) ->
     format_verify_key({Y, #'Dss-Parms'{p=P, q=Q, g=G}});
 format_verify_key(_) ->
     badarg.
+
+rsa_opts(#'RSASSA-PSS-params'{maskGenAlgorithm = 
+                                  #'MaskGenAlgorithm'{algorithm = ?'id-mgf1',
+                                                      parameters = #'HashAlgorithm'{algorithm = HashAlgoOid}
+                                                     }}) ->
+    HashAlgo = pkix_hash_type(HashAlgoOid),
+    [{rsa_padding, rsa_pkcs1_pss_padding},
+     {rsa_pss_saltlen, -1},
+     {rsa_mgf1_md, HashAlgo}].
 
 do_pem_entry_encode(Asn1Type, Entity, CipherInfo, Password) ->
     Der = der_encode(Asn1Type, Entity),
@@ -1805,3 +1823,4 @@ format_details([]) ->
     no_relevant_crls;
 format_details(Details) ->
     Details.
+  
