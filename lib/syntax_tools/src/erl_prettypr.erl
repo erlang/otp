@@ -1007,37 +1007,7 @@ lay_2(Node, Ctxt) ->
 
 	try_expr ->
 	    Ctxt1 = reset_prec(Ctxt),
-	    D1 = sep(seq(erl_syntax:try_expr_body(Node),
-			 floating(text(",")), Ctxt1, fun lay/2)),
-	    Es0 = [text("end")],
-	    Es1 = case erl_syntax:try_expr_after(Node) of
-		      [] -> Es0;
-		      As ->
-			  D2 = sep(seq(As, floating(text(",")), Ctxt1,
-				       fun lay/2)),
-			  [text("after"),
-			   nest(Ctxt1#ctxt.break_indent, D2)
-			   | Es0]
-		  end,
-	    Es2 = case erl_syntax:try_expr_handlers(Node) of
-		      [] -> Es1;
-		      Hs ->
-			  D3 = lay_clauses(Hs, try_expr, Ctxt1),
-			  [text("catch"),
-			   nest(Ctxt1#ctxt.break_indent, D3)
-			   | Es1]
-		  end,
-	    Es3 = case erl_syntax:try_expr_clauses(Node) of
-		      [] -> Es2;
-		      Cs ->
-			  D4 = lay_clauses(Cs, try_expr, Ctxt1),
-			  [text("of"),
-			   nest(Ctxt1#ctxt.break_indent, D4)
-			   | Es2]
-		  end,
-	    sep([par([follow(text("try"), D1, Ctxt1#ctxt.break_indent),
-		      hd(Es3)])
-		 | tl(Es3)]);
+            lay_try_expr(Node, Ctxt1);
 
 	warning_marker ->
 	    E = erl_syntax:warning_marker_info(Node),
@@ -1404,6 +1374,34 @@ append_guard({inline, G}, D, Ctxt) ->
 append_guard(G, D, Ctxt) ->
     vertical([D, nest(Ctxt#ctxt.sub_indent, follow(text("when"), G))]).
 
+lay_try_expr(Node, Ctxt) ->
+    Body = erl_syntax:try_expr_body(Node),
+    Clauses = erl_syntax:try_expr_clauses(Node),
+    Handlers = erl_syntax:try_expr_handlers(Node),
+    After = erl_syntax:try_expr_after(Node),
+
+    LayE = fun(_, []) -> none;
+              (Prefix, Expr) ->
+                   Doc = sep(seq(Expr, floating(text(",")), Ctxt, fun lay/2)),
+                   {Expr, [follow(text(Prefix), Doc, Ctxt#ctxt.break_indent)]}
+           end,
+    LayC = fun(_, []) -> none;
+              (Prefix, Cs) ->
+                   Doc = lay_clauses(Cs, try_expr, Ctxt),
+                   {Cs,[text(Prefix), nest(Ctxt#ctxt.break_indent, Doc)]}
+           end,
+    D1 = LayE("try", Body),
+    D2 = LayC("of", Clauses),
+    D3 = LayC("catch", Handlers),
+    D4 = LayE("after", After),
+    [{LastN,DL}|Ns] = lists:filter(fun(C) -> C =/= none end, [D4,D3,D2,D1]),
+    End = case do_inline(Node, LastN, DL, Ctxt) of
+              {inline, _} ->
+                  DL ++ [text("end")];
+              _ ->
+                  [above(par(DL),text("end"))]
+          end,
+    par(lists:append(lists:reverse([D || {_,D} <- Ns])) ++ End).
 
 lay_bit_types([T], Ctxt) ->
     lay(T, Ctxt);
