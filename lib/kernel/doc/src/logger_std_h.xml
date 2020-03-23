@@ -55,7 +55,7 @@
        is stored in a sub map with the key <c>config</c>, and can contain the
        following parameters:</p>
     <taglist>
-      <tag><marker id="type"/><c>type = standard_io | standard_error | file</c></tag>
+      <tag><marker id="type"/><c>type = standard_io | standard_error | file | {device, io:device()}</c></tag>
       <item>
 	<p>Specifies the log destination.</p>
 	<p>The value is set when the handler is added, and it cannot
