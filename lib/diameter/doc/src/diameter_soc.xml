@@ -6,7 +6,7 @@
   <!ENTITY capabilities '<seeerl marker="diameter#capability">capabilities</seeerl>'>
   <!ENTITY events '<seeerl marker="diameter#service_event">events</seeerl>'>
   <!ENTITY NA '&#8212;'>
-  <!ENTITY BR '<br/>&nbsp;<br/>'>
+  <!ENTITY BR '<br/>&#160;<br/>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   %also;
 ]>
