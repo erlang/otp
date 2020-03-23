@@ -402,6 +402,28 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
+      <name name="del_dir_r" arity="1" since="OTP 23.0"/>
+      <fsummary>Delete a file or directory.</fsummary>
+      <desc>
+        <p>Deletes file or directory <c><anno>File</anno></c>.
+          If <c><anno>File</anno></c> is a directory, its contents
+          is first recursively deleted.  Returns:</p>
+        <taglist>
+          <tag><c>ok</c></tag>
+          <item>
+            <p>The operation completed without errors.</p>
+          </item>
+          <tag><c>{error, posix()}</c></tag>
+          <item>
+            <p>An error occurred when accessing or deleting <c><anno>File</anno></c>.
+             If some file or directory under <c><anno>File</anno></c> could not be
+             deleted, <c><anno>File</anno></c> cannot be deleted as it is non-empty,
+             and <c>{error, eexist}</c> is returned.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
       <name name="delete" arity="1" since=""/>
       <fsummary>Delete a file.</fsummary>
       <desc>

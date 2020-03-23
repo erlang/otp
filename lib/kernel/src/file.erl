@@ -28,7 +28,7 @@
 -export([format_error/1]).
 %% File system and metadata.
 -export([get_cwd/0, get_cwd/1, set_cwd/1, delete/1, rename/2,
-	 make_dir/1, del_dir/1, list_dir/1, list_dir_all/1,
+	 make_dir/1, del_dir/1, del_dir_r/1, list_dir/1, list_dir_all/1,
 	 read_file_info/1, read_file_info/2,
 	 write_file_info/2, write_file_info/3,
 	 altname/1,
@@ -238,6 +238,25 @@ make_dir(Name) ->
 
 del_dir(Name) ->
     check_and_call(del_dir, [file_name(Name)]).
+
+-spec del_dir_r(File) -> ok | {error, Reason} when
+      File :: name_all(),
+      Reason :: posix() | badarg.
+
+del_dir_r(File) -> % rm -rf File
+    case read_link_info(File) of
+	{ok, #file_info{type = directory}} ->
+	    case list_dir_all(File) of
+		{ok, Names} ->
+		    lists:foreach(fun(Name) ->
+				      del_dir_r(filename:join(File, Name))
+				  end, Names);
+		{error, _Reason} -> ok
+	    end,
+	    del_dir(File);
+	{ok, _FileInfo} -> delete(File);
+	{error, _Reason} = Error -> Error
+    end.
 
 -spec read_file_info(File) -> {ok, FileInfo} | {error, Reason} when
       File :: name_all() | io_device(),
