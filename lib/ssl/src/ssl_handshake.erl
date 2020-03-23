@@ -1718,15 +1718,20 @@ handle_incomplete_chain(PeerCert, Chain0,
                         #{partial_chain := PartialChain} = Opts, Options, CertDbHandle, CertsDbRef, Reason) ->
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, CertsDbRef) of
         {ok, _, [PeerCert | _] = Chain} when Chain =/= Chain0 -> %% Chain candidate found          
-            {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
-                                                                    CertDbHandle, CertsDbRef,
-                                                                    PartialChain),
-            case public_key:pkix_path_validation(Trusted, Path, Options) of
-		{ok, {PublicKeyInfo,_}} ->
-		    {PeerCert, PublicKeyInfo};
-                {error, PathError} ->
-                    handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, PathError)
-	    end;
+            case ssl_certificate:trusted_cert_and_path(Chain,
+                                                       CertDbHandle, CertsDbRef,
+                                                       PartialChain) of
+                {unknown_ca, []} ->
+                     path_validation_alert(Reason);
+                {Trusted, Path} ->
+                    case public_key:pkix_path_validation(Trusted, Path, Options) of
+                        {ok, {PublicKeyInfo,_}} ->
+                            {PeerCert, PublicKeyInfo};
+                        {error, PathError} ->
+                            handle_unordered_chain(PeerCert, Chain0, Opts, Options, 
+                                                   CertDbHandle, CertsDbRef, PathError)
+                    end
+            end;
         _ ->
             handle_unordered_chain(PeerCert, Chain0, Opts, Options, CertDbHandle, CertsDbRef, Reason)
     end.
@@ -1736,15 +1741,19 @@ handle_unordered_chain(PeerCert, Chain0,
     {ok,  ExtractedCerts} = ssl_pkix_db:extract_trusted_certs({der, Chain0}),
     case ssl_certificate:certificate_chain(PeerCert, CertDbHandle, ExtractedCerts, Chain0) of
         {ok, _, Chain} when  Chain =/= Chain0 -> %% Chain appaears to be unordered 
-            {Trusted, Path} = ssl_certificate:trusted_cert_and_path(Chain,
-                                                                    CertDbHandle, CertsDbRef,
-                                                                    PartialChain),
-            case public_key:pkix_path_validation(Trusted, Path, Options) of
-                {ok, {PublicKeyInfo,_}} ->
-                    {PeerCert, PublicKeyInfo};
-                {error, PathError} ->
-                    path_validation_alert(PathError)
-	    end;
+            case ssl_certificate:trusted_cert_and_path(Chain,
+                                                       CertDbHandle, CertsDbRef,
+                                                       PartialChain) of
+                {unknown_ca, []} ->
+                    path_validation_alert(Reason);
+                {Trusted, Path} ->
+                    case public_key:pkix_path_validation(Trusted, Path, Options) of
+                        {ok, {PublicKeyInfo,_}} ->
+                            {PeerCert, PublicKeyInfo};
+                        {error, PathError} ->
+                            path_validation_alert(PathError)
+                    end
+            end;
         _ ->
             path_validation_alert(Reason)
     end.
