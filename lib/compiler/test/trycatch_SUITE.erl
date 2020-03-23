@@ -1058,6 +1058,8 @@ grab_bag(_Config) ->
 
     <<>> = grab_bag_2(whatever),
 
+    {'EXIT',_} = (catch grab_bag_3()),
+
     ok.
 
 grab_bag_1(V) ->
@@ -1098,6 +1100,19 @@ grab_bag_2(V) ->
         error:_ ->
             V
     end.
+
+grab_bag_3() ->
+    try 2 of
+        true ->
+            <<
+              "" || [V0] = door
+            >>
+    catch
+        error:true:V0 ->
+            []
+            %% The default clause here (which re-throws the exception)
+            %% would not return two values as expected.
+    end =:= (V0 = 42).
 
 stacktrace(_Config) ->
     V = [make_ref()|self()],

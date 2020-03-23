@@ -82,7 +82,8 @@
 -export([module/2,format_error/1]).
 
 -import(lists, [reverse/1,reverse/2,map/2,member/2,foldl/3,foldr/3,mapfoldl/3,
-		splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1]).
+                splitwith/2,keyfind/3,sort/1,foreach/2,droplast/1,last/1,
+                duplicate/2]).
 -import(ordsets, [add_element/2,del_element/2,is_element/2,
 		  union/1,union/2,intersection/2,subtract/2]).
 -import(cerl, [ann_c_cons/3,ann_c_tuple/2,c_tuple/1,
@@ -2775,10 +2776,11 @@ cexpr(#icase{anno=A,args=Largs,clauses=Lcs,fc=Lfc}, As, St0) ->
 				{[Ca|Cas],Stb}
 			end, {[],St0}, Largs),
     {Ccs,St2} = cclauses(Lcs, Exp, St1),
-    {Cfc,St3} = cclause(Lfc, [], St2),		%Never exports
+    {Cfc0,St3} = cclause(Lfc, [], St2),		%Never exports
+    {Cfc,St4} = c_add_dummy_export(Cfc0, Exp, St3),
     {#c_case{anno=A#a.anno,
 	     arg=core_lib:make_values(Cargs),clauses=Ccs ++ [Cfc]},
-     Exp,A#a.us,St3};
+     Exp,A#a.us,St4};
 cexpr(#ireceive1{anno=A,clauses=Lcs}, As, St0) ->
     Exp = intersection(A#a.ns, As),		%Exports
     {Ccs,St1} = cclauses(Lcs, Exp, St0),
@@ -2899,6 +2901,17 @@ cfun(#ifun{anno=A,id=Id,vars=Args,clauses=Lcs,fc=Lfc}, _As, St0) ->
 c_call_erl(Fun, Args) ->
     As = [compiler_generated],
     cerl:ann_c_call(As, cerl:c_atom(erlang), cerl:c_atom(Fun), Args).
+
+
+c_add_dummy_export(#c_clause{body=B0}=C, [_|_]=Exp, St0) ->
+    %% Add dummy export in order to always return the correct number
+    %% of values for the default clause.
+    {V,St1} = new_var(St0),
+    B = #c_let{vars=[V],arg=B0,
+               body=#c_values{es=[V|duplicate(length(Exp), #c_literal{val=[]})]}},
+    {C#c_clause{body=B},St1};
+c_add_dummy_export(C, [], St) ->
+    {C,St}.
 
 %%%
 %%% Lower a `receive` to more primitive operations. Rewrite patterns
