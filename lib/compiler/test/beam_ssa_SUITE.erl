@@ -719,6 +719,7 @@ grab_bag(_Config) ->
     ?MODULE = grab_bag_15(?MODULE),
     error = grab_bag_16(timeout_value),
     {'EXIT',{timeout_value,_}} = (catch grab_bag_16(whatever)),
+    fact = grab_bag_17(),
 
     ok.
 
@@ -905,6 +906,20 @@ grab_bag_16(V) ->
     catch
         _:V ->
             error
+    end.
+
+grab_bag_17() ->
+    try "xwCl" of
+        V when V ->
+            <<[] || V>>;
+        [_|_] ->
+            %% Constant propagation in beam_ssa_codegen:prefer_xregs/2
+            %% would produce get_hd and get_tl instructions with literal
+            %% operands.
+            fact
+    catch
+        _:_ ->
+            []
     end.
 
 

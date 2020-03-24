@@ -883,6 +883,24 @@ sanitize_arg(Arg, _Values) ->
     Arg.
 
 
+sanitize_instr(phi, PhiArgs, _I) ->
+    case phi_all_same_literal(PhiArgs) of
+        true ->
+            %% (Can only happen when some optimizations have been
+            %% turned off.)
+            %%
+            %% This phi node always produces the same literal value.
+            %% We must do constant progation of the value to ensure
+            %% that we can sanitize any instructions that don't accept
+            %% literals (such as `get_hd`). This is necessary for
+            %% correctness, because beam_ssa_codegen:prefer_xregs/2
+            %% does constant propagation and could propagate a literal
+            %% into an instruction that don't accept literals.
+            [{#b_literal{val=Val},_}|_] = PhiArgs,
+            {value,Val};
+        false ->
+            ok
+    end;
 sanitize_instr({bif,Bif}, [#b_literal{val=Lit}], _I) ->
     case erl_bifs:is_pure(erlang, Bif, 1) of
         false ->
@@ -966,6 +984,18 @@ prune_phi(#b_set{args=Args0}=Phi, Reachable) ->
     Args = [A || {_,Pred}=A <- Args0,
                  gb_sets:is_element(Pred, Reachable)],
     Phi#b_set{args=Args}.
+
+phi_all_same_literal([{#b_literal{}=Arg, _From} | Phis]) ->
+    phi_all_same_literal_1(Phis, Arg);
+phi_all_same_literal([_|_]) ->
+    false.
+
+phi_all_same_literal_1([{Arg, _From} | Phis], Arg) ->
+    phi_all_same_literal_1(Phis, Arg);
+phi_all_same_literal_1([], _Arg) ->
+    true;
+phi_all_same_literal_1(_Phis, _Arg) ->
+    false.
 
 %%% Rewrite certain calls to erlang:error/{1,2} to specialized
 %%% instructions:
