@@ -1260,7 +1260,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	 * This layout is determined by the NifExport struct
 	 */
 
-	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_NIF);
+	ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_NIF);
 
 	codemfa = erts_code_to_codemfa(I);
 
@@ -1284,7 +1284,7 @@ void erts_dirty_process_main(ErtsSchedulerData *esdp)
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	ERTS_REQ_PROC_MAIN_LOCK(c_p);
 	ERTS_VERIFY_UNUSED_TEMP_ALLOC(c_p);
-	ERTS_MSACC_SET_STATE_CACHED_M_X(ERTS_MSACC_STATE_EMULATOR);
+	ERTS_MSACC_SET_STATE_CACHED_X(ERTS_MSACC_STATE_EMULATOR);
 	if (exiting)
 	    goto do_dirty_schedule;
 	ASSERT(!ERTS_PROC_IS_EXITING(c_p));

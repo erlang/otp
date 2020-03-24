@@ -188,7 +188,7 @@ erts_sspa_alloc(erts_sspa_data_t *data, int cix)
     erts_sspa_chunk_t *chnk;
     erts_sspa_chunk_header_t *chdr;
     erts_sspa_blk_t *res;
-    ERTS_MSACC_PUSH_AND_SET_STATE_M_X(ERTS_MSACC_STATE_ALLOC);
+    ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
 
     chnk = erts_sspa_cix2chunk(data, cix);
     chdr = &chnk->aligned.header;
@@ -204,13 +204,13 @@ erts_sspa_alloc(erts_sspa_data_t *data, int cix)
     }
     if (chdr->local.cnt <= chdr->local.lim) {
 	res = erts_sspa_process_remote_frees(chdr, res);
-        ERTS_MSACC_POP_STATE_M_X();
+        ERTS_MSACC_POP_STATE_X();
         return (char*) res;
     }
     else if (chdr->head.no_thr_progress_check < ERTS_SSPA_FORCE_THR_CHECK_PROGRESS)
 	chdr->head.no_thr_progress_check++;
     ASSERT(res);
-    ERTS_MSACC_POP_STATE_M_X();
+    ERTS_MSACC_POP_STATE_X();
     return (char *) res;
 }
 
