@@ -17,6 +17,9 @@
 # 
 # %CopyrightEnd%
 #
-GENERAL_INFO_CHAPTER_FILES = \
+
+GENERAL_INFO_CHAPTER_FILES =
+
+GENERAL_INFO_CHAPTER_GEN_FILES = \
 	deprecations.xml \
 	scheduled_for_removal.xml

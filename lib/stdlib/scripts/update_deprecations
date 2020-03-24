@@ -36,9 +36,9 @@ main(["update",Top]) ->
     St = check_deprecations(Top, St0),
     emit(Top, St),
     halt(0);
-main(["make_xml",Type,Top]) ->
+main(["make_xml",Type,Top,Outfile]) ->
     St = summarize(Top),
-    make_xml(Top, Type, St#st.functions),
+    make_xml(Top, Type, Outfile, St#st.functions),
     halt(0).
 
 ebin_directories(Top) ->
@@ -198,7 +198,7 @@ insert_removals([], _Depr) ->
 %%% Create XML files.
 %%%
 
-make_xml(Top, Type, InfoText0) ->
+make_xml(Top, Type, OutFile, InfoText0) ->
     DeprecationFile = deprecation_file(Top),
     OutDir = filename:dirname(DeprecationFile),
     InfoTextMap = maps:from_list(make_xml_info(InfoText0)),
@@ -211,7 +211,8 @@ make_xml(Top, Type, InfoText0) ->
                            {remove,"scheduled_for_removal"}
                    end,
     Collected = make_xml_collect(Depr, Key, InfoTextMap, []),
-    make_xml_gen(lists:reverse(Collected), Type, Prefix, OutDir),
+    All = make_xml_gen(lists:reverse(Collected), Type, Prefix, OutDir),
+    file:write_file(OutFile, All),
     ok.
 
 make_xml_info([{deprecated,M,F,A,Text}|T]) ->
@@ -239,10 +240,7 @@ make_xml_gen(Collected, Type, Prefix, Dir) ->
     Head = get_xml_template(Dir, Prefix, head),
     Contents = make_xml_gen_list(Collected, Type, Prefix, Dir),
     Footer = "</chapter>\n",
-    All = [Head,Contents,Footer],
-    File = filename:join(Dir, Prefix ++ ".xml"),
-    ok = file:write_file(File, All),
-    ok.
+    [Head,Contents,Footer].
 
 make_xml_gen_list([{Rel,MFAs}|T], Type, Prefix, Dir) ->
     RelStr = lists:concat(["OTP ",Rel]),
