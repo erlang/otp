@@ -93,7 +93,7 @@ init_per_group(GroupName, Config) ->
     end.
 
 init_per_group_openssl(GroupName, Config) ->
-    case is_tls_version(GroupName) of
+    case is_tls_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
 	    case check_sane_openssl_version(GroupName) of
 		true ->
@@ -102,8 +102,13 @@ init_per_group_openssl(GroupName, Config) ->
 		    {skip, "Missing openssl support"}
 	    end;
 	_ ->
-	    ssl:start(),
-	    Config
+            case sufficient_crypto_support(GroupName) of
+		true ->
+		    ssl:start(),
+		    Config;
+		false ->
+		    {skip, "Missing crypto support"}
+	    end
     end.
 
 end_per_group(GroupName, Config) ->
