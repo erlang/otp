@@ -148,6 +148,11 @@ docsmap(Fun) ->
                       case code:get_doc(Mod) of
                           {error, missing} ->
                               ok;
+                          {error, cover_compiled} ->
+                              ok;
+                          {error, eacces} ->
+                              %% This can happen in BSD's for some reason...
+                              ok;
                           {ok, Docs} ->
                               Fun(Mod, Docs)
                       end
