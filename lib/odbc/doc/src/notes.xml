@@ -32,7 +32,23 @@
   <p>This document describes the changes made to the odbc application.
   </p>
 
-  <section><title>ODBC 2.12.4</title>
+  <section><title>ODBC 2.13</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Rewrite due to the removal of <c>erl_interface</c> legacy
+	    functions.</p>
+          <p>
+	    Own Id: OTP-16544 Aux Id: OTP-16328 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>ODBC 2.12.4</title>
 
     <section><title>Improvements and New Features</title>
       <list>

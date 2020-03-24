@@ -375,7 +375,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="atom_to_binary" arity="1" since="OTP @OTP-15995@"/>
+      <name name="atom_to_binary" arity="1" since="OTP 23.0"/>
       <fsummary>Return the binary representation of an atom.</fsummary>
       <desc>
 	<p>
@@ -457,7 +457,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="binary_to_atom" arity="1" since="OTP @OTP-15995@"/>
+      <name name="binary_to_atom" arity="1" since="OTP 23.0"/>
       <fsummary>Convert from text representation to an atom.</fsummary>
       <desc>
 	<p>
@@ -493,7 +493,7 @@ Z = erlang:adler32_combine(X,Y,iolist_size(Data2)).</code>
     </func>
 
     <func>
-      <name name="binary_to_existing_atom" arity="1" since="OTP @OTP-15995@"/>
+      <name name="binary_to_existing_atom" arity="1" since="OTP 23.0"/>
       <fsummary>Convert from text representation to an atom.</fsummary>
       <desc>
 	<p>
@@ -6315,7 +6315,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_monitor" arity="2" since="OTP @OTP-15251@"/>
+      <name name="spawn_monitor" arity="2" since="OTP 23.0"/>
       <fsummary>Create and monitor a new process with a fun as entry point.
       </fsummary>
       <desc>
@@ -6346,7 +6346,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_monitor" arity="4" since="OTP @OTP-15251@"/>
+      <name name="spawn_monitor" arity="4" since="OTP 23.0"/>
       <fsummary>Create and monitor a new process with a function as entry point.
       </fsummary>
       <desc>
@@ -6564,7 +6564,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_request" arity="1" since="OTP @OTP-15251@"/>
+      <name name="spawn_request" arity="1" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
       <desc>
         <p>
@@ -6576,7 +6576,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_request" arity="2" clause_i="1" since="OTP @OTP-15251@"/>
+      <name name="spawn_request" arity="2" clause_i="1" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
       <desc>
         <p>
@@ -6588,7 +6588,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_request" arity="2" clause_i="2" since="OTP @OTP-15251@"/>
+      <name name="spawn_request" arity="2" clause_i="2" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
       <desc>
         <p>
@@ -6600,7 +6600,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_request" arity="3" clause_i="1" since="OTP @OTP-15251@"/>
+      <name name="spawn_request" arity="3" clause_i="1" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
       <desc>
         <p>
@@ -6620,7 +6620,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_request" arity="3" clause_i="2" since="OTP @OTP-15251@"/>
+      <name name="spawn_request" arity="3" clause_i="2" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
       <desc>
         <p>
@@ -6632,7 +6632,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_request" arity="4" clause_i="1" since="OTP @OTP-15251@"/>
+      <name name="spawn_request" arity="4" clause_i="1" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
       <desc>
         <p>
@@ -6644,7 +6644,7 @@ true</pre>
     </func>
         
     <func>
-      <name name="spawn_request" arity="4" clause_i="2" since="OTP @OTP-15251@"/>
+      <name name="spawn_request" arity="4" clause_i="2" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
       <desc>
         <p>
@@ -6656,7 +6656,7 @@ true</pre>
     </func>
 
     <func>
-      <name name="spawn_request" arity="5" since="OTP @OTP-15251@"/>
+      <name name="spawn_request" arity="5" since="OTP 23.0"/>
       <fsummary>Asynchronously send a request to spawn a new process.</fsummary>
       <desc>
         <p>
@@ -6893,7 +6893,7 @@ true</pre>
     </func>
     
     <func>
-      <name name="spawn_request_abandon" arity="1" since="OTP @OTP-15251@"/>
+      <name name="spawn_request_abandon" arity="1" since="OTP 23.0"/>
       <fsummary>Abandon a previously issued spawn request.</fsummary>
       <desc>
 	<p>
@@ -10217,7 +10217,7 @@ hello
     </func>
 
     <func>
-      <name name="term_to_iovec" arity="1" since="OTP @OTP-15618@"/>
+      <name name="term_to_iovec" arity="1" since="OTP 23.0"/>
       <fsummary>Encode a term to an Erlang external term format as iovec().
       </fsummary>
       <desc>
@@ -10242,7 +10242,7 @@ hello
     </func>
     
     <func>
-      <name name="term_to_iovec" arity="2" since="OTP @OTP-15618@"/>
+      <name name="term_to_iovec" arity="2" since="OTP 23.0"/>
       <fsummary>Encode a term to en Erlang external term format as iovec().
       </fsummary>
       <desc>

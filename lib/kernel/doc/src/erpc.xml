@@ -28,7 +28,7 @@
     <date>2020-02-20</date>
     <rev>A</rev>
   </header>
-  <module since="OTP @OTP-13450@">erpc</module>
+  <module since="OTP 23.0">erpc</module>
   <modulesummary>Enhanced Remote Procedure Call</modulesummary>
   <description>
     <p>
@@ -75,8 +75,8 @@
   <funcs>
 
     <func>
-      <name name="call" arity="2" since="OTP @OTP-13450@"/>
-      <name name="call" arity="3" since="OTP @OTP-13450@"/>
+      <name name="call" arity="2" since="OTP 23.0"/>
+      <name name="call" arity="3" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
@@ -96,8 +96,8 @@
     </func>
 
     <func>
-      <name name="call" arity="4" since="OTP @OTP-13450@"/>
-      <name name="call" arity="5" since="OTP @OTP-13450@"/>
+      <name name="call" arity="4" since="OTP 23.0"/>
+      <name name="call" arity="5" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
         <p>
@@ -249,7 +249,7 @@
     </func>
 
     <func>
-      <name name="cast" arity="2" since="OTP @OTP-13450@"/>
+      <name name="cast" arity="2" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
@@ -266,7 +266,7 @@
     </func>
 
     <func>
-      <name name="cast" arity="4" since="OTP @OTP-13450@"/>
+      <name name="cast" arity="4" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a node ignoring the result.</fsummary>
       <desc>
         <p>
@@ -298,7 +298,7 @@
     </func>
     
     <func>
-      <name name="check_response" arity="2" since="OTP @OTP-13450@"/>
+      <name name="check_response" arity="2" since="OTP 23.0"/>
       <fsummary>Check if a message is a response corresponding to a
       previously sent call request.</fsummary>
       <desc>
@@ -341,8 +341,8 @@
     </func>
 
     <func>
-      <name name="multicall" arity="2" since="OTP @OTP-13450@"/>
-      <name name="multicall" arity="3" since="OTP @OTP-13450@"/>
+      <name name="multicall" arity="2" since="OTP 23.0"/>
+      <name name="multicall" arity="3" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
@@ -362,8 +362,8 @@
     </func>
 
     <func>
-      <name name="multicall" arity="4" since="OTP @OTP-13450@"/>
-      <name name="multicall" arity="5" since="OTP @OTP-13450@"/>
+      <name name="multicall" arity="4" since="OTP 23.0"/>
+      <name name="multicall" arity="5" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a number of nodes.</fsummary>
       <type name="caught_call_exception"/>
       <type name="stack_item"/>
@@ -466,7 +466,7 @@ my_multicall(Nodes, Module, Function, Args) ->
     </func>
 
     <func>
-      <name name="multicast" arity="2" since="OTP @OTP-13450@"/>
+      <name name="multicast" arity="2" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a set nodes.</fsummary>
       <desc>
 	<p>
@@ -483,7 +483,7 @@ my_multicall(Nodes, Module, Function, Args) ->
     </func>
 
     <func>
-      <name name="multicast" arity="4" since="OTP @OTP-13450@"/>
+      <name name="multicast" arity="4" since="OTP 23.0"/>
       <fsummary>Evaluate a function call on a set of nodes ignoring the result.</fsummary>
       <desc>
         <p>
@@ -517,8 +517,8 @@ my_multicall(Nodes, Module, Function, Args) ->
     </func>
     
     <func>
-      <name name="receive_response" arity="1" since="OTP @OTP-13450@"/>
-      <name name="receive_response" arity="2" since="OTP @OTP-13450@"/>
+      <name name="receive_response" arity="1" since="OTP 23.0"/>
+      <name name="receive_response" arity="2" since="OTP 23.0"/>
       <fsummary>Receive a call response corresponding to a
       previously sent call request.</fsummary>
       <desc>
@@ -581,7 +581,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="send_request" arity="2" since="OTP @OTP-13450@"/>
+      <name name="send_request" arity="2" since="OTP 23.0"/>
       <fsummary>Send a request to evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
@@ -606,7 +606,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
     
     <func>
-      <name name="send_request" arity="4" since="OTP @OTP-13450@"/>
+      <name name="send_request" arity="4" since="OTP 23.0"/>
       <fsummary>Send a request to evaluate a function call on a node.</fsummary>
       <desc>
 	<p>
@@ -633,8 +633,8 @@ my_call(Node, Module, Function, Args, Timeout) ->
     </func>
 
     <func>
-      <name name="wait_response" arity="1" since="OTP @OTP-13450@"/>
-      <name name="wait_response" arity="2" since="OTP @OTP-13450@"/>
+      <name name="wait_response" arity="1" since="OTP 23.0"/>
+      <name name="wait_response" arity="2" since="OTP 23.0"/>
       <fsummary>Wait or poll for a call response corresponding to a previously
       sent call request.</fsummary>
       <desc>

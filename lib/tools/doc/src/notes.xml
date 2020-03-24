@@ -31,6 +31,33 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 3.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Updates for new <c>erlang:term_to_iovec()</c> BIF.</p>
+          <p>
+	    Own Id: OTP-16128 Aux Id: OTP-15618 </p>
+        </item>
+        <item>
+	    <p>Improved the presentation of allocations and carriers
+	    in the <c>instrument</c> module.</p>
+          <p>
+	    Own Id: OTP-16327</p>
+        </item>
+        <item>
+          <p>
+	    Minor updates due to the new spawn improvements made.</p>
+          <p>
+	    Own Id: OTP-16368 Aux Id: OTP-15251 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 3.3.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

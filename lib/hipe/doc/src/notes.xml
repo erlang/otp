@@ -31,6 +31,38 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 4.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a rare miss-compilation of tuple matching.</p>
+          <p>
+	    Own Id: OTP-16470</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The deprecated <c>erlang:get_stacktrace/0</c> BIF now
+	    returns an empty list instead of a stacktrace. To
+	    retrieve the stacktrace, use the extended try/catch
+	    syntax that was introduced in OTP 21.
+	    <c>erlang:get_stacktrace/0</c> is scheduled for removal
+	    in OTP 24.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-16484</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.19.3</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

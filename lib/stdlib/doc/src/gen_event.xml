@@ -524,9 +524,9 @@ gen_event:stop             ----->  Module:terminate/2
     </func>
 
     <func>
-      <name since="OTP @OTP-16120@">start_monitor() -> Result</name>
-      <name since="OTP @OTP-16120@">start_monitor(EventMgrName | Options) -> Result</name>
-      <name since="OTP @OTP-16120@">start_monitor(EventMgrName, Options) -> Result</name>
+      <name since="OTP 23.0">start_monitor() -> Result</name>
+      <name since="OTP 23.0">start_monitor(EventMgrName | Options) -> Result</name>
+      <name since="OTP 23.0">start_monitor(EventMgrName, Options) -> Result</name>
       <fsummary>Create a stand-alone event manager process.</fsummary>
       <type>
         <v>EventMgrName = {local,Name} | {global,GlobalName} | {via,Module,ViaName}</v>

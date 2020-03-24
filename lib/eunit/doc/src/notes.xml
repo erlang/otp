@@ -33,6 +33,35 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p> Let <c>eunit_surefire</c> skip invalid XML 1.0
+	    characters. </p>
+          <p>
+	    Own Id: OTP-15950 Aux Id: PR-2316, ERL-991 </p>
+        </item>
+        <item>
+          <p>
+	    Add new macro ?capturedOutput for enabling to write test
+	    cases that verify data printed to standard out</p>
+          <p>
+	    Own Id: OTP-16275 Aux Id: PR-2424 </p>
+        </item>
+        <item>
+          <p>
+	    Add option to limit print depth of exceptions generated
+	    by eunit test suites.</p>
+          <p>
+	    Own Id: OTP-16549 Aux Id: PR-2532 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.4.1</title>
 
     <section><title>Improvements and New Features</title>
