@@ -1377,13 +1377,17 @@ append_guard(G, D, Ctxt) ->
 lay_try_expr(Node, Ctxt) ->
     Body = erl_syntax:try_expr_body(Node),
     Clauses = erl_syntax:try_expr_clauses(Node),
-    Handlers = erl_syntax:try_expr_handlers(Node),
+    Handlers0 = erl_syntax:try_expr_handlers(Node),
+    Handlers = try_handlers_with_throw(Handlers0),
     After = erl_syntax:try_expr_after(Node),
 
     LayE = fun(_, []) -> none;
-              (Prefix, Expr) ->
-                   Doc = sep(seq(Expr, floating(text(",")), Ctxt, fun lay/2)),
-                   {Expr, [follow(text(Prefix), Doc, Ctxt#ctxt.break_indent)]}
+              (Prefix, [_]=Expr) ->
+                   Doc = vertical(seq(Expr, floating(text(",")), Ctxt, fun lay/2)),
+                   {Expr, [follow(text(Prefix), Doc, Ctxt#ctxt.break_indent)]};
+              (Prefix, Exprs) ->
+                   Doc = vertical(seq(Exprs, floating(text(",")), Ctxt, fun lay/2)),
+                   {Exprs, [text(Prefix), nest(Ctxt#ctxt.break_indent, Doc)]}
            end,
     LayC = fun(_, []) -> none;
               (Prefix, Cs) ->
@@ -1402,6 +1406,27 @@ lay_try_expr(Node, Ctxt) ->
                   [above(par(DL),text("end"))]
           end,
     par(lists:append(lists:reverse([D || {_,D} <- Ns])) ++ End).
+
+try_handlers_with_throw(Cs) ->
+    [add_default_class(P) || P <- Cs].
+
+add_default_class(C) ->
+    try
+        [P] = erl_syntax:clause_patterns(C),
+        case erl_syntax:type(P) of
+            class_qualifier ->
+                C;
+            _Other ->
+                Loc = erl_anno:location(erl_syntax:get_pos(P)),
+                Class = erl_syntax:set_pos(erl_syntax:atom('throw'), Loc),
+                C0 = erl_syntax:clause([erl_syntax:class_qualifier(Class, P)],
+                                       erl_syntax:clause_guard(C),
+                                       erl_syntax:clause_body(C)),
+                erl_syntax:set_pos(C0, erl_syntax:get_pos(C))
+        end
+    catch error:_ ->
+            C
+    end.
 
 lay_bit_types([T], Ctxt) ->
     lay(T, Ctxt);
