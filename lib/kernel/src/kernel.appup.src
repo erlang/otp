@@ -21,7 +21,6 @@
 %% versions from the following OTP releases:
 %% - OTP 21
 %% - OTP 22
-%% - OTP 23
 %%
 %% We also allow upgrade from, and downgrade to all
 %% versions that have branched off from the above
@@ -45,8 +44,7 @@
   {<<"^6\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^6\\.5$">>,[restart_new_emulator]},
   {<<"^6\\.5\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
+  {<<"^6\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]}],
  [{<<"^6\\.0$">>,[restart_new_emulator]},
   {<<"^6\\.0\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
   {<<"^6\\.0\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
@@ -64,5 +62,4 @@
   {<<"^6\\.4\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
   {<<"^6\\.5$">>,[restart_new_emulator]},
   {<<"^6\\.5\\.0(?:\\.[0-9]+)+$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]},
-  {<<"^6\\.5\\.2(?:\\.[0-9]+)*$">>,[restart_new_emulator]}]}.
+  {<<"^6\\.5\\.1(?:\\.[0-9]+)*$">>,[restart_new_emulator]}]}.

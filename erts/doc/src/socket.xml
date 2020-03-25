@@ -513,8 +513,8 @@
     </func>
 
     <func>
-      <name name="open" arity="1" since="OTP 23.0"/>
-      <name name="open" arity="2" clause_i="1" since="OTP 23.0"/>
+      <name name="open" arity="1" since="OTP @OTP-16398@"/>
+      <name name="open" arity="2" clause_i="1" since="OTP @OTP-16398@"/>
       <fsummary>Create an endpoint for communication.</fsummary>
       <desc>
 	<p>Create an endpoint (socket) for communication based on an
@@ -963,7 +963,7 @@
       <name name="supports" arity="1" clause_i="4" since="OTP 22.0"/>
       <name name="supports" arity="1" clause_i="5" since="OTP 22.3"/>
       <name name="supports" arity="1" clause_i="6" since="OTP 22.3"/>
-      <name name="supports" arity="1" clause_i="7" since="OTP 23.0"/>
+      <name name="supports" arity="1" clause_i="7" since="OTP @OTP-16432@"/>
       <name name="supports" arity="1" clause_i="8" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="1" since="OTP 22.0"/>
       <name name="supports" arity="2" clause_i="2" since="OTP 22.0"/>
