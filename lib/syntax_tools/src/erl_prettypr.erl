@@ -637,8 +637,7 @@ lay_2(Node, Ctxt) ->
 	    Ctxt1 = reset_prec(Ctxt),
 	    D = lay_clauses(erl_syntax:fun_expr_clauses(Node),
 			    fun_expr, Ctxt1),
-	    sep([follow(text("fun"), D, Ctxt1#ctxt.break_indent),
-		 text("end")]);
+	    sep([beside(text("fun"), D), text("end")]);
 
         named_fun_expr ->
             Ctxt1 = reset_prec(Ctxt),
