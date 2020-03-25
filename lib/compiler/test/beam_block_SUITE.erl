@@ -22,7 +22,8 @@
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 get_map_elements/1,otp_7345/1,move_opt_across_gc_bif/1,
-	 erl_202/1,repro/1,local_cse/1,second_block_pass/1]).
+	 erl_202/1,repro/1,local_cse/1,second_block_pass/1,
+         coverage/1]).
 
 %% The only test for the following functions is that
 %% the code compiles and is accepted by beam_validator.
@@ -41,7 +42,8 @@ groups() ->
        erl_202,
        repro,
        local_cse,
-       second_block_pass
+       second_block_pass,
+       coverage
       ]}].
 
 init_per_suite(Config) ->
@@ -304,6 +306,15 @@ second_block_pass(_Config) ->
 
 second_1(Fs, TS) ->
     [F#{dts=>DTS / TS} || #{dts:=DTS} = F <- Fs].
+
+coverage(_Config) ->
+    [] = coverage_1(),
+    ok.
+
+coverage_1() ->
+    [(bnot head):bar(hdr, case kind of
+                              [] -> whatever
+                          end) || 7 <- []].
 
 %%%
 %%% Common functions.

@@ -249,6 +249,8 @@ coverage(_Config) ->
     le = coverage_2([], []),
     gt = coverage_2([], xxx),
 
+    error = coverage_3(#{key => <<"child">>}),
+    error = coverage_3(#{}),
     ok.
 
 coverage_1(Var) ->
@@ -278,10 +280,15 @@ coverage_2(Pre1, Pre2) ->
             end
     end.
 
+coverage_3(#{key := <<child>>}) when false ->
+    ok;
+coverage_3(#{}) ->
+    error.
+
 %% ERIERL-478: The validator failed to validate argument types when calls were
 %% shared and the types at the common block turned out wider than the join of
 %% each individual call site.
-call_sharing(Config) ->
+call_sharing(_Config) ->
     A_2 = {a, 1},
     A_3 = {a, 1, 2},
 

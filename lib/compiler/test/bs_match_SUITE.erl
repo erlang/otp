@@ -831,6 +831,8 @@ coverage(Config) when is_list(Config) ->
     {10,<<"-">>,""} = coverage_trim_2(<<"-">>, 10, []),
     {8,<<"-">>,"aa"} = coverage_trim_2(<<"aa-">>, 10, []),
 
+    {<<"abc">>,<<"tag">>} = coverage_trim_3([<<"abc","tag">>], 3),
+
     ok.
 
 coverage_fold(Fun, Acc, <<H,T/binary>>) ->
@@ -952,6 +954,12 @@ coverage_trim_2(<<C/utf8,R/binary>> = Bin, I, L) ->
         false ->
             {I,Bin,lists:reverse(L)}
     end.
+
+coverage_trim_3(CipherTextFragment, TagLen) ->
+    CipherLen = iolist_size(CipherTextFragment) - TagLen,
+    <<CipherText:CipherLen/bytes, CipherTag:TagLen/bytes>> =
+        iolist_to_binary(CipherTextFragment),
+    {CipherText, CipherTag}.
 
 printable_char($a) -> true;
 printable_char(_) -> false.
@@ -1348,6 +1356,9 @@ bad_size(Config) when is_list(Config) ->
     no_match = bad_all_size(<<>>),
     no_match = bad_all_size(<<1,2,3>>),
 
+    true = bad_size_1(<<0>>),
+    error = bad_size_1(<<0,1>>),
+
     ok.
 
 bad_all_size(Bin) ->
@@ -1402,6 +1413,10 @@ bad_all_size_6(Bin) ->
         <<_:All/binary>> -> ok;
         _ -> no_match
     end.
+
+bad_size_1(<<0>>) -> true;
+bad_size_1(<<0:[]>>) -> false;
+bad_size_1(_) -> error.
 
 haystack(Config) when is_list(Config) ->
     <<0:10/unit:8>> = haystack_1(<<0:10/unit:8>>),

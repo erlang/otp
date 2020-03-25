@@ -1165,6 +1165,11 @@ t_is_boolean(Config) when is_list(Config) ->
     false = my_is_bool([1,2,3,4]),
     false = my_is_bool({a,b,c}),
 
+    %% Cover code in beam_ssa_dead.
+    ok = bool_semi(true),
+    ok = bool_semi(false),
+    error = bool_semi(a),
+
     ok.
 
 bool(X) when is_boolean(X) -> ok;
@@ -1187,6 +1192,9 @@ my_is_bool_b(V) ->
 	true -> true;
 	_ -> false
     end.
+
+bool_semi(V) when is_boolean(V); is_atom(not V) -> ok;
+bool_semi(_) -> error.
 
 is_function_2(Config) when is_list(Config) ->
     true = is_function(id(fun ?MODULE:all/1), 1),
@@ -1622,7 +1630,7 @@ rel_op_vars_2(X, N) when X >= N -> ge.
 %% Exhaustively test all combinations of relational operators
 %% to ensure the correctness of the optimizations in beam_ssa_dead.
 
-generated_combinations(Config) ->
+generated_combinations(_Config) ->
     Mod = ?FUNCTION_NAME,
     RelOps = ['=:=','=/=','==','/=','<','=<','>=','>'],
     Combinations0 = [{Op1,Op2} || Op1 <- RelOps, Op2 <- RelOps],

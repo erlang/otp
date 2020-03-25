@@ -242,6 +242,9 @@ t_andalso(Config) when is_list(Config) ->
     true = begin (X1 = true) andalso X1, X1 end,
     false = false = begin (X2 = false) andalso X2, X2 end,
 
+    %% Cover conversion to right associativity.
+    true = (is_list(Config) andalso is_list(Bs)) andalso is_list(Ps),
+
     ok.
 
 t_orelse(Config) when is_list(Config) ->
@@ -274,6 +277,9 @@ t_orelse(Config) when is_list(Config) ->
 
     true = begin (X1 = true) orelse X1, X1 end,
     false = begin (X2 = false) orelse X2, X2 end,
+
+    %% Cover conversion to right associativity.
+    false = (is_atom(Config) orelse is_atom(Bs)) orelse is_atom(Ps),
 
     ok.
 

@@ -489,6 +489,10 @@ cover_ssa_dead(_Config) ->
 
     {'EXIT',{{badmatch,42},_}} = (catch #{key => abs(("a" = id(42)) /= teacher)}),
 
+    <<>> = id(<< V || V <- [], V andalso false >>),
+
+    false = id(([] = id([])) =/= []),
+
     ok.
 
 format_str(Str, FormatData, IoList, EscChars) ->
