@@ -58,7 +58,7 @@
 -define(Z_BEST_COMPRESSION,       9).
 -define(Z_DEFAULT_COMPRESSION,  (-1)).
 
-%% compresssion strategy
+%% compression strategy
 -define(Z_FILTERED,            1).
 -define(Z_HUFFMAN_ONLY,        2).
 -define(Z_RLE,                 3).
