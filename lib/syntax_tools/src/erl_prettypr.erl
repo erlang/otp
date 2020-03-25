@@ -924,7 +924,7 @@ lay_2(Node, Ctxt) ->
 	    {PrecL, Prec, _} = inop_prec('#'),	  
 	    Ctxt1 = reset_prec(Ctxt),
 	    D1 = lay(erl_syntax:record_expr_type(Node), Ctxt1),
-	    D2 = par(seq(erl_syntax:record_expr_fields(Node),
+	    D2 = sep(seq(erl_syntax:record_expr_fields(Node),
 			 floating(text(",")), Ctxt1,
 			 fun lay/2)),
 	    D3 = beside(beside(floating(text("#")), D1),
