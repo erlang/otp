@@ -2734,12 +2734,20 @@ check_sane_openssl_renegotaite(Config) ->
 	    Config
     end.
 
-openssl_allows_client_renegotaite(Config) ->
+openssl_allows_client_renegotiate(Config) ->
      case os:cmd("openssl version") of  
 	"OpenSSL 1.1" ++ _ ->
 	    {skip, "OpenSSL does not allow client renegotiation"};
 	"LibreSSL" ++ _ ->
 	    {skip, "LibreSSL does not allow client renegotiation"};
+         _ ->
+             Config
+     end.
+
+openssl_allows_server_renegotiate(Config) ->
+     case os:cmd("openssl version") of
+	"LibreSSL 3.1" ++ _ ->
+	    {skip, "LibreSSL 3.1 does not allow server renegotiation"};
          _ ->
              Config
      end.

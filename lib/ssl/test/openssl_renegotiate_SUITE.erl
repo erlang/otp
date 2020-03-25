@@ -124,7 +124,7 @@ end_per_group(GroupName, Config) ->
     end.
 init_per_testcase(erlang_client_openssl_server_nowrap_seqnum, Config) ->
     ct:timetrap(?DEFAULT_TIMEOUT),
-    ssl_test_lib:openssl_allows_client_renegotaite(Config);
+    ssl_test_lib:openssl_allows_client_renegotiate(Config);
 init_per_testcase(TestCase, Config) ->
     ct:timetrap(?DEFAULT_TIMEOUT),
     Config.
