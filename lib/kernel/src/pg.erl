@@ -117,31 +117,29 @@ start_link(Scope) when is_atom(Scope) ->
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Joins a single process
+%% Joins a single or a list of processes.
 %% Group is created automatically.
-%% Process must be local to this node.
+%% Processes must be local to this node.
 -spec join(Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 join(Group, PidOrPids) ->
     join(?DEFAULT_SCOPE, Group, PidOrPids).
 
 -spec join(Scope :: atom(), Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
-join(Scope, Group, PidOrPids) ->
-    Node = node(),
-    is_list(PidOrPids) andalso [error({nolocal, Pid}) || Pid <- PidOrPids, node(Pid) =/= Node orelse not is_pid(Pid)],
+join(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
+    ok = ensure_local(PidOrPids),
     gen_server:call(Scope, {join_local, Group, PidOrPids}, infinity).
 
 %%--------------------------------------------------------------------
 %% @doc
-%% Single process leaving the group.
-%% Process must be local to this node.
+%% Single or list of processes leaving the group.
+%% Processes must be local to this node.
 -spec leave(Group :: group(), PidOrPids :: pid() | [pid()]) -> ok.
 leave(Group, PidOrPids) ->
     leave(?DEFAULT_SCOPE, Group, PidOrPids).
 
--spec leave(Scope :: atom(), Group :: group(), Pid :: pid() | [pid()]) -> ok | not_joined.
-leave(Scope, Group, PidOrPids) ->
-    Node = node(),
-    is_list(PidOrPids) andalso [error({nolocal, Pid}) || Pid <- PidOrPids, node(Pid) =/= Node orelse not is_pid(Pid)],
+-spec leave(Scope :: atom(), Group :: group(), PidOrPids :: pid() | [pid()]) -> ok | not_joined.
+leave(Scope, Group, PidOrPids) when is_pid(PidOrPids); is_list(PidOrPids) ->
+    ok = ensure_local(PidOrPids),
     gen_server:call(Scope, {leave_local, Group, PidOrPids}, infinity).
 
 %%--------------------------------------------------------------------
@@ -357,6 +355,20 @@ terminate(_Reason, #state{scope = Scope}) ->
 
 %%--------------------------------------------------------------------
 %% Internal implementation
+
+%% Ensures argument is either a node-local pid or a list of such, or it throws an error
+ensure_local(Pid) when is_pid(Pid), node(Pid) =:= node() ->
+    ok;
+ensure_local(Pids) when is_list(Pids) ->
+    lists:foreach(
+        fun
+            (Pid) when is_pid(Pid), node(Pid) =:= node() ->
+                ok;
+            (Bad) ->
+                error({nolocal, Bad})
+        end, Pids);
+ensure_local(Bad) ->
+    error({nolocal, Bad}).
 
 %% Override all knowledge of the remote node with information it sends
 %%  to local node. Current implementation must do the full table scan
