@@ -449,6 +449,10 @@ ssa_opt_blockify({#opt_st{ssa=Linear}=St, FuncDb}) ->
 ssa_opt_trim_unreachable({#opt_st{ssa=Blocks}=St, FuncDb}) ->
     {St#opt_st{ssa=beam_ssa:trim_unreachable(Blocks)}, FuncDb}.
 
+ssa_opt_merge_blocks({#opt_st{ssa=Blocks0}=St, FuncDb}) ->
+    Blocks = beam_ssa:merge_blocks(Blocks0),
+    {St#opt_st{ssa=Blocks}, FuncDb}.
+
 %%%
 %%% Split blocks before certain instructions to enable more optimizations.
 %%%
@@ -2178,90 +2182,6 @@ opt_ne_single_use(Var, Uses) when is_map(Uses) ->
          #{Var:=[_]} -> true;
          #{Var:=[_|_]} -> false
      end,Uses}.
-
-%%%
-%%% Merge blocks.
-%%%
-
-ssa_opt_merge_blocks({#opt_st{ssa=Blocks}=St, FuncDb}) ->
-    Preds = beam_ssa:predecessors(Blocks),
-    Merged = merge_blocks_1(beam_ssa:rpo(Blocks), Preds, Blocks),
-    {St#opt_st{ssa=Merged}, FuncDb}.
-
-merge_blocks_1([L|Ls], Preds0, Blocks0) ->
-    case Preds0 of
-        #{L:=[P]} ->
-            #{P:=Blk0,L:=Blk1} = Blocks0,
-            case is_merge_allowed(L, Blk0, Blk1) of
-                true ->
-                    #b_blk{is=Is0} = Blk0,
-                    #b_blk{is=Is1} = Blk1,
-                    verify_merge_is(Is1),
-                    Is = Is0 ++ Is1,
-                    Blk = Blk1#b_blk{is=Is},
-                    Blocks1 = maps:remove(L, Blocks0),
-                    Blocks2 = Blocks1#{P:=Blk},
-                    Successors = beam_ssa:successors(Blk),
-                    Blocks = beam_ssa:update_phi_labels(Successors, L, P, Blocks2),
-                    Preds = merge_update_preds(Successors, L, P, Preds0),
-                    merge_blocks_1(Ls, Preds, Blocks);
-                false ->
-                    merge_blocks_1(Ls, Preds0, Blocks0)
-            end;
-        #{} ->
-            merge_blocks_1(Ls, Preds0, Blocks0)
-    end;
-merge_blocks_1([], _Preds, Blocks) -> Blocks.
-
-merge_update_preds([L|Ls], From, To, Preds0) ->
-    Ps = [rename_label(P, From, To) || P <- map_get(L, Preds0)],
-    Preds = Preds0#{L:=Ps},
-    merge_update_preds(Ls, From, To, Preds);
-merge_update_preds([], _, _, Preds) -> Preds.
-
-rename_label(From, From, To) -> To;
-rename_label(Lbl, _, _) -> Lbl.
-
-verify_merge_is([#b_set{op=Op}|_]) ->
-    %% The merged block has only one predecessor, so it should not have any phi
-    %% nodes.
-    true = Op =/= phi;                          %Assertion.
-verify_merge_is(_) ->
-    ok.
-
-is_merge_allowed(?EXCEPTION_BLOCK, #b_blk{}, #b_blk{}) ->
-    false;
-is_merge_allowed(_L, #b_blk{is=[#b_set{op=landingpad} | _]}, #b_blk{}) ->
-    false;
-is_merge_allowed(_L, #b_blk{}, #b_blk{is=[#b_set{op=landingpad} | _]}) ->
-    false;
-is_merge_allowed(L, #b_blk{}=Blk1, #b_blk{is=[#b_set{}=I|_]}=Blk2) ->
-    not beam_ssa:is_loop_header(I) andalso
-        is_merge_allowed_1(L, Blk1, Blk2);
-is_merge_allowed(L, Blk1, Blk2) ->
-    is_merge_allowed_1(L, Blk1, Blk2).
-
-is_merge_allowed_1(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
-    %% The predecessor block must have exactly one successor (L) for
-    %% the merge to be safe.
-    case beam_ssa:successors(Blk) of
-        [L] ->
-            case Is of
-                [#b_set{op=phi,args=[_]}|_] ->
-                    %% The type optimizer pass must have been
-                    %% turned off, since it would have removed this
-                    %% redundant phi node. Refuse to merge the blocks
-                    %% to ensure that this phi node remains at the
-                    %% beginning of a block.
-                    false;
-                _ ->
-                    true
-            end;
-        [_|_] ->
-            false
-    end;
-is_merge_allowed_1(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
-    false.
 
 %%%
 %%% When a tuple is matched, the pattern matching compiler generates a
