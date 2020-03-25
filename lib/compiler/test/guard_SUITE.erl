@@ -2518,6 +2518,7 @@ looks_like_a_guard(N) ->
         _ -> looks_like_a_guard(N)
     end.
 
+-record(fail_in_guard, {f}).
 fail_in_guard() ->
     false = struct_or_map(a, "foo"),
     false = struct_or_map(a, foo),
@@ -2540,6 +2541,14 @@ fail_in_guard() ->
     error = (fun() when 3.14; <<[]:(ceil($D))>> -> ok;
                () -> error
             end)(),
+    error = fun() when eye; ""#fail_in_guard.f andalso #{[] => true and false} ->
+                    ok;
+               () ->
+                    error
+            end(),
+    error = fun() when (0 #fail_in_guard.f)#fail_in_guard.f -> ok;
+               () -> error
+            end(),
 
     ok.
 

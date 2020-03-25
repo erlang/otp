@@ -138,7 +138,13 @@ opt_function(#b_function{bs=Blocks0,cnt=Count0}=F) ->
             St0 = #st{defs=DefVars,count=Count1,dom=Dom,uses=Uses},
             {Blocks2,St} = bool_opt(Blocks1, St0),
             Count = St#st.count,
-            Blocks = beam_ssa:trim_unreachable(Blocks2),
+
+            %% When merging blocks, phi nodes must have the same
+            %% number of arguments as the number of predecessors.
+            %% To ensure that, trim before merging.
+
+            Blocks3 = beam_ssa:trim_unreachable(Blocks2),
+            Blocks = beam_ssa:merge_blocks(Blocks3),
             F#b_function{bs=Blocks,cnt=Count};
         true ->
             %% There are no boolean operators that can be optimized in
@@ -1409,6 +1415,11 @@ join_inits_1([], VarMap) ->
 %%%
 %%% Transform the digraph back to standard SSA code.
 %%%
+%%% We don't try merge blocks during the conversion because it would
+%%% be difficult to keep phi nodes up to date. We will call
+%%% beam_ssa:merge_blocks/1 before returning from this pass to do all
+%%% block merging.
+%%%
 
 digraph_to_ssa(Ls, G, Blocks0) ->
     Seen = cerl_sets:new(),
@@ -1433,53 +1444,21 @@ digraph_to_ssa_blk(From, G, Blocks, Acc0) ->
                 {br,Succ,Fail} ->
                     %% This is a two-way branch that ends the current block.
                     Br = beam_ssa:normalize(#b_br{bool=Dst,succ=Succ,fail=Fail}),
-                    case Br of
-                        #b_br{succ=Same,fail=Same} ->
-                            case {I,Acc0} of
-                                {#b_set{op={succeeded,guard},args=[OpDst]},
-                                 [#b_set{dst=OpDst}|Acc]} ->
-                                    Is = reverse(Acc),
-                                    Blk = #b_blk{is=Is,last=Br},
-                                    {Blk,beam_ssa:successors(Blk)};
-                                {_,_} ->
-                                    Is = reverse(Acc0, [I]),
-                                    Blk = #b_blk{is=Is,last=Br},
-                                    {Blk,beam_ssa:successors(Blk)}
-                            end;
-                        _ ->
-                            Is = reverse(Acc0, [I]),
-                            Blk = #b_blk{is=Is,last=Br},
-                            {Blk,beam_ssa:successors(Blk)}
-                    end;
-                {br,Next} ->
-                    case beam_digraph:in_degree(G, Next) of
-                        1 ->
-                            digraph_to_ssa_blk(Next, G, Blocks, [I|Acc0]);
-                        _ ->
-                            %% The Next node has multiple incident edge. That
-                            %% means that it can't be part of the current block,
-                            %% but must start a new block.
-                            Br = oneway_br(Next),
-                            Is = reverse(Acc0, [I]),
-                            Blk = #b_blk{is=Is,last=Br},
-                            {Blk,beam_ssa:successors(Blk)}
-                    end
-            end;
-        br ->
-            case Acc0 of
-                [] ->
-                    %% Create an empty block.
-                    {br,Next} = get_targets(From, G),
-                    Blk = #b_blk{is=[],last=oneway_br(Next)},
+                    Is = reverse(Acc0, [I]),
+                    Blk = #b_blk{is=Is,last=Br},
                     {Blk,beam_ssa:successors(Blk)};
-                [_|_] ->
-                    %% Finish up the block, and let the block
-                    %% transfer control to the `br` node at From.
-                    Br = oneway_br(From),
-                    Is = reverse(Acc0),
+                {br,Next} ->
+                    %% This is a two-way branch that ends the current block.
+                    Br = oneway_br(Next),
+                    Is = reverse(Acc0, [I]),
                     Blk = #b_blk{is=Is,last=Br},
                     {Blk,beam_ssa:successors(Blk)}
             end;
+        br ->
+            %% Create an empty block.
+            {br,Next} = get_targets(From, G),
+            Blk = #b_blk{is=[],last=oneway_br(Next)},
+            {Blk,beam_ssa:successors(Blk)};
         {br,Bool} ->
             %% This is a two-way `br` instruction. The most common
             %% reason for its existence in the graph is that the root
