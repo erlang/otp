@@ -47,7 +47,7 @@
 	 init_per_group/2,end_per_group/2,
 	 init_per_testcase/2, end_per_testcase/2,
 	 read_write_file/1, names/1]).
--export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1,
+-export([cur_dir_0/1, cur_dir_1/1, make_del_dir/1, make_del_dir_r/1,
 	 list_dir/1,list_dir_error/1,
 	 untranslatable_names/1, untranslatable_names_error/1,
 	 pos1/1, pos2/1, pos3/1]).
@@ -143,7 +143,7 @@ all() ->
     ].
 
 groups() -> 
-    [{dirs, [], [make_del_dir, cur_dir_0, cur_dir_1,
+    [{dirs, [], [make_del_dir, make_del_dir_r, cur_dir_0, cur_dir_1,
 		 list_dir, list_dir_error, untranslatable_names,
 		 untranslatable_names_error]},
      {files, [],
@@ -635,6 +635,41 @@ make_del_dir(Config) when is_list(Config) ->
     after
 	?FILE_MODULE:set_cwd(CurrentDir)
     end,
+    ok.
+
+make_del_dir_r(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(priv_dir, Config),
+    NewDir = filename:join(RootDir, ?MODULE_STRING ++ "_make_del_dir_r"),
+    ok = ?FILE_MODULE:make_dir(NewDir),
+
+    %% Create:
+    %% newdir/
+    %%     file1
+    %%     dir/
+    %%         file2
+    %%         link -> /newdir/file1
+    File1 = test_server:temp_name(filename:join(NewDir, "file1")),
+    ok = ?FILE_MODULE:write_file(File1, <<"file1">>),
+    Dir = test_server:temp_name(filename:join(NewDir, "dir")),
+    ok = ?FILE_MODULE:make_dir(Dir),
+    File2 = test_server:temp_name(filename:join(Dir, "file2")),
+    ok = ?FILE_MODULE:write_file(File2, <<"file2">>),
+    Link = test_server:temp_name(filename:join(Dir, "link")),
+    case ?FILE_MODULE:make_symlink(File1, Link) of
+        {error, enotsup} -> ok; % symlinks not supported
+        {error, eperm} -> {win32, _} = os:type(), ok; % not allowed to make symlinks
+        ok -> ok
+    end,
+
+    %% check that del_dir_r/1 succeeds on non-empty dir
+    ok = ?FILE_MODULE:del_dir_r(Dir),
+    {error, enoent} = ?FILE_MODULE:read_file_info(Dir),
+    %% check that the symlink wasn't followed
+    {ok, _} = ?FILE_MODULE:read_file_info(File1),
+
+    %% clean up
+    ?FILE_MODULE:del_dir_r(NewDir),
+    [] = flush(),
     ok.
 
 cur_dir_0(Config) when is_list(Config) ->
@@ -3093,7 +3128,7 @@ symlinks(Config) when is_list(Config) ->
 		{ok, Name} = ?FILE_MODULE:read_link(Alias),
 		{ok, Name} = ?FILE_MODULE:read_link_all(Alias),
 		%% If all is good, delete dir again (avoid hanging dir on windows)
-		rm_rf(?FILE_MODULE,NewDir),
+		file:del_dir_r(NewDir),
 		ok
 	end,
 
@@ -4799,18 +4834,3 @@ disc_free(Path) ->
 memsize() ->
     {Tot,_Used,_}  = memsup:get_memory_data(),
     Tot.
-
-%%%-----------------------------------------------------------------
-%%% Utilities
-rm_rf(Mod,Dir) ->
-    case  Mod:read_link_info(Dir) of
-	{ok, #file_info{type = directory}} ->
-	    {ok, Content} = Mod:list_dir_all(Dir),
-	    [ rm_rf(Mod,filename:join(Dir,C)) || C <- Content ],
-	    Mod:del_dir(Dir),
-	    ok;
-	{ok, #file_info{}} ->
-	    Mod:delete(Dir);
-	_ ->
-	    ok
-    end.
