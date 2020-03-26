@@ -613,8 +613,10 @@ render_words(Words,[_,types|State],Pos,Ind,Acc,Cols) ->
 render_words([Word|T],State,Pos,Ind,Acc,Cols) when is_binary(Word) ->
     WordLength = string:length(Word),
     NewPos = WordLength + Pos,
+    %% We do not want to add a newline if this word is only a punctuation
+    IsPunct = is_tuple(re:run(Word,"^\\W$")),
     if
-        NewPos > (Cols - 10 - Ind) ->
+        NewPos > (Cols - 10 - Ind), Word =/= <<>>, not IsPunct ->
             %% Word does not fit, time to add a newline and also pad to Indent level
             render_words(T,State,WordLength+Ind+1,Ind,[[[pad(Ind), Word]]|Acc],Cols);
          true ->
