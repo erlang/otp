@@ -89,6 +89,7 @@ end_per_group(GroupName, Config) ->
 init_per_testcase(internal_active_1, Config) ->
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:clean_env(),
     application:set_env(ssl, internal_active_n, 1),
     ssl:start(),
     ct:timetrap({seconds, 5}),
@@ -99,11 +100,13 @@ init_per_testcase(protocol_versions, Config) ->
         "d" ++ _ ->
             ssl:stop(),
             application:load(ssl),
+            ssl_test_lib:clean_env(),
             application:set_env(ssl, dtls_protocol_version, [Version]),
             ssl:start();
         _ ->  
             ssl:stop(),
             application:load(ssl),
+            ssl_test_lib:clean_env(),
             application:set_env(ssl, protocol_version, [Version]),
             ssl:start()
     end,
