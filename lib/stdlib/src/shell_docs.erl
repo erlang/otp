@@ -83,16 +83,43 @@ validate(#docs_v1{ module_doc = MDocs, docs = AllDocs }) ->
 validate([H|T],Path) when is_tuple(H) ->
     _ = validate(H,Path),
     validate(T,Path);
+validate({br,Attr,Content} = Br,Path) ->
+    if Attr =:= [],
+       Content =:= [] ->
+            ok;
+       true ->
+            throw({content_to_allowed_in_br,Br,Path})
+    end;
 validate({Tag,Attr,Content},Path) ->
     case Tag =:= p andalso lists:member(p, Path) of
         true ->
-            throw({nested,p,not_allowed});
+            throw({nested_p_not_allowed,Tag,Path});
+        false ->
+            ok
+    end,
+    %% Test that there are no block tags within a pre, h1, h2 or h3
+    case lists:member(pre,Path) or lists:member(h1,Path) or
+        lists:member(h2,Path) or lists:member(h3,Path) of
+        true when ?IS_BLOCK(Tag) ->
+            throw({cannot_put_block_tag_within_pre,Tag,Path});
+        _ ->
+            ok
+    end,
+    %% Test that a block tag is not within an inline tag
+    case lists:member(Tag,?BLOCK) of
+        true ->
+            case lists:any(fun(P) -> ?IS_INLINE(P) end, Path) of
+                true ->
+                    throw({cannot_put_inline_tag_outside_block, Tag, Path});
+                false ->
+                    ok
+            end;
         false ->
             ok
     end,
     case lists:member(Tag,?ALL_ELEMENTS) of
         false ->
-            throw({invalid_tag,Tag});
+            throw({invalid_tag,Tag,Path});
         true ->
             ok
     end,
