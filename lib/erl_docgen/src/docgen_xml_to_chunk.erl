@@ -525,30 +525,58 @@ func2func({func,Attr,Contents}) ->
                 _ = VerifyNameList(NameList,fun([]) -> ok end),
 
                 FAs = [TagsToFA(FAttr) || {name,FAttr,[]} <- NameList ],
+                SortedFAs = lists:usort(FAs),
                 FAClauses = lists:usort([{TagsToFA(FAttr),proplists:get_value(clause_i,FAttr)}
                                          || {name,FAttr,[]} <- NameList ]),
-                Signature = [iolist_to_binary([F,"/",A]) || {F,A} <- FAs],
-                lists:map(
-                  fun({F,A}) ->
-                          Specs = [{func_to_atom(CF),list_to_integer(CA),C}
-                                   || {{CF,CA},C} <- FAClauses,
-                                      F =:= CF, A =:= CA],
-                          {function,[{name,F},{arity,list_to_integer(A)},
-                                     {signature,Signature},
-                                     {meta,SinceMD#{ signature => Specs }}],
-                           ContentsNoName}
-                  end, lists:usort(FAs));
+
+                MakeFunc = fun({F,A}, MD, Doc) ->
+                                   Specs = [{func_to_atom(CF),list_to_integer(CA),C}
+                                            || {{CF,CA},C} <- FAClauses,
+                                               F =:= CF, A =:= CA],
+                                   {function,[{name,F},{arity,list_to_integer(A)},
+                                              {signature,[iolist_to_binary([F,"/",A])]},
+                                              {meta,MD#{ signature => Specs }}],
+                                    Doc}
+                           end,
+
+                Base = MakeFunc(hd(SortedFAs), SinceMD, ContentsNoName),
+
+                {BaseF,BaseA} = hd(SortedFAs),
+                MD = SinceMD#{ equiv => {function,list_to_atom(BaseF),list_to_integer(BaseA)}},
+                Equiv = lists:map(
+                          fun(FA) ->
+                                  MakeFunc(FA, MD, [])
+                          end, tl(SortedFAs)),
+                [Base | Equiv];
             NameList ->
                 %% Manual style function docs
-                FAs = lists:flatten([func_to_tuple(NameString) || {name, _Attr, NameString} <- NameList]),
+                FAs = lists:foldl(
+                        fun({name,_,NameString}, Acc) ->
+                                FAs = func_to_tuple(NameString),
+                                lists:foldl(
+                                  fun(FA, FAAcc) ->
+                                          Slogan = maps:get(FA, FAAcc, []),
+                                          FAAcc#{ FA => [strip_tags(NameString)|Slogan] }
+                                  end, Acc, FAs)
+                        end, #{}, NameList),
 
                 _ = VerifyNameList(NameList,fun([_|_]) -> ok end),
 
-                Signature = [strip_tags(NameString) || {name, _Attr, NameString} <- NameList],
-                [{function,[{name,F},{arity,A},
-                            {signature,Signature},
-                            {meta,SinceMD}],ContentsNoName}
-                 || {F,A} <- lists:usort(FAs)]
+                SortedFAs = lists:usort(maps:to_list(FAs)),
+
+                {{BaseF, BaseA}, BaseSig} = hd(SortedFAs),
+
+                Base = {function,[{name,BaseF},{arity,BaseA},
+                                  {signature,BaseSig},
+                                  {meta,SinceMD}],
+                        ContentsNoName},
+
+                Equiv = [{function,
+                          [{name,F},{arity,A},
+                           {signature,Signature},
+                           {meta,SinceMD#{ equiv => {function,list_to_atom(BaseF),BaseA}}}],[]}
+                         || {{F,A},Signature} <- tl(SortedFAs)],
+                [Base | Equiv]
         end,
     transform(Functions,[]).
 
@@ -691,6 +719,7 @@ docs_v1(DocContents, Anno, Metadata, Docs) ->
               docs = Docs }.
 
 docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->
+
     AnnoWLine =
         case Metadata of
             #{ signature := [Sig|_] } ->
@@ -699,8 +728,16 @@ docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->
             _NoSignature ->
                 Anno
         end,
-    {{Kind, Name, Arity}, AnnoWLine, lists:flatten(Signature),
-     #{ <<"en">> => shell_docs:normalize(DocContents)}, Metadata}.
+
+    Doc =
+        case DocContents of
+              [] ->
+                  #{};
+              DocContents ->
+                  #{ <<"en">> => shell_docs:normalize(DocContents) }
+          end,
+
+    {{Kind, Name, Arity}, AnnoWLine, lists:flatten(Signature), Doc, Metadata}.
 
 %% A special list_to_atom that handles
 %%  'and'

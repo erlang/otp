@@ -862,7 +862,7 @@ get_doc_chunk(Filename, Mod) when is_atom(Mod) ->
         {error,beam_lib,{file_error,_Filename,enoent}} ->
             get_doc_chunk(Filename, atom_to_list(Mod));
         {ok, {Mod, [{"Docs",Bin}]}} ->
-            binary_to_term(Bin)
+            {ok,binary_to_term(Bin)}
     end;
 get_doc_chunk(Filename, Mod) ->
     case filename:dirname(Filename) of

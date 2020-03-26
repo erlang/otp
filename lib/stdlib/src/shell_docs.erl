@@ -359,29 +359,55 @@ get_local_doc(Missing, None) when None =:= none; None =:= #{} ->
 %%% Functions for rendering reference documentation
 render_function([], _D) ->
     {error,function_missing};
-render_function(FDocs, D) ->
-    [render_docs(render_signature(Func), get_local_doc({F,A},Doc), Meta, D)
-     || {{_,F,A},_Anno,_Sig,Doc,Meta} = Func <- lists:sort(FDocs)].
+render_function(FDocs, #docs_v1{ docs = Docs } = D) ->
+    Grouping =
+        lists:foldl(
+          fun({_Group,_Anno,_Sig,_Doc,#{ equiv := Group }} = Func,Acc) ->
+                  Members = maps:get(Group, Acc, []),
+                  Acc#{ Group => [Func|Members] };
+             ({Group, _Anno, _Sig, _Doc, _Meta} = Func, Acc) ->
+                  Members = maps:get(Group, Acc, []),
+                  Acc#{ Group => [Func|Members] }
+          end, #{}, lists:sort(FDocs)),
+    lists:map(
+      fun({{_,F,A} = Group,Members}) ->
+              Signatures = lists:flatmap(fun render_signature/1,lists:reverse(Members)),
+              case lists:search(fun({_,_,_,Doc,_}) ->
+                                        Doc =/= #{}
+                                end, Members) of
+                  {value, {_,_,_,Doc,_Meta}} ->
+                      render_docs(Signatures,get_local_doc({F,A},Doc), [], D);
+                  false ->
+                      case lists:keyfind(Group, 1, Docs) of
+                          false ->
+                              render_docs(Signatures,get_local_doc({F,A},none), [], D);
+                          {_,_,_,Doc,_} ->
+                              render_docs(Signatures,get_local_doc({F,A},Doc), [], D)
+                      end
+              end
+      end, maps:to_list(Grouping)).
+
+    %% [render_docs(render_signature(Func),get_local_doc({F,A},Doc,Meta,Docs), Meta, D)
+    %%  || {{_,F,A},_Anno,_Sig,Doc,Meta} = Func <- lists:sort(FDocs)].
 
 %% Render the signature of either function or a type, or anything else really.
-render_signature({{_Type,_F,_A},_Anno,_Sig,_Docs,#{ signature := Specs }}) ->
-    [erl_pp:attribute(Spec,[{encoding,utf8}]) || Spec <- Specs];
-render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,_Meta}) ->
-    [Sig || Sig <- Sigs].
+render_signature({{_Type,_F,_A},_Anno,_Sig,_Docs,#{ signature := Specs } = Meta}) ->
+    [[erl_pp:attribute(Spec,[{encoding,utf8}]),render_since(Meta)] || Spec <- Specs];
+render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
+    [[Sig,render_since(Meta)] || Sig <- Sigs].
 
 render_since(#{ since := Vsn }) ->
-    ["\n\nSince: ",Vsn];
+    [" Since: ",Vsn];
 render_since(_) ->
     [].
 
-render_docs(Headers, DocContents, MD, D = #config{}) ->
+render_docs(Headers, DocContents, _MD, D = #config{}) ->
     init_ansi(D),
     try
         {Doc,_} = trimnl(render_docs(DocContents,[],0,2,D)),
         [sansi(bold),
          [io_lib:format("~n~ts",[Header]) || Header <- Headers],
          ransi(bold),
-         render_since(MD),
          io_lib:format("~n~n~ts",[Doc])]
     after
         clean_ansi()
