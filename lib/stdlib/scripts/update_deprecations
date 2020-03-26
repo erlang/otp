@@ -22,6 +22,7 @@
 %%
 
 -mode(compile).
+-compile(warnings_as_errors).
 
 -import(lists, [foldl/3,sort/1]).
 
@@ -247,7 +248,7 @@ make_xml_gen_list([{Rel,MFAs}|T], Type, Prefix, Dir) ->
     RelStr = lists:concat(["OTP ",Rel]),
     RelMarker = lists:concat(["otp-",Rel]),
     Head = ["<section>\n",
-            "<marker id=\"",RelStr,"\"/>\n",
+            "<marker id=\"",RelMarker,"\"/>\n",
             "<title>",RelStr,"</title>\n"],
     Footer = "</section>\n",
     SubTitle = case Type of
