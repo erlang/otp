@@ -42,31 +42,47 @@
 
   <section>
     <title>Options configuration</title>
-    <p>The most familiar way is probably by writting options in a call to for example
-    <seealso marker="ssh#daemon-3">ssh:daemon/3</seealso> or
-    <seealso marker="ssh#connect-3">ssh:connect/3</seealso> or
-    any of their variants
-    </p>
-    <p>There are from OPT-23.0 three main ways to set an option:
+    <p>There are from OTP-23.0 two main ways to set an option:
     </p>
     <list>
-      <item>In the <c>Options</c> parameter in the Erlang code
-      by writting options in a call to for example
+      <item>Like before, in the <c>Options</c> parameter in the Erlang code
+      in a call to for example
       <seealso marker="ssh#daemon-3">ssh:daemon/3</seealso> or
       <seealso marker="ssh#connect-3">ssh:connect/3</seealso> or
       any of their variants. Example:
       <code>ssh:connect(22, [{user,"foo"}])</code>
       </item>
-      <item>On the erl command line. Example:
+
+      <item>In <seealso marker="kernel:config">OTP Configuration Parameters</seealso>:
+      <p/>
+      <list>
+      <item>In the erl command line:
       <pre>erl -ssh user \"foo\"</pre>
       </item>
-      <item>In a .config file. Example:
+      <item>In the <c>ssh.app</c> file, in the <c>env</c> part
+      <code>
+{application, ssh,
+ [{description, "SSH-2 for Erlang/OTP"},
+  {vsn, "4.9"},
+  {modules, [ssh,
+        ...
+	     ssh_xfer]},
+  {registered, []},
+  {applications, [kernel, stdlib, crypto, public_key]},
+  {env, [{user, "bar"]}, % &lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt; HERE
+  {mod, {ssh_app, []}},
+       ...       
+</code>
+      </item>
+      <item>In a .config file:
       <pre>erl -config ex1</pre>
       where <c>ex1.config</c> contains:
       <code>[
 {ssh, [{user, "foo"}]}
 ].
 </code>
+      </item>
+      </list>
     <p>If the option is intended only for a server or for a client, it may be set in this way:
     </p>
     <code>[
@@ -81,29 +97,34 @@
 
   <section>
     <title>Precedens</title>
-    <p>So if an option is set in more than one way, what happens?</p>
+    <p>If an option is set in more than one way, what happens?</p>
     <p>There is an ordering, which is:
     </p>
     <list>
-      <item>Level 0: Hard-coded default value</item>
-      <item>Level 1: Separate env-options</item>
-      <item>Level 2: Env-options in <c>server_options</c> or <c>client_options</c></item>
-      <item>Level 3: Option in argument list to a function</item>
+      <item>Level 0: Hard-coded default values in the source code</item>
+      <item>Level 1: <seealso marker="kernel:config">OTP Configuration Parameters</seealso></item>
+      <item>Level 2: Options in the <seealso marker="kernel:config">OTP Configuration Parameters</seealso>
+      <c>server_options</c> or <c>client_options</c></item>
+      <item>Level 3: Options in argument list to a function</item>
     </list>    
     <p>If the same option is set at two different levels, the one at the highest level is used.
     </p>
     <p>The only exception is the
     <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
-    common option. They are all applied in ascending levle order on the set of algorithms. So a
+    common option. They are all applied in ascending level order on the set of algorithms. So a
     <c>modify_algorithms</c> on level zero is applied before one of level one and so on.
     </p>
     <p>If there is an
     <seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
-    option on some level the whole set is replaced by that in that option and <i>all modify_algorithms
-    are applied</i> in level ordering. The reason for this, is to enable the user to add an
-    algorithm that has been removed from the default set without code changes, only by adding an
-    option in a config file.
-    Such happens when algorithms are no longer considered safe and removed from the SSH default set.
+    option on some level the whole set is replaced by that in that option and <em>all modify_algorithms
+    are applied</em> in level ordering.
+    </p>
+    <p>The reason for applying all
+    <seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+    in level order, is to enable the user to add an algorithm that has been removed from the
+    default set without code changes, only by adding an option in a config file.
+    This can be used to interoperate with legacy systems that still uses algorithms no longer
+    considered secure enough to be supported by default.
     </p>
     
     <section>
@@ -193,7 +214,7 @@ ok
 
       <section>
 	<title>Establishing a connection (ssh:connect et al) or starting a daemon (ssh:daemon)</title>
-	<p>Both when the client establish a connection with ssh:connect or other functions, or a
+	<p>Both when the client establishes a connection with ssh:connect or other functions, or a
 	daemon is started with ssh:daemon, the option lists in the function calls are also used.
 	</p>
 	<p>If a client is started (ssh:connect et al), the environment variable <c>client_options</c> is used.
@@ -245,7 +266,7 @@ ok
 
       <section>
 	<title>Example of modify_algorithms handling</title>
-	<p>We will no check if the
+	<p>We will now check if the
 	<seealso marker="ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
 	on a lower level is applied to a
 	<seealso marker="ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>

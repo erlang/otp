@@ -55,28 +55,36 @@
    <section>
     <title>CONFIGURATION</title>
 
-    <p>The <c>ssh</c> application does not have an application-
-    specific configuration file, as described in <seealso marker="kernel:application">application(3)</seealso>.
-    However, by default it use the following configuration files
-    from OpenSSH:</p>
+    <p>The SSH application uses Configuration Parameters.
+    Where to set them are described in
+    <seealso marker="kernel:config">config User's Guide</seealso> with
+    SSH details in
+    <seealso marker="ssh:configurations">Configuration in SSH</seealso>.
+    </p>
+    <p>Some special configuration files from OpenSSH are also used:</p>
     <list type="bulleted">
       <item><c>known_hosts</c></item>
       <item><c>authorized_keys</c></item>
       <item><c>authorized_keys2</c></item>
-      <item><c>id_dsa</c></item>
-      <item><c>id_rsa</c></item>
+      <item><c>id_dsa</c> <i>(disabled by default)</i></item>
+      <item><c>id_rsa</c> <i>(disabled by default from OTP-24)</i></item>
       <item><c>id_ecdsa</c></item>
-      <item><c>ssh_host_dsa_key</c></item>
-      <item><c>ssh_host_rsa_key</c></item>
+      <item><c>id_ed15519</c></item>
+      <item><c>id_ed448</c></item>
+      <item><c>ssh_host_dsa_key</c> <i>(disabled by default)</i></item>
+      <item><c>ssh_host_rsa_key</c> <i>(disabled by default from OTP-24)</i></item>
       <item><c>ssh_host_ecdsa_key</c></item>
+      <item><c>ssh_host_ed15519_key</c></item>
+      <item><c>ssh_host_ed448_key</c></item>
     </list>
-      <p>By default, <c>ssh</c> looks for <c>id_dsa</c>, <c>id_rsa</c>,
-      <c>id_ecdsa_key</c>,
-      <c>known_hosts</c>, and <c>authorized_keys</c> in ~/.ssh,
-      and for the host key files in <c>/etc/ssh</c>. These locations can be changed
+      <p>By default, <c>ssh</c> looks for <c>id_*</c>,
+      <c>known_hosts</c>, and <c>authorized_keys</c> in <c>~/.ssh</c>,
+      and for the ssh_host_*_key files in <c>/etc/ssh</c>. These locations can be changed
       by the options
       <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso> and
       <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>.
+      More about where to set them is described in
+      <seealso marker="ssh:configurations">Configuration in SSH</seealso>.
       </p>
       <p>Public key handling can also be customized through a callback module that
       implements the behaviors
@@ -90,9 +98,9 @@
   </section>
   <section>
     <title>Public Keys</title>
-    <p><c>id_dsa</c>, <c>id_rsa</c> and <c>id_ecdsa</c> are the users private key files.
+    <p><c>id_*</c> are the users private key files.
 	Notice that the public key is part of the private key so the <c>ssh</c>
-	application does not use the <c>id_&lt;*>.pub</c> files. These are
+	application does not use the <c>id_*.pub</c> files. These are
 	for the user's convenience when it is needed to convey the user's
 	public key.
       </p>
@@ -114,9 +122,9 @@
   </section>
  <section>
     <title>Host Keys</title>
-    <p>RSA, DSA and ECDSA host keys are supported and are
+    <p>RSA, DSA (if enabled) ECDSA, ED15519 and ED* host keys are supported and are
        expected to be found in files named <c>ssh_host_rsa_key</c>,
-       <c>ssh_host_dsa_key</c> and <c>ssh_host_ecdsa_key</c>.
+       <c>ssh_host_dsa_key</c>, <c>ssh_host_ecdsa_key</c> and <c>ssh_host_ed*_key</c>.
        </p>
   </section>
   <section>
@@ -183,7 +191,7 @@
 	  <item>ssh-ed448</item>
 	  <item>rsa-sha2-256</item>
 	  <item>rsa-sha2-512</item>
-	  <item>ssh-rsa</item>
+	  <item>ssh-rsa <i>(disabled by default from OTP-24)</i></item>
 	</list>
 	<p>The following unsecure <c>sha1</c> algorithm is now disabled by default:</p>
 	<list>
@@ -203,7 +211,7 @@
 	  <item>hmac-sha2-512</item>
 	  <item>hmac-sha1</item>
 	</list>
-	<p>The following unsecure <c>sha1</c> algorithm is now disabled by default:</p>
+	<p>The following unsecure <c>sha1</c> algorithm is disabled by default:</p>
 	<list>
 	  <item>(hmac-sha1-96)</item>
 	</list>
@@ -283,13 +291,19 @@
       <item><url href="https://tools.ietf.org/html/rfc4253">RFC 4253</url>, The Secure Shell (SSH) Transport Layer Protocol.
       <p>Except</p>
       <list type="bulleted">
-	<item>8.1.  diffie-hellman-group1-sha1. Disabled by default, can be enabled with the 
-	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
-	or
-	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
-	options.</item>
+	<item>8.1.  diffie-hellman-group1-sha1</item>
+	<item>6.6.  Public Key Algorithms
+	<list type="bulleted">
+	  <item>ssh-dss</item>
+	</list>
+	</item>
       </list>
-      <p/>
+      <p>They are disabled by default, but can be enabled with the 
+      <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+      or
+      <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+      options.
+      </p>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4254">RFC 4254</url>, The Secure Shell (SSH) Connection Protocol.
@@ -312,9 +326,18 @@
       <p/>
       </item>
 
-      <item><url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>, Diffie-Hellman Group Exchange for
-      the Secure Shell (SSH) Transport Layer Protocol.
-       <p/>
+      <item><url href="https://tools.ietf.org/html/rfc4419">RFC 4419</url>,
+      Diffie-Hellman Group Exchange for the Secure Shell (SSH) Transport Layer Protocol.
+      <p>Except</p>
+      <list type="bulleted">
+	<item>4.1.  diffie-hellman-group-exchange-sha1</item>
+      </list>
+      <p>It is disabled by default, but can be enabled with the 
+      <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+      or
+      <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>
+      options.
+      </p>
       </item>
 
       <item><url href="https://tools.ietf.org/html/rfc4716">RFC 4716</url>, The Secure Shell (SSH) Public Key File Format.
@@ -370,28 +393,25 @@
       <item><url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-kex-sha2">Draft-ietf-curdle-ssh-kex-sha2 (work in progress)</url>, Key Exchange (KEX) Method Updates and Recommendations for Secure Shell (SSH).
       <p>Deviations:</p>
       <list type="bulleted">
-	<item>The <c>diffie-hellman-group1-sha1</c> is not enabled by default, but is still supported and can be enabled
-	with the options
-	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
-	or
-	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
-	</item>
-	<item>The questionable sha1-based algorithms <c>diffie-hellman-group-exchange-sha1</c> and
-	<c>diffie-hellman-group14-sha1</c> are still enabled by default for compatibility with ancient clients and servers.
-	They can be disabled with the options
-	<seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
-	or
-	<seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
-	They will be disabled by default when the draft is turned into an RFC.</item>
+	<item><c>diffie-hellman-group1-sha1</c></item>
+	<item><c>diffie-hellman-group-exchange-sha1</c></item>
+	<item><c>diffie-hellman-group14-sha1</c></item>
       </list>
-      <p/>
+      <p>are not enabled by default,
+      but are still supported and can be enabled with the options
+      <seealso marker="ssh:ssh#type-preferred_algorithms_common_option">preferred_algorithms</seealso>
+      or
+      <seealso marker="ssh:ssh#type-modify_algorithms_common_option">modify_algorithms</seealso>.
+      </p>
       </item>
-
+      
       <item><url href="https://tools.ietf.org/html/rfc8332">RFC 8332</url>, Use of RSA Keys with SHA-256 and SHA-512 in the Secure Shell (SSH) Protocol.
+      <p/>
       </item>
       
       <item><marker id="supported-ext-info"/>
-      <url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>, Extension Negotiation in the Secure Shell (SSH) Protocol.
+      <url href="https://tools.ietf.org/html/rfc8308">RFC 8308</url>,
+      Extension Negotiation in the Secure Shell (SSH) Protocol.
       <p>Implemented are:</p>
       <list type="bulleted">
 	<item>The Extension Negotiation Mechanism</item>
@@ -402,10 +422,12 @@
 
       <item>
 	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-curves">Secure Shell (SSH) Key Exchange Method using Curve25519 and Curve448 (work in progress)</url>
+	<p/>
       </item>
 
       <item>
-	<url href="https://tools.ietf.org/html/draft-ietf-curdle-ssh-ed25519-ed448">Ed25519 and Ed448 public key algorithms for the Secure Shell (SSH) protocol (work in progress)</url>
+	<url href="https://tools.ietf.org/html/rfc8709">RFC 8709</url>
+	Ed25519 and Ed448 public key algorithms for the Secure Shell (SSH) protocol
       </item>
 
     </list>
