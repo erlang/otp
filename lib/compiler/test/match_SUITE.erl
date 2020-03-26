@@ -160,6 +160,31 @@ aliases(Config) when is_list(Config) ->
     {a,b} = list_alias2([a,b]),
     {a,b} = list_alias3([a,b]),
 
+    %% Multiple matches.
+    {'EXIT',{{badmatch,home},_}} =
+        (catch fun() ->
+                       Rec = (42 = V) = home,
+                       {Rec,V}
+               end()),
+    {home,home} =
+        fun() ->
+                Rec = (home = V) = home,
+                {Rec,V}
+        end(),
+    {'EXIT',{{badmatch,16},_}} =
+        (catch fun(B) ->
+                       <<42:V>> = V = B
+               end(16)),
+    {'EXIT',{{badmatch,0},_}} =
+        (catch fun() ->
+                       <<2:V>> = V = 0
+               end()),
+    {42,42} =
+        fun(E) ->
+                Rec = (42 = V) = id(E),
+                {Rec,V}
+        end(42),
+
     ok.
 
 str_alias(V) ->

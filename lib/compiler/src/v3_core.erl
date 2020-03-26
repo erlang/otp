@@ -777,7 +777,37 @@ expr({match,L,P0,E0}, St0) ->
 	    Eps = Eps3 ++ [Fail],
 	    {#imatch{anno=#a{anno=Lanno},pat=SanPat,arg=Expr,fc=Fc},Eps,St};
 	Other when not is_atom(Other) ->
-	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps1,St5}
+            %% We must rewrite top-level aliases to lets to avoid unbound
+            %% variables in code such as:
+            %%
+            %%     <<42:Sz>> = Sz = B
+            %%
+            %% If we would keep the top-level aliases the example would
+            %% be translated like this:
+            %%
+            %% 	   case B of
+            %%         <Sz = #{#<42>(Sz,1,'integer',['unsigned'|['big']])}#>
+            %%            when 'true' ->
+            %%            .
+            %%            .
+            %%            .
+            %%
+            %% Here the variable Sz would be unbound in the binary pattern.
+            %%
+            %% Instead we bind Sz in a let to ensure it is bound when
+            %% used in the binary pattern:
+            %%
+            %%     let <Sz> = B
+            %% 	   in case Sz of
+            %%         <#{#<42>(Sz,1,'integer',['unsigned'|['big']])}#>
+            %%            when 'true' ->
+            %%            .
+            %%            .
+            %%            .
+            %%
+            {P3,E3,Eps2} = letify_aliases(P2, E2),
+            Eps = Eps1 ++ Eps2,
+            {#imatch{anno=#a{anno=Lanno},pat=P3,arg=E3,fc=Fc},Eps,St5}
     end;
 expr({op,_,'++',{lc,Llc,E,Qs0},More}, St0) ->
     %% Optimise '++' here because of the list comprehension algorithm.
@@ -819,6 +849,11 @@ expr({op,L,Op,L0,R0}, St0) ->
 	    module=#c_literal{anno=LineAnno,val=erlang},
 	    name=#c_literal{anno=LineAnno,val=Op},args=As},Aps,St1}.
 
+letify_aliases(#c_alias{var=V,pat=P0}, E0) ->
+    {P1,E1,Eps0} = letify_aliases(P0, V),
+    {P1,E1,[#iset{var=V,arg=E0}|Eps0]};
+letify_aliases(P, E) ->
+    {P,E,[]}.
 
 %% sanitize(Pat) -> SanitizedPattern
 %%  Rewrite Pat so that it will be accepted by pattern/2 and will
