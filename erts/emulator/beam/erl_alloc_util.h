@@ -517,14 +517,32 @@ typedef struct {
 } CarriersStats_t;
 
 #ifdef USE_LTTNG_VM_TRACEPOINTS
-#define LTTNG_CARRIER_STATS_TO_LTTNG_STATS(CSP, LSP)            \
-    do {                                                        \
-        (LSP)->carriers.size = (CSP)->curr.norm.mseg.size       \
-                             + (CSP)->curr.norm.sys_alloc.size; \
-        (LSP)->carriers.no   = (CSP)->curr.norm.mseg.no         \
-                             + (CSP)->curr.norm.sys_alloc.no;   \
-        (LSP)->blocks.size   = (CSP)->blocks.curr.size;         \
-        (LSP)->blocks.no     = (CSP)->blocks.curr.no;           \
+#define LTTNG_CARRIER_STATS_TO_LTTNG_STATS(CSP, LSP)                         \
+    do {                                                                     \
+        UWord no_sum__, size_sum__;                                          \
+        int alloc_no__, i__;                                                 \
+        /* Carrier counters */                                               \
+        no_sum__ = size_sum__ = 0;                                           \
+        for (i__ = ERTS_CRR_ALLOC_MIN; i__ <= ERTS_CRR_ALLOC_MAX; i__++) {   \
+            StatValues_t *curr__ = &((CSP)->carriers[i__]);                  \
+            no_sum__ += curr__->no;                                          \
+            size_sum__ += curr__->size;                                      \
+        }                                                                    \
+        (LSP)->carriers.size = size_sum__;                                   \
+        (LSP)->carriers.no   = no_sum__;                                     \
+        /* Block counters */                                                 \
+        no_sum__ = size_sum__ = 0;                                           \
+        for (alloc_no__ = ERTS_ALC_A_MIN;                                    \
+             alloc_no__ <= ERTS_ALC_A_MAX;                                   \
+             alloc_no__++) {                                                 \
+            StatValues_t *curr__;                                            \
+            i__ = alloc_no__ - ERTS_ALC_A_MIN;                               \
+            curr__ = &((CSP)->blocks[i__].curr);                             \
+            no_sum__ += curr__->no;                                          \
+            size_sum__ += curr__->size;                                      \
+        }                                                                    \
+        (LSP)->blocks.size   = size_sum__;                                   \
+        (LSP)->blocks.no     = no_sum__;                                     \
     } while (0)
 #endif
 
