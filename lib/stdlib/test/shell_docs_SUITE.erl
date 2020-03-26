@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2004-2019. All Rights Reserved.
+%% Copyright Ericsson AB 2020. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -18,30 +18,24 @@
 %% %CopyrightEnd%
 %%
 -module(shell_docs_SUITE).
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
-	 init_per_group/2,end_per_group/2]).
--export([init_per_testcase/2, end_per_testcase/2]).
+-export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
+	 init_per_group/2, end_per_group/2]).
 
--export([render/1, links/1]).
+-export([render/1, links/1, normalize/1, render_prop/1]).
 
 -export([render_all/1]).
 
 -include_lib("kernel/include/eep48.hrl").
-
-init_per_testcase(_Case, Config) ->
-    Config.
-
-end_per_testcase(_Case, _Config) ->
-    ok.
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{timetrap,{minutes,10}}].
 
 all() ->
-    [render, links].
+    [render, links, normalize, {group, prop}].
 
 groups() ->
-    [].
+    [{prop,[],[render_prop]}].
 
 init_per_suite(Config) ->
     Config.
@@ -49,6 +43,8 @@ init_per_suite(Config) ->
 end_per_suite(_Config) ->
     ok.
 
+init_per_group(prop, Config) ->
+    ct_property_test:init_per_suite(Config);
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -79,7 +75,13 @@ render(_Config) ->
                       io:format("Failed to render ~p~n~p:~p~n",[Mod,R,ST]),
                       exit(R)
               end
-      end).
+      end),
+    ok.
+
+render_prop(Config) ->
+%    dbg:tracer(),dbg:p(all,c),dbg:tpl(shell_docs_prop,[]),
+    ct_property_test:quickcheck(
+      shell_docs_prop:prop_render(),Config).
 
 links(_Config) ->
     docsmap(
@@ -132,6 +134,17 @@ check_links(Mod, [{_,_,C}|T]) ->
 check_links(Mod, [C|T]) when is_binary(C) ->
     check_links(Mod, T);
 check_links(_, []) ->
+    ok.
+
+normalize(_Config) ->
+    ?assertMatch(
+       [{p,[],[{em,[],[<<"a ">>,{code,[],[<<"b ">>]},<<"c">>]}]}],
+       shell_docs:normalize([{p,[],[{em,[],[<<" a ">>,{code,[],[<<" b  ">>]},<<" c">>]}]}])
+      ),
+    ?assertMatch(
+       [{'div',[],[<<"!">>]}],
+       shell_docs:normalize([{'div',[],[{code,[],[<<" ">>,{i,[],[<<" ">>]}]},<<" !">>]}])
+      ),
     ok.
 
 %% Special binary_to_atom that deals with <<"'and'">>
