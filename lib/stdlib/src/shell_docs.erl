@@ -146,13 +146,13 @@ normalize(Docs) ->
 
 normalize_trim(Bin,true) when is_binary(Bin) ->
     %% Remove any whitespace (except \n) before or after a newline
-    NoSpace = re:replace(Bin,"[^\\S\n]*\n+[^\\S\n]*","\n",[global]),
+    NoSpace = re:replace(Bin,"[^\\S\n]*\n+[^\\S\n]*","\n",[unicode,global]),
     %% Replace any tabs with space
-    NoTab = re:replace(NoSpace,"\t"," ",[global]),
+    NoTab = re:replace(NoSpace,"\t"," ",[unicode,global]),
     %% Replace any newlines with space
-    NoNewLine = re:replace(NoTab,"\\v"," ",[global]),
+    NoNewLine = re:replace(NoTab,"\\v"," ",[unicode,global]),
     %% Replace any sequences of \s with a single " "
-    re:replace(NoNewLine,"\\s+"," ",[global,{return,binary}]);
+    re:replace(NoNewLine,"\\s+"," ",[unicode,global,{return,binary}]);
 normalize_trim(Bin,false) when is_binary(Bin) ->
     Bin;
 normalize_trim([{pre,Attr,Content}|T],Trim) ->
@@ -614,7 +614,7 @@ render_words([Word|T],State,Pos,Ind,Acc,Cols) when is_binary(Word) ->
     WordLength = string:length(Word),
     NewPos = WordLength + Pos,
     %% We do not want to add a newline if this word is only a punctuation
-    IsPunct = is_tuple(re:run(Word,"^\\W$")),
+    IsPunct = is_tuple(re:run(Word,"^\\W$",[unicode])),
     if
         NewPos > (Cols - 10 - Ind), Word =/= <<>>, not IsPunct ->
             %% Word does not fit, time to add a newline and also pad to Indent level
