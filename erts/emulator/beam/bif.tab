@@ -46,7 +46,6 @@ ubif erlang:abs/1
 bif erlang:adler32/1
 bif erlang:adler32/2
 bif erlang:adler32_combine/3
-bif erlang:apply/3
 bif erlang:atom_to_list/1
 bif erlang:binary_to_list/1
 bif erlang:binary_to_list/3
