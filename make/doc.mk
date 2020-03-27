@@ -150,8 +150,8 @@ clean_chunks:
 # ----------------------------------------------------
 include $(ERL_TOP)/make/otp_release_targets.mk
 
-$(RELSYSDIR):
-	$(INSTALL_DIR) "$(RELSYSDIR)"
+$(RELSYSDIR) $(RELSYSDIR)/doc:
+	$(INSTALL_DIR) "$@"
 
 release_pdf_spec: pdf
 	$(INSTALL_DIR) "$(RELSYSDIR)/doc/pdf"
@@ -200,7 +200,7 @@ ifneq ($(MAN7_FILES),)
 	$(INSTALL_DATA) $(MAN7_FILES) "$(RELEASE_PATH)/man/man7"
 endif
 
-release_docs_spec: $(RELSYSDIR) $(INFO_FILE) $(DOC_TARGETS:%=release_%_spec)
+release_docs_spec: $(RELSYSDIR)/doc $(INFO_FILE) $(DOC_TARGETS:%=release_%_spec)
 	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
 ifneq ($(STANDARDS),)
 	$(INSTALL_DIR) "$(RELEASE_PATH)/doc/standard"
