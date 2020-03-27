@@ -533,7 +533,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    }
 	    break;
 	case 'n':		/* Nil */
-	    erts_print(to, to_arg, "[]");
+	    erts_print(to, to_arg, "`[]`");
 	    break;
         case 'S':               /* Register */
             {
@@ -559,7 +559,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	case 'i':		/* Tagged integer */
 	case 'c':		/* Tagged constant */
 	case 'q':		/* Tagged literal */
-	    erts_print(to, to_arg, "%T", (Eterm) *ap);
+	    erts_print(to, to_arg, "`%T`", (Eterm) *ap);
 	    ap++;
 	    break;
 	case 'A':
@@ -584,7 +584,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                 if (*sign == 'W') {
                     ErlFunEntry* fe = (ErlFunEntry *) *ap;
                     ErtsCodeMFA* cmfa = find_function_from_pc(fe->address);
-		    erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
+		    erts_print(to, to_arg, "fun(`%T`:`%T`/%bpu)", cmfa->module,
                                cmfa->function, cmfa->arity);
                 } else {
                     erts_print(to, to_arg, "%d", *ap);
@@ -627,8 +627,8 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                     if (!cmfa || erts_codemfa_to_code(cmfa) != target) {
                         erts_print(to, to_arg, "f(" HEXF ")", target);
                     } else {
-                        erts_print(to, to_arg, "%T:%T/%bpu", cmfa->module,
-                                   cmfa->function, cmfa->arity);
+                        erts_print(to, to_arg, "loc(`%T`:`%T`/%bpu)",
+                                   cmfa->module, cmfa->function, cmfa->arity);
                     }
                     ap++;
                 }
@@ -653,9 +653,10 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    break;
 	case 'e':		/* Export entry */
 	    {
-		Export* ex = (Export *) *ap;
-		erts_print(to, to_arg,
-			   "%T:%T/%bpu", (Eterm) ex->info.mfa.module,
+                Export* ex = (Export *) *ap;
+                erts_print(to, to_arg,
+                           "exp(`%T`:`%T`/%bpu)",
+                           (Eterm) ex->info.mfa.module,
                            (Eterm) ex->info.mfa.function,
                            ex->info.mfa.arity);
 		ap++;
@@ -709,7 +710,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
             Sint32* jump_tab = (Sint32 *)(ap + n);
 
 	    while (ix--) {
-		erts_print(to, to_arg, "%T ", (Eterm) ap[0]);
+		erts_print(to, to_arg, "`%T` ", (Eterm) ap[0]);
 		ap++;
 		size++;
 	    }
@@ -736,7 +737,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
                 size++;
             }
             /* print sentinel */
-            erts_print(to, to_arg, "{%T} ", ap[0], ap[1]);
+            erts_print(to, to_arg, "{`%T`} ", ap[0], ap[1]);
             ap++;
             size++;
             ix = n;
@@ -812,7 +813,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 		    erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]) - CP_SIZE);
 		    break;
 		default:
-		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+		    erts_print(to, to_arg, " `%T`", (Eterm) ap[0]);
 		    break;
 		}
 		ap++, size++, n--;
@@ -833,7 +834,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 		    erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]) - CP_SIZE);
 		    break;
                 default:
-		    erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+		    erts_print(to, to_arg, " `%T`", (Eterm) ap[0]);
 		    break;
                 }
                 ap++, size++, n--;
@@ -856,7 +857,7 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 			erts_print(to, to_arg, " y(%d)", loader_y_reg_index(ap[0]) - CP_SIZE);
 			break;
 		    default:
-			erts_print(to, to_arg, " %T", (Eterm) ap[0]);
+			erts_print(to, to_arg, " `%T`", (Eterm) ap[0]);
 			break;
 		    }
 		}
@@ -880,11 +881,12 @@ static void print_bif_name(fmtfn_t to, void* to_arg, BifFunction bif)
 	}
     }
     if (i == BIF_SIZE) {
-	erts_print(to, to_arg, "b(%d)", (Uint) bif);
+	erts_print(to, to_arg, "bif(%d)", (Uint) bif);
     } else {
+	Eterm module = bif_table[i].module;
 	Eterm name = bif_table[i].name;
 	unsigned arity = bif_table[i].arity;
-	erts_print(to, to_arg, "%T/%u", name, arity);
+	erts_print(to, to_arg, "bif(`%T`:`%T`/%bpu)", module, name, arity);
     }
 }
 
