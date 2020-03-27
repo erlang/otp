@@ -75,6 +75,12 @@
       </desc>
     </datatype>
     <datatype>
+      <name>af_field_decl()</name>
+      <desc>
+	<p>Abstract representation of a record field.</p>
+      </desc>
+    </datatype>
+    <datatype>
       <name>af_generator()</name>
       <desc>
 	<p>Abstract representation of a generator

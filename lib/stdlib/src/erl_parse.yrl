@@ -610,6 +610,8 @@ Erlang code.
               abstract_type/0, form_info/0, error_info/0]).
 %% The following types are exported because they are used by syntax_tools
 -export_type([af_binelement/1, af_generator/0, af_remote_function/0]).
+%% The following type is used by PropEr
+-export_type([af_field_decl/0]).
 
 %% Removed functions
 -removed([{set_line,2,"use erl_anno:set_line/2"},
