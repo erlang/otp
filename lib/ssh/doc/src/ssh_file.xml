@@ -128,7 +128,7 @@ keytype :: 'ssh-dsa'
          | 'ssh-ed25519'
 	 | 'ssh-ed448'
 base64-encoded-key :: % The user's public key
-comment :: % Comments are skipped	 
+comment :: % Comments are skipped
 	  </code>
 	  </item>
 	  <item><marker id="FILE-known_hosts"/><c>known_hosts</c> - host keys from hosts visited

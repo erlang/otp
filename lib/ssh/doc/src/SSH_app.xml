@@ -104,7 +104,7 @@
 	for the user's convenience when it is needed to convey the user's
 	public key.
       </p>
-    <p>See <seealso marker="ssh_file#FILE-id_STAR">ssh_file</seealso> for details.</p>
+    <p>See <seeerl marker="ssh_file#FILE-id_STAR">ssh_file</seeerl> for details.</p>
   </section>
  <section>
     <title>Known Hosts</title>
@@ -112,7 +112,7 @@
       their public keys. Once a server is listed, it can be verified
       without user interaction.
     </p>
-    <p>See <seealso marker="ssh_file#FILE-known_hosts">ssh_file</seealso> for details.</p>
+    <p>See <seeerl marker="ssh_file#FILE-known_hosts">ssh_file</seeerl> for details.</p>
   </section>
  <section>
     <title>Authorized Keys</title>
@@ -121,7 +121,7 @@
       log in without entering their password, which is supported by the
       Erlang <c>ssh</c> daemon.
       </p>
-    <p>See <seealso marker="ssh_file#FILE-authorized_keys">ssh_file</seealso> for details.</p>
+    <p>See <seeerl marker="ssh_file#FILE-authorized_keys">ssh_file</seeerl> for details.</p>
   </section>
  <section>
     <title>Host Keys</title>
@@ -130,7 +130,7 @@
     <c>ssh_host_dsa_key</c>, <c>ssh_host_ecdsa_key</c>,
     <c>ssh_host_ed25519_key</c> and  <c>ssh_host_ed448_key</c>.
     </p>
-    <p>See <seealso marker="ssh_file#FILE-ssh_host_STAR_key">ssh_file</seealso> for details.</p>
+    <p>See <seeerl marker="ssh_file#FILE-ssh_host_STAR_key">ssh_file</seeerl> for details.</p>
   </section>
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
