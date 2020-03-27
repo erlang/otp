@@ -239,20 +239,15 @@ init_per_group(dhe_psk = GroupName, Config) ->
             {skip, "Missing SRP crypto support"}
     end;
 init_per_group(GroupName, Config0) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:init_tls_version(GroupName, end_per_group(GroupName, Config0));
-        false ->
-            init_certs(GroupName, Config0)
+    case ssl_test_lib:init_per_group(GroupName, Config0) of
+        {skip, _} = Skip ->
+            Skip;
+        Config ->
+            init_certs(GroupName, Config)
     end.
   
 end_per_group(GroupName, Config) ->
-  case ssl_test_lib:is_tls_version(GroupName) of
-      true ->
-          ssl_test_lib:clean_tls_version(Config);
-      false ->
-          Config
-  end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
                                          TestCase == srp_anon_3des_ede_cbc;
