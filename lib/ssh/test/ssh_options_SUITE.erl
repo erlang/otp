@@ -92,7 +92,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,30}}].
+     {timetrap,{seconds,60}}].
 
 all() -> 
     [connectfun_disconnectfun_server,
@@ -937,7 +937,7 @@ ssh_connect_arg4_timeout(_Config) ->
 	    Msp = ms_passed(T0),
 	    exit(Server,hasta_la_vista___baby),
 	    Low = 0.9*Timeout,
-	    High =  2.5*Timeout,
+	    High =  4.0*Timeout,
 	    ct:log("Timeout limits: ~.4f - ~.4f ms, timeout "
                    "was ~.4f ms, expected ~p ms",[Low,High,Msp,Timeout]),
 	    if

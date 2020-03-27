@@ -40,7 +40,7 @@
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
-     {timetrap,{seconds,40}}].
+     {timetrap,{seconds,90}}].
 
 all() -> 
     [{group, all_tests},
@@ -957,7 +957,7 @@ known_hosts(Config) when is_list(Config) ->
     ssh:stop_daemon(Pid).
 
 %%--------------------------------------------------------------------
-ssh_file_is_host_key() -> [{timetrap,{seconds,120}}]. % Some machines are S L O W !
+ssh_file_is_host_key() -> [{timetrap,{seconds,240}}]. % Some machines are S L O W !
 ssh_file_is_host_key(Config) ->
     Dir = ssh_test_lib:create_random_dir(Config),
     ct:log("Dir = ~p", [Dir]),
@@ -1648,11 +1648,11 @@ setopts_getopts(Config) ->
 
 %%----------------------------------------------------------------------------
 %%% Idle timeout test
-rekey0() -> [{timetrap,{seconds,90}}].
-rekey1() -> [{timetrap,{seconds,90}}].
-rekey2() -> [{timetrap,{seconds,90}}].
-rekey3() -> [{timetrap,{seconds,90}}].
-rekey4() -> [{timetrap,{seconds,90}}].
+rekey0() -> [{timetrap,{seconds,120}}].
+rekey1() -> [{timetrap,{seconds,120}}].
+rekey2() -> [{timetrap,{seconds,120}}].
+rekey3() -> [{timetrap,{seconds,120}}].
+rekey4() -> [{timetrap,{seconds,120}}].
     
 rekey0(Config) -> rekey_chk(Config, 0,                   0).
 rekey1(Config) -> rekey_chk(Config, infinity,            0).
@@ -1678,7 +1678,7 @@ rekey_chk(Config, RLdaemon, RLclient) ->
 %%--------------------------------------------------------------------
 %%% Test rekeying by data volume
 
-rekey_limit_client() -> [{timetrap,{seconds,400}}].
+rekey_limit_client() -> [{timetrap,{seconds,500}}].
 rekey_limit_client(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1726,7 +1726,7 @@ rekey_limit_client(Config) ->
 
 
 
-rekey_limit_daemon() -> [{timetrap,{seconds,400}}].
+rekey_limit_daemon() -> [{timetrap,{seconds,500}}].
 rekey_limit_daemon(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1777,7 +1777,7 @@ rekey_limit_daemon(Config) ->
 
 %%--------------------------------------------------------------------
 %% Check that datatransfer in the other direction does not trigger re-keying
-norekey_limit_client() -> [{timetrap,{seconds,400}}].
+norekey_limit_client() -> [{timetrap,{seconds,500}}].
 norekey_limit_client(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1805,7 +1805,7 @@ norekey_limit_client(Config) ->
     ssh:stop_daemon(Pid).
 
 %% Check that datatransfer in the other direction does not trigger re-keying
-norekey_limit_daemon() -> [{timetrap,{seconds,400}}].
+norekey_limit_daemon() -> [{timetrap,{seconds,500}}].
 norekey_limit_daemon(Config) ->
     Limit = 6000,
     UserDir = proplists:get_value(priv_dir, Config),
@@ -1834,7 +1834,7 @@ norekey_limit_daemon(Config) ->
 %%--------------------------------------------------------------------
 %%% Test rekeying by time
 
-rekey_time_limit_client() -> [{timetrap,{seconds,400}}].
+rekey_time_limit_client() -> [{timetrap,{seconds,500}}].
 rekey_time_limit_client(Config) ->
     Minutes = ?REKEY_DATA_TMO div 60000,
     GB = 1024*1000*1000,
@@ -1845,7 +1845,7 @@ rekey_time_limit_client(Config) ->
                                                                   {max_random_length_padding,0}]),
     rekey_time_limit(Pid, ConnectionRef).
 
-rekey_time_limit_daemon() -> [{timetrap,{seconds,400}}].
+rekey_time_limit_daemon() -> [{timetrap,{seconds,500}}].
 rekey_time_limit_daemon(Config) ->
     Minutes = ?REKEY_DATA_TMO div 60000,
     GB = 1024*1000*1000,
