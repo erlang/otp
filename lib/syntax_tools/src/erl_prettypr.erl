@@ -458,13 +458,13 @@ lay_2(Node, Ctxt) ->
 	    text(erl_syntax:variable_literal(Node));
 	
 	atom ->
-	    text(erl_syntax:atom_literal(Node, Ctxt#ctxt.encoding));
+	    text(tidy_atom(Node, Ctxt));
 	
 	integer ->
-	    text(erl_syntax:integer_literal(Node));
+	    text(tidy_integer(Node));
 
 	float ->
-	    text(tidy_float(erl_syntax:float_literal(Node)));
+	    text(tidy_float(Node));
 	
 	char ->
 	    text(erl_syntax:char_literal(Node, Ctxt#ctxt.encoding));
@@ -1470,13 +1470,39 @@ spaces(N) when N > 0 ->
 spaces(_) ->
     [].
 
-tidy_float([$., C | Cs]) ->
+%% Tidy atom's and numbers, if anno text is available use that
+%% to keep user format otherwise format as nice as possibly
+tidy_atom(Node, Ctxt) ->
+    case erl_anno:text(erl_syntax:get_pos(Node)) of
+        undefined ->
+            erl_syntax:atom_literal(Node, Ctxt#ctxt.encoding);
+        String ->
+            unicode:characters_to_list(String, Ctxt#ctxt.encoding)
+    end.
+
+tidy_integer(Node) ->
+    case erl_anno:text(erl_syntax:get_pos(Node)) of
+        undefined ->
+            erl_syntax:integer_literal(Node);
+        String ->
+            String
+    end.
+
+tidy_float(Node) ->
+    case erl_anno:text(erl_syntax:get_pos(Node)) of
+        undefined ->
+            tidy_float_0(erl_syntax:float_literal(Node));
+        String ->
+            String
+    end.
+
+tidy_float_0([$., C | Cs]) ->
     [$., C | tidy_float_1(Cs)];  % preserve first decimal digit
-tidy_float([$e | _] = Cs) ->
+tidy_float_0([$e | _] = Cs) ->
     tidy_float_2(Cs);
-tidy_float([C | Cs]) ->
-    [C | tidy_float(Cs)];
-tidy_float([]) ->
+tidy_float_0([C | Cs]) ->
+    [C | tidy_float_0(Cs)];
+tidy_float_0([]) ->
     [].
 
 tidy_float_1([$0, $0, $0 | Cs]) ->
