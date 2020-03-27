@@ -1600,6 +1600,7 @@ void esock_encode_packet_pkttype(ErlNifEnv*     env,
         break;
 #endif
 
+        /* Unused? Not user space? */
 #if defined(PACKET_LOOPBACK)
     case PACKET_LOOPBACK:
         *ePktType = esock_atom_loopback;
@@ -1618,11 +1619,17 @@ void esock_encode_packet_pkttype(ErlNifEnv*     env,
         break;
 #endif
 
+        /* Unused? Not user space?
+         * Also, has the same value as PACKET_USER,
+         * so may result in a compiler error (at least
+         * on some platforms: ANDROID).
+         *
 #if defined(PACKET_FASTROUTE)
     case PACKET_FASTROUTE:
         *ePktType = esock_atom_fastroute;
         break;
 #endif
+        */
 
     default:
         *ePktType = MKUI(env, pkttype);
