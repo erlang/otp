@@ -217,24 +217,14 @@ end_per_suite(_Config) ->
     ssl_test_lib:kill_openssl().
 
 %%--------------------------------------------------------------------
-init_per_group(GroupName, Config) ->
-       case ssl_test_lib:is_tls_version(GroupName) of
-           true ->
-               case ssl_test_lib:supports_ssl_tls_version(GroupName) of
-                   true ->
-                       case ssl_test_lib:check_sane_openssl_version(GroupName) of
-                           true ->
-                               ssl_test_lib:init_tls_version(GroupName, Config),
-                               do_init_per_group(GroupName, Config);
-                           false ->
-                               {skip, openssl_does_not_support_version}
-                       end;
-                   false ->
-                       {skip, {openssl_does_not_support, GroupName}}
-               end;  
-           false ->
-               do_init_per_group(GroupName, Config)
-       end.
+init_per_group(GroupName, Config0) ->
+    case ssl_test_lib:init_per_group(GroupName, Config0) of
+        {skip, _} = Skip ->
+            Skip;
+        Config ->
+            do_init_per_group(GroupName, Config)
+    end.
+
 do_init_per_group(openssl_client, Config0) ->
     Config = proplists:delete(server_type, proplists:delete(client_type, Config0)),
     [{client_type, openssl}, {server_type, erlang} | Config];
@@ -301,12 +291,7 @@ do_init_per_group(GroupName, Config0) ->
     end.
   
 end_per_group(GroupName, Config) ->
-  case ssl_test_lib:is_tls_version(GroupName) of
-      true ->
-          ssl_test_lib:clean_tls_version(Config);
-      false ->
-          Config
-  end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(TestCase, Config) when TestCase == psk_3des_ede_cbc;
                                          TestCase == srp_anon_3des_ede_cbc;
