@@ -940,21 +940,6 @@ dnl We want to use $(CC) as linker for the emulator regardless of
 dnl what the user say. This might not be the right way to do it, but
 dnl for now that is the way we do it.
 LD='$(CC)'
-case $host_os in
-     darwin*)
-	saved_LDFLAGS="$LDFLAGS"
-	LDFLAGS="$LDFLAGS -Wl,-no_weak_imports"
-	AC_TRY_LINK([],[],
-		[
-			LD_MAY_BE_WEAK=no
-		],
-		[
-			LD_MAY_BE_WEAK=yes
-			LDFLAGS="$saved_LDFLAGS"
-		]);;
-    *)
-	LD_MAY_BE_WEAK=no;;
-esac
 
 AC_SUBST(LD)
 
