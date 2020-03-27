@@ -41,7 +41,7 @@
     <p>This module provides support for registering, looking
       up, and unregistering names in the <c>global</c> module.
       For more information, see
-      <seealso marker="kernel:global"><c>kernel:global</c></seealso>.</p>
+      <seeerl marker="kernel:global"><c>kernel:global</c></seeerl>.</p>
 
     <p>Notice that the functions below perform an RPC using an open file
       descriptor provided by the caller. This file descriptor must

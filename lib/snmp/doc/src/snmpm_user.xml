@@ -130,7 +130,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
       <fsummary>Handle agent</fsummary>
       <type>
         <v>Domain = transportDomainUdpIpv4 | transportDomainUdpIpv6</v>
-	<v>Addr = {<seealso marker="kernel:inet#type-ip_address">inet:ip_address(), inet:port_number()</seealso>} </v>
+	<v>Addr = {<seetype marker="kernel:inet#ip_address">inet:ip_address(), inet:port_number()</seetype>} </v>
         <v>Type = pdu | trap | report | inform</v>
         <v>SnmpInfo = SnmpPduInfo | SnmpTrapInfo | SnmpReportInfo | SnmpInformInfo</v>
         <v>SnmpPduInfo = snmp_gen_info()</v>
@@ -148,7 +148,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
 	unknown agent.</p>
         <p>Note that this will always be the default user that is called.</p>
         <p>For more info about the <c>agent_config()</c>, see 
-	<seealso marker="snmpm#register_agent">register_agent</seealso>.</p>
+	<seeerl marker="snmpm#register_agent">register_agent</seeerl>.</p>
 
         <p>The arguments <c>Type</c> and <c>SnmpInfo</c> relates in the 
           following way: </p>
@@ -156,22 +156,22 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
 	  <list type="bulleted">
 	    <item>
 	      <p><c>pdu</c> - <c>SnmpPduInfo</c> 
-                (see <seealso marker="#handle_pdu">handle_pdu</seealso>
+                (see <seeerl marker="#handle_pdu">handle_pdu</seeerl>
                 for more info).</p>
 	    </item>
 	    <item>
 	      <p><c>trap</c> - <c>SnmpTrapInfo</c> 
-                (see <seealso marker="#handle_trap">handle_trap</seealso>
+                (see <seeerl marker="#handle_trap">handle_trap</seeerl>
                 for more info).</p>
 	    </item>
 	    <item>
 	      <p><c>report</c> - <c>SnmpReportInfo</c> 
-                (see <seealso marker="#handle_report">handle_report</seealso>
+                (see <seeerl marker="#handle_report">handle_report</seeerl>
                 for more info).</p>
 	    </item>
 	    <item>
 	      <p><c>inform</c> - <c>SnmpInformInfo</c> 
-                (see <seealso marker="#handle_inform">handle_inform</seealso>
+                (see <seeerl marker="#handle_inform">handle_inform</seeerl>
                 for more info).</p>
 	    </item>
 	  </list>
@@ -195,9 +195,9 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
       </type>
       <desc>
         <p>Handle the reply to an asynchronous request, such as 
-          <seealso marker="snmpm#async_get2">async_get</seealso>, 
-          <seealso marker="snmpm#async_get_next2">async_get_next</seealso> or 
-          <seealso marker="snmpm#async_set2">async_set</seealso>.</p>
+          <seeerl marker="snmpm#async_get2">async_get</seeerl>, 
+          <seeerl marker="snmpm#async_get_next2">async_get_next</seeerl> or 
+          <seeerl marker="snmpm#async_set2">async_set</seeerl>.</p>
         <p>It could also be a late reply to a synchronous request.</p>
         <p><c>ReqId</c> is returned by the asynchronous request function.</p>
 
@@ -219,7 +219,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
       <desc>
         <p>Handle a trap/notification message from an agent.</p>
         <p>For more info about the <c>agent_config()</c>, see 
-	<seealso marker="snmpm#register_agent">register_agent</seealso></p>
+	<seeerl marker="snmpm#register_agent">register_agent</seeerl></p>
         <p>The only user which would return 
 	<c>{register, UserId, TargetName2, agent_info()}</c> is the 
 	<em>default user</em>.</p>
@@ -242,12 +242,12 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
       <desc>
         <p>Handle a inform message.</p>
         <p>For more info about the <c>agent_config()</c>, see 
-	<seealso marker="snmpm#register_agent">register_agent</seealso></p>
+	<seeerl marker="snmpm#register_agent">register_agent</seeerl></p>
         <p>The only user which would return 
 	<c>{register, UserId, TargetName2, AgentConfig}</c> is the 
 	<em>default user</em>.</p>
 	<p>If the 
-	<seealso marker="snmp_config#manager_irb">inform request behaviour</seealso> 
+	<seeguide marker="snmp_config#manager_irb">inform request behaviour</seeguide> 
 	configuration option is set to <c>user</c> or 
 	<c>{user, integer()}</c>, the response (acknowledgment) to this 
 	inform-request will be sent when this function returns.</p>
@@ -272,7 +272,7 @@ snmp_v1_trap_info() :: {Enteprise :: snmp:oid(),
       <desc>
         <p>Handle a report message.</p>
         <p>For more info about the <c>agent_config()</c>, see 
-	<seealso marker="snmpm#register_agent">register_agent</seealso></p>
+	<seeerl marker="snmpm#register_agent">register_agent</seeerl></p>
         <p>The only user which would return 
 	<c>{register, UserId, TargetName2, AgentConfig}</c> is the 
 	<em>default user</em>.</p>

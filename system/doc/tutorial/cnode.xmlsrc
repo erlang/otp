@@ -30,8 +30,8 @@
     <file>cnode.xml</file>
   </header>
   <p>The reader is referred to
-    <seealso marker="erl_interface:ei_users_guide">
-    the erl_interface users guide</seealso> for information about how
+    <seeguide marker="erl_interface:ei_users_guide">
+    the erl_interface users guide</seeguide> for information about how
     to create C nodes.</p>
     <!-- Commented out because it uses the removed erl_*
          functions. Should be updated to use ei_* functions instead.
@@ -42,12 +42,12 @@
     been removed as of OTP version 23. The <c>erl_*</c> functions are
     replaced by the <c>ei_*</c> functions in the erl_interface
     application. The reader is therefore referred to
-    <seealso marker="erl_interface:ei_users_guide">
-    the erl_interface users guide</seealso> for information about how
+    <seeguide marker="erl_interface:ei_users_guide">
+    the erl_interface users guide</seeguide> for information about how
     to create C nodes until this tutorial has got updated.</p></note>
 
   <p>This section outlines an example of how to solve the example
-    problem in <seealso marker="example">Problem Example</seealso>
+    problem in <seeguide marker="example">Problem Example</seeguide>
     by using a C node. Notice that a C node is not typically
     used for solving simple problems like this, a port is
     sufficient.</p>
@@ -130,8 +130,8 @@ fd = erl_connect("e1@idril");</pre>
         (call <c>bind()</c> and <c>listen()</c>) listening to a
         certain port number <c>port</c>. It then publishes its name
         and port number with <c>epmd</c>, the Erlang port mapper
-        daemon. For details, see the <seealso
-        marker="erts:epmd">epmd</seealso> manual page in ERTS:</p>
+        daemon. For details, see the <seecom
+        marker="erts:epmd">epmd</seecom> manual page in ERTS:</p>
       <pre>
 erl_publish(port);</pre>
       <p>Now the C node server can accept connections from Erlang nodes:</p>

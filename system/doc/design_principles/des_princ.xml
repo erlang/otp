@@ -223,13 +223,13 @@ free(Ch, {Alloc, Free} = Channels) ->
       to the Erlang/OTP behaviour <c>gen_server</c>.</p>
     <p>The standard Erlang/OTP behaviours are:</p>
     <list type="bulleted">
-      <item><p><seealso marker="gen_server_concepts">gen_server</seealso></p>
+      <item><p><seeguide marker="gen_server_concepts">gen_server</seeguide></p>
       <p>For implementing the server of a client-server relation</p></item>
-      <item><p><seealso marker="statem">gen_statem</seealso></p>
+      <item><p><seeguide marker="statem">gen_statem</seeguide></p>
       <p>For implementing state machines</p></item>
-      <item><p><seealso marker="events">gen_event</seealso></p>
+      <item><p><seeguide marker="events">gen_event</seeguide></p>
       <p>For implementing event handling functionality</p></item>
-      <item><p><seealso marker="sup_princ">supervisor</seealso></p>
+      <item><p><seeguide marker="sup_princ">supervisor</seeguide></p>
       <p>For implementing a supervisor in a supervision tree</p></item>
       </list>
     <p>The compiler understands the module attribute
@@ -267,7 +267,7 @@ free(Ch, {Alloc, Free} = Channels) ->
     <p>An application with processes is easiest implemented as a
       supervision tree using the standard behaviours.</p>
     <p>How to program applications is described in
-      <seealso marker="applications">Applications</seealso>.</p>
+      <seeguide marker="applications">Applications</seeguide>.</p>
   </section>
 
   <section>
@@ -275,7 +275,7 @@ free(Ch, {Alloc, Free} = Channels) ->
     <p>A <em>release</em> is a complete system made out from a subset of
       Erlang/OTP applications and a set of user-specific applications.</p>
     <p>How to program releases is described in
-      <seealso marker="release_structure">Releases</seealso>.</p>
+      <seeguide marker="release_structure">Releases</seeguide>.</p>
     <p>How to install a release in a target environment is described
       in the section about target systems in Section 2 System Principles.</p>
   </section>
@@ -285,7 +285,7 @@ free(Ch, {Alloc, Free} = Channels) ->
     <p><em>Release handling</em> is upgrading and downgrading between
       different versions of a release, in a (possibly) running system.
       How to do this is described in
-      <seealso marker="release_handling">Release Handling</seealso>.</p>
+      <seeguide marker="release_handling">Release Handling</seeguide>.</p>
   </section>
 </chapter>
 

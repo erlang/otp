@@ -36,12 +36,12 @@
   <p>The following subset of block tags are common for all DTDs in
     the OTP DTD suite:
     <marker id="block_subset"></marker>
-    <seealso marker="#pTAG">&lt;p&gt;</seealso>,
-    <seealso marker="#preTAG">&lt;pre&gt;</seealso>,
-    <seealso marker="#codeTAG">&lt;code&gt;</seealso>,
-    <seealso marker="#listTAG">&lt;list&gt;</seealso>,
-    <seealso marker="#taglistTAG">&lt;taglist&gt;</seealso>,
-    <seealso marker="#codeincludeTAG">&lt;codeinclude&gt;</seealso> and
+    <seeguide marker="#pTAG">&lt;p&gt;</seeguide>,
+    <seeguide marker="#preTAG">&lt;pre&gt;</seeguide>,
+    <seeguide marker="#codeTAG">&lt;code&gt;</seeguide>,
+    <seeguide marker="#listTAG">&lt;list&gt;</seeguide>,
+    <seeguide marker="#taglistTAG">&lt;taglist&gt;</seeguide>,
+    <seeguide marker="#codeincludeTAG">&lt;codeinclude&gt;</seeguide> and
   </p>
 
   <section>
@@ -86,8 +86,8 @@ sum([]) ->
 
     <note>
       <p>No tags are allowed within the tag and no
-	<seealso marker="character_entities">character
-	  entities</seealso> are expanded.</p>
+	<seeguide marker="character_entities">character
+	  entities</seeguide> are expanded.</p>
     </note>
   </section>
 
@@ -139,9 +139,9 @@ start(Pid) ->
 
     <p>Lists contains list items, tag <c><![CDATA[<item>]]></c>, which
       can contain plain text,
-      the <seealso marker="#block_subset">common subset of block
-	tags</seealso> and <seealso marker="inline_tags">inline
-	tags</seealso>. Example:</p>
+      the <seeguide marker="#block_subset">common subset of block
+	tags</seeguide> and <seeguide marker="inline_tags">inline
+	tags</seeguide>. Example:</p>
     <pre>
 &lt;list type="ordered"&gt;
   &lt;item&gt;Askosal:
@@ -173,7 +173,7 @@ start(Pid) ->
     <p>Used as an anchor for hypertext references. The
       <c><![CDATA[<marker>]]></c> tag is both a block- and an inline
       tag and is described in
-      the <seealso marker="inline_tags#markerTAG">Inline Tags</seealso>
+      the <seeguide marker="inline_tags#markerTAG">Inline Tags</seeguide>
       section.</p>
   </section>
 
@@ -182,7 +182,7 @@ start(Pid) ->
     <title>&lt;p&gt; - Paragraph</title>
 
     <p>Paragraphs contain plain text and
-      <seealso marker="inline_tags">inline tags</seealso>. Example:</p>
+      <seeguide marker="inline_tags">inline tags</seeguide>. Example:</p>
     <pre>
 &lt;p&gt;I call specific attention to
   the authority given by the &lt;em&gt;21st Amendment&lt;/em&gt;
@@ -224,8 +224,8 @@ start(Pid) ->
     <title>&lt;pre&gt; - Pre-formatted Text</title>
 
     <p>Used for documentation of system interaction. Can contain text,
-      <seealso marker="inline_tags#seealsoTAG">seealso</seealso>,  
-      <seealso marker="inline_tags#urlTAG">url</seealso> and
+      <seeguide marker="inline_tags#seeTAG">&lt;see*&gt; tags</seeguide>,  
+      <seeguide marker="inline_tags#urlTAG">&lt;url&gt;</seeguide> and
       <c><![CDATA[<input>]]></c> tags.</p>
 
     <p>The <c><![CDATA[<input>]]></c> tag is used to highlight user
@@ -252,8 +252,8 @@ Eshell V5.5.3  (abort with ^G)
 2> <input>halt().</input>
     </pre>
 
-    <p>All <seealso marker="character_entities">character
-	entities</seealso> are expanded.</p>
+    <p>All <seeguide marker="character_entities">character
+	entities</seeguide> are expanded.</p>
   </section>
 
   <section>
@@ -262,7 +262,7 @@ Eshell V5.5.3  (abort with ^G)
 
     <p>Highlight quotations from other works, or dialog spoken by
       characters in a narrative. Contains one or more
-      <seealso marker="#pTAG">&lt;p&gt;</seealso> tags. Example:</p>
+      <seeguide marker="#pTAG">&lt;p&gt;</seeguide> tags. Example:</p>
     <pre>
 &lt;p&gt;Whereas Section 217(a) of the Act of Congress entitled
 "An Act ..." approved June 16, 1933, provides as follows:&lt;/p&gt;
@@ -288,16 +288,16 @@ Eshell V5.5.3  (abort with ^G)
       <c><![CDATA[<item>]]></c>.</p>
 
     <p><c><![CDATA[<tag>]]></c> can contain plain text,
-      <seealso marker="inline_tags#cTAG">&lt;c&gt;</seealso>,
-      <seealso marker="inline_tags#emTAG">&lt;em&gt;</seealso>,
-      <seealso marker="inline_tags#seealsoTAG">&lt;seealso&gt;</seealso>
-      and <seealso marker="inline_tags#urlTAG">&lt;url&gt;</seealso>
+      <seeguide marker="inline_tags#cTAG">&lt;c&gt;</seeguide>,
+      <seeguide marker="inline_tags#emTAG">&lt;em&gt;</seeguide>,
+      <seeguide marker="inline_tags#seeTAG">&lt;see*&gt; tags</seeguide>
+      and <seeguide marker="inline_tags#urlTAG">&lt;url&gt;</seeguide>
       tags.</p>
 
     <p><c><![CDATA[<item>]]></c> can contain plain text,
-      the <seealso marker="#block_subset">common subset of block
-	tags</seealso> and <seealso marker="inline_tags">inline
-	tags</seealso>. Example:</p>
+      the <seeguide marker="#block_subset">common subset of block
+	tags</seeguide> and <seeguide marker="inline_tags">inline
+	tags</seeguide>. Example:</p>
     <pre>
 &lt;taglist>
   &lt;tag>&lt;c>eacces&lt;/c>&lt;/tag>
@@ -377,7 +377,7 @@ Eshell V5.5.3  (abort with ^G)
       "<c>left</c>" and "<c>middle</c>".</p>
 
     <p>Each cell contains plain text and
-      <seealso marker="inline_tags">inline tags</seealso>. Example:</p>
+      <seeguide marker="inline_tags">inline tags</seeguide>. Example:</p>
     <pre><![CDATA[
     <table>
       <row>

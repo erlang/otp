@@ -34,7 +34,7 @@
     <p>The Erlang interpreter provides mechanisms for breakpoints and
       stepwise execution of code. It is primarily intended to be used by
       Debugger, see the User's Guide and
-      <seealso marker="debugger"><c>debugger(3)</c></seealso>.</p>
+      <seeerl marker="debugger"><c>debugger(3)</c></seeerl>.</p>
     
     <p>The following can be done from the shell:</p>
     <list type="bulleted">
@@ -433,7 +433,7 @@ spawn(Module, Name, [Pid | Args])</pre>
 	<p>Sets the conditional test of the breakpoint at <c>Line</c> in
 	  <c>Module</c> to <c>Function</c>. The function must
 	  fulfill the requirements specified in section
-          <seealso marker="#int_breakpoints">Breakpoints</seealso>.</p>
+          <seeerl marker="#int_breakpoints">Breakpoints</seeerl>.</p>
       </desc>
     </func>
 

@@ -39,7 +39,7 @@
       set of interface functions and includes functionality for tracing and
       error reporting. It also fits into an OTP supervision tree. For more
       information, see
-      <seealso marker="doc/design_principles:events">OTP Design Principles</seealso>.
+      <seeguide marker="system/design_principles:events">OTP Design Principles</seeguide>.
     </p>
 
     <p>Each event handler is implemented as a callback module exporting
@@ -83,21 +83,21 @@ gen_event:stop             ----->  Module:terminate/2
       an installed event handler fails with <c>Reason</c>, or returns a
       bad value <c>Term</c>, the event manager does not fail. It deletes
       the event handler by calling callback function
-      <seealso marker="#Module:terminate/2"><c>Module:terminate/2</c></seealso>,
+      <seemfa marker="#Module:terminate/2"><c>Module:terminate/2</c></seemfa>,
       giving as argument
       <c>{error,{'EXIT',Reason}}</c> or <c>{error,Term}</c>, respectively.
       No other event handler is affected.</p>
 
     <p>A <c>gen_event</c> process handles system messages as described in
-       <seealso marker="sys"><c>sys(3)</c></seealso>. The <c>sys</c> module
+       <seeerl marker="sys"><c>sys(3)</c></seeerl>. The <c>sys</c> module
        can be used for debugging an event manager.</p>
 
     <p>Notice that an event manager <em>does</em> trap exit signals
       automatically.</p>
 
     <p>The <c>gen_event</c> process can go into hibernation 
-      (see <seealso marker="erts:erlang#hibernate/3">
-      <c>erlang:hibernate/3</c></seealso>) if a callback function in
+      (see <seemfa marker="erts:erlang#hibernate/3">
+      <c>erlang:hibernate/3</c></seemfa>) if a callback function in
       a handler module specifies <c>hibernate</c> in its return value.
       This can be useful if the server is expected to be idle for a long
       time. However, use this feature with care, as hibernation
@@ -132,7 +132,7 @@ gen_event:stop             ----->  Module:terminate/2
       <name name="request_id"/>
       <desc>
 	<p>
-	  A request handle, see <seealso marker="#send_request/3"> <c>send_request/3</c> </seealso>
+	  A request handle, see <seemfa marker="#send_request/3"> <c>send_request/3</c> </seemfa>
 	  for details.
 	</p>
       </desc>
@@ -158,7 +158,7 @@ gen_event:stop             ----->  Module:terminate/2
       <desc>
         <p>Adds a new event handler to event manager <c>EventMgrRef</c>.
           The event manager calls
-          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
           to initiate the event handler and its internal state.</p>
         <p><c>EventMgrRef</c> can be any of the following:</p>
         <list type="bulleted">
@@ -206,14 +206,14 @@ gen_event:stop             ----->  Module:terminate/2
       </type>
       <desc>
         <p>Adds a new event handler in the same way as
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>,
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>,
           but also supervises the connection between the event handler
           and the calling process.</p>
         <list type="bulleted">
           <item>If the calling process later terminates with <c>Reason</c>,
            the event manager deletes the event handler by calling
-           <seealso marker="#Module:terminate/2">
-           <c>Module:terminate/2</c></seealso>
+           <seemfa marker="#Module:terminate/2">
+           <c>Module:terminate/2</c></seemfa>
            with <c>{stop,Reason}</c> as argument.
           </item>
           <item>
@@ -235,10 +235,10 @@ gen_event:stop             ----->  Module:terminate/2
                 <p><c>{swapped,NewHandler,Pid}</c>, if the process <c>Pid</c>
                   has replaced the event handler with another event handler
                   <c>NewHandler</c> using a call to
-                  <seealso marker="#swap_handler/3">
-                  <c>swap_handler/3</c></seealso> or
-                  <seealso marker="#swap_sup_handler/3">
-                  <c>swap_sup_handler/3</c></seealso>.</p>
+                  <seemfa marker="#swap_handler/3">
+                  <c>swap_handler/3</c></seemfa> or
+                  <seemfa marker="#swap_sup_handler/3">
+                  <c>swap_sup_handler/3</c></seemfa>.</p>
               </item>
               <item>
                 <p>A term, if the event handler is removed because of an error.
@@ -247,7 +247,7 @@ gen_event:stop             ----->  Module:terminate/2
           </item>
         </list>
         <p>For a description of the arguments and return values, see
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>.</p>
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -274,10 +274,10 @@ gen_event:stop             ----->  Module:terminate/2
         <p>Makes a synchronous call to event handler <c>Handler</c>
           installed in event manager <c>EventMgrRef</c> by sending a
           request and waiting until a reply arrives or a time-out occurs.
-          The event manager calls <seealso marker="#Module:handle_call/2">
-          <c>Module:handle_call/2</c></seealso> to handle the request.</p>
+          The event manager calls <seemfa marker="#Module:handle_call/2">
+          <c>Module:handle_call/2</c></seemfa> to handle the request.</p>
         <p>For a description of <c>EventMgrRef</c> and <c>Handler</c>, see
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>.</p>
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>.</p>
         <p><c>Request</c> is any term that is passed as one of
           the arguments to <c>Module:handle_call/2</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that specifies
@@ -310,7 +310,7 @@ gen_event:stop             ----->  Module:terminate/2
 	  This function is used to check if a previously received
 	  message, for example by <c>receive</c> or
 	  <c>handle_info/2</c>, is a result of a request made with
-	  <seealso marker="#send_request/3"><c>send_request/3</c></seealso>.
+	  <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>.
 	  If <c>Msg</c> is a reply to the handle <c>RequestId</c>
 	  the result of the request is returned in <c>Reply</c>.
 	  Otherwise returns <c>no_reply</c> and no cleanup is done, and
@@ -347,11 +347,11 @@ gen_event:stop             ----->  Module:terminate/2
       <desc>
         <p>Deletes an event handler from event manager
           <c>EventMgrRef</c>. The event manager calls
-          <seealso marker="#Module:terminate/2">
-          <c>Module:terminate/2</c></seealso> to terminate the event
+          <seemfa marker="#Module:terminate/2">
+          <c>Module:terminate/2</c></seemfa> to terminate the event
           handler.</p>
          <p>For a description of <c>EventMgrRef</c> and <c>Handler</c>, see
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>.</p>
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>.</p>
         <p><c>Args</c> is any term that is passed as one of
           the arguments to <c>Module:terminate/2</c>.</p>
         <p>The return value is the return value of <c>Module:terminate/2</c>.
@@ -376,18 +376,18 @@ gen_event:stop             ----->  Module:terminate/2
       <desc>
         <p>Sends an event notification to event manager
           <c>EventMgrRef</c>. The event manager calls
-          <seealso marker="#Module:handle_event/2">
-          <c>Module:handle_event/2</c></seealso>
+          <seemfa marker="#Module:handle_event/2">
+          <c>Module:handle_event/2</c></seemfa>
           for each installed event handler to handle the event.</p>
         <p><c>notify/2</c> is asynchronous and returns immediately after
           the event notification has been sent. <c>sync_notify/2</c> is
           synchronous in the sense that it returns <c>ok</c> after
           the event has been handled by all event handlers.</p>
         <p>For a description of <c>EventMgrRef</c>, see
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>.</p>
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>.</p>
         <p><c>Event</c> is any term that is passed as one of
-          the arguments to <seealso marker="#Module:handle_event/2">
-          <c>Module:handle_event/2</c></seealso>.</p>
+          the arguments to <seemfa marker="#Module:handle_event/2">
+          <c>Module:handle_event/2</c></seemfa>.</p>
         <p><c>notify/1</c> does not fail even if the specified event manager
           does not exist, unless it is specified as <c>Name</c>.</p>
       </desc>
@@ -413,21 +413,21 @@ gen_event:stop             ----->  Module:terminate/2
 	  Sends a request to event handler <c>Handler</c> installed in
 	  event manager <c>EventMgrRef</c> and returns a handle
 	  <c>RequestId</c>.  The return value <c>RequestId</c> shall
-	  later be used with <seealso marker="#wait_response/2">
-	  <c>wait_response/2</c></seealso> or <seealso
+	  later be used with <seemfa marker="#wait_response/2">
+	  <c>wait_response/2</c></seemfa> or <seemfa
 	  marker="#check_response/2">
-	  <c>check_response/2</c></seealso> in the same process to
+	  <c>check_response/2</c></seemfa> in the same process to
 	  fetch the actual result of the request.
 	</p>
 	<p>
 	  The call <c>gen_event:wait_response(gen_event:send_request(EventMgrRef,Handler,Request), Timeout)</c>
 	  can be seen as equivalent to
-	  <seealso marker="#call/3"><c>gen_event:call(EventMgrRef,Handler,Request,Timeout)</c></seealso>,
+	  <seemfa marker="#call/3"><c>gen_event:call(EventMgrRef,Handler,Request,Timeout)</c></seemfa>,
 	  ignoring the error handling.
 	</p>
 	<p>
-	  The event manager calls <seealso marker="#Module:handle_call/2">
-          <c>Module:handle_call/2</c></seealso> to handle the request.
+	  The event manager calls <seemfa marker="#Module:handle_call/2">
+          <c>Module:handle_call/2</c></seemfa> to handle the request.
 	</p>
         <p>
 	  <c>Request</c> is any term that is passed as one of
@@ -458,7 +458,7 @@ gen_event:stop             ----->  Module:terminate/2
           manager that is not part of a supervision tree and thus has
           no supervisor.</p>
         <p>For a description of the arguments and return values, see
-          <seealso marker="#start_link/0"><c>start_link/0,1</c></seealso>.</p>
+          <seemfa marker="#start_link/0"><c>start_link/0,1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -493,8 +493,8 @@ gen_event:stop             ----->  Module:terminate/2
           <item>
             <p>If <c>EventMgrName={global,GlobalName}</c>, the event manager is
               registered globally as <c>GlobalName</c> using
-              <seealso marker="kernel:global#register_name/2">
-              <c>global:register_name/2</c></seealso>.
+              <seemfa marker="kernel:global#register_name/2">
+              <c>global:register_name/2</c></seemfa>.
               If no name is provided, the event manager is not registered.</p>
           </item>
           <item>
@@ -504,14 +504,14 @@ gen_event:stop             ----->  Module:terminate/2
               <c>register_name/2</c>, <c>unregister_name/1</c>,
               <c>whereis_name/1</c>, and <c>send/2</c>, which are to behave
               as the corresponding functions in
-              <seealso marker="kernel:global"><c>global</c></seealso>.
+              <seeerl marker="kernel:global"><c>global</c></seeerl>.
               Thus, <c>{via,global,GlobalName}</c> is a valid reference.</p>
           </item>
           <item>
             <p>If option <c>{hibernate_after,HibernateAfterTimeout}</c> is present, the <c>gen_event</c>
               process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
               if no message is received, the process goes into hibernation automatically
-              (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).</p>
+              (by calling <seemfa marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seemfa>).</p>
           </item>
         </list>
         <p>If the event manager is successfully created, the function
@@ -546,7 +546,7 @@ gen_event:stop             ----->  Module:terminate/2
           no supervisor) and atomically sets up a monitor to
 	  the newly created process.</p>
         <p>For a description of the arguments and return values, see
-          <seealso marker="#start_link/0"><c>start_link/0,1</c></seealso>.
+          <seemfa marker="#start_link/0"><c>start_link/0,1</c></seemfa>.
 	Note that the return value on successful start differs from
 	<c>start_link/3,4</c>. <c>start_monitor/3,4</c> will return
 	<c>{ok,{Pid,Mon}}</c> where <c>Pid</c> is the process identifier
@@ -573,14 +573,14 @@ gen_event:stop             ----->  Module:terminate/2
         <p>Orders event manager <c>EventMgrRef</c> to exit with
           the specifies <c>Reason</c> and waits for it to
           terminate. Before terminating, <c>gen_event</c> calls
-          <seealso marker="#Module:terminate/2">
-          <c>Module:terminate(stop,...)</c></seealso>
+          <seemfa marker="#Module:terminate/2">
+          <c>Module:terminate(stop,...)</c></seemfa>
           for each installed event handler.</p>
         <p>The function returns <c>ok</c> if the event manager terminates
           with the expected reason. Any other reason than <c>normal</c>,
           <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
           error report to be issued using
-          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.
+          <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
           The default <c>Reason</c> is <c>normal</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for the event manager to
@@ -591,7 +591,7 @@ gen_event:stop             ----->  Module:terminate/2
         <p>If the process does not exist, a <c>noproc</c> exception
           is raised.</p>
         <p>For a description of <c>EventMgrRef</c>, see
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>.</p>
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -615,7 +615,7 @@ gen_event:stop             ----->  Module:terminate/2
         <p>Replaces an old event handler with a new event handler in
           event manager <c>EventMgrRef</c>.</p>
         <p>For a description of the arguments, see
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>.</p>
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>.</p>
         <p>First the old event handler <c>Handler1</c> is deleted.
           The event manager calls <c>Module1:terminate(Args1, ...)</c>,
           where <c>Module1</c> is the callback module of <c>Handler1</c>,
@@ -663,7 +663,7 @@ gen_event:stop             ----->  Module:terminate/2
           in the same way as <c>swap_handler/3</c>, but also supervises
           the connection between <c>Handler2</c> and the calling process.</p>
         <p>For a description of the arguments and return values, see 
-          <seealso marker="#swap_handler/3"><c>swap_handler/3</c></seealso>.</p>
+          <seemfa marker="#swap_handler/3"><c>swap_handler/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -680,9 +680,9 @@ gen_event:stop             ----->  Module:terminate/2
       <desc>
 	<p>
 	This function is used to wait for a reply of a request made with
-	<seealso marker="#send_request/3"><c>send_request/3</c></seealso>
+	<seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
 	from the event manager. This function must be called from the same
-	process from which <seealso marker="#send_request/3"><c>send_request/3</c></seealso>
+	process from which <seemfa marker="#send_request/3"><c>send_request/3</c></seemfa>
 	was made.
 	</p>
 	<p>
@@ -727,18 +727,19 @@ gen_event:stop             ----->  Module:terminate/2
         <p>Returns a list of all event handlers installed in event
           manager <c>EventMgrRef</c>.</p>
         <p>For a description of <c>EventMgrRef</c> and <c>Handler</c>, see
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso>.</p>
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa>.</p>
       </desc>
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following functions are to be exported from a <c>gen_event</c>
-      callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>The following functions are to be exported from a <c>gen_event</c>
+        callback module.</p>
+    </fsdescription>
     <func>
       <name since="">Module:code_change(OldVsn, State, Extra) -> {ok, NewState}</name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
@@ -761,8 +762,8 @@ gen_event:stop             ----->  Module:terminate/2
           upgrade/downgrade, that is, when the instruction
           <c>{update,Module,Change,...}</c>, where
           <c>Change={advanced,Extra}</c>, is specified in the <c>.appup</c>
-          file. For more information, see <seealso
-          marker="doc/design_principles:users_guide">OTP Design Principles</seealso>.</p>
+          file. For more information, see <seeguide
+          marker="system/design_principles:index">OTP Design Principles</seeguide>.</p>
         <p>For an upgrade, <c>OldVsn</c> is <c>Vsn</c>, and for a downgrade,
           <c>OldVsn</c> is <c>{down,Vsn}</c>. <c>Vsn</c> is defined by the
           <c>vsn</c> attribute(s) of the old version of the callback module
@@ -795,8 +796,8 @@ gen_event:stop             ----->  Module:terminate/2
         <p>This function is called by a <c>gen_event</c> process in the
           following situations:</p>
         <list type="bulleted">
-          <item>One of <seealso marker="sys#get_status/1">
-            <c>sys:get_status/1,2</c></seealso>
+          <item>One of <seemfa marker="sys#get_status/1">
+            <c>sys:get_status/1,2</c></seemfa>
             is invoked to get the <c>gen_event</c> status. <c>Opt</c> is set
             to the atom <c>normal</c> for this case.</item>
           <item>The event handler terminates abnormally and <c>gen_event</c>
@@ -849,14 +850,14 @@ gen_event:stop             ----->  Module:terminate/2
       </type>
       <desc>
         <p>Whenever an event manager receives a request sent using
-          <seealso marker="#call/3"><c>call/3,4</c></seealso>,
+          <seemfa marker="#call/3"><c>call/3,4</c></seemfa>,
           this function is called for
           the specified event handler to handle the request.</p>
         <p><c>Request</c> is the <c>Request</c> argument of <c>call/3,4</c>.</p>
         <p><c>State</c> is the internal state of the event handler.</p>
         <p>The return values are the same as for
-          <seealso marker="#Module:handle_event/2">
-          <c>Module:handle_event/2</c></seealso>
+          <seemfa marker="#Module:handle_event/2">
+          <c>Module:handle_event/2</c></seemfa>
           except that they also contain a term <c>Reply</c>, which is the reply
           to the client as the return value of <c>call/3,4</c>.</p>
       </desc>
@@ -879,8 +880,8 @@ gen_event:stop             ----->  Module:terminate/2
       </type>
       <desc>
         <p>Whenever an event manager receives an event sent using
-          <seealso marker="#notify/2"><c>notify/2</c></seealso> or
-          <seealso marker="#sync_notify/2"><c>sync_notify/2</c></seealso>,
+          <seemfa marker="#notify/2"><c>notify/2</c></seemfa> or
+          <seemfa marker="#sync_notify/2"><c>sync_notify/2</c></seemfa>,
           this function is called for each installed event handler to handle
           the event.</p>
         <p><c>Event</c> is the <c>Event</c> argument of
@@ -896,8 +897,8 @@ gen_event:stop             ----->  Module:terminate/2
           <item>
             <p>If <c>{ok,NewState,hibernate}</c> is returned, the event
               manager also goes into hibernation (by calling
-              <seealso marker="proc_lib#hibernate/3">
-              <c>proc_lib:hibernate/3</c></seealso>), waiting for the next
+              <seemfa marker="proc_lib#hibernate/3">
+              <c>proc_lib:hibernate/3</c></seemfa>), waiting for the next
               event to occur. It is sufficient that one of the
               event handlers return <c>{ok,NewState,hibernate}</c> for the
               whole event manager process to hibernate.</p>
@@ -908,7 +909,7 @@ gen_event:stop             ----->  Module:terminate/2
               first calling <c>Module:terminate(Args1,NewState)</c> and then
               <c>Module2:init({Args2,Term})</c>, where <c>Term</c> is the return
               value of <c>Module:terminate/2</c>. For more information, see
-              <seealso marker="#swap_handler/3"><c>swap_handler/3</c></seealso>.
+              <seemfa marker="#swap_handler/3"><c>swap_handler/3</c></seemfa>.
             </p>
           </item>
           <item>
@@ -947,8 +948,8 @@ gen_event:stop             ----->  Module:terminate/2
           a synchronous request (or a system message).</p>
         <p><c>Info</c> is the received message.</p>
         <p>For a description of <c>State</c> and possible return values, see
-          <seealso marker="#Module:handle_event/2">
-          <c>Module:handle_event/2</c></seealso>.</p>
+          <seemfa marker="#Module:handle_event/2">
+          <c>Module:handle_event/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -965,26 +966,26 @@ gen_event:stop             ----->  Module:terminate/2
         <p>Whenever a new event handler is added to an event manager,
           this function is called to initialize the event handler.</p>
         <p>If the event handler is added because of a call to
-          <seealso marker="#add_handler/3"><c>add_handler/3</c></seealso> or
-          <seealso marker="#add_sup_handler/3">
-          <c>add_sup_handler/3</c></seealso>, <c>InitArgs</c> is
+          <seemfa marker="#add_handler/3"><c>add_handler/3</c></seemfa> or
+          <seemfa marker="#add_sup_handler/3">
+          <c>add_sup_handler/3</c></seemfa>, <c>InitArgs</c> is
           the <c>Args</c> argument of these functions.</p>
         <p>If the event handler replaces another event handler because of
           a call to
-          <seealso marker="#swap_handler/3"><c>swap_handler/3</c></seealso> or
-          <seealso marker="#swap_sup_handler/3">
-          <c>swap_sup_handler/3</c></seealso>, or because of a <c>swap</c>
+          <seemfa marker="#swap_handler/3"><c>swap_handler/3</c></seemfa> or
+          <seemfa marker="#swap_sup_handler/3">
+          <c>swap_sup_handler/3</c></seemfa>, or because of a <c>swap</c>
           return tuple from one of the other callback functions,
           <c>InitArgs</c> is a tuple <c>{Args,Term}</c>, where <c>Args</c> is
           the argument provided in the function call/return tuple and
           <c>Term</c> is the result of terminating the old event handler, see
-          <seealso marker="#swap_handler/3"><c>swap_handler/3</c></seealso>.</p>
+          <seemfa marker="#swap_handler/3"><c>swap_handler/3</c></seemfa>.</p>
         <p>If successful, the function returns <c>{ok,State}</c>
           or <c>{ok,State,hibernate}</c>, where <c>State</c> is the
           initial internal state of the event handler.</p>
         <p>If <c>{ok,State,hibernate}</c> is returned, the event
-          manager goes into hibernation (by calling <seealso
-          marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>),
+          manager goes into hibernation (by calling <seemfa
+          marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seemfa>),
           waiting for the next event to occur.</p>
       </desc>
     </func>
@@ -1005,13 +1006,13 @@ gen_event:stop             ----->  Module:terminate/2
         </note>
         <p>Whenever an event handler is deleted from an event manager,
           this function is called. It is to be the opposite of
-          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
           and do any necessary cleaning up.</p>
         <p>If the event handler is deleted because of a call to
-          <seealso marker="#delete_handler/3"><c>delete_handler/3</c></seealso>,
-          <seealso marker="#swap_handler/3"><c>swap_handler/3</c></seealso>, or
-          <seealso marker="#swap_sup_handler/3">
-          <c>swap_sup_handler/3</c></seealso>, <c>Arg</c> is
+          <seemfa marker="#delete_handler/3"><c>delete_handler/3</c></seemfa>,
+          <seemfa marker="#swap_handler/3"><c>swap_handler/3</c></seemfa>, or
+          <seemfa marker="#swap_sup_handler/3">
+          <c>swap_sup_handler/3</c></seemfa>, <c>Arg</c> is
           the <c>Args</c> argument of this function call.</p>
         <p><c>Arg={stop,Reason}</c> if the event handler has a supervised
           connection to a process that has terminated with reason
@@ -1044,7 +1045,7 @@ gen_event:stop             ----->  Module:terminate/2
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="supervisor"><c>supervisor(3)</c></seealso>,
-      <seealso marker="sys"><c>sys(3)</c></seealso></p>
+    <p><seeerl marker="supervisor"><c>supervisor(3)</c></seeerl>,
+      <seeerl marker="sys"><c>sys(3)</c></seeerl></p>
   </section>
 </erlref>

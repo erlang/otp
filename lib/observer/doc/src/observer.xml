@@ -40,11 +40,11 @@
     Erlang systems. The tool Observer displays system information, application
     supervisor trees, process information, ETS tables, Mnesia tables,
     and contains a front end for Erlang tracing with module
-    <seealso marker="ttb"><c>ttb</c></seealso>.
+    <seeerl marker="ttb"><c>ttb</c></seeerl>.
     </p>
 
     <p>For details about how to get started, see the
-    <seealso marker="observer_ug"><c>User's Guide</c></seealso>.</p>
+    <seeguide marker="observer_ug"><c>User's Guide</c></seeguide>.</p>
   </description>
   <funcs>
     <func>

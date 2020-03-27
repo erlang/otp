@@ -44,13 +44,13 @@
       </p>
     <p>Two simple implementation(s) is provided with the
       toolkit; the modules 
-      <seealso marker="snmpa_error_logger">snmpa_error_logger</seealso> 
+      <seeerl marker="snmpa_error_logger">snmpa_error_logger</seeerl> 
       which is the default and 
-      <seealso marker="snmpa_error_io">snmpa_error_io</seealso>.
+      <seeerl marker="snmpa_error_io">snmpa_error_io</seeerl>.
       </p>
     <p>The error report module is configured using the directive 
       <c>error_report_mod</c>, see
-      <seealso marker="snmp_config#configuration_params">configuration parameters</seealso>.
+      <seeguide marker="snmp_config#configuration_params">configuration parameters</seeguide>.
       </p>
 
       <marker id="config_err"></marker>

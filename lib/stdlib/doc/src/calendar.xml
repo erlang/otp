@@ -201,7 +201,7 @@
         <p>Returns tuple <c>{Year, WeekNum}</c> representing
           the ISO week number for the actual date. To determine the
           actual date, use function
-          <seealso marker="#local_time/0"><c>local_time/0</c></seealso>.</p>
+          <seemfa marker="#local_time/0"><c>local_time/0</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -241,8 +241,8 @@
           date after Jan 1, 1970.</p>
         <warning>
           <p>This function is deprecated. Use
-            <seealso marker="#local_time_to_universal_time_dst/1">
-            <c>local_time_to_universal_time_dst/1</c></seealso>
+            <seemfa marker="#local_time_to_universal_time_dst/1">
+            <c>local_time_to_universal_time_dst/1</c></seemfa>
             instead, as it gives a more correct and complete result.
             Especially for
             the period that does not exist, as it is skipped during
@@ -290,7 +290,7 @@
       <desc>
         <p>Returns Universal Coordinated Time (UTC)
           converted from the return value from
-          <seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
+          <seemfa marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -300,7 +300,7 @@
       <fsummary>Convert now to local date and time.</fsummary>
       <desc>
         <p>Returns local date and time converted from the return value from
-        <seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
+        <seemfa marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -311,7 +311,7 @@
       <desc>
         <p>Returns Universal Coordinated Time (UTC)
           converted from the return value from
-          <seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
+          <seemfa marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seemfa>.
         </p>
       </desc>
     </func>

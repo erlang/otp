@@ -63,7 +63,7 @@
     <datatype>
       <name name="atomics_ref"/>
       <desc><p>Identifies an atomic array returned from
-        <seealso marker="#new/2"><c>new/2</c></seealso>.</p>
+        <seemfa marker="#new/2"><c>new/2</c></seemfa>.</p>
       </desc>
     </datatype>
   </datatypes>

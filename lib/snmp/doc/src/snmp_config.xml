@@ -43,8 +43,8 @@
   </list>
 
   <p>Refer also to the chapter(s) 
-    <seealso marker="snmp_agent_config_files">Definition of Agent  Configuration Files</seealso> and  
-    <seealso marker="snmp_manager_config_files">Definition of Manager  Configuration Files</seealso> which contains more detailed information 
+    <seeguide marker="snmp_agent_config_files">Definition of Agent  Configuration Files</seeguide> and  
+    <seeguide marker="snmp_manager_config_files">Definition of Manager  Configuration Files</seeguide> which contains more detailed information 
     about the agent and manager configuration files.</p>
 
   <section>
@@ -56,7 +56,7 @@
       <item>
         <p>the <em>configuration directory</em> stores all
           configuration files used by the agent (refer to the chapter 
-          <seealso marker="snmp_agent_config_files">Definition of Agent Configuration Files</seealso> for more information). </p>
+          <seeguide marker="snmp_agent_config_files">Definition of Agent Configuration Files</seeguide> for more information). </p>
       </item>
       <item>the <em>database directory</em> stores the internal
        database files.</item>
@@ -67,7 +67,7 @@
       <item>
         <p>the <em>configuration directory</em> stores all
           configuration files used by the manager (refer to the chapter 
-          <seealso marker="snmp_manager_config_files">Definition of Manager  Configuration Files</seealso> for more information). </p>
+          <seeguide marker="snmp_manager_config_files">Definition of Manager  Configuration Files</seeguide> for more information). </p>
       </item>
       <item>
          <p>the <em>database directory</em> stores the internal
@@ -248,7 +248,7 @@
       <item>
         <p>Module which handles the network interface part for the
           SNMP agent. Must implement the 
-          <seealso marker="snmpa_network_interface">snmpa_network_interface</seealso> behaviour.</p>
+          <seeerl marker="snmpa_network_interface">snmpa_network_interface</seeerl> behaviour.</p>
         <p>Default is <c>snmpa_net_if</c>.</p>
       </item>
 
@@ -290,8 +290,8 @@
       <item>
 	<p>Module which handles the network interface filter part for the
 	  SNMP agent. Must implement the 
-	  <seealso marker="snmpa_network_interface_filter">snmpa_network_interface_filter
-	    </seealso> behaviour.</p>
+	  <seeerl marker="snmpa_network_interface_filter">snmpa_network_interface_filter
+	    </seeerl> behaviour.</p>
 	<p>Default is <c>snmpa_net_if_filter</c>.</p>
       </item>
 
@@ -324,7 +324,7 @@
         <c><![CDATA[mib_storage_module() = snmpa_mib_data_ets | snmpa_mib_data_dets | snmpa_mib_data_mnesia | module()]]></c></tag>
       <item>
         <p>Defines the mib storage module of the SNMP agent as defined by the 
-	<seealso marker="snmpa_mib_storage">snmpa_mib_storage</seealso> 
+	<seeerl marker="snmpa_mib_storage">snmpa_mib_storage</seeerl> 
 	behaviour. </p>
 	<p>Several entities (<c>mib-server</c> via the its data module and 
 	the <c>symbolic-store</c>) of the snmp agent uses this for storage 
@@ -495,7 +495,7 @@ in so far as it will be converted to the new format if found.
       <item>
         <p>Defines the backend data module of the SNMP agent mib-server as 
 	defined by the 
-	<seealso marker="snmpa_mib_data">snmpa_mib_data</seealso> 
+	<seeerl marker="snmpa_mib_data">snmpa_mib_data</seeerl> 
 	behaviour. </p>
 	<p>At present only the default module is provided with the agent,  
 	<c>snmpa_mib_data_tttn</c>. </p>
@@ -529,7 +529,7 @@ in so far as it will be converted to the new format if found.
       <item>
         <p>Defines if the mib server shall perform cache gc automatically or 
 	leave it to the user (see 
-	<seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
+	<seeerl marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seeerl>). </p>
 	<p>Default is <c>true</c>.</p>
       </item>
 
@@ -558,7 +558,7 @@ in so far as it will be converted to the new format if found.
         <c><![CDATA[error_report_mod() = atom() <optional>]]></c></tag>
       <item>
         <p>Defines an error report module, implementing the 
-          <seealso marker="snmpa_error_report">snmpa_error_report</seealso> 
+          <seeerl marker="snmpa_error_report">snmpa_error_report</seeerl> 
           behaviour. Two modules are provided with the toolkit: 
           <c>snmpa_error_logger</c> and <c>snmpa_error_io</c>.</p>
         <p>Default is <c>snmpa_error_logger</c>.</p>
@@ -631,9 +631,9 @@ in so far as it will be converted to the new format if found.
           The information will have a <em>best before</em> time,
           defined by the <c>Expire</c> time given when calling the
           request function (see 
-          <seealso marker="snmpm#async_get2">async_get</seealso>,
-          <seealso marker="snmpm#async_get_next2">async_get_next</seealso> and 
-          <seealso marker="snmpm#async_set2">async_set</seealso>).</p>
+          <seeerl marker="snmpm#async_get2">async_get</seeerl>,
+          <seeerl marker="snmpm#async_get_next2">async_get_next</seeerl> and 
+          <seeerl marker="snmpm#async_set2">async_set</seeerl>).</p>
         <p>Time in milli-seconds.</p>
         <p>Default is <c>30000</c>.</p>
       </item>
@@ -666,7 +666,7 @@ in so far as it will be converted to the new format if found.
 	net-if process.
 	Note that this will only work if the used net-if process actually supports
 	the protocol. See
-	<seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> behaviour for more info. </p>
+	<seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl> behaviour for more info. </p>
 	<taglist>
 	  <tag><marker id="manager_server_nis_none"></marker>
 	  <c><![CDATA[none (default)]]></c></tag>
@@ -679,12 +679,12 @@ in so far as it will be converted to the new format if found.
 	  <item>
 	    <p>The <c>PingTO</c> time specifies the between a successful ping
 	    (or start) and the time when a
-	    <seealso marker="snmp_manager_netif#im_ping">ping</seealso>
+	    <seeguide marker="snmp_manager_netif#im_ping">ping</seeguide>
 	    message is to be sent to the net-if
 	    process (basically the time between ping:s). </p>
 	    <p>The <c>PongTO</c> time specifies how long time the net-if process
 	    has to respond to a ping message, with a
-	    <seealso marker="snmp_manager_netif#om_pong">pong</seealso>
+	    <seeguide marker="snmp_manager_netif#om_pong">pong</seeguide>
 	    message.
 	    It starts counting when the ping message has been sent.</p>
 	    <p>Both times are in milli seconds.</p>
@@ -742,7 +742,7 @@ in so far as it will be converted to the new format if found.
           <item>
             <p><c>{user, integer()}</c> - The manager will send response
               (acknowledgment) to inform-request messages when the 
-              <seealso marker="snmpm_user#handle_inform">handle_inform</seealso> 
+              <seeerl marker="snmpm_user#handle_inform">handle_inform</seeerl> 
               function completes. The integer is the time, in milli-seconds, 
               that the manager will consider the stored inform-request info 
               valid.</p>
@@ -753,9 +753,9 @@ in so far as it will be converted to the new format if found.
           </item>
         </list>
         <p>See 
-          <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso>, 
-          <seealso marker="snmpm_user">handle_inform</seealso> and 
-          <seealso marker="snmp_manager_netif">definition of the manager net if</seealso> for more info.</p>
+          <seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl>, 
+          <seeerl marker="snmpm_user">handle_inform</seeerl> and 
+          <seeguide marker="snmp_manager_netif">definition of the manager net if</seeguide> for more info.</p>
         <p>Default is <c>auto</c>.</p>
       </item>
 
@@ -798,7 +798,7 @@ in so far as it will be converted to the new format if found.
       <item>
         <p>The module which handles the network interface part for the
 	SNMP manager. It must implement the 
-	<seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> behaviour. </p>
+	<seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl> behaviour. </p>
         <p>Default is <c>snmpm_net_if</c>. </p>
       </item>
 
@@ -818,7 +818,7 @@ in so far as it will be converted to the new format if found.
       <item>
 	<p>Module which handles the network interface filter part for the
 	  SNMP manager. Must implement the 
-	  <seealso marker="snmpm_network_interface_filter">snmpm_network_interface_filter</seealso> behaviour.</p>
+	  <seeerl marker="snmpm_network_interface_filter">snmpm_network_interface_filter</seeerl> behaviour.</p>
 	<p>Default is <c>snmpm_net_if_filter</c>.</p>
       </item>
 
@@ -826,7 +826,7 @@ in so far as it will be converted to the new format if found.
         <c><![CDATA[def_user_module() = atom() <optional>]]></c></tag>
       <item>
         <p>The module implementing the default user. See the 
-          <seealso marker="snmpm_user">snmpm_user</seealso> behaviour.</p>
+          <seeerl marker="snmpm_user">snmpm_user</seeerl> behaviour.</p>
         <p>Default is <c>snmpm_user_default</c>.</p>
       </item>
 
@@ -845,7 +845,7 @@ in so far as it will be converted to the new format if found.
       <tag><marker id="restart_type"></marker>
         <c>restart_type() = permanent | transient | temporary</c></tag>
       <item>
-        <p>See <seealso marker="stdlib:supervisor#child_spec">supervisor</seealso> 
+        <p>See <seeerl marker="stdlib:supervisor#child_spec">supervisor</seeerl> 
           documentation for more info.</p>
         <p>Default is <c>permanent</c> for the agent and <c>transient</c>
           for the manager.</p>
@@ -1224,7 +1224,7 @@ ok
       application). This is done by calling the 
       <c>snmpa:verbosity/2</c> and <c>snmpm:verbosity/2</c> function(s) 
       and/or using 
-      <seealso marker="#configuration_params">configuration parameters</seealso>.
+      <seeguide marker="#configuration_params">configuration parameters</seeguide>.
       The verbosity itself has several <em>levels</em>: <c>silence | info |  log | debug | trace</c>. For the lowest verbosity <c>silence</c>, 
       nothing is printed. The higher the verbosity, the more is printed.
       Default value is always <c>silence</c>.</p>
@@ -1265,37 +1265,37 @@ ok
     <taglist>
       <tag><c><![CDATA[snmpa:info/0,1]]></c></tag>
       <item>
-        <p><seealso marker="snmpa#info">info</seealso> is used to retrieve a list of miscellaneous agent information.</p>
+        <p><seeerl marker="snmpa#info">info</seeerl> is used to retrieve a list of miscellaneous agent information.</p>
       </item>
 
       <tag><c><![CDATA[snmpa:which_aliasnames/0]]></c></tag>
       <item>
-        <p><seealso marker="snmpa#which_aliasnames">which_aliasnames</seealso> is used to retrieve a list of all alias-names known to the agent. </p>
+        <p><seeerl marker="snmpa#which_aliasnames">which_aliasnames</seeerl> is used to retrieve a list of all alias-names known to the agent. </p>
       </item>
 
       <tag><c><![CDATA[snmpa:which_tables/0]]></c></tag>
       <item>
-        <p><seealso marker="snmpa#which_tables">which_tables</seealso> is used to retrieve a list of all (MIB) tables known to the agent. </p>
+        <p><seeerl marker="snmpa#which_tables">which_tables</seeerl> is used to retrieve a list of all (MIB) tables known to the agent. </p>
       </item>
 
       <tag><c><![CDATA[snmpa:which_variables/0]]></c></tag>
       <item>
-        <p><seealso marker="snmpa#which_variables">which_variables</seealso> is used to retrieve a list of all (MIB) variables known to the agent. </p>
+        <p><seeerl marker="snmpa#which_variables">which_variables</seeerl> is used to retrieve a list of all (MIB) variables known to the agent. </p>
       </item>
 
       <tag><c><![CDATA[snmpa:which_notifications/0]]></c></tag>
       <item>
-        <p><seealso marker="snmpa#which_notifications">which_notifications</seealso> is used to retrieve a list of all (MIB) notifications/traps known to the agent. </p>
+        <p><seeerl marker="snmpa#which_notifications">which_notifications</seeerl> is used to retrieve a list of all (MIB) notifications/traps known to the agent. </p>
       </item>
 
       <tag><c><![CDATA[snmpa:restart_worker/0,1]]></c></tag>
       <item>
-        <p><seealso marker="snmpa#restart_worker">restart_worker</seealso> is used to restart the worker process of a multi-threaded agent. </p>
+        <p><seeerl marker="snmpa#restart_worker">restart_worker</seeerl> is used to restart the worker process of a multi-threaded agent. </p>
       </item>
 
       <tag><c><![CDATA[snmpa:restart_set_worker/0,1]]></c></tag>
       <item>
-        <p><seealso marker="snmpa#restart_set_worker">restart_set_worker</seealso> is used to restart the set-worker process of a multi-threaded agent. </p>
+        <p><seeerl marker="snmpa#restart_set_worker">restart_set_worker</seeerl> is used to restart the set-worker process of a multi-threaded agent. </p>
       </item>
 
       <tag><c><![CDATA[snmpa_local_db:print/0,1,2]]></c></tag>
@@ -1310,10 +1310,10 @@ ok
     This can be done by simply calling: </p>
     <p><c><![CDATA[snmpa:print_mib_info()]]></c></p>
     <p>See 
-    <seealso marker="snmpa#print_mib_info">print_mib_info/0</seealso>, 
-    <seealso marker="snmpa#print_mib_tables">print_mib_tables/0</seealso>
+    <seeerl marker="snmpa#print_mib_info">print_mib_info/0</seeerl>, 
+    <seeerl marker="snmpa#print_mib_tables">print_mib_tables/0</seeerl>
     or
-    <seealso marker="snmpa#print_mib_variables">print_mib_variables/0</seealso> 
+    <seeerl marker="snmpa#print_mib_variables">print_mib_variables/0</seeerl> 
     for more info. </p>
       
   </section>

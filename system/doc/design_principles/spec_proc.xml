@@ -45,7 +45,7 @@
     <p>The <c>sys</c> module has functions for simple debugging of
     processes implemented using behaviours. The <c>code_lock</c>
     example from
-    <seealso marker="statem#Example">gen_statem Behaviour</seealso>
+    <seeguide marker="statem#Example">gen_statem Behaviour</seeguide>
     is used to illustrate this:</p>
     <pre>
 Erlang/OTP 20 [DEVELOPMENT] [erts-9.0] [source-5ace45e] [64-bit] [smp:8:8] [ds:8:8:10] [async-threads:10] [hipe] [kernel-poll:false]
@@ -113,9 +113,9 @@ ok
       <item>Be started in a way that makes the process fit into a
       supervision tree</item>
       <item>Support the <c>sys</c>
-      <seealso marker="#debug">debug facilities</seealso></item>
+      <seeguide marker="#debug">debug facilities</seeguide></item>
       <item>Take care of
-      <seealso marker="#msg">system messages</seealso>.</item>
+      <seeguide marker="#msg">system messages</seeguide>.</item>
     </list>
     <p>System messages are messages with a special meaning, used in
       the supervision tree. Typical system messages are requests for
@@ -126,7 +126,7 @@ ok
     <section>
       <title>Example</title>
       <p>The simple server from
-      <seealso marker="des_princ#ch1">Overview</seealso>,
+      <seeguide marker="des_princ#ch1">Overview</seeguide>,
       implemented using <c>sys</c> and <c>proc_lib</c> so it fits into a
       supervision tree:</p>
       <marker id="ex"></marker>
@@ -445,8 +445,8 @@ loop(...) ->
 -callback NameM(ArgM_1, ArgM_2, ..., ArgM_NM) -> ResM.</code>
     <p><c>NameX</c> are the names of the expected callbacks.
       <c>ArgX_Y</c> and <c>ResX</c> are types as they are described in
-      <seealso marker="../reference_manual/typespec">Types and
-      Function Specifications</seealso>. The whole syntax of the <c>-spec</c>
+      <seeguide marker="system/reference_manual:typespec">Types and
+      Function Specifications</seeguide>. The whole syntax of the <c>-spec</c>
       attribute is supported by the <c>-callback</c> attribute.</p>
     <p>Callback functions that are optional for the user of the
       behaviour to implement are specified by use of the

@@ -39,7 +39,7 @@
 
     <p>Forces a newline. The <c><![CDATA[<br>]]></c> tag is both a
       block- and an inline tag and is described in
-      the <seealso marker="block_tags#brTAG">Block Tags</seealso>
+      the <seeguide marker="block_tags#brTAG">Block Tags</seeguide>
       section.</p>
   </section>
 
@@ -49,9 +49,9 @@
 
     <p>Highlights things like variables and file names in a text flow.
       Can contain plain text only. Newlines and tabs are ignored as
-      opposed to the <seealso marker="block_tags#codeTAG">code</seealso>
-      tag. All <seealso marker="character_entities">character
-	entities</seealso> are expanded. Example:</p>
+      opposed to the <seeguide marker="block_tags#codeTAG">code</seeguide>
+      tag. All <seeguide marker="character_entities">character
+	entities</seeguide> are expanded. Example:</p>
     <pre>
 &lt;p>Returns &lt;c>true&lt;/c> if &lt;c>Term&lt;/c> is an integer.&lt;/p>
     </pre>
@@ -72,7 +72,7 @@
     <p>The application <em>must</em> be up and running.</p>
 
     <p>Contains plain text or a
-      <seealso marker="#cTAG">&lt;c&gt;</seealso> tag.</p>
+      <seeguide marker="#cTAG">&lt;c&gt;</seeguide> tag.</p>
   </section>
 
   <section>
@@ -86,77 +86,104 @@
 &lt;marker id="marker_example"/&gt;
     </pre>
   
-    <p>The <seealso marker="#seealsoTAG">&lt;seealso&gt;</seealso> tag
-      is used to refer to the marker.</p>
+    <p>The <seeguide marker="#seeTAG">&lt;see*&gt;</seeguide> tags
+      are used to refer to the marker.</p>
 
     <p>The <c><![CDATA[<marker>]]></c> tag is both a block- and an
       inline tag.</p>
   </section>
 
-  <!-- section>
-    <marker id="pathTAG"></marker>
-    <title>&lt;path&gt; - Path</title>
-
-    <p>Highlights file paths. The attributes <c>unix</c> and
-      <c>windows</c> makes it possible to specify different paths for
-      different file path notations. Default for both are "".
-      Example:</p>
-    <pre>
-&lt;p>Look at the &lt;path unix=".profile" windows="win.ini"&gt;start-up file&lt;/path&gt;
-  if you intend to alter the initial behavior.&lt;/p>
-    </pre>
-    <p>If no <c>ptype</c> option is specified when calling
-      <seealso marker="docb_transform#file/1">docb_transform:file/1,2</seealso>,
-      this simply results in:</p>
-    <p>"Look at the <path>start-up file</path>
-      if you intend to alter the initial behavior."</p>
-
-    <p>If both the options <c>{ptype,unix}</c> and
-      <c>{ptype,windows}</c> are specified, the example instead results
-      in:</p>
-    <p>"Look at the <path unix=".profile" windows="win.ini">start-up file</path>
-      if you intend to alter the initial behavior."</p>
-  </section -->
-
   <section>
-    <marker id="seealsoTAG"></marker>
-    <title>&lt;seealso&gt; - Local Cross Reference</title>
-
+    <marker id="seeTAG"/>
+    <title>&lt;see*&gt; - See tags</title>
     <p>A cross reference (hypertext link) to a marker in the same file,
       a marker in another file, or (the top of) another file, given by
-      the <c>marker</c> attribute. Must contain plain text. Examples:
-      </p>
-
-    <pre><![CDATA[
-      <seealso marker="#marker_example">marker example</seealso>
-    ]]></pre>
-    <p>results in:
-      <seealso marker="#marker_example">marker example</seealso>
-      (a hypertext link to the marker example above).</p>
-
-    <pre><![CDATA[
-      <seealso marker="block_tags#markerTAG">marker tag</seealso>
-    ]]></pre>
-    <p>results in:
-      <seealso marker="block_tags#markerTAG">marker tag</seealso>
-      (a hypertext link to the marker section in the Block Tags
-      chapter).</p>
-    
-    <pre><![CDATA[
-      <seealso marker="overview">Overview</seealso>
-    ]]></pre>
-    <p>results in:
-      <seealso marker="overview">Overview</seealso>
-      (a hypertext link to the Overview chapter).</p>
-
-    <p>Note the use of "#" before the name of the marker. Note also
-      that the filename extension <c>.html</c> is omitted. This is
-      because the default behavior is to translate
-      <c><![CDATA[<seealso marker="File#Marker">text</seealso>]]></c>
-      to <c><![CDATA[<A HREF="File.html#Marker">text</A>]]></c>.</p>
-
+      the <c>marker</c> attribute. The syntax used within the <c>marker</c>
+      attribute is <c>application:file#anchor</c> for the general case.
+      <c>application</c> and <c>file</c> can be omitted if the link target
+      is the current application or file.</p>
+    <p>There are several different see tags that are to be used depending on
+      what it is that they point to.</p>
+    <taglist>
+      <tag>&lt;seemfa&gt;</tag>
+      <item>
+        <p>Points to an MFA using the syntax <c>application:module#function/arity</c>.
+        These links must point to functions documented in a &lt;funcs&gt; section.
+          Examples:</p>
+        <pre><![CDATA[
+<seemfa marker="stdlib:string#length/1">string:length/1</seemfa>
+<seemfa marker="string#length/1">string:length/1</seemfa>
+<seemfa marker="#length/1">string:length/1</seemfa>
+]]></pre>
+        results in: <seemfa marker="stdlib:string#length/1">string:length/1</seemfa>.
+      </item>
+      <tag>&lt;seeerl&gt;</tag>
+      <item>
+        <p>Points to an Erlang module or a custom <seeguide marker="#markerTAG">marker</seeguide>
+          within a module. Example:</p>
+        <pre><![CDATA[
+<seeerl marker="stdlib:string">string(3)</seemfa>,
+<seeerl marker="stdlib:string#oldapi">Old API in string</seemfa>
+]]></pre>
+        results in: <seeerl marker="stdlib:string">string(3)</seeerl>,<seeerl marker="stdlib:string#oldapi">Old API in string</seeerl>.
+      </item>
+      <tag>&lt;seetype&gt;</tag>
+      <item>
+        <p>Points to a type using the syntax <c>application:module#type</c>.
+        These links must point to types documented in a &lt;datatypes&gt; section.
+        Example:</p>
+        <pre><![CDATA[
+<seetype marker="stdlib:string#oldapi">string::grapheme_cluster()</seetype>
+]]></pre>
+        results in: <seetype marker="stdlib:string#grapheme_cluster">string::grapheme_cluster()</seetype>.
+      </item>
+      <tag>&lt;seeapp&gt;</tag>
+      <item><p>Points to the application documentation. <c>index</c> can be used as the target file.
+        Example:</p>
+        <pre><![CDATA[
+<seeapp marker="stdlib:STDLIB_app">STDLIB app</seeapp>,
+<seeapp marker="stdlib:index">STDLIB index</seeapp>
+]]></pre>
+        results in: <seeapp marker="stdlib:STDLIB_app">STDLIB</seeapp>, <seeapp marker="stdlib:index">STDLIB</seeapp>.
+      </item>
+      <tag>&lt;seecom&gt;</tag>
+      <item>
+        <p>Points to the documentation of any command line utility. Example:</p>
+        <pre><![CDATA[
+<seecom marker="erts:epmd">epmd</seecom>
+]]></pre>
+        results in: <seecom marker="erts:epmd">epmd</seecom>.
+      </item>
+      <tag>&lt;seecref&gt;</tag>
+      <item>
+        <p>Points to the documentation of any C reference. Example:</p>
+      <pre><![CDATA[
+<seecref marker="erts:erl_nif">erl_nif</seecref>
+]]></pre>
+        results in: <seecref marker="erts:erl_nif">erl_nif</seecref>.
+      </item>
+      <tag>&lt;seefile&gt;</tag>
+      <item>
+        <p>Points to the documentation of a file format. Example:</p>
+        <pre><![CDATA[
+<seefile marker="kernel:config">config(3)</seefile>
+]]></pre>
+        results in: <seefile marker="kernel:config">config(3)</seefile>.
+      </item>
+      <tag>&lt;seeguide&gt;</tag>
+      <item>
+        <p>Points to the User&quot;s Guide of any application.
+          <c>index</c> can be used as the target file. Example:</p>
+          <pre><![CDATA[
+<seeguide marker="kernel:index">Kernel User's Guide Index</seeguide>,
+<seeguide marker="kernel:logger_chapter">Logging in the Kernel User's Guide</seeguide>
+]]></pre>
+        results in: <seeguide marker="kernel:index">Kernel User's Guide Index</seeguide>,
+        <seeguide marker="kernel:logger_chapter">Logging in the Kernel User's Guide</seeguide>.
+      </item>
+    </taglist>
   </section>
-    
+
   <section>
     <marker id="urlTAG"></marker>
     <title>&lt;url&gt; - Non-Local Cross Reference</title>

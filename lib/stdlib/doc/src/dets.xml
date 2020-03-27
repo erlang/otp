@@ -84,7 +84,7 @@
       is important to realize that a single look-up operation involves a
       series of disk seek and read operations. The Dets functions
       are therefore much slower than the corresponding
-      <seealso marker="ets"><c>ets(3)</c></seealso> functions,
+      <seeerl marker="ets"><c>ets(3)</c></seeerl> functions,
       although Dets exports a similar interface.</p>
 
     <p>Dets organizes data as a linear hash list and the hash list
@@ -107,8 +107,8 @@
       ordered disk-based term storage.</p>
 
     <p>All Dets functions return <c>{error, Reason}</c> if an error
-      occurs (<seealso marker="#first/1"><c>first/1</c></seealso> and
-      <seealso marker="#next/2"><c>next/2</c></seealso> are exceptions, they
+      occurs (<seemfa marker="#first/1"><c>first/1</c></seemfa> and
+      <seemfa marker="#next/2"><c>next/2</c></seemfa> are exceptions, they
       exit the process with the error tuple). If badly formed arguments are
       specified, all functions exit the process with a <c>badarg</c>
       message.</p>
@@ -124,16 +124,16 @@
     <datatype>
       <name name="bindings_cont"/>
       <desc>
-        <p>Opaque continuation used by <seealso marker="#match/1">
-          <c>match/1</c></seealso> and <seealso marker="#match/3">
-          <c>match/3</c></seealso>.</p>
+        <p>Opaque continuation used by <seemfa marker="#match/1">
+          <c>match/1</c></seemfa> and <seemfa marker="#match/3">
+          <c>match/3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="cont"/>
       <desc>
-        <p>Opaque continuation used by <seealso marker="#bchunk/2">
-          <c>bchunk/2</c></seealso>.</p>
+        <p>Opaque continuation used by <seemfa marker="#bchunk/2">
+          <c>bchunk/2</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -143,9 +143,9 @@
       <name name="match_spec"/>
       <desc>
         <p>Match specifications, see section
-          <seealso marker="erts:match_spec">
-          Match Specification in Erlang</seealso> in ERTS User's Guide and the
-          <seealso marker="ms_transform"><c>ms_transform(3)</c></seealso>
+          <seeguide marker="erts:match_spec">
+          Match Specification in Erlang</seeguide> in ERTS User's Guide and the
+          <seeerl marker="ms_transform"><c>ms_transform(3)</c></seeerl>
           module.</p>
       </desc>
     </datatype>
@@ -158,24 +158,24 @@
     <datatype>
       <name name="object_cont"/>
       <desc>
-        <p>Opaque continuation used by <seealso marker="#match_object/1">
-          <c>match_object/1</c></seealso> and
-          <seealso marker="#match_object/3"><c>match_object/3</c></seealso>.</p>
+        <p>Opaque continuation used by <seemfa marker="#match_object/1">
+          <c>match_object/1</c></seemfa> and
+          <seemfa marker="#match_object/3"><c>match_object/3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="pattern"/>
       <desc>
         <p>For a description of patterns, see
-          <seealso marker="ets#match/2"><c>ets:match/2</c></seealso>.</p>
+          <seemfa marker="ets#match/2"><c>ets:match/2</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
       <name name="select_cont"/>
       <desc>
-        <p>Opaque continuation used by <seealso marker="#select/1">
-          <c>select/1</c></seealso> and <seealso marker="#select/3">
-          <c>select/3</c></seealso>.</p>
+        <p>Opaque continuation used by <seemfa marker="#select/1">
+          <c>select/1</c></seemfa> and <seemfa marker="#select/3">
+          <c>select/3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -205,7 +205,7 @@
           representation of the returned objects is not public. The
           lists of data can be used for initializing a table by specifying
           value <c>bchunk</c> to option <c>format</c> of function
-          <seealso marker="#init_table/3"><c>init_table/3</c></seealso>
+          <seemfa marker="#init_table/3"><c>init_table/3</c></seemfa>
           The Mnesia application uses this
           function for copying open tables.</p>
         <p>Unless the table is protected using <c>safe_fixtable/2</c>,
@@ -277,7 +277,7 @@
           according to the internal order of the table, or
           <c>'$end_of_table'</c> if the table is empty.</p>
         <p>Unless the table is protected using <c>safe_fixtable/2</c>,
-          subsequent calls to <seealso marker="#next/2"><c>next/2</c></seealso>
+          subsequent calls to <seemfa marker="#next/2"><c>next/2</c></seemfa>
           do possibly not work as expected if
           concurrent updates are made to the table.</p>
         <p>If an error occurs, the process is exited with an error
@@ -287,9 +287,9 @@
           are not to be used: they are not efficient, and they
           prevent the use of key <c>'$end_of_table'</c>, as this atom
           is used to indicate the end of the table. If possible, use functions
-          <seealso marker="#match/1"><c>match</c></seealso>,
-          <seealso marker="#match_object/1"><c>match_object</c></seealso>, and
-          <seealso marker="#select/1"><c>select</c></seealso>
+          <seemfa marker="#match/1"><c>match</c></seemfa>,
+          <seemfa marker="#match_object/1"><c>match_object</c></seemfa>, and
+          <seemfa marker="#select/1"><c>select</c></seemfa>
           for traversing tables.</p>
       </desc>
     </func>
@@ -333,21 +333,21 @@
             bytes.</p>
           </item>
           <item>
-            <p><c>{filename, </c><seealso marker="file#type-name">
-            <c>file:name()</c></seealso><c>}</c> - The name of the file
+            <p><c>{filename, </c><seetype marker="file#name">
+            <c>file:name()</c></seetype><c>}</c> - The name of the file
             where objects are stored.</p>
           </item>
           <item>
-            <p><c>{keypos, </c><seealso marker="#type-keypos">
-              <c>keypos()</c></seealso><c>}</c> - The key position.</p>
+            <p><c>{keypos, </c><seetype marker="#keypos">
+              <c>keypos()</c></seetype><c>}</c> - The key position.</p>
           </item>
           <item>
             <p><c>{size, integer() >= 0}</c> - The number of objects
               stored in the table.</p>
           </item>
           <item>
-            <p><c>{type, </c><seealso marker="#type-type">
-              <c>type()</c></seealso><c>}</c> - The table type.</p>
+            <p><c>{type, </c><seetype marker="#type">
+              <c>type()</c></seetype><c>}</c> - The table type.</p>
           </item>
         </list>
       </desc>
@@ -361,16 +361,16 @@
         <p>Returns the information associated with <c><anno>Item</anno></c>
           for table <c><anno>Name</anno></c>.
           In addition to the <c>{<anno>Item</anno>, <anno>Value</anno>}</c>
-          pairs defined for <seealso marker="#info/1"><c>info/1</c></seealso>,
+          pairs defined for <seemfa marker="#info/1"><c>info/1</c></seemfa>,
           the following items are allowed:</p>
         <list type="bulleted">
           <item>
-            <p><c>{access, </c><seealso marker="#type-access">
-              <c>access()</c></seealso><c>}</c> - The access mode.</p>
+            <p><c>{access, </c><seetype marker="#access">
+              <c>access()</c></seetype><c>}</c> - The access mode.</p>
           </item>
           <item>
-            <p><c>{auto_save, </c><seealso marker="#type-auto_save">
-              <c>auto_save()</c></seealso><c>}</c> - The autosave interval.</p>
+            <p><c>{auto_save, </c><seetype marker="#auto_save">
+              <c>auto_save()</c></seetype><c>}</c> - The autosave interval.</p>
           </item>
           <item>
             <p><c>{bchunk_format, binary()}</c> - An opaque binary
@@ -429,25 +429,25 @@
               There can be any number of processes in the list. If the table
               is not fixed, <c>SafeFixed</c> is the atom <c>false</c>.</p>
             <p><c>FixedAtTime</c> corresponds to the result returned by
-              <seealso marker="erts:erlang#monotonic_time/0">
-              <c>erlang:monotonic_time/0</c></seealso> at the time of fixation.
+              <seemfa marker="erts:erlang#monotonic_time/0">
+              <c>erlang:monotonic_time/0</c></seemfa> at the time of fixation.
               The use of <c>safe_fixed_monotonic_time</c> is
-              <seealso marker="erts:time_correction#Time_Warp_Safe_Code">
-              time warp safe</seealso>.</p>
+              <seeguide marker="erts:time_correction#Time_Warp_Safe_Code">
+              time warp safe</seeguide>.</p>
           </item>
           <item>
             <p><c>{safe_fixed, SafeFixed}</c> - The same as
               <c>{safe_fixed_monotonic_time, SafeFixed}</c> except
               the format and value of <c>FixedAtTime</c>.</p>
             <p><c>FixedAtTime</c> corresponds to the result returned by
-              <seealso marker="erts:erlang#timestamp/0">
-              <c>erlang:timestamp/0</c></seealso> at the time of fixation.
+              <seemfa marker="erts:erlang#timestamp/0">
+              <c>erlang:timestamp/0</c></seemfa> at the time of fixation.
               Notice that when the system uses single or multi
-              <seealso marker="erts:time_correction#Time_Warp_Modes">time warp
-              modes</seealso>, this can produce strange results. This is
+              <seeguide marker="erts:time_correction#Time_Warp_Modes">time warp
+              modes</seeguide>, this can produce strange results. This is
               because the use of <c>safe_fixed</c> is not
-              <seealso marker="erts:time_correction#Time_Warp_Safe_Code">
-              time warp safe</seealso>. Time warp safe code must use
+              <seeguide marker="erts:time_correction#Time_Warp_Safe_Code">
+              time warp safe</seeguide>. Time warp safe code must use
               <c>safe_fixed_monotonic_time</c> instead.</p>
           </item>
         </list>
@@ -508,7 +508,7 @@
               <c><anno>InitFun</anno></c> is assumed to return a list of tuples.
               If <c>Format</c> is <c>bchunk</c>, <c><anno>InitFun</anno></c> is
               assumed to return <c><anno>Data</anno></c> as returned by
-              <seealso marker="#bchunk/2"><c>bchunk/2</c></seealso>.
+              <seemfa marker="#bchunk/2"><c>bchunk/2</c></seemfa>.
               This option overrides option <c>min_no_slots</c>.</p>
           </item>
         </list>
@@ -544,9 +544,9 @@
       <desc>
         <p>Returns <c>true</c> if it would be possible to initialize
           table <c><anno>Name</anno></c>, using
-          <seealso marker="#init_table/3"><c>init_table/3</c></seealso> with
+          <seemfa marker="#init_table/3"><c>init_table/3</c></seemfa> with
           option <c>{format,&nbsp;bchunk}</c>,  with objects read with
-          <seealso marker="#bchunk/2"><c>bchunk/2</c></seealso> from some
+          <seemfa marker="#bchunk/2"><c>bchunk/2</c></seemfa> from some
           table <c>T</c>, such that calling
           <c>info(T,&nbsp;bchunk_format)</c> returns
           <c>BchunkFormat</c>.</p>
@@ -613,7 +613,7 @@ ok
         <p>Returns for each object of table <c><anno>Name</anno></c> that
           matches <c><anno>Pattern</anno></c> a list of bindings in some
           unspecified order. For a description of patterns, see
-          <seealso marker="ets#match/2"><c>ets:match/2</c></seealso>.
+          <seemfa marker="ets#match/2"><c>ets:match/2</c></seemfa>.
           If the keypos'th element of
           <c><anno>Pattern</anno></c> is unbound, all table objects are
           matched. If the keypos'th element is bound, only the
@@ -630,12 +630,12 @@ ok
           returns a non-empty list of the bindings that match
           <c><anno>Pattern</anno></c> in some unspecified order.
           For a description of patterns, see
-          <seealso marker="ets#match/2"><c>ets:match/2</c></seealso>.</p>
+          <seemfa marker="ets#match/2"><c>ets:match/2</c></seemfa>.</p>
         <p>A tuple of the bindings and a continuation is returned,
           unless the table is empty, in which case
           <c>'$end_of_table'</c> is returned. The continuation is to be
           used when matching further objects by calling
-          <seealso marker="#match/1"><c>match/1</c></seealso>.</p>
+          <seemfa marker="#match/1"><c>match/1</c></seemfa>.</p>
         <p>If the keypos'th element of <c><anno>Pattern</anno></c> is bound,
           all table objects are matched. If the keypos'th element is
           unbound, all table objects are matched, <c><anno>N</anno></c>
@@ -647,7 +647,7 @@ ok
           same key are always matched at the same time, which implies that
           more than <anno>N</anno> objects can sometimes be matched.</p>
         <p>The table is always to be protected using
-          <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+          <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>
           before calling <c>match/3</c>, otherwise
           errors can occur when calling <c>match/1</c>.</p>
       </desc>
@@ -660,7 +660,7 @@ ok
       <desc>
         <p>Deletes all objects that match <c><anno>Pattern</anno></c> from
           table <c><anno>Name</anno></c>. For a description of patterns,
-          see <seealso marker="ets#match/2"><c>ets:match/2</c></seealso>.</p>
+          see <seemfa marker="ets#match/2"><c>ets:match/2</c></seemfa>.</p>
         <p>If the keypos'th element of <c>Pattern</c> is bound,
           only the objects with the correct key are matched.</p>
       </desc>
@@ -690,7 +690,7 @@ ok
         <p>Returns a list of all objects of table <c><anno>Name</anno></c> that
           match <c><anno>Pattern</anno></c> in some unspecified order.
           For a description of patterns, see
-          <seealso marker="ets#match/2"><c>ets:match/2</c></seealso>.</p>
+          <seemfa marker="ets#match/2"><c>ets:match/2</c></seemfa>.</p>
         <p>If the keypos'th element of <c><anno>Pattern</anno></c> is
           unbound, all table objects are matched. If the
           keypos'th element of <c><anno>Pattern</anno></c> is bound, only the
@@ -710,12 +710,12 @@ ok
           and returns a non-empty list of the objects that match
           <c><anno>Pattern</anno></c> in some unspecified order.
           For a description of patterns, see
-          <seealso marker="ets#match/2"><c>ets:match/2</c></seealso>.</p>
+          <seemfa marker="ets#match/2"><c>ets:match/2</c></seemfa>.</p>
         <p>A list of objects and a continuation is returned, unless
           the table is empty, in which case <c>'$end_of_table'</c>
           is returned. The continuation is to be used when matching
           further objects by calling
-          <seealso marker="#match_object/1"><c>match_object/1</c></seealso>.</p>
+          <seemfa marker="#match_object/1"><c>match_object/1</c></seemfa>.</p>
         <p>If the keypos'th element of <c><anno>Pattern</anno></c> is bound,
           all table objects are matched. If the keypos'th element is
           unbound, all table objects are matched, <c><anno>N</anno></c>
@@ -728,7 +728,7 @@ ok
 	  in the same reply, which implies
           that more than <anno>N</anno> objects can sometimes be returned.</p>
         <p>The table is always to be protected using
-          <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+          <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>
           before calling <c>match_object/3</c>, otherwise
           errors can occur when calling <c>match_object/1</c>.</p>
       </desc>
@@ -738,7 +738,7 @@ ok
       <name name="member" arity="2" since=""/>
       <fsummary>Test for occurrence of a key in a Dets table.</fsummary>
       <desc>
-        <p>Works like <seealso marker="#lookup/2"><c>lookup/2</c></seealso>,
+        <p>Works like <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>,
           but does not return the objects. Returns <c>true</c> if one or more
           table elements has key <c><anno>Key</anno></c>, otherwise
           <c>false</c>.</p>
@@ -755,7 +755,7 @@ ok
         <p>If an error occurs, the process is exited with an error
           tuple <c>{error, Reason}</c>.</p>
         <p>To find the first key in the table, use
-          <seealso marker="#first/1"><c>first/1</c></seealso>.</p>
+          <seemfa marker="#first/1"><c>first/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -787,16 +787,16 @@ ok
           tuples, where the following values are allowed:</p>
         <list type="bulleted">
           <item>
-            <p><c>{access, </c><seealso marker="#type-access">
-              <c>access()</c></seealso><c>}</c> - Existing tables can be
+            <p><c>{access, </c><seetype marker="#access">
+              <c>access()</c></seetype><c>}</c> - Existing tables can be
               opened in read-only mode. A table that is opened
               in read-only mode is not subjected to the automatic file
               reparation algorithm if it is later opened after a crash.
               Defaults to <c>read_write</c>.</p>
           </item>
           <item>
-            <p><c>{auto_save, </c><seealso marker="#type-auto_save">
-              <c>auto_save()</c></seealso><c>}</c> - The autosave
+            <p><c>{auto_save, </c><seetype marker="#auto_save">
+              <c>auto_save()</c></seetype><c>}</c> - The autosave
               interval. If the interval is an integer <c>Time</c>, the
               table is flushed to disk whenever it is not accessed for
               <c>Time</c> milliseconds. A table that has been flushed
@@ -806,18 +806,18 @@ ok
               180000 (3 minutes).</p>
           </item>
           <item>
-            <p><c>{estimated_no_objects, </c><seealso marker="#type-no_slots">
-              <c>no_slots()</c></seealso><c>}</c> - Equivalent to option
+            <p><c>{estimated_no_objects, </c><seetype marker="#no_slots">
+              <c>no_slots()</c></seetype><c>}</c> - Equivalent to option
               <c>min_no_slots</c>.</p>
           </item>
           <item>
-            <p><c>{file, </c><seealso marker="file#type-name">
-              <c>file:name()</c></seealso><c>}</c> - The name of the file to be
+            <p><c>{file, </c><seetype marker="file#name">
+              <c>file:name()</c></seetype><c>}</c> - The name of the file to be
               opened. Defaults to the table name.</p>
           </item>
           <item>
-            <p><c>{max_no_slots, </c><seealso marker="#type-no_slots">
-              <c>no_slots()</c></seealso><c>}</c> - The maximum number
+            <p><c>{max_no_slots, </c><seetype marker="#no_slots">
+              <c>no_slots()</c></seetype><c>}</c> - The maximum number
               of slots to be used. Defaults to 32 M, which is the
               maximal value. Notice that a higher value can
               increase the table fragmentation, and
@@ -825,16 +825,16 @@ ok
               the expense of execution time.</p>
           </item>
           <item>
-            <p><c>{min_no_slots, </c><seealso marker="#type-no_slots">
-              <c>no_slots()</c></seealso><c>}</c> - Application
+            <p><c>{min_no_slots, </c><seetype marker="#no_slots">
+              <c>no_slots()</c></seetype><c>}</c> - Application
               performance can be enhanced with this flag by specifying,
               when the table is created, the estimated number of
               different keys to be stored in the table. Defaults to 256,
               which is the minimum value.</p>
           </item>
           <item>
-            <p><c>{keypos, </c><seealso marker="#type-keypos">
-              <c>keypos()</c></seealso><c>}</c> - The position of the
+            <p><c>{keypos, </c><seetype marker="#keypos">
+              <c>keypos()</c></seetype><c>}</c> - The position of the
               element of each object to be used as key. Defaults to 1.
               The ability to explicitly state the key
               position is most convenient when we want to store Erlang
@@ -863,8 +863,8 @@ ok
             <p>Option <c>repair</c> is ignored if the table is already open.</p>
           </item>
           <item>
-            <p><c>{type, </c><seealso marker="#type-type">
-              <c>type()</c></seealso><c>}</c> - The table type. Defaults to
+            <p><c>{type, </c><seetype marker="#type">
+              <c>type()</c></seetype><c>}</c> - The table type. Defaults to
               <c>set</c>.</p>
           </item>
         </list>
@@ -889,8 +889,8 @@ ok
       <desc>
         <p>This function can be used to restore an opaque continuation
           returned by
-          <seealso marker="#select/3"><c>select/3</c></seealso> or
-          <seealso marker="#select/1"><c>select/1</c></seealso> if the
+          <seemfa marker="#select/3"><c>select/3</c></seemfa> or
+          <seemfa marker="#select/1"><c>select/1</c></seemfa> if the
           continuation has passed through external term format (been
           sent between nodes or stored on disk).</p>
         <p>The reason for this function is that continuation terms
@@ -901,7 +901,7 @@ ok
           used in subsequent <c>select/1</c> calls even though it has
           been stored on disk or on another node.</p>
         <p>For more information and examples, see the
-          <seealso marker="ets"><c>ets(3)</c></seealso> module.</p>
+          <seeerl marker="ets"><c>ets(3)</c></seeerl> module.</p>
         <note>
           <p>This function is rarely needed in application code. It is used by
             application Mnesia to provide distributed <c>select/3</c>
@@ -933,7 +933,7 @@ ok
           <c>next/2</c>, or select and match functions work as expected
           even if the table is fixed; the limited support for
           concurrency provided by the
-          <seealso marker="ets"><c>ets(3)</c></seealso> module is not yet
+          <seeerl marker="ets"><c>ets(3)</c></seeerl> module is not yet
           provided by Dets.
           Fixing a table currently only disables resizing of
           the hash list of the table.</p>
@@ -954,8 +954,8 @@ ok
           table, the match specification, and the number of objects
           that are matched are all defined by <c><anno>Continuation</anno></c>,
           which is returned by a previous call to
-          <seealso marker="#select/1"><c>select/1</c></seealso> or
-          <seealso marker="#select/3"><c>select/3</c></seealso>.</p>
+          <seemfa marker="#select/1"><c>select/1</c></seemfa> or
+          <seemfa marker="#select/3"><c>select/3</c></seemfa>.</p>
         <p>When all objects of the table have been matched,
           <c>'$end_of_table'</c> is returned.</p>
       </desc>
@@ -970,7 +970,7 @@ ok
           <c><anno>MatchSpec</anno></c> to all or some objects stored in table
           <c><anno>Name</anno></c>. The order of the objects is not specified.
           For a description of match specifications, see the
-          <seealso marker="erts:match_spec">ERTS User's Guide</seealso>.</p>
+          <seeguide marker="erts:match_spec">ERTS User's Guide</seeguide>.</p>
         <p>If the keypos'th element of <c><anno>MatchSpec</anno></c> is
           unbound, the match specification is applied to all objects of
           the table. If the keypos'th element is bound, the match
@@ -992,12 +992,12 @@ ok
           <c><anno>MatchSpec</anno></c> to some or all objects stored in table
           <c><anno>Name</anno></c>. The order of the objects is not specified.
           For a description of match specifications, see the
-          <seealso marker="erts:match_spec">ERTS User's Guide</seealso>.</p>
+          <seeguide marker="erts:match_spec">ERTS User's Guide</seeguide>.</p>
         <p>A tuple of the results of applying the match specification
           and a continuation is returned, unless the table is empty,
           in which case <c>'$end_of_table'</c> is returned. The
           continuation is to be used when matching more objects by calling
-          <seealso marker="#select/1"><c>select/1</c></seealso>.</p>
+          <seemfa marker="#select/1"><c>select/1</c></seemfa>.</p>
         <p>If the keypos'th element of <c><anno>MatchSpec</anno></c> is bound,
           the  match specification is applied to all objects of the table
           with the correct key(s). If the keypos'th element of
@@ -1012,7 +1012,7 @@ ok
           match specification can be applied to more than <anno>N</anno>
           objects.</p>
         <p>The table is always to be protected using
-          <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+          <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>
           before calling <c>select/3</c>, otherwise
           errors can occur when calling <c>select/1</c>.</p>
       </desc>
@@ -1027,7 +1027,7 @@ ok
           applying match specification <c><anno>MatchSpec</anno></c> to the
           object returns value <c>true</c>.
           For a description of match specifications, see the
-          <seealso marker="erts:match_spec">ERTS User's Guide</seealso>.
+          <seeguide marker="erts:match_spec">ERTS User's Guide</seeguide>.
           Returns the number of deleted objects.</p>
         <p>If the keypos'th element of <c><anno>MatchSpec</anno></c> is
           bound, the match specification is applied to the objects
@@ -1070,16 +1070,16 @@ ok
       <desc>
         <p>Returns a Query List
           Comprehension (QLC) query handle. The
-          <seealso marker="qlc"><c>qlc(3)</c></seealso> module
+          <seeerl marker="qlc"><c>qlc(3)</c></seeerl> module
           provides a query language aimed mainly for Mnesia, but
           ETS tables, Dets tables, and lists are also recognized
           by <c>qlc</c> as sources of data. Calling
-          <seealso marker="dets#table/1"><c>dets:table/1,2</c></seealso> is the
+          <seemfa marker="dets#table/1"><c>dets:table/1,2</c></seemfa> is the
           means to make Dets table <c><anno>Name</anno></c> usable to
           <c>qlc</c>.</p>
         <p>When there are only simple restrictions on the key position,
           <c>qlc</c> uses
-          <seealso marker="dets#lookup/2"><c>dets:lookup/2</c></seealso>
+          <seemfa marker="dets#lookup/2"><c>dets:lookup/2</c></seemfa>
           to look up the keys. When
           that is not possible, the whole table is traversed.
           Option <c>traverse</c> determines how this is done:</p>
@@ -1090,8 +1090,8 @@ ok
           </item>
           <item>
             <p><c>select</c> - The table is traversed by calling
-              <seealso marker="dets#select/3"><c>dets:select/3</c></seealso> and
-              <seealso marker="dets#select/1"><c>dets:select/1</c></seealso>.
+              <seemfa marker="dets#select/3"><c>dets:select/3</c></seemfa> and
+              <seemfa marker="dets#select/1"><c>dets:select/1</c></seemfa>.
               Option <c>n_objects</c> determines the number of objects
               returned (the third argument of <c>select/3</c>). The
               match specification (the second argument of
@@ -1109,8 +1109,8 @@ ok
             </list>
           </item>
           <item>
-            <p><c>{select, </c><seealso marker="#type-match_spec">
-              match_spec()</seealso><c>}</c> - As for <c>select</c>,
+            <p><c>{select, </c><seetype marker="#match_spec">
+              match_spec()</seetype><c>}</c> - As for <c>select</c>,
               the table is traversed by calling <c>dets:select/3</c>
               and <c>dets:select/1</c>. The difference is that the
               match specification is specified explicitly. This is how to
@@ -1213,9 +1213,9 @@ fun(X) -> {continue, X} end.</pre>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="ets"><c>ets(3)</c></seealso>,
-      <seealso marker="mnesia:mnesia"><c>mnesia(3)</c></seealso>,
-      <seealso marker="qlc"><c>qlc(3)</c></seealso></p>
+    <p><seeerl marker="ets"><c>ets(3)</c></seeerl>,
+      <seeerl marker="mnesia:mnesia"><c>mnesia(3)</c></seeerl>,
+      <seeerl marker="qlc"><c>qlc(3)</c></seeerl></p>
   </section>
 </erlref>
 

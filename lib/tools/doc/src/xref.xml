@@ -125,7 +125,7 @@ debug information, which is an abstract
       is not exported by any analyzed module or library module. With
       this notion, a local function can be an undefined function, namely
       if it is externally used from some module. All unknown functions
-      are also undefined functions; there is a <seealso marker="xref_chapter#venn2">figure</seealso> in the
+      are also undefined functions; there is a <seeguide marker="xref_chapter#venn2">figure</seeguide> in the
       User's Guide that illustrates this relationship.
       </p>
     <p>Starting with R9C, the module attribute tag <c>deprecated</c>
@@ -743,8 +743,8 @@ xref() = atom() | pid()  </pre>
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Adds an application, the modules of the application and <seealso marker="#module_data">module data</seealso> of the
-          modules to an <seealso marker="#xref_server">Xref server</seealso>.
+        <p>Adds an application, the modules of the application and <seeerl marker="#module_data">module data</seeerl> of the
+          modules to an <seeerl marker="#xref_server">Xref server</seeerl>.
           The modules will be members of the application.
           The default is to use the base name of the
           directory with the version removed as application name, but
@@ -756,9 +756,9 @@ xref() = atom() | pid()  </pre>
           directory, otherwise modules are searched for in the given
           directory.
           </p>
-        <p>If the <seealso marker="#mode">mode</seealso> of the Xref
+        <p>If the <seeerl marker="#mode">mode</seeerl> of the Xref
           server is <c>functions</c>, BEAM files that contain no
-          <seealso marker="#debug_info">debug information</seealso> are
+          <seeerl marker="#debug_info">debug information</seeerl> are
           ignored.
           </p>
       </desc>
@@ -776,8 +776,8 @@ xref() = atom() | pid()  </pre>
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Adds the modules found in the given directory and the <seealso marker="#module_data">modules' data</seealso>
-          to an <seealso marker="#xref_server">Xref server</seealso>. 
+        <p>Adds the modules found in the given directory and the <seeerl marker="#module_data">modules' data</seeerl>
+          to an <seeerl marker="#xref_server">Xref server</seeerl>. 
           The default is not to examine subdirectories, but if the option
           <c>recurse</c> has the value <c>true</c>, modules are searched
           for in subdirectories on all levels as well as in the given 
@@ -786,9 +786,9 @@ xref() = atom() | pid()  </pre>
           </p>
         <p>The modules added will not be members of any applications. 
           </p>
-        <p>If the <seealso marker="#mode">mode</seealso> of the Xref
+        <p>If the <seeerl marker="#mode">mode</seeerl> of the Xref
           server is <c>functions</c>, BEAM files that contain no
-          <seealso marker="#debug_info">debug information</seealso> are
+          <seeerl marker="#debug_info">debug information</seeerl> are
           ignored.
           </p>
       </desc>
@@ -805,13 +805,13 @@ xref() = atom() | pid()  </pre>
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Adds a module and its <seealso marker="#module_data">module data</seealso> to an <seealso marker="#xref_server">Xref server</seealso>.
+        <p>Adds a module and its <seeerl marker="#module_data">module data</seeerl> to an <seeerl marker="#xref_server">Xref server</seeerl>.
           The module will not be member of any application.
           Returns the name of the module.
           </p>
-        <p>If the <seealso marker="#mode">mode</seealso> of the Xref
+        <p>If the <seeerl marker="#mode">mode</seeerl> of the Xref
           server is <c>functions</c>, and the BEAM file contains no
-          <seealso marker="#debug_info">debug information</seealso>,
+          <seeerl marker="#debug_info">debug information</seeerl>,
           the error message <c>no_debug_info</c> is returned.
           </p>
       </desc>
@@ -829,8 +829,8 @@ xref() = atom() | pid()  </pre>
       </type>
       <desc>
         <p>Adds a release, the applications of the release, the
-          modules of the applications, and <seealso marker="#module_data">module data</seealso> of the
-          modules to an <seealso marker="#xref_server">Xref server</seealso>.
+          modules of the applications, and <seeerl marker="#module_data">module data</seeerl> of the
+          modules to an <seeerl marker="#xref_server">Xref server</seeerl>.
           The applications will be members of the release, 
           and the modules will be members of the applications.
           The default is to use the base name of the
@@ -844,9 +844,9 @@ xref() = atom() | pid()  </pre>
           If there are several versions of some application, the one
           with the highest version is chosen.
           </p>
-        <p>If the <seealso marker="#mode">mode</seealso> of the Xref
+        <p>If the <seeerl marker="#mode">mode</seeerl> of the Xref
           server is <c>functions</c>, BEAM files that contain no
-          <seealso marker="#debug_info">debug information</seealso> are
+          <seeerl marker="#debug_info">debug information</seeerl> are
           ignored.
           </p>
       </desc>
@@ -873,13 +873,13 @@ xref() = atom() | pid()  </pre>
 Evaluates a predefined analysis.
           Returns a sorted list without duplicates of <c>call()</c> or
           <c>constant()</c>, depending on the chosen analysis. The
-          predefined analyses, which operate on all <seealso marker="#analyzed_module">analyzed modules</seealso>, are
-          (analyses marked with (*) are available in <c>functions</c><seealso marker="#mode">mode</seealso> only):</p>
+          predefined analyses, which operate on all <seeerl marker="#analyzed_module">analyzed modules</seeerl>, are
+          (analyses marked with (*) are available in <c>functions</c><seeerl marker="#mode">mode</seeerl> only):</p>
         <taglist>
           <tag><c>undefined_function_calls</c>(*)</tag>
-          <item>Returns a list of calls to <seealso marker="#undefined_function">undefined functions</seealso>.</item>
+          <item>Returns a list of calls to <seeerl marker="#undefined_function">undefined functions</seeerl>.</item>
           <tag><c>undefined_functions</c></tag>
-          <item>Returns a list of <seealso marker="#undefined_function">undefined functions</seealso>. </item>
+          <item>Returns a list of <seeerl marker="#undefined_function">undefined functions</seeerl>. </item>
           <tag><c>locals_not_used</c>(*)</tag>
           <item>Returns a list of local functions that have not been
            locally used.</item>
@@ -887,7 +887,7 @@ Evaluates a predefined analysis.
           <item>Returns a list of exported functions that have not been
            externally used.</item>
           <tag><c>deprecated_function_calls</c>(*)</tag>
-          <item>Returns a list of external calls to <seealso marker="#deprecated_function">deprecated functions</seealso>.</item>
+          <item>Returns a list of external calls to <seeerl marker="#deprecated_function">deprecated functions</seeerl>.</item>
           <tag><c>{deprecated_function_calls, DeprFlag}</c>(*)</tag>
           <item>Returns a list of external calls to deprecated
            functions. If <c>DeprFlag</c> is equal to
@@ -953,11 +953,11 @@ Evaluates a predefined analysis.
       </type>
       <desc>
         <p>The modules found in the given directory are checked for
-          calls to <seealso marker="#deprecated_function">deprecated functions</seealso>, calls to <seealso marker="#undefined_function">undefined functions</seealso>,
+          calls to <seeerl marker="#deprecated_function">deprecated functions</seeerl>, calls to <seeerl marker="#undefined_function">undefined functions</seeerl>,
           and for unused local functions. The code path is used as
-          <seealso marker="#library_path">library path</seealso>.
+          <seeerl marker="#library_path">library path</seeerl>.
           </p>
-        <p>If some of the found BEAM files contain <seealso marker="#debug_info">debug information</seealso>, then those
+        <p>If some of the found BEAM files contain <seeerl marker="#debug_info">debug information</seeerl>, then those
           modules are checked and a list of tuples is returned. The
           first element of each tuple is one of:
           </p>
@@ -993,7 +993,7 @@ Evaluates a predefined analysis.
       </type>
       <desc>
         <p><c>forget/1</c> and <c>forget/2</c> remove all or some of
-          the <seealso marker="#user_variable">user variables</seealso> of an <seealso marker="#xref_server">xref server</seealso>.</p>
+          the <seeerl marker="#user_variable">user variables</seeerl> of an <seeerl marker="#xref_server">xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
@@ -1033,7 +1033,7 @@ Evaluates a predefined analysis.
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Returns the <seealso marker="#library_path">library path</seealso>.</p>
+        <p>Returns the <seeerl marker="#library_path">library path</seeerl>.</p>
       </desc>
     </func>
     <func>
@@ -1055,27 +1055,27 @@ Evaluates a predefined analysis.
       <desc>
         <p>The <c>info</c> functions return information as a list of
           pairs {Tag,&nbsp;term()} in some order about the state and the 
-          <seealso marker="#module_data">module data</seealso> of an <seealso marker="#xref_server">Xref server</seealso>.
+          <seeerl marker="#module_data">module data</seeerl> of an <seeerl marker="#xref_server">Xref server</seeerl>.
           </p>
         <p><c>info/1</c> returns information with the following tags
           (tags  marked with (*) are available in <c>functions</c>
           mode only):</p>
         <list type="bulleted">
-          <item><c>library_path</c>, the <seealso marker="#library_path">library path</seealso>;</item>
-          <item><c>mode</c>, the <seealso marker="#mode">mode</seealso>;</item>
+          <item><c>library_path</c>, the <seeerl marker="#library_path">library path</seeerl>;</item>
+          <item><c>mode</c>, the <seeerl marker="#mode">mode</seeerl>;</item>
           <item><c>no_releases</c>, number of releases;</item>
           <item><c>no_applications</c>, total number of applications
            (of all releases);</item>
-          <item><c>no_analyzed_modules</c>, total number of <seealso marker="#analyzed_module">analyzed modules</seealso>;</item>
+          <item><c>no_analyzed_modules</c>, total number of <seeerl marker="#analyzed_module">analyzed modules</seeerl>;</item>
           <item><c>no_calls</c> (*), total number of calls (in all
            modules), regarding instances of one function call in 
            different lines as separate calls;</item>
-          <item><c>no_function_calls</c> (*), total number of <seealso marker="#local_call">local calls</seealso>, resolved <seealso marker="#external_call">external calls</seealso> and 
-          <seealso marker="#unresolved_call">unresolved calls</seealso>;</item>
+          <item><c>no_function_calls</c> (*), total number of <seeerl marker="#local_call">local calls</seeerl>, resolved <seeerl marker="#external_call">external calls</seeerl> and 
+          <seeerl marker="#unresolved_call">unresolved calls</seeerl>;</item>
           <item><c>no_functions</c> (*), total number of local and exported
            functions;</item>
           <item><c>no_inter_function_calls</c> (*), total number of
-           calls of the <seealso marker="#inter_call_graph">Inter Call Graph</seealso>.</item>
+           calls of the <seeerl marker="#inter_call_graph">Inter Call Graph</seeerl>.</item>
         </list>
         <p><c>info/2</c> and <c>info/3</c> return information about
           all or some of the analyzed modules, applications, releases
@@ -1144,7 +1144,7 @@ Evaluates a predefined analysis.
         </list>
         <p>The following information is returned for every library module:</p>
         <list type="bulleted">
-          <item><c>directory</c>, the directory where the <seealso marker="#library_module">library module's</seealso> BEAM file is located.</item>
+          <item><c>directory</c>, the directory where the <seeerl marker="#library_module">library module's</seeerl> BEAM file is located.</item>
         </list>
         <p>For every number of calls, functions etc. returned by the
           <c>no_</c> tags, there is a query returning the same number.
@@ -1237,11 +1237,11 @@ Evaluates a predefined analysis.
       <desc>
         <p>The given BEAM file (with or without the <c>.beam</c>
           extension) or the file found by calling
-          <c>code:which(Module)</c> is checked for calls to <seealso marker="#deprecated_function">deprecated functions</seealso>, calls to <seealso marker="#undefined_function">undefined functions</seealso>,
+          <c>code:which(Module)</c> is checked for calls to <seeerl marker="#deprecated_function">deprecated functions</seeerl>, calls to <seeerl marker="#undefined_function">undefined functions</seeerl>,
           and for unused local functions. The code path is used as
-          <seealso marker="#library_path">library path</seealso>.
+          <seeerl marker="#library_path">library path</seeerl>.
           </p>
-        <p>If the BEAM file contains <seealso marker="#debug_info">debug information</seealso>, then a
+        <p>If the BEAM file contains <seeerl marker="#debug_info">debug information</seeerl>, then a
           list of tuples is returned. The first element of each tuple
           is one of:
           </p>
@@ -1286,8 +1286,8 @@ Evaluates a predefined analysis.
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Evaluates a <seealso marker="#query">query</seealso> in the
-          context of an <seealso marker="#xref_server">Xref server</seealso>, and returns the value of the last
+        <p>Evaluates a <seeerl marker="#query">query</seeerl> in the
+          context of an <seeerl marker="#xref_server">Xref server</seeerl>, and returns the value of the last
           statement. The syntax of the value depends on the
           expression:
           </p>
@@ -1334,7 +1334,7 @@ Evaluates a predefined analysis.
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Removes applications and their modules and <seealso marker="#module_data">module data</seealso> from an <seealso marker="#xref_server">Xref server</seealso>.</p>
+        <p>Removes applications and their modules and <seeerl marker="#module_data">module data</seeerl> from an <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
@@ -1347,7 +1347,7 @@ Evaluates a predefined analysis.
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Removes <seealso marker="#analyzed_module">analyzed modules</seealso> and <seealso marker="#module_data">module data</seealso> from an <seealso marker="#xref_server">Xref server</seealso>.</p>
+        <p>Removes <seeerl marker="#analyzed_module">analyzed modules</seeerl> and <seeerl marker="#module_data">module data</seeerl> from an <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
@@ -1361,8 +1361,8 @@ Evaluates a predefined analysis.
       </type>
       <desc>
         <p>Removes releases and their applications, modules and
-          <seealso marker="#module_data">module data</seealso> from an
-          <seealso marker="#xref_server">Xref server</seealso>.</p>
+          <seeerl marker="#module_data">module data</seeerl> from an
+          <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
@@ -1400,7 +1400,7 @@ Evaluates a predefined analysis.
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Replaces <seealso marker="#module_data">module data</seealso> of an <seealso marker="#analyzed_module">analyzed module</seealso> with
+        <p>Replaces <seeerl marker="#module_data">module data</seeerl> of an <seeerl marker="#analyzed_module">analyzed module</seeerl> with
           data read from a BEAM file. Application membership of the
           module is retained, and so is the value of the
           <c>builtins</c> option of the module. An error is returned
@@ -1433,7 +1433,7 @@ Evaluates a predefined analysis.
           <item><c>verbose</c>, with initial default value <c>false</c>;</item>
           <item><c>warnings</c>, with initial default value <c>true</c>.</item>
         </list>
-        <p>The initial default values are set when creating an <seealso marker="#xref_server">Xref server</seealso>. 
+        <p>The initial default values are set when creating an <seeerl marker="#xref_server">Xref server</seeerl>. 
           </p>
       </desc>
     </func>
@@ -1449,8 +1449,8 @@ Evaluates a predefined analysis.
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Sets the <seealso marker="#library_path">library path</seealso>. If the given path is a list of
-          directories, the set of <seealso marker="#library_module">library modules</seealso> is
+        <p>Sets the <seeerl marker="#library_path">library path</seeerl>. If the given path is a list of
+          directories, the set of <seeerl marker="#library_module">library modules</seeerl> is
           determined by choosing the first module
           encountered while traversing the directories in
           the given order, for those modules that occur in more than
@@ -1461,7 +1461,7 @@ Evaluates a predefined analysis.
           used by the functions
           <c>m/1</c> and <c>d/1</c>, but can also be set explicitly.
           Note however that the code path will be traversed once for
-          each used <seealso marker="#library_module">library module</seealso> while setting up module data.
+          each used <seeerl marker="#library_module">library module</seeerl> while setting up module data.
           On the other hand, if there are only a few modules that are
           used but not analyzed, using <c>code_path</c> may be faster
           than setting the library path to <c>code:get_path()</c>.
@@ -1482,9 +1482,9 @@ Evaluates a predefined analysis.
         <v>Return = {ok, pid()}  | {error, {already_started, pid()}}</v>
       </type>
       <desc>
-        <p>Creates an <seealso marker="#xref_server">Xref server</seealso>.
+        <p>Creates an <seeerl marker="#xref_server">Xref server</seeerl>.
           The process may optionally be given a name.
-          The default <seealso marker="#mode">mode</seealso> is <c>functions</c>.
+          The default <seeerl marker="#mode">mode</seeerl> is <c>functions</c>.
           Options that are not recognized by Xref
           are passed on to <c>gen_server:start/4</c>.</p>
       </desc>
@@ -1499,9 +1499,9 @@ Evaluates a predefined analysis.
         <v>Return = {ok, pid()}  | {error, {already_started, pid()}}</v>
       </type>
       <desc>
-        <p>Creates an <seealso marker="#xref_server">Xref server</seealso>
+        <p>Creates an <seeerl marker="#xref_server">Xref server</seeerl>
           with a given name. 
-          The default <seealso marker="#mode">mode</seealso> is <c>functions</c>.
+          The default <seeerl marker="#mode">mode</seeerl> is <c>functions</c>.
           Options that are not recognized by Xref
           are passed on to <c>gen_server:start/4</c>.</p>
       </desc>
@@ -1513,7 +1513,7 @@ Evaluates a predefined analysis.
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Stops an <seealso marker="#xref_server">Xref server</seealso>.</p>
+        <p>Stops an <seeerl marker="#xref_server">Xref server</seeerl>.</p>
       </desc>
     </func>
     <func>
@@ -1528,7 +1528,7 @@ Evaluates a predefined analysis.
         <v>Xref = xref()</v>
       </type>
       <desc>
-        <p>Replaces the <seealso marker="#module_data">module data</seealso> of all <seealso marker="#analyzed_module">analyzed modules</seealso> the BEAM
+        <p>Replaces the <seeerl marker="#module_data">module data</seeerl> of all <seeerl marker="#analyzed_module">analyzed modules</seeerl> the BEAM
           files of which have been modified since last read by an
           <c>add</c> function or <c>update</c>. Application membership
           of the modules is retained, and so is the value of the
@@ -1548,19 +1548,19 @@ Evaluates a predefined analysis.
       </type>
       <desc>
         <p>Returns a sorted lists of the names of the variables of an
-          <seealso marker="#xref_server">Xref server</seealso>. 
-          The default is to return the <seealso marker="#user_variable">user variables</seealso> only.</p>
+          <seeerl marker="#xref_server">Xref server</seeerl>. 
+          The default is to return the <seeerl marker="#user_variable">user variables</seeerl> only.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title><p>
-      <seealso marker="stdlib:beam_lib">beam_lib(3)</seealso>,
-      <seealso marker="stdlib:digraph">digraph(3)</seealso>,
-      <seealso marker="stdlib:digraph_utils">digraph_utils(3)</seealso>,
-      <seealso marker="stdlib:re">re(3)</seealso>,
-      <seealso marker="xref_chapter">TOOLS User's Guide</seealso></p>
+      <seeerl marker="stdlib:beam_lib">beam_lib(3)</seeerl>,
+      <seeerl marker="stdlib:digraph">digraph(3)</seeerl>,
+      <seeerl marker="stdlib:digraph_utils">digraph_utils(3)</seeerl>,
+      <seeerl marker="stdlib:re">re(3)</seeerl>,
+      <seeguide marker="xref_chapter">TOOLS User's Guide</seeguide></p>
   </section>
 </erlref>
 

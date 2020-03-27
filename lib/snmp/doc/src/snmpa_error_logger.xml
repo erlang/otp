@@ -37,7 +37,7 @@
   <description>
     <p>The module <c>snmpa_error_logger</c> implements the 
       <c>snmpa_error_report</c> behaviour 
-      (see <seealso marker="snmpa_error_report">snmpa_error_report</seealso>) 
+      (see <seeerl marker="snmpa_error_report">snmpa_error_report</seeerl>) 
       containing two callback functions which are called in order to 
       report SNMP errors.
       </p>
@@ -48,8 +48,8 @@
       </p>
     <p>This module is the default error report module, but can be 
       explicitly configured, see
-      <seealso marker="snmpa_error#desc">snmpa_error</seealso> and
-      <seealso marker="snmp_config#configuration_params">configuration parameters</seealso>.
+      <seeerl marker="snmpa_error#desc">snmpa_error</seeerl> and
+      <seeguide marker="snmp_config#configuration_params">configuration parameters</seeguide>.
       </p>
   </description>
   <funcs>

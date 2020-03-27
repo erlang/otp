@@ -141,12 +141,12 @@
       <tag><c>-no-server</c></tag>
       <item>
         <p>Do not use the
-	<seealso marker="#compile_server">compile server</seealso>.</p>
+	<seecom marker="#compile_server">compile server</seecom>.</p>
       </item>
       <tag><c>-server</c></tag>
       <item>
         <p>Use the
-	<seealso marker="#compile_server">compile server</seealso>.</p>
+	<seecom marker="#compile_server">compile server</seecom>.</p>
       </item>
       <tag><c>-M</c></tag>
       <item>
@@ -363,14 +363,14 @@ erlc +export_all file.erl</pre>
         specified in environment variable <c>PATH</c>.</item>
       <tag><c>ERLC_USE_SERVER</c></tag>
       <item>Allowed values are <c>yes</c> or <c>true</c> to use the
-      <seealso marker="#compile_server">compile
-      server</seealso>, and <c>no</c> or <c>false</c> to not use the
+      <seecom marker="#compile_server">compile
+      server</seecom>, and <c>no</c> or <c>false</c> to not use the
       compile server. If other values are given, <c>erlc</c> will
       print a warning message and continue.
       </item>
       <tag><c>ERLC_SERVER_ID</c></tag>
       <item>Tells <c>erlc</c> to identify the
-        <seealso marker="#compile_server">compile server</seealso> by the given
+        <seecom marker="#compile_server">compile server</seecom> by the given
         name, allowing a single user to run multiple unrelated builds in
         parallel without them affecting each other, which can be useful for
         shared build machines and the like. The name must be alpha&shy;numeric,
@@ -381,9 +381,9 @@ erlc +export_all file.erl</pre>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl"><c>erl(1)</c></seealso>,
-      <seealso marker="compiler:compile"><c>compile(3)</c></seealso>,
-      <seealso marker="parsetools:yecc"><c>yecc(3)</c></seealso>,
-      <seealso marker="snmp:snmp"><c>snmp(3)</c></seealso></p>
+    <p><seecom marker="erl"><c>erl(1)</c></seecom>,
+      <seeerl marker="compiler:compile"><c>compile(3)</c></seeerl>,
+      <seeerl marker="parsetools:yecc"><c>yecc(3)</c></seeerl>,
+      <seeerl marker="snmp:snmp"><c>snmp(3)</c></seeerl></p>
   </section>
 </comref>

@@ -51,13 +51,13 @@
     <p>The following two functions can be used to retrieve system
       information. For details, see the Reference Manual.</p>
     <list type="bulleted">
-      <item><seealso marker="mnesia#table_info/2">mnesia:table_info(Tab, Key)
-       -> Info | exit({aborted,Reason})</seealso>
+      <item><seemfa marker="mnesia#table_info/2">mnesia:table_info(Tab, Key)
+       -> Info | exit({aborted,Reason})</seemfa>
        returns information about one table, for example,
        the current size of the table and on which nodes it resides.
       </item>
-      <item><seealso marker="mnesia#system_info/1">mnesia:system_info(Key)
-       -> Info | exit({aborted, Reason})</seealso>
+      <item><seemfa marker="mnesia#system_info/1">mnesia:system_info(Key)
+       -> Info | exit({aborted, Reason})</seemfa>
        returns information about the <c>Mnesia</c> system,
        for example, transaction statistics, <c>db_nodes</c>, and
        configuration parameters.
@@ -81,7 +81,7 @@
       memory only. However, these tables can be dumped to
       disc, either at regular intervals or before the system is
       shut down. The function
-      <seealso marker="mnesia#dump_tables/1">mnesia:dump_tables(TabList)</seealso>
+      <seemfa marker="mnesia#dump_tables/1">mnesia:dump_tables(TabList)</seemfa>
       dumps all replicas of a set of RAM tables to disc. The tables can be
       accessed while being dumped to disc. To dump the tables to disc,
       all replicas must have the storage type <c>ram_copies</c>.</p>
@@ -119,7 +119,7 @@
       checkpoint survives as long as there is at least one active
       checkpoint retainer attached to each table.</p>
     <p>Checkpoints can be explicitly deactivated with the function
-      <seealso marker="mnesia#deactivate_checkpoint/1">mnesia:deactivate_checkpoint(Name)</seealso>,
+      <seemfa marker="mnesia#deactivate_checkpoint/1">mnesia:deactivate_checkpoint(Name)</seemfa>,
       where <c>Name</c> is
       the name of an active checkpoint. This function returns
       <c>ok</c> if successful or <c>{error, Reason}</c> if there is
@@ -132,7 +132,7 @@
       degree of checkpoint retainer redundancy.</p>
     <marker id="mnesia:chkpt(Args)"></marker>
     <p>Checkpoints are activated with the function
-      <seealso marker="mnesia#activate_checkpoint/1">mnesia:activate_checkpoint(Args)</seealso>,
+      <seemfa marker="mnesia#activate_checkpoint/1">mnesia:activate_checkpoint(Args)</seemfa>,
       where <c>Args</c> is a list of the following tuples:</p>
     <list type="bulleted">
       <item><c>{name,Name}</c>, where <c>Name</c> specifies a temporary
@@ -148,7 +148,7 @@
        updated by the applications. The checkpoint is more fault
        tolerant if the tables have several replicas. When new
        replicas are added by the schema manipulation function
-       <seealso marker="mnesia#add_table_copy/3">mnesia:add_table_copy/3</seealso>
+       <seemfa marker="mnesia#add_table_copy/3">mnesia:add_table_copy/3</seemfa>
        it also attaches a local checkpoint retainer.
       </item>
       <item><c>{min,MinTabs}</c>, where <c>MinTabs</c> is a list of
@@ -174,7 +174,7 @@
        loaded on startup. Default is <c>false</c>.</item>
     </list>
     <p>The function
-      <seealso marker="mnesia#activate_checkpoint/1">mnesia:activate_checkpoint(Args)</seealso>
+      <seemfa marker="mnesia#activate_checkpoint/1">mnesia:activate_checkpoint(Args)</seemfa>
       returns one of the following values:</p>
     <list type="bulleted">
       <item><c>{ok, Name, Nodes}</c></item>
@@ -185,9 +185,9 @@
     <p>A list of active checkpoints can be obtained with the following
       functions:</p>
     <list type="bulleted">
-      <item><seealso marker="mnesia#system_info/1">mnesia:system_info(checkpoints)</seealso>
+      <item><seemfa marker="mnesia#system_info/1">mnesia:system_info(checkpoints)</seemfa>
        returns all active checkpoints on the current node.</item>
-      <item><seealso marker="mnesia#table_info/2">mnesia:table_info(Tab, checkpoints)</seealso>
+      <item><seemfa marker="mnesia#table_info/2">mnesia:table_info(Tab, checkpoints)</seemfa>
        returns active checkpoints on a specific table.</item>
     </list>
   </section>
@@ -200,7 +200,7 @@
 
     <section>
       <title>Startup Files</title>
-    <p><seealso marker="Mnesia_chap3#start_mnesia">Start Mnesia</seealso>
+    <p><seeguide marker="Mnesia_chap3#start_mnesia">Start Mnesia</seeguide>
     states the following prerequisites
     for starting <c>Mnesia</c>:</p>
     <list type="bulleted">
@@ -208,7 +208,7 @@
        directory must be specified for the database.
       </item>
       <item>A database schema must be initiated, using the function
-       <seealso marker="mnesia#create_schema/1">mnesia:create_schema/1</seealso>.
+       <seemfa marker="mnesia#create_schema/1">mnesia:create_schema/1</seemfa>.
       </item>
     </list>
     <p>The following example shows how these tasks are performed:</p>
@@ -233,7 +233,7 @@ Suspended</pre>
     <p>The response shows that the file <c>FALLBACK.BUP</c> has
       been created. This is called a backup file, and it contains
       an initial schema. If more than one node in the function
-      <seealso marker="mnesia#create_schema/1">mnesia:create_schema/1</seealso>
+      <seemfa marker="mnesia#create_schema/1">mnesia:create_schema/1</seemfa>
       had been specified, identical
       backup files would have been created on all nodes.</p>
     <p><em>Step 3:</em> Start <c>Mnesia</c>:</p>
@@ -280,7 +280,7 @@ ok</pre>
         The log format can vary with different implementations of
         <c>Mnesia</c>. The <c>Mnesia</c> log is currently implemented
         in the standard library module
-        <seealso marker="kernel:disk_log">disk_log</seealso> in
+        <seeerl marker="kernel:disk_log">disk_log</seeerl> in
         <c>Kernel</c>.</p>
       <p>The log file grows continuously and must be dumped at
         regular intervals. "Dumping the log file" means that <c>Mnesia</c>
@@ -318,7 +318,7 @@ ok</pre>
         are used for the schema and for <c>disc_only_copies</c>
         tables. The <c>Mnesia</c> data files are currently implemented
         in the standard library module
-        <seealso marker="stdlib:dets">dets</seealso> in
+        <seeerl marker="stdlib:dets">dets</seeerl> in
         <c>STDLIB</c>.</p>
       <p>All operations that can be performed on <c>dets</c> files
         can also be performed on the <c>Mnesia</c> data files. For
@@ -380,12 +380,12 @@ dets:close(N).</pre>
       and you must wait for the table to be loaded on one of these
       nodes before receiving a fresh copy of the table.</p>
     <p>Before an application makes its first access to a table,
-      <seealso marker="mnesia#wait_for_tables/2">mnesia:wait_for_tables(TabList, Timeout)</seealso>
+      <seemfa marker="mnesia#wait_for_tables/2">mnesia:wait_for_tables(TabList, Timeout)</seemfa>
       is to be executed
       to ensure that the table is accessible from the local node. If
       the function times out, the application can choose to force a
       load of the local replica with
-      <seealso marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seealso>
+      <seemfa marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seemfa>
       and deliberately lose all
       updates that can have been performed on the other nodes while
       the local node was down. If <c>Mnesia</c>
@@ -394,7 +394,7 @@ dets:close(N).</pre>
       avoid unnecessary inconsistency.</p>
     <warning>
       <p>Only one table is loaded by
-      <seealso marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seealso>.
+      <seemfa marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seemfa>.
         Since committed
         transactions can have caused updates in several tables, the
         tables can become inconsistent because of the forced load.</p>
@@ -402,8 +402,8 @@ dets:close(N).</pre>
     <p>The allowed <c>AccessMode</c> of a table can be defined to be
       <c>read_only</c> or <c>read_write</c>. It can be toggled with
       the function
-      <seealso marker="mnesia#change_table_access_mode/2">
-      mnesia:change_table_access_mode(Tab, AccessMode)</seealso>
+      <seemfa marker="mnesia#change_table_access_mode/2">
+      mnesia:change_table_access_mode(Tab, AccessMode)</seemfa>
       in runtime. <c>read_only</c> tables and
       <c>local_content</c> tables are always loaded locally, as
       there is no need for copying the table from other nodes. Other
@@ -427,8 +427,8 @@ dets:close(N).</pre>
       is used. However, the load order
       can be affected, by explicitly changing property
       <c>load_order</c> for the tables, with the function
-      <seealso marker="mnesia#change_table_load_order/2">
-      mnesia:change_table_load_order(Tab, LoadOrder)</seealso>.
+      <seemfa marker="mnesia#change_table_load_order/2">
+      mnesia:change_table_load_order(Tab, LoadOrder)</seemfa>.
       <c>LoadOrder</c> is by default <c>0</c> for all tables, but
       it can be set to any integer. The table with the highest
       <c>load_order</c> is loaded first. Changing the load order is
@@ -464,7 +464,7 @@ dets:close(N).</pre>
     <p>If the application detects that there has been a communication
       failure that can have caused an inconsistent database, it can
       use the function
-      <seealso marker="mnesia#set_master_nodes/2">mnesia:set_master_nodes(Tab, Nodes)</seealso>
+      <seemfa marker="mnesia#set_master_nodes/2">mnesia:set_master_nodes(Tab, Nodes)</seemfa>
       to pinpoint from which nodes each table can be loaded.</p>
     <p>At startup, the <c>Mnesia</c> normal table load algorithm is
       bypassed and the table is loaded from one of the master
@@ -475,11 +475,11 @@ dets:close(N).</pre>
       table is reset and the normal load mechanism is used at the
       next restart.</p>
     <p>The function
-      <seealso marker="mnesia#set_master_nodes/1">mnesia:set_master_nodes(Nodes)</seealso>
+      <seemfa marker="mnesia#set_master_nodes/1">mnesia:set_master_nodes(Nodes)</seemfa>
       sets master
       nodes for all tables. For each table it determines its replica
       nodes and starts
-      <seealso marker="mnesia#set_master_nodes/2">mnesia:set_master_nodes(Tab, TabNodes)</seealso>
+      <seemfa marker="mnesia#set_master_nodes/2">mnesia:set_master_nodes(Tab, TabNodes)</seemfa>
       with those replica nodes that are included in the <c>Nodes</c>
       list (that is, <c>TabNodes</c> is the intersection of
       <c>Nodes</c> and the replica nodes of the table). If the
@@ -487,9 +487,9 @@ dets:close(N).</pre>
       the particular table is reset and the normal load mechanism
       is used at the next restart.</p>
     <p>The functions
-      <seealso marker="mnesia#system_info/1">mnesia:system_info(master_node_tables)</seealso>
+      <seemfa marker="mnesia#system_info/1">mnesia:system_info(master_node_tables)</seemfa>
       and
-      <seealso marker="mnesia#table_info/2">mnesia:table_info(Tab, master_nodes)</seealso>
+      <seemfa marker="mnesia#table_info/2">mnesia:table_info(Tab, master_nodes)</seemfa>
       can be used to
       obtain information about the potential master nodes.</p>
     <p>Determining what data to keep after a communication failure
@@ -501,7 +501,7 @@ dets:close(N).</pre>
       reduction in service on the minority nodes. This would be a
       tradeoff in favor of higher consistency guarantees.</p>
     <p>The function
-      <seealso marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seealso>
+      <seemfa marker="mnesia#force_load_table/1">mnesia:force_load_table(Tab)</seemfa>
       can be used to force load the table regardless of which table
       load mechanism that is activated.</p>
   </section>
@@ -613,33 +613,33 @@ dets:close(N).</pre>
       a backup as fallback, and for disaster recovery:</p>
     <list type="bulleted">
       <item>
-       <seealso marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque, [Mod])</seealso>
+       <seemfa marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque, [Mod])</seemfa>
        performs a backup of the tables included in the checkpoint.
       </item>
       <item>
-       <seealso marker="mnesia#backup/1">mnesia:backup(Opaque, [Mod])</seealso>
+       <seemfa marker="mnesia#backup/1">mnesia:backup(Opaque, [Mod])</seemfa>
        activates a new
        checkpoint that covers all <c>Mnesia</c> tables and
        performs a backup. It is performed with maximum degree of
        redundancy (see also the function
-       <seealso marker="#checkpoints">mnesia:activate_checkpoint(Args)</seealso>,
+       <seeguide marker="#checkpoints">mnesia:activate_checkpoint(Args)</seeguide>,
        <c>{max, MaxTabs} and {min, MinTabs})</c>.
       </item>
       <item>
-       <seealso marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seealso>
+       <seemfa marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seemfa>
        can be used to read an existing backup, create a backup from an
        existing one, or to copy a backup from one type media to another.
       </item>
       <item>
-       <seealso marker="mnesia#uninstall_fallback/0">mnesia:uninstall_fallback()</seealso>
+       <seemfa marker="mnesia#uninstall_fallback/0">mnesia:uninstall_fallback()</seemfa>
        removes previously installed fallback files.
       </item>
       <item>
-       <seealso marker="mnesia#restore/2">mnesia:restore(Opaque, Args)</seealso>
+       <seemfa marker="mnesia#restore/2">mnesia:restore(Opaque, Args)</seemfa>
        restores a set of tables from a previous backup.
       </item>
       <item>
-       <seealso marker="mnesia#install_fallback/1">mnesia:install_fallback(Opaque, [Mod])</seealso>
+       <seemfa marker="mnesia#install_fallback/1">mnesia:install_fallback(Opaque, [Mod])</seemfa>
        can be configured to restart <c>Mnesia</c> and the reload data
        tables, and possibly the schema tables, from an existing
        backup. This function is typically used for disaster recovery
@@ -647,7 +647,7 @@ dets:close(N).</pre>
       </item>
     </list>
     <p>These functions are explained in the following sections.
-      See also <seealso marker="#checkpoints">Checkpoints</seealso>,
+      See also <seeguide marker="#checkpoints">Checkpoints</seeguide>,
       which describes the two functions used
       to activate and deactivate checkpoints.</p>
 
@@ -656,13 +656,13 @@ dets:close(N).</pre>
       <p>Backup operation are performed with the following functions:</p>
       <list type="bulleted">
         <item>
-         <seealso marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque, [Mod])</seealso>
+         <seemfa marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque, [Mod])</seemfa>
         </item>
         <item>
-         <seealso marker="mnesia#backup/1">mnesia:backup(Opaque, [Mod])</seealso>
+         <seemfa marker="mnesia#backup/1">mnesia:backup(Opaque, [Mod])</seemfa>
         </item>
         <item>
-         <seealso marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seealso>
+         <seemfa marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seemfa>
         </item>
       </list>
       <p>By default, the actual access to the backup media is
@@ -680,14 +680,14 @@ dets:close(N).</pre>
         for this purpose.</p>
       <p>The source for a backup is an activated checkpoint.
         The backup function
-        <seealso marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque,[Mod])</seealso>
+        <seemfa marker="mnesia#backup_checkpoint/2">mnesia:backup_checkpoint(Name, Opaque,[Mod])</seemfa>
         is most commonly used and returns <c>ok</c> or
         <c>{error,Reason}</c>. It has the following arguments:</p>
       <list type="bulleted">
         <item><c>Name</c> is the name of an activated checkpoint.
          For details on how to include table names in checkpoints,
          see the function <c>mnesia:activate_checkpoint(ArgList)</c>
-         in <seealso marker="#checkpoints">Checkpoints</seealso>.
+         in <seeguide marker="#checkpoints">Checkpoints</seeguide>.
         </item>
         <item><c>Opaque</c>. <c>Mnesia</c> does not interpret this
          argument, but it is forwarded to the backup module. The
@@ -698,7 +698,7 @@ dets:close(N).</pre>
         </item>
       </list>
       <p>The function
-        <seealso marker="mnesia#backup/1">mnesia:backup(Opaque [,Mod])</seealso>
+        <seemfa marker="mnesia#backup/1">mnesia:backup(Opaque [,Mod])</seemfa>
         activates a
         new checkpoint that covers all <c>Mnesia</c> tables with
         maximum degree of redundancy and performs a backup. Maximum
@@ -707,7 +707,7 @@ dets:close(N).</pre>
         backed up as they look on the current node.</p>
       <p>You can iterate over a backup, either to transform it
         into a new backup, or only read it. The function
-        <seealso marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seealso>,
+        <seemfa marker="mnesia#traverse_backup/4">mnesia:traverse_backup(Source, [SourceMod,] Target, [TargetMod,] Fun, Acc)</seemfa>,
         which normally returns <c>{ok, LastAcc}</c>,
         is used for both of these purposes.</p>
       <p>Before the traversal starts, the source backup media is
@@ -748,7 +748,7 @@ dets:close(N).</pre>
         </item>
         <item><c>{schema, Tab, CreateList}</c> specifies a table to be
          created. For more information about <c>CreateList</c>, see
-         <seealso marker="mnesia#create_table/2">mnesia:create_table/2</seealso>.
+         <seemfa marker="mnesia#create_table/2">mnesia:create_table/2</seemfa>.
         </item>
         <item><c>{Tab, Key}</c> specifies the full identity of a record
          to be deleted.
@@ -769,7 +769,7 @@ dets:close(N).</pre>
         the backup. Each node where the schema table resides is
         regarded as a <c>db_node</c>.</p>
       <p>The following example shows how
-        <seealso marker="mnesia#traverse_backup/4">mnesia:traverse_backup</seealso>
+        <seemfa marker="mnesia#traverse_backup/4">mnesia:traverse_backup</seemfa>
         can be used to rename a <c>db_node</c> in a backup file:</p>
       <codeinclude file="bup.erl" tag="%0" type="erl"></codeinclude>
     </section>
@@ -779,7 +779,7 @@ dets:close(N).</pre>
       <p>Tables can be restored online from a backup without
         restarting <c>Mnesia</c>. A restore is performed with the
         function
-        <seealso marker="mnesia#restore/2">mnesia:restore(Opaque, Args)</seealso>,
+        <seemfa marker="mnesia#restore/2">mnesia:restore(Opaque, Args)</seemfa>,
         where <c>Args</c> can contain the following tuples:</p>
       <list type="bulleted">
         <item><c>{module,Mod}</c>. The backup module <c>Mod</c> is
@@ -835,7 +835,7 @@ dets:close(N).</pre>
     <section>
       <title>Fallback</title>
       <p>The function
-        <seealso marker="mnesia#install_fallback/2">mnesia:install_fallback(Opaque, [Mod])</seealso>
+        <seemfa marker="mnesia#install_fallback/2">mnesia:install_fallback(Opaque, [Mod])</seemfa>
         installs a backup as fallback. It uses the backup module
         <c>Mod</c>, or the default backup module, to access the backup
         media. The function returns <c>ok</c> if successful, or
@@ -858,7 +858,7 @@ dets:close(N).</pre>
         on all <c>db_nodes</c> to restore the old database. The
         fallback is automatically deinstalled after a successful
         startup. The function
-        <seealso marker="mnesia#uninstall_fallback/0">mnesia:uninstall_fallback()</seealso>
+        <seemfa marker="mnesia#uninstall_fallback/0">mnesia:uninstall_fallback()</seemfa>
         can also be used to deinstall the fallback after a
         successful system upgrade. Again, this is a distributed
         operation that is either performed on all <c>db_nodes</c> or
@@ -889,7 +889,7 @@ dets:close(N).</pre>
       <p>Configuration parameter
         <c><![CDATA[-mnesia dump_log_update_in_place <bool>]]></c>
         controls the safety level of the function
-        <seealso marker="mnesia#dump_log/0">mnesia:dump_log()</seealso>
+        <seemfa marker="mnesia#dump_log/0">mnesia:dump_log()</seemfa>
         By default, <c>Mnesia</c> dumps the
         transaction log directly into the <c>DAT</c> files. If a power
         failure occurs during the dump, this can cause the randomly

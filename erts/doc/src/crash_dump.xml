@@ -38,8 +38,8 @@
   <note>
     <p>The Erlang crash dump had a major facelift in Erlang/OTP R9C. The
       information in this section is therefore not directly applicable for
-      older dumps. However, if you use <seealso marker="observer:crashdump_viewer">
-      <c>crashdump_viewer(3)</c></seealso> on older dumps,
+      older dumps. However, if you use <seeerl marker="observer:crashdump_viewer">
+      <c>crashdump_viewer(3)</c></seeerl> on older dumps,
       the crash dumps are translated into a format similar to this.</p>
   </note>
 
@@ -115,7 +115,7 @@ Slogan: &lt;reason&gt;</pre>
             &lt;T&gt; is most often <c><![CDATA[heap]]></c>,
             <c><![CDATA[old_heap]]></c>, <c><![CDATA[heap_frag]]></c>, or
             <c><![CDATA[binary]]></c>. For more information on allocators, see
-            <seealso marker="erts_alloc"><c>erts_alloc(3)</c></seealso>.</p>
+            <seecref marker="erts_alloc"><c>erts_alloc(3)</c></seecref>.</p>
         </item>
         <tag><em>&lt;A&gt;: Cannot reallocate &lt;N&gt; bytes of memory (of
           type "&lt;T&gt;")</em></tag>
@@ -253,7 +253,7 @@ Slogan: &lt;reason&gt;</pre>
           followed by the <em>State</em>, <em>Internal State</em>,
           <em>Program Counter</em>, and <em>CP</em> of that same process.
           The entries are described in section
-          <seealso marker="#processes">Process Information</seealso>.</p>
+          <seeguide marker="#processes">Process Information</seeguide>.</p>
         <p>Notice that this is a snapshot of what the entries are exactly when
           the crash dump is starting to be generated. Therefore they are most
           likely different (and more telling) than the entries for the same
@@ -264,8 +264,8 @@ Slogan: &lt;reason&gt;</pre>
       <tag><em>Current Process Limited Stack Trace</em></tag>
       <item>
         <p>This entry is shown only if there is a current process. It is
-          similar to <seealso marker="#proc_data">
-          <em>=proc_stack</em></seealso>, except that only the function frames
+          similar to <seeguide marker="#proc_data">
+          <em>=proc_stack</em></seeguide>, except that only the function frames
           are shown (that is, the stack variables are omitted).
           Also, only the top and bottom part of the stack are shown. If the
           stack is small (&lt; 512 slots), the entire stack is shown. Otherwise
@@ -290,8 +290,8 @@ Slogan: &lt;reason&gt;</pre>
     <title>Memory Information</title>
     <p>Under the tag <em>=memory</em> is shown information similar
       to what can be obtained on a living node with
-      <seealso marker="erts:erlang#memory/0">
-      <c>erlang:memory()</c></seealso>.</p>
+      <seemfa marker="erts:erlang#memory/0">
+      <c>erlang:memory()</c></seemfa>.</p>
   </section>
 
   <section>
@@ -307,8 +307,8 @@ Slogan: &lt;reason&gt;</pre>
     <title>Allocated Areas</title>
     <p>Under the tag <em>=allocated_areas</em> is shown information
       similar to what can be obtained on a living node with
-      <seealso marker="erts:erlang#system_info_allocated_areas">
-      <c>erlang:system_info(allocated_areas)</c></seealso>.</p>
+      <seeerl marker="erts:erlang#system_info_allocated_areas">
+      <c>erlang:system_info(allocated_areas)</c></seeerl>.</p>
   </section>
 
   <section>
@@ -317,10 +317,10 @@ Slogan: &lt;reason&gt;</pre>
     <p>Under the tag <em>=allocator:&lt;A&gt;</em> is shown
       various information about allocator &lt;A&gt;. The information
       is similar to what can be obtained on a living node with
-      <seealso marker="erts:erlang#system_info_allocator_tuple">
-      <c>erlang:system_info({allocator, &lt;A&gt;})</c></seealso>.
+      <seeerl marker="erts:erlang#system_info_allocator_tuple">
+      <c>erlang:system_info({allocator, &lt;A&gt;})</c></seeerl>.
       For more information, see also
-      <seealso marker="erts_alloc"><c>erts_alloc(3)</c></seealso>.</p>
+      <seecref marker="erts_alloc"><c>erts_alloc(3)</c></seecref>.</p>
   </section>
 
   <section>
@@ -439,8 +439,8 @@ Slogan: &lt;reason&gt;</pre>
       <item>
         <p>The total memory used by this process, in bytes.
           This includes call stack, heap, and internal structures.
-          Same as <seealso marker="erlang#process_info-2">
-          <c>erlang:process_info(Pid,memory)</c></seealso>.</p>
+          Same as <seemfa marker="erlang#process_info/2">
+          <c>erlang:process_info(Pid,memory)</c></seemfa>.</p>
       </item>
       <tag><em>Program counter</em></tag>
       <item>
@@ -468,7 +468,7 @@ Slogan: &lt;reason&gt;</pre>
           this process.</p>
       </item>
     </taglist>
-    <p>See also section <seealso marker="#proc_data">Process Data</seealso>.</p>
+    <p>See also section <seeguide marker="#proc_data">Process Data</seeguide>.</p>
   </section>
 
   <section>
@@ -522,8 +522,8 @@ Slogan: &lt;reason&gt;</pre>
       <tag><em>Fixed</em></tag>
       <item>
         <p>If the table is fixed using
-          <seealso marker="stdlib:ets#safe_fixtable/2">
-          <c>ets:safe_fixtable/2</c></seealso> or some internal mechanism.</p>
+          <seemfa marker="stdlib:ets#safe_fixtable/2">
+          <c>ets:safe_fixtable/2</c></seemfa> or some internal mechanism.</p>
       </item>
       <tag><em>Objects</em></tag>
       <item>

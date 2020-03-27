@@ -37,10 +37,10 @@
       data in the system configuration file <c>Name.config</c>.</p>
     <p>Configuration parameter values in the configuration file
       override the values in the application resource files (see
-      <seealso marker="app"><c>app(4)</c></seealso>).
+      <seefile marker="app"><c>app(4)</c></seefile>).
       The values in the configuration file can be
       overridden by command-line flags (see
-      <seealso marker="erts:erl"><c>erts:erl(1)</c></seealso>).</p>
+      <seecom marker="erts:erl"><c>erts:erl(1)</c></seecom>).</p>
     <p>The value of a configuration parameter is retrieved by calling
       <c>application:get_env/1,2</c>.</p>
   </description>
@@ -122,9 +122,9 @@ myconfig.config:
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="app"><c>app(4)</c></seealso>,
-      <seealso marker="erts:erl"><c>erts:erl(1)</c></seealso>,
-      <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso></p>
+    <p><seefile marker="app"><c>app(4)</c></seefile>,
+      <seecom marker="erts:erl"><c>erts:erl(1)</c></seecom>,
+      <seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide></p>
   </section>
 </fileref>
 

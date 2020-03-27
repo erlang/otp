@@ -38,7 +38,7 @@
   <modulesummary>An Alarm Handling Process</modulesummary>
   <description>
     <p>The alarm handler process is a 
-      <seealso marker="stdlib:gen_event"><c>gen_event</c></seealso> 
+      <seeerl marker="stdlib:gen_event"><c>gen_event</c></seeerl> 
       event manager process that receives alarms in the system. 
       This process is not intended to be a complete alarm handler. 
       It defines a place to which alarms can be sent. One simple event 
@@ -71,11 +71,11 @@
     </taglist>
     <p>The default simple handler is called <c>alarm_handler</c> and
       it can be exchanged by calling 
-      <seealso marker="stdlib:gen_event#swap_handler/3"><c>gen_event:swap_handler/3</c></seealso>
+      <seemfa marker="stdlib:gen_event#swap_handler/3"><c>gen_event:swap_handler/3</c></seemfa>
       as <c>gen_event:swap_handler(alarm_handler, {alarm_handler, swap},
       {NewHandler, Args})</c>. <c>NewHandler:init({Args, {alarm_handler,
       Alarms}})</c> is called. For more details, see
-      <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso>
+      <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl>
       in STDLIB.</p>
   </description>
 
@@ -121,8 +121,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel:error_logger"><c>error_logger(3)</c></seealso>,
-      <seealso marker="stdlib:gen_event"><c>gen_event(3)</c></seealso></p>
+    <p><seeerl marker="kernel:error_logger"><c>error_logger(3)</c></seeerl>,
+      <seeerl marker="stdlib:gen_event"><c>gen_event(3)</c></seeerl></p>
   </section>
 </erlref>
 

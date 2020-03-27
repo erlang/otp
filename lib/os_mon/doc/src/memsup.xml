@@ -33,7 +33,7 @@
   <description>
     <p><c>memsup</c> is a process which supervises the memory usage for
       the system and for individual processes. It is part of the OS_Mon
-      application, see <seealso marker="os_mon_app">os_mon(6)</seealso>.
+      application, see <seeapp marker="os_mon_app">os_mon(6)</seeapp>.
       Available for Unix, Windows and VxWorks.</p>
     <p>Periodically performs a memory check:</p>
     <list type="bulleted">
@@ -49,17 +49,17 @@
       </item>
     </list>
     <p>Alarms are reported to the SASL alarm handler, see
-      <seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>.
+      <seeerl marker="sasl:alarm_handler">alarm_handler(3)</seeerl>.
       To set an alarm, <c>alarm_handler:set_alarm(Alarm)</c> is called
       where <c>Alarm</c> is either of the alarms specified above.</p>
     <p>The alarms are cleared automatically when the alarm cause is no
       longer valid.</p>
     <p>The function 
-      <seealso marker="#get_memory_data/0">get_memory_data()</seealso>
+      <seemfa marker="#get_memory_data/0">get_memory_data()</seemfa>
       can be used to retrieve the result of the latest periodic memory
       check.</p>
     <p>There is also a interface to system dependent memory data,
-      <seealso marker="#get_system_memory_data/0">get_system_memory_data()</seealso>.
+      <seemfa marker="#get_system_memory_data/0">get_system_memory_data()</seemfa>.
       The result is highly dependent on the underlying operating
       system and the interface is targeted primarily for systems
       without virtual memory (e.g. VxWorks). The output on other
@@ -121,7 +121,7 @@
           check makes a traversal of the entire list of processes.</p>
       </item>
     </taglist>
-    <p>See <seealso marker="kernel:config">config(4)</seealso> for
+    <p>See <seefile marker="kernel:config">config(4)</seefile> for
       information about how to change the value of configuration
       parameters.</p>
   </section>
@@ -248,7 +248,7 @@
         <p>The change will take effect after the next memory check and is
           non-persistent. That is, in case of a process restart, this
           value is forgotten and the default value will be used. See
-          <seealso marker="#config">Configuration</seealso> above.</p>
+          <seeerl marker="#config">Configuration</seeerl> above.</p>
       </desc>
     </func>
     <func>
@@ -268,7 +268,7 @@
         <p>The change will take effect during the next periodic memory
           check and is non-persistent. That is, in case of a process
           restart, this value is forgotten and the default value will be
-          used. See <seealso marker="#config">Configuration</seealso>
+          used. See <seeerl marker="#config">Configuration</seeerl>
           above.</p>
       </desc>
     </func>
@@ -289,7 +289,7 @@
         <p>The change will take effect during the next periodic memory
           check and is non-persistent. That is, in case of a process
           restart, this value is forgotten and the default value will be
-          used. See <seealso marker="#config">Configuration</seealso>
+          used. See <seeerl marker="#config">Configuration</seeerl>
           above.</p>
       </desc>
     </func>
@@ -315,15 +315,15 @@
         <p>The change will take effect for the next memory check and is
           non-persistent. That is, in the case of a process restart, this
           value is forgotten and the default value will be used. See
-          <seealso marker="#config">Configuration</seealso> above.</p>
+          <seeerl marker="#config">Configuration</seeerl> above.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="sasl:alarm_handler">alarm_handler(3)</seealso>,
-      <seealso marker="os_mon_app">os_mon(3)</seealso></p>
+    <p><seeerl marker="sasl:alarm_handler">alarm_handler(3)</seeerl>,
+      <seeapp marker="os_mon_app">os_mon(3)</seeapp></p>
   </section>
 </erlref>
 

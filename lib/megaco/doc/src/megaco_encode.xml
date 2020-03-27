@@ -254,7 +254,7 @@
           standard distribution format after an internal transformation. 
           It is less verbose, but the total time of the encoding and 
           decoding will on the other hand be somewhat slower (see the 
-          <seealso marker="megaco_performance">performance</seealso> 
+          <seeguide marker="megaco_performance">performance</seeguide> 
           chapter for more info).</p>
       </item>
       <item>
@@ -262,7 +262,7 @@
           way as the megaco_compressed config parameter, only here the 
           user provide their own compress module. This module must 
           implement the 
-          <seealso marker="megaco_edist_compress">megaco_edist_compress</seealso> 
+          <seeerl marker="megaco_edist_compress">megaco_edist_compress</seeerl> 
           behaviour.</p>
       </item>
       <item>
@@ -287,13 +287,13 @@
       <item>
         <p><c><![CDATA[[{flex, port()}]]]></c> - Use the flex scanner when 
           decoding (not optimized for SMP). See 
-          <seealso marker="megaco_run#initial_config">initial configuration</seealso> 
+          <seeguide marker="megaco_run#initial_config">initial configuration</seeguide> 
           for more info.</p>
       </item>
       <item>
         <p><c><![CDATA[[{flex, ports()}]]]></c> - Use the flex scanner when 
           decoding (optimized for SMP). See 
-          <seealso marker="megaco_run#initial_config">initial configuration</seealso> 
+          <seeguide marker="megaco_run#initial_config">initial configuration</seeguide> 
           for more info.</p>
       </item>
     </list>
@@ -308,12 +308,12 @@
           <item>
             <p>Add the <c><![CDATA[{scanner, flex}]]></c> (or similar) directive to an 
               Erlang system config file for the megaco app (see 
-              <seealso marker="megaco_run#initial_config">initial configuration</seealso> 
+              <seeguide marker="megaco_run#initial_config">initial configuration</seeguide> 
               chapter for details). </p>
           </item>
           <item>
             <p>Retrieve the encoding-config using the
-              <seealso marker="megaco#system_info">system_info</seealso> 
+              <seeerl marker="megaco#system_info">system_info</seeerl> 
               function (with <c>Item = text_config</c>). </p>
           </item>
           <item>
@@ -444,9 +444,9 @@ v2).</p>
           megaco_receive_handle of the transport process (control_pid) to 
           version 2.
           See 
-          <seealso marker="megaco_tcp#upgrade_receive_handle">megaco_tcp</seealso>
+          <seeerl marker="megaco_tcp#upgrade_receive_handle">megaco_tcp</seeerl>
           and 
-          <seealso marker="megaco_udp#upgrade_receive_handle">megaco_udp</seealso>.
+          <seeerl marker="megaco_udp#upgrade_receive_handle">megaco_udp</seeerl>.
           <br></br>Note that if <c><![CDATA[udp]]></c> is used, the same transport process 
           could be used for several connections. This could make upgrading 
           impossible.
@@ -465,8 +465,8 @@ v2).</p>
         <p>Override protocol version when sending a message by adding the
           item <c><![CDATA[{protocol_version, integer()}]]></c> to the Options.
           See 
-          <seealso marker="megaco#call">call</seealso> or
-          <seealso marker="megaco#cast">cast</seealso>.
+          <seeerl marker="megaco#call">call</seeerl> or
+          <seeerl marker="megaco#cast">cast</seeerl>.
           <br></br>Note that this does not effect the messages that are sent
           autonomously by the stack. They use the protocol_version of the
           connection info.</p>
@@ -477,7 +477,7 @@ v2).</p>
   <section>
     <title>Encoder callback functions</title>
     <p>The encoder callback interface is defined by the <c><![CDATA[megaco_encoder]]></c> 
-      behaviour, see <seealso marker="megaco_encoder">megaco_encoder</seealso>.</p>
+      behaviour, see <seeerl marker="megaco_encoder">megaco_encoder</seeerl>.</p>
   </section>
 </chapter>
 

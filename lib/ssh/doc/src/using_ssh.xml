@@ -35,7 +35,7 @@
   <section>
     <title>General Information</title>
     <p>The following examples use the utility function
-    <seealso marker="ssh#start/0"> ssh:start/0</seealso> to start
+    <seemfa marker="ssh#start/0"> ssh:start/0</seemfa> to start
     all needed applications (<c>crypto</c>, <c>public_key</c>, and <c>ssh</c>).
     All examples are run in an Erlang shell, or in a bash shell, using <em>openssh</em>
     to illustrate how the <c>ssh</c> application can be used. The
@@ -74,15 +74,15 @@ logout
     <title>Running an Erlang ssh Daemon</title>
 
     <p>The
-    <seealso marker="ssh_file#type-system_dir_daemon_option"><c>system_dir</c></seealso>
+    <seetype marker="ssh_file#system_dir_daemon_option"><c>system_dir</c></seetype>
     option must be a directory containing a host key file and it defaults to <c>/etc/ssh</c>.
-    For details, see Section Configuration Files in <seealso marker="SSH_app">ssh(6)</seealso>.
+    For details, see Section Configuration Files in <seeapp marker="SSH_app">ssh(6)</seeapp>.
     </p>
 
     <note><p>Normally, the <c>/etc/ssh</c> directory is only readable by root.</p>
     </note>
 
-    <p>The option <seealso marker="ssh_file#type-user_dir_common_option"><c>user_dir</c></seealso>
+    <p>The option <seetype marker="ssh_file#user_dir_common_option"><c>user_dir</c></seetype>
     defaults to directory <c>users ~/.ssh</c>.</p>
 
     <p><em>Step 1.</em> To run the example without root privileges,
@@ -172,8 +172,8 @@ ok
 {channels,[]}
 7></pre>
 
-    <p>See <seealso marker="ssh_connection#description">ssh_connection</seealso> and
-    <seealso marker="ssh_connection#exec/4">ssh_connection:exec/4</seealso>
+    <p>See <seeerl marker="ssh_connection#description">ssh_connection</seeerl> and
+    <seemfa marker="ssh_connection#exec/4">ssh_connection:exec/4</seemfa>
     for finding documentation of the channel messages.</p>
 
     <p>To collect the channel messages in a program, use <c>receive...end</c> instead of <c>flush/1</c>:</p>
@@ -198,9 +198,9 @@ ok
 {ok,1}
 8></pre>
 
-    <p>To close the connection, call the function <seealso marker="ssh#close/1"><c>ssh:close(ConnectionRef)</c></seealso>.
+    <p>To close the connection, call the function <seemfa marker="ssh#close/1"><c>ssh:close(ConnectionRef)</c></seemfa>.
     As an alternative, set the option
-    <seealso marker="ssh#type-max_idle_time_common_option"><c>{idle_time, 1}</c></seealso>
+    <seetype marker="ssh#max_idle_time_common_option"><c>{idle_time, 1}</c></seetype>
     when opening the connection. This will cause the connection to be closed automaticaly when there are
     no channels open for the specified time period, in this case 1 ms.
     </p>
@@ -210,14 +210,14 @@ ok
       <title>OS standard client and Erlang daemon (server)</title>
       <p>An Erlang SSH daemon could be called for one-time execution of a "command". The "command" must be
       as if entered into the erlang shell, that is a sequence of Erlang
-      <seealso marker="doc/reference_manual:expressions">expressions</seealso> ended by a period (.).
+      <seeguide marker="system/reference_manual:expressions">expressions</seeguide> ended by a period (.).
       Variables bound in that sequence will keep their bindings throughout the expression sequence.
       The bindings are disposed when the result is returned.</p>
       <p>Here is an example of a suitable expression sequence:</p>
       <pre>
 A=1, B=2, 3 == (A + B).</pre>
       <p>It evaluates to <c>true</c> if submitted to the Erlang daemon started in
-      <seealso marker="#start-daemon-step3">Step 3</seealso> above:</p>
+      <seeguide marker="#start-daemon-step3">Step 3</seeguide> above:</p>
       <pre>
 $bash> <input>ssh tarlop -p 8989 "A=1, B=2, 3 == (A + B)."</input>
 true
@@ -260,7 +260,7 @@ ok
 $bash></pre>
 
       <p>And similar for reading from stdin. As an example we use
-      <seealso marker="stdlib:io#read/1">io:read/1</seealso> which 
+      <seemfa marker="stdlib:io#read/1">io:read/1</seemfa> which 
       displays the argument as a prompt on stdout, reads a term from stdin and returns it
       in an ok-tuple:</p>
       <pre>
@@ -307,20 +307,20 @@ ok
     
     <section>
       <title>Configuring the server's (daemon's) command execution</title>
-      <p>Every time a daemon <seealso marker="#running-an-erlang-ssh-daemon">is started</seealso>, it enables
+      <p>Every time a daemon <seeguide marker="#running-an-erlang-ssh-daemon">is started</seeguide>, it enables
       one-time execution of commands as described in the
-      <seealso marker="#simple-client-example">previous section</seealso> unless explicitly disabled.
+      <seeguide marker="#simple-client-example">previous section</seeguide> unless explicitly disabled.
       </p>
 
       <p>There is often a need to configure some other exec evaluator to tailor the input language or
       restrict the possible functions to call. There are two ways of doing this which will be shown with examples
-      below. See <seealso marker="ssh#daemon/2">ssh:daemon/2,3</seealso> and
-      <seealso marker="ssh#type-exec_daemon_option">exec_daemon_option()</seealso>) for details.</p>
+      below. See <seemfa marker="ssh#daemon/2">ssh:daemon/2,3</seemfa> and
+      <seetype marker="ssh#exec_daemon_option">exec_daemon_option()</seetype>) for details.</p>
       <p>Examples of the two ways to configure the exec evaluator:</p>
       <list type="ordered">
 	<item>Disable one-time execution.<br/>
 	To modify the daemon start example above to reject one-time execution requests,
-	we change <seealso marker="#start-daemon-step3">Step 3</seealso> by adding the option
+	we change <seeguide marker="#start-daemon-step3">Step 3</seeguide> by adding the option
 	<c>{exec, disabled}</c>
 	to:
 	<pre>
@@ -408,7 +408,7 @@ ok
 6></pre>
 	<p>The <c>fun()</c> in the exec option could take up to three arguments
 	(<c>Cmd</c>, <c>User</c> and <c>ClientAddress</c>). See
-	the <seealso marker="ssh#type-exec_daemon_option">exec_daemon_option()</seealso> for the details.</p>
+	the <seetype marker="ssh#exec_daemon_option">exec_daemon_option()</seetype> for the details.</p>
 	</item>
       </list>
 
@@ -486,7 +486,7 @@ ok = erl_tar:close(HandleRead),
 
   <section>
     <title>Example with encryption</title>
-    <p>The previous <seealso marker="using_ssh#basic-example">Basic example</seealso>
+    <p>The previous <seeguide marker="using_ssh#basic-example">Basic example</seeguide>
     can be extended with encryption and decryption as follows:</p>
     <code type="erl">
 %% First three parameters depending on which crypto type we select:
@@ -597,8 +597,8 @@ terminate(_Reason, _State) ->
  </code>
 
  <p>The subsystem can be run on the host <em>tarlop</em> with the generated keys,
- as described in Section <seealso marker="#Running an Erlang ssh Daemon">
- Running an Erlang ssh Daemon</seealso>:</p>
+ as described in Section <seeguide marker="#Running an Erlang ssh Daemon">
+ Running an Erlang ssh Daemon</seeguide>:</p>
 
  <pre>
 1> <input>ssh:start().</input>
@@ -624,7 +624,7 @@ ok
 {ssh_msg, &lt;0.57.0>, {closed, 0}}
 7> <input>{error, closed} = ssh_connection:send(ConnectionRef, ChannelId, "10", infinity).</input> </pre>
  
-<p>See also <seealso marker="ssh_client_channel">ssh_client_channel(3)</seealso> (replaces ssh_channel(3)).</p>
+<p>See also <seeerl marker="ssh_client_channel">ssh_client_channel(3)</seeerl> (replaces ssh_channel(3)).</p>
 
 </section>
 

@@ -103,7 +103,7 @@
         transaction. The function <c>raise/2</c>, shown in the previous
         example, writes one record only. The function <c>insert_emp/3</c>,
         shown in the program listing in
-        <seealso marker="Mnesia_chap2#getting_started">Getting Started</seealso>, writes the record
+        <seeguide marker="Mnesia_chap2#getting_started">Getting Started</seeguide>, writes the record
         <c>employee</c> as well as employee relations, such as
         <c>at_dep</c> and <c>in_proj</c>, into the database. If this
         latter code is run inside a transaction, the transaction
@@ -207,7 +207,7 @@
        has terminated.</item>
     </list>
     <p><c>Mnesia</c> employs a strategy whereby functions, such as
-      <seealso marker="mnesia#read/1">mnesia:read/1</seealso>
+      <seemfa marker="mnesia#read/1">mnesia:read/1</seemfa>
       acquire the necessary locks dynamically as
       the transactions execute. <c>Mnesia</c> automatically sets and
       releases the locks and the programmer does not need to code these
@@ -220,7 +220,7 @@
       forced to release all its locks and sleep for a while. The Fun
       in the transaction is evaluated once more.</p>
     <p>It is therefore important that the code inside the Fun given to
-      <seealso marker="mnesia#transaction/2"><c>mnesia:transaction/1</c></seealso>
+      <seemfa marker="mnesia#transaction/2"><c>mnesia:transaction/1</c></seemfa>
       is pure. Some strange results can
       occur if, for example, messages are sent by the transaction
       Fun. The following example illustrates this situation:</p>
@@ -252,11 +252,11 @@
       transaction. If no enclosing transaction (or other enclosing
       <c>Mnesia</c> activity) exists, they all fail.</p>
     <list type="bulleted">
-      <item><seealso marker="mnesia#transaction/2">mnesia:transaction(Fun) -> {aborted, Reason} |{atomic, Value}</seealso>
+      <item><seemfa marker="mnesia#transaction/2">mnesia:transaction(Fun) -> {aborted, Reason} |{atomic, Value}</seemfa>
        executes one transaction with the
        functional object <c>Fun</c> as the single parameter.
       </item>
-      <item><seealso marker="mnesia#read/1">mnesia:read({Tab, Key}) -> transaction abort | RecordList</seealso>
+      <item><seemfa marker="mnesia#read/1">mnesia:read({Tab, Key}) -> transaction abort | RecordList</seemfa>
        reads all records with <c>Key</c>
        as key from table <c>Tab</c>. This function has the same semantics
        regardless of the location of <c>Table</c>. If the table is of
@@ -264,27 +264,27 @@
        long list. If the table is of type <c>set</c>, the list is
        either of length one or <c>[]</c>.
       </item>
-      <item><seealso marker="mnesia#wread/1">mnesia:wread({Tab, Key}) -> transaction abort | RecordList</seealso>
+      <item><seemfa marker="mnesia#wread/1">mnesia:wread({Tab, Key}) -> transaction abort | RecordList</seemfa>
        behaves the same way as the
        previously listed function <c>read/1</c>, except that it
        acquires a write lock instead of a read lock. To execute a
        transaction that reads a record, modifies the record, and then
        writes the record, it is slightly more efficient to set the
-       write lock immediately. When a <seealso marker="mnesia#read/1">mnesia:read/1</seealso>
+       write lock immediately. When a <seemfa marker="mnesia#read/1">mnesia:read/1</seemfa>
        is issued, followed by a
-       <seealso marker="mnesia#write/1">mnesia:write/1</seealso>
+       <seemfa marker="mnesia#write/1">mnesia:write/1</seemfa>
        the first read lock must be upgraded to a write lock when the
        write operation is executed.
       </item>
-      <item><seealso marker="mnesia#write/1">mnesia:write(Record) -> transaction abort | ok</seealso>
+      <item><seemfa marker="mnesia#write/1">mnesia:write(Record) -> transaction abort | ok</seemfa>
        writes a record into the database. Argument
        <c>Record</c> is an instance of a record. The function returns
        <c>ok</c>, or terminates the transaction if an error occurs.
       </item>
-      <item><seealso marker="mnesia#delete/1">mnesia:delete({Tab, Key}) -> transaction abort | ok</seealso>
+      <item><seemfa marker="mnesia#delete/1">mnesia:delete({Tab, Key}) -> transaction abort | ok</seemfa>
        deletes all records with the given key.
       </item>
-      <item><seealso marker="mnesia#delete_object/1">mnesia:delete_object(Record) -> transaction abort | ok</seealso>
+      <item><seemfa marker="mnesia#delete_object/1">mnesia:delete_object(Record) -> transaction abort | ok</seemfa>
        deletes records with the OID <c>Record</c>. Use this function to
        delete only some records in a table of type <c>bag</c>.</item>
     </list>
@@ -327,9 +327,9 @@
             end,
         mnesia:transaction(F).</code>
       <p>This code uses the function
-        <seealso marker="mnesia#s_write/1">s_write/1</seealso>
+        <seemfa marker="mnesia#s_write/1">s_write/1</seemfa>
         instead of the function
-        <seealso marker="mnesia#write/1">write/1</seealso>
+        <seemfa marker="mnesia#write/1">write/1</seemfa>
         The function <c>s_write/1</c> sets a
         sticky lock instead of a normal lock. If the table is not
         replicated, sticky locks have no special effect. If the table is
@@ -362,9 +362,9 @@
         following two functions are used to set explicit table locks for
         read and write operations:</p>
       <list type="bulleted">
-        <item><seealso marker="mnesia#read_lock_table/1">mnesia:read_lock_table(Tab)</seealso>
+        <item><seemfa marker="mnesia#read_lock_table/1">mnesia:read_lock_table(Tab)</seemfa>
          sets a read lock on table <c>Tab</c>.</item>
-        <item><seealso marker="mnesia#write_lock_table/1">mnesia:write_lock_table(Tab)</seealso>
+        <item><seemfa marker="mnesia#write_lock_table/1">mnesia:write_lock_table(Tab)</seemfa>
          sets a write lock on table <c>Tab</c>.</item>
       </list>
       <p>Alternative syntax for acquisition of table locks is as
@@ -384,7 +384,7 @@
         acquired on one node (the local one if a local
         replica exists).</p>
       <p>The function
-        <seealso marker="mnesia#lock/2">mnesia:lock/2</seealso>
+        <seemfa marker="mnesia#lock/2">mnesia:lock/2</seemfa>
         is intended to support table locks (as mentioned previously)
         but also for situations when locks need to be
         acquired regardless of how tables have been replicated:</p>
@@ -439,33 +439,33 @@
       executed inside a transaction no locks are acquired. The
       following functions are available:</p>
     <list type="bulleted">
-      <item><seealso marker="mnesia#dirty_read/1">mnesia:dirty_read({Tab, Key})</seealso>
+      <item><seemfa marker="mnesia#dirty_read/1">mnesia:dirty_read({Tab, Key})</seemfa>
        reads one or more records from <c>Mnesia</c>.
       </item>
-      <item><seealso marker="mnesia#dirty_write/1">mnesia:dirty_write(Record)</seealso>
+      <item><seemfa marker="mnesia#dirty_write/1">mnesia:dirty_write(Record)</seemfa>
        writes the record <c>Record</c>.
       </item>
-      <item><seealso marker="mnesia#dirty_delete/1">mnesia:dirty_delete({Tab, Key})</seealso>
+      <item><seemfa marker="mnesia#dirty_delete/1">mnesia:dirty_delete({Tab, Key})</seemfa>
        deletes one or more records with key <c>Key</c>.
       </item>
-      <item><seealso marker="mnesia#dirty_delete_object/1">mnesia:dirty_delete_object(Record)</seealso>
+      <item><seemfa marker="mnesia#dirty_delete_object/1">mnesia:dirty_delete_object(Record)</seemfa>
        is the dirty operation alternative to the function
-       <seealso marker="mnesia#delete_object/1">delete_object/1</seealso>.
+       <seemfa marker="mnesia#delete_object/1">delete_object/1</seemfa>.
       </item>
       <item>
-        <p><seealso marker="mnesia#dirty_first/1">mnesia:dirty_first(Tab)</seealso>
+        <p><seemfa marker="mnesia#dirty_first/1">mnesia:dirty_first(Tab)</seemfa>
           returns the "first" key in table <c>Tab</c>.</p>
         <p>Records in <c>set</c> or <c>bag</c> tables are not sorted.
           However, there is a record order that is unknown to the user.
           This means that a table can be traversed by this function
           with the function
-          <seealso marker="mnesia#dirty_next/2">mnesia:dirty_next/2</seealso>.</p>
+          <seemfa marker="mnesia#dirty_next/2">mnesia:dirty_next/2</seemfa>.</p>
         <p>If there are no records in the table, this function
           returns the atom <c>'$end_of_table'</c>. It is not
           recommended to use this atom as the key for any user
           records.</p>
       </item>
-      <item><p><seealso marker="mnesia#dirty_next/2">mnesia:dirty_next(Tab, Key)</seealso>
+      <item><p><seemfa marker="mnesia#dirty_next/2">mnesia:dirty_next(Tab, Key)</seemfa>
        returns the "next" key in table <c>Tab</c>. This function makes it
        possible to traverse a table and perform some operation on all
        records in the table. When the end of the table is reached, the
@@ -475,22 +475,22 @@
        <p>The behavior is undefined if any process performs a write
        operation on the table while traversing the table with the
        function
-       <seealso marker="mnesia#dirty_next/2">dirty_next/2</seealso>
+       <seemfa marker="mnesia#dirty_next/2">dirty_next/2</seemfa>
        This is because <c>write</c>
        operations on a <c>Mnesia</c> table can lead to internal
        reorganizations of the table itself. This is an implementation
        detail, but remember that the dirty functions are low-level
        functions.</p>
       </item>
-      <item><seealso marker="mnesia#dirty_last/1">mnesia:dirty_last(Tab)</seealso>
+      <item><seemfa marker="mnesia#dirty_last/1">mnesia:dirty_last(Tab)</seemfa>
        works exactly like
-       <seealso marker="mnesia#dirty_first/1">mnesia:dirty_first/1</seealso>
+       <seemfa marker="mnesia#dirty_first/1">mnesia:dirty_first/1</seemfa>
        but returns the last object in
        Erlang term order for the table type <c>ordered_set</c>. For
        all other table types, <c>mnesia:dirty_first/1</c> and 
        <c>mnesia:dirty_last/1</c> are synonyms.
       </item>
-      <item><seealso marker="mnesia#dirty_prev/2">mnesia:dirty_prev(Tab, Key)</seealso>
+      <item><seemfa marker="mnesia#dirty_prev/2">mnesia:dirty_prev(Tab, Key)</seemfa>
        works exactly like
        <c>mnesia:dirty_next/2</c> but returns the previous object in
        Erlang term order for the table type <c>ordered_set</c>. For
@@ -498,7 +498,7 @@
        <c>mnesia:dirty_prev/2</c> are synonyms.
       </item>
       <item>
-        <p><seealso marker="mnesia#dirty_slot/2">mnesia:dirty_slot(Tab, Slot)</seealso>
+        <p><seemfa marker="mnesia#dirty_slot/2">mnesia:dirty_slot(Tab, Slot)</seemfa>
           returns the list of records that are associated with <c>Slot</c>
           in a table. It can be used to traverse a table in a manner
           similar to the function <c>dirty_next/2</c>. A table has a
@@ -509,11 +509,11 @@
         <p>The behavior of this function is undefined if the
           table is written on while being
           traversed. The function
-          <seealso marker="mnesia#read_lock_table/1">mnesia:read_lock_table(Tab)</seealso>
+          <seemfa marker="mnesia#read_lock_table/1">mnesia:read_lock_table(Tab)</seemfa>
           can be used to ensure that no transaction-protected writes
           are performed during the iteration.</p>
       </item>
-      <item><p><seealso marker="mnesia#dirty_update_counter/2">mnesia:dirty_update_counter({Tab,Key}, Val)</seealso>.
+      <item><p><seemfa marker="mnesia#dirty_update_counter/2">mnesia:dirty_update_counter({Tab,Key}, Val)</seemfa>.
           Counters are positive integers with a value greater than or
           equal to zero. Updating a counter adds <c>Val</c> and the
           counter where <c>Val</c> is a positive or negative integer.</p>
@@ -529,7 +529,7 @@
           <item>It is much more efficient.
           </item>
           <item>The funcion
-           <seealso marker="mnesia#dirty_update_counter/2">dirty_update_counter/2</seealso>
+           <seemfa marker="mnesia#dirty_update_counter/2">dirty_update_counter/2</seemfa>
            is performed as an atomic operation although it is not protected
            by a transaction. Therfore no table update is lost if two
            processes simultaneously execute the function
@@ -537,25 +537,25 @@
           </item>
         </list>
       </item>
-      <item><seealso marker="mnesia#dirty_match_object/2">mnesia:dirty_match_object(Pat)</seealso>
+      <item><seemfa marker="mnesia#dirty_match_object/2">mnesia:dirty_match_object(Pat)</seemfa>
        is the dirty equivalent of
-       <seealso marker="mnesia#match_object/1">mnesia:match_object/1</seealso>.
+       <seemfa marker="mnesia#match_object/1">mnesia:match_object/1</seemfa>.
       </item>
-      <item><seealso marker="mnesia#dirty_select/2">mnesia:dirty_select(Tab, Pat)</seealso>
+      <item><seemfa marker="mnesia#dirty_select/2">mnesia:dirty_select(Tab, Pat)</seemfa>
        is the dirty equivalent of
-       <seealso marker="mnesia#select/2"> mnesia:select/2</seealso>.
+       <seemfa marker="mnesia#select/2"> mnesia:select/2</seemfa>.
       </item>
-      <item><seealso marker="mnesia#dirty_index_match_object/2">mnesia:dirty_index_match_object(Pat, Pos)</seealso>
+      <item><seemfa marker="mnesia#dirty_index_match_object/2">mnesia:dirty_index_match_object(Pat, Pos)</seemfa>
        is the dirty equivalent of
-       <seealso marker="mnesia#index_match_object/2">mnesia:index_match_object/2</seealso>.
+       <seemfa marker="mnesia#index_match_object/2">mnesia:index_match_object/2</seemfa>.
       </item>
-      <item><seealso marker="mnesia#dirty_index_read/3">mnesia:dirty_index_read(Tab, SecondaryKey, Pos)</seealso>
+      <item><seemfa marker="mnesia#dirty_index_read/3">mnesia:dirty_index_read(Tab, SecondaryKey, Pos)</seemfa>
        is the dirty equivalent of
-       <seealso marker="mnesia#index_read/3">mnesia:index_read/3</seealso>.
+       <seemfa marker="mnesia#index_read/3">mnesia:index_read/3</seemfa>.
       </item>
-      <item><seealso marker="mnesia#dirty_all_keys/1">mnesia:dirty_all_keys(Tab)</seealso>
-       is the dirty equivalent of <seealso marker="mnesia#all_keys/1">
-mnesia:all_keys/1</seealso>.
+      <item><seemfa marker="mnesia#dirty_all_keys/1">mnesia:dirty_all_keys(Tab)</seemfa>
+       is the dirty equivalent of <seemfa marker="mnesia#all_keys/1">
+mnesia:all_keys/1</seemfa>.
       </item>
     </list>
   </section>
@@ -583,11 +583,11 @@ mnesia:all_keys/1</seealso>.
     <p>To access such tables, simplified access functions
       (as described earlier) cannot be used. For example,
       writing a subscriber record into a table requires the function
-      <seealso marker="mnesia#write/3">mnesia:write/3</seealso>
+      <seemfa marker="mnesia#write/3">mnesia:write/3</seemfa>
       instead of the simplified functions
-      <seealso marker="mnesia#write/1">mnesia:write/1</seealso>
+      <seemfa marker="mnesia#write/1">mnesia:write/1</seemfa>
       and
-      <seealso marker="mnesia#s_write/1">mnesia:s_write/1</seealso>:</p>
+      <seemfa marker="mnesia#s_write/1">mnesia:s_write/1</seemfa>:</p>
     <code type="none">
       mnesia:write(subscriber, #subscriber{}, write)
       mnesia:write(my_subscriber, #subscriber{}, sticky_write)
@@ -664,58 +664,58 @@ mnesia:all_keys/1</seealso>.
     <p>As previously described, a Functional Object (Fun) performing
       table access operations, as listed here, can be passed
       on as arguments to the function
-      <seealso marker="mnesia#transaction/2">mnesia:transaction/1,2,3</seealso>:
+      <seemfa marker="mnesia#transaction/2">mnesia:transaction/1,2,3</seemfa>:
     </p>
     <list type="bulleted">
       <item>
-      <seealso marker="mnesia#write/3">mnesia:write/3 (write/1, s_write/1)</seealso>
+      <seemfa marker="mnesia#write/3">mnesia:write/3 (write/1, s_write/1)</seemfa>
       </item>
       <item>
-       <seealso marker="mnesia#delete/3">mnesia:delete/3</seealso>
-       (<seealso marker="mnesia#delete/1">mnesia:delete/1</seealso>,
-       <seealso marker="mnesia#s_delete/1">mnesia:s_delete/1</seealso>)
+       <seemfa marker="mnesia#delete/3">mnesia:delete/3</seemfa>
+       (<seemfa marker="mnesia#delete/1">mnesia:delete/1</seemfa>,
+       <seemfa marker="mnesia#s_delete/1">mnesia:s_delete/1</seemfa>)
       </item>
       <item>
-       <seealso marker="mnesia#delete_object/3">mnesia:delete_object/3</seealso>
-       (<seealso marker="mnesia#delete_object/1">mnesia:delete_object/1</seealso>,
-       <seealso marker="mnesia#s_delete_object/1">mnesia:s_delete_object/1</seealso>)
+       <seemfa marker="mnesia#delete_object/3">mnesia:delete_object/3</seemfa>
+       (<seemfa marker="mnesia#delete_object/1">mnesia:delete_object/1</seemfa>,
+       <seemfa marker="mnesia#s_delete_object/1">mnesia:s_delete_object/1</seemfa>)
       </item>
       <item>
-       <seealso marker="mnesia#read/3">mnesia:read/3</seealso>
-       (<seealso marker="mnesia#read/1">mnesia:read/1</seealso>,
-       <seealso marker="mnesia#wread/1">mnesia:wread/1</seealso>)
+       <seemfa marker="mnesia#read/3">mnesia:read/3</seemfa>
+       (<seemfa marker="mnesia#read/1">mnesia:read/1</seemfa>,
+       <seemfa marker="mnesia#wread/1">mnesia:wread/1</seemfa>)
       </item>
       <item>
-       <seealso marker="mnesia#match_object/3">mnesia:match_object/2</seealso>
-       (<seealso marker="mnesia#match_object/1">mnesia:match_object/1</seealso>)
+       <seemfa marker="mnesia#match_object/3">mnesia:match_object/2</seemfa>
+       (<seemfa marker="mnesia#match_object/1">mnesia:match_object/1</seemfa>)
       </item>
       <item>
-       <seealso marker="mnesia#select/2">mnesia:select/3</seealso>
-       (<seealso marker="mnesia#select/2">mnesia:select/2</seealso>)
+       <seemfa marker="mnesia#select/2">mnesia:select/3</seemfa>
+       (<seemfa marker="mnesia#select/2">mnesia:select/2</seemfa>)
       </item>
       <item>
-       <seealso marker="mnesia#foldl/3">mnesia:foldl/3</seealso>
+       <seemfa marker="mnesia#foldl/3">mnesia:foldl/3</seemfa>
        (<c>mnesia:foldl/4</c>,
-       <seealso marker="mnesia#foldr/3">mnesia:foldr/3</seealso>,
+       <seemfa marker="mnesia#foldr/3">mnesia:foldr/3</seemfa>,
        <c>mnesia:foldr/4</c>)
       </item>
       <item>
-       <seealso marker="mnesia#all_keys/1">mnesia:all_keys/1</seealso>
+       <seemfa marker="mnesia#all_keys/1">mnesia:all_keys/1</seemfa>
       </item>
       <item>
-       <seealso marker="mnesia#index_match_object/4">mnesia:index_match_object/4</seealso>
-       (<seealso marker="mnesia#index_match_object/2">mnesia:index_match_object/2</seealso>)
+       <seemfa marker="mnesia#index_match_object/4">mnesia:index_match_object/4</seemfa>
+       (<seemfa marker="mnesia#index_match_object/2">mnesia:index_match_object/2</seemfa>)
       </item>
       <item>
-       <seealso marker="mnesia#index_read/3">mnesia:index_read/3</seealso>
+       <seemfa marker="mnesia#index_read/3">mnesia:index_read/3</seemfa>
       </item>
       <item>
-       <seealso marker="mnesia#lock/2">mnesia:lock/2</seealso>
-       (<seealso marker="mnesia#read_lock_table/1">mnesia:read_lock_table/1</seealso>,
-       <seealso marker="mnesia#write_lock_table/1">mnesia:write_lock_table/1</seealso>)
+       <seemfa marker="mnesia#lock/2">mnesia:lock/2</seemfa>
+       (<seemfa marker="mnesia#read_lock_table/1">mnesia:read_lock_table/1</seemfa>,
+       <seemfa marker="mnesia#write_lock_table/1">mnesia:write_lock_table/1</seemfa>)
       </item>
       <item>
-       <seealso marker="mnesia#table_info/2">mnesia:table_info/2</seealso>
+       <seemfa marker="mnesia#table_info/2">mnesia:table_info/2</seemfa>
       </item>
     </list>
     <p>These functions are performed in a
@@ -732,7 +732,7 @@ mnesia:all_keys/1</seealso>.
       <item><c>ets</c></item>
     </list>
     <p>By passing the same "fun" as argument to the function
-       <seealso marker="mnesia#sync_transaction/3">mnesia:sync_transaction(Fun [, Args])</seealso>
+       <seemfa marker="mnesia#sync_transaction/3">mnesia:sync_transaction(Fun [, Args])</seemfa>
       it is performed
       in synced transaction context. Synced transactions wait until all
       active replicas has committed the transaction (to disc) before
@@ -750,7 +750,7 @@ mnesia:all_keys/1</seealso>.
        that can overload <c>Mnesia</c> on other nodes.</item>
     </list>
     <p>By passing the same "fun" as argument to the function
-       <seealso marker="mnesia#async_dirty/1">mnesia:async_dirty(Fun [, Args])</seealso>,
+       <seemfa marker="mnesia#async_dirty/1">mnesia:async_dirty(Fun [, Args])</seemfa>,
       it is performed in dirty context. The function calls are mapped to
       the corresponding dirty functions. This still involves logging,
       replication, and subscriptions but no locking,
@@ -761,9 +761,9 @@ mnesia:all_keys/1</seealso>.
       node but not the others. If the table resides locally, no waiting
       occurs.</p>
     <p>By passing the same "fun" as an argument to the function
-       <seealso marker="mnesia#sync_dirty/1">mnesia:sync_dirty(Fun [, Args])</seealso>,
+       <seemfa marker="mnesia#sync_dirty/1">mnesia:sync_dirty(Fun [, Args])</seemfa>,
       it is performed in almost the same context as the function
-      <seealso marker="mnesia#async_dirty/1">mnesia:async_dirty/1,2</seealso>.
+      <seemfa marker="mnesia#async_dirty/1">mnesia:async_dirty/1,2</seemfa>.
       The difference is that the operations are performed
       synchronously. The caller waits for the updates to be
       performed on all active replicas. Using <c>mnesia:sync_dirty/1,2</c>
@@ -778,7 +778,7 @@ mnesia:all_keys/1</seealso>.
       </list>
     <p>To check if your code is executed within a transaction, use
        the function
-       <seealso marker="mnesia#is_transaction/0">mnesia:is_transaction/0</seealso>.
+       <seemfa marker="mnesia#is_transaction/0">mnesia:is_transaction/0</seemfa>.
       It returns <c>true</c> when called
       inside a transaction context, otherwise <c>false</c>.</p>
     <p><c>Mnesia</c> tables with storage type <c>RAM_copies</c> and
@@ -788,7 +788,7 @@ mnesia:all_keys/1</seealso>.
       recommended if all options have been weighed and the possible
       outcomes are understood. By passing the earlier mentioned "fun"
       to the function
-      <seealso marker="mnesia#ets/1">mnesia:ets(Fun [, Args])</seealso>,
+      <seemfa marker="mnesia#ets/1">mnesia:ets(Fun [, Args])</seemfa>,
       it is performed but in a raw
       context. The operations are performed directly on the
       local <c>ets</c> tables, assuming that the local storage type is
@@ -799,7 +799,7 @@ mnesia:all_keys/1</seealso>.
       tables are not to be updated with the <c>ets</c> function, as the
       disc is not updated.</p>
     <p>The Fun can also be passed as an argument to the function
-      <seealso marker="mnesia#activity-4">mnesia:activity/2,3,4</seealso>,
+      <seemfa marker="mnesia#activity/2">mnesia:activity/2,3,4</seemfa>,
       which enables use of customized
       activity access callback modules. It can either be obtained
       directly by stating the module name as argument, or implicitly
@@ -810,11 +810,11 @@ mnesia:all_keys/1</seealso>.
     <p>The callback module does not have
       to access real <c>Mnesia</c> tables, it is free to do whatever
       it wants as long as the callback interface is fulfilled.</p>
-    <p><seealso marker="Mnesia_App_B">Appendix B,
-      Activity Access Callback Interface</seealso> provides the
+    <p><seeguide marker="Mnesia_App_B">Appendix B,
+      Activity Access Callback Interface</seeguide> provides the
       source code, <c>mnesia_frag.erl</c>, for one alternative
       implementation. The context-sensitive function
-      <seealso marker="mnesia#table_info/2">mnesia:table_info/2</seealso>
+      <seemfa marker="mnesia#table_info/2">mnesia:table_info/2</seemfa>
       can be used to provide virtual
       information about a table. One use of this is to perform
       <c>QLC</c> queries within an activity context with a
@@ -893,7 +893,7 @@ mnesia:all_keys/1</seealso>.
     <title>Pattern Matching</title>
     <marker id="matching"></marker>
     <p>When the function
-      <seealso marker="mnesia#read/3">mnesia:read/3</seealso>
+      <seemfa marker="mnesia#read/3">mnesia:read/3</seemfa>
       cannot be used, <c>Mnesia</c>
       provides the programmer with several functions for matching
       records against a pattern. The most useful ones
@@ -909,7 +909,7 @@ mnesia:all_keys/1</seealso>.
           transaction abort | RecordList</code>
     <p>These functions match a <c>Pattern</c> against all records in
       table <c>Tab</c>. In a
-      <seealso marker="mnesia#select/2">mnesia:select</seealso>
+      <seemfa marker="mnesia#select/2">mnesia:select</seemfa>
       call, <c>Pattern</c> is
       a part of <c>MatchSpecification</c> described in the following. It
       is not necessarily performed as an exhaustive search of the entire
@@ -926,7 +926,7 @@ mnesia:all_keys/1</seealso>.
       bind the first occurrence, and match the
       coming occurrences of that variable against the bound value.</p>
     <p>Use function
-      <seealso marker="mnesia#table_info/2">mnesia:table_info(Tab, wild_pattern)</seealso>
+      <seemfa marker="mnesia#table_info/2">mnesia:table_info(Tab, wild_pattern)</seemfa>
       to obtain a basic pattern, which matches all records in a table,
       or use the default value in record creation.
       Do not make the pattern hard-coded, as this makes the code more
@@ -954,9 +954,9 @@ mnesia:all_keys/1</seealso>.
       F = fun() -> mnesia:match_object(Pat) end,
       Odd = mnesia:transaction(F).</code>
     <p>The function
-      <seealso marker="mnesia#match_object/3">mnesia:match_object/3</seealso>
+      <seemfa marker="mnesia#match_object/3">mnesia:match_object/3</seemfa>
       lacks some important features that
-      <seealso marker="mnesia#select/2">mnesia:select/3</seealso>
+      <seemfa marker="mnesia#select/2">mnesia:select/3</seemfa>
       have. For example,
       <c>mnesia:match_object/3</c> can only return the matching records,
       and it cannot express constraints other than equality. To find
@@ -978,14 +978,14 @@ mnesia:all_keys/1</seealso>.
     </list>
     <p>For details about the match specifications, see
       "Match Specifications in Erlang" in
-      <seealso marker="erts:index">ERTS</seealso> User's Guide.
+      <seeapp marker="erts:index">ERTS</seeapp> User's Guide.
       For more information, see the
-      <seealso marker="stdlib:ets">ets</seealso> and
-      <seealso marker="stdlib:dets">dets</seealso>
+      <seeerl marker="stdlib:ets">ets</seeerl> and
+      <seeerl marker="stdlib:dets">dets</seeerl>
       manual pages in <c>STDLIB</c>.</p>
     <p>The functions
-      <seealso marker="mnesia#select/4">select/4</seealso> and
-      <seealso marker="mnesia#select/2">select/1</seealso>
+      <seemfa marker="mnesia#select/4">select/4</seemfa> and
+      <seemfa marker="mnesia#select/2">select/1</seemfa>
       are used to
       get a limited number of results, where <c>Continuation</c>
       gets the next chunk of results. <c>Mnesia</c> uses
@@ -998,8 +998,8 @@ mnesia:all_keys/1</seealso>.
         <c>mnesia:select/[1|2|3|4]</c> after any modifying operation
         is done on that table in the same transaction. That is, avoid
         using
-        <seealso marker="mnesia#write/1">mnesia:write/1</seealso> or
-        <seealso marker="mnesia#delete/1">mnesia:delete/1</seealso>
+        <seemfa marker="mnesia#write/1">mnesia:write/1</seemfa> or
+        <seemfa marker="mnesia#delete/1">mnesia:delete/1</seemfa>
         before <c>mnesia:select</c> in the same transaction.</p>
     </warning>
     <p>If the key attribute is bound in a pattern, the match operation
@@ -1008,13 +1008,13 @@ mnesia:all_keys/1</seealso>.
       table must be searched for records that match. Hence if the table is
       large, this can become a time-consuming operation, but it can be
       remedied with indexes (see
-      <seealso marker="Mnesia_chap5#indexing">Indexing</seealso>)
+      <seeguide marker="Mnesia_chap5#indexing">Indexing</seeguide>)
       if the function
-      <seealso marker="mnesia#match_object/1">mnesia:match_object</seealso>
+      <seemfa marker="mnesia#match_object/1">mnesia:match_object</seemfa>
       is used.</p>
     <p>QLC queries can also be used to search <c>Mnesia</c> tables. By
       using the function
-      <seealso marker="mnesia#table/1">mnesia:table/[1|2]</seealso>
+      <seemfa marker="mnesia#table/1">mnesia:table/[1|2]</seemfa>
       as the generator inside a QLC
       query, you let the query operate on a <c>Mnesia</c> table.
       <c>Mnesia</c>-specific options to <c>mnesia:table/2</c> are
@@ -1029,7 +1029,7 @@ mnesia:all_keys/1</seealso>.
        to use to traverse the table. Default <c>select</c> is used, but
        by using <c>{traverse, {select, MatchSpecification}}</c> as an
        option to
-       <seealso marker="mnesia#table/1">mnesia:table/2</seealso>
+       <seemfa marker="mnesia#table/1">mnesia:table/2</seemfa>
        the user can specify its own view of the table.</item>
     </list>
     <p>If no options are specified, a read lock is acquired, 100
@@ -1039,7 +1039,7 @@ mnesia:all_keys/1</seealso>.
       mnesia:table(Tab) ->
           mnesia:table(Tab, [{n_objects,100},{lock, read}, {traverse, select}]).</code>
     <p>The function
-      <seealso marker="mnesia#all_keys/1">mnesia:all_keys(Tab)</seealso>
+      <seemfa marker="mnesia#all_keys/1">mnesia:all_keys(Tab)</seemfa>
       returns all keys in a table.</p>
   </section>
 
@@ -1063,8 +1063,8 @@ mnesia:all_keys/1</seealso>.
       the return value from the previous call is used as the
       second argument. The term the last call to <c>Fun</c> returns
       is the return value of the function
-       <seealso marker="mnesia#foldl/3">mnesia:foldl/3</seealso> or
-       <seealso marker="mnesia#foldr/3">mnesia:foldr/3</seealso>.</p>
+       <seemfa marker="mnesia#foldl/3">mnesia:foldl/3</seemfa> or
+       <seemfa marker="mnesia#foldr/3">mnesia:foldr/3</seemfa>.</p>
     <p>The difference between these functions is the
       order the table is accessed for <c>ordered_set</c> tables.
       For other table types the functions are equivalent.</p>
@@ -1074,7 +1074,7 @@ mnesia:all_keys/1</seealso>.
       lock is to be acquired.</p>
     <p>These functions can be used to find records in a table
       when it is impossible to write constraints for the function
-       <seealso marker="mnesia#match_object/3">mnesia:match_object/3</seealso>,
+       <seemfa marker="mnesia#match_object/3">mnesia:match_object/3</seemfa>,
       or when you want to perform some action on certain records.</p>
     <p>For example, finding all the employees who have a salary
       less than 10 can look as follows:</p>
@@ -1126,10 +1126,10 @@ mnesia:all_keys/1</seealso>.
       <c>'$end_of_table'</c> is returned.</p>
     <p>If records are written and deleted during the traversal, use
       the function
-      <seealso marker="mnesia#foldl">mnesia:foldl/3</seealso> or
-      <seealso marker="mnesia#foldr">mnesia:foldr/3</seealso>
+      <seeerl marker="mnesia#foldl">mnesia:foldl/3</seeerl> or
+      <seeerl marker="mnesia#foldr">mnesia:foldr/3</seeerl>
       with a <c>write</c> lock. Or the function
-      <seealso marker="mnesia#write_lock_table/1">mnesia:write_lock_table/1</seealso>
+      <seemfa marker="mnesia#write_lock_table/1">mnesia:write_lock_table/1</seemfa>
       when using <c>first</c> and <c>next</c>.</p>
     <p>Writing or deleting in transaction context creates a local copy
       of each modified record. Thus, modifying each record in a large
@@ -1144,12 +1144,12 @@ mnesia:all_keys/1</seealso>.
       network traffic if the table has a replica on another node and
       has all the other drawbacks that dirty operations
       have. Especially for commands
-      <seealso marker="mnesia#first/1">mnesia:first/1</seealso> and
-      <seealso marker="mnesia#next/2">mnesia:next/2</seealso>,
+      <seemfa marker="mnesia#first/1">mnesia:first/1</seemfa> and
+      <seemfa marker="mnesia#next/2">mnesia:next/2</seemfa>,
       the same drawbacks as described previously for
-      <seealso marker="mnesia#dirty_first/1">mnesia:dirty_first/1</seealso>
+      <seemfa marker="mnesia#dirty_first/1">mnesia:dirty_first/1</seemfa>
       and
-      <seealso marker="mnesia#dirty_next/2">mnesia:dirty_next/2</seealso>
+      <seemfa marker="mnesia#dirty_next/2">mnesia:dirty_next/2</seemfa>
       applies, that
       is, no writing to the table is to be done during iteration.</p>
   </section>

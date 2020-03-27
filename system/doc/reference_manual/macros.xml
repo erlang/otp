@@ -58,9 +58,9 @@
 	  <item>The directories given by the <c>include</c> option</item>
 	</list>
 	<p>For details, see the
-          <seealso marker="erts:erlc">erlc(1)</seealso> manual page
+          <seecom marker="erts:erlc">erlc(1)</seecom> manual page
            in ERTS and
-           <seealso marker="compiler:compile">compile(3)</seealso>
+           <seeerl marker="compiler:compile">compile(3)</seeerl>
            manual page in Compiler.</p>
       <p><em>Examples:</em></p>
       <pre>
@@ -153,7 +153,7 @@ bar(X) ->
       <tag><c>?OTP_RELEASE</c></tag>
       <item>The OTP release that the currently executing ERTS
         application is part of, as an integer. For details, see
-        <seealso marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_release)</c></seealso>.
+        <seemfa marker="erts:erlang#system_info/1"><c>erlang:system_info(otp_release)</c></seemfa>.
         This macro was introduced in OTP release 21.</item>
     </taglist>
   </section>

@@ -52,22 +52,22 @@
         for Erlang-Erlang communication. It can also be used for
         communication between Erlang and C, if the C program is
         implemented as a C node, see
-        <seealso marker="#cnode">C and Java Libraries</seealso>.</p>
+        <seeguide marker="#cnode">C and Java Libraries</seeguide>.</p>
       <p><em>Where to read more:</em> Distributed Erlang and some distributed
       programming techniques are described in the Erlang book.</p>
-      <p>For more information, see <seealso
-        marker="doc/getting_started:conc_prog#Distributed Programming">
-        Distributed Programming.</seealso></p>
+      <p>For more information, see <seeguide
+        marker="system/getting_started:conc_prog#Distributed Programming">
+        Distributed Programming.</seeguide></p>
 	<p>Relevant manual pages are the following:</p>
       <list type="bulleted">
-       <item><seealso marker="erts:erlang">erlang</seealso> manual page in ERTS
+       <item><seeerl marker="erts:erlang">erlang</seeerl> manual page in ERTS
        (describes the BIFs)</item>
-       <item><seealso marker="kernel:global">global</seealso> manual page in Kernel</item>
-       <item><seealso marker="kernel:net_adm">net_adm</seealso> manual page in Kernel</item>
-       <item><seealso marker="kernel:pg">pg</seealso> manual page in Kernel</item>
-       <item><seealso marker="kernel:rpc">rpc</seealso> manual page in Kernel</item>
-       <item><seealso marker="stdlib:pool">pool</seealso> manual page in STDLIB</item>
-       <item><seealso marker="stdlib:slave">slave</seealso> manual page in STDLIB</item>
+       <item><seeerl marker="kernel:global">global</seeerl> manual page in Kernel</item>
+       <item><seeerl marker="kernel:net_adm">net_adm</seeerl> manual page in Kernel</item>
+       <item><seeerl marker="kernel:pg">pg</seeerl> manual page in Kernel</item>
+       <item><seeerl marker="kernel:rpc">rpc</seeerl> manual page in Kernel</item>
+       <item><seeerl marker="stdlib:pool">pool</seeerl> manual page in STDLIB</item>
+       <item><seeerl marker="stdlib:slave">slave</seeerl> manual page in STDLIB</item>
       </list>
     </section>
 
@@ -109,13 +109,13 @@
         "Miscellaneous Items" of the Erlang book. Linked-in drivers
         are described in Appendix E.</p>
       <p>The BIF <c>open_port/2</c> is documented in the
-        <seealso marker="erts:erlang">erlang</seealso> manual page in
+        <seeerl marker="erts:erlang">erlang</seeerl> manual page in
 	ERTS.</p>
       <p>For linked-in drivers, the programmer needs to read the
-        <seealso marker="kernel:erl_ddll">erl_ddll</seealso> manual
+        <seeerl marker="kernel:erl_ddll">erl_ddll</seeerl> manual
         page in Kernel.</p>
-      <p><em>Examples:</em> Port example in <seealso marker="c_port">
-        Ports</seealso>.</p>
+      <p><em>Examples:</em> Port example in <seeguide marker="c_port">
+        Ports</seeguide>.</p>
     </section>
   </section>
 
@@ -147,7 +147,7 @@ Term = binary_to_term(Binary)</pre>
         R5B, and earlier versions, the information is part of the
         Kernel application.</p> </section>
     <p><em>Examples:</em> Erl_Interface example in
-       <seealso marker="erl_interface">Erl_Interface</seealso>.</p>
+       <seeguide marker="erl_interface">Erl_Interface</seeguide>.</p>
     <marker id="cnode"></marker>
 
     <section>
@@ -164,14 +164,14 @@ Term = binary_to_term(Binary)</pre>
         better choice than Erlang due to memory limitations or
         application characteristics, or both.</p>
       <p><em>Where to read more:</em> See the <c>ei_connect</c> part
-      of the <seealso marker="erl_interface">Erl_Interface</seealso>
+      of the <seeguide marker="erl_interface">Erl_Interface</seeguide>
       documentation. The programmer also needs to be familiar with
-      TCP/IP sockets, see Sockets in <seealso
-      marker="#sockets">Standard Protocols</seealso> and Distributed
-      Erlang in <seealso marker="#dist">Built-In
-      Mechanisms</seealso>.</p>
-      <p><em>Example:</em> C node example in <seealso marker="cnode">
-        C Nodes</seealso>.</p>
+      TCP/IP sockets, see Sockets in <seeguide
+      marker="#sockets">Standard Protocols</seeguide> and Distributed
+      Erlang in <seeguide marker="#dist">Built-In
+      Mechanisms</seeguide>.</p>
+      <p><em>Example:</em> C node example in <seeguide marker="cnode">
+        C Nodes</seeguide>.</p>
     </section>
 
     <section>
@@ -220,9 +220,9 @@ Term = binary_to_term(Binary)</pre>
         detailed knowledge about the socket concept.</p>
       <p><em>When to use:</em> For programs running on the same or on
         another machine than the Erlang program.</p>
-      <p><em>Where to read more:</em> See the <seealso
-        marker="kernel:gen_tcp">gen_tcp</seealso> and the <seealso
-        marker="kernel:gen_udp">gen_udp</seealso> manual pages in
+      <p><em>Where to read more:</em> See the <seeerl
+        marker="kernel:gen_tcp">gen_tcp</seeerl> and the <seeerl
+        marker="kernel:gen_udp">gen_udp</seeerl> manual pages in
         Kernel.</p>
     </section>
   </section>

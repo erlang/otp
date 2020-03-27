@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE erlref SYSTEM "erlref.dtd" [
   <!ENTITY spawn_opt2
-  '<seealso marker="erts:erlang#spawn_opt/2">erlang:spawn_opt/2</seealso>'>
+  '<seemfa marker="erts:erlang#spawn_opt/2">erlang:spawn_opt/2</seemfa>'>
   <!ENTITY spawn_opt5
-  '<seealso marker="erts:erlang#spawn_opt/5">erlang:spawn_opt/5</seealso>'>
+  '<seemfa marker="erts:erlang#spawn_opt/5">erlang:spawn_opt/5</seemfa>'>
   <!ENTITY nodes
-  '<seealso marker="erts:erlang#nodes/0">erlang:nodes/0</seealso>'>
+  '<seemfa marker="erts:erlang#nodes/0">erlang:nodes/0</seemfa>'>
   <!ENTITY make_ref
-  '<seealso marker="erts:erlang#make_ref/0">erlang:make_ref/0</seealso>'>
+  '<seemfa marker="erts:erlang#make_ref/0">erlang:make_ref/0</seemfa>'>
   <!ENTITY transport_module
-  '<seealso marker="diameter_transport">transport module</seealso>'>
+  '<seeerl marker="diameter_transport">transport module</seeerl>'>
   <!ENTITY dictionary
-  '<seealso marker="diameter_dict">dictionary</seealso>'>
+  '<seefile marker="diameter_dict">dictionary</seefile>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;

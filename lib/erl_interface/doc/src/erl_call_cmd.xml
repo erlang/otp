@@ -71,8 +71,8 @@
               However, <c>start</c> and <c>[]</c> are assumed for unspecified
               <c>Fun</c> and <c>Args</c>, respectively.
               <c>Args</c> is to be in the same format as for
-              <seealso marker="erts:erlang#apply/3">
-              <c>erlang:apply/3</c></seealso> in <c>ERTS</c>.</p>
+              <seemfa marker="erts:erlang#apply/3">
+              <c>erlang:apply/3</c></seemfa> in <c>ERTS</c>.</p>
             <p>Notice that this flag takes exactly one argument, so quoting
               can be necessary to group <c>Mod</c>,
               <c>Fun</c>, and <c>Args</c> in a manner
@@ -91,7 +91,7 @@
             <c>-sname</c> or <c>-s</c>.</p>
             <p>The <c>-address</c> flag is typically useful when one
             wants to call a node that is running on machine without an
-            accessible <seealso marker="erts:epmd">epmd</seealso>
+            accessible <seecom marker="erts:epmd">epmd</seecom>
             instance.</p>
           </item>
           <tag><c>-c Cookie</c></tag>

@@ -29,7 +29,7 @@
   <modulesummary>Behaviour with optional callbacks to customize the inets HTTP server.</modulesummary>
   <description>
     <p> The module implementing this behaviour shall be supplied to to the servers
-    configuration with the option <seealso marker="httpd#prop_customize"> customize</seealso></p>
+    configuration with the option <seeerl marker="httpd#prop_customize"> customize</seeerl></p>
     
   </description>  
   <funcs>

@@ -277,8 +277,8 @@
 	    firstly handles encountered errors and write an
 	    informative message (into the converted stream) and
 	    secondly keeps count of the number of successful or
-	    failed entry conversions. See <seealso
-	    marker="snmpa#log_to_txt">log_to_txt</seealso> for more
+	    failed entry conversions. See <seeerl
+	    marker="snmpa#log_to_txt">log_to_txt</seeerl> for more
 	    info. </p> <p>The reason the ATL contained invalid
 	    entries have also been fixed. The reason was that for
 	    some outgoing messages (not response):</p> <list
@@ -626,8 +626,8 @@
       <list type="bulleted">
         <item>
           <p>[agent]
-	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and
-	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso>. </p>
+	  see <seeerl marker="snmpa#load_mibs">load_mibs</seeerl> and
+	  <seeerl marker="snmpa#unload_mibs">unload_mibs</seeerl>. </p>
           <p>Own Id: OTP-11216</p>
         </item>
 
@@ -813,11 +813,11 @@
         <item>
           <p>[agent] Enable SNMP to create missing database directories. </p>
 	  <p>Add
-	  <seealso marker="snmp_config#db_init_error">
-	  {db_init_error, create_db_and_dir}</seealso> option to SNMP
-	  <seealso marker="snmp_config#manager_opts_and_types">manager</seealso>
+	  <seeguide marker="snmp_config#db_init_error">
+	  {db_init_error, create_db_and_dir}</seeguide> option to SNMP
+	  <seeguide marker="snmp_config#manager_opts_and_types">manager</seeguide>
 	  and
-	  <seealso marker="snmp_config#agent_opts_and_types">agent</seealso>.
+	  <seeguide marker="snmp_config#agent_opts_and_types">agent</seeguide>.
 	  This allows them to create any missing parent directories for
 	  <c>db_dir</c>, rather than treating any missing directories
 	  as a fatal error.
@@ -829,7 +829,7 @@
 
         <item>
           <p>[manager] Improved handling of unexpected return values from
-	  <seealso marker="snmpm_user">snmpm_user</seealso>
+	  <seeerl marker="snmpm_user">snmpm_user</seeerl>
 	  callback functions. </p>
 	  <p>Violations of the documented API (crashes or invalid return
 	  values) will now result in an error message. </p>
@@ -844,11 +844,11 @@
 	  there is a chance it may otherwise wrap during conversion). </p>
 	  <p>See
 	  agent
-	  <seealso marker="snmpa#log_to_txt">log_to_txt</seealso> and
-	  <seealso marker="snmpa#log_to_io">log_to_io</seealso> and also
+	  <seeerl marker="snmpa#log_to_txt">log_to_txt</seeerl> and
+	  <seeerl marker="snmpa#log_to_io">log_to_io</seeerl> and also
 	  manager
-	  <seealso marker="snmpm#log_to_txt">log_to_txt</seealso> and
-	  <seealso marker="snmpm#log_to_io">log_to_io</seealso>
+	  <seeerl marker="snmpm#log_to_txt">log_to_txt</seeerl> and
+	  <seeerl marker="snmpm#log_to_io">log_to_io</seeerl>
 	  for details. </p>
           <p>Own Id: OTP-11396</p>
           <p>Own Id: seq12433</p>
@@ -932,12 +932,12 @@
         <item>
           <p>[agent] Improved documentation for the functions for
 	  loading and unloading mibs,
-	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and
-	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso> for
+	  see <seeerl marker="snmpa#load_mibs">load_mibs</seeerl> and
+	  <seeerl marker="snmpa#unload_mibs">unload_mibs</seeerl> for
 	  more info. </p>
           <p>Also added new functions for loading and unloading a single mib,
-	  see <seealso marker="snmpa#load_mib">load_mib</seealso> and
-	  <seealso marker="snmpa#unload_mib">unload_mib</seealso> for
+	  see <seeerl marker="snmpa#load_mib">load_mib</seeerl> and
+	  <seeerl marker="snmpa#unload_mib">unload_mib</seeerl> for
 	  more info. </p>
           <p>Own Id: OTP-11216</p>
         </item>
@@ -954,8 +954,8 @@
       <list type="bulleted">
         <item>
           <p>[agent]
-	  see <seealso marker="snmpa#load_mibs">load_mibs</seealso> and
-	  <seealso marker="snmpa#unload_mibs">unload_mibs</seealso>. </p>
+	  see <seeerl marker="snmpa#load_mibs">load_mibs</seeerl> and
+	  <seeerl marker="snmpa#unload_mibs">unload_mibs</seeerl>. </p>
           <p>Own Id: OTP-11216</p>
         </item>
 
@@ -1017,7 +1017,7 @@
 	  it in the wrong (internal bitlist) format. </p>
 	  <p>The vacmViewTreeFamilyMask is defined as a bit string in the MIB
 	  (OCTET STRING). Internally a bitlist (list of 1's and 0's,
-	  see <seealso marker="snmp_agent_config_files#vacm">vacm config file</seealso>
+	  see <seeguide marker="snmp_agent_config_files#vacm">vacm config file</seeguide>
 	  for more info) is used.
 	  However, the MIB implementation assumed the latter, effectively
 	  rendering all attempts to read/set masks via SNMP unsuccessful. </p>
@@ -1083,25 +1083,25 @@
 
         <item>
           <p>[agent] Introduced a documented behaviour for the mib-server
-	  <seealso marker="snmpa_mib_data">mib-data backend</seealso>.
+	  <seeerl marker="snmpa_mib_data">mib-data backend</seeerl>.
 	  At present only the default module (<c>snmpa_mib_data_tttn</c>) is
 	  provided. </p>
 	  <p>A config option for the (agent)
-	  <seealso marker="snmp_config#agent_mib_server">mib-servers</seealso>
+	  <seeguide marker="snmp_config#agent_mib_server">mib-servers</seeguide>
 	  mib-data backend module has been added to the agent config options,
-	  <seealso marker="snmp_config#agent_ms_data_module">data_module</seealso>. </p>
+	  <seeguide marker="snmp_config#agent_ms_data_module">data_module</seeguide>. </p>
 	  <p>Own Id: OTP-11101</p>
         </item>
 
         <item>
           <p>[agent] Introduced a documented behaviour for the
-	  <seealso marker="snmpa_mib_storage">mib storage</seealso>.
+	  <seeerl marker="snmpa_mib_storage">mib storage</seeerl>.
 	  At present there are three simple modules
 	  (<c>snmpa_mib_storage_ets</c>, <c>snmpa_mib_storage_dets</c> and
 	  <c>snmpa_mib_storage_mnesia</c>) implementing this behaviour,
 	  provided with the app. </p>
 	  <p>A config option for the (agent)
-	  <seealso marker="snmp_config#agent_mib_storage">mib storage</seealso>
+	  <seeguide marker="snmp_config#agent_mib_storage">mib storage</seeguide>
 	  has been added to the agent config options. </p>
 	  <p>Own Id: OTP-11107</p>
         </item>
@@ -1265,7 +1265,7 @@
       <list type="bulleted">
         <item>
           <p>[agent] Simultaneous
-          <seealso marker="snmpa#backup">snmpa:backup/1,2</seealso>
+          <seeerl marker="snmpa#backup">snmpa:backup/1,2</seeerl>
           calls can interfere.
           The master agent did not check if a backup was already in
           progress when a backup request was accepted. </p>
@@ -1365,7 +1365,7 @@
 
         <item>
           <p>[manager]
-	  <seealso marker="snmpm#log_to_io">snmpm:log_to_io/6</seealso>
+	  <seeerl marker="snmpm#log_to_io">snmpm:log_to_io/6</seeerl>
 	  did not use the LogName argument. </p>
           <p>Own Id: OTP-10066</p>
         </item>
@@ -1411,9 +1411,9 @@
         <item>
           <p>Added the <c>log_to_io</c> audit-trail-log converter function
 	  to the api modules of both the
-	  <seealso marker="snmpm#log_to_io">manager</seealso>
+	  <seeerl marker="snmpm#log_to_io">manager</seeerl>
 	  and
-	  <seealso marker="snmpa#log_to_io">agent</seealso>. </p>
+	  <seeerl marker="snmpa#log_to_io">agent</seeerl>. </p>
           <p>Own Id: OTP-9940</p>
         </item>
 
@@ -1428,7 +1428,7 @@
 
         <item>
           <p>[agent] Documenting previously existing but undocumented function,
-	  <seealso marker="snmp_generic#get_table_info">snmp_generic:get_table_info/2</seealso>. </p>
+	  <seeerl marker="snmp_generic#get_table_info">snmp_generic:get_table_info/2</seeerl>. </p>
 	  <p>Own Id: OTP-9942</p>
         </item>
 
@@ -1450,7 +1450,7 @@
       <list type="bulleted">
         <item>
           <p>[agent] Simultaneous
-          <seealso marker="snmpa#backup">snmpa:backup/1,2</seealso>
+          <seeerl marker="snmpa#backup">snmpa:backup/1,2</seeerl>
           calls can interfere.
           The master agent did not check if a backup was already in
           progress when a backup request was accepted. </p>
@@ -1490,7 +1490,7 @@
           limit the number of varbinds that can be included in
           a Get-BULK response message. This is specified by the
           new config option,
-          <seealso marker="snmp_config#agent_gb_max_vbs">gb_max_vbs</seealso>.
+          <seeerl marker="snmp_config#agent_gb_max_vbs">gb_max_vbs</seeerl>.
           </p>
           <p>Own Id: OTP-9700</p>
         </item>
@@ -1509,7 +1509,7 @@
       <list type="bulleted">
         <item>
           <p>[agent] Simultaneous
-          <seealso marker="snmpa#backup">snmpa:backup/1,2</seealso>
+          <seeerl marker="snmpa#backup">snmpa:backup/1,2</seeerl>
           calls can interfere.
           The master agent did not check if a backup was already in
           progress when a backup request was accepted. </p>
@@ -1549,7 +1549,7 @@
           limit the number of varbinds that can be included in
           a Get-BULK response message. This is specified by the
           new config option,
-          <seealso marker="snmp_config#agent_gb_max_vbs">gb_max_vbs</seealso>.
+          <seeguide marker="snmp_config#agent_gb_max_vbs">gb_max_vbs</seeguide>.
           </p>
           <p>Own Id: OTP-9700</p>
         </item>
@@ -1569,9 +1569,9 @@
           <p>[agent] Mib server cache gclimit update function incorrectly calls
           age update function.
           The gclimit update function,
-          <seealso marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1</seealso>,
+          <seeerl marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1</seeerl>,
           <em>incorrectly</em> called the age update function,
-          <seealso marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/2</seealso>. </p>
+          <seeerl marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/2</seeerl>. </p>
           <p>Johan Claesson</p>
           <p>Own Id: OTP-9868</p>
         </item>
@@ -1722,7 +1722,7 @@
       <list type="bulleted">
         <item>
           <p>[compiler] Improved version info printout from the
-	  <seealso marker="snmpc(command)#">MIB compiler frontend escript</seealso>. </p>
+	  <seecom marker="snmpc(command)#">MIB compiler frontend escript</seecom>. </p>
           <p>Own Id: OTP-9618</p>
         </item>
 
@@ -1752,7 +1752,7 @@
 
         <item>
           <p>[compiler] Fix the <c>--warnings/--W</c> option parsing in the
-          <seealso marker="snmpc(command)#option_warnings">snmpc</seealso>
+          <seecom marker="snmpc(command)#option_warnings">snmpc</seecom>
           wrapper (e)script.
           The short warning option was incorrectly <c>--w</c>, instead
           of as documented <c>--W</c>. This has now been corrected. </p>
@@ -1850,9 +1850,9 @@
 	  warnings-as-errors variable), which caused the
 	  compiler to crash when using the snmpc (e)script. </p>
 	  <p>Also added the option
-	  <seealso marker="snmpc(command)#option_werror">--Werror</seealso>
+	  <seecom marker="snmpc(command)#option_werror">--Werror</seecom>
 	  for the SNMP MIB compiler (escript) frontend (to mimic
-	  <seealso marker="erts:erlc">erlc</seealso>),
+	  <seecom marker="erts:erlc">erlc</seecom>),
 	  which specifies whether warnings should be treated as errors. </p>
           <p>Own Id: OTP-9447</p>
         </item>
@@ -1908,9 +1908,9 @@
 	  (transportDomainUdpIpv6).
 	  To facilitate this, the transport domain, <c>tdomain</c>,
 	  is now a (new) valid option when
-	  <seealso marker="snmpm#register_agent">registering</seealso>
+	  <seeerl marker="snmpm#register_agent">registering</seeerl>
 	  a new agent (and
-	  <seealso marker="snmpm#update_agent_info">updating</seealso>
+	  <seeerl marker="snmpm#update_agent_info">updating</seeerl>
 	  agent info). </p>
 	  <p>This also mean that the transport behaviour has changed. </p>
           <p>Own Id: OTP-9305</p>
@@ -1919,9 +1919,9 @@
 
         <item>
           <p>[compiler] Added the option
-	  <seealso marker="snmpc#compile">warnings_as_errors</seealso>
+	  <seeerl marker="snmpc#compile">warnings_as_errors</seeerl>
 	  (for the SNMP MIB compiler (escript) frontend, the option
-	  <seealso marker="snmpc(command)#option_wae">--wae</seealso> is used)
+	  <seecom marker="snmpc(command)#option_wae">--wae</seecom> is used)
 	  which specifies whether warnings should be treated as errors. </p>
           <p>Tuncer Ayaz</p>
           <p>Own Id: OTP-9437</p>
@@ -2034,9 +2034,9 @@
         <item>
           <p>[agent] Added support for sending traps to IPv6 targets. </p>
 	  <p>See the
-	  <seealso marker="snmp_agent_config_files#target_addr">target address config file</seealso>,
-	  the <seealso marker="snmpa_conf#target_addr_entry">target_addr_entry/11</seealso> function or
-	  <seealso marker="snmp_target_mib#add_addr">add_addr/11</seealso> for more info. </p>
+	  <seeguide marker="snmp_agent_config_files#target_addr">target address config file</seeguide>,
+	  the <seeerl marker="snmpa_conf#target_addr_entry">target_addr_entry/11</seeerl> function or
+	  <seeerl marker="snmp_target_mib#add_addr">add_addr/11</seeerl> for more info. </p>
           <p>Own Id: OTP-9088</p>
           <p>Aux Id: Seq 11790</p>
 	</item>
@@ -2045,8 +2045,8 @@
         <item>
           <p>[agent] To be able to handle multiple engine-id(s) when
 	  sending trap(s), the function
-          <seealso marker="snmp_community_mib#add_community">
-	  add_community/6</seealso> has been added. </p>
+          <seeerl marker="snmp_community_mib#add_community">
+	  add_community/6</seeerl> has been added. </p>
           <p>Own Id: OTP-9119</p>
           <p>Aux Id: Seq 11792</p>
         </item>
@@ -2055,14 +2055,14 @@
           <p>[manager] The API for snmp requests has been augmented to
 	  allow the caller to override some configuration. </p>
 	  <p>This has been done by introducing a new set of API functions, see
-	  <seealso marker="snmpm#sync_get2">sync_get2/3,4</seealso>,
-	  <seealso marker="snmpm#async_get2">async_get2/3,4</seealso>,
-	  <seealso marker="snmpm#sync_get_next2">sync_get_next2/3,4</seealso>,
-	  <seealso marker="snmpm#async_get_next2">async_get_next2/3,4</seealso>,
-	  <seealso marker="snmpm#sync_get_bulk2">sync_get_bulk2/5,6</seealso>,
-	  <seealso marker="snmpm#async_get_bulk2">async_get_bulk2/5,6</seealso>,
-	  <seealso marker="snmpm#sync_set2">sync_set2/3,4</seealso> and
-	  <seealso marker="snmpm#async_set2">async_set2/3,4</seealso>
+	  <seeerl marker="snmpm#sync_get2">sync_get2/3,4</seeerl>,
+	  <seeerl marker="snmpm#async_get2">async_get2/3,4</seeerl>,
+	  <seeerl marker="snmpm#sync_get_next2">sync_get_next2/3,4</seeerl>,
+	  <seeerl marker="snmpm#async_get_next2">async_get_next2/3,4</seeerl>,
+	  <seeerl marker="snmpm#sync_get_bulk2">sync_get_bulk2/5,6</seeerl>,
+	  <seeerl marker="snmpm#async_get_bulk2">async_get_bulk2/5,6</seeerl>,
+	  <seeerl marker="snmpm#sync_set2">sync_set2/3,4</seeerl> and
+	  <seeerl marker="snmpm#async_set2">async_set2/3,4</seeerl>
 	  for more info. </p>
           <p>Own Id: OTP-9162</p>
         </item>
@@ -2083,13 +2083,13 @@
           <p>[agent] Pass extra info through the agent to the net-if
 	  process when sending notifications. </p>
 	  <p>See
-	  <seealso marker="snmpa#send_notification2">
-	  snmpa:send_notification2/3</seealso> for more info.
+	  <seeerl marker="snmpa#send_notification2">
+	  snmpa:send_notification2/3</seeerl> for more info.
 	  See also the incomming net-if messages when sending a
-	  <seealso marker="snmp_agent_netif#im_send_pdu">trap</seealso>
+	  <seeguide marker="snmp_agent_netif#im_send_pdu">trap</seeguide>
 	  (send_pdu message) and
-	  <seealso marker="snmp_agent_netif#im_send_pdu_req">
-	  notification</seealso> (send_pdu_req message). </p>
+	  <seeguide marker="snmp_agent_netif#im_send_pdu_req">
+	  notification</seeguide> (send_pdu_req message). </p>
           <p>Own Id: OTP-9183</p>
           <p>Aux Id: Seq 11817</p>
         </item>

@@ -57,8 +57,8 @@
       pipelining are used. That is, the client always waits for
       the previous response before sending the next request.</p>
     </note>
-    <p>Some examples are provided in the <seealso
-    marker="http_client">Inets User's Guide</seealso>.</p>
+    <p>Some examples are provided in the <seeguide
+    marker="http_client">Inets User's Guide</seeguide>.</p>
   </description>
   
   <section>
@@ -72,10 +72,10 @@
     <p><c>profile() = atom()</c></p>
     <p><c>path() = string()</c> representing a file path or directory path</p>
     <p><c>ip_address()</c> = See the
-    <seealso marker="kernel:inet">inet(3)</seealso> manual page in Kernel.</p>
+    <seeerl marker="kernel:inet">inet(3)</seeerl> manual page in Kernel.</p>
     <p><c>socket_opt()</c> = See the options used by
-    <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso> <c>gen_tcp(3)</c> and 
-    <seealso marker="ssl:ssl">ssl(3)</seealso> connect(s)</p>
+    <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl> <c>gen_tcp(3)</c> and 
+    <seeerl marker="ssl:ssl">ssl(3)</seeerl> connect(s)</p>
   
   </section>
   
@@ -120,7 +120,7 @@
   
   <section>
     <title>SSL DATA TYPES</title>
-    <p>See <seealso marker="ssl:ssl">ssl(3)</seealso> for information
+    <p>See <seeerl marker="ssl:ssl">ssl(3)</seeerl> for information
     about <c>SSL</c> options (<c>ssloptions()</c>). </p>
   </section>
 
@@ -131,12 +131,12 @@
       application or started dynamically in runtime by calling the
       <c>Inets</c> application API <c>inets:start(httpc, ServiceConfig)</c>
       or <c>inets:start(httpc,  ServiceConfig, How)</c>,
-      see <seealso marker="inets">inets(3)</seealso>.
+      see <seeerl marker="inets">inets(3)</seeerl>.
       The configuration options are as follows:</p>
     <taglist>
       <tag>{profile, profile()}</tag>
       <item><p>Name of the profile, see
-	<seealso marker="#DATA_TYPES">DATA TYPES</seealso>.
+	<seeerl marker="#DATA_TYPES">DATA TYPES</seeerl>.
       This option is mandatory.</p></item>
       <tag>{data_dir, path()}</tag>
       <item><p>Directory where the profile
@@ -188,7 +188,7 @@
 	<p>Option <c>ipv6_host_with_bracket</c> deals with how to 
 	parse IPv6 addresses. For details,
 	see argument <c>Options</c> of
-	<seealso marker="#request/4">request/[4,5]</seealso>.</p>
+	<seemfa marker="#request/4">request/[4,5]</seemfa>.</p>
       </desc>
     </func>
 
@@ -343,7 +343,7 @@
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
             <p>This is the <c>SSL/TLS</c> connectin configuration option.</p>
-            <p>Defaults to <c>[]</c>. See <seealso marker="ssl:ssl">ssl:connect/[2,3,4]</seealso>  for available options.</p>
+            <p>Defaults to <c>[]</c>. See <seeerl marker="ssl:ssl">ssl:connect/[2,3,4]</seeerl>  for available options.</p>
 	  </item>
 
           <tag><c><![CDATA[autoredirect]]></c></tag>
@@ -443,7 +443,7 @@
           <item>
             <p>Socket options to be used for this request.</p>
 	    <p>Overrides any value set by function
-	    <seealso marker="#set_options/1">set_options</seealso>.</p>
+	    <seemfa marker="#set_options/1">set_options</seemfa>.</p>
             <p>The validity of the options is <em>not</em> checked by
             the HTTP client they are assumed to be correct and passed
             on to ssl application and inet driver, which may reject
@@ -459,7 +459,7 @@
 	    </note>
 	    
             <p>By default the socket options set by function
-	    <seealso marker="#set_options/1">set_options/[1,2]</seealso> 
+	    <seemfa marker="#set_options/1">set_options/[1,2]</seemfa> 
 	     are used when establishing a connection.</p>
 	  </item>
 
@@ -587,11 +587,11 @@
 	<v>IpAddress = ip_address()</v>
 	<d>If the host has several network interfaces, this option specifies 
 	which one to use. 
-	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> 
+	See <seeerl marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seeerl> 
 	for details.</d>
 	<v>Port = integer()</v>
 	<d>Local port number to use. 
-	See <seealso marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seealso> 
+	See <seeerl marker="kernel:gen_tcp#connect">gen_tcp:connect/3,4</seeerl> 
 	for details.</d>
 	<v>socket_opts() = [socket_opt()]</v>
 	<d>The options are appended to the socket options used by the 
@@ -721,9 +721,9 @@
   <section>
     <title>SEE ALSO</title>
     <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
-    <seealso marker="inets">inets(3)</seealso>,
-    <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
-    <seealso marker="ssl:ssl">ssl(3)</seealso>
+    <seeerl marker="inets">inets(3)</seeerl>,
+    <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl>, 
+    <seeerl marker="ssl:ssl">ssl(3)</seeerl>
     </p>
   </section>
   

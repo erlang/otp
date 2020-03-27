@@ -39,11 +39,11 @@
       <desc>
         <p>An iterator representing the associations in a map with keys of type
           <c><anno>Key</anno></c> and values of type <c><anno>Value</anno></c>.</p>
-        <p>Created using <seealso marker="#iterator/1"><c>maps:iterator/1</c></seealso>.</p>
-        <p>Consumed by <seealso marker="#next/1"><c>maps:next/1</c></seealso>,
-          <seealso marker="#filter/2"><c>maps:filter/2</c></seealso>,
-          <seealso marker="#fold/3"><c>maps:fold/3</c></seealso> and
-          <seealso marker="#map/2"><c>maps:map/2</c></seealso>.</p>
+        <p>Created using <seemfa marker="#iterator/1"><c>maps:iterator/1</c></seemfa>.</p>
+        <p>Consumed by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>,
+          <seemfa marker="#filter/2"><c>maps:filter/2</c></seemfa>,
+          <seemfa marker="#fold/3"><c>maps:fold/3</c></seemfa> and
+          <seemfa marker="#map/2"><c>maps:map/2</c></seemfa>.</p>
       </desc>
     </datatype>
 
@@ -197,7 +197,7 @@ false</code>
       <fsummary>Create a map iterator.</fsummary>
       <desc>
         <p>Returns a map iterator <c><anno>Iterator</anno></c> that can
-          be used by <seealso marker="#next/1"><c>maps:next/1</c></seealso>
+          be used by <seemfa marker="#next/1"><c>maps:next/1</c></seemfa>
           to traverse the key-value associations in a map. When iterating
           over a map, the memory usage is guaranteed to be bounded no matter
           the size of the map.</p>

@@ -38,11 +38,11 @@
       <c>boot(BootArgs)</c>, where <c>BootArgs</c> is a list of
       command-line arguments supplied to the Erlang runtime system from
       the local operating system; see
-      <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
+      <seecom marker="erts:erl"><c>erl(1)</c></seecom>.</p>
 
     <p><c>init</c> reads the boot script, which contains instructions on
       how to initiate the system. For more information about boot scripts, see
-      <seealso marker="sasl:script"><c>script(4)</c></seealso>.</p>
+      <seefile marker="sasl:script"><c>script(4)</c></seefile>.</p>
 
     <p><c>init</c> also contains functions to restart, reboot, and stop
       the system.</p>
@@ -66,14 +66,14 @@
           when the emulator is started and coordinates system startup.</p>
         <p><c><anno>BootArgs</anno></c> are all command-line arguments except
           the emulator flags, that is, flags and plain arguments; see
-          <seealso marker="erts:erl"><c>erl(1)</c></seealso>.</p>
+          <seecom marker="erts:erl"><c>erl(1)</c></seecom>.</p>
         <p><c>init</c> interprets some of the flags, see section
-          <seealso marker="#flags">Command-Line Flags</seealso> below.
+          <seeerl marker="#flags">Command-Line Flags</seeerl> below.
           The remaining flags ("user flags") and plain arguments are
           passed to the <c>init</c> loop and can be retrieved by calling
-          <seealso marker="#get_arguments/0"><c>get_arguments/0</c></seealso>
-          and <seealso marker="#get_plain_arguments/0">
-          <c>get_plain_arguments/0</c></seealso>, respectively.</p>
+          <seemfa marker="#get_arguments/0"><c>get_arguments/0</c></seemfa>
+          and <seemfa marker="#get_plain_arguments/0">
+          <c>get_plain_arguments/0</c></seemfa>, respectively.</p>
       </desc>
     </func>
 
@@ -125,7 +125,7 @@
       <fsummary>Get all command-line user flags.</fsummary>
       <desc>
         <p>Returns all command-line flags and the system-defined flags, see
-          <seealso marker="#get_argument/1"><c>get_argument/1</c></seealso>.</p>
+          <seemfa marker="#get_argument/1"><c>get_argument/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -163,7 +163,7 @@
           terminates. If command-line flag <c>-heart</c> was specified,
           the <c>heart</c> program tries to reboot the system. For more
           information, see
-          <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
+          <seeerl marker="kernel:heart"><c>heart(3)</c></seeerl>.</p>
         <p>To limit the shutdown time, the time <c>init</c> is allowed
           to spend taking down applications, command-line flag
           <c>-shutdown_time</c> is to be used.</p>
@@ -175,7 +175,7 @@
       <fsummary>Restart the running Erlang node.</fsummary>
       <desc>
         <p>The same as
-    <seealso marker="#restart/1"><c>restart([])</c></seealso>.</p>
+    <seemfa marker="#restart/1"><c>restart([])</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -214,7 +214,7 @@
       <fsummary>Take down an Erlang node smoothly.</fsummary>
       <desc>
         <p>The same as
-	<seealso marker="#stop/1"><c>stop(0)</c></seealso>.</p>
+	<seemfa marker="#stop/1"><c>stop(0)</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -228,7 +228,7 @@
           command-line flag <c>-heart</c> was specified, the <c>heart</c>
           program is terminated before the Erlang node terminates.
           For more information, see
-          <seealso marker="kernel:heart"><c>heart(3)</c></seealso>.</p>
+          <seeerl marker="kernel:heart"><c>heart(3)</c></seeerl>.</p>
         <p>To limit the shutdown time, the time <c>init</c> is allowed
           to spend taking down applications, command-line flag
           <c>-shutdown_time</c> is to be used.</p>
@@ -254,8 +254,8 @@
       <item>
         <p>Everything following <c>--</c> up to the next flag is
           considered plain arguments and can be retrieved using
-          <seealso marker="#get_plain_arguments/0">
-          <c>get_plain_arguments/0</c></seealso>.</p>
+          <seemfa marker="#get_plain_arguments/0">
+          <c>get_plain_arguments/0</c></seemfa>.</p>
       </item>
       <tag><c>-code_path_choice Choice</c></tag>
       <item>
@@ -275,9 +275,9 @@
           useful when you want to elaborate with code loading from
           archives without editing the <c>boot script</c>. For more
           information about interpretation of boot scripts, see
-          <seealso marker="sasl:script"><c>script(4)</c></seealso>.
+          <seefile marker="sasl:script"><c>script(4)</c></seefile>.
           The flag has also a similar effect on how the code server works; see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
       </item>
       <tag><c>-epmd_module Module</c></tag>
       <item>
@@ -307,8 +307,8 @@ BF</pre>
       <item>
         <p>Everything following <c>-extra</c> is considered plain
           arguments and can be retrieved using
-          <seealso marker="#get_plain_arguments/0">
-          <c>get_plain_arguments/0</c></seealso>.</p>
+          <seemfa marker="#get_plain_arguments/0">
+          <c>get_plain_arguments/0</c></seemfa>.</p>
       </item>
       <tag><c>-run Mod [Func [Arg1, Arg2, ...]]</c></tag>
       <item>
@@ -381,8 +381,8 @@ error</pre>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seealso>, 
-      <seealso marker="kernel:heart"><c>heart(3)</c></seealso></p>
+    <p><seeerl marker="erl_prim_loader"><c>erl_prim_loader(3)</c></seeerl>, 
+      <seeerl marker="kernel:heart"><c>heart(3)</c></seeerl></p>
   </section>
 </erlref>
 

@@ -40,18 +40,18 @@
       that is, a component that can be started and stopped as a unit,
       and which can also be reused in other systems.</p>
     <p>To do this, create an
-      <seealso marker="#callback_module">application callback module</seealso>,
+      <seeguide marker="#callback_module">application callback module</seeguide>,
       and describe how the application is to be started and stopped.</p>
     <p>Then, an <em>application specification</em> is needed, which is
       put in an
-      <seealso marker="#appl_res_file">application resource file</seealso>.
+      <seeguide marker="#appl_res_file">application resource file</seeguide>.
       Among other things, this file specifies which modules the application
       consists of and the name of the callback module.</p>
     <p>If you use <c>systools</c>, the Erlang/OTP tools for packaging code
-      (see <seealso marker="release_structure">Releases</seealso>),
+      (see <seeguide marker="release_structure">Releases</seeguide>),
       the code for each application is placed in a
       separate directory following a pre-defined
-    <seealso marker="#app_dir">directory structure</seealso>.</p>
+    <seeguide marker="#app_dir">directory structure</seeguide>.</p>
   </section>
 
   <section>
@@ -71,22 +71,22 @@ stop(State)
       as is to <c>stop</c>.</item>
       <item><c>StartType</c> is usually the atom <c>normal</c>. It has other
       values only in the case of a takeover or failover, see
-      <seealso marker="distributed_applications">Distributed Applications</seealso>.
+      <seeguide marker="distributed_applications">Distributed Applications</seeguide>.
       </item>
       <item><c>StartArgs</c> is defined by the key <c>mod</c> in the
-      <seealso marker="#appl_res_file">application
-      resource file</seealso>.</item>
+      <seeguide marker="#appl_res_file">application
+      resource file</seeguide>.</item>
       <item><c>stop/1</c> is called <em>after</em> the application has been
       stopped and is to do any necessary cleaning up. The actual stopping of
       the application, that is, the shutdown of the supervision tree, is
       handled automatically as described in
-      <seealso marker="#stopping">Starting and Stopping Applications</seealso>.
+      <seeguide marker="#stopping">Starting and Stopping Applications</seeguide>.
       </item>
     </list>
     <marker id="ch_app"></marker>
     <p>Example of an application callback module for packaging
       the supervision tree from
-      <seealso marker="sup_princ#ex">Supervisor Behaviour</seealso>:</p>
+      <seeguide marker="sup_princ#ex">Supervisor Behaviour</seeguide>:</p>
     <code type="none">
 -module(ch_app).
 -behaviour(application).
@@ -137,7 +137,7 @@ ch_app:start(normal, [])</code>
 ch_app:stop([])</code>
     <p>When using <c>systools</c>, the Erlang/OTP tools for packaging
       code (see Section
-      <seealso marker="release_structure">Releases</seealso>), the keys
+      <seeguide marker="release_structure">Releases</seeguide>), the keys
       <c>description</c>, <c>vsn</c>, <c>modules</c>, <c>registered</c>,
       and <c>applications</c> are also to be specified:</p>
     <code type="none">
@@ -167,7 +167,7 @@ ch_app:stop([])</code>
    and STDLIB.</item>
  </list>
     <note><p>For details about the syntax and contents of the application
-    resource file, see the <seealso marker="kernel:app">app</seealso>
+    resource file, see the <seefile marker="kernel:app">app</seefile>
     manual page in Kernel.</p></note>
   </section>
 
@@ -180,14 +180,14 @@ ch_app:stop([])</code>
       <p>This can be useful to know, even if <c>systools</c> is not used,
           since Erlang/OTP is packaged according to the OTP principles
           and thus comes with a specific directory structure. The code server
-          (see the  <seealso marker="kernel:code"><c>code(3)</c></seealso> manual
+          (see the  <seeerl marker="kernel:code"><c>code(3)</c></seeerl> manual
           page in Kernel) automatically uses code from
           the directory with the highest version number, if more than one
           version of an application is present.</p>
       <section>
           <title>Directory Structure Guidelines for a Development Environment</title>
           <p>Any directory structure for development will suffice as long as the released directory structure
-              adhere to the <seealso marker="#app_dir_released">description below</seealso>,
+              adhere to the <seeguide marker="#app_dir_released">description below</seeguide>,
               but it is encouraged that the same directory structure
               also be used in a development environment. The version number should be omitted from the
               application directory name since this is an artifact of the release step.
@@ -443,7 +443,7 @@ ok
 2> <input>application:get_env(ch_app, file).</input>
 {ok,"testlog"}</pre>
     <p>If
-      <seealso marker="release_handling#sys">release handling</seealso>
+      <seeguide marker="release_handling#sys">release handling</seeguide>
       is used, exactly one system configuration file is to be used and
       that file is to be called <c>sys.config</c>.</p>
     <p>The values in the <c>.app</c> file and the values in a

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <!DOCTYPE comref SYSTEM "comref.dtd" [
   <!ENTITY dictionary
-  '<seealso marker="diameter_dict">dictionary file</seealso>'>
+  '<seefile marker="diameter_dict">dictionary file</seefile>'>
   <!ENTITY % also SYSTEM "seealso.ent" >
   <!ENTITY % here SYSTEM "seehere.ent" >
   %also;

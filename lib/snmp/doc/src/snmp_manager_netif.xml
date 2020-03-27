@@ -58,15 +58,15 @@
   is created that processes the message/request and then exits. </p>
 
   <p>There is a <c>server</c> config option,
-  <seealso marker="snmp_config#manager_server_nis">netif_sup</seealso>
+  <seeguide marker="snmp_config#manager_server_nis">netif_sup</seeguide>
   that enables "active" Net If supervision. This is very simple mechanism.
   The (supervising) process simply sends a
-  <seealso marker="#im_ping">ping</seealso> message and expects a
-  <seealso marker="#om_pong">pong</seealso> message response
+  <seeguide marker="#im_ping">ping</seeguide> message and expects a
+  <seeguide marker="#om_pong">pong</seeguide> message response
   (withing a specific time).
   The interval between each <c>ping/pong</c> exhange is user configurable.
   As is the time that is allowed for the
-  <seealso marker="#om_pong">pong</seealso>
+  <seeguide marker="#om_pong">pong</seeguide>
   message to arrive.
   Both the NetIf module(s) provided with the app supports active supervision. 
   If a NetIf module/process is used which do not implement this, then
@@ -79,7 +79,7 @@
     <marker id="mandatory_functions"></marker>
     <title>Mandatory Functions</title>
     <p>A Net If process must implement the SNMP manager 
-    <seealso marker="snmpm_network_interface">network interface behaviour</seealso>. </p>
+    <seeerl marker="snmpm_network_interface">network interface behaviour</seeerl>. </p>
   </section>
 
   <section>
@@ -90,7 +90,7 @@
     <p>In this section a <c>Domain</c> field is the transport domain i.e
     one of <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv6</c>,
     and an <c>Addr</c> field is an
-    <c>{</c><seealso marker="kernel:inet#type-ip_address"><c>IpAddr</c></seealso><c>,IpPort}</c> tuple.</p>
+    <c>{</c><seetype marker="kernel:inet#ip_address"><c>IpAddr</c></seetype><c>,IpPort}</c> tuple.</p>
 
     <section>
       <marker id="outgoing_messages"></marker>
@@ -140,9 +140,9 @@ Server ! {snmp_inform, Ref, Pdu, PduMS, Domain, Addr}
 	  <c>ignore</c> is used if the response (acknowledgment) to the
 	  inform-request has already been sent (this means that the server 
 	  will not make the call to the 
-	  <seealso marker="snmpm_network_interface#inform_response">inform_response</seealso> 
+	  <seeerl marker="snmpm_network_interface#inform_response">inform_response</seeerl> 
 	  function). See the 
-	  <seealso marker="snmp_config#manager_irb">inform request behaviour</seealso> 
+	  <seeguide marker="snmp_config#manager_irb">inform request behaviour</seeguide> 
 	  configuration option for more info.</p>
 	</item>
 	<item>
@@ -165,7 +165,7 @@ Server ! {snmp_report, Data, Domain, Addr}
 	  <p><c>Data</c> is either <c>{ok, Pdu}</c> or 
 	  <c>{error, ReqId, ReasonInfo, Pdu}</c>. Which one is used depends 
 	  on the return value from the MPD 
-	  <seealso marker="snmpm_mpd#process_msg">process_msg</seealso> function. If the MsgData is <c>ok</c>, 
+	  <seeerl marker="snmpm_mpd#process_msg">process_msg</seeerl> function. If the MsgData is <c>ok</c>, 
 	  the first is used, and if it is <c>{error, ReqId, Reason}</c>
 	  the latter is used.</p>
 	</item>
@@ -194,7 +194,7 @@ Supervisor ! {pong, self()}
       <list type="bulleted">
 	<item>
 	  <p><c>Supervisor</c> is the process that sent the
-	  <seealso marker="#im_ping">ping</seealso> message (see below). </p>
+	  <seeguide marker="#im_ping">ping</seeguide> message (see below). </p>
 	</item>
       </list>
     </section>
@@ -212,7 +212,7 @@ Supervisor ! {pong, self()}
 	  <p>This message is sent to the Net If process by a process that
 	  has been configured to perfor "active supervision" of the Net If
 	  process. The Net If process should respond immediately with
-	  a <seealso marker="#om_pong">pong</seealso> message. </p>
+	  a <seeguide marker="#om_pong">pong</seeguide> message. </p>
           <list type="bulleted">
             <item>
 	      <p><c>Supervisor</c> is a <c>pid()</c>. </p>

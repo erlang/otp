@@ -168,7 +168,7 @@ get_next_pid(Oid, SnmpIndex) ->
       <desc>
         <p>Deletes a complete index structure (i.e. the ets table
           holding the index). The index can no longer be referenced
-          after this call. See the <seealso marker="#1">warning note</seealso>
+          after this call. See the <seeerl marker="#1">warning note</seeerl>
           above.</p>
       </desc>
     </func>

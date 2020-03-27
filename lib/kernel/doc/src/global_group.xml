@@ -33,15 +33,15 @@
   <description>
     <p>This module makes it possible to partition the nodes of a
       system into <em>global groups</em>. Each global group has its own
-      global namespace, see <seealso marker="global">
-      <c>global(3)</c></seealso>.</p>
+      global namespace, see <seeerl marker="global">
+      <c>global(3)</c></seeerl>.</p>
     <p>The main advantage of dividing systems into global groups is that
       the background load decreases while the number of nodes to be
       updated is reduced when manipulating globally registered names.</p>
     <p>The Kernel configuration parameter <c>global_groups</c> defines
       the global groups (see also
-      <seealso marker="kernel_app#global_groups"><c>kernel(6)</c></seealso>
-      and <seealso marker="config"><c>config(4)</c></seealso>):</p>
+      <seeapp marker="kernel_app#global_groups"><c>kernel(6)</c></seeapp>
+      and <seefile marker="config"><c>config(4)</c></seefile>):</p>
     <code type="none">
 {global_groups, [GroupTuple :: group_tuple()]}</code>
     <p>For the processes and nodes to run smoothly using the global
@@ -81,7 +81,7 @@
       <name name="publish_type"/>
       <desc>
         <p>A node started with command-line flag <c>-hidden</c> (see
-          <seealso marker="erts:erl"><c>erl(1)</c></seealso>) is said
+          <seecom marker="erts:erl"><c>erl(1)</c></seecom>) is said
           to be a <em>hidden</em> node. A hidden node establishes hidden
           connections to nodes not part of the same global group, but
           normal (visible) connections to nodes part of the same global
@@ -233,7 +233,7 @@
           on any known node not part of the group.</p>
         <p>If synchronization is not possible, an error report is sent
           to the error logger (see also
-          <seealso marker="error_logger"><c>error_logger(3)</c></seealso>.
+          <seeerl marker="error_logger"><c>error_logger(3)</c></seeerl>.
         </p>
         <p>Returns <c>{error, {'invalid global_groups definition', Bad}}</c>
           if configuration parameter <c>global_groups</c> has an
@@ -269,7 +269,7 @@
         have inaccurate information about registered names in its
         global group.</p></item>
      <item><p>Function
-       <seealso marker="#send/2"><c>send/2,3</c></seealso>
+       <seemfa marker="#send/2"><c>send/2,3</c></seemfa>
        is not secure.</p></item>
      <item><p>Distribution of applications is highly dependent of the global
         group definitions. It is not recommended that an application is
@@ -282,8 +282,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="global"><c>global(3)</c></seealso>,
-      <seealso marker="erts:erl"><c>erl(1)</c></seealso></p>
+    <p><seeerl marker="global"><c>global(3)</c></seeerl>,
+      <seecom marker="erts:erl"><c>erl(1)</c></seecom></p>
   </section>
 </erlref>
 

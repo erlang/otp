@@ -82,7 +82,7 @@
 
   <section>
     <title>SEE ALSO</title>
-	<p><seealso marker="kernel:application">application(3)</seealso></p>
+	<p><seeerl marker="kernel:application">application(3)</seeerl></p>
   </section>
   
 </appref>

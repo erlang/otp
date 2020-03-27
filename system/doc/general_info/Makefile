@@ -43,6 +43,8 @@ include xmlfiles.mk
 
 XML_CHAPTER_FILES=$(GENERAL_INFO_CHAPTER_FILES)
 
+# ----------------------------------------------------
+
 TOPDOCDIR=..
 
 BOOK_FILES = book.xml
@@ -51,7 +53,9 @@ GIF_FILES =
 
 XML_FILES = \
 	$(BOOK_FILES) $(XML_CHAPTER_FILES) \
-	$(XML_PART_FILES) 
+	$(XML_PART_FILES)
+
+XML_GEN_FILES=$(GENERAL_INFO_CHAPTER_GEN_FILES:%=$(XMLDIR)/%)
 
 # ----------------------------------------------------
 
@@ -81,11 +85,11 @@ debug opt:
 
 DEPRECATIONS_SCRIPT = $(ERL_TOP)/lib/stdlib/scripts/update_deprecations
 
-deprecations.xml: DEPRECATIONS
-	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml deprecations $(ERL_TOP)
+$(XMLDIR)/deprecations.xml: DEPRECATIONS
+	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml deprecations $(ERL_TOP) $@
 
-scheduled_for_removal.xml: DEPRECATIONS
-	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml removals $(ERL_TOP)
+$(XMLDIR)/scheduled_for_removal.xml: DEPRECATIONS
+	$(gen_verbose)escript $(DEPRECATIONS_SCRIPT) make_xml removals $(ERL_TOP) $@
 
 
 clean clean_docs:

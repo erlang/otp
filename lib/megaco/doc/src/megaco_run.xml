@@ -197,17 +197,17 @@
         <p>User info - Information related to megaco users. Read/Write. </p>
         <p>A User is an entity identified by a MID, e.g. a MGC or a MG. </p>
         <p>This information can be retrieved using 
-          <seealso marker="megaco#user_info">megaco:user_info</seealso>. </p>
+          <seeerl marker="megaco#user_info">megaco:user_info</seeerl>. </p>
       </item>
       <item>
         <p>Connection info - Information regarding connections. Read/Write.</p>
         <p>This information can be retrieved using 
-          <seealso marker="megaco#conn_info">megaco:conn_info</seealso>. </p>
+          <seeerl marker="megaco#conn_info">megaco:conn_info</seeerl>. </p>
       </item>
       <item>
         <p>System info - System wide information. Read only.</p>
         <p>This information can be retrieved using 
-          <seealso marker="megaco#system_info">megaco:system_info</seealso>. </p>
+          <seeerl marker="megaco#system_info">megaco:system_info</seeerl>. </p>
       </item>
     </list>
   </section>
@@ -254,7 +254,7 @@
         </list>
       </item>
     </list>
-    <p>See also <seealso marker="megaco_encode#text_config">Configuration of text encoding module(s)</seealso> 
+    <p>See also <seeguide marker="megaco_encode#text_config">Configuration of text encoding module(s)</seeguide> 
       for more info. </p>
   </section>
 
@@ -262,8 +262,8 @@
     <marker id="changing_config"></marker>
     <title>Changing the configuration</title>
     <p>The configuration can be changed during runtime. This is done with
-      the functions <seealso marker="megaco#update_user_info">megaco:update_user_info</seealso> and 
-      <seealso marker="megaco#update_conn_info">megaco:update_conn_info</seealso></p>
+      the functions <seeerl marker="megaco#update_user_info">megaco:update_user_info</seeerl> and 
+      <seeerl marker="megaco#update_conn_info">megaco:update_conn_info</seeerl></p>
   </section>
 
   <section>
@@ -271,8 +271,8 @@
     <title>The transaction sender</title>
     <p>The transaction sender is a process (one per connection), which handle
       all transaction sending, if so configured (see 
-      <seealso marker="megaco#user_info">megaco:user_info</seealso> and 
-      <seealso marker="megaco#conn_info">megaco:conn_info</seealso>).</p>
+      <seeerl marker="megaco#user_info">megaco:user_info</seeerl> and 
+      <seeerl marker="megaco#conn_info">megaco:conn_info</seeerl>).</p>
     <p>The purpose of the transaction sender is to accumulate transactions 
       for a more efficient message sending. The transactions that are 
       accumulated are transaction request and transaction ack. For 
@@ -329,7 +329,7 @@
     Simply, this package defines a procedure to segment 
     megaco messages (transaction replies) when using a transport that 
     does not automatically do this (e.g. UDP). See also
-    <seealso marker="megaco_encode#handling_versions">version3</seealso>.</p>
+    <seeguide marker="megaco_encode#handling_versions">version3</seeguide>.</p>
     <p>Although it would be both pointless and counterproductive to use
     segmentation on a transport that already does this (e.g. TCP), the 
     megaco application does not check this. Instead, it is up to the 
@@ -340,17 +340,17 @@
         <p>This is handled automatically by the megaco application. 
           There is however one thing that need to be configured by the user, 
           the 
-          <seealso marker="megaco#user_info">segment_recv_timer</seealso>
+          <seeerl marker="megaco#user_info">segment_recv_timer</seeerl>
           option. </p>
         <p>Note that the segments are delivered to the user differently 
           depending on which function is used to issue the original request.
           When issuing the request using the 
-          <seealso marker="megaco#cast">megaco:cast</seealso> function,
+          <seeerl marker="megaco#cast">megaco:cast</seeerl> function,
           the segments are delivered to the user via the 
-          <seealso marker="megaco_user#trans_reply">handle_trans_reply</seealso>
+          <seeerl marker="megaco_user#trans_reply">handle_trans_reply</seeerl>
           callback function one at a time, as they arrive. But this obviously
           doe not work for the 
-          <seealso marker="megaco#call">megaco:call</seealso> function. 
+          <seeerl marker="megaco#call">megaco:call</seeerl> function. 
           In this case, the segments are accumulated and then delivered
           all at once as the function returns.</p>
       </item>
@@ -358,14 +358,14 @@
         <p>Sending segmented messages: </p>
         <p>This is also handled automatically by the megaco application. 
           First of all, segmentation is only attempted if so configured, see 
-          the <seealso marker="megaco#user_info">segment_send</seealso> option.
+          the <seeerl marker="megaco#user_info">segment_send</seeerl> option.
           Secondly, megaco relies on the ability of the used codec to
           encode action replies, which is the smallest component the
           megaco application handles when segmenting. Thirdly, the 
           reply will be segmented only if the sum of the size of the
           action replies (plus an arbitrary message header size) are greater
           then the specified max message size (see the 
-          <seealso marker="megaco#user_info">max_pdu_size</seealso> option).
+          <seeerl marker="megaco#user_info">max_pdu_size</seeerl> option).
           Finally, if segmentation is decided, then each action reply
           will make up its own (segment) message.</p>
       </item>

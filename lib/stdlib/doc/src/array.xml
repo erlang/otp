@@ -47,14 +47,14 @@
       value is the atom <c>undefined</c>. There is no difference between an
       unset entry and an entry that has been explicitly set to the same value
       as the default one (compare
-      <seealso marker="#reset/2"><c>reset/2</c></seealso>). If you need to
+      <seemfa marker="#reset/2"><c>reset/2</c></seemfa>). If you need to
       differentiate between unset and set entries, ensure that the default value
       cannot be confused with the values of set entries.</p>
 
     <p>The array never shrinks automatically. If an index <c>I</c> has been used
       to set an entry successfully, all indices in the range [0,<c>I</c>] stay
       accessible unless the array size is explicitly changed by calling
-      <seealso marker="#resize/2"><c>resize/2</c></seealso>.</p>
+      <seemfa marker="#resize/2"><c>resize/2</c></seemfa>.</p>
 
     <p><em>Examples:</em></p>
 
@@ -141,7 +141,7 @@ A3 = array:fix(A2).</pre>
       <fsummary>Get the value used for uninitialized entries.</fsummary>
       <desc>
         <p>Gets the value used for uninitialized entries.</p>
-        <p>See also <seealso marker="#new/2"><c>new/2</c></seealso>.</p>
+        <p>See also <seemfa marker="#new/2"><c>new/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -151,8 +151,8 @@ A3 = array:fix(A2).</pre>
       <desc>
         <p>Fixes the array size. This prevents it from growing automatically
           upon insertion.</p>
-        <p>See also <seealso marker="#set/3"><c>set/3</c></seealso> and
-          <seealso marker="#relax/1"><c>relax/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#set/3"><c>set/3</c></seemfa> and
+          <seemfa marker="#relax/1"><c>relax/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -165,9 +165,9 @@ A3 = array:fix(A2).</pre>
           accumulator value. The elements are visited in order from the lowest
           index to the highest. If <c><anno>Function</anno></c> is not a
           function, the call fails with reason <c>badarg</c>.</p>
-        <p>See also <seealso marker="#foldr/3"><c>foldr/3</c></seealso>,
-          <seealso marker="#map/2"><c>map/2</c></seealso>,
-          <seealso marker="#sparse_foldl/3"><c>sparse_foldl/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#foldr/3"><c>foldr/3</c></seemfa>,
+          <seemfa marker="#map/2"><c>map/2</c></seemfa>,
+          <seemfa marker="#sparse_foldl/3"><c>sparse_foldl/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -180,8 +180,8 @@ A3 = array:fix(A2).</pre>
           and initial accumulator value. The elements are visited in order from
           the highest index to the lowest. If <c><anno>Function</anno></c> is
           not a function, the call fails with reason <c>badarg</c>.</p>
-        <p>See also <seealso marker="#foldl/3"><c>foldl/3</c></seealso>,
-          <seealso marker="#map/2"><c>map/2</c></seealso>.</p>
+        <p>See also <seemfa marker="#foldl/3"><c>foldl/3</c></seemfa>,
+          <seemfa marker="#map/2"><c>map/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -190,7 +190,7 @@ A3 = array:fix(A2).</pre>
       <fsummary>Equivalent to <c>from_list(List, undefined)</c>.</fsummary>
       <desc>
         <p>Equivalent to
-          <seealso marker="#from_list/2"><c>from_list(<anno>List</anno>, undefined)</c></seealso>.</p>
+          <seemfa marker="#from_list/2"><c>from_list(<anno>List</anno>, undefined)</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -202,8 +202,8 @@ A3 = array:fix(A2).</pre>
           is used as the value for uninitialized entries of the array. If
           <c><anno>List</anno></c> is not a proper list, the call fails with
           reason <c>badarg</c>.</p>
-        <p>See also <seealso marker="#new/2"><c>new/2</c></seealso>,
-          <seealso marker="#to_list/1"><c>to_list/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#new/2"><c>new/2</c></seemfa>,
+          <seemfa marker="#to_list/1"><c>to_list/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -213,7 +213,7 @@ A3 = array:fix(A2).</pre>
       </fsummary>
       <desc>
         <p>Equivalent to
-          <seealso marker="#from_orddict/2"><c>from_orddict(<anno>Orddict</anno>, undefined)</c></seealso>.</p>
+          <seemfa marker="#from_orddict/2"><c>from_orddict(<anno>Orddict</anno>, undefined)</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -228,8 +228,8 @@ A3 = array:fix(A2).</pre>
           <c><anno>Orddict</anno></c> is not a proper, ordered list of pairs
           whose first elements are non-negative integers, the call fails with
           reason <c>badarg</c>.</p>
-        <p>See also <seealso marker="#new/2"><c>new/2</c></seealso>,
-          <seealso marker="#to_orddict/1"><c>to_orddict/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#new/2"><c>new/2</c></seemfa>,
+          <seemfa marker="#to_orddict/1"><c>to_orddict/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -244,7 +244,7 @@ A3 = array:fix(A2).</pre>
         <p>If the array does not have fixed size, the default value for any
           index <c><anno>I</anno></c> greater than
           <c>size(<anno>Array</anno>)-1</c> is returned.</p>
-        <p>See also <seealso marker="#set/3"><c>set/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#set/3"><c>set/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -266,7 +266,7 @@ A3 = array:fix(A2).</pre>
       <desc>
         <p>Checks if the array has fixed size. Returns <c>true</c> if the array
           is fixed, otherwise <c>false</c>.</p>
-        <p>See also <seealso marker="#fix/1"><c>fix/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#fix/1"><c>fix/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -278,9 +278,9 @@ A3 = array:fix(A2).</pre>
           visited in order from the lowest index to the highest. If
           <c><anno>Function</anno></c> is not a function, the call fails with
           reason <c>badarg</c>.</p>
-        <p>See also <seealso marker="#foldl/3"><c>foldl/3</c></seealso>,
-          <seealso marker="#foldr/3"><c>foldr/3</c></seealso>,
-          <seealso marker="#sparse_map/2"><c>sparse_map/2</c></seealso>.</p>
+        <p>See also <seemfa marker="#foldl/3"><c>foldl/3</c></seemfa>,
+          <seemfa marker="#foldr/3"><c>foldr/3</c></seemfa>,
+          <seemfa marker="#sparse_map/2"><c>sparse_map/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -290,8 +290,8 @@ A3 = array:fix(A2).</pre>
       </fsummary>
       <desc>
         <p>Creates a new, extendible array with initial size zero.</p>
-        <p>See also <seealso marker="#new/1"><c>new/1</c></seealso>,
-          <seealso marker="#new/2"><c>new/2</c></seealso>.</p>
+        <p>See also <seemfa marker="#new/1"><c>new/1</c></seemfa>,
+          <seemfa marker="#new/2"><c>new/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -313,7 +313,7 @@ A3 = array:fix(A2).</pre>
             call fails with reason <c>badarg</c>.</p></item>
           <tag><c>fixed</c> or <c>{fixed, true}</c></tag>
           <item><p>Creates a fixed-size array. See also
-            <seealso marker="#fix/1"><c>fix/1</c></seealso>.</p></item>
+            <seemfa marker="#fix/1"><c>fix/1</c></seemfa>.</p></item>
           <tag><c>{fixed, false}</c></tag>
           <item><p>Creates an extendible (non-fixed-size) array.</p></item>
           <tag><c>{default, Value}</c></tag>
@@ -336,12 +336,12 @@ array:new({default,0})</pre>
 array:new([{size,10},{fixed,false},{default,-1}])</pre>
         <p>creates an extendible array with initial size 10 whose default value
           is <c>-1</c>.</p>
-        <p>See also <seealso marker="#fix/1"><c>fix/1</c></seealso>,
-          <seealso marker="#from_list/2"><c>from_list/2</c></seealso>,
-          <seealso marker="#get/2"><c>get/2</c></seealso>,
-          <seealso marker="#new/0"><c>new/0</c></seealso>,
-          <seealso marker="#new/2"><c>new/2</c></seealso>,
-          <seealso marker="#set/3"><c>set/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#fix/1"><c>fix/1</c></seemfa>,
+          <seemfa marker="#from_list/2"><c>from_list/2</c></seemfa>,
+          <seemfa marker="#get/2"><c>get/2</c></seemfa>,
+          <seemfa marker="#new/0"><c>new/0</c></seemfa>,
+          <seemfa marker="#new/2"><c>new/2</c></seemfa>,
+          <seemfa marker="#set/3"><c>set/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -365,7 +365,7 @@ array:new([{size,10},{fixed,false},{default,-1}])</pre>
 array:new(100, {default,0})</pre>
         <p>creates a fixed-size array of size 100, whose default value is
           <c>0</c>.</p>
-        <p>See also <seealso marker="#new/1"><c>new/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#new/1"><c>new/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -374,8 +374,8 @@ array:new(100, {default,0})</pre>
       <fsummary>Make the array resizable.</fsummary>
       <desc>
         <p>Makes the array resizable. (Reverses the effects of
-          <seealso marker="#fix/1"><c>fix/1</c></seealso>.)</p>
-        <p>See also <seealso marker="#fix/1"><c>fix/1</c></seealso>.</p>
+          <seemfa marker="#fix/1"><c>fix/1</c></seemfa>.)</p>
+        <p>See also <seemfa marker="#fix/1"><c>fix/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -388,13 +388,13 @@ array:new(100, {default,0})</pre>
           array. If the value of entry <c><anno>I</anno></c> is the default
           value, the array is returned unchanged. Reset never changes the array
           size. Shrinking can be done explicitly by calling
-          <seealso marker="#resize/2"><c>resize/2</c></seealso>.</p> 
+          <seemfa marker="#resize/2"><c>resize/2</c></seemfa>.</p> 
         <p>If <c><anno>I</anno></c> is not a non-negative integer, or if the
           array has fixed size and <c><anno>I</anno></c> is larger than the
           maximum index, the call fails with reason <c>badarg</c>; compare
-          <seealso marker="#set/3"><c>set/3</c></seealso></p>
-        <p>See also <seealso marker="#new/2"><c>new/2</c></seealso>,
-          <seealso marker="#set/3"><c>set/3</c></seealso>.</p>
+          <seemfa marker="#set/3"><c>set/3</c></seemfa></p>
+        <p>See also <seemfa marker="#new/2"><c>new/2</c></seemfa>,
+          <seemfa marker="#set/3"><c>set/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -404,11 +404,11 @@ array:new(100, {default,0})</pre>
       </fsummary>
       <desc>
         <p>Changes the array size to that reported by
-          <seealso marker="#sparse_size/1"><c>sparse_size/1</c></seealso>. If
+          <seemfa marker="#sparse_size/1"><c>sparse_size/1</c></seemfa>. If
           the specified array has fixed size, also the resulting array has fixed
           size.</p>
-        <p>See also <seealso marker="#resize/2"><c>resize/2</c></seealso>,
-          <seealso marker="#sparse_size/1"><c>sparse_size/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#resize/2"><c>resize/2</c></seemfa>,
+          <seemfa marker="#sparse_size/1"><c>sparse_size/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -435,8 +435,8 @@ array:new(100, {default,0})</pre>
         <p>If the array does not have fixed size, and <c><anno>I</anno></c> is
           greater than <c>size(<anno>Array</anno>)-1</c>, the array grows to
           size <c><anno>I</anno>+1</c>.</p>
-        <p>See also <seealso marker="#get/2"><c>get/2</c></seealso>,
-          <seealso marker="#reset/2"><c>reset/2</c></seealso>.</p>
+        <p>See also <seemfa marker="#get/2"><c>get/2</c></seemfa>,
+          <seemfa marker="#reset/2"><c>reset/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -448,8 +448,8 @@ array:new(100, {default,0})</pre>
           <c>0</c> to <c>size(<anno>Array</anno>)-1</c>. Hence, this is also the
           index of the first entry that is guaranteed to not have been
           previously set.</p>
-        <p>See also <seealso marker="#set/3"><c>set/3</c></seealso>,
-          <seealso marker="#sparse_size/1"><c>sparse_size/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#set/3"><c>set/3</c></seemfa>,
+          <seemfa marker="#sparse_size/1"><c>sparse_size/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -463,8 +463,8 @@ array:new(100, {default,0})</pre>
           visited in order from the lowest index to the highest. If
           <c><anno>Function</anno></c> is not a function, the call fails with
           reason <c>badarg</c>.</p>
-        <p>See also <seealso marker="#foldl/3"><c>foldl/3</c></seealso>,
-          <seealso marker="#sparse_foldr/3"><c>sparse_foldr/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#foldl/3"><c>foldl/3</c></seemfa>,
+          <seemfa marker="#sparse_foldr/3"><c>sparse_foldr/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -479,8 +479,8 @@ array:new(100, {default,0})</pre>
           entries. The elements are visited in order from the highest index to
           the lowest. If <c><anno>Function</anno></c> is not a function, the
           call fails with reason <c>badarg</c>.</p>
-        <p>See also <seealso marker="#foldr/3"><c>foldr/3</c></seealso>,
-          <seealso marker="#sparse_foldl/3"><c>sparse_foldl/3</c></seealso>.</p>
+        <p>See also <seemfa marker="#foldr/3"><c>foldr/3</c></seemfa>,
+          <seemfa marker="#sparse_foldl/3"><c>sparse_foldl/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -493,7 +493,7 @@ array:new(100, {default,0})</pre>
           default-valued entries. The elements are visited in order from the
           lowest index to the highest. If <c><anno>Function</anno></c> is not a
           function, the call fails with reason <c>badarg</c>.</p>
-        <p>See also <seealso marker="#map/2"><c>map/2</c></seealso>.</p>
+        <p>See also <seemfa marker="#map/2"><c>map/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -506,8 +506,8 @@ array:new(100, {default,0})</pre>
           non-default-valued entry. That is, returns <c>I+1</c> if <c>I</c> is
           the last non-default-valued entry in the array, or zero if no such
           entry exists.</p>
-        <p>See also <seealso marker="#resize/1"><c>resize/1</c></seealso>,
-          <seealso marker="#size/1"><c>size/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#resize/1"><c>resize/1</c></seemfa>,
+          <seemfa marker="#size/1"><c>size/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -517,7 +517,7 @@ array:new(100, {default,0})</pre>
       </fsummary>
       <desc>
         <p>Converts the array to a list, skipping default-valued entries.</p>
-        <p>See also <seealso marker="#to_list/1"><c>to_list/1</c></seealso>.</p>
+        <p>See also <seemfa marker="#to_list/1"><c>to_list/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -529,7 +529,7 @@ array:new(100, {default,0})</pre>
         <p>Converts the array to an ordered list of pairs <c>{Index,
           <anno>Value</anno>}</c>, skipping default-valued entries.</p>
         <p>See also
-          <seealso marker="#to_orddict/1"><c>to_orddict/1</c></seealso>.</p>
+          <seemfa marker="#to_orddict/1"><c>to_orddict/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -538,8 +538,8 @@ array:new(100, {default,0})</pre>
       <fsummary>Convert the array to a list.</fsummary>
       <desc>
         <p>Converts the array to a list.</p>
-        <p>See also <seealso marker="#from_list/2"><c>from_list/2</c></seealso>,
-          <seealso marker="#sparse_to_list/1"><c>sparse_to_list/1</c></seealso>.
+        <p>See also <seemfa marker="#from_list/2"><c>from_list/2</c></seemfa>,
+          <seemfa marker="#sparse_to_list/1"><c>sparse_to_list/1</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -552,8 +552,8 @@ array:new(100, {default,0})</pre>
         <p>Converts the array to an ordered list of pairs <c>{Index,
           <anno>Value</anno>}</c>.</p>
         <p>See also
-          <seealso marker="#from_orddict/2"><c>from_orddict/2</c></seealso>,
-          <seealso marker="#sparse_to_orddict/1"><c>sparse_to_orddict/1</c></seealso>.
+          <seemfa marker="#from_orddict/2"><c>from_orddict/2</c></seemfa>,
+          <seemfa marker="#sparse_to_orddict/1"><c>sparse_to_orddict/1</c></seemfa>.
         </p>
       </desc>
     </func>

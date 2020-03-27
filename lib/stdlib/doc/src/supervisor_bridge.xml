@@ -39,15 +39,15 @@
       a supervisor and the subsystem. It behaves like a real supervisor to
       its own supervisor, but has a different interface than a real
       supervisor to the subsystem. For more information, see
-      <seealso marker="doc/design_principles:sup_princ">
-	Supervisor Behaviour</seealso> in OTP Design Principles.
+      <seeguide marker="system/design_principles:sup_princ">
+	Supervisor Behaviour</seeguide> in OTP Design Principles.
     </p>
 
     <p>A supervisor bridge assumes the functions for starting and stopping
       the subsystem to be located in a callback module exporting a
       predefined set of functions.</p>
 
-    <p>The <seealso marker="sys"><c>sys(3)</c></seealso> module can be used
+    <p>The <seeerl marker="sys"><c>sys(3)</c></seeerl> module can be used
       for debugging a supervisor bridge.</p>
 
     <p>Unless otherwise stated, all functions in this module fail if
@@ -75,8 +75,8 @@
             <p>If <c><anno>SupBridgeName</anno>={global,<anno>Name</anno>}</c>,
               the supervisor bridge is registered globally as
               <c><anno>Name</anno></c> using
-              <seealso marker="kernel:global#register_name/2">
-              <c>global:register_name/2</c></seealso>.</p>
+              <seemfa marker="kernel:global#register_name/2">
+              <c>global:register_name/2</c></seemfa>.</p>
           </item>
           <item>
             <p>If
@@ -86,7 +86,7 @@
             <c>Module</c> callback is to export functions
             <c>register_name/2</c>, <c>unregister_name/1</c>, and <c>send/2</c>,
             which are to behave like the corresponding functions in
-            <seealso marker="kernel:global"><c>global</c></seealso>.
+            <seeerl marker="kernel:global"><c>global</c></seeerl>.
             Thus, <c>{via,global,GlobalName}</c> is a valid reference.</p>
           </item>
         </list>
@@ -125,13 +125,14 @@
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following functions must be exported from a
-      <c>supervisor_bridge</c> callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>The following functions must be exported from a
+        <c>supervisor_bridge</c> callback module.</p>
+    </fsdescription>
     <func>
       <name since="">Module:init(Args) -> Result</name>
       <fsummary>Initialize process and start subsystem.</fsummary>
@@ -144,7 +145,7 @@
       </type>
       <desc>
         <p>Whenever a supervisor bridge is started using
-          <seealso marker="#start_link/2"><c>start_link/2,3</c></seealso>,
+          <seemfa marker="#start_link/2"><c>start_link/2,3</c></seemfa>,
           this function is called
           by the new process to start the subsystem and initialize.</p>
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
@@ -188,8 +189,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="supervisor"><c>supervisor(3)</c></seealso>, 
-      <seealso marker="sys"><c>sys(3)</c></seealso></p>
+    <p><seeerl marker="supervisor"><c>supervisor(3)</c></seeerl>, 
+      <seeerl marker="sys"><c>sys(3)</c></seeerl></p>
   </section>
 </erlref>
 

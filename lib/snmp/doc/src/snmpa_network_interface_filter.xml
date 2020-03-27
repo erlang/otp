@@ -40,16 +40,16 @@
       must export the following functions: </p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#accept_recv">accept_recv/2</seealso></p>
+        <p><seeerl marker="#accept_recv">accept_recv/2</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#accept_send">accept_send/2</seealso></p>
+        <p><seeerl marker="#accept_send">accept_send/2</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#accept_recv_pdu">accept_recv_pdu/3</seealso></p>
+        <p><seeerl marker="#accept_recv_pdu">accept_recv_pdu/3</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#accept_send_pdu">accept_send_pdu/2</seealso></p>
+        <p><seeerl marker="#accept_send_pdu">accept_send_pdu/2</seeerl></p>
       </item>
     </list>
     <p>The semantics of them and their exact signatures are explained
@@ -76,9 +76,9 @@
       (<c>snmpa_net_if</c>). The default filter accepts all messages.</p>
     <p>A network interface filter can e.g. be used during testing or for load 
       regulation. If the intended use is load regulation, see also 
-      <seealso marker="snmp_config#agent_ni_req_limit">req_limit</seealso> and 
+      <seeguide marker="snmp_config#agent_ni_req_limit">req_limit</seeguide> and 
       the function 
-      <seealso marker="snmpa#register_notification_filter">register_notification_filter</seealso>. </p>
+      <seeerl marker="snmpa#register_notification_filter">register_notification_filter</seeerl>. </p>
     <p>Legacy network interface filter modules used arguments on the form
       <c>(IpAddr, PortNumber,...)</c> instead of
       <c>(Domain, Addr, ...)</c>, and if the SNMP agent is run without
@@ -95,8 +95,8 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' |
              'set-request' | trap | 'get-bulk-request' | 'inform-request' | 
              report
     </code>
-    <p>See also the <seealso marker="snmpa_conf#types">
-    data types in <c>snmpa_conf</c></seealso>.</p>
+    <p>See also the <seeerl marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seeerl>.</p>
     <marker id="accept_recv"></marker>
   </section>
   <funcs>

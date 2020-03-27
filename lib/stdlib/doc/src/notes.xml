@@ -140,10 +140,10 @@
       <list>
         <item>
           <p>
-	    The functions <seealso
-	    marker="stdlib:unicode#characters_to_list/2"><c>unicode:characters_to_list()</c></seealso>
-	    and <seealso
-	    marker="stdlib:unicode#characters_to_binary/3"><c>unicode:characters_to_binary()</c></seealso>
+	    The functions <seemfa
+	    marker="stdlib:unicode#characters_to_list/2"><c>unicode:characters_to_list()</c></seemfa>
+	    and <seemfa
+	    marker="stdlib:unicode#characters_to_binary/3"><c>unicode:characters_to_binary()</c></seemfa>
 	    raised a <c>badarg</c> exception instead of returning an
 	    error tuple when passed very large invalid code points as
 	    input.</p>
@@ -165,8 +165,8 @@
         </item>
         <item>
           <p>
-	    Fixed erroneous type spec for <seealso
-	    marker="stdlib:binary#list_to_bin/1"><c>binary:list_to_bin/1</c></seealso>.
+	    Fixed erroneous type spec for <seemfa
+	    marker="stdlib:binary#list_to_bin/1"><c>binary:list_to_bin/1</c></seemfa>.
 	    Argument type was changed from <c>iodata()</c> to
 	    <c>iolist()</c>.</p>
           <p>
@@ -232,8 +232,8 @@
 	    to version 8.43. See <url
 	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
 	    for information about changes made to PCRE. This library
-	    implements major parts of the <seealso
-	    marker="stdlib:re"><c>re</c></seealso> regular
+	    implements major parts of the <seeerl
+	    marker="stdlib:re"><c>re</c></seeerl> regular
 	    expressions module.</p>
           <p>
 	    Own Id: OTP-15889</p>
@@ -944,18 +944,18 @@
 	    Own Id: OTP-14019 Aux Id: ERL-550 </p>
         </item>
         <item>
-	    <p> File operations used to accept <seealso
-	    marker="kernel:file#type-name_all">filenames</seealso>
+	    <p> File operations used to accept <seetype
+	    marker="kernel:file#name_all">filenames</seetype>
 	    containing null characters (integer value zero). This
 	    caused the name to be truncated and in some cases
 	    arguments to primitive operations to be mixed up.
 	    Filenames containing null characters inside the filename
 	    are now <em>rejected</em> and will cause primitive file
 	    operations to fail. </p> <p> Also environment variable
-	    operations used to accept <seealso
-	    marker="kernel:os#type-env_var_name">names</seealso> and
-	    <seealso
-	    marker="kernel:os#type-env_var_value">values</seealso> of
+	    operations used to accept <seetype
+	    marker="kernel:os#env_var_name">names</seetype> and
+	    <seetype
+	    marker="kernel:os#env_var_value">values</seetype> of
 	    environment variables containing null characters (integer
 	    value zero). This caused operations to silently produce
 	    erroneous results. Environment variable names and values
@@ -966,12 +966,12 @@
 	    character in environment variable names causing various
 	    problems. <c>$=</c> characters in environment variable
 	    names are now also <em>rejected</em>. </p> <p>Also
-	    <seealso
-	    marker="kernel:os#cmd/1"><c>os:cmd/1</c></seealso> now
-	    reject null characters inside its <seealso
-	    marker="kernel:os#type-os_command">command</seealso>.
-	    </p> <p><seealso
-	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seealso>
+	    <seemfa
+	    marker="kernel:os#cmd/1"><c>os:cmd/1</c></seemfa> now
+	    reject null characters inside its <seetype
+	    marker="kernel:os#os_command">command</seetype>.
+	    </p> <p><seemfa
+	    marker="erts:erlang#open_port/2"><c>erlang:open_port/2</c></seemfa>
 	    will also reject null characters inside the port name
 	    from now on.</p>
           <p>
@@ -1052,10 +1052,10 @@
         </item>
         <item>
 	    <p>A new logging API is added to Erlang/OTP, see the
-	    <seealso
-	    marker="kernel:logger"><c>logger(3)</c></seealso> manual
-	    page, and section <seealso
-	    marker="kernel:logger_chapter">Logging</seealso> in the
+	    <seeerl
+	    marker="kernel:logger"><c>logger(3)</c></seeerl> manual
+	    page, and section <seeguide
+	    marker="kernel:logger_chapter">Logging</seeguide> in the
 	    Kernel User's Guide.</p>
 	    <p>Calls to <c>error_logger</c> are automatically
 	    redirected to the new API, and legacy error logger event
@@ -1641,9 +1641,9 @@
 	    Own Id: OTP-13830</p>
         </item>
         <item>
-	    <p>Replaced usage of deprecated symbolic <seealso
-	    marker="erts:erlang#type-time_unit"><c>time
-	    unit</c></seealso> representations.</p>
+	    <p>Replaced usage of deprecated symbolic <seetype
+	    marker="erts:erlang#time_unit"><c>time
+	    unit</c></seetype> representations.</p>
           <p>
 	    Own Id: OTP-13831 Aux Id: OTP-13735 </p>
         </item>
@@ -1888,7 +1888,7 @@
           <p>
 	    Upgraded the OTP internal PCRE library from version 8.33
 	    to version 8.40. This library is used for implementation
-	    of the <seealso marker="stdlib:re"><c>re</c></seealso>
+	    of the <seeerl marker="stdlib:re"><c>re</c></seeerl>
 	    regular expressions module.</p>
           <p>
 	    Besides various bug fixes, the new version allows for
@@ -1896,10 +1896,10 @@
 	    feature, the stack size of normal scheduler threads is
 	    now by default set to 128 kilo words on all platforms.
 	    The stack size of normal scheduler threads can be set
-	    upon system start by passing the <seealso
-	    marker="erts:erl#sched_thread_stack_size"><c>+sss</c></seealso>
-	    command line argument to the <seealso
-	    marker="erts:erl"><c>erl</c></seealso> command.</p>
+	    upon system start by passing the <seecom
+	    marker="erts:erl#sched_thread_stack_size"><c>+sss</c></seecom>
+	    command line argument to the <seecom
+	    marker="erts:erl"><c>erl</c></seecom> command.</p>
           <p>
 	    See <url
 	    href="http://pcre.org/original/changelog.txt">http://pcre.org/original/changelog.txt</url>
@@ -2871,10 +2871,10 @@
 	    Earlier, supervisor flags and child specs were given as
 	    tuples. While this is kept for backwards compatibility,
 	    it is now also allowed to give these parameters as maps,
-	    see <seealso
-	    marker="stdlib:supervisor#sup_flags">sup_flags</seealso>
-	    and <seealso
-	    marker="stdlib:supervisor#child_spec">child_spec</seealso>.</p>
+	    see <seeerl
+	    marker="stdlib:supervisor#sup_flags">sup_flags</seeerl>
+	    and <seeerl
+	    marker="stdlib:supervisor#child_spec">child_spec</seeerl>.</p>
           <p>
 	    Own Id: OTP-11043</p>
         </item>
@@ -3627,10 +3627,10 @@
 	    and yield without having to set up the heap in a state
 	    that can be garbage collected.</p>
           <p>
-	    The <seealso
-	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seealso>,
-	    and <seealso
-	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seealso>
+	    The <seemfa
+	    marker="erts:erlang#garbage_collect/2"><c>garbage_collect/2</c></seemfa>,
+	    and <seemfa
+	    marker="erts:erlang#check_process_code/3"><c>check_process_code/3</c></seemfa>
 	    BIFs have been introduced. Both taking an option list as
 	    last argument. Using these, one can issue asynchronous
 	    requests.</p>
@@ -3685,8 +3685,8 @@
           </taglist>
         <p>
 	    For information on how to use Maps please see Map Expressions in the
-		<seealso marker="doc/reference_manual:expressions#map_expressions">
-			Reference Manual</seealso>.</p>
+		<seeguide marker="system/reference_manual:expressions#map_expressions">
+			Reference Manual</seeguide>.</p>
           <p>
 	    The current implementation is without the following
 	    features:</p>
@@ -5487,15 +5487,15 @@
 	    lines. The reader optimized rwlock implementation is used
 	    by miscellaneous rwlocks in the runtime system that are
 	    known to be read-locked frequently, and can be enabled on
-	    ETS tables by passing the <seealso
+	    ETS tables by passing the <seeerl
 	    marker="stdlib:ets#new_2_read_concurrency">{read_concurrency,
-	    true}</seealso> option upon table creation. See the
-	    documentation of <seealso
-	    marker="stdlib:ets#new/2">ets:new/2</seealso> for more
+	    true}</seeerl> option upon table creation. See the
+	    documentation of <seemfa
+	    marker="stdlib:ets#new/2">ets:new/2</seemfa> for more
 	    information. The reader optimized rwlock implementation
 	    can be fine tuned when starting the runtime system. For
-	    more information, see the documentation of the <seealso
-	    marker="erts:erl#+rg">+rg</seealso> command line argument
+	    more information, see the documentation of the <seecom
+	    marker="erts:erl#+rg">+rg</seecom> command line argument
 	    of <c>erl</c>.</p>
           <p>
 	    There is also a new implementation of rwlocks that is not
@@ -5537,8 +5537,8 @@
 	    utilize optimized native atomic operations on more
 	    platforms than before. If <c>configure</c> warns about no
 	    atomic implementation available, try using the
-	    <c>libatomic_ops</c> library. Use the <seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--with-libatomic_ops=PATH</seealso>
+	    <c>libatomic_ops</c> library. Use the <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--with-libatomic_ops=PATH</seeguide>
 	    <c>configure</c> command line argument when specifying
 	    where the <c>libatomic_ops</c> installation is located.
 	    The <c>libatomic_ops</c> library can be downloaded from:
@@ -5555,8 +5555,8 @@
 	    library will now use instructions that first appeared on
 	    the pentium 4 processor. If you want the runtime system
 	    to be compatible with older processors (back to 486) you
-	    need to pass the <seealso
-	    marker="doc/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--enable-ethread-pre-pentium4-compatibility</seealso>
+	    need to pass the <seeguide
+	    marker="system/installation_guide:INSTALL#Advanced-configuration-and-build-of-ErlangOTP">--enable-ethread-pre-pentium4-compatibility</seeguide>
 	    <c>configure</c> command line argument when configuring
 	    the system.</p>
           <p>
@@ -6079,10 +6079,10 @@
 	    regarding <c>gen_server</c>, <c>gen_fsm</c>, and
 	    <c>gen_event</c> behavior when handling <c>'EXIT'</c>
 	    messages from the parent process. For more information
-	    see the <seealso
-	    marker="gen_server">gen_server(3)</seealso>, <seealso
-	    marker="gen_fsm">gen_fsm(3)</seealso>, and <seealso
-	    marker="gen_event">gen_event(3)</seealso> documentation.</p>
+	    see the <seeerl
+	    marker="gen_server">gen_server(3)</seeerl>, <seeerl
+	    marker="gen_fsm">gen_fsm(3)</seeerl>, and <seeerl
+	    marker="gen_event">gen_event(3)</seeerl> documentation.</p>
           <p>
 	    Own Id: OTP-8255 Aux Id: seq11419 </p>
         </item>

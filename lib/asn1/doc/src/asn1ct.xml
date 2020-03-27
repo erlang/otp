@@ -48,10 +48,10 @@
 	and <c>OCTET STRING</c> types as Erlang terms were changed. <c>BIT
 	STRING</c> values are now Erlang bit strings and <c>OCTET STRING</c>
 	values are binaries. Also, an undecoded open type is now wrapped in
-	an <c>asn1_OPENTYPE</c> tuple. For details, see <seealso
-	marker="asn1_getting_started#BIT STRING">BIT STRING</seealso>, <seealso
-	marker="asn1_getting_started#OCTET STRING">OCTET STRING</seealso>, and
-	<seealso marker="asn1_getting_started#Information Object">ASN.1 Information Objects</seealso> in the User's Guide.</p>
+	an <c>asn1_OPENTYPE</c> tuple. For details, see <seeguide
+	marker="asn1_getting_started#BIT STRING">BIT STRING</seeguide>, <seeguide
+	marker="asn1_getting_started#OCTET STRING">OCTET STRING</seeguide>, and
+	<seeguide marker="asn1_getting_started#Information Object">ASN.1 Information Objects</seeguide> in the User's Guide.</p>
 	<p>To revert to the old representation of the types, use option
 	<c>legacy_erlang_types</c>.</p>
       </note>
@@ -177,8 +177,8 @@ File3.asn</pre>
 	    records).  This option also suppresses the generation of
 	    <c>.hrl</c> files.</p>
 	    <p>For details, see Section
-	      <seealso marker="asn1_getting_started#MAP_SEQ_SET">
-		Map representation for SEQUENCE and SET</seealso>
+	      <seeguide marker="asn1_getting_started#MAP_SEQ_SET">
+		Map representation for SEQUENCE and SET</seeguide>
 		in the User's Guide.
 	    </p>
 	  </item>
@@ -190,8 +190,8 @@ File3.asn</pre>
 	      This option cannot be combined with the option <c>maps</c>.
 	    </p>
 	    <p>For details, see Section
-	      <seealso marker="asn1_getting_started#BIT STRING">
-		BIT STRING</seealso> in the User's Guide.
+	      <seeguide marker="asn1_getting_started#BIT STRING">
+		BIT STRING</seeguide> in the User's Guide.
 	    </p>
 	    <p>This option implies option <c>legacy_erlang_types</c>.</p>
 	  </item>
@@ -204,7 +204,7 @@ File3.asn</pre>
 	      This option cannot be combined with the option <c>maps</c>.
 	    </p>
 	    <p>For details, see Section
-	      <seealso marker="asn1_getting_started#BIT STRING">BIT STRING</seealso>
+	      <seeguide marker="asn1_getting_started#BIT STRING">BIT STRING</seeguide>
 	      in the User's Guide</p>
 	      <p>This option implies option <c>legacy_erlang_types</c>.</p>
 	  </item>
@@ -212,10 +212,10 @@ File3.asn</pre>
           <item>
             <p>Use the same Erlang types to represent <c>BIT STRING</c> and
             <c>OCTET STRING</c> as in OTP R16.</p>
-	    <p>For details, see Section <seealso
-            marker="asn1_getting_started#BIT STRING">BIT STRING</seealso> and Section
-            <seealso marker="asn1_getting_started#OCTET STRING">OCTET
-            STRING</seealso> in the User's Guide.</p>
+	    <p>For details, see Section <seeguide
+            marker="asn1_getting_started#BIT STRING">BIT STRING</seeguide> and Section
+            <seeguide marker="asn1_getting_started#OCTET STRING">OCTET
+            STRING</seeguide> in the User's Guide.</p>
 	    <p><em>This option is not recommended for new code.</em>
 	    This option cannot be combined with the option <c>maps</c>.</p>
 	  </item>
@@ -270,12 +270,12 @@ File3.asn</pre>
               <c>.asn1config</c>.
               </p>
             <p>For instructions for exclusive decode, see Section
-              <seealso marker="asn1_spec#Exclusive Instruction">Exclusive
-	      Decode</seealso> in the User's Guide.
+              <seeguide marker="asn1_spec#Exclusive Instruction">Exclusive
+	      Decode</seeguide> in the User's Guide.
               </p>
             <p>For instructions for selective decode, see Section
-              <seealso marker="asn1_spec#Selective Instruction">Selective
-	      Decode</seealso> in the User's Guide.
+              <seeguide marker="asn1_spec#Selective Instruction">Selective
+	      Decode</seeguide> in the User's Guide.
               </p>
           </item>
           <tag><c>undec_rest</c></tag>

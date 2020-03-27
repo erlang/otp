@@ -182,7 +182,7 @@ error_desc()   = #'ErrorDescriptor'{}
       <desc>
         <p>Encode megaco action requests. This function is called when 
           the user calls the function 
-          <seealso marker="megaco#encode_actions">encode_actions/3</seealso>.
+          <seeerl marker="megaco#encode_actions">encode_actions/3</seeerl>.
           If that function is never used or if the codec cannot support this
           (the encoding of individual actions), then return with error reason 
           <c>not_implemented</c>. </p>

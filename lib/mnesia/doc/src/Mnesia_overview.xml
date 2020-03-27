@@ -148,7 +148,7 @@
         </item>
       </list>
       <p>For information about QLC, see the
-        <seealso marker="stdlib:qlc">qlc</seealso> manual page
+        <seeerl marker="stdlib:qlc">qlc</seeerl> manual page
         in STDLIB.</p>
     </section>
 
@@ -175,14 +175,14 @@
             can be stored to disc. Those applications  use the standard
             library module <c>dets</c>, which is a disc-based version
             of the module <c>ets</c>. For information about <c>dets</c>,
-            see the <seealso marker="stdlib:dets">dets</seealso>
+            see the <seeerl marker="stdlib:dets">dets</seeerl>
             manual page in STDLIB.
           </item>
           <item>Applications that need disc logging facilities.
             Those applications can
             use the module <c>disk_log</c> by preference. For
             information about <c>disk_log</c>, see the
-            <seealso marker="kernel:disk_log">disk_log</seealso>
+            <seeerl marker="kernel:disk_log">disk_log</seeerl>
             manual page in Kernel.
           </item>
           <item>Hard real-time systems.

@@ -68,7 +68,7 @@
 
     <p>For each open disk log, one process handles requests
       made to the disk log. This process is created when
-      <seealso marker="#open/1"><c>open/1</c></seealso>
+      <seemfa marker="#open/1"><c>open/1</c></seemfa>
       is called, provided there exists no process handling the disk log.
       A process that opens a disk log can be an <em>owner</em>
       or an anonymous <em>user</em> of the disk log. Each owner is 
@@ -79,7 +79,7 @@
       messages of the form <c>{disk_log, Node, Log, Info}</c>, which are sent
       from the disk log process when certain events occur, see 
       the functions and in particular the <c>open/1</c> option
-      <seealso marker="#notify"><c>notify</c></seealso>.
+      <seeerl marker="#notify"><c>notify</c></seeerl>.
       A log can have many owners, but a process cannot own a
       log more than once. However, the same process can open the log
       as a user more than once.</p>
@@ -89,10 +89,10 @@
       and there must not be any users left when the disk log process terminates.
       </p>
     <p>Items can be logged <em>synchronously</em> by using functions
-      <seealso marker="#log/2"><c>log/2</c></seealso>,
-      <seealso marker="#blog/2"><c>blog/2</c></seealso>,
-      <seealso marker="#log_terms/2"><c>log_terms/2</c></seealso>, and
-      <seealso marker="#blog_terms/2"><c>blog_terms/2</c></seealso>.
+      <seemfa marker="#log/2"><c>log/2</c></seemfa>,
+      <seemfa marker="#blog/2"><c>blog/2</c></seemfa>,
+      <seemfa marker="#log_terms/2"><c>log_terms/2</c></seemfa>, and
+      <seemfa marker="#blog_terms/2"><c>blog_terms/2</c></seemfa>.
       For each of these functions, the caller is put
       on hold until the items are logged (but not necessarily
       written, use <c>sync/1</c> to ensure that). By adding an <c>a</c>
@@ -102,10 +102,10 @@
       return the control to the caller more or less immediately.
       </p>
     <p>When using the internal format for logs, use functions
-      <seealso marker="#log/2"><c>log/2</c></seealso>,
-      <seealso marker="#log_terms/2"><c>log_terms/2</c></seealso>,
-      <seealso marker="#alog/2"><c>alog/2</c></seealso>, and
-      <seealso marker="#alog_terms/2"><c>alog_terms/2</c></seealso>.
+      <seemfa marker="#log/2"><c>log/2</c></seemfa>,
+      <seemfa marker="#log_terms/2"><c>log_terms/2</c></seemfa>,
+      <seemfa marker="#alog/2"><c>alog/2</c></seemfa>, and
+      <seemfa marker="#alog_terms/2"><c>alog_terms/2</c></seemfa>.
       These functions log one or more Erlang terms.
       By prefixing each of the functions with a <c>b</c> (for "binary"),
       we get the corresponding <c>blog()</c> functions for the external format.
@@ -117,12 +117,12 @@
       <p>The <c>blog()</c> functions can also be used for internally formatted
       logs, but in this case they must be called with binaries constructed
       with calls to
-      <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+      <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
       There is no check to ensure
       this, it is entirely the responsibility of the caller. If these
       functions are called with binaries that do not correspond to
       Erlang terms, the
-      <seealso marker="#chunk/2"><c>chunk/2,3</c></seealso>
+      <seemfa marker="#chunk/2"><c>chunk/2,3</c></seemfa>
       and automatic repair
       functions fail. The corresponding terms (not the binaries)
       are returned when <c>chunk/2,3</c> is called.
@@ -142,11 +142,11 @@
       request was made before written to the other nodes. However,
       a few functions do not make requests to all
       members of distributed disk logs, namely
-      <seealso marker="#info/1"><c>info/1</c></seealso>,
-      <seealso marker="#chunk/2"><c>chunk/2,3</c></seealso>,
-      <seealso marker="#bchunk/2"><c>bchunk/2,3</c></seealso>,
-      <seealso marker="#chunk_step/3"><c>chunk_step/3</c></seealso>, and
-      <seealso marker="#lclose/1"><c>lclose/1,2</c></seealso>.</p>
+      <seemfa marker="#info/1"><c>info/1</c></seemfa>,
+      <seemfa marker="#chunk/2"><c>chunk/2,3</c></seemfa>,
+      <seemfa marker="#bchunk/2"><c>bchunk/2,3</c></seemfa>,
+      <seemfa marker="#chunk_step/3"><c>chunk_step/3</c></seemfa>, and
+      <seemfa marker="#lclose/1"><c>lclose/1,2</c></seemfa>.</p>
      <p>An open disk log that is not a distributed disk
       log is said to be a <em>local disk log</em>. A local disk log is
       only accessible from the node where the disk log process runs,
@@ -181,10 +181,10 @@
       receive an <c>error_status</c> message. 
       </p>
     <p>The <c>disk_log</c> module does not report errors to the
-      <seealso marker="error_logger"><c>error_logger</c></seealso>
+      <seeerl marker="error_logger"><c>error_logger</c></seeerl>
       module. It is up to the caller to decide
       whether to employ the error logger. Function
-      <seealso marker="#format_error/1"><c>format_error/1</c></seealso>
+      <seemfa marker="#format_error/1"><c>format_error/1</c></seemfa>
       can be used to produce readable messages from error replies.
       However, information events are sent to the error logger in two
       situations, namely when a log is repaired, or when a file is missing
@@ -196,12 +196,12 @@
       </p>
     <note>
       <p>If an attempt to reopen or truncate a log fails (see
-        <seealso marker="#reopen/2"><c>reopen/2,3</c></seealso>
+        <seemfa marker="#reopen/2"><c>reopen/2,3</c></seemfa>
 	and
-	<seealso marker ="#truncate/1"><c>truncate/1,2</c></seealso>)
+	<seemfa marker="#truncate/1"><c>truncate/1,2</c></seemfa>)
 	the disk log process terminates immediately. Before the process
 	terminates, links to owners and blocking processes (see
-	<seealso marker="#block/1"><c>block/1,2</c></seealso>) are removed.
+	<seemfa marker="#block/1"><c>block/1,2</c></seemfa>) are removed.
         The effect is that the links work in one direction only. Any
         process using a disk log must check for error message
         <c>no_such_log</c> if some other process truncates or
@@ -265,7 +265,7 @@
           for externally formatted logs. <c>balog/2</c> can also be used
           for internally formatted logs if the binary is
           constructed with a call to
-	  <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+	  <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
           </p>
         <p>Owners subscribing to notifications receive
           message <c>read_only</c>, <c>blocked_log</c>,
@@ -293,7 +293,7 @@
           for externally formatted logs. <c>balog_terms/2</c> can also be used
           for internally formatted logs if the binaries are
           constructed with calls to
-	  <seealso marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seealso>.
+	  <seemfa marker="erts:erlang#term_to_binary/1"><c>term_to_binary/1</c></seemfa>.
           </p>
         <p>Owners subscribing to notifications receive
           message <c>read_only</c>, <c>blocked_log</c>,
@@ -382,7 +382,7 @@
           </p>
         <p>If the log size is decreased, for example, to save space,
           function
-	  <seealso marker="#inc_wrap_file/1"><c>inc_wrap_file/1</c></seealso>
+	  <seemfa marker="#inc_wrap_file/1"><c>inc_wrap_file/1</c></seemfa>
 	  can be used to force the log to wrap.
           </p>
       </desc>
@@ -516,7 +516,7 @@
           this function returns a descriptive string
           of the error in English. For file errors, function
           <c>format_error/1</c> in module
-	  <seealso marker="file#format_error/1"><c>file</c></seealso>
+	  <seemfa marker="file#format_error/1"><c>file</c></seemfa>
 	  is called.</p>
       </desc>
     </func>
@@ -593,7 +593,7 @@
           <item>
             <p><c><anno>Users</anno></c> is the number
               of anonymous users of the log, see the <c>open/1</c> option
-              <seealso marker="#linkto"><c>linkto</c></seealso>.</p>
+              <seeerl marker="#linkto"><c>linkto</c></seeerl>.</p>
           </item>
 	  <tag><c>{status, <anno>Status</anno>}</c></tag>
           <item>
@@ -704,7 +704,7 @@
 	specified node if the node is not the current one.</p>
         <p><c>lclose(<anno>Log</anno>)</c> is equivalent to
           <c>lclose(<anno>Log</anno>,&nbsp;node())</c>.
-          See also <seealso marker="#close_1"><c>close/1</c></seealso>.
+          See also <seeerl marker="#close_1"><c>close/1</c></seeerl>.
           </p>
         <p>If no log with the specified name exist on the specified node,
 	<c>no_such_log</c> is returned.
@@ -730,7 +730,7 @@
           is written to disk, it can linger in
           the operating system kernel for a while. To ensure that the
           item is written to disk, function
-	  <seealso marker="#sync/1"><c>sync/1</c></seealso>
+	  <seemfa marker="#sync/1"><c>sync/1</c></seemfa>
           must be called.
           </p>
         <p><c>log/2</c> is used for internally formatted logs,
@@ -738,8 +738,8 @@
           <c>blog/2</c> can also be used
           for internally formatted logs if the binary is
           constructed with a call to
-	  <seealso marker="erts:erlang#term_to_binary/1">
-	  <c>term_to_binary/1</c></seealso>.</p>
+	  <seemfa marker="erts:erlang#term_to_binary/1">
+	  <c>term_to_binary/1</c></seemfa>.</p>
         <p>Owners subscribing to notifications are notified
           of an error with an <c>error_status</c> message if the error 
           reason tag is <c>invalid_header</c> or <c>file_error</c>.
@@ -767,8 +767,8 @@
           <c>blog_terms/2</c> can also be used
           for internally formatted logs if the binaries are
           constructed with calls to
-	  <seealso marker="erts:erlang#term_to_binary/1">
-	  <c>term_to_binary/1</c></seealso>.</p>
+	  <seemfa marker="erts:erlang#term_to_binary/1">
+	  <c>term_to_binary/1</c></seemfa>.</p>
         <p>Owners subscribing to notifications are notified
           of an error with an <c>error_status</c> message if the error 
           reason tag is <c>invalid_header</c> or <c>file_error</c>.
@@ -1154,8 +1154,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="file"><c>file(3)</c></seealso>,
-      <seealso marker="pg2"><c>pg2(3)</c></seealso>,
-      <seealso marker="wrap_log_reader"><c>wrap_log_reader(3)</c></seealso></p>
+    <p><seeerl marker="file"><c>file(3)</c></seeerl>,
+      <seeerl marker="pg2"><c>pg2(3)</c></seeerl>,
+      <seeerl marker="wrap_log_reader"><c>wrap_log_reader(3)</c></seeerl></p>
   </section>
 </erlref>

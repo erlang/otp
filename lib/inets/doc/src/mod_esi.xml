@@ -115,11 +115,12 @@
    </func>
  </funcs>
   
- <section>
-   <title>ESI Callback Functions</title>
- </section>
+
 
  <funcs>
+    <fsdescription>
+     <title>ESI Callback Functions</title>
+   </fsdescription>
    <func>
      <name since="">Module:Function(SessionID, Env, Input)-> {continue, State} | _ </name>
      <fsummary>Creates a dynamic web page and returns it chunk by chunk 
@@ -155,11 +156,11 @@
 	a PUT or POST request. The default behavior (legacy reasons)
 	for delivering the body, is that the whole body is gathered and
 	converted to a string. But if the httpd config parameter
-	<seealso
-	marker="httpd#max_client_body_chunk">max_client_body_chunk</seealso>
+	<seeerl
+	marker="httpd#max_client_body_chunk">max_client_body_chunk</seeerl>
 	is set, the body will be delivered as binary chunks
-	instead. The maximum size of the chunks is either <seealso
-	marker="httpd#max_client_body_chunk">max_client_body_chunk</seealso>
+	instead. The maximum size of the chunks is either <seeerl
+	marker="httpd#max_client_body_chunk">max_client_body_chunk</seeerl>
 	or decide by the client if it uses HTTP chunked encoding
 	to send the body. When using the chunking
 	mechanism this callback must return {continue, State::term()}

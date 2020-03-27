@@ -38,7 +38,7 @@
     <p>This module can be used to render function and type documentation
       to be printed in a shell. It can only render documentation of the format
       <c>application/erlang+html</c>. For more information about this format see
-      <seealso marker="erl_docgen:doc_storage">Documentation Storage</seealso>
+      <seeguide marker="erl_docgen:doc_storage">Documentation Storage</seeguide>
       in Erl_Docgen's User's Guide.
     </p>
   </description>

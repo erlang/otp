@@ -48,7 +48,7 @@
 2> <input>c(foo).</input>
 {ok, foo}</pre>
 
-    <p>In command one, module <seealso marker="lists"><c>lists</c></seealso> is
+    <p>In command one, module <seeerl marker="lists"><c>lists</c></seeerl> is
       called. In command two, no module name is specified. The shell searches
       module <c>user_default</c> followed by module <c>shell_default</c> for
       function <c>c/1</c>.</p>

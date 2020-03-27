@@ -41,7 +41,7 @@
       in any <c>gen_event</c> process. It logs onto disk all events that are
       sent to an event manager. Each event is written as a binary, which makes
       the logging very fast. However, a tool such as the Report Browser
-      (<seealso marker="sasl:rb"><c>rb(3)</c></seealso>) must be used to read
+      (<seeerl marker="sasl:rb"><c>rb(3)</c></seeerl>) must be used to read
       the files. The events are written to multiple files. When all files have
       been used, the first one is reused and overwritten. The directory
       location, the number of files, and the size of each file are configurable.
@@ -52,8 +52,8 @@
   <datatypes>
     <datatype>
       <name name="args"/>
-      <desc><p>Term to be sent to <seealso marker="gen_event#add_handler/3">
-        <c>gen_event:add_handler/3</c></seealso>.</p>
+      <desc><p>Term to be sent to <seemfa marker="gen_event#add_handler/3">
+        <c>gen_event:add_handler/3</c></seemfa>.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -80,8 +80,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="gen_event"><c>gen_event(3)</c></seealso>,
-      <seealso marker="sasl:rb"><c>rb(3)</c></seealso></p>
+    <p><seeerl marker="gen_event"><c>gen_event(3)</c></seeerl>,
+      <seeerl marker="sasl:rb"><c>rb(3)</c></seeerl></p>
   </section>
 </erlref>
 

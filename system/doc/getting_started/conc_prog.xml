@@ -555,8 +555,8 @@ ping finished</pre>
         <p>This sort of problem can be solved easier by use of
           the facilities in OTP, which also provide methods for
           updating code on the fly and so on (see
-	  <seealso marker="doc/design_principles:des_princ#otp design principles">
-          OTP Design Principles</seealso>).</p>
+	  <seeguide marker="system/design_principles:des_princ#otp design principles">
+          OTP Design Principles</seeguide>).</p>
       </item>
       <item>
         <p>The first program contains some inadequacies

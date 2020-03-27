@@ -53,11 +53,11 @@
       assuming knowledge of the format is running on thin ice.</p>
 
     <p>All operations have an amortized O(1) running time, except
-      <seealso marker="#filter/2"><c>filter/2</c></seealso>,
-      <seealso marker="#join/2"><c>join/2</c></seealso>,
-      <seealso marker="#len/1"><c>len/1</c></seealso>,
-      <seealso marker="#member/2"><c>member/2</c></seealso>,
-      <seealso marker="#split/2"><c>split/2</c></seealso> that have O(n).
+      <seemfa marker="#filter/2"><c>filter/2</c></seemfa>,
+      <seemfa marker="#join/2"><c>join/2</c></seemfa>,
+      <seemfa marker="#len/1"><c>len/1</c></seemfa>,
+      <seemfa marker="#member/2"><c>member/2</c></seemfa>,
+      <seemfa marker="#split/2"><c>split/2</c></seemfa> that have O(n).
       To minimize the size of a queue minimizing
       the amount of garbage built by queue operations, the queues
       do not contain explicit length information, and that is
@@ -96,15 +96,13 @@
       some with more readable but perhaps less understandable aliases.</p>
   </description>
 
-  <section>
-    <title>Original API</title>
-  </section>
+ 
 
   <datatypes>
     <datatype>
       <name name="queue" n_vars="1"/>
       <desc><p>As returned by
-        <seealso marker="#new/0"><c>new/0</c></seealso>.</p></desc>
+        <seemfa marker="#new/0"><c>new/0</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name name="queue" n_vars="0"/>
@@ -112,6 +110,9 @@
   </datatypes>
 
   <funcs>
+    <fsdescription>
+      <title>Original API</title>
+    </fsdescription>
     <func>
       <name name="filter" arity="2" since=""/>
       <fsummary>Filter a queue.</fsummary>
@@ -270,11 +271,12 @@
     </func>
   </funcs>
 
-  <section>
-    <title>Extended API</title>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Extended API</title>
+    </fsdescription>
     <func>
       <name name="drop" arity="1" since=""/>
       <fsummary>Remove the front item from a queue.</fsummary>
@@ -336,11 +338,12 @@
     </func>
   </funcs>
 
-  <section>
-    <title>Okasaki API</title>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Okasaki API</title>
+    </fsdescription>
     <func>
       <name name="cons" arity="2" since=""/>
       <fsummary>Insert an item at the head of a queue.</fsummary>

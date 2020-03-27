@@ -29,8 +29,8 @@
   <description>
     <p>
       Implements an internal CRL (Certificate Revocation List) cache.
-      In addition to implementing the <seealso
-      marker="ssl_crl_cache_api"> ssl_crl_cache_api</seealso> behaviour
+      In addition to implementing the <seeerl
+      marker="ssl_crl_cache_api"> ssl_crl_cache_api</seeerl> behaviour
       the following functions are available.
     </p>
   </description>
@@ -53,7 +53,7 @@
 	<name since="OTP 18.0">delete(Entries) -> ok |  {error, Reason} </name>
 	<fsummary> </fsummary>
 	<type>
-	  <v> Entries =  <seealso marker="#type-crl_src">crl_src()</seealso>]}</v>
+	  <v> Entries =  <seetype marker="#crl_src">crl_src()</seetype>]}</v>
 	  <v> Reason = crl_reason()</v>
 	</type>
 	<desc>
@@ -65,8 +65,8 @@
 	<name since="OTP 18.0">insert(URI, CRLSrc) -> ok | {error, Reason}</name>
 	<fsummary> </fsummary>
 	<type>
-	  <v> CRLSrc = <seealso marker="#type-crl_src">crl_src()</seealso>]}</v>
-	  <v> URI = <seealso marker="#type-uri">uri()</seealso> </v>
+	  <v> CRLSrc = <seetype marker="#crl_src">crl_src()</seetype>]}</v>
+	  <v> URI = <seetype marker="#uri">uri()</seetype> </v>
 	  <v> Reason = term()</v>
 	</type>
 	<desc>

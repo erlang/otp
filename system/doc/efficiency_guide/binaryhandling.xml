@@ -165,12 +165,12 @@ Bin4 = <<Bin1/binary,17>>,       %% 5 !!!
 
   <list type="bulleted">
     <item>Line 1 (marked with the <c>%% 1</c> comment), assigns
-    a <seealso marker="#heap_binary">heap binary</seealso> to
+    a <seeguide marker="#heap_binary">heap binary</seeguide> to
     the <c>Bin0</c> variable.</item>
 
     <item>Line 2 is an append operation. As <c>Bin0</c>
     has not been involved in an append operation,
-    a new <seealso marker="#refc_binary">refc binary</seealso>
+    a new <seeguide marker="#refc_binary">refc binary</seeguide>
     is created and the contents of <c>Bin0</c> is copied
     into it. The <em>ProcBin</em> part of the refc binary has
     its size set to the size of the data stored in the binary, while
@@ -248,7 +248,7 @@ Bin = <<Bin1,...>>  %% Bin1 will be COPIED
       <p>The same happens if you insert a binary into an Ets
       table, send it to a port using <c>erlang:port_command/2</c>, or
       pass it to
-      <seealso marker="erts:erl_nif#enif_inspect_binary">enif_inspect_binary</seealso>
+      <seecref marker="erts:erl_nif#enif_inspect_binary">enif_inspect_binary</seecref>
       in a NIF.</p>
 
       <p>Matching a binary will also cause it to shrink and the next append
@@ -261,7 +261,7 @@ Bin = <<Bin1,...>>  %% Bin1 will be COPIED
 ]]></code>
 
       <p>The reason is that a
-      <seealso marker="#match_context">match context</seealso>
+      <seeguide marker="#match_context">match context</seeguide>
       contains a direct pointer to the binary data.</p>
 
       <p>If a process simply keeps binaries (either in "loop data" or in the
@@ -285,13 +285,13 @@ my_binary_to_list(<<H,T/binary>>) ->
 my_binary_to_list(<<>>) -> [].]]></code>  
 
   <p>The first time <c>my_binary_to_list/1</c> is called,
-  a <seealso marker="#match_context">match context</seealso>
+  a <seeguide marker="#match_context">match context</seeguide>
   is created. The match context points to the first
   byte of the binary. 1 byte is matched out and the match context
   is updated to point to the second byte in the binary.</p>
 
   <p>At this point it would make sense to create a
-  <seealso marker="#sub_binary">sub binary</seealso>,
+  <seeguide marker="#sub_binary">sub binary</seeguide>,
   but in this particular example the compiler sees that
   there will soon be a call to a function (in this case,
   to <c>my_binary_to_list/1</c> itself) that immediately will

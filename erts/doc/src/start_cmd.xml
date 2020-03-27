@@ -39,8 +39,8 @@
       how to start up the Erlang system in embedded mode on Unix.</p>
 
     <p>For more information about the use, see the
-      <seealso marker="doc/embedded:embedded_solaris">
-      Embedded System User's Guide</seealso> in System Documentation.</p>
+      <seeguide marker="system/embedded:embedded_solaris">
+      Embedded System User's Guide</seeguide> in System Documentation.</p>
   </description>
 
   <funcs>
@@ -66,7 +66,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="run_erl"><c>run_erl(1)</c></seealso>,
-      <seealso marker="start_erl"><c>start_erl(1)</c></seealso></p>
+    <p><seecom marker="run_erl"><c>run_erl(1)</c></seecom>,
+      <seecom marker="start_erl"><c>start_erl(1)</c></seecom></p>
   </section>
 </comref>

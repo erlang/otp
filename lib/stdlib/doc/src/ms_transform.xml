@@ -38,19 +38,19 @@
   <description>
     <marker id="top"></marker>
     <p>This module provides the parse transformation that makes calls to
-      <seealso marker="ets"><c>ets</c></seealso> and
-      <seealso marker="runtime_tools:dbg#fun2ms/1"><c>dbg:fun2ms/1</c></seealso>
+      <seeerl marker="ets"><c>ets</c></seeerl> and
+      <seemfa marker="runtime_tools:dbg#fun2ms/1"><c>dbg:fun2ms/1</c></seemfa>
       translate into literal match specifications. It also provides the back end
       for the same functions when called from the Erlang shell.</p>
 
     <p>The translation from funs to match specifications
       is accessed through the two "pseudo functions"
-      <seealso marker="ets#fun2ms/1"><c>ets:fun2ms/1</c></seealso> and
-      <seealso marker="runtime_tools:dbg#fun2ms/1"><c>dbg:fun2ms/1</c></seealso>.</p>
+      <seemfa marker="ets#fun2ms/1"><c>ets:fun2ms/1</c></seemfa> and
+      <seemfa marker="runtime_tools:dbg#fun2ms/1"><c>dbg:fun2ms/1</c></seemfa>.</p>
 
     <p>As everyone trying to use
-      <seealso marker="ets#select/1"><c>ets:select/2</c></seealso> or
-      <seealso marker="runtime_tools:dbg"><c>dbg</c></seealso> seems to end up
+      <seemfa marker="ets#select/1"><c>ets:select/2</c></seemfa> or
+      <seeerl marker="runtime_tools:dbg"><c>dbg</c></seeerl> seems to end up
       reading this manual page, this description is an introduction to the
       concept of match specifications.</p>
 
@@ -59,7 +59,7 @@
 
     <p>Match specifications are used more or less as filters. They resemble
       usual Erlang matching in a list comprehension or in a fun used with
-      <seealso marker="lists#foldl/3"><c>lists:foldl/3</c></seealso>, and so on.
+      <seemfa marker="lists#foldl/3"><c>lists:foldl/3</c></seemfa>, and so on.
       However, the syntax of pure match specifications is awkward, as
       they are made up purely by Erlang terms, and the language has no
       syntax to make the match specifications more readable.</p>
@@ -77,11 +77,11 @@
 
   <section>
     <title>Example 1</title>
-    <p>Using <seealso marker="ets#select/2"><c>ets:select/2</c></seealso>
+    <p>Using <seemfa marker="ets#select/2"><c>ets:select/2</c></seemfa>
     and a match specification, one can filter out rows of
     a table and construct a list of tuples containing relevant parts
     of the data in these rows.
-    One can use <seealso marker="ets#foldl/3"><c>ets:foldl/3</c></seealso>
+    One can use <seemfa marker="ets#foldl/3"><c>ets:foldl/3</c></seemfa>
     instead, but the <c>ets:select/2</c> call is far more efficient.
     Without the translation provided by <c>ms_transform</c>,
     one must struggle with writing match specifications terms
@@ -127,8 +127,8 @@ ets:new(emp_tab, [{keypos,#emp.empno},named_table,ordered_set]).</code>
     but it is still unreadable, and one has little control over the
     returned result. It is always a list of lists.</p>
 
-    <p><seealso marker="ets#foldl/3"><c>ets:foldl/3</c></seealso> or
-      <seealso marker="ets#foldr/3"><c>ets:foldr/3</c></seealso> can be used to avoid the nested lists:</p>
+    <p><seemfa marker="ets#foldl/3"><c>ets:foldl/3</c></seemfa> or
+      <seemfa marker="ets#foldr/3"><c>ets:foldr/3</c></seemfa> can be used to avoid the nested lists:</p>
 
     <code type="none">
 ets:foldr(fun(#emp{empno = E, dept = sales},Acc) -> [E | Acc];
@@ -262,8 +262,8 @@ ets:select(emp_tab, ets:fun2ms(
       mention that variable A is simply translated into '$_'.
       Alternatively, pseudo function <c>object/0</c>
       also returns the whole matched object, see section
-      <seealso marker="#warnings_and_restrictions">
-      Warnings and Restrictions</seealso>.</p>
+      <seeerl marker="#warnings_and_restrictions">
+      Warnings and Restrictions</seeerl>.</p>
   </section>
 
   <section>
@@ -339,12 +339,12 @@ ets:select(emp_tab, ets:fun2ms(
   <section>
     <title>Useful BIFs</title>
     <p>What more can you do? A simple answer is: see the documentation of
-      <seealso marker="erts:match_spec">match specifications</seealso>
+      <seeguide marker="erts:match_spec">match specifications</seeguide>
       in ERTS User's Guide.
       However, the following is a brief overview of the most useful "built-in
       functions" that you can use when the fun is to be translated into a match
       specification by
-      <seealso marker="ets#fun2ms/1"> <c>ets:fun2ms/1</c></seealso>. It is not
+      <seemfa marker="ets#fun2ms/1"> <c>ets:fun2ms/1</c></seemfa>. It is not
       possible to call other functions than those allowed in match
       specifications. No "usual" Erlang code can be executed by the fun that
       is translated by <c>ets:fun2ms/1</c>. The fun is limited
@@ -423,8 +423,8 @@ ets:select(emp_tab, ets:fun2ms(
   <section>
     <title>Example with dbg</title>
     <p>This section describes the slightly different match specifications
-      translated by <seealso marker="runtime_tools:dbg#fun2ms/1">
-      <c>dbg:fun2ms/1</c></seealso>.</p>
+      translated by <seemfa marker="runtime_tools:dbg#fun2ms/1">
+      <c>dbg:fun2ms/1</c></seemfa>.</p>
 
     <p>The same reasons for using the parse transformation apply to
       <c>dbg</c>, maybe even more, as filtering using Erlang code is
@@ -574,7 +574,7 @@ start(Args) ->
 
     <p>This example illustrates the most used calls in match specifications for
       <c>dbg</c>. The other, more esoteric, calls are listed and explained in
-      <seealso marker="erts:match_spec">Match specifications in Erlang</seealso>
+      <seeguide marker="erts:match_spec">Match specifications in Erlang</seeguide>
     in ERTS User's Guide, as they are beyond
     the scope of this description.</p>
   </section>
@@ -725,7 +725,7 @@ ets:select(Table, [{{'$1',test,'$2'},[],['$_']}]).</code>
       time, so runtime performance is not affected by using these pseudo
       functions.</p>
     <p>For more information about match specifications, see the
-    <seealso marker="erts:match_spec">Match specifications in Erlang</seealso>
+    <seeguide marker="erts:match_spec">Match specifications in Erlang</seeguide>
     in ERTS User's Guide.</p>
   </section>
 
@@ -752,12 +752,12 @@ ets:select(Table, [{{'$1',test,'$2'},[],['$_']}]).</code>
           transformation if and when header file <c>ms_transform.hrl</c>
           is included in the source code.</p>
        <p>For information about how to use this parse transformation, see
-         <seealso marker="ets"><c>ets</c></seealso> and
-         <seealso marker="runtime_tools:dbg#fun2ms/1">
-         <c>dbg:fun2ms/1</c></seealso>.</p>
+         <seeerl marker="ets"><c>ets</c></seeerl> and
+         <seemfa marker="runtime_tools:dbg#fun2ms/1">
+         <c>dbg:fun2ms/1</c></seemfa>.</p>
        <p>For a description of match specifications, see section
-          <seealso marker="erts:match_spec">
-          Match Specification in Erlang</seealso> in ERTS User's Guide.</p>
+          <seeguide marker="erts:match_spec">
+          Match Specification in Erlang</seeguide> in ERTS User's Guide.</p>
       </desc>
     </func>
 

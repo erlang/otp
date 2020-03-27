@@ -34,7 +34,7 @@
     <p><c>os_sup</c> is a process providing a message passing service
       from the operating system to the error logger in the Erlang
       runtime system. It is part of the OS_Mon application, see
-      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for
+      <seeapp marker="os_mon_app">os_mon(6)</seeapp>. Available for
       Solaris and Windows.</p>
     <p>Messages received from the operating system results in an
       user defined callback function being called. This function can do
@@ -53,7 +53,7 @@
       terminated, the service must be disabled, meaning the original
       configuration must be restored. Enabling/disabling can be done
       either outside or inside <c>os_sup</c>, see
-      <seealso marker="#config">Configuration</seealso> below.</p>
+      <seeerl marker="#config">Configuration</seeerl> below.</p>
     <warning>
       <p>This process cannot run in multiple instances on the same
         hardware. OS_Mon must be configured to start <c>os_sup</c> on
@@ -67,7 +67,7 @@
     <title>Windows Operation</title>
     <p>The Windows messages are retrieved from the eventlog file.</p>
     <p>The <c>nteventlog</c> module is used to implement <c>os_sup</c>.
-      See <seealso marker="nteventlog">nteventlog(3)</seealso>. Note
+      See <seeerl marker="nteventlog">nteventlog(3)</seeerl>. Note
       that the start functions of <c>nteventlog</c> does not need to be
       used, in this case the process is started automatically as part of
       the OS_Mon supervision tree.</p>
@@ -123,7 +123,7 @@
           called as <c>apply(Module, Function, [Msg | Args])</c>.</p>
         <p>Default is <c>{os_sup, error_report, [Tag]}</c> which will
           send the event to the error logger using
-          <seealso marker="kernel:error_logger#error_report/2">error_logger:error_report(Tag, Msg)</seealso>. <c>Tag</c> is the value of
+          <seemfa marker="kernel:error_logger#error_report/2">error_logger:error_report(Tag, Msg)</seemfa>. <c>Tag</c> is the value of
           <c>os_sup_errortag</c>, see below.</p>
       </item>
       <tag><c>os_sup_errortag = atom()</c></tag>
@@ -232,8 +232,8 @@
 
   <section>
     <title>See also</title>
-    <p><seealso marker="kernel:error_logger">error_logger(3)</seealso>,
-      <seealso marker="os_mon_app">os_mon(3)</seealso></p>
+    <p><seeerl marker="kernel:error_logger">error_logger(3)</seeerl>,
+      <seeapp marker="os_mon_app">os_mon(3)</seeapp></p>
     <p><c>syslogd(1M)</c>, <c>syslog.conf(4)</c> in the Solaris
       documentation.</p>
     <p></p>

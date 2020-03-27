@@ -44,40 +44,40 @@
     must export the following functions: </p>
     <list type="bulleted">
       <item>
-	<seealso marker="#open">open/5</seealso>
+	<seeerl marker="#open">open/5</seeerl>
       </item>
       <item>
-	<seealso marker="#close">close/1</seealso>
+	<seeerl marker="#close">close/1</seeerl>
       </item>
       <item>
-	<seealso marker="#read">read/2</seealso>
+	<seeerl marker="#read">read/2</seeerl>
       </item>
       <item>
-	<seealso marker="#write">write/2</seealso>
+	<seeerl marker="#write">write/2</seeerl>
       </item>
       <item>
-	<seealso marker="#delete1">delete/1</seealso>
+	<seeerl marker="#delete1">delete/1</seeerl>
       </item>
       <item>
-	<seealso marker="#delete2">delete/2</seealso>
+	<seeerl marker="#delete2">delete/2</seeerl>
       </item>
       <item>
-	<seealso marker="#match_object">match_object/2</seealso>
+	<seeerl marker="#match_object">match_object/2</seeerl>
       </item>
       <item>
-	<seealso marker="#match_delete">match_delete/2</seealso>
+	<seeerl marker="#match_delete">match_delete/2</seeerl>
       </item>
       <item>
-	<seealso marker="#tab2list">tab2list/1</seealso>
+	<seeerl marker="#tab2list">tab2list/1</seeerl>
       </item>
       <item>
-	<seealso marker="#info">info/1</seealso>
+	<seeerl marker="#info">info/1</seeerl>
       </item>
       <item>
-	<seealso marker="#sync">sync/1</seealso>
+	<seeerl marker="#sync">sync/1</seeerl>
       </item>
       <item>
-	<seealso marker="#backup">backup/2</seealso>
+	<seeerl marker="#backup">backup/2</seeerl>
       </item>
     </list>
 
@@ -86,15 +86,16 @@
 
   </description>
 
-  <section>
-    <title>CALLBACK FUNCTIONS</title>
-    <p>The following functions must be exported from a 
-    <c>mib-server</c> data callback module: </p>
-
-    <marker id="open"></marker>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>CALLBACK FUNCTIONS</title>
+      <p>The following functions must be exported from a 
+      <c>mib-server</c> data callback module: </p>
+  
+      <marker id="open"></marker>
+    </fsdescription>
     <func>
       <name since="OTP R16B01">Module:open(Name, RecordName, Fields, Type, Options) -> {ok, TabId} | {error, Reason}</name>
       <fsummary>Create new (mib-server) data instance</fsummary>

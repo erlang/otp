@@ -22,13 +22,15 @@
 <!ENTITY % common.entities SYSTEM "common.entities.dtd" >
 %common.entities;
 
+<!ENTITY % refs               "seemfa|seeerl|seetype|seeapp|seecom|seecref|seefile|seeguide|url" >
+
 <!ENTITY % block              "p|pre|code|list|taglist|codeinclude" >
-<!ENTITY % inline             "#PCDATA|c|i|em|strong|term|br|seealso|
-                               url|marker|anno|image" >
+<!ENTITY % inline             "#PCDATA|c|i|em|strong|term|br|%refs;|
+                               marker|anno|image" >
 <!-- XXX --> 
 <!ELEMENT p                   (%inline;)* >
-<!ELEMENT pre                 (#PCDATA|seealso|url|input|anno)* >
-<!ELEMENT input               (#PCDATA|seealso|url|anno)* >
+<!ELEMENT pre                 (#PCDATA|%refs;|input|anno)* >
+<!ELEMENT input               (#PCDATA|%refs;|anno)* >
 <!ELEMENT code                (#PCDATA|anno)* >
 <!ATTLIST code                type (erl|c|none) "none" >
 <!ELEMENT quote               (p)* >
@@ -50,13 +52,29 @@
 <!ELEMENT list                (item+) >
 <!ATTLIST list                 type (ordered|bulleted) "bulleted" >
 <!ELEMENT taglist             (marker*,tag,item+)+ >
-<!ELEMENT tag                 (#PCDATA|c|i|em|br|seealso|url|marker|anno)* >
+<!ELEMENT tag                 (#PCDATA|c|i|em|br|%refs;|marker|anno)* >
 <!ELEMENT item                (%inline;|%block;|warning|note|dont|do|quote|table)* >
 
 <!-- References -->
 
-<!ELEMENT seealso             (#PCDATA|c|i|em|anno)* >
-<!ATTLIST seealso             marker CDATA #REQUIRED >
+<!ENTITY % refinline          "#PCDATA|c|i|em|anno" >
+
+<!ELEMENT seemfa              (%refinline;)* >
+<!ATTLIST seemfa              marker CDATA #REQUIRED >
+<!ELEMENT seeerl              (%refinline;)* >
+<!ATTLIST seeerl              marker CDATA #REQUIRED >
+<!ELEMENT seetype             (%refinline;)* >
+<!ATTLIST seetype             marker CDATA #REQUIRED >
+<!ELEMENT seeapp              (%refinline;)* >
+<!ATTLIST seeapp              marker CDATA "" >
+<!ELEMENT seecom              (%refinline;)* >
+<!ATTLIST seecom              marker CDATA #REQUIRED >
+<!ELEMENT seecref             (%refinline;)* >
+<!ATTLIST seecref             marker CDATA #REQUIRED >
+<!ELEMENT seefile             (%refinline;)* >
+<!ATTLIST seefile             marker CDATA #REQUIRED >
+<!ELEMENT seeguide            (%refinline;)* >
+<!ATTLIST seeguide            marker CDATA "" >
 <!ELEMENT url                 (#PCDATA) >
 <!ATTLIST url                 href CDATA #REQUIRED >
 <!ELEMENT marker              EMPTY >

@@ -59,7 +59,7 @@
         <p>Generates a release upgrade file <c>relup</c> containing instructions 
 	for upgrading from or downgrading to one or more previous releases. 
 	The instructions are used by 
-	<seealso marker="release_handler"><c>release_handler</c></seealso> 
+	<seeerl marker="release_handler"><c>release_handler</c></seeerl> 
 	when installing a new version of a release in runtime.</p>
         <p>By default, <c>relup</c> file is located in the current working
           directory. If option <c>{outdir,Dir}</c> is specified,
@@ -94,13 +94,13 @@
           between application versions are fetched from the relevant
           application upgrade files <c>App.appup</c>, sorted in
           the same order as when generating a boot script, see
-          <seealso marker="#make_script/1"><c>make_script/1,2</c></seealso>. 
+          <seemfa marker="#make_script/1"><c>make_script/1,2</c></seemfa>. 
 	  High-level instructions are translated
           into low-level instructions and the result is printed to the
           <c>relup</c> file.</p>
         <p>The optional <c>Descr</c> parameter is included "as is" in
           the <c>relup</c> file, see
-          <seealso marker="relup"><c>relup(4)</c></seealso>. Defaults to
+          <seefile marker="relup"><c>relup(4)</c></seefile>. Defaults to
           the empty list.</p>
         <p>All the files are searched for in the code path. It is
           assumed that the <c>.app</c> and <c>.appup</c> files for an
@@ -117,8 +117,8 @@
           than OTP R15 to OTP R15 or later, the warning
           <c>pre_R15_emulator_upgrade</c> is issued. For more information
           about this, see
-          <seealso marker="doc/design_principles:appup_cookbook">Design
-          Principles</seealso> in <em>System Documentation</em>.</p>
+          <seeguide marker="system/design_principles:appup_cookbook">Design
+          Principles</seeguide> in <em>System Documentation</em>.</p>
         <p>By default, errors and warnings are printed to tty and
           the function returns <c>ok</c> or <c>error</c>. If option
           <c>silent</c> is specified, the function instead either returns
@@ -159,14 +159,14 @@
           and <c>ScriptName.boot</c>  The boot file
           specifies which code to be loaded and which applications
           to be started when the Erlang runtime system is started.
-          See <seealso marker="script"><c>script(4)</c></seealso>.</p>
+          See <seefile marker="script"><c>script(4)</c></seefile>.</p>
         <p>The release resource file <c>Name.rel</c> is read to determine
           which applications are included in the release. Then
           the relevant application resource files <c>App.app</c> are read
           to determine which modules to be loaded, and if and
           how the applications are to be started. (Keys <c>modules</c>
           and <c>mod</c>, see
-          <seealso marker="kernel:app"><c>app(4)</c></seealso>.</p>
+          <seefile marker="kernel:app"><c>app(4)</c></seefile>.</p>
         <p>By default, the boot script and boot file are located in
           the same directory as <c>Name.rel</c>. That is, in the current
           working directory unless <c>Name</c> contains a path. If
@@ -288,14 +288,14 @@
         <p>Creates a release package file <c>Name.tar.gz</c>.
           This file must be uncompressed and unpacked on the target
           system using 
-	  <seealso marker="release_handler"><c>release_handler</c></seealso> 
+	  <seeerl marker="release_handler"><c>release_handler</c></seeerl> 
 	  before the new release can be installed.</p>
         <p>The release resource file <c>Name.rel</c> is read to determine
           which applications are included in the release. Then
           the relevant application resource files <c>App.app</c> are
           read to determine the version and modules of each application
           (keys <c>vsn</c> and <c>modules</c>, see
-          <seealso marker="kernel:app"><c>app(4)</c></seealso>).</p>
+          <seefile marker="kernel:app"><c>app(4)</c></seefile>).</p>
         <p>By default, the release package file is located in the same
           directory as <c>Name.rel</c>. That is, in the current working
           directory unless <c>Name</c> contains a path. If option
@@ -319,7 +319,7 @@
           <c>ExtraFiles</c> are added to the tarball after everything else to be
           included has been added. The <c>ExtraFiles</c> list is a list of files
           or directories in the same format as the <c>add_type()</c> tuple for
-          <seealso marker="stdlib:erl_tar#add-3">erl_tar:add/3,4</seealso></p>
+          <seemfa marker="stdlib:erl_tar#add/3">erl_tar:add/3,4</seemfa></p>
         <p>Option <c>variables</c> can be used to specify an
           installation directory other than <c>lib</c> for some of
           the applications. If variable <c>{VarName,Prefix}</c> is
@@ -367,13 +367,13 @@ myapp-1/ebin/myapp.app
           system, the <c>bin</c> directory of the specified runtime
           system <c>{erts,Dir}</c> is copied to <c>erts-ErtsVsn/bin</c>.</p>
         <p>All checks with function 
-	<seealso marker="#make_script/1"><c>make_script</c></seealso>
+	<seemfa marker="#make_script/1"><c>make_script</c></seemfa>
           are performed before the release package is created.
           Options <c>src_tests</c> and <c>exref</c> are also
           valid here.</p>
         <p>The return value and the handling of errors and warnings
           are the same as described for 
-	<seealso marker="#make_script/1"><c>make_script</c></seealso>.</p>
+	<seemfa marker="#make_script/1"><c>make_script</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -390,7 +390,7 @@ myapp-1/ebin/myapp.app
           to a binary term, which is stored in the <c>File.boot</c>
           file.</p>
         <p>A boot script generated using 
-	<seealso marker="#make_script/1"><c>make_script</c></seealso>
+	<seemfa marker="#make_script/1"><c>make_script</c></seemfa>
           is already transformed to the binary form.</p>
       </desc>
     </func>
@@ -398,12 +398,12 @@ myapp-1/ebin/myapp.app
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel:app"><c>app(4)</c></seealso>,
-      <seealso marker="appup"><c>appup(4)</c></seealso>,
-      <seealso marker="erts:erl"><c>erl(1)</c></seealso>,
-      <seealso marker="rel"><c>rel(4)</c></seealso>,
-      <seealso marker="release_handler"><c>release_handler(3)</c></seealso>,
-      <seealso marker="relup"><c>relup(4)</c></seealso>,
-      <seealso marker="script"><c>script(4)</c></seealso></p>
+    <p><seefile marker="kernel:app"><c>app(4)</c></seefile>,
+      <seefile marker="appup"><c>appup(4)</c></seefile>,
+      <seecom marker="erts:erl"><c>erl(1)</c></seecom>,
+      <seefile marker="rel"><c>rel(4)</c></seefile>,
+      <seeerl marker="release_handler"><c>release_handler(3)</c></seeerl>,
+      <seefile marker="relup"><c>relup(4)</c></seefile>,
+      <seefile marker="script"><c>script(4)</c></seefile></p>
   </section>
 </erlref>

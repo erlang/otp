@@ -30,7 +30,7 @@
     <file>nif.xml</file>
   </header>
   <p>This section outlines an example of how to solve the example
-    problem in <seealso marker="example">Problem Example</seealso>
+    problem in <seeguide marker="example">Problem Example</seeguide>
     by using Native Implemented Functions (NIFs).</p>
   <p>NIFs were introduced in Erlang/OTP R13B03 as an experimental
     feature. It is a simpler and more efficient way of calling C-code

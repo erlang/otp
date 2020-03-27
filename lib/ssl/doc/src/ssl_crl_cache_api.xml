@@ -59,16 +59,16 @@
      <datatype>
 	<name name="dist_point"/>
 	<desc>
-	  <p>For description see <seealso 
-	  marker="public_key:public_key_records"> X509 certificates records</seealso></p>
+	  <p>For description see <seeguide 
+	  marker="public_key:public_key_records"> X509 certificates records</seeguide></p>
 	</desc>
      </datatype>
 
      <datatype>
      	<name name="logger_info"/>
 	<desc>
-	  <p>Information for ssl applications use of <seealso 
-	  marker="kernel:logger"> Logger(3)</seealso></p>
+	  <p>Information for ssl applications use of <seeerl 
+	  marker="kernel:logger"> Logger(3)</seeerl></p>
 	</desc>
      </datatype>
 
@@ -82,16 +82,16 @@
       <fsummary> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
       public_key:pkix_crls_validate/3 </fsummary>
       <type>
-	<v> DistributionPoint = <seealso marker="#type-dist_point"> dist_point() </seealso> </v>
-	<v> CRL = [<seealso
-	marker="public_key:public_key#type-der_encoded">public_key:der_encoded()</seealso>] </v>
-	<v> FreshCRL = [<seealso
-	marker="public_key:public_key#type-der_encoded">public_key:der_encoded()</seealso>] </v>
-	<v> LoggerInfo = {logger,  <seealso marker="#type-logger_info"> logger_info() </seealso>}} </v>
+	<v> DistributionPoint = <seetype marker="#dist_point"> dist_point() </seetype> </v>
+	<v> CRL = [<seetype
+	marker="public_key:public_key#der_encoded">public_key:der_encoded()</seetype>] </v>
+	<v> FreshCRL = [<seetype
+	marker="public_key:public_key#der_encoded">public_key:der_encoded()</seetype>] </v>
+	<v> LoggerInfo = {logger,  <seetype marker="#logger_info"> logger_info() </seetype>}} </v>
       </type>
       <desc>
 	<p> <c>fun fresh_crl/2 </c> will be used as input option <c>update_crl</c> to
-	<seealso marker="public_key:public_key#pkix_crls_validate/3">public_key:pkix_crls_validate/3 </seealso> </p>
+	<seemfa marker="public_key:public_key#pkix_crls_validate/3">public_key:pkix_crls_validate/3 </seemfa> </p>
 	
 	<p>It is possible to return logger info that will be used by the TLS connection
 	to produce log events.
@@ -106,13 +106,13 @@
       <name since="OTP 18.0">lookup(DistributionPoint, DbHandle) -> not_available | CRLs </name>
       <fsummary> </fsummary>
       <type>
-	<v> DistributionPoint = <seealso marker="#type-dist_point"> dist_point() </seealso> </v>
-        <v> Issuer = <seealso
-	marker="public_key:public_key#type-issuer_name">public_key:issuer_name()</seealso> </v>
-	<v> DbHandle = <seealso marker="#type-crl_cache_ref"> crl_cache_ref() </seealso></v>
-	<v> CRLs = [<seealso
-	marker="public_key:public_key#type-der_encoded">public_key:der_encoded()</seealso>]</v>
-	<v> LoggerInfo = {logger,  <seealso marker="#type-logger_info"> logger_info() </seealso>}} </v>
+	<v> DistributionPoint = <seetype marker="#dist_point"> dist_point() </seetype> </v>
+        <v> Issuer = <seetype
+	marker="public_key:public_key#issuer_name">public_key:issuer_name()</seetype> </v>
+	<v> DbHandle = <seetype marker="#crl_cache_ref"> crl_cache_ref() </seetype></v>
+	<v> CRLs = [<seetype
+	marker="public_key:public_key#der_encoded">public_key:der_encoded()</seetype>]</v>
+	<v> LoggerInfo = {logger,  <seetype marker="#logger_info"> logger_info() </seetype>}} </v>
 	</type>
 	<desc> <p>Lookup the CRLs belonging to the distribution point <c> Distributionpoint</c>.
 	This function may choose to only look in the cache or to follow distribution point
@@ -141,15 +141,15 @@
       <name since="OTP 18.0">select(Issuer, DbHandle) -> CRLs </name>
       <fsummary>Select the CRLs in the cache that are issued by <c>Issuer</c></fsummary>
       <type>
-	<v> Issuer = <seealso
-	marker="public_key:public_key#type-issuer_name">public_key:issuer_name()</seealso> | list() </v>
-	<v> DbHandle = <seealso marker="#type-crl_cache_ref"> cache_ref() </seealso></v>
-	<v> LoggerInfo = {logger, <seealso marker="#type-logger_info"> logger_info() </seealso>} </v>
+	<v> Issuer = <seetype
+	marker="public_key:public_key#issuer_name">public_key:issuer_name()</seetype> | list() </v>
+	<v> DbHandle = <seetype marker="#crl_cache_ref"> cache_ref() </seetype></v>
+	<v> LoggerInfo = {logger, <seetype marker="#logger_info"> logger_info() </seetype>} </v>
       </type>
 	<desc>
 	  <p>Select the CRLs in the cache that are issued by <c>Issuer</c> unless
-	  the value is a list of so called general names, see <seealso 
-	  marker="public_key:public_key_records"> X509 certificates records</seealso>,
+	  the value is a list of so called general names, see <seeguide 
+	  marker="public_key:public_key_records"> X509 certificates records</seeguide>,
 	  originating form <c>#'DistributionPoint'.cRLissuer</c> and  
 	  representing different mechanism to obtain the CRLs. The cache
 	  callback needs to use the appropriate entry to retrive the CRLs or

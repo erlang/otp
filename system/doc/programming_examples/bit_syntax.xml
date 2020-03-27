@@ -33,7 +33,7 @@
   <section>
     <title>Introduction</title>
     <p>The complete specification for the bit syntax appears in the
-    <seealso marker="doc/reference_manual:expressions#bit_syntax">Reference Manual</seealso>.</p>
+    <seeguide marker="system/reference_manual:expressions#bit_syntax">Reference Manual</seeguide>.</p>
     <p>In Erlang, a Bin is used for constructing binaries and matching
       binary patterns. A Bin is written with the following syntax:</p>
     <code type="none"><![CDATA[
@@ -150,14 +150,14 @@ end.]]></code>
      </list>
     <p>Default values are used when specifications are missing.
       The default values are described in
-      <seealso marker="#Defaults">Defaults</seealso>.</p>
+      <seeguide marker="#Defaults">Defaults</seeguide>.</p>
     <p>The <c>Value</c> part is any expression, when used in binary construction.
       Used in binary matching, the <c>Value</c> part must
       be a literal or a variable. For more information about
       the <c>Value</c> part, see
-      <seealso marker="#Constructing Binaries and Bitstrings">Constructing Binaries and Bitstrings</seealso>
+      <seeguide marker="#Constructing Binaries and Bitstrings">Constructing Binaries and Bitstrings</seeguide>
       and
-      <seealso marker="#Matching Binaries">Matching Binaries</seealso>.</p>
+      <seeguide marker="#Matching Binaries">Matching Binaries</seeguide>.</p>
     <p>The <c>Size</c> part of the segment multiplied by the unit in
       <c>TypeSpecifierList</c> (described later) gives the number
       of bits for the segment. In construction, <c>Size</c> is any
@@ -168,7 +168,7 @@ end.]]></code>
     <taglist>
       <tag>Type</tag>
       <item>The most commonly used types are <c>integer</c>, <c>float</c>, and <c>binary</c>.
-      See <seealso marker="doc/reference_manual:expressions#bit_syntax">Bit Syntax Expressions in the Reference Manual</seealso> for a complete description.
+      See <seeguide marker="system/reference_manual:expressions#bit_syntax">Bit Syntax Expressions in the Reference Manual</seeguide> for a complete description.
 </item>
       <tag>Signedness</tag>
       <item>The signedness specification can be either <c>signed</c>
@@ -293,7 +293,7 @@ X:4/little-signed-integer-unit:8</code>
       an integer, or a floating point literal. Expressions are not
       allowed.</p>
       <p><c>Size</c> must be a
-      <seealso marker="doc/reference_manual:expressions#guard_expressions">guard expression</seealso>, which can use literals and previously bound variables.
+      <seeguide marker="system/reference_manual:expressions#guard_expressions">guard expression</seeguide>, which can use literals and previously bound variables.
       The following is not allowed:</p>
     <code type="none"><![CDATA[
 foo(N, <<X:N,T/binary>>) ->

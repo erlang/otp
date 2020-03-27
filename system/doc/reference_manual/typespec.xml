@@ -335,8 +335,8 @@
           | #Erlang_Atom{Fields}</pre>
   <p>
     Records are extended to possibly contain type information.
-    This is described in <seealso marker="#typeinrecords">
-    Type Information in Record Declarations</seealso>.
+    This is described in <seeguide marker="#typeinrecords">
+    Type Information in Record Declarations</seeguide>.
   </p>
   </section>
 

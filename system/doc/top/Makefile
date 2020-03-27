@@ -58,6 +58,7 @@ XML_FILES = \
 
 XML_GUIDE_FILES = \
 	$(GENERAL_INFO_CHAPTER_FILES:%=general_info/%) \
+	$(GENERAL_INFO_CHAPTER_GEN_FILES:%=general_info/%) \
 	$(INST_GUIDE_CHAPTER_FILES:%=installation_guide/%) \
 	$(INST_GUIDE_CHAPTER_GEN_FILES:%=installation_guide/%) \
 	$(SYSTEM_PRINCIPLES_CHAPTER_FILES:%=system_principles/%) \

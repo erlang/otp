@@ -33,12 +33,12 @@
   <description>
     <p><c>nteventlog</c> provides a generic interface to the Windows
       event log. It is part of the OS_Mon application, see
-      <seealso marker="os_mon_app">os_mon(6)</seealso>. Available for
+      <seeapp marker="os_mon_app">os_mon(6)</seeapp>. Available for
       Windows versions where the event log is available. That is, not
       for Windows 98 and some other older Windows versions, but for most
       (all?) newer Windows versions.</p>
     <p>This module is used as the Windows backend for <c>os_sup</c>, see
-      <seealso marker="os_sup">os_sup(3)</seealso>.</p>
+      <seeerl marker="os_sup">os_sup(3)</seeerl>.</p>
     <p>To retain backwards compatibility, this module can also be used
       to start a standalone <c>nteventlog</c> process which is not part
       of the OS_Mon supervision tree. When starting such a process,
@@ -97,8 +97,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="os_mon_app">os_mon(6)</seealso>,
-      <seealso marker="os_sup">os_sup(3)</seealso></p>
+    <p><seeapp marker="os_mon_app">os_mon(6)</seeapp>,
+      <seeerl marker="os_sup">os_sup(3)</seeerl></p>
     <p>Windows NT documentation</p>
   </section>
 </erlref>

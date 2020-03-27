@@ -33,7 +33,7 @@ APPLICATION=hipe
 XML_APPLICATION_FILES =  ref_man.xml
 XML_REF3_FILES =
 
-XML_PART_FILES = hipe_app.xml
+XML_PART_FILES = HiPE_app.xml
 XML_CHAPTER_FILES = notes.xml
 
 BOOK_FILES = book.xml

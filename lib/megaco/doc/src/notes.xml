@@ -351,7 +351,7 @@
 	  The binary encoding option <c>driver</c> has been removed
 	  since this (the use of the asn1 linked in driver) is
 	  now default and there is now way to <em>not</em> use it.
-	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
+	  See <seeguide marker="megaco_encode#binary_config">configuration of binary encoding</seeguide> for more info. </p>
         </item>
 
       </list>
@@ -415,7 +415,7 @@
 	  The binary encoding option <c>driver</c> has been removed
 	  since this (the use of the asn1 linked in driver) is
 	  now default and there is now way to <em>not</em> use it.
-	  See <seealso marker="megaco_encode#binary_config">configuration of binary encoding</seealso> for more info. </p>
+	  See <seeguide marker="megaco_encode#binary_config">configuration of binary encoding</seeguide> for more info. </p>
         </item>
 
       </list>
@@ -701,7 +701,7 @@
       <list type="bulleted">
         <item>
           <p>Updated the
-            <seealso marker="megaco_performance">performance</seealso>
+            <seeguide marker="megaco_performance">performance</seeguide>
             chapter. </p>
           <p>Own Id: OTP-8696</p>
         </item>
@@ -785,7 +785,7 @@
       <list type="bulleted">
         <item>
           <p>Updated the
-            <seealso marker="megaco_performance">performance</seealso>
+            <seeguide marker="megaco_performance">performance</seeguide>
             chapter. </p>
           <p>Own Id: OTP-8696</p>
         </item>

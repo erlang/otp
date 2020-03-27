@@ -78,30 +78,30 @@
       <tag><c>record</c></tag>
       <item><p>A Boolean indicating if the origin of the abstract
         code is a record. Used by
-        <seealso marker="dialyzer:dialyzer">Dialyzer</seealso>
+        <seeerl marker="dialyzer:dialyzer">Dialyzer</seeerl>
         to assign types to tuple elements.</p>
       </item>
     </taglist>
 
     <p>The functions
-      <seealso marker="erl_scan#column/1"><c>column()</c></seealso>,
-      <seealso marker="erl_scan#end_location/1"><c>end_location()</c></seealso>,
-      <seealso marker="erl_scan#line/1"><c>line()</c></seealso>,
-      <seealso marker="erl_scan#location/1"><c>location()</c></seealso>, and
-      <seealso marker="erl_scan#text/1"><c>text()</c></seealso>
+      <seemfa marker="erl_scan#column/1"><c>column()</c></seemfa>,
+      <seemfa marker="erl_scan#end_location/1"><c>end_location()</c></seemfa>,
+      <seemfa marker="erl_scan#line/1"><c>line()</c></seemfa>,
+      <seemfa marker="erl_scan#location/1"><c>location()</c></seemfa>, and
+      <seemfa marker="erl_scan#text/1"><c>text()</c></seemfa>
       in the <c>erl_scan</c> module can be used for inspecting
       annotations in tokens.</p>
 
     <p>The functions
-      <seealso marker="erl_parse#anno_from_term/1">
-      <c>anno_from_term()</c></seealso>,
-      <seealso marker="erl_parse#anno_to_term/1">
-      <c>anno_to_term()</c></seealso>,
-      <seealso marker="erl_parse#fold_anno/3"><c>fold_anno()</c></seealso>,
-      <seealso marker="erl_parse#map_anno/2"><c>map_anno()</c></seealso>,
-      <seealso marker="erl_parse#mapfold_anno/3">
-      <c>mapfold_anno()</c></seealso>,
-      and <seealso marker="erl_parse#new_anno/1"><c>new_anno()</c></seealso>,
+      <seemfa marker="erl_parse#anno_from_term/1">
+      <c>anno_from_term()</c></seemfa>,
+      <seemfa marker="erl_parse#anno_to_term/1">
+      <c>anno_to_term()</c></seemfa>,
+      <seemfa marker="erl_parse#fold_anno/3"><c>fold_anno()</c></seemfa>,
+      <seemfa marker="erl_parse#map_anno/2"><c>map_anno()</c></seemfa>,
+      <seemfa marker="erl_parse#mapfold_anno/3">
+      <c>mapfold_anno()</c></seemfa>,
+      and <seemfa marker="erl_parse#new_anno/1"><c>new_anno()</c></seemfa>,
       in the <c>erl_parse</c> module can be
       used for manipulating annotations in abstract code.</p>
   </description>
@@ -169,7 +169,7 @@
       <fsummary>Return annotations given a term.</fsummary>
       <desc>
         <p>Returns annotations with representation <anno>Term</anno>.</p>
-        <p>See also <seealso marker="#to_term/1">to_term()</seealso>.</p>
+        <p>See also <seemfa marker="#to_term/1">to_term()</seemfa>.</p>
       </desc>
     </func>
 
@@ -291,14 +291,14 @@
       </fsummary>
       <desc>
         <p>Returns the term representing the annotations <anno>Anno</anno>.</p>
-        <p>See also <seealso marker="#from_term/1">from_term()</seealso>.</p>
+        <p>See also <seemfa marker="#from_term/1">from_term()</seemfa>.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
-      <seealso marker="erl_scan"><c>erl_scan(3)</c></seealso></p>
+    <p><seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl>,
+      <seeerl marker="erl_scan"><c>erl_scan(3)</c></seeerl></p>
   </section>
 </erlref>

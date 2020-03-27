@@ -35,15 +35,15 @@
       application, which is responsible for <em>release handling</em>,
       that is, unpacking, installation, and removal of release packages.</p>
     <p>An introduction to release handling and an example is provided in
-      <seealso marker="doc/design_principles:release_handling">OTP Design
-      Principles</seealso> in <em>System Documentation</em>.</p>
+      <seeguide marker="system/design_principles:release_handling">OTP Design
+      Principles</seeguide> in <em>System Documentation</em>.</p>
     <p>A <em>release package</em> is a compressed tar file containing
       code for a certain version of a release, created by calling
-      <seealso marker="systools#make_tar/1"><c>systools:make_tar/1,2</c></seealso>.
+      <seemfa marker="systools#make_tar/1"><c>systools:make_tar/1,2</c></seemfa>.
       The release package is to be located in the <c>$ROOT/releases</c>
       directory of the previous version of the release, where
       <c>$ROOT</c> is the installation root directory,
-      <seealso marker="kernel:code#root_dir/0"><c>code:root_dir()</c></seealso>.
+      <seemfa marker="kernel:code#root_dir/0"><c>code:root_dir()</c></seemfa>.
       Another <c>releases</c> directory can be specified using the SASL
       configuration parameter <c>releases_dir</c> or the OS environment
       variable <c>RELDIR</c>. The release handler must have write access
@@ -112,7 +112,7 @@
       system configuration file are to be used if the system is
       restarted. This is taken care of automatically if Erlang is
       started as an embedded system. Read about this in
-      <seealso marker="doc/embedded:users_guide">Embedded System</seealso> in
+      <seeguide marker="system/embedded:index">Embedded System</seeguide> in
       <em>System Documentation</em>. In this case, the system
       configuration file <c>sys.config</c> is mandatory.</p>
     <p>The installation of a new release can restart the system. Which
@@ -134,7 +134,7 @@
     <p>The release handler at a node running on a diskless machine,
       or with a read-only file system, must be configured accordingly
       using the following SASL configuration parameters (for
-      details, see <seealso marker="sasl_app">sasl(6)</seealso>):</p>
+      details, see <seeapp marker="sasl_app">sasl(6)</seeapp>):</p>
     <taglist>
       <tag><c>masters</c></tag>
       <item>
@@ -191,13 +191,13 @@
           the <c>point_of_no_return</c> instruction in the release
           upgrade script.</p>
         <p>Returns the same as 
-	<seealso marker="#install_release/1"><c>install_release/1</c></seealso>.
+	<seemfa marker="#install_release/1"><c>install_release/1</c></seemfa>.
 	<c>Descr</c> defaults to "" if no <c>relup</c> file is found.</p>
         <p>If option <c>purge</c> is specified, all old code that can
           be soft-purged is purged after all other checks are
           successfully completed. This can be useful to
-          reduce the time needed by <seealso
-          marker="#install_release/1"><c>install_release/1</c></seealso>.</p>
+          reduce the time needed by <seemfa
+          marker="#install_release/1"><c>install_release/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -246,7 +246,7 @@
           <c>start.boot</c>, <c>relup</c>, and <c>sys.config</c>.</p>
         <p>The function can be called, for example, when these files
           are generated at the target. The function is to be called after
-          <seealso marker="#set_unpacked/2"><c>set_unpacked/2</c></seealso> 
+          <seemfa marker="#set_unpacked/2"><c>set_unpacked/2</c></seemfa> 
 	has been called.</p>
       </desc>
     </func>
@@ -303,21 +303,21 @@
           <tag><c>error_action</c></tag>
             <item><p>Defines if the node is to be
             restarted 
-	    (<seealso marker="erts:init#restart/0"><c>init:restart()</c></seealso>) 
+	    (<seemfa marker="erts:init#restart/0"><c>init:restart()</c></seemfa>) 
 	    or rebooted
-            (<seealso marker="erts:init#reboot/0"><c>init:reboot()</c></seealso>) 
+            (<seemfa marker="erts:init#reboot/0"><c>init:reboot()</c></seemfa>) 
 	    if there is an error during
             the installation. Default is <c>restart</c>.</p></item>
           <tag><c>code_change_timeout</c></tag>
             <item><p>Defines the time-out
             for all calls to 
-	    <seealso marker="stdlib:sys#change_code/4"><c>sys:change_code</c></seealso>.
+	    <seemfa marker="stdlib:sys#change_code/4"><c>sys:change_code</c></seemfa>.
 	    If no value is specified or <c>default</c> is specified, the 
 	    default value defined in <c>sys</c> is used.</p></item>
           <tag><c>suspend_timeout</c></tag>
             <item><p>Defines the time-out for 
             all calls to 
-	    <seealso marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seealso>.
+	    <seemfa marker="stdlib:sys#suspend/1"><c>sys:suspend</c></seemfa>.
 	    If no value is specified, the values defined by the <c>Timeout</c> 
 	    parameter of the <c>upgrade</c> or <c>suspend</c> instructions are used.
             If <c>default</c> is specified, the default value defined in
@@ -330,8 +330,8 @@
             effect for other application directories than the default
             <c>$ROOT/lib/App-Vsn</c>, that is, application directories
             specified in argument <c>AppDirs</c> in a call to
-            <seealso marker="#create_RELEASES/4"><c>create_RELEASES/4</c></seealso> or 
-	    <seealso marker="#set_unpacked/2"><c>set_unpacked/2</c></seealso>.</p>
+            <seemfa marker="#create_RELEASES/4"><c>create_RELEASES/4</c></seemfa> or 
+	    <seemfa marker="#set_unpacked/2"><c>set_unpacked/2</c></seemfa>.</p>
             <p><em>Example:</em></p>
             <p>In the current version <c>CurVsn</c> of a release, the
               application directory of <c>myapp</c> is
@@ -343,7 +343,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 => {ok,NewVsn}</code>
             <p>If <c>NewVsn</c> is installed with option
               <c>{update_paths,true}</c>, then
-              <seealso marker="kernel:code#lib_dir/1"><c>code:lib_dir(myapp)</c></seealso>
+              <seemfa marker="kernel:code#lib_dir/1"><c>code:lib_dir(myapp)</c></seemfa>
 	      returns <c>/home/user/myapp-1.0</c>.</p></item>
         </taglist>
 	<note>
@@ -353,14 +353,14 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 	  before a module can be purged. This check can lead to
 	  garbage collections and copying of data.</p>
 	  <p>To speed up the execution of
-	  <seealso marker="#install_release/1"><c>install_release</c></seealso>, 
-	  first call <seealso
-	  marker="#check_install_release/1"><c>check_install_release</c></seealso>,
+	  <seemfa marker="#install_release/1"><c>install_release</c></seemfa>, 
+	  first call <seemfa
+	  marker="#check_install_release/1"><c>check_install_release</c></seemfa>,
 	  using option <c>purge</c>. This does the same
 	  check for old code. Then purges all modules that can be
 	  soft-purged. The purged modules do then no longer have any
 	  old code, and 
-	  <seealso marker="#install_release/1"><c>install_release</c></seealso>
+	  <seemfa marker="#install_release/1"><c>install_release</c></seemfa>
 	  does not need to do the
 	  checks.</p>
 	  <p>This does not reduce the overall time for the
@@ -376,8 +376,8 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 	  overcome this problem, the new application code is to be
 	  compiled with the old emulator. For more information about
           emulator upgrade from pre OTP R15 versions, see
-          <seealso marker="doc/design_principles:appup_cookbook">Design
-          Principles</seealso> in <em>System Documentation</em>.</p>
+          <seeguide marker="system/design_principles:appup_cookbook">Design
+          Principles</seeguide> in <em>System Documentation</em>.</p>
 	</note>
       </desc>
     </func>
@@ -419,7 +419,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
       <desc>
         <p>Reboots the system by making the old release permanent, and
           calls 
-	  <seealso marker="erts:init#reboot/0"><c>init:reboot()</c></seealso> 
+	  <seemfa marker="erts:init#reboot/0"><c>init:reboot()</c></seemfa> 
 	  directly. The release must have status <c>old</c>.</p>
       </desc>
     </func>
@@ -509,33 +509,34 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
     </func>
   </funcs>
 
-  <section>
-    <title>Application Upgrade/Downgrade</title>
-    <p>The following functions can be used to test upgrade and downgrade
-      of single applications (instead of upgrading/downgrading an entire
-      release). A script corresponding to the instructions in the
-      <c>relup</c> file is created
-      on-the-fly, based on the <c>.appup</c> file for the application,
-      and evaluated exactly in the same way as <c>release_handler</c>
-      does.</p>
-    <warning>
-      <p>These functions are primarily intended for simplified testing
-        of <c>.appup</c> files. They are not run within the context of
-        the <c>release_handler</c> process. They must therefore
-        <em>not</em> be used together with calls to
-        <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>, 
-	as this causes the
-        <c>release_handler</c> to end up in an inconsistent state.</p>
-      <p>No persistent information is updated, so these functions can
-        be used on any Erlang node, embedded or not. Also, using these
-        functions does not affect which code is loaded if there is
-        a reboot.</p>
-      <p>If the upgrade or downgrade fails, the application can end up
-        in an inconsistent state.</p>
-    </warning>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Application Upgrade/Downgrade</title>
+      <p>The following functions can be used to test upgrade and downgrade
+        of single applications (instead of upgrading/downgrading an entire
+        release). A script corresponding to the instructions in the
+        <c>relup</c> file is created
+        on-the-fly, based on the <c>.appup</c> file for the application,
+        and evaluated exactly in the same way as <c>release_handler</c>
+        does.</p>
+      <warning>
+        <p>These functions are primarily intended for simplified testing
+          of <c>.appup</c> files. They are not run within the context of
+          the <c>release_handler</c> process. They must therefore
+          <em>not</em> be used together with calls to
+          <seemfa marker="#install_release/1"><c>install_release/1,2</c></seemfa>, 
+  	as this causes the
+          <c>release_handler</c> to end up in an inconsistent state.</p>
+        <p>No persistent information is updated, so these functions can
+          be used on any Erlang node, embedded or not. Also, using these
+          functions does not affect which code is loaded if there is
+          a reboot.</p>
+        <p>If the upgrade or downgrade fails, the application can end up
+          in an inconsistent state.</p>
+      </warning>
+    </fsdescription>
     <func>
       <name since="">upgrade_app(App, Dir) -> {ok, Unpurged} | restart_emulator | {error, Reason}</name>
       <fsummary>Upgrades to a new application version.</fsummary>
@@ -558,11 +559,11 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         <p>The function looks in the <c>.appup</c> file and tries to
           find an upgrade script from the current version of
           the application using
-          <seealso marker="#upgrade_script/2"><c>upgrade_script/2</c></seealso>.
+          <seemfa marker="#upgrade_script/2"><c>upgrade_script/2</c></seemfa>.
           This script is evaluated using
-          <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>,
+          <seemfa marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seemfa>,
           exactly in the same way as
-          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>
+          <seemfa marker="#install_release/1"><c>install_release/1,2</c></seemfa>
           does.</p>
         <p>Returns one of the following:</p>
         <list type="bulleted">
@@ -576,12 +577,12 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         </list>
 	<p>If the <c>restart_new_emulator</c> instruction is found in
           the script, 
-	  <seealso marker="#upgrade_app/2"><c>upgrade_app/2</c></seealso> 
+	  <seemfa marker="#upgrade_app/2"><c>upgrade_app/2</c></seemfa> 
 	  returns <c>{error,restart_new_emulator}</c>. This because
           <c>restart_new_emulator</c> requires a new version of the
           emulator to be started before the rest of the upgrade
           instructions can be executed, and this can only be done by
-          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>.</p>
+          <seemfa marker="#install_release/1"><c>install_release/1,2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -609,15 +610,15 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           are to be located under <c>Dir/ebin</c>. The <c>.appup</c>
           file is to be located in the <c>ebin</c> directory of
           the <em>current</em> library directory of the application
-          (<seealso marker="kernel:code#lib_dir/1"><c>code:lib_dir(App)</c></seealso>).</p>
+          (<seemfa marker="kernel:code#lib_dir/1"><c>code:lib_dir(App)</c></seemfa>).</p>
         <p>The function looks in the <c>.appup</c> file and tries to
           find a downgrade script to the previous version of
           the application using
-          <seealso marker="#downgrade_script/3"><c>downgrade_script/3</c></seealso>.
+          <seemfa marker="#downgrade_script/3"><c>downgrade_script/3</c></seemfa>.
           This script is evaluated using
-          <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>,
+          <seemfa marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seemfa>,
           exactly in the same way as
-          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>
+          <seemfa marker="#install_release/1"><c>install_release/1,2</c></seemfa>
           does.</p>
         <p>Returns one of the following:</p>
         <list type="bulleted">
@@ -646,9 +647,9 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           from the current version to a new version located in
           <c>Dir</c>.</p>
         <p>The upgrade script can then be evaluated using
-          <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>.
+          <seemfa marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seemfa>.
           It is recommended to use
-          <seealso marker="#upgrade_app/2"><c>upgrade_app/2</c></seealso>
+          <seemfa marker="#upgrade_app/2"><c>upgrade_app/2</c></seemfa>
           instead, but this function (<c>upgrade_script</c>) is useful
           to inspect the contents of the script.</p>
         <p><c>App</c> is the name of the application, which must be
@@ -664,7 +665,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         <p>Returns <c>{ok, NewVsn, Script}</c> if successful, where
           <c>NewVsn</c> is the new application version.
 	For details about <c>Script</c>, see 
-	<seealso marker="appup"><c>appup(4)</c></seealso>.</p>
+	<seefile marker="appup"><c>appup(4)</c></seefile>.</p>
         <p>Failure: If a script cannot be found, the function fails
           with an appropriate error reason.</p>
       </desc>
@@ -683,9 +684,9 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           from the current version to a previous version <c>OldVsn</c>
           located in <c>Dir</c>.</p>
         <p>The downgrade script can then be evaluated using
-          <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>.
+          <seemfa marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seemfa>.
           It is recommended to use
-          <seealso marker="#downgrade_app/2"><c>downgrade_app/2,3</c></seealso>
+          <seemfa marker="#downgrade_app/2"><c>downgrade_app/2,3</c></seemfa>
           instead, but this function (<c>downgrade_script</c>) is useful
           to inspect the contents of the script.</p>
         <p><c>App</c> is the name of the application, which must be
@@ -695,7 +696,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           <c>Dir/ebin</c>. The <c>.appup</c> file is to be located in
           the <c>ebin</c> directory of the <em>current</em> library
           directory of the application 
-	(<seealso marker="kernel:code#lib_dir/1"><c>code:lib_dir(App)</c>)</seealso>.</p>
+	(<seemfa marker="kernel:code#lib_dir/1"><c>code:lib_dir(App)</c>)</seemfa>.</p>
         <p>The function looks in the <c>.appup</c> file and tries to
           find a downgrade script from the current application version.
           High-level instructions are translated to
@@ -703,7 +704,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           the same manner as when generating a <c>relup</c> file.</p>
         <p>Returns <c>{ok, Script}</c> if successful. 
 	For details about <c>Script</c>, see 
-	<seealso marker="appup"><c>appup(4)</c></seealso>.</p>
+	<seefile marker="appup"><c>appup(4)</c></seefile>.</p>
         <p>Failure: If a script cannot be found, the function fails
           with an appropriate error reason.</p>
       </desc>
@@ -716,7 +717,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         <v>App = atom()</v>
         <v>ToVsn = ToDir = string()</v>
         <v>Script</v>
-	<d>See <seealso marker="#upgrade_script/2"><c>upgrade_script/2</c></seealso>, <seealso marker="#downgrade_script/3"><c>downgrade_script/3</c></seealso></d>
+	<d>See <seemfa marker="#upgrade_script/2"><c>upgrade_script/2</c></seemfa>, <seemfa marker="#downgrade_script/3"><c>downgrade_script/3</c></seemfa></d>
         <v>Unpurged = [Module]</v>
         <v>&nbsp;Module = atom()</v>
         <v>Reason = term()</v>
@@ -724,10 +725,10 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
       <desc>
         <p>Evaluates an application upgrade or downgrade script
           <c>Script</c>, the result from calling
-          <seealso marker="#upgrade_script/2"><c>upgrade_script/2</c></seealso> or
-          <seealso marker="#downgrade_script/3"><c>downgrade_script/3</c></seealso>,
+          <seemfa marker="#upgrade_script/2"><c>upgrade_script/2</c></seemfa> or
+          <seemfa marker="#downgrade_script/3"><c>downgrade_script/3</c></seemfa>,
           exactly in the same way as
-          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>
+          <seemfa marker="#install_release/1"><c>install_release/1,2</c></seemfa>
           does.</p>
         <p><c>App</c> is the name of the application, which must be
           started. <c>ToVsn</c> is the version to be upgraded/downgraded
@@ -746,12 +747,12 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         </list>
         <p>If the <c>restart_new_emulator</c> instruction is found in
           the script, 
-	  <seealso marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seealso>
+	  <seemfa marker="#eval_appup_script/4"><c>eval_appup_script/4</c></seemfa>
 	  returns <c>{error,restart_new_emulator}</c>. This because
           <c>restart_new_emulator</c> requires a new version of the
           emulator to be started before the rest of the upgrade
           instructions can be executed, and this can only be done by
-          <seealso marker="#install_release/1"><c>install_release/1,2</c></seealso>.</p>
+          <seemfa marker="#install_release/1"><c>install_release/1,2</c></seemfa>.</p>
       </desc>
     </func>
   </funcs>
@@ -772,7 +773,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
           data.</p></item>
       <tag><c>{cannot_extract_file, Name, Reason}</c></tag>
         <item><p>Problems when extracting from a tar file,
-          <seealso marker="stdlib:erl_tar#extract/2"><c>erl_tar:extract/2</c></seealso>
+          <seemfa marker="stdlib:erl_tar#extract/2"><c>erl_tar:extract/2</c></seemfa>
 	  returned <c>{error, {Name, Reason}}</c>.</p></item>
       <tag><c>{existing_release, Vsn}</c></tag>
         <item><p>Specified release version <c>Vsn</c> is already
@@ -801,7 +802,7 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
         <item><p>Some file operation failed for <c>File</c>. <c>Posix</c>
           is an atom named from the Posix error codes, such as
           <c>enoent</c>, <c>eacces</c>, or <c>eisdir</c>. See
-          <seealso marker="kernel:file"><c>file(3)</c></seealso>
+          <seeerl marker="kernel:file"><c>file(3)</c></seeerl>
           in Kernel.</p></item>
       <tag><c>Posix</c></tag>
         <item><p>Some file operation failed, as for the previous item in
@@ -811,12 +812,12 @@ release_handler:set_unpacked(RelFile, [{myapp,"1.0","/home/user"},...]).
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="doc/design_principles:users_guide">OTP Design Principles</seealso>,
-      <seealso marker="kernel:config"><c>config(4)</c></seealso>,
-      <seealso marker="rel"><c>rel(4)</c></seealso>,
-      <seealso marker="relup"><c>relup(4)</c></seealso>,
-      <seealso marker="script"><c>script(4)</c></seealso>,
-      <seealso marker="stdlib:sys"><c>sys(3)</c></seealso>,
-      <seealso marker="systools"><c>systools(3)</c></seealso></p>
+    <p><seeguide marker="system/design_principles:index">OTP Design Principles</seeguide>,
+      <seefile marker="kernel:config"><c>config(4)</c></seefile>,
+      <seefile marker="rel"><c>rel(4)</c></seefile>,
+      <seefile marker="relup"><c>relup(4)</c></seefile>,
+      <seefile marker="script"><c>script(4)</c></seefile>,
+      <seeerl marker="stdlib:sys"><c>sys(3)</c></seeerl>,
+      <seeerl marker="systools"><c>systools(3)</c></seeerl></p>
   </section>
 </erlref>

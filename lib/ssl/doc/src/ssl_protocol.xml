@@ -35,7 +35,7 @@
   
   <p>The Erlang SSL application implements the TLS/DTLS protocol
   for the currently supported versions,  see the
-  <seealso marker="ssl">ssl(3)</seealso> manual page.
+  <seeerl marker="ssl">ssl(3)</seeerl> manual page.
   </p>
 
   <p>By default TLS is run over the TCP/IP protocol even

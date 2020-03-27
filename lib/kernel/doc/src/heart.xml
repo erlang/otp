@@ -40,7 +40,7 @@
       (defaults to 60 seconds), the system can be rebooted.</p>
     <p>An Erlang runtime system to be monitored by a heart program
       is to be started with command-line flag <c>-heart</c> (see
-      also <seealso marker="erts:erl"><c>erl(1)</c></seealso>).
+      also <seecom marker="erts:erl"><c>erl(1)</c></seecom>).
       The <c>heart</c> process is then started automatically:</p>
     <pre>
 % <input>erl -heart ...</input></pre>
@@ -130,7 +130,7 @@
         <p>Limitations: Command string <c><anno>Cmd</anno></c> is sent to the
           <c>heart</c> program as an ISO Latin-1 or UTF-8 encoded binary,
           depending on the filename encoding mode of the emulator (see
-          <seealso marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seealso>).
+          <seemfa marker="kernel:file#native_name_encoding/0"><c>file:native_name_encoding/0</c></seemfa>).
           The size of the encoded binary must be less than 2047 bytes.</p>
       </desc>
     </func>

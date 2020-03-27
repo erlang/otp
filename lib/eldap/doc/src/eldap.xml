@@ -55,38 +55,38 @@
 
       <tag><c>modify_op()</c></tag>
       <item><p>See 
-        <seealso marker="#mod_add/2">mod_add/2</seealso>, 
-        <seealso marker="#mod_delete/2">mod_delete/2</seealso>,
-        <seealso marker="#mod_replace/2">mod_replace/2</seealso>
+        <seemfa marker="#mod_add/2">mod_add/2</seemfa>, 
+        <seemfa marker="#mod_delete/2">mod_delete/2</seemfa>,
+        <seemfa marker="#mod_replace/2">mod_replace/2</seemfa>
       </p></item>
 
       <tag><c>scope()</c></tag>
       <item><p>See 
-        <seealso marker="#baseObject/0">baseObject/0</seealso>, 
-        <seealso marker="#singleLevel/0">singleLevel/0</seealso>, 
-        <seealso marker="#wholeSubtree/0">wholeSubtree/0</seealso>
+        <seemfa marker="#baseObject/0">baseObject/0</seemfa>, 
+        <seemfa marker="#singleLevel/0">singleLevel/0</seemfa>, 
+        <seemfa marker="#wholeSubtree/0">wholeSubtree/0</seemfa>
       </p></item>
 
       <tag><c>dereference()</c></tag>
       <item><p>See 
-        <seealso marker="#neverDerefAliases/0">neverDerefAliases/0</seealso>, 
-        <seealso marker="#derefInSearching/0">derefInSearching/0</seealso>, 
-        <seealso marker="#derefFindingBaseObj/0">derefFindingBaseObj/0</seealso>, 
-        <seealso marker="#derefAlways/0">derefAlways/0</seealso>
+        <seemfa marker="#neverDerefAliases/0">neverDerefAliases/0</seemfa>, 
+        <seemfa marker="#derefInSearching/0">derefInSearching/0</seemfa>, 
+        <seemfa marker="#derefFindingBaseObj/0">derefFindingBaseObj/0</seemfa>, 
+        <seemfa marker="#derefAlways/0">derefAlways/0</seemfa>
       </p></item>
 
       <tag><c>filter()</c></tag>
       <item><p>See 
-        <seealso marker="#present/1">present/1</seealso>, 
-        <seealso marker="#substrings/2">substrings/2</seealso>, 
-        <seealso marker="#equalityMatch/2">equalityMatch/2</seealso>, 
-        <seealso marker="#greaterOrEqual/2">greaterOrEqual/2</seealso>, 
-        <seealso marker="#lessOrEqual/2">lessOrEqual/2</seealso>, 
-        <seealso marker="#approxMatch/2">approxMatch/2</seealso>, 
-        <seealso marker="#extensibleMatch/2">extensibleMatch/2</seealso>, 
-        <seealso marker="#'and'/1">'and'/1</seealso>, 
-        <seealso marker="#'or'/1">'or'/1</seealso>, 
-        <seealso marker="#'not'/1">'not'/1</seealso>
+        <seemfa marker="#present/1">present/1</seemfa>, 
+        <seemfa marker="#substrings/2">substrings/2</seemfa>, 
+        <seemfa marker="#equalityMatch/2">equalityMatch/2</seemfa>, 
+        <seemfa marker="#greaterOrEqual/2">greaterOrEqual/2</seemfa>, 
+        <seemfa marker="#lessOrEqual/2">lessOrEqual/2</seemfa>, 
+        <seemfa marker="#approxMatch/2">approxMatch/2</seemfa>, 
+        <seemfa marker="#extensibleMatch/2">extensibleMatch/2</seemfa>, 
+        <seemfa marker="#'and'/1">'and'/1</seemfa>, 
+        <seemfa marker="#'or'/1">'or'/1</seemfa>, 
+        <seemfa marker="#'not'/1">'not'/1</seemfa>
       </p></item>
 
       <tag><c>return_value() = </c></tag>
@@ -170,7 +170,7 @@
 	  <item>Any error responded from ssl:connect/3</item>
 	</taglist>
 	<p>The <c>Timeout</c> parameter is for the actual tls upgrade (phase 2) while the timeout in
-	<seealso marker="#open/2">eldap:open/2</seealso> is used for the initial negotiation about
+	<seemfa marker="#open/2">eldap:open/2</seemfa> is used for the initial negotiation about
 	upgrade (phase 1).
 	</p>
       </desc>
@@ -274,7 +274,7 @@
         <v>NewPasswd = string()</v>
       </type>
       <desc>
-	<p>Modify the password of a user. See <seealso marker="#modify_password/4">modify_password/4</seealso>.</p>
+	<p>Modify the password of a user. See <seemfa marker="#modify_password/4">modify_password/4</seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -301,7 +301,7 @@
           <item>
             <p><c>OldPasswd</c>. Sometimes required by server policy
             for a user to change their password. If not required, use
-            <seealso marker="#modify_password/3">modify_password/3</seealso>.</p>
+            <seemfa marker="#modify_password/3">modify_password/3</seemfa>.</p>
           </item>
         </list>
       </desc>
@@ -347,7 +347,7 @@
   search(Handle, [{base, "dc=example, dc=com"}, {filter, Filter}, {attributes, ["cn"]}]),
 	</code>
 	<p>The <c>timeout</c> option in the <c>SearchOptions</c> is for the ldap server, while
-	the timeout in <seealso marker="#open/2">eldap:open/2</seealso> is used for each
+	the timeout in <seemfa marker="#open/2">eldap:open/2</seemfa> is used for each
 	individual request in the search operation.
 	</p>
       </desc>

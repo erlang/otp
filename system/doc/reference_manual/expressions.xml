@@ -37,8 +37,8 @@
     separate sections:
    </p>
   <list type="bulleted">
-    <item><p><seealso marker="macros">Preprocessor</seealso></p></item>
-    <item><p><seealso marker="records">Records</seealso></p></item>
+    <item><p><seeguide marker="macros">Preprocessor</seeguide></p></item>
+    <item><p><seeguide marker="records">Records</seeguide></p></item>
   </list>
 
   <section>
@@ -82,7 +82,7 @@ Phone_number
 _
 _Height</pre>
     <p>Variables are bound to values using
-      <seealso marker="patterns">pattern matching</seealso>. Erlang
+      <seeguide marker="patterns">pattern matching</seeguide>. Erlang
       uses <em>single assignment</em>, that is, a variable can only be bound
       once.</p>
     <p>The <em>anonymous variable</em> is denoted by underscore (_) and
@@ -254,9 +254,9 @@ spawn(m, init, [])</code>
     <p>Notice that when calling a local function, there is a difference
     between using the implicitly or fully qualified function name.
     The latter always refers to the latest version of the module.
-    See <seealso marker="code_loading">Compilation and Code Loading
-    </seealso> and <seealso marker="functions#eval">
-    Function Evaluation</seealso>.</p>
+    See <seeguide marker="code_loading">Compilation and Code Loading
+    </seeguide> and <seeguide marker="functions#eval">
+    Function Evaluation</seeguide>.</p>
 
     <section>
       <title>Local Function Names Clashing With  Auto-Imported BIFs</title>
@@ -974,8 +974,8 @@ M4 = M3#{a := 2, b := 3}.  % 'a' and 'b' was added in `M1` and `M2`.</code>
 	  <code>#{ K := V } = M</code>
 	  <p>
 	    Here <c>M</c> is any map. The key <c>K</c> must be a
-	    <seealso marker="#guard_expressions">guard
-	    expression</seealso>, with all variables already bound.
+	    <seeguide marker="#guard_expressions">guard
+	    expression</seeguide>, with all variables already bound.
 	    <c>V</c> can be any pattern with either bound or unbound
 	    variables.
 	  </p>
@@ -1072,15 +1072,15 @@ handle_call(change, From, #{ state := start } = S) ->
 	  </p>
 	  <list>
 		  <item>
-			  <seealso marker="erts:erlang#is_map/1">is_map/1</seealso>
+			  <seemfa marker="erts:erlang#is_map/1">is_map/1</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 		  <item>
-			  <seealso marker="erts:erlang#map_get/2">map_get/2</seealso>
+			  <seemfa marker="erts:erlang#map_get/2">map_get/2</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 		  <item>
-			  <seealso marker="erts:erlang#map_size/1">map_size/1</seealso>
+			  <seemfa marker="erts:erlang#map_size/1">map_size/1</seemfa>
 			   in the <c>erlang</c> module
 		  </item>
 	  </list>
@@ -1116,7 +1116,7 @@ Ei = Value |
     that is to evaluate to an integer.</p>
     
     <p>Used in a bit string matching, <c>Size</c> must be a
-    <seealso marker="#guard_expressions">guard expression</seealso>
+    <seeguide marker="#guard_expressions">guard expression</seeguide>
     that evaluates to an integer. All variables in the guard expression
     must be already bound.</p>
 
@@ -1254,8 +1254,8 @@ Ei = Value |
       "<c><![CDATA[B =<<1>>]]></c>" which is a syntax error. The correct way is
       to write a space after '=': "<c><![CDATA[B= <<1>>]]></c>.</p>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:bit_syntax">
-    Programming Examples</seealso>.</p>
+    <seeguide marker="system/programming_examples:bit_syntax">
+    Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -1272,7 +1272,7 @@ end</pre>
     <p>A fun expression begins with the keyword <c>fun</c> and ends
       with the keyword <c>end</c>. Between them is to be a function
       declaration, similar to a
-      <seealso marker="functions#syntax">regular function declaration</seealso>,
+      <seeguide marker="functions#syntax">regular function declaration</seeguide>,
       except that the function name is optional and is to be a variable, if
       any.</p>
     <p>Variables in a fun head shadow the function name and both shadow
@@ -1311,8 +1311,8 @@ fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
       the code for the module in which it is defined.
       </p>
     <p>More examples are provided in
-      <seealso marker="doc/programming_examples:funs">
-      Programming Examples</seealso>.</p>
+      <seeguide marker="system/programming_examples:funs">
+      Programming Examples</seeguide>.</p>
   </section>
 
   <section>
@@ -1334,7 +1334,7 @@ catch Expr</code>
       <c>Term</c> is returned.</p>
     <p><c>Reason</c> depends on the type of error that occurred, and
       <c>Stack</c> is the stack of recent function calls, see
-      <seealso marker="errors#exit_reasons">Exit Reasons</seealso>.</p>
+      <seeguide marker="errors#exit_reasons">Exit Reasons</seeguide>.</p>
     <p><em>Examples:</em></p>
     <pre>
 1> <input>catch 1+2.</input>
@@ -1372,7 +1372,7 @@ catch
         ExceptionBodyN
 end</code>
     <p>This is an enhancement of
-      <seealso marker="#catch">catch</seealso>.
+      <seeguide marker="#catch">catch</seeguide>.
       It gives the possibility to:</p>
     <list type="bulleted">
       <item>Distinguish between different exception classes.</item>
@@ -1433,7 +1433,7 @@ end</code>
     <p>If the evaluation of <c>Exprs</c> succeeds without an exception,
       the patterns <c>Pattern</c> are sequentially matched against
       the result in the same way as for a
-      <seealso marker="#case">case</seealso> expression, except that if
+      <seeguide marker="#case">case</seeguide> expression, except that if
       the matching fails, a <c>try_clause</c> run-time error occurs instead of a
       <c>case_clause</c>.</p>
     <p>Only exceptions occurring during the evaluation of <c>Exprs</c> can be
@@ -1521,7 +1521,7 @@ end</code>
     <pre>
 (Expr)</pre>
     <p>Parenthesized expressions are useful to override
-      <seealso marker="#prec">operator precedences</seealso>,
+      <seeguide marker="#prec">operator precedences</seeguide>,
       for example, in arithmetic expressions:</p>
     <pre>
 1> <input>1 + 2 * 3.</input>
@@ -1591,8 +1591,8 @@ end</pre>
 2> <input>[x || is_integer(x)].</input>
 []</pre>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:list_comprehensions">
-    Programming Examples.</seealso></p>
+    <seeguide marker="system/programming_examples:list_comprehensions">
+    Programming Examples.</seeguide></p>
 
   </section>
 
@@ -1635,8 +1635,8 @@ end</pre>
 &lt;&lt;X&gt;&gt; &lt;= &lt;&lt; 1,2,3 &gt;&gt; &gt;&gt;.</input>
 &lt;&lt;2,4,6&gt;&gt;</pre>
     <p>More examples are provided in
-    <seealso marker="doc/programming_examples:bit_syntax">
-    Programming Examples.</seealso></p>
+    <seeguide marker="system/programming_examples:bit_syntax">
+    Programming Examples.</seeguide></p>
   </section>
 
   <section>

@@ -37,8 +37,8 @@
   <description>
     <p>This module provides an interpreter for Erlang expressions. The
       expressions are in the abstract syntax as returned by
-      <seealso marker="erl_parse"><c>erl_parse</c></seealso>,
-      the Erlang parser, or <seealso marker="io"><c>io</c></seealso>.</p>
+      <seeerl marker="erl_parse"><c>erl_parse</c></seeerl>,
+      the Erlang parser, or <seeerl marker="io"><c>io</c></seeerl>.</p>
   </description>
 
   <datatypes>
@@ -54,10 +54,10 @@
     </datatype>
     <datatype>
       <name name="expressions"/>
-      <desc><p>As returned by <seealso marker="erl_parse#parse_exprs/1">
-        <c>erl_parse:parse_exprs/1</c></seealso> or
-        <seealso marker="io#parse_erl_exprs/2">
-        <c>io:parse_erl_exprs/2</c></seealso>.</p></desc>
+      <desc><p>As returned by <seemfa marker="erl_parse#parse_exprs/1">
+        <c>erl_parse:parse_exprs/1</c></seemfa> or
+        <seemfa marker="io#parse_erl_exprs/2">
+        <c>io:parse_erl_exprs/2</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name name="expression_list"/>
@@ -74,8 +74,8 @@
     <datatype>
       <name name="local_function_handler"/>
       <desc><p>Further described in section
-        <seealso marker="#local_function_handler">
-        Local Function Handler</seealso> in this module</p></desc>
+        <seeerl marker="#local_function_handler">
+        Local Function Handler</seeerl> in this module</p></desc>
     </datatype>
     <datatype>
       <name name="name"/>
@@ -86,8 +86,8 @@
     <datatype>
       <name name="non_local_function_handler"/>
       <desc><p>Further described in section
-        <seealso marker="#non_local_function_handler">
-        Non-Local Function Handler</seealso> in this module.</p></desc>
+        <seeerl marker="#non_local_function_handler">
+        Non-Local Function Handler</seeerl> in this module.</p></desc>
     </datatype>
     <datatype>
       <name name="value"/>
@@ -146,10 +146,10 @@
           For an explanation of when and how to use arguments
           <c><anno>LocalFunctionHandler</anno></c> and
           <c><anno>NonLocalFunctionHandler</anno></c>, see sections
-          <seealso marker="#local_function_handler">
-          Local Function Handler</seealso> and
-          <seealso marker="#non_local_function_handler">
-          Non-Local Function Handler</seealso> in this module.</p>
+          <seeerl marker="#local_function_handler">
+          Local Function Handler</seeerl> and
+          <seeerl marker="#non_local_function_handler">
+          Non-Local Function Handler</seeerl> in this module.</p>
         <p>Returns <c>{value, <anno>Value</anno>, <anno>NewBindings</anno>}</c>
           by default. If <c><anno>ReturnFormat</anno></c> is <c>value</c>,
           only <c><anno>Value</anno></c> is returned.</p>
@@ -166,8 +166,8 @@
           initial bindings for each expression. Attempts are made to
           merge the bindings returned from each evaluation. This
           function is useful in <c>LocalFunctionHandler</c>, see section
-          <seealso marker="#local_function_handler">
-          Local Function Handler</seealso> in this module.</p>
+          <seeerl marker="#local_function_handler">
+          Local Function Handler</seeerl> in this module.</p>
         <p>Returns <c>{<anno>ValueList</anno>, <anno>NewBindings</anno>}</c>.
         </p>
       </desc>
@@ -182,15 +182,15 @@
         <p>Evaluates <c><anno>Expressions</anno></c> with the set of bindings
           <c><anno>Bindings</anno></c>, where <c><anno>Expressions</anno></c>
           is a sequence of expressions (in abstract syntax) of a type that can
-          be returned by <seealso marker="io#parse_erl_exprs/2">
-          <c>io:parse_erl_exprs/2</c></seealso>.
+          be returned by <seemfa marker="io#parse_erl_exprs/2">
+          <c>io:parse_erl_exprs/2</c></seemfa>.
           For an explanation of when and how to use arguments
           <c><anno>LocalFunctionHandler</anno></c> and
           <c><anno>NonLocalFunctionHandler</anno></c>, see sections
-          <seealso marker="#local_function_handler">
-          Local Function Handler</seealso> and
-          <seealso marker="#non_local_function_handler">
-          Non-Local Function Handler</seealso> in this module.</p>
+          <seeerl marker="#local_function_handler">
+          Local Function Handler</seeerl> and
+          <seeerl marker="#non_local_function_handler">
+          Non-Local Function Handler</seeerl> in this module.</p>
         <p>Returns <c>{value, <anno>Value</anno>, <anno>NewBindings</anno>}</c>
         </p>
       </desc>

@@ -37,7 +37,7 @@
   <description>
     <p>This module provides algorithms based on depth-first traversal of
       directed graphs. For basic functions on directed graphs, see the
-      <seealso marker="digraph"><c>digraph(3)</c></seealso> module.</p>
+      <seeerl marker="digraph"><c>digraph(3)</c></seeerl> module.</p>
 
     <list type="bulleted">
       <item>
@@ -158,7 +158,7 @@
       <fsummary>Check if a digraph is an arborescence.</fsummary>
       <desc>
         <p>Returns <c>{yes, <anno>Root</anno>}</c> if <c><anno>Root</anno></c>
-          is the <seealso marker="#root">root</seealso> of the arborescence
+          is the <seeerl marker="#root">root</seeerl> of the arborescence
           <c><anno>Digraph</anno></c>, otherwise <c>no</c>.</p>
       </desc>
     </func>
@@ -168,7 +168,7 @@
       <fsummary>Return the components of a digraph.</fsummary>
       <desc>
         <p>Returns a list
-          of <seealso marker="#components">connected components.</seealso>.
+          of <seeerl marker="#components">connected components.</seeerl>.
           Each component is represented by its
           vertices. The order of the vertices and the order of the
           components are arbitrary. Each vertex of digraph
@@ -181,22 +181,22 @@
       <fsummary>Return a condensed graph of a digraph.</fsummary>
       <desc>
         <p>Creates a digraph where the vertices are
-          the <seealso marker="#strong_components">strongly connected
-          components</seealso> of <c><anno>Digraph</anno></c> as returned by
-          <seealso marker="#strong_components/1">
-          <c>strong_components/1</c></seealso>.
+          the <seeerl marker="#strong_components">strongly connected
+          components</seeerl> of <c><anno>Digraph</anno></c> as returned by
+          <seemfa marker="#strong_components/1">
+          <c>strong_components/1</c></seemfa>.
           If X and Y are two different strongly
           connected components, and vertices x and y exist in X
           and Y, respectively, such that there is an
-          edge <seealso marker="#emanate">emanating</seealso> from x
-          and <seealso marker="#incident">incident</seealso> on y, then 
+          edge <seeerl marker="#emanate">emanating</seeerl> from x
+          and <seeerl marker="#incident">incident</seeerl> on y, then 
           an edge emanating from X and incident on Y is created.</p>
         <p>The created digraph has the same type as <c><anno>Digraph</anno></c>.
           All vertices and edges have the
-          default <seealso marker="#label">label</seealso> <c>[]</c>.</p>
-        <p>Each <seealso marker="#cycle">cycle</seealso> is
+          default <seeerl marker="#label">label</seeerl> <c>[]</c>.</p>
+        <p>Each <seeerl marker="#cycle">cycle</seeerl> is
           included in some strongly connected component, which implies that
-          a <seealso marker="#topsort">topological ordering</seealso> of the
+          a <seeerl marker="#topsort">topological ordering</seeerl> of the
           created digraph always exists.</p>
       </desc>
     </func>
@@ -205,15 +205,15 @@
       <name name="cyclic_strong_components" arity="1" since=""/>
       <fsummary>Return the cyclic strong components of a digraph.</fsummary>
       <desc>
-        <p>Returns a list of <seealso marker="#strong_components">strongly
-          connected components</seealso>. Each strongly component is represented
+        <p>Returns a list of <seeerl marker="#strong_components">strongly
+          connected components</seeerl>. Each strongly component is represented
           by its vertices. The order of the vertices and the order of
           the components are arbitrary. Only vertices that are
-          included in some <seealso marker="#cycle">cycle</seealso> in
+          included in some <seeerl marker="#cycle">cycle</seeerl> in
           <c><anno>Digraph</anno></c> are returned, otherwise the returned
           list is equal to that returned by
-          <seealso marker="#strong_components/1">
-          <c>strong_components/1</c></seealso>.</p>
+          <seemfa marker="#strong_components/1">
+          <c>strong_components/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -223,7 +223,7 @@
       <desc>
         <p>Returns <c>true</c> if and only if digraph
           <c><anno>Digraph</anno></c> is
-          <seealso marker="#acyclic_digraph">acyclic</seealso>.</p>
+          <seeerl marker="#acyclic_digraph">acyclic</seeerl>.</p>
       </desc>
     </func>
 
@@ -233,7 +233,7 @@
       <desc>
         <p>Returns <c>true</c> if and only if digraph
           <c><anno>Digraph</anno></c> is
-	  an <seealso marker="#arborescence">arborescence</seealso>.</p>
+	  an <seeerl marker="#arborescence">arborescence</seeerl>.</p>
       </desc>
     </func>
 
@@ -243,7 +243,7 @@
       <desc>
         <p>Returns <c>true</c> if and only if digraph
           <c><anno>Digraph</anno></c> is
-          a <seealso marker="#tree">tree</seealso>.</p>
+          a <seeerl marker="#tree">tree</seeerl>.</p>
       </desc>
     </func>
 
@@ -253,7 +253,7 @@
       </fsummary>
       <desc>
         <p>Returns a list of all vertices of <c><anno>Digraph</anno></c> that
-          are included in some <seealso marker="#loop">loop</seealso>.</p>
+          are included in some <seeerl marker="#loop">loop</seeerl>.</p>
       </desc>
     </func>
 
@@ -263,8 +263,8 @@
       <desc>
         <p>Returns all vertices of digraph <c><anno>Digraph</anno></c>.
           The order is given by
-          a <seealso marker="#depth_first_traversal">depth-first
-          traversal</seealso> of the digraph, collecting visited
+          a <seeerl marker="#depth_first_traversal">depth-first
+          traversal</seeerl> of the digraph, collecting visited
           vertices in postorder. More precisely, the vertices visited
           while searching from an arbitrarily chosen vertex are
           collected in postorder, and all those collected vertices are
@@ -278,8 +278,8 @@
       <desc>
         <p>Returns all vertices of digraph <c><anno>Digraph</anno></c>.
           The order is given by
-          a <seealso marker="#depth_first_traversal">depth-first
-          traversal</seealso> of the digraph, collecting visited
+          a <seeerl marker="#depth_first_traversal">depth-first
+          traversal</seeerl> of the digraph, collecting visited
           vertices in preorder.</p>
       </desc>
     </func>
@@ -291,7 +291,7 @@
       <desc>
         <p>Returns an unsorted list of digraph vertices such that for
           each vertex in the list, there is a
-          <seealso marker="#path">path</seealso> in <c><anno>Digraph</anno></c>
+          <seeerl marker="#path">path</seeerl> in <c><anno>Digraph</anno></c>
           from some
           vertex of <c><anno>Vertices</anno></c> to the vertex. In particular,
           as paths can have length zero, the vertices of
@@ -306,12 +306,12 @@
       <desc>
         <p>Returns an unsorted list of digraph vertices such that for
           each vertex in the list, there is a
-          <seealso marker="#path">path</seealso> in <c><anno>Digraph</anno></c>
+          <seeerl marker="#path">path</seeerl> in <c><anno>Digraph</anno></c>
           of length
           one or more from some vertex of <c><anno>Vertices</anno></c> to the
           vertex. As a consequence, only those vertices
           of <c><anno>Vertices</anno></c> that are included in
-          some <seealso marker="#cycle">cycle</seealso> are returned.</p>
+          some <seeerl marker="#cycle">cycle</seeerl> are returned.</p>
       </desc>
     </func>
 
@@ -322,7 +322,7 @@
       <desc>
         <p>Returns an unsorted list of digraph vertices such that for
           each vertex in the list, there is
-          a <seealso marker="#path">path</seealso> from the vertex to some
+          a <seeerl marker="#path">path</seeerl> from the vertex to some
           vertex of <c><anno>Vertices</anno></c>. In particular, as paths
           can have length zero, the vertices of <c><anno>Vertices</anno></c>
           are included in the returned list.</p>
@@ -336,11 +336,11 @@
       <desc>
         <p>Returns an unsorted list of digraph vertices such that for
           each vertex in the list, there is
-          a <seealso marker="#path">path</seealso> of length one or more
+          a <seeerl marker="#path">path</seeerl> of length one or more
           from the vertex to some vertex of <c><anno>Vertices</anno></c>.
           Therefore only those vertices of <c><anno>Vertices</anno></c>
           that are included
-          in some <seealso marker="#cycle">cycle</seealso> are returned.</p>
+          in some <seeerl marker="#cycle">cycle</seeerl> are returned.</p>
       </desc>
     </func>
 
@@ -348,8 +348,8 @@
       <name name="strong_components" arity="1" since=""/>
       <fsummary>Return the strong components of a digraph.</fsummary>
       <desc>
-        <p>Returns a list of <seealso marker="#strong_components">strongly
-          connected components</seealso>.
+        <p>Returns a list of <seeerl marker="#strong_components">strongly
+          connected components</seeerl>.
           Each strongly component is represented
           by its vertices. The order of the vertices and the order of
           the components are arbitrary. Each vertex of digraph
@@ -363,7 +363,7 @@
       <name name="subgraph" arity="3" since=""/>
       <fsummary>Return a subgraph of a digraph.</fsummary>
       <desc>
-        <p>Creates a maximal <seealso marker="#subgraph">subgraph</seealso>
+        <p>Creates a maximal <seeerl marker="#subgraph">subgraph</seeerl>
           of <c>Digraph</c> having
           as vertices those vertices of <c><anno>Digraph</anno></c> that are
           mentioned in <c><anno>Vertices</anno></c>.</p>
@@ -371,10 +371,10 @@
           the default, the type of <c><anno>Digraph</anno></c> is used
           for the subgraph as well. Otherwise the option value of <c>type</c>
           is used as argument to
-        <seealso marker="digraph#new/1"><c>digraph:new/1</c></seealso>.</p>
+        <seemfa marker="digraph#new/1"><c>digraph:new/1</c></seemfa>.</p>
         <p>If the value of option <c>keep_labels</c> is <c>true</c>,
           which is the default,
-          the <seealso marker="#label">labels</seealso> of vertices and edges
+          the <seeerl marker="#label">labels</seeerl> of vertices and edges
           of <c><anno>Digraph</anno></c> are used for the subgraph as well. If
           the value is <c>false</c>, default label <c>[]</c> is used
           for the vertices and edges of the subgroup.</p>
@@ -391,11 +391,11 @@
       <fsummary>Return a topological sorting of the vertices of a digraph.
       </fsummary>
       <desc>
-        <p>Returns a <seealso marker="#topsort">topological
-          ordering</seealso> of the vertices of digraph
+        <p>Returns a <seeerl marker="#topsort">topological
+          ordering</seeerl> of the vertices of digraph
           <c><anno>Digraph</anno></c> if such an ordering exists, otherwise
           <c>false</c>. For each vertex in the returned list,
-          no <seealso marker="#out_neighbour">out-neighbors</seealso>
+          no <seeerl marker="#out_neighbour">out-neighbors</seeerl>
           occur earlier in the list.</p>
       </desc>
     </func>
@@ -403,7 +403,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="digraph"><c>digraph(3)</c></seealso></p>
+    <p><seeerl marker="digraph"><c>digraph(3)</c></seeerl></p>
   </section>
 </erlref>
 

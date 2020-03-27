@@ -41,7 +41,7 @@
 	<c>rpc:call()</c> and friends makes it quite hard to distinguish
 	between successful results, raised exceptions, and other errors.
 	This cannot be changed due to compatibility reasons. As of OTP 23,
-	a new module <seealso marker="erpc"><c>erpc</c></seealso> was
+	a new module <seeerl marker="erpc"><c>erpc</c></seeerl> was
 	introduced in order to provide an API that makes it possible
 	to distingush between the different results. The <c>erpc</c>
 	module provides a subset (however, the central subset) of the
@@ -60,7 +60,7 @@
       <name name="key"/>
       <desc>
         <p>Opaque value returned by
-          <seealso marker="#async_call/4"><c>async_call/4</c></seealso>.</p>
+          <seemfa marker="#async_call/4"><c>async_call/4</c></seemfa>.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -99,8 +99,8 @@
           promise to deliver the answer.</p>
         <p>In this case, the key <c><anno>Key</anno></c> is returned, which
           can be used in a subsequent call to
-          <seealso marker="#yield/1"><c>yield/1</c></seealso> or
-          <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
+          <seemfa marker="#yield/1"><c>yield/1</c></seemfa> or
+          <seemfa marker="#nb_yield/1"><c>nb_yield/1,2</c></seemfa>
           to retrieve the value of evaluating <c>apply(<anno>Module</anno>,
           <anno>Function</anno>, <anno>Args</anno>)</c> on node
         <c><anno>Node</anno></c>.</p>
@@ -108,15 +108,15 @@
 	  <p>
 	    If you want the ability to distinguish between results,
 	    you may want to consider using the
-	    <seealso marker="erpc#send_request/4"><c>erpc:send_request()</c></seealso>
+	    <seemfa marker="erpc#send_request/4"><c>erpc:send_request()</c></seemfa>
 	    function from the <c>erpc</c> module instead. This also
 	    gives you the ability retrieve the results in other useful
 	    ways.
 	  </p>
 	</note>
         <note>
-          <p><seealso marker="#yield/1"><c>yield/1</c></seealso> and
-            <seealso marker="#nb_yield/1"><c>nb_yield/1,2</c></seealso>
+          <p><seemfa marker="#yield/1"><c>yield/1</c></seemfa> and
+            <seemfa marker="#nb_yield/1"><c>nb_yield/1,2</c></seemfa>
             must be called by the same process from which this function
             was made otherwise they will never yield correctly.</p>
         </note>
@@ -137,9 +137,9 @@
 	<desc>
 	<p>
 	  The same as calling
-	  <seealso marker="#block_call/5"><c>rpc:block_call(<anno>Node</anno>,
+	  <seemfa marker="#block_call/5"><c>rpc:block_call(<anno>Node</anno>,
 	  <anno>Module</anno>, <anno>Function</anno>,
-	  <anno>Args</anno>, infinity)</c></seealso>.
+	  <anno>Args</anno>, infinity)</c></seemfa>.
 	</p>
       </desc>
     </func>
@@ -150,9 +150,9 @@
       <desc>
 	  <p>
 	    The same as calling
-	    <seealso marker="#call/5"><c>rpc:call(<anno>Node</anno>,
+	    <seemfa marker="#call/5"><c>rpc:call(<anno>Node</anno>,
 	    <anno>Module</anno>, <anno>Function</anno>,
-	    <anno>Args</anno>, <anno>Timeout</anno>)</c></seealso> with
+	    <anno>Args</anno>, <anno>Timeout</anno>)</c></seemfa> with
 	    the exception that it also blocks other <c>rpc:block_call()</c>
 	    operations from executing concurrently on the node
 	    <c><anno>Node</anno></c>.
@@ -173,9 +173,9 @@
           the corresponding value <c><anno>Res</anno></c>, or
           <c>{badrpc, <anno>Reason</anno>}</c> if the call fails.
 	  The same as calling
-	  <seealso marker="#call/5"><c>rpc:call(<anno>Node</anno>,
+	  <seemfa marker="#call/5"><c>rpc:call(<anno>Node</anno>,
 	  <anno>Module</anno>, <anno>Function</anno>,
-	  <anno>Args</anno>, infinity)</c></seealso>.
+	  <anno>Args</anno>, infinity)</c></seemfa>.
 	</p>
       </desc>
     </func>
@@ -197,7 +197,7 @@
 	  <p>
 	    If you want the ability to distinguish between results,
 	    you may want to consider using the
-	    <seealso marker="erpc#call/4"><c>erpc:call()</c></seealso>
+	    <seemfa marker="erpc#call/4"><c>erpc:call()</c></seemfa>
 	    function from the <c>erpc</c> module instead.
 	  </p>
 	</note>
@@ -242,7 +242,7 @@
           <c><anno>Node</anno></c>. No response is delivered and the calling
           process is not suspended until the evaluation is complete, as
           is the case with
-          <seealso marker="#call/4"><c>call/4,5</c></seealso>.</p>
+          <seemfa marker="#call/4"><c>call/4,5</c></seemfa>.</p>
 	<note>
 	  <p>
 	    You cannot make <em>any</em> assumptions about the
@@ -372,7 +372,7 @@
 	  <p>
 	    If you want the ability to distinguish between results,
 	    you may want to consider using the
-	    <seealso marker="erpc#multicall/4"><c>erpc:multicall()</c></seealso>
+	    <seemfa marker="erpc#multicall/4"><c>erpc:multicall()</c></seemfa>
 	    function from the <c>erpc</c> module instead.
 	  </p>
 	</note>
@@ -402,15 +402,15 @@
         (non-blocking).</fsummary>
       <desc>
         <p>Non-blocking version of
-          <seealso marker="#yield/1"><c>yield/1</c></seealso>. It returns
+          <seemfa marker="#yield/1"><c>yield/1</c></seemfa>. It returns
           the tuple <c>{value, <anno>Val</anno>}</c> when the computation is
           finished, or <c>timeout</c> when <c><anno>Timeout</anno></c>
           milliseconds has elapsed.</p>
-	  <p>See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
+	  <p>See the note in <seemfa marker="#call/4"><c>call/4</c></seemfa>
 	  for more details of <anno>Val</anno>.</p>
         <note>
           <p>This function must be called by the same process from which
-            <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
+            <seemfa marker="#async_call/4"><c>async_call/4</c></seemfa>
             was made otherwise it will only return <c>timeout</c>.</p>
         </note>
       </desc>
@@ -434,7 +434,7 @@
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seealso> in ERTS.</p>
+          <seemfa marker="erts:erlang#process_info/1"><c>erlang:process_info/1</c></seemfa> in ERTS.</p>
       </desc>
     </func>
 
@@ -444,7 +444,7 @@
       <fsummary>Information about a process.</fsummary>
       <desc>
         <p>Location transparent version of the BIF
-          <seealso marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seealso> in ERTS.</p>
+          <seemfa marker="erts:erlang#process_info/2"><c>erlang:process_info/2</c></seemfa> in ERTS.</p>
       </desc>
     </func>
 
@@ -517,16 +517,16 @@
         (blocking).</fsummary>
       <desc>
         <p>Returns the promised answer from a previous
-          <seealso marker="#async_call/4"><c>async_call/4</c></seealso>.
+          <seemfa marker="#async_call/4"><c>async_call/4</c></seemfa>.
           If the answer is available, it is
           returned immediately. Otherwise, the calling process is
           suspended until the answer arrives from <c>Node</c>.</p>
         <note>
           <p>This function must be called by the same process from which
-            <seealso marker="#async_call/4"><c>async_call/4</c></seealso>
+            <seemfa marker="#async_call/4"><c>async_call/4</c></seemfa>
             was made otherwise it will never return.</p>
         </note>
-	<p>See the note in <seealso marker="#call/4"><c>call/4</c></seealso>
+	<p>See the note in <seemfa marker="#call/4"><c>call/4</c></seemfa>
 	for more details of the return value.</p>
       </desc>
     </func>

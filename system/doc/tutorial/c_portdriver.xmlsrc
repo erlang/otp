@@ -30,7 +30,7 @@
     <file>c_portdriver.xml</file>
   </header>
   <p>This section outlines an example of how to solve the example problem
-    in <seealso marker="example">Problem Example</seealso>
+    in <seeguide marker="example">Problem Example</seeguide>
     by using a linked-in port driver.</p>
   <p>A port driver is a linked-in driver that is accessible as a port
     from an Erlang program. It is a shared library (SO in UNIX, DLL in

@@ -767,10 +767,10 @@ following escape sequences may be used: <dl>
 
 Note that although the syntax described in the following can still be used
 for specifying functions we recommend that Erlang specifications as
-described in <seealso marker="doc/reference_manual:typespec"> Types
-and Function Specification</seealso> should be added to the source
-code instead. This way the analyses of <seealso
-marker="dialyzer:dialyzer">Dialyzer</seealso>'s can be utilized in the
+described in <seeguide marker="system/reference_manual:typespec"> Types
+and Function Specification</seeguide> should be added to the source
+code instead. This way the analyses of <seeerl
+marker="dialyzer:dialyzer">Dialyzer</seeerl>'s can be utilized in the
 process of keeping the documentation consistent and up-to-date.
 Erlang specifications will be used unless there is also a function
 specification (a `@spec' tag followed by a type) with the same name.
@@ -984,8 +984,8 @@ contain any annotations at all.
 
 Note that although the syntax described in the following can still be used
 for specifying types we recommend that Erlang types as described in
-<seealso marker="doc/reference_manual:typespec"> Types and Function
-Specification</seealso> should be added to the source code instead.
+<seeguide marker="system/reference_manual:typespec"> Types and Function
+Specification</seeguide> should be added to the source code instead.
 Erlang types will be used unless there is a type alias with the same
 name.
 

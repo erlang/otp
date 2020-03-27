@@ -39,52 +39,52 @@
     must export the following functions: </p>
     <list type="bulleted">
       <item>
-	<seealso marker="#new">new/1</seealso>
+	<seeerl marker="#new">new/1</seeerl>
       </item>
       <item>
-	<seealso marker="#close">close/1</seealso>
+	<seeerl marker="#close">close/1</seeerl>
       </item>
       <item>
-	<seealso marker="#sync">sync/1</seealso>
+	<seeerl marker="#sync">sync/1</seeerl>
       </item>
       <item>
-	<seealso marker="#load_mib">load_mib/4</seealso>
+	<seeerl marker="#load_mib">load_mib/4</seeerl>
       </item>
       <item>
-	<seealso marker="#unload_mib">unload_mib/4</seealso>
+	<seeerl marker="#unload_mib">unload_mib/4</seeerl>
       </item>
       <item>
-	<seealso marker="#lookup">lookup/2</seealso>
+	<seeerl marker="#lookup">lookup/2</seeerl>
       </item>
       <item>
-	<seealso marker="#next">next/3</seealso>
+	<seeerl marker="#next">next/3</seeerl>
       </item>
       <item>
-	<seealso marker="#register_subagent">register_subagent/3</seealso>
+	<seeerl marker="#register_subagent">register_subagent/3</seeerl>
       </item>
       <item>
-	<seealso marker="#unregister_subagent">unregister_subagent/2</seealso>
+	<seeerl marker="#unregister_subagent">unregister_subagent/2</seeerl>
       </item>
       <item>
-	<seealso marker="#which_mib">which_mib/2</seealso>
+	<seeerl marker="#which_mib">which_mib/2</seeerl>
       </item>
       <item>
-	<seealso marker="#which_mibs">which_mibs/1</seealso>
+	<seeerl marker="#which_mibs">which_mibs/1</seeerl>
       </item>
       <item>
-	<seealso marker="#whereis_mib">whereis_mib/2</seealso>
+	<seeerl marker="#whereis_mib">whereis_mib/2</seeerl>
       </item>
       <item>
-	<seealso marker="#dump">dump/2</seealso>
+	<seeerl marker="#dump">dump/2</seeerl>
       </item>
       <item>
-	<seealso marker="#info">info/1</seealso>
+	<seeerl marker="#info">info/1</seeerl>
       </item>
       <item>
-	<seealso marker="#backup">backup/2</seealso>
+	<seeerl marker="#backup">backup/2</seeerl>
       </item>
       <item>
-	<seealso marker="#code_change">code_change/4</seealso>
+	<seeerl marker="#code_change">code_change/4</seeerl>
       </item>
     </list>
 
@@ -98,15 +98,16 @@
 
   </description>
 
-  <section>
-    <title>CALLBACK FUNCTIONS</title>
-    <p>The following functions must be exported from a 
-    <c>mib-server</c> data callback module: </p>
-
-    <marker id="new"></marker>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>CALLBACK FUNCTIONS</title>
+      <p>The following functions must be exported from a 
+      <c>mib-server</c> data callback module: </p>
+  
+      <marker id="new"></marker>
+    </fsdescription>
     <func>
       <name since="OTP R16B01">Module:new(Storage) -> State</name>
       <fsummary>Create new (mib-server) data instance</fsummary>
@@ -381,7 +382,7 @@
       <desc>
         <p>Perform a code-change (upgrade or downgrade). </p>
         <p>See 
-	<seealso marker="stdlib:gen_server">gen_server</seealso>
+	<seeerl marker="stdlib:gen_server">gen_server</seeerl>
 	for more info regarding the <c>Vsn</c> and <c>Extra</c> arguments. </p>
 
       </desc>

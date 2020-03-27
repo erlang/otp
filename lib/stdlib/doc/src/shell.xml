@@ -44,8 +44,8 @@
       values, which can then be incorporated in later commands.
       How many commands and results to save can be determined by the user,
       either interactively, by calling
-      <seealso marker="#history/1"><c>history/1</c></seealso> and
-      <seealso marker="#results/1"><c>results/1</c></seealso>,
+      <seemfa marker="#history/1"><c>history/1</c></seemfa> and
+      <seemfa marker="#results/1"><c>results/1</c></seemfa>,
       or by setting the application configuration
       parameters <c>shell_history_length</c> and
       <c>shell_saved_results</c> for the STDLIB application.</p>
@@ -53,8 +53,8 @@
     <p>The shell uses a helper process for evaluating commands
       to protect the history mechanism from exceptions. By
       default the evaluator process is killed when an exception
-      occurs, but by calling <seealso marker="#catch_exception/1">
-      <c>catch_exception/1</c></seealso> or by
+      occurs, but by calling <seemfa marker="#catch_exception/1">
+      <c>catch_exception/1</c></seemfa> or by
       setting the application configuration parameter
       <c>shell_catch_exception</c> for the STDLIB application
       this behavior can be changed. See also the example below.</p>
@@ -232,7 +232,7 @@
         <p>Reads record definitions from files. Existing
           definitions of any of the record names read are replaced.
           <c>Wildcard</c> is a wildcard string as defined in
-          <seealso marker="filelib"><c>filelib(3)</c></seealso>,
+          <seeerl marker="filelib"><c>filelib(3)</c></seeerl>,
           but not an atom.</p>
       </item>
       <tag><c>rr(WildcardOrModule, RecordNames)</c></tag>
@@ -280,8 +280,8 @@ Eshell V5.3  (abort with ^G)
 {4,abcd}</pre>
 
     <p>Command 3 builds the tuple <c>Descriptor</c>, evaluating the BIF
-      <seealso marker="erts:erlang#list_to_atom/1"><c>list_to_atom/1</c>
-      </seealso>.</p>
+      <seemfa marker="erts:erlang#list_to_atom/1"><c>list_to_atom/1</c>
+      </seemfa>.</p>
 
     <pre>
 4> <input>L.</input> 
@@ -782,7 +782,7 @@ q                 - quit erlang
 
     <p>These callback functions are called from local and
       non-local evaluation function handlers, described in the
-      <seealso marker="erl_eval"><c>erl_eval</c></seealso> 
+      <seeerl marker="erl_eval"><c>erl_eval</c></seeerl> 
       manual page. (Arguments in <c>ArgList</c> are evaluated before the
       callback functions are called.)</p>
 
@@ -805,8 +805,8 @@ q                 - quit erlang
       </item>
       <item>
         <p>From a normal shell session, call function
-          <seealso marker="#start_restricted/1">
-          <c>start_restricted/1</c></seealso>. This exits the current evaluator
+          <seemfa marker="#start_restricted/1">
+          <c>start_restricted/1</c></seemfa>. This exits the current evaluator
           and starts a new one in restricted mode.</p>
       </item>
     </list>
@@ -842,8 +842,8 @@ q                 - quit erlang
       </item>
       <item>
         <p>If the restricted shell is activated using
-          <seealso marker="#start_restricted/1">
-            <c>start_restricted/1</c></seealso> and the callback module cannot
+          <seemfa marker="#start_restricted/1">
+            <c>start_restricted/1</c></seemfa> and the callback module cannot
             be loaded, an error report is sent to the error logger and the call
             returns <c>{error,Reason}</c>.</p>
       </item>
@@ -855,8 +855,8 @@ q                 - quit erlang
     <p>The default shell prompt function displays the name of the node
       (if the node can be part of a distributed system) and the
       current command number. The user can customize the prompt
-      function by calling <seealso marker="#prompt_func/1">
-      <c>prompt_func/1</c></seealso> or by setting application
+      function by calling <seemfa marker="#prompt_func/1">
+      <c>prompt_func/1</c></seemfa> or by setting application
       configuration parameter <c>shell_prompt_func</c> for the
       STDLIB application.</p>
 

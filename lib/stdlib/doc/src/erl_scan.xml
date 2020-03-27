@@ -108,7 +108,7 @@
           that describes the error or warning. This function is usually
           called implicitly when an <c>ErrorInfo</c> structure is
           processed (see section
-          <seealso marker="#errorinfo">Error Information</seealso>).</p>
+          <seeerl marker="#errorinfo">Error Information</seeerl>).</p>
       </desc>
     </func>
 
@@ -180,10 +180,10 @@
           line where the token begins, as well as the text of the
           token (if option <c>text</c> is specified), all of which can
           be accessed by calling
-          <seealso marker="#column/1"><c>column/1</c></seealso>,
-          <seealso marker="#line/1"><c>line/1</c></seealso>,
-          <seealso marker="#location/1"><c>location/1</c></seealso>, and
-          <seealso marker="#text/1"><c>text/1</c></seealso>.</p>
+          <seemfa marker="#column/1"><c>column/1</c></seemfa>,
+          <seemfa marker="#line/1"><c>line/1</c></seemfa>,
+          <seemfa marker="#location/1"><c>location/1</c></seemfa>, and
+          <seemfa marker="#text/1"><c>text/1</c></seemfa>.</p>
         <p>A <em>token</em> is a tuple containing information about
           syntactic category, the token annotations, and the
           terminal symbol. For punctuation characters (such as <c>;</c> and 
@@ -296,7 +296,7 @@
           <c>tokens(<anno>Continuation</anno>, <anno>CharSpec</anno>,
           <anno>StartLocation</anno>, [])</c>.</p>
         <p>For a description of the options, see
-          <seealso marker="#string/3"><c>string/3</c></seealso>.</p>
+          <seemfa marker="#string/3"><c>string/3</c></seemfa>.</p>
       </desc>
     </func>
   </funcs>
@@ -323,8 +323,8 @@ Module:format_error(ErrorDescriptor)</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_anno"><c>erl_anno(3)</c></seealso>,
-      <seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
-      <seealso marker="io"><c>io(3)</c></seealso></p>
+    <p><seeerl marker="erl_anno"><c>erl_anno(3)</c></seeerl>,
+      <seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl>,
+      <seeerl marker="io"><c>io(3)</c></seeerl></p>
   </section>
 </erlref>

@@ -62,7 +62,7 @@
     <marker id="mandatory_functions"></marker>
     <title>Mandatory Functions</title>
     <p>A Net if process must implement the SNMP agent 
-      <seealso marker="snmpa_network_interface">network interface behaviour</seealso>.
+      <seeerl marker="snmpa_network_interface">network interface behaviour</seeerl>.
       </p>
   </section>
 
@@ -76,7 +76,7 @@
     <c>{Domain, Addr}</c> tuple where <c>Domain</c> is
     <c>transportDomainUdpIpv4</c> or <c>transportDomainUdpIpv4</c>,
     and <c>Addr</c> is an
-    <c>{</c><seealso marker="kernel:inet#type-ip_address"><c>IpAddr</c></seealso><c>,IpPort}</c> tuple.</p>
+    <c>{</c><seetype marker="kernel:inet#ip_address"><c>IpAddr</c></seetype><c>,IpPort}</c> tuple.</p>
 
     <section>
       <marker id="outgoing_messages"></marker>
@@ -124,7 +124,7 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
         <item><c>Pid</c> is the Process that waits for the response
          for the request.  The Pid was specified in the
         <c>send_pdu_req</c> message 
-	<seealso marker="#im_send_pdu_req">(see below)</seealso>.
+	<seeguide marker="#im_send_pdu_req">(see below)</seeguide>.
         </item>
         <item><c>Vsn</c> is either <c>'version-1'</c>, <c>'version-2'</c>, or
         <c>'version-3'</c>.
@@ -239,8 +239,8 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
 	      <p><c>Extra</c> is any term that the notification sender
 	      wishes to pass to the Net if process when sending a notification 
 	      (see 
-	      <seealso marker="snmpa#send_notification2">send notification
-	      </seealso> for more info). </p>
+	      <seeerl marker="snmpa#send_notification2">send notification
+	      </seeerl> for more info). </p>
             </item>
           </list>
         </item>
@@ -281,8 +281,8 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
 	      <p><c>Extra</c> is any term that the notification sender
 	      wishes to pass to the Net if process when sending a notification 
 	      (see 
-	      <seealso marker="snmpa#send_notification2">send notification
-	      </seealso> for more info). </p>
+	      <seeerl marker="snmpa#send_notification2">send notification
+	      </seeerl> for more info). </p>
             </item>
 	  </list>
         </item>
@@ -296,12 +296,12 @@ Pid ! {snmp_response_received, Vsn, Pdu, From}
         counters in the SNMP group in MIB-II. It can use the functions
         in the module <c>snmpa_mpd</c> for this purpose (refer to the 
         Reference Manual, section <c>snmp</c>, 
-        module <seealso marker="snmp_pdus">snmpa_mpd</seealso>
+        module <seeerl marker="snmp_pdus">snmpa_mpd</seeerl>
         for more details.)
         </p>
       <p>There are also some useful functions for encoding and
         decoding of SNMP messages in the module 
-        <seealso marker="snmp_pdus">snmp_pdus</seealso>.
+        <seeerl marker="snmp_pdus">snmp_pdus</seeerl>.
         </p>
     </section>
   </section>

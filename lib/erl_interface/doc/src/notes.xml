@@ -284,9 +284,9 @@
       <list>
         <item>
           <p>
-	    Support for plugin of a <seealso
+	    Support for plugin of a <seecref
 	    marker="ei_connect#ussi">user supplied socket
-	    implementation</seealso> has been added.</p>
+	    implementation</seecref> has been added.</p>
           <p>
 	    Own Id: OTP-15442 Aux Id: ERIERL-258 </p>
         </item>
@@ -481,8 +481,8 @@
 	    by <c>term_to_binary()</c> using latin1 encoding. Note
 	    that all atoms will by default be encoded using utf8 in a
 	    future Erlang/OTP release. For more information see the
-	    documentation of <seealso
-	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seealso>.</p>
+	    documentation of <seemfa
+	    marker="erts:erlang#term_to_binary/2"><c>erlang:term_to_binary/2</c></seemfa>.</p>
           <p>
 	    Own Id: OTP-14337</p>
         </item>

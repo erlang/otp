@@ -40,7 +40,7 @@
     <p>This module contains regular expression matching functions for
       strings and binaries.</p>
 
-    <p>The <seealso marker="#regexp_syntax">regular expression</seealso>
+    <p>The <seeerl marker="#regexp_syntax">regular expression</seeerl>
       syntax and semantics resemble that of Perl.</p>
 
     <p>The matching algorithms of the library are based on the
@@ -101,8 +101,8 @@
         <p>Compiles a regular expression, with the syntax
           described below, into an internal format to be used later as a
           parameter to
-          <seealso marker="#run/2"><c>run/2</c></seealso> and
-          <seealso marker="#run/3"><c>run/3</c></seealso>.</p>
+          <seemfa marker="#run/2"><c>run/2</c></seemfa> and
+          <seemfa marker="#run/3"><c>run/3</c></seemfa>.</p>
         <p>Compiling the regular expression before matching is useful if
           the same expression is to be used in matching against multiple
           subjects during the lifetime of the program. Compiling once and
@@ -281,8 +281,8 @@
               the subject up to "A" and never realize that the (*COMMIT)
               instruction is to have made the matching fail. This option is only
               relevant if you use "start-of-pattern items", as discussed in
-              section <seealso marker="#regexp_syntax_details">PCRE Regular Expression
-              Details</seealso>.</p>
+              section <seeerl marker="#regexp_syntax_details">PCRE Regular Expression
+              Details</seeerl>.</p>
           </item>
           <tag><c>ucp</c></tag>
           <item>
@@ -330,7 +330,7 @@
           regardless of where the names are positioned in the regular
           expression. The order of the names is the same as the order of
           captured subexpressions if <c>{capture, all_names}</c> is specified as
-          an option to <seealso marker="#run/3"><c>run/3</c></seealso>.
+          an option to <seemfa marker="#run/3"><c>run/3</c></seemfa>.
           You can therefore create a name-to-value mapping from the result of
           <c>run/3</c> like this:</p>
         <code>
@@ -365,7 +365,7 @@
         <p>Replaces the matched part of the <c><anno>Subject</anno></c> string
           with the contents of <c><anno>Replacement</anno></c>.</p>
         <p>The permissible options are the same as for
-          <seealso marker="#run/3"><c>run/3</c></seealso>, except that option<c>
+          <seemfa marker="#run/3"><c>run/3</c></seemfa>, except that option<c>
           capture</c> is not allowed. Instead a <c>{return,
           <anno>ReturnType</anno>}</c> is present. The default return type is
           <c>iodata</c>, constructed in a way to minimize copying. The
@@ -402,7 +402,7 @@ re:replace("abcd","c","[\\&amp;]",[{return,list}]).</code>
         <code>
 "ab[&amp;]d"</code>
         <p>As with <c>run/3</c>, compilation errors raise the <c>badarg</c>
-          exception. <seealso marker="#compile/2"><c>compile/2</c></seealso>
+          exception. <seemfa marker="#compile/2"><c>compile/2</c></seemfa>
           can be used to get more information about the error.</p>
       </desc>
     </func>
@@ -420,8 +420,8 @@ re:replace("abcd","c","[\\&amp;]",[{return,list}]).</code>
       <name name="run" arity="3" since=""/>
       <fsummary>Match a subject against regular expression and capture
         subpatterns.</fsummary>
-      <type_desc variable="CompileOpt">See <seealso marker="#compile_options">
-        <c>compile/2</c></seealso>.</type_desc>
+      <type_desc variable="CompileOpt">See <seeerl marker="#compile_options">
+        <c>compile/2</c></seeerl>.</type_desc>
       <desc>
         <p>Executes a regular expression matching, and returns
           <c>match/{match, <anno>Captured</anno>}</c> or <c>nomatch</c>. The
@@ -638,8 +638,8 @@ a?b?</code>
                   before that (each recursive call is also a call, but not
                   conversely). Both limits can however be changed, either by
                   setting limits directly in the regular expression string (see
-                  section <seealso marker="#regexp_syntax_details">PCRE Regular
-                  Eexpression Details</seealso>) or by specifying options to
+                  section <seeerl marker="#regexp_syntax_details">PCRE Regular
+                  Eexpression Details</seeerl>) or by specifying options to
                   <c>run/3</c>.</p>
               </item>
             </taglist>
@@ -819,8 +819,8 @@ re:run("ABCabcdABC",".*(abcd).*",[]).</code>
                       as if a <c>list()</c> of all the names <em>in
                       alphabetical order</em> was specified. The list of all
                       names can also be retrieved with
-                      <seealso marker="#inspect/2">
-                      <c>inspect/2</c></seealso>.</p>
+                      <seemfa marker="#inspect/2">
+                      <c>inspect/2</c></seemfa>.</p>
                   </item>
                   <tag><c>first</c></tag>
                   <item>
@@ -902,10 +902,10 @@ re:run("ABCabcdABC",".*(?&lt;FOO&gt;abcd).*",[{capture,['FOO']}]).</code>
                     <p>Returns captured substrings as pairs of byte indexes
                       into the subject string and length of the matching string
                       in the subject (as if the subject string was flattened
-                      with <seealso marker="erts:erlang#iolist_to_binary/1">
-                      <c>erlang:iolist_to_binary/1</c></seealso> or
-                      <seealso marker="unicode#characters_to_binary/2">
-                      <c>unicode:characters_to_binary/2</c></seealso> before
+                      with <seemfa marker="erts:erlang#iolist_to_binary/1">
+                      <c>erlang:iolist_to_binary/1</c></seemfa> or
+                      <seemfa marker="unicode#characters_to_binary/2">
+                      <c>unicode:characters_to_binary/2</c></seemfa> before
                       matching). Notice that option <c>unicode</c> results in
                       <em>byte-oriented</em> indexes in a (possibly virtual)
                       <em>UTF-8 encoded</em> binary. A byte index tuple
@@ -926,8 +926,8 @@ re:run("ABCabcdABC",".*(?&lt;FOO&gt;abcd).*",[{capture,['FOO']}]).</code>
                       regardless of character encoding). In that case the
                       <c>list</c> capturing can result in the same types of
                       tuples that
-                      <seealso marker="unicode#characters_to_list/2">
-                      <c>unicode:characters_to_list/2</c></seealso> can return,
+                      <seemfa marker="unicode#characters_to_list/2">
+                      <c>unicode:characters_to_list/2</c></seemfa> can return,
                       namely three-tuples with tag <c>incomplete</c> or
                       <c>error</c>, the successfully converted characters and
                       the invalid UTF-8 tail of the conversion as a binary. The
@@ -987,7 +987,7 @@ re:run("cacb","c(a|b)",[global,{capture,[1],list}]).</code>
           </item>
         </taglist>
         <p>For a descriptions of options only affecting the compilation step,
-          see <seealso marker="#compile/2"><c>compile/2</c></seealso>.</p>
+          see <seemfa marker="#compile/2"><c>compile/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1003,15 +1003,15 @@ re:run("cacb","c(a|b)",[global,{capture,[1],list}]).</code>
     <func>
       <name name="split" arity="3" since=""/>
       <fsummary>Split a string by tokens specified as a regular expression</fsummary>
-      <type_desc variable="CompileOpt">See <seealso marker="#compile_options">
-        <c>compile/2</c></seealso>.</type_desc>
+      <type_desc variable="CompileOpt">See <seeerl marker="#compile_options">
+        <c>compile/2</c></seeerl>.</type_desc>
       <desc>
         <p>Splits the input into parts by finding tokens according to the
           regular expression supplied. The splitting is basically done by
           running a global regular expression match and dividing the initial
           string wherever a match occurs. The matching part of the string is
           removed from the output.</p>
-        <p>As in <seealso marker="#run/3"><c>run/3</c></seealso>, an <c>mp()</c>
+        <p>As in <seemfa marker="#run/3"><c>run/3</c></seemfa>, an <c>mp()</c>
           compiled with option <c>unicode</c> requires
           <c><anno>Subject</anno></c> to be a Unicode <c>charlist()</c>. If
           compilation is done implicitly and the <c>unicode</c> compilation
@@ -1187,46 +1187,46 @@ re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
     <p>The reference material is divided into the following sections:</p>
 
     <list type="bulleted">
-      <item><seealso marker="#sect1">Special Start-of-Pattern Items</seealso>
+      <item><seeerl marker="#sect1">Special Start-of-Pattern Items</seeerl>
       </item>
-      <item><seealso marker="#sect2">Characters and Metacharacters</seealso>
+      <item><seeerl marker="#sect2">Characters and Metacharacters</seeerl>
       </item>
-      <item><seealso marker="#sect3">Backslash</seealso></item>
-      <item><seealso marker="#sect4">Circumflex and Dollar</seealso></item>
-      <item><seealso marker="#sect5">Full Stop (Period, Dot) and \N</seealso>
+      <item><seeerl marker="#sect3">Backslash</seeerl></item>
+      <item><seeerl marker="#sect4">Circumflex and Dollar</seeerl></item>
+      <item><seeerl marker="#sect5">Full Stop (Period, Dot) and \N</seeerl>
       </item>
-      <item><seealso marker="#sect6">Matching a Single Data Unit</seealso>
+      <item><seeerl marker="#sect6">Matching a Single Data Unit</seeerl>
       </item>
-      <item><seealso marker="#sect7">Square Brackets and Character
-        Classes</seealso></item>
-      <item><seealso marker="#sect8">Posix Character Classes</seealso></item>
-      <item><seealso marker="#sect9">Vertical Bar</seealso></item>
-      <item><seealso marker="#sect10">Internal Option Setting</seealso></item>
-      <item><seealso marker="#sect11">Subpatterns</seealso></item>
-      <item><seealso marker="#sect12">Duplicate Subpattern Numbers</seealso>
+      <item><seeerl marker="#sect7">Square Brackets and Character
+        Classes</seeerl></item>
+      <item><seeerl marker="#sect8">Posix Character Classes</seeerl></item>
+      <item><seeerl marker="#sect9">Vertical Bar</seeerl></item>
+      <item><seeerl marker="#sect10">Internal Option Setting</seeerl></item>
+      <item><seeerl marker="#sect11">Subpatterns</seeerl></item>
+      <item><seeerl marker="#sect12">Duplicate Subpattern Numbers</seeerl>
       </item>
-      <item><seealso marker="#sect13">Named Subpatterns</seealso></item>
-      <item><seealso marker="#sect14">Repetition</seealso></item>
-      <item><seealso marker="#sect15">Atomic Grouping and Possessive
-        Quantifiers</seealso></item>
-      <item><seealso marker="#sect16">Back References</seealso></item>
-      <item><seealso marker="#sect17">Assertions</seealso></item>
-      <item><seealso marker="#sect18">Conditional Subpatterns</seealso></item>
-      <item><seealso marker="#sect19">Comments</seealso></item>
-      <item><seealso marker="#sect20">Recursive Patterns</seealso></item>
-      <item><seealso marker="#sect21">Subpatterns as Subroutines</seealso>
+      <item><seeerl marker="#sect13">Named Subpatterns</seeerl></item>
+      <item><seeerl marker="#sect14">Repetition</seeerl></item>
+      <item><seeerl marker="#sect15">Atomic Grouping and Possessive
+        Quantifiers</seeerl></item>
+      <item><seeerl marker="#sect16">Back References</seeerl></item>
+      <item><seeerl marker="#sect17">Assertions</seeerl></item>
+      <item><seeerl marker="#sect18">Conditional Subpatterns</seeerl></item>
+      <item><seeerl marker="#sect19">Comments</seeerl></item>
+      <item><seeerl marker="#sect20">Recursive Patterns</seeerl></item>
+      <item><seeerl marker="#sect21">Subpatterns as Subroutines</seeerl>
       </item>
-      <item><seealso marker="#sect22">Oniguruma Subroutine Syntax</seealso>
+      <item><seeerl marker="#sect22">Oniguruma Subroutine Syntax</seeerl>
       </item>
-      <item><seealso marker="#sect23">Backtracking Control</seealso></item>
+      <item><seeerl marker="#sect23">Backtracking Control</seeerl></item>
     </list>
   </section>
 
   <section>
     <marker id="sect1"></marker>
     <title>Special Start-of-Pattern Items</title>
-    <p>Some options that can be passed to <seealso marker="#compile/2">
-      <c>compile/2</c></seealso> can also be set by special items at the start
+    <p>Some options that can be passed to <seemfa marker="#compile/2">
+      <c>compile/2</c></seemfa> can also be set by special items at the start
       of a pattern. These are not Perl-compatible, but are provided to make
       these options accessible to pattern writers who are not able to change
       the program that processes the pattern. Any number of these items can
@@ -1236,8 +1236,8 @@ re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
     <p><em>UTF Support</em></p>
 
     <p>Unicode support is basically UTF-8 based. To use Unicode characters, you
-      either call <seealso marker="#compile/2"><c>compile/2</c></seealso> or
-      <seealso marker="#run/3"><c>run/3</c></seealso> with option
+      either call <seemfa marker="#compile/2"><c>compile/2</c></seemfa> or
+      <seemfa marker="#run/3"><c>run/3</c></seemfa> with option
       <c>unicode</c>, or the pattern must start with one of these special
       sequences:</p>
 
@@ -1250,7 +1250,7 @@ re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
       lists to UTF-8 is not performed by the <c>re</c> functions. Therefore,
       using these sequences is not recommended.
       Add option <c>unicode</c> when running
-      <seealso marker="#compile/2"><c>compile/2</c></seealso> instead.</p>
+      <seemfa marker="#compile/2"><c>compile/2</c></seemfa> instead.</p>
 
     <p>Some applications that allow their users to supply patterns can wish to
       restrict them to non-UTF data for security reasons. If option
@@ -1297,7 +1297,7 @@ re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
     </taglist>
 
     <p>These override the default and the options specified to
-      <seealso marker="#compile/2"><c>compile/2</c></seealso>. For example, the
+      <seemfa marker="#compile/2"><c>compile/2</c></seemfa>. For example, the
       following pattern changes the convention to CR:</p>
 
     <code>
@@ -1312,13 +1312,13 @@ re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
       affect what the \R escape sequence matches. By default, this is any
       Unicode newline sequence, for Perl compatibility. However, this can be
       changed; see the description of \R in section
-      <seealso marker="#newline_sequences">Newline Sequences</seealso>. A change
+      <seeerl marker="#newline_sequences">Newline Sequences</seeerl>. A change
       of the \R setting can be combined with a change of the newline
       convention.</p>
 
     <p><em>Setting Match and Recursion Limits</em></p>
 
-    <p>The caller of <seealso marker="#run/3"><c>run/3</c></seealso> can set a
+    <p>The caller of <seemfa marker="#run/3"><c>run/3</c></seemfa> can set a
       limit on the number of times the internal match() function is called and
       on the maximum depth of recursive calls. These facilities are provided to
       catch runaway matches that are provoked by patterns with huge matching
@@ -2184,7 +2184,7 @@ foo\Kbar</code>
       they are independent of multiline mode. These three assertions are not
       affected by options <c>notbol</c> or <c>noteol</c>, which affect only the
       behavior of the circumflex and dollar metacharacters. However, if argument
-      <c>startoffset</c> of <seealso marker="#run/3"><c>run/3</c></seealso> is
+      <c>startoffset</c> of <seemfa marker="#run/3"><c>run/3</c></seemfa> is
       non-zero, indicating that matching is to start at a point other than the
       beginning of the subject, \A can never match. The difference between \Z
       and \z is that \Z matches before a newline at the end of the string and
@@ -2218,7 +2218,7 @@ foo\Kbar</code>
     <p>Outside a character class, in the default matching mode, the circumflex
       character is an assertion that is true only if the current matching point
       is at the start of the subject string. If argument <c>startoffset</c> of
-      <seealso marker="#run/3"><c>run/3</c></seealso> is non-zero, circumflex
+      <seemfa marker="#run/3"><c>run/3</c></seemfa> is non-zero, circumflex
       can never match if option <c>multiline</c> is unset. Inside a character
       class, circumflex has an entirely different meaning (see below).</p>
 
@@ -2321,8 +2321,8 @@ foo\Kbar</code>
     (?=[\x{10000}-\x{1fffff}])(\C)(\C)(\C)(\C))</code>
 
     <p>A group that starts with (?| resets the capturing parentheses numbers in
-      each alternative (see section <seealso marker="#sect12">Duplicate
-      Subpattern Numbers</seealso>). The assertions at the start of each branch
+      each alternative (see section <seeerl marker="#sect12">Duplicate
+      Subpattern Numbers</seeerl>). The assertions at the start of each branch
       check the next UTF-8 character for values whose encoding uses 1, 2, 3, or
       4 bytes, respectively. The individual bytes of the character are then
       captured by the appropriate number of groups.</p>
@@ -2416,8 +2416,8 @@ foo\Kbar</code>
       digit. In UTF modes, option <c>ucp</c> affects the meanings of \d, \s, \w
       and their uppercase partners, just as it does when they appear outside a
       character class, as described in section
-      <seealso marker="#generic_character_types">Generic Character
-      Types</seealso> earlier. The escape sequence \b has a different meaning
+      <seeerl marker="#generic_character_types">Generic Character
+      Types</seeerl> earlier. The escape sequence \b has a different meaning
       inside a character class; it matches the backspace character. The
       sequences \B, \N, \R, and \X are not special inside a character class.
       Like any other unrecognized escape sequences, they are treated as the
@@ -2572,7 +2572,7 @@ gilbert|sullivan</code>
       permitted (matching the empty string). The matching process tries each
       alternative in turn, from left to right, and the first that succeeds is
       used. If the alternatives are within a subpattern (defined in section
-      <seealso marker="#sect11">Subpatterns</seealso>), "succeeds" means
+      <seeerl marker="#sect11">Subpatterns</seeerl>), "succeeds" means
       matching the remaining main pattern and the alternative in the
       subpattern.</p>
   </section>
@@ -2607,7 +2607,7 @@ gilbert|sullivan</code>
       subpattern parentheses), the change applies to the remainder of the
       pattern that follows.</p>
     <p>An option change within a subpattern (see section
-      <seealso marker="#sect11">Subpatterns</seealso>) affects only that part of
+      <seeerl marker="#sect11">Subpatterns</seeerl>) affects only that part of
       the subpattern that follows it. So, the following matches abc and aBc and
       no other strings (assuming <c>caseless</c> is not used):</p>
 
@@ -2632,8 +2632,8 @@ gilbert|sullivan</code>
         compiling or matching functions are called. Sometimes the pattern can
         contain special leading sequences, such as (*CRLF), to override what
         the application has set or what has been defaulted. Details are provided
-        in section <seealso marker="#newline_sequences">
-        Newline Sequences</seealso> earlier.</p>
+        in section <seeerl marker="#newline_sequences">
+        Newline Sequences</seeerl> earlier.</p>
       <p>The (*UTF8) and (*UCP) leading sequences can be used to set UTF and
         Unicode property modes. They are equivalent to setting options
         <c>unicode</c> and <c>ucp</c>, respectively. The (*UTF) sequence is a
@@ -2664,7 +2664,7 @@ cat(aract|erpillar|)</code>
         <p>It sets up the subpattern as a capturing subpattern. That is, when
           the complete pattern matches, that portion of the subject string that
           matched the subpattern is passed back to the caller through the
-          return value of <seealso marker="#run/3"><c>run/3</c></seealso>.</p>
+          return value of <seemfa marker="#run/3"><c>run/3</c></seemfa>.</p>
       </item>
     </taglist>
 
@@ -2776,8 +2776,8 @@ the ((?:red|white) (king|queen))</code>
     <p>Names consist of up to 32 alphanumeric characters and underscores, but
       must start with a non-digit. Named capturing parentheses are still allocated
       numbers as well as names, exactly as if the names were not present.
-      The <c>capture</c> specification to <seealso marker="#run/3">
-      <c>run/3</c></seealso> can use named values if they are present in the
+      The <c>capture</c> specification to <seemfa marker="#run/3">
+      <c>run/3</c></seemfa> can use named values if they are present in the
       regular expression.</p>
 
     <p>By default, a name must be unique within a pattern, but this constraint
@@ -2803,7 +2803,7 @@ the ((?:red|white) (king|queen))</code>
 
     <p>For capturing named subpatterns which names are not unique, the first
       matching occurrence (counted from left to right in the subject) is
-      returned from <seealso marker="#run/3"><c>run/3</c></seealso>, if the name
+      returned from <seemfa marker="#run/3"><c>run/3</c></seemfa>, if the name
       is specified in the <c>values</c> part of the <c>capture</c> statement.
       The <c>all_names</c> capturing value matches all the names in the same
       way.</p>
@@ -2875,8 +2875,8 @@ z{2,4}</code>
     <p>The quantifier {0} is permitted, causing the expression to behave as if
       the previous item and the quantifier were not present. This can be useful
       for subpatterns that are referenced as subroutines from elsewhere in the
-      pattern (but see also section <seealso marker="#defining_subpatterns">
-      Defining Subpatterns for Use by Reference Only</seealso>). Items other
+      pattern (but see also section <seeerl marker="#defining_subpatterns">
+      Defining Subpatterns for Use by Reference Only</seeerl>). Items other
       than subpatterns that have a {0} quantifier are omitted from the compiled
       pattern.</p>
 
@@ -3125,8 +3125,8 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</code>
       subpattern whose number is 10 or more using this syntax, as a sequence
       such as \50 is interpreted as a character defined in octal. For more
       details of the handling of digits following a backslash, see section
-      <seealso marker="#non_printing_characters">Non-Printing
-      Characters</seealso> earlier. There is no such problem when named
+      <seeerl marker="#non_printing_characters">Non-Printing
+      Characters</seeerl> earlier. There is no such problem when named
       parentheses are used. A back reference to any subpattern is possible
       using named parentheses (see below).</p>
 
@@ -3156,8 +3156,8 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</code>
 
     <p>A back reference matches whatever matched the capturing subpattern in the
       current subject string, rather than anything matching the subpattern
-      itself (section <seealso marker="#sect21">Subpattern as
-      Subroutines</seealso> describes a way of doing that). So, the
+      itself (section <seeerl marker="#sect21">Subpattern as
+      Subroutines</seeerl> describes a way of doing that). So, the
       following pattern matches "sense and sensibility" and "response and
       responsibility", but not "sense and responsibility":</p>
 
@@ -3202,7 +3202,7 @@ aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</code>
       number. If the pattern continues with a digit character, some delimiter
       must be used to terminate the back reference. If option <c>extended</c> is
       set, this can be whitespace. Otherwise an empty comment (see section
-      <seealso marker="#sect19">Comments</seealso>) can be used.</p>
+      <seeerl marker="#sect19">Comments</seeerl>) can be used.</p>
 
     <p><em>Recursive Back References</em></p>
 
@@ -3463,8 +3463,8 @@ abcd$</code>
     <p>If the text between the parentheses consists of a sequence of digits,
       the condition is true if a capturing subpattern of that number has
       previously matched. If more than one capturing subpattern with the same
-      number exists (see section <seealso marker="#sect12">
-      Duplicate Subpattern Numbers</seealso> earlier), the condition is true if
+      number exists (see section <seeerl marker="#sect12">
+      Duplicate Subpattern Numbers</seeerl> earlier), the condition is true if
       any of them have matched. An alternative notation is to precede the
       digits with a plus or minus sign. In this case, the subpattern number is
       relative rather than absolute. The most recently opened parentheses can be
@@ -3594,8 +3594,8 @@ abcd$</code>
       character or character sequence in the pattern. Which characters are
       interpreted as newlines is controlled by the options passed to a
       compiling function or by a special sequence at the start of the pattern,
-      as described in section <seealso marker="#newline_conventions">
-      Newline Conventions</seealso> earlier.</p>
+      as described in section <seeerl marker="#newline_conventions">
+      Newline Conventions</seeerl> earlier.</p>
 
     <p>Notice that the end of this type of comment is a literal newline sequence
       in the pattern; escape sequences that happen to represent a newline do not
@@ -3929,8 +3929,8 @@ $re = qr{\( (?: (?&gt;[^()]+) | (?p{$re}) )* \)}x;</code>
       running of a match, any included backtracking verbs are not processed.
       processed. You can suppress the start-of-match optimizations by setting
       option <c>no_start_optimize</c> when calling
-      <seealso marker="#compile/2"><c>compile/2</c></seealso> or
-      <seealso marker="#run/3"><c>run/3</c></seealso>, or by starting the
+      <seemfa marker="#compile/2"><c>compile/2</c></seemfa> or
+      <seemfa marker="#run/3"><c>run/3</c></seemfa>, or by starting the
       pattern with (*NO_START_OPT).</p>
 
     <p>Experiments with Perl suggest that it too has similar optimizations,
@@ -3979,7 +3979,7 @@ A((?:A|B(*ACCEPT)|C)D)</code>
 
     <note>
       <p>In Erlang, there is no interface to retrieve a mark with
-        <seealso marker="#run/2"><c>run/2,3</c></seealso>, so only the secondary
+        <seemfa marker="#run/2"><c>run/2,3</c></seemfa>, so only the secondary
         purpose is relevant to the Erlang programmer.</p>
 
       <p>The rest of this section is therefore deliberately not adapted for
@@ -4061,7 +4061,7 @@ No match, mark = B</code>
 (*COMMIT)</code>
 
     <p>If (*COMMIT) is the only backtracking verb that is encountered, once it
-      has been passed, <seealso marker="#run/2"><c>run/2,3</c></seealso> is
+      has been passed, <seemfa marker="#run/2"><c>run/2,3</c></seemfa> is
       committed to find a match at the current starting point, or not at all,
       for example:</p>
 

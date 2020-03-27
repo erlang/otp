@@ -49,9 +49,9 @@
       <name since="">parse_transform(Forms, Options) -> Forms</name>
       <fsummary>Transform Erlang forms.</fsummary>
       <type>
-        <v>Forms = [<seealso marker="erl_parse#type-abstract_form">erl_parse:abstract_form()</seealso>
-          | <seealso marker="erl_parse#type-form_info">erl_parse:form_info()</seealso>]</v>
-        <v>Options = [<seealso marker="compile#type-option">compile:option()</seealso>]</v>
+        <v>Forms = [<seetype marker="erl_parse#abstract_form">erl_parse:abstract_form()</seetype>
+          | <seetype marker="erl_parse#form_info">erl_parse:form_info()</seetype>]</v>
+        <v>Options = [<seetype marker="compile#option">compile:option()</seetype>]</v>
       </type>
       <desc>
         <p>Performs an identity transformation on Erlang forms, as an example.
@@ -73,8 +73,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_parse"><c>erl_parse(3)</c></seealso>,
-      <seealso marker="compiler:compile"><c>compile(3)</c></seealso></p>
+    <p><seeerl marker="erl_parse"><c>erl_parse(3)</c></seeerl>,
+      <seeerl marker="compiler:compile"><c>compile(3)</c></seeerl></p>
   </section>
 </erlref>
 

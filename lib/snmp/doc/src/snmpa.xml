@@ -61,7 +61,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       <tag><c><![CDATA[mod = module()]]></c></tag>
       <item>
         <p>A module implementing the 
-          <seealso marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seealso> 
+          <seeerl marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seeerl> 
           behaviour. The info functions of this module will be called at 
           various stages of delivery. </p>
       </item>
@@ -141,7 +141,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
           corresponding instrumentation functions just as if it was a
           GET request coming from a manager. </p>
         <p>Note that the request specific parameters (such as 
-          <seealso marker="#current_request_id">current_request_id</seealso>) 
+          <seeerl marker="#current_request_id">current_request_id</seeerl>) 
           are not accessible for the instrumentation functions if this 
           function is used. </p>
 
@@ -226,7 +226,6 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
         <p>Returns a list (a dictionary) containing information about
 	the agent. Information includes loaded MIBs, registered
 	sub-agents, some information about the memory allocation. </p>
-	
         <marker id="load_mib"></marker>
       </desc>
     </func>
@@ -573,7 +572,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	<p>See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
+	<p>See <seeerl marker="snmp#log_to_txt">snmp:log_to_txt</seeerl> 
 	for more info.</p>
 
         <marker id="log_to_io"></marker>
@@ -614,7 +613,7 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	<p>See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
+	<p>See <seeerl marker="snmp#log_to_io">snmp:log_to_io</seeerl> 
 	for more info.</p>
 
         <marker id="change_log_size"></marker>
@@ -1032,7 +1031,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
           <item>
 	    <p><c>notification_delivery_info()</c> - The information is 
 	    delivered via a function call according to this data. See the 
-	    <seealso marker="#data_types">DATA TYPES</seealso> section 
+	    <seeerl marker="#data_types">DATA TYPES</seeerl> section 
 	    above for details. </p>
 	  </item>
 
@@ -1103,7 +1102,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 	<note>
 	  <p>The <c>extra</c> info is not normally interpreted by the agent, 
 	  instead it is passed through to the 
-	  <seealso marker="snmp_agent_netif">net-if</seealso> process. It is 
+	  <seeguide marker="snmp_agent_netif">net-if</seeguide> process. It is 
 	  up to the implementor of that process to make use of this data. </p>
 	  <p>The version of net-if provided by this application makes no use
 	  of this data, with one exception: 
@@ -1111,10 +1110,10 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 	  <c>snmpa_default_notification_extra_info</c> 
 	  may be used by the agent and is therefor <em>reserved</em>. </p>
 	  <p>See the net-if incomming messages for sending a 
-	  <seealso marker="snmp_agent_netif#im_send_pdu">
-	  trap</seealso> and 
-	  <seealso marker="snmp_agent_netif#im_send_pdu_req">
-	  notification</seealso> for more info. </p>
+	  <seeguide marker="snmp_agent_netif#im_send_pdu">
+	  trap</seeguide> and 
+	  <seeguide marker="snmp_agent_netif#im_send_pdu_req">
+	  notification</seeguide> for more info. </p>
 	</note>
 
 	<marker id="send_notification"></marker>
@@ -1175,7 +1174,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
           <item>
             <p><c>notification_delivery_info()</c> - The information is 
               delivered via a function call according to this data. See the 
-              <seealso marker="#data_types">DATA TYPES</seealso> section 
+              <seeerl marker="#data_types">DATA TYPES</seeerl> section 
               above for details. </p>
 	  </item>
 
@@ -1252,7 +1251,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <p>If <c>Receiver</c> is a <c>notification_delivery_info()</c> record,
           then the information about the notification delivery will be delivered 
           to the <c>receiver</c> via the callback functions defined by the 
-          <seealso marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seealso> 
+          <seeerl marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seeerl> 
           behaviour according to the content of the <c>notification_delivery_info()</c> 
           record. </p>
 
@@ -1363,7 +1362,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
 
         <p>The <c>DiscoHandler</c> module is used during the discovery 
           process. See 
-          <seealso marker="snmpa_discovery_handler">discovery handler</seealso>
+          <seeerl marker="snmpa_discovery_handler">discovery handler</seeerl>
           for more info. </p>
 
         <p>The <c>ExtraInfo</c> argument is passed on to the callback functions
@@ -1397,7 +1396,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
           see the OTP R9C documentation.</p>
         <p>For information about the current agent config 
           (<c>AgentConfig</c>), see the 
-          <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
+          <seeguide marker="snmp_config#configuration_params">Configuring the application</seeguide> 
           chapter of the SNMP user's guide.</p>
 
         <marker id="restart_worker"></marker>

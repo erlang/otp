@@ -472,10 +472,8 @@ link_or_image(Str, Type) ->
 		     Cont2};
  		{seealso, SeeAlso, _Title, Cont2} ->
                     case internal_seealso(SeeAlso) of
-                        no ->
-                            {["<seealso marker=\"", text(SeeAlso), "\">",
-                              text(Text), "</seealso>"],
-                             Cont2};
+                        {no,Link} ->
+                            {make_seealso(Link, Text),Cont2};
                         {yes, SeeAlsoKey} ->
                             {delayed, link, SeeAlsoKey, text(Text), Cont2}
                     end;
@@ -492,8 +490,16 @@ link_or_image(Str, Type) ->
 
 internal_seealso("#" ++ Marker) ->
     {yes, {internal, Marker}};
-internal_seealso(_) ->
-    no.
+internal_seealso(Link) ->
+    {no, Link}.
+
+make_seealso("see" ++ _ = Link, Text) ->
+    [Tag, Target] = string:split(Link,"/"),
+    ["<",Tag," marker=\"", text(Target), "\">",
+     text(Text), "</",Tag,">"];
+make_seealso(Link, Text) ->
+    ["<seeguide marker=\"", text(Link), "\">",
+     text(Text), "</seeguide>"].
 
 link_or_image_text(Cs0) ->
     {Prefix, Cs2} = case Cs0 of
@@ -575,7 +581,7 @@ mk_image(Title, Url) ->
 mk_link(Text, Url) ->
     case chk_proto(Url) of
 	true -> ["<url href=\"", text(Url), "\">", text(Text), "</url>"];
-	false -> ["<seealso marker=\"", text(Url), "\">", text(Text), "</seealso>"]
+	false -> make_seealso(Url, Text)
     end.
 
 chk_proto("://" ++ _) ->
@@ -653,8 +659,8 @@ put_title(#state{mlist = MList0,
 		S0#state{toc = [TOC,
 				lists:duplicate(H,"  "),
 				"  ",
-				"<seealso marker=\"#",Marker,"\">",
-				TitleStr,"</seealso>",nl()],
+				"<seeguide marker=\"#",Marker,"\">",
+				TitleStr,"</seeguide>",nl()],
 			 h = H,
 			 mlist = MList1
                         }),

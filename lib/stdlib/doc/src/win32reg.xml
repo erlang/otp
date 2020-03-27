@@ -87,7 +87,7 @@ hkdd             HKEY_DYN_DATA</pre>
     <p>Some registry values are stored as strings with references to environment
       variables, for example, <c>%SystemRoot%Windows</c>. <c>SystemRoot</c> is
       an environment variable, and is to be replaced with its value. Function
-      <seealso marker="#expand/1"><c>expand/1</c></seealso> is provided so that
+      <seemfa marker="#expand/1"><c>expand/1</c></seemfa> is provided so that
       environment variables surrounded by <c>%</c> can be expanded to their
       values.</p>
     <p>For more information on the Windows registry, see consult the Win32
@@ -99,7 +99,7 @@ hkdd             HKEY_DYN_DATA</pre>
       <name name="reg_handle"/>
       <desc>
         <p>As returned by
-          <seealso marker="#open/1"><c>open/1</c></seealso>.</p>
+          <seemfa marker="#open/1"><c>open/1</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -159,8 +159,8 @@ hkdd             HKEY_DYN_DATA</pre>
         <p>Deletes the current key, if it is valid. Calls the Win32 API
           function <c>RegDeleteKey()</c>. Notice that this call does not change
 	  the current key (unlike
-          <seealso marker="#change_key_create/2">
-          <c>change_key_create/2</c></seealso>).
+          <seemfa marker="#change_key_create/2">
+          <c>change_key_create/2</c></seemfa>).
           This means that after the call, the current key is invalid.</p>
       </desc>
     </func>
@@ -204,9 +204,9 @@ hkdd             HKEY_DYN_DATA</pre>
         <p>Opens the registry for reading or writing. The current key is the
           root (<c>HKEY_CLASSES_ROOT</c>). Flag <c>read</c> in the mode list
           can be omitted.</p>
-        <p>Use <seealso marker="#change_key/2"><c>change_key/2</c></seealso>
+        <p>Use <seemfa marker="#change_key/2"><c>change_key/2</c></seemfa>
           with an absolute path after
-          <seealso marker="#open/1"><c>open</c></seealso>.</p>
+          <seemfa marker="#open/1"><c>open</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -256,7 +256,7 @@ hkdd             HKEY_DYN_DATA</pre>
       <desc>
         <p>Retrieves a list of all values on the current key. The values
           have types corresponding to the registry types, see
-	  <seealso marker="#value/2"><c>value/2</c></seealso>.
+	  <seemfa marker="#value/2"><c>value/2</c></seemfa>.
           Calls the Win32 API function <c>EnumRegValuesEx()</c>.</p>
       </desc>
     </func>

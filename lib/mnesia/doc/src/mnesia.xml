@@ -68,7 +68,7 @@
     <p>All functions in this Reference Manual can be used in any
       combination with queries using the list comprehension notation.
       For information about the query notation, see the
-      <seealso marker="stdlib:qlc">qlc</seealso>
+      <seeerl marker="stdlib:qlc">qlc</seeerl>
       manual page in STDLIB.</p>
     <p>Data in Mnesia is organized as a set of tables. Each table
       has a name that must be an atom. Each table is made up of
@@ -544,8 +544,8 @@ mnesia:add_table_index(person, age)</code>
           <tag><c>dc_dump_limit</c></tag>
           <item>
             <p><c>Value</c> is a number. See the description in
-            <seealso marker="#configuration_parameters">Section
-            Configuration Parameters</seealso>. <c>ReturnValue</c>
+            <seeerl marker="#configuration_parameters">Section
+            Configuration Parameters</seeerl>. <c>ReturnValue</c>
             is the new value. Notice that this configuration
             parameter is not persistent. It is lost when
             Mnesia has stopped.</p>
@@ -1149,9 +1149,9 @@ mnesia:create_table(person,
         <p>Performs a user-initiated dump of the local log file.
           This is usually not necessary, as Mnesia by default
           manages this automatically. See configuration parameters
-          <seealso marker="#dump_log_time_threshold">dump_log_time_threshold</seealso>
+          <seeerl marker="#dump_log_time_threshold">dump_log_time_threshold</seeerl>
           and
-          <seealso marker="#dump_log_write_threshold">dump_log_write_threshold</seealso>.
+          <seeerl marker="#dump_log_write_threshold">dump_log_write_threshold</seeerl>.
           </p>
       </desc>
     </func>
@@ -1247,11 +1247,11 @@ mnesia:create_table(person,
           and the method to retrieve more detailed error information:</p>
           <list type="bulleted">
             <item>The function
-             <seealso marker="#create_table/2">mnesia:create_table(bar, [{attributes, 3.14}])</seealso>
+             <seemfa marker="#create_table/2">mnesia:create_table(bar, [{attributes, 3.14}])</seemfa>
              returns the tuple <c>{aborted,Reason}</c>, where <c>Reason</c> is
              the tuple <c>{bad_type,bar,3.14000}</c>.</item>
             <item>The function
-             <seealso marker="#error_description/1">mnesia:error_description(Reason)</seealso>
+             <seemfa marker="#error_description/1">mnesia:error_description(Reason)</seemfa>
              returns the term <c>{"Bad type on some provided
              arguments",bar,3.14000}</c>, which is an error description
              suitable for display.</item>
@@ -1852,7 +1852,7 @@ mnesia:create_table(person,
       <marker id="select_2_3"></marker>
         <p>Matches the objects in table <c>Tab</c> using a
           <c>match_spec</c> as described in the
-          <seealso marker="stdlib:ets#select/3">ets:select/3</seealso>.
+          <seemfa marker="stdlib:ets#select/3">ets:select/3</seemfa>.
           Optionally a lock
           <c>read</c> or <c>write</c> can be given as the third
           argument. Default is <c>read</c>. The return value depends
@@ -1871,8 +1871,8 @@ mnesia:create_table(person,
           <item><c>Result = "Term construct"</c></item>
         </list>
         <p>For a complete description of <c>select</c>, see the
-          <seealso marker="erts:index">ERTS</seealso> User's Guide and the
-          <seealso marker="stdlib:ets">ets</seealso> manual page in
+          <seeapp marker="erts:index">ERTS</seeapp> User's Guide and the
+          <seeerl marker="stdlib:ets">ets</seeerl> manual page in
           STDLIB.</p>
         <p>For example, to find the names of all male persons older
           than 30 in table <c>Tab</c>:</p>
@@ -1890,7 +1890,7 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       <marker id="select_4"></marker>
         <p>Matches the objects in table <c>Tab</c> using a
           <c>match_spec</c> as described in the
-          <seealso marker="erts:index">ERTS</seealso> User's Guide,
+          <seeapp marker="erts:index">ERTS</seeapp> User's Guide,
           and returns a chunk of terms and a continuation.
           The wanted number of returned terms is specified by
           argument <c>NObjects</c>. The lock argument can be
@@ -1925,8 +1925,8 @@ mnesia:select(Tab,[{MatchHead, [Guard], [Result]}]),</code>
       <marker id="set_debug_level"></marker>
         <p>Changes the internal debug level of Mnesia.
           For details, see
-          <seealso marker="#configuration_parameters">Section
-          Configuration Parameters</seealso>.</p>
+          <seeerl marker="#configuration_parameters">Section
+          Configuration Parameters</seeerl>.</p>
       </desc>
     </func>
     <func>
@@ -2130,7 +2130,7 @@ mnesia:create_table(employee,
       <marker id="subscribe"></marker>
         <p>Ensures that a copy of all events of type
           <c>EventCategory</c> is sent to the caller. The available
-          event types are described in the <seealso marker="Mnesia_chap5#event_handling">User's Guide</seealso>.</p>
+          event types are described in the <seeguide marker="Mnesia_chap5#event_handling">User's Guide</seeguide>.</p>
       </desc>
     </func>
     <func>
@@ -2156,11 +2156,11 @@ mnesia:create_table(employee,
         <p>Ensures that the local transaction log file is synced to disk.
           On a single node system, data written to disk tables since the
           last dump can be lost if there is a power outage.
-          See <seealso marker="#dump_log/0">dump_log/0</seealso>.</p>
+          See <seemfa marker="#dump_log/0">dump_log/0</seemfa>.</p>
       </desc>
     </func>
     <func>
-      <name since="">sync_transaction(Fun, [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name since="">sync_transaction(Fun [, Args [, Retries]]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
       <fsummary>Synchronously executes a transaction.</fsummary>
       <desc>
       <marker id="sync_transaction"></marker>
@@ -2365,7 +2365,7 @@ mnesia:create_table(employee,
       <desc>
       <marker id="table"></marker>
         <p>Returns a Query List Comprehension (QLC) query handle,
-          see the <seealso marker="stdlib:qlc">qlc(3)</seealso>
+          see the <seeerl marker="stdlib:qlc">qlc(3)</seeerl>
           manual page in STDLIB. The module <c>qlc</c>
           implements a query language that can use Mnesia
           tables as sources of data. Calling
@@ -2571,7 +2571,7 @@ mnesia:create_table(employee,
       </desc>
     </func>
     <func>
-      <name since="">transaction(Fun [[, Args], Retries]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
+      <name since="">transaction(Fun [, Args [, Retries]]) -> {aborted, Reason} | {atomic, ResultOfFun}</name>
       <fsummary>Executes a transaction.</fsummary>
       <desc>
       <marker id="transaction"></marker>
@@ -2907,7 +2907,7 @@ raise(Name, Amount) ->
           on the original data file. Default is <c>true</c></p>
       </item>
       <item>
-        <marker id=" dump_log_write_threshold"></marker>
+        <marker id="dump_log_write_threshold"></marker>
         <p><c>-mnesia dump_log_write_threshold Max</c>.
           <c>Max</c> is an integer that specifies the maximum
           number of writes allowed to the transaction log before
@@ -2915,7 +2915,7 @@ raise(Name, Amount) ->
           log writes.</p>
       </item>
       <item>
-        <marker id=" dump_log_time_threshold"></marker>
+        <marker id="dump_log_time_threshold"></marker>
         <p><c>-mnesia dump_log_time_threshold Max</c>.
           <c>Max</c> is an integer that specifies the dump log
           interval in milliseconds. Default is 3 minutes. If a
@@ -3030,12 +3030,12 @@ raise(Name, Amount) ->
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="kernel:application">application(3)</seealso>,
-      <seealso marker="stdlib:dets">dets(3)</seealso>,
-      <seealso marker="kernel:disk_log">disk_log(3)</seealso>,
-      <seealso marker="stdlib:ets">ets(3)</seealso>,
-      <seealso marker="mnesia:mnesia_registry">mnesia_registry(3)</seealso>,
-      <seealso marker="stdlib:qlc">qlc(3)</seealso></p>
+    <p><seeerl marker="kernel:application">application(3)</seeerl>,
+      <seeerl marker="stdlib:dets">dets(3)</seeerl>,
+      <seeerl marker="kernel:disk_log">disk_log(3)</seeerl>,
+      <seeerl marker="stdlib:ets">ets(3)</seeerl>,
+      <seeerl marker="mnesia:mnesia_registry">mnesia_registry(3)</seeerl>,
+      <seeerl marker="stdlib:qlc">qlc(3)</seeerl></p>
   </section>
   
 </erlref>

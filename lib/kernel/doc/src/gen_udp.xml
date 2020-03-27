@@ -46,7 +46,7 @@
       <name>socket()</name>
       <desc>
         <p>As returned by
-          <seealso marker="#open/1"><c>open/1,2</c></seealso>.</p>
+          <seemfa marker="#open/1"><c>open/1,2</c></seemfa>.</p>
       </desc>
     </datatype>
   </datatypes>
@@ -112,9 +112,9 @@
 	  <item>
             <p>
 	      Sets up a Unix Domain Socket. See
-	      <seealso marker="inet#type-local_address">
+	      <seetype marker="inet#local_address">
 		<c>inet:local_address()</c>
-	      </seealso>
+	      </seetype>
 	    </p>
           </item>
           <tag><c>{udp_module, module()}</c></tag>
@@ -137,12 +137,12 @@
           <item><p>Leaves a multicast group.</p></item>
           <tag><c>Opt</c></tag>
           <item><p>See
-            <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>.
+            <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>.
             </p></item>
         </taglist>
         <p>The returned socket <c><anno>Socket</anno></c> is used to send
           packets from this port with
-          <seealso marker="#send/4"><c>send/4</c></seealso>.
+          <seemfa marker="#send/4"><c>send/4</c></seemfa>.
           When UDP packets arrive
           at the opened port, if the socket is in an active mode, the packets
           are delivered as messages to the controlling process:</p>
@@ -153,23 +153,23 @@
 	<p>
 	  The message contains an <c>AncData</c> field
 	  if any of the socket
-	  <seealso marker="#type-option">options</seealso>
-	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
-	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  <seetype marker="#option">options</seetype>
+	  <seeerl marker="inet#option-recvtos"><c>recvtos</c></seeerl>,
+	  <seeerl marker="inet#option-recvtclass"><c>recvtclass</c></seeerl>
 	  or
-	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>
+	  <seeerl marker="inet#option-recvttl"><c>recvttl</c></seeerl>
 	  are active, otherwise it does not.
 	</p>
 	<p>
 	</p>
         <p>If the socket is not in an active mode, data can be
           retrieved through the
-          <seealso marker="#recv/2"><c>recv/2,3</c></seealso> calls.
+          <seemfa marker="#recv/2"><c>recv/2,3</c></seemfa> calls.
           Notice that arriving UDP packets that are longer than
           the receive buffer option specifies can be truncated
           without warning.</p>
         <p>When a socket in <c>{active, N}</c> mode (see
-          <seealso marker="inet#setopts/2"><c>inet:setopts/2</c></seealso>
+          <seemfa marker="inet#setopts/2"><c>inet:setopts/2</c></seemfa>
           for details), transitions to passive (<c>{active, false}</c>) mode,
           the controlling process is notified by a message of the following
           form:</p>
@@ -183,7 +183,7 @@
           <c>{recbuf, 8192}</c>.</p>
         <p>If <c><anno>Port</anno> == 0</c>, the underlying OS assigns a free
           UDP port, use
-          <seealso marker="inet#port/1"><c>inet:port/1</c></seealso>
+          <seemfa marker="inet#port/1"><c>inet:port/1</c></seemfa>
           to retrieve it.</p>
       </desc>
     </func>
@@ -200,11 +200,11 @@
 	</p>
 	<p>
 	  If any of the socket
-	  <seealso marker="#type-option">options</seealso>
-	  <seealso marker="inet#option-recvtos"><c>recvtos</c></seealso>,
-	  <seealso marker="inet#option-recvtclass"><c>recvtclass</c></seealso>
+	  <seetype marker="#option">options</seetype>
+	  <seeerl marker="inet#option-recvtos"><c>recvtos</c></seeerl>,
+	  <seeerl marker="inet#option-recvtclass"><c>recvtclass</c></seeerl>
 	  or
-	  <seealso marker="inet#option-recvttl"><c>recvttl</c></seealso>
+	  <seeerl marker="inet#option-recvttl"><c>recvttl</c></seeerl>
 	  are active, the <c><anno>RecvData</anno></c> tuple contains an
 	  <c><anno>AncData</anno></c> field,
 	  otherwise it does not.
@@ -221,7 +221,7 @@
 	</p>
 	<p>
 	  This function is equivalent to
-	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, <anno>Destination</anno>, [], <anno>Packet</anno>)</c></seealso>.
+	  <seeerl marker="#send-4-AncData"><c>send(<anno>Socket</anno>, <anno>Destination</anno>, [], <anno>Packet</anno>)</c></seeerl>.
 	</p>
       </desc>
     </func>
@@ -236,7 +236,7 @@
 	</p>
 	<p>
 	  This clause is equivalent to
-	  <seealso marker="#send/5"><c>send(<anno>Socket</anno>, <anno>Host</anno>, <anno>Port</anno>, [], <anno>Packet</anno>)</c></seealso>.
+	  <seemfa marker="#send/5"><c>send(<anno>Socket</anno>, <anno>Host</anno>, <anno>Port</anno>, [], <anno>Packet</anno>)</c></seemfa>.
 	</p>
       </desc>
     </func>
@@ -278,7 +278,7 @@
 	  <c><anno>Destination</anno> = {local, Binary}</c>
 	  where <c><anno>PortZero</anno></c> is superfluous.
 	  It is equivalent to
-	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, <anno>Destination</anno>, [], <anno>Packet</anno>)</c></seealso>, the clause right above here.
+	  <seeerl marker="#send-4-AncData"><c>send(<anno>Socket</anno>, <anno>Destination</anno>, [], <anno>Packet</anno>)</c></seeerl>, the clause right above here.
 	</p>
       </desc>
     </func>
@@ -299,7 +299,7 @@
 	  or a service name atom.
 	  These are resolved into a <c>Destination</c> and after that
 	  this function is equivalent to
-	  <seealso marker="#send-4-AncData"><c>send(<anno>Socket</anno>, Destination, <anno>AncData</anno>, <anno>Packet</anno>)</c></seealso>, read there about ancillary data.
+	  <seeerl marker="#send-4-AncData"><c>send(<anno>Socket</anno>, Destination, <anno>AncData</anno>, <anno>Packet</anno>)</c></seeerl>, read there about ancillary data.
 	</p>
       </desc>
     </func>

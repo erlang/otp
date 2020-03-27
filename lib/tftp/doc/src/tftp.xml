@@ -52,7 +52,7 @@
       <tag><c>{host, Host}</c></tag>
       <item>
         <p><c>Host = hostname()</c>, see
-          <seealso marker="kernel:inet">inet(3)</seealso>.</p>
+          <seeerl marker="kernel:inet">inet(3)</seeerl>.</p>
         <p>The name or IP address of the host where the TFTP daemon
           resides. This option is only used by the client.</p>
       </item>
@@ -91,7 +91,7 @@
       <tag><c>{udp, Options}</c></tag>
       <item>
         <p><c>Options = [Opt]</c>, see
-          <seealso marker="kernel:gen_udp#open/1">gen_udp:open/2</seealso>.</p>
+          <seemfa marker="kernel:gen_udp#open/1">gen_udp:open/2</seemfa>.</p>
       </item>
       <tag><c>{use_tsize, Bool}</c></tag>
       <item>
@@ -141,11 +141,11 @@
           transferred, its local filename is matched to the regular
           expressions of the registered callbacks. The first matching
           callback is used during the transfer. See
-          <seealso marker="#read_file/3">read_file/3</seealso> and
-          <seealso marker="#write_file/3">write_file/3</seealso>.
+          <seemfa marker="#read_file/3">read_file/3</seemfa> and
+          <seemfa marker="#write_file/3">write_file/3</seemfa>.
           </p>
         <p>The callback module must implement the <c>tftp</c> behavior, see
-          <seealso marker="#tftp_callback">CALLBACK FUNCTIONS</seealso>.</p>
+          <seeerl marker="#tftp_callback">CALLBACK FUNCTIONS</seeerl>.</p>
       </item>
 
    <tag><c>{logger, Module}</c></tag>
@@ -155,7 +155,7 @@
         <p>Callback module for customized logging of errors, warnings, and
 	  info messages. The callback module must implement the
 	  <c>tftp_logger</c> behavior, see
-          <seealso marker="#tftp_logger">LOGGER FUNCTIONS</seealso>.
+          <seeerl marker="#tftp_logger">LOGGER FUNCTIONS</seeerl>.
           The default module is <c>tftp_logger</c>.</p>
       </item>
 
@@ -537,17 +537,18 @@
     </func>
   </funcs>
   
-  <section>
-    <marker id="tftp_logger"></marker>
-    <title>LOGGER FUNCTIONS</title>
-    
-    <p>A <c>tftp_logger</c> callback module is to be implemented as a
-    <c>tftp_logger</c> behavior and export the following functions:</p>
-    
-    <marker id="error_msg"></marker>
-    </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <marker id="tftp_logger"></marker>
+      <title>LOGGER FUNCTIONS</title>
+      
+      <p>A <c>tftp_logger</c> callback module is to be implemented as a
+      <c>tftp_logger</c> behavior and export the following functions:</p>
+      
+      <marker id="error_msg"></marker>
+    </fsdescription>
     <func>
       <name since="OTP 18.1">Logger:error_msg(Format, Data) -> ok | exit(Reason)</name>
       <fsummary>Logs an error message.</fsummary>

@@ -40,7 +40,7 @@
     </p>
     <p>
       This is an enhanced subset of the operations provided by the
-      <seealso marker="rpc"><c>rpc</c></seealso> module. Enhanced in the
+      <seeerl marker="rpc"><c>rpc</c></seeerl> module. Enhanced in the
       sense that it makes it possible to distinguish between returned
       value, raised exceptions, and other errors. <c>erpc</c> also has
       better performance and scalability than the original <c>rpc</c>
@@ -66,7 +66,7 @@
         <p>
 	  An opaque type of call request identifiers. For more
 	  information see
-          <seealso marker="#send_request/4"><c>send_request/4</c></seealso>.
+          <seemfa marker="#send_request/4"><c>send_request/4</c></seemfa>.
 	</p>
       </desc>
     </datatype>
@@ -81,7 +81,7 @@
       <desc>
 	<p>
 	  The same as calling
-	  <seealso marker="#call/5"><c>erpc:call(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seealso>.
+	  <seemfa marker="#call/5"><c>erpc:call(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seemfa>.
 	  May raise all the same exceptions as <c>erpc:call/5</c>
 	  plus an <c>{erpc, badarg}</c> <c>error</c>
 	  exception if <c><anno>Fun</anno></c> is not a fun of
@@ -254,7 +254,7 @@
       <desc>
 	<p>
 	  The same as calling
-	  <seealso marker="#cast/4"><c>erpc:cast(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seealso>.
+	  <seemfa marker="#cast/4"><c>erpc:cast(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
 	</p>
 	<p><c>erpc:cast/2</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
@@ -305,13 +305,13 @@
 	<p>
 	  Check if a message is a response to a <c>call</c> request
 	  previously made by the calling process using
-	  <seealso marker="#send_request/4"><c>erpc:send_request/4</c></seealso>.
+	  <seemfa marker="#send_request/4"><c>erpc:send_request/4</c></seemfa>.
 	  <c><anno>RequestId</anno></c> should be the value returned
 	  from the previously made <c>erpc:send_request()</c> call,
 	  and the corresponding response should not already have been
 	  received and handled to completion by <c>erpc:check_response()</c>,
-	  <seealso marker="#receive_response/2"><c>erpc:receive_response()</c></seealso>, or
-	  <seealso marker="#wait_response/2"><c>erpc:wait_response()</c></seealso>.
+	  <seemfa marker="#receive_response/2"><c>erpc:receive_response()</c></seemfa>, or
+	  <seemfa marker="#wait_response/2"><c>erpc:wait_response()</c></seemfa>.
 	  <c><anno>Message</anno></c> is the message to check.
 	</p>
 	<p>
@@ -323,7 +323,7 @@
 	  corresponds to the value returned from the applied function
 	  or an exception is raised. The exceptions that can be raised
 	  corresponds to the same exceptions as can be raised by
-	  <seealso marker="#call/4"><c>erpc:call/4</c></seealso>.
+	  <seemfa marker="#call/4"><c>erpc:call/4</c></seemfa>.
 	  That is, no <c>{erpc, timeout}</c> <c>error</c> exception
 	  can be raised. <c>erpc:check_response()</c> will fail with
 	  an <c>{erpc, badarg}</c> exception if/when an invalid
@@ -347,7 +347,7 @@
       <desc>
 	<p>
 	  The same as calling
-	  <seealso marker="#call/5"><c>erpc:multicall(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seealso>.
+	  <seemfa marker="#call/5"><c>erpc:multicall(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]],<anno>Timeout</anno>)</c></seemfa>.
 	  May raise all the same exceptions as <c>erpc:multicall/5</c>
 	  plus an <c>{erpc, badarg}</c> <c>error</c>
 	  exception if <c><anno>Fun</anno></c> is not a fun of
@@ -394,7 +394,7 @@
 	    raised an exception of class <c>Class</c> with
 	    exception reason <c>ExceptionReason</c>. These
 	    corresponds the the exceptions that
-	    <seealso marker="#call/5"><c>erpc:call/5</c></seealso>
+	    <seemfa marker="#call/5"><c>erpc:call/5</c></seemfa>
 	    can raise.
 	  </p></item>
 	</taglist>
@@ -422,12 +422,12 @@
 	<pre>
 my_multicall(Nodes, Module, Function, Args) ->
   ReqIds = lists:map(fun (Node) ->
-                       <seealso marker="#send_request/4">erpc:send_request(Node, Module, Function, Args)</seealso>
+                       <seemfa marker="#send_request/4">erpc:send_request(Node, Module, Function, Args)</seemfa>
                      end,
                      Nodes),
   lists:map(fun (ReqId) ->
               try
-                {ok, <seealso marker="#receive_response/2">erpc:receive_response(ReqId, infinity)</seealso>}
+                {ok, <seemfa marker="#receive_response/2">erpc:receive_response(ReqId, infinity)</seemfa>}
               catch
                 Class:Reason ->
                   {Class, Reason}
@@ -471,7 +471,7 @@ my_multicall(Nodes, Module, Function, Args) ->
       <desc>
 	<p>
 	  The same as calling
-	  <seealso marker="#cast/4"><c>erpc:multicast(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seealso>.
+	  <seemfa marker="#cast/4"><c>erpc:multicast(<anno>Nodes</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
 	</p>
 	<p><c>erpc:multicast/2</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
@@ -525,14 +525,14 @@ my_multicall(Nodes, Module, Function, Args) ->
 	<p>
 	  Receive a response to a <c>call</c> request previously
 	  made by the calling process using
-	  <seealso marker="#send_request/4"><c>erpc:send_request/4</c></seealso>.
+	  <seemfa marker="#send_request/4"><c>erpc:send_request/4</c></seemfa>.
 	  <c><anno>RequestId</anno></c> should be the value returned from
 	  the previously made <c>erpc:send_request()</c> call, and
 	  the corresponding response should not already have been received
 	  and handled to completion by
-	  <seealso marker="#check_response/2"><c>erpc:check_response()</c></seealso>,
+	  <seemfa marker="#check_response/2"><c>erpc:check_response()</c></seemfa>,
 	  <c>erpc:receive_response()</c>, or
-	  <seealso marker="#wait_response/2"><c>erpc:wait_response()</c></seealso>.
+	  <seemfa marker="#wait_response/2"><c>erpc:wait_response()</c></seemfa>.
 	  <c><anno>Timeout</anno></c> is an integer representing
 	  the timeout in milliseconds or the atom <c>infinity</c>
 	  which prevents the operation from ever timing out. The <c>call</c>
@@ -548,15 +548,15 @@ my_multicall(Nodes, Module, Function, Args) ->
 	  A call to the function
 	  <c>my_call(Node, Module, Function, Args, Timeout)</c>
 	  below is equivalent to the call
-	  <seealso marker="#call/5"><c>erpc:call(Node, Module, Function, Args,
-	  Timeout)</c></seealso> if one disregards performance. <c>erpc:call()</c>
+	  <seemfa marker="#call/5"><c>erpc:call(Node, Module, Function, Args,
+	  Timeout)</c></seemfa> if one disregards performance. <c>erpc:call()</c>
 	  can utilize a message queue optimization which removes the need to scan
 	  the whole message queue which the combination
 	  <c>erpc:send_request()/erpc:receive_response()</c> cannot.
 	</p>
 	<pre>
 my_call(Node, Module, Function, Args, Timeout) ->
-  RequestId = <seealso marker="#send_request/4">erpc:send_request(Node, Module, Function, Args)</seealso>,
+  RequestId = <seemfa marker="#send_request/4">erpc:send_request(Node, Module, Function, Args)</seemfa>,
   erpc:receive_response(RequestId, Timeout).
 </pre>
 	<p>
@@ -571,7 +571,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	
 	<p>
 	  <c>erpc:receive_response()</c> will return or raise exceptions the
-	  same way as <seealso marker="#call/5"><c>erpc:call/5</c></seealso>
+	  same way as <seemfa marker="#call/5"><c>erpc:call/5</c></seemfa>
 	  does with the exception of <c>{erpc, badarg}</c>. An
 	  <c>{erpc, badarg}</c> exception will be raised if/when an invalid
 	  <c><anno>RequestId</anno></c> is detected or if an invalid
@@ -586,7 +586,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
       <desc>
 	<p>
 	  The same as calling
-	  <seealso marker="#call/5"><c>erpc:send_request(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seealso>.
+	  <seemfa marker="#call/5"><c>erpc:send_request(<anno>Node</anno>,erlang,apply,[<anno>Fun</anno>,[]])</c></seemfa>.
 	</p>
 	<p><c>erpc:send_request/2</c> fails with an <c>{erpc, badarg}</c>
 	<c>error</c> exception if:</p>
@@ -614,10 +614,10 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	  <c><anno>Node</anno></c>. <c>erpc:send_request()</c>
 	  returns a request identifier that later is to be passed
 	  as argument to either
-	  <seealso marker="#receive_response/1"><c>erpc:receive_response()</c></seealso>,
-	  <seealso marker="#wait_response/1"><c>erpc:wait_response()</c></seealso>,
+	  <seemfa marker="#receive_response/1"><c>erpc:receive_response()</c></seemfa>,
+	  <seemfa marker="#wait_response/1"><c>erpc:wait_response()</c></seemfa>,
 	  or,
-	  <seealso marker="#check_response/2"><c>erpc:check_response()</c></seealso>
+	  <seemfa marker="#check_response/2"><c>erpc:check_response()</c></seemfa>
 	  in order to get the response of the call request.
 	</p>
 	<p><c>erpc:send_request()</c> fails with an <c>{erpc, badarg}</c>
@@ -641,13 +641,13 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	<p>
 	  Wait or poll for a response message to a <c>call</c> request
 	  previously made by the calling process using
-	  <seealso marker="#send_request/4"><c>erpc:send_request/4</c></seealso>.
+	  <seemfa marker="#send_request/4"><c>erpc:send_request/4</c></seemfa>.
 	  <c><anno>RequestId</anno></c> should be the value returned from
 	  the previously made <c>erpc:send_request()</c> call, and the
 	  corresponding response should not already have been received and handled
 	  to completion by
-	  <seealso marker="#check_response/2"><c>erpc:check_response()</c></seealso>,
-	  <seealso marker="#receive_response/2"><c>erpc:receive_response()</c></seealso>,
+	  <seemfa marker="#check_response/2"><c>erpc:check_response()</c></seemfa>,
+	  <seemfa marker="#receive_response/2"><c>erpc:receive_response()</c></seemfa>,
 	  or <c>erpc:wait_response()</c>. <c><anno>WaitTime</anno></c> equals the
 	  time to wait in milliseconds (or the atom <c>infinity</c>) during the wait.
 	  <c><anno>WaitTime</anno></c> is an integer representing time to wait
@@ -672,7 +672,7 @@ my_call(Node, Module, Function, Args, Timeout) ->
 	  corresponds to the value returned from the applied function or an
 	  exception is raised. The exceptions that can be raised corresponds to the
 	  same exceptions as can be raised by
-	  <seealso marker="#call/4"><c>erpc:call/4</c></seealso>.
+	  <seemfa marker="#call/4"><c>erpc:call/4</c></seemfa>.
 	  That is, no <c>{erpc, timeout}</c> <c>error</c> exception can be raised.
 	  <c>erpc:wait_response()</c> will fail with an <c>{erpc, badarg}</c>
 	  exception if/when an invalid <c><anno>RequestId</anno></c> is detected

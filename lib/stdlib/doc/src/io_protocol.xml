@@ -86,7 +86,7 @@
       <item>
         <p><c>ReplyAs</c> can be any datum and is returned in the
           corresponding <c>io_reply</c>. The
-          <seealso marker="stdlib:io"><c>io</c></seealso> module monitors the
+          <seeerl marker="stdlib:io"><c>io</c></seeerl> module monitors the
           the I/O server and uses the monitor reference as the <c>ReplyAs</c>
           datum. A more complicated client can have many outstanding I/O
           requests to the same I/O server and can use different references (or
@@ -142,7 +142,7 @@
       <item>
         <p><c>Module</c>, <c>Function</c>, and <c>Args</c> denote a function
           that is called to produce the data (like
-          <seealso marker="stdlib:io_lib#format/2"><c>io_lib:format/2</c></seealso>).
+          <seemfa marker="stdlib:io_lib#format/2"><c>io_lib:format/2</c></seemfa>).
         </p>
         <p><c>Args</c> is a list of arguments to the function. The function is
           to produce data in the specified <c>Encoding</c>. The I/O server is
@@ -164,7 +164,7 @@ ok
     <list type="bulleted">
       <item><c>Error</c> describes the error to the client, which can do
         whatever it wants with it. The
-        <seealso marker="stdlib:io"><c>io</c></seealso> module typically
+        <seeerl marker="stdlib:io"><c>io</c></seeerl> module typically
         returns it "as is".</item>
     </list>
 
@@ -317,7 +317,7 @@ eof
       <item>
         <p><c>Error</c> describes the error to the client, which can do
           whatever it wants with it. The
-          <seealso marker="stdlib:io"><c>io</c></seealso> module typically
+          <seeerl marker="stdlib:io"><c>io</c></seeerl> module typically
           returns it as is.</p>
       </item>
     </list>
@@ -340,14 +340,14 @@ eof
     <p>Notice that the <c>get_until</c> request allows for a function with the
       data specified as always being a list. Also, the return value data from
       such a function can be of any type (as is indeed the case when an
-      <seealso marker="stdlib:io#fread/2"><c>io:fread/2,3</c></seealso>
+      <seemfa marker="stdlib:io#fread/2"><c>io:fread/2,3</c></seemfa>
       request is sent to an I/O server).
       The client must be prepared for data received as
       answers to those requests to be in various forms. However, the I/O
       server is to convert the results to binaries whenever possible (that is,
       when the function supplied to <c>get_until</c> returns a list). This is
       done in the example in section
-      <seealso marker="#example_io_server">An Annotated and Working Example I/O Server</seealso>.
+      <seeguide marker="#example_io_server">An Annotated and Working Example I/O Server</seeguide>.
     </p>
 
     <p>An I/O server in binary mode affects the data sent to the client, so that
@@ -359,7 +359,7 @@ eof
 
     <list type="bulleted">
       <item><c>Opts</c> is a list of options in the format recognized by the
-          <seealso marker="stdlib:proplists"><c>proplists</c></seealso> module
+          <seeerl marker="stdlib:proplists"><c>proplists</c></seeerl> module
           (and by the I/O server).</item>
     </list>
 
@@ -531,7 +531,7 @@ loop(State) -&gt;
     end.</code>
 
     <p>The main loop receives messages from the client (which can use the
-      the <seealso marker="stdlib:io"><c>io</c></seealso> module to send
+      the <seeerl marker="stdlib:io"><c>io</c></seeerl> module to send
       requests). For each request, the function <c>request/2</c> is called and a
       reply is eventually sent using function <c>reply/3</c>.</p>
 
@@ -569,7 +569,7 @@ request({put_chars, Encoding, Module, Function, Args}, State) -&gt;
    <p>The <c>Encoding</c> says how the characters in the request are
      represented. We want to store the characters as lists in the ETS
      table, so we convert them to lists using function
-     <seealso marker="stdlib:unicode#characters_to_list/2"><c>unicode:characters_to_list/2</c></seealso>.
+     <seemfa marker="stdlib:unicode#characters_to_list/2"><c>unicode:characters_to_list/2</c></seemfa>.
      The conversion function conveniently accepts the encoding types
      <c>unicode</c> and <c>latin1</c>, so we can use <c>Encoding</c> directly.</p>
 
@@ -869,8 +869,8 @@ apply_update(Table, {Row, Col, List}) -&gt;
 
     <p>This concludes the example. It is fully runnable and you can read or
       write to the I/O server by using, for example, the
-      <seealso marker="stdlib:io"><c>io</c></seealso> module or even the
-      <seealso marker="kernel:file"><c>file</c></seealso> module. It is
+      <seeerl marker="stdlib:io"><c>io</c></seeerl> module or even the
+      <seeerl marker="kernel:file"><c>file</c></seeerl> module. It is
       as simple as that to implement a fully fledged I/O server in Erlang.</p>
   </section>
 </chapter>

@@ -43,7 +43,7 @@
     <p>This starts Erlang in its own window, with fully
       functioning command-line editing and scrollbars. All flags
       except <c><![CDATA[-oldshell]]></c> work as they do for
-      <seealso marker="erl"><c>erl(1)</c></seealso>.</p>
+      <seecom marker="erl"><c>erl(1)</c></seecom>.</p>
 
     <list type="bulleted">
       <item>

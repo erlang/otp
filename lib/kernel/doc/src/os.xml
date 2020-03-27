@@ -66,7 +66,7 @@
       <desc>
         <p>A string containing valid characters on the specific
 	OS for environment variable names using
-	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	<seemfa marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seemfa>
 	encoding. Note that specifically null characters (integer
 	value zero) and <c>$=</c> characters are not allowed.
 	However, note that not all invalid characters necessarily
@@ -80,7 +80,7 @@
       <desc>
         <p>A string containing valid characters on the specific
 	OS for environment variable values using
-	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	<seemfa marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seemfa>
 	encoding. Note that specifically null characters (integer
 	value zero) are not allowed. However, note that not all
 	invalid characters necessarily will cause the primitiv
@@ -95,7 +95,7 @@
 	  Assuming that environment variables has been correctly
 	  set, a strings containing valid characters on the specific
 	  OS for environment variable names and values using
-	  <seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	  <seemfa marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seemfa>
 	  encoding. The first <c>$=</c> characters appearing in
 	  the string separates environment variable name (on the
 	  left) from environment variable value (on the right).
@@ -107,11 +107,11 @@
       <desc>
         <p>All characters needs to be valid characters on the
 	specific OS using
-	<seealso marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seealso>
+	<seemfa marker="file#native_name_encoding/0"><c>file:native_name_encoding()</c></seemfa>
 	encoding. Note that specifically null characters (integer
 	value zero) are not allowed. However, note that not all
 	invalid characters not necessarily will cause
-	<seealso marker="#cmd/1"><c>os:cmd/1</c></seealso>
+	<seemfa marker="#cmd/1"><c>os:cmd/1</c></seemfa>
 	to fail, but may instead produce invalid results.
 	</p>
       </desc>
@@ -119,12 +119,12 @@
     <datatype>
       <name name="os_command_opts"/>
       <desc>
-        <p>Options for <seealso marker="#cmd/2"><c>os:cmd/2</c></seealso></p>
+        <p>Options for <seemfa marker="#cmd/2"><c>os:cmd/2</c></seemfa></p>
         <taglist>
           <tag><c>max_size</c></tag>
           <item>
             <p>The maximum size of the data returned by the <c>os:cmd</c> call.
-            See the <seealso marker="#cmd/2"><c>os:cmd/2</c></seealso>
+            See the <seemfa marker="#cmd/2"><c>os:cmd/2</c></seemfa>
             documentation for more details.</p>
           </item>
         </taglist>
@@ -198,8 +198,8 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           the format <c>"VarName=Value"</c>, where <c>VarName</c> is
           the name of the variable and <c>Value</c> its value.</p>
 	<p>If Unicode filename encoding is in effect (see the
-          <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
-	  page</seealso>), the strings can contain characters with
+          <seecom marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	  page</seecom>), the strings can contain characters with
 	  codepoints &gt; 255.</p>
       </desc>
     </func>
@@ -212,8 +212,8 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           <c><anno>VarName</anno></c>, or <c>false</c> if the environment
           variable is undefined.</p>
 	<p>If Unicode filename encoding is in effect (see the
-          <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
-	  page</seealso>), the strings <c><anno>VarName</anno></c> and
+          <seecom marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	  page</seecom>), the strings <c><anno>VarName</anno></c> and
 	  <c><anno>Value</anno></c> can contain characters with
           codepoints &gt; 255.</p>
       </desc>
@@ -227,8 +227,8 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
           <c><anno>VarName</anno></c>, or <c>DefaultValue</c> if the
           environment variable is undefined.</p>
 	<p>If Unicode filename encoding is in effect (see the
-          <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
-	page</seealso>), the strings <c><anno>VarName</anno></c> and
+          <seecom marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	page</seecom>), the strings <c><anno>VarName</anno></c> and
 	<c><anno>Value</anno></c> can contain characters with
         codepoints &gt; 255.</p>
       </desc>
@@ -257,8 +257,8 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
         <p>Sets a new <c><anno>Value</anno></c> for environment variable
           <c><anno>VarName</anno></c>.</p>
 	<p>If Unicode filename encoding is in effect (see the
-          <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
-	  page</seealso>), the strings <c><anno>VarName</anno></c> and
+          <seecom marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	  page</seecom>), the strings <c><anno>VarName</anno></c> and
 	  <c><anno>Value</anno></c> can contain characters with
           codepoints &gt; 255.</p>
 	<p>On Unix platforms, the environment is set using UTF-8 encoding
@@ -296,7 +296,7 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
               <tag><c>handle</c></tag>
               <item>
                   This signal will notify
-                  <seealso marker="kernel_app#erl_signal_server"><c>erl_signal_server</c></seealso>
+                  <seeapp marker="kernel_app#erl_signal_server"><c>erl_signal_server</c></seeapp>
                   when it is received by the Erlang runtime system.
               </item>
           </taglist>
@@ -308,9 +308,9 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       <fsummary>Current OS system time.</fsummary>
       <desc>
 	<p>Returns the current
-	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
+	<seeguide marker="erts:time_correction#OS_System_Time">OS system time</seeguide>
 	in <c>native</c>
-	<seealso marker="erts:erlang#type_time_unit">time unit</seealso>.</p>
+	<seeerl marker="erts:erlang#type_time_unit">time unit</seeerl>.</p>
 	<note><p>This time is <em>not</em> a monotonically increasing time.</p>
         </note>
       </desc>
@@ -321,10 +321,10 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       <fsummary>Current OS system time.</fsummary>
       <desc>
 	<p>Returns the current
-	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
+	<seeguide marker="erts:time_correction#OS_System_Time">OS system time</seeguide>
 	converted into the <c><anno>Unit</anno></c> passed as argument.</p>
 	<p>Calling <c>os:system_time(<anno>Unit</anno>)</c> is equivalent to
-	<seealso marker="erts:erlang#convert_time_unit/3"><c>erlang:convert_time_unit</c></seealso>(<seealso marker="#system_time/0"><c>os:system_time()</c></seealso><c>,
+	<seemfa marker="erts:erlang#convert_time_unit/3"><c>erlang:convert_time_unit</c></seemfa>(<seemfa marker="#system_time/0"><c>os:system_time()</c></seemfa><c>,
 	native, <anno>Unit</anno>)</c>.</p>
 	<note><p>This time is <em>not</em> a monotonically increasing time.</p>
         </note>
@@ -337,12 +337,12 @@ DirOut = os:cmd("dir"), % on Win32 platform</code>
       <type_desc variable="Timestamp">Timestamp = {MegaSecs, Secs, MicroSecs}</type_desc>
       <desc>
       <p>Returns the current
-	<seealso marker="erts:time_correction#OS_System_Time">OS system time</seealso>
+	<seeguide marker="erts:time_correction#OS_System_Time">OS system time</seeguide>
         in the same format as
-        <seealso marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seealso>.
+        <seemfa marker="erts:erlang#timestamp/0"><c>erlang:timestamp/0</c></seemfa>.
 	The tuple can be used together with function
-	<seealso marker="stdlib:calendar#now_to_universal_time/1"><c>calendar:now_to_universal_time/1</c></seealso>
-        or <seealso marker="stdlib:calendar#now_to_local_time/1"><c>calendar:now_to_local_time/1</c></seealso>
+	<seemfa marker="stdlib:calendar#now_to_universal_time/1"><c>calendar:now_to_universal_time/1</c></seemfa>
+        or <seemfa marker="stdlib:calendar#now_to_local_time/1"><c>calendar:now_to_local_time/1</c></seemfa>
         to get calendar time. Using the calendar time, together with the
         <c>MicroSecs</c> part of the return tuple from this function, allows
         you to log time stamps in high resolution and consistent with the
@@ -367,8 +367,8 @@ calendar:now_to_universal_time(TS),
 1> <input>io:format("~s~n",[print_time:format_utc_timestamp()]).</input>
 29 Apr 2009  9:55:30.051711</pre>
        <p>OS system time can also be retreived by
-	<seealso marker="#system_time/0"><c>system_time/0</c></seealso> and
-	<seealso marker="#system_time/1"><c>system_time/1</c></seealso>.</p>
+	<seemfa marker="#system_time/0"><c>system_time/0</c></seemfa> and
+	<seemfa marker="#system_time/1"><c>system_time/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -377,7 +377,7 @@ calendar:now_to_universal_time(TS),
       <fsummary>Returns a performance counter</fsummary>
       <desc>
         <p>Returns the current performance counter value in <c>perf_counter</c>
-	<seealso marker="erts:erlang#type_time_unit">time unit</seealso>.
+	<seeerl marker="erts:erlang#type_time_unit">time unit</seeerl>.
         This is a highly optimized call that might not be traceable.
         </p>
       </desc>
@@ -409,7 +409,7 @@ calendar:now_to_universal_time(TS),
         <p>On Windows, <c><anno>Osname</anno></c> is <c>nt</c>.</p>
         <note>
           <p>Think twice before using this function. Use module
-            <seealso marker="stdlib:filename"><c>filename</c></seealso>
+            <seeerl marker="stdlib:filename"><c>filename</c></seeerl>
             if you want to inspect or build filenames in a portable way.
             Avoid matching on atom <c><anno>Osname</anno></c>.</p>
         </note>
@@ -422,8 +422,8 @@ calendar:now_to_universal_time(TS),
       <desc>
 	<p>Deletes the environment variable <c><anno>VarName</anno></c>.</p>
 	<p>If Unicode filename encoding is in effect (see the
-        <seealso marker="erts:erl#file_name_encoding"><c>erl</c> manual
-	page</seealso>), the string <c><anno>VarName</anno></c> can
+        <seecom marker="erts:erl#file_name_encoding"><c>erl</c> manual
+	page</seecom>), the string <c><anno>VarName</anno></c> can
 	contain characters with codepoints &gt; 255.</p>
       </desc>
     </func>

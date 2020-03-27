@@ -33,7 +33,7 @@
       Secure Shell Protocol (SSH) as defined by RFC 4250 - 4254.</p>
 
   </description>
-  <xi:include href="ssh_app.xml"/>
+  <xi:include href="SSH_app.xml"/>
   <xi:include href="ssh.xml"/>
   <xi:include href="ssh_client_channel.xml"/>
   <xi:include href="ssh_server_channel.xml"/>

@@ -102,18 +102,18 @@
       </item>
       <item><em>Step 2:</em> A new empty schema is initialized on the local
        node by evaluating
-       <seealso marker="mnesia#create_schema/1">mnesia:create_schema([node()])</seealso>.
+       <seemfa marker="mnesia#create_schema/1">mnesia:create_schema([node()])</seemfa>.
        The schema contains information about the database in general.
        This is explained in detail later.
       </item>
       <item><em>Step 3:</em> The DBMS is started by evaluating
-       <seealso marker="mnesia#start/0">mnesia:start()</seealso>.
+       <seemfa marker="mnesia#start/0">mnesia:start()</seemfa>.
       </item>
       <item><em>Step 4:</em> A first table is created, called <c>funky</c>,
        by evaluating the expression <c>mnesia:create_table(funky, [])</c>.
        The table is given default properties.
       </item>
-      <item><em>Step 5:</em> <seealso marker="mnesia#info/0">mnesia:info()</seealso>
+      <item><em>Step 5:</em> <seemfa marker="mnesia#info/0">mnesia:info()</seemfa>
        is evaluated to
        display information on the terminal about the status of the database.
       </item>
@@ -163,11 +163,11 @@
       <codeinclude file="company.hrl" tag="%0" type="erl"></codeinclude>
       <p>The structure defines six tables in the database. In <c>Mnesia</c>,
         the function
-        <seealso marker="mnesia#create_table/2">mnesia:create_table(Name, ArgList)</seealso>
+        <seemfa marker="mnesia#create_table/2">mnesia:create_table(Name, ArgList)</seemfa>
         creates tables. <c>Name</c> is the table name.</p>
         <note><p>The current version of <c>Mnesia</c> does not require that
         the name of the table is the same as the record name, see
-        <seealso marker="Mnesia_chap4#recordnames_tablenames">Record Names versus Table Names.</seealso>.</p></note>
+        <seeguide marker="Mnesia_chap4#recordnames_tablenames">Record Names versus Table Names.</seeguide>.</p></note>
       <p>For example, the table for employees is created with the
         function <c>mnesia:create_table(employee,
         [{attributes, record_info(fields, employee)}])</c>. The table
@@ -209,16 +209,16 @@
          further input with the prompt <c>1></c>.
         </item>
         <item>
-        <seealso marker="mnesia#create_schema/1">mnesia:create_schema([node()])</seealso>.
+        <seemfa marker="mnesia#create_schema/1">mnesia:create_schema([node()])</seemfa>.
          This function
          has the format <c>mnesia:create_schema(DiscNodeList)</c> and
          initiates a new schema. In this example, a non-distributed system
          using only one node is created. Schemas are fully explained in
-         <seealso marker="Mnesia_chap3#def_schema">Define a Schema</seealso>.
+         <seeguide marker="Mnesia_chap3#def_schema">Define a Schema</seeguide>.
         </item>
-        <item><seealso marker="mnesia#start/0">mnesia:start()</seealso>.
+        <item><seemfa marker="mnesia#start/0">mnesia:start()</seemfa>.
          This function starts <c>Mnesia</c> and is fully explained in
-         <seealso marker="Mnesia_chap3#start_mnesia">Start Mnesia</seealso>.
+         <seeguide marker="Mnesia_chap3#start_mnesia">Start Mnesia</seeguide>.
         </item>
       </list>
       <p>Continuing the dialogue with the Erlang shell produces the
@@ -259,10 +259,10 @@
         ok
       ]]></pre>
       <p>A set of tables is created. The function
-        <seealso marker="mnesia#create_table/2">mnesia:create_table(Name, ArgList)</seealso>
+        <seemfa marker="mnesia#create_table/2">mnesia:create_table(Name, ArgList)</seemfa>
         creates the required database tables. The
         options available with <c>ArgList</c> are explained in
-        <seealso marker="Mnesia_chap3#create_tables">Create New Tables</seealso>.</p>
+        <seeguide marker="Mnesia_chap3#create_tables">Create New Tables</seeguide>.</p>
       <p>The function <c>company:init/0</c> creates the tables. Two tables
         are of type <c>bag</c>. This is the <c>manager</c> relation as well
         the <c>in_proj</c> relation. This is interpreted as: an
@@ -271,7 +271,7 @@
         relation is <c>set</c>, as an employee can only work in one department.
         In this data model, there are examples of relations that are 1-to-1
         (<c>set</c>) and  1-to-many (<c>bag</c>).</p>
-      <p><seealso marker="mnesia#info/0">mnesia:info()</seealso>
+      <p><seemfa marker="mnesia#info/0">mnesia:info()</seemfa>
         now indicates that a database has seven
         local tables, where six are the user-defined tables and one is
         the schema. Six transactions have been committed, as six successful
@@ -298,7 +298,7 @@
       <p>The function <c>insert_emp/3</c> creates a Functional Object (Fun).
         <c>Fun</c> is passed
         as a single argument to the function
-        <seealso marker="mnesia#transaction/2">mnesia:transaction(Fun)</seealso>.
+        <seemfa marker="mnesia#transaction/2">mnesia:transaction(Fun)</seemfa>.
         This means that <c>Fun</c> is
         run as a transaction with the following properties:</p>
       <list type="bulleted">
@@ -490,12 +490,12 @@
       <title>Writing Queries</title>
       <p>Retrieving data from DBMS is usually to be done with the
         functions
-        <seealso marker="mnesia#read/3">mnesia:read/3</seealso> or
-        <seealso marker="mnesia#read/2">mnesia:read/1</seealso>.
+        <seemfa marker="mnesia#read/3">mnesia:read/3</seemfa> or
+        <seemfa marker="mnesia#read/2">mnesia:read/1</seemfa>.
         The following function raises the salary:</p>
       <codeinclude file="company.erl" tag="%5" type="erl"></codeinclude>
       <p>Since it is desired to update the record using the function
-        <seealso marker="mnesia#write/1">mnesia:write/1</seealso>
+        <seemfa marker="mnesia#write/1">mnesia:write/1</seemfa>
         after the salary has been increased, a write
         lock (third argument to <c>read</c>) is acquired when the record from
         the table is read.</p>
@@ -528,7 +528,7 @@ mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1
           (klacke@gin)1> <input>company:all_females().</input>
           {atomic,  ["Carlsson Tuula", "Fedoriw Anna"]}</pre>
         <p>For a description of <c>select</c> and its syntax, see
-          <seealso marker="Mnesia_chap4#matching">Pattern Matching</seealso>.
+          <seeguide marker="Mnesia_chap4#matching">Pattern Matching</seeguide>.
 	</p>
       </section>
 
@@ -536,7 +536,7 @@ mnesia:select(employee, [{#employee{sex = female, name = '$1', _ = '_'},[], ['$1
         <title>Using QLC </title>
         <p>This section contains simple introductory examples only. For
           a full description of the QLC query language, see the
-          <seealso marker="stdlib:qlc">qlc</seealso> manual page in
+          <seeerl marker="stdlib:qlc">qlc</seeerl> manual page in
           <c>STDLIB</c>.</p>
         <p>Using QLC can be more expensive than using <c>Mnesia</c>
           functions directly but offers a nice syntax.</p>

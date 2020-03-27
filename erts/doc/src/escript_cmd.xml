@@ -110,8 +110,8 @@ $ <input>escript factorial 5</input></pre>
           enter the major mode for editing Erlang source files. If the
           directive is present, it must be located on the second
           line.</p>
-        <p>If a comment selecting the <seealso
-          marker="stdlib:epp#encoding">encoding</seealso> exists, it can be
+        <p>If a comment selecting the <seeerl
+          marker="stdlib:epp#encoding">encoding</seeerl> exists, it can be
           located on the second line.</p>
         <note>
           <p>The encoding specified by the above mentioned comment
@@ -122,8 +122,8 @@ io:setopts([{encoding, unicode}])</code>
           <p>The default encoding of the I/O-server for <c>standard_io</c>
             is <c>latin1</c>, as the script runs in a non-interactive terminal
             (see section
-            <seealso marker="stdlib:unicode_usage#unicode_options_summary">
-            Summary of Options</seealso>) in the STDLIB User's Guide.</p>
+            <seeguide marker="stdlib:unicode_usage#unicode_options_summary">
+            Summary of Options</seeguide>) in the STDLIB User's Guide.</p>
         </note>
         <p>On the third line (or second line depending on the presence
           of the Emacs directive), arguments can be specified to
@@ -157,22 +157,22 @@ io:setopts([{encoding, unicode}])</code>
 halt(1).</pre>
         <p>
 	  To retrieve the pathname of the script, call
-	  <seealso marker="#script_name-0">
+	  <seecom marker="#script_name-0">
 	    <c>escript:script_name()</c>
-	  </seealso>
+	  </seecom>
 	  from your script
 	  (the pathname is usually, but not always, absolute).</p>
         <p>If the file contains source code (as in the example above),
           it is processed by the
-          <seealso marker="stdlib:epp"><c>epp</c></seealso> preprocessor.
+          <seeerl marker="stdlib:epp"><c>epp</c></seeerl> preprocessor.
           This means that you, for example, can use predefined macros
           (such as <c>?MODULE</c>) and include directives like
           the <c>-include_lib</c> directive. For example, use</p>
         <pre>
 -include_lib("kernel/include/file.hrl").</pre>
         <p>to include the record definitions for the records used by function
-          <seealso marker="kernel:file#read_link_info/1">
-          <c>file:read_link_info/1</c></seealso>. You can also select
+          <seemfa marker="kernel:file#read_link_info/1">
+          <c>file:read_link_info/1</c></seemfa>. You can also select
           encoding by including an encoding comment here, but if
           a valid encoding comment exists on the second line, it takes
           precedence.</p>
@@ -218,7 +218,7 @@ halt(1).</pre>
           as one of the emulator flags. <c>Module</c> must be the
           name of a module that has an exported <c>main/1</c>
           function. For more information about archives and code loading, see
-          <seealso marker="kernel:code"><c>code(3)</c></seealso>.</p>
+          <seeerl marker="kernel:code"><c>code(3)</c></seeerl>.</p>
         <p>It is often very convenient to have a header in
           the escript, especially on Unix platforms. However, the header
           is optional, so you directly can "execute"
@@ -253,14 +253,14 @@ factorial 5 = 120</pre>
         &nbsp;&nbsp;&nbsp;| {archive, ZipArchive}
         &nbsp;&nbsp;&nbsp;| {archive, ZipFiles, ZipOptions}</v>
         <v>SourceCode = BeamCode = file:filename() | binary()</v>
-        <v>ZipArchive = <seealso marker="stdlib:zip#type-filename">
-          zip:filename()</seealso> | binary()</v>
+        <v>ZipArchive = <seetype marker="stdlib:zip#filename">
+          zip:filename()</seetype> | binary()</v>
         <v>ZipFiles = [ZipFile]</v>
         <v>ZipFile = file:filename()
         &nbsp;&nbsp;&nbsp;| {file:filename(), binary()}
         &nbsp;&nbsp;&nbsp;| {file:filename(), binary(), file:file_info()}</v>
-        <v>ZipOptions = [<seealso marker="stdlib:zip#type-create_option">
-          zip:create_option()</seealso>]</v>
+        <v>ZipOptions = [<seetype marker="stdlib:zip#create_option">
+          zip:create_option()</seetype>]</v>
       </type>
       <desc>
         <p>
@@ -376,7 +376,7 @@ ok
         <p>
 	  Parses an escript and extracts its sections.
 	  This is the reverse of
-	  <seealso marker="#create-2"><c>create/2</c></seealso>.
+	  <seecom marker="#create-2"><c>create/2</c></seecom>.
 	</p>
         <p>All sections are returned even if they do not exist in the
           escript. If a particular section happens to have the same

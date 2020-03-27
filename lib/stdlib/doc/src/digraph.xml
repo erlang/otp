@@ -39,13 +39,13 @@
     directed graphs ("digraphs").</p>
 
     <p>The digraphs managed by this module are stored in
-    <seealso marker="ets">ETS tables</seealso>.
+    <seeerl marker="ets">ETS tables</seeerl>.
     That implies the following:</p>
 
     <list type="bulleted">
       <item><p>Only the process that created the digraph is allowed to update it.</p></item>
       <item><p>Digraphs will not be garbage collected. The ETS tables used for a
-      digraph will only be deleted when <seealso marker="#delete/1"><c>delete/1</c></seealso>
+      digraph will only be deleted when <seemfa marker="#delete/1"><c>delete/1</c></seemfa>
       is called or the process that created the digraph terminates.</p></item>
       <item><p>A digraph is a mutable data structure.</p></item>
     </list>
@@ -142,7 +142,7 @@
     <datatype>
       <name name="graph"/>
       <desc><p>A digraph as returned by
-        <seealso marker="#new/0"><c>new/0,1</c></seealso>.</p></desc>
+        <seemfa marker="#new/0"><c>new/0,1</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name>edge()</name>
@@ -165,10 +165,10 @@
       <desc>
         <p><c>add_edge/5</c> creates (or modifies) edge <c><anno>E</anno></c>
           of digraph <c><anno>G</anno></c>, using <c><anno>Label</anno></c> as
-          the (new) <seealso marker="#label">label</seealso> of the edge. The
-          edge is <seealso marker="#emanate">emanating</seealso> from
+          the (new) <seeerl marker="#label">label</seeerl> of the edge. The
+          edge is <seeerl marker="#emanate">emanating</seeerl> from
           <c><anno>V1</anno></c> and
-          <seealso marker="#incident">incident</seealso>
+          <seeerl marker="#incident">incident</seeerl>
           on <c><anno>V2</anno></c>. Returns <c><anno>E</anno></c>.</p>
         <p><c>add_edge(<anno>G</anno>,&nbsp;<anno>V1</anno>,&nbsp;<anno>V2</anno>,&nbsp;<anno>Label</anno>)</c>
           is equivalent to
@@ -181,7 +181,7 @@
           <c>add_edge(<anno>G</anno>,&nbsp;<anno>V1</anno>,&nbsp;<anno>V2</anno>,&nbsp;[])</c>.
         </p>
         <p>If the edge would create a cycle in
-          an <seealso marker="#acyclic_digraph">acyclic digraph</seealso>,
+          an <seeerl marker="#acyclic_digraph">acyclic digraph</seeerl>,
           <c>{error,&nbsp;{bad_edge,&nbsp;<anno>Path</anno>}}</c> is returned.
           If <c><anno>G</anno></c> already has an edge with value
           <c><anno>E</anno></c> connecting a different pair of vertices,
@@ -204,7 +204,7 @@
         <p><c>add_vertex/3</c> creates (or modifies) vertex
           <c><anno>V</anno></c> of digraph <c><anno>G</anno></c>, using
           <c><anno>Label</anno></c> as the (new)
-          <seealso marker="#label">label</seealso> of the
+          <seeerl marker="#label">label</seeerl> of the
           vertex. Returns <c><anno>V</anno></c>.</p>
         <p><c>add_vertex(<anno>G</anno>,&nbsp;<anno>V</anno>)</c> is equivalent
           to <c>add_vertex(<anno>G</anno>,&nbsp;<anno>V</anno>,&nbsp;[])</c>.
@@ -239,20 +239,20 @@
       <fsummary>Delete paths from a digraph.</fsummary>
       <desc>
         <p>Deletes edges from digraph <c><anno>G</anno></c> until there are no
-          <seealso marker="#path">paths</seealso> from vertex
+          <seeerl marker="#path">paths</seeerl> from vertex
           <c><anno>V1</anno></c> to vertex <c><anno>V2</anno></c>.</p>
         <p>A sketch of the procedure employed:</p>
         <list type="bulleted">
           <item>
             <p>Find an arbitrary
-              <seealso marker="#simple_path">simple path</seealso>
+              <seeerl marker="#simple_path">simple path</seeerl>
               v[1],&nbsp;v[2],&nbsp;...,&nbsp;v[k] from <c><anno>V1</anno></c>
               to <c><anno>V2</anno></c> in <c><anno>G</anno></c>.</p>
           </item>
           <item>
             <p>Remove all edges of <c><anno>G</anno></c>
-              <seealso marker="#emanate">emanating</seealso> from v[i] and
-              <seealso marker="#incident">incident</seealso> to v[i+1] for
+              <seeerl marker="#emanate">emanating</seeerl> from v[i] and
+              <seeerl marker="#incident">incident</seeerl> to v[i+1] for
               1&nbsp;&lt;=&nbsp;i&nbsp;&lt;&nbsp;k (including multiple
               edges).</p>
           </item>
@@ -270,9 +270,9 @@
       <desc>
         <p>Deletes vertex <c><anno>V</anno></c> from digraph
           <c><anno>G</anno></c>. Any edges
-          <seealso marker="#emanate">emanating</seealso> from
+          <seeerl marker="#emanate">emanating</seeerl> from
           <c><anno>V</anno></c> or
-          <seealso marker="#incident">incident</seealso>
+          <seeerl marker="#incident">incident</seeerl>
           on <c><anno>V</anno></c> are also deleted.</p>
       </desc>
     </func>
@@ -305,10 +305,10 @@
         <p>Returns
           <c>{<anno>E</anno>,&nbsp;<anno>V1</anno>,&nbsp;<anno>V2</anno>,&nbsp;<anno>Label</anno>}</c>,
           where <c><anno>Label</anno></c> is the
-          <seealso marker="#label">label</seealso> of edge
-	  <c><anno>E</anno></c> <seealso marker="#emanate">emanating</seealso>
+          <seeerl marker="#label">label</seeerl> of edge
+	  <c><anno>E</anno></c> <seeerl marker="#emanate">emanating</seeerl>
           from <c><anno>V1</anno></c> and
-          <seealso marker="#incident">incident</seealso> on
+          <seeerl marker="#incident">incident</seeerl> on
           <c><anno>V2</anno></c> of digraph <c><anno>G</anno></c>.
 	  If no edge <c><anno>E</anno></c> of
           digraph <c><anno>G</anno></c> exists, <c>false</c> is returned.</p>
@@ -330,8 +330,8 @@
         a digraph.</fsummary>
       <desc>
         <p>Returns a list of all
-        edges <seealso marker="#emanate">emanating</seealso> from or 
-        <seealso marker="#incident">incident</seealso> on<c><anno>V</anno></c>
+        edges <seeerl marker="#emanate">emanating</seeerl> from or 
+        <seeerl marker="#incident">incident</seeerl> on<c><anno>V</anno></c>
         of digraph <c><anno>G</anno></c>, in some unspecified order.</p>
       </desc>
     </func>
@@ -340,15 +340,15 @@
       <name name="get_cycle" arity="2" since=""/>
       <fsummary>Find one cycle in a digraph.</fsummary>
       <desc>
-        <p>If a <seealso marker="#simple_cycle">simple cycle</seealso> of
+        <p>If a <seeerl marker="#simple_cycle">simple cycle</seeerl> of
           length two or more exists through vertex <c><anno>V</anno></c>, the
           cycle is returned as a list
           <c>[<anno>V</anno>,&nbsp;...,&nbsp;<anno>V</anno>]</c> of vertices.
-          If a <seealso marker="#loop">loop</seealso> through
+          If a <seeerl marker="#loop">loop</seeerl> through
           <c><anno>V</anno></c> exists, the loop is returned as a list
           <c>[<anno>V</anno>]</c>. If no cycles through
           <c><anno>V</anno></c> exist, <c>false</c> is returned.</p>
-        <p><seealso marker="#get_path/3"><c>get_path/3</c></seealso> is used
+        <p><seemfa marker="#get_path/3"><c>get_path/3</c></seemfa> is used
           for finding a simple cycle through <c><anno>V</anno></c>.</p>
       </desc>
     </func>
@@ -358,7 +358,7 @@
       <fsummary>Find one path in a digraph.</fsummary>
       <desc>
         <p>Tries to find
-          a <seealso marker="#simple_path">simple path</seealso> from vertex 
+          a <seeerl marker="#simple_path">simple path</seeerl> from vertex 
           <c><anno>V1</anno></c> to vertex <c><anno>V2</anno></c> of digraph
           <c><anno>G</anno></c>. Returns the path as a list
           <c>[<anno>V1</anno>,&nbsp;...,&nbsp;<anno>V2</anno>]</c> of vertices,
@@ -374,15 +374,15 @@
       <fsummary>Find one short cycle in a digraph.</fsummary>
       <desc>
         <p>Tries to find an as short as possible
-          <seealso marker="#simple_cycle">simple cycle</seealso> through
+          <seeerl marker="#simple_cycle">simple cycle</seeerl> through
           vertex <c><anno>V</anno></c> of digraph <c>G</c>. Returns the cycle
           as a list <c>[<anno>V</anno>,&nbsp;...,&nbsp;<anno>V</anno>]</c>
           of vertices, or
           <c>false</c> if no simple cycle through <c><anno>V</anno></c> exists.
-          Notice that a <seealso marker="#loop">loop</seealso> through
+          Notice that a <seeerl marker="#loop">loop</seeerl> through
           <c><anno>V</anno></c> is returned as list
           <c>[<anno>V</anno>,&nbsp;<anno>V</anno>]</c>.</p>
-        <p><seealso marker="#get_short_path/3"><c>get_short_path/3</c></seealso>
+        <p><seemfa marker="#get_short_path/3"><c>get_short_path/3</c></seemfa>
           is used for finding a simple cycle through <c><anno>V</anno></c>.</p>
       </desc>
     </func>
@@ -392,7 +392,7 @@
       <fsummary>Find one short path in a digraph.</fsummary>
       <desc>
         <p>Tries to find an as short as possible
-          <seealso marker="#simple_path">simple path</seealso> from vertex
+          <seeerl marker="#simple_path">simple path</seeerl> from vertex
           <c><anno>V1</anno></c> to vertex <c><anno>V2</anno></c> of digraph
           <c><anno>G</anno></c>. Returns the path as a list
           <c>[<anno>V1</anno>,&nbsp;...,&nbsp;<anno>V2</anno>]</c> of
@@ -408,7 +408,7 @@
       <name name="in_degree" arity="2" since=""/>
       <fsummary>Return the in-degree of a vertex of a digraph.</fsummary>
       <desc>
-        <p>Returns the <seealso marker="#in_degree">in-degree</seealso> of
+        <p>Returns the <seeerl marker="#in_degree">in-degree</seeerl> of
           vertex <c><anno>V</anno></c> of digraph <c><anno>G</anno></c>.</p>
       </desc>
     </func>
@@ -418,7 +418,7 @@
       <fsummary>Return all edges incident on a vertex of a digraph.</fsummary>
       <desc>
         <p>Returns a list of all
-          edges <seealso marker="#incident">incident</seealso> on
+          edges <seeerl marker="#incident">incident</seeerl> on
           <c><anno>V</anno></c> of digraph <c><anno>G</anno></c>,
           in some unspecified order.</p>
       </desc>
@@ -429,7 +429,7 @@
       <fsummary>Return all in-neighbors of a vertex of  a digraph.</fsummary>
       <desc>
         <p>Returns a list of
-          all <seealso marker="#in_neighbour">in-neighbors</seealso> of 
+          all <seeerl marker="#in_neighbour">in-neighbors</seeerl> of 
           <c><anno>V</anno></c> of digraph <c><anno>G</anno></c>,
           in some unspecified order.</p>
       </desc>
@@ -483,15 +483,15 @@
       <type name="d_protection"/>
       <desc>
         <p>Returns
-          an <seealso marker="#empty_digraph">empty digraph</seealso> with 
+          an <seeerl marker="#empty_digraph">empty digraph</seeerl> with 
           properties according to the options in <c><anno>Type</anno></c>:</p>
         <taglist>
           <tag><c>cyclic</c></tag>
-          <item><p>Allows <seealso marker="#cycle">cycles</seealso> in the
+          <item><p>Allows <seeerl marker="#cycle">cycles</seeerl> in the
             digraph (default).</p></item>
           <tag><c>acyclic</c></tag>
           <item><p>The digraph is to be kept
-          <seealso marker="#acyclic_digraph">acyclic</seealso>.</p></item>
+          <seeerl marker="#acyclic_digraph">acyclic</seeerl>.</p></item>
           <tag><c>protected</c></tag>
           <item><p>Other processes can read the digraph (default).</p></item>
           <tag><c>private</c></tag>
@@ -524,7 +524,7 @@
       <name name="out_degree" arity="2" since=""/>
       <fsummary>Return the out-degree of a vertex of a digraph.</fsummary>
       <desc>
-        <p>Returns the <seealso marker="#out_degree">out-degree</seealso> of
+        <p>Returns the <seeerl marker="#out_degree">out-degree</seeerl> of
           vertex <c><anno>V</anno></c> of digraph <c><anno>G</anno></c>.</p>
       </desc>
     </func>
@@ -535,7 +535,7 @@
       </fsummary>
       <desc>
         <p>Returns a list of all
-          edges <seealso marker="#emanate">emanating</seealso> from
+          edges <seeerl marker="#emanate">emanating</seeerl> from
           <c><anno>V</anno></c> of digraph <c><anno>G</anno></c>,
           in some unspecified order.</p>
       </desc>
@@ -546,7 +546,7 @@
       <fsummary>Return all out-neighbors of a vertex of a digraph.</fsummary>
       <desc>
         <p>Returns a list of 
-          all <seealso marker="#out_neighbour">out-neighbors</seealso> of 
+          all <seeerl marker="#out_neighbour">out-neighbors</seeerl> of 
           <c><anno>V</anno></c> of digraph <c><anno>G</anno></c>,
           in some unspecified order.</p>
       </desc>
@@ -558,7 +558,7 @@
       <desc>
         <p>Returns <c>{<anno>V</anno>,&nbsp;<anno>Label</anno>}</c>,
           where <c><anno>Label</anno></c> is the
-          <seealso marker="#label">label</seealso> of the vertex
+          <seeerl marker="#label">label</seeerl> of the vertex
           <c><anno>V</anno></c> of digraph <c><anno>G</anno></c>,
           or <c>false</c> if no vertex <c><anno>V</anno></c>
           of digraph <c><anno>G</anno></c> exists.</p>
@@ -577,8 +577,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="digraph_utils"><c>digraph_utils(3)</c></seealso>,
-      <seealso marker="ets"><c>ets(3)</c></seealso></p>
+    <p><seeerl marker="digraph_utils"><c>digraph_utils(3)</c></seeerl>,
+      <seeerl marker="ets"><c>ets(3)</c></seeerl></p>
   </section>
 </erlref>
 

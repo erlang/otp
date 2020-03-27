@@ -92,8 +92,8 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="erl_interface:index">erl_interface(3)</seealso>,
-      <seealso marker="mnesia:mnesia">mnesia(3)</seealso></p>
+    <p><seeapp marker="erl_interface:index">erl_interface(3)</seeapp>,
+      <seeerl marker="mnesia:mnesia">mnesia(3)</seeerl></p>
   </section>
 
 </erlref>

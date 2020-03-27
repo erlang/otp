@@ -45,7 +45,7 @@ XML_REF3_FILES = \
 	ssh_sftp.xml \
 	ssh_sftpd.xml \
 
-XML_REF6_FILES = ssh_app.xml
+XML_REF6_FILES = SSH_app.xml
 
 XML_PART_FILES = usersguide.xml
 

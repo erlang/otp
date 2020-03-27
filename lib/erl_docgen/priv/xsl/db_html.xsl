@@ -682,7 +682,7 @@
   </xsl:template>
 
   <!-- Does not look at @n_vars -->
-  <xsl:template match="seealso" mode="local_type">
+  <xsl:template match="node()[starts-with(name(), 'see')]" mode="local_type">
     <xsl:param name="local_types"/>
     <xsl:param name="global_types"/>
 
@@ -693,10 +693,10 @@
       <xsl:when test="string-length($filepart) > 0">
         <xsl:call-template name="seealso"/>
       </xsl:when>
-      <xsl:when test="count($local_types[concat('type-', @name) = $linkpart]) = 0">
+      <xsl:when test="count($local_types[@name = $linkpart]) = 0">
         <xsl:call-template name="seealso"/>
       </xsl:when>
-      <xsl:when test="count($global_types/datatype/name[concat('type-', @name) = $linkpart]) > 0">
+      <xsl:when test="count($global_types/datatype/name[@name = $linkpart]) > 0">
         <!-- The type is both local and global; link to the global type -->
         <xsl:call-template name="seealso"/>
       </xsl:when>
@@ -993,7 +993,7 @@
  <xsl:template match="header"/>
 
  <!-- Section/Title -->
- <xsl:template match="section/title"/>
+ <xsl:template match="section/title|fsdescription/title"/>
 
  <xsl:template match="pagetext"/>
 
@@ -1052,7 +1052,7 @@
   </xsl:template>
 
   <!-- *ref/Section -->
-  <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section">
+  <xsl:template match="erlref/section|cref/section|comref/section|fileref/section|appref/section|funcs/fsdescription">
     <xsl:param name="chapnum"/>
     <h3>
       <xsl:for-each select="marker">
@@ -2158,14 +2158,18 @@
   <xsl:template match="funcs">
     <xsl:param name="partnum"/>
 
+    <xsl:apply-templates select="fsdescription">
+      <xsl:with-param name="partnum" select="$partnum"/>
+    </xsl:apply-templates>
+
     <xsl:call-template name="h3_title_link">
       <xsl:with-param name="title">Exports</xsl:with-param>
     </xsl:call-template>
 
     <div class="exports-body">
-        <xsl:apply-templates>
-            <xsl:with-param name="partnum" select="$partnum"/>
-        </xsl:apply-templates>
+      <xsl:apply-templates select="func">
+        <xsl:with-param name="partnum" select="$partnum"/>
+      </xsl:apply-templates>
     </div>
 
   </xsl:template>
@@ -2428,22 +2432,83 @@
     <span class="bold_code bc-12"><xsl:apply-templates/></span>
   </xsl:template>
 
-  <xsl:template match="seealso">
+  <xsl:template match="node()[starts-with(name(), 'see')]">
     <xsl:call-template name="seealso"/>
   </xsl:template>
 
   <xsl:template name="seealso">
-    <xsl:variable name="filepart"><xsl:value-of select="substring-before(@marker, '#')"/></xsl:variable>
-    <xsl:variable name="linkpart"><xsl:value-of select="translate(substring-after(@marker, '#'), '/', '-')"/></xsl:variable>
+
+    <xsl:variable name="app_part">
+      <xsl:variable name="base">
+        <xsl:value-of select="substring-before(substring-before(concat(@marker,'#'), '#'),':')"/>
+      </xsl:variable>
+      <xsl:choose>
+        <xsl:when test="starts-with($base,'system/')">
+          <xsl:text>doc/</xsl:text>
+          <xsl:value-of select="substring-after($base,'/')"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="$base"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
+    <xsl:variable name="mod_part">
+      <xsl:variable name="filepart">
+        <!-- Get everything before the first #. We concat a # so that if there
+             is no # we will get the entire string -->
+        <xsl:value-of select="substring-before(concat(@marker,'#'), '#')"/>
+      </xsl:variable>
+      <xsl:variable name="base">
+        <!-- Remove the app part of there is any -->
+        <xsl:choose>
+          <xsl:when test="string-length($app_part) > 0">
+            <xsl:value-of select="substring-after($filepart, ':')"/>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:value-of select="$filepart"/>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:variable>
+      <xsl:choose>
+        <!-- If this is a <seeguide> and name is index then we change it to users_guide -->
+        <xsl:when test="node()[starts-with(name(parent::*), 'seeguide')] and $base = 'index'">
+          <xsl:text>users_guide</xsl:text>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="$base"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
+    <xsl:variable name="linkpart">
+      <xsl:variable name="base">
+        <xsl:value-of select="substring-after(@marker, '#')"/>
+      </xsl:variable>
+      <xsl:choose>
+        <!-- If this is a <seetype> we prepend type- to the anchor -->
+        <xsl:when test="node()[starts-with(name(parent::*), 'seetype')]">
+          <xsl:text>type-</xsl:text><xsl:value-of select="$base"/>
+        </xsl:when>
+        <xsl:when test="node()[starts-with(name(parent::*), 'seemfa')]">
+          <xsl:value-of select="translate($base, '/', '-')"/>
+        </xsl:when>
+        <xsl:otherwise>
+          <xsl:value-of select="$base"/>
+        </xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
 
     <xsl:choose>
-      <xsl:when test="string-length($filepart) > 0">
+      <xsl:when test="starts-with(@marker,'#')">
+	<!-- "#Linkpart" -->
+	<span class="bold_code bc-17"><a href="#{$linkpart}"><xsl:apply-templates/></a></span>
+      </xsl:when>
+      <xsl:when test="contains(@marker,'#')">
         <!-- "Filepart#Linkpart" (or "Filepart#") -->
-        <xsl:variable name="app_part"><xsl:value-of select="substring-before($filepart, ':')"/></xsl:variable>
         <xsl:choose>
           <xsl:when test="string-length($app_part) > 0">
             <!-- "AppPart:ModPart#Linkpart" -->
-            <xsl:variable name="mod_part"><xsl:value-of select="substring-after($filepart, ':')"/></xsl:variable>
             <span class="bold_code bc-13"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}.html#{$linkpart}');"><xsl:apply-templates/></a></span>
           </xsl:when>
           <xsl:otherwise>
@@ -2453,7 +2518,7 @@
             <xsl:choose>
               <xsl:when test="$minus_prefix = 'type'
                               and string-length($specs_file) > 0
-                              and count($i/specs/module[@name=$filepart]) = 0">
+                              and count($i/specs/module[@name=$mod_part]) = 0">
                 <!-- Dialyzer seealso (the application is unknown) -->
                 <!-- Following code deemed too slow; use key() instead
 		<xsl:variable name="app"
@@ -2461,49 +2526,45 @@
                 -->
                 <xsl:variable name="this" select="."/>
                 <xsl:for-each select="$m2a">
-                  <xsl:variable name="app" select="key('mod2app', $filepart)"/>
+                  <xsl:variable name="app" select="key('mod2app', $mod_part)"/>
 		  <xsl:choose>
 		    <xsl:when test="string-length($app) > 0">
-		      <span class="bold_code bc-14"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$filepart}.html#{$linkpart}');"><xsl:value-of select="$this"/></a></span>
+		      <span class="bold_code bc-14"><a href="javascript:erlhref('{$topdocdir}/../','{$app}','{$mod_part}.html#{$linkpart}');"><xsl:value-of select="$this"/></a></span>
 		    </xsl:when>
 		    <xsl:otherwise>
 		      <!-- Unknown application -->
 		      <xsl:message terminate="yes">
-			Error <xsl:value-of select="$filepart"/>: cannot find module exporting type
+			Error <xsl:value-of select="$mod_part"/>: cannot find module exporting type
+                        <xsl:value-of select="$app_part"/> - 
+                        <xsl:value-of select="$linkpart"/>
 		      </xsl:message>
 		    </xsl:otherwise>
 		  </xsl:choose>
                 </xsl:for-each>
               </xsl:when>
               <xsl:when test="string-length($linkpart) > 0">
-                <!-- Still Filepart#Linkpart (there is no ':' in Filepart -->
-                <span class="bold_code bc-15"><a href="{$filepart}.html#{$linkpart}"><xsl:apply-templates/></a></span>
+                <!-- Still Filepart#Linkpart (there is no ':' in Filepart) -->
+                <span class="bold_code bc-15"><a href="{$mod_part}.html#{$linkpart}"><xsl:apply-templates/></a></span>
               </xsl:when>
               <xsl:otherwise>
-                <!-- "Filepart#" (there is no ':' in Filepart -->
-                <span class="bold_code bc-16"><a href="{$filepart}.html"><xsl:apply-templates/></a></span>
+                <!-- "Filepart#" (there is no ':' in Filepart) -->
+                <span class="bold_code bc-16"><a href="{$mod_part}.html"><xsl:apply-templates/></a></span>
               </xsl:otherwise>
             </xsl:choose>
           </xsl:otherwise>
         </xsl:choose>
-      </xsl:when> <!-- string-length($filepart) > 0 -->
-      <xsl:when test="string-length($linkpart) > 0">
-	<!-- "#Linkpart" -->
-	<span class="bold_code bc-17"><a href="#{$linkpart}"><xsl:apply-templates/></a></span>
       </xsl:when>
       <xsl:otherwise>
 	<!-- "AppPart:Mod" or "Mod" (there is no '#') -->
-	<xsl:variable name="app_part"><xsl:value-of select="substring-before(@marker, ':')"/></xsl:variable>
 
 	<xsl:choose>
 	  <xsl:when test="string-length($app_part) > 0">
 	    <!-- "App:Mod" -->
-	    <xsl:variable name="mod_part"><xsl:value-of select="substring-after(@marker, ':')"/></xsl:variable>
 	    <span class="bold_code bc-18"><a href="javascript:erlhref('{$topdocdir}/../','{$app_part}','{$mod_part}.html');"><xsl:apply-templates/></a></span>
 	  </xsl:when>
 	  <xsl:otherwise>
 	    <!-- "Mod" -->
-	    <span class="bold_code bc-19"><a href="{@marker}.html"><xsl:apply-templates/></a></span>
+	    <span class="bold_code bc-19"><a href="{$mod_part}.html"><xsl:apply-templates/></a></span>
 	  </xsl:otherwise>
 	</xsl:choose>
       </xsl:otherwise>
@@ -2673,7 +2734,7 @@
     </xsl:text>
   </xsl:template>
 
-  <xsl:template match="seealso//text()">
+  <xsl:template match="node()[starts-with(name(), 'see')]//text()">
     <xsl:value-of select="normalize-space(.)"/>
   </xsl:template>
 

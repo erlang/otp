@@ -159,7 +159,7 @@ ttb:p(all, call).</input></pre>
 	  only useful if many <c>{drop,N}</c> trace messages are
 	  received by the trace handler. It has no meaning if shell
 	  or <c>{local,File}</c> is not used. See
-	  <seealso marker="runtime_tools:dbg#trace_port/2">dbg:trace_port/2</seealso>
+	  <seemfa marker="runtime_tools:dbg#trace_port/2">dbg:trace_port/2</seemfa>
 	  for more information about the ip trace driver.</p></item>
        <tag><c>process_info</c></tag>
        <item><p>Indicates if process
@@ -199,8 +199,8 @@ ttb:p(all, call).</input></pre>
        <tag><c>flush</c></tag>
        <item><p>Periodically flushes all file trace
           port clients (see
-	  <seealso marker="runtime_tools:dbg#flush_trace_port/1">
-	  <c>dbg:flush_trace_port/1</c></seealso>). When enabled,
+	  <seemfa marker="runtime_tools:dbg#flush_trace_port/1">
+	  <c>dbg:flush_trace_port/1</c></seemfa>). When enabled,
           the buffers are freed each <c>MSec</c> millisecond. This option is
           not allowed with <c>{file, {local, File}}</c> tracing.</p></item>
        <tag><c>{resume, FetchTimeout}</c></tag>
@@ -211,7 +211,7 @@ ttb:p(all, call).</input></pre>
           scripts if the traced nodes run with embedded Erlang). If this is
           not possible, resume can be performed manually by starting
           <c>Runtime_Tools</c> remotely using 
-	  <seealso marker="kernel:rpc#call/4"><c>rpc:call/4</c></seealso>.</p>
+	  <seemfa marker="kernel:rpc#call/4"><c>rpc:call/4</c></seemfa>.</p>
           <p><c>ttb</c> tries to fetch all logs from a reconnecting node before
           reinitializing the trace. This must finish within <c>FetchTimeout</c> 
 	  milliseconds or is aborted.</p>
@@ -261,7 +261,7 @@ ttb:p(all, call).</input></pre>
           or ports. Flag <c>timestamp</c> is always turned on.
           </p>
         <p>See the Reference Manual for module 
-	<seealso marker="runtime_tools:dbg"><c>dbg</c></seealso>
+	<seeerl marker="runtime_tools:dbg"><c>dbg</c></seeerl>
           for the possible trace flags. Parameter
           <c>MatchDesc</c> is the same as returned from 
 	<c>dbg:p/2</c>.</p>
@@ -307,11 +307,11 @@ ttb:p(all, call).</input></pre>
 	<p>Trace patterns specify how to trace a function or a message
           by using match specifications. Match specifications are
           described in the
-          <seealso marker="erts:match_spec"><c>ERTS User's Guide</c></seealso>.
+          <seeguide marker="erts:match_spec"><c>ERTS User's Guide</c></seeguide>.
           </p>
         <p>These functions are equivalent to the corresponding
           functions in module
-	  <seealso marker="runtime_tools:dbg">dbg</seealso>,
+	  <seeerl marker="runtime_tools:dbg">dbg</seeerl>,
 	  but all calls are stored in the
           history. The history buffer makes it easy to create configuration
           files; the same trace environment can be set up many
@@ -509,10 +509,10 @@ ttb:p(all, call).</input></pre>
         <p>If <c>Flags = all</c>, all possible flags are set.
           </p>
         <p>The possible values for <c>SeqTraceFlag</c> are available in
-	<seealso marker="kernel:seq_trace"><c>seq_trace</c></seealso>.</p>
+	<seeerl marker="kernel:seq_trace"><c>seq_trace</c></seeerl>.</p>
 	 <p>For a description of the <c>match_spec()</c> syntax, 
 	   see section
-	   <seealso marker="erts:match_spec"><c>Match Specifications in Erlang</c></seealso>
+	   <seeguide marker="erts:match_spec"><c>Match Specifications in Erlang</c></seeguide>
 	   in ERTS, which explains the general match specification "language".
           </p>
         <note>
@@ -656,7 +656,7 @@ ttb:p(all, call).</input></pre>
           format one of the wrap logs in a set, specify the exact file name.
           To format the whole set of wrap logs, specify the name
           with <c>*</c> instead of the wrap count. For examples, see the
-          <seealso marker="ttb_ug#format"><c>User's Guide</c></seealso>.
+          <seeguide marker="ttb_ug#format"><c>User's Guide</c></seeguide>.
 	  </p>
       </desc>
     </func>

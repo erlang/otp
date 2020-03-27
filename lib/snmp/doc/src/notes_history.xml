@@ -76,10 +76,10 @@
         <item>
           <p>[agent] Added very basic support for multiple SNMPv3 
             EngineIDs in a single agent. See 
-            <seealso marker="snmpa#send_notification">send_notification/7</seealso>, 
-            <seealso marker="snmpa_mpd#process_packet">process_packet/7</seealso>, 
-            <seealso marker="snmpa_mpd#generate_response_msg">generate_response_msg/6</seealso> or 
-            <seealso marker="snmpa_mpd#generate_msg">generate_msg/6</seealso> 
+            <seeerl marker="snmpa#send_notification">send_notification/7</seeerl>, 
+            <seeerl marker="snmpa_mpd#process_packet">process_packet/7</seeerl>, 
+            <seeerl marker="snmpa_mpd#generate_response_msg">generate_response_msg/6</seeerl> or 
+            <seeerl marker="snmpa_mpd#generate_msg">generate_msg/6</seeerl> 
             for more info. </p> 
 
           <p>Own Id: OTP-8478</p>
@@ -97,7 +97,7 @@
       <list type="bulleted">
         <item>
           <p>The config utility 
-            (<seealso marker="snmp#config">snmp:config/0</seealso>)
+            (<seeerl marker="snmp#config">snmp:config/0</seeerl>)
             generated a default notify.conf 
             with a bad name for the standard trap entry (was "stadard trap", 
             but should have been "standard trap"). This has been corrected. </p>
@@ -132,7 +132,7 @@
           <p>[compiler] The SMI specifies that a table row OID should be 
             named: { &lt;tableIdentifier&gt; "1" }. </p>
 	  <p>A new option has been introduced, 
-            <seealso marker="snmpc#compiler_opts">relaxed_row_name_assign_check</seealso>, 
+            <seeerl marker="snmpc#compiler_opts">relaxed_row_name_assign_check</seeerl>, 
             that allows for a more liberal numbering scheme</p>
           <p>Own Id: OTP-8574</p>
         </item>
@@ -208,10 +208,10 @@
           <p>[agent|manager] Entries in the audit trail log can now be 
             augmented by a sequence number. </p>
           <p>This is enabled by the <c>seqno</c> option, which is part of the 
-            <seealso marker="snmp_config#audit_trail_log">Audit Trail Log</seealso> 
+            <seeerl marker="snmp_config#audit_trail_log">Audit Trail Log</seeerl> 
             config option. </p>
           <p>See the 
-            <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
+            <seeerl marker="snmp_config#configuration_params">Configuring the application</seeerl> 
             chapter of the User's Guide for further info. </p> 
 
           <p>Own Id: OTP-8395</p>
@@ -267,10 +267,10 @@
           <p>[agent|manager] Entries in the audit trail log can now be 
             augmented by a sequence number. </p>
           <p>This is enabled by the <c>seqno</c> option, which is part of the 
-            <seealso marker="snmp_config#audit_trail_log">Audit Trail Log</seealso> 
+            <seeerl marker="snmp_config#audit_trail_log">Audit Trail Log</seeerl> 
             config option. </p>
           <p>See the 
-            <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
+            <seeerl marker="snmp_config#configuration_params">Configuring the application</seeerl> 
             chapter of the User's Guide for further info. </p> 
 
           <p>Own Id: OTP-8395</p>
@@ -289,7 +289,7 @@
       <list type="bulleted">
         <item>
           <p>[manager] Registration of agents using the config file, 
-            <seealso marker="snmp_manager_config_files#agents">agents.conf</seealso>, 
+            <seeguide marker="snmp_manager_config_files#agents">agents.conf</seeguide>, 
             does not work. This has now been corrected. </p>
           <p>Per Hedeland</p>
           <p>Own Id: OTP-8442</p>
@@ -297,7 +297,7 @@
 
         <item>
           <p>The config utility 
-            (<seealso marker="snmp#config">snmp:config/0</seealso>)
+            (<seeerl marker="snmp#config">snmp:config/0</seeerl>)
             generated a default notify.conf 
             with a bad name for the standard trap entry (was "stadard trap", 
             but should have been "standard trap"). This has been corrected. </p>
@@ -357,14 +357,14 @@
             was generated "on the fly"). </p>
           <p>This has now been changed so that when a message is received 
             from an unknown agent, then only 
-            <seealso marker="snmpm_user#handle_agent">handle_agent</seealso>
+            <seeerl marker="snmpm_user#handle_agent">handle_agent</seeerl>
             (for the default user) is called, but now this call also has a 
             <c>Type</c> argument, which is 
             <c>pdu | trap | report | inform</c>, depending on what kind of 
             message was actually received, thus making it possible for the 
             user to properly analyze the data received. </p>
 	  <p>To handle this, the 
-            <seealso marker="snmpm_user">snmpm_user</seealso> behaviour has 
+            <seeerl marker="snmpm_user">snmpm_user</seeerl> behaviour has 
             been updated. </p>
 	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
           <p>Own Id: OTP-8229</p>
@@ -407,12 +407,12 @@
             The component that actually make the filter decisions
             is the network interface filter module. This module
             must implement the 
-            <seealso marker="snmpm_network_interface_filter">network interface filter behaviour</seealso>
+            <seeerl marker="snmpm_network_interface_filter">network interface filter behaviour</seeerl>
             for message filtering.
             See also the Configuring chapter of
             the User's Guide to see how to configure this feature. </p>
           <p>See the 
-            <seealso marker="snmp_config#configuration_params">configuration</seealso> 
+            <seeerl marker="snmp_config#configuration_params">configuration</seeerl> 
             chapter for more info about the filter options.</p>
           <p>Own Id: OTP-8228</p>
 	  <p>Aux Id: Seq 11411</p>
@@ -473,16 +473,16 @@
           <p>A number of new functions and config options for the mib server
             cache has been added. </p>
           <p>See 
-            <seealso marker="snmpa#invalidate_mibs_cache">invalidate_mibs_cache/0,1</seealso>, 
-            <seealso marker="snmpa#enable_mibs_cache">enable_mibs_cache/0,1</seealso>, 
-            <seealso marker="snmpa#disable_mibs_cache">disable_mibs_cache/0,1</seealso>, 
-            <seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>, 
-            <seealso marker="snmpa#enable_mibs_cache_autogc">enable_mibs_cache_autogc/0,1</seealso>, 
-            <seealso marker="snmpa#disable_mibs_cache_autogc">disable_mibs_cache_autogc/0,1</seealso>, 
-            <seealso marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/1,2</seealso> and 
-            <seealso marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1,2</seealso> for more info. </p>
+            <seeerl marker="snmpa#invalidate_mibs_cache">invalidate_mibs_cache/0,1</seeerl>, 
+            <seeerl marker="snmpa#enable_mibs_cache">enable_mibs_cache/0,1</seeerl>, 
+            <seeerl marker="snmpa#disable_mibs_cache">disable_mibs_cache/0,1</seeerl>, 
+            <seeerl marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seeerl>, 
+            <seeerl marker="snmpa#enable_mibs_cache_autogc">enable_mibs_cache_autogc/0,1</seeerl>, 
+            <seeerl marker="snmpa#disable_mibs_cache_autogc">disable_mibs_cache_autogc/0,1</seeerl>, 
+            <seeerl marker="snmpa#update_mibs_cache_age">update_mibs_cache_age/1,2</seeerl> and 
+            <seeerl marker="snmpa#update_mibs_cache_gclimit">update_mibs_cache_gclimit/1,2</seeerl> for more info. </p>
           <p>See also the 
-            <seealso marker="snmp_config#configuration_params">configuration</seealso> 
+            <seeerl marker="snmp_config#configuration_params">configuration</seeerl> 
             chapter for more info about the mib server cache options.</p>
           <p>Own Id: OTP-8182</p>
 	  <p>Aux Id: Seq 11383</p>
@@ -495,7 +495,7 @@
             make it possible to configure the username the agent reacts to. 
             Default is <c>""</c>. </p>
           <p>See the 
-            <seealso marker="snmp_config#configuration_params">configuration</seealso> 
+            <seeerl marker="snmp_config#configuration_params">configuration</seeerl> 
             chapter for more info about the discovery options.</p>
           <p>Own Id: OTP-8120</p>
 	  <p>Aux Id: Seq 11361</p>
@@ -545,7 +545,7 @@
         <item>
           <p>[agent] Support for the discovery process. </p>
           <p>The agent can both initiate discovery itself (see the
-            <seealso marker="snmp_agent_funct_descr#discovery">discovery</seealso> chapter
+            <seeguide marker="snmp_agent_funct_descr#discovery">discovery</seeguide> chapter
             for more info) and respond to discovery initiated by a manager.</p>
           <p>Own Id: OTP-7571</p>
 	  <p>Aux Id: Seq 11053</p>
@@ -583,13 +583,13 @@
         <item>
           <p>[agent] Originating discovery improvement. </p>
           <p>Added the ExtraInfo argument to the 
-            <seealso marker="snmpa#discovery">discovery</seealso> function. 
+            <seeerl marker="snmpa#discovery">discovery</seeerl> function. 
             This argument will be passed on to the stage1_finish callback
             function. Also, the 
-            <seealso marker="snmpa#discovery">discovery</seealso> function 
+            <seeerl marker="snmpa#discovery">discovery</seeerl> function 
             will now always return <c>{ok, ManagerEngineID}</c> on successful 
             discovery. </p>
-          <p>The <seealso marker="snmpa_discovery_handler">discovery handler</seealso> 
+          <p>The <seeerl marker="snmpa_discovery_handler">discovery handler</seeerl> 
             behaviour updated accordingly. </p>
           <p>Own Id: OTP-8098</p>
 	  <p>Aux Id: Seq 11346</p>
@@ -621,7 +621,7 @@
         <item>
           <p>[agent] Support for the discovery process. </p>
           <p>The agent can both initiate discovery itself (see the
-            <seealso marker="snmp_agent_funct_descr#discovery">discovery</seealso> chapter
+            <seeguide marker="snmp_agent_funct_descr#discovery">discovery</seeguide> chapter
             for more info) and respond to discovery initiated by a manager.</p>
           <p>Own Id: OTP-7571</p>
 	  <p>Aux Id: Seq 11053</p>
@@ -650,12 +650,12 @@
           <p>This problem has now been fixed, but requires that the MIB 
             defining this mib-entry is loaded! </p>
           <p>The utility function 
-            <seealso marker="snmpm#oid_to_type">oid_to_type</seealso>
+            <seeerl marker="snmpm#oid_to_type">oid_to_type</seeerl>
             has been added, for debug purpose. </p>
           <p>The utility function(s)  
-            <seealso marker="snmp#octet_string_to_bits">octet_string_to_bits</seealso>
+            <seeerl marker="snmp#octet_string_to_bits">octet_string_to_bits</seeerl>
             and 
-            <seealso marker="snmp#bits_to_octet_string">bits_to_octet_string</seealso>
+            <seeerl marker="snmp#bits_to_octet_string">bits_to_octet_string</seeerl>
             has also been added. These can be used if the user prefers to 
             handle the conversion on their own. </p>
           <p>Own Id: OTP-8015</p>
@@ -665,12 +665,12 @@
         <item>
           <p>[agent] Fixed some issues with the discovery handling. </p>
           <p>Changed the API of the 
-            <seealso marker="snmpa#discovery">discovery</seealso>
+            <seeerl marker="snmpa#discovery">discovery</seeerl>
             function to solve some 
             of these problems. </p>
           <p>Introduced various options for controlling the discovery
             process. See the 
-            <seealso marker="snmp_config#configuration_params">configuration</seealso> 
+            <seeerl marker="snmp_config#configuration_params">configuration</seeerl> 
             chapter for more info about the discovery options.</p>
           <p>Own Id: OTP-8020</p>
 	  <p>Aux Id: Seq 11295</p>
@@ -702,7 +702,7 @@
         <item>
           <p>[agent] Support for the discovery process. </p>
           <p>The agent can both initiate discovery itself (see the
-            <seealso marker="snmp_agent_funct_descr#discovery">discovery</seealso> chapter
+            <seeguide marker="snmp_agent_funct_descr#discovery">discovery</seeguide> chapter
             for more info) and respond to discovery initiated by a manager.</p>
           <p>Own Id: OTP-7571</p>
 	  <p>Aux Id: Seq 11053</p>
@@ -748,7 +748,7 @@
         <item>
           <p>[agent] As of version 4.13 the possible return values
             of the function 
-            <seealso marker="snmpa_mpd#process_packet">snmpa_mpd:process_packet/4</seealso> 
+            <seeerl marker="snmpa_mpd#process_packet">snmpa_mpd:process_packet/4</seeerl> 
             changed, but this was not documented. </p>
           <p>Own Id: OTP-7989</p>
 	  <p>Aux Id: Seq 11275</p>
@@ -779,7 +779,7 @@
         <item>
           <p>[agent] Support for the discovery process. </p>
           <p>The agent can both initiate discovery itself (see the
-            <seealso marker="snmp_agent_funct_descr#discovery">discovery</seealso> chapter
+            <seeguide marker="snmp_agent_funct_descr#discovery">discovery</seeguide> chapter
             for more info) and respond to discovery initiated by a manager.</p>
           <p>Own Id: OTP-7571</p>
 	  <p>Aux Id: Seq 11053</p>
@@ -799,15 +799,15 @@
         <item>
           <p>[manager] Registration of users had some issues. </p>
           <p>Not all of the registration functions where actually exported
-            (<seealso marker="snmpm#register_user">register_user/4</seealso> 
+            (<seeerl marker="snmpm#register_user">register_user/4</seeerl> 
             and
-            <seealso marker="snmpm#register_user_monitor">register_user_monitor/4</seealso>). 
+            <seeerl marker="snmpm#register_user_monitor">register_user_monitor/4</seeerl>). 
             This has now been fixed. </p>
           <p>Also, the registration did not succeed unless
             user implemented the *new* behaviour. This has now
             also been fixed (registration succeeds if the user
             implements either the new (i.e. updated 
-            <seealso marker="snmpm_user">snmpm_user</seealso>) 
+            <seeerl marker="snmpm_user">snmpm_user</seeerl>) 
             or the old user behaviour (<c>snmpm_user_old</c>)). </p>
           <p>Own Id: OTP-7902</p>
 	  <p>Aux Id: Seq 11240</p>
@@ -839,7 +839,7 @@
         <item>
           <p>[agent] Support for the discovery process. </p>
           <p>The agent can both initiate discovery itself (see the
-            <seealso marker="snmp_agent_funct_descr#discovery">discovery</seealso> chapter
+            <seeguide marker="snmp_agent_funct_descr#discovery">discovery</seeguide> chapter
             for more info) and respond to discovery initiated by a manager.</p>
           <p>Own Id: OTP-7571</p>
 	  <p>Aux Id: Seq 11053</p>
@@ -875,23 +875,23 @@
 
           <p>These problems has been solved in the following way: </p>
           <p>First, a new set of api functions has been introduced (and documented):
-            <seealso marker="snmpm#register_user">register_user/4</seealso>,
-            <seealso marker="snmpm#register_user_monitor">register_user_monitor/4</seealso>,
-            <seealso marker="snmpm#register_agent">register_agent/3</seealso>,
-            <seealso marker="snmpm#unregister_agent">unregister_agent/2</seealso>,
-            <seealso marker="snmpm#agent_info">agent_info/2</seealso>,
-            <seealso marker="snmpm#update_agent_info">update_agent_info/4</seealso>,
-            <seealso marker="snmpm#sync_get">sync_get/3,4,5,6</seealso>,
-            <seealso marker="snmpm#async_get">async_get/3,4,5,6</seealso>,
-            <seealso marker="snmpm#sync_get_next">sync_get_next/3,4,5,6</seealso>,
-            <seealso marker="snmpm#async_get_next">async_get_next/3,4,5,6</seealso>,
-            <seealso marker="snmpm#sync_set">sync_set/3,4,5,6</seealso>,
-            <seealso marker="snmpm#async_set">async_set/3,4,5,6</seealso>,
-            <seealso marker="snmpm#sync_get_bulk">sync_get_bulk/5,6,7,8</seealso> and
-            <seealso marker="snmpm#async_get_bulk">async_get_bulk/5,6,7,8</seealso> 
+            <seeerl marker="snmpm#register_user">register_user/4</seeerl>,
+            <seeerl marker="snmpm#register_user_monitor">register_user_monitor/4</seeerl>,
+            <seeerl marker="snmpm#register_agent">register_agent/3</seeerl>,
+            <seeerl marker="snmpm#unregister_agent">unregister_agent/2</seeerl>,
+            <seeerl marker="snmpm#agent_info">agent_info/2</seeerl>,
+            <seeerl marker="snmpm#update_agent_info">update_agent_info/4</seeerl>,
+            <seeerl marker="snmpm#sync_get">sync_get/3,4,5,6</seeerl>,
+            <seeerl marker="snmpm#async_get">async_get/3,4,5,6</seeerl>,
+            <seeerl marker="snmpm#sync_get_next">sync_get_next/3,4,5,6</seeerl>,
+            <seeerl marker="snmpm#async_get_next">async_get_next/3,4,5,6</seeerl>,
+            <seeerl marker="snmpm#sync_set">sync_set/3,4,5,6</seeerl>,
+            <seeerl marker="snmpm#async_set">async_set/3,4,5,6</seeerl>,
+            <seeerl marker="snmpm#sync_get_bulk">sync_get_bulk/5,6,7,8</seeerl> and
+            <seeerl marker="snmpm#async_get_bulk">async_get_bulk/5,6,7,8</seeerl> 
             that all use <c>TargetName</c> (and not, as previously, <c>Addr</c>
             and <c>Port</c>) to identify the agent (also the return value of 
-            <seealso marker="snmpm#which_agents">which_agents</seealso> has 
+            <seeerl marker="snmpm#which_agents">which_agents</seeerl> has 
             been changed). </p> 
           <p>Second, for backward compatibility, the old functions still 
             exist, but are no longer documented and are now wrappers for the 
@@ -899,14 +899,14 @@
             all. The TargetName is however generated from the provided 
             <c>Addr</c>, <c>Port</c> and <c>Version</c> config options. </p>
            <p>Third, the behaviour of the 
-             <seealso marker="snmpm_user">SNMP manager user</seealso> has
+             <seeerl marker="snmpm_user">SNMP manager user</seeerl> has
              been changed to reflect this, i.e. 
-             <seealso marker="snmpm_user#handle_pdu">handle_pdu/4</seealso>,
-             <seealso marker="snmpm_user#handle_trap">handle_trap/3</seealso>,
-             <seealso marker="snmpm_user#handle_inform">handle_inform/3</seealso>, 
-             <seealso marker="snmpm_user#handle_report">handle_report/3</seealso> 
+             <seeerl marker="snmpm_user#handle_pdu">handle_pdu/4</seeerl>,
+             <seeerl marker="snmpm_user#handle_trap">handle_trap/3</seeerl>,
+             <seeerl marker="snmpm_user#handle_inform">handle_inform/3</seeerl>, 
+             <seeerl marker="snmpm_user#handle_report">handle_report/3</seeerl> 
              and the return-value of 
-             <seealso marker="snmpm_user#handle_agent">handle_agent/4</seealso>.
+             <seeerl marker="snmpm_user#handle_agent">handle_agent/4</seeerl>.
              The old (non-documented) callback-functions (using Addr and Port) 
              will still be called if the agent was registered using the old 
              registration functions. </p>
@@ -1054,7 +1054,7 @@
           <p>[agent] A simple lookup cache has been added to improve 
             the mib server lookup performance. </p>
           <p>This can be disabled with the mib_server 
-	  <seealso marker="snmp_config#agent_ms_cache">cache</seealso>
+	  <seeerl marker="snmp_config#agent_ms_cache">cache</seeerl>
 	  option. </p>
           <p>Own Id: OTP-7346</p>
         </item>
@@ -1108,11 +1108,11 @@
         <item>
 	  <p>Added utility functions for transforming DateAndTime
             as [int()] to strings; 
-            <seealso marker="snmp#dat2s">date_and_time_to_string/2</seealso>
+            <seeerl marker="snmp#dat2s">date_and_time_to_string/2</seeerl>
             and  
-            <seealso marker="snmp#dat2s2">date_and_time_to_string2/1</seealso>. </p>
+            <seeerl marker="snmp#dat2s2">date_and_time_to_string2/1</seeerl>. </p>
           <p>Also added new validation function 
-            <seealso marker="snmp#vdat">validate_date_and_time/2</seealso>. </p>
+            <seeerl marker="snmp#vdat">validate_date_and_time/2</seeerl>. </p>
 	  <p>Own Id: OTP-7412</p>
 	  <p>Aux Id: Seq 10987</p>
         </item>
@@ -1179,7 +1179,7 @@
             solution (and probably not backward compatible) is devised, which
             retrieves and stores all REFERENCE part(s) of a MIB. </p>
           <p>See the 
-            <seealso marker="snmpc#compiler_opts">compiler options</seealso> 
+            <seeerl marker="snmpc#compiler_opts">compiler options</seeerl> 
             for more info. </p> 
 
           <p>Serge Aleynikov</p>
@@ -1189,11 +1189,11 @@
         <item>
 	  <p>Added utility functions for transforming DateAndTime
             as [int()] to strings; 
-            <seealso marker="snmp#dat2s">date_and_time_to_string/2</seealso>
+            <seeerl marker="snmp#dat2s">date_and_time_to_string/2</seeerl>
             and  
-            <seealso marker="snmp#dat2s2">date_and_time_to_string2/1</seealso>. </p>
+            <seeerl marker="snmp#dat2s2">date_and_time_to_string2/1</seeerl>. </p>
           <p>Also added new validation function 
-            <seealso marker="snmp#vdat">validate_date_and_time/2</seealso>. </p>
+            <seeerl marker="snmp#vdat">validate_date_and_time/2</seeerl>. </p>
 	  <p>Own Id: OTP-7412</p>
 	  <p>Aux Id: Seq 10987</p>
         </item>
@@ -1245,8 +1245,8 @@
         <item>
           <p>The API for sending inform(s) has been improved. Also
             the documentation has been corrected and updated. See 
-            <seealso marker="snmpa#send_notification">snmpa:send_notification</seealso> and 
-            <seealso marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seealso> 
+            <seeerl marker="snmpa#send_notification">snmpa:send_notification</seeerl> and 
+            <seeerl marker="snmpa_notification_delivery_info_receiver">snmpa_notification_delivery_info_receiver</seeerl> 
             for more info.</p>
           <p>Own Id: OTP-7287</p>
           <p>Aux Id: Seq 10926</p>
@@ -1261,8 +1261,8 @@
 
         <item>
 	  <p>[agent] Added utility functions,
-            <seealso marker="snmpa#restart_worker">snmpa:restart_worker/0,1</seealso> and 
-            <seealso marker="snmpa#restart_set_worker">snmpa:restart_set_worker/0,1</seealso>, 
+            <seeerl marker="snmpa#restart_worker">snmpa:restart_worker/0,1</seeerl> and 
+            <seeerl marker="snmpa#restart_set_worker">snmpa:restart_set_worker/0,1</seeerl>, 
             for restarting the agent worker processes (in case the agent is
             multi-threaded).</p>
 	  <p>Own Id: OTP-7369</p>
@@ -1270,7 +1270,7 @@
 
         <item>
 	  <p>Add utility function to 
-            <seealso marker="snmp#read_mib">read</seealso> 
+            <seeerl marker="snmp#read_mib">read</seeerl> 
             a compiled mib. </p>
 	  <p>Own Id: OTP-7371</p>
         </item>
@@ -1325,7 +1325,7 @@
       <list type="bulleted">
         <item>
           <p>[manager] The configuration option 
-            <seealso marker="snmp_config#manager_irb">inform_request_behaviour</seealso>
+            <seeerl marker="snmp_config#manager_irb">inform_request_behaviour</seeerl>
             was not properly parsed, which caused the manager to revert 
             to the default value, <c>auto</c>. </p>
           <p>Own Id: OTP-7219</p>
@@ -1432,9 +1432,9 @@
 	<item>
 	  <p>Added buffer sizes (both receive and send) of
             the udp socket(s) info when calling the 
-            <seealso marker="snmpa#info">agent info</seealso> 
+            <seeerl marker="snmpa#info">agent info</seeerl> 
             and
-            <seealso marker="snmpm#info">manager info</seealso> 
+            <seeerl marker="snmpm#info">manager info</seeerl> 
             function(s). </p>
 	  <p>Own Id: OTP-6945</p>
 	</item>
@@ -1480,11 +1480,11 @@
           <p>The SNMP application contains some (previously undocumented) 
             simple utility functions for function tracing (using dbg),
             see 
-	    <seealso marker="snmp#enable_trace">enable_trace</seealso>, 
-	    <seealso marker="snmp#disable_trace">disable_trace</seealso>, 
-	    <seealso marker="snmp#set_trace1">set_trace/1</seealso>, 
-	    <seealso marker="snmp#reset_trace">reset_trace</seealso> and 
-	    <seealso marker="snmp#set_trace2">set_trace/2</seealso> 
+	    <seeerl marker="snmp#enable_trace">enable_trace</seeerl>, 
+	    <seeerl marker="snmp#disable_trace">disable_trace</seeerl>, 
+	    <seeerl marker="snmp#set_trace1">set_trace/1</seeerl>, 
+	    <seeerl marker="snmp#reset_trace">reset_trace</seeerl> and 
+	    <seeerl marker="snmp#set_trace2">set_trace/2</seeerl> 
 	    for more info. 
 	    These functions are intended to make it easy to enable tracing on
             individual functions.
@@ -1526,9 +1526,9 @@
 	<item>
 	  <p>Added buffer sizes (both receive and send) of
             the udp socket(s) info when calling the 
-            <seealso marker="snmpa#info">agent info</seealso> 
+            <seeerl marker="snmpa#info">agent info</seeerl> 
             and
-            <seealso marker="snmpm#info">manager info</seealso> 
+            <seeerl marker="snmpm#info">manager info</seeerl> 
             function(s). </p>
 	  <p>Own Id: OTP-6945</p>
 	</item>
@@ -1536,7 +1536,7 @@
         <item>
           <p>[agent] Added the ability to change the request limit  
             in run-time, see 
-            <seealso marker="snmpa#set_request_limit">set_request_limit</seealso>
+            <seeerl marker="snmpa#set_request_limit">set_request_limit</seeerl>
             for more info. </p>
             <p>Own Id: OTP-6898</p>
         </item>
@@ -1544,9 +1544,9 @@
         <item>
           <p>Added the ability to change the audit trail log type 
             in run-time (both agent and manager), see function(s) 
-            <seealso marker="snmpm#set_log_type">[manager] set_log_type</seealso>
+            <seeerl marker="snmpm#set_log_type">[manager] set_log_type</seeerl>
             and 
-            <seealso marker="snmpa#set_log_type">[agent] set_log_type</seealso>
+            <seeerl marker="snmpa#set_log_type">[agent] set_log_type</seeerl>
             for more info. </p>
             <p>Own Id: OTP-6841</p>
         </item>
@@ -1556,9 +1556,9 @@
             interface module provided with the application. 
             The component that actually make the filter decisions is the 
             network interface filter module. This module must implement the 
-            <seealso marker="snmpa_network_interface_filter">network interface filter behaviour</seealso>. 
+            <seeerl marker="snmpa_network_interface_filter">network interface filter behaviour</seeerl>. 
             See also the 
-            <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
+            <seeerl marker="snmp_config#configuration_params">Configuring the application</seeerl> 
             chapter of the User's Guide to see how to configure this 
             feature. </p>
 	  <p>Own Id: OTP-6649</p>
@@ -1825,12 +1825,12 @@
       <list type="bulleted">
         <item>
           <p>Added documentation for 
-            <seealso marker="snmp#passwd2localized_key">snmp:passwd2localized_key/3</seealso>. </p>
+            <seeerl marker="snmp#passwd2localized_key">snmp:passwd2localized_key/3</seeerl>. </p>
           <p>Own Id: OTP-6540</p>
         </item>
         <item>
           <p>The 
-            <seealso marker="snmp#config">snmp:config/0</seealso>
+            <seeerl marker="snmp#config">snmp:config/0</seeerl>
             utility function assumes by default
             current working dir as the directory to write config
             files. This is a problem since there are two files
@@ -1860,8 +1860,8 @@
         <item>
           <p>Added utility modules to read, write and update the config
             files of the 
-            <seealso marker="snmpa_conf">agent</seealso> and 
-            <seealso marker="snmpm_conf">manager</seealso>. </p>
+            <seeerl marker="snmpa_conf">agent</seeerl> and 
+            <seeerl marker="snmpm_conf">manager</seeerl>. </p>
           <p>Own Id: OTP-6318</p>
         </item>
         <item>
@@ -2044,7 +2044,7 @@
         <item>
           <p>Added a config option, <c>sndbuf</c>, for the net_if-module(s).  
             See 
-            <seealso marker="snmp_config#configuration_params">Configure the application</seealso> 
+            <seeerl marker="snmp_config#configuration_params">Configure the application</seeerl> 
             for more info (look for manager_net_if_options and
             agent_net_if_options). </p>
           <p>Own Id: OTP-6137</p>
@@ -2092,7 +2092,7 @@
       <list type="bulleted">
         <item>
           <p>Add another example, 
-            <seealso marker="snmp_impl_example_manager">ex2</seealso>. 
+            <seeguide marker="snmp_impl_example_manager">ex2</seeguide>. 
             This example is basically a simple manager module. </p>
           <p>Own Id: OTP-6042</p>
         </item>
@@ -2178,13 +2178,13 @@
             will result in a decode failure (a catched function 
             clause), which in turn will be passed on to the user, 
             via a call to the 
-            <seealso marker="snmpm_user#handle_error">handle_error</seealso> 
+            <seeerl marker="snmpm_user#handle_error">handle_error</seeerl> 
             callback function, in the <c>Reason</c> argument. 
             This has now been changed so that instead, the 
             <c>Reason</c> argument will get a <c>empty message</c> 
             value.</p>
           <p>See  
-            <seealso marker="snmpm_user#handle_error">handle_error</seealso> 
+            <seeerl marker="snmpm_user#handle_error">handle_error</seeerl> 
             for more details. </p>
           <p>Own Id: OTP-6024</p>
         </item>
@@ -2197,7 +2197,7 @@
         <item>
           <p>[manager] Some error cases are reported to the 'user'
             with the ReqId and Reason swapped in the call to the
-            <seealso marker="snmpm_user#handle_error">handle_error</seealso> 
+            <seeerl marker="snmpm_user#handle_error">handle_error</seeerl> 
             callback function.</p>
           <p>Own Id: OTP-5992</p>
         </item>
@@ -2220,13 +2220,13 @@
       <list type="bulleted">
         <item>
           <p>Added new version info print functions, 
-            <seealso marker="snmp#print_version_info">print_version_info</seealso>.</p>
+            <seeerl marker="snmp#print_version_info">print_version_info</seeerl>.</p>
           <p>Own Id: OTP-5968</p>
         </item>
         <item>
           <p>Updated the documentation for the 
-            <seealso marker="snmpa#log_to_txt">agent</seealso> and 
-            <seealso marker="snmpm#log_to_txt">manager</seealso>
+            <seeerl marker="snmpa#log_to_txt">agent</seeerl> and 
+            <seeerl marker="snmpm#log_to_txt">manager</seeerl>
             log_to_txt functions.</p>
           <p>Own Id: OTP-5969</p>
         </item>
@@ -2261,15 +2261,15 @@
       <list type="bulleted">
         <item>
           <p>Add simple backup mechanism, 
-            see <seealso marker="snmpa#backup">agent backup</seealso> 
-            and <seealso marker="snmpm#backup">manager backup</seealso>.</p>
+            see <seeerl marker="snmpa#backup">agent backup</seeerl> 
+            and <seeerl marker="snmpm#backup">manager backup</seeerl>.</p>
           <p>Own Id: OTP-5870</p>
         </item>
         <item>
           <p>Improve handling of faulty data base files.</p>
           <p>Added new agent and manager config option, 
             <c>db_init_error</c>, see 
-            <seealso marker="snmp_config">config</seealso> for more 
+            <seeerl marker="snmp_config">config</seeerl> for more 
             info.</p>
           <p>Own Id: OTP-5934</p>
           <p>Aux Id: Seq 10202</p>
@@ -2278,7 +2278,7 @@
           <p>Added possibility to configure restart type for each of 
             the components (default is permanent for the agent and 
             transient for the manager).
-            See <seealso marker="snmp_config">config</seealso> for more 
+            See <seeerl marker="snmp_config">config</seeerl> for more 
             info.</p>
           <p>Own Id: OTP-5935</p>
         </item>
@@ -2348,27 +2348,27 @@
             It is even possible to start an "empty" snmp 
             application and start the agent and/or manager 
             afterwords. See 
-            <seealso marker="snmp#start_agent">start_agent</seealso> and 
-            <seealso marker="snmp#start_manager">start_manager</seealso>.</p>
+            <seeerl marker="snmp#start_agent">start_agent</seeerl> and 
+            <seeerl marker="snmp#start_manager">start_manager</seeerl>.</p>
           <p>Own Id: OTP-5797</p>
           <p>Aux Id: Seq 10128</p>
         </item>
         <item>
           <p>[agent] Adding utility function to convert old 
             application config to current agent config.
-            See the <seealso marker="snmpa#convert_config">convert_config</seealso> 
+            See the <seeerl marker="snmpa#convert_config">convert_config</seeerl> 
             for more info.</p>
           <p>Own Id: OTP-5787</p>
         </item>
         <item>
           <p>Improved handling of audit trail logs.
-            See the <seealso marker="snmp_config">atl_repair</seealso> 
+            See the <seeerl marker="snmp_config">atl_repair</seeerl> 
             config for more info.</p>
           <p>Own Id: OTP-5771</p>
         </item>
         <item>
           <p>[manager] Introduced the 
-            <seealso marker="snmpm#notify_started">notify_started</seealso> 
+            <seeerl marker="snmpm#notify_started">notify_started</seeerl> 
             function used by a <em>client</em> to get a notification 
             when the manager is started.</p>
           <p>Own Id: OTP-5763</p>
@@ -2403,7 +2403,7 @@
       <list type="bulleted">
         <item>
           <p>[manager] Introduced the 
-            <seealso marker="snmp_config#manager_irb">inform request behaviour</seealso> 
+            <seeerl marker="snmp_config#manager_irb">inform request behaviour</seeerl> 
             configuration option to allow the user to specify
             how/when the manager shall acknowledge inform-request's.</p>
           <p>Own Id: OTP-5733</p>
@@ -2411,7 +2411,7 @@
         <item>
           <p>[manager] In order to improve application behaviour,
             all callback function (see the 
-            <seealso marker="snmpm_user">snmpm_user behaviour</seealso>) 
+            <seeerl marker="snmpm_user">snmpm_user behaviour</seeerl>) 
             calls
             are now done by spawned processes (and not as previously
             by the SNMP manager server process).</p>
@@ -2420,17 +2420,17 @@
         <item>
           <p>[manager] In order to present the various error 
             reason's returned by the manager, a 
-            <seealso marker="snmpm#format_reason">format_reason</seealso> 
+            <seeerl marker="snmpm#format_reason">format_reason</seeerl> 
             function has been added.
             The error reasons this function handles are those
             returned by the (sync and async) get, get-next, 
             get-bulk and set-functions 
-            (see the <seealso marker="snmpm">snmpm</seealso> module) 
+            (see the <seeerl marker="snmpm">snmpm</seeerl> module) 
             as well as the 
             <c>Reason</c> argument of the 
-            <seealso marker="snmpm_user#handle_error">handle_error</seealso> 
+            <seeerl marker="snmpm_user#handle_error">handle_error</seeerl> 
             function of the 
-            <seealso marker="snmpm_user">user callback module</seealso>.</p>
+            <seeerl marker="snmpm_user">user callback module</seeerl>.</p>
           <p>Own Id: OTP-5581</p>
           <p>Aux Id: Seq 9870</p>
         </item>
@@ -2470,10 +2470,10 @@
       <list type="bulleted">
         <item>
           <p>[manager] The 
-            <seealso marker="snmpm_network_interface">snmpm_network_interface</seealso> 
+            <seeerl marker="snmpm_network_interface">snmpm_network_interface</seeerl> 
             behaviour has been updated (see 
-            <seealso marker="snmpm_network_interface#inform_response">inform_response</seealso> and 
-            <seealso marker="snmp_manager_netif">definition of the manager net if</seealso>).</p>
+            <seeerl marker="snmpm_network_interface#inform_response">inform_response</seeerl> and 
+            <seeguide marker="snmp_manager_netif">definition of the manager net if</seeguide>).</p>
           <p>Own Id: OTP-5733</p>
         </item>
       </list>
@@ -2495,8 +2495,8 @@
             independent of each other. The agent is "permanent"
             and the manager "transient". In order to handle
             manager crashes a simple 
-            <seealso marker="snmpm#monitor">monitor</seealso> 
-            (and <seealso marker="snmpm#demonitor">demonitor</seealso>) 
+            <seeerl marker="snmpm#monitor">monitor</seeerl> 
+            (and <seeerl marker="snmpm#demonitor">demonitor</seeerl>) 
             function has been added.</p>
           <p>Own Id: OTP-5720</p>
         </item>
@@ -2532,10 +2532,10 @@
       <list type="bulleted">
         <item>
           <p>Updated and extended the 
-            <seealso marker="snmpa#info">agent</seealso>
+            <seeerl marker="snmpa#info">agent</seeerl>
             info retrieval function. Also added an info retrieval 
             function for the 
-            <seealso marker="snmpm#info">manager</seealso>.</p>
+            <seeerl marker="snmpm#info">manager</seeerl>.</p>
           <p>Own Id: OTP-5666</p>
         </item>
         <item>
@@ -2582,7 +2582,7 @@
           <p>[agent] The format of the info returned by the agent 
             info retrieval function has been changed. The info 
             can be converted to the old format by calling the 
-            <seealso marker="snmpa#old_info_format">old_info_format</seealso>).</p>
+            <seeerl marker="snmpa#old_info_format">old_info_format</seeerl>).</p>
           <p>function. </p>
           <p>Own Id: OTP-5666</p>
         </item>
@@ -2664,15 +2664,15 @@
         </item>
         <item>
           <p>[manager] Added a 
-            <seealso marker="snmpm#unregister_usm_user">unregister_usm_user</seealso> function.</p>
+            <seeerl marker="snmpm#unregister_usm_user">unregister_usm_user</seeerl> function.</p>
           <p>Own Id: OTP-5580</p>
           <p>Aux Id: Seq 9850</p>
         </item>
         <item>
           <p>[agent] Added new functions to get lists of all tables, 
-            <seealso marker="snmpa#which_tables">which_tables</seealso>, 
+            <seeerl marker="snmpa#which_tables">which_tables</seeerl>, 
             and variables, 
-            <seealso marker="snmpa#which_variables">which_variables</seealso>, 
+            <seeerl marker="snmpa#which_variables">which_variables</seeerl>, 
             known to the agent.</p>
           <p>Own Id: OTP-5590</p>
         </item>
@@ -2712,7 +2712,7 @@
           <p>[manager] The <c>snmpm_network_interface</c> behaviour has changed. 
             One more argument (ExtraInfo) was added to the 
             function send_pdu (see 
-            <seealso marker="snmpm_network_interface#send_pdu">send_pdu</seealso>).</p>
+            <seeerl marker="snmpm_network_interface#send_pdu">send_pdu</seeerl>).</p>
           <p>Own Id: OTP-5574</p>
           <p>Aux Id: Seq 9850</p>
         </item>
@@ -2833,9 +2833,9 @@
         <item>
           <p>[manager] Failed to register usm users. Both using the
             usm config file 
-            (<seealso marker="snmp_manager_config_files#usm_user">usm.conf</seealso>) 
+            (<seeguide marker="snmp_manager_config_files#usm_user">usm.conf</seeguide>) 
             and the API functions
-            <seealso marker="snmpm#register_usm_user">register_usm_user</seealso></p>
+            <seeerl marker="snmpm#register_usm_user">register_usm_user</seeerl></p>
           <p>Own Id: OTP-5499</p>
 	  <p>Aux Id: Seq 9804</p>
         </item>
@@ -2921,7 +2921,7 @@
         </item>
         <item>
           <p>[agent] Documented instrumentation utility functions
-            (e.g. <seealso marker="snmpa#current_request_id">current_request_id</seealso>).</p>
+            (e.g. <seeerl marker="snmpa#current_request_id">current_request_id</seeerl>).</p>
           <p>Own Id: OTP-5423</p>
         </item>
       </list>
@@ -2972,17 +2972,17 @@
         <item>
           <p>[manager] Missing interface functions for loading and 
             unloading mibs into/from the manager: 
-            <seealso marker="snmpm#load_mib">load_mib</seealso>,
-            <seealso marker="snmpm#unload_mib">unload_mib</seealso>,
-            <seealso marker="snmpm#which_mibs">which_mibs</seealso>,
-            <seealso marker="snmpm#name_to_oid">name_to_oid</seealso> and 
-            <seealso marker="snmpm#oid_to_name">oid_to_name</seealso>.</p>
+            <seeerl marker="snmpm#load_mib">load_mib</seeerl>,
+            <seeerl marker="snmpm#unload_mib">unload_mib</seeerl>,
+            <seeerl marker="snmpm#which_mibs">which_mibs</seeerl>,
+            <seeerl marker="snmpm#name_to_oid">name_to_oid</seeerl> and 
+            <seeerl marker="snmpm#oid_to_name">oid_to_name</seeerl>.</p>
           <p>Own Id: OTP-5441</p>
         </item>
         <item>
           <p>Added utility functions to retrieve some system and application 
-            info, see <seealso marker="snmp#versions1">versions1</seealso> and 
-            <seealso marker="snmp#versions2">versions2</seealso>.</p>
+            info, see <seeerl marker="snmp#versions1">versions1</seeerl> and 
+            <seeerl marker="snmp#versions2">versions2</seeerl>.</p>
           <p>Own Id: OTP-5445</p>
         </item>
       </list>
@@ -3049,14 +3049,14 @@
       <list type="bulleted">
         <item>
           <p>[manager] Added possibility to monitor a registered user.
-            See <seealso marker="snmpm#register_user_monitor">snmpm:register_user_monitor</seealso>.</p>
+            See <seeerl marker="snmpm#register_user_monitor">snmpm:register_user_monitor</seeerl>.</p>
           <p>Own Id: OTP-5286</p>
         </item>
         <item>
           <p>[agent] Improved symbolic store. Alias and Oids where stored 
             with similar key's (separated by types: atom() and
             lists() respectively). Also added new function:
-            <seealso marker="snmpa#which_aliasnames">snmpa:which_aliasnames</seealso>.</p>
+            <seeerl marker="snmpa#which_aliasnames">snmpa:which_aliasnames</seeerl>.</p>
           <p>Own Id: OTP-5298</p>
         </item>
         <item>
@@ -3080,17 +3080,17 @@
         </item>
         <item>
           <p>[agent] Unclear documentation for function 
-            <seealso marker="snmpa#send_notification">snmpa:send_notification</seealso>. The Recv argument
+            <seeerl marker="snmpa#send_notification">snmpa:send_notification</seeerl>. The Recv argument
             (specifically the {M,F,A} variant).</p>
           <p>Own Id: OTP-5281</p>
         </item>
         <item>
           <p>[manager] It was never documented how the default 
-            <seealso marker="snmpm_user">user behaviour</seealso> 
+            <seeerl marker="snmpm_user">user behaviour</seeerl> 
             could be overridden (default user is the module
             <c>snmpm_user_default</c>). 
             See 
-            <seealso marker="snmp_config#configuration_params">configuration params</seealso>.</p>
+            <seeerl marker="snmp_config#configuration_params">configuration params</seeerl>.</p>
           <p>Own Id: OTP-5299</p>
         </item>
         <item>
@@ -3103,7 +3103,7 @@
         <item>
           <p>[agent] The agent config file, target_addr.conf, was 
             incorrectly described in the 
-            <seealso marker="snmp_agent_config_files#target_addr">Target Address Definitions</seealso> chapter of the 
+            <seeguide marker="snmp_agent_config_files#target_addr">Target Address Definitions</seeguide> chapter of the 
             User's Guide. The EngineId option was left out.</p>
           <p>Own Id: OTP-5307</p>
 	  <p>Aux Id: Seq 9689</p>
@@ -3208,7 +3208,7 @@
             snmpm:s), and if the request
             was asynchronous, the new callback function, 
             handle_error 
-            (see <seealso marker="snmpm_user">snmpm_user</seealso>) is 
+            (see <seeerl marker="snmpm_user">snmpm_user</seeerl>) is 
             called. </p>
           <p>Own Id: OTP-5242</p>
         </item>
@@ -3236,7 +3236,7 @@
       <list type="bulleted">
         <item>
           <p>[manager] Introduced a new callback function in the behaviour
-            <seealso marker="snmpm_user">snmpm_user</seealso>.</p>
+            <seeerl marker="snmpm_user">snmpm_user</seeerl>.</p>
           <p>Own Id: OTP-5242</p>
         </item>
       </list>
@@ -3254,9 +3254,9 @@
         <item>
           <p>[agent] Added functions to get a list of all mibs loaded into
             an agent 
-            (see <seealso marker="snmpa#which_mibs">snmpa:which_mibs</seealso>)
+            (see <seeerl marker="snmpa#which_mibs">snmpa:which_mibs</seeerl>)
             and to get the (full path) file name of a loaded mib (see 
-            <seealso marker="snmpa#whereis_mib">snmpa:whereis_mib</seealso>).</p>
+            <seeerl marker="snmpa#whereis_mib">snmpa:whereis_mib</seeerl>).</p>
           <p>Own Id: OTP-5187</p>
         </item>
       </list>
@@ -3294,23 +3294,23 @@
         <item>
           <p>[agent] Add a <c>snmpa:get/3</c> with an extra <c>Context</c>
             argument. Also added similar <c>snmpa:get_next/2,3</c> functions. 
-            See <seealso marker="snmpa#get">snmpa:get</seealso> and
-            <seealso marker="snmpa#get_next">snmpa:get_next</seealso>. </p>
+            See <seeerl marker="snmpa#get">snmpa:get</seeerl> and
+            <seeerl marker="snmpa#get_next">snmpa:get_next</seeerl>. </p>
 	  <p>Martin Bj&ouml;rklund</p>
           <p>Own Id: OTP-5054</p>
         </item>
         <item>
           <p>[agent] Add <em>notification filters</em>. See 
-            <seealso marker="snmpa_notification_filter">snmpa_notification_filter</seealso>,  
-            <seealso marker="snmpa#register_notification_filter">register_notification_filter</seealso>,
-            <seealso marker="snmpa#unregister_notification_filter">unregister_notification_filter</seealso> and 
-            <seealso marker="snmpa#which_notification_filter">which_notification_filter</seealso>.</p>
+            <seeerl marker="snmpa_notification_filter">snmpa_notification_filter</seeerl>,  
+            <seeerl marker="snmpa#register_notification_filter">register_notification_filter</seeerl>,
+            <seeerl marker="snmpa#unregister_notification_filter">unregister_notification_filter</seeerl> and 
+            <seeerl marker="snmpa#which_notification_filter">which_notification_filter</seeerl>.</p>
           <p>Own Id: OTP-5055</p>
         </item>
         <item>
           <p>[agent] Added two mib look-up functions, 
-            <seealso marker="snmpa#me_of">me_of</seealso> and
-            <seealso marker="snmpa#mib_of">mib_of</seealso>.</p>
+            <seeerl marker="snmpa#me_of">me_of</seeerl> and
+            <seeerl marker="snmpa#mib_of">mib_of</seeerl>.</p>
           <p>Own Id: OTP-5082</p>
 	  <p>Aux Id: Seq 8848</p>
         </item>
@@ -3327,17 +3327,17 @@
           <p>[compiler] Added compiler options <c>imports</c> and
             <c>module_identity</c> to include the imports list and 
             module identity (only SMIv2) info in the compiled mib, 
-            see <seealso marker="snmpc">snmpc</seealso>.</p>
+            see <seeerl marker="snmpc">snmpc</seeerl>.</p>
         </item>
         <item>
           <p>[compiler] Added the MIB compiler option 
-            <c>+no_defs</c>, see <seealso marker="snmpc">snmpc</seealso>.</p>
+            <c>+no_defs</c>, see <seeerl marker="snmpc">snmpc</seeerl>.</p>
 	  <p>Martin Bj&ouml;rklund</p>
         </item>
         <item>
           <p>[compiler] Added the MIB compiler option 
             <c>+'{module, atom()}'</c>, 
-            see <seealso marker="snmpc">snmpc</seealso>. </p>
+            see <seeerl marker="snmpc">snmpc</seeerl>. </p>
 	  <p>Martin Bj&ouml;rklund</p>
         </item>
       </list>
@@ -3377,7 +3377,7 @@
             longer documented and will eventually be 
             eliminated.
             See 
-            <seealso marker="snmp_config#configuration_params">configuration params</seealso> for more info.</p>
+            <seeerl marker="snmp_config#configuration_params">configuration params</seeerl> for more info.</p>
         </item>
         <item>
           <p>Three new interface modules have been introduced. One
@@ -3404,7 +3404,7 @@
         </item>
         <item>
           <p>[agent] The agent network interface API has changed.
-            See <seealso marker="snmp_agent_netif">snmp agent net if</seealso>,</p>
+            See <seeguide marker="snmp_agent_netif">snmp agent net if</seeguide>,</p>
         </item>
         <item>
           <p>[agent] The default agent audit trail log name has changed.</p>

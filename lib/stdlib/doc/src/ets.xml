@@ -57,7 +57,7 @@
        The previous default limit was about 1400 tables and
        could be increased by setting the environment variable
        <c>ERL_MAX_ETS_TABLES</c> or the command line option
-       <seealso marker="erts:erl#+e"><c>+e</c></seealso> before starting the
+       <seecom marker="erts:erl#+e"><c>+e</c></seecom> before starting the
        Erlang runtime system. This hard limit has been removed, but it is currently
        useful to set the <c>ERL_MAX_ETS_TABLES</c> anyway. It should be
        set to an approximate of the maximum amount of tables used. This since
@@ -72,11 +72,11 @@
       Even if there are no references to a table from any process, it
       is not automatically destroyed unless the owner process
       terminates. To destroy a table explicitly, use function
-      <seealso marker="#delete/1"><c>delete/1</c></seealso>.
+      <seemfa marker="#delete/1"><c>delete/1</c></seemfa>.
       The default owner is the process that created the
       table. To transfer table ownership at process termination, use
-      option <seealso marker="#heir"><c>heir</c></seealso> or call
-      <seealso marker="#give_away/3"><c>give_away/3</c></seealso>.</p>
+      option <seeerl marker="#heir"><c>heir</c></seeerl> or call
+      <seemfa marker="#give_away/3"><c>give_away/3</c></seemfa>.</p>
 
     <p>Some implementation details:</p>
 
@@ -85,8 +85,8 @@
        look-up operation results in a copy of the object.</p></item>
       <item><p><c>'$end_of_table'</c> is not to be used as a key, as
        this atom is used to mark the end of the table when using functions
-       <seealso marker="#first/1"><c>first/1</c></seealso> and
-       <seealso marker="#next/2"><c>next/2</c></seealso>.</p></item>
+       <seemfa marker="#first/1"><c>first/1</c></seemfa> and
+       <seemfa marker="#next/2"><c>next/2</c></seemfa>.</p></item>
     </list>
 
     <p>Notice the subtle difference between
@@ -132,8 +132,8 @@
       <tag><c>badarg</c></tag>
       <item><p>
 	If the operation is denied because of
-	table access rights (<seealso marker="#protected">protected</seealso>
-	or <seealso marker="#private">private</seealso>).
+	table access rights (<seeerl marker="#protected">protected</seeerl>
+	or <seeerl marker="#private">private</seeerl>).
       </p></item>
       <tag><c>system_limit</c></tag>
       <item><p>
@@ -146,8 +146,8 @@
 	If a match specification passed as argument has excessive
 	nesting which causes scheduler stack exhaustion for the
 	scheduler that the calling process is executing on.
-	<seealso marker="erts:erl#sched_thread_stack_size">Scheduler
-	stack size</seealso> can be configured when starting the
+	<seecom marker="erts:erl#sched_thread_stack_size">Scheduler
+	stack size</seecom> can be configured when starting the
 	runtime system.
       </p></item>
     </taglist>
@@ -173,26 +173,26 @@
     <p>There are different ways to traverse through the objects of a table.</p>
     <list type="bulleted">
       <item><p><em>Single-step</em> traversal one key at at time, using
-	<seealso marker="#first/1"><c>first/1</c></seealso>,
-	<seealso marker="#next/2"><c>next/2</c></seealso>,
-	<seealso marker="#last/1"><c>last/1</c></seealso> and
-	<seealso marker="#prev/2"><c>prev/2</c></seealso>.</p>
+	<seemfa marker="#first/1"><c>first/1</c></seemfa>,
+	<seemfa marker="#next/2"><c>next/2</c></seemfa>,
+	<seemfa marker="#last/1"><c>last/1</c></seemfa> and
+	<seemfa marker="#prev/2"><c>prev/2</c></seemfa>.</p>
       </item>
       <item><p>Search with simple <em>match patterns</em>, using
-	<seealso marker="#match/1"><c>match/1/2/3</c></seealso>,
-	<seealso marker="#match_delete/2"><c>match_delete/2</c></seealso> and
-	<seealso marker="#match_object/1"><c>match_object/1/2/3</c></seealso>.</p>
+	<seemfa marker="#match/1"><c>match/1/2/3</c></seemfa>,
+	<seemfa marker="#match_delete/2"><c>match_delete/2</c></seemfa> and
+	<seemfa marker="#match_object/1"><c>match_object/1/2/3</c></seemfa>.</p>
       </item>
       <item><p>Search with more powerful <em>match specifications</em>, using
-	<seealso marker="#select/1"><c>select/1/2/3</c></seealso>,
-	<seealso marker="#select_count/2"><c>select_count/2</c></seealso>,
-	<seealso marker="#select_delete/2"><c>select_delete/2</c></seealso>,
-	<seealso marker="#select_replace/2"><c>select_replace/2</c></seealso> and
-	<seealso marker="#select_reverse/1"><c>select_reverse/1/2/3</c></seealso>.</p>
+	<seemfa marker="#select/1"><c>select/1/2/3</c></seemfa>,
+	<seemfa marker="#select_count/2"><c>select_count/2</c></seemfa>,
+	<seemfa marker="#select_delete/2"><c>select_delete/2</c></seemfa>,
+	<seemfa marker="#select_replace/2"><c>select_replace/2</c></seemfa> and
+	<seemfa marker="#select_reverse/1"><c>select_reverse/1/2/3</c></seemfa>.</p>
       </item>
       <item><p><em>Table conversions</em>, using
-	<seealso marker="#tab2file/2"><c>tab2file/2/3</c></seealso> and
-        <seealso marker="#tab2list/1"><c>tab2list/1</c></seealso>.</p>
+	<seemfa marker="#tab2file/2"><c>tab2file/2/3</c></seemfa> and
+        <seemfa marker="#tab2list/1"><c>tab2list/1</c></seemfa>.</p>
       </item>
     </list>
     <p>None of these ways of table traversal will guarantee a consistent table snapshot
@@ -212,13 +212,13 @@
       <item><p>the entire table traversal is done within one ETS function
         call.</p>
       </item>
-      <item><p>function <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
+      <item><p>function <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>
         is used to keep the table fixated during the entire traversal.</p>
       </item>
     </list>
     <note>
       <p>Even though the access of a single object is always guaranteed to be
-      <seealso marker="#concurrency">atomic and isolated</seealso>, each traversal
+      <seeerl marker="#concurrency">atomic and isolated</seeerl>, each traversal
       through a table to find the next key is not done with such guarantees. This is often
       not a problem, but may cause rare subtle "unexpected" effects if a concurrent
       process inserts objects during a traversal. For example, consider one
@@ -237,7 +237,7 @@ ets:insert(t, {3}),
       ordered directly after <c>1</c>.</p>
       <p>Effects like this are improbable but possible. The probability will
       further be reduced (if not vanish) if table option
-      <seealso marker="#new_2_write_concurrency"><c>write_concurrency</c></seealso>
+      <seeerl marker="#new_2_write_concurrency"><c>write_concurrency</c></seeerl>
       is not enabled. This can also only be a potential concern for
       <c>ordered_set</c> where the traversal order is defined.</p>
     </note>
@@ -263,11 +263,11 @@ true
     <title>Match Specifications</title>
     <p>Some of the functions use a <em>match specification</em>,
       <c>match_spec</c>. For a brief explanation, see
-      <seealso marker="#select/2"><c>select/2</c></seealso>. For a detailed
-      description, see section <seealso marker="erts:match_spec">
-      Match Specifications in Erlang</seealso> in ERTS User's Guide.</p>
+      <seemfa marker="#select/2"><c>select/2</c></seemfa>. For a detailed
+      description, see section <seeguide marker="erts:match_spec">
+      Match Specifications in Erlang</seeguide> in ERTS User's Guide.</p>
     <p>A match specifications with excessive nesting will cause a
-      <seealso marker="#ets_failures"><c>system_limit</c></seealso> error
+      <seeerl marker="#ets_failures"><c>system_limit</c></seeerl> error
       exception to be raised.</p>
   </section>
 
@@ -278,11 +278,11 @@ true
     <datatype>
       <name>continuation()</name>
       <desc>
-        <p>Opaque continuation used by <seealso marker="#select/1">
-          <c>select/1,3</c></seealso>, <seealso marker="#select_reverse/1">
-          <c>select_reverse/1,3</c></seealso>, <seealso marker="#match/1">
-          <c>match/1,3</c></seealso>, and <seealso marker="#match_object/1">
-          <c>match_object/1,3</c></seealso>.</p>
+        <p>Opaque continuation used by <seemfa marker="#select/1">
+          <c>select/1,3</c></seemfa>, <seemfa marker="#select_reverse/1">
+          <c>select_reverse/1,3</c></seemfa>, <seemfa marker="#match/1">
+          <c>match/1,3</c></seemfa>, and <seemfa marker="#match_object/1">
+          <c>match_object/1,3</c></seemfa>.</p>
       </desc>
     </datatype>
     <datatype>
@@ -302,7 +302,7 @@ true
     <datatype>
       <name name="tid"/>
       <desc><p>A table identifier, as returned by
-      <seealso marker="#new/2"><c>new/2</c></seealso>.</p></desc>
+      <seemfa marker="#new/2"><c>new/2</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name name="type"/>
@@ -349,7 +349,7 @@ true
       <desc>
         <p>Delete all objects in the ETS table <c><anno>Tab</anno></c>.
           The operation is guaranteed to be
-          <seealso marker="#concurrency">atomic and isolated</seealso>.</p>
+          <seeerl marker="#concurrency">atomic and isolated</seeerl>.</p>
       </desc>
     </func>
 
@@ -369,9 +369,9 @@ true
       <name name="file2tab" arity="1" since=""/>
       <fsummary>Read an ETS table from a file.</fsummary>
       <desc>
-        <p>Reads a file produced by <seealso marker="#tab2file/2">
-          <c>tab2file/2</c></seealso> or 
-          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso> and
+        <p>Reads a file produced by <seemfa marker="#tab2file/2">
+          <c>tab2file/2</c></seemfa> or 
+          <seemfa marker="#tab2file/3"><c>tab2file/3</c></seemfa> and
           creates the corresponding table <c><anno>Tab</anno></c>.</p>
         <p>Equivalent to <c>file2tab(<anno>Filename</anno>, [])</c>.</p>
       </desc>
@@ -381,16 +381,16 @@ true
       <name name="file2tab" arity="2" since=""/>
       <fsummary>Read an ETS table from a file.</fsummary>
       <desc>
-        <p>Reads a file produced by <seealso marker="#tab2file/2">
-          <c>tab2file/2</c></seealso> or <seealso marker="#tab2file/3">
-          <c>tab2file/3</c></seealso> and creates the
+        <p>Reads a file produced by <seemfa marker="#tab2file/2">
+          <c>tab2file/2</c></seemfa> or <seemfa marker="#tab2file/3">
+          <c>tab2file/3</c></seemfa> and creates the
           corresponding table <c><anno>Tab</anno></c>.</p>
         <p>The only supported option is <c>{verify,boolean()}</c>.
           If verification is turned on (by specifying <c>{verify,true}</c>),
           the function uses whatever information is present in the file to
           assert that the information is not damaged. How this is done depends
           on which <c>extended_info</c> was written using 
-          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso>.</p>
+          <seemfa marker="#tab2file/3"><c>tab2file/3</c></seemfa>.</p>
         <p>If no <c>extended_info</c> is present in the file and
           <c>{verify,true}</c> is specified, the number of objects
           written is compared to the size of the original table when the
@@ -399,7 +399,7 @@ true
           table was dumped to file. To avoid this problem,
           either do not verify files dumped while updated simultaneously
           or use option <c>{extended_info, [object_count]}</c> to
-          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso>, which
+          <seemfa marker="#tab2file/3"><c>tab2file/3</c></seemfa>, which
           extends the information in the file with the number of objects
           written.</p>
         <p>If verification is turned on and the file was written with
@@ -420,7 +420,7 @@ true
           order of the table is returned. If the table is empty,
           <c>'$end_of_table'</c> is returned.</p>
         <p>To find subsequent keys in the table, use
-          <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+          <seemfa marker="#next/2"><c>next/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -430,7 +430,7 @@ true
       <desc>
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
           This function is similar to
-          <seealso marker="lists#foldl/3"><c>lists:foldl/3</c></seealso>.
+          <seemfa marker="lists#foldl/3"><c>lists:foldl/3</c></seemfa>.
           The table elements are traversed in an unspecified order, except for
           <c>ordered_set</c> tables, where they are traversed first to last.</p>
         <p>If <c><anno>Function</anno></c> inserts objects into the table,
@@ -446,7 +446,7 @@ true
       <desc>
         <p><c><anno>Acc0</anno></c> is returned if the table is empty.
           This function is similar to
-          <seealso marker="lists#foldr/3"><c>lists:foldr/3</c></seealso>.
+          <seemfa marker="lists#foldr/3"><c>lists:foldr/3</c></seemfa>.
           The table elements are traversed in an unspecified order, except for
           <c>ordered_set</c> tables, where they are traversed last to first.</p>
         <p>If <c><anno>Function</anno></c> inserts objects into the table,
@@ -478,7 +478,7 @@ true
         <p>Pseudo function that by a <c>parse_transform</c> translates
           <c><anno>LiteralFun</anno></c> typed as parameter in the function
           call to a
-          <seealso marker="#match_spec">match specification</seealso>.
+          <seeerl marker="#match_spec">match specification</seeerl>.
           With "literal" is meant that the fun must textually be written
           as the parameter of the function, it cannot be held in a
           variable that in turn is passed to the function.</p>
@@ -534,8 +534,8 @@ Error: fun containing local Erlang function calls
             code never calls the function, but the function call is
             replaced by a literal match specification.</p>
         </warning>
-        <p>For more information, see <seealso marker="ms_transform#top">
-          <c>ms_transform(3)</c></seealso>.</p>
+        <p>For more information, see <seeerl marker="ms_transform#top">
+          <c>ms_transform(3)</c></seeerl>.</p>
       </desc>
     </func>
 
@@ -551,7 +551,7 @@ Error: fun containing local Erlang function calls
           already the owner of the table.
           The calling process must be the table owner.</p>
         <p>Notice that this function does not affect option
-          <seealso marker="#heir"><c>heir</c></seealso> of the table. A table
+          <seeerl marker="#heir"><c>heir</c></seeerl> of the table. A table
           owner can, for example, set <c>heir</c> to itself, give the table
           away, and then get it back if the receiver terminates.</p>
       </desc>
@@ -597,8 +597,8 @@ Error: fun containing local Erlang function calls
             <p>The pid of the heir of the table, or <c>none</c> if no heir
               is set.</p>
           </item>
-          <tag><c>{id,</c><seealso marker="#type-tid">
-              <c>tid()</c></seealso><c>}</c></tag>
+          <tag><c>{id,</c><seetype marker="#tid">
+              <c>tid()</c></seetype><c>}</c></tag>
           <item>
             <p>The table identifier.</p>
           </item>
@@ -627,8 +627,8 @@ Error: fun containing local Erlang function calls
           <item>
             <p>The pid of the owner of the table.</p>
           </item>
-          <tag><c>{protection,</c> <seealso marker="#type-access">
-              <c>access()</c></seealso><c>}</c></tag>
+          <tag><c>{protection,</c> <seetype marker="#access">
+              <c>access()</c></seetype><c>}</c></tag>
           <item>
             <p>The table access rights.</p>
           </item>
@@ -636,8 +636,8 @@ Error: fun containing local Erlang function calls
           <item>
             <p>The number of objects inserted in the table.</p>
           </item>
-          <tag><c>{type,</c> <seealso marker="#type-type">
-              <c>type()</c></seealso><c>}</c></tag>
+          <tag><c>{type,</c> <seetype marker="#type">
+              <c>type()</c></seetype><c>}</c></tag>
           <item>
             <p>The table type.</p>
           </item>
@@ -652,8 +652,8 @@ Error: fun containing local Erlang function calls
           </item>
         </taglist>
 	<note><p>The execution time of this function is affected by
-          the <seealso marker="#new_2_decentralized_counters">
-          <c>decentralized_counters</c></seealso> table option.
+          the <seeerl marker="#new_2_decentralized_counters">
+          <c>decentralized_counters</c></seeerl> table option.
           The execution time is much longer when the <c>decentralized_counters</c>
           option is set to <c>true</c> than when the <c>decentralized_counters</c>
           option is set to <c>false</c>.</p>
@@ -673,7 +673,7 @@ Error: fun containing local Erlang function calls
           not of the correct type, or if <c><anno>Item</anno></c> is not
           one of the allowed values, a <c>badarg</c> exception is raised.</p>
           <p>In addition to the <c>{<anno>Item</anno>,<anno>Value</anno>}</c>
-            pairs defined for <seealso marker="#info/1"><c>info/1</c></seealso>,
+            pairs defined for <seemfa marker="#info/1"><c>info/1</c></seemfa>,
             the following items are allowed:</p>
         <list type="bulleted">
           <item>
@@ -693,8 +693,8 @@ Error: fun containing local Erlang function calls
             <p><c>Item=safe_fixed|safe_fixed_monotonic_time,
               Value={FixationTime,Info}|false</c></p>
             <p>If the table is fixed using
-              <seealso marker="#safe_fixtable/2">
-              <c>safe_fixtable/2</c></seealso>,
+              <seemfa marker="#safe_fixtable/2">
+              <c>safe_fixtable/2</c></seemfa>,
               the call returns a tuple where <c>FixationTime</c> is the
               last time when the table changed from unfixed to fixed.</p>
             <p>The format and value of <c>FixationTime</c> depends on
@@ -703,24 +703,24 @@ Error: fun containing local Erlang function calls
               <tag><c>safe_fixed</c></tag>
               <item>
                 <p><c>FixationTime</c> corresponds to the result returned by
-                  <seealso marker="erts:erlang#timestamp/0">
-                  <c>erlang:timestamp/0</c></seealso> at the time of fixation.
+                  <seemfa marker="erts:erlang#timestamp/0">
+                  <c>erlang:timestamp/0</c></seemfa> at the time of fixation.
                   Notice that when the system uses single or multi
-                  <seealso marker="erts:time_correction#Time_Warp_Modes">time
-                  warp modes</seealso> this can produce strange results, as
+                  <seeguide marker="erts:time_correction#Time_Warp_Modes">time
+                  warp modes</seeguide> this can produce strange results, as
                   the use of <c>safe_fixed</c> is not
-                  <seealso marker="erts:time_correction#Time_Warp_Safe_Code">
-                  time warp safe</seealso>. Time warp safe code must use
+                  <seeguide marker="erts:time_correction#Time_Warp_Safe_Code">
+                  time warp safe</seeguide>. Time warp safe code must use
                   <c>safe_fixed_monotonic_time</c> instead.</p>
               </item>
               <tag><c>safe_fixed_monotonic_time</c></tag>
               <item>
                 <p><c>FixationTime</c> corresponds to the result returned by
-                  <seealso marker="erts:erlang#monotonic_time/0">
-                  <c>erlang:monotonic_time/0</c></seealso> at the time of
+                  <seemfa marker="erts:erlang#monotonic_time/0">
+                  <c>erlang:monotonic_time/0</c></seemfa> at the time of
                   fixation. The use of <c>safe_fixed_monotonic_time</c> is
-                  <seealso marker="erts:time_correction#Time_Warp_Safe_Code">
-                  time warp safe</seealso>.</p>
+                  <seeguide marker="erts:time_correction#Time_Warp_Safe_Code">
+                  time warp safe</seeguide>.</p>
               </item>
             </taglist>
             <p><c>Info</c> is a possibly empty lists of tuples
@@ -728,10 +728,10 @@ Error: fun containing local Erlang function calls
               table is fixed by now. <c>RefCount</c> is the value
               of the reference counter and it keeps track of how many times
               the table has been fixed by the process.</p>
-	    <p>Table fixations are not limited to <seealso marker="#safe_fixtable/2">
-	      <c>safe_fixtable/2</c></seealso>. Temporary fixations may also
-	      be done by for example <seealso marker="#traversal">traversing
-	      functions</seealso> like <c>select</c> and <c>match</c>. Such
+	    <p>Table fixations are not limited to <seemfa marker="#safe_fixtable/2">
+	      <c>safe_fixtable/2</c></seemfa>. Temporary fixations may also
+	      be done by for example <seeerl marker="#traversal">traversing
+	      functions</seeerl> like <c>select</c> and <c>match</c>. Such
 	      table fixations are automatically released before the
 	      corresponding functions returns, but they may be seen by a
 	      concurrent call to
@@ -745,8 +745,8 @@ Error: fun containing local Erlang function calls
         </list>
         <note>
          <p>The execution time of this function is affected by
-          the <seealso marker="#new_2_decentralized_counters">
-          <c>decentralized_counters</c></seealso> table option when the second
+          the <seeerl marker="#new_2_decentralized_counters">
+          <c>decentralized_counters</c></seeerl> table option when the second
           argument of the function is <c>size</c> or <c>memory</c>.
           The execution time is much longer when the <c>decentralized_counters</c>
           option is set to <c>true</c> than when the <c>decentralized_counters</c>
@@ -765,7 +765,7 @@ Error: fun containing local Erlang function calls
           see below. This function is provided for compatibility with
           the <c>dets</c> module, it is not more efficient than filling
           a table by using
-          <seealso marker="#insert/2"><c>insert/2</c></seealso>.</p>
+          <seemfa marker="#insert/2"><c>insert/2</c></seemfa>.</p>
         <p>When called with argument <c>read</c>, the function
           <c><anno>InitFun</anno></c> is assumed to return
           <c>end_of_input</c> when
@@ -812,7 +812,7 @@ Error: fun containing local Erlang function calls
           </item>
         </list>
         <p>The entire operation is guaranteed to be
-          <seealso marker="#concurrency">atomic and isolated</seealso>,
+          <seeerl marker="#concurrency">atomic and isolated</seeerl>,
           even when a list of objects is inserted.</p>
       </desc>
     </func>
@@ -822,7 +822,7 @@ Error: fun containing local Erlang function calls
       <fsummary>Insert an object into an ETS table if the key is not
         already present.</fsummary>
       <desc>
-        <p>Same as <seealso marker="#insert/2"><c>insert/2</c></seealso>
+        <p>Same as <seemfa marker="#insert/2"><c>insert/2</c></seemfa>
           except that instead of overwriting objects with the same key
           (for <c>set</c> or <c>ordered_set</c>) or adding more objects with
           keys already existing in the table (for <c>bag</c> and
@@ -832,7 +832,7 @@ Error: fun containing local Erlang function calls
           inserting anything. Nothing is inserted unless
           <em>all</em> keys present in the list are absent from the
           table. Like <c>insert/2</c>, the entire operation is guaranteed to be
-          <seealso marker="#concurrency">atomic and isolated</seealso>.</p>
+          <seeerl marker="#concurrency">atomic and isolated</seeerl>.</p>
       </desc>
     </func>
 
@@ -842,10 +842,10 @@ Error: fun containing local Erlang function calls
         <c>match_spec_compile</c>.</fsummary>
       <desc>
         <p>Checks if a term represent a valid compiled
-	  <seealso marker="#match_spec">match specification</seealso>.
+	  <seeerl marker="#match_spec">match specification</seeerl>.
           A compiled match specifications is only valid on the Erlang node where
-	  it was compiled by calling <seealso marker="#match_spec_compile/1">
-	  <c>match_spec_compile/1</c></seealso>.</p>
+	  it was compiled by calling <seemfa marker="#match_spec_compile/1">
+	  <c>match_spec_compile/1</c></seemfa>.</p>
         <note>
           <p>
 	    Before STDLIB 3.4 (OTP 20.0) compiled match specifications did
@@ -872,10 +872,10 @@ Error: fun containing local Erlang function calls
         <p>Returns the last key <c><anno>Key</anno></c> according to Erlang
           term order in table <c>Tab</c> of type <c>ordered_set</c>. For
           other table types, the function is synonymous to
-          <seealso marker="#first/1"><c>first/1</c></seealso>.
+          <seemfa marker="#first/1"><c>first/1</c></seemfa>.
           If the table is empty, <c>'$end_of_table'</c> is returned.</p>
         <p>To find preceding keys in the table, use
-          <seealso marker="#prev/2"><c>prev/2</c></seealso>.</p>
+          <seemfa marker="#prev/2"><c>prev/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -947,7 +947,7 @@ Error: fun containing local Erlang function calls
       <fsummary>Continues matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
-          <seealso marker="#match/3"><c>match/3</c></seealso>. The next
+          <seemfa marker="#match/3"><c>match/3</c></seemfa>. The next
           chunk of the size specified in the initial <c>match/3</c>
           call is returned together with a new <c><anno>Continuation</anno></c>,
           which can be used in subsequent calls to this function.</p>
@@ -993,20 +993,20 @@ Error: fun containing local Erlang function calls
       <fsummary>Match the objects in an ETS table against a pattern
         and return part of the answers.</fsummary>
       <desc>
-        <p>Works like <seealso marker="#match/2"><c>match/2</c></seealso>, 
+        <p>Works like <seemfa marker="#match/2"><c>match/2</c></seemfa>, 
           but returns only a limited (<c><anno>Limit</anno></c>) number of
           matching objects. Term <c><anno>Continuation</anno></c> can then
-          be used in subsequent calls to <seealso marker="#match/1">
-          <c>match/1</c></seealso> to get the next chunk of matching
+          be used in subsequent calls to <seemfa marker="#match/1">
+          <c>match/1</c></seemfa> to get the next chunk of matching
           objects. This is a space-efficient way to work on objects in a
           table, which is faster than traversing the table object
           by object using
-          <seealso marker="#first/1"><c>first/1</c></seealso> and
-          <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+          <seemfa marker="#first/1"><c>first/1</c></seemfa> and
+          <seemfa marker="#next/2"><c>next/2</c></seemfa>.</p>
         <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
-	<p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
-	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
-	  for subsequent calls to <seealso marker="#match/1"><c>match/1</c></seealso>.</p>
+	<p>Use <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>
+	  to guarantee <seeerl marker="#traversal">safe traversal</seeerl>
+	  for subsequent calls to <seemfa marker="#match/1"><c>match/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1017,7 +1017,7 @@ Error: fun containing local Erlang function calls
       <desc>
         <p>Deletes all objects that match pattern <c><anno>Pattern</anno></c>
           from table <c><anno>Tab</anno></c>. For a description of patterns,
-          see <seealso marker="#match/2"><c>match/2</c></seealso>.</p>
+          see <seemfa marker="#match/2"><c>match/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1026,7 +1026,7 @@ Error: fun containing local Erlang function calls
       <fsummary>Continues matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
-          <seealso marker="#match_object/3"><c>match_object/3</c></seealso>.
+          <seemfa marker="#match_object/3"><c>match_object/3</c></seemfa>.
           The next chunk of the size specified in the initial
           <c>match_object/3</c> call is returned together with a new
           <c><anno>Continuation</anno></c>, which can be used in subsequent
@@ -1043,7 +1043,7 @@ Error: fun containing local Erlang function calls
       <desc>
         <p>Matches the objects in table <c><anno>Tab</anno></c> against
           pattern <c><anno>Pattern</anno></c>. For a description of patterns,
-          see <seealso marker="#match/2"><c>match/2</c></seealso>.
+          see <seemfa marker="#match/2"><c>match/2</c></seemfa>.
           The function returns a list of all objects that
           match the pattern.</p>
         <p>If the key is specified in the pattern, the match is very
@@ -1060,22 +1060,22 @@ Error: fun containing local Erlang function calls
       <fsummary>Match the objects in an ETS table against a pattern and
         return part of the answers.</fsummary>
       <desc>
-        <p>Works like <seealso marker="#match_object/2">
-          <c>match_object/2</c></seealso>, but only returns a
+        <p>Works like <seemfa marker="#match_object/2">
+          <c>match_object/2</c></seemfa>, but only returns a
           limited (<c><anno>Limit</anno></c>) number of matching objects. Term
           <c><anno>Continuation</anno></c> can then be used in subsequent
-          calls to <seealso marker="#match_object/1">
-          <c>match_object/1</c></seealso> to get the next chunk of matching
+          calls to <seemfa marker="#match_object/1">
+          <c>match_object/1</c></seemfa> to get the next chunk of matching
           objects. This is a space-efficient way to work on objects in a
           table, which is faster than traversing the table object
           by object using
-          <seealso marker="#first/1"><c>first/1</c></seealso> and
-          <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+          <seemfa marker="#first/1"><c>first/1</c></seemfa> and
+          <seemfa marker="#next/2"><c>next/2</c></seemfa>.</p>
         <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
-	<p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
-	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
-	  for subsequent calls to <seealso marker="#match_object/1">
-	  <c>match_object/1</c></seealso>.</p>
+	<p>Use <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>
+	  to guarantee <seeerl marker="#traversal">safe traversal</seeerl>
+	  for subsequent calls to <seemfa marker="#match_object/1">
+	  <c>match_object/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1085,18 +1085,18 @@ Error: fun containing local Erlang function calls
       </fsummary>
       <desc>
         <p>Transforms a
-          <seealso marker="#match_spec">match specification</seealso> into an
+          <seeerl marker="#match_spec">match specification</seeerl> into an
           internal representation that can be used in subsequent calls to
-          <seealso marker="#match_spec_run/2"><c>match_spec_run/2</c></seealso>.
+          <seemfa marker="#match_spec_run/2"><c>match_spec_run/2</c></seemfa>.
           The internal representation is opaque.
           To check the validity of a compiled match specification, use
-          <seealso marker="#is_compiled_ms/1"><c>is_compiled_ms/1</c></seealso>.
+          <seemfa marker="#is_compiled_ms/1"><c>is_compiled_ms/1</c></seemfa>.
         </p>
         <p>If term <c><anno>MatchSpec</anno></c> does not represent a valid
 	match specification, a <c>badarg</c> exception is raised.</p>
         <note>
           <p>This function has limited use in normal code. It is used by the
-            <seealso marker="dets"><c>dets</c></seealso> module
+            <seeerl marker="dets"><c>dets</c></seeerl> module
             to perform the <c>dets:select()</c> operations.</p>
         </note>
       </desc>
@@ -1108,10 +1108,10 @@ Error: fun containing local Erlang function calls
         list of terms.</fsummary>
       <desc>
         <p>Executes the matching specified in a compiled
-          <seealso marker="#match_spec">match specification</seealso> on a list
+          <seeerl marker="#match_spec">match specification</seeerl> on a list
           of terms. Term <c><anno>CompiledMatchSpec</anno></c> is to be
-          the result of a call to <seealso marker="#match_spec_compile/1">
-          <c>match_spec_compile/1</c></seealso> and is hence the internal
+          the result of a call to <seemfa marker="#match_spec_compile/1">
+          <c>match_spec_compile/1</c></seemfa> and is hence the internal
           representation of the match specification one wants to use.</p>
         <p>The matching is executed on each element in <c><anno>List</anno></c>
           and the function returns a list containing all results. If an element
@@ -1132,7 +1132,7 @@ ets:match_spec_run(ets:tab2list(Table),
 ets:select(Table, MatchSpec),</code>
         <note>
           <p>This function has limited use in normal code. It is used by the
-            <seealso marker="dets"><c>dets</c></seealso> module
+            <seeerl marker="dets"><c>dets</c></seeerl> module
             to perform the <c>dets:select()</c> operations and by
             Mnesia during transactions.</p>
         </note>
@@ -1143,7 +1143,7 @@ ets:select(Table, MatchSpec),</code>
       <name name="member" arity="2" since=""/>
       <fsummary>Tests for occurrence of a key in an ETS table.</fsummary>
       <desc>
-        <p>Works like <seealso marker="#lookup/2"><c>lookup/2</c></seealso>,
+        <p>Works like <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>,
           but does not return the objects. Returns <c>true</c> if one or more
           elements in the table has key <c><anno>Key</anno></c>, otherwise
           <c>false</c>.</p>
@@ -1223,7 +1223,7 @@ ets:select(Table, MatchSpec),</code>
             <p>The function will also return the <c><anno>Name</anno></c>
               instead of the table identifier. To get the table identifier of a
               named table, use
-              <seealso marker="#whereis/1"><c>whereis/1</c></seealso>.</p>
+              <seemfa marker="#whereis/1"><c>whereis/1</c></seemfa>.</p>
           </item>
           <tag><c>{keypos,<anno>Pos</anno>}</c></tag>
           <item>
@@ -1260,26 +1260,26 @@ ets:select(Table, MatchSpec),</code>
               degree at the expense of memory consumption and the performance
               of sequential access and concurrent reading.</p>
               <p>The <c>write_concurrency</c> option can be combined with the options
-              <seealso marker="#new_2_read_concurrency">
-              <c>read_concurrency</c></seealso> and
-              <seealso marker="#new_2_decentralized_counters">
-              <c>decentralized_counters</c></seealso>. You typically want to combine
+              <seeerl marker="#new_2_read_concurrency">
+              <c>read_concurrency</c></seeerl> and
+              <seeerl marker="#new_2_decentralized_counters">
+              <c>decentralized_counters</c></seeerl>. You typically want to combine
               <c>write_concurrency</c> with <c>read_concurrency</c> when large
               concurrent read bursts and large concurrent
               write bursts are common; for more information, see option
-              <seealso marker="#new_2_read_concurrency">
-              <c>read_concurrency</c></seealso>. The <c>decentralized_counters</c>
+              <seeerl marker="#new_2_read_concurrency">
+              <c>read_concurrency</c></seeerl>. The <c>decentralized_counters</c>
               option is turned on by default for tables of type <c>ordered_set</c>
               with the <c>write_concurrency</c> option enabled, and the
               <c>decentralized_counters</c> option is turned off by default for
               all other table types.
               For more information, see the documentation for the
-              <seealso marker="#new_2_decentralized_counters">
-              <c>decentralized_counters</c></seealso> option.</p>
+              <seeerl marker="#new_2_decentralized_counters">
+              <c>decentralized_counters</c></seeerl> option.</p>
             <p>Notice that this option does not change any guarantees about
-              <seealso marker="#concurrency">atomicity and isolation</seealso>.
+              <seeerl marker="#concurrency">atomicity and isolation</seeerl>.
               Functions that makes such promises over many objects (like
-              <seealso marker="#insert/2"><c>insert/2</c></seealso>)
+              <seemfa marker="#insert/2"><c>insert/2</c></seemfa>)
               gain less (or nothing) from this option.</p>
             <p>The memory consumption inflicted by both <c>write_concurrency</c>
 	      and <c>read_concurrency</c> is a constant overhead per table for
@@ -1313,8 +1313,8 @@ ets:select(Table, MatchSpec),</code>
               operations repeatedly. In this case, you would get a performance
               degradation by enabling this option.</p>
             <p>Option <c>read_concurrency</c> can be combined with option
-              <seealso marker="#new_2_write_concurrency">
-              <c>write_concurrency</c></seealso>.
+              <seeerl marker="#new_2_write_concurrency">
+              <c>write_concurrency</c></seeerl>.
               You typically want to combine these when large concurrent
               read bursts and large concurrent write bursts are common.</p>
             <marker id="new_2_decentralized_counters"></marker>
@@ -1324,19 +1324,19 @@ ets:select(Table, MatchSpec),</code>
             <p>
               Performance tuning. Defaults to <c>true</c> for tables
               of type <c>ordered_set</c> with the
-              <seealso marker="#new_2_write_concurrency">
-              <c>write_concurrency</c></seealso> option enabled, and defaults to
+              <seeerl marker="#new_2_write_concurrency">
+              <c>write_concurrency</c></seeerl> option enabled, and defaults to
 	      false for all other   table types. This option has no effect if
 	      the <c>write_concurrency</c> option is set to <c>false</c>.</p>
 	    <p>
 	      When this option is set to <c>true</c>, the table is optimized for
 	      frequent concurrent calls to operations that modify the tables
-	      size and/or its memory consumption (e.g., <seealso
-              marker="#insert/2"><c>insert/2</c></seealso> and <seealso
-              marker="#delete/2"><c>delete/2</c></seealso>).
+	      size and/or its memory consumption (e.g., <seemfa
+              marker="#insert/2"><c>insert/2</c></seemfa> and <seemfa
+              marker="#delete/2"><c>delete/2</c></seemfa>).
 	      The drawback is that calls to
-	      <seealso marker="#info/1"><c>info/1</c></seealso> and
-	      <seealso marker="#info/2"><c>info/2</c></seealso> with <c>size</c> or
+	      <seemfa marker="#info/1"><c>info/1</c></seemfa> and
+	      <seemfa marker="#info/2"><c>info/2</c></seemfa> with <c>size</c> or
               <c>memory</c> as the second argument can get much slower when the
               <c>decentralized_counters</c> option is turned on.</p>
             <p>
@@ -1344,8 +1344,8 @@ ets:select(Table, MatchSpec),</code>
               table size and memory consumption are distributed over
               several cache lines and the scheduling threads are
               mapped to one of those cache lines. The <c>erl</c>
-              option <seealso
-              marker="erts:erl#+dcg"><c>+dcg</c></seealso> can be used
+              option <seecom
+              marker="erts:erl#+dcg"><c>+dcg</c></seecom> can be used
               to control the number of cache lines that the counters
               are distributed over.
             </p>
@@ -1374,10 +1374,10 @@ ets:select(Table, MatchSpec),</code>
           according to the internal order of the table is returned. If no
           next key exists, <c>'$end_of_table'</c> is returned.</p>
         <p>To find the first key in the table, use
-          <seealso marker="#first/1"><c>first/1</c></seealso>.</p>
+          <seemfa marker="#first/1"><c>first/1</c></seemfa>.</p>
         <p>Unless a table of type <c>set</c>, <c>bag</c>, or
           <c>duplicate_bag</c> is fixated using
-          <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>,
+          <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>,
           a call to <c>next/2</c> will fail if <c><anno>Key1</anno></c> no longer
 	  exists in the table. For table type <c>ordered_set</c>, the function
 	  always returns the next key after <c><anno>Key1</anno></c> in term
@@ -1395,10 +1395,10 @@ ets:select(Table, MatchSpec),</code>
           <c><anno>Key1</anno></c> according to Erlang term order in table
           <c><anno>Tab</anno></c> of type <c>ordered_set</c>. For other
           table types, the function is synonymous to
-          <seealso marker="#next/2"><c>next/2</c></seealso>.
+          <seemfa marker="#next/2"><c>next/2</c></seemfa>.
           If no previous key exists, <c>'$end_of_table'</c> is returned.</p>
         <p>To find the last key in an <c>ordered_set</c> table, use
-          <seealso marker="#last/1"><c>last/1</c></seealso>.</p>
+          <seemfa marker="#last/1"><c>last/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1418,8 +1418,8 @@ ets:select(Table, MatchSpec),</code>
         that has passed through external representation.</fsummary>
       <desc>
         <p>Restores an opaque continuation returned by
-          <seealso marker="#select/3"><c>select/3</c></seealso> or
-          <seealso marker="#select/1"><c>select/1</c></seealso> if the
+          <seemfa marker="#select/3"><c>select/3</c></seemfa> or
+          <seemfa marker="#select/1"><c>select/1</c></seemfa> if the
           continuation has passed through external term format (been
           sent between nodes or stored on disk).</p>
         <p>The reason for this function is that continuation terms
@@ -1457,7 +1457,7 @@ ets:select(ets:repair_continuation(MaybeBroken,MS)).</code>
           <p>The actual behavior of compiled match specifications when recreated
 	    from external format has changed and may change in future releases,
 	    but this interface remains for backward compatibility.
-	    See <seealso marker="#is_compiled_ms/1"><c>is_compiled_ms/1</c></seealso>.</p>
+	    See <seemfa marker="#is_compiled_ms/1"><c>is_compiled_ms/1</c></seemfa>.</p>
         </note>
       </desc>
     </func>
@@ -1467,16 +1467,16 @@ ets:select(ets:repair_continuation(MaybeBroken,MS)).</code>
       <fsummary>Fix an ETS table for safe traversal.</fsummary>
       <desc>
         <p>Fixes a table of type <c>set</c>, <c>bag</c>, or
-        <c>duplicate_bag</c> for <seealso marker="#traversal">
-	safe traversal</seealso> using
-	<seealso marker="#first/1"><c>first/1</c></seealso> &amp;
-	<seealso marker="#next/2"><c>next/2</c></seealso>,
-	<seealso marker="#match/3"><c>match/3</c></seealso> &amp;
-	<seealso marker="#match/1"><c>match/1</c></seealso>,
-	<seealso marker="#match_object/3"><c>match_object/3</c></seealso> &amp;
-	<seealso marker="#match_object/1"><c>match_object/1</c></seealso>, or
-	<seealso marker="#select/3"><c>select/3</c></seealso> &amp;
-	<seealso marker="#select/1"><c>select/1</c></seealso>.</p>
+        <c>duplicate_bag</c> for <seeerl marker="#traversal">
+	safe traversal</seeerl> using
+	<seemfa marker="#first/1"><c>first/1</c></seemfa> &amp;
+	<seemfa marker="#next/2"><c>next/2</c></seemfa>,
+	<seemfa marker="#match/3"><c>match/3</c></seemfa> &amp;
+	<seemfa marker="#match/1"><c>match/1</c></seemfa>,
+	<seemfa marker="#match_object/3"><c>match_object/3</c></seemfa> &amp;
+	<seemfa marker="#match_object/1"><c>match_object/1</c></seemfa>, or
+	<seemfa marker="#select/3"><c>select/3</c></seemfa> &amp;
+	<seemfa marker="#select/1"><c>select/1</c></seemfa>.</p>
         <p>A process fixes a table by calling
           <c>safe_fixtable(<anno>Tab</anno>, true)</c>. The table remains
           fixed until the process releases it by calling
@@ -1487,8 +1487,8 @@ ets:select(ets:repair_continuation(MaybeBroken,MS)).</code>
           A reference counter is kept on a per process basis, and N
           consecutive fixes requires N releases to release the table.</p>
         <p>When a table is fixed, a sequence of
-          <seealso marker="#first/1"><c>first/1</c></seealso> and
-          <seealso marker="#next/2"><c>next/2</c></seealso> calls are
+          <seemfa marker="#first/1"><c>first/1</c></seemfa> and
+          <seemfa marker="#next/2"><c>next/2</c></seemfa> calls are
           guaranteed to succeed even if keys are removed during the
 	  traversal. The keys for objects inserted or deleted during a
 	  traversal may or may not be returned by <c>next/2</c> depending on
@@ -1517,13 +1517,13 @@ clean_all_with_value(Tab,X,Key) ->
           objects is never freed. The performance of operations on
           the table also degrades significantly.</p>
         <p>To retrieve information about which processes have fixed which
-          tables, use <seealso marker="#info_2_safe_fixed_monotonic_time">
-          <c>info(Tab, safe_fixed_monotonic_time)</c></seealso>. A system with
+          tables, use <seeerl marker="#info_2_safe_fixed_monotonic_time">
+          <c>info(Tab, safe_fixed_monotonic_time)</c></seeerl>. A system with
           many processes fixing tables can need a monitor that sends alarms
           when tables have been fixed for too long.</p>
         <p>Notice that <c>safe_fixtable/2</c> is not necessary for table type
 	<c>ordered_set</c> and for traversals done by a single ETS function call,
-	like <seealso marker="#select/2"><c>select/2</c></seealso>.</p>
+	like <seemfa marker="#select/2"><c>select/2</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1532,7 +1532,7 @@ clean_all_with_value(Tab,X,Key) ->
       <fsummary>Continue matching objects in an ETS table.</fsummary>
       <desc>
         <p>Continues a match started with
-          <seealso marker="#select/3"><c>select/3</c></seealso>. The next
+          <seemfa marker="#select/3"><c>select/3</c></seemfa>. The next
           chunk of the size specified in the initial <c>select/3</c>
           call is returned together with a new <c><anno>Continuation</anno></c>,
           which can be used in subsequent calls to this function.</p>
@@ -1547,10 +1547,10 @@ clean_all_with_value(Tab,X,Key) ->
         match specification.</fsummary>
       <desc>
         <p>Matches the objects in table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match specification</seealso>.
+          <seeerl marker="#match_spec">match specification</seeerl>.
           This is a more general call than
-          <seealso marker="#match/2"><c>match/2</c></seealso> and
-          <seealso marker="#match_object/2"><c>match_object/2</c></seealso>
+          <seemfa marker="#match/2"><c>match/2</c></seemfa> and
+          <seemfa marker="#match_object/2"><c>match_object/2</c></seemfa>
           calls. In its simplest form, the match specification is as
           follows:</p>
         <code type="none">
@@ -1562,7 +1562,7 @@ Result = "Term construct"</code>
         <p>This means that the match specification is always a list of one or
           more tuples (of arity 3). The first element of the tuple is to be
           a pattern as described in
-          <seealso marker="#match/2"><c>match/2</c></seealso>.
+          <seemfa marker="#match/2"><c>match/2</c></seemfa>.
           The second element of the tuple is to
           be a list of 0 or more guard tests (described below). The
           third element of the tuple is to be a list containing a
@@ -1605,8 +1605,8 @@ ets:select(Tab,[{{'$1','$2','$1'},[],['$_']}])</code>
 ets:select(Tab,[{{'$1','$2','$1'},[],[{{'$1','$2','$3'}}]}])</code>
         <p>This syntax is equivalent to the syntax used in the trace
           patterns (see the
-          <seealso marker="runtime_tools:dbg">
-          <c>dbg(3)</c></seealso>) module in Runtime_Tools.</p>
+          <seeerl marker="runtime_tools:dbg">
+          <c>dbg(3)</c></seeerl>) module in Runtime_Tools.</p>
         <p>The <c>Guard</c>s are constructed as tuples, where the first
           element is the test name and the remaining elements
           are the test parameters. To check for a specific type
@@ -1641,20 +1641,20 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       <fsummary>Match the objects in an ETS table against a match
         specification and return part of the answers.</fsummary>
       <desc>
-        <p>Works like <seealso marker="#select/2"><c>select/2</c></seealso>,
+        <p>Works like <seemfa marker="#select/2"><c>select/2</c></seemfa>,
           but only returns a limited
           (<c><anno>Limit</anno></c>) number of matching objects. Term
           <c><anno>Continuation</anno></c> can then be used in subsequent
-          calls to <seealso marker="#select/1"><c>select/1</c></seealso>
+          calls to <seemfa marker="#select/1"><c>select/1</c></seemfa>
           to get the next chunk of matching
           objects. This is a space-efficient way to work on objects in a
           table, which is still faster than traversing the table object by
-          object using <seealso marker="#first/1"><c>first/1</c></seealso>
-          and <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+          object using <seemfa marker="#first/1"><c>first/1</c></seemfa>
+          and <seemfa marker="#next/2"><c>next/2</c></seemfa>.</p>
           <p>If the table is empty, <c>'$end_of_table'</c> is returned.</p>
-	  <p>Use <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>
-	  to guarantee <seealso marker="#traversal">safe traversal</seealso>
-	  for subsequent calls to <seealso marker="#select/1"><c>select/1</c></seealso>.</p>
+	  <p>Use <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>
+	  to guarantee <seeerl marker="#traversal">safe traversal</seeerl>
+	  for subsequent calls to <seemfa marker="#select/1"><c>select/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1665,13 +1665,13 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         specification returned <c>true</c>.</fsummary>
       <desc>
         <p>Matches the objects in table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match specification</seealso>. If the
+          <seeerl marker="#match_spec">match specification</seeerl>. If the
           match specification returns <c>true</c> for an object, that object
           considered a match and is counted. For any other result from
           the match specification the object is not considered a match and is
           therefore not counted.</p>
         <p>This function can be described as a
-          <seealso marker="#match_delete/2"><c>match_delete/2</c></seealso>
+          <seemfa marker="#match_delete/2"><c>match_delete/2</c></seemfa>
           function that does not delete any elements, but only counts them.</p>
         <p>The function returns the number of objects matched.</p>
       </desc>
@@ -1684,12 +1684,12 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
         returns <c>true</c>.</fsummary>
       <desc>
         <p>Matches the objects in table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match specification</seealso>. If the
+          <seeerl marker="#match_spec">match specification</seeerl>. If the
           match specification returns <c>true</c> for an object, that object is
           removed from the table. For any other result from the match
           specification the object is retained. This is a more general
-          call than the <seealso marker="#match_delete/2">
-          <c>match_delete/2</c></seealso> call.</p>
+          call than the <seemfa marker="#match_delete/2">
+          <c>match_delete/2</c></seemfa> call.</p>
         <p>The function returns the number of objects
           deleted from the table.</p>
         <note>
@@ -1706,11 +1706,11 @@ is_integer(X), is_integer(Y), X + Y < 4711]]></code>
       <fsummary>Match and replace objects atomically in an ETS table</fsummary>
       <desc>
         <p>Matches the objects in the table <c><anno>Tab</anno></c> using a
-          <seealso marker="#match_spec">match specification</seealso>. For each
+          <seeerl marker="#match_spec">match specification</seeerl>. For each
           matched object, the existing object is replaced with
           the match specification result.</p>
 	<p>The match-and-replace operation for each individual object is guaranteed to be
-	  <seealso marker="#concurrency">atomic and isolated</seealso>. The
+	  <seeerl marker="#concurrency">atomic and isolated</seeerl>. The
 	  <c>select_replace</c> table traversal as a whole, like all other select functions,
 	  does not give such guarantees.</p>
 	<p>The match specifiction must be guaranteed to <em>retain the key</em>
@@ -1744,13 +1744,13 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <name name="select_reverse" arity="1" since="OTP R14B"/>
       <fsummary>Continue matching objects in an ETS table.</fsummary>
       <desc>
-      <p>Continues a match started with <seealso marker="#select_reverse/3">
-        <c>select_reverse/3</c></seealso>. For tables of type
+      <p>Continues a match started with <seemfa marker="#select_reverse/3">
+        <c>select_reverse/3</c></seemfa>. For tables of type
         <c>ordered_set</c>, the traversal of the table continues
         to objects with keys earlier in the Erlang term order. The
         returned list also contains objects with keys in reverse order.
         For all other table types, the behavior is exactly that of
-        <seealso marker="#select/1"><c>select/1</c></seealso>.</p>
+        <seemfa marker="#select/1"><c>select/1</c></seemfa>.</p>
       <p><em>Example:</em></p>
       <code>
 1> T = ets:new(x,[ordered_set]).
@@ -1778,7 +1778,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <fsummary>Match the objects in an ETS table against a
         match specification.</fsummary>
       <desc>
-      <p>Works like <seealso marker="#select/2"><c>select/2</c></seealso>,
+      <p>Works like <seemfa marker="#select/2"><c>select/2</c></seemfa>,
         but returns the list in reverse order for table type <c>ordered_set</c>.
         For all other table types, the return value is identical to that of
         <c>select/2</c>.</p>
@@ -1790,7 +1790,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <fsummary>Match the objects in an ETS table against a
         match specification and return part of the answers.</fsummary>
       <desc>
-      <p>Works like <seealso marker="#select/3"><c>select/3</c></seealso>,
+      <p>Works like <seemfa marker="#select/3"><c>select/3</c></seemfa>,
         but for table type <c>ordered_set</c>
         traversing is done starting at the last object in
         Erlang term order and moves to the first. For all other table
@@ -1809,7 +1809,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <desc>
         <p>Sets table options. The only allowed option to be set after the
           table has been created is
-          <seealso marker="#heir"><c>heir</c></seealso>.
+          <seeerl marker="#heir"><c>heir</c></seeerl>.
           The calling process must be the table owner.</p>
       </desc>
     </func>
@@ -1831,7 +1831,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
           the function fails with reason <c>badarg</c>.</p>
         <p>Unless a table of type <c>set</c>, <c>bag</c>, or
           <c>duplicate_bag</c> is protected using
-          <seealso marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seealso>,
+          <seemfa marker="#safe_fixtable/2"><c>safe_fixtable/2</c></seemfa>,
           a traversal can fail if
           concurrent updates are made to the table. For table type
           <c>ordered_set</c>, the function returns a list containing
@@ -1910,8 +1910,8 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <fsummary>Return a list of all objects in an ETS table.</fsummary>
       <desc>
         <p>Returns information about the table dumped to file by
-          <seealso marker="#tab2file/2"><c>tab2file/2</c></seealso> or 
-          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso>.</p>
+          <seemfa marker="#tab2file/2"><c>tab2file/2</c></seemfa> or 
+          <seemfa marker="#tab2file/3"><c>tab2file/3</c></seemfa>.</p>
         <p>The following items are returned:</p>
         <taglist>
           <tag><c>name</c></tag>
@@ -1919,7 +1919,7 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
             <p>The name of the dumped table. If the table was a
               named table, a table with the same name cannot exist when the
               table is loaded from file with 
-              <seealso marker="#file2tab/2"><c>file2tab/2</c></seealso>.
+              <seemfa marker="#file2tab/2"><c>file2tab/2</c></seemfa>.
               If the table is
               not saved as a named table, this field has no significance
               when loading the table from file.</p>
@@ -1960,8 +1960,8 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
           <item>
             <p>The extended information written in the file footer to
               allow stronger verification during table loading from file, as
-              specified to <seealso marker="#tab2file/3">
-              <c>tab2file/3</c></seealso>. Notice that this
+              specified to <seemfa marker="#tab2file/3">
+              <c>tab2file/3</c></seemfa>. Notice that this
               function only tells <em>which</em> information is present, not
               the values in the file footer. The value is a list containing one
               or more of the atoms <c>object_count</c> and <c>md5sum</c>.</p>
@@ -1978,8 +1978,8 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
         </taglist>
         <p>An error is returned if the file is inaccessible,
           badly damaged, or not produced with
-          <seealso marker="#tab2file/2"><c>tab2file/2</c></seealso> or
-          <seealso marker="#tab2file/3"><c>tab2file/3</c></seealso>.</p>
+          <seemfa marker="#tab2file/2"><c>tab2file/2</c></seemfa> or
+          <seemfa marker="#tab2file/3"><c>tab2file/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -1990,14 +1990,14 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
       <desc>
         <p>Returns a Query List
           Comprehension (QLC) query handle. The
-          <seealso marker="qlc"><c>qlc</c></seealso> module provides
+          <seeerl marker="qlc"><c>qlc</c></seeerl> module provides
           a query language aimed mainly at Mnesia, but ETS
           tables, Dets tables,
           and lists are also recognized by QLC as sources of
           data. Calling <c>table/1,2</c> is the means to make the
           ETS table <c>Tab</c> usable to QLC.</p>
         <p>When there are only simple restrictions on the key position,
-          QLC uses <seealso marker="#lookup/2"><c>lookup/2</c></seealso>
+          QLC uses <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa>
           to look up the keys. When
           that is not possible, the whole table is traversed.
           Option <c>traverse</c> determines how this is done:</p>
@@ -2005,24 +2005,24 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
           <tag><c>first_next</c></tag>
           <item>
             <p>The table is traversed one key at a time by calling
-              <seealso marker="#first/1"><c>first/1</c></seealso> and
-              <seealso marker="#next/2"><c>next/2</c></seealso>.</p>
+              <seemfa marker="#first/1"><c>first/1</c></seemfa> and
+              <seemfa marker="#next/2"><c>next/2</c></seemfa>.</p>
           </item>
           <tag><c>last_prev</c></tag>
           <item>
             <p>The table is traversed one key at a time by calling
-              <seealso marker="#last/1"><c>last/1</c></seealso> and
-              <seealso marker="#prev/2"><c>prev/2</c></seealso>.</p>
+              <seemfa marker="#last/1"><c>last/1</c></seemfa> and
+              <seemfa marker="#prev/2"><c>prev/2</c></seemfa>.</p>
           </item>
           <tag><c>select</c></tag>
           <item>
             <p>The table is traversed by calling
-              <seealso marker="#select/3"><c>select/3</c></seealso> and
-              <seealso marker="#select/1"><c>select/1</c></seealso>.
+              <seemfa marker="#select/3"><c>select/3</c></seemfa> and
+              <seemfa marker="#select/1"><c>select/1</c></seemfa>.
               Option <c>n_objects</c> determines the number of objects
               returned (the third argument of <c>select/3</c>); the
               default is to return <c>100</c> objects at a time. The
-              <seealso marker="#match_spec">match specification</seealso> (the
+              <seeerl marker="#match_spec">match specification</seeerl> (the
               second argument of <c>select/3</c>) is assembled by QLC: simple
               filters are translated into equivalent match specifications
               while more complicated filters must be applied to all
@@ -2032,8 +2032,8 @@ Success = (1 =:= ets:select_replace(T, [{Old, [], [{const, New}]}])),
           <tag><c>{select, <anno>MatchSpec</anno>}</c></tag>
           <item>
             <p>As for <c>select</c>, the table is traversed by calling
-              <seealso marker="#select/3"><c>select/3</c></seealso> and
-              <seealso marker="#select/1"><c>select/1</c></seealso>.
+              <seemfa marker="#select/3"><c>select/3</c></seemfa> and
+              <seemfa marker="#select/1"><c>select/1</c></seemfa>.
               The difference is that the match specification is explicitly
               specified. This is how to state match specifications that cannot
               easily be expressed within the syntax provided by QLC.</p>
@@ -2071,8 +2071,8 @@ true</pre>
           by either <em>comparing equal</em> the key of an object in an
           <c>ordered_set</c> table, or <em>matching</em> in other types of
           tables (for details on the difference, see
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso> and
-          <seealso marker="#new/2"><c>new/2</c></seealso>).</p>
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa> and
+          <seemfa marker="#new/2"><c>new/2</c></seemfa>).</p>
       </desc>
     </func>
     <func>
@@ -2081,8 +2081,8 @@ true</pre>
       </fsummary>
       <desc>
         <p>This function is a utility to test a
-          <seealso marker="#match_spec">match specification</seealso> used in
-          calls to <seealso marker="#select/2"><c>select/2</c></seealso>.
+          <seeerl marker="#match_spec">match specification</seeerl> used in
+          calls to <seemfa marker="#select/2"><c>select/2</c></seemfa>.
           The function both tests <c><anno>MatchSpec</anno></c> for "syntactic"
           correctness and runs the match specification against object
           <c><anno>Tuple</anno></c>.</p>
@@ -2097,8 +2097,8 @@ true</pre>
           descriptions of what was wrong with the match specification.</p>
         <p>This is a useful debugging and test tool, especially when
           writing complicated <c>select/2</c> calls.</p>
-        <p>See also: <seealso marker="erts:erlang#match_spec_test/3">
-          erlang:match_spec_test/3</seealso>.</p>
+        <p>See also: <seemfa marker="erts:erlang#match_spec_test/3">
+          erlang:match_spec_test/3</seemfa>.</p>
       </desc>
     </func>
 
@@ -2133,7 +2133,7 @@ true</pre>
           counters, without the trouble of having to look up an object, update 
           the object by incrementing an element, and insert the resulting
           object into the table again. The operation is guaranteed to be
-          <seealso marker="#concurrency">atomic and isolated</seealso>.</p>
+          <seeerl marker="#concurrency">atomic and isolated</seeerl>.</p>
         <p>This function destructively update the object with key
           <c><anno>Key</anno></c> in table <c><anno>Tab</anno></c> by adding
           <c><anno>Incr</anno></c> to the element at position
@@ -2167,8 +2167,8 @@ true</pre>
           by either <em>matching</em> the key of an object in a <c>set</c>
           table, or <em>compare equal</em> to the key of an object in an
           <c>ordered_set</c> table (for details on the difference, see 
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso> and 
-          <seealso marker="#new/2"><c>new/2</c></seealso>).</p>
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa> and 
+          <seemfa marker="#new/2"><c>new/2</c></seemfa>).</p>
         <p>If a default object <c><anno>Default</anno></c> is specified,
           it is used
           as the object to be updated if the key is missing from the table. The
@@ -2226,8 +2226,8 @@ true</pre>
           by either <em>matching</em> the key of an object in a <c>set</c>
           table, or <em>compare equal</em> to the key of an object in an
           <c>ordered_set</c> table (for details on the difference, see
-          <seealso marker="#lookup/2"><c>lookup/2</c></seealso> and 
-          <seealso marker="#new/2"><c>new/2</c></seealso>).</p>
+          <seemfa marker="#lookup/2"><c>lookup/2</c></seemfa> and 
+          <seemfa marker="#new/2"><c>new/2</c></seemfa>).</p>
         <p>The function fails with reason <c>badarg</c> in the following
           situations:</p>
         <list type="bulleted">
@@ -2244,7 +2244,7 @@ true</pre>
       <fsummary>Retrieves the tid() of a named table.</fsummary>
       <desc>
         <p>This function returns the
-          <seealso marker="#type-tid"><c>tid()</c></seealso> of the named table
+          <seetype marker="#tid"><c>tid()</c></seetype> of the named table
           identified by <c><anno>TableName</anno></c>, or <c>undefined</c> if
           no such table exists. The <c>tid()</c> can be used in place of the
           table name in all operations, which is slightly faster since the name

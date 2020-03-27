@@ -242,7 +242,7 @@ output(L) ->
       <item>
         <p><c>{file_error, FileName, file:posix()}</c> - For an
           explanation of <c>file:posix()</c>, see
-          <seealso marker="kernel:file"><c>file(3)</c></seealso>.</p>
+          <seeerl marker="kernel:file"><c>file(3)</c></seeerl>.</p>
       </item>
       <item>
         <p><c>{premature_eof, FileName}</c> - End-of-file was

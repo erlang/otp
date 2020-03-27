@@ -37,7 +37,7 @@
     <p>
       The ssl application is an implementation of the SSL, TLS and DTLS protocols in Erlang.
     </p>
-    <p>For current statement of standards compliance see the <seealso marker="standards_compliance">User's Guide</seealso>.</p>
+    <p>For current statement of standards compliance see the <seeguide marker="standards_compliance">User's Guide</seeguide>.</p>
   </description>
 
   <section>
@@ -56,7 +56,7 @@
     The application environment configuration parameters in this section
     are defined for the SSL application. For more information 
     about configuration parameters, see the 
-    <seealso marker="kernel:application">application(3)</seealso>
+    <seeerl marker="kernel:application">application(3)</seeerl>
     manual page in Kernel.</p>
 
     <p>The environment parameters can be set on the command line,
@@ -65,14 +65,14 @@
     <p><c>erl -ssl protocol_version "['tlsv1.2', 'tlsv1.1']"</c></p>
 
     <taglist>
-      <tag><c>protocol_version = </c><seealso marker="ssl#type-protocol">ssl:ssl_tls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <tag><c>protocol_version = </c><seetype marker="ssl#protocol">ssl:ssl_tls_protocol()</seetype><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
       TLS protocols currently supported, more might be configurable, by the SSL application.
       This option can be overridden by the version option
       to <c>ssl:connect/[2,3]</c> and <c>ssl:listen/2</c>.</p></item>
 
-      <tag><c>dtls_protocol_version = </c><seealso marker="ssl#type-protocol">ssl:dtls_protocol()</seealso><c><![CDATA[<optional>]]></c></tag>
+      <tag><c>dtls_protocol_version = </c><seetype marker="ssl#protocol">ssl:dtls_protocol()</seetype><c><![CDATA[<optional>]]></c></tag>
       <item><p>Protocol supported by started clients and
       servers. If this option is not set, it defaults to all
       DTLS protocols currently supported, more might be configurable, by the SSL application.
@@ -115,8 +115,8 @@
 	<p>
 	  Number of milliseconds between PEM cache validations. Defaults to 2 minutes.
 	</p>
-	<seealso
-	    marker="ssl#clear_pem_cache/0">ssl:clear_pem_cache/0</seealso>
+	<seemfa
+	    marker="ssl#clear_pem_cache/0">ssl:clear_pem_cache/0</seemfa>
 	
       </item>
 
@@ -198,8 +198,8 @@
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
 
-    <p>The SSL application uses <seealso
-    marker="kernel:logger">OTP logger</seealso>.
+    <p>The SSL application uses <seeerl
+    marker="kernel:logger">OTP logger</seeerl>.
     TLS/DTLS alerts are logged on notice level. Unexpected
     errors are logged on error level. These log entries
     will by default end up in the default Erlang log.
@@ -212,7 +212,7 @@
 
   <section>
     <title>SEE ALSO</title>
-	<p><seealso marker="kernel:application">application(3)</seealso></p>
+	<p><seeerl marker="kernel:application">application(3)</seeerl></p>
   </section>
   
 </appref>

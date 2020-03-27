@@ -34,8 +34,8 @@
       valid, as it explains important concepts, but this was
       written for an older driver interface so the examples do not
       work anymore. The reader is encouraged to read the
-      <seealso marker="erl_driver"><c>erl_driver</c></seealso> and
-      <seealso marker="driver_entry"><c>driver_entry</c></seealso>
+      <seecref marker="erl_driver"><c>erl_driver</c></seecref> and
+      <seecref marker="driver_entry"><c>driver_entry</c></seecref>
       documentation also.</p>
   </note>
 

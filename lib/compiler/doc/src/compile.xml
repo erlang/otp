@@ -38,6 +38,13 @@
     </p>
   </description>
 
+  <datatypes>
+    <datatype>
+      <name>option() = term()</name>
+      <desc><p>See <seemfa marker="#file/2">file/2</seemfa> for detailed description</p></desc>
+    </datatype>
+  </datatypes>
+
   <funcs>
     <func>
       <name since="OTP 19.0">env_compiler_options()</name>
@@ -82,7 +89,7 @@
 	  to be an error if the module name in the source code is
 	  not the same as the basename of the output file.</p>
 
-        <p><marker id="type-option"/>Available options:</p>
+        <p>Available options:</p>
         <taglist>
           <tag><c>basic_validation</c></tag>
           <item>
@@ -119,7 +126,7 @@
             <p>The compiler will emit informational warnings about binary
 	    matching optimizations (both successful and unsuccessful).
 	    For more information, see the section about
-	    <seealso marker="doc/efficiency_guide:binaryhandling#bin_opt_info">bin_opt_info</seealso>
+	    <seeguide marker="system/efficiency_guide:binaryhandling#bin_opt_info">bin_opt_info</seeguide>
 	    in the Efficiency Guide.</p>
           </item>
 
@@ -143,8 +150,8 @@
           <tag><c>debug_info</c></tag>
           <item>
             <marker id="debug_info"></marker>
-            <p>Includes debug information in the form of <seealso marker="erts:absform">
-              Erlang Abstract Format</seealso> in the <c>debug_info</c>
+            <p>Includes debug information in the form of <seeguide marker="erts:absform">
+              Erlang Abstract Format</seeguide> in the <c>debug_info</c>
               chunk of the compiled beam module. Tools such as Debugger,
               Xref, and Cover require the debug information to be included.</p>
 
@@ -153,7 +160,7 @@
               (<c>encrypt_debug_info</c>) to prevent this.</p>
 
             <p>For details, see
-              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+              <seeerl marker="stdlib:beam_lib#debug_info">beam_lib(3)</seeerl>.</p>
           </item>
 
           <tag><c>{debug_info, {Backend, Data}}</c></tag>
@@ -164,7 +171,7 @@
               The given module must implement a <c>debug_info/4</c> function
               and is responsible for generating different code representations,
               as described in the <c>debug_info</c> under
-              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+              <seeerl marker="stdlib:beam_lib#debug_info">beam_lib(3)</seeerl>.</p>
 
             <p><em>Warning</em>: Source code can be reconstructed from
               the debug information. Use encrypted debug information
@@ -186,7 +193,7 @@
               for encrypting the debug information. The default
               (and currently the only) type is <c>des3_cbc</c>.</p>
             <p>For details, see
-              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+              <seeerl marker="stdlib:beam_lib#debug_info">beam_lib(3)</seeerl>.</p>
           </item>
 
           <tag><c>encrypt_debug_info</c></tag>
@@ -197,7 +204,7 @@
 	    </p>
 
 	    <p>For details, see
-              <seealso marker="stdlib:beam_lib#debug_info">beam_lib(3)</seealso>.</p>
+              <seeerl marker="stdlib:beam_lib#debug_info">beam_lib(3)</seeerl>.</p>
           </item>
 
           <tag><c>deterministic</c></tag>
@@ -489,7 +496,7 @@ module.beam: module.erl \
             <p>Pass extra chunks to be stored in the <c>.beam</c> file.
               The extra chunks must be a list of tuples with a four byte
               binary as chunk name followed by a binary with the chunk contents.
-              See <seealso marker="stdlib:beam_lib">beam_lib</seealso> for
+              See <seeerl marker="stdlib:beam_lib">beam_lib</seeerl> for
               more information.
 	    </p>
           </item>
@@ -610,11 +617,11 @@ module.beam: module.erl \
 	      assembled list of deprecated functions in Erlang/OTP. To
 	      do a more general check, the Xref tool can be used.
 	      See also
-	      <seealso marker="tools:xref#deprecated_function">xref(3)</seealso>
+	      <seeerl marker="tools:xref#deprecated_function">xref(3)</seeerl>
               and the function
-	      <seealso marker="tools:xref#m/1">xref:m/1</seealso>, also
+	      <seemfa marker="tools:xref#m/1">xref:m/1</seemfa>, also
               accessible through the function 
-	    <seealso marker="stdlib:c#xm/1">c:xm/1</seealso>.</p>
+	    <seemfa marker="stdlib:c#xm/1">c:xm/1</seemfa>.</p>
           </item>
 
 	  <tag><c>{nowarn_deprecated_function, MFAs}</c></tag>
@@ -652,7 +659,7 @@ module.beam: module.erl \
           <item>
             <p>Turns off warnings for calls to old type testing BIFs, 
 	    such as <c>pid/1</c> and <c>list/1</c>. See the
-	    <seealso marker="doc/reference_manual:expressions#guards">Erlang Reference Manual</seealso>
+	    <seeguide marker="system/reference_manual:expressions#guards">Erlang Reference Manual</seeguide>
 	      for a complete list of type testing BIFs and their old
 	      equivalents. Default is to emit warnings for calls to
 	      old type testing BIFs.</p>
@@ -795,7 +802,7 @@ module.beam: module.erl \
 	  characters that describes the error. This function is
 	  usually called implicitly when an <c>ErrorInfo</c> structure 
 	(described in section 
-	<seealso marker="#error_information">Error Information</seealso>) is processed.</p>
+	<seeerl marker="#error_information">Error Information</seeerl>) is processed.</p>
       </desc>
     </func>
 
@@ -818,7 +825,7 @@ module.beam: module.erl \
       <name since="">noenv_file(File, Options) -> CompRet</name>
       <fsummary>Compiles a file (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <desc>
-      <p>Works like <seealso marker="#file/2">file/2</seealso>,
+      <p>Works like <seemfa marker="#file/2">file/2</seemfa>,
 	 except that the environment variable <c>ERL_COMPILER_OPTIONS</c>
 	 is not consulted.</p>
       </desc>
@@ -828,7 +835,7 @@ module.beam: module.erl \
       <name since="">noenv_forms(Forms, Options) -> CompRet</name>
       <fsummary>Compiles a list of forms (ignoring <c>ERL_COMPILER_OPTIONS)</c>.</fsummary>
       <desc>
-        <p>Works like <seealso marker="#forms/2">forms/2</seealso>,
+        <p>Works like <seemfa marker="#forms/2">forms/2</seemfa>,
 	 except that the environment variable <c>ERL_COMPILER_OPTIONS</c>
 	 is not consulted.</p>
       </desc>
@@ -843,7 +850,7 @@ module.beam: module.erl \
       </type>
       <desc>
         <p>Works like
-	<seealso marker="#output_generated/1">output_generated/1</seealso>,
+	<seemfa marker="#output_generated/1">output_generated/1</seemfa>,
 	except that the environment variable <c>ERL_COMPILER_OPTIONS</c>
 	is not consulted.</p>
       </desc>
@@ -860,19 +867,19 @@ module.beam: module.erl \
       into a list.</p>
 
       <p>The list is appended to any options given to
-      <seealso marker="#file/2">file/2</seealso>,
-      <seealso marker="#forms/2">forms/2</seealso>, and
-      <seealso marker="#output_generated/1">output_generated/2</seealso>.
+      <seemfa marker="#file/2">file/2</seemfa>,
+      <seemfa marker="#forms/2">forms/2</seemfa>, and
+      <seemfa marker="#output_generated/1">output_generated/2</seemfa>.
       Use the alternative functions
-      <seealso marker="#noenv_file/2">noenv_file/2</seealso>,
-      <seealso marker="#noenv_forms/2">noenv_forms/2</seealso>, or
-      <seealso marker="#noenv_output_generated/1">noenv_output_generated/2</seealso>
+      <seemfa marker="#noenv_file/2">noenv_file/2</seemfa>,
+      <seemfa marker="#noenv_forms/2">noenv_forms/2</seemfa>, or
+      <seemfa marker="#noenv_output_generated/1">noenv_output_generated/2</seemfa>
       if you do not want the environment variable to be consulted,
       for example, if you are calling the compiler recursively from
       inside a parse transform.</p>
 
       <p>The list can be retrieved with
-      <seealso marker="#env_compiler_options/0">env_compiler_options/0</seealso>.</p>
+      <seemfa marker="#env_compiler_options/0">env_compiler_options/0</seemfa>.</p>
   </section>
 
   <section>
@@ -944,16 +951,16 @@ pi() -> 3.1416.
 
     <p>The following functions are inlined:</p>
     <list type="bulleted">
-      <item><seealso marker="stdlib:lists#all/2">lists:all/2</seealso></item>
-      <item><seealso marker="stdlib:lists#any/2">lists:any/2</seealso></item>
-      <item><seealso marker="stdlib:lists#foreach/2">lists:foreach/2</seealso></item>
-      <item><seealso marker="stdlib:lists#map/2">lists:map/2</seealso></item>
-      <item><seealso marker="stdlib:lists#flatmap/2">lists:flatmap/2</seealso></item>
-      <item><seealso marker="stdlib:lists#filter/2">lists:filter/2</seealso></item>
-      <item><seealso marker="stdlib:lists#foldl/3">lists:foldl/3</seealso></item>
-      <item><seealso marker="stdlib:lists#foldr/3">lists:foldr/3</seealso></item>
-      <item><seealso marker="stdlib:lists#mapfoldl/3">lists:mapfoldl/3</seealso></item>
-      <item><seealso marker="stdlib:lists#mapfoldr/3">lists:mapfoldr/3</seealso></item>
+      <item><seemfa marker="stdlib:lists#all/2">lists:all/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#any/2">lists:any/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#foreach/2">lists:foreach/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#map/2">lists:map/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#flatmap/2">lists:flatmap/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#filter/2">lists:filter/2</seemfa></item>
+      <item><seemfa marker="stdlib:lists#foldl/3">lists:foldl/3</seemfa></item>
+      <item><seemfa marker="stdlib:lists#foldr/3">lists:foldr/3</seemfa></item>
+      <item><seemfa marker="stdlib:lists#mapfoldl/3">lists:mapfoldl/3</seemfa></item>
+      <item><seemfa marker="stdlib:lists#mapfoldr/3">lists:mapfoldr/3</seemfa></item>
     </list>
   </section>
 
@@ -988,10 +995,10 @@ Module:format_error(ErrorDescriptor)</code>
   <section>
     <title>See Also</title>
     <p>
-      <seealso marker="stdlib:epp">epp(3)</seealso>,
-      <seealso marker="stdlib:erl_id_trans">erl_id_trans(3)</seealso>,
-      <seealso marker="stdlib:erl_lint">erl_lint(3)</seealso>,
-      <seealso marker="stdlib:beam_lib">beam_lib(3)</seealso>
+      <seeerl marker="stdlib:epp">epp(3)</seeerl>,
+      <seeerl marker="stdlib:erl_id_trans">erl_id_trans(3)</seeerl>,
+      <seeerl marker="stdlib:erl_lint">erl_lint(3)</seeerl>,
+      <seeerl marker="stdlib:beam_lib">beam_lib(3)</seeerl>
     </p>
   </section>
 </erlref>

@@ -40,19 +40,19 @@
       must export the following functions: </p>
     <list type="bulleted">
       <item>
-        <p><seealso marker="#start_link">start_link/4</seealso></p>
+        <p><seeerl marker="#start_link">start_link/4</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#info">info/1</seealso></p>
+        <p><seeerl marker="#info">info/1</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#get_log_type">get_log_type/1</seealso></p>
+        <p><seeerl marker="#get_log_type">get_log_type/1</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#set_log_type">set_log_type/2</seealso></p>
+        <p><seeerl marker="#set_log_type">set_log_type/2</seeerl></p>
       </item>
       <item>
-        <p><seealso marker="#verbosity">verbosity/2</seealso></p>
+        <p><seeerl marker="#verbosity">verbosity/2</seeerl></p>
       </item>
     </list>
     <p>The semantics of them and their exact signatures are explained
@@ -60,7 +60,7 @@
     <p>But this is not enough. There is also a set of <em>mandatory</em>
       messages which the network interface entity must be able to 
       receive and be able to send. This is described in chapter
-      <seealso marker="snmp_agent_netif">snmp_agent_netif</seealso>.
+      <seeguide marker="snmp_agent_netif">snmp_agent_netif</seeguide>.
       </p>
 
      <marker id="start_link"></marker>
@@ -104,7 +104,7 @@
           memory allocation and various socket information.</p>
         <p>The info returned by this function is returned together with other 
           info collected by the agent when the 
-          <seealso marker="snmpa#info">info</seealso> function is called 
+          <seeerl marker="snmpa#info">info</seeerl> function is called 
           (tagged with with the key <c>net_if</c>).</p>
 
         <marker id="verbosity"></marker>
@@ -138,7 +138,7 @@
           So, it is this process that has to retrieve the actual log-type. </p>
 <!--
         <p>See 
-          <seealso marker="snmpa#get_log_type">get_log_type</seealso>
+          <seeerl marker="snmpa#get_log_type">get_log_type</seeerl>
           for more info. </p>
 -->
 
@@ -159,7 +159,7 @@
           So, it is this process that has to do the actual changing of the 
           type. </p>
         <p>See 
-          <seealso marker="snmpa#set_log_type">set_log_type</seealso>
+          <seeerl marker="snmpa#set_log_type">set_log_type</seeerl>
           for more info. </p>
       </desc>
     </func>

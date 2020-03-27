@@ -35,7 +35,7 @@
 
   <description>
     <p>This module is deprecated since OTP 23.
-    Use the module <seealso marker="stdlib:uri_string">uri_string</seealso> to properly handle URIs,
+    Use the module <seeerl marker="stdlib:uri_string">uri_string</seeerl> to properly handle URIs,
     this is the recommend module since OTP 21.  
     </p>
   </description>
@@ -134,7 +134,7 @@
       <desc>
         <p>Parses a URI. If no scheme defaults 
 	are provided, the value of the
-	<seealso marker="#scheme_defaults">scheme_defaults</seealso>
+	<seeerl marker="#scheme_defaults">scheme_defaults</seeerl>
 	function is used.</p>
 
         <p>When parsing a URI with an unknown scheme (that is, 
@@ -188,9 +188,9 @@ fun(SchemeStr :: string() | binary()) ->
   <section>
     <title>SEE ALSO</title>
     <p><url href="http://www.ietf.org/rfc/rfc2616.txt">RFC 2616</url>, 
-    <seealso marker="inets">inets(3)</seealso>,
-      <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
-      <seealso marker="ssl:ssl">ssl(3)</seealso>
+    <seeerl marker="inets">inets(3)</seeerl>,
+      <seeerl marker="kernel:gen_tcp">gen_tcp(3)</seeerl>, 
+      <seeerl marker="ssl:ssl">ssl(3)</seeerl>
     </p>
   </section>
 -->

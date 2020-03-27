@@ -47,8 +47,8 @@
       <p>Handshake, interchange node name, and authenticate (2)</p>
     </item>
     <item>
-      <p>Authentication (done by <seealso marker="kernel:net_kernel">
-        <c>net_kernel(3)</c></seealso>) (3)</p>
+      <p>Authentication (done by <seeerl marker="kernel:net_kernel">
+        <c>net_kernel(3)</c></seeerl>) (3)</p>
     </item>
     <item>
       <p>Connected (4)</p> 
@@ -75,8 +75,8 @@
       The Erlang Distribution protocol is not by itself secure and does not
       aim to be so. In order to get secure distribution the distributed nodes
       should be configured to use distribution over tls.
-      See the <seealso marker="ssl:ssl_distribution">
-      Using SSL for Erlang Distribution</seealso> User's Guide
+      See the <seeguide marker="ssl:ssl_distribution">
+      Using SSL for Erlang Distribution</seeguide> User's Guide
       for details on how to setup a secure distributed node.
     </p>
   </warning>
@@ -301,8 +301,8 @@
     <section>
       <title>Get All Registered Names from EPMD</title>
       <p>This request is used through the Erlang function
-        <seealso marker="kernel:net_adm#names/1,2">
-        <c>net_adm:names/1,2</c></seealso>. A TCP connection is opened
+        <seemfa marker="kernel:net_adm#names/1">
+        <c>net_adm:names/1,2</c></seemfa>. A TCP connection is opened
         to the  EPMD and this request is sent.</p>
 
       <table align="left">
@@ -604,7 +604,7 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
       <p>Every message in the handshake starts with a 16-bit big-endian integer,
         which contains the message length (not counting the two initial bytes).
         In Erlang this corresponds to option <c>{packet, 2}</c> in
-        <seealso marker="kernel:gen_tcp"><c>gen_tcp(3)</c></seealso>.
+        <seeerl marker="kernel:gen_tcp"><c>gen_tcp(3)</c></seeerl>.
         Notice that after the handshake, the distribution switches to 4 byte
         packet headers.</p>
     </section>
@@ -665,9 +665,9 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
             or to nodes that might only support version 5. The <c>Version</c> is
 	    a 16-bit big endian integer and <em>must</em> always have the value 5, even
 	    if node <c>A</c> supports version 6. <c>Flags</c> are the
-	    <seealso marker="#dflags">capability flags</seealso>
+	    <seeguide marker="#dflags">capability flags</seeguide>
 	    of node <c>A</c> in 32-bit big endian. The flag bit
-	    <seealso marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seealso>
+	    <seeguide marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seeguide>
 	    should be set if node <c>A</c> supports version 6.
 	    <c>Name</c> is the full node name of <c>A</c>, as a string of bytes
 	    (the packet length denotes how long it is).
@@ -675,9 +675,9 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 	  <p>
 	    The new <c>send_name</c> is only sent from nodes supporting version 6 to
 	    nodes known to support version 6. <c>Flags</c> are the
-	    <seealso marker="#dflags">capability flags</seealso> of node
+	    <seeguide marker="#dflags">capability flags</seeguide> of node
 	    <c>A</c> in 64-bit big endian. The flag bit
-	    <seealso marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seealso>
+	    <seeguide marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seeguide>
             must always be set. <c>Creation</c> is the node incarnation
 	    identifier used by node <c>A</c> to create its pids, ports and
 	    references. <c>Name</c> is the full node name of <c>A</c>, as a
@@ -741,8 +741,8 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 	    <tag><c>named:</c></tag>
             <item><p>
 	      The handshake willl continue, but <c>A</c> requested a dynamic
-	      node name by setting flag <seealso marker="#DFLAG_NAME_ME">
-	      <c>DFLAG_NAME_ME</c></seealso>. The dynamic node name of
+	      node name by setting flag <seeguide marker="#DFLAG_NAME_ME">
+	      <c>DFLAG_NAME_ME</c></seeguide>. The dynamic node name of
 	      <c>A</c> is supplied at the end of the status message from
 	      <c>B</c>.</p>
             </item>
@@ -825,14 +825,14 @@ io:format("old/unused name ~ts at port ~p, fd = ~p ~n",
 	  <p>
 	    The old challenge message is sent from old <c>B</c> nodes
 	    (supporting only version 5) or if node <c>A</c> had not capability flag
-	    <seealso marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seealso>
+	    <seeguide marker="#DFLAG_HANDSHAKE_23"><c>DFLAG_HANDSHAKE_23</c></seeguide>
 	    set. The <c>Version</c> is a 16-bit big endian integer and
 	    <c>must</c> always have the value 5.
 	  </p>
 	  <p>
 	    The new challenge message is sent from new <c>B</c> nodes if node
-	    <c>A</c> had capability flag <seealso marker="#DFLAG_HANDSHAKE_23">
-	    <c>DFLAG_HANDSHAKE_23</c></seealso> set. Any extra data after the
+	    <c>A</c> had capability flag <seeguide marker="#DFLAG_HANDSHAKE_23">
+	    <c>DFLAG_HANDSHAKE_23</c></seeguide> set. Any extra data after the
 	    node <c>Name</c> must be accepted and ignored.
 	  </p>
           <p>
@@ -1008,8 +1008,8 @@ DiB == gen_digest(ChA, ICA)?
         </item>
         <tag><c>-define(DFLAG_NEW_FUN_TAGS,16#80).</c></tag>
         <item>
-	  <p>The node understands the <seealso marker="erl_ext_dist#NEW_FUN_EXT">
-	    <c>NEW_FUN_EXT</c></seealso> tag.</p>
+	  <p>The node understands the <seeguide marker="erl_ext_dist#NEW_FUN_EXT">
+	    <c>NEW_FUN_EXT</c></seeguide> tag.</p>
         </item>
         <tag><c>-define(DFLAG_EXTENDED_PIDS_PORTS,16#100).</c></tag>
         <item>
@@ -1018,18 +1018,18 @@ DiB == gen_digest(ChA, ICA)?
         </item>
         <tag><c>-define(DFLAG_EXPORT_PTR_TAG,16#200).</c></tag>
         <item>
-	  <p>The node understands the <seealso marker="erl_ext_dist#EXPORT_EXT">
-	    <c>EXPORT_EXT</c></seealso> tag.</p>
+	  <p>The node understands the <seeguide marker="erl_ext_dist#EXPORT_EXT">
+	    <c>EXPORT_EXT</c></seeguide> tag.</p>
         </item>
         <tag><c>-define(DFLAG_BIT_BINARIES,16#400).</c></tag>
         <item>
-	  <p>The node understands the <seealso marker="erl_ext_dist#BIT_BINARY_EXT">
-	    <c>BIT_BINARY_EXT</c></seealso> tag.</p>
+	  <p>The node understands the <seeguide marker="erl_ext_dist#BIT_BINARY_EXT">
+	    <c>BIT_BINARY_EXT</c></seeguide> tag.</p>
         </item>
         <tag><c>-define(DFLAG_NEW_FLOATS,16#800).</c></tag>
         <item>
-	  <p>The node understands the <seealso marker="erl_ext_dist#NEW_FLOAT_EXT">
-	    <c>NEW_FLOAT_EXT</c></seealso> tag.</p>
+	  <p>The node understands the <seeguide marker="erl_ext_dist#NEW_FLOAT_EXT">
+	    <c>NEW_FLOAT_EXT</c></seeguide> tag.</p>
         </item>
         <tag><c>-define(DFLAG_UNICODE_IO,16#1000).</c></tag>
         <item>
@@ -1041,37 +1041,37 @@ DiB == gen_digest(ChA, ICA)?
 	<marker id="DFLAG_SMALL_ATOM_TAGS"/>
         <tag><c>-define(DFLAG_SMALL_ATOM_TAGS, 16#4000).</c></tag>
         <item>
-          <p>The node understands the <seealso marker="erl_ext_dist#SMALL_ATOM_EXT">
-	  <c>SMALL_ATOM_EXT</c></seealso> tag.</p>
+          <p>The node understands the <seeguide marker="erl_ext_dist#SMALL_ATOM_EXT">
+	  <c>SMALL_ATOM_EXT</c></seeguide> tag.</p>
         </item>
 	<marker id="DFLAG_UTF8_ATOMS"/>
         <tag><c>-define(DFLAG_UTF8_ATOMS, 16#10000).</c></tag>
         <item>
           <p>The node understands UTF-8 atoms encoded with
-	    <seealso marker="erl_ext_dist#ATOM_UTF8_EXT">
-	    <c>ATOM_UTF8_EXT</c></seealso> and
-	    <seealso marker="erl_ext_dist#SMALL_ATOM_UTF8_EXT">
-	    <c>SMALL ATOM_UTF8_EXT</c></seealso>.</p>
+	    <seeguide marker="erl_ext_dist#ATOM_UTF8_EXT">
+	    <c>ATOM_UTF8_EXT</c></seeguide> and
+	    <seeguide marker="erl_ext_dist#SMALL_ATOM_UTF8_EXT">
+	    <c>SMALL ATOM_UTF8_EXT</c></seeguide>.</p>
         </item>
         <tag><c>-define(DFLAG_MAP_TAG, 16#20000).</c></tag>
         <item>
           <p>The node understands the map tag
-	  <seealso marker="erl_ext_dist#MAP_EXT"><c>MAP_EXT</c></seealso>.</p>
+	  <seeguide marker="erl_ext_dist#MAP_EXT"><c>MAP_EXT</c></seeguide>.</p>
         </item>
 	<marker id="DFLAG_BIG_CREATION"/>
         <tag><c>-define(DFLAG_BIG_CREATION, 16#40000).</c></tag>
         <item>
           <p>The node understands big node creation tags
-	  <seealso marker="erl_ext_dist#NEW_PID_EXT"><c>NEW_PID_EXT</c></seealso>,
-	  <seealso marker="erl_ext_dist#NEW_PORT_EXT"><c>NEW_PORT_EXT</c></seealso> and
-	  <seealso marker="erl_ext_dist#NEWER_REFERENCE_EXT"><c>NEWER_REFERENCE_EXT</c></seealso>.
+	  <seeguide marker="erl_ext_dist#NEW_PID_EXT"><c>NEW_PID_EXT</c></seeguide>,
+	  <seeguide marker="erl_ext_dist#NEW_PORT_EXT"><c>NEW_PORT_EXT</c></seeguide> and
+	  <seeguide marker="erl_ext_dist#NEWER_REFERENCE_EXT"><c>NEWER_REFERENCE_EXT</c></seeguide>.
 	  </p>
         </item>
         <tag><c>-define(DFLAG_SEND_SENDER, 16#80000).</c></tag>
         <item>
           <p>
 	    Use the <c>SEND_SENDER</c>
-	    <seealso marker="#control_message">control message</seealso>
+	    <seeguide marker="#control_message">control message</seeguide>
 	    instead of the <c>SEND</c> control message and use the
 	    <c>SEND_SENDER_TT</c> control message instead
 	    of the <c>SEND_TT</c> control message.
@@ -1086,13 +1086,13 @@ DiB == gen_digest(ChA, ICA)?
           <p>Use the <c>PAYLOAD_EXIT</c>, <c>PAYLOAD_EXIT_TT</c>,
             <c>PAYLOAD_EXIT2</c>, <c>PAYLOAD_EXIT2_TT</c>
             and <c>PAYLOAD_MONITOR_P_EXIT</c>
-            <seealso marker="#control_message">control message</seealso>s
+            <seeguide marker="#control_message">control message</seeguide>s
             instead of the non-PAYLOAD variants.</p>
         </item>
 	<marker id="DFLAG_FRAGMENTS"/>
         <tag><c>-define(DFLAG_FRAGMENTS, 16#800000).</c></tag>
         <item>
-          <p>Use <seealso marker="erl_ext_dist#fragments">fragmented</seealso>
+          <p>Use <seeguide marker="erl_ext_dist#fragments">fragmented</seeguide>
             distribution messages to send large messages.</p>
         </item>
 	<marker id="DFLAG_HANDSHAKE_23"/>
@@ -1103,10 +1103,10 @@ DiB == gen_digest(ChA, ICA)?
         </item>
         <tag><marker id="DFLAG_SPAWN"/><c>-define(DFLAG_SPAWN, (1 bsl 32)).</c></tag>
         <item>
-          <p>Set if the <seealso marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seealso>,
-	  <seealso marker="#SPAWN_REQUEST_TT"><c>SPAWN_REQUEST_TT</c></seealso>,
-	  <seealso marker="#SPAWN_REPLY"><c>SPAWN_REPLY</c></seealso>,
-	  <seealso marker="#SPAWN_REPLY_TT"><c>SPAWN_REPLY_TT</c></seealso>
+          <p>Set if the <seeguide marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seeguide>,
+	  <seeguide marker="#SPAWN_REQUEST_TT"><c>SPAWN_REQUEST_TT</c></seeguide>,
+	  <seeguide marker="#SPAWN_REPLY"><c>SPAWN_REPLY</c></seeguide>,
+	  <seeguide marker="#SPAWN_REPLY_TT"><c>SPAWN_REPLY_TT</c></seeguide>
 	  control messages are supported.</p>
         </item>
 	<tag><marker id="DFLAG_NAME_ME"/><c>-define(DFLAG_NAME_ME, (1 bsl 33)).</c></tag>
@@ -1129,8 +1129,8 @@ DiB == gen_digest(ChA, ICA)?
     <title>Protocol between Connected Nodes</title>
     <p>Since ERTS 5.7.2 (OTP R13B) the runtime system passes a distribution flag
       in the handshake stage that enables the use of a
-      <seealso marker="erl_ext_dist#distribution_header">distribution header
-      </seealso> on all messages passed. Messages passed between nodes have in
+      <seeguide marker="erl_ext_dist#distribution_header">distribution header
+      </seeguide> on all messages passed. Messages passed between nodes have in
       this case the following format:</p>
 
     <table align="left">
@@ -1158,9 +1158,9 @@ DiB == gen_digest(ChA, ICA)?
       <tag><c>DistributionHeader</c></tag>
       <item>
         <p>
-          <seealso marker="erl_ext_dist#distribution_header">Distribution header
+          <seeguide marker="erl_ext_dist#distribution_header">Distribution header
           describing the atom cache and fragmented distribution messages.
-          </seealso>
+          </seeguide>
         </p>
       </item>
       <tag><c>ControlMessage</c></tag>
@@ -1175,9 +1175,9 @@ DiB == gen_digest(ChA, ICA)?
       </item>
     </taglist>
 
-    <p>Notice that <seealso marker="erl_ext_dist#overall_format">the version
+    <p>Notice that <seeguide marker="erl_ext_dist#overall_format">the version
       number is omitted from the terms that follow a distribution header
-      </seealso>.</p>
+      </seeguide>.</p>
 
     <p>Nodes with an ERTS version earlier than 5.7.2 (OTP R13B) does not pass the
       distribution flag that enables the distribution header. Messages passed
@@ -1317,7 +1317,7 @@ DiB == gen_digest(ChA, ICA)?
 	<p>
 	  This control message replaces the <c>SEND</c> control
 	  message and will be sent when the distribution flag
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
+	  <seeguide marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seeguide>
 	  has been negotiated in the connection setup handshake.
 	</p>
 	<note><p>
@@ -1336,7 +1336,7 @@ DiB == gen_digest(ChA, ICA)?
 	<p>
 	  This control message replaces the <c>SEND_TT</c> control
 	  message and will be sent when the distribution flag
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seealso>
+	  <seeguide marker="erl_dist_protocol#dflags"><c>DFLAG_SEND_SENDER</c></seeguide>
 	  has been negotiated in the connection setup handshake.
 	</p>
 	<note><p>
@@ -1368,7 +1368,7 @@ DiB == gen_digest(ChA, ICA)?
 	<p>
 	  This control message replaces the <c>EXIT</c> control
 	  message and will be sent when the distribution flag
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  <seeguide marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seeguide>
 	  has been negotiated in the connection setup handshake.
 	</p>
       </item>
@@ -1379,7 +1379,7 @@ DiB == gen_digest(ChA, ICA)?
 	<p>
 	  This control message replaces the <c>EXIT_TT</c> control
 	  message and will be sent when the distribution flag
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  <seeguide marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seeguide>
 	  has been negotiated in the connection setup handshake.
 	</p>
       </item>
@@ -1390,7 +1390,7 @@ DiB == gen_digest(ChA, ICA)?
 	<p>
 	  This control message replaces the <c>EXIT2</c> control
 	  message and will be sent when the distribution flag
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  <seeguide marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seeguide>
 	  has been negotiated in the connection setup handshake.
 	</p>
       </item>
@@ -1401,7 +1401,7 @@ DiB == gen_digest(ChA, ICA)?
 	<p>
 	  This control message replaces the <c>EXIT2_TT</c> control
 	  message and will be sent when the distribution flag
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  <seeguide marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seeguide>
 	  has been negotiated in the connection setup handshake.
 	</p>
       </item>
@@ -1412,7 +1412,7 @@ DiB == gen_digest(ChA, ICA)?
 	<p>
 	  This control message replaces the <c>MONITOR_P_EXIT</c> control
 	  message and will be sent when the distribution flag
-	  <seealso marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seealso>
+	  <seeguide marker="erl_dist_protocol#dflags"><c>DFLAG_EXIT_PAYLOAD</c></seeguide>
 	  has been negotiated in the connection setup handshake.
 	</p>
       </item>
@@ -1427,7 +1427,7 @@ DiB == gen_digest(ChA, ICA)?
         <p><c>{29, ReqId, From, GroupLeader, {Module, Function, Arity}, OptList}</c></p>
         <p>Followed by <c>ArgList</c>.</p>
 	<p>This signal is sent by the
-	<seealso marker="erlang#spawn_request/5"><c>spawn_request()</c></seealso> BIF.</p>
+	<seemfa marker="erlang#spawn_request/5"><c>spawn_request()</c></seemfa> BIF.</p>
 	<taglist>
 	  <tag><c>ReqId :: reference()</c></tag>
 	  <item><p>Request identifier. Also used as monitor
@@ -1448,8 +1448,8 @@ DiB == gen_digest(ChA, ICA)?
 	</taglist>
 	<p>
 	  Only supported when the
-	  <seealso marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seealso>
-	  <seealso marker="erl_dist_protocol#dflags">distribution flag</seealso>
+	  <seeguide marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seeguide>
+	  <seeguide marker="erl_dist_protocol#dflags">distribution flag</seeguide>
 	  has been passed.
 	</p>
       </item>
@@ -1457,13 +1457,13 @@ DiB == gen_digest(ChA, ICA)?
       <item>
         <p><c>{30, ReqId, From, GroupLeader, {Module, Function, Arity}, OptList, Token}</c></p>
         <p>Followed by <c>ArgList</c>.</p>
-	<p>Same as <seealso marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seealso>, but also
+	<p>Same as <seeguide marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seeguide>, but also
 	with a sequential trace <c>Token</c>.
 	</p>
 	<p>
 	  Only supported when the
-	  <seealso marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seealso>
-	  <seealso marker="erl_dist_protocol#dflags">distribution flag</seealso>
+	  <seeguide marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seeguide>
+	  <seeguide marker="erl_dist_protocol#dflags">distribution flag</seeguide>
 	  has been passed.
 	</p>
       </item>
@@ -1471,7 +1471,7 @@ DiB == gen_digest(ChA, ICA)?
       <item>
         <p><c>{31, ReqId, To, Flags, Result}</c></p>
 	<p>This signal is sent as a reply to a process previously sending
-	a <seealso marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seealso> signal.</p>
+	a <seeguide marker="#SPAWN_REQUEST"><c>SPAWN_REQUEST</c></seeguide> signal.</p>
 	<taglist>
 	  <tag><c>ReqId :: reference()</c></tag>
 	  <item><p>Request identifier. Also used as monitor
@@ -1501,20 +1501,20 @@ DiB == gen_digest(ChA, ICA)?
 	</taglist>
 	<p>
 	  Only supported when the
-	  <seealso marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seealso>
-	  <seealso marker="erl_dist_protocol#dflags">distribution flag</seealso>
+	  <seeguide marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seeguide>
+	  <seeguide marker="erl_dist_protocol#dflags">distribution flag</seeguide>
 	  has been passed.
 	</p>
       </item>
       <tag><marker id="SPAWN_REPLY_TT"/><c>SPAWN_REPLY_TT</c></tag>
       <item>
         <p><c>{32, ReqId, To, Flags, Result, Token}</c></p>
-	<p>Same as <seealso marker="#SPAWN_REPLY"><c>SPAWN_REPLY</c></seealso>, but also
+	<p>Same as <seeguide marker="#SPAWN_REPLY"><c>SPAWN_REPLY</c></seeguide>, but also
 	with a sequential trace <c>Token</c>.</p>
 	<p>
 	  Only supported when the
-	  <seealso marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seealso>
-	  <seealso marker="erl_dist_protocol#dflags">distribution flag</seealso>
+	  <seeguide marker="erl_dist_protocol#DFLAG_SPAWN"><c>DFLAG_SPAWN</c></seeguide>
+	  <seeguide marker="erl_dist_protocol#dflags">distribution flag</seeguide>
 	  has been passed.
 	</p>
       </item>

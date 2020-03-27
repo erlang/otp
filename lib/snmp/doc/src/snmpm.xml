@@ -70,8 +70,8 @@ sec_name() = string()
 sec_level() = noAuthNoPriv | authNoPriv | authPriv
 ]]></code>
 
-    <p>See also the <seealso marker="snmpa_conf#types">
-    data types in <c>snmpa_conf</c></seealso>.</p>
+    <p>See also the <seeerl marker="snmpa_conf#types">
+    data types in <c>snmpa_conf</c></seeerl>.</p>
 
     <marker id="monitor"></marker>
   </section>
@@ -298,7 +298,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
 	the manager shall handle.
 	Note that there is an alternate way to do the same thing:
 	Add the agent to the manager config files (see 
-	<seealso marker="snmp_manager_config_files#agents">agents.conf</seealso>).</p>
+	<seeguide marker="snmp_manager_config_files#agents">agents.conf</seeguide>).</p>
         <p><c>TargetName</c> is a non-empty string, 
 	uniquely identifying the agent. </p>
 	<p>The type of <c>Val</c> depends on <c>Item</c>: </p>
@@ -371,7 +371,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
         <p>Update agent config. The function <c>update_agent_info/3</c> 
 	should be used when several values needs to be updated atomically. </p>
 	<p>See function 
-	<seealso marker="#register_agent">register_agent</seealso>
+	<seeerl marker="#register_agent">register_agent</seeerl>
 	for more info about what kind of items are allowed. </p>
 
         <marker id="which_agents"></marker>
@@ -411,7 +411,7 @@ sec_level = noAuthNoPriv | authNoPriv | authPriv
         <p>Explicitly instruct the manager to handle this USM user.
           Note that there is an alternate way to do the same thing:
           Add the usm user to the manager config files (see 
-          <seealso marker="snmp_manager_config_files#usm_user">usm.conf</seealso>).</p>
+          <seeguide marker="snmp_manager_config_files#usm_user">usm.conf</seeguide>).</p>
         <p>The type of <c>Val</c> depends on <c>Item</c>: </p>
 <code type="none"><![CDATA[
 sec_name = string()
@@ -552,7 +552,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	when the agent was registered. </p>
 
 	<p>For <c>SnmpInfo</c>, see the user callback function 
-	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+	<seeerl marker="snmpm_user#handle_report">handle_report</seeerl>.</p>
 
 	<!-- <marker id="sync_get"></marker> -->
         <marker id="async_get2"></marker>
@@ -600,7 +600,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	<em>Any</em> tuple with <c>snmpm_extra_info_tag</c> as its first 
 	element is reserved for internal use. </p>
         <p>For <c>SnmpInfo</c>, see the user callback function 
-          <seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+          <seeerl marker="snmpm_user#handle_report">handle_report</seeerl>.</p>
 
         <marker id="async_get2"></marker>
       </desc>
@@ -736,7 +736,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	when the agent was registered. </p>
 
 	<p>For <c>SnmpInfo</c>, see the user callback function 
-	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+	<seeerl marker="snmpm_user#handle_report">handle_report</seeerl>.</p>
 
 	<!-- <marker id="sync_get_next"></marker> -->
         <marker id="async_get_next2"></marker>
@@ -911,7 +911,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	when the agent was registered. </p>
 
 	<p>For <c>SnmpInfo</c>, see the user callback function 
-	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+	<seeerl marker="snmpm_user#handle_report">handle_report</seeerl>.</p>
 
 	<!-- <marker id="sync_set"></marker> -->
         <marker id="async_set2"></marker>
@@ -1093,7 +1093,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	when the agent was registered. </p>
 
 	<p>For <c>SnmpInfo</c>, see the user callback function 
-	<seealso marker="snmpm_user#handle_report">handle_report</seealso>.</p>
+	<seeerl marker="snmpm_user#handle_report">handle_report</seeerl>.</p>
 
 	<!-- <marker id="sync_get_bulk"></marker> -->
 	<marker id="async_get_bulk2"></marker>
@@ -1273,7 +1273,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	<p>See <seealso marker="snmp#log_to_txt">snmp:log_to_txt</seealso> 
+	<p>See <seeerl marker="snmp#log_to_txt">snmp:log_to_txt</seeerl> 
 	for more info.</p>
 
         <marker id="log_to_io"></marker>
@@ -1315,7 +1315,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
 	during conversion. This could be usefull when converting large 
 	logs (when otherwise the log could wrap during conversion). 
 	Defaults to <c>true</c>. </p>
-	<p>See <seealso marker="snmp#log_to_io">snmp:log_to_io</seealso> 
+	<p>See <seeerl marker="snmp#log_to_io">snmp:log_to_io</seeerl> 
 	for more info.</p>
 
         <marker id="change_log_size"></marker>
@@ -1551,7 +1551,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
           </item>
           <item>
             <p>The <c>Reason</c> parameter in the 
-              <seealso marker="snmpm_user#handle_error">handle_error</seealso> user callback function.</p>
+              <seeerl marker="snmpm_user#handle_error">handle_error</seeerl> user callback function.</p>
           </item>
         </list>
         <p><c>Prefix</c> should either be an indention string

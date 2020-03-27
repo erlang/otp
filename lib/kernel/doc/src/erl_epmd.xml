@@ -33,10 +33,10 @@
     Erlang interface towards epmd
   </modulesummary>
   <description>
-    <p>This module communicates with the EPMD daemon, see <seealso
-    marker="erts:epmd">epmd</seealso>. To implement your own epmd module please
-    see <seealso marker="erts:alt_disco">ERTS User's Guide: How to Implement an
-    Alternative Node Discovery for Erlang Distribution</seealso></p>
+    <p>This module communicates with the EPMD daemon, see <seecom
+    marker="erts:epmd">epmd</seecom>. To implement your own epmd module please
+    see <seeguide marker="erts:alt_disco">ERTS User's Guide: How to Implement an
+    Alternative Node Discovery for Erlang Distribution</seeguide></p>
   </description>
 
   <funcs>
@@ -89,8 +89,8 @@
         <p>Called by the distribution module to resolves the <c>Host</c> to an IP
         address of a remote node.</p>
         <p>As an optimization this function may also return the port and version
-        of the remote node. If port and version are returned <seealso marker="#port_please-3">
-        <c>port_please/3</c></seealso> will not be called.</p>
+        of the remote node. If port and version are returned <seemfa marker="#port_please/3">
+        <c>port_please/3</c></seemfa> will not be called.</p>
       </desc>
     </func>
 
@@ -98,7 +98,7 @@
       <name name="names" arity="1" since="OTP 21.0"/>
       <fsummary>Names of Erlang nodes at a host.</fsummary>
       <desc>
-        <p>Called by <seealso marker="net_adm"><c>net_adm:names/0</c></seealso>.
+        <p>Called by <seeerl marker="net_adm"><c>net_adm:names/0</c></seeerl>.
         <c>Host</c> defaults to the localhost. Returns the names and associated
         port numbers of the Erlang nodes that <c>epmd</c> registered at the
         specified host. Returns <c>{error, address}</c> if <c>epmd</c> is not

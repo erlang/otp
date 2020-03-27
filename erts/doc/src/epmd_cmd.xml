@@ -82,28 +82,28 @@
       <tag>Starting the port mapper daemon</tag>
       <item>
         <p>The daemon is started automatically by command
-          <seealso marker="erl"><c>erl(1)</c></seealso>
+          <seecom marker="erl"><c>erl(1)</c></seecom>
           if the node is to be distributed and no running
           instance is present. If automatically launched
           environment variables must be used to change the behavior
           of the daemon; see section
-          <seealso marker="#environment_variables">Environment
-          Variables</seealso>.</p>
+          <seecom marker="#environment_variables">Environment
+          Variables</seecom>.</p>
         <p>If argument <c>-daemon</c> is not specified,
           <c><![CDATA[epmd]]></c> runs as a normal program with the
           controlling terminal of the shell in which it is
           started. Normally, it is to be run as a daemon.</p>
         <p>Regular startup options are described in section
-          <seealso marker="#daemon_flags">Regular Options</seealso>.</p>
+          <seecom marker="#daemon_flags">Regular Options</seecom>.</p>
         <p>The <c>DbgExtra</c> options are described in section
-          <seealso marker="#debug_flags">DbgExtra Options</seealso>.</p>
+          <seecom marker="#debug_flags">DbgExtra Options</seecom>.</p>
       </item>
       <tag>Communicating with a running port mapper daemon</tag>
       <item>
         <p>Communicating with the running <c>epmd</c> daemon by the
           <c>epmd</c> program is done primarily for debugging purposes.</p>
-        <p>The different queries are described in section <seealso
-          marker="#interactive_flags">Interactive options</seealso>.</p>
+        <p>The different queries are described in section <seecom
+          marker="#interactive_flags">Interactive options</seecom>.</p>
       </item>
     </taglist>
   </description>
@@ -113,7 +113,7 @@
     <title>Regular Options</title>
     <p>These options are available when starting the name server. The name
       server is normally started automatically by command
-      <seealso marker="erl"><c>erl(1)</c></seealso> (if not already available),
+      <seecom marker="erl"><c>erl(1)</c></seecom> (if not already available),
       but it can also be started at system startup.</p>
 
     <taglist>
@@ -123,15 +123,15 @@
 	  comma-separated list of IP addresses and on the loopback address
 	  (which is implicitly added to the list if it has not been
 	  specified). This can also be set using environment variable
-	  <c><![CDATA[ERL_EPMD_ADDRESS]]></c>; see section <seealso
-	  marker="#environment_variables">Environment Variables</seealso>.</p>
+	  <c><![CDATA[ERL_EPMD_ADDRESS]]></c>; see section <seecom
+	  marker="#environment_variables">Environment Variables</seecom>.</p>
       </item>
       <tag><c><![CDATA[-port No]]></c></tag>
       <item>
 	<p>Lets this instance of <c>epmd</c> listen to another TCP port than
 	  default 4369. This can also be set using environment variable
-	  <c><![CDATA[ERL_EPMD_PORT]]></c>; see section <seealso
-	  marker="#environment_variables">Environment Variables</seealso>.</p>
+	  <c><![CDATA[ERL_EPMD_PORT]]></c>; see section <seecom
+	  marker="#environment_variables">Environment Variables</seecom>.</p>
       </item>
       <tag><c><![CDATA[-d | -debug]]></c></tag>
       <item>
@@ -161,8 +161,8 @@
 	  </item>
 	  <item>
 	    <p>Command <c>epmd -stop</c> (and the corresponding messages to
-	      <c>epmd</c>, as can be specified using <seealso
-	      marker="erl_interface:ei"><c>erl_interface:ei(3)</c></seealso>) is
+	      <c>epmd</c>, as can be specified using <seecref
+	      marker="erl_interface:ei"><c>erl_interface:ei(3)</c></seecref>) is
 	      normally always ignored. This because it can cause a strange
 	      situation where two nodes of the same name can be alive at the
 	      same time. A node unregisters itself by only closing the
@@ -224,8 +224,8 @@
       <item>
 	<p>Contacts the <c>epmd</c> listening on the specified TCP port
 	  number (default 4369). This can also be set using environment
-	  variable <c><![CDATA[ERL_EPMD_PORT]]></c>; see section <seealso
-	  marker="#environment_variables">Environment Variables</seealso>.</p>
+	  variable <c><![CDATA[ERL_EPMD_PORT]]></c>; see section <seecom
+	  marker="#environment_variables">Environment Variables</seecom>.</p>
       </item>
       <tag><c><![CDATA[-names]]></c></tag>
       <item>

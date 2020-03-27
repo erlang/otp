@@ -44,14 +44,14 @@
       process and the Kernel application alive during high loads of log 
       events. How overload protection works, and how to configure it, is
       described in the
-      <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
-      </seealso>.</p>
+      <seeguide marker="logger_chapter#overload_protection"><c>User's Guide</c>
+      </seeguide>.</p>
     <p>To add a new instance of the standard handler, use
-      <seealso marker="logger#add_handler/3"><c>logger:add_handler/3</c>
-      </seealso>. The handler configuration argument is a map which can contain
+      <seemfa marker="logger#add_handler/3"><c>logger:add_handler/3</c>
+      </seemfa>. The handler configuration argument is a map which can contain
       general configuration parameters, as documented in the
-       <seealso marker="logger_chapter#handler_configuration"><c>User's Guide</c>
-       </seealso>, and handler specific parameters. The specific data
+       <seeguide marker="logger_chapter#handler_configuration"><c>User's Guide</c>
+       </seeguide>, and handler specific parameters. The specific data
        is stored in a sub map with the key <c>config</c>, and can contain the
        following parameters:</p>
     <taglist>
@@ -61,10 +61,10 @@
 	<p>The value is set when the handler is added, and it cannot
 	  be changed in runtime.</p>
 	<p>Defaults to <c>standard_io</c>, unless
-	  parameter <seealso marker="#file"><c>file</c></seealso> is
+	  parameter <seeerl marker="#file"><c>file</c></seeerl> is
 	  given, in which case it defaults to <c>file</c>.</p>
       </item>
-      <tag><marker id="file"/><c>file = </c><seealso marker="file#type-filename"><c>file:filename()</c></seealso></tag>
+      <tag><marker id="file"/><c>file = </c><seetype marker="file#filename"><c>file:filename()</c></seetype></tag>
       <item>
 	<p>This specifies the name of the log file when the handler is
 	  of type <c>file</c>.</p>
@@ -73,11 +73,11 @@
 	<p>Defaults to the same name as the handler identity, in the
 	  current directory.</p>
       </item>
-      <tag><marker id="modes"/><c>modes = [</c><seealso marker="file#type-mode"><c>file:mode()</c></seealso><c>]</c></tag>
+      <tag><marker id="modes"/><c>modes = [</c><seetype marker="file#mode"><c>file:mode()</c></seetype><c>]</c></tag>
       <item>
 	<p>This specifies the file modes to use when opening the log
 	  file,
-	  see <seealso marker="file#open/2"><c>file:open/2</c></seealso>.
+	  see <seemfa marker="file#open/2"><c>file:open/2</c></seemfa>.
 	  If <c>modes</c> are not specified, the default list used
 	  is <c>[raw,append,delayed_write]</c>. If <c>modes</c> are
 	  specified, the list replaces the default modes list with the
@@ -111,7 +111,7 @@
       <item>
 	<p>This parameter specifies the number of rotated log file
 	  archives to keep. This has meaning only
-	  if <seealso marker="#max_no_bytes"><c>max_no_bytes</c></seealso>
+	  if <seeerl marker="#max_no_bytes"><c>max_no_bytes</c></seeerl>
 	  is set to an integer value.</p>
 	<p>The log archives are
 	  named <c>FileName.0</c>, <c>FileName.1</c>,
@@ -129,8 +129,8 @@
 	  shall be compressed or not. If set to <c>true</c>, all
 	  archives are compressed with <c>gzip</c>, and renamed
 	  to <c>FileName.N.gz</c></p>
-	<p><c>compress_on_rotate</c> has no meaning if <seealso
-	marker="#max_no_bytes"><c>max_no_bytes</c></seealso> has the
+	<p><c>compress_on_rotate</c> has no meaning if <seeerl
+	marker="#max_no_bytes"><c>max_no_bytes</c></seeerl> has the
 	value <c>infinity</c>.</p>
 	<p>Defaults to <c>false</c>.</p>
       </item>
@@ -162,7 +162,7 @@
 	<p>If <c>no_repeat</c> is set as value, the repeated file sync operation
 	is disabled, and it is the operating system settings that determine
 	how quickly or slowly data is written to disk. The user can also call
-	the <seealso marker="logger_std_h#filesync/1"><c>filesync/1</c></seealso>
+	the <seemfa marker="logger_std_h#filesync/1"><c>filesync/1</c></seemfa>
         function to perform a file sync.</p>
 	<p>Defaults to <c>5000</c> milliseconds.</p>
       </item>
@@ -170,8 +170,8 @@
     <p>Other configuration parameters exist, to be used for customizing
     the overload protection behaviour. The same parameters are used both in the
     standard handler and the disk_log handler, and are documented in the
-    <seealso marker="logger_chapter#overload_protection"><c>User's Guide</c>
-    </seealso>.</p>
+    <seeguide marker="logger_chapter#overload_protection"><c>User's Guide</c>
+    </seeguide>.</p>
     <p>Notice that if changing the configuration of the handler in
     runtime, the <c>type</c>, <c>file</c>, or <c>modes</c> parameters
     must not be modified.</p>
@@ -190,7 +190,7 @@ erl -kernel logger '[{handler,default,logger_std_h,
     </code>
     <p>An example of how to replace the standard handler with a disk_log handler
     at startup is found in the
-    <seealso marker="logger_disk_log_h"><c>logger_disk_log_h</c></seealso>
+    <seeerl marker="logger_disk_log_h"><c>logger_disk_log_h</c></seeerl>
     manual.</p>
   </description>
 
@@ -208,9 +208,9 @@ erl -kernel logger '[{handler,default,logger_std_h,
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="logger"><c>logger(3)</c></seealso>,
-      <seealso marker="logger_disk_log_h">
-	<c>logger_disk_log_h(3)</c></seealso></p>
+    <p><seeerl marker="logger"><c>logger(3)</c></seeerl>,
+      <seeerl marker="logger_disk_log_h">
+	<c>logger_disk_log_h(3)</c></seeerl></p>
   </section>
 </erlref>
 

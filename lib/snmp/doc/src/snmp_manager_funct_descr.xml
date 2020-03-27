@@ -42,7 +42,7 @@
       itself. That is up to the <em>user</em>. 
       </p>
     <p>A <em>user</em> in this context is basically a module implementing
-      the <seealso marker="snmpm_user">snmpm_user</seealso> behaviour. 
+      the <seeerl marker="snmpm_user">snmpm_user</seeerl> behaviour. 
       A <em>user</em> can issue snmp requests and receive 
       notification/traps.</p>
     <p>Agents to be accessed by the manager needs to be registered by 
@@ -56,24 +56,24 @@
       <c>snmpm_user_default</c> module, which simply sends an info message
       to the error_logger. It is however highly recommended that this
       module be replaced by another that does something useful
-      (see <seealso marker="snmp_config#configuration_params">configuration params</seealso> for more info).</p>
+      (see <seeguide marker="snmp_config#configuration_params">configuration params</seeguide> for more info).</p>
     <p>When using version 3, then (at least one) <em>usm user</em> has to 
       be registered.</p>
     <p>Requests can be issued in two different ways. Synchronous (see
-      <seealso marker="snmpm#sync_set2">sync_set</seealso>,
-      <seealso marker="snmpm#sync_get2">sync_get</seealso>, 
-      <seealso marker="snmpm#sync_get_next2">sync_get_next</seealso> and 
-      <seealso marker="snmpm#sync_get_bulk2">sync_get_bulk</seealso>)
+      <seeerl marker="snmpm#sync_set2">sync_set</seeerl>,
+      <seeerl marker="snmpm#sync_get2">sync_get</seeerl>, 
+      <seeerl marker="snmpm#sync_get_next2">sync_get_next</seeerl> and 
+      <seeerl marker="snmpm#sync_get_bulk2">sync_get_bulk</seeerl>)
       and asynchronous (see 
-      <seealso marker="snmpm#async_set2">async_set</seealso>,
-      <seealso marker="snmpm#async_get2">async_get</seealso>, 
-      <seealso marker="snmpm#async_get_next2">async_get_next</seealso> and  
-      <seealso marker="snmpm#async_get_bulk2">async_get_bulk</seealso>). 
+      <seeerl marker="snmpm#async_set2">async_set</seeerl>,
+      <seeerl marker="snmpm#async_get2">async_get</seeerl>, 
+      <seeerl marker="snmpm#async_get_next2">async_get_next</seeerl> and  
+      <seeerl marker="snmpm#async_get_bulk2">async_get_bulk</seeerl>). 
       With synchronous 
       the snmp reply is returned by the function. With asynchronous,
       the reply will instead be delivered through a call to one of the
       <c>handle_pdu</c> callback function defined by the 
-      <seealso marker="snmpm_user#handle_pdu">handle_pdu</seealso> 
+      <seeerl marker="snmpm_user#handle_pdu">handle_pdu</seeerl> 
       behaviour.</p>
   </section>
 

@@ -146,7 +146,7 @@
       <item>Key and Initialization Vector Update is supported</item>
     </list>
     <p>For more detailed information see the
-    <seealso marker="#soc_table">Standards Compliance</seealso> below.</p>
+    <seeguide marker="#soc_table">Standards Compliance</seeguide> below.</p>
 
     <p> The following table describes the current state of standards compliance for TLS 1.3.</p>
     <p>(<em>C</em> = Compliant, <em>NC</em> = Non-Compliant, <em>PC</em> = Partially-Compliant,

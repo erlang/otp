@@ -131,7 +131,7 @@
           <c>(pause({'_','_','_'})+stop({on_load}))</c>.
           </p>
         <p>See also 
-          <seealso marker="#pause">pause/1..3</seealso> below.
+          <seeerl marker="#pause">pause/1..3</seeerl> below.
                     <marker id="pause"></marker>
 </p>
       </desc>
@@ -206,7 +206,7 @@
           <c>(start({'_','_','_'})+start({on_load}))</c>.
           </p>
         <p>See also 
-          <seealso marker="#start">start/1..3</seealso> below.
+          <seeerl marker="#start">start/1..3</seeerl> below.
                     <marker id="start"></marker>
 </p>
       </desc>
@@ -249,7 +249,7 @@
           <c>(stop({'_','_','_'})+stop({on_load}))</c>.
           </p>
         <p>See also 
-          <seealso marker="#stop">stop/1..3</seealso> below.
+          <seeerl marker="#stop">stop/1..3</seeerl> below.
                     <marker id="stop"></marker>
 </p>
       </desc>
@@ -286,10 +286,10 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="eprof">eprof</seealso>(3), 
-      <seealso marker="fprof">fprof</seealso>(3), 
+    <p><seeerl marker="eprof">eprof</seeerl>(3), 
+      <seeerl marker="fprof">fprof</seeerl>(3), 
       erlang(3), 
-      <seealso marker="cprof_chapter">User's Guide</seealso></p>
+      <seeguide marker="cprof_chapter">User's Guide</seeguide></p>
   </section>
 </erlref>
 

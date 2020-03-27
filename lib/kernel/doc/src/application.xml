@@ -44,14 +44,14 @@
       <em>application resource file</em> named <c>Application.app</c>,
       where <c>Application</c> is the application name. For details
       about the application specification, see
-    <seealso marker="app"><c>app(4)</c></seealso>.</p>
+    <seefile marker="app"><c>app(4)</c></seefile>.</p>
     <p>This module can also be viewed as a behaviour for an application
       implemented according to the OTP design principles as a
       supervision tree. The definition of how to start and stop
       the tree is to be located in an <em>application callback module</em>,
       exporting a predefined set of functions.</p>
     <p>For details about applications and behaviours, see
-    <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso>.</p>
+    <seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide>.</p>
   </description>
   <datatypes>
     <datatype>
@@ -72,13 +72,13 @@
         <fsummary>Load and start an application and its dependencies, recursively.</fsummary>
         <desc>
           <p>Equivalent to calling
-	  <seealso marker="#start/1"><c>start/1,2</c></seealso>
+	  <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
           repeatedly on all dependencies that are not yet started for an application.</p>
           <p>Returns <c>{ok, AppNames}</c> for a successful start or for an already started
           application (which is, however, omitted from the <c>AppNames</c> list).</p>
 	  <p>The function reports <c>{error, {AppName,Reason}}</c> for errors, where
 	  <c>Reason</c> is any possible reason returned by
-	  <seealso marker="#start/1"><c>start/1,2</c></seealso>
+	  <seemfa marker="#start/1"><c>start/1,2</c></seemfa>
 	  when starting a specific dependency.</p>
 	  <p>If an error occurs, the applications started by the function are stopped
 	  to bring the set of running applications back to its initial state.</p>
@@ -90,7 +90,7 @@
       <fsummary>Load and start an application.</fsummary>
       <desc>
 	<p>Equivalent to
-	<seealso marker="#start/1"><c>start/1,2</c></seealso>
+	<seemfa marker="#start/1"><c>start/1,2</c></seemfa>
 	except it returns <c>ok</c> for already started applications.</p>
       </desc>
     </func>
@@ -156,7 +156,7 @@
       <name name="get_env" arity="3" since="OTP R16B"/>
       <fsummary>Get the value of a configuration parameter using a default.</fsummary>
       <desc>
-        <p>Works like <seealso marker="#get_env/2"><c>get_env/2</c></seealso> but returns
+        <p>Works like <seemfa marker="#get_env/2"><c>get_env/2</c></seemfa> but returns
           value <c><anno>Def</anno></c> when configuration parameter
           <c><anno>Par</anno></c> does not exist.</p>
       </desc>
@@ -197,7 +197,7 @@
         <p>The application specification can also be specified directly as a
           tuple <c><anno>AppSpec</anno></c>, having the format and
           contents as described in
-	<seealso marker="app"><c>app(4)</c></seealso>.</p>
+	<seefile marker="app"><c>app(4)</c></seefile>.</p>
         <p>If <c><anno>Distributed</anno> == {<anno>Application</anno>,[<anno>Time</anno>,]<anno>Nodes</anno>}</c>,
           the application becomes distributed. The argument overrides
           the value for the application in the Kernel configuration
@@ -291,7 +291,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           <c>false</c> means that the application will be started at, or
           moved to, another node according to how its distribution is
           configured
-	(see <seealso marker="#load/2"><c>load/2</c></seealso>).</p>
+	(see <seemfa marker="#load/2"><c>load/2</c></seemfa>).</p>
         <p>The function does not return until the application is
           started, stopped, or successfully moved to another node.
           However, in some cases where permission is set to <c>true</c>,
@@ -396,7 +396,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           determine the start type, which is <c><anno>StartType</anno></c> or
           <c>local</c>.</p>
         <p>For a description of <c><anno>StartType</anno></c>, see
-	  <seealso marker="#start_type"><c>Module:start/2</c></seealso>.</p>
+	  <seeerl marker="#start_type"><c>Module:start/2</c></seeerl>.</p>
         <p><c>local</c> is returned if only parts of the application are
           restarted (by a supervisor), or if the function is
           called outside a startup.</p>
@@ -411,7 +411,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
         <p>Stops <c><anno>Application</anno></c>. The application master calls
           <c>Module:prep_stop/1</c>, if such a function is defined, and
           then tells the top supervisor of the application to shut down
-          (see <seealso marker="stdlib:supervisor"><c>supervisor(3)</c></seealso>).
+          (see <seeerl marker="stdlib:supervisor"><c>supervisor(3)</c></seeerl>).
 	  This means that the entire
           supervision tree, including included applications, is
           terminated in reversed start order. After the shutdown,
@@ -455,7 +455,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           be stopped entirely, at least the top supervisor
           must remain alive.</p>
         <p>For a description of <c>Type</c>, see
-	<seealso marker="#start/1"><c>start/1,2</c></seealso>.</p>
+	<seemfa marker="#start/1"><c>start/1,2</c></seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -481,7 +481,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           specified if another time-out value is useful, for example, in
           situations where the application controller is heavily loaded.</p>
         <p><c>unset_env/3</c> also allows the persistent option to be passed
-          (see <seealso marker="#set_env/4"><c>set_env/4</c></seealso>).</p>
+          (see <seemfa marker="#set_env/4"><c>set_env/4</c></seemfa>).</p>
 	<warning>
           <p>Use this function only if you know what you are doing,
             that is, on your own applications. It is very
@@ -512,17 +512,18 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Module</title>
-    <p>The following functions are to be exported from an
-      <c>application</c> callback module.</p>
-  </section>
+ 
   <funcs>
+    <fsdescription>
+      <title>Callback Module</title>
+      <p>The following functions are to be exported from an
+        <c>application</c> callback module.</p>
+    </fsdescription>
     <func>
       <name since="">Module:start(StartType, StartArgs) -> {ok, Pid} | {ok, Pid, State} | {error, Reason}</name>
       <fsummary>Start an application.</fsummary>
       <type>
-        <v>StartType = <seealso marker="#type-start_type"><c>start_type()</c></seealso></v>
+        <v>StartType = <seetype marker="#start_type"><c>start_type()</c></seetype></v>
         <v>StartArgs = term()</v>
         <v>Pid = pid()</v>
         <v>State = term()</v>
@@ -565,7 +566,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
       <fsummary>Extended start of an application.</fsummary>
       <type>
         <v>Phase = atom()</v>
-        <v>StartType = <seealso marker="#type-start_type"><c>start_type()</c></seealso></v>
+        <v>StartType = <seetype marker="#start_type"><c>start_type()</c></seetype></v>
         <v>PhaseArgs = term()</v>
         <v>Pid = pid()</v>
         <v>State = state()</v>
@@ -582,7 +583,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           the primary application) for the primary application and all
           included applications, for which the start phase is defined.</p>
         <p>For a description of <c>StartType</c>, see
-	<seealso marker="#Module:start/2"><c>Module:start/2</c></seealso>.</p>
+	<seemfa marker="#Module:start/2"><c>Module:start/2</c></seemfa>.</p>
       </desc>
     </func>
     <func>
@@ -643,8 +644,8 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso>,
-      <seealso marker="kernel_app">kernel(6)</seealso>,
-      <seealso marker="app">app(4)</seealso></p>
+    <p><seeguide marker="system/design_principles:des_princ">OTP Design Principles</seeguide>,
+      <seeapp marker="kernel_app">kernel(6)</seeapp>,
+      <seefile marker="app">app(4)</seefile></p>
   </section>
 </erlref>

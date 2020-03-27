@@ -65,7 +65,7 @@ convert_tag(a, [Attr]) ->
 		true ->
 		    {url, [Attr]};
 		false ->
-		    {seealso, [Attr#xmlAttribute{name=marker}]}
+		    makesee(Val)
 	    end;
 	name ->
 	    {marker, [Attr#xmlAttribute{name=id}]}
@@ -94,3 +94,7 @@ is_url(FileRef) ->
 	"" -> false; % no extension = xml file
 	_Ext -> true % extension
     end.
+
+makesee(Ref) ->
+    {Tag, Marker} = docgen_edoc_xml_cb:makesee(Ref),
+    {Tag,[#xmlAttribute{name = marker, value = Marker}]}.

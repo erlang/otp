@@ -42,8 +42,8 @@
       it possible to monitor and debug an embedded system remotely.</p>
 
     <p>For more information about the use, see the
-      <seealso marker="doc/embedded:embedded_solaris">
-      Embedded System User's Guide</seealso> in System Documentation.</p>
+      <seeguide marker="system/embedded:embedded_solaris">
+      Embedded System User's Guide</seeguide> in System Documentation.</p>
   </description>
 
   <funcs>
@@ -84,8 +84,8 @@
                 <p>Up to five log files at maximum 100 KB each with the content
                   of the standard streams from and to the command. (Both the
                   number of logs and sizes can be changed by environment
-                  variables, see section <seealso
-                  marker="#environment_variables">Environment Variables</seealso>
+                  variables, see section <seecom
+                  marker="#environment_variables">Environment Variables</seecom>
                   below.)</p>
                 <p>When the logs are full, <c><![CDATA[run_erl]]></c> deletes
                   and reuses the oldest log file.</p>
@@ -209,7 +209,7 @@
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="start"><c>start(1)</c></seealso>,
-      <seealso marker="start_erl"><c>start_erl(1)</c></seealso></p>
+    <p><seecom marker="start"><c>start(1)</c></seecom>,
+      <seecom marker="start_erl"><c>start_erl(1)</c></seecom></p>
   </section>
 </comref>

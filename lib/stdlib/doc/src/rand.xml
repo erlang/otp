@@ -131,8 +131,8 @@
     <p>
       The default algorithm is <c>exsss</c> (Xorshift116**).
       If a specific algorithm is
-      required, ensure to always use <seealso marker="#seed/1">
-      <c>seed/1</c></seealso> to initialize the state.
+      required, ensure to always use <seemfa marker="#seed/1">
+      <c>seed/1</c></seemfa> to initialize the state.
     </p>
 
     <p>
@@ -179,10 +179,10 @@
       variable <c>rand_seed</c> to remember the current state.</p>
 
     <p>If a process calls
-      <seealso marker="#uniform/0"><c>uniform/0</c></seealso>,
-      <seealso marker="#uniform/1"><c>uniform/1</c></seealso> or
-      <seealso marker="#uniform_real/0"><c>uniform_real/0</c></seealso> without
-      setting a seed first, <seealso marker="#seed/1"><c>seed/1</c></seealso>
+      <seemfa marker="#uniform/0"><c>uniform/0</c></seemfa>,
+      <seemfa marker="#uniform/1"><c>uniform/1</c></seemfa> or
+      <seemfa marker="#uniform_real/0"><c>uniform_real/0</c></seemfa> without
+      setting a seed first, <seemfa marker="#seed/1"><c>seed/1</c></seemfa>
       is called automatically with the default algorithm and creates a
       non-constant seed.</p>
 
@@ -236,7 +236,7 @@ SND0 = math:sqrt(-2 * math:log(R5)) * math:cos(math:pi() * R6)</pre>
       <p>The builtin random number generator algorithms are not
         cryptographically strong. If a cryptographically strong
         random number generator is needed, use something like
-        <seealso marker="crypto:crypto#rand_seed/0"><c>crypto:rand_seed/0</c></seealso>.
+        <seemfa marker="crypto:crypto#rand_seed/0"><c>crypto:rand_seed/0</c></seemfa>.
       </p>
     </note>
 
@@ -353,7 +353,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <fsummary>Export the random number generation state.</fsummary>
       <desc><marker id="export_seed-0"/>
         <p>Returns the random number state in an external format.
-          To be used with <seealso marker="#seed/1"><c>seed/1</c></seealso>.</p>
+          To be used with <seemfa marker="#seed/1"><c>seed/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -362,7 +362,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
       <fsummary>Export the random number generation state.</fsummary>
       <desc><marker id="export_seed_s-1"/>
         <p>Returns the random number generator state in an external format.
-          To be used with <seealso marker="#seed/1"><c>seed/1</c></seealso>.</p>
+          To be used with <seemfa marker="#seed/1"><c>seed/1</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -443,7 +443,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	</p>
         <p>Otherwise recreates the exported seed in the process dictionary,
           and returns the state. See also
-          <seealso marker="#export_seed/0"><c>export_seed/0</c></seealso>.</p>
+          <seemfa marker="#export_seed/0"><c>export_seed/0</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -466,8 +466,8 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	  is an algorithm.
 	</p>
         <p>Otherwise recreates the exported seed and returns the state.
-          See also <seealso marker="#export_seed/0">
-          <c>export_seed/0</c></seealso>.</p>
+          See also <seemfa marker="#export_seed/0">
+          <c>export_seed/0</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -499,7 +499,7 @@ tests. We suggest to use a sign test to extract a random Boolean value.</pre>
 	    fatal for certain applications.  If that is undesired
 	    you can use <c>(1.0 - rand:uniform())</c> to get the
 	    interval <c>0.0 &lt; <anno>X</anno> =&lt; 1.0</c>, or instead use
-	    <seealso marker="#uniform_real/0"><c>uniform_real/0</c></seealso>.
+	    <seemfa marker="#uniform_real/0"><c>uniform_real/0</c></seemfa>.
 	  </p>
 	  <p>
 	    If neither endpoint is desired you can test and re-try
@@ -537,7 +537,7 @@ end.</pre>
 	  <p>
 	    The generated numbers from this function has got better
 	    granularity for small numbers than the regular
-	    <seealso marker="#uniform/0"><c>uniform/0</c></seealso>
+	    <seemfa marker="#uniform/0"><c>uniform/0</c></seemfa>
 	    because all bits in the mantissa are random.
 	    This property, in combination with the fact that exactly zero
 	    is never returned is useful for algoritms doing for example
@@ -546,7 +546,7 @@ end.</pre>
 	</note>
 	<p>
 	  See
-	  <seealso marker="#uniform_real_s/1"><c>uniform_real_s/1</c></seealso>
+	  <seemfa marker="#uniform_real_s/1"><c>uniform_real_s/1</c></seemfa>
 	  for more explanation.
 	</p>
       </desc>
@@ -582,7 +582,7 @@ end.</pre>
 	    fatal for certain applications.  If that is undesired
 	    you can use <c>(1.0 - rand:uniform(State))</c> to get the
 	    interval <c>0.0 &lt; <anno>X</anno> =&lt; 1.0</c>, or instead use
-	    <seealso marker="#uniform_real_s/1"><c>uniform_real_s/1</c></seealso>.
+	    <seemfa marker="#uniform_real_s/1"><c>uniform_real_s/1</c></seemfa>.
 	  </p>
 	  <p>
 	    If neither endpoint is desired you can test and re-try
@@ -620,7 +620,7 @@ end.</pre>
 	  <p>
 	    The generated numbers from this function has got better
 	    granularity for small numbers than the regular
-	    <seealso marker="#uniform_s/1"><c>uniform_s/1</c></seealso>
+	    <seemfa marker="#uniform_s/1"><c>uniform_s/1</c></seemfa>
 	    because all bits in the mantissa are random.
 	    This property, in combination with the fact that exactly zero
 	    is never returned is useful for algoritms doing for example
@@ -650,13 +650,13 @@ end.</pre>
 	  <c>0 =&lt; integer(N) &lt; 2.0^53</c>
 	  the probability is the same.
 	  Compare that with the form of the numbers generated by
-	  <seealso marker="#uniform_s/1"><c>uniform_s/1</c></seealso>.
+	  <seemfa marker="#uniform_s/1"><c>uniform_s/1</c></seemfa>.
 	</p>
 	<p>
 	  Having to generate extra random bits for
 	  small numbers costs a little performance.
 	  This function is about 20% slower than the regular
-	  <seealso marker="#uniform_s/1"><c>uniform_s/1</c></seealso>
+	  <seemfa marker="#uniform_s/1"><c>uniform_s/1</c></seemfa>
 	</p>
       </desc>
     </func>

@@ -56,7 +56,7 @@
        <taglist>
          <tag><c>{continuation_fun, ContinuationFun}</c></tag>
          <item>
-           <seealso marker="#Module:ContinuationFun/1">ContinuationFun</seealso> is a call back function to decide what to do if
+           <seemfa marker="#Module:ContinuationFun/1">ContinuationFun</seemfa> is a call back function to decide what to do if
            the parser runs into EOF before the document is complete. 
          </item>
          <tag><c>{continuation_state, term()}</c></tag>
@@ -65,7 +65,7 @@
          </item>
          <tag><c>{event_fun, EventFun}</c></tag>
          <item>
-           <seealso marker="#Module:EventFun/3">EventFun</seealso> is the call back function for parser events.
+           <seemfa marker="#Module:EventFun/3">EventFun</seemfa> is the call back function for parser events.
          </item>
          <tag><c>{event_state, term()}</c></tag>
          <item>
@@ -370,15 +370,16 @@
 
    </funcs>
 
-  <section>
-    <title>CALLBACK FUNCTIONS</title>
-    <p>
-      The callback interface is based on that the user sends a fun with the 
-      correct signature to the parser.
-   </p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>CALLBACK FUNCTIONS</title>
+      <p>
+        The callback interface is based on that the user sends a fun with the 
+        correct signature to the parser.
+     </p>
+    </fsdescription>
 
     <func>
       <name since="">Module:ContinuationFun(State) -> {NewBytes, NewState}</name>

@@ -39,17 +39,17 @@
   <description>
   <p>The <c>ct_run</c> program is automatically installed with Erlang/OTP
     and the <c>Common Test</c> application (for more information, see
-    section <seealso marker="install_chapter">Installation</seealso>
+    section <seeguide marker="install_chapter">Installation</seeguide>
     in the User's Guide). The program accepts different start flags.
     Some flags trigger <c>ct_run</c> to start <c>Common Test</c> and
     pass on data to it. Some flags start an Erlang node prepared for
     running <c>Common Test</c> in a particular mode.</p>
 
   <p>The interface function
-    <seealso marker="ct#run_test/1"><c>ct:run_test/1</c></seealso>,
+    <seemfa marker="ct#run_test/1"><c>ct:run_test/1</c></seemfa>,
     corresponding to the <c>ct_run</c> program, is used for starting
     <c>Common Test</c> from the Erlang shell (or an Erlang program).
-    For details, see the <seealso marker="ct"><c>ct</c></seealso>
+    For details, see the <seeerl marker="ct"><c>ct</c></seeerl>
     manual page.</p>
 
   <p><c>ct_run</c> also accepts Erlang emulator flags. These are used
@@ -221,8 +221,8 @@
   <section>
     <title>See Also</title>
     <p>For information about the start flags, see section
-      <seealso marker="run_test_chapter">Running Tests and Analyzing
-      Results</seealso> in the User's Guide.</p>
+      <seeguide marker="run_test_chapter">Running Tests and Analyzing
+      Results</seeguide> in the User's Guide.</p>
   </section>
 
 </comref>

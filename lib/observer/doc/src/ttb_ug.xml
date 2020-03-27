@@ -63,14 +63,14 @@
       Trace Tool Builder.</p>
       <p>To get started, the least you need to do is to
       start a tracer with 
-      <seealso marker="ttb#tracer/0"><c>ttb:tracer/0,1,2</c></seealso>, 
+      <seemfa marker="ttb#tracer/0"><c>ttb:tracer/0,1,2</c></seemfa>, 
       and set the required
       trace flags on the processes you want to trace with 
-      <seealso marker="ttb#p/2"><c>ttb:p/2</c></seealso>.</p>
+      <seemfa marker="ttb#p/2"><c>ttb:p/2</c></seemfa>.</p>
       <p>When the tracing is completed, stop the tracer with 
-      <seealso marker="ttb#stop/0"><c>ttb:stop/0,1</c></seealso> 
+      <seemfa marker="ttb#stop/0"><c>ttb:stop/0,1</c></seemfa> 
       and format the trace log with 
-      <seealso marker="ttb#format/1"><c>ttb:format/1,2</c></seealso> 
+      <seemfa marker="ttb#format/1"><c>ttb:format/1,2</c></seemfa> 
       (if there is anything to format).
       </p>
       <p><em>Useful functions:</em></p>
@@ -88,13 +88,13 @@
        <item><p>If you want to trace function calls (that is, if you have
       trace flag <c>call</c> set on any process), you must
       also set trace patterns on the required function(s) with
-      <seealso marker="ttb#tp/2"><c>ttb:tp/2,3,4</c></seealso> or
-      <seealso marker="ttb#tpl/2"><c>ttb:tpl/2,3,4</c></seealso>.
+      <seemfa marker="ttb#tp/2"><c>ttb:tp/2,3,4</c></seemfa> or
+      <seemfa marker="ttb#tpl/2"><c>ttb:tpl/2,3,4</c></seemfa>.
       A function is only traced 
       if it has a trace pattern. The trace pattern specifies how to trace the
       function by using match specifications. Match specifications are
       described in the 
-      <seealso marker="erts:users_guide">ERTS User's Guide</seealso>.</p></item>
+      <seeguide marker="erts:index">ERTS User's Guide</seeguide>.</p></item>
        <tag><c>ttb:stop/0,1</c></tag>
        <item><p>Stops tracing on all nodes, deletes all trace patterns, and 
        flushes the trace port buffer.</p></item>
@@ -236,7 +236,7 @@ do_print(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
               [N,Ts,P,M,F,A,R]).      ]]></code>
       <p>To distinguish trace logs produced with this tool from other
         logs, option <c>file</c> is used in 
-	<seealso marker="ttb#tracer/2"><c>tracer/2</c></seealso>. The
+	<seemfa marker="ttb#tracer/2"><c>tracer/2</c></seemfa>. The
         logs are therefore fetched to a directory named
         <c>ttb_upload_debug_log-YYYYMMDD-HHMMSS</c>
       </p>
@@ -310,14 +310,14 @@ do_print(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
           <c>{timer, TimerSpec}</c>. If <c>TimerSpec</c> has the
           form of <c>MSec</c>, the trace is stopped after <c>MSec</c>
           milliseconds using 
-	  <seealso marker="ttb#stop/0"><c>ttb:stop/0</c></seealso>. If more 
+	  <seemfa marker="ttb#stop/0"><c>ttb:stop/0</c></seemfa>. If more 
 	  options are provided (<c>TimerSpec = {MSec, Opts}</c>), 
-	  <seealso marker="ttb#stop/1"><c>ttb:stop/1</c></seealso>
+	  <seemfa marker="ttb#stop/1"><c>ttb:stop/1</c></seemfa>
           is called instead with <c>Opts</c> as argument.</p>
 	  <p>The timer is started with 
-	  <seealso marker="ttb#p/2"><c>ttb:p/2</c></seealso>, so any trace patterns 
+	  <seemfa marker="ttb#p/2"><c>ttb:p/2</c></seemfa>, so any trace patterns 
 	  must be set up in advance. 
-	  <seealso marker="ttb#start_trace/4"><c>ttb:start_trace/4</c></seealso>
+	  <seemfa marker="ttb#start_trace/4"><c>ttb:start_trace/4</c></seemfa>
           always sets up all patterns before invoking <c>ttb:p/2</c>.</p>
           <p>The following example shows how to set up a trace that is
           automatically stopped and formatted after 5 seconds:
@@ -336,7 +336,7 @@ do_print(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
             overload a node with too heavy tracing. <c>ttb</c> provides
             option <c>overload</c> to address this problem.</p>
           <p><c>{overload, MSec, Module, Function}</c> instructs the <c>ttb</c> back end
-            (a part of the <seealso marker="runtime_tools:index">Runtime_Tools</seealso>
+            (a part of the <seeapp marker="runtime_tools:index">Runtime_Tools</seeapp>
             application) to perform overload check every <c>MSec</c> millisecond.
             If the check (named <c>Module:Function(check)</c>) returns
             <c>true</c>, tracing is disabled on the selected node.</p>
@@ -401,7 +401,7 @@ check(stop) ->
             storage and retrieval (<c>ttb_autostart_module</c>
             environment variable of <c>runtime_tools</c>). For information 
 	    about the API, see module
-	    <seealso marker="ttb"><c>ttb</c></seealso>. 
+	    <seeerl marker="ttb"><c>ttb</c></seeerl>. 
 	    The following example shows the default handler:</p>
           <code>
 -module(ttb_autostart).
@@ -435,7 +435,7 @@ write_config(Data) ->
           <title>dbg Mode</title>
           <p>Option <c>{shell, ShellType}</c> allows making <c>ttb</c>
             operation similar to 
-            <seealso marker="runtime_tools:dbg"><c>dbg</c></seealso>.
+            <seeerl marker="runtime_tools:dbg"><c>dbg</c></seeerl>.
 	    Using <c>{shell, true}</c>
             displays all trace messages in the shell before storing them.
             <c>{shell, only}</c> additionally disables message storage
@@ -456,7 +456,7 @@ write_config(Data) ->
       contains the process information, trace flags used, the name of
       the node to which it belongs, and all information written with
       function 
-      <seealso marker="ttb#write_trace_info/2"><c>ttb:write_trace_info/2</c></seealso>. 
+      <seemfa marker="ttb#write_trace_info/2"><c>ttb:write_trace_info/2</c></seemfa>. 
       <c>.ti</c> files are always fetched with other logs when the trace is stopped.
     </p>
     <p>Except for the process information, everything in the trace
@@ -468,7 +468,7 @@ write_config(Data) ->
       </p>
     <p>Information to the trace information file by
       can be added by calling 
-      <seealso marker="ttb#write_trace_info/2"><c>ttb:write_trace_info/2</c></seealso>. 
+      <seemfa marker="ttb#write_trace_info/2"><c>ttb:write_trace_info/2</c></seemfa>. 
       Notice that <c>ValueList</c>
       always is a list, and if you call <c>write_trace_info/2</c>
       many times with the same <c>Key</c>, the <c>ValueList</c> is
@@ -497,7 +497,7 @@ write_config(Data) ->
       a new one is created.
     </p></note>
     <p>Wrap logs can be formatted one by one or all at once. See
-      <seealso marker="#format">Formatting</seealso>.
+      <seeguide marker="#format">Formatting</seeguide>.
       </p>
   </section>
 
@@ -506,7 +506,7 @@ write_config(Data) ->
     <title>Formatting</title>
     <p>Formatting can be done automatically when stopping <c>ttb</c>
       (see section
-      <seealso marker="#fetch_format">Automatically Collect and Format Logs from All Nodes</seealso>), or explicitly by calling function
+      <seeguide marker="#fetch_format">Automatically Collect and Format Logs from All Nodes</seeguide>), or explicitly by calling function
       <c>ttb:format/1,2</c>.
       </p>
     <p>Formatting means to read a binary log and present it in a
@@ -515,7 +515,7 @@ write_config(Data) ->
       write your own handler to make more complex interpretations of the
       trace information. You can also use application ET to
       present the trace log graphically (see section
-      <seealso marker="#et_viewer">Presenting Trace Logs with Event Tracer</seealso>).
+      <seeguide marker="#et_viewer">Presenting Trace Logs with Event Tracer</seeguide>).
       </p>
     <p>The first argument to <c>ttb:format/1,2</c> specifies which
       binary log(s) to format. This is usually the name of a directory
@@ -553,7 +553,7 @@ end.    </code>
     <p>Here, <c>Fd</c> is the file descriptor for the destination file, or
       the atom <c>standard_io</c>. <c>_TraceInfo</c> contains information
       from the trace information file (see section
-      <seealso marker="#trace_info">Trace Information and File .ti</seealso>). <c>State</c> is a state variable for the format
+      <seeguide marker="#trace_info">Trace Information and File .ti</seeguide>). <c>State</c> is a state variable for the format
       handler fun. The initial value of variable <c>State</c> is
       specified with the handler option, for example:</p>
     <code type="none">
@@ -578,20 +578,20 @@ end    </code>
       The possible values of <c>Trace</c> are the following:</p>
       <list type="bulleted">
         <item>All trace messages described in 
-	<seealso marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seealso>
+	<seemfa marker="erts:erlang#trace/3"><c>erlang:trace/3</c></seemfa>
         </item>
         <item><c>{drop, N}</c> if IP tracer is used (see 
-	<seealso marker="runtime_tools:dbg#trace_port/2"><c>dbg:trace_port/2</c></seealso>)
+	<seemfa marker="runtime_tools:dbg#trace_port/2"><c>dbg:trace_port/2</c></seemfa>)
         </item>
         <item><c>end_of_trace</c> received once when all trace messages are
           processed</item>
       </list>
     <p>By giving the format handler 
-    <seealso marker="ttb#get_et_handler/0"><c>ttb:get_et_handler()</c></seealso>, 
+    <seemfa marker="ttb#get_et_handler/0"><c>ttb:get_et_handler()</c></seemfa>, 
     you can have the trace
       log presented graphically with <c>et_viewer</c> in the ET
       application (see section
-      <seealso marker="#et_viewer">Presenting Trace Logs with Event Tracer</seealso>).
+      <seeguide marker="#et_viewer">Presenting Trace Logs with Event Tracer</seeguide>).
     </p>
     <p>You can always decide not to format the whole trace data contained
       in the fetch directory, but analyze single files instead. To do so, 
@@ -638,10 +638,10 @@ ok
       <marker id="et_viewer"></marker>
       <title>Presenting Trace Logs with Event Tracer</title>
       <p>For detailed information about the Event Tracer, see the
-      <seealso marker="et:users_guide">ET</seealso> application.
+      <seeguide marker="et:index">ET</seeguide> application.
         </p>
       <p>By giving the format handler 
-        <seealso marker="ttb#get_et_handler/0"><c>ttb:get_et_handler()</c></seealso>, 
+        <seemfa marker="ttb#get_et_handler/0"><c>ttb:get_et_handler()</c></seemfa>, 
         you can have the trace log presented graphically with 
 	<c>et_viewer</c> in the ET application.
 	<c>ttb</c> provides filters that can be selected from the 
@@ -745,7 +745,7 @@ f3() ->
       </image>
 
       <p>Notice that function 
-      <seealso marker="ttb#start_trace/4"><c>ttb:start_trace/4</c></seealso> 
+      <seemfa marker="ttb#start_trace/4"><c>ttb:start_trace/4</c></seemfa> 
       can be used as help as follows:</p>
 <pre>
 (tiger@durin)1> <input>Pid = foo:start().</input>
@@ -764,7 +764,7 @@ f3() ->
     <title>Automatically Collect and Format Logs from All Nodes</title>
     <p>By default,
 
-    <seealso marker="ttb#stop/1"><c>ttb:stop/1</c></seealso> fetches trace logs 
+    <seemfa marker="ttb#stop/1"><c>ttb:stop/1</c></seemfa> fetches trace logs 
       and trace information files from all nodes. The logs are stored in a
       new directory named <c>ttb_upload-Filename-Timestamp</c> under the 
       working directory of the trace control node. Fetching can be disabled 
@@ -780,7 +780,7 @@ f3() ->
   <section>
     <title>History and Configuration Files</title>
     <p>For the tracing functionality,
-      <seealso marker="runtime_tools:dbg"><c>dbg</c></seealso>
+      <seeerl marker="runtime_tools:dbg"><c>dbg</c></seeerl>
       can be used instead
       of <c>ttb</c> for setting trace flags on processes and trace
       patterns for call trace, that is, the functions 
@@ -794,13 +794,13 @@ f3() ->
           typing when using <c>ttb</c> from the Erlang shell.</item>
         <item>Shortcuts are provided for the most common match
           specifications (to not force you to use
-          <seealso marker="runtime_tools:dbg#fun2ms/1"><c>dbg:fun2ms</c></seealso> 
+          <seemfa marker="runtime_tools:dbg#fun2ms/1"><c>dbg:fun2ms</c></seemfa> 
 	  continually).</item>
       </list>
     <p>Use 
-      <seealso marker="ttb#list_history/0"><c>ttb:list_history/0</c></seealso> 
+      <seemfa marker="ttb#list_history/0"><c>ttb:list_history/0</c></seemfa> 
       to see the content of the history buffer and 
-      <seealso marker="ttb#run_history/1"><c>ttb:run_history/1</c></seealso>
+      <seemfa marker="ttb#run_history/1"><c>ttb:run_history/1</c></seemfa>
       to re-execute one of the entries.
       </p>
     <p>The main purpose of the history buffer is the possibility to
@@ -810,7 +810,7 @@ f3() ->
       function call.
       </p>
     <p>A configuration file is created or extended with
-      <seealso marker="ttb#write_config/2"><c>ttb:write_config/2,3</c></seealso>. 
+      <seemfa marker="ttb#write_config/2"><c>ttb:write_config/2,3</c></seemfa>. 
       Configuration files are binary files
       and can therefore only be read and written with functions provided
       by <c>ttb</c>.
@@ -933,14 +933,14 @@ ok
     <title>Sequential Tracing</title>
     <p>To learn what sequential tracing is and how it can be used,
       see the Reference Manual for
-      <seealso marker="kernel:seq_trace"><c>seq_trace</c></seealso>.
+      <seeerl marker="kernel:seq_trace"><c>seq_trace</c></seeerl>.
       </p>
     <p>The support for sequential tracing provided by Trace Tool
       Builder includes the following:</p>
     <list type="bulleted">
       <item>Initiation of the system tracer. This is automatically
        done when a trace port is started with 
-      <seealso marker="ttb#tracer/0"><c>ttb:tracer/0,1,2</c></seealso>.</item>
+      <seemfa marker="ttb#tracer/0"><c>ttb:tracer/0,1,2</c></seemfa>.</item>
       <item>Creation of match specifications that activates
        sequential tracing.</item>
     </list>
@@ -951,9 +951,9 @@ ok
       <list type="bulleted">
 	<item>Through a trigger function with a match specification 
 	created with 
-	<seealso marker="ttb#seq_trigger_ms/0"><c>ttb:seq_trigger_ms/0,1</c></seealso>.</item>
+	<seemfa marker="ttb#seq_trigger_ms/0"><c>ttb:seq_trigger_ms/0,1</c></seemfa>.</item>
 	<item>Directly by using module
-	<seealso marker="kernel:seq_trace"><c>seq_trace</c></seealso>.</item>
+	<seeerl marker="kernel:seq_trace"><c>seq_trace</c></seeerl>.</item>
       </list>
 
       <p><em>Example 1:</em></p>

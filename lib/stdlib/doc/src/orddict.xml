@@ -41,7 +41,7 @@
       ordered after the keys in the <em>Erlang term order</em>.</p>
 
     <p>This module provides the same interface as the
-      <seealso marker="dict"><c>dict(3)</c></seealso> module
+      <seeerl marker="dict"><c>dict(3)</c></seeerl> module
       but with a defined representation. One difference is
       that while <c>dict</c> considers two keys as different if they
       do not match (<c>=:=</c>), this module considers two keys as
@@ -52,7 +52,7 @@
     <datatype>
       <name name="orddict" n_vars="2"/>
       <desc><p>Dictionary as returned by
-        <seealso marker="#new/0"><c>new/0</c></seealso>.</p></desc>
+        <seemfa marker="#new/0"><c>new/0</c></seemfa>.</p></desc>
     </datatype>
     <datatype>
       <name name="orddict" n_vars="0"/>
@@ -68,7 +68,7 @@
           of values associated with <c><anno>Key</anno></c>. An exception is
           generated if the initial value associated with <c><anno>Key</anno></c>
           is not a list of values.</p>
-        <p>See also section <seealso marker="#notes">Notes</seealso>.</p>
+        <p>See also section <seeerl marker="#notes">Notes</seeerl>.</p>
       </desc>
     </func>
 
@@ -80,7 +80,7 @@
           the current list of values associated with <c><anno>Key</anno></c>.
           An exception is generated if the initial value associated with
           <c><anno>Key</anno></c> is not a list of values.</p>
-        <p>See also section <seealso marker="#notes">Notes</seealso>.</p>
+        <p>See also section <seeerl marker="#notes">Notes</seeerl>.</p>
       </desc>
     </func>
 
@@ -100,7 +100,7 @@
           in dictionary <c><anno>Orddict</anno></c>. This function assumes that
           the <c><anno>Key</anno></c> is present in the dictionary. An exception
           is generated if <c><anno>Key</anno></c> is not in the dictionary.</p>
-        <p>See also section <seealso marker="#notes">Notes</seealso>.</p>
+        <p>See also section <seeerl marker="#notes">Notes</seeerl>.</p>
       </desc>
     </func>
 
@@ -140,7 +140,7 @@
           <c>{ok, <anno>Value</anno>}</c>, where <c><anno>Value</anno></c> is
           the value associated with <c><anno>Key</anno></c>, or <c>error</c> if
           the key is not present in the dictionary.</p>
-        <p>See also section <seealso marker="#notes">Notes</seealso>.</p>
+        <p>See also section <seeerl marker="#notes">Notes</seeerl>.</p>
       </desc>
     </func>
 
@@ -312,8 +312,8 @@ update_counter(Key, Incr, D) ->
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="dict"><c>dict(3)</c></seealso>,
-      <seealso marker="gb_trees"><c>gb_trees(3)</c></seealso></p>
+    <p><seeerl marker="dict"><c>dict(3)</c></seeerl>,
+      <seeerl marker="gb_trees"><c>gb_trees(3)</c></seeerl></p>
   </section>
 </erlref>
 

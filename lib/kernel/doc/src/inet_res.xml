@@ -33,12 +33,12 @@
   <description>
     <p>This module performs DNS name resolving to recursive name servers.</p>
     <p>See also
-      <seealso marker="erts:inet_cfg">ERTS User's Guide: Inet Configuration</seealso>
+      <seeguide marker="erts:inet_cfg">ERTS User's Guide: Inet Configuration</seeguide>
       for more information about how to configure an Erlang runtime system
       for IP communication, and how to enable this DNS client by defining
       <c><![CDATA['dns']]></c> as a lookup method.
       The DNS client then acts as a backend for the resolving functions in
-      <seealso marker="kernel:inet"><c>inet</c></seealso>.</p>
+      <seeerl marker="kernel:inet"><c>inet</c></seeerl>.</p>
     <p>This DNS client can resolve DNS records even if it
       is not used for normal name resolving in the node.</p>
     <p>This is not a full-fledged resolver, only a
@@ -211,7 +211,7 @@ inet_dns:record_type(_) -> undefined.</pre>
         address.</fsummary>
       <desc>
         <p>Backend functions used by
-          <seealso marker="kernel:inet#gethostbyaddr/1"><c>inet:gethostbyaddr/1</c></seealso>.
+          <seemfa marker="kernel:inet#gethostbyaddr/1"><c>inet:gethostbyaddr/1</c></seemfa>.
         </p>
       </desc>
     </func>
@@ -224,10 +224,10 @@ inet_dns:record_type(_) -> undefined.</pre>
       </fsummary>
       <desc>
         <p>Backend functions used by
-          <seealso marker="kernel:inet#gethostbyname/1"><c>inet:gethostbyname/1,2</c></seealso>.
+          <seemfa marker="kernel:inet#gethostbyname/1"><c>inet:gethostbyname/1,2</c></seemfa>.
         </p>
         <p>This function uses resolver option <c>search</c> just like
-          <seealso marker="#getbyname/2"><c>getbyname/2,3</c></seealso>.
+          <seemfa marker="#getbyname/2"><c>getbyname/2,3</c></seemfa>.
         </p>
         <p>If resolver option <c>inet6</c> is <c>true</c>,
           an IPv6 address is looked up.</p>
@@ -250,7 +250,7 @@ inet_dns:record_type(_) -> undefined.</pre>
           specific types that are not <c>any</c>. An empty answer
           or a failed lookup returns an empty list.</p>
         <p>Calls
-          <seealso marker="#resolve/3"><c>resolve/*</c></seealso>
+          <seemfa marker="#resolve/3"><c>resolve/*</c></seemfa>
           with the same arguments and filters the result, so
           <c><anno>Opts</anno></c> is described for those functions.</p>
       </desc>      
@@ -266,7 +266,7 @@ inet_dns:record_type(_) -> undefined.</pre>
         <p>Resolves a DNS record of the specified type and class for the
           specified name. The returned <c>dns_msg()</c> can be examined using
           access functions in <c>inet_db</c>, as described in section
-          in <seealso marker="#dns_types">DNS Types</seealso>.</p>
+          in <seeerl marker="#dns_types">DNS Types</seeerl>.</p>
         <p>If <c><anno>Name</anno></c> is an <c>ip_address()</c>, the domain
           name to query for is generated as the standard reverse
           <c>".IN-ADDR.ARPA."</c> name for an IPv4 address, or the
@@ -282,7 +282,7 @@ inet_dns:record_type(_) -> undefined.</pre>
           function, it is used.</p>
         <p>Option <c>verbose</c> (or rather <c>{verbose,true}</c>)
           causes diagnostics printout through
-          <seealso marker="stdlib:io#format/3"><c>io:format/2</c></seealso>
+          <seemfa marker="stdlib:io#format/3"><c>io:format/2</c></seemfa>
           of queries, replies retransmissions, and so on, similar
           to from utilities, such as <c>dig</c> and <c>nslookup</c>.</p>
         <p>If <c><anno>Opt</anno></c> is any atom, it is interpreted
@@ -300,9 +300,9 @@ inet_dns:record_type(_) -> undefined.</pre>
   <section>
     <title>Example</title>
     <p>This access functions example shows how
-      <seealso marker="#lookup/3"><c>lookup/3</c></seealso>
+      <seemfa marker="#lookup/3"><c>lookup/3</c></seemfa>
       can be implemented using
-      <seealso marker="#resolve/3"><c>resolve/3</c></seealso>
+      <seemfa marker="#resolve/3"><c>resolve/3</c></seemfa>
       from outside the module:</p>
     <code type="none">
 example_lookup(Name, Class, Type) ->
@@ -317,14 +317,15 @@ example_lookup(Name, Class, Type) ->
      end.</code>
   </section>
 
-  <section>
-    <title>Legacy Functions</title>
-    <p>These are deprecated because the annoying double
-      meaning of the name servers/time-out argument, and
-      because they have no decent place for a resolver options list.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Legacy Functions</title>
+      <p>These are deprecated because the annoying double
+        meaning of the name servers/time-out argument, and
+        because they have no decent place for a resolver options list.</p>
+    </fsdescription>
     <func>
       <name name="nslookup" arity="3" since=""/>
       <name name="nslookup" arity="4" clause_i="1" since=""/>

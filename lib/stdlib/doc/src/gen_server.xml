@@ -36,8 +36,8 @@
       this module has a standard set of interface functions and
       includes functionality for tracing and error reporting. It also
       fits into an OTP supervision tree. For more information, see section
-      <seealso marker="doc/design_principles:gen_server_concepts">
-      gen_server Behaviour</seealso> in OTP Design Principles.</p>
+      <seeguide marker="system/design_principles:gen_server_concepts">
+      gen_server Behaviour</seeguide> in OTP Design Principles.</p>
 
     <p>A <c>gen_server</c> process assumes all specific parts to be located in
       a callback module exporting a predefined set of functions.
@@ -72,7 +72,7 @@ gen_server:abcast     -----> Module:handle_cast/2
       <c>gen_server</c> process terminates.</p>
 
     <p>A <c>gen_server</c> process handles system messages as described in
-      <seealso marker="sys"><c>sys(3)</c></seealso>. The <c>sys</c> module
+      <seeerl marker="sys"><c>sys(3)</c></seeerl>. The <c>sys</c> module
       can be used for debugging a <c>gen_server</c> process.</p>
 
     <p>Notice that a <c>gen_server</c> process does not trap exit signals
@@ -84,8 +84,8 @@ gen_server:abcast     -----> Module:handle_cast/2
       arguments are specified.</p>
 
     <p>The <c>gen_server</c> process can go into hibernation
-      (see <seealso marker="erts:erlang#hibernate/3">
-      <c>erlang:hibernate/3</c></seealso>) if a callback
+      (see <seemfa marker="erts:erlang#hibernate/3">
+      <c>erlang:hibernate/3</c></seemfa>) if a callback
       function specifies <c>'hibernate'</c> instead of a time-out value. This
       can be useful if the server is expected to be idle for a long
       time. However, use this feature with care, as hibernation
@@ -118,10 +118,10 @@ gen_server:abcast     -----> Module:handle_cast/2
           returns immediately and ignores nodes that do not exist, or
           where the <c>gen_server</c> <c>Name</c> does not exist.
           The <c>gen_server</c> processes call
-          <seealso marker="#Module:handle_cast/2">
-          <c>Module:handle_cast/2</c></seealso> to handle the request.</p>
+          <seemfa marker="#Module:handle_cast/2">
+          <c>Module:handle_cast/2</c></seemfa> to handle the request.</p>
         <p>For a description of the arguments, see
-          <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>.</p>
+          <seemfa marker="#multi_call/2"><c>multi_call/2,3,4</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -143,8 +143,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>gen_server</c> process
           by sending a request and waiting until a reply arrives or a
           time-out occurs. The <c>gen_server</c> process calls
-          <seealso marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seealso> to handle the request.</p>
+          <seemfa marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seemfa> to handle the request.</p>
         <p><c>ServerRef</c> can be any of the following:</p>
         <list type="bulleted">
           <item>The pid</item>
@@ -192,10 +192,10 @@ gen_server:abcast     -----> Module:handle_cast/2
           and returns <c>ok</c> immediately, ignoring
           if the destination node or <c>gen_server</c> process does not exist.
           The <c>gen_server</c> process calls
-          <seealso marker="#Module:handle_cast/2">
-          <c>Module:handle_cast/2</c></seealso> to handle the request.</p>
+          <seemfa marker="#Module:handle_cast/2">
+          <c>Module:handle_cast/2</c></seemfa> to handle the request.</p>
         <p>For a description of <c>ServerRef</c>, see
-          <seealso marker="#call/2"><c>call/2,3</c></seealso>.</p>
+          <seemfa marker="#call/2"><c>call/2,3</c></seemfa>.</p>
         <p><c>Request</c> is any term that is passed as one
           of the arguments to <c>Module:handle_cast/2</c>.</p>
       </desc>
@@ -220,7 +220,7 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  This function is used to check if a previously received
 	  message, for example by <c>receive</c> or
 	  <c>handle_info/2</c>, is a result of a request made with
-	  <seealso marker="#send_request/2"><c>send_request/2</c></seealso>.
+	  <seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>.
 	  If <c>Msg</c> is a reply to the handle <c>RequestId</c>
 	  the result of the request is returned in <c>Reply</c>.
 	  Otherwise returns <c>no_reply</c> and no cleanup is done, and
@@ -264,20 +264,20 @@ gen_server:abcast     -----> Module:handle_cast/2
           process receive
           loop and becomes a <c>gen_server</c> process. The process
           <em>must</em> have been started using one of the start functions in
-          <seealso marker="proc_lib"><c>proc_lib(3)</c></seealso>. The user is
+          <seeerl marker="proc_lib"><c>proc_lib(3)</c></seeerl>. The user is
           responsible for any initialization of the process, including
           registering a name for it.</p>
         <p>This function is useful when a more complex initialization procedure
           is needed than the <c>gen_server</c> process behavior provides.</p>
         <p><c>Module</c>, <c>Options</c>, and <c>ServerName</c> have
           the same meanings as when calling
-          <seealso marker="#start_link/3"><c>start[_link|_monitor]/3,4</c></seealso>.
+          <seemfa marker="#start_link/3"><c>start[_link|_monitor]/3,4</c></seemfa>.
           However, if <c>ServerName</c> is specified, the process must
           have been registered accordingly <em>before</em> this function
           is called.</p>
         <p><c>State</c> and <c>Timeout</c> have the same meanings as in
           the return value of
-          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>.
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.
           The callback module <c>Module</c> does not need to
           export an <c>init/1</c> function.</p>
         <p>The function fails if the calling process was not started by a
@@ -307,8 +307,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           registered as <c>Name</c> at the specified nodes by first
           sending a request to every node and then waits for
           the replies. The <c>gen_server</c> process calls
-          <seealso marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seealso> to handle the request.</p>
+          <seemfa marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seemfa> to handle the request.</p>
         <p>The function returns a tuple <c>{Replies,BadNodes}</c>, where
           <c>Replies</c> is a list of <c>{Node,Reply}</c> and
           <c>BadNodes</c> is a list of node that either did not exist,
@@ -355,11 +355,11 @@ gen_server:abcast     -----> Module:handle_cast/2
       <desc>
         <p>This function can be used by a <c>gen_server</c> process to
           explicitly send a reply to a client that called
-          <seealso marker="#call/2"><c>call/2,3</c></seealso> or
-          <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>,
+          <seemfa marker="#call/2"><c>call/2,3</c></seemfa> or
+          <seemfa marker="#multi_call/2"><c>multi_call/2,3,4</c></seemfa>,
           when the reply cannot be defined in the return value of
-          <seealso marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seealso>.</p>
+          <seemfa marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seemfa>.</p>
         <p><c>Client</c> must be the <c>From</c> argument provided to
           the callback function. <c>Reply</c> is any term
           given back to the client as the return value of
@@ -384,19 +384,19 @@ gen_server:abcast     -----> Module:handle_cast/2
 	  Sends a request to the <c>ServerRef</c> of the
           <c>gen_server</c> process and returns a handle <c>RequestId</c>.
 	  The return value <c>RequestId</c> shall later be used with
-          <seealso marker="#wait_response/2"> <c>wait_response/2</c></seealso> or
-	  <seealso marker="#check_response/2"> <c>check_response/2</c></seealso>
+          <seemfa marker="#wait_response/2"> <c>wait_response/2</c></seemfa> or
+	  <seemfa marker="#check_response/2"> <c>check_response/2</c></seemfa>
 	  to fetch the actual result of the request.
 	</p>
 	<p>
 	  The call <c>gen_server:wait_response(gen_server:send_request(ServerRef,Request), Timeout)</c>
 	  can be seen as equivalent to
-	  <seealso marker="#call/3"><c>gen_server:call(Server,Request,Timeout)</c></seealso>,
+	  <seemfa marker="#call/3"><c>gen_server:call(Server,Request,Timeout)</c></seemfa>,
 	  ignoring the error handling.
 	</p>
 	<p>
 	  The <c>gen_server</c> process calls
-	  <seealso marker="#Module:handle_call/3"> <c>Module:handle_call/3</c></seealso>
+	  <seemfa marker="#Module:handle_call/3"> <c>Module:handle_call/3</c></seemfa>
 	  to handle the request.
 	</p>
         <p><c>ServerRef</c> can be any of the following:</p>
@@ -441,7 +441,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>gen_server</c> process that is not part of a supervision tree
           and thus has no supervisor.</p>
         <p>For a description of arguments and return values, see
-          <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>.</p>
+          <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -472,7 +472,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           the supervisor. For example, it ensures that
           the <c>gen_server</c> process is linked to the supervisor.</p>
         <p>The <c>gen_server</c> process calls
-          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso> to
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa> to
           initialize. To ensure a synchronized startup procedure,
           <c>start_link/3,4</c> does not return until
           <c>Module:init/1</c> has returned.</p>
@@ -484,8 +484,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           <item>
             <p>If <c>ServerName={global,GlobalName}</c>, the <c>gen_server</c>
               process id registered globally as <c>GlobalName</c> using
-              <seealso marker="kernel:global#register_name/2">
-              <c>global:register_name/2</c></seealso> If no name is
+              <seemfa marker="kernel:global#register_name/2">
+              <c>global:register_name/2</c></seemfa> If no name is
               provided, the <c>gen_server</c> process is not registered.</p>
           </item>
           <item>
@@ -495,14 +495,14 @@ gen_server:abcast     -----> Module:handle_cast/2
               <c>register_name/2</c>, <c>unregister_name/1</c>,
               <c>whereis_name/1</c>, and <c>send/2</c>, which are to behave
               like the corresponding functions in
-              <seealso marker="kernel:global"><c>global</c></seealso>.
+              <seeerl marker="kernel:global"><c>global</c></seeerl>.
               Thus, <c>{via,global,GlobalName}</c> is a valid reference.</p>
           </item>
         </list>
         <p><c>Module</c> is the name of the callback module.</p>
         <p><c>Args</c> is any term that is passed as
           the argument to
-          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>.</p>
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.</p>
         <list type="bulleted">
           <item>
             <p>If option <c>{timeout,Time}</c> is present, the <c>gen_server</c>
@@ -514,21 +514,21 @@ gen_server:abcast     -----> Module:handle_cast/2
             <p>If option <c>{hibernate_after,HibernateAfterTimeout}</c> is present, the <c>gen_server</c>
               process awaits any message for <c>HibernateAfterTimeout</c> milliseconds and
               if no message is received, the process goes into hibernation automatically
-              (by calling <seealso marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seealso>).</p>
+              (by calling <seemfa marker="proc_lib#hibernate/3"><c>proc_lib:hibernate/3</c></seemfa>).</p>
           </item>
           <item>
             <p>If option <c>{debug,Dbgs}</c> is present,
               the corresponding <c>sys</c> function is called for each
               item in <c>Dbgs</c>; see
-              <seealso marker="sys"><c>sys(3)</c></seealso>.</p>
+              <seeerl marker="sys"><c>sys(3)</c></seeerl>.</p>
           </item>
           <item>
             <p>If option <c>{spawn_opt,SOpts}</c> is present,
               <c>SOpts</c> is passed as option list to
               the <c>spawn_opt</c> BIF, which is used to spawn
               the <c>gen_server</c> process; see
-              <seealso marker="erts:erlang#spawn_opt/2">
-              <c>spawn_opt/2</c></seealso>.</p>
+              <seemfa marker="erts:erlang#spawn_opt/2">
+              <c>spawn_opt/2</c></seemfa>.</p>
           </item>
         </list>
         <note>
@@ -576,7 +576,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           (and thus has no supervisor) and atomically sets up a monitor to
 	  the newly created server.</p>
         <p>For a description of arguments and return values, see
-        <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>.
+        <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>.
 	Note that the return value on successful start differs from
 	<c>start_link/3,4</c>. <c>start_monitor/3,4</c> will return
 	<c>{ok,{Pid,Mon}}</c> where <c>Pid</c> is the process identifier
@@ -602,13 +602,13 @@ gen_server:abcast     -----> Module:handle_cast/2
       <desc>
         <p>Orders a generic server to exit with the specified <c>Reason</c>
           and waits for it to terminate. The <c>gen_server</c> process calls
-          <seealso marker="#Module:terminate/2">
-          <c>Module:terminate/2</c></seealso> before exiting.</p>
+          <seemfa marker="#Module:terminate/2">
+          <c>Module:terminate/2</c></seemfa> before exiting.</p>
         <p>The function returns <c>ok</c> if the server terminates
           with the expected reason. Any other reason than <c>normal</c>,
           <c>shutdown</c>, or <c>{shutdown,Term}</c> causes an
           error report to be issued using
-          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.
+          <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.
           The default <c>Reason</c> is <c>normal</c>.</p>
         <p><c>Timeout</c> is an integer greater than zero that
           specifies how many milliseconds to wait for the server to
@@ -638,10 +638,10 @@ gen_server:abcast     -----> Module:handle_cast/2
       <desc>
 	<p>
 	This function is used to wait for a reply of a request made with
-	<seealso marker="#send_request/2"><c>send_request/2</c></seealso>
+	<seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
 	from the <c>gen_server</c> process. This function must be called
 	from the same process from which
-	<seealso marker="#send_request/2"><c>send_request/2</c></seealso>
+	<seemfa marker="#send_request/2"><c>send_request/2</c></seemfa>
 	was made.
 	</p>
 	<p>
@@ -665,13 +665,14 @@ gen_server:abcast     -----> Module:handle_cast/2
     </func>
   </funcs>
 
-  <section>
-    <title>Callback Functions</title>
-    <p>The following functions
-      are to be exported from a <c>gen_server</c> callback module.</p>
-  </section>
+ 
 
   <funcs>
+    <fsdescription>
+      <title>Callback Functions</title>
+      <p>The following functions
+        are to be exported from a <c>gen_server</c> callback module.</p>
+    </fsdescription>
     <func>
       <name since="">Module:code_change(OldVsn, State, Extra) -> {ok, NewState} | {error, Reason}</name>
       <fsummary>Update the internal state during upgrade/downgrade.</fsummary>
@@ -695,8 +696,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           that is, when the instruction <c>{update,Module,Change,...}</c>,
           where <c>Change={advanced,Extra}</c>, is specifed in
           the <c>appup</c> file. For more information, see section
-          <seealso marker="doc/design_principles:release_handling#instr">
-          Release Handling Instructions</seealso> in OTP Design Principles.</p>
+          <seeguide marker="system/design_principles:release_handling#instr">
+          Release Handling Instructions</seeguide> in OTP Design Principles.</p>
         <p>For an upgrade, <c>OldVsn</c> is <c>Vsn</c>, and
           for a downgrade, <c>OldVsn</c> is
           <c>{down,Vsn}</c>. <c>Vsn</c> is defined by the <c>vsn</c>
@@ -735,8 +736,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           following situations:</p>
         <list type="bulleted">
           <item>
-            <p>One of <seealso marker="sys#get_status/1">
-              <c>sys:get_status/1,2</c></seealso>
+            <p>One of <seemfa marker="sys#get_status/1">
+              <c>sys:get_status/1,2</c></seemfa>
               is invoked to get the <c>gen_server</c> status. <c>Opt</c> is set
               to the atom <c>normal</c>.</p>
           </item>
@@ -796,8 +797,8 @@ gen_server:abcast     -----> Module:handle_cast/2
       </type>
       <desc>
         <p>Whenever a <c>gen_server</c> process receives a request sent using
-          <seealso marker="#call/2"><c>call/2,3</c></seealso> or
-          <seealso marker="#multi_call/2"><c>multi_call/2,3,4</c></seealso>,
+          <seemfa marker="#call/2"><c>call/2,3</c></seemfa> or
+          <seemfa marker="#multi_call/2"><c>multi_call/2,3,4</c></seemfa>,
           this function is called to handle the request.</p>
         <p><c>Request</c> is the <c>Request</c> argument provided
           to <c>call</c> or <c>multi_call</c>.</p>
@@ -816,7 +817,7 @@ gen_server:abcast     -----> Module:handle_cast/2
               continues executing with the possibly updated internal state
               <c>NewState</c>.</p>
             <p>For a description of <c>Timeout</c> and <c>hibernate</c>, see
-              <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>.</p>
+              <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>.</p>
           </item>
           <item>
             <p>If <c>{noreply,NewState}</c> is returned,
@@ -824,7 +825,7 @@ gen_server:abcast     -----> Module:handle_cast/2
               <c>{noreply,NewState,hibernate}</c>, the <c>gen_server</c>
               process continues executing with <c>NewState</c>. Any reply to
               <c>From</c> must be specified explicitly using
-              <seealso marker="#reply/2"><c>reply/2</c></seealso>.</p>
+              <seemfa marker="#reply/2"><c>reply/2</c></seemfa>.</p>
           </item>
           <item>
             <p>If <c>{stop,Reason,Reply,NewState}</c> is returned,
@@ -833,7 +834,7 @@ gen_server:abcast     -----> Module:handle_cast/2
           <item>
             <p>If <c>{stop,Reason,NewState}</c> is returned, any reply
               to <c>From</c> must be specified explicitly using
-              <seealso marker="#reply/2"><c>reply/2</c></seealso>.
+              <seemfa marker="#reply/2"><c>reply/2</c></seemfa>.
               The <c>gen_server</c> process then calls
               <c>Module:terminate(Reason,NewState)</c> and terminates.</p>
           </item>
@@ -858,12 +859,12 @@ gen_server:abcast     -----> Module:handle_cast/2
       </type>
       <desc>
         <p>Whenever a <c>gen_server</c> process receives a request sent using
-          <seealso marker="#cast/2"><c>cast/2</c></seealso> or
-          <seealso marker="#abcast/2"><c>abcast/2,3</c></seealso>,
+          <seemfa marker="#cast/2"><c>cast/2</c></seemfa> or
+          <seemfa marker="#abcast/2"><c>abcast/2,3</c></seemfa>,
           this function is called to handle the request.</p>
         <p>For a description of the arguments and possible return values, see
-          <seealso marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seealso>.</p>
+          <seemfa marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -897,8 +898,8 @@ gen_server:abcast     -----> Module:handle_cast/2
           initialization or for splitting the work in a callback in
           multiple steps, updating the process state along the way.</p>
         <p>For a description of the other arguments and possible return values,
-          see <seealso marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seealso>.</p>
+          see <seemfa marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -929,8 +930,8 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p><c>Info</c> is either the atom <c>timeout</c>, if a time-out
           has occurred, or the received message.</p>
         <p>For a description of the other arguments and possible return values,
-          see <seealso marker="#Module:handle_call/3">
-          <c>Module:handle_call/3</c></seealso>.</p>
+          see <seemfa marker="#Module:handle_call/3">
+          <c>Module:handle_call/3</c></seemfa>.</p>
       </desc>
     </func>
 
@@ -947,9 +948,9 @@ gen_server:abcast     -----> Module:handle_cast/2
       </type>
       <desc>
         <p>Whenever a <c>gen_server</c> process is started using
-          <seealso marker="#start/3"><c>start/3,4</c></seealso>,
-          <seealso marker="#start_monitor/3"><c>start_monitor/3,4</c></seealso>,
-          or <seealso marker="#start_link/3"><c>start_link/3,4</c></seealso>,
+          <seemfa marker="#start/3"><c>start/3,4</c></seemfa>,
+          <seemfa marker="#start_monitor/3"><c>start_monitor/3,4</c></seemfa>,
+          or <seemfa marker="#start_link/3"><c>start_link/3,4</c></seemfa>,
           this function is called by the new process to initialize.</p>
         <p><c>Args</c> is the <c>Args</c> argument provided to the start
           function.</p>
@@ -961,15 +962,15 @@ gen_server:abcast     -----> Module:handle_cast/2
           unless a request or a message is received within
           <c>Timeout</c> milliseconds. A time-out is represented by
           the atom <c>timeout</c>, which is to be handled by the
-          <seealso marker="#Module:handle_info/2">
-          <c>Module:handle_info/2</c></seealso> callback function. The atom
+          <seemfa marker="#Module:handle_info/2">
+          <c>Module:handle_info/2</c></seemfa> callback function. The atom
           <c>infinity</c> can be used to wait indefinitely, this is
           the default value.</p>
         <p>If <c>hibernate</c> is specified instead of a time-out value,
           the process goes into
           hibernation when waiting for the next message to arrive (by calling 
-          <seealso marker="proc_lib#hibernate/3">
-          <c>proc_lib:hibernate/3</c></seealso>).</p>
+          <seemfa marker="proc_lib#hibernate/3">
+          <c>proc_lib:hibernate/3</c></seemfa>).</p>
         <p>If the initialization fails, the function is to return
           <c>{stop,Reason}</c>, where <c>Reason</c> is any term, or
           <c>ignore</c>.</p>
@@ -991,7 +992,7 @@ gen_server:abcast     -----> Module:handle_cast/2
         </note>
         <p>This function is called by a <c>gen_server</c> process when it is
           about to terminate. It is to be the opposite of
-          <seealso marker="#Module:init/1"><c>Module:init/1</c></seealso>
+          <seemfa marker="#Module:init/1"><c>Module:init/1</c></seemfa>
           and do any necessary cleaning up. When it returns,
           the <c>gen_server</c> process terminates with <c>Reason</c>.
           The return value is ignored.</p>
@@ -1026,18 +1027,18 @@ gen_server:abcast     -----> Module:handle_cast/2
           <c>shutdown</c>, or <c>{shutdown,Term}</c>, the <c>gen_server</c>
           process is assumed to terminate because of an error and
           an error report is issued using
-          <seealso marker="kernel:logger"><c>logger(3)</c></seealso>.</p>
+          <seeerl marker="kernel:logger"><c>logger(3)</c></seeerl>.</p>
       </desc>
     </func>
   </funcs>
 
   <section>
     <title>See Also</title>
-    <p><seealso marker="gen_event"><c>gen_event(3)</c></seealso>,
-      <seealso marker="gen_statem"><c>gen_statem(3)</c></seealso>,
-      <seealso marker="proc_lib"><c>proc_lib(3)</c></seealso>,
-      <seealso marker="supervisor"><c>supervisor(3)</c></seealso>,
-      <seealso marker="sys"><c>sys(3)</c></seealso></p>
+    <p><seeerl marker="gen_event"><c>gen_event(3)</c></seeerl>,
+      <seeerl marker="gen_statem"><c>gen_statem(3)</c></seeerl>,
+      <seeerl marker="proc_lib"><c>proc_lib(3)</c></seeerl>,
+      <seeerl marker="supervisor"><c>supervisor(3)</c></seeerl>,
+      <seeerl marker="sys"><c>sys(3)</c></seeerl></p>
   </section>
 </erlref>
 
