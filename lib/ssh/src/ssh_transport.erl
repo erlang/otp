@@ -62,7 +62,6 @@
 
 %%% For test suites
 -export([pack/3, adjust_algs_for_peer_version/2]).
--export([decompress/2,  decrypt_blocks/3, is_valid_mac/3 ]). % FIXME: remove
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -231,8 +230,11 @@ supported_algorithms(cipher) ->
 supported_algorithms(mac) ->
     same(
       select_crypto_supported(
-	[{'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
+	[{'hmac-sha2-256-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
+         {'hmac-sha2-512-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
+         {'hmac-sha2-256',    [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha2-512',    [{macs,hmac}, {hashs,sha512}]},
+         {'hmac-sha1-etm@openssh.com', [{macs,hmac}, {hashs,sha256}]},
 	 {'hmac-sha1',        [{macs,hmac}, {hashs,sha}]},
 	 {'hmac-sha1-96',     [{macs,hmac}, {hashs,sha}]},
 	 {'AEAD_AES_128_GCM', [{ciphers,aes_128_gcm}]},
@@ -283,10 +285,6 @@ hello_version_msg(Data) ->
 next_seqnum(SeqNum) ->
     (SeqNum + 1) band 16#ffffffff.
 
-decrypt_blocks(Bin, Length, Ssh0) ->
-    <<EncBlocks:Length/binary, EncData/binary>> = Bin,
-    {Ssh, DecData} = decrypt(Ssh0, EncBlocks),
-    {Ssh, DecData, EncData}.
 
 is_valid_mac(_, _ , #ssh{recv_mac_size = 0}) ->
     true;
@@ -1240,50 +1238,54 @@ pack(Data, Ssh=#ssh{}) ->
 pack(PlainText,
      #ssh{send_sequence = SeqNum,
 	  send_mac = MacAlg,
-	  send_mac_key = MacKey,
 	  encrypt = CryptoAlg} = Ssh0,  PacketLenDeviationForTests) when is_binary(PlainText) ->
-
     {Ssh1, CompressedPlainText} = compress(Ssh0, PlainText),
-    {FinalPacket, Ssh3} =
-	case pkt_type(CryptoAlg) of
-	    common ->
-		PaddingLen = padding_length(4+1+size(CompressedPlainText), Ssh0),
-		Padding =  ssh_bits:random(PaddingLen),
-		PlainPacketLen = 1 + PaddingLen + size(CompressedPlainText) + PacketLenDeviationForTests,
-		PlainPacketData = <<?UINT32(PlainPacketLen),?BYTE(PaddingLen), CompressedPlainText/binary, Padding/binary>>,
-		{Ssh2, EcryptedPacket0} = encrypt(Ssh1, PlainPacketData),
-		MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPacketData),
-                {<<EcryptedPacket0/binary,MAC0/binary>>, Ssh2};
-	    aead ->
-		PaddingLen = padding_length(1+size(CompressedPlainText), Ssh0),
-		Padding =  ssh_bits:random(PaddingLen),
-		PlainPacketLen = 1 + PaddingLen + size(CompressedPlainText) + PacketLenDeviationForTests,
-		PlainPacketData = <<?BYTE(PaddingLen), CompressedPlainText/binary, Padding/binary>>,
-                {Ssh2, {EcryptedPacket0,MAC0}} = encrypt(Ssh1, <<?UINT32(PlainPacketLen),PlainPacketData/binary>>),
-                {<<EcryptedPacket0/binary,MAC0/binary>>, Ssh2}
-	end,
-    Ssh = Ssh3#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
+    {FinalPacket, Ssh2} = pack(pkt_type(CryptoAlg), mac_type(MacAlg), 
+                               CompressedPlainText, PacketLenDeviationForTests,
+                               Ssh1),
+    Ssh = Ssh2#ssh{send_sequence = (SeqNum+1) band 16#ffffffff},
     {FinalPacket, Ssh}.
 
 
-padding_length(Size, #ssh{encrypt_block_size = BlockSize,
-			  random_length_padding = RandomLengthPadding}) ->
-    PL = (BlockSize - (Size rem BlockSize)) rem BlockSize,
-    MinPaddingLen = if PL <  4 -> PL + BlockSize;
-		       true -> PL
-		    end,
-    PadBlockSize =  max(BlockSize,4),
-    MaxExtraBlocks = (max(RandomLengthPadding,MinPaddingLen) - MinPaddingLen) div PadBlockSize,
-    ExtraPaddingLen = try (rand:uniform(MaxExtraBlocks+1) - 1) * PadBlockSize
-		      catch _:_ -> 0
-		      end,
-    MinPaddingLen + ExtraPaddingLen.
+pack(common, rfc4253, PlainText, DeltaLenTst,
+     #ssh{send_sequence = SeqNum,
+          send_mac = MacAlg,
+          send_mac_key = MacKey} = Ssh0) ->
+    PadLen = padding_length(4+1+size(PlainText), Ssh0),
+    Pad =  ssh_bits:random(PadLen),
+    TextLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    PlainPkt = <<?UINT32(TextLen),?BYTE(PadLen), PlainText/binary, Pad/binary>>,
+    {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
+    MAC0 = mac(MacAlg, MacKey, SeqNum, PlainPkt),
+    {<<CipherPkt/binary,MAC0/binary>>, Ssh1};
 
 
+pack(common, enc_then_mac, PlainText, DeltaLenTst,
+     #ssh{send_sequence = SeqNum,
+          send_mac = MacAlg,
+          send_mac_key = MacKey} = Ssh0) ->
+    PadLen = padding_length(1+size(PlainText), Ssh0),
+    Pad =  ssh_bits:random(PadLen),
+    PlainLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
+    {Ssh1, CipherPkt} = encrypt(Ssh0, PlainPkt),
+    EncPacketPkt = <<?UINT32(PlainLen), CipherPkt/binary>>,
+    MAC0 = mac(MacAlg, MacKey, SeqNum, EncPacketPkt),
+    {<<?UINT32(PlainLen), CipherPkt/binary, MAC0/binary>>, Ssh1};
 
-handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg} = Ssh0) ->
+pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
+    PadLen = padding_length(1+size(PlainText), Ssh0),
+    Pad =  ssh_bits:random(PadLen),
+    PlainLen = 1 + size(PlainText) + PadLen + DeltaLenTst,
+    PlainPkt = <<?BYTE(PadLen), PlainText/binary, Pad/binary>>,
+    {Ssh1, {CipherPkt,MAC0}} = encrypt(Ssh0, <<?UINT32(PlainLen),PlainPkt/binary>>),
+    {<<CipherPkt/binary,MAC0/binary>>, Ssh1}.
+
+%%%================================================================
+handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg,
+                                                            recv_mac = MacAlg} = Ssh0) ->
     %% New ssh packet
-    case get_length(pkt_type(CryptoAlg), Encrypted0, Ssh0) of
+    case get_length(pkt_type(CryptoAlg), mac_type(MacAlg), Encrypted0, Ssh0) of
 	get_more ->
 	    %% too short to get the length
 	    {get_more, <<>>, Encrypted0, AEAD0, undefined, Ssh0};
@@ -1305,36 +1307,60 @@ handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0)
     %% need more bytes to finalize the packet
     {get_more, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0};
 
-handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, 
-		   #ssh{recv_mac_size = MacSize,
-			decrypt = CryptoAlg} = Ssh0) ->
+handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, #ssh{decrypt = CryptoAlg,
+                                                                          recv_mac = MacAlg} = Ssh0) ->
     %% enough bytes to decode the packet.
-    DecryptLen = TotalNeeded - size(DecryptedPfx) - MacSize,
-    <<EncryptedSfx:DecryptLen/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
-    case pkt_type(CryptoAlg) of
-	common ->
-	    {Ssh1, DecryptedSfx} = decrypt(Ssh0, EncryptedSfx),
-	    DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
-	    case is_valid_mac(Mac, DecryptedPacket, Ssh1) of
-		false ->
-		    {bad_mac, Ssh1};
-		true ->
-		    {Ssh, DecompressedPayload} = decompress(Ssh1, payload(DecryptedPacket)),
-		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
-	    end;
-	aead ->
-            case decrypt(Ssh0, {AEAD,EncryptedSfx,Mac}) of
-		{Ssh1, error} ->
-		    {bad_mac, Ssh1};
-		{Ssh1, DecryptedSfx} ->
-                    DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
-		    {Ssh, DecompressedPayload} = decompress(Ssh1, payload(DecryptedPacket)),
-		    {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh}
-	    end
+    case unpack(pkt_type(CryptoAlg), mac_type(MacAlg),
+                DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0) of
+        {ok, Payload, NextPacketBytes, Ssh1} ->
+            {Ssh, DecompressedPayload} = decompress(Ssh1, Payload),
+            {packet_decrypted, DecompressedPayload, NextPacketBytes, Ssh};
+        Other ->
+            Other
     end.
-    
-    
-get_length(common, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
+
+%%%----------------
+unpack(common, rfc4253, DecryptedPfx, EncryptedBuffer, _AEAD, TotalNeeded,
+       #ssh{recv_mac_size = MacSize} = Ssh0) ->
+    MoreNeeded = TotalNeeded - size(DecryptedPfx) - MacSize,
+    <<EncryptedSfx:MoreNeeded/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
+    {Ssh1, DecryptedSfx} = decrypt(Ssh0, EncryptedSfx),
+    PlainPkt = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
+    case is_valid_mac(Mac, PlainPkt, Ssh1) of
+        true ->
+            {ok, payload(PlainPkt), NextPacketBytes, Ssh1};
+        false ->
+            {bad_mac, Ssh1}
+    end;
+
+unpack(common, enc_then_mac, <<?UINT32(PlainLen)>>, EncryptedBuffer, _AEAD, _TotalNeeded,
+       #ssh{recv_mac_size = MacSize} = Ssh0) ->
+    <<Payload:PlainLen/binary, MAC0:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
+    case is_valid_mac(MAC0, <<?UINT32(PlainLen),Payload/binary>>, Ssh0) of
+        true ->
+            {Ssh1, <<?BYTE(PaddingLen), PlainRest/binary>>} = decrypt(Ssh0, Payload),
+            CompressedPlainTextLen = size(PlainRest) - PaddingLen,
+            <<CompressedPlainText:CompressedPlainTextLen/binary, _Padding/binary>> = PlainRest,
+            {ok, CompressedPlainText, NextPacketBytes, Ssh1};
+        false ->
+            {bad_mac, Ssh0}
+    end;
+                    
+unpack(aead, _, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, 
+       #ssh{recv_mac_size = MacSize} = Ssh0) ->
+    %% enough bytes to decode the packet.
+    MoreNeeded = TotalNeeded - size(DecryptedPfx) - MacSize,
+    <<EncryptedSfx:MoreNeeded/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
+    case decrypt(Ssh0, {AEAD,EncryptedSfx,Mac}) of
+        {Ssh1, error} ->
+            {bad_mac, Ssh1};
+        {Ssh1, DecryptedSfx} ->
+            DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
+            {ok, payload(DecryptedPacket), NextPacketBytes, Ssh1}
+    end.
+
+%%%----------------------------------------------------------------
+get_length(common, rfc4253, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
     case size(EncryptedBuffer) >= erlang:max(8, BlockSize) of
 	true ->
 	    <<EncBlock:BlockSize/binary, EncryptedRest/binary>> = EncryptedBuffer,
@@ -1345,7 +1371,16 @@ get_length(common, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0)
 	    get_more
     end;
 
-get_length(aead, EncryptedBuffer, Ssh) ->
+get_length(common, enc_then_mac, EncryptedBuffer, Ssh) ->
+    case EncryptedBuffer of
+        <<Decrypted:4/binary, EncryptedRest/binary>> ->  
+            <<?UINT32(PacketLen)>> = Decrypted,
+            {ok, PacketLen, Decrypted, EncryptedRest, <<>>, Ssh};
+        _ ->
+            get_more
+    end;
+
+get_length(aead, _, EncryptedBuffer, Ssh) ->
     case {size(EncryptedBuffer) >= 4, Ssh#ssh.decrypt} of
        {true, 'chacha20-poly1305@openssh.com'} ->
             <<EncryptedLen:4/binary, EncryptedRest/binary>> = EncryptedBuffer,
@@ -1360,11 +1395,26 @@ get_length(aead, EncryptedBuffer, Ssh) ->
     end.
 
 
+padding_length(Size, #ssh{encrypt_block_size = BlockSize,
+			  random_length_padding = RandomLengthPad}) ->
+    PL = (BlockSize - (Size rem BlockSize)) rem BlockSize,
+    MinPadLen = if PL <  4 -> PL + BlockSize;
+		       true -> PL
+		    end,
+    PadBlockSize =  max(BlockSize,4),
+    MaxExtraBlocks = (max(RandomLengthPad,MinPadLen) - MinPadLen) div PadBlockSize,
+    ExtraPadLen = try (rand:uniform(MaxExtraBlocks+1) - 1) * PadBlockSize
+		      catch _:_ -> 0
+		      end,
+    MinPadLen + ExtraPadLen.
+
+
 payload(<<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>) ->
     PayloadLen = PacketLen - PaddingLen - 1,
     <<Payload:PayloadLen/binary, _/binary>> = PayloadAndPadding,
     Payload.
 
+%%%----------------------------------------------------------------
 sign(SigData, HashAlg, #{algorithm:=dss} = Key) ->
     mk_dss_sig(crypto:sign(dss, HashAlg, SigData, Key));
 sign(SigData, HashAlg, #{algorithm:=SigAlg} = Key) ->
@@ -1383,7 +1433,7 @@ mk_dss_sig(DerSignature) ->
     #'Dss-Sig-Value'{r = R, s = S} = public_key:der_decode('Dss-Sig-Value', DerSignature),
     <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>>.
 
-
+%%%----------------------------------------------------------------
 verify(PlainText, HashAlg, Sig, {_,  #'Dss-Parms'{}} = Key, _) ->
     case Sig of
         <<R:160/big-unsigned-integer, S:160/big-unsigned-integer>> ->
@@ -1500,6 +1550,11 @@ cipher(_) ->
 
 pkt_type(SshCipher) -> (cipher(SshCipher))#cipher.pkt_type.
 
+mac_type('hmac-sha2-256-etm@openssh.com') -> enc_then_mac;
+mac_type('hmac-sha2-512-etm@openssh.com') -> enc_then_mac;
+mac_type('hmac-sha1-etm@openssh.com') -> enc_then_mac;
+mac_type(_) -> rfc4253.
+    
 decrypt_magic(server) -> {"A", "C"};
 decrypt_magic(client) -> {"B", "D"}.
 
@@ -1826,7 +1881,13 @@ mac('hmac-md5-96', Key, SeqNum, Data) ->
 mac('hmac-sha2-256', Key, SeqNum, Data) ->
     crypto:mac(hmac, sha256, Key, [<<?UINT32(SeqNum)>>, Data]);
 mac('hmac-sha2-512', Key, SeqNum, Data) ->
-    crypto:mac(hmac, sha512, Key, [<<?UINT32(SeqNum)>>, Data]).
+    crypto:mac(hmac, sha512, Key, [<<?UINT32(SeqNum)>>, Data]);
+mac('hmac-sha1-etm@openssh.com', Key, SeqNum, Data) ->
+    mac('hmac-sha1', Key, SeqNum, Data);
+mac('hmac-sha2-256-etm@openssh.com', Key, SeqNum, Data) ->
+    mac('hmac-sha2-256', Key, SeqNum, Data);
+mac('hmac-sha2-512-etm@openssh.com', Key, SeqNum, Data) ->
+    mac('hmac-sha2-512', Key, SeqNum, Data).
 
 
 %%%----------------------------------------------------------------
@@ -1965,22 +2026,28 @@ sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_existing_atom(Str)).
 
 
 mac_key_bytes('hmac-sha1')    -> 20;
+mac_key_bytes('hmac-sha1-etm@openssh.com') -> 20;
 mac_key_bytes('hmac-sha1-96') -> 20;
 mac_key_bytes('hmac-md5')     -> 16;
 mac_key_bytes('hmac-md5-96')  -> 16;
 mac_key_bytes('hmac-sha2-256')-> 32;
+mac_key_bytes('hmac-sha2-256-etm@openssh.com')-> 32;
 mac_key_bytes('hmac-sha2-512')-> 64;
+mac_key_bytes('hmac-sha2-512-etm@openssh.com')-> 64;
 mac_key_bytes('AEAD_AES_128_GCM') -> 0;
 mac_key_bytes('AEAD_AES_256_GCM') -> 0;
 mac_key_bytes('chacha20-poly1305@openssh.com') -> 0;
 mac_key_bytes(none) -> 0.
 
 mac_digest_size('hmac-sha1')    -> 20;
+mac_digest_size('hmac-sha1-etm@openssh.com') -> 20;
 mac_digest_size('hmac-sha1-96') -> 12;
 mac_digest_size('hmac-md5')    -> 20;
 mac_digest_size('hmac-md5-96') -> 12;
 mac_digest_size('hmac-sha2-256') -> 32;
+mac_digest_size('hmac-sha2-256-etm@openssh.com') -> 32;
 mac_digest_size('hmac-sha2-512') -> 64;
+mac_digest_size('hmac-sha2-512-etm@openssh.com') -> 64;
 mac_digest_size('AEAD_AES_128_GCM') -> 16;
 mac_digest_size('AEAD_AES_256_GCM') -> 16;
 mac_digest_size('chacha20-poly1305@openssh.com') -> 16;

@@ -207,6 +207,9 @@
       <tag>MAC algorithms</tag>
       <item>
 	<list type="bulleted">
+	  <item>hmac-sha2-256-etm@openssh.com</item>
+	  <item>hmac-sha2-512-etm@openssh.com</item>
+	  <item>hmac-sha1-etm@openssh.com</item>
 	  <item>hmac-sha2-256</item>
 	  <item>hmac-sha2-512</item>
 	  <item>hmac-sha1</item>
