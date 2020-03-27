@@ -827,9 +827,9 @@ call_ext_only u==2 u$func:erlang:apply/2 => i_apply_fun_only
 # The apply/3 BIF is an instruction.
 #
 
-call_ext u==3 u$bif:erlang:apply/3 => i_apply
-call_ext_last u==3 u$bif:erlang:apply/3 D => i_apply_last D
-call_ext_only u==3 u$bif:erlang:apply/3 => i_apply_only
+call_ext u==3 u$func:erlang:apply/3 => i_apply
+call_ext_last u==3 u$func:erlang:apply/3 D => i_apply_last D
+call_ext_only u==3 u$func:erlang:apply/3 => i_apply_only
 
 #
 # The yield/0 BIF is an instruction

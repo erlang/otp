@@ -237,7 +237,8 @@ APPLY(I, Deallocate, Next) {
 }
 
 HANDLE_APPLY_ERROR() {
-    I = handle_error(c_p, I, reg, &bif_trap_export[BIF_apply_3].info.mfa);
+    static ErtsCodeMFA apply3_mfa = {am_erlang, am_apply, 3};
+    I = handle_error(c_p, I, reg, &apply3_mfa);
     goto post_error_handling;
 }
 

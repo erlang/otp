@@ -2358,27 +2358,6 @@ done:
 }
 
 /**********************************************************************/
-/*
- * apply/3 is implemented as an instruction and as erlang code in the
- * erlang module.
- *
- * There is only one reason that apply/3 is included in the BIF table:
- * The error handling code in the beam emulator passes the pointer to
- * this function to the error handling code if the apply instruction
- * fails.  The error handling use the function pointer to lookup
- * erlang:apply/3 in the BIF table.
- *
- * This function will never be called.  (It could be if init did something
- * like this:  apply(erlang, apply, [M, F, A]). Not recommended.)
- */
-
-BIF_RETTYPE apply_3(BIF_ALIST_3)
-{
-    BIF_ERROR(BIF_P, BADARG);
-}
-
-
-/**********************************************************************/
 
 /* integer to float */
 

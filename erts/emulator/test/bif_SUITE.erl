@@ -39,7 +39,8 @@
          process_info_blast/1,
          os_env_case_sensitivity/1,
          test_length/1,
-         fixed_apply_badarg/1]).
+         fixed_apply_badarg/1,
+         external_fun_apply3/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -55,7 +56,7 @@ all() ->
      error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
      is_process_alive, process_info_blast, os_env_case_sensitivity,
-     test_length,fixed_apply_badarg].
+     test_length,fixed_apply_badarg,external_fun_apply3].
 
 %% Uses erlang:display to test that erts_printf does not do deep recursion
 display(Config) when is_list(Config) ->
@@ -353,8 +354,6 @@ auto_imports([], Errors) ->
 extract_functions(M, Abstr) ->
     [{{M,F,A},Body} || {function,_,F,A,Body} <- Abstr].
 
-check_stub({erlang,apply,3}, _) ->
-    ok;
 check_stub({_,F,A}, B) ->
     try
 	[{clause,_,Args,[],Body}] = B,
@@ -1314,6 +1313,17 @@ fixed_apply_badarg(Config) when is_list(Config) ->
         (catch apply(Bad,baz,[e,f])),
     {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[]} | _]}} =
         (catch apply(baz,Bad,[g,h])),
+
+    ok.
+
+external_fun_apply3(_Config) ->
+    %% erlang:apply/3 would always badarg when called through an external fun.
+
+    Apply = id(fun erlang:apply/3),
+    Self = Apply(erlang, self, []),
+    true = is_pid(Self),
+
+    {'EXIT',{undef,_}} = (catch Apply(does, 'not', [exist])),
 
     ok.
 
