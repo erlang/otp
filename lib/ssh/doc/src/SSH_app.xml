@@ -69,12 +69,12 @@
       <item><c>id_dsa</c> <i>(disabled by default)</i></item>
       <item><c>id_rsa</c> <i>(disabled by default from OTP-24)</i></item>
       <item><c>id_ecdsa</c></item>
-      <item><c>id_ed15519</c></item>
+      <item><c>id_ed25519</c></item>
       <item><c>id_ed448</c></item>
       <item><c>ssh_host_dsa_key</c> <i>(disabled by default)</i></item>
       <item><c>ssh_host_rsa_key</c> <i>(disabled by default from OTP-24)</i></item>
       <item><c>ssh_host_ecdsa_key</c></item>
-      <item><c>ssh_host_ed15519_key</c></item>
+      <item><c>ssh_host_ed25519_key</c></item>
       <item><c>ssh_host_ed448_key</c></item>
     </list>
       <p>By default, <c>ssh</c> looks for <c>id_*</c>,
@@ -104,13 +104,15 @@
 	for the user's convenience when it is needed to convey the user's
 	public key.
       </p>
+    <p>See <seealso marker="ssh_file#FILE-id_STAR">ssh_file</seealso> for details.</p>
   </section>
  <section>
     <title>Known Hosts</title>
     <p>The <c>known_hosts</c> file contains a list of approved servers and
       their public keys. Once a server is listed, it can be verified
       without user interaction.
-     </p>
+    </p>
+    <p>See <seealso marker="ssh_file#FILE-known_hosts">ssh_file</seealso> for details.</p>
   </section>
  <section>
     <title>Authorized Keys</title>
@@ -119,13 +121,16 @@
       log in without entering their password, which is supported by the
       Erlang <c>ssh</c> daemon.
       </p>
+    <p>See <seealso marker="ssh_file#FILE-authorized_keys">ssh_file</seealso> for details.</p>
   </section>
  <section>
     <title>Host Keys</title>
-    <p>RSA, DSA (if enabled) ECDSA, ED15519 and ED* host keys are supported and are
-       expected to be found in files named <c>ssh_host_rsa_key</c>,
-       <c>ssh_host_dsa_key</c>, <c>ssh_host_ecdsa_key</c> and <c>ssh_host_ed*_key</c>.
-       </p>
+    <p>RSA, DSA (if enabled), ECDSA, ED25519 and ED448 host keys are supported and are
+    expected to be found in files named <c>ssh_host_rsa_key</c>,
+    <c>ssh_host_dsa_key</c>, <c>ssh_host_ecdsa_key</c>,
+    <c>ssh_host_ed25519_key</c> and  <c>ssh_host_ed448_key</c>.
+    </p>
+    <p>See <seealso marker="ssh_file#FILE-ssh_host_STAR_key">ssh_file</seealso> for details.</p>
   </section>
   <section>
     <title>ERROR LOGGER AND EVENT HANDLERS</title>
