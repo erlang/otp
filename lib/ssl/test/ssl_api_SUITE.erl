@@ -159,29 +159,17 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
-
-init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-	true ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    [{client_type, erlang},
-                     {server_type, erlang} | ssl_test_lib:init_tls_version(GroupName, Config)];
-		false ->
-		    {skip, "Missing crypto support"}
-	    end;
-	_ ->
-	    ssl:start(),
-	    Config
+init_per_group(GroupName, Config0) ->
+    case ssl_test_lib:init_per_group(GroupName, Config0) of
+        {skip, _} = Skip ->
+            Skip;
+        Config ->
+            [{client_type, erlang},
+             {server_type, erlang}|Config]
     end.
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-        false ->
-            Config
-    end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(prf, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
@@ -200,6 +188,15 @@ init_per_testcase(prf, Config) ->
          {md5sha, <<63,136,3,217,205,123,200,177,251,211,17,229,132,4,173,80>>}],
     TestPlan = prf_create_plan([Version], PRFS, ExpectedPrfResults),
     [{prf_test_plan, TestPlan} | Config];
+init_per_testcase(handshake_continue_tls13_client, Config) ->
+    case ssl_test_lib:sufficient_crypto_support('tlsv1.3') of
+        true ->
+            ssl_test_lib:ct_log_supported_protocol_versions(Config),
+            ct:timetrap({seconds, 10}),
+            Config;
+        false ->
+            {skip, "Missing crypto support: TLS 1.3 not supported"}
+    end;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:timetrap({seconds, 10}),
