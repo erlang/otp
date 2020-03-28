@@ -455,11 +455,15 @@ run_sub_passes_1([{Name,Run}|Ps], Runner, St0)
 run_sub_passes_1([], _, St) -> St.
 
 run_tc({Name,Fun}, Code, St) ->
-    put(?SUB_PASS_TIMES, []),
+    OldTimes = put(?SUB_PASS_TIMES, []),
     T1 = erlang:monotonic_time(),
     Val = (catch Fun(Code, St)),
     T2 = erlang:monotonic_time(),
-    Times = erase(?SUB_PASS_TIMES),
+    Times = get(?SUB_PASS_TIMES),
+    case OldTimes of
+        undefined -> erase(?SUB_PASS_TIMES);
+        _ -> put(?SUB_PASS_TIMES, OldTimes)
+    end,
     Elapsed = erlang:convert_time_unit(T2 - T1, native, microsecond),
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
