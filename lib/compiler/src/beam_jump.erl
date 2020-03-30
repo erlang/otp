@@ -132,7 +132,7 @@
 %%% on the program state.
 %%% 
 
--import(lists, [foldl/3,keymember/3,mapfoldl/3,member/2,reverse/1,reverse/2]).
+-import(lists, [foldl/3,keymember/3,mapfoldl/3,reverse/1,reverse/2]).
 
 -type instruction() :: beam_utils:instruction().
 
@@ -351,12 +351,20 @@ share_1([{label,L}=Lbl|Is], Safe, Dict0, Lbls0, [_|_]=Seq0, Acc) ->
                     [[Lbl,{jump,{f,Label}}]|Acc]);
         #{} ->
             %% This is first time we have seen this sequence of instructions.
-            case is_shareable(Seq) of
+            %% Find out whether it is safe to share the sequence.
+            case map_size(Safe) =:= 0 orelse is_shareable(Seq) of
                 true ->
+                    %% Either this function does not contain any try/catch
+                    %% instructions, in which case it is always safe to share
+                    %% exception-raising instructions such as if_end and
+                    %% case_end, or it this sequence does not include
+                    %% any of the problematic instructions.
                     Dict = Dict0#{Seq => L},
                     share_1(Is, Safe, Dict, Lbls0, [], [[Lbl|Seq]|Acc]);
                 false ->
-                    %% The sequence begins with an inappropriate instruction.
+                    %% The sequence includes an inappropriate instruction
+                    %% that may case beam_validator to complain about
+                    %% an ambiguous try/catch state.
                     share_1(Is, Safe, Dict0, Lbls0, [], [[Lbl|Seq]|Acc])
             end
     end;
@@ -411,12 +419,16 @@ add_scope([I|Is], Scope) ->
     [I|add_scope(Is, Scope)];
 add_scope([], _Scope) -> [].
 
+is_shareable([build_stacktrace|_]) -> false;
+is_shareable([{case_end,_}|_]) -> false;
 is_shareable([{'catch',_,_}|_]) -> false;
 is_shareable([{catch_end,_}|_]) -> false;
+is_shareable([if_end|_]) -> false;
 is_shareable([{'try',_,_}|_]) -> false;
 is_shareable([{try_case,_}|_]) -> false;
 is_shareable([{try_end,_}|_]) -> false;
-is_shareable(Is) -> not member(build_stacktrace, Is).
+is_shareable([_|Is]) -> is_shareable(Is);
+is_shareable([]) -> true.
 
 %%
 %% Classify labels according to where the instructions that branch to

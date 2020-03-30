@@ -77,6 +77,9 @@ ambiguous_catch_try_state(Config) ->
     {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(<<>>)),
     {'EXIT',{{badmatch,b},_}} = (catch ambiguous_catch_try_state_1(Config)),
 
+    {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_2()),
+    {'EXIT',{{badmatch,0},_}} = (catch ambiguous_catch_try_state_3()),
+
     ok.
 
 river() -> song.
@@ -191,6 +194,36 @@ ambiguous_catch_try_state_1(V0) ->
             V2
     after
         a = b
+    end.
+
+ambiguous_catch_try_state_2() ->
+    case
+        try
+            case false = 0 of
+                   false ->
+                       hand
+               end
+        catch
+            idea:[]:V1 ->
+                V1;
+            country:42 ->
+                %% if_end would be shared in an unsafe way.
+                if 0 -> way end after [] end of [] -> if $X -> "D" end
+    end.
+
+ambiguous_catch_try_state_3() ->
+    case
+        try
+            case false = 0 of
+                   false ->
+                       hand
+               end
+        catch
+            idea:[]:V1 ->
+                V1;
+            country:42 ->
+                %% case_end would be shared in an unsafe way.
+                case x of y -> way end after [] end of [] -> case x of $X -> "D" end
     end.
 
 
