@@ -963,7 +963,7 @@ dnl for now that is the way we do it.
 USER_LD=$LD
 USER_LDFLAGS="$LDFLAGS"
 LD='$(CC)'
-
+LD_MAY_BE_WEAK=no
 AC_SUBST(LD)
 
 dnl Check for cygwin and object/exe files extension
