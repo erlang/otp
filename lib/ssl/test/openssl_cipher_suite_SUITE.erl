@@ -27,7 +27,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--define(DEFAULT_TIMEOUT, {seconds, 30}).
+-define(DEFAULT_TIMEOUT, {seconds, 6}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------

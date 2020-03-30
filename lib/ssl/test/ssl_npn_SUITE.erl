@@ -24,7 +24,7 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
-
+-define(TIMEOUT, {seconds, 5}).
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -100,7 +100,7 @@ end_per_group(GroupName, Config) ->
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
-    ct:timetrap({seconds, 10}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     

@@ -25,7 +25,7 @@
 -compile(export_all).
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").
-
+-define(TIMEOUT, {seconds, 5}).
 -define(SLEEP, 500).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -94,14 +94,14 @@ init_per_testcase(internal_active_1, Config) ->
     application:set_env(ssl, internal_active_n, 1),
     ssl_test_lib:set_protocol_versions(Version),
     ssl:start(),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     Config;
 init_per_testcase(protocol_versions, Config) ->
     Version = ssl_test_lib:protocol_version(Config),
     ssl_test_lib:set_protocol_versions(Version),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(empty_protocol_versions, Config)  ->
     ssl:stop(),
@@ -111,10 +111,10 @@ init_per_testcase(empty_protocol_versions, Config)  ->
     application:set_env(ssl, dtls_protocol_version, []),
     ssl:start(),
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(_TestCase, Config) ->
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(_, Config) ->

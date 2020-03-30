@@ -27,6 +27,7 @@
 -include_lib("public_key/include/public_key.hrl").
 -include_lib("kernel/include/inet.hrl").
 
+-define(TIMEOUT, {seconds, 6}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -113,12 +114,12 @@ end_per_suite(_) ->
 init_per_testcase(customize_hostname_check, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ssl_test_lib:clean_start(),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     Config;
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
     ct:log("Ciphers: ~p~n ", [ ssl:cipher_suites()]),
-    ct:timetrap({seconds, 5}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     

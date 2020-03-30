@@ -29,6 +29,7 @@
 -include_lib("ssl/src/ssl_api.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
 
+-define(TIMEOUT, {seconds, 10}).
 -define(SLEEP, 500).
 
 %%--------------------------------------------------------------------
@@ -115,7 +116,7 @@ end_per_group(GroupName, Config) ->
 
 init_per_testcase(_TestCase, Config) ->
     ssl_test_lib:ct_log_supported_protocol_versions(Config),
-    ct:timetrap({seconds, 10}),
+    ct:timetrap(?TIMEOUT),
     Config.
 
 end_per_testcase(_TestCase, Config) ->     
