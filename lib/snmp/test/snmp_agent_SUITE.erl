@@ -944,25 +944,26 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     %% already failed, we will want to get as much of the logs
     %% as possible. So, set no timeout (infinity) and let the
     %% test framework take care of things...
-    DisplayLogTimeout =
-        case ?config(tc_status, Config) of
-            ok ->
-                ?SECS(30);
-            _ ->
-                infinity
+    %% But also, *don't* bother with this unless the test case
+    %% has failed!
+    case ?config(tc_status, Config) of
+        ok ->
+            ok;
+        _ ->
+            To   = ?SECS(30),
+            Flag = process_flag(trap_exit, true),
+            Pid  = spawn_link(fun() -> display_log(Config), exit(normal) end),
+            receive
+                {'EXIT', Pid, _} ->
+                    process_flag(trap_exit, Flag),
+                    ok
+            after To ->
+                    ?WPRINT("Display Log process fail to complete in time"
+                            "(~w msec): kill it", [To]),
+                    process_flag(trap_exit, Flag),
+                    exit(Pid, kill)
+            end
         end,
-    Flag = process_flag(trap_exit, true),
-    Pid = spawn_link(fun() -> display_log(Config), exit(normal) end),
-    receive
-        {'EXIT', Pid, _} ->
-            process_flag(trap_exit, Flag),
-            ok
-    after DisplayLogTimeout ->
-            ?WPRINT("Display Log process fail to complete in time (~w msec): "
-                    "kill it", [DisplayLogTimeout]),
-            process_flag(trap_exit, Flag),
-            exit(Pid, kill)
-    end,
 
     Result = end_per_testcase1(Case, Config),
 
