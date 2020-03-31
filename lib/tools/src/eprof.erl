@@ -398,7 +398,7 @@ collect_bpd() ->
     collect_bpd([M || M <- [element(1, Mi) || Mi <- code:all_loaded()], M =/= ?MODULE]).
 
 collect_bpd(Ms) when is_list(Ms) ->
-    collect_bpdf(collect_mfas(Ms) ++ erlang:system_info(snifs)).
+    collect_bpdf(collect_mfas(Ms)).
 
 collect_mfas(Ms) ->
     lists:foldl(fun
