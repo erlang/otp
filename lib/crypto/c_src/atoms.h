@@ -96,7 +96,7 @@ extern ERL_NIF_TERM atom_rsa;
 extern ERL_NIF_TERM atom_dss;
 extern ERL_NIF_TERM atom_ecdsa;
 
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
 extern ERL_NIF_TERM atom_x25519;
 extern ERL_NIF_TERM atom_x448;
 extern ERL_NIF_TERM atom_ed25519;

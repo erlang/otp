@@ -92,7 +92,7 @@ ERL_NIF_TERM atom_rsa;
 ERL_NIF_TERM atom_dss;
 ERL_NIF_TERM atom_ecdsa;
 
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
 ERL_NIF_TERM atom_x25519;
 ERL_NIF_TERM atom_x448;
 ERL_NIF_TERM atom_ed25519;
@@ -230,7 +230,7 @@ int init_atoms(ErlNifEnv *env, const ERL_NIF_TERM fips_mode, const ERL_NIF_TERM 
     atom_dss = enif_make_atom(env,"dss");
     atom_ecdsa = enif_make_atom(env,"ecdsa");
 
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
     atom_x25519 = enif_make_atom(env,"x25519");
     atom_x448 = enif_make_atom(env,"x448");
     atom_ed25519 = enif_make_atom(env,"ed25519");

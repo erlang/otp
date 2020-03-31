@@ -200,7 +200,7 @@ void init_algorithms_types(ErlNifEnv* env)
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed25519");
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed448");
 #endif
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x25519");
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x448");
 #endif
