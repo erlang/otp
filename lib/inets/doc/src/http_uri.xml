@@ -36,7 +36,7 @@
   <description>
     <p>This module is deprecated since OTP 23.
     Use the module <seeerl marker="stdlib:uri_string">uri_string</seeerl> to properly handle URIs,
-    this is the recommend module since OTP 21.  
+    this is the recommended module since OTP 21.
     </p>
   </description>
   
