@@ -98,6 +98,9 @@ void init_algorithms_types(ErlNifEnv* env)
 #if defined(HAVE_EDDSA)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddsa");
 #endif
+#if defined(HAVE_EDDH)
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddh");
+#endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
     // Validated algorithms first
