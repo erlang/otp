@@ -436,8 +436,8 @@ nbif_4_simple_exception:
 	.global	nbif_stack_trap_ra
 	.type	nbif_stack_trap_ra, %function
 nbif_stack_trap_ra:		/* a return address, not a function */
-	# This only handles a single return value.
-	# If we have more, we need to save them in the PCB.
+	/* This only handles a single return value. */
+	/* If we have more, we need to save them in the PCB. */
 	mov	TEMP_ARG0, r0		/* save retval */
 	str	NSP, [P, #P_NSP]
 	mov	r0, P
@@ -457,12 +457,12 @@ hipe_arm_inc_stack:
 	mov	TEMP_ARG0, lr
 	str	NSP, [P, #P_NSP]
 	mov	r0, P
-	# hipe_inc_nstack reads and writes NSP and NSP_LIMIT,
-	# but does not access LR/RA, HP, or FCALLS.
+	/* hipe_inc_nstack reads and writes NSP and NSP_LIMIT, */
+	/* but does not access LR/RA, HP, or FCALLS. */
 	bl	hipe_inc_nstack
 	ldr	NSP, [P, #P_NSP]
 	LOAD_ARG_REGS
-	# this relies on LOAD_ARG_REGS not clobbering TEMP_ARG0
+	/* this relies on LOAD_ARG_REGS not clobbering TEMP_ARG0 */
 	mov	pc, TEMP_ARG0
 
 #if defined(__linux__) && defined(__ELF__)

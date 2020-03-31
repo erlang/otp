@@ -261,7 +261,7 @@ dnl
 dnl This must be called before SWITCH_ERLANG_TO_C{,QUICK}.
 dnl This must not be called if the C BIF's arity > 6.
 dnl
-define(NBIF_MOVE_REG,`ifelse($1,$2,`# movq	$2, $1',`movq	$2, $1')')dnl
+define(NBIF_MOVE_REG,`ifelse($1,$2,`// movq	$2, $1',`movq	$2, $1')')dnl
 define(NBIF_REG_ARG,`NBIF_MOVE_REG($1,ARG$2)')dnl
 define(NBIF_STK_LOAD,`movq	$2(NSP), $1')dnl
 define(NBIF_STK_ARG,`NBIF_STK_LOAD($1,eval(8*($2-$3)))')dnl

@@ -39,14 +39,14 @@
  * Usage: mflr r0 SEMI bl .enter
  */
 .enter:
-	# Our PPC64 ELF ABI frame must include:
-	# - 48 (6*8) bytes for AIX-like linkage area
-	# - 64 (8*8) bytes for AIX-like parameter area for
-	#   recursive C calls with up to 8 parameter words
-	# - padding to make the frame a multiple of 16 bytes
-	# - 144 (18*8) bytes for saving r14-r31
-	# The final size is 256 bytes.
-	# stdu is required for atomic alloc+init
+	/* Our PPC64 ELF ABI frame must include: */
+	/* - 48 (6*8) bytes for AIX-like linkage area */
+	/* - 64 (8*8) bytes for AIX-like parameter area for */
+	/*   recursive C calls with up to 8 parameter words */
+	/* - padding to make the frame a multiple of 16 bytes */
+	/* - 144 (18*8) bytes for saving r14-r31 */
+	/* The final size is 256 bytes. */
+	/* stdu is required for atomic alloc+init */
 	stdu	r1,-256(r1)	/* 0(r1) contains r1+256 */
 	std	r14, 112(r1)
 	std	r15, 120(r1)
@@ -122,14 +122,14 @@
  * Usage: mflr r0 SEMI bl .enter
  */
 .enter:
-	# A unified Linux/OSX C frame must include:
-	# - 24 bytes for AIX/OSX-like linkage area
-	# - 28 bytes for AIX/OSX-like parameter area for
-	#   recursive C calls with up to 7 parameter words
-	# - 76 bytes for saving r14-r31 and LR
-	# - padding to make it a multiple of 16 bytes
-	# The final size is 128 bytes.
-	# stwu is required for atomic alloc+init
+	/* A unified Linux/OSX C frame must include: */
+	/* - 24 bytes for AIX/OSX-like linkage area */
+	/* - 28 bytes for AIX/OSX-like parameter area for */
+	/*   recursive C calls with up to 7 parameter words */
+	/* - 76 bytes for saving r14-r31 and LR */
+	/* - padding to make it a multiple of 16 bytes */
+	/* The final size is 128 bytes. */
+	/* stwu is required for atomic alloc+init */
 	stwu	r1,-128(r1)	/* 0(r1) contains r1+128 */
 	stw	r14, 52(r1)
 	stw	r15, 56(r1)
@@ -577,8 +577,8 @@ CSYM(nbif_4_simple_exception):
  */
 	GLOBAL(ASYM(nbif_stack_trap_ra))
 ASYM(nbif_stack_trap_ra):		/* a return address, not a function */
-	# This only handles a single return value.
-	# If we have more, we need to save them in the PCB.
+	/* This only handles a single return value. */
+	/* If we have more, we need to save them in the PCB. */
 	mr	TEMP_ARG0, r3		/* save retval */
 	STORE	NSP, P_NSP(P)
 	mr	r3, P
@@ -597,8 +597,8 @@ ASYM(hipe_ppc_inc_stack):
 	mflr	TEMP_ARG0
 	STORE	NSP, P_NSP(P)
 	mr	r3, P
-	# hipe_inc_nstack reads and writes NSP and NSP_LIMIT,
-	# but does not access LR/RA, HP, or FCALLS.
+	/* hipe_inc_nstack reads and writes NSP and NSP_LIMIT, */
+	/* but does not access LR/RA, HP, or FCALLS. */
 	bl	CSYM(hipe_inc_nstack)
 	mtlr	TEMP_ARG0
 	LOAD	NSP, P_NSP(P)
