@@ -21,7 +21,7 @@
 
 
 -module(sys_core_bsm).
--export([module/2,format_error/1]).
+-export([module/2]).
 
 -include("core_parse.hrl").
 
@@ -40,11 +40,6 @@ function([{#c_var{name={F,Arity}}=Name,B0}|Fs]) ->
     end;
 function([]) ->
     [].
-
--type error() :: atom().
--spec format_error(error()) -> nonempty_string().
-
-format_error(_) -> error(badarg).
 
 %%% Reorder bit syntax matching to faciliate optimization in further passes.
 
