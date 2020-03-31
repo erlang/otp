@@ -45,10 +45,11 @@
     <seeerl marker="public_key:public_key">public_key</seeerl> and
     <seeerl marker="crypto:crypto">crypto</seeerl> 
     to handle public keys and encryption. Hence, these
-    applications must be loaded for the <c>ssh</c> application to work. In
-    an embedded environment this means that they must be started with
-    <seemfa marker="kernel:application#start/1">application:start/1,2</seemfa> before the
-    <c>ssh</c> application is started.
+    applications must be loaded for the <c>ssh</c> application to work. The call
+    <seemfa marker="ssh#start/0">ssh:start/0</seemfa> will do the necessary
+    calls to 
+    <seemfa marker="kernel:application#start/1">application:start/1,2</seemfa>
+    before it starts the <c>ssh</c> itself.
     </p>
   </section>
 
