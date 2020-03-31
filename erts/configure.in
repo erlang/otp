@@ -940,7 +940,7 @@ dnl We want to use $(CC) as linker for the emulator regardless of
 dnl what the user say. This might not be the right way to do it, but
 dnl for now that is the way we do it.
 LD='$(CC)'
-
+LD_MAY_BE_WEAK=no
 AC_SUBST(LD)
 
 dnl Check for cygwin and object/exe files extension
