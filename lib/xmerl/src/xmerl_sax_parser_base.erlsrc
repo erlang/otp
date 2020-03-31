@@ -1386,8 +1386,8 @@ parse_content(?STRING("]]") = Bytes, State, Acc, IgnorableWS) ->
     cf(Bytes, State, Acc, IgnorableWS, fun parse_content/4);
 parse_content(?STRING_REST("]]>", _Rest), State, _Acc, _IgnorableWS) ->
     ?fatal_error(State, "\"]]>\" is not allowed in content");
-parse_content(?STRING_UNBOUND_REST(_C, _) = Rest, 
-	      #xmerl_sax_parser_state{end_tags = []} = State, 
+parse_content(?STRING_UNBOUND_REST(_C, _) = Rest,
+	      #xmerl_sax_parser_state{end_tags = []} = State,
 	      Acc, _IgnorableWS) ->
     IValue = ?TO_INPUT_FORMAT(lists:reverse(Acc)),
     {?APPEND_STRING(IValue, Rest), State};
@@ -1396,12 +1396,15 @@ parse_content(?STRING_REST("&", Rest), #xmerl_sax_parser_state{file_type = Type}
     case Ref of 
         {character, _, CharValue}  ->
             parse_content(Rest1, State1, [CharValue | Acc], false);
+        {internal_general, true, "lt", _} ->
+            parse_content(Rest1, State1, "<" ++ Acc, false);
+        {internal_general, true, "amp", _} ->
+            parse_content(Rest1, State1, "&" ++ Acc, false);
         % & causes problems with references
         {internal_general, true, _, "&"} ->
             ?fatal_error(State1, "Reference must begin and end in same entity");
         {internal_general, true, _, Value} ->
-            IValue = ?TO_INPUT_FORMAT(Value),
-            parse_content(?APPEND_STRING(IValue, Rest1), State1, Acc, false);
+            parse_content(Rest1, State1, Value ++ Acc, false);
         {internal_general, _, _, Value} ->
             IValue = ?TO_INPUT_FORMAT(Value),
             {Ctx, State2} = strip_context(State1),
@@ -3534,7 +3537,7 @@ parse_entity_value(?STRING_REST("%", Rest), #xmerl_sax_parser_state{file_type=Ty
 	_ ->
 	    case Ref of 
 		{internal_parameter, _, []} ->
-            parse_entity_value(Rest1, State1, Stop, Acc);
+                    parse_entity_value(Rest1, State1, Stop, Acc);
 		{internal_parameter, _, RefValue} ->
 		    IValue = ?TO_INPUT_FORMAT(RefValue),
 		    {Ctx, State2} = strip_context(State1),
