@@ -1194,7 +1194,7 @@ ensure_virtual_dirs(Components, Fun, FakeFI, Includes, Dirs, Acc) ->
 		    {I, F, Acc3};
 		true ->
 		    %% The directory element does already exist
-		    %% Recursivly ensure dir elements on all levels
+		    %% Recursively ensure dir elements on all levels
 		    ensure_virtual_dirs(Dir,Fun,FakeFI,Includes,Dirs,Acc)
 	    end
     end.
