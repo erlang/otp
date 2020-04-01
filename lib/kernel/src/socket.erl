@@ -817,40 +817,19 @@ info(#socket{ref = SockRef}) ->
 %% 
 %% ===========================================================================
 
--type supports_options_socket() :: [{socket_option(),      boolean()}].
--type supports_options_ip()     :: [{ip_socket_option(),   boolean()}].
--type supports_options_ipv6()   :: [{ipv6_socket_option(), boolean()}].
--type supports_options_tcp()    :: [{tcp_socket_option(),  boolean()}].
--type supports_options_udp()    :: [{udp_socket_option(),  boolean()}].
--type supports_options_sctp()   :: [{sctp_socket_option(), boolean()}].
--type supports_options()        :: [{socket, supports_options_socket()} |
-                                    {ip,     supports_options_ip()}     |
-                                    {ipv6,   supports_options_ipv6()}   |
-                                    {tcp,    supports_options_tcp()}    |
-                                    {udp,    supports_options_udp()}    |
-                                    {sctp,   supports_options_sctp()}].
--type supports_send_flags()     :: [{send_flag(), boolean()}].
--type supports_recv_flags()     :: [{recv_flag(), boolean()}].
-
-
--spec supports() ->
-                      [{sctp,       boolean()} |
-                       {ipv6,       boolean()} |
-                       {local,      boolean()} |
-                       {netns,      boolean()} |
-                       {send_flags, supports_send_flags()} |
-                       {recv_flags, supports_recv_flags()} |
-                       {options,    supports_options()}].
-%%
+-spec supports() -> [{Key1 :: term(),
+                      boolean() | [{Key2 :: term(),
+                                    boolean() | [{Key3 :: term(),
+                                                  boolean()}]}]}].
 supports() ->
     [{Key1, supports(Key1)}
      || Key1 <- [options, send_flags, recv_flags]]
         ++ prim_socket:supports().
 
--spec supports(options)    -> supports_options();
-              (send_flags) -> supports_send_flags();
-              (recv_flags) -> supports_recv_flags();
-              (Key1 :: term()) -> [].
+-spec supports(Key1 :: term()) ->
+                      [{Key2 :: term(),
+                        boolean() | [{Key3 :: term(),
+                                      boolean()}]}].
 %%
 supports(options) ->
     [{Level, supports(options, Level)}
@@ -858,38 +837,26 @@ supports(options) ->
 supports(Key) ->
     prim_socket:supports(Key).
 
--spec supports(options,    socket)   -> supports_options_socket();
-              (options,    ip)       -> supports_options_ip();
-              (options,    ipv6)     -> supports_options_ipv6();
-              (options,    tcp)      -> supports_options_tcp();
-              (options,    udp)      -> supports_options_udp();
-              (options,    sctp)     -> supports_options_sctp();
-              (Key1 :: term(), Key2 :: term()) -> [].
+-spec supports(Key1 :: term(), Key2 :: term()) ->
+                      [{Key3 :: term(),
+                        boolean()}].
 %%
 supports(Key1, Key2) ->
     prim_socket:supports(Key1, Key2).
 
 
--spec is_supported(sctp | ipv6 | local | netns) -> boolean();
-                  (Key :: term()) -> false.
-is_supported(Key) ->
-    get_is_supported(Key, supports()).
-
--spec is_supported(send_flags, send_flag()) -> boolean();
-                  (recv_flags, recv_flag()) -> boolean();
-                  (Key1 :: term(), Key2 :: term()) -> false.
+-spec is_supported(Key1 :: term()) ->
+                          boolean().
+is_supported(Key1) ->
+    get_is_supported(Key1, supports()).
+%%
+-spec is_supported(Key1 :: term(), Key2 :: term()) ->
+                          boolean().
 is_supported(Key1, Key2) ->
     get_is_supported(Key2, supports(Key1)).
-
--spec is_supported(options, socket, socket_option()) ->    boolean();
-                  (options, ip, ip_socket_option()) ->     boolean();
-                  (options, ipv6, ipv6_socket_option()) -> boolean();
-                  (options, tcp, tcp_socket_option()) ->   boolean();
-                  (options, udp, udp_socket_option()) ->   boolean();
-                  (options, sctp, sctp_socket_option()) -> boolean();
-                  (Key1 :: term(), Key2 :: term(), Key3 :: term()) ->
-                          false.
 %%
+-spec is_supported(Key1 :: term(), Key2 :: term(), Key3 :: term()) ->
+                          boolean().
 is_supported(Key1, Key2, Key3) ->
     get_is_supported(Key3, supports(Key1, Key2)).
 
@@ -1710,6 +1677,7 @@ do_recv(SockRef, Length, Flags, Deadline, Acc) ->
         {more, Bin} ->
             %% There is more data readily available
             %% - repeat unless time's up
+            %% Note: timeout(nowait) -> 0, so no recursion
             Timeout = timeout(Deadline),
             if
                 0 < Timeout ->
