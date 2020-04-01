@@ -1697,7 +1697,7 @@ create_child_process
 	    erts_free(ERTS_ALC_T_TMP, qte);
 	}	    
 	    
-	DEBUGF((stderr,"Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
+	DEBUGF(("Creating child process: %S, createFlags = %d\n", newcmdline, createFlags));
 	ok = CreateProcessW((wchar_t *) appname,
 			    (wchar_t *) newcmdline,
 			    NULL,
@@ -1995,7 +1995,7 @@ threaded_reader(LPVOID param)
 	    aio->bytesTransferred = n;
 	}
 	SetEvent(aio->ov.hEvent);
-	if ((aio->flags & DF_XLAT_CR) == 0 && aio->bytesTransferred == 0) {
+	if (aio->bytesTransferred == 0) {
 	    break;
 	}
 	if (aio->pendingError != NO_ERROR) {
