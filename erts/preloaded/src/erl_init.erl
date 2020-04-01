@@ -35,8 +35,8 @@ start(Mod, BootArgs) ->
     erl_tracer:on_load(),
     prim_buffer:on_load(),
     prim_file:on_load(),
-    %% socket:on_load(), prim_net:on_load(),
-    conditional_load(socket, [socket, prim_net]),
+    %% prim_socket:on_load(), prim_net:on_load(),
+    conditional_load(prim_socket, [prim_socket, prim_net]),
     %% Proceed to the specified boot module
     run(Mod, boot, BootArgs).
 

@@ -1906,24 +1906,20 @@ otp16359_cases() ->
 
 init_per_suite(Config) ->
     Factor = analyze_and_print_host_info(),
-    case lists:member(socket, erlang:loaded()) of
-        true ->
-            case os:type() of
-                {win32, _} ->
-                    (catch not_yet_implemented());
-                _ ->
-                    case quiet_mode(Config) of
-                        default ->
-                            ?LOGGER:start(),
-                            [{esock_factor, Factor} | Config];
-                        Quiet ->
-                            ?LOGGER:start(Quiet),
-                            [{esock_factor,     Factor},
-                             {esock_test_quiet, Quiet} | Config]
-                    end
-            end;
-        false ->
-            {skip, "esock disabled"}
+    try socket:info() of
+        #{} ->
+            case quiet_mode(Config) of
+                default ->
+                    ?LOGGER:start(),
+                    [{esock_factor, Factor} | Config];
+                Quiet ->
+                    ?LOGGER:start(Quiet),
+                    [{esock_factor,     Factor},
+                     {esock_test_quiet, Quiet} | Config]
+            end
+    catch
+        error : notsup ->
+            {skip, "esock not supported"}
     end.
 
 end_per_suite(_) ->
@@ -2796,7 +2792,7 @@ api_b_open_and_close(InitState) ->
                    end},
          #{desc => "get protocol",
            cmd  => fun(#{socket := Sock} = State) ->
-			   case socket:supports(options, socket, protocol) of
+			   case socket:is_supported(options, socket, protocol) of
 			       true ->
 				   Res = socket:getopt(Sock, socket, protocol),
 				   {ok, {State, Res}};
@@ -18926,7 +18922,7 @@ api_opt_ip_recvopts_udp(InitState) ->
          #{desc => "test for ip:recvtos",
            cmd  => fun(State) ->
                            ?SEV_IPRINT("test for ip:recvtos"),
-                           case socket:supports(options, ip, recvtos) of
+                           case socket:is_supported(options, ip, recvtos) of
                                true ->
                                    ?SEV_IPRINT("use ip:recvtos"),
                                    {ok, State#{recvtos => true}};
@@ -18938,7 +18934,7 @@ api_opt_ip_recvopts_udp(InitState) ->
          #{desc => "test for socket:timestamp",
            cmd  => fun(State) ->
                            ?SEV_IPRINT("test for socket:timestamp"),
-                           case socket:supports(options, socket, timestamp) of
+                           case socket:is_supported(options, socket, timestamp) of
                                true ->
                                    ?SEV_IPRINT("use socket:timestamp"),
                                    {ok, State#{timestamp => true}};
@@ -20884,25 +20880,25 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
                    %%     'control message header type',
 		   %%     default | value()}]
 		   Opts =
-		       case socket:supports(options, socket, timestamp) of
+		       case socket:is_supported(options, socket, timestamp) of
 			   true ->
 			       [{socket, timestamp, timestamp, default}];
 			   false ->
 			       []
 		       end ++
-		       case socket:supports(options, ip, pktinfo) of
+		       case socket:is_supported(options, ip, pktinfo) of
 			   true ->
 			       [{ip, pktinfo, pktinfo, default}];
 			   false ->
 			       []
 		       end ++
-		       case socket:supports(options, ip, recvorigdstaddr) of
+		       case socket:is_supported(options, ip, recvorigdstaddr) of
 			   true ->
 			       [{ip, recvorigdstaddr, origdstaddr, default}];
 			   false ->
 			       []
 		       end ++
-		       case socket:supports(options, ip, recvtos) of
+		       case socket:is_supported(options, ip, recvtos) of
 			   true ->
                                %% It seems that sending any of the
                                %% TOS or TTL values will fail on: 
@@ -20939,7 +20935,7 @@ api_opt_ip_mopts_udp4(_Config) when is_list(_Config) ->
                            {unix, darwin} ->
                                [];
                            _ ->
-                               case socket:supports(options, ip, recvttl) of
+                               case socket:is_supported(options, ip, recvttl) of
                                    true ->
 				       %% It seems that sending any of the
 				       %% TOS or TTL values will fail on: 
@@ -21735,7 +21731,7 @@ api_opt_ipv6_hoplimit_udp6(_Config) when is_list(_Config) ->
            end,
            fun() ->
 		   %% Begin by choosing which of the options we shall use
-		   Opt = case socket:supports(options, ipv6, recvhoplimit) of
+		   Opt = case socket:is_supported(options, ipv6, recvhoplimit) of
 			     true  -> recvhoplimit;
 			     false -> hoplimit
 			 end,
@@ -22024,7 +22020,7 @@ api_opt_ipv6_tclass_udp6(_Config) when is_list(_Config) ->
            end,
            fun() ->
 		   %% Begin by choosing which of the options we shall use
-		   Opt = case socket:supports(options, ipv6, recvtclass) of
+		   Opt = case socket:is_supported(options, ipv6, recvtclass) of
 			     true  -> recvtclass;
 			     false -> tclass
 			 end,
@@ -22402,40 +22398,40 @@ api_opt_ipv6_mopts_udp6(_Config) when is_list(_Config) ->
 		   %% control message header type(s):
 		   %%   [{'ipv6 socket option', 'control message header type'}]
 		   Opts =
-		       case socket:supports(options, socket, timestamp) of
+		       case socket:is_supported(options, socket, timestamp) of
 			   true ->
 			       [{socket, timestamp, timestamp, default}];
 			   false ->
 			       []
 		       end ++
-		       case socket:supports(options, ipv6, recvpktinfo) of
+		       case socket:is_supported(options, ipv6, recvpktinfo) of
 			   true ->
 			       [{ipv6, recvpktinfo, pktinfo, default}];
 			   false ->
 			       []
 		       end ++
-		       case socket:supports(options, ipv6, flowinfo) of
+		       case socket:is_supported(options, ipv6, flowinfo) of
 			   true ->
 			       [{ipv6, flowinfo, flowinfo, default}];
 			   false ->
 			       []
 		       end ++
-		       case socket:supports(options, ipv6, recvhoplimit) of
+		       case socket:is_supported(options, ipv6, recvhoplimit) of
 			   true ->
 			       [{ipv6, recvhoplimit, hoplimit, default}];
 			   false ->
-			       case socket:supports(options, ipv6, hoplimit) of
+			       case socket:is_supported(options, ipv6, hoplimit) of
 				   true ->
 				       [{ipv6, hoplimit, hoplimit, default}];
 				   false ->
 				       []
 			       end
 		       end ++
-		       case socket:supports(options, ipv6, recvtclass) of
+		       case socket:is_supported(options, ipv6, recvtclass) of
 			   true ->
 			       [{ipv6, recvtclass, tclass, 42}];
 			   false ->
-			       case socket:supports(options, ipv6, tclass) of
+			       case socket:is_supported(options, ipv6, tclass) of
 				   true ->
 				       [{ipv6, tclass, tclass, 42}];
 				   false ->
@@ -24534,7 +24530,7 @@ api_to_recv_tcp6(_Config) when is_list(_Config) ->
     tc_try(api_to_recv_tcp6,
            fun() -> has_support_ipv6() end,
            fun() ->
-                   case socket:supports(ipv6) of
+                   case socket:is_supported(ipv6) of
                        true ->
                            Recv = fun(Sock, To) -> 
                                           socket:recv(Sock, 0, To)
@@ -43074,8 +43070,8 @@ has_support_ip_recvtos() ->
     has_support_socket_option_ip(recvtos).
 
 has_support_ip_recvtos_and_or_sock_timestamp() ->
-    case (socket:supports(options, ip, recvtos) orelse 
-          socket:supports(options, socket, timestamp)) of
+    case (socket:is_supported(options, ip, recvtos) orelse 
+          socket:is_supported(options, socket, timestamp)) of
         true ->
             ok;
         false ->
@@ -43099,8 +43095,8 @@ has_support_ipv6_flowinfo() ->
     has_support_socket_option_ipv6(flowinfo).
 
 has_support_ipv6_hoplimit_or_recvhoplimit() ->
-    %% case (socket:supports(options, ipv6, recvhoplimit) orelse
-    %%       socket:supports(options, ipv6, hoplimit)) of
+    %% case (socket:is_supported(options, ipv6, recvhoplimit) orelse
+    %%       socket:is_supported(options, ipv6, hoplimit)) of
     case is_any_options_supported([{ipv6, recvhoplimit}, {ipv6, hoplimit}]) of
 	true ->
 	    ok;
@@ -43165,7 +43161,7 @@ has_support_socket_option_udp(Opt) ->
 
 
 has_support_socket_option(Level, Option) ->
-    case socket:supports(options, Level, Option) of
+    case socket:is_supported(options, Level, Option) of
         true ->
             ok;
         false ->
@@ -43173,7 +43169,7 @@ has_support_socket_option(Level, Option) ->
     end.
 
 is_any_options_supported(Options) ->
-    Pred = fun({Level, Option}) -> socket:supports(options, Level, Option) end,
+    Pred = fun({Level, Option}) -> socket:is_supported(options, Level, Option) end,
     lists:any(Pred, Options).
 
 
@@ -43195,7 +43191,7 @@ has_support_recv_flag(Flag) ->
     has_support_send_or_recv_flag("Recv", recv_flags, Flag).
 
 has_support_send_or_recv_flag(Pre, Key, Flag) ->
-    case socket:supports(Key, Flag) of
+    case socket:is_supported(Key, Flag) of
         true ->
             ok;
         false ->
@@ -43260,7 +43256,7 @@ has_support_unix_domain_socket() ->
         {win32, _} ->
             skip("Not supported");
         _ ->
-            case socket:supports(local) of
+            case socket:is_supported(local) of
                 true ->
                     ok;
                 false ->
@@ -43273,7 +43269,7 @@ has_support_sctp() ->
         {win32, _} ->
             skip("Not supported");
         _ ->
-            case socket:supports(sctp) of
+            case socket:is_supported(sctp) of
                 true ->
                     ok;
                 false ->

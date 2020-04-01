@@ -47,20 +47,6 @@ XML_REF1_FILES = epmd_cmd.xml \
 	run_erl_cmd.xml \
 	start_cmd.xml
 
-ifeq ($(USE_ESOCK), yes)
-XML_REF3_ESOCK_EFILES = socket.xml
-XML_CHAPTER_ESOCK_EFILES = socket_usage.xml
-ESOCK_USE_SOCKET_XML=<xi:include href="socket.xml"\/>
-ESOCK_USE_SOCKET_SPECS_XML=<xi:include href="../specs/specs_socket.xml"/>
-ESOCK_USE_SOCKET_USAGE_XML=<xi:include href="socket_usage.xml"/>
-else
-XML_REF3_ESOCK_EFILES =
-XML_CHAPTER_ESOCK_EFILES =
-ESOCK_USE_SOCKET_XML =
-ESOCK_USE_SOCKET_SPECS_XML =
-ESOCK_USE_SOCKET_USAGE_XML =
-endif
-
 XML_REF3_EFILES = \
 	erl_prim_loader.xml \
 	erlang.xml \
@@ -69,8 +55,7 @@ XML_REF3_EFILES = \
 	persistent_term.xml \
 	atomics.xml \
 	counters.xml \
-	zlib.xml \
-	$(XML_REF3_ESOCK_EFILES)
+	zlib.xml
 
 XML_REF3_CREF = \
 	driver_entry.xml \
@@ -109,7 +94,6 @@ XML_CHAPTER_FILES = \
 	driver.xml \
 	absform.xml \
 	inet_cfg.xml \
-	$(XML_CHAPTER_ESOCK_EFILES) \
 	erl_ext_dist.xml \
 	erl_dist_protocol.xml \
 	communication.xml \
@@ -170,18 +154,6 @@ $(XML_REF3_CREF:%.xml=$(SPECDIR)/specs_%.xml): $(@:%.xml=%.xml)
 
 $(XMLDIR)/%.xml: ../../emulator/internal_doc/%.md $(ERL_TOP)/make/emd2exml
 	$(ERL_TOP)/make/emd2exml $< $@
-
-ref_man.xml: ref_man.xml.src
-	($(PERL) -p -e 's?%ESOCK_USE_SOCKET_XML%?$(ESOCK_USE_SOCKET_XML)?' \
-            $<) > $@
-
-part.xml: part.xml.src
-	($(PERL) -p -e 's?%ESOCK_USE_SOCKET_USAGE_XML%?$(ESOCK_USE_SOCKET_USAGE_XML)?' \
-            $<) > $@
-
-specs.xml: specs.xml.src
-	($(PERL) -p -e 's?%ESOCK_USE_SOCKET_SPECS_XML%?$(ESOCK_USE_SOCKET_SPECS_XML)?' \
-            $<) > $@
 
 
 # ----------------------------------------------------

@@ -368,7 +368,7 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define ESOCK_GLOBAL_DEBUG_DEFAULT FALSE
 #define ESOCK_DEBUG_DEFAULT        FALSE
 
-/* Counters and stuff (Don't know where to sen2 this stuff anyway) */
+/* Counters and stuff (Don't know where to send this stuff anyway) */
 #define ESOCK_NIF_IOW_DEFAULT FALSE
 
 
@@ -445,23 +445,6 @@ static void (*esock_sctp_freepaddrs)(struct sockaddr *addrs) = NULL;
 #define ESOCK_GET_RESOURCE(ENV, REF, RES) \
     enif_get_resource((ENV), (REF), esocks, (RES))
 
-#define ESOCK_SEND_FLAG_CONFIRM    0
-#define ESOCK_SEND_FLAG_DONTROUTE  1
-#define ESOCK_SEND_FLAG_EOR        2
-#define ESOCK_SEND_FLAG_MORE       3
-#define ESOCK_SEND_FLAG_NOSIGNAL   4
-#define ESOCK_SEND_FLAG_OOB        5
-#define ESOCK_SEND_FLAG_LOW        ESOCK_SEND_FLAG_CONFIRM
-#define ESOCK_SEND_FLAG_HIGH       ESOCK_SEND_FLAG_OOB
-
-#define ESOCK_RECV_FLAG_CMSG_CLOEXEC 0
-#define ESOCK_RECV_FLAG_ERRQUEUE     1
-#define ESOCK_RECV_FLAG_OOB          2
-#define ESOCK_RECV_FLAG_PEEK         3
-#define ESOCK_RECV_FLAG_TRUNC        4
-#define ESOCK_RECV_FLAG_LOW          ESOCK_RECV_FLAG_CMSG_CLOEXEC
-#define ESOCK_RECV_FLAG_HIGH         ESOCK_RECV_FLAG_TRUNC
-
 #define ESOCK_RECV_BUFFER_COUNT_DEFAULT     0
 #define ESOCK_RECV_BUFFER_SIZE_DEFAULT      8192
 #define ESOCK_RECV_CTRL_BUFFER_SIZE_DEFAULT 1024
@@ -504,26 +487,23 @@ typedef union {
  * This section must be "identical" to the corresponding socket.erl
  */
 
-/* domain */
-#define ESOCK_DOMAIN_LOCAL       1
-#define ESOCK_DOMAIN_INET        2
-#define ESOCK_DOMAIN_INET6       3
+#define ESOCK_SEND_FLAG_CONFIRM         (1 << 0)
+#define ESOCK_SEND_FLAG_DONTROUTE       (1 << 1)
+#define ESOCK_SEND_FLAG_EOR             (1 << 2)
+#define ESOCK_SEND_FLAG_MORE            (1 << 3)
+#define ESOCK_SEND_FLAG_NOSIGNAL        (1 << 4)
+#define ESOCK_SEND_FLAG_OOB             (1 << 5)
+/**/
+#define ESOCK_SEND_FLAG_MASK            ((1 << 6) - 1)
 
-/* type */
-#define ESOCK_TYPE_STREAM        1
-#define ESOCK_TYPE_DGRAM         2
-#define ESOCK_TYPE_RAW           3
-// #define ESOCK_TYPE_RDM           4
-#define ESOCK_TYPE_SEQPACKET     5
+#define ESOCK_RECV_FLAG_CMSG_CLOEXEC    (1 << 0)
+#define ESOCK_RECV_FLAG_ERRQUEUE        (1 << 1)
+#define ESOCK_RECV_FLAG_OOB             (1 << 2)
+#define ESOCK_RECV_FLAG_PEEK            (1 << 3)
+#define ESOCK_RECV_FLAG_TRUNC           (1 << 4)
+/**/
+#define ESOCK_RECV_FLAG_MASK            ((1 << 5) - 1)
 
-/* protocol */
-#define ESOCK_PROTOCOL_DEFAULT   0
-#define ESOCK_PROTOCOL_IP        1
-#define ESOCK_PROTOCOL_TCP       2
-#define ESOCK_PROTOCOL_UDP       3
-#define ESOCK_PROTOCOL_SCTP      4
-#define ESOCK_PROTOCOL_ICMP      5
-#define ESOCK_PROTOCOL_IGMP      6
 
 /* shutdown how */
 #define ESOCK_SHUTDOWN_HOW_RD    0
@@ -531,135 +511,218 @@ typedef union {
 #define ESOCK_SHUTDOWN_HOW_RDWR  2
 
 
-#define ESOCK_OPT_LEVEL_OTP        0
-#define ESOCK_OPT_LEVEL_SOCKET     1
-#define ESOCK_OPT_LEVEL_IP         2
-#define ESOCK_OPT_LEVEL_IPV6       3
-#define ESOCK_OPT_LEVEL_TCP        4
-#define ESOCK_OPT_LEVEL_UDP        5
-#define ESOCK_OPT_LEVEL_SCTP       6
 
-#define ESOCK_OPT_OTP_DEBUG        1
-#define ESOCK_OPT_OTP_IOW          2
-#define ESOCK_OPT_OTP_CTRL_PROC    3
-#define ESOCK_OPT_OTP_RCVBUF       4
-#define ESOCK_OPT_OTP_RCVCTRLBUF   6
-#define ESOCK_OPT_OTP_SNDCTRLBUF   7
-#define ESOCK_OPT_OTP_FD           8
-#define ESOCK_OPT_OTP_META         9
-#define ESOCK_OPT_OTP_DOMAIN       0xFF01 // INTERNAL AND ONLY GET
-#define ESOCK_OPT_OTP_TYPE         0xFF02 // INTERNAL AND ONLY GET
-#define ESOCK_OPT_OTP_PROTOCOL     0xFF03 // INTERNAL AND ONLY GET
-#define ESOCK_OPT_OTP_DTP          0xFF04 // INTERNAL AND ONLY GET
+/* domain */
+#define ESOCK_DOMAIN_LOCAL       1
+#define ESOCK_DOMAIN_INET        2
+#define ESOCK_DOMAIN_INET6       3
 
-#define ESOCK_OPT_SOCK_ACCEPTCONN     1
-#define ESOCK_OPT_SOCK_BINDTODEVICE   3
-#define ESOCK_OPT_SOCK_BROADCAST      4
-#define ESOCK_OPT_SOCK_DEBUG          6
-#define ESOCK_OPT_SOCK_DOMAIN         7
-#define ESOCK_OPT_SOCK_DONTROUTE      8
-#define ESOCK_OPT_SOCK_KEEPALIVE     10
-#define ESOCK_OPT_SOCK_LINGER        11
-#define ESOCK_OPT_SOCK_OOBINLINE     13
-#define ESOCK_OPT_SOCK_PASSCRED      14
-#define ESOCK_OPT_SOCK_PEEK_OFF      15
-#define ESOCK_OPT_SOCK_PRIORITY      17
-#define ESOCK_OPT_SOCK_PROTOCOL      18
-#define ESOCK_OPT_SOCK_RCVBUF        19
-#define ESOCK_OPT_SOCK_RCVLOWAT      21
-#define ESOCK_OPT_SOCK_RCVTIMEO      22
-#define ESOCK_OPT_SOCK_REUSEADDR     23
-#define ESOCK_OPT_SOCK_REUSEPORT     24
-#define ESOCK_OPT_SOCK_SNDBUF        27
-#define ESOCK_OPT_SOCK_SNDLOWAT      29
-#define ESOCK_OPT_SOCK_SNDTIMEO      30
-#define ESOCK_OPT_SOCK_TIMESTAMP     31
-#define ESOCK_OPT_SOCK_TYPE          32
+/* type */
+#define ESOCK_TYPE_STREAM        101
+#define ESOCK_TYPE_DGRAM         102
+#define ESOCK_TYPE_RAW           103
+// #define ESOCK_TYPE_RDM           104
+#define ESOCK_TYPE_SEQPACKET     105
 
-#define ESOCK_OPT_IP_ADD_MEMBERSHIP          1
-#define ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP   2
-#define ESOCK_OPT_IP_BLOCK_SOURCE            3
-#define ESOCK_OPT_IP_DROP_MEMBERSHIP         5
-#define ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP  6
-#define ESOCK_OPT_IP_FREEBIND                7
-#define ESOCK_OPT_IP_HDRINCL                 8
-#define ESOCK_OPT_IP_MINTTL                  9
-#define ESOCK_OPT_IP_MSFILTER               10
-#define ESOCK_OPT_IP_MTU                    11
-#define ESOCK_OPT_IP_MTU_DISCOVER           12
-#define ESOCK_OPT_IP_MULTICAST_ALL          13
-#define ESOCK_OPT_IP_MULTICAST_IF           14
-#define ESOCK_OPT_IP_MULTICAST_LOOP         15
-#define ESOCK_OPT_IP_MULTICAST_TTL          16
-#define ESOCK_OPT_IP_NODEFRAG               17
-#define ESOCK_OPT_IP_PKTINFO                19
-#define ESOCK_OPT_IP_RECVDSTADDR            20
-#define ESOCK_OPT_IP_RECVERR                21
-#define ESOCK_OPT_IP_RECVIF                 22
-#define ESOCK_OPT_IP_RECVOPTS               23
-#define ESOCK_OPT_IP_RECVORIGDSTADDR        24
-#define ESOCK_OPT_IP_RECVTOS                25
-#define ESOCK_OPT_IP_RECVTTL                26
-#define ESOCK_OPT_IP_RETOPTS                27
-#define ESOCK_OPT_IP_ROUTER_ALERT           28
-#define ESOCK_OPT_IP_SENDSRCADDR            29 // Same as IP_RECVDSTADDR?
-#define ESOCK_OPT_IP_TOS                    30
-#define ESOCK_OPT_IP_TRANSPARENT            31
-#define ESOCK_OPT_IP_TTL                    32
-#define ESOCK_OPT_IP_UNBLOCK_SOURCE         33
+/* protocol */
+#define ESOCK_PROTOCOL_DEFAULT   200
+#define ESOCK_PROTOCOL_IP        201
+#define ESOCK_PROTOCOL_TCP       202
+#define ESOCK_PROTOCOL_UDP       203
+#define ESOCK_PROTOCOL_SCTP      204
+#define ESOCK_PROTOCOL_ICMP      205
+#define ESOCK_PROTOCOL_IGMP      206
 
-#define ESOCK_OPT_IPV6_ADDRFORM              1
-#define ESOCK_OPT_IPV6_ADD_MEMBERSHIP        2
-#define ESOCK_OPT_IPV6_AUTHHDR               3
-#define ESOCK_OPT_IPV6_DROP_MEMBERSHIP       6
-#define ESOCK_OPT_IPV6_DSTOPTS               7
-#define ESOCK_OPT_IPV6_FLOWINFO             11
-#define ESOCK_OPT_IPV6_HOPLIMIT             12
-#define ESOCK_OPT_IPV6_HOPOPTS              13
-#define ESOCK_OPT_IPV6_MTU                  17
-#define ESOCK_OPT_IPV6_MTU_DISCOVER         18
-#define ESOCK_OPT_IPV6_MULTICAST_HOPS       19
-#define ESOCK_OPT_IPV6_MULTICAST_IF         20
-#define ESOCK_OPT_IPV6_MULTICAST_LOOP       21
-#define ESOCK_OPT_IPV6_RECVERR              24
-#define ESOCK_OPT_IPV6_RECVHOPLIMIT         25
-#define ESOCK_OPT_IPV6_RECVPKTINFO          26 // PKTINFO on FreeBSD
-#define ESOCK_OPT_IPV6_RECVTCLASS           27 // Linux and ?
-#define ESOCK_OPT_IPV6_ROUTER_ALERT         28
-#define ESOCK_OPT_IPV6_RTHDR                29
-#define ESOCK_OPT_IPV6_TCLASS               30
-#define ESOCK_OPT_IPV6_UNICAST_HOPS         31
-#define ESOCK_OPT_IPV6_V6ONLY               33
+/* option level */
+#define ESOCK_OPT_LEVEL_OTP        301
+#define ESOCK_OPT_LEVEL_SOCKET     302
+#define ESOCK_OPT_LEVEL_IP         303
+#define ESOCK_OPT_LEVEL_IPV6       304
+#define ESOCK_OPT_LEVEL_TCP        305
+#define ESOCK_OPT_LEVEL_UDP        306
+#define ESOCK_OPT_LEVEL_SCTP       307
 
-#define ESOCK_OPT_TCP_CONGESTION   1
-#define ESOCK_OPT_TCP_CORK         2
-#define ESOCK_OPT_TCP_MAXSEG       7
-#define ESOCK_OPT_TCP_NODELAY      9
+/* level 'otp' options */
+#define ESOCK_OPT_OTP_DEBUG        1001
+#define ESOCK_OPT_OTP_IOW          1002
+#define ESOCK_OPT_OTP_CTRL_PROC    1003
+#define ESOCK_OPT_OTP_RCVBUF       1004
+//#define ESOCK_OPT_OTP_SNDBUF       1005
+#define ESOCK_OPT_OTP_RCVCTRLBUF   1006
+#define ESOCK_OPT_OTP_SNDCTRLBUF   1007
+#define ESOCK_OPT_OTP_FD           1008
+#define ESOCK_OPT_OTP_META         1009
+/**/
+#define ESOCK_OPT_OTP_DOMAIN       1999 // INTERNAL AND ONLY GET
+#define ESOCK_OPT_OTP_TYPE         1998 // INTERNAL AND ONLY GET
+#define ESOCK_OPT_OTP_PROTOCOL     1997 // INTERNAL AND ONLY GET
+#define ESOCK_OPT_OTP_DTP          1996 // INTERNAL AND ONLY GET
 
-#define ESOCK_OPT_UDP_CORK         1
+/* level 'socket' options */
+#define ESOCK_OPT_SOCK_ACCEPTCONN    2001
+//#define ESOCK_OPT_SOCK_ACCEPTFILTER  2002
+#define ESOCK_OPT_SOCK_BINDTODEVICE  2003
+#define ESOCK_OPT_SOCK_BROADCAST     2004
+//#define ESOCK_OPT_SOCK_BUSY_POLL     2005
+#define ESOCK_OPT_SOCK_DEBUG         2006
+#define ESOCK_OPT_SOCK_DOMAIN        2007
+#define ESOCK_OPT_SOCK_DONTROUTE     2008
+//#define ESOCK_OPT_SOCK_ERROR         2009
+#define ESOCK_OPT_SOCK_KEEPALIVE     2010
+#define ESOCK_OPT_SOCK_LINGER        2011
+//#define ESOCK_OPT_SOCK_MARK          2012
+#define ESOCK_OPT_SOCK_OOBINLINE     2013
+#define ESOCK_OPT_SOCK_PASSCRED      2014
+#define ESOCK_OPT_SOCK_PEEK_OFF      2015
+//#define ESOCK_OPT_SOCK_PEERCRED      2016
+#define ESOCK_OPT_SOCK_PRIORITY      2017
+#define ESOCK_OPT_SOCK_PROTOCOL      2018
+#define ESOCK_OPT_SOCK_RCVBUF        2019
+//#define ESOCK_OPT_SOCK_RCVBUFFORCE   2020
+#define ESOCK_OPT_SOCK_RCVLOWAT      2021
+#define ESOCK_OPT_SOCK_RCVTIMEO      2022
+#define ESOCK_OPT_SOCK_REUSEADDR     2023
+#define ESOCK_OPT_SOCK_REUSEPORT     2024
+//#define ESOCK_OPT_SOCK_RXQ_OVFL      2025
+//#define ESOCK_OPT_SOCK_SETFIB        2026
+#define ESOCK_OPT_SOCK_SNDBUF        2027
+//#define ESOCK_OPT_SOCK_SNDBUFFORCE   2028
+#define ESOCK_OPT_SOCK_SNDLOWAT      2029
+#define ESOCK_OPT_SOCK_SNDTIMEO      2030
+#define ESOCK_OPT_SOCK_TIMESTAMP     2031
+#define ESOCK_OPT_SOCK_TYPE          2032
 
-#define ESOCK_OPT_SCTP_ASSOCINFO           2
-#define ESOCK_OPT_SCTP_AUTOCLOSE           8
-#define ESOCK_OPT_SCTP_DISABLE_FRAGMENTS  12
-#define ESOCK_OPT_SCTP_EVENTS             14
-#define ESOCK_OPT_SCTP_INITMSG            18
-#define ESOCK_OPT_SCTP_MAXSEG             21
-#define ESOCK_OPT_SCTP_NODELAY            23
-#define ESOCK_OPT_SCTP_RTOINFO            29
+/* level 'ip' options */
+#define ESOCK_OPT_IP_ADD_MEMBERSHIP         3001
+#define ESOCK_OPT_IP_ADD_SOURCE_MEMBERSHIP  3002
+#define ESOCK_OPT_IP_BLOCK_SOURCE           3003
+//#define ESOCK_OPT_IP_DONTFRAG               3004
+#define ESOCK_OPT_IP_DROP_MEMBERSHIP        3005
+#define ESOCK_OPT_IP_DROP_SOURCE_MEMBERSHIP 3006
+#define ESOCK_OPT_IP_FREEBIND               3007
+#define ESOCK_OPT_IP_HDRINCL                3008
+#define ESOCK_OPT_IP_MINTTL                 3009
+#define ESOCK_OPT_IP_MSFILTER               3010
+#define ESOCK_OPT_IP_MTU                    3011
+#define ESOCK_OPT_IP_MTU_DISCOVER           3012
+#define ESOCK_OPT_IP_MULTICAST_ALL          3013
+#define ESOCK_OPT_IP_MULTICAST_IF           3014
+#define ESOCK_OPT_IP_MULTICAST_LOOP         3015
+#define ESOCK_OPT_IP_MULTICAST_TTL          3016
+#define ESOCK_OPT_IP_NODEFRAG               3017
+//#define ESOCK_OPT_IP_OPTIONS                3018
+#define ESOCK_OPT_IP_PKTINFO                3019
+#define ESOCK_OPT_IP_RECVDSTADDR            3020
+#define ESOCK_OPT_IP_RECVERR                3021
+#define ESOCK_OPT_IP_RECVIF                 3022
+#define ESOCK_OPT_IP_RECVOPTS               3023
+#define ESOCK_OPT_IP_RECVORIGDSTADDR        3024
+#define ESOCK_OPT_IP_RECVTOS                3025
+#define ESOCK_OPT_IP_RECVTTL                3026
+#define ESOCK_OPT_IP_RETOPTS                3027
+#define ESOCK_OPT_IP_ROUTER_ALERT           3028
+#define ESOCK_OPT_IP_SENDSRCADDR            3029 // Same as IP_RECVDSTADDR?
+#define ESOCK_OPT_IP_TOS                    3030
+#define ESOCK_OPT_IP_TRANSPARENT            3031
+#define ESOCK_OPT_IP_TTL                    3032
+#define ESOCK_OPT_IP_UNBLOCK_SOURCE         3033
+
+/* level 'ipv6' options */
+#define ESOCK_OPT_IPV6_ADDRFORM             4001
+#define ESOCK_OPT_IPV6_ADD_MEMBERSHIP       4002
+#define ESOCK_OPT_IPV6_AUTHHDR              4003
+//#define ESOCK_OPT_IPV6_AUTH_LEVEL           4004
+//#define ESOCK_OPT_IPV6_CHECKSUM             4005
+#define ESOCK_OPT_IPV6_DROP_MEMBERSHIP      4006
+#define ESOCK_OPT_IPV6_DSTOPTS              4007
+//#define ESOCK_OPT_IPV6_ESP_NETWORK_LEVEL    4008
+//#define ESOCK_OPT_IPV6_ESP_TRANS_LEVEL      4009
+//#define ESOCK_OPT_IPV6_FAITH                4010
+#define ESOCK_OPT_IPV6_FLOWINFO             4011
+#define ESOCK_OPT_IPV6_HOPLIMIT             4012
+#define ESOCK_OPT_IPV6_HOPOPTS              4013
+//#define ESOCK_OPT_IPV6_IPCOMP_LEVEL         4014
+//#define ESOCK_OPT_IPV6_JOIN_GROUP           4015
+//#define ESOCK_OPT_IPV6_LEAVE_GROUP          4016
+#define ESOCK_OPT_IPV6_MTU                  4017
+#define ESOCK_OPT_IPV6_MTU_DISCOVER         4018
+#define ESOCK_OPT_IPV6_MULTICAST_HOPS       4019
+#define ESOCK_OPT_IPV6_MULTICAST_IF         4020
+#define ESOCK_OPT_IPV6_MULTICAST_LOOP       4021
+//#define ESOCK_OPT_IPV6_PORTRANGE            4022
+//#define ESOCK_OPT_IPV6_PKTOPTIONS           4023
+#define ESOCK_OPT_IPV6_RECVERR              4024
+#define ESOCK_OPT_IPV6_RECVHOPLIMIT         4025
+#define ESOCK_OPT_IPV6_RECVPKTINFO          4026 // PKTINFO on FreeBSD
+#define ESOCK_OPT_IPV6_RECVTCLASS           4027 // Linux and ?
+#define ESOCK_OPT_IPV6_ROUTER_ALERT         4028
+#define ESOCK_OPT_IPV6_RTHDR                4029
+#define ESOCK_OPT_IPV6_TCLASS               4030
+#define ESOCK_OPT_IPV6_UNICAST_HOPS         4031
+//#define ESOCK_OPT_IPV6_USE_MIN_MTU          4032
+#define ESOCK_OPT_IPV6_V6ONLY               4033
+
+/* level 'tcp' options */
+#define ESOCK_OPT_TCP_CONGESTION        5001
+#define ESOCK_OPT_TCP_CORK              5002
+//#define ESOCK_OPT_TCP_INFO              5003
+//#define ESOCK_OPT_TCP_KEEPCNT           5004
+//#define ESOCK_OPT_TCP_KEEPIDLE          5005
+//#define ESOCK_OPT_TCP_KEEPINTVL         5006
+#define ESOCK_OPT_TCP_MAXSEG            5007
+//#define ESOCK_OPT_TCP_MD5SIG            5008
+#define ESOCK_OPT_TCP_NODELAY           5009
+//#define ESOCK_OPT_TCP_NOOPT             5010
+//#define ESOCK_OPT_TCP_NOPUSH            5011
+//#define ESOCK_OPT_TCP_SYNCNT            5012
+//#define ESOCK_OPT_TCP_USER_TIMEOUT      5013
+
+/* level 'udp' options */
+#define ESOCK_OPT_UDP_CORK              6001
+
+/* level 'sctp' options */
+//#define ESOCK_OPT_SCTP_ADAPTION_LAYER          7001
+#define ESOCK_OPT_SCTP_ASSOCINFO               7002
+//#define ESOCK_OPT_SCTP_AUTH_ACTIVE_KEY         7003
+//#define ESOCK_OPT_SCTP_AUTH_ASCONF             7004
+//#define ESOCK_OPT_SCTP_AUTH_CHUNK              7005
+//#define ESOCK_OPT_SCTP_AUTH_KEY                7006
+//#define ESOCK_OPT_SCTP_AUTH_DELETE_KEY         7007
+#define ESOCK_OPT_SCTP_AUTOCLOSE               7008
+//#define ESOCK_OPT_SCTP_CONTEXT                 7009
+//#define ESOCK_OPT_SCTP_DEFAULT_SEND_PARAMS     7010
+//#define ESOCK_OPT_SCTP_DELAYED_ACK_TIME        7011
+#define ESOCK_OPT_SCTP_DISABLE_FRAGMENTS       7012
+//#define ESOCK_OPT_SCTP_HMAC_IDENT              7013
+#define ESOCK_OPT_SCTP_EVENTS                  7014
+//#define ESOCK_OPT_SCTP_EXPLICIT_EOR            7015
+//#define ESOCK_OPT_SCTP_FRAGMENT_INTERLEAVE     7016
+//#define ESOCK_OPT_SCTP_GET_PEER_ADDR_INFO      7017
+#define ESOCK_OPT_SCTP_INITMSG                 7018
+//#define ESOCK_OPT_SCTP_I_WANT_MAPPED_V4_ADDR   7019
+//#define ESOCK_OPT_SCTP_LOCAL_AUTH_CHUNKS       7020
+#define ESOCK_OPT_SCTP_MAXSEG                  7021
+//#define ESOCK_OPT_SCTP_MAXBURST                7022
+#define ESOCK_OPT_SCTP_NODELAY                 7023
+//#define ESOCK_OPT_SCTP_PARTIAL_DELIVERY_POINT  7024
+//#define ESOCK_OPT_SCTP_PEER_ADDR_PARAMS        7025
+//#define ESOCK_OPT_SCTP_PEER_AUTH_CHUNKS        7026
+//#define ESOCK_OPT_SCTP_PRIMARY_ADDR            7027
+//#define ESOCK_OPT_SCTP_RESET_STREAMS           7028
+#define ESOCK_OPT_SCTP_RTOINFO                 7029
+//#define ESOCK_OPT_SCTP_SET_PEER_PRIMARY_ADDR   7030
+//#define ESOCK_OPT_SCTP_STATUS                  7031
+//#define ESOCK_OPT_SCTP_USE_EXT_RECVINFO        7032
+
+
+/*--------------------------------------------------------------------------*/
+
 
 /* We should *eventually* use this instead of hard-coding the size (to 1) */
 #define ESOCK_RECVMSG_IOVEC_SZ 1
 
 #define ESOCK_CMD_DEBUG        0x0001
 #define ESOCK_CMD_SOCKET_DEBUG 0x0002
-
-#define ESOCK_SUPPORTS_OPTIONS      0x0001
-#define ESOCK_SUPPORTS_SCTP         0x0002
-#define ESOCK_SUPPORTS_IPV6         0x0003
-#define ESOCK_SUPPORTS_LOCAL        0x0004
-#define ESOCK_SUPPORTS_SEND_FLAGS   0x0005
-#define ESOCK_SUPPORTS_RECV_FLAGS   0x0006
-#define ESOCK_SUPPORTS_NETNS        0x0007
 
 #define ESOCK_WHICH_DOMAIN_ERROR -1
 #define ESOCK_WHICH_DOMAIN_UNSUP -2
@@ -677,9 +740,9 @@ typedef union {
 
 /* Global socket debug */
 #define SGDBG( proto )            ESOCK_DBG_PRINTF( data.dbg , proto )
-#define SGDBG2( __DBG__ , proto ) ESOCK_DBG_PRINTF( __DBG__ || data.dbg , proto )
 /* Socket specific debug */
 #define SSDBG( __D__ , proto )    ESOCK_DBG_PRINTF( (__D__)->dbg , proto )
+#define SSDBG2( __DBG__ , proto ) ESOCK_DBG_PRINTF( (__DBG__) , proto )
 
 #define ESOCK_CNT_INC( __E__, __D__, SF, ACNT, CNT, INC)  \
     {                                                    \
@@ -1139,26 +1202,27 @@ static ERL_NIF_TERM socket_info_reqs(ErlNifEnv*         env,
                                      ESockRequestor*    crp,
                                      ESockRequestQueue* q);
 
-static ERL_NIF_TERM esock_supports(ErlNifEnv* env, int key);
-static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_0(ErlNifEnv* env);
+static ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key);
+static ERL_NIF_TERM esock_supports_2(ErlNifEnv* env,
+                                     ERL_NIF_TERM key1, int key2);
+//static ERL_NIF_TERM esock_supports_options(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options_socket(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options_ip(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options_ipv6(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options_tcp(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options_udp(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_sctp(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_ipv6(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_local(ErlNifEnv* env);
-static ERL_NIF_TERM esock_supports_netns(ErlNifEnv* env);
+//static ERL_NIF_TERM esock_supports_sctp(ErlNifEnv* env);
+//static ERL_NIF_TERM esock_supports_ipv6(ErlNifEnv* env);
+//static ERL_NIF_TERM esock_supports_local(ErlNifEnv* env);
+//static ERL_NIF_TERM esock_supports_netns(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_send_flags(ErlNifEnv* env);
 static ERL_NIF_TERM esock_supports_recv_flags(ErlNifEnv* env);
 
 static ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
                                 int          fd,
                                 ERL_NIF_TERM eextra);
-static BOOLEAN_T esock_open2_is_debug(ErlNifEnv*   env,
-                                      ERL_NIF_TERM eextra);
 static BOOLEAN_T esock_open2_todup(ErlNifEnv*   env,
                                    ERL_NIF_TERM eextra);
 static BOOLEAN_T esock_open2_get_domain(ErlNifEnv*   env,
@@ -1175,6 +1239,9 @@ static ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
                                 int          type,
                                 int          protocol,
                                 ERL_NIF_TERM eopts);
+static BOOLEAN_T esock_open_is_debug(ErlNifEnv*   env,
+                                     ERL_NIF_TERM eextra,
+                                     BOOLEAN_T dflt);
 static BOOLEAN_T esock_open_which_domain(SOCKET sock,   int* domain);
 static BOOLEAN_T esock_open_which_type(SOCKET sock,     int* type);
 static BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto);
@@ -3181,6 +3248,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(num_tstreams);     \
     LOCAL_ATOM_DECL(num_writers);      \
     LOCAL_ATOM_DECL(offender);         \
+    LOCAL_ATOM_DECL(options);          \
     LOCAL_ATOM_DECL(origin);           \
     LOCAL_ATOM_DECL(partial_delivery); \
     LOCAL_ATOM_DECL(peer_error);       \
@@ -3195,12 +3263,14 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(read_pkg_max);     \
     LOCAL_ATOM_DECL(read_tries);       \
     LOCAL_ATOM_DECL(read_waits);       \
+    LOCAL_ATOM_DECL(recv_flags);       \
     LOCAL_ATOM_DECL(registry);         \
     LOCAL_ATOM_DECL(reject_route);     \
     LOCAL_ATOM_DECL(remote);           \
     LOCAL_ATOM_DECL(select);           \
     LOCAL_ATOM_DECL(sender_dry);       \
     LOCAL_ATOM_DECL(send_failure);     \
+    LOCAL_ATOM_DECL(send_flags);       \
     LOCAL_ATOM_DECL(shutdown);         \
     LOCAL_ATOM_DECL(slist);            \
     LOCAL_ATOM_DECL(socket_debug);     \
@@ -3418,8 +3488,14 @@ ERL_NIF_TERM esock_global_info(ErlNifEnv* env)
             sizeof(gcnt) / sizeof(ERL_NIF_TERM);
         ERL_NIF_TERM
             lgcnt  = MKLA(env, gcnt, lenGCnt),
-            keys[] = {esock_atom_debug, atom_iow, atom_counters},
-            vals[] = {BOOL2ATOM(data.dbg), BOOL2ATOM(data.iow), lgcnt},
+            keys[] = {esock_atom_debug,
+                      atom_socket_debug,
+                      atom_iow,
+                      atom_counters},
+            vals[] = {BOOL2ATOM(data.dbg),
+                      BOOL2ATOM(data.sockDbg),
+                      BOOL2ATOM(data.iow),
+                      lgcnt},
             info;
         unsigned int
             numKeys = sizeof(keys) / sizeof(ERL_NIF_TERM),
@@ -3882,101 +3958,141 @@ ERL_NIF_TERM nif_supports(ErlNifEnv*         env,
 #if defined(__WIN32__)
     return enif_raise_exception(env, MKA(env, "notsup"));
 #else
-    int key;
+    int key2;
     
     SGDBG( ("SOCKET", "nif_supports -> entry with %d args\r\n", argc) );
     
     /* Extract arguments and perform preliminary validation */
 
-    if ((argc != 1) ||
-        !GET_INT(env, argv[0], &key)) {
-        return enif_make_badarg(env);
-    }
+    if (argc == 0)
+        return esock_supports_0(env);
 
-    return esock_supports(env, key);
+    if (argc == 1)
+        return esock_supports_1(env, argv[0]);
+
+    if (! GET_INT(env, argv[1], &key2))
+        return enif_make_badarg(env);
+
+    if (argc == 2)
+        return esock_supports_2(env, argv[0], key2);
+
+    return enif_make_badarg(env);
 #endif
 }
 
-
-
-/* esock_supports - what features do we support
+/* esock_supports - what features do we support?
  *
- * This is to prove information about what features actually
+ * This gives information about what features actually
  * work on the current platform.
  */
 #if !defined(__WIN32__)
+
 static
-ERL_NIF_TERM esock_supports(ErlNifEnv* env, int key)
+ERL_NIF_TERM esock_supports_0(ErlNifEnv* env)
+{
+    SocketTArray opts = TARRAY_CREATE(8);
+    ERL_NIF_TERM is_supported, opts_list;
+
+    SGDBG( ("SOCKET", "esock_supports_0 -> entry\r\n") );
+
+#if defined(HAVE_SCTP)
+    is_supported = esock_atom_true;
+#else
+    is_supported = esock_atom_false;
+#endif
+    TARRAY_ADD(opts, MKT2(env, esock_atom_sctp, is_supported));
+               
+    /* Is this (test) really sufficient for testing if we support IPv6? */
+#if defined(HAVE_IPV6)
+    is_supported = esock_atom_true;
+#else
+    is_supported = esock_atom_false;
+#endif
+    TARRAY_ADD(opts, MKT2(env, esock_atom_ipv6, is_supported));
+
+#if defined(AF_LOCAL)
+    is_supported = esock_atom_true;
+#else
+    is_supported = esock_atom_false;
+#endif
+    TARRAY_ADD(opts, MKT2(env, esock_atom_local, is_supported));
+
+#if defined(HAVE_SETNS)
+    is_supported = esock_atom_true;
+#else
+    is_supported = esock_atom_false;
+#endif
+    TARRAY_ADD(opts, MKT2(env, atom_netns, is_supported));
+
+    TARRAY_TOLIST(opts, env, &opts_list);
+    return opts_list;
+}
+
+static
+ERL_NIF_TERM esock_supports_1(ErlNifEnv* env, ERL_NIF_TERM key)
 {
     ERL_NIF_TERM result;
 
-    SGDBG( ("SOCKET", "esock_supports -> entry with 0x%lX\r\n", key) );
+    SGDBG( ("SOCKET",
+            "esock_supports_2 -> entry"
+            "\r\n   key: %T"
+            "\r\n", key) );
 
-    switch (key) {
-    case ESOCK_SUPPORTS_OPTIONS:
-        result = esock_supports_options(env);
-        break;
-
-    case ESOCK_SUPPORTS_SCTP:
-        result = esock_supports_sctp(env);
-        break;
-
-    case ESOCK_SUPPORTS_IPV6:
-        result = esock_supports_ipv6(env);
-        break;
-
-    case ESOCK_SUPPORTS_LOCAL:
-        result = esock_supports_local(env);
-        break;
-
-    case ESOCK_SUPPORTS_NETNS:
-        result = esock_supports_netns(env);
-        break;
-
-    case ESOCK_SUPPORTS_SEND_FLAGS:
+    if (COMPARE(key, atom_send_flags) == 0)
         result = esock_supports_send_flags(env);
-        break;
-
-    case ESOCK_SUPPORTS_RECV_FLAGS:
+    else if (COMPARE(key, atom_recv_flags) == 0)
         result = esock_supports_recv_flags(env);
-        break;
+    else
+        result = MKEL(env);
 
-    default:
-        result = esock_atom_false;
-        break;
+    return result;
+}
+
+static
+ERL_NIF_TERM esock_supports_2(ErlNifEnv* env, ERL_NIF_TERM key1, int key2)
+{
+    ERL_NIF_TERM result;
+
+    SGDBG( ("SOCKET",
+            "esock_supports_2 -> entry"
+            "\r\n   key1: %%T"
+            "\r\n   key2: %d"
+            "\r\n", key1, key2) );
+
+    if (COMPARE(key1, atom_options) == 0) {
+
+        switch (key2) {
+        case ESOCK_OPT_LEVEL_SOCKET:
+            result = esock_supports_options_socket(env);
+            break;
+        case ESOCK_OPT_LEVEL_IP:
+            result = esock_supports_options_ip(env);
+            break;
+        case ESOCK_OPT_LEVEL_IPV6:
+            result = esock_supports_options_ipv6(env);
+            break;
+        case ESOCK_OPT_LEVEL_TCP:
+            result = esock_supports_options_tcp(env);
+            break;
+        case ESOCK_OPT_LEVEL_UDP:
+            result = esock_supports_options_udp(env);
+            break;
+        case ESOCK_OPT_LEVEL_SCTP:
+            result = esock_supports_options_sctp(env);
+            break;
+        default:
+            result = MKEL(env);
+            break;
+        }
+
+    } else {
+        result = MKEL(env);
     }
 
     return result;
 }
+
 #endif
-
-
-#if !defined(__WIN32__)
-static
-ERL_NIF_TERM esock_supports_options(ErlNifEnv* env)
-{
-    ERL_NIF_TERM sockOpts  = esock_supports_options_socket(env);
-    ERL_NIF_TERM sockOptsT = MKT2(env, esock_atom_socket, sockOpts);
-    ERL_NIF_TERM ipOpts    = esock_supports_options_ip(env);
-    ERL_NIF_TERM ipOptsT   = MKT2(env, esock_atom_ip, ipOpts);
-    ERL_NIF_TERM ipv6Opts  = esock_supports_options_ipv6(env);
-    ERL_NIF_TERM ipv6OptsT = MKT2(env, esock_atom_ipv6, ipv6Opts);
-    ERL_NIF_TERM tcpOpts   = esock_supports_options_tcp(env);
-    ERL_NIF_TERM tcpOptsT  = MKT2(env, esock_atom_tcp, tcpOpts);
-    ERL_NIF_TERM udpOpts   = esock_supports_options_udp(env);
-    ERL_NIF_TERM udpOptsT  = MKT2(env, esock_atom_udp, udpOpts);
-    ERL_NIF_TERM sctpOpts  = esock_supports_options_sctp(env);
-    ERL_NIF_TERM sctpOptsT = MKT2(env, esock_atom_sctp, sctpOpts);
-    ERL_NIF_TERM optsA[]   = {sockOptsT,
-                              ipOptsT, ipv6OptsT,
-                              tcpOptsT, udpOptsT, sctpOptsT};
-    unsigned int lenOptsA  = sizeof(optsA) / sizeof(ERL_NIF_TERM);
-    ERL_NIF_TERM optsL     = MKLA(env, optsA, lenOptsA);
-
-    return optsL;
-}
-#endif
-
 
 
 #if !defined(__WIN32__)
@@ -5156,6 +5272,7 @@ ERL_NIF_TERM esock_supports_options_sctp(ErlNifEnv* env)
 #endif
 
 
+#if 0
 
 #if !defined(__WIN32__)
 static
@@ -5228,6 +5345,7 @@ ERL_NIF_TERM esock_supports_netns(ErlNifEnv* env)
 }
 #endif
 
+#endif // #if 0
 
 
 #if !defined(__WIN32__)
@@ -5432,7 +5550,9 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
                     "\r\n   eopts: %T"
                     "\r\n", fd, eopts) );
 
+            MLOCK(data.cntMtx);
             result = esock_open2(env, fd, eopts);
+            MUNLOCK(data.cntMtx);
         }
         break;
 
@@ -5476,8 +5596,9 @@ ERL_NIF_TERM nif_open(ErlNifEnv*         env,
                 return esock_make_error(env, esock_atom_einval);
             }
 
+            MLOCK(data.cntMtx);
             result = esock_open4(env, domain, type, proto, eopts);
-
+            MUNLOCK(data.cntMtx);
         }
         break;
 
@@ -5512,7 +5633,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
                          int          fd,
                          ERL_NIF_TERM eopts)
 {
-    BOOLEAN_T        dbg = esock_open2_is_debug(env, eopts);
+    BOOLEAN_T        dbg = esock_open_is_debug(env, eopts, data.sockDbg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     res, reason;
     int              domain, type, protocol;
@@ -5521,7 +5642,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     SOCKET           sock;
     HANDLE           event;
 
-    SGDBG2( dbg,
+    SSDBG2( dbg,
             ("SOCKET", "esock_open2 -> entry with"
              "\r\n   fd:    %d"
              "\r\n   eopts: %T"
@@ -5539,7 +5660,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
      */
 
     if (!esock_open_which_domain(fd, &domain)) {
-        SGDBG2( dbg,
+        SSDBG2( dbg,
                 ("SOCKET",
                  "esock_open2 -> failed get domain from system\r\n") );
         if (!esock_open2_get_domain(env, eopts, &domain)) {
@@ -5549,7 +5670,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     }
     
     if (!esock_open_which_type(fd, &type)) {
-        SGDBG2( dbg,
+        SSDBG2( dbg,
                 ("SOCKET", "esock_open2 -> failed get type from system\r\n") );
         if (!esock_open2_get_type(env, eopts, &type)) {
             reason = MKT2(env, atom_missing, esock_atom_type);
@@ -5559,7 +5680,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     }
     
     if (!esock_open_which_protocol(fd, &protocol)) {
-        SGDBG2( dbg,
+        SSDBG2( dbg,
                 ("SOCKET", "esock_open2 -> failed get protocol from system\r\n") );
         if (!esock_open2_get_protocol(env, eopts, &protocol)) {
             reason = MKT2(env, atom_missing, esock_atom_protocol);
@@ -5568,7 +5689,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
     }
 
 
-    SGDBG2( dbg,
+    SSDBG2( dbg,
             ("SOCKET", "esock_open2 -> "
              "\r\n   domain:   %d"
              "\r\n   type:     %d"
@@ -5581,7 +5702,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
         if (IS_SOCKET_ERROR(sock = dup(fd))) {
             save_errno = sock_errno();
 
-            SGDBG2( dbg,
+            SSDBG2( dbg,
                     ("SOCKET", "esock_open2 -> dup failed: %d\r\n", save_errno) );
 
             /* reason = {dup, 'errno atom'} */
@@ -5617,10 +5738,10 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
 	int          code = sock_peer(descP->sock,
                                       (struct sockaddr*) &descP->remote, &sz);
         if (! IS_SOCKET_ERROR(code)) {
-            SGDBG2( dbg, ("SOCKET", "esock_open2 -> connected\r\n") );
+            SSDBG2( dbg, ("SOCKET", "esock_open2 -> connected\r\n") );
 	    descP->writeState = ESOCK_STATE_CONNECTED;
         } else {
-            SGDBG2( dbg, ("SOCKET", "esock_open2 -> not connected\r\n") );
+            SSDBG2( dbg, ("SOCKET", "esock_open2 -> not connected\r\n") );
         }
     }
 
@@ -5643,6 +5764,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
         return esock_make_error(env, atom_exmon);
 
 
+    descP->dbg = dbg;
     inc_socket(domain, type, protocol);
 
     /* And finally update the registry.
@@ -5650,20 +5772,10 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
      */
     esock_send_reg_add_msg(env, res);
 
-    SGDBG2( dbg,
+    SSDBG2( dbg,
             ("SOCKET", "esock_open2 -> done: %T\r\n", res) );
 
     return esock_make_ok2(env, res);
-}
-
-
-/* The eextra map "may" contain a boolean 'debug' key, if not we assume
- * the default of FALSE.
- */
-static
-BOOLEAN_T esock_open2_is_debug(ErlNifEnv* env, ERL_NIF_TERM eextra)
-{
-    return esock_get_bool_from_map(env, eextra, MKA(env, "debug"), FALSE);
 }
 
 
@@ -5769,7 +5881,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
                          int          protocol,
                          ERL_NIF_TERM eopts)
 {
-    BOOLEAN_T        dbg = esock_open2_is_debug(env, eopts);
+    BOOLEAN_T        dbg = esock_open_is_debug(env, eopts, data.sockDbg);
     ESockDescriptor* descP;
     ERL_NIF_TERM     res;
     int              proto = protocol, save_errno;
@@ -5780,7 +5892,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
     int              current_ns = 0;
 #endif
 
-    SGDBG2( dbg,
+    SSDBG2( dbg,
             ("SOCKET", "esock_open4 -> entry with"
              "\r\n   domain:   %d"
              "\r\n   type:     %d"
@@ -5811,7 +5923,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
         return esock_make_error_errno(env, sock_errno());
     }
 
-    SGDBG2( dbg, ("SOCKET", "esock_open -> open success: %d\r\n", sock) );
+    SSDBG2( dbg, ("SOCKET", "esock_open -> open success: %d\r\n", sock) );
 
 
     /* NOTE that if the protocol = 0 (default) and the domain is not
@@ -5857,7 +5969,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
         return esock_make_error_errno(env, save_errno);
     }
 
-    SGDBG2( dbg, ("SOCKET", "esock_open4 -> event success: %d\r\n", event) );
+    SSDBG2( dbg, ("SOCKET", "esock_open4 -> event success: %d\r\n", event) );
 
     SET_NONBLOCKING(sock);
 
@@ -5900,15 +6012,23 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
     }
 
 
-    MLOCK(data.cntMtx);
     descP->dbg = data.sockDbg;
     inc_socket(domain, type, protocol);
-    MUNLOCK(data.cntMtx);
 
     /* And finally update the registry */
     esock_send_reg_add_msg(env, res);
 
     return esock_make_ok2(env, res);
+}
+
+
+/* The eextra map "may" contain a boolean 'debug' key.
+ */
+static
+BOOLEAN_T esock_open_is_debug(ErlNifEnv* env, ERL_NIF_TERM eextra,
+                              BOOLEAN_T dflt)
+{
+    return esock_get_bool_from_map(env, eextra, MKA(env, "debug"), dflt);
 }
 
 
@@ -20132,91 +20252,71 @@ BOOLEAN_T esock_open4_get_netns(ErlNifEnv* env, ERL_NIF_TERM opts, char** netns)
 static
 BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
 {
-    unsigned int ef;
-    int          tmp = 0;
+    int tmp = 0;
 
-    /* First, check if we have any flags at all */
+    /* Optimize for no flags */
     if (eflags == 0) {
         *flags = 0;
         return TRUE;
     }
-        
-    for (ef = ESOCK_SEND_FLAG_LOW; ef <= ESOCK_SEND_FLAG_HIGH; ef++) {
 
-        switch (ef) {
-        case ESOCK_SEND_FLAG_CONFIRM:
-            if ((1 << ESOCK_SEND_FLAG_CONFIRM) & eflags) {
+    /* Check for flags out of range */
+    if ((eflags & ~ESOCK_SEND_FLAG_MASK) != 0) {
+        esock_warning_msg("Use of unknown send flag (0x%lX)\r\n",
+                          eflags);
+    }
+
+    if ((eflags & ESOCK_SEND_FLAG_CONFIRM) != 0) {
 #if defined(MSG_CONFIRM)
-                tmp |= MSG_CONFIRM;
+        tmp |= MSG_CONFIRM;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-        case ESOCK_SEND_FLAG_DONTROUTE:
-            if ((1 << ESOCK_SEND_FLAG_DONTROUTE) & eflags) {
+    if ((eflags & ESOCK_SEND_FLAG_DONTROUTE) != 0) {
 #if defined(MSG_DONTROUTE)
-                tmp |= MSG_DONTROUTE;
+        tmp |= MSG_DONTROUTE;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-        case ESOCK_SEND_FLAG_EOR:
-            if ((1 << ESOCK_SEND_FLAG_EOR) & eflags) {
+    if ((eflags & ESOCK_SEND_FLAG_EOR) != 0) {
 #if defined(MSG_EOR)
-                tmp |= MSG_EOR;
+        tmp |= MSG_EOR;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-        case ESOCK_SEND_FLAG_MORE:
-            if ((1 << ESOCK_SEND_FLAG_MORE) & eflags) {
+    if ((eflags & ESOCK_SEND_FLAG_MORE) != 0) {
 #if defined(MSG_MORE)
-                tmp |= MSG_MORE;
+        tmp |= MSG_MORE;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-        case ESOCK_SEND_FLAG_NOSIGNAL:
-            if ((1 << ESOCK_SEND_FLAG_NOSIGNAL) & eflags) {
+    if ((eflags & ESOCK_SEND_FLAG_NOSIGNAL) != 0) {
 #if defined(MSG_NOSIGNAL)
-                tmp |= MSG_NOSIGNAL;
+        tmp |= MSG_NOSIGNAL;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-        case ESOCK_SEND_FLAG_OOB:
-            if ((1 << ESOCK_SEND_FLAG_OOB) & eflags) {
+    if ((eflags & ESOCK_SEND_FLAG_OOB) != 0) {
 #if defined(MSG_OOB)
-                tmp |= MSG_OOB;
+        tmp |= MSG_OOB;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
-
-        default:
-            esock_warning_msg("Use of unknown send flag %d (0x%lX)\r\n",
-                              ef, eflags);
-            return FALSE;
-        }
-
     }
 
     *flags = tmp;
-
     return TRUE;
 }
-
 
 
 /* erecvflags2recvflags - convert internal (erlang) send flags to (proper)
@@ -20228,92 +20328,75 @@ BOOLEAN_T esendflags2sendflags(unsigned int eflags, int* flags)
 static
 BOOLEAN_T erecvflags2recvflags(unsigned int eflags, int* flags)
 {
-    unsigned int ef;
-    int          tmp = 0;
+    int tmp = 0;
 
+
+    /* Optimize for no flags */
     if (eflags == 0) {
         *flags = 0;
         return TRUE;
     }
 
-    for (ef = ESOCK_RECV_FLAG_LOW; ef <= ESOCK_RECV_FLAG_HIGH; ef++) {
+    if ((eflags & ~ESOCK_RECV_FLAG_MASK) != 0) {
+        esock_warning_msg("Use of unknown recv flag (0x%lX)\r\n",
+                          eflags);
+    }
 
-        switch (ef) {
-        case ESOCK_RECV_FLAG_CMSG_CLOEXEC:
-            if ((1 << ESOCK_RECV_FLAG_CMSG_CLOEXEC) & eflags) {
+    if ((eflags & ESOCK_RECV_FLAG_CMSG_CLOEXEC) != 0) {
 #if defined(MSG_CMSG_CLOEXEC)
-                tmp |= MSG_CMSG_CLOEXEC;
+        tmp |= MSG_CMSG_CLOEXEC;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-        case ESOCK_RECV_FLAG_ERRQUEUE:
-            if ((1 << ESOCK_RECV_FLAG_ERRQUEUE) & eflags) {
+    if ((eflags & ESOCK_RECV_FLAG_ERRQUEUE) != 0) {
 #if defined(MSG_ERRQUEUE)
-                tmp |= MSG_ERRQUEUE;
+        tmp |= MSG_ERRQUEUE;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-        case ESOCK_RECV_FLAG_OOB:
-            if ((1 << ESOCK_RECV_FLAG_OOB) & eflags) {
+    if ((eflags & ESOCK_RECV_FLAG_OOB) != 0) {
 #if defined(MSG_OOB)
-                tmp |= MSG_OOB;
+        tmp |= MSG_OOB;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-            /*
-             * <KOLLA>
-             *
-             * We need to handle this, because it may effect the read algorithm
-             *
-             * </KOLLA>
-             */
-        case ESOCK_RECV_FLAG_PEEK:
-            if ((1 << ESOCK_RECV_FLAG_PEEK) & eflags) {
+    /*
+     * <KOLLA>
+     *
+     * We need to handle this, because it may effect the read algorithm
+     *
+     * </KOLLA>
+     */
+    if ((eflags & ESOCK_RECV_FLAG_PEEK) != 0) {
 #if defined(MSG_PEEK)
-                tmp |= MSG_PEEK;
+        tmp |= MSG_PEEK;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
+    }
 
-        case ESOCK_RECV_FLAG_TRUNC:
-            if ((1 << ESOCK_RECV_FLAG_TRUNC) & eflags) {
+    if ((eflags & ESOCK_RECV_FLAG_TRUNC) != 0) {
 #if defined(MSG_TRUNC)
-                tmp |= MSG_TRUNC;
+        tmp |= MSG_TRUNC;
 #else
-                return FALSE;
+        return FALSE;
 #endif
-            }
-            break;
-
-        default:
-            esock_warning_msg("Use of unknown recv flag %d (0x%lX)\r\n",
-                              ef, eflags);
-            return FALSE;
-        }
-
     }
 
     *flags = tmp;
-
     return TRUE;
 }
 
 
 
-/* eproto2proto - convert internal (erlang) protocol to (proper) protocol
- *
- * Note that only a subset is supported.
+/* ehow2how - convert internal (erlang) "shutdown how" to
+ * (proper) "shutdown how"
  */
 static
 BOOLEAN_T ehow2how(unsigned int ehow, int* how)
@@ -21952,7 +22035,9 @@ ErlNifFunc esock_funcs[] =
     // Some utility and support functions
     {"nif_info",                0, nif_info, 0},
     {"nif_info",                1, nif_info, 0},
+    {"nif_supports",            0, nif_supports, 0},
     {"nif_supports",            1, nif_supports, 0},
+    {"nif_supports",            2, nif_supports, 0},
     {"nif_command",             1, nif_command, 0},
 
     // The proper "socket" interface
@@ -22105,4 +22190,4 @@ int on_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
  * NULL:    THIS IS NOT USED
  * unload:  NULL (not used)
  */
-ERL_NIF_INIT(socket, esock_funcs, on_load, NULL, NULL, NULL)
+ERL_NIF_INIT(prim_socket, esock_funcs, on_load, NULL, NULL, NULL)

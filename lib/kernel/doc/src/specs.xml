@@ -35,6 +35,7 @@
   <xi:include href="../specs/specs_pg2.xml"/>
   <xi:include href="../specs/specs_rpc.xml"/>
   <xi:include href="../specs/specs_seq_trace.xml"/>
+  <xi:include href="../specs/specs_socket.xml"/>
   <xi:include href="../specs/specs_user.xml"/>
   <xi:include href="../specs/specs_wrap_log_reader.xml"/>
   <xi:include href="../specs/specs_zlib_stub.xml"/>

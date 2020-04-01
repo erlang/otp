@@ -226,25 +226,15 @@ getnameinfo(SockAddr) ->
 -endif.
 
 -ifdef(USE_ESOCK).
-getnameinfo(SockAddr, [] = _Flags) ->
-    getnameinfo(SockAddr, undefined);
-getnameinfo(#{family := Fam, addr := _Addr} = SockAddr, Flags)
-  when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
-       (is_list(Flags) orelse (Flags =:= undefined)) ->
-    prim_net:getnameinfo(socket:ensure_sockaddr(SockAddr), Flags);
-getnameinfo(#{family := Fam, path := _Path} = SockAddr, Flags)
-  when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
+getnameinfo(SockAddr, Flags)
+  when is_map(SockAddr), is_list(Flags);
+       is_map(SockAddr), Flags =:= undefined ->
     prim_net:getnameinfo(SockAddr, Flags).
 -else.
 -dialyzer({nowarn_function, getnameinfo/2}).
-getnameinfo(SockAddr, [] = _Flags) ->
-    getnameinfo(SockAddr, undefined);
-getnameinfo(#{family := Fam, addr := _Addr} = _SockAddr, Flags)
-  when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
-       (is_list(Flags) orelse (Flags =:= undefined)) ->
-    erlang:error(notsup);
-getnameinfo(#{family := Fam, path := _Path} = _SockAddr, Flags)
-  when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
+getnameinfo(SockAddr, Flags)
+  when is_map(SockAddr), is_list(Flags);
+       is_map(SockAddr), Flags =:= undefined ->
     erlang:error(notsup).
 -endif.
 

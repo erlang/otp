@@ -135,6 +135,7 @@ MODULES = \
 	ram_file \
 	rpc \
 	seq_trace \
+	socket \
 	standard_error \
 	user \
 	user_drv \

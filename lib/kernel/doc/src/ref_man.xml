@@ -69,6 +69,7 @@
   <xi:include href="pg2.xml"/>
   <xi:include href="rpc.xml"/>
   <xi:include href="seq_trace.xml"/>
+  <xi:include href="socket.xml"/>
   <xi:include href="user.xml"/>
   <xi:include href="wrap_log_reader.xml"/>
   <xi:include href="zlib_stub.xml"/>

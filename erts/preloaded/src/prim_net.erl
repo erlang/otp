@@ -157,15 +157,14 @@ gethostname() ->
       Info     :: name_info(),
       Reason   :: term().
 
-getnameinfo(SockAddr, [] = _Flags) ->
-    getnameinfo(SockAddr, undefined);
-getnameinfo(#{family := Fam, addr := _Addr} = SockAddr, Flags)
-  when ((Fam =:= inet) orelse (Fam =:= inet6)) andalso 
-       (is_list(Flags) orelse (Flags =:= undefined)) ->
-    nif_getnameinfo(socket:ensure_sockaddr(SockAddr), Flags);
-getnameinfo(#{family := Fam, path := _Path} = SockAddr, Flags)
-  when (Fam =:= local) andalso (is_list(Flags) orelse (Flags =:= undefined)) ->
-    nif_getnameinfo(SockAddr, Flags).
+getnameinfo(SockAddr, Flags) ->
+    try
+        ESockAddr = prim_socket:encode_sockaddr(SockAddr),
+        nif_getnameinfo(ESockAddr, Flags)
+    catch
+        throw : ERROR ->
+            ERROR
+    end.
 
 
 %% ===========================================================================

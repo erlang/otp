@@ -132,18 +132,13 @@ api_basic_cases() ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) ->
-    %% We test on the socket module for simplicity
-    case lists:member(socket, erlang:loaded()) of
-        true ->
-            case os:type() of
-                {win32, _} ->
-                    not_yet_implemented();
-                _ ->
-                    %% ?LOGGER:start(),
-                    Config
-            end;
-        false ->
-            {skip, "esock disabled"}
+    try net:info() of
+        #{} ->
+            %% ?LOGGER:start(),
+            Config
+    catch
+        error : notsup ->
+            {skip, "esock not supported"}
     end.
 
 end_per_suite(_) ->

@@ -48,7 +48,6 @@
   <xi:include href="init.xml"/>
   <xi:include href="persistent_term.xml"/>
   <xi:include href="run_erl_cmd.xml"/>
-  %ESOCK_USE_SOCKET_XML%
   <xi:include href="start_cmd.xml"/>
   <xi:include href="start_erl_cmd.xml"/>
   <xi:include href="werl_cmd.xml"/>
