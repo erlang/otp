@@ -654,28 +654,15 @@ reduce_phis([]) -> [].
 opt_tail_phi_arg({PredL,Sub0}, Is0, Ret0, {Blocks0,Count0,Cost0}) ->
     Blk0 = map_get(PredL, Blocks0),
     #b_blk{is=IsPrefix,last=#b_br{succ=Next,fail=Next}} = Blk0,
-    case is_exit_bif(IsPrefix) of
-        false ->
-            Sub1 = maps:from_list(Sub0),
-            {Is1,Count,Sub} = new_names(Is0, Sub1, Count0, []),
-            Is2 = [sub(I, Sub) || I <- Is1],
-            Cost = build_cost(Is2, Cost0),
-            Is = IsPrefix ++ Is2,
-            Ret = sub(Ret0, Sub),
-            Blk = Blk0#b_blk{is=Is,last=Ret},
-            Blocks = Blocks0#{PredL:=Blk},
-            {Blocks,Count,Cost};
-        true ->
-            %% The block ends in a call to a function that
-            %% will cause an exception.
-            {Blocks0,Count0,Cost0+3}
-    end.
-
-is_exit_bif([#b_set{op=call,
-                    args=[#b_remote{mod=#b_literal{val=Mod},
-                                    name=#b_literal{val=Name}}|Args]}]) ->
-    erl_bifs:is_exit_bif(Mod, Name, length(Args));
-is_exit_bif(_) -> false.
+    Sub1 = maps:from_list(Sub0),
+    {Is1,Count,Sub} = new_names(Is0, Sub1, Count0, []),
+    Is2 = [sub(I, Sub) || I <- Is1],
+    Cost = build_cost(Is2, Cost0),
+    Is = IsPrefix ++ Is2,
+    Ret = sub(Ret0, Sub),
+    Blk = Blk0#b_blk{is=Is,last=Ret},
+    Blocks = Blocks0#{PredL:=Blk},
+    {Blocks,Count,Cost}.
 
 new_names([#b_set{dst=Dst}=I|Is], Sub0, Count0, Acc) ->
     {NewDst,Count} = new_var(Dst, Count0),
