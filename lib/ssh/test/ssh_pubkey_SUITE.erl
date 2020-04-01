@@ -71,7 +71,8 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        begin
 	   ssh:start(),
-	   [{client_opts,[]}
+	   [{client_opts,[]},
+            {daemon_opts,[]}
             | Config]
        end).
 
@@ -220,9 +221,12 @@ try_connect(Config) ->
     SystemDir = proplists:get_value(system_dir, Config),
     UserDir = proplists:get_value(user_dir, Config),
     ClientOpts = proplists:get_value(client_opts, Config, []),
+    DaemonOpts = proplists:get_value(daemon_opts, Config, []),
 
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
-					     {user_dir, UserDir}]),
+					     {user_dir, UserDir}
+                                             | DaemonOpts]),
+
     C = ssh_test_lib:connect(Host, Port, [{user_dir, UserDir},
                                           {silently_accept_hosts, true},
                                           {user_interaction, false}
@@ -260,9 +264,13 @@ setup_user_system_dir(ClientAlg, ServerAlg, Config) ->
             AuthorizedKeys = filename:join(UserDir, "authorized_keys"),
             {ok,_} = file:copy(UserPubSrcFile, AuthorizedKeys),
 
+            ModAlgs = [{modify_algorithms, [{append,[{public_key,
+                                                      lists:usort([alg(ClientAlg),alg(ServerAlg)])}]}]}
+                      ],
             [{system_dir,SystemDir},
-             {user_dir,UserDir} | Config];
-
+             {user_dir,UserDir}
+             | extend_optsL(daemon_opts, ModAlgs,
+                            extend_optsL(client_opts, ModAlgs, Config))];
         false ->
             {skip, unsupported_algorithm}
     end.
@@ -277,6 +285,11 @@ file(user, ecdsa)   -> "id_ecdsa";
 file(user, ed25519) -> "id_ed25519";
 file(user, rsa)     -> "id_rsa".
 
+alg(dsa)     -> 'ssh-dss';
+alg(ecdsa)   -> 'ecdsa-sha2-nistp256';
+alg(ed25519) -> 'ssh-ed25519';
+alg(rsa)     -> 'ssh-rsa'.
+
 
 supported(public_keys, rsa) ->     supported(public_key, 'ssh-rsa') orelse
                                        supported(public_key, 'rsa-sha2-256') orelse
@@ -288,7 +301,7 @@ supported(public_keys, ecdsa) ->   supported(public_key, 'ecdsa-sha2-nistp256') 
 supported(public_keys, ed448) ->   supported(public_key, 'ssh-ed448');
 supported(public_keys, ed25519) -> supported(public_key, 'ssh-ed25519');
 supported(Type, Alg) ->
-    case proplists:get_value(Type,ssh:default_algorithms()) of
+    case proplists:get_value(Type,ssh_transport:supported_algorithms()) of
         undefined ->
             lists:member(Alg, crypto:supports(Type));
         L ->

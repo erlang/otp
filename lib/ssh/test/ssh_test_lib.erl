@@ -423,23 +423,30 @@ write_auth_keys(Keys, Dir) ->
     file:write_file(AuthKeysFile, Keys).
 
 del_dirs(Dir) ->
+    del_dir_contents(Dir),
+    file:del_dir(Dir),
+    ok.
+
+
+del_dir_contents(Dir) ->
     case file:list_dir(Dir) of
-	{ok, []} ->
-	    file:del_dir(Dir);
-	{ok, Files} ->
-	    lists:foreach(fun(File) ->
-				  FullPath = filename:join(Dir,File),
-				  case filelib:is_dir(FullPath) of
-				      true ->
-					  del_dirs(FullPath),
-					  file:del_dir(FullPath);
-				      false ->
-					  file:delete(FullPath)
-				  end
-			  end, Files);
-	_ ->
-	    ok
+        {ok, Files} ->
+            do_del_files(Dir, Files);
+        _ ->
+            ok
     end.
+
+do_del_files(Dir, Files) ->
+    lists:foreach(fun(File) ->
+                          FullPath = filename:join(Dir,File),
+                          case filelib:is_dir(FullPath) of
+                              true ->
+                                  del_dirs(FullPath);
+                              false ->
+                                  file:delete(FullPath)
+                          end
+                  end, Files).
+
 
 openssh_sanity_check(Config) ->
     ssh:start(),

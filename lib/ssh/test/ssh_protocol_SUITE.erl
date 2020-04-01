@@ -907,10 +907,8 @@ stop_apps(_Config) ->
 
 
 setup_dirs(Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    ssh_test_lib:setup_rsa(DataDir, PrivDir),
+    ct:log("Pub keys setup for: ~p",
+           [ssh_test_lib:setup_all_user_host_keys(Config)]),
     Config.
 
 system_dir(Config) -> filename:join(proplists:get_value(priv_dir, Config), system).

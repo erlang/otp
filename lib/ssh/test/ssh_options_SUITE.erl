@@ -128,9 +128,9 @@ all() ->
      id_string_own_string_server_trail_space,
      id_string_random_server,
      save_accepted_host_option,
-     {group, hardening_tests},
      config_file,
-     config_file_modify_algorithms_order
+     config_file_modify_algorithms_order,
+     {group, hardening_tests}
     ].
 
 groups() ->
@@ -157,10 +157,8 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 init_per_group(hardening_tests, Config) ->
-    DataDir = proplists:get_value(data_dir, Config),
-    PrivDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:setup_dsa(DataDir, PrivDir),
-    ssh_test_lib:setup_rsa(DataDir, PrivDir),
+    ct:log("Pub keys setup for: ~p",
+           [ssh_test_lib:setup_all_user_host_keys(Config)]),
     Config;
 init_per_group(dir_options, Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

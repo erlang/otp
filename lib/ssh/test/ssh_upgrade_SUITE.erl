@@ -61,9 +61,7 @@ init_per_suite(Config0) ->
 
 end_per_suite(Config) ->
     ct_release_test:cleanup(Config),
-    ssh:stop(),
-    UserDir = proplists:get_value(priv_dir, Config),
-    ssh_test_lib:clean_rsa(UserDir).
+    ssh:stop().
 
 init_per_testcase(_TestCase, Config) ->
     Config.
