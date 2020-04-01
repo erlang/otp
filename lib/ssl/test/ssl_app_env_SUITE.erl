@@ -74,33 +74,22 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
-
-init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-	true ->
-	    case ssl_test_lib:sufficient_crypto_support(GroupName) of
-		true ->
-		    [{client_type, erlang},
-                     {server_type, erlang} | ssl_test_lib:init_tls_version(GroupName, Config)];
-		false ->
-		    {skip, "Missing crypto support"}
-	    end;
-	_ ->
-	    ssl:start(),
-	    Config
+init_per_group(GroupName, Config0) ->
+    case ssl_test_lib:init_per_group(GroupName, Config0) of
+        {skip, _} = Skip ->
+            Skip;
+        Config ->
+            [{client_type, erlang},
+             {server_type, erlang}| Config]
     end.
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-        false ->
-            Config
-    end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(internal_active_1, Config) ->
     ssl:stop(),
     application:load(ssl),
+    ssl_test_lib:clean_env(),
     application:set_env(ssl, internal_active_n, 1),
     ssl:start(),
     ct:timetrap({seconds, 5}),
@@ -111,11 +100,13 @@ init_per_testcase(protocol_versions, Config) ->
         "d" ++ _ ->
             ssl:stop(),
             application:load(ssl),
+            ssl_test_lib:clean_env(),
             application:set_env(ssl, dtls_protocol_version, [Version]),
             ssl:start();
         _ ->  
             ssl:stop(),
             application:load(ssl),
+            ssl_test_lib:clean_env(),
             application:set_env(ssl, protocol_version, [Version]),
             ssl:start()
     end,

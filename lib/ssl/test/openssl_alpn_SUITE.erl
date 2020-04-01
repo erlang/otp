@@ -118,30 +118,10 @@ end_per_suite(_Config) ->
     ssl_test_lib:kill_openssl().
 
 init_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            case ssl_test_lib:supports_ssl_tls_version(GroupName) of
-                 true ->
-                    case ssl_test_lib:check_sane_openssl_version(GroupName) of
-                         true ->
-                            ssl_test_lib:init_tls_version(GroupName, Config);
-                         false ->
-                            {skip, openssl_does_not_support_version}
-                    end;
-                false ->
-                    {skip, openssl_does_not_support_version}
-            end; 
-         _ ->
-            Config
-    end.
+    ssl_test_lib:init_per_group_openssl(GroupName, Config).
 
 end_per_group(GroupName, Config) ->
-    case ssl_test_lib:is_tls_version(GroupName) of
-        true ->
-            ssl_test_lib:clean_tls_version(Config);
-       false ->
-            Config
-    end.
+    ssl_test_lib:end_per_group(GroupName, Config).
 
 init_per_testcase(TestCase, Config) -> 
     ct:timetrap({seconds, 30}),
@@ -149,14 +129,19 @@ init_per_testcase(TestCase, Config) ->
 
 special_init(erlang_client_alpn_openssl_server_alpn_renegotiate, Config) ->
     {ok, Version} = application:get_env(ssl, protocol_version),
-    ssl_test_lib:check_sane_openssl_renegotaite(Config, Version);
+    case ssl_test_lib:check_sane_openssl_renegotaite(Config, Version) of
+        {skip, _} = Skip ->
+            Skip;
+        Config ->
+            ssl_test_lib:openssl_allows_server_renegotiate(Config)
+    end;
 special_init(erlang_server_alpn_openssl_client_alpn_renegotiate, Config) ->
     {ok, Version} = application:get_env(ssl, protocol_version),
     case ssl_test_lib:check_sane_openssl_renegotaite(Config, Version) of
+        {skip, _} = Skip ->
+            Skip;
         Config ->
-            ssl_test_lib:openssl_allows_client_renegotaite(Config);
-        Skip ->
-            Skip
+            ssl_test_lib:openssl_allows_client_renegotiate(Config)
     end;
 special_init(_, Config) ->
      Config.

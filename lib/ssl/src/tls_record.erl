@@ -387,17 +387,40 @@ sufficient_crypto_support(CryptoSupport, 'tlsv1.2') ->
         andalso
           (proplists:get_bool(ecdsa, PKeys) orelse proplists:get_bool(rsa, PKeys) orelse proplists:get_bool(dss, PKeys)) 
         andalso
-          (proplists:get_bool(ecdh, PKeys) orelse proplists:get_bool(dh, PKeys));            
+          (proplists:get_bool(ecdh, PKeys) orelse proplists:get_bool(dh, PKeys));
+
+%%  A TLS-compliant application MUST implement the TLS_AES_128_GCM_SHA256
+%%  [GCM] cipher suite and SHOULD implement the TLS_AES_256_GCM_SHA384
+%%  [GCM] and TLS_CHACHA20_POLY1305_SHA256 [RFC8439] cipher suites (see
+%%  Appendix B.4).
+%%
+%%  A TLS-compliant application MUST support digital signatures with
+%%  rsa_pkcs1_sha256 (for certificates), rsa_pss_rsae_sha256 (for
+%%  CertificateVerify and certificates), and ecdsa_secp256r1_sha256.  A
+%%  TLS-compliant application MUST support key exchange with secp256r1
+%%  (NIST P-256) and SHOULD support key exchange with X25519 [RFC7748].
 sufficient_crypto_support(CryptoSupport, 'tlsv1.3') ->
-    Hashes =  proplists:get_value(hashs, CryptoSupport),
-    PKeys =  proplists:get_value(public_keys, CryptoSupport),
-    proplists:get_bool(sha256, Hashes) 
-        andalso
-        proplists:get_bool(aes_gcm, proplists:get_value(ciphers, CryptoSupport)) 
-        andalso
-          (proplists:get_bool(ecdsa, PKeys) orelse proplists:get_bool(rsa, PKeys)) %% TODO: orelse proplists:get_bool(eddsa, PKeys)) 
-        andalso
-          (proplists:get_bool(ecdh, PKeys) orelse proplists:get_bool(dh, PKeys)).
+    Fun = fun({Group, Algorithm}) ->
+                  is_algorithm_supported(CryptoSupport, Group, Algorithm)
+          end,
+    L = [{ciphers, aes_gcm},                %% TLS_AES_*_GCM_*
+         {ciphers, chacha20_poly1305},      %% TLS_CHACHA20_POLY1305_SHA256
+         {hashs, sha256},                   %% TLS_AES_128_GCM_SHA256
+         {hashs, sha384},                   %% TLS_AES_256_GCM_SHA384
+         {rsa_opts, rsa_pkcs1_padding},     %% rsa_pkcs1_sha256
+         {rsa_opts, rsa_pkcs1_pss_padding}, %% rsa_pss_rsae_*
+         {rsa_opts, rsa_pss_saltlen},       %% rsa_pss_rsae_*
+         {public_keys, ecdh},
+         {public_keys, dh},
+         {public_keys, rsa},
+         {public_keys, ecdsa},
+         %% {public_keys, eddsa},  %% TODO
+         {curves, secp256r1},               %% key exchange with secp256r1
+         {curves, x25519}],                 %% key exchange with X25519
+    lists:all(Fun, L).
+
+is_algorithm_supported(CryptoSupport, Group, Algorithm) ->
+    proplists:get_bool(Algorithm, proplists:get_value(Group, CryptoSupport)).
 
 -spec is_acceptable_version(tls_version()) -> boolean().
 is_acceptable_version({N,_}) 

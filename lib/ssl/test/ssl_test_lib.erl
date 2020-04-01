@@ -93,7 +93,7 @@ init_per_group(GroupName, Config) ->
     end.
 
 init_per_group_openssl(GroupName, Config) ->
-    case is_tls_version(GroupName) of
+    case is_tls_version(GroupName) andalso sufficient_crypto_support(GroupName) of
 	true ->
 	    case check_sane_openssl_version(GroupName) of
 		true ->
@@ -102,8 +102,13 @@ init_per_group_openssl(GroupName, Config) ->
 		    {skip, "Missing openssl support"}
 	    end;
 	_ ->
-	    ssl:start(),
-	    Config
+            case sufficient_crypto_support(GroupName) of
+		true ->
+		    ssl:start(),
+		    Config;
+		false ->
+		    {skip, "Missing crypto support"}
+	    end
     end.
 
 end_per_group(GroupName, Config) ->
@@ -2694,7 +2699,7 @@ check_sane_openssl_version(Version) ->
 	false ->
 	    false
     end.
-check_sane_openssl_renegotaite(Config, Version) when  Version == 'tlsv1';
+check_sane_openssl_renegotiate(Config, Version) when  Version == 'tlsv1';
                                                       Version == 'tlsv1.1';
                                                       Version == 'tlsv1.2' ->
     case portable_cmd("openssl", ["version"]) of
@@ -2707,14 +2712,16 @@ check_sane_openssl_renegotaite(Config, Version) when  Version == 'tlsv1';
 	"OpenSSL 1.0.1 " ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
         "LibreSSL 3.0.2" ++ _ ->
-	    {skip, "Known renegotiation bug in OpenSSL"};
+	    {skip, "Known renegotiation bug in LibreSSL"};
+        "LibreSSL 3.1" ++ _ ->
+	    {skip, "Known renegotiation bug in LibreSSL"};
         _ ->
-	    check_sane_openssl_renegotaite(Config)
+	    check_sane_openssl_renegotiate(Config)
     end;
-check_sane_openssl_renegotaite(Config, _) ->
-    check_sane_openssl_renegotaite(Config).
-	
-check_sane_openssl_renegotaite(Config) ->
+check_sane_openssl_renegotiate(Config, _) ->
+    check_sane_openssl_renegotiate(Config).
+
+check_sane_openssl_renegotiate(Config) ->
     case os:cmd("openssl version") of  
 	"OpenSSL 1.0.0" ++ _ ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
@@ -2724,17 +2731,26 @@ check_sane_openssl_renegotaite(Config) ->
 	    {skip, "Known renegotiation bug in OpenSSL"};
         "LibreSSL 2." ++ _ ->
 	    {skip, "Known renegotiation bug in LibreSSL"};
-        
+        "LibreSSL 3.1" ++ _ ->
+	    {skip, "Known renegotiation bug in LibreSSL"};
 	_ ->
 	    Config
     end.
 
-openssl_allows_client_renegotaite(Config) ->
+openssl_allows_client_renegotiate(Config) ->
      case os:cmd("openssl version") of  
 	"OpenSSL 1.1" ++ _ ->
 	    {skip, "OpenSSL does not allow client renegotiation"};
 	"LibreSSL" ++ _ ->
 	    {skip, "LibreSSL does not allow client renegotiation"};
+         _ ->
+             Config
+     end.
+
+openssl_allows_server_renegotiate(Config) ->
+     case os:cmd("openssl version") of
+	"LibreSSL 3.1" ++ _ ->
+	    {skip, "LibreSSL 3.1 does not allow server renegotiation"};
          _ ->
              Config
      end.

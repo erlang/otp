@@ -102,9 +102,9 @@ init_per_group(GroupName, Config) ->
                  true ->
                     case ssl_test_lib:check_sane_openssl_version(GroupName) of
                          true ->
-                            ssl_test_lib:check_sane_openssl_renegotaite(ssl_test_lib:init_tls_version(GroupName, 
-                                                                                                      Config),
-                                                                        GroupName);
+                            ssl_test_lib:check_sane_openssl_renegotiate(
+                              ssl_test_lib:init_tls_version(GroupName, Config),
+                              GroupName);
                         false ->
                             {skip, openssl_does_not_support_version}
                     end;
@@ -124,8 +124,8 @@ end_per_group(GroupName, Config) ->
     end.
 init_per_testcase(erlang_client_openssl_server_nowrap_seqnum, Config) ->
     ct:timetrap(?DEFAULT_TIMEOUT),
-    ssl_test_lib:openssl_allows_client_renegotaite(Config);
-init_per_testcase(TestCase, Config) ->
+    ssl_test_lib:openssl_allows_client_renegotiate(Config);
+init_per_testcase(_TestCase, Config) ->
     ct:timetrap(?DEFAULT_TIMEOUT),
     Config.
 
