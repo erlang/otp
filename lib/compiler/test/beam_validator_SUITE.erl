@@ -37,7 +37,7 @@
          receive_stacked/1,aliased_types/1,type_conflict/1,
          infer_on_eq/1,infer_dead_value/1,
          receive_marker/1,safe_instructions/1,
-         missing_return_type/1]).
+         missing_return_type/1,infer_on_ne/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -68,7 +68,8 @@ groups() ->
        bad_tuples,bad_try_catch_nesting,
        receive_stacked,aliased_types,type_conflict,
        infer_on_eq,infer_dead_value,receive_marker,
-       safe_instructions,missing_return_type]}].
+       safe_instructions,missing_return_type,
+       infer_on_ne]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -760,6 +761,28 @@ missing_return_type(Config) when is_list(Config) ->
 mrt_1(Bool) ->
     true = is_boolean(Bool),
     Bool.
+
+%% ERL-1212: validation failed to infer types on both sides of '=/='
+infer_on_ne(Config) when is_list(Config) ->
+    empty = infer_on_ne_1([]),
+
+    gurka = infer_on_ne_1([a]),
+    gaffel = infer_on_ne_1([b]),
+
+    ok.
+
+infer_on_ne_1(FilterList) ->
+    NoFilters = (FilterList == []),
+    OtherFilters = (length(FilterList) == 1),
+    case id(FilterList) of
+        _ when (NoFilters == true) ->
+            empty;
+        _ when (OtherFilters == true) ->
+            case hd(FilterList) of
+                a -> gurka;
+                b -> gaffel
+            end
+    end.
 
 %%%-------------------------------------------------------------------------
 
