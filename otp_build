@@ -70,21 +70,9 @@ usage ()
     echo "    env_win64 - echo environment settings for win32 with visual C++, use with eval"
     echo "                Note that env_win32 x64 gives the same result, Windows 64bit"
     echo ""
-    case $version_controller in
-	none)
-	    ;;
-	git)
-	    echo "update_primary [--no-commit] - build and maybe commit a new primary bootstrap"
-	    echo "update_preloaded [--no-commit] - build and maybe commit the preloaded modules"
-	    echo "update_deprecations [--no-commit] - build and maybe commit deprecations"
-	    ;;
-    esac
-}
-
-git_required ()
-{
-    echo "This operation must be run in a git repository."
-    exit 1
+    echo "update_primary [--no-commit]      - build and maybe commit a new primary bootstrap"
+    echo "update_preloaded [--no-commit]    - build and maybe commit the preloaded modules"
+    echo "update_deprecations [--no-commit] - build and maybe commit deprecations"
 }
 
 hide_vars ()
@@ -824,14 +812,19 @@ setup_make ()
 
 get_do_commit ()
 {
-    if [ "x$1" = "x" ]; then
-	do_commit=true
-    elif [ "$1" = "--no-commit" ]; then
-	do_commit=false
-    else
-	echo "Unknown option '$1'" 1>&2
-	exit 1
-    fi
+    case $version_controller in
+	git)
+	    if [ "x$1" = "x" ]; then
+		do_commit=true
+	    elif [ "$1" = "--no-commit" ]; then
+		do_commit=false
+	    else
+		echo "Unknown option '$1'" 1>&2
+		exit 1
+	    fi;;
+	none)
+	    do_commit=false;;
+    esac
 }
   
 do_deprecations_git ()
@@ -884,7 +877,10 @@ do_primary_git ()
 	echo "Primary bootstrap updated and commited."
     else
 	echo ""
-	echo "Primary bootstrap rebuilt. Use \"git add bootstrap/...\" to stage changed files."
+	echo "Primary bootstrap rebuilt."
+	if [ $version_controller = git ]; then
+	    echo "Use \"git add bootstrap/...\" to stage changed files."
+	fi
 	echo ""
     fi
 }
@@ -902,7 +898,10 @@ do_update_prel_git ()
 	echo "Preloaded updated and commited."
     else
 	echo ""
-	echo "Preloaded rebuilt. Use \"git add erts/preloaded/ebin/...\" to stage changed beam files."
+	echo "Preloaded rebuilt."
+	if [ $version_controller = git ]; then
+	    echo "Use \"git add erts/preloaded/ebin/...\" to stage changed beam files."
+	fi
 	echo ""
     fi
 }
@@ -1178,20 +1177,11 @@ case "$1" in
 		FLAVOR=$1
 		do_boot;;
 	update_deprecations)
-		case $version_controller in
-		    git) do_deprecations_git "$2";;
-		    none) git_required ;;
-		esac ;;
+	        do_deprecations_git "$2";;
 	update_primary)
-		case $version_controller in
-		    git) do_primary_git "$2";;
-		    none) git_required ;;
-		esac ;;
+	        do_primary_git "$2";;
 	update_preloaded)
-		case $version_controller in
-		    git) do_update_prel_git "$2";;
-		    none) git_required ;;
-		esac ;;
+	        do_update_prel_git "$2";;
         primary)
 	        echo "Primary bootstrap is under version control since R13";
 		echo "Use update_primary if you really are";
