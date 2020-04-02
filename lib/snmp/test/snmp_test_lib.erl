@@ -467,6 +467,10 @@ os_base_skip(Skippable, OsFam, OsName) ->
 	    case lists:keysearch(OsFam, 1, Skippable) of
 		{value, {OsFam, OsName}} ->
 		    true;
+		{value, {OsFam, Check}} when is_function(Check, 0) ->
+		    Check();
+		{value, {OsFam, Check}} when is_function(Check, 1) ->
+		    Check(os:version());
 		{value, {OsFam, OsNames}} when is_list(OsNames) ->
 		    %% OsNames is a list of: 
 		    %%    [atom()|{atom(), function/0 | function/1}]
@@ -646,7 +650,19 @@ init_per_suite(Config) ->
                         true
                 end
         end,
-    COND = [{unix, [{linux, LinuxVersionVerify}]}],
+    SkipWindowsOnVirtual =
+        fun() ->
+                SysInfo = which_win_system_info(),
+                SysMan  = win_sys_info_lookup(system_manufacturer, SysInfo),
+                case string:to_lower(SysMan) of
+                    "vmware" ++ _ ->
+                        true;
+                    _ ->
+                        false
+                end
+        end,
+    COND = [{win32, SkipWindowsOnVirtual},
+            {unix,  [{linux, LinuxVersionVerify}]}],
     case os_based_skip(COND) of
         true ->
             {skip, "Unstable host and/or os (or combo thererof)"};
