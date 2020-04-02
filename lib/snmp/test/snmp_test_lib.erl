@@ -503,7 +503,7 @@ has_support_ipv6() ->
             %% so for windows we need to use the old style...
             old_has_support_ipv6();
         _ ->
-            socket:supports(ipv6) andalso has_valid_ipv6_address()
+            socket:is_supported(ipv6) andalso has_valid_ipv6_address()
     end.
 
 has_valid_ipv6_address() ->
