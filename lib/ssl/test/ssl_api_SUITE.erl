@@ -43,7 +43,8 @@ all() ->
 
 groups() ->
     [
-     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++ handshake_paus_tests()) --
+     {'tlsv1.3', [], ((gen_api_tests() ++ tls13_group() ++
+                           option_dependency_tests() ++ handshake_paus_tests()) --
                           [dh_params, honor_server_cipher_order, honor_client_cipher_order,
                            new_options_in_handshake, handshake_continue_tls13_client])
       ++ (since_1_2() -- [conf_signature_algs])},
@@ -141,6 +142,12 @@ tls13_group() ->
      client_options_negative_dependency_role,
      server_options_negative_version_gap,
      server_options_negative_dependency_role
+    ].
+
+%% Tested only on platforms that supports TLS 1.3
+option_dependency_tests() ->
+    [
+     beast_mitigation_tlsv1
     ].
 
 
@@ -1853,6 +1860,18 @@ getstat(Config) when is_list(Config) ->
                                         {options, ClientOpts}]),
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
+%%--------------------------------------------------------------------
+beast_mitigation_tlsv1() ->
+    [{doc, "Test that 'beast_mitigation' can only be set if 'tlsv1' is also set in versions"}].
+beast_mitigation_tlsv1(Config) when is_list(Config) ->
+    start_server_negative(Config, [{beast_mitigation, one_n_minus_one},
+                                   {versions, ['tlsv1.2', 'tlsv1.3']}],
+                          {options, dependency,
+                           {beast_mitigation,{versions,[tlsv1]}}}),
+    start_client_negative(Config, [{beast_mitigation, one_n_minus_one},
+                                   {versions, ['tlsv1.2', 'tlsv1.3']}],
+                          {options, dependency,
+                           {beast_mitigation,{versions,[tlsv1]}}}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

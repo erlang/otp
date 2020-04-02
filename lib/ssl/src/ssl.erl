@@ -1621,6 +1621,13 @@ handle_option(anti_replay = Option, Value0,
         _ ->
             OptionsMap#{Option => default_value(Option, Rules)}
     end;
+handle_option(beast_mitigation = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(beast_mitigation = Option, Value0,  #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(cacertfile = Option, unbound, #{cacerts := CaCerts,
                                               verify := Verify,
                                               verify_fun := VerifyFun} = OptionsMap, _Env)
