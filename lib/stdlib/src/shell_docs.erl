@@ -35,19 +35,18 @@
                   io_columns = element(2,io:columns())
                 }).
 
--define(ALL_ELEMENTS,[a,p,'div',h1,h2,h3,i,br,em,pre,code,ul,ol,li,dl,dt,dd]).
+-define(ALL_ELEMENTS,[a,p,'div',br,h1,h2,h3,i,em,pre,code,ul,ol,li,dl,dt,dd]).
 %% inline elements are:
--define(INLINE,[i,br,em,code,a]).
+-define(INLINE,[i,em,code,a]).
 -define(IS_INLINE(ELEM),(((ELEM) =:= a) orelse ((ELEM) =:= code)
-                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= br)
-                         orelse ((ELEM) =:= em))).
+                         orelse ((ELEM) =:= i) orelse ((ELEM) =:= em))).
 %% non-inline elements are:
--define(BLOCK,[p,'div',pre,ul,ol,li,dl,dt,dd,h1,h2,h3]).
+-define(BLOCK,[p,'div',pre,br,ul,ol,li,dl,dt,dd,h1,h2,h3]).
 -define(IS_BLOCK(ELEM),not ?IS_INLINE(ELEM)).
 -define(IS_PRE(ELEM),(((ELEM) =:= pre))).
 
 -type chunk_element_type() :: a | p | 'div' | i | br | em | pre | code | ul |
-                              ol | li | dl | dt | dd.
+                              ol | li | dl | dt | dd | h1 | h2 | h3.
 -type chunk_element_attr() :: {atom(),unicode:chardata()}.
 -type chunk_element_attrs() :: [chunk_element_attr()].
 -type chunk_element() :: {chunk_element_type(),chunk_element_attrs(),
@@ -175,38 +174,41 @@ normalize_trim([],_Trim) ->
 normalize_space([{Pre,Attr,Content}|T]) when ?IS_PRE(Pre) ->
     [{Pre,Attr,trim_first_and_last(Content,$\n)} | normalize_space(T)];
 normalize_space([{Block,Attr,Content}|T]) when ?IS_BLOCK(Block) ->
-    [{Block,Attr,trim_first_and_last(trim_inline(Content),$ )} | normalize_space(T)];
-normalize_space([B]) when is_binary(B) ->
-    trim_first_and_last([B],$ );
-normalize_space([E|T]) ->
-    [E|normalize_space(T)];
+    [{Block,Attr,normalize_space(Content)} | normalize_space(T)];
 normalize_space([]) ->
-    [].
+    [];
+normalize_space(Elems) ->
+    {InlineElems, T} =
+        lists:splitwith(fun(E) ->
+                                is_binary(E) orelse (is_tuple(E) andalso ?IS_INLINE(element(1,E)))
+                        end, Elems),
+    trim_inline(InlineElems) ++ normalize_space(T).
 
 trim_inline(Content) ->
     {NewContent,_} = trim_inline(Content,false),
-    NewContent.
+    trim_first_and_last(NewContent,$ ).
 trim_inline([Bin|T],false) when is_binary(Bin) ->
     LastElem = binary:at(Bin,byte_size(Bin)-1),
-    {NewT, NewState} = trim_inline(T,LastElem =:= $ ),
-    {[Bin | NewT],NewState};
+    case trim_inline(T,LastElem =:= $ ) of
+        {[B2 | NewT],NewState} when is_binary(B2) ->
+            {[<<Bin/binary,B2/binary>>|NewT],NewState};
+        {NewT, NewState} ->
+            {[Bin|NewT],NewState}
+    end;
 trim_inline([<<" ">>|T],true) ->
-    trim_inline(T,false);
+    trim_inline(T,true);
 trim_inline([<<" ",Bin/binary>>|T],true) when is_binary(Bin) ->
-    trim_inline([Bin | T],false);
+    trim_inline([Bin | T],true);
 trim_inline([Bin|T],true) when is_binary(Bin) ->
     trim_inline([Bin|T],false);
-trim_inline([{Elem,Attr,Content}|T],TrimSpace) when ?IS_INLINE(Elem) ->
+trim_inline([{Elem,Attr,Content}|T],TrimSpace) ->
     {NewContent,ContentTrimSpace} = trim_inline(Content,TrimSpace),
     {NewT,TTrimSpace} = trim_inline(T,ContentTrimSpace),
-    {[{Elem,Attr,NewContent} | NewT], TTrimSpace};
-trim_inline([{Elem1,_A1,_C1} = B1,<<" ">>,{Elem2,_A2,_C2} = B2|T],TrimSpace)
-  when ?IS_BLOCK(Elem1),?IS_BLOCK(Elem2) ->
-    trim_inline([B1,B2|T],TrimSpace);
-trim_inline([{Elem,_Attr,_Content} = Block|T],_TrimSpace) when ?IS_BLOCK(Elem) ->
-    [NewBlock] = normalize_space([Block]),
-    {NewT,TTrimSpace} = trim_inline(T,false),
-    {[NewBlock | NewT], TTrimSpace};
+    if NewContent == [] ->
+            {NewT, TTrimSpace};
+       true ->
+            {[{Elem,Attr,NewContent} | NewT], TTrimSpace}
+    end;
 trim_inline([],TrimSpace) ->
     {[],TrimSpace}.
 
@@ -232,6 +234,8 @@ trim_first([Bin|T],false,What) when is_binary(Bin) ->
     end;
 trim_first([{Elem,Attr,Content} = Tag|T],false,What) ->
     case trim_first(Content,false,What) of
+        {[],true} ->
+            {T,true};
         {NewContent,true} ->
             {[{Elem,Attr,NewContent}|T],true};
         {Content,false} ->
@@ -260,8 +264,12 @@ trim_last([{Elem,Attr,Content} = Tag|T],What) ->
         {NewT,true} ->
             {[Tag | NewT],true};
         {T,false} ->
-            {NewContent,NewState} = trim_last(Content,What),
-            {[{Elem,Attr,NewContent}|T],NewState}
+            case trim_last(Content,What) of
+                {[],NewState} ->
+                    {T,NewState};
+                {NewContent,NewState} ->
+                    {[{Elem,Attr,NewContent}|T],NewState}
+            end
     end;
 trim_last([],_What) ->
     {[],false}.
@@ -496,10 +504,10 @@ render_docs(Elem,State,Pos,Ind,D) ->
           {unicode:chardata(), Pos :: non_neg_integer()}.
 
 render_element({IgnoreMe,_,Content}, State, Pos, Ind,D)
-  when IgnoreMe =:= a; IgnoreMe =:= anno ->
+  when IgnoreMe =:= a ->
     render_docs(Content, State, Pos, Ind,D);
 
-%% Catch h1, h2 and h3 before the padding is done as there reset padding
+%% Catch h1, h2 and h3 before the padding is done as they reset padding
 render_element({h1,_,Content},State,0 = Pos,_Ind,D) ->
     trimnlnl(render_element({code,[],[{em,[],Content}]}, State, Pos, 0, D));
 render_element({h2,_,Content},State,0 = Pos,_Ind,D) ->
