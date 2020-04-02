@@ -61,7 +61,7 @@ static int library_initialized = 0;
 static ErlNifFunc nif_funcs[] = {
     {"info_lib", 0, info_lib, 0},
     {"info_fips", 0, info_fips, 0},
-    {"enable_fips_mode", 1, enable_fips_mode, 0},
+    {"enable_fips_mode_nif", 1, enable_fips_mode_nif, 0},
     {"hash_algorithms", 0, hash_algorithms, 0},
     {"pubkey_algorithms", 0, pubkey_algorithms, 0},
     {"cipher_algorithms", 0, cipher_algorithms, 0},
