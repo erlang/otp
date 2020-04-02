@@ -1305,11 +1305,11 @@ send_common(SockRef, Data, To, Flags, Deadline, SendName) ->
                       SockRef, Data, To, Flags, Deadline, SendName);
 
                 {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
-                    {error, {Reason, size(Data)}}
+                    {error, {Reason, byte_size(Data)}}
 
             after Timeout ->
                     _ = cancel(SockRef, SendName, SendRef),
-                    {error, {timeout, size(Data)}}
+                    {error, {timeout, byte_size(Data)}}
             end;
 
 
@@ -1324,11 +1324,11 @@ send_common(SockRef, Data, To, Flags, Deadline, SendName) ->
                       SockRef, Data, To, Flags, Deadline, SendName);
 
                 {?ESOCK_TAG, _Socket, abort, {SendRef, Reason}} ->
-                    {error, {Reason, size(Data)}}
+                    {error, {Reason, byte_size(Data)}}
 
             after Timeout ->
                     _ = cancel(SockRef, SendName, SendRef),
-                    {error, {timeout, size(Data)}}
+                    {error, {timeout, byte_size(Data)}}
             end;
 
 
@@ -1341,7 +1341,7 @@ send_common(SockRef, Data, To, Flags, Deadline, SendName) ->
             erlang:error(Reason);
 
         {error, Reason} ->
-            {error, {Reason, size(Data)}}
+            {error, {Reason, byte_size(Data)}}
     end.
 
 
@@ -1549,8 +1549,8 @@ do_sendmsg(SockRef, MsgHdr, Flags, Deadline) ->
             ERROR
     end.
 
-do_sendmsg_rest([B|IOVec], Written) when (Written >= size(B)) ->
-    do_sendmsg_rest(IOVec, Written - size(B));
+do_sendmsg_rest([B|IOVec], Written) when (Written >= byte_size(B)) ->
+    do_sendmsg_rest(IOVec, Written - byte_size(B));
 do_sendmsg_rest([B|IOVec], Written) ->
     <<_:Written/binary, Rest/binary>> = B,
     [Rest|IOVec].
