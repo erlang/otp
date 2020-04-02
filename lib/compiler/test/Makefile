@@ -40,6 +40,7 @@ MODULES= \
 	match_SUITE \
 	misc_SUITE \
 	overridden_bif_SUITE \
+	random_code_SUITE \
 	receive_SUITE \
 	record_SUITE \
 	regressions_SUITE \
