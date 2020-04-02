@@ -24,6 +24,8 @@
 
 -export([render/1, links/1]).
 
+-export([render_all/1]).
+
 -include_lib("kernel/include/eep48.hrl").
 
 init_per_testcase(_Case, Config) ->
@@ -139,6 +141,30 @@ b2a(Bin) ->
         {ok,[{A,_}],_} -> A
     end.
 
+%% Testing functions
+render_all(Dir) ->
+    file:make_dir(Dir),
+    docsmap(
+      fun(Mod, #docs_v1{ docs = Docs } = D) ->
+              SMod = atom_to_list(Mod),
+              file:write_file(filename:join(Dir,SMod ++ ".txt"),
+                              unicode:characters_to_binary(shell_docs:render(Mod, D))),
+              file:write_file(filename:join(Dir,SMod ++ "_type.txt"),
+                              unicode:characters_to_binary(shell_docs:render_type(Mod, D))),
+              lists:foreach(
+                fun({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
+                        FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
+                        ok = file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
+                                                                          [global,{return,list}])),
+                                             unicode:characters_to_binary(shell_docs:render(Mod, Name, Arity, D)));
+                    ({{type,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
+                        FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_type.txt",
+                        ok = file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
+                                                                          [global,{return,list}])),
+                                             unicode:characters_to_binary(shell_docs:render_type(Mod, Name, Arity, D)))
+                end, Docs)
+      end).
+
 docsmap(Fun) ->
     lists:map(fun F({Mod,_,_}) ->
                       F(Mod);
@@ -154,6 +180,11 @@ docsmap(Fun) ->
                               %% This can happen in BSD's for some reason...
                               ok;
                           {ok, Docs} ->
-                              Fun(Mod, Docs)
+                              try
+                                  Fun(Mod, Docs)
+                              catch E:R:ST ->
+                                      io:format("Failed to render ~p~n~p:~p:~p~n",[Mod,E,R,ST]),
+                                      erlang:raise(E,R,ST)
+                              end
                       end
               end, code:all_available()).
