@@ -5041,10 +5041,17 @@ BIF_RETTYPE erts_internal_get_creation_0(BIF_ALIST_0)
 {
     Eterm *hp;
     Uint hsz = 0;
+    Uint32 cr = erts_this_dist_entry->creation;
+    Eterm ret;
 
-    erts_bld_uint(NULL, &hsz, erts_this_dist_entry->creation);
-    hp = HAlloc(BIF_P, hsz);
-    return erts_bld_uint(&hp, NULL, erts_this_dist_entry->creation);
+    if (cr == 0)
+        ret = am_undefined;
+    else {
+        erts_bld_uint(NULL, &hsz, cr);
+        hp = HAlloc(BIF_P, hsz);
+        ret = erts_bld_uint(&hp, NULL, cr);
+    }
+    return ret;
 }
 
 BIF_RETTYPE erts_internal_new_connection_1(BIF_ALIST_1)
