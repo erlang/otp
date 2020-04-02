@@ -664,9 +664,14 @@ get_bullet(_State,latin1) ->
     <<" * ">>;
 get_bullet(State,unicode) ->
     %% Fancy bullet point logic!
-    lists:nth(length([l || l <- State]),
-              [<<" • "/utf8>>,<<" ￮ "/utf8>>,
-               <<" ◼ "/utf8>>,<<" ◻ "/utf8>>]).
+    case length([l || l <- State]) of
+        Level when Level > 4 ->
+            get_bullet(State, latin1);
+        Level ->
+            lists:nth(Level,
+                      [<<" • "/utf8>>,<<" ￮ "/utf8>>,
+                       <<" ◼ "/utf8>>,<<" ◻ "/utf8>>])
+    end.
 
 % Look for the length of the last line of a string
 lastline(Str) ->
