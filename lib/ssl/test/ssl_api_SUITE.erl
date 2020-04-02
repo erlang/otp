@@ -147,7 +147,8 @@ tls13_group() ->
 %% Tested only on platforms that supports TLS 1.3
 option_dependency_tests() ->
     [
-     beast_mitigation_tlsv1
+     beast_mitigation,
+     next_protocol_negotiation
     ].
 
 
@@ -1861,9 +1862,9 @@ getstat(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok).
 
 %%--------------------------------------------------------------------
-beast_mitigation_tlsv1() ->
+beast_mitigation() ->
     [{doc, "Test that 'beast_mitigation' can only be set if 'tlsv1' is also set in versions"}].
-beast_mitigation_tlsv1(Config) when is_list(Config) ->
+beast_mitigation(Config) when is_list(Config) ->
     start_server_negative(Config, [{beast_mitigation, one_n_minus_one},
                                    {versions, ['tlsv1.2', 'tlsv1.3']}],
                           {options, dependency,
@@ -1872,6 +1873,22 @@ beast_mitigation_tlsv1(Config) when is_list(Config) ->
                                    {versions, ['tlsv1.2', 'tlsv1.3']}],
                           {options, dependency,
                            {beast_mitigation,{versions,[tlsv1]}}}).
+
+%%--------------------------------------------------------------------
+next_protocol_negotiation() ->
+    [{doc, "Test that 'next_protocol_negotiation' can only be set if a legacy version is also set in versions"}].
+next_protocol_negotiation(Config) when is_list(Config) ->
+    start_server_negative(Config, [{next_protocols_advertised, [<<"http/1.1">>]},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {next_protocols_advertised,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}),
+    start_client_negative(Config, [{client_preferred_next_protocols,
+                                    {client, [<<"http/1.1">>]}},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {client_preferred_next_protocols,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
