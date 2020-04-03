@@ -47,11 +47,9 @@
 -compile({inline,[{badarg,2}]}).
 
 -ifdef(USE_ESOCK).
--define(ESOCK_SOCKET_MODS, [socket, socket_registry]).
--define(ESOCK_NET_MODS,    [prim_net]).
+-define(ESOCK_MODS, [prim_net,prim_socket,socket_registry]).
 -else.
--define(ESOCK_SOCKET_MODS, []).
--define(ESOCK_NET_MODS,    []).
+-define(ESOCK_MODS, []).
 -endif.
 
 
@@ -1578,12 +1576,13 @@ mandatory_modules() ->
 %% This is the modules that are preloaded into the Erlang system.
 
 preloaded() ->
-    %% Sorted
-    [atomics,counters,erl_init,erl_prim_loader,erl_tracer,erlang,
-     erts_code_purger,erts_dirty_process_signal_handler,
-     erts_internal,erts_literal_area_collector,
-     init,persistent_term,prim_buffer,prim_eval,prim_file,
-     prim_inet] ++ ?ESOCK_NET_MODS ++ [prim_zip] ++ ?ESOCK_SOCKET_MODS ++ [zlib].
+    lists:sort(
+      ?ESOCK_MODS ++
+          [atomics,counters,erl_init,erl_prim_loader,erl_tracer,erlang,
+           erts_code_purger,erts_dirty_process_signal_handler,
+           erts_internal,erts_literal_area_collector,
+           init,persistent_term,prim_buffer,prim_eval,prim_file,
+           prim_inet,prim_zip,zlib]).
 
 %%______________________________________________________________________
 %% Kernel processes; processes that are specially treated by the init
