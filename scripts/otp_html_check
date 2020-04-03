@@ -268,10 +268,9 @@ sub normalize_link {
 	if ($part =~ m&^[a-z]+/&) {
 	    $dir = "$base$rpath/${up}/$part";
 	} else {
-	    my $path = "$base$rpath/${up}lib/$part";
+	    my $path = "$base$rpath/${up}lib/$part/doc/html";
 	    ($dir) = <$path-*>;
 	    return $link unless defined $dir;
-	    $dir .= "/doc/html";
 	}
 	$dir =~ s&^$base&&o;
 	$link = "$dir/$mod";
