@@ -530,9 +530,11 @@ func2func({func,Attr,Contents}) ->
                                          || {name,FAttr,[]} <- NameList ]),
 
                 MakeFunc = fun({F,A}, MD, Doc) ->
-                                   Specs = [{func_to_atom(CF),list_to_integer(CA),C}
-                                            || {{CF,CA},C} <- FAClauses,
-                                               F =:= CF, A =:= CA],
+                                   Specs = [begin
+                                                {function,Name} = func_to_atom(CF),
+                                                {Name,list_to_integer(CA),C}
+                                            end || {{CF,CA},C} <- FAClauses,
+                                                   F =:= CF, A =:= CA],
                                    {function,[{name,F},{arity,list_to_integer(A)},
                                               {signature,[iolist_to_binary([F,"/",A])]},
                                               {meta,MD#{ signature => Specs }}],
@@ -672,7 +674,7 @@ to_chunk(Dom, Source, Module, AST) ->
     TypeEntries =
         lists:map(
           fun({datatype,Attr,Descr}) ->
-                  TypeName = func_to_atom(proplists:get_value(name,Attr)),
+                  {function, TypeName} = func_to_atom(proplists:get_value(name,Attr)),
                   TypeArity = case proplists:get_value(n_vars,Attr) of
                                   undefined ->
                                       find_type_arity(TypeName, TypeMap);
@@ -698,15 +700,13 @@ to_chunk(Dom, Source, Module, AST) ->
     FuncEntrys =
         lists:flatmap(
           fun({function,Attr,Fdoc}) ->
+                  Arity = proplists:get_value(arity,Attr),
+                  Signature = proplists:get_value(signature,Attr),
+                  FMeta = proplists:get_value(meta,Attr),
+                  MetaWSpec = add_spec(AST,FMeta),
                   case func_to_atom(proplists:get_value(name,Attr)) of
-                      callback ->
-                          [];
-                      Name ->
-                          Arity = proplists:get_value(arity,Attr),
-                          Signature = proplists:get_value(signature,Attr),
-                          FMeta = proplists:get_value(meta,Attr),
-                          MetaWSpec = add_spec(AST,FMeta),
-                          [docs_v1_entry(function, Anno, Name, Arity, Signature, MetaWSpec, Fdoc)]
+                      {Type, Name} ->
+                          [docs_v1_entry(Type, Anno, Name, Arity, Signature, MetaWSpec, Fdoc)]
                   end
           end, Functions),
 
@@ -745,11 +745,16 @@ docs_v1_entry(Kind, Anno, Name, Arity, Signature, Metadata, DocContents) ->
 %%  'begin'
 func_to_atom(List) ->
     case erl_scan:string(List) of
-        {ok,[{atom,_,Fn}],_} -> Fn;
-        {ok,[{var,_,Fn}],_} -> Fn;
-        {ok,[{Fn,_}],_} -> Fn;
-        {ok,[{var,_,_},{':',_},_],_} ->
-            callback
+        {ok,[{atom,_,Fn}],_} ->
+            {function, Fn};
+        {ok,[{var,_,Fn}],_} ->
+            {function, Fn};
+        {ok,[{Fn,_}],_} ->
+            {function, Fn};
+        {ok,[{var,_,_},{':',_},{atom,_,Fn}],_} ->
+            {callback, Fn};
+        {ok,[{var,_,_},{':',_},{var,_,Fn}],_} ->
+            {callback, Fn}
     end.
 
 -define(IS_TYPE(TO),(TO =:= type orelse TO =:= opaque)).

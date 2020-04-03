@@ -57,6 +57,7 @@ render(_Config) ->
               try
                   shell_docs:render(Mod, D),
                   shell_docs:render_type(Mod, D),
+                  shell_docs:render_callback(Mod, D),
                   [try
                        shell_docs:render(Mod, F, A, D)
                    catch _E:R:ST ->
@@ -70,7 +71,14 @@ render(_Config) ->
                            io:format("Failed to render type ~p:~p/~p~n~p:~p~n~p~n",
                                      [Mod,T,A,R,ST,shell_docs:get_type_doc(Mod,T,A)]),
                            erlang:raise(error,R,ST)
-                   end || {{type,T,A},_,_,_,_} <- Docs]
+                   end || {{type,T,A},_,_,_,_} <- Docs],
+                  [try
+                       shell_docs:render_callback(Mod, T, A, D)
+                   catch _E:R:ST ->
+                           io:format("Failed to render callback ~p:~p/~p~n~p:~p~n~p~n",
+                                     [Mod,T,A,R,ST,shell_docs:get_callback_doc(Mod,T,A)]),
+                           erlang:raise(error,R,ST)
+                   end || {{callback,T,A},_,_,_,_} <- Docs]
               catch throw:R:ST ->
                       io:format("Failed to render ~p~n~p:~p~n",[Mod,R,ST]),
                       exit(R)
@@ -164,6 +172,8 @@ render_all(Dir) ->
                               unicode:characters_to_binary(shell_docs:render(Mod, D))),
               file:write_file(filename:join(Dir,SMod ++ "_type.txt"),
                               unicode:characters_to_binary(shell_docs:render_type(Mod, D))),
+              file:write_file(filename:join(Dir,SMod ++ "_cb.txt"),
+                              unicode:characters_to_binary(shell_docs:render_callback(Mod, D))),
               lists:foreach(
                 fun({{function,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
                         FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_func.txt",
@@ -174,7 +184,12 @@ render_all(Dir) ->
                         FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_type.txt",
                         ok = file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
                                                                           [global,{return,list}])),
-                                             unicode:characters_to_binary(shell_docs:render_type(Mod, Name, Arity, D)))
+                                             unicode:characters_to_binary(shell_docs:render_type(Mod, Name, Arity, D)));
+                   ({{callback,Name,Arity},_Anno,_Sig,_Doc,_Meta}) ->
+                        FName = SMod ++ "_"++atom_to_list(Name)++"_"++integer_to_list(Arity)++"_cb.txt",
+                        file:write_file(filename:join(Dir,re:replace(FName,"[/:]","_",
+                                                                     [global,{return,list}])),
+                                        unicode:characters_to_binary(shell_docs:render_callback(Mod, Name, Arity, D)))
                 end, Docs)
       end).
 

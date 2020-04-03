@@ -23,12 +23,13 @@
 
 -export([render/2, render/3, render/4]).
 -export([render_type/2, render_type/3, render_type/4]).
+-export([render_callback/2, render_callback/3, render_callback/4]).
 
 %% Used by chunks.escript in erl_docgen
 -export([validate/1, normalize/1]).
 
 %% Convinience functions
--export([get_doc/1, get_doc/3, get_type_doc/3]).
+-export([get_doc/1, get_doc/3, get_type_doc/3, get_callback_doc/3]).
 
 -record(config, { docs,
                   io_opts = io:getopts(),
@@ -345,7 +346,9 @@ get_type_doc(Module, Type, Arity) ->
 
 -spec render_type(Module :: module(), Docs :: docs_v1()) -> unicode:chardata().
 render_type(Module, #docs_v1{ docs = Docs } = D) ->
-    render_type_signatures(Module,
+    render_signature_listing(
+      Module,
+      "These types are documented in this module:",
       lists:filter(fun({{type, _, _},_Anno,_Sig,_Doc,_Meta}) ->
                              true;
                         (_) ->
@@ -355,7 +358,7 @@ render_type(Module, #docs_v1{ docs = Docs } = D) ->
 -spec render_type(Module :: module(), Type :: atom(), Docs :: docs_v1()) ->
           unicode:chardata() | {error,type_missing}.
 render_type(_Module, Type, #docs_v1{ docs = Docs } = D) ->
-    render_type_docs(
+    render_typecb_docs(
       lists:filter(fun({{type, T, _},_Anno,_Sig,_Doc,_Meta}) ->
                              T =:= Type;
                         (_) ->
@@ -365,13 +368,63 @@ render_type(_Module, Type, #docs_v1{ docs = Docs } = D) ->
 -spec render_type(Module :: module(), Type :: atom(), Arity :: arity(),
                   Docs :: docs_v1()) -> unicode:chardata() | {error,type_missing}.
 render_type(_Module, Type, Arity, #docs_v1{ docs = Docs } = D) ->
-    render_type_docs(
+    render_typecb_docs(
       lists:filter(fun({{type, T, A},_Anno,_Sig,_Doc,_Meta}) ->
                            T =:= Type andalso A =:= Arity;
                         (_) ->
                              false
                    end, Docs), D).
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% API function for dealing with the callback documentation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-spec get_callback_doc(Module :: module(), Callback :: atom(), Arity :: arity()) ->
+          [{{Callback,Arity}, Anno, Signature, chunk_elements(), Metadata}] when
+      Callback :: atom(),
+      Arity :: arity(),
+      Anno :: erl_anno:anno(),
+      Signature :: [binary()],
+      Metadata :: #{}.
+get_callback_doc(Module, Callback, Arity) ->
+    {ok, #docs_v1{ docs = Docs } } = code:get_doc(Module),
+    FnFunctions =
+        lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
+                             T =:= Callback andalso A =:= Arity;
+                        (_) ->
+                             false
+                     end, Docs),
+    [{F,A,S,get_local_doc(F, D),M} || {F,A,S,D,M} <- FnFunctions].
+
+-spec render_callback(Module :: module(), Docs :: docs_v1()) -> unicode:chardata().
+render_callback(Module, #docs_v1{ docs = Docs } = D) ->
+    render_signature_listing(
+      Module,
+      "These callbacks are documented in this module:",
+      lists:filter(fun({{callback, _, _},_Anno,_Sig,_Doc,_Meta}) ->
+                           true;
+                      (_) ->
+                           false
+                   end, Docs), D).
+
+-spec render_callback(Module :: module(), Callback :: atom(), Docs :: docs_v1()) ->
+          unicode:chardata() | {error,callback_missing}.
+render_callback(_Module, Callback, #docs_v1{ docs = Docs } = D) ->
+    render_typecb_docs(
+      lists:filter(fun({{callback, T, _},_Anno,_Sig,_Doc,_Meta}) ->
+                             T =:= Callback;
+                        (_) ->
+                             false
+                     end, Docs), D).
+
+-spec render_callback(Module :: module(), Callback :: atom(), Arity :: arity(),
+                  Docs :: docs_v1()) -> unicode:chardata() | {error,callback_missing}.
+render_callback(_Module, Callback, Arity, #docs_v1{ docs = Docs } = D) ->
+    render_typecb_docs(
+      lists:filter(fun({{callback, T, A},_Anno,_Sig,_Doc,_Meta}) ->
+                           T =:= Callback andalso A =:= Arity;
+                        (_) ->
+                             false
+                   end, Docs), D).
 
 %% Get the docs in the correct locale if it exists.
 get_local_doc(MissingMod, Docs) when is_atom(MissingMod) ->
@@ -425,14 +478,14 @@ render_function(FDocs, #docs_v1{ docs = Docs } = D) ->
     %% [render_docs(render_signature(Func),get_local_doc({F,A},Doc,Meta,Docs), Meta, D)
     %%  || {{_,F,A},_Anno,_Sig,Doc,Meta} = Func <- lists:sort(FDocs)].
 
-%% Render the signature of either function or a type, or anything else really.
+%% Render the signature of either function, type, or anything else really.
 render_signature({{_Type,_F,_A},_Anno,_Sig,_Docs,#{ signature := Specs } = Meta}) ->
-    [[erl_pp:attribute(Spec,[{encoding,utf8}]),render_since(Meta)] || Spec <- Specs];
+    [[erl_pp:attribute(Spec,[{encoding,utf8}])|render_since(Meta)] || Spec <- Specs];
 render_signature({{_Type,_F,_A},_Anno,Sigs,_Docs,Meta}) ->
-    [[Sig,render_since(Meta)] || Sig <- Sigs].
+    [[Sig|render_since(Meta)] || Sig <- Sigs].
 
 render_since(#{ since := Vsn }) ->
-    [" Since: ",Vsn];
+    [[" Since: ",Vsn]];
 render_since(_) ->
     [].
 
@@ -450,26 +503,27 @@ render_docs(Headers, DocContents, _MD, D = #config{}) ->
 render_docs(Headers, DocContents, MD, D) ->
     render_docs(Headers, DocContents, MD, #config{ docs = D }).
 
-%%% Functions for rendering type documentation
-render_type_signatures(Module, Types, D = #config{}) ->
+%%% Functions for rendering type/callback documentation
+render_signature_listing(Module, Description, TypeOrCBs, D = #config{}) ->
     init_ansi(D),
     try
         [sansi(bold),"\t",atom_to_list(Module),ransi(bold),"\n\n",
-         [render_signature(Type) || Type <- Types ]]
+         Description,"\n",
+         [ io_lib:format("~n~ts",[Header]) || Headers <- lists:flatmap(fun render_signature/1, TypeOrCBs), Header <- Headers]]
     after
         clean_ansi()
     end;
-render_type_signatures(Module, Types, D) ->
-    render_type_signatures(Module, Types, #config{ docs = D }).
+render_signature_listing(Module, Description, TypeOrCBs, D) ->
+    render_signature_listing(Module, Description, TypeOrCBs, #config{ docs = D }).
 
-render_type_docs([], _D) ->
+render_typecb_docs([], _D) ->
     {error,type_missing};
-render_type_docs(Types, #config{} = D) when is_list(Types) ->
-    [render_type_docs(Type, D) || Type <- Types];
-render_type_docs({{_,F,A},_,_Sig,Docs,Meta} = Type, #config{} = D) ->
-    render_docs(render_signature(Type), get_local_doc({F,A},Docs), Meta, D);
-render_type_docs(Docs, D) ->
-    render_type_docs(Docs, #config{ docs = D }).
+render_typecb_docs(TypeCBs, #config{} = D) when is_list(TypeCBs) ->
+    [render_typecb_docs(TypeCB, D) || TypeCB <- TypeCBs];
+render_typecb_docs({{_,F,A},_,_Sig,Docs,Meta} = TypeCB, #config{} = D) ->
+    render_docs(render_signature(TypeCB), get_local_doc({F,A},Docs), Meta, D);
+render_typecb_docs(Docs, D) ->
+    render_typecb_docs(Docs, #config{ docs = D }).
 
 %%% General rendering functions
 render_docs(Elems,State,Pos,Ind,D) when is_list(Elems) ->

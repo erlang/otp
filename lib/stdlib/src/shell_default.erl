@@ -28,7 +28,7 @@
 	 erlangrc/1,bi/1, regs/0, flush/0,pwd/0,ls/0,ls/1,cd/1, 
          y/1, y/2,
 	 xm/1, bt/1, q/0,
-         h/1, h/2, h/3, ht/1, ht/2, ht/3,
+         h/1, h/2, h/3, ht/1, ht/2, ht/3, hcb/1, hcb/2, hcb/3,
 	 ni/0, nregs/0]).
 
 -export([ih/0,iv/0,im/0,ii/1,ii/2,iq/1,ini/1,ini/2,inq/1,ib/2,ib/3,
@@ -49,8 +49,11 @@ help() ->
     format("h(Mod,Func)-- help about function in module\n"),
     format("h(Mod,Func,Arity) -- help about function with arity in module\n"),
     format("ht(Mod)    -- help about a module's types\n"),
-    format("ht(Mod,Func) -- help about type in module\n"),
-    format("ht(Mod,Func,Arity) -- help about type with arity in module\n"),
+    format("ht(Mod,Type) -- help about type in module\n"),
+    format("ht(Mod,Type,Arity) -- help about type with arity in module\n"),
+    format("hcb(Mod)    -- help about a module's callbacks\n"),
+    format("hcb(Mod,CB) -- help about callback in module\n"),
+    format("hcb(Mod,CB,Arity) -- help about callback with arity in module\n"),
     format("history(N) -- set how many previous commands to keep\n"),
     format("results(N) -- set how many previous command results to keep\n"),
     format("catch_exception(B) -- how exceptions are handled\n"),
@@ -89,6 +92,9 @@ h(M,F,A)        -> c:h(M,F,A).
 ht(M)           -> c:ht(M).
 ht(M,F)         -> c:ht(M,F).
 ht(M,F,A)       -> c:ht(M,F,A).
+hcb(M)          -> c:hcb(M).
+hcb(M,F)        -> c:hcb(M,F).
+hcb(M,F,A)      -> c:hcb(M,F,A).
 i() 		-> c:i().
 i(X,Y,Z) 	-> c:i(X,Y,Z).
 l(Mod)       	-> c:l(Mod).
