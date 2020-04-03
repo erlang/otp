@@ -150,9 +150,9 @@ option_dependency_tests() ->
      beast_mitigation,
      next_protocol_negotiation,
      client_renegotiation,
-     padding_check
+     padding_check,
+     psk_identity
     ].
-
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -1914,6 +1914,19 @@ padding_check(Config) when is_list(Config) ->
                                    {versions, ['tlsv1.2', 'tlsv1.3']}],
                           {options, dependency,
                            {padding_check,{versions,[tlsv1]}}}).
+
+%%--------------------------------------------------------------------
+psk_identity() ->
+    [{doc, "Test that 'psk_identity' can only be set if 'tlsv1.2' is also set in versions"}].
+psk_identity(Config) when is_list(Config) ->
+    start_server_negative(Config, [{psk_identity, "Test-User"},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {psk_identity,{versions,['tlsv1.2']}}}),
+    start_client_negative(Config, [{psk_identity, "Test-User"},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {psk_identity,{versions,['tlsv1.2']}}}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
