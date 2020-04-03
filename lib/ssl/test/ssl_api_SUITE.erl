@@ -149,7 +149,8 @@ option_dependency_tests() ->
     [
      beast_mitigation,
      next_protocol_negotiation,
-     client_renegotiation
+     client_renegotiation,
+     padding_check
     ].
 
 
@@ -1900,6 +1901,19 @@ client_renegotiation(Config) when is_list(Config) ->
                           {options, dependency,
                            {client_renegotiation,
                             {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+
+%%--------------------------------------------------------------------
+padding_check() ->
+    [{doc, "Test that 'padding_check' can only be set if 'tlsv1' is also set in versions"}].
+padding_check(Config) when is_list(Config) ->
+    start_server_negative(Config, [{padding_check, false},
+                                   {versions, ['tlsv1.2', 'tlsv1.3']}],
+                          {options, dependency,
+                           {padding_check,{versions,[tlsv1]}}}),
+    start_client_negative(Config, [{padding_check, false},
+                                   {versions, ['tlsv1.2', 'tlsv1.3']}],
+                          {options, dependency,
+                           {padding_check,{versions,[tlsv1]}}}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

@@ -1719,6 +1719,13 @@ handle_option(next_protocol_selector = Option, Value0,
     Value = make_next_protocol_selector(
               validate_option(client_preferred_next_protocols, Value0)),
     OptionsMap#{Option => Value};
+handle_option(padding_check = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(padding_check = Option, Value0,  #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(reuse_session = Option, unbound, OptionsMap, #{role := Role}) ->
     Value =
         case Role of
