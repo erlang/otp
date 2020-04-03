@@ -160,7 +160,8 @@
 -removed([{mpint,1,"only needed by other removed functions"}]).
 
 %%%----------------------------------------------------------------
-%% Old interface. Now implemented with the New interface
+%% Old interface. Now implemented with the New interface.
+%% Remove in OTP-24.0 See OTP-16232
 
 -deprecated([{next_iv, '_',
               "see the 'New and Old API' chapter of the CRYPTO User's guide"}]).
@@ -208,6 +209,11 @@
          block_encrypt/3, block_encrypt/4,
          block_decrypt/3, block_decrypt/4
         ]).
+-deprecated_type([{retired_cbc_cipher_aliases, 0, "Use aes_*_cbc or des_ede3_cbc"},
+                  {retired_cfb_cipher_aliases, 0, "Use aes_*_cfb8, aes_*_cfb128 or des_ede3_cfb"},
+                  {retired_ctr_cipher_aliases, 0, "Use aes_*_ctr"},
+                  {retired_ecb_cipher_aliases, 0, "Use aes_*_ecb"}
+                 ]).
 
 %%%----------------------------------------------------------------
 %% New interface
