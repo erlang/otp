@@ -104,7 +104,7 @@
     </quote>
     <p>The Erlang mode does, of course, provide this feature. The layout
       used is based on the common use of the language.</p>
-    <p>It is strongly recommend to use this feature and avoid to indent lines
+    <p>It is strongly recommended to use this feature and avoid to indent lines
       in a nonstandard way.  Some motivations are:</p>
     <list type="bulleted">
       <item>Code using the same layout is easy to read and maintain. </item>
