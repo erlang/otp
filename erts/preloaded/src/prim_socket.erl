@@ -455,65 +455,40 @@ open(FD, Opts) when is_map(Opts) ->
                           Val
                   end
           end, Opts),
-    nif_open(FD, EOpts);
-open(FD, Opts) ->
-    erlang:error(badarg, [FD, Opts]).
+    nif_open(FD, EOpts).
 
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
-    try
-        begin
-            EDomain   = enc_domain(Domain),
-            EType     = enc_type(Type),
-            EProtocol = enc_protocol(Protocol),
-            EOpts =
-                case Opts of
-                    #{netns := Path} when is_list(Path) ->
-                        Opts#{netns := encode_path(Path)};
-                    _ ->
-                        Opts
-                end,
-            nif_open(EDomain, EType, EProtocol, EOpts)
-        end
-    catch
-        throw:ERROR ->
-            ERROR
-    end;
-open(Domain, Type, Protocol, Opts) ->
-    erlang:error(badarg, [Domain, Type, Protocol, Opts]).
+    EDomain   = enc_domain(Domain),
+    EType     = enc_type(Type),
+    EProtocol = enc_protocol(Protocol),
+    EOpts =
+        case Opts of
+            #{netns := Path} when is_list(Path) ->
+                Opts#{netns := encode_path(Path)};
+            _ ->
+                Opts
+        end,
+    nif_open(EDomain, EType, EProtocol, EOpts).
 
 %% ----------------------------------
 
 bind(SockRef, Addr) ->
-    try nif_bind(SockRef, enc_sockaddr(Addr))
-    catch
-        throw:ERROR ->
-            ERROR
-    end.
+    nif_bind(SockRef, enc_sockaddr(Addr)).
 
 bind(SockRef, Addrs, Action) when is_list(Addrs) ->
-    try
-        EAddrs = [enc_sockaddr(Addr) || Addr <- Addrs],
-        nif_bind(SockRef, EAddrs, Action)
-    catch
-        throw:ERROR ->
-            ERROR
-    end;
-bind(SockRef, Addrs, Action) ->
-    erlang:error(badarg, [SockRef, Addrs, Action]).
+    EAddrs = [enc_sockaddr(Addr) || Addr <- Addrs],
+    nif_bind(SockRef, EAddrs, Action).
 
 %% ----------------------------------
 
 connect(SockRef, SockAddr) ->
-    try nif_connect(SockRef, enc_sockaddr(SockAddr)) of
+    case nif_connect(SockRef, enc_sockaddr(SockAddr)) of
         ok ->
             ok;
         {ok, Ref} ->
             {select, Ref};
         {error, _} = Error ->
             Error
-    catch
-        throw:ERROR ->
-            ERROR
     end.
 
 finalize_connection(SockRef) ->
@@ -539,37 +514,21 @@ accept(ListenSockRef, AccRef) ->
 %% ----------------------------------
 
 send(SockRef, SendRef, Data, Flags) ->
-    try
-        EFlags = enc_send_flags(Flags),
-        send_result(
-          nif_send(SockRef, SendRef, Data, EFlags))
-    catch
-        throw:ERROR ->
-            ERROR
-    end.
+    EFlags = enc_send_flags(Flags),
+    send_result(
+      nif_send(SockRef, SendRef, Data, EFlags)).
 
 sendto(SockRef, SendRef, Data, To, Flags) ->
-    try
-        ETo = enc_sockaddr(To),
-        EFlags = enc_send_flags(Flags),
-        send_result(
-          nif_sendto(SockRef, SendRef, Data, ETo, EFlags))
-    catch
-        throw:ERROR ->
-            ERROR
-    end.
+    ETo = enc_sockaddr(To),
+    EFlags = enc_send_flags(Flags),
+    send_result(
+      nif_sendto(SockRef, SendRef, Data, ETo, EFlags)).
 
 sendmsg(SockRef, SendRef, MsgHdr, Flags) ->
-    try
-        EMsgHdr = enc_msghdr(MsgHdr),
-        EFlags = enc_send_flags(Flags),
-        send_result(
-          nif_sendmsg(SockRef, SendRef, EMsgHdr, EFlags))
-    catch
-        throw:ERROR ->
-            ERROR
-    end.
-
+    EMsgHdr = enc_msghdr(MsgHdr),
+    EFlags = enc_send_flags(Flags),
+    send_result(
+      nif_sendmsg(SockRef, SendRef, EMsgHdr, EFlags)).
 
 send_result(Result) ->
     case Result of
@@ -582,13 +541,11 @@ send_result(Result) ->
 %% ----------------------------------
 
 recv(SockRef, RecvRef, Length, Flags) ->
-    try
-        EFlags = enc_recv_flags(Flags),
-        nif_recv(SockRef, RecvRef, Length, EFlags)
-    of
+    EFlags = enc_recv_flags(Flags),
+    case nif_recv(SockRef, RecvRef, Length, EFlags) of
         {ok, true, Bin} ->
             {ok, Bin};
-
+        %%
         {ok, false, Bin} ->
             %% Depending on the number of bytes we tried to read:
             if
@@ -603,35 +560,22 @@ recv(SockRef, RecvRef, Length, Flags) ->
                     %% (a select message)
                     {select, Bin}
             end;
-
+        %%
         {error, eagain} ->
             select;
         {error, _} = ERROR ->
             ERROR
-    catch
-        throw:ERROR ->
-            ERROR
     end.
 
 recvfrom(SockRef, RecvRef, Length, Flags) ->
-    try
-        EFlags = enc_recv_flags(Flags),
-        recvfromsg_result(
-          nif_recvfrom(SockRef, RecvRef, Length, EFlags))
-    catch
-        throw:ERROR ->
-            ERROR
-    end.
+    EFlags = enc_recv_flags(Flags),
+    recvfromsg_result(
+      nif_recvfrom(SockRef, RecvRef, Length, EFlags)).
 
 recvmsg(SockRef, RecvRef, BufSz, CtrlSz, Flags) ->
-    try
-        EFlags = enc_recv_flags(Flags),
-        recvfromsg_result(
-          nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags))
-    catch
-        throw:ERROR ->
-            ERROR
-    end.
+    EFlags = enc_recv_flags(Flags),
+    recvfromsg_result(
+      nif_recvmsg(SockRef, RecvRef, BufSz, CtrlSz, EFlags)).
 
 recvfromsg_result(Result) ->
     case Result of
@@ -651,13 +595,7 @@ finalize_close(SockRef) ->
 %% ----------------------------------
 
 shutdown(SockRef, How) ->
-    try
-        EHow = enc_shutdown_how(How),
-        nif_shutdown(SockRef, EHow)
-    catch
-        throw:ERROR ->
-            ERROR
-    end.
+    nif_shutdown(SockRef, enc_shutdown_how(How)).
 
 %% ----------------------------------
 
@@ -665,30 +603,24 @@ setopt(SockRef, Level, Key, Val)
   when is_integer(Level), is_integer(Key), is_binary(Val) ->
     nif_setopt(SockRef, false, Level, Key, Val);
 setopt(SockRef, Level, Key, Value) ->
-    try
-        {Type, ELevel, EKey} = enc_sockopt_type(Level, Key),
-        EValue = enc_setopt_value(Level, Key, Value, Type),
-        nif_setopt(SockRef, true, ELevel, EKey, EValue)
-    catch
-        throw:ERROR ->
-            ERROR
+    case enc_sockopt_type(Level, Key) of
+        {undefined, _ELevel, _EKey} ->
+            {error, einval};
+        {Type, ELevel, EKey} ->
+            EValue = enc_setopt_value(Level, Key, Value, Type),
+            nif_setopt(SockRef, true, ELevel, EKey, EValue)
     end.
 
 getopt(SockRef, Level, Key)
-  when is_integer(Level), is_integer(Key) ->
+  when is_integer(Level) ->
     nif_getopt(SockRef, false, Level, Key);
 getopt(SockRef, Level, Key) ->
-    try
-        {_Type, ELevel, EKey} = enc_sockopt_type(Level, Key),
-        case nif_getopt(SockRef, true, ELevel, EKey) of
-            {ok, Value} ->
-                {ok, dec_getopt_value(Value, Level, Key)};
-            {error, _} = Error ->
-                Error
-        end
-    catch
-        throw:ERROR ->
-            ERROR
+    {_Type, ELevel, EKey} = enc_sockopt_type(Level, Key),
+    case nif_getopt(SockRef, true, ELevel, EKey) of
+        {ok, Value} ->
+            {ok, dec_getopt_value(Value, Level, Key)};
+        {error, _} = Error ->
+            Error
     end.
 
 %% ----------------------------------
@@ -711,13 +643,13 @@ cancel(SRef, Op, Ref) ->
 enc_domain(local)  -> ?ESOCK_DOMAIN_LOCAL;
 enc_domain(inet)   -> ?ESOCK_DOMAIN_INET;
 enc_domain(inet6)  -> ?ESOCK_DOMAIN_INET6;
-enc_domain(Domain) -> invalid_domain(Domain).
+enc_domain(Domain) -> invalid(domain, Domain).
 
 enc_type(stream)    -> ?ESOCK_TYPE_STREAM;
 enc_type(dgram)     -> ?ESOCK_TYPE_DGRAM;
 enc_type(raw)       -> ?ESOCK_TYPE_RAW;
 enc_type(seqpacket) -> ?ESOCK_TYPE_SEQPACKET;
-enc_type(Type)      -> invalid_type(Type).
+enc_type(Type)      -> invalid(type, Type).
 
 enc_protocol(default) -> ?ESOCK_PROTOCOL_DEFAULT;
 enc_protocol(ip)      -> ?ESOCK_PROTOCOL_IP;
@@ -728,7 +660,7 @@ enc_protocol(icmp)    -> ?ESOCK_PROTOCOL_ICMP;
 enc_protocol(igmp)    -> ?ESOCK_PROTOCOL_IGMP;
 enc_protocol({raw, P} = RAW) when is_integer(P) -> RAW;
 enc_protocol(Proto) ->
-    invalid_protocol(Proto).
+    invalid(protocol, Proto).
 
 
 enc_sockaddr(#{family := inet} = SockAddr) ->
@@ -747,7 +679,7 @@ enc_sockaddr(#{family := local, path := Path} = SockAddr)
        (byte_size(Path) =< 255) ->
     SockAddr;
 enc_sockaddr(SockAddr) ->
-    invalid_address(SockAddr).
+    invalid(address, SockAddr).
 
 
 enc_send_flags([]) -> 0;
@@ -759,7 +691,7 @@ enc_send_flags([Flag | Flags]) ->
         more ->      ?ESOCK_SEND_FLAG_MORE;
         nosignal ->  ?ESOCK_SEND_FLAG_NOSIGNAL;
         oob ->       ?ESOCK_SEND_FLAG_OOB;
-        _ -> err({unknown_flag, Flag})
+        _ -> invalid(flag, Flag)
     end bor enc_send_flags(Flags).
 
 
@@ -771,7 +703,7 @@ enc_recv_flags([Flag | Flags]) ->
         oob ->          ?ESOCK_RECV_FLAG_OOB;
         peek ->         ?ESOCK_RECV_FLAG_PEEK;
         trunc ->        ?ESOCK_RECV_FLAG_TRUNC;
-        _ -> err({unknown_flag, Flag})
+        _ -> invalid(flag, Flag)
     end bor enc_recv_flags(Flags).
     
 
@@ -784,13 +716,14 @@ enc_msghdr(#{iov := IOV, addr := Addr} = M)
 enc_msghdr(#{iov := IOV} = M) 
   when is_list(IOV), IOV =/= [] ->
     M#{iov => erlang:iolist_to_iovec(IOV)};
-enc_msghdr(#{}) ->
-    einval().
+enc_msghdr(#{} = M) ->
+    not_supported(M).
 
 
 %% Common to setopt and getopt
 %% - the returned first tuple element is a type tag
-%% that is used by setopt and ignored by getopt
+%% that is used by setopt and ignored by getopt;
+%% 'undefined' means setopt encoding is not_supported
 enc_sockopt_type(otp = Level, Key) ->
     L = ?ESOCK_OPT_LEVEL_OTP,
     case Key of
@@ -800,17 +733,17 @@ enc_sockopt_type(otp = Level, Key) ->
         rcvbuf ->       {Key,           L, ?ESOCK_OPT_OTP_RCVBUF};
         rcvctrlbuf ->   {buf,           L, ?ESOCK_OPT_OTP_RCVCTRLBUF};
         sndctrlbuf ->   {buf,           L, ?ESOCK_OPT_OTP_SNDCTRLBUF};
-        fd ->           {get,           L, ?ESOCK_OPT_OTP_FD};
+        fd ->           {undefined,     L, ?ESOCK_OPT_OTP_FD};
         meta ->         {term,          L, ?ESOCK_OPT_OTP_META};
-        domain ->       {get,           L, ?ESOCK_OPT_OTP_DOMAIN};
+        domain ->       {undefined,     L, ?ESOCK_OPT_OTP_DOMAIN};
         _ ->
             not_supported(Level, Key)
     end;
 enc_sockopt_type(socket = Level, Key) ->
     L = ?ESOCK_OPT_LEVEL_SOCKET,
     case Key of
-        acceptconn ->   {get,           L, ?ESOCK_OPT_SOCK_ACCEPTCONN};
-        acceptfilter -> {not_supported, L, ?ESOCK_OPT_SOCK_ACCEPTFILTER};
+        acceptconn ->   {undefined,     L, ?ESOCK_OPT_SOCK_ACCEPTCONN};
+        acceptfilter -> {undefined,     L, ?ESOCK_OPT_SOCK_ACCEPTFILTER};
         bindtodevice ->
             %% Before linux 3.8, this socket option
             %% could be set but not get.
@@ -818,38 +751,38 @@ enc_sockopt_type(socket = Level, Key) ->
             %% So, we let the implementation decide.
             {list,                      L, ?ESOCK_OPT_SOCK_BINDTODEVICE};
         broadcast ->    {boolean,       L, ?ESOCK_OPT_SOCK_BROADCAST};
-        busy_poll ->    {not_supported, L, ?ESOCK_OPT_SOCK_BUSY_POLL};
+        busy_poll ->    {undefined,     L, ?ESOCK_OPT_SOCK_BUSY_POLL};
         debug ->        {integer,       L, ?ESOCK_OPT_SOCK_DEBUG};
-        domain ->       {get,           L, ?ESOCK_OPT_SOCK_DOMAIN};
+        domain ->       {undefined,     L, ?ESOCK_OPT_SOCK_DOMAIN};
         dontroute ->    {boolean,       L, ?ESOCK_OPT_SOCK_DONTROUTE};
-        error ->        {not_supported, L, ?ESOCK_OPT_SOCK_ERROR};
+        error ->        {undefined,     L, ?ESOCK_OPT_SOCK_ERROR};
         keepalive ->    {boolean,       L, ?ESOCK_OPT_SOCK_KEEPALIVE};
         linger ->       {linger,        L, ?ESOCK_OPT_SOCK_LINGER};
-        mark ->         {not_supported, L, ?ESOCK_OPT_SOCK_MARK};
+        mark ->         {undefined,     L, ?ESOCK_OPT_SOCK_MARK};
         oobinline ->    {boolean,       L, ?ESOCK_OPT_SOCK_OOBINLINE};
         passcred ->     {boolean,       L, ?ESOCK_OPT_SOCK_PASSCRED};
         peek_off ->     {integer,       L, ?ESOCK_OPT_SOCK_PEEK_OFF};
-        peercred ->     {not_supported, L, ?ESOCK_OPT_SOCK_PEERCRED};
+        peercred ->     {undefined,     L, ?ESOCK_OPT_SOCK_PEERCRED};
         priority ->     {integer,       L, ?ESOCK_OPT_SOCK_PRIORITY};
-        protocol ->     {get,           L, ?ESOCK_OPT_SOCK_PROTOCOL};
+        protocol ->     {undefined,     L, ?ESOCK_OPT_SOCK_PROTOCOL};
         rcvbuf ->       {integer,       L, ?ESOCK_OPT_SOCK_RCVBUF};
-        rcvbufforce ->  {not_supported, L, ?ESOCK_OPT_SOCK_RCVBUFFORCE};
+        rcvbufforce ->  {undefined,     L, ?ESOCK_OPT_SOCK_RCVBUFFORCE};
         rcvlowat ->
             %% May not work on Linux
             {integer,                   L, ?ESOCK_OPT_SOCK_RCVLOWAT};
         rcvtimeo ->     {timeval,       L, ?ESOCK_OPT_SOCK_RCVTIMEO};
         reuseaddr ->    {boolean,       L, ?ESOCK_OPT_SOCK_REUSEADDR};
         reuseport ->    {boolean,       L, ?ESOCK_OPT_SOCK_REUSEPORT};
-        rxq_ovfl ->     {not_supported, L, ?ESOCK_OPT_SOCK_RXQ_OVFL};
-        setfib ->       {not_supported, L, ?ESOCK_OPT_SOCK_SETFIB};
+        rxq_ovfl ->     {undefined,     L, ?ESOCK_OPT_SOCK_RXQ_OVFL};
+        setfib ->       {undefined,     L, ?ESOCK_OPT_SOCK_SETFIB};
         sndbuf ->       {integer,       L, ?ESOCK_OPT_SOCK_SNDBUF};
-        sndbufforce ->  {not_supported, L, ?ESOCK_OPT_SOCK_SNDBUFFORCE};
+        sndbufforce ->  {undefined,     L, ?ESOCK_OPT_SOCK_SNDBUFFORCE};
         sndlowat ->
             %% Not changeable on Linux
             {integer,                   L, ?ESOCK_OPT_SOCK_SNDLOWAT};
         sndtimeo ->     {timeval,       L, ?ESOCK_OPT_SOCK_SNDTIMEO};
         timestamp ->    {boolean,       L, ?ESOCK_OPT_SOCK_TIMESTAMP};
-        type ->         {get,           L, ?ESOCK_OPT_SOCK_TYPE};
+        type ->         {undefined,     L, ?ESOCK_OPT_SOCK_TYPE};
         _ ->
             not_supported(Level, Key)
     end;
@@ -879,7 +812,7 @@ enc_sockopt_type(ip = Level, Key) ->
         minttl ->
             {integer,           L, ?ESOCK_OPT_IP_MINTTL};
         msfilter ->     {Key,   L, ?ESOCK_OPT_IP_MSFILTER};
-        mtu ->          {get,   L, ?ESOCK_OPT_IP_MTU};
+        mtu ->          {undefined, L, ?ESOCK_OPT_IP_MTU};
         mtu_discover -> {Key,   L, ?ESOCK_OPT_IP_MTU_DISCOVER};
         multicast_all ->
             {boolean,           L, ?ESOCK_OPT_IP_MULTICAST_ALL};
@@ -892,7 +825,7 @@ enc_sockopt_type(ip = Level, Key) ->
         nodefrag ->
             {boolean,           L, ?ESOCK_OPT_IP_NODEFRAG};
         options ->
-            {not_supported,     L, ?ESOCK_OPT_IP_OPTIONS};
+            {undefined,         L, ?ESOCK_OPT_IP_OPTIONS};
         pktinfo ->
             {boolean,           L, ?ESOCK_OPT_IP_PKTINFO};
         recvdstaddr ->
@@ -942,17 +875,17 @@ enc_sockopt_type(ipv6 = Level, Key) ->
             %% where it still works...
             {boolean,           L, ?ESOCK_OPT_IPV6_AUTHHDR};
         auth_level ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_AUTH_LEVEL};
+            {undefined,         L, ?ESOCK_OPT_IPV6_AUTH_LEVEL};
         checksum ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_CHECKSUM};
+            {undefined,         L, ?ESOCK_OPT_IPV6_CHECKSUM};
         drop_membership ->
             {addr_if,           L, ?ESOCK_OPT_IPV6_DROP_MEMBERSHIP};
         dstopts ->
             {boolean,           L, ?ESOCK_OPT_IPV6_DSTOPTS};
         esp_network_level ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_ESP_NETWORK_LEVEL};
+            {undefined,         L, ?ESOCK_OPT_IPV6_ESP_NETWORK_LEVEL};
         esp_trans_level ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_ESP_TRANS_LEVEL};
+            {undefined,         L, ?ESOCK_OPT_IPV6_ESP_TRANS_LEVEL};
         flowinfo ->
             {boolean,           L, ?ESOCK_OPT_IPV6_FLOWINFO};
         hoplimit ->
@@ -960,11 +893,11 @@ enc_sockopt_type(ipv6 = Level, Key) ->
         hopopts ->
             {boolean,           L, ?ESOCK_OPT_IPV6_HOPOPTS};
         ipcomp_level ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_IPCOMP_LEVEL};
+            {undefined,         L, ?ESOCK_OPT_IPV6_IPCOMP_LEVEL};
         join_group ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_JOIN_GROUP};
+            {undefined,         L, ?ESOCK_OPT_IPV6_JOIN_GROUP};
         leave_group ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_LEAVE_GROUP};
+            {undefined,         L, ?ESOCK_OPT_IPV6_LEAVE_GROUP};
         mtu ->
             {integer,           L, ?ESOCK_OPT_IPV6_MTU};
         mtu_discover -> {Key,   L, ?ESOCK_OPT_IPV6_MTU_DISCOVER};
@@ -975,9 +908,9 @@ enc_sockopt_type(ipv6 = Level, Key) ->
         multicast_loop ->
             {boolean,           L, ?ESOCK_OPT_IPV6_MULTICAST_LOOP};
         portrange ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_PORTRANGE};
+            {undefined,         L, ?ESOCK_OPT_IPV6_PORTRANGE};
         pktoptions ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_PKTOPTIONS};
+            {undefined,         L, ?ESOCK_OPT_IPV6_PKTOPTIONS};
         recverr ->
             {boolean,           L, ?ESOCK_OPT_IPV6_RECVERR};
         recvhoplimit ->
@@ -997,7 +930,7 @@ enc_sockopt_type(ipv6 = Level, Key) ->
         unicast_hops ->
             {hops,              L, ?ESOCK_OPT_IPV6_UNICAST_HOPS};
         use_min_mtu ->
-            {not_supported,     L, ?ESOCK_OPT_IPV6_USE_MIN_MTU};
+            {undefined,         L, ?ESOCK_OPT_IPV6_USE_MIN_MTU};
         v6only ->
             {boolean,           L, ?ESOCK_OPT_IPV6_V6ONLY};
         _ ->
@@ -1011,28 +944,28 @@ enc_sockopt_type(tcp = Level, Key) ->
         cork ->
             {boolean,           L, ?ESOCK_OPT_TCP_CORK};
         info ->
-            {not_supported,     L, ?ESOCK_OPT_TCP_INFO};
+            {undefined,         L, ?ESOCK_OPT_TCP_INFO};
         keepcnt ->
-            {not_supported,     L, ?ESOCK_OPT_TCP_KEEPCNT};
+            {undefined,         L, ?ESOCK_OPT_TCP_KEEPCNT};
         keepidle ->
-            {not_supported,     L, ?ESOCK_OPT_TCP_KEEPIDLE};
+            {undefined,         L, ?ESOCK_OPT_TCP_KEEPIDLE};
         keepintvl ->
-            {not_supported,     L, ?ESOCK_OPT_TCP_KEEPINTVL};
+            {undefined,         L, ?ESOCK_OPT_TCP_KEEPINTVL};
         maxseg ->
             {integer,           L, ?ESOCK_OPT_TCP_MAXSEG};
         md5seg ->
-            {not_supported,     L, ?ESOCK_OPT_TCP_MD5SIG};
+            {undefined,         L, ?ESOCK_OPT_TCP_MD5SIG};
         nodelay ->
             {boolean,           L, ?ESOCK_OPT_TCP_NODELAY};
         noopt ->
-            {not_supported,     L, ?ESOCK_OPT_TCP_NOOPT};
+            {undefined,         L, ?ESOCK_OPT_TCP_NOOPT};
         nopush ->
-            {not_supported,     L, ?ESOCK_OPT_TCP_NOPUSH};
+            {undefined,         L, ?ESOCK_OPT_TCP_NOPUSH};
         syncnt ->
             %% Only set? 1..255
-            {not_supported,     L, ?ESOCK_OPT_TCP_SYNCNT};
+            {undefined,         L, ?ESOCK_OPT_TCP_SYNCNT};
         user_timeout ->
-            {not_supported,     L, ?ESOCK_OPT_TCP_USER_TIMEOUT};
+            {undefined,         L, ?ESOCK_OPT_TCP_USER_TIMEOUT};
         _ ->
             not_supported(Level, Key)
     end;
@@ -1048,65 +981,65 @@ enc_sockopt_type(sctp = Level, Key) ->
     L = ?ESOCK_OPT_LEVEL_SCTP,
     case Key of
         adaption_layer ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_ADAPTION_LAYER};
+            {undefined,         L, ?ESOCK_OPT_SCTP_ADAPTION_LAYER};
         associnfo ->    {Key,   L, ?ESOCK_OPT_SCTP_ASSOCINFO};
         auth_active_key ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_AUTH_ACTIVE_KEY};
+            {undefined,         L, ?ESOCK_OPT_SCTP_AUTH_ACTIVE_KEY};
         auth_asconf ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_AUTH_ASCONF};
+            {undefined,         L, ?ESOCK_OPT_SCTP_AUTH_ASCONF};
         auth_chunk ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_AUTH_CHUNK};
+            {undefined,         L, ?ESOCK_OPT_SCTP_AUTH_CHUNK};
         auth_key ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_AUTH_KEY};
+            {undefined,         L, ?ESOCK_OPT_SCTP_AUTH_KEY};
         auth_delete_key ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_AUTH_DELETE_KEY};
+            {undefined,         L, ?ESOCK_OPT_SCTP_AUTH_DELETE_KEY};
         autoclose ->
             {integer,           L, ?ESOCK_OPT_SCTP_AUTOCLOSE};
         context ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_CONTEXT};
+            {undefined,         L, ?ESOCK_OPT_SCTP_CONTEXT};
         default_send_params ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_DEFAULT_SEND_PARAMS};
+            {undefined,         L, ?ESOCK_OPT_SCTP_DEFAULT_SEND_PARAMS};
         delayed_ack_time ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_DELAYED_ACK_TIME};
+            {undefined,         L, ?ESOCK_OPT_SCTP_DELAYED_ACK_TIME};
         disable_fragments ->
             {boolean,           L, ?ESOCK_OPT_SCTP_DISABLE_FRAGMENTS};
         hmac_ident ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_HMAC_IDENT};
+            {undefined,         L, ?ESOCK_OPT_SCTP_HMAC_IDENT};
         events ->       {Key,   L, ?ESOCK_OPT_SCTP_EVENTS};
         explicit_eor ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_EXPLICIT_EOR};
+            {undefined,         L, ?ESOCK_OPT_SCTP_EXPLICIT_EOR};
         fragment_intreleave ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_FRAGMENT_INTERLEAVE};
+            {undefined,         L, ?ESOCK_OPT_SCTP_FRAGMENT_INTERLEAVE};
         get_peer_addr_info ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_GET_PEER_ADDR_INFO};
+            {undefined,         L, ?ESOCK_OPT_SCTP_GET_PEER_ADDR_INFO};
         initmsg ->      {Key,   L, ?ESOCK_OPT_SCTP_INITMSG};
         i_want_mapped_v4_addr ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_I_WANT_MAPPED_V4_ADDR};
+            {undefined,         L, ?ESOCK_OPT_SCTP_I_WANT_MAPPED_V4_ADDR};
         local_auth_chunks ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_LOCAL_AUTH_CHUNKS};
+            {undefined,         L, ?ESOCK_OPT_SCTP_LOCAL_AUTH_CHUNKS};
         maxseg ->
             {integer,           L, ?ESOCK_OPT_SCTP_MAXSEG};
         maxburst ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_MAXBURST};
+            {undefined,         L, ?ESOCK_OPT_SCTP_MAXBURST};
         nodelay ->
             {boolean,           L, ?ESOCK_OPT_SCTP_NODELAY};
         partial_delivery_point ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_PARTIAL_DELIVERY_POINT};
+            {undefined,         L, ?ESOCK_OPT_SCTP_PARTIAL_DELIVERY_POINT};
         peer_addr_params ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_PEER_ADDR_PARAMS};
+            {undefined,         L, ?ESOCK_OPT_SCTP_PEER_ADDR_PARAMS};
         peer_auth_chunks ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_PEER_AUTH_CHUNKS};
+            {undefined,         L, ?ESOCK_OPT_SCTP_PEER_AUTH_CHUNKS};
         primary_addr ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_PRIMARY_ADDR};
+            {undefined,         L, ?ESOCK_OPT_SCTP_PRIMARY_ADDR};
         reset_streams ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_RESET_STREAMS};
+            {undefined,         L, ?ESOCK_OPT_SCTP_RESET_STREAMS};
         rtoinfo ->      {Key,   L, ?ESOCK_OPT_SCTP_RTOINFO};
         set_peer_primary_addr ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_SET_PEER_PRIMARY_ADDR};
+            {undefined,         L, ?ESOCK_OPT_SCTP_SET_PEER_PRIMARY_ADDR};
         status -> % ?ESOCK_OPT_SCTP_RTOINFO;
-            {not_supported,     L, ?ESOCK_OPT_SCTP_STATUS};
+            {undefined,         L, ?ESOCK_OPT_SCTP_STATUS};
         use_ext_recvinfo ->
-            {not_supported,     L, ?ESOCK_OPT_SCTP_USE_EXT_RECVINFO};
+            {undefined,         L, ?ESOCK_OPT_SCTP_USE_EXT_RECVINFO};
         _ ->
             not_supported(Level, Key)
     end;
@@ -1275,7 +1208,8 @@ enc_setopt_value(Level, Key, TypeValue) ->
                is_integer(Max), (Max >= 0),
                is_integer(Min), (Min >= 0) ->
             RTOInfo;
-        {_, Value} ->
+        {Type, Value} when Type =/= undefined ->
+            %% No match
             not_supported(Level, Key, Value)
     end.
 
@@ -1285,7 +1219,8 @@ enc_shutdown_how(How) ->
         read ->       ?ESOCK_SHUTDOWN_HOW_READ;
         write ->      ?ESOCK_SHUTDOWN_HOW_WRITE;
         read_write -> ?ESOCK_SHUTDOWN_HOW_READ_WRITE;
-        _ -> err({unknown_flag, How})
+        _ ->
+            invalid(how, How)
     end.
 
 
@@ -1306,22 +1241,6 @@ dec_getopt_value(Value, _Level, _Key) ->
 %% Error functions
 %%
 
--dialyzer({no_return, invalid_domain/1}).
-invalid_domain(Domain) ->
-    err({invalid_domain, Domain}).
-
--dialyzer({no_return, invalid_type/1}).
-invalid_type(Type) ->
-    err({invalid_type, Type}).
-
--dialyzer({no_return, invalid_protocol/1}).
-invalid_protocol(Proto) ->
-    err({invalid_protocol, Proto}).
-
--dialyzer({no_return, invalid_address/1}).
-invalid_address(SockAddr) ->
-    err({invalid_address, SockAddr}).
-
 -dialyzer({no_return, not_supported/3}).
 not_supported(Level, Key, Value) ->
     not_supported({Level, Key, Value}).
@@ -1332,14 +1251,14 @@ not_supported(Level, Key) ->
 %%
 -dialyzer({no_return, not_supported/1}).
 not_supported(What) ->
-    err({not_supported, What}).
+    invalid(not_supported, What).
 
--dialyzer({no_return, einval/0}).
-einval() ->
-    err(einval).
+-dialyzer({no_return, invalid/2}).
+invalid(What, Info) ->
+    err({invalid, {What, Info}}).
 
 err(Reason) ->
-    throw({error, Reason}).
+    erlang:error(Reason).
 
 %% ===========================================================================
 %% NIF functions
