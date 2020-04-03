@@ -666,6 +666,12 @@
           data     := uint32(),
           offender := undefined | sockaddr()}.
 
+-type errcode() ::
+        inet:posix() | closed | timeout | not_owner |
+        exalloc | exmonitor | exselect | exself.
+
+-type reason() :: atom() | {atom(), Info :: term()}.
+
 %% ===========================================================================
 %%
 %% Interface term formats
@@ -801,9 +807,10 @@ socket_debug(D) when is_boolean(D) ->
 -spec info(Socket) -> socket_info() when
       Socket :: socket().
 %%
-info(#socket{ref = SockRef}) ->
-    prim_socket:info(SockRef).
-
+info(#socket{ref = SockRef}) when is_reference(SockRef) ->
+    prim_socket:info(SockRef);
+info(Socket) ->
+    erlang:error(badarg, [Socket]).
 
 
 %% ===========================================================================
@@ -896,8 +903,6 @@ get_is_supported(Key, Supported) ->
 %% </KOLLA>
 %%
 
-
-
 %% ===========================================================================
 %%
 %% open - create an endpoint for communication
@@ -906,21 +911,25 @@ get_is_supported(Key, Supported) ->
 -spec open(FD) -> {ok, Socket} | {error, Reason} when
       FD     :: integer(),
       Socket :: socket(),
-      Reason :: term().
+      Reason :: reason().
 
 open(FD) ->
     open(FD, #{}).
                   
 -spec open(FD, Opts) -> {ok, Socket} | {error, Reason} when
       FD       :: integer(),
-      Opts     :: map(),
+      Opts     ::
+        #{domain := domain(),
+          type := type(),
+          protocol := protocol(),
+          dup := boolean()},
       Socket   :: socket(),
-      Reason   :: term();
+      Reason   :: reason();
           (Domain, Type) -> {ok, Socket} | {error, Reason} when
       Domain   :: domain(),
       Type     :: type(),
       Socket   :: socket(),
-      Reason   :: term().
+      Reason   :: reason().
 
 open(FD, Opts) when is_integer(FD), is_map(Opts) ->
     case prim_socket:open(FD, Opts) of
@@ -938,7 +947,7 @@ open(Domain, Type) ->
       Type     :: type(),
       Protocol :: default | protocol(),
       Socket   :: socket(),
-      Reason   :: term().
+      Reason   :: errcode().
 
 open(Domain, Type, Protocol) ->
     open(Domain, Type, Protocol, #{}).
@@ -949,7 +958,7 @@ open(Domain, Type, Protocol) ->
       Protocol :: default | protocol(),
       Opts     :: map(),
       Socket   :: socket(),
-      Reason   :: term().
+      Reason   :: errcode().
 
 open(Domain, Type, Protocol, Opts) when is_map(Opts) ->
     case prim_socket:open(Domain, Type, Protocol, Opts) of
@@ -973,27 +982,38 @@ open(Domain, Type, Protocol, Opts) ->
 
 -spec bind(Socket, Addr) -> {ok, Port} | {error, Reason} when
       Socket :: socket(),
-      Addr   :: any | broadcast | loopback | sockaddr(),
+      Addr   :: sockaddr(),
       Port   :: port_number(),
-      Reason :: term().
+      Reason :: errcode();
+          (Socket, Addr) -> {ok, Port} | {error, Reason} when
+      Socket :: socket(),
+      Addr   :: any | broadcast | loopback,
+      Port   :: port_number(),
+      Reason :: reason().
 
-bind(#socket{ref = SockRef}, Addr)
-  when Addr =:= any;
-       Addr =:= broadcast;
-       Addr =:= loopback ->
-    case prim_socket:getopt(SockRef, otp, domain) of
-        {ok, Domain}
-          when Domain =:= inet;
-               Domain =:= inet6 ->
-            prim_socket:bind(SockRef, #{family => Domain, addr => Addr});
-        {ok, Domain} ->
-            {error, {invalid_domain, Domain}};
-        {error, _} = ERROR ->
-            ERROR
+bind(#socket{ref = SockRef} = Socket, Addr) when is_reference(SockRef) ->
+    if
+        is_map(Addr) ->
+            prim_socket:bind(SockRef, Addr);
+        %%
+        Addr =:= any;
+        Addr =:= broadcast;
+        Addr =:= loopback ->
+            case prim_socket:getopt(SockRef, otp, domain) of
+                {ok, Domain}
+                  when Domain =:= inet;
+                       Domain =:= inet6 ->
+                    prim_socket:bind(
+                      SockRef, #{family => Domain, addr => Addr});
+                {ok, Domain} ->
+                    {error, {invalid_domain, Domain}};
+                {error, _} = ERROR ->
+                    ERROR
+            end;
+        %%
+        true ->
+            erlang:error(badarg, [Socket, Addr])
     end;
-bind(#socket{ref = SockRef}, Addr)
-  when is_map(Addr) ->
-    prim_socket:bind(SockRef, Addr);
 bind(Socket, Addr) ->
     erlang:error(badarg, [Socket, Addr]).
 
@@ -1014,11 +1034,13 @@ bind(Socket, Addr) ->
       Socket :: socket(),
       Addrs  :: [sockaddr()],
       Action :: add | remove,
-      Reason :: term().
+      Reason :: errcode().
 
 bind(#socket{ref = SockRef}, Addrs, Action)
-  when is_list(Addrs), Action =:= add;
-       is_list(Addrs), Action =:= remove ->
+  when is_reference(SockRef)
+       andalso is_list(Addrs)
+       andalso (Action =:= add
+                orelse Action =:= remove) ->
     prim_socket:bind(SockRef, Addrs, Action);
 bind(Socket, Addrs, Action) ->
     erlang:error(badarg, [Socket, Addrs, Action]).
@@ -1032,7 +1054,7 @@ bind(Socket, Addrs, Action) ->
 -spec connect(Socket, SockAddr) -> ok | {error, Reason} when
     Socket   :: socket(),
     SockAddr :: sockaddr(),
-    Reason   :: term().
+    Reason   :: reason().
 
 connect(Socket, SockAddr) ->
     connect(Socket, SockAddr, infinity).
@@ -1042,17 +1064,18 @@ connect(Socket, SockAddr) ->
     Socket     :: socket(),
     SockAddr   :: sockaddr(),
     SelectInfo :: select_info(),
-    Reason     :: term()
+    Reason     :: reason()
         ; (Socket, SockAddr, Timeout) -> ok | {error, Reason} when
     Socket   :: socket(),
     SockAddr :: sockaddr(),
     Timeout  :: timeout(),
-    Reason   :: term().
+    Reason   :: reason().
 
 %% <KOLLA>
 %% Is it possible to connect with family = local for the (dest) sockaddr?
 %% </KOLLA>
-connect(#socket{ref = SockRef} = Socket, SockAddr, Timeout) ->
+connect(#socket{ref = SockRef} = Socket, SockAddr, Timeout)
+  when is_reference(SockRef) ->
     case deadline(Timeout) of
         badarg = Reason ->
             erlang:error(Reason, [Socket, SockAddr, Timeout]);
@@ -1107,7 +1130,7 @@ connect_result(Result) ->
 
 -spec listen(Socket) -> ok | {error, Reason} when
       Socket  :: socket(),
-      Reason  :: term().
+      Reason  :: errcode().
 
 listen(Socket) ->
     listen(Socket, ?ESOCK_LISTEN_BACKLOG_DEFAULT).
@@ -1115,10 +1138,10 @@ listen(Socket) ->
 -spec listen(Socket, Backlog) -> ok | {error, Reason} when
       Socket  :: socket(),
       Backlog :: integer(),
-      Reason  :: term().
+      Reason  :: errcode().
 
 listen(#socket{ref = SockRef}, Backlog)
-  when is_integer(Backlog) ->
+  when is_reference(SockRef), is_integer(Backlog) ->
     prim_socket:listen(SockRef, Backlog);
 listen(Socket, Backlog) ->
     erlang:error(badarg, [Socket, Backlog]).
@@ -1151,7 +1174,8 @@ accept(Socket) ->
       Socket     :: socket(),
       Reason     :: term().
 
-accept(#socket{ref = LSockRef} = Socket, Timeout) ->
+accept(#socket{ref = LSockRef} = Socket, Timeout)
+  when is_reference(LSockRef) ->
     case deadline(Timeout) of
         badarg = Reason ->
             erlang:error(Reason, [Socket, Timeout]);
@@ -1265,7 +1289,7 @@ send(Socket, Data, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     send(Socket, Bin, Flags, Timeout);
 send(#socket{ref = SockRef} = Socket, Data, Flags, Timeout)
-  when is_binary(Data), is_list(Flags) ->
+  when is_reference(SockRef), is_binary(Data), is_list(Flags) ->
     To = undefined,
     case deadline(Timeout) of
         badarg = Reason ->
@@ -1341,7 +1365,7 @@ send_common_deadline(SockRef, Data, To, Flags, Deadline, SendName) ->
                     {error, {timeout, byte_size(Data)}}
             end;
         %%
-        {error, exbusy = Reason} ->
+        {error, ealready = Reason} ->
             %% Internal error:
             %%   we called send, got eagain, and called send again
             %%   - without waiting for select message
@@ -1422,7 +1446,7 @@ sendto(Socket, Data, Dest, Flags, Timeout) when is_list(Data) ->
     Bin = erlang:list_to_binary(Data),
     sendto(Socket, Bin, Dest, Flags, Timeout);
 sendto(#socket{ref = SockRef} = Socket, Data, Dest, Flags, Timeout)
-  when is_binary(Data), is_list(Flags) ->
+  when is_reference(SockRef), is_binary(Data), is_list(Flags) ->
     case deadline(Timeout) of
         badarg = Reason ->
             erlang:error(Reason, [Socket, Data, Dest, Flags, Timeout]);
@@ -1504,7 +1528,7 @@ sendmsg(Socket, MsgHdr, Timeout) ->
       Reason     :: term().
 
 sendmsg(#socket{ref = SockRef} = Socket, MsgHdr, Flags, Timeout)
-  when is_map(MsgHdr), is_list(Flags) ->
+  when is_reference(SockRef), is_map(MsgHdr), is_list(Flags) ->
     case deadline(Timeout) of
         badarg = Reason ->
             erlang:error(Reason, [Socket, MsgHdr, Flags, Timeout]);
@@ -1545,7 +1569,7 @@ sendmsg_loop(SockRef, MsgHdr, Flags, Deadline) ->
                     {error, timeout}
             end;
         %%
-        {error, exbusy = Reason} when Deadline =/= nowait ->
+        {error, ealready = Reason} when Deadline =/= nowait ->
             %% Internal error:
             %%   we called send, got eagain, and called send again
             %%   - without waiting for select message
@@ -1625,7 +1649,7 @@ recv(Socket, Length) ->
       Length  :: non_neg_integer(),
       Timeout :: timeout(),
       Data    :: binary(),
-      Reason  :: term().
+      Reason  :: atom() | {atom(), Info :: term()}.
 
 recv(Socket, Length, Flags) when is_list(Flags) ->
     recv(Socket, Length, Flags, ?ESOCK_RECV_TIMEOUT_DEFAULT);
@@ -1641,7 +1665,7 @@ recv(Socket, Length, Timeout) ->
       Flags      :: recv_flags(),
       Data       :: binary(),
       SelectInfo :: select_info(),
-      Reason     :: term()
+      Reason     :: atom() | {atom(), Info :: term()}
                  ; (Socket, Length, Flags, Timeout) -> {ok, Data} |
                                                        {error, Reason} when
       Socket     :: socket(),
@@ -1649,10 +1673,12 @@ recv(Socket, Length, Timeout) ->
       Flags      :: recv_flags(),
       Timeout    :: timeout(),
       Data       :: binary(),
-      Reason     :: term().
+      Reason     :: atom() | {atom(), Info :: term()}.
 
 recv(#socket{ref = SockRef} = Socket, Length, Flags, Timeout)
-  when is_integer(Length), Length >= 0, is_list(Flags) ->
+  when is_reference(SockRef),
+       is_integer(Length), Length >= 0,
+       is_list(Flags) ->
     case deadline(Timeout) of
         badarg = Reason ->
             erlang:error(Reason, [Socket, Length, Flags, Timeout]);
@@ -1754,7 +1780,7 @@ recv_deadline(SockRef, Length, Flags, Deadline, Acc) ->
                     {error, timeout}
             end;
         %%
-        {error, exbusy = Reason} ->
+        {error, ealready = Reason} ->
             %% Internal error:
             %%   we called recv, got eagain, and called recv again
             %%   - without waiting for select message
@@ -1885,7 +1911,9 @@ recvfrom(Socket, BufSz, Timeout) ->
       Reason  :: term().
 
 recvfrom(#socket{ref = SockRef} = Socket, BufSz, Flags, Timeout)
-  when is_integer(BufSz), 0 =< BufSz, is_list(Flags) ->
+  when is_reference(SockRef),
+       is_integer(BufSz), 0 =< BufSz,
+       is_list(Flags) ->
     case deadline(Timeout) of
         badarg = Reason ->
             erlang:error(Reason, [Socket, BufSz, Flags, Timeout]);
@@ -1922,7 +1950,7 @@ recvfrom_deadline(SockRef, BufSz, Flags, Deadline) ->
                     cancel(SockRef, recvfrom, RecvRef),
                     {error, timeout}
             end;
-        {error, exbusy = Reason} ->
+        {error, ealready = Reason} ->
             %% Internal error:
             %%   we called recvfrom, got eagain, and called recvfrom again
             %%   - without waiting for select message
@@ -2027,7 +2055,8 @@ recvmsg(Socket, BufSz, CtrlSz) when is_integer(BufSz), is_integer(CtrlSz) ->
       Reason     :: term().
 
 recvmsg(#socket{ref = SockRef} = Socket, BufSz, CtrlSz, Flags, Timeout)
-  when is_integer(BufSz), 0 =< BufSz,
+  when is_reference(SockRef),
+       is_integer(BufSz), 0 =< BufSz,
        is_integer(CtrlSz), 0 =< CtrlSz,
        is_list(Flags) ->
     case deadline(Timeout) of
@@ -2068,7 +2097,7 @@ recvmsg_deadline(SockRef, BufSz, CtrlSz, Flags, Deadline)  ->
                     {error, timeout}
             end;
         %%
-        {error, exbusy = Reason} ->
+        {error, ealready = Reason} ->
             %% Internal error:
             %%   we called recvmsg, got eagain, and called recvmsg again
             %%   - without waiting for select message
@@ -2104,7 +2133,8 @@ recvmsg_result(Result) ->
       Socket :: socket(),
       Reason :: term().
 
-close(#socket{ref = SockRef}) ->
+close(#socket{ref = SockRef})
+  when is_reference(SockRef) ->
     case prim_socket:close(SockRef) of
         ok ->
             prim_socket:finalize_close(SockRef);
@@ -2133,7 +2163,8 @@ close(Socket) ->
       How    :: shutdown_how(),
       Reason :: term().
 
-shutdown(#socket{ref = SockRef}, How) ->
+shutdown(#socket{ref = SockRef}, How)
+  when is_reference(SockRef) ->
     prim_socket:shutdown(SockRef, How);
 shutdown(Socket, How) ->
     erlang:error(badarg, [Socket, How]).
@@ -2190,7 +2221,8 @@ shutdown(Socket, How) ->
       Value  :: binary(),
       Reason :: term().
 
-setopt(#socket{ref = SockRef}, Level, Key, Value) ->
+setopt(#socket{ref = SockRef}, Level, Key, Value)
+  when is_reference(SockRef) ->
     prim_socket:setopt(SockRef, Level, Key, Value);
 setopt(Socket, Level, Key, Value) ->
     erlang:error(badarg, [Socket, Level, Key, Value]).
@@ -2247,7 +2279,8 @@ setopt(Socket, Level, Key, Value) ->
       Value     :: term(),
       Reason    :: term().
 
-getopt(#socket{ref = SockRef}, Level, Key) ->
+getopt(#socket{ref = SockRef}, Level, Key)
+  when is_reference(SockRef) ->
     prim_socket:getopt(SockRef, Level, Key);
 getopt(Socket, Level, Key) ->
     erlang:error(badarg, [Socket, Level, Key]).
@@ -2264,7 +2297,8 @@ getopt(Socket, Level, Key) ->
       SockAddr :: sockaddr(),
       Reason   :: term().
 
-sockname(#socket{ref = SockRef}) ->
+sockname(#socket{ref = SockRef})
+  when is_reference(SockRef) ->
     prim_socket:sockname(SockRef);
 sockname(Socket) ->
     erlang:error(badarg, [Socket]).
@@ -2281,7 +2315,8 @@ sockname(Socket) ->
       SockAddr :: sockaddr(),
       Reason   :: term().
 
-peername(#socket{ref = SockRef}) ->
+peername(#socket{ref = SockRef})
+  when is_reference(SockRef) ->
     prim_socket:peername(SockRef);
 peername(Socket) ->
     erlang:error(badarg, [Socket]).
@@ -2302,7 +2337,8 @@ peername(Socket) ->
       SelectInfo :: select_info(),
       Reason     :: term().
 
-cancel(#socket{ref = SockRef}, ?SELECT_INFO(Tag, Ref)) ->
+cancel(#socket{ref = SockRef}, ?SELECT_INFO(Tag, Ref))
+  when is_reference(SockRef) ->
     cancel(SockRef, Tag, Ref);
 cancel(Socket, SelectInfo) ->
     erlang:error(badarg, [Socket, SelectInfo]).
@@ -2315,6 +2351,9 @@ cancel(SockRef, Op, OpRef) ->
             flush_select_msg(SockRef, OpRef),
             _ = flush_abort_msg(SockRef, OpRef),
             ok;
+        {error, not_found} ->
+            _ = flush_abort_msg(SockRef, OpRef),
+            {error, einval};
         Other ->
             _ = flush_abort_msg(SockRef, OpRef),
             Other

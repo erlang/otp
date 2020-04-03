@@ -2929,7 +2929,7 @@ static const struct in6_addr in6addr_loopback =
 
 
 /* (special) error string constants */
-static char str_exmon[]          = "exmonitor";  // failed monitor
+static char str_exmonitor[]      = "exmonitor";  // failed monitor
 static char str_exself[]         = "exself";     // failed self
 static char str_exsend[]         = "exsend";     // failed send
 
@@ -3201,6 +3201,7 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
     LOCAL_ATOM_DECL(dest_unreach);     \
     LOCAL_ATOM_DECL(do);               \
     LOCAL_ATOM_DECL(dont);             \
+    LOCAL_ATOM_DECL(dup);              \
     LOCAL_ATOM_DECL(exclude);          \
     LOCAL_ATOM_DECL(false);            \
     LOCAL_ATOM_DECL(frag_needed);      \
@@ -3293,12 +3294,12 @@ ERL_NIF_TERM esock_atom_socket_tag; // This has a "special" name ('$socket')
 #define LOCAL_ERROR_REASON_ATOMS                \
     LOCAL_ATOM_DECL(econnreset);                \
     LOCAL_ATOM_DECL(eisconn);                   \
-    LOCAL_ATOM_DECL(enotclosing);               \
     LOCAL_ATOM_DECL(enotconn);                  \
+                                                \
     LOCAL_ATOM_DECL(exalloc);                   \
     LOCAL_ATOM_DECL(exbadstate);                \
-    LOCAL_ATOM_DECL(exbusy);                    \
-    LOCAL_ATOM_DECL(exmon);                     \
+    LOCAL_ATOM_DECL(exmonitor);                 \
+    LOCAL_ATOM_DECL(exselect);                  \
     LOCAL_ATOM_DECL(exself);                    \
     LOCAL_ATOM_DECL(exsend)
 
@@ -5650,13 +5651,13 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
 
     /*
      * Before we do anything else, we try to retrieve domain, type and protocol
-     * This information is either present in the eextra map or if not we need
+     * This information is either present in the eopts map or if not we need
      * to "get" it from the system (getsockopt).
      * Note that its not possible to get all of these on all platoforms,
-     * and in those cases the user *must* provide us with them (eextra).
+     * and in those cases the user *must* provide us with them (eopts).
      *
      * We try the system first (since its more reliable) and if that fails
-     * we check the eextra map. If neither one works, we *give up*!
+     * we check the eopts map. If neither one works, we *give up*!
      */
 
     if (!esock_open_which_domain(fd, &domain)) {
@@ -5664,7 +5665,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
                 ("SOCKET",
                  "esock_open2 -> failed get domain from system\r\n") );
         if (!esock_open2_get_domain(env, eopts, &domain)) {
-            reason = MKT2(env, atom_missing, esock_atom_domain);
+            reason = MKA(env, "epfnosupport");
             return esock_make_error(env, reason);
         }
     }
@@ -5673,7 +5674,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
         SSDBG2( dbg,
                 ("SOCKET", "esock_open2 -> failed get type from system\r\n") );
         if (!esock_open2_get_type(env, eopts, &type)) {
-            reason = MKT2(env, atom_missing, esock_atom_type);
+            reason = MKA(env, "esocktnosupport");
             return esock_make_error(env, reason);
                                     
         }
@@ -5683,7 +5684,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
         SSDBG2( dbg,
                 ("SOCKET", "esock_open2 -> failed get protocol from system\r\n") );
         if (!esock_open2_get_protocol(env, eopts, &protocol)) {
-            reason = MKT2(env, atom_missing, esock_atom_protocol);
+            reason = MKA(env, "eprotonosupport");
             return esock_make_error(env, reason);
         }
     }
@@ -5703,10 +5704,11 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
             save_errno = sock_errno();
 
             SSDBG2( dbg,
-                    ("SOCKET", "esock_open2 -> dup failed: %d\r\n", save_errno) );
+                    ("SOCKET",
+                     "esock_open2 -> dup failed: %d\r\n",
+                     save_errno) );
 
-            /* reason = {dup, 'errno atom'} */
-            reason = MKT2(env, MKA(env, "dup"), MKA(env, erl_errno_id(save_errno)));
+            reason = MKA(env, erl_errno_id(save_errno));
             return esock_make_error(env, reason);
         }
         closeOnClose = TRUE;
@@ -5761,7 +5763,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
              env, descP,
              &descP->ctrlPid,
              &descP->ctrlMon) != 0)
-        return esock_make_error(env, atom_exmon);
+        return esock_make_error(env, atom_exmonitor);
 
 
     descP->dbg = dbg;
@@ -5784,7 +5786,7 @@ ERL_NIF_TERM esock_open2(ErlNifEnv*   env,
 static
 BOOLEAN_T esock_open2_todup(ErlNifEnv* env, ERL_NIF_TERM eextra)
 {
-    return esock_get_bool_from_map(env, eextra, MKA(env, "dup"), TRUE);
+    return esock_get_bool_from_map(env, eextra, atom_dup, TRUE);
 }
 
 /* The eextra contains an integer 'domain' key.
@@ -6008,7 +6010,7 @@ ERL_NIF_TERM esock_open4(ErlNifEnv*   env,
              &descP->ctrlPid,
              &descP->ctrlMon) != 0) {
         sock_close(sock);
-        return esock_make_error(env, atom_exmon);
+        return esock_make_error(env, atom_exmonitor);
     }
 
 
@@ -6467,7 +6469,7 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
                          env, descP, &self, &descP->connector.mon) != 0) {
 
                     MON_INIT(&descP->connector.mon);
-                    return esock_make_error(env, atom_exmon);
+                    return esock_make_error(env, atom_exmonitor);
                 }
                 descP->connector.env = esock_alloc_env("connector");
                 descP->connectorP = &descP->connector;
@@ -6486,10 +6488,7 @@ ERL_NIF_TERM esock_connect(ErlNifEnv*       env,
                 requestor_release("esock_connect -> select failed",
                                   env, descP, descP->connectorP);
                 descP->connectorP = NULL;
-                return esock_make_error(env,
-                                        MKT2(env,
-                                             esock_atom_select_failed,
-                                             MKI(env, sres)));
+                return esock_make_error(env, atom_exselect);
             } else {
 
                 sys_memcpy(&descP->remote, addrP, addrLen);
@@ -6967,7 +6966,7 @@ ERL_NIF_TERM esock_accept_listening_error(ErlNifEnv*       env,
                  &descP->currentAcceptor.pid,
                  &descP->currentAcceptor.mon) != 0) {
             enif_set_pid_undefined(&descP->currentAcceptor.pid);
-            res = esock_make_error(env, atom_exmon);
+            res = esock_make_error(env, atom_exmonitor);
         } else {
             ESOCK_ASSERT(!descP->currentAcceptor.env);
             descP->currentAcceptor.env = esock_alloc_env("current acceptor");
@@ -7194,7 +7193,7 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
                                      ErlNifPid*       pid)
 {
     int          sres;
-    ERL_NIF_TERM res, reason;
+    ERL_NIF_TERM res;
 
     if ((sres = esock_select_read(env, descP->sock, descP, pid,
                                   sockRef, accRef)) < 0) {
@@ -7215,11 +7214,10 @@ ERL_NIF_TERM esock_accept_busy_retry(ErlNifEnv*       env,
             descP->currentAcceptorP    = NULL;
         }
 
-        reason = MKT2(env, esock_atom_select_failed, MKI(env, sres));
-        res    = esock_make_error(env, reason);
+        res = esock_make_error(env, atom_exselect);
     } else {
         descP->readState |= ESOCK_STATE_ACCEPTING;
-        res          = esock_make_error(env, esock_atom_eagain); // OK!!
+        res = esock_make_error(env, esock_atom_eagain); // OK!!
     }
 
     return res;
@@ -7291,7 +7289,7 @@ BOOLEAN_T esock_accept_accepted(ErlNifEnv*       env,
         sock_close(accSock);
         enif_set_pid_undefined(&descP->ctrlPid);
         MUNLOCK(descP->writeMtx);
-        *result = esock_make_error(env, atom_exmon);
+        *result = esock_make_error(env, atom_exmonitor);
         return FALSE;
     }
 
@@ -8540,7 +8538,7 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
                  &descP->closerMon) != 0) {
 
             enif_set_pid_undefined(&descP->closerPid);
-            return esock_make_error(env, atom_exmon);
+            return esock_make_error(env, atom_exmonitor);
 
         }
     }
@@ -8554,8 +8552,6 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
     sres = esock_do_stop(env, descP);
 
     if (sres < 0) { // Error
-        ERL_NIF_TERM reason;
-
         /* Calling esock_select_stop failed in some mysterious way,
          * we are kind of toasted - we'll leave the socket leaked
          * with descP->closing == TRUE
@@ -8587,8 +8583,7 @@ ERL_NIF_TERM esock_close(ErlNifEnv*       env,
         esock_free_env("esock_close_do - close-env", descP->closeEnv);
         descP->closeEnv = NULL;
         descP->closeRef = esock_atom_undefined;
-        reason = MKT2(env, esock_atom_select_failed, MKI(env, sres));
-        return esock_make_error(env, reason);
+        return esock_make_error(env, atom_exselect);
 
     }
 
@@ -8824,18 +8819,21 @@ ERL_NIF_TERM esock_finalize_close(ErlNifEnv*       env,
     int err;
     ErlNifPid self;
 
-    if (IS_CLOSED(descP) || (! IS_CLOSING(descP)))
-        return esock_make_error(env, atom_enotclosing);
+    if (IS_CLOSED(descP))
+        return esock_make_error(env, atom_closed);
+
+    if (! IS_CLOSING(descP))
+        return esock_make_error_errno(env, EALREADY);
 
     if (enif_self(env, &self) == NULL)
         return esock_make_error(env, atom_exself);
 
     if (COMPARE_PIDS(&descP->closerPid, &self) != 0)
-        return esock_make_error(env, atom_enotclosing);
+        return esock_make_error_errno(env, EALREADY);
 
     /* closeEnv should be NULL or else esock_stop() has not been called */
     if (descP->closeEnv != NULL)
-        return esock_make_error(env, atom_enotclosing);
+        return esock_make_error_errno(env, EALREADY);
 
     /* This process is the closer - go ahead and close the socket */
 
@@ -16365,7 +16363,7 @@ BOOLEAN_T send_check_writer(ErlNifEnv*       env,
             if (!writer_search4pid(env, descP, &caller))
                 *checkResult = writer_push(env, descP, caller, ref);
             else
-                *checkResult = esock_make_error(env, atom_exbusy);
+                *checkResult = esock_make_error_errno(env, EALREADY);
             
             SSDBG( descP,
                    ("SOCKET",
@@ -16619,7 +16617,7 @@ ERL_NIF_TERM send_check_retry(ErlNifEnv*       env,
                  &descP->currentWriter.pid,
                  &descP->currentWriter.mon) != 0) {
             enif_set_pid_undefined(&descP->currentWriter.pid);
-            return esock_make_error(env, atom_exmon);
+            return esock_make_error(env, atom_exmonitor);
         } else {
             ESOCK_ASSERT(descP->currentWriter.env == NULL);
             descP->currentWriter.env = esock_alloc_env("current-writer");
@@ -16716,7 +16714,7 @@ BOOLEAN_T recv_check_reader(ErlNifEnv*       env,
             if (!reader_search4pid(env, descP, &caller))
                 *checkResult = reader_push(env, descP, caller, ref);
             else
-                *checkResult = esock_make_error(env, atom_exbusy);
+                *checkResult = esock_make_error_errno(env, EALREADY);
             
             SSDBG( descP,
                    ("SOCKET",
@@ -16757,7 +16755,7 @@ char* recv_init_current_reader(ErlNifEnv*       env,
                  &descP->currentReader.pid,
                  &descP->currentReader.mon) != 0) {
             enif_set_pid_undefined(&descP->currentReader.pid);
-            return str_exmon;
+            return str_exmonitor;
         } else {
             ESOCK_ASSERT(!descP->currentReader.env);
             descP->currentReader.env = esock_alloc_env("current-reader");
@@ -17264,7 +17262,7 @@ ERL_NIF_TERM recv_check_retry(ErlNifEnv*       env,
         /* Ouch
          * Now what? We have copied ref into *its own* environment!
          */
-        reason = MKT2(env, esock_atom_select_failed, MKI(env, sres));
+        reason = atom_exselect;
     } else {
         reason = esock_atom_eagain;
     }
@@ -21038,7 +21036,7 @@ REQ_SEARCH4PID_FUNCS
         if (MONP("reader_push -> " #F " request",                      \
                  env, descP, &pid, &reqP->mon) != 0) {                 \
             FREE(e);                                                   \
-            return esock_make_error(env, atom_exmon);                  \
+            return esock_make_error(env, atom_exmonitor);              \
         }                                                              \
         reqP->env = esock_alloc_env(#F "_push");                       \
         reqP->ref = CP_TERM(reqP->env, ref);                           \
