@@ -29,7 +29,7 @@
          otp_8562/1, otp_8665/1, otp_8911/1, otp_10302/1, otp_10820/1,
          otp_11728/1, encoding/1, extends/1,  function_macro/1,
 	 test_error/1, test_warning/1, otp_14285/1,
-	 test_if/1,source_name/1]).
+	 test_if/1,source_name/1, strict_include_lib/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -70,7 +70,7 @@ all() ->
      overload_mac, otp_8388, otp_8470, otp_8562,
      otp_8665, otp_8911, otp_10302, otp_10820, otp_11728,
      encoding, extends, function_macro, test_error, test_warning,
-     otp_14285, test_if, source_name].
+     otp_14285, test_if, source_name, strict_include_lib].
 
 groups() -> 
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -1715,11 +1715,44 @@ source_name_1(File, Expected) ->
     Res = epp:parse_file(File, [{source_name, Expected}]),
     {ok, [{attribute,_,file,{Expected,_}} | _Forms]} = Res.
 
-check(Config, Tests) ->
-    eval_tests(Config, fun check_test/2, Tests).
+strict_include_lib(Config) when is_list(Config) ->
+    Dir = proplists:get_value(priv_dir, Config),
 
-compile(Config, Tests) ->
-    eval_tests(Config, fun compile_test/2, Tests).
+    Header = filename:join(Dir, "header.hrl"),
+    ok = file:write_file(Header, <<"-foo([]).\n">>),
+
+    Cks = [
+        {f_1, <<"-include(\"header.hrl\").">>, []},
+        {f_1, <<"-include_lib(\"header.hrl\").">>, [
+            {error, {1, epp, {include, lib, "header.hrl"}}}
+        ]},
+        {f_3, <<"-include_lib(\"kernel/include/file.hrl\").">>, []}
+    ],
+
+    [] = check(Config, Cks, [strict_include_lib]),
+
+    Cs = [
+        {f_1, <<"-include(\"header.hrl\").">>, []},
+        {f_1, <<"-include_lib(\"header.hrl\").">>,
+            {errors, [{1, epp, {include, lib, "header.hrl"}}], []}},
+        {f_3, <<"-include_lib(\"kernel/include/file.hrl\").">>, []}
+    ],
+
+    [] = compile(Config, Cs, [strict_include_lib]),
+
+    ok.
+
+check(Config, Tests) -> check(Config, Tests, []).
+
+check(Config, Tests, EppOptions) ->
+    Fun = fun (Config1, Test) -> check_test(Config1, Test, EppOptions) end,
+    eval_tests(Config, Fun, Tests).
+
+compile(Config, Tests) -> compile(Config, Tests, []).
+
+compile(Config, Tests, Options) ->
+    Fun = fun (Config1, Test) -> compile_test(Config1, Test, Options) end,
+    eval_tests(Config, Fun, Tests).
 
 run(Config, Tests) ->
     eval_tests(Config, fun run_test/2, Tests).
@@ -1740,12 +1773,12 @@ eval_tests(Config, Fun, Tests) ->
     lists:foldl(F, [], Tests).
 
 
-check_test(Config, Test) ->
+check_test(Config, Test, Options) ->
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
-    case epp:parse_file(File, [PrivDir], []) of
+    case epp:parse_file(File, [{includes, PrivDir} | Options]) of
 	{ok,Forms} ->
 	    Errors = [E || E={error,_} <- Forms],
 	    call_format_error([E || {error,E} <- Errors]),
@@ -1754,13 +1787,13 @@ check_test(Config, Test) ->
 	    Error
     end.
 
-compile_test(Config, Test0) ->
+compile_test(Config, Test0, Opts0) ->
     Test = [<<"-module(epp_test). ">>, Test0],
     Filename = "epp_test.erl",
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, Filename),
     ok = file:write_file(File, Test),
-    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,PrivDir}],
+    Opts = [export_all,nowarn_export_all,return,nowarn_unused_record,{outdir,PrivDir} | Opts0],
     case compile_file(File, Opts) of
         {ok, Ws} -> warnings(File, Ws);
         Else -> Else

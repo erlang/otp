@@ -1035,18 +1035,7 @@ parse_module(_Code, St0) ->
     end.
 
 do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
-    SourceName0 = proplists:get_value(source, Opts, File),
-    SourceName = case member(deterministic, Opts) of
-                     true -> filename:basename(SourceName0);
-                     false -> SourceName0
-                 end,
-    R = epp:parse_file(File,
-                       [{includes,[".",Dir|inc_paths(Opts)]},
-                        {source_name, SourceName},
-                        {macros,pre_defs(Opts)},
-                        {default_encoding,DefEncoding},
-                        extra]),
-    case R of
+    case epp:parse_file(File, epp_opts(File, Dir, DefEncoding, Opts)) of
 	{ok,Forms,Extra} ->
 	    Encoding = proplists:get_value(encoding, Extra),
 	    case find_invalid_unicode(Forms, File) of
@@ -1064,6 +1053,19 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
 	    Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
+
+epp_opts(File, Dir, DefEncoding, Opts) ->
+    SourceName0 = proplists:get_value(source, Opts, File),
+    SourceName = case member(deterministic, Opts) of
+                     true -> filename:basename(SourceName0);
+                     false -> SourceName0
+                 end,
+    [{includes,[".",Dir|inc_paths(Opts)]},
+     {source_name, SourceName},
+     {macros,pre_defs(Opts)},
+     {default_encoding,DefEncoding},
+     extra] ++ [strict_include_lib || member(strict_include_lib, Opts)].
+
 
 find_invalid_unicode([H|T], File0) ->
     case H of

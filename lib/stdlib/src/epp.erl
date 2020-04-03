@@ -73,7 +73,8 @@
 	            :: #{name() => [{argspec(), [used()]}]},
               default_encoding = ?DEFAULT_ENCODING :: source_encoding(),
 	      pre_opened = false :: boolean(),
-	      fname = [] :: function_name_type()
+	      fname = [] :: function_name_type(),
+              include_lib = default :: default | strict
 	     }).
 
 %% open(Options)
@@ -120,6 +121,7 @@ open(Name, File, StartLocation, Path, Pdm) ->
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'name',FileName :: file:name()} |
+                  'strict_include_lib' |
 		  'extra'],
       Epp :: epp_handle(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
@@ -252,6 +254,7 @@ parse_file(Ifile, Path, Predefs) ->
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()} |
+                  'strict_include_lib' |
 		  'extra'],
       Form :: erl_parse:abstract_form() | {'error', ErrorInfo} | {'eof',Line},
       Line :: erl_anno:line(),
@@ -546,6 +549,7 @@ init_server(Pid, FileName, Options, St0) ->
     SourceName = proplists:get_value(source_name, Options, FileName),
     Pdm = proplists:get_value(macros, Options, []),
     Ms0 = predef_macros(FileName),
+    IncludeLib = include_lib(Options),
     case user_predef(Pdm, Ms0) of
 	{ok,Ms1} ->
 	    #epp{file = File, location = AtLocation} = St0,
@@ -558,7 +562,7 @@ init_server(Pid, FileName, Options, St0) ->
             Path = [filename:dirname(FileName) |
                     proplists:get_value(includes, Options, [])],
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
-			 path=Path, macs=Ms1,
+			 path=Path, macs=Ms1, include_lib=IncludeLib,
 			 default_encoding=DefEncoding},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
@@ -567,6 +571,12 @@ init_server(Pid, FileName, Options, St0) ->
             wait_req_scan(St);
 	{error,E} ->
 	    epp_reply(Pid, {error,E})
+    end.
+
+include_lib(Options) ->
+    case proplists:get_bool(strict_include_lib, Options) of
+        true -> strict;
+        false -> default
     end.
 
 %% predef_macros(FileName) -> Macrodict
@@ -690,10 +700,11 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
     %% file will depend on the order of file inclusions in the parent files
     Path = [filename:dirname(Pname) | tl(St0#epp.path)],
     DefEncoding = St0#epp.default_encoding,
+    IncludeLib = St0#epp.include_lib,
     _ = set_encoding(NewF, DefEncoding),
     #epp{file=NewF,location=AtLocation,name=Pname,name2=Pname,delta=0,
          sstk=[St0|St0#epp.sstk],path=Path,macs=Ms,
-         default_encoding=DefEncoding}.
+         default_encoding=DefEncoding,include_lib=IncludeLib}.
 
 enter_file_reply(From, Name, LocationAnno, AtLocation, Where) ->
     Anno0 = loc_anno(AtLocation),
@@ -976,10 +987,34 @@ scan_include1(_Toks, Inc, From, St) ->
     epp_reply(From, {error,{loc(Inc),epp,{bad,include}}}),
     wait_req_scan(St).
 
-%% scan_include_lib(Tokens, IncludeToken, From, EppState)
-%%  For include_lib we first test if we can find the file through the
-%%  normal search path, if not we assume that the first directory name
-%%  is a library name, find its true directory and try with that.
+%% include_lib(FileName, IncludePath, strict | default)
+%% default_include_lib(FileName, IncludePath)
+%% strict_include_lib(FileName, IncludePath)
+%%  For "default" include_lib resolution, we first test if we can find
+%%  the file through the normal search path, if not we assume that the
+%%  first directory name is a library name, find its true directory and
+%%  try with that. For "strict" resolution the initial check is skipped
+%%  and we always assume first directory name is a library name.
+
+include_lib(FileName, Path, default) -> default_include_lib(FileName, Path);
+include_lib(FileName, Path, strict) -> strict_include_lib(FileName, Path).
+
+default_include_lib(FileName, Path) ->
+   case file:path_open(Path, FileName, [read]) of
+       {ok, File, FullName} -> {ok, File, FullName};
+       {error, _} -> strict_include_lib(FileName, Path)
+   end.
+
+strict_include_lib(FileName, _Path) ->
+    case expand_lib_dir(FileName) of
+        {ok, FullName} ->
+            case file:open(FullName, [read]) of
+                {ok, File} -> {ok, File, FullName};
+                {error, _} -> error
+            end;
+        error ->
+            error
+    end.
 
 expand_lib_dir(Name) ->
     try
@@ -1004,27 +1039,12 @@ scan_include_lib1([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
                   Inc, From, St) ->
     NewName = expand_var(NewName0),
     Loc = start_loc(St#epp.location),
-    case file:path_open(St#epp.path, NewName, [read]) of
-	{ok,NewF,Pname} ->
-	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
-	{error,_E1} ->
-	    case expand_lib_dir(NewName) of
-		{ok,Header} ->
-		    case file:open(Header, [read]) of
-			{ok,NewF} ->
-			    wait_req_scan(enter_file2(NewF, Header, From,
-                                                      St, Loc));
-			{error,_E2} ->
-			    epp_reply(From,
-				      {error,{loc(Inc),epp,
-                                              {include,lib,NewName}}}),
-			    wait_req_scan(St)
-		    end;
-		error ->
-		    epp_reply(From, {error,{loc(Inc),epp,
-                                            {include,lib,NewName}}}),
-		    wait_req_scan(St)
-	    end
+    case include_lib(NewName, St#epp.path, St#epp.include_lib) of
+        {ok, NewF, FullName} ->
+            wait_req_scan(enter_file2(NewF, FullName, From, St, Loc));
+        error ->
+            epp_reply(From, {error,{loc(Inc),epp,{include,lib,NewName}}}),
+            wait_req_scan(St)
     end;
 scan_include_lib1(_Toks, Inc, From, St) ->
     epp_reply(From, {error,{loc(Inc),epp,{bad,include_lib}}}),
@@ -1818,4 +1838,3 @@ interpret_file_attr([Form0 | Forms], Delta, Fs) ->
     [Form | interpret_file_attr(Forms, Delta, Fs)];
 interpret_file_attr([], _Delta, _Fs) ->
     [].
-
