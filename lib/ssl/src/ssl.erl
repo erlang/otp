@@ -1655,8 +1655,11 @@ handle_option(ciphers = Option, Value0, #{versions := [HighestVersion|_]} = Opti
 handle_option(client_renegotiation = Option, unbound, OptionsMap, #{role := Role}) ->
     Value = default_option_role(server, true, Role),
     OptionsMap#{Option => Value};
-handle_option(client_renegotiation = Option, Value0, OptionsMap, #{role := Role}) ->
+handle_option(client_renegotiation = Option, Value0,
+              #{versions := Versions} = OptionsMap, #{role := Role}) ->
     assert_role(server_only, Role, Option, Value0),
+    assert_option_dependency(Option, versions, Versions,
+                             ['tlsv1','tlsv1.1','tlsv1.2']),
     Value = validate_option(Option, Value0),
     OptionsMap#{Option => Value};
 handle_option(eccs = Option, unbound, #{versions := [HighestVersion|_]} = OptionsMap, #{rules := _Rules}) ->

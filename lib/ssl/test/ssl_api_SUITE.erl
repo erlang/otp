@@ -148,7 +148,8 @@ tls13_group() ->
 option_dependency_tests() ->
     [
      beast_mitigation,
-     next_protocol_negotiation
+     next_protocol_negotiation,
+     client_renegotiation
     ].
 
 
@@ -1888,6 +1889,16 @@ next_protocol_negotiation(Config) when is_list(Config) ->
                                    {versions, ['tlsv1.3']}],
                           {options, dependency,
                            {client_preferred_next_protocols,
+                            {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
+
+%%--------------------------------------------------------------------
+client_renegotiation() ->
+    [{doc, "Test that 'client_renegotiation' can only be set if a legacy version is also set in versions"}].
+client_renegotiation(Config) when is_list(Config) ->
+    start_server_negative(Config, [{client_renegotiation, false},
+                                   {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {client_renegotiation,
                             {versions,[tlsv1,'tlsv1.1','tlsv1.2']}}}).
 
 %%--------------------------------------------------------------------
