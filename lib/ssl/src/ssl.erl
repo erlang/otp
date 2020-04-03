@@ -1809,6 +1809,14 @@ handle_option(supported_groups = Option, unbound, #{versions := [HighestVersion|
 handle_option(supported_groups = Option, Value0, #{versions := [HighestVersion|_]} = OptionsMap, _Env) ->
     Value = handle_supported_groups_option(Value0, HighestVersion),
     OptionsMap#{Option => Value};
+handle_option(user_lookup_fun = Option, unbound, OptionsMap, #{rules := Rules}) ->
+    Value = validate_option(Option, default_value(Option, Rules)),
+    OptionsMap#{Option => Value};
+handle_option(user_lookup_fun = Option, Value0,
+              #{versions := Versions} = OptionsMap, _Env) ->
+    assert_option_dependency(Option, versions, Versions, ['tlsv1.2']),
+    Value = validate_option(Option, Value0),
+    OptionsMap#{Option => Value};
 handle_option(verify = Option, unbound, OptionsMap, #{rules := Rules}) ->
     handle_verify_option(default_value(Option, Rules), OptionsMap);
 handle_option(verify = _Option, Value, OptionsMap, _Env) ->

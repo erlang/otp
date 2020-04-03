@@ -151,7 +151,8 @@ option_dependency_tests() ->
      next_protocol_negotiation,
      client_renegotiation,
      padding_check,
-     psk_identity
+     psk_identity,
+     user_lookup_fun
     ].
 
 init_per_suite(Config0) ->
@@ -1927,6 +1928,23 @@ psk_identity(Config) when is_list(Config) ->
                                    {versions, ['tlsv1.3']}],
                           {options, dependency,
                            {psk_identity,{versions,['tlsv1.2']}}}).
+
+%%--------------------------------------------------------------------
+user_lookup_fun() ->
+    [{doc, "Test that 'user_lookup_fun' can only be set if 'tlsv1.2' is also set in versions"}].
+user_lookup_fun(Config) when is_list(Config) ->
+    start_server_negative(Config,
+                          [{user_lookup_fun,
+                            {fun ssl_test_lib:user_lookup/3, <<1,2,3>>}},
+                           {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {user_lookup_fun,{versions,['tlsv1.2']}}}),
+    start_client_negative(Config,
+                          [{user_lookup_fun,
+                            {fun ssl_test_lib:user_lookup/3, <<1,2,3>>}},
+                           {versions, ['tlsv1.3']}],
+                          {options, dependency,
+                           {user_lookup_fun,{versions,['tlsv1.2']}}}).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
