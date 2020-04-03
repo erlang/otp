@@ -98,6 +98,9 @@ void init_algorithms_types(ErlNifEnv* env)
 #if defined(HAVE_EDDSA)
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddsa");
 #endif
+#if defined(HAVE_EDDH)
+    algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "eddh");
+#endif
     algo_pubkey[algo_pubkey_cnt++] = enif_make_atom(env, "srp");
 
     // Validated algorithms first
@@ -200,7 +203,7 @@ void init_algorithms_types(ErlNifEnv* env)
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed25519");
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"ed448");
 #endif
-#ifdef HAVE_ED_CURVE_DH
+#ifdef HAVE_EDDH
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x25519");
     algo_curve[algo_curve_cnt++] = enif_make_atom(env,"x448");
 #endif

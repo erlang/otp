@@ -221,7 +221,9 @@
 #if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1) -7) \
     && !defined(HAS_LIBRESSL) \
     && defined(HAVE_EC)
-# define HAVE_ED_CURVE_DH
+# ifdef HAVE_DH
+#   define HAVE_EDDH
+# endif
 # if OPENSSL_VERSION_NUMBER >= (PACKED_OPENSSL_VERSION_PLAIN(1,1,1))
 #   define HAVE_EDDSA
 # endif
