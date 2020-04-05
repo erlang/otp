@@ -60,7 +60,9 @@
                encoding=none,   % Encoding of Xrl file
                % posix=false,   % POSIX regular expressions
                errors=[],
-               warnings=[]
+               warnings=[],
+               mp=[],           % precompiled regex
+               pwd=[]           % working directory
               }).
 
 -record(nfa_state, {no,edges=[],accept=noaccept}).
@@ -104,8 +106,12 @@ file(File, Opts0) ->
                    erlang:error(badarg, [File,Opts0]);
                Options ->
                    Options
-           end,
-    St0 = #leex{},
+           end,           
+    %% This little beauty matches out a macro definition, RE's are so clear.
+    %% Allow include directive for definition in external file
+    {ok, MP} = re:compile("^[ \t]*([A-Z_][A-Za-z0-9_]*)[ \t]*=[ \t]*([^ \t\r\n]*)[ \t\r\n]*$|[ \t]*(include)[ \t]*\"([^\"]+)\"[ \t\r\n]*$",[unicode]),
+    PWD = filename:dirname(File),
+    St0 = #leex{mp=MP, pwd=PWD},
     St1 = filenames(File, Opts, St0),   % Get all the filenames
     St = try
              {ok,REAs,Actions,Code,St2} = parse_file(St1),
@@ -433,9 +439,23 @@ parse_defs(_, {eof,L}, St) ->
     add_error({L,leex,missing_defs}, St).
 
 parse_defs(Ifile, {ok,Chars,L}=Line, Ms, St) ->
-    %% This little beauty matches out a macro definition, RE's are so clear.
-    MS = "^[ \t]*([A-Z_][A-Za-z0-9_]*)[ \t]*=[ \t]*([^ \t\r\n]*)[ \t\r\n]*\$",
-    case re:run(Chars, MS, [{capture,all_but_first,list},unicode]) of
+    MS = St#leex.mp,
+    case re:run(Chars, MS, [{capture,all_but_first,list}]) of
+        {match, [_,_, "include", Filename]} ->
+            File = filename:join(St#leex.pwd, Filename),
+            case file:open(File, [read]) of
+                {ok,Incfile} ->    
+                    PWD = filename:dirname(File),
+                    Sti = #leex{encoding = epp:set_encoding(Incfile), mp=St#leex.mp, pwd=PWD},
+                    try
+                        Y = nextline(Incfile, 0, Sti),
+                        {ok,_,Macs,_} = parse_defs(Incfile, Y , [], Sti),
+                        parse_defs(Ifile, nextline(Ifile, L, St), lists:flatten([Macs|Ms]), St)
+                    after ok = file:close(Incfile)
+                    end;
+                {error,Error} ->
+                    add_error({none,leex,{file_error,Error}}, St)
+            end;
         {match,[Name,Def]} ->
             %%io:fwrite("~p = ~p\n", [Name,Def]),
             parse_defs(Ifile, nextline(Ifile, L, St), [{Name,Def}|Ms], St);

@@ -461,4 +461,26 @@ Floats (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?</code>
       is not implemented in the current version of Leex and just
       generates a parse error.</p></note>
   </section>
+  <section>
+    <title>External definitions</title>
+ 
+    <p>Definitions are sometime depending of OS, architecture, locale or 
+      anything else. In order to avoid to have as many .xrl files than 
+      different cases, definitions can be pre-processed and written in a
+      file referenced in <c>Definitions.</c> section.
+    </p>
+    <p>Definitions are also sometime depending of file to be parsed. For 
+      instance separators declared in header of file. Runtime compilation 
+      can create external file with this dynamic definitions before 
+      compiling parser.</p>
+    <code>
+      Definitions.
+      include "external.inc"
+      Rules.
+      [...]      
+    </code>
+    <note><p>External file must contain definitions only, 
+    without <c>Definitions.</c> section. Several include files can be used, 
+    optionaly mixed with usual definitions in .xrl file.</p></note>
+  </section>
 </erlref>
