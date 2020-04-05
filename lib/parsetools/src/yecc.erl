@@ -1513,14 +1513,10 @@ compute_parse_actions1([#item{rule_pointer = RulePointer,
                     %% A bogus shift-shift conflict can be introduced
                     %% here if some terminal occurs in different rules
                     %% which have been given precedence "one level up".
-                    Prec1 = case Daughters of
-                                [] -> get_prec([DecSymbol, Head], St);
-                                _ -> get_prec([DecSymbol], St)
-                            end,
-                    Pos = case Daughters of
-                              [] -> z;
-                              _ -> a
-                          end,
+                    {Prec1, Pos} = case Daughters of
+                                    [] -> {get_prec([DecSymbol, Head], St), z};
+                                    _ -> {get_prec([DecSymbol], St), a}
+                                  end,
                     [{[DecSymbol],
                       #shift{state = goto(N, DecSymbol, St), 
                              pos = Pos,
